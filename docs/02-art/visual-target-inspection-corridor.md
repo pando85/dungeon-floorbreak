@@ -13,6 +13,37 @@ The owner also noted that **the illustrated Carl is not exactly the previously a
 
 This approval does **not** signify acceptance of sprite fidelity at 1x, runtime readability, Bevy rendering, level geometry, camera behavior, animations, VFX performance or legal permissions. These remain separate gates.
 
+## Subsequent reference correction (2026-11-15)
+
+The owner clarified that the **two project-generated images in the Art Slice v2
+conversation** (gothic-industrial magenta arena matte and cinematic action scene)
+are the agreed **mood and style references**, **not quality/fidelity targets**. Generic web-search imagery
+shown later did **not** match the target; do not use or cite it as a substitute.
+See [art-direction.md](art-direction.md#approved-visual-references--fixed-no-substitutes)
+for the source filenames and approved artistic traits.
+
+**Scope of approval:** room atmosphere, lighting, scenery, visual density,
+explosions and overall tone **only**. The depicted characters are not approved
+or canonical. **Carl's shotgun is explicitly forbidden**; treat the gun as an
+error in a useful environment reference, not as a proposed ability or loadout.
+Refer to the previously approved Carl master and the current character sheet
+for any future portrait, sprite or equipment work.
+
+## Fidelity clarification (owner, 2026-11-15)
+
+Both Art Slice v2 images are worth retaining as **mood references** because
+their overall gothic-industrial style is right. However, their specific level
+of detail is substantially different from the desired finished game. Therefore
+no exact detail level, pixel density, illustrated character style, prop or
+weapon design is approved by these images. Real quality acceptance must come
+from native 640×360 / 640×400 screenshots and consistent editable Aseprite
+sources at 1×/2× scale.
+
+Keep their source image files and provenance together in
+`assets/references/mood/` **after rights clearance**, distinct from
+`assets/source/`, `assets/generated/`, and canonical Carl art. An agent must
+not copy or crop concept artwork directly into runtime sprites.
+
 ## Purpose
 
 Establish one understandable *visual-quality target* for a side-scrolling dark

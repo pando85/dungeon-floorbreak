@@ -7,10 +7,11 @@
 - **Fantasy:** Improvisation under pressure; physical confrontation; bombs, tricks, deliberate collateral damage.
 - **Silhouette:** ordinary, visibly human proportions, unremarkable face and slightly awkward/irritated posture at the beginning; feet/stance still readable at gameplay scale. Preserve the canon-specific footwear/barefoot transitions after verification; **do not default to boots**. Muscle gains are modest and gradual across book phases, not superhero anatomy. Later charisma comes from composure, weary expressions and lived-in gear rather than a Hollywood face or power fantasy.
 - **Mandatory art and narrative tone:** [`80s/90s everyman action antihero`](antihero-tone.md). A disaster survivor who improvises, swears and gets hurt; avoid heroic poses, instant mastery and polished tactical-hero outfits. Confirm appearance and loadout against book/floor/chapter before tagging as lore canon.
-- **Baseline:** reliable ground movement, grounded melee/ranged tool and plantable timed explosive.
+- **Baseline:** reliable ground movement, grounded close-combat/utility actions and a plantable timed explosive. Any ranged capability or prop requires a separate design and lore review; it must **not** be represented by a shotgun.
 - **Special:** bomb with clear fuse, visible blast radius, material-specific damage, self-protection skill expression.
 - **Weakness:** can't instantly reach high platforms; aim/placement risk; exposed while planting.
 - **Required animation tags:** idle, run, rise, fall, land, attack, plant, hurt, death, celebrate.
+- **Owner-approved negative equipment rule (2026-11-15): Carl never uses a shotgun.** The shotgun shown in a cinematic visual-target image was illustrative noise, not accepted character design, equipment, game mechanics or book canon. The runtime must not couple Carl to a default firearm loadout.
 - **Do not define exact final equipment/art without rights clearance.**
 
 ## Character 2 — Princess Donut → `caster`
