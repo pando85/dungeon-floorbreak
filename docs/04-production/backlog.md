@@ -25,6 +25,15 @@ The repository currently ships design/specification documents only. Status: `pro
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
 
+## Visual target review (WORK-007)
+
+[VT-001 — Inspection Corridor](../02-art/visual-target-inspection-corridor.md) is
+a **static art-direction candidate** for human review, not a playable build or
+approved production sprite. Its image remains in the private project
+conversation pending rights/provenance review. Before accepting WORK-007, obtain
+owner approval of art tone plus a native-resolution Aseprite/Bevy readability
+sample; the concept illustration alone does **not** meet the acceptance gate.
+
 ## First agent work order (WORK-001)
 
 **Goal:** start a clean, reproducible Rust 2024 Bevy 0.20.x Linux binary with a 2D pixel camera, empty test level, a gamepad-neutral action map and one headless action test. **No character likenesses.**
