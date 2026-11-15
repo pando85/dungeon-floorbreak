@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "dungeon_materials_fixture_v0",
+  "type": "tileset",
+  "source_path": "assets/source/terrain/dungeon/materials.ase",
+  "output_atlas": "generated/art/dungeon_materials.png",
+  "output_metadata": "generated/art/dungeon_materials.json",
+  "palette_id": "dungeon-proto-v0",
+  "frame_size": [
+    64,
+    16
+  ],
+  "tile_size": [
+    16,
+    16
+  ],
+  "tiles": [
+    "stone",
+    "wood_breakable",
+    "metal_reinforced",
+    "glass"
+  ],
+  "pivot": [
+    0,
+    0
+  ],
+  "animation_tags": [
+    "tiles"
+  ],
+  "required_alpha": false,
+  "owner": "AI-authored art fixture",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "Original pixel-authored 16px material fixture; not extracted from mood art",
+    "generator": "Original editable native ASE source, authored with deterministic pixel rectangles",
+    "generated_art": true,
+    "input_reference_ids": []
+  },
+  "license": "Original repo-specific prototype art; no standalone asset reuse license",
+  "review_status": "prototype_fixture_unapproved"
+}
