@@ -1,0 +1,43 @@
+# Character sheets — fan-concept layer only
+
+**IMPORTANT:** Carl, Princess Donut and Mongo are franchise references for *unlicensed, noncommercial design exploration*. Mechanics are original proposals, not canonical claims. Runtime identifiers must remain IP-neutral to permit a future original-IP release.
+
+## Character 1 — Carl → `demolitionist`
+
+- **Fantasy:** Improvisation under pressure; physical confrontation; bombs, tricks, deliberate collateral damage.
+- **Silhouette:** readable boot/stance profile, broad enough for readable impact frames; expressive body language.
+- **Baseline:** reliable ground movement, grounded melee/ranged tool and plantable timed explosive.
+- **Special:** bomb with clear fuse, visible blast radius, material-specific damage, self-protection skill expression.
+- **Weakness:** can't instantly reach high platforms; aim/placement risk; exposed while planting.
+- **Required animation tags:** idle, run, rise, fall, land, attack, plant, hurt, death, celebrate.
+- **Do not define exact final equipment/art without rights clearance.**
+
+## Character 2 — Princess Donut → `caster`
+
+- **Fantasy:** Self-important, charismatic, magical ranged specialist; high mobility and visual personality.
+- **Silhouette:** large tail/ears/eyes visible at gameplay resolution; white/light fur against dark levels.
+- **Baseline:** quick traversal, optional double jump, ranged basic spell, short cooldown control effect.
+- **Special:** environmental modifier (e.g., freeze brittle props or shove foes), intentionally synergistic with bombs.
+- **Weakness:** low structural damage and limited defense while casting.
+- **Required animation tags:** idle, run, rise, fall, land, cast, hurt, death, emote; modular tail/ears/face where good.
+- **Readability:** facial expression cannot carry essential telegraph alone; animation silhouette and FX must communicate it.
+
+## Character 3 — Mongo → `charger` (later milestone)
+
+- **Fantasy:** comedic, high-energy kinetic companion with violent momentum; third major character enters after the established duo.
+- **Baseline:** AI companion or triggered allied charge first. Do not promise a third local player at launch.
+- **Special:** break brittle columns, scatter clustered enemies, interrupt elite attacks.
+- **Constraints:** charge needs obvious start/stop frames and safe recovery path; unbreakable critical geometry protected.
+- **Required animation tags:** idle, run, anticipation, charge, impact, hurt, celebrate.
+
+## Balance matrix (qualitative first)
+
+| Ability | Demolitionist | Caster | Charger |
+| --- | --- | --- | --- |
+| Close-range burst | High | Low | Very high |
+| Ranged pressure | Medium | High | None |
+| Movement | Medium | High | Medium, momentum-driven |
+| Terrain disruption | High | Indirect | High for brittle structures |
+| Precision control | Medium | High | Low |
+
+**Validation rule:** design a single room that becomes easier by combining abilities, but can be traversed solo without any permanently missing move. A later unlock may provide a shortcut; it may not create a retroactive softlock.

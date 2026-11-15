@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "caster_idle_placeholder",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/caster/idle.aseprite",
+  "output_atlas": "assets/generated/characters/caster_idle.png",
+  "palette_id": "dark_dungeon_v1",
+  "frame_size": [48, 48],
+  "pivot": [24, 42],
+  "animation_tags": ["idle"],
+  "required_alpha": true,
+  "owner": "agent-art",
+  "tool_version": "aseprite-version-tbd",
+  "provenance": {
+    "origin": "original_placeholder_to_be_created",
+    "model": "tbd",
+    "input_reference_ids": []
+  },
+  "license": "UNDECIDED_DO_NOT_DISTRIBUTE",
+  "review_status": "proposal_only"
+}

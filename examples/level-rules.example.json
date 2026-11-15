@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "level_id": "inspection_corridor",
+  "status": "proposed_runtime_manifest_not_ldtk_source",
+  "tile_size_px": 16,
+  "material_ids": {
+    "0": "air",
+    "1": "wood",
+    "2": "stone",
+    "3": "metal",
+    "4": "glass",
+    "5": "reinforced"
+  },
+  "required_layers": ["CollisionMaterial", "VisualTerrain", "Entities"],
+  "critical_entity_kinds": ["player_spawn", "exit", "checkpoint"],
+  "required_routes_after_scripted_blasts": 1,
+  "structural_supports": []
+}

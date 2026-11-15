@@ -1,0 +1,31 @@
+name: Agent work order
+description: Track a bounded, testable implementation task
+labels: [enhancement]
+body:
+  - type: input
+    id: work_order
+    attributes:
+      label: Work order ID
+      description: Use a WORK-### ID from docs/04-production/backlog.md
+      placeholder: WORK-001
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Observable behavior
+      description: Define what works when this issue is finished.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and evidence
+      description: Include commands, deterministic fixtures, visual artifacts and device checks.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and non-goals
+      description: Reference AGENTS.md and relevant ADRs.

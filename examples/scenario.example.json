@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "bomb_wood_reinforced_boundary",
+  "status": "example_not_implemented",
+  "game_version": "unimplemented",
+  "seed": 424242,
+  "fixed_tick_hz": 60,
+  "level_fixture": "inspection_corridor_placeholder",
+  "initial_state": {
+    "player_slot": 0,
+    "position_px": [64, 128]
+  },
+  "actions": [
+    {"tick": 1, "player_slot": 0, "action": "move", "value": [1, 0]},
+    {"tick": 30, "player_slot": 0, "action": "special", "value": "pressed"}
+  ],
+  "expected": {
+    "wood_tiles_destroyed_at_least": 1,
+    "reinforced_tiles_destroyed": 0,
+    "exit_reachable": true,
+    "deterministic_terrain_hash": "TO_BE_CAPTURED_FROM_BASELINE"
+  }
+}
