@@ -33,10 +33,10 @@ internet-search illustrations.
 - Cinematic action-scene target:
   `a_detailed_pixel_art_game_screenshot_scene_a_vibr.png`
   (generated in the private project conversation).
-- The action image is present in the repository. The background-only image
-  is temporarily awaiting restoration after a duplicate-upload error. The
-  [mood reference register](../../assets/references/mood/README.md) records the
-  exact source hashes, status, scope of approval and restrictions.
+- Both original reference images are now present in the repository and verified
+  by the [mood reference register](../../assets/references/mood/README.md), which
+  records source hashes, scope of approval and restrictions. Both are **mood
+  references only**, not production-quality targets.
 
 **Explicit exclusions:** The characters in these images are **noncanonical**
 and do not replace approved character designs. In particular, the shotgun
