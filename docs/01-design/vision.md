@@ -19,6 +19,10 @@ Controller-first single-player and same-screen two-player local co-op for Linux 
 5. **Surprising but controllable chaos.** Explosions and combinations create emergent comedy while preventing unwinnable rooms and unavoidable friendly-fire loops.
 6. **AI-buildable production.** Every asset/mechanic is versionable, reproducible and testable through CLI. Human judgment remains final on entertainment value.
 
+## Mandatory cross-cutting tone: 1980s–1990s action-film antihero
+
+**Owner decision (2026-11-15):** The entire game must combine the scrappy **everyman antihero** energy of 1980s–1990s action cinema with the dungeon's vicious absurdity, dark comedy, explosive improvisation and sincere emotional stakes. Carl begins as an ordinary, slightly awkward man, not a handsome or heavily muscled superhero; his capability, physical toughness and charisma build gradually and visibly through the story. The tone governs character art, animation, enemy design, spaces, encounter staging, interface, sound and narrative, not just promotional illustrations. Read and enforce [`antihero-tone.md`](antihero-tone.md) before generating new content. Film references are influences only, never reusable copyrighted art/dialogue/music.
+
 ## Explicit non-goals for the first slice
 
 No pixel-perfect granular fluid/temperature simulation; no full environmental procedural generation; no simultaneous online netcode; no Steam backend requirements; no complete RPG economy; no voice acting; no franchise dialogue or cutscenes; no licensed franchise assets in the public repository.
