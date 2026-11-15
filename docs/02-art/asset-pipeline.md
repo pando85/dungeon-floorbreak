@@ -112,6 +112,22 @@ as the `art-work008-review` workflow artifact:
 - `generated/art/review_640x360.png` (native resolution)
 - `generated/art/review_2x.png` (integer scaling)
 
+### Tagged animation previews (follow-up)
+
+The pipeline additionally generates a small **looping GIF per animation tag**
+using the exported source frame durations. Previews are intentionally generated
+from native editable .ase sources, not from concept-art crops or interpolated
+AI-generated frames. They are displayed at nearest-neighbor 6× scale against a
+neutral dark background to expose pixel jitter and drifting silhouettes.
+
+- Script: `scripts/make_animation_previews.py`
+- Output: `generated/art/previews/<asset-id>-<tag>.gif` (automatically uploaded
+  with the `art-work008-review` GitHub Actions artifact)
+- Tests: `tests/test_art_animation_previews.py` cover durations, two-frame loops,
+  illegal paths, tag bounds and atlas bounds.
+- Restrictions: not a full animation-quality approval; inspect actual source at
+  gameplay scale alongside the native 640×360 contact sheet.
+
 **Scope boundary:** This establishes the pipeline and three tiny editable
 fixtures, **not** polished game art. The contact sheet is a composition study,
 not a Bevy screenshot, actual platform collision or gameplay proof. Work
