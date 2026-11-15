@@ -63,8 +63,8 @@ def main() -> int:
                 failures.append(f"Approved asset checksum mismatch: {target.relative_to(ROOT)}")
 
     # Approved *mood* references must retain their original file identities.
-    # The background-only file can be absent during restoration, but an incorrect
-    # substitute or an accidentally duplicated action image must fail CI.
+    # Both approved reference files are now required. Reject accidental
+    # substitutions, missing binaries and duplicates.
     mood_dir = ROOT / "assets/references/mood"
     expected_mood_hashes = {
         "a_detailed_pixel_art_game_screenshot_scene_a_vibr.png":
@@ -75,11 +75,8 @@ def main() -> int:
     available_hashes = {}
     for name, expected_hash in expected_mood_hashes.items():
         file = mood_dir / name
-        if not file.exists():
-            if name.startswith("a_detailed_"):
-                failures.append(f"Required mood reference missing: {file.relative_to(ROOT)}")
-            else:
-                print(f"Mood reference awaiting restoration: {file.relative_to(ROOT)}")
+        if not file.is_file():
+            failures.append(f"Required mood reference missing: {file.relative_to(ROOT)}")
             continue
         actual_hash = hashlib.sha256(file.read_bytes()).hexdigest()
         available_hashes[name] = actual_hash
