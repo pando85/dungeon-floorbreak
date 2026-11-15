@@ -4,7 +4,7 @@
 
 ## Image
 
-**Expected file:** [`Carl_Concept_Approved_v1.png`](Carl_Concept_Approved_v1.png)
+**Expected file:** `assets/concept/carl/approved/Carl_Concept_Approved_v1.png` (add the PNG to this branch; do not merge before upload).
 
 **Upload status:** The image must be added separately to this branch by the project owner (binary transfer not available through the current GitHub integration). Once uploaded, this link resolves. Do not merge the artwork-publication PR until the PNG exists and the checksum passes.
 
