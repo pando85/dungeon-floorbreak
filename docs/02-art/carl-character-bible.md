@@ -6,7 +6,7 @@
 
 ## Selected concept reference
 
-- **Canonical concept source:** [`assets/concept/carl/approved/Carl_Concept_Approved_v1.png`](../../assets/concept/carl/approved/Carl_Concept_Approved_v1.png), **pending binary upload to the artwork-publication PR**. Read the [asset README](../../assets/concept/carl/approved/README.md) and [provenance](../../assets/concept/carl/approved/provenance.md) for the approved master and licensing boundary.
+- **Canonical concept source:** `assets/concept/carl/approved/Carl_Concept_Approved_v1.png`, **pending binary upload to the artwork-publication PR**. Read the [asset README](../../assets/concept/carl/approved/README.md) and [provenance](../../assets/concept/carl/approved/provenance.md) for the approved master and licensing boundary.
 - **Source image SHA-256:** `b90fb91c3995449cd4a3c909c8407e767de3c706bcc4910c9ef1d7a69de50e31`.
 - **Image size:** 1671×941 RGB; concept-art board, NOT an animation atlas, not authentic fixed-grid gameplay pixel art.
 - **Provenance:** AI-generated illustration iterated and explicitly selected by the human project owner; generated tool output (model/version and full source prompt not embedded in the file).
