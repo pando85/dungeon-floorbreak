@@ -1,0 +1,12 @@
+[package]
+name = "dungeon-floorbreak"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+bevy = { version = "=0.20.1", default-features = false, features = ["2d"] }
+
+[profile.dev]
+opt-level = 1
+

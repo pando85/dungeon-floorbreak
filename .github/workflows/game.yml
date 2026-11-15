@@ -1,0 +1,58 @@
+name: game
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: game-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  linux-build-test-render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: '1'
+      WGPU_BACKEND: vulkan
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install desktop and software Vulkan dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libudev-dev \
+            libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-0 \
+            libwayland-dev libvulkan-dev mesa-vulkan-drivers \
+            xvfb x11-utils imagemagick
+      - name: Restore locked dependencies
+        run: cargo fetch --locked
+      - name: Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Rust lints
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Rust unit tests
+        run: cargo test --locked --all-targets
+      - name: Linux executable build
+        run: cargo build --locked --bin dungeon-floorbreak
+      - name: Run Bevy ECS without a GPU
+        run: ./target/debug/dungeon-floorbreak --headless-smoke
+      - name: Run graphical Bevy under software Vulkan + Xvfb
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_render_smoke.sh
+      - name: Validate existing documentation
+        run: python3 scripts/check_docs.py
+      - name: Preserve logs and rendered evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-work001-evidence
+          path: |
+            artifacts/
+            Cargo.lock
+          if-no-files-found: ignore
