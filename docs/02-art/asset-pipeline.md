@@ -63,3 +63,58 @@ Lock canonical characters and shared palette through explicit approval. Agents m
 ## Optional Mewgenics-inspired workflow
 
 Create face/tail/accessory modules that can be exchanged at runtime or layered into exported frames. The inspiration is **modularity**, not cloning any proprietary rigs or visuals. For every modular animation compare pixel-shimmer against a hand-pixeled baseline; select case by case.
+
+## WORK-008 implementation spike — original editable fixtures
+
+**Status:** implementation PR in progress; no human pixel-art quality approval.
+
+Editable Aseprite-native `.ase` sources are committed and compatible with
+Aseprite's documented binary format. For CI we use the **open-source LibreSprite
+1.3** Aseprite-compatible batch exporter (the official GitHub release is pinned
+to SHA-256 `fd90bddda8135fe00f4a9a9c8c9ebd48f9b07e8782ab269be5c9efb1a851af30`).
+This avoids shipping, redistributing or requiring a proprietary Aseprite binary.
+Artists may still open/edit the native .ase files in Aseprite.
+
+The initial deliberately small original-IP-neutral files are:
+
+- `assets/source/terrain/dungeon/materials.ase`: one editable
+  64×16 source containing **four 16×16 material cells** (stone, breakable
+  wood, reinforced metal and glass).
+- `assets/source/props/fuse_barrel.ase`: four tagged original
+  16×24 prop frames to verify animation export and alpha.
+- `assets/source/characters/placeholder/worker.ase`: four tagged
+  32×52 frames of a **generic unnamed neutral actor**, explicitly **not Carl**.
+  No shotgun or character likeness is intended.
+
+The exported PNGs are intentionally **not committed**; they are produced from
+editable .ase masters by a pinned CLI and checked in CI. Each fixture has a
+provenance/pivot/size/tag contract in `assets/manifests/*.json`.
+
+### Local reproduction (Linux)
+
+```sh
+python3 -m pip install Pillow==13.0.0
+# Install a lawful Aseprite or LibreSprite binary first. With LibreSprite 1.3:
+export ART_CLI=/path/to/libresprite
+bash scripts/export_assets.sh
+python3 -m unittest discover -s tests -p 'test_art_assets.py' -v
+```
+
+GitHub Actions `.github/workflows/art.yml` fetches **LibreSprite v1.3**,
+verifies its official upstream SHA-256, extracts the AppImage without FUSE,
+performs exports, runs structural validators and negative tests, verifies
+**identical PNG/JSON checksums after a second export**, and uploads the result
+as the `art-work008-review` workflow artifact:
+
+- `generated/art/dungeon_materials.{png,json}`
+- `generated/art/fuse_barrel.{png,json}`
+- `generated/art/neutral_worker.{png,json}`
+- `generated/art/review_640x360.png` (native resolution)
+- `generated/art/review_2x.png` (integer scaling)
+
+**Scope boundary:** This establishes the pipeline and three tiny editable
+fixtures, **not** polished game art. The contact sheet is a composition study,
+not a Bevy screenshot, actual platform collision or gameplay proof. Work
+cannot pass the WORK-007 human-art gate until a native-resolution scene
+has been reviewed separately. No recognizable fan character sources or
+concept-image crops are emitted here.
