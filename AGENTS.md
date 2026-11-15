@@ -6,7 +6,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 
 1. `README.md` for status and scope.
 2. `docs/01-design/vision.md`, `gameplay.md`, `characters.md` for player-facing intent.
-3. `docs/01-design/antihero-tone.md` for the **mandatory, project-wide 1980s–1990s everyman action-antihero creative rule**, followed by `docs/02-art/art-direction.md`, `carl-character-bible.md`, `animation.md`, `asset-pipeline.md` for art constraints (Carl's visual baseline is **approved**, not a blank brief).
+3. `docs/01-design/antihero-tone.md` for the **mandatory, project-wide 1980s–1990s everyman action-antihero creative rule**, followed by `docs/02-art/art-direction.md`, `carl-character-bible.md`, `animation.md`, `asset-pipeline.md` for art constraints (Carl's visual baseline is **approved**, not a blank brief); see `assets/concept/carl/approved/README.md` for the approved image path, integrity check and provenance.
 4. `docs/03-tech/architecture.md`, `destruction.md`, `input-camera.md`, `level-data.md`, `testing.md` for implementation.
 5. `docs/04-production/vertical-slice.md`, `roadmap.md`, `backlog.md`, `rights-and-release.md` for sequencing.
 6. `docs/05-decisions/` for decision status; `docs/06-research/sources.md` for checked upstream links.
@@ -23,7 +23,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 - Separate `gameplay` domain logic from the Bevy rendering/adapters layer so it can be unit-tested headlessly.
 - All significant mechanics need at least one automated test, a reproducible scenario, and an evidence artifact (screenshot/GIF/short recording) once the runtime exists.
 - Generate pixel-art **source files**, not only opaque final PNG files. Use Aseprite `.aseprite` + Lua for repeatable edits, export atlas PNG + metadata, and validate bounds, pivots, transparency and palette constraints.
-- Do not invent art, voices, copyrighted quotes, ripped sprites, music, recognizable third-party game assets, or GitHub releases. Do not add franchise art or audio to this public repo without appropriate rights.
+- Do not invent art, voices, copyrighted quotes, ripped sprites, music, recognizable third-party game assets, or GitHub releases. Approved independently created franchise **concept illustrations** can enter this public repository only under the recorded owner-confirmed concept-art permission and with provenance/checksum, as documented in `docs/04-production/rights-and-release.md`. Do not infer game/asset-pack distribution rights.
 - Treat Carl/Donut/Mongo names and franchise-derived abilities as a **replaceable fan-concept layer**; engine and data contracts must be IP-neutral.
 - Do not post tokens, local machine paths, user-specific private information, secret configuration or unauthorized screenshots.
 - Never declare 'Steam Deck Verified', legal clearance, or successful benchmarks without evidence.
