@@ -5,7 +5,27 @@ Visual evidence for the 32/40/48 px Princess Donut scale study. These are **revi
 - **Source commit:** `4918b73a4635d4f5ad5d28a02a61e5efca66ea80` (branch `art/donut-floor1-scale-study`). All renders below were produced from the grids and manifests at that commit.
 - **Rights record:** `ART-PUBLICATION-ALL-V1` in [`docs/04-production/rights-and-release.md`](../../04-production/rights-and-release.md) (owner-reported publication scope, 2026-11-15, not independently verified; it grants no public reuse licence and no game or standalone asset-pack distribution right).
 - **Integrity:** `SHA256SUMS` in this directory lists the SHA-256 of every image. `python3 scripts/check_docs.py` verifies it.
-- **Not Carl:** the grey 52 px figure in the scene renders is a neutral height mannequin proxy for Carl's provisional 48-56 px height, not Carl.
+- **Not Carl:** the grey 52 px figure in the scene renders is a neutral height mannequin proxy for Carl's provisional 48-56 px height, not Carl. The three `cast_check_*` files are the exception, see below.
+
+## Cast-context check files
+
+The `cast_check_*` files show Donut 32 and 40 next to the **real Carl Book 1 pixel masters** (52 and 56 px), not the mannequin. They are review aids for a human decision, not approvals.
+
+- **Source:** rendered with `scripts/make_scale_comparison.py --sprite ...` from the Carl branch `art/carl-book1-sprite-scale` at commit `5d00770`, using that branch's exported `generated/art/` atlases and metadata for both Donut and Carl.
+- **Exact command** (run from the repository root of that checkout; `<dir>` is the output directory):
+
+```bash
+python3 scripts/make_scale_comparison.py --sprite d32=generated/art/donut_scale_h32.png:generated/art/donut_scale_h32.json --sprite carl52=generated/art/carl_book1_h52.png:generated/art/carl_book1_h52.json --sprite d40=generated/art/donut_scale_h40.png:generated/art/donut_scale_h40.json --sprite carl56=generated/art/carl_book1_h56.png:generated/art/carl_book1_h56.json --out <dir>
+```
+
+- **Scene order, left to right:** mannequin (52 px), Donut 32, Carl 52, Donut 40, Carl 56.
+- **Rights record:** Donut and Carl sources are covered by `ART-PUBLICATION-ALL-V1` in [`docs/04-production/rights-and-release.md`](../../04-production/rights-and-release.md) (owner-reported publication scope, 2026-11-15, not independently verified; no public reuse licence and no game or standalone asset-pack distribution right).
+
+| File | Content |
+| --- | --- |
+| `cast_check_scene_640x360.png` | cast-context scene, native 1x |
+| `cast_check_scene_1280x720_2x.png` | the same scene, nearest-neighbour 2x |
+| `cast_check_comparison.json` | measured opaque bbox, width, height, pivot, canvas and palette per actor, plus scene geometry |
 
 ## Regenerating the pipeline renders
 

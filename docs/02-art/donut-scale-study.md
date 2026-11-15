@@ -1,6 +1,6 @@
 # Princess Donut: floor 1 native pixel scale study
 
-**Status:** three native-resolution studies and one four-frame idle prototype, **awaiting human artistic review**. Nothing here is a locked production sprite, and this document does not decide the scale. The scale below is a **proposal** for the reviewer.
+**Status:** three native-resolution studies and one four-frame idle prototype, **awaiting human artistic review**. Nothing here is a locked production sprite, and this document does not decide the scale. The scale below is a **proposal** for the reviewer, revised after the cast-context check against the real Carl pixel masters.
 **Work order:** [`docs/07-agents/donut-floor1-scale-study.md`](../07-agents/donut-floor1-scale-study.md). **Branch:** `art/donut-floor1-scale-study`. **Evidence commit:** `4918b73`.
 **Rights:** publication of these sources and renders is covered by the owner-reported record `ART-PUBLICATION-ALL-V1` in [`rights-and-release.md`](../04-production/rights-and-release.md). That record is not verified rightsholder consent and grants no reuse licence.
 
@@ -63,34 +63,67 @@ What is visible in the 2x scene and the side-by-side close-ups:
 - In the close-ups the tail is a separate, ginger-marbled plume at all sizes, with a lit fringe on its outer edge. Its dark inner edge sits against the body's dark coat, so the separation is by value only and is softest at 32.
 - The large cream chest ruff is the biggest flat area at every size and is most noticeable at 40 and 48.
 
+## Cast-context check (Donut beside real Carl pixel masters)
+
+The study above judged Donut against a neutral mannequin. The Carl Book 1 pixel masters (branch `art/carl-book1-sprite-scale`, commit `5d00770`) now allow a check against the real character. The scene stands Donut 32 and 40 next to Carl 52 and 56 on the same floor line. Left to right: mannequin, Donut 32, Carl 52, Donut 40, Carl 56. Provenance, the exact command and checksums are in the [evidence README](../evidence/donut-floor1-scale-study/README.md).
+
+![Cast-context scene at 2x: mannequin, Donut 32, Carl 52, Donut 40, Carl 56](../evidence/donut-floor1-scale-study/cast_check_scene_1280x720_2x.png)
+
+The native 640x360 scene is [`cast_check_scene_640x360.png`](../evidence/donut-floor1-scale-study/cast_check_scene_640x360.png) and the measurements are in [`cast_check_comparison.json`](../evidence/donut-floor1-scale-study/cast_check_comparison.json).
+
+Measured opaque size (width x height, from `cast_check_comparison.json`):
+
+| Actor | Width x height (px) |
+| --- | --- |
+| Donut 32 | 36 x 32 |
+| Carl 52 | 23 x 52 |
+| Donut 40 | 45 x 40 |
+| Carl 56 | 25 x 56 |
+| Mannequin (not Carl) | 22 x 52 |
+
+What the scene shows:
+
+- Donut is a wide loaf, Carl is a narrow standing figure, so width matters more than height. Donut 40 is 45 px wide against Carl 52's 23 px, about twice the width. It carries more visual mass than Carl and competes with the player character for attention, even though it is 12 px shorter.
+- Donut 32 is 36 px wide, about 1.6x Carl 52's width. Beside Carl 52 it reads as a cat companion with the right relationship: clearly the smaller, secondary figure. Her gold eyes and the tiara still read at 1x and 2x.
+- Donut 40 is the more expressive face, but in the cast scene that extra room costs hierarchy. This is a visual review note, not a verdict.
+
+Limits of this check: it is a native-scale pixel review on a static scene. It is not gameplay capture, not an in-engine check, and no human has judged game feel at these scales. Carl's width of 23 px at 52 px is the measured value (the mannequin is 22 px).
+
 ## Evaluation matrix
 
 Measured values come from `generated/art/scale_study/donut_floor1/comparison.json` (opaque height, width, canvas, pivot) and from the grids (opaque pixels counted on frame 0; they match the exported atlases: 844, 1305, 1893). Height ratios use the 52 px mannequin proxy and Carl's provisional 48-56 px range from `docs/02-art/art-direction.md`. Cells that describe appearance are visual review notes, not verdicts.
 
-| Criterion | 32 px | 40 px (proposed) | 48 px |
+| Criterion | 32 px | 40 px | 48 px |
 | --- | --- | --- | --- |
 | Eyes / muzzle readability | Eyes 6x6 near / 5x6 far, no lid arc, tall 2 px pupil, 1 px catchlight, amber corner pixels only. 1 px nose, no mouth. Face reads at 1x as gold eyes on a dark mask, but is cramped and has the fewest expression pixels. | Eyes 7x7 near / 6x7 far with lid arc, 3 px amber band, 3x3 pupil, 2x1 catchlight and a light-gold glint. 2x1 nose and 2 px mouth. All identity anchors read at 1x and 2x. | Eyes 8x8 near / 7x8 far, 2x2 catchlight, 4 px amber band, triangle nose and 3 px "ω" mouth. Largest, most luminous and cutest face, most room for expressions. |
 | Silhouette | 36 px wide, 32 px high. Round head, ears, plume and tiara read at 1x. Compact, nearly square loaf. | 45 px wide, 40 px high. Head is 50 % of the height, wider than tall, with a clear plume and loaf outline. Strongest "round fluffy Persian" read against the scene. | 54 px wide, 48 px high. Clear and detailed outline, widest footprint (about 1.5x the 36 px width of 32). |
 | Tail | 11 px max width, 23 rows, fewer fringe tufts. Tucks 0-3 px behind the near cheek, mostly dark against dark cheek there, so separation is the weakest. | 14 px max width, 28 rows. Distinct plume with `G`/`O` fringe tufts and a tip flick. Separated by value from the body, with a soft boundary where it tucks behind the cheek. | 17 px max width, 34 rows. Richest marbling and fringe, tip clears the head by 2-3 px. Most room for tail acting. |
 | Tiara | 5x4 including a 2 px gem. Readable at 1x as a lilac nub with a magenta dot. | 5x5 including a 2 px gem. Readable at 1x, clearly a small crown. | 7x6 including a 3 px gem, three-tone. Most legible, with the most presence. |
 | Contact / foot pivot | Pivot [17, 35] on a 38x36 canvas. Three paws on the contact row, 3 px each. Scene contact row 295 for all actors. Planted, centred pivot. | Pivot [22, 43] on a 46x44 canvas. Three paws, 4 px each. Same contact row 295. Pivot and contact rows stay identical across all four idle frames (0 px bottom-row drift). | Pivot [26, 51] on a 56x52 canvas. Three paws, 5 px each. Same contact row 295. Planted, centred pivot. |
-| Apparent height vs Carl's provisional 48-56 px | 32 px: 57-67 % of 48-56 (62 % of the 52 px proxy). Clearly small, closest to the docs' 28-36 px range. | 40 px: 71-83 % of 48-56 (77 % of the 52 px proxy). Smaller than Carl yet prominent. | 48 px: 86-100 % of 48-56 (92 % of the 52 px proxy). As tall as Carl's lower bound, which conflicts with "Donut smaller than Carl". |
+| Apparent height vs Carl's provisional 48-56 px | 32 px: 57-67 % of 48-56 (62 % of the 52 px proxy). Clearly small, closest to the docs' 28-36 px range. Width note: 36 px wide against about 22-23 px for Carl 52, so about 1.6x Carl's width. | 40 px: 71-83 % of 48-56 (77 % of the 52 px proxy). Smaller than Carl yet prominent. Width note: 45 px wide, about 2x Carl 52's width, so more visual mass than Carl (see the cast-context check). | 48 px: 86-100 % of 48-56 (92 % of the 52 px proxy). As tall as Carl's lower bound, which conflicts with "Donut smaller than Carl". Width note: 54 px wide, about 2.4x Carl 52's width. |
 | Clutter / lighting visibility | Mid-value ginger and cream read against the dark violet backdrop, but the small head leaves little separation of dark mask, dark tail and dark body. Small details (charm 3x1, no band) are lost. | Warm ginger and cream stand out on the dark backdrop at 1x and 2x. Chest ruff is a large cream mass, the foreleg band was dropped to avoid paw clutter. Needs a reviewer's eye on busy backgrounds and under FX. | Details are most visible and the cat dominates the frame. The large cream chest and the dark crown are big flat areas, and at this height the cat competes with the player character for attention. |
 | Authoring complexity | 844 opaque px on frame 0 (65 % of the 40 px figure). Lowest cost, but expression changes have very few pixels. | 1305 opaque px on frame 0. Moderate. Already carries a four-frame idle (470, 96, 485, 25 changed px per transition). | 1893 opaque px on frame 0 (145 % of the 40 px figure, +588 px). Highest cost for every future frame, expression and animation set. |
 
-## Proposed scale: 40 px (not locked)
+## Proposed scale: 32 px gameplay scale (not locked)
 
-**Proposal:** 40 px opaque height (contact row to tiara gem), for **human artistic review**. It is not accepted, not locked, and no production animation set should be started on it until a human decides.
+**Proposal, revised after the cast-context check:** **32 px** opaque height (contact row to tiara gem) as Donut's **gameplay** scale, for **human artistic review**. It is not accepted, not locked, and no production animation set should be started on it until a human decides. A human makes the decision.
 
-Reasoning:
+How the proposal changed:
 
-- It keeps the identity anchors (gold eyes with catchlight and glint, nose, mouth, tiara, collar and charm, plume) legible at 1x, where 32 loses its mouth and band and thins its face.
-- It is clearly smaller than Carl's provisional 48-56 px (71-83 %), where 48 is 86-100 % of that range.
-- It costs about 31 % fewer opaque pixels per frame than 48, and the 40 px master already carries a four-frame idle, so it is the only size with evidence that the pivot and coat hold through animation.
+- **In isolation against the mannequin, 40 px scored best.** It kept every identity anchor legible and read as a distinct companion. That finding stands for the isolated comparison.
+- **Beside the real Carl, 32 px is the proposed gameplay scale.** It matches the docs' provisional 28-36 px range, keeps Carl visually dominant (36 px wide against Carl 52's 23 px, instead of 45 px at 40), and still reads the eyes and tiara.
+- **40 px is the alternative** if the reviewer prioritises close-up facial expressiveness over cast hierarchy. It would need an art-direction update, because 40 px is outside the docs' 28-36 px range, and only after a human approves it.
+- **36 px is a possible middle candidate** (top of the docs' range). It has not been drawn, and is a possible next study if neither 32 nor 40 satisfies the reviewer.
 
-**Tension with the current documents:** the existing design and art docs give a provisional Donut height of **28-36 px**. 40 px is outside that range. 32 px is inside it but has the weakest face. If a human approves 40 px, `docs/02-art/art-direction.md`, [`donut-character-bible.md`](donut-character-bible.md) and related docs would need an art-direction update to match, and only after that approval. No document was changed for this proposal.
+Remaining costs of 32 px, from the matrix and weaknesses above: it has the fewest expression pixels, no mouth or foreleg band, a 3 px charm, and the weakest tail separation. Close-up expressions (smug, calculating, furious) may need a larger portrait or a separate expression treatment rather than the gameplay sprite.
+
+**Idle status:** the four-frame idle currently exists **only on the 40 px master**. If 32 px is approved, the idle would be re-derived on the approved size from the same master conventions (explicit edit operations on frame 0: lift, tail shear, eye replacement, pivot and bottom rows unchanged). It would not be a resize of the 40 px frames.
+
+**Documents:** if a human approves 32 px, it is already inside the provisional 28-36 px range, so only a confirmation is needed. If a human approves 40 px, `docs/02-art/art-direction.md`, [`donut-character-bible.md`](donut-character-bible.md) and related docs would need an art-direction update to match. No document was changed for this proposal.
 
 ## Idle prototype (40 px only)
+
+The idle exists only at 40 px. It remains useful as evidence that the coat, pivot and bottom rows hold through animation, and as the pattern for re-deriving the idle at the approved size.
 
 Four frames in `donut_h40.grid.json`, tag `idle` 0-3 forward, durations 320 / 260 / 180 / 260 ms (about 1.02 s per loop). Frame 0 is the scale-study master. Frames 1-3 derive from it by explicit edit operations (lift, tail shear, eye replacement). Nothing is redrawn independently and nothing is rotated.
 
@@ -124,16 +157,16 @@ Scratch 4x review render on `#191a2c`:
 - **Forehead blaze and crown:** the blaze is a fairly uniform vertical stripe and the dark crown is a big flat mass (most visible at 48).
 - **32 px:** no mouth, no foreleg band, a 3 px charm, amber only at the corners of the eyes, and a cramped face that leaves very few pixels for expressions such as smug, calculating or furious.
 - **48 px:** as tall as the lower bound of Carl's provisional range, so it undermines "Donut is smaller than Carl", and it is the most expensive to animate.
-- **40 px:** above the docs' 28-36 px range, no foreleg band (dropped to keep the paw clean), and still a large cream chest mass.
+- **40 px:** above the docs' 28-36 px range, 45 px wide against Carl 52's 23 px so it competes with the player character, no foreleg band (dropped to keep the paw clean), and still a large cream chest mass.
 - **Idle:** one inhale step, so the rise is a single 1 px pop rather than an ease. The tail sway shears only the tip rows. The near-eye closed curve is subtle on the dark mask, even with the lid fold.
 - **Pose:** a seated three-quarter front loaf (board turnaround), not the side or three-quarter-side body that `walk` and `run` will need. Locomotion will need a body turn.
-- **Evidence limits:** the reference figure is a neutral mannequin, not Carl. No human has judged game feel at these scales, there is no in-engine (Bevy) check, and no performance or Steam Deck claim is made. The two scratch review renders (`donut_h40_idle_4x_night.gif`, `donut_h40_idle_strip_6x.png`) are not produced by a committed script.
+- **Evidence limits:** the main scenes use a neutral mannequin, not Carl; only the cast-context check uses the real Carl pixel masters. No human has judged game feel at these scales, there is no in-engine (Bevy) check, and no performance or Steam Deck claim is made. The two scratch review renders (`donut_h40_idle_4x_night.gif`, `donut_h40_idle_strip_6x.png`) are not produced by a committed script.
 
 ## Next steps
 
-1. **Human artistic review** of the 1x scene, the 2x scenes and the close-ups, and a decision on the scale (32, 40, 48 or a rework). Record the decision as an ADR or in the backlog.
-2. **If 40 px is approved:** update `art-direction.md`, `donut-character-bible.md` and the related docs to replace the 28-36 px provisional range, and check the Carl-relative height guides with Carl's real native scale.
-3. **If another scale wins:** keep the matching master as the basis, and discard or archive the other two. The idle derivation can be repeated at the chosen size.
+1. **Human artistic review** of the 1x scene, the 2x scenes, the cast-context scene and the close-ups, and a decision on the scale (32, 40, 48, a 36 px middle study or a rework). Record the decision as an ADR or in the backlog. Nothing is locked until then.
+2. **If 32 px is approved:** keep `donut_h32` as the basis, re-derive the four-frame idle on it from the same master conventions, and decide how close-up expressions are handled (portrait or expression set).
+3. **If 40 px is approved:** update `art-direction.md`, `donut-character-bible.md` and the related docs to replace the 28-36 px provisional range, and accept the extra width relative to Carl. **If another scale wins:** keep the matching master as the basis and discard or archive the others. A 36 px study is the likeliest extra round.
 4. **Address the weaknesses above** on the chosen size (ruff modelling, tail separation, blaze and crown variation, a longer inhale ease and a stronger tail sway).
 5. **Plan the body turn** needed for side or three-quarter-side `walk`/`run`, before committing to a larger animation set.
 6. **In-engine check:** view the chosen size in a Bevy pixel-camera scene on real backgrounds and under FX once the runtime exists, and keep WORK-007 open until a human signs off at 1x and 2x.

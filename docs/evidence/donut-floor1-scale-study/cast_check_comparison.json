@@ -1,0 +1,337 @@
+{
+  "actors": [
+    {
+      "atlas": "generated/art/height_mannequin.png",
+      "color_count": 3,
+      "colors_used": [
+        "#2b3140",
+        "#69748a",
+        "#8d99ad"
+      ],
+      "frame": 0,
+      "frame_size": [
+        24,
+        52
+      ],
+      "label": "Carl-height proxy (neutral 52 px mannequin, NOT Carl)",
+      "metadata": "generated/art/height_mannequin.json",
+      "opaque_bbox": [
+        1,
+        0,
+        22,
+        51
+      ],
+      "opaque_height_px": 52,
+      "opaque_width_px": 22,
+      "pivot": [
+        11,
+        51
+      ],
+      "reference": true,
+      "role": "reference",
+      "scene_bottom_opaque_row": 295,
+      "scene_position": [
+        95,
+        244
+      ]
+    },
+    {
+      "atlas": "generated/art/donut_scale_h32.png",
+      "color_count": 22,
+      "colors_used": [
+        "#1e1229",
+        "#2a1731",
+        "#45263a",
+        "#4a2846",
+        "#6c3e52",
+        "#8a68c8",
+        "#9a6ee0",
+        "#b88ca9",
+        "#c45a36",
+        "#c8751c",
+        "#d47a93",
+        "#dbc6fb",
+        "#e2309f",
+        "#ec8b3e",
+        "#f2708f",
+        "#f3d3c3",
+        "#ff95d3",
+        "#ffb867",
+        "#ffcf3c",
+        "#fff09a",
+        "#fff3e8",
+        "#ffffff"
+      ],
+      "frame": 0,
+      "frame_size": [
+        38,
+        36
+      ],
+      "label": "d32",
+      "metadata": "generated/art/donut_scale_h32.json",
+      "opaque_bbox": [
+        0,
+        4,
+        35,
+        35
+      ],
+      "opaque_height_px": 32,
+      "opaque_width_px": 36,
+      "pivot": [
+        17,
+        35
+      ],
+      "reference": false,
+      "role": "candidate",
+      "scene_bottom_opaque_row": 295,
+      "scene_position": [
+        196,
+        260
+      ]
+    },
+    {
+      "atlas": "generated/art/carl_book1_h52.png",
+      "color_count": 23,
+      "colors_used": [
+        "#140b1a",
+        "#1b1124",
+        "#251a2e",
+        "#28131c",
+        "#352540",
+        "#42231d",
+        "#5a4068",
+        "#70412d",
+        "#7c3846",
+        "#82689a",
+        "#9478a8",
+        "#97207a",
+        "#b8c0d8",
+        "#c0624f",
+        "#c3a9c4",
+        "#e23d9a",
+        "#eb9a6c",
+        "#ec2f55",
+        "#f6ecec",
+        "#f7e4de",
+        "#fcc596",
+        "#ff86c8",
+        "#ffcf3a"
+      ],
+      "frame": 0,
+      "frame_size": [
+        36,
+        56
+      ],
+      "label": "carl52",
+      "metadata": "generated/art/carl_book1_h52.json",
+      "opaque_bbox": [
+        8,
+        4,
+        30,
+        55
+      ],
+      "opaque_height_px": 52,
+      "opaque_width_px": 23,
+      "pivot": [
+        19,
+        55
+      ],
+      "reference": false,
+      "role": "candidate",
+      "scene_bottom_opaque_row": 295,
+      "scene_position": [
+        301,
+        240
+      ]
+    },
+    {
+      "atlas": "generated/art/donut_scale_h40.png",
+      "color_count": 22,
+      "colors_used": [
+        "#1e1229",
+        "#2a1731",
+        "#45263a",
+        "#4a2846",
+        "#6c3e52",
+        "#8a68c8",
+        "#9a6ee0",
+        "#b88ca9",
+        "#c45a36",
+        "#c8751c",
+        "#d47a93",
+        "#dbc6fb",
+        "#e2309f",
+        "#ec8b3e",
+        "#f2708f",
+        "#f3d3c3",
+        "#ff95d3",
+        "#ffb867",
+        "#ffcf3c",
+        "#fff09a",
+        "#fff3e8",
+        "#ffffff"
+      ],
+      "frame": 0,
+      "frame_size": [
+        46,
+        44
+      ],
+      "label": "d40",
+      "metadata": "generated/art/donut_scale_h40.json",
+      "opaque_bbox": [
+        0,
+        4,
+        44,
+        43
+      ],
+      "opaque_height_px": 40,
+      "opaque_width_px": 45,
+      "pivot": [
+        22,
+        43
+      ],
+      "reference": false,
+      "role": "candidate",
+      "scene_bottom_opaque_row": 295,
+      "scene_position": [
+        404,
+        252
+      ]
+    },
+    {
+      "atlas": "generated/art/carl_book1_h56.png",
+      "color_count": 23,
+      "colors_used": [
+        "#140b1a",
+        "#1b1124",
+        "#251a2e",
+        "#28131c",
+        "#352540",
+        "#42231d",
+        "#5a4068",
+        "#70412d",
+        "#7c3846",
+        "#82689a",
+        "#9478a8",
+        "#97207a",
+        "#b8c0d8",
+        "#c0624f",
+        "#c3a9c4",
+        "#e23d9a",
+        "#eb9a6c",
+        "#ec2f55",
+        "#f6ecec",
+        "#f7e4de",
+        "#fcc596",
+        "#ff86c8",
+        "#ffcf3a"
+      ],
+      "frame": 0,
+      "frame_size": [
+        40,
+        60
+      ],
+      "label": "carl56",
+      "metadata": "generated/art/carl_book1_h56.json",
+      "opaque_bbox": [
+        9,
+        4,
+        33,
+        59
+      ],
+      "opaque_height_px": 56,
+      "opaque_width_px": 25,
+      "pivot": [
+        21,
+        59
+      ],
+      "reference": false,
+      "role": "candidate",
+      "scene_bottom_opaque_row": 295,
+      "scene_position": [
+        512,
+        236
+      ]
+    }
+  ],
+  "outputs": {
+    "closeup_carl52_6x.png": [
+      282,
+      456
+    ],
+    "closeup_carl52_6x_grid.png": [
+      282,
+      456
+    ],
+    "closeup_carl56_6x.png": [
+      294,
+      480
+    ],
+    "closeup_carl56_6x_grid.png": [
+      294,
+      480
+    ],
+    "closeup_d32_6x.png": [
+      360,
+      336
+    ],
+    "closeup_d32_6x_grid.png": [
+      360,
+      336
+    ],
+    "closeup_d40_6x.png": [
+      414,
+      384
+    ],
+    "closeup_d40_6x_grid.png": [
+      414,
+      384
+    ],
+    "closeups_side_by_side_6x.png": [
+      1422,
+      480
+    ],
+    "comparison_sheet.png": [
+      1312,
+      1272
+    ],
+    "scene_1280x720_2x.png": [
+      1280,
+      720
+    ],
+    "scene_1280x800_2x.png": [
+      1280,
+      800
+    ],
+    "scene_640x360.png": [
+      640,
+      360
+    ],
+    "scene_640x360_annotated.png": [
+      640,
+      360
+    ],
+    "scene_640x400.png": [
+      640,
+      400
+    ]
+  },
+  "scene": {
+    "first_floor_row": 296,
+    "floor_contact_row": 295,
+    "guides_px_above_floor": [
+      48,
+      56
+    ],
+    "native": [
+      640,
+      360
+    ],
+    "pivot_rule": "contact row = bottom-most opaque row; pivot x = opaque bbox centre",
+    "steam_deck": [
+      640,
+      400
+    ],
+    "steam_deck_extra_top_rows": 40
+  }
+}
