@@ -1,16 +1,16 @@
 # Carl — approved character concept bible (fan-content layer)
 
 **Decision:** CREATIVE-2026-11-15-CARL-01
-**Status:** **Visual design APPROVED by project owner** on 2026-11-15; production sprites, individual lore details, and a public-art distribution license are **NOT yet approved**.
+**Status:** **Visual design APPROVED by project owner** on 2026-11-15; the owner also confirms permission to publish **concept images in the public community repository**. This does not approve production sprites, independently verify underlying IP rights, or authorize public distribution of the game.
 **Scope:** The Carl fan-character design only. Runtime actor ID remains `demolitionist`; no franchise-specific artwork or name may be necessary for the core engine.
 
 ## Selected concept reference
 
-- **Canonical concept source:** `Carl_Concept_Approved_v1.png` (kept in the owner's private art handoff / conversation download; **not** committed to this public repository).
+- **Canonical concept source:** `assets/concept/carl/approved/Carl_Concept_Approved_v1.png`, **pending binary upload to the artwork-publication PR**. Read the [asset README](../../assets/concept/carl/approved/README.md) and [provenance](../../assets/concept/carl/approved/provenance.md) for the approved master and licensing boundary.
 - **Source image SHA-256:** `b90fb91c3995449cd4a3c909c8407e767de3c706bcc4910c9ef1d7a69de50e31`.
 - **Image size:** 1671×941 RGB; concept-art board, NOT an animation atlas, not authentic fixed-grid gameplay pixel art.
 - **Provenance:** AI-generated illustration iterated and explicitly selected by the human project owner; generated tool output (model/version and full source prompt not embedded in the file).
-- **Rights gate:** A stated non-distributed fan/community permission does not automatically authorize publication of recognizable character artwork in a public repository. Keep the private master out of public Git history until the applicable permission explicitly covers it.
+- **Rights gate:** The owner explicitly confirmed that permission covers publishing **concept images** in the public GitHub community repository (2026-11-15). This is a user-reported permission, not independent verification; it does not cover distributing a game or other assets. See [rights register](../04-production/rights-and-release.md).
 - **Illustration caveat:** Text and icon details in an image generation are not authoritative design data. The incorrect late-stage date label in the selected illustration and incidental cigarette / stubble / heroic abdominal highlights are **not** decisions.
 
 ## Locked look — no further global redesign required
@@ -65,7 +65,7 @@ No speech or facial expression should be the sole source of mandatory combat inf
 - Aseprite editable sources, deterministic export, palette list, pivot and contact-foot reference, animations with metadata; test at 1x and integer-scaled 4K (6x) and 1280×800 (640×400 base at 2x) with Steam Deck-size text.
 - Two short animation tags per acceptance scope, starting `idle` and `run`, without limb jitter or unrelated AI frame drift.
 - All details marked `canon verified`, `art-direction choice`, or `noncanonical gameplay proposal`, with book/chapter references for the first.
-- Before any recognizable franchise images enter public Git history, document scope of rights and approval in the rights register.
+- Before a recognizable franchise image enters public Git history, record the owner-reported permission scope and asset provenance in the rights register. The concept-art publication scope is owner-confirmed; runtime builds and other distribution still require separate clearance.
 
 ## Agent instruction
 
