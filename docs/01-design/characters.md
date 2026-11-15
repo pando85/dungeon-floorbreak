@@ -5,7 +5,8 @@
 ## Character 1 — Carl → `demolitionist`
 
 - **Fantasy:** Improvisation under pressure; physical confrontation; bombs, tricks, deliberate collateral damage.
-- **Silhouette:** readable boot/stance profile, broad enough for readable impact frames; expressive body language.
+- **Silhouette:** ordinary, visibly human proportions, unremarkable face and slightly awkward/irritated posture at the beginning; feet/stance still readable at gameplay scale. Preserve the canon-specific footwear/barefoot transitions after verification; **do not default to boots**. Muscle gains are modest and gradual across book phases, not superhero anatomy. Later charisma comes from composure, weary expressions and lived-in gear rather than a Hollywood face or power fantasy.
+- **Mandatory art and narrative tone:** [`80s/90s everyman action antihero`](antihero-tone.md). A disaster survivor who improvises, swears and gets hurt; avoid heroic poses, instant mastery and polished tactical-hero outfits. Confirm appearance and loadout against book/floor/chapter before tagging as lore canon.
 - **Baseline:** reliable ground movement, grounded melee/ranged tool and plantable timed explosive.
 - **Special:** bomb with clear fuse, visible blast radius, material-specific damage, self-protection skill expression.
 - **Weakness:** can't instantly reach high platforms; aim/placement risk; exposed while planting.
