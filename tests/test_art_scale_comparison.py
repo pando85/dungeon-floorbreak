@@ -170,11 +170,16 @@ class ScaleComparisonInputTests(unittest.TestCase):
         self.assertEqual(sc.parse_spec("L 1=a.png:a.json:2"), ("L 1", "a.png", "a.json", 2))
 
     def test_sprite_count_limits(self) -> None:
-        with self.assertRaisesRegex(sc.SceneError, "1 to 4"):
+        with self.assertRaisesRegex(sc.SceneError, "At least one candidate"):
             sc.build([], None, self.dir / "o")
         png, meta = make_sprite(self.dir, "s", 32)
-        with self.assertRaisesRegex(sc.SceneError, "1 to 4"):
-            sc.build([f"S{n}={png}:{meta}" for n in range(5)], None, self.dir / "o")
+        with self.assertRaisesRegex(sc.SceneError, "1 to 6"):
+            sc.build([f"S{n}={png}:{meta}" for n in range(7)], None, self.dir / "o")
+        with self.assertRaisesRegex(sc.SceneError, "1 to 6"):
+            sc.build([f"S{n}={png}:{meta}" for n in range(4)], None, self.dir / "o",
+                     [f"C{n}={png}:{meta}" for n in range(3)])
+        with self.assertRaisesRegex(sc.SceneError, "At least one candidate"):
+            sc.build([], None, self.dir / "o", [f"C={png}:{meta}"])
 
     def test_partial_alpha_rejected(self) -> None:
         png, meta = make_sprite(self.dir, "soft", 32)
@@ -188,6 +193,171 @@ class ScaleComparisonInputTests(unittest.TestCase):
         png, meta = make_sprite(self.dir, "one", 32)
         with self.assertRaisesRegex(sc.SceneError, "frame 3"):
             sc.load_actor("one", png, meta, 3)
+
+
+def write_manifest(directory: Path, name: str, png: str, meta: str, study) -> None:
+    manifest = {"id": name, "output_atlas": png, "output_metadata": meta}
+    if study is not None:
+        manifest["scale_study"] = study
+    (directory / f"{name}.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+
+class GroupFixture(unittest.TestCase):
+    """Temporary manifest directory with synthetic sprites (no tests of its own)."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        self.manifests = self.dir / "manifests"
+        self.manifests.mkdir()
+
+    def add(self, name: str, study, height: int = 32) -> None:
+        png, meta = make_sprite(self.dir, name, height)
+        write_manifest(self.manifests, name, png, meta, study)
+
+    def groups(self) -> dict:
+        return sc.collect_groups(self.manifests)
+
+
+class ScaleStudyGroupTests(GroupFixture):
+    """Manifest-declared scale_study groups (validation never needs the export)."""
+
+    def test_no_scale_study_means_no_groups(self) -> None:
+        self.add("plain", None)
+        self.assertEqual(self.groups(), {})
+
+    def test_object_and_list_forms_and_multiple_groups(self) -> None:
+        self.add("a", {"group": "g1", "order": 2, "role": "candidate"})
+        self.add("b", [{"group": "g1", "order": 1, "role": "candidate"},
+                       {"group": "g2", "role": "companion"}])
+        self.add("c", [{"group": "g2", "order": 5, "role": "candidate"}])
+        groups = self.groups()
+        self.assertEqual(sorted(groups), ["g1", "g2"])
+        self.assertEqual([m["id"] for m in groups["g1"]], ["a", "b"])
+        self.assertEqual({m["id"]: m["order"] for m in groups["g2"]}, {"b": 0, "c": 5})
+
+    def test_invalid_declarations_rejected(self) -> None:
+        cases = {
+            "must match": {"group": "bad id!", "role": "candidate"},
+            "must match ": {"group": "", "role": "candidate"},
+            "role": {"group": "g", "role": "hero"},
+            "order": {"group": "g", "role": "candidate", "order": "1"},
+            "unknown keys": {"group": "g", "role": "candidate", "extra": 1},
+            "non-empty list": [],
+            "must be objects": ["g"],
+            "same group twice": [{"group": "g", "role": "candidate"},
+                                 {"group": "g", "role": "companion"}],
+        }
+        for pattern, study in cases.items():
+            with self.subTest(pattern=pattern):
+                for old in self.manifests.glob("*.json"):
+                    old.unlink()
+                self.add("m", study)
+                with self.assertRaisesRegex(sc.SceneError, pattern.strip()):
+                    self.groups()
+
+    def test_group_needs_candidate_and_at_most_one_reference(self) -> None:
+        self.add("ref", {"group": "g", "role": "reference"})
+        self.add("comp", {"group": "g", "role": "companion"})
+        with self.assertRaisesRegex(sc.SceneError, "'g' has no candidate"):
+            self.groups()
+        self.add("cand", {"group": "g", "role": "candidate"})
+        self.assertEqual(sorted(self.groups()), ["g"])
+        self.add("ref2", {"group": "g", "role": "reference"})
+        with self.assertRaisesRegex(sc.SceneError, "more than one reference"):
+            self.groups()
+
+    def test_cli_reports_clear_errors_and_lists_groups(self) -> None:
+        self.add("m", {"group": "g", "role": "nope"})
+        self.assertEqual(sc.main(["--list-groups", "--manifest-dir", str(self.manifests)]), 1)
+        (self.manifests / "m.json").unlink()
+        self.add("m", {"group": "g", "role": "candidate"})
+        self.assertEqual(sc.main(["--list-groups", "--manifest-dir", str(self.manifests)]), 0)
+        self.assertEqual(sc.main(["--group", "missing", "--manifest-dir", str(self.manifests),
+                                  "--out", str(self.dir / "o")]), 1)
+
+    def test_repository_manifests_declare_neutral_fixture_group(self) -> None:
+        groups = sc.collect_groups()
+        members = {m["id"]: m["role"] for m in groups["neutral_fixture"]}
+        self.assertEqual(members, {"neutral_blob_fixture_v0": "candidate",
+                                   "height_mannequin_fixture_v0": "reference"})
+
+
+@unittest.skipUnless(NEEDS_EXPORT, "run scripts/export_assets.sh first (dungeon_materials atlas)")
+class ScaleStudyRenderTests(GroupFixture):
+    def render(self, group: str = "g") -> dict:
+        out = self.dir / "out"
+        return sc.build_group(group, self.groups()[group], out)
+
+    def test_order_roles_reference_and_shared_floor(self) -> None:
+        self.add("ref", {"group": "g", "role": "reference"}, 52)
+        self.add("tall", {"group": "g", "order": 3, "role": "candidate"}, 40)
+        self.add("friend", {"group": "g", "order": 1, "role": "companion"}, 44)
+        self.add("short", {"group": "g", "order": 2, "role": "candidate"}, 36)
+        report = self.render()
+        actors = report["actors"]
+        self.assertEqual([a["label"] for a in actors], ["ref", "friend", "short", "tall"])
+        self.assertEqual([a["role"] for a in actors],
+                         ["reference", "companion", "candidate", "candidate"])
+        self.assertEqual([a["opaque_height_px"] for a in actors], [52, 44, 36, 40])
+        self.assertEqual({a["scene_bottom_opaque_row"] for a in actors}, {FLOOR_ROW})
+        # Close-ups exist for candidates only; the companion appears in scene and legend.
+        out = self.dir / "out"
+        self.assertTrue((out / "closeup_short_6x.png").is_file())
+        self.assertTrue((out / "closeup_tall_6x.png").is_file())
+        self.assertFalse((out / "closeup_friend_6x.png").exists())
+        self.assertEqual(Image.open(out / "scene_640x360.png").size, (640, 360))
+
+    def test_default_reference_when_none_declared(self) -> None:
+        if not (ROOT / "generated/art/height_mannequin.png").is_file():
+            self.skipTest("height_mannequin export missing")
+        self.add("solo", {"group": "g", "role": "candidate"}, 40)
+        first = self.render()["actors"][0]
+        self.assertEqual(first["role"], "reference")
+        self.assertEqual(first["opaque_height_px"], 52)
+
+    def test_six_actors_plus_reference_fit_evenly(self) -> None:
+        self.add("ref", {"group": "g", "role": "reference"}, 52)
+        for n in range(4):
+            self.add(f"cand{n}", {"group": "g", "order": n, "role": "candidate"}, 32 + 4 * n)
+        for n in range(2):
+            self.add(f"comp{n}", {"group": "g", "order": 10 + n, "role": "companion"}, 40)
+        actors = self.render()["actors"]
+        self.assertEqual(len(actors), 7)
+        centres = [a["scene_position"][0] + a["pivot"][0] for a in actors]
+        gaps = {b - a for a, b in zip(centres, centres[1:])}
+        self.assertLessEqual(max(gaps) - min(gaps), 1)
+
+    def test_seven_non_reference_actors_rejected(self) -> None:
+        for n in range(7):
+            self.add(f"c{n}", {"group": "g", "order": n, "role": "candidate"})
+        with self.assertRaisesRegex(sc.SceneError, "group 'g'.*1 to 6"):
+            self.render()
+
+    def test_actors_that_overlap_in_640_px_are_rejected(self) -> None:
+        png, meta = make_sprite(self.dir, "wide", 40)
+        wide = Image.open(png).convert("RGBA")
+        canvas = Image.new("RGBA", (400, wide.height), (0, 0, 0, 0))
+        for x in range(0, 400, 24):
+            canvas.alpha_composite(wide, (x, 0))
+        canvas.save(png)
+        Path(meta).write_text(json.dumps({"frames": [{"frame": {"x": 0, "y": 0, "w": 400,
+                                                                  "h": wide.height}}]}))
+        write_manifest(self.manifests, "wide", png, meta, {"group": "g", "role": "candidate"})
+        self.add("other", {"group": "g", "order": 1, "role": "candidate"})
+        with self.assertRaisesRegex(sc.SceneError, "group 'g'.*(overlap|does not fit)"):
+            self.render()
+
+    def test_group_render_is_deterministic(self) -> None:
+        self.add("a", {"group": "g", "order": 1, "role": "candidate"}, 36)
+        self.add("b", {"group": "g", "order": 2, "role": "companion"}, 44)
+        first = self.dir / "one"
+        second = self.dir / "two"
+        sc.build_group("g", self.groups()["g"], first)
+        sc.build_group("g", self.groups()["g"], second)
+        for path in sorted(first.iterdir()):
+            self.assertEqual(path.read_bytes(), (second / path.name).read_bytes(), path.name)
 
 
 if __name__ == "__main__":

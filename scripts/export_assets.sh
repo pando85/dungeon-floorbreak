@@ -49,18 +49,10 @@ done
 python3 scripts/validate_assets.py
 python3 scripts/make_contact_sheet.py
 python3 scripts/make_animation_previews.py
-# Gameplay-scale sprite comparison, only when scale-study manifests exist.
-scale_args=()
-for manifest in assets/manifests/donut_scale_h*.json; do
-  [[ -e "$manifest" ]] || continue
-  mapfile -t fields < <(python3 -I - "$manifest" <<'PY'
-import json, sys
-data = json.load(open(sys.argv[1], encoding="utf-8"))
-print("\n".join([data["id"], data["output_atlas"], data["output_metadata"]]))
-PY
-  )
-  scale_args+=(--sprite "${fields[0]}=${fields[1]}:${fields[2]}")
-done
-if [[ ${#scale_args[@]} -gt 0 ]]; then
-  python3 scripts/make_scale_comparison.py "${scale_args[@]}" --out generated/art/scale_study
-fi
+# Gameplay-scale sprite comparisons: one per "scale_study" group declared in the
+# manifests (validated by the helper; an invalid declaration fails the export).
+scale_groups="$(python3 scripts/make_scale_comparison.py --list-groups)"
+while IFS= read -r group; do
+  [[ -n "$group" ]] || continue
+  python3 scripts/make_scale_comparison.py --group "$group" --out "generated/art/scale_study/$group"
+done <<< "$scale_groups"

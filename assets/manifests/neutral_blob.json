@@ -28,5 +28,10 @@
     "input_reference_ids": []
   },
   "license": "Original repo-specific prototype art; no standalone asset reuse license",
-  "review_status": "prototype_fixture_unapproved"
+  "review_status": "prototype_fixture_unapproved",
+  "scale_study": {
+    "group": "neutral_fixture",
+    "order": 1,
+    "role": "candidate"
+  }
 }
