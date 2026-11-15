@@ -1,6 +1,7 @@
 # WORK-007/008 follow-up — Donut Floor 1 sprite scale study
 
 **Status:** Agent work order; requires human artistic approval.  
+**Progress:** the three studies, the comparison scenes and a 40 px idle prototype exist and await human artistic review. The scale is **not** decided. See the evaluation in [`docs/02-art/donut-scale-study.md`](../02-art/donut-scale-study.md) and the evidence in [`docs/evidence/donut-floor1-scale-study/`](../evidence/donut-floor1-scale-study/README.md).  
 **Branch:** `art/donut-floor1-scale-study`  
 **Goal:** Choose a practical native pixel-art scale for Princess Donut before committing to a definitive sprite master or large animation set.
 
