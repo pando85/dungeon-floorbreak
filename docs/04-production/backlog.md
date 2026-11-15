@@ -25,6 +25,18 @@ The repository currently ships design/specification documents only. Status: `pro
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
 
+## Visual target review (WORK-007)
+
+[VT-001 — Inspection Corridor](../02-art/visual-target-inspection-corridor.md) is
+**approved for overall visual mood and composition** by the owner (2026-11-15),
+**not** for its Carl depiction, canonical character appearance, gameplay-scale
+pixel art, playable level or final production assets. The illustrated Carl is
+explicitly *not* the already-approved Carl; preserve the character bible. The
+image remains in the private project conversation pending rights/provenance
+review. WORK-007 is still **in progress**: accept only after native-resolution
+Aseprite/Bevy readability samples, source/provenance checks and human review.
+The concept illustration alone does **not** meet its acceptance gate.
+
 ## First agent work order (WORK-001)
 
 **Goal:** start a clean, reproducible Rust 2024 Bevy 0.20.x Linux binary with a 2D pixel camera, empty test level, a gamepad-neutral action map and one headless action test. **No character likenesses.**
