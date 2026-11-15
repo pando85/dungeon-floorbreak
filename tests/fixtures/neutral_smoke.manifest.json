@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "neutral_smoke",
+  "type": "character_animation",
+  "source_path": "tests/fixtures/neutral_smoke.aseprite",
+  "output_atlas": "generated/art/neutral_smoke.png",
+  "palette_id": "qa_smoke_v1",
+  "frame_size": [16, 16],
+  "pivot": [8, 15],
+  "animation_tags": ["idle"],
+  "required_alpha": true,
+  "max_colors": 6,
+  "owner": "qa",
+  "tool_version": "Aseprite or LibreSprite CLI (CI uses LibreSprite v1.3)",
+  "provenance": {
+    "origin": "original neutral test-only Aseprite document",
+    "model": "none",
+    "input_reference_ids": []
+  },
+  "license": "internal_qa_fixture_not_for_game_distribution",
+  "review_status": "test_fixture"
+}
