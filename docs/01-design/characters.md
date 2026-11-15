@@ -27,6 +27,8 @@
 
 ## Character 3 — Mongo → `charger` (later milestone)
 
+**Owner-approved concept direction:** expressive pink/red-and-blue feathered raptor, gold eye, crest, long tail, adorable hatchling → lanky juvenile → athletic D+B adult who can carry Donut. The artistic progression is approved, not the book timeline or mechanics. See [Mongo's character bible](../02-art/mongo-character-bible.md) and [lore tracker](../02-art/mongo-lore-research.md); the three approved source images are committed and Git blob identity-verified, with a SHA-256 manifest.
+
 - **Fantasy:** comedic, high-energy kinetic companion with violent momentum; third major character enters after the established duo.
 - **Baseline:** AI companion or triggered allied charge first. Do not promise a third local player at launch.
 - **Special:** break brittle columns, scatter clustered enemies, interrupt elite attacks.

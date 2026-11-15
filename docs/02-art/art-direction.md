@@ -18,6 +18,10 @@ Carl's four-stage appearance and evolution are **approved by the project owner**
 
 The owner selected Donut's **adorable, very round, fluffy tortoiseshell Persian** identity and the eight-stage visual progression as the character's visual north star. Keep giant golden eyes, a tiny muzzle, compact paws, the huge plume tail and a small crown. The later dark/magical variants **must not** replace her cute neutral expression. Bracelets are important continuity motifs, but their names, stats and acquisition floors printed in the AI-generated sheet are **not canon-verified**. See the [Donut character bible](donut-character-bible.md), [gear audit](donut-gear-timeline.md), and [source/reference package](../../assets/concept/donut/approved/README.md). The original PNG has been committed and checked against the source identity; do not treat the miniature concept sprites as genuine gameplay pixel art.
 
+## Owner-approved Mongo concept — source images committed
+
+The owner selected Mongo's **first** exploration board and later approved the hatchling → juvenile → adult growth study plus the adult turnaround/acting board on 2026-11-15. His identity is an athletic feathered pink/red raptor, bright eye, blue accent feathers, crest and long dynamic tail; he is both adorable and dangerous and becomes Donut's expressive mount. The adult follows D's charismatic silhouette with B's agility, never C's bulky musculature. See [Mongo's bible](mongo-character-bible.md) and [source inventory](../../assets/concept/mongo/approved/README.md). All three original full-resolution images are committed and identity-verified; AI labels and tiny mock sprites are not canon or production pixel art.
+
 ## Approved mood references — no automatic fidelity target
 
 The project owner reaffirmed on 2026-11-15 that the **two project-generated
