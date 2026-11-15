@@ -47,7 +47,7 @@ Reuse the existing exporter `scripts/export_assets.sh`, `scripts/validate_assets
 - GIF preview and tag/duration/alpha/atlas checks run through the existing toolchain if an idle animation is included.
 - CI green for tests relevant to committed changes; do not claim a CI run unless it actually completed.
 - No changes to Carl, Mongo, approved Donut reference art, Bevy gameplay controls, or game mechanics.
-- **Rights/publication:** source pixel variants of a recognizable franchise character are not automatically covered by the recorded permission for approved **concept images**. Treat the work as a private art study until the intended public source/asset publication is cleared. If scope is uncertain, keep recognizably Donut-specific binary sources/art out of the public PR and present them privately for review; the PR can contain reproducible **IP-neutral** test fixtures, tooling and a clear rights gate. Do not assert that public gameplay distribution is permitted.
+- **Rights/publication:** cleared. Publication of all fan-concept character art, including production art such as Donut pixel sources, exports, GIF previews and gameplay-scale renders, in this public repository is covered by the owner-reported `ART-PUBLICATION-ALL-V1` record in `docs/04-production/rights-and-release.md` (2026-11-15). Donut pixel sources and renders are committed publicly under `assets/source/characters/donut/`, with provenance/manifest/checksum records (generator/tool and input references; no ripped or third-party assets). The scope is the owner's user-reported representation, not verified rightsholder consent, grants no public reuse licence, and does not permit distributing a playable game, Steam build, trailer, merchandise or standalone asset pack; do not assert otherwise. Keep tooling and tests IP-neutral where practical.
 - Any unavoidable deviation or blocker is documented accurately. Do not self-approve a final production sprite or merge without human review.
 
 ## Agent procedure
@@ -56,4 +56,4 @@ Reuse the existing exporter `scripts/export_assets.sh`, `scripts/validate_assets
 2. Implement the three real pixel-size studies and compare at gameplay scale.
 3. Run exporter/validator, Python unit tests and documentation checks; collect real PNG/GIF/artifact evidence. Run other relevant checks if code is changed.
 4. Review the comparison for silhouette, eyes, face, tail, stable pivot, and equipment restraint; iterate until defensible.
-5. Create a **draft PR** to `main` with commands/results, image evidence links (subject to publication permission), limitations and one proposed winning scale. Stop for human artistic signoff; no auto-merge.
+5. Create a **draft PR** to `main` with commands/results, image evidence links, limitations and one proposed winning scale. Stop for human artistic signoff; no auto-merge.

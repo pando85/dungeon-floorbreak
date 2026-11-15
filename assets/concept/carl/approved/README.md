@@ -35,4 +35,4 @@ sha256sum -c SHA256SUMS
 - [Asset provenance and user-reported publication permission](provenance.md)
 - [Rights and release rules](../../../../docs/04-production/rights-and-release.md)
 
-Public GitHub visibility **does not grant a content reuse license**. The owner has confirmed permission to publish these *concept images* to this public community repository, but that does not establish approval to distribute the game or a standalone commercial asset pack.
+Public GitHub visibility **does not grant a content reuse license**. The owner reports permission (`ART-PUBLICATION-ALL-V1`) to publish all fan-concept character art, concept images and production art, in this public community repository; this is not independently verified and does not establish approval to distribute the game or a standalone asset pack.

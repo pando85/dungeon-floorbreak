@@ -32,8 +32,8 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 **not** for its Carl depiction, canonical character appearance, gameplay-scale
 pixel art, playable level or final production assets. The illustrated Carl is
 explicitly *not* the already-approved Carl; preserve the character bible. The
-image remains in the private project conversation pending rights/provenance
-review. WORK-007 is still **in progress**: accept only after native-resolution
+image remains in the private project conversation; publication is covered by
+`ART-PUBLICATION-ALL-V1` but it still needs a provenance/checksum record. WORK-007 is still **in progress**: accept only after native-resolution
 Aseprite/Bevy readability samples, source/provenance checks and human review.
 The concept illustration alone does **not** meet its acceptance gate.
 

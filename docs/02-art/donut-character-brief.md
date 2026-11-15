@@ -1,7 +1,7 @@
 # Princess Donut — lore-grounded visual direction and acting bible
 
 **Status:** Owner-selected **F-based personality direction** (2026-11-15) with lore audit; **NOT** a finalized canonical sprite or asset reference. New concept images are intentionally paused in favor of a single coherent sprite master and expression studies.
-**Decision scope:** Proposed look and silhouette of `caster`'s replaceable *Dungeon Crawler Carl* fan-content character mapping. Artwork approved for public concept publication only when the owner explicitly approves the particular image. Do not infer game or standalone content distribution rights.
+**Decision scope:** Proposed look and silhouette of `caster`'s replaceable *Dungeon Crawler Carl* fan-content character mapping. Public art publication is covered by the owner-reported `ART-PUBLICATION-ALL-V1` scope; art still needs human approval before it is treated as canonical. Do not infer game or standalone content distribution rights.
 
 ## Cross-checked physical traits (secondary book references; primary-text audit still required)
 
@@ -66,7 +66,7 @@ These linked indices are third-party summaries, **not** direct access to the ori
 - **Not frozen:** exact face/coat patch topology, hair/fur highlight simplification, crown/body-accessory geometries, palette hex IDs, animation frame counts, per-book outfit schedule, and any complete new image master.
 - **No more broad concept variations.** The next art step is a *single F-based identity turnaround + consistent expression sheet* at practical size. Reject prompts that generate a different cat in each emotional mode.
 - **Project scale:** provisionally 28–36px tall for Donut on 640×360. Test against Carl at 48–56px, 4K integer 6× scaling and Steam Deck view; adjust both for readable quadruped silhouette before committing to Aseprite source.
-- **Repo/publication:** store concept references only when individually human-approved, accompanied by provenance and permission scope; no franchise-derived playable game distribution inferred.
+- **Repo/publication:** concept and production art may be stored publicly under `ART-PUBLICATION-ALL-V1`; canonical references still require human approval and provenance; no franchise-derived playable game distribution inferred.
 
 ## Long-term progression plan (do not misstate book canon)
 
@@ -84,4 +84,4 @@ Do not map equipment or specific powers into individual books until their chrono
 - Approve front, profile, back and 3/4 pose turnaround, showing stable color patches and anatomy.
 - Demonstrate small idle/run/cast expressions at the virtual game pixel size against the real castle tiles and next to the **approved Carl reference**.
 - Create editable Aseprite `.aseprite` source, tagged animation frames, source palette, pivot, collision/FX metadata and reproducible exports. Do not use a concept render as a spritesheet.
-- Record the selected approved image, hash, provenance and the permission scope before public upload.
+- Record the selected approved image, hash, provenance and the permission scope (record ID) with each upload.

@@ -9,7 +9,7 @@ The concept names characters from a copyrighted book series, and a Steam launch 
 
 ## Decision
 
-Publish only original design/engineering documentation, simple generic code/data fixtures and independently licensed assets, with disclaimers. Keep franchise names in speculative fan-concept **documentation** only and use generic runtime IDs. Do not publish or distribute franchise-specific game builds or recognizable franchise character artwork without rights. Require original-IP conversion or license before release.
+Publish only original design/engineering documentation, simple generic code/data fixtures and independently licensed assets, with disclaimers. Keep franchise names in speculative fan-concept **documentation** only and use generic runtime IDs. Do not publish or distribute franchise-specific game builds without rights. Fan-concept character artwork (concept and production) is published under the owner-reported `ART-PUBLICATION-ALL-V1` scope (2026-11-15, amended after this decision); that scope is user-reported, not verified consent, and excludes game, Steam, trailer, merchandise and standalone asset-pack distribution. Require original-IP conversion or license before release.
 
 ## Consequences
 

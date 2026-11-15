@@ -40,7 +40,7 @@ from native 640×360 / 640×400 screenshots and consistent editable Aseprite
 sources at 1×/2× scale.
 
 Keep their source image files and provenance together in
-`assets/references/mood/` **after rights clearance**, distinct from
+`assets/references/mood/` (publication scope: `ART-PUBLICATION-ALL-V1`), distinct from
 `assets/source/`, `assets/generated/`, and canonical Carl art. An agent must
 not copy or crop concept artwork directly into runtime sprites.
 
@@ -53,11 +53,13 @@ matches the concept.
 
 The image reference was generated in the owner's private project conversation
 on 2026-11-15 (candidate name: `VT-001 Inspection Corridor`). **It is not
-included in the public repository**: the fan-character reference and its
-distribution rights must pass the explicit gate in
-[`carl-character-bible.md`](carl-character-bible.md) and
-[`rights-and-release.md`](../04-production/rights-and-release.md).
-Do not infer a right to publish from generation alone.
+included in the public repository** yet. Fan-concept art publication is now
+covered by the owner-reported `ART-PUBLICATION-ALL-V1` scope in
+[`rights-and-release.md`](../04-production/rights-and-release.md), so adding it
+requires only a provenance/checksum record and the owner's go-ahead; its
+noncanonical Carl depiction stays labeled per
+[`carl-character-bible.md`](carl-character-bible.md). Do not infer a right to
+publish from generation alone.
 
 ## Creative intent — already agreed
 
@@ -100,7 +102,7 @@ book/floor/chapter before claiming canon.
 
 1. Build an **IP-neutral** 640×360, 16:9 composition test (also 640×400 for
    16:10) with 16×16 authored foreground tiles; preserve 2 independent routes.
-2. Use an early-survivor character *placeholder* only until rights clearance.
+2. Use an early-survivor character *placeholder* only until the approved Carl production sprite exists.
    Do not regenerate the approved Carl character master; use the privately
    approved reference for art review when permitted.
 3. Author a small editable **Aseprite source set**, not a flattened concept
@@ -133,7 +135,7 @@ book/floor/chapter before claiming canon.
 - [ ] Editable Aseprite sources and reproducible atlas export.
 - [ ] Gameplay screenshot/video from Bevy.
 - [ ] 1280×800 / 1920×1080 readability checks.
-- [ ] Franchise rights / original-IP packaging review before publishing art.
+- [ ] Franchise rights / original-IP packaging review before any game or asset-pack release (art publication in this repo is covered by `ART-PUBLICATION-ALL-V1`).
 
 **Decision:** VT-001 is **approved as a visual mood/composition target only**.
 WORK-007, WORK-008 and the vertical slice remain incomplete until native-resolution

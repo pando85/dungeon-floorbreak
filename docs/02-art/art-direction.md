@@ -55,15 +55,14 @@ quality target. Final fidelity must be defined and accepted independently
 through actual editable assets shown at native gameplay resolution.
 
 **Publishing these references:** Keep them as separately labeled **reference
-images**, not in runtime asset directories and not in texture atlases. Suggested
-destination once the rights/provenance gate is passed:
-`assets/references/mood/` with a README recording approved traits,
+images**, not in runtime asset directories and not in texture atlases. They live
+in `assets/references/mood/` with a README recording approved traits,
 rejected details, authoring provenance and source hashes. The public GitHub
-repo's rights register confirms a limited publication scope for **approved
-character concept artwork**, not a blanket grant covering every new
-recognizable-character scene. Do not upload the action illustration as a
-public binary before that scope is confirmed. The environment-only reference
-can be processed separately after its own rights and provenance review.
+repo's rights register (`ART-PUBLICATION-ALL-V1`) records the owner-reported
+publication scope for all fan-concept character art, concept and production.
+That scope is user-reported, not independently verified, and grants no reuse
+licence or game/asset-pack distribution right; every new asset still needs
+its own provenance and checksum record.
 
 ## Initial screen and scale hypotheses
 

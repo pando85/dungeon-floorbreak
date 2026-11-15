@@ -12,7 +12,7 @@
 - **Weakness:** can't instantly reach high platforms; aim/placement risk; exposed while planting.
 - **Required animation tags:** idle, run, rise, fall, land, attack, plant, hurt, death, celebrate.
 - **Owner-approved negative equipment rule (2026-11-15): Carl never uses a shotgun.** The shotgun shown in a cinematic visual-target image was illustrative noise, not accepted character design, equipment, game mechanics or book canon. The runtime must not couple Carl to a default firearm loadout.
-- **Do not define exact final equipment/art without rights clearance.**
+- **Do not define exact final equipment/art without human approval; art publication is covered by `ART-PUBLICATION-ALL-V1`, game/asset-pack distribution is not (see rights register).**
 
 ## Character 2 — Princess Donut → `caster`
 
