@@ -6,8 +6,8 @@
 
 ## Selected concept reference
 
-- **Canonical concept source:** `assets/concept/carl/approved/Carl_Concept_Approved_v1.png`, **pending binary upload to the artwork-publication PR**. Read the [asset README](../../assets/concept/carl/approved/README.md) and [provenance](../../assets/concept/carl/approved/provenance.md) for the approved master and licensing boundary.
-- **Source image SHA-256:** `b90fb91c3995449cd4a3c909c8407e767de3c706bcc4910c9ef1d7a69de50e31`.
+- **Canonical concept source:** [`assets/concept/carl/approved/Carl_Concept_Approved_v1.png`](../../assets/concept/carl/approved/Carl_Concept_Approved_v1.png), **uploaded and verified against the owner-approved source image on 2026-11-15**. Read the [asset README](../../assets/concept/carl/approved/README.md) and [provenance](../../assets/concept/carl/approved/provenance.md) for the approved master and licensing boundary.
+- **Source image SHA-256:** `b90fb91c3995449cd4a3c909c8407e767de3c706bcc4910c9ef1d7a69de50e31` (verified; Git blob SHA-1 `448093e77f297bc07fba748741284c567581ee54`).
 - **Image size:** 1671×941 RGB; concept-art board, NOT an animation atlas, not authentic fixed-grid gameplay pixel art.
 - **Provenance:** AI-generated illustration iterated and explicitly selected by the human project owner; generated tool output (model/version and full source prompt not embedded in the file).
 - **Rights gate:** The owner explicitly confirmed that permission covers publishing **concept images** in the public GitHub community repository (2026-11-15). This is a user-reported permission, not independent verification; it does not cover distributing a game or other assets. See [rights register](../04-production/rights-and-release.md).
