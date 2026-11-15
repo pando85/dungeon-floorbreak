@@ -6,6 +6,14 @@
 
 A dingy, dangerous, theatrical dungeon whose rooms are saturated with readable props and dark humor. Gameplay foreground is brighter and higher contrast than the moody background. Characters are large enough to read posture, expressive faces, tail motion and impacts at normal Steam Deck viewing distance. Destruction is visually legible: material chips, changing edges, falling chunks, sparks and smoke.
 
+## Project-wide antihero identity (mandatory)
+
+All designs must obey [`the 80s/90s everyman antihero creative rule`](../01-design/antihero-tone.md). Retain the chosen **gothic/vibrant** dark pixel-art direction (cold blue-violet stone, magenta magic, hot orange explosions) while making the cast look like *flawed people improvising in a cruel action spectacle*, not fantasy superheroes. Carl starts with ordinary proportions, an unglamorous face, mild softness, awkwardness and book-accurate odd clothing. Over time give him **modest, incremental functional strength**, battle wear and earned confidence; **never** a chiseled jaw, six-pack, giant V-torso, default cape/armor, or perfect action-star posing. Keep comedic reactions and painful recovery frames. Avoid mandatory VHS grain or visual filters that harm crisp scaled pixels.
+
+## Approved Carl design reference
+
+Carl's four-stage appearance and evolution are **approved by the project owner**; see [`carl-character-bible.md`](carl-character-bible.md) before commissioning or generating further Carl art. Hair stays short-messy, gradually fuller/shaggier, not a default long ponytail; his face and physique remain ordinary, with earned charisma and only modest functional strength. The canonical concept image is privately retained with its SHA-256 in the bible (not published as an asset until rights permit).
+
 ## Initial screen and scale hypotheses
 
 | Property | Initial target | Why |
