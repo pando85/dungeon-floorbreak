@@ -6,7 +6,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 
 1. `README.md` for status and scope.
 2. `docs/01-design/vision.md`, `gameplay.md`, `characters.md` for player-facing intent.
-3. `docs/02-art/art-direction.md`, `animation.md`, `asset-pipeline.md` for art constraints.
+3. `docs/01-design/antihero-tone.md` for the **mandatory, project-wide 1980s–1990s everyman action-antihero creative rule**, followed by `docs/02-art/art-direction.md`, `animation.md`, `asset-pipeline.md` for art constraints.
 4. `docs/03-tech/architecture.md`, `destruction.md`, `input-camera.md`, `level-data.md`, `testing.md` for implementation.
 5. `docs/04-production/vertical-slice.md`, `roadmap.md`, `backlog.md`, `rights-and-release.md` for sequencing.
 6. `docs/05-decisions/` for decision status; `docs/06-research/sources.md` for checked upstream links.
@@ -16,6 +16,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 ## Rules
 
 - **English only** in source code, comments, documentation, PR descriptions, issues, commit messages, tests and generated prompts.
+- **Creative canon for every contributor:** apply `docs/01-design/antihero-tone.md` across characters, writing, enemies, VFX, animation, level art, UX and audio. Carl is a believable, somewhat plain-looking everyman whose practical strength and charisma grow **gradually through hardship**. Reject superhero anatomy, handsome action-star faces, effortless bravado and gratuitous armor/capes. Use 1980s–1990s action cinema for *attitude and tone*, never copied designs or dialogue.
 - Prefer the smallest vertical change delivering a verifiable behavior; no giant speculative rewrites.
 - Use Rust/Bevy as the **provisional** production direction; do not claim this choice is irrevocable. Verify compatible crate versions against primary sources before adding dependencies.
 - Game logic must be deterministic under a fixed update and seeded RNG wherever possible. Rendering and particles must not change authoritative outcomes.
