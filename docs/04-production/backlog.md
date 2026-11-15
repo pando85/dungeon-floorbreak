@@ -11,7 +11,7 @@ The repository currently ships design/specification documents only. Status: `pro
 | WORK-005 | P0 | Prototype | Second controllable hero and two-player device ownership | Two pads, no cross-talk; reconnect scenario |
 | WORK-006 | P0 | Prototype | Solo swap vs follower AI experiment | Short recording of both; decision record |
 | WORK-007 | P0 | Art | Canonical dark pixel-art style bible and demo palette | Human signoff at 1× and 2× |
-| WORK-008 | P0 | Art | Aseprite Lua export + spritesheet/pivot/tag validation | CI artifact from source; consistent alpha/pivot |
+| WORK-008 | P0 | Art | Headless Aseprite/LibreSprite export + spritesheet/pivot/tag validation; optional authoring Lua deferred | CI exports a real editable neutral fixture, checks tags/alpha/frame bounds, previews and identical repeated exports; visual pivot alignment requires later gameplay-scale review |
 | WORK-009 | P1 | Slice | Carl/demolitionist bomb + one melee attack | Deterministic damage and cooldown tests |
 | WORK-010 | P1 | Slice | Donut/caster spell controlling a chaser | Cooperative combo recording and unit tests |
 | WORK-011 | P1 | Slice | One LDtk authored room with two paths and critical geometry | Schema check; path invariants under blasts |
