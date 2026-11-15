@@ -14,7 +14,7 @@ All designs must obey [`the 80s/90s everyman antihero creative rule`](../01-desi
 
 Carl's four-stage appearance and evolution are **approved by the project owner**; see [`carl-character-bible.md`](carl-character-bible.md) before commissioning or generating further Carl art. Hair stays short-messy, gradually fuller/shaggier, not a default long ponytail; his face and physique remain ordinary, with earned charisma and only modest functional strength. The project owner confirms permission to publish approved **concept images** in the public community repository; the [approved Carl concept directory](../../assets/concept/carl/approved/README.md) includes the committed and source-verified image, provenance, and SHA-256 validation manifest. This does **not** authorize distribution of the game.
 
-## Approved visual references — fixed, no substitutes
+## Approved mood references — no automatic fidelity target
 
 The project owner reaffirmed on 2026-11-15 that the **two project-generated
 visual target images** shown during the Art Slice v2 discussion capture the
@@ -39,9 +39,25 @@ shotgun in future Carl concepts, sprite work, gameplay previews, prompts,
 marketing art or equipment specifications. Generic weapons/equipment in
 generated reference images must not be promoted to lore or mechanics.
 
-**Quality boundary:** These images are polished illustration targets, not
-proof of native 640×360 pixel-art fidelity, editable Aseprite sources,
-consistent animation or Bevy rendering.
+**Fidelity boundary (owner clarification, 2026-11-15):** The owner approves the
+**overall style only**; the depicted detail is **far from the desired eventual
+result**. Do not treat object microdetail, sprite quality, density of decoration,
+facial anatomy, weapon designs, pixel clustering, resolution, artistic
+consistency, lighting implementation or final rendering quality as accepted.
+The illustrations establish a **mood north star**, not a polished production
+quality target. Final fidelity must be defined and accepted independently
+through actual editable assets shown at native gameplay resolution.
+
+**Publishing these references:** Keep them as separately labeled **reference
+images**, not in runtime asset directories and not in texture atlases. Suggested
+destination once the rights/provenance gate is passed:
+`assets/references/mood/` with a README recording approved traits,
+rejected details, authoring provenance and source hashes. The public GitHub
+repo's rights register confirms a limited publication scope for **approved
+character concept artwork**, not a blanket grant covering every new
+recognizable-character scene. Do not upload the action illustration as a
+public binary before that scope is confirmed. The environment-only reference
+can be processed separately after its own rights and provenance review.
 
 ## Initial screen and scale hypotheses
 
