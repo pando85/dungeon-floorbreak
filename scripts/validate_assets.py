@@ -5,6 +5,7 @@ These checks validate structure and safety, NOT artistic quality or franchise ri
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -46,6 +47,9 @@ def validate(manifest: dict, metadata: dict, image: Image.Image) -> None:
     source = safe_path(manifest["source_path"])
     check(source.is_file() and source.suffix in (".ase", ".aseprite"),
           "Editable ASE source missing")
+    if manifest.get("grid_source"):
+        grid = safe_path(manifest["grid_source"])
+        check(grid.is_file() and grid.suffix == ".json", "Pixel-grid source missing")
     check(safe_path(manifest["output_atlas"]).is_file(), "Atlas file missing")
     check(safe_path(manifest["output_metadata"]).is_file(), "Metadata file missing")
     width, height = manifest["frame_size"]
@@ -98,8 +102,12 @@ def validate(manifest: dict, metadata: dict, image: Image.Image) -> None:
               "Missing tile IDs")
 
 
-def main() -> int:
-    manifests = sorted(MANIFEST_DIR.glob("*.json"))
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Validate exported art atlases against manifests")
+    parser.add_argument("--manifest-dir", type=Path, default=MANIFEST_DIR,
+                        help="directory of manifest *.json (default: assets/manifests)")
+    args = parser.parse_args(argv)
+    manifests = sorted(args.manifest_dir.glob("*.json"))
     if not manifests:
         print("Missing asset manifests", file=sys.stderr)
         return 1

@@ -19,29 +19,47 @@ def frame(name: str, number: int = 0) -> Image.Image:
                       rect["x"] + rect["w"], rect["y"] + rect["h"]))
 
 
+def draw_backdrop(image: Image.Image, dy: int = 0) -> None:
+    """Gothic/violet/orange staging geometry shared with the scale comparison.
+
+    ``dy`` shifts everything down so a taller canvas (Steam Deck 16:10 framing)
+    keeps the same floor distance from the bottom edge; hanging chains are
+    extended to the top edge.
+    """
+    d = ImageDraw.Draw(image)
+    # Distance and midground are simple staging geometry.
+    for i in range(7):
+        x = 20 + i * 105
+        d.rectangle((x, 55 + dy, x + 78, 304 + dy), fill="#25243c")
+        d.rectangle((x + 10, 65 + dy, x + 67, 301 + dy), fill="#171a2b")
+        d.arc((x + 8, 31 + dy, x + 69, 99 + dy), 180, 360, fill="#39334f", width=5)
+        for y in (118, 162, 206, 250):
+            d.line((x + 15, y + dy, x + 64, y + dy), fill="#2c2841", width=2)
+    for x in (94, 288, 516):
+        d.line((x, 0, x, 120 + dy), fill="#52445b", width=5)
+        for y in range(0, 110 + dy, 12):
+            d.rectangle((x - 1, y, x + 2, y + 5), fill="#81718b")
+    d.ellipse((416, 59 + dy, 531, 174 + dy), outline="#8f437c", width=8)
+    d.ellipse((428, 71 + dy, 519, 162 + dy), outline="#c457a2", width=3)
+    d.rectangle((456, 104 + dy, 489, 125 + dy), fill="#b75eab")
+    d.rectangle((461, 110 + dy, 469, 116 + dy), fill="#352139")
+    d.rectangle((479, 110 + dy, 487, 116 + dy), fill="#352139")
+    d.line((469, 126 + dy, 474, 133 + dy, 481, 126 + dy), fill="#b75eab", width=3)
+
+
+def draw_floor(image: Image.Image, materials: Image.Image, top: int = 296) -> None:
+    """Tile the stone floor from ``top`` (first floor row) to the image bottom."""
+    for y in range(top, image.height, 16):
+        for x in range(0, image.width, 16):
+            index = 0 if y == top else (0 if (x + y - top + 296) // 16 % 7 else 2)
+            image.alpha_composite(
+                materials.crop((index * 16, 0, (index + 1) * 16, 16)), (x, y))
+
+
 def render() -> None:
     DEST.mkdir(parents=True, exist_ok=True)
     image = Image.new("RGBA", (640, 360), "#191a2c")
-    d = ImageDraw.Draw(image)
-    # Distance and midground are simple staging geometry. Gameplay tiles,
-    # prop and actor below come from actual editable native ASE source.
-    for i in range(7):
-        x = 20 + i * 105
-        d.rectangle((x, 55, x + 78, 304), fill="#25243c")
-        d.rectangle((x + 10, 65, x + 67, 301), fill="#171a2b")
-        d.arc((x + 8, 31, x + 69, 99), 180, 360, fill="#39334f", width=5)
-        for y in (118, 162, 206, 250):
-            d.line((x + 15, y, x + 64, y), fill="#2c2841", width=2)
-    for x in (94, 288, 516):
-        d.line((x, 0, x, 120), fill="#52445b", width=5)
-        for y in range(0, 110, 12):
-            d.rectangle((x - 1, y, x + 2, y + 5), fill="#81718b")
-    d.ellipse((416, 59, 531, 174), outline="#8f437c", width=8)
-    d.ellipse((428, 71, 519, 162), outline="#c457a2", width=3)
-    d.rectangle((456, 104, 489, 125), fill="#b75eab")
-    d.rectangle((461, 110, 469, 116), fill="#352139")
-    d.rectangle((479, 110, 487, 116), fill="#352139")
-    d.line((469, 126, 474, 133, 481, 126), fill="#b75eab", width=3)
+    draw_backdrop(image)
 
     materials = frame("dungeon_materials")
     def tile(tx: int, ty: int, index: int) -> None:
@@ -50,9 +68,7 @@ def render() -> None:
             (tx, ty),
         )
 
-    for y in range(296, 360, 16):
-        for x in range(0, 640, 16):
-            tile(x, y, 0 if y == 296 else (0 if (x+y)//16 % 7 else 2))
+    draw_floor(image, materials)
     for x in range(144, 289, 16):
         tile(x, 248, 2)
     for x in range(305, 418, 16):

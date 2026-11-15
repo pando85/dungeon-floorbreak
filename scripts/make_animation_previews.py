@@ -6,6 +6,7 @@ The existing editable .ase sources and manifest metadata remain authoritative.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -62,10 +63,19 @@ def render_tag(image: Image.Image, metadata: dict, tag: dict, dest: Path,
     return dest
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Create per-tag review GIFs")
+    parser.add_argument("--manifest-dir", type=Path, default=MANIFESTS,
+                        help="directory of manifest *.json (default: assets/manifests)")
+    parser.add_argument("--out", type=Path, default=PREVIEWS,
+                        help="GIF output directory (default: generated/art/previews)")
+    parser.add_argument("--allow-empty", action="store_true",
+                        help="do not fail when no tagged animation exists")
+    args = parser.parse_args(argv)
+    previews = args.out
     try:
         outputs = []
-        for path in sorted(MANIFESTS.glob("*.json")):
+        for path in sorted(args.manifest_dir.glob("*.json")):
             manifest = json.loads(path.read_text(encoding="utf-8"))
             if manifest.get("type") == "tileset":
                 continue
@@ -79,10 +89,11 @@ def main() -> int:
             for tag in metadata["meta"]["frameTags"]:
                 if tag["name"] not in manifest["animation_tags"]:
                     continue
-                out = PREVIEWS / f"{asset_id}-{tag['name']}.gif"
+                out = previews / f"{asset_id}-{tag['name']}.gif"
                 render_tag(image, metadata, tag, out)
-                outputs.append(out.relative_to(ROOT).as_posix())
-        if not outputs:
+                outputs.append(out.resolve().relative_to(ROOT).as_posix()
+                               if out.resolve().is_relative_to(ROOT) else out.as_posix())
+        if not outputs and not args.allow_empty:
             raise AssetError("No tagged animation previews were generated")
         print("Animation previews:\n" + "\n".join(outputs))
         return 0
