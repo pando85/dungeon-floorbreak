@@ -33,3 +33,4 @@ for entry in \
 done
 python3 scripts/validate_assets.py
 python3 scripts/make_contact_sheet.py
+python3 scripts/make_animation_previews.py
