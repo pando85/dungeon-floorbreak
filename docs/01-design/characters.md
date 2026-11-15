@@ -21,6 +21,7 @@
 - **Special:** environmental modifier (e.g., freeze brittle props or shove foes), intentionally synergistic with bombs.
 - **Weakness:** low structural damage and limited defense while casting.
 - **Required animation tags:** idle, run, rise, fall, land, cast, hurt, death, emote; modular tail/ears/face where good.
+- **Acting direction (owner selected 2026-11-15):** F is the base: adorable, self-important, clever and capable of manipulation. H = calculating, I = deliberately sweet, K = situational protective fury, J = regal/leadership, plus a separate quiet vulnerable pose for abandonment/loyalty scenes. All share **one** four-legged, fixed-coat sprite identity; never generate five physically different Donuts or treat anger as a villain transformation. Details: [Donut acting bible](../02-art/donut-character-brief.md).
 - **Readability:** facial expression cannot carry essential telegraph alone; animation silhouette and FX must communicate it.
 
 ## Character 3 — Mongo → `charger` (later milestone)
