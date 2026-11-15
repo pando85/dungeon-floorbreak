@@ -1,8 +1,8 @@
 # Dungeon Floorbreak — Design & AI Development Repository
 
-> **Status: concept and documentation only. No playable game or game assets are included.**
+> **Status: design, technical spikes and approved concept-art references; not a released or production-ready game.**
 >
-> **Public, unlicensed fan-project concept.** Dungeon Crawler Carl and the characters Carl, Princess Donut, and Mongo are referenced for noncommercial design exploration. This project is **not affiliated with, endorsed by, or licensed by** their rightsholders. **Do not distribute a game, character artwork, dialogue, or other derivative content without the necessary rights.** An original-IP path is defined in [rights and release](docs/04-production/rights-and-release.md).
+> **Public fan/community concept.** The owner reports permission to publish approved **concept images** in this public GitHub repository. This does **not** establish a general franchise license or permission to distribute a playable game or repackage artwork. The project does not claim rightsholder endorsement or affiliation. See [rights and release](docs/04-production/rights-and-release.md).
 
 A Linux-first, controller-first, side-scrolling action platformer design: expressive, relatively detailed **dark-fantasy pixel art**, explosive comedy, character synergy, and **selective, gameplay-significant level destruction**. Inspirations include Broforce (pacing and destructibility) and Mewgenics (expressive modular animation), not replication of either game's assets or systems.
 
@@ -26,7 +26,7 @@ A Linux-first, controller-first, side-scrolling action platformer design: expres
 2. [Product vision and principles](docs/01-design/vision.md).
 3. [Core loop, combat and cooperative play](docs/01-design/gameplay.md).
 4. [Character ability sheets](docs/01-design/characters.md).
-5. [Art direction](docs/02-art/art-direction.md) and [animation pipeline](docs/02-art/animation.md).
+5. [Art direction](docs/02-art/art-direction.md), [approved Carl character bible](docs/02-art/carl-character-bible.md), [approved concept reference directory](assets/concept/carl/approved/README.md) and [animation pipeline](docs/02-art/animation.md).
 6. [Architecture](docs/03-tech/architecture.md) and [destruction specification](docs/03-tech/destruction.md).
 7. [Vertical-slice definition](docs/04-production/vertical-slice.md), [90-day plan](docs/04-production/roadmap.md), and [backlog](docs/04-production/backlog.md).
 8. [Decisions](docs/05-decisions/) and [source register](docs/06-research/sources.md).
