@@ -1,9 +1,17 @@
 # Visual target VT-001 — Inspection Corridor
 
-**Status:** candidate for human artistic review, **not approved**.
+**Status:** **overall artistic direction APPROVED** by the project owner on 2026-11-15; **character rendering, native-resolution pixel art, and production assets NOT approved**.
 **Workstream:** WORK-007 (visual direction), feeding WORK-008 (Aseprite sources),
 WORK-011 (LDtk room) and the Inspection Corridor vertical slice.
 **Date:** 2026-11-15.
+
+## Human creative decision (2026-11-15)
+
+The owner explicitly liked the **overall visual impression** of VT-001: its dark, detailed pixel-art dungeon, vivid cold-violet versus hot-amber lighting, theatrical danger, grimy stage machinery, readable explosive spectacle, and irreverent everyman action tone. Preserve this direction as our first **approved mood/composition target**.
+
+The owner also noted that **the illustrated Carl is not exactly the previously approved Carl**. This is acceptable **only** for evaluating a room's atmosphere and shot composition. **Do not use this rendition as a Carl reference, new canonical sprite, body/face correction, or permission to redesign him.** All future Carl-specific work must follow `carl-character-bible.md` and its privately held canonical design. When assets are licensed/authorized, replace the illustrative figure with a faithful portrayal of the previously approved Carl. Until then, use an IP-neutral actor in public assets.
+
+This approval does **not** signify acceptance of sprite fidelity at 1x, runtime readability, Bevy rendering, level geometry, camera behavior, animations, VFX performance or legal permissions. These remain separate gates.
 
 ## Purpose
 
@@ -44,11 +52,11 @@ Do not infer a right to publish from generation alone.
 
 | Review topic | Present judgment | Not yet established |
 | --- | --- | --- |
-| Dungeon atmosphere, tonal contrast, stage spectacle | Candidate aesthetic | Final palette IDs, lighting shader, perf |
-| Antihero attitude and absurd danger | Candidate narrative staging | Sprite likeness or canon-accurate gear |
-| Explosion color hierarchy and destructible materials | Candidate effect language | Damage model, falloff, collision rebuild |
-| Room depth and foreground/background separation | Candidate art layout | True parallax and camera readability |
-| Upper and lower route composition | Candidate level intention | Traversal distances and connectivity |
+| Dungeon atmosphere, tonal contrast, stage spectacle | **Approved mood direction**, final art pending | Final palette IDs, lighting shader, perf |
+| Antihero attitude and absurd danger | **Approved tone**, character rendering rejected as canonical | Sprite likeness or canon-accurate gear |
+| Explosion color hierarchy and destructible materials | **Approved visual intent**, effect behavior pending | Damage model, falloff, collision rebuild |
+| Room depth and foreground/background separation | **Approved composition intent**, runtime scene pending | True parallax and camera readability |
+| Upper and lower route composition | **Approved route concept**, runtime geometry pending | Traversal distances and connectivity |
 | Detailed character illustration | **Not** approved gameplay sprite | 48–56 px authentic Aseprite design, pivots, anims |
 | Dramatic snapshot | **Not** gameplay proof | Hitstop, enemy AI, input latency, 60 fps |
 
@@ -88,12 +96,15 @@ book/floor/chapter before claiming canon.
 
 - [x] Static AI concept image created for conversation-based review.
 - [x] Approved Carl character bible consulted; no new face/body redesign requested.
-- [ ] Human approval of atmosphere and shot composition.
+- [x] Human approval of **overall atmosphere and broad shot composition** (2026-11-15); this is not a line-by-line scene or character approval.
+- [x] Noncanonical Carl depiction explicitly identified; **approved Carl reference remains unchanged**.
 - [ ] Human approval of gameplay-scale pixel-art sample.
 - [ ] Editable Aseprite sources and reproducible atlas export.
 - [ ] Gameplay screenshot/video from Bevy.
 - [ ] 1280×800 / 1920×1080 readability checks.
 - [ ] Franchise rights / original-IP packaging review before publishing art.
 
-**Decision:** pending. Do not relabel VT-001, WORK-007, WORK-008 or the vertical
-slice as complete based on this illustration alone.
+**Decision:** VT-001 is **approved as a visual mood/composition target only**.
+WORK-007, WORK-008 and the vertical slice remain incomplete until native-resolution
+source assets, visual tests, human gameplay-scale approval and applicable rights
+gates are satisfied.
