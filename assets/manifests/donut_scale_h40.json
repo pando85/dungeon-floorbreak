@@ -31,9 +31,16 @@
   },
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
-  "scale_study": {
-    "group": "donut_floor1",
-    "order": 2,
-    "role": "candidate"
-  }
+  "scale_study": [
+    {
+      "group": "donut_floor1",
+      "order": 2,
+      "role": "candidate"
+    },
+    {
+      "group": "carl_book1",
+      "order": 1,
+      "role": "companion"
+    }
+  ]
 }
