@@ -1,13 +1,13 @@
 # Princess Donut — approved visual identity and evolution bible (fan-content layer)
 
 **Decision:** CREATIVE-2026-11-15-DONUT-01  
-**Status:** **Visual identity and the eight-stage artistic evolution APPROVED in conversation** (2026-11-15). The full-resolution reference PNG must be uploaded and source-verified before this package is considered complete; the item timeline and generated captions are **not canon-approved**.  
+**Status:** **Visual identity and the eight-stage artistic evolution APPROVED in conversation** (2026-11-15). The full-resolution source PNG has been uploaded and source-verified; the item timeline and generated captions are **not canon-approved**.  
 **Character / runtime mapping:** Princess Donut (fan character) → IP-neutral `caster`.
 
 ## Selected visual reference
 
-- **Approved visual:** Princess Donut, *Character Evolution & Gear Bible* (2026-11-15), proposed file `assets/concept/donut/approved/Princess_Donut_Evolution_Gear_Bible_v1.png`.
-- **Current asset status:** **Pending upload into Git**. The reference remains in the owner's project conversation. See [asset register](../../assets/concept/donut/approved/README.md) and [provenance](../../assets/concept/donut/approved/provenance.md) for the exact source identity and upload gate.
+- **Approved visual:** Princess Donut, *Character Evolution & Gear Bible* (2026-11-15), committed file [`Princess_Donut_Evolution_Gear_Bible_v1.png`](../../assets/concept/donut/approved/Princess_Donut_Evolution_Gear_Bible_v1.png) (exact approved original; source SHA-256 `5ca0870ef3e679730c5dd40857d555b6bffa6c8d2a10644464c699471d025c9a`).
+- **Current asset status:** **Committed and binary-identity verified**. The original source is retained in the owner's project conversation and the same bytes are now versioned. See [asset register](../../assets/concept/donut/approved/README.md) and [provenance](../../assets/concept/donut/approved/provenance.md) for the exact source identity and upload gate.
 - **Visual approval means:** faithful, irresistible Persian-cat charm; a continuous recognizable character over all eight design phases; more extravagant magic and equipment while retaining the same face and body.
 - **Visual approval does NOT mean:** the image's tiny icons, labels, quoted stats, item acquisition floor, class labels or apparent in-game pixels are independently verified from the novels. AI-generated typography is not a source of lore.
 
@@ -59,7 +59,7 @@ Bracelets are valuable **continuity markers**, not a reason to bury her in trink
 
 ## Production and QA gates
 
-1. **Source/reference:** restore the exact approved image bytes and verify the recorded SHA-256. Do not substitute a cropped, recompressed or newly generated lookalike as the master.
+1. **Source/reference (COMPLETE):** the exact original approved PNG is committed and its Git blob identity matches the local source. Validate the SHA-256 manifest in CI; do not substitute a cropped, recompressed or newly generated lookalike as the master.
 2. **Lore:** audit the equipment tracker against primary book passages, recording title/chapter/floor and explicit uncertainty; keep any artistic interpretation separate.
 3. **Model sheet:** validate 5 consistent views (front, 3/4, side, 3/4 back, back), fixed coat map and proportions.
 4. **Sprite:** create a real editable `.aseprite` source, export deterministic atlas/JSON and test with the actual dungeon foreground/background at native scale.
