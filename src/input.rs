@@ -63,16 +63,27 @@ mod tests {
 
     #[test]
     fn deadzone_and_clamping_are_deterministic() {
-        assert_eq!(Actions::from(RawInput { move_x: 0.10, ..RawInput::default() }).move_x, 0.0);
-        assert_eq!(Actions::from(RawInput { move_x: 1.7, ..RawInput::default() }).move_x, 1.0);
-        assert_eq!(Actions::from(RawInput { move_x: -1.8, ..RawInput::default() }).move_x, -1.0);
-        assert_eq!(Actions::from(RawInput { move_x: f32::NAN, ..RawInput::default() }).move_x, 0.0);
+        fn normalized_axis(value: f32) -> f32 {
+            Actions::from(RawInput {
+                move_x: value,
+                ..RawInput::default()
+            })
+            .move_x
+        }
+        assert_eq!(normalized_axis(0.10), 0.0);
+        assert_eq!(normalized_axis(1.7), 1.0);
+        assert_eq!(normalized_axis(-1.8), -1.0);
+        assert_eq!(normalized_axis(f32::NAN), 0.0);
     }
 
     #[test]
     fn held_buttons_do_not_repeat_press_edges() {
         let mut frame = InputFrame::default();
-        let pressed = RawInput { jump: true, attack: true, ..RawInput::default() };
+        let pressed = RawInput {
+            jump: true,
+            attack: true,
+            ..RawInput::default()
+        };
         frame.advance(pressed);
         assert!(frame.jump_pressed && frame.attack_pressed);
         frame.advance(pressed);
@@ -86,8 +97,15 @@ mod tests {
     #[test]
     fn simultaneous_actions_have_independent_edges() {
         let mut frame = InputFrame::default();
-        frame.advance(RawInput { jump: true, ..RawInput::default() });
-        frame.advance(RawInput { jump: true, ability: true, ..RawInput::default() });
+        frame.advance(RawInput {
+            jump: true,
+            ..RawInput::default()
+        });
+        frame.advance(RawInput {
+            jump: true,
+            ability: true,
+            ..RawInput::default()
+        });
         assert!(!frame.jump_pressed);
         assert!(frame.ability_pressed);
     }

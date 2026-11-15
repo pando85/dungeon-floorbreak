@@ -107,10 +107,9 @@ fn move_placeholder(
     mut heroes: Query<&mut Transform, With<PlaceholderHero>>,
 ) {
     for mut transform in &mut heroes {
-        transform.translation.x = (transform.translation.x
-            + input.0.held.move_x * 135.0 * time.delta_secs())
-            .clamp(-290.0, 290.0)
-            .round();
+        let next_x =
+            transform.translation.x + input.0.held.move_x * 135.0 * time.delta_secs();
+        transform.translation.x = next_x.clamp(-290.0, 290.0).round();
     }
 }
 
