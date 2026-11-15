@@ -13,6 +13,7 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-007 | P0 | Art | Canonical dark pixel-art style bible and demo palette | Human signoff at 1× and 2× |
 | WORK-008 | P0 | Art | Aseprite Lua export + spritesheet/pivot/tag validation | CI artifact from source; consistent alpha/pivot |
 | WORK-007/008 follow-up | P0 | Art | Donut floor 1 native scale study (32/40/48 px) and 40 px idle prototype; [write-up](../02-art/donut-scale-study.md), [evidence](../evidence/donut-floor1-scale-study/README.md) | **Awaiting human artistic review.** Proposed 40 px is not locked; the docs' 28-36 px range is unchanged until approval. No Bevy check yet |
+| WORK-007/008 follow-up | P0 | Art | Carl Book 1 native scale study (48/52/56 px) and 52 px idle prototype; [write-up](../02-art/carl-scale-study.md), [evidence](../evidence/carl-book1-scale-study/README.md) | **Awaiting human artistic review.** Proposed 52 px is not locked. Open canon questions: sleeves, Crocs, smiley pin. No 6-frame run and no Bevy check yet |
 | WORK-009 | P1 | Slice | Carl/demolitionist bomb + one melee attack | Deterministic damage and cooldown tests |
 | WORK-010 | P1 | Slice | Donut/caster spell controlling a chaser | Cooperative combo recording and unit tests |
 | WORK-011 | P1 | Slice | One LDtk authored room with two paths and critical geometry | Schema check; path invariants under blasts |
