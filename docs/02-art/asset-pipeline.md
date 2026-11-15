@@ -4,6 +4,64 @@
 
 All visual assets have editable source, generated build output, metadata, provenance, deterministic regeneration where possible and a quick way for agents to inspect before merge. The pipeline must work on Linux in CI without a GUI for normal export tasks.
 
+## WORK-008 implementation — headless CLI and CI
+
+**Implementation status:** pipeline tooling exists in `scripts/art_pipeline.py`; a real
+editor export is executed on each PR by `.github/workflows/art.yml`. A tiny,
+original, neutral two-frame `.aseprite` file is included exclusively for
+tests. **No Donut or Carl production sprites exist yet.** The actual
+character source/art and visual acceptance are separate future work.
+
+The CLI accepts Aseprite or compatible LibreSprite. CI uses a pinned LibreSprite
+1.3 AppImage with a recorded upstream SHA-256 (no proprietary Aseprite license
+required on GitHub runners). The CLI is the export automation; custom
+Aseprite Lua generation is intentionally deferred until authoring operations
+require scripts, rather than shipping untested Lua.
+
+Install Python 3.12 and Pillow 12.2.0 (CI pins the version). With an editor
+available locally (set `ASEPRITE_BIN` if not named `aseprite`):
+
+```sh
+python3 -m pip install 'Pillow==12.2.0'
+python3 -m unittest discover -s tests -p 'test_art_pipeline.py' -v
+python3 scripts/art_pipeline.py export \
+  --manifest tests/fixtures/neutral_smoke.manifest.json \
+  --editor "$ASEPRITE_BIN"
+python3 scripts/art_pipeline.py validate \
+  --manifest tests/fixtures/neutral_smoke.manifest.json
+```
+
+Set `ASEPRITE_BIN=/path/to/aseprite` or supply `--editor /path/to/libresprite`
+for a local export. CI calls the same exporter with LibreSprite's extracted
+`AppRun`. Outputs are never committed; they reside under `generated/`
+and evidence under `artifacts/art/`. The workflow uploads the PNG atlas,
+Aseprite JSON array, a 6× nearest-neighbor contact sheet, looping GIF,
+validation report and repeat-export hash evidence.
+
+### Contract enforced by the exporter
+
+- Input is an **editable** `.aseprite` or `.ase` source with named timeline tags,
+  accompanied by a JSON v1 manifest; no generated concept sheet is accepted
+  as sprite source.
+- Export is untrimmed and unrotated, with 2 px between sheet cells to avoid
+  atlas bleeding; every frame has a valid positive duration.
+- Every frame must be covered by exactly one tag, fit inside the atlas, have
+  the requested dimensions and contain visible pixels. Transparent borders
+  are required when `required_alpha` is true.
+- Palette color budget is optional and explicit; source and atlas paths are
+  restricted to repository-safe locations.
+- Frame-local pivots are documented as **one fixed pixel pivot per source
+  frame**; character movement/hitbox reconciliation remains a separate
+  runtime step (WORK-012/animation QA). No false claim of per-frame
+  alignment verification is made.
+- A second export at the same path must produce **identical PNG and JSON
+  checksums**. A non-repeatable export fails CI.
+
+**Next agent deliverable:** replace the neutral fixture with a real Aseprite
+Donut `caster` prototype only after art approval, native-scale readability
+tests and applicable rights review; keep the original approved illustrated
+concept in its reference folder.
+
 ## Proposed tools
 
 - **Aseprite** with Lua scripting and CLI export (`.aseprite` → sprite sheets + JSON).
