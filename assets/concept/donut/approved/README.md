@@ -1,24 +1,28 @@
 # Princess Donut — approved evolution concept, v1
 
-> **Approved visual identity; exact PNG transfer pending.** The project owner approved the look and eight-stage progression in the conversation on **2026-11-15**, then explicitly requested the asset be added to this public repository. This approval concerns the **character's artistic identity and evolution**, not a literal primary-source account of dungeon floors, loot or classes.
+> **Approved visual identity; original PNG committed and source-verified.** The project owner approved the look and eight-stage progression in the conversation on **2026-11-15**, then explicitly requested the asset be added to this public repository. This approval concerns the **character's artistic identity and evolution**, not a literal primary-source account of dungeon floors, loot or classes.
 
 ## Selected image and integrity
 
 - **Approved master filename:** `Princess_Donut_Evolution_Gear_Bible_v1.png`
-- **Current Git status:** **NOT YET COMMITTED.** Do not claim this reference is available at the path above until the binary is uploaded and checked.
+- **Current Git status:** **COMMITTED and verified against the approved original** on 2026-11-15 (Git blob SHA-1: `00afd85d7e4e73536b2279e5fc081a82f445ede0`).
 - **Original source name:** `a_richly_detailed_polished_infographic_character.png` (generated project image).
 - **Dimensions:** 1536 × 1024, RGB PNG.
 - **Size:** 2,748,987 bytes.
 - **Expected source SHA-256:** `5ca0870ef3e679730c5dd40857d555b6bffa6c8d2a10644464c699471d025c9a`.
 
-### Pending upload procedure
+### Source verification
 
-1. Place the **unchanged approved original PNG** in this directory under the selected master filename. Do not upload a chat thumbnail, screenshot, downscaled JPEG or regenerated replacement.
-2. Run `sha256sum Princess_Donut_Evolution_Gear_Bible_v1.png` and verify that the printed hash **exactly** matches the value above.
-3. Create a `SHA256SUMS` file containing the expected SHA-256, two spaces, and the approved filename. The repository documentation checker validates all committed checksum manifests.
-4. Update this README to mark the actual repository image as present. Make this PR ready only after the asset, checksum and `python3 scripts/check_docs.py` checks are green.
+The original approved PNG is committed unchanged. The repository Git blob SHA-1 (`00afd85d7e4e73536b2279e5fc081a82f445ede0`) matches a `git hash-object` calculation performed against the exact approved file bytes; the approved source SHA-256 is `5ca0870ef3e679730c5dd40857d555b6bffa6c8d2a10644464c699471d025c9a`.
 
-**Why no checksum manifest yet?** The validator intentionally fails when a `SHA256SUMS` entry references a missing image. We leave the PR in draft until the original binary can be uploaded.
+Verify after checkout:
+
+```sh
+cd assets/concept/donut/approved
+sha256sum -c SHA256SUMS
+```
+
+Do not substitute a chat thumbnail, screenshot, downscaled JPEG or regenerated lookalike.
 
 ## Approved visual information
 
@@ -39,4 +43,4 @@ The source contains tiny mock sprites, a mock turnaround, expression studies and
 
 ## Design/art pipeline
 
-Once the binary is present and hash-verified, create editable source sprites **from the design** rather than cropping miniature pseudo-sprites from the infographic. Compare the first and later equipment stages at actual native camera scale before treating either as production ready.
+Create editable source sprites **from the design** rather than cropping miniature pseudo-sprites from the infographic. Compare the first and later equipment stages at actual native camera scale before treating either as production ready.
