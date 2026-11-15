@@ -2,6 +2,7 @@
 """Documentation-only repository checks (no third-party Python dependencies)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -40,6 +41,27 @@ def main() -> int:
                 failures.append(f"Broken local link: {file.relative_to(ROOT)} -> {dest}")
         if "TODO_FILL_ME" in text or "lorem ipsum" in text.lower():
             failures.append(f"Unfinished placeholder: {file.relative_to(ROOT)}")
+    # Verify version-controlled approved concept image(s) against their manifests.
+    # This is intentionally strict: silently changing the approved master is not allowed.
+    for sums_file in sorted(ROOT.rglob("SHA256SUMS")):
+        for line_number, record in enumerate(
+            sums_file.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            if not record.strip() or record.startswith("#"):
+                continue
+            match = re.fullmatch(r"([0-9a-fA-F]{64})  (.+)", record)
+            if not match:
+                failures.append(f"Invalid checksum manifest entry: {sums_file.relative_to(ROOT)}:{line_number}")
+                continue
+            expected_hash, filename = match.groups()
+            target = (sums_file.parent / filename).resolve()
+            if not target.is_relative_to(sums_file.parent.resolve()) or not target.is_file():
+                failures.append(f"Missing or invalid approved asset: {sums_file.relative_to(ROOT)}:{line_number} -> {filename}")
+                continue
+            actual_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+            if actual_hash.lower() != expected_hash.lower():
+                failures.append(f"Approved asset checksum mismatch: {target.relative_to(ROOT)}")
+
     for file in json_files:
         try:
             json.loads(file.read_text(encoding="utf-8"))

@@ -12,7 +12,7 @@ All designs must obey [`the 80s/90s everyman antihero creative rule`](../01-desi
 
 ## Approved Carl design reference
 
-Carl's four-stage appearance and evolution are **approved by the project owner**; see [`carl-character-bible.md`](carl-character-bible.md) before commissioning or generating further Carl art. Hair stays short-messy, gradually fuller/shaggier, not a default long ponytail; his face and physique remain ordinary, with earned charisma and only modest functional strength. The project owner confirms permission to publish approved **concept images** in the public community repository; the [approved Carl concept directory](../../assets/concept/carl/approved/README.md) contains metadata and the target path for the image (binary upload pending), with SHA-256 recorded for verification. This does **not** authorize distribution of the game.
+Carl's four-stage appearance and evolution are **approved by the project owner**; see [`carl-character-bible.md`](carl-character-bible.md) before commissioning or generating further Carl art. Hair stays short-messy, gradually fuller/shaggier, not a default long ponytail; his face and physique remain ordinary, with earned charisma and only modest functional strength. The project owner confirms permission to publish approved **concept images** in the public community repository; the [approved Carl concept directory](../../assets/concept/carl/approved/README.md) includes the committed and source-verified image, provenance, and SHA-256 validation manifest. This does **not** authorize distribution of the game.
 
 ## Initial screen and scale hypotheses
 

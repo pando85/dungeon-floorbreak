@@ -4,14 +4,14 @@
 
 ## Image
 
-**Expected file:** `assets/concept/carl/approved/Carl_Concept_Approved_v1.png` (add the PNG to this branch; do not merge before upload).
+**Approved file:** [`Carl_Concept_Approved_v1.png`](Carl_Concept_Approved_v1.png), committed and verified against the approved source image on 2026-11-15.
 
-**Upload status:** The image must be added separately to this branch by the project owner (binary transfer not available through the current GitHub integration). Once uploaded, this link resolves. Do not merge the artwork-publication PR until the PNG exists and the checksum passes.
+**Publication status:** The approved source image is present on `main`. Git blob SHA-1 is `448093e77f297bc07fba748741284c567581ee54` (verified against the source file) and the SHA-256 below is recorded in `SHA256SUMS`. Subsequent changes require a new approved asset version.
 
 **Integrity:** 1671 × 941 pixels, RGB PNG, 2,538,334 bytes; SHA-256:
 `b90fb91c3995449cd4a3c909c8407e767de3c706bcc4910c9ef1d7a69de50e31`
 
-Verify from repository root:
+Verify from this directory:
 
 ```sh
 cd assets/concept/carl/approved
