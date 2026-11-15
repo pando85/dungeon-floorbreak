@@ -13,6 +13,22 @@ The owner also noted that **the illustrated Carl is not exactly the previously a
 
 This approval does **not** signify acceptance of sprite fidelity at 1x, runtime readability, Bevy rendering, level geometry, camera behavior, animations, VFX performance or legal permissions. These remain separate gates.
 
+## Subsequent reference correction (2026-11-15)
+
+The owner clarified that the **two project-generated images in the Art Slice v2
+conversation** (gothic-industrial magenta arena matte and cinematic action scene)
+are the agreed **visual quality/mood references**. Generic web-search imagery
+shown later did **not** match the target; do not use or cite it as a substitute.
+See [art-direction.md](art-direction.md#approved-visual-references--fixed-no-substitutes)
+for the source filenames and approved artistic traits.
+
+**Scope of approval:** room atmosphere, lighting, scenery, visual density,
+explosions and overall tone **only**. The depicted characters are not approved
+or canonical. **Carl's shotgun is explicitly forbidden**; treat the gun as an
+error in a useful environment reference, not as a proposed ability or loadout.
+Refer to the previously approved Carl master and the current character sheet
+for any future portrait, sprite or equipment work.
+
 ## Purpose
 
 Establish one understandable *visual-quality target* for a side-scrolling dark
