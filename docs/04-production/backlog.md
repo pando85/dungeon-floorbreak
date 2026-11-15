@@ -1,6 +1,6 @@
 # Agent-ready prioritized backlog
 
-The repository currently ships design/specification documents only. Status: `proposed` until a PR and actual test evidence say otherwise. See [work order protocol](../07-agents/workorders.md).
+The repository starts with design specifications and the proposed WORK-001 technical spike. Work orders remain `proposed` or `in review` until a PR and actual test evidence say otherwise. See [work order protocol](../07-agents/workorders.md).
 
 | ID | Priority | Stage | Deliverable | Acceptance evidence |
 | --- | --- | --- | --- | --- |

@@ -48,16 +48,23 @@ Implement two short technical spikes before full production: (1) controller + pi
 python3 scripts/check_docs.py
 ```
 
-## Publishing this repository
+## Development status and running the first spike
 
-This repository is publicly hosted at [pando85/dungeon-floorbreak](https://github.com/pando85/dungeon-floorbreak). To fork or re-publish elsewhere using [GitHub CLI](https://cli.github.com/):
+The repository exists publicly at [pando85/dungeon-floorbreak](https://github.com/pando85/dungeon-floorbreak).
+
+WORK-001 adds a **non-playable** native Bevy startup scene and input adapter. Once
+the pull request has passed CI and been merged, on a Linux machine with Rust
+and native Bevy dependencies installed:
 
 ```sh
-cd dungeon-floorbreak
-bash scripts/publish_public.sh
+cargo run
+cargo run -- --headless-action-test
+cargo test --workspace
 ```
 
-That script creates **`pando85/dungeon-floorbreak` as a public GitHub repository** and pushes the documentation. Inspect files and confirm there are no secrets before executing. Adjust `REPO_NAME` in the script if needed. The original public repository already exists; do not run the publishing script against the existing remote.
+The browser-only Game Feel Lab is a separate disposable design experiment, not
+a port of or shared implementation with the Rust game. Do not infer Bevy
+movement, explosions or tile destruction from that experiment.
 
 ## Licensing and rights
 

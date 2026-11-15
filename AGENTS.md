@@ -1,6 +1,6 @@
 # AGENTS.md — Mandatory instructions for local LLM coding agents
 
-You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game concept whose development is AI-driven. The repo currently contains **specifications, not a working game**. Never report a feature as implemented unless you have created and run it.
+You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game concept whose development is AI-driven. The repo contains **specifications and, as WORK-001 progresses, an early non-playable technical spike**. Never equate browser-only experiments or scaffolding with implemented game features. Never report a feature as implemented unless you have created and run it.
 
 ## Read order and authority
 
