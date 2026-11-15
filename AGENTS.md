@@ -6,7 +6,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 
 1. `README.md` for status and scope.
 2. `docs/01-design/vision.md`, `gameplay.md`, `characters.md` for player-facing intent.
-3. `docs/01-design/antihero-tone.md` for the **mandatory, project-wide 1980s–1990s everyman action-antihero creative rule**, followed by `docs/02-art/art-direction.md`, `carl-character-bible.md`, `donut-character-brief.md`, `donut-character-bible.md`, `mongo-character-bible.md`, `animation.md`, `asset-pipeline.md` for art constraints (Carl's visual baseline is **approved**, not a blank brief); see Carl and Donut approved asset directories; Mongo's selected source PNGs are inventoried at `assets/concept/mongo/approved/README.md` but await exact upload and checksum.
+3. `docs/01-design/antihero-tone.md` for the **mandatory, project-wide 1980s–1990s everyman action-antihero creative rule**, followed by `docs/02-art/art-direction.md`, `carl-character-bible.md`, `donut-character-brief.md`, `donut-character-bible.md`, `mongo-character-bible.md`, `animation.md`, `asset-pipeline.md` for art constraints (Carl's visual baseline is **approved**, not a blank brief); see Carl and Donut approved asset directories; Mongo's selected source PNGs are inventoried at `assets/concept/mongo/approved/README.md` and all three originals are committed with a SHA-256 manifest and verified Git blob identities.
 4. `docs/03-tech/architecture.md`, `destruction.md`, `input-camera.md`, `level-data.md`, `testing.md` for implementation.
 5. `docs/04-production/vertical-slice.md`, `roadmap.md`, `backlog.md`, `rights-and-release.md` for sequencing.
 6. `docs/05-decisions/` for decision status; `docs/06-research/sources.md` for checked upstream links.

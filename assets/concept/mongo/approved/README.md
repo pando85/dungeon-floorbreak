@@ -1,6 +1,6 @@
-# Mongo — approved source image register (upload pending)
+# Mongo — approved source image register (originals committed and verified)
 
-**Selected art approved:** 2026-11-15. The original three PNGs below are **not yet present in Git**. Upload the exact source bytes under this directory and include `SHA256SUMS` before marking this PR as a full art delivery.
+**Selected art approved:** 2026-11-15. All three original PNGs have been **committed unchanged**. GitHub blob SHA-1 matches the Git object calculated from each original source PNG; the three SHA-256 values below match the local originals. `SHA256SUMS` is committed alongside the binaries and must continue to pass `sha256sum -c`.
 
 | Destination filename | Conversation source | Resolution | Size (bytes) | SHA-256 |
 | --- | --- | --- | ---: | --- |
@@ -10,7 +10,7 @@
 
 The owner chose the **first four-way exploration board**, then the **growth** board and finally the **adult model/acting** board. The intervening near-duplicate exploration is not the source master.
 
-To finish: upload all three PNGs **unmodified** to `assets/concept/mongo/approved/` on branch `art/mongo-character-bible-v1`; upload `SHA256SUMS` using the exact three hashes and filenames above. Run `sha256sum -c assets/concept/mongo/approved/SHA256SUMS`, `python3 scripts/check_docs.py` and inspect the PR's documentation CI. Do not upload chat thumbnails, recompressed JPGs, crops or replacements. The checksum file is deliberately omitted until the images arrive because CI rejects missing referenced assets.
+**Integrity gate:** the exact original files are present, with matching expected Git blob SHA-1 and original SHA-256 checksums. After checkout, recheck with `sha256sum -c assets/concept/mongo/approved/SHA256SUMS` and `python3 scripts/check_docs.py`. Do not replace them with chat thumbnails, recompressed JPGs, crops or generated lookalikes. A future edit requires a new explicit art revision and human approval.
 
 These are approved **visual concept references only**: no real pixel-art sprites, canonical book facts, gameplay readiness, broad IP license or game distribution rights are claimed.
 

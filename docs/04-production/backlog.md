@@ -20,7 +20,7 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-014 | P1 | Slice | Checkpoint, death/retry, fully controller-driven menu | Gamepad-only 3-minute test session |
 | WORK-015 | P1 | Slice | AI visual regression pipeline and contact sheets | Artifacts attached to PRs; manual review record |
 | WORK-016 | P1 | Slice | Steam Deck-class frame-time instrumentation | Profile captured; no unqualified fps claims |
-| WORK-017 | P2 | After slice | Mongo/charger prototype | Character distinctness + non-softlocking charge; use the approved [Mongo art bible](../02-art/mongo-character-bible.md), check source upload and native-sprite acceptance separately |
+| WORK-017 | P2 | After slice | Mongo/charger prototype | Character distinctness + non-softlocking charge; use the approved [Mongo art bible](../02-art/mongo-character-bible.md), source PNGs uploaded and hash-verified; native-sprite acceptance still pending |
 | WORK-018 | P2 | After slice | Authored small structural collapse | Weak-support graph, VFX and invariant tests |
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |

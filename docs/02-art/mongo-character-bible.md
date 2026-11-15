@@ -2,7 +2,7 @@
 
 **Decision:** CREATIVE-2026-11-15-MONGO-01.  
 **Approval:** Owner approved the preferred first exploration sheet, baby → juvenile → adult evolution, and the adult turnaround/acting board (2026-11-15).  
-**Source status:** The original concept PNGs have known checksums but are **not yet committed**. Add them unmodified before calling the artwork package complete.  
+**Source status:** Three approved original PNGs **committed unchanged and verified** against original Git blob identities; `SHA256SUMS` manifest accompanies them. This is a complete **reference/concept-art package**, not editable gameplay sprites.  
 **Runtime mapping:** Mongo → IP-neutral `charger` (WORK-017, after the initial Carl/Donut slice).
 
 ## Creative north star
@@ -75,7 +75,7 @@ First experiment: a lateral adult idle and 6-frame run in the actual dungeon cam
 
 The franchise-derived character design is a **fan/community concept**, not a licensed/production-ready playable character. The owner reports limited permission to publish approved concept art in this public repository; this does **not** establish distribution, sublicensing or official endorsement. See [rights policy](../04-production/rights-and-release.md).
 
-**Never use generated annotations as book evidence.** [Lore verification tracker](mongo-lore-research.md) explicitly separates primary-source claims from artistic choices. [Approved source register](../../assets/concept/mongo/approved/README.md) and [provenance](../../assets/concept/mongo/approved/provenance.md) record original exact PNG identities. Until raw PNGs and their SHA256SUMS are uploaded and verified, this is **documentation of an approved design, not a complete asset package**.
+**Never use generated annotations as book evidence.** [Lore verification tracker](mongo-lore-research.md) explicitly separates primary-source claims from artistic choices. [Approved source register](../../assets/concept/mongo/approved/README.md) and [provenance](../../assets/concept/mongo/approved/provenance.md) record original exact PNG identities. The original PNGs are now committed, Git blob identity-verified and covered by `SHA256SUMS`. This is a completed **approved concept reference package**; native-resolution editable Aseprite sprites, primary-book lore verification and game distribution remain separate gates.
 
 **Do:** preserve the approved pink/red feathered D+B adult; baby/juvenile/adult continuity; affection, impulse and danger; clean native-scale pixel art; evidence-driven lore.  
 **Do not:** add unapproved shotgun/weapon props, make a permanent angry beast, inflate the adult into a tank, invent chapter/floor acquisition timing, or treat concept-board sprites as actual assets.
