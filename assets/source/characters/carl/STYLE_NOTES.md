@@ -12,7 +12,7 @@ Round 2 replaces every pixel of round 1. The round-1 review found a mid-brown ja
 | `carl_h52.grid.json` | 52 px | 36 x 56 | [19, 55] | 23 keys, all used |
 | `carl_h56.grid.json` | 56 px | 40 x 60 | [22, 59] | 23 keys, all used |
 
-- `pixel-grid-v1`, one frame (200 ms) tagged `idle`, fully opaque, 4 rows of headroom, hair top is the highest pixel (row 4) and the bottom row is the contact row.
+- `pixel-grid-v1`. 48 and 56 are one frame (200 ms) tagged `idle`. **52 has a 4-frame `idle` (frames 0 to 3, `forward`)**; see [52 px idle](#52-px-idle-4-frames). All are fully opaque, with 4 rows of headroom, hair top is the highest pixel (row 4) and the bottom row is the contact row.
 - `scripts/pixel_grid_to_ase.py lint GRID --strict --expect-height N` exits 0 for all three: 0 orphans, 0 isolated pixels, contact row equals pivot y. `build` also succeeds. No `.ase`, manifest or export is committed in this round.
 - Pivot x is the midpoint between the two Croc sole runs on the contact row. At 52 it is exact (13.5 and 24.5 give 19). At 48 (12 and 23) and 56 (15 and 28) the true centre is x.5 and is rounded to 18 and 22.
 
@@ -164,11 +164,36 @@ Every round compared 1x, 2x, 4x and 6x renders on `#191a2c` and `#2c2841` with a
 - **Hearts at 1x:** they are red specks. At 2x they are only "v"-ish marks. They read as hearts at 4x and above.
 - **Pin and watch:** the pin is a 2 x 2 yellow square with no smiley face. The watch is a dark band with a light 1 or 2 px face.
 - **Run conversion:** the body is three-quarter (about 45 degrees) and the head is turned further toward camera. A side-view `run` will need the torso rotated closer to profile and the head redrawn. The near hand also covers the near side of the boxers.
-- **Jacket on `#191a2c`:** the outline nearly merges with the background, so the jacket silhouette there relies on the sheen and glint pixels.
+- **Jacket on `#191a2c`:** the outline nearly merges with the background. On 52 the near sleeve now has a lit sheen rim instead of a dark outline on its left edge (see the idle section), which separates it there. The far sleeve and the 48 and 56 masters still rely on sheen and glint pixels.
 - **Hair at 1x:** the mop reads as tousled at 2x and above. At 1x it is a brown cap, though no longer a spiky crest.
 - **Legs and Crocs:** the legs are simple ramps with little calf or knee modelling. The two Crocs share one design, with no individual wear.
 - **Pivot rounding:** at 48 and 56 the pivot is a half-pixel rounding of the true feet centre.
 - **Unreviewed:** no human has judged these in a game scene yet. Silhouette, personality and relative scale need owner review.
+
+## 52 px idle (4 frames)
+
+Every frame is derived from the frame-0 master by scripted, listed edits. No frame is redrawn independently and no limb is rotated. Tag `idle`, frames 0 to 3, direction `forward`, 1500 ms loop.
+
+| Frame | Duration | Change from frame 0 | Top row / height |
+| --- | --- | --- | --- |
+| 0 | 420 ms | master: chest up, bewildered face (raised far brow, open mouth, eyes looking right) | 4 / 52 |
+| 1 | 260 ms | exhale: row 26 is dropped and every layer row above it moves down 1 px, so the head, hair, shoulders, chest, collar, pin and upper sleeves settle by 1 px. The pocket glint is pinned in place so it does not blink. Rows 26 and 27 of the master differ only in that glint, so the seam is invisible | 5 / 51 |
+| 2 | 560 ms | frame 1 plus an irritated side-glance: both pupils swap to the back of the eye (`Ep` to `pE`), the far brow drops from its raised position into a level scowl, and the open mouth closes to a flat 2 px line | 5 / 51 |
+| 3 | 260 ms | frame 0 (chest back up) still holding the glance edits from frame 2 | 4 / 52 |
+
+- **Beat:** startled, then "...seriously?" He settles, side-eyes back over his shoulder with a scowl, straightens, and the face resets to bewildered at the loop. The body bob (frames 0 to 1 and 2 to 3) and the face change (frames 1 to 2 and 3 to 0) never happen on the same frame.
+- **Fixed parts:** nothing at or below row 27 changes in any frame: cuffs, hands, watch, boxers, hearts, legs and Crocs. The contact row 55 is identical in all four frames, the pivot stays [19, 55], and lint reports 0 px bottom-row drift. Pixels changed against frame 0: 0 / 199 / 198 / 11.
+- **Lint:** `lint --strict --expect-height 52` passes: 0 orphans and 0 isolated pixels in every frame. Frame 0 height is 52; frames 1 and 2 measure 51 because the head bobs down.
+- **Review:** GIFs at 1x and 4x on both backgrounds, a 6x strip with a pivot marker, and a per-frame diff map, all outside the repository. There is no jitter in the hands or feet and no shimmer in the jacket. The 1 px head and shoulder drop is visible at 4x and just perceptible at 1x.
+- **Frame-0 polish in this pass (low risk):** the near sleeve's left silhouette edge (rows 18 to 30) is now the lit `T` sheen instead of the `K` outline. The column inside it went to base `j`, and the bunched cuff keeps its sheen. 21 px changed. This separates the sleeve from `#191a2c`, where `K` is almost the background colour. I did **not** change heart readability at 2x: `R.R / RRR / .R.` is the smallest heart with a notch, and a bigger heart would mean re-laying out the whole print, which is not low risk.
+
+## What a 6-frame run would need from this master
+
+- **Profile torso:** rotate the torso from about 45 degrees to near profile. The open jacket then shows as a front panel edge, a sliver of chest and a swinging hem. The pin moves to the visible front panel.
+- **Profile head:** a one-eye head built from the 52 face parts (low brow, eye white plus pupil, nose tip past the face line), not the current camera-facing glance.
+- **Arm and leg layers:** the near and far arms need complete shoulder-to-hand cels for the swing. The thighs must be drawn up to the waist, since they are currently filled only about 3 rows under the boxer hem.
+- **Crocs:** a second, foreshortened push-off pose plus the planted version. The contact row and pivot rules stay as here, with an awkward, slightly heavy stride rather than an athletic one.
+- **Bob:** reuse the idle's row-drop technique for the 1 px body bob instead of redrawing.
 
 ## Open canon questions
 
