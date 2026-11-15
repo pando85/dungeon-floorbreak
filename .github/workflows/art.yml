@@ -1,0 +1,65 @@
+name: art-pipeline
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: art-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  aseprite-export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned image validation dependency
+        run: python3 -m pip install 'Pillow==12.0.0'
+      - name: Unit-test manifest, atlas, pivot and animation contracts
+        run: python3 -m unittest discover -s tests -p 'test_art_pipeline.py' -v
+      - name: Install pinned LibreSprite v1.3 CLI for real source export
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 \
+            https://github.com/LibreSprite/LibreSprite/releases/download/v1.3/libresprite-v1.3-linux-x86_64.AppImage \
+            -o /tmp/libresprite-v1.3.AppImage
+          echo 'fd90bddda8135fe00f4a9a9c8c9ebd48f9b07e8782ab269be5c9efb1a851af30  /tmp/libresprite-v1.3.AppImage' | sha256sum -c -
+          chmod +x /tmp/libresprite-v1.3.AppImage
+          /tmp/libresprite-v1.3.AppImage --appimage-extract >/dev/null
+          ./squashfs-root/AppRun --version
+      - name: Export actual editable Aseprite fixture and generate previews
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/art
+          python3 scripts/art_pipeline.py export \
+            --manifest tests/fixtures/neutral_smoke.manifest.json \
+            --editor "$PWD/squashfs-root/AppRun" \
+            > artifacts/art/export-report.json
+          python3 scripts/art_pipeline.py validate \
+            --manifest tests/fixtures/neutral_smoke.manifest.json
+      - name: Verify byte-for-byte repeatable export from same source
+        run: |
+          set -euo pipefail
+          sha256sum generated/art/neutral_smoke.png generated/art/neutral_smoke.json > /tmp/first-export.sha
+          python3 scripts/art_pipeline.py export \
+            --manifest tests/fixtures/neutral_smoke.manifest.json \
+            --editor "$PWD/squashfs-root/AppRun" \
+            > artifacts/art/repeated-export-report.json
+          sha256sum generated/art/neutral_smoke.png generated/art/neutral_smoke.json > /tmp/second-export.sha
+          diff -u /tmp/first-export.sha /tmp/second-export.sha
+          cp /tmp/second-export.sha artifacts/art/verified-sha256.txt
+      - name: Upload contact sheet, GIF, atlas and metadata evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: work-008-art-pipeline-evidence
+          path: |
+            generated/art/neutral_smoke.png
+            generated/art/neutral_smoke.json
+            artifacts/art/
+          if-no-files-found: warn
