@@ -46,3 +46,13 @@ The concept illustration alone does **not** meet its acceptance gate.
 **Expected acceptance:** `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo run`; include actual test logs and a screenshot from a Linux session. Report skipped GPU/hardware test honestly.
 
 **Notes:** Pin the specific 0.20 patch release after checking current crate metadata; do not blindly copy API examples from older Bevy versions. Obtain human acceptance of pixel scaling before WORK-003.
+
+## WORK-008 execution state
+
+The first Aseprite-compatible art pipeline is implemented in PR (in review),
+using three editable original-IP-neutral .ase source fixtures and LibreSprite
+v1.3 in CI. This work order is **not accepted** until CI confirms exporting,
+metadata validation, repeatable output and contact-sheet artifacts. WORK-007
+still requires a human quality review at 1×/2× before any native-resolution
+art direction is treated as production-ready. See the actual implementation
+and limitations in [asset-pipeline.md](../02-art/asset-pipeline.md).
