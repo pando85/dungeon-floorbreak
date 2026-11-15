@@ -1,6 +1,6 @@
 # Agent-ready prioritized backlog
 
-The repository currently ships design/specification documents only. Status: `proposed` until a PR and actual test evidence say otherwise. See [work order protocol](../07-agents/workorders.md).
+The repository includes design docs, a Bevy WORK-001 runtime spike, approved mood references, and WORK-008 editable art/export fixtures. Status of each item depends on its own CI and review evidence; see [work order protocol](../07-agents/workorders.md).
 
 | ID | Priority | Stage | Deliverable | Acceptance evidence |
 | --- | --- | --- | --- | --- |
@@ -49,10 +49,11 @@ The concept illustration alone does **not** meet its acceptance gate.
 
 ## WORK-008 execution state
 
-The first Aseprite-compatible art pipeline is implemented in PR (in review),
-using three editable original-IP-neutral .ase source fixtures and LibreSprite
-v1.3 in CI. This work order is **not accepted** until CI confirms exporting,
-metadata validation, repeatable output and contact-sheet artifacts. WORK-007
-still requires a human quality review at 1×/2× before any native-resolution
-art direction is treated as production-ready. See the actual implementation
-and limitations in [asset-pipeline.md](../02-art/asset-pipeline.md).
+The Aseprite-compatible art pipeline is implemented by **PR #13**, with three
+editable original-IP-neutral .ase source fixtures and LibreSprite v1.3 in CI.
+The export, metadata checks, nine negative tests and byte-identical repeat
+export **passed GitHub Actions**; the 640×360 and 2× contact sheets were
+uploaded as CI evidence. This satisfies the **WORK-008 tooling spike**, but
+not WORK-007's art quality requirement. A human review of actual native-scale
+art is still required before a visual style can be labeled production-ready.
+See [asset-pipeline.md](../02-art/asset-pipeline.md).
