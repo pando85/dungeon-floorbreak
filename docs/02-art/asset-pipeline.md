@@ -148,13 +148,21 @@ durations, tags chunk, zlib cels and the **named palette** in a palette chunk).
   character must be a single-character palette key. Palette alpha must be `ff`
   (no antialiasing or partial alpha). Bad row lengths, unknown keys, duplicate
   keys or layers, a pivot outside the canvas and tag ranges are rejected.
+- A palette entry may carry an optional `"accent": true` (catchlight, gem, nose,
+  charm and other deliberate single-pixel details). Omitting it keeps the format
+  backward compatible. Accent keys are exempt from the lint orphan rule below; the
+  `.ase` palette entry name gets a ` [accent]` suffix so the flag round-trips.
 - The pivot is not stored in a way LibreSprite reads (its 1.3 loader rejects the
   slice chunk), so the manifest `pivot` is authoritative; the `.ase` carries it as
   layer user-data text for traceability. Pivot y is the bottom opaque row.
 - `python3 scripts/pixel_grid_to_ase.py lint GRID.json [--strict]
   [--expect-height N]` reports frame-0 silhouette height and bbox, contact row
-  versus pivot, colours used, orphan single pixels and bottom-row drift across
-  frames. `render GRID.json --out DIR [--scale N] [--bg #rrggbb]` writes
+  versus pivot, colours used, orphan and isolated pixels and bottom-row drift
+  across frames. An **orphan** is a non-accent opaque pixel with no same-key pixel
+  in its 8-neighbourhood, so 1 px diagonal outline steps pass; orphans fail only
+  with `--strict`. An **isolated** pixel has no opaque pixel in its 8-neighbourhood
+  at all; it is reported separately, applies to accent keys too and always fails
+  `lint` (exit 1, with or without `--strict`). `render GRID.json --out DIR [--scale N] [--bg #rrggbb]` writes
   nearest-neighbour PNGs per frame for quick review. `build GRID.json OUT.ase`
   converts.
 - **Manifest flow:** `scripts/export_assets.sh` iterates

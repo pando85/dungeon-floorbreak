@@ -32,7 +32,8 @@
   {
    "key": "P",
    "name": "pupil",
-   "rgba": "#101018ff"
+   "rgba": "#101018ff",
+   "accent": true
   },
   {
    "key": "M",

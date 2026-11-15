@@ -20,7 +20,9 @@ Grid format (JSON)::
 ``.`` is reserved for fully transparent. Every other character must be a
 palette key (single character, not whitespace). Only fully opaque or fully
 transparent pixels exist: palette alpha must be ``ff``. A layer missing from a
-frame's ``cels`` is an empty cel.
+frame's ``cels`` is an empty cel. A palette entry may add ``"accent": true`` for
+deliberate single-pixel details (catchlight, gem, nose, charm); accent keys are
+exempt from the lint orphan rule (isolated pixels are still always errors).
 
 Subcommands: ``build``, ``lint``, ``render``, ``to-grid``.
 """
@@ -41,6 +43,7 @@ _DIRECTION_NAMES = {v: k for k, v in DIRECTIONS.items()}
 _RGBA = re.compile(r"^#([0-9a-fA-F]{8})$")
 _TAG_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 PIVOT_PREFIX = "pivot="
+ACCENT_SUFFIX = " [accent]"  # palette-entry name marker for accent keys
 MAX_CANVAS = 4096
 
 
@@ -98,7 +101,12 @@ def validate_grid(grid: dict) -> dict:
              f"palette key {key!r} needs a printable name")
         r, g, b, a = parse_rgba(entry["rgba"])
         _req(a == 255, f"palette key {key!r}: only fully opaque colours allowed (alpha ff)")
+        accent = entry.get("accent", False)
+        _req(isinstance(accent, bool), f"palette key {key!r}: accent must be true or false")
+        _req(not name.endswith(ACCENT_SUFFIX), f"palette key {key!r}: name must not end with {ACCENT_SUFFIX!r}")
         keys[key] = {"key": key, "name": name, "rgba": f"#{r:02x}{g:02x}{b:02x}ff"}
+        if accent:
+            keys[key]["accent"] = True
     _req(len(palette) <= 255, "palette supports at most 255 keys")
 
     layers = grid.get("layers")
@@ -290,7 +298,8 @@ def grid_to_ase(grid: dict) -> bytes:
                 chunks.append(_chunk(0x2018, body))
             # Named palette: entry 0 transparent, then keys in declared order.
             entries = [(".", "transparent", (0, 0, 0, 0))] + [
-                (e["key"], e["name"], keys[e["key"]]) for e in grid["palette"]]
+                (e["key"], e["name"] + (ACCENT_SUFFIX if e.get("accent") else ""),
+                 keys[e["key"]]) for e in grid["palette"]]
             body = struct.pack("<III8x", len(entries), 0, len(entries) - 1)
             for key, name, (r, g, b, a) in entries:
                 body += struct.pack("<HBBBB", 1, r, g, b, a) + _string(f"{key}:{name}")
@@ -430,8 +439,13 @@ def ase_to_grid(data: bytes) -> dict:
     palette, by_rgba = [], {}
     for entry_name, rgba in parsed["palette"][1:]:
         key, _, name = entry_name.partition(":")
+        accent = name.endswith(ACCENT_SUFFIX)
+        if accent:
+            name = name[:-len(ACCENT_SUFFIX)]
         palette.append({"key": key, "name": name,
                         "rgba": "#%02x%02x%02x%02x" % rgba})
+        if accent:
+            palette[-1]["accent"] = True
         by_rgba.setdefault(rgba, key)
     frames = []
     for frame in parsed["frames"]:
@@ -473,19 +487,30 @@ def _bbox(flat: list[list[str]]):
     return [min(xs), min(ys), max(xs), max(ys)]
 
 
-def _orphans(flat: list[list[str]]) -> list[list[int]]:
+_NEIGHBOURS = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
+
+
+def _stray_pixels(flat: list[list[str]], accents: set[str]) -> tuple[list[list[int]], list[list[int]]]:
+    """Return ``(orphans, isolated)`` pixel coordinates.
+
+    isolated: opaque pixel with no opaque pixel in its 8-neighbourhood (always an
+    error, even for accent keys). orphan: a non-isolated, non-accent pixel with no
+    same-key pixel in its 8-neighbourhood. Diagonal steps therefore never count.
+    """
     h, w = len(flat), len(flat[0])
-    found = []
+    orphans, isolated = [], []
     for y in range(h):
         for x in range(w):
             c = flat[y][x]
             if c == TRANSPARENT:
                 continue
-            same = any(0 <= nx < w and 0 <= ny < h and flat[ny][nx] == c
-                       for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)))
-            if not same:
-                found.append([x, y])
-    return found
+            around = [flat[y + dy][x + dx] for dx, dy in _NEIGHBOURS
+                      if 0 <= x + dx < w and 0 <= y + dy < h]
+            if all(n == TRANSPARENT for n in around):
+                isolated.append([x, y])
+            elif c not in accents and c not in around:
+                orphans.append([x, y])
+    return orphans, isolated
 
 
 def lint_grid(grid: dict) -> dict:
@@ -494,10 +519,11 @@ def lint_grid(grid: dict) -> dict:
     px, py = grid["pivot"]
     frames = []
     used: dict[str, int] = {}
+    accents = {e["key"] for e in grid["palette"] if e.get("accent")}
     for fi in range(len(grid["frames"])):
         flat = composite_keys(grid, fi)
         box = _bbox(flat)
-        orphans = _orphans(flat)
+        orphans, isolated = _stray_pixels(flat, accents)
         for row in flat:
             for c in row:
                 if c != TRANSPARENT:
@@ -510,6 +536,7 @@ def lint_grid(grid: dict) -> dict:
             "width": None if box is None else box[2] - box[0] + 1,
             "bottom_row": None if box is None else box[3],
             "orphan_pixels": orphans,
+            "isolated_pixels": isolated,
         })
     first = frames[0]
     bottoms = [f["bottom_row"] for f in frames if not f["empty"]]
@@ -525,10 +552,22 @@ def lint_grid(grid: dict) -> dict:
         "colors_declared_unused": sorted(set(names) - set(used)),
         "frame0_orphan_count": len(first["orphan_pixels"]),
         "orphan_count_per_frame": [len(f["orphan_pixels"]) for f in frames],
+        "frame0_isolated_count": len(first["isolated_pixels"]),
+        "isolated_count_per_frame": [len(f["isolated_pixels"]) for f in frames],
+        "accent_keys": sorted(accents),
         "bottom_row_drift": (max(bottoms) - min(bottoms)) if bottoms else 0,
         "every_frame_bottom_equals_pivot": all(b == py for b in bottoms),
         "frames": frames,
     }
+
+
+def lint_errors(report: dict) -> list[str]:
+    """Findings that fail ``lint`` even without ``--strict``."""
+    if any(report["isolated_count_per_frame"]):
+        where = [(f["frame"], p) for f in report["frames"] for p in f["isolated_pixels"]][:5]
+        return [f"isolated pixels (no opaque 8-neighbour) per frame: "
+                f"{report['isolated_count_per_frame']}, first (frame, [x, y]): {where}"]
+    return []
 
 
 def lint_problems(report: dict) -> list[str]:
@@ -539,6 +578,7 @@ def lint_problems(report: dict) -> list[str]:
         problems.append(f"bottom row drifts by {report['bottom_row_drift']} px across frames")
     elif not report["every_frame_bottom_equals_pivot"]:
         problems.append("a frame's bottom row differs from pivot y")
+    problems += lint_errors(report)
     if any(report["orphan_count_per_frame"]):
         problems.append(f"orphan pixels per frame: {report['orphan_count_per_frame']}")
     if any(f["empty"] for f in report["frames"]):
@@ -594,7 +634,8 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("lint", help="measure silhouette/contact/orphans/drift")
     p.add_argument("grid", type=Path)
     p.add_argument("--json", action="store_true", help="print full JSON report")
-    p.add_argument("--strict", action="store_true", help="exit 1 if problems are found")
+    p.add_argument("--strict", action="store_true",
+                   help="exit 1 on any problem (isolated pixels always fail)")
     p.add_argument("--expect-height", type=int, help="required frame-0 silhouette height")
     p = sub.add_parser("render", help="nearest-neighbour PNG per frame + strip")
     p.add_argument("grid", type=Path)
@@ -625,11 +666,13 @@ def main(argv: list[str] | None = None) -> int:
                       f"{'==' if report['contact_row_matches_pivot'] else '!='} pivot y {report['pivot'][1]}")
                 print("colors used: " + ", ".join(
                     f"{k}={v['name']}({v['pixels']})" for k, v in report["colors_used"].items()))
-                print(f"orphan pixels per frame: {report['orphan_count_per_frame']}")
+                print(f"orphan pixels per frame: {report['orphan_count_per_frame']} "
+                      f"(8-neighbourhood, accent keys exempt: {report['accent_keys']})")
+                print(f"isolated pixels per frame: {report['isolated_count_per_frame']}")
                 print(f"bottom row drift across frames: {report['bottom_row_drift']} px")
             for problem in problems:
                 print(f"LINT: {problem}", file=sys.stderr)
-            if args.strict and problems:
+            if lint_errors(report) or (args.strict and problems):
                 return 1
         elif args.cmd == "render":
             for path in render_frames(load_grid(args.grid), args.out, args.scale, args.bg,

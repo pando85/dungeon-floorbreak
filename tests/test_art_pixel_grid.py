@@ -100,6 +100,64 @@ class CommittedSourceTests(unittest.TestCase):
         self.assertGreaterEqual(checked, 1)  # the neutral blob fixture at least
 
 
+def tiny_grid(rows: list[str], accent: bool = False) -> dict:
+    """Single-layer grid: K = body key, A = optional accent key; pivot on the last row."""
+    return {"format": "pixel-grid-v1", "canvas": [len(rows[0]), len(rows)],
+            "pivot": [0, len(rows) - 1],
+            "palette": [{"key": "K", "name": "body", "rgba": "#304050ff"},
+                        {"key": "A", "name": "accent", "rgba": "#ffd040ff", "accent": accent}],
+            "layers": ["l"], "frames": [{"duration_ms": 100, "cels": {"l": rows}}], "tags": []}
+
+
+class OrphanRuleTests(unittest.TestCase):
+    def test_diagonal_staircase_is_not_an_orphan(self) -> None:
+        report = pg.lint_grid(tiny_grid(["K.....", ".K....", "..K...", "...K..", "....K.", ".....K"]))
+        self.assertEqual(report["frame0_orphan_count"], 0)
+        self.assertEqual(report["frame0_isolated_count"], 0)
+        self.assertEqual(pg.lint_problems({**report, "contact_row_matches_pivot": True,
+                                           "every_frame_bottom_equals_pivot": True}), [])
+
+    def test_accent_key_is_exempt_from_orphan_rule(self) -> None:
+        rows = ["KKK.", "KKKA", "KKK.", "KKK."]  # A touches K only (orthogonally)
+        report = pg.lint_grid(tiny_grid(rows, accent=True))
+        self.assertEqual(report["frame0_orphan_count"], 0)
+        self.assertEqual(report["accent_keys"], ["A"])
+
+    def test_true_orphan_is_flagged(self) -> None:
+        rows = ["KKK.", "KKKA", "KKK.", "KKK."]
+        report = pg.lint_grid(tiny_grid(rows, accent=False))
+        self.assertEqual(report["frames"][0]["orphan_pixels"], [[3, 1]])
+        self.assertEqual(report["frame0_isolated_count"], 0)
+        self.assertTrue(any("orphan" in p for p in pg.lint_problems(report)))
+        self.assertEqual(pg.lint_errors(report), [])  # orphans are strict-only problems
+
+    def test_isolated_pixel_is_always_an_error(self) -> None:
+        rows = ["KK..", "KK..", "....", "...K"]
+        for accent_key in (False, True):
+            rows_a = rows[:3] + ["...A"]
+            report = pg.lint_grid(tiny_grid(rows_a, accent=accent_key))
+            self.assertEqual(report["frames"][0]["isolated_pixels"], [[3, 3]])
+            self.assertEqual(report["frame0_orphan_count"], 0)
+            self.assertTrue(pg.lint_errors(report))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, "iso.json")
+            path.write_text(json.dumps(tiny_grid(rows)), encoding="utf-8")
+            self.assertEqual(pg.main(["lint", str(path)]), 1)  # fails without --strict
+
+    def test_accent_is_optional_and_validated(self) -> None:
+        g = fixture()
+        self.assertNotIn("accent", next(e for e in pg.validate_grid(g)["palette"] if e["key"] == "O"))
+        g["palette"][0]["accent"] = "yes"
+        with self.assertRaisesRegex(pg.GridError, "accent"):
+            pg.validate_grid(g)
+
+    def test_accent_survives_ase_round_trip(self) -> None:
+        grid = tiny_grid(["KKK.", "KKKA", "KKK.", "KKK."], accent=True)
+        again = pg.ase_to_grid(pg.grid_to_ase(grid))
+        self.assertEqual(again, pg.normalize(grid))
+        self.assertTrue(next(e for e in again["palette"] if e["key"] == "A")["accent"])
+
+
 class HeightMannequinTests(unittest.TestCase):
     def test_mannequin_is_exactly_52_px_and_clean(self) -> None:
         grid = pg.load_grid(ROOT / "assets/source/characters/placeholder/height_mannequin.grid.json")
@@ -107,6 +165,7 @@ class HeightMannequinTests(unittest.TestCase):
         self.assertEqual(report["frame0_silhouette_height"], 52)
         self.assertTrue(report["contact_row_matches_pivot"])
         self.assertEqual(report["frame0_orphan_count"], 0)
+        self.assertEqual(report["frame0_isolated_count"], 0)
         self.assertEqual(report["frame_count"], 1)
         self.assertEqual([t["name"] for t in grid["tags"]], ["idle"])
         self.assertLessEqual(len(report["colors_used"]), 3)  # plain neutral grey-blue
@@ -203,16 +262,6 @@ class GridLintTests(unittest.TestCase):
         self.assertEqual([f["height"] for f in report["frames"]], [18, 17])
         self.assertEqual([f["bottom_row"] for f in report["frames"]], [21, 21])
 
-    def test_orphan_pixels_detected(self) -> None:
-        g = fixture()
-        before = pg.lint_grid(g)["frame0_orphan_count"]
-        row = list(g["frames"][0]["cels"]["gear"][0])
-        row[0] = "A"
-        g["frames"][0]["cels"]["gear"][0] = "".join(row)
-        report = pg.lint_grid(g)
-        self.assertEqual(report["frame0_orphan_count"], before + 1)
-        self.assertIn([0, 0], report["frames"][0]["orphan_pixels"])
-
     def test_drift_and_pivot_mismatch_reported(self) -> None:
         g = fixture()
         g["frames"][1]["cels"]["feet"] = ["." * 20] * 22  # no feet -> body ends row 20
@@ -227,7 +276,7 @@ class GridLintTests(unittest.TestCase):
         self.assertTrue(any("pivot" in p for p in pg.lint_problems(report)))
 
     def test_cli_strict_and_expect_height(self) -> None:
-        self.assertEqual(pg.main(["lint", str(FIXTURE), "--expect-height", "18"]), 0)
+        self.assertEqual(pg.main(["lint", str(FIXTURE), "--strict", "--expect-height", "18"]), 0)
         self.assertEqual(pg.main(["lint", str(FIXTURE), "--strict", "--expect-height", "40"]), 1)
 
 
