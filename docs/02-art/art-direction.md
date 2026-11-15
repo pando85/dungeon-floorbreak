@@ -14,6 +14,10 @@ All designs must obey [`the 80s/90s everyman antihero creative rule`](../01-desi
 
 Carl's four-stage appearance and evolution are **approved by the project owner**; see [`carl-character-bible.md`](carl-character-bible.md) before commissioning or generating further Carl art. Hair stays short-messy, gradually fuller/shaggier, not a default long ponytail; his face and physique remain ordinary, with earned charisma and only modest functional strength. The project owner confirms permission to publish approved **concept images** in the public community repository; the [approved Carl concept directory](../../assets/concept/carl/approved/README.md) includes the committed and source-verified image, provenance, and SHA-256 validation manifest. This does **not** authorize distribution of the game.
 
+## Approved Princess Donut visual identity — source upload pending
+
+The owner selected Donut's **adorable, very round, fluffy tortoiseshell Persian** identity and the eight-stage visual progression as the character's visual north star. Keep giant golden eyes, a tiny muzzle, compact paws, the huge plume tail and a small crown. The later dark/magical variants **must not** replace her cute neutral expression. Bracelets are important continuity motifs, but their names, stats and acquisition floors printed in the AI-generated sheet are **not canon-verified**. See the [Donut character bible](donut-character-bible.md), [gear audit](donut-gear-timeline.md), and [source/reference package](../../assets/concept/donut/approved/README.md). The original PNG is pending upload/sha256 verification; do not treat the miniature concept sprites as genuine gameplay pixel art.
+
 ## Approved mood references — no automatic fidelity target
 
 The project owner reaffirmed on 2026-11-15 that the **two project-generated
