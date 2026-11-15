@@ -25,6 +25,10 @@ The repository currently ships design/specification documents only. Status: `pro
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
 
+## WORK-001 implementation status
+
+A draft Rust/Bevy 0.20.1 startup + input adapter is proposed. See [WORK-001 evidence](WORK-001-evidence.md). **Acceptance pending** CI, committed lockfile, Linux screenshot and physical gamepad/pixel-scale review. WORK-002 and WORK-003 remain unstarted.
+
 ## First agent work order (WORK-001)
 
 **Goal:** start a clean, reproducible Rust 2024 Bevy 0.20.x Linux binary with a 2D pixel camera, empty test level, a gamepad-neutral action map and one headless action test. **No character likenesses.**

@@ -1,0 +1,39 @@
+name: Rust spike
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config
+      - name: Generate dependency lockfile for review
+        run: cargo generate-lockfile
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Unit tests
+        run: cargo test --workspace
+      - name: Headless deterministic action replay
+        run: cargo run -- --headless-action-test
+      - name: Build native binary
+        run: cargo build --workspace
+      - name: Validate documentation
+        run: python3 scripts/check_docs.py
+      - name: Upload generated lockfile for PR follow-up
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-lock-work-001
+          path: Cargo.lock

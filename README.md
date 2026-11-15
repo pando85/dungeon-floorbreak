@@ -1,6 +1,6 @@
 # Dungeon Floorbreak — Design & AI Development Repository
 
-> **Status: concept and documentation only. No playable game or game assets are included.**
+> **Status: early technical spike. No playable game or finished game assets are included.**
 >
 > **Public, unlicensed fan-project concept.** Dungeon Crawler Carl and the characters Carl, Princess Donut, and Mongo are referenced for noncommercial design exploration. This project is **not affiliated with, endorsed by, or licensed by** their rightsholders. **Do not distribute a game, character artwork, dialogue, or other derivative content without the necessary rights.** An original-IP path is defined in [rights and release](docs/04-production/rights-and-release.md).
 
@@ -50,14 +50,14 @@ python3 scripts/check_docs.py
 
 ## Publishing this repository
 
-The GitHub connection used to prepare this archive cannot create a new GitHub repository. Once you have the files locally, with [GitHub CLI](https://cli.github.com/) authenticated:
+This repository is publicly hosted at [pando85/dungeon-floorbreak](https://github.com/pando85/dungeon-floorbreak). To fork or re-publish elsewhere using [GitHub CLI](https://cli.github.com/):
 
 ```sh
 cd dungeon-floorbreak
 bash scripts/publish_public.sh
 ```
 
-That script creates **`pando85/dungeon-floorbreak` as a public GitHub repository** and pushes the documentation. Inspect files and confirm there are no secrets before executing. Adjust `REPO_NAME` in the script if needed. No public GitHub repository is claimed to exist until you run it.
+That script creates **`pando85/dungeon-floorbreak` as a public GitHub repository** and pushes the documentation. Inspect files and confirm there are no secrets before executing. Adjust `REPO_NAME` in the script if needed. The original public repository already exists; do not run the publishing script against the existing remote.
 
 ## Licensing and rights
 
