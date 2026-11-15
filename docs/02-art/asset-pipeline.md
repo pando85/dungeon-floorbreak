@@ -66,7 +66,7 @@ Create face/tail/accessory modules that can be exchanged at runtime or layered i
 
 ## WORK-008 implementation spike — original editable fixtures
 
-**Status:** implementation PR in progress; no human pixel-art quality approval.
+**Status:** functional export pipeline verified in PR #13 CI (all automated jobs green); human pixel-art quality approval remains separate.
 
 Editable Aseprite-native `.ase` sources are committed and compatible with
 Aseprite's documented binary format. For CI we use the **open-source LibreSprite
