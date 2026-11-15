@@ -6,7 +6,7 @@
 | Source identity | `a_richly_detailed_polished_infographic_character.png`, OpenAI-generated image in project conversation |
 | Concept ID | `DONUT-CONCEPT-EVOLUTION-V1` |
 | Approval | 2026-11-15, owner enthusiastically approved final evolution/gear concept and asked to include it in the repository |
-| Current Git status | **Binary pending upload**; README/documentation exists independently |
+| Current Git status | **Exact approved PNG committed and source-verified** in the PR branch (2026-11-15); Git blob SHA-1 `00afd85d7e4e73536b2279e5fc081a82f445ede0` |
 | Character | Princess Donut, fan/community artwork inspired by a third-party literary franchise |
 | Creation process | OpenAI ChatGPT image-generation tool; developed from several human-reviewed Donut character variants and a later increased-cuteness concept |
 | Generator metadata | Image generation ID `e2c25bb6-4c57-4ef3-8a90-707a536d6e5f`; do not invent a product model, exact textual prompt or seed absent from accessible metadata |
@@ -28,7 +28,7 @@ Bracelets/anklets are a key design motif, but the illustrator's depicted bands, 
 
 ## Publishing and replacement controls
 
-- Do **not** mark the approved binary uploaded until the exact file is committed and its SHA-256 is verified.
+- The original approved binary is present; Git blob identity matches the source exactly and `SHA256SUMS` records its approved SHA-256. Validate it after checkout with `sha256sum -c assets/concept/donut/approved/SHA256SUMS`.
 - Do not generate an image from this description as a substitute for the approved binary.
 - If upload changes size/hash, treat it as a different candidate and seek human approval before changing the canonical source record.
 - Do not silently replace this asset with a more polished or different rendition.
