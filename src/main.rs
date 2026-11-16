@@ -73,9 +73,27 @@ fn setup_scene(mut commands: Commands, simulation: Res<Simulation>) {
     for i in 0..12 {
         let x = 85.0 + i as f32 * 180.0;
         for (color, size, dx, dy, depth) in [
-            (Color::srgb_u8(40, 40, 62), Vec2::new(22.0, 250.0), 0.0, 12.0, -8.0),
-            (Color::srgb_u8(56, 48, 65), Vec2::new(110.0, 9.0), 55.0, 108.0, -8.0),
-            (Color::srgb_u8(163, 91, 44), Vec2::splat(10.0), 20.0, 44.0, -5.0),
+            (
+                Color::srgb_u8(40, 40, 62),
+                Vec2::new(22.0, 250.0),
+                0.0,
+                12.0,
+                -8.0,
+            ),
+            (
+                Color::srgb_u8(56, 48, 65),
+                Vec2::new(110.0, 9.0),
+                55.0,
+                108.0,
+                -8.0,
+            ),
+            (
+                Color::srgb_u8(163, 91, 44),
+                Vec2::splat(10.0),
+                20.0,
+                44.0,
+                -5.0,
+            ),
         ] {
             commands.spawn((
                 Sprite::from_color(color, size),
@@ -235,12 +253,10 @@ fn sync_scene(
 
 fn run_headless_smoke() {
     let mut app = App::new();
-    app.add_plugins(MinimalPlugins).add_systems(
-        Startup,
-        |mut commands: Commands| {
+    app.add_plugins(MinimalPlugins)
+        .add_systems(Startup, |mut commands: Commands| {
             commands.spawn(HeroVisual);
-        },
-    );
+        });
     app.update();
     let mut heroes = app.world_mut().query_filtered::<Entity, With<HeroVisual>>();
     assert_eq!(heroes.iter(app.world()).count(), 1);
