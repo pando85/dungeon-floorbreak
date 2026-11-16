@@ -26,4 +26,16 @@ The Floor 1 images use the approved, unchanged environment kit and Donut atlas. 
 
 Run stride (round 2): authored at 6 x 60 ms (slip-free at 133 px/s), 8 px of ground travel per frame, 24 px per step on both feet. Playback rule for integration: `frame_ms = clamp(round(8000 / |vx|), 50, 90)`.
 
-Provenance: design: Opus; execution: Sonnet; review: pending independent Opus. Status: draft, awaiting owner art review.
+Polish round (after the round-2 review): frames 5 and 8 tucked Croc dropped 2 px and moved 1 px left (rows 43-49, x16-21) so 1 to 2 px of shin show under the boxer hem; frame 8 far fist is now a compact 2 x 2 fist at (35-36, 31-32); frame 12 (32,13) and frame 14 (23,19) single-pixel holes filled with outline `K`. Nothing else changed.
+
+## Deviations for owner
+
+- **(a) Two boxer hearts in motion instead of three.** Accepted by the reviewer because a third heart is unavoidable under the translation-only boxer rule.
+- **(b) One added `J` pixel in 10 frames.** It fills a see-through gap in the jacket, so it is not pure translation of the master.
+- **(c) Slip at 185 px/s.** The 50 ms playback floor leaves about 1.25 px of slip per frame at 185 px/s. A 43 ms floor would remove it. This is a timing decision for integration and the owner.
+
+## Review
+
+- Round-2 independent Opus review: ready for owner review; polish round: Sonnet.
+
+Provenance: design: Opus; execution: Sonnet; review: round-2 independent Opus review: ready for owner review; polish round: Sonnet. Status: draft, awaiting owner art review.
