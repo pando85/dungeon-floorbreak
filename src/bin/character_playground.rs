@@ -72,8 +72,8 @@ impl Motion {
     }
 
     fn step(&mut self, horizontal: f32, jump: bool) {
-        self.x = (self.x + horizontal.clamp(-1.0, 1.0) * MOVE_SPEED * TICK_SECONDS)
-            .clamp(-MAX_X, MAX_X);
+        self.x =
+            (self.x + horizontal.clamp(-1.0, 1.0) * MOVE_SPEED * TICK_SECONDS).clamp(-MAX_X, MAX_X);
         if jump && self.elevation <= 0.0 {
             self.vertical_speed = JUMP_SPEED;
         }
@@ -120,7 +120,8 @@ fn main() {
         return;
     }
     let deck = args.iter().any(|arg| arg == "--deck");
-    let (virtual_height, window_height): (f32, u32) = if deck { (400.0, 800) } else { (360.0, 720) };
+    let (virtual_height, window_height): (f32, u32) =
+        if deck { (400.0, 800) } else { (360.0, 720) };
 
     App::new()
         .add_plugins(
@@ -142,21 +143,42 @@ fn main() {
         .insert_resource(ClearColor(Color::srgb_u8(14, 19, 27)))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .init_resource::<Controls>()
-        .add_systems(Startup, move |commands: Commands,
-                                    asset_server: Res<AssetServer>,
-                                    layouts: ResMut<Assets<TextureAtlasLayout>>| {
-            setup(commands, asset_server, layouts, virtual_height);
-        })
-        .add_systems(Update, (capture_input, advance_idle, update_marker, report_texture_loading))
+        .add_systems(
+            Startup,
+            move |commands: Commands,
+                  asset_server: Res<AssetServer>,
+                  layouts: ResMut<Assets<TextureAtlasLayout>>| {
+                setup(commands, asset_server, layouts, virtual_height);
+            },
+        )
+        .add_systems(
+            Update,
+            (
+                capture_input,
+                advance_idle,
+                update_marker,
+                report_texture_loading,
+            ),
+        )
         .add_systems(FixedUpdate, fixed_movement)
         .run();
 }
 
 fn rectangle(commands: &mut Commands, size: Vec2, center: Vec3, color: Color) {
-    commands.spawn((Sprite::from_color(color, size), Transform::from_translation(center)));
+    commands.spawn((
+        Sprite::from_color(color, size),
+        Transform::from_translation(center),
+    ));
 }
 
-fn label(commands: &mut Commands, text: impl Into<String>, x: f32, y: f32, size: f32, color: Color) {
+fn label(
+    commands: &mut Commands,
+    text: impl Into<String>,
+    x: f32,
+    y: f32,
+    size: f32,
+    color: Color,
+) {
     commands.spawn((
         Text2d::new(text),
         TextFont {
@@ -185,18 +207,59 @@ fn setup(
         }),
     ));
     let steel = Color::srgb_u8(47, 59, 69);
-    rectangle(&mut commands, Vec2::new(640.0, 70.0), Vec3::new(0.0, -143.0, -2.0), steel);
-    rectangle(&mut commands, Vec2::new(640.0, 3.0), Vec3::new(0.0, FLOOR_Y - 3.0, -1.0), Color::srgb_u8(117, 136, 145));
+    rectangle(
+        &mut commands,
+        Vec2::new(640.0, 70.0),
+        Vec3::new(0.0, -143.0, -2.0),
+        steel,
+    );
+    rectangle(
+        &mut commands,
+        Vec2::new(640.0, 3.0),
+        Vec3::new(0.0, FLOOR_Y - 3.0, -1.0),
+        Color::srgb_u8(117, 136, 145),
+    );
     for x in (-304..=304).step_by(32) {
-        rectangle(&mut commands, Vec2::new(1.0, 55.0), Vec3::new(x as f32, -151.0, -1.0), Color::srgb_u8(61, 72, 82));
+        rectangle(
+            &mut commands,
+            Vec2::new(1.0, 55.0),
+            Vec3::new(x as f32, -151.0, -1.0),
+            Color::srgb_u8(61, 72, 82),
+        );
     }
     for x in (-304..=304).step_by(64) {
-        rectangle(&mut commands, Vec2::new(5.0, 3.0), Vec3::new(x as f32, -109.0, 0.0), Color::srgb_u8(188, 136, 60));
+        rectangle(
+            &mut commands,
+            Vec2::new(5.0, 3.0),
+            Vec3::new(x as f32, -109.0, 0.0),
+            Color::srgb_u8(188, 136, 60),
+        );
     }
 
-    label(&mut commands, "THE CRAWL   /   CHARACTER PLAYGROUND", 0.0, virtual_height / 2.0 - 25.0, 15.0, Color::srgb_u8(229, 209, 170));
-    label(&mut commands, "NO PANTS. NO MERCY.", 0.0, virtual_height / 2.0 - 46.0, 10.0, Color::srgb_u8(182, 103, 105));
-    label(&mut commands, "1 / 2 / 3 or TAB: select     A / D: move     SPACE: jump     R: reset", 0.0, virtual_height / 2.0 - 68.0, 10.0, Color::srgb_u8(176, 193, 199));
+    label(
+        &mut commands,
+        "THE CRAWL   /   CHARACTER PLAYGROUND",
+        0.0,
+        virtual_height / 2.0 - 25.0,
+        15.0,
+        Color::srgb_u8(229, 209, 170),
+    );
+    label(
+        &mut commands,
+        "NO PANTS. NO MERCY.",
+        0.0,
+        virtual_height / 2.0 - 46.0,
+        10.0,
+        Color::srgb_u8(182, 103, 105),
+    );
+    label(
+        &mut commands,
+        "1 / 2 / 3 or TAB: select     A / D: move     SPACE: jump     R: reset",
+        0.0,
+        virtual_height / 2.0 - 68.0,
+        10.0,
+        Color::srgb_u8(176, 193, 199),
+    );
 
     let mut handles = Vec::new();
     for (slot, spec) in CAST.into_iter().enumerate() {
@@ -225,7 +288,10 @@ fn setup(
             Color::srgb_u8(230, 229, 219),
         );
     }
-    commands.insert_resource(LoadedTextures { handles, reported: false });
+    commands.insert_resource(LoadedTextures {
+        handles,
+        reported: false,
+    });
     // The marker is a separate ECS entity so changing actors never scales source pixels.
     commands.spawn((
         SelectionMarker,
@@ -243,21 +309,41 @@ fn actor_transform(spec: CastSpec, motion: Motion) -> Transform {
     )
 }
 
-fn capture_input(keys: Res<ButtonInput<KeyCode>>, gamepads: Query<&Gamepad>, mut controls: ResMut<Controls>) {
-    if keys.just_pressed(KeyCode::Digit1) { controls.selected = 0; }
-    if keys.just_pressed(KeyCode::Digit2) { controls.selected = 1; }
-    if keys.just_pressed(KeyCode::Digit3) { controls.selected = 2; }
-    if keys.just_pressed(KeyCode::Tab) { controls.selected = (controls.selected + 1) % CAST.len(); }
+fn capture_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
+    mut controls: ResMut<Controls>,
+) {
+    if keys.just_pressed(KeyCode::Digit1) {
+        controls.selected = 0;
+    }
+    if keys.just_pressed(KeyCode::Digit2) {
+        controls.selected = 1;
+    }
+    if keys.just_pressed(KeyCode::Digit3) {
+        controls.selected = 2;
+    }
+    if keys.just_pressed(KeyCode::Tab) {
+        controls.selected = (controls.selected + 1) % CAST.len();
+    }
     let axis = (keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight)) as i8
         - (keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft)) as i8;
     controls.jump_pending |= keys.just_pressed(KeyCode::Space);
     controls.reset_pending |= keys.just_pressed(KeyCode::KeyR);
     if let Some(pad) = gamepads.iter().next() {
-        if pad.just_pressed(GamepadButton::RightTrigger) { controls.selected = (controls.selected + 1) % CAST.len(); }
-        if pad.just_pressed(GamepadButton::LeftTrigger) { controls.selected = (controls.selected + CAST.len() - 1) % CAST.len(); }
+        if pad.just_pressed(GamepadButton::RightTrigger) {
+            controls.selected = (controls.selected + 1) % CAST.len();
+        }
+        if pad.just_pressed(GamepadButton::LeftTrigger) {
+            controls.selected = (controls.selected + CAST.len() - 1) % CAST.len();
+        }
         if axis == 0 {
             let stick = pad.left_stick().x;
-            let pad_x = if stick.abs() > 0.18 { stick } else { pad.dpad().x };
+            let pad_x = if stick.abs() > 0.18 {
+                stick
+            } else {
+                pad.dpad().x
+            };
             controls.axis = if pad_x.abs() > 0.18 { pad_x } else { 0.0 };
         }
         controls.jump_pending |= pad.just_pressed(GamepadButton::South);
@@ -265,17 +351,26 @@ fn capture_input(keys: Res<ButtonInput<KeyCode>>, gamepads: Query<&Gamepad>, mut
     } else {
         controls.axis = 0.0;
     }
-    if axis != 0 { controls.axis = axis as f32; }
+    if axis != 0 {
+        controls.axis = axis as f32;
+    }
 }
 
-fn fixed_movement(mut controls: ResMut<Controls>, mut actors: Query<(&mut Character, &mut Transform, &mut Sprite)>) {
+fn fixed_movement(
+    mut controls: ResMut<Controls>,
+    mut actors: Query<(&mut Character, &mut Transform, &mut Sprite)>,
+) {
     for (mut actor, mut transform, mut sprite) in &mut actors {
         if controls.reset_pending {
             actor.motion = Motion::new(actor.spec.start_x);
         } else if actor.slot == controls.selected {
             actor.motion.step(controls.axis, controls.jump_pending);
-            if controls.axis < 0.0 { sprite.flip_x = true; }
-            if controls.axis > 0.0 { sprite.flip_x = false; }
+            if controls.axis < 0.0 {
+                sprite.flip_x = true;
+            }
+            if controls.axis > 0.0 {
+                sprite.flip_x = false;
+            }
         }
         *transform = actor_transform(actor.spec, actor.motion);
     }
@@ -293,7 +388,11 @@ fn advance_idle(time: Res<Time>, mut actors: Query<(&mut Sprite, &mut IdleAnimat
     }
 }
 
-fn update_marker(controls: Res<Controls>, actors: Query<&Character>, mut markers: Query<&mut Transform, With<SelectionMarker>>) {
+fn update_marker(
+    controls: Res<Controls>,
+    actors: Query<&Character>,
+    mut markers: Query<&mut Transform, With<SelectionMarker>>,
+) {
     if let Some(actor) = actors.iter().find(|actor| actor.slot == controls.selected) {
         for mut marker in &mut markers {
             marker.translation.x = actor.motion.x.round();
@@ -302,7 +401,12 @@ fn update_marker(controls: Res<Controls>, actors: Query<&Character>, mut markers
 }
 
 fn report_texture_loading(images: Res<Assets<Image>>, mut textures: ResMut<LoadedTextures>) {
-    if !textures.reported && textures.handles.iter().all(|handle| images.get(handle).is_some()) {
+    if !textures.reported
+        && textures
+            .handles
+            .iter()
+            .all(|handle| images.get(handle).is_some())
+    {
         println!("PLAYGROUND_TEXTURES_READY: 3 approved-scale atlases loaded");
         textures.reported = true;
     }
@@ -313,12 +417,19 @@ fn headless_smoke() {
     app.add_plugins(MinimalPlugins)
         .add_systems(Startup, |mut commands: Commands| {
             for (slot, spec) in CAST.into_iter().enumerate() {
-                commands.spawn(Character { slot, spec, motion: Motion::new(spec.start_x) });
+                commands.spawn(Character {
+                    slot,
+                    spec,
+                    motion: Motion::new(spec.start_x),
+                });
             }
         });
     app.update();
     let mut query = app.world_mut().query::<&Character>();
-    let mut heights: Vec<u32> = query.iter(app.world()).map(|actor| actor.spec.opaque_height).collect();
+    let mut heights: Vec<u32> = query
+        .iter(app.world())
+        .map(|actor| actor.spec.opaque_height)
+        .collect();
     heights.sort_unstable();
     assert_eq!(heights, vec![40, 52, 76]);
     let mut motion = Motion::new(0.0);
@@ -334,7 +445,14 @@ mod tests {
     #[test]
     fn all_three_approved_native_heights_are_preserved() {
         assert_eq!(CAST.map(|spec| spec.opaque_height), [52, 40, 76]);
-        assert_eq!(CAST.map(|spec| spec.atlas), ["carl_book1_h52.png", "donut_scale_h40.png", "mongo_adult_h76.png"]);
+        assert_eq!(
+            CAST.map(|spec| spec.atlas),
+            [
+                "carl_book1_h52.png",
+                "donut_scale_h40.png",
+                "mongo_adult_h76.png"
+            ]
+        );
     }
 
     #[test]
@@ -342,7 +460,9 @@ mod tests {
         let mut motion = Motion::new(0.0);
         motion.step(0.0, true);
         assert!(motion.elevation > 0.0);
-        for _ in 0..120 { motion.step(0.0, false); }
+        for _ in 0..120 {
+            motion.step(0.0, false);
+        }
         assert_eq!(motion.elevation, 0.0);
         assert_eq!(motion.vertical_speed, 0.0);
     }
