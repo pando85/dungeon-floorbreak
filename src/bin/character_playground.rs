@@ -46,10 +46,10 @@ const CAST: [CastSpec; 3] = [
     CastSpec {
         name: "MONGO",
         atlas: "mongo_adult_h76.png",
-        width: 80,
-        height: 84,
-        pivot_x: 42.0,
-        pivot_y: 83.0,
+        width: 108,
+        height: 80,
+        pivot_x: 68.0,
+        pivot_y: 79.0,
         opaque_height: 76,
         start_x: 174.0,
     },
@@ -249,7 +249,7 @@ fn capture_input(keys: Res<ButtonInput<KeyCode>>, gamepads: Query<&Gamepad>, mut
     if keys.just_pressed(KeyCode::Digit2) { controls.selected = 1; }
     if keys.just_pressed(KeyCode::Digit3) { controls.selected = 2; }
     if keys.just_pressed(KeyCode::Tab) { controls.selected = (controls.selected + 1) % CAST.len(); }
-    let mut axis = (keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight)) as i8
+    let axis = (keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight)) as i8
         - (keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft)) as i8;
     controls.jump_pending |= keys.just_pressed(KeyCode::Space);
     controls.reset_pending |= keys.just_pressed(KeyCode::KeyR);
@@ -267,8 +267,6 @@ fn capture_input(keys: Res<ButtonInput<KeyCode>>, gamepads: Query<&Gamepad>, mut
         controls.axis = 0.0;
     }
     if axis != 0 { controls.axis = axis as f32; }
-    axis = 0;
-    let _ = axis;
 }
 
 fn fixed_movement(mut controls: ResMut<Controls>, mut actors: Query<(&mut Character, &mut Transform, &mut Sprite)>) {
