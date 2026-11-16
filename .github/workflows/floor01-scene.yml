@@ -64,16 +64,35 @@ jobs:
         run: cargo build --locked --bin floor01_scene
       - name: Headless corridor smoke (no GPU)
         run: ./target/debug/floor01_scene --headless-floor01-smoke --scenario walk_right --capture-tick 250
-      - name: Real Bevy render at 640x360 virtual pixels
-        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh desktop
-      - name: Real Bevy render at 640x400 virtual pixels
+      - name: Real Bevy render, primary 1920x1080 (3x), lighting on
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh desktop
+      - name: Real Bevy render at 1280x720 (2x)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh desktop-720
+      - name: Real Bevy render at 640x400 virtual pixels (Deck framing)
         run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh deck
       - name: Scripted capture inside the B and C segments (640x360)
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh advanced
       - name: Scripted capture inside the B and C segments (640x400)
         run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh advanced-deck
+      - name: Lighting off (COMP-01 look), 1920x1080, must differ from lit
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh nolight
+      - name: Lighting off, scripted capture, simulation state must equal the lit run
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh nolight-advanced
+      - name: Reference frame (ENV-01 lit preview pose) at 1920x1080
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh reference
+      - name: Compare the Bevy reference frame with the Pillow reference model
+        run: |
+          python3 scripts/compare_floor01_lighting.py \
+            --bevy artifacts/floor01-scene-reference-1920x1080.png \
+            --pillow docs/evidence/floor01-catacomb-kit/lit_abc_1920x1080_x3.png \
+            --out-image artifacts/floor01-lighting-bevy-vs-pillow.png \
+            --out-json artifacts/floor01-lighting-compare.json
       - name: Collision and walking-line overlay (640x360)
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh collision
+      - name: Frame-interval probe, lighting on (software Vulkan, a health signal only)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh perf-lit
+      - name: Frame-interval probe, lighting off
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh perf-unlit
       - name: Documentation checks
         run: python3 scripts/check_docs.py
       - name: Upload Floor 1 scene evidence
@@ -84,4 +103,5 @@ jobs:
           path: |
             artifacts/floor01-scene-*.png
             artifacts/floor01-scene-*.log
+            artifacts/floor01-lighting-*
           if-no-files-found: warn
