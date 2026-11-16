@@ -49,6 +49,10 @@ done
 python3 scripts/validate_assets.py
 python3 scripts/make_contact_sheet.py
 python3 scripts/make_animation_previews.py
+# Environment kits: validate every env-kit-v1 contract against its exported
+# atlases and every env-kit-layout-v1 sample layout under assets/levels/, then
+# render deterministic previews into generated/art/env_kit/<layout_id>/.
+python3 scripts/env_kit.py all
 # Gameplay-scale sprite comparisons: one per "scale_study" group declared in the
 # manifests (validated by the helper; an invalid declaration fails the export).
 scale_groups="$(python3 scripts/make_scale_comparison.py --list-groups)"
