@@ -39,7 +39,10 @@ impl Rect {
     }
 
     pub fn center(self) -> (f32, f32) {
-        (self.left + self.width * 0.5, self.bottom + self.height * 0.5)
+        (
+            self.left + self.width * 0.5,
+            self.bottom + self.height * 0.5,
+        )
     }
 
     fn overlaps(self, other: Self) -> bool {
@@ -110,7 +113,6 @@ impl Hero {
             jump_buffer_ticks: 0,
         }
     }
-
 }
 
 #[derive(Debug, Clone)]
@@ -119,7 +121,6 @@ pub struct Enemy {
     pub y: f32,
     pub health: u8,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Bomb {
@@ -313,11 +314,7 @@ impl World {
     }
 
     fn explode(&mut self, x: f32, y: f32) {
-        self.blasts.push(Blast {
-            x,
-            y,
-            remaining: 9,
-        });
+        self.blasts.push(Blast { x, y, remaining: 9 });
         for block in &mut self.blocks {
             if block.intact
                 && block.material.destructible()
@@ -425,8 +422,7 @@ impl World {
             }
             let dx = self.hero.x - self.enemies[index].x;
             if dx.abs() < 220.0 && dx.abs() > 22.0 {
-                let candidate_x =
-                    self.enemies[index].x + dx.signum() * 62.0 * TICK_SECONDS;
+                let candidate_x = self.enemies[index].x + dx.signum() * 62.0 * TICK_SECONDS;
                 let candidate = Rect {
                     left: candidate_x - ENEMY_HALF_WIDTH,
                     bottom: self.enemies[index].y - ENEMY_HALF_HEIGHT,
@@ -487,8 +483,18 @@ mod tests {
         );
         idle(&mut world, 30);
         assert_eq!(world.intact_timbers(), before - 1);
-        assert!(world.blocks.iter().any(|b| b.material == Material::Steel && b.intact));
-        assert!(world.blocks.iter().any(|b| b.material == Material::Stone && b.intact));
+        assert!(
+            world
+                .blocks
+                .iter()
+                .any(|b| b.material == Material::Steel && b.intact)
+        );
+        assert!(
+            world
+                .blocks
+                .iter()
+                .any(|b| b.material == Material::Stone && b.intact)
+        );
     }
 
     #[test]
@@ -529,7 +535,12 @@ mod tests {
             world.step(&frame);
         }
         assert!(world.hero.x <= 1340.0 - HERO_HALF_WIDTH + 0.01);
-        assert!(world.blocks.iter().any(|b| b.material == Material::Steel && b.intact));
+        assert!(
+            world
+                .blocks
+                .iter()
+                .any(|b| b.material == Material::Steel && b.intact)
+        );
     }
 
     #[test]
