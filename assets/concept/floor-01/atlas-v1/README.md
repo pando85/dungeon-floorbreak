@@ -1,4 +1,4 @@
-# Floor 01 environment concept atlas — upload package
+# Floor 01 environment concept atlas — committed reference inventory
 
 **Scope:** project-generated concept art and visual direction references only. This folder is **not** an editable pixel art source or runtime tile atlas. Keep it under `assets/concept/`, never `generated/art/` or `assets/source/`.
 
@@ -26,3 +26,9 @@ Area 01 (the opening catacomb) is already committed in `assets/concept/floor-01/
 - The fully rendered atlas overview contains several composition liberties. Book-derived facts are documented separately in `docs/02-art/floor-01-art-atlas-v1.md`.
 - The gym's reception/turnstile and the arena's changing walls and concentric grooves are important book-grounded features, but the overview crops do not prove these geometry concepts. Author native-scale studies first.
 - All images are concept references with `sha256` / byte provenance in `manifest.json`. Image generation provenance is from this project's conversation; these files have no third-party extracted pixels. Owner-reported publication rights apply only as limited by `docs/04-production/rights-and-release.md`. No independent legal clearance is asserted.
+
+## Committed-file identity validation (2026-11-16)
+
+All ten image files were checked against the original local concept package. Every committed Git blob SHA-1 matches the Git blob SHA-1 recomputed from the original PNG bytes, and the package SHA-256 values match the [committed manifest](manifest.json). These checks establish byte-for-byte identity of references, **not** quality, canon accuracy, rights clearance, or game readiness.
+
+The filename inventory and its scope limitations are linked from the [Floor 01 art atlas document](../../../../docs/02-art/floor-01-art-atlas-v1.md). Gym/arena images remain only cropped overview panels until a dedicated review.
