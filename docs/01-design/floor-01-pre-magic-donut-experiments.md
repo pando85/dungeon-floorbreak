@@ -1,7 +1,7 @@
 # Floor 01 — Pre-magic Donut: cooperative gameplay experiments (design v0.1)
 
 **Status:** proposals for a *first* directly-playable Donut experiment; NOT a locked moveset, book-canon mechanics, an implemented Bevy feature, or proof of enjoyment.
-**Owner-established constraints:** Carl and Donut are playable **from minute one** in 2P local co-op; solo uses hybrid direct control + companion AI + quick context commands. Shoulder Mode is **brainstorming**, including possible simplified mounted attacks **after** suitable story unlocks. Approved sprite heights: Carl 52 opaque px; Donut 40 opaque px. These identities may not be resized to accommodate camera/framing.
+**Owner-established constraints:** Carl and Donut are playable **from minute one** in 2P local co-op; solo uses hybrid direct control + companion AI + quick context commands. **Approved:** Donut jumps higher/farther than Carl; Carl selectively destroys/opens routes. A mandatory gate may require one character and **need not** have a parallel equivalent route. See [asymmetric traversal rule](asymmetric-traversal-and-gates.md). Shoulder Mode is **brainstorming**, including possible simplified mounted attacks **after** suitable story unlocks. Approved sprite heights: Carl 52 opaque px; Donut 40 opaque px. These identities may not be resized to accommodate camera/framing.
 
 Read [Floor 1 gameplay progression](floor-01-gameplay-progression-v0.md), [core gameplay](gameplay.md), [antihero tone](antihero-tone.md), [input and camera](../03-tech/input-camera.md), [Floor 1 atlas](../02-art/floor-01-art-atlas-v1.md), [integrated-scene playtest](../07-agents/floor-01-integrated-scene-playtest.md) and [source/right guardrails](../04-production/rights-and-release.md).
 
@@ -37,21 +37,21 @@ This is deliberately **fewer active combat actions** than post-Guild Donut. Dodg
 - **1P:** control either hero and instantly switch. Untouched actor follows/responds to authored danger using a modest, deterministic AI. Hiss/knock interactions can be reached with a **single contextual command** when appropriate; never require both players to issue coordinated inputs at a precise tick for the only way forward.
 - **When Donut is the active solo character:** Carl's AI can follow and protect an escape route but must not steal every interaction/kill; same critical path remains completable.
 - **Co-op progression:** same room design for 1P/2P; pressure can be tuned after evidence but do not simply double enemy health.
-- **No P2-only required gates** or "cat needs to push a heavy switch" fiction. Narrow passages are **optional alternatives**, not required story gates.
+- **No human-P2-only required gates**, but a **Donut-required** elevated access or a **Carl-required** breakable barrier can be mandatory: solo switches to the required actor. All such gates must permit safe reunion/recovery and require only unlocked abilities; no implausible cat-operated heavy switches.
 - **On camera separation:** both should remain meaningfully controllable and visible. Warning/regroup behavior is future test work, not implicit teleport approval.
 
 ## Three controlled micro-scenarios (authored *test fixtures*, not confirmed book maps)
 
 Use the existing Floor 1 catacomb tiles, approved Carl/Donut sprite masters and Bevy A1 lighting; new interactive props should have simple original editable pixel sources. A neutral toy enemy is acceptable in a mechanical spike, but never present it as a canonical new monster.
 
-### E1 — The narrow way (30–60 s target; movement / role distinction)
+### E1 — Sequential character gates (30–90 s target; movement / switching / co-op roles)
 
-**Layout:** one common safe floor and one optional short cat-sized side opening above a low step. A small hanging object or fragile light prop is positioned so the cat can swat it; Carl can interact with a heavier loose barrier on the main path.
+**Layout:** two short **sequential**, not parallel, obstacles. First a high/far Donut-only ledge leads to a small plausible interaction that opens a **shared** route. Next a deliberately fragile barrier requires Carl to break/open the single onward passage with a currently available physical action. Both actors can reunite safely between beats.
 
-- **Unassisted solution:** both can take the main safe route; no mandatory co-op timing.
-- **Co-op alternative:** Donut uses the cat-only route and a light interaction to create a shortcut/early warning; Carl moves or braces a physical object.
-- **Probe:** Is Donut fun to navigate without fighting? Can she meaningfully contribute? Does the camera allow temporary separation without hiding collision?
-- **Failure signature:** shortcut saves no noticeable effort, or P2 becomes invisible while helping; cat sprite clips through the whole wall because hitbox was guessed from fluff.
+- **Solo solution:** switch to Donut, reach the ledge, open the shared way; switch to Carl, break the barrier, reunite and exit. Neither actor has to clear the room alone.
+- **2P solution:** the Donut player performs the elevated action, Carl player removes the barrier; each is genuinely useful. Avoid long spectator waits, forced zoom or trapping either person off-screen.
+- **Probe:** Does switching feel intentional and satisfying rather than arbitrary busywork? Does the room communicate who can do what without a wall of text? Can the companion follow and regroup?
+- **Failure signature:** a required character becomes stranded, incorrect capability bypasses the intended learning gate, a destroyed object removes the only route, or the cat's physical interaction is implausible.
 
 ### E2 — Do not fight the machine (45–90 s target; escape / pressure)
 
@@ -99,7 +99,7 @@ The tests do **not** prescribe a novel-accurate physical map. They explore movem
 Small independent implementation steps:
 1. **DUO-INPUT-01:** independent Donut controller + physics and stable device authority. One PR; no additional weapons, skills or mount.
 2. **DUO-CAMERA-01:** both actors share authored constraints and camera framing at 640x360/640x400. Test opposite directions, reunions, hard-edged collision.
-3. **DUO-FEEL-01:** E1 neutral fixture with cat jump/swat and Carl heavy interaction. Compare 1P and 2P; do not call it lore-canon content.
+3. **DUO-FEEL-01:** E1 sequential Donut elevated-gate and Carl breakable-gate test. Compare 1P swapping and 2P individual roles; validate safe regroup and progress with the actual unlocked capabilities. Do not call it lore-canon content.
 4. **DUO-ESCAPE-01:** E2 escape fixture; only then add a simple if-supported hiss/distract trial. If distraction adds nothing or is thematically implausible, remove it.
 5. **SHOULDER-SPIKE-01:** E3, C0 vs C1 baseline; feature-flagged. C2 only after independently validated post-Guild combat.
 
