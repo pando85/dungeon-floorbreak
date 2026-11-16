@@ -13,11 +13,11 @@ struct Simulation(World);
 #[derive(Resource, Default)]
 struct PlayerInput(InputFrame);
 #[derive(Component)]
-struct HeroVisual;
-#[derive(Component)]
-struct EnemyVisual(usize);
-#[derive(Component)]
-struct BlockVisual(usize);
+enum VisualRole {
+    Hero,
+    Enemy(usize),
+    Block(usize),
+}
 #[derive(Component)]
 struct TemporaryVisual;
 
@@ -123,20 +123,20 @@ fn setup_scene(mut commands: Commands, simulation: Res<Simulation>) {
             Material::Timber => Color::srgb_u8(221, 175, 76),
         };
         commands.spawn((
-            BlockVisual(index),
+            VisualRole::Block(index),
             Sprite::from_color(color, Vec2::new(block.rect.width, block.rect.height)),
             Transform::from_xyz(x, y, 0.5),
         ));
     }
     for (index, enemy) in simulation.0.enemies.iter().enumerate() {
         commands.spawn((
-            EnemyVisual(index),
+            VisualRole::Enemy(index),
             Sprite::from_color(Color::srgb_u8(179, 92, 82), Vec2::new(24.0, 38.0)),
             Transform::from_xyz(enemy.x, enemy.y, 1.5),
         ));
     }
     commands.spawn((
-        HeroVisual,
+        VisualRole::Hero,
         Sprite::from_color(Color::srgb_u8(108, 212, 196), Vec2::new(24.0, 52.0)),
         Transform::from_xyz(simulation.0.hero.x, simulation.0.hero.y, 2.0),
     ));
@@ -179,46 +179,41 @@ fn advance_game(
 fn sync_scene(
     mut commands: Commands,
     simulation: Res<Simulation>,
-    mut visuals: Query<
-        (
-            &mut Transform,
-            &mut Visibility,
-            Option<&HeroVisual>,
-            Option<&EnemyVisual>,
-            Option<&BlockVisual>,
-        ),
-        (With<Sprite>, Without<Camera2d>),
-    >,
+    mut visuals: Query<(&mut Transform, &mut Visibility, &VisualRole), Without<Camera2d>>,
     mut camera: Query<&mut Transform, With<Camera2d>>,
     temporary: Query<Entity, With<TemporaryVisual>>,
 ) {
     let world = &simulation.0;
-    for (mut transform, mut visibility, hero, enemy, block) in &mut visuals {
-        if hero.is_some() {
-            transform.translation.x = world.hero.x.round();
-            transform.translation.y = world.hero.y.round();
-            *visibility = if world.hero.invulnerable_ticks % 8 >= 4 {
-                Visibility::Hidden
-            } else {
-                Visibility::Inherited
-            };
-        } else if let Some(EnemyVisual(index)) = enemy {
-            if let Some(enemy) = world.enemies.get(*index) {
-                transform.translation.x = enemy.x.round();
-                transform.translation.y = enemy.y.round();
-                *visibility = if enemy.health == 0 {
+    for (mut transform, mut visibility, role) in &mut visuals {
+        match role {
+            VisualRole::Hero => {
+                transform.translation.x = world.hero.x.round();
+                transform.translation.y = world.hero.y.round();
+                *visibility = if world.hero.invulnerable_ticks % 8 >= 4 {
                     Visibility::Hidden
                 } else {
                     Visibility::Inherited
                 };
             }
-        } else if let Some(BlockVisual(index)) = block {
-            if let Some(block) = world.blocks.get(*index) {
-                *visibility = if block.intact {
-                    Visibility::Inherited
-                } else {
-                    Visibility::Hidden
-                };
+            VisualRole::Enemy(index) => {
+                if let Some(enemy) = world.enemies.get(*index) {
+                    transform.translation.x = enemy.x.round();
+                    transform.translation.y = enemy.y.round();
+                    *visibility = if enemy.health == 0 {
+                        Visibility::Hidden
+                    } else {
+                        Visibility::Inherited
+                    };
+                }
+            }
+            VisualRole::Block(index) => {
+                if let Some(block) = world.blocks.get(*index) {
+                    *visibility = if block.intact {
+                        Visibility::Inherited
+                    } else {
+                        Visibility::Hidden
+                    };
+                }
             }
         }
     }
@@ -255,10 +250,10 @@ fn run_headless_smoke() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_systems(Startup, |mut commands: Commands| {
-            commands.spawn(HeroVisual);
+            commands.spawn(VisualRole::Hero);
         });
     app.update();
-    let mut heroes = app.world_mut().query_filtered::<Entity, With<HeroVisual>>();
+    let mut heroes = app.world_mut().query_filtered::<Entity, With<VisualRole>>();
     assert_eq!(heroes.iter(app.world()).count(), 1);
     println!("HEADLESS_SMOKE_OK: Bevy startup and ECS update executed");
 }
