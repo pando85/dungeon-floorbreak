@@ -63,3 +63,12 @@ The owner judged the A1 ambient mood "great".
 - **Reversible:** the lighting parameters (pool strength, ambient tint, haze, bloom), the Bevy implementation approach in COMP-01, and the light-marker format. All of them can change without redrawing art.
 - **Hard to reverse:** the 640x360 / 640x400 virtual resolution. Once layers, character masters, animations and tile kits are produced at this density, moving to 960x540 means redrawing everything (about 2.2x per asset) and gives up the integer scale on Steam Deck. Revisit it only with renewed owner approval and new evidence.
 - **Reversible with cost:** the deep-floor contract. Changing it later affects terrain art, collision surface offsets and level data.
+
+## Implementation note (COMP-02)
+
+COMP-02 verified the "Proposed Bevy 0.20 mapping" against Bevy 0.20.1 and a running prototype. The decision above stands unchanged. What the implementation confirmed or changed (details in [floor01-scene.md](../03-tech/floor01-scene.md#lighting-comp-02)):
+
+- **Confirmed:** pixel layers stay at virtual resolution and are lit at output resolution; all lighting is presentation data derived from the kit contract and never read by the simulation (state hashes are identical with lighting on and off).
+- **Changed, light accumulation:** instead of additive light sprites into a full-resolution accumulation texture, each light is evaluated analytically per output pixel in one `Material2d` fragment shader (about 30 lights, uniform array). This avoids a full-resolution render target and sprite overdraw and reproduces the reference falloff curves exactly. Per-depth-group ambient and haze use one virtual-resolution target per contiguous light-group run (6 slots for the sample layout), each lit as a unit.
+- **Changed, bloom:** the engine HDR bloom was not used. A small custom pass (flame-colour mask at virtual resolution, separable gaussian, additive composite) feeds bloom only from the contract's emissive colours, with nearer opaque pixels occluding it.
+- **Exact integer scaling kept:** the composite pass reads the virtual-resolution targets with integer `textureLoad`, so there is no filtering and no seams at any window size.
