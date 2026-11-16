@@ -32,6 +32,6 @@ ART_CLI=/path/to/aseprite-or-libresprite bash scripts/export_assets.sh
 | `kit_sheet_1x.png` | Exploded contact sheet of every tile, piece and torch frame, native 1× | `…/kit_sheet_1x.png` |
 | `kit_sheet_2x.png` | The same sheet, nearest 2× | `…/kit_sheet_2x.png` |
 | `corridor_vs_concept_side_by_side.png` | Left: composition at 2×. Right: concept 01, display-scaled to the same size. Labelled; mood comparison only | `…/corridor_vs_concept_side_by_side.png` |
-| `actor_check_640x360.png` | Contrast check: approved Carl 52 px and Donut 40 px idle frame 0 placed on the floor in A, B (in front of the recess) and C, with the proposed 2 px foot sink. Not Bevy | `…/actor_check_640x360.png` |
+| `actor_check_640x360.png` | Contrast check: approved Carl 52 px and Donut 40 px idle frame 0 placed on the floor in A, B (in front of the recess and far arcade) and C, with the owner-chosen 0 px foot sink (pivot row on the collider top). Not Bevy | `…/actor_check_640x360.png` |
 | `actor_check_1280x720_2x.png` | The contrast check, nearest 2× | `…/actor_check_1280x720_2x.png` |
 | `floor01_torch_v1-burn.gif` | The 4-frame torch loop (120/140/100/130 ms) at 6×, written by `scripts/make_animation_previews.py` | `generated/art/previews/floor01_torch_v1-burn.gif` |
