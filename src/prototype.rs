@@ -111,14 +111,6 @@ impl Hero {
         }
     }
 
-    fn rect(&self) -> Rect {
-        Rect {
-            left: self.x - HERO_HALF_WIDTH,
-            bottom: self.y - HERO_HALF_HEIGHT,
-            width: HERO_HALF_WIDTH * 2.0,
-            height: HERO_HALF_HEIGHT * 2.0,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -128,16 +120,6 @@ pub struct Enemy {
     pub health: u8,
 }
 
-impl Enemy {
-    fn rect(&self) -> Rect {
-        Rect {
-            left: self.x - ENEMY_HALF_WIDTH,
-            bottom: self.y - ENEMY_HALF_HEIGHT,
-            width: ENEMY_HALF_WIDTH * 2.0,
-            height: ENEMY_HALF_HEIGHT * 2.0,
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Bomb {
@@ -556,7 +538,8 @@ mod tests {
         assert!(ground_jump_height < 180.0);
         assert!(ground_jump_height > 80.0);
         let mut world = World::new();
-        world.hero.x = 1130.0;
+        // Launch outside the platform, then enter it from above.
+        world.hero.x = 1060.0;
         press(
             &mut world,
             RawInput {
@@ -564,7 +547,16 @@ mod tests {
                 ..Default::default()
             },
         );
-        idle(&mut world, 40);
+        idle(&mut world, 19);
+        for _ in 0..24 {
+            press(
+                &mut world,
+                RawInput {
+                    move_x: 1.0,
+                    ..Default::default()
+                },
+            );
+        }
         assert!(world.hero.grounded);
         assert!((world.hero.y - (-40.0 + HERO_HALF_HEIGHT)).abs() < 0.1);
     }
