@@ -1,0 +1,88 @@
+name: floor01-scene
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: floor01-scene-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  corridor-scene:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: '1'
+      WGPU_BACKEND: vulkan
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Linux render dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libudev-dev \
+            libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-0 \
+            libwayland-dev libvulkan-dev mesa-vulkan-drivers \
+            xvfb x11-utils imagemagick
+          python3 -m pip install --disable-pip-version-check Pillow==13.0.0
+      - name: Obtain pinned LibreSprite 1.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 4 --retry-all-errors --silent --show-error \
+            -o "$RUNNER_TEMP/libresprite.AppImage" \
+            'https://github.com/LibreSprite/LibreSprite/releases/download/v1.3/libresprite-v1.3-linux-x86_64.AppImage'
+          echo 'fd90bddda8135fe00f4a9a9c8c9ebd48f9b07e8782ab269be5c9efb1a851af30  '"$RUNNER_TEMP/libresprite.AppImage" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/art-cli"
+          cd "$RUNNER_TEMP/art-cli"
+          chmod +x "$RUNNER_TEMP/libresprite.AppImage"
+          "$RUNNER_TEMP/libresprite.AppImage" --appimage-extract >/dev/null
+          echo "ART_CLI=$RUNNER_TEMP/art-cli/squashfs-root/AppRun" >> "$GITHUB_ENV"
+      - name: Export actor and Floor 1 kit atlases
+        run: bash scripts/export_assets.sh
+      - name: Check actor pivots, kit atlases and layout against the contract
+        run: python3 scripts/check_floor01_scene_contract.py
+      - name: Negative tests for the scene contract checker
+        run: python3 -m unittest discover -s tests -p 'test_floor01_scene_*.py' -v
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Run Rust tests
+        run: cargo test --locked --all-targets
+      - name: Compile the Floor 1 scene
+        run: cargo build --locked --bin floor01_scene
+      - name: Headless corridor smoke (no GPU)
+        run: ./target/debug/floor01_scene --headless-floor01-smoke --scenario walk_right --capture-tick 250
+      - name: Real Bevy render at 640x360 virtual pixels
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh desktop
+      - name: Real Bevy render at 640x400 virtual pixels
+        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh deck
+      - name: Scripted capture inside the B and C segments (640x360)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh advanced
+      - name: Scripted capture inside the B and C segments (640x400)
+        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh advanced-deck
+      - name: Collision and walking-line overlay (640x360)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh collision
+      - name: Documentation checks
+        run: python3 scripts/check_docs.py
+      - name: Upload Floor 1 scene evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: the-crawl-floor01-scene
+          path: |
+            artifacts/floor01-scene-*.png
+            artifacts/floor01-scene-*.log
+          if-no-files-found: warn
