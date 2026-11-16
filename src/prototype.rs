@@ -98,9 +98,14 @@ pub struct Hero {
 
 impl Hero {
     fn new() -> Self {
+        Self::at(86.0, FLOOR_TOP + HERO_HALF_HEIGHT)
+    }
+
+    /// Grounded, full-health hero whose AABB centre is `(x, y)`.
+    pub fn at(x: f32, y: f32) -> Self {
         Self {
-            x: 86.0,
-            y: FLOOR_TOP + HERO_HALF_HEIGHT,
+            x,
+            y,
             vx: 0.0,
             vy: 0.0,
             facing: 1,
@@ -342,76 +347,7 @@ impl World {
     }
 
     fn move_hero(&mut self, input: &InputFrame) {
-        if input.jump_pressed {
-            self.hero.jump_buffer_ticks = JUMP_BUFFER_TICKS;
-        } else {
-            self.hero.jump_buffer_ticks = self.hero.jump_buffer_ticks.saturating_sub(1);
-        }
-        if self.hero.grounded {
-            self.hero.coyote_ticks = COYOTE_TICKS;
-        } else {
-            self.hero.coyote_ticks = self.hero.coyote_ticks.saturating_sub(1);
-        }
-        if self.hero.jump_buffer_ticks > 0 && self.hero.coyote_ticks > 0 {
-            self.hero.vy = JUMP_SPEED;
-            self.hero.grounded = false;
-            self.hero.jump_buffer_ticks = 0;
-            self.hero.coyote_ticks = 0;
-        }
-
-        self.hero.vx = input.held.move_x * RUN_SPEED;
-        if self.hero.vx.abs() > 0.1 {
-            self.hero.facing = if self.hero.vx > 0.0 { 1 } else { -1 };
-        }
-        let mut next_x =
-            (self.hero.x + self.hero.vx * TICK_SECONDS).clamp(HERO_HALF_WIDTH, STAGE_WIDTH);
-        for block in self.blocks.iter().filter(|block| block.intact) {
-            let candidate = Rect {
-                left: next_x - HERO_HALF_WIDTH,
-                bottom: self.hero.y - HERO_HALF_HEIGHT,
-                width: HERO_HALF_WIDTH * 2.0,
-                height: HERO_HALF_HEIGHT * 2.0,
-            };
-            if candidate.overlaps(block.rect) {
-                if self.hero.vx > 0.0 {
-                    next_x = next_x.min(block.rect.left - HERO_HALF_WIDTH);
-                } else if self.hero.vx < 0.0 {
-                    next_x = next_x.max(block.rect.right() + HERO_HALF_WIDTH);
-                }
-            }
-        }
-        self.hero.x = next_x;
-
-        let previous_bottom = self.hero.y - HERO_HALF_HEIGHT;
-        let previous_top = self.hero.y + HERO_HALF_HEIGHT;
-        self.hero.vy -= GRAVITY * TICK_SECONDS;
-        let mut next_y = self.hero.y + self.hero.vy * TICK_SECONDS;
-        let mut grounded = false;
-        for block in self.blocks.iter().filter(|block| block.intact) {
-            let left = self.hero.x - HERO_HALF_WIDTH;
-            let right = self.hero.x + HERO_HALF_WIDTH;
-            if right <= block.rect.left || left >= block.rect.right() {
-                continue;
-            }
-            let next_bottom = next_y - HERO_HALF_HEIGHT;
-            let next_top = next_y + HERO_HALF_HEIGHT;
-            if self.hero.vy <= 0.0
-                && previous_bottom >= block.rect.top() - 0.01
-                && next_bottom <= block.rect.top()
-            {
-                next_y = block.rect.top() + HERO_HALF_HEIGHT;
-                self.hero.vy = 0.0;
-                grounded = true;
-            } else if self.hero.vy > 0.0
-                && previous_top <= block.rect.bottom + 0.01
-                && next_top >= block.rect.bottom
-            {
-                next_y = block.rect.bottom - HERO_HALF_HEIGHT;
-                self.hero.vy = 0.0;
-            }
-        }
-        self.hero.y = next_y;
-        self.hero.grounded = grounded;
+        step_hero(&mut self.hero, input, &self.blocks, STAGE_WIDTH);
     }
 
     fn move_enemies(&mut self) {
@@ -451,6 +387,81 @@ impl World {
             .filter(|block| block.intact && block.material.destructible())
             .count()
     }
+}
+
+/// One fixed tick of hero movement against static solids: jump buffer, coyote
+/// time, horizontal sweep and gravity/landing. `max_x` is the largest centre x.
+/// Shared by the combat greybox and the Floor 1 corridor scene.
+pub fn step_hero(hero: &mut Hero, input: &InputFrame, blocks: &[Block], max_x: f32) {
+    if input.jump_pressed {
+        hero.jump_buffer_ticks = JUMP_BUFFER_TICKS;
+    } else {
+        hero.jump_buffer_ticks = hero.jump_buffer_ticks.saturating_sub(1);
+    }
+    if hero.grounded {
+        hero.coyote_ticks = COYOTE_TICKS;
+    } else {
+        hero.coyote_ticks = hero.coyote_ticks.saturating_sub(1);
+    }
+    if hero.jump_buffer_ticks > 0 && hero.coyote_ticks > 0 {
+        hero.vy = JUMP_SPEED;
+        hero.grounded = false;
+        hero.jump_buffer_ticks = 0;
+        hero.coyote_ticks = 0;
+    }
+
+    hero.vx = input.held.move_x * RUN_SPEED;
+    if hero.vx.abs() > 0.1 {
+        hero.facing = if hero.vx > 0.0 { 1 } else { -1 };
+    }
+    let mut next_x = (hero.x + hero.vx * TICK_SECONDS).clamp(HERO_HALF_WIDTH, max_x);
+    for block in blocks.iter().filter(|block| block.intact) {
+        let candidate = Rect {
+            left: next_x - HERO_HALF_WIDTH,
+            bottom: hero.y - HERO_HALF_HEIGHT,
+            width: HERO_HALF_WIDTH * 2.0,
+            height: HERO_HALF_HEIGHT * 2.0,
+        };
+        if candidate.overlaps(block.rect) {
+            if hero.vx > 0.0 {
+                next_x = next_x.min(block.rect.left - HERO_HALF_WIDTH);
+            } else if hero.vx < 0.0 {
+                next_x = next_x.max(block.rect.right() + HERO_HALF_WIDTH);
+            }
+        }
+    }
+    hero.x = next_x;
+
+    let previous_bottom = hero.y - HERO_HALF_HEIGHT;
+    let previous_top = hero.y + HERO_HALF_HEIGHT;
+    hero.vy -= GRAVITY * TICK_SECONDS;
+    let mut next_y = hero.y + hero.vy * TICK_SECONDS;
+    let mut grounded = false;
+    for block in blocks.iter().filter(|block| block.intact) {
+        let left = hero.x - HERO_HALF_WIDTH;
+        let right = hero.x + HERO_HALF_WIDTH;
+        if right <= block.rect.left || left >= block.rect.right() {
+            continue;
+        }
+        let next_bottom = next_y - HERO_HALF_HEIGHT;
+        let next_top = next_y + HERO_HALF_HEIGHT;
+        if hero.vy <= 0.0
+            && previous_bottom >= block.rect.top() - 0.01
+            && next_bottom <= block.rect.top()
+        {
+            next_y = block.rect.top() + HERO_HALF_HEIGHT;
+            hero.vy = 0.0;
+            grounded = true;
+        } else if hero.vy > 0.0
+            && previous_top <= block.rect.bottom + 0.01
+            && next_top >= block.rect.bottom
+        {
+            next_y = block.rect.bottom - HERO_HALF_HEIGHT;
+            hero.vy = 0.0;
+        }
+    }
+    hero.y = next_y;
+    hero.grounded = grounded;
 }
 
 #[cfg(test)]
