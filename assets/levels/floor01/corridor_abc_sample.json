@@ -17,7 +17,7 @@
     400
   ],
   "coordinate_system": "top_left origin, x right, y down, rows top_to_bottom; piece x/y = top-left of the piece rect in layout pixels",
-  "floor_top_y": 320,
+  "base_floor_top_y": 320,
   "requirements": {
     "continuous_floor": true,
     "max_step_tiles": 2

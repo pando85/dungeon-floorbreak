@@ -46,9 +46,10 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_art_*.py' -v
       - name: Re-export must be byte-identical
         run: |
-          sha256sum generated/art/*.png generated/art/*.json > "$RUNNER_TEMP/first.sha256"
+          find generated/art -type f -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/first.sha256"
           bash scripts/export_assets.sh
-          sha256sum -c "$RUNNER_TEMP/first.sha256"
+          find generated/art -type f -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/second.sha256"
+          diff "$RUNNER_TEMP/first.sha256" "$RUNNER_TEMP/second.sha256"
       - name: Check repo documentation and rights records
         run: python3 scripts/check_docs.py
       - name: Publish native-scale visual review artifacts

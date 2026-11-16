@@ -6,7 +6,9 @@ Negative tests mutate in-memory copies so each rule is proven to fire.
 """
 from __future__ import annotations
 
+import contextlib
 import copy
+import io
 import json
 import sys
 import tempfile
@@ -42,7 +44,7 @@ class EnvKitTests(unittest.TestCase):
             if images and name in images:
                 entry["image"] = images[name]
             atlases[name] = entry
-        return ek.Kit(copy.deepcopy(contract or self.base.contract), atlases)
+        return ek.Kit(copy.deepcopy(contract or self.base.contract), atlases, self.base.path)
 
     def tile(self, contract: dict, tid: str) -> dict:
         return next(t for t in contract["tiles"] if t["id"] == tid)
@@ -220,9 +222,109 @@ class EnvKitTests(unittest.TestCase):
         with self.assertRaisesRegex(ek.KitError, "exit"):
             ek.validate_layout(self.base, layout)
 
-    def test_layout_json_is_stable_on_disk(self) -> None:
-        on_disk = json.loads((ROOT / LAYOUT).read_text(encoding="utf-8"))
-        self.assertEqual(on_disk["kit_contract"], CONTRACT)
+    def marker(self, layout: dict, kind: str) -> dict:
+        return next(m for m in layout["markers"] if m["kind"] == kind)
+
+    def test_layout_declares_the_loaded_contract(self) -> None:
+        self.assertEqual(ek.repo_path(self.layout["kit_contract"]), self.base.path)
+        layout = copy.deepcopy(self.layout)
+        layout["kit_contract"] = "assets/source/terrain/floor01/other_kit.json"
+        with self.assertRaisesRegex(ek.KitError, "kit_contract"):
+            ek.validate_layout(self.base, layout)
+
+    def test_base_floor_top_y_mismatch_rejected(self) -> None:
+        layout = copy.deepcopy(self.layout)
+        layout["base_floor_top_y"] += 16
+        with self.assertRaisesRegex(ek.KitError, "base_floor_top_y"):
+            ek.validate_layout(self.base, layout)
+
+    def test_marker_foot_row_must_match_surface(self) -> None:
+        for kind in ("spawn", "exit"):
+            layout = copy.deepcopy(self.layout)
+            self.marker(layout, kind)["y"] += 2  # a 2 px foot sink is not allowed
+            with self.assertRaisesRegex(ek.KitError, "foot contact row"):
+                ek.validate_layout(self.base, layout)
+
+    def test_marker_on_raised_block_uses_that_surface(self) -> None:
+        layout = copy.deepcopy(self.layout)
+        spawn = self.marker(layout, "spawn")
+        spawn["x"] = 31 * 16 + 8  # raised block: surface is one row higher than the base
+        with self.assertRaisesRegex(ek.KitError, "foot contact row"):
+            ek.validate_layout(self.base, layout)
+        spawn["y"] -= 16
+        ek.validate_layout(self.base, layout)
+
+    def test_marker_rect_outside_layout_rejected(self) -> None:
+        layout = copy.deepcopy(self.layout)
+        self.marker(layout, "exit")["rect"] = [layout["pixel_size"][0] - 8, 0, 16, 16]
+        with self.assertRaisesRegex(ek.KitError, "rect"):
+            ek.validate_layout(self.base, layout)
+
+    def test_segment_boundary_off_tile_grid_rejected(self) -> None:
+        layout = copy.deepcopy(self.layout)
+        layout["segments"][0]["x"][1] += 8
+        layout["segments"][1]["x"][0] += 8
+        with self.assertRaisesRegex(ek.KitError, "multiples of 16"):
+            ek.validate_layout(self.base, layout)
+
+    def test_floating_collision_tile_rejected(self) -> None:
+        layout = copy.deepcopy(self.layout)
+        layout["tile_layers"]["collision"][10][20] = "wall_fill_a"
+        with self.assertRaisesRegex(ek.KitError, "floating|runs"):
+            ek.validate_layout(self.base, layout)
+
+    def test_third_collision_run_in_a_column_rejected(self) -> None:
+        layout = copy.deepcopy(self.layout)
+        grid = layout["tile_layers"]["collision"]
+        grid[6][20] = "wall_fill_a"
+        grid[9][20] = "wall_fill_a"
+        with self.assertRaisesRegex(ek.KitError, "runs"):
+            ek.validate_layout(self.base, layout)
+
+    def test_backwall_hole_rejected(self) -> None:
+        layout = copy.deepcopy(self.layout)
+        layout["tile_layers"]["backwall"][8][20] = None
+        with self.assertRaisesRegex(ek.KitError, "hole"):
+            ek.validate_layout(self.base, layout)
+
+    # ---- layout discovery ------------------------------------------------
+    def test_find_layouts_finds_the_committed_layout(self) -> None:
+        self.assertEqual([p.relative_to(ROOT).as_posix() for p in ek.find_layouts()], [LAYOUT])
+
+    def test_find_layouts_fails_on_unparsable_and_unknown_versions(self) -> None:
+        cases = {"broken.json": "{not json", "future.json": json.dumps({"format": "env-kit-layout-v2"}),
+                 "contract.json": json.dumps({"format": "env-kit-v1"})}
+        for name, text in cases.items():
+            with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
+                (Path(tmp) / "nested").mkdir()
+                (Path(tmp) / "nested" / name).write_text(text, encoding="utf-8")
+                with self.assertRaises(ek.KitError):
+                    ek.find_layouts(Path(tmp))
+
+    def test_find_layouts_ignores_unrelated_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "other.json").write_text(json.dumps({"format": "ldtk"}), encoding="utf-8")
+            (Path(tmp) / "list.json").write_text("[1, 2]", encoding="utf-8")
+            self.assertEqual(ek.find_layouts(Path(tmp)), [])
+
+    # ---- best-effort previews --------------------------------------------
+    def test_missing_preview_inputs_warn_but_do_not_fail(self) -> None:
+        layout = copy.deepcopy(self.layout)
+        layout["preview"]["concept_reference"] = "assets/concept/missing/none.png"
+        layout["preview"]["actor_check"] = [{"manifest": "assets/manifests/missing.json", "x": 800}]
+        with tempfile.TemporaryDirectory() as tmp, \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            written = ek.render_all(self.base, layout, Path(tmp))
+            names = {p.name for p in written}
+        self.assertIn("corridor_overview_2048x400.png", names)
+        self.assertFalse(any(n.startswith(("actor_check", "corridor_vs_concept")) for n in names))
+        self.assertEqual(err.getvalue().count("WARNING"), 2)
+
+    def test_present_preview_inputs_are_rendered(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            names = {p.name for p in ek.render_all(self.base, self.layout, Path(tmp))}
+        self.assertIn("corridor_vs_concept_side_by_side.png", names)
+        self.assertIn("actor_check_640x360.png", names)
 
 
 if __name__ == "__main__":

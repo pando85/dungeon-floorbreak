@@ -1595,7 +1595,7 @@ def build_layout(contract: dict) -> dict:
         "pixel_size": [cols * TILE, rows * TILE],
         "coordinate_system": "top_left origin, x right, y down, rows top_to_bottom; "
                              "piece x/y = top-left of the piece rect in layout pixels",
-        "floor_top_y": floor_row * TILE,
+        "base_floor_top_y": floor_row * TILE,
         "requirements": {"continuous_floor": True, "max_step_tiles": 2},
         "segments": [
             {"id": "A1", "grammar": "A", "x": [0, 56 * TILE]},

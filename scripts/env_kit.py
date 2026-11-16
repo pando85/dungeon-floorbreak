@@ -76,8 +76,10 @@ def parse_rgba(text: str) -> tuple[int, int, int, int]:
 class Kit:
     """A contract plus its loaded atlases (image, metadata, manifest, grid)."""
 
-    def __init__(self, contract: dict, atlases: dict[str, dict]) -> None:
+    def __init__(self, contract: dict, atlases: dict[str, dict],
+                 path: Path | None = None) -> None:
         self.contract = contract
+        self.path = path  # resolved contract path; None for in-memory kits
         self.atlases = atlases
         self.tiles = {t["id"]: t for t in contract.get("tiles", [])}
         self.pieces = {p["id"]: p for p in contract.get("pieces", [])}
@@ -92,7 +94,8 @@ class Kit:
 
 
 def load_kit(contract_path: str | Path, load_grids: bool = True) -> Kit:
-    contract = load_json(contract_path)
+    resolved = (contract_path if isinstance(contract_path, Path) else repo_path(contract_path)).resolve()
+    contract = load_json(resolved)
     atlases = {}
     for name, ref in contract.get("atlases", {}).items():
         manifest = load_json(ref["manifest"])
@@ -103,7 +106,7 @@ def load_kit(contract_path: str | Path, load_grids: bool = True) -> Kit:
             "metadata": load_json(ref["metadata"]),
             "grid": load_json(ref["grid"]) if load_grids and ref.get("grid") else None,
         }
-    return Kit(contract, atlases)
+    return Kit(contract, atlases, resolved)
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +188,6 @@ def validate_contract(kit: Kit) -> None:
             grid_palette = [{k: e[k] for k in ("key", "name", "rgba")} for e in atlas["grid"]["palette"]]
             want = [{k: e[k] for k in ("key", "name", "rgba")} for e in palette]
             check(grid_palette == want, f"{name}: grid palette differs from the kit palette")
-        alpha_low, alpha_high = _alpha_extrema(image)
         histogram = image.getchannel("A").histogram()
         check(sum(histogram[1:255]) == 0, f"{name}: partial alpha found (1-bit alpha only)")
         used = image.getcolors(maxcolors=1 << 16)
@@ -328,6 +330,10 @@ def validate_layout(kit: Kit, layout: dict) -> None:
     c = kit.contract
     check(layout.get("format") == "env-kit-layout-v1", "layout format must be env-kit-layout-v1")
     check(layout.get("kit") == c.get("kit_id"), "layout kit differs from contract kit_id")
+    if kit.path is not None:
+        check(repo_path(layout.get("kit_contract")) == kit.path,
+              f"layout kit_contract {layout.get('kit_contract')!r} does not resolve to the "
+              "loaded contract")
     check(layout.get("tile_size") == c.get("tile_size"), "layout tile_size differs")
     cols, rows = layout.get("grid_size", [0, 0])
     check(type(cols) is int and type(rows) is int and cols > 0 and rows > 0, "bad grid_size")
@@ -401,16 +407,35 @@ def validate_layout(kit: Kit, layout: dict) -> None:
         x0, x1 = seg.get("x", [None, None])
         check(x0 == cursor and type(x1) is int and x1 > x0, f"segment {seg.get('id')}: x ranges "
               "must be contiguous and increasing")
+        check(x0 % 16 == 0 and x1 % 16 == 0,
+              f"segment {seg.get('id')}: boundaries must be multiples of 16 px")
         cursor = x1
     check(cursor == width, "segments must cover the full layout width")
+    surfaces = _surface_rows(kit, tile_layers["collision"], cols, rows)
+    base_row = _base_surface_row(surfaces)
+    check(layout.get("base_floor_top_y") == base_row * 16 if base_row is not None else False,
+          f"base_floor_top_y {layout.get('base_floor_top_y')!r} must equal 16 x the base "
+          f"(most common) floor surface row {base_row}")
     marker_ids = set()
     kinds = set()
     for marker in layout.get("markers", []):
         check(marker.get("id") not in marker_ids, f"duplicate marker {marker.get('id')}")
         marker_ids.add(marker["id"])
         kinds.add(marker.get("kind"))
-        check(0 <= marker.get("x", -1) < width and 0 <= marker.get("y", -1) < height,
+        mx, my = marker.get("x"), marker.get("y")
+        check(type(mx) is int and type(my) is int and 0 <= mx < width and 0 <= my < height,
               f"marker {marker['id']} outside layout")
+        if marker.get("kind") in ("spawn", "exit"):
+            surface = surfaces[mx // 16]
+            check(surface is not None and my == surface * 16 - 1,
+                  f"marker {marker['id']}: y {my} must be the foot contact row "
+                  f"(surface row {surface} * 16 - 1, 0 px foot sink) of column {mx // 16}")
+        if "rect" in marker:
+            rx, ry, rw, rh = marker["rect"] if isinstance(marker["rect"], list) \
+                and len(marker["rect"]) == 4 else (None,) * 4
+            check(all(type(v) is int for v in (rx, ry, rw, rh)) and rx >= 0 and ry >= 0
+                  and rw > 0 and rh > 0 and rx + rw <= width and ry + rh <= height,
+                  f"marker {marker['id']}: rect {marker['rect']!r} outside layout")
     check({"spawn", "exit"} <= kinds, "layout needs spawn and exit markers")
     for vid, (vx, vy, vw, vh) in layout.get("views", {}).items():
         check(vx >= 0 and vy >= 0 and vx + vw <= width and vy + vh <= height,
@@ -419,6 +444,8 @@ def validate_layout(kit: Kit, layout: dict) -> None:
     req = layout.get("requirements", {})
     if req.get("continuous_floor"):
         _check_floor(kit, tile_layers["collision"], cols, rows, req.get("max_step_tiles", 1))
+    _check_collision_topology(kit, tile_layers["collision"], cols, rows)
+    _check_backwall_coverage(kit, tile_layers["backwall"], tile_layers["collision"], cols, rows)
 
 
 def _check_arch_backwall(kit: Kit, layout: dict, arches: list[tuple[dict, int, int]]) -> None:
@@ -448,17 +475,65 @@ def _check_arch_backwall(kit: Kit, layout: dict, arches: list[tuple[dict, int, i
                 check(near_any, f"backwall ({x},{r}) recess tile shows outside every arch ring")
 
 
-def _check_floor(kit: Kit, grid: list, cols: int, rows: int, max_step: int) -> None:
-    surfaces = []
+def _is_solid(kit: Kit, tid) -> bool:
+    return tid is not None and bool(kit.tiles[tid]["collidable"])
+
+
+def _surface_rows(kit: Kit, grid: list, cols: int, rows: int) -> list[int | None]:
+    """Top row of each column's floor run (connected to the bottom row); None for a pit."""
+    surfaces: list[int | None] = []
     for x in range(cols):
         r = rows - 1
-        check(grid[r][x] is not None and kit.tiles[grid[r][x]]["collidable"],
-              f"collision column {x}: pit (no collidable tile on the bottom row)")
-        while r - 1 >= 0 and grid[r - 1][x] is not None and kit.tiles[grid[r - 1][x]]["collidable"]:
+        if not _is_solid(kit, grid[r][x]):
+            surfaces.append(None)
+            continue
+        while r - 1 >= 0 and _is_solid(kit, grid[r - 1][x]):
             r -= 1
+        surfaces.append(r)
+    return surfaces
+
+
+def _base_surface_row(surfaces: list[int | None]) -> int | None:
+    rows = [s for s in surfaces if s is not None]
+    if not rows:
+        return None
+    counts = {r: rows.count(r) for r in set(rows)}
+    return max(sorted(counts), key=lambda r: counts[r])  # ties: lowest row index
+
+
+def _check_collision_topology(kit: Kit, grid: list, cols: int, rows: int) -> None:
+    """Each column may hold a ceiling run (from row 0) and a floor run (to the last row)."""
+    for x in range(cols):
+        runs: list[list[int]] = []
+        for r in range(rows):
+            if _is_solid(kit, grid[r][x]):
+                if runs and runs[-1][1] == r - 1:
+                    runs[-1][1] = r
+                else:
+                    runs.append([r, r])
+        check(len(runs) <= 2, f"collision column {x}: {len(runs)} collidable runs (max 2)")
+        for start, end in runs:
+            check(start == 0 or end == rows - 1,
+                  f"collision column {x}: floating collision run rows {start}-{end} "
+                  "(must connect to the ceiling row or the floor row)")
+
+
+def _check_backwall_coverage(kit: Kit, backwall: list, collision: list, cols: int,
+                             rows: int) -> None:
+    """The backwall must cover every cell not hidden behind an opaque collidable tile."""
+    for r in range(rows):
+        for x in range(cols):
+            if backwall[r][x] is None:
+                check(_is_solid(kit, collision[r][x]),
+                      f"backwall ({x},{r}): hole (no tile and no opaque collision tile in front)")
+
+
+def _check_floor(kit: Kit, grid: list, cols: int, rows: int, max_step: int) -> None:
+    surfaces = _surface_rows(kit, grid, cols, rows)
+    for x, r in enumerate(surfaces):
+        check(r is not None, f"collision column {x}: pit (no collidable tile on the bottom row)")
         check(kit.tiles[grid[r][x]].get("walkable_top"),
               f"collision column {x}: surface tile {grid[r][x]} is not walkable_top")
-        surfaces.append(r)
     for x in range(1, cols):
         check(abs(surfaces[x] - surfaces[x - 1]) <= max_step,
               f"collision column {x}: step of {abs(surfaces[x] - surfaces[x - 1])} tiles")
@@ -565,6 +640,8 @@ def scale(image: Image.Image, factor: int) -> Image.Image:
 
 
 def side_by_side(composition_2x: Image.Image, concept_path: Path) -> Image.Image:
+    if not concept_path.is_file():
+        raise FileNotFoundError(concept_path)
     with Image.open(concept_path) as opened:
         concept = opened.convert("RGBA")
     # Display-only downscale of the mood reference; never used as a pixel source.
@@ -584,13 +661,17 @@ def side_by_side(composition_2x: Image.Image, concept_path: Path) -> Image.Image
 
 def actor_check(kit: Kit, layout: dict, base: Image.Image, view: list[int]) -> Image.Image:
     from validate_assets import safe_path  # same path rules as the asset validator
+    # Raises FileNotFoundError when an input is missing (the caller downgrades it to a warning).
     sink = kit.contract.get("floor_contact", {}).get("recommended_visual_foot_sink_px", 0)
-    floor_y = layout["floor_top_y"]
+    floor_y = layout["base_floor_top_y"]
     image = base.copy()
     for entry in layout.get("preview", {}).get("actor_check", []):
         manifest = json.loads(safe_path(entry["manifest"]).read_text(encoding="utf-8"))
         meta = json.loads(safe_path(manifest["output_metadata"]).read_text(encoding="utf-8"))
-        with Image.open(safe_path(manifest["output_atlas"])) as opened:
+        atlas_path = safe_path(manifest["output_atlas"])
+        if not atlas_path.is_file():
+            raise FileNotFoundError(atlas_path)
+        with Image.open(atlas_path) as opened:
             atlas = opened.convert("RGBA")
         fr = meta["frames"][0]["frame"]
         sprite = atlas.crop((fr["x"], fr["y"], fr["x"] + fr["w"], fr["y"] + fr["h"]))
@@ -629,17 +710,29 @@ def render_all(kit: Kit, layout: dict, out: Path, actors: bool = True) -> list[P
     if primary:
         vx, vy, vw, vh = layout["views"][primary]
         view2x = scale(full.crop((vx, vy, vx + vw, vy + vh)), 2)
+        # Best-effort previews: unrelated asset renames must not break the kit export.
         if preview.get("concept_reference"):
-            p = out / "corridor_vs_concept_side_by_side.png"
-            save_png(side_by_side(view2x, repo_path(preview["concept_reference"])), p)
-            written.append(p)
+            try:
+                img = side_by_side(view2x, repo_path(preview["concept_reference"]))
+            except FileNotFoundError as exc:
+                print(f"WARNING: skipping concept side-by-side preview, missing input: {exc}",
+                      file=sys.stderr)
+            else:
+                p = out / "corridor_vs_concept_side_by_side.png"
+                save_png(img, p)
+                written.append(p)
         if actors and preview.get("actor_check"):
-            check_img = actor_check(kit, layout, full, layout["views"][primary])
-            p1 = out / f"actor_check_{vw}x{vh}.png"
-            p2 = out / f"actor_check_{vw * 2}x{vh * 2}_2x.png"
-            save_png(check_img, p1)
-            save_png(scale(check_img, 2), p2)
-            written += [p1, p2]
+            try:
+                check_img = actor_check(kit, layout, full, layout["views"][primary])
+            except FileNotFoundError as exc:
+                print(f"WARNING: skipping actor check preview, missing input: {exc}",
+                      file=sys.stderr)
+            else:
+                p1 = out / f"actor_check_{vw}x{vh}.png"
+                p2 = out / f"actor_check_{vw * 2}x{vh * 2}_2x.png"
+                save_png(check_img, p1)
+                save_png(scale(check_img, 2), p2)
+                written += [p1, p2]
     return written
 
 
@@ -647,14 +740,20 @@ def render_all(kit: Kit, layout: dict, out: Path, actors: bool = True) -> list[P
 # CLI
 # ---------------------------------------------------------------------------
 
-def find_layouts() -> list[Path]:
+def find_layouts(levels: Path | None = None) -> list[Path]:
+    """Every env-kit layout under assets/levels/. Unreadable files and unknown
+    ``env-kit*`` format versions are errors, never silently skipped."""
+    root = levels or LEVELS
     found = []
-    for path in sorted(LEVELS.rglob("*.json")):
+    for path in sorted(root.rglob("*.json")):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if data.get("format") == "env-kit-layout-v1":
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise KitError(f"cannot parse {path}: {exc}") from exc
+        fmt = data.get("format") if isinstance(data, dict) else None
+        if isinstance(fmt, str) and fmt.startswith("env-kit"):
+            check(fmt == "env-kit-layout-v1",
+                  f"{path}: unsupported layout format {fmt!r} (expected env-kit-layout-v1)")
             found.append(path)
     return found
 

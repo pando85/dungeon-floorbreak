@@ -89,7 +89,7 @@ Neither file lives in `assets/manifests/`, because every JSON file there is trea
   - row 3: the under-ceiling brick strip;
   - rows 4 to 18: brick panels;
   - row 19: plinth;
-  - row 20: floor top (`floor_top_y` = 320);
+  - row 20: floor top (`base_floor_top_y` = 320, the most common surface row x 16);
   - rows 21 to 24: floor fill.
 - **Floor:** the floor is collidable and continuous from end to end with no pits. One raised block, one tile high, sits at columns 30 to 37; it uses `floor_top_end_l/r` on top and `floor_inner_corner_l/r` plus `floor_step_base_a/b` as its footing. The validator enforces "no pit" and "step ≤ 2 tiles" per column.
 - **Dressing:** torches at columns 7, 18, 33, 50, 82 and 94 (uneven spacing), a burnt-out sconce at column 42, a door at columns 12–13, five grime patches, and in C a pipe run that rises into the ceiling course at column 85 and feeds the box and a floor conduit.
@@ -108,7 +108,9 @@ After the existing validation, contact-sheet and GIF steps, the script now runs 
 3. validates the layout against the contract;
 4. renders the previews into `generated/art/env_kit/<layout_id>/`.
 
-A contract or layout error fails the export. No other existing export behaviour changed. COMP-01 can depend on `generated/art/floor01_*.{png,json}` existing after `bash scripts/export_assets.sh`.
+A contract or layout error fails the export, as does a file under `assets/levels/` that cannot be parsed or declares an unknown `env-kit*` format version. The actor-check and concept side-by-side previews are best-effort: if their inputs (the Carl and Donut manifests and atlases, the concept image) are missing, the tool prints a `WARNING` and skips them, so renaming unrelated assets cannot break the kit export or other workflows. With the inputs present they are generated as usual. No other existing export behaviour changed.
+
+**Generated paths.** The `image` and `metadata` atlas paths in the contract point into the gitignored `generated/art/` directory. A consumer (COMP-01, tests, CI) must run `bash scripts/export_assets.sh` first; the files do not exist in a fresh checkout. COMP-01 can depend on `generated/art/floor01_*.{png,json}` existing after `bash scripts/export_assets.sh`.
 
 ## Validation
 
@@ -132,9 +134,14 @@ A contract or layout error fails the export. No other existing export behaviour 
   - brick panels stay continuous;
   - arch openings show recess inside the ring and never outside it;
   - segments are contiguous and cover the width;
-  - spawn and exit markers exist;
+  - `kit_contract` resolves to the loaded contract file;
+  - segment boundaries are multiples of 16 px;
+  - spawn and exit markers exist, sit on a column whose surface gives `y` = surface row x 16 - 1 (0 px foot sink), and any marker `rect` lies inside the layout;
+  - `base_floor_top_y` equals 16 x the most common floor surface row;
   - views lie inside the layout;
-  - the floor is continuous with steps of at most 2 tiles.
+  - the floor is continuous with steps of at most 2 tiles;
+  - collision topology: each column has at most two collidable runs, a ceiling run touching row 0 and a floor run touching the bottom row (no floating collision tiles);
+  - backwall coverage: every cell has a backwall tile unless an opaque collidable tile hides it (holes behind collision are allowed, visible holes are not).
 - **Determinism:** the committed `.ase` files equal a fresh build from their grids, and renders are byte-identical across runs.
 
 The negative tests mutate in-memory copies, so each rule is proven to fire.

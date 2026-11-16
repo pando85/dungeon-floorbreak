@@ -221,7 +221,8 @@ manifests only. Tilesets use manifest `type: "tileset"`; multi-piece decor atlas
 runs `python3 scripts/env_kit.py all` after the existing steps. It validates every
 contract against its exported atlases, manifests and grids, and every layout against
 its contract, then renders previews to `generated/art/env_kit/<layout_id>/`. Any
-error fails the export. The first kit is the
+kit or layout error fails the export; the actor-check and concept side-by-side
+previews are best-effort and only warn when their inputs are missing. The first kit is the
 [Floor 01 catacomb kit](floor-01-catacomb-kit.md).
 
 **Scope boundary:** This establishes the pipeline and three tiny editable

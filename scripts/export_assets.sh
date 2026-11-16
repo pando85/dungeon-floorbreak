@@ -51,7 +51,8 @@ python3 scripts/make_contact_sheet.py
 python3 scripts/make_animation_previews.py
 # Environment kits: validate every env-kit-v1 contract against its exported
 # atlases and every env-kit-layout-v1 sample layout under assets/levels/, then
-# render deterministic previews into generated/art/env_kit/<layout_id>/.
+# render deterministic previews into generated/art/env_kit/<layout_id>/. Actor-check
+# and concept side-by-side previews are best-effort (warn and skip if inputs are missing).
 python3 scripts/env_kit.py all
 # Gameplay-scale sprite comparisons: one per "scale_study" group declared in the
 # manifests (validated by the helper; an invalid declaration fails the export).
