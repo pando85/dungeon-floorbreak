@@ -1,0 +1,276 @@
+{
+  "format": "env-kit-lit-evidence-v1",
+  "layout": "assets/levels/floor01/corridor_abc_sample.json",
+  "note": "Presentation-only lighting pass on exported atlases; art preview, not a Bevy capture.",
+  "files": [
+    "lit_abc_640x360.png",
+    "lit_abc_1920x1080_x3.png",
+    "lit_abc_1280x800_640x400_x2.png",
+    "lit_abc_env_only_640x360.png",
+    "lit_overview_2048x400.png",
+    "lit_vs_a1_target_side_by_side.png",
+    "actor_check_lit_x4.png"
+  ],
+  "readability": {
+    "method": "lookdev_compose.readability: mean CIE L* of actor pixels vs a 6 px ring around the actor box (actor pixels excluded); edge = mean |dL*| between silhouette pixels and their non-actor 4-neighbours; native 640x360.",
+    "lit": {
+      "carl_h52": {
+        "actor_mean_L": 39.9,
+        "surround_mean_L": 33.7,
+        "delta_L": 6.1,
+        "luminance_contrast_ratio": 1.64,
+        "silhouette_edge_mean_abs_dL": 15.3,
+        "edge_samples": 240
+      },
+      "donut_h40": {
+        "actor_mean_L": 49.7,
+        "surround_mean_L": 38.2,
+        "delta_L": 11.5,
+        "luminance_contrast_ratio": 2.04,
+        "silhouette_edge_mean_abs_dL": 33.5,
+        "edge_samples": 234
+      }
+    },
+    "unlit": {
+      "carl_h52": {
+        "actor_mean_L": 41.6,
+        "surround_mean_L": 44.6,
+        "delta_L": -3.1,
+        "luminance_contrast_ratio": 1.15,
+        "silhouette_edge_mean_abs_dL": 20.1,
+        "edge_samples": 240
+      },
+      "donut_h40": {
+        "actor_mean_L": 49.8,
+        "surround_mean_L": 45.3,
+        "delta_L": 4.5,
+        "luminance_contrast_ratio": 1.56,
+        "silhouette_edge_mean_abs_dL": 35.6,
+        "edge_samples": 234
+      }
+    },
+    "a1_target_reference": {
+      "carl": {
+        "actor_mean_L": 39.1,
+        "surround_mean_L": 20.9,
+        "delta_L": 18.2,
+        "luminance_contrast_ratio": 2.35,
+        "silhouette_edge_mean_abs_dL": 13.1,
+        "edge_samples": 240
+      },
+      "donut": {
+        "actor_mean_L": 47.4,
+        "surround_mean_L": 31.1,
+        "delta_L": 16.3,
+        "luminance_contrast_ratio": 2.0,
+        "silhouette_edge_mean_abs_dL": 33.0,
+        "edge_samples": 234
+      }
+    },
+    "edge_by_height_band": {
+      "note": "6 bands from the top of each actor box (0 = head, 5 = feet). The A1 frame uses the same actor positions, so the same masks apply to it.",
+      "lit": {
+        "carl_h52": [
+          {
+            "band": 0,
+            "samples": 34,
+            "actor_L": 20.4,
+            "background_L": 20.7,
+            "mean_abs_dL": 14.9
+          },
+          {
+            "band": 1,
+            "samples": 37,
+            "actor_L": 20.5,
+            "background_L": 27.5,
+            "mean_abs_dL": 12.9
+          },
+          {
+            "band": 2,
+            "samples": 24,
+            "actor_L": 18.1,
+            "background_L": 31.8,
+            "mean_abs_dL": 16.6
+          },
+          {
+            "band": 3,
+            "samples": 31,
+            "actor_L": 10.1,
+            "background_L": 38.1,
+            "mean_abs_dL": 28.7
+          },
+          {
+            "band": 4,
+            "samples": 47,
+            "actor_L": 30.9,
+            "background_L": 32.8,
+            "mean_abs_dL": 15.0
+          },
+          {
+            "band": 5,
+            "samples": 67,
+            "actor_L": 36.1,
+            "background_L": 30.6,
+            "mean_abs_dL": 10.4
+          }
+        ],
+        "donut_h40": [
+          {
+            "band": 0,
+            "samples": 19,
+            "actor_L": 67.3,
+            "background_L": 30.5,
+            "mean_abs_dL": 36.7
+          },
+          {
+            "band": 1,
+            "samples": 60,
+            "actor_L": 30.4,
+            "background_L": 38.0,
+            "mean_abs_dL": 28.5
+          },
+          {
+            "band": 2,
+            "samples": 39,
+            "actor_L": 33.0,
+            "background_L": 44.1,
+            "mean_abs_dL": 40.7
+          },
+          {
+            "band": 3,
+            "samples": 31,
+            "actor_L": 41.7,
+            "background_L": 29.8,
+            "mean_abs_dL": 34.6
+          },
+          {
+            "band": 4,
+            "samples": 22,
+            "actor_L": 38.3,
+            "background_L": 37.0,
+            "mean_abs_dL": 34.1
+          },
+          {
+            "band": 5,
+            "samples": 63,
+            "actor_L": 19.3,
+            "background_L": 36.2,
+            "mean_abs_dL": 32.2
+          }
+        ]
+      },
+      "a1_target": {
+        "carl_h52": [
+          {
+            "band": 0,
+            "samples": 34,
+            "actor_L": 20.3,
+            "background_L": 14.9,
+            "mean_abs_dL": 9.9
+          },
+          {
+            "band": 1,
+            "samples": 37,
+            "actor_L": 20.4,
+            "background_L": 14.2,
+            "mean_abs_dL": 14.9
+          },
+          {
+            "band": 2,
+            "samples": 24,
+            "actor_L": 18.0,
+            "background_L": 12.7,
+            "mean_abs_dL": 14.1
+          },
+          {
+            "band": 3,
+            "samples": 31,
+            "actor_L": 10.0,
+            "background_L": 16.8,
+            "mean_abs_dL": 11.1
+          },
+          {
+            "band": 4,
+            "samples": 47,
+            "actor_L": 29.8,
+            "background_L": 34.8,
+            "mean_abs_dL": 16.5
+          },
+          {
+            "band": 5,
+            "samples": 67,
+            "actor_L": 34.8,
+            "background_L": 30.4,
+            "mean_abs_dL": 12.0
+          }
+        ],
+        "donut_h40": [
+          {
+            "band": 0,
+            "samples": 19,
+            "actor_L": 66.6,
+            "background_L": 16.6,
+            "mean_abs_dL": 49.9
+          },
+          {
+            "band": 1,
+            "samples": 60,
+            "actor_L": 29.8,
+            "background_L": 16.9,
+            "mean_abs_dL": 21.0
+          },
+          {
+            "band": 2,
+            "samples": 39,
+            "actor_L": 32.2,
+            "background_L": 19.9,
+            "mean_abs_dL": 25.2
+          },
+          {
+            "band": 3,
+            "samples": 31,
+            "actor_L": 39.8,
+            "background_L": 43.1,
+            "mean_abs_dL": 34.7
+          },
+          {
+            "band": 4,
+            "samples": 22,
+            "actor_L": 36.0,
+            "background_L": 61.0,
+            "mean_abs_dL": 33.7
+          },
+          {
+            "band": 5,
+            "samples": 63,
+            "actor_L": 17.8,
+            "background_L": 53.5,
+            "mean_abs_dL": 43.0
+          }
+        ]
+      }
+    }
+  },
+  "colours": {
+    "lit_native_640x360": 6968,
+    "atlases": {
+      "floor01_terrain": 26,
+      "floor01_backwall": 18,
+      "floor01_walldecal": 18,
+      "floor01_structure": 24,
+      "floor01_parallax": 17,
+      "floor01_props": 36,
+      "floor01_torch": 8
+    },
+    "kit_palette_total": 112
+  },
+  "sha256": {
+    "lit_abc_640x360.png": "34d3334e0e26a70bf53bbb2f51965b54803cdd16e05a0fef13f402b5dd5371ae",
+    "lit_abc_1920x1080_x3.png": "a4e97eded0b2bfcc7d6c68ee154441de87633071b8de3025f2873f9d18fd99f9",
+    "lit_abc_1280x800_640x400_x2.png": "96d008cbcca6316704413c6afd2be47da43591620ff5d7bce83ebf21eee45898",
+    "lit_abc_env_only_640x360.png": "2003713eb51d96aff97b54482cb4a83144dc581bf8053cd1bbb5e94b244c4e3e",
+    "lit_overview_2048x400.png": "9ac7099dd5fb0d14aba444f591d9fe114a34944b5b601cfca91a9ca9e8a74e32",
+    "lit_vs_a1_target_side_by_side.png": "5d83a2045b6c036ae02daff6cff46d73a855c909996a7def401a72142152271c",
+    "actor_check_lit_x4.png": "7881ee31627f37f5f3d2b4cc8a97d3186066384d4a6b2994f918631e53227d37"
+  }
+}

@@ -5,6 +5,7 @@
 - **Authored by:** Claude Opus (AI agent), 2026-11-16, as a hand redraw of the approved masters [`carl_h52.grid.json`](../../../assets/source/characters/carl/carl_h52.grid.json) (frame 0) and [`donut_h40.grid.json`](../../../assets/source/characters/donut/donut_h40.grid.json) (frame 0). The masters were not changed.
 - **Rights record:** `ART-PUBLICATION-ALL-V1` in [`rights-and-release.md`](../../04-production/rights-and-release.md) (owner-reported publication scope, 2026-11-15, not independently verified; it grants no public reuse licence and no game or standalone asset-pack distribution right).
 - **Not in the pipeline:** no manifest under `assets/manifests/` references these sources, so `scripts/export_assets.sh`, the validator and the scale-study groups ignore them.
+- **Not used by the ENV-01 kit:** ADR-0007 rejected the 960×540 option; the reworked Floor 1 kit (round 3) and its actor checks use only the approved Carl 52 / Donut 40 atlases. These redraws stay look-dev only.
 - **Integrity:** `SHA256SUMS` lists every image in this directory. `python3 scripts/check_docs.py` verifies it.
 
 ## Sources

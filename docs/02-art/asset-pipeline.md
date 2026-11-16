@@ -212,17 +212,22 @@ A distribution LibreSprite (for example a locally built "1.2-dev") produced
 byte-identical PNGs; its JSON differs only in `meta.version`. CI uses the pinned
 AppImage, so keep that as the reference.
 
-**Environment kits (`env-kit-v1`, ENV-01).** A tile/decor kit adds a contract
-JSON (IDs, atlas rects, layer roles, `collidable`, anchors, grid snap, animation
-frames) next to its sources, and sample layouts (`env-kit-layout-v1`) under
-`assets/levels/`. Neither file goes in `assets/manifests/`, which holds export
-manifests only. Tilesets use manifest `type: "tileset"`; multi-piece decor atlases use
-`type: "decor_atlas"` (single frame, `required_alpha: true`). `export_assets.sh`
-runs `python3 scripts/env_kit.py all` after the existing steps. It validates every
-contract against its exported atlases, manifests and grids, and every layout against
-its contract, then renders previews to `generated/art/env_kit/<layout_id>/`. Any
-kit or layout error fails the export; the actor-check and concept side-by-side
-previews are best-effort and only warn when their inputs are missing. The first kit is the
+**Environment kits (`env-kit-v2`, ENV-01).** A tile/decor kit adds a contract
+JSON (IDs, atlas rects, layer roles and light groups, `collidable`, walking lines
+and collider rects, anchors, grid snap, parallax strips, arch windows, light
+emitters, animation frames) next to its sources, and sample layouts
+(`env-kit-layout-v2`, with parallax placement and a presentation-only lighting
+profile) under `assets/levels/`. Neither file goes in `assets/manifests/`, which
+holds export manifests only. Each atlas grid uses a subset (at most 63 opaque
+colours) of the kit's combined named palette. Tilesets use manifest `type: "tileset"`;
+multi-piece decor atlases use `type: "decor_atlas"` (single frame, `required_alpha: true`).
+`export_assets.sh` runs `python3 scripts/env_kit.py all` after the existing steps. It
+validates every contract against its exported atlases, manifests and grids, and every
+layout against its contract, then renders unlit previews to
+`generated/art/env_kit/<layout_id>/`. Any kit or layout error fails the export; the
+actor-check and target-frame side-by-side previews are best-effort and only warn when
+their inputs are missing. `scripts/env_kit_light.py` renders the lit (ADR-0007 A1
+lighting model) review frames on demand; it is not part of the export. The first kit is the
 [Floor 01 catacomb kit](floor-01-catacomb-kit.md).
 
 **Scope boundary:** This establishes the pipeline and three tiny editable

@@ -252,6 +252,32 @@ def measure(img: Image.Image, mask: Image.Image, boxes, view) -> list[dict]:
     return readability(img, mask, local, ring=6)
 
 
+def edge_bands(img: Image.Image, mask: Image.Image, boxes, view, bands: int = 6) -> list[list[dict]]:
+    """Silhouette edge contrast per height band (0 = top of the actor box): mean L* of the
+    actor's silhouette pixels, of their non-actor 4-neighbours, and mean |dL*|."""
+    from lookdev_compose import srgb_to_lab_l
+    px, mk = img.convert("RGB").load(), mask.load()
+    w, h = img.size
+    out = []
+    for (x0, y0, x1, y1) in boxes:
+        x0, x1, y0, y1 = x0 - view[0], x1 - view[0], y0 - view[1], y1 - view[1]
+        acc: dict[int, list] = {}
+        for y in range(max(0, y0), min(h, y1)):
+            for x in range(max(0, x0), min(w, x1)):
+                if mk[x, y] == 0:
+                    continue
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < w and 0 <= ny < h and mk[nx, ny] == 0:
+                        a, b = srgb_to_lab_l(px[x, y])[0], srgb_to_lab_l(px[nx, ny])[0]
+                        acc.setdefault((y - y0) * bands // (y1 - y0), []).append((a, b))
+        out.append([{"band": i, "samples": len(v), "actor_L": round(sum(a for a, _ in v) / len(v), 1),
+                     "background_L": round(sum(b for _, b in v) / len(v), 1),
+                     "mean_abs_dL": round(sum(abs(a - b) for a, b in v) / len(v), 1)}
+                    for i, v in sorted(acc.items())])
+    return out
+
+
 def render_evidence(layout_path: str, out: Path) -> dict:
     layout = ek.load_json(layout_path)
     kit = ek.load_kit(layout["kit_contract"])
@@ -313,6 +339,12 @@ def render_evidence(layout_path: str, out: Path) -> dict:
         "lit": dict(zip(names, measure(native, mask, boxes, primary))),
         "unlit": dict(zip(names, measure(unlit, mask, boxes, primary))),
         "a1_target_reference": a1_meas.get("frames", {}).get("a1", {}).get("readability"),
+        "edge_by_height_band": {
+            "note": "6 bands from the top of each actor box (0 = head, 5 = feet). The A1 frame uses the "
+                    "same actor positions, so the same masks apply to it.",
+            "lit": dict(zip(names, edge_bands(native, mask, boxes, primary))),
+            "a1_target": dict(zip(names, edge_bands(a1, mask, boxes, primary))),
+        },
     }
     report["colours"] = {
         "lit_native_640x360": colour_count(native),

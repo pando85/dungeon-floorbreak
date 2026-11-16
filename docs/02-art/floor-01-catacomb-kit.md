@@ -1,234 +1,146 @@
 # Floor 01 catacomb environment kit (ENV-01)
 
-**Status:** proposed, awaiting human art review. Nothing here is approved production art, level geometry or Bevy evidence.
-**Work order:** ENV-01 in the [local-agent handoff](../07-agents/floor-01-opening-encounter-handoff.md). The next step is COMP-01, which renders this kit in Bevy with the approved Carl 52 px and Donut 40 px atlases.
-**Binding direction:** [Floor 01 opening](floor-01-opening-catacomb-goblins.md): environment grammar A/B/C and its environment locks.
-**Evidence:** [`docs/evidence/floor01-catacomb-kit/`](../evidence/floor01-catacomb-kit/README.md)
+**Status:** rework round 3, proposed, awaiting human art review. Nothing here is approved production art, level geometry or Bevy evidence.
+**Target frame:** the owner-approved look-dev frame **A1** ([ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md), [look-dev write-up](lookdev-floor01-resolution-spike.md)): 640×360 palette-limited pixel layers plus a screen-resolution lighting pass, parallax gallery layers and a deep floor.
+**Binding direction:** [Floor 01 opening](floor-01-opening-catacomb-goblins.md): grammar A/B/C and the Environment locks (dry, clean brick catacomb; no sewer, toxic, factory or TV look; industrial detail sparing and local). ADR-0007 replaces the old "muted red-brown brick" wording with warm torch-lit brick falling into cold blue shadow.
+**Authored by:** Claude Opus (AI art agent), 2026-11-16. **Evidence:** [`docs/evidence/floor01-catacomb-kit/`](../evidence/floor01-catacomb-kit/README.md)
 
 ## Purpose
 
-This is a small, modular, editable pixel-art kit for the calm first corridors of Floor 1. It contains:
+A modular, editable pixel-art kit for the calm first corridors of Floor 1, built so that a sample layout made only from kit pieces reproduces the A1 mood:
 
-- a plain brick corridor (A);
-- occasional masonry arches and piers with cold blue depth (B);
-- one restrained maintenance corner (C).
+- **A:** plain warm brick corridor, torches with baked light pools, a timber door, an optional plain pilaster;
+- **B:** a thick sculpted arch on piers, opening onto a deep layered gallery (two parallax strips);
+- **C:** one thick copper/brass pipe run with a valve, used sparingly.
 
-All three modules use one material family and one palette. The kit is authored at the native virtual resolution (640×360 and 640×400 views) on the provisional 16×16 tile grid, so actors sit in front of it without scaling.
+The kit is authored at the native virtual resolution (640×360, 640×400 for Steam Deck) on the 16×16 tile grid, so actors sit in front of it without scaling. It contains no entrance landmark, goblins, Dozer, workshop, gameplay or Rust/Bevy code.
 
-The kit does **not** contain the special entrance landmark (fish-demon relief, giant doors, wrought-iron stairs, marble landing), goblins, the Dozer, a goblin workshop, gameplay, or Rust/Bevy code.
+## What changed in round 3 (owner review of PR #26, 2026-11-16)
+
+| Owner feedback | Round 3 |
+| --- | --- |
+| Pipes rejected | Thick (14 px) copper pipe with brass flanges, collars and valve wheel, iron clamps, cylinder-shaded with a specular streak. One run, C only. |
+| Brick colour rejected | Warm orange torch-lit brick that falls off into cold blue-violet shadow: brick tones come from the A1 hue-shifted ramp; the wall is built from height bands (cold under the ceiling, warmer lower down) and baked torch pools. |
+| Arch background rejected | The flat blue arcade and the `recess_*` tiles are gone. Arch windows are empty in the backwall; two horizontally tiling gallery strips (far: lower arcade with distant torches and tall cold windows; mid: pillars, balcony with railing, arches, one torch) show through at parallax 0.35 and 0.6. |
+| Liked: readability, Carl/Donut positions, 0 px foot contact | Same actor positions as A1; feet stand on the walking line with 0 px sink; a lighter warm band behind actor height plus a presentation-only contact shadow (measured below). |
+| Floor (ADR-0007) | Deep floor: 24 px visible top surface, walking line 4 px behind the front lip. |
 
 ## Contents
 
-| Layer role | Atlas (manifest) | Editable source | Contents |
+| Role (layer) | Atlas | Size, colours | Contents |
 | --- | --- | --- | --- |
-| `collision` | `floor01_terrain` | `assets/source/terrain/floor01/terrain.{grid.json,ase}` | 32 opaque tiles: `floor_top_a/b/c/d`, `floor_top_end_l/r`, `floor_fill_a/b`, `floor_fill_side_l/r`, `floor_inner_corner_l/r` and `floor_step_base_a/b` (footing under a raised block), `ceiling_edge_a/b/c`, `ceiling_fill_a/b`, `ceiling_corner_in_l/r`, `ceiling_corner_out_l/r`, `wall_fill_a/b`, `wall_face_l/r` and `wall_face_l_b/r_b` (stone quoins, two phases), `wall_cap_l/mid/r` |
-| `backwall` | `floor01_backwall` | `assets/source/terrain/floor01/backwall.{grid.json,ase}` | 64 opaque tiles: six 4×2 brick panels `brick_backwall_a1`…`f8`, the under-ceiling strip `brick_backwall_top_1..4`, the plinth strip `brick_backwall_base_1..4`, and eight `recess_*` blue-depth tiles |
-| `structure` | `floor01_structure` | `assets/source/terrain/floor01/structure.{grid.json,ase}` | `arch_ring_r72` (11 voussoirs, inner radius 72 px, outer radius 96 px), `pier_capital`, `pier_shaft` (repeats vertically), `pier_base`, `pilaster_plain` (32×16 piece with a 24 px stone shaft, stacks vertically; a plain structural break for long A runs), and `far_arcade_a` (three far openings) / `far_arcade_b` (two wider openings) for the depth inside an opening |
-| `prop` | `floor01_props` | `assets/source/props/floor01/props.{grid.json,ase}` | `pipe_h_a`, `pipe_h_rust`, `pipe_h_flange`, `pipe_h_bracket`, `pipe_v_a`, `pipe_v_bracket`, `pipe_elbow_r_d`, `pipe_elbow_l_u`, `valve_wheel`, `pipe_v_floor_collar`, `pipe_v_ceiling_collar`, `pipe_wall_collar_r` (round face-on wall collar), `maintenance_box`, `door_plank` (40×80 piece: a 32×72 timber leaf in a stone frame), `torch_wall_unlit` and the optional `lichen_crust` |
-| `backwall` (decals) | `floor01_props` | same | `torch_glow` (minimal warm light on brick faces and top edges) and `grime_patch_a/b` (soot on a few whole bricks), both following the brick coursing |
-| `prop` (animated) | `floor01_torch` | `assets/source/props/floor01/torch.{grid.json,ase}` | `torch_wall`: four frames, tag `burn`, 120/140/100/130 ms, forward loop |
+| `collision` | `floor01_terrain` (tileset) | 256×144, 26 colours | 144 opaque tiles: deep-floor panels by row type and tone (`deck_back_*` ×30, non-collidable; `deck_front_*` ×30, walking line at y 4; `face_a_*` ×18; `face_b_*` ×10; `fill_*` ×6), 25 single edge tiles (`*_end_l/r` platform ends, `*_inner_l/r` lower floor beside a step, `*_wall_l` beside an end wall, for all five row types), `ceiling_fill_*` ×6, `cornice_*` ×9, `ceiling_corner_in/out_l/r`, `wall_end_l/r` (+`_b` quoin phase), `wall_fill`, `wall_fill_b` |
+| `backwall` | `floor01_backwall` (tileset) | 272×96, 18 colours | 102 opaque tiles: five brick height bands (`brick_top/upper/mid/lower/low_*`, four 4-tile panels + two solo tiles each) and the pale `base_course_*` (two panels + four solos) |
+| `backwall` decals, `foreground` | `floor01_walldecal` | 512×256, 18 colours | `torch_pool_a` (radius 118) / `torch_pool_b` (radius 102): whole-brick pools with soot, placed on a wall torch; `grime_a/b`; foreground `rubble_a/b` |
+| `structure` | `floor01_structure` | 576×416, 24 colours | `arch_ring_a/b` (15 voussoirs, keystone, soffit, back aperture; carries the arch window and two cold gallery lights), `pier_l`, `pier_r` (impost, jamb, plinth, own torch light baked), `arch_threshold`, `pilaster_plain` |
+| `parallax_far`, `parallax_mid` | `floor01_parallax` | 448×464, 17 colours | `gallery_far` (440×232, opaque, 7 distant torch lights), `gallery_mid` (344×232, 1-bit alpha, 1 torch light) |
+| `prop` | `floor01_props` | 256×120, 36 colours | `pipe_h`, `pipe_h_seam`, `pipe_v`, `pipe_v_seam`, `pipe_elbow_rd/ld/ru/lu` (32×32, centreline radius 16), `pipe_flange_v/h`, `pipe_bracket_v/h`, `pipe_collar_ceiling`, `pipe_collar_floor`, `valve_wheel`, `door_timber` (48×88 frame, 36×78 px timber leaf; Carl is 52 px), `torch_wall_unlit`, `lichen_crust` |
+| `prop` (animated) | `floor01_torch` | 64×56, 8 colours | `torch_wall`: four frames, tag `burn`, 120/140/100/130 ms; flame and floor-pool emitters with a per-frame flicker curve |
 
-Collidable tiles are fully opaque. Decor pieces use 1-bit alpha only, with no partial alpha anywhere. Only `collision`-role tiles are collidable. Arches, piers, pipes, torches and decals never are.
+Inventory: 246 tiles (144 collision: 35 `deck_back`, 35 walkable `deck_front`, 74 other; 102 backwall) and 33 pieces (19 prop, 6 structure, 4 backwall decal, 2 foreground, 1 `parallax_far`, 1 `parallax_mid`).
 
-## Palette `floor01-catacomb-v1`
+All pixels are 1-bit alpha. Collision-layer and backwall tiles are fully opaque. The h78/h60 look-dev cast redraws (`assets/source/lookdev/characters/`) are **not used** by this kit; actor checks use the approved Carl 52 / Donut 40 atlases.
 
-One shared palette of 47 opaque colours, embedded with names in every grid and `.ase` file and in the contract. Each atlas therefore stays under the 64-colour check in `scripts/validate_assets.py`. Revision 1 set the ramps by CIE L*: brick faces sit at L* 27.5–32.6 (mortar 23.1), clearly above the darkest actor masses (Carl's jacket and hair are L* 17.7), and the actor-height depth haze is L* 21–26.
+## Palette `floor01-catacomb-v2`
 
-| Family | Keys | Role |
-| --- | --- | --- |
-| Brick (6) | `m a b c d e` | Muted, low-saturation red-brown backwall: mortar one step below the darkest face and a five-step face ramp (L* 23–35). Lower in contrast than actors and the floor edge |
-| Torchlit (3) | `f g h` | Restrained warm light on brick faces near torches only |
-| Stone (8) | `s t u v w x y z` | Neutral stone warmed toward the brick hue but less saturated, so piers and arches read as the same material family: ceiling course, arches, piers, quoins, floor lip (`y`) and glint (`z`, accent) |
-| Floor surface (3) | `D E F` | Dry walking surface and the floor front face, at the pier stone's low chroma (C* ≤ ~6) so the floor reads gray stone, not brown |
-| Depth (6) | `0 1 2 3 4 5` | Cold blue recesses and far arcade: dark vault (L* 7) to actor-height haze (L* 21–26); far-floor contact lines are dark (L* 16) |
-| Flame (4) | `R O Y W` | Torch flame and one ember pixel |
-| Iron (6) | `k i j l n o` | Sconce, pipes, valve hub and box (`o` is an accent glint) |
-| Rust / paint (5) | `q r p P T` | Sparse rust, valve wheel red and a blank ochre plate on the box |
-| Timber (3) | `U V X` | The plain door's planks |
-| Lichen (3) | `G H L` | The single optional crust: two desaturated greens (L* 20/26, a* ≈ −8) plus one muted `L` glow pixel |
+One combined kit palette of 112 named colours, `<ramp>_<index>`: the A1 look-dev ramps (`brick` 12, `brick_cold` 4, `mortar` 7, `stone` 11, `stone_cold` 5, `floor` 11, `floor_cold` 4, `gal` 11, `gal_warm` 7, `copper` 9, `copper_cold` 2, `brass` 7, `iron` 7, `flame` 6) plus `wood` 6 and `lichen` 3. Index 0 is the deepest cold shadow and the last index the hottest light; shadows shift toward blue-violet and light toward yellow-orange.
 
-## A/B/C usage rules
+Each atlas uses a subset of at most 63 opaque colours (the asset validator counts transparency as the 64th). Grid keys are atlas-local; grid palette entries must match a kit palette entry by name and RGBA. Per-atlas counts are in the Contents table. The lit frame is not palette-limited (6,968 colours at native 640×360), as ADR-0007 expects.
 
-- **A: plain fabric.** Brick panels between the top strip and the plinth strip, with `floor_top_a/b/c/d` over `floor_fill_*`. Place a `torch_wall` with its `torch_glow` at uneven spacing (roughly every 10 to 20 columns) above head height; row 10 of the sample places the flame about 150 px above the floor. An occasional `torch_wall_unlit`, `door_plank`, `grime_patch_a/b` or one plain `pilaster_plain` breaks repetition. Leave long stretches empty.
-- **B: rhythm.** Stack `pier_base`, 3× `pier_shaft` and `pier_capital`. Pier centres sit 192 px apart (12 columns), and one `arch_ring_r72` springs from the capital tops. The backwall cells inside the ring's mid-radius, and the opening below the springing line, use `recess_*` bands from top to bottom: `vault` → `vault_fade` → `wall_a/b` → `wall_fade` → `low` → `haze` → `floor`. `far_arcade_a/b` sit on the opening's floor line; alternate them between neighbouring openings. Use B for junctions, landmarks and orientation, not as wallpaper.
-- **C: special function, used sparingly.** Use one pipe run (elbows, straight runs, one bracket or flange), one `valve_wheel` and one `maintenance_box`. Every pipe end terminates in a collar or the box, never in mid-air: `pipe_v_floor_collar` into the floor, `pipe_v_ceiling_collar` into the ceiling course, or `pipe_wall_collar_r` into the wall. `lichen_crust` is optional and only belongs next to a damp source, such as below the valve. Do not repeat C dressing along ordinary corridors and do not grow it into a workshop.
-- **Corridor ends and raised blocks.** Close a corridor with `wall_face_l/r` (stack with `wall_face_*_b` for the second quoin phase), `ceiling_corner_in_l/r` where the ceiling meets the wall, `wall_cap_l/mid/r` on top of low walls and `ceiling_corner_out_l/r` where a ceiling course ends. Under a raised block that stands on the floor, use `floor_inner_corner_l/r` at its ends and `floor_step_base_a/b` between them, so the block's lit side edge stops at the walking line. The sample layout does not end the corridor (its floor must stay continuous); the contact sheet shows these tiles.
-- **Panels:** within a row, a brick panel cell must be followed by its right-hand neighbour in the same panel. A panel's last column may be followed by column 0 of any panel in the same family. Any vertical order is seamless. The joints are the same everywhere (even courses at x ≡ 15, odd courses at x ≡ 7 mod 16), which is why the grid-aligned `torch_glow` matches every panel.
-- **Contact zones:** the plinth strip directly above the floor is solid dark stone (no high-frequency detail), and so is the contact shadow under the ceiling course, so feet, the floor lip and collision edges read cleanly. Keep small props out of the 64 px band above the floor; only a single vertical conduit, the plain door and a pilaster reach down to it.
+## Rows and A/B/C rules
 
-## Integration contract (for COMP-01)
+- **Rows (base corridor, 25 rows):** 0 ceiling fill; 1 cornice; 2–3 `brick_top` (coldest); 4–7 `brick_upper`; 8–12 `brick_mid`; 13–14 `brick_lower`; 15–16 `brick_low` (the lit band behind actor heads); 17 `base_course` (pale dressed stone); 18 `deck_back` (floor back line y = 288); 19 `deck_front` (walking line y = 308, front lip y = 312); 20 `face_a`; 21 `face_b`; 22+ `fill`. A raised platform shifts its own floor stack up by 1 or 2 rows.
+- **Panels:** within a row a panel cell is followed by its right neighbour; a panel's last column may be followed by column 0 of any panel of the same family; solo panels are one tile wide. Bricks and slabs cut by a panel edge use a neutral tone, so panels join without seams. Edge singles must touch panel edge columns.
+- **A:** brick bands, base course, deck tones dim/mid/lit (lit under a torch, mid next to it). A wall `torch_wall` sits with its flame at y 178 (`mount_y.wall` = 160) and its `torch_pool_a/b` at (flame x − 120, 48). Keep at least 240 px between pooled torches so pools never overlap. Occasional `grime_*` (mid band, away from pools), `door_timber`, `torch_wall_unlit` or one `pilaster_plain`.
+- **B:** an arch bay is 304 px wide from a 16-px-aligned bay origin at y 32: `pier_l` (+0, 0), `arch_ring_a/b` (+16, 0), `pier_r` (+224, 0), `arch_threshold` (+64, 240), `torch_wall` on both piers at (+24, 176) and (+264, 176). Backwall cells touching the ring window stay empty. Piers bake their own torch light; do not add pools at pier torches.
+- **C:** one copper run (elbows, straight pieces, at least one flange and one bracket, a `valve_wheel` on a vertical drop). Every end terminates in `pipe_collar_ceiling` or `pipe_collar_floor`. `lichen_crust` is optional and only next to a pipe joint. Copper only in C; a test enforces it for the sample layout.
 
-- **Contract:** [`assets/source/terrain/floor01/floor01_catacomb_kit.json`](../../assets/source/terrain/floor01/floor01_catacomb_kit.json) (`env-kit-v1`).
-- **Sample layout:** [`assets/levels/floor01/corridor_abc_sample.json`](../../assets/levels/floor01/corridor_abc_sample.json) (`env-kit-layout-v1`).
+## Integration contract v2 (for COMP-01)
 
-Neither file lives in `assets/manifests/`, because every JSON file there is treated as an export manifest.
+`floor01_catacomb_kit.json` is now `env-kit-v2` and the sample layout `env-kit-layout-v2`. Both carry a `migration` note. No v1 id keeps its meaning, so v1 files are rejected rather than silently reinterpreted.
 
-### Coordinates
+### Walking line and colliders
 
-- Tile size is 16. The origin is the **top-left** corner, x points right, y points **down**, and rows are ordered top to bottom.
-- A layout pixel is `(col * 16, row * 16)`.
-- Atlas rects are `[x, y, w, h]` in exported atlas pixels, measured from the top left.
-- Bevy is y-up, so COMP-01 must flip y when converting.
+- A walkable tile declares `walk_line_y` (tile-local, 0–15). The collider top of a floor column is `row * 16 + walk_line_y`. `deck_front` tiles use `walk_line_y: 4`.
+- Every collidable tile has `collider: [x, y, w, h]` (tile-local) that must equal `[0, walk_line_y, 16, 16 − walk_line_y]`; full tiles use `[0, 0, 16, 16]`. **Bevy:** for each collidable cell spawn (or merge per row) a static AABB at `(col * 16 + x, row * 16 + y, w, h)`, flipping y for y-up.
+- `deck_back` tiles are opaque, drawn in the collision layer, and **not collidable**: they are the back 16 px of the 24 px floor surface, behind the walking line. Every walkable tile must have a `deck_back` above it.
+- Actors are drawn with their pivot row at `collider_top − 1` (0 px sink). Spawn and exit markers use the same row. A column collidable from top to bottom is a wall, not floor. Steps are limited to `max_step_tiles` (2) × 16 px of walking-line difference.
 
-### Contract schema
+### Layers and parallax
 
-| Field | Content |
-| --- | --- |
-| `palette`, `palette_id` | The 47 named colours, identical to every grid palette (validated). |
-| `layers` | Draw order: `backwall` tiles (0), `backwall_decal` pieces (1), `structure` (2), `prop` (3), `collision` tiles (4), actors (`actor_draw_order` 5), `foreground` (6, empty in ENV-01). |
-| `tiles[]` | Each tile has a stable IP-neutral `id`, `atlas`, `rect`, `grid_index` (row-major in its tileset, matching the manifest `tiles` list), `role` (`collision` or `backwall`), explicit `collidable`, `grammar` (A/B/C hints), and optional `walkable_top`, `panel {id, family, cell, size}` and `recess`. |
-| `pieces[]` | Each piece has `id`, `atlas`, `rect`, `role` (`backwall`, `structure`, `prop` or `foreground`), `collidable: false`, `anchor` plus `anchor_name`, and `grid_snap` (top-left must be a multiple of 1, 8 or 16). Optional fields: `arch {radius_inner, radius_outer, voussoirs, backwall_inside}`, `repeat`, `decal`. |
-| `pieces[].animation` | Only `torch_wall` has one. It is the Aseprite json-array shape: `tag {name, from, to, direction}` plus `frames[] {frame {x, y, w, h}, duration}`, checked against the exported metadata. No frame is rotated or trimmed. |
-| `floor_contact` | The collider top is the top edge of a `walkable_top` tile. Rows 0 to 4 of `floor_top_*` are the walking surface. **Recommended visual foot sink: 0 px**, per the owner decision of 2026-11-16 (COMP-01 draws the actor pivot row directly on the collider top). The independent art-director review suggested 2 px; that is recorded as an open question. |
+Draw order: `parallax_far` (0) → `parallax_mid` (1) → `backwall` (2) → `backwall_decal` (3) → `collision` (4) → `structure` (5) → `prop` (6) → actors (7) → `foreground` (8). Collision now draws before structure and props, so pier plinths and pipe collars sit on the deck. Every layer names a `light_group`.
+
+Parallax layers have `kind: "parallax"` and a factor (far 0.35, mid 0.6). Their pieces declare `tile_x: true`. The layout places each strip with `parallax_layers.<name> = {piece, x_origin, y}`. A strip pixel at strip-local u is drawn at screen x = `x_origin + k × width + u − camera_x × parallax` for every integer k, snapped to whole virtual pixels. The sample's `x_origin` values make the primary view match the A1 frame.
+
+### Arch windows
+
+`arch_ring_*` declares `window: {arc_centre, arc_radius, rect}` in piece-local px: the circle above the arc centre line plus the rectangle down to the floor back line. Rule: no backwall tile or decal pixel inside a window; every transparent pixel of backwall + decals + collision + structure lies inside a window; the far strip covers every window vertically.
+
+### Lights (presentation only)
+
+Pieces carry `lights: [{id, offset, colour, radius, intensity, glow?, flicker?, project?, project_dy?, squash_y?, group}]`. Examples: the torch flame (radius 250, intensity 0.36, glow radius 44, flicker 1.0/0.93/1.07/0.97), the torch floor pool (`project: "walk_line"`, `project_dy: −6`, `squash_y: 0.32`), the arch gallery bounce and sky lights, and the gallery strip torches (which move with their strip). The layout's `lighting` profile sets per-group ambient (`parallax_far`, `parallax_mid`, `scene`, `actors`, `foreground`), haze with ground fog for the parallax groups, the actor `light_scale`, an actor contact shadow and bloom (emissive layers `prop`, `parallax_mid`, `parallax_far`). It must declare `presentation_only: true`. Lights never change collision or gameplay.
 
 ### Sample layout
 
-- **Size:** 128 × 25 tiles (2048 × 400 px), so both 640×360 and 640×400 views have full wall coverage.
-- **Rows:**
-  - rows 0 to 2: ceiling (edge on row 2);
-  - row 3: the under-ceiling brick strip;
-  - rows 4 to 18: brick panels;
-  - row 19: plinth;
-  - row 20: floor top (`base_floor_top_y` = 320, the most common surface row x 16);
-  - rows 21 to 24: floor fill.
-- **Floor:** the floor is collidable and continuous from end to end with no pits. One raised block, one tile high, sits at columns 30 to 37; it uses `floor_top_end_l/r` on top and `floor_inner_corner_l/r` plus `floor_step_base_a/b` as its footing. The validator enforces "no pit" and "step ≤ 2 tiles" per column.
-- **Dressing:** torches at columns 7, 18, 33, 50, 82 and 94 (uneven spacing), a burnt-out sconce at column 42, a 40×80 door at x 192–231, six grime patches, a plain stone pilaster at x 412–435, and in C a pipe run that rises into the ceiling course at column 85 and feeds the box and a floor conduit.
-- **Segments** (`x` in px): `A1` 0 to 896, `B1` 896 to 1136 (one arch), `C1` 1136 to 1408, `A2` 1408 to 1600, `B2` 1600 to 2048 (two arches).
-- **Markers:** `player_spawn` (x 72), `exit_east` (x 1896, inside the far B2 arch, with a trigger rect). The marker `y` is the actor pivot row, 319.
-- **Views:** `abc_640x360` = `[736, 32, 640, 360]` and `abc_640x400` = `[736, 0, 640, 400]`. Both read A → B → C from left to right.
-- **Animation offset:** each torch has a `frame_offset` so the six torches do not flicker in sync.
-- **Far arcades:** B1 uses `far_arcade_a`; B2 alternates `far_arcade_b` and `far_arcade_a`.
+`assets/levels/floor01/corridor_abc_sample.json`: 128×25 tiles (2048×400), segments A1 (0–512), B1 (512–816), C1 (816–1280), A2 (1280–1600), B2 (1600–2048). It has a left end wall, a continuous walkable floor with a 1-tile platform in A1 and a 2-tile platform in A2, two arch bays, five pooled wall torches, four pier torches, an unlit sconce, one copper run in C1, a door, two pilasters, two grime patches and two rubble silhouettes. View `abc_640x360` (x 328, y 20) reproduces the A1 composition with kit pieces; `abc_640x400` is the 16:10 framing.
 
-### Behaviour change to `scripts/export_assets.sh`
+## Lighting pass and previews
 
-After the existing validation, contact-sheet and GIF steps, the script now runs `python3 scripts/env_kit.py all`. That command:
-
-1. finds every `env-kit-v1` layout under `assets/levels/`;
-2. validates the kit contract against the exported atlases, manifests and grids;
-3. validates the layout against the contract;
-4. renders the previews into `generated/art/env_kit/<layout_id>/`.
-
-A contract or layout error fails the export, as does a file under `assets/levels/` that cannot be parsed or declares an unknown `env-kit*` format version. The actor-check and concept side-by-side previews are best-effort: if their inputs (the Carl and Donut manifests and atlases, the concept image) are missing, the tool prints a `WARNING` and skips them, so renaming unrelated assets cannot break the kit export or other workflows. With the inputs present they are generated as usual. No other existing export behaviour changed.
-
-**Generated paths.** The `image` and `metadata` atlas paths in the contract point into the gitignored `generated/art/` directory. A consumer (COMP-01, tests, CI) must run `bash scripts/export_assets.sh` first; the files do not exist in a fresh checkout. COMP-01 can depend on `generated/art/floor01_*.{png,json}` existing after `bash scripts/export_assets.sh`.
+- `scripts/env_kit.py` validates contracts and layouts and renders **unlit** previews from the exported atlases (overview, views, contact sheets, unlit vs A1, actor check). `scripts/export_assets.sh` runs it.
+- `scripts/env_kit_light.py` adds the A1 lighting model on the same layer images at an integer output scale, using the A1 compositor's falloff sprites, bloom and readability metric (`scripts/lookdev_compose.py`). Parallax glows and bloom are masked by nearer opaque layers. It writes the lit evidence and `measurements.json`. It is not run by the export (the evidence is committed).
 
 ## Validation
 
-`scripts/env_kit.py validate` (run inside the export) together with `tests/test_art_env_kit.py` covers the following:
-
-- **Palette:** every opaque pixel is in the kit palette; there is no partial alpha; each grid's palette equals the contract palette; the palette has at most 64 colours.
-- **Tiles:**
-  - tile rects are 16-aligned 16×16 cells inside the atlas;
-  - `grid_index` matches both the cell and the manifest `tiles` order;
-  - every tileset cell is covered exactly once;
-  - collision and backwall tiles are fully opaque;
-  - only collision tiles are collidable;
-  - brick panels are complete.
-- **Pieces:** pieces are non-collidable, use alpha and are non-empty; static rects do not overlap; anchors lie inside their piece.
-- **Animation:** the torch tag, frame rects and durations equal the exported metadata.
-- **Manifests:** each manifest's `palette_id`, output paths and `grid_source` match the contract; no manifest claims approval.
-- **IDs:** all IDs are IP-neutral (franchise names are rejected).
-- **Layout:**
-  - layer roles match;
-  - pieces stay on their snap grid and inside the layout bounds;
-  - brick panels stay continuous;
-  - arch openings show recess inside the ring and never outside it;
-  - segments are contiguous and cover the width;
-  - `kit_contract` resolves to the loaded contract file;
-  - segment boundaries are multiples of 16 px;
-  - spawn and exit markers exist, sit on a column whose surface gives `y` = surface row x 16 - 1 (0 px foot sink), and any marker `rect` lies inside the layout;
-  - `base_floor_top_y` equals 16 x the most common floor surface row;
-  - views lie inside the layout;
-  - the floor is continuous with steps of at most 2 tiles;
-  - collision topology: each column has at most two collidable runs, a ceiling run touching row 0 and a floor run touching the bottom row (no floating collision tiles);
-  - backwall coverage: every cell has a backwall tile unless an opaque collidable tile hides it (holes behind collision are allowed, visible holes are not).
-- **Determinism:** the committed `.ase` files equal a fresh build from their grids, and renders are byte-identical across runs.
-
-The negative tests mutate in-memory copies, so each rule is proven to fire.
+`python3 scripts/env_kit.py all` (part of the export) fails on, among others: wrong format version; a grid colour outside the kit palette or more than 63 colours per atlas; partial alpha; a non-opaque collision or backwall tile; a collidable `deck_back` or backwall tile; a collider that does not follow the walking line; a walkable tile without `deck_back` above it; a pit or a step over 32 px; broken panel continuity or a misplaced edge tile; a backwall tile or decal inside an arch window; transparent pixels outside every window; a far strip that does not cover a window; bad light metadata (colour, radius, group, flicker length); a parallax piece without `tile_x`; an off-grid piece or a `fixed_y` piece elsewhere; a marker off the walking line; an incomplete or non-presentation-only lighting profile. `tests/test_art_env_kit.py` (54 tests) proves each rule fires, plus deterministic unlit and lit renders, parallax motion at the declared factor and copper-only-in-C.
 
 ## Regenerating
 
-```sh
-# Pixel grids, contract and layout were first written by the authoring script.
-# The committed grids are the source of truth. Re-running overwrites hand edits:
-python3 scripts/author_floor01_kit.py --force   # only when deliberately regenerating
-# Rebuild .ase from grids, export atlases with LibreSprite/Aseprite, validate, render previews:
-ART_CLI=/path/to/libresprite bash scripts/export_assets.sh
-python3 -m unittest discover -s tests -p 'test_art_*.py' -v
+```bash
+python3 scripts/author_floor01_kit.py --force      # grids, .ase, manifests, contract, layout (overwrites hand edits)
+ART_CLI=/path/to/aseprite-or-libresprite bash scripts/export_assets.sh
+python3 scripts/env_kit_light.py --out docs/evidence/floor01-catacomb-kit
 ```
 
-After hand-editing a grid, run the export and commit the regenerated `.ase`. CI fails when `assets/source` differs after an export.
+`scripts/author_floor01_kit.py` imports the A1 look-dev shading core (`scripts/lookdev_floor01_author.py`): light evaluation with a windowed falloff quantised onto the ramps, per-brick/per-block shading, bevels, pits and chips. The arch, piers, threshold and gallery strips re-render the A1 look-dev geometry as modules with a local light rig; the gallery strips use periods that tile (440 and 344 px). The committed grids are the source of truth.
 
-## Self-review log (agent, before human review)
+## Self-review against the owner's five art criteria (agent, before human review)
 
-1. **First pass.** The backwall was too bright and saturated. Carl's brown hair and dark jacket partly merged with it.
-   - Distant recess tiles drew continuous dashed lines that read as scanlines.
-   - The torch glow used a checker ring that looked stamped.
-   - The lichen floated free on the wall like an insect.
-   - `pipe_v_a` repeated the same rust dots every 16 px down the conduit.
-   - The floor surface was a thin gray strip.
-2. **Second pass.** These fixes went in:
-   - darkened and compressed the brick ramp;
-   - shortened the bevel highlights;
-   - made the far-masonry marks sparse and irregular;
-   - removed the dither ring from the glow, made it slightly taller than wide, and kept the outer falloff on brick top edges only;
-   - moved the lichen so it hugs the pipe below the valve, along a mortar joint;
-   - removed the rust from the vertical pipe;
-   - made the walking surface 5 px with three warm floor tones.
-3. **Third pass.** In the 2048 px overview the wall showed a faint diagonal "chevron" pattern. The top-left highlight and bottom-right shadow of every brick lined up across the courses of the running bond.
-   - Bevel runs now start at varied positions.
-   - The right-edge shade is rarer.
-   - Tone weights are narrower.
-   - The panel count rose from four to six.
-   - The pattern is no longer visible at 1×.
-4. **Fourth pass.** The floor front face was warmed (`D/E`), so the walkable band reads as one dry, lit stone surface against the darker plinth and fill.
+Measured on the lit 640×360 frame (`measurements.json`), with the A1 frame and the same actor positions as the reference.
 
-5. **Revision round 1 (independent Claude Opus art-director review, "needs revision before human review").**
-   - *Value separation (blocker):* brick faces were L* 17–24, the same as Carl's jacket (17.7). The brick ramp now sits at L* 23–35 with lower saturation, mortar is one step below the faces, and the actor-height recess bands are L* 21–26. Measured on `actor_check_640x360.png`, torso band behind the actors: A brick median L* 30.0 (p10 23.1), B far arcade median 25.9 (p10 21.1), C brick median 30.0.
-   - *Far arcade (blocker):* it read as tombstones (light rounded shapes on dark). Figure and ground are inverted: mid-blue far wall, spandrels and piers, dark arch heads, lighter floor-level haze with a 1 px haze floor line, a straight far cornice. A second variant `far_arcade_b` (two wider openings) breaks repetition in B2.
-   - *Dither:* the 1 px checker rows in `recess_vault_fade`, `recess_wall_fade` and the far arcade are gone, replaced by straight bands with one staggered 3 px notch per tile. Most 1 px dashes in `recess_wall_*` were dropped. A first stepped attempt undulated and read as a water line, so it was flattened.
-   - *Torch glow:* now three bands over about 44 px with a per-brick radius jitter, lighting only brick faces and top edges; the stray lit brick-top segment below the torch is gone.
-   - *Collision edges:* the plinth (`brick_backwall_base_*`) and the under-ceiling contact shadow (`brick_backwall_top_*`) are solid, with no tooth rows.
-   - *Stone pocks:* the uniform single-pixel pock on every stone block is removed; about a third of blocks (voussoirs, piers, `ceiling_edge_b`, `floor_top_b/d`, `floor_fill_b`, `ceiling_fill_b`) carry a 3 px chip cluster instead.
-   - *Arch:* only the upward-facing edge of each voussoir is lit (the crown voussoirs' top edge), the inner and outer rims are gone, a 3.5 px darker soffit band runs inside the ring, and a 1 px contact shadow sits outside the extrados.
-   - *Stone warmth:* the stone ramp is warmed toward the brick hue at much lower saturation.
-   - *Raised block:* new `floor_inner_corner_l/r` and `floor_step_base_a/b` stop the block's lit side edge at the walking line.
-   - *Pipe ends:* the run now rises through `pipe_elbow_l_u` into the ceiling course with `pipe_v_ceiling_collar`; `pipe_wall_entry_r` was replaced by the round face-on `pipe_wall_collar_r`.
-   - *Modularity essentials:* wall faces with quoins, wall caps, ceiling inner/outer corners, `door_plank`, `pipe_elbow_l_u` and `torch_wall_unlit`.
-   - *Nice-to-have:* the lichen became a flat 8×3 crust on a mortar joint, `grime_patch_a/b` decals add soot over a few bricks in A, torch spacing varies, and the torch has a stronger leaning frame plus one ember pixel.
+| Metric | Kit, lit | A1 target |
+| --- | --- | --- |
+| Carl silhouette edge mean \|ΔL*\| | **15.3** | 13.1 |
+| Carl edge at jacket height (band 3 of 6) | **28.7** | 11.1 |
+| Carl edge at head / feet (bands 0 / 5) | 14.9 / 10.4 | 9.9 / 12.0 |
+| Carl mean ΔL* (actor − 6 px ring) / contrast ratio | 6.1 / 1.64 | 18.2 / 2.35 |
+| Donut silhouette edge mean \|ΔL*\| | **33.5** | 33.0 |
+| Donut mean ΔL* / contrast ratio | 11.5 / 2.04 | 16.3 / 2.00 |
 
-6. **Revision round 2 (independent Claude Opus re-review: "ready for human art review", no blockers; should-fix and cheap nice-to-haves applied).**
-   - *Door:* `door_plank` grew from 32×64 (24×58 leaf, 6 px headroom over Carl) to a 40×80 piece with a 32×72 timber leaf; the lintel and 4 px jambs are unchanged. It sits on the floor at x 192–231 of the sample.
-   - *Segment A monotony:* grime patches now cover five whole bricks each at brick L* 25.5 (one core brick 23.1) against 27.5–32.6 faces. Measured over each 48×16 patch, mortar included, they are 3.1–3.9 L* darker than the wall beside them (faces alone 4.5–6.9). Six patches sit across A1/A2. One plain `pilaster_plain` stone shaft (x 412–435, ceiling to floor) is the single structural break in A. The mean wall L* per 64 px column in A1 stays 28.3–29.3, so the variation is local, not a value ramp.
-   - *B haze vs water:* the bright 1 px far-floor line (L* 32) in each far bay and in `recess_floor` is now a dark contact line (L* 15.9). The notched fringe under each arch head is now a plain 2-row step: arch head L* 11.1, two rows of 15.9, then floor haze 25.9; far floor 21.1.
-   - *Nice-to-have:*
-     - the outer `torch_glow` band stops short on alternating courses, so its silhouette is ragged;
-     - the lichen is desaturated (a* ≈ −8, L* ≈ 20–26);
-     - the floor surface is at the pier-stone chroma;
-     - the 2 px far-pier torch dots were removed rather than enlarged.
+1. **Mood match vs A1:** the side-by-side reads as the same world: warm pools on orange brick, cold violet wall top, glowing flames, hazy blue gallery with distant torch dots, copper pipe catching torchlight, lit deep floor. Differences: the kit's pools are slightly tighter (they are baked per torch and must not overlap), the area between pools is a little cooler, and there is no chain across the arch.
+2. **Element likeability:** pipes are thick copper with brass fittings; brick is warm and hue-shifted; the arch background is the layered gallery. The door, pilaster and lichen are new and need owner review.
+3. **Readability:** the weak edge named in the spike (Carl's dark jacket against a dark wall base) is fixed: jacket-height edge contrast rises from 11.1 to 28.7 and the mean silhouette edge from 13.1 to 15.3. The cost is a **lower mean ΔL*** for Carl (6.1 vs 18.2), because the lighter band behind actor height brings the surround close to Carl's mid-value average (dark jacket, light legs). The silhouette reads by local contrast, not by being darker or lighter overall. Feet are the weakest Carl edge (10.4); a presentation-only contact shadow helps.
+4. **Grammar and locks:** A plain brick with pools, B arch bays with the gallery, C a single copper run with a valve. The floor is dry, clean and flat; there is no sewer, toxic, factory or TV look; copper appears only in C.
+5. **Display check:** all previews use integer nearest scaling (1080p ×3, Deck 640×400 ×2). Panels join without seams. Repetition: five brick bands × six panels, two pool sizes, irregular torch spacing (304/480/256/240 px) and two arch-ring variants. Five pools along 2048 px still read as a regular torch rhythm. No Bevy or 4K hardware check was possible here.
 
-## ENV-02 follow-up (listed, not built)
+**Iterations (round 3):**
 
-- A lower-ceiling corridor variant.
-- A blind (filled) arch for walls without openings.
-- A pilaster with its own base and capital (round 2 added only the plain `pilaster_plain` shaft).
-- A smaller arch radius for narrow passages.
-- A pipe T-junction.
+1. First kit render: the face course under the lip was a bright orange band, grime patches read as holes inside pools, and only one distant torch showed through the arch. Fixed: darker face courses, grime moved out of pools and softened, more gallery torches and strip origins that match A1.
+2. First lit render: Carl's head and jacket sat against dark brick (edge 11.7). The base course read grey-violet under the cold ambient. Distant gallery torches glowed and bloomed through the wall. Fixed: a `brick_low` band at actor head height and a paler base course, a contact shadow, and parallax glow and bloom masked by nearer layers.
+3. Second lit render: the copper pipe over-brightened under the torch pass ("neon") and all pools had the same size. Fixed: darker baked copper and a softer valve rig; a second, smaller pool variant used irregularly.
 
-## Open questions for human art review
+## Open questions for the owner
 
-1. **Brightness and warmth.** The kit is intentionally darker, cooler and less saturated than the concept illustration, to keep actors and the floor edge dominant. Should it be warmer or brighter overall, or should more warmth be left to runtime lighting in COMP-01?
-2. **Brick scale.** Bricks are 16×8 px (Carl is about 6.5 courses tall). Is that right, or should bricks be larger blocks like the concept's?
-3. **Arch material.** The arches and piers are gray-neutral dressed stone. The concept's voussoirs are warmer, brick-coloured blocks. Which reads better as "one coherent material family"?
-4. **Foot sink.** The owner chose 0 px for COMP-01 (feet on the collider top, at the back edge of the 5 px walking surface). The independent review suggested 2 px so feet sit inside the surface. Keep 0 px after seeing it in Bevy, or switch?
-5. **Torch glow.** The baked `torch_glow` is deliberately minimal. A Bevy additive light is the intended richer option; is the decal still wanted as a fallback?
-6. **Lichen.** Keep the single lichen crust, or drop it from the opening corridors?
-7. **Far arcade.** Does the revised arcade (dark arch heads, lighter floor-level haze, darker piers) add depth without busying the actor zone in B?
-8. **Door.** Is a plain timber door right for module A, or should doors stay out of the first corridors?
+1. Readability trade-off: keep the lighter band behind actor height (better silhouette edges, lower mean ΔL*), or go back toward A1's darker wall base?
+2. Should a gallery chain or other dressing return in B, or stay clean?
+3. Is the five-torch rhythm along the sample corridor acceptable, or should A use fewer torches with unlit stretches?
+4. Platform faces show a darker block down to the bottom of the view. Is that acceptable, or should steps be shallower decks only?
+
+## ENV-02 follow-ups (listed, not built)
+
+- More brick panel variants and an extra pool size if Bevy shows visible repetition.
+- Pier and arch variants for adjacent bays (a shared double-jamb pier).
+- Bevy capture with the real lighting pass (COMP-01), 4K and Deck hardware checks.
 
 ## Rights and provenance
 
-- **Authorship:** original environment pixel art authored by an AI agent (Claude Opus) through the deterministic `scripts/author_floor01_kit.py`, and revised after two independent art-director review passes, also by Claude Opus. That script places brick coursing, stone edges and voussoirs by rule (with a fixed seed for per-brick variation) and uses hand-drawn pixel strings for the flame, sconce, valve, box, door and lichen. There is no image-model raster output.
-- **Concept use:** `01-catacomb-environment-clean.png` was viewed for mood and palette direction only. It was never cropped, traced, sampled or resampled into the kit. The side-by-side evidence image only display-scales it for comparison.
-- **Manifests:** every manifest records provenance and `review_status: prototype_fixture_unapproved`. Evidence images are checksummed in `SHA256SUMS`.
-- **Rights scope:** the kit contains no fan-concept characters. The actor contrast check composites the approved Carl and Donut atlases under the owner-reported `ART-PUBLICATION-ALL-V1` scope ([rights register](../04-production/rights-and-release.md)). That scope is not independently verified, is not a public reuse licence, and does not permit game, trailer or standalone asset-pack distribution.
+Original pixel art authored by Claude Opus with deterministic scripts; no image-model raster output, no crops, traces or resamples of concept images. The A1 look-dev frame (same project, same agent) is the target; the concept image `01-catacomb-environment-clean.png` was a mood reference for A1 only and is never read. Actor checks composite the approved Carl 52 and Donut 40 atlases under the owner-reported `ART-PUBLICATION-ALL-V1` scope in [`rights-and-release.md`](../04-production/rights-and-release.md). That scope is not independently verified, is not a public reuse licence and grants no game or asset-pack distribution right. Manifests stay `prototype_fixture_unapproved`.

@@ -1,6 +1,6 @@
 # Floor 1 look-dev: resolution and lighting spike (A0 / A1 / B1)
 
-**Status:** look-dev complete — owner chose A1 (640×360 + full-resolution lighting) and a deep floor on 2026-11-16; B1 and the h78/h60 cast redraws are rejected look-dev only; see ADR-0007. This is **not production art**, not a tile kit and not runtime data. Nothing here changes an approved character master, a manifest, Rust code or CI.
+**Status:** look-dev complete — owner chose A1 (640×360 + full-resolution lighting) and a deep floor on 2026-11-16; B1 and the h78/h60 cast redraws are rejected look-dev only; see ADR-0007. The production kit built against A1 is the [ENV-01 catacomb kit](floor-01-catacomb-kit.md) (round 3); it reuses this shading core and the A1 arch and gallery geometry as modules, and does **not** use the h78/h60 cast files. This is **not production art**, not a tile kit and not runtime data. Nothing here changes an approved character master, a manifest, Rust code or CI.
 **Authored by:** Claude Opus (AI art agent), 2026-11-16. Review pending.
 **Mood reference:** [`01-catacomb-environment-clean.png`](../../assets/concept/floor-01/opening/01-catacomb-environment-clean.png). It was used **for mood, lighting, colour temperature and volume only**. It was never cropped, traced, sampled or read by any script.
 **Evidence:** [`docs/evidence/lookdev-floor01-resolution-spike/`](../evidence/lookdev-floor01-resolution-spike/README.md).
