@@ -1,6 +1,6 @@
 # AGENTS.md — Mandatory instructions for local LLM coding agents
 
-You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game concept whose development is AI-driven. The repo currently contains **specifications, not a working game**. Never report a feature as implemented unless you have created and run it.
+You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game concept whose development is AI-driven. The repo contains **specifications, approved art references and an early Bevy greybox**. Do not confuse this prototype with a production-ready game. Never report a feature as implemented unless you have created and run it.
 
 ## Read order and authority
 
@@ -18,7 +18,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 - **English only** in source code, comments, documentation, PR descriptions, issues, commit messages, tests and generated prompts.
 - **Creative canon for every contributor:** apply `docs/01-design/antihero-tone.md` across characters, writing, enemies, VFX, animation, level art, UX and audio. Carl is a believable, somewhat plain-looking everyman whose practical strength and charisma grow **gradually through hardship**. Reject superhero anatomy, handsome action-star faces, effortless bravado and gratuitous armor/capes. Use 1980s–1990s action cinema for *attitude and tone*, never copied designs or dialogue.
 - Prefer the smallest vertical change delivering a verifiable behavior; no giant speculative rewrites.
-- Use Rust/Bevy as the **provisional** production direction; do not claim this choice is irrevocable. Verify compatible crate versions against primary sources before adding dependencies.
+- Use **Rust + Bevy only** as the accepted engine decision (ADR-0001). Do not propose Godot migration or make a Godot prototype. Verify compatible crate versions against primary sources before adding dependencies.
 - Game logic must be deterministic under a fixed update and seeded RNG wherever possible. Rendering and particles must not change authoritative outcomes.
 - Separate `gameplay` domain logic from the Bevy rendering/adapters layer so it can be unit-tested headlessly.
 - All significant mechanics need at least one automated test, a reproducible scenario, and an evidence artifact (screenshot/GIF/short recording) once the runtime exists.
@@ -58,4 +58,4 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 
 ## First work order
 
-Start with `WORK-001` in `docs/04-production/backlog.md`. Do not begin with character illustrations, online networking, Steam integration or a complete loot system.
+Continue from the right-scrolling combat WORK-021 greybox and the current top-priority work in `docs/04-production/backlog.md`. Do not begin with character illustrations, online networking, Steam integration or a complete loot system.
