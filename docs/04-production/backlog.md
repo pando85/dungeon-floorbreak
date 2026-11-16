@@ -28,6 +28,12 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
 
+## New art-direction handoff — Floor 01 opening (2026-11-16)
+
+- **Selected:** [opening catacomb + goblin / Murder Dozer concept direction](../02-art/floor-01-opening-catacomb-goblins.md). This locks the A/B/C environment grammar, gradual immersion, visually distinct goblins, and a pursuit-first Dozer encounter. It is **concept acceptance only**.
+- **Deferred:** [local-agent implementation handoff](../07-agents/floor-01-opening-encounter-handoff.md). Start environment/sprite/chase work only after the ongoing Bevy Floor 1 greybox PR #21 and Character Playground PR #22 are reviewed/merged and the real 52/40 px character atlases can be composed.
+- **Not delivered:** final image binaries in the repository, editable tiles/actors, actual Bevy scene, chase logic, canonical on-foot pineapple-clubs, or player testing. Scene and enemy images remain in the originating project's conversation and separate local concept review pack, not runtime assets.
+
 ## Visual target review (WORK-007)
 
 [VT-001 — Inspection Corridor](../02-art/visual-target-inspection-corridor.md) is
