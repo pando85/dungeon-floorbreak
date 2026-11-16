@@ -113,6 +113,10 @@ Candidate first evaluation enemies: ordinary goblin, Murder Dozer, Bad Llama. Bo
 
 The test sequence and experiment evidence requirements live in [Floor 01 integrated-scene playtest plan](../07-agents/floor-01-integrated-scene-playtest.md). **Do not count automatic CI success as human game-feel approval.**
 
+## Targeted pre-magic two-player experiments
+
+The owner has playtested the integrated lit corridor and judged it visually good but not yet memorable. The **next game-feel hypothesis** is whether Donut can be rewarding to control before her first magic ability, and whether cooperating with Carl is better than simply following him. See [pre-magic Donut experimental plan](floor-01-pre-magic-donut-experiments.md) for a deliberately small catlike action set, three neutral greybox micro-scenarios, and a C0/C1 transport-only Shoulder Mode comparison (C2 mounted casting **only after** relevant story unlocks). None of these mechanics are currently implemented or approved as final.
+
 ## 6. Next design iteration
 
 After the first human baseline review, use the evidence to pick one small Rust + Bevy prototype (likely second controllable Donut and camera/ownership) before designing detailed mounted combat or skill trees. The gameplay designer owns the test questions and the human creative director owns the final feel decision; local AI agents implement the selected experiments.
