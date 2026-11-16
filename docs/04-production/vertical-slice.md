@@ -1,5 +1,7 @@
 # Vertical slice: The Inspection Corridor
 
+> **2026-11-16 direction update:** The owner approved combat-first, rightward linear progression with occasional mandatory climbs over indestructible material. This supersedes the older two-corridor labyrinth/fork premise below. The implemented **WORK-021** prototype is documented in [linear-combat-greybox.md](linear-combat-greybox.md); older beat descriptions are archived hypotheses. Retain the approved industrial-monumental A+B visual mood and 1980s/1990s action tone.
+
 **Status:** proposed test level, NOT implemented. Primary goal: prove *destruction changes decisions* and duo powers feel different, without losing controller readability.
 
 ## Player-facing 5-minute experience
