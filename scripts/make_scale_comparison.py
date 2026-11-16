@@ -146,21 +146,43 @@ def load_actor(label: str, atlas: str, metadata: str, frame_index: int,
                  (bbox[0], bbox[1], bbox[2] - 1, bbox[3] - 1), colors)
 
 
+MIN_GAP = 4
+
+
+def _overlaps(actors: list[Actor]) -> bool:
+    return any(left.x + left.bbox[2] >= right.x + right.bbox[0]
+               for left, right in zip(actors, actors[1:]))
+
+
 def place(actors: list[Actor]) -> None:
-    """Evenly space actors; every bottom opaque row lands on the shared floor row."""
+    """Space actors on the shared floor; every bottom opaque row lands on it.
+
+    Evenly spaced pivots are used while they do not overlap. Otherwise fall back to
+    width-aware packing: equal gaps (within 1 px, integer rounding) between the
+    silhouette bboxes and to both scene edges, at least MIN_GAP px each.
+    """
     n = len(actors)
     floor_row = FLOOR_TOP - 1
     for i, actor in enumerate(actors):
         centre = WIDTH * (i + 1) // (n + 1)
         actor.x = centre - actor.pivot[0]
         actor.y = floor_row - actor.pivot[1]
+    fits = all(a.x + a.bbox[0] >= 0 and a.x + a.bbox[2] < WIDTH for a in actors)
+    if not fits or _overlaps(actors):
+        widths = [a.bbox[2] - a.bbox[0] + 1 for a in actors]
+        free = WIDTH - sum(widths)
+        if free < MIN_GAP * (n + 1):
+            raise SceneError(f"{n} actors do not fit in the {WIDTH} px wide scene "
+                             f"(gap would be below {MIN_GAP} px)")
+        used = 0
+        for i, actor in enumerate(actors):
+            left = free * (i + 1) // (n + 1) + used
+            actor.x = left - actor.bbox[0]
+            used += widths[i]
+    for actor in actors:
         top = actor.y + actor.bbox[1]
         if top < 0 or actor.x + actor.bbox[0] < 0 or actor.x + actor.bbox[2] >= WIDTH:
             raise SceneError(f"{actor.label!r} does not fit the 640x360 scene")
-    for left, right in zip(actors, actors[1:]):
-        if left.x + left.bbox[2] >= right.x + right.bbox[0]:
-            raise SceneError(f"{left.label!r} and {right.label!r} overlap: {n} actors do not fit "
-                             f"evenly in the {WIDTH} px wide scene")
 
 
 def backdrop(height: int) -> Image.Image:
