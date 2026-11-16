@@ -1,0 +1,33 @@
+{
+  "id": "floor-01-opening-concept-references-v1",
+  "date": "2026-11-16",
+  "review_status": "concept_direction_approved_not_production",
+  "origin": "AI-generated reference images from the project ChatGPT conversation on 2026-11-16; goblin and Dozer files are crops of a generated concept board, not editable pixel art",
+  "publication_scope": "ART-PUBLICATION-ALL-V1 (owner-reported only; see docs/04-production/rights-and-release.md)",
+  "not_approved": [
+    "runtime textures or actual native pixel-art sprites",
+    "specific generated RPG stats, classes, attacks or precise heights",
+    "franchise distribution rights",
+    "Carl or Donut redesign"
+  ],
+  "files": [
+    {
+      "filename": "01-catacomb-environment-clean.png",
+      "sha256": "c09e2161f564d86dd12d09b80ecf96c2fdaffb60051991c02fd03909c861a855",
+      "bytes": 2118675,
+      "role": "environment-only key art"
+    },
+    {
+      "filename": "02-goblin-trio-reference-crop.png",
+      "sha256": "81a7e6d4124ef925b91c449406d2c0dd1b413b82a931644ea9d3af0b9dee5bf3",
+      "bytes": 141035,
+      "role": "expressive goblin silhouettes and pot-hat engineer (concept crop)"
+    },
+    {
+      "filename": "03-murder-dozer-reference-crop.png",
+      "sha256": "ab4b3c0bd556608c485fb67d3869922fd9bcf57482643eebf27c827dc90ce337",
+      "bytes": 285487,
+      "role": "steam tracked spiked wheel Dozer (concept crop)"
+    }
+  ]
+}
