@@ -20,4 +20,14 @@ Check image integrity after copying:
 sha256sum 01-catacomb-environment-clean.png 02-goblin-trio-reference-crop.png 03-murder-dozer-reference-crop.png
 ```
 
-After these assets have actually been committed, update any existing PR descriptions or documents that say no image binaries were included. Do not claim a file is in Git history until the PR diff shows it.
+## Verified repository identity
+
+All three PNGs **are committed on PR #23**. Their Git blob identities match the original local review files byte for byte:
+
+| Image | Git blob SHA-1 |
+| --- | --- |
+| `01-catacomb-environment-clean.png` | `d5d1ecacfe4a36291ac15a389f8a14e52540a3fb` |
+| `02-goblin-trio-reference-crop.png` | `4ae85d4ba98c993f12d7f480df94f7a946b8d4c4` |
+| `03-murder-dozer-reference-crop.png` | `c2ab688581632a8b690c91ce57ae0861cb22a361` |
+
+The full chase illustration is intentionally **not** in this folder because its Carl and Donut depictions are incorrect. Approval here covers environmental/enemy silhouette concepts only, not final pixels or native animation.
