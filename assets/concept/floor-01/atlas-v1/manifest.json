@@ -1,0 +1,91 @@
+{
+  "schema": "the-crawl-concept-reference-inventory-v1",
+  "subject": "floor01-art-atlas",
+  "created_on": "2026-11-16",
+  "rights_note": "Owner-reported concept art scope only; not public playable-game distribution clearance",
+  "upload_status": "PNG images prepared locally, not yet uploaded to this PR",
+  "entries": [
+    {
+      "file": "00-floor01-art-atlas-overview.png",
+      "size_bytes": 2851496,
+      "sha256": "cee1611b2ef75f20bce6448199921fa9ee9cb73834610b6ca43dc05fbf5d7ba3",
+      "origin": "generated environment concept in project conversation",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "02-tutorial-guild-old-guide.png",
+      "size_bytes": 2330554,
+      "sha256": "957a6a4de57d281a7657605ba80d1a9c13029982ce89c5dd6268549bd388b344",
+      "origin": "generated environment concept in project conversation",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "03-bad-llamas-scorched-corridor.png",
+      "size_bytes": 2210407,
+      "sha256": "4abb7f762552d448fd0748aa84388c4e05d7491354fe5dba3b7aa800801482e2",
+      "origin": "generated environment concept in project conversation",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "04-fast-food-refuge.png",
+      "size_bytes": 2513312,
+      "sha256": "a22acc2fe3cd1530e79e5bb9b529f8bb07e7443e4c26858610ed36dc8b7c379a",
+      "origin": "generated environment concept in project conversation",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "05-hoarder-lair.png",
+      "size_bytes": 2475800,
+      "sha256": "dae2a74ac3cb9b415769313a850f2266347e84c6d6de535f8f8a67fb2b8f221f",
+      "origin": "generated environment concept in project conversation",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "06-goblin-workshop.png",
+      "size_bytes": 2694212,
+      "sha256": "e9ad0a779849ebed6b834a1307e55aab5790084f868c3f8d9908c7b1a9690f11",
+      "origin": "generated environment concept in project conversation",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "07-slimes-rot-stickers.png",
+      "size_bytes": 2272231,
+      "sha256": "55fda2ee01f5bdc54448994c514510ec08659a2f036920a32f846e24838fe602",
+      "origin": "generated environment concept in project conversation",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "08-circular-maze-survivor-camp.png",
+      "size_bytes": 2543559,
+      "sha256": "28b419281d3b700046da254596965ccab8f7f12a32f6c220d03113aacc3c5ac1",
+      "origin": "generated environment concept in project conversation",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "09-juicer-gym-atlas-excerpt.png",
+      "size_bytes": 216854,
+      "sha256": "de2e96e4114f9418034ff6a996ef5a2ce53cab8a458faad1e817cb797c850bc0",
+      "origin": "lossless crop of 00-floor01-art-atlas-overview.png",
+      "crop_box_xyxy": [
+        783,
+        535,
+        1536,
+        688
+      ],
+      "review_status": "provisional atlas excerpt only; needs full-scene concept before native production"
+    },
+    {
+      "file": "10-ball-of-swine-arena-atlas-excerpt.png",
+      "size_bytes": 220252,
+      "sha256": "9dcc397877decf2ac7a47d34a95d1baa209a6cb0d00e42acbf1e1458b5e6335d",
+      "origin": "lossless crop of 00-floor01-art-atlas-overview.png",
+      "crop_box_xyxy": [
+        783,
+        693,
+        1536,
+        844
+      ],
+      "review_status": "provisional atlas excerpt only; needs full-scene concept before native production"
+    }
+  ]
+}
