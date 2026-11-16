@@ -35,6 +35,12 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
 
+## Combat-first design priority (owner decision, 2026-11-17)
+
+- **Mandatory:** [combat-first encounter rule](../01-design/combat-first-encounter-design.md). A satisfying basic kill, one clearly causal spectacular environmental kill, and a genuine Carl/Donut combat opportunity outrank expanding traversal gates or extra scenic areas. The game is **action first**, not a chain of puzzle rooms. Quiet refuges/chases are deliberate contrasts.
+- **Proposed next gameplay review:** a small integrated **COMBAT-FEEL-01** fight with a regular enemy, one breakable environmental hazard and an elevated Donut position, tested in both solo switch and local 2P once two-actor control exists. **No gameplay implementation is claimed here.**
+- **Scope:** Don't begin a large combinatorial kill system or huge bestiary until direct-hit feel, readable environmental aftermath and two-character agency have human evidence.
+
 ## Floor 01 gameplay/progression and co-op human experiments (2026-11-16)
 
 - **Approved gameplay target:** hybrid solo switching + assisted AI/context orders, and local **two-player Carl + Donut from the first playable moment**, without early-unlocked magical abilities. See [Floor 01 gameplay bible](../01-design/floor-01-gameplay-progression-v0.md).
