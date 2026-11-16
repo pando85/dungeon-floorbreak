@@ -472,6 +472,24 @@ CCCCCCccKK..........
 KKcccKK.............
 """)
 
+# Round 3: separate, shorter jump forelegs with a 3 px paw (B1). The near leg reaches
+# forward below the chest; the far leg (drawn behind the body) reaches higher, so its
+# paw shows past the chest's front edge, spread away from the near paw.
+FN_REACH_NEAR = part("""
+CCCcK........
+KCCCCCcKK....
+.KKccCCCCCCK.
+....KKKcCCCcK
+.......KKcccK
+""")
+FN_REACH_FAR = part("""
+......KCCK.
+.....KCCCcK
+...CCCCccK.
+.CCCcKKK...
+CCcKK......
+""")
+
 
 def even_tilt(rows, step, up=True):
     """Lift column x by floor(x / step) (front up) or the reverse: even stair steps."""
@@ -517,29 +535,31 @@ ROUND2_KEYS = {
         "legs": [("FN_reach_low", "far", 55, G - 2), ("HN_push", "far", 24, G - 2),
                  ("FN_plant", "near", 51, G), ("HN_trail", "near", 20, G - 3)]},
     # frame 6: F2 gathered, 3 px arch, near hind contact under the belly
-    6: {"torso": TORSO_GATHER, "torso_xy": (24, 18), "head_dy": 1, "tail": (19, 5, 0.05),
-        "legs": [("FN_push", "far", 46, G - 1), ("HN_tuck", "far", 38, G - 2),
+    6: {"torso": TORSO_GATHER, "torso_xy": (24, 18), "head_dy": 1, "head_dx": -1, "tail": (19, 5, 0.05),
+        "legs": [("FN_push", "far", 46, G - 2), ("HN_tuck", "far", 38, G - 2),
                  ("FN_tuck", "near", 44, G - 2), ("HN_plant", "near", 35, G)]},
     # frame 8: F4 extended suspension, long flat back
-    8: {"torso": TORSO_EXTEND, "torso_xy": (13, 20), "head_dy": 0, "head_dx": 1, "tail": (5, 6, 0.2),
-        "legs": [("FN_reach_high", "far", 56, G - 5), ("HN_trail", "far", 12, G - 6),
-                 ("FN_reach_high", "near", 53, G - 4), ("HN_trail", "near", 9, G - 5)]},
+    8: {"torso": stretch(TORSO_EXTEND, 12, -6), "torso_xy": (19, 20), "head_dy": 0, "head_dx": 1,
+        "tail": (11, 7, 0.25),
+        "legs": [("FN_reach_high", "far", 56, G - 5), ("HN_trail", "far", 18, G - 6),
+                 ("FN_reach_high", "near", 53, G - 4), ("HN_trail", "near", 15, G - 5)]},
 }
 _rise, _pad = even_tilt(TORSO_EXTEND, 4, up=True)
 ROUND2_KEYS[10] = {"torso": TORSO_GATHER, "torso_xy": (25, 20), "head_dy": 3, "tail": (20, 7, -0.1),
             "legs": [("FN_crouch", "far", 54, G), ("HN_crouch", "far", 33, G),
                      ("FN_crouch", "near", 50, G), ("HN_crouch", "near", 29, G)]}
-ROUND2_KEYS[12] = {"torso": _rise, "torso_xy": (15, 21 - _pad), "head_dy": -2, "head_dx": 1, "tail": (9, 14, 0.3),
-            "legs": [(FN_LEAP, "far", 52, 39), ("HN_trail", "far", 15, G - 1),
-                     (FN_LEAP, "near", 50, 40), ("HN_trail", "near", 12, G)]}
+ROUND2_KEYS[12] = {"torso": _rise, "torso_xy": (15, 21 - _pad), "head_dy": -2, "head_dx": 1,
+                   "tail": (11, 12, 0.2),
+                   "legs": [(FN_REACH_FAR, "far", 57, 37), ("HN_trail", "far", 15, G - 1),
+                            (FN_REACH_NEAR, "near", 50, 40), ("HN_trail", "near", 12, G)]}
 
 PATCHES2 = [
-    (6, "legs_far", 44, 38, "K", "."),
-    (8, "body", 35, 26, "o", "O"), (8, "legs_far", 17, 35, "D", "K"), (8, "body", 33, 35, "K", "."),
-    (8, "legs_near", 55, 36, "c", "C"), (8, "legs_near", 56, 36, "K", "C"), (8, "legs_far", 15, 37, "c", "K"),
-    (8, "body", 52, 37, "c", "K"),
-    (12, "tail", 13, 15, "K", "."), (12, "body", 34, 25, "G", "O"), (12, "body", 35, 34, "K", "."),
-    (12, "legs_near", 64, 36, "c", "C"), (12, "legs_far", 54, 37, "c", "C"), (12, "legs_near", 62, 37, "c", "C"),
+    (8, "tail", 16, 8, "K", "."), (8, "body", 35, 26, "o", "O"), (8, "body", 31, 34, "K", "D"),
+    (8, "legs_far", 23, 35, "D", "K"), (8, "body", 33, 35, "K", "."),
+    (8, "legs_near", 55, 36, "c", "C"), (8, "legs_near", 56, 36, "K", "C"),
+    (8, "legs_far", 21, 37, "c", "K"), (8, "body", 52, 37, "c", "K"),
+    (12, "body", 34, 25, "G", "O"), (12, "tail", 14, 29, "O", "B"), (12, "body", 35, 34, "K", "."),
+    (12, "body", 51, 35, "K", "c"), (12, "legs_near", 56, 37, "c", "K"), (12, "legs_near", 57, 39, "c", "K"),
     (12, "legs_far", 18, 42, "c", "K"),
 ]
 
