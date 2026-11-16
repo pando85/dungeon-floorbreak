@@ -2,6 +2,8 @@
 
 > **2026-11-16 direction update:** The owner approved combat-first, rightward linear progression with occasional mandatory climbs over indestructible material. This supersedes the older two-corridor labyrinth/fork premise below. The implemented **WORK-021** prototype is documented in [linear-combat-greybox.md](linear-combat-greybox.md); older beat descriptions are archived hypotheses. Retain the approved industrial-monumental A+B visual mood and 1980s/1990s action tone.
 
+> **2026-11-17 combat-first priority:** The main fun is creative, satisfying, spectacular enemy kills. The vertical slice must prove **direct-hit feel**, **one authored environmental kill with an understandable causal chain**, and a **meaningful duo combat opportunity** in addition to terrain traversal. The older paired-corridor and two-parallel-path beats below are archived design hypotheses, not mandatory geometry. See [combat-first rule](../01-design/combat-first-encounter-design.md).
+
 **Status:** proposed test level, NOT implemented. Primary goal: prove *destruction changes decisions* and duo powers feel different, without losing controller readability.
 
 ## Player-facing 5-minute experience
