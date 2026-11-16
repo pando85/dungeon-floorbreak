@@ -28,7 +28,7 @@ import re
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 LEVELS = ROOT / "assets" / "levels"
@@ -47,6 +47,18 @@ HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 NON_NEUTRAL = re.compile(r"carl|donut|mongo|crawl|mordecai|goblin|dozer|princess", re.I)
 GRAMMAR = ("A", "B", "C")
 TILE = 16
+MAX_STEP_TILES = 2  # largest allowed walking-line step between neighbouring floor columns
+MAX_LIGHT_RADIUS = 1024
+DECK_VIEW = (640, 400)  # largest supported virtual view (Steam Deck); parallax must cover it
+MIGRATION_DOC = "docs/02-art/floor-01-catacomb-kit.md"
+MIGRATION_HINT = (f"see the section 'Migration from v1' in {MIGRATION_DOC}")
+LIGHT_KEYS = {"id", "offset", "colour", "radius", "intensity", "group", "glow", "flicker",
+              "project", "project_dy", "squash_y"}
+LIGHTING_PROFILE_KEYS = {"profile_id", "presentation_only", "groups", "actor_contact_shadow",
+                         "bloom", "note"}
+LIGHTING_GROUP_KEYS = {"ambient", "haze", "light_scale"}
+# Fields that decide collision or gameplay; none may reference lighting data.
+GAMEPLAY_SECTIONS = ("tiles", "markers", "segments", "requirements", "walk_line")
 
 
 class KitError(ValueError):
@@ -66,12 +78,32 @@ def repo_path(raw: str) -> Path:
     return path
 
 
+def check_format(data, expected: str, what: str) -> None:
+    """Reject anything but the current format; v1 gets a pointer to the migration notes."""
+    check(isinstance(data, dict), f"{what} must be a JSON object")
+    fmt = data.get("format")
+    if fmt == expected:
+        return
+    if isinstance(fmt, str) and re.fullmatch(r"env-kit(-layout)?-v1", fmt):
+        raise KitError(f"{what} format {fmt!r} is no longer supported: no v1 id keeps its meaning, "
+                       f"so v1 files are rejected, not reinterpreted. Expected {expected!r}; "
+                       f"{MIGRATION_HINT}.")
+    raise KitError(f"{what} format {fmt!r} is not supported (expected {expected!r}); "
+                   f"{MIGRATION_HINT}.")
+
+
 def load_json(raw: str | Path) -> dict:
     path = raw if isinstance(raw, Path) else repo_path(raw)
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise KitError(f"cannot read {path}: {exc}") from exc
+
+
+def load_layout(raw: str | Path) -> dict:
+    layout = load_json(raw)
+    check_format(layout, LAYOUT_FORMAT, "layout")
+    return layout
 
 
 def parse_rgba(text: str) -> tuple[int, int, int, int]:
@@ -107,6 +139,7 @@ class Kit:
 def load_kit(contract_path: str | Path, load_grids: bool = True) -> Kit:
     resolved = (contract_path if isinstance(contract_path, Path) else repo_path(contract_path)).resolve()
     contract = load_json(resolved)
+    check_format(contract, CONTRACT_FORMAT, "contract")
     atlases = {}
     for name, ref in contract.get("atlases", {}).items():
         manifest = load_json(ref["manifest"])
@@ -154,40 +187,58 @@ def _number(value, what: str, lo: float | None = None, hi: float | None = None) 
     return float(value)
 
 
-def _check_lights(piece: dict) -> None:
+def _check_lights(kit: Kit, piece: dict) -> None:
+    """Emitter schema. Lights are presentation data owned by a piece, never free-floating."""
     pid = piece["id"]
     lights = piece.get("lights")
     if lights is None:
         return
     check(isinstance(lights, list) and lights, f"piece {pid}: lights must be a non-empty list")
+    layer = kit.layers[piece["layer"]]
+    parallax = piece["role"] in PARALLAX_ROLES
+    n_frames = len(piece.get("animation", {}).get("frames", []))
     ids = set()
-    n_frames = len(piece.get("animation", {}).get("frames", [])) or 1
     for light in lights:
+        check(isinstance(light, dict), f"piece {pid}: every light must be an object")
         lid = light.get("id")
-        check(isinstance(lid, str) and lid not in ids, f"piece {pid}: light ids must be unique strings")
+        check(isinstance(lid, str) and lid and lid not in ids, f"piece {pid}: light ids must be unique strings")
         ids.add(lid)
         what = f"piece {pid} light {lid}"
+        unknown = sorted(set(light) - LIGHT_KEYS)
+        check(not unknown, f"{what}: unknown field(s) {unknown}")
         off = light.get("offset")
         check(isinstance(off, list) and len(off) == 2 and all(type(v) is int for v in off),
               f"{what}: offset must be [x, y] integers")
         check(isinstance(light.get("colour"), str) and HEX_RE.fullmatch(light["colour"]) is not None,
               f"{what}: colour must be #rrggbb")
-        _number(light.get("radius"), f"{what} radius", 1)
+        _number(light.get("radius"), f"{what} radius", 1, MAX_LIGHT_RADIUS)
         _number(light.get("intensity"), f"{what} intensity", 0, 4)
-        check(light.get("group") in LIGHT_GROUPS and light["group"] != "actors",
-              f"{what}: group must be one of {LIGHT_GROUPS[:3]} or foreground")
+        group = light.get("group")
+        check(group in LIGHT_GROUPS and group != "actors",
+              f"{what}: group must be one of {tuple(g for g in LIGHT_GROUPS if g != 'actors')}")
+        if parallax:
+            check(group == layer["light_group"],
+                  f"{what}: a parallax strip's lights light its own group {layer['light_group']!r}")
+        else:
+            check(group not in PARALLAX_ROLES, f"{what}: only parallax strips may light {group!r}")
         if "glow" in light:
-            _number(light["glow"].get("radius"), f"{what} glow radius", 1)
-            _number(light["glow"].get("additive"), f"{what} glow additive", 0, 1)
+            glow = light["glow"]
+            check(isinstance(glow, dict) and set(glow) == {"radius", "additive"},
+                  f"{what}: glow must be {{radius, additive}}")
+            _number(glow["radius"], f"{what} glow radius", 1, MAX_LIGHT_RADIUS)
+            _number(glow["additive"], f"{what} glow additive", 0, 1)
         if "flicker" in light:
             fl = light["flicker"]
+            check(n_frames > 0, f"{what}: flicker needs an animated piece")
             check(isinstance(fl, list) and len(fl) == n_frames,
                   f"{what}: flicker needs one multiplier per animation frame ({n_frames})")
             for v in fl:
                 _number(v, f"{what} flicker", 0, 2)
         if "project" in light:
             check(light["project"] == "walk_line", f"{what}: project must be 'walk_line'")
-            check(type(light.get("project_dy", 0)) is int, f"{what}: project_dy must be an integer")
+            check(not parallax, f"{what}: parallax lights cannot project onto the walking line")
+        check("project_dy" not in light or "project" in light, f"{what}: project_dy needs project")
+        check(type(light.get("project_dy", 0)) is int, f"{what}: project_dy must be an integer")
         if "squash_y" in light:
             _number(light["squash_y"], f"{what} squash_y", 0.05, 1)
 
@@ -195,6 +246,7 @@ def _check_lights(piece: dict) -> None:
 def _check_window(piece: dict) -> None:
     win = piece["window"]
     pid = piece["id"]
+    check(isinstance(win, dict), f"piece {pid}: window must be an object")
     c = win.get("arc_centre")
     check(isinstance(c, list) and len(c) == 2 and all(type(v) is int for v in c),
           f"piece {pid}: window arc_centre must be [x, y] integers")
@@ -202,11 +254,28 @@ def _check_window(piece: dict) -> None:
     rect = win.get("rect")
     check(isinstance(rect, list) and len(rect) == 4 and all(type(v) is int for v in rect)
           and rect[2] > 0 and rect[3] > 0, f"piece {pid}: window rect must be [x, y, w, h] integers")
+    check(c[1] - win["arc_radius"] >= 0 and rect[0] >= 0 and rect[1] >= 0,
+          f"piece {pid}: window must not extend above or left of the piece origin")
+    check(piece["role"] == "structure", f"piece {pid}: windows belong to structure pieces")
+
+
+def _wrap_seam_scores(strip: Image.Image) -> tuple[int, int]:
+    """(wrap, allowed): differing rows between the last and first column, and the 90th
+    percentile of the same measure between interior neighbouring columns (1..n-2)."""
+    w, h = strip.size
+    raw = strip.convert("RGBA").tobytes()
+    data = [raw[i:i + 4] if raw[i + 3] else b"\0\0\0\0" for i in range(0, len(raw), 4)]
+
+    def diff(a: int, b: int) -> int:
+        return sum(1 for y in range(h) if data[y * w + a] != data[y * w + b])
+    interior = sorted(diff(x, x + 1) for x in range(1, w - 2))
+    allowed = interior[int(len(interior) * 0.9)] if interior else 0
+    return diff(w - 1, 0), allowed
 
 
 def validate_contract(kit: Kit) -> None:
     c = kit.contract
-    check(c.get("format") == CONTRACT_FORMAT, f"contract format must be {CONTRACT_FORMAT}")
+    check_format(c, CONTRACT_FORMAT, "contract")
     _check_id(c.get("kit_id", ""), "kit")
     check(c.get("tile_size") == [TILE, TILE], "tile_size must be [16, 16]")
     coords = c.get("coordinate_system", {})
@@ -238,7 +307,8 @@ def validate_contract(kit: Kit) -> None:
         check((layer["kind"] == "parallax") == (layer["role"] in PARALLAX_ROLES),
               f"layer {lname}: parallax roles need kind 'parallax' (and only they)")
         if layer["kind"] == "parallax":
-            _number(layer.get("parallax"), f"layer {lname} parallax", 0.0, 0.999)
+            factor = _number(layer.get("parallax"), f"layer {lname} parallax", 0.0, 1.0)
+            check(0.0 < factor < 1.0, f"layer {lname}: parallax factor {factor} must be in (0, 1)")
         check(layer.get("light_group") in LIGHT_GROUPS and layer["light_group"] != "actors",
               f"layer {lname}: light_group must be one of {LIGHT_GROUPS}")
         check(lname not in names, f"duplicate layer {lname}")
@@ -250,6 +320,18 @@ def validate_contract(kit: Kit) -> None:
     other_orders = [l["draw_order"] for l in layers if l["kind"] != "parallax"]
     check(not parallax_orders or max(parallax_orders) < min(other_orders),
           "parallax layers must draw behind every other layer")
+    factors = [l["parallax"] for l in sorted((l for l in layers if l["kind"] == "parallax"),
+                                             key=lambda l: l["draw_order"])]
+    check(all(a < b for a, b in zip(factors, factors[1:])),
+          "parallax factors must increase with draw order (farther layers move slower)")
+    lighting = c.get("lighting")
+    check(isinstance(lighting, dict) and lighting.get("presentation_only") is True,
+          "contract lighting block must exist and be presentation_only")
+    _check_presentation_only(c, "contract")
+    walk = c.get("walk_line", {}).get("base_floor", {})
+    check(all(type(walk.get(k)) is int for k in ("floor_back_y", "walk_line_y", "front_edge_y"))
+          and walk["floor_back_y"] < walk["walk_line_y"] < walk["front_edge_y"],
+          "contract walk_line.base_floor needs integer floor_back_y < walk_line_y < front_edge_y")
 
     # Atlases: manifest <-> contract <-> grid consistency and pixel rules.
     for name, atlas in kit.atlases.items():
@@ -325,6 +407,8 @@ def validate_contract(kit: Kit) -> None:
         check(tile.get("collidable") is (role == "collision" and not deck_back),
               f"tile {tid}: collision-role tiles must be collidable (deck_back tiles must not); "
               "backwall tiles are never collidable")
+        check(type(tile.get("walkable_top", False)) is bool,
+              f"tile {tid}: walkable_top must be a boolean")
         if tile.get("walkable_top"):
             wl = tile.get("walk_line_y")
             check(type(wl) is int and 0 <= wl < TILE, f"tile {tid}: walkable_top needs walk_line_y 0..15")
@@ -333,7 +417,9 @@ def validate_contract(kit: Kit) -> None:
             check("walk_line_y" not in tile, f"tile {tid}: walk_line_y without walkable_top")
         if tile["collidable"]:
             wl = tile.get("walk_line_y", 0)
-            check(tile.get("collider") == [0, wl, TILE, TILE - wl],
+            collider = tile.get("collider")
+            check(isinstance(collider, list) and all(type(v) is int for v in collider)
+                  and collider == [0, wl, TILE, TILE - wl],
                   f"tile {tid}: collider must be [0, {wl}, 16, {TILE - wl}] (walking line rule)")
         else:
             check("collider" not in tile, f"tile {tid}: non-collidable tiles have no collider")
@@ -418,10 +504,18 @@ def validate_contract(kit: Kit) -> None:
                 rect = [fr["frame"][k] for k in ("x", "y", "w", "h")]
                 check(rect[2:] == [w, h], f"piece {pid}: frame size differs from rect")
                 rects.append(rect)
+        if role in PARALLAX_ROLES:
+            check(not anim, f"piece {pid}: parallax strips are static (no animation)")
+            check(w >= 2 * TILE, f"piece {pid}: parallax strip must be at least 32 px wide")
+            wrap, allowed = _wrap_seam_scores(kit.crop(piece["atlas"], piece["rect"]))
+            check(wrap <= allowed,
+                  f"piece {pid}: strip does not tile horizontally: the last and first columns "
+                  f"differ in {wrap} rows (interior neighbours differ in at most {allowed}); "
+                  "author the strip as a periodic image so the wrap seam is as smooth as any column")
         for rect in rects:
             low, high = _alpha_extrema(kit.crop(piece["atlas"], rect))
             if role == "parallax_far":
-                check(high == 255, f"piece {pid}: parallax strip is empty")
+                check(low == 255, f"piece {pid}: the far parallax strip must be fully opaque")
             else:
                 check(low == 0 and high == 255,
                       f"piece {pid}: decor pieces must use (1-bit) alpha and be non-empty")
@@ -437,7 +531,7 @@ def validate_contract(kit: Kit) -> None:
                   f"piece {pid}: invalid arch radii")
         if "window" in piece:
             _check_window(piece)
-        _check_lights(piece)
+        _check_lights(kit, piece)
 
 
 # ---------------------------------------------------------------------------
@@ -482,8 +576,10 @@ def _cell_hits_mask(mask: Image.Image, x: int, r: int) -> bool:
 
 def validate_layout(kit: Kit, layout: dict) -> None:
     c = kit.contract
-    check(layout.get("format") == LAYOUT_FORMAT, f"layout format must be {LAYOUT_FORMAT}")
+    check_format(layout, LAYOUT_FORMAT, "layout")
     check(layout.get("kit") == c.get("kit_id"), "layout kit differs from contract kit_id")
+    check(not {"lights", "emitters"} & set(layout),
+          "layout must not declare free-floating lights: emitters belong to kit pieces")
     if kit.path is not None:
         check(repo_path(layout.get("kit_contract")) == kit.path,
               f"layout kit_contract {layout.get('kit_contract')!r} does not resolve to the "
@@ -525,6 +621,9 @@ def validate_layout(kit: Kit, layout: dict) -> None:
             check(piece is not None, f"{name}[{i}]: unknown piece {item.get('piece')!r}")
             check(piece["role"] == role and piece["layer"] == name,
                   f"{name}[{i}]: {piece['id']} belongs to layer {piece['layer']}, not {name}")
+            check(isinstance(item, dict) and set(item) <= {"piece", "x", "y", "frame_offset"},
+                  f"{name}[{i}]: an instance may only carry piece, x, y and frame_offset "
+                  "(lights come from the piece declaration, never from the instance)")
             px, py = item.get("x"), item.get("y")
             check(type(px) is int and type(py) is int, f"{name}[{i}]: x/y must be integers")
             snap = piece["grid_snap"]
@@ -541,12 +640,24 @@ def validate_layout(kit: Kit, layout: dict) -> None:
                 check(type(item["frame_offset"]) is int and 0 <= item["frame_offset"] < n,
                       f"{name}[{i}]: bad frame_offset")
     windows = window_regions(kit, layout)
+    for (cx, cy, r), (rx, ry, rw, rh) in windows:
+        check(cx - r >= 0 and cx + r <= width and cy - r >= 0 and rx >= 0 and rx + rw <= width
+              and ry + rh <= height, f"arch window at ({cx},{cy}) r{r} extends outside the layout")
+    if windows:
+        check(any(l["role"] == "parallax_far" for l in layers.values()),
+              "arch windows need a parallax_far layer to show through them")
     for name, spec in parallax_layers.items():
         piece = kit.pieces.get(spec.get("piece"))
         check(piece is not None and piece["layer"] == name,
               f"parallax layer {name}: piece {spec.get('piece')!r} does not belong to it")
         check(type(spec.get("y")) is int and type(spec.get("x_origin")) is int,
               f"parallax layer {name}: y and x_origin must be integers")
+        sw, sh = piece["rect"][2:]
+        check(0 <= spec["x_origin"] < sw,
+              f"parallax layer {name}: x_origin {spec['x_origin']} must be a phase in [0, {sw}) "
+              "(the strip repeats every strip width)")
+        check(0 <= spec["y"] and spec["y"] + sh <= height,
+              f"parallax layer {name}: strip y {spec['y']}..{spec['y'] + sh} outside layout height {height}")
         if layers[name]["role"] == "parallax_far" and windows:
             top, bottom = spec["y"], spec["y"] + piece["rect"][3]
             for (cx, cy, r), (rx, ry, rw, rh) in windows:
@@ -596,15 +707,26 @@ def validate_layout(kit: Kit, layout: dict) -> None:
         check(vx >= 0 and vy >= 0 and vx + vw <= width and vy + vh <= height,
               f"view {vid} outside layout")
     _check_lighting_profile(layout)
+    _check_presentation_only(layout, "layout", (layout["lighting"].get("profile_id"),))
+    _check_light_anchors(kit, piece_layers, tops, cols)
+    _check_preview_actors(layout, tops, width)
 
-    req = layout.get("requirements", {})
-    if req.get("continuous_floor"):
-        _check_floor(kit, tile_layers["collision"], cols, rows, req.get("max_step_tiles", 1))
+    req = layout.get("requirements")
+    check(isinstance(req, dict) and req.get("continuous_floor") is True,
+          "layout requirements.continuous_floor must be true (every column needs a walking line)")
+    max_step = req.get("max_step_tiles", MAX_STEP_TILES)
+    check(type(max_step) is int and 1 <= max_step <= MAX_STEP_TILES,
+          f"requirements.max_step_tiles must be an integer in 1..{MAX_STEP_TILES}")
+    check(kit.contract["walk_line"]["base_floor"]["walk_line_y"] == layout["base_walk_line_y"],
+          "layout base_walk_line_y differs from the contract walk_line.base_floor.walk_line_y")
+    _check_floor(kit, tile_layers["collision"], cols, rows, max_step)
+    _check_walking_surfaces(kit, tile_layers["collision"], cols, rows)
     _check_collision_topology(kit, tile_layers["collision"], cols, rows)
     _check_backwall_coverage(kit, tile_layers["backwall"], tile_layers["collision"], cols, rows,
                              window_mask((width, height), windows) if windows else None)
     if windows:
         _check_windows(kit, layout, windows, width, height)
+        _check_parallax_coverage(kit, layout, windows, width, height)
 
 
 def _check_row_joins(kit: Kit, name: str, r: int, row: list) -> None:
@@ -639,9 +761,12 @@ def _check_windows(kit: Kit, layout: dict, windows, width: int, height: int) -> 
         for x, tid in enumerate(row):
             if tid is not None and _cell_hits_mask(mask, x, r):
                 raise KitError(f"backwall ({x},{r}): {tid} intrudes into an arch window")
+    for r, row in enumerate(layout["tile_layers"]["collision"]):
+        for x, tid in enumerate(row):
+            if tid is not None and _cell_hits_mask(mask, x, r):
+                raise KitError(f"collision ({x},{r}): {tid} intrudes into an arch window")
     imgs = render_layers(kit, layout, names=("backwall", "backwall_decal", "collision", "structure"))
     decal_alpha = imgs["backwall_decal"].getchannel("A")
-    from PIL import ImageChops
     check(ImageChops.multiply(decal_alpha, mask).getextrema()[1] == 0,
           "backwall_decal pixels intrude into an arch window")
     solid = Image.new("L", (width, height), 0)
@@ -656,9 +781,16 @@ def _check_lighting_profile(layout: dict) -> None:
     lighting = layout.get("lighting")
     check(isinstance(lighting, dict) and lighting.get("presentation_only") is True,
           "layout lighting profile must exist and be presentation_only")
+    unknown = sorted(set(lighting) - LIGHTING_PROFILE_KEYS)
+    check(not unknown, f"lighting profile has unknown field(s) {unknown}: it carries presentation "
+          "data only (ambient, haze, shadow, bloom), never collision or gameplay fields")
+    check(isinstance(lighting.get("profile_id"), str) and lighting["profile_id"],
+          "lighting profile needs a profile_id")
     groups = lighting.get("groups", {})
     check(set(groups) == set(LIGHT_GROUPS), f"lighting groups must be exactly {LIGHT_GROUPS}")
     for g, cfg in groups.items():
+        unknown = sorted(set(cfg) - LIGHTING_GROUP_KEYS)
+        check(not unknown, f"lighting {g}: unknown field(s) {unknown}")
         amb = cfg.get("ambient")
         check(isinstance(amb, list) and len(amb) == 3, f"lighting {g}: ambient must be [r, g, b]")
         for v in amb:
@@ -667,6 +799,111 @@ def _check_lighting_profile(layout: dict) -> None:
             check(HEX_RE.fullmatch(cfg["haze"].get("colour", "")) is not None,
                   f"lighting {g}: haze colour must be #rrggbb")
             _number(cfg["haze"].get("amount"), f"lighting {g} haze amount", 0, 1)
+        if "light_scale" in cfg:
+            _number(cfg["light_scale"], f"lighting {g} light_scale", 0, 1)
+
+
+def _light_references(node, profile_ids=(), path: str = "") -> list[str]:
+    """Paths inside ``node`` that name lighting data (keys starting with light/emitter/glow/
+    flicker/haze/bloom/ambient, or string values equal to a lighting profile id)."""
+    found: list[str] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            here = f"{path}/{key}"
+            if isinstance(key, str) and key.lower().startswith(
+                    ("light", "emitter", "glow", "flicker", "haze", "bloom", "ambient")):
+                found.append(here)
+            found += _light_references(value, profile_ids, here)
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            found += _light_references(value, profile_ids, f"{path}[{i}]")
+    elif isinstance(node, str) and node in profile_ids:
+        found.append(f"{path} = {node!r}")
+    return found
+
+
+def _check_presentation_only(data: dict, what: str, profile_ids=()) -> None:
+    """Collision/gameplay sections never reference lighting: lights are presentation only."""
+    ids = tuple(p for p in profile_ids if isinstance(p, str) and p)
+    for section in GAMEPLAY_SECTIONS:
+        refs = _light_references(data.get(section), ids, section)
+        check(not refs, f"{what}: gameplay/collision data references lighting "
+              f"({refs[0] if refs else ''}); lights are presentation only")
+
+
+def _check_light_anchors(kit: Kit, piece_layers: dict, tops: list, cols: int) -> None:
+    """A walking-line-projected light must sit over a column that has a walking line."""
+    for name, items in piece_layers.items():
+        for item in items:
+            piece = kit.pieces[item["piece"]]
+            for light in piece.get("lights", []):
+                if light.get("project") == "walk_line":
+                    col = (item["x"] + light["offset"][0]) // TILE
+                    check(0 <= col < cols and isinstance(tops[col], int),
+                          f"{name}: light {piece['id']}.{light['id']} at x {item['x']} projects onto "
+                          f"column {col}, which has no walking line")
+
+
+def _check_preview_actors(layout: dict, tops: list, width: int) -> None:
+    """Actor-check entries stand on a walking line (geometry is validated even though the
+    image inputs of the preview are best-effort)."""
+    for entry in layout.get("preview", {}).get("actor_check", []):
+        x = entry.get("x") if isinstance(entry, dict) else None
+        check(type(x) is int and 0 <= x < width and isinstance(tops[x // TILE], int),
+              f"preview actor_check entry {entry!r}: x must be an integer on a column with a walking line")
+
+
+def _check_walking_surfaces(kit: Kit, grid: list, cols: int, rows: int) -> None:
+    """Exactly one walking surface per floor column, none anywhere else.
+
+    * a floor run (collidable down to the last row) has exactly one ``walkable_top`` tile and
+      it is the run's top tile, with a ``deck_back`` tile directly above it;
+    * ceiling runs and wall columns have no walkable tile;
+    * a ``deck_back`` tile always sits directly above a walkable tile (no orphans)."""
+    for x in range(cols):
+        r = 0
+        while r < rows:
+            if not _is_solid(kit, grid[r][x]):
+                r += 1
+                continue
+            start = r
+            while r + 1 < rows and _is_solid(kit, grid[r + 1][x]):
+                r += 1
+            end = r
+            r += 1
+            walkable = [row for row in range(start, end + 1) if kit.tiles[grid[row][x]].get("walkable_top")]
+            is_floor = end == rows - 1 and start > 0
+            if is_floor:
+                check(walkable == [start],
+                      f"collision column {x}: a floor run must have exactly one walking surface, "
+                      f"on its top tile (walkable rows {walkable}, run rows {start}-{end})")
+            else:
+                check(not walkable, f"collision column {x}: walkable tile in row {walkable[:1]} "
+                      "outside a floor run (ceiling and wall columns have no walking surface)")
+        for row in range(rows):
+            tid = grid[row][x]
+            if tid is not None and kit.tiles[tid].get("deck_back"):
+                below = grid[row + 1][x] if row + 1 < rows else None
+                check(below is not None and kit.tiles[below].get("walkable_top"),
+                      f"collision ({x},{row}): deck_back tile {tid} has no walkable tile directly below")
+
+
+def _check_parallax_coverage(kit: Kit, layout: dict, windows, width: int, height: int) -> None:
+    """The far strip repeats forever horizontally, so it must be drawn behind every arch window
+    for any camera x. Check it on rendered pixels with the camera clamped at the left end and
+    at the right end of the corridor, for every declared view size and the 640x400 deck view."""
+    far = tuple(n for n, l in kit.layers.items() if l["role"] == "parallax_far")
+    mask = window_mask((width, height), windows)
+    views = [tuple(v) for v in layout.get("views", {}).values()]
+    if DECK_VIEW[0] <= width and DECK_VIEW[1] <= height:
+        views.append((0, 0, *DECK_VIEW))
+    for vx, vy, vw, vh in views:
+        for cam in sorted({0, width - vw}):
+            alpha = render_layers(kit, layout, camera_x=cam, names=far)[far[0]].getchannel("A")
+            box = (cam, vy, cam + vw, vy + vh)
+            gaps = ImageChops.subtract(mask.crop(box), alpha.crop(box)).getbbox()
+            check(gaps is None, f"parallax_far leaves empty sky behind an arch window with the "
+                  f"camera at x {cam} (view {vw}x{vh} at y {vy}): uncovered pixels near {gaps}")
 
 
 def _is_solid(kit: Kit, tid) -> bool:
@@ -1031,8 +1268,11 @@ def find_layouts(levels: Path | None = None) -> list[Path]:
             raise KitError(f"cannot parse {path}: {exc}") from exc
         fmt = data.get("format") if isinstance(data, dict) else None
         if isinstance(fmt, str) and fmt.startswith("env-kit"):
-            check(fmt == LAYOUT_FORMAT,
-                  f"{path}: unsupported layout format {fmt!r} (expected {LAYOUT_FORMAT})")
+            if fmt != LAYOUT_FORMAT:
+                try:
+                    check_format(data, LAYOUT_FORMAT, "layout")
+                except KitError as exc:
+                    raise KitError(f"{path}: {exc}") from exc
             found.append(path)
     return found
 
@@ -1056,17 +1296,17 @@ def main(argv: list[str] | None = None) -> int:
             kit = load_kit(args.contract)
             validate_contract(kit)
             for raw in args.layout:
-                validate_layout(kit, load_json(raw))
+                validate_layout(kit, load_layout(raw))
             print(f"VALID kit {kit.contract['kit_id']}: {len(kit.tiles)} tiles, "
                   f"{len(kit.pieces)} pieces, {len(args.layout)} layout(s)")
             return 0
         jobs = []
         if args.cmd == "render":
-            layout = load_json(args.layout)
+            layout = load_layout(args.layout)
             jobs.append((layout, args.out or OUT_ROOT / layout["layout_id"]))
         else:
             for path in find_layouts():
-                layout = load_json(path)
+                layout = load_layout(path)
                 jobs.append((layout, args.out_root / layout["layout_id"]))
             check(bool(jobs), f"no {LAYOUT_FORMAT} layouts found under assets/levels/")
         for layout, out in jobs:

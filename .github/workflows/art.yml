@@ -35,21 +35,29 @@ jobs:
           echo "ART_CLI=$RUNNER_TEMP/art-cli/squashfs-root/AppRun" >> "$GITHUB_ENV"
       - name: Export Aseprite-compatible masters and validate
         run: bash scripts/export_assets.sh
-      - name: Committed .ase sources must match their pixel grids
+      - name: Export must leave the working tree clean (committed .ase match their grids)
         run: |
-          if [ -n "$(git status --porcelain -- assets/source)" ]; then
-            git status --short -- assets/source
-            echo 'Rebuild with scripts/export_assets.sh and commit the updated .ase files.' >&2
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo 'Rebuild with scripts/export_assets.sh and commit the updated sources.' >&2
             exit 1
           fi
       - name: Regression tests (including rejection of bad metadata)
         run: python3 -m unittest discover -s tests -p 'test_art_*.py' -v
-      - name: Re-export must be byte-identical
+      - name: Re-export must be byte-identical (every file under generated/art, recursively)
         run: |
           find generated/art -type f -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/first.sha256"
+          grep -q ' generated/art/env_kit/' "$RUNNER_TEMP/first.sha256" || {
+            echo 'No env-kit previews under generated/art/env_kit.' >&2; exit 1; }
           bash scripts/export_assets.sh
           find generated/art -type f -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/second.sha256"
           diff "$RUNNER_TEMP/first.sha256" "$RUNNER_TEMP/second.sha256"
+      - name: Export, tests and re-export must leave the working tree clean
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            exit 1
+          fi
       - name: Check repo documentation and rights records
         run: python3 scripts/check_docs.py
       - name: Publish native-scale visual review artifacts
