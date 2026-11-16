@@ -1,0 +1,80 @@
+name: character-playground
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: character-playground-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-scale-render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: '1'
+      WGPU_BACKEND: vulkan
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Linux render dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libudev-dev \
+            libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-0 \
+            libwayland-dev libvulkan-dev mesa-vulkan-drivers \
+            xvfb x11-utils imagemagick
+          python3 -m pip install --disable-pip-version-check Pillow==13.0.0
+      - name: Obtain pinned LibreSprite 1.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 4 --retry-all-errors --silent --show-error \
+            -o "$RUNNER_TEMP/libresprite.AppImage" \
+            'https://github.com/LibreSprite/LibreSprite/releases/download/v1.3/libresprite-v1.3-linux-x86_64.AppImage'
+          echo 'fd90bddda8135fe00f4a9a9c8c9ebd48f9b07e8782ab269be5c9efb1a851af30  '"$RUNNER_TEMP/libresprite.AppImage" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/art-cli"
+          cd "$RUNNER_TEMP/art-cli"
+          chmod +x "$RUNNER_TEMP/libresprite.AppImage"
+          "$RUNNER_TEMP/libresprite.AppImage" --appimage-extract >/dev/null
+          echo "ART_CLI=$RUNNER_TEMP/art-cli/squashfs-root/AppRun" >> "$GITHUB_ENV"
+      - name: Export approved native sprite studies
+        run: bash scripts/export_assets.sh
+      - name: Check cast atlas dimensions, four-frame idle and pivots
+        run: python3 scripts/check_playground_contract.py
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Lint Character Playground
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Run Rust tests
+        run: cargo test --locked --all-targets
+      - name: Compile Character Playground
+        run: cargo build --locked --bin character_playground
+      - name: Headless cast and fixed-step smoke
+        run: ./target/debug/character_playground --headless-playground-smoke
+      - name: Real Bevy render at 640x360 virtual pixels
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_playground_render_smoke.sh desktop
+      - name: Real Bevy render at 640x400 virtual pixels
+        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_playground_render_smoke.sh deck
+      - name: Documentation checks
+        run: python3 scripts/check_docs.py
+      - name: Upload native-resolution gameplay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: the-crawl-character-playground
+          path: |
+            artifacts/character-playground-*.png
+            artifacts/character-playground-*.log
+          if-no-files-found: warn
