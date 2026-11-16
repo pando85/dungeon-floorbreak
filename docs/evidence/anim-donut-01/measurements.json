@@ -1,0 +1,404 @@
+{
+ "format": "anim-donut-01-review-v1",
+ "manifest": "assets/manifests/donut_h40_locomotion.json",
+ "carl_manifest": "assets/manifests/carl_book1_h52.json",
+ "frame_size": [
+  72,
+  44
+ ],
+ "pivot": [
+  46,
+  43
+ ],
+ "tags": {
+  "idle": [
+   0,
+   3
+  ],
+  "run": [
+   4,
+   9
+  ],
+  "jump_start": [
+   10,
+   11
+  ],
+  "jump_rise": [
+   12,
+   12
+  ],
+  "jump_fall": [
+   13,
+   13
+  ],
+  "land": [
+   14,
+   15
+  ]
+ },
+ "frames": [
+  {
+   "frame": 0,
+   "tag": "idle",
+   "duration_ms": 320,
+   "bbox": [
+    24,
+    4,
+    68,
+    43
+   ],
+   "opaque_height": 40,
+   "width": 45,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 1,
+   "tag": "idle",
+   "duration_ms": 260,
+   "bbox": [
+    24,
+    3,
+    68,
+    43
+   ],
+   "opaque_height": 41,
+   "width": 45,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 2,
+   "tag": "idle",
+   "duration_ms": 180,
+   "bbox": [
+    24,
+    3,
+    68,
+    43
+   ],
+   "opaque_height": 41,
+   "width": 45,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 18
+  },
+  {
+   "frame": 3,
+   "tag": "idle",
+   "duration_ms": 260,
+   "bbox": [
+    24,
+    4,
+    68,
+    43
+   ],
+   "opaque_height": 40,
+   "width": 45,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 4,
+   "tag": "run",
+   "duration_ms": 80,
+   "bbox": [
+    12,
+    6,
+    68,
+    43
+   ],
+   "opaque_height": 38,
+   "width": 57,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 5,
+   "tag": "run",
+   "duration_ms": 70,
+   "bbox": [
+    14,
+    7,
+    68,
+    43
+   ],
+   "opaque_height": 37,
+   "width": 55,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 6,
+   "tag": "run",
+   "duration_ms": 80,
+   "bbox": [
+    17,
+    7,
+    68,
+    43
+   ],
+   "opaque_height": 37,
+   "width": 52,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 7,
+   "tag": "run",
+   "duration_ms": 70,
+   "bbox": [
+    13,
+    7,
+    68,
+    43
+   ],
+   "opaque_height": 37,
+   "width": 56,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 8,
+   "tag": "run",
+   "duration_ms": 90,
+   "bbox": [
+    7,
+    6,
+    69,
+    40
+   ],
+   "opaque_height": 35,
+   "width": 63,
+   "lowest_row": 40,
+   "rows_above_pivot": 3,
+   "colours": 22
+  },
+  {
+   "frame": 9,
+   "tag": "run",
+   "duration_ms": 70,
+   "bbox": [
+    9,
+    5,
+    68,
+    42
+   ],
+   "opaque_height": 38,
+   "width": 60,
+   "lowest_row": 42,
+   "rows_above_pivot": 1,
+   "colours": 22
+  },
+  {
+   "frame": 10,
+   "tag": "jump_start",
+   "duration_ms": 90,
+   "bbox": [
+    16,
+    7,
+    68,
+    43
+   ],
+   "opaque_height": 37,
+   "width": 53,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 11,
+   "tag": "jump_start",
+   "duration_ms": 70,
+   "bbox": [
+    10,
+    5,
+    68,
+    43
+   ],
+   "opaque_height": 39,
+   "width": 59,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 12,
+   "tag": "jump_rise",
+   "duration_ms": 120,
+   "bbox": [
+    6,
+    2,
+    69,
+    43
+   ],
+   "opaque_height": 42,
+   "width": 64,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 13,
+   "tag": "jump_fall",
+   "duration_ms": 120,
+   "bbox": [
+    14,
+    4,
+    68,
+    43
+   ],
+   "opaque_height": 40,
+   "width": 55,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  },
+  {
+   "frame": 14,
+   "tag": "land",
+   "duration_ms": 80,
+   "bbox": [
+    16,
+    9,
+    68,
+    43
+   ],
+   "opaque_height": 35,
+   "width": 53,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 18
+  },
+  {
+   "frame": 15,
+   "tag": "land",
+   "duration_ms": 110,
+   "bbox": [
+    14,
+    7,
+    68,
+    43
+   ],
+   "opaque_height": 37,
+   "width": 55,
+   "lowest_row": 43,
+   "rows_above_pivot": 0,
+   "colours": 22
+  }
+ ],
+ "floor01": {
+  "layout": "assets/levels/floor01/corridor_abc_sample.json",
+  "view": [
+   328,
+   20,
+   640,
+   360
+  ],
+  "trail_px": 32,
+  "trail": {
+   "carl_foot_x": 528,
+   "donut_foot_x": 496,
+   "walking_line_y": 308,
+   "donut_frame": 4,
+   "carl_frame": 0
+  },
+  "trail_gif_crop_view_px": [
+   90,
+   150,
+   250,
+   290
+  ],
+  "lineup": [
+   {
+    "label": "carl idle 0",
+    "box": [
+     347,
+     256,
+     370,
+     308
+    ]
+   },
+   {
+    "label": "idle 0",
+    "box": [
+     396,
+     268,
+     441,
+     308
+    ]
+   },
+   {
+    "label": "run 4",
+    "box": [
+     452,
+     270,
+     509,
+     308
+    ]
+   },
+   {
+    "label": "run 6",
+    "box": [
+     525,
+     271,
+     577,
+     308
+    ]
+   },
+   {
+    "label": "run 8",
+    "box": [
+     583,
+     270,
+     646,
+     305
+    ]
+   },
+   {
+    "label": "jump_start 10",
+    "box": [
+     660,
+     271,
+     713,
+     308
+    ]
+   },
+   {
+    "label": "jump_rise 12",
+    "box": [
+     718,
+     240,
+     782,
+     282
+    ]
+   },
+   {
+    "label": "jump_fall 13",
+    "box": [
+     794,
+     254,
+     849,
+     294
+    ]
+   },
+   {
+    "label": "land 14",
+    "box": [
+     864,
+     273,
+     917,
+     308
+    ]
+   }
+  ]
+ },
+ "note": "Review aids; the lit scenes use the Pillow A1 model, not a Bevy capture."
+}
