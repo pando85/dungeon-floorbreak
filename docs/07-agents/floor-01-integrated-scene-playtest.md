@@ -53,6 +53,16 @@ The 640x360 virtual scene is shown at 1920x1080 output (3x). Repeat with --deck 
 
 **Stage A output:** at least three actionable observations; one thing to **preserve**; screenshots/recording when helpful. CI screenshots alone cannot substitute for game-feel judgement.
 
+## Human baseline observation — first hands-on run (2026-11-16)
+
+**Source:** creative director reported that they ran the previously suggested commands for the existing COMP-01/COMP-02 scene. Their actual assessment in Spanish was: **"no veo nada especial, tiene buena pinta y ya"** ("nothing especially notable; it looks good, that's all").
+
+**What this supports:** the art/scene gives a positive basic impression, but the present demonstration does not yet provide a memorable gameplay hook. This is **not** a measured score or an acceptance of movement tuning, jump buffering, companion AI, 2P camera, or combat, and the tester did not supply device, frame timing, specific pass/fail records, or a recording. Retain the available visual baseline without polishing it endlessly in isolation.
+
+**Action:** move the next design validation toward **playing Donut directly before she has magic**, independent control/co-op camera and the first meaningful jointly solvable encounter. Do not treat the observation as an instruction to implement the shoulder feature or a new skill tree. See [pre-magic Donut experimental design](../01-design/floor-01-pre-magic-donut-experiments.md).
+
+**Still untested from Stage A:** specific coyote/buffer impressions, clipping, control feel per device, controller hotplug, A1 versus no-lighting, camera separation (requires B), frame pacing and 16:10 usability on hardware.
+
 ## Stage B — independent protagonists (requires a dedicated Rust + Bevy probe)
 
 **Preconditions:** implement a separately owned, deterministic second actor/controller. Keep final character animation out of this probe if it would slow testing. The original 52/40px source masters remain mandatory.
