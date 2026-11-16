@@ -1,6 +1,6 @@
 # ANIM-DONUT-01: Princess Donut locomotion candidate (40 px)
 
-**Status:** draft candidate, awaiting owner art review. Nothing here is accepted. The approved master [`donut_h40.grid.json`](../../assets/source/characters/donut/donut_h40.grid.json) and its manifest are unchanged; the candidate lives in its own source and manifest until a human approves it. Runtime integration (state machine, Bevy atlas swap) is a separate work order.
+**Status:** draft candidate, awaiting owner art review. **Round 2 in progress:** keys 4, 6, 8, 10, 12 re-authored after the independent Opus review; in-betweens per the [run spec](donut-locomotion-anim-01-run-spec.md). Sections below describe round 1 unless stated. Nothing here is accepted. The approved master [`donut_h40.grid.json`](../../assets/source/characters/donut/donut_h40.grid.json) and its manifest are unchanged; the candidate lives in its own source and manifest until a human approves it. Runtime integration (state machine, Bevy atlas swap) is a separate work order.
 
 Authoring and the self-review below were done by Claude Opus (art-tier model, see AGENTS.md "Model routing for art work"). An independent Opus art review is a separate step.
 
@@ -11,7 +11,7 @@ Authoring and the self-review below were done by Claude Opus (art-tier model, se
 | [`assets/source/characters/donut/donut_h40_locomotion.grid.json`](../../assets/source/characters/donut/donut_h40_locomotion.grid.json) | editable source (pixel-grid-v1), **source of truth** |
 | `assets/source/characters/donut/donut_h40_locomotion.ase` | Aseprite/LibreSprite file rebuilt from the grid by the export (layers, tags, frame timings) |
 | [`assets/manifests/donut_h40_locomotion.json`](../../assets/manifests/donut_h40_locomotion.json) | candidate manifest `donut_h40_locomotion_candidate_v0`, `prototype_fixture_unapproved` |
-| [`scripts/author_donut_locomotion.py`](../../scripts/author_donut_locomotion.py) | authoring record: parts, pose data and cleanup patches that produced the grid (`--check`, `--force`) |
+| [`scripts/author_donut_locomotion.py`](../../scripts/author_donut_locomotion.py) | authoring record and parts library; round-2 keys recipe (`--check-keys`); never writes the grid |
 | [`scripts/make_donut_locomotion_review.py`](../../scripts/make_donut_locomotion_review.py) | contact sheets, GIFs, Floor 1 lit compositions with Carl, measurements |
 | [`tests/test_art_donut_locomotion.py`](../../tests/test_art_donut_locomotion.py) | idle preserved, face/head are master pixels, palette, contact rows, clean clusters |
 | [`docs/evidence/anim-donut-01/`](../evidence/anim-donut-01/README.md) | committed review renders with SHA-256 |
@@ -91,10 +91,10 @@ Known weaknesses:
 ## Regenerate
 
 ```bash
-python3 scripts/author_donut_locomotion.py --check    # the grid still matches its authoring record
+python3 scripts/author_donut_locomotion.py --check-keys    # round-2 key frames unchanged
 ART_CLI=/path/to/aseprite-or-libresprite bash scripts/export_assets.sh
 python3 scripts/make_donut_locomotion_review.py --out docs/evidence/anim-donut-01
 python3 -m unittest discover -s tests -p 'test_art_donut*.py'
 ```
 
-`--force` rewrites the grid from the authoring record and overwrites any later hand edits.
+The committed grid is the source of truth; the authoring script never writes it (round 2 onwards).

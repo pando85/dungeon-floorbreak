@@ -23,8 +23,10 @@ Frame layout: canvas 72x44, pivot (46, 43). The pivot is on the contact row like
 and it sits 6 px behind the nose as in the idle (pivot 22, nose 28), so the face does not
 jump when the state changes between idle and locomotion.
 
-The committed grid is the source of truth. Re-running overwrites hand edits made to the
-grid, so it only writes with ``--force``; ``--check`` reports whether they still match.
+The committed grid is the source of truth. Since round 2 this script never writes it:
+``--round1-out PATH`` writes the round-1 record elsewhere for comparison, and
+``--check-keys`` verifies that the round-2 hand-authored key frames (4, 6, 8, 10, 12; see
+the round-2 section below) are unchanged in the grid.
 """
 from __future__ import annotations
 
@@ -403,6 +405,154 @@ PATCHES = [
 ]
 
 
+# ===========================================================================
+# Round 2 (after the independent Opus review): hand-authored key poses.
+#
+# The committed grid is the source of truth. Round 1 above is kept as the record of
+# how frames were first produced; this script never writes the committed grid.
+# The round-2 keys (frames 4, 6, 8, 10, 12) were composed from the parts below in
+# canvas coordinates (72x44, not the round-1 rig coordinates) and cleaned with
+# PATCHES2. ``--check-keys`` verifies that the grid's key frames still equal this
+# recipe. ``compose()`` and the parts are available for the in-between frames (see
+# docs/02-art/donut-locomotion-anim-01-run-spec.md).
+# ===========================================================================
+
+TORSO_GATHER = part("""
+........jjjjjjjjjj....
+......jjHHHHHHHHHHjj..
+.....jHHBBBBBBBBBBHHj.
+....jHBBBBBBGGOBBBBBBj
+...jHBBBBBGGOOOOoBBBBB
+..jHBBBBBGOOOOooBBBBBB
+..jHBBBBBOOOooBBBBBBBB
+.jHBBBBBBBBBBBBBBBBBBB
+.jBBGGOBBBBBBBBBBBBBBB
+jBBGOOOOBBBBBBBBBBBBBB
+jBGOOOOOOBBBBBBBBBBBBB
+jGOOOOOOOBBBBBBBBBBBBD
+joOOOOOOOoBBBBBBBBBBDD
+KoOOOOOOOoBBBBBBBBBDDD
+KBoOOBBOOoBBBBBBBBDDDD
+.KBooBBBBoBBBBBBBDDDDK
+.KDBBBBBBBBBBBDDDDDDK.
+..KDDDDDDDDDDDDDDDDK..
+...KDDDDDDDDDDDDDKK...
+...KKDDKKDDDKDDKK.....
+.....KK..KDK.KK.......
+""")
+
+TORSO_EXTEND = part("""
+....jjjjjjjjjjjjjjjjjjjjjjjjjjj
+..jjHHHHHHHHHHHHHHHHHHHHHHHHHHH
+.jHHBBBBBBBBBBBBBBBBBBBBBBBBBBB
+jHBBBBBBBBBBBBBBBBBBBBGGOOBBBBB
+jHBBBBBBBBBBBBBBBBBBGGOOOOooBBB
+jBBGGOOBBBBBBBBBBBBGOOOOooBBBBB
+jBGOOOOOOBBBBBBBBBBBOOooBBBBBBB
+jGOOOOOOOOBBBBBBBBBBBBBBBBBBBBB
+joOOOOOOOOoBBBBBBBBBBBBBBBBBBBD
+KoOOOOOOOOoBBBBBBBBBBBBBBBBBBDD
+KBooOOBBOooBBBBBBBBBBBBBBBBBDDD
+.KBBooBBBBBBBBBBBBBBBBBBBBBDDDK
+.KDDBBBBBBBBBDDDDDDDDDDDDDDDDK.
+..KKDDDDDDDDDDDDDDDDDDDDDDDKK..
+....KKDDKKDDDKDDDDKDDDKDDKK....
+......KK..KDK.KDDK..KDK..K.....
+""")
+
+FN_LEAP = part("""
+...............CCK..
+.............CCCCcK.
+...........CCCCCccK.
+........CCCCCCcKKK..
+.....CCCCCCCcKK.....
+..CCCCCCCccKK.......
+CCCCCCccKK..........
+KKcccKK.............
+""")
+
+
+def even_tilt(rows, step, up=True):
+    """Lift column x by floor(x / step) (front up) or the reverse: even stair steps."""
+    h, w = len(rows), len(rows[0])
+    n = (w - 1) // step
+    pad = n
+    rows = ["." * w] * pad + rows + ["." * w] * pad
+    out = [["."] * w for _ in range(len(rows))]
+    for x in range(w):
+        d = x // step if up else n - x // step
+        d -= n // 2
+        for y in range(len(rows)):
+            if rows[y][x] != ".":
+                out[y - d][x] = rows[y][x]
+    return ["".join(r) for r in out], pad
+
+
+def compose(spec: dict) -> dict[str, list[str]]:
+    """One frame from canvas-coordinate pose data.
+
+    spec: torso (rows), torso_xy (canvas x, y of the torso part's top-left), head_dy /
+    head_dx / head_frame (offsets of the master head block from its run-neutral place:
+    face layer top-left at canvas (43, 20) when both are 0), tail (canvas x, y, shear k),
+    legs [(LEGS name or rows, "near" | "far", canvas x, bottom row)]."""
+    c = Canvas()
+    tx, ty, k = spec["tail"]
+    tail_block(c, tx + CROP_X, ty, k)
+    x, y = spec["torso_xy"]
+    c.put("body", spec["torso"], x + CROP_X, y)
+    head_block(c, GX + 25 + spec.get("head_dx", 0), 4 + spec.get("head_dy", 0),
+               frame=spec.get("head_frame", 0))
+    for name, side, lx, bottom in spec["legs"]:
+        rows = LEGS[name] if isinstance(name, str) else name
+        if side != "near":
+            rows = [r.translate(FAR) for r in rows]
+        c.put("legs_near" if side == "near" else "legs_far", rows, lx + CROP_X, bottom - len(rows) + 1)
+    return c.cels()
+
+
+ROUND2_KEYS = {
+    # frame 4: F0 near fore contact (only paw on row 43)
+    4: {"torso": TORSO, "torso_xy": (22, 21), "head_dy": 0, "tail": (14, 6, 0.15),
+        "legs": [("FN_reach_low", "far", 55, G - 2), ("HN_push", "far", 24, G - 2),
+                 ("FN_plant", "near", 51, G), ("HN_trail", "near", 20, G - 3)]},
+    # frame 6: F2 gathered, 3 px arch, near hind contact under the belly
+    6: {"torso": TORSO_GATHER, "torso_xy": (24, 18), "head_dy": 1, "tail": (19, 5, 0.05),
+        "legs": [("FN_push", "far", 46, G - 1), ("HN_tuck", "far", 38, G - 2),
+                 ("FN_tuck", "near", 44, G - 2), ("HN_plant", "near", 35, G)]},
+    # frame 8: F4 extended suspension, long flat back
+    8: {"torso": TORSO_EXTEND, "torso_xy": (13, 20), "head_dy": 0, "head_dx": 1, "tail": (5, 6, 0.2),
+        "legs": [("FN_reach_high", "far", 56, G - 5), ("HN_trail", "far", 12, G - 6),
+                 ("FN_reach_high", "near", 53, G - 4), ("HN_trail", "near", 9, G - 5)]},
+}
+_rise, _pad = even_tilt(TORSO_EXTEND, 4, up=True)
+ROUND2_KEYS[10] = {"torso": TORSO_GATHER, "torso_xy": (25, 20), "head_dy": 3, "tail": (20, 7, -0.1),
+            "legs": [("FN_crouch", "far", 54, G), ("HN_crouch", "far", 33, G),
+                     ("FN_crouch", "near", 50, G), ("HN_crouch", "near", 29, G)]}
+ROUND2_KEYS[12] = {"torso": _rise, "torso_xy": (15, 21 - _pad), "head_dy": -2, "head_dx": 1, "tail": (9, 14, 0.3),
+            "legs": [(FN_LEAP, "far", 52, 39), ("HN_trail", "far", 15, G - 1),
+                     (FN_LEAP, "near", 50, 40), ("HN_trail", "near", 12, G)]}
+
+PATCHES2 = [
+    (6, "legs_far", 44, 38, "K", "."),
+    (8, "body", 35, 26, "o", "O"), (8, "legs_far", 17, 35, "D", "K"), (8, "body", 33, 35, "K", "."),
+    (8, "legs_near", 55, 36, "c", "C"), (8, "legs_near", 56, 36, "K", "C"), (8, "legs_far", 15, 37, "c", "K"),
+    (8, "body", 52, 37, "c", "K"),
+    (12, "tail", 13, 15, "K", "."), (12, "body", 34, 25, "G", "O"), (12, "body", 35, 34, "K", "."),
+    (12, "legs_near", 64, 36, "c", "C"), (12, "legs_far", 54, 37, "c", "C"), (12, "legs_near", 62, 37, "c", "C"),
+    (12, "legs_far", 18, 42, "c", "K"),
+]
+
+
+def round2_keys() -> dict[int, dict[str, list[str]]]:
+    frames = {fi: compose(spec) for fi, spec in ROUND2_KEYS.items()}
+    for fi, layer, x, y, old, new in PATCHES2:
+        rows = frames[fi][layer]
+        if rows[y][x] != old:
+            raise ValueError(f"patch2 {fi} {layer} ({x},{y}): expected {old!r}, found {rows[y][x]!r}")
+        rows[y] = rows[y][:x] + new + rows[y][x + 1:]
+    return frames
+
+
 def build() -> dict:
     dx = PIVOT[0] - MASTER["pivot"][0]
     frames = [{"duration_ms": f["duration_ms"],
@@ -453,17 +603,26 @@ def dump(grid: dict) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--check", action="store_true", help="exit 1 if the committed grid differs")
-    mode.add_argument("--force", action="store_true", help="overwrite the committed grid")
-    parser.add_argument("--out", type=Path, default=OUT_PATH)
+    mode.add_argument("--check-keys", action="store_true",
+                      help="exit 1 if the grid's round-2 key frames differ from their recipe")
+    mode.add_argument("--round1-out", type=Path,
+                      help="write the round-1 record to this path (never the committed grid)")
+    parser.add_argument("--grid", type=Path, default=OUT_PATH)
     args = parser.parse_args(argv)
-    text = dump(build())
-    if args.check:
-        same = args.out.is_file() and args.out.read_text(encoding="utf-8") == text
-        print("grid matches the authoring record" if same else "grid differs from the authoring record")
-        return 0 if same else 1
-    args.out.write_text(text, encoding="utf-8")
-    print(f"wrote {args.out}")
+    if args.check_keys:
+        grid = json.loads(args.grid.read_text(encoding="utf-8"))
+        bad = []
+        for fi, cels in round2_keys().items():
+            mine = {k: v for k, v in grid["frames"][fi]["cels"].items()
+                    if any(c != "." for r in v for c in r)}
+            if mine != cels:
+                bad.append(fi)
+        print("round-2 keys match their recipe" if not bad else f"round-2 keys differ: frames {bad}")
+        return 0 if not bad else 1
+    if args.round1_out.resolve() == OUT_PATH.resolve():
+        parser.error("the committed grid is the source of truth; write the round-1 record elsewhere")
+    args.round1_out.write_text(dump(build()), encoding="utf-8")
+    print(f"wrote {args.round1_out}")
     return 0
 
 
