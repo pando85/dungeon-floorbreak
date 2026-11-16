@@ -267,12 +267,17 @@ def band_of_row(row: int) -> str:
     raise ValueError(row)
 
 
-POOL_VARIANTS = {"a": (POOL_RADIUS, 1.3), "b": (102.0, 1.18)}  # (radius, power): a full and a smaller pool
+# (radius, power, light x offset): a full and a smaller pool; "_m" variants mirror the
+# off-centre light, the soot lean and the ragged-edge noise (bricks are re-shaded, not
+# pixel-mirrored, so the running bond stays on the wall grid).
+POOL_VARIANTS = {"a": (POOL_RADIUS, 1.3, 5.0), "b": (102.0, 1.18, -4.0),
+                 "a_m": (POOL_RADIUS, 1.3, -5.0), "b_m": (102.0, 1.18, 4.0)}
 
 
 def pool_torch_value(t: dict, x: float, y: float, n: tuple) -> float:
-    radius, power = POOL_VARIANTS[t["variant"]]
-    w = ld.warm_light(x, y, 0.0, n, torches=[t], radius=radius, power=power)
+    radius, power, dx = POOL_VARIANTS[t["variant"]]
+    lt = {"x": t["x"] + dx, "y": t["y"], "z": t["z"], "p": t["p"]}
+    w = ld.warm_light(x, y, 0.0, n, torches=[lt], radius=radius, power=power)
     return 9.2 * (w ** 0.7)
 
 
@@ -304,10 +309,16 @@ def torch_pool(variant: str) -> "ld.Canvas":
         _r, base, mortar = BANDS[band]
         lift = pool_torch_value(t, bx, by, (0.0, 0.0, 1.0))
         dy = cy - by
+        mirror = variant.endswith("_m")
+        lean = (-1.0 if mirror else 1.0) * 0.08 * max(0.0, dy)  # soot plume leans with the draught
         soot = 0.0
-        if 6 < dy < 92 and abs(bx - cx) < 7 + dy * 0.12:
+        if 6 < dy < 92 and abs(bx - cx - lean) < 7 + dy * 0.12:
             soot = 1.7 * (1.0 - dy / 92.0)
-        if lift - soot < 0.55 and soot < 0.6:
+        mx = POOL_W - 1 - bx if mirror else bx
+        noise = ld.rnd("pool_edge", variant.replace("_m", ""), row, int(mx // BRICK_W))
+        # ragged edge: above the flame the cut-off rises with height and a per-brick noise
+        cut = 0.55 + (max(0.0, dy - 30.0) / 70.0) * 1.6 * noise
+        if lift - soot < cut and soot < 0.6:
             continue
         seed = ("pool", variant, row, col)
         jit = brick_jitter(seed)
@@ -320,6 +331,54 @@ def torch_pool(variant: str) -> "ld.Canvas":
         for px, py, du, dv in pixels:
             brick_pixel(c, px, py, du, dv, base=base, mortar_base=mortar, jit=jit, seed=seed,
                         torch=torch, soot=soot, x=px + 0.5, y=py + 0.5)
+    return c
+
+
+SPILL_W, SPILL_TOP_Y, SPILL_H = 64, 96, 176
+
+
+def pier_spill(side: str) -> "ld.Canvas":
+    """Narrow warm brick spill beside a pier whose torch has no wall pool next to it.
+
+    ``side`` "l": placed at (bay - 48, 96), lit by the pier_l torch; "r": placed at
+    (bay + 288, 96), lit by the pier_r torch. Whole bricks only."""
+    c = canvas(SPILL_W, SPILL_H)
+    fx = 80.0 if side == "l" else -16.0
+    t = {"x": fx, "y": float(PIER_TORCH_FLAME_Y - SPILL_TOP_Y), "z": 40.0, "p": 0.9}
+    bricks: dict[tuple[int, int], list] = {}
+    for py in range(SPILL_H):
+        for px in range(SPILL_W):
+            row, col, du, dv = brick_cell(px, py)
+            bricks.setdefault((row, col), []).append((px, py, du, dv))
+    for (row, col), pixels in sorted(bricks.items()):
+        off = (BRICK_W // 2) * (row % 2)
+        start = col * BRICK_W - off
+        if start < 0 or start + BRICK_W > SPILL_W:
+            continue
+        bx, by = start + BRICK_W / 2, row * BRICK_H + BRICK_H / 2
+        tile_row = (SPILL_TOP_Y + row * BRICK_H) // TILE
+        if tile_row > BANDS["low"][0][1]:
+            continue
+        _r, base, mortar = BANDS[band_of_row(tile_row)]
+
+        def lift_at(x, y, n):
+            w = ld.warm_light(x, y, 0.0, n, torches=[t], radius=104.0, power=1.0)
+            return 8.0 * (w ** 0.7)
+
+        lift = lift_at(bx, by, (0.0, 0.0, 1.0))
+        if lift < 0.55 + 0.6 * ld.rnd("spill_edge", side, row, col):
+            continue
+        seed = ("spill", side, row, col)
+        jit = brick_jitter(seed)
+
+        def torch(x, y, n, _bx=bx, _by=by):
+            if x is None:
+                return lift_at(_bx, _by, n)
+            return 0.5 * lift_at(x, y, n) + 0.5 * lift_at(_bx, _by, (0, 0, 1))
+
+        for px, py, du, dv in pixels:
+            brick_pixel(c, px, py, du, dv, base=base, mortar_base=mortar, jit=jit, seed=seed,
+                        torch=torch, x=px + 0.5, y=py + 0.5)
     return c
 
 
@@ -356,13 +415,13 @@ def base_course(variant: str, width_tiles: int) -> "ld.Canvas":
             seed = ("base", variant, col)
             jit = 0.0 if straddler else (ld.rnd(seed) - 0.5) * 0.9
             if du == 0 or dv == 0:
-                put(c, px, py, "mortar", 2.4 if dv else 1.6)
+                put(c, px, py, "mortar", 2.1 if dv else 1.4)
                 continue
             if dv == 15:
-                put(c, px, py, "stone", 2.2)  # contact shadow line where the course meets the floor
+                put(c, px, py, "stone", 2.0)  # contact shadow line where the course meets the floor
                 continue
             n, edge = ld.bevel_normal(du - 1, dv - 1, bw - 1, 14, 1)
-            value = 7.8 + jit + 1.6 * key_term(n) - 0.08 * dv
+            value = 6.8 + jit + 1.6 * key_term(n) - 0.12 * dv  # cooler, darker toward the deck
             if not edge and not straddler:
                 pu = 3 + int(ld.rnd(seed, "u") * 22)
                 pv = 3 + int(ld.rnd(seed, "v") * 8)
@@ -384,10 +443,12 @@ def deck_pixel(c, px, py, gx, ry, tone_w, seed_base, straddle_fn, ao=0.0) -> Non
             k += 1
         y0, y1 = SLAB_ROWS[k], SLAB_ROWS[k + 1]
         stagger = SLAB_W // 2 if k % 2 else 0
-        col = (gx + stagger) // SLAB_W
-        u = (gx + stagger) % SLAB_W
         v = ry - y0
-        straddler = straddle_fn(col * SLAB_W - stagger, SLAB_W)
+        shift = v // 2          # joints lean 1 px per 2 rows: a receding floor plane (A1)
+        max_shift = (y1 - y0 - 1) // 2
+        col = (gx - shift + stagger) // SLAB_W
+        u = (gx - shift + stagger) % SLAB_W
+        straddler = straddle_fn(col * SLAB_W - stagger, SLAB_W + max_shift)
         seed = (seed_base, "slab", k, col)
         w = DECK_NEUTRAL if straddler else tone_w
         jit = 0.0 if straddler else (ld.rnd(seed) - 0.5) * 1.0
@@ -417,7 +478,7 @@ def deck_pixel(c, px, py, gx, ry, tone_w, seed_base, straddle_fn, ao=0.0) -> Non
         face_pixel(c, px, py, gx, ry - FACE_COURSES[1], 16, SLAB_W // 2, 0.42, 0.4, seed_base,
                    straddle_fn, ao)
         return
-    fill_pixel(c, px, py, gx, ry - FACE_COURSES[2], seed_base, straddle_fn)
+    raise ValueError(f"deck_pixel covers deck and face rows only (ry {ry})")
 
 
 def face_pixel(c, px, py, gx, v, vh, stagger, row_gain, tone_w, seed_base, straddle_fn, ao) -> None:
@@ -437,24 +498,45 @@ def face_pixel(c, px, py, gx, v, vh, stagger, row_gain, tone_w, seed_base, strad
     put(c, px, py, "floor", value)
 
 
-def fill_pixel(c, px, py, gx, v, seed_base, straddle_fn) -> None:
-    course = v // 8
-    stagger = SLAB_W // 2 if course % 2 else 0
-    col = (gx + stagger) // SLAB_W
-    u = (gx + stagger) % SLAB_W
-    dv = v % 8
-    straddler = straddle_fn(col * SLAB_W - stagger, SLAB_W)
-    jit = 0.0 if straddler else (ld.rnd(seed_base, "fill", course % 2, col) - 0.5) * 0.7
-    if u == 0 or dv == 0:
-        put(c, px, py, "floor_cold", 0.0)
-        return
-    put(c, px, py, "floor_cold", 0.9 + jit + (0.5 if dv == 1 else 0.0))
+FILL_LEVELS = {  # fade toward the bottom of the view: (face colour options, joint colour)
+    0: ([("stone", 0), ("brick", 0)], ("mortar", 0)),   # L* 6.5 / 4.8, b* -8 / -11
+    1: ([("brick", 0)], ("mortar", 0)),                 # L* 4.8, b* -11
+    2: ([("brick", 0), ("mortar", 1)], ("mortar", 0)),  # near black, still cool
+}
+
+
+def fill_level(row: int) -> int:
+    """Fill tone by absolute layout row (phase-locked to the world, not to the floor top)."""
+    return 0 if row <= 21 else 1 if row == 22 else 2
+
+
+def fill_tile_row(level: int, joint: int, width_tiles: int, variant: str) -> "ld.Canvas":
+    """One course of 32x16 dark ledge blocks. ``joint`` (0 or 16) is the local x of the
+    first vertical joint; the layout picks it so joints sit on the world running bond."""
+    w = width_tiles * TILE
+    c = canvas(w, TILE)
+    faces, mortar = FILL_LEVELS[level]
+    for py in range(TILE):
+        for px in range(w):
+            u = (px - joint) % SLAB_W
+            col = (px - joint) // SLAB_W
+            start = col * SLAB_W + joint
+            straddler = start < 0 or start + SLAB_W > w
+            if u == 0 or py == 0:
+                c.px[py][px] = mortar
+                continue
+            pick = 0 if straddler else int(ld.rnd("fill", level, joint, variant, col) * len(faces))
+            cell = faces[pick]
+            if level == 0 and py == 1:
+                cell = ("stone", 0)  # faint top arris
+            c.px[py][px] = cell
+    return c
 
 
 def floor_column(width_tiles: int, tone: str, seed: str, ao_fn=None) -> "ld.Canvas":
-    """A panel of the full floor stack: deck_back, deck_front, face_a, face_b, fill rows."""
+    """A panel of the floor stack rows deck_back, deck_front, face_a, face_b (fill is separate)."""
     w = width_tiles * TILE
-    c = canvas(w, TILE * len(ROW_TYPES))
+    c = canvas(w, TILE * (len(ROW_TYPES) - 1))
     tone_w = DECK_TONES[tone]
 
     def straddle(start, size):
@@ -485,6 +567,8 @@ def edge_column(side: str, kind: str) -> "ld.Canvas":
     c = canvas(TILE, TILE * len(ROW_TYPES))
     for py in range(c.h):
         for px in range(TILE):
+            if py >= FACE_COURSES[2]:
+                continue  # fill rows are continuous world-phase panels, no edge singles
             deck_pixel(c, px, py, px, py, DECK_NEUTRAL, f"edge_{kind}_{side}", straddle,
                        ao_fn(px, py))
     if kind == "end":  # lit corner on the exposed end, dark seam on the outside pixel
@@ -497,8 +581,6 @@ def edge_column(side: str, kind: str) -> "ld.Canvas":
             if py < LIP[1]:
                 c.put(ex, py, "floor", 8.4 if py % 16 < 15 else 7.0)
                 c.put(ix, py, "floor", 6.4)
-            elif ramp == "floor_cold":
-                c.put(ex, py, "floor_cold", 2.6)
             else:
                 c.put(ex, py, "floor", 6.0 - min(3.0, (py - LIP[1]) / 18.0))
     return c
@@ -636,9 +718,28 @@ def render_arch_piece(kind: str, variant: str = "a") -> "ld.Canvas":
         elif kind == "threshold":
             c = arch_canvas(248, 252, 176, 16)
             threshold(c)
+        elif kind == "chain":
+            c = arch_canvas(264, 92, 144, 48)
+            ld.chain(c)
         else:
             raise ValueError(kind)
+    if kind in ("pier_l", "pier_r"):
+        fade_outer_edge(c, from_left=kind == "pier_l")
     return c
+
+
+def fade_outer_edge(c, from_left: bool, steps=(2.2, 1.4, 0.7)) -> None:
+    """Baked pier light falls off over the last 3 px of the outer face instead of stopping
+    at a hard edge against an unlit wall."""
+    for py in range(c.h):
+        xs = [px for px in range(c.w) if c.px[py][px] is not None]
+        if not xs:
+            continue
+        order = xs if from_left else xs[::-1]
+        for k, px in enumerate(order[:len(steps)]):
+            ramp, idx = c.px[py][px]
+            if ramp in ("stone", "mortar"):
+                c.put(px, py, ramp, max(1.0, idx - steps[k]) if idx > 2 else idx)
 
 
 def threshold(c) -> None:
@@ -737,6 +838,35 @@ TORCH_FRAMES = [("f0", 1.30, 120), ("f1", 1.24, 140), ("f2", 1.36, 100), ("f3", 
 TORCH_FLICKER = [1.0, 0.93, 1.07, 0.97]
 
 
+def tapered_flame(c, x: float, y: float, scale: float, seed: str) -> None:
+    """The A1 teardrop flame with a tapered (not rectangular) white-hot core."""
+    h = 15.0 * scale
+    base = y + 6.0
+    for py in c.pyr(base - h - 1, base + 1):
+        yy = c.dy(py)
+        t = (base - yy) / h
+        if not 0.0 <= t <= 1.0:
+            continue
+        lean = math.sin(t * 2.6 + ld.rnd(seed) * 6.0) * 1.2 * t
+        half = 4.4 * scale * (math.sin(math.pi * min(1.0, t * 1.15 + 0.12)) ** 0.8) * (1.0 - 0.55 * t)
+        for px in c.pxr(x - 7 * scale, x + 7 * scale):
+            a = abs(c.dx(px) - (x + lean))
+            if a > half:
+                continue
+            core = a / max(half, 0.5)
+            if t < 0.42 and core < 0.5 * (1.0 - t / 0.42) + 0.08:
+                val = 5
+            elif core < 0.55 and t < 0.7:
+                val = 4
+            elif core < 0.8:
+                val = 3
+            else:
+                val = 2 if t < 0.75 else 1
+            if t > 0.86:
+                val = min(val, 2)
+            c.put(px, py, "flame", val)
+
+
 def torch_rig() -> list[dict]:
     fx, fy = TORCH_FLAME_LOCAL
     return [{"x": fx, "y": fy, "z": 16.0, "p": 1.0}]
@@ -749,7 +879,7 @@ def torch_frame(scale: float, seed: str, lit: bool = True) -> tuple["ld.Canvas",
     with light_rig(torch_rig() if lit else []):
         ld.sconce(sconce, float(fx), fy + 7.0, scale=1.15)
         if lit:
-            ld.flame(flame, float(fx), fy + 1.0, scale=scale, seed=seed)
+            tapered_flame(flame, float(fx), fy + 1.0, scale=scale, seed=seed)
         else:  # charred stub in a cold cup
             for px in range(fx - 3, fx + 3):
                 sconce.put(px, fy + 6, "iron", 1.0)
@@ -761,8 +891,9 @@ def torch_frame(scale: float, seed: str, lit: bool = True) -> tuple["ld.Canvas",
 # Copper/brass pipe set (directional key so straight pieces tile seamlessly)
 # ---------------------------------------------------------------------------
 PIPE_R = 7.0
-PIPE_KEY = ld.norm(0.45, -0.55, 0.7)   # warm torchlight from upper right, in front
-PIPE_FILL = ld.norm(-0.6, 0.2, 0.5)    # faint cold fill from the gallery side
+# Torch side convention: +x for vertical pieces, +y (below) for horizontal pieces; the
+# elbow normals blend both, so every piece of a run shares one key.
+PIPE_KEY = ld.norm(0.62, 0.42, 0.66)   # warm torchlight from the right / below, in front
 
 
 def metal_value(n: tuple, ramp: str, base: float, gain: float, gloss: float) -> float:
@@ -778,12 +909,20 @@ def pipe_px(c, px, py, u: float, axis: str, ramp: str = "copper", base=0.2, gain
     a = math.asin(u)
     n = (math.sin(a), 0.0, math.cos(a)) if axis == "v" else (0.0, math.sin(a), math.cos(a))
     value = metal_value(n, ramp, base, gain, gloss) - darken
+    rim(c, px, py, n, u, ramp, value)
+
+
+def rim(c, px, py, n: tuple, u: float, ramp: str, value: float) -> None:
+    """Outermost pixel of a cylinder: hot rim on the torch side, cold rim on the far side."""
     if abs(u) > 0.86:
-        cold = max(0.0, n[0] * PIPE_FILL[0] + n[1] * PIPE_FILL[1] + n[2] * PIPE_FILL[2])
-        if ramp == "copper" and value < 3.2:
-            c.put(px, py, "copper_cold", cold * 2.0)
+        toward = n[0] * PIPE_KEY[0] + n[1] * PIPE_KEY[1]
+        if toward > 0:
+            c.put(px, py, ramp, max(value, 6.2 if ramp == "copper" else 5.2))
             return
-        value -= 0.6
+        if ramp == "copper":
+            c.put(px, py, "copper_cold", 0.6)
+            return
+        value -= 1.0
     c.put(px, py, ramp, value)
 
 
@@ -828,12 +967,7 @@ def pipe_elbow() -> "ld.Canvas":
             rx, ry = -dx / max(d, 1e-6), -dy / max(d, 1e-6)  # outward (toward the corner)
             n = (rx * math.sin(a), ry * math.sin(a), math.cos(a))
             value = metal_value(n, "copper", 0.2, 5.1, 1.0)
-            if abs(u) > 0.86:
-                if value < 3.2:
-                    c.put(px, py, "copper_cold", 1.0)
-                    continue
-                value -= 0.6
-            c.put(px, py, "copper", value)
+            rim(c, px, py, n, u, "copper", value)
     return c
 
 
@@ -959,6 +1093,7 @@ def door() -> "ld.Canvas":
                 edge_out = d > r_frame - 1.2 if y < spring else abs(x - cx) > r_frame - 1.2
                 edge_in = d < r_leaf + 1.2 if y < spring else abs(x - cx) < r_leaf + 1.2
                 value = 4.0 + (ld.rnd(seed) - 0.5) * 0.9 + (1.2 if edge_out and x < cx else 0) \
+                    + (0.8 if x < cx - 6 else 0) \
                     - (1.0 if edge_in else 0) - (0.8 if edge_out and x >= cx else 0)
                 if py >= DOOR_H - 2:
                     value = 2.4
@@ -990,21 +1125,17 @@ def door() -> "ld.Canvas":
 
 
 def lichen() -> "ld.Canvas":
-    c = canvas(8, 8)
-    pattern = [
-        "........",
-        "...1....",
-        "..121...",
-        ".11211..",
-        "1121011.",
-        ".12101..",
-        "..1001..",
-        "...0....",
-    ]
-    for py, row in enumerate(pattern):
-        for px, ch in enumerate(row):
-            if ch != ".":
-                c.put(px, py, "lichen", {"0": 0, "1": 1, "2": 2}[ch])
+    """A dry, muted olive crust spreading from a pipe joint (soft irregular blob)."""
+    c = canvas(24, 8)
+    for py in range(8):
+        for px in range(24):
+            dx, dy = (px + 0.5 - 12.0) / 11.5, (py + 0.5 - 5.0) / 3.6
+            d = dx * dx + dy * dy + (ld.rnd("lichen", px // 2, py // 2) - 0.5) * 0.6
+            if d >= 1.0:
+                continue
+            spot = ld.rnd("lichen_s", px, py)
+            idx = 1 if (d < 0.5 and spot > 0.72) else 0
+            c.put(px, py, "lichen", idx)
     return c
 
 
@@ -1030,9 +1161,9 @@ def rubble(name: str) -> "ld.Canvas":
                 top_y = h - height * bump * math.sqrt(1 - t * t)
                 if y < top_y:
                     continue
-                rim = y < top_y + 1.5
-                c.put(px, py, "brick", (2.0 + (1.0 if t < 0 else 0.0)) if rim else
-                      (0.0 if (fi % 2 or y > top_y + 6) else 1.0))
+                edge = y < top_y + 1.5
+                c.put(px, py, "brick", (4.6 + (0.8 if t < 0 else 0.0)) if edge else
+                      (0.0 if (fi % 2 or y > top_y + 6) else 1.6 if y < top_y + 3 else 1.0))
     return c
 
 
@@ -1159,16 +1290,26 @@ def build_terrain() -> Atlas:
         stack = floor_column(width, "mid", f"lower_{variant}")
         split_panel(a, f"face_b_{variant}", crop(stack, 0, 3 * TILE, stack.w, TILE), "face_b",
                     f"face_b_{variant}")
-        if variant != "b":
-            split_panel(a, f"fill_{variant}", crop(stack, 0, 4 * TILE, stack.w, TILE), "fill",
-                        f"fill_{variant}")
+    # Fill: 32x16 dark blocks; level by absolute row, joint phase chosen by the layout
+    for level in FILL_LEVELS:
+        for joint in (0, 16):
+            for variant, width in (("a", 4), ("c", 2)):
+                pid = f"fill_{level}_j{joint}_{variant}"
+                split_panel(a, pid, fill_tile_row(level, joint, width, variant),
+                            f"fill_{level}_j{joint}", pid, fill_level=level)
+        img = fill_tile_row(level, 0, 1, "wall")
+        for py in range(TILE):  # occlusion beside the end wall
+            for px in range(3):
+                img.px[py][px] = ("mortar", 0)
+        a.add_tile(f"fill_wall_l_{level}", img,
+                   edge={"kind": "wall", "side": "l", "row_type": "fill"}, fill_level=level)
     # Single edge tiles for steps and the corridor end wall
     for kind in ("end", "inner", "wall"):
         for side in ("l", "r"):
             if kind == "wall" and side == "r":
                 continue
             stack = edge_column(side, kind)
-            for ri, row_type in enumerate(ROW_TYPES):
+            for ri, row_type in enumerate(ROW_TYPES[:-1]):
                 meta: dict = {"edge": {"kind": kind, "side": side, "row_type": row_type}}
                 if row_type == "deck_front":
                     meta.update(walkable_top=True, walk_line_y=WALK_LINE_Y)
@@ -1191,6 +1332,10 @@ def build_terrain() -> Atlas:
         a.add_tile(f"wall_end_{side}_b", wall_end(side, 1))
     a.add_tile("wall_fill", wall_fill())
     a.add_tile("wall_fill_b", wall_fill(phase=1))
+    extra = iter("uvwxyz")
+    while len(a.tiles) % 16:  # fill the last atlas row with extra solo ceiling variants
+        v = next(extra)
+        split_panel(a, f"ceiling_fill_{v}", ceiling_fill(v, 1), "ceiling_fill", f"ceiling_fill_{v}")
     return a
 
 
@@ -1213,11 +1358,16 @@ def build_backwall() -> Atlas:
 
 def build_walldecal() -> Atlas:
     a = Atlas("floor01_walldecal", "decor_atlas")
-    for variant in ("a", "b"):
+    for variant in ("a", "b", "a_m", "b_m"):
         a.add_piece(f"torch_pool_{variant}", torch_pool(variant), role="backwall", layer="backwall_decal",
                     anchor=list(POOL_CENTRE_LOCAL), anchor_name="light_centre (= wall torch flame centre)",
                     grid_snap=16, grammar=["A", "C"], decal=True, fixed_y=POOL_TOP_Y,
                     pairs_with="torch_wall")
+    for side, dx in (("l", -48), ("r", 288)):
+        a.add_piece(f"pier_spill_{side}", pier_spill(side), role="backwall", layer="backwall_decal",
+                    anchor=[0, 0], anchor_name=f"top_left = bay origin + ({dx}, 64); y = {SPILL_TOP_Y}",
+                    grid_snap=16, grammar=["B"], decal=True, fixed_y=SPILL_TOP_Y,
+                    pairs_with=f"pier_{side} (only where no torch_pool is adjacent)")
     for variant in ("a", "b"):
         a.add_piece(f"grime_{variant}", grime_patch(variant), role="backwall", layer="backwall_decal",
                     anchor=[0, 0], anchor_name="top_left (brick-aligned, mid band rows 8-12)",
@@ -1263,6 +1413,9 @@ def build_structure() -> Atlas:
     a.add_piece("arch_threshold", render_arch_piece("threshold"), role="structure", layer="structure",
                 anchor=[0, 0], anchor_name="top_left = bay origin + (64, 240)", grid_snap=16,
                 grammar=["B"], bay_offset=[64, 240])
+    a.add_piece("arch_chain", render_arch_piece("chain"), role="structure", layer="structure",
+                anchor=[0, 0], anchor_name="top_left = bay origin + (80, 80); optional, some bays only",
+                grid_snap=16, grammar=["B"], bay_offset=[80, 80])
     a.add_piece("pilaster_plain", pilaster(), role="structure", layer="structure", anchor=[16, 256],
                 anchor_name="bottom_centre (stands on the floor back line, top at the wall top)",
                 grid_snap=16, grammar=["A"])
@@ -1451,7 +1604,8 @@ def build_all() -> dict:
                      "rect": e["rect"], "role": role,
                      "collidable": role == "collision" and not e.get("deck_back", False),
                      "grammar": ["A", "B", "C"]}
-            for key in ("deck_back", "walkable_top", "walk_line_y", "panel", "edge", "band"):
+            for key in ("deck_back", "walkable_top", "walk_line_y", "panel", "edge", "band",
+                        "fill_level"):
                 if key in e:
                     entry[key] = e[key]
             if entry["collidable"]:
@@ -1460,7 +1614,7 @@ def build_all() -> dict:
             tiles.append(entry)
         manifests[atlas.name] = manifest(atlas.name, grids[atlas.name],
                                          tiles=[e["id"] for e in entries])
-    for atlas, width in ((walldecal, 512), (structure, 576), (parallax, 448), (props, 256)):
+    for atlas, width in ((walldecal, 528), (structure, 576), (parallax, 448), (props, 256)):
         img, entries = pack_pieces(atlas, width)
         grids[atlas.name] = grid_from([img])
         for e in entries:
@@ -1595,7 +1749,11 @@ def build_contract(tiles: list[dict], pieces: list[dict], grids: dict) -> dict:
 SEGMENTS = [("A1", "A", 0, 32), ("B1", "B", 32, 51), ("C1", "C", 51, 80), ("A2", "A", 80, 100),
             ("B2", "B", 100, 128)]
 BAYS = [32, 102]              # bay origin columns
-WALL_TORCHES = [136, 440, 920, 1176, 1416]   # flame x (wall torches with pools)
+WALL_TORCHES = [136, 440, 920]   # flame x (wall torches with pools); C1/A2 east of 1040 is an unlit stretch
+POOL_PICK = ["torch_pool_b_m", "torch_pool_a", "torch_pool_a_m"]
+UNLIT_SCONCES = [1416, 1984]      # flame x of burnt-out sconces
+SPILLS = [(1, "l"), (1, "r")]     # (bay index, side): pier spills where no pool is adjacent
+CHAIN_BAYS = [0]                  # optional chain on B1 only
 PLATFORMS = [(7, 12, 1), (87, 94, 2)]        # (end_l col, end_r col, height in tiles)
 
 
@@ -1655,38 +1813,57 @@ def build_layout(contract: dict) -> dict:
     fill_run(1, 2, cols, "cornice", ["a", "b", "s"])
     plats = sorted(PLATFORMS)
     deck_variants = {"deck_back": ["a", "b", "c"], "deck_front": ["a", "b", "c"],
-                     "face_a": ["a", "c"], "face_b": ["a", "b", "c"], "fill": ["a", "c"]}
-
-    def stack_rows(top_row: int) -> dict[str, int]:
-        return {rt: top_row + i for i, rt in enumerate(ROW_TYPES[:-1])}
-
-    def place_stack_column(col: int, top_row: int, tile_for) -> None:
-        for i, rt in enumerate(ROW_TYPES):
-            if rt == "fill":
-                for r in range(top_row + 4, rows):
-                    collision[r][col] = tile_for(rt)
-            else:
-                collision[top_row + i][col] = tile_for(rt)
-
-    def run_stack(c0: int, c1: int, top_row: int, salt: str) -> None:
-        for rt, r in stack_rows(top_row).items():
-            fill_run(r, c0, c1, rt if rt not in ("face_b",) else "face_b", deck_variants[rt],
-                     tone=rt in ("deck_back", "deck_front", "face_a"), salt=salt)
-        for r in range(top_row + 4, rows):
-            fill_run(r, c0, c1, "fill", deck_variants["fill"], salt=salt + str(r))
-
-    place_stack_column(1, FLOOR_ROW, lambda rt: f"{rt}_wall_l")
-    x = 2
+                     "face_a": ["a", "c"], "face_b": ["a", "b", "c"]}
+    top = [FLOOR_ROW] * cols          # deck_back row of every column
     for (c0, c1, h) in plats:
-        run_stack(x, c0 - 1, FLOOR_ROW, f"low{c0}")
-        place_stack_column(c0 - 1, FLOOR_ROW, lambda rt: f"{rt}_inner_r")
-        top = FLOOR_ROW - h
-        place_stack_column(c0, top, lambda rt: f"{rt}_end_l")
-        run_stack(c0 + 1, c1, top, f"plat{c0}")
-        place_stack_column(c1, top, lambda rt: f"{rt}_end_r")
-        place_stack_column(c1 + 1, FLOOR_ROW, lambda rt: f"{rt}_inner_l")
-        x = c1 + 2
-    run_stack(x, cols, FLOOR_ROW, "lowend")
+        for c in range(c0, c1 + 1):
+            top[c] = FLOOR_ROW - h
+
+    def single_for(c: int):
+        if c == 1:
+            return ("wall", "l")
+        for (c0, c1, _h) in plats:
+            if c == c0 - 1:
+                return ("inner", "r")
+            if c == c0:
+                return ("end", "l")
+            if c == c1:
+                return ("end", "r")
+            if c == c1 + 1:
+                return ("inner", "l")
+        return None
+
+    def row_type(c: int, r: int):
+        rel = r - top[c]
+        return None if rel < 0 else ROW_TYPES[min(rel, 4)]
+
+    for r in range(min(top[1:]), rows):
+        c = 1
+        while c < cols:
+            rt = row_type(c, r)
+            if rt is None:
+                c += 1
+                continue
+            single = single_for(c)
+            if rt == "fill" and c == 1:
+                collision[r][c] = f"fill_wall_l_{fill_level(r)}"
+                c += 1
+                continue
+            if rt != "fill" and single:
+                collision[r][c] = f"{rt}_{single[0]}_{single[1]}"
+                c += 1
+                continue
+            end = c + 1
+            while end < cols and row_type(end, r) == rt and (rt == "fill" or not single_for(end)):
+                end += 1
+            if rt == "fill":
+                # world running bond: joints at x = 16 * (r % 2) mod 32 whatever the run start
+                joint = (16 * (r % 2) - c * TILE) % SLAB_W
+                fill_run(r, c, end, f"fill_{fill_level(r)}_j{joint}", ["a", "c"], salt=f"f{r}")
+            else:
+                fill_run(r, c, end, rt, deck_variants[rt],
+                         tone=rt in ("deck_back", "deck_front", "face_a"), salt=f"r{r}c{c}")
+            c = end
 
     # --- backwall: bands, base course; empty inside arch windows ---------------------
     windows = []
@@ -1724,12 +1901,14 @@ def build_layout(contract: dict) -> dict:
     # --- pieces ----------------------------------------------------------------------
     decals, structure, props, foreground = [], [], [], []
     for i, fx in enumerate(WALL_TORCHES):
-        decals.append({"piece": "torch_pool_b" if i in (0, 3) else "torch_pool_a",
-                       "x": fx - POOL_CENTRE_LOCAL[0], "y": POOL_TOP_Y})
+        decals.append({"piece": POOL_PICK[i], "x": fx - POOL_CENTRE_LOCAL[0], "y": POOL_TOP_Y})
         props.append({"piece": "torch_wall", "x": fx - TORCH_FLAME_LOCAL[0],
                       "y": WALL_TORCH_FLAME_Y - TORCH_FLAME_LOCAL[1], "frame_offset": i % 4})
-    for (gx, gy, variant) in ((97, 9, "a"), (123, 8, "b")):
+    for (gx, gy, variant) in ((76, 10, "b"), (97, 9, "a"), (123, 8, "b")):
         decals.append({"piece": f"grime_{variant}", "x": gx * TILE, "y": gy * TILE})
+    for bi, side in SPILLS:
+        decals.append({"piece": f"pier_spill_{side}",
+                       "x": BAYS[bi] * TILE + (-48 if side == "l" else 288), "y": SPILL_TOP_Y})
     for j, b in enumerate(BAYS):
         ox = b * TILE
         structure += [
@@ -1738,16 +1917,20 @@ def build_layout(contract: dict) -> dict:
             {"piece": "pier_r", "x": ox + 224, "y": WALL_TOP},
             {"piece": "arch_threshold", "x": ox + 64, "y": WALL_TOP + 240},
         ]
+        if j in CHAIN_BAYS:
+            structure.append({"piece": "arch_chain", "x": ox + 80, "y": WALL_TOP + 80})
         for k, dx in enumerate((24, 264)):
             props.append({"piece": "torch_wall", "x": ox + dx, "y": PIER_TORCH_FLAME_Y - TORCH_FLAME_LOCAL[1],
                           "frame_offset": (j * 2 + k + 1) % 4})
     structure.append({"piece": "pilaster_plain", "x": 288, "y": WALL_TOP})
     structure.append({"piece": "pilaster_plain", "x": 1296, "y": WALL_TOP})
     props.append({"piece": "door_timber", "x": 216, "y": FLOOR_ROW * TILE - DOOR_H})
-    props.append({"piece": "torch_wall_unlit", "x": 1984, "y": WALL_TORCH_FLAME_Y - TORCH_FLAME_LOCAL[1]})
+    for fx in UNLIT_SCONCES:
+        props.append({"piece": "torch_wall_unlit", "x": fx - TORCH_FLAME_LOCAL[0],
+                      "y": WALL_TORCH_FLAME_Y - TORCH_FLAME_LOCAL[1]})
     # C: one copper run. Vertical drop at column 54 (centre x 872), run along row 3 into the ceiling.
     pc, run_row = 54, 3
-    props.append({"piece": "lichen_crust", "x": pc * TILE - 8, "y": 264})
+    # lichen_crust stays in the kit as an optional piece; the sample leaves the C wall clean
     props.append({"piece": "pipe_elbow_rd", "x": pc * TILE, "y": run_row * TILE})
     for c in range(pc + 2, 69):
         props.append({"piece": "pipe_h_seam" if c == 61 else "pipe_h", "x": c * TILE, "y": run_row * TILE})
@@ -1812,9 +1995,11 @@ def build_layout(contract: dict) -> dict:
                 "actors": {"ambient": [0.9, 0.92, 1.0], "light_scale": 0.3},
                 "foreground": {"ambient": [0.5, 0.55, 0.75], "light_scale": 0.5},
             },
-            "actor_contact_shadow": {"width_scale": 1.2, "half_height": 5.0, "strength": 0.7,
+            "actor_contact_shadow": {"width_scale": 1.3, "half_height": 8.0, "strength": 0.7,
                                      "note": "soft ellipse centred on each actor's walking-line contact; darkens the scene group only"},
-            "bloom": {"emissive_layers": ["prop", "parallax_mid", "parallax_far"], "threshold": 214,
+            "bloom": {"emissive_layers": ["prop", "parallax_mid", "parallax_far"],
+                      "emissive_colours": RAMPS["flame"] + RAMPS["gal_warm"][3:],
+                      "threshold": 214,
                       "intensity": 0.9, "radius_virtual": 2.5, "downsample_per_virtual_px": 0.5},
         },
         "preview": {

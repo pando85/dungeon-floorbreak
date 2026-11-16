@@ -7,7 +7,7 @@
   "output_atlas": "generated/art/floor01_walldecal.png",
   "output_metadata": "generated/art/floor01_walldecal.json",
   "palette_id": "floor01-catacomb-v2",
-  "frame_size": [512, 256],
+  "frame_size": [528, 624],
   "pivot": [0, 0],
   "animation_tags": [],
   "required_alpha": true,

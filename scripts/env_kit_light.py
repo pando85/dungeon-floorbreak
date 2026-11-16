@@ -9,7 +9,8 @@ Renders the A1 lighting model on top of the unlit pixel layers produced by
   resolution: the group's cold ambient plus warm emitter pools (torch flames, floor
   pools projected onto the walking line, gallery bounce/sky, distant gallery torches);
 * parallax groups are mixed toward a haze colour (constant + ground fog);
-* emitters with ``glow`` add a halo; bloom is fed only by the emissive layers.
+* emitters with ``glow`` add a halo; bloom is fed only by emissive pixels: pixels of the
+  emissive layers whose atlas colour is listed in ``bloom.emissive_colours`` (flames).
 
 Emitters come from the kit contract (``pieces[].lights``) and their placement in the
 layout; ambient, haze and bloom come from the layout's ``lighting`` profile. The
@@ -172,6 +173,8 @@ def render_lit(kit: ek.Kit, layout: dict, view: list[int], k: int, actors: Image
     groups = profile["groups"]
     lights = gather_lights(kit, layout, view, time_ms)
     emissive_names = set(profile["bloom"]["emissive_layers"])
+    colours = profile["bloom"].get("emissive_colours")
+    emissive_rgb = {hex_rgb(c) for c in colours} if colours else None
     stack = []
     for layer in sorted(kit.contract["layers"], key=lambda l: l["draw_order"]):
         stack.append((layer["draw_order"], layer["name"], layer["light_group"], layers[layer["name"]]))
@@ -201,8 +204,22 @@ def render_lit(kit: ek.Kit, layout: dict, view: list[int], k: int, actors: Image
             img = shade(img, maps, haze, hmap)
         canvas.alpha_composite(img)
         if lit:
-            if name in emissive_names:
+            if name in emissive_names and emissive_rgb is None:
                 emissive.alpha_composite(img)
+            elif name in emissive_names:
+                # only emissive pixels (flame colours) feed bloom; metal, brick etc. occlude it
+                src = full.crop((vx, vy, vx + vw, vy + vh))
+                hot = Image.new("L", src.size, 0)
+                raw = src.convert("RGBA").tobytes()
+                hot.putdata([255 if (raw[i + 3] and (raw[i], raw[i + 1], raw[i + 2]) in emissive_rgb) else 0
+                             for i in range(0, len(raw), 4)])
+                hot = hot.resize(size, Image.Resampling.NEAREST)
+                lit_hot = img.copy()
+                lit_hot.putalpha(hot)
+                occluder = Image.new("RGBA", size, (0, 0, 0, 0))
+                occluder.putalpha(ImageChops.subtract(img.getchannel("A"), hot))
+                emissive.alpha_composite(occluder)
+                emissive.alpha_composite(lit_hot)
             else:  # nearer opaque layers hide emissive pixels behind them (no bloom through walls)
                 occluder = Image.new("RGBA", size, (0, 0, 0, 0))
                 occluder.putalpha(img.getchannel("A"))
@@ -310,7 +327,7 @@ def render_evidence(layout_path: str, out: Path) -> dict:
     with Image.open(target) as opened:
         a1 = opened.convert("RGB")
     left = label(ek.scale(native.convert("RGBA"), 2).convert("RGB"),
-                 "ENV-01 rework 3: modular kit + sample layout, lit (A1 lighting model), 640x360 nearest 2x")
+                 "ENV-01 kit (round 4): modular kit + sample layout, lit (A1 lighting model), 640x360 nearest 2x")
     right = label(ek.scale(a1.convert("RGBA"), 2).convert("RGB"),
                   "A1 TARGET FRAME (owner-approved look-dev, 640x360 nearest 2x)")
     sbs = Image.new("RGB", (left.width * 2 + 16, left.height), (16, 14, 20))

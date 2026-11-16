@@ -103,6 +103,32 @@ class EnvKitTests(unittest.TestCase):
         factors = {l["name"]: l["parallax"] for l in self.base.contract["layers"] if l["kind"] == "parallax"}
         self.assertEqual(factors, {"parallax_far": 0.35, "parallax_mid": 0.6})
 
+    def test_fill_bond_is_phase_locked_to_the_world_grid(self) -> None:
+        # Platforms read as raised floor: every fill course has its joints at world
+        # x = 16 * (row % 2) mod 32 and its tone level set by the absolute row.
+        grid = self.layout["tile_layers"]["collision"]
+        seen = 0
+        for r, row in enumerate(grid):
+            for c, tid in enumerate(row):
+                tile = self.base.tiles.get(tid) if tid else None
+                if not tile or "fill_level" not in tile:
+                    continue
+                self.assertEqual(tile["fill_level"], 0 if r <= 21 else 1 if r == 22 else 2, (r, c, tid))
+                if "panel" not in tile:
+                    continue
+                joint = int(tile["panel"]["id"].split("_j")[1].split("_")[0])
+                start = c - tile["panel"]["cell"][0]
+                self.assertEqual((start * 16 + joint) % 32, 16 * (r % 2), (r, c, tid))
+                seen += 1
+        self.assertGreater(seen, 300)
+
+    def test_bloom_is_limited_to_flame_colours(self) -> None:
+        bloom = self.layout["lighting"]["bloom"]
+        flame = {e["rgba"][:7] for e in self.base.contract["palette"] if e["ramp"] == "flame"}
+        self.assertTrue(flame <= set(bloom["emissive_colours"]))
+        copper = {e["rgba"][:7] for e in self.base.contract["palette"] if e["ramp"] in ("copper", "brass")}
+        self.assertFalse(copper & set(bloom["emissive_colours"]))
+
     def test_copper_only_in_segment_c(self) -> None:
         c_seg = next(s for s in self.layout["segments"] if s["grammar"] == "C")
         for item in self.layout["piece_layers"]["prop"]:
