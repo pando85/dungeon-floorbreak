@@ -4,32 +4,32 @@
   "status": "proposed - awaiting human art review",
   "palette_id": "floor01-catacomb-v1",
   "palette": [
-    {"key": "m", "name": "brick_mortar", "rgba": "#251a1fff"},
-    {"key": "a", "name": "brick_0_shadow", "rgba": "#312026ff"},
-    {"key": "b", "name": "brick_1_dark", "rgba": "#3b2428ff"},
-    {"key": "c", "name": "brick_2_base", "rgba": "#45292aff"},
-    {"key": "d", "name": "brick_3_light", "rgba": "#4f302dff"},
-    {"key": "e", "name": "brick_4_highlight", "rgba": "#5b3831ff"},
-    {"key": "f", "name": "torchlit_0", "rgba": "#6e402eff"},
-    {"key": "g", "name": "torchlit_1", "rgba": "#8a5332ff"},
-    {"key": "h", "name": "torchlit_2", "rgba": "#a86a3aff"},
-    {"key": "s", "name": "stone_0_joint", "rgba": "#1f1c24ff"},
-    {"key": "t", "name": "stone_1_shadow", "rgba": "#2e2a33ff"},
-    {"key": "u", "name": "stone_2_dark", "rgba": "#3d3842ff"},
-    {"key": "v", "name": "stone_3_base", "rgba": "#4f4851ff"},
-    {"key": "w", "name": "stone_4_light", "rgba": "#635a61ff"},
-    {"key": "x", "name": "stone_5_edge", "rgba": "#7c7171ff"},
-    {"key": "y", "name": "stone_6_lip", "rgba": "#9d8f84ff"},
-    {"key": "z", "name": "stone_7_glint", "rgba": "#c0ae98ff", "accent": true},
-    {"key": "D", "name": "floor_surface_0", "rgba": "#4b3e3cff"},
-    {"key": "E", "name": "floor_surface_1", "rgba": "#5b4b46ff"},
-    {"key": "F", "name": "floor_surface_2", "rgba": "#6c5850ff"},
-    {"key": "0", "name": "depth_0_void", "rgba": "#0e1322ff"},
-    {"key": "1", "name": "depth_1_far_wall", "rgba": "#141b2fff"},
-    {"key": "2", "name": "depth_2_far_air", "rgba": "#1b2641ff"},
-    {"key": "3", "name": "depth_3_haze", "rgba": "#253553ff"},
-    {"key": "4", "name": "depth_4_far_edge", "rgba": "#33486bff"},
-    {"key": "5", "name": "depth_5_far_rim", "rgba": "#4a6188ff"},
+    {"key": "m", "name": "brick_mortar", "rgba": "#413433ff"},
+    {"key": "a", "name": "brick_0_shadow", "rgba": "#4b3836ff"},
+    {"key": "b", "name": "brick_1_dark", "rgba": "#513c39ff"},
+    {"key": "c", "name": "brick_2_base", "rgba": "#59413dff"},
+    {"key": "d", "name": "brick_3_light", "rgba": "#604741ff"},
+    {"key": "e", "name": "brick_4_highlight", "rgba": "#684d46ff"},
+    {"key": "f", "name": "torchlit_0", "rgba": "#7c5545ff"},
+    {"key": "g", "name": "torchlit_1", "rgba": "#9b6547ff"},
+    {"key": "h", "name": "torchlit_2", "rgba": "#b87b4eff"},
+    {"key": "s", "name": "stone_0_joint", "rgba": "#241e20ff"},
+    {"key": "t", "name": "stone_1_shadow", "rgba": "#312b2bff"},
+    {"key": "u", "name": "stone_2_dark", "rgba": "#413a38ff"},
+    {"key": "v", "name": "stone_3_base", "rgba": "#544c49ff"},
+    {"key": "w", "name": "stone_4_light", "rgba": "#685f5aff"},
+    {"key": "x", "name": "stone_5_edge", "rgba": "#7d726cff"},
+    {"key": "y", "name": "stone_6_lip", "rgba": "#9e9185ff"},
+    {"key": "z", "name": "stone_7_glint", "rgba": "#c1b19fff", "accent": true},
+    {"key": "D", "name": "floor_surface_0", "rgba": "#53433eff"},
+    {"key": "E", "name": "floor_surface_1", "rgba": "#614e47ff"},
+    {"key": "F", "name": "floor_surface_2", "rgba": "#725c52ff"},
+    {"key": "0", "name": "depth_0_void", "rgba": "#0c1527ff"},
+    {"key": "1", "name": "depth_1_far_wall", "rgba": "#0f1e33ff"},
+    {"key": "2", "name": "depth_2_far_air", "rgba": "#152843ff"},
+    {"key": "3", "name": "depth_3_haze", "rgba": "#1a3451ff"},
+    {"key": "4", "name": "depth_4_far_edge", "rgba": "#223f5fff"},
+    {"key": "5", "name": "depth_5_far_rim", "rgba": "#2f4d6eff"},
     {"key": "R", "name": "flame_red", "rgba": "#a9341fff"},
     {"key": "O", "name": "flame_orange", "rgba": "#e2722bff"},
     {"key": "Y", "name": "flame_yellow", "rgba": "#ffb648ff"},
@@ -45,6 +45,9 @@
     {"key": "p", "name": "valve_paint_shadow", "rgba": "#6a2120ff"},
     {"key": "P", "name": "valve_paint", "rgba": "#9a3128ff"},
     {"key": "T", "name": "plate_ochre", "rgba": "#8c6c32ff"},
+    {"key": "U", "name": "wood_0", "rgba": "#3c271bff"},
+    {"key": "V", "name": "wood_1", "rgba": "#533726ff"},
+    {"key": "X", "name": "wood_2", "rgba": "#6a4931ff"},
     {"key": "G", "name": "lichen_0", "rgba": "#23402aff"},
     {"key": "H", "name": "lichen_1", "rgba": "#3f7a3aff"},
     {"key": "L", "name": "lichen_2_glow", "rgba": "#92d86aff", "accent": true}
@@ -76,9 +79,10 @@
   },
   "floor_contact": {
     "collider_top": "top edge of a walkable_top tile",
-    "surface_rows": [0, 3],
-    "recommended_visual_foot_sink_px": 2,
-    "note": "Rows 0-3 of floor_top_* show the walkable surface; drawing actors with their pivot row 2 px below the collider top plants the feet on the surface. Proposal only; COMP-01 decides in Bevy."
+    "surface_rows": [0, 4],
+    "recommended_visual_foot_sink_px": 0,
+    "decision": "Owner decision 2026-11-16: COMP-01 draws actors with their pivot (bottom opaque) row directly on the collider top (0 px foot sink).",
+    "open_question": "An independent art-director review suggested a 2 px sink so feet sit inside the 5 px walking surface; left for human art review."
   },
   "atlases": {
     "floor01_terrain": {
@@ -261,6 +265,154 @@
       "role": "collision",
       "collidable": true,
       "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "floor_inner_corner_l",
+      "atlas": "floor01_terrain",
+      "grid_index": 16,
+      "rect": [0, 32, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "floor_inner_corner_r",
+      "atlas": "floor01_terrain",
+      "grid_index": 17,
+      "rect": [16, 32, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "floor_step_base_a",
+      "atlas": "floor01_terrain",
+      "grid_index": 18,
+      "rect": [32, 32, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "floor_step_base_b",
+      "atlas": "floor01_terrain",
+      "grid_index": 19,
+      "rect": [48, 32, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "wall_face_l",
+      "atlas": "floor01_terrain",
+      "grid_index": 20,
+      "rect": [64, 32, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "wall_face_r",
+      "atlas": "floor01_terrain",
+      "grid_index": 21,
+      "rect": [80, 32, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "wall_cap_l",
+      "atlas": "floor01_terrain",
+      "grid_index": 22,
+      "rect": [96, 32, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "walkable_top": true
+    },
+    {
+      "id": "wall_cap_r",
+      "atlas": "floor01_terrain",
+      "grid_index": 23,
+      "rect": [112, 32, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "walkable_top": true
+    },
+    {
+      "id": "wall_cap_mid",
+      "atlas": "floor01_terrain",
+      "grid_index": 24,
+      "rect": [0, 48, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "walkable_top": true
+    },
+    {
+      "id": "ceiling_corner_in_l",
+      "atlas": "floor01_terrain",
+      "grid_index": 25,
+      "rect": [16, 48, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "ceiling_corner_in_r",
+      "atlas": "floor01_terrain",
+      "grid_index": 26,
+      "rect": [32, 48, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "ceiling_corner_out_l",
+      "atlas": "floor01_terrain",
+      "grid_index": 27,
+      "rect": [48, 48, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "ceiling_corner_out_r",
+      "atlas": "floor01_terrain",
+      "grid_index": 28,
+      "rect": [64, 48, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "wall_face_l_b",
+      "atlas": "floor01_terrain",
+      "grid_index": 29,
+      "rect": [80, 48, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "wall_face_r_b",
+      "atlas": "floor01_terrain",
+      "grid_index": 30,
+      "rect": [96, 48, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "floor_top_d",
+      "atlas": "floor01_terrain",
+      "grid_index": 31,
+      "rect": [112, 48, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "walkable_top": true
     },
     {
       "id": "brick_backwall_a1",
@@ -951,9 +1103,20 @@
       "grammar": ["B"]
     },
     {
-      "id": "far_arcade",
+      "id": "far_arcade_a",
       "atlas": "floor01_structure",
       "rect": [256, 0, 144, 96],
+      "role": "structure",
+      "collidable": false,
+      "anchor": [0, 96],
+      "anchor_name": "bottom_left (opening floor line)",
+      "grid_snap": 16,
+      "grammar": ["B"]
+    },
+    {
+      "id": "far_arcade_b",
+      "atlas": "floor01_structure",
+      "rect": [400, 0, 144, 96],
       "role": "structure",
       "collidable": false,
       "anchor": [0, 96],
@@ -1039,7 +1202,7 @@
       "grammar": ["C"]
     },
     {
-      "id": "pipe_wall_entry_r",
+      "id": "pipe_elbow_l_u",
       "atlas": "floor01_props",
       "rect": [112, 0, 16, 16],
       "role": "prop",
@@ -1072,14 +1235,25 @@
       "grammar": ["C"]
     },
     {
-      "id": "lichen_patch",
+      "id": "pipe_v_ceiling_collar",
       "atlas": "floor01_props",
       "rect": [32, 16, 16, 16],
       "role": "prop",
       "collidable": false,
-      "anchor": [12, 0],
-      "anchor_name": "pipe_hug (column 12 sits under a vertical pipe's left outline)",
-      "grid_snap": 8,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "pipe_wall_collar_r",
+      "atlas": "floor01_props",
+      "rect": [48, 16, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
       "grammar": ["C"]
     },
     {
@@ -1094,9 +1268,55 @@
       "grammar": ["C"]
     },
     {
+      "id": "lichen_crust",
+      "atlas": "floor01_props",
+      "rect": [96, 16, 8, 8],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 7],
+      "anchor_name": "mortar_row (local row 7)",
+      "grid_snap": 8,
+      "grammar": ["C"]
+    },
+    {
+      "id": "torch_wall_unlit",
+      "atlas": "floor01_props",
+      "rect": [112, 16, 16, 32],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [8, 29],
+      "anchor_name": "wall_mount (same as torch_wall)",
+      "grid_snap": 16,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "grime_patch_a",
+      "atlas": "floor01_props",
+      "rect": [0, 96, 48, 16],
+      "role": "backwall",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (brick-grid aligned)",
+      "grid_snap": 16,
+      "grammar": ["A"],
+      "decal": true
+    },
+    {
+      "id": "grime_patch_b",
+      "atlas": "floor01_props",
+      "rect": [48, 96, 48, 16],
+      "role": "backwall",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (brick-grid aligned)",
+      "grid_snap": 16,
+      "grammar": ["A"],
+      "decal": true
+    },
+    {
       "id": "torch_glow",
       "atlas": "floor01_props",
-      "rect": [0, 32, 48, 48],
+      "rect": [0, 48, 48, 48],
       "role": "backwall",
       "collidable": false,
       "anchor": [24, 24],
@@ -1104,6 +1324,17 @@
       "grid_snap": 16,
       "grammar": ["A", "B", "C"],
       "decal": true
+    },
+    {
+      "id": "door_plank",
+      "atlas": "floor01_props",
+      "rect": [96, 48, 32, 64],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [16, 64],
+      "anchor_name": "bottom_centre (stands on floor top)",
+      "grid_snap": 16,
+      "grammar": ["A"]
     },
     {
       "id": "torch_wall",
@@ -1127,9 +1358,10 @@
     }
   ],
   "usage_rules": {
-    "A": "Ordinary fabric: brick_backwall panels, top/base strips, floor_top_a/b/c, sparse torch_wall + torch_glow (roughly one per 10-16 columns).",
-    "B": "Rhythm: pier_* stacks 192 px apart (centre to centre) carrying arch_ring_r72; recess_* tiles fill the opening; far_arcade sits on the opening floor line.",
-    "C": "Special function, sparing: one pipe run (pipe_*), one valve_wheel, one maintenance_box; optional lichen_patch only next to a damp source.",
+    "A": "Ordinary fabric: brick_backwall panels, top/base strips, floor_top_a-d, sparse torch_wall + torch_glow at varied spacing (roughly every 10-20 columns), an occasional torch_wall_unlit, door_plank or grime_patch_*.",
+    "B": "Rhythm: pier_* stacks 192 px apart (centre to centre) carrying arch_ring_r72; recess_* tiles fill the opening; far_arcade_a/b sit on the opening floor line (alternate them between neighbouring openings).",
+    "C": "Special function, sparing: one pipe run (pipe_*), one valve_wheel, one maintenance_box; optional lichen_crust only next to a damp source. Every pipe end terminates in a collar (pipe_v_floor_collar, pipe_v_ceiling_collar, pipe_wall_collar_r) or the maintenance_box; never in mid-air.",
+    "corridor_ends": "Close a corridor with wall_face_l/r (alternate *_b for the second quoin phase), ceiling_corner_in_l/r where the ceiling meets it, wall_cap_* on top of low walls and ceiling_corner_out_l/r where a ceiling course ends.",
     "panels": "brick_backwall panel cells must be used in their native order horizontally (cell x+1 follows cell x within a panel, the panel's last column may be followed by column 0 of any panel of the same family). Any vertical order is seamless.",
     "grid_snap": "Piece top-left positions must be multiples of grid_snap."
   }

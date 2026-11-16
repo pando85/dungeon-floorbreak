@@ -9,7 +9,7 @@
   "palette_id": "floor01-catacomb-v1",
   "frame_size": [
     128,
-    32
+    64
   ],
   "tile_size": [
     16,
@@ -31,7 +31,23 @@
     "ceiling_fill_a",
     "ceiling_fill_b",
     "wall_fill_a",
-    "wall_fill_b"
+    "wall_fill_b",
+    "floor_inner_corner_l",
+    "floor_inner_corner_r",
+    "floor_step_base_a",
+    "floor_step_base_b",
+    "wall_face_l",
+    "wall_face_r",
+    "wall_cap_l",
+    "wall_cap_r",
+    "wall_cap_mid",
+    "ceiling_corner_in_l",
+    "ceiling_corner_in_r",
+    "ceiling_corner_out_l",
+    "ceiling_corner_out_r",
+    "wall_face_l_b",
+    "wall_face_r_b",
+    "floor_top_d"
   ],
   "pivot": [
     0,
@@ -46,7 +62,7 @@
   "review_status": "prototype_fixture_unapproved",
   "provenance": {
     "origin": "Original pixel-grid-v1 collidable 16x16 terrain tileset for the Floor 1 catacomb environment kit (ENV-01); not cropped, traced or resampled from concept art",
-    "generator": "Deterministic authoring script scripts/author_floor01_kit.py written by an AI agent (Claude Opus): rule-placed brick coursing, stone edges and hand-drawn prop/flame pixel strings; no image-model raster output",
+    "generator": "Deterministic authoring script scripts/author_floor01_kit.py written by an AI agent (Claude Opus): rule-placed brick coursing, stone edges and hand-drawn prop/flame pixel strings; no image-model raster output. Revised after an independent Claude Opus art-director review (revision 1)",
     "generated_art": true,
     "input_reference_ids": [
       "floor-01-opening/01-catacomb-environment-clean (mood and palette direction only)"

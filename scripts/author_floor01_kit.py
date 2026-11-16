@@ -44,40 +44,44 @@ PALETTE_ID = "floor01-catacomb-v1"
 TILE = 16
 
 # ---------------------------------------------------------------------------
-# Shared palette (one palette for the whole kit, 44 opaque colours)
+# Shared palette (one palette for the whole kit, 47 opaque colours).
+# Values were set by CIE L* (revision 1): brick faces sit at L* 27-33, clearly
+# above the darkest actor masses (Carl's jacket and hair are L* ~17.7), and
+# mortar is only one step below the faces so the wall stays low-contrast.
 # ---------------------------------------------------------------------------
 PALETTE = [
-    # Muted red-brown brick (backwall fabric, module A)
-    ("m", "brick_mortar", "#251a1f"),
-    ("a", "brick_0_shadow", "#312026"),
-    ("b", "brick_1_dark", "#3b2428"),
-    ("c", "brick_2_base", "#45292a"),
-    ("d", "brick_3_light", "#4f302d"),
-    ("e", "brick_4_highlight", "#5b3831"),
+    # Muted, low-saturation red-brown brick (backwall fabric, module A)
+    ("m", "brick_mortar", "#413433"),        # L* 23
+    ("a", "brick_0_shadow", "#4b3836"),      # L* 25.5
+    ("b", "brick_1_dark", "#513c39"),        # L* 27.5
+    ("c", "brick_2_base", "#59413d"),        # L* 30
+    ("d", "brick_3_light", "#604741"),       # L* 32.5
+    ("e", "brick_4_highlight", "#684d46"),   # L* 35.5
     # Restrained warm torchlight on brick
-    ("f", "torchlit_0", "#6e402e"),
-    ("g", "torchlit_1", "#8a5332"),
-    ("h", "torchlit_2", "#a86a3a"),
-    # Gray / neutral stone edges (floor, ceiling, arches, piers)
-    ("s", "stone_0_joint", "#1f1c24"),
-    ("t", "stone_1_shadow", "#2e2a33"),
-    ("u", "stone_2_dark", "#3d3842"),
-    ("v", "stone_3_base", "#4f4851"),
-    ("w", "stone_4_light", "#635a61"),
-    ("x", "stone_5_edge", "#7c7171"),
-    ("y", "stone_6_lip", "#9d8f84"),
-    ("z", "stone_7_glint", "#c0ae98"),
+    ("f", "torchlit_0", "#7c5545"),          # L* 40
+    ("g", "torchlit_1", "#9b6547"),          # L* 48
+    ("h", "torchlit_2", "#b87b4e"),          # L* 57
+    # Stone edges (floor, ceiling, arches, piers): neutral warmed toward the
+    # brick hue but far less saturated, so stone and brick read as one family
+    ("s", "stone_0_joint", "#241e20"),       # L* 12
+    ("t", "stone_1_shadow", "#312b2b"),      # L* 18
+    ("u", "stone_2_dark", "#413a38"),        # L* 25
+    ("v", "stone_3_base", "#544c49"),        # L* 33
+    ("w", "stone_4_light", "#685f5a"),       # L* 41
+    ("x", "stone_5_edge", "#7d726c"),        # L* 49
+    ("y", "stone_6_lip", "#9e9185"),         # L* 61
+    ("z", "stone_7_glint", "#c1b19f"),       # L* 73
     # Dry floor walking surface, warmed by torchlight
-    ("D", "floor_surface_0", "#4b3e3c"),
-    ("E", "floor_surface_1", "#5b4b46"),
-    ("F", "floor_surface_2", "#6c5850"),
-    # Cold blue depth (module B recesses)
-    ("0", "depth_0_void", "#0e1322"),
-    ("1", "depth_1_far_wall", "#141b2f"),
-    ("2", "depth_2_far_air", "#1b2641"),
-    ("3", "depth_3_haze", "#253553"),
-    ("4", "depth_4_far_edge", "#33486b"),
-    ("5", "depth_5_far_rim", "#4a6188"),
+    ("D", "floor_surface_0", "#53433e"),     # L* 30
+    ("E", "floor_surface_1", "#614e47"),     # L* 35
+    ("F", "floor_surface_2", "#725c52"),     # L* 41
+    # Cold blue depth (module B recesses); actor-height haze is 3-4
+    ("0", "depth_0_void", "#0c1527"),        # L* 7
+    ("1", "depth_1_far_wall", "#0f1e33"),    # L* 11
+    ("2", "depth_2_far_air", "#152843"),     # L* 16
+    ("3", "depth_3_haze", "#1a3451"),        # L* 21
+    ("4", "depth_4_far_edge", "#223f5f"),    # L* 26
+    ("5", "depth_5_far_rim", "#2f4d6e"),     # L* 32
     # Torch flame
     ("R", "flame_red", "#a9341f"),
     ("O", "flame_orange", "#e2722b"),
@@ -96,6 +100,10 @@ PALETTE = [
     ("p", "valve_paint_shadow", "#6a2120"),
     ("P", "valve_paint", "#9a3128"),
     ("T", "plate_ochre", "#8c6c32"),
+    # Old timber (simple door)
+    ("U", "wood_0", "#3c271b"),              # L* 18
+    ("V", "wood_1", "#533726"),              # L* 26
+    ("X", "wood_2", "#6a4931"),              # L* 34
     # Optional lichen accent
     ("G", "lichen_0", "#23402a"),
     ("H", "lichen_1", "#3f7a3a"),
@@ -183,7 +191,7 @@ def draw_brick(c: Canvas, ox: int, oy: int, start: int, y0: int, width: int,
             chips = rng.sample(corners, 2)
         else:
             chips = []
-        pit = (rng.randint(2, 11), rng.randint(2, 4)) if rng.random() < 0.45 else None
+        pit = (rng.randint(2, 11), rng.randint(2, 4)) if rng.random() < 0.3 else None
         crack = rng.randint(3, 10) if rng.random() < 0.07 else None
         rshade = full_bevel or rng.random() < 0.3
     for dy in range(7):
@@ -236,10 +244,18 @@ def brick_strip(c: Canvas, ox: int, oy: int, width: int, courses: int, seed: str
 # Collidable terrain tiles (opaque)
 # ---------------------------------------------------------------------------
 
+def chip(c: Canvas, x: int, y: int, joint: str, light: str, dx: int = 1) -> None:
+    """A 3 px chipped block corner: two joint-coloured pixels on the top edge
+    and one lit pixel tucked under them (no isolated single-pixel pocks)."""
+    c.put(x, y, joint)
+    c.put(x + dx, y, joint)
+    c.put(x, y + 1, light)
+
+
 def floor_top(c: Canvas, ox: int, oy: int, joints: list[int], seed: str,
-              end: str | None = None) -> None:
+              end: str | None = None, chip_at: int | None = None) -> None:
     """Walkable floor: 5 px warm torch-lit walking surface (rows 0-4), a bright
-    neutral stone lip (row 5), a shadow line and a calm dark front face."""
+    neutral stone lip (row 5), a shadow line and a warm front face."""
     rng = random.Random(f"{KIT_ID}:{seed}")
     surface = ["F", "E", "E", "D", "D", "y", "s"]
     for y, key in enumerate(surface):
@@ -247,10 +263,10 @@ def floor_top(c: Canvas, ox: int, oy: int, joints: list[int], seed: str,
     c.fill(ox, oy + 7, ox + 15, oy + 14, "D")
     c.fill(ox, oy + 7, ox + 15, oy + 7, "E")
     c.fill(ox, oy + 15, ox + 15, oy + 15, "s")
-    # sparse wear on the walking surface, never on the back edge or the lip
-    for _ in range(2):
-        sx, sy = rng.randint(1, 13), rng.choice((2, 3, 4))
-        c.put(ox + sx, oy + sy, "E" if sy == 4 else "D")
+    # one short wear streak on the walking surface (never the back edge or lip)
+    sx, sy = rng.randint(2, 11), rng.choice((2, 3))
+    c.put(ox + sx, oy + sy, "D")
+    c.put(ox + sx + 1, oy + sy, "D")
     for jx in joints:
         for y in (1, 2, 3, 4):
             c.put(ox + jx, oy + y, "D" if y < 3 else "v")
@@ -263,19 +279,15 @@ def floor_top(c: Canvas, ox: int, oy: int, joints: list[int], seed: str,
         if jx + 1 <= 15:
             for y in range(7, 15):
                 c.put(ox + jx + 1, oy + y, "E")
-    # one small pit cluster on the front face
-    px, py = rng.randint(3, 11), rng.randint(9, 12)
-    if all(abs(px - j) > 2 for j in joints):
-        c.put(ox + px, oy + py, "t")
-        c.put(ox + px + 1, oy + py, "t")
-        c.put(ox + px + 1, oy + py + 1, "E")
+    if chip_at is not None:
+        chip(c, ox + chip_at, oy + 7, "t", "E")
     if end == "l":
         for y in range(0, 5):
             c.put(ox, oy + y, "x")
         c.put(ox, oy + 5, "z")
         for y in range(6, 15):
             c.put(ox, oy + y, "w")
-            c.put(ox + 1, oy + y, "v")
+            c.put(ox + 1, oy + y, "E")
         c.put(ox, oy + 15, "s")
     elif end == "r":
         for y in range(0, 5):
@@ -285,9 +297,38 @@ def floor_top(c: Canvas, ox: int, oy: int, joints: list[int], seed: str,
             c.put(ox + 14, oy + y, "t")
 
 
+def floor_under_step(c: Canvas, ox: int, oy: int, joints: list[int],
+                     corner: str | None = None) -> None:
+    """Below a raised block that stands on the floor: the block's warm face
+    (rows 0-5) is flush with the floor's front face (rows 7-15), so the lower
+    floor's lip/shadow line continues as a single joint (row 6) and the block's
+    lit side edge stops at the walking line instead of running down the face."""
+    c.fill(ox, oy, ox + 15, oy + 5, "D")
+    c.fill(ox, oy + 6, ox + 15, oy + 6, "s")
+    c.fill(ox, oy + 7, ox + 15, oy + 7, "E")
+    c.fill(ox, oy + 8, ox + 15, oy + 14, "D")
+    c.fill(ox, oy + 15, ox + 15, oy + 15, "s")
+    for jx in joints:
+        for y in range(0, 6):
+            c.put(ox + jx, oy + y, "s")
+        if jx + 1 <= 15:
+            for y in range(0, 6):
+                c.put(ox + jx + 1, oy + y, "E")
+    if corner == "l":
+        for y in range(0, 5):
+            c.put(ox, oy + y, "w")
+            c.put(ox + 1, oy + y, "E")
+        c.put(ox, oy + 5, "x")
+    elif corner == "r":
+        for y in range(0, 5):
+            c.put(ox + 15, oy + y, "s")
+            c.put(ox + 14, oy + y, "t")
+        c.put(ox + 15, oy + 5, "s")
+
+
 def masonry_fill(c: Canvas, ox: int, oy: int, seed: str, face: str, light: str,
                  joint: str, side: str | None = None,
-                 joint_cols: tuple = (15, None)) -> None:
+                 joint_cols: tuple = (15, None), chipped: bool = False) -> None:
     """Two 8 px courses of long dark blocks for fills. ``joint_cols`` gives the
     vertical joint per course (None = block continues into the next tile), so
     mixing variants yields irregular 16-48 px block lengths."""
@@ -305,11 +346,8 @@ def masonry_fill(c: Canvas, ox: int, oy: int, seed: str, face: str, light: str,
         if start <= 15 and rng.random() < 0.7:
             run = rng.randint(2, 6)
             c.fill(ox + start, y0, ox + min(15, start + run - 1), y0, light)
-        if rng.random() < 0.4:
-            px = rng.randint(2, 12)
-            if jx is None or px not in (jx - 1, jx, jx + 1):
-                c.put(ox + px, y0 + rng.randint(2, 5), joint)
-                c.put(ox + px + 1, y0 + rng.randint(2, 5), face)
+    if chipped:
+        chip(c, ox + 9, oy + 8, joint, light)
     if side == "l":
         for y in range(16):
             c.put(ox, oy + y, "w")
@@ -321,8 +359,13 @@ def masonry_fill(c: Canvas, ox: int, oy: int, seed: str, face: str, light: str,
             c.put(ox + 14, oy + y, "t")
 
 
-def ceiling_edge(c: Canvas, ox: int, oy: int, joints: list[int], seed: str) -> None:
-    rng = random.Random(f"{KIT_ID}:{seed}")
+def ceiling_edge(c: Canvas, ox: int, oy: int, joints: list[int], seed: str,
+                 chip_at: int | None = None, quoin: str | None = None,
+                 end: str | None = None) -> None:
+    """Ceiling mass (rows 0-6) over a stone lintel course whose underside rim
+    (row 14) catches torchlight. ``quoin`` turns the course down into a wall
+    face (inner corner); ``end`` finishes the course with a vertical rim
+    (outer corner, where the ceiling steps up)."""
     c.fill(ox, oy, ox + 15, oy + 7, "t")
     c.put(ox + 15, oy + 0, "s")
     for y in range(0, 7):
@@ -338,14 +381,33 @@ def ceiling_edge(c: Canvas, ox: int, oy: int, joints: list[int], seed: str) -> N
         if jx + 1 <= 15:
             for y in range(9, 14):
                 c.put(ox + jx + 1, oy + y, "v")
-    px = rng.randint(2, 12)
-    if all(abs(px - j) > 1 for j in joints):
-        c.put(ox + px, oy + 11, "t")
-        c.put(ox + px + 1, oy + 11, "t")
+    if chip_at is not None:
+        chip(c, ox + chip_at, oy + 9, "s", "v")
+    if quoin == "l":  # wall on the left: its quoin runs up into the course
+        c.fill(ox, oy + 9, ox + 4, oy + 15, "v")
+        c.fill(ox + 1, oy + 9, ox + 4, oy + 9, "w")
+        for y in range(9, 16):
+            c.put(ox, oy + y, "x")
+            c.put(ox + 5, oy + y, "s")
+    elif quoin == "r":
+        c.fill(ox + 11, oy + 9, ox + 15, oy + 15, "u")
+        c.fill(ox + 11, oy + 9, ox + 14, oy + 9, "v")
+        for y in range(9, 16):
+            c.put(ox + 10, oy + y, "s")
+            c.put(ox + 15, oy + y, "t")
+    if end == "l":  # course ends here; open space continues to the left
+        for y in range(0, 15):
+            c.put(ox, oy + y, "w" if y >= 9 else "u")
+            if y >= 9:
+                c.put(ox + 1, oy + y, "v")
+        c.put(ox, oy + 15, "s")
+    elif end == "r":
+        for y in range(0, 16):
+            c.put(ox + 15, oy + y, "s")
+            c.put(ox + 14, oy + y, "t" if y < 9 else "u")
 
 
 def ceiling_fill(c: Canvas, ox: int, oy: int, seed: str) -> None:
-    rng = random.Random(f"{KIT_ID}:{seed}")
     c.fill(ox, oy, ox + 15, oy + 15, "t")
     for k in range(2):
         y0 = oy + 8 * k
@@ -353,63 +415,124 @@ def ceiling_fill(c: Canvas, ox: int, oy: int, seed: str) -> None:
         c.fill(ox, y0 + 7, ox + 15, y0 + 7, "s")
         for y in range(y0, y0 + 7):
             c.put(ox + jx, y, "s")
-        if rng.random() < 0.5:
-            c.put(ox + rng.randint(1, 5), y0 + rng.randint(2, 5), "s")
+    if seed.endswith("b"):
+        chip(c, ox + 9, oy + 8, "s", "u")
+
+
+def wall_bricks(c: Canvas, ox: int, oy: int, seed: str) -> None:
+    """Collidable solid brick: lighter faces, full bevel and dark stone mortar,
+    so solid geometry never reads as background."""
+    strip = Canvas(16, 16)
+    brick_strip(strip, 0, 0, 16, 2, seed, mortar="s", tones=(4, 5), weights=(1, 1),
+                full_bevel=True)
+    # 16-wide strip: the odd course is a single seam brick, so give it a
+    # visible joint at x=7 and keep the tile self-contained.
+    for y in range(8, 15):
+        strip.put(7, y, "s")
+    for y, row in enumerate(strip.rows()):
+        for x, ch in enumerate(row):
+            c.put(ox + x, oy + y, ch)
+
+
+def quoin(c: Canvas, ox: int, oy: int, side: str, long_first: bool) -> None:
+    """Stone quoins on the exposed vertical edge of a collidable brick wall:
+    alternating long (5 px) and short (3 px) blocks, 8 px tall."""
+    for k in range(2):
+        y0 = oy + 8 * k
+        width = 5 if (k == 0) == long_first else 3
+        if side == "l":
+            c.fill(ox, y0, ox + width - 1, y0 + 6, "v")
+            c.fill(ox, y0, ox + width - 1, y0, "w")
+            for y in range(y0, y0 + 7):
+                c.put(ox, y, "x")
+                c.put(ox + width, y, "s")
+            c.fill(ox, y0 + 7, ox + width, y0 + 7, "s")
+        else:
+            c.fill(ox + 16 - width, y0, ox + 15, y0 + 6, "u")
+            c.fill(ox + 16 - width, y0, ox + 15, y0, "v")
+            for y in range(y0, y0 + 7):
+                c.put(ox + 15, y, "t")
+                c.put(ox + 15 - width, y, "s")
+            c.fill(ox + 15 - width, y0 + 7, ox + 15, y0 + 7, "s")
+
+
+def wall_cap(c: Canvas, ox: int, oy: int, seed: str, side: str | None) -> None:
+    """Walkable cap stone on top of a collidable brick wall (rows 0-6), with the
+    wall's brick below; ``side`` adds the lit (l) or shaded (r) corner."""
+    wall_bricks(c, ox, oy, seed)
+    for y, key in enumerate(["F", "E", "D", "D", "y", "s", "t"]):
+        c.fill(ox, oy + y, ox + 15, oy + y, key)
+    if side == "l":
+        quoin(c, ox, oy, "l", True)
+        for y in range(0, 4):
+            c.put(ox, oy + y, "x")
+        c.put(ox, oy + 4, "z")
+        c.fill(ox, oy + 5, ox + 5, oy + 6, "s")
+        c.put(ox, oy + 6, "x")
+    elif side == "r":
+        quoin(c, ox, oy, "r", True)
+        for y in range(0, 5):
+            c.put(ox + 15, oy + y, "t")
+        c.fill(ox + 10, oy + 5, ox + 15, oy + 6, "s")
 
 
 def build_terrain() -> tuple[dict, list[dict]]:
-    w, h = 8 * TILE, 2 * TILE
+    w, h = 8 * TILE, 4 * TILE
     layers = {name: Canvas(w, h) for name in ("floor", "ceiling", "wall")}
     tiles: list[dict] = []
 
-    def add(name: str, layer: str, col: int, row: int, extra: dict) -> tuple[int, int]:
-        tiles.append({"id": name, "layer": layer, "cell": [col, row], **extra})
-        return col * TILE, row * TILE
+    def add(name: str, layer: str, col: int, row: int, extra: dict | None = None):
+        tiles.append({"id": name, "layer": layer, "cell": [col, row], **(extra or {})})
+        return layers[layer], col * TILE, row * TILE
 
     walk = {"walkable_top": True}
-    ox, oy = add("floor_top_a", "floor", 0, 0, walk)
-    floor_top(layers["floor"], ox, oy, [15], "floor_top_a")
-    ox, oy = add("floor_top_b", "floor", 1, 0, walk)
-    floor_top(layers["floor"], ox, oy, [], "floor_top_b")
-    ox, oy = add("floor_top_c", "floor", 2, 0, walk)
-    floor_top(layers["floor"], ox, oy, [7], "floor_top_c")
-    ox, oy = add("floor_top_end_l", "floor", 3, 0, walk)
-    floor_top(layers["floor"], ox, oy, [], "floor_top_end_l", end="l")
-    ox, oy = add("floor_top_end_r", "floor", 4, 0, walk)
-    floor_top(layers["floor"], ox, oy, [], "floor_top_end_r", end="r")
-    ox, oy = add("ceiling_edge_a", "ceiling", 5, 0, {})
-    ceiling_edge(layers["ceiling"], ox, oy, [15], "ceiling_edge_a")
-    ox, oy = add("ceiling_edge_b", "ceiling", 6, 0, {})
-    ceiling_edge(layers["ceiling"], ox, oy, [], "ceiling_edge_b")
-    ox, oy = add("ceiling_edge_c", "ceiling", 7, 0, {})
-    ceiling_edge(layers["ceiling"], ox, oy, [7], "ceiling_edge_c")
-
-    ox, oy = add("floor_fill_a", "floor", 0, 1, {})
-    masonry_fill(layers["floor"], ox, oy, "floor_fill_a", "t", "u", "s")
-    ox, oy = add("floor_fill_b", "floor", 1, 1, {})
-    masonry_fill(layers["floor"], ox, oy, "floor_fill_b", "t", "u", "s", joint_cols=(None, 7))
-    ox, oy = add("floor_fill_side_l", "floor", 2, 1, {})
-    masonry_fill(layers["floor"], ox, oy, "floor_fill_side_l", "t", "u", "s", side="l", joint_cols=(None, 7))
-    ox, oy = add("floor_fill_side_r", "floor", 3, 1, {})
-    masonry_fill(layers["floor"], ox, oy, "floor_fill_side_r", "t", "u", "s", side="r")
-    ox, oy = add("ceiling_fill_a", "ceiling", 4, 1, {})
-    ceiling_fill(layers["ceiling"], ox, oy, "ceiling_fill_a")
-    ox, oy = add("ceiling_fill_b", "ceiling", 5, 1, {})
-    ceiling_fill(layers["ceiling"], ox, oy, "ceiling_fill_b")
-    # Solid collidable brick (vertical walls, raised blocks): brighter and
-    # crisper than the backwall so solid geometry never reads as background.
-    for i, name in enumerate(("wall_fill_a", "wall_fill_b")):
-        ox, oy = add(name, "wall", 6 + i, 1, {})
-        strip = Canvas(16, 16)
-        brick_strip(strip, 0, 0, 16, 2, name, mortar="a", tones=(3, 4, 5),
-                    weights=(3, 4, 3), full_bevel=True)
-        # 16-wide strip: the odd course is a single seam brick, so give it a
-        # visible joint at x=7 instead and keep the tile self-contained.
-        for y in range(8, 15):
-            strip.put(7, y, "a")
-        for y, row in enumerate(strip.rows()):
-            for x, ch in enumerate(row):
-                layers["wall"].put(ox + x, oy + y, ch)
+    # row 0: walkable floor tops and the ceiling course
+    floor_top(*add("floor_top_a", "floor", 0, 0, walk), [15], "floor_top_a")
+    floor_top(*add("floor_top_b", "floor", 1, 0, walk), [], "floor_top_b", chip_at=4)
+    floor_top(*add("floor_top_c", "floor", 2, 0, walk), [7], "floor_top_c")
+    floor_top(*add("floor_top_end_l", "floor", 3, 0, walk), [], "floor_top_end_l", end="l")
+    floor_top(*add("floor_top_end_r", "floor", 4, 0, walk), [], "floor_top_end_r", end="r")
+    ceiling_edge(*add("ceiling_edge_a", "ceiling", 5, 0), [15], "ceiling_edge_a")
+    ceiling_edge(*add("ceiling_edge_b", "ceiling", 6, 0), [], "ceiling_edge_b", chip_at=5)
+    ceiling_edge(*add("ceiling_edge_c", "ceiling", 7, 0), [7], "ceiling_edge_c")
+    # row 1: fills and solid wall
+    masonry_fill(*add("floor_fill_a", "floor", 0, 1), "floor_fill_a", "t", "u", "s")
+    masonry_fill(*add("floor_fill_b", "floor", 1, 1), "floor_fill_b", "t", "u", "s",
+                 joint_cols=(None, 7), chipped=True)
+    masonry_fill(*add("floor_fill_side_l", "floor", 2, 1), "floor_fill_side_l", "t", "u", "s",
+                 side="l", joint_cols=(None, 7))
+    masonry_fill(*add("floor_fill_side_r", "floor", 3, 1), "floor_fill_side_r", "t", "u", "s",
+                 side="r")
+    ceiling_fill(*add("ceiling_fill_a", "ceiling", 4, 1), "ceiling_fill_a")
+    ceiling_fill(*add("ceiling_fill_b", "ceiling", 5, 1), "ceiling_fill_b")
+    wall_bricks(*add("wall_fill_a", "wall", 6, 1), "wall_fill_a")
+    wall_bricks(*add("wall_fill_b", "wall", 7, 1), "wall_fill_b")
+    # row 2: raised-block footing, vertical wall faces and caps
+    floor_under_step(*add("floor_inner_corner_l", "floor", 0, 2), [], corner="l")
+    floor_under_step(*add("floor_inner_corner_r", "floor", 1, 2), [], corner="r")
+    floor_under_step(*add("floor_step_base_a", "floor", 2, 2), [9])
+    floor_under_step(*add("floor_step_base_b", "floor", 3, 2), [])
+    for col, name, side in ((4, "wall_face_l", "l"), (5, "wall_face_r", "r")):
+        canvas, x, y = add(name, "wall", col, 2)
+        wall_bricks(canvas, x, y, name)
+        quoin(canvas, x, y, side, True)
+    wall_cap(*add("wall_cap_l", "wall", 6, 2, walk), "wall_cap_l", "l")
+    wall_cap(*add("wall_cap_r", "wall", 7, 2, walk), "wall_cap_r", "r")
+    # row 3: cap middle, ceiling corners, second quoin phase, fourth floor top
+    wall_cap(*add("wall_cap_mid", "wall", 0, 3, walk), "wall_cap_mid", None)
+    ceiling_edge(*add("ceiling_corner_in_l", "ceiling", 1, 3), [], "ceiling_corner_in_l",
+                 quoin="l")
+    ceiling_edge(*add("ceiling_corner_in_r", "ceiling", 2, 3), [], "ceiling_corner_in_r",
+                 quoin="r")
+    ceiling_edge(*add("ceiling_corner_out_l", "ceiling", 3, 3), [], "ceiling_corner_out_l",
+                 end="l")
+    ceiling_edge(*add("ceiling_corner_out_r", "ceiling", 4, 3), [], "ceiling_corner_out_r",
+                 end="r")
+    for col, name, side in ((5, "wall_face_l_b", "l"), (6, "wall_face_r_b", "r")):
+        canvas, x, y = add(name, "wall", col, 3)
+        wall_bricks(canvas, x, y, name)
+        quoin(canvas, x, y, side, False)
+    floor_top(*add("floor_top_d", "floor", 7, 3, walk), [11], "floor_top_d", chip_at=13)
     grid = make_grid([w, h], [0, 0], layers, ["ceiling", "wall", "floor"])
     return grid, tiles
 
@@ -418,68 +541,55 @@ def build_terrain() -> tuple[dict, list[dict]]:
 # Backwall tiles (opaque, non-collidable)
 # ---------------------------------------------------------------------------
 
+def stepped(c: Canvas, ox: int, oy: int, y_mid: int, upper: str, lower: str,
+            profile: tuple[int, ...], y0: int = 0, y1: int = 15) -> None:
+    """Band change from ``upper`` to ``lower`` along a stepped edge: mostly a
+    straight line with one 3 px notch per tile (``profile[x]`` offsets the row),
+    staggered between tile kinds. No 1 px checkerboard, and no continuous
+    undulation (which reads as a water line). Profiles wrap at 16 px."""
+    for x in range(16):
+        edge = y_mid + profile[x]
+        for y in range(y0, y1 + 1):
+            c.put(ox + x, oy + y, upper if y < edge else lower)
+
+
+PROFILE_A = (0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0)
+PROFILE_B = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, 0, 0, 0)
+PROFILE_C = (0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+
 def recess_tile(c: Canvas, ox: int, oy: int, kind: str) -> None:
     def band(y0: int, y1: int, key: str) -> None:
         c.fill(ox, oy + y0, ox + 15, oy + y1, key)
 
-    def checker(y0: int, y1: int, a: str, b: str) -> None:
-        for y in range(y0, y1 + 1):
-            for x in range(16):
-                c.put(ox + x, oy + y, a if (x + y) % 2 == 0 else b)
-
     if kind == "recess_vault":
         band(0, 15, "0")
-        for x, y in ((3, 5), (4, 5), (11, 12), (12, 12)):
-            c.put(ox + x, oy + y, "1")
+        for x in (9, 10, 11):
+            c.put(ox + x, oy + 6, "1")
     elif kind == "recess_vault_fade":
-        band(0, 7, "0")
-        for y in range(8, 12):
-            for x in range(16):
-                if (x + y) % 2 == 0 or (y >= 10 and (x + y) % 4 == 1):
-                    c.put(ox + x, oy + y, "1")
-                else:
-                    c.put(ox + x, oy + y, "0")
-        band(12, 15, "1")
-    elif kind in ("recess_wall_a", "recess_wall_b"):
+        stepped(c, ox, oy, 8, "0", "1", PROFILE_A)
+    elif kind == "recess_wall_a":
         band(0, 15, "1")
-        # far masonry, barely there: two short dark joint dashes and one faint
-        # lit block edge per tile (no continuous lines, no scanline read)
-        if kind.endswith("a"):
-            marks = [(2, 5, 4), (10, 12, 3)]
-            lit = (11, 6)
-        else:
-            marks = [(7, 3, 3), (1, 10, 4)]
-            lit = (3, 11)
-        for x0, y, n in marks:
-            for x in range(x0, x0 + n):
-                c.put(ox + x, oy + y, "0")
-        c.put(ox + lit[0], oy + lit[1], "2")
-        c.put(ox + lit[0] + 1, oy + lit[1], "2")
+        for x in (3, 4, 5):
+            c.put(ox + x, oy + 9, "0")
+    elif kind == "recess_wall_b":
+        band(0, 15, "1")
+        c.put(ox + 11, oy + 4, "2")
+        c.put(ox + 12, oy + 4, "2")
     elif kind == "recess_wall_fade":
-        band(0, 7, "1")
-        checker(8, 11, "1", "2")
-        band(12, 15, "2")
-        for x in range(16):
-            if 4 <= x <= 6:
-                c.put(ox + x, oy + 3, "0")
+        stepped(c, ox, oy, 5, "1", "2", PROFILE_B)
+        stepped(c, ox, oy, 12, "2", "3", PROFILE_C, y0=8)
     elif kind == "recess_low":
-        band(0, 15, "2")
-        for x in range(16):
-            if 9 <= x <= 11:
-                c.put(ox + x, oy + 7, "1")
+        stepped(c, ox, oy, 7, "3", "4", PROFILE_A)
     elif kind == "recess_haze":
-        band(0, 7, "2")
-        checker(8, 11, "2", "3")
-        band(12, 15, "3")
+        band(0, 15, "4")
+        for x in (5, 6, 7):
+            c.put(ox + x, oy + 10, "3")
     elif kind == "recess_floor":
-        band(0, 2, "3")
-        band(3, 3, "4")
-        band(4, 9, "3")
-        band(10, 13, "2")
-        band(14, 15, "1")
-        for x in (2, 10):
-            c.put(ox + x, oy + 4, "2")
-            c.put(ox + x + 1, oy + 5, "2")
+        band(0, 2, "4")
+        band(3, 3, "5")
+        band(4, 15, "3")
+        stepped(c, ox, oy, 10, "3", "2", PROFILE_B, y0=7)
     else:
         raise ValueError(kind)
 
@@ -504,33 +614,27 @@ def build_backwall() -> tuple[dict, list[dict]]:
                               "cell": [cx, cy], "size": [4, 2]},
                 })
     sy = 6 * TILE
-    # Top strip under the ceiling: darker first course, contact shadow line.
+    # Top strip under the ceiling: darker first course under a solid two-row
+    # contact shadow (no high-frequency teeth against the collision edge).
     s = layers["strips"]
     brick_strip(s, 0, sy, 64, 2, "strip_top", shift_per_course=[-1, 0], weights=(2, 5, 2))
     s.fill(0, sy, 63, sy, "m")
-    for x in range(64):
-        if x % 2 == 0:
-            s.put(x, sy + 1, "a")
+    s.fill(0, sy + 1, 63, sy + 1, "a")
     for cx in range(4):
         tiles.append({"id": f"brick_backwall_top_{cx + 1}", "layer": "strips",
                       "cell": [cx, 6],
                       "panel": {"id": "brick_top", "family": "brick_top",
                                 "cell": [cx, 0], "size": [4, 1]}})
-    # Base strip behind the floor contact line: one darker brick course and a
-    # plain, low-detail plinth band that fades into the floor contact shadow.
+    # Base strip behind the floor contact line: one darker brick course over a
+    # plain, solid stone plinth that is clearly darker than the floor surface.
     brick_strip(s, 64, sy, 64, 1, "strip_base", shift_per_course=[-1], weights=(2, 5, 2))
     s.fill(64, sy + 7, 127, sy + 7, "m")
-    s.fill(64, sy + 8, 127, sy + 8, "b")
-    s.fill(64, sy + 9, 127, sy + 12, "a")
-    for x in range(64, 128):
-        s.put(x, sy + 13, "a" if x % 2 == 0 else "m")
-    s.fill(64, sy + 14, 127, sy + 15, "m")
+    s.fill(64, sy + 8, 127, sy + 8, "u")
+    s.fill(64, sy + 9, 127, sy + 13, "t")
+    s.fill(64, sy + 14, 127, sy + 15, "s")
     for jx in (64 + 31, 64 + 63):
-        for y in range(sy + 8, sy + 13):
-            s.put(jx, y, "m")
-    for jx in (64 + 0, 64 + 32):
-        s.put(jx, sy + 8, "d")
-        s.put(jx + 1, sy + 8, "c")
+        for y in range(sy + 9, sy + 14):
+            s.put(jx, y, "s")
     for cx in range(4):
         tiles.append({"id": f"brick_backwall_base_{cx + 1}", "layer": "strips",
                       "cell": [4 + cx, 6],
@@ -549,16 +653,19 @@ def build_backwall() -> tuple[dict, list[dict]]:
 # Structure pieces (alpha, non-collidable): arch ring, pier modules, far arcade
 # ---------------------------------------------------------------------------
 ARCH_R_IN, ARCH_R_OUT, ARCH_VOUSSOIRS = 72, 96, 11
+ARCH_SOFFIT = 3.5  # darker band on the inner edge: the arch's depth (soffit)
 
 
 def draw_arch(c: Canvas, ox: int, oy: int) -> None:
+    """Voussoir ring: stone d in [72, 94), extrados outline at 94, a 1 px contact
+    shadow on the wall at 95. Only the upward-facing edge of each voussoir is
+    lit; a darker soffit band runs along the inside of the ring."""
     cx, cy = 96.0, 96.0
     rng = random.Random(f"{KIT_ID}:arch")
     n = ARCH_VOUSSOIRS
     tones = [rng.choice("uvv") for _ in range(n)]
     tones[n // 2] = "v"  # keystone
-    pits = {i: (rng.uniform(0.25, 0.75), rng.uniform(78, 90)) for i in range(n)
-            if rng.random() < 0.5}
+    chipped = {i for i in range(n) if rng.random() < 0.34}
     for py in range(96):
         for px in range(192):
             dx, dy = px + 0.5 - cx, cy - (py + 0.5)
@@ -571,25 +678,30 @@ def draw_arch(c: Canvas, ox: int, oy: int) -> None:
             frac = pos - idx
             arc = math.pi / n * d  # voussoir arc length at this radius
             dist_lo, dist_hi = frac * arc, (1 - frac) * arc
+            centre = (idx + 0.5) / n * math.pi
+            crown = abs(centre - math.pi / 2) < 0.35
+            # the joint side that faces upward (toward the crown)
+            up_side = dist_hi if centre < math.pi / 2 else dist_lo
             key = tones[idx]
             if d >= ARCH_R_OUT - 1:
-                key = "s"
-            elif d < ARCH_R_IN + 1:
-                key = "w"
-            elif d < ARCH_R_IN + 2:
-                key = "u" if key == "v" else "t"
+                key = "m"  # contact shadow on the wall just outside the ring
+            elif d >= ARCH_R_OUT - 2:
+                key = "s"  # extrados outline
+            elif d < ARCH_R_IN + ARCH_SOFFIT:
+                key = "t"  # soffit band (no inner highlight rim)
             elif min(dist_lo, dist_hi) < 0.75 and not (
                     dist_lo < 0.75 and idx == 0) and not (dist_hi < 0.75 and idx == n - 1):
                 key = "s"  # radial mortar joint (none at the two springing faces)
-            elif dist_hi < 1.9:
-                key = "w"  # upper-left lit side of each voussoir
-            elif dist_lo < 1.9:
-                key = "t" if key == "u" else "u"
-            elif d >= ARCH_R_OUT - 3 and theta > math.pi / 2:
-                key = "w"
-            if idx in pits and key in "uv":
-                pf, pr = pits[idx]
-                if abs(frac - pf) * arc < 1.0 and abs(d - pr) < 1.0:
+            elif crown and d >= ARCH_R_OUT - 4:
+                key = "w"  # crown voussoirs: lit top (extrados) edge
+            elif not crown and up_side < 1.6:
+                key = "w"  # lit upward-facing joint edge
+            if idx in chipped and key in "uvw":
+                # 3 px chip at the voussoir's outer, upward corner
+                if d >= ARCH_R_OUT - 4.5 and up_side < 3.2 and not crown:
+                    key = "t"
+                elif crown and d >= ARCH_R_OUT - 4.5 and min(dist_lo, dist_hi) < 2.5 \
+                        and dist_lo < dist_hi:
                     key = "t"
             c.put(ox + px, oy + py, key)
 
@@ -623,7 +735,8 @@ def draw_pier_capital(c: Canvas, ox: int, oy: int) -> None:
 
 def ashlar_block(c: Canvas, x0: int, y0: int, x1: int, y1: int, tone: str,
                  rng: random.Random) -> None:
-    """One dressed stone block with joint on its right/bottom edge."""
+    """One dressed stone block with joint on its right/bottom edge. About a third
+    of the blocks get a 3 px chipped top-left corner; no single-pixel pocks."""
     c.fill(x0, y0, x1, y1, tone)
     c.fill(x0, y1, x1, y1, "s")
     for y in range(y0, y1 + 1):
@@ -634,10 +747,9 @@ def ashlar_block(c: Canvas, x0: int, y0: int, x1: int, y1: int, tone: str,
         c.put(x0, y, "w")
     lower = "t" if tone == "u" else "u"
     c.fill(x1 - rng.randint(3, max(3, (x1 - x0) // 2)), y1 - 1, x1 - 1, y1 - 1, lower)
-    if rng.random() < 0.6 and x1 - x0 > 8:
-        px, py = rng.randint(x0 + 3, x1 - 4), rng.randint(y0 + 3, y1 - 4)
-        c.put(px, py, lower)
-        c.put(px + 1, py, lower)
+    if rng.random() < 0.34 and x1 - x0 > 8:
+        cx = rng.randint(x0 + 2, x1 - 4)
+        chip(c, cx, y0, "t", tone)
 
 
 def draw_pier_shaft(c: Canvas, ox: int, oy: int) -> None:
@@ -683,63 +795,63 @@ def draw_pier_base(c: Canvas, ox: int, oy: int) -> None:
     c.fill(ox + 2, oy + 31, ox + 61, oy + 31, "s")
 
 
-def draw_far_arcade(c: Canvas, ox: int, oy: int) -> None:
-    """Distant arcade silhouette inside a recess (sits over recess tiles)."""
-    w, h = 144, 96
-    spring, r_in = 40, 19
-    for py in range(h):
-        for px in range(w):
-            x, y = px + 0.5, py + 0.5
-            key = None
-            # far wall around three round-headed far openings
-            if y >= 12:
-                in_open = False
-                for k in range(3):
-                    acx = 24 + 48 * k
-                    if y < spring:
-                        if math.hypot(x - acx, spring - y) < r_in:
-                            in_open = True
-                    elif abs(x - acx) < r_in:
-                        in_open = True
-                if not in_open and y < 86:
-                    key = "1"
-            if key:
-                c.put(ox + px, oy + py, key)
-    # far rims: faint cold light catching the right edge of each opening
-    for k in range(3):
-        acx = 24 + 48 * k
-        for py in range(12, 86):
-            y = py + 0.5
-            if y < spring:
-                dx = math.sqrt(max(0.0, r_in * r_in - (spring - y) ** 2))
-                px = int(acx + dx)
-            else:
-                px = acx + r_in
-            if 0 <= px < w and c.get(ox + px, oy + py) == "1" and py > 22:
-                c.put(ox + px, oy + py, "3")
-    # base of the far wall, receding into haze
+FAR_TOP_PROFILE = (0,) * 16  # straight far cornice (a wavy edge reads as water)
+FAR_OPEN_PROFILE = (0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+
+def draw_far_arcade(c: Canvas, ox: int, oy: int, openings: list[tuple[int, int]],
+                    spring: int, torches: list[tuple[int, int]]) -> None:
+    """Distant arcade inside a recess. Figure/ground is inverted against the
+    old "tombstone" read: the far wall, spandrels and piers are mid-blue
+    (``3``, cornice ``4``) and the round arch heads are dark voids (``1``,
+    ``2``). Lower down, the openings fill with lighter floor-level haze (``4``,
+    L* ~26) so the actor-height band stays clearly lighter than dark actor
+    masses; the piers then read as darker columns in fog. A 1 px haze floor
+    line (``5``) runs inside each opening. Rows above the cornice stay
+    transparent so the recess shows through."""
+    w, h, floor_y = 144, 96, 86
     for px in range(w):
-        if c.get(ox + px, oy + 85) == "1" and px % 2 == 0:
-            c.put(ox + px, oy + 85, "2")
-    # two tiny distant torches (warm points, kept to 2 px each)
-    for fx, fy in ((48, 46), (96, 46)):
-        c.put(ox + fx - 1, oy + fy, "O")
-        c.put(ox + fx - 1, oy + fy + 1, "R")
-    # keep the far edge columns clean against the near pier faces
-    for py in range(h):
-        for px in (0, w - 1):
-            if c.get(ox + px, oy + py) == "3":
-                c.put(ox + px, oy + py, "1")
+        top = 10 + FAR_TOP_PROFILE[px % 16]
+        for py in range(top, h):
+            x, y = px + 0.5, py + 0.5
+            hole = False
+            for acx, r_in in openings:
+                inside = (math.hypot(x - acx, spring - y) < r_in) if y < spring \
+                    else abs(x - acx) < r_in
+                hole = hole or inside
+            if py > floor_y:
+                key = "3"  # far floor in front of the far wall
+            elif py == floor_y:
+                key = "5" if hole else "3"  # haze floor line inside openings
+            elif hole:
+                step = FAR_OPEN_PROFILE[px % 16]
+                if py < spring + step:
+                    key = "1"
+                elif py < spring + 5 + step:
+                    key = "2"
+                else:
+                    key = "4"
+            else:
+                key = "3"
+            c.put(ox + px, oy + py, key)
+        c.put(ox + px, oy + top, "4")  # far cornice catches a little light
+    for fx, fy in torches:  # tiny distant torches, 2 px each
+        c.put(ox + fx, oy + fy, "O")
+        c.put(ox + fx, oy + fy + 1, "R")
 
 
 def build_structure() -> tuple[dict, list[dict]]:
-    w, h = 400, 96
+    w, h = 544, 96
     layers = {name: Canvas(w, h) for name in ("arch", "pier", "depth")}
     draw_arch(layers["arch"], 0, 0)
     draw_pier_capital(layers["pier"], 192, 0)
     draw_pier_shaft(layers["pier"], 192, 16)
     draw_pier_base(layers["pier"], 192, 48)
-    draw_far_arcade(layers["depth"], 256, 0)
+    draw_far_arcade(layers["depth"], 256, 0, [(24, 19), (72, 19), (120, 19)], 40,
+                    [(47, 50), (95, 50)])
+    draw_far_arcade(layers["depth"], 400, 0, [(38, 25), (106, 25)], 44, [(71, 54)])
+    far = {"layer": "depth", "anchor": [0, 96],
+           "anchor_name": "bottom_left (opening floor line)", "grid_snap": 16}
     pieces = [
         {"id": "arch_ring_r72", "layer": "arch", "rect": [0, 0, 192, 96],
          "anchor": [96, 96], "anchor_name": "springing_centre", "grid_snap": 8,
@@ -754,9 +866,8 @@ def build_structure() -> tuple[dict, list[dict]]:
         {"id": "pier_base", "layer": "pier", "rect": [192, 48, 64, 32],
          "anchor": [32, 32], "anchor_name": "bottom_centre (stands on floor top)",
          "grid_snap": 8},
-        {"id": "far_arcade", "layer": "depth", "rect": [256, 0, 144, 96],
-         "anchor": [0, 96], "anchor_name": "bottom_left (opening floor line)",
-         "grid_snap": 16},
+        {"id": "far_arcade_a", "rect": [256, 0, 144, 96], **far},
+        {"id": "far_arcade_b", "rect": [400, 0, 144, 96], **far},
     ]
     grid = make_grid([w, h], [0, 0], layers, ["depth", "pier", "arch"])
     return grid, pieces
@@ -778,9 +889,39 @@ def pipe_v(c: Canvas, ox: int, oy: int, y0: int = 0, y1: int = 15) -> None:
         c.fill(ox + 4 + i, oy + y0, ox + 4 + i, oy + y1, key)
 
 
+def elbow(c: Canvas, ox: int, oy: int, centre: tuple[float, float]) -> None:
+    """Quarter-circle pipe bend with the same 8 px cross-section as the
+    straights; ``centre`` is the bend's centre of curvature in tile coords."""
+    for py in range(16):
+        for px in range(16):
+            d = math.hypot(px + 0.5 - centre[0], py + 0.5 - centre[1])
+            if centre[1] == 16:   # bend centred below: outer edge is up/left
+                band = int(12.5 - d) if 4.5 <= d < 12.5 else None
+            else:                 # bend centred above-left: inner edge is up/left
+                band = int(d - 4.5) if 4.5 <= d < 12.5 else None
+            if band is not None and 0 <= band < 8:
+                c.put(ox + px, oy + py, PIPE_ACROSS[band])
+
+
+def collar_v(c: Canvas, ox: int, oy: int, y0: int, y1: int) -> None:
+    """A bolted 10 px collar around a vertical pipe (floor or ceiling entry)."""
+    c.fill(ox + 3, oy + y0, ox + 12, oy + y1, "j")
+    c.fill(ox + 3, oy + y0, ox + 12, oy + y0, "k")
+    c.fill(ox + 3, oy + y1, ox + 12, oy + y1, "k")
+    for y in range(y0, y1 + 1):
+        c.put(ox + 3, oy + y, "k")
+        c.put(ox + 12, oy + y, "k")
+    for y in range(y0 + 1, y1):
+        c.put(ox + 4, oy + y, "l")
+    c.fill(ox + 4, oy + y0 + 1, ox + 11, oy + y0 + 1, "l")
+    c.put(ox + 6, oy + y0 + 2, "n")
+    c.put(ox + 10, oy + y0 + 2, "n")
+
+
 def build_props() -> tuple[dict, list[dict]]:
-    w, h = 128, 80
-    layers = {name: Canvas(w, h) for name in ("glow", "pipes", "box", "lichen")}
+    w, h = 128, 112
+    layers = {name: Canvas(w, h) for name in ("decal", "pipes", "box", "accent", "door",
+                                              "sconce")}
     p = layers["pipes"]
     pieces: list[dict] = []
 
@@ -788,15 +929,16 @@ def build_props() -> tuple[dict, list[dict]]:
         pieces.append({"id": pid, "layer": layer, "rect": rect, "anchor": anchor,
                        "anchor_name": anchor_name, "grid_snap": snap, "role": role, **extra})
 
+    tile = ([0, 0], "top_left (tile)", 16)
     # pipe_h_a: plain run
     pipe_h(p, 0, 0)
-    piece("pipe_h_a", "pipes", [0, 0, 16, 16], [0, 0], "top_left (tile)", 16)
+    piece("pipe_h_a", "pipes", [0, 0, 16, 16], *tile)
     # pipe_h_rust: run with a rust bloom along the underside
     pipe_h(p, 16, 0)
     for x, y, k in ((19, 9, "q"), (20, 9, "r"), (21, 9, "q"), (20, 10, "q"), (21, 10, "q"),
                     (26, 10, "q"), (27, 9, "q"), (27, 10, "r"), (28, 10, "q")):
         p.put(x, y, k)
-    piece("pipe_h_rust", "pipes", [16, 0, 16, 16], [0, 0], "top_left (tile)", 16)
+    piece("pipe_h_rust", "pipes", [16, 0, 16, 16], *tile)
     # pipe_h_flange: bolted coupling
     pipe_h(p, 32, 0)
     p.fill(32 + 6, 2, 32 + 9, 13, "j")
@@ -808,7 +950,7 @@ def build_props() -> tuple[dict, list[dict]]:
     p.fill(32 + 6, 13, 32 + 9, 13, "k")
     p.put(32 + 8, 3, "n")
     p.put(32 + 8, 12, "n")
-    piece("pipe_h_flange", "pipes", [32, 0, 16, 16], [0, 0], "top_left (tile)", 16)
+    piece("pipe_h_flange", "pipes", [32, 0, 16, 16], *tile)
     # pipe_h_bracket: wall strap with fixing bolt above
     pipe_h(p, 48, 0)
     p.fill(48 + 6, 3, 48 + 8, 12, "i")
@@ -818,10 +960,10 @@ def build_props() -> tuple[dict, list[dict]]:
     p.put(48 + 7, 4, "l")
     p.fill(48 + 6, 1, 48 + 8, 2, "k")
     p.put(48 + 7, 1, "n")
-    piece("pipe_h_bracket", "pipes", [48, 0, 16, 16], [0, 0], "top_left (tile)", 16)
+    piece("pipe_h_bracket", "pipes", [48, 0, 16, 16], *tile)
     # pipe_v_a
     pipe_v(p, 64, 0)
-    piece("pipe_v_a", "pipes", [64, 0, 16, 16], [0, 0], "top_left (tile)", 16)
+    piece("pipe_v_a", "pipes", [64, 0, 16, 16], *tile)
     # pipe_v_bracket
     pipe_v(p, 80, 0)
     p.fill(80 + 3, 6, 80 + 12, 8, "i")
@@ -831,28 +973,13 @@ def build_props() -> tuple[dict, list[dict]]:
     p.put(80 + 4, 7, "l")
     p.fill(80 + 1, 6, 80 + 2, 8, "k")
     p.put(80 + 1, 7, "n")
-    piece("pipe_v_bracket", "pipes", [80, 0, 16, 16], [0, 0], "top_left (tile)", 16)
+    piece("pipe_v_bracket", "pipes", [80, 0, 16, 16], *tile)
     # pipe_elbow_r_d: from the right edge turning down to the bottom edge
-    for py in range(16):
-        for px in range(16):
-            d = math.hypot(px + 0.5 - 16, py + 0.5 - 16)
-            band = int(12.5 - d) if 4.5 <= d < 12.5 else None
-            if band is not None and 0 <= band < 8:
-                p.put(96 + px, py, PIPE_ACROSS[band])
-    piece("pipe_elbow_r_d", "pipes", [96, 0, 16, 16], [0, 0], "top_left (tile)", 16)
-    # pipe_wall_entry_r: pipe disappears into a bolted wall plate on the right
-    pipe_h(p, 112, 0, 0, 10)
-    p.fill(112 + 10, 1, 112 + 14, 14, "j")
-    for y in range(1, 15):
-        p.put(112 + 10, y, "k")
-        p.put(112 + 14, y, "k")
-        p.put(112 + 11, y, "l")
-    p.fill(112 + 10, 1, 112 + 14, 1, "k")
-    p.fill(112 + 10, 14, 112 + 14, 14, "k")
-    p.put(112 + 12, 3, "n")
-    p.put(112 + 12, 12, "n")
-    p.put(112 + 13, 13, "q")
-    piece("pipe_wall_entry_r", "pipes", [112, 0, 16, 16], [0, 0], "top_left (tile)", 16)
+    elbow(p, 96, 0, (16, 16))
+    piece("pipe_elbow_r_d", "pipes", [96, 0, 16, 16], *tile)
+    # pipe_elbow_l_u: from the left edge turning up to the top edge
+    elbow(p, 112, 0, (0, 0))
+    piece("pipe_elbow_l_u", "pipes", [112, 0, 16, 16], *tile)
 
     # valve_wheel: hand wheel on a vertical pipe (replaces a pipe_v tile)
     pipe_v(p, 0, 16)
@@ -876,42 +1003,29 @@ def build_props() -> tuple[dict, list[dict]]:
     p.put(7, 16 + 7, "o")
     for x, y in ((5, 16 + 3), (4, 16 + 4)):
         p.put(x, y, "P")
-    piece("valve_wheel", "pipes", [0, 16, 16, 16], [0, 0], "top_left (tile)", 16)
+    piece("valve_wheel", "pipes", [0, 16, 16, 16], *tile)
     # pipe_v_floor_collar: conduit entering the floor
     pipe_v(p, 16, 16, 0, 15)
-    p.fill(16 + 3, 16 + 11, 16 + 12, 16 + 15, "j")
-    p.fill(16 + 3, 16 + 11, 16 + 12, 16 + 11, "k")
-    for y in range(16 + 11, 16 + 16):
-        p.put(16 + 3, y, "k")
-        p.put(16 + 12, y, "k")
-        p.put(16 + 4, y, "l")
-    p.fill(16 + 4, 16 + 12, 16 + 11, 16 + 12, "l")
-    piece("pipe_v_floor_collar", "pipes", [16, 16, 16, 16], [0, 0], "top_left (tile)", 16)
-
-    # lichen_patch: tiny optional accent (damp growth below a leaking valve).
-    # Column 12 is meant to tuck under a vertical pipe's left outline; row 7
-    # follows a mortar joint when placed on the 8 px grid.
-    lichen = [
-        "................",
-        "..........GG....",
-        "........GGHHG...",
-        ".......GHHLHG...",
-        "......GHHHHHG...",
-        ".....GGHGHHHG...",
-        "....GHG.GGHHG...",
-        "..GGGG...GHHG...",
-        "..G.......GHG...",
-        "..........GHG...",
-        "...........GG...",
-        "...........G....",
-        "................",
-        "................",
-        "................",
-        "................",
-    ]
-    layers["lichen"].stamp(lichen, 32, 16)
-    piece("lichen_patch", "lichen", [32, 16, 16, 16], [12, 0],
-          "pipe_hug (column 12 sits under a vertical pipe's left outline)", 8)
+    collar_v(p, 16, 16, 11, 15)
+    piece("pipe_v_floor_collar", "pipes", [16, 16, 16, 16], *tile)
+    # pipe_v_ceiling_collar: pipe rising into the ceiling course
+    pipe_v(p, 32, 16, 0, 15)
+    collar_v(p, 32, 16, 0, 4)
+    piece("pipe_v_ceiling_collar", "pipes", [32, 16, 16, 16], *tile)
+    # pipe_wall_collar_r: run ends in a round, face-on bolted collar where the
+    # pipe turns into the wall (end-on bore visible)
+    pipe_h(p, 48, 16, 0, 7)
+    for py in range(16):
+        for px in range(16):
+            d = math.hypot(px + 0.5 - 10.5, py + 0.5 - 7.5)
+            if d < 5.6:
+                key = "k" if d >= 4.8 else ("l" if (px + py) < 17 else "j")
+                if d < 2.6:
+                    key = "i" if d >= 1.6 else "k"
+                p.put(48 + px, 16 + py, key)
+    for bx, by in ((10, 4), (13, 7), (10, 10), (7, 7)):
+        p.put(48 + bx, 16 + by, "n")
+    piece("pipe_wall_collar_r", "pipes", [48, 16, 16, 16], *tile)
 
     # maintenance_box: small riveted service cabinet with gauge and blank plate
     box = [
@@ -949,46 +1063,133 @@ def build_props() -> tuple[dict, list[dict]]:
         "....................kkllllkk....",
     ]
     layers["box"].stamp(box, 64, 16)
-    # rivets at the corners of the outer frame
-    for x, y in ((66, 20), (93, 20), (66, 43), (93, 43)):
+    for x, y in ((66, 20), (93, 20), (66, 43), (93, 43)):  # frame rivets
         layers["box"].put(x, y, "n")
     piece("maintenance_box", "box", [64, 16, 32, 32], [0, 0],
           "top_left (pipe enters at x 4..11, conduit leaves at x 20..27)", 16)
 
-    # torch_glow: warm light decal over brick faces only. It follows the
-    # global brick coursing, so it must be placed on the 16 px grid.
-    g = layers["glow"]
-    gx0, gy0 = 0, 32
-    centre = (24.0, 24.0)
-    for py in range(48):
-        for px in range(48):
-            dy = py + 0.5 - centre[1]
-            # light reaches a little further upward than downward
-            d = math.hypot(px + 0.5 - centre[0], dy * (0.95 if dy < 0 else 1.2))
-            if d >= 23:
-                continue
-            course = py // 8
-            row_in = py % 8
-            joint_x = 15 if course % 2 == 0 else 7
-            if row_in == 7 or px % 16 == joint_x:
-                continue  # mortar stays dark
-            top_row = row_in == 0
-            if d < 9:
-                key = "h" if top_row else "g"
-            elif d < 15:
-                key = "g" if top_row else "f"
-            elif d < 18.5 and not row_in == 6:
-                key = "f"
-            else:
-                # outer falloff: only the lit upper edge of each brick
-                key = "f" if top_row and d < 21 else None
-            if key:
-                g.put(gx0 + px, gy0 + py, key)
-    piece("torch_glow", "glow", [0, 32, 48, 48], [24, 24],
+    # lichen_crust: tiny optional accent, a flat crust hugging a mortar joint
+    # (row 7 lands on a mortar row when placed on the 8 px grid)
+    crust = [
+        "........",
+        "........",
+        "........",
+        "........",
+        "........",
+        "..GHG...",
+        ".GHHLHG.",
+        "GGHGGHGG",
+    ]
+    layers["accent"].stamp(crust, 96, 16)
+    piece("lichen_crust", "accent", [96, 16, 8, 8], [0, 7], "mortar_row (local row 7)", 8)
+
+    # torch_wall_unlit: the same sconce with a charred stub and no flame
+    unlit = Canvas(16, 32)
+    unlit.stamp(TORCH_SCONCE, 0, 16)
+    unlit.stamp([
+        "......kUk.......",
+        ".....kUVUk......",
+        ".....UVVVU......",
+    ], 0, 13)
+    unlit.fill(4, 16, 11, 16, "j")  # cold rim, no warm light
+    unlit.put(4, 16, "n")
+    for y, row in enumerate(unlit.rows()):
+        for x, ch in enumerate(row):
+            if ch != ".":
+                layers["sconce"].put(112 + x, 16 + y, ch)
+    piece("torch_wall_unlit", "sconce", [112, 16, 16, 32], [8, 29],
+          "wall_mount (same as torch_wall)", 16)
+
+    # grime_patch_a/b: soot and grime over a few brick faces (follows the
+    # global brick coursing, so it must sit on the 16 px grid; mortar untouched)
+    d = layers["decal"]
+    grime = {
+        # (course, brick start x, key): only whole bricks inside the 48x16 decal
+        "grime_patch_a": (0, [(0, 0, "a"), (0, 16, "b"), (1, 8, "a"), (1, 24, "b")]),
+        "grime_patch_b": (48, [(0, 16, "a"), (0, 32, "b"), (1, 24, "a"), (1, 8, "b"),
+                               (0, 0, "b")]),
+    }
+    for pid, (gx, bricks) in grime.items():
+        for course, start, key in bricks:
+            for dy in range(7):
+                for dx in range(15):
+                    top = dy == 0 and dx < 6
+                    d.put(gx + start + dx, 96 + course * 8 + dy,
+                          "b" if top and key == "a" else key)
+        piece(pid, "decal", [gx, 96, 48, 16], [0, 0], "top_left (brick-grid aligned)", 16,
+              role="backwall", decal=True)
+
+    # torch_glow: minimal warm light decal, ~44 px wide, in three bands. It
+    # touches brick faces and brick top edges only (mortar stays dark), and each
+    # brick gets its own small radius jitter so the outline follows the bricks
+    # irregularly instead of reading as a stamped disc. A Bevy additive light is
+    # the intended richer option; this decal is the art-only fallback.
+    gx0, gy0 = 0, 48
+    jitter_rng = random.Random(f"{KIT_ID}:torch_glow")
+    for course in range(6):
+        offset = 0 if course % 2 == 0 else 8
+        for start in range(offset - 16, 48, 16):
+            jitter = jitter_rng.choice((-2, -1, 0, 0, 1, 2))
+            for dyy in range(7):
+                for dx in range(15):
+                    px, py = start + dx, course * 8 + dyy
+                    if not (0 <= px < 48):
+                        continue
+                    dy = py + 0.5 - 24.0
+                    d = math.hypot(px + 0.5 - 24.0, dy * (0.9 if dy < 0 else 1.35)) - jitter
+                    top = dyy == 0
+                    if d < 8:
+                        key = "g"
+                    elif d < 14:
+                        key = "g" if top else "f"
+                    elif d < 21 and top and dy < 8:
+                        key = "f"
+                    else:
+                        key = None
+                    if key:
+                        layers["decal"].put(gx0 + px, gy0 + py, key)
+    piece("torch_glow", "decal", [0, 48, 48, 48], [24, 24],
           "light_centre (= torch flame centre; place at torch tile -1,-1)", 16,
           role="backwall", decal=True)
 
-    grid = make_grid([w, h], [0, 0], layers, ["glow", "lichen", "pipes", "box"])
+    # door_plank: simple timber door in a stone frame (module A). 64 px tall so
+    # a 52 px actor fits under the lintel.
+    dx0, dy0, dh = 96, 48, 64
+    lintel = [
+        ".vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv.",
+        "vwwwwwwwwwwwwwwsvwwwwwwwwwwwwwwu",
+        "vvvvvvvvvvvvvvvsvvvvvvvvvvvvvvvu",
+        "vvvvvvvvvvvvvvvsvvvvvvvvvvvvvvvu",
+        "uuuuuuuuuuuuuuusuuuuuuuuuuuuuuuu",
+        "ssssssssssssssssssssssssssssssss",
+    ]
+    jamb_l = ["xvvs", "wvvs", "wvvs", "wvvs", "wvvs", "wvvs", "wvus", "ssss"]
+    jamb_r = ["svvu", "svvu", "svvu", "svvu", "svvu", "svvu", "suut", "ssss"]
+    dc = layers["door"]
+    dc.stamp(lintel, dx0, dy0)
+    for y in range(6, dh):
+        i = (y - 6) % 8
+        dc.stamp([jamb_l[i]], dx0, dy0 + y)
+        dc.stamp([jamb_r[i]], dx0 + 28, dy0 + y)
+    planks = "UXVVVUXVVVUXVVVUXVVVUXVV"
+    for y in range(6, dh):
+        for i, key in enumerate(planks):
+            dc.put(dx0 + 4 + i, dy0 + y, key)
+    for strap_y in (15, 47):
+        dc.fill(dx0 + 4, dy0 + strap_y, dx0 + 27, dy0 + strap_y + 2, "j")
+        dc.fill(dx0 + 4, dy0 + strap_y, dx0 + 27, dy0 + strap_y, "k")
+        dc.fill(dx0 + 4, dy0 + strap_y + 2, dx0 + 27, dy0 + strap_y + 2, "k")
+        for sx in (7, 13, 19, 25):
+            dc.put(dx0 + sx, dy0 + strap_y + 1, "n")
+    for x, y in ((21, 33), (22, 32), (23, 32), (24, 33), (24, 34), (23, 35), (22, 35),
+                 (21, 34)):
+        dc.put(dx0 + x, dy0 + y, "k")
+    dc.put(dx0 + 22, dy0 + 33, "n")
+    dc.fill(dx0 + 4, dy0 + dh - 2, dx0 + 27, dy0 + dh - 1, "U")
+    piece("door_plank", "door", [dx0, dy0, 32, dh], [16, dh],
+          "bottom_centre (stands on floor top)", 16)
+    grid = make_grid([w, h], [0, 0], layers,
+                     ["decal", "accent", "pipes", "box", "door", "sconce"])
     return grid, pieces
 
 
@@ -1012,14 +1213,14 @@ TORCH_FLAMES = [
         "......RRRRR.....",
     ],
     [
-        "......R.........",
-        "......RR........",
-        "......ROR.......",
+        "....R...........",
+        "....RR..........",
+        ".....RR.........",
+        ".....ROR........",
         ".....ROOR.......",
-        ".....ROYOR......",
-        ".....ROYYOR.....",
-        "....ROYYYOR.....",
-        "....ROYWWYOR....",
+        "....ROYOR.......",
+        "....ROYYOR......",
+        "....ROYWYOR.....",
         "....ROYWWYOR....",
         "....ROYWWYOR....",
         "....ROYYWYOR....",
@@ -1030,7 +1231,7 @@ TORCH_FLAMES = [
         "......RRRRR.....",
     ],
     [
-        "................",
+        "..........Y.....",
         "................",
         "................",
         "........R.......",
@@ -1140,7 +1341,8 @@ ATLASES = {
 
 GRAMMAR_HINTS = {
     "floor_top": ["A", "B", "C"], "floor_fill": ["A", "B", "C"],
-    "ceiling": ["A", "B", "C"], "wall_fill": ["A", "B", "C"],
+    "floor_inner": ["A", "B", "C"], "floor_step": ["A", "B", "C"],
+    "ceiling": ["A", "B", "C"], "wall_": ["A", "B", "C"], "door": ["A"], "grime": ["A"],
     "brick_backwall": ["A", "B", "C"], "recess": ["B"],
     "arch": ["B"], "pier": ["B"], "far_arcade": ["B"], "torch": ["A", "B", "C"],
     "pipe": ["C"], "valve": ["C"], "maintenance": ["C"], "lichen": ["C"],
@@ -1222,22 +1424,32 @@ def build_contract(terrain_tiles, backwall_tiles, structure_pieces, prop_pieces)
         },
         "floor_contact": {
             "collider_top": "top edge of a walkable_top tile",
-            "surface_rows": [0, 3],
-            "recommended_visual_foot_sink_px": 2,
-            "note": "Rows 0-3 of floor_top_* show the walkable surface; drawing actors with "
-                    "their pivot row 2 px below the collider top plants the feet on the "
-                    "surface. Proposal only; COMP-01 decides in Bevy.",
+            "surface_rows": [0, 4],
+            "recommended_visual_foot_sink_px": 0,
+            "decision": "Owner decision 2026-11-16: COMP-01 draws actors with their pivot "
+                        "(bottom opaque) row directly on the collider top (0 px foot sink).",
+            "open_question": "An independent art-director review suggested a 2 px sink so "
+                             "feet sit inside the 5 px walking surface; left for human art "
+                             "review.",
         },
         "atlases": {name: {k: v for k, v in data.items()} for name, data in ATLASES.items()},
         "tiles": tiles,
         "pieces": pieces,
         "usage_rules": {
-            "A": "Ordinary fabric: brick_backwall panels, top/base strips, floor_top_a/b/c, "
-                 "sparse torch_wall + torch_glow (roughly one per 10-16 columns).",
+            "A": "Ordinary fabric: brick_backwall panels, top/base strips, floor_top_a-d, "
+                 "sparse torch_wall + torch_glow at varied spacing (roughly every 10-20 "
+                 "columns), an occasional torch_wall_unlit, door_plank or grime_patch_*.",
             "B": "Rhythm: pier_* stacks 192 px apart (centre to centre) carrying arch_ring_r72; "
-                 "recess_* tiles fill the opening; far_arcade sits on the opening floor line.",
+                 "recess_* tiles fill the opening; far_arcade_a/b sit on the opening floor "
+                 "line (alternate them between neighbouring openings).",
             "C": "Special function, sparing: one pipe run (pipe_*), one valve_wheel, one "
-                 "maintenance_box; optional lichen_patch only next to a damp source.",
+                 "maintenance_box; optional lichen_crust only next to a damp source. Every "
+                 "pipe end terminates in a collar (pipe_v_floor_collar, pipe_v_ceiling_collar, "
+                 "pipe_wall_collar_r) or the maintenance_box; never in mid-air.",
+            "corridor_ends": "Close a corridor with wall_face_l/r (alternate *_b for the second "
+                             "quoin phase), ceiling_corner_in_l/r where the ceiling meets it, "
+                             "wall_cap_* on top of low walls and ceiling_corner_out_l/r where "
+                             "a ceiling course ends.",
             "panels": "brick_backwall panel cells must be used in their native order horizontally "
                       "(cell x+1 follows cell x within a panel, the panel's last column may be "
                       "followed by column 0 of any panel of the same family). Any vertical order is "
@@ -1263,19 +1475,19 @@ def build_layout(contract: dict) -> dict:
         collision[2][x] = pick(["ceiling_edge_a", "ceiling_edge_b", "ceiling_edge_c",
                                 "ceiling_edge_b"], "ce", x)
         collision[floor_row][x] = pick(["floor_top_a", "floor_top_b", "floor_top_c",
-                                        "floor_top_b", "floor_top_a"], "ft", x)
+                                        "floor_top_b", "floor_top_a", "floor_top_d"], "ft", x)
         for r in range(floor_row + 1, rows):
             collision[r][x] = pick(["floor_fill_a", "floor_fill_b"], "ff", x, r)
     # One 1-tile raised block in segment A (exercises end/side tiles; step <= 2 tiles)
     step0, step1 = 30, 37
     for x in range(step0, step1 + 1):
         if x == step0:
-            top, face = "floor_top_end_l", "floor_fill_side_l"
+            top, face = "floor_top_end_l", "floor_inner_corner_l"
         elif x == step1:
-            top, face = "floor_top_end_r", "floor_fill_side_r"
+            top, face = "floor_top_end_r", "floor_inner_corner_r"
         else:
             top, face = pick(["floor_top_a", "floor_top_b", "floor_top_c"], "st", x), \
-                pick(["floor_fill_a", "floor_fill_b"], "sf", x)
+                pick(["floor_step_base_a", "floor_step_base_b"], "sf", x)
         collision[base_row][x] = top
         collision[floor_row][x] = face
 
@@ -1309,7 +1521,8 @@ def build_layout(contract: dict) -> dict:
         structure.append({"piece": "pier_base", "x": cx - 32, "y": spring_y + 112})
 
     arches = []
-    for left, right in ((56, 68), (100, 112), (112, 124)):
+    far_variants = ["far_arcade_a", "far_arcade_b", "far_arcade_a"]
+    for (left, right), far_id in zip(((56, 68), (100, 112), (112, 124)), far_variants):
         open0, open1 = left + 3, right - 1  # opening columns inclusive
         centre_x = open0 * TILE + 72
         arches.append((open0, open1, centre_x))
@@ -1329,14 +1542,21 @@ def build_layout(contract: dict) -> dict:
                     continue
                 kind = bands.get(r) or pick(["recess_wall_a", "recess_wall_b"], "rw", x, r)
                 backwall[r][x] = kind
-        decals_far = {"piece": "far_arcade", "x": open0 * TILE, "y": (base_row + 1) * TILE - 96}
-        structure.append(decals_far)
+        structure.append({"piece": far_id, "x": open0 * TILE,
+                          "y": (base_row + 1) * TILE - 96})
     for col in pier_cols:
         place_pier(col)
     for open0, open1, centre_x in arches:
         structure.append({"piece": "arch_ring_r72", "x": centre_x - 96, "y": spring_y - 96})
 
-    torch_cols = [(8, 10), (20, 10), (33, 10), (50, 10), (82, 10), (94, 10)]
+    # A dressing: a few grime/soot patches on the brick and one plain door.
+    for col, row in ((3, 15), (24, 6), (41, 12), (45, 16), (90, 14)):
+        decals.append({"piece": "grime_patch_a" if (col + row) % 2 else "grime_patch_b",
+                       "x": col * TILE, "y": row * TILE})
+    props.append({"piece": "door_plank", "x": 12 * TILE, "y": (floor_row - 4) * TILE})
+    # Torches at deliberately uneven spacing; one burnt-out sconce.
+    torch_cols = [(7, 10), (18, 10), (33, 10), (50, 10), (82, 10), (94, 10)]
+    props.append({"piece": "torch_wall_unlit", "x": 42 * TILE, "y": 10 * TILE})
     for col, row in torch_cols:
         decals.append({"piece": "torch_glow", "x": (col - 1) * TILE, "y": (row - 1) * TILE})
         props.append({"piece": "torch_wall", "x": col * TILE, "y": row * TILE,
@@ -1344,13 +1564,17 @@ def build_layout(contract: dict) -> dict:
     # Segment C: one pipe run with valve feeding a maintenance box.
     pipe_row, pipe_col = 7, 75
     # lichen first so the pipe overlaps its right edge (growth hugging the pipe)
-    props.append({"piece": "lichen_patch", "x": pipe_col * TILE - 8, "y": 11 * TILE})
+    props.append({"piece": "lichen_crust", "x": pipe_col * TILE - 8, "y": 11 * TILE})
     props.append({"piece": "pipe_elbow_r_d", "x": pipe_col * TILE, "y": pipe_row * TILE})
     run = {76: "pipe_h_a", 77: "pipe_h_a", 78: "pipe_h_bracket", 79: "pipe_h_rust",
            80: "pipe_h_flange", 81: "pipe_h_a", 82: "pipe_h_a", 83: "pipe_h_bracket",
-           84: "pipe_h_a", 85: "pipe_wall_entry_r"}
+           84: "pipe_h_a", 85: "pipe_elbow_l_u"}
     for col, pid in run.items():
         props.append({"piece": pid, "x": col * TILE, "y": pipe_row * TILE})
+    # the run rises into the ceiling course instead of ending in mid-air
+    rise = {6: "pipe_v_a", 5: "pipe_v_bracket", 4: "pipe_v_a", 3: "pipe_v_ceiling_collar"}
+    for row, pid in rise.items():
+        props.append({"piece": pid, "x": 85 * TILE, "y": row * TILE})
     vertical = {8: "pipe_v_a", 9: "pipe_v_bracket", 10: "valve_wheel", 11: "pipe_v_a",
                 12: "pipe_v_a"}
     for row, pid in vertical.items():
