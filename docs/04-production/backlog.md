@@ -33,6 +33,13 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
 
+## Floor 01 art atlas v1 — area concepts (2026-11-16)
+
+- **Concept direction selected:** [Floor 01 ten-area atlas](../02-art/floor-01-art-atlas-v1.md) with a shared A/B/C catacomb substrate, distinct territories and special rooms. Book-derived attributes are distinguished from artistic interpretation.
+- **Agent sequence:** [area-kit plan](../07-agents/floor-01-area-kits-plan.md), beginning **after** the integrated Bevy corridor [COMP-01 PR #29](https://github.com/pando85/dungeon-floorbreak/pull/29) has actual evidence and a human visual/game-feel gate.
+- **Concept PNGs committed and verified:** [ten image references (overview + areas 02–10)](../../assets/concept/floor-01/atlas-v1/README.md) and a [SHA-256 manifest](../../assets/concept/floor-01/atlas-v1/manifest.json) are now in the PR; all ten Git blob identities match the original local reference bytes. Area 01 remains in the previously merged [opening concepts](../../assets/concept/floor-01/opening/README.md).
+- **Known incompleteness:** Gym and Ball of Swine use **provisional cropped atlas panels** rather than separate full-resolution concept art; neither arena geometry nor sprite output is approved. No new game mechanics are added by this doc PR.
+
 ## New art-direction handoff — Floor 01 opening (2026-11-16)
 
 - **Selected:** [opening catacomb + goblin / Murder Dozer concept direction](../02-art/floor-01-opening-catacomb-goblins.md). This locks the A/B/C environment grammar, gradual immersion, visually distinct goblins, and a pursuit-first Dozer encounter. It is **concept acceptance only**.

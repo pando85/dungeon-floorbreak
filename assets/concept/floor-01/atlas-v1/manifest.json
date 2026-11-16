@@ -1,0 +1,98 @@
+{
+  "schema": "the-crawl-concept-reference-inventory-v1",
+  "subject": "floor01-art-atlas",
+  "created_on": "2026-11-16",
+  "rights_note": "Owner-reported concept art scope only; not public playable-game distribution clearance",
+  "entries": [
+    {
+      "file": "00-floor01-art-atlas-overview.png",
+      "sha256": "cee1611b2ef75f20bce6448199921fa9ee9cb73834610b6ca43dc05fbf5d7ba3",
+      "size_bytes": 2851496,
+      "origin": "generated concept image from project conversation",
+      "upstream_local_source": "a_detailed_cinematic_pixel_art_concept_atlas_boa.png",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "02-tutorial-guild-old-guide.png",
+      "sha256": "957a6a4de57d281a7657605ba80d1a9c13029982ce89c5dd6268549bd388b344",
+      "size_bytes": 2330554,
+      "origin": "generated concept image from project conversation",
+      "upstream_local_source": "la_habitaci\u00f3n_del_viejo_gu\u00eda.png",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "03-bad-llamas-scorched-corridor.png",
+      "sha256": "4abb7f762552d448fd0748aa84388c4e05d7491354fe5dba3b7aa800801482e2",
+      "size_bytes": 2210407,
+      "origin": "generated concept image from project conversation",
+      "upstream_local_source": "a_wide_cinematic_pixel_art_2d_side_scroll_dungeo.png",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "04-fast-food-refuge.png",
+      "sha256": "a22acc2fe3cd1530e79e5bb9b529f8bb07e7443e4c26858610ed36dc8b7c379a",
+      "size_bytes": 2513312,
+      "origin": "generated concept image from project conversation",
+      "upstream_local_source": "a_highly_detailed_pixel_art_2d_side_scroll_fast_f.png",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "05-hoarder-lair.png",
+      "sha256": "dae2a74ac3cb9b415769313a850f2266347e84c6d6de535f8f8a67fb2b8f221f",
+      "size_bytes": 2475800,
+      "origin": "generated concept image from project conversation",
+      "upstream_local_source": "a_wide_cinematic_2d_pixel_art_scene_pixel_detail.png",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "06-goblin-workshop.png",
+      "sha256": "e9ad0a779849ebed6b834a1307e55aab5790084f868c3f8d9908c7b1a9690f11",
+      "size_bytes": 2694212,
+      "origin": "generated concept image from project conversation",
+      "upstream_local_source": "a_detailed_highly_polished_pixel_art_2d_side_scro.png",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "07-slimes-rot-stickers.png",
+      "sha256": "55fda2ee01f5bdc54448994c514510ec08659a2f036920a32f846e24838fe602",
+      "size_bytes": 2272231,
+      "origin": "generated concept image from project conversation",
+      "upstream_local_source": "a_detailed_cinematic_pixel_art_2d_side_scroller_b.png",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "08-circular-maze-survivor-camp.png",
+      "sha256": "28b419281d3b700046da254596965ccab8f7f12a32f6c220d03113aacc3c5ac1",
+      "size_bytes": 2543559,
+      "origin": "generated concept image from project conversation",
+      "upstream_local_source": "a_highly_detailed_2d_pixel_art_scene_in_a_widescre.png",
+      "review_status": "selected concept direction only; not production sprites"
+    },
+    {
+      "file": "09-juicer-gym-atlas-excerpt.png",
+      "sha256": "de2e96e4114f9418034ff6a996ef5a2ce53cab8a458faad1e817cb797c850bc0",
+      "size_bytes": 216854,
+      "origin": "lossless crop from 00-floor01-art-atlas-overview.png",
+      "crop_box_xyxy": [
+        783,
+        535,
+        1536,
+        688
+      ],
+      "review_status": "provisional atlas excerpt only; needs standalone art before production"
+    },
+    {
+      "file": "10-ball-of-swine-arena-atlas-excerpt.png",
+      "sha256": "9dcc397877decf2ac7a47d34a95d1baa209a6cb0d00e42acbf1e1458b5e6335d",
+      "size_bytes": 220252,
+      "origin": "lossless crop from 00-floor01-art-atlas-overview.png",
+      "crop_box_xyxy": [
+        783,
+        693,
+        1536,
+        844
+      ],
+      "review_status": "provisional atlas excerpt only; needs standalone art before production"
+    }
+  ]
+}
