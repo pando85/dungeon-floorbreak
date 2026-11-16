@@ -1,0 +1,261 @@
+{
+  "b1_actor_set": "b960",
+  "b1_actors_real": true,
+  "frames": {
+    "a0": {
+      "colours_native": 130,
+      "readability": {
+        "carl": {
+          "actor_mean_L": 41.6,
+          "surround_mean_L": 27.6,
+          "delta_L": 14.0,
+          "luminance_contrast_ratio": 2.01,
+          "silhouette_edge_mean_abs_dL": 15.0,
+          "edge_samples": 240
+        },
+        "donut": {
+          "actor_mean_L": 49.8,
+          "surround_mean_L": 36.6,
+          "delta_L": 13.2,
+          "luminance_contrast_ratio": 1.78,
+          "silhouette_edge_mean_abs_dL": 34.7,
+          "edge_samples": 234
+        }
+      }
+    },
+    "a1": {
+      "colours_native": 6181,
+      "readability": {
+        "carl": {
+          "actor_mean_L": 39.1,
+          "surround_mean_L": 20.9,
+          "delta_L": 18.2,
+          "luminance_contrast_ratio": 2.35,
+          "silhouette_edge_mean_abs_dL": 13.1,
+          "edge_samples": 240
+        },
+        "donut": {
+          "actor_mean_L": 47.4,
+          "surround_mean_L": 31.1,
+          "delta_L": 16.3,
+          "luminance_contrast_ratio": 2.0,
+          "silhouette_edge_mean_abs_dL": 33.0,
+          "edge_samples": 234
+        }
+      }
+    },
+    "b1": {
+      "colours_native": 7925,
+      "readability": {
+        "carl": {
+          "actor_mean_L": 40.9,
+          "surround_mean_L": 21.6,
+          "delta_L": 19.3,
+          "luminance_contrast_ratio": 2.44,
+          "silhouette_edge_mean_abs_dL": 13.3,
+          "edge_samples": 354
+        },
+        "donut": {
+          "actor_mean_L": 48.3,
+          "surround_mean_L": 32.8,
+          "delta_L": 15.5,
+          "luminance_contrast_ratio": 1.94,
+          "silhouette_edge_mean_abs_dL": 33.7,
+          "edge_samples": 364
+        }
+      }
+    }
+  },
+  "files": [
+    "native/a0_640x360.png",
+    "4k/a0_3840x2160_x6.png",
+    "1080p/a0_1920x1080_x3.png",
+    "native/a0_640x400.png",
+    "deck/a0_1280x800_640x400_x2.png",
+    "native/a1_640x360.png",
+    "4k/a1_3840x2160_x6.png",
+    "1080p/a1_1920x1080_x3.png",
+    "native/a1_640x400.png",
+    "deck/a1_1280x800_640x400_x2.png",
+    "native/b1_960x540.png",
+    "4k/b1_3840x2160_x4.png",
+    "1080p/b1_1920x1080_x2.png",
+    "deck/b1_1280x800_sharp_bilinear_1.33x.png",
+    "deck/b1_1280x800_1x_letterbox.png",
+    "layers/a640_0_far_gallery.png",
+    "layers/a640_1_mid_gallery.png",
+    "layers/a640_2_backwall.png",
+    "layers/a640_3_terrain.png",
+    "layers/a640_4_structure.png",
+    "layers/a640_5_props.png",
+    "layers/a640_6_actors.png",
+    "layers/a640_7_foreground.png",
+    "layers/b960_0_far_gallery.png",
+    "layers/b960_1_mid_gallery.png",
+    "layers/b960_2_backwall.png",
+    "layers/b960_3_terrain.png",
+    "layers/b960_4_structure.png",
+    "layers/b960_5_props.png",
+    "layers/b960_6_actors.png",
+    "layers/b960_7_foreground.png",
+    "crop_compare_4k_800px.png",
+    "preview_triptych.png",
+    "a1_parallax_demo.gif"
+  ],
+  "pixel_layers": {
+    "a640": {
+      "layers": {
+        "far_gallery": {
+          "opaque_px": 64960,
+          "colours": 14,
+          "bbox": [
+            280,
+            232
+          ]
+        },
+        "mid_gallery": {
+          "opaque_px": 26141,
+          "colours": 13,
+          "bbox": [
+            292,
+            212
+          ]
+        },
+        "backwall": {
+          "opaque_px": 146412,
+          "colours": 26,
+          "bbox": [
+            640,
+            288
+          ]
+        },
+        "terrain": {
+          "opaque_px": 74432,
+          "colours": 20,
+          "bbox": [
+            640,
+            128
+          ]
+        },
+        "structure": {
+          "opaque_px": 36672,
+          "colours": 20,
+          "bbox": [
+            296,
+            262
+          ]
+        },
+        "props": {
+          "opaque_px": 6391,
+          "colours": 25,
+          "bbox": [
+            534,
+            240
+          ]
+        },
+        "foreground": {
+          "opaque_px": 2996,
+          "colours": 3,
+          "bbox": [
+            640,
+            32
+          ]
+        }
+      },
+      "total_opaque_px": 358004,
+      "palette_union": 85
+    },
+    "b960": {
+      "layers": {
+        "far_gallery": {
+          "opaque_px": 146160,
+          "colours": 13,
+          "bbox": [
+            420,
+            348
+          ]
+        },
+        "mid_gallery": {
+          "opaque_px": 57978,
+          "colours": 13,
+          "bbox": [
+            438,
+            318
+          ]
+        },
+        "backwall": {
+          "opaque_px": 300632,
+          "colours": 26,
+          "bbox": [
+            960,
+            402
+          ]
+        },
+        "terrain": {
+          "opaque_px": 138672,
+          "colours": 20,
+          "bbox": [
+            960,
+            162
+          ]
+        },
+        "structure": {
+          "opaque_px": 82258,
+          "colours": 20,
+          "bbox": [
+            444,
+            393
+          ]
+        },
+        "props": {
+          "opaque_px": 14512,
+          "colours": 26,
+          "bbox": [
+            801,
+            360
+          ]
+        },
+        "foreground": {
+          "opaque_px": 1111,
+          "colours": 3,
+          "bbox": [
+            947,
+            18
+          ]
+        }
+      },
+      "total_opaque_px": 741323,
+      "palette_union": 86
+    },
+    "actors_a640": {
+      "carl_h52.grid": {
+        "opaque_px": 837,
+        "opaque_height": 52
+      },
+      "donut_h40.grid": {
+        "opaque_px": 1305,
+        "opaque_height": 40
+      }
+    },
+    "actors_b960": {
+      "carl_h78.grid": {
+        "opaque_px": 1815,
+        "opaque_height": 78
+      },
+      "donut_h60.grid": {
+        "opaque_px": 2843,
+        "opaque_height": 60
+      }
+    },
+    "actors_b960_placeholder": {
+      "carl_h52.grid": {
+        "opaque_px": 1865,
+        "opaque_height": 78
+      },
+      "donut_h40.grid": {
+        "opaque_px": 2968,
+        "opaque_height": 60
+      }
+    }
+  }
+}

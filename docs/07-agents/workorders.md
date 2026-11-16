@@ -2,7 +2,7 @@
 
 ## Operating principle
 
-Code is created by local agents; a human sets priorities and evaluates play feel, design coherence and public-release decisions. Use one explicit work order per PR. An agent may use tools/models suited to coding or art, but the engineering contract is model-neutral.
+Code is created by local agents; a human sets priorities and evaluates play feel, design coherence and public-release decisions. Use one explicit work order per PR. An agent may use tools/models suited to coding or art, but the engineering contract is model-neutral; art design and art review follow the model routing rule in [AGENTS.md](../../AGENTS.md#model-routing-for-art-work).
 
 ## Prompt template
 

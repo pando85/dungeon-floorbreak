@@ -1,0 +1,84 @@
+{
+  "format": "lookdev-lighting-v1",
+  "note": "LOOK-DEV ONLY. Light list and compositing settings for scripts/lookdev_compose.py. Positions and radii are in 640x360 virtual pixels (design units); the b960 redraw multiplies them by 1.5. Lighting buffers are evaluated at the output resolution; pixel layers are only ever nearest-upscaled by an integer factor.",
+  "walk_line_design_y": 288,
+  "frames": {
+    "a0": {"density": "a640", "view": "640x360", "lighting": false, "actors": "a640"},
+    "a1": {"density": "a640", "view": "640x360", "lighting": true, "actors": "a640"},
+    "b1": {"density": "b960", "view": "960x540", "lighting": true, "actors": "b960"}
+  },
+  "actors": {
+    "a640": {
+      "status": "real",
+      "sprites": [
+        {"grid": "assets/source/characters/carl/carl_h52.grid.json", "x_design": 64},
+        {"grid": "assets/source/characters/donut/donut_h40.grid.json", "x_design": 126}
+      ]
+    },
+    "b960": {
+      "status": "real",
+      "note": "Look-dev redraws from branch art/lookdev-cast-h78-h60 (Carl 78 px, Donut 60 px), frame 0.",
+      "sprites": [
+        {"grid": "assets/source/lookdev/characters/carl_h78.grid.json", "x_design": 64},
+        {"grid": "assets/source/lookdev/characters/donut_h60.grid.json", "x_design": 126}
+      ]
+    },
+    "b960_placeholder": {
+      "status": "placeholder",
+      "label": "PLACEHOLDER - approved h52/h40 sprites nearest-upscaled 1.5x - not representative",
+      "sprites": [
+        {"grid": "assets/source/characters/carl/carl_h52.grid.json", "x_design": 64, "upscale": 1.5},
+        {"grid": "assets/source/characters/donut/donut_h40.grid.json", "x_design": 126, "upscale": 1.5}
+      ]
+    }
+  },
+  "lights": {
+    "t1": {"x": 112, "y": 158, "radius": 250, "colour": "#ffbd7a", "intensity": 0.34, "additive": 0.08, "glow_radius": 46},
+    "t2": {"x": 218, "y": 176, "radius": 220, "colour": "#ffbd7a", "intensity": 0.28, "additive": 0.07, "glow_radius": 42},
+    "t3": {"x": 454, "y": 176, "radius": 220, "colour": "#ffbd7a", "intensity": 0.28, "additive": 0.07, "glow_radius": 42},
+    "t4": {"x": 600, "y": 158, "radius": 240, "colour": "#ffbd7a", "intensity": 0.3, "additive": 0.08, "glow_radius": 46},
+    "p1": {"x": 112, "y": 284, "radius": 130, "squash_y": 0.32, "colour": "#ffb36b", "intensity": 0.32, "additive": 0.0},
+    "p2": {"x": 218, "y": 286, "radius": 90, "squash_y": 0.32, "colour": "#ffb36b", "intensity": 0.22, "additive": 0.0},
+    "p3": {"x": 454, "y": 286, "radius": 90, "squash_y": 0.32, "colour": "#ffb36b", "intensity": 0.22, "additive": 0.0},
+    "p4": {"x": 600, "y": 284, "radius": 130, "squash_y": 0.32, "colour": "#ffb36b", "intensity": 0.28, "additive": 0.0},
+    "bounce": {"x": 336, "y": 214, "radius": 150, "colour": "#5b7cc4", "intensity": 0.32, "additive": 0.0},
+    "g1": {"x": 293, "y": 206, "radius": 70, "colour": "#ff9a50", "intensity": 0.7, "additive": 0.2, "glow_radius": 16},
+    "f1": {"x": 270, "y": 204, "radius": 30, "colour": "#ff9a50", "intensity": 0.5, "additive": 0.22, "glow_radius": 9},
+    "f2": {"x": 314, "y": 204, "radius": 30, "colour": "#ff9a50", "intensity": 0.5, "additive": 0.22, "glow_radius": 9},
+    "f3": {"x": 358, "y": 204, "radius": 30, "colour": "#ff9a50", "intensity": 0.5, "additive": 0.22, "glow_radius": 9},
+    "f4": {"x": 402, "y": 204, "radius": 30, "colour": "#ff9a50", "intensity": 0.5, "additive": 0.22, "glow_radius": 9},
+    "sky": {"x": 336, "y": 110, "radius": 120, "colour": "#6f92d0", "intensity": 0.3, "additive": 0.0}
+  },
+  "groups": {
+    "gallery_far": {
+      "ambient": [0.74, 0.84, 1.05],
+      "lights": ["f1", "f2", "f3", "f4", "sky"],
+      "glow_lights": ["f1", "f2", "f3", "f4"],
+      "haze": {"colour": "#35517f", "amount": 0.26, "floor_fog": {"from_y": 226, "to_y": 268, "amount": 0.3}}
+    },
+    "gallery_mid": {
+      "ambient": [0.62, 0.72, 0.98],
+      "lights": ["g1", "sky"],
+      "glow_lights": ["g1"],
+      "haze": {"colour": "#2b4069", "amount": 0.1, "floor_fog": {"from_y": 236, "to_y": 272, "amount": 0.2}}
+    },
+    "scene": {
+      "ambient": [0.6, 0.62, 0.82],
+      "lights": ["t1", "t2", "t3", "t4", "p1", "p2", "p3", "p4", "bounce"],
+      "glow_lights": ["t1", "t2", "t3", "t4"]
+    },
+    "actors": {
+      "ambient": [0.9, 0.92, 1.0],
+      "light_scale": 0.3,
+      "lights": ["t1", "t2", "t3", "t4"]
+    },
+    "foreground": {
+      "ambient": [0.5, 0.55, 0.75],
+      "lights": ["t1", "t4"]
+    }
+  },
+  "bloom": {"emissive_layers": ["props", "mid_gallery", "far_gallery"], "threshold": 214, "intensity": 0.9, "radius_virtual": 2.5, "downsample_per_virtual_px": 0.5},
+  "crop_compare": {"box_4k": [96, 1020, 896, 1820], "note": "Same 800x800 4K-pixel region (design x 16..149, y 170..303) in every 4K render."},
+  "parallax_demo": {"scale": 2, "steps": 16, "amplitude_design_px": 20, "crop_view_px": [180, 20, 492, 300],
+                    "note": "Relative parallax: near layers pinned, gallery layers slide by (1 - parallax) x camera offset."}
+}

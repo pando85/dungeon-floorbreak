@@ -1,0 +1,227 @@
+{
+  "format": "lookdev-scene-v1",
+  "note": "LOOK-DEV ONLY: Floor 1 resolution and lighting spike. Not production art, not runtime data. Layer offsets are in canvas pixels of each density.",
+  "design_units": "640x360 virtual pixels; b960 renders 1 design unit as 1.5 px",
+  "provenance": "Authored by Claude Opus with scripts/lookdev_floor01_author.py; concept 01-catacomb-environment-clean.png used for mood only, never sampled.",
+  "walk_line_design_y": 288,
+  "densities": {
+    "a640": {
+      "density": 1.0,
+      "canvas": [
+        640,
+        400
+      ],
+      "design_origin": [
+        0.0,
+        -20.0
+      ],
+      "views": {
+        "640x360": [
+          0,
+          20,
+          640,
+          360
+        ],
+        "640x400": [
+          0,
+          0,
+          640,
+          400
+        ]
+      },
+      "layers": [
+        {
+          "name": "far_gallery",
+          "grid": "a640_far_gallery.grid.json",
+          "ase": "a640_far_gallery.ase",
+          "offset": [
+            196,
+            60
+          ],
+          "parallax": 0.35,
+          "light_group": "gallery_far",
+          "colours": 14
+        },
+        {
+          "name": "mid_gallery",
+          "grid": "a640_mid_gallery.grid.json",
+          "ase": "a640_mid_gallery.ase",
+          "offset": [
+            190,
+            80
+          ],
+          "parallax": 0.6,
+          "light_group": "gallery_mid",
+          "colours": 13
+        },
+        {
+          "name": "backwall",
+          "grid": "a640_backwall.grid.json",
+          "ase": "a640_backwall.ase",
+          "offset": [
+            0,
+            0
+          ],
+          "parallax": 1.0,
+          "light_group": "scene",
+          "colours": 26
+        },
+        {
+          "name": "terrain",
+          "grid": "a640_terrain.grid.json",
+          "ase": "a640_terrain.ase",
+          "offset": [
+            0,
+            272
+          ],
+          "parallax": 1.0,
+          "light_group": "scene",
+          "colours": 20
+        },
+        {
+          "name": "structure",
+          "grid": "a640_structure.grid.json",
+          "ase": "a640_structure.ase",
+          "offset": [
+            188,
+            38
+          ],
+          "parallax": 1.0,
+          "light_group": "scene",
+          "colours": 20
+        },
+        {
+          "name": "props",
+          "grid": "a640_props.grid.json",
+          "ase": "a640_props.ase",
+          "offset": [
+            106,
+            50
+          ],
+          "parallax": 1.0,
+          "light_group": "scene",
+          "colours": 25
+        },
+        {
+          "name": "foreground",
+          "grid": "a640_foreground.grid.json",
+          "ase": "a640_foreground.ase",
+          "offset": [
+            0,
+            368
+          ],
+          "parallax": 1.15,
+          "light_group": "foreground",
+          "colours": 3
+        }
+      ],
+      "actor_insert_index": 6
+    },
+    "b960": {
+      "density": 1.5,
+      "canvas": [
+        960,
+        540
+      ],
+      "design_origin": [
+        0.0,
+        0.0
+      ],
+      "views": {
+        "960x540": [
+          0,
+          0,
+          960,
+          540
+        ]
+      },
+      "layers": [
+        {
+          "name": "far_gallery",
+          "grid": "b960_far_gallery.grid.json",
+          "ase": "b960_far_gallery.ase",
+          "offset": [
+            294,
+            60
+          ],
+          "parallax": 0.35,
+          "light_group": "gallery_far",
+          "colours": 13
+        },
+        {
+          "name": "mid_gallery",
+          "grid": "b960_mid_gallery.grid.json",
+          "ase": "b960_mid_gallery.ase",
+          "offset": [
+            285,
+            90
+          ],
+          "parallax": 0.6,
+          "light_group": "gallery_mid",
+          "colours": 13
+        },
+        {
+          "name": "backwall",
+          "grid": "b960_backwall.grid.json",
+          "ase": "b960_backwall.ase",
+          "offset": [
+            0,
+            0
+          ],
+          "parallax": 1.0,
+          "light_group": "scene",
+          "colours": 26
+        },
+        {
+          "name": "terrain",
+          "grid": "b960_terrain.grid.json",
+          "ase": "b960_terrain.ase",
+          "offset": [
+            0,
+            378
+          ],
+          "parallax": 1.0,
+          "light_group": "scene",
+          "colours": 20
+        },
+        {
+          "name": "structure",
+          "grid": "b960_structure.grid.json",
+          "ase": "b960_structure.ase",
+          "offset": [
+            282,
+            27
+          ],
+          "parallax": 1.0,
+          "light_group": "scene",
+          "colours": 20
+        },
+        {
+          "name": "props",
+          "grid": "b960_props.grid.json",
+          "ase": "b960_props.ase",
+          "offset": [
+            159,
+            45
+          ],
+          "parallax": 1.0,
+          "light_group": "scene",
+          "colours": 26
+        },
+        {
+          "name": "foreground",
+          "grid": "b960_foreground.grid.json",
+          "ase": "b960_foreground.ase",
+          "offset": [
+            7,
+            522
+          ],
+          "parallax": 1.15,
+          "light_group": "foreground",
+          "colours": 3
+        }
+      ],
+      "actor_insert_index": 6
+    }
+  }
+}
