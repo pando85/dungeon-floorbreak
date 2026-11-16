@@ -15,6 +15,9 @@ use crate::scroll_camera::{CameraConfig, ScrollCamera};
 
 /// How far behind Carl (path length, virtual px) Donut trails.
 pub const DONUT_FOLLOW_PX: f32 = 32.0;
+/// Safety cap on stored Donut trail samples (about 8 s of continuous motion
+/// beyond the 32 px leash, which needs only a few dozen).
+const MAX_TRAIL_SAMPLES: usize = 512;
 /// Hard stop for scripted runs so a stuck scenario cannot loop forever.
 pub const MAX_SCENARIO_TICKS: u64 = 20_000;
 
@@ -141,12 +144,23 @@ impl CorridorWorld {
         if x == last.x && foot_y == last.foot_y {
             return;
         }
-        self.trail.push_back(TrailSample {
+        let sample = TrailSample {
             x,
             foot_y,
             arc: last.arc + (x - last.x).abs(),
             facing: self.hero.facing,
-        });
+        };
+        // Vertical-only motion (jumping in place) adds no path length: keep a
+        // single sample per arc position instead of growing the trail.
+        let len = self.trail.len();
+        if len >= 2 && self.trail[len - 2].arc == sample.arc && last.arc == sample.arc {
+            *self.trail.back_mut().expect("trail is never empty") = sample;
+        } else {
+            self.trail.push_back(sample);
+        }
+        while self.trail.len() > MAX_TRAIL_SAMPLES {
+            self.trail.pop_front();
+        }
         // Keep a little more history than the leash needs.
         let newest = self.trail.back().map_or(0.0, |s| s.arc);
         while self.trail.len() > 2 && self.trail[1].arc < newest - DONUT_FOLLOW_PX - 8.0 {
@@ -621,6 +635,40 @@ mod tests {
             [308.0, 292.0, 276.0].contains(&line) || a.world.donut.foot_y > 92.0,
             "{line}"
         );
+    }
+
+    #[test]
+    fn donut_trail_stays_bounded_when_carl_jumps_in_place_or_pushes_a_wall() {
+        let mut sim = sim(360);
+        for tick in 0..5000 {
+            // Tap jump every 70 ticks, never moving horizontally.
+            sim.step(RawInput {
+                jump: tick % 70 < 2,
+                ..Default::default()
+            });
+            assert!(
+                sim.world.trail.len() <= 4,
+                "trail grew to {}",
+                sim.world.trail.len()
+            );
+        }
+        // Walking the whole corridor and back also stays far below the cap.
+        let longest = sim_with_longest_trail();
+        assert!(longest <= 64, "longest trail {longest}");
+    }
+
+    fn sim_with_longest_trail() -> usize {
+        let mut sim = sim(360);
+        let mut longest = 0;
+        for _ in 0..1000 {
+            if sim.world.complete {
+                break;
+            }
+            let raw = Scenario::WalkRight.input(&sim.world);
+            sim.step(raw);
+            longest = longest.max(sim.world.trail.len());
+        }
+        longest
     }
 
     #[test]

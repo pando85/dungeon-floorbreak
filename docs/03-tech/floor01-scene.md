@@ -25,7 +25,7 @@ Run from the repository root. A missing atlas is a setup failure: the binary pri
 | `--debug-collision` | overlay merged solids (red), walking lines (cyan) and Carl's AABB (green) |
 | `--headless-floor01-smoke` | no window or GPU: parse, derive solids, simulate, print state lines |
 
-Controls: **A/D** or arrows or left stick/D-pad move, **Space** or South jumps, **R** or North restarts, **Esc** or Start quits. Reaching the B2 arch prints `FLOOR1_EXIT_REACHED` and stops the simulation (restart with R). Moving and jumping still show the **idle** frames: no locomotion art exists yet.
+Controls: **A/D** or arrows or left stick/D-pad move, **Space** or South jumps, **R** or North restarts, **Esc** or Start quits. Reaching the B2 arch prints `FLOOR1_EXIT_REACHED` and stops the simulation (restart with R); torches and idle frames keep animating on a separate presentation tick. The window is not resizable (ADR-0007 integer scaling: window = virtual size x scale). Moving and jumping still show the **idle** frames: no locomotion art exists yet.
 
 ## Architecture
 
@@ -37,7 +37,7 @@ Pure library modules (headless, unit-tested) and one Bevy adapter:
 | `corridor` | `CorridorWorld` (Carl, Donut, solids, tick, state hash), `SceneSim` (world + camera + input), scripted scenarios. |
 | `scroll_camera` | integer, deterministic camera rig |
 | `actor_sprite` | pivot, flip and foot maths, idle frame from the tick |
-| `prototype::step_hero` | the greybox's hero physics, extracted so both scenes share one implementation; `World::move_hero` delegates (a golden bit-trace test, added first, proves the extraction changed nothing) |
+| `prototype::step_hero` | the greybox's hero physics, extracted so both scenes share one implementation; `World::move_hero` delegates (two golden bit-trace tests of the greybox hero were added first and pass unchanged after the extraction; they are a coarse regression net, and direct `step_hero` tests pin coyote time, the jump buffer, wall push-out, ceiling bonk and landing individually) |
 | `src/bin/floor01_scene.rs` | input adapter, sprite spawning, per-frame sync, watchdog, headless smoke |
 
 Rendering reads simulation state and never feeds it. Lighting, parallax, decals and every piece are never read by collision.
@@ -78,11 +78,11 @@ A strip pixel at strip-local `u` is drawn at `x_origin + k*W + u - camera_x*fact
 
 ## Donut (passive visual companion)
 
-Donut trails Carl by **32 px of horizontal path length**, replaying the trail of Carl's foot positions (x and foot height), including his jump arcs, so she lands on the same walking lines. She has no collision, combat, physics or influence on Carl (tested: Carl's trajectory equals the bare greybox hero's). When Carl turns around she keeps walking to the turn point before reversing, passing through him. She starts 32 px behind the spawn. She is not a playable caster.
+Donut trails Carl by **32 px of horizontal path length**, replaying the trail of Carl's foot positions (x and foot height), including his jump arcs, so she lands on the same walking lines. She has no collision, combat, physics or influence on Carl (tested: Carl's trajectory equals the bare greybox hero's). The stored trail is bounded: jumping in place adds no samples (one per path position) and a hard cap of 512 samples backs that up (tested). When Carl turns around she keeps walking to the turn point before reversing, passing through him. She starts 32 px behind the spawn. She is not a playable caster.
 
 ## Determinism
 
-The fixed 60 Hz tick drives everything simulated: hero, Donut, camera, torch and idle frames. State hashing is FNV-1a over f32 bit patterns. `FLOOR1_SCENE_STATE tick=... hero=... cam=... hash=...` is printed by the headless smoke and by the render; CI requires them to match for the frozen captures (`--scenario walk_right --capture-tick 250`). Rendered pixels are not compared bit-for-bit across GPUs.
+The fixed 60 Hz tick drives everything simulated: hero, Donut, camera, torch and idle frames. State hashing is FNV-1a over f32 bit patterns. `FLOOR1_SCENE_STATE tick=... hero=... cam=... hash=...` is printed by the headless smoke and by the render process; CI requires the two lines to be identical for the frozen captures (`--scenario walk_right --capture-tick 250`). That proves **cross-process determinism of the simulation state** (the same scripted input gives the same state in two separate runs). It does **not** prove that the rendered pixels show that state; pixel correctness rests on the screenshot size/colour checks, the author's review and the human playtest. Rendered pixels are not compared bit-for-bit across GPUs.
 
 ## Known limits
 
@@ -97,6 +97,6 @@ The fixed 60 Hz tick drives everything simulated: hero, Donut, camera, torch and
 
 ## CI
 
-`.github/workflows/floor01-scene.yml`: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), `cargo fmt/clippy/test`, headless smoke, then Xvfb renders (desktop, deck, advanced, advanced-deck, collision) through `scripts/ci_floor01_render_smoke.sh`. Evidence artifact: `the-crawl-floor01-scene`.
+`.github/workflows/floor01-scene.yml`: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop, deck, advanced, advanced-deck, collision) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1280x720 / 1280x800). `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
 
 **Rights:** the character art is public fan-concept art under the recorded scope in [the rights register](../04-production/rights-and-release.md); it does not establish rights to distribute a playable game.

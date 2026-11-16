@@ -23,7 +23,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # Same shared key as game.yml and character-playground.yml, so the three
+      # workflows reuse one dependency build. fmt, clippy and the Rust tests
+      # (including every floor01 test) run in game.yml.
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: bevy-linux-dev
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -55,12 +60,6 @@ jobs:
         run: python3 scripts/check_floor01_scene_contract.py
       - name: Negative tests for the scene contract checker
         run: python3 -m unittest discover -s tests -p 'test_floor01_scene_*.py' -v
-      - name: Check Rust formatting
-        run: cargo fmt --all -- --check
-      - name: Lint
-        run: cargo clippy --locked --all-targets -- -D warnings
-      - name: Run Rust tests
-        run: cargo test --locked --all-targets
       - name: Compile the Floor 1 scene
         run: cargo build --locked --bin floor01_scene
       - name: Headless corridor smoke (no GPU)

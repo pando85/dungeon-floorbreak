@@ -46,8 +46,16 @@ if ! grep -q FLOOR1_TEXTURES_READY "${base}.log"; then
   echo "Floor 1 textures did not load" >&2
   exit 1
 fi
-if ! xwininfo -root -tree | grep -Fq 'THE CRAWL - Floor 1 Corridor'; then
+window_title='THE CRAWL - Floor 1 Corridor'
+if ! window_info="$(xwininfo -name "$window_title" 2>/dev/null)"; then
   echo "Floor 1 scene window missing" >&2
+  exit 1
+fi
+# The window itself (not the Xvfb root) must be the expected integer multiple
+# of the virtual resolution: 1280x720 for 640x360, 1280x800 for 640x400.
+window_geometry="$(awk '/^  Width:/ {w=$2} /^  Height:/ {h=$2} END {print w "x" h}' <<<"$window_info")"
+if [[ "$window_geometry" != "$expected" ]]; then
+  echo "Window is $window_geometry, expected $expected" >&2
   exit 1
 fi
 sleep 2
@@ -94,4 +102,4 @@ case "$mode" in
     fi
     ;;
 esac
-echo "FLOOR1_RENDER_OK: $mode at $actual ($colors colors)"
+echo "FLOOR1_RENDER_OK: $mode window $window_geometry, screenshot $actual ($colors colors)"

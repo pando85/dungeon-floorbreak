@@ -153,6 +153,12 @@ struct Setup {
 #[derive(Resource)]
 struct Frozen(bool);
 
+/// Presentation ticks since the simulation stopped at the exit. The sim tick
+/// stops there (so state hashes stay stable), but torches and idle frames keep
+/// animating from `sim tick + this`. Never read by the simulation.
+#[derive(Resource, Default)]
+struct AfterExitTicks(u64);
+
 #[derive(Resource)]
 struct LiveScenario(Option<Scenario>);
 
@@ -213,6 +219,9 @@ fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
                     primary_window: Some(Window {
                         title: TITLE.into(),
                         resolution: window_size.into(),
+                        // ADR-0007: integer scaling only; the window is exactly
+                        // virtual size x scale (letterboxing is deferred).
+                        resizable: false,
                         ..default()
                     }),
                     ..default()
@@ -225,6 +234,7 @@ fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
         .insert_resource(LiveScenario(scenario))
         .insert_resource(Setup { kit, args })
         .init_resource::<Controls>()
+        .init_resource::<AfterExitTicks>()
         .add_systems(Startup, setup)
         .add_systems(Update, (capture_input, sync_visuals, watchdog).chain())
         .add_systems(FixedUpdate, fixed_step)
@@ -458,6 +468,7 @@ fn fixed_step(
     scenario: Res<LiveScenario>,
     mut controls: ResMut<Controls>,
     mut sim: ResMut<Sim>,
+    mut after_exit: ResMut<AfterExitTicks>,
 ) {
     let restart = std::mem::take(&mut controls.restart);
     let jump_tap = std::mem::take(&mut controls.jump_tap);
@@ -466,6 +477,7 @@ fn fixed_step(
     }
     if restart {
         sim.0.reset();
+        after_exit.0 = 0;
         println!("FLOOR1_RESTART");
     }
     let raw = if let Some(scenario) = scenario.0 {
@@ -496,11 +508,15 @@ fn fixed_step(
     if sim.0.world.complete && !was_complete {
         println!("FLOOR1_EXIT_REACHED tick={}", sim.0.world.tick);
     }
+    if was_complete {
+        after_exit.0 += 1;
+    }
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_visuals(
     sim: Res<Sim>,
+    after_exit: Res<AfterExitTicks>,
     setup: Res<Setup>,
     mut camera: Query<&mut Transform, With<Camera2d>>,
     mut parallax: Query<
@@ -527,6 +543,7 @@ fn sync_visuals(
     let height = kit.height;
     let view_h = view_height(setup.args.deck);
     let (left, top) = (state.camera.left(), state.camera.top());
+    let anim_tick = state.world.tick + after_exit.0;
 
     if let Ok(mut transform) = camera.single_mut() {
         transform.translation.x = (left + VIRTUAL_WIDTH / 2) as f32;
@@ -547,7 +564,7 @@ fn sync_visuals(
     }
 
     for (torch, mut sprite) in &mut torches {
-        let frame = animation_frame(&torch.durations, torch.offset, state.world.tick);
+        let frame = animation_frame(&torch.durations, torch.offset, anim_tick);
         sprite.rect = Some(torch.rects[frame]);
     }
 
@@ -564,7 +581,7 @@ fn sync_visuals(
         transform.translation.y = cy;
         sprite.flip_x = flip;
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
-            atlas.index = idle_frame(state.world.tick, phase);
+            atlas.index = idle_frame(anim_tick, phase);
         }
     }
 

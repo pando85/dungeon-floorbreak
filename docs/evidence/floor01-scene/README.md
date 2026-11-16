@@ -13,7 +13,7 @@ Captured on the author's Linux machine under Xvfb (`xvfb-run`) with `scripts/ci_
 | `floor01-scene-collision-640x360.png` | `--scenario walk_right --capture-tick 80 --debug-collision` | merged solids (red), walking lines (cyan), Carl's 24 x 52 box (green) on the 1-tile platform |
 | `floor01-scene-turn-around-1920x1080.png` | `--scenario turn_around --capture-tick 185 --scale 3` | 1080p at 3x with Carl flipped (facing left) and Donut behind him |
 
-The two scripted captures print the same `FLOOR1_SCENE_STATE` line in the headless smoke and in the render; CI compares them. A passing render proves integration, not quality: **no claim of game feel, readability or performance is made, and no performance data was collected.**
+The two scripted captures print the same `FLOOR1_SCENE_STATE` line in the headless smoke and in the render process; CI compares them. That shows cross-process determinism of the simulation state, not that the pixels match it. A passing render proves integration, not quality: **no claim of game feel, readability or performance is made, and no performance data was collected.**
 
 ## Manual controller playtest checklist (human review required)
 
