@@ -98,9 +98,14 @@ pub struct Hero {
 
 impl Hero {
     fn new() -> Self {
+        Self::at(86.0, FLOOR_TOP + HERO_HALF_HEIGHT)
+    }
+
+    /// Grounded, full-health hero whose AABB centre is `(x, y)`.
+    pub fn at(x: f32, y: f32) -> Self {
         Self {
-            x: 86.0,
-            y: FLOOR_TOP + HERO_HALF_HEIGHT,
+            x,
+            y,
             vx: 0.0,
             vy: 0.0,
             facing: 1,
@@ -342,76 +347,7 @@ impl World {
     }
 
     fn move_hero(&mut self, input: &InputFrame) {
-        if input.jump_pressed {
-            self.hero.jump_buffer_ticks = JUMP_BUFFER_TICKS;
-        } else {
-            self.hero.jump_buffer_ticks = self.hero.jump_buffer_ticks.saturating_sub(1);
-        }
-        if self.hero.grounded {
-            self.hero.coyote_ticks = COYOTE_TICKS;
-        } else {
-            self.hero.coyote_ticks = self.hero.coyote_ticks.saturating_sub(1);
-        }
-        if self.hero.jump_buffer_ticks > 0 && self.hero.coyote_ticks > 0 {
-            self.hero.vy = JUMP_SPEED;
-            self.hero.grounded = false;
-            self.hero.jump_buffer_ticks = 0;
-            self.hero.coyote_ticks = 0;
-        }
-
-        self.hero.vx = input.held.move_x * RUN_SPEED;
-        if self.hero.vx.abs() > 0.1 {
-            self.hero.facing = if self.hero.vx > 0.0 { 1 } else { -1 };
-        }
-        let mut next_x =
-            (self.hero.x + self.hero.vx * TICK_SECONDS).clamp(HERO_HALF_WIDTH, STAGE_WIDTH);
-        for block in self.blocks.iter().filter(|block| block.intact) {
-            let candidate = Rect {
-                left: next_x - HERO_HALF_WIDTH,
-                bottom: self.hero.y - HERO_HALF_HEIGHT,
-                width: HERO_HALF_WIDTH * 2.0,
-                height: HERO_HALF_HEIGHT * 2.0,
-            };
-            if candidate.overlaps(block.rect) {
-                if self.hero.vx > 0.0 {
-                    next_x = next_x.min(block.rect.left - HERO_HALF_WIDTH);
-                } else if self.hero.vx < 0.0 {
-                    next_x = next_x.max(block.rect.right() + HERO_HALF_WIDTH);
-                }
-            }
-        }
-        self.hero.x = next_x;
-
-        let previous_bottom = self.hero.y - HERO_HALF_HEIGHT;
-        let previous_top = self.hero.y + HERO_HALF_HEIGHT;
-        self.hero.vy -= GRAVITY * TICK_SECONDS;
-        let mut next_y = self.hero.y + self.hero.vy * TICK_SECONDS;
-        let mut grounded = false;
-        for block in self.blocks.iter().filter(|block| block.intact) {
-            let left = self.hero.x - HERO_HALF_WIDTH;
-            let right = self.hero.x + HERO_HALF_WIDTH;
-            if right <= block.rect.left || left >= block.rect.right() {
-                continue;
-            }
-            let next_bottom = next_y - HERO_HALF_HEIGHT;
-            let next_top = next_y + HERO_HALF_HEIGHT;
-            if self.hero.vy <= 0.0
-                && previous_bottom >= block.rect.top() - 0.01
-                && next_bottom <= block.rect.top()
-            {
-                next_y = block.rect.top() + HERO_HALF_HEIGHT;
-                self.hero.vy = 0.0;
-                grounded = true;
-            } else if self.hero.vy > 0.0
-                && previous_top <= block.rect.bottom + 0.01
-                && next_top >= block.rect.bottom
-            {
-                next_y = block.rect.bottom - HERO_HALF_HEIGHT;
-                self.hero.vy = 0.0;
-            }
-        }
-        self.hero.y = next_y;
-        self.hero.grounded = grounded;
+        step_hero(&mut self.hero, input, &self.blocks, STAGE_WIDTH);
     }
 
     fn move_enemies(&mut self) {
@@ -453,10 +389,96 @@ impl World {
     }
 }
 
+/// One fixed tick of hero movement against static solids: jump buffer, coyote
+/// time, horizontal sweep and gravity/landing. `max_x` is the largest centre x.
+/// Shared by the combat greybox and the Floor 1 corridor scene.
+pub fn step_hero(hero: &mut Hero, input: &InputFrame, blocks: &[Block], max_x: f32) {
+    if input.jump_pressed {
+        hero.jump_buffer_ticks = JUMP_BUFFER_TICKS;
+    } else {
+        hero.jump_buffer_ticks = hero.jump_buffer_ticks.saturating_sub(1);
+    }
+    if hero.grounded {
+        hero.coyote_ticks = COYOTE_TICKS;
+    } else {
+        hero.coyote_ticks = hero.coyote_ticks.saturating_sub(1);
+    }
+    if hero.jump_buffer_ticks > 0 && hero.coyote_ticks > 0 {
+        hero.vy = JUMP_SPEED;
+        hero.grounded = false;
+        hero.jump_buffer_ticks = 0;
+        hero.coyote_ticks = 0;
+    }
+
+    hero.vx = input.held.move_x * RUN_SPEED;
+    if hero.vx.abs() > 0.1 {
+        hero.facing = if hero.vx > 0.0 { 1 } else { -1 };
+    }
+    let mut next_x = (hero.x + hero.vx * TICK_SECONDS).clamp(HERO_HALF_WIDTH, max_x);
+    for block in blocks.iter().filter(|block| block.intact) {
+        let candidate = Rect {
+            left: next_x - HERO_HALF_WIDTH,
+            bottom: hero.y - HERO_HALF_HEIGHT,
+            width: HERO_HALF_WIDTH * 2.0,
+            height: HERO_HALF_HEIGHT * 2.0,
+        };
+        if candidate.overlaps(block.rect) {
+            if hero.vx > 0.0 {
+                next_x = next_x.min(block.rect.left - HERO_HALF_WIDTH);
+            } else if hero.vx < 0.0 {
+                next_x = next_x.max(block.rect.right() + HERO_HALF_WIDTH);
+            }
+        }
+    }
+    hero.x = next_x;
+
+    let previous_bottom = hero.y - HERO_HALF_HEIGHT;
+    let previous_top = hero.y + HERO_HALF_HEIGHT;
+    hero.vy -= GRAVITY * TICK_SECONDS;
+    let mut next_y = hero.y + hero.vy * TICK_SECONDS;
+    let mut grounded = false;
+    for block in blocks.iter().filter(|block| block.intact) {
+        let left = hero.x - HERO_HALF_WIDTH;
+        let right = hero.x + HERO_HALF_WIDTH;
+        if right <= block.rect.left || left >= block.rect.right() {
+            continue;
+        }
+        let next_bottom = next_y - HERO_HALF_HEIGHT;
+        let next_top = next_y + HERO_HALF_HEIGHT;
+        if hero.vy <= 0.0
+            && previous_bottom >= block.rect.top() - 0.01
+            && next_bottom <= block.rect.top()
+        {
+            next_y = block.rect.top() + HERO_HALF_HEIGHT;
+            hero.vy = 0.0;
+            grounded = true;
+        } else if hero.vy > 0.0
+            && previous_top <= block.rect.bottom + 0.01
+            && next_top >= block.rect.bottom
+        {
+            next_y = block.rect.bottom - HERO_HALF_HEIGHT;
+            hero.vy = 0.0;
+        }
+    }
+    hero.y = next_y;
+    hero.grounded = grounded;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::input::{InputFrame, RawInput};
+
+    const GOLDEN2_HASH: u64 = 0x602a_e125_eed5_c95f;
+    const GOLDEN2_GROUNDED_CHANGES: [u64; 6] = [30, 69, 85, 144, 145, 194];
+    const GOLDEN_HASH: u64 = 0xd279_b98a_e4f7_a845;
+    const GOLDEN_CHECKPOINTS: [(u32, u32); 5] = [
+        (1_132_953_596, 3_256_833_366),
+        (1_136_994_996, 3_239_706_626),
+        (1_131_424_418, 3_239_706_626),
+        (1_133_963_946, 3_239_706_626),
+        (1_138_005_346, 3_254_495_916),
+    ];
 
     fn press(world: &mut World, raw: RawInput) {
         let mut input = InputFrame::default();
@@ -599,6 +621,319 @@ mod tests {
             a.enemies.iter().map(|e| e.health).collect::<Vec<_>>(),
             b.enemies.iter().map(|e| e.health).collect::<Vec<_>>()
         );
+    }
+
+    /// Scripted 300-tick input exercising run, analogue run, jump buffer,
+    /// coyote time, melee, bombs, enemy contact and turning around.
+    fn golden_script(tick: u64) -> RawInput {
+        let move_x = match tick {
+            0..100 => 1.0,
+            100..130 => 0.0,
+            130..200 => -1.0,
+            200..250 => 1.0,
+            _ => 0.6,
+        };
+        RawInput {
+            move_x,
+            jump: (20..26).contains(&tick)
+                || tick == 90
+                || (150..153).contains(&tick)
+                || (210..216).contains(&tick)
+                || tick == 262,
+            attack: (60..63).contains(&tick) || (170..173).contains(&tick),
+            ability: (95..98).contains(&tick),
+            ..Default::default()
+        }
+    }
+
+    /// Second golden script: wall contact, climbing onto the timber barrier,
+    /// a late (coyote) jump after walking off its far edge, a buffered jump
+    /// just before landing, and a ceiling-free turn back.
+    fn wall_ledge_script(tick: u64) -> RawInput {
+        let move_x = match tick {
+            0..30 => 1.0,
+            30..34 => 0.0,
+            34..43 => 1.0,
+            43..70 => 0.0,
+            70..160 => 1.0,
+            _ => -1.0,
+        };
+        RawInput {
+            move_x,
+            jump: tick == 30 || tick == 89 || tick == 141,
+            ..Default::default()
+        }
+    }
+
+    fn fnv1a(hash: &mut u64, value: u64) {
+        for byte in value.to_le_bytes() {
+            *hash ^= u64::from(byte);
+            *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+
+    /// Regression lock: one scripted run (running, jumps, melee, a bomb, enemy
+    /// contact, turning around) must reproduce bit for bit. It is a coarse net
+    /// over the whole `World::step`, not a proof of every rule: the direct
+    /// `step_hero` tests below pin coyote time, the jump buffer, wall and
+    /// ceiling push-out and landing one by one.
+    #[test]
+    fn golden_trace_of_the_greybox_hero_is_bit_stable() {
+        let mut world = World::new();
+        let mut frame = InputFrame::default();
+        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+        let mut checkpoints = Vec::new();
+        for tick in 0..300 {
+            frame.advance(golden_script(tick));
+            world.step(&frame);
+            for value in [
+                world.hero.x.to_bits(),
+                world.hero.y.to_bits(),
+                world.hero.vx.to_bits(),
+                world.hero.vy.to_bits(),
+            ] {
+                fnv1a(&mut hash, u64::from(value));
+            }
+            fnv1a(&mut hash, u64::from(world.hero.grounded));
+            fnv1a(&mut hash, world.tick);
+            fnv1a(&mut hash, u64::from(world.hero.health));
+            if tick % 60 == 59 {
+                checkpoints.push((world.hero.x.to_bits(), world.hero.y.to_bits()));
+            }
+        }
+        assert_eq!(hash, GOLDEN_HASH);
+        assert_eq!(checkpoints, GOLDEN_CHECKPOINTS);
+    }
+
+    // ---- direct `step_hero` tests on synthetic blocks ----------------------
+    //
+    // These pin the movement rules one at a time (coyote window, jump buffer,
+    // wall push-out, ceiling bonk, landing) so a change to any single constant
+    // or push-out distance fails a named test instead of hiding inside a hash.
+
+    fn block(left: f32, bottom: f32, width: f32, height: f32) -> Block {
+        Block {
+            rect: Rect {
+                left,
+                bottom,
+                width,
+                height,
+            },
+            material: Material::Stone,
+            intact: true,
+        }
+    }
+
+    /// Drives `step_hero` with edge-detected input, like the real adapters.
+    struct Rig {
+        hero: Hero,
+        frame: InputFrame,
+        solids: Vec<Block>,
+    }
+
+    impl Rig {
+        fn new(x: f32, y: f32, solids: Vec<Block>) -> Self {
+            Self {
+                hero: Hero::at(x, y),
+                frame: InputFrame::default(),
+                solids,
+            }
+        }
+
+        fn tick(&mut self, move_x: f32, jump: bool) {
+            self.frame.advance(RawInput {
+                move_x,
+                jump,
+                ..Default::default()
+            });
+            step_hero(&mut self.hero, &self.frame, &self.solids, 10_000.0);
+        }
+    }
+
+    /// Jump pressed on the `k`-th tick after the hero walked off a ledge
+    /// (k = 1 is the first airborne tick). Returns whether the jump fired.
+    fn ledge_jump_after(k: u32) -> bool {
+        // Floor top at y = 0 for x in 0..100; nothing beyond the ledge.
+        let mut rig = Rig::new(
+            60.0,
+            HERO_HALF_HEIGHT,
+            vec![block(0.0, -100.0, 100.0, 100.0)],
+        );
+        while rig.hero.grounded {
+            rig.tick(1.0, false);
+        }
+        // The tick that left the ledge was tick 0; the press is on tick k.
+        for _ in 1..k {
+            rig.tick(1.0, false);
+        }
+        rig.tick(1.0, true);
+        // A fired jump sets vy = JUMP_SPEED before gravity: still rising.
+        rig.hero.vy > 0.0
+    }
+
+    #[test]
+    fn coyote_time_allows_a_late_jump_for_exactly_the_coyote_window() {
+        // Literal numbers on purpose: the window is 6 ticks (0.1 s); a test
+        // built from the constant would follow a mutated constant.
+        for k in 1..=5 {
+            assert!(
+                ledge_jump_after(k),
+                "jump {k} ticks after the ledge must fire"
+            );
+        }
+        assert!(!ledge_jump_after(6), "the coyote window is over");
+        assert!(!ledge_jump_after(9));
+    }
+
+    fn flat_rig() -> Rig {
+        Rig::new(
+            500.0,
+            HERO_HALF_HEIGHT,
+            vec![block(0.0, -100.0, 1000.0, 100.0)],
+        )
+    }
+
+    /// Jump from flat ground; the tick (counted from the jump press, which is
+    /// tick 0) on which the hero lands.
+    fn landing_tick() -> u32 {
+        let mut rig = flat_rig();
+        rig.tick(0.0, true);
+        for t in 1..200 {
+            rig.tick(0.0, false);
+            if rig.hero.grounded {
+                return t;
+            }
+        }
+        panic!("never landed");
+    }
+
+    /// Jump, press jump again `early` ticks before the landing tick, and
+    /// report whether the buffered press produced a second jump.
+    fn buffered_jump_fires(early: u32) -> bool {
+        let landing = landing_tick();
+        let mut rig = flat_rig();
+        rig.tick(0.0, true);
+        for t in 1..=landing + 2 {
+            let press = t + early == landing;
+            rig.tick(0.0, press);
+            // The first jump is over by the landing: rising again afterwards
+            // can only be the buffered jump.
+            if t > landing && rig.hero.vy > 0.0 {
+                return true;
+            }
+        }
+        false
+    }
+
+    #[test]
+    fn jump_buffer_remembers_a_press_made_shortly_before_landing() {
+        // The buffer is 7 ticks: a press up to 5 ticks before the landing tick
+        // still fires on the first grounded step; 6 or more ticks is forgotten.
+        for early in 0..=5 {
+            assert!(buffered_jump_fires(early), "press {early} ticks early");
+        }
+        assert!(!buffered_jump_fires(6), "6 ticks early is forgotten");
+        assert!(!buffered_jump_fires(9));
+    }
+
+    #[test]
+    fn walking_into_a_wall_stops_exactly_one_hero_half_width_away() {
+        // Wall on the floor, to the right and then to the left of the hero.
+        let floor = block(0.0, -100.0, 1000.0, 100.0);
+        let mut right = Rig::new(
+            100.0,
+            HERO_HALF_HEIGHT,
+            vec![floor.clone(), block(200.0, 0.0, 40.0, 100.0)],
+        );
+        for _ in 0..120 {
+            right.tick(1.0, false);
+        }
+        assert_eq!(right.hero.x, 200.0 - HERO_HALF_WIDTH);
+        assert!(right.hero.grounded);
+        let mut left = Rig::new(
+            400.0,
+            HERO_HALF_HEIGHT,
+            vec![floor, block(200.0, 0.0, 40.0, 100.0)],
+        );
+        for _ in 0..120 {
+            left.tick(-1.0, false);
+        }
+        assert_eq!(left.hero.x, 240.0 + HERO_HALF_WIDTH);
+    }
+
+    #[test]
+    fn jumping_into_a_ceiling_stops_the_head_exactly_at_its_underside() {
+        let ceiling_bottom = 80.0;
+        let mut rig = Rig::new(
+            50.0,
+            HERO_HALF_HEIGHT,
+            vec![
+                block(0.0, -100.0, 100.0, 100.0),
+                block(0.0, ceiling_bottom, 100.0, 40.0),
+            ],
+        );
+        rig.tick(0.0, true);
+        let mut bonked = false;
+        for _ in 0..40 {
+            rig.tick(0.0, false);
+            if rig.hero.vy == 0.0 && !rig.hero.grounded {
+                assert_eq!(rig.hero.y, ceiling_bottom - HERO_HALF_HEIGHT);
+                bonked = true;
+                break;
+            }
+        }
+        assert!(bonked, "the hero never touched the ceiling");
+        // After the bonk gravity takes over and the hero lands again.
+        for _ in 0..120 {
+            rig.tick(0.0, false);
+        }
+        assert!(rig.hero.grounded);
+        assert_eq!(rig.hero.y, HERO_HALF_HEIGHT);
+    }
+
+    #[test]
+    fn landing_snaps_the_feet_exactly_onto_the_surface() {
+        let mut rig = Rig::new(50.0, 200.0, vec![block(0.0, -100.0, 100.0, 100.0)]);
+        for _ in 0..120 {
+            rig.tick(0.0, false);
+        }
+        assert!(rig.hero.grounded);
+        assert_eq!(rig.hero.y, HERO_HALF_HEIGHT);
+        assert_eq!(rig.hero.vy, 0.0);
+    }
+
+    /// Second regression lock, aimed at rules the first script barely touches:
+    /// wall contact, climbing onto the timber barrier, a coyote jump 4 ticks
+    /// after walking off its far edge, a jump buffered 3 ticks before landing,
+    /// and turning back. Same caveat: a coarse net, the direct tests pin rules.
+    #[test]
+    fn golden_trace_of_wall_ledge_coyote_and_buffer_is_bit_stable() {
+        let mut world = World::new();
+        world.hero.x = 560.0;
+        let mut frame = InputFrame::default();
+        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+        let mut grounded_changes = Vec::new();
+        let mut previous = true;
+        for tick in 0..200 {
+            frame.advance(wall_ledge_script(tick));
+            world.step(&frame);
+            for value in [
+                world.hero.x.to_bits(),
+                world.hero.y.to_bits(),
+                world.hero.vx.to_bits(),
+                world.hero.vy.to_bits(),
+            ] {
+                fnv1a(&mut hash, u64::from(value));
+            }
+            fnv1a(&mut hash, u64::from(world.hero.grounded));
+            fnv1a(&mut hash, u64::from(world.hero.health));
+            if world.hero.grounded != previous {
+                grounded_changes.push(tick);
+                previous = world.hero.grounded;
+            }
+        }
+        assert_eq!(hash, GOLDEN2_HASH);
+        assert_eq!(grounded_changes, GOLDEN2_GROUNDED_CHANGES);
     }
 
     #[test]

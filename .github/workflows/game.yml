@@ -23,6 +23,8 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: bevy-linux-dev
       - name: Install desktop and software Vulkan dependencies
         run: |
           sudo apt-get update

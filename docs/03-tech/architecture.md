@@ -22,7 +22,7 @@ flowchart TD
     Game --> Snapshot[Deterministic snapshots + telemetry]
 ```
 
-**Do not** bind game rules to renderer-side animations or depend on presentational particle state. Collision and terrain semantics must come from one authoritative material grid; rendered tiles follow the grid.
+**Do not** bind game rules to renderer-side animations or depend on presentational particle state. Collision and terrain semantics must come from one authoritative material grid; rendered tiles follow the grid. Floor 1 environment tiles follow the kit v2 collider rule (a `deck_front` collider starts 4 px below the tile top, the walking line; `deck_back` has none), see [floor01-scene.md](floor01-scene.md).
 
 ## Target workspace (not yet created)
 
