@@ -458,6 +458,15 @@ mod tests {
     use super::*;
     use crate::input::{InputFrame, RawInput};
 
+    const GOLDEN_HASH: u64 = 0xd279_b98a_e4f7_a845;
+    const GOLDEN_CHECKPOINTS: [(u32, u32); 5] = [
+        (1_132_953_596, 3_256_833_366),
+        (1_136_994_996, 3_239_706_626),
+        (1_131_424_418, 3_239_706_626),
+        (1_133_963_946, 3_239_706_626),
+        (1_138_005_346, 3_254_495_916),
+    ];
+
     fn press(world: &mut World, raw: RawInput) {
         let mut input = InputFrame::default();
         input.advance(raw);
@@ -599,6 +608,66 @@ mod tests {
             a.enemies.iter().map(|e| e.health).collect::<Vec<_>>(),
             b.enemies.iter().map(|e| e.health).collect::<Vec<_>>()
         );
+    }
+
+    /// Scripted 300-tick input exercising run, analogue run, jump buffer,
+    /// coyote time, melee, bombs, enemy contact and turning around.
+    fn golden_script(tick: u64) -> RawInput {
+        let move_x = match tick {
+            0..100 => 1.0,
+            100..130 => 0.0,
+            130..200 => -1.0,
+            200..250 => 1.0,
+            _ => 0.6,
+        };
+        RawInput {
+            move_x,
+            jump: (20..26).contains(&tick)
+                || tick == 90
+                || (150..153).contains(&tick)
+                || (210..216).contains(&tick)
+                || tick == 262,
+            attack: (60..63).contains(&tick) || (170..173).contains(&tick),
+            ability: (95..98).contains(&tick),
+            ..Default::default()
+        }
+    }
+
+    fn fnv1a(hash: &mut u64, value: u64) {
+        for byte in value.to_le_bytes() {
+            *hash ^= u64::from(byte);
+            *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+
+    /// Behaviour lock for the greybox physics: the hero extraction in COMP-01
+    /// must not change a single bit of this trace.
+    #[test]
+    fn golden_trace_of_the_greybox_hero_is_bit_stable() {
+        let mut world = World::new();
+        let mut frame = InputFrame::default();
+        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+        let mut checkpoints = Vec::new();
+        for tick in 0..300 {
+            frame.advance(golden_script(tick));
+            world.step(&frame);
+            for value in [
+                world.hero.x.to_bits(),
+                world.hero.y.to_bits(),
+                world.hero.vx.to_bits(),
+                world.hero.vy.to_bits(),
+            ] {
+                fnv1a(&mut hash, u64::from(value));
+            }
+            fnv1a(&mut hash, u64::from(world.hero.grounded));
+            fnv1a(&mut hash, world.tick);
+            fnv1a(&mut hash, u64::from(world.hero.health));
+            if tick % 60 == 59 {
+                checkpoints.push((world.hero.x.to_bits(), world.hero.y.to_bits()));
+            }
+        }
+        assert_eq!(hash, GOLDEN_HASH);
+        assert_eq!(checkpoints, GOLDEN_CHECKPOINTS);
     }
 
     #[test]
