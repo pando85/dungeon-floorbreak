@@ -122,13 +122,20 @@ fn main() {
     let deck = args.iter().any(|arg| arg == "--deck");
     let (virtual_height, window_height): (f32, u32) =
         if deck { (400.0, 800) } else { (360.0, 720) };
+    // Bevy 0.20 resolves a relative AssetPlugin path from the binary directory.
+    // Use an absolute directory so source exports remain in the repository root.
+    let asset_directory = std::env::current_dir()
+        .expect("Character Playground must run from the repository root")
+        .join("generated/art")
+        .to_string_lossy()
+        .into_owned();
 
     App::new()
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
                 .set(AssetPlugin {
-                    file_path: "generated/art".into(),
+                    file_path: asset_directory,
                     ..default()
                 })
                 .set(WindowPlugin {
