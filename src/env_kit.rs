@@ -12,6 +12,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+use crate::lighting::{LightDef, LightingProfile, LightingScene};
 use crate::prototype::{Block, Material, Rect};
 
 pub const KIT_FORMAT: &str = "env-kit-v2";
@@ -56,6 +57,9 @@ pub struct LayerDef {
     pub draw_order: u32,
     #[serde(default)]
     pub parallax: Option<f64>,
+    /// Presentation only: the light group of the layer (`lighting`).
+    #[serde(default)]
+    pub light_group: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -109,6 +113,9 @@ pub struct PieceDef {
     pub tile_x: Option<bool>,
     #[serde(default)]
     pub animation: Option<Animation>,
+    /// Presentation only: light emitters on the piece (`lighting`).
+    #[serde(default)]
+    pub lights: Vec<LightDef>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -118,6 +125,9 @@ pub struct Contract {
     pub tile_size: [i32; 2],
     pub layers: Vec<LayerDef>,
     pub actor_draw_order: u32,
+    /// Presentation only: the light group actors are lit as.
+    #[serde(default = "default_actor_light_group")]
+    pub actor_light_group: String,
     pub atlases: BTreeMap<String, AtlasDef>,
     pub tiles: Vec<TileDef>,
     pub pieces: Vec<PieceDef>,
@@ -164,6 +174,13 @@ pub struct Layout {
     pub parallax_layers: BTreeMap<String, ParallaxPlacement>,
     pub tile_layers: BTreeMap<String, Vec<Vec<Option<String>>>>,
     pub piece_layers: BTreeMap<String, Vec<PiecePlacement>>,
+    /// Presentation only: ambient, haze, shadow and bloom (`lighting`).
+    #[serde(default)]
+    pub lighting: Option<LightingProfile>,
+}
+
+fn default_actor_light_group() -> String {
+    "actors".to_owned()
 }
 
 // ----------------------------------------------------------------- derived --
@@ -254,6 +271,9 @@ pub struct EnvKit {
     pub actor_z: f32,
     pub foreground_z: f32,
     pub collidable_cells: usize,
+    /// Presentation-only lighting data (`None` when the layout has no
+    /// `lighting` profile). Never read by collision or the simulation.
+    pub lighting: Option<LightingScene>,
 }
 
 /// Bevy z for a draw-order slot (steps of one, per the contract). Pieces in the
@@ -484,7 +504,7 @@ impl EnvKit {
             })
             .collect();
 
-        Ok(Self {
+        let mut kit = Self {
             layout_id: layout.layout_id.clone(),
             width,
             height,
@@ -505,7 +525,13 @@ impl EnvKit {
                 .find(|l| l.name == "foreground")
                 .map_or(8.0, |l| layer_z(l.draw_order)),
             collidable_cells,
-        })
+            lighting: None,
+        };
+        // Lighting is derived last and only reads the finished kit (walking
+        // lines for floor pools); nothing flows back into collision.
+        kit.lighting = LightingScene::build(contract, layout, &kit)
+            .map_err(|e| EnvError::Invalid(e.to_string()))?;
+        Ok(kit)
     }
 
     /// Static solids as y-up greybox blocks (the shared hero physics input).
@@ -631,6 +657,10 @@ pub fn animation_frame(durations_ms: &[u32], frame_offset: usize, tick: u64) -> 
         return 0;
     }
     let cycle: u64 = durations_ms.iter().map(|&d| u64::from(d)).sum();
+    if cycle == 0 {
+        // All-zero durations would divide by zero; show the first frame.
+        return 0;
+    }
     let start: u64 = durations_ms
         .iter()
         .take(frame_offset % n)
@@ -862,6 +892,12 @@ mod tests {
             }
             assert_eq!((copies[0] - start).rem_euclid(440), 0);
         }
+    }
+
+    #[test]
+    fn all_zero_durations_do_not_divide_by_zero() {
+        assert_eq!(animation_frame(&[0, 0, 0], 1, 1234), 0);
+        assert_eq!(animation_frame(&[0], 0, 5), 0);
     }
 
     #[test]

@@ -1,0 +1,66 @@
+{
+  "regions": {
+    "wall": {
+      "pixels": 444438,
+      "mean_L_bevy": 15.13,
+      "mean_L_pillow": 14.91,
+      "delta_L": 0.21,
+      "mean_dE76": 0.55,
+      "p95_dE76": 0.88,
+      "mean_abs_rgb": 0.5
+    },
+    "gallery": {
+      "pixels": 256734,
+      "mean_L_bevy": 20.76,
+      "mean_L_pillow": 20.53,
+      "delta_L": 0.23,
+      "mean_dE76": 0.5,
+      "p95_dE76": 0.92,
+      "mean_abs_rgb": 0.55
+    },
+    "floor": {
+      "pixels": 174825,
+      "mean_L_bevy": 29.94,
+      "mean_L_pillow": 29.72,
+      "delta_L": 0.22,
+      "mean_dE76": 0.55,
+      "p95_dE76": 0.84,
+      "mean_abs_rgb": 0.53
+    },
+    "actors": {
+      "pixels": 19278,
+      "mean_L_bevy": 46.04,
+      "mean_L_pillow": 45.85,
+      "delta_L": 0.19,
+      "mean_dE76": 0.48,
+      "p95_dE76": 0.93,
+      "mean_abs_rgb": 0.48
+    }
+  },
+  "whole_frame": {
+    "mean_L_bevy": 23.24,
+    "mean_L_pillow": 23.01,
+    "delta_L": 0.23,
+    "mean_dE76": 0.55,
+    "p95_dE76": 0.9,
+    "max_dE76": 5.97,
+    "pixels_dE76_over_3": 1456,
+    "warm_share_bevy": 0.4203,
+    "warm_share_pillow": 0.4203,
+    "cold_share_bevy": 0.3942,
+    "cold_share_pillow": 0.3935,
+    "warm_cold_margin_8bit": 8
+  },
+  "format": "floor01-lighting-compare-v1",
+  "view": "abc_640x360",
+  "scale": 3,
+  "note": "Bevy real-time pass vs the Pillow reference model; a measurement, not an art-acceptance claim. dE76 = Euclidean distance in CIE L*a*b* (D65).",
+  "gates": {
+    "max_mean_dE76": 1.5,
+    "max_p95_dE76": 3.0,
+    "max_abs_delta_L": 1.0,
+    "max_region_mean_dE76": 2.5,
+    "enforced": true,
+    "failures": []
+  }
+}
