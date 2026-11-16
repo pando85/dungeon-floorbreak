@@ -1,0 +1,1136 @@
+{
+  "format": "env-kit-v1",
+  "kit_id": "floor01_catacomb",
+  "status": "proposed - awaiting human art review",
+  "palette_id": "floor01-catacomb-v1",
+  "palette": [
+    {"key": "m", "name": "brick_mortar", "rgba": "#251a1fff"},
+    {"key": "a", "name": "brick_0_shadow", "rgba": "#312026ff"},
+    {"key": "b", "name": "brick_1_dark", "rgba": "#3b2428ff"},
+    {"key": "c", "name": "brick_2_base", "rgba": "#45292aff"},
+    {"key": "d", "name": "brick_3_light", "rgba": "#4f302dff"},
+    {"key": "e", "name": "brick_4_highlight", "rgba": "#5b3831ff"},
+    {"key": "f", "name": "torchlit_0", "rgba": "#6e402eff"},
+    {"key": "g", "name": "torchlit_1", "rgba": "#8a5332ff"},
+    {"key": "h", "name": "torchlit_2", "rgba": "#a86a3aff"},
+    {"key": "s", "name": "stone_0_joint", "rgba": "#1f1c24ff"},
+    {"key": "t", "name": "stone_1_shadow", "rgba": "#2e2a33ff"},
+    {"key": "u", "name": "stone_2_dark", "rgba": "#3d3842ff"},
+    {"key": "v", "name": "stone_3_base", "rgba": "#4f4851ff"},
+    {"key": "w", "name": "stone_4_light", "rgba": "#635a61ff"},
+    {"key": "x", "name": "stone_5_edge", "rgba": "#7c7171ff"},
+    {"key": "y", "name": "stone_6_lip", "rgba": "#9d8f84ff"},
+    {"key": "z", "name": "stone_7_glint", "rgba": "#c0ae98ff", "accent": true},
+    {"key": "D", "name": "floor_surface_0", "rgba": "#4b3e3cff"},
+    {"key": "E", "name": "floor_surface_1", "rgba": "#5b4b46ff"},
+    {"key": "F", "name": "floor_surface_2", "rgba": "#6c5850ff"},
+    {"key": "0", "name": "depth_0_void", "rgba": "#0e1322ff"},
+    {"key": "1", "name": "depth_1_far_wall", "rgba": "#141b2fff"},
+    {"key": "2", "name": "depth_2_far_air", "rgba": "#1b2641ff"},
+    {"key": "3", "name": "depth_3_haze", "rgba": "#253553ff"},
+    {"key": "4", "name": "depth_4_far_edge", "rgba": "#33486bff"},
+    {"key": "5", "name": "depth_5_far_rim", "rgba": "#4a6188ff"},
+    {"key": "R", "name": "flame_red", "rgba": "#a9341fff"},
+    {"key": "O", "name": "flame_orange", "rgba": "#e2722bff"},
+    {"key": "Y", "name": "flame_yellow", "rgba": "#ffb648ff"},
+    {"key": "W", "name": "flame_core", "rgba": "#fff0c0ff"},
+    {"key": "k", "name": "iron_0_outline", "rgba": "#16151bff"},
+    {"key": "i", "name": "iron_1_shadow", "rgba": "#272731ff"},
+    {"key": "j", "name": "iron_2_base", "rgba": "#393a46ff"},
+    {"key": "l", "name": "iron_3_light", "rgba": "#50525fff"},
+    {"key": "n", "name": "iron_4_highlight", "rgba": "#737582ff"},
+    {"key": "o", "name": "iron_5_glint", "rgba": "#a3a4adff", "accent": true},
+    {"key": "q", "name": "rust_0", "rgba": "#57301fff"},
+    {"key": "r", "name": "rust_1", "rgba": "#7d4428ff"},
+    {"key": "p", "name": "valve_paint_shadow", "rgba": "#6a2120ff"},
+    {"key": "P", "name": "valve_paint", "rgba": "#9a3128ff"},
+    {"key": "T", "name": "plate_ochre", "rgba": "#8c6c32ff"},
+    {"key": "G", "name": "lichen_0", "rgba": "#23402aff"},
+    {"key": "H", "name": "lichen_1", "rgba": "#3f7a3aff"},
+    {"key": "L", "name": "lichen_2_glow", "rgba": "#92d86aff", "accent": true}
+  ],
+  "tile_size": [16, 16],
+  "coordinate_system": {
+    "origin": "top_left",
+    "x_axis": "right",
+    "y_axis": "down",
+    "row_order": "top_to_bottom",
+    "units": "virtual_px",
+    "note": "Layout pixel (x, y) = (col * 16, row * 16). Atlas rects are [x, y, w, h] in exported atlas pixels, top-left origin. Bevy (y-up) must flip y."
+  },
+  "layers": [
+    {"name": "backwall", "role": "backwall", "kind": "tiles", "draw_order": 0},
+    {"name": "backwall_decal", "role": "backwall", "kind": "pieces", "draw_order": 1},
+    {"name": "structure", "role": "structure", "kind": "pieces", "draw_order": 2},
+    {"name": "prop", "role": "prop", "kind": "pieces", "draw_order": 3},
+    {"name": "collision", "role": "collision", "kind": "tiles", "draw_order": 4},
+    {"name": "foreground", "role": "foreground", "kind": "pieces", "draw_order": 6}
+  ],
+  "actor_draw_order": 5,
+  "roles": {
+    "collision": "Collidable gameplay terrain. Only role that may be collidable; tiles opaque.",
+    "backwall": "Non-collidable wall behind actors; tiles opaque, decals use 1-bit alpha.",
+    "structure": "Non-collidable midground architecture (arches, piers, far depth); 1-bit alpha.",
+    "prop": "Non-collidable wall-mounted props (torches, pipes, valve, box, lichen); 1-bit alpha.",
+    "foreground": "Reserved for restrained foreground overlays; none in ENV-01."
+  },
+  "floor_contact": {
+    "collider_top": "top edge of a walkable_top tile",
+    "surface_rows": [0, 3],
+    "recommended_visual_foot_sink_px": 2,
+    "note": "Rows 0-3 of floor_top_* show the walkable surface; drawing actors with their pivot row 2 px below the collider top plants the feet on the surface. Proposal only; COMP-01 decides in Bevy."
+  },
+  "atlases": {
+    "floor01_terrain": {
+      "grid": "assets/source/terrain/floor01/terrain.grid.json",
+      "manifest": "assets/manifests/floor01_terrain.json",
+      "image": "generated/art/floor01_terrain.png",
+      "metadata": "generated/art/floor01_terrain.json"
+    },
+    "floor01_backwall": {
+      "grid": "assets/source/terrain/floor01/backwall.grid.json",
+      "manifest": "assets/manifests/floor01_backwall.json",
+      "image": "generated/art/floor01_backwall.png",
+      "metadata": "generated/art/floor01_backwall.json"
+    },
+    "floor01_structure": {
+      "grid": "assets/source/terrain/floor01/structure.grid.json",
+      "manifest": "assets/manifests/floor01_structure.json",
+      "image": "generated/art/floor01_structure.png",
+      "metadata": "generated/art/floor01_structure.json"
+    },
+    "floor01_props": {
+      "grid": "assets/source/props/floor01/props.grid.json",
+      "manifest": "assets/manifests/floor01_props.json",
+      "image": "generated/art/floor01_props.png",
+      "metadata": "generated/art/floor01_props.json"
+    },
+    "floor01_torch": {
+      "grid": "assets/source/props/floor01/torch.grid.json",
+      "manifest": "assets/manifests/floor01_torch.json",
+      "image": "generated/art/floor01_torch.png",
+      "metadata": "generated/art/floor01_torch.json"
+    }
+  },
+  "tiles": [
+    {
+      "id": "floor_top_a",
+      "atlas": "floor01_terrain",
+      "grid_index": 0,
+      "rect": [0, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "walkable_top": true
+    },
+    {
+      "id": "floor_top_b",
+      "atlas": "floor01_terrain",
+      "grid_index": 1,
+      "rect": [16, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "walkable_top": true
+    },
+    {
+      "id": "floor_top_c",
+      "atlas": "floor01_terrain",
+      "grid_index": 2,
+      "rect": [32, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "walkable_top": true
+    },
+    {
+      "id": "floor_top_end_l",
+      "atlas": "floor01_terrain",
+      "grid_index": 3,
+      "rect": [48, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "walkable_top": true
+    },
+    {
+      "id": "floor_top_end_r",
+      "atlas": "floor01_terrain",
+      "grid_index": 4,
+      "rect": [64, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "walkable_top": true
+    },
+    {
+      "id": "ceiling_edge_a",
+      "atlas": "floor01_terrain",
+      "grid_index": 5,
+      "rect": [80, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "ceiling_edge_b",
+      "atlas": "floor01_terrain",
+      "grid_index": 6,
+      "rect": [96, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "ceiling_edge_c",
+      "atlas": "floor01_terrain",
+      "grid_index": 7,
+      "rect": [112, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "floor_fill_a",
+      "atlas": "floor01_terrain",
+      "grid_index": 8,
+      "rect": [0, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "floor_fill_b",
+      "atlas": "floor01_terrain",
+      "grid_index": 9,
+      "rect": [16, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "floor_fill_side_l",
+      "atlas": "floor01_terrain",
+      "grid_index": 10,
+      "rect": [32, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "floor_fill_side_r",
+      "atlas": "floor01_terrain",
+      "grid_index": 11,
+      "rect": [48, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "ceiling_fill_a",
+      "atlas": "floor01_terrain",
+      "grid_index": 12,
+      "rect": [64, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "ceiling_fill_b",
+      "atlas": "floor01_terrain",
+      "grid_index": 13,
+      "rect": [80, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "wall_fill_a",
+      "atlas": "floor01_terrain",
+      "grid_index": 14,
+      "rect": [96, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "wall_fill_b",
+      "atlas": "floor01_terrain",
+      "grid_index": 15,
+      "rect": [112, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"]
+    },
+    {
+      "id": "brick_backwall_a1",
+      "atlas": "floor01_backwall",
+      "grid_index": 0,
+      "rect": [0, 0, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_a", "family": "brick_body", "cell": [0, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_a2",
+      "atlas": "floor01_backwall",
+      "grid_index": 1,
+      "rect": [16, 0, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_a", "family": "brick_body", "cell": [1, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_a3",
+      "atlas": "floor01_backwall",
+      "grid_index": 2,
+      "rect": [32, 0, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_a", "family": "brick_body", "cell": [2, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_a4",
+      "atlas": "floor01_backwall",
+      "grid_index": 3,
+      "rect": [48, 0, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_a", "family": "brick_body", "cell": [3, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_b1",
+      "atlas": "floor01_backwall",
+      "grid_index": 4,
+      "rect": [64, 0, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_b", "family": "brick_body", "cell": [0, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_b2",
+      "atlas": "floor01_backwall",
+      "grid_index": 5,
+      "rect": [80, 0, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_b", "family": "brick_body", "cell": [1, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_b3",
+      "atlas": "floor01_backwall",
+      "grid_index": 6,
+      "rect": [96, 0, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_b", "family": "brick_body", "cell": [2, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_b4",
+      "atlas": "floor01_backwall",
+      "grid_index": 7,
+      "rect": [112, 0, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_b", "family": "brick_body", "cell": [3, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_a5",
+      "atlas": "floor01_backwall",
+      "grid_index": 8,
+      "rect": [0, 16, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_a", "family": "brick_body", "cell": [0, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_a6",
+      "atlas": "floor01_backwall",
+      "grid_index": 9,
+      "rect": [16, 16, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_a", "family": "brick_body", "cell": [1, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_a7",
+      "atlas": "floor01_backwall",
+      "grid_index": 10,
+      "rect": [32, 16, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_a", "family": "brick_body", "cell": [2, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_a8",
+      "atlas": "floor01_backwall",
+      "grid_index": 11,
+      "rect": [48, 16, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_a", "family": "brick_body", "cell": [3, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_b5",
+      "atlas": "floor01_backwall",
+      "grid_index": 12,
+      "rect": [64, 16, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_b", "family": "brick_body", "cell": [0, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_b6",
+      "atlas": "floor01_backwall",
+      "grid_index": 13,
+      "rect": [80, 16, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_b", "family": "brick_body", "cell": [1, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_b7",
+      "atlas": "floor01_backwall",
+      "grid_index": 14,
+      "rect": [96, 16, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_b", "family": "brick_body", "cell": [2, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_b8",
+      "atlas": "floor01_backwall",
+      "grid_index": 15,
+      "rect": [112, 16, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_b", "family": "brick_body", "cell": [3, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_c1",
+      "atlas": "floor01_backwall",
+      "grid_index": 16,
+      "rect": [0, 32, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_c", "family": "brick_body", "cell": [0, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_c2",
+      "atlas": "floor01_backwall",
+      "grid_index": 17,
+      "rect": [16, 32, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_c", "family": "brick_body", "cell": [1, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_c3",
+      "atlas": "floor01_backwall",
+      "grid_index": 18,
+      "rect": [32, 32, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_c", "family": "brick_body", "cell": [2, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_c4",
+      "atlas": "floor01_backwall",
+      "grid_index": 19,
+      "rect": [48, 32, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_c", "family": "brick_body", "cell": [3, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_d1",
+      "atlas": "floor01_backwall",
+      "grid_index": 20,
+      "rect": [64, 32, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_d", "family": "brick_body", "cell": [0, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_d2",
+      "atlas": "floor01_backwall",
+      "grid_index": 21,
+      "rect": [80, 32, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_d", "family": "brick_body", "cell": [1, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_d3",
+      "atlas": "floor01_backwall",
+      "grid_index": 22,
+      "rect": [96, 32, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_d", "family": "brick_body", "cell": [2, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_d4",
+      "atlas": "floor01_backwall",
+      "grid_index": 23,
+      "rect": [112, 32, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_d", "family": "brick_body", "cell": [3, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_c5",
+      "atlas": "floor01_backwall",
+      "grid_index": 24,
+      "rect": [0, 48, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_c", "family": "brick_body", "cell": [0, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_c6",
+      "atlas": "floor01_backwall",
+      "grid_index": 25,
+      "rect": [16, 48, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_c", "family": "brick_body", "cell": [1, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_c7",
+      "atlas": "floor01_backwall",
+      "grid_index": 26,
+      "rect": [32, 48, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_c", "family": "brick_body", "cell": [2, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_c8",
+      "atlas": "floor01_backwall",
+      "grid_index": 27,
+      "rect": [48, 48, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_c", "family": "brick_body", "cell": [3, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_d5",
+      "atlas": "floor01_backwall",
+      "grid_index": 28,
+      "rect": [64, 48, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_d", "family": "brick_body", "cell": [0, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_d6",
+      "atlas": "floor01_backwall",
+      "grid_index": 29,
+      "rect": [80, 48, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_d", "family": "brick_body", "cell": [1, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_d7",
+      "atlas": "floor01_backwall",
+      "grid_index": 30,
+      "rect": [96, 48, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_d", "family": "brick_body", "cell": [2, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_d8",
+      "atlas": "floor01_backwall",
+      "grid_index": 31,
+      "rect": [112, 48, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_d", "family": "brick_body", "cell": [3, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_e1",
+      "atlas": "floor01_backwall",
+      "grid_index": 32,
+      "rect": [0, 64, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_e", "family": "brick_body", "cell": [0, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_e2",
+      "atlas": "floor01_backwall",
+      "grid_index": 33,
+      "rect": [16, 64, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_e", "family": "brick_body", "cell": [1, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_e3",
+      "atlas": "floor01_backwall",
+      "grid_index": 34,
+      "rect": [32, 64, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_e", "family": "brick_body", "cell": [2, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_e4",
+      "atlas": "floor01_backwall",
+      "grid_index": 35,
+      "rect": [48, 64, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_e", "family": "brick_body", "cell": [3, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_f1",
+      "atlas": "floor01_backwall",
+      "grid_index": 36,
+      "rect": [64, 64, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_f", "family": "brick_body", "cell": [0, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_f2",
+      "atlas": "floor01_backwall",
+      "grid_index": 37,
+      "rect": [80, 64, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_f", "family": "brick_body", "cell": [1, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_f3",
+      "atlas": "floor01_backwall",
+      "grid_index": 38,
+      "rect": [96, 64, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_f", "family": "brick_body", "cell": [2, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_f4",
+      "atlas": "floor01_backwall",
+      "grid_index": 39,
+      "rect": [112, 64, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_f", "family": "brick_body", "cell": [3, 0], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_e5",
+      "atlas": "floor01_backwall",
+      "grid_index": 40,
+      "rect": [0, 80, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_e", "family": "brick_body", "cell": [0, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_e6",
+      "atlas": "floor01_backwall",
+      "grid_index": 41,
+      "rect": [16, 80, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_e", "family": "brick_body", "cell": [1, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_e7",
+      "atlas": "floor01_backwall",
+      "grid_index": 42,
+      "rect": [32, 80, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_e", "family": "brick_body", "cell": [2, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_e8",
+      "atlas": "floor01_backwall",
+      "grid_index": 43,
+      "rect": [48, 80, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_e", "family": "brick_body", "cell": [3, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_f5",
+      "atlas": "floor01_backwall",
+      "grid_index": 44,
+      "rect": [64, 80, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_f", "family": "brick_body", "cell": [0, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_f6",
+      "atlas": "floor01_backwall",
+      "grid_index": 45,
+      "rect": [80, 80, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_f", "family": "brick_body", "cell": [1, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_f7",
+      "atlas": "floor01_backwall",
+      "grid_index": 46,
+      "rect": [96, 80, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_f", "family": "brick_body", "cell": [2, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_f8",
+      "atlas": "floor01_backwall",
+      "grid_index": 47,
+      "rect": [112, 80, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_f", "family": "brick_body", "cell": [3, 1], "size": [4, 2]}
+    },
+    {
+      "id": "brick_backwall_top_1",
+      "atlas": "floor01_backwall",
+      "grid_index": 48,
+      "rect": [0, 96, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_top", "family": "brick_top", "cell": [0, 0], "size": [4, 1]}
+    },
+    {
+      "id": "brick_backwall_top_2",
+      "atlas": "floor01_backwall",
+      "grid_index": 49,
+      "rect": [16, 96, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_top", "family": "brick_top", "cell": [1, 0], "size": [4, 1]}
+    },
+    {
+      "id": "brick_backwall_top_3",
+      "atlas": "floor01_backwall",
+      "grid_index": 50,
+      "rect": [32, 96, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_top", "family": "brick_top", "cell": [2, 0], "size": [4, 1]}
+    },
+    {
+      "id": "brick_backwall_top_4",
+      "atlas": "floor01_backwall",
+      "grid_index": 51,
+      "rect": [48, 96, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_top", "family": "brick_top", "cell": [3, 0], "size": [4, 1]}
+    },
+    {
+      "id": "brick_backwall_base_1",
+      "atlas": "floor01_backwall",
+      "grid_index": 52,
+      "rect": [64, 96, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_base", "family": "brick_base", "cell": [0, 0], "size": [4, 1]}
+    },
+    {
+      "id": "brick_backwall_base_2",
+      "atlas": "floor01_backwall",
+      "grid_index": 53,
+      "rect": [80, 96, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_base", "family": "brick_base", "cell": [1, 0], "size": [4, 1]}
+    },
+    {
+      "id": "brick_backwall_base_3",
+      "atlas": "floor01_backwall",
+      "grid_index": 54,
+      "rect": [96, 96, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_base", "family": "brick_base", "cell": [2, 0], "size": [4, 1]}
+    },
+    {
+      "id": "brick_backwall_base_4",
+      "atlas": "floor01_backwall",
+      "grid_index": 55,
+      "rect": [112, 96, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["A", "B", "C"],
+      "panel": {"id": "brick_base", "family": "brick_base", "cell": [3, 0], "size": [4, 1]}
+    },
+    {
+      "id": "recess_vault",
+      "atlas": "floor01_backwall",
+      "grid_index": 56,
+      "rect": [0, 112, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["B"],
+      "recess": true
+    },
+    {
+      "id": "recess_vault_fade",
+      "atlas": "floor01_backwall",
+      "grid_index": 57,
+      "rect": [16, 112, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["B"],
+      "recess": true
+    },
+    {
+      "id": "recess_wall_a",
+      "atlas": "floor01_backwall",
+      "grid_index": 58,
+      "rect": [32, 112, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["B"],
+      "recess": true
+    },
+    {
+      "id": "recess_wall_b",
+      "atlas": "floor01_backwall",
+      "grid_index": 59,
+      "rect": [48, 112, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["B"],
+      "recess": true
+    },
+    {
+      "id": "recess_wall_fade",
+      "atlas": "floor01_backwall",
+      "grid_index": 60,
+      "rect": [64, 112, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["B"],
+      "recess": true
+    },
+    {
+      "id": "recess_low",
+      "atlas": "floor01_backwall",
+      "grid_index": 61,
+      "rect": [80, 112, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["B"],
+      "recess": true
+    },
+    {
+      "id": "recess_haze",
+      "atlas": "floor01_backwall",
+      "grid_index": 62,
+      "rect": [96, 112, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["B"],
+      "recess": true
+    },
+    {
+      "id": "recess_floor",
+      "atlas": "floor01_backwall",
+      "grid_index": 63,
+      "rect": [112, 112, 16, 16],
+      "role": "backwall",
+      "collidable": false,
+      "grammar": ["B"],
+      "recess": true
+    }
+  ],
+  "pieces": [
+    {
+      "id": "arch_ring_r72",
+      "atlas": "floor01_structure",
+      "rect": [0, 0, 192, 96],
+      "role": "structure",
+      "collidable": false,
+      "anchor": [96, 96],
+      "anchor_name": "springing_centre",
+      "grid_snap": 8,
+      "grammar": ["B"],
+      "arch": {"radius_inner": 72, "radius_outer": 96, "voussoirs": 11, "backwall_inside": "recess"}
+    },
+    {
+      "id": "pier_capital",
+      "atlas": "floor01_structure",
+      "rect": [192, 0, 64, 16],
+      "role": "structure",
+      "collidable": false,
+      "anchor": [32, 0],
+      "anchor_name": "top_centre (arch springing line)",
+      "grid_snap": 8,
+      "grammar": ["B"]
+    },
+    {
+      "id": "pier_shaft",
+      "atlas": "floor01_structure",
+      "rect": [192, 16, 64, 32],
+      "role": "structure",
+      "collidable": false,
+      "anchor": [32, 0],
+      "anchor_name": "top_centre (stack vertically, 32 px repeat)",
+      "grid_snap": 8,
+      "grammar": ["B"],
+      "repeat": "vertical"
+    },
+    {
+      "id": "pier_base",
+      "atlas": "floor01_structure",
+      "rect": [192, 48, 64, 32],
+      "role": "structure",
+      "collidable": false,
+      "anchor": [32, 32],
+      "anchor_name": "bottom_centre (stands on floor top)",
+      "grid_snap": 8,
+      "grammar": ["B"]
+    },
+    {
+      "id": "far_arcade",
+      "atlas": "floor01_structure",
+      "rect": [256, 0, 144, 96],
+      "role": "structure",
+      "collidable": false,
+      "anchor": [0, 96],
+      "anchor_name": "bottom_left (opening floor line)",
+      "grid_snap": 16,
+      "grammar": ["B"]
+    },
+    {
+      "id": "pipe_h_a",
+      "atlas": "floor01_props",
+      "rect": [0, 0, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "pipe_h_rust",
+      "atlas": "floor01_props",
+      "rect": [16, 0, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "pipe_h_flange",
+      "atlas": "floor01_props",
+      "rect": [32, 0, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "pipe_h_bracket",
+      "atlas": "floor01_props",
+      "rect": [48, 0, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "pipe_v_a",
+      "atlas": "floor01_props",
+      "rect": [64, 0, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "pipe_v_bracket",
+      "atlas": "floor01_props",
+      "rect": [80, 0, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "pipe_elbow_r_d",
+      "atlas": "floor01_props",
+      "rect": [96, 0, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "pipe_wall_entry_r",
+      "atlas": "floor01_props",
+      "rect": [112, 0, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "valve_wheel",
+      "atlas": "floor01_props",
+      "rect": [0, 16, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "pipe_v_floor_collar",
+      "atlas": "floor01_props",
+      "rect": [16, 16, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (tile)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "lichen_patch",
+      "atlas": "floor01_props",
+      "rect": [32, 16, 16, 16],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [12, 0],
+      "anchor_name": "pipe_hug (column 12 sits under a vertical pipe's left outline)",
+      "grid_snap": 8,
+      "grammar": ["C"]
+    },
+    {
+      "id": "maintenance_box",
+      "atlas": "floor01_props",
+      "rect": [64, 16, 32, 32],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [0, 0],
+      "anchor_name": "top_left (pipe enters at x 4..11, conduit leaves at x 20..27)",
+      "grid_snap": 16,
+      "grammar": ["C"]
+    },
+    {
+      "id": "torch_glow",
+      "atlas": "floor01_props",
+      "rect": [0, 32, 48, 48],
+      "role": "backwall",
+      "collidable": false,
+      "anchor": [24, 24],
+      "anchor_name": "light_centre (= torch flame centre; place at torch tile -1,-1)",
+      "grid_snap": 16,
+      "grammar": ["A", "B", "C"],
+      "decal": true
+    },
+    {
+      "id": "torch_wall",
+      "atlas": "floor01_torch",
+      "rect": [0, 0, 16, 32],
+      "role": "prop",
+      "collidable": false,
+      "anchor": [8, 29],
+      "anchor_name": "wall_mount (bottom rivet of the sconce plate)",
+      "grid_snap": 16,
+      "grammar": ["A", "B", "C"],
+      "animation": {
+        "tag": {"name": "burn", "from": 0, "to": 3, "direction": "forward"},
+        "frames": [
+          {"frame": {"x": 0, "y": 0, "w": 16, "h": 32}, "duration": 120},
+          {"frame": {"x": 16, "y": 0, "w": 16, "h": 32}, "duration": 140},
+          {"frame": {"x": 32, "y": 0, "w": 16, "h": 32}, "duration": 100},
+          {"frame": {"x": 48, "y": 0, "w": 16, "h": 32}, "duration": 130}
+        ]
+      }
+    }
+  ],
+  "usage_rules": {
+    "A": "Ordinary fabric: brick_backwall panels, top/base strips, floor_top_a/b/c, sparse torch_wall + torch_glow (roughly one per 10-16 columns).",
+    "B": "Rhythm: pier_* stacks 192 px apart (centre to centre) carrying arch_ring_r72; recess_* tiles fill the opening; far_arcade sits on the opening floor line.",
+    "C": "Special function, sparing: one pipe run (pipe_*), one valve_wheel, one maintenance_box; optional lichen_patch only next to a damp source.",
+    "panels": "brick_backwall panel cells must be used in their native order horizontally (cell x+1 follows cell x within a panel, the panel's last column may be followed by column 0 of any panel of the same family). Any vertical order is seamless.",
+    "grid_snap": "Piece top-left positions must be multiples of grid_snap."
+  }
+}
