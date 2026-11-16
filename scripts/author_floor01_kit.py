@@ -1,1662 +1,1842 @@
 #!/usr/bin/env python3
-"""Authoring record for the ENV-01 Floor 1 catacomb environment kit (pixel-grid-v1).
+"""Authoring record for the ENV-01 Floor 1 catacomb kit, rework round 3 (A1 target).
 
-This script is the deterministic *authoring aid* that wrote the first version of
-the kit's text pixel grids, the kit contract and the sample corridor layout:
+This deterministic *authoring aid* writes the kit's editable ``pixel-grid-v1``
+sources, their asset manifests, the ``env-kit-v2`` integration contract and the
+``env-kit-layout-v2`` sample corridor:
 
-- ``assets/source/terrain/floor01/terrain.grid.json``   collidable 16x16 tiles
-- ``assets/source/terrain/floor01/backwall.grid.json``  non-collidable backwall tiles
-- ``assets/source/terrain/floor01/structure.grid.json`` arch, pier modules, far arcade
-- ``assets/source/props/floor01/props.grid.json``       pipes, valve, box, lichen, torch glow
-- ``assets/source/props/floor01/torch.grid.json``       4-frame wall torch loop
-- ``assets/source/terrain/floor01/floor01_catacomb_kit.json`` integration contract
-- ``assets/levels/floor01/corridor_abc_sample.json``    sample layout (A -> B -> C)
+- ``assets/source/terrain/floor01/terrain.grid.json``    collision tiles (deep floor, steps, ceiling, wall ends)
+- ``assets/source/terrain/floor01/backwall.grid.json``   brick backwall tiles (four height bands + base course)
+- ``assets/source/terrain/floor01/walldecal.grid.json``  torch-pool, grime and rubble pieces
+- ``assets/source/terrain/floor01/structure.grid.json``  arch rings, piers, threshold, pilaster
+- ``assets/source/terrain/floor01/parallax.grid.json``   far and mid gallery strips (tile horizontally)
+- ``assets/source/props/floor01/props.grid.json``        copper/brass pipe set, door, unlit sconce, lichen
+- ``assets/source/props/floor01/torch.grid.json``        4-frame wall torch loop
+- ``assets/manifests/floor01_*.json``                    one manifest per atlas
+- ``assets/source/terrain/floor01/floor01_catacomb_kit.json`` integration contract (env-kit-v2)
+- ``assets/levels/floor01/corridor_abc_sample.json``     sample layout (env-kit-layout-v2)
 
-The committed grids and the ``.ase`` files built from them are the editable
-source of truth. Artists may hand-edit the grids afterwards; re-running this
-script overwrites such edits, so only re-run it deliberately (``--force``).
+The look matches the owner-approved A1 look-dev frame (2026-11-16): warm orange
+torch-lit brick falling into cold blue-violet shadow, thick copper/brass pipes, a
+thick sculpted arch and a deep layered gallery. Pixels are produced by the same
+deterministic "pixel shader" as the A1 look-dev (``scripts/lookdev_floor01_author.py``,
+imported here as the shared shading core): every surface pixel has a position, a
+depth and a normal, light is evaluated with a windowed falloff and quantised onto
+hand-picked hue-shifted ramps, and flat faces are shaded per brick/block so the
+art keeps clean clusters. The arch, piers and gallery strips are the A1 look-dev
+geometry re-rendered as modules (with a local light rig); everything else is
+rebuilt as tile-aligned modules.
 
-Every pixel is placed by explicit rules or hand-drawn strings in this file:
-brick coursing with staggered joints, per-brick tone/bevel/chip variation from a
-fixed seed, mortar, stone edge treatment, voussoirs on a true circle, and
-hand-drawn flame, valve, box and lichen shapes. Nothing is cropped, traced or
-resampled from concept images.
+Nothing is cropped, traced or resampled from the concept images; they were mood
+references for the A1 frame only and are never read by any script.
+
+The committed grids are the source of truth. Re-running overwrites hand edits, so
+only re-run deliberately (``--force``).
 """
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
-import random
+import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+import lookdev_floor01_author as ld  # noqa: E402  (shared A1 shading core)
+
 TERRAIN_DIR = ROOT / "assets/source/terrain/floor01"
 PROPS_DIR = ROOT / "assets/source/props/floor01"
 LEVEL_DIR = ROOT / "assets/levels/floor01"
+MANIFEST_DIR = ROOT / "assets/manifests"
 CONTRACT_PATH = TERRAIN_DIR / "floor01_catacomb_kit.json"
 LAYOUT_PATH = LEVEL_DIR / "corridor_abc_sample.json"
+CONTRACT_REL = "assets/source/terrain/floor01/floor01_catacomb_kit.json"
 
 KIT_ID = "floor01_catacomb"
-PALETTE_ID = "floor01-catacomb-v1"
+PALETTE_ID = "floor01-catacomb-v2"
 TILE = 16
+MAX_ATLAS_COLOURS = 63  # validate_assets.py counts transparency as one of its 64
 
 # ---------------------------------------------------------------------------
-# Shared palette (one palette for the whole kit, 47 opaque colours).
-# Values were set by CIE L* (revision 1): brick faces sit at L* 27-33, clearly
-# above the darkest actor masses (Carl's jacket and hair are L* ~17.7), and
-# mortar is only one step below the faces so the wall stays low-contrast.
+# Palette: the A1 look-dev ramps plus timber and lichen (index 0 = darkest).
 # ---------------------------------------------------------------------------
-PALETTE = [
-    # Muted, low-saturation red-brown brick (backwall fabric, module A)
-    ("m", "brick_mortar", "#413433"),        # L* 23
-    ("a", "brick_0_shadow", "#4b3836"),      # L* 25.5
-    ("b", "brick_1_dark", "#513c39"),        # L* 27.5
-    ("c", "brick_2_base", "#59413d"),        # L* 30
-    ("d", "brick_3_light", "#604741"),       # L* 32.5
-    ("e", "brick_4_highlight", "#684d46"),   # L* 35.5
-    # Restrained warm torchlight on brick
-    ("f", "torchlit_0", "#7c5545"),          # L* 40
-    ("g", "torchlit_1", "#9b6547"),          # L* 48
-    ("h", "torchlit_2", "#b87b4e"),          # L* 57
-    # Stone edges (floor, ceiling, arches, piers): neutral warmed toward the
-    # brick hue but far less saturated, so stone and brick read as one family
-    ("s", "stone_0_joint", "#241e20"),       # L* 12
-    ("t", "stone_1_shadow", "#312b2b"),      # L* 18
-    ("u", "stone_2_dark", "#413a38"),        # L* 25
-    ("v", "stone_3_base", "#544c49"),        # L* 33
-    ("w", "stone_4_light", "#685f5a"),       # L* 41
-    ("x", "stone_5_edge", "#7d726c"),        # L* 49
-    ("y", "stone_6_lip", "#9e9185"),         # L* 61
-    ("z", "stone_7_glint", "#c1b19f"),       # L* 73
-    # Dry floor walking surface: same low chroma as the pier stone (reads gray)
-    ("D", "floor_surface_0", "#4d4542"),     # L* 30, C* ~4
-    ("E", "floor_surface_1", "#5a514d"),     # L* 35, C* ~5
-    ("F", "floor_surface_2", "#695f59"),     # L* 41, C* ~6
-    # Cold blue depth (module B recesses); actor-height haze is 3-4
-    ("0", "depth_0_void", "#0c1527"),        # L* 7
-    ("1", "depth_1_far_wall", "#0f1e33"),    # L* 11
-    ("2", "depth_2_far_air", "#152843"),     # L* 16
-    ("3", "depth_3_haze", "#1a3451"),        # L* 21
-    ("4", "depth_4_far_edge", "#223f5f"),    # L* 26
-    ("5", "depth_5_far_rim", "#2f4d6e"),     # L* 32
-    # Torch flame
-    ("R", "flame_red", "#a9341f"),
-    ("O", "flame_orange", "#e2722b"),
-    ("Y", "flame_yellow", "#ffb648"),
-    ("W", "flame_core", "#fff0c0"),
-    # Iron (torch sconce, pipes, box; module C)
-    ("k", "iron_0_outline", "#16151b"),
-    ("i", "iron_1_shadow", "#272731"),
-    ("j", "iron_2_base", "#393a46"),
-    ("l", "iron_3_light", "#50525f"),
-    ("n", "iron_4_highlight", "#737582"),
-    ("o", "iron_5_glint", "#a3a4ad"),
-    # Rust, valve paint, label plate
-    ("q", "rust_0", "#57301f"),
-    ("r", "rust_1", "#7d4428"),
-    ("p", "valve_paint_shadow", "#6a2120"),
-    ("P", "valve_paint", "#9a3128"),
-    ("T", "plate_ochre", "#8c6c32"),
-    # Old timber (simple door)
-    ("U", "wood_0", "#3c271b"),              # L* 18
-    ("V", "wood_1", "#533726"),              # L* 26
-    ("X", "wood_2", "#6a4931"),              # L* 34
-    # Optional lichen accent
-    ("G", "lichen_0", "#283326"),           # L* 20, a* -8
-    ("H", "lichen_1", "#354130"),           # L* 26, a* -9
-    ("L", "lichen_2_glow", "#5c7444"),      # L* 46, accent
-]
-ACCENT_KEYS = {"z", "o", "L"}
+EXTRA_RAMPS = {
+    "wood": ["#170d0c", "#261612", "#3a2219", "#52301f", "#6d4127", "#8d5631"],
+    "lichen": ["#1e2a24", "#34452f", "#58703f"],
+}
+for _name, _ramp in EXTRA_RAMPS.items():
+    ld.RAMPS.setdefault(_name, _ramp)
+RAMPS = ld.RAMPS
+RAMP_ORDER = list(RAMPS)
+GRID_KEYS = "".join(chr(c) for c in range(33, 127) if chr(c) not in '."\\')
 
 
-def palette_entries() -> list[dict]:
-    out = []
-    for key, name, hexrgb in PALETTE:
-        entry = {"key": key, "name": name, "rgba": hexrgb + "ff"}
-        if key in ACCENT_KEYS:
-            entry["accent"] = True
-        out.append(entry)
+def colour_name(ramp: str, index: int) -> str:
+    return f"{ramp}_{index:02d}"
+
+
+def combined_palette() -> list[dict]:
+    return [{"name": colour_name(r, i), "rgba": RAMPS[r][i] + "ff", "ramp": r, "index": i}
+            for r in RAMP_ORDER for i in range(len(RAMPS[r]))]
+
+
+# ---------------------------------------------------------------------------
+# Kit geometry (layout pixels, y down). Design units of the A1 frame map to
+# layout pixels with x' = x + bay offset and y' = y + DY.
+# ---------------------------------------------------------------------------
+DY = 20                 # A1 design y -> layout y
+CEILING_ROWS = (0, 1)   # row 1 carries the cornice
+WALL_TOP = 32           # first backwall pixel row
+BANDS = {               # brick height bands: tile rows and base value on the brick ramp
+    "top": ((2, 3), 1.7, 0.4),
+    "upper": ((4, 7), 3.1, 0.9),
+    "mid": ((8, 12), 4.1, 1.2),
+    "lower": ((13, 14), 5.3, 1.8),
+    "low": ((15, 16), 7.0, 2.6),   # lit band behind actor heads (floor-pool bounce)
+}
+BASE_COURSE_ROW = 17    # pale dressed-stone course behind actor height
+FLOOR_ROW = 18          # deck_back row of the base floor (floor back line y = 288)
+WALK_LINE_Y = 4         # walking line inside a deck_front tile (y = 308 on the base floor)
+WALL_TORCH_FLAME_Y = 178
+PIER_TORCH_FLAME_Y = 194
+TORCH_FLAME_LOCAL = (8, 18)  # flame centre inside the 16x56 torch piece
+POOL_RADIUS = 118.0
+POOL_W, POOL_H = 240, 224
+POOL_TOP_Y = 48
+POOL_CENTRE_LOCAL = (120, WALL_TORCH_FLAME_Y - POOL_TOP_Y)
+
+# Deck geometry relative to the floor back line (y = 0): slab rows, lip, face courses.
+SLAB_ROWS = [0, 4, 9, 16, 24]
+LIP = (24, 26)
+FACE_COURSES = [26, 48, 64]   # course 1 = 26..48, course 2 = 48..64, fill below
+SLAB_W = 32
+DECK_TONES = {"dim": 0.28, "mid": 0.42, "lit": 0.58}
+DECK_NEUTRAL = 0.42
+ROW_TYPES = ["deck_back", "deck_front", "face_a", "face_b", "fill"]
+
+# Arch bay (A1 geometry, design x 184..488 -> bay origin + 0..304)
+BAY_DESIGN_X = 184
+BAY_W = 304
+ARCH_PIER_TORCHES = [{"x": 216.0, "y": float(PIER_TORCH_FLAME_Y - DY), "z": 40.0, "p": 0.85},
+                     {"x": 456.0, "y": float(PIER_TORCH_FLAME_Y - DY), "z": 40.0, "p": 0.85}]
+
+
+# ---------------------------------------------------------------------------
+# Canvas helpers (ld.Canvas keeps (ramp, index) per pixel)
+# ---------------------------------------------------------------------------
+
+def canvas(w: int, h: int, ox: float = 0.0, oy: float = 0.0, name: str = "kit") -> "ld.Canvas":
+    ld.DENSITIES["kit"] = {"s": 1.0, "canvas": (w, h), "origin": (ox, oy), "views": {}}
+    return ld.Canvas(name, "kit")
+
+
+def blit(dst: "ld.Canvas", src: "ld.Canvas", x: int, y: int, mirror_x: bool = False,
+         mirror_y: bool = False) -> None:
+    for sy in range(src.h):
+        for sx in range(src.w):
+            p = src.px[sy][sx]
+            if p is None:
+                continue
+            tx = x + (src.w - 1 - sx if mirror_x else sx)
+            ty = y + (src.h - 1 - sy if mirror_y else sy)
+            dst.px[ty][tx] = p
+
+
+def crop(src: "ld.Canvas", x: int, y: int, w: int, h: int) -> "ld.Canvas":
+    out = canvas(w, h)
+    for yy in range(h):
+        for xx in range(w):
+            if 0 <= x + xx < src.w and 0 <= y + yy < src.h:
+                out.px[yy][xx] = src.px[y + yy][x + xx]
     return out
 
 
-# ---------------------------------------------------------------------------
-# Canvas helper
-# ---------------------------------------------------------------------------
-class Canvas:
-    def __init__(self, w: int, h: int) -> None:
-        self.w, self.h = w, h
-        self.px = [["."] * w for _ in range(h)]
-
-    def put(self, x: int, y: int, key: str) -> None:
-        if 0 <= x < self.w and 0 <= y < self.h:
-            self.px[y][x] = key
-
-    def get(self, x: int, y: int) -> str:
-        return self.px[y][x]
-
-    def fill(self, x0: int, y0: int, x1: int, y1: int, key: str) -> None:
-        for y in range(y0, y1 + 1):
-            for x in range(x0, x1 + 1):
-                self.put(x, y, key)
-
-    def stamp(self, rows: list[str], ox: int, oy: int) -> None:
-        width = len(rows[0])
-        for dy, row in enumerate(rows):
-            if len(row) != width:
-                raise ValueError(f"ragged stamp row {dy}: {row!r}")
-            for dx, ch in enumerate(row):
-                if ch != ".":
-                    self.put(ox + dx, oy + dy, ch)
-
-    def rows(self) -> list[str]:
-        return ["".join(r) for r in self.px]
+def put(c: "ld.Canvas", x: int, y: int, ramp: str, value: float) -> None:
+    c.put(x, y, ramp, value)
 
 
-def stable_hash(*parts) -> int:
-    text = ":".join(str(p) for p in parts)
-    return int.from_bytes(hashlib.sha256(text.encode()).digest()[:8], "big")
+@contextmanager
+def light_rig(torches: list[dict], bounce: dict | None = None, **overrides):
+    """Temporarily swap the shared shading core's light list and geometry globals."""
+    saved_t = list(ld.TORCHES)
+    saved_b = dict(ld.COLD_BOUNCE)
+    saved_g = {k: getattr(ld, k) for k in overrides}
+    ld.TORCHES[:] = torches
+    if bounce is not None:
+        ld.COLD_BOUNCE.clear()
+        ld.COLD_BOUNCE.update(bounce)
+    for k, v in overrides.items():
+        setattr(ld, k, v)
+    try:
+        yield
+    finally:
+        ld.TORCHES[:] = saved_t
+        ld.COLD_BOUNCE.clear()
+        ld.COLD_BOUNCE.update(saved_b)
+        for k, v in saved_g.items():
+            setattr(ld, k, v)
+
+
+KEY_DIR = ld.norm(-0.35, -0.62, 0.7)  # generic key from upper-left-front for bevels
+
+
+def key_term(n: tuple) -> float:
+    """Bevel shading relative to a flat face (positive on lit edges)."""
+    return (n[0] * KEY_DIR[0] + n[1] * KEY_DIR[1] + n[2] * KEY_DIR[2]) - KEY_DIR[2]
 
 
 # ---------------------------------------------------------------------------
-# Brick coursing (16x8 modules, running bond, light from upper left)
+# Brick masonry (16x8 running bond, joints at x = 0 / 8 mod 16, rows at y = 0 mod 8)
 # ---------------------------------------------------------------------------
-BRICK_RAMP = "mabcde"  # 0 = mortar, 1..5 = face ramp dark -> light
+BRICK_W, BRICK_H = 16, 8
 
 
-def ramp(index: int) -> str:
-    return BRICK_RAMP[max(1, min(5, index))]
+def brick_cell(gx: int, gy: int) -> tuple[int, int, int, int]:
+    row = gy // BRICK_H
+    off = (BRICK_W // 2) * (row % 2)
+    col = (gx + off) // BRICK_W
+    return row, col, (gx + off) % BRICK_W, gy % BRICK_H
 
 
-def draw_brick(c: Canvas, ox: int, oy: int, start: int, y0: int, width: int,
-               tone: int, rng: random.Random | None, shift: int = 0,
-               mortar: str = "m", full_bevel: bool = False) -> None:
-    """One 15x7 brick face; ``rng=None`` draws the fixed seam brick."""
-    if rng is None:
-        hl0, hl_len, sh0, sh_len, chips, pit, crack, rshade = 0, 9, 9, 6, [], None, None, False
-    else:
-        # Bevel runs start at varied positions so the top-left highlight and
-        # bottom-right shadow never line up into diagonals across courses.
-        hl0 = 0 if full_bevel else rng.choice((0, 0, 1, 2, 4, 6))
-        hl_len = 15 if full_bevel else rng.randint(3, 9)
-        sh0 = rng.randint(0, 9)
-        sh_len = rng.randint(3, 15 - sh0)
-        roll = rng.random()
-        corners = [(0, 0), (14, 0), (0, 6), (14, 6)]
-        if roll < 0.28:
-            chips = [rng.choice(corners)]
-        elif roll < 0.38:
-            chips = rng.sample(corners, 2)
-        else:
-            chips = []
-        pit = (rng.randint(2, 11), rng.randint(2, 4)) if rng.random() < 0.3 else None
-        crack = rng.randint(3, 10) if rng.random() < 0.07 else None
-        rshade = full_bevel or rng.random() < 0.3
-    for dy in range(7):
-        for dx in range(15):
-            t = tone
-            if dy == 0 and hl0 <= dx < hl0 + hl_len:
-                t = tone + 1
-            elif full_bevel and dx == 0 and dy < 6:
-                t = tone + 1
-            elif dy == 6 and sh0 <= dx < sh0 + sh_len:
-                t = tone - 1
-            elif dx == 14 and rshade and dy > 0:
-                t = tone - 1
-            c.put(ox + (start + dx) % width, oy + y0 + dy, ramp(t + shift))
-    for cx, cy in chips:
-        c.put(ox + (start + cx) % width, oy + y0 + cy, mortar)
-    if pit:
-        px, py = pit
-        c.put(ox + (start + px) % width, oy + y0 + py, ramp(tone - 1 + shift))
-        c.put(ox + (start + px + 1) % width, oy + y0 + py, ramp(tone - 1 + shift))
-        c.put(ox + (start + px + 1) % width, oy + y0 + py + 1, ramp(tone + 1 + shift))
-    if crack is not None:
-        for i, (dx, dy) in enumerate(((0, 0), (0, 1), (1, 2), (1, 3), (2, 4))):
-            if i < 4 or tone > 2:
-                c.put(ox + (start + crack + dx) % width, oy + y0 + dy, ramp(tone - 2 + shift))
+def brick_pixel(c, px, py, du, dv, *, base, mortar_base, jit, seed, torch=None,
+                soot=0.0, pits=True, chips=True, x=0.0, y=0.0) -> bool:
+    """Shade one brick-cell pixel. ``torch(x, y, n) -> extra value``. Returns True if drawn."""
+    t_face = torch(None, None, (0.0, 0.0, 1.0)) if torch else 0.0
+    if du == 0 or dv == 0:
+        put(c, px, py, "mortar", mortar_base + 0.5 * t_face - soot * 0.5)
+        return True
+    if chips:
+        chip = ld.rnd(seed, "chip")
+        if chip < 0.14:
+            corner = int(chip * 28) % 4
+            cu = du - 1 if corner in (0, 2) else BRICK_W - 1 - du
+            cv = dv - 1 if corner in (0, 1) else BRICK_H - 1 - dv
+            if cu + cv < 1:
+                put(c, px, py, "mortar", mortar_base + 0.5 * t_face - soot * 0.5 + 0.6)
+                return True
+    n, edge = ld.bevel_normal(du - 1, dv - 1, BRICK_W - 1, BRICK_H - 1, 1)
+    value = base + jit + 1.5 * key_term(n) - soot
+    if torch:
+        value += torch(x, y, n) if edge else t_face
+    if pits and not edge:
+        count = 1 + int(ld.rnd(seed, "n") * 2.2)
+        for k in range(count):
+            pu = 2 + int(ld.rnd(seed, k, "u") * (BRICK_W - 6))
+            pv = 2 + int(ld.rnd(seed, k, "v") * (BRICK_H - 5))
+            if pu <= du < pu + 2 and dv == pv:
+                value -= 1.2
+    put(c, px, py, "brick", value)
+    return True
 
 
-def brick_strip(c: Canvas, ox: int, oy: int, width: int, courses: int, seed: str,
-                shift_per_course: list[int] | None = None, mortar: str = "m",
-                tones=(2, 3, 4), weights=(3, 4, 3), full_bevel: bool = False) -> None:
-    """Toroidal running-bond strip: tiles seamlessly with itself and with any
-    other strip of the same width because the wrap-crossing (seam) brick of
-    every odd course is a fixed, featureless base-tone brick."""
-    rng = random.Random(f"{KIT_ID}:{seed}")
-    c.fill(ox, oy, ox + width - 1, oy + courses * 8 - 1, mortar)
-    for k in range(courses):
-        shift = shift_per_course[k] if shift_per_course else 0
-        offset = 0 if k % 2 == 0 else 8
-        for i in range(width // 16):
-            start = offset + 16 * i
-            if start + 14 >= width:  # crosses the wrap seam
-                draw_brick(c, ox, oy, start, 8 * k, width, 3, None, shift, mortar)
-            else:
-                tone = rng.choices(tones, weights)[0]
-                draw_brick(c, ox, oy, start, 8 * k, width, tone, rng, shift, mortar,
-                           full_bevel)
+def brick_jitter(seed) -> float:
+    jit = (ld.rnd(seed) - 0.5) * 1.3
+    special = ld.rnd(seed, "kind")
+    if special < 0.05:
+        jit -= 1.1
+    elif special > 0.97:
+        jit += 0.8
+    return jit
 
 
-# ---------------------------------------------------------------------------
-# Collidable terrain tiles (opaque)
-# ---------------------------------------------------------------------------
-
-def chip(c: Canvas, x: int, y: int, joint: str, light: str, dx: int = 1) -> None:
-    """A 3 px chipped block corner: two joint-coloured pixels on the top edge
-    and one lit pixel tucked under them (no isolated single-pixel pocks)."""
-    c.put(x, y, joint)
-    c.put(x + dx, y, joint)
-    c.put(x, y + 1, light)
-
-
-def floor_top(c: Canvas, ox: int, oy: int, joints: list[int], seed: str,
-              end: str | None = None, chip_at: int | None = None) -> None:
-    """Walkable floor: 5 px warm torch-lit walking surface (rows 0-4), a bright
-    neutral stone lip (row 5), a shadow line and a warm front face."""
-    rng = random.Random(f"{KIT_ID}:{seed}")
-    surface = ["F", "E", "E", "D", "D", "y", "s"]
-    for y, key in enumerate(surface):
-        c.fill(ox, oy + y, ox + 15, oy + y, key)
-    c.fill(ox, oy + 7, ox + 15, oy + 14, "D")
-    c.fill(ox, oy + 7, ox + 15, oy + 7, "E")
-    c.fill(ox, oy + 15, ox + 15, oy + 15, "s")
-    # one short wear streak on the walking surface (never the back edge or lip)
-    sx, sy = rng.randint(2, 11), rng.choice((2, 3))
-    c.put(ox + sx, oy + sy, "D")
-    c.put(ox + sx + 1, oy + sy, "D")
-    for jx in joints:
-        for y in (1, 2, 3, 4):
-            c.put(ox + jx, oy + y, "D" if y < 3 else "v")
-        c.put(ox + jx, oy + 5, "x")
-        for y in range(6, 16):
-            c.put(ox + jx, oy + y, "s")
-        if jx - 1 >= 0:
-            for y in range(8, 15):
-                c.put(ox + jx - 1, oy + y, "t")
-        if jx + 1 <= 15:
-            for y in range(7, 15):
-                c.put(ox + jx + 1, oy + y, "E")
-    if chip_at is not None:
-        chip(c, ox + chip_at, oy + 7, "t", "E")
-    if end == "l":
-        for y in range(0, 5):
-            c.put(ox, oy + y, "x")
-        c.put(ox, oy + 5, "z")
-        for y in range(6, 15):
-            c.put(ox, oy + y, "w")
-            c.put(ox + 1, oy + y, "E")
-        c.put(ox, oy + 15, "s")
-    elif end == "r":
-        for y in range(0, 5):
-            c.put(ox + 15, oy + y, "D")
-        for y in range(6, 16):
-            c.put(ox + 15, oy + y, "s")
-            c.put(ox + 14, oy + y, "t")
+def brick_panel(band: str, variant: str, width_tiles: int) -> "ld.Canvas":
+    """One tile row of a brick band. Bricks cut by the panel edge get a neutral tone."""
+    _rows, base, mortar = BANDS[band]
+    w = width_tiles * TILE
+    c = canvas(w, TILE)
+    for py in range(TILE):
+        for px in range(w):
+            row, col, du, dv = brick_cell(px, py)
+            off = (BRICK_W // 2) * (row % 2)
+            start = col * BRICK_W - off
+            straddler = start < 0 or start + BRICK_W > w
+            seed = ("brick", band, variant, row, col)
+            jit = 0.0 if straddler else brick_jitter(seed)
+            brick_pixel(c, px, py, du, dv, base=base, mortar_base=mortar, jit=jit,
+                        seed=seed, pits=not straddler, chips=not straddler)
+    return c
 
 
-def floor_under_step(c: Canvas, ox: int, oy: int, joints: list[int],
-                     corner: str | None = None) -> None:
-    """Below a raised block that stands on the floor: the block's warm face
-    (rows 0-5) is flush with the floor's front face (rows 7-15), so the lower
-    floor's lip/shadow line continues as a single joint (row 6) and the block's
-    lit side edge stops at the walking line instead of running down the face."""
-    c.fill(ox, oy, ox + 15, oy + 5, "D")
-    c.fill(ox, oy + 6, ox + 15, oy + 6, "s")
-    c.fill(ox, oy + 7, ox + 15, oy + 7, "E")
-    c.fill(ox, oy + 8, ox + 15, oy + 14, "D")
-    c.fill(ox, oy + 15, ox + 15, oy + 15, "s")
-    for jx in joints:
-        for y in range(0, 6):
-            c.put(ox + jx, oy + y, "s")
-        if jx + 1 <= 15:
-            for y in range(0, 6):
-                c.put(ox + jx + 1, oy + y, "E")
-    if corner == "l":
-        for y in range(0, 5):
-            c.put(ox, oy + y, "w")
-            c.put(ox + 1, oy + y, "E")
-        c.put(ox, oy + 5, "x")
-    elif corner == "r":
-        for y in range(0, 5):
-            c.put(ox + 15, oy + y, "s")
-            c.put(ox + 14, oy + y, "t")
-        c.put(ox + 15, oy + 5, "s")
+def band_of_row(row: int) -> str:
+    for name, ((r0, r1), _b, _m) in BANDS.items():
+        if r0 <= row <= r1:
+            return name
+    raise ValueError(row)
 
 
-def masonry_fill(c: Canvas, ox: int, oy: int, seed: str, face: str, light: str,
-                 joint: str, side: str | None = None,
-                 joint_cols: tuple = (15, None), chipped: bool = False) -> None:
-    """Two 8 px courses of long dark blocks for fills. ``joint_cols`` gives the
-    vertical joint per course (None = block continues into the next tile), so
-    mixing variants yields irregular 16-48 px block lengths."""
-    rng = random.Random(f"{KIT_ID}:{seed}")
-    c.fill(ox, oy, ox + 15, oy + 15, face)
-    for k in range(2):
-        y0 = oy + 8 * k
-        jx = joint_cols[k]
-        c.fill(ox, y0 + 7, ox + 15, y0 + 7, joint)
-        if jx is not None:
-            for y in range(y0, y0 + 7):
-                c.put(ox + jx, y, joint)
-        # sparse partial top highlight (lit upper edge of each block)
-        start = 0 if jx is None else jx + 1
-        if start <= 15 and rng.random() < 0.7:
-            run = rng.randint(2, 6)
-            c.fill(ox + start, y0, ox + min(15, start + run - 1), y0, light)
-    if chipped:
-        chip(c, ox + 9, oy + 8, joint, light)
-    if side == "l":
-        for y in range(16):
-            c.put(ox, oy + y, "w")
-            if c.get(ox + 1, oy + y) == face:
-                c.put(ox + 1, oy + y, "v")
-    elif side == "r":
-        for y in range(16):
-            c.put(ox + 15, oy + y, "s")
-            c.put(ox + 14, oy + y, "t")
+POOL_VARIANTS = {"a": (POOL_RADIUS, 1.3), "b": (102.0, 1.18)}  # (radius, power): a full and a smaller pool
 
 
-def ceiling_edge(c: Canvas, ox: int, oy: int, joints: list[int], seed: str,
-                 chip_at: int | None = None, quoin: str | None = None,
-                 end: str | None = None) -> None:
-    """Ceiling mass (rows 0-6) over a stone lintel course whose underside rim
-    (row 14) catches torchlight. ``quoin`` turns the course down into a wall
-    face (inner corner); ``end`` finishes the course with a vertical rim
-    (outer corner, where the ceiling steps up)."""
-    c.fill(ox, oy, ox + 15, oy + 7, "t")
-    c.put(ox + 15, oy + 0, "s")
-    for y in range(0, 7):
-        c.put(ox + 7, oy + y, "s")
-    c.fill(ox, oy + 7, ox + 15, oy + 8, "s")
-    c.fill(ox, oy + 9, ox + 15, oy + 12, "u")
-    c.fill(ox, oy + 13, ox + 15, oy + 13, "v")
-    c.fill(ox, oy + 14, ox + 15, oy + 14, "w")
-    c.fill(ox, oy + 15, ox + 15, oy + 15, "s")
-    for jx in joints:
-        for y in range(9, 15):
-            c.put(ox + jx, oy + y, "s")
-        if jx + 1 <= 15:
-            for y in range(9, 14):
-                c.put(ox + jx + 1, oy + y, "v")
-    if chip_at is not None:
-        chip(c, ox + chip_at, oy + 9, "s", "v")
-    if quoin == "l":  # wall on the left: its quoin runs up into the course
-        c.fill(ox, oy + 9, ox + 4, oy + 15, "v")
-        c.fill(ox + 1, oy + 9, ox + 4, oy + 9, "w")
-        for y in range(9, 16):
-            c.put(ox, oy + y, "x")
-            c.put(ox + 5, oy + y, "s")
-    elif quoin == "r":
-        c.fill(ox + 11, oy + 9, ox + 15, oy + 15, "u")
-        c.fill(ox + 11, oy + 9, ox + 14, oy + 9, "v")
-        for y in range(9, 16):
-            c.put(ox + 10, oy + y, "s")
-            c.put(ox + 15, oy + y, "t")
-    if end == "l":  # course ends here; open space continues to the left
-        for y in range(0, 15):
-            c.put(ox, oy + y, "w" if y >= 9 else "u")
-            if y >= 9:
-                c.put(ox + 1, oy + y, "v")
-        c.put(ox, oy + 15, "s")
-    elif end == "r":
-        for y in range(0, 16):
-            c.put(ox + 15, oy + y, "s")
-            c.put(ox + 14, oy + y, "t" if y < 9 else "u")
+def pool_torch_value(t: dict, x: float, y: float, n: tuple) -> float:
+    radius, power = POOL_VARIANTS[t["variant"]]
+    w = ld.warm_light(x, y, 0.0, n, torches=[t], radius=radius, power=power)
+    return 9.2 * (w ** 0.7)
 
 
-def ceiling_fill(c: Canvas, ox: int, oy: int, seed: str) -> None:
-    c.fill(ox, oy, ox + 15, oy + 15, "t")
-    for k in range(2):
-        y0 = oy + 8 * k
-        jx = 15 if k == 0 else 7
-        c.fill(ox, y0 + 7, ox + 15, y0 + 7, "s")
-        for y in range(y0, y0 + 7):
-            c.put(ox + jx, y, "s")
-    if seed.endswith("b"):
-        chip(c, ox + 9, oy + 8, "s", "u")
+def torch_pool(variant: str) -> "ld.Canvas":
+    """Warm brick pool around a wall torch: whole bricks only (brick-shaped 1-bit alpha).
+
+    Placed with its top-left at (flame_x - 120, 48); the brick tones include the band
+    base of every row, the torch light and soot above the flame. Bricks that would not
+    change by at least ~0.55 ramp steps are left out so the pool fades into any panel.
+    """
+    c = canvas(POOL_W, POOL_H)
+    cx, cy = POOL_CENTRE_LOCAL
+    t = {"x": float(cx), "y": float(cy), "z": 16.0, "p": 1.0, "variant": variant}
+    bricks: dict[tuple[int, int], list[tuple[int, int, int, int]]] = {}
+    for py in range(POOL_H):
+        for px in range(POOL_W):
+            row, col, du, dv = brick_cell(px, py)
+            bricks.setdefault((row, col), []).append((px, py, du, dv))
+    for (row, col), pixels in sorted(bricks.items()):
+        off = (BRICK_W // 2) * (row % 2)
+        start = col * BRICK_W - off
+        if start < 0 or start + BRICK_W > POOL_W:
+            continue  # only whole bricks
+        bx, by = start + BRICK_W / 2, row * BRICK_H + BRICK_H / 2
+        tile_row = (POOL_TOP_Y + row * BRICK_H) // TILE
+        if tile_row > BANDS["low"][0][1]:
+            continue
+        band = band_of_row(tile_row)
+        _r, base, mortar = BANDS[band]
+        lift = pool_torch_value(t, bx, by, (0.0, 0.0, 1.0))
+        dy = cy - by
+        soot = 0.0
+        if 6 < dy < 92 and abs(bx - cx) < 7 + dy * 0.12:
+            soot = 1.7 * (1.0 - dy / 92.0)
+        if lift - soot < 0.55 and soot < 0.6:
+            continue
+        seed = ("pool", variant, row, col)
+        jit = brick_jitter(seed)
+
+        def torch(x, y, n, _bx=bx, _by=by):
+            if x is None:
+                return pool_torch_value(t, _bx, _by, n)
+            return 0.5 * pool_torch_value(t, x, y, n) + 0.5 * pool_torch_value(t, _bx, _by, (0, 0, 1))
+
+        for px, py, du, dv in pixels:
+            brick_pixel(c, px, py, du, dv, base=base, mortar_base=mortar, jit=jit, seed=seed,
+                        torch=torch, soot=soot, x=px + 0.5, y=py + 0.5)
+    return c
 
 
-def wall_bricks(c: Canvas, ox: int, oy: int, seed: str) -> None:
-    """Collidable solid brick: lighter faces, full bevel and dark stone mortar,
-    so solid geometry never reads as background."""
-    strip = Canvas(16, 16)
-    brick_strip(strip, 0, 0, 16, 2, seed, mortar="s", tones=(4, 5), weights=(1, 1),
-                full_bevel=True)
-    # 16-wide strip: the odd course is a single seam brick, so give it a
-    # visible joint at x=7 and keep the tile self-contained.
-    for y in range(8, 15):
-        strip.put(7, y, "s")
-    for y, row in enumerate(strip.rows()):
-        for x, ch in enumerate(row):
-            c.put(ox + x, oy + y, ch)
-
-
-def quoin(c: Canvas, ox: int, oy: int, side: str, long_first: bool) -> None:
-    """Stone quoins on the exposed vertical edge of a collidable brick wall:
-    alternating long (5 px) and short (3 px) blocks, 8 px tall."""
-    for k in range(2):
-        y0 = oy + 8 * k
-        width = 5 if (k == 0) == long_first else 3
-        if side == "l":
-            c.fill(ox, y0, ox + width - 1, y0 + 6, "v")
-            c.fill(ox, y0, ox + width - 1, y0, "w")
-            for y in range(y0, y0 + 7):
-                c.put(ox, y, "x")
-                c.put(ox + width, y, "s")
-            c.fill(ox, y0 + 7, ox + width, y0 + 7, "s")
-        else:
-            c.fill(ox + 16 - width, y0, ox + 15, y0 + 6, "u")
-            c.fill(ox + 16 - width, y0, ox + 15, y0, "v")
-            for y in range(y0, y0 + 7):
-                c.put(ox + 15, y, "t")
-                c.put(ox + 15 - width, y, "s")
-            c.fill(ox + 15 - width, y0 + 7, ox + 15, y0 + 7, "s")
-
-
-def wall_cap(c: Canvas, ox: int, oy: int, seed: str, side: str | None) -> None:
-    """Walkable cap stone on top of a collidable brick wall (rows 0-6), with the
-    wall's brick below; ``side`` adds the lit (l) or shaded (r) corner."""
-    wall_bricks(c, ox, oy, seed)
-    for y, key in enumerate(["F", "E", "D", "D", "y", "s", "t"]):
-        c.fill(ox, oy + y, ox + 15, oy + y, key)
-    if side == "l":
-        quoin(c, ox, oy, "l", True)
-        for y in range(0, 4):
-            c.put(ox, oy + y, "x")
-        c.put(ox, oy + 4, "z")
-        c.fill(ox, oy + 5, ox + 5, oy + 6, "s")
-        c.put(ox, oy + 6, "x")
-    elif side == "r":
-        quoin(c, ox, oy, "r", True)
-        for y in range(0, 5):
-            c.put(ox + 15, oy + y, "t")
-        c.fill(ox + 10, oy + 5, ox + 15, oy + 6, "s")
-
-
-def build_terrain() -> tuple[dict, list[dict]]:
-    w, h = 8 * TILE, 4 * TILE
-    layers = {name: Canvas(w, h) for name in ("floor", "ceiling", "wall")}
-    tiles: list[dict] = []
-
-    def add(name: str, layer: str, col: int, row: int, extra: dict | None = None):
-        tiles.append({"id": name, "layer": layer, "cell": [col, row], **(extra or {})})
-        return layers[layer], col * TILE, row * TILE
-
-    walk = {"walkable_top": True}
-    # row 0: walkable floor tops and the ceiling course
-    floor_top(*add("floor_top_a", "floor", 0, 0, walk), [15], "floor_top_a")
-    floor_top(*add("floor_top_b", "floor", 1, 0, walk), [], "floor_top_b", chip_at=4)
-    floor_top(*add("floor_top_c", "floor", 2, 0, walk), [7], "floor_top_c")
-    floor_top(*add("floor_top_end_l", "floor", 3, 0, walk), [], "floor_top_end_l", end="l")
-    floor_top(*add("floor_top_end_r", "floor", 4, 0, walk), [], "floor_top_end_r", end="r")
-    ceiling_edge(*add("ceiling_edge_a", "ceiling", 5, 0), [15], "ceiling_edge_a")
-    ceiling_edge(*add("ceiling_edge_b", "ceiling", 6, 0), [], "ceiling_edge_b", chip_at=5)
-    ceiling_edge(*add("ceiling_edge_c", "ceiling", 7, 0), [7], "ceiling_edge_c")
-    # row 1: fills and solid wall
-    masonry_fill(*add("floor_fill_a", "floor", 0, 1), "floor_fill_a", "t", "u", "s")
-    masonry_fill(*add("floor_fill_b", "floor", 1, 1), "floor_fill_b", "t", "u", "s",
-                 joint_cols=(None, 7), chipped=True)
-    masonry_fill(*add("floor_fill_side_l", "floor", 2, 1), "floor_fill_side_l", "t", "u", "s",
-                 side="l", joint_cols=(None, 7))
-    masonry_fill(*add("floor_fill_side_r", "floor", 3, 1), "floor_fill_side_r", "t", "u", "s",
-                 side="r")
-    ceiling_fill(*add("ceiling_fill_a", "ceiling", 4, 1), "ceiling_fill_a")
-    ceiling_fill(*add("ceiling_fill_b", "ceiling", 5, 1), "ceiling_fill_b")
-    wall_bricks(*add("wall_fill_a", "wall", 6, 1), "wall_fill_a")
-    wall_bricks(*add("wall_fill_b", "wall", 7, 1), "wall_fill_b")
-    # row 2: raised-block footing, vertical wall faces and caps
-    floor_under_step(*add("floor_inner_corner_l", "floor", 0, 2), [], corner="l")
-    floor_under_step(*add("floor_inner_corner_r", "floor", 1, 2), [], corner="r")
-    floor_under_step(*add("floor_step_base_a", "floor", 2, 2), [9])
-    floor_under_step(*add("floor_step_base_b", "floor", 3, 2), [])
-    for col, name, side in ((4, "wall_face_l", "l"), (5, "wall_face_r", "r")):
-        canvas, x, y = add(name, "wall", col, 2)
-        wall_bricks(canvas, x, y, name)
-        quoin(canvas, x, y, side, True)
-    wall_cap(*add("wall_cap_l", "wall", 6, 2, walk), "wall_cap_l", "l")
-    wall_cap(*add("wall_cap_r", "wall", 7, 2, walk), "wall_cap_r", "r")
-    # row 3: cap middle, ceiling corners, second quoin phase, fourth floor top
-    wall_cap(*add("wall_cap_mid", "wall", 0, 3, walk), "wall_cap_mid", None)
-    ceiling_edge(*add("ceiling_corner_in_l", "ceiling", 1, 3), [], "ceiling_corner_in_l",
-                 quoin="l")
-    ceiling_edge(*add("ceiling_corner_in_r", "ceiling", 2, 3), [], "ceiling_corner_in_r",
-                 quoin="r")
-    ceiling_edge(*add("ceiling_corner_out_l", "ceiling", 3, 3), [], "ceiling_corner_out_l",
-                 end="l")
-    ceiling_edge(*add("ceiling_corner_out_r", "ceiling", 4, 3), [], "ceiling_corner_out_r",
-                 end="r")
-    for col, name, side in ((5, "wall_face_l_b", "l"), (6, "wall_face_r_b", "r")):
-        canvas, x, y = add(name, "wall", col, 3)
-        wall_bricks(canvas, x, y, name)
-        quoin(canvas, x, y, side, False)
-    floor_top(*add("floor_top_d", "floor", 7, 3, walk), [11], "floor_top_d", chip_at=13)
-    grid = make_grid([w, h], [0, 0], layers, ["ceiling", "wall", "floor"])
-    return grid, tiles
-
-
-# ---------------------------------------------------------------------------
-# Backwall tiles (opaque, non-collidable)
-# ---------------------------------------------------------------------------
-
-def stepped(c: Canvas, ox: int, oy: int, y_mid: int, upper: str, lower: str,
-            profile: tuple[int, ...], y0: int = 0, y1: int = 15) -> None:
-    """Band change from ``upper`` to ``lower`` along a stepped edge: mostly a
-    straight line with one 3 px notch per tile (``profile[x]`` offsets the row),
-    staggered between tile kinds. No 1 px checkerboard, and no continuous
-    undulation (which reads as a water line). Profiles wrap at 16 px."""
-    for x in range(16):
-        edge = y_mid + profile[x]
-        for y in range(y0, y1 + 1):
-            c.put(ox + x, oy + y, upper if y < edge else lower)
-
-
-PROFILE_A = (0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0)
-PROFILE_B = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, 0, 0, 0)
-PROFILE_C = (0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-
-
-def recess_tile(c: Canvas, ox: int, oy: int, kind: str) -> None:
-    def band(y0: int, y1: int, key: str) -> None:
-        c.fill(ox, oy + y0, ox + 15, oy + y1, key)
-
-    if kind == "recess_vault":
-        band(0, 15, "0")
-        for x in (9, 10, 11):
-            c.put(ox + x, oy + 6, "1")
-    elif kind == "recess_vault_fade":
-        stepped(c, ox, oy, 8, "0", "1", PROFILE_A)
-    elif kind == "recess_wall_a":
-        band(0, 15, "1")
-        for x in (3, 4, 5):
-            c.put(ox + x, oy + 9, "0")
-    elif kind == "recess_wall_b":
-        band(0, 15, "1")
-        c.put(ox + 11, oy + 4, "2")
-        c.put(ox + 12, oy + 4, "2")
-    elif kind == "recess_wall_fade":
-        stepped(c, ox, oy, 5, "1", "2", PROFILE_B)
-        stepped(c, ox, oy, 12, "2", "3", PROFILE_C, y0=8)
-    elif kind == "recess_low":
-        stepped(c, ox, oy, 7, "3", "4", PROFILE_A)
-    elif kind == "recess_haze":
-        band(0, 15, "4")
-        for x in (5, 6, 7):
-            c.put(ox + x, oy + 10, "3")
-    elif kind == "recess_floor":
-        band(0, 2, "4")
-        band(3, 3, "2")  # dark far-floor contact line (a bright line read as water)
-        band(4, 15, "3")
-        stepped(c, ox, oy, 10, "3", "2", PROFILE_B, y0=7)
-    else:
-        raise ValueError(kind)
-
-
-def build_backwall() -> tuple[dict, list[dict]]:
-    w, h = 8 * TILE, 8 * TILE
-    layers = {name: Canvas(w, h) for name in ("brick", "strips", "recess")}
-    tiles: list[dict] = []
-    # Six 64x32 running-bond panels (4x2 tiles each), toroidal. Tone variation
-    # is deliberately narrow (mostly base tone) so the wall stays calm and no
-    # large-scale light/dark pattern emerges when panels repeat.
-    names = "abcdef"
-    for n, panel in enumerate(names):
-        px, py = (n % 2) * 64, (n // 2) * 32
-        brick_strip(layers["brick"], px, py, 64, 4, f"panel_{panel}", weights=(2, 5, 2))
-        for cy in range(2):
-            for cx in range(4):
-                tiles.append({
-                    "id": f"brick_backwall_{panel}{cy * 4 + cx + 1}", "layer": "brick",
-                    "cell": [(px // TILE) + cx, (py // TILE) + cy],
-                    "panel": {"id": f"brick_{panel}", "family": "brick_body",
-                              "cell": [cx, cy], "size": [4, 2]},
-                })
-    sy = 6 * TILE
-    # Top strip under the ceiling: darker first course under a solid two-row
-    # contact shadow (no high-frequency teeth against the collision edge).
-    s = layers["strips"]
-    brick_strip(s, 0, sy, 64, 2, "strip_top", shift_per_course=[-1, 0], weights=(2, 5, 2))
-    s.fill(0, sy, 63, sy, "m")
-    s.fill(0, sy + 1, 63, sy + 1, "a")
-    for cx in range(4):
-        tiles.append({"id": f"brick_backwall_top_{cx + 1}", "layer": "strips",
-                      "cell": [cx, 6],
-                      "panel": {"id": "brick_top", "family": "brick_top",
-                                "cell": [cx, 0], "size": [4, 1]}})
-    # Base strip behind the floor contact line: one darker brick course over a
-    # plain, solid stone plinth that is clearly darker than the floor surface.
-    brick_strip(s, 64, sy, 64, 1, "strip_base", shift_per_course=[-1], weights=(2, 5, 2))
-    s.fill(64, sy + 7, 127, sy + 7, "m")
-    s.fill(64, sy + 8, 127, sy + 8, "u")
-    s.fill(64, sy + 9, 127, sy + 13, "t")
-    s.fill(64, sy + 14, 127, sy + 15, "s")
-    for jx in (64 + 31, 64 + 63):
-        for y in range(sy + 9, sy + 14):
-            s.put(jx, y, "s")
-    for cx in range(4):
-        tiles.append({"id": f"brick_backwall_base_{cx + 1}", "layer": "strips",
-                      "cell": [4 + cx, 6],
-                      "panel": {"id": "brick_base", "family": "brick_base",
-                                "cell": [cx, 0], "size": [4, 1]}})
-    recess_kinds = ["recess_vault", "recess_vault_fade", "recess_wall_a", "recess_wall_b",
-                    "recess_wall_fade", "recess_low", "recess_haze", "recess_floor"]
-    for i, kind in enumerate(recess_kinds):
-        recess_tile(layers["recess"], i * TILE, 7 * TILE, kind)
-        tiles.append({"id": kind, "layer": "recess", "cell": [i, 7], "recess": True})
-    grid = make_grid([w, h], [0, 0], layers, ["brick", "strips", "recess"])
-    return grid, tiles
-
-
-# ---------------------------------------------------------------------------
-# Structure pieces (alpha, non-collidable): arch ring, pier modules, far arcade
-# ---------------------------------------------------------------------------
-ARCH_R_IN, ARCH_R_OUT, ARCH_VOUSSOIRS = 72, 96, 11
-ARCH_SOFFIT = 3.5  # darker band on the inner edge: the arch's depth (soffit)
-
-
-def draw_arch(c: Canvas, ox: int, oy: int) -> None:
-    """Voussoir ring: stone d in [72, 94), extrados outline at 94, a 1 px contact
-    shadow on the wall at 95. Only the upward-facing edge of each voussoir is
-    lit; a darker soffit band runs along the inside of the ring."""
-    cx, cy = 96.0, 96.0
-    rng = random.Random(f"{KIT_ID}:arch")
-    n = ARCH_VOUSSOIRS
-    tones = [rng.choice("uvv") for _ in range(n)]
-    tones[n // 2] = "v"  # keystone
-    chipped = {i for i in range(n) if rng.random() < 0.34}
-    for py in range(96):
-        for px in range(192):
-            dx, dy = px + 0.5 - cx, cy - (py + 0.5)
-            d = math.hypot(dx, dy)
-            if not (ARCH_R_IN <= d < ARCH_R_OUT) or dy <= 0:
+def grime_patch(variant: str) -> "ld.Canvas":
+    """A few darkened whole bricks for the mid band (soot and old damp, dry now)."""
+    c = canvas(48, 16)
+    _r, base, mortar = BANDS["mid"]
+    for py in range(16):
+        for px in range(48):
+            row, col, du, dv = brick_cell(px, py)
+            off = (BRICK_W // 2) * (row % 2)
+            start = col * BRICK_W - off
+            if start < 0 or start + BRICK_W > 48:
                 continue
-            theta = math.atan2(dy, dx)  # 0 = right springing, pi = left
-            pos = theta / math.pi * n
-            idx = min(n - 1, int(pos))
-            frac = pos - idx
-            arc = math.pi / n * d  # voussoir arc length at this radius
-            dist_lo, dist_hi = frac * arc, (1 - frac) * arc
-            centre = (idx + 0.5) / n * math.pi
-            crown = abs(centre - math.pi / 2) < 0.35
-            # the joint side that faces upward (toward the crown)
-            up_side = dist_hi if centre < math.pi / 2 else dist_lo
-            key = tones[idx]
-            if d >= ARCH_R_OUT - 1:
-                key = "m"  # contact shadow on the wall just outside the ring
-            elif d >= ARCH_R_OUT - 2:
-                key = "s"  # extrados outline
-            elif d < ARCH_R_IN + ARCH_SOFFIT:
-                key = "t"  # soffit band (no inner highlight rim)
-            elif min(dist_lo, dist_hi) < 0.75 and not (
-                    dist_lo < 0.75 and idx == 0) and not (dist_hi < 0.75 and idx == n - 1):
-                key = "s"  # radial mortar joint (none at the two springing faces)
-            elif crown and d >= ARCH_R_OUT - 4:
-                key = "w"  # crown voussoirs: lit top (extrados) edge
-            elif not crown and up_side < 1.6:
-                key = "w"  # lit upward-facing joint edge
-            if idx in chipped and key in "uvw":
-                # 3 px chip at the voussoir's outer, upward corner
-                if d >= ARCH_R_OUT - 4.5 and up_side < 3.2 and not crown:
-                    key = "t"
-                elif crown and d >= ARCH_R_OUT - 4.5 and min(dist_lo, dist_hi) < 2.5 \
-                        and dist_lo < dist_hi:
-                    key = "t"
-            c.put(ox + px, oy + py, key)
+            seed = ("grime", variant, row, col)
+            if ld.rnd(seed, "keep") < 0.28:
+                continue
+            darker = 0.6 + ld.rnd(seed, "d") * 0.6
+            brick_pixel(c, px, py, du, dv, base=base - darker, mortar_base=mortar - 0.4,
+                        jit=(ld.rnd(seed) - 0.5) * 0.6, seed=seed)
+    return c
 
 
-def draw_pier_capital(c: Canvas, ox: int, oy: int) -> None:
-    c.fill(ox, oy, ox + 63, oy + 5, "v")
-    c.fill(ox, oy, ox + 63, oy, "s")
-    c.fill(ox + 1, oy + 1, ox + 62, oy + 1, "w")
-    c.fill(ox, oy + 5, ox + 63, oy + 5, "t")
-    for y in range(1, 6):
-        c.put(ox, oy + y, "s")
-        c.put(ox + 63, oy + y, "s")
-        c.put(ox + 1, oy + y, "w")
-        c.put(ox + 62, oy + y, "u")
-    c.fill(ox + 4, oy + 6, ox + 59, oy + 15, "u")
-    c.fill(ox + 4, oy + 6, ox + 59, oy + 6, "s")
-    c.fill(ox + 5, oy + 7, ox + 58, oy + 7, "v")
-    for y in range(6, 16):
-        c.put(ox + 4, oy + y, "s")
-        c.put(ox + 59, oy + y, "s")
-    for y in range(7, 15):
-        c.put(ox + 5, oy + y, "v")
-        c.put(ox + 58, oy + y, "t")
-    c.fill(ox + 5, oy + 15, ox + 58, oy + 15, "t")
-    for jx in (ox + 31,):
-        for y in range(7, 15):
-            c.put(jx, oy + y, "s")
-        for y in range(8, 15):
-            c.put(jx + 1, oy + y, "v")
+def base_course(variant: str, width_tiles: int) -> "ld.Canvas":
+    """Pale dressed-stone course under the brick: a lit backdrop for actor height."""
+    w = width_tiles * TILE
+    c = canvas(w, TILE)
+    bw = 32
+    for py in range(TILE):
+        for px in range(w):
+            col = px // bw
+            du, dv = px % bw, py
+            straddler = (col * bw + bw > w)
+            seed = ("base", variant, col)
+            jit = 0.0 if straddler else (ld.rnd(seed) - 0.5) * 0.9
+            if du == 0 or dv == 0:
+                put(c, px, py, "mortar", 2.4 if dv else 1.6)
+                continue
+            if dv == 15:
+                put(c, px, py, "stone", 2.2)  # contact shadow line where the course meets the floor
+                continue
+            n, edge = ld.bevel_normal(du - 1, dv - 1, bw - 1, 14, 1)
+            value = 7.8 + jit + 1.6 * key_term(n) - 0.08 * dv
+            if not edge and not straddler:
+                pu = 3 + int(ld.rnd(seed, "u") * 22)
+                pv = 3 + int(ld.rnd(seed, "v") * 8)
+                if pu <= du < pu + 3 and dv == pv:
+                    value -= 1.0
+            put(c, px, py, "stone", value)
+    return c
 
 
-def ashlar_block(c: Canvas, x0: int, y0: int, x1: int, y1: int, tone: str,
-                 rng: random.Random) -> None:
-    """One dressed stone block with joint on its right/bottom edge. About a third
-    of the blocks get a 3 px chipped top-left corner; no single-pixel pocks."""
-    c.fill(x0, y0, x1, y1, tone)
-    c.fill(x0, y1, x1, y1, "s")
-    for y in range(y0, y1 + 1):
-        c.put(x1, y, "s")
-    run = rng.randint((x1 - x0) // 2, x1 - x0)
-    c.fill(x0, y0, x0 + run - 1, y0, "w")
-    for y in range(y0, y1 - 1):
-        c.put(x0, y, "w")
-    lower = "t" if tone == "u" else "u"
-    c.fill(x1 - rng.randint(3, max(3, (x1 - x0) // 2)), y1 - 1, x1 - 1, y1 - 1, lower)
-    if rng.random() < 0.34 and x1 - x0 > 8:
-        cx = rng.randint(x0 + 2, x1 - 4)
-        chip(c, cx, y0, "t", tone)
+# ---------------------------------------------------------------------------
+# Terrain: deep floor (deck), face courses, fill, steps, ceiling, wall ends
+# ---------------------------------------------------------------------------
+
+def deck_pixel(c, px, py, gx, ry, tone_w, seed_base, straddle_fn, ao=0.0) -> None:
+    """One pixel of the floor column at relative y ``ry`` (0 = floor back line)."""
+    if ry < LIP[0]:
+        k = 0
+        while ry >= SLAB_ROWS[k + 1]:
+            k += 1
+        y0, y1 = SLAB_ROWS[k], SLAB_ROWS[k + 1]
+        stagger = SLAB_W // 2 if k % 2 else 0
+        col = (gx + stagger) // SLAB_W
+        u = (gx + stagger) % SLAB_W
+        v = ry - y0
+        straddler = straddle_fn(col * SLAB_W - stagger, SLAB_W)
+        seed = (seed_base, "slab", k, col)
+        w = DECK_NEUTRAL if straddler else tone_w
+        jit = 0.0 if straddler else (ld.rnd(seed) - 0.5) * 1.0
+        a = ao
+        if k == 0:
+            a += 1.2 - v * 0.25
+        if u == 0 or v == 0:
+            put(c, px, py, "mortar", 0.6 + 5.4 * w - a * 0.5)
+            return
+        value = 1.2 + 9.4 * (w ** 0.8) + jit - a
+        if v < 2:
+            value += 0.8
+        if not straddler:
+            pu = ld.rnd(seed, "u")
+            if abs(u - (5 + pu * 20)) < 1.0 and v == (y1 - y0) // 2:
+                value -= 1.0
+        put(c, px, py, "floor", value)
+        return
+    if ry < LIP[1]:
+        w = tone_w * 0.92
+        put(c, px, py, "floor", (2.7 if ry == LIP[0] else 1.5) + 9.0 * (w ** 0.8) - ao * 0.4)
+        return
+    if ry < FACE_COURSES[1]:
+        face_pixel(c, px, py, gx, ry - FACE_COURSES[0], 22, 0, 1.0, tone_w, seed_base, straddle_fn, ao)
+        return
+    if ry < FACE_COURSES[2]:
+        face_pixel(c, px, py, gx, ry - FACE_COURSES[1], 16, SLAB_W // 2, 0.42, 0.4, seed_base,
+                   straddle_fn, ao)
+        return
+    fill_pixel(c, px, py, gx, ry - FACE_COURSES[2], seed_base, straddle_fn)
 
 
-def draw_pier_shaft(c: Canvas, ox: int, oy: int) -> None:
-    rng = random.Random(f"{KIT_ID}:pier_shaft")
-    left, right = ox + 8, ox + 55
-    # course 0: two 24 px blocks; course 1: 12 + 24 + 12 (running bond)
-    ashlar_block(c, left, oy, left + 23, oy + 15, "v", rng)
-    ashlar_block(c, left + 24, oy, right, oy + 15, "u", rng)
-    ashlar_block(c, left, oy + 16, left + 11, oy + 31, "u", rng)
-    ashlar_block(c, left + 12, oy + 16, left + 35, oy + 31, "v", rng)
-    ashlar_block(c, left + 36, oy + 16, right, oy + 31, "v", rng)
-    for y in range(oy, oy + 32):
-        c.put(left, y, "s")
-        c.put(left + 1, y, "w")
-        c.put(right, y, "s")
-        c.put(right - 1, y, "t")
+def face_pixel(c, px, py, gx, v, vh, stagger, row_gain, tone_w, seed_base, straddle_fn, ao) -> None:
+    col = (gx + stagger) // SLAB_W
+    u = (gx + stagger) % SLAB_W
+    straddler = straddle_fn(col * SLAB_W - stagger, SLAB_W)
+    seed = (seed_base, "face", vh, col)
+    w = (DECK_NEUTRAL if straddler else tone_w) * 0.42
+    jit = 0.0 if straddler else (ld.rnd(seed) - 0.5) * 0.9
+    if u == 0 or v == 0:
+        put(c, px, py, "mortar", 0.2 + 4.0 * (w ** 0.7) * row_gain)
+        return
+    grad = 1.0 - v / vh
+    value = 0.5 + row_gain * (1.8 + 8.0 * (w ** 0.7)) + jit + grad * 0.6 * row_gain - ao * 0.5
+    if v < 1:
+        value += 1.0 * row_gain
+    put(c, px, py, "floor", value)
 
 
-def draw_pier_base(c: Canvas, ox: int, oy: int) -> None:
-    rng = random.Random(f"{KIT_ID}:pier_base")
-    # torus moulding stepping out from the 48 px shaft to a 60 px plinth
-    c.fill(ox + 6, oy, ox + 57, oy + 3, "v")
-    c.fill(ox + 6, oy, ox + 57, oy, "s")
-    c.fill(ox + 7, oy + 1, ox + 56, oy + 1, "x")
-    c.fill(ox + 7, oy + 2, ox + 56, oy + 2, "w")
-    c.fill(ox + 6, oy + 3, ox + 57, oy + 3, "t")
-    for y in range(0, 4):
-        c.put(ox + 6, oy + y, "s")
-        c.put(ox + 57, oy + y, "s")
-    ashlar_block(c, ox + 2, oy + 4, ox + 31, oy + 17, "v", rng)
-    ashlar_block(c, ox + 32, oy + 4, ox + 61, oy + 17, "u", rng)
-    ashlar_block(c, ox + 2, oy + 18, ox + 17, oy + 31, "u", rng)
-    ashlar_block(c, ox + 18, oy + 18, ox + 45, oy + 31, "u", rng)
-    ashlar_block(c, ox + 46, oy + 18, ox + 61, oy + 31, "u", rng)
-    for y in range(4, 32):
-        c.put(ox + 2, oy + y, "s")
-        c.put(ox + 3, oy + y, "w")
-        c.put(ox + 61, oy + y, "s")
-        c.put(ox + 60, oy + y, "t")
-    c.fill(ox + 2, oy + 4, ox + 61, oy + 4, "s")
-    # contact shadow where the plinth meets the walkable floor
-    c.fill(ox + 3, oy + 30, ox + 60, oy + 30, "t")
-    c.fill(ox + 2, oy + 31, ox + 61, oy + 31, "s")
+def fill_pixel(c, px, py, gx, v, seed_base, straddle_fn) -> None:
+    course = v // 8
+    stagger = SLAB_W // 2 if course % 2 else 0
+    col = (gx + stagger) // SLAB_W
+    u = (gx + stagger) % SLAB_W
+    dv = v % 8
+    straddler = straddle_fn(col * SLAB_W - stagger, SLAB_W)
+    jit = 0.0 if straddler else (ld.rnd(seed_base, "fill", course % 2, col) - 0.5) * 0.7
+    if u == 0 or dv == 0:
+        put(c, px, py, "floor_cold", 0.0)
+        return
+    put(c, px, py, "floor_cold", 0.9 + jit + (0.5 if dv == 1 else 0.0))
 
 
-FAR_TOP_PROFILE = (0,) * 16  # straight far cornice (a wavy edge reads as water)
+def floor_column(width_tiles: int, tone: str, seed: str, ao_fn=None) -> "ld.Canvas":
+    """A panel of the full floor stack: deck_back, deck_front, face_a, face_b, fill rows."""
+    w = width_tiles * TILE
+    c = canvas(w, TILE * len(ROW_TYPES))
+    tone_w = DECK_TONES[tone]
+
+    def straddle(start, size):
+        return start < 0 or start + size > w
+
+    for py in range(c.h):
+        for px in range(w):
+            ao = ao_fn(px, py) if ao_fn else 0.0
+            deck_pixel(c, px, py, px, py, tone_w, seed, straddle, ao)
+    return c
 
 
-def draw_far_arcade(c: Canvas, ox: int, oy: int, openings: list[tuple[int, int]],
-                    spring: int, torches: list[tuple[int, int]]) -> None:
-    """Distant arcade inside a recess. Figure/ground is inverted against the
-    old "tombstone" read: the far wall, spandrels and piers are mid-blue
-    (``3``, cornice ``4``) and the round arch heads are dark voids (``1``,
-    ``2``). Lower down, the openings fill with lighter floor-level haze (``4``,
-    L* ~26) so the actor-height band stays clearly lighter than dark actor
-    masses; the piers then read as darker columns in fog. A 1 px dark contact
-    line (``2``) marks the far floor inside each opening (a bright line over a
-    darker band read as water). Rows above the cornice stay transparent."""
-    w, h, floor_y = 144, 96, 86
-    for px in range(w):
-        top = 10 + FAR_TOP_PROFILE[px % 16]
-        for py in range(top, h):
-            x, y = px + 0.5, py + 0.5
-            hole = False
-            for acx, r_in in openings:
-                inside = (math.hypot(x - acx, spring - y) < r_in) if y < spring \
-                    else abs(x - acx) < r_in
-                hole = hole or inside
-            if py > floor_y:
-                key = "3"  # far floor in front of the far wall
-            elif py == floor_y:
-                key = "2" if hole else "3"  # dark contact line at the far floor
-            elif hole:
-                # dark arch head, then a plain 2-row step, then floor haze
-                if py < spring + 2:
-                    key = "1"
-                elif py < spring + 4:
-                    key = "2"
-                else:
-                    key = "4"
+def edge_column(side: str, kind: str) -> "ld.Canvas":
+    """Single floor-stack tiles: platform ends ("end"), lower floor next to a step
+    ("inner") and floor next to a corridor end wall ("wall"). Patterns use the neutral
+    tone so they join the edge column of any panel."""
+    def straddle(start, size):
+        return True
+
+    def ao_fn(px, py):
+        if kind == "end":
+            return 0.0
+        d = (15 - px) if side == "r" else px  # distance from the step / wall side
+        if py >= TILE * 2 and kind == "inner":
+            return 0.0
+        return max(0.0, 2.4 - 0.55 * d)
+
+    c = canvas(TILE, TILE * len(ROW_TYPES))
+    for py in range(c.h):
+        for px in range(TILE):
+            deck_pixel(c, px, py, px, py, DECK_NEUTRAL, f"edge_{kind}_{side}", straddle,
+                       ao_fn(px, py))
+    if kind == "end":  # lit corner on the exposed end, dark seam on the outside pixel
+        ex, ix = (0, 1) if side == "l" else (15, 14)
+        for py in range(c.h):
+            cur = c.get(ex, py)
+            if cur is None:
+                continue
+            ramp = cur[0] if cur[0] != "mortar" else "floor"
+            if py < LIP[1]:
+                c.put(ex, py, "floor", 8.4 if py % 16 < 15 else 7.0)
+                c.put(ix, py, "floor", 6.4)
+            elif ramp == "floor_cold":
+                c.put(ex, py, "floor_cold", 2.6)
             else:
-                key = "3"
-            c.put(ox + px, oy + py, key)
-        c.put(ox + px, oy + top, "4")  # far cornice catches a little light
-    for fx, fy in torches:  # tiny distant torches, 2 px each
-        c.put(ox + fx, oy + fy, "O")
-        c.put(ox + fx, oy + fy + 1, "R")
+                c.put(ex, py, "floor", 6.0 - min(3.0, (py - LIP[1]) / 18.0))
+    return c
 
 
-def draw_pilaster(c: Canvas, ox: int, oy: int) -> None:
-    """Plain stone pilaster module (32x16 piece, 24 px shaft, repeats
-    vertically): one dressed block per 16 px with the piers' stone and
-    lighting, no alternating widths (an alternating quoin read as a ladder)."""
-    x0, x1, y0, y1 = ox + 4, ox + 27, oy, oy + 15
-    c.fill(x0, y0, x1, y1, "v")
-    c.fill(x0, y1, x1, y1, "s")
-    for y in range(y0, y1 + 1):
-        c.put(x0, y, "s")
-        c.put(x1, y, "s")
-    for y in range(y0, y1):
-        c.put(x0 + 1, y, "w")
-        c.put(x1 - 1, y, "t")
-    c.fill(x0 + 1, y0, x0 + 14, y0, "w")
-    c.fill(x1 - 9, y1 - 1, x1 - 1, y1 - 1, "u")
+def ceiling_fill(variant: str, width_tiles: int) -> "ld.Canvas":
+    w = width_tiles * TILE
+    c = canvas(w, TILE)
+    for py in range(TILE):
+        course = py // 8
+        stagger = 8 if course % 2 else 0
+        for px in range(w):
+            col = (px + stagger) // 16
+            u, dv = (px + stagger) % 16, py % 8
+            start = col * 16 - stagger
+            straddler = start < 0 or start + 16 > w
+            jit = 0.0 if straddler else (ld.rnd("ceil", variant, course, col) - 0.5) * 0.8
+            if u == 0 or dv == 0:
+                put(c, px, py, "stone_cold", 0.0)
+            else:
+                put(c, px, py, "stone_cold", 1.0 + jit + (0.4 if dv == 1 else 0.0))
+    return c
 
 
-def build_structure() -> tuple[dict, list[dict]]:
-    w, h = 544, 96
-    layers = {name: Canvas(w, h) for name in ("arch", "pier", "depth")}
-    draw_arch(layers["arch"], 0, 0)
-    draw_pier_capital(layers["pier"], 192, 0)
-    draw_pier_shaft(layers["pier"], 192, 16)
-    draw_pier_base(layers["pier"], 192, 48)
-    draw_far_arcade(layers["depth"], 256, 0, [(24, 19), (72, 19), (120, 19)], 40, [])
-    draw_far_arcade(layers["depth"], 400, 0, [(38, 25), (106, 25)], 44, [])
-    draw_pilaster(layers["pier"], 192, 80)
-    far = {"layer": "depth", "anchor": [0, 96],
-           "anchor_name": "bottom_left (opening floor line)", "grid_snap": 16}
-    pieces = [
-        {"id": "arch_ring_r72", "layer": "arch", "rect": [0, 0, 192, 96],
-         "anchor": [96, 96], "anchor_name": "springing_centre", "grid_snap": 8,
-         "arch": {"radius_inner": ARCH_R_IN, "radius_outer": ARCH_R_OUT,
-                  "voussoirs": ARCH_VOUSSOIRS, "backwall_inside": "recess"}},
-        {"id": "pier_capital", "layer": "pier", "rect": [192, 0, 64, 16],
-         "anchor": [32, 0], "anchor_name": "top_centre (arch springing line)",
-         "grid_snap": 8},
-        {"id": "pier_shaft", "layer": "pier", "rect": [192, 16, 64, 32],
-         "anchor": [32, 0], "anchor_name": "top_centre (stack vertically, 32 px repeat)",
-         "grid_snap": 8, "repeat": "vertical"},
-        {"id": "pier_base", "layer": "pier", "rect": [192, 48, 64, 32],
-         "anchor": [32, 32], "anchor_name": "bottom_centre (stands on floor top)",
-         "grid_snap": 8},
-        {"id": "pilaster_plain", "layer": "pier", "rect": [192, 80, 32, 16],
-         "anchor": [16, 0], "anchor_name": "top_centre (24 px shaft; stack vertically, 16 px repeat)",
-         "grid_snap": 8, "repeat": "vertical"},
-        {"id": "far_arcade_a", "rect": [256, 0, 144, 96], **far},
-        {"id": "far_arcade_b", "rect": [400, 0, 144, 96], **far},
-    ]
-    grid = make_grid([w, h], [0, 0], layers, ["depth", "pier", "arch"])
-    return grid, pieces
+def cornice(variant: str, width_tiles: int, end: str | None = None) -> "ld.Canvas":
+    """Ceiling edge: vault blocks above a protruding stone cornice (seen from below)."""
+    w = width_tiles * TILE
+    c = canvas(w, TILE)
+    top = ceiling_fill(variant, width_tiles)
+    for py in range(TILE):
+        for px in range(w):
+            if py < 4:
+                c.px[py][px] = top.px[py][px]
+                continue
+            if py == 4:
+                put(c, px, py, "mortar", 0.4)  # shadow line where the cornice meets the vault
+                continue
+            seg = px // 16
+            straddler = False
+            jit = (ld.rnd("cornice", variant, seg) - 0.5) * 0.8 if not straddler else 0.0
+            if px % 16 == 0 and 6 <= py < 13:
+                put(c, px, py, "mortar", 1.4)
+                continue
+            if py <= 5:
+                value = 6.4 + jit          # lit top fillet
+            elif py < 13:
+                value = 4.0 + jit - (py - 6) * 0.18
+            else:
+                value = 2.6 + (py - 13) * 0.7 + jit * 0.5  # underside warmed by torches below
+            put(c, px, py, "stone", value)
+    if end:
+        ex = 0 if end == "l" else w - 1
+        for py in range(4, TILE):
+            put(c, ex, py, "stone", 7.0 if py < 13 else 4.0)
+            put(c, ex + (1 if end == "l" else -1), py, "stone", 3.0)
+    return c
+
+
+def wall_end(side: str, phase: int) -> "ld.Canvas":
+    """Corridor end wall face: dark dressed-stone mass with lit quoins on the exposed side."""
+    c = canvas(TILE, TILE)
+    for py in range(TILE):
+        course = (py // 8 + phase) % 2
+        for px in range(TILE):
+            lx = px if side == "r" else 15 - px      # 0 = exposed edge
+            long_q = course == 0
+            q_w = 12 if long_q else 7
+            dv = py % 8
+            if dv == 0:
+                put(c, px, py, "mortar", 1.0)
+                continue
+            if lx < q_w:
+                if lx == q_w - 1:
+                    put(c, px, py, "mortar", 1.0)
+                    continue
+                n = (0.0, -0.7, 0.7) if dv == 1 else ((-0.6 if side == "r" else 0.6), 0.0, 0.8) \
+                    if lx == 0 else (0.0, 0.0, 1.0)
+                value = 3.8 + 1.8 * key_term(n) + (1.4 if lx == 0 else 0.0) + (0.6 if dv == 1 else 0)
+                put(c, px, py, "stone", value)
+            else:
+                put(c, px, py, "stone_cold", 0.6 + (0.4 if dv == 1 else 0.0))
+    return c
+
+
+def wall_fill(phase: int = 0) -> "ld.Canvas":
+    c = canvas(TILE, TILE)
+    for py in range(TILE):
+        for px in range(TILE):
+            dv = py % 8
+            u = (px + (8 if (py // 8 + phase) % 2 else 0)) % 16
+            put(c, px, py, "stone_cold", 0.0 if (dv == 0 or u == 0) else 0.6)
+    return c
+
+
+def ceiling_corner(side: str, kind: str) -> "ld.Canvas":
+    """in: cornice runs into an end wall on ``side``; out: cornice ends (return face)."""
+    if kind == "out":
+        return cornice("a", 1, end=side)
+    c = cornice("a", 1)
+    wall = wall_end("r" if side == "l" else "l", 0)
+    for py in range(TILE):
+        for lx in range(5):
+            px = lx if side == "l" else 15 - lx
+            c.px[py][px] = wall.px[py][px] if lx < 4 else ("mortar", 0)
+    return c
 
 
 # ---------------------------------------------------------------------------
-# Props (alpha, non-collidable)
+# Structure: A1 arch bay modules, threshold, plain pilaster
 # ---------------------------------------------------------------------------
-PIPE_ACROSS = "klnljjik"  # 8 px cylinder, lit from above / left
+ARCH_RIG_BOUNCE = {"x": 336.0, "y": 196.0, "z": -70.0, "r": 170.0, "i": 1.0}
 
 
-def pipe_h(c: Canvas, ox: int, oy: int, x0: int = 0, x1: int = 15) -> None:
-    for i, key in enumerate(PIPE_ACROSS):
-        c.fill(ox + x0, oy + 4 + i, ox + x1, oy + 4 + i, key)
+def arch_canvas(x0: float, y0: float, w: int, h: int) -> "ld.Canvas":
+    return canvas(w, h, ox=x0, oy=y0)
 
 
-def pipe_v(c: Canvas, ox: int, oy: int, y0: int = 0, y1: int = 15) -> None:
-    for i, key in enumerate(PIPE_ACROSS):
-        c.fill(ox + 4 + i, oy + y0, ox + 4 + i, oy + y1, key)
+def render_arch_piece(kind: str, variant: str = "a") -> "ld.Canvas":
+    with light_rig(ARCH_PIER_TORCHES, ARCH_RIG_BOUNCE, STRING_Y=(2, 12)):
+        if kind == "pier_l":
+            c = arch_canvas(184, 12, 72, 272)
+            ld.pillar(c, 0)
+        elif kind == "pier_r":
+            c = arch_canvas(408, 12, 80, 272)
+            ld.pillar(c, 1)
+        elif kind == "ring":
+            orig_rnd = ld.rnd
+            if variant != "a":
+                ld.rnd = lambda *key: orig_rnd(variant, *key)  # noqa: E731
+            try:
+                c = arch_canvas(200, 12, 272, 144)
+                ld.arch_ring(c)
+            finally:
+                ld.rnd = orig_rnd
+        elif kind == "threshold":
+            c = arch_canvas(248, 252, 176, 16)
+            threshold(c)
+        else:
+            raise ValueError(kind)
+    return c
 
 
-def elbow(c: Canvas, ox: int, oy: int, centre: tuple[float, float]) -> None:
-    """Quarter-circle pipe bend with the same 8 px cross-section as the
-    straights; ``centre`` is the bend's centre of curvature in tile coords."""
+def threshold(c) -> None:
+    """Floor receding into the gallery between the jambs (A1 look-dev terrain)."""
+    for py in c.pyr(252, ld.FLOOR_BACK):
+        y = c.dy(py)
+        t = (ld.FLOOR_BACK - y) / 16.0
+        seam = (round((ld.FLOOR_BACK - y) * c.s) % c.unit(5)) == 0
+        for px in c.pxr(250, 422):
+            x = c.dx(px)
+            w = ld.warm_light(x, ld.FLOOR_BACK, -(ld.FLOOR_BACK - y) * 4.0, (0, -1, 0), wrap=0.1) * (1 - t)
+            if w > 0.2:
+                c.put(px, py, "floor", 0.8 + 7.0 * w - (0.8 if seam else 0))
+            else:
+                c.put(px, py, "floor_cold", 0.6 + t * 2.2 - (0.8 if seam else 0))
+
+
+def pilaster() -> "ld.Canvas":
+    """Plain dressed-stone pilaster for long A runs (dim, no torch baked in)."""
+    w, h = 32, 256
+    c = canvas(w, h)
+    for py in range(h):
+        for px in range(w):
+            if py < 10 or py >= h - 14:  # capital and base: wider blocks, full width
+                band_top = py < 10
+                v = py if band_top else py - (h - 14)
+                if (band_top and v == 9) or (not band_top and v == 0):
+                    put(c, px, py, "mortar", 1.2)
+                    continue
+                n = (0.0, -0.7, 0.7) if (band_top and v < 2) or (not band_top and v < 3) else (0.0, 0.0, 1.0)
+                edge = px in (0, w - 1)
+                put(c, px, py, "stone", 3.3 + 1.8 * key_term(n) + (0.8 if v < 2 else 0.0)
+                    - (0.8 if edge else 0.0))
+                continue
+            if px < 3 or px >= w - 3:
+                continue  # shaft is narrower than capital and base
+            sx = px - 3
+            sw = w - 6
+            course = (py - 10) // 16
+            dv = (py - 10) % 16
+            joints = [0, sw // 2] if course % 2 == 0 else [0]
+            if dv == 0 or sx in joints:
+                put(c, px, py, "mortar", 1.0)
+                continue
+            start = max(j for j in joints if j <= sx)
+            end = min([j for j in joints if j > sx] + [sw])
+            n, edge = ld.bevel_normal(sx - start - 1, dv - 1, end - start - 1, 15, 1)
+            jit = (ld.rnd("pilaster", course, start) - 0.5) * 0.9
+            put(c, px, py, "stone", 3.0 + jit + 1.8 * key_term(n) - 0.004 * py)
+    return c
+
+
+# ---------------------------------------------------------------------------
+# Parallax gallery strips (A1 look-dev gallery, made horizontally periodic)
+# ---------------------------------------------------------------------------
+FAR_W, MID_W, GALLERY_Y0, GALLERY_H = 440, 344, 40, 232
+FAR_TORCH_PIERS = (1, 2, 4, 6, 7, 8, 9)
+MID_TORCH_X = 107.0
+
+
+def parallax_far() -> "ld.Canvas":
+    c = canvas(FAR_W, GALLERY_H, ox=0.0, oy=GALLERY_Y0)
+    xs = tuple(6.0 + 44.0 * k for k in FAR_TORCH_PIERS)
+    with light_rig([], FAR_TORCH_XS=xs):
+        for py in range(c.h):
+            y = c.dy(py)
+            for px in range(c.w):
+                c.put(px, py, "gal", ld.far_gallery_value(c, c.dx(px), y))
+        for tx in xs:
+            ld.far_torch(c, tx, ld.FAR_TORCH_Y, small=True)
+    return c
+
+
+def parallax_mid() -> "ld.Canvas":
+    c = canvas(MID_W, GALLERY_H, ox=0.0, oy=GALLERY_Y0)
+    pillars = [(12.0 + 86.0 * k, 30.0 + 86.0 * k) for k in range(4)]
+    bays = [(-56.0, 12.0)] + [(30.0 + 86.0 * k, 98.0 + 86.0 * k) for k in range(4)]
+    torch = {"x": MID_TORCH_X, "y": 206.0}
+    with light_rig([], MID_TORCH=torch):
+        for py in range(c.h):
+            y = c.dy(py)
+            for px in range(c.w):
+                v = ld.mid_gallery_value(c, c.dx(px), y, pillars, bays)
+                if v is not None:
+                    c.put(px, py, v[0], v[1])
+        ld.far_torch(c, torch["x"], torch["y"], small=False)
+        ld.sconce(c, torch["x"], torch["y"] + 3, scale=0.55, ramp_override="gal")
+    return c
+
+
+# ---------------------------------------------------------------------------
+# Torch (animated), unlit sconce
+# ---------------------------------------------------------------------------
+TORCH_W, TORCH_H = 16, 56
+TORCH_FRAMES = [("f0", 1.30, 120), ("f1", 1.24, 140), ("f2", 1.36, 100), ("f3", 1.27, 130)]
+TORCH_FLICKER = [1.0, 0.93, 1.07, 0.97]
+
+
+def torch_rig() -> list[dict]:
+    fx, fy = TORCH_FLAME_LOCAL
+    return [{"x": fx, "y": fy, "z": 16.0, "p": 1.0}]
+
+
+def torch_frame(scale: float, seed: str, lit: bool = True) -> tuple["ld.Canvas", "ld.Canvas"]:
+    fx, fy = TORCH_FLAME_LOCAL
+    sconce = canvas(TORCH_W, TORCH_H)
+    flame = canvas(TORCH_W, TORCH_H)
+    with light_rig(torch_rig() if lit else []):
+        ld.sconce(sconce, float(fx), fy + 7.0, scale=1.15)
+        if lit:
+            ld.flame(flame, float(fx), fy + 1.0, scale=scale, seed=seed)
+        else:  # charred stub in a cold cup
+            for px in range(fx - 3, fx + 3):
+                sconce.put(px, fy + 6, "iron", 1.0)
+                sconce.put(px, fy + 7, "iron", 0.0)
+    return sconce, flame
+
+
+# ---------------------------------------------------------------------------
+# Copper/brass pipe set (directional key so straight pieces tile seamlessly)
+# ---------------------------------------------------------------------------
+PIPE_R = 7.0
+PIPE_KEY = ld.norm(0.45, -0.55, 0.7)   # warm torchlight from upper right, in front
+PIPE_FILL = ld.norm(-0.6, 0.2, 0.5)    # faint cold fill from the gallery side
+
+
+def metal_value(n: tuple, ramp: str, base: float, gain: float, gloss: float) -> float:
+    lam = max(0.0, n[0] * PIPE_KEY[0] + n[1] * PIPE_KEY[1] + n[2] * PIPE_KEY[2])
+    hv = ld.norm(PIPE_KEY[0], PIPE_KEY[1], PIPE_KEY[2] + 1.0)
+    spec = max(0.0, n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]) ** 24
+    return base + gain * (lam ** 0.75) + gloss * 2.6 * spec
+
+
+def pipe_px(c, px, py, u: float, axis: str, ramp: str = "copper", base=0.2, gain=5.1,
+            gloss=1.0, darken=0.0) -> None:
+    u = ld.clamp(u, -0.999, 0.999)
+    a = math.asin(u)
+    n = (math.sin(a), 0.0, math.cos(a)) if axis == "v" else (0.0, math.sin(a), math.cos(a))
+    value = metal_value(n, ramp, base, gain, gloss) - darken
+    if abs(u) > 0.86:
+        cold = max(0.0, n[0] * PIPE_FILL[0] + n[1] * PIPE_FILL[1] + n[2] * PIPE_FILL[2])
+        if ramp == "copper" and value < 3.2:
+            c.put(px, py, "copper_cold", cold * 2.0)
+            return
+        value -= 0.6
+    c.put(px, py, ramp, value)
+
+
+def pipe_straight(axis: str, seam: bool = False) -> "ld.Canvas":
+    c = canvas(16, 16)
     for py in range(16):
         for px in range(16):
-            d = math.hypot(px + 0.5 - centre[0], py + 0.5 - centre[1])
-            if centre[1] == 16:   # bend centred below: outer edge is up/left
-                band = int(12.5 - d) if 4.5 <= d < 12.5 else None
-            else:                 # bend centred above-left: inner edge is up/left
-                band = int(d - 4.5) if 4.5 <= d < 12.5 else None
-            if band is not None and 0 <= band < 8:
-                c.put(ox + px, oy + py, PIPE_ACROSS[band])
+            along, across = (py, px) if axis == "v" else (px, py)
+            u = (across + 0.5 - 8.0) / PIPE_R
+            if abs(u) >= 1.0:
+                continue
+            pipe_px(c, px, py, u, axis, darken=(1.6 if seam and along in (7, 8) else 0.0))
+    return c
 
 
-def collar_v(c: Canvas, ox: int, oy: int, y0: int, y1: int) -> None:
-    """A bolted 10 px collar around a vertical pipe (floor or ceiling entry)."""
-    c.fill(ox + 3, oy + y0, ox + 12, oy + y1, "j")
-    c.fill(ox + 3, oy + y0, ox + 12, oy + y0, "k")
-    c.fill(ox + 3, oy + y1, ox + 12, oy + y1, "k")
-    for y in range(y0, y1 + 1):
-        c.put(ox + 3, oy + y, "k")
-        c.put(ox + 12, oy + y, "k")
-    for y in range(y0 + 1, y1):
-        c.put(ox + 4, oy + y, "l")
-    c.fill(ox + 4, oy + y0 + 1, ox + 11, oy + y0 + 1, "l")
-    c.put(ox + 6, oy + y0 + 2, "n")
-    c.put(ox + 10, oy + y0 + 2, "n")
+def pipe_elbow() -> "ld.Canvas":
+    """Elbow with arms to the right (centre y 8) and down (centre x 8); bend centre (24, 24)."""
+    c = canvas(32, 32)
+    bcx, bcy, rc = 24.0, 24.0, 16.0
+    for py in range(32):
+        for px in range(32):
+            x, y = px + 0.5, py + 0.5
+            if x >= bcx and y < 16:  # straight horizontal arm
+                u = (y - 8.0) / PIPE_R
+                if abs(u) < 1.0:
+                    pipe_px(c, px, py, u, "h")
+                continue
+            if y >= bcy and x < 16:  # straight vertical arm
+                u = (x - 8.0) / PIPE_R
+                if abs(u) < 1.0:
+                    pipe_px(c, px, py, u, "v")
+                continue
+            dx, dy = x - bcx, y - bcy
+            if dx > 0 or dy > 0:
+                continue
+            d = math.hypot(dx, dy)
+            u = (rc - d) / PIPE_R  # +1 at the outer edge (toward the corner)
+            if abs(u) >= 1.0:
+                continue
+            uu = ld.clamp(u, -0.999, 0.999)
+            a = math.asin(uu)
+            rx, ry = -dx / max(d, 1e-6), -dy / max(d, 1e-6)  # outward (toward the corner)
+            n = (rx * math.sin(a), ry * math.sin(a), math.cos(a))
+            value = metal_value(n, "copper", 0.2, 5.1, 1.0)
+            if abs(u) > 0.86:
+                if value < 3.2:
+                    c.put(px, py, "copper_cold", 1.0)
+                    continue
+                value -= 0.6
+            c.put(px, py, "copper", value)
+    return c
 
 
-def build_props() -> tuple[dict, list[dict]]:
-    w, h = 128, 128
-    layers = {name: Canvas(w, h) for name in ("decal", "pipes", "box", "accent", "door",
-                                              "sconce")}
-    p = layers["pipes"]
-    pieces: list[dict] = []
+def mirrored(src: "ld.Canvas", mx: bool, my: bool) -> "ld.Canvas":
+    out = canvas(src.w, src.h)
+    blit(out, src, 0, 0, mirror_x=mx, mirror_y=my)
+    return out
 
-    def piece(pid, layer, rect, anchor, anchor_name, snap, role="prop", **extra):
-        pieces.append({"id": pid, "layer": layer, "rect": rect, "anchor": anchor,
-                       "anchor_name": anchor_name, "grid_snap": snap, "role": role, **extra})
 
-    tile = ([0, 0], "top_left (tile)", 16)
-    # pipe_h_a: plain run
-    pipe_h(p, 0, 0)
-    piece("pipe_h_a", "pipes", [0, 0, 16, 16], *tile)
-    # pipe_h_rust: run with a rust bloom along the underside
-    pipe_h(p, 16, 0)
-    for x, y, k in ((19, 9, "q"), (20, 9, "r"), (21, 9, "q"), (20, 10, "q"), (21, 10, "q"),
-                    (26, 10, "q"), (27, 9, "q"), (27, 10, "r"), (28, 10, "q")):
-        p.put(x, y, k)
-    piece("pipe_h_rust", "pipes", [16, 0, 16, 16], *tile)
-    # pipe_h_flange: bolted coupling
-    pipe_h(p, 32, 0)
-    p.fill(32 + 6, 2, 32 + 9, 13, "j")
-    for y in range(2, 14):
-        p.put(32 + 6, y, "k")
-        p.put(32 + 9, y, "k")
-        p.put(32 + 7, y, "l")
-    p.fill(32 + 6, 2, 32 + 9, 2, "k")
-    p.fill(32 + 6, 13, 32 + 9, 13, "k")
-    p.put(32 + 8, 3, "n")
-    p.put(32 + 8, 12, "n")
-    piece("pipe_h_flange", "pipes", [32, 0, 16, 16], *tile)
-    # pipe_h_bracket: wall strap with fixing bolt above
-    pipe_h(p, 48, 0)
-    p.fill(48 + 6, 3, 48 + 8, 12, "i")
-    for y in range(3, 13):
-        p.put(48 + 6, y, "k")
-        p.put(48 + 8, y, "k")
-    p.put(48 + 7, 4, "l")
-    p.fill(48 + 6, 1, 48 + 8, 2, "k")
-    p.put(48 + 7, 1, "n")
-    piece("pipe_h_bracket", "pipes", [48, 0, 16, 16], *tile)
-    # pipe_v_a
-    pipe_v(p, 64, 0)
-    piece("pipe_v_a", "pipes", [64, 0, 16, 16], *tile)
-    # pipe_v_bracket
-    pipe_v(p, 80, 0)
-    p.fill(80 + 3, 6, 80 + 12, 8, "i")
-    for x in range(80 + 3, 80 + 13):
-        p.put(x, 6, "k")
-        p.put(x, 8, "k")
-    p.put(80 + 4, 7, "l")
-    p.fill(80 + 1, 6, 80 + 2, 8, "k")
-    p.put(80 + 1, 7, "n")
-    piece("pipe_v_bracket", "pipes", [80, 0, 16, 16], *tile)
-    # pipe_elbow_r_d: from the right edge turning down to the bottom edge
-    elbow(p, 96, 0, (16, 16))
-    piece("pipe_elbow_r_d", "pipes", [96, 0, 16, 16], *tile)
-    # pipe_elbow_l_u: from the left edge turning up to the top edge
-    elbow(p, 112, 0, (0, 0))
-    piece("pipe_elbow_l_u", "pipes", [112, 0, 16, 16], *tile)
+def brass_ring(axis: str, half: float, thick: float, w: int, h: int, bolts: bool = True,
+               ramp: str = "brass") -> "ld.Canvas":
+    """Flange/collar ring around a pipe: ``axis`` is the pipe direction."""
+    c = canvas(w, h)
+    cx, cy = w / 2, h / 2
+    for py in range(h):
+        for px in range(w):
+            x, y = px + 0.5, py + 0.5
+            if axis == "v":
+                u, along = (x - cx) / half, (y - cy) / (thick / 2)
+            else:
+                u, along = (y - cy) / half, (x - cx) / (thick / 2)
+            if abs(u) >= 1.0 or abs(along) >= 1.0:
+                continue
+            pipe_px(c, px, py, u, axis, ramp=ramp, base=1.0, gain=4.8, gloss=1.2,
+                    darken=(1.0 if abs(along) > 0.62 else 0.0))
+            if bolts and abs(along) < 0.4:
+                for bu in (-0.6, 0.6):
+                    if abs(u - bu) * half < 0.75:
+                        c.put(px, py, "iron", 2.0)
+    return c
 
-    # valve_wheel: hand wheel on a vertical pipe (replaces a pipe_v tile)
-    pipe_v(p, 0, 16)
-    for py in range(16):
-        for px in range(16):
-            d = math.hypot(px + 0.5 - 8, py + 0.5 - 8)
-            x, y = px, 16 + py
-            if 6.4 <= d < 7.6:
-                p.put(x, y, "k")
-            elif 4.6 <= d < 6.4:
-                upper_left = (px + py) < 15
-                p.put(x, y, "P" if upper_left else "p")
-            elif 4.0 <= d < 4.6:
-                p.put(x, y, "k")
-    for i in range(3, 13):
-        if 2 <= abs(i - 7.5) + 0.5:
-            p.put(i, 16 + 7, "p" if p.get(i, 16 + 7) not in "Pp" else p.get(i, 16 + 7))
-            p.put(7, 16 + i, "p" if p.get(7, 16 + i) not in "Pp" else p.get(7, 16 + i))
-    p.fill(6, 16 + 6, 9, 16 + 9, "k")
-    p.fill(7, 16 + 7, 8, 16 + 8, "n")
-    p.put(7, 16 + 7, "o")
-    for x, y in ((5, 16 + 3), (4, 16 + 4)):
-        p.put(x, y, "P")
-    piece("valve_wheel", "pipes", [0, 16, 16, 16], *tile)
-    # pipe_v_floor_collar: conduit entering the floor
-    pipe_v(p, 16, 16, 0, 15)
-    collar_v(p, 16, 16, 11, 15)
-    piece("pipe_v_floor_collar", "pipes", [16, 16, 16, 16], *tile)
-    # pipe_v_ceiling_collar: pipe rising into the ceiling course
-    pipe_v(p, 32, 16, 0, 15)
-    collar_v(p, 32, 16, 0, 4)
-    piece("pipe_v_ceiling_collar", "pipes", [32, 16, 16, 16], *tile)
-    # pipe_wall_collar_r: run ends in a round, face-on bolted collar where the
-    # pipe turns into the wall (end-on bore visible)
-    pipe_h(p, 48, 16, 0, 7)
-    for py in range(16):
-        for px in range(16):
-            d = math.hypot(px + 0.5 - 10.5, py + 0.5 - 7.5)
-            if d < 5.6:
-                key = "k" if d >= 4.8 else ("l" if (px + py) < 17 else "j")
-                if d < 2.6:
-                    key = "i" if d >= 1.6 else "k"
-                p.put(48 + px, 16 + py, key)
-    for bx, by in ((10, 4), (13, 7), (10, 10), (7, 7)):
-        p.put(48 + bx, 16 + by, "n")
-    piece("pipe_wall_collar_r", "pipes", [48, 16, 16, 16], *tile)
 
-    # maintenance_box: small riveted service cabinet with gauge and blank plate
-    box = [
-        "....kkllllkk....................",
-        "...kjjnnjjjjk...................",
-        ".kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk.",
-        "kllllllllllllllllllllllllllllllk",
-        "kl.ljjjjjjjjjjjjjjjjjjjjjjjjljik",
-        "kl.jjjjjjjjjjjjjjjjjjjjjjjjjjjik",
-        "klj.kkkkkkkkkkkkkkkkkkkkkkkkjjik",
-        "kljkkllllllllllllllllllllllkjjik",
-        "kljnkljjjjkkkkkjjjjjjjjjjjjikjik",
-        "kljnkljjjkkxxxkkjjjjjjjjjjjikjik",
-        "kljkkljjkkxxxxxkkjjjjjjjjjjikjik",
-        "kljjklljkxxxxRxxkjjjjjjjjjjikjik",
-        "kljjkljjkxxxRxxxkjjjjjjjjjjikjik",
-        "kljjkljjkxxxxxxxkjjjjjjjjjjikjik",
-        "kljjkljjkkxxxxxkkjjjjjjjnnjikjik",
-        "kljjkljjjkkxxxkkjjjjjjjjnojikjik",
-        "kljjkljjjjkkkkkjjjjjjjjjnnjikjik",
-        "kljjkljjjjjjjjjjjjjjjjjjkkjikjik",
-        "kljjkljjjjjjjjjjjjjjjjjjjjjikjik",
-        "kljnkljjjqqqqqqqqqqqjjjjjjjikjik",
-        "kljnkljjjqTTTTTTTTTqjjjjjjjikjik",
-        "kljkkljjjqTiTiiTiTTqjjjjjjjikjik",
-        "kljjkljjjqTTTTTTTTTqjjjjjjjikjik",
-        "kljjkljjjqqqqqqqqqqqjjjjjjjikjik",
-        "kljjkljjjjjjjjjjjjjjjjjjjjjikjik",
-        "kljjkiiiiiiiiiiiiiiiiiiiiiiikjik",
-        "kljjkkkkkkkkkkkkkkkkkkkkkkkkkjik",
-        "kl.jjjjjjjjjjjjqjjjjjjjjjjjjjjik",
-        "kl.jjjjjjjjjjjjrjjjjjjjjjjjjjiik",
-        ".kiiiiiiiiiiiiiiiiiiiiiiiiiiiik.",
-        "..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..",
-        "....................kkllllkk....",
+def bracket(axis: str) -> "ld.Canvas":
+    """Iron wall clamp around a pipe (``axis`` = pipe direction), with two wall lugs."""
+    if axis == "v":
+        c = canvas(32, 8)
+        for py in range(1, 6):
+            for px in range(2, 30):
+                lug = px < 7 or px >= 25
+                if lug:
+                    bolt = px in (4, 27) and py == 3
+                    c.put(px, py, "iron", 1.0 if bolt else (3.2 if py == 1 else 2.0))
+                else:
+                    u = (px + 0.5 - 16) / 9.0
+                    pipe_px(c, px, py, u, "v", ramp="iron", base=1.2, gain=4.0, gloss=0.6,
+                            darken=(0.8 if py == 5 else 0.0))
+        return c
+    return mirrored_transpose(bracket("v"))
+
+
+def mirrored_transpose(src: "ld.Canvas") -> "ld.Canvas":
+    out = canvas(src.h, src.w)
+    for y in range(src.h):
+        for x in range(src.w):
+            out.px[x][y] = src.px[y][x]
+    return out
+
+
+def valve_wheel() -> "ld.Canvas":
+    c = canvas(32, 32)
+    with light_rig([{"x": 34.0, "y": -6.0, "z": 30.0, "p": 0.6}]):
+        ld.valve(c, 16.0, 16.0, 14.0)
+    return c
+
+
+def collar_plate(kind: str) -> "ld.Canvas":
+    """Brass plate where a vertical pipe enters the ceiling (top) or the floor (bottom)."""
+    c = canvas(32, 8)
+    for py in range(8):
+        for px in range(32):
+            x = px + 0.5
+            if kind == "ceiling":
+                half = 12.0 if py < 3 else 10.0
+                if py > 5:
+                    continue
+            else:
+                half = 10.0 if py < 4 else 13.0
+                if py < 2:
+                    continue
+            u = (x - 16.0) / half
+            if abs(u) >= 1.0:
+                continue
+            pipe_px(c, px, py, u, "v", ramp="brass", base=0.8, gain=4.6, gloss=1.2,
+                    darken=(1.2 if (kind == "ceiling" and py == 5) or (kind == "floor" and py == 7) else 0))
+            if abs(abs(u) - 0.78) * half < 0.7 and py in ((1, 2) if kind == "ceiling" else (5, 6)):
+                c.put(px, py, "iron", 2.0)
+    return c
+
+
+# ---------------------------------------------------------------------------
+# Door, lichen, rubble
+# ---------------------------------------------------------------------------
+DOOR_W, DOOR_H = 48, 88
+
+
+def door() -> "ld.Canvas":
+    """Plain round-headed timber door in a dressed-stone frame (46x88 opening for 52 px actors)."""
+    c = canvas(DOOR_W, DOOR_H)
+    cx, spring = DOOR_W / 2, 26.0
+    r_frame, r_leaf = 24.0, 18.0
+    for py in range(DOOR_H):
+        for px in range(DOOR_W):
+            x, y = px + 0.5, py + 0.5
+            d = math.hypot(x - cx, y - spring)
+            inside_frame = (y >= spring and abs(x - cx) < r_frame) or (y < spring and d < r_frame)
+            inside_leaf = (y >= spring and abs(x - cx) < r_leaf) or (y < spring and d < r_leaf)
+            if not inside_frame:
+                continue
+            if not inside_leaf:
+                # voussoir-like frame stones
+                if y < spring:
+                    k = int(((math.atan2(spring - y, x - cx)) / math.pi) * 7)
+                    joint = abs(((math.atan2(spring - y, x - cx)) / math.pi) * 7 - round(
+                        (math.atan2(spring - y, x - cx)) / math.pi * 7)) * d * 0.45 < 0.5
+                    seed = ("doorframe", k)
+                else:
+                    k = int((y - spring) // 14)
+                    joint = (y - spring) % 14 < 1
+                    seed = ("doorjamb", k, x < cx)
+                if joint:
+                    put(c, px, py, "mortar", 1.6)
+                    continue
+                edge_out = d > r_frame - 1.2 if y < spring else abs(x - cx) > r_frame - 1.2
+                edge_in = d < r_leaf + 1.2 if y < spring else abs(x - cx) < r_leaf + 1.2
+                value = 4.0 + (ld.rnd(seed) - 0.5) * 0.9 + (1.2 if edge_out and x < cx else 0) \
+                    - (1.0 if edge_in else 0) - (0.8 if edge_out and x >= cx else 0)
+                if py >= DOOR_H - 2:
+                    value = 2.4
+                put(c, px, py, "stone", value)
+                continue
+            # leaf: vertical planks, two iron straps, ring pull, dark gap at the bottom
+            lx = x - (cx - r_leaf)
+            plank = int(lx // 6)
+            pu = lx % 6
+            if py >= DOOR_H - 2:
+                put(c, px, py, "wood", 0)
+                continue
+            if 34 <= py <= 36 or 66 <= py <= 68:
+                rivet = (int(lx) % 9 == 4) and py in (35, 67)
+                put(c, px, py, "iron", 4.0 if rivet else (3.0 if py in (34, 66) else 1.6))
+                continue
+            ring_d = math.hypot(x - (cx + 10.5), y - 52.0)
+            if 1.6 < ring_d < 3.0:
+                put(c, px, py, "iron", 4.0 if y < 52 else 2.2)
+                continue
+            if pu < 1.0:
+                put(c, px, py, "wood", 0.4)
+                continue
+            grain = ld.rnd("plank", plank, int(py // 7)) < 0.18 and pu > 3
+            value = 3.0 + (ld.rnd("plank", plank) - 0.5) * 0.9 + (0.6 if pu < 2 else 0) \
+                - (0.8 if grain else 0) - 0.012 * py
+            put(c, px, py, "wood", value)
+    return c
+
+
+def lichen() -> "ld.Canvas":
+    c = canvas(8, 8)
+    pattern = [
+        "........",
+        "...1....",
+        "..121...",
+        ".11211..",
+        "1121011.",
+        ".12101..",
+        "..1001..",
+        "...0....",
     ]
-    layers["box"].stamp(box, 64, 16)
-    for x, y in ((66, 20), (93, 20), (66, 43), (93, 43)):  # frame rivets
-        layers["box"].put(x, y, "n")
-    piece("maintenance_box", "box", [64, 16, 32, 32], [0, 0],
-          "top_left (pipe enters at x 4..11, conduit leaves at x 20..27)", 16)
-
-    # lichen_crust: tiny optional accent, a flat crust hugging a mortar joint
-    # (row 7 lands on a mortar row when placed on the 8 px grid)
-    crust = [
-        "........",
-        "........",
-        "........",
-        "........",
-        "........",
-        "..GHG...",
-        ".GHHLHG.",
-        "GGHGGHGG",
-    ]
-    layers["accent"].stamp(crust, 96, 16)
-    piece("lichen_crust", "accent", [96, 16, 8, 8], [0, 7], "mortar_row (local row 7)", 8)
-
-    # torch_wall_unlit: the same sconce with a charred stub and no flame
-    unlit = Canvas(16, 32)
-    unlit.stamp(TORCH_SCONCE, 0, 16)
-    unlit.stamp([
-        "......kUk.......",
-        ".....kUVUk......",
-        ".....UVVVU......",
-    ], 0, 13)
-    unlit.fill(4, 16, 11, 16, "j")  # cold rim, no warm light
-    unlit.put(4, 16, "n")
-    for y, row in enumerate(unlit.rows()):
-        for x, ch in enumerate(row):
+    for py, row in enumerate(pattern):
+        for px, ch in enumerate(row):
             if ch != ".":
-                layers["sconce"].put(112 + x, 16 + y, ch)
-    piece("torch_wall_unlit", "sconce", [112, 16, 16, 32], [8, 29],
-          "wall_mount (same as torch_wall)", 16)
+                c.put(px, py, "lichen", {"0": 0, "1": 1, "2": 2}[ch])
+    return c
 
-    # grime_patch_a/b: soot and grime over a few brick faces (follows the
-    # global brick coursing, so it must sit on the 16 px grid; mortar untouched)
-    d = layers["decal"]
-    grime = {
-        # (course, brick start x, key): only whole bricks inside the 48x16 decal
-        "grime_patch_a": ((0, 96), [(0, 0, "a"), (0, 16, "m"), (0, 32, "a"), (1, 8, "a"),
-                                    (1, 24, "a")]),
-        "grime_patch_b": ((0, 112), [(0, 0, "a"), (0, 16, "a"), (1, 8, "m"), (1, 24, "a"),
-                                     (0, 32, "a")]),
-    }
-    for pid, ((gx, gy), bricks) in grime.items():
-        for course, start, key in bricks:
-            for dy in range(7):
-                for dx in range(15):
-                    d.put(gx + start + dx, gy + course * 8 + dy, key)
-        piece(pid, "decal", [gx, gy, 48, 16], [0, 0], "top_left (brick-grid aligned)", 16,
-              role="backwall", decal=True)
 
-    # torch_glow: minimal warm light decal, ~44 px wide, in three bands. It
-    # touches brick faces and brick top edges only (mortar stays dark), and each
-    # brick gets its own small radius jitter so the outline follows the bricks
-    # irregularly instead of reading as a stamped disc. A Bevy additive light is
-    # the intended richer option; this decal is the art-only fallback.
-    gx0, gy0 = 0, 48
-    jitter_rng = random.Random(f"{KIT_ID}:torch_glow")
-    for course in range(6):
-        offset = 0 if course % 2 == 0 else 8
-        for start in range(offset - 16, 48, 16):
-            jitter = jitter_rng.choice((-2, -1, 0, 0, 1, 2))
-            for dyy in range(7):
-                for dx in range(15):
-                    px, py = start + dx, course * 8 + dyy
-                    if not (0 <= px < 48):
-                        continue
-                    dy = py + 0.5 - 24.0
-                    d = math.hypot(px + 0.5 - 24.0, dy * (0.9 if dy < 0 else 1.35)) - jitter
-                    if course % 2 == 1 and d >= 9:
-                        d += 2.5  # alternate courses stop short: ragged outer edge
-                    top = dyy == 0
-                    if d < 8:
-                        key = "g"
-                    elif d < 14:
-                        key = "g" if top else "f"
-                    elif d < 21 and top and dy < 8:
-                        key = "f"
-                    else:
-                        key = None
-                    if key:
-                        layers["decal"].put(gx0 + px, gy0 + py, key)
-    piece("torch_glow", "decal", [0, 48, 48, 48], [24, 24],
-          "light_centre (= torch flame centre; place at torch tile -1,-1)", 16,
-          role="backwall", decal=True)
+RUBBLE = {"rubble_a": (64, 32, [(16.0, 16.0, 13.0, "r1"), (44.0, 18.0, 11.0, "r2")]),
+          "rubble_b": (48, 24, [(22.0, 22.0, 16.0, "r3"), (40.0, 8.0, 7.0, "r4")])}
 
-    # door_plank: simple timber door in a stone frame (module A). The piece is
-    # 40x80 with a 32x72 timber leaf, so a 52 px actor has ~20 px headroom.
-    dx0, dy0, dw, dh = 48, 48, 40, 80
-    lintel = [
-        "." + "v" * (dw - 2) + ".",
-        "v" + "w" * 19 + "s" + "v" + "w" * 17 + "u",
-        "v" * 20 + "s" + "v" * 18 + "u",
-        "v" * 20 + "s" + "v" * 18 + "u",
-        "u" * 20 + "s" + "u" * 19,
-        "s" * dw,
+
+def rubble(name: str) -> "ld.Canvas":
+    """Low dark rubble silhouettes for the foreground corners (A1 look-dev style)."""
+    w, h, mounds = RUBBLE[name]
+    c = canvas(w, h)
+    for (cx, half, height, seed) in mounds:
+        for py in range(h):
+            y = py + 0.5
+            for px in range(w):
+                x = px + 0.5
+                t = (x - cx) / half
+                if abs(t) >= 1.0:
+                    continue
+                facets = 3 + int(ld.rnd(seed) * 3)
+                fi = int((t + 1) / 2 * facets)
+                bump = 0.75 + 0.25 * ld.rnd(seed, fi)
+                top_y = h - height * bump * math.sqrt(1 - t * t)
+                if y < top_y:
+                    continue
+                rim = y < top_y + 1.5
+                c.put(px, py, "brick", (2.0 + (1.0 if t < 0 else 0.0)) if rim else
+                      (0.0 if (fi % 2 or y > top_y + 6) else 1.0))
+    return c
+
+
+# ---------------------------------------------------------------------------
+# Atlas assembly
+# ---------------------------------------------------------------------------
+
+class Atlas:
+    def __init__(self, name: str, kind: str):
+        self.name = name
+        self.kind = kind          # tileset | decor_atlas | prop_animation
+        self.tiles: list[dict] = []
+        self.pieces: list[dict] = []
+
+    def add_tile(self, tid: str, img: "ld.Canvas", **meta) -> None:
+        assert img.w == TILE and img.h == TILE, tid
+        self.tiles.append({"id": tid, "img": img, **meta})
+
+    def add_piece(self, pid: str, img: "ld.Canvas", **meta) -> None:
+        self.pieces.append({"id": pid, "img": img, **meta})
+
+
+def split_panel(atlas: Atlas, prefix: str, img: "ld.Canvas", family: str, panel_id: str,
+                row_y: int = 0, **meta) -> None:
+    cols = img.w // TILE
+    for i in range(cols):
+        tile = crop(img, i * TILE, row_y, TILE, TILE)
+        tid = f"{prefix}_{i + 1}" if cols > 1 else prefix
+        atlas.add_tile(tid, tile, panel={"id": panel_id, "family": family, "cell": [i, 0],
+                                         "size": [cols, 1]}, **meta)
+
+
+def pack_tiles(atlas: Atlas, cols: int) -> tuple["ld.Canvas", list[dict]]:
+    n = len(atlas.tiles)
+    rows = (n + cols - 1) // cols
+    if n % cols:
+        raise SystemExit(f"{atlas.name}: {n} tiles do not fill {cols}-column rows; add variants")
+    img = canvas(cols * TILE, rows * TILE)
+    out = []
+    for i, t in enumerate(atlas.tiles):
+        x, y = (i % cols) * TILE, (i // cols) * TILE
+        blit(img, t["img"], x, y)
+        entry = {k: v for k, v in t.items() if k != "img"}
+        entry["grid_index"] = i
+        entry["rect"] = [x, y, TILE, TILE]
+        out.append(entry)
+    return img, out
+
+
+def pack_pieces(atlas: Atlas, width: int) -> tuple["ld.Canvas", list[dict]]:
+    """Shelf packing in declaration order; pieces never overlap."""
+    x = y = shelf = 0
+    placed = []
+    for p in atlas.pieces:
+        w, h = p["img"].w, p["img"].h
+        if x + w > width:
+            x, y, shelf = 0, y + shelf, 0
+        placed.append((p, x, y))
+        x += w
+        shelf = max(shelf, h)
+    height = y + shelf
+    img = canvas(width, height)
+    out = []
+    for p, px, py in placed:
+        blit(img, p["img"], px, py)
+        entry = {k: v for k, v in p.items() if k != "img"}
+        entry["rect"] = [px, py, p["img"].w, p["img"].h]
+        out.append(entry)
+    return img, out
+
+
+def grid_from(images: list["ld.Canvas"], layer_names: list[str] | None = None,
+              durations: list[int] | None = None, tags=None, pivot=(0, 0),
+              frames_layers: list[dict] | None = None) -> dict:
+    """pixel-grid-v1 with an atlas-local palette (subset of the kit palette)."""
+    sources = frames_layers or [{"main": img} for img in images]
+    used = set()
+    for fr in sources:
+        for img in fr.values():
+            for row in img.px:
+                used.update(p for p in row if p is not None)
+    ordered = sorted(used, key=lambda p: (RAMP_ORDER.index(p[0]), p[1]))
+    if len(ordered) > MAX_ATLAS_COLOURS:
+        raise SystemExit(f"{len(ordered)} colours exceed the per-atlas budget of {MAX_ATLAS_COLOURS}")
+    keys = {p: GRID_KEYS[i] for i, p in enumerate(ordered)}
+    palette = [{"key": keys[p], "name": colour_name(*p), "rgba": RAMPS[p[0]][p[1]] + "ff"}
+               for p in ordered]
+    first = next(iter(sources[0].values()))
+    names = layer_names or list(sources[0].keys())
+    frames = []
+    for i, fr in enumerate(sources):
+        cels = {}
+        for name in names:
+            img = fr[name]
+            cels[name] = ["".join(keys[p] if p is not None else "." for p in row) for row in img.px]
+        frames.append({"duration_ms": (durations or [100] * len(sources))[i], "cels": cels})
+    return {"format": "pixel-grid-v1", "canvas": [first.w, first.h], "pivot": list(pivot),
+            "palette": palette, "layers": names, "frames": frames, "tags": tags or []}
+
+
+# ---------------------------------------------------------------------------
+# Build every atlas
+# ---------------------------------------------------------------------------
+
+def build_terrain() -> Atlas:
+    a = Atlas("floor01_terrain", "tileset")
+    # Deck / face / fill panels from full floor stacks
+    for tone in ("dim", "mid", "lit"):
+        for variant, width in (("a", 4), ("b", 4), ("c", 2)):
+            stack = floor_column(width, tone, f"deck_{tone}_{variant}")
+            for ri, row_type in enumerate(("deck_back", "deck_front")):
+                meta = {}
+                if row_type == "deck_front":
+                    meta = {"walkable_top": True, "walk_line_y": WALK_LINE_Y}
+                else:
+                    meta = {"deck_back": True}
+                split_panel(a, f"{row_type}_{tone}_{variant}", crop(stack, 0, ri * TILE, stack.w, TILE),
+                            row_type, f"{row_type}_{tone}_{variant}", **meta)
+        for variant, width in (("a", 4), ("c", 2)):
+            stack = floor_column(width, tone, f"face_{tone}_{variant}")
+            split_panel(a, f"face_a_{tone}_{variant}", crop(stack, 0, 2 * TILE, stack.w, TILE),
+                        "face_a", f"face_a_{tone}_{variant}")
+    for variant, width in (("a", 4), ("b", 4), ("c", 2)):
+        stack = floor_column(width, "mid", f"lower_{variant}")
+        split_panel(a, f"face_b_{variant}", crop(stack, 0, 3 * TILE, stack.w, TILE), "face_b",
+                    f"face_b_{variant}")
+        if variant != "b":
+            split_panel(a, f"fill_{variant}", crop(stack, 0, 4 * TILE, stack.w, TILE), "fill",
+                        f"fill_{variant}")
+    # Single edge tiles for steps and the corridor end wall
+    for kind in ("end", "inner", "wall"):
+        for side in ("l", "r"):
+            if kind == "wall" and side == "r":
+                continue
+            stack = edge_column(side, kind)
+            for ri, row_type in enumerate(ROW_TYPES):
+                meta: dict = {"edge": {"kind": kind, "side": side, "row_type": row_type}}
+                if row_type == "deck_front":
+                    meta.update(walkable_top=True, walk_line_y=WALK_LINE_Y)
+                if row_type == "deck_back":
+                    meta["deck_back"] = True
+                a.add_tile(f"{row_type}_{kind}_{side}", crop(stack, 0, ri * TILE, TILE, TILE), **meta)
+    # Ceiling
+    split_panel(a, "ceiling_fill_a", ceiling_fill("a", 4), "ceiling_fill", "ceiling_fill_a")
+    split_panel(a, "ceiling_fill_s", ceiling_fill("s", 1), "ceiling_fill", "ceiling_fill_s")
+    split_panel(a, "ceiling_fill_t", ceiling_fill("t", 1), "ceiling_fill", "ceiling_fill_t")
+    split_panel(a, "cornice_a", cornice("a", 4), "cornice", "cornice_a")
+    split_panel(a, "cornice_b", cornice("b", 4), "cornice", "cornice_b")
+    split_panel(a, "cornice_s", cornice("s", 1), "cornice", "cornice_s")
+    for side in ("l", "r"):
+        a.add_tile(f"ceiling_corner_in_{side}", ceiling_corner(side, "in"))
+        a.add_tile(f"ceiling_corner_out_{side}", ceiling_corner(side, "out"))
+    # Corridor end walls
+    for side in ("l", "r"):
+        a.add_tile(f"wall_end_{side}", wall_end(side, 0))
+        a.add_tile(f"wall_end_{side}_b", wall_end(side, 1))
+    a.add_tile("wall_fill", wall_fill())
+    a.add_tile("wall_fill_b", wall_fill(phase=1))
+    return a
+
+
+def build_backwall() -> Atlas:
+    a = Atlas("floor01_backwall", "tileset")
+    for band in BANDS:
+        for variant in ("a", "b", "c", "d"):
+            split_panel(a, f"brick_{band}_{variant}", brick_panel(band, variant, 4),
+                        f"brick_{band}", f"brick_{band}_{variant}", band=band)
+        for solo in ("s", "t"):
+            split_panel(a, f"brick_{band}_{solo}", brick_panel(band, solo, 1),
+                        f"brick_{band}", f"brick_{band}_{solo}", band=band)
+    for variant in ("a", "b"):
+        split_panel(a, f"base_course_{variant}", base_course(variant, 4), "base_course",
+                    f"base_course_{variant}")
+    for solo in ("s", "t", "u", "v"):
+        split_panel(a, f"base_course_{solo}", base_course(solo, 1), "base_course", f"base_course_{solo}")
+    return a
+
+
+def build_walldecal() -> Atlas:
+    a = Atlas("floor01_walldecal", "decor_atlas")
+    for variant in ("a", "b"):
+        a.add_piece(f"torch_pool_{variant}", torch_pool(variant), role="backwall", layer="backwall_decal",
+                    anchor=list(POOL_CENTRE_LOCAL), anchor_name="light_centre (= wall torch flame centre)",
+                    grid_snap=16, grammar=["A", "C"], decal=True, fixed_y=POOL_TOP_Y,
+                    pairs_with="torch_wall")
+    for variant in ("a", "b"):
+        a.add_piece(f"grime_{variant}", grime_patch(variant), role="backwall", layer="backwall_decal",
+                    anchor=[0, 0], anchor_name="top_left (brick-aligned, mid band rows 8-12)",
+                    grid_snap=16, grammar=["A"], decal=True, band="mid")
+    for name in RUBBLE:
+        img = rubble(name)
+        a.add_piece(name, img, role="foreground", layer="foreground", anchor=[img.w // 2, img.h],
+                    anchor_name="bottom_centre (stands on the bottom edge of the view)",
+                    grid_snap=8, grammar=["A", "B", "C"])
+    return a
+
+
+def window_spec() -> dict:
+    """Parallax window of an arch ring piece, in ring-local pixels (ring rect origin)."""
+    ox, oy = 200, 12
+    return {"arc_centre": [int(ld.ARCH_CX - ox), int(ld.ARCH_SPRING - oy)],
+            "arc_radius": int(ld.R_IN),
+            "rect": [int(ld.L_PILLAR[1] - ox), int(ld.ARCH_SPRING - oy),
+                     int(672 - 2 * ld.L_PILLAR[1]), int(ld.FLOOR_BACK - ld.ARCH_SPRING)],
+            "note": "Window = (circle above the arc centre line) U rect. Backwall tiles and "
+                    "decals must leave it empty; the parallax gallery shows through."}
+
+
+def build_structure() -> Atlas:
+    a = Atlas("floor01_structure", "decor_atlas")
+    bounce = {"id": "gallery_bounce", "offset": [136, 202], "colour": "#5b7cc4",
+              "radius": 150, "intensity": 0.32, "group": "scene"}
+    sky = {"id": "gallery_sky", "offset": [136, 98], "colour": "#6f92d0", "radius": 120,
+           "intensity": 0.3, "group": "scene"}
+    for variant in ("a", "b"):
+        a.add_piece(f"arch_ring_{variant}", render_arch_piece("ring", variant), role="structure",
+                    layer="structure", anchor=[0, 0],
+                    anchor_name="top_left = bay origin + (16, 0); bay origin y = 32",
+                    grid_snap=16, grammar=["B"], window=window_spec(), lights=[bounce, sky],
+                    arch={"radius_inner": int(ld.R_IN), "radius_outer": int(ld.R_OUT),
+                          "voussoirs": 15, "bay_offset": [16, 0]})
+    a.add_piece("pier_l", render_arch_piece("pier_l"), role="structure", layer="structure",
+                anchor=[0, 0], anchor_name="top_left = bay origin + (0, 0)", grid_snap=16,
+                grammar=["B"], bay_offset=[0, 0], light_baked_from="torch_wall at bay origin + (24, 176)")
+    a.add_piece("pier_r", render_arch_piece("pier_r"), role="structure", layer="structure",
+                anchor=[0, 0], anchor_name="top_left = bay origin + (224, 0)", grid_snap=16,
+                grammar=["B"], bay_offset=[224, 0], light_baked_from="torch_wall at bay origin + (264, 176)")
+    a.add_piece("arch_threshold", render_arch_piece("threshold"), role="structure", layer="structure",
+                anchor=[0, 0], anchor_name="top_left = bay origin + (64, 240)", grid_snap=16,
+                grammar=["B"], bay_offset=[64, 240])
+    a.add_piece("pilaster_plain", pilaster(), role="structure", layer="structure", anchor=[16, 256],
+                anchor_name="bottom_centre (stands on the floor back line, top at the wall top)",
+                grid_snap=16, grammar=["A"])
+    return a
+
+
+def build_parallax() -> Atlas:
+    a = Atlas("floor01_parallax", "decor_atlas")
+    far_lights = []
+    for i, k in enumerate(FAR_TORCH_PIERS):
+        x = int(6 + 44 * k)
+        far_lights.append({"id": f"far_torch_{i}", "offset": [x, int(ld.FAR_TORCH_Y - GALLERY_Y0)],
+                           "colour": "#ff9a50", "radius": 30, "intensity": 0.5,
+                           "glow": {"radius": 9, "additive": 0.22}, "group": "parallax_far"})
+    a.add_piece("gallery_far", parallax_far(), role="parallax_far", layer="parallax_far",
+                anchor=[0, 0], anchor_name="top_left (strip origin)", grid_snap=1, grammar=["B"],
+                tile_x=True, lights=far_lights)
+    a.add_piece("gallery_mid", parallax_mid(), role="parallax_mid", layer="parallax_mid",
+                anchor=[0, 0], anchor_name="top_left (strip origin)", grid_snap=1, grammar=["B"],
+                tile_x=True,
+                lights=[{"id": "mid_torch", "offset": [int(MID_TORCH_X), int(206 - GALLERY_Y0)],
+                         "colour": "#ff9a50", "radius": 70, "intensity": 0.7,
+                         "glow": {"radius": 16, "additive": 0.2}, "group": "parallax_mid"}])
+    return a
+
+
+def build_props() -> Atlas:
+    a = Atlas("floor01_props", "decor_atlas")
+    snap = 16
+    a.add_piece("pipe_h", pipe_straight("h"), anchor=[0, 8], anchor_name="left end, pipe centreline",
+                grid_snap=snap)
+    a.add_piece("pipe_h_seam", pipe_straight("h", seam=True), anchor=[0, 8],
+                anchor_name="left end, pipe centreline", grid_snap=snap)
+    a.add_piece("pipe_v", pipe_straight("v"), anchor=[8, 0], anchor_name="top end, pipe centreline",
+                grid_snap=snap)
+    a.add_piece("pipe_v_seam", pipe_straight("v", seam=True), anchor=[8, 0],
+                anchor_name="top end, pipe centreline", grid_snap=snap)
+    base = pipe_elbow()
+    for name, mx, my in (("pipe_elbow_rd", False, False), ("pipe_elbow_ld", True, False),
+                         ("pipe_elbow_ru", False, True), ("pipe_elbow_lu", True, True)):
+        a.add_piece(name, mirrored(base, mx, my), anchor=[0, 0],
+                    anchor_name="top_left; arms end on tile centrelines (8 or 24 px)", grid_snap=snap)
+    a.add_piece("pipe_flange_v", brass_ring("v", 10.0, 6.0, 32, 8), anchor=[16, 4],
+                anchor_name="centre on a vertical pipe (piece x = pipe tile x - 8)", grid_snap=8)
+    a.add_piece("pipe_flange_h", brass_ring("h", 10.0, 6.0, 8, 32), anchor=[4, 16],
+                anchor_name="centre on a horizontal pipe (piece y = pipe tile y - 8)", grid_snap=8)
+    a.add_piece("pipe_bracket_v", bracket("v"), anchor=[16, 4],
+                anchor_name="centre on a vertical pipe (piece x = pipe tile x - 8)", grid_snap=8)
+    a.add_piece("pipe_bracket_h", bracket("h"), anchor=[4, 16],
+                anchor_name="centre on a horizontal pipe (piece y = pipe tile y - 8)", grid_snap=8)
+    a.add_piece("pipe_collar_ceiling", collar_plate("ceiling"), anchor=[16, 0],
+                anchor_name="top_centre against the ceiling underside (y = 32)", grid_snap=8)
+    a.add_piece("pipe_collar_floor", collar_plate("floor"), anchor=[16, 8],
+                anchor_name="bottom_centre on the floor back line (y = 288)", grid_snap=8)
+    a.add_piece("valve_wheel", valve_wheel(), anchor=[16, 16],
+                anchor_name="centre on a vertical pipe (piece x = pipe tile x - 8)", grid_snap=8)
+    a.add_piece("door_timber", door(), anchor=[DOOR_W // 2, DOOR_H],
+                anchor_name="bottom_centre on the floor back line (y = 288)", grid_snap=8,
+                grammar=["A"])
+    sconce, _flame = torch_frame(1.3, "unlit", lit=False)
+    a.add_piece("torch_wall_unlit", sconce, anchor=list(TORCH_FLAME_LOCAL),
+                anchor_name="flame_centre (same mount as torch_wall)", grid_snap=8,
+                grammar=["A", "B", "C"])
+    a.add_piece("lichen_crust", lichen(), anchor=[0, 7], anchor_name="bottom_left", grid_snap=8,
+                grammar=["C"])
+    for p in a.pieces:
+        p.setdefault("role", "prop")
+        p.setdefault("layer", "prop")
+        p.setdefault("grammar", ["C"])
+    return a
+
+
+def torch_lights() -> list[dict]:
+    fx, fy = TORCH_FLAME_LOCAL
+    return [
+        {"id": "flame", "offset": [fx, fy], "colour": "#ffbd7a", "radius": 250, "intensity": 0.36,
+         "glow": {"radius": 44, "additive": 0.08}, "flicker": TORCH_FLICKER, "group": "scene"},
+        {"id": "floor_pool", "offset": [fx, fy], "project": "walk_line", "project_dy": -6,
+         "squash_y": 0.32, "colour": "#ffb36b", "radius": 130, "intensity": 0.3,
+         "flicker": TORCH_FLICKER, "group": "scene"},
     ]
-    jamb_l = ["xvvs", "wvvs", "wvvs", "wvvs", "wvvs", "wvvs", "wvus", "ssss"]
-    jamb_r = ["svvu", "svvu", "svvu", "svvu", "svvu", "svvu", "suut", "ssss"]
-    dc = layers["door"]
-    dc.stamp(lintel, dx0, dy0)
-    for y in range(6, dh):
-        i = (y - 6) % 8
-        dc.stamp([jamb_l[i]], dx0, dy0 + y)
-        dc.stamp([jamb_r[i]], dx0 + dw - 4, dy0 + y)
-    planks = "UXVVVVUXVVVUXVVVVUXVVVUXVVVVUXVV"
-    for y in range(6, dh):
-        for i, key in enumerate(planks):
-            dc.put(dx0 + 4 + i, dy0 + y, key)
-    for strap_y in (17, 59):
-        dc.fill(dx0 + 4, dy0 + strap_y, dx0 + dw - 5, dy0 + strap_y + 2, "j")
-        dc.fill(dx0 + 4, dy0 + strap_y, dx0 + dw - 5, dy0 + strap_y, "k")
-        dc.fill(dx0 + 4, dy0 + strap_y + 2, dx0 + dw - 5, dy0 + strap_y + 2, "k")
-        for sx in (7, 14, 21, 28, 33):
-            dc.put(dx0 + sx, dy0 + strap_y + 1, "n")
-    for x, y in ((29, 41), (30, 40), (31, 40), (32, 41), (32, 42), (31, 43), (30, 43),
-                 (29, 42)):
-        dc.put(dx0 + x, dy0 + y, "k")
-    dc.put(dx0 + 30, dy0 + 41, "n")
-    dc.fill(dx0 + 4, dy0 + dh - 2, dx0 + dw - 5, dy0 + dh - 1, "U")
-    piece("door_plank", "door", [dx0, dy0, dw, dh], [dw // 2, dh],
-          "bottom_centre (stands on floor top)", 16)
-    grid = make_grid([w, h], [0, 0], layers,
-                     ["decal", "accent", "pipes", "box", "door", "sconce"])
-    return grid, pieces
 
 
-TORCH_FLAMES = [
-    [
-        "................",
-        "........R.......",
-        ".......RR.......",
-        ".......ROR......",
-        "......ROOR......",
-        "......ROYOR.....",
-        ".....ROYYOR.....",
-        ".....ROYWYOR....",
-        "....ROYWWYOR....",
-        "....ROYWWYOR....",
-        "....ROYYWYOR....",
-        "....RROYYYOR....",
-        ".....ROOYOOR....",
-        ".....RROOORR....",
-        "......RRRRR.....",
-        "......RRRRR.....",
-    ],
-    [
-        "....R...........",
-        "....RR..........",
-        ".....RR.........",
-        ".....ROR........",
-        ".....ROOR.......",
-        "....ROYOR.......",
-        "....ROYYOR......",
-        "....ROYWYOR.....",
-        "....ROYWWYOR....",
-        "....ROYWWYOR....",
-        "....ROYYWYOR....",
-        "....RROYYOOR....",
-        ".....ROOOOOR....",
-        ".....RROOORR....",
-        "......RRRRR.....",
-        "......RRRRR.....",
-    ],
-    [
-        "..........Y.....",
-        "................",
-        "................",
-        "........R.......",
-        ".......RR.......",
-        "......ROOR......",
-        "......ROYOR.....",
-        ".....ROYYOR.....",
-        "....ROYYWYOR....",
-        "....ROYWWYOR....",
-        "...RROYWWYORR...",
-        "...ROOYYWYOOR...",
-        "....RROOYOORR...",
-        ".....RROOORR....",
-        "......RRRRR.....",
-        "......RRRRR.....",
-    ],
-    [
-        "................",
-        ".........R......",
-        "........RR......",
-        "........ROR.....",
-        ".......ROOR.....",
-        "......ROYOR.....",
-        "......ROYYOR....",
-        ".....ROYWYOR....",
-        "....ROYWWYOR....",
-        "....ROYWWYOR....",
-        "....ROYWWYOR....",
-        "....RROYYYORR...",
-        ".....ROOYOOR....",
-        ".....RROOORR....",
-        "......RRRRR.....",
-        "......RRRRR.....",
-    ],
-]
-
-TORCH_SCONCE = [
-    "...kghhhhhhhhgk.",
-    "...kjnjjjjjjjik.",
-    "....kjjjjjjjik..",
-    ".....kijjjjik...",
-    "......kiijik....",
-    ".......kjik.....",
-    "........jk......",
-    "........jk......",
-    ".......kjjk.....",
-    "......kljjik....",
-    "......kljoik....",
-    "......kljjik....",
-    "......kljjik....",
-    "......kljoik....",
-    "......kiiiik....",
-    ".......kkkk.....",
-]
-TORCH_DURATIONS = [120, 140, 100, 130]
-
-
-def build_torch() -> dict:
-    w, h = 16, 32
+def build_torch() -> tuple[Atlas, dict]:
+    a = Atlas("floor01_torch", "prop_animation")
     frames = []
-    for flame, duration in zip(TORCH_FLAMES, TORCH_DURATIONS):
-        sconce = Canvas(w, h)
-        sconce.stamp(TORCH_SCONCE, 0, 16)
-        fl = Canvas(w, h)
-        fl.stamp(flame, 0, 0)
-        frames.append({"duration_ms": duration,
-                       "cels": {"sconce": sconce.rows(), "flame": fl.rows()}})
-    return {"format": "pixel-grid-v1", "canvas": [w, h], "pivot": [8, 29],
-            "palette": palette_entries(), "layers": ["sconce", "flame"],
-            "frames": frames,
-            "tags": [{"name": "burn", "from": 0, "to": 3, "direction": "forward"}]}
-
-
-def make_grid(canvas, pivot, layers: dict[str, Canvas], order: list[str]) -> dict:
-    return {"format": "pixel-grid-v1", "canvas": canvas, "pivot": pivot,
-            "palette": palette_entries(), "layers": order,
-            "frames": [{"duration_ms": 100,
-                        "cels": {name: layers[name].rows() for name in order}}],
-            "tags": []}
+    for seed, scale, duration in TORCH_FRAMES:
+        sconce, flame = torch_frame(scale, seed)
+        frames.append(({"sconce": sconce, "flame": flame}, duration))
+    grid = grid_from([], layer_names=["sconce", "flame"], durations=[d for _f, d in frames],
+                     tags=[{"name": "burn", "from": 0, "to": len(frames) - 1, "direction": "forward"}],
+                     pivot=TORCH_FLAME_LOCAL, frames_layers=[f for f, _d in frames])
+    return a, grid
 
 
 # ---------------------------------------------------------------------------
-# Contract and sample layout
+# Contract, manifests, layout
 # ---------------------------------------------------------------------------
-ATLASES = {
-    "floor01_terrain": {"grid": "assets/source/terrain/floor01/terrain.grid.json",
-                        "manifest": "assets/manifests/floor01_terrain.json",
-                        "image": "generated/art/floor01_terrain.png",
-                        "metadata": "generated/art/floor01_terrain.json"},
-    "floor01_backwall": {"grid": "assets/source/terrain/floor01/backwall.grid.json",
-                         "manifest": "assets/manifests/floor01_backwall.json",
-                         "image": "generated/art/floor01_backwall.png",
-                         "metadata": "generated/art/floor01_backwall.json"},
-    "floor01_structure": {"grid": "assets/source/terrain/floor01/structure.grid.json",
-                          "manifest": "assets/manifests/floor01_structure.json",
-                          "image": "generated/art/floor01_structure.png",
-                          "metadata": "generated/art/floor01_structure.json"},
-    "floor01_props": {"grid": "assets/source/props/floor01/props.grid.json",
-                      "manifest": "assets/manifests/floor01_props.json",
-                      "image": "generated/art/floor01_props.png",
-                      "metadata": "generated/art/floor01_props.json"},
-    "floor01_torch": {"grid": "assets/source/props/floor01/torch.grid.json",
-                      "manifest": "assets/manifests/floor01_torch.json",
-                      "image": "generated/art/floor01_torch.png",
-                      "metadata": "generated/art/floor01_torch.json"},
+ATLAS_FILES = {
+    "floor01_terrain": ("assets/source/terrain/floor01/terrain", "tileset"),
+    "floor01_backwall": ("assets/source/terrain/floor01/backwall", "tileset"),
+    "floor01_walldecal": ("assets/source/terrain/floor01/walldecal", "decor_atlas"),
+    "floor01_structure": ("assets/source/terrain/floor01/structure", "decor_atlas"),
+    "floor01_parallax": ("assets/source/terrain/floor01/parallax", "decor_atlas"),
+    "floor01_props": ("assets/source/props/floor01/props", "decor_atlas"),
+    "floor01_torch": ("assets/source/props/floor01/torch", "prop_animation"),
 }
-
-GRAMMAR_HINTS = {
-    "floor_top": ["A", "B", "C"], "floor_fill": ["A", "B", "C"],
-    "floor_inner": ["A", "B", "C"], "floor_step": ["A", "B", "C"],
-    "ceiling": ["A", "B", "C"], "wall_": ["A", "B", "C"], "door": ["A"], "grime": ["A"],
-    "brick_backwall": ["A", "B", "C"], "recess": ["B"],
-    "arch": ["B"], "pier": ["B"], "far_arcade": ["B"], "torch": ["A", "B", "C"],
-    "pilaster": ["A", "B"],
-    "pipe": ["C"], "valve": ["C"], "maintenance": ["C"], "lichen": ["C"],
+ATLAS_ORIGIN = {
+    "floor01_terrain": "collision tiles: deep floor deck, face courses, fill, step/edge singles, ceiling and cornice, corridor end walls",
+    "floor01_backwall": "brick backwall tiles in four height bands plus the pale base course",
+    "floor01_walldecal": "torch pools, grime patches and foreground rubble",
+    "floor01_structure": "arch rings, piers, threshold and plain pilaster (A1 look-dev arch geometry as modules)",
+    "floor01_parallax": "far and mid gallery parallax strips (A1 look-dev gallery made horizontally periodic)",
+    "floor01_props": "copper/brass pipe set, valve, collars, brackets, timber door, unlit sconce and lichen",
+    "floor01_torch": "4-frame wall torch loop",
 }
 
 
-def grammar_for(tile_id: str) -> list[str]:
-    for prefix, grammar in GRAMMAR_HINTS.items():
-        if tile_id.startswith(prefix):
-            return grammar
-    raise KeyError(tile_id)
+def atlas_ref(name: str) -> dict:
+    stem, _kind = ATLAS_FILES[name]
+    return {"grid": f"{stem}.grid.json", "manifest": f"assets/manifests/{name}.json",
+            "image": f"generated/art/{name}.png", "metadata": f"generated/art/{name}.json"}
 
 
-def build_contract(terrain_tiles, backwall_tiles, structure_pieces, prop_pieces) -> dict:
-    tiles = []
-    for atlas, role, collidable, group in (("floor01_terrain", "collision", True, terrain_tiles),
-                                           ("floor01_backwall", "backwall", False, backwall_tiles)):
-        for index, t in enumerate(sorted(group, key=lambda t: (t["cell"][1], t["cell"][0]))):
-            col, row = t["cell"]
-            entry = {"id": t["id"], "atlas": atlas, "grid_index": row * 8 + col,
-                     "rect": [col * TILE, row * TILE, TILE, TILE], "role": role,
-                     "collidable": collidable, "grammar": grammar_for(t["id"])}
-            if t.get("walkable_top"):
-                entry["walkable_top"] = True
-            if "panel" in t:
-                entry["panel"] = t["panel"]
-            if t.get("recess"):
-                entry["recess"] = True
-            tiles.append(entry)
-    pieces = []
-    for atlas, group in (("floor01_structure", structure_pieces), ("floor01_props", prop_pieces)):
-        for p in group:
-            entry = {"id": p["id"], "atlas": atlas, "rect": p["rect"],
-                     "role": p.get("role", "structure"), "collidable": False,
-                     "anchor": p["anchor"], "anchor_name": p["anchor_name"],
-                     "grid_snap": p["grid_snap"], "grammar": grammar_for(p["id"])}
-            for key in ("arch", "repeat", "decal"):
-                if key in p:
-                    entry[key] = p[key]
-            pieces.append(entry)
-    frames = []
-    for i, duration in enumerate(TORCH_DURATIONS):
-        frames.append({"frame": {"x": 16 * i, "y": 0, "w": 16, "h": 32}, "duration": duration})
-    pieces.append({"id": "torch_wall", "atlas": "floor01_torch", "rect": [0, 0, 16, 32],
-                   "role": "prop", "collidable": False, "anchor": [8, 29],
-                   "anchor_name": "wall_mount (bottom rivet of the sconce plate)",
-                   "grid_snap": 16, "grammar": grammar_for("torch_wall"),
-                   "animation": {"tag": {"name": "burn", "from": 0, "to": 3,
-                                         "direction": "forward"},
-                                 "frames": frames}})
-    return {
-        "format": "env-kit-v1",
-        "kit_id": KIT_ID,
-        "status": "proposed - awaiting human art review",
+def manifest(name: str, grid: dict, tiles: list[str] | None = None, frame_size=None,
+             pivot=(0, 0), tags=()) -> dict:
+    stem, kind = ATLAS_FILES[name]
+    m = {
+        "schema_version": 1,
+        "id": f"{name}_v2",
+        "type": kind,
+        "source_path": f"{stem}.ase",
+        "grid_source": f"{stem}.grid.json",
+        "output_atlas": f"generated/art/{name}.png",
+        "output_metadata": f"generated/art/{name}.json",
         "palette_id": PALETTE_ID,
-        "palette": palette_entries(),
+        "frame_size": list(frame_size or grid["canvas"]),
+    }
+    if kind == "tileset":
+        m["tile_size"] = [TILE, TILE]
+        m["tiles"] = tiles
+    m.update({
+        "pivot": list(pivot),
+        "animation_tags": list(tags),
+        "required_alpha": kind != "tileset",
+        "kit_contract": CONTRACT_REL,
+        "owner": "AI-authored environment pixel art (ENV-01 rework round 3, Claude Opus)",
+        "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "license": "Original repo-specific environment art; no standalone asset reuse license; "
+                   "no game/asset-pack distribution rights",
+        "review_status": "prototype_fixture_unapproved",
+        "provenance": {
+            "origin": f"Original pixel-grid-v1 {ATLAS_ORIGIN[name]} for the Floor 1 catacomb "
+                      "environment kit (ENV-01 rework round 3, A1 target frame); not cropped, traced "
+                      "or resampled from concept art",
+            "generator": "Deterministic authoring script scripts/author_floor01_kit.py written by an "
+                         "AI agent (Claude Opus), using the A1 look-dev shading core "
+                         "scripts/lookdev_floor01_author.py (rule-based light evaluation quantised to "
+                         "hand-picked ramps); no image-model raster output",
+            "generated_art": True,
+            "input_reference_ids": [
+                "lookdev-floor01-resolution-spike/A1 (owner-approved target frame, 2026-11-16)",
+                "floor-01-opening/01-catacomb-environment-clean (mood reference of the A1 frame only)",
+            ],
+        },
+    })
+    return m
+
+
+def build_all() -> dict:
+    terrain = build_terrain()
+    backwall = build_backwall()
+    walldecal = build_walldecal()
+    structure = build_structure()
+    parallax = build_parallax()
+    props = build_props()
+    _torch_atlas, torch_grid = build_torch()
+
+    grids, manifests, tiles, pieces = {}, {}, [], []
+    for atlas, cols in ((terrain, 16), (backwall, 17)):
+        img, entries = pack_tiles(atlas, cols)
+        grids[atlas.name] = grid_from([img])
+        role = "collision" if atlas.name == "floor01_terrain" else "backwall"
+        for e in entries:
+            entry = {"id": e["id"], "atlas": atlas.name, "grid_index": e["grid_index"],
+                     "rect": e["rect"], "role": role,
+                     "collidable": role == "collision" and not e.get("deck_back", False),
+                     "grammar": ["A", "B", "C"]}
+            for key in ("deck_back", "walkable_top", "walk_line_y", "panel", "edge", "band"):
+                if key in e:
+                    entry[key] = e[key]
+            if entry["collidable"]:
+                wl = e.get("walk_line_y", 0)
+                entry["collider"] = [0, wl, TILE, TILE - wl]
+            tiles.append(entry)
+        manifests[atlas.name] = manifest(atlas.name, grids[atlas.name],
+                                         tiles=[e["id"] for e in entries])
+    for atlas, width in ((walldecal, 512), (structure, 576), (parallax, 448), (props, 256)):
+        img, entries = pack_pieces(atlas, width)
+        grids[atlas.name] = grid_from([img])
+        for e in entries:
+            entry = {"id": e["id"], "atlas": atlas.name, "rect": e["rect"], "role": e["role"],
+                     "layer": e["layer"], "collidable": False, "anchor": e["anchor"],
+                     "anchor_name": e["anchor_name"], "grid_snap": e["grid_snap"],
+                     "grammar": e.get("grammar", ["A", "B", "C"])}
+            for key in ("decal", "fixed_y", "pairs_with", "window", "lights", "arch", "bay_offset",
+                        "light_baked_from", "tile_x", "band"):
+                if key in e:
+                    entry[key] = e[key]
+            pieces.append(entry)
+        manifests[atlas.name] = manifest(atlas.name, grids[atlas.name])
+    grids["floor01_torch"] = torch_grid
+    frames = []
+    for i, (_seed, _scale, duration) in enumerate(TORCH_FRAMES):
+        frames.append({"frame": {"x": TORCH_W * i, "y": 0, "w": TORCH_W, "h": TORCH_H},
+                       "duration": duration})
+    pieces.append({"id": "torch_wall", "atlas": "floor01_torch", "rect": [0, 0, TORCH_W, TORCH_H],
+                   "role": "prop", "layer": "prop", "collidable": False,
+                   "anchor": list(TORCH_FLAME_LOCAL), "anchor_name": "flame_centre",
+                   "grid_snap": 8, "grammar": ["A", "B", "C"],
+                   "mount_y": {"wall": WALL_TORCH_FLAME_Y - TORCH_FLAME_LOCAL[1],
+                               "pier": PIER_TORCH_FLAME_Y - TORCH_FLAME_LOCAL[1]},
+                   "lights": torch_lights(),
+                   "animation": {"tag": {"name": "burn", "from": 0, "to": len(frames) - 1,
+                                         "direction": "forward"}, "frames": frames}})
+    manifests["floor01_torch"] = manifest("floor01_torch", torch_grid,
+                                          frame_size=[TORCH_W, TORCH_H],
+                                          pivot=TORCH_FLAME_LOCAL, tags=["burn"])
+    contract = build_contract(tiles, pieces, grids)
+    layout = build_layout(contract)
+    return {"grids": grids, "manifests": manifests, "contract": contract, "layout": layout}
+
+
+def build_contract(tiles: list[dict], pieces: list[dict], grids: dict) -> dict:
+    per_atlas = {name: len(g["palette"]) for name, g in grids.items()}
+    return {
+        "format": "env-kit-v2",
+        "kit_id": KIT_ID,
+        "status": "proposed - rework round 3 against the owner-approved A1 target frame; awaiting human art review",
+        "migration": {
+            "from": "env-kit-v1",
+            "changes": [
+                "palette: one combined kit palette (named ramp colours); each atlas grid uses a subset of at most 63 opaque colours (was one shared <= 64 palette)",
+                "layers: new parallax_far / parallax_mid roles (kind 'parallax', horizontally tiled strips with a parallax factor); collision now draws before structure and props; every layer names a light_group",
+                "floor: the walking line replaces the tile top as the collision surface (walk_line_y per walkable tile, collider rect per collidable tile); deck_back tiles are non-collidable visual floor in the collision layer",
+                "arch openings: backwall tiles are absent inside an arch window and the parallax gallery shows through (recess_* tiles and far_arcade_* pieces removed)",
+                "lights: emitter metadata on pieces and a layout-level lighting profile (presentation only)",
+            ],
+            "removed_ids": "all v1 tile and piece ids (no v1 id keeps its meaning)",
+        },
+        "palette_id": PALETTE_ID,
+        "palette": combined_palette(),
+        "palette_policy": {"max_opaque_colours_per_atlas": MAX_ATLAS_COLOURS,
+                           "colours_per_atlas": per_atlas,
+                           "note": "Grid palette entries must match a kit palette entry by name and rgba; "
+                                   "grid keys are atlas-local."},
         "tile_size": [TILE, TILE],
         "coordinate_system": {
             "origin": "top_left", "x_axis": "right", "y_axis": "down",
             "row_order": "top_to_bottom", "units": "virtual_px",
-            "note": "Layout pixel (x, y) = (col * 16, row * 16). Atlas rects are [x, y, w, h] "
-                    "in exported atlas pixels, top-left origin. Bevy (y-up) must flip y.",
+            "note": "Layout pixel (x, y) = (col * 16, row * 16). Atlas rects are [x, y, w, h] in "
+                    "exported atlas pixels, top-left origin. Bevy (y-up) must flip y.",
         },
         "layers": [
-            {"name": "backwall", "role": "backwall", "kind": "tiles", "draw_order": 0},
-            {"name": "backwall_decal", "role": "backwall", "kind": "pieces", "draw_order": 1},
-            {"name": "structure", "role": "structure", "kind": "pieces", "draw_order": 2},
-            {"name": "prop", "role": "prop", "kind": "pieces", "draw_order": 3},
-            {"name": "collision", "role": "collision", "kind": "tiles", "draw_order": 4},
-            {"name": "foreground", "role": "foreground", "kind": "pieces", "draw_order": 6},
+            {"name": "parallax_far", "role": "parallax_far", "kind": "parallax", "draw_order": 0,
+             "parallax": 0.35, "light_group": "parallax_far"},
+            {"name": "parallax_mid", "role": "parallax_mid", "kind": "parallax", "draw_order": 1,
+             "parallax": 0.6, "light_group": "parallax_mid"},
+            {"name": "backwall", "role": "backwall", "kind": "tiles", "draw_order": 2, "light_group": "scene"},
+            {"name": "backwall_decal", "role": "backwall", "kind": "pieces", "draw_order": 3,
+             "light_group": "scene"},
+            {"name": "collision", "role": "collision", "kind": "tiles", "draw_order": 4, "light_group": "scene"},
+            {"name": "structure", "role": "structure", "kind": "pieces", "draw_order": 5, "light_group": "scene"},
+            {"name": "prop", "role": "prop", "kind": "pieces", "draw_order": 6, "light_group": "scene"},
+            {"name": "foreground", "role": "foreground", "kind": "pieces", "draw_order": 8,
+             "light_group": "foreground"},
         ],
-        "actor_draw_order": 5,
+        "actor_draw_order": 7,
+        "actor_light_group": "actors",
         "roles": {
-            "collision": "Collidable gameplay terrain. Only role that may be collidable; tiles opaque.",
-            "backwall": "Non-collidable wall behind actors; tiles opaque, decals use 1-bit alpha.",
-            "structure": "Non-collidable midground architecture (arches, piers, far depth); 1-bit alpha.",
-            "prop": "Non-collidable wall-mounted props (torches, pipes, valve, box, lichen); 1-bit alpha.",
-            "foreground": "Reserved for restrained foreground overlays; none in ENV-01.",
+            "parallax_far": "Farthest gallery strip seen through arch windows; tiles horizontally; moves at its layer's parallax factor.",
+            "parallax_mid": "Nearer gallery strip (balcony, pillars, arches) with 1-bit alpha over parallax_far.",
+            "collision": "Collision-layer terrain. Collidable tiles are opaque and carry a collider rect; deck_back tiles are opaque but non-collidable (visual floor behind the walking line).",
+            "backwall": "Non-collidable wall behind actors; tiles opaque, decals 1-bit alpha; never inside an arch window.",
+            "structure": "Non-collidable architecture (arch rings, piers, threshold, pilaster); 1-bit alpha.",
+            "prop": "Non-collidable props (torches, pipes, valve, collars, door, lichen); 1-bit alpha.",
+            "foreground": "Restrained foreground silhouettes drawn over actors (low rubble only).",
         },
-        "floor_contact": {
-            "collider_top": "top edge of a walkable_top tile",
-            "surface_rows": [0, 4],
-            "recommended_visual_foot_sink_px": 0,
-            "decision": "Owner decision 2026-11-16: COMP-01 draws actors with their pivot "
-                        "(bottom opaque) row directly on the collider top (0 px foot sink).",
-            "open_question": "An independent art-director review suggested a 2 px sink so "
-                             "feet sit inside the 5 px walking surface; left for human art "
-                             "review.",
+        "walk_line": {
+            "definition": "The collision surface of a floor column is its walking line, not the top of its first opaque tile. A walkable tile declares walk_line_y (0..15, tile-local); the collider top in layout pixels is row * 16 + walk_line_y. The deep floor shows a 24 px top surface: the deck_back tile (16 px, non-collidable) plus 8 px of the deck_front tile; the walking line sits 20 px behind... i.e. 4 px behind the front edge (lip) of the surface.",
+            "collider_rule": "Every collidable tile has collider [x, y, w, h] (tile-local px). Bevy: for each collidable cell, spawn (or merge per row) a static AABB at (col * 16 + x, row * 16 + y, w, h), flipping y for y-up. A deck_front tile's collider is [0, 4, 16, 12]; full tiles use [0, 0, 16, 16].",
+            "actor_contact": "Actors are drawn with their pivot row (bottom opaque row) at collider_top - 1: feet touch the walking line with 0 px sink. Spawn/exit markers use y = collider_top - 1 of their column.",
+            "base_floor": {"floor_back_y": FLOOR_ROW * TILE, "walk_line_y": FLOOR_ROW * TILE + TILE + WALK_LINE_Y,
+                           "front_edge_y": FLOOR_ROW * TILE + TILE + 8},
+            "wall_columns": "A column that is collidable from the top row to the bottom row is a wall (corridor end), not floor.",
         },
-        "atlases": {name: {k: v for k, v in data.items()} for name, data in ATLASES.items()},
+        "lighting": {
+            "presentation_only": True,
+            "note": "Lights never change collision, gameplay or authoritative state. Pixel art carries baked light (A1); emitters drive the screen-resolution lighting pass (cold ambient multiply per light group, warm pools, additive glow, flame bloom, per-layer haze).",
+            "emitter_schema": {
+                "id": "unique within the piece",
+                "offset": "[x, y] piece-local px of the light centre",
+                "colour": "#rrggbb",
+                "radius": "falloff radius in virtual px (windowed inverse-square-like)",
+                "intensity": "multiplier added to the group's ambient light map",
+                "glow": "optional {radius, additive}: additive halo",
+                "flicker": "optional list of intensity multipliers, one per animation frame",
+                "project": "optional 'walk_line': the light centre moves straight down to the column's walking line plus project_dy",
+                "squash_y": "optional vertical squash of the falloff (flat floor pools)",
+                "group": "light group the emitter lights (scene, parallax_far, parallax_mid); scene emitters also light actors at the actors group's light_scale",
+            },
+            "groups": ["parallax_far", "parallax_mid", "scene", "actors", "foreground"],
+        },
+        "atlases": {name: atlas_ref(name) for name in ATLAS_FILES},
         "tiles": tiles,
         "pieces": pieces,
         "usage_rules": {
-            "A": "Ordinary fabric: brick_backwall panels, top/base strips, floor_top_a-d, "
-                 "sparse torch_wall + torch_glow at varied spacing (roughly every 10-20 "
-                 "columns), an occasional torch_wall_unlit, door_plank or grime_patch_*, and "
-                 "at most one plain pilaster_plain as a structural break in a long run.",
-            "B": "Rhythm: pier_* stacks 192 px apart (centre to centre) carrying arch_ring_r72; "
-                 "recess_* tiles fill the opening; far_arcade_a/b sit on the opening floor "
-                 "line (alternate them between neighbouring openings).",
-            "C": "Special function, sparing: one pipe run (pipe_*), one valve_wheel, one "
-                 "maintenance_box; optional lichen_crust only next to a damp source. Every "
-                 "pipe end terminates in a collar (pipe_v_floor_collar, pipe_v_ceiling_collar, "
-                 "pipe_wall_collar_r) or the maintenance_box; never in mid-air.",
-            "corridor_ends": "Close a corridor with wall_face_l/r (alternate *_b for the second "
-                             "quoin phase), ceiling_corner_in_l/r where the ceiling meets it, "
-                             "wall_cap_* on top of low walls and ceiling_corner_out_l/r where "
-                             "a ceiling course ends.",
-            "panels": "brick_backwall panel cells must be used in their native order horizontally "
-                      "(cell x+1 follows cell x within a panel, the panel's last column may be "
-                      "followed by column 0 of any panel of the same family). Any vertical order is "
-                      "seamless.",
-            "grid_snap": "Piece top-left positions must be multiples of grid_snap.",
+            "rows": "Base corridor: rows 0-1 ceiling (ceiling_fill, cornice), rows 2-16 brick bands (top 2-3, upper 4-7, mid 8-12, lower 13-14, low 15-16: the lit band behind actor heads), row 17 base_course, row 18 deck_back, row 19 deck_front (walking line y = 308), row 20 face_a, row 21 face_b, rows 22+ fill. A raised platform shifts its own floor stack up by 1 or 2 rows.",
+            "panels": "Within a row a panel cell is followed by its right neighbour; a panel's last column may be followed by column 0 of any panel of the same family (solo panels are one tile wide). Cut bricks and slabs at panel edges use a neutral tone, so panels join seamlessly.",
+            "edges": "Floor-stack singles: *_wall_l right of a corridor end wall; *_inner_r / *_inner_l on the lower floor left / right of a platform; *_end_l / *_end_r as the first / last column of a platform. A single must touch panel edge columns (last column on its left, column 0 on its right).",
+            "A": "Ordinary fabric: brick bands, base course, deck tones dim/mid/lit (lit under a torch, mid next to it), torch_wall + torch_pool_a/b at wall mount height, at least 240 px between pooled torches; occasional grime_*, door_timber, torch_wall_unlit or one pilaster_plain.",
+            "B": "Arch bay, 304 px wide from a 16 px aligned bay origin (y = 32): pier_l (+0,0), arch_ring_a/b (+16,0), pier_r (+224,0), arch_threshold (+64,240), torch_wall on both piers (+24,176) and (+264,176). Backwall cells that touch the ring window stay empty; the parallax strips show through. Piers bake their own torch light; do not add pools at pier torches.",
+            "C": "Special function, sparing: one copper run with elbows, at least one flange and bracket, a valve_wheel on a vertical drop; every end terminates in pipe_collar_ceiling / pipe_collar_floor; optional lichen_crust near a pipe joint only. Copper only in C.",
+            "lights": "Torch pools are baked for wall torches only (torch_pool_*), centred on the flame; their decal is placed at (flame_x - 120, 48).",
+            "grid_snap": "Piece top-left positions must be multiples of grid_snap; fixed_y pieces must use that y.",
         },
     }
+
+
+SEGMENTS = [("A1", "A", 0, 32), ("B1", "B", 32, 51), ("C1", "C", 51, 80), ("A2", "A", 80, 100),
+            ("B2", "B", 100, 128)]
+BAYS = [32, 102]              # bay origin columns
+WALL_TORCHES = [136, 440, 920, 1176, 1416]   # flame x (wall torches with pools)
+PLATFORMS = [(7, 12, 1), (87, 94, 2)]        # (end_l col, end_r col, height in tiles)
+
+
+def stable(*key) -> int:
+    return int(ld.rnd("layout", *key) * 1_000_003)
 
 
 def build_layout(contract: dict) -> dict:
     cols, rows = 128, 25
-    ceiling_rows, top_strip_row, base_row, floor_row = (0, 1), 3, 19, 20
-    panel_rows = range(4, 19)
-    collision = [[None] * cols for _ in range(rows)]
-    backwall = [[None] * cols for _ in range(rows)]
+    collision: list[list[str | None]] = [[None] * cols for _ in range(rows)]
+    backwall: list[list[str | None]] = [[None] * cols for _ in range(rows)]
+    tiles = {t["id"]: t for t in contract["tiles"]}
+    torches_flame = list(WALL_TORCHES) + [b * TILE + 32 for b in BAYS] + [b * TILE + 272 for b in BAYS]
 
-    def pick(options, *salt):
-        return options[stable_hash(*salt) % len(options)]
+    def tone_at(x0: int, x1: int) -> str:
+        cx = (x0 + x1) / 2 * TILE
+        d = min(abs(cx - f) for f in torches_flame)
+        return "lit" if d < 60 else "mid" if d < 124 else "dim"
 
-    for x in range(cols):
-        for r in ceiling_rows:
-            collision[r][x] = pick(["ceiling_fill_a", "ceiling_fill_b"], "cf", x, r)
-        collision[2][x] = pick(["ceiling_edge_a", "ceiling_edge_b", "ceiling_edge_c",
-                                "ceiling_edge_b"], "ce", x)
-        collision[floor_row][x] = pick(["floor_top_a", "floor_top_b", "floor_top_c",
-                                        "floor_top_b", "floor_top_a", "floor_top_d"], "ft", x)
-        for r in range(floor_row + 1, rows):
-            collision[r][x] = pick(["floor_fill_a", "floor_fill_b"], "ff", x, r)
-    # One 1-tile raised block in segment A (exercises end/side tiles; step <= 2 tiles)
-    step0, step1 = 30, 37
-    for x in range(step0, step1 + 1):
-        if x == step0:
-            top, face = "floor_top_end_l", "floor_inner_corner_l"
-        elif x == step1:
-            top, face = "floor_top_end_r", "floor_inner_corner_r"
-        else:
-            top, face = pick(["floor_top_a", "floor_top_b", "floor_top_c"], "st", x), \
-                pick(["floor_step_base_a", "floor_step_base_b"], "sf", x)
-        collision[base_row][x] = top
-        collision[floor_row][x] = face
+    def fill_run(row: int, c0: int, c1: int, family_prefix: str, variants: list[str],
+                 grid=collision, tone: bool = False, salt: str = "") -> None:
+        """Fill columns [c0, c1) of a row with panels (4-wide, then 2- or 1-wide to finish)."""
+        x = c0
+        last = None
+        while x < c1:
+            left = c1 - x
+            fam_tiles = []
+            for v in variants:
+                for t_id, t in tiles.items():
+                    p = t.get("panel")
+                    if p and p["id"] == (f"{family_prefix}_{tone_at(x, x + 4)}_{v}" if tone else
+                                         f"{family_prefix}_{v}") and p["cell"] == [0, 0]:
+                        fam_tiles.append(p)
+            fits = [p for p in fam_tiles if p["size"][0] <= left]
+            wide = [p for p in fits if p["size"][0] == max(q["size"][0] for q in fits)] if fits else []
+            if left >= 4:
+                wide = [p for p in fits if p["size"][0] == 4]
+            elif left in (2, 3):
+                wide = [p for p in fits if p["size"][0] == 2] or wide
+            if not wide:
+                raise SystemExit(f"row {row}: cannot fill {left} columns from {x} with {family_prefix}")
+            choice = [p for p in wide if p["id"] != last] or wide
+            p = choice[stable(row, x, salt, family_prefix) % len(choice)]
+            last = p["id"]
+            for i in range(p["size"][0]):
+                tid = next(t_id for t_id, t in tiles.items() if t.get("panel", {}).get("id") == p["id"]
+                           and t["panel"]["cell"] == [i, 0])
+                grid[row][x + i] = tid
+            x += p["size"][0]
 
-    # Backwall: panels per 4x2 block, never repeating the left or upper neighbour
-    families = list("abcdef")
-    chosen: dict[tuple[int, int], str] = {}
-    for by, r0 in enumerate(range(panel_rows.start, panel_rows.stop, 2)):
-        for bx in range(cols // 4):
-            banned = {chosen.get((bx - 1, by)), chosen.get((bx, by - 1))}
-            options = [f for f in families if f not in banned]
-            chosen[(bx, by)] = pick(options, "panel", bx, by)
-    for r in panel_rows:
-        by = (r - panel_rows.start) // 2
-        for x in range(cols):
-            fam = chosen[(x // 4, by)]
-            cell = (r % 2) * 4 + (x % 4) + 1
-            backwall[r][x] = f"brick_backwall_{fam}{cell}"
-    for x in range(cols):
-        backwall[top_strip_row][x] = f"brick_backwall_top_{x % 4 + 1}"
-        backwall[base_row][x] = f"brick_backwall_base_{x % 4 + 1}"
+    # --- collision: ceiling, floor stack, platforms, left end wall --------------------
+    for r in range(rows):
+        collision[r][0] = "wall_end_l" if r % 2 == 0 else "wall_end_l_b"
+    collision[0][1] = "ceiling_fill_s"
+    fill_run(0, 2, cols, "ceiling_fill", ["a", "s"])
+    collision[1][1] = "ceiling_corner_in_l"
+    fill_run(1, 2, cols, "cornice", ["a", "b", "s"])
+    plats = sorted(PLATFORMS)
+    deck_variants = {"deck_back": ["a", "b", "c"], "deck_front": ["a", "b", "c"],
+                     "face_a": ["a", "c"], "face_b": ["a", "b", "c"], "fill": ["a", "c"]}
 
-    structure, props, decals = [], [], []
-    pier_cols = [56, 68, 100, 112, 124]
-    spring_y = 176
+    def stack_rows(top_row: int) -> dict[str, int]:
+        return {rt: top_row + i for i, rt in enumerate(ROW_TYPES[:-1])}
 
-    def place_pier(col: int) -> None:
-        cx = col * TILE + 24
-        structure.append({"piece": "pier_capital", "x": cx - 32, "y": spring_y})
-        for i in range(3):
-            structure.append({"piece": "pier_shaft", "x": cx - 32, "y": spring_y + 16 + 32 * i})
-        structure.append({"piece": "pier_base", "x": cx - 32, "y": spring_y + 112})
+    def place_stack_column(col: int, top_row: int, tile_for) -> None:
+        for i, rt in enumerate(ROW_TYPES):
+            if rt == "fill":
+                for r in range(top_row + 4, rows):
+                    collision[r][col] = tile_for(rt)
+            else:
+                collision[top_row + i][col] = tile_for(rt)
 
-    arches = []
-    far_variants = ["far_arcade_a", "far_arcade_b", "far_arcade_a"]
-    for (left, right), far_id in zip(((56, 68), (100, 112), (112, 124)), far_variants):
-        open0, open1 = left + 3, right - 1  # opening columns inclusive
-        centre_x = open0 * TILE + 72
-        arches.append((open0, open1, centre_x))
-        bands = {5: "recess_vault", 6: "recess_vault", 7: "recess_vault", 8: "recess_vault",
-                 9: "recess_vault", 10: "recess_vault_fade", 15: "recess_wall_fade",
-                 16: "recess_low", 17: "recess_low", 18: "recess_haze", 19: "recess_floor"}
-        r_mid = (ARCH_R_IN + ARCH_R_OUT) / 2
-        for r in range(4, 20):
-            for x in range(open0 - 2, open1 + 3):
-                cy = r * TILE + 8
-                cxp = x * TILE + 8
-                if cy >= spring_y:
-                    inside = open0 <= x <= open1
-                else:
-                    inside = math.hypot(cxp - centre_x, cy - spring_y) < r_mid
-                if not inside:
-                    continue
-                kind = bands.get(r) or pick(["recess_wall_a", "recess_wall_b"], "rw", x, r)
-                backwall[r][x] = kind
-        structure.append({"piece": far_id, "x": open0 * TILE,
-                          "y": (base_row + 1) * TILE - 96})
-    for col in pier_cols:
-        place_pier(col)
-    for open0, open1, centre_x in arches:
-        structure.append({"piece": "arch_ring_r72", "x": centre_x - 96, "y": spring_y - 96})
+    def run_stack(c0: int, c1: int, top_row: int, salt: str) -> None:
+        for rt, r in stack_rows(top_row).items():
+            fill_run(r, c0, c1, rt if rt not in ("face_b",) else "face_b", deck_variants[rt],
+                     tone=rt in ("deck_back", "deck_front", "face_a"), salt=salt)
+        for r in range(top_row + 4, rows):
+            fill_run(r, c0, c1, "fill", deck_variants["fill"], salt=salt + str(r))
 
-    # A dressing: a few grime/soot patches on the brick and one plain door.
-    for col, row in ((3, 14), (21, 6), (38, 12), (45, 15), (90, 13), (9, 8)):
-        decals.append({"piece": "grime_patch_a" if (col + row) % 2 else "grime_patch_b",
-                       "x": col * TILE, "y": row * TILE})
-    props.append({"piece": "door_plank", "x": 12 * TILE, "y": (floor_row - 5) * TILE})
-    # One plain stone pilaster breaks the long run of A brick (shaft x 412-435).
-    for y in range(top_strip_row * TILE, (base_row + 1) * TILE, 16):
-        structure.append({"piece": "pilaster_plain", "x": 408, "y": y})
-    # Torches at deliberately uneven spacing; one burnt-out sconce.
-    torch_cols = [(7, 10), (18, 10), (33, 10), (50, 10), (82, 10), (94, 10)]
-    props.append({"piece": "torch_wall_unlit", "x": 42 * TILE, "y": 10 * TILE})
-    for col, row in torch_cols:
-        decals.append({"piece": "torch_glow", "x": (col - 1) * TILE, "y": (row - 1) * TILE})
-        props.append({"piece": "torch_wall", "x": col * TILE, "y": row * TILE,
-                      "frame_offset": stable_hash("torch", col) % 4})
-    # Segment C: one pipe run with valve feeding a maintenance box.
-    pipe_row, pipe_col = 7, 75
-    # lichen first so the pipe overlaps its right edge (growth hugging the pipe)
-    props.append({"piece": "lichen_crust", "x": pipe_col * TILE - 8, "y": 11 * TILE})
-    props.append({"piece": "pipe_elbow_r_d", "x": pipe_col * TILE, "y": pipe_row * TILE})
-    run = {76: "pipe_h_a", 77: "pipe_h_a", 78: "pipe_h_bracket", 79: "pipe_h_rust",
-           80: "pipe_h_flange", 81: "pipe_h_a", 82: "pipe_h_a", 83: "pipe_h_bracket",
-           84: "pipe_h_a", 85: "pipe_elbow_l_u"}
-    for col, pid in run.items():
-        props.append({"piece": pid, "x": col * TILE, "y": pipe_row * TILE})
-    # the run rises into the ceiling course instead of ending in mid-air
-    rise = {6: "pipe_v_a", 5: "pipe_v_bracket", 4: "pipe_v_a", 3: "pipe_v_ceiling_collar"}
-    for row, pid in rise.items():
-        props.append({"piece": pid, "x": 85 * TILE, "y": row * TILE})
-    vertical = {8: "pipe_v_a", 9: "pipe_v_bracket", 10: "valve_wheel", 11: "pipe_v_a",
-                12: "pipe_v_a"}
-    for row, pid in vertical.items():
-        props.append({"piece": pid, "x": pipe_col * TILE, "y": row * TILE})
-    props.append({"piece": "maintenance_box", "x": pipe_col * TILE, "y": 13 * TILE})
-    for row in range(15, 19):
-        props.append({"piece": "pipe_v_a", "x": (pipe_col + 1) * TILE, "y": row * TILE})
-    props.append({"piece": "pipe_v_floor_collar", "x": (pipe_col + 1) * TILE, "y": 19 * TILE})
+    place_stack_column(1, FLOOR_ROW, lambda rt: f"{rt}_wall_l")
+    x = 2
+    for (c0, c1, h) in plats:
+        run_stack(x, c0 - 1, FLOOR_ROW, f"low{c0}")
+        place_stack_column(c0 - 1, FLOOR_ROW, lambda rt: f"{rt}_inner_r")
+        top = FLOOR_ROW - h
+        place_stack_column(c0, top, lambda rt: f"{rt}_end_l")
+        run_stack(c0 + 1, c1, top, f"plat{c0}")
+        place_stack_column(c1, top, lambda rt: f"{rt}_end_r")
+        place_stack_column(c1 + 1, FLOOR_ROW, lambda rt: f"{rt}_inner_l")
+        x = c1 + 2
+    run_stack(x, cols, FLOOR_ROW, "lowend")
 
+    # --- backwall: bands, base course; empty inside arch windows ---------------------
+    windows = []
+    for b in BAYS:
+        ox, oy = b * TILE + 16, WALL_TOP
+        spec = window_spec()
+        windows.append(((ox + spec["arc_centre"][0], oy + spec["arc_centre"][1], spec["arc_radius"]),
+                        (ox + spec["rect"][0], oy + spec["rect"][1], spec["rect"][2], spec["rect"][3])))
+
+    import env_kit  # same window rasterisation as the validator
+    mask = env_kit.window_mask((cols * TILE, rows * TILE), windows)
+
+    def cell_in_window(cx: int, r: int) -> bool:
+        return env_kit._cell_hits_mask(mask, cx, r)
+
+    for r in range(2, BASE_COURSE_ROW + 1):
+        x = 1
+        while x < cols:
+            if collision[r][x] is not None or cell_in_window(x, r):
+                x += 1
+                continue
+            end = x
+            while end < cols and collision[r][end] is None and not cell_in_window(end, r):
+                end += 1
+            if r == BASE_COURSE_ROW:
+                fill_run(r, x, end, "base_course", ["a", "b", "s", "t", "u", "v"], grid=backwall,
+                         salt="base")
+            else:
+                band = band_of_row(r)
+                fill_run(r, x, end, f"brick_{band}", ["a", "b", "c", "d", "s", "t"], grid=backwall,
+                         salt=f"b{r}")
+            x = end
+    # the base floor's deck_back row hides the backwall; platforms cover their own rows
+
+    # --- pieces ----------------------------------------------------------------------
+    decals, structure, props, foreground = [], [], [], []
+    for i, fx in enumerate(WALL_TORCHES):
+        decals.append({"piece": "torch_pool_b" if i in (0, 3) else "torch_pool_a",
+                       "x": fx - POOL_CENTRE_LOCAL[0], "y": POOL_TOP_Y})
+        props.append({"piece": "torch_wall", "x": fx - TORCH_FLAME_LOCAL[0],
+                      "y": WALL_TORCH_FLAME_Y - TORCH_FLAME_LOCAL[1], "frame_offset": i % 4})
+    for (gx, gy, variant) in ((97, 9, "a"), (123, 8, "b")):
+        decals.append({"piece": f"grime_{variant}", "x": gx * TILE, "y": gy * TILE})
+    for j, b in enumerate(BAYS):
+        ox = b * TILE
+        structure += [
+            {"piece": "pier_l", "x": ox, "y": WALL_TOP},
+            {"piece": "arch_ring_a" if j == 0 else "arch_ring_b", "x": ox + 16, "y": WALL_TOP},
+            {"piece": "pier_r", "x": ox + 224, "y": WALL_TOP},
+            {"piece": "arch_threshold", "x": ox + 64, "y": WALL_TOP + 240},
+        ]
+        for k, dx in enumerate((24, 264)):
+            props.append({"piece": "torch_wall", "x": ox + dx, "y": PIER_TORCH_FLAME_Y - TORCH_FLAME_LOCAL[1],
+                          "frame_offset": (j * 2 + k + 1) % 4})
+    structure.append({"piece": "pilaster_plain", "x": 288, "y": WALL_TOP})
+    structure.append({"piece": "pilaster_plain", "x": 1296, "y": WALL_TOP})
+    props.append({"piece": "door_timber", "x": 216, "y": FLOOR_ROW * TILE - DOOR_H})
+    props.append({"piece": "torch_wall_unlit", "x": 1984, "y": WALL_TORCH_FLAME_Y - TORCH_FLAME_LOCAL[1]})
+    # C: one copper run. Vertical drop at column 54 (centre x 872), run along row 3 into the ceiling.
+    pc, run_row = 54, 3
+    props.append({"piece": "lichen_crust", "x": pc * TILE - 8, "y": 264})
+    props.append({"piece": "pipe_elbow_rd", "x": pc * TILE, "y": run_row * TILE})
+    for c in range(pc + 2, 69):
+        props.append({"piece": "pipe_h_seam" if c == 61 else "pipe_h", "x": c * TILE, "y": run_row * TILE})
+    props.append({"piece": "pipe_elbow_lu", "x": 69 * TILE, "y": (run_row - 1) * TILE})
+    props.append({"piece": "pipe_collar_ceiling", "x": 70 * TILE - 8, "y": WALL_TOP})
+    for r in range(run_row + 2, BASE_COURSE_ROW + 1):
+        props.append({"piece": "pipe_v_seam" if r == 13 else "pipe_v", "x": pc * TILE, "y": r * TILE})
+    props.append({"piece": "pipe_collar_floor", "x": pc * TILE - 8, "y": FLOOR_ROW * TILE - 8})
+    props.append({"piece": "pipe_flange_v", "x": pc * TILE - 8, "y": 104})
+    props.append({"piece": "pipe_flange_v", "x": pc * TILE - 8, "y": 232})
+    props.append({"piece": "pipe_bracket_v", "x": pc * TILE - 8, "y": 128})
+    props.append({"piece": "pipe_bracket_v", "x": pc * TILE - 8, "y": 256})
+    props.append({"piece": "valve_wheel", "x": pc * TILE - 8, "y": 160})
+    props.append({"piece": "pipe_flange_h", "x": 63 * TILE - 8, "y": run_row * TILE - 8})
+    props.append({"piece": "pipe_bracket_h", "x": 58 * TILE + 8, "y": run_row * TILE - 8})
+    props.append({"piece": "pipe_bracket_h", "x": 66 * TILE + 8, "y": run_row * TILE - 8})
+    foreground.append({"piece": "rubble_a", "x": 336, "y": 400 - 32})
+    foreground.append({"piece": "rubble_b", "x": 1232, "y": 400 - 24})
+
+    walk_y = FLOOR_ROW * TILE + TILE + WALK_LINE_Y
+    exit_x = BAYS[1] * TILE + 152
     return {
-        "format": "env-kit-layout-v1",
+        "format": "env-kit-layout-v2",
         "layout_id": "floor01_corridor_abc_sample",
         "kit": KIT_ID,
-        "kit_contract": "assets/source/terrain/floor01/floor01_catacomb_kit.json",
+        "kit_contract": CONTRACT_REL,
         "status": "sample layout for art preview and COMP-01 integration; not authored level geometry",
+        "migration": "env-kit-layout-v1 -> v2: base_floor_top_y replaced by base_walk_line_y; markers sit on the walking line; parallax_layers and lighting added; recess backwall tiles removed (arch windows are empty)",
         "tile_size": [TILE, TILE],
         "grid_size": [cols, rows],
         "pixel_size": [cols * TILE, rows * TILE],
-        "coordinate_system": "top_left origin, x right, y down, rows top_to_bottom; "
-                             "piece x/y = top-left of the piece rect in layout pixels",
-        "base_floor_top_y": floor_row * TILE,
+        "coordinate_system": "top_left origin, x right, y down, rows top_to_bottom; piece x/y = top-left of the piece rect in layout pixels",
+        "base_walk_line_y": walk_y,
         "requirements": {"continuous_floor": True, "max_step_tiles": 2},
-        "segments": [
-            {"id": "A1", "grammar": "A", "x": [0, 56 * TILE]},
-            {"id": "B1", "grammar": "B", "x": [56 * TILE, 71 * TILE]},
-            {"id": "C1", "grammar": "C", "x": [71 * TILE, 88 * TILE]},
-            {"id": "A2", "grammar": "A", "x": [88 * TILE, 100 * TILE]},
-            {"id": "B2", "grammar": "B", "x": [100 * TILE, 128 * TILE]},
-        ],
+        "segments": [{"id": sid, "grammar": g, "x": [c0 * TILE, c1 * TILE]} for sid, g, c0, c1 in SEGMENTS],
         "markers": [
-            {"id": "player_spawn", "kind": "spawn", "x": 4 * TILE + 8,
-             "y": floor_row * TILE - 1, "note": "actor pivot pixel (foot contact row)"},
-            {"id": "exit_east", "kind": "exit", "x": 118 * TILE + 8,
-             "y": floor_row * TILE - 1, "rect": [116 * TILE, 11 * TILE, 9 * TILE, 9 * TILE],
-             "note": "walk into the far arch of B2"},
+            {"id": "player_spawn", "kind": "spawn", "x": 4 * TILE + 8, "y": walk_y - 1,
+             "note": "actor pivot pixel (foot contact row = walking line - 1)"},
+            {"id": "exit_east", "kind": "exit", "x": exit_x, "y": walk_y - 1,
+             "rect": [exit_x - 64, 176, 128, 128], "note": "walk into the B2 arch"},
         ],
         "views": {
-            "abc_640x360": [46 * TILE, 2 * TILE, 640, 360],
-            "abc_640x400": [46 * TILE, 0, 640, 400],
+            "abc_640x360": [328, 20, 640, 360],
+            "abc_640x400": [328, 0, 640, 400],
+        },
+        "parallax_layers": {
+            "parallax_far": {"piece": "gallery_far", "x_origin": 115, "y": GALLERY_Y0 + DY},
+            "parallax_mid": {"piece": "gallery_mid", "x_origin": 39, "y": GALLERY_Y0 + DY},
+        },
+        "parallax_rule": "A parallax strip pixel at strip-local u is drawn at screen x = x_origin + k * strip_width + u - camera_x * parallax (repeated for every integer k); camera_x is the view's left edge in layout px; y is fixed. Overview renders use camera_x = 0.",
+        "lighting": {
+            "profile_id": "floor01_torchlit_a1",
+            "presentation_only": True,
+            "groups": {
+                "parallax_far": {"ambient": [0.74, 0.84, 1.05],
+                                 "haze": {"colour": "#35517f", "amount": 0.26,
+                                          "floor_fog": {"from_y": 246, "to_y": 288, "amount": 0.3}}},
+                "parallax_mid": {"ambient": [0.62, 0.72, 0.98],
+                                 "haze": {"colour": "#2b4069", "amount": 0.1,
+                                          "floor_fog": {"from_y": 256, "to_y": 292, "amount": 0.2}}},
+                "scene": {"ambient": [0.6, 0.62, 0.82]},
+                "actors": {"ambient": [0.9, 0.92, 1.0], "light_scale": 0.3},
+                "foreground": {"ambient": [0.5, 0.55, 0.75], "light_scale": 0.5},
+            },
+            "actor_contact_shadow": {"width_scale": 1.2, "half_height": 5.0, "strength": 0.7,
+                                     "note": "soft ellipse centred on each actor's walking-line contact; darkens the scene group only"},
+            "bloom": {"emissive_layers": ["prop", "parallax_mid", "parallax_far"], "threshold": 214,
+                      "intensity": 0.9, "radius_virtual": 2.5, "downsample_per_virtual_px": 0.5},
         },
         "preview": {
-            "note": "Art-preview inputs only (not runtime data): mood comparison image and "
-                    "approved actor atlases composited for a contrast check.",
+            "note": "Art-preview inputs only (not runtime data): approved actor atlases for the readability check and the owner-approved A1 target frame for the side-by-side.",
             "primary_view": "abc_640x360",
-            "concept_reference": "assets/concept/floor-01/opening/01-catacomb-environment-clean.png",
+            "target_frame": "docs/evidence/lookdev-floor01-resolution-spike/native/a1_640x360.png",
             "actor_check": [
-                {"manifest": "assets/manifests/carl_book1_h52.json", "x": 800},
-                {"manifest": "assets/manifests/donut_scale_h40.json", "x": 862},
+                {"manifest": "assets/manifests/carl_book1_h52.json", "x": 328 + 64},
+                {"manifest": "assets/manifests/donut_scale_h40.json", "x": 328 + 126},
                 {"manifest": "assets/manifests/carl_book1_h52.json", "x": 1012},
-                {"manifest": "assets/manifests/donut_scale_h40.json", "x": 1262},
+                {"manifest": "assets/manifests/donut_scale_h40.json", "x": 1440},
             ],
         },
         "tile_layers": {"backwall": backwall, "collision": collision},
-        "piece_layers": {"backwall_decal": decals, "structure": structure,
-                         "prop": props, "foreground": []},
+        "piece_layers": {"backwall_decal": decals, "structure": structure, "prop": props,
+                         "foreground": foreground},
     }
 
+
+# ---------------------------------------------------------------------------
+# Writers
+# ---------------------------------------------------------------------------
 
 def dump_json(data, path: Path) -> None:
     """Indented JSON with short scalar arrays and flat objects kept on one line."""
@@ -1688,8 +1868,7 @@ def dump_grid(grid: dict, path: Path) -> None:
     lines = ["{", f'  "format": "{grid["format"]}",',
              f'  "canvas": {json.dumps(grid["canvas"])},',
              f'  "pivot": {json.dumps(grid["pivot"])},', '  "palette": [']
-    pal = [f"    {json.dumps(e)}" for e in grid["palette"]]
-    lines.append(",\n".join(pal))
+    lines.append(",\n".join(f"    {json.dumps(e)}" for e in grid["palette"]))
     lines.append("  ],")
     lines.append(f'  "layers": {json.dumps(grid["layers"])},')
     lines.append('  "frames": [')
@@ -1711,7 +1890,7 @@ def dump_grid(grid: dict, path: Path) -> None:
 
 def dump_layout(layout: dict, path: Path) -> None:
     head = {k: v for k, v in layout.items() if k not in ("tile_layers", "piece_layers")}
-    text = json.dumps(head, indent=2)[:-2]  # strip closing brace
+    text = json.dumps(head, indent=2)[:-2]
     parts = [text + ","]
     parts.append('  "tile_layers": {')
     layer_txt = []
@@ -1735,34 +1914,36 @@ def dump_layout(layout: dict, path: Path) -> None:
     path.write_text("\n".join(parts) + "\n", encoding="utf-8")
 
 
+STALE = [TERRAIN_DIR / "recess.grid.json"]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--force", action="store_true",
-                        help="overwrite existing grids/contract/layout (discards hand edits)")
+                        help="overwrite existing grids/manifests/contract/layout (discards hand edits)")
+    parser.add_argument("--no-ase", action="store_true", help="skip rebuilding .ase files")
     args = parser.parse_args(argv)
-    outputs = [TERRAIN_DIR / "terrain.grid.json", TERRAIN_DIR / "backwall.grid.json",
-               TERRAIN_DIR / "structure.grid.json", PROPS_DIR / "props.grid.json",
-               PROPS_DIR / "torch.grid.json", CONTRACT_PATH, LAYOUT_PATH]
+    grid_paths = {name: ROOT / f"{stem}.grid.json" for name, (stem, _k) in ATLAS_FILES.items()}
+    outputs = list(grid_paths.values()) + [CONTRACT_PATH, LAYOUT_PATH]
     existing = [p for p in outputs if p.exists()]
     if existing and not args.force:
         print("Refusing to overwrite (pass --force):\n  " +
               "\n  ".join(str(p.relative_to(ROOT)) for p in existing), file=sys.stderr)
         return 1
-    terrain, terrain_tiles = build_terrain()
-    backwall, backwall_tiles = build_backwall()
-    structure, structure_pieces = build_structure()
-    props, prop_pieces = build_props()
-    torch = build_torch()
-    dump_grid(terrain, outputs[0])
-    dump_grid(backwall, outputs[1])
-    dump_grid(structure, outputs[2])
-    dump_grid(props, outputs[3])
-    dump_grid(torch, outputs[4])
-    contract = build_contract(terrain_tiles, backwall_tiles, structure_pieces, prop_pieces)
-    dump_json(contract, CONTRACT_PATH)
-    dump_layout(build_layout(contract), LAYOUT_PATH)
-    for p in outputs:
-        print("wrote", p.relative_to(ROOT))
+    built = build_all()
+    for name, grid in built["grids"].items():
+        dump_grid(grid, grid_paths[name])
+        if not args.no_ase:
+            ase = grid_paths[name].with_suffix("").with_suffix(".ase")
+            subprocess.run([sys.executable, str(ROOT / "scripts" / "pixel_grid_to_ase.py"), "build",
+                            str(grid_paths[name]), str(ase)], check=True, stdout=subprocess.DEVNULL)
+        print(f"wrote {grid_paths[name].relative_to(ROOT)} ({grid['canvas'][0]}x{grid['canvas'][1]}, "
+              f"{len(grid['palette'])} colours)")
+    for name, m in built["manifests"].items():
+        dump_json(m, MANIFEST_DIR / f"{name}.json")
+    dump_json(built["contract"], CONTRACT_PATH)
+    dump_layout(built["layout"], LAYOUT_PATH)
+    print("wrote manifests, contract and layout")
     return 0
 
 

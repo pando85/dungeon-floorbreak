@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Validate and preview modular environment kits.
+"""Validate and preview modular environment kits (env-kit-v2).
 
-An environment kit is described by an ``env-kit-v1`` contract (tile/piece IDs,
-atlas rects, layer roles, collidable flags, anchors, animation frames) and is
-exercised by one or more ``env-kit-layout-v1`` sample layouts. This tool checks
-the contract against the exported atlases, manifests and pixel grids, checks the
-layouts against the contract, and renders deterministic art previews (contact
-sheets and corridor compositions) **from the exported atlases only**.
+An environment kit is described by an ``env-kit-v2`` contract (tile/piece IDs,
+atlas rects, layer roles and light groups, collidable flags, walking lines and
+collider rects, anchors, parallax strips, arch windows, light emitters,
+animation frames) and is exercised by one or more ``env-kit-layout-v2`` sample
+layouts. This tool checks the contract against the exported atlases, manifests
+and pixel grids, checks the layouts against the contract, and renders
+deterministic, unlit art previews (contact sheets and corridor compositions)
+**from the exported atlases only**. ``scripts/env_kit_light.py`` adds the
+presentation-only lighting pass on top of the same layer images.
 
 The previews are art-review aids, not Bevy screenshots or gameplay evidence.
 
@@ -31,12 +34,19 @@ ROOT = Path(__file__).resolve().parent.parent
 LEVELS = ROOT / "assets" / "levels"
 OUT_ROOT = ROOT / "generated" / "art" / "env_kit"
 
-ROLES = ("collision", "backwall", "structure", "prop", "foreground")
+CONTRACT_FORMAT = "env-kit-v2"
+LAYOUT_FORMAT = "env-kit-layout-v2"
+PARALLAX_ROLES = ("parallax_far", "parallax_mid")
+ROLES = ("collision", "backwall", "structure", "prop", "foreground") + PARALLAX_ROLES
 TILE_ROLES = ("collision", "backwall")
+LIGHT_GROUPS = ("parallax_far", "parallax_mid", "scene", "actors", "foreground")
+MAX_ATLAS_COLOURS = 63
 ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 # Runtime IDs must stay IP-neutral (fan-concept names live in an adapter layer).
 NON_NEUTRAL = re.compile(r"carl|donut|mongo|crawl|mordecai|goblin|dozer|princess", re.I)
 GRAMMAR = ("A", "B", "C")
+TILE = 16
 
 
 class KitError(ValueError):
@@ -83,6 +93,7 @@ class Kit:
         self.atlases = atlases
         self.tiles = {t["id"]: t for t in contract.get("tiles", [])}
         self.pieces = {p["id"]: p for p in contract.get("pieces", [])}
+        self.layers = {layer["name"]: layer for layer in contract.get("layers", [])}
         self._crops: dict[tuple, Image.Image] = {}
 
     def crop(self, atlas: str, rect: list[int]) -> Image.Image:
@@ -136,42 +147,109 @@ def _alpha_extrema(img: Image.Image) -> tuple[int, int]:
     return img.getchannel("A").getextrema()
 
 
+def _number(value, what: str, lo: float | None = None, hi: float | None = None) -> float:
+    check(isinstance(value, (int, float)) and not isinstance(value, bool), f"{what}: must be a number")
+    check((lo is None or value >= lo) and (hi is None or value <= hi),
+          f"{what}: {value} outside [{lo}, {hi}]")
+    return float(value)
+
+
+def _check_lights(piece: dict) -> None:
+    pid = piece["id"]
+    lights = piece.get("lights")
+    if lights is None:
+        return
+    check(isinstance(lights, list) and lights, f"piece {pid}: lights must be a non-empty list")
+    ids = set()
+    n_frames = len(piece.get("animation", {}).get("frames", [])) or 1
+    for light in lights:
+        lid = light.get("id")
+        check(isinstance(lid, str) and lid not in ids, f"piece {pid}: light ids must be unique strings")
+        ids.add(lid)
+        what = f"piece {pid} light {lid}"
+        off = light.get("offset")
+        check(isinstance(off, list) and len(off) == 2 and all(type(v) is int for v in off),
+              f"{what}: offset must be [x, y] integers")
+        check(isinstance(light.get("colour"), str) and HEX_RE.fullmatch(light["colour"]) is not None,
+              f"{what}: colour must be #rrggbb")
+        _number(light.get("radius"), f"{what} radius", 1)
+        _number(light.get("intensity"), f"{what} intensity", 0, 4)
+        check(light.get("group") in LIGHT_GROUPS and light["group"] != "actors",
+              f"{what}: group must be one of {LIGHT_GROUPS[:3]} or foreground")
+        if "glow" in light:
+            _number(light["glow"].get("radius"), f"{what} glow radius", 1)
+            _number(light["glow"].get("additive"), f"{what} glow additive", 0, 1)
+        if "flicker" in light:
+            fl = light["flicker"]
+            check(isinstance(fl, list) and len(fl) == n_frames,
+                  f"{what}: flicker needs one multiplier per animation frame ({n_frames})")
+            for v in fl:
+                _number(v, f"{what} flicker", 0, 2)
+        if "project" in light:
+            check(light["project"] == "walk_line", f"{what}: project must be 'walk_line'")
+            check(type(light.get("project_dy", 0)) is int, f"{what}: project_dy must be an integer")
+        if "squash_y" in light:
+            _number(light["squash_y"], f"{what} squash_y", 0.05, 1)
+
+
+def _check_window(piece: dict) -> None:
+    win = piece["window"]
+    pid = piece["id"]
+    c = win.get("arc_centre")
+    check(isinstance(c, list) and len(c) == 2 and all(type(v) is int for v in c),
+          f"piece {pid}: window arc_centre must be [x, y] integers")
+    check(type(win.get("arc_radius")) is int and win["arc_radius"] > 0, f"piece {pid}: bad arc_radius")
+    rect = win.get("rect")
+    check(isinstance(rect, list) and len(rect) == 4 and all(type(v) is int for v in rect)
+          and rect[2] > 0 and rect[3] > 0, f"piece {pid}: window rect must be [x, y, w, h] integers")
+
+
 def validate_contract(kit: Kit) -> None:
     c = kit.contract
-    check(c.get("format") == "env-kit-v1", "contract format must be env-kit-v1")
+    check(c.get("format") == CONTRACT_FORMAT, f"contract format must be {CONTRACT_FORMAT}")
     _check_id(c.get("kit_id", ""), "kit")
-    check(c.get("tile_size") == [16, 16], "tile_size must be [16, 16]")
+    check(c.get("tile_size") == [TILE, TILE], "tile_size must be [16, 16]")
     coords = c.get("coordinate_system", {})
     check(coords.get("origin") == "top_left" and coords.get("y_axis") == "down"
           and coords.get("row_order") == "top_to_bottom",
           "coordinate_system must declare top_left origin, y down, rows top_to_bottom")
     palette = c.get("palette")
-    check(isinstance(palette, list) and 0 < len(palette) <= 64,
-          "palette must list 1..64 colours (validate_assets.py colour budget)")
+    check(isinstance(palette, list) and palette, "palette must be a non-empty list")
+    by_name: dict[str, tuple] = {}
     colours = set()
-    keys = set()
     for entry in palette:
-        check(entry.get("key") not in keys, f"duplicate palette key {entry.get('key')!r}")
-        keys.add(entry.get("key"))
+        name = entry.get("name")
+        check(isinstance(name, str) and name not in by_name, f"duplicate or missing palette name {name!r}")
         rgba = parse_rgba(entry.get("rgba"))
-        check(rgba[3] == 255, f"palette colour {entry.get('name')} must be opaque")
+        check(rgba[3] == 255, f"palette colour {name} must be opaque")
         check(rgba[:3] not in colours, f"duplicate palette colour {entry.get('rgba')}")
         colours.add(rgba[:3])
+        by_name[name] = rgba
 
     layers = c.get("layers", [])
     check(layers, "contract needs layers")
     names, orders = set(), set()
     for layer in layers:
-        check(layer.get("role") in ROLES, f"layer {layer.get('name')}: unknown role")
-        check(layer.get("kind") in ("tiles", "pieces"), f"layer {layer.get('name')}: bad kind")
+        lname = layer.get("name")
+        check(layer.get("role") in ROLES, f"layer {lname}: unknown role")
+        check(layer.get("kind") in ("tiles", "pieces", "parallax"), f"layer {lname}: bad kind")
         if layer["kind"] == "tiles":
-            check(layer["role"] in TILE_ROLES, f"layer {layer['name']}: tiles must be "
-                  "collision or backwall")
-        check(layer.get("name") not in names, f"duplicate layer {layer.get('name')}")
+            check(layer["role"] in TILE_ROLES, f"layer {lname}: tiles must be collision or backwall")
+        check((layer["kind"] == "parallax") == (layer["role"] in PARALLAX_ROLES),
+              f"layer {lname}: parallax roles need kind 'parallax' (and only they)")
+        if layer["kind"] == "parallax":
+            _number(layer.get("parallax"), f"layer {lname} parallax", 0.0, 0.999)
+        check(layer.get("light_group") in LIGHT_GROUPS and layer["light_group"] != "actors",
+              f"layer {lname}: light_group must be one of {LIGHT_GROUPS}")
+        check(lname not in names, f"duplicate layer {lname}")
         check(layer.get("draw_order") not in orders, "duplicate draw_order")
-        names.add(layer["name"])
+        names.add(lname)
         orders.add(layer["draw_order"])
     check(c.get("actor_draw_order") not in orders, "actor_draw_order collides with a layer")
+    parallax_orders = [l["draw_order"] for l in layers if l["kind"] == "parallax"]
+    other_orders = [l["draw_order"] for l in layers if l["kind"] != "parallax"]
+    check(not parallax_orders or max(parallax_orders) < min(other_orders),
+          "parallax layers must draw behind every other layer")
 
     # Atlases: manifest <-> contract <-> grid consistency and pixel rules.
     for name, atlas in kit.atlases.items():
@@ -184,17 +262,23 @@ def validate_contract(kit: Kit) -> None:
         check(manifest.get("grid_source") == ref.get("grid"), f"{name}: grid path mismatch")
         check(manifest.get("review_status") == "prototype_fixture_unapproved",
               f"{name}: must not claim approval")
+        allowed = colours
         if atlas.get("grid") is not None:
-            grid_palette = [{k: e[k] for k in ("key", "name", "rgba")} for e in atlas["grid"]["palette"]]
-            want = [{k: e[k] for k in ("key", "name", "rgba")} for e in palette]
-            check(grid_palette == want, f"{name}: grid palette differs from the kit palette")
+            grid_palette = atlas["grid"]["palette"]
+            check(len(grid_palette) <= MAX_ATLAS_COLOURS,
+                  f"{name}: grid palette has {len(grid_palette)} colours (max {MAX_ATLAS_COLOURS})")
+            allowed = set()
+            for e in grid_palette:
+                check(e.get("name") in by_name and parse_rgba(e["rgba"]) == by_name[e["name"]],
+                      f"{name}: grid colour {e.get('name')} {e.get('rgba')} is not in the kit palette")
+                allowed.add(parse_rgba(e["rgba"])[:3])
         histogram = image.getchannel("A").histogram()
         check(sum(histogram[1:255]) == 0, f"{name}: partial alpha found (1-bit alpha only)")
         used = image.getcolors(maxcolors=1 << 16)
         check(used is not None, f"{name}: too many colours")
         for _count, rgba in used:
             if rgba[3] == 255:
-                check(rgba[:3] in colours,
+                check(rgba[:3] in allowed,
                       f"{name}: colour #{rgba[0]:02x}{rgba[1]:02x}{rgba[2]:02x} not in kit palette")
         frames = meta.get("frames")
         check(isinstance(frames, list) and frames, f"{name}: missing metadata frames")
@@ -221,11 +305,11 @@ def validate_contract(kit: Kit) -> None:
         check(atlas is not None, f"tile {tid}: unknown atlas {tile.get('atlas')!r}")
         check(atlas["manifest"].get("type") == "tileset", f"tile {tid}: atlas is not a tileset")
         x, y, w, h = _rect(tile.get("rect"), f"tile {tid}")
-        check(w == 16 and h == 16 and x % 16 == 0 and y % 16 == 0,
+        check(w == TILE and h == TILE and x % TILE == 0 and y % TILE == 0,
               f"tile {tid}: rect must be a 16x16 cell on the tile grid")
         check(_inside(tile["rect"], atlas["image"]), f"tile {tid}: rect outside atlas")
-        cols = atlas["image"].width // 16
-        index = (y // 16) * cols + x // 16
+        cols = atlas["image"].width // TILE
+        index = (y // TILE) * cols + x // TILE
         check(tile.get("grid_index") == index, f"tile {tid}: grid_index {tile.get('grid_index')} != {index}")
         manifest_tiles = atlas["manifest"].get("tiles", [])
         check(index < len(manifest_tiles) and manifest_tiles[index] == tid,
@@ -235,8 +319,24 @@ def validate_contract(kit: Kit) -> None:
         per_atlas[tile["atlas"]][index] = tid
         role = tile.get("role")
         check(role in TILE_ROLES, f"tile {tid}: role {role!r} invalid for tiles")
-        check(tile.get("collidable") is (role == "collision"),
-              f"tile {tid}: only collision-role tiles may (and must) be collidable")
+        deck_back = tile.get("deck_back", False)
+        check(type(deck_back) is bool and (not deck_back or role == "collision"),
+              f"tile {tid}: deck_back is only valid on collision-role tiles")
+        check(tile.get("collidable") is (role == "collision" and not deck_back),
+              f"tile {tid}: collision-role tiles must be collidable (deck_back tiles must not); "
+              "backwall tiles are never collidable")
+        if tile.get("walkable_top"):
+            wl = tile.get("walk_line_y")
+            check(type(wl) is int and 0 <= wl < TILE, f"tile {tid}: walkable_top needs walk_line_y 0..15")
+            check(tile["collidable"], f"tile {tid}: walkable tiles must be collidable")
+        else:
+            check("walk_line_y" not in tile, f"tile {tid}: walk_line_y without walkable_top")
+        if tile["collidable"]:
+            wl = tile.get("walk_line_y", 0)
+            check(tile.get("collider") == [0, wl, TILE, TILE - wl],
+                  f"tile {tid}: collider must be [0, {wl}, 16, {TILE - wl}] (walking line rule)")
+        else:
+            check("collider" not in tile, f"tile {tid}: non-collidable tiles have no collider")
         low, _high = _alpha_extrema(kit.crop(tile["atlas"], tile["rect"]))
         check(low == 255, f"tile {tid}: {role} tiles must be fully opaque")
         check(isinstance(tile.get("grammar"), list) and tile["grammar"]
@@ -245,19 +345,23 @@ def validate_contract(kit: Kit) -> None:
             p = tile["panel"]
             pw, ph = p.get("size", [0, 0])
             cx, cy = p.get("cell", [-1, -1])
-            check(0 <= cx < pw and 0 <= cy < ph, f"tile {tid}: panel cell outside panel")
+            check(ph == 1 and 0 <= cx < pw and cy == 0, f"tile {tid}: panel cell outside a one-row panel")
             entry = panels.setdefault(p["id"], {"size": p["size"], "family": p.get("family"),
                                                 "cells": set()})
             check(entry["size"] == p["size"] and entry["family"] == p.get("family"),
                   f"tile {tid}: inconsistent panel size/family")
             check((cx, cy) not in entry["cells"], f"tile {tid}: duplicate panel cell")
             entry["cells"].add((cx, cy))
+        if "edge" in tile:
+            edge = tile["edge"]
+            check(edge.get("kind") in ("end", "inner", "wall") and edge.get("side") in ("l", "r"),
+                  f"tile {tid}: edge needs kind end/inner/wall and side l/r")
     for pid, entry in panels.items():
         pw, ph = entry["size"]
         check(len(entry["cells"]) == pw * ph, f"panel {pid}: incomplete")
     for name, atlas in kit.atlases.items():
         if atlas["manifest"].get("type") == "tileset":
-            count = (atlas["image"].width // 16) * (atlas["image"].height // 16)
+            count = (atlas["image"].width // TILE) * (atlas["image"].height // TILE)
             check(len(per_atlas.get(name, {})) == count,
                   f"{name}: every tileset cell needs exactly one contract tile")
 
@@ -272,6 +376,9 @@ def validate_contract(kit: Kit) -> None:
         check(atlas is not None, f"piece {pid}: unknown atlas")
         role = piece.get("role")
         check(role in ROLES and role != "collision", f"piece {pid}: invalid role {role!r}")
+        layer = kit.layers.get(piece.get("layer"))
+        check(layer is not None and layer["role"] == role and layer["kind"] != "tiles",
+              f"piece {pid}: layer {piece.get('layer')!r} must be a piece/parallax layer of role {role}")
         check(piece.get("collidable") is False, f"piece {pid}: decor pieces are never collidable")
         x, y, w, h = _rect(piece.get("rect"), f"piece {pid}")
         check(_inside(piece["rect"], atlas["image"]), f"piece {pid}: rect outside atlas")
@@ -281,6 +388,11 @@ def validate_contract(kit: Kit) -> None:
         check(piece.get("grid_snap") in (1, 8, 16), f"piece {pid}: grid_snap must be 1, 8 or 16")
         check(isinstance(piece.get("grammar"), list) and set(piece["grammar"]) <= set(GRAMMAR),
               f"piece {pid}: grammar must be A/B/C")
+        check(piece.get("tile_x", False) is (role in PARALLAX_ROLES),
+              f"piece {pid}: parallax pieces (and only they) must declare tile_x")
+        if "fixed_y" in piece:
+            check(type(piece["fixed_y"]) is int and piece["fixed_y"] % piece["grid_snap"] == 0,
+                  f"piece {pid}: fixed_y must be an integer on its grid")
         anim = piece.get("animation")
         rects = [piece["rect"]]
         if anim:
@@ -308,8 +420,11 @@ def validate_contract(kit: Kit) -> None:
                 rects.append(rect)
         for rect in rects:
             low, high = _alpha_extrema(kit.crop(piece["atlas"], rect))
-            check(low == 0 and high == 255,
-                  f"piece {pid}: decor pieces must use (1-bit) alpha and be non-empty")
+            if role == "parallax_far":
+                check(high == 255, f"piece {pid}: parallax strip is empty")
+            else:
+                check(low == 0 and high == 255,
+                      f"piece {pid}: decor pieces must use (1-bit) alpha and be non-empty")
         if not anim:
             for other_id, other in static_rects.get(piece["atlas"], []):
                 ox, oy, ow, oh = other
@@ -320,15 +435,54 @@ def validate_contract(kit: Kit) -> None:
             arch = piece["arch"]
             check(0 < arch.get("radius_inner", 0) < arch.get("radius_outer", 0),
                   f"piece {pid}: invalid arch radii")
+        if "window" in piece:
+            _check_window(piece)
+        _check_lights(piece)
 
 
 # ---------------------------------------------------------------------------
 # Layout validation
 # ---------------------------------------------------------------------------
 
+def window_regions(kit: Kit, layout: dict) -> list[tuple[tuple, tuple]]:
+    """Arch windows in layout px: ((arc cx, arc cy, r), (rect x, y, w, h))."""
+    out = []
+    for name, items in layout.get("piece_layers", {}).items():
+        for item in items:
+            piece = kit.pieces.get(item.get("piece"))
+            if piece and "window" in piece:
+                win = piece["window"]
+                ox, oy = item["x"], item["y"]
+                out.append(((ox + win["arc_centre"][0], oy + win["arc_centre"][1], win["arc_radius"]),
+                            (ox + win["rect"][0], oy + win["rect"][1], win["rect"][2], win["rect"][3])))
+    return out
+
+
+def window_mask(size: tuple[int, int], windows) -> Image.Image:
+    mask = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(mask)
+    for (cx, cy, r), (rx, ry, rw, rh) in windows:
+        # pixel (x, y) is inside the arc when its centre is within r of the arc centre, above cy
+        for y in range(max(0, cy - r - 1), min(size[1], cy)):
+            dy = y + 0.5 - cy
+            if abs(dy) >= r:
+                continue
+            half = math.sqrt(r * r - dy * dy)
+            x0 = math.ceil(cx - half - 0.5)
+            x1 = math.floor(cx + half - 0.5)
+            if x1 >= x0:
+                draw.line([(max(0, x0), y), (min(size[0] - 1, x1), y)], fill=255)
+        draw.rectangle([rx, ry, rx + rw - 1, ry + rh - 1], fill=255)
+    return mask
+
+
+def _cell_hits_mask(mask: Image.Image, x: int, r: int) -> bool:
+    return mask.crop((x * TILE, r * TILE, x * TILE + TILE, r * TILE + TILE)).getextrema()[1] > 0
+
+
 def validate_layout(kit: Kit, layout: dict) -> None:
     c = kit.contract
-    check(layout.get("format") == "env-kit-layout-v1", "layout format must be env-kit-layout-v1")
+    check(layout.get("format") == LAYOUT_FORMAT, f"layout format must be {LAYOUT_FORMAT}")
     check(layout.get("kit") == c.get("kit_id"), "layout kit differs from contract kit_id")
     if kit.path is not None:
         check(repo_path(layout.get("kit_contract")) == kit.path,
@@ -337,16 +491,19 @@ def validate_layout(kit: Kit, layout: dict) -> None:
     check(layout.get("tile_size") == c.get("tile_size"), "layout tile_size differs")
     cols, rows = layout.get("grid_size", [0, 0])
     check(type(cols) is int and type(rows) is int and cols > 0 and rows > 0, "bad grid_size")
-    width, height = cols * 16, rows * 16
+    width, height = cols * TILE, rows * TILE
     check(layout.get("pixel_size") == [width, height], "pixel_size must equal grid_size * 16")
-    layers = {layer["name"]: layer for layer in c["layers"]}
+    layers = kit.layers
 
     tile_layers = layout.get("tile_layers", {})
     piece_layers = layout.get("piece_layers", {})
+    parallax_layers = layout.get("parallax_layers", {})
     check(set(tile_layers) == {n for n, l in layers.items() if l["kind"] == "tiles"},
           "layout tile_layers must match the contract tile layers")
     check(set(piece_layers) == {n for n, l in layers.items() if l["kind"] == "pieces"},
           "layout piece_layers must match the contract piece layers")
+    check(set(parallax_layers) == {n for n, l in layers.items() if l["kind"] == "parallax"},
+          "layout parallax_layers must match the contract parallax layers")
     for name, grid in tile_layers.items():
         role = layers[name]["role"]
         check(isinstance(grid, list) and len(grid) == rows, f"{name}: expected {rows} rows")
@@ -359,33 +516,23 @@ def validate_layout(kit: Kit, layout: dict) -> None:
                 check(tile is not None, f"{name} ({x},{r}): unknown tile {tid!r}")
                 check(tile["role"] == role, f"{name} ({x},{r}): {tid} has role {tile['role']}, "
                       f"layer needs {role}")
-            # Panel continuity: a panel cell is followed by its right neighbour.
-            for x in range(cols - 1):
-                left, right = row[x], row[x + 1]
-                lp = kit.tiles[left].get("panel") if left else None
-                rp = kit.tiles[right].get("panel") if right else None
-                if not lp or not rp or lp.get("family") != rp.get("family"):
-                    continue
-                if lp["cell"][0] < lp["size"][0] - 1:
-                    check(rp["id"] == lp["id"] and rp["cell"] == [lp["cell"][0] + 1, lp["cell"][1]],
-                          f"{name} ({x + 1},{r}): {right} breaks panel {lp['id']} continuity")
-                else:
-                    check(rp["cell"][0] == 0,
-                          f"{name} ({x + 1},{r}): {right} must start a panel (column 0)")
-    arches: list[tuple[dict, int, int]] = []
+            _check_row_joins(kit, name, r, row)
     for name, items in piece_layers.items():
         role = layers[name]["role"]
         check(isinstance(items, list), f"{name}: must be a list")
         for i, item in enumerate(items):
             piece = kit.pieces.get(item.get("piece"))
             check(piece is not None, f"{name}[{i}]: unknown piece {item.get('piece')!r}")
-            check(piece["role"] == role, f"{name}[{i}]: {piece['id']} has role {piece['role']}, "
-                  f"layer needs {role}")
+            check(piece["role"] == role and piece["layer"] == name,
+                  f"{name}[{i}]: {piece['id']} belongs to layer {piece['layer']}, not {name}")
             px, py = item.get("x"), item.get("y")
             check(type(px) is int and type(py) is int, f"{name}[{i}]: x/y must be integers")
             snap = piece["grid_snap"]
             check(px % snap == 0 and py % snap == 0,
                   f"{name}[{i}]: {piece['id']} at ({px},{py}) not on its {snap} px grid")
+            if "fixed_y" in piece:
+                check(py == piece["fixed_y"], f"{name}[{i}]: {piece['id']} must be placed at "
+                      f"y = {piece['fixed_y']}")
             pw, ph = piece["rect"][2:]
             check(0 <= px and 0 <= py and px + pw <= width and py + ph <= height,
                   f"{name}[{i}]: {piece['id']} outside layout bounds")
@@ -393,10 +540,18 @@ def validate_layout(kit: Kit, layout: dict) -> None:
                 n = len(piece.get("animation", {}).get("frames", [])) or 1
                 check(type(item["frame_offset"]) is int and 0 <= item["frame_offset"] < n,
                       f"{name}[{i}]: bad frame_offset")
-            if "arch" in piece:
-                arches.append((piece, px, py))
-    if arches:
-        _check_arch_backwall(kit, layout, arches)
+    windows = window_regions(kit, layout)
+    for name, spec in parallax_layers.items():
+        piece = kit.pieces.get(spec.get("piece"))
+        check(piece is not None and piece["layer"] == name,
+              f"parallax layer {name}: piece {spec.get('piece')!r} does not belong to it")
+        check(type(spec.get("y")) is int and type(spec.get("x_origin")) is int,
+              f"parallax layer {name}: y and x_origin must be integers")
+        if layers[name]["role"] == "parallax_far" and windows:
+            top, bottom = spec["y"], spec["y"] + piece["rect"][3]
+            for (cx, cy, r), (rx, ry, rw, rh) in windows:
+                check(top <= cy - r and bottom >= ry + rh,
+                      f"parallax layer {name}: strip y {top}..{bottom} does not cover a window")
 
     # Segments, markers, views
     segments = layout.get("segments", [])
@@ -407,15 +562,15 @@ def validate_layout(kit: Kit, layout: dict) -> None:
         x0, x1 = seg.get("x", [None, None])
         check(x0 == cursor and type(x1) is int and x1 > x0, f"segment {seg.get('id')}: x ranges "
               "must be contiguous and increasing")
-        check(x0 % 16 == 0 and x1 % 16 == 0,
+        check(x0 % TILE == 0 and x1 % TILE == 0,
               f"segment {seg.get('id')}: boundaries must be multiples of 16 px")
         cursor = x1
     check(cursor == width, "segments must cover the full layout width")
-    surfaces = _surface_rows(kit, tile_layers["collision"], cols, rows)
-    base_row = _base_surface_row(surfaces)
-    check(layout.get("base_floor_top_y") == base_row * 16 if base_row is not None else False,
-          f"base_floor_top_y {layout.get('base_floor_top_y')!r} must equal 16 x the base "
-          f"(most common) floor surface row {base_row}")
+    tops = collider_tops(kit, tile_layers["collision"], cols, rows)
+    base = _base_walk_line(tops)
+    check(base is not None and layout.get("base_walk_line_y") == base,
+          f"base_walk_line_y {layout.get('base_walk_line_y')!r} must equal the most common "
+          f"walking line {base}")
     marker_ids = set()
     kinds = set()
     for marker in layout.get("markers", []):
@@ -426,10 +581,10 @@ def validate_layout(kit: Kit, layout: dict) -> None:
         check(type(mx) is int and type(my) is int and 0 <= mx < width and 0 <= my < height,
               f"marker {marker['id']} outside layout")
         if marker.get("kind") in ("spawn", "exit"):
-            surface = surfaces[mx // 16]
-            check(surface is not None and my == surface * 16 - 1,
+            top = tops[mx // TILE]
+            check(top is not None and top != "wall" and my == top - 1,
                   f"marker {marker['id']}: y {my} must be the foot contact row "
-                  f"(surface row {surface} * 16 - 1, 0 px foot sink) of column {mx // 16}")
+                  f"(walking line {top} - 1, 0 px foot sink) of column {mx // TILE}")
         if "rect" in marker:
             rx, ry, rw, rh = marker["rect"] if isinstance(marker["rect"], list) \
                 and len(marker["rect"]) == 4 else (None,) * 4
@@ -440,65 +595,115 @@ def validate_layout(kit: Kit, layout: dict) -> None:
     for vid, (vx, vy, vw, vh) in layout.get("views", {}).items():
         check(vx >= 0 and vy >= 0 and vx + vw <= width and vy + vh <= height,
               f"view {vid} outside layout")
+    _check_lighting_profile(layout)
 
     req = layout.get("requirements", {})
     if req.get("continuous_floor"):
         _check_floor(kit, tile_layers["collision"], cols, rows, req.get("max_step_tiles", 1))
     _check_collision_topology(kit, tile_layers["collision"], cols, rows)
-    _check_backwall_coverage(kit, tile_layers["backwall"], tile_layers["collision"], cols, rows)
+    _check_backwall_coverage(kit, tile_layers["backwall"], tile_layers["collision"], cols, rows,
+                             window_mask((width, height), windows) if windows else None)
+    if windows:
+        _check_windows(kit, layout, windows, width, height)
 
 
-def _check_arch_backwall(kit: Kit, layout: dict, arches: list[tuple[dict, int, int]]) -> None:
-    """Above the springing line, cells inside an arch ring's mid radius must show
-    recess (blue depth), and recess must never show outside every arch ring."""
-    grid = layout["tile_layers"]["backwall"]
-    for r, row in enumerate(grid):
+def _check_row_joins(kit: Kit, name: str, r: int, row: list) -> None:
+    """Panel continuity, plus: edge singles touch panel edge columns only."""
+    cols = len(row)
+    for x in range(cols - 1):
+        left, right = row[x], row[x + 1]
+        lt = kit.tiles[left] if left else None
+        rt = kit.tiles[right] if right else None
+        lp = lt.get("panel") if lt else None
+        rp = rt.get("panel") if rt else None
+        if lp and rp and lp.get("family") == rp.get("family"):
+            if lp["cell"][0] < lp["size"][0] - 1:
+                check(rp["id"] == lp["id"] and rp["cell"] == [lp["cell"][0] + 1, 0],
+                      f"{name} ({x + 1},{r}): {right} breaks panel {lp['id']} continuity")
+            else:
+                check(rp["cell"][0] == 0, f"{name} ({x + 1},{r}): {right} must start a panel (column 0)")
+        if lt and "edge" in lt and lt["edge"]["kind"] != "end" and rp:
+            check(rp["cell"][0] == 0, f"{name} ({x + 1},{r}): {right} after edge tile {left} "
+                  "must be a panel's column 0")
+        if rt and "edge" in rt and rt["edge"]["kind"] != "end" and lp:
+            check(lp["cell"][0] == lp["size"][0] - 1, f"{name} ({x},{r}): {left} before edge tile "
+                  f"{right} must be a panel's last column")
+
+
+def _check_windows(kit: Kit, layout: dict, windows, width: int, height: int) -> None:
+    """Arch windows show the parallax gallery: no backwall/decal pixels inside them, and every
+    transparent pixel of the non-parallax layers below the props lies inside a window."""
+    mask = window_mask((width, height), windows)
+    bw = layout["tile_layers"]["backwall"]
+    for r, row in enumerate(bw):
         for x, tid in enumerate(row):
-            if tid is None:
-                continue
-            tx, ty = x * 16 + 8, r * 16 + 8
-            is_recess = bool(kit.tiles[tid].get("recess"))
-            above_any = near_any = False
-            for piece, px, py in arches:
-                arch = piece["arch"]
-                cx, cy = px + piece["anchor"][0], py + piece["anchor"][1]
-                if ty >= cy:
-                    continue
-                above_any = True
-                d = math.hypot(tx - cx, ty - cy)
-                if d < (arch["radius_inner"] + arch["radius_outer"]) / 2:
-                    check(is_recess,
-                          f"backwall ({x},{r}) inside {piece['id']} must be a recess tile")
-                if d <= arch["radius_outer"] + 12:
-                    near_any = True
-            if above_any and is_recess:
-                check(near_any, f"backwall ({x},{r}) recess tile shows outside every arch ring")
+            if tid is not None and _cell_hits_mask(mask, x, r):
+                raise KitError(f"backwall ({x},{r}): {tid} intrudes into an arch window")
+    imgs = render_layers(kit, layout, names=("backwall", "backwall_decal", "collision", "structure"))
+    decal_alpha = imgs["backwall_decal"].getchannel("A")
+    from PIL import ImageChops
+    check(ImageChops.multiply(decal_alpha, mask).getextrema()[1] == 0,
+          "backwall_decal pixels intrude into an arch window")
+    solid = Image.new("L", (width, height), 0)
+    for name in ("backwall", "backwall_decal", "collision", "structure"):
+        solid = ImageChops.lighter(solid, imgs[name].getchannel("A"))
+    holes = ImageChops.subtract(ImageChops.invert(solid), mask)
+    bbox = holes.getbbox()
+    check(bbox is None, f"transparent pixels outside every arch window around {bbox}")
+
+
+def _check_lighting_profile(layout: dict) -> None:
+    lighting = layout.get("lighting")
+    check(isinstance(lighting, dict) and lighting.get("presentation_only") is True,
+          "layout lighting profile must exist and be presentation_only")
+    groups = lighting.get("groups", {})
+    check(set(groups) == set(LIGHT_GROUPS), f"lighting groups must be exactly {LIGHT_GROUPS}")
+    for g, cfg in groups.items():
+        amb = cfg.get("ambient")
+        check(isinstance(amb, list) and len(amb) == 3, f"lighting {g}: ambient must be [r, g, b]")
+        for v in amb:
+            _number(v, f"lighting {g} ambient", 0, 2)
+        if "haze" in cfg:
+            check(HEX_RE.fullmatch(cfg["haze"].get("colour", "")) is not None,
+                  f"lighting {g}: haze colour must be #rrggbb")
+            _number(cfg["haze"].get("amount"), f"lighting {g} haze amount", 0, 1)
 
 
 def _is_solid(kit: Kit, tid) -> bool:
     return tid is not None and bool(kit.tiles[tid]["collidable"])
 
 
-def _surface_rows(kit: Kit, grid: list, cols: int, rows: int) -> list[int | None]:
-    """Top row of each column's floor run (connected to the bottom row); None for a pit."""
-    surfaces: list[int | None] = []
+def collider_tops(kit: Kit, grid: list, cols: int, rows: int) -> list:
+    """Per column: walking line y (collider top) of the floor run connected to the bottom row,
+    'wall' for a column collidable from top to bottom, None for a pit."""
+    out: list = []
     for x in range(cols):
         r = rows - 1
         if not _is_solid(kit, grid[r][x]):
-            surfaces.append(None)
+            out.append(None)
             continue
         while r - 1 >= 0 and _is_solid(kit, grid[r - 1][x]):
             r -= 1
-        surfaces.append(r)
-    return surfaces
+        if r == 0:
+            out.append("wall")
+            continue
+        out.append(r * TILE + kit.tiles[grid[r][x]].get("walk_line_y", 0))
+    return out
 
 
-def _base_surface_row(surfaces: list[int | None]) -> int | None:
-    rows = [s for s in surfaces if s is not None]
-    if not rows:
+def _surface_row(kit: Kit, grid: list, x: int, rows: int) -> int:
+    r = rows - 1
+    while r - 1 >= 0 and _is_solid(kit, grid[r - 1][x]):
+        r -= 1
+    return r
+
+
+def _base_walk_line(tops: list) -> int | None:
+    vals = [t for t in tops if isinstance(t, int)]
+    if not vals:
         return None
-    counts = {r: rows.count(r) for r in set(rows)}
-    return max(sorted(counts), key=lambda r: counts[r])  # ties: lowest row index
+    counts = {v: vals.count(v) for v in set(vals)}
+    return max(sorted(counts, reverse=True), key=lambda v: counts[v])  # ties: lowest on screen
 
 
 def _check_collision_topology(kit: Kit, grid: list, cols: int, rows: int) -> None:
@@ -519,24 +724,33 @@ def _check_collision_topology(kit: Kit, grid: list, cols: int, rows: int) -> Non
 
 
 def _check_backwall_coverage(kit: Kit, backwall: list, collision: list, cols: int,
-                             rows: int) -> None:
-    """The backwall must cover every cell not hidden behind an opaque collidable tile."""
+                             rows: int, mask: Image.Image | None) -> None:
+    """The backwall covers every cell not hidden behind a collision-layer tile (all opaque)
+    and not part of an arch window."""
     for r in range(rows):
         for x in range(cols):
             if backwall[r][x] is None:
-                check(_is_solid(kit, collision[r][x]),
-                      f"backwall ({x},{r}): hole (no tile and no opaque collision tile in front)")
+                check(collision[r][x] is not None or (mask is not None and _cell_hits_mask(mask, x, r)),
+                      f"backwall ({x},{r}): hole (no tile, no collision-layer tile, no arch window)")
 
 
 def _check_floor(kit: Kit, grid: list, cols: int, rows: int, max_step: int) -> None:
-    surfaces = _surface_rows(kit, grid, cols, rows)
-    for x, r in enumerate(surfaces):
-        check(r is not None, f"collision column {x}: pit (no collidable tile on the bottom row)")
+    tops = collider_tops(kit, grid, cols, rows)
+    prev = None
+    for x, top in enumerate(tops):
+        check(top is not None, f"collision column {x}: pit (no collidable tile on the bottom row)")
+        if top == "wall":
+            prev = None
+            continue
+        r = _surface_row(kit, grid, x, rows)
         check(kit.tiles[grid[r][x]].get("walkable_top"),
               f"collision column {x}: surface tile {grid[r][x]} is not walkable_top")
-    for x in range(1, cols):
-        check(abs(surfaces[x] - surfaces[x - 1]) <= max_step,
-              f"collision column {x}: step of {abs(surfaces[x] - surfaces[x - 1])} tiles")
+        check(grid[r - 1][x] is not None and kit.tiles[grid[r - 1][x]].get("deck_back"),
+              f"collision column {x}: walkable tile needs a deck_back tile above it (deep floor)")
+        if prev is not None:
+            check(abs(top - prev) <= max_step * TILE,
+                  f"collision column {x}: step of {abs(top - prev)} px (max {max_step * TILE})")
+        prev = top
 
 
 # ---------------------------------------------------------------------------
@@ -545,34 +759,87 @@ def _check_floor(kit: Kit, grid: list, cols: int, rows: int, max_step: int) -> N
 BACKGROUND = (12, 10, 16, 255)
 
 
-def render_layout(kit: Kit, layout: dict, time_ms: int = 0) -> Image.Image:
+def anim_rect(piece: dict, item: dict, time_ms: int) -> tuple[list[int], int]:
+    """Atlas rect and frame index of a (possibly animated) piece at time_ms."""
+    anim = piece.get("animation")
+    if not anim:
+        return piece["rect"], 0
+    frames = anim["frames"]
+    total = sum(f["duration"] for f in frames)
+    offset = sum(f["duration"] for f in frames[:item.get("frame_offset", 0)])
+    t = (time_ms + offset) % total
+    for i, fr in enumerate(frames):
+        if t < fr["duration"]:
+            return [fr["frame"][k] for k in ("x", "y", "w", "h")], i
+        t -= fr["duration"]
+    raise AssertionError("unreachable")
+
+
+def parallax_offset(layout: dict, kit: Kit, name: str, camera_x: float) -> float:
+    return layout["parallax_layers"][name]["x_origin"] - camera_x * kit.layers[name]["parallax"]
+
+
+def render_layers(kit: Kit, layout: dict, time_ms: int = 0, camera_x: float = 0.0,
+                  names=None) -> dict[str, Image.Image]:
+    """One full-layout RGBA image per contract layer (transparent background).
+
+    Parallax strips are placed for a camera whose left edge is ``camera_x`` (layout px)."""
     width, height = layout["pixel_size"]
-    image = Image.new("RGBA", (width, height), BACKGROUND)
+    out = {}
     for layer in sorted(kit.contract["layers"], key=lambda l: l["draw_order"]):
         name = layer["name"]
+        if names is not None and name not in names:
+            continue
+        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         if layer["kind"] == "tiles":
             for r, row in enumerate(layout["tile_layers"][name]):
                 for x, tid in enumerate(row):
                     if tid:
                         tile = kit.tiles[tid]
-                        image.alpha_composite(kit.crop(tile["atlas"], tile["rect"]), (x * 16, r * 16))
+                        image.alpha_composite(kit.crop(tile["atlas"], tile["rect"]), (x * TILE, r * TILE))
+        elif layer["kind"] == "parallax":
+            spec = layout["parallax_layers"][name]
+            piece = kit.pieces[spec["piece"]]
+            strip = kit.crop(piece["atlas"], piece["rect"])
+            # screen x = offset + k * w + u - camera_x * parallax; draw in layout px (+camera_x)
+            # (snapped to whole virtual pixels)
+            start = round(camera_x + parallax_offset(layout, kit, name, camera_x))
+            sw = strip.width
+            x = start % sw - sw if start % sw else 0
+            while x < width:
+                image.alpha_composite(strip, (x, spec["y"])) if x >= 0 else \
+                    image.alpha_composite(strip.crop((-x, 0, sw, strip.height)), (0, spec["y"]))
+                x += sw
         else:
             for item in layout["piece_layers"][name]:
                 piece = kit.pieces[item["piece"]]
-                rect = piece["rect"]
-                anim = piece.get("animation")
-                if anim:
-                    frames = anim["frames"]
-                    total = sum(f["duration"] for f in frames)
-                    offset = sum(f["duration"] for f in frames[:item.get("frame_offset", 0)])
-                    t = (time_ms + offset) % total
-                    for fr in frames:
-                        if t < fr["duration"]:
-                            rect = [fr["frame"][k] for k in ("x", "y", "w", "h")]
-                            break
-                        t -= fr["duration"]
+                rect, _i = anim_rect(piece, item, time_ms)
                 image.alpha_composite(kit.crop(piece["atlas"], rect), (item["x"], item["y"]))
+        out[name] = image
+    return out
+
+
+def render_layout(kit: Kit, layout: dict, time_ms: int = 0, camera_x: float = 0.0,
+                  actors: Image.Image | None = None) -> Image.Image:
+    width, height = layout["pixel_size"]
+    image = Image.new("RGBA", (width, height), BACKGROUND)
+    actor_order = kit.contract.get("actor_draw_order")
+    drawn_actors = actors is None
+    for layer in sorted(kit.contract["layers"], key=lambda l: l["draw_order"]):
+        if not drawn_actors and layer["draw_order"] > actor_order:
+            image.alpha_composite(actors)
+            drawn_actors = True
+        image.alpha_composite(render_layers(kit, layout, time_ms, camera_x, names=(layer["name"],))[layer["name"]])
+    if not drawn_actors:
+        image.alpha_composite(actors)
     return image
+
+
+def render_view(kit: Kit, layout: dict, view: list[int], time_ms: int = 0,
+                actors: Image.Image | None = None) -> Image.Image:
+    vx, vy, vw, vh = view
+    full = render_layout(kit, layout, time_ms, camera_x=vx, actors=actors)
+    return full.crop((vx, vy, vx + vw, vy + vh))
 
 
 def _text(draw: ImageDraw.ImageDraw, xy, text: str, fill=(226, 214, 200)) -> None:
@@ -590,7 +857,7 @@ def contact_sheet(kit: Kit) -> Image.Image:
             for tile in sorted((t for t in kit.contract["tiles"] if t["atlas"] == name),
                                key=lambda t: t["grid_index"]):
                 items.append((tile["id"], kit.crop(name, tile["rect"])))
-            cols = atlas["image"].width // 16
+            cols = atlas["image"].width // TILE
         else:
             for piece in (p for p in kit.contract["pieces"] if p["atlas"] == name):
                 frames = piece.get("animation", {}).get("frames")
@@ -601,8 +868,7 @@ def contact_sheet(kit: Kit) -> Image.Image:
                     items.append((piece["id"], kit.crop(name, piece["rect"])))
             cols = None
         sections.append((name, items, cols))
-    # layout: tilesets as exploded grids, pieces in a wrapping row
-    max_w = 420
+    max_w = max([460] + [img.width + 2 * pad for _n, items, _c in sections for _i, img in items])
     placed = []
     y = pad
     for name, items, cols in sections:
@@ -613,8 +879,8 @@ def contact_sheet(kit: Kit) -> Image.Image:
         if cols:
             for i, (_id, img) in enumerate(items):
                 cx, cy = i % cols, i // cols
-                placed.append(("img", img, pad + cx * (16 + gap), y + cy * (16 + gap)))
-            y += ((len(items) + cols - 1) // cols) * (16 + gap) + pad
+                placed.append(("img", img, pad + cx * (TILE + gap), y + cy * (TILE + gap)))
+            y += ((len(items) + cols - 1) // cols) * (TILE + gap) + pad
         else:
             for _id, img in items:
                 if x + img.width > max_w and x > pad:
@@ -639,33 +905,37 @@ def scale(image: Image.Image, factor: int) -> Image.Image:
     return image.resize((image.width * factor, image.height * factor), Image.Resampling.NEAREST)
 
 
-def side_by_side(composition_2x: Image.Image, concept_path: Path) -> Image.Image:
-    if not concept_path.is_file():
-        raise FileNotFoundError(concept_path)
-    with Image.open(concept_path) as opened:
-        concept = opened.convert("RGBA")
-    # Display-only downscale of the mood reference; never used as a pixel source.
-    concept = concept.resize(composition_2x.size, Image.Resampling.LANCZOS)
+def side_by_side(left: Image.Image, target_path: Path, left_label: str, right_label: str) -> Image.Image:
+    if not target_path.is_file():
+        raise FileNotFoundError(target_path)
+    with Image.open(target_path) as opened:
+        target = opened.convert("RGBA")
+    if target.size != left.size:
+        factor = left.width // target.width
+        target = scale(target, factor) if factor * target.width == left.width else \
+            target.resize(left.size, Image.Resampling.NEAREST)
     band, gap = 28, 16
-    out = Image.new("RGBA", (composition_2x.width * 2 + gap, composition_2x.height + band),
-                    (16, 14, 20, 255))
-    out.alpha_composite(composition_2x, (0, band))
-    out.alpha_composite(concept, (composition_2x.width + gap, band))
+    out = Image.new("RGBA", (left.width * 2 + gap, left.height + band), (16, 14, 20, 255))
+    out.alpha_composite(left.convert("RGBA"), (0, band))
+    out.alpha_composite(target, (left.width + gap, band))
     draw = ImageDraw.Draw(out)
-    _text(draw, (8, 8), "ENV-01 kit composition from exported atlases (native 640x360, "
-          "nearest 2x) - art preview, NOT a Bevy capture")
-    _text(draw, (composition_2x.width + gap + 8, 8),
-          "Concept 01 clean catacomb - generated MOOD reference only (display-scaled, not a source)")
+    _text(draw, (8, 8), left_label)
+    _text(draw, (left.width + gap + 8, 8), right_label)
     return out
 
 
-def actor_check(kit: Kit, layout: dict, base: Image.Image, view: list[int]) -> Image.Image:
+def actor_layer(kit: Kit, layout: dict, entries: list[dict] | None = None) -> tuple[Image.Image, list]:
+    """Approved actor frame 0 composited on the walking line of its column (0 px sink).
+
+    Returns the full-layout actor image and the actor boxes. Raises FileNotFoundError when an
+    input is missing (callers downgrade it to a warning)."""
     from validate_assets import safe_path  # same path rules as the asset validator
-    # Raises FileNotFoundError when an input is missing (the caller downgrades it to a warning).
-    sink = kit.contract.get("floor_contact", {}).get("recommended_visual_foot_sink_px", 0)
-    floor_y = layout["base_floor_top_y"]
-    image = base.copy()
-    for entry in layout.get("preview", {}).get("actor_check", []):
+    width, height = layout["pixel_size"]
+    cols, rows = layout["grid_size"]
+    tops = collider_tops(kit, layout["tile_layers"]["collision"], cols, rows)
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    boxes = []
+    for entry in entries if entries is not None else layout.get("preview", {}).get("actor_check", []):
         manifest = json.loads(safe_path(entry["manifest"]).read_text(encoding="utf-8"))
         meta = json.loads(safe_path(manifest["output_metadata"]).read_text(encoding="utf-8"))
         atlas_path = safe_path(manifest["output_atlas"])
@@ -676,9 +946,12 @@ def actor_check(kit: Kit, layout: dict, base: Image.Image, view: list[int]) -> I
         fr = meta["frames"][0]["frame"]
         sprite = atlas.crop((fr["x"], fr["y"], fr["x"] + fr["w"], fr["y"] + fr["h"]))
         px, py = manifest["pivot"]
-        image.alpha_composite(sprite, (entry["x"] - px, floor_y - 1 + sink - py))
-    vx, vy, vw, vh = view
-    return image.crop((vx, vy, vx + vw, vy + vh))
+        top = tops[entry["x"] // TILE]
+        check(isinstance(top, int), f"actor at x {entry['x']} has no walking line")
+        pos = (entry["x"] - px, top - 1 - py)
+        image.alpha_composite(sprite, pos)
+        boxes.append((pos[0], pos[1], pos[0] + sprite.width, pos[1] + sprite.height))
+    return image, boxes
 
 
 def save_png(image: Image.Image, path: Path) -> None:
@@ -693,12 +966,13 @@ def render_all(kit: Kit, layout: dict, out: Path, actors: bool = True) -> list[P
     p = out / f"corridor_overview_{w}x{h}.png"
     save_png(full, p)
     written.append(p)
-    for vid, (vx, vy, vw, vh) in layout.get("views", {}).items():
-        view = full.crop((vx, vy, vx + vw, vy + vh))
+    for vid, view in layout.get("views", {}).items():
+        img = render_view(kit, layout, view)
+        vw, vh = view[2:]
         p1 = out / f"corridor_{vid}.png"
         p2 = out / f"corridor_{vid.split('_')[0]}_{vw * 2}x{vh * 2}_2x.png"
-        save_png(view, p1)
-        save_png(scale(view, 2), p2)
+        save_png(img, p1)
+        save_png(scale(img, 2), p2)
         written += [p1, p2]
     sheet = contact_sheet(kit)
     for factor in (1, 2):
@@ -708,26 +982,31 @@ def render_all(kit: Kit, layout: dict, out: Path, actors: bool = True) -> list[P
     preview = layout.get("preview", {})
     primary = preview.get("primary_view")
     if primary:
-        vx, vy, vw, vh = layout["views"][primary]
-        view2x = scale(full.crop((vx, vy, vx + vw, vy + vh)), 2)
+        view = layout["views"][primary]
+        vw, vh = view[2:]
+        unlit = render_view(kit, layout, view)
         # Best-effort previews: unrelated asset renames must not break the kit export.
-        if preview.get("concept_reference"):
+        if preview.get("target_frame"):
             try:
-                img = side_by_side(view2x, repo_path(preview["concept_reference"]))
+                img = side_by_side(scale(unlit, 2), repo_path(preview["target_frame"]),
+                                   "ENV-01 kit, UNLIT pixel layers from exported atlases (nearest 2x) "
+                                   "- art preview, NOT a Bevy capture",
+                                   "A1 target frame (owner-approved look-dev, lit)")
             except FileNotFoundError as exc:
-                print(f"WARNING: skipping concept side-by-side preview, missing input: {exc}",
+                print(f"WARNING: skipping target-frame side-by-side, missing input: {exc}",
                       file=sys.stderr)
             else:
-                p = out / "corridor_vs_concept_side_by_side.png"
+                p = out / "corridor_unlit_vs_a1_target.png"
                 save_png(img, p)
                 written.append(p)
         if actors and preview.get("actor_check"):
             try:
-                check_img = actor_check(kit, layout, full, layout["views"][primary])
+                actor_img, _boxes = actor_layer(kit, layout)
             except FileNotFoundError as exc:
                 print(f"WARNING: skipping actor check preview, missing input: {exc}",
                       file=sys.stderr)
             else:
+                check_img = render_view(kit, layout, view, actors=actor_img)
                 p1 = out / f"actor_check_{vw}x{vh}.png"
                 p2 = out / f"actor_check_{vw * 2}x{vh * 2}_2x.png"
                 save_png(check_img, p1)
@@ -752,8 +1031,8 @@ def find_layouts(levels: Path | None = None) -> list[Path]:
             raise KitError(f"cannot parse {path}: {exc}") from exc
         fmt = data.get("format") if isinstance(data, dict) else None
         if isinstance(fmt, str) and fmt.startswith("env-kit"):
-            check(fmt == "env-kit-layout-v1",
-                  f"{path}: unsupported layout format {fmt!r} (expected env-kit-layout-v1)")
+            check(fmt == LAYOUT_FORMAT,
+                  f"{path}: unsupported layout format {fmt!r} (expected {LAYOUT_FORMAT})")
             found.append(path)
     return found
 
@@ -789,7 +1068,7 @@ def main(argv: list[str] | None = None) -> int:
             for path in find_layouts():
                 layout = load_json(path)
                 jobs.append((layout, args.out_root / layout["layout_id"]))
-            check(bool(jobs), "no env-kit-layout-v1 layouts found under assets/levels/")
+            check(bool(jobs), f"no {LAYOUT_FORMAT} layouts found under assets/levels/")
         for layout, out in jobs:
             kit = load_kit(layout["kit_contract"])
             validate_contract(kit)
