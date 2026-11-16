@@ -25,9 +25,9 @@
 
 ## Day 36–60: vertical-slice production
 
-- Complete two enemies, Carl bomb, Donut control spell, chain reaction prop, checkpoint, two routes, tutorial UI and audio prototypes.
+- Complete two enemies, Carl bomb, Donut control spell, chain reaction prop, checkpoint, forward-only encounter flow with a mandatory vertical bypass, tutorial UI and audio prototypes.
 - Add replay and CI screenshot artifact generation; baseline frame-time metrics on suitable Linux hardware.
-- **Gate G4:** independently playable 5-minute Inspection Corridor with meaningful alternate route.
+- **Gate G4:** independently playable 5-minute forward-scrolling combat corridor with meaningful destruction and a forced climb over reinforced terrain.
 
 ## Day 61–75: playtest and correction
 
@@ -38,7 +38,7 @@
 
 ## Day 76–90: decision on next stage
 
-- Run comparison to Godot if Bevy efficiency remains uncertain; quantify time-to-change.
+- Measure and improve Rust + Bevy change-to-test time; the engine selection is final per ADR-0001.
 - Document multiplayer/Steam integration readiness, asset rights inventory, costs and technical debt.
 - Draft 3–6 new rooms only after G5; define full production budget and original-IP / license choice.
 - **Gate G6:** go/no-go record grounded in recorded playtest, perf and AI iteration evidence.
