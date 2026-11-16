@@ -1,5 +1,7 @@
 # Floor 1 look-dev resolution and lighting spike: evidence
 
+**Status:** look-dev complete — owner chose A1 (640×360 + full-resolution lighting) and a deep floor on 2026-11-16; B1 and the h78/h60 cast redraws are rejected look-dev only; see ADR-0007.
+
 Review renders for the A0 / A1 / B1 comparison described in [`docs/02-art/lookdev-floor01-resolution-spike.md`](../../02-art/lookdev-floor01-resolution-spike.md). **Look-dev only.** They are not production art and not approved, and they are not Bevy captures: every file is produced by the Pillow compositor `scripts/lookdev_compose.py`.
 
 - **Authorship and provenance:** authored by Claude Opus (AI art agent) with `scripts/lookdev_floor01_author.py`. The pixel sources are `assets/source/lookdev/floor01/*.grid.json` and `*.ase`. The concept image `assets/concept/floor-01/opening/01-catacomb-environment-clean.png` was used for **mood only** and never sampled. In A0 and A1 the characters are the approved Carl 52 px and Donut 40 px grids, unchanged. In B1 they are the Carl 78 px / Donut 60 px look-dev redraws (frame 0) from branch `art/lookdev-cast-h78-h60`.
