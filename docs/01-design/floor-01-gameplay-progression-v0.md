@@ -6,6 +6,7 @@
 1. **Hybrid solo controls (option C):** one directly controlled character, AI for the other, instant character switching and compact context actions are the intended design. Precisely how the AI, switching and commands work needs playtests.
 2. **Local two-player cooperative mode from the very beginning:** Carl and Donut are both playable at the start of the game, not unlocked as playable characters after the Tutorial Guild. **Narrative power unlocks still occur in story order.**
 3. **Shoulder Mode is promising brainstorming**, not approved behavior or a required ability. Its combat/aiming simplifications and mounted specials remain experiments, not implementations.
+4. **Character-gated level progression is approved:** Donut's distinguishing traversal is jumping higher and reaching farther places; Carl's is breaking/selectively transforming obstacles and opening routes. A room **can require one of these characters for mandatory progression**, using solo switching or distinct 2P roles. Two parallel paths are **not** mandatory. Later earned abilities make solutions more layered and less immediately obvious; see [mandatory asymmetric-traversal rule](asymmetric-traversal-and-gates.md).
 
 **Source boundaries:** Existing [vision](vision.md), [core gameplay](gameplay.md), [character sheets](characters.md), [antihero identity](antihero-tone.md), [input/camera technical specification](../03-tech/input-camera.md), [Floor 01 concept atlas](../02-art/floor-01-art-atlas-v1.md), [production and rights rules](../04-production/rights-and-release.md). Story chronology and equipment unlocks must be checked against the applicable book chapter before being labelled canon. All mechanics below marked *proposal* are game adaptations, not canon claims.
 
@@ -26,7 +27,7 @@ Keep everything physically readable on the **approved native-scale sprites**: Ca
 | Rejoin/drop-out | Desired seamless transfer to companion AI | Can reassigning authority preserve player state, held inputs, collision and camera continuity? |
 | Difficulty | Same authored content and core critical path in 1P and 2P | Does co-op add opportunities rather than trivialize or multiply health pools? |
 
-**Default principle:** no mandatory two-human gate; all story-critical encounters are completable solo using direct control, companion autonomy and/or optional contextual commands. Never bind character authority to a hardcoded physical device ID. Avoid premature online support, three-player co-op, or split-screen.
+**Default principle:** no mandatory **two-human** gate; some gates do require a **specific character**. All story-critical encounters remain completable by one human **switching** characters, and in 2P by each player fulfilling their role. Never bind character authority to a hardcoded physical device ID. Avoid premature online support, three-player co-op, or split-screen.
 
 ### Character fantasy and starting availability (design proposals)
 
@@ -35,7 +36,7 @@ Keep everything physically readable on the **approved native-scale sprites**: Ca
 - **Donut, after the relevant story event:** ranged magic and later control/support become part of her available kit. Do not assign exact spell order, damage numbers, items or timings without source-backed chronology.
 - **Mongo:** later milestone, not a third player slot during this experiment.
 
-**Movement differentiation is still a tuning hypothesis.** Don't hardcode the claim that a cat's jump is necessarily higher; compare actual platform reach, horizontal acceleration, coyote/buffer behavior, hitbox comfort and camera implications.
+**Approved qualitative movement roles:** Donut can jump **higher and farther** and reach elevated/distant locations not accessible to Carl with his base traversal. Carl **destroys/changes obstacles** to open paths Donut cannot physically open. Exact numerical jump performance, speed, collisions, materials and stage-specific available break abilities remain tuning/design hypotheses. Some stages intentionally require one specific protagonist; a second equivalent path is not required.
 
 ## 2. Shoulder Mode — open experiment, not a settled feature
 
@@ -81,7 +82,7 @@ The following is an **adaptation/design sequence** anchored to first-floor area 
 
 ### Ability-unlock rule
 
-Story unlocks should create **new decisions** instead of only increasing damage. Candidate categories (all subject to canon review and prototyping):
+Story unlocks should create **new decisions** instead of only increasing damage. A formerly straightforward Donut-only jump or Carl-only barrier can later have less intuitive alternate solutions (earned spells, changed terrain, emergent interaction), but the first instances should teach each ability clearly. **Switching is a central traversal input and legitimate solution**, not a fallback for a flawed room; consult [asymmetric traversal/gate authoring rule](asymmetric-traversal-and-gates.md). Candidate categories (all subject to canon review and prototyping):
 - Traversal/positioning;
 - Physical contact/evasion;
 - Ranged/assisted aim;
@@ -107,7 +108,7 @@ Candidate first evaluation enemies: ordinary goblin, Murder Dozer, Bad Llama. Bo
 
 ## 5. Decisions required after experiments
 
-**Approved:** hybrid solo architecture as target, simultaneous playable Carl + Donut from game start, local 2P as core product design, same essential content in solo and 2P, story-consistent unlocks, cast native scale, shared camera intent.
+**Approved:** hybrid solo architecture as target, simultaneous playable Carl + Donut from game start, local 2P as core product design, same essential content in solo and 2P, **explicit one-character gates without symmetric routes**, Donut's higher/farther movement vs Carl's physical/destructive access, story-consistent unlocks, cast native scale, shared camera intent.
 
 **Unresolved:** exact action mapping, whether shoulder exists, mounted attack behavior, co-op revival/death system, difficulty adjustment, solo AI autonomy/command UX, fine-grained character acceleration, targeting assist strength, camera split/regroup rules, friendly-fire consequences, and exact progression unlock order.
 
