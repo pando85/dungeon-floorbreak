@@ -1,6 +1,6 @@
 # Floor 01 catacomb environment kit (ENV-01), rework round 4: evidence images
 
-These are visual review aids for the ENV-01 kit described in [`docs/02-art/floor-01-catacomb-kit.md`](../../02-art/floor-01-catacomb-kit.md), reworked against the owner-approved A1 target frame ([ADR-0007](../../05-decisions/ADR-0007-rendering-resolution-lighting.md)). They are **art previews composited by scripts from the exported atlases and the sample layout**. They are **not Bevy screenshots**, not collision or gameplay proof, and not approvals. A human art review is pending. In-engine evidence is the job of COMP-01. The round-1/2 images were rejected and removed; round-3 images were replaced by round 4 (independent review fixes).
+These are visual review aids for the ENV-01 kit described in [`docs/02-art/floor-01-catacomb-kit.md`](../../02-art/floor-01-catacomb-kit.md), reworked against the owner-approved A1 target frame ([ADR-0007](../../05-decisions/ADR-0007-rendering-resolution-lighting.md)). They are **art previews composited by scripts from the exported atlases and the sample layout**. They are **not Bevy screenshots**, not collision or gameplay proof, and not approvals. Owner-approved on 2026-11-16 (PR #26); Bevy lighting re-tune pending in COMP-01. In-engine evidence is the job of COMP-01. The round-1/2 images were rejected and removed; round-3 images were replaced by round 4 (independent review fixes).
 
 - **Source:**
   - branch `art/env-01-floor01-catacomb-kit`;
