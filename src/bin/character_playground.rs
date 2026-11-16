@@ -120,7 +120,7 @@ fn main() {
         return;
     }
     let deck = args.iter().any(|arg| arg == "--deck");
-    let (virtual_height, window_height) = if deck { (400.0, 800) } else { (360.0, 720) };
+    let (virtual_height, window_height): (f32, u32) = if deck { (400.0, 800) } else { (360.0, 720) };
 
     App::new()
         .add_plugins(
@@ -226,7 +226,6 @@ fn setup(
         );
     }
     commands.insert_resource(LoadedTextures { handles, reported: false });
-    rectangle(&mut commands, Vec2::new(36.0, 2.0), Vec3::new(CAST[0].start_x, FLOOR_Y - 7.0, 4.0), Color::srgb_u8(239, 203, 88));
     // The marker is a separate ECS entity so changing actors never scales source pixels.
     commands.spawn((
         SelectionMarker,
