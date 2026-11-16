@@ -55,9 +55,41 @@ Each atlas uses a subset of at most 63 opaque colours (the asset validator count
 - **B:** an arch bay is 304 px wide from a 16-px-aligned bay origin at y 32: `pier_l` (+0, 0), `arch_ring_a/b` (+16, 0), `pier_r` (+224, 0), `arch_threshold` (+64, 240), `torch_wall` on both piers at (+24, 176) and (+264, 176). Backwall cells touching the ring window stay empty. Piers bake their own torch light; do not add pools at pier torches.
 - **C:** one copper run (elbows, straight pieces, at least one flange and one bracket, a `valve_wheel` on a vertical drop). Every end terminates in `pipe_collar_ceiling` or `pipe_collar_floor`. `lichen_crust` is optional and only next to a pipe joint. Copper only in C; a test enforces it for the sample layout.
 
+## Consumer contract (COMP-01 and any other loader)
+
+Everything a runtime needs to load the kit, in one place. The longer v2 rules follow in [Integration contract v2](#integration-contract-v2-for-comp-01). The contract (`env-kit-v2`) and layout (`env-kit-layout-v2`) are IP-neutral data; the Bevy loader is not written yet.
+
+**Coordinates.** Everything is in virtual pixels, origin top-left, **x right, y down**, tile rows top to bottom (`coordinate_system` in the contract). Layout pixel (x, y) = (col × 16, row × 16). Atlas rects are `[x, y, w, h]` from the atlas top-left. Piece `x`/`y` in a layout is the top-left of the piece rect. **Bevy is y-up: flip y once at load time** (`world_y = layout_height − y`, remembering that a rect's world origin is its bottom edge). Never flip inside the data.
+
+**Collision rects.** Only tiles in the `collision` layer with `collidable: true` produce colliders. For the tile at (col, row) with tile-local `collider: [cx, cy, cw, ch]`, the solid rect is `[col × 16 + cx, row × 16 + cy, cw, ch]`. A `deck_front` tile has `[0, 4, 16, 12]`, every other collidable tile `[0, 0, 16, 16]`. Merge rects per row or per chunk as needed (see `destruction.md`). `deck_back` tiles are visual only (`collidable: false`, no `collider`). Backwall tiles, every piece (props, structure, decals, parallax) and every light are never collidable.
+
+**Walking line.** The standing surface of a floor column is `row × 16 + walk_line_y` of its single `walkable_top` tile (`deck_front`, `walk_line_y: 4`), which equals the top of its collider. The base corridor walks at y = 308 (`base_walk_line_y`); platforms are 16 or 32 px higher. A column that is collidable from the top row to the bottom row is an end wall, not floor. Actors are placed with their pivot (bottom feet row) at `walk_line − 1` (0 px sink); `spawn` and `exit` markers already store that y. Validation guarantees: one walking surface per floor column, steps of at most 2 tiles (32 px), no pits, no floating colliders.
+
+**Draw order (z).** Lower draws first. Use these as the sort key (or map to Bevy z in steps of 1).
+
+| Order | Layer | Kind | Light group | Notes |
+| --- | --- | --- | --- | --- |
+| 0 | `parallax_far` | strip, factor 0.35 | `parallax_far` | opaque gallery, seen through arch windows |
+| 1 | `parallax_mid` | strip, factor 0.6 | `parallax_mid` | 1-bit alpha, over the far strip |
+| 2 | `backwall` | tiles | `scene` | opaque brick; empty inside arch windows |
+| 3 | `backwall_decal` | pieces | `scene` | torch pools, grime: over the brick, under the floor |
+| 4 | `collision` | tiles | `scene` | floor, ceiling, end walls, `deck_back` |
+| 5 | `structure` | pieces | `scene` | arch rings, piers, threshold, pilaster |
+| 6 | `prop` | pieces | `scene` | torches (animated), pipes, door, lichen |
+| 7 | actors | n/a | `actors` | Carl, Donut, enemies |
+| 8 | `foreground` | pieces | `foreground` | rubble silhouettes over actors |
+
+**Parallax.** Strips repeat horizontally forever (`tile_x: true`, seamless wrap). A strip pixel at strip-local u is drawn at `screen_x = x_origin + k × strip_width + u − camera_x × factor` for every integer k, then snapped to whole virtual pixels; `camera_x` is the view's left edge in layout px and y is fixed (`parallax_layers.<name>.y`). `x_origin` is a phase in `[0, strip_width)`. Validation proves the far strip fills every arch window with the camera clamped at x = 0 and at the right end, for 640×360 and 640×400. The loader must keep repeating the strip so the camera can never see an empty edge.
+
+**Lights (presentation only).** Emitters live on pieces: `lights: [{id, offset, colour, radius, intensity, group, glow?, flicker?, project?, project_dy?, squash_y?}]`. `offset` is piece-local px from the piece top-left (for a parallax strip, strip-local; it repeats with the strip). `colour` is sRGB `#rrggbb`. `radius` and `glow.radius` are falloff radii in virtual px; `intensity` is a unitless multiplier into the group's light map (0..4); `glow.additive` is the 0..1 strength of the halo. `flicker` is one multiplier (0..2) per frame of the piece's animation, in animation order (torch: 4 frames, 120/140/100/130 ms). `project: "walk_line"` moves the light straight down to the walking line of its column plus `project_dy` px (floor pools); `squash_y` (0.05..1) flattens the falloff vertically. `group` is the light group the emitter lights (`scene`, `foreground`, or the strip's own parallax group). The layout `lighting` profile gives per-group `ambient` [r, g, b] multipliers (0..2), optional `haze` (`colour`, `amount`, `floor_fog`), `light_scale` for actors/foreground, a contact shadow and bloom settings. The pass runs at output resolution on top of the integer-scaled pixel layers (ADR-0007).
+
+**Presentation-only data.** All of `lights`, `lighting`, `light_group`, `parallax`, `window`, the `preview` block and the `status`/`migration`/`note` fields are rendering or review data. Validation rejects any collision or gameplay section (`tiles`, `markers`, `segments`, `requirements`, `walk_line`) that references lighting, and a lighting profile that carries anything but ambient, haze, shadow and bloom values. Collision, AI and damage must never read them. The `preview` block (actor atlases, target frame) is an art-review input, not runtime data.
+
+**Committed vs generated.** Committed (source of truth): the contract and layout JSON, the pixel grids and `.ase` files under `assets/source/terrain/floor01/` and `assets/source/props/floor01/`, the export manifests under `assets/manifests/floor01_*.json` and the review evidence under `docs/evidence/floor01-catacomb-kit/`. **Generated and gitignored** (run `bash scripts/export_assets.sh`): the atlas PNGs and metadata JSON named by the contract (`generated/art/floor01_*.png` / `.json`; the contract references these paths) and the unlit previews in `generated/art/env_kit/`. A loader must read atlas rects from the contract and animation timing from the contract (copied from the exported metadata), not hard-code numbers.
+
 ## Integration contract v2 (for COMP-01)
 
-`floor01_catacomb_kit.json` is now `env-kit-v2` and the sample layout `env-kit-layout-v2`. Both carry a `migration` note. No v1 id keeps its meaning, so v1 files are rejected rather than silently reinterpreted.
+`floor01_catacomb_kit.json` is now `env-kit-v2` and the sample layout `env-kit-layout-v2`. Both carry a `migration` note. No v1 id keeps its meaning, so v1 files are rejected rather than silently reinterpreted (see [Migration from v1](#migration-from-v1)).
 
 ### Walking line and colliders
 
@@ -74,7 +106,7 @@ Parallax layers have `kind: "parallax"` and a factor (far 0.35, mid 0.6). Their 
 
 ### Arch windows
 
-`arch_ring_*` declares `window: {arc_centre, arc_radius, rect}` in piece-local px: the circle above the arc centre line plus the rectangle down to the floor back line. Rule: no backwall tile or decal pixel inside a window; every transparent pixel of backwall + decals + collision + structure lies inside a window; the far strip covers every window vertically.
+`arch_ring_*` declares `window: {arc_centre, arc_radius, rect}` in piece-local px: the circle above the arc centre line plus the rectangle down to the floor back line. Rule: no backwall tile, collision tile or decal pixel inside a window; every transparent pixel of backwall + decals + collision + structure lies inside a window; the far strip covers every window vertically and, rendered with the camera clamped at both ends of the corridor, leaves no empty pixel behind a window.
 
 ### Lights (presentation only)
 
@@ -84,6 +116,19 @@ Pieces carry `lights: [{id, offset, colour, radius, intensity, glow?, flicker?, 
 
 `assets/levels/floor01/corridor_abc_sample.json`: 128×25 tiles (2048×400), segments A1 (0–512), B1 (512–816), C1 (816–1280), A2 (1280–1600), B2 (1600–2048). It has a left end wall, a continuous walkable floor with a 1-tile platform in A1 and a 2-tile platform in A2, two arch bays, five pooled wall torches, four pier torches, an unlit sconce, one copper run in C1, a door, two pilasters, two grime patches and two rubble silhouettes. View `abc_640x360` (x 328, y 20) reproduces the A1 composition with kit pieces; `abc_640x400` is the 16:10 framing.
 
+## Migration from v1
+
+`env-kit-v1` contracts and `env-kit-layout-v1` layouts are **rejected** with a pointer to this section; no v1 tile or piece id keeps its meaning, so there is no automatic converter. To move a v1 kit or layout:
+
+1. **Palette:** replace the shared 64-colour palette with a named kit palette; each atlas grid uses a subset of at most 63 opaque colours whose names and RGBA match the kit palette.
+2. **Floor:** the collision surface is now the walking line, not the tile top. Mark the walkable tile `walkable_top` with `walk_line_y`, give every collidable tile a `collider` rect (`[0, walk_line_y, 16, 16 − walk_line_y]`), put a non-collidable `deck_back` tile above every walkable tile, and replace `base_floor_top_y` with `base_walk_line_y`. Markers move to `walk_line − 1`.
+3. **Layers:** add the `parallax_far` and `parallax_mid` layers (kind `parallax`, factors in (0, 1), increasing with draw order, pieces with `tile_x`), give every layer a `light_group`, and draw `collision` before `structure` and `prop`. The layout gains `parallax_layers` entries `{piece, x_origin, y}`.
+4. **Arch openings:** delete `recess_*` backwall tiles and `far_arcade_*` pieces; declare a `window` on the arch ring and leave the backwall empty inside it.
+5. **Lights:** add `lights` to pieces and a `presentation_only` `lighting` profile to the layout. Both are optional for gameplay and mandatory for the validator.
+6. Set `format` to `env-kit-v2` / `env-kit-layout-v2` and run `python3 scripts/env_kit.py validate --contract <kit> --layout <layout>`.
+
+The machine-readable per-file notes are in the `migration` fields of the contract and the layout.
+
 ## Lighting pass and previews
 
 - `scripts/env_kit.py` validates contracts and layouts and renders **unlit** previews from the exported atlases (overview, views, contact sheets, unlit vs A1, actor check). `scripts/export_assets.sh` runs it.
@@ -91,7 +136,18 @@ Pieces carry `lights: [{id, offset, colour, radius, intensity, glow?, flicker?, 
 
 ## Validation
 
-`python3 scripts/env_kit.py all` (part of the export) fails on, among others: wrong format version; a grid colour outside the kit palette or more than 63 colours per atlas; partial alpha; a non-opaque collision or backwall tile; a collidable `deck_back` or backwall tile; a collider that does not follow the walking line; a walkable tile without `deck_back` above it; a pit or a step over 32 px; broken panel continuity or a misplaced edge tile; a backwall tile or decal inside an arch window; transparent pixels outside every window; a far strip that does not cover a window; bad light metadata (colour, radius, group, flicker length); a parallax piece without `tile_x`; an off-grid piece or a `fixed_y` piece elsewhere; a marker off the walking line; an incomplete or non-presentation-only lighting profile. `tests/test_art_env_kit.py` (54 tests) proves each rule fires, plus deterministic unlit and lit renders, parallax motion at the declared factor and copper-only-in-C.
+`python3 scripts/env_kit.py all` (part of the export) fails on, among others:
+
+- **Format:** any format other than `env-kit-v2` / `env-kit-layout-v2`; v1 files get a message that points to [Migration from v1](#migration-from-v1).
+- **Pixels:** a grid colour outside the kit palette or more than 63 colours per atlas; partial alpha; a non-opaque collision or backwall tile; a far parallax strip that is not fully opaque.
+- **Walking line and colliders:** a collidable `deck_back` or backwall tile; a `walkable_top` flag that is not a boolean; `walk_line_y` outside 0..15 or on a non-walkable tile; a collider that is not exactly `[0, walk_line_y, 16, 16 − walk_line_y]` in integers; a floor column without exactly one walking surface on its top tile, a walkable tile in a ceiling or wall column, a walkable tile without `deck_back` directly above it, or a `deck_back` tile without a walkable tile below; a pit, a floating collision run, a third run in a column, or a step over 2 tiles (`max_step_tiles` is capped at 2 and `continuous_floor` cannot be switched off); a `base_walk_line_y` that is not the most common walking line or differs from the contract's `walk_line.base_floor`; a spawn, exit or preview actor that is not on a walking line (y = walking line − 1 for markers).
+- **Parallax:** a factor outside the open interval (0, 1) or not increasing with depth; a strip that is animated, narrower than 32 px, or whose last and first columns differ in more rows than the 90th percentile of interior neighbouring columns (the wrap seam must be as smooth as any other column); an `x_origin` outside `[0, strip_width)`; a strip outside the layout height; a far strip that fails to cover a window vertically; a far strip that leaves an arch window empty with the camera clamped at x = 0 or at the right end (640×360, 640×400 and every declared view); windows without a far layer.
+- **Arch windows:** malformed `window` declarations (non-integer arc, radius or rect, or on a non-structure piece, or reaching outside the layout); a backwall tile, a collision tile or a decal pixel inside a window; transparent pixels outside every window.
+- **Lights:** unknown fields; a bad colour, offset, radius (1..1024), intensity (0..4), glow, flicker value (0..2) or `squash_y`; a flicker curve whose length differs from the piece's animation frame count, or on a static piece; a light on the `actors` group; a parallax strip lighting a group other than its own, or a non-parallax piece lighting a parallax group; a free-floating layout light or an instance carrying lights; a walking-line projection over a column with no walking line.
+- **Presentation only:** a contract or layout lighting block that is not `presentation_only`; a lighting profile with fields other than ambient, haze, shadow and bloom values; any collision or gameplay section that references lighting.
+- **Layout:** broken panel continuity or a misplaced edge tile; a backwall hole; an off-grid piece or a `fixed_y` piece elsewhere; segments that are not contiguous multiples of 16 px; missing spawn or exit markers.
+
+`tests/test_art_env_kit.py` proves each rule fires on a mutated copy, plus deterministic unlit and lit renders (including the actor-check previews), parallax motion at the declared factor and copper-only-in-C. CI hashes every file under `generated/art` (recursively) after two exports and requires a clean working tree.
 
 ## Regenerating
 

@@ -24,7 +24,7 @@ Level IDs stable and unique, `width/height`, `seed`, checkpoints, exits, bounded
 
 1. Parse LDtk JSON and check expected version/schema.
 2. Validate all required layers, entity type names and referenced materials.
-3. Ensure all spawn/exits are within map bounds and collide with intended platforms.
+3. Ensure all spawn/exits are within map bounds and collide with intended platforms. The standing surface is the **walking line** inside the deep floor tile (collider rect offset), not the tile top, and markers sit one pixel above it (ADR-0007; `env-kit-v2` in [floor-01-catacomb-kit.md](../02-art/floor-01-catacomb-kit.md)).
 4. Perform static reachability on base map. Generate a bounded set of scripted destruction deltas and repeat reachability.
 5. Flag unprotected critical edges, inaccessible objectives and invalid weak-support dependencies.
 6. Produce preview thumbnail and structural/debug overlay for agent PR review.
