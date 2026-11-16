@@ -2,6 +2,8 @@
 //
 // One shader module, three fragment entry points, all run on a full-screen
 // quad (see `light_pass.rs`):
+// The emissive and blur targets are Rgba8Unorm and hold encoded values
+// directly (no sRGB conversion per tap); slot textures are Rgba8UnormSrgb.
 //   emissive   virtual resolution: flame-coloured pixels that nothing nearer
 //              hides, lit, then bright-passed (the bloom source);
 //   blur       virtual resolution: one separable gaussian direction (the
@@ -9,6 +11,10 @@
 //   composite  output resolution: per-slot ambient + warm pools + shadow +
 //              haze, additive glow, plus the bloom, from nearest-sampled
 //              virtual-resolution slot textures.
+//
+// The constants MAX_SHADOWS, MAX_EMISSIVE, MAX_SLOTS, MAX_LIGHTS, FLAG_* and
+// POOL_K / GLOW_K are not declared here: `light_pass::shader_source` prepends
+// them from the Rust constants so there is one source of truth.
 //
 // Colour maths follows the Pillow reference (`scripts/env_kit_light.py`): it
 // multiplies and mixes *sRGB-encoded* values, so every slot texel is converted
@@ -47,11 +53,11 @@ struct Params {
     // x: far end; y: mid end; z: scene end of the light list; w: light count
     ranges: vec4<u32>,
     // cx, cy, half width, half height (view px)
-    shadows: array<vec4<f32>, 8>,
+    shadows: array<vec4<f32>, MAX_SHADOWS>,
     // rgb 0..255 atlas colours that feed bloom
-    emissive: array<vec4<f32>, 16>,
-    slots: array<Slot, 6>,
-    lights: array<Light, 64>,
+    emissive: array<vec4<f32>, MAX_EMISSIVE>,
+    slots: array<Slot, MAX_SLOTS>,
+    lights: array<Light, MAX_LIGHTS>,
 }
 
 @group(2) @binding(0) var<uniform> params: Params;
@@ -67,10 +73,6 @@ struct FragIn {
     @builtin(position) pos: vec4<f32>,
 }
 
-const FLAG_EMISSIVE: u32 = 1u;
-const FLAG_SHADOW: u32 = 2u;
-const FLAG_PARALLAX: u32 = 4u;
-
 fn to_srgb(c: vec3<f32>) -> vec3<f32> {
     let lo = c * 12.92;
     let hi = 1.055 * pow(max(c, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.4)) - 0.055;
@@ -81,6 +83,13 @@ fn from_srgb(c: vec3<f32>) -> vec3<f32> {
     let lo = c / 12.92;
     let hi = pow((max(c, vec3<f32>(0.0)) + 0.055) / 1.055, vec3<f32>(2.4));
     return select(hi, lo, c <= vec3<f32>(0.04045));
+}
+
+// Encoded colour of a slot texel. The slot cameras alpha-blend onto a
+// transparent target, which leaves partially transparent pixels premultiplied;
+// divide the alpha back out (a no-op for the 1-bit alpha of the kit atlases).
+fn slot_colour(t: vec4<f32>) -> vec3<f32> {
+    return to_srgb(t.rgb / t.a);
 }
 
 fn load_slot(s: u32, p: vec2<i32>) -> vec4<f32> {
@@ -103,13 +112,13 @@ fn view_size() -> vec2<i32> {
 fn pool(t2: f32) -> f32 {
     if t2 >= 1.0 { return 0.0; }
     let a = 1.0 - t2;
-    return a * a / (1.0 + 5.0 * t2);
+    return a * a / (1.0 + POOL_K * t2);
 }
 
 fn glow_curve(t2: f32) -> f32 {
     if t2 >= 1.0 { return 0.0; }
     let a = 1.0 - t2;
-    return a * a * a / (1.0 + 30.0 * t2);
+    return a * a * a / (1.0 + GLOW_K * t2);
 }
 
 fn shadow_amount(p: vec2<f32>) -> f32 {
@@ -171,7 +180,7 @@ fn emissive_at(texel: vec2<i32>, p: vec2<f32>) -> vec3<f32> {
         let s = i - 1u;
         let t = load_slot(s, texel);
         if t.a > 0.0 {
-            let c = to_srgb(t.rgb);
+            let c = slot_colour(t);
             var e = vec3<f32>(0.0);
             if (params.slots[s].info.z & FLAG_EMISSIVE) != 0u && is_flame(c) {
                 e = shade_slot(s, c, p);
@@ -190,7 +199,7 @@ fn emissive(in: FragIn) -> @location(0) vec4<f32> {
     let p = vec2<f32>(texel) + 0.5;
     let e = emissive_at(texel, p);
     let b = clamp((e - params.bloom.x) * params.bloom.y / (1.0 - params.bloom.x), vec3<f32>(0.0), vec3<f32>(1.0));
-    return vec4<f32>(from_srgb(b), 1.0);
+    return vec4<f32>(b, 1.0);
 }
 
 @fragment
@@ -207,15 +216,15 @@ fn blur(in: FragIn) -> @location(0) vec4<f32> {
         wsum += w;
         let q = c + dir * o;
         if q.x >= 0 && q.y >= 0 && q.x < size.x && q.y < size.y {
-            acc += w * to_srgb(textureLoad(aux, q, 0).rgb);
+            acc += w * textureLoad(aux, q, 0).rgb;
         }
     }
-    return vec4<f32>(from_srgb(acc / wsum), 1.0);
+    return vec4<f32>(acc / wsum, 1.0);
 }
 
 fn bloom_texel(q: vec2<i32>) -> vec3<f32> {
     let c = clamp(q, vec2<i32>(0), view_size() - vec2<i32>(1));
-    return to_srgb(textureLoad(aux, c, 0).rgb);
+    return textureLoad(aux, c, 0).rgb;
 }
 
 // Bilinear sample of the (smooth) blurred bloom at virtual position p.
@@ -245,7 +254,7 @@ fn composite(in: FragIn) -> @location(0) vec4<f32> {
         let s = i - 1u;
         let t = load_slot(s, texel);
         if t.a > 0.0 {
-            let lit = shade_slot(s, to_srgb(t.rgb), p);
+            let lit = shade_slot(s, slot_colour(t), p);
             acc += trans * t.a * lit;
             if (params.slots[s].info.z & FLAG_PARALLAX) == 0u {
                 covered = max(covered, t.a);

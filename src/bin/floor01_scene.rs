@@ -19,7 +19,7 @@ use bevy::{
     camera::{ScalingMode, visibility::RenderLayers},
     prelude::*,
     sprite::Anchor,
-    window::{PresentMode, PrimaryWindow},
+    window::{PresentMode, PrimaryWindow, WindowResolution},
 };
 use dungeon_floorbreak::{
     actor_sprite::{ActorSpec, CARL, DONUT, actor_center, idle_frame},
@@ -56,6 +56,9 @@ struct Args {
     reference_frame: bool,
     /// Measure this many frame intervals after warm-up, print them and exit.
     perf_frames: Option<usize>,
+    /// Live run: step the scripted scenario for this many fixed ticks in the
+    /// real render loop, print `FLOOR1_SCENE_STATE` and exit.
+    exit_after_ticks: Option<u64>,
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
@@ -70,6 +73,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         no_lighting: false,
         reference_frame: false,
         perf_frames: None,
+        exit_after_ticks: None,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -80,6 +84,16 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             "--debug-collision" => parsed.debug_collision = true,
             "--no-lighting" => parsed.no_lighting = true,
             "--reference-frame" => parsed.reference_frame = true,
+            "--exit-after-ticks" => {
+                let value = iter.next().ok_or("--exit-after-ticks needs a tick count")?;
+                parsed.exit_after_ticks = Some(
+                    value
+                        .parse()
+                        .ok()
+                        .filter(|n| *n > 0)
+                        .ok_or_else(|| format!("bad tick count {value:?}"))?,
+                );
+            }
             "--perf-frames" => {
                 let value = iter.next().ok_or("--perf-frames needs a frame count")?;
                 parsed.perf_frames = Some(
@@ -115,6 +129,17 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
     }
     if parsed.capture_tick.is_some() && parsed.scenario.is_none() {
         return Err("--capture-tick needs --scenario".into());
+    }
+    if parsed.exit_after_ticks.is_some()
+        && (parsed.scenario.is_none()
+            || parsed.capture_tick.is_some()
+            || parsed.freeze
+            || parsed.reference_frame)
+    {
+        return Err(
+            "--exit-after-ticks needs --scenario and a live run (no --capture-tick, --freeze or --reference-frame)"
+                .into(),
+        );
     }
     if parsed.reference_frame && (parsed.scenario.is_some() || parsed.capture_tick.is_some()) {
         return Err("--reference-frame pins its own state; drop --scenario/--capture-tick".into());
@@ -188,6 +213,10 @@ struct Setup {
 
 #[derive(Resource)]
 struct Frozen(bool);
+
+/// Fixed tick after which a live scripted run prints its state and exits.
+#[derive(Resource)]
+struct ExitAfter(Option<u64>);
 
 /// Whether the lighting pass is in use (layout has a profile and the flag is
 /// not set).
@@ -276,6 +305,7 @@ fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
     );
     let freeze = args.freeze || args.capture_tick.is_some() || args.reference_frame;
     let scenario = if freeze { None } else { args.scenario };
+    let exit_after = args.exit_after_ticks;
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
     let reference = args.reference_frame.then_some(RefPose {
         carl_x: REFERENCE_CARL_X,
@@ -303,7 +333,10 @@ fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: TITLE.into(),
-                    resolution: window_size.into(),
+                    resolution: WindowResolution::new(window_size.0, window_size.1)
+                        // ADR-0007: window = virtual size x scale in real pixels;
+                        // an OS scale factor must not change the integer ratio.
+                        .with_scale_factor_override(1.0),
                     // ADR-0007: integer scaling only; the window is exactly
                     // virtual size x scale (letterboxing is deferred).
                     resizable: false,
@@ -317,6 +350,7 @@ fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
     .insert_resource(Time::<Fixed>::from_hz(60.0))
     .insert_resource(Sim(sim))
     .insert_resource(Frozen(freeze))
+    .insert_resource(ExitAfter(exit_after))
     .insert_resource(LightingOn(lighting_on))
     .insert_resource(ReferencePose(reference))
     .insert_resource(LiveScenario(scenario))
@@ -616,18 +650,27 @@ fn capture_input(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn fixed_step(
     keys: Res<ButtonInput<KeyCode>>,
     pads: Query<&Gamepad>,
     frozen: Res<Frozen>,
+    exit_after: Res<ExitAfter>,
     scenario: Res<LiveScenario>,
     mut controls: ResMut<Controls>,
     mut sim: ResMut<Sim>,
     mut after_exit: ResMut<AfterExitTicks>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     let restart = std::mem::take(&mut controls.restart);
     let jump_tap = std::mem::take(&mut controls.jump_tap);
     if frozen.0 {
+        return;
+    }
+    if let Some(limit) = exit_after.0
+        && sim.0.world.tick >= limit
+    {
+        // Already reported; further fixed steps of this frame do nothing.
         return;
     }
     if restart {
@@ -665,6 +708,12 @@ fn fixed_step(
     }
     if was_complete {
         after_exit.0 += 1;
+    }
+    if let Some(limit) = exit_after.0
+        && sim.0.world.tick >= limit
+    {
+        println!("{}", sim.0.state_line());
+        exit.write(AppExit::Success);
     }
 }
 
@@ -1072,6 +1121,26 @@ mod tests {
         assert!(args(&["--perf-frames", "3"]).is_err());
         assert!(args(&["--perf-frames"]).is_err());
         assert!(args(&["--reference-frame", "--scenario", "idle"]).is_err());
+    }
+
+    #[test]
+    fn exit_after_ticks_needs_a_live_scenario() {
+        let a = args(&["--scenario", "walk_right", "--exit-after-ticks", "250"]).unwrap();
+        assert_eq!(a.exit_after_ticks, Some(250));
+        assert!(args(&["--exit-after-ticks", "250"]).is_err());
+        assert!(args(&["--scenario", "idle", "--exit-after-ticks", "0"]).is_err());
+        assert!(
+            args(&[
+                "--scenario",
+                "idle",
+                "--capture-tick",
+                "5",
+                "--exit-after-ticks",
+                "9"
+            ])
+            .is_err()
+        );
+        assert!(args(&["--scenario", "idle", "--freeze", "--exit-after-ticks", "9"]).is_err());
     }
 
     #[test]

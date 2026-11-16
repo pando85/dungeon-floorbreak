@@ -39,11 +39,30 @@ use bevy::{
 };
 
 use crate::lighting::{
-    GatheredLights, LightingScene, MAX_EMISSIVE_COLOURS, MAX_LIGHTS, MAX_SHADOWS, MAX_SLOTS,
-    ShadowEllipse, hex_unit, parse_hex,
+    GLOW_FALLOFF_K, GatheredLights, LightingScene, MAX_EMISSIVE_COLOURS, MAX_LIGHTS, MAX_SHADOWS,
+    MAX_SLOTS, POOL_FALLOFF_K, ShadowEllipse, hex_unit, parse_hex,
 };
 
-const SHADER_SOURCE: &str = include_str!("light_pass.wgsl");
+const SHADER_BODY: &str = include_str!("light_pass.wgsl");
+
+/// The shader module source: constants from Rust prepended to the WGSL body, so
+/// array lengths, flag bits and falloff constants have one home.
+pub fn shader_source() -> String {
+    format!(
+        "const MAX_SHADOWS: u32 = {}u;\nconst MAX_EMISSIVE: u32 = {}u;\nconst MAX_SLOTS: u32 = {}u;\nconst MAX_LIGHTS: u32 = {}u;\n\
+         const FLAG_EMISSIVE: u32 = {}u;\nconst FLAG_SHADOW: u32 = {}u;\nconst FLAG_PARALLAX: u32 = {}u;\n\
+         const POOL_K: f32 = {:?};\nconst GLOW_K: f32 = {:?};\n{SHADER_BODY}",
+        MAX_SHADOWS,
+        MAX_EMISSIVE_COLOURS,
+        MAX_SLOTS,
+        MAX_LIGHTS,
+        FLAG_EMISSIVE,
+        FLAG_SHADOW,
+        FLAG_PARALLAX,
+        POOL_FALLOFF_K,
+        GLOW_FALLOFF_K,
+    )
+}
 const LIGHT_SHADER: Handle<Shader> = uuid_handle!("7c0f3a52-6c1d-4f6e-9a8b-2f6d1d0b5e01");
 
 /// Render layer of slot `i` (layers 1..=MAX_SLOTS; layer 0 is the plain scene).
@@ -155,7 +174,19 @@ pub fn pack_uniform(frame: &PassFrame, target_px: Vec2) -> LightingUniform {
         .actor_contact_shadow
         .as_ref()
         .map_or(0.0, |s| s.strength);
-    let shadow_count = frame.shadows.len().min(MAX_SHADOWS);
+    // The budgets are validated at load (`LightingScene::build`) and by
+    // `gather`; truncating here would be silent, so exceeding them is a bug.
+    assert!(
+        frame.shadows.len() <= MAX_SHADOWS,
+        "{} contact shadows exceed the pass budget of {MAX_SHADOWS}",
+        frame.shadows.len()
+    );
+    assert!(
+        frame.gathered.lights.len() <= MAX_LIGHTS,
+        "{} lights exceed the pass budget of {MAX_LIGHTS}",
+        frame.gathered.lights.len()
+    );
+    let shadow_count = frame.shadows.len();
     u.target_px = Vec4::new(
         target_px.x,
         target_px.y,
@@ -166,7 +197,7 @@ pub fn pack_uniform(frame: &PassFrame, target_px: Vec2) -> LightingUniform {
         },
         shadow_strength,
     );
-    for (i, e) in frame.shadows.iter().take(MAX_SHADOWS).enumerate() {
+    for (i, e) in frame.shadows.iter().enumerate() {
         u.shadows[i] = Vec4::new(e.cx, e.cy, e.half_w, e.half_h);
     }
     let colours: Vec<[u8; 3]> = profile
@@ -175,18 +206,20 @@ pub fn pack_uniform(frame: &PassFrame, target_px: Vec2) -> LightingUniform {
         .iter()
         .filter_map(|c| parse_hex(c))
         .collect();
-    for (i, c) in colours.iter().take(MAX_EMISSIVE_COLOURS).enumerate() {
+    // `LightingProfile::validate` caps the list at MAX_EMISSIVE_COLOURS.
+    assert!(colours.len() <= MAX_EMISSIVE_COLOURS);
+    for (i, c) in colours.iter().enumerate() {
         u.emissive[i] = Vec4::new(f32::from(c[0]), f32::from(c[1]), f32::from(c[2]), 0.0);
     }
     u.bloom = Vec4::new(
         profile.bloom.threshold / 255.0,
         profile.bloom.intensity,
         profile.bloom.radius_virtual,
-        colours.len().min(MAX_EMISSIVE_COLOURS) as f32,
+        colours.len() as f32,
     );
     let g = frame.gathered;
     u.ranges = UVec4::new(g.far_end, g.mid_end, g.scene_end, g.lights.len() as u32);
-    for (i, l) in g.lights.iter().take(MAX_LIGHTS).enumerate() {
+    for (i, l) in g.lights.iter().enumerate() {
         u.lights[i] = GpuLight {
             pos: Vec4::new(l.x, l.y, l.radius, l.squash_y),
             colour: Vec4::new(l.colour[0], l.colour[1], l.colour[2], l.intensity),
@@ -329,7 +362,7 @@ impl Plugin for LightPassPlugin {
             .resource_mut::<Assets<Shader>>()
             .insert(
                 &LIGHT_SHADER,
-                Shader::from_wgsl(SHADER_SOURCE, "floor01_light_pass.wgsl"),
+                Shader::from_wgsl(shader_source(), "floor01_light_pass.wgsl"),
             )
             .expect("shader handle is a UUID");
         app.add_plugins(Material2dPlugin::<LightingMaterial>::default());
@@ -346,13 +379,12 @@ pub struct LightRig {
     pub view: UVec2,
 }
 
-fn target_image(images: &mut Assets<Image>, size: UVec2) -> Handle<Image> {
-    images.add(Image::new_target_texture(
-        size.x,
-        size.y,
-        TextureFormat::Rgba8UnormSrgb,
-        None,
-    ))
+/// A render-target image. Slot images are `Rgba8UnormSrgb` (sprites write
+/// linear values, the target stores them encoded). The emissive and blur
+/// targets are `Rgba8Unorm`: the shader writes and reads encoded values directly,
+/// which avoids a pow() per blur tap.
+fn target_image(images: &mut Assets<Image>, size: UVec2, format: TextureFormat) -> Handle<Image> {
+    images.add(Image::new_target_texture(size.x, size.y, format, None))
 }
 
 fn fixed_projection(width: f32, height: f32) -> Projection {
@@ -418,15 +450,16 @@ pub fn spawn_rig(
 ) -> LightRig {
     let slot_count = scene.plan.slots.len();
     assert!(slot_count <= MAX_SLOTS, "slot plan is validated at load");
-    let slot_images: Vec<Handle<Image>> =
-        (0..MAX_SLOTS).map(|_| target_image(images, view)).collect();
+    let slot_images: Vec<Handle<Image>> = (0..MAX_SLOTS)
+        .map(|_| target_image(images, view, TextureFormat::Rgba8UnormSrgb))
+        .collect();
     for (i, image) in slot_images.iter().enumerate().take(slot_count) {
         commands.spawn(slot_camera(i as isize, image.clone(), view, slot_layer(i)));
     }
 
-    let emissive_image = target_image(images, view);
-    let blur_h_image = target_image(images, view);
-    let blur_v_image = target_image(images, view);
+    let emissive_image = target_image(images, view, TextureFormat::Rgba8Unorm);
+    let blur_h_image = target_image(images, view, TextureFormat::Rgba8Unorm);
+    let blur_v_image = target_image(images, view, TextureFormat::Rgba8Unorm);
     let material = |pass: LightPass, aux: &Handle<Image>, step: Vec2| {
         // Static values for the blur stages; the emissive and composite stages
         // are rewritten every frame.
@@ -656,5 +689,142 @@ mod tests {
         assert_ne!(flame(&u0), flame(&u1));
         // Squash only on the floor pools.
         assert!(u0.lights.iter().take(n).any(|l| l.pos.w == 0.32));
+    }
+
+    // ---- shader <-> Rust agreement (naga is a test-only dependency)
+
+    fn parsed_shader() -> naga::Module {
+        let source = shader_source();
+        naga::front::wgsl::parse_str(&source)
+            .unwrap_or_else(|e| panic!("{}", e.emit_to_string(&source)))
+    }
+
+    #[test]
+    fn the_shader_validates_and_exposes_the_expected_entry_points() {
+        let module = parsed_shader();
+        naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::all(),
+        )
+        .validate(&module)
+        .expect("light_pass.wgsl validates");
+        let mut entries: Vec<&str> = module
+            .entry_points
+            .iter()
+            .map(|e| e.name.as_str())
+            .collect();
+        entries.sort_unstable();
+        assert_eq!(entries, ["blur", "composite", "emissive"]);
+        // Bindings: the uniform, one texture per slot, one aux texture.
+        let bindings: Vec<u32> = module
+            .global_variables
+            .iter()
+            .filter_map(|(_, g)| g.binding.as_ref().map(|b| b.binding))
+            .collect();
+        assert_eq!(bindings.len(), 2 + MAX_SLOTS);
+        assert!(bindings.iter().all(|b| *b <= 1 + MAX_SLOTS as u32));
+    }
+
+    #[test]
+    fn the_shader_params_block_matches_the_rust_uniform_layout() {
+        let module = parsed_shader();
+        let (_, params) = module
+            .global_variables
+            .iter()
+            .find(|(_, g)| g.name.as_deref() == Some("params"))
+            .expect("params uniform");
+        let mut layouter = naga::proc::Layouter::default();
+        layouter.update(module.to_ctx()).expect("layout");
+        assert_eq!(
+            u64::from(layouter[params.ty].size),
+            uniform_size(),
+            "WGSL Params size differs from LightingUniform (array lengths or fields out of step)"
+        );
+        // Member order and offsets, from the shader's own declaration.
+        let naga::TypeInner::Struct { members, .. } = &module.types[params.ty].inner else {
+            panic!("Params is a struct");
+        };
+        let names: Vec<&str> = members.iter().filter_map(|m| m.name.as_deref()).collect();
+        assert_eq!(
+            names,
+            [
+                "view",
+                "target_px",
+                "bloom",
+                "blur",
+                "ranges",
+                "shadows",
+                "emissive",
+                "slots",
+                "lights"
+            ]
+        );
+        let offset = |name: &str| {
+            members
+                .iter()
+                .find(|m| m.name.as_deref() == Some(name))
+                .unwrap()
+                .offset
+        };
+        assert_eq!(offset("shadows"), 80);
+        assert_eq!(offset("emissive"), 80 + 16 * MAX_SHADOWS as u32);
+        assert_eq!(
+            offset("slots"),
+            offset("emissive") + 16 * MAX_EMISSIVE_COLOURS as u32
+        );
+        assert_eq!(offset("lights"), offset("slots") + 64 * MAX_SLOTS as u32);
+    }
+
+    #[test]
+    fn injected_constants_come_from_the_rust_side() {
+        let source = shader_source();
+        for needle in [
+            "const MAX_LIGHTS: u32 = 64u;",
+            "const MAX_SLOTS: u32 = 6u;",
+            "const MAX_SHADOWS: u32 = 8u;",
+            "const MAX_EMISSIVE: u32 = 16u;",
+            "const FLAG_EMISSIVE: u32 = 1u;",
+            "const FLAG_SHADOW: u32 = 2u;",
+            "const FLAG_PARALLAX: u32 = 4u;",
+            "const POOL_K: f32 = 5.0;",
+            "const GLOW_K: f32 = 30.0;",
+        ] {
+            assert!(source.contains(needle), "missing {needle}");
+        }
+        // No second copy of a constant left in the body.
+        assert!(!SHADER_BODY.contains("const FLAG_"));
+        assert!(!SHADER_BODY.contains("5.0 * t2") && !SHADER_BODY.contains("30.0 * t2"));
+    }
+
+    #[test]
+    #[should_panic(expected = "exceed the pass budget")]
+    fn packing_more_lights_than_the_budget_is_a_loud_bug() {
+        let kit = kit();
+        let scene = kit.lighting.as_ref().unwrap();
+        let template = crate::lighting::ViewLight {
+            group: LightGroup::Scene,
+            x: 0.0,
+            y: 0.0,
+            radius: 10.0,
+            squash_y: 1.0,
+            colour: [1.0; 3],
+            intensity: 1.0,
+            glow_radius: 0.0,
+            glow_additive: 0.0,
+            rank: 1.0,
+        };
+        let gathered = GatheredLights {
+            lights: vec![template; MAX_LIGHTS + 1],
+            ..Default::default()
+        };
+        let frame = PassFrame {
+            scene,
+            gathered: &gathered,
+            shadows: &[],
+            view_w: 640,
+            view_h: 360,
+            view_top: 20,
+        };
+        let _ = pack_uniform(&frame, Vec2::new(640.0, 360.0));
     }
 }

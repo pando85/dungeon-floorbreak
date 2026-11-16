@@ -657,6 +657,10 @@ pub fn animation_frame(durations_ms: &[u32], frame_offset: usize, tick: u64) -> 
         return 0;
     }
     let cycle: u64 = durations_ms.iter().map(|&d| u64::from(d)).sum();
+    if cycle == 0 {
+        // All-zero durations would divide by zero; show the first frame.
+        return 0;
+    }
     let start: u64 = durations_ms
         .iter()
         .take(frame_offset % n)
@@ -888,6 +892,12 @@ mod tests {
             }
             assert_eq!((copies[0] - start).rem_euclid(440), 0);
         }
+    }
+
+    #[test]
+    fn all_zero_durations_do_not_divide_by_zero() {
+        assert_eq!(animation_frame(&[0, 0, 0], 1, 1234), 0);
+        assert_eq!(animation_frame(&[0], 0, 5), 0);
     }
 
     #[test]

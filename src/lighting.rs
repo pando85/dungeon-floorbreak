@@ -28,6 +28,12 @@ pub const MAX_SLOTS: usize = 6;
 pub const MAX_SHADOWS: usize = 8;
 /// Most emissive atlas colours the bloom mask accepts.
 pub const MAX_EMISSIVE_COLOURS: usize = 16;
+/// Pool falloff `(1 - t2)^2 / (1 + K t2)`; also injected into the shader.
+pub const POOL_FALLOFF_K: f32 = 5.0;
+/// Glow falloff `(1 - t2)^3 / (1 + K t2)`; also injected into the shader.
+pub const GLOW_FALLOFF_K: f32 = 30.0;
+/// Offsets and projections beyond this many px are rejected as data errors.
+const MAX_COORD: f32 = 16384.0;
 
 #[derive(Debug)]
 pub enum LightingError {
@@ -394,6 +400,11 @@ pub struct Emitter {
 }
 
 impl Emitter {
+    /// How far the emitter's light or glow reaches (px).
+    pub fn reach(&self) -> f32 {
+        self.radius.max(self.glow_radius)
+    }
+
     /// Flicker multiplier at a presentation tick (1.0 without a flicker list).
     /// Driven by the piece's animation frame, so it is a pure function of the
     /// tick and the contract durations.
@@ -424,6 +435,10 @@ pub struct ViewLight {
     pub glow_radius: f32,
     /// Glow strength with the flicker multiplier applied.
     pub glow_additive: f32,
+    /// Strength used to pick which lights to keep when more than `MAX_LIGHTS`
+    /// reach the view. Computed without the flicker multiplier, so the kept set
+    /// does not toggle from frame to frame.
+    pub rank: f32,
 }
 
 /// The view rectangle in layout pixels.
@@ -492,8 +507,12 @@ pub struct LightingScene {
     pub plan: SlotPlan,
     /// Emitters sorted by group (far, mid, scene), then by placement order.
     pub emitters: Vec<Emitter>,
-    /// Largest emitter reach in px; used to include strip copies just off view.
+    /// Largest emitter reach (radius or glow radius) in px; used to include
+    /// strip copies just off view.
     pub max_radius: f32,
+    /// Most lights that reach any view of the layout at any camera position,
+    /// checked against `MAX_LIGHTS` at load.
+    pub worst_case_lights: usize,
 }
 
 impl LightingScene {
@@ -551,41 +570,67 @@ impl LightingScene {
         }
         // Stable sort: placement order inside a group is kept.
         emitters.sort_by_key(|e| e.group);
-        let max_radius = emitters.iter().map(|e| e.radius).fold(0.0, f32::max);
-        Ok(Some(Self {
+        let max_radius = emitters.iter().map(Emitter::reach).fold(0.0, f32::max);
+        let mut scene = Self {
             profile,
             plan,
             emitters,
             max_radius,
-        }))
+            worst_case_lights: 0,
+        };
+        // The pass has a fixed light budget. Prove at load that no camera
+        // position of any layout view exceeds it, so nothing is dropped at run
+        // time (`gather` still truncates defensively and reports it).
+        let mut worst = 0;
+        for view in kit.views.values() {
+            for left in 0..=(kit.width - view.w).max(0) {
+                let rect = ViewRect {
+                    left,
+                    top: view.y,
+                    w: view.w,
+                    h: view.h,
+                };
+                worst = worst.max(scene.gather_all(kit, rect, 0).len());
+            }
+        }
+        if worst > MAX_LIGHTS {
+            return invalid(format!(
+                "up to {worst} lights reach one view; the pass accepts {MAX_LIGHTS}"
+            ));
+        }
+        scene.worst_case_lights = worst;
+        Ok(Some(scene))
     }
 
-    /// Lights that reach `view` at presentation tick `tick`. Pure: reads the
-    /// kit and the emitter list, returns a new list. At most `MAX_LIGHTS` are
-    /// returned; when more reach the view the weakest are dropped (the second
-    /// return value counts them).
-    pub fn gather(&self, kit: &EnvKit, view: ViewRect, tick: u64) -> (GatheredLights, usize) {
+    /// Every light that reaches `view` at presentation tick `tick`, in emitter
+    /// order (far, mid, scene), without the `MAX_LIGHTS` cap.
+    fn gather_all(&self, kit: &EnvKit, view: ViewRect, tick: u64) -> Vec<ViewLight> {
         let mut found: Vec<ViewLight> = Vec::new();
         let margin = self.max_radius.ceil() as i32;
         for emitter in &self.emitters {
             let flicker = emitter.flicker_at(tick);
+            let reach = emitter.reach();
             let mut place = |layout_x: f32| {
                 let x = layout_x - view.left as f32;
                 let y = emitter.y - view.top as f32;
-                let r = emitter.radius;
-                if x + r < 0.0 || x - r > view.w as f32 || y + r < 0.0 || y - r > view.h as f32 {
+                if x + reach < 0.0
+                    || x - reach > view.w as f32
+                    || y + reach < 0.0
+                    || y - reach > view.h as f32
+                {
                     return;
                 }
                 found.push(ViewLight {
                     group: emitter.group,
                     x,
                     y,
-                    radius: r,
+                    radius: emitter.radius,
                     squash_y: emitter.squash_y,
                     colour: emitter.colour,
                     intensity: emitter.intensity * flicker,
                     glow_radius: emitter.glow_radius,
                     glow_additive: emitter.glow_additive * flicker,
+                    rank: emitter.intensity * emitter.radius + emitter.glow_additive,
                 });
             };
             match emitter.strip {
@@ -605,15 +650,23 @@ impl LightingScene {
                 }
             }
         }
+        found
+    }
+
+    /// Lights that reach `view` at presentation tick `tick`. Pure: reads the
+    /// kit and the emitter list, returns a new list. At most `MAX_LIGHTS` are
+    /// returned; when more reach the view the weakest by `rank` are dropped
+    /// (the second return value counts them). `build` proves the layout never
+    /// needs this.
+    pub fn gather(&self, kit: &EnvKit, view: ViewRect, tick: u64) -> (GatheredLights, usize) {
+        let mut found = self.gather_all(kit, view, tick);
         let mut dropped = 0;
         if found.len() > MAX_LIGHTS {
             dropped = found.len() - MAX_LIGHTS;
-            // Keep the strongest; a stable sort keeps placement order for ties.
+            // Keep the strongest by flicker-free rank; ties keep placement
+            // order (stable sort), so the kept set is the same every tick.
             let mut order: Vec<usize> = (0..found.len()).collect();
-            order.sort_by(|&a, &b| {
-                let strength = |l: &ViewLight| l.intensity * l.radius + l.glow_additive;
-                strength(&found[b]).total_cmp(&strength(&found[a]))
-            });
+            order.sort_by(|&a, &b| found[b].rank.total_cmp(&found[a].rank));
             order.truncate(MAX_LIGHTS);
             order.sort_unstable();
             found = order.into_iter().map(|i| found[i]).collect();
@@ -657,13 +710,19 @@ fn derive_emitter(light: &LightDef, piece: &str) -> Result<Emitter, LightingErro
         ));
     };
     let what = |field: &str| format!("light {piece}/{} {field}", light.id);
+    for v in light.offset {
+        in_range(&what("offset"), v, -MAX_COORD, MAX_COORD)?;
+    }
+    if let Some(dy) = light.project_dy {
+        in_range(&what("project_dy"), dy, -MAX_COORD, MAX_COORD)?;
+    }
     in_range(&what("radius"), light.radius, 1.0, 1024.0)?;
     in_range(&what("intensity"), light.intensity, 0.0, 4.0)?;
     let squash_y = light.squash_y.unwrap_or(1.0);
     in_range(&what("squash_y"), squash_y, 0.05, 1.0)?;
     let (glow_radius, glow_additive) = match &light.glow {
         Some(glow) => {
-            in_range(&what("glow radius"), glow.radius, 1.0, 1024.0)?;
+            in_range(&what("glow radius"), glow.radius, 1.0, light.radius)?;
             in_range(&what("glow additive"), glow.additive, 0.0, 1.0)?;
             (glow.radius, glow.additive)
         }
@@ -692,15 +751,18 @@ fn derive_emitter(light: &LightDef, piece: &str) -> Result<Emitter, LightingErro
 
 // --------------------------------------------------------- reference maths --
 //
-// The falloff curves and haze ramp of the Pillow reference model, in Rust, so
-// tests can pin them and the WGSL port can be checked against them.
+// The falloff curves and haze ramp of the Pillow reference model. The shader
+// takes the same `POOL_FALLOFF_K` / `GLOW_FALLOFF_K` constants by injection
+// (`light_pass::shader_source`), so the constants have one home; the curve
+// shape itself exists in both languages and is held together by the render
+// comparison gate (`scripts/compare_floor01_lighting.py`), not by these tests.
 
 /// Pool falloff over `t2 = (d / radius)^2` (squash applied by the caller).
 pub fn pool_falloff(t2: f32) -> f32 {
     if t2 >= 1.0 {
         0.0
     } else {
-        (1.0 - t2).powi(2) / (1.0 + 5.0 * t2)
+        (1.0 - t2).powi(2) / (1.0 + POOL_FALLOFF_K * t2)
     }
 }
 
@@ -709,7 +771,7 @@ pub fn glow_falloff(t2: f32) -> f32 {
     if t2 >= 1.0 {
         0.0
     } else {
-        (1.0 - t2).powi(3) / (1.0 + 30.0 * t2)
+        (1.0 - t2).powi(3) / (1.0 + GLOW_FALLOFF_K * t2)
     }
 }
 
@@ -1055,33 +1117,145 @@ mod tests {
     }
 
     #[test]
-    fn lighting_never_changes_the_simulation_state() {
-        // The same scripted run with lighting derived every tick (gather on the
-        // camera view, as the renderer does) and with no lighting at all ends
-        // in the same state hash at every checkpoint.
+    fn deriving_lights_leaves_the_simulation_state_untouched() {
+        // What this proves: running the lighting derivation (`gather`) on a
+        // live sim does not change that sim's state hash at any tick (it would
+        // catch interior mutability or a shared mutable global). What it does
+        // not prove: that the render path never feeds the sim. That is argued
+        // by the borrow types (lighting takes `&EnvKit` and `&`-only state)
+        // and checked end to end by CI, which steps a live scripted run with
+        // lighting systems active and with `--no-lighting` and compares the
+        // final state line.
         let kit = kit();
         let s = scene(&kit);
-        let mut plain = SceneSim::new(&kit, 360).unwrap();
-        let mut lit = SceneSim::new(&kit, 360).unwrap();
-        for tick in 0..420u64 {
-            let raw = Scenario::WalkRight.input(&plain.world);
-            plain.step(raw);
-            let raw = Scenario::WalkRight.input(&lit.world);
-            lit.step(raw);
+        let mut sim = SceneSim::new(&kit, 360).unwrap();
+        for _ in 0..420u64 {
+            let raw = Scenario::WalkRight.input(&sim.world);
+            sim.step(raw);
+            let before = (sim.state_hash(), sim.state_line());
             let view = ViewRect {
-                left: lit.camera.left(),
-                top: lit.camera.top(),
+                left: sim.camera.left(),
+                top: sim.camera.top(),
                 w: 640,
                 h: 360,
             };
-            let (gathered, _) = s.gather(&kit, view, lit.world.tick);
+            let (gathered, _) = s.gather(&kit, view, sim.world.tick);
             assert!(!gathered.lights.is_empty());
-            if tick % 60 == 0 {
-                assert_eq!(plain.state_hash(), lit.state_hash(), "tick {tick}");
-                assert_eq!(plain.state_line(), lit.state_line());
+            assert_eq!((sim.state_hash(), sim.state_line()), before);
+        }
+    }
+
+    #[test]
+    fn more_than_the_budget_keeps_a_stable_strongest_set() {
+        let kit = kit();
+        let mut s = scene(&kit).clone();
+        let base = s.emitters.clone();
+        for _ in 0..5 {
+            s.emitters.extend(base.clone());
+        }
+        let view = VIEW;
+        let (first, dropped) = s.gather(&kit, view, 0);
+        assert!(dropped > 0, "synthetic scene must exceed the budget");
+        assert_eq!(first.lights.len(), MAX_LIGHTS);
+        assert_eq!(first.scene_end as usize, MAX_LIGHTS);
+        assert!(first.far_end <= first.mid_end && first.mid_end <= first.scene_end);
+        let identity = |g: &GatheredLights| -> Vec<(LightGroup, u32, u32, u32)> {
+            g.lights
+                .iter()
+                .map(|l| (l.group, l.x.to_bits(), l.y.to_bits(), l.radius.to_bits()))
+                .collect()
+        };
+        // Flicker changes intensities between ticks but never the kept set.
+        let mut intensity_changed = false;
+        for tick in 1..60u64 {
+            let (g, d) = s.gather(&kit, view, tick);
+            assert_eq!(d, dropped);
+            assert_eq!(
+                identity(&g),
+                identity(&first),
+                "kept set toggled at tick {tick}"
+            );
+            intensity_changed |= g
+                .lights
+                .iter()
+                .zip(&first.lights)
+                .any(|(a, b)| a.intensity != b.intensity);
+        }
+        assert!(
+            intensity_changed,
+            "flicker must still reach the kept lights"
+        );
+        // The strongest lights survive: every kept rank is >= every dropped one.
+        let all = s.gather_all(&kit, view, 0);
+        let kept_min = first.lights.iter().map(|l| l.rank).fold(f32::MAX, f32::min);
+        let mut ranks: Vec<f32> = all.iter().map(|l| l.rank).collect();
+        ranks.sort_by(|a, b| b.total_cmp(a));
+        assert!(ranks[MAX_LIGHTS - 1] >= kept_min - 1e-6);
+    }
+
+    #[test]
+    fn the_sample_layout_proves_its_light_budget_at_load() {
+        let kit = kit();
+        let s = scene(&kit);
+        assert!(s.worst_case_lights > 5 && s.worst_case_lights <= MAX_LIGHTS);
+    }
+
+    #[test]
+    fn an_over_budget_layout_fails_the_load() {
+        // Duplicate every emitter placement until the budget is exceeded.
+        let (mut contract, layout) = files();
+        for piece in &mut contract.pieces {
+            if piece.id == "torch_wall" {
+                let copy = piece.lights.clone();
+                for n in 0..12 {
+                    for l in &copy {
+                        let mut l = l.clone();
+                        l.id = format!("{}_x{n}", l.id);
+                        piece.lights.push(l);
+                    }
+                }
             }
         }
-        assert_eq!(plain.state_hash(), lit.state_hash());
+        let error = EnvKit::build(&contract, &layout).unwrap_err().to_string();
+        assert!(error.contains("lights reach one view"), "{error}");
+    }
+
+    #[test]
+    fn light_data_is_range_checked() {
+        let (contract, layout) = files();
+        let bad = |edit: &dyn Fn(&mut LightDef)| {
+            let mut contract = contract.clone();
+            for piece in &mut contract.pieces {
+                if piece.id == "torch_wall" {
+                    edit(&mut piece.lights[0]);
+                }
+            }
+            EnvKit::build(&contract, &layout).unwrap_err().to_string()
+        };
+        assert!(bad(&|l| l.offset[0] = f32::NAN).contains("offset"));
+        assert!(bad(&|l| l.offset[1] = f32::INFINITY).contains("offset"));
+        assert!(bad(&|l| l.offset[1] = 1.0e9).contains("offset"));
+        assert!(bad(&|l| l.project_dy = Some(f32::NAN)).contains("project_dy"));
+        // glow must not reach farther than the light itself
+        assert!(
+            bad(&|l| l.glow = Some(GlowDef {
+                radius: 400.0,
+                additive: 0.1
+            }))
+            .contains("glow radius")
+        );
+    }
+
+    #[test]
+    fn culling_uses_the_larger_of_light_and_glow_reach() {
+        let kit = kit();
+        let s = scene(&kit);
+        assert!(
+            s.emitters
+                .iter()
+                .all(|e| e.reach() >= e.radius.max(e.glow_radius))
+        );
+        assert!(s.max_radius >= 250.0);
     }
 
     #[test]
