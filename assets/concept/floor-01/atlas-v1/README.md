@@ -1,13 +1,28 @@
-# Floor 01 environment art atlas — concept image staging area
+# Floor 01 environment concept atlas — upload package
 
-**Status:** art-direction references, NOT production pixels. The chosen concept look is described in [Floor 01 art atlas v1](../../../../docs/02-art/floor-01-art-atlas-v1.md), and future production tasks are sequenced in [area kit plan](../../../../docs/07-agents/floor-01-area-kits-plan.md).
+**Scope:** project-generated concept art and visual direction references only. This folder is **not** an editable pixel art source or runtime tile atlas. Keep it under `assets/concept/`, never `generated/art/` or `assets/source/`.
 
-Ten PNGs (one overview and area concepts 02–10) are prepared for uploading to this folder; the files are **not part of this documentation-only branch until actually pushed**. Their filenames, sizes, SHA-256 hashes and provenance appear in the staged [manifest](manifest.json). Area 01 already exists in `../opening/` and is intentionally not duplicated.
+**Selected overall direction:** a single coherent brick-catacomb Floor 1; restrained ordinary corridors; expressive, function-specific landmark rooms and territories; escalating sense of spectacle. The user liked the visual direction. Exact tile shapes, final palette, enemy anatomy, levels and game feel await separate approval.
 
-- **02–08:** selected standalone conceptual environment images, with user-approved broad visual direction only.
-- **09–10:** provisional *lossless crops of the atlas poster*, not finished solo concept compositions.
-- **00:** overview board. Generated typography and implied topology are not authoritative game design.
+## Files
 
-**Restrictions:** concept art only; never crop into actual runtime art/sprites/physics. All playable visuals need editable native grid/Aseprite sources, testable exports and **real Bevy** screenshots. Correct Carl (52 opaque px) and Donut (40 opaque px) assets must come only from approved editable masters. No invented shotgun. See rights register before public distribution.
+- `00-floor01-art-atlas-overview.png` — ten-area overview. AI-written lettering, claims, and topology are **not authoritative**.
+- `02-tutorial-guild-old-guide.png` — approved preferred third option for Mordecai's modest room.
+- `03-bad-llamas-scorched-corridor.png` — localized scorch marks and heat on the common brick language.
+- `04-fast-food-refuge.png` — 1990s blue/white restaurant and children's play structure.
+- `05-hoarder-lair.png` — concentrated junk/horror only in the special lair.
+- `06-goblin-workshop.png` — industrial density for the later workshop, **not** the first chase corridor. Vehicle details may differ from the approved Murder Dozer source concept.
+- `07-slimes-rot-stickers.png` — selected acid-stain catacomb and wall/ceiling hazard mood; parasites are concept only.
+- `08-circular-maze-survivor-camp.png` — monumental ring structures plus improvised camp.
+- `09-juicer-gym-atlas-excerpt.png` — **provisional** extracted portion of the overview, not a standalone detailed art piece.
+- `10-ball-of-swine-arena-atlas-excerpt.png` — **provisional** extracted portion of the overview, not a standalone detailed art piece.
 
-Once image bytes are uploaded, validate manifest hashes and update the art-atlas document to link only existing files. Keep this PR open until the image upload is complete.
+Area 01 (the opening catacomb) is already committed in `assets/concept/floor-01/opening/` and is intentionally not duplicated here.
+
+## Limits
+
+- The images are **not screenshots from Bevy**, not native editable sprite art, not LDtk levels, and not evidence of a running scene.
+- Generated characters, monsters, equipment, signs, glyphs, numeric dimensions or names are not automatically accepted canon. Never derive Carl/Donut sprites from generated illustrations.
+- The fully rendered atlas overview contains several composition liberties. Book-derived facts are documented separately in `docs/02-art/floor-01-art-atlas-v1.md`.
+- The gym's reception/turnstile and the arena's changing walls and concentric grooves are important book-grounded features, but the overview crops do not prove these geometry concepts. Author native-scale studies first.
+- All images are concept references with `sha256` / byte provenance in `manifest.json`. Image generation provenance is from this project's conversation; these files have no third-party extracted pixels. Owner-reported publication rights apply only as limited by `docs/04-production/rights-and-release.md`. No independent legal clearance is asserted.
