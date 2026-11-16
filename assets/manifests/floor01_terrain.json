@@ -62,7 +62,7 @@
   "review_status": "prototype_fixture_unapproved",
   "provenance": {
     "origin": "Original pixel-grid-v1 collidable 16x16 terrain tileset for the Floor 1 catacomb environment kit (ENV-01); not cropped, traced or resampled from concept art",
-    "generator": "Deterministic authoring script scripts/author_floor01_kit.py written by an AI agent (Claude Opus): rule-placed brick coursing, stone edges and hand-drawn prop/flame pixel strings; no image-model raster output. Revised after an independent Claude Opus art-director review (revision 1)",
+    "generator": "Deterministic authoring script scripts/author_floor01_kit.py written by an AI agent (Claude Opus): rule-placed brick coursing, stone edges and hand-drawn prop/flame pixel strings; no image-model raster output. Revised after independent Claude Opus art-director reviews (revisions 1 and 2)",
     "generated_art": true,
     "input_reference_ids": [
       "floor-01-opening/01-catacomb-environment-clean (mood and palette direction only)"

@@ -23,8 +23,8 @@ The kit does **not** contain the special entrance landmark (fish-demon relief, g
 | --- | --- | --- | --- |
 | `collision` | `floor01_terrain` | `assets/source/terrain/floor01/terrain.{grid.json,ase}` | 32 opaque tiles: `floor_top_a/b/c/d`, `floor_top_end_l/r`, `floor_fill_a/b`, `floor_fill_side_l/r`, `floor_inner_corner_l/r` and `floor_step_base_a/b` (footing under a raised block), `ceiling_edge_a/b/c`, `ceiling_fill_a/b`, `ceiling_corner_in_l/r`, `ceiling_corner_out_l/r`, `wall_fill_a/b`, `wall_face_l/r` and `wall_face_l_b/r_b` (stone quoins, two phases), `wall_cap_l/mid/r` |
 | `backwall` | `floor01_backwall` | `assets/source/terrain/floor01/backwall.{grid.json,ase}` | 64 opaque tiles: six 4×2 brick panels `brick_backwall_a1`…`f8`, the under-ceiling strip `brick_backwall_top_1..4`, the plinth strip `brick_backwall_base_1..4`, and eight `recess_*` blue-depth tiles |
-| `structure` | `floor01_structure` | `assets/source/terrain/floor01/structure.{grid.json,ase}` | `arch_ring_r72` (11 voussoirs, inner radius 72 px, outer radius 96 px), `pier_capital`, `pier_shaft` (repeats vertically), `pier_base`, and `far_arcade_a` (three far openings) / `far_arcade_b` (two wider openings) for the depth inside an opening |
-| `prop` | `floor01_props` | `assets/source/props/floor01/props.{grid.json,ase}` | `pipe_h_a`, `pipe_h_rust`, `pipe_h_flange`, `pipe_h_bracket`, `pipe_v_a`, `pipe_v_bracket`, `pipe_elbow_r_d`, `pipe_elbow_l_u`, `valve_wheel`, `pipe_v_floor_collar`, `pipe_v_ceiling_collar`, `pipe_wall_collar_r` (round face-on wall collar), `maintenance_box`, `door_plank` (64 px timber door in a stone frame), `torch_wall_unlit` and the optional `lichen_crust` |
+| `structure` | `floor01_structure` | `assets/source/terrain/floor01/structure.{grid.json,ase}` | `arch_ring_r72` (11 voussoirs, inner radius 72 px, outer radius 96 px), `pier_capital`, `pier_shaft` (repeats vertically), `pier_base`, `pilaster_plain` (32×16 piece with a 24 px stone shaft, stacks vertically; a plain structural break for long A runs), and `far_arcade_a` (three far openings) / `far_arcade_b` (two wider openings) for the depth inside an opening |
+| `prop` | `floor01_props` | `assets/source/props/floor01/props.{grid.json,ase}` | `pipe_h_a`, `pipe_h_rust`, `pipe_h_flange`, `pipe_h_bracket`, `pipe_v_a`, `pipe_v_bracket`, `pipe_elbow_r_d`, `pipe_elbow_l_u`, `valve_wheel`, `pipe_v_floor_collar`, `pipe_v_ceiling_collar`, `pipe_wall_collar_r` (round face-on wall collar), `maintenance_box`, `door_plank` (40×80 piece: a 32×72 timber leaf in a stone frame), `torch_wall_unlit` and the optional `lichen_crust` |
 | `backwall` (decals) | `floor01_props` | same | `torch_glow` (minimal warm light on brick faces and top edges) and `grime_patch_a/b` (soot on a few whole bricks), both following the brick coursing |
 | `prop` (animated) | `floor01_torch` | `assets/source/props/floor01/torch.{grid.json,ase}` | `torch_wall`: four frames, tag `burn`, 120/140/100/130 ms, forward loop |
 
@@ -39,22 +39,22 @@ One shared palette of 47 opaque colours, embedded with names in every grid and `
 | Brick (6) | `m a b c d e` | Muted, low-saturation red-brown backwall: mortar one step below the darkest face and a five-step face ramp (L* 23–35). Lower in contrast than actors and the floor edge |
 | Torchlit (3) | `f g h` | Restrained warm light on brick faces near torches only |
 | Stone (8) | `s t u v w x y z` | Neutral stone warmed toward the brick hue but less saturated, so piers and arches read as the same material family: ceiling course, arches, piers, quoins, floor lip (`y`) and glint (`z`, accent) |
-| Floor surface (3) | `D E F` | Dry walking surface and the floor front face, warmed by torchlight |
-| Depth (6) | `0 1 2 3 4 5` | Cold blue recesses and far arcade: dark vault (L* 7) to actor-height haze (L* 21–26) and a far floor line (L* 32) |
-| Flame (4) | `R O Y W` | Torch flame and two 2 px distant torches |
+| Floor surface (3) | `D E F` | Dry walking surface and the floor front face, at the pier stone's low chroma (C* ≤ ~6) so the floor reads gray stone, not brown |
+| Depth (6) | `0 1 2 3 4 5` | Cold blue recesses and far arcade: dark vault (L* 7) to actor-height haze (L* 21–26); far-floor contact lines are dark (L* 16) |
+| Flame (4) | `R O Y W` | Torch flame and one ember pixel |
 | Iron (6) | `k i j l n o` | Sconce, pipes, valve hub and box (`o` is an accent glint) |
 | Rust / paint (5) | `q r p P T` | Sparse rust, valve wheel red and a blank ochre plate on the box |
 | Timber (3) | `U V X` | The plain door's planks |
-| Lichen (3) | `G H L` | The single optional crust (two greens plus one `L` glow pixel) |
+| Lichen (3) | `G H L` | The single optional crust: two desaturated greens (L* 20/26, a* ≈ −8) plus one muted `L` glow pixel |
 
 ## A/B/C usage rules
 
-- **A: plain fabric.** Brick panels between the top strip and the plinth strip, with `floor_top_a/b/c/d` over `floor_fill_*`. Place a `torch_wall` with its `torch_glow` at uneven spacing (roughly every 10 to 20 columns) above head height; row 10 of the sample places the flame about 150 px above the floor. An occasional `torch_wall_unlit`, `door_plank` or `grime_patch_a/b` breaks repetition. Leave long stretches empty.
+- **A: plain fabric.** Brick panels between the top strip and the plinth strip, with `floor_top_a/b/c/d` over `floor_fill_*`. Place a `torch_wall` with its `torch_glow` at uneven spacing (roughly every 10 to 20 columns) above head height; row 10 of the sample places the flame about 150 px above the floor. An occasional `torch_wall_unlit`, `door_plank`, `grime_patch_a/b` or one plain `pilaster_plain` breaks repetition. Leave long stretches empty.
 - **B: rhythm.** Stack `pier_base`, 3× `pier_shaft` and `pier_capital`. Pier centres sit 192 px apart (12 columns), and one `arch_ring_r72` springs from the capital tops. The backwall cells inside the ring's mid-radius, and the opening below the springing line, use `recess_*` bands from top to bottom: `vault` → `vault_fade` → `wall_a/b` → `wall_fade` → `low` → `haze` → `floor`. `far_arcade_a/b` sit on the opening's floor line; alternate them between neighbouring openings. Use B for junctions, landmarks and orientation, not as wallpaper.
 - **C: special function, used sparingly.** Use one pipe run (elbows, straight runs, one bracket or flange), one `valve_wheel` and one `maintenance_box`. Every pipe end terminates in a collar or the box, never in mid-air: `pipe_v_floor_collar` into the floor, `pipe_v_ceiling_collar` into the ceiling course, or `pipe_wall_collar_r` into the wall. `lichen_crust` is optional and only belongs next to a damp source, such as below the valve. Do not repeat C dressing along ordinary corridors and do not grow it into a workshop.
 - **Corridor ends and raised blocks.** Close a corridor with `wall_face_l/r` (stack with `wall_face_*_b` for the second quoin phase), `ceiling_corner_in_l/r` where the ceiling meets the wall, `wall_cap_l/mid/r` on top of low walls and `ceiling_corner_out_l/r` where a ceiling course ends. Under a raised block that stands on the floor, use `floor_inner_corner_l/r` at its ends and `floor_step_base_a/b` between them, so the block's lit side edge stops at the walking line. The sample layout does not end the corridor (its floor must stay continuous); the contact sheet shows these tiles.
 - **Panels:** within a row, a brick panel cell must be followed by its right-hand neighbour in the same panel. A panel's last column may be followed by column 0 of any panel in the same family. Any vertical order is seamless. The joints are the same everywhere (even courses at x ≡ 15, odd courses at x ≡ 7 mod 16), which is why the grid-aligned `torch_glow` matches every panel.
-- **Contact zones:** the plinth strip directly above the floor is solid dark stone (no high-frequency detail), and so is the contact shadow under the ceiling course, so feet, the floor lip and collision edges read cleanly. Keep small props out of the 64 px band above the floor; only a single vertical conduit and the plain door reach down to it.
+- **Contact zones:** the plinth strip directly above the floor is solid dark stone (no high-frequency detail), and so is the contact shadow under the ceiling course, so feet, the floor lip and collision edges read cleanly. Keep small props out of the 64 px band above the floor; only a single vertical conduit, the plain door and a pilaster reach down to it.
 
 ## Integration contract (for COMP-01)
 
@@ -92,7 +92,7 @@ Neither file lives in `assets/manifests/`, because every JSON file there is trea
   - row 20: floor top (`base_floor_top_y` = 320, the most common surface row x 16);
   - rows 21 to 24: floor fill.
 - **Floor:** the floor is collidable and continuous from end to end with no pits. One raised block, one tile high, sits at columns 30 to 37; it uses `floor_top_end_l/r` on top and `floor_inner_corner_l/r` plus `floor_step_base_a/b` as its footing. The validator enforces "no pit" and "step ≤ 2 tiles" per column.
-- **Dressing:** torches at columns 7, 18, 33, 50, 82 and 94 (uneven spacing), a burnt-out sconce at column 42, a door at columns 12–13, five grime patches, and in C a pipe run that rises into the ceiling course at column 85 and feeds the box and a floor conduit.
+- **Dressing:** torches at columns 7, 18, 33, 50, 82 and 94 (uneven spacing), a burnt-out sconce at column 42, a 40×80 door at x 192–231, six grime patches, a plain stone pilaster at x 412–435, and in C a pipe run that rises into the ceiling course at column 85 and feeds the box and a floor conduit.
 - **Segments** (`x` in px): `A1` 0 to 896, `B1` 896 to 1136 (one arch), `C1` 1136 to 1408, `A2` 1408 to 1600, `B2` 1600 to 2048 (two arches).
 - **Markers:** `player_spawn` (x 72), `exit_east` (x 1896, inside the far B2 arch, with a trigger rect). The marker `y` is the actor pivot row, 319.
 - **Views:** `abc_640x360` = `[736, 32, 640, 360]` and `abc_640x400` = `[736, 0, 640, 400]`. Both read A → B → C from left to right.
@@ -197,11 +197,21 @@ After hand-editing a grid, run the export and commit the regenerated `.ase`. CI 
    - *Modularity essentials:* wall faces with quoins, wall caps, ceiling inner/outer corners, `door_plank`, `pipe_elbow_l_u` and `torch_wall_unlit`.
    - *Nice-to-have:* the lichen became a flat 8×3 crust on a mortar joint, `grime_patch_a/b` decals add soot over a few bricks in A, torch spacing varies, and the torch has a stronger leaning frame plus one ember pixel.
 
+6. **Revision round 2 (independent Claude Opus re-review: "ready for human art review", no blockers; should-fix and cheap nice-to-haves applied).**
+   - *Door:* `door_plank` grew from 32×64 (24×58 leaf, 6 px headroom over Carl) to a 40×80 piece with a 32×72 timber leaf; the lintel and 4 px jambs are unchanged. It sits on the floor at x 192–231 of the sample.
+   - *Segment A monotony:* grime patches now cover five whole bricks each at brick L* 25.5 (one core brick 23.1) against 27.5–32.6 faces. Measured over each 48×16 patch, mortar included, they are 3.1–3.9 L* darker than the wall beside them (faces alone 4.5–6.9). Six patches sit across A1/A2. One plain `pilaster_plain` stone shaft (x 412–435, ceiling to floor) is the single structural break in A. The mean wall L* per 64 px column in A1 stays 28.3–29.3, so the variation is local, not a value ramp.
+   - *B haze vs water:* the bright 1 px far-floor line (L* 32) in each far bay and in `recess_floor` is now a dark contact line (L* 15.9). The notched fringe under each arch head is now a plain 2-row step: arch head L* 11.1, two rows of 15.9, then floor haze 25.9; far floor 21.1.
+   - *Nice-to-have:*
+     - the outer `torch_glow` band stops short on alternating courses, so its silhouette is ragged;
+     - the lichen is desaturated (a* ≈ −8, L* ≈ 20–26);
+     - the floor surface is at the pier-stone chroma;
+     - the 2 px far-pier torch dots were removed rather than enlarged.
+
 ## ENV-02 follow-up (listed, not built)
 
 - A lower-ceiling corridor variant.
 - A blind (filled) arch for walls without openings.
-- A wall pilaster.
+- A pilaster with its own base and capital (round 2 added only the plain `pilaster_plain` shaft).
 - A smaller arch radius for narrow passages.
 - A pipe T-junction.
 
@@ -218,7 +228,7 @@ After hand-editing a grid, run the export and commit the regenerated `.ase`. CI 
 
 ## Rights and provenance
 
-- **Authorship:** original environment pixel art authored by an AI agent (Claude Opus) through the deterministic `scripts/author_floor01_kit.py`, and revised after an independent art-director review pass, also by Claude Opus. That script places brick coursing, stone edges and voussoirs by rule (with a fixed seed for per-brick variation) and uses hand-drawn pixel strings for the flame, sconce, valve, box, door and lichen. There is no image-model raster output.
+- **Authorship:** original environment pixel art authored by an AI agent (Claude Opus) through the deterministic `scripts/author_floor01_kit.py`, and revised after two independent art-director review passes, also by Claude Opus. That script places brick coursing, stone edges and voussoirs by rule (with a fixed seed for per-brick variation) and uses hand-drawn pixel strings for the flame, sconce, valve, box, door and lichen. There is no image-model raster output.
 - **Concept use:** `01-catacomb-environment-clean.png` was viewed for mood and palette direction only. It was never cropped, traced, sampled or resampled into the kit. The side-by-side evidence image only display-scales it for comparison.
 - **Manifests:** every manifest records provenance and `review_status: prototype_fixture_unapproved`. Evidence images are checksummed in `SHA256SUMS`.
 - **Rights scope:** the kit contains no fan-concept characters. The actor contrast check composites the approved Carl and Donut atlases under the owner-reported `ART-PUBLICATION-ALL-V1` scope ([rights register](../04-production/rights-and-release.md)). That scope is not independently verified, is not a public reuse licence, and does not permit game, trailer or standalone asset-pack distribution.

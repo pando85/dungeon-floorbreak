@@ -28,7 +28,7 @@ ART_CLI=/path/to/aseprite-or-libresprite bash scripts/export_assets.sh
 | `corridor_abc_1280x720_2x.png` | The same view, integer nearest-neighbour 2× | `…/corridor_abc_1280x720_2x.png` |
 | `corridor_abc_640x400.png` | 16:10 framing of the same columns (view `abc_640x400`) | `…/corridor_abc_640x400.png` |
 | `corridor_abc_1280x800_2x.png` | 16:10 framing, nearest 2× | `…/corridor_abc_1280x800_2x.png` |
-| `corridor_overview_2048x400.png` | The whole 128×25-tile sample layout at 1×: segments A1, B1, C1, A2, B2 and the raised block | `…/corridor_overview_2048x400.png` |
+| `corridor_overview_2048x400.png` | The whole 128×25-tile sample layout at 1×: segments A1, B1, C1, A2, B2, the raised block, the door, the pilaster and the grime patches | `…/corridor_overview_2048x400.png` |
 | `kit_sheet_1x.png` | Exploded contact sheet of every tile, piece and torch frame, native 1× | `…/kit_sheet_1x.png` |
 | `kit_sheet_2x.png` | The same sheet, nearest 2× | `…/kit_sheet_2x.png` |
 | `corridor_vs_concept_side_by_side.png` | Left: composition at 2×. Right: concept 01, display-scaled to the same size. Labelled; mood comparison only | `…/corridor_vs_concept_side_by_side.png` |

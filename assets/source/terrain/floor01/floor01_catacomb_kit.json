@@ -21,9 +21,9 @@
     {"key": "x", "name": "stone_5_edge", "rgba": "#7d726cff"},
     {"key": "y", "name": "stone_6_lip", "rgba": "#9e9185ff"},
     {"key": "z", "name": "stone_7_glint", "rgba": "#c1b19fff", "accent": true},
-    {"key": "D", "name": "floor_surface_0", "rgba": "#53433eff"},
-    {"key": "E", "name": "floor_surface_1", "rgba": "#614e47ff"},
-    {"key": "F", "name": "floor_surface_2", "rgba": "#725c52ff"},
+    {"key": "D", "name": "floor_surface_0", "rgba": "#4d4542ff"},
+    {"key": "E", "name": "floor_surface_1", "rgba": "#5a514dff"},
+    {"key": "F", "name": "floor_surface_2", "rgba": "#695f59ff"},
     {"key": "0", "name": "depth_0_void", "rgba": "#0c1527ff"},
     {"key": "1", "name": "depth_1_far_wall", "rgba": "#0f1e33ff"},
     {"key": "2", "name": "depth_2_far_air", "rgba": "#152843ff"},
@@ -48,9 +48,9 @@
     {"key": "U", "name": "wood_0", "rgba": "#3c271bff"},
     {"key": "V", "name": "wood_1", "rgba": "#533726ff"},
     {"key": "X", "name": "wood_2", "rgba": "#6a4931ff"},
-    {"key": "G", "name": "lichen_0", "rgba": "#23402aff"},
-    {"key": "H", "name": "lichen_1", "rgba": "#3f7a3aff"},
-    {"key": "L", "name": "lichen_2_glow", "rgba": "#92d86aff", "accent": true}
+    {"key": "G", "name": "lichen_0", "rgba": "#283326ff"},
+    {"key": "H", "name": "lichen_1", "rgba": "#354130ff"},
+    {"key": "L", "name": "lichen_2_glow", "rgba": "#5c7444ff", "accent": true}
   ],
   "tile_size": [16, 16],
   "coordinate_system": {
@@ -1103,6 +1103,18 @@
       "grammar": ["B"]
     },
     {
+      "id": "pilaster_plain",
+      "atlas": "floor01_structure",
+      "rect": [192, 80, 32, 16],
+      "role": "structure",
+      "collidable": false,
+      "anchor": [16, 0],
+      "anchor_name": "top_centre (24 px shaft; stack vertically, 16 px repeat)",
+      "grid_snap": 8,
+      "grammar": ["A", "B"],
+      "repeat": "vertical"
+    },
+    {
       "id": "far_arcade_a",
       "atlas": "floor01_structure",
       "rect": [256, 0, 144, 96],
@@ -1304,7 +1316,7 @@
     {
       "id": "grime_patch_b",
       "atlas": "floor01_props",
-      "rect": [48, 96, 48, 16],
+      "rect": [0, 112, 48, 16],
       "role": "backwall",
       "collidable": false,
       "anchor": [0, 0],
@@ -1328,10 +1340,10 @@
     {
       "id": "door_plank",
       "atlas": "floor01_props",
-      "rect": [96, 48, 32, 64],
+      "rect": [48, 48, 40, 80],
       "role": "prop",
       "collidable": false,
-      "anchor": [16, 64],
+      "anchor": [20, 80],
       "anchor_name": "bottom_centre (stands on floor top)",
       "grid_snap": 16,
       "grammar": ["A"]
@@ -1358,7 +1370,7 @@
     }
   ],
   "usage_rules": {
-    "A": "Ordinary fabric: brick_backwall panels, top/base strips, floor_top_a-d, sparse torch_wall + torch_glow at varied spacing (roughly every 10-20 columns), an occasional torch_wall_unlit, door_plank or grime_patch_*.",
+    "A": "Ordinary fabric: brick_backwall panels, top/base strips, floor_top_a-d, sparse torch_wall + torch_glow at varied spacing (roughly every 10-20 columns), an occasional torch_wall_unlit, door_plank or grime_patch_*, and at most one plain pilaster_plain as a structural break in a long run.",
     "B": "Rhythm: pier_* stacks 192 px apart (centre to centre) carrying arch_ring_r72; recess_* tiles fill the opening; far_arcade_a/b sit on the opening floor line (alternate them between neighbouring openings).",
     "C": "Special function, sparing: one pipe run (pipe_*), one valve_wheel, one maintenance_box; optional lichen_crust only next to a damp source. Every pipe end terminates in a collar (pipe_v_floor_collar, pipe_v_ceiling_collar, pipe_wall_collar_r) or the maintenance_box; never in mid-air.",
     "corridor_ends": "Close a corridor with wall_face_l/r (alternate *_b for the second quoin phase), ceiling_corner_in_l/r where the ceiling meets it, wall_cap_* on top of low walls and ceiling_corner_out_l/r where a ceiling course ends.",
