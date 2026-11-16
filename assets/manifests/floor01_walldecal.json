@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "floor01_walldecal_v2",
+  "type": "decor_atlas",
+  "source_path": "assets/source/terrain/floor01/walldecal.ase",
+  "grid_source": "assets/source/terrain/floor01/walldecal.grid.json",
+  "output_atlas": "generated/art/floor01_walldecal.png",
+  "output_metadata": "generated/art/floor01_walldecal.json",
+  "palette_id": "floor01-catacomb-v2",
+  "frame_size": [528, 624],
+  "pivot": [0, 0],
+  "animation_tags": [],
+  "required_alpha": true,
+  "kit_contract": "assets/source/terrain/floor01/floor01_catacomb_kit.json",
+  "owner": "AI-authored environment pixel art (ENV-01 rework round 3, Claude Opus)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "provenance": {
+    "origin": "Original pixel-grid-v1 torch pools, grime patches and foreground rubble for the Floor 1 catacomb environment kit (ENV-01 rework round 3, A1 target frame); not cropped, traced or resampled from concept art",
+    "generator": "Deterministic authoring script scripts/author_floor01_kit.py written by an AI agent (Claude Opus), using the A1 look-dev shading core scripts/lookdev_floor01_author.py (rule-based light evaluation quantised to hand-picked ramps); no image-model raster output",
+    "generated_art": true,
+    "input_reference_ids": ["lookdev-floor01-resolution-spike/A1 (owner-approved target frame, 2026-11-16)", "floor-01-opening/01-catacomb-environment-clean (mood reference of the A1 frame only)"]
+  }
+}
