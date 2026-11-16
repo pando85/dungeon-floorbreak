@@ -311,8 +311,13 @@ fn actor_transform(spec: CastSpec, motion: Motion, flip_x: bool) -> Transform {
     // Mirror the pivot offset as well as the pixels: otherwise turning a
     // wide asymmetrical sprite (Mongo) jumps its feet sideways by ~28 px.
     let offset_x = spec.width as f32 / 2.0 - spec.pivot_x;
+    let center_x = if flip_x {
+        motion.x - offset_x
+    } else {
+        motion.x + offset_x
+    };
     Transform::from_xyz(
-        (motion.x + if flip_x { -offset_x } else { offset_x }).round(),
+        center_x.round(),
         (FLOOR_Y + motion.elevation + spec.pivot_y - spec.height as f32 / 2.0).round(),
         3.0,
     )
