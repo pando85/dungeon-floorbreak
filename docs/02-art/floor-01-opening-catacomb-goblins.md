@@ -24,8 +24,8 @@ These are **adapted gameplay beats**, not a frame-by-frame assertion about the n
 
 | Module | Meaning | Visual elements | Where to use |
 | --- | --- | --- | --- |
-| **A — plain brick** | The ordinary fabric of the floor | Red-brown brick, dry flat masonry floor, occasional simple doors/torches | Connecting passages, readable action spaces |
-| **B — structural arches** | Reassuring, monumental architecture in moderation | A few broad stone/masonry arches, pillars, deep blue recesses, warm torchlight | Intersections, important routes, orientation landmarks |
+| **A — plain brick** | The ordinary fabric of the floor | Warm orange torch-lit brick falling into cold blue shadow (ADR-0007), dry flat masonry floor, occasional simple doors/torches | Connecting passages, readable action spaces |
+| **B — structural arches** | Reassuring, monumental architecture in moderation | A few broad stone/masonry arches, pillars, a deep layered parallax gallery visible through the arches with cold blue haze (ADR-0007), warm torchlight | Intersections, important routes, orientation landmarks |
 | **C — restrained industrial** | Localized infrastructure and activity | One or two pipes/valves, occasional iron rail/catwalk, mechanical wear | Maintenance transitions, goblin presence, special encounters |
 
 Treat A/B/C as **one coherent material family**, not three isolated biomes. Their distribution is authored; do not hardcode a 70/20/10 percentage. Long uninterrupted corridors can be A, B provides rhythm, C marks a change in function. **The owner particularly liked C**, but does not want it everywhere.
@@ -71,7 +71,7 @@ Treat A/B/C as **one coherent material family**, not three isolated biomes. Thei
 | Canon-grounded reference | Our adaptation / unresolved |
 | --- | --- |
 | Monumental entrance with wrought iron stairs, marble landing and decorated double wooden door | Keep as unique opening landmark; side-view layout and exact proportions still designed |
-| Wide torchlit dungeon passages, brick-lined secondary passages and some glowing lichen | A/B/C modular grammar, blue depth and industrial accents are artistic choices |
+| Wide torchlit dungeon passages, brick-lined secondary passages and some glowing lichen | A/B/C modular grammar, cold blue depth (layered parallax gallery, ADR-0007) and industrial accents are artistic choices |
 | Three small green goblin riders; two level 2 common goblins and one level 3 engineer with a pot helmet | Two visually distinct common riders, not necessarily two enemy classes |
 | Tracked improvised rusted steam contraption, spiked spinning wheel, smoky pipes | Chase staging, camera logic, colliders, weak points and animation are game design |
 | Goblins' poor cornering and pursuit through junctions | Gradual discovery -> pursuit -> on-foot fight -> Guild |
