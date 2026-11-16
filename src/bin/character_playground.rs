@@ -505,7 +505,11 @@ mod tests {
                     spec.pivot_x
                 };
                 let world_foot_x = center_x - spec.width as f32 / 2.0 + pivot_from_left;
-                assert_eq!(world_foot_x, spec.start_x, "{} flipped={flipped}", spec.name);
+                assert_eq!(
+                    world_foot_x, spec.start_x,
+                    "{} flipped={flipped}",
+                    spec.name
+                );
             }
         }
     }
