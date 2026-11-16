@@ -335,19 +335,39 @@ class ScaleStudyRenderTests(GroupFixture):
         with self.assertRaisesRegex(sc.SceneError, "group 'g'.*1 to 6"):
             self.render()
 
-    def test_actors_that_overlap_in_640_px_are_rejected(self) -> None:
-        png, meta = make_sprite(self.dir, "wide", 40)
-        wide = Image.open(png).convert("RGBA")
-        canvas = Image.new("RGBA", (400, wide.height), (0, 0, 0, 0))
-        for x in range(0, 400, 24):
-            canvas.alpha_composite(wide, (x, 0))
+    def add_wide(self, name: str, width: int, study: dict) -> None:
+        png, meta = make_sprite(self.dir, name, 40)
+        sprite = Image.open(png).convert("RGBA")
+        canvas = Image.new("RGBA", (width, sprite.height), (0, 0, 0, 0))
+        for x in range(0, width - 24 + 1, 24):
+            canvas.alpha_composite(sprite, (x, 0))
         canvas.save(png)
-        Path(meta).write_text(json.dumps({"frames": [{"frame": {"x": 0, "y": 0, "w": 400,
-                                                                  "h": wide.height}}]}))
-        write_manifest(self.manifests, "wide", png, meta, {"group": "g", "role": "candidate"})
+        Path(meta).write_text(json.dumps({"frames": [{"frame": {"x": 0, "y": 0, "w": width,
+                                                                  "h": sprite.height}}]}))
+        write_manifest(self.manifests, name, png, meta, study)
+
+    def test_actors_that_cannot_fit_in_640_px_are_rejected(self) -> None:
+        self.add_wide("wide", 640, {"group": "g", "role": "candidate"})
         self.add("other", {"group": "g", "order": 1, "role": "candidate"})
-        with self.assertRaisesRegex(sc.SceneError, "group 'g'.*(overlap|does not fit)"):
+        with self.assertRaisesRegex(sc.SceneError, "group 'g'.*(overlap|do(es)? not fit)"):
             self.render()
+
+    def test_wide_actors_use_width_aware_fallback_without_overlap(self) -> None:
+        # Even pivot spacing (every 160 px) would overlap the two 220 px wide actors.
+        self.add_wide("wide1", 220, {"group": "g", "order": 1, "role": "candidate"})
+        self.add_wide("wide2", 220, {"group": "g", "order": 2, "role": "candidate"})
+        actors = self.render()["actors"]
+        self.assertEqual(len(actors), 3)
+        self.assertEqual({a["scene_bottom_opaque_row"] for a in actors}, {FLOOR_ROW})
+        spans = [(a["scene_position"][0] + a["opaque_bbox"][0],
+                  a["scene_position"][0] + a["opaque_bbox"][2]) for a in actors]
+        self.assertGreaterEqual(spans[0][0], sc.MIN_GAP)
+        self.assertLess(spans[-1][1], 640 - sc.MIN_GAP)
+        gaps = [right[0] - left[1] - 1 for left, right in zip(spans, spans[1:])]
+        gaps += [spans[0][0], 640 - spans[-1][1] - 1]
+        self.assertGreaterEqual(min(gaps), sc.MIN_GAP)
+        self.assertLessEqual(max(gaps) - min(gaps), 1)
+        self.assertEqual(Image.open(self.dir / "out/scene_640x400.png").size, (640, 400))
 
     def test_group_render_is_deterministic(self) -> None:
         self.add("a", {"group": "g", "order": 1, "role": "candidate"}, 36)

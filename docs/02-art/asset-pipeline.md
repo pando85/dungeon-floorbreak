@@ -194,7 +194,9 @@ gothic/violet scene and writes into `--out`: `scene_640x360.png` (1x, clean),
 `comparison.json` (measured opaque height, width, pivot and colours). The
 export script runs it into `generated/art/scale_study/` when
 `assets/manifests/donut_scale_h*.json` exist. It measures sprites; the artistic
-decision stays with human review.
+decision stays with human review. Actors are spaced evenly by pivot, falling back to
+width-aware packing with equal gaps between silhouette bboxes when wide sprites would
+overlap (an error only if a gap would be under 4 px).
 
 **Local ART_CLI setup (pinned, no sudo).**
 
