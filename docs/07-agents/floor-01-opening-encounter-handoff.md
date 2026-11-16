@@ -1,14 +1,15 @@
-# Local-agent handoff — Floor 01 opening encounter (AFTER pending gameplay PRs)
+# Local-agent handoff — Floor 01 opening encounter (integrated-scene phase)
 
-**Status:** future implementation work order; **do not start production changes yet**.
+**Status:** prerequisites merged (PR #21 combat greybox, PR #22 Character Playground, PR #23 concept references). **Ready to plan the first integrated scene with local agents.** Human gameplay/art review intentionally happens on the integrated scene rather than blocking these tooling prototypes.
 **Read first:** `AGENTS.md`, `docs/02-art/floor-01-opening-catacomb-goblins.md`, `docs/02-art/character-scale-approval.md`, `docs/02-art/asset-pipeline.md`, `docs/03-tech/level-data.md`, `docs/01-design/antihero-tone.md`, `docs/04-production/rights-and-release.md`.
 
 ## Dependencies and sequencing
 
-1. Integrate/review **PR #21**, the combat-first linear Floor 1 Bevy greybox: ensure actually green CI, headless tests, gamepad and visual evidence. Preserve its core Rust gameplay world and horizontal camera.
-2. Integrate/review **PR #22**, the separate Bevy Character Playground: verify generated art imports, actual 52 px Carl / 40 px Donut scales, pivots and native 640×360 / 640×400 screenshots.
-3. **Only then** schedule this opening art/gameplay composition as independent local-agent PRs. PR #21's combat sandbox and this story-driven introductory chase serve different test goals; do not silently replace one with the other.
-4. Reconcile any main branch or schema changes before implementation. No branch stacking on unmerged PRs unless explicitly coordinated by the integrator.
+1. **Done:** PR #21 (combat-first linear Floor 1 Bevy greybox) merged, CI passed, start-safe idle regression tested. Keep the deterministic Rust gameplay world and horizontally scrolling camera.
+2. **Done:** PR #22 (standalone Bevy Character Playground) merged, CI passed, authentic 52 px Carl / 40 px Donut / 76 px Mongo atlases and fixed mirrored foot pivots verified in 640×360/640×400 render evidence.
+3. **Done:** PR #23 (environment/goblin/Dozer concept references) merged with three image bytes, provenance and concept-only scope. Do not repurpose generated concept illustrations as production sprites or as new Carl/Donut references.
+4. **Next:** prioritize ENV-01 and COMP-01 to compose the first calm catacomb scene, then GOB-01 / DOZ-01 and CHASE-01 as separate small PRs. Preserve the combat sandbox while adding the story-driven opening; they serve different test goals.
+5. **Human review gate:** apply controller/visual acceptance to the **first integrated scene** (actual in-game camera, live combat and readable character sprites), not retroactively to the merged prototyping PRs. Reconcile new `main` schemas before implementation.
 
 ## Proposed independent work orders (IDs to assign when backlog is reconciled)
 

@@ -4,7 +4,8 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 
 | ID | Priority | Stage | Deliverable | Acceptance evidence |
 | --- | --- | --- | --- | --- |
-| WORK-021 | P0 | Prototype / in review | Combat-first, right-scrolling Bevy Floor 1 greybox; melee, goblins, bombs, destructible timber and forced steel climb | Unit + headless combat smoke + Linux rendered screenshot; human playtest; see [WORK-021 brief](linear-combat-greybox.md) |
+| WORK-021 | P0 | Prototype / merged PR #21 | Combat-first, right-scrolling Bevy Floor 1 greybox; melee, goblins, bombs, destructible timber and forced steel climb | Automated CI, fixed idle-safe spawn regression, real Bevy rendered evidence; human gamepad testing deferred to integrated scene; see [WORK-021 brief](linear-combat-greybox.md) |
+| WORK-022 | P0 | Art / merged PR #22 | Native-scale Bevy Character Playground (Carl 52 px, Donut 40 px, Mongo 76 px) with atlas exports and corrected mirrored foot-pivot alignment | Automated CI and real Bevy 640×360/640×400 screenshots; human gamepad/visual signoff deferred to integrated scene; see [playground](../03-tech/character-playground.md) |
 | WORK-001 | P0 | Spike | Rust Bevy app, one pixel camera and normalized gamepad action layer | App starts on Linux; test action adapter; capture screenshot |
 | WORK-002 | P0 | Spike | Single character with jump buffering and coyote-time tuning values | Replayed jump fixtures, controller feel note |
 | WORK-003 | P0 | Spike | Minimal material grid + bomb damage and tile visualization | Same event/seed ⇒ same grid hash; wall breaks |
@@ -69,10 +70,10 @@ not WORK-007's art quality requirement. A human review of actual native-scale
 art is still required before a visual style can be labeled production-ready.
 See [asset-pipeline.md](../02-art/asset-pipeline.md).
 
-## WORK-021 — Character Playground (PR #22)
+## WORK-022 — Character Playground (PR #22)
 
 **Scope:** Independent Rust + Bevy 0.20.1 cast-inspection executable; 52 px Carl, 40 px Donut and 76 px adult Mongo at original virtual-pixel scale with four-frame `idle`, pivot-aligned fixed-step movement/jump, keyboard/gamepad selection, and 640×360 / 640×400 camera baselines.
 
 **Evidence target:** `.github/workflows/character-playground.yml` exports existing editable masters, checks generated atlas contracts, runs Rust tests plus a headless smoke, and uploads two true Bevy-rendered Linux screenshots. Follow `docs/03-tech/character-playground.md`.
 
-**Status:** Implementation proposed in draft PR #22; CI results and owner visual/game-feel signoff pending. Native sizes are approved, but locomotion/jump animation, overlapping silhouettes and mounted Donut are not. Do not merge this work into the Floor 1 combat greybox as part of its PR.
+**Status:** Merged via PR #22 on 2026-11-16. All four workflows passed on the final PR head; real Bevy 640×360 and 640×400 screenshots were reviewed technically. Owner explicitly deferred hands-on gamepad/visual acceptance to the **integrated Floor 1 scene**. Native sizes are approved; locomotion/jump animation, overlapping silhouettes and mounted Donut remain future work. The playground binary is independent of the combat greybox until a separate integration PR.
