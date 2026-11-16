@@ -8,6 +8,8 @@
 3. **Shoulder Mode is promising brainstorming**, not approved behavior or a required ability. Its combat/aiming simplifications and mounted specials remain experiments, not implementations.
 4. **Character-gated level progression is approved:** Donut's distinguishing traversal is jumping higher and reaching farther places; Carl's is breaking/selectively transforming obstacles and opening routes. A room **can require one of these characters for mandatory progression**, using solo switching or distinct 2P roles. Two parallel paths are **not** mandatory. Later earned abilities make solutions more layered and less immediately obvious; see [mandatory asymmetric-traversal rule](asymmetric-traversal-and-gates.md).
 
+5. **Combat-first priority (2026-11-17):** killing enemies creatively and spectacularly is the **primary fun**. Traversal, switching, unique protagonist gates and selective destruction primarily create combat opportunities and variety, not a puzzle-platformer-first loop. Short quiet/story/escape beats remain valid; see [combat-first encounter design](combat-first-encounter-design.md).
+
 **Source boundaries:** Existing [vision](vision.md), [core gameplay](gameplay.md), [character sheets](characters.md), [antihero identity](antihero-tone.md), [input/camera technical specification](../03-tech/input-camera.md), [Floor 01 concept atlas](../02-art/floor-01-art-atlas-v1.md), [production and rights rules](../04-production/rights-and-release.md). Story chronology and equipment unlocks must be checked against the applicable book chapter before being labelled canon. All mechanics below marked *proposal* are game adaptations, not canon claims.
 
 ## North star
@@ -62,7 +64,7 @@ Keep everything physically readable on the **approved native-scale sprites**: Ca
 
 **Keep options reversible**: data-driven mount rules, feature flag, independent actor simulation, separate authority/attachment state, headless deterministic tests. Do not implement before experiments or call it owner-approved.
 
-## 3. Floor 01 progression: capabilities rather than stat inflation
+## 3. Floor 01 progression: increasingly inventive combat and capabilities rather than stat inflation
 
 The following is an **adaptation/design sequence** anchored to first-floor area concepts, **not** a fixed book map or exact canonical ability chronology.
 
