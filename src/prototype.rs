@@ -232,7 +232,8 @@ impl World {
             },
         ]);
 
-        // Keep the very first screen safe until the player chooses to advance.\n        let enemies = [350.0, 465.0, 765.0, 1010.0, 1540.0, 1790.0]
+        // Keep the very first screen safe until the player chooses to advance.
+        let enemies = [350.0, 465.0, 765.0, 1010.0, 1540.0, 1790.0]
             .into_iter()
             .map(|x| Enemy {
                 x,
