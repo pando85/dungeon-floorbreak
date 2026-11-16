@@ -31,9 +31,16 @@
   },
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
-  "scale_study": {
-    "group": "carl_book1",
-    "order": 3,
-    "role": "candidate"
-  }
+  "scale_study": [
+    {
+      "group": "carl_book1",
+      "order": 3,
+      "role": "candidate"
+    },
+    {
+      "group": "mongo_adult",
+      "order": 2,
+      "role": "companion"
+    }
+  ]
 }
