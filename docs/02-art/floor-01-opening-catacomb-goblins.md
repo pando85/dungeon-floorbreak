@@ -33,7 +33,7 @@ Treat A/B/C as **one coherent material family**, not three isolated biomes. Thei
 ### Environment locks
 
 - Flat, solid, dry floor; no permanent sewer channels, toxic water, aggressive overgrowth, dripping slime, or ubiquitous ruins.
-- Muted red-brown brick, gray/neutral stone edge treatment, cold blue depth, restrained orange torch highlights. Limited green lichen **only** in relevant secondary passages.
+- Warm orange torch-lit brick that falls off into cold blue shadow, gray/neutral stone edge treatment, thicker copper/brass pipework where industrial detail appears, and a deep layered gallery visible through arches. Limited green lichen **only** in relevant secondary passages. *(Updated 2026-11-16 per [ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md); this replaces the earlier "muted red-brown brick ... restrained orange torch highlights" wording. All other locks are unchanged.)*
 - Use repetition and negative space deliberately; avoid decorative detail behind the player, collision edges, or telegraphs.
 - Keep at least one coherent architectural line through the corridor; arches are **art-direction proposals**, not proven universal first-floor architecture.
 - The fish-demon relief, giant wooden doors, ornate wrought-iron stairs, and marble landing belong to the **special entrance**, not the modular default wall kit.
