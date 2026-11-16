@@ -212,6 +212,18 @@ A distribution LibreSprite (for example a locally built "1.2-dev") produced
 byte-identical PNGs; its JSON differs only in `meta.version`. CI uses the pinned
 AppImage, so keep that as the reference.
 
+**Environment kits (`env-kit-v1`, ENV-01).** A tile/decor kit adds a contract
+JSON (IDs, atlas rects, layer roles, `collidable`, anchors, grid snap, animation
+frames) next to its sources, and sample layouts (`env-kit-layout-v1`) under
+`assets/levels/`. Neither file goes in `assets/manifests/`, which holds export
+manifests only. Tilesets use manifest `type: "tileset"`; multi-piece decor atlases use
+`type: "decor_atlas"` (single frame, `required_alpha: true`). `export_assets.sh`
+runs `python3 scripts/env_kit.py all` after the existing steps. It validates every
+contract against its exported atlases, manifests and grids, and every layout against
+its contract, then renders previews to `generated/art/env_kit/<layout_id>/`. Any
+error fails the export. The first kit is the
+[Floor 01 catacomb kit](floor-01-catacomb-kit.md).
+
 **Scope boundary:** This establishes the pipeline and three tiny editable
 fixtures, **not** polished game art. The contact sheet is a composition study,
 not a Bevy screenshot, actual platform collision or gameplay proof. Work
