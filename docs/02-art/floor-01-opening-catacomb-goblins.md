@@ -96,7 +96,11 @@ The owner explicitly accepted these **conceptual properties**, not arbitrary gen
 - The revised **single-door monumental entrance** with subtle industrial features (special landmark).
 - A/B/C **normal-corridor** comparison: plain brick, restrained arches, slight localized pipes.
 - The **chase illustration**: brick catacomb, green goblin group, spiked tracked Murder Dozer, expressive absurd action.
-- A **clean environment-only** catacomb exploration and **isolated enemy/Dozer** concept crops are prepared in the originating project conversation and local review ZIP, but **image binaries are not part of this documentation PR**. Add assets in a separate reviewed PR with actual bytes, provenance and checksums. Do not embed broken repository image links.
+- The following **three concept reference PNGs are committed in this PR** under [`assets/concept/floor-01/opening/`](../../assets/concept/floor-01/opening/README.md), with image hashes, byte sizes and generation/crop provenance in [`manifest.json`](../../assets/concept/floor-01/opening/manifest.json):
+  - [Clean environment-only brick catacomb](../../assets/concept/floor-01/opening/01-catacomb-environment-clean.png) — environmental mood only, not a tilemap or parallax source.
+  - [Three goblins concept crop](../../assets/concept/floor-01/opening/02-goblin-trio-reference-crop.png) — green goblin shapes, expressions and engineer's pot helmet; generated weapons/classes/pixel sizes are not accepted.
+  - [Murder Dozer concept crop](../../assets/concept/floor-01/opening/03-murder-dozer-reference-crop.png) — tracked steam machine, front spiked wheel and riders; not production sprites, collision or a boss spec.
+- **Not included:** the full chase illustration with *incorrect Carl/Donut representations*. Approved Carl and Donut masters remain the only authoritative character references.
 
 **Illustration caution:** Generated concept boards contain misleading labels, invented RPG subclasses, precise pixel sizes, mechanics and incorrect weapons. Their labels are not authoritative. The selected chase illustration's Carl/Donut are noncanonical.
 
