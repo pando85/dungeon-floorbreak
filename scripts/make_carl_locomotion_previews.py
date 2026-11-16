@@ -8,7 +8,8 @@ Usage (after ``bash scripts/export_assets.sh`` has exported the atlas):
 Reads assets/manifests/carl_book1_h52_locomotion.json and its exported atlas +
 metadata and writes, deterministically (no timestamps), into DIR (default
 generated/art/carl_locomotion): contact sheets (x1, x6 with tag/duration headers and
-pivot marks), idle/run/jump GIFs (jump follows the greybox physics read from
+pivot marks), a run stride diagram (frames 4-9 side by side with ground line, pivot and the
+foot-contact x of every frame), idle/run/jump GIFs (jump follows the greybox physics read from
 src/prototype.rs), foot-slip run-scroll GIFs, lit Floor 1 compositions made with the
 existing env_kit_light compositor (skipped by --no-floor) and measurements.json
 (per-frame bbox/pixel counts, per-tag durations, sha256 of every written file).
@@ -44,6 +45,15 @@ MIN_SPACING = 56
 BG_SHEET1, BG_SHEET6, BG_GIF = (25, 26, 44), (42, 40, 58), (37, 35, 55)
 GROUND_LIGHT, GROUND_DARK, TICK = (74, 68, 100), (52, 48, 74), (120, 112, 150)
 CYAN, YELLOW = (0, 255, 255), (255, 224, 0)
+STRIDE_PX = 8  # ground travel of the planted foot per run frame (ANIM-CARL-01 run spec)
+RUN_MS_MIN, RUN_MS_MAX = 50, 90
+
+
+def run_frame_ms(speed_px_s: float) -> int:
+    """Speed-linked run playback rule: frame_ms = clamp(round(8000 / |vx|), 50, 90)."""
+    if speed_px_s == 0:
+        return RUN_MS_MAX
+    return max(RUN_MS_MIN, min(RUN_MS_MAX, round(STRIDE_PX * 1000 / abs(speed_px_s))))
 
 
 class PreviewError(Exception):
@@ -123,6 +133,49 @@ def contact_sheet_x6(frames, durations, tags, pivot, s: int = 6) -> Image.Image:
     return sheet
 
 
+# ---------------------------------------------------------------- stride diagram
+
+def foot_contact(frame: Image.Image, row: int) -> tuple[int, int] | None:
+    """(first, last) opaque x on the contact row, or None when the foot is off the ground."""
+    alpha = frame.getchannel("A")
+    xs = [x for x in range(frame.width) if alpha.getpixel((x, row))]
+    return (xs[0], xs[-1]) if xs else None
+
+
+def stride_diagram(frames: list[Image.Image], tags, pivot, s: int = 8) -> Image.Image:
+    """Run frames side by side with a ground line, the pivot and each frame's row-55 foot contact."""
+    first, last = tags["run"]
+    w, h = frames[0].size
+    pad, top, bottom = 10, 26, 64
+    cell_w = w * s + pad
+    img = Image.new("RGB", (pad + (last - first + 1) * cell_w, top + h * s + bottom), BG_SHEET6)
+    d, font = ImageDraw.Draw(img), ImageFont.load_default()
+    ground = top + (pivot[1] + 1) * s
+    for col, i in enumerate(range(first, last + 1)):
+        ox = pad + col * cell_w
+        big = frames[i].resize((w * s, h * s), Image.Resampling.NEAREST)
+        cell = Image.new("RGBA", big.size, BG_SHEET6 + (255,))
+        cell.alpha_composite(big)
+        img.paste(cell.convert("RGB"), (ox, top))
+        d.text((ox, 6), f"run frame {i}", fill=(226, 214, 200), font=font)
+        px = ox + pivot[0] * s + s // 2  # pivot column centre
+        d.line([(px, top), (px, ground + 12)], fill=YELLOW, width=1)
+        d.rectangle([px - 3, ground + 4, px + 3, ground + 10], fill=YELLOW)
+        contact = foot_contact(frames[i], pivot[1])
+        if contact:
+            c0, c1 = contact
+            d.rectangle([ox + c0 * s, ground + 14, ox + (c1 + 1) * s - 1, ground + 18], fill=CYAN)
+            d.text((ox, ground + 24), f"row {pivot[1]}: x{c0}-{c1}", fill=CYAN, font=font)
+            d.text((ox, ground + 38), f"centre {(c0 + c1) / 2:.1f} ({(c0 + c1) / 2 - pivot[0]:+.1f} from pivot)",
+                   fill=CYAN, font=font)
+        else:
+            d.text((ox, ground + 24), f"row {pivot[1]}: no foot", fill=CYAN, font=font)
+    d.line([(0, ground), (img.width - 1, ground)], fill=CYAN, width=1)
+    d.text((pad, ground + 50), f"yellow = pivot x{pivot[0]}, cyan line = ground (row {pivot[1]}), bar = foot pixels on the ground row",
+           fill=(226, 214, 200), font=font)
+    return img
+
+
 # ---------------------------------------------------------------- GIF scenes
 
 def scene(sprite: Image.Image, pivot, size, ground_y: int, lift: int = 0, x_center: int | None = None,
@@ -186,14 +239,13 @@ def make_gifs(out: Path, frames, durations, tags, pivot, consts, run_speed: floa
         imgs = [up(scene(frames[f], pivot, size_jump, ground_jump - 1, round(lift)), k) for f, lift, _ in timeline]
         put(f"jump_sequence_x{k}.gif", imgs, [d for _, _, d in timeline])
     a, b = tags["run"]
-    cycle = sum(durations[a:b + 1])
+    n_run = b - a + 1
     for speed, name in ((run_speed, "run_scroll_x2.gif"), (145.0, "run_scroll_145_x2.gif")):
+        step = run_frame_ms(speed)  # playback rule, not the authored 60 ms
+        cycle = step * n_run
         imgs, durs = [], []
         for t in range(0, 2 * cycle, SAMPLE_MS):
-            phase, idx = t % cycle, a
-            while phase >= durations[idx]:
-                phase -= durations[idx]
-                idx += 1
+            idx = a + (t % cycle) // step
             imgs.append(up(scene(frames[idx], pivot, (320, 60), pivot[1], 0, scroll_px=round(speed * t / 1000.0)), 2))
             durs.append(SAMPLE_MS)
         put(name, imgs, durs)
@@ -280,7 +332,8 @@ def main(argv: list[str] | None = None) -> int:
         written: list[Path] = []
         contact_sheet_x1(frames).save(out / "contact_sheet_x1.png")
         contact_sheet_x6(frames, durations, tags, pivot).save(out / "contact_sheet_x6.png")
-        written += [out / "contact_sheet_x1.png", out / "contact_sheet_x6.png"]
+        stride_diagram(frames, tags, pivot).save(out / "run_stride_diagram.png")
+        written += [out / "contact_sheet_x1.png", out / "contact_sheet_x6.png", out / "run_stride_diagram.png"]
         make_gifs(out, frames, durations, tags, pivot, consts, args.run_speed or consts["RUN_SPEED"], written)
         if not args.no_floor:
             render_floor(out, frames, pivot, written)

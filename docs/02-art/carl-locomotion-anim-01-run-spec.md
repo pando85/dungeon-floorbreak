@@ -1,6 +1,6 @@
 # ANIM-CARL-01 run, round 2: design spec for the execution agent
 
-**Status:** design by Claude Opus (round 2, after the independent Opus review of PR #34). Execution by Claude Sonnet, followed by a separate Opus review. Draft, awaiting owner art review. This spec supersedes the run section ("Run speed and foot slip") of [carl-locomotion-anim-01.md](carl-locomotion-anim-01.md). Jump, land and idle are unchanged and passed review.
+**Status:** design by Claude Opus (round 2, after the independent Opus review of PR #34). Execution by Claude Sonnet, followed by a separate Opus review. Draft, awaiting owner art review. Execution done by Claude Sonnet (see section 9); review pending an independent Opus pass. This spec supersedes the run section ("Run speed and foot slip") of [carl-locomotion-anim-01.md](carl-locomotion-anim-01.md). Jump, land and idle are unchanged and passed review.
 
 Source: `assets/source/characters/carl/carl_h52_locomotion.grid.json` (frames 4-9 = `run`). Canvas 48 x 56, pivot (25, 55), contact row 55. All coordinates below are canvas pixels, x right, y down.
 
@@ -127,3 +127,13 @@ Ground travel per frame: heel 30 to 22 = 8 px, toe 29 to 21 = 8 px. Step length:
    - no fist at x >= 45;
    - `tests/test_art_carl_locomotion.py` passes, and the identity test is not weakened.
 4. Update `carl-locomotion-anim-01.md` (run timing, foot-slip numbers, self-review entries that this spec resolves). Regenerate `docs/evidence/carl-locomotion-anim-01/` and its `SHA256SUMS` with `scripts/make_carl_locomotion_previews.py`, then make CI green.
+
+## 9. Execution notes (Sonnet)
+
+- **Frames 5 and 8:** the leg and Croc layers were redrawn (identical in both frames). Near/planted leg: hip (27,40), knee (31,46), ankle (26,50), flat Croc on row 55 x22-29. Tucked leg: knee (25,47), ankle (20,42), Croc stamp at rows 41-47, x17-22 (entirely above row 48, left of the planted shin, clear of the boxer hem). The tucked leg is drawn in a darker `S`/`D` ramp so it does not merge with the planted leg. Head, hair, torso, jacket, pin and boxers were already the correct master translations (body +2, +3) and are unchanged.
+- **Frame 5 arms:** kept (they are the key-frame arm sprites placed 1 px from the table: near fist about (27,33) vs (27,34), far fist about (41,29) vs (41,28)). One outline pixel was added at (20,34) to remove an orphan.
+- **Frame 8 near arm (item 2):** redrawn. Shoulder (22,24), elbow about (25,31), fist 4 px wide at x33-36 (centre about (34.5,28)), so 5 fist skin pixels (x35-36, rows 27-29) sit outside the jacket front edge (x34). The forearm's top outline next to the fist (x28-31, row 27) uses `T`. Sleeve width was not enlarged. The elbow-to-fist length is about 9 px, longer than the 7 px forearm of frame 7, because the target fist position is 9.5 px from the table elbow; I kept the table values. The frame-8 far arm already matched (fist about (36,32)) and is unchanged.
+- **Item 6 (third heart): skipped on all six run frames.** At up 0 and 1 rows the 3 x 3 cell block hits the boxer hem or a `K` outline on every frame. At up 2 (frames 4, 5, 7, 8) all nine cells are `W`/`V`, but the heart touches a `K` pixel diagonally and its top right pixel is orthogonally adjacent to the second heart, which renders as one red smear (checked on frames 4 and 7). On frames 6 and 9 no placement fits. Needs an Opus decision (for example, moving hearts A and B).
+- **Item 5 (optional jacket hem flap):** skipped. Hair lag: skipped as instructed.
+- **Orphans (checklist 3):** frames 5 and 8 have 2 each (the translation-only master boxer edge pixels at x33). Keys 4, 7 and 9 have 3, 5 and 3, and frame 6 has 1; I did not touch the keys. All frames have 0 isolated pixels.
+- **Checks:** row 55 is exactly x30-34 / 22-29 / 18-21 / 30-34 / 22-29 / 18-21 on frames 4-9; no fist at x >= 45 (widest fist column 43); no body see-through at the waist (frames 5 and 8 changed only below row 40 and in the arm); the identity tests pass unchanged.

@@ -355,7 +355,7 @@ class CarlLocomotionExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
             self.assertEqual(previews.main(["--no-floor", "--out", str(out)]), 0)
-            names = ["contact_sheet_x1.png", "contact_sheet_x6.png", "idle_x4.gif", "run_x4.gif",
+            names = ["contact_sheet_x1.png", "contact_sheet_x6.png", "run_stride_diagram.png", "idle_x4.gif", "run_x4.gif",
                      "jump_sequence_x4.gif", "jump_sequence_x1.gif", "run_scroll_x2.gif",
                      "run_scroll_145_x2.gif", "measurements.json"]
             for name in names:

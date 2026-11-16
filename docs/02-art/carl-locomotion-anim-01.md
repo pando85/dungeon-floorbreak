@@ -1,10 +1,10 @@
 # ANIM-CARL-01: Carl locomotion candidate (52 px, Book 1)
 
-> **Round 2 in progress:** the run (frames 4-9) was redesigned after the independent Opus review. Symmetric 24 px steps, 8 px ground travel per frame, 60 ms frames, bent-elbow arm pump. The run numbers, timing and slip figures below are from round 1 and are superseded by the [run spec](carl-locomotion-anim-01-run-spec.md) until the execution pass updates this page and the evidence.
+> **Round 2 (run redesign) executed:** the run (frames 4-9) was redesigned after the independent Opus review: symmetric 24 px steps, 8 px of ground travel per frame, 60 ms frames, bent-elbow arm pump, per the [run spec](carl-locomotion-anim-01-run-spec.md). Design: Opus; execution: Sonnet; review: pending independent Opus. The numbers below are the round-2 numbers.
 
 **Status:** draft, awaiting owner art review. Not accepted art and not wired into any Bevy binary. The approved master (`carl_h52.grid.json` / `.ase`, manifest `carl_book1_h52.json`), the Character Playground and the Floor 1 scene are unchanged and keep using the 36 x 56 idle atlas. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)); no reuse licence, no game or asset-pack distribution right.
 
-Authoring and the artistic self-review were done by Claude Opus (AGENTS.md "Model routing for art work"). The preview script and the contract tests are tooling and were written by Claude Sonnet. An independent Opus art review is a separate step.
+Authoring of the key poses and the artistic self-review were done by Claude Opus (AGENTS.md "Model routing for art work"). Round 2: design Opus; execution (run in-betweens 5 and 8, the frame-8 near-arm polish, evidence) Sonnet; review pending an independent Opus pass. The preview script and the contract tests are tooling written by Claude Sonnet.
 
 ## Files
 
@@ -22,19 +22,19 @@ Authoring and the artistic self-review were done by Claude Opus (AGENTS.md "Mode
 - **Frame 48 x 56, pivot (25, 55).** The master idle frame is 36 x 56 with pivot (19, 55). Run strides and arm swings do not fit 36 px, so every frame is the master canvas padded 6 px left and 6 px right. The pivot keeps the same foot-relative position: x 19 + 6 = 25, still the midpoint between the idle Croc soles, and y 55 is still the contact row.
 - **Grounded tags** (`idle`, `run`, `jump_start`, `land`): the lowest opaque row of every frame is row 55 (0 px foot sink, as in the Floor 1 contract).
 - **Airborne tags** (`jump_rise`, `jump_fall`): the pivot stays the physics foot line (bottom of the AABB). The feet are drawn above it (lowest rows 53 and 54) because the legs tuck or reach. These frames must not be snapped to the floor.
-- Opaque height: idle 52 (unchanged), run 50 to 52 (the body dips 1 to 2 px on contact and down frames), crouch 48, takeoff and rise 53 (a raised fist), land impact 46.
+- Opaque height: idle 52 (unchanged), run 49 to 50 (the whole run sits 2 to 3 px below idle: 2 px on contact and passing frames, 3 px on the down frames), crouch 48, takeoff and rise 53 (a raised fist), land impact 46.
 
 ## Frames and timing
 
 | # | Tag | Frame | ms | Notes |
 | --- | --- | --- | --- | --- |
 | 0-3 | `idle` | master idle 0-3 | 420 / 260 / 560 / 260 | pixel-identical to the approved master after padding (tested) |
-| 4 | `run` | contact, near leg | 70 | heel strike, far leg trailing, far fist forward; hips 1 px lower than idle |
-| 5 | `run` | down, near leg | 70 | foot flat under the hip, knee bent, far heel kicked up; hips 2 px lower |
-| 6 | `run` | push / pass, near leg | 70 | near toe pushes off behind, far knee passes forward; hips back at idle height |
-| 7 | `run` | contact, far leg | 70 | mirror beat of 4 (drawn, not flipped) |
-| 8 | `run` | down, far leg | 70 | mirror beat of 5 |
-| 9 | `run` | push / pass, far leg | 70 | mirror beat of 6 |
+| 4 | `run` | contact, near leg | 60 | heel strike (row 55, x30-34), far leg trailing, far fist forward at chest height; body 2 px lower than idle |
+| 5 | `run` | down, near leg | 60 | near foot flat (row 55, x22-29), far leg tucked high behind it (Croc rows 41-47, clear of the planted shin); body 3 px lower |
+| 6 | `run` | push / pass, near leg | 60 | near toe pushes off (row 55, x18-21), far knee passes forward; body 2 px lower |
+| 7 | `run` | contact, far leg | 60 | mirror beat of 4 (drawn, not flipped); near fist outside the chest |
+| 8 | `run` | down, far leg | 60 | mirror beat of 5; near forearm and fist reach past the jacket front edge, with a sheen (`T`) top edge |
+| 9 | `run` | push / pass, far leg | 60 | mirror beat of 6 |
 | 10 | `jump_start` | anticipation crouch | 50 | knees bent, both arms swung back, head dropped |
 | 11 | `jump_start` | takeoff | 70 | toe-off, far arm thrown up, near arm still trailing (deliberately uncoordinated) |
 | 12 | `jump_rise` | rising | 100 | hold while rising; legs tucked unevenly, far arm reaching up |
@@ -44,12 +44,13 @@ Authoring and the artistic self-review were done by Claude Opus (AGENTS.md "Mode
 
 Playback modes are in the manifest: `idle` and `run` loop, `jump_start` and `land` play once, `jump_rise` and `jump_fall` hold their single frame.
 
-### Run speed and foot slip (measured)
+### Run speed, stride and playback rule
 
-- The planted Croc's ground contact moves back 5 px per frame while it is on the floor (heel x 24 to 19, toe tip 26 to 21; far foot the same). At 70 ms per frame that is slip-free at about **71 px/s**.
-- The greybox `RUN_SPEED` is 185 px/s and the Character Playground uses 145 px/s. At 70 ms per frame the feet slip forward by about 5 px (145 px/s) or 8 px (185 px/s) per frame. `run_scroll_145_x2.gif` and `run_scroll_x2.gif` show it honestly.
-- A slip-free run at 185 px/s would need about 27 ms per frame (a 160 ms cycle), which reads as frantic. The stride cannot get longer without crouching the whole run: the legs are about 14 px long and are almost straight at idle.
-- **Recommendation for the integration agent:** scale run playback with horizontal speed (frame time = 70 ms x 71 / speed), clamped to no faster than about 45 ms per frame, and accept the remaining slip at full speed. Alternatively, lower the run speed. The choice is a game-feel decision for the owner. The art does not change.
+- The planted Croc's ground contact moves back **8 px per frame** while it is on the floor: heel x30 on contact, flat x22-29 on the down frame, toe x18-21 on the push frame (row 55; see `run_stride_diagram.png`). Both feet use the same geometry, so each step is **24 px** on both sides.
+- Authored at 6 x 60 ms (360 ms cycle), which is slip-free at 8 px / 60 ms = **133 px/s**.
+- **Playback rule for the integration agent:** `frame_ms = clamp(round(8000 / |vx_px_per_s|), 50, 90)`. At 145 px/s (Playground) that is 55 ms, slip-free. At 185 px/s (greybox `RUN_SPEED`) the ideal 43 ms is clamped to 50 ms, which leaves about 1.3 px of slip per frame (about 16 %). Below about 89 px/s the 90 ms cap applies. Advance frames from accumulated simulation time (fixed tick), never wall clock, keep the phase when the speed changes, and never feed animation back into physics.
+- `run_scroll_145_x2.gif` and `run_scroll_x2.gif` are generated with this rule (55 ms and 50 ms per frame).
+- The body sits 2 px ahead of the idle position and 2 to 3 px lower (hunched scramble) so that the heel can reach 9 px in front of the pivot at the Croc centre. This reads as a lean-in on the idle-to-run transition. See the run spec for the numbers.
 
 ### Jump timing against the greybox physics
 
@@ -59,7 +60,7 @@ With `JUMP_SPEED` 440 and `GRAVITY` 1050 the apex is 92 px after about 420 ms an
 
 1. **Master reuse.** The head, hair, torso skin, jacket, smiley pin, boxer seat (with two of the three hearts) and palette are the master's own pixels, only translated per frame. Nothing is rotated or resampled. The face changes in at most 7 pixels, all taken from expressions that already exist in the master idle: an "effort" brow (the far brow lowered as in idle frame 2, mouth still open) for run and jump start, plus a closed mouth for the land wince. The fall frame keeps the master's bewildered face.
 2. **Pose block-in.** The legs, sleeves and loose boxer legs were re-pixelled per pose from hip, knee and ankle (or shoulder, elbow and wrist) positions with the master's material ramps: skin `S`/`L`/`M`/`S`/`D` with the lit edge to the upper left, leather `K`/`T`/`j`/`J` with a sheen rim and a bunched `T` cuff, boxers `K`/`W`/`V` with a `U` hem. Crocs (flat, heel strike, toe push, trailing, hanging) and fists are hand-drawn stamps. The scratch block-in tooling is not committed; as with the master, the grid is the source of truth.
-3. **Cleanup.** Orphan pixels on the re-pixelled limbs were merged into their neighbouring cluster. Heart pixels and their off-white notches are protected. Lint result: 0 isolated pixels in all frames, 0 to 3 orphan pixels per locomotion frame (mostly 1 px colour steps where a fist meets the boxer outline).
+3. **Cleanup.** Orphan pixels on the re-pixelled limbs were merged into their neighbouring cluster. Heart pixels and their off-white notches are protected. Lint result: 0 isolated pixels in all frames, 0 to 5 orphan pixels per locomotion frame (run frames 5 and 8: 2 each, both the master boxer edge pixels at x33; frames 4, 7 and 9 keep 3, 5 and 3 from the finished keys) (mostly 1 px colour steps where a fist meets the boxer outline and the master boxer edge `V`/`U` pixels, which are translation-only).
 4. **Review rounds at 1x, 3x and 8x** (see the self-review below), each time against the master idle.
 
 ## Pipeline conflicts and resolutions
@@ -70,7 +71,7 @@ With `JUMP_SPEED` 440 and `GRAVITY` 1050 the apex is 92 px after about 420 ms an
 | `scripts/check_playground_contract.py` and `scripts/check_floor01_scene_contract.py` pin `carl_book1_h52` to 36 x 56, idle only | Untouched. The candidate has its own manifest, so both contracts and both binaries keep working until review. Updating the pinned contracts is integration work |
 | `pixel_grid_to_ase.py lint --strict` requires every frame's bottom row to equal the pivot row, which airborne frames cannot meet | No script change. Non-strict lint still fails on isolated pixels. `tests/test_art_carl_locomotion.py` enforces the per-tag contact rule from the manifest's `grounded_tags` / `airborne_tags` |
 | Aseprite tags carry only a direction, not loop / once / hold | A `locomotion.playback` block in the manifest (`validate_assets.py` ignores unknown fields) |
-| The greybox run speed (185 px/s) is far above the slip-free speed of a 52 px stocky character | Documented with measurements above. No physics change (out of scope) |
+| The greybox run speed (185 px/s) is above the authored slip-free speed (133 px/s) | Speed-linked playback rule `frame_ms = clamp(8000 / |vx|, 50, 90)` documented above, about 1.3 px of slip per frame remains at 185 px/s. No physics change (out of scope) |
 | `make_animation_previews.py` renders every tag at 6x at its atlas durations, but has no physics-timed jump or Floor 1 staging | Added `make_carl_locomotion_previews.py` instead of changing the shared script or `export_assets.sh`. The manifest is picked up by the existing export, validation and per-tag GIF steps without any script change |
 
 ## Artistic self-review (Opus, not approval)
@@ -94,10 +95,10 @@ With `JUMP_SPEED` 440 and `GRAVITY` 1050 the apex is 92 px after about 420 ms an
 
 1. **The torso and head are rigid.** The jacket, hair and head only translate. There is no jacket-hem flap, hair lag or head tilt, so the upper body reads a little stiff in the run, especially in the 4x GIF. Secondary motion on the jacket hem and a 1 px hair lag on contact are the first polish candidates.
 2. **The near arm over the jacket** is dark leather on dark leather. When it swings forward it reads mainly through the fist and the cuff sheen, not the sleeve shape.
-3. **The 3/4 body in a lateral run.** The master's three-quarter torso was kept so the approved design is not redrawn. The legs run in profile under a 3/4 chest, and the hips are 6 px apart, so the far foot always lands further forward than the near foot. It reads at gameplay scale but is not a true profile run.
-4. **Foot slip at gameplay speed** (see timing above). At 185 px/s the feet slide forward by about 8 px per frame.
-5. **The far leg has no separate value from the near leg.** Both use the same skin ramp, and the overlap reads through the outline only.
-6. **Two hearts in motion instead of three**, and the watch shows as a single 1 px face on the cuff.
+3. **The 3/4 body in a lateral run.** The master's three-quarter torso was kept so the approved design is not redrawn. The legs run in profile under a 3/4 chest. Round 2 puts both hip joints at one x (27), so the two steps are identical (24 px), but the body sits 2 px ahead of idle and 2 to 3 px lower. It reads at gameplay scale but is not a true profile run.
+4. **Residual foot slip at the greybox speed.** With the playback rule the feet slip about 1.3 px per frame at 185 px/s (the 50 ms floor); none at 145 px/s.
+5. **Leg values.** The two legs share the skin ramp, except in the down frames 5 and 8, where the tucked back leg uses a darker `S`/`D` ramp so it does not merge with the planted leg. The leg layer of frames 5 and 8 is identical (depth order is not swapped for frame 8).
+6. **Two hearts in motion instead of three.** The round-2 spec asked for the third heart on all run frames when it fits. It was checked: every allowed placement (master position moved up 0 to 2 rows) touches a `K` outline or merges into the neighbouring heart (rendered and rejected on frames 4 and 7), and on frames 6 and 9 no placement has 9 clean boxer cells. It is left out on all six run frames. A design decision for Opus (for example, moving hearts A and B). The watch is a single 1 px face on the cuff.
 7. Some limb shading is procedural in origin (block-in), so a few knee and shin clusters are simpler than the master's hand-placed leg modelling.
 8. No human has judged game feel, speed or personality in motion. Everything here is a candidate.
 

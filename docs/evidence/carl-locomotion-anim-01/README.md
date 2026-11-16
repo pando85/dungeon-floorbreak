@@ -13,12 +13,17 @@ They are copied here unchanged. `SHA256SUMS` lists their hashes, and `measuremen
 | --- | --- |
 | `contact_sheet_x1.png` | all 16 frames at native size (idle 0-3, run 4-9, jump_start 10-11, rise 12, fall 13, land 14-15) |
 | `contact_sheet_x6.png` | the same, nearest-neighbour x6, with tag, index and duration, the contact row (cyan) and the pivot (yellow) |
+| `run_stride_diagram.png` | run frames 4-9 side by side at x8 with the ground line (cyan), the pivot (yellow, x25) and the row-55 foot-contact x range and centre of every frame: the heel lands 7 px ahead of the pivot, the flat foot 0.5 px, the toe 5.5 px behind, 8 px of travel per frame, a 24 px step |
 | `idle_x4.gif` | the unchanged master idle inside the 48 x 56 canvas |
-| `run_x4.gif` | the run in place at the authored 70 ms per frame |
-| `run_scroll_145_x2.gif`, `run_scroll_x2.gif` | the run over a scrolling floor at 145 px/s (Character Playground) and 185 px/s (greybox `RUN_SPEED`): the foot slip is visible on purpose |
+| `run_x4.gif` | the run in place at the authored 60 ms per frame |
+| `run_scroll_145_x2.gif`, `run_scroll_x2.gif` | the run over a scrolling floor at 145 px/s (Character Playground, 55 ms per frame, slip-free) and 185 px/s (greybox `RUN_SPEED`, 50 ms floor, about 1.3 px of slip per frame). Both use the playback rule `frame_ms = clamp(round(8000 / |vx|), 50, 90)` |
 | `jump_sequence_x4.gif`, `jump_sequence_x1.gif` | crouch, takeoff, rise and fall held against the greybox jump physics (440 px/s, 1050 px/s^2, 92 px apex), land, idle |
 | `floor01_run_640x360.png`, `floor01_run_1920x1080.png` | run frame 4 at the ENV-01 preview position next to Donut 40 px, lit with the A1 compositor (`scripts/env_kit_light.py`), 640 x 360 and exact 3x 1080p |
 | `floor01_lineup_640x360.png`, `floor01_lineup_1920x1080.png` | run contact, run push, crouch, rise (36 px up), fall (18 px up) and land impact across the corridor with Donut for scale, same lighting |
 | `measurements.json` | per-frame bbox, opaque height and width, lowest row, durations, file hashes |
 
 The Floor 1 images use the approved, unchanged environment kit and Donut atlas. Lifted poses keep their contact shadow on the floor.
+
+Run stride (round 2): authored at 6 x 60 ms (slip-free at 133 px/s), 8 px of ground travel per frame, 24 px per step on both feet. Playback rule for integration: `frame_ms = clamp(round(8000 / |vx|), 50, 90)`.
+
+Provenance: design: Opus; execution: Sonnet; review: pending independent Opus. Status: draft, awaiting owner art review.
