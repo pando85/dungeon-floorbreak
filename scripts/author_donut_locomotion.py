@@ -26,7 +26,8 @@ jump when the state changes between idle and locomotion.
 The committed grid is the source of truth. Since round 2 this script never writes it:
 ``--round1-out PATH`` writes the round-1 record elsewhere for comparison, and
 ``--check-keys`` verifies that the round-2 hand-authored key frames (4, 6, 8, 10, 12; see
-the round-2 section below) are unchanged in the grid.
+the round-2 section below) are unchanged in the grid. ``--apply-inbetweens`` writes only the
+in-between frames 5, 7, 9 and 11 (recipes in ``INBETWEENS``); ``--check-inbetweens`` verifies them.
 """
 from __future__ import annotations
 
@@ -553,6 +554,73 @@ def round2_keys() -> dict[int, dict[str, list[str]]]:
     return frames
 
 
+# ---------------------------------------------------------------------------
+# Round 2: in-between frames (Sonnet execution of the Opus run spec)
+#
+# Frames 5, 7, 9 (run) and 11 (jump push-off) sit between the hand-authored keys. Their
+# recipes live here so the frames stay reproducible; they are deliberately NOT part of
+# ``--check-keys``. ``--check-inbetweens`` verifies them and ``--apply-inbetweens`` writes
+# only these four frames (and their durations) into the committed grid.
+# ---------------------------------------------------------------------------
+
+def _padded(rows: list[str], n: int = 6) -> list[str]:
+    blank = "." * len(rows[0])
+    return [blank] * n + rows + [blank] * n
+
+
+_UP11, _PAD11 = even_tilt(TORSO_EXTEND, 6, up=True)
+
+INBETWEENS = {
+    # frame 5: F1 far fore contact, body lowering, near fore toe-off. Compact torso
+    # (2 columns dropped), 1 px arch, rump at x 23.
+    5: {"torso": arch(stretch(_padded(TORSO), 10, -2), 6, 15, 1), "torso_xy": (23, 15),
+        "head_dy": 1, "tail": (16, 7, 0.10),
+        "legs": [("FN_plant", "far", 53, G), ("FN_push", "near", 41, G - 2),
+                 ("HN_tuck", "near", 28, G - 2), ("HN_trail", "far", 21, G - 2)]},
+    # frame 7: F3 far hind contact, near hind push-off, spine unarching. The 1 px arch
+    # starts one column later than the spec's starting point (7-18, not 6-15) so the
+    # back-top profile stays within 1 px of the spec table at x 24 and x 36.
+    7: {"torso": arch(_padded(TORSO), 7, 18, 1), "torso_xy": (18, 14),
+        "head_dy": 0, "tail": (12, 6, 0.10),
+        "legs": [("HN_plant", "far", 31, G), ("HN_push", "near", 19, G - 2),
+                 ("FN_swing", "near", 52, G - 2), ("FN_tuck", "far", 49, G - 3)]},
+    # frame 9: F5 descending, still airborne. stretch(10, 2) as in the spec, plus two
+    # plain back columns repeated at column 17 (no saddle there) so the flat back still
+    # reaches the shoulders without stretching the saddle into a stripe.
+    9: {"torso": stretch(stretch(_padded(TORSO), 10, 2), 17, 2), "torso_xy": (14, 15),
+        "head_dy": 0, "head_dx": 0, "tail": (8, 6, 0.175),
+        "legs": [("FN_reach_low", "near", 54, G - 1), ("FN_reach_low", "far", 57, G - 2),
+                 ("HN_trail", "near", 12, G - 3), ("HN_trail", "far", 15, G - 4)]},
+    # frame 11: J1 push-off, milder even_tilt than frame 12; fores already reaching.
+    11: {"torso": _UP11, "torso_xy": (18, 21 - _PAD11), "head_dy": -1, "head_dx": 1,
+         "tail": (10, 11, 0.25),
+         "legs": [("HN_push", "near", 18, G), ("HN_push", "far", 22, G),
+                  (FN_LEAP, "near", 50, 41), (FN_LEAP, "far", 52, 40)]},
+}
+
+# Run frames 5, 7, 9 and jump frame 11 durations (ms); the 185 px/s table of the spec.
+INBETWEEN_DURATIONS = {5: 80, 7: 80, 9: 80, 11: 70}
+
+# Cleanup after the lint orphan report: (frame, layer, x, y, expected old, new).
+PATCHES3 = [
+    (7, "body", 24, 25, "G", "O"),
+    (11, "tail", 15, 12, "K", "."),
+    (11, "body", 36, 34, "K", "."), (11, "body", 38, 35, "K", "."), (11, "body", 35, 36, "K", "."),
+    (11, "legs_near", 64, 37, "c", "C"), (11, "legs_far", 54, 38, "c", "C"),
+    (11, "legs_near", 62, 38, "c", "C"),
+]
+
+
+def inbetweens() -> dict[int, dict[str, list[str]]]:
+    frames = {fi: compose(spec) for fi, spec in INBETWEENS.items()}
+    for fi, layer, x, y, old, new in PATCHES3:
+        rows = frames[fi][layer]
+        if rows[y][x] != old:
+            raise ValueError(f"patch3 {fi} {layer} ({x},{y}): expected {old!r}, found {rows[y][x]!r}")
+        rows[y] = rows[y][:x] + new + rows[y][x + 1:]
+    return frames
+
+
 def build() -> dict:
     dx = PIVOT[0] - MASTER["pivot"][0]
     frames = [{"duration_ms": f["duration_ms"],
@@ -607,6 +675,10 @@ def main(argv: list[str] | None = None) -> int:
                       help="exit 1 if the grid's round-2 key frames differ from their recipe")
     mode.add_argument("--round1-out", type=Path,
                       help="write the round-1 record to this path (never the committed grid)")
+    mode.add_argument("--check-inbetweens", action="store_true",
+                      help="exit 1 if the grid's in-between frames (5, 7, 9, 11) differ from their recipe")
+    mode.add_argument("--apply-inbetweens", action="store_true",
+                      help="write the in-between frames (5, 7, 9, 11) and their durations into the grid")
     parser.add_argument("--grid", type=Path, default=OUT_PATH)
     args = parser.parse_args(argv)
     if args.check_keys:
@@ -618,6 +690,24 @@ def main(argv: list[str] | None = None) -> int:
             if mine != cels:
                 bad.append(fi)
         print("round-2 keys match their recipe" if not bad else f"round-2 keys differ: frames {bad}")
+        return 0 if not bad else 1
+    if args.check_inbetweens or args.apply_inbetweens:
+        grid = json.loads(args.grid.read_text(encoding="utf-8"))
+        keys_before = [grid["frames"][fi] for fi in ROUND2_KEYS]
+        frames = inbetweens()
+        if args.apply_inbetweens:
+            for fi, cels in frames.items():
+                grid["frames"][fi]["cels"] = cels
+                grid["frames"][fi]["duration_ms"] = INBETWEEN_DURATIONS[fi]
+            assert keys_before == [grid["frames"][fi] for fi in ROUND2_KEYS]  # keys untouched
+            args.grid.write_text(dump(grid), encoding="utf-8")
+            print(f"wrote in-between frames {sorted(frames)} into {args.grid}")
+            return 0
+        bad = [fi for fi, cels in frames.items()
+               if {k: v for k, v in grid["frames"][fi]["cels"].items()
+                   if any(c != "." for r in v for c in r)} != cels
+               or grid["frames"][fi]["duration_ms"] != INBETWEEN_DURATIONS[fi]]
+        print("in-betweens match their recipe" if not bad else f"in-betweens differ: frames {bad}")
         return 0 if not bad else 1
     if args.round1_out.resolve() == OUT_PATH.resolve():
         parser.error("the committed grid is the source of truth; write the round-1 record elsewhere")

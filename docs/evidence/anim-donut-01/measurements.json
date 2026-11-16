@@ -120,15 +120,15 @@
   {
    "frame": 5,
    "tag": "run",
-   "duration_ms": 70,
+   "duration_ms": 80,
    "bbox": [
-    14,
+    15,
     7,
     68,
     43
    ],
    "opaque_height": 37,
-   "width": 55,
+   "width": 54,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -138,13 +138,13 @@
    "tag": "run",
    "duration_ms": 80,
    "bbox": [
-    17,
-    7,
+    18,
+    5,
     68,
     43
    ],
-   "opaque_height": 37,
-   "width": 52,
+   "opaque_height": 39,
+   "width": 51,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -152,15 +152,15 @@
   {
    "frame": 7,
    "tag": "run",
-   "duration_ms": 70,
+   "duration_ms": 80,
    "bbox": [
-    13,
-    7,
+    11,
+    6,
     68,
     43
    ],
-   "opaque_height": 37,
-   "width": 56,
+   "opaque_height": 38,
+   "width": 58,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -170,29 +170,29 @@
    "tag": "run",
    "duration_ms": 90,
    "bbox": [
-    7,
+    3,
     6,
     69,
-    40
+    39
    ],
-   "opaque_height": 35,
-   "width": 63,
-   "lowest_row": 40,
-   "rows_above_pivot": 3,
+   "opaque_height": 34,
+   "width": 67,
+   "lowest_row": 39,
+   "rows_above_pivot": 4,
    "colours": 22
   },
   {
    "frame": 9,
    "tag": "run",
-   "duration_ms": 70,
+   "duration_ms": 80,
    "bbox": [
-    9,
-    5,
+    6,
+    6,
     68,
     42
    ],
-   "opaque_height": 38,
-   "width": 60,
+   "opaque_height": 37,
+   "width": 63,
    "lowest_row": 42,
    "rows_above_pivot": 1,
    "colours": 22
@@ -202,13 +202,13 @@
    "tag": "jump_start",
    "duration_ms": 90,
    "bbox": [
-    16,
+    20,
     7,
     68,
     43
    ],
    "opaque_height": 37,
-   "width": 53,
+   "width": 49,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -218,13 +218,13 @@
    "tag": "jump_start",
    "duration_ms": 70,
    "bbox": [
-    10,
-    5,
-    68,
+    7,
+    7,
+    70,
     43
    ],
-   "opaque_height": 39,
-   "width": 59,
+   "opaque_height": 37,
+   "width": 64,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -234,13 +234,13 @@
    "tag": "jump_rise",
    "duration_ms": 120,
    "bbox": [
+    5,
     6,
-    2,
-    69,
+    70,
     43
    ],
-   "opaque_height": 42,
-   "width": 64,
+   "opaque_height": 38,
+   "width": 66,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -347,8 +347,8 @@
    {
     "label": "run 6",
     "box": [
-     525,
-     271,
+     526,
+     269,
      577,
      308
     ]
@@ -356,16 +356,16 @@
    {
     "label": "run 8",
     "box": [
-     583,
+     579,
      270,
      646,
-     305
+     304
     ]
    },
    {
     "label": "jump_start 10",
     "box": [
-     660,
+     664,
      271,
      713,
      308
@@ -374,9 +374,9 @@
    {
     "label": "jump_rise 12",
     "box": [
-     718,
-     240,
-     782,
+     717,
+     244,
+     783,
      282
     ]
    },
