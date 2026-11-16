@@ -44,7 +44,7 @@ One room network, approximately 3–5 minutes for a practiced pair and up to 8 m
 
 ## Gates / stop criteria
 
-If the Bevy tooling makes sprite animation or debug captures significantly slower than a small Godot benchmark, run a one-week tech comparison before multiplying content. If explosions lead to frequent stuck states or high frame-time spikes, simplify material model, not add more simulation. If AI animation remains visually inconsistent after 2 iterations with a canonical master, pause asset expansion and revise the pipeline.
+If Bevy sprite animation or debug capture tooling becomes slow, simplify the asset iteration loop and improve Rust tooling before multiplying content. If explosions lead to frequent stuck states or high frame-time spikes, simplify material model, not add more simulation. If AI animation remains visually inconsistent after 2 iterations with a canonical master, pause asset expansion and revise the pipeline.
 
 ## Out of scope
 
