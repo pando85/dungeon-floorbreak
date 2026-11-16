@@ -1,5 +1,7 @@
 # ANIM-CARL-01: Carl locomotion candidate (52 px, Book 1)
 
+> **Round 2 in progress:** the run (frames 4-9) was redesigned after the independent Opus review. Symmetric 24 px steps, 8 px ground travel per frame, 60 ms frames, bent-elbow arm pump. The run numbers, timing and slip figures below are from round 1 and are superseded by the [run spec](carl-locomotion-anim-01-run-spec.md) until the execution pass updates this page and the evidence.
+
 **Status:** draft, awaiting owner art review. Not accepted art and not wired into any Bevy binary. The approved master (`carl_h52.grid.json` / `.ase`, manifest `carl_book1_h52.json`), the Character Playground and the Floor 1 scene are unchanged and keep using the 36 x 56 idle atlas. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)); no reuse licence, no game or asset-pack distribution right.
 
 Authoring and the artistic self-review were done by Claude Opus (AGENTS.md "Model routing for art work"). The preview script and the contract tests are tooling and were written by Claude Sonnet. An independent Opus art review is a separate step.
