@@ -24,7 +24,7 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-007/008 follow-up | P0 | Decision | Floor 1 rendering target: 640×360 virtual resolution with a full-resolution lighting pass, parallax layers and a deep floor; [ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md), look-dev spike PR #27 | **Owner decided 2026-11-16** (A1 chosen, B1 rejected). Docs only: ENV-01 rework (PR #26) and COMP-01 engine lighting follow; Bevy 0.20 implementation not yet verified |
 | WORK-009 | P1 | Slice | Carl/demolitionist bomb + one melee attack | Deterministic damage and cooldown tests |
 | WORK-010 | P1 | Slice | Donut/caster spell controlling a chaser | Cooperative combo recording and unit tests |
-| WORK-011 | P1 | Slice | One LDtk authored room with two paths and critical geometry | Schema check; path invariants under blasts |
+| WORK-011 | P1 | Slice | One LDtk authored **combat-focused** room with character-specific positional advantages, selective destruction and optional alternate approach; two parallel routes are **not required** | Schema check; combat interaction evidence; switchable-solo and 2P party reachability under destruction |
 | WORK-012 | P1 | Slice | Two enemy states/archetypes and navigation recovery | Terrain-modification scenario, no permanent stuck AI |
 | WORK-013 | P1 | Slice | Destructible props and bounded explosive chain | Event cap tests; visual feedback review |
 | WORK-014 | P1 | Slice | Checkpoint, death/retry, fully controller-driven menu | Gamepad-only 3-minute test session |
