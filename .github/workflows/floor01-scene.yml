@@ -40,7 +40,7 @@ jobs:
             libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-0 \
             libwayland-dev libvulkan-dev mesa-vulkan-drivers \
             xvfb x11-utils imagemagick
-          python3 -m pip install --disable-pip-version-check Pillow==13.0.0
+          python3 -m pip install --disable-pip-version-check Pillow==13.0.0 numpy==2.5.3
       - name: Obtain pinned LibreSprite 1.3
         shell: bash
         run: |
