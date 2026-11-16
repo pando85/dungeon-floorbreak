@@ -13,7 +13,7 @@ A Linux-first, controller-first, side-scrolling action platformer design: expres
 | Development method | AI agents implement **all** code/art with human direction and playtesting | **Decided** |
 | Primary platform | Native Linux desktop; Steam Deck controller support | **Decided** |
 | Distribution | Steam later; Windows build after Linux | **Target, not shipping commitment** |
-| Game engine | Rust + Bevy 0.20.x | **Provisional / benchmark against Godot** |
+| Game engine | 100% Rust + Bevy 0.20.1 | **Decided** |
 | Art | Detailed, dark, expressive pixel art with selective modular animation | **Decided direction** |
 | Terrain | Tile/material-driven selective destruction; no pixel-fluid simulation | **Provisional** |
 | Players | Solo + local two-player cooperative, one camera; remote via Steam Remote Play Together later | **Design target** |
@@ -40,7 +40,7 @@ A Linux-first, controller-first, side-scrolling action platformer design: expres
 
 ## Current next action
 
-Implement two short technical spikes before full production: (1) controller + pixel-camera + two-character movement and (2) destructible arena + collision update. Compare the time/quality of Bevy against a small Godot reference if needed. **Do not generate a full campaign or lots of character art yet.**
+Iterate the combat-first linear Floor 1 greybox (WORK-021): rightward movement, melee, goblins, timed bombs, breakable timber and mandatory climbs over steel. See [prototype brief](docs/04-production/linear-combat-greybox.md). Character art integration follows native source-asset review. **Do not generate a full campaign or lots of character art yet.**
 
 ## Local checks
 
