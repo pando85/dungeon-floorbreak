@@ -41,6 +41,16 @@ def require(condition: bool, message: str) -> None:
         raise ContractError(message)
 
 
+def require_binary_alpha(name: str, image: Image.Image) -> None:
+    """The lighting pass reads slot textures that were alpha-blended onto a
+    transparent target; that is only exact for 1-bit alpha (it un-premultiplies
+    anyway, but 8-bit rounding makes partial alpha lossy). Kit and actor atlases
+    must therefore have no partially transparent pixel."""
+    histogram = image.convert("RGBA").getchannel("A").histogram()
+    partial = sum(histogram[1:255])
+    require(partial == 0, f"{name}: {partial} partially transparent pixels (alpha must be 0 or 255)")
+
+
 def check_actor(name: str, size, pivot, opaque_height: int, manifest: dict,
                 metadata: dict, image: Image.Image) -> None:
     require(tuple(manifest["frame_size"]) == tuple(size), f"{name}: canvas changed")
@@ -50,6 +60,7 @@ def check_actor(name: str, size, pivot, opaque_height: int, manifest: dict,
     require(len(frames) == FRAMES, f"{name}: expected {FRAMES} idle frames")
     require(image.size == (size[0] * FRAMES, size[1]),
             f"{name}: atlas is {image.size}, Bevy expects {FRAMES} unpadded frames in one row")
+    require_binary_alpha(name, image)
     alpha = image.convert("RGBA").getchannel("A")
     heights = []
     for index, frame in enumerate(frames):
@@ -119,6 +130,8 @@ def check_kit(contract: dict, layout: dict, images: dict[str, Image.Image]) -> d
     width, height = layout["pixel_size"]
     require(width == layout["grid_size"][0] * 16 and height == layout["grid_size"][1] * 16,
             "layout pixel_size does not match grid_size")
+    for atlas_name, atlas_image in images.items():
+        require_binary_alpha(f"atlas {atlas_name}", atlas_image)
     used_tiles = 0
     opaque_cache: dict[tuple, bool] = {}
     for layer_name, grid in layout["tile_layers"].items():

@@ -76,11 +76,15 @@ jobs:
         run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh advanced-deck
       - name: Lighting off (COMP-01 look), 1920x1080, must differ from lit
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh nolight
-      - name: Lighting off, scripted capture, simulation state must equal the lit run
+      - name: Lighting off, frozen capture (same state line as the lit capture)
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh nolight-advanced
+      - name: Live run, lighting systems active (250 scripted ticks in the render loop)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh live-lit
+      - name: Live run, --no-lighting; final state must equal the lit run and the headless sim
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh live-unlit
       - name: Reference frame (ENV-01 lit preview pose) at 1920x1080
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh reference
-      - name: Compare the Bevy reference frame with the Pillow reference model
+      - name: Compare the Bevy reference frame with the Pillow reference model (gated)
         run: |
           python3 scripts/compare_floor01_lighting.py \
             --bevy artifacts/floor01-scene-reference-1920x1080.png \
@@ -89,9 +93,11 @@ jobs:
             --out-json artifacts/floor01-lighting-compare.json
       - name: Collision and walking-line overlay (640x360)
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh collision
-      - name: Frame-interval probe, lighting on (software Vulkan, a health signal only)
+      - name: Frame-interval probe, lighting on (software Vulkan, report only)
+        continue-on-error: true
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh perf-lit
-      - name: Frame-interval probe, lighting off
+      - name: Frame-interval probe, lighting off (report only)
+        continue-on-error: true
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh perf-unlit
       - name: Documentation checks
         run: python3 scripts/check_docs.py

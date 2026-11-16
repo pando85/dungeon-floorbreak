@@ -122,6 +122,21 @@ class ActorContractTests(unittest.TestCase):
             check_carl(manifest, metadata, padded)
 
 
+class AlphaTests(unittest.TestCase):
+    def test_partial_alpha_in_an_actor_atlas_is_rejected(self):
+        manifest, metadata, image = actor_fixture()
+        image.putpixel((10, 20), (200, 120, 80, 128))
+        with self.assertRaisesRegex(scene.ContractError, "partially transparent"):
+            check_carl(manifest, metadata, image)
+
+    def test_partial_alpha_in_a_kit_atlas_is_rejected(self):
+        image = Image.new("RGBA", (4, 4), (10, 10, 10, 255))
+        scene.require_binary_alpha("atlas ok", image)
+        image.putpixel((1, 1), (10, 10, 10, 200))
+        with self.assertRaisesRegex(scene.ContractError, "partially transparent"):
+            scene.require_binary_alpha("atlas x", image)
+
+
 class KitContractTests(unittest.TestCase):
     def test_valid_kit_passes(self):
         summary = scene.check_kit(*kit_fixture())

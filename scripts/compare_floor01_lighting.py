@@ -40,6 +40,14 @@ import env_kit as ek  # noqa: E402
 
 LAYOUT = "assets/levels/floor01/corridor_abc_sample.json"
 WARM_COLD_MARGIN = 8
+# Divergence gates. Measured Bevy-vs-Pillow on a real GPU is mean dE76 ~0.55,
+# p95 ~0.9, |dL*| ~0.2; the gates leave a wide margin for software rasterisers
+# and still fail on a real regression (a missing pass is dE76 > 10, a wrong
+# ambient or haze moves the means by several units).
+GATE_MEAN_DE = 1.5
+GATE_P95_DE = 3.0
+GATE_ABS_DL = 1.0
+GATE_REGION_DE = 2.5
 
 
 def srgb_to_lab(rgb: np.ndarray) -> np.ndarray:
@@ -135,6 +143,23 @@ def compare(bevy: np.ndarray, ref: np.ndarray, masks: dict[str, np.ndarray]) -> 
     return out
 
 
+def check_gates(result: dict, args) -> list[str]:
+    whole = result["whole_frame"]
+    failures = []
+    if whole["mean_dE76"] > args.max_mean_de:
+        failures.append(f"whole-frame mean dE76 {whole['mean_dE76']} > {args.max_mean_de}")
+    if whole["p95_dE76"] > args.max_p95_de:
+        failures.append(f"whole-frame p95 dE76 {whole['p95_dE76']} > {args.max_p95_de}")
+    if abs(whole["delta_L"]) > args.max_abs_dl:
+        failures.append(f"whole-frame |delta L*| {abs(whole['delta_L'])} > {args.max_abs_dl}")
+    for name, region in result["regions"].items():
+        if region.get("pixels", 0) == 0:
+            failures.append(f"region {name} has no pixels (mask broken)")
+        elif region["mean_dE76"] > args.max_region_mean_de:
+            failures.append(f"region {name} mean dE76 {region['mean_dE76']} > {args.max_region_mean_de}")
+    return failures
+
+
 def label(img: Image.Image, text: str) -> Image.Image:
     band = 30
     out = Image.new("RGB", (img.width, img.height + band), (16, 14, 20))
@@ -174,6 +199,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out-image", type=Path, required=True)
     parser.add_argument("--out-json", type=Path, required=True)
     parser.add_argument("--view", default="abc_640x360")
+    parser.add_argument("--max-mean-de", type=float, default=GATE_MEAN_DE,
+                        help="gate: whole-frame mean dE76 (default %(default)s)")
+    parser.add_argument("--max-p95-de", type=float, default=GATE_P95_DE,
+                        help="gate: whole-frame 95th percentile dE76 (default %(default)s)")
+    parser.add_argument("--max-abs-dl", type=float, default=GATE_ABS_DL,
+                        help="gate: whole-frame |mean L* difference| (default %(default)s)")
+    parser.add_argument("--max-region-mean-de", type=float, default=GATE_REGION_DE,
+                        help="gate: mean dE76 of every region (default %(default)s)")
+    parser.add_argument("--no-gate", action="store_true", help="report only, never fail")
     args = parser.parse_args(argv)
     layout = ek.load_json(LAYOUT)
     view = layout["views"][args.view]
@@ -201,6 +235,16 @@ def main(argv: list[str] | None = None) -> int:
     args.out_image.parent.mkdir(parents=True, exist_ok=True)
     side_by_side(bevy_img, ref_img, de, (bevy_img.width // 2, bevy_img.height // 2)).save(args.out_image)
     print(json.dumps(result, indent=2))
+    failures = check_gates(result, args)
+    result["gates"] = {"max_mean_dE76": args.max_mean_de, "max_p95_dE76": args.max_p95_de,
+                       "max_abs_delta_L": args.max_abs_dl, "max_region_mean_dE76": args.max_region_mean_de,
+                       "enforced": not args.no_gate, "failures": failures}
+    args.out_json.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    for f in failures:
+        print(f"GATE FAILED: {f}", file=sys.stderr)
+    if failures and not args.no_gate:
+        return 2
+    print("COMPARE_GATES_OK" if not failures else "COMPARE_GATES_FAILED (not enforced)")
     return 0
 
 
