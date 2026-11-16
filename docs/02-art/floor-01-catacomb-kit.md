@@ -1,6 +1,6 @@
 # Floor 01 catacomb environment kit (ENV-01)
 
-**Status:** rework round 4 (round 3 plus the fixes from one independent Claude Opus art review), proposed, awaiting human art review. Nothing here is approved production art, level geometry or Bevy evidence.
+**Status:** owner-approved kit art and contract v2 on 2026-11-16 (PR #26). Lighting values are a Pillow model; Bevy implementation and re-tune happen in COMP-01.
 **Target frame:** the owner-approved look-dev frame **A1** ([ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md), [look-dev write-up](lookdev-floor01-resolution-spike.md)): 640×360 palette-limited pixel layers plus a screen-resolution lighting pass, parallax gallery layers and a deep floor.
 **Binding direction:** [Floor 01 opening](floor-01-opening-catacomb-goblins.md): grammar A/B/C and the Environment locks (dry, clean brick catacomb; no sewer, toxic, factory or TV look; industrial detail sparing and local). ADR-0007 replaces the old "muted red-brown brick" wording with warm torch-lit brick falling into cold blue shadow.
 **Authored by:** Claude Opus (AI art agent), 2026-11-16. **Evidence:** [`docs/evidence/floor01-catacomb-kit/`](../evidence/floor01-catacomb-kit/README.md)
