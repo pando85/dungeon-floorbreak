@@ -78,6 +78,17 @@ The 640x360 virtual scene is shown at 1920x1080 output (3x). Repeat with --deck 
 
 **Evidence:** deterministic action traces with player slots and disconnect/reconnect transitions; same replay state hashes; visible 16:9 and 16:10 Bevy captures, stable foot contacts and controller mapping; two human testers for B4/B6 when available. Test 1P and 2P on the same authored route. No two-human-only critical path.
 
+### B7 — Character-gated traversal (first required two-role test)
+
+Follow [the approved traversal/gating rule](../01-design/asymmetric-traversal-and-gates.md): **solo switching, not single-character sufficiency**, is the acceptance target. Build a tiny authored sequence with (1) a Donut-only high/far access opening a shared route and (2) a Carl-only weak barrier opening the next shared passage. These are **sequential gates**, not two equivalent paths. Donut's jump advantage and Carl's selective breaking are qualitatively approved; actual tuning values/material interactions are not.
+
+Compare in three identical-start-state runs:
+- **B7-1 solo:** use explicit switching and (where needed) a reliable companion command. Record number of switches, whether the inactive actor rejoins, and any unnecessary AI micromanagement.
+- **B7-2 local 2P:** each player resolves their distinct gate, with useful participation/repositioning for the other and no prolonged off-screen waiting.
+- **B7-3 safety/retry:** after one gate is opened, reverse direction, fall, restart, reconnect controller and apply supported selective destruction deltas. Both must reach the next common safe zone; test at each story-unlock state for which the gate is authored.
+
+**Reject** an implementation that validates only Carl-alone and Donut-alone reachability, invents a mandatory second route, creates a non-recoverable stranded companion, or uses post-Guild abilities before they are unlocked. A successful gate should teach switching early and allow more creative answers later, not force a fixed character lane forever.
+
 ## Stage C — Shoulder Mode experiments (only after B)
 
 **Core question:** does mounting make cooperation more interesting, or does it just conceal poor controls/camera?
@@ -100,7 +111,7 @@ Do **not** test or implement mounted magic in a **pre-Guild** fixture, where Don
 Only after Stage A/B foundations are understood:
 - **D1 ordinary goblin:** readable tell, Carl alternative, Donut alternative, fair solo AI assistance; verify challenge in 1P and 2P.
 - **D2 Murder Dozer pursuit:** large hazard, escape and geometry/turn-radius learning rather than early mandatory boss defeat; reachability and fail/retry.
-- **D3 selective destruction:** at least two viable routes, breakable vs protected materials, changed path or tactical option, deterministic collision updates.
+- **D3 selective destruction:** demonstrate a **Carl-required gate** where breaking a designed weak obstacle opens the shared route (without insisting on a second bypass), then test an optional alternative or a late unlocked route on a separate fixture. Protected materials must remain clear; deterministic collision updates and solo party/2P reachability both required.
 - **D4 later ranged synergy:** after a verified story unlock, give Donut a distinct ranged/control role to complement Carl, not an early spell.
 
 These are **proposed fixture goals**. The first scene currently does not contain these enemies or gameplay mechanics even if the greybox separately demonstrates part of the technology.
@@ -158,6 +169,8 @@ Always classify reports as **existing-engine defect**, **unimplemented feature**
 | H09 | Does mounted attack/assisted aim improve tactical choices? | C2 | 1P/2P vs unmounted baseline |
 | H10 | Does destruction actually change player tactics? | D3 | Two-route setup, replay/choice evidence |
 | H11 | Is the same authored encounter fair and enjoyable in both 1P and 2P? | D1/D2/D4 | Same-seed 1P/2P comparisons |
+| H12 | Are **one-character-required gates** legible and satisfying, without forced parallel routes, for both a switchable solo player and a 2P duo? | B7 | Same-state gate scenario; solo switch/rejoin, 2P contribution/rejoin, post-destruction reachability |
+| H13 | Can later earned abilities produce non-obvious alternate solutions without retroactive softlocks? | D3 + later unlock fixture | Unlock-state capability audit and seeded solution/replay proofs |
 
 **No hypothesis is considered validated by a passing workflow.** Update with the observed result, evidence reference, designer verdict and follow-up action.
 
