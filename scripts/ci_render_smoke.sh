@@ -16,7 +16,7 @@ for _ in $(seq 1 30); do
     echo "ERROR: game exited before producing a window" >&2
     exit 1
   fi
-  if xwininfo -root -tree | grep -Fq 'Dungeon Floorbreak - WORK-001'; then
+  if xwininfo -root -tree | grep -Fq 'The Crawl |'; then
     window_seen=1
     break
   fi

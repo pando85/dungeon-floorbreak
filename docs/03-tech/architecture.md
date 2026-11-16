@@ -1,8 +1,8 @@
-# Technical architecture — Rust / Bevy (provisional)
+# Technical architecture — Rust / Bevy
 
 ## Status and constraints
 
-The preferred engine is **Bevy 0.20.x on Rust** because all code is AI-authored and must be verifiable through cargo/tests/headless scenarios. This is a *provisional ADR*, not proof that Bevy outperforms Godot in the project's actual workflow. Mandatory: measure a small Godot reference if integration overhead exceeds expected benefits. Primary runtime Linux x86_64 with Steam Deck-class constraints; controller-first. Windows/Steam are later targets.
+**Rust + Bevy 0.20.1 is the accepted, sole runtime stack** (ADR-0001). All gameplay and rendering logic must be testable with cargo and headless scenarios; integration problems are to be resolved inside this stack, not via a second-engine prototype. Primary runtime Linux x86_64 with Steam Deck-class constraints; controller-first. Windows/Steam are later targets.
 
 ## High-level dependency direction
 

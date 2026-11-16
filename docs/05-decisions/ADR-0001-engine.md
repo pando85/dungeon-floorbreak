@@ -1,6 +1,6 @@
-# ADR-0001: Rust + Bevy as provisional engine
+# ADR-0001: Rust + Bevy as the selected engine
 
-- **Status:** Provisional / requires implementation spike
+- **Status:** Accepted — Rust + Bevy only, per owner decision on 2026-11-16
 - **Date:** 2026-11-15
 
 ## Context
@@ -9,7 +9,7 @@ This game is written and animated almost entirely by AI agents, supervised by hu
 
 ## Decision
 
-Prototype on **Bevy 0.20.x + Rust**. Keep game logic in testable modules/crates and presentation in Bevy adapters. Use Aseprite and LDtk as external art/map editors; external tools do not change the runtime language choice.
+Develop the game runtime entirely with **Rust + Bevy**, currently pinned to Bevy 0.20.1. Keep game logic in testable modules/crates and presentation in Bevy adapters. Use Aseprite and LDtk as external art/map editors; external tools do not change the runtime language choice.
 
 ## Alternatives considered
 
@@ -23,9 +23,9 @@ Prototype on **Bevy 0.20.x + Rust**. Keep game logic in testable modules/crates 
 + One cohesive Rust workflow; cargo checks, testable domain, data-driven plugin ecosystem.
 - Animation/debug/editor ergonomics need explicit tooling, compile times may slow agents.
 
-## Re-evaluation gate
+## Implementation guardrail
 
-After WORK-001..005, compare change-to-test time and visual/terrain development friction against a small Godot prototype. Keep Bevy if controller input, art workflow and destruction are productive; switch engine if integration work routinely overwhelms features. This decision is not irreversible before assets expand.
+The engine choice is final for this project. Resolve integration and tooling friction in Rust + Bevy instead of proposing Godot prototypes. LDtk and Aseprite remain offline authoring tools; neither is a second runtime.
 
 ## Sources
 

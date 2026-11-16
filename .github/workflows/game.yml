@@ -43,6 +43,8 @@ jobs:
         run: cargo build --locked --bin dungeon-floorbreak
       - name: Run Bevy ECS without a GPU
         run: ./target/debug/dungeon-floorbreak --headless-smoke
+      - name: Exercise deterministic combat and destruction scenario
+        run: ./target/debug/dungeon-floorbreak --headless-combat-smoke
       - name: Run graphical Bevy under software Vulkan + Xvfb
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_render_smoke.sh
       - name: Validate existing documentation

@@ -1,5 +1,7 @@
 # Vertical slice: The Inspection Corridor
 
+> **2026-11-16 direction update:** The owner approved combat-first, rightward linear progression with occasional mandatory climbs over indestructible material. This supersedes the older two-corridor labyrinth/fork premise below. The implemented **WORK-021** prototype is documented in [linear-combat-greybox.md](linear-combat-greybox.md); older beat descriptions are archived hypotheses. Retain the approved industrial-monumental A+B visual mood and 1980s/1990s action tone.
+
 **Status:** proposed test level, NOT implemented. Primary goal: prove *destruction changes decisions* and duo powers feel different, without losing controller readability.
 
 ## Player-facing 5-minute experience
@@ -42,7 +44,7 @@ One room network, approximately 3–5 minutes for a practiced pair and up to 8 m
 
 ## Gates / stop criteria
 
-If the Bevy tooling makes sprite animation or debug captures significantly slower than a small Godot benchmark, run a one-week tech comparison before multiplying content. If explosions lead to frequent stuck states or high frame-time spikes, simplify material model, not add more simulation. If AI animation remains visually inconsistent after 2 iterations with a canonical master, pause asset expansion and revise the pipeline.
+If Bevy sprite animation or debug capture tooling becomes slow, simplify the asset iteration loop and improve Rust tooling before multiplying content. If explosions lead to frequent stuck states or high frame-time spikes, simplify material model, not add more simulation. If AI animation remains visually inconsistent after 2 iterations with a canonical master, pause asset expansion and revise the pipeline.
 
 ## Out of scope
 
