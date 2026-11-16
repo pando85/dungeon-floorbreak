@@ -38,7 +38,7 @@ The source contains tiny mock sprites, a mock turnaround, expression studies and
 
 - **Category:** fan/community concept artwork; not an executable game's character atlas.
 - **Input provenance:** original design conversation and earlier generated Donut candidates; no book pages, extracted franchise game sprites or third-party scans are documented as inputs.
-- **Rights:** the owner reports limited permission to publish approved concept images in this repository. This is not independently verified or a general adaptation license. See [provenance](provenance.md) and [rights policy](../../../../docs/04-production/rights-and-release.md).
+- **Rights:** the owner reports permission (`ART-PUBLICATION-ALL-V1`) to publish all fan-concept character art, concept and production, in this repository. This is not independently verified, grants no public reuse licence and is not a general adaptation license. See [provenance](provenance.md) and [rights policy](../../../../docs/04-production/rights-and-release.md).
 - **Future versions:** new visual masters require human review and a new version, never silent replacement.
 
 ## Design/art pipeline

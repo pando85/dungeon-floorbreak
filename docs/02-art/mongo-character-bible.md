@@ -73,7 +73,7 @@ First experiment: a lateral adult idle and 6-frame run in the actual dungeon cam
 
 ## Canon, provenance and publication rules
 
-The franchise-derived character design is a **fan/community concept**, not a licensed/production-ready playable character. The owner reports limited permission to publish approved concept art in this public repository; this does **not** establish distribution, sublicensing or official endorsement. See [rights policy](../04-production/rights-and-release.md).
+The franchise-derived character design is a **fan/community concept**, not a licensed/production-ready playable character. The owner reports permission (`ART-PUBLICATION-ALL-V1`) to publish all fan-concept character art, concept images and production art, in this public repository; this is not independently verified and does **not** establish a public reuse licence, game/Steam/trailer/merchandise/standalone asset-pack distribution, sublicensing or official endorsement. Production art still needs provenance/manifest/checksum records. See [rights policy](../04-production/rights-and-release.md).
 
 **Never use generated annotations as book evidence.** [Lore verification tracker](mongo-lore-research.md) explicitly separates primary-source claims from artistic choices. [Approved source register](../../assets/concept/mongo/approved/README.md) and [provenance](../../assets/concept/mongo/approved/provenance.md) record original exact PNG identities. The original PNGs are now committed, Git blob identity-verified and covered by `SHA256SUMS`. This is a completed **approved concept reference package**; native-resolution editable Aseprite sprites, primary-book lore verification and game distribution remain separate gates.
 

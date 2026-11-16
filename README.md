@@ -2,7 +2,7 @@
 
 > **Status: design, technical spikes and approved concept-art references; not a released or production-ready game.**
 >
-> **Public fan/community concept.** The owner reports permission to publish approved **concept images** in this public GitHub repository. This does **not** establish a general franchise license or permission to distribute a playable game or repackage artwork. The project does not claim rightsholder endorsement or affiliation. See [rights and release](docs/04-production/rights-and-release.md).
+> **Public fan/community concept.** The owner reports permission to publish all project art of the fan-concept characters, **concept images and production art**, in this public GitHub repository (`ART-PUBLICATION-ALL-V1`). This is not independently verified, grants no reuse licence, and does **not** establish a general franchise license or permission to distribute a playable game, Steam build, trailer, merchandise or standalone asset pack. The project does not claim rightsholder endorsement or affiliation. See [rights and release](docs/04-production/rights-and-release.md).
 
 A Linux-first, controller-first, side-scrolling action platformer design: expressive, relatively detailed **dark-fantasy pixel art**, explosive comedy, character synergy, and **selective, gameplay-significant level destruction**. Inspirations include Broforce (pacing and destructibility) and Mewgenics (expressive modular animation), not replication of either game's assets or systems.
 
@@ -61,4 +61,4 @@ That script creates **`pando85/dungeon-floorbreak` as a public GitHub repository
 
 ## Licensing and rights
 
-No software or content license has been granted for the repository itself at this stage (all rights reserved by default). Independent contributions and assets require explicit provenance and licensing decisions. See [rights and release](docs/04-production/rights-and-release.md) and [NOTICE](NOTICE.md).
+No software or content license has been granted for the repository itself at this stage (all rights reserved by default). Independent contributions and assets require explicit provenance and licensing decisions; public visibility of fan-concept art (see the owner-reported `ART-PUBLICATION-ALL-V1` scope) is not a reuse licence. See [rights and release](docs/04-production/rights-and-release.md) and [NOTICE](NOTICE.md).

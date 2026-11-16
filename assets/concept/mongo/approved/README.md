@@ -12,6 +12,6 @@ The owner chose the **first four-way exploration board**, then the **growth** bo
 
 **Integrity gate:** the exact original files are present, with matching expected Git blob SHA-1 and original SHA-256 checksums. After checkout, recheck with `sha256sum -c assets/concept/mongo/approved/SHA256SUMS` and `python3 scripts/check_docs.py`. Do not replace them with chat thumbnails, recompressed JPGs, crops or generated lookalikes. A future edit requires a new explicit art revision and human approval.
 
-These are approved **visual concept references only**: no real pixel-art sprites, canonical book facts, gameplay readiness, broad IP license or game distribution rights are claimed.
+These are approved **visual concept references only**: no real pixel-art sprites, canonical book facts, gameplay readiness, broad IP license or game distribution rights are claimed. Publication of Mongo art (concept and production) in this public repository falls under the owner-reported `ART-PUBLICATION-ALL-V1` scope; it is not independently verified and grants no public reuse licence.
 
 See [character bible](../../../../docs/02-art/mongo-character-bible.md), [provenance](provenance.md), and [rights policy](../../../../docs/04-production/rights-and-release.md).

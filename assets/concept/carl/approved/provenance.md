@@ -15,7 +15,7 @@
 | Size | 2,538,334 bytes |
 | SHA-256 | `b90fb91c3995449cd4a3c909c8407e767de3c706bcc4910c9ef1d7a69de50e31` |
 | Copyright basis | Franchise-derived fan/community reference; no claim of public domain or blanket ownership of underlying IP |
-| Repository publication | **Owner reports explicit permission to publish concept images in this public GitHub repository** (confirmed in chat on 2026-11-15); this is an owner attestation, **not** independent legal verification or a copy of a written grant |
+| Repository publication | **Owner reports explicit permission to publish all fan-concept character art, concept images and production art, in this public GitHub repository** (confirmed in chat on 2026-11-15, record `ART-PUBLICATION-ALL-V1`; originally recorded for concept images as `CARL-CONCEPT-APPROVED-V1`); this is an owner attestation, **not** independent legal verification or a copy of a written grant |
 | Other distribution | **Not authorized by this record**: public downloadable game, commercial product, independent asset distribution, merchandising, soundtrack or dialogue |
 | External contributors | No automatic sublicense or reuse permission is granted by inclusion in the repository |
 
@@ -27,7 +27,7 @@ Some details in the generated board are **not approved** and should not be copie
 
 ## Publication boundary
 
-The project owner states that this community project has permission for public publication of the **concept images**. Store this attestation here and in the rights register. If the actual permission terms are narrower (e.g., limit platform, audience, use, naming, adaptation or redistribution), follow the grant and amend this record. This does not imply that recognizable IP can be used for a public playable build.
+The project owner states that this community project has permission for public publication of all fan-concept character art (**concept images and production art**). Store this attestation here and in the rights register. If the actual permission terms are narrower (e.g., limit platform, audience, use, naming, adaptation or redistribution), follow the grant and amend this record. This does not imply that recognizable IP can be used for a public playable build.
 
 ## Verification
 

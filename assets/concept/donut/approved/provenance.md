@@ -17,8 +17,8 @@
 | Input materials | In-conversation character art-direction decisions and prior project-generated concept images; no original book illustrations, game assets or external scans recorded as inputs |
 | Human-approved scope | **Visual character identity and staged style direction only**: irresistibly adorable round Persian, stable tortoiseshell markings, small tiara/collar and progressively richer but restrained equipment |
 | Unapproved specifics | Image labels, exact floor chronology of items, class names and timing, item stats, accessory model accuracy, and runtime sprite resolution |
-| Publication rights | Owner reports permission to publish **approved concept images** in this public community repository; user-reported scope, **not an independently verified license** |
-| Other distribution | No assertion of license to distribute a playable adaptation, merchandise, commercial asset pack, trailer or soundtrack |
+| Publication rights | Owner reports permission to publish **all fan-concept character art (concept images and production art)** in this public community repository (`ART-PUBLICATION-ALL-V1`); user-reported scope, **not an independently verified license** |
+| Other distribution | No assertion of license to distribute a playable adaptation, merchandise, standalone asset pack, trailer or soundtrack |
 
 ## Artistic anchors
 

@@ -64,7 +64,7 @@ Bracelets are valuable **continuity markers**, not a reason to bury her in trink
 3. **Model sheet:** validate 5 consistent views (front, 3/4, side, 3/4 back, back), fixed coat map and proportions.
 4. **Sprite:** create a real editable `.aseprite` source, export deterministic atlas/JSON and test with the actual dungeon foreground/background at native scale.
 5. **Acceptance:** compare F1–2 and a later gear variant in the **same gameplay camera**. Confirm she remains instantly recognizable and adorable, even in low pixel counts.
-6. **Rights:** this fan-concept artwork may be tracked under the owner's reported publication scope, but public playable build / franchise license is a separate gate. See [rights policy](../04-production/rights-and-release.md).
+6. **Rights:** this fan-concept artwork, concept and production (pixel sources, exports, renders), is covered by the owner-reported publication scope `ART-PUBLICATION-ALL-V1`, but a public playable build, standalone asset pack or franchise license is a separate gate. See [rights policy](../04-production/rights-and-release.md).
 
 ## Agent rules
 

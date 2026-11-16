@@ -12,6 +12,7 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-006 | P0 | Prototype | Solo swap vs follower AI experiment | Short recording of both; decision record |
 | WORK-007 | P0 | Art | Canonical dark pixel-art style bible and demo palette | Human signoff at 1× and 2× |
 | WORK-008 | P0 | Art | Aseprite Lua export + spritesheet/pivot/tag validation | CI artifact from source; consistent alpha/pivot |
+| WORK-007/008 follow-up | P0 | Art | Donut floor 1 native scale study (32/40/48 px) and 40 px idle prototype; [write-up](../02-art/donut-scale-study.md), [evidence](../evidence/donut-floor1-scale-study/README.md) | **Awaiting human artistic review.** Proposed 40 px is not locked; the docs' 28-36 px range is unchanged until approval. No Bevy check yet |
 | WORK-009 | P1 | Slice | Carl/demolitionist bomb + one melee attack | Deterministic damage and cooldown tests |
 | WORK-010 | P1 | Slice | Donut/caster spell controlling a chaser | Cooperative combo recording and unit tests |
 | WORK-011 | P1 | Slice | One LDtk authored room with two paths and critical geometry | Schema check; path invariants under blasts |
@@ -32,8 +33,8 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 **not** for its Carl depiction, canonical character appearance, gameplay-scale
 pixel art, playable level or final production assets. The illustrated Carl is
 explicitly *not* the already-approved Carl; preserve the character bible. The
-image remains in the private project conversation pending rights/provenance
-review. WORK-007 is still **in progress**: accept only after native-resolution
+image remains in the private project conversation; publication is covered by
+`ART-PUBLICATION-ALL-V1` but it still needs a provenance/checksum record. WORK-007 is still **in progress**: accept only after native-resolution
 Aseprite/Bevy readability samples, source/provenance checks and human review.
 The concept illustration alone does **not** meet its acceptance gate.
 
