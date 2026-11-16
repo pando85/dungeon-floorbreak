@@ -232,7 +232,7 @@ impl World {
             },
         ]);
 
-        let enemies = [290.0, 465.0, 765.0, 1010.0, 1540.0, 1790.0]
+        // Keep the very first screen safe until the player chooses to advance.\n        let enemies = [350.0, 465.0, 765.0, 1010.0, 1540.0, 1790.0]
             .into_iter()
             .map(|x| Enemy {
                 x,
@@ -598,6 +598,15 @@ mod tests {
             a.enemies.iter().map(|e| e.health).collect::<Vec<_>>(),
             b.enemies.iter().map(|e| e.health).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn opening_corridor_is_safe_while_the_player_is_idle() {
+        let mut world = World::new();
+        idle(&mut world, 600);
+        assert_eq!(world.hero.health, 4);
+        assert_eq!(world.deaths, 0);
+        assert_eq!(world.hero.x, 86.0);
     }
 
     #[test]
