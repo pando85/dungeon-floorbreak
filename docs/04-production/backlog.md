@@ -32,7 +32,8 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 
 - **Selected:** [opening catacomb + goblin / Murder Dozer concept direction](../02-art/floor-01-opening-catacomb-goblins.md). This locks the A/B/C environment grammar, gradual immersion, visually distinct goblins, and a pursuit-first Dozer encounter. It is **concept acceptance only**.
 - **Deferred:** [local-agent implementation handoff](../07-agents/floor-01-opening-encounter-handoff.md). Start environment/sprite/chase work only after the ongoing Bevy Floor 1 greybox PR #21 and Character Playground PR #22 are reviewed/merged and the real 52/40 px character atlases can be composed.
-- **Not delivered:** final image binaries in the repository, editable tiles/actors, actual Bevy scene, chase logic, canonical on-foot pineapple-clubs, or player testing. Scene and enemy images remain in the originating project's conversation and separate local concept review pack, not runtime assets.
+- **Committed reference art:** [clean catacomb, three goblins and Murder Dozer](../../assets/concept/floor-01/opening/README.md) as **three PNG concept references**, with hashes and provenance in the [manifest](../../assets/concept/floor-01/opening/manifest.json). Git blobs were checked against the original review files; not native production sprites.
+- **Not delivered:** editable terrain/enemy/Dozer masters, actual Bevy scene, chase logic, canon-accurate goblin pineapple-clubs, or player testing. The full chase illustration with incorrect Carl/Donut remains excluded.
 
 ## Visual target review (WORK-007)
 
