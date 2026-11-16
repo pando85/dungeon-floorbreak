@@ -1,6 +1,6 @@
 # Carl, Book 1 "Survivor": native pixel scale study
 
-**Status:** three native-resolution studies (48, 52, 56 px) and one four-frame idle prototype at 52 px, **awaiting human artistic review**. Nothing here is a locked production sprite, and this document does not decide the scale. The scale below is a **proposal** for the reviewer.
+**Status:** **Owner-approved scale: 52 px opaque height (2026-11-16)**; the native-resolution study and existing four-frame idle prototype at that size are the selected baseline. Other candidates remain documented for comparison. **Not** a final gameplay/animation quality signoff: Bevy, locomotion, collision and cast VFX still require review. See [character-scale-approval.md](character-scale-approval.md).
 **Branch:** `art/carl-book1-sprite-scale` (stacked on `art/donut-floor1-scale-study`, PR #18). **Evidence commit:** `957270e`.
 **Rights:** publication of these sources and renders is covered by the owner-reported record `ART-PUBLICATION-ALL-V1` in [`rights-and-release.md`](../04-production/rights-and-release.md). That record is not verified rightsholder consent and grants no reuse licence.
 **Creative canon:** Carl follows [`antihero-tone.md`](../01-design/antihero-tone.md): a believable, plain everyman, out of his depth, in Book 1 costume (near-black leather jacket worn open, heart-print boxers, pink Crocs).
@@ -82,7 +82,9 @@ Measured values come from `generated/art/scale_study/carl_book1/comparison.json`
 | Clutter / lighting on the dark backdrop | Near-black jacket sits close to the `#191a2c` backdrop. Only sheen and glint pixels separate the jacket. White boxers and pink Crocs carry the figure. | Same issue, softened: the near sleeve has a lit sheen rim instead of a dark outline on its left edge (21 px changed in the polish pass). The far sleeve still relies on sheen and glint pixels. | Same as 48, with more sheen and glint pixels available. The larger figure holds the backdrop best at 2x. |
 | Authoring cost (opaque pixels, frame 0) | 731 px (87 % of 52). Lowest cost, but the fewest pixels for expression. | 837 px (the reference). Moderate. Already carries a four-frame idle (0 / 199 / 198 / 11 changed px per frame against frame 0). | 977 px (117 % of 52, +140 px). Highest cost for every future frame, expression and animation set. |
 
-## Proposed scale: 52 px (not locked)
+## Historic agent scale recommendation (superseded by owner approval)
+
+**Owner decision (2026-11-16):** The approved baseline is **52 px**. The proposal and conditional next steps below are preserved as the agent's pre-approval analysis; any conflicting recommendation is superseded. Do not interpret them as a pending scale decision.
 
 **Proposal:** 52 px opaque height (contact row to hair top), for **human artistic review**. It is not accepted, not locked, and no production animation set should be started on it until a human decides.
 

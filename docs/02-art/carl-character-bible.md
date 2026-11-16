@@ -61,7 +61,7 @@ No speech or facial expression should be the sole source of mandatory combat inf
 ## Build-ready acceptance criteria
 
 - A single master turnaround: front, side, back, facing-left/facing-right where asymmetry matters, consistent face/limbs.
-- Master of early Carl reviewed **at 48–56 virtual pixels tall (provisional)** on a 640×360 canvas; adjust only after visual/gameplay review.
+- **Owner-approved Book 1 sprite baseline: 52 virtual pixels of opaque height** (2026-11-16); use `assets/source/characters/carl/carl_h52.ase` and the [scale approval](character-scale-approval.md). Keep the 48/56 px studies as historic alternatives. In-engine movement/readability still require review before claiming production readiness.
 - Aseprite editable sources, deterministic export, palette list, pivot and contact-foot reference, animations with metadata; test at 1x and integer-scaled 4K (6x) and 1280×800 (640×400 base at 2x) with Steam Deck-size text.
 - Two short animation tags per acceptance scope, starting `idle` and `run`, without limb jitter or unrelated AI frame drift.
 - All details marked `canon verified`, `art-direction choice`, or `noncanonical gameplay proposal`, with book/chapter references for the first.

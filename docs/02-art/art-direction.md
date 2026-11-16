@@ -14,7 +14,7 @@ All designs must obey [`the 80s/90s everyman antihero creative rule`](../01-desi
 
 Carl's four-stage appearance and evolution are **approved by the project owner**; see [`carl-character-bible.md`](carl-character-bible.md) before commissioning or generating further Carl art. Hair stays short-messy, gradually fuller/shaggier, not a default long ponytail; his face and physique remain ordinary, with earned charisma and only modest functional strength. The project owner confirms permission to publish approved **concept images** in the public community repository; the [approved Carl concept directory](../../assets/concept/carl/approved/README.md) includes the committed and source-verified image, provenance, and SHA-256 validation manifest. This does **not** authorize distribution of the game.
 
-## Approved Princess Donut visual identity — source upload pending
+## Approved Princess Donut visual identity — source committed
 
 The owner selected Donut's **adorable, very round, fluffy tortoiseshell Persian** identity and the eight-stage visual progression as the character's visual north star. Keep giant golden eyes, a tiny muzzle, compact paws, the huge plume tail and a small crown. The later dark/magical variants **must not** replace her cute neutral expression. Bracelets are important continuity motifs, but their names, stats and acquisition floors printed in the AI-generated sheet are **not canon-verified**. See the [Donut character bible](donut-character-bible.md), [gear audit](donut-gear-timeline.md), and [source/reference package](../../assets/concept/donut/approved/README.md). The original PNG has been committed and checked against the source identity; do not treat the miniature concept sprites as genuine gameplay pixel art.
 
@@ -68,19 +68,21 @@ That scope is user-reported, not independently verified, and grants no reuse
 licence or game/asset-pack distribution right; every new asset still needs
 its own provenance and checksum record.
 
-## Initial screen and scale hypotheses
+## Screen hypotheses and approved character scale
 
-| Property | Initial target | Why |
+The **three base character sprite heights are owner-approved as of 2026-11-16** after actual pixel-art comparison; see the [scale approval decision](character-scale-approval.md). The canvas, tile scale and runtime performance remain design hypotheses.
+
+| Property | Current direction | Why |
 | --- | --- | --- |
-| Virtual canvas | 640×360 at 16:9, 640×400 at 16:10 | Integer 3× to 1080p; integer 2× to 1280×800 |
-| Tile grid | 16×16 pixels | Convenient autotile and chunk logic |
-| Carl height | ~48–56 px | Room for expressive silhouette |
-| Donut height | ~28–36 px | Smaller but prominent face/tail |
-| Mongo height | ~64–88 px | Distinct mass and momentum |
+| Virtual canvas | 640×360 at 16:9, 640×400 at 16:10 (provisional) | Integer 3× to 1080p; integer 2× to 1280×800 |
+| Tile grid | 16×16 pixels (provisional) | Convenient autotile and chunk logic |
+| Carl Book 1 opaque height | **52 px — approved** | Readable expressive everyman silhouette |
+| Donut Floor 1 opaque height | **40 px — approved** | Prioritizes giant eyes, Persian muzzle and adorable expression over compact cast footprint |
+| Mongo adult opaque height | **76 px — approved** | Readable crest, face mask and athletic mount silhouette |
 | Rendering | Nearest filtering + integer scaling when feasible | No blurry fractional pixels |
 | Runtime FPS | 60 target, verify on actual hardware | Controller responsiveness |
 
-These are **provisional art measurements**. Final camera framing and HUD may change virtual dimensions; prevent pixel jitter with snapped presentation coordinates while preserving subpixel simulation positions. Fixed virtual resolution is not a mandate to crop ultrawide or 16:10 displays.
+The other sizes are **historic alternatives**, not future default sprite masters. The approved heights are measured from the bottom contact row to the highest opaque ear, hair, gem or crest—not from the full source canvas. Final camera framing and HUD may change virtual dimensions; prevent pixel jitter with snapped presentation coordinates while preserving subpixel simulation positions. Fixed virtual resolution is not a mandate to crop ultrawide or 16:10 displays. Human approval does **not** replace in-engine/game-feel checks.
 
 ## Art rules
 

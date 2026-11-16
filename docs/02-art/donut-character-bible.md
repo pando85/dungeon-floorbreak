@@ -51,7 +51,7 @@ Bracelets are valuable **continuity markers**, not a reason to bury her in trink
 
 **Face states:** adorable/curious (default), proud/smug, thoughtful/calculating, charming/manipulative, indignant, furious/magical. Extend with sleepy, startled and happy poses as required.
 
-**Provisional gameplay sprites:** around **28–36 virtual pixels high** (not literal pixel art in the concept board). Test at 1× native 640×360 and 640×400, 2× on 1280×800, and 3× at 1920×1080. Freeze identical face proportions, ear positions, key coat patches and foot pivots across animation frames.
+**Owner-approved Floor 1 sprite baseline (2026-11-16): 40 virtual pixels of opaque height**, selected from the genuine 32/40/48 px study with its four-frame `idle` prototype. The extra width of Donut's plume relative to Carl is an accepted visual tradeoff to preserve her eyes and Persian muzzle. See [scale approval](character-scale-approval.md) and [study](donut-scale-study.md). Test in Bevy at 1× native 640×360 and 640×400 and 2× at 1280×800; preserve identical face proportions, key coat patches and foot pivots across animations. This approves the scale, not final locomotion/gameplay animation quality.
 
 **First animation scope:** `idle`, `walk`, `run`, `jump`, `land`, `cast`, `hurt`, `sit_rest`, plus optional `smug_idle` / `furious_cast`. Genuine Aseprite-authored frames required; generated board sprites are illustrative only.
 

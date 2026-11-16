@@ -1,6 +1,6 @@
 # Mongo (adult / mount): native pixel scale study
 
-**Status:** three native-resolution studies (64, 76, 88 px) and one four-frame idle prototype at 76 px, **awaiting human artistic review**. Nothing here is a locked production sprite, and this document does not decide the scale. The scale below is a **proposal** for the reviewer.
+**Status:** **Owner-approved scale: 76 px opaque height (2026-11-16)**; the native-resolution study and existing four-frame idle prototype at that size are the selected baseline. Other candidates remain documented for comparison. **Not** a final gameplay/animation quality signoff: Bevy, locomotion, collision and cast VFX still require review. See [character-scale-approval.md](character-scale-approval.md).
 **Branch:** `art/mongo-adult-sprite-scale` (stacked on `art/carl-book1-sprite-scale`, PR #19, which is stacked on `art/donut-floor1-scale-study`, PR #18). **Evidence commit:** `c0bae86`.
 **Rights:** publication of these sources and renders is covered by the owner-reported record `ART-PUBLICATION-ALL-V1` in [`rights-and-release.md`](../04-production/rights-and-release.md). That record is not verified rightsholder consent and grants no reuse licence.
 **Creative canon:** Mongo is the approved adult concept (`assets/concept/mongo/approved/`, see [`mongo-character-bible.md`](mongo-character-bible.md)): an upright, feathered raptor-like mount with a pink crest fan and mane, a blue face mask with a gold eye, a pink plume tail and blue-tipped wing feathers. Names and franchise-derived traits are a replaceable fan-concept layer.
@@ -88,7 +88,9 @@ Measured values come from `generated/art/scale_study/mongo_adult/comparison.json
 
 Opaque pixel counts are measured on the exported frame-0 atlas. `STYLE_NOTES.md` still lists 2,431 / 3,445 / 4,601 from before the 13 pinhole fills (5 / 5 / 3 pixels), which accounts for the difference.
 
-## Proposed scale: 76 px (not locked)
+## Historic agent scale recommendation (superseded by owner approval)
+
+**Owner decision (2026-11-16):** The approved baseline is **76 px**. The proposal and conditional next steps below are preserved as the agent's pre-approval analysis; any conflicting recommendation is superseded. Do not interpret them as a pending scale decision.
 
 **Proposal:** 76 px opaque height (contact row to crest top), for **human artistic review**. It is not accepted, not locked, and no production animation set should be started on it until a human decides.
 

@@ -1,6 +1,6 @@
 # Princess Donut: floor 1 native pixel scale study
 
-**Status:** three native-resolution studies and one four-frame idle prototype, **awaiting human artistic review**. Nothing here is a locked production sprite, and this document does not decide the scale. The scale below is a **proposal** for the reviewer, revised after the cast-context check against the real Carl pixel masters.
+**Status:** **Owner-approved scale: 40 px opaque height (2026-11-16)**; the native-resolution study and existing four-frame idle prototype at that size are the selected baseline. Other candidates remain documented for comparison. **Not** a final gameplay/animation quality signoff: Bevy, locomotion, collision and cast VFX still require review. See [character-scale-approval.md](character-scale-approval.md).
 **Work order:** [`docs/07-agents/donut-floor1-scale-study.md`](../07-agents/donut-floor1-scale-study.md). **Branch:** `art/donut-floor1-scale-study`. **Evidence commit:** `4918b73`.
 **Rights:** publication of these sources and renders is covered by the owner-reported record `ART-PUBLICATION-ALL-V1` in [`rights-and-release.md`](../04-production/rights-and-release.md). That record is not verified rightsholder consent and grants no reuse licence.
 
@@ -104,7 +104,9 @@ Measured values come from `generated/art/scale_study/donut_floor1/comparison.jso
 | Clutter / lighting visibility | Mid-value ginger and cream read against the dark violet backdrop, but the small head leaves little separation of dark mask, dark tail and dark body. Small details (charm 3x1, no band) are lost. | Warm ginger and cream stand out on the dark backdrop at 1x and 2x. Chest ruff is a large cream mass, the foreleg band was dropped to avoid paw clutter. Needs a reviewer's eye on busy backgrounds and under FX. | Details are most visible and the cat dominates the frame. The large cream chest and the dark crown are big flat areas, and at this height the cat competes with the player character for attention. |
 | Authoring complexity | 844 opaque px on frame 0 (65 % of the 40 px figure). Lowest cost, but expression changes have very few pixels. | 1305 opaque px on frame 0. Moderate. Already carries a four-frame idle (470, 96, 485, 25 changed px per transition). | 1893 opaque px on frame 0 (145 % of the 40 px figure, +588 px). Highest cost for every future frame, expression and animation set. |
 
-## Proposed scale: 32 px gameplay scale (not locked)
+## Historic agent scale recommendation (superseded by owner approval)
+
+**Owner decision (2026-11-16):** The approved baseline is **40 px**. The proposal and conditional next steps below are preserved as the agent's pre-approval analysis; any conflicting recommendation is superseded. Do not interpret them as a pending scale decision.
 
 **Proposal, revised after the cast-context check:** **32 px** opaque height (contact row to tiara gem) as Donut's **gameplay** scale, for **human artistic review**. It is not accepted, not locked, and no production animation set should be started on it until a human decides. A human makes the decision.
 

@@ -67,7 +67,7 @@ Do **not** crop the concept sheet's tiny illustrative mock sprites into an atlas
 
 ## Native-resolution acceptance
 
-Existing project canvas hypothesis: **640×360** or **640×400**, with Carl ~48–56 px, Donut ~28–36 px and Mongo ~64–88 px tall. These are *provisional*, not approved final scale.
+The virtual canvas remains a **640×360 / 640×400 hypothesis**. The owner **approved adult Mongo at 76 px opaque height** on 2026-11-16, alongside Carl 52 px and Donut 40 px; see the [scale approval](character-scale-approval.md). The 64/88 px Mongo sprites remain historic comparison candidates, not the default master. Bevy rendering, running/charge and Donut mount overlap are not yet validated.
 
 First experiment: a lateral adult idle and 6-frame run in the actual dungeon camera, beside Carl and Donut, at original virtual size and integer 2×. Test mounted and unmounted silhouettes; no overlap of attack tells; contrast against blue-violet/magenta/amber world; stable foot and seat anchors; readable crest and long tail; no palette flicker or independent-frame redesign. A human must approve the genuine sprite master before mass animation.
 
