@@ -160,7 +160,7 @@ fn label(commands: &mut Commands, text: impl Into<String>, x: f32, y: f32, size:
     commands.spawn((
         Text2d::new(text),
         TextFont {
-            font_size: size,
+            font_size: FontSize::Px(size),
             ..default()
         },
         TextColor(color),
