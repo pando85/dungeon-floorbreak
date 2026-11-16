@@ -27,7 +27,7 @@ The committed grid is the source of truth. Since round 2 this script never write
 ``--round1-out PATH`` writes the round-1 record elsewhere for comparison, and
 ``--check-keys`` verifies that the round-2 hand-authored key frames (4, 6, 8, 10, 12; see
 the round-2 section below) are unchanged in the grid. ``--apply-inbetweens`` writes only the
-in-between frames 5, 7, 9 and 11 (recipes in ``INBETWEENS``); ``--check-inbetweens`` verifies them.
+in-between frames 5, 7, 9 and 11 (recipes in ``INBETWEENS``) and the frame-13 tail (``TAIL_ONLY``); ``--check-inbetweens`` verifies them.
 """
 from __future__ import annotations
 
@@ -597,37 +597,47 @@ INBETWEENS = {
         "head_dy": 1, "tail": (16, 7, 0.10),
         "legs": [("FN_plant", "far", 53, G), ("FN_push", "near", 41, G - 2),
                  ("HN_tuck", "near", 28, G - 2), ("HN_trail", "far", 21, G - 2)]},
-    # frame 7: F3 far hind contact, near hind push-off, spine unarching. The 1 px arch
-    # starts one column later than the spec's starting point (7-18, not 6-15) so the
-    # back-top profile stays within 1 px of the spec table at x 24 and x 36.
-    7: {"torso": arch(_padded(TORSO), 7, 18, 1), "torso_xy": (18, 14),
-        "head_dy": 0, "tail": (12, 6, 0.10),
-        "legs": [("HN_plant", "far", 31, G), ("HN_push", "near", 19, G - 2),
+    # frame 7: F3 far hind contact, near hind push-off, spine unarching. Round 3: rump
+    # at x 21 (was 18). The 1 px arch covers local columns 7-18; PATCHES3 closes the
+    # 1 px notch where the back meets the head.
+    7: {"torso": arch(_padded(TORSO), 7, 18, 1), "torso_xy": (21, 14),
+        "head_dy": 0, "tail": (15, 6, 0.15),
+        "legs": [("HN_plant", "far", 31, G), ("HN_push", "near", 22, G - 2),
                  ("FN_swing", "near", 52, G - 2), ("FN_tuck", "far", 49, G - 3)]},
-    # frame 9: F5 descending, still airborne. stretch(10, 2) as in the spec, plus two
-    # plain back columns repeated at column 17 (no saddle there) so the flat back still
-    # reaches the shoulders without stretching the saddle into a stripe.
-    9: {"torso": stretch(stretch(_padded(TORSO), 10, 2), 17, 2), "torso_xy": (14, 15),
-        "head_dy": 0, "head_dx": 0, "tail": (8, 6, 0.175),
+    # frame 9: F5 descending, still airborne. Round 3: plain round-1 TORSO (no stretch),
+    # rump at x 20, head 1 px forward, hinds re-attached under the new rump.
+    9: {"torso": _padded(TORSO), "torso_xy": (20, 15),
+        "head_dy": 0, "head_dx": 1, "tail": (12, 6, 0.20),
         "legs": [("FN_reach_low", "near", 54, G - 1), ("FN_reach_low", "far", 57, G - 2),
-                 ("HN_trail", "near", 12, G - 3), ("HN_trail", "far", 15, G - 4)]},
-    # frame 11: J1 push-off, milder even_tilt than frame 12; fores already reaching.
+                 ("HN_trail", "near", 17, G - 3), ("HN_trail", "far", 20, G - 4)]},
+    # frame 11: J1 push-off, milder even_tilt than frame 12. Round 3: the frame-12 forelegs,
+    # 1-2 px lower; calmer tail between frames 10 and 12.
     11: {"torso": _UP11, "torso_xy": (18, 21 - _PAD11), "head_dy": -1, "head_dx": 1,
-         "tail": (10, 11, 0.25),
+         "tail": (16, 10, 0.10),
          "legs": [("HN_push", "near", 18, G), ("HN_push", "far", 22, G),
-                  (FN_LEAP, "near", 50, 41), (FN_LEAP, "far", 52, 40)]},
+                  (FN_REACH_NEAR, "near", 49, 42), (FN_REACH_FAR, "far", 56, 39)]},
 }
 
 # Run frames 5, 7, 9 and jump frame 11 durations (ms); the 185 px/s table of the spec.
 INBETWEEN_DURATIONS = {5: 80, 7: 80, 9: 80, 11: 70}
 
+# Tail-only recipes (the rest of the frame is round-1 output and stays untouched):
+# frame 13 (jump fall), tail moved down so the tip steps at most 4 px from frame 12.
+TAIL_ONLY = {13: (13, 9, 0.10)}
+
 # Cleanup after the lint orphan report: (frame, layer, x, y, expected old, new).
 PATCHES3 = [
-    (7, "body", 24, 25, "G", "O"),
-    (11, "tail", 15, 12, "K", "."),
+    # Round 3: close the 1 px notch where the back meets the head (frames 5, 7, 9).
+    (5, "body", 37, 20, ".", "j"),
+    (7, "body", 37, 19, ".", "j"), (7, "body", 37, 20, "j", "H"),
+    (9, "body", 36, 21, ".", "j"), (9, "body", 37, 21, ".", "j"), (9, "body", 36, 22, "j", "H"),
+    # Lint cleanups (orphan pixels).
+    (7, "body", 27, 25, "G", "O"),
+    (9, "body", 55, 37, "K", "c"), (9, "legs_far", 23, 39, "c", "K"),
+    (11, "tail", 17, 30, "O", "G"),
     (11, "body", 36, 34, "K", "."), (11, "body", 38, 35, "K", "."), (11, "body", 35, 36, "K", "."),
-    (11, "legs_near", 64, 37, "c", "C"), (11, "legs_far", 54, 38, "c", "C"),
-    (11, "legs_near", 62, 38, "c", "C"),
+    (11, "legs_near", 52, 38, "c", "C"), (11, "legs_near", 55, 39, "c", "C"),
+    (11, "legs_near", 56, 41, "c", "C"),
 ]
 
 
@@ -639,6 +649,16 @@ def inbetweens() -> dict[int, dict[str, list[str]]]:
             raise ValueError(f"patch3 {fi} {layer} ({x},{y}): expected {old!r}, found {rows[y][x]!r}")
         rows[y] = rows[y][:x] + new + rows[y][x + 1:]
     return frames
+
+
+def tail_only() -> dict[int, list[str]]:
+    """Tail cels for the frames that only get a new tail (frame 13)."""
+    out = {}
+    for fi, (x, y, k) in TAIL_ONLY.items():
+        c = Canvas()
+        tail_block(c, x + CROP_X, y, k)
+        out[fi] = c.cels()["tail"]
+    return out
 
 
 def build() -> dict:
@@ -719,6 +739,8 @@ def main(argv: list[str] | None = None) -> int:
             for fi, cels in frames.items():
                 grid["frames"][fi]["cels"] = cels
                 grid["frames"][fi]["duration_ms"] = INBETWEEN_DURATIONS[fi]
+            for fi, tail in tail_only().items():
+                grid["frames"][fi]["cels"]["tail"] = tail
             assert keys_before == [grid["frames"][fi] for fi in ROUND2_KEYS]  # keys untouched
             args.grid.write_text(dump(grid), encoding="utf-8")
             print(f"wrote in-between frames {sorted(frames)} into {args.grid}")
@@ -727,6 +749,7 @@ def main(argv: list[str] | None = None) -> int:
                if {k: v for k, v in grid["frames"][fi]["cels"].items()
                    if any(c != "." for r in v for c in r)} != cels
                or grid["frames"][fi]["duration_ms"] != INBETWEEN_DURATIONS[fi]]
+        bad += [fi for fi, tail in tail_only().items() if grid["frames"][fi]["cels"]["tail"] != tail]
         print("in-betweens match their recipe" if not bad else f"in-betweens differ: frames {bad}")
         return 0 if not bad else 1
     if args.round1_out.resolve() == OUT_PATH.resolve():

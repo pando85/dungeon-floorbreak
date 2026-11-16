@@ -174,10 +174,12 @@ class DonutLocomotionTests(unittest.TestCase):
 
     def test_back_top_profiles(self) -> None:
         xs = (16, 20, 24, 28, 32, 36)
+        # Round 3: measured on the grid (keys 4, 6, 8, 10, 12 are Opus-authored; 5, 7, 9, 11
+        # are the Sonnet in-betweens). Frame 8 is flat y 20 from x 24; frames 5, 7, 9 have no notch.
         spec = {4: (None, None, 24, 21, 21, 21), 5: (None, None, 25, 22, 20, 20),
-                6: (None, None, 27, 21, 18, 18), 7: (None, 23, 21, 20, 19, 19),
-                8: (21, 20, 20, 20, 20, 20), 9: (23, 21, 21, 21, 21, 21),
-                10: (None, None, None, 24, 21, 20), 11: (None, 24, 22, 21, 20, 19),
+                6: (None, None, 27, 21, 18, 18), 7: (None, None, 22, 19, 19, 19),
+                8: (None, 22, 20, 20, 20, 20), 9: (None, 27, 22, 21, 21, 21),
+                10: (None, None, None, 24, 21, 20), 11: (None, 24, 22, 22, 21, 20),
                 12: (26, 23, 22, 21, 20, 19)}
         for frame, row in spec.items():
             for x, want in zip(xs, row):
@@ -186,7 +188,7 @@ class DonutLocomotionTests(unittest.TestCase):
                     self.assertIsNone(got, f"frame {frame} x {x}: no body expected")
                 else:
                     self.assertIsNotNone(got, f"frame {frame} x {x}")
-                    self.assertLessEqual(abs(got - want), 1, f"frame {frame} x {x}: {got} vs {want}")
+                    self.assertLessEqual(abs(got - want), 0, f"frame {frame} x {x}: {got} vs {want}")
         run = self.frames("run")
         # The gathered spine is at least 3 px higher than the contact spine at x 32.
         self.assertGreaterEqual(self.back_top(run[0], 32) - self.back_top(run[2], 32), 3)
@@ -210,7 +212,7 @@ class DonutLocomotionTests(unittest.TestCase):
         return min(x for x, _, _ in px), min(y for _, y, _ in px)
 
     def test_run_head_bob_is_one_pixel(self) -> None:
-        want_x = [43, 43, 43, 43, 44, 43]
+        want_x = [43, 43, 42, 43, 44, 44]
         faces = [self.face_xy(i) for i in self.frames("run")]
         self.assertEqual([f[0] for f in faces], want_x)
         ys = [f[1] for f in faces]
@@ -245,6 +247,59 @@ class DonutLocomotionTests(unittest.TestCase):
         for recipe in (author.round2_keys(), author.inbetweens()):
             for fi, cels in recipe.items():
                 self.assertEqual(used(fi), cels, f"frame {fi} differs from its recipe")
+
+    def rump_x(self, frame: int) -> int:
+        return min(x for x, _, _ in pixels(self.cel(frame, "body")))
+
+    def test_run_body_length_inchworm(self) -> None:
+        """Round 3: rump and head move together; body length = face x - rump left edge."""
+        run = self.frames("run")
+        rumps = [self.rump_x(i) for i in run]
+        for got, want in zip(rumps, [22, 23, 24, 21, 19, 20]):
+            self.assertLessEqual(abs(got - want), 1, f"rump left edges {rumps}")
+        lengths = [self.face_xy(i)[0] - r for i, r in zip(run, rumps)]
+        self.assertGreaterEqual(min(lengths), 18)
+        self.assertLessEqual(max(lengths), 25, f"body lengths {lengths}")
+        steps = [abs(a - b) for a, b in zip(rumps, rumps[1:] + rumps[:1])]
+        self.assertLessEqual(max(steps), 3, f"rump steps {steps} (round 2 had 8)")
+
+    def test_back_meets_the_head_without_a_notch(self) -> None:
+        for frame in (self.frames("run")[1], self.frames("run")[3], self.frames("run")[5]):
+            head = pixels(self.cel(frame, "head"))
+            edge = min(x for x, y, _ in head if 17 <= y <= 20)
+            tops = [self.back_top(frame, x) for x in range(edge - 4, edge)]
+            self.assertEqual(len(set(tops)), 1, f"frame {frame}: back top {tops} left of the head (x {edge})")
+
+    def test_tail_shear_k_list(self) -> None:
+        import author_donut_locomotion as author
+        ks = [author.ROUND2_KEYS[4]["tail"][2], author.INBETWEENS[5]["tail"][2],
+              author.ROUND2_KEYS[6]["tail"][2], author.INBETWEENS[7]["tail"][2],
+              author.ROUND2_KEYS[8]["tail"][2], author.INBETWEENS[9]["tail"][2]]
+        self.assertEqual(ks, [0.15, 0.10, 0.05, 0.15, 0.25, 0.20])
+        for k in range(len(ks)):  # includes the loop closure 9 -> 4
+            self.assertLessEqual(round(abs(ks[k] - ks[(k + 1) % len(ks)]), 3), 0.10)
+
+    def fore_cluster(self, frame: int, layer: str) -> tuple[int, int, int, int]:
+        pts = [(x, y) for x, y, _ in pixels(self.cel(frame, layer)) if x >= 44]
+        return (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
+
+    def test_jump_forelegs_are_two_separate_short_legs(self) -> None:
+        for frame in (self.frames("jump_start")[1], self.frames("jump_rise")[0]):
+            near = self.fore_cluster(frame, "legs_near")
+            far = self.fore_cluster(frame, "legs_far")
+            for box in (near, far):
+                self.assertLessEqual(box[2] - box[0] + 1, 13, f"frame {frame} foreleg longer than 13 px")
+            self.assertGreater(far[2], near[2], f"frame {frame}: far paw shows past the near paw")
+            self.assertGreaterEqual(near[3] - far[3], 3, f"frame {frame}: paws at least 3 rows apart")
+
+    def tail_tip(self, frame: int) -> tuple[int, int]:
+        rows = self.cel(frame, "tail")
+        y = next(i for i, r in enumerate(rows) if any(c != "." for c in r))
+        return next(i for i, c in enumerate(rows[y]) if c != "."), y
+
+    def test_fall_tail_follows_the_rise(self) -> None:
+        rise, fall = self.tail_tip(self.frames("jump_rise")[0]), self.tail_tip(self.frames("jump_fall")[0])
+        self.assertLessEqual(max(abs(rise[0] - fall[0]), abs(rise[1] - fall[1])), 4, f"{rise} -> {fall}")
 
 
 if __name__ == "__main__":

@@ -140,11 +140,11 @@
    "bbox": [
     18,
     5,
-    68,
+    67,
     43
    ],
    "opaque_height": 39,
-   "width": 51,
+   "width": 50,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -154,13 +154,13 @@
    "tag": "run",
    "duration_ms": 80,
    "bbox": [
-    11,
+    13,
     6,
     68,
     43
    ],
    "opaque_height": 38,
-   "width": 58,
+   "width": 56,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -170,13 +170,13 @@
    "tag": "run",
    "duration_ms": 90,
    "bbox": [
-    3,
-    6,
+    8,
+    7,
     69,
     39
    ],
-   "opaque_height": 34,
-   "width": 67,
+   "opaque_height": 33,
+   "width": 62,
    "lowest_row": 39,
    "rows_above_pivot": 4,
    "colours": 22
@@ -186,13 +186,13 @@
    "tag": "run",
    "duration_ms": 80,
    "bbox": [
+    10,
     6,
-    6,
-    68,
+    69,
     42
    ],
    "opaque_height": 37,
-   "width": 63,
+   "width": 60,
    "lowest_row": 42,
    "rows_above_pivot": 1,
    "colours": 22
@@ -218,13 +218,13 @@
    "tag": "jump_start",
    "duration_ms": 70,
    "bbox": [
+    15,
     7,
-    7,
-    70,
+    69,
     43
    ],
    "opaque_height": 37,
-   "width": 64,
+   "width": 55,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -234,13 +234,13 @@
    "tag": "jump_rise",
    "duration_ms": 120,
    "bbox": [
-    5,
+    9,
     6,
-    70,
+    69,
     43
    ],
    "opaque_height": 38,
-   "width": 66,
+   "width": 61,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -250,13 +250,13 @@
    "tag": "jump_fall",
    "duration_ms": 120,
    "bbox": [
-    14,
-    4,
+    12,
+    7,
     68,
     43
    ],
-   "opaque_height": 40,
-   "width": 55,
+   "opaque_height": 37,
+   "width": 57,
    "lowest_row": 43,
    "rows_above_pivot": 0,
    "colours": 22
@@ -349,15 +349,15 @@
     "box": [
      526,
      269,
-     577,
+     576,
      308
     ]
    },
    {
     "label": "run 8",
     "box": [
-     579,
-     270,
+     584,
+     271,
      646,
      304
     ]
@@ -374,17 +374,17 @@
    {
     "label": "jump_rise 12",
     "box": [
-     717,
+     721,
      244,
-     783,
+     782,
      282
     ]
    },
    {
     "label": "jump_fall 13",
     "box": [
-     794,
-     254,
+     792,
+     257,
      849,
      294
     ]

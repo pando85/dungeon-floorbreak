@@ -103,7 +103,7 @@ def panel(grid: dict, frame: int, palette: dict[str, tuple[int, int, int]]) -> I
         contact = [x for x, c in enumerate(grid["frames"][frame]["cels"][LEG_LAYER[frame]][43]) if c != "."]
         d.text((8, ty), f"CONTACT: {NAMES[frame]}", font=mid, fill=HILITE)
         d.text((8, ty + 26), f"paw on row 43, x {min(contact)}-{max(contact)}", font=small, fill=HILITE)
-        d.text((8, ty + 48), "the only paw on the ground: it cannot slide", font=small, fill=DIM)
+        d.text((8, ty + 48), "the only paw on the ground: one contact frame", font=small, fill=DIM)
     else:
         lx, ly = lowest_leg_pixel(grid, frame)
         gap = py - ly
@@ -115,7 +115,7 @@ def panel(grid: dict, frame: int, palette: dict[str, tuple[int, int, int]]) -> I
         d.text((x + 12, (y0 + ground_y) // 2 - 9), f"{gap} px", font=small, fill=AIR)
         d.text((8, ty), "AIRBORNE: no paw on row 43", font=mid, fill=AIR)
         d.text((8, ty + 26), f"lowest paw row {ly}, {gap} px above the ground", font=small, fill=AIR)
-        d.text((8, ty + 48), "nothing planted: nothing to slide", font=small, fill=DIM)
+        d.text((8, ty + 48), "nothing planted", font=small, fill=DIM)
     return img
 
 
@@ -143,8 +143,8 @@ def main(argv: list[str] | None = None) -> int:
         d.text((cx, cy + 6), f"frame {frame}   {ms} ms", font=font(21), fill=TEXT)
         img.paste(p, (cx, cy + 34))
     d.text((gap, img.height - foot + 10),
-           "Run order 4 > 5 > 6 > 7 > 8 > 9 > 4. Each paw is on row 43 in exactly one frame, so no planted paw "
-           "can slide at any speed.", font=font(20), fill=TEXT)
+           "Run order 4 > 5 > 6 > 7 > 8 > 9 > 4. Each paw is on row 43 in exactly one frame, so a planted paw has no "
+           "frame-to-frame slide; it still glides 14.8 px of ground during that frame.", font=font(20), fill=TEXT)
     d.text((gap, img.height - foot + 36),
            "Playback: frame_ms = clamp(round(w * 1000 * 14.8 / |vx|), 50, 130), w = 1 except frame 8 = 1.125 "
            "(80 ms, frame 8 90 ms at 185 px/s).", font=font(20), fill=DIM)
