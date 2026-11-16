@@ -19,7 +19,7 @@ Captured on the author's Linux machine under Xvfb (`xvfb-run`) with `scripts/ci_
 | `floor01-scene-collision-640x360.png` | `--scenario walk_right --capture-tick 80 --debug-collision` | merged solids (red), walking lines (cyan), Carl's 24 x 52 box (green), drawn after and not lit |
 | `floor01-scene-turn-around-1920x1080.png` | `--scenario turn_around --capture-tick 185 --scale 3` | 1080p with Carl flipped (facing left) and Donut behind him |
 
-The scripted captures print the same `FLOOR1_SCENE_STATE` line in the headless smoke and in the render process, with lighting on and off; CI compares them. That shows cross-process determinism of the simulation state and that lighting does not change it, not that the pixels match it. A passing render proves integration, not quality. Performance numbers are in the scene doc (frame intervals on one desktop GPU; nothing on a Steam Deck).
+The frozen captures print the same `FLOOR1_SCENE_STATE` line in the headless smoke and in the render process; CI compares them (cross-process determinism of the simulation state, not proof that the pixels match it). Separately, CI steps the scripted walk live for 250 ticks in the render loop with lighting active and with `--no-lighting` and requires the same final state in both and in the headless simulation. A passing render proves integration, not quality. Performance numbers are in the scene doc (frame intervals on one desktop GPU; nothing on a Steam Deck).
 
 ## Manual controller playtest checklist (human review required)
 

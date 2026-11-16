@@ -22,6 +22,7 @@ Run from the repository root. A missing atlas is a setup failure: the binary pri
 | `--scale <1..8>` | window = virtual size x scale (default 2; **3 = 1920x1080, the primary target**) |
 | `--no-lighting` | draw the COMP-01 look (pixel layers only, no pass); for regression and comparison |
 | `--reference-frame` | review capture: camera pinned to layout view `abc_640x360` (`abc_640x400` with `--deck`), Carl and Donut standing at the ENV-01 preview positions (`preview.actor_check`), first idle frames, presentation tick 0, simulation untouched. Matches `docs/evidence/floor01-catacomb-kit/lit_abc_*.png` |
+| `--exit-after-ticks <N>` | needs `--scenario`, live run: step the scenario for N fixed ticks in the real render loop, print `FLOOR1_SCENE_STATE` and exit (CI compares the lit and `--no-lighting` runs) |
 | `--perf-frames <N>` | measure N frame intervals after 120 warm-up frames with vsync off, print `FLOOR1_PERF ...` and exit |
 | `--scenario <name>` | scripted input: `idle`, `walk_right` (holds right, jumps at steps, reaches the exit in 613 ticks), `turn_around` (right for 150 ticks, then left) |
 | `--capture-tick <N>` | needs `--scenario`: pre-simulate N fixed ticks headlessly, then render that frozen state |
@@ -125,7 +126,7 @@ Status: functional, **not accepted**. A human must judge the look and the feel. 
 
 Every stage after the slot cameras is a full-screen `Mesh2d` quad with a `LightingMaterial` seen by its own camera, ordered by `Camera::order`. One WGSL module (`src/light_pass.wgsl`) holds the three fragment entry points (`emissive`, `blur`, `composite`), chosen per material in `Material2d::specialize`.
 
-**Colour space.** The Pillow model multiplies and mixes sRGB-encoded values, so the shader converts each texel to encoded space, does the same arithmetic, and converts back for the sRGB render target. Slot images are `Rgba8UnormSrgb`; the atlas round trip is exact.
+**Colour space.** The Pillow model multiplies and mixes sRGB-encoded values, so the shader converts each texel to encoded space, does the same arithmetic, and converts back for the sRGB render target. Slot images are `Rgba8UnormSrgb`; the atlas round trip is exact. The slot cameras alpha-blend onto a transparent target, which leaves partially transparent pixels premultiplied, so the shader divides the alpha back out; the kit and actor atlases have 1-bit alpha anyway (`check_floor01_scene_contract.py` rejects partial alpha). The emissive and blur targets are `Rgba8Unorm` and hold encoded values directly, which avoids a `pow()` per blur tap.
 
 **Integer scaling.** The composite reads the slot textures with integer `textureLoad` at `floor(pixel / (window / virtual))`, so the pixel art is never filtered and there are no seams at any window size. Only the light maths is continuous (pixel centre in virtual units). The 3x primary target is 1920x1080; 2x is 1280x720 / Deck 1280x800.
 
@@ -140,13 +141,15 @@ Every stage after the slot cameras is a full-screen `Mesh2d` quad with a `Lighti
 | `lighting.actor_contact_shadow` | ellipse under each actor on the walking line, darkens the scene group only |
 | `lighting.bloom` (`emissive_colours`, `threshold`, `intensity`, `radius_virtual`) | flame-only bloom mask and strength |
 
-Validation at load: `presentation_only` must be `true`, ranges are checked, emitter groups must be `parallax_far`, `parallax_mid` or `scene`, more than 6 slots or 16 emissive colours is an error. At most 64 lights reach the GPU per frame (the sample peaks at far fewer; a test sweeps every camera position; if ever exceeded the weakest are dropped and a warning is printed once).
+Validation at load: `presentation_only` must be `true`, ranges are checked, emitter groups must be `parallax_far`, `parallax_mid` or `scene`, more than 6 slots or 16 emissive colours is an error. **Budgets are proven at load.** `LightingScene::build` sweeps every camera position of every layout view and fails the load if more than 64 lights could reach one view (the sample peaks at far fewer; the figure is `LightingScene::worst_case_lights`); glow radius must not exceed the light radius, so culling by reach is exact. `pack_uniform` asserts the light, shadow and colour budgets instead of truncating. `gather` still truncates defensively, ranking lights without the flicker multiplier so the kept set cannot toggle between frames, and prints `FLOOR1_LIGHTING_WARNING` once; CI fails any run that prints it. Offsets and projections must be finite.
+
+**One source of truth for constants.** Array lengths, flag bits and the falloff constants (`POOL_FALLOFF_K`, `GLOW_FALLOFF_K`) live in Rust and are prepended to the WGSL by `light_pass::shader_source`. A test parses and validates the final shader with `naga` (a test-only dev-dependency, already in `Cargo.lock` through wgpu) and asserts the `Params` block size and member offsets equal the Rust uniform layout. The falloff curve *shape* is written once in Rust (`pool_falloff`, `glow_falloff`, `haze_amount`) and once in WGSL; those Rust functions are not compared to the shader per pixel. What ties the shader to the reference is the gated render comparison below.
 
 ### Why it is presentation only
 
 - `lighting` and `light_pass` take shared references to the kit and to simulation state and return new values; nothing writes back. The Bevy `update_lighting` system reads `Sim` immutably.
 - Collision reads only `collidable` tiles of the collision layer; lights, groups and the profile are never read by it (existing test mutates pieces and decals without changing a solid).
-- Test `lighting_never_changes_the_simulation_state` runs the scripted walk with lighting derived every tick and without, and compares the state hash at checkpoints. CI also renders `--no-lighting --scenario walk_right --capture-tick 250` and requires the same `FLOOR1_SCENE_STATE` line as the lit render of the same capture.
+- What is proven, exactly: (1) by types: `lighting` and `light_pass` take `&`-only references and return new values, and `update_lighting` reads `Sim` immutably; (2) by test `deriving_lights_leaves_the_simulation_state_untouched`: running `gather` on a live sim does not change its state hash at any of 420 ticks (this catches interior mutability or shared globals, nothing more); (3) end to end in CI: `live-lit` steps `--scenario walk_right` for 250 fixed ticks in the real render loop with the lighting systems active, `live-unlit` does the same with `--no-lighting`, and the final `FLOOR1_SCENE_STATE` lines must be equal to each other and to the pure headless simulation. The frozen `nolight-advanced` capture also matches, but that state comes from `build_sim` and is equal by construction, so it is not counted as proof.
 - Screenshot evidence is captured with the pass on, as ADR-0007 requires.
 
 ### Tuning knobs (data, no code)
@@ -170,12 +173,12 @@ Same camera window (`abc_640x360`), actors and tick as the ENV-01 lit preview, b
 | Region | Pixels | mean L* Bevy | mean L* Pillow | delta L* | mean dE76 | p95 dE76 |
 | --- | --- | --- | --- | --- | --- | --- |
 | wall | 444,438 | 15.13 | 14.91 | +0.21 | 0.55 | 0.88 |
-| gallery | 256,734 | 20.76 | 20.53 | +0.23 | 0.5 | 0.93 |
+| gallery | 256,734 | 20.76 | 20.53 | +0.23 | 0.5 | 0.92 |
 | floor | 174,825 | 29.94 | 29.72 | +0.22 | 0.55 | 0.84 |
 | actors | 19,278 | 46.04 | 45.85 | +0.19 | 0.48 | 0.93 |
 | whole frame | 2,073,600 | 23.24 | 23.01 | +0.23 | 0.55 | 0.9 |
 
-Warm share (R > B + 8): Bevy 0.4204, Pillow 0.4203. Cold share (B > R + 8): Bevy 0.3942, Pillow 0.3935. Largest per-pixel dE76 6.46; 1,574 of 2,073,600 pixels exceed dE76 3.
+Warm share (R > B + 8): Bevy 0.4203, Pillow 0.4203. Cold share (B > R + 8): Bevy 0.3942, Pillow 0.3935. Largest per-pixel dE76 5.97; 1,456 of 2,073,600 pixels exceed dE76 3. The script fails the CI job above its gates (see CI).
 
 Where it diverges: the differences are tiny and concentrated at the flames, where the bloom halo is computed differently (see deviations below; the diff panel in `floor01-lighting-bevy-vs-pillow.png` lights up only at the five torches and the gallery flame). Everywhere else the Bevy frame is about 0.2 L* brighter, a rounding difference (Pillow truncates to 8 bits, the GPU rounds). One pose and one camera window only: the other corridor segments, moving torches and jumping actors were not compared numerically.
 
@@ -198,16 +201,18 @@ Device (local, real swapchain, X11): NVIDIA GeForce RTX 4060 Ti, Vulkan, proprie
 
 Reading: the pass roughly doubles the release frame interval (about +0.6 ms) and adds about 4 ms in the unoptimised dev build. The window size barely changes it, which says these runs are CPU-side (extraction and queueing for 6 slot cameras over about 2,900 sprites plus the extra stages), not fill-rate bound on this GPU. A GPU timing was not taken. The same run under Xvfb (software X presentation, debug build, 1280x720) gave 27.2 ms lit and 22.7 ms unlit median; that is dominated by the X11 copy and says nothing about the GPU.
 
-CI prints the same `FLOOR1_PERF` line from its `perf-lit` and `perf-unlit` steps under Xvfb with the runner's software Vulkan (Mesa lavapipe) at 1280x720, debug build, 100 frames; those numbers are a health signal only and are recorded in the CI log and artifact. Steam Deck: **not measured**; no Deck, Deck Verified or 60 fps claim is made.
+CI prints the same `FLOOR1_PERF` line from its report-only (`continue-on-error`) `perf-lit` and `perf-unlit` steps under Xvfb with the runner's software Vulkan (Mesa lavapipe) at 1280x720, debug build, 100 frames; those numbers are a health signal only and are recorded in the CI log and artifact. Steam Deck: **not measured**; no Deck, Deck Verified or 60 fps claim is made.
 
 
 ### Known deviations from the Pillow model
 
+- Emissive and blur targets are `Rgba8Unorm` (encoded values stored directly); the reference numbers were re-measured after that change and did not move.
 - Light evaluation is analytic per output pixel; Pillow resamples a 512 x 512 falloff sprite bicubically and rounds light centres to whole output pixels.
 - Pillow truncates float results to 8 bits; the GPU rounds, so the Bevy frame is about +0.2 L* brighter on average.
 - Bloom: the bright-pass and gaussian run at virtual resolution on texel centres (Pillow box-downsamples the output-resolution frame by 2 first, then blurs); the blurred result is sampled bilinearly. Flames differ slightly in the halo.
 - Contact shadows stay on the walking line under the actor while it jumps (the preview only had grounded actors).
-- Unsupported on purpose: emitters in the `foreground` or `actors` group, more than 6 slots, 64 lights, 8 shadows or 16 emissive colours per frame.
+- Unsupported on purpose: emitters in the `foreground` or `actors` group, more than 6 slots, 64 lights, 8 shadows or 16 emissive colours (all but the contact shadows are checked at load).
+- Window: the window is created with `scale_factor_override(1.0)`, so an OS scale factor cannot turn the 3x into a fractional ratio; window size equals virtual size x scale in real pixels.
 
 ## Known limits
 
@@ -223,6 +228,6 @@ CI prints the same `FLOOR1_PERF` line from its `perf-lit` and `perf-unlit` steps
 
 ## CI
 
-`.github/workflows/floor01-scene.yml`: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model. `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
+`.github/workflows/floor01-scene.yml`: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model and **fails** the job on divergence (whole-frame mean dE76 <= 1.5, p95 <= 3, |mean delta L*| <= 1, every region mean dE76 <= 2.5; measured 0.55 / 0.90 / 0.23 / <= 0.55, so the gates leave margin for a software rasteriser); the `live-lit` / `live-unlit` steps step the scenario live and compare final states; any `FLOOR1_LIGHTING_WARNING` fails a render step. `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
 
 **Rights:** the character art is public fan-concept art under the recorded scope in [the rights register](../04-production/rights-and-release.md); it does not establish rights to distribute a playable game.
