@@ -35,6 +35,15 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
 
+## Floor 01 gameplay/progression and co-op human experiments (2026-11-16)
+
+- **Approved gameplay target:** hybrid solo switching + assisted AI/context orders, and local **two-player Carl + Donut from the first playable moment**, without early-unlocked magical abilities. See [Floor 01 gameplay bible](../01-design/floor-01-gameplay-progression-v0.md).
+- **Approved level-authoring rule (2026-11-17):** [asymmetric traversal and one-character gates](../01-design/asymmetric-traversal-and-gates.md). Donut can jump higher/farther; Carl selectively breaks/opens paths. **No requirement for a parallel Carl and Donut route in each room.** Story-critical gates may require either character, solved by swapping in 1P or specialized roles in 2P; protect unlock order, reunion and recoverability. B7/E1 tests a two-gate sequence (Donut ledge -> Carl weak barrier), then later progression develops non-obvious combinations.
+- **Not implemented in current Floor 1 scene:** direct Donut control, second-player device ownership, shared two-actor camera, swapping/commands, mounted play, attacks or Goblin Dozer chase. They must not be marked accepted simply because COMP-01/02 rendering CI passed.
+- **Owner next:** complete [Stage A of the integrated-scene playtest](../07-agents/floor-01-integrated-scene-playtest.md): Carl movement, cast readability at 640×360/640×400, A1 vs no-lighting, camera and A/B/C pacing; capture three actionable observations.
+- **Proposed following isolated work:** WORK-005 second controllable actor/device ownership -> shared duo camera -> WORK-006 solo swap/context AI -> optional SHOULDER-SPIKE-01 transport vs mounted attack -> encounter fixtures. **Shoulder Mode and mounted attacks are brainstorming and not accepted implementations.**
+- **Human gate:** a dedicated two-person test validates both roles, hot join/drop, co-op camera and separate vs mounted value before new combat/skill-tree complexity.
+
 ## Floor 01 art atlas v1 — area concepts (2026-11-16)
 
 - **Concept direction selected:** [Floor 01 ten-area atlas](../02-art/floor-01-art-atlas-v1.md) with a shared A/B/C catacomb substrate, distinct territories and special rooms. Book-derived attributes are distinguished from artistic interpretation.

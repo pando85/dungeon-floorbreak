@@ -2,7 +2,7 @@
 
 ## Target moment-to-moment loop
 
-**Read encounter → choose path/character → reposition → attack/cast/plant → alter terrain → exploit opening → collect modest reward → escape/advance.** A room should normally support at least two viable approaches, one of which may involve destruction. This is authored design, not a requirement for universal destructibility.
+**Read encounter → identify required capability/character → switch or coordinate → reposition → attack/cast/plant or transform terrain → exploit opening → collect modest reward → escape/advance.** **Owner-approved rule:** there is **no requirement for two parallel routes or for every individual character to clear a room alone**. Some story-critical gates should explicitly require Donut's superior traversal, Carl's selective destruction, or a sequence of both. Solo switching makes this valid; co-op assigns distinct responsibilities. Additional routes are optional design opportunities, not a room-by-room quota. Later unlocks can recontextualize previously obvious solutions. See [asymmetric traversal and character-gated progression](asymmetric-traversal-and-gates.md).
 
 ## Base controls (proposed; remappable)
 
@@ -24,7 +24,7 @@ Prove simultaneous device assignment for two gamepads and hotplug behavior. Avoi
 
 - Fixed update: aim at 60 Hz for simulation; measure. Runtime target: consistent 60 fps on Steam Deck-class hardware, not an existing benchmark.
 - Jump buffer ~100 ms; coyote time ~100 ms; adjustable after playtest.
-- Character speed and jump heights intentionally differ, but the entire first level must remain completable by either player with support from their companion.
+- **Approved identity:** Donut jumps higher and reaches farther surfaces; Carl breaks and opens routes through selectively destructible obstacles. Tune actual numbers and input feel after prototype evidence. **Solo completion requires access to both protagonists through switching**, not independent completion by Carl alone or Donut alone. Same critical path works with 2P.
 - Separate `DesiredAction` from device inputs; record/replay the former.
 
 ## Combat
@@ -37,7 +37,7 @@ Prove simultaneous device assignment for two gamepads and hotplug behavior. Avoi
 
 ## Solo and co-op modes
 
-**Initial experiments:** A) solo switches instantly between Carl and Donut while the other follows with simple AI; B) solo directly controls one with ability-command support for the other. Pick whichever minimizes companion frustration and maximizes readable tactics. In local co-op, two players directly control Carl and Donut in a shared camera, with drop-in/drop-out targeted after core controls work. Mongo joins later as ally or mount / commandable ability; three-player co-op is **out of scope** until proved useful.
+**Owner-approved product model (2026-11-16):** **hybrid solo** combines direct control of either Carl or Donut, instant switching, companion AI, and compact contextual commands; **local two-player co-op is available from the very beginning**, with P1 Carl and P2 Donut. Drop-in/drop-out and safe device-to-AI handoff are product targets requiring their own tests, not existing engine functionality. Character abilities must unlock in appropriate story order: Donut is playable *before* she gains magic. **Shoulder Mode remains an open experiment**, initially comparing transport with optional mounted attacks and simplified commands; do not implement or label it accepted without human trial. Mongo joins later as ally or mount / commandable ability; three-player co-op is **out of scope** until proved useful. See [Floor 01 gameplay/progression design](floor-01-gameplay-progression-v0.md) and [integrated scene playtest plan](../07-agents/floor-01-integrated-scene-playtest.md).
 
 Camera constraints: both active heroes remain visible; soften split/zoom and avoid arbitrary teleportation. If players separate too far, provide gentle regroup/elastic boundaries and UI direction; do not force a split-screen prototype yet.
 
@@ -45,7 +45,7 @@ Camera constraints: both active heroes remain visible; soften split/zoom and avo
 
 - Donut freezes a brittle barricade; Carl blasts it with reduced resource cost (a design candidate, not lore canon).
 - Carl destabilizes a beam; Donut displaces enemies into the collapse zone.
-- Carl breaches a lower route; Donut travels higher to unlock a safe detour.
+- Carl breaks a mandatory weak barrier in one room; Donut is the only character capable of reaching a subsequent elevated objective in another. The game does **not** need a simultaneous equivalent path for each character. A combined room can use a sequential handoff after both primitives have been taught.
 - Later, Mongo's charge can trigger predetermined weak supports; characters must not duplicate one another's role.
 
 ## Difficulty, damage, and restart model

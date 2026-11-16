@@ -36,7 +36,7 @@ No pixel-perfect granular fluid/temperature simulation; no full environmental pr
 
 ## Scope choices still open
 
-- One-player control model: instant switch between Carl/Donut vs main+AI companion (must prototype both).
+- **Approved target (2026-11-16):** hybrid solo switching + AI companion/context commands, with two-player local co-op from the start. Mechanic UX, camera and controller ownership still require real testing; see [Floor 01 design bible](floor-01-gameplay-progression-v0.md). Shoulder Mode and mounted attacks remain unapproved experimental ideas.
 - Checkpoint/death model: short replayable stages vs limited lives.
 - Progression scale: authored level campaigns first, then optional run modifiers/loot.
 - How far dark comedy can go while remaining legible and accessible.
