@@ -60,3 +60,11 @@ uploaded as CI evidence. This satisfies the **WORK-008 tooling spike**, but
 not WORK-007's art quality requirement. A human review of actual native-scale
 art is still required before a visual style can be labeled production-ready.
 See [asset-pipeline.md](../02-art/asset-pipeline.md).
+
+## WORK-021 — Character Playground (PR #22)
+
+**Scope:** Independent Rust + Bevy 0.20.1 cast-inspection executable; 52 px Carl, 40 px Donut and 76 px adult Mongo at original virtual-pixel scale with four-frame `idle`, pivot-aligned fixed-step movement/jump, keyboard/gamepad selection, and 640×360 / 640×400 camera baselines.
+
+**Evidence target:** `.github/workflows/character-playground.yml` exports existing editable masters, checks generated atlas contracts, runs Rust tests plus a headless smoke, and uploads two true Bevy-rendered Linux screenshots. Follow `docs/03-tech/character-playground.md`.
+
+**Status:** Implementation proposed in draft PR #22; CI results and owner visual/game-feel signoff pending. Native sizes are approved, but locomotion/jump animation, overlapping silhouettes and mounted Donut are not. Do not merge this work into the Floor 1 combat greybox as part of its PR.
