@@ -42,6 +42,8 @@ A Linux-first, controller-first, side-scrolling action platformer design: expres
 
 Iterate the combat-first linear Floor 1 greybox (WORK-021): rightward movement, melee, goblins, timed bombs, breakable timber and mandatory climbs over steel. See [prototype brief](docs/04-production/linear-combat-greybox.md). Character art integration follows native source-asset review. **Do not generate a full campaign or lots of character art yet.**
 
+The first integrated Floor 1 corridor scene (COMP-01, pixel layers only, awaiting human playtest) is a separate binary: `cargo run --locked --bin floor01_scene` after `bash scripts/export_assets.sh`. See [floor01-scene.md](docs/03-tech/floor01-scene.md).
+
 ## Local checks
 
 ```sh

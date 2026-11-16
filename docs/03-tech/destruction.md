@@ -7,7 +7,7 @@ Terrain destruction must be a **player decision**: open routes, uncover risks, c
 ## Three scopes
 
 - **L1 — props:** barrels, crates, doors, glass; each is a standard entity with health and bespoke break behavior.
-- **L2 — terrain:** bounded 16×16 material cells with health/resistance; a cell can become empty, update graphics and collision.
+- **L2 — terrain:** bounded 16×16 material cells with health/resistance; a cell can become empty, update graphics and collision. Not every cell is a full 16×16 collider: since the Floor 1 kit v2 ([ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md), [kit contract](../02-art/floor-01-catacomb-kit.md#consumer-contract-comp-01-and-any-other-loader)) a deep-floor `deck_front` cell has the collider `[0, 4, 16, 12]` (its top is the walking line) and `deck_back` is visual only; derive solids from each tile's `collider`, not from the cell bounds.
 - **L3 — structural:** tagged supports or small local structural graphs trigger predetermined falling chunks; a later milestone, not an arbitrary physics solver.
 
 ## Domain model (illustrative, not final Rust API)
