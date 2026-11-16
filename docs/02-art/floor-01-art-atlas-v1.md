@@ -48,24 +48,28 @@ Evidence was checked in the project's user-supplied Book 1 EPUB (relevant chapte
 - Carl/Donut in any wide generated concept scene are **not** the final characters. Only approved 52/40 px source masters (and approved successors) are authoritative. No shotgun.
 - Art-directed contrast **does not imply** a continuous physical route among every illustrated area; topology and area transitions remain gameplay/level-design tasks.
 
-## Reference image inventory — upload gate
+## Committed concept references — repository inventory
 
-Area 01 is **already committed** in `assets/concept/floor-01/opening/` (PR #23). The curated images for 02–10 plus a ten-area overview are **prepared separately for upload to this PR** in `floor01-art-atlas-v1-upload.zip`. **Until those bytes are pushed, do not state that image files exist in the repository.**
+The selected concept files are now **committed on PR #31** under [`assets/concept/floor-01/atlas-v1/`](../../assets/concept/floor-01/atlas-v1/README.md). They include their source provenance, byte sizes and SHA-256 values in the [manifest](../../assets/concept/floor-01/atlas-v1/manifest.json).
 
-Proposed folder: `assets/concept/floor-01/atlas-v1/`.
+**File verification (2026-11-16):** all ten GitHub Git-blob SHA-1 values were checked against the original reference-package PNG bytes and match exactly. The original package's SHA-256 values match the committed manifest entries. This verifies byte identity of concept images, **not** gameplay/visual-production quality.
 
-- `00-floor01-art-atlas-overview.png` — **concept overview only**; in-image text/route labels not authoritative.
-- `02-tutorial-guild-old-guide.png` — selected standalone concept.
-- `03-bad-llamas-scorched-corridor.png` — selected standalone concept.
-- `04-fast-food-refuge.png` — selected standalone concept.
-- `05-hoarder-lair.png` — selected standalone concept.
-- `06-goblin-workshop.png` — selected standalone concept.
-- `07-slimes-rot-stickers.png` — selected standalone concept (two thematic treatments, not canonically contiguous).
-- `08-circular-maze-survivor-camp.png` — selected standalone concept.
-- `09-juicer-gym-atlas-excerpt.png` — **provisional atlas panel crop**, needs a dedicated standalone study before source sprites.
-- `10-ball-of-swine-arena-atlas-excerpt.png` — **provisional atlas panel crop**, needs dedicated standalone art/geometry study before source sprites.
+Area 01 remains the previously committed [opening catacomb concepts](../../assets/concept/floor-01/opening/README.md) from PR #23, without duplication.
 
-The upload package also contains `README.md` and `manifest.json` with SHA-256 hashes, image sizes, origin/derivation and review state. **Concept pixels must never be auto-cropped into runtime tiles/sprites.** After actual upload, update this document with real repository-relative image links, and check manifest hashes vs committed bytes. Do not introduce broken links prematurely.
+| ID | Committed concept image | Approval boundary |
+| --- | --- | --- |
+| Overview | [Ten-area art atlas board](../../assets/concept/floor-01/atlas-v1/00-floor01-art-atlas-overview.png) | Generated labels and topology are not source-of-truth |
+| 02 | [Tutorial Guild — old guide's room](../../assets/concept/floor-01/atlas-v1/02-tutorial-guild-old-guide.png) | Owner's preferred variant, concept mood only |
+| 03 | [Bad Llamas scorched corridor](../../assets/concept/floor-01/atlas-v1/03-bad-llamas-scorched-corridor.png) | Local scorch marks, not an all-floor lava biome |
+| 04 | [Fast-food refuge](../../assets/concept/floor-01/atlas-v1/04-fast-food-refuge.png) | Fictional/nonbranded public-space treatment |
+| 05 | [Hoarder's lair](../../assets/concept/floor-01/atlas-v1/05-hoarder-lair.png) | Clutter localized to the special room |
+| 06 | [Goblin workshop](../../assets/concept/floor-01/atlas-v1/06-goblin-workshop.png) | Later industrial workshop, not the intro chase |
+| 07 | [Slimes / Rot Stickers](../../assets/concept/floor-01/atlas-v1/07-slimes-rot-stickers.png) | Two separate hazard identities; depicted adjacency not canonical |
+| 08 | [Circular maze and survivor camp](../../assets/concept/floor-01/atlas-v1/08-circular-maze-survivor-camp.png) | Spatial montage, not an actual navigable map |
+| 09 | [Juicer's gym — provisional atlas excerpt](../../assets/concept/floor-01/atlas-v1/09-juicer-gym-atlas-excerpt.png) | **Not a standalone concept**; reception, turnstile and gym gameplay need focused design |
+| 10 | [Ball of Swine arena — provisional atlas excerpt](../../assets/concept/floor-01/atlas-v1/10-ball-of-swine-arena-atlas-excerpt.png) | **Not a standalone concept**; moving-wall and concentric-groove geometry need a dedicated study |
+
+All visuals are generated conceptual references only. **Do not crop them into editable/source sprites, gameplay colliders, enemy designs, or actual level geometry.**
 
 ### Review boundary
 
@@ -90,7 +94,7 @@ For area transitions, ramp the introduced visual novelty in stages:
 
 - [x] Owner likes broad first-floor art direction and selected one concept treatment per region.
 - [x] Areas/canon distinctions, reuse plan and caveats documented.
-- [ ] Commit curated PNGs, provenance README and hashes to this PR (currently upload-pending).
+- [x] Commit curated PNGs, provenance README and hashes; verified all 10 Git blobs against the original local reference files.
 - [ ] Review/correct gym and final arena at standalone concept composition scale.
 - [ ] Approved native editable environmental pixels produced for the relevant area.
 - [ ] Real Bevy screenshots at 640×360 and 640×400 with **approved Carl/Donut** and no blurred/scaled source art.
