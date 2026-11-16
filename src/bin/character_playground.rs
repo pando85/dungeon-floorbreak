@@ -283,7 +283,7 @@ fn setup(
         commands.spawn((
             Character { slot, spec, motion },
             Sprite::from_atlas_image(texture, TextureAtlas { layout, index: 0 }),
-            actor_transform(spec, motion),
+            actor_transform(spec, motion, false),
             IdleAnimation(Timer::from_seconds(0.15, TimerMode::Repeating)),
         ));
         label(
@@ -307,10 +307,12 @@ fn setup(
     ));
 }
 
-fn actor_transform(spec: CastSpec, motion: Motion) -> Transform {
-    // Aseprite manifest pivot is in top-left image coordinates.
+fn actor_transform(spec: CastSpec, motion: Motion, flip_x: bool) -> Transform {
+    // Mirror the pivot offset as well as the pixels: otherwise turning a
+    // wide asymmetrical sprite (Mongo) jumps its feet sideways by ~28 px.
+    let offset_x = spec.width as f32 / 2.0 - spec.pivot_x;
     Transform::from_xyz(
-        (motion.x + spec.width as f32 / 2.0 - spec.pivot_x).round(),
+        (motion.x + if flip_x { -offset_x } else { offset_x }).round(),
         (FLOOR_Y + motion.elevation + spec.pivot_y - spec.height as f32 / 2.0).round(),
         3.0,
     )
@@ -379,7 +381,7 @@ fn fixed_movement(
                 sprite.flip_x = false;
             }
         }
-        *transform = actor_transform(actor.spec, actor.motion);
+        *transform = actor_transform(actor.spec, actor.motion, sprite.flip_x);
     }
     controls.jump_pending = false;
     controls.reset_pending = false;
@@ -484,9 +486,29 @@ mod tests {
     }
 
     #[test]
+    fn changing_facing_does_not_shift_pixel_foot_pivot() {
+        for spec in CAST {
+            for flipped in [false, true] {
+                let center_x = actor_transform(spec, Motion::new(spec.start_x), flipped)
+                    .translation
+                    .x;
+                // Pixel-space pivot is measured from the left side of the atlas
+                // frame and reflected when the sprite is flipped horizontally.
+                let pivot_from_left = if flipped {
+                    spec.width as f32 - spec.pivot_x
+                } else {
+                    spec.pivot_x
+                };
+                let world_foot_x = center_x - spec.width as f32 / 2.0 + pivot_from_left;
+                assert_eq!(world_foot_x, spec.start_x, "{} flipped={flipped}", spec.name);
+            }
+        }
+    }
+
+    #[test]
     fn pivot_anchors_at_native_pixel_coordinates() {
         for spec in CAST {
-            let transform = actor_transform(spec, Motion::new(spec.start_x));
+            let transform = actor_transform(spec, Motion::new(spec.start_x), false);
             let expected_y = (FLOOR_Y + spec.pivot_y - spec.height as f32 / 2.0).round();
             assert_eq!(transform.translation.y, expected_y);
             assert_eq!(transform.scale, Vec3::ONE);
