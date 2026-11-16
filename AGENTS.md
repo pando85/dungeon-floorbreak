@@ -39,6 +39,13 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 6. Update documentation/backlog and provide a PR with: behavior, evidence, risks, testing, next step.
 7. A human reviews *game feel* before mechanics are marked accepted.
 
+## Model routing for art work
+
+- **Art design and authoring** (pixel-art sources for characters, environments, props, enemies and vehicles; palettes; preview compositions) **and art review** (art-director or visual-quality reviews of those assets) must use the highest-capability model tier available — currently **Claude Opus**. Owner directive, 2026-11-16.
+- Tooling around art (export scripts, validators, manifests, CI), documentation and Bevy/gameplay implementation use the default tier (currently Claude Sonnet) unless the PR records a reason.
+- Split separable tooling out of an art work order so the art core stays with the art-tier model.
+- Record which model authored and which model reviewed the art in the PR's `Rights/Provenance` section.
+
 ## Agent roles (logical; one model may fulfill several)
 
 - `gameplay`: movement, damage, combat, progression.
