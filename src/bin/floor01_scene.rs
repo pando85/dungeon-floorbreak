@@ -352,7 +352,6 @@ fn setup(
     let mut debug_entities = 0usize;
     if args.debug_collision {
         let overlay_z = kit.foreground_z + 1.0;
-        let highest_floor = kit.base_walk_line_y - 2 * kit.tile;
         for rect in &kit.solid_rects {
             commands.spawn((
                 Sprite::from_color(
@@ -363,14 +362,33 @@ fn setup(
                 Transform::from_xyz(rect.x as f32, to_world_y(height, rect.y), overlay_z),
             ));
             debug_entities += 1;
-            if rect.y >= highest_floor {
-                // The walking line is the collider's top row.
+        }
+        // Walking lines: runs of columns that share a standing surface.
+        let mut run: Option<(i32, i32)> = None; // (start x, line y)
+        for x in 0..=kit.width {
+            let line = if x < kit.width {
+                kit.walking_line_at(x)
+            } else {
+                None
+            };
+            if let Some((start, y)) = run
+                && line != Some(y)
+            {
                 commands.spawn((
-                    Sprite::from_color(Color::srgb(0.2, 1.0, 0.95), Vec2::new(rect.w as f32, 1.0)),
+                    Sprite::from_color(
+                        Color::srgb(0.2, 1.0, 0.95),
+                        Vec2::new((x - start) as f32, 1.0),
+                    ),
                     Anchor::TOP_LEFT,
-                    Transform::from_xyz(rect.x as f32, to_world_y(height, rect.y), overlay_z + 0.1),
+                    Transform::from_xyz(start as f32, to_world_y(height, y), overlay_z + 0.1),
                 ));
                 debug_entities += 1;
+                run = None;
+            }
+            if run.is_none()
+                && let Some(y) = line
+            {
+                run = Some((x, y));
             }
         }
         commands.spawn((
