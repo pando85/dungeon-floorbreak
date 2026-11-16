@@ -4,6 +4,7 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 
 | ID | Priority | Stage | Deliverable | Acceptance evidence |
 | --- | --- | --- | --- | --- |
+| WORK-021 | P0 | Prototype / in review | Combat-first, right-scrolling Bevy Floor 1 greybox; melee, goblins, bombs, destructible timber and forced steel climb | Unit + headless combat smoke + Linux rendered screenshot; human playtest; see [WORK-021 brief](linear-combat-greybox.md) |
 | WORK-001 | P0 | Spike | Rust Bevy app, one pixel camera and normalized gamepad action layer | App starts on Linux; test action adapter; capture screenshot |
 | WORK-002 | P0 | Spike | Single character with jump buffering and coyote-time tuning values | Replayed jump fixtures, controller feel note |
 | WORK-003 | P0 | Spike | Minimal material grid + bomb damage and tile visualization | Same event/seed ⇒ same grid hash; wall breaks |
