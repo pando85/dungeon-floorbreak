@@ -8,7 +8,9 @@
 | `mongo_adult_h76.grid.json` | 76 px | 108 x 80 | `[68, 79]` | 100 px (1.32) | 24 |
 | `mongo_adult_h88.grid.json` | 88 px | 126 x 92 | `[79, 91]` | 115 px (1.31) | 24 |
 
-All three: `pixel-grid-v1`, one frame (1000 ms), tag `idle`, 4 empty rows above the crest, bottom row is the toe and claw contact row, pivot x between the centres of the two planted feet. Fully opaque pixels only. `python3 scripts/pixel_grid_to_ase.py lint --strict --expect-height N` exits 0 for each (0 orphans under the 8-neighbour rule, 0 isolated pixels, exact height) and `build` converts each to `.ase` (checked into a scratch directory only; no `.ase`, manifest or export was written to the repository).
+All three: `pixel-grid-v1`, tag `idle`, 4 empty rows above the crest, bottom row is the toe and claw contact row, pivot x between the centres of the two planted feet. 64 and 88 are one frame (1000 ms); **76 has a 4-frame `idle`** (frames 0 to 3, `forward`), see [76 px idle](#76-px-idle-4-frames). Fully opaque pixels only. `python3 scripts/pixel_grid_to_ase.py lint --strict --expect-height N` exits 0 for each (0 orphans under the 8-neighbour rule and 0 isolated pixels in every frame, exact frame-0 height). The `.ase` files are rebuilt from the grids by `scripts/export_assets.sh` (manifests `assets/manifests/mongo_adult_h{64,76,88}.json`).
+
+**Frame-0 polish after round 2 (idle pass):** 13 enclosed 1 px pinholes (transparent pixels with opaque neighbours on all four sides) were filled with the surrounding colour: 5 on 64 (two in the tail, three in wing-feather gaps), 5 on 76 (crest root, cheek, thigh edge, two wing gaps), 3 on 88 (crest root, two in the tail). No other pixel of the masters changed.
 
 ## How round 2 was made
 
@@ -126,6 +128,30 @@ Reference scale: Carl 48 to 56 px (52 px proxy), Donut about 32 to 48 px (40 px 
 
 Authoring cost per frame, measured as visible pixels: 64 about 2.4k, 76 about 3.4k, 88 about 4.6k. A 6-frame run would scale roughly with that, and the crest and tail layering is the expensive part at every size.
 
+## 76 px idle (4 frames)
+
+Every frame is derived from the frame-0 master by a short list of scripted, named edits (rigid 1 px shifts and a few pixel writes). No frame is redrawn independently, no feather group is rotated, and legs, feet, claws, wing, body below the neck and the contact row are untouched in all frames. Loop 1460 ms.
+
+| Frame | Duration | Change from frame 0 | Top row / height |
+| --- | --- | --- | --- |
+| 0 | 450 ms | master: chest and head up, crest lifted, eyes forward | 4 / 76 |
+| 1 | 300 ms | exhale: `head`, the whole `crest` layer and the neck (body rows 0 to 33) move down 1 px as one rigid group. Neck rows 33 and 34 have the same width (throat outline x 85), so the shifted row 33 replaces row 34 without a kink; one ragged-edge pixel at (79, 34) is closed to pink. Crest settles: the C2 tip pixel and the C3 curl tip are removed. Tail: the lowest 4 rows of the T1 tip trail 1 px back | 6 / 74 |
+| 2 | 550 ms | frame 1 plus a curious glance (pupil 1 px up), C2 lifts back by 1 px (to the master top row 4), the C3 curl stays folded, and the T2 tip also trails 1 px back | 4 / 76 |
+| 3 | 160 ms | frame 0 (inhale, head up) with a quick blink (iris rows replaced by lid, lid line and lower lid) and only the T2 tip still trailing, returning to rest at the loop | 4 / 76 |
+
+- **Beat:** a relaxed breath with the mane settling, a curious look up while the plume drifts, then a blink as he draws breath. Body bob happens on 0 to 1 and 2 to 3; the crest moves with the head plus 1 to 2 redrawn tip pixels per frame; the tail tips move 1 px at a time.
+- **Pixels changed against frame 0:** 787 / 795 / 32. The large counts are the rigid 1 px shift of head and crest; the diff map shows no change below the neck except the two tail tips.
+- **Lint:** 0 orphans and 0 isolated pixels in all four frames, 0 px bottom-row drift, pivot [68, 79] fixed. Frame 1 measures 74 px (head down plus settled crest); frames 0, 2 and 3 measure 76. Frames 1 and 2 reach x 3 (tail tip), inside the canvas.
+- **Review:** GIFs at 1x and 3x on both backgrounds, a 6x strip with the pivot marked, a per-frame diff map and 10x crops of the crest tip, eye and tail tip (all outside the repository). No jitter in feet, claws, wing or legs; no shimmer, because the moving parts shift rigidly. The 1 px head bob and the blink read at 1x; the crest tip and tail sway are subtle at 1x and clear at 3x.
+- **Not done (tail flattening):** lengthening the plume toward the board's horizontal sweep would mean redrawing the three main tail feathers, the two filler feathers and the covert band at all three sizes and widening the canvas (pivot, manifests and scene spacing change with it). That is a redesign, not a low-risk tweak, so the tail shape is unchanged here and remains weakness 1 below.
+
+## What a 6-frame run needs from this master
+
+- **Pose:** a lower, more horizontal body and a forward-thrust neck and head, with the tail stretched out flat behind. The run is the natural place to fix the rooster-like plume: a stretched, horizontal tail drawn as new key poses, not a rotated idle tail.
+- **Legs:** complete `far_leg` cels (currently hidden under the near leg) and full thigh-to-toe drawings for contact, down, pass and up positions on both legs, with foot contacts locked to the ground row on contact frames.
+- **Wing and crest:** wing fan tucked tighter against the body; the crest and mane streaming back as redrawn tip groups per frame (2 to 3 variants), keeping the separate layers.
+- **Bob and timing:** reuse the idle's rigid 1 px group-shift for body bob; 6 frames at about 80 to 100 ms, with fixed hit and collision data outside the art.
+
 ## Remaining weaknesses
 
 1. The tail is shorter and rounder than the board's long sweeping plume, because of the width cap (about 1.3x height). It risks a rooster read; a run pose can stretch it.
@@ -135,7 +161,7 @@ Authoring cost per frame, measured as visible pixels: 64 about 2.4k, 76 about 3.
 5. Neck is long and upright with a straight cream throat front; the board's neck is thicker and more forward.
 6. The near shin and metatarsus are plain skin ramps with no scale or tendon detail.
 7. The outline colour is a deliberate deviation from Carl and Donut's near-black plum and needs a cast-wide decision in the three-character colour test.
-8. Not tested in the real dungeon camera, beside real Carl and Donut sprites, against magenta magic VFX, or mounted.
+8. Not tested in the real game camera (only the generated scale-study scene), against magenta magic VFX, or mounted. The idle has not been reviewed by a human for game feel.
 
 ## Open canon and design questions
 
