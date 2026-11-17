@@ -20,9 +20,9 @@
 
 Concept approval is **not** approval of all text generated *inside* images, exact enemy sizes, gameplay behaviors, or source accuracy. Preserve user-approved PNGs **unchanged**, and document discrepancies instead of silently altering their pixels.
 
-## Five original concept images — user upload pending
+## Five original concept images — uploaded and verified
 
-**The user will upload these exact PNGs to this PR branch, into `assets/concept/floor-01/enemies/`.** They are intentionally absent from the initial documentation commit.
+**The owner uploaded all five PNGs into `assets/concept/floor-01/enemies/`.** Each GitHub blob SHA-1 matches the blob identity independently calculated from the corresponding PNG in the original source package. The original package bytes also match the recorded SHA-256, byte size and image dimensions; these checks verify that the uploaded images are **byte-identical**, not their creative/canonical fidelity.
 
 | Required filename | Approved content |
 | --- | --- |
@@ -66,7 +66,7 @@ For each production artifact require editable `.ase` / pixel-grid source, determ
 - [x] All enemy visual concepts recorded as **owner approved**
 - [x] Images' hash and byte specifications checked against source ZIP
 - [x] Current main production goblin A/B state accounted for; references not duplicated
-- [ ] Owner commits the five unchanged PNGs to this PR's branch
-- [ ] Every committed PNG matches the manifest
+- [x] Owner committed all five unchanged PNGs to this PR's branch
+- [x] All five uploaded Git blob identities match the original ZIP bytes, SHA-256, sizes and dimensions
 - [ ] Relevant CI passes on the **final PR head**
 - [ ] Only then merge
