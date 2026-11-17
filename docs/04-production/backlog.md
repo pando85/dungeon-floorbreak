@@ -24,7 +24,7 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-007/008 follow-up | P0 | Decision | Floor 1 rendering target: 640×360 virtual resolution with a full-resolution lighting pass, parallax layers and a deep floor; [ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md), look-dev spike PR #27 | **Owner decided 2026-11-16** (A1 chosen, B1 rejected). Docs only: ENV-01 rework (PR #26) and COMP-01 engine lighting follow; Bevy 0.20 implementation not yet verified |
 | WORK-009 | P1 | Slice | Carl/demolitionist bomb + one melee attack | Deterministic damage and cooldown tests |
 | WORK-010 | P1 | Slice | Donut/caster spell controlling a chaser | Cooperative combo recording and unit tests |
-| WORK-011 | P1 | Slice | One LDtk authored room with two paths and critical geometry | Schema check; path invariants under blasts |
+| WORK-011 | P1 | Slice | One LDtk authored **combat-focused** room with character-specific positional advantages, selective destruction and optional alternate approach; two parallel routes are **not required** | Schema check; combat interaction evidence; switchable-solo and 2P party reachability under destruction |
 | WORK-012 | P1 | Slice | Two enemy states/archetypes and navigation recovery | Terrain-modification scenario, no permanent stuck AI |
 | WORK-013 | P1 | Slice | Destructible props and bounded explosive chain | Event cap tests; visual feedback review |
 | WORK-014 | P1 | Slice | Checkpoint, death/retry, fully controller-driven menu | Gamepad-only 3-minute test session |
@@ -34,6 +34,12 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-018 | P2 | After slice | Authored small structural collapse | Weak-support graph, VFX and invariant tests |
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
+
+## Combat-first design priority (owner decision, 2026-11-17)
+
+- **Mandatory:** [combat-first encounter rule](../01-design/combat-first-encounter-design.md). A satisfying basic kill, one clearly causal spectacular environmental kill, and a genuine Carl/Donut combat opportunity outrank expanding traversal gates or extra scenic areas. The game is **action first**, not a chain of puzzle rooms. Quiet refuges/chases are deliberate contrasts.
+- **Proposed next gameplay review:** a small integrated **COMBAT-FEEL-01** fight with a regular enemy, one breakable environmental hazard and an elevated Donut position, tested in both solo switch and local 2P once two-actor control exists. **No gameplay implementation is claimed here.**
+- **Scope:** Don't begin a large combinatorial kill system or huge bestiary until direct-hit feel, readable environmental aftermath and two-character agency have human evidence.
 
 ## Floor 01 gameplay/progression and co-op human experiments (2026-11-16)
 

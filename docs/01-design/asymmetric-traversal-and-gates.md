@@ -4,6 +4,10 @@
 
 Read alongside [Floor 01 gameplay/progression](floor-01-gameplay-progression-v0.md), [core gameplay](gameplay.md), [pre-magic Donut experiments](floor-01-pre-magic-donut-experiments.md), [level data](../03-tech/level-data.md), and [integrated playtest](../07-agents/floor-01-integrated-scene-playtest.md).
 
+## Higher-order product priority: spectacular combat
+
+The creative director explicitly approved [combat-first encounter design](combat-first-encounter-design.md) on 2026-11-17. **This asymmetric-traversal rule enriches encounters but must not dominate the playable experience.** A high Donut vantage should often support attacks or evasion; a destructible Carl gate should frequently create a breach, flanking opportunity, trap or memorable enemy elimination. Do not turn every room into a lock, switch, wait and regroup puzzle. Quiet traversal sections remain valid intentional pacing.
+
 ## Rule: switching is part of the solution
 
 **Do not require every room to offer one route for Carl and one equivalent route for Donut.** A room, obstacle, encounter or progression gate **may require the distinct capability of one specific character**. In solo, switching to that character is an intended action, not a design defect or a failure of the other character. In 2P, the player controlling that character performs that role and the other contributes where appropriate.

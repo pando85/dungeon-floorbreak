@@ -1,8 +1,12 @@
 # Core loop, movement, combat and cooperative play
 
+## Highest-priority product rule: combat comes first
+
+**Owner decision (2026-11-17): the goal is to kill enemies, repeatedly, in spectacular and inventive ways.** Moment-to-moment combat must be compelling with a *basic* takedown and even more satisfying when players exploit geometry, destruction and duo synergies. Traversal gates and switching are important but primarily serve combat opportunities, pacing and variety; do not make THE CRAWL into a primary puzzle platformer. Deliberate quiet zones and the early Dozer flight remain valid story beats. See [combat-first encounter design](combat-first-encounter-design.md).
+
 ## Target moment-to-moment loop
 
-**Read encounter → identify required capability/character → switch or coordinate → reposition → attack/cast/plant or transform terrain → exploit opening → collect modest reward → escape/advance.** **Owner-approved rule:** there is **no requirement for two parallel routes or for every individual character to clear a room alone**. Some story-critical gates should explicitly require Donut's superior traversal, Carl's selective destruction, or a sequence of both. Solo switching makes this valid; co-op assigns distinct responsibilities. Additional routes are optional design opportunities, not a room-by-room quota. Later unlocks can recontextualize previously obvious solutions. See [asymmetric traversal and character-gated progression](asymmetric-traversal-and-gates.md).
+**Read threat → position / choose hero → strike, cast or alter terrain → cause a satisfying kill or meaningful knockback → chain the advantage → clear the threat → recover briefly → advance.** **Owner-approved rule:** there is **no requirement for two parallel routes or for every individual character to clear a room alone**. Some story-critical gates should explicitly require Donut's superior traversal, Carl's selective destruction, or a sequence of both. Solo switching makes this valid; co-op assigns distinct responsibilities. Additional routes are optional design opportunities, not a room-by-room quota. Later unlocks can recontextualize previously obvious solutions. See [asymmetric traversal and character-gated progression](asymmetric-traversal-and-gates.md).
 
 ## Base controls (proposed; remappable)
 
