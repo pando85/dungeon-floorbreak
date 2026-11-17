@@ -17,13 +17,13 @@
 set -euo pipefail
 mode="${1:?usage: ci_floor01_combat.sh headless|render}"
 bin=./target/debug/floor01_scene
-fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry)
+fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick)
 # fixture:first tick:step:count of the real-frame capture sequences. The windows
 # hold the hit and the hit-stop of each fixture (see the evidence README).
-sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interrupt:122:1:61 cp01_goblin_attacks:128:1:61 cp02_two_goblins:60:1:61)
+sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interrupt:122:1:61 cp01_goblin_attacks:128:1:61 cp02_two_goblins:60:1:61 cp01_retry:398:1:52 cp01_kick:128:1:61)
 # Fixtures whose per-tick animation trace (the frame drawn for Carl and every
 # goblin next to the sim state it follows) is committed and diffed (ART-INT-02).
-traced=(cp01_haymaker_chain cp01_goblin_attacks cp02_two_goblins)
+traced=(cp01_haymaker_chain cp01_goblin_attacks cp02_two_goblins cp01_kick)
 committed=docs/evidence/cp01-feel
 committed_anim=docs/evidence/art-int-02
 out=artifacts/cp01-feel

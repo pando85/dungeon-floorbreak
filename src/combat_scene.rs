@@ -53,6 +53,21 @@ pub struct Hold {
     pub input: RawInput,
 }
 
+/// A single held secondary (push kick) button over `from..to`.
+const fn kick(from: u64, to: u64) -> Hold {
+    Hold {
+        from,
+        to,
+        input: RawInput {
+            move_x: 0.0,
+            jump: false,
+            attack: false,
+            ability: true,
+            pause: false,
+        },
+    }
+}
+
 /// A single held attack button over `from..to`.
 const fn attack(from: u64, to: u64) -> Hold {
     Hold {
@@ -239,7 +254,23 @@ pub const CP01_RETRY: Fixture = Fixture {
     ticks: 850,
 };
 
-pub const FIXTURES: [&Fixture; 7] = [
+/// ART-INT-02: the push kick against one chasing goblin. The first kick lands
+/// inside the goblin's tell (a stagger with the kick's 8-tick hit-stop), the
+/// second one defeats it. Input data only: no rule is involved.
+pub const CP01_KICK: Fixture = Fixture {
+    name: "cp01_kick",
+    summary: "two push kicks stagger and defeat the goblin",
+    seed: 0x0C01_0007,
+    carl_x: 400,
+    enemies: &[EnemySpawn {
+        x: 560,
+        ai: EnemyAi::Chase,
+    }],
+    script: &[kick(122, 123), kick(170, 171)],
+    ticks: 260,
+};
+
+pub const FIXTURES: [&Fixture; 8] = [
     &CP01_SINGLE_GOBLIN,
     &CP01_TWO_HITS,
     &CP02_TWO_GOBLINS,
@@ -247,6 +278,7 @@ pub const FIXTURES: [&Fixture; 7] = [
     &CP01_INTERRUPT,
     &CP01_HAYMAKER_CHAIN,
     &CP01_RETRY,
+    &CP01_KICK,
 ];
 
 // ------------------------------------------------------------------ the sim --
@@ -918,7 +950,7 @@ mod tests {
     /// Committed expectations: the final `COMBAT_STATE` hash of each fixture
     /// at its default length. CI compares the headless replay and the real
     /// render run against the same values (`docs/evidence/cp01-feel`).
-    const EXPECTED_HASHES: [(&str, u64); 7] = [
+    const EXPECTED_HASHES: [(&str, u64); 8] = [
         ("cp01_single_goblin", 0xcbb3_07e8_a1a7_420f),
         ("cp01_two_hits", 0x119a_431d_ad6c_7d0b),
         ("cp02_two_goblins", 0x4f3b_150a_c8a0_c633),
@@ -926,6 +958,7 @@ mod tests {
         ("cp01_interrupt", 0xee81_fa34_f094_91e0),
         ("cp01_haymaker_chain", 0x01a7_fa7a_9770_271d),
         ("cp01_retry", 0xedaa_118c_f0e3_1e94),
+        ("cp01_kick", 0x13a3_1642_299f_0768),
     ];
 
     fn kit() -> EnvKit {

@@ -3,6 +3,7 @@ use crate::actor_sprite::actor_center;
 use crate::combat::CombatEvent;
 use crate::combat_scene::{FIXTURES, Fixture, FixtureSim};
 use crate::env_kit::EnvKit;
+use crate::feel::HERO_KNOCKDOWN_VY;
 use crate::input::RawInput;
 use crate::prototype::HERO_HALF_HEIGHT;
 
@@ -38,6 +39,49 @@ struct Row {
     goblins: Vec<(GoblinMode, ArtPose, bool)>,
     foot_y: Vec<f32>,
     hero_foot_y: f32,
+    hero_vy: f32,
+    hero_xy: (f32, f32),
+    /// Top and bottom world y of Carl's drawn combat sprite.
+    carl_span: Option<(f32, f32)>,
+    /// x, y, attack tick, stagger left, down ticks, vx, vy of every goblin.
+    goblin_snap: Vec<[f32; 7]>,
+    goblin_x: Vec<f32>,
+    draw_dx: Vec<i32>,
+    stack_dx: Vec<i32>,
+    strike: Vec<Option<usize>>,
+    /// Independent count of the striking limb's pixels inside the goblin's,
+    /// from the drawn placement (set intersection, not `StrikeGeometry`).
+    drawn_overlap: Vec<Option<usize>>,
+}
+
+/// World pixels of the layers of a drawn frame.
+fn world_pixels(
+    clips: &SpriteClips,
+    frame: usize,
+    layers: Option<&[&str]>,
+    foot_x: f32,
+    flip: bool,
+) -> BTreeSet<(i32, i32)> {
+    let (cx, _) = actor_center(clips.spec, foot_x, 0.0, flip);
+    let left = cx as i32 - clips.spec.width / 2;
+    let masks = &clips.masks[frame];
+    let mut out = BTreeSet::new();
+    for row in 0..clips.spec.height {
+        let bits = match layers {
+            None => masks.all[row as usize],
+            Some(names) => names
+                .iter()
+                .filter_map(|n| masks.layers.get(*n))
+                .fold(0u64, |a, m| a | m[row as usize]),
+        };
+        for x in 0..clips.spec.width {
+            if bits >> x & 1 == 1 {
+                let world = left + if flip { clips.spec.width - 1 - x } else { x };
+                out.insert((world, row));
+            }
+        }
+    }
+    out
 }
 
 /// Run a fixture with `input` and record what is drawn after every tick.
@@ -58,9 +102,73 @@ fn record(
         } else {
             anim.reset(&sim.combat);
         }
+        let hero = &sim.scene.world.hero;
+        let carl_span = anim.carl_pose().map(|pose| {
+            let carl = &anim.carl;
+            let foot = anim.carl_anchor_foot_y(hero.y - HERO_HALF_HEIGHT);
+            let (_, cy) = actor_center(carl.spec, hero.x, foot, false);
+            let b = carl.frame_box(pose.frame);
+            let top = cy + carl.spec.height as f32 / 2.0;
+            (top - b.top as f32, top - (b.lowest + 1) as f32)
+        });
+        let drawn_overlap: Vec<Option<usize>> = (0..anim.goblin_count())
+            .map(|i| {
+                let carl_pose = anim.carl_pose()?;
+                anim.goblin_strike_overlap(i)?;
+                let (layers, _) = strike_of(carl_pose.tag)?;
+                let limb = world_pixels(
+                    &anim.carl,
+                    carl_pose.frame,
+                    Some(layers),
+                    hero.x,
+                    hero.facing < 0,
+                );
+                let goblin = &sim.combat.enemies[i];
+                let body = world_pixels(
+                    anim.goblin_clips(i),
+                    anim.goblin_pose(i).frame,
+                    None,
+                    goblin.x + anim.goblin_draw_dx(i) as f32,
+                    goblin.facing < 0,
+                );
+                // Rows are counted from each frame's top; both pivot rows are
+                // on the same floor line, so the rows line up.
+                Some(limb.intersection(&body).count())
+            })
+            .collect();
         rows.push(Row {
             tick: sim.scene.world.tick,
             carl: anim.carl_pose(),
+            hero_vy: hero.vy,
+            hero_xy: (hero.x, hero.y),
+            carl_span,
+            goblin_snap: sim
+                .combat
+                .enemies
+                .iter()
+                .map(|g| {
+                    [
+                        g.x,
+                        g.y,
+                        f32::from(g.attack_tick),
+                        f32::from(g.stagger_left),
+                        f32::from(g.down_ticks),
+                        g.vx,
+                        g.vy,
+                    ]
+                })
+                .collect(),
+            goblin_x: sim.combat.enemies.iter().map(|g| g.x).collect(),
+            draw_dx: (0..anim.goblin_count())
+                .map(|i| anim.goblin_draw_dx(i))
+                .collect(),
+            stack_dx: (0..anim.goblin_count())
+                .map(|i| anim.goblin_stack_dx(i))
+                .collect(),
+            strike: (0..anim.goblin_count())
+                .map(|i| anim.goblin_strike_overlap(i))
+                .collect(),
+            drawn_overlap,
             carl_frozen_move: sim
                 .scene
                 .world
@@ -507,6 +615,12 @@ fn the_frame_is_held_during_hit_stop() {
                     "{} tick {} Carl",
                     fixture.name, cur.tick
                 );
+                // The sim is frozen too: Carl does not move while his move is.
+                assert_eq!(
+                    cur.hero_xy, prev.hero_xy,
+                    "{} tick {}",
+                    fixture.name, cur.tick
+                );
             }
             for (i, (now, before)) in cur.goblins.iter().zip(&prev.goblins).enumerate() {
                 // A frozen goblin keeps its state: its frame must not move. The
@@ -516,6 +630,13 @@ fn the_frame_is_held_during_hit_stop() {
                     assert_eq!(
                         now.1, before.1,
                         "{} tick {} goblin {i}",
+                        fixture.name, cur.tick
+                    );
+                    // The held frame is held because the sim did not move: the
+                    // goblin's position, clocks and speeds are unchanged.
+                    assert_eq!(
+                        cur.goblin_snap[i], prev.goblin_snap[i],
+                        "{} tick {} goblin {i} sim fields",
                         fixture.name, cur.tick
                     );
                 }
@@ -644,7 +765,6 @@ fn row_bottom(clips: &SpriteClips, cy: f32, row: i32) -> f32 {
 
 #[test]
 fn airborne_frames_sit_on_the_sim_body_and_grounded_ones_on_the_foot() {
-    let carl = carl_clips();
     let goblins = [goblin_clips(0), goblin_clips(1)];
     for name in ["cp01_haymaker_chain", "cp01_single_goblin", "cp01_retry"] {
         let (rows, _) = scripted(fixture(name));
@@ -665,12 +785,19 @@ fn airborne_frames_sit_on_the_sim_body_and_grounded_ones_on_the_foot() {
                     row.tick
                 );
             }
-            if let Some(pose) = row.carl {
-                let anchored = carl.anchor_foot_y(&pose, row.hero_foot_y);
-                let (_, cy) = actor_center(carl.spec, 400.0, anchored, false);
-                let lowest = carl.frame_box(pose.frame).lowest;
-                let gap = row_bottom(&carl, cy, lowest) - row.hero_foot_y;
-                assert!(gap.abs() <= 0.5, "{name} tick {} Carl: {gap}", row.tick);
+            if let (Some(pose), Some((_, bottom))) = (row.carl, row.carl_span) {
+                // Carl's knockdown blends from the pivot rule (floating by the
+                // lift) to the lowest-row rule by the apex: never below the
+                // body, and exactly on it from the apex on.
+                let gap = bottom - row.hero_foot_y;
+                assert!(
+                    gap >= -0.5,
+                    "{name} tick {} Carl {pose:?}: sinks {gap}",
+                    row.tick
+                );
+                if row.hero_vy <= 0.0 || pose.tag != "knockback" {
+                    assert!(gap.abs() <= 0.5, "{name} tick {} Carl: {gap}", row.tick);
+                }
             }
         }
     }
@@ -706,6 +833,230 @@ fn launch_age_is_recovered_from_the_vertical_speed_of_a_real_flight() {
     let flight: Vec<u32> = ages.iter().copied().skip_while(|a| *a == 0).collect();
     let expected: Vec<u32> = (1..=flight.len() as u32).collect();
     assert_eq!(flight, expected);
+}
+
+// ------------------------------------------------- hit-stop contact -----
+
+#[test]
+fn the_striking_limb_touches_the_goblin_on_every_hit_stop_tick() {
+    // B1: the recoil frame throws the head back, so the goblin is drawn toward
+    // Carl while it is frozen by his blow. The pixels of the striking limb
+    // that sit inside the goblin's must be 1 to 6 on every one of those ticks,
+    // counted independently from the drawn placement.
+    let mut seen = BTreeMap::<&str, (usize, usize, usize)>::new();
+    for fixture in FIXTURES {
+        let (rows, _) = scripted(fixture);
+        for row in &rows {
+            let Some(carl) = row.carl else { continue };
+            for (i, ovl) in row.drawn_overlap.iter().enumerate() {
+                let Some(n) = ovl else { continue };
+                assert!(
+                    (1..=6).contains(n),
+                    "{} tick {} goblin {i} {}: {n} px",
+                    fixture.name,
+                    row.tick,
+                    carl.label()
+                );
+                assert_eq!(Some(*n), row.strike[i], "the sim-side count agrees");
+                let e = seen.entry(carl.tag).or_insert((usize::MAX, 0, 0));
+                *e = (e.0.min(*n), e.1.max(*n), e.2 + 1);
+            }
+        }
+    }
+    // Every striking move is covered: jab, haymaker and kick.
+    for tag in ["punch_a", "punch_b", "kick"] {
+        let (low, high, ticks) = seen[tag];
+        assert!(ticks > 0 && low >= 1 && high <= 6, "{tag}: {seen:?}");
+    }
+}
+
+#[test]
+fn a_goblin_in_hit_stop_contact_is_drawn_toward_carl_and_eased_back() {
+    let (rows, _) = scripted(fixture("cp01_haymaker_chain"));
+    let at = |tick: u64| rows.iter().find(|r| r.tick == tick).unwrap();
+    // The jab (hit 140, 4 frozen ticks): the goblin is 5 px toward Carl (to the
+    // left: it stands in front of him), then eases back over 3 moving ticks.
+    let dx: Vec<i32> = (139..=147).map(|t| at(t).draw_dx[0]).collect();
+    assert_eq!(dx, [0, -5, -5, -5, -5, -3, -2, 0, 0], "{dx:?}");
+    // The haymaker kill (hit 152, 9 frozen ticks).
+    let dx: Vec<i32> = (151..=164).map(|t| at(t).draw_dx[0]).collect();
+    assert_eq!(dx[0], 0);
+    assert!(dx[1..10].iter().all(|d| *d == -1), "{dx:?}");
+    assert_eq!(&dx[10..], &[-1, 0, 0, 0], "{dx:?}");
+    for row in &rows {
+        assert!(row.draw_dx[0].abs() <= MAX_STRIKE_SHIFT_PX);
+    }
+    // The shift is presentation: the sim position never moved by it.
+    assert_eq!(at(141).goblin_x[0], at(140).goblin_x[0]);
+}
+
+#[test]
+fn the_kick_sole_that_sinks_too_deep_is_drawn_back() {
+    // At the reach limit the sole is 7 px inside the goblin: drawn back 1 px.
+    let (rows, _) = scripted(fixture("cp01_kick"));
+    let hits: Vec<&Row> = rows
+        .iter()
+        .filter(|r| r.carl.is_some_and(|c| c.tag == "kick") && r.strike[0].is_some())
+        .collect();
+    assert!(!hits.is_empty());
+    for row in hits {
+        assert_eq!(row.draw_dx[0], 1, "tick {}", row.tick);
+        assert_eq!(row.strike[0], Some(4));
+    }
+}
+
+#[test]
+fn the_cp01_kick_fixture_staggers_then_defeats_the_goblin() {
+    let (rows, sim) = scripted(fixture("cp01_kick"));
+    let hits: Vec<(u64, MoveId)> = sim
+        .combat
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            CombatEvent::Hit { tick, move_id, .. } => Some((*tick, *move_id)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(hits, [(135, MoveId::PushKick), (183, MoveId::PushKick)]);
+    // k3 on both hit ticks, recoil for the kick's whole 9-tick freeze each time.
+    for tick in [135, 183] {
+        let row = rows.iter().find(|r| r.tick == tick).unwrap();
+        assert_eq!(row.carl, Some(pose("kick", 11)));
+        let hurt = rows
+            .iter()
+            .skip_while(|r| r.tick < tick)
+            .take_while(|r| r.goblins[0].1 == pose("hurt", 16))
+            .count();
+        // The kick's hit-stop is 8 ticks, 11 on the killing hit: one more
+        // frozen tick than the counter each time.
+        let want = if tick == 135 { 9 } else { 12 };
+        assert_eq!(hurt, want, "recoil at tick {tick}");
+    }
+}
+
+#[test]
+fn stacked_goblins_are_drawn_apart_and_the_nudge_is_continuous() {
+    let (rows, _) = scripted(fixture("cp01_retry"));
+    // g0 and g1 stand at x about 429 together: the later one is drawn 6 px
+    // away from Carl (he stands to their left).
+    let stacked = rows
+        .iter()
+        .filter(|r| {
+            (r.goblin_x[0] - r.goblin_x[1]).abs() < 1.0 && r.goblins[1].0 == GoblinMode::Attack
+        })
+        .collect::<Vec<_>>();
+    assert!(!stacked.is_empty());
+    for row in stacked {
+        assert_eq!(row.draw_dx[0], 0, "tick {}", row.tick);
+        assert_eq!(row.draw_dx[1], 6, "tick {}", row.tick);
+    }
+    // No pop: the nudge never jumps by more than 2 px in one tick, anywhere.
+    for fixture in FIXTURES {
+        let (rows, _) = scripted(fixture);
+        for pair in rows.windows(2) {
+            if pair[1].tick != pair[0].tick + 1 {
+                continue;
+            }
+            for i in 1..pair[0].stack_dx.len() {
+                let step = (pair[1].stack_dx[i] - pair[0].stack_dx[i]).abs();
+                assert!(
+                    step <= 2,
+                    "{} tick {} goblin {i}: {step}",
+                    fixture.name,
+                    pair[1].tick
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn goblins_do_not_walk_in_lockstep() {
+    let (rows, _) = scripted(fixture("cp02_two_goblins"));
+    let both: Vec<&Row> = rows
+        .iter()
+        .filter(|r| r.goblins.iter().all(|g| g.1.tag == "walk"))
+        .collect();
+    assert!(both.len() > 20);
+    // Three frames apart (15 px of the 30 px cycle) at every shared tick.
+    for row in both {
+        let (a, b) = (row.goblins[0].1.frame - 4, row.goblins[1].1.frame - 4);
+        assert_eq!((b + 6 - a) % 6, 3, "tick {}", row.tick);
+    }
+}
+
+#[test]
+fn the_knockdown_has_no_drop_at_launch_and_no_pop_at_landing() {
+    let (rows, _) = scripted(fixture("cp01_retry"));
+    let launch = rows
+        .windows(2)
+        .position(|p| {
+            p[0].carl.is_some_and(|c| c.tag == "hurt")
+                && p[1].carl.is_some_and(|c| c.tag == "knockback")
+        })
+        .expect("a launch");
+    let (a, b) = (&rows[launch], &rows[launch + 1]);
+    let head = |r: &Row| r.carl_span.unwrap().0;
+    // Without the blend the head dropped 11 px at the launch; now the pivot rule
+    // carries on from the grounded hurt frame and the head rises with the
+    // art's own pose change (5 px up).
+    assert!(
+        (-2.0..=8.0).contains(&(head(b) - head(a))),
+        "head {} -> {}",
+        head(a),
+        head(b)
+    );
+    // The whole flight is smooth: the head never moves more than 3 px a tick.
+    for pair in rows[launch..].windows(2) {
+        let (Some(x), Some(y)) = (pair[0].carl_span, pair[1].carl_span) else {
+            break;
+        };
+        if pair[0].carl.is_some_and(|c| c.tag == "knockback")
+            && pair[1].carl.is_some_and(|c| c.tag == "knockback")
+        {
+            assert!(
+                (x.0 - y.0).abs() <= 3.0,
+                "tick {}: head {} -> {}",
+                pair[1].tick,
+                x.0,
+                y.0
+            );
+        }
+    }
+    // Landing: the lowest row is on the body from the apex, so the sprawl
+    // starts without a pop.
+    let land = rows
+        .windows(2)
+        .position(|p| {
+            p[0].carl.is_some_and(|c| c.tag == "knockback")
+                && p[1].carl.is_some_and(|c| c.tag == "knockdown")
+        })
+        .expect("a landing");
+    let bottom = |r: &Row| r.carl_span.unwrap().1;
+    assert!(
+        (bottom(&rows[land + 1]) - bottom(&rows[land])).abs() <= 1.0,
+        "bottom {} -> {}",
+        bottom(&rows[land]),
+        bottom(&rows[land + 1])
+    );
+    // And the blend itself: 0 at the launch speed, 1 from the apex.
+    assert_eq!(knockdown_blend(HERO_KNOCKDOWN_VY), 0.0);
+    assert_eq!(knockdown_blend(0.0), 1.0);
+    assert_eq!(knockdown_blend(-300.0), 1.0);
+    assert!((knockdown_blend(HERO_KNOCKDOWN_VY / 2.0) - 0.5).abs() < 1e-6);
+}
+
+#[test]
+fn carl_shadow_follows_the_sprawl_and_keeps_the_idle_footprint_otherwise() {
+    let carl = carl_clips();
+    let upright = carl.shadow_footprint(&pose("punch_a", 1));
+    assert_eq!(upright, CARL_SHADOW_FOOTPRINT);
+    let sprawl = carl.shadow_footprint(&pose("knockdown", 20));
+    assert_ne!(
+        sprawl, upright,
+        "the sprawl is wider than the idle footprint"
+    );
+    assert!(sprawl.0 > upright.0 && sprawl.0 <= carl.spec.width);
 }
 
 // --------------------------------------------- presentation boundary -----

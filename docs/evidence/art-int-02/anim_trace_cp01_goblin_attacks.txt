@@ -1,300 +1,300 @@
-COMBAT_ANIM_TRACE tick=1 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=2 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=3 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=4 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=5 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=6 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=7 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=8 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=9 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=10 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=11 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=12 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=13 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=14 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=15 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=16 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=17 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=18 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=19 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=20 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=21 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=22 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=23 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=24 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=25 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=26 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=27 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=28 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=29 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=30 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=31 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=32 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=33 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=34 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=35 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=36 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=37 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=38 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=39 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=40 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=41 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=42 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=43 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=44 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=45 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=46 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=47 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=48 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=49 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=50 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=51 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=52 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=53 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=54 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=55 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=56 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=57 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=58 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=59 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=60 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=61 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=62 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=63 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=64 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=65 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=66 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=67 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=68 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=69 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=70 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=71 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=72 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=73 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=74 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=75 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=76 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=77 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=78 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=79 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=80 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=81 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=82 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=83 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=84 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=85 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=86 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=87 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=88 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=89 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=90 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=91 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=92 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=93 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=94 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=95 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=96 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=97 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=98 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=99 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=100 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=101 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=102 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=103 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=104 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=105 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=106 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:7
-COMBAT_ANIM_TRACE tick=107 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=108 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=109 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=110 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=111 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:8
-COMBAT_ANIM_TRACE tick=112 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=113 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=114 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=115 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=116 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:9
-COMBAT_ANIM_TRACE tick=117 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=118 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=119 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=120 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=121 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:4
-COMBAT_ANIM_TRACE tick=122 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=123 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=124 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=125 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:5
-COMBAT_ANIM_TRACE tick=126 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/walk:6
-COMBAT_ANIM_TRACE tick=127 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=128 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=1 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=129 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=2 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=130 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=3 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=131 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=4 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=132 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=5 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=133 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=6 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=134 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=7 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=135 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=8 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=136 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=9 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=137 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=10 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=138 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=11 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=139 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=12 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=140 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=13 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=141 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=14 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=142 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=15 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=143 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=16 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=144 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=17 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=145 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=18 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=146 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=19 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=147 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=20 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=148 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=21 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=149 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=22 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=150 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=23 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=151 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Smear g0_t=24 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:12
-COMBAT_ANIM_TRACE tick=152 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Smear g0_t=25 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:12
-COMBAT_ANIM_TRACE tick=153 carl_move=- hurt=18 carl_stop=4 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=4 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=154 carl_move=- hurt=18 carl_stop=3 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=3 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=155 carl_move=- hurt=18 carl_stop=2 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=2 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=156 carl_move=- hurt=18 carl_stop=1 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=1 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=157 carl_move=- hurt=18 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=158 carl_move=- hurt=17 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=27 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=159 carl_move=- hurt=16 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=28 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=160 carl_move=- hurt=15 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=29 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=161 carl_move=- hurt=14 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=30 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=162 carl_move=- hurt=13 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=31 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=163 carl_move=- hurt=12 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=32 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=164 carl_move=- hurt=11 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=33 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=165 carl_move=- hurt=10 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=34 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=166 carl_move=- hurt=9 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=35 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=167 carl_move=- hurt=8 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=36 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=168 carl_move=- hurt=7 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=37 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=169 carl_move=- hurt=6 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=38 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=170 carl_move=- hurt=5 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=39 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=171 carl_move=- hurt=4 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=40 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=172 carl_move=- hurt=3 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=41 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=173 carl_move=- hurt=2 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=42 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=174 carl_move=- hurt=1 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=43 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=175 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=44 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=176 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=45 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=177 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=46 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=178 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=47 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=179 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=48 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=180 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=49 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=181 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=182 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=183 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=184 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=185 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=186 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=187 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=188 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=189 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=190 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=191 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=192 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=193 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=194 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=195 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=196 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=197 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=198 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=199 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=200 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=201 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=202 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=203 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=204 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=205 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=206 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=207 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=208 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=209 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=210 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=211 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=212 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=213 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=214 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=215 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=216 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=217 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=218 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=219 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=220 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=221 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
-COMBAT_ANIM_TRACE tick=222 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=223 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=1 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=224 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=2 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=225 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=3 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=226 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=4 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=227 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=5 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:10
-COMBAT_ANIM_TRACE tick=228 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=6 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=229 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=7 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=230 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=8 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=231 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=9 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=232 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=10 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=233 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=11 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=234 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=12 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=235 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=13 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=236 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=14 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=237 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=15 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=238 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=16 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=239 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=17 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=240 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=18 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=241 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=19 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=242 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=20 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=243 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=21 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=244 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=22 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=245 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=23 g0_hs=0 g0_y=92.00 g0_draw=A/attack_tell:11
-COMBAT_ANIM_TRACE tick=246 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Smear g0_t=24 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:12
-COMBAT_ANIM_TRACE tick=247 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Smear g0_t=25 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:12
-COMBAT_ANIM_TRACE tick=248 carl_move=- hurt=18 carl_stop=4 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=4 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=249 carl_move=- hurt=18 carl_stop=3 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=3 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=250 carl_move=- hurt=18 carl_stop=2 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=2 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=251 carl_move=- hurt=18 carl_stop=1 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=1 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=252 carl_move=- hurt=18 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=253 carl_move=- hurt=17 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=27 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=254 carl_move=- hurt=16 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=28 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=255 carl_move=- hurt=15 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=29 g0_hs=0 g0_y=92.00 g0_draw=A/attack_swing:13
-COMBAT_ANIM_TRACE tick=256 carl_move=- hurt=14 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=30 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=257 carl_move=- hurt=13 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=31 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=258 carl_move=- hurt=12 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=32 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=259 carl_move=- hurt=11 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=33 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=260 carl_move=- hurt=10 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=34 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=261 carl_move=- hurt=9 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=35 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=262 carl_move=- hurt=8 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=36 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=263 carl_move=- hurt=7 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=37 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=264 carl_move=- hurt=6 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=38 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=265 carl_move=- hurt=5 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=39 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=266 carl_move=- hurt=4 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=40 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=267 carl_move=- hurt=3 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=41 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:14
-COMBAT_ANIM_TRACE tick=268 carl_move=- hurt=2 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=42 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=269 carl_move=- hurt=1 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=43 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=270 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=44 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=271 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=45 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=272 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=46 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=273 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=47 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=274 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=48 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=275 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=49 g0_hs=0 g0_y=92.00 g0_draw=A/attack_recover:15
-COMBAT_ANIM_TRACE tick=276 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=277 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=278 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=279 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:3
-COMBAT_ANIM_TRACE tick=280 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=281 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=282 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=283 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=284 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=285 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=286 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=287 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=288 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=289 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=290 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=291 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:0
-COMBAT_ANIM_TRACE tick=292 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=293 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=294 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=295 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=296 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=297 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=298 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=299 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:1
-COMBAT_ANIM_TRACE tick=300 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=1 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=2 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=3 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=4 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=5 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=6 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=7 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=8 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=9 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=10 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=11 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=12 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=13 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=14 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=15 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=16 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=17 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=18 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=19 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=20 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=21 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=22 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=23 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=24 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=25 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=26 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=27 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=28 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=29 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=30 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=31 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=32 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=33 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=34 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=35 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=36 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=37 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=38 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=39 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=40 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=41 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=42 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=43 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=44 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=45 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=46 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=47 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=48 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=49 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=50 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=51 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=52 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=53 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=54 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=55 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=56 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=57 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=58 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=59 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=60 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=61 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=62 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=63 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=64 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=65 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=66 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=67 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=68 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=69 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=70 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=71 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=72 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=73 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=74 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=75 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=76 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=77 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=78 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=79 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=80 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=81 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=82 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=83 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=84 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=85 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=86 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=87 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=88 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=89 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=90 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=91 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=92 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=93 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=94 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=95 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=96 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=97 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=98 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=99 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=100 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=101 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=102 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=103 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=104 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=105 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=106 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:7
+COMBAT_ANIM_TRACE tick=107 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=108 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=109 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=110 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=111 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:8
+COMBAT_ANIM_TRACE tick=112 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=113 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=114 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=115 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=116 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:9
+COMBAT_ANIM_TRACE tick=117 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=118 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=119 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=120 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=121 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:4
+COMBAT_ANIM_TRACE tick=122 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=123 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=124 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=125 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:5
+COMBAT_ANIM_TRACE tick=126 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/walk:6
+COMBAT_ANIM_TRACE tick=127 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=128 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=1 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=129 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=2 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=130 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=3 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=131 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=4 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=132 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=5 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=133 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=6 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=134 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=7 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=135 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=8 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=136 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=9 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=137 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=10 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=138 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=11 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=139 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=12 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=140 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=13 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=141 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=14 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=142 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=15 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=143 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=16 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=144 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=17 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=145 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=18 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=146 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=19 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=147 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=20 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=148 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=21 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=149 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=22 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=150 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=23 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=151 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Smear g0_t=24 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:12
+COMBAT_ANIM_TRACE tick=152 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Smear g0_t=25 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:12
+COMBAT_ANIM_TRACE tick=153 carl_move=- hurt=18 carl_stop=4 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=4 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=154 carl_move=- hurt=18 carl_stop=3 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=3 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=155 carl_move=- hurt=18 carl_stop=2 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=2 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=156 carl_move=- hurt=18 carl_stop=1 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=1 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=157 carl_move=- hurt=18 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=158 carl_move=- hurt=17 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=27 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=159 carl_move=- hurt=16 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=28 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=160 carl_move=- hurt=15 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=29 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=161 carl_move=- hurt=14 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=30 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=162 carl_move=- hurt=13 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=31 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=163 carl_move=- hurt=12 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=32 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=164 carl_move=- hurt=11 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=33 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=165 carl_move=- hurt=10 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=34 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=166 carl_move=- hurt=9 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=35 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=167 carl_move=- hurt=8 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=36 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=168 carl_move=- hurt=7 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=37 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=169 carl_move=- hurt=6 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=38 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=170 carl_move=- hurt=5 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=39 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=171 carl_move=- hurt=4 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=40 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=172 carl_move=- hurt=3 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=41 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=173 carl_move=- hurt=2 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=42 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=174 carl_move=- hurt=1 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=43 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=175 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=44 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=176 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=45 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=177 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=46 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=178 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=47 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=179 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=48 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=180 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=49 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=181 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=182 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=183 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=184 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=185 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=186 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=187 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=188 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=189 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=190 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=191 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=192 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=193 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=194 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=195 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=196 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=197 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=198 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=199 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=200 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=201 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=202 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=203 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=204 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=205 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=206 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=207 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=208 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=209 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=210 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=211 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=212 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=213 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=214 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=215 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=216 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=217 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=218 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=219 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=220 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=221 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2
+COMBAT_ANIM_TRACE tick=222 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=223 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=1 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=224 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=2 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=225 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=3 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=226 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=4 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=227 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=5 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:10
+COMBAT_ANIM_TRACE tick=228 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=6 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=229 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=7 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=230 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=8 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=231 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=9 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=232 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=10 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=233 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=11 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=234 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=12 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=235 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=13 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=236 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=14 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=237 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=15 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=238 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=16 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=239 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=17 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=240 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=18 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=241 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=19 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=242 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=20 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=243 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=21 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=244 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=22 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=245 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Tell g0_t=23 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_tell:11
+COMBAT_ANIM_TRACE tick=246 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Smear g0_t=24 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:12
+COMBAT_ANIM_TRACE tick=247 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Smear g0_t=25 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:12
+COMBAT_ANIM_TRACE tick=248 carl_move=- hurt=18 carl_stop=4 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=4 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=249 carl_move=- hurt=18 carl_stop=3 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=3 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=250 carl_move=- hurt=18 carl_stop=2 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=2 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=251 carl_move=- hurt=18 carl_stop=1 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=1 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=252 carl_move=- hurt=18 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=26 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=253 carl_move=- hurt=17 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=27 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=254 carl_move=- hurt=16 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=28 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=255 carl_move=- hurt=15 carl_stop=0 carl_grounded=1 carl_draw=hurt:15 g0=Attack/Impact g0_t=29 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_swing:13
+COMBAT_ANIM_TRACE tick=256 carl_move=- hurt=14 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=30 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=257 carl_move=- hurt=13 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=31 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=258 carl_move=- hurt=12 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=32 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=259 carl_move=- hurt=11 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=33 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=260 carl_move=- hurt=10 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=34 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=261 carl_move=- hurt=9 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=35 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=262 carl_move=- hurt=8 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=36 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=263 carl_move=- hurt=7 carl_stop=0 carl_grounded=1 carl_draw=hurt:16 g0=Attack/Recover g0_t=37 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=264 carl_move=- hurt=6 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=38 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=265 carl_move=- hurt=5 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=39 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=266 carl_move=- hurt=4 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=40 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=267 carl_move=- hurt=3 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=41 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:14
+COMBAT_ANIM_TRACE tick=268 carl_move=- hurt=2 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=42 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=269 carl_move=- hurt=1 carl_stop=0 carl_grounded=1 carl_draw=hurt:17 g0=Attack/Recover g0_t=43 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=270 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=44 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=271 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=45 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=272 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=46 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=273 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=47 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=274 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=48 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=275 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Attack/Recover g0_t=49 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/attack_recover:15
+COMBAT_ANIM_TRACE tick=276 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=277 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=278 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=279 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:3
+COMBAT_ANIM_TRACE tick=280 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=281 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=282 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=283 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=284 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=285 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=286 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=287 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=288 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=289 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=290 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=291 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:0
+COMBAT_ANIM_TRACE tick=292 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=293 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=294 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=295 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=296 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=297 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=298 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=299 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:1
+COMBAT_ANIM_TRACE tick=300 carl_move=- hurt=0 carl_stop=0 carl_grounded=1 carl_draw=- g0=Neutral g0_t=0 g0_hs=0 g0_y=92.00 g0_dx=0 g0_ovl=- g0_draw=A/idle:2

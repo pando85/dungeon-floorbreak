@@ -56,12 +56,13 @@ use dungeon_floorbreak::{
 /// that a goblin in its smear or impact is drawn over him (its club lands on
 /// him) while he is not in his own active window; during Carl's active frames he
 /// is above his target (the melee spec's integration rule: his fist overlaps the
-/// goblin's head by up to 6 px). Lying goblins (down, corpse) sit under all.
+/// goblin's head by up to 6 px). Lying goblins (down, corpse) sit below Donut and everything else.
 const CARL_Z_OFFSET: f32 = 0.1;
 const GOBLIN_Z_OFFSET: f32 = 0.05;
 const GOBLIN_SWING_Z_OFFSET: f32 = 0.15;
-const GOBLIN_LYING_Z_OFFSET: f32 = 0.02;
-/// Per-goblin z step so two goblins never share a depth.
+const GOBLIN_LYING_Z_OFFSET: f32 = -0.01;
+/// Per-goblin z step so two goblins never share a depth: the earlier goblin is
+/// in front (a stacked later one is drawn behind it).
 const GOBLIN_Z_STEP: f32 = 0.001;
 /// Impact flash (presentation): the sprite is drawn this much brighter for the
 /// flash ticks after a hit.
@@ -959,7 +960,7 @@ fn setup(
                 Transform::from_xyz(
                     0.0,
                     0.0,
-                    kit.actor_z + GOBLIN_Z_OFFSET + index as f32 * GOBLIN_Z_STEP,
+                    kit.actor_z + GOBLIN_Z_OFFSET - index as f32 * GOBLIN_Z_STEP,
                 ),
                 layers_of("actors"),
             ));
@@ -1488,7 +1489,10 @@ fn sync_combat_visuals(
             // sink); grounded ones keep the pivot on the physics foot.
             let foot = clips.anchor_foot_y(&pose, goblin.y - ENEMY_HALF_HEIGHT);
             let flip = goblin.facing < 0;
-            let (cx, cy) = actor_center(clips.spec, goblin.x, foot, flip);
+            // Drawn a little toward Carl while he strikes it in hit-stop, and
+            // away from a goblin it would stand on (presentation only).
+            let draw_x = goblin.x + art.goblin_draw_dx(index) as f32;
+            let (cx, cy) = actor_center(clips.spec, draw_x, foot, flip);
             let lying = matches!(goblin.mode, GoblinMode::Down | GoblinMode::Corpse);
             let swinging = matches!(
                 goblin.attack_phase(),
@@ -1503,7 +1507,7 @@ fn sync_combat_visuals(
             };
             transform.translation.x = cx;
             transform.translation.y = cy;
-            transform.translation.z = actor_z + z_offset + index as f32 * GOBLIN_Z_STEP;
+            transform.translation.z = actor_z + z_offset - index as f32 * GOBLIN_Z_STEP;
             sprite.flip_x = flip;
             sprite.color = if state.flash(index, tick) {
                 FLASH_TINT
@@ -1522,7 +1526,7 @@ fn sync_combat_visuals(
     for (mut transform, mut sprite, mut visibility) in &mut melee {
         match (carl_pose, anim.0.art.as_ref()) {
             (Some(pose), Some(art)) => {
-                let foot = art.carl.anchor_foot_y(&pose, hero.y - HERO_HALF_HEIGHT);
+                let foot = art.carl_anchor_foot_y(hero.y - HERO_HALF_HEIGHT);
                 let flip = hero.facing < 0;
                 let (cx, cy) = actor_center(art.carl.spec, hero.x, foot, flip);
                 transform.translation.x = cx;
@@ -1647,7 +1651,17 @@ fn update_lighting(
             // The shadow lies on the walking line under the actor (also while
             // it jumps), centred on the footprint of the old idle canvas so the
             // wider locomotion frames do not change the lighting.
-            let centre_x = shadow_center_x(pose.spec, pose.foot_x, pose.flip);
+            let mut spec = pose.spec;
+            if let (true, Some(art)) = (pose.is_hero, anim.0.art.as_ref())
+                && let Some(carl_pose) = art.carl_pose()
+            {
+                // Carl's sprawl (knockdown) casts the shadow of the body on
+                // the floor; every other frame keeps the idle footprint.
+                let (width, pivot) = art.carl.shadow_footprint(&carl_pose);
+                spec.shadow_width = width;
+                spec.shadow_pivot_x = pivot;
+            }
+            let centre_x = shadow_center_x(spec, pose.foot_x, pose.flip);
             let line = kit
                 .walking_line_at(pose.foot_x.round() as i32)
                 .unwrap_or(kit.height - pose.foot_y.round() as i32);
@@ -1655,7 +1669,7 @@ fn update_lighting(
                 profile,
                 centre_x,
                 line as f32,
-                pose.spec.shadow_width as f32,
+                spec.shadow_width as f32,
                 view,
             ));
         }
@@ -1691,7 +1705,7 @@ fn update_lighting(
                 put(
                     art.goblin_clips(index),
                     &art.goblin_pose(index),
-                    goblin.x,
+                    goblin.x + art.goblin_draw_dx(index) as f32,
                     goblin.facing < 0,
                 );
             }
@@ -2130,12 +2144,13 @@ mod tests {
 
     #[test]
     fn the_depth_order_follows_the_melee_integration_rule() {
-        // Lying goblins under everything, then standing goblins, then Carl
-        // (his fist must not be hidden by a goblin's head), then a goblin in
-        // its smear or impact (its club lands on him). Donut is at 0.
-        const { assert!(0.0 < GOBLIN_LYING_Z_OFFSET) };
-        const { assert!(GOBLIN_LYING_Z_OFFSET < GOBLIN_Z_OFFSET) };
-        const { assert!(GOBLIN_Z_OFFSET + 8.0 * GOBLIN_Z_STEP < CARL_Z_OFFSET) };
+        // Lying goblins below Donut (z 0), then Donut, then standing goblins
+        // (the earlier goblin in front of a stacked later one), then Carl (his
+        // fist must not be hidden by a goblin's head), then a goblin in its
+        // smear or impact (its club lands on him).
+        const { assert!(GOBLIN_LYING_Z_OFFSET + 8.0 * GOBLIN_Z_STEP < 0.0) };
+        const { assert!(0.0 < GOBLIN_Z_OFFSET - 8.0 * GOBLIN_Z_STEP) };
+        const { assert!(GOBLIN_Z_OFFSET < CARL_Z_OFFSET) };
         const { assert!(CARL_Z_OFFSET < GOBLIN_SWING_Z_OFFSET) };
         // Which side wins is the library's rule.
         assert!(carl_above_goblin(true, true));

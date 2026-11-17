@@ -39,22 +39,35 @@
 //! ([`SpriteClips::anchor_foot_y`]): the pivot row is 2 to 17 px below those
 //! frames' feet, so the plain pivot rule would hover the goblin by up to 9 px
 //! over its own body box at launch and touchdown and pop on landing. This is not
-//! a ground snap: the bottom follows the body up and down in the air.
+//! a ground snap: the bottom follows the body up and down in the air. Carl's
+//! knockdown blends from the pivot rule at the launch to this rule by the apex
+//! (his grounded hurt frame before it is pivot-anchored, so there is no drop).
+//!
+//! # Hit-stop contact
+//!
+//! The goblin's recoil frame throws its head back, so on the hit tick the
+//! striking limb of a1, b1 and k3 would hang in the air. While the goblin is
+//! frozen by Carl's blow it is drawn up to [`MAX_STRIKE_SHIFT_PX`] pixels toward
+//! him so the limb overlaps it by two pixels ([`StrikeGeometry`], from opaque
+//! masks built at load), and the shift eases back over [`STRIKE_EASE_TICKS`]
+//! moving ticks while the knockback carries it away. Stacked goblins are drawn
+//! apart (see [`STACK_SPACING_PX`]). None of this touches the sim.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use serde::Deserialize;
 
-use crate::actor_sprite::{ActorSpec, CARL_SHADOW_FOOTPRINT};
+use crate::actor_sprite::{ActorSpec, CARL_SHADOW_FOOTPRINT, actor_center};
 use crate::combat::{ENEMY_HALF_HEIGHT, MoveId};
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::feel::{
-    ATTACK_TICKS, HERO_HURT_TICKS, IMPACT_END, KNOCK_GRAVITY, LETHAL_KNOCK_VY, SMEAR_END,
-    TELL_TICKS,
+    ATTACK_TICKS, HERO_HURT_TICKS, HERO_KNOCKDOWN_VY, IMPACT_END, KNOCK_GRAVITY, LETHAL_KNOCK_VY,
+    SMEAR_END, TELL_TICKS,
 };
 use crate::goblin::{AttackPhase, GoblinMode};
+use crate::prototype::HERO_HALF_HEIGHT;
 use crate::prototype::TICK_SECONDS;
 
 pub const CARL_MELEE_MANIFEST: &str = "carl_book1_h52_melee.json";
@@ -71,6 +84,24 @@ pub const GOBLIN_SHADOW_FOOTPRINT: (i32, i32) = (28, 14);
 /// Idle ticks of a goblin are offset by this per goblin index so a group does
 /// not breathe in sync.
 pub const IDLE_INDEX_OFFSET_TICKS: u64 = 13;
+/// Walk phase offset per goblin index (15 px of ground, three frames), so a
+/// group does not walk in lockstep.
+pub const WALK_INDEX_OFFSET_MILLI_PX: u32 = 15_000;
+/// Hit-stop contact: while a goblin is frozen by Carl's blow its recoil frame
+/// throws the head back, so it is drawn this many pixels toward Carl (at most)
+/// until the striking limb overlaps it by [`STRIKE_TARGET_OVERLAP_PX`] pixels.
+pub const MAX_STRIKE_SHIFT_PX: i32 = 8;
+pub const STRIKE_TARGET_OVERLAP_PX: usize = 2;
+/// The most overlap a strike may show (deeper is drawn back).
+pub const STRIKE_MAX_OVERLAP_PX: usize = 6;
+/// The shift eases back to 0 over this many moving ticks after the freeze (the
+/// knockback hides the return).
+pub const STRIKE_EASE_TICKS: u8 = 3;
+/// Two upright goblins closer than this are drawn apart (presentation only; the
+/// real spacing is CP-02): the later one is nudged away from Carl by the
+/// shortfall, at most [`STACK_MAX_NUDGE_PX`], and drawn behind the other.
+pub const STACK_SPACING_PX: f32 = 8.0;
+pub const STACK_MAX_NUDGE_PX: f32 = 6.0;
 /// Atlas variants: goblin index parity picks A (even) or B (odd).
 pub const GOBLIN_VARIANTS: usize = 2;
 
@@ -121,7 +152,17 @@ struct GridFile {
 pub struct FrameBox {
     pub left: i32,
     pub right: i32,
+    pub top: i32,
     pub lowest: i32,
+}
+
+/// Opaque pixels of one frame, one `u64` per row (bit `x` is column `x`; the
+/// frames are at most 64 px wide): every layer, and each layer on its own.
+/// Built once at load, so the contact test never scans an image.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct FrameMasks {
+    all: Vec<u64>,
+    layers: BTreeMap<String, Vec<u64>>,
 }
 
 /// Where the tags and durations are read from (same choice as the locomotion
@@ -141,6 +182,7 @@ pub struct SpriteClips {
     ticks: Vec<Option<u32>>,
     airborne_tags: BTreeSet<String>,
     boxes: Vec<FrameBox>,
+    masks: Vec<FrameMasks>,
 }
 
 fn read(root: &Path, relative: &str) -> Result<String, String> {
@@ -169,34 +211,47 @@ fn range_ticks(value: &serde_json::Value, what: &str) -> Result<Option<u32>, Str
     }
 }
 
-fn opaque_box(frame: &GridFrame, width: i32, height: i32) -> Result<Option<FrameBox>, String> {
-    let mut found: Option<FrameBox> = None;
-    for rows in frame.cels.values() {
+fn analyse(
+    frame: &GridFrame,
+    width: i32,
+    height: i32,
+) -> Result<Option<(FrameBox, FrameMasks)>, String> {
+    if width > 64 {
+        return Err("frames wider than 64 px are not supported".into());
+    }
+    let mut masks = FrameMasks {
+        all: vec![0; height as usize],
+        layers: BTreeMap::new(),
+    };
+    for (layer, rows) in &frame.cels {
         if rows.len() as i32 != height || rows.iter().any(|r| r.chars().count() as i32 != width) {
             return Err("cel is not the canvas size".into());
         }
+        let mut layer_rows = vec![0u64; height as usize];
         for (y, row) in rows.iter().enumerate() {
             for (x, ch) in row.chars().enumerate() {
-                if ch == '.' {
-                    continue;
+                if ch != '.' {
+                    layer_rows[y] |= 1 << x;
                 }
-                let (x, y) = (x as i32, y as i32);
-                found = Some(match found {
-                    None => FrameBox {
-                        left: x,
-                        right: x,
-                        lowest: y,
-                    },
-                    Some(b) => FrameBox {
-                        left: b.left.min(x),
-                        right: b.right.max(x),
-                        lowest: b.lowest.max(y),
-                    },
-                });
             }
         }
+        for (all, row) in masks.all.iter_mut().zip(&layer_rows) {
+            *all |= row;
+        }
+        masks.layers.insert(layer.clone(), layer_rows);
     }
-    Ok(found)
+    let Some(top) = masks.all.iter().position(|r| *r != 0) else {
+        return Ok(None);
+    };
+    let lowest = masks.all.iter().rposition(|r| *r != 0).unwrap_or(top);
+    let columns = masks.all.iter().fold(0u64, |a, r| a | r);
+    let b = FrameBox {
+        left: columns.trailing_zeros() as i32,
+        right: 63 - columns.leading_zeros() as i32,
+        top: top as i32,
+        lowest: lowest as i32,
+    };
+    Ok(Some((b, masks)))
 }
 
 impl SpriteClips {
@@ -233,11 +288,13 @@ impl SpriteClips {
             return Err(err("grid canvas differs from the manifest".into()));
         }
         let mut boxes = Vec::with_capacity(grid.frames.len());
+        let mut masks = Vec::with_capacity(grid.frames.len());
         for (index, frame) in grid.frames.iter().enumerate() {
-            let b = opaque_box(frame, width, height)
+            let (b, m) = analyse(frame, width, height)
                 .map_err(|e| format!("{grid_path}: frame {index}: {e}"))?
                 .ok_or_else(|| format!("{grid_path}: frame {index} is empty"))?;
             boxes.push(b);
+            masks.push(m);
         }
         let (tag_ranges, frame_count) = match source {
             FrameSource::GridSource => (grid.tags, grid.frames.len()),
@@ -294,6 +351,7 @@ impl SpriteClips {
             ticks,
             airborne_tags: airborne_list.into_iter().collect(),
             boxes,
+            masks,
         })
     }
 
@@ -379,8 +437,17 @@ impl SpriteClips {
     /// grounded tags keep the pivot on the physics foot; airborne tags put the
     /// frame's lowest opaque row on the bottom of the sim body.
     pub fn anchor_foot_y(&self, pose: &ArtPose, sim_foot_y: f32) -> f32 {
+        self.anchor_foot_y_blend(pose, sim_foot_y, 1.0)
+    }
+
+    /// [`Self::anchor_foot_y`] with a blend from the pivot rule (`0.0`) to the
+    /// lowest-row rule (`1.0`) for airborne tags. Carl's knockdown starts on the
+    /// pivot rule, like the grounded hurt frame before it, and settles onto the
+    /// lowest row by the apex ([`knockdown_blend`]).
+    pub fn anchor_foot_y_blend(&self, pose: &ArtPose, sim_foot_y: f32, blend: f32) -> f32 {
         if self.is_airborne_tag(pose.tag) {
-            sim_foot_y - (self.spec.pivot_y - self.boxes[pose.frame].lowest) as f32
+            let lift = (self.spec.pivot_y - self.boxes[pose.frame].lowest) as f32;
+            sim_foot_y - lift * blend.clamp(0.0, 1.0)
         } else {
             sim_foot_y
         }
@@ -449,11 +516,7 @@ impl SpriteClips {
                 // active tick (jab a1 at 3, haymaker b1 at 5, kick k3 at 13).
                 let contact = self.frame_at(tag, spec.startup.into());
                 let (first, _) = self.tag(tag);
-                let want = match tag {
-                    "punch_a" => first + 1,
-                    "punch_b" => first + 1,
-                    _ => first + 3,
-                };
+                let want = first + strike_of(tag).expect("a move that hits").1;
                 if contact != want {
                     out.borrow_mut().push(format!(
                         "carl {tag}: frame {contact} on the hit tick {}, expected the contact frame {want}",
@@ -589,7 +652,7 @@ pub fn melee_tag(id: MoveId) -> Option<&'static str> {
 }
 
 /// What Carl's melee frame depends on, from one finished tick.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct CarlInput {
     /// The running move and its clock (held while the move is frozen).
     pub melee: Option<(MoveId, u16)>,
@@ -599,6 +662,8 @@ pub struct CarlInput {
     pub frozen: bool,
     pub defeated: bool,
     pub grounded: bool,
+    /// Carl's vertical speed (px/s, y up): the knockdown anchor blend.
+    pub vy: f32,
     /// Ticks since Carl touched down after his knockdown (0 on the first
     /// grounded tick).
     pub landed_age: Option<u32>,
@@ -667,8 +732,13 @@ pub struct GoblinInput {
 
 /// Ticks since the launch was released (1 on the first moving tick), recovered
 /// from the vertical speed: the lethal launch speed and gravity are constants
-/// of `feel.rs`, and the knockback is the only thing that sets `vy` of an
-/// airborne goblin. 0 while the speed is still the launch speed (the freeze).
+/// of `feel.rs`, and the killing hit is the only thing that sets `vy` of an
+/// `Airborne` goblin. 0 while the speed is still the launch speed (the freeze).
+///
+/// **Depends on the `vy` source:** it is only right while every `Airborne`
+/// launch uses `LETHAL_KNOCK_VY` and plain gravity. A launch with another speed
+/// (the CP-02 kick) must carry its own launch speed (or an age counter) in the
+/// state instead of reusing this.
 pub fn launch_age(vy: f32) -> u32 {
     let per_tick = KNOCK_GRAVITY * TICK_SECONDS;
     ((LETHAL_KNOCK_VY - vy) / per_tick).round().max(0.0) as u32
@@ -734,6 +804,112 @@ pub fn goblin_pose(clips: &SpriteClips, input: &GoblinInput) -> ArtPose {
     }
 }
 
+// -------------------------------------------------------- strike contact -----
+
+/// The striking limb of a Carl move and the index, inside the tag, of its
+/// contact frame (a1, b1, k3): the layers of the melee grid that hold the arm
+/// or the leg that lands the blow.
+pub fn strike_of(tag: &str) -> Option<(&'static [&'static str], usize)> {
+    match tag {
+        "punch_a" => Some((&["far_arm"], 1)),
+        "punch_b" => Some((&["near_arm"], 1)),
+        "kick" => Some((&["shoes"], 3)),
+        _ => None,
+    }
+}
+
+/// Carl is on a contact frame of a move that hits.
+pub fn is_contact_pose(clips: &SpriteClips, pose: &ArtPose) -> bool {
+    strike_of(pose.tag).is_some_and(|(_, index)| pose.frame == clips.tag(pose.tag).0 + index)
+}
+
+/// Left edge of a drawn sprite in world pixels (`actor_center` places it).
+fn placed_left(spec: ActorSpec, foot_x: f32, flip: bool) -> i32 {
+    actor_center(spec, foot_x, 0.0, flip).0 as i32 - spec.width / 2
+}
+
+/// Carl's contact frame against a frozen goblin, as they are placed.
+pub struct StrikeGeometry<'a> {
+    pub carl: &'a SpriteClips,
+    pub carl_pose: ArtPose,
+    pub carl_x: f32,
+    pub carl_flip: bool,
+    pub carl_foot_y: f32,
+    pub goblin: &'a SpriteClips,
+    pub goblin_pose: ArtPose,
+    pub goblin_x: f32,
+    pub goblin_flip: bool,
+    pub goblin_foot_y: f32,
+}
+
+impl StrikeGeometry<'_> {
+    /// Pixels where the striking limb and the goblin are both opaque, with the
+    /// goblin drawn `dx` pixels to the right of its sim position.
+    pub fn overlap_px(&self, dx: i32) -> usize {
+        let Some((layers, _)) = strike_of(self.carl_pose.tag) else {
+            return 0;
+        };
+        let (cw, gw) = (self.carl.spec.width, self.goblin.spec.width);
+        let carl_left = placed_left(self.carl.spec, self.carl_x, self.carl_flip);
+        let goblin_left = placed_left(self.goblin.spec, self.goblin_x, self.goblin_flip) + dx;
+        // Frame rows are counted from the top, both pivot rows are the feet.
+        let dy = (self.carl_foot_y - self.goblin_foot_y).round() as i32;
+        let carl = &self.carl.masks[self.carl_pose.frame];
+        let goblin = &self.goblin.masks[self.goblin_pose.frame].all;
+        let mut count = 0;
+        for row in 0..self.carl.spec.height {
+            let limb = layers
+                .iter()
+                .filter_map(|l| carl.layers.get(*l))
+                .fold(0u64, |acc, m| acc | m[row as usize]);
+            let goblin_row = row - dy;
+            if limb == 0 || !(0..self.goblin.spec.height).contains(&goblin_row) {
+                continue;
+            }
+            for x in (0..cw).filter(|x| limb >> x & 1 == 1) {
+                let world = carl_left + if self.carl_flip { cw - 1 - x } else { x };
+                let column = world - goblin_left;
+                let column = if self.goblin_flip {
+                    gw - 1 - column
+                } else {
+                    column
+                };
+                if (0..gw).contains(&column) && goblin[goblin_row as usize] >> column & 1 == 1 {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    /// Signed pixels to draw the goblin toward Carl: the smallest shift in
+    /// `0..=MAX_STRIKE_SHIFT_PX` that overlaps the striking limb by
+    /// [`STRIKE_TARGET_OVERLAP_PX`] pixels (the maximum when none does). When
+    /// the limb already sinks deeper than [`STRIKE_MAX_OVERLAP_PX`] (the kick's
+    /// sole at the reach limit) the goblin is drawn back instead, the smallest
+    /// shift that brings it down to that.
+    pub fn shift_px(&self) -> i32 {
+        // The goblin stands in front of Carl: to his left when he is mirrored.
+        let toward = if self.carl_flip { 1 } else { -1 };
+        if self.overlap_px(0) > STRIKE_MAX_OVERLAP_PX {
+            return (1..=MAX_STRIKE_SHIFT_PX)
+                .find(|s| self.overlap_px(-toward * s) <= STRIKE_MAX_OVERLAP_PX)
+                .map_or(0, |s| -toward * s);
+        }
+        (0..=MAX_STRIKE_SHIFT_PX)
+            .find(|s| self.overlap_px(toward * s) >= STRIKE_TARGET_OVERLAP_PX)
+            .unwrap_or(MAX_STRIKE_SHIFT_PX)
+            * toward
+    }
+}
+
+/// Carl's knockdown anchor blend from his vertical speed: 0 at the launch
+/// (pivot rule, like the hurt frame before it), 1 from the apex on (lowest row
+/// on the sim body, so the sprawl lands without a pop).
+pub fn knockdown_blend(vy: f32) -> f32 {
+    ((HERO_KNOCKDOWN_VY - vy) / HERO_KNOCKDOWN_VY).clamp(0.0, 1.0)
+}
+
 // ------------------------------------------------------------- tracker -----
 
 #[derive(Debug, Clone, Copy)]
@@ -743,6 +919,14 @@ struct GoblinTrack {
     prev_hit_stop: u8,
     walk_milli_px: u32,
     input: GoblinInput,
+    /// Drawn shift toward Carl while he strikes the frozen goblin, the value it
+    /// was set to, the ticks left to ease it back and the overlap it gives.
+    strike_dx: i32,
+    strike_set: i32,
+    ease_left: u8,
+    overlap: Option<usize>,
+    /// Drawn nudge that keeps stacked goblins apart.
+    stack_dx: i32,
 }
 
 /// Steps the presentation state of Carl's melee and every goblin once per fixed
@@ -785,6 +969,11 @@ impl CombatAnimators {
             .map(|g| GoblinTrack {
                 prev_x: g.x,
                 prev_hit_stop: 0,
+                strike_dx: 0,
+                strike_set: 0,
+                ease_left: 0,
+                overlap: None,
+                stack_dx: 0,
                 walk_milli_px: 0,
                 input: GoblinInput {
                     mode: g.mode,
@@ -814,11 +1003,17 @@ impl CombatAnimators {
             frozen: combat.hero_hit_stop > 0 || self.prev_hero_stop > 0,
             defeated: combat.hero_defeated,
             grounded: hero.grounded,
+            vy: hero.vy,
             landed_age,
         };
         self.prev_hero_stop = combat.hero_hit_stop;
+        let carl_pose = carl_pose(&self.carl, &self.carl_input);
+        let carl_foot_y = hero.y - HERO_HALF_HEIGHT;
         let tick = scene.world.tick;
-        for (index, (track, goblin)) in self.tracks.iter_mut().zip(&combat.enemies).enumerate() {
+        for index in 0..self.tracks.len() {
+            let goblin = &combat.enemies[index];
+            let clips = &self.goblins[goblin_variant(index)];
+            let track = &mut self.tracks[index];
             let moved = (goblin.x - track.prev_x).abs();
             track.prev_x = goblin.x;
             let prev_hit_stop = std::mem::replace(&mut track.prev_hit_stop, goblin.hit_stop);
@@ -837,9 +1032,62 @@ impl CombatAnimators {
                 down_ticks: goblin.down_ticks,
                 vy: goblin.vy,
                 walking,
-                walk_milli_px: track.walk_milli_px,
+                walk_milli_px: track.walk_milli_px + index as u32 * WALK_INDEX_OFFSET_MILLI_PX,
                 idle_tick: tick + index as u64 * IDLE_INDEX_OFFSET_TICKS,
             };
+            // Hit-stop contact: Carl's striking limb on a goblin frozen by it.
+            let striking = track.input.frozen
+                && matches!(goblin.mode, GoblinMode::Hurt | GoblinMode::Airborne)
+                && carl_pose.is_some_and(|p| is_contact_pose(&self.carl, &p));
+            if let (true, Some(carl_pose)) = (striking, carl_pose) {
+                let geometry = StrikeGeometry {
+                    carl: &self.carl,
+                    carl_pose,
+                    carl_x: hero.x,
+                    carl_flip: hero.facing < 0,
+                    carl_foot_y,
+                    goblin: clips,
+                    goblin_pose: goblin_pose(clips, &track.input),
+                    goblin_x: goblin.x,
+                    goblin_flip: goblin.facing < 0,
+                    goblin_foot_y: goblin.y - ENEMY_HALF_HEIGHT,
+                };
+                track.strike_set = geometry.shift_px();
+                track.strike_dx = track.strike_set;
+                track.ease_left = STRIKE_EASE_TICKS;
+                track.overlap = Some(geometry.overlap_px(track.strike_dx));
+            } else {
+                track.overlap = None;
+                if !track.input.frozen && track.ease_left > 0 {
+                    track.ease_left -= 1;
+                    track.strike_dx = (track.strike_set as f32 * f32::from(track.ease_left)
+                        / f32::from(STRIKE_EASE_TICKS))
+                    .round() as i32;
+                } else {
+                    track.ease_left = 0;
+                    track.strike_dx = 0;
+                }
+            }
+        }
+        // Stacked upright goblins: the later one is drawn away from Carl.
+        let upright = |g: &crate::goblin::Goblin| {
+            g.alive()
+                && matches!(
+                    g.mode,
+                    GoblinMode::Neutral | GoblinMode::Attack | GoblinMode::Hurt
+                )
+        };
+        for index in 0..self.tracks.len() {
+            let goblin = &combat.enemies[index];
+            let mut nudge = 0.0f32;
+            if upright(goblin) {
+                for earlier in combat.enemies[..index].iter().filter(|g| upright(g)) {
+                    let gap = (goblin.x - earlier.x).abs();
+                    nudge = nudge.max((STACK_SPACING_PX - gap).clamp(0.0, STACK_MAX_NUDGE_PX));
+                }
+            }
+            let away = if goblin.x >= hero.x { 1 } else { -1 };
+            self.tracks[index].stack_dx = nudge.round() as i32 * away;
         }
     }
 
@@ -851,6 +1099,37 @@ impl CombatAnimators {
     /// animation draws him.
     pub fn carl_pose(&self) -> Option<ArtPose> {
         carl_pose(&self.carl, &self.carl_input)
+    }
+
+    /// Pixels to the right of its sim position the goblin is drawn: toward Carl
+    /// while he strikes it in hit-stop (eased back after), and away from Carl
+    /// when it would stand on another goblin.
+    pub fn goblin_draw_dx(&self, index: usize) -> i32 {
+        self.tracks[index].strike_dx + self.tracks[index].stack_dx
+    }
+
+    /// The part of [`Self::goblin_draw_dx`] that keeps stacked goblins apart.
+    pub fn goblin_stack_dx(&self, index: usize) -> i32 {
+        self.tracks[index].stack_dx
+    }
+
+    /// Striking-limb and goblin pixels that overlap this tick (`None` when no
+    /// goblin is in hit-stop contact with Carl's blow).
+    pub fn goblin_strike_overlap(&self, index: usize) -> Option<usize> {
+        self.tracks[index].overlap
+    }
+
+    /// Foot height to draw Carl's combat pose at: the airborne knockdown frame
+    /// blends from the pivot rule at the launch to the lowest row by the apex.
+    pub fn carl_anchor_foot_y(&self, sim_foot_y: f32) -> f32 {
+        match self.carl_pose() {
+            Some(pose) => self.carl.anchor_foot_y_blend(
+                &pose,
+                sim_foot_y,
+                knockdown_blend(self.carl_input.vy),
+            ),
+            None => sim_foot_y,
+        }
     }
 
     pub fn goblin_count(&self) -> usize {
@@ -920,12 +1199,16 @@ impl CombatAnimators {
                 let phase = g
                     .attack_phase()
                     .map_or_else(String::new, |p| format!("/{p:?}"));
+                let overlap = self
+                    .goblin_strike_overlap(i)
+                    .map_or_else(|| "-".to_owned(), |n| n.to_string());
                 format!(
-                    "g{i}={:?}{phase} g{i}_t={} g{i}_hs={} g{i}_y={:.2} g{i}_draw={}/{}",
+                    "g{i}={:?}{phase} g{i}_t={} g{i}_hs={} g{i}_y={:.2} g{i}_dx={} g{i}_ovl={overlap} g{i}_draw={}/{}",
                     g.mode,
                     g.attack_tick,
                     g.hit_stop,
                     g.y - ENEMY_HALF_HEIGHT,
+                    self.goblin_draw_dx(i),
                     ["A", "B"][goblin_variant(i)],
                     self.goblin_pose(i).label()
                 )
