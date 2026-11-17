@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "id": "dozer_riders_h36_keys_v0",
-  "type": "character_key_poses",
+  "id": "dozer_riders_h36_set_v0",
+  "type": "character_animation",
   "source_path": "assets/source/enemies/dozer/dozer_riders_h36.ase",
   "grid_source": "assets/source/enemies/dozer/dozer_riders_h36.grid.json",
   "output_atlas": "generated/art/dozer_riders_h36.png",
@@ -17,22 +17,37 @@
   ],
   "animation_tags": [
     "engineer_point",
+    "engineer_jab",
+    "engineer_hold",
+    "engineer_idle_1",
     "engineer_lever_pull",
     "engineer_lurch_back",
     "engineer_lurch_forward",
+    "rider_a_hold",
+    "rider_a_idle_1",
     "rider_a_brandish",
+    "rider_a_yell_1",
     "rider_a_lurch_back",
     "rider_a_lurch_forward",
     "rider_b_hold",
+    "rider_b_idle_1",
+    "rider_b_brandish",
+    "rider_b_yell_1",
     "rider_b_lurch_back",
-    "rider_b_lurch_forward"
+    "rider_b_lurch_forward",
+    "engineer_aim",
+    "engineer_idle",
+    "rider_a_idle",
+    "rider_a_yell",
+    "rider_b_idle",
+    "rider_b_yell"
   ],
   "required_alpha": true,
-  "owner": "AI-authored vehicle enemy design keys (fan-concept layer: Goblin Murder Dozer; runtime role IP-neutral large pursuit machine)",
+  "owner": "AI-authored vehicle enemy art (fan-concept layer: Goblin Murder Dozer; runtime role IP-neutral large pursuit machine)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "DOZ-01 rider keys: goblin engineer with the saucepan helmet (point, lever pull, lurch back with the pot hopping off, lurch forward with the pot over his eyes); rider A brandishing (GOB-01 frame 11 seated) and lurching (GOB-01 frame 16 seated; frame 0 seated pitched forward with white eyes); rider B the same from GOB-01 variant B; goblin pixels translated whole",
-    "generator": "Design, size study and keys: Claude Opus (DOZ-01 phases 1 and 2). Size h120 decided by a separate Opus agent. Execution pending (Claude Sonnet). Deterministic script output of scripts/author_dozer_doz01.py; riders reuse GOB-01 goblin pixels. No image-model raster output, no tracing, no resampling",
+    "origin": "DOZ-01 rider frames, 19 in total: the goblin engineer with the saucepan helmet (point, jab, idle 0 and 1, lever pull, two lurches), and riders A and B (idle 0 and 1, brandish, yell 1, two lurches each); goblin pixels translated whole from GOB-01, rider A and B fist-to-stick gap closed",
+    "generator": "Design, size study and keys: Claude Opus (DOZ-01 phases 1 and 2). Size h120 decided by a separate Claude Opus agent. Frame set (every non-key frame, atlases, validators, evidence): Claude Sonnet, deterministic output of scripts/author_dozer_doz01.py; the Opus keys are frozen in tests/fixtures/dozer_doz01_keys.json. Riders reuse GOB-01 goblin pixels. Independent Opus review pending. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "floor-01-opening-concept-references-v1"
@@ -41,7 +56,125 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "dozer": {
-    "status": "DOZ-01 phase 2 design keys; size h120 decided by a separate Opus agent; execution (Sonnet) and review (separate Opus) pending; not wired into any Bevy binary",
-    "spec": "docs/02-art/doz-01-dozer-spec.md"
+    "status": "DOZ-01 full set drawn (Claude Sonnet), awaiting independent Opus review; size h120 decided by a separate Opus agent; not wired into any Bevy binary",
+    "spec": "docs/02-art/doz-01-dozer-spec.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "frames": [
+      {
+        "index": 0,
+        "tag": "engineer_point",
+        "ticks": 8,
+        "duration_ms": 133
+      },
+      {
+        "index": 1,
+        "tag": "engineer_jab",
+        "ticks": 8,
+        "duration_ms": 133
+      },
+      {
+        "index": 2,
+        "tag": "engineer_hold",
+        "ticks": 16,
+        "duration_ms": 267
+      },
+      {
+        "index": 3,
+        "tag": "engineer_idle_1",
+        "ticks": 16,
+        "duration_ms": 267
+      },
+      {
+        "index": 4,
+        "tag": "engineer_lever_pull",
+        "ticks": null,
+        "duration_ms": 100
+      },
+      {
+        "index": 5,
+        "tag": "engineer_lurch_back",
+        "ticks": 8,
+        "duration_ms": 133
+      },
+      {
+        "index": 6,
+        "tag": "engineer_lurch_forward",
+        "ticks": 10,
+        "duration_ms": 167
+      },
+      {
+        "index": 7,
+        "tag": "rider_a_hold",
+        "ticks": 16,
+        "duration_ms": 267
+      },
+      {
+        "index": 8,
+        "tag": "rider_a_idle_1",
+        "ticks": 16,
+        "duration_ms": 267
+      },
+      {
+        "index": 9,
+        "tag": "rider_a_brandish",
+        "ticks": 6,
+        "duration_ms": 100
+      },
+      {
+        "index": 10,
+        "tag": "rider_a_yell_1",
+        "ticks": 6,
+        "duration_ms": 100
+      },
+      {
+        "index": 11,
+        "tag": "rider_a_lurch_back",
+        "ticks": 8,
+        "duration_ms": 133
+      },
+      {
+        "index": 12,
+        "tag": "rider_a_lurch_forward",
+        "ticks": 10,
+        "duration_ms": 167
+      },
+      {
+        "index": 13,
+        "tag": "rider_b_hold",
+        "ticks": 16,
+        "duration_ms": 267
+      },
+      {
+        "index": 14,
+        "tag": "rider_b_idle_1",
+        "ticks": 16,
+        "duration_ms": 267
+      },
+      {
+        "index": 15,
+        "tag": "rider_b_brandish",
+        "ticks": 6,
+        "duration_ms": 100
+      },
+      {
+        "index": 16,
+        "tag": "rider_b_yell_1",
+        "ticks": 6,
+        "duration_ms": 100
+      },
+      {
+        "index": 17,
+        "tag": "rider_b_lurch_back",
+        "ticks": 8,
+        "duration_ms": 133
+      },
+      {
+        "index": 18,
+        "tag": "rider_b_lurch_forward",
+        "ticks": 10,
+        "duration_ms": 167
+      }
+    ]
   }
 }

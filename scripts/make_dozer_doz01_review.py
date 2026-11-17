@@ -14,8 +14,6 @@ generated/art/doz01_review):
   view (213 px) ahead of the wheel;
 - ``size_study_sheet.png``: the three options side by side at x2 with the measured gameplay lines,
   a metrics table and the three lit chase crops;
-- ``key_sheet.png``: the hull, wheel, tread, yoke and rider keys, enlarged, with pivots, plus the
-  rotation and belt plans rendered from the same geometry (plan previews, not keys);
 - ``part_layout_diagram.png``: exploded parts with frame boxes, pivots, anchors and draw order,
   and the assembled rig with the proposed hazard box, pushing wall, occluder rows, emitters and
   light points;
@@ -305,69 +303,6 @@ def boxed(img: Image.Image, k: int, piv, bg=(36, 34, 50)) -> Image.Image:
     return big
 
 
-def key_sheet(rig: dict) -> Image.Image:
-    hull_f, hull_p, _ = grid_imgs(f"{DOZER}/dozer_hull_h120.grid.json")
-    wheel_f, wheel_p, _ = grid_imgs(f"{DOZER}/dozer_wheel_h120.grid.json")
-    tread_f, tread_p, _ = grid_imgs(f"{DOZER}/dozer_tread_h120.grid.json")
-    yoke_f, yoke_p, _ = grid_imgs(f"{DOZER}/dozer_yoke_h120.grid.json")
-    rid_f, rid_p, rid_g = grid_imgs(f"{DOZER}/dozer_riders_h36.grid.json")
-    smoke_f, smoke_p, smoke_g = grid_imgs(f"{DOZER}/dozer_smoke.grid.json")
-    comp, _cp = compose_rig(rig)
-    blocks = []
-    # row 1: assembled machine x3 and x1
-    b = bbox(comp)
-    c3 = gr.up(comp.crop(b), 3)
-    blocks.append(("Assembled from the part keys with the rig contract (x3; x1 inset). Wheel phase 0, tread phase 0.",
-                   [(c3, ""), (comp.crop(b), "x1")]))
-    blocks.append(("Hull key x3: frame 0 'body' (behind riders) and frame 1 'front' (tub and cab rail, over riders). "
-                   "Yellow = pivot (rig origin O).",
-                   [(boxed(hull_f[0], 3, hull_p), "body 175x160"), (boxed(hull_f[1], 3, hull_p), "front 175x160")]))
-    plan = []
-    for i in range(4):
-        rows, c0 = ad.wheel_rows(7.5 * i)
-        plan.append((boxed(rows_to_img(ad.despeckle(rows)), 2, (c0, c0)), f"plan phase {i} ({7.5 * i:.1f} deg)"))
-    blocks.append(("Wheel key x4 (phase 2 redesign: bright spike ring, rim bolts, dark drum, 12 spokes; pivot = axle) "
-                   "and the rotation plan x2: 4 frames of 7.5 deg loop over one 30 deg spike period (plan previews "
-                   "from the same geometry, not keys).",
-                   [(boxed(wheel_f[0], 4, wheel_p), "key 99x99")] + plan))
-    tplan = []
-    for i in (1, 2, 3):
-        rows, tp = ad.tread_rows(i)
-        tplan.append((boxed(rows_to_img(ad.despeckle(rows)), 2, tp), f"plan phase {i} (+{i} px)"))
-    blocks.append(("Tread key x4 (phase 0, pivot = footprint midpoint on the contact row) and the belt plan x2: "
-                   "9 px link pitch, 9 frames of 1 px, frame = floor(distance) mod 9; one lit bolt per road-wheel hub.",
-                   [(boxed(tread_f[0], 4, tread_p), "key 151x34")] + tplan))
-    riders = [(boxed(rid_f[t["from"]], 4, rid_p), t["name"] + (" (derived)" if t["name"] == "rider_b_hold" else ""))
-              for t in rid_g["tags"]]
-    blocks.append(("Rider keys x4 (pivot = seat point; the band below each rim row is always hidden by the tub). "
-                   "Engineer: point, lever pull, lurch back (pot hops off), lurch forward (pot over his eyes).",
-                   riders[:4] + [(boxed(yoke_f[0], 4, yoke_p), "yoke 64x44")]))
-    blocks.append(("Rider A and B keys x4: brandish / hold, lurch back (GOB-01 hurt key seated), lurch forward "
-                   "(hold pitched 2 px forward, white eyes). B = A + GOB-01 B overlay.",
-                   riders[4:]))
-    blocks.append(("Smoke keys x8 (24 x 24, pivot = centre): black exhaust frames 0 (6 px spawn) and 2 (16 px), "
-                   "steam frames 0 and 2. No outline, darker underside, lit upper-left.",
-                   [(boxed(smoke_f[t["from"]], 8, smoke_p), t["name"]) for t in smoke_g["tags"]]))
-    width = 16 + max(sum(im.width + 16 for im, _ in items) for _t, items in blocks)
-    height = 30 + sum(30 + max(im.height for im, _ in items) + 22 for _t, items in blocks)
-    sheet = Image.new("RGB", (width, height), BG)
-    d = ImageDraw.Draw(sheet)
-    label(d, (8, 8), "DOZ-01 keys at the decided 120 px body height (design: Claude Opus, phases 1 and 2). Palette dozer-floor01-v0 + "
-                     "GOB-01 goblin palette. Authored facing right; the runtime mirrors around each pivot.")
-    y = 30
-    for title, items in blocks:
-        label(d, (8, y + 8), title)
-        y += 26
-        x = 16
-        for im, cap in items:
-            sheet.paste(im, (x, y), im if im.mode == "RGBA" else None)
-            if cap:
-                label(d, (x, y + im.height + 4), cap, GREY)
-            x += im.width + 16
-        y += max(im.height for im, _ in items) + 22
-    return sheet
-
-
 def layout_diagram(rig: dict) -> Image.Image:
     k = 3
     comp, (ox, fy) = compose_rig(rig)
@@ -511,7 +446,6 @@ def main(argv: list[str] | None = None) -> int:
     save(chase.render(RECOMMENDED, 1, comp, cpiv), "floor01_chase_keys_h120_640x360.png")
     save(chase.render(RECOMMENDED, 3, comp, cpiv), "floor01_chase_keys_h120_1920x1080.png")
     save(size_sheet(chase, scenes3, metrics), "size_study_sheet.png")
-    save(key_sheet(rig), "key_sheet.png")
     save(layout_diagram(rig), "part_layout_diagram.png")
 
     measurements = {
@@ -532,8 +466,8 @@ def main(argv: list[str] | None = None) -> int:
             if c not in ".K" and math.hypot(x - c0, y - c0) > ad.WHEEL_RIM:
                 ring.append(lstar(c))
     measurements["wheel_spike_ring_mean_lstar"] = round(sum(ring) / len(ring), 3)
-    for stem in ("dozer_hull_h120", "dozer_wheel_h120", "dozer_tread_h120", "dozer_yoke_h120", "dozer_riders_h36",
-                 "dozer_smoke"):
+    for stem in ("dozer_hull_h120", "dozer_front_cab_h120", "dozer_front_tub_h120", "dozer_wheel_h120",
+                 "dozer_tread_h120", "dozer_yoke_h120", "dozer_riders_h36", "dozer_smoke"):
         grid = pg.load_grid(ROOT / DOZER / f"{stem}.grid.json")
         lint = pg.lint_grid(grid)
         measurements["keys"][stem] = {"canvas": grid["canvas"], "pivot": grid["pivot"],

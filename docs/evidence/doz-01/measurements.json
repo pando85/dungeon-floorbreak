@@ -1,31 +1,62 @@
 {
   "decided": "h120 (separate Opus decider; proposed by the designer)",
   "files": {
-    "floor01_chase_h120_1920x1080.png": "7021a047aeb01a91d0275f121e0b37f95f54e44824fba5257a19218340970bbd",
-    "floor01_chase_h120_640x360.png": "e1f6d6236aea3b95f2cfc1127e820ea99296854c5bb6176086a3f21e5ba91bb9",
-    "floor01_chase_h150_1920x1080.png": "2e6702e0d78aba6b5930f58fcafca7da3f183065fb0cc8c2223dce8fd0b84bf8",
-    "floor01_chase_h150_640x360.png": "f88e0a2962ed9730cf34fe0c98e40c0fb404fe456a852b2ea681b48bb655c2c3",
-    "floor01_chase_h96_1920x1080.png": "ba92b0db8d953808b054940ddc7144c3e62d8091e5412e20901dbc1107fc3694",
-    "floor01_chase_h96_640x360.png": "74ed0aacea7be1cfee6b58f4f7490a4a5b90f5eb02d6af10f0c67265e96f3db2",
-    "floor01_chase_keys_h120_1920x1080.png": "785ecaf79c29d48c60ae29882ccbc4358d2d741bbcb617de60301a8d657d1f19",
-    "floor01_chase_keys_h120_640x360.png": "1e2e5d7289a1d6d81367e4fd7fa1424381e4ae7f89ff81e9a6272156be15cac1",
-    "key_sheet.png": "b5f4df1bf3dee813670978dc68e2832ff8605b60123f80e8158828928bc7cd14",
-    "part_layout_diagram.png": "1eeb7a6ce493a7e0e9a782b9120e26bf62eb969f34db51467157ec1acc8b6ed9",
-    "size_study_sheet.png": "9685817c54af4a79e2a05d9b217775778a8c48d98dfdf82a73a5a68d972b7d3e"
+    "floor01_chase_h120_1920x1080.png": "185ce001952225ac02b8ef433e068ee52a92d192e5cb4685a4f230428e399c0a",
+    "floor01_chase_h120_640x360.png": "03c6d88e11f087a84f00ecfee216e1fe542603d1b2de171a208371c9d0a5a5e3",
+    "floor01_chase_h150_1920x1080.png": "b26aae80e0ab73e876cd6a34886e0101856eb7c9e177a3cf9a2cbf76cb5fc4be",
+    "floor01_chase_h150_640x360.png": "eb4b3e366a57c709738486a75760cc75cb431280c46d53885f47afa293501337",
+    "floor01_chase_h96_1920x1080.png": "c33d609eb68a8c694c4a88c3b605afd0c8d3e4f2ab966895d871ba931f004d7b",
+    "floor01_chase_h96_640x360.png": "1f23b1150b023deca3b53504d1b930e0e8e840deca7b2aa200e3a63c55021ac0",
+    "floor01_chase_keys_h120_1920x1080.png": "9becedc7942bc666ca5c113c326581dae7d238cdd045219c55d3d5deef7b2661",
+    "floor01_chase_keys_h120_640x360.png": "90ee3473aea2a58ab08ccb063bc81638003eb69da3ef1c71f3651dcb1466b5e2",
+    "part_layout_diagram.png": "ff9e79d1a89099b1c100ed38060f4120c0b30eec84055c3bf3364bcc0e568377",
+    "size_study_sheet.png": "b2b8fbe45b79365bcc7c2e23e3923bafad809cdd7e4da12605fc98b8f189fede"
   },
   "keys": {
+    "dozer_front_cab_h120": {
+      "canvas": [
+        60,
+        21
+      ],
+      "colours": 11,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        0,
+        20
+      ]
+    },
+    "dozer_front_tub_h120": {
+      "canvas": [
+        65,
+        82
+      ],
+      "colours": 14,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        0,
+        81
+      ]
+    },
     "dozer_hull_h120": {
       "canvas": [
         175,
         160
       ],
-      "colours": 31,
+      "colours": 29,
       "isolated": [
-        0,
         0
       ],
       "orphans": [
-        0,
         0
       ],
       "pivot": [
@@ -49,6 +80,15 @@
         0,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         0
       ],
       "orphans": [
@@ -56,10 +96,19 @@
         0,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
+        0,
         3,
+        2,
         5,
         0,
         0,
+        0,
+        3,
+        2,
         5,
         0
       ],
@@ -78,9 +127,23 @@
         0,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         0
       ],
       "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
         0,
@@ -98,9 +161,25 @@
       ],
       "colours": 15,
       "isolated": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         0
       ],
       "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         0
       ],
       "pivot": [
@@ -115,9 +194,17 @@
       ],
       "colours": 14,
       "isolated": [
+        0,
+        0,
+        0,
+        0,
         0
       ],
       "orphans": [
+        0,
+        0,
+        0,
+        0,
         0
       ],
       "pivot": [
@@ -130,7 +217,7 @@
         64,
         44
       ],
-      "colours": 13,
+      "colours": 15,
       "isolated": [
         0
       ],

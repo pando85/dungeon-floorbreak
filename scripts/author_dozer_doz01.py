@@ -1,39 +1,43 @@
 #!/usr/bin/env python3
-"""DOZ-01 authoring record: Goblin Murder Dozer palette, part construction, size study and keys.
+"""DOZ-01 authoring record: Goblin Murder Dozer palette, part construction, size study, keys and the full frame set.
 
 Usage:
 
     python3 scripts/author_dozer_doz01.py [--check] [--out-dir DIR]
 
-Writes (deterministic, pixel-grid-v1) under ``assets/source/enemies/dozer/``:
+Writes (deterministic, pixel-grid-v1) under ``assets/source/enemies/dozer/`` and ``assets/source/vfx/``:
 
 - ``dozer_size_study.grid.json``: the whole machine with its three riders, flattened, at three
   body heights (96, 120 and 150 px). One parametric construction is rasterized natively at each
   scale (no resampling between sizes); the 36 px riders keep their size. Block-ins for the size
   decision, not production pixels.
-- ``dozer_hull_h120.grid.json``: hull key, frame 0 ``body`` (behind the riders) and frame 1 ``front``
-  (the rider tub and the cab rail, drawn over the riders' lower bodies).
-- ``dozer_wheel_h120.grid.json``: spiked wheel key (phase 2 redesign), phase 0 of the 4-frame plan.
-- ``dozer_tread_h120.grid.json``: tread key, phase 0 of the 9-frame (1 px) belt plan.
-- ``dozer_yoke_h120.grid.json``: near-side push arm, axle cap and lamp (static).
-- ``dozer_riders_h36.grid.json``: rider keys: engineer point, lever pull and both lurches; rider A
-  brandish and both lurches; rider B hold and both lurches (A's construction on GOB-01 variant B).
-- ``dozer_smoke.grid.json``: smoke keys: black puff frames 0 and 2, steam puff frames 0 and 2.
-
-The size h120 was proposed here and decided by a separate Opus agent (DOZ-01 phase 1 / 2).
-- ``dozer_rig_h120.json``: part pivots, anchors and draw order (the data contract of the spec).
+- ``dozer_hull_h120.grid.json``: hull ``body`` (behind the riders).
+- ``dozer_front_cab_h120.grid.json`` and ``dozer_front_tub_h120.grid.json``: the hull ``front`` (drawn over the
+  riders' lower bodies), trimmed into its two boxes (cab rail with 2 px iron posts, and the rider tub). A
+  pixel grid has one canvas, so two boxes are two grids. The pivot is the box's bottom-left pixel and the rig
+  anchor names where that pixel sits, so the assembled machine is pixel-identical to the untrimmed front.
+- ``dozer_wheel_h120.grid.json``: spiked wheel, 4 phases of 7.5 degrees plus the charge smear.
+- ``dozer_tread_h120.grid.json``: tread, 9 phases of 1 px of the 9 px link pitch.
+- ``dozer_yoke_h120.grid.json``: near-side push arm, axle cap and lamp (static, polished).
+- ``dozer_riders_h36.grid.json``: 19 rider frames (engineer 7, rider A 6, rider B 6).
+- ``dozer_smoke.grid.json``: 6 black puff and 5 steam puff frames.
+- ``assets/source/vfx/vfx_hit_spark_metal.grid.json``: the shared 3-frame hit-spark.
+- ``dozer_rig_h120.json``: part pivots, anchors, draw order and the tick-level timing table (the data contract).
 
 and one manifest per grid under ``assets/manifests/``. ``--check`` compares instead of writing.
+
+The Opus keys are frozen in ``tests/fixtures/dozer_doz01_keys.json``; the Sonnet execution (spec 7.3) only adds
+frames around them and the documented deltas (cab posts, trim, yoke polish, the rider A fist-to-stick fix).
 
 How the pixels are made: the machine parts are polygons, discs and capsules in design units
 (x forward from the rear end of the tread, y up from the floor), filled per pixel centre with a
 material ramp, bevelled (light from the upper left), outlined with the shared plum outline, and
 detailed with rivets, seams and streaks placed on a grid. A deterministic despeckle pass removes
-orphan pixels. The wheel and tread are rendered from their geometry at a phase, so the remaining
-rotation and belt frames are the same function at other phases plus hand cleanup (spec section 7).
-The riders reuse GOB-01 goblin pixels (heads, vests, pineapple) translated whole, with a new pot
-helmet, pointing arm and rim grip drawn here. No image-model output, tracing or resampling.
-The concept crop under ``assets/concept/floor-01/opening/`` was used for mood only.
+orphan pixels. The wheel and tread frames are the same geometry function at other phases (wheel_rows,
+tread_rows) plus the despeckle pass and the explicit pixel fix-ups listed below. The riders reuse GOB-01
+goblin pixels (heads, vests, pineapple) translated whole, with a new pot helmet, pointing arm and rim grip
+drawn here. Smoke and the spark are small hand-parameterised blobs and pixel stamps. No image-model output,
+tracing or resampling. The concept crop under ``assets/concept/floor-01/opening/`` was used for mood only.
 Presentation-only art tooling; nothing here is wired into the game.
 """
 from __future__ import annotations
@@ -357,6 +361,9 @@ def build_hull(rs: Raster, layer: str) -> dict[str, list[int]]:
         # cab rail plate in front of the engineer's legs, with a tube rail on top
         ids["rail"] = [rs.rect(2, 86, 55, 102, RUST, level=2),
                        rs.rect(0, 101, 57, 105, IRON, mode="cyl_h", outline=True)]
+        # 2 px iron-2 posts at the cab corners (the rail ends), flat colour, no bevel (spec 7.3 item 4)
+        ids["posts"] = [rs.rect(0, 86, 2, 101, IRON, level=2, outline=False, bevel=False),
+                        rs.rect(56, 86, 58, 101, IRON, level=2, outline=False, bevel=False)]
     return ids
 
 
@@ -685,6 +692,87 @@ def tread_rows(phase: int, s: float = 1.0) -> tuple[list[list[str]], tuple[int, 
     return rows, pivot
 
 
+# ------------------------------------------------------------------ Sonnet execution: wheel, tread and yoke frames
+
+WHEEL_PHASES = 4
+WHEEL_STEP = 360.0 / SPIKES / WHEEL_PHASES      # 7.5 degrees per frame; the 30 degree spike period loops
+
+
+def wheel_frame(i: int) -> list[list[str]]:
+    """Wheel phase ``i`` (0 to 3) of the 4-frame loop: the geometry at ``7.5 * i`` degrees clockwise, despeckled.
+    Phase 0 is the Opus key; phases 1 to 3 are the same function at the other phases."""
+    rows, _c0 = wheel_rows(WHEEL_STEP * i)
+    return despeckle(rows)
+
+
+def wheel_smear() -> list[list[str]]:
+    """Optional charge smear (spec 7.3 item 2): phase 0 with the spike tips in 6 instead of 7 and, for every
+    spike, a 1 px iron-5 arc at radius 46 that runs from its tip 26 degrees in the spin direction (clockwise),
+    framed in K. Shown on every second charge frame only."""
+    rows = wheel_frame(0)
+    n = len(rows)
+    c0 = n // 2
+    for y in range(n):
+        for x in range(n):
+            if rows[y][x] == "7" and math.hypot(x - c0, y - c0) > WHEEL_TIP - 2.0:
+                rows[y][x] = "6"
+    arc = set()
+    for k in range(SPIKES):
+        a0 = 90.0 - k * 360.0 / SPIKES            # the spike's axis, degrees counter-clockwise from +x
+        for step in range(0, 261):                # 0.1 degree steps over 26 degrees
+            a = math.radians(a0 - step / 10.0)
+            for r in (45.6, 46.4):
+                arc.add((c0 + round(r * math.cos(a)), c0 - round(r * math.sin(a))))
+    for x, y in arc:
+        if rows[y][x] == ".":
+            rows[y][x] = "5"
+    for y in range(n):
+        for x in range(n):
+            if rows[y][x] == "." and any(0 <= x + dx < n and 0 <= y + dy < n and rows[y + dy][x + dx] == "5"
+                                         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                rows[y][x] = "K"
+    return despeckle(rows)
+
+
+def tread_frame(phase: int) -> list[list[str]]:
+    """Tread phase ``phase`` (0 to 8, 1 px of belt travel each; runtime frame = floor(distance) mod 9)."""
+    rows, _piv = tread_rows(phase)
+    return despeckle(rows)
+
+
+def polish_yoke(rows: list[list[str]], ax: int, ay: int) -> list[list[str]]:
+    """Yoke polish (spec 7.3 item 5), recolouring inside the key's silhouette only: a 2 px iron-1 underside, a
+    second rivet row along the arm, and one rust streak (E over W) running down from the lamp mount.
+    ``(ax, ay)`` is the axle pixel (box coordinates are relative to it: the key box has it at (54, 30))."""
+    out = [r[:] for r in rows]
+    ox, oy = ax - 54, ay - 30
+    get = lambda bx, by: out[by + oy][bx + ox]  # noqa: E731
+
+    def put(bx: int, by: int, ch: str) -> None:
+        out[by + oy][bx + ox] = ch
+    arm = set("0235")
+    lows = {}
+    for bx in range(4, 47):
+        ys = [by for by in range(14, 40) if get(bx, by) in arm]
+        if ys:
+            lows[bx] = max(ys)
+    start = next(by for by in range(14, 30) if get(29, by) in "35")
+    taken = [(bx, by) for by in range(44) for bx in range(64) if get(bx, by) == "7"]
+    for i in range(8):                                   # rust streak from the lamp mount: E over W
+        put(29, start + i, "E" if i < 4 else "W")
+        taken.append((29, start + i))
+    for bx in range(4, 43):                              # 2 px iron-1 underside
+        for by in (lows[bx], lows[bx] - 1):
+            if get(bx, by) in set("023"):
+                put(bx, by, "1")
+    for bx in range(13, 44, 5):                          # second rivet row, parallel to the lower edge
+        by = lows[bx] - 5
+        if get(bx, by) == "3" and all(max(abs(bx - x), abs(by - y)) >= 3 for x, y in taken):
+            put(bx, by, "7")
+            taken.append((bx, by))
+    return out
+
+
 # ------------------------------------------------------------------ riders (GOB-01 pixels)
 
 def _goblin(variant: str, frame: int, layers=None) -> list[list[str]]:
@@ -863,10 +951,17 @@ def _stamp_px(art: list[str], x0: int, y0: int) -> dict[tuple[int, int], str]:
     return {(x0 + i, y0 + j): ch for j, line in enumerate(art) for i, ch in enumerate(line) if ch != " "}
 
 
+def _jab_art(art: list[str], col: int = 17) -> list[str]:
+    """The pointing arm with the hand 1 px further forward: column ``col`` is duplicated, so the
+    hand and finger (columns from ``col`` on) move 1 px and the forearm grows 1 px."""
+    return [line[:col] + line[col - 1] + line[col:] for line in art]
+
+
 def rider_engineer(pose: str = "point") -> list[list[str]]:
-    """Engineer keys: ``point`` (phase 1 key), ``lever_pull``, ``lurch_back``, ``lurch_forward``."""
+    """Engineer frames: ``point`` (phase 1 key), ``jab`` (the point with the finger 1 px forward), ``hold`` (idle 0:
+    the point without the pointing arm, one hand on the lever), ``lever_pull``, ``lurch_back``, ``lurch_forward``."""
     rows = _canvas()
-    lean = {"point": 0, "lever_pull": -2, "lurch_back": -3, "lurch_forward": 2}[pose]
+    lean = {"point": 0, "jab": 0, "hold": 0, "lever_pull": -2, "lurch_back": -3, "lurch_forward": 2}[pose]
     drop = {"lurch_forward": 1}.get(pose, 0)
     torso = torso_px("a", weapon=False)
     yell = pose in ("lever_pull", "lurch_back")
@@ -875,8 +970,9 @@ def rider_engineer(pose: str = "point") -> list[list[str]]:
         head = _white_eyes(head)
     _paint(rows, torso, lean, drop)
     _paint(rows, head, lean, drop)
-    if pose == "point":
-        _paint(rows, _stamp_px(POINT, 38, 39), under=True)
+    if pose in ("point", "jab", "hold"):
+        if pose != "hold":
+            _paint(rows, _stamp_px(POINT if pose == "point" else _jab_art(POINT), 38, 39), under=True)
         _paint(rows, pot_px())
     elif pose == "lever_pull":
         _paint(rows, _stamp_px(PULL_ARMS, 30, 42))
@@ -922,19 +1018,74 @@ def rider_lurch(variant: str, direction: str) -> list[list[str]]:
     return _clean_hidden(rows)
 
 
-RIDER_KEYS = [   # (tag, rider part, builder) in atlas order
-    ("engineer_point", "engineer", lambda: despeckle(rider_engineer("point"))),
-    ("engineer_lever_pull", "engineer", lambda: despeckle(rider_engineer("lever_pull"))),
-    ("engineer_lurch_back", "engineer", lambda: despeckle(rider_engineer("lurch_back"))),
-    ("engineer_lurch_forward", "engineer", lambda: despeckle(rider_engineer("lurch_forward"))),
-    ("rider_a_brandish", "rider_a", lambda: rider_brandish("a")),
-    ("rider_a_lurch_back", "rider_a", lambda: rider_lurch("a", "back")),
-    ("rider_a_lurch_forward", "rider_a", lambda: rider_lurch("a", "forward")),
-    ("rider_b_hold", "rider_b", lambda: rider_hold("b")),
-    ("rider_b_lurch_back", "rider_b", lambda: rider_lurch("b", "back")),
-    ("rider_b_lurch_forward", "rider_b", lambda: rider_lurch("b", "forward")),
+def idle_down(rows: list[list[str]]) -> list[list[str]]:
+    """Idle 1 (spec section 5): rows 0 to 46 move 1 px lower; the always-hidden rows from 47 on stay."""
+    out = [r[:] for r in rows]
+    for y in range(46, -1, -1):
+        out[y + 1] = rows[y][:]
+    out[0] = ["."] * len(rows[0])
+    return out
+
+
+def _put(rows: list[list[str]], x: int, y: int, ch: str) -> None:
+    rows[y][x] = ch
+
+
+def rider_yell1(variant: str) -> list[list[str]]:
+    """Yell 1 (spec section 5): the brandish key with the pineapple 2 px higher (the stick grows 2 px, with K
+    edges) and the mouth 1 px wider (rows 31 to 33 of the GOB-01 head run 1 px further forward)."""
+    rows = rider_brandish(variant)
+    top = 13 + SEAT_SHIFT                                  # last fruit row; row 14 holds the bottom outline
+    moved = {(x, y): rows[y][x] for y in range(len(rows)) for x in range(13)
+             if rows[y][x] != "." and (y <= top or (y == top + 1 and x <= 9))}
+    for (x, y) in moved:
+        rows[y][x] = "."
+    for (x, y), ch in moved.items():
+        rows[y - 2][x] = ch
+    base = top + 1                                         # the stick, formerly 1 px long, is now 3 px
+    for y in (base - 2, base - 1):
+        _put(rows, 10, y, "y")
+    for y in (base - 1, base):
+        _put(rows, 9, y, "K")
+    for y in (base - 2, base - 1):
+        _put(rows, 11, y, "K")
+    for y in (31 + SEAT_SHIFT, 32 + SEAT_SHIFT, 33 + SEAT_SHIFT):
+        xs = [x for x in range(30, 50) if rows[y][x] in "ow"]
+        edge = max(xs) + 1
+        _put(rows, edge, y, "o")
+        for dx, dy in ((1, 0), (0, -1), (0, 1)):
+            if rows[y + dy][edge + dx] == ".":
+                _put(rows, edge + dx, y + dy, "K")
+    return rows
+
+
+RIDER_FRAMES = [   # (tag, rider part, builder, ticks or None for a state-driven hold) in atlas order
+    ("engineer_point", "engineer", lambda: despeckle(rider_engineer("point")), 8),
+    ("engineer_jab", "engineer", lambda: despeckle(rider_engineer("jab")), 8),
+    ("engineer_hold", "engineer", lambda: despeckle(rider_engineer("hold")), 16),
+    ("engineer_idle_1", "engineer", lambda: idle_down(despeckle(rider_engineer("hold"))), 16),
+    ("engineer_lever_pull", "engineer", lambda: despeckle(rider_engineer("lever_pull")), None),
+    ("engineer_lurch_back", "engineer", lambda: despeckle(rider_engineer("lurch_back")), 8),
+    ("engineer_lurch_forward", "engineer", lambda: despeckle(rider_engineer("lurch_forward")), 10),
+    ("rider_a_hold", "rider_a", lambda: rider_hold("a"), 16),
+    ("rider_a_idle_1", "rider_a", lambda: idle_down(rider_hold("a")), 16),
+    ("rider_a_brandish", "rider_a", lambda: rider_brandish("a"), 6),
+    ("rider_a_yell_1", "rider_a", lambda: rider_yell1("a"), 6),
+    ("rider_a_lurch_back", "rider_a", lambda: rider_lurch("a", "back"), 8),
+    ("rider_a_lurch_forward", "rider_a", lambda: rider_lurch("a", "forward"), 10),
+    ("rider_b_hold", "rider_b", lambda: rider_hold("b"), 16),
+    ("rider_b_idle_1", "rider_b", lambda: idle_down(rider_hold("b")), 16),
+    ("rider_b_brandish", "rider_b", lambda: rider_brandish("b"), 6),
+    ("rider_b_yell_1", "rider_b", lambda: rider_yell1("b"), 6),
+    ("rider_b_lurch_back", "rider_b", lambda: rider_lurch("b", "back"), 8),
+    ("rider_b_lurch_forward", "rider_b", lambda: rider_lurch("b", "forward"), 10),
 ]
+RIDER_KEYS = [(tag, part, fn) for tag, part, fn, _ticks in RIDER_FRAMES]
 RIDER_SEATED = {"engineer": "engineer_point", "rider_a": "rider_a_brandish", "rider_b": "rider_b_hold"}
+# range tags for the runtime: aim = point/jab, idle = idle 0/1, yell = yell 0/1 (brandish, yell 1)
+RIDER_RANGES = [("engineer_aim", "engineer_point", "engineer_jab"), ("engineer_idle", "engineer_hold", "engineer_idle_1"),
+                ("rider_a_idle", "rider_a_hold", "rider_a_idle_1"), ("rider_a_yell", "rider_a_brandish", "rider_a_yell_1"),
+                ("rider_b_idle", "rider_b_hold", "rider_b_idle_1"), ("rider_b_yell", "rider_b_brandish", "rider_b_yell_1")]
 
 
 # ------------------------------------------------------------------ assembly
@@ -1004,7 +1155,10 @@ def assemble(s: float, riders: dict[str, list[list[str]]] | None = None,
     wheel, c0 = wheel_rows(wheel_phase, s)
     place(despeckle(wheel), AXLE[0], AXLE[1], (c0, c0))
     yoke = yoke_raster(s, ox=ox, fy=fy, w=W, h=H)
-    overlay(out, despeckle(yoke.key), 0, 0)
+    yoke_rows = despeckle(yoke.key)
+    if s == 1.0:                                     # the polish is production pixels; the size options stay block-ins
+        yoke_rows = polish_yoke(yoke_rows, *yoke.anchor_px(*AXLE))
+    overlay(out, yoke_rows, 0, 0)
     pivot = (math.floor(ox + O_X * s), fy)
     return out, pivot
 
@@ -1024,8 +1178,8 @@ def grid_from(frames: list[tuple[dict[str, list[list[str]]], int]], canvas, pivo
 
 def riders_all() -> dict[str, list[list[str]]]:
     """The seated pose of each rider used for the assembled machine. Rider A and B frames are
-    GOB-01 key pixels translated whole and never despeckled (GOB-01 frame 11 keeps its approved
-    lone stick pixel); the engineer's new pixels are cleaned."""
+    GOB-01 key pixels translated whole (only the always-hidden rows are despeckled); the engineer's new
+    pixels are cleaned."""
     build = {tag: fn for tag, _part, fn in RIDER_KEYS}
     return {part: build[tag]() for part, tag in RIDER_SEATED.items()}
 
@@ -1047,58 +1201,141 @@ def size_study_grid() -> dict:
     return grid_from(frames, (W, H), pivot, ["machine"], tags)
 
 
+# ------------------------------------------------------------------ frame timing (60 Hz ticks, spec section 5)
+
+TICK_HZ = 60
+HOLD_MS = 100          # frames with no fixed tick count (static parts, state-driven holds): preview duration only
+
+
+def duration_ms(ticks: int | None) -> int:
+    return HOLD_MS if ticks is None else round(ticks * 1000 / TICK_HZ)
+
+
+SMOKE_NAMES = ["black_0", "black_1", "black_2", "black_3", "black_4", "black_5",
+               "steam_0", "steam_1", "steam_2", "steam_3", "steam_4"]
+SMOKE_TICKS = {"black": 4, "steam": 3}
+SPARK_NAMES = ["star", "burst", "fade"]
+SPARK_TICKS = 2
+WHEEL_TICKS = [2, 2, 2, 2, 1]          # cruise rate (2 ticks per frame); the smear lasts 1 tick
+TREAD_TICKS = [1] * 9                  # preview only: the runtime frame is floor(distance) mod 9
+FRAME_TICKS: dict[str, list[int | None]] = {
+    "dozer_hull_h120": [None],
+    "dozer_front_cab_h120": [None],
+    "dozer_front_tub_h120": [None],
+    "dozer_wheel_h120": WHEEL_TICKS,
+    "dozer_tread_h120": TREAD_TICKS,
+    "dozer_yoke_h120": [None],
+    "dozer_riders_h36": [ticks for _t, _p, _f, ticks in RIDER_FRAMES],
+    "dozer_smoke": [SMOKE_TICKS[n.split("_")[0]] for n in SMOKE_NAMES],
+    "vfx_hit_spark_metal": [SPARK_TICKS] * 3,
+}
+FRAME_NAMES: dict[str, list[str]] = {}            # filled by the grid builders (tag of each frame, in order)
+
+
+# ------------------------------------------------------------------ grids
+
+def _tags(names: list[str], ranges: list[tuple[str, int, int]] | None = None) -> list[dict]:
+    tags = [{"name": n, "from": i, "to": i, "direction": "forward"} for i, n in enumerate(names)]
+    tags += [{"name": n, "from": a, "to": b, "direction": "forward"} for n, a, b in (ranges or [])]
+    return tags
+
+
+def _frames(stem: str, cels: list[dict[str, list[list[str]]]]) -> list[tuple[dict[str, list[list[str]]], int]]:
+    ticks = FRAME_TICKS[stem]
+    assert len(ticks) == len(cels), (stem, len(ticks), len(cels))
+    return [(c, duration_ms(tk)) for c, tk in zip(cels, ticks)]
+
+
 def hull_grid() -> dict:
     w, h, ox, fy = hull_canvas(1.0)
     body = despeckle(hull_layer("body").key)
-    front = despeckle(hull_layer("front").key)
-    tags = [{"name": "body", "from": 0, "to": 0, "direction": "forward"},
-            {"name": "front", "from": 1, "to": 1, "direction": "forward"}]
-    return grid_from([({"body": body}, 100), ({"front": front}, 100)], (w, h),
-                     (math.floor(ox + O_X), fy), ["body", "front"], tags)
+    return grid_from(_frames("dozer_hull_h120", [{"body": body}]), (w, h), (math.floor(ox + O_X), fy),
+                     ["body"], _tags(["body"]))
+
+
+# FRONT: the hull front is one raster; it is cut into its two boxes (cab rail left of the split column, rider
+# tub right of it), each trimmed to its opaque bounding box. The pivot is the box's bottom-left pixel and the
+# rig anchor is that pixel's position from O, so the pixels land exactly where they did in the untrimmed frame.
+FRONT_SPLIT_COL = 90
+FRONT_PARTS = (("front_cab", "dozer_front_cab_h120"), ("front_tub", "dozer_front_tub_h120"))
+
+
+def front_boxes() -> dict[str, dict]:
+    w, h, ox, fy = hull_canvas(1.0)
+    full = despeckle(hull_layer("front").key)
+    out = {}
+    for name, c0, c1 in (("front_cab", 0, FRONT_SPLIT_COL), ("front_tub", FRONT_SPLIT_COL, w)):
+        pts = [(x, y) for y in range(h) for x in range(c0, c1) if full[y][x] != "."]
+        x0, x1 = min(p[0] for p in pts), max(p[0] for p in pts)
+        y0, y1 = min(p[1] for p in pts), max(p[1] for p in pts)
+        rows = [full[y][x0:x1 + 1] for y in range(y0, y1 + 1)]
+        out[name] = {"rows": rows, "canvas": (x1 - x0 + 1, y1 - y0 + 1), "pivot": (0, y1 - y0),
+                     "anchor": (x0 - math.floor(ox + O_X), fy - y1)}
+    return out
+
+
+def front_grid(name: str) -> dict:
+    stem = dict(FRONT_PARTS)[name]
+    box = front_boxes()[name]
+    return grid_from(_frames(stem, [{"front": box["rows"]}]), box["canvas"], box["pivot"], ["front"], _tags([name]))
 
 
 def wheel_grid() -> dict:
-    rows, c0 = wheel_rows(0.0)
-    rows = despeckle(rows)
-    return grid_from([({"wheel": rows}, 33)], (len(rows[0]), len(rows)), (c0, c0), ["wheel"],
-                     [{"name": "spin", "from": 0, "to": 0, "direction": "forward"}])
+    cels = [{"wheel": wheel_frame(i)} for i in range(WHEEL_PHASES)] + [{"wheel": wheel_smear()}]
+    c0 = len(cels[0]["wheel"]) // 2
+    return grid_from(_frames("dozer_wheel_h120", cels), (len(cels[0]["wheel"][0]), len(cels[0]["wheel"])), (c0, c0),
+                     ["wheel"], _tags(["phase_0", "phase_1", "phase_2", "phase_3", "smear"], [("spin", 0, 3)]))
 
 
 def tread_grid() -> dict:
-    rows, piv = tread_rows(0)
-    rows = despeckle(rows)
-    return grid_from([({"tread": rows}, 17)], (len(rows[0]), len(rows)), piv, ["tread"],
-                     [{"name": "roll", "from": 0, "to": 0, "direction": "forward"}])
+    rows0, piv = tread_rows(0)
+    cels = [{"tread": tread_frame(i)} for i in range(TREAD_PHASES)]
+    return grid_from(_frames("dozer_tread_h120", cels), (len(rows0[0]), len(rows0)), piv, ["tread"],
+                     _tags([f"belt_{i}" for i in range(TREAD_PHASES)], [("roll", 0, TREAD_PHASES - 1)]))
 
 
 YOKE_BOX = (64, 44, -144.0, 79)   # w, h, ox, fy: rig x 144..207, y 36..79
 
 
-def yoke_grid() -> dict:
+def yoke_rows_polished() -> tuple[list[list[str]], tuple[int, int]]:
     w, h, ox, fy = YOKE_BOX
     rs = yoke_raster(1.0, ox=ox, fy=fy, w=w, h=h)
-    rows = despeckle(rs.key)
     ax, ay = rs.anchor_px(*AXLE)
-    return grid_from([({"yoke": rows}, 100)], (w, h), (ax, ay), ["yoke"],
-                     [{"name": "static", "from": 0, "to": 0, "direction": "forward"}])
+    return polish_yoke(despeckle(rs.key), ax, ay), (ax, ay)
+
+
+def yoke_grid() -> dict:
+    w, h, _ox, _fy = YOKE_BOX
+    rows, piv = yoke_rows_polished()
+    return grid_from(_frames("dozer_yoke_h120", [{"yoke": rows}]), (w, h), piv, ["yoke"], _tags(["static"]))
 
 
 def riders_grid() -> dict:
-    tags = [{"name": tag, "from": i, "to": i, "direction": "forward"} for i, (tag, _p, _f) in enumerate(RIDER_KEYS)]
-    return grid_from([({"rider": fn()}, 200) for _t, _p, fn in RIDER_KEYS], RIDER_CANVAS, RIDER_PIVOT,
-                     ["rider"], tags)
+    names = [tag for tag, _p, _f in RIDER_KEYS]
+    index = {n: i for i, n in enumerate(names)}
+    ranges = [(n, index[a], index[b]) for n, a, b in RIDER_RANGES]
+    return grid_from(_frames("dozer_riders_h36", [{"rider": fn()} for _t, _p, fn in RIDER_KEYS]), RIDER_CANVAS,
+                     RIDER_PIVOT, ["rider"], _tags(names, ranges))
 
 
-# ------------------------------------------------------------------ smoke keys (phase 2)
+# ------------------------------------------------------------------ smoke and the hit-spark
 
 SMOKE_CANVAS = (24, 24)
 SMOKE_PIVOT = (12, 12)
-# (centre x, centre y, radius) lumps per key; frame 0 is the 6 px spawn, frame 2 the 16 px puff
+# (centre x, centre y, radius) lumps per frame. Frames 0 and 2 are the Opus keys (the 6 px spawn and the 16 px
+# puff); 1 is the 10 px growth, 3 breaks up into 2 lumps, 4 is thin (3 small lumps), 5 is the last wisp.
 SMOKE_LUMPS = {
     "black_0": [(12.0, 12.5, 2.6), (13.5, 11.0, 1.8)],
+    "black_1": [(12.0, 13.0, 4.0), (9.5, 11.5, 2.4), (14.5, 11.0, 2.6)],
     "black_2": [(12.0, 13.5, 5.6), (8.0, 10.5, 3.6), (15.0, 9.5, 4.2), (17.5, 14.0, 3.4), (6.5, 14.5, 2.6)],
+    "black_3": [(7.0, 14.0, 4.2), (6.0, 11.0, 2.4), (17.0, 10.5, 3.8), (18.0, 13.5, 2.4)],
+    "black_4": [(5.0, 14.5, 2.4), (12.0, 10.5, 2.2), (19.0, 14.0, 2.0)],
+    "black_5": [(12.0, 11.5, 1.3)],
     "steam_0": [(12.0, 12.5, 2.2), (13.2, 11.4, 1.5)],
+    "steam_1": [(12.0, 13.0, 3.4), (10.0, 11.5, 2.0), (14.0, 11.0, 2.2)],
     "steam_2": [(12.0, 13.0, 4.4), (9.0, 10.5, 3.0), (14.5, 10.0, 3.2), (16.0, 13.5, 2.6)],
+    "steam_3": [(7.5, 13.0, 3.4), (16.5, 10.5, 3.0), (17.5, 13.5, 1.8)],
+    "steam_4": [(6.0, 13.5, 2.0), (12.5, 10.5, 1.8), (18.0, 13.0, 1.8)],
 }
 SMOKE_RAMPS = {"black": ("+", "=", "-", ":"), "steam": (";", "/", "*", "*")}
 
@@ -1130,49 +1367,131 @@ def smoke_rows(name: str) -> list[list[str]]:
 
 
 def smoke_grid() -> dict:
-    names = ("black_0", "black_2", "steam_0", "steam_2")
-    ms = {"black": round(4 * 1000 / 60), "steam": round(3 * 1000 / 60)}
-    frames = [({"smoke": smoke_rows(n)}, ms[n.split("_")[0]]) for n in names]
-    tags = [{"name": n, "from": i, "to": i, "direction": "forward"} for i, n in enumerate(names)]
-    return grid_from(frames, SMOKE_CANVAS, SMOKE_PIVOT, ["smoke"], tags)
+    ranges = [("black_puff", 0, 5), ("steam_puff", 6, 10)]
+    return grid_from(_frames("dozer_smoke", [{"smoke": smoke_rows(n)} for n in SMOKE_NAMES]), SMOKE_CANVAS,
+                     SMOKE_PIVOT, ["smoke"], _tags(SMOKE_NAMES, ranges))
+
+
+SPARK_CANVAS = (16, 16)
+SPARK_PIVOT = (8, 8)
+
+
+def spark_rows(name: str) -> list[list[str]]:
+    """Shared metal hit-spark (spec 7.3 item 9), 16 x 16, pivot (8, 8) = the contact point.
+    star: a 3 x 3 iron-glint (7) core with four 5 px iron-6 arms; burst: six short iron-5 streaks (3 px) flying
+    out at 60 degree spacing, no core; fade: three iron-4 embers."""
+    rows = [["."] * 16 for _ in range(16)]
+    cx, cy = SPARK_PIVOT
+    if name == "star":
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                rows[cy + dy][cx + dx] = "7"
+        for d in range(2, 7):
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                rows[cy + dy * d][cx + dx * d] = "6"
+    elif name == "burst":
+        for k in range(6):
+            a = math.radians(15.0 + 60.0 * k)
+            for r in (3.6, 4.6, 5.6, 6.6):
+                rows[cy - round(r * math.sin(a))][cx + round(r * math.cos(a))] = "5"
+    else:
+        for x, y in ((11, 5), (12, 4), (11, 4)):
+            rows[y][x] = "4"
+    return rows
+
+
+def spark_grid() -> dict:
+    return grid_from(_frames("vfx_hit_spark_metal", [{"spark": spark_rows(n)} for n in SPARK_NAMES]), SPARK_CANVAS,
+                     SPARK_PIVOT, ["spark"], _tags(SPARK_NAMES, [("hit_spark", 0, 2)]))
+
+
+# ------------------------------------------------------------------ rig contract
+
+# Preview states for the evidence GIFs and the CHASE-01 animation driver (spec sections 5 and 9, 60 Hz ticks).
+# Every number is the spec's; the rider and engineer frame choices per state are the executor's reading of section 5
+# and are recorded in spec section 15. ``wheel`` is ticks per frame, ``px_per_tick`` the hull speed.
+RIG_STATES = {
+    "cruise": {"ticks": 120, "px_per_tick": round(160 / 60, 4), "wheel": 2, "rattle": {"period": 6, "up": 3, "rider_lag": 2},
+               "stack_puff_every": 12, "rear_puff_every": 20, "steam": None, "squat": False,
+               "engineer": "idle 0/1, 16 ticks each", "riders": "idle 0/1, 16 ticks each, B offset 8 ticks"},
+    "tell": {"ticks": 36, "px_per_tick": round(160 / 60, 4), "wheel": 1, "rattle": {"period": 6, "up": 3, "rider_lag": 2},
+             "stack_puff_every": 4, "rear_puff_every": 20, "steam": {"burst": 3, "every": 6, "start": 0}, "squat": True,
+             "engineer": "lever pull, held", "riders": "yell 0/1, 6 ticks each, 3 loops"},
+    "charge": {"ticks": 90, "px_per_tick": 4.0, "wheel": 1, "rattle": {"period": 6, "up": 3, "rider_lag": 2},
+               "stack_puff_every": 8, "rear_puff_every": 20, "steam": None, "squat": "first 4 ticks",
+               "engineer": "lurch back for 8 ticks, then point/jab 8 ticks each",
+               "riders": "lurch back for 8 ticks, then yell 0/1, 6 ticks each"},
+    "brake": {"ticks": 24, "px_per_tick": 0.0, "slide_px": 4, "wheel": 2, "rattle": None,
+              "stack_puff_every": 8, "rear_puff_every": 20, "steam": {"burst": 3, "every": 6, "start": 0}, "squat": False,
+              "engineer": "lurch forward for 10 ticks, then idle", "riders": "lurch forward for 10 ticks, then idle"},
+    "strain": {"ticks": 90, "px_per_tick": 0.0, "wheel": 3, "rattle": {"period": 3, "up": 1, "rider_lag": 2},
+               "stack_puff_every": 8, "rear_puff_every": 8, "steam": {"burst": 3, "every": 6, "start": 0, "repeat": 30},
+               "squat": False, "engineer": "lever pull, held", "riders": "idle 0/1, 16 ticks each, B offset 8 ticks"},
+}
+SMOKE_LIFE_TICKS = 24
+SMOKE_RISE_PX_PER_TICK = 0.5
+SMOKE_MAX_ALIVE = 8
 
 
 def rig_contract() -> dict:
     hull = hull_grid(); wheel = wheel_grid(); tread = tread_grid(); yoke = yoke_grid()
+    fronts = {n: front_boxes()[n] for n, _s in FRONT_PARTS}
 
     def anchor(x, y):
         return [round(x - O_X), round(y)]
     return {
         "format": "dozer-rig-v0",
-        "status": "DOZ-01 phase 2 design (Claude Opus); size h120 decided by a separate Opus agent",
+        "status": "DOZ-01 full set drawn (Claude Sonnet) to the Opus design; size h120 decided by a separate Opus agent; "
+                  "independent Opus review pending",
         "body_height_px": H_KEY,
         "coordinates": "anchors are px relative to the rig origin O (tread footprint midpoint on the walking line); "
                        "x forward (mirror when facing left), y up. A part's pivot is placed on its anchor.",
         "parts": [
             {"part": "smoke_back", "z": 0, "atlas": "dozer_smoke", "frame_size": list(SMOKE_CANVAS),
-             "pivot": list(SMOKE_PIVOT), "anchor": "emitters (world space after spawn)"},
+             "pivot": list(SMOKE_PIVOT), "anchor": "emitters (world space after spawn)",
+             "frames": {"black": "black_0..black_5", "steam": "steam_0..steam_4"}},
             {"part": "hull_body", "z": 1, "atlas": "dozer_hull_h120", "tag": "body",
              "frame_size": hull["canvas"], "pivot": hull["pivot"], "anchor": [0, 0]},
             {"part": "tread", "z": 2, "atlas": "dozer_tread_h120", "tag": "roll",
-             "frame_size": tread["canvas"], "pivot": tread["pivot"], "anchor": [0, 0]},
+             "frame_size": tread["canvas"], "pivot": tread["pivot"], "anchor": [0, 0],
+             "frame_rule": "belt_N with N = floor(distance travelled in px) mod 9"},
             {"part": "engineer", "z": 3, "atlas": "dozer_riders_h36", "tag": "engineer_*",
              "frame_size": list(RIDER_CANVAS), "pivot": list(RIDER_PIVOT), "anchor": anchor(*SEATS["engineer"])},
             {"part": "rider_a", "z": 3, "atlas": "dozer_riders_h36", "tag": "rider_a_*",
              "frame_size": list(RIDER_CANVAS), "pivot": list(RIDER_PIVOT), "anchor": anchor(*SEATS["rider_a"])},
             {"part": "rider_b", "z": 4, "atlas": "dozer_riders_h36", "tag": "rider_b_*",
              "frame_size": list(RIDER_CANVAS), "pivot": list(RIDER_PIVOT), "anchor": anchor(*SEATS["rider_b"])},
-            {"part": "hull_front", "z": 5, "atlas": "dozer_hull_h120", "tag": "front",
-             "frame_size": hull["canvas"], "pivot": hull["pivot"], "anchor": [0, 0]},
+            {"part": "hull_front_cab", "z": 5, "atlas": "dozer_front_cab_h120", "tag": "front_cab",
+             "frame_size": list(fronts["front_cab"]["canvas"]), "pivot": list(fronts["front_cab"]["pivot"]),
+             "anchor": list(fronts["front_cab"]["anchor"])},
+            {"part": "hull_front_tub", "z": 5, "atlas": "dozer_front_tub_h120", "tag": "front_tub",
+             "frame_size": list(fronts["front_tub"]["canvas"]), "pivot": list(fronts["front_tub"]["pivot"]),
+             "anchor": list(fronts["front_tub"]["anchor"])},
             {"part": "wheel", "z": 6, "atlas": "dozer_wheel_h120", "tag": "spin",
-             "frame_size": wheel["canvas"], "pivot": wheel["pivot"], "anchor": anchor(*AXLE)},
+             "frame_size": wheel["canvas"], "pivot": wheel["pivot"], "anchor": anchor(*AXLE),
+             "frame_rule": "phase_0..phase_3 (7.5 degrees each); smear replaces every second charge frame"},
             {"part": "yoke", "z": 7, "atlas": "dozer_yoke_h120", "tag": "static",
              "frame_size": yoke["canvas"], "pivot": yoke["pivot"], "anchor": anchor(*AXLE)},
+            {"part": "hit_spark", "z": 8, "atlas": "vfx_hit_spark_metal", "frame_size": list(SPARK_CANVAS),
+             "pivot": list(SPARK_PIVOT), "anchor": "contact point of Carl's melee on the hull from behind",
+             "frames": "star, burst, fade (2 ticks each)"},
         ],
         "occluder_rows": {name: round(RIM_Y[name]) for name in RIM_Y},
         "emitters": {k: anchor(*v) for k, v in EMITTERS.items()},
         "lights": {"lamp": anchor(*LAMP), "firebox": anchor(44, 49)},
         "extents": {"rear_x": round(-10 - O_X), "front_x": round(AXLE[0] + WHEEL_TIP - O_X),
                     "top_y_stack": 156, "dome_y": H_KEY, "tub_rim_y": 104},
+        "timing": {
+            "tick_hz": TICK_HZ,
+            "frame_ticks": {stem: FRAME_TICKS[stem] for stem in FRAME_TICKS},
+            "smoke": {"life_ticks": SMOKE_LIFE_TICKS, "rise_px_per_tick": SMOKE_RISE_PX_PER_TICK,
+                      "max_alive": SMOKE_MAX_ALIVE, "world_space_after_spawn": True},
+            "rattle": "hull body, hull front and riders move up 1 px for `up` ticks every `period` ticks; the riders "
+                      "follow `rider_lag` ticks late; the tread, the wheel and the yoke stay on the floor",
+            "squat": "hull body, hull front and riders 1 px lower (the tread hides the overlap); during the tell and "
+                     "for the first 4 charge ticks",
+            "states": RIG_STATES,
+        },
     }
 
 
@@ -1181,41 +1500,53 @@ def rig_contract() -> dict:
 LICENSE = ("Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse "
            "license; no game/asset-pack distribution rights")
 GENERATOR = ("Design, size study and keys: Claude Opus (DOZ-01 phases 1 and 2). Size h120 decided by a "
-             "separate Opus agent. Execution pending (Claude Sonnet). Deterministic script output of "
-             "scripts/author_dozer_doz01.py; riders reuse GOB-01 goblin pixels. No image-model raster output, "
-             "no tracing, no resampling")
+             "separate Claude Opus agent. Frame set (every non-key frame, atlases, validators, evidence): Claude "
+             "Sonnet, deterministic output of scripts/author_dozer_doz01.py; the Opus keys are frozen in "
+             "tests/fixtures/dozer_doz01_keys.json. Riders reuse GOB-01 goblin pixels. Independent Opus review "
+             "pending. No image-model raster output, no tracing, no resampling")
+SOURCE_DIRS = {"vfx_hit_spark_metal": "assets/source/vfx"}
 ASSETS = {
     "dozer_size_study": ("dozer_size_study_blockin_v0", "vehicle_scale_study",
                          "DOZ-01 size study: one parametric construction rasterized natively at 96, 120 and 150 px "
                          "body height, with the 36 px riders unscaled (block-in, not production pixels)"),
-    "dozer_hull_h120": ("dozer_hull_h120_key_v0", "vehicle_part",
-                        "DOZ-01 hull key at the proposed 120 px body height: frame body (behind the riders) and frame "
-                        "front (rider tub and cab rail, over the riders)"),
-    "dozer_wheel_h120": ("dozer_wheel_h120_key_v0", "vehicle_part",
-                         "DOZ-01 spiked wheel key, phase 0 of the 4-frame (7.5 degree) rotation plan"),
-    "dozer_tread_h120": ("dozer_tread_h120_key_v0", "vehicle_part",
-                         "DOZ-01 tread key, phase 0 of the 3-frame (3 px) belt plan"),
-    "dozer_yoke_h120": ("dozer_yoke_h120_key_v0", "vehicle_part",
-                        "DOZ-01 near-side push arm with axle cap and lamp (static)"),
-    "dozer_riders_h36": ("dozer_riders_h36_keys_v0", "character_key_poses",
-                         "DOZ-01 rider keys: goblin engineer with the saucepan helmet (point, lever pull, lurch back "
-                         "with the pot hopping off, lurch forward with the pot over his eyes); rider A brandishing "
-                         "(GOB-01 frame 11 seated) and lurching (GOB-01 frame 16 seated; frame 0 seated pitched forward "
-                         "with white eyes); rider B the same from GOB-01 variant B; goblin pixels translated whole"),
-    "dozer_smoke": ("dozer_smoke_keys_v0", "vfx_keys",
-                    "DOZ-01 smoke keys: black exhaust puff frames 0 and 2 and steam puff frames 0 and 2 "
-                    "(lumpy blobs, no outline, darker underside)"),
+    "dozer_hull_h120": ("dozer_hull_h120_set_v0", "vehicle_part",
+                        "DOZ-01 hull body at the decided 120 px body height (behind the riders): boiler, cab, stack, "
+                        "kettle, rear exhaust; the front layer is in dozer_front_cab_h120 and dozer_front_tub_h120"),
+    "dozer_front_cab_h120": ("dozer_front_cab_h120_set_v0", "vehicle_part",
+                             "DOZ-01 hull front, cab rail box (rust plate, tube rail and two 2 px iron posts), trimmed; "
+                             "drawn over the engineer's lower body; pivot bottom-left pixel"),
+    "dozer_front_tub_h120": ("dozer_front_tub_h120_set_v0", "vehicle_part",
+                             "DOZ-01 hull front, rider tub box (slanted front, rolled lip, painted grin), trimmed; "
+                             "drawn over the riders' lower bodies; pivot bottom-left pixel"),
+    "dozer_wheel_h120": ("dozer_wheel_h120_set_v0", "vehicle_part",
+                         "DOZ-01 spiked wheel: 4 phases of 7.5 degrees (12-fold, 30 degree loop) plus the charge smear"),
+    "dozer_tread_h120": ("dozer_tread_h120_set_v0", "vehicle_part",
+                         "DOZ-01 tread: 9 phases of 1 px of the 9 px link pitch (frame = floor(distance) mod 9)"),
+    "dozer_yoke_h120": ("dozer_yoke_h120_set_v0", "vehicle_part",
+                        "DOZ-01 near-side push arm with axle cap and lamp (static, polished: two rivet rows, iron-1 "
+                        "underside, one rust streak)"),
+    "dozer_riders_h36": ("dozer_riders_h36_set_v0", "character_animation",
+                         "DOZ-01 rider frames, 19 in total: the goblin engineer with the saucepan helmet (point, jab, "
+                         "idle 0 and 1, lever pull, two lurches), and riders A and B (idle 0 and 1, brandish, yell 1, two "
+                         "lurches each); goblin pixels translated whole from GOB-01, rider A and B fist-to-stick gap closed"),
+    "dozer_smoke": ("dozer_smoke_set_v0", "vfx_animation",
+                    "DOZ-01 smoke: black exhaust puff (6 frames) and steam puff (5 frames); lumpy blobs, no outline, "
+                    "darker underside, no dithered transparency"),
+    "vfx_hit_spark_metal": ("vfx_hit_spark_metal_set_v0", "vfx_animation",
+                            "Shared metal hit-spark, 3 frames: a 4-point star, a burst of iron streaks and a fade; "
+                            "16 x 16, pivot at the contact point"),
 }
 
 
 def manifest(stem: str, grid: dict) -> dict:
     ident, kind, origin = ASSETS[stem]
-    return {
+    src = SOURCE_DIRS.get(stem, "assets/source/enemies/dozer")
+    m = {
         "schema_version": 1,
         "id": ident,
         "type": kind,
-        "source_path": f"assets/source/enemies/dozer/{stem}.ase",
-        "grid_source": f"assets/source/enemies/dozer/{stem}.grid.json",
+        "source_path": f"{src}/{stem}.ase",
+        "grid_source": f"{src}/{stem}.grid.json",
         "output_atlas": f"generated/art/{stem}.png",
         "output_metadata": f"generated/art/{stem}.json",
         "palette_id": "dozer-floor01-v0",
@@ -1223,7 +1554,7 @@ def manifest(stem: str, grid: dict) -> dict:
         "pivot": grid["pivot"],
         "animation_tags": [t["name"] for t in grid["tags"]],
         "required_alpha": True,
-        "owner": "AI-authored vehicle enemy design keys (fan-concept layer: Goblin Murder Dozer; runtime role "
+        "owner": "AI-authored vehicle enemy art (fan-concept layer: Goblin Murder Dozer; runtime role "
                  "IP-neutral large pursuit machine)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
@@ -1234,23 +1565,35 @@ def manifest(stem: str, grid: dict) -> dict:
         },
         "license": LICENSE,
         "review_status": "prototype_fixture_unapproved",
-        "dozer": {"status": "DOZ-01 phase 2 design keys; size h120 decided by a separate Opus agent; "
-                            "execution (Sonnet) and review (separate Opus) pending; not wired into any Bevy binary",
+        "dozer": {"status": "DOZ-01 full set drawn (Claude Sonnet), awaiting independent Opus review; size h120 decided "
+                            "by a separate Opus agent; not wired into any Bevy binary",
                   "spec": "docs/02-art/doz-01-dozer-spec.md"},
     }
+    if stem in FRAME_TICKS:
+        names = [t["name"] for t in grid["tags"] if t["from"] == t["to"]]
+        ticks = FRAME_TICKS[stem]
+        if len(names) == len(ticks):
+            m["dozer"]["tick_hz"] = TICK_HZ
+            m["dozer"]["hold_preview_ms"] = HOLD_MS
+            m["dozer"]["frames"] = [{"index": i, "tag": n, "ticks": tk, "duration_ms": duration_ms(tk)}
+                                    for i, (n, tk) in enumerate(zip(names, ticks))]
+    return m
 
 
 def build_all() -> dict[Path, str]:
     grids = {"dozer_size_study": size_study_grid(), "dozer_hull_h120": hull_grid(),
+             "dozer_front_cab_h120": front_grid("front_cab"), "dozer_front_tub_h120": front_grid("front_tub"),
              "dozer_wheel_h120": wheel_grid(), "dozer_tread_h120": tread_grid(),
              "dozer_yoke_h120": yoke_grid(), "dozer_riders_h36": riders_grid(),
-             "dozer_smoke": smoke_grid()}
+             "dozer_smoke": smoke_grid(), "vfx_hit_spark_metal": spark_grid()}
     out: dict[Path, str] = {}
     for stem, grid in grids.items():
         pg.validate_grid(grid)
-        out[DOZER_DIR / f"{stem}.grid.json"] = json.dumps(grid, indent=1) + "\n"
+        folder = ROOT / SOURCE_DIRS.get(stem, "assets/source/enemies/dozer")
+        out[folder / f"{stem}.grid.json"] = json.dumps(grid, indent=1) + "\n"
         out[MANIFEST_DIR / f"{stem}.json"] = json.dumps(manifest(stem, grid), indent=2) + "\n"
-    out[DOZER_DIR / "dozer_rig_h120.json"] = json.dumps(rig_contract(), indent=2) + "\n"
+    rig = rig_contract()
+    out[DOZER_DIR / "dozer_rig_h120.json"] = json.dumps(rig, indent=2) + "\n"
     return out
 
 

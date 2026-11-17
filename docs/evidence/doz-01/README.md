@@ -1,48 +1,51 @@
-# DOZ-01 evidence: Goblin Murder Dozer size study, keys and construction
+# DOZ-01 evidence: Goblin Murder Dozer, full frame set
 
-These are review renders for the [DOZ-01 design spec](../../02-art/doz-01-dozer-spec.md). They are composed PNGs lit with the A1 compositor (`scripts/env_kit_light.py`), not Bevy captures. The Dozer is not wired into any binary.
+These are review renders for the [DOZ-01 design spec](../../02-art/doz-01-dozer-spec.md). They are composed PNGs and GIFs, not Bevy captures. The lit scenes use the A1 compositor (`scripts/env_kit_light.py`); the state GIFs are unlit on a plain floor. The Dozer is not wired into any binary.
 
 Status:
 
 - **Design:** Claude Opus, phases 1 and 2.
-- **Size:** h120, decided by a separate Opus agent.
-- **Pending:** execution (Sonnet, spec section 7.3) and an independent Opus review.
+- **Size:** h120, decided by a separate Claude Opus agent.
+- **Execution:** Claude Sonnet. The full frame set is drawn (spec section 7.3; notes and open points in spec section 15).
+- **Pending:** an independent Claude Opus review, then the owner's review.
 
-The size options are block-ins rasterized natively from one parametric construction. The h120 part keys are the design keys. Phase 2 added:
-
-- the wheel redesign (the spike ring is now the brightest part);
-- the saucepan redesign;
-- `engineer_lever_pull`;
-- lurch-back and lurch-forward keys for all three riders;
-- smoke keys 0 and 2.
-
-Regenerate with:
+## Regenerate
 
 ```sh
-python3 scripts/author_dozer_doz01.py          # rewrites the grids, manifests and rig contract (--check verifies them)
+python3 scripts/author_dozer_doz01.py          # rewrites the grids, manifests and the rig contract (--check verifies them)
 bash scripts/export_assets.sh                  # builds the .ase, the atlases and the Floor 1 kit atlases the compositor needs
-python3 scripts/make_dozer_doz01_review.py     # renders -> generated/art/doz01_review/
+python3 scripts/make_dozer_doz01_review.py     --out docs/evidence/doz-01   # size study, layout diagram, size-option scenes
+python3 scripts/make_dozer_doz01_set_review.py --out docs/evidence/doz-01   # GIFs, lit chase, contact sheet, rig and timing diagram
 ```
 
-The files are copied here unchanged, and `SHA256SUMS` lists their hashes. `measurements.json` records:
+`SHA256SUMS` lists the hash of every file here except itself and this README.
 
-- per size option: opaque size, view share, ceiling clearance, wheel and rim heights, and atlas cost under the phase 2 frame plan;
-- `wheel_spike_ring_mean_lstar`;
-- for each key: frame size, pivot, colour count and lint.
+## Files
 
 | File | What it shows |
 | --- | --- |
-| `size_study_sheet.png` | The three options (body height 96, 120 and 150 px) at x2 on one floor, next to the approved Carl 52 and Donut 40 (run frames). The guides mark Carl's height and his jump apex. Below: the metrics table, then the three lit chase scenes from the 1920 x 1080 renders, scaled to one third. h120 is marked as decided |
-| `floor01_chase_h96_*.png`, `floor01_chase_h120_*.png`, `floor01_chase_h150_*.png` | Each option chasing Carl and Donut on lit Floor 1, at 640 x 360 (native) and 1920 x 1080 (x3). Carl is 213 px (one third of the view) ahead of the wheel's front tip |
-| `floor01_chase_keys_h120_640x360.png`, `floor01_chase_keys_h120_1920x1080.png` | The decided option, assembled from its **part keys** with the rig contract, in the same chase framing |
-| `key_sheet.png` | Every key: <ul><li>the assembled machine at x3 and x1;</li><li>the hull `body` and `front`;</li><li>the redesigned wheel at x4, with its 4-phase rotation plan;</li><li>the tread at x4, with phases 1 to 3 of the 9-phase belt plan;</li><li>the four engineer keys and the yoke;</li><li>the six rider A and B keys;</li><li>the four smoke keys at x8.</li></ul>The plan previews are rendered from the same geometry; they are not keys |
-| `part_layout_diagram.png` | The assembled rig at x3 with part anchors (yellow), the rig origin O (green), the walking line (cyan), the proposed lethal wheel circle (red, r 44), the proposed pushing wall (blue), the occluder rows (orange), the smoke emitters and the light points. Also: the draw-order legend, the exploded parts at x2 with frame boxes and pivots, and the proposed segment D charge timeline (gated at a 140 px gap) |
-| `measurements.json` | Measurements and file hashes |
+| `cruise_x1.gif`, `cruise_x3.gif` | Cruise at 160 px/s for 120 ticks: tread frame = floor(distance) mod 9, wheel at 2 ticks per frame, rattle with the riders 2 ticks late, black puffs from the stack (every 12 ticks) and the rear exhaust (every 20), idle 0/1 for the riders (B 8 ticks late) and the engineer |
+| `tell_x1.gif`, `tell_x3.gif` | The 36 tick charge tell: wheel at 1 tick per frame, stack puffs every 4 ticks, a 3-puff steam burst, the engineer's lever pull, the riders' yell 0/1 (6 ticks each, 3 loops), the hull and riders squat 1 px |
+| `charge_x1.gif`, `charge_x3.gif` | The 90 tick charge at 240 px/s (4 px per tick): lurch back for 8 ticks, then yell and point/jab; the wheel smear on every second frame; stack puffs every 8 ticks |
+| `brake_x1.gif`, `brake_x3.gif` | The 24 tick brake: the treads stop, the rig slides 4 px, lurch forward for 10 ticks, a steam burst |
+| `strain_x1.gif`, `strain_x3.gif` | The 90 tick strain: rattle at double rate, puffs from all three emitters, the wheel at 3 ticks per frame |
+| `floor01_chase_lit_640x360.png`, `floor01_chase_lit_1920x1080.png` | The machine chasing Carl and Donut on lit Floor 1, the wheel in front of a **torch-lit** stretch of brick (native and x3). Carl is 213 px ahead of the wheel tip, Donut behind him. The contact shadow is the tread footprint |
+| `floor01_chase_unlit_640x360.png`, `floor01_chase_unlit_1920x1080.png` | The same, with the wheel in front of an **unlit** stretch (the nearest lit torch is about 190 px behind the wheel). A raised step shows at the right edge |
+| `rig_timing_diagram.png` | The assembled rig at x3 with part anchors and the rig origin; the frame size, pivot and anchor of every part; the 60 Hz tick bars of the five states in one chain (tread and wheel frames, engineer, rider A and B, puff spawns, hull and rider offsets); the state flow |
+| `part_contact_sheet.png` | Every frame of every part atlas (hull body, both front boxes, yoke, wheel 4 + smear, tread 9, riders 19, smoke 11, spark 3), enlarged, with pivots and tick counts |
+| `size_study_sheet.png`, `floor01_chase_h96_*`, `floor01_chase_h120_*`, `floor01_chase_h150_*` | The size study (block-ins, unchanged design evidence): the three options on one floor next to Carl 52 and Donut 40, and lit chase scenes. Their riders include the fist-to-stick fix |
+| `floor01_chase_keys_h120_*` | The decided option assembled from its parts with the rig contract |
+| `part_layout_diagram.png` | The assembled rig at x3 with anchors, the proposed lethal wheel circle (r 44), the proposed pushing wall, the occluder rows, the emitters and the light points; the exploded parts; the proposed charge timeline |
+| `measurements.json`, `set_measurements.json` | Size-option measurements; frame counts, colours and lint per atlas, and the GIF delays |
 
-## Weakest points (for the executor and the reviewer)
+## How the GIFs keep true tick timing
 
-- The cab's rust plates are the part closest in value and hue to the torch-lit brick. The outline and the darker rust ramp keep them separate; a darker or cooler cab is still an option.
-- The engineer's lever-pull forearms read as one slab at 1x.
-- The black smoke is dark by design and needs a lit-brick background to read (spec 7.3, item 11).
-- The yoke is still a plain beam; its polish is on the Sonnet list.
-- Rider A keeps the gap between fist and stick from the approved GOB-01 frame 11. Sonnet closes it, here and in GOB-01 (spec 7.3, item 7).
+The state table (ticks, speed, wheel rate, rattle, puff schedule) and the emitters are read from `dozer_rig_h120.json`. The simulation advances in 60 Hz ticks; one GIF frame is drawn every second tick, and GIF delays are whole centiseconds rounded on the cumulative tick count (3, 3, 4 cs), so a 90 tick state lasts exactly 1.5 s. The first frames of each GIF carry the smoke of the state before it. The label on each frame shows the tick, the tread and wheel frame and the hull offsets.
+
+## Weakest points (for the reviewer)
+
+- The black smoke is dark by design; it reads weakly against both lit and unlit brick (see the two chase scenes).
+- The charge smear is an almost closed ring at the spike tips.
+- The cab posts are dark iron against the plum outline and read faintly at 1x.
+- The yoke's second rivet row has only 4 rivets.
+- The engineer's idle 0 has no pointing arm; it reads as an empty-handed idle at 1x.

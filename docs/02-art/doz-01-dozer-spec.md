@@ -1,15 +1,15 @@
 # DOZ-01: Goblin Murder Dozer design spec
 
-**Status:** design by Claude Opus, phase 1 and phase 2, 2026-11-17.
+**Status:** **full set drawn (Sonnet), awaiting independent Opus review.** Design by Claude Opus (phases 1 and 2, 2026-11-17); execution by Claude Sonnet (section 7.3, notes in section 15).
 
 - **Size decided: h120.** A separate, independent Claude Opus agent made the decision, under the owner's rule that one Opus agent proposes enemy sizes and another decides them. The decider kept the rig, frame sizes and pivots as proposed. It sent back two redesigns (wheel phase 0 and the engineer's pot) and the phase 2 keys, all done here.
-- **Next:** Claude Sonnet does the execution (section 7.3). A separate Claude Opus agent then reviews.
+- **Next:** a separate Claude Opus agent reviews the set against this spec. Then the owner reviews the finished images.
 - Nothing here is wired into Bevy.
 
 Model routing ([AGENTS.md](../../AGENTS.md), "Model routing for art work"):
 
 - **Claude Opus** (this document): the design, size study and keys.
-- **Claude Sonnet:** the remaining frames, smoke frames, atlases, previews and evidence.
+- **Claude Sonnet:** the remaining frames, smoke frames, atlases, previews and evidence (done; section 15).
 - **A separate Claude Opus agent:** the review.
 
 Rights:
@@ -88,13 +88,14 @@ The Dozer is a rig of parts, so a few frames give a lot of motion:
 | 0 | smoke puffs (world space after spawn) | `dozer_smoke` | 24 x 24 | (12, 12) | emitters below | 6 black + 5 steam |
 | 1 | hull body | `dozer_hull_h120` / `body` | 175 x 160 | (87, 159) | (0, 0) | 1 (+ rattle offset) |
 | 2 | tread | `dozer_tread_h120` / `roll` | 151 x 34 | (75, 33) | (0, 0) | **9** |
-| 3 | engineer | `dozer_riders_h36` / `engineer_*` | 64 x 56 | (28, 55) seat | (-48, 98) | 7 |
+| 3 | engineer | `dozer_riders_h36` / `engineer_*` | 64 x 56 | (28, 55) seat | (-48, 98) | 7 (point, jab, idle 0 and 1, lever pull, lurch back and forward) |
 | 3 | rider A | `dozer_riders_h36` / `rider_a_*` | 64 x 56 | (28, 55) seat | (38, 96) | 6 |
 | 4 | rider B | `dozer_riders_h36` / `rider_b_*` | 64 x 56 | (28, 55) seat | (66, 96) | 6 (A's construction + B overlay) |
-| 5 | hull front (tub, cab rail) | `dozer_hull_h120` / `front` | 175 x 160 (trim, section 7.3) | (87, 159) | (0, 0) | 1 |
-| 6 | spiked wheel | `dozer_wheel_h120` / `spin` | 99 x 99 | (49, 49) axle | (124, 49) | 4 (+1 optional smear) |
+| 5 | hull front, cab rail | `dozer_front_cab_h120` / `front_cab` | 60 x 21 (trimmed) | (0, 20) bottom-left | (-75, 85) | 1 |
+| 5 | hull front, rider tub | `dozer_front_tub_h120` / `front_tub` | 65 x 82 (trimmed) | (0, 81) bottom-left | (19, 23) | 1 |
+| 6 | spiked wheel | `dozer_wheel_h120` / `spin` (`phase_0` to `phase_3`, `smear`) | 99 x 99 | (49, 49) axle | (124, 49) | 4 + 1 smear |
 | 7 | near push arm, axle cap, lamp | `dozer_yoke_h120` / `static` | 64 x 44 | (54, 30) axle | (124, 49) | 1 |
-| - | hit-spark (shared VFX) | `dozer_smoke` or a shared VFX atlas | 16 x 16 | (8, 8) | contact point | 3 |
+| 8 | hit-spark (shared VFX) | `vfx_hit_spark_metal` (`assets/source/vfx/`) | 16 x 16 | (8, 8) | contact point | 3 |
 
 Rig details:
 
@@ -245,7 +246,7 @@ For every rider frame, the visible rows (above row 48) are GOB-01 pixels transla
 - Rider frames are GOB-01 pixels translated whole wherever possible.
 - Run `tests/test_art_dozer_doz01.py` and extend it to every new frame (section 8).
 
-### 7.3 Sonnet ready list (execution)
+### 7.3 Sonnet ready list (execution, done: see section 15)
 
 | # | Atlas | Work | Acceptance |
 | --- | --- | --- | --- |
@@ -408,14 +409,40 @@ stateDiagram-v2
 | File | Role |
 | --- | --- |
 | `assets/source/enemies/dozer/dozer_size_study.grid.json` / `.ase` | the machine with riders at h96, h120 and h150 (block-ins) |
-| `assets/source/enemies/dozer/dozer_hull_h120.grid.json` / `.ase` | hull key: `body` and `front` |
-| `assets/source/enemies/dozer/dozer_wheel_h120.grid.json` / `.ase` | wheel key, phase 0 (phase 2 redesign) |
-| `assets/source/enemies/dozer/dozer_tread_h120.grid.json` / `.ase` | tread key, phase 0 of 9 |
+| `assets/source/enemies/dozer/dozer_hull_h120.grid.json` / `.ase` | hull `body` |
+| `assets/source/enemies/dozer/dozer_front_cab_h120.*`, `dozer_front_tub_h120.*` | hull `front`, trimmed into its two boxes |
+| `assets/source/enemies/dozer/dozer_wheel_h120.grid.json` / `.ase` | wheel: 4 phases and the smear |
+| `assets/source/enemies/dozer/dozer_tread_h120.grid.json` / `.ase` | tread: 9 phases |
 | `assets/source/enemies/dozer/dozer_yoke_h120.grid.json` / `.ase` | push arm, axle cap and lamp |
-| `assets/source/enemies/dozer/dozer_riders_h36.grid.json` / `.ase` | 10 rider keys: the engineer's point, lever pull and two lurches; rider A's brandish and two lurches; rider B's hold and two lurches |
-| `assets/source/enemies/dozer/dozer_smoke.grid.json` / `.ase` | smoke keys: black 0 and 2, steam 0 and 2 |
+| `assets/source/enemies/dozer/dozer_riders_h36.grid.json` / `.ase` | 19 rider frames (engineer 7, rider A 6, rider B 6) |
+| `assets/source/enemies/dozer/dozer_smoke.grid.json` / `.ase` | smoke: black 0 to 5, steam 0 to 4 |
+| `assets/source/vfx/vfx_hit_spark_metal.grid.json` / `.ase` | shared 3-frame metal hit-spark |
+| `tests/fixtures/dozer_doz01_keys.json` | the 19 frozen Opus keys (flattened rows) |
 | `assets/source/enemies/dozer/dozer_rig_h120.json` | rig contract: pivots, anchors, draw order, occluders, emitters, lights |
 | `assets/manifests/dozer_*.json` | candidate manifests (`prototype_fixture_unapproved`, palette `dozer-floor01-v0`) |
-| `scripts/author_dozer_doz01.py` | authoring record (palette, construction, riders, smoke, grids, manifests, rig); `--check` |
-| `scripts/make_dozer_doz01_review.py` | size-study sheet, key sheet, layout diagram, lit chase compositions, measurements |
+| `scripts/author_dozer_doz01.py` | authoring record (palette, construction, every frame, grids, manifests, rig contract with the tick table); `--check` |
+| `scripts/make_dozer_doz01_review.py` | size-study sheet, layout diagram, lit chase compositions of the size options, measurements |
+| `scripts/make_dozer_doz01_set_review.py` | state GIFs, lit chase with the full set, part contact sheet, rig and timing diagram, measurements |
 | `tests/test_art_dozer_doz01.py` | contract tests (section 8) |
+
+## 15. Execution notes (Sonnet)
+
+All 11 items of section 7.3 are done. Every Opus key is pixel-identical and frozen in `tests/fixtures/dozer_doz01_keys.json`, with these documented deltas only: the cab posts and the trim of the hull front, the yoke polish (recolouring inside the same silhouette) and the rider A and B fist-to-stick fix in `rider_a_brandish` (three pixels). None of these changes a timing, the pivot of an unchanged part or a size. Where the spec left a reading open, the choice made is listed here for the reviewer.
+
+- **Wheel (items 1, 2).** Phases 1 to 3 are `wheel_rows(7.5)`, `(15)` and `(22.5)` plus the existing despeckle pass; they needed no further hand edit (0 orphans, 12 clusters, concentric, spokes unbroken, spike ring L* above 0.5, all tested in every frame). The smear is kept (frame `smear`, 1 tick): the tips are `6`, and from every tip a 1 px iron-5 arc at radius about 46 runs 26 degrees clockwise (the spin direction), framed in `K`. At 26 degrees of a 30 degree gap the arcs read as an almost closed ring at the tips, which is the intent of a motion smear; whether it is too closed is a review question.
+- **Tread (item 3).** `tread_rows(0..8)` plus despeckle. The count of `7` pixels is constant; each road-wheel hub has exactly one off-centre `7` bolt in all 9 frames; the number of cleats on the contact row differs by at most one; the end wheels change no more at the 8 to 0 wrap than between other frames.
+- **Hull front (item 4).** A pixel grid has one canvas and a pivot has to lie inside it, so "trim into two boxes and keep O on anchor (0, 0)" was done as two grids: `dozer_front_cab_h120` (60 x 21) and `dozer_front_tub_h120` (65 x 82). The pivot of each is its bottom-left pixel and the rig **anchor** is that pixel's position from O: cab (-75, 85), tub (19, 23). The composed machine is pixel-identical to the untrimmed front, and a test recomposes it. The atlas cost of the front falls from 28,000 to about 6,600 px. The posts are 2 px of iron-2 under both rail ends (x -74 and -73, x -18 and -17 from O, y 86 to 100), with a plum outline.
+- **Yoke (item 5).** The silhouette is unchanged. A 2 px iron-1 underside along the whole arm, a second rivet row of 4 rivets parallel to the lower edge (the key's row stays), and one rust streak of 8 px at column 29 from the lamp mount: 4 px of `E` over 4 px of `W`.
+- **Riders (item 6).** Frame list and tags are in the rig contract. Readings:
+  - Idle 0 of rider A is the seated GOB-01 hold (frame 0); idle 0 of B is the existing `rider_b_hold` key. The assembled machine still seats A in `rider_a_brandish`.
+  - Yell 0 is the brandish. B had no brandish key, so `rider_b_brandish` is derived the same way as A's (GOB-01 variant B frame 11, seated).
+  - Idle 1 is "rows 0 to 46 one px lower", exactly as written, for all three riders.
+  - Yell 1: the pineapple and leaf move 2 px up, the stick grows by 2 px (`y` with `K` edges), and "mouth 1 px wider" is read as the open mouth running 1 px further forward on its three rows.
+  - The engineer's idle 0 (`engineer_hold`) is the point pose without the pointing arm (one hand on the lever). The spec lists point, jab and idle as separate frames (7 in all), so idle 0 cannot be the point key. The jab duplicates column 17 of the arm so the hand and finger sit 1 px further forward.
+- **Rider A fist-to-stick gap (item 7).** In key 11 the stick was a lone dark `x` at (14, 17), cut off from the fist by plum outline pixels. Three pixels became `y`: (10, 14) (a stick between the fruit and the fist) and (13, 17) and (14, 17) (the stick leaves the fist and its butt joins it). The same three pixels changed in the merged GOB-01 key 11, both variants, in a separate change; see the GOB-01 spec, section 13.
+- **Smoke (item 8).** Black: 10 px, 16 px (key), breaking up into 2 lumps, thin (3 small lumps), a 3 px wisp. Steam: the same plan, paler and smaller. Every frame has no outline, only its own ramp, and a `+` or `;` underside row. The wisp is 3 px wide and 6 px in area; "2 to 3 px" is read as its width.
+- **Hit-spark (item 9).** `vfx_hit_spark_metal`, 16 x 16, pivot (8, 8): a `7` 3 x 3 core with four 5 px `6` arms; a burst of six 3 px iron-5 streaks (the spec allows 4 to 6); a fade of three `4` pixels.
+- **Tests (item 10).** `tests/test_art_dozer_doz01.py` covers every frame (frozen keys, wheel, tread, hull, riders, smoke, spark, timing, rig). The simulated apex target (below 90 px) is unchanged.
+- **Timing.** The tick counts of section 5 are in the manifests (`dozer.frames`) and in the rig contract (`timing`). The preview durations are `round(ticks * 1000 / 60)`, and 100 ms for static and state-driven frames. The wheel atlas holds the cruise rate (2 ticks); the runtime picks 1, 2 or 3 ticks per state.
+- **State choreography (item 11).** Section 5 fixes ticks but not which frame plays in each state. The GIFs use: cruise, idle 0/1 (B 8 ticks late); tell, yell 0/1 and the lever pull with the hull squat; charge, lurch back for 8 ticks, then yell and point/jab; brake, lurch forward for 10 ticks, then idle; strain, idle and the lever pull. The squat is a 1 px drop of the hull and riders for the whole tell and the first 4 charge ticks (the tread hides the overlap); section 3 and section 9 word it differently ("at the rear"), and a real rear-only squat would need a sheared hull. Strain rattle, "double rate (1 px every 3 ticks)", is read as 1 tick up every 3. The yoke, wheel and tread do not rattle. The brake slides the whole rig 4 px in 8 ticks while the camera stays on the unslid position.
+- **Open for the reviewer.** The smear's nearly closed ring; the dark `2` posts against the plum outline are low contrast at 1x; the yoke's second rivet row is short (4 rivets); in the lit chase Donut runs 54 px behind Carl (the unlit stretch has a raised step ahead of Carl's usual place).

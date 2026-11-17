@@ -1,0 +1,468 @@
+{
+  "atlases": {
+    "dozer_front_cab_h120": {
+      "colours": 11,
+      "frame_size": [
+        60,
+        21
+      ],
+      "frames": 1,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        0,
+        20
+      ]
+    },
+    "dozer_front_tub_h120": {
+      "colours": 14,
+      "frame_size": [
+        65,
+        82
+      ],
+      "frames": 1,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        0,
+        81
+      ]
+    },
+    "dozer_hull_h120": {
+      "colours": 29,
+      "frame_size": [
+        175,
+        160
+      ],
+      "frames": 1,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        87,
+        159
+      ]
+    },
+    "dozer_riders_h36": {
+      "colours": 26,
+      "frame_size": [
+        64,
+        56
+      ],
+      "frames": 19,
+      "isolated": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        2,
+        5,
+        0,
+        0,
+        0,
+        3,
+        2,
+        5,
+        0
+      ],
+      "pivot": [
+        28,
+        55
+      ]
+    },
+    "dozer_smoke": {
+      "colours": 7,
+      "frame_size": [
+        24,
+        24
+      ],
+      "frames": 11,
+      "isolated": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "pivot": [
+        12,
+        12
+      ]
+    },
+    "dozer_tread_h120": {
+      "colours": 15,
+      "frame_size": [
+        151,
+        34
+      ],
+      "frames": 9,
+      "isolated": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "pivot": [
+        75,
+        33
+      ]
+    },
+    "dozer_wheel_h120": {
+      "colours": 14,
+      "frame_size": [
+        99,
+        99
+      ],
+      "frames": 5,
+      "isolated": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "pivot": [
+        49,
+        49
+      ]
+    },
+    "dozer_yoke_h120": {
+      "colours": 15,
+      "frame_size": [
+        64,
+        44
+      ],
+      "frames": 1,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        54,
+        30
+      ]
+    },
+    "vfx_hit_spark_metal": {
+      "colours": 4,
+      "frame_size": [
+        16,
+        16
+      ],
+      "frames": 3,
+      "isolated": [
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0
+      ],
+      "pivot": [
+        8,
+        8
+      ]
+    }
+  },
+  "chain_ticks": {
+    "brake": 24,
+    "charge": 90,
+    "cruise": 120,
+    "strain": 90,
+    "tell": 36
+  },
+  "files": {
+    "brake_x1.gif": "49eb9dc08e8cc6af61917870923124c7847f188a443b28b6e007ec010d95b035",
+    "brake_x3.gif": "e894788d5088fd542624d5baaf1792211bba0aaf4861ac6cc10b680dfdd120e4",
+    "charge_x1.gif": "0eeee5236431b67b8cadf9caa9da3c6ddcb9ebed29c25a96c7308d153621cc97",
+    "charge_x3.gif": "79150011acce072566f716b3de7bbc9ef8de63e5945c03b8934a8bd996e1d228",
+    "cruise_x1.gif": "a2265ffa31974f3247dfad64c2b2b7d08f82faa4108fdf763f4ad616d101a520",
+    "cruise_x3.gif": "c66db16f3226133d63cee98d3fc0dd26fd6aff64a814c2dc55f0ce78178b5f57",
+    "floor01_chase_lit_1920x1080.png": "e35e07bf1cfffac3e0ef034ac0530dd1fec403f0cf171e752aa9bb8d36d74b98",
+    "floor01_chase_lit_640x360.png": "62c6148175128460557047c8af4e3d54f425fce8ad9645d4c1641c448871a0f0",
+    "floor01_chase_unlit_1920x1080.png": "03dd4738e51aaba392990a0978308015b796a0c2e3ca39208729436cc16f7304",
+    "floor01_chase_unlit_640x360.png": "869f4294e3be3fc22ff81b3b001c96d2061abe1af99b7ca94c34818930c169d1",
+    "part_contact_sheet.png": "f5211186768876b606d033894b88d5bb1c294b83a3967f7bb662ef416649326b",
+    "rig_timing_diagram.png": "1fcd8b7c7e99f332cd01620c948c4154ee1f470afe61f6ad7ace3aa09870cab7",
+    "strain_x1.gif": "bd4576298545a930a21190f5be46739fcfd711f489d3d4620edda8765eeb24b8",
+    "strain_x3.gif": "0981d8b7b6a2ef7424da388f53c1834e73bf1373e1181d1e7cc9df01556127d8",
+    "tell_x1.gif": "33616247b80b083164bac7d721a625f45fc345518de21193ed56176b28e69dcf",
+    "tell_x3.gif": "b87afcc3b5025cc19903493b74e2914a33f712edf014fdbf9214c21bd3028dfd"
+  },
+  "gif_delays_ms": {
+    "brake": [
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30
+    ],
+    "charge": [
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30
+    ],
+    "cruise": [
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30
+    ],
+    "strain": [
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30
+    ],
+    "tell": [
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30,
+      30,
+      40,
+      30
+    ]
+  },
+  "note": "Composed review renders (A1 lighting via scripts/env_kit_light.py), not Bevy captures."
+}
