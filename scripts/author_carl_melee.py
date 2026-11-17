@@ -386,7 +386,7 @@ def b2() -> Frame:
 
 def b3() -> Frame:
     f = upper(Frame(), (2, 1), "v0")
-    standing_legs(f, 40, 18, 27, 15, 31)   # front Croc x31: 2 px from b2 (x34) on a grounded frame; the idle is 5 px away (section 13)
+    standing_legs(f, 40, 18, 27, 15, 29)   # front Croc x29 (run x30-37): 4 px from b2 (x34), 3 px from the idle (x27)
     idle_arms(f, (2, 1))
     return f
 

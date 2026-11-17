@@ -112,12 +112,12 @@
       "bbox": [
         15,
         5,
-        40,
+        38,
         55
       ],
-      "opaque_width": 26,
+      "opaque_width": 24,
       "opaque_height": 51,
-      "opaque_pixels": 801,
+      "opaque_pixels": 798,
       "lowest_opaque_row": 55
     },
     {
@@ -372,21 +372,21 @@
   },
   "manifest": "assets/manifests/carl_book1_h52_melee.json",
   "sha256": {
-    "contact_sheet_x1.png": "f73357516819e85776f1e1ae2569e85529f70780d58f90ca5359807d49be6a8e",
-    "contact_sheet_x6.png": "42f82868047dc41df77d1c39b4b34c5b692d5f14105e6ec7e9a14a11d73576f7",
+    "contact_sheet_x1.png": "192650e5ec4ff80e0debbdfc0613beb7eed1412f845c1a93b162dcd076e90d8a",
+    "contact_sheet_x6.png": "b931543a30d225a6ef64e28613cda61b2f075f7c9ea049fdb80ed633aa89acda",
     "floor01_kick_1920x1080.png": "83f971ce7cfcf57886043084ba2d33a38961e3a5a7582e4eda6e9de10c43fc19",
     "floor01_kick_640x360.png": "26424db1b3a38426f4d8f59075d41a67aea38fe311565bf0bfd91cdced04baf0",
     "floor01_kick_crop_x6.png": "ae3e41ebe71519a10131cf95855b36f5f811f92777d72dffde3433757b2a41ce",
     "floor01_kick_sequence_1920x1080.png": "04a51e50837b32b2f1e81ec606464e14ccece67f7380791eeba9881ed3f0569c",
-    "floor01_lineup_1920x1080.png": "7bce705f8e97c5da02b2cc3d910b738a1bcfdc2438f24727c3da3d6a857ea04d",
+    "floor01_lineup_1920x1080.png": "49a2511b79f09e21088530b40b641e80d577fe1e535d0639476192b5ea6d1015",
     "hurt_x4.gif": "8b0f65eeb8b3714e5757777506437f9faf825d719a56857b3e5b46263b07df16",
-    "jab_haymaker_x4.gif": "0917d8ac4eb2c6ef25180d6c3db0a20ce1cfcdf6bd0dd90a7cc12f475e07a934",
+    "jab_haymaker_x4.gif": "567f5f2bfddea272835fb7542dbe4adb37e059b31c5115fd7c7d301a71e5aec2",
     "jab_kick_x4.gif": "11090d9b15b1a38da5fcddb295c4837443d758e8e1d9ea8146eb1dffe531e7ab",
     "kick_x4.gif": "50a2e73e17ab1abd8a24dede4c5d72cc791291fc8d61a0638f9a0dabf95db296",
     "knockdown_getup_x4.gif": "77f2809268408166b2b685f53b6abf6d8e3945ffbab8f44226f8b26cc6aa7f36",
-    "opus_keys_x6.png": "b2ac27b9072b98a658c3aeddc481a54e2b4269c26f0ddde46d8f35bcf7f47d25",
+    "opus_keys_x6.png": "884b9d18b639533ae2d27fba98042b5ff853f50b025d3e7b688cd5e9a0eda2c9",
     "punch_a_x4.gif": "ad301d4ea45afffcd98bdd711246450f501dc62c88f190261a957026a3ed9f29",
-    "punch_b_x4.gif": "171832baa7bbbf6b9d2d9fce803b08231deb8942c842ff4c02d0627a7deb0d0a",
+    "punch_b_x4.gif": "3eab99c17ec87c3e0efa2ca6fd7b2579c40d7c17cf5c8f749dd3b359589c2dff",
     "timing_diagram.png": "c949838e221a1189b3dc6ae7278ff2a894f6d5ba8dd62aa245ffd5d3ac3e897a"
   }
 }

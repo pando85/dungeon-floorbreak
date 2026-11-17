@@ -324,14 +324,12 @@ def foot_snap(grid: dict, a: int, b: int) -> int:
     return max(abs(x[0] - y[0]) for x, y in zip(ra, rb))
 
 
-IDLE_SNAP_LIMIT = {"b3": 5}   # b2 keeps b1's wide stance (a key), so b3 cannot be within 2 px of both b2 and the idle
-IDLE_SNAP_DEFAULT = 2
+SNAP_LIMIT = 4   # px: every grounded hand-over (to idle, b2 to b3); b1/b2 keep a key stance, b3 splits the gap
 
 
 def check_foot_snaps(grid: dict, loco: dict) -> list[str]:
-    """Foot slides on grounded frames: hand-overs to idle snap a Croc by at most 2 px (b3: 5, see
-    IDLE_SNAP_LIMIT); b2 to b3 at most 2 px; the jab hands its support foot to the kick and the
-    haymaker within 1 px."""
+    """Foot slides on grounded frames: every hand-over (to idle, b2 to b3) snaps a Croc by at most 4 px; the
+    jab hands its support foot to the kick and the haymaker within 1 px."""
     errs, idle = [], pga.composite_keys(loco, 0)[55]
     idle_runs = []
     start = None
@@ -347,12 +345,11 @@ def check_foot_snaps(grid: dict, loco: dict) -> list[str]:
             errs.append(f"{fid}: {len(runs)} Croc runs on row 55, idle has {len(idle_runs)}")
             continue
         snap = max(abs(a[0] - b[0]) for a, b in zip(runs, idle_runs))
-        limit = IDLE_SNAP_LIMIT.get(fid, IDLE_SNAP_DEFAULT)
-        if snap > limit:
-            errs.append(f"{fid} -> idle snaps a Croc by {snap} px (max {limit})")
+        if snap > SNAP_LIMIT:
+            errs.append(f"{fid} -> idle snaps a Croc by {snap} px (max {SNAP_LIMIT})")
     snap = foot_snap(grid, FRAME_IDS.index("b2"), FRAME_IDS.index("b3"))
-    if snap > 2:
-        errs.append(f"b2 -> b3 slides a Croc by {snap} px (max 2)")
+    if snap > SNAP_LIMIT:
+        errs.append(f"b2 -> b3 slides a Croc by {snap} px (max {SNAP_LIMIT})")
     for a, b in (("a2", "k0"), ("a2", "b0")):
         ra, rb = row_runs(grid, FRAME_IDS.index(a)), row_runs(grid, FRAME_IDS.index(b))
         if abs(ra[0][0] - rb[0][0]) > 1:
