@@ -1,8 +1,8 @@
 # ANIM-DONUT-01: Princess Donut locomotion candidate (40 px)
 
-**Status:** owner-approved 2026-11-17 (not yet integrated into Bevy). **Round 3 complete:** after the round-2 independent Opus review, Opus redrew keys 6, 8, 12 and wrote the round-3 spec (keys 4 and 10 unchanged), and Sonnet redid in-betweens 5, 7, 9, 11 and the frame-13 tail per the [run spec](donut-locomotion-anim-01-run-spec.md). Nothing here is accepted. The approved master [`donut_h40.grid.json`](../../assets/source/characters/donut/donut_h40.grid.json) and its manifest are unchanged; the candidate lives in its own source and manifest until a human approves it. Runtime integration (state machine, Bevy atlas swap) is a separate work order.
+**Status:** owner-approved 2026-11-17; drawn by the Floor 1 scene since ANIM-INT-01 ([scene doc](../03-tech/floor01-scene.md#animation-anim-int-01)); the Character Playground does not use it yet. **Round 3 complete:** after the round-2 independent Opus review, Opus redrew keys 6, 8, 12 and wrote the round-3 spec (keys 4 and 10 unchanged), and Sonnet redid in-betweens 5, 7, 9, 11 and the frame-13 tail per the [run spec](donut-locomotion-anim-01-run-spec.md). Nothing here is accepted. The approved master [`donut_h40.grid.json`](../../assets/source/characters/donut/donut_h40.grid.json) and its manifest are unchanged; the candidate lives in its own source and manifest until a human approves it. Runtime integration (state machine, Bevy atlas swap) is ANIM-INT-01: the Floor 1 scene plays this atlas with the speed-linked run rule below.
 
-Round 1 authoring and the round-1 self-review were done by Claude Opus. Rounds 2 and 3: **design Opus** (keys, run spec, round-3 redraw of keys 6, 8, 12), **execution Sonnet** (in-betweens, polish, tests, evidence), **review pending independent Opus** (AGENTS.md "Model routing for art work"). Owner diagrams: [`run_footfall_diagram.png`](../evidence/anim-donut-01/run_footfall_diagram.png) and the back-line/rump onion [`run_onion_backline_rump_16x.png`](../evidence/anim-donut-01/run_onion_backline_rump_16x.png).
+Round 1 authoring and the round-1 self-review were done by Claude Opus. Rounds 2 and 3: **design Opus** (keys, run spec, round-3 redraw of keys 6, 8, 12), **execution Sonnet** (in-betweens, polish, tests, evidence), **review: the independent Opus review passed (round 3)** (AGENTS.md "Model routing for art work"). Owner diagrams: [`run_footfall_diagram.png`](../evidence/anim-donut-01/run_footfall_diagram.png) and the back-line/rump onion [`run_onion_backline_rump_16x.png`](../evidence/anim-donut-01/run_onion_backline_rump_16x.png).
 
 ## Files
 
@@ -108,7 +108,7 @@ Body length = face x minus the rump's left edge. Rump and head move together, so
 
 ## Round 3 execution notes (Sonnet)
 
-Opus redrew keys 6, 8, 12 (head 1 px back in frame 6, shorter extension in frame 8, short near/far jump forelegs `FN_REACH_NEAR`/`FN_REACH_FAR` in frame 12) and wrote the round-3 task list in the run spec. Sonnet executed it; provenance: round-3 keys and spec by Opus, execution by Sonnet, review pending independent Opus.
+Opus redrew keys 6, 8, 12 (head 1 px back in frame 6, shorter extension in frame 8, short near/far jump forelegs `FN_REACH_NEAR`/`FN_REACH_FAR` in frame 12) and wrote the round-3 task list in the run spec. Sonnet executed it; provenance: round-3 keys and spec by Opus, execution by Sonnet, review: the independent Opus review passed (round 3).
 
 - Frame 7: rump at x 21, near-hind toe-off moved with it, tail (15, 6, 0.15). Frame 9: plain 24-column torso, rump x 20, head 1 px forward, hinds re-attached, tail (12, 6, 0.20). Frame 5: kept; one back-top pixel added at x 37 to remove the 1 px notch at the head. Frames 7 and 9 got the same one- or two-pixel patches (`PATCHES3`).
 - Frame 11: `FN_REACH_NEAR` at (49, 42) and `FN_REACH_FAR` at (56, 39), tail (16, 10, 0.10). Frame 13: tail only, `TAIL_ONLY` (13, 9, 0.10); body and legs untouched.

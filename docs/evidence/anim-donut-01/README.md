@@ -1,12 +1,12 @@
 # ANIM-DONUT-01: evidence for the Donut locomotion candidate
 
-Review aids for the human art decision. Status: owner-approved 2026-11-17 (not yet integrated into Bevy). **Round 3** (after the independent Opus reviews of rounds 1 and 2). Write-up, frame table and self-review: [`docs/02-art/donut-locomotion-anim-01.md`](../../02-art/donut-locomotion-anim-01.md).
+Review aids for the human art decision. Status: owner-approved 2026-11-17; integrated into the Floor 1 scene by ANIM-INT-01 (in-engine evidence: [`docs/evidence/anim-int-01/`](../anim-int-01/README.md); the renders below are still Pillow models, not Bevy captures). **Round 3** (after the independent Opus reviews of rounds 1 and 2). Write-up, frame table and self-review: [`docs/02-art/donut-locomotion-anim-01.md`](../../02-art/donut-locomotion-anim-01.md).
 
 - **Rights record:** `ART-PUBLICATION-ALL-V1` in [`docs/04-production/rights-and-release.md`](../../04-production/rights-and-release.md) (owner-reported publication scope, 2026-11-15, not independently verified; no public reuse licence and no game or standalone asset-pack distribution right).
 - **Integrity:** `SHA256SUMS` lists every file; `python3 scripts/check_docs.py` verifies it.
 - **Carl** in the Floor 1 renders is the approved Carl 52 px idle frame 0 from main (`assets/manifests/carl_book1_h52.json`), unchanged.
 - **Lighting** is the Pillow A1 model of `scripts/env_kit_light.py` on the ENV-01 sample layout (view `abc_640x360`); these are not Bevy captures.
-- **Rights/Provenance:** design: Opus (round-3 keys 6, 8, 12 and spec included); execution: Sonnet; review: pending independent Opus. Round 1 was authored and self-reviewed by Claude Opus.
+- **Rights/Provenance:** design: Opus (round-3 keys 6, 8, 12 and spec included); execution: Sonnet; review: the independent Opus review passed (round 3). Round 1 was authored and self-reviewed by Claude Opus.
 
 | File | Content |
 | --- | --- |
