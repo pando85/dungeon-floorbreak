@@ -20,6 +20,10 @@
 
 Concept approval is **not** approval of all text generated *inside* images, exact enemy sizes, gameplay behaviors, or source accuracy. Preserve user-approved PNGs **unchanged**, and document discrepancies instead of silently altering their pixels.
 
+## Later approved enemy and boss concepts
+
+**The Hoarder study, Troglodyte Pygmy/Basher/Virtuoso, The Juicer, The Ball of Swine and its Tusklings** have subsequently received the owner's visual concept approval. The specific images, caveats and remaining minor enemies are recorded in the [late-Floor 01 approval supplement](floor-01-late-enemy-boss-concepts.md) and three new entries in the enemy image manifest. The original five images and their approvals remain unchanged; the new three PNGs require owner upload on the supplement PR before they are counted as committed assets.
+
 ## Five original concept images — uploaded and verified
 
 **The owner uploaded all five PNGs into `assets/concept/floor-01/enemies/`.** Each GitHub blob SHA-1 matches the blob identity independently calculated from the corresponding PNG in the original source package. The original package bytes also match the recorded SHA-256, byte size and image dimensions; these checks verify that the uploaded images are **byte-identical**, not their creative/canonical fidelity.
