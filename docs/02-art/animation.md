@@ -52,4 +52,4 @@ Owner-approved 2026-11-17 (integrated into the Floor 1 scene by ANIM-INT-01): [c
 
 ## Carl melee candidate (ANIM-CARL-02)
 
-Full set of 24 frames drawn (design and keys Opus, 20 frames Sonnet), independent Opus review pending, not approved, not integrated: [carl-melee-anim-02-spec.md](carl-melee-anim-02-spec.md). Same 48x56 frame and pivot (25,55) as the locomotion atlas. Frames are chosen from the deterministic 60 Hz move clock (startup / active / recovery ticks and the hit tick are in the manifest `melee.moves` block), never from wall-clock time; hit-stop holds the contact frame.
+Full set of 24 frames drawn (design and eight keys Opus, 16 frames Sonnet), independent Opus review pending, not approved, not integrated: [carl-melee-anim-02-spec.md](carl-melee-anim-02-spec.md). Same 48x56 frame and pivot (25,55) as the locomotion atlas. Frames are chosen from the deterministic 60 Hz move clock (startup / active / recovery ticks and the hit tick are in the manifest `melee.moves` block), never from wall-clock time; hit-stop holds the contact frame.
