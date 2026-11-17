@@ -10,6 +10,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 4. `docs/03-tech/architecture.md`, `destruction.md`, `input-camera.md`, `level-data.md`, `testing.md` for implementation.
 5. `docs/04-production/vertical-slice.md`, `roadmap.md`, `backlog.md`, `rights-and-release.md` for sequencing.
 6. `docs/05-decisions/` for decision status; `docs/06-research/sources.md` for checked upstream links.
+7. `docs/07-agents/agent-orchestration.md` for anyone orchestrating agents (model tiers, briefs, reports, CI waiting, reviews, top-tier budget).
 
 **Priority on conflict:** legal/rights guardrails and platform safety > accepted ADRs > acceptance criteria > design specifications > implementation convenience. Flag contradictions in a PR, do not silently rewrite design intent.
 
@@ -41,14 +42,14 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 
 ## Model routing for art work
 
-Every art work order (characters, animation, environments, props, enemies, vehicles) follows this pipeline, whatever the wording of its brief. Owner directive, 2026-11-17, refining the 2026-11-16 rule.
+Every art work order (characters, animation, environments, props, enemies, vehicles) follows this pipeline, whatever the wording of its brief. Owner directive, 2026-11-17, refining the 2026-11-16 rule. Tiers are defined in [docs/07-agents/agent-orchestration.md](docs/07-agents/agent-orchestration.md#model-tiers); the Claude names below are the Claude mapping and any opencode model of the same tier fills the same role.
 
-1. **Design: Claude Opus** (the highest-capability tier available). It produces key poses or the design itself, silhouettes, palette, timing, and a written design spec with acceptance targets.
-2. **Execution: Claude Sonnet** (the default tier). It does the work that follows the Opus design: pixel production that the spec spells out, grid/`.ase` sources, manifests, export, validators, tests, previews, evidence, CI and docs. Design problems found here go back to Opus. Sonnet does not re-decide them.
-3. **Review: a separate Claude Opus agent.** This is an independent art-director review against the design spec and the art acceptance criteria. An authoring agent's self-review does not count. Defects loop back to step 2 (or to step 1 for design defects) until the review passes.
+1. **Design: top-tier model (Claude Opus)** (the highest-capability tier available). It produces key poses or the design itself, silhouettes, palette, timing, and a written design spec with acceptance targets. **Budget rule:** the design step stops at the keys and the spec. Execution chores (evidence regeneration, contact sheets, checksums, README rows, validators, CI fixes) go to the medium tier, see [Top-tier budget](docs/07-agents/agent-orchestration.md#top-tier-budget).
+2. **Execution: medium-tier model (Claude Sonnet)** (the default tier). It does the work that follows the top-tier design: pixel production that the spec spells out, grid/`.ase` sources, manifests, export, validators, tests, previews, evidence, CI and docs. Design problems found here go back to the top tier. The medium tier does not re-decide them.
+3. **Review: a separate top-tier agent (Claude Opus).** This is an independent art-director review against the design spec and the art acceptance criteria. An authoring agent's self-review does not count. Defects loop back to step 2 (or to step 1 for design defects) until the review passes.
 4. **Owner review at the end only.** The owner sees the finished result as images (contact sheets, enlarged frames, GIFs, in-scene compositions at gameplay scale) plus schemas/diagrams (frame layout, pivots, timing and state flow). Agents do not ask the owner for interim approvals.
 
-- Bevy/gameplay integration of art stays on the default tier unless the PR records a reason.
+- Bevy/gameplay integration of art stays on the medium tier unless the PR records a reason.
 - Record which model designed, executed and reviewed the art in the PR's `Rights/Provenance` section.
 
 ## Agent roles (logical; one model may fulfill several)
