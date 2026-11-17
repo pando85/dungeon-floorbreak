@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "carl_book1_h52_locomotion_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/carl/carl_h52_locomotion.ase",
+  "grid_source": "assets/source/characters/carl/carl_h52_locomotion.grid.json",
+  "output_atlas": "generated/art/carl_book1_h52_locomotion.png",
+  "output_metadata": "generated/art/carl_book1_h52_locomotion.json",
+  "palette_id": "carl-book1-v0",
+  "frame_size": [
+    48,
+    56
+  ],
+  "pivot": [
+    25,
+    55
+  ],
+  "animation_tags": [
+    "idle",
+    "run",
+    "jump_start",
+    "jump_rise",
+    "jump_fall",
+    "land"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored pixel animation candidate (fan-concept layer: Carl -> demolitionist)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ANIM-CARL-01 locomotion candidate derived from the owner-approved 52 px master assets/source/characters/carl/carl_h52.grid.json: idle frames are the master's four frames padded 6 px left and right without any pixel change; head, hair, torso, jacket, boxer seat, hearts and pin are the master's own pixels (translated only); limbs, boxer legs, Crocs and hands are re-pixelled per pose in pixel-grid-v1",
+    "generator": "Hand-placed pixel grids and pose block-in by an AI agent (Claude Opus); no image-model raster output, no resampling, no rotation of master pixels",
+    "generated_art": true,
+    "input_reference_ids": [
+      "CARL-CONCEPT-APPROVED-V1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "locomotion": {
+    "status": "candidate, draft, awaiting owner art review; not wired into any Bevy binary",
+    "master": "assets/manifests/carl_book1_h52.json",
+    "master_frame_size": [
+      36,
+      56
+    ],
+    "master_pivot": [
+      19,
+      55
+    ],
+    "padding_from_master": [
+      6,
+      6
+    ],
+    "grounded_tags": [
+      "idle",
+      "run",
+      "jump_start",
+      "land"
+    ],
+    "airborne_tags": [
+      "jump_rise",
+      "jump_fall"
+    ],
+    "playback": {
+      "idle": "loop",
+      "run": "loop",
+      "jump_start": "once",
+      "jump_rise": "hold",
+      "jump_fall": "hold",
+      "land": "once"
+    }
+  }
+}

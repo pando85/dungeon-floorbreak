@@ -41,10 +41,15 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 
 ## Model routing for art work
 
-- **Art design and authoring** (pixel-art sources for characters, environments, props, enemies and vehicles; palettes; preview compositions) **and art review** (art-director or visual-quality reviews of those assets) must use the highest-capability model tier available — currently **Claude Opus**. Owner directive, 2026-11-16.
-- Tooling around art (export scripts, validators, manifests, CI), documentation and Bevy/gameplay implementation use the default tier (currently Claude Sonnet) unless the PR records a reason.
-- Split separable tooling out of an art work order so the art core stays with the art-tier model.
-- Record which model authored and which model reviewed the art in the PR's `Rights/Provenance` section.
+Every art work order (characters, animation, environments, props, enemies, vehicles) follows this pipeline, whatever the wording of its brief. Owner directive, 2026-11-17, refining the 2026-11-16 rule.
+
+1. **Design: Claude Opus** (the highest-capability tier available). It produces key poses or the design itself, silhouettes, palette, timing, and a written design spec with acceptance targets.
+2. **Execution: Claude Sonnet** (the default tier). It does the work that follows the Opus design: pixel production that the spec spells out, grid/`.ase` sources, manifests, export, validators, tests, previews, evidence, CI and docs. Design problems found here go back to Opus. Sonnet does not re-decide them.
+3. **Review: a separate Claude Opus agent.** This is an independent art-director review against the design spec and the art acceptance criteria. An authoring agent's self-review does not count. Defects loop back to step 2 (or to step 1 for design defects) until the review passes.
+4. **Owner review at the end only.** The owner sees the finished result as images (contact sheets, enlarged frames, GIFs, in-scene compositions at gameplay scale) plus schemas/diagrams (frame layout, pivots, timing and state flow). Agents do not ask the owner for interim approvals.
+
+- Bevy/gameplay integration of art stays on the default tier unless the PR records a reason.
+- Record which model designed, executed and reviewed the art in the PR's `Rights/Provenance` section.
 
 ## Agent roles (logical; one model may fulfill several)
 
