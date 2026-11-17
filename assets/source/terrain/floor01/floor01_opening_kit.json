@@ -4,7 +4,7 @@
   "extends": "assets/source/terrain/floor01/floor01_catacomb_kit.json",
   "status": "proposed - ENV-02 design phase 1 keys (Claude Opus); Sonnet execution and an independent Opus review pending; not owner-approved",
   "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract (env_kit.py resolve_extends). Adds atlases and pieces only; no new tiles, no new palette colours.",
-  "palette_use": {"floor01_opening_props": 33, "floor01_opening_decal": 14, "floor01_guild": 32},
+  "palette_use": {"floor01_opening_props": 36, "floor01_opening_decal": 16, "floor01_guild": 32},
   "atlases": {
     "floor01_opening_props": {
       "grid": "assets/source/props/floor01/opening_props.grid.json",
@@ -93,9 +93,22 @@
       "state_of": {"group": "raking_shore_load", "state": "seated"}
     },
     {
-      "id": "loose_block_slipped",
+      "id": "loose_block_settling",
       "atlas": "floor01_opening_props",
       "rect": [200, 144, 64, 56],
+      "role": "prop",
+      "layer": "prop",
+      "collidable": false,
+      "anchor": [32, 48],
+      "anchor_name": "bottom centre of the block (rests on the shore head cap)",
+      "grid_snap": 8,
+      "grammar": ["A", "B"],
+      "state_of": {"group": "raking_shore_load", "state": "settling"}
+    },
+    {
+      "id": "loose_block_slipped",
+      "atlas": "floor01_opening_props",
+      "rect": [264, 144, 64, 56],
       "role": "prop",
       "layer": "prop",
       "collidable": false,
@@ -108,7 +121,7 @@
     {
       "id": "loose_block_falling",
       "atlas": "floor01_opening_props",
-      "rect": [264, 144, 72, 64],
+      "rect": [328, 144, 72, 64],
       "role": "prop",
       "layer": "prop",
       "collidable": false,
@@ -121,7 +134,7 @@
     {
       "id": "loose_block_landed",
       "atlas": "floor01_opening_props",
-      "rect": [336, 144, 96, 32],
+      "rect": [400, 144, 96, 32],
       "role": "prop",
       "layer": "prop",
       "collidable": false,
@@ -322,7 +335,7 @@
       "note": "same rect and placement; gameplay swaps the piece per hit"
     },
     "raking_shore_load": {
-      "states": ["seated", "slipped", "falling", "landed"],
+      "states": ["seated", "settling", "slipped", "falling", "landed"],
       "note": "seated/slipped share a rect; falling is the debris sprite moved by gameplay; landed is placed on the walking line"
     },
     "timber_set": {"states": ["intact", "smashed"]},

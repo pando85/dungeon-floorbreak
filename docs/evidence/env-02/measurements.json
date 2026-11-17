@@ -48,11 +48,11 @@
     }
   },
   "atlas_colours": {
-    "floor01_opening_props": 33,
-    "floor01_opening_decal": 14,
+    "floor01_opening_props": 36,
+    "floor01_opening_decal": 16,
     "floor01_guild": 32
   },
-  "lit_colours_s5_640x360": 4825,
+  "lit_colours_s5_640x360": 4832,
   "files": [
     "env02_key_sheet_1x.png",
     "env02_key_sheet_3x.png",

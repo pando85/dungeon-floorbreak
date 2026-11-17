@@ -123,8 +123,9 @@ def key_sheet(kit: ek.Kit, factor: int) -> Image.Image:
     groups = [
         ("CP-03 raking shore: intact / damaged_1 / damaged_2 / broken (3 hits)",
          ["shore_post_intact", "shore_post_damaged_1", "shore_post_damaged_2", "shore_post_broken"]),
-        ("loose block: seated / slipped / falling (debris) / landed; wall cavity; hazard grit",
-         ["loose_block_seated", "loose_block_slipped", "loose_block_falling", "loose_block_landed",
+        ("loose block: seated / settling / slipped / falling (debris) / landed; wall cavity; hazard grit",
+         ["loose_block_seated", "loose_block_settling", "loose_block_slipped", "loose_block_falling",
+          "loose_block_landed",
           "wall_cavity", "hazard_grit"]),
         ("pursuer-smashed timber (presentation + authored event): set and barricade, intact / smashed",
          ["timber_set_intact", "timber_set_smashed", "timber_barricade_intact", "timber_barricade_smashed"]),
@@ -307,7 +308,8 @@ def render(out: Path) -> dict:
     bx, by = block["rect"][0], block["rect"][1]
     states = [
         ("1 intact", layout, cast5),
-        ("2 hit 1: damaged_1", swap(layout, "shore_post_intact", "shore_post_damaged_1"), cast5),
+        ("2 hit 1: damaged_1 + block settling", swap(swap(layout, "shore_post_intact", "shore_post_damaged_1"),
+                                                   "loose_block_seated", "loose_block_settling"), cast5),
         ("3 hit 2: damaged_2 + block slipped", swap(swap(layout, "shore_post_intact", "shore_post_damaged_2"),
                                                    "loose_block_seated", "loose_block_slipped"), cast5),
         ("4 hit 3: broken, block falling", swap(swap(layout, "shore_post_intact", "shore_post_broken"),

@@ -303,103 +303,127 @@ def shore(state: str) -> "ld.Canvas":
 
 
 # --- loose masonry block --------------------------------------------------------------
+# A heavy 3D chunk of masonry torn half out of the wall: an irregular front face of three
+# dressed stones (block-local px), extruded up-right so a cold top face and a torch-lit
+# right face show, with a dark underside. The S5 wall torch sits right of and below it.
 BLOCK_W, BLOCK_H = 64, 56
-BLOCK_KEY = ld.norm(0.62, 0.42, 0.66)   # the S5 wall torch sits right of and below the block
+FRONT = [(2, 13), (9, 11), (12, 13), (18, 9), (26, 9), (28, 11), (34, 8), (47, 9), (54, 11),
+         (56, 15), (56, 39), (52, 43), (36, 44), (31, 42), (24, 44), (11, 44), (6, 41), (4, 35),
+         (1, 33), (3, 27), (1, 20)]
+EXTRUDE = (6.0, -5.0)          # depth direction of the chunk (shows the top and right faces)
+PIVOT = (56.0, 12.0)           # still keyed into the wall at the upper right while it slips
+BLOCK_CRACK = [(44, 10), (41, 17), (43, 23), (39, 30), (41, 37), (38, 44)]
+BLOCK_HAIR = [(10, 13), (14, 19), (13, 23)]
+BLOCK_STATES = {               # state: (tilt degrees, drop px, crumbs)
+    "seated": (0.0, 0.0, 0), "settling": (-1.5, 1.0, 4), "slipped": (-4.0, 3.0, 10)}
 
 
-def block_shape(x: float, y: float) -> bool:
-    """Block silhouette (block-local px): a big dressed corbel stone with two torn brick
-    stubs on top and a lip course underneath."""
-    if 2 <= x < 62 and 8 <= y < 42:
-        return True
-    if 0 <= x < 64 and 42 <= y < 48:
-        return True
-    return (6 <= x < 22 and 3 <= y < 8) or (38 <= x < 51 and 4 <= y < 8)
+def in_poly(x: float, y: float, poly=FRONT) -> bool:
+    inside = False
+    n = len(poly)
+    for i in range(n):
+        x0, y0 = poly[i]
+        x1, y1 = poly[(i + 1) % n]
+        if (y0 > y) != (y1 > y) and x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+            inside = not inside
+    return inside
 
 
-def block_pixel(c, px: int, py: int, x: float, y: float, dy: int = 0) -> None:
-    ly = y - dy
-    if not block_shape(x, ly):
-        return
-    if ly < 8:                                   # torn brick stubs
-        joint = int(ly) == 3 + (1 if x > 30 else 0) or int(x) in (14, 44)
-        c.put(px, py, "mortar", 1) if joint else c.put(px, py, "brick", 4.4 + 0.05 * x)
-        return
-    if ly >= 42:                                 # lip course and its underside
-        if ly < 43.0:
-            c.put(px, py, "mortar", 1)
-        elif ly < 45.0:
-            c.put(px, py, "stone", 6.0 + 0.04 * x + (0.8 if int(x) % 16 == 15 else 0))
-        else:
-            c.put(px, py, "stone", 3.4 + 0.03 * x if ly < 46.5 else 2.2)
-        return
-    du, dv = int(x - 2), int(ly - 8)
-    n, _edge = ld.bevel_normal(du, dv, 60, 34, 2)
-    key = n[0] * BLOCK_KEY[0] + n[1] * BLOCK_KEY[1] + n[2] * BLOCK_KEY[2] - BLOCK_KEY[2]
-    v = 5.0 + 2.4 * (x / 64) + 4.5 * key + (rnd("bpit", px // 2, int(ly) // 2) - 0.5) * 0.7
-    if rnd("bpit2", px, int(ly)) < 0.04:
-        v -= 1.6
-    if int(ly) == 25 and 4 < x < 60 and int(x) % 7 != 0:   # a tooled band across the face
-        v -= 0.9
-    c.put(px, py, "stone", v)
+def near_line(x: float, y: float, line, width: float = 0.75) -> float | None:
+    """Signed horizontal offset to a polyline (None when farther than width)."""
+    for (x0, y0), (x1, y1) in zip(line, line[1:]):
+        if min(y0, y1) <= y <= max(y0, y1) and y1 != y0:
+            cx = x0 + (y - y0) * (x1 - x0) / (y1 - y0)
+            if abs(x - cx) <= width:
+                return x - cx
+    return None
 
 
-CRACKS = [  # the big split (lit lip on its right) and two hairlines
-    [(24, 8), (27, 14), (25, 19), (30, 25), (29, 31), (34, 37), (33, 42)],
-    [(49, 8), (51, 13), (50, 17)],
-    [(6, 30), (11, 34), (12, 41)],
-]
+def chunk_sample(x: float, y: float):
+    """(ramp, value) of the chunk at block-local (x, y), or None outside it."""
+    if in_poly(x, y):
+        joint_x = 29 + (y - 10) * 0.08
+        if abs(x - joint_x) < 0.6 or (x < joint_x and abs(y - 27) < 0.6):
+            return ("mortar", 1)
+        c = near_line(x, y, BLOCK_CRACK)
+        if c is not None:
+            return ("mortar", 0) if c > -0.25 else ("stone", 9.6)   # lit lip on the torch side
+        if near_line(x, y, BLOCK_HAIR, 0.5) is not None:
+            return ("mortar", 1)
+        if near_line(x, y, BLOCK_CRACK, 2.2) is not None and rnd("crumb", int(x), int(y)) < 0.3:
+            return ("mortar", 5)                           # crumbling mortar along the split
+        stone = 0 if x < joint_x and y < 27 else 1 if x < joint_x else 2
+        v = 4.5 + 2.4 * (x / 56) + (rnd("bst", stone) - 0.5) * 0.9
+        # bevels: torch-facing (right / lower) stone edges catch light, upper / left edges dim
+        if not in_poly(x + 1.5, y) or abs(x + 1.2 - joint_x) < 0.6:
+            v += 1.4
+        if not in_poly(x, y + 1.5) or (x < joint_x and abs(y + 1.2 - 27) < 0.6):
+            v += 1.0
+        if not in_poly(x - 1.2, y) or not in_poly(x, y - 1.2):
+            v -= 1.0
+        if rnd("bpit", int(x), int(y)) < 0.05:
+            v -= 1.5
+        elif rnd("bfleck", int(x), int(y)) < 0.04:
+            v += 0.9
+        return ("stone", v)
+    # extruded volume: the cold top face or the torch-lit right face
+    for k in range(1, 9):
+        t = k / 8
+        qx, qy = x - EXTRUDE[0] * t, y - EXTRUDE[1] * t
+        if in_poly(qx, qy):
+            if not in_poly(qx + 1.0, qy) and in_poly(qx, qy - 1.0):
+                return ("stone", 8.6 - 2.2 * t + (0.6 if rnd("rf", int(y) // 3) > 0.6 else 0))
+            if k == 1:
+                return ("stone", 6.6)                      # front lip of the top face
+            return ("stone", 3.6 - 1.2 * t)                # top face, turned away from the torch
+    # underside: a short shadowed soffit under the bed, seen from below
+    for k in range(1, 4):
+        if in_poly(x, y - k):
+            return ("stone_cold", 0.8) if k < 3 else ("mortar", 0)
+    return None
 
 
-def draw_cracks(c, dy: int = 0, cracks=CRACKS) -> None:
-    for li, line in enumerate(cracks):
-        for (x0, y0), (x1, y1) in zip(line, line[1:]):
-            steps = max(abs(x1 - x0), abs(y1 - y0))
-            for k in range(steps + 1):
-                x = round(x0 + (x1 - x0) * k / steps)
-                y = round(y0 + (y1 - y0) * k / steps) + dy
-                if c.get(x, y):
-                    c.put(x, y, "mortar", 0)
-                    if li == 0:
-                        if c.get(x - 1, y):
-                            c.put(x - 1, y, "mortar", 1)
-                        if c.get(x + 1, y):
-                            c.put(x + 1, y, "stone", 9)
+def chunk(c, tilt: float, drop: float, ox: float = 0.0, oy: float = 0.0) -> None:
+    """Rasterise the chunk rotated by ``tilt`` degrees about PIVOT and dropped ``drop`` px."""
+    a = math.radians(tilt)
+    ca, sa = math.cos(a), math.sin(a)
+    for py in range(c.h):
+        for px in range(c.w):
+            dx, dy = px + 0.5 - ox - PIVOT[0], py + 0.5 - oy - drop - PIVOT[1]
+            sx = dx * ca + dy * sa + PIVOT[0]
+            sy = -dx * sa + dy * ca + PIVOT[1]
+            sample = chunk_sample(sx, sy)
+            if sample:
+                c.put(px, py, *sample)
+
+
+def crumbs(c, n: int, seed: str, y0: int, spread: int = 0) -> None:
+    """Mortar crumbs spilling from the crack and the bed joint."""
+    for k in range(n):
+        x = 30 + int(rnd(seed, k) * 16) - spread // 2 + int(rnd(seed, "s", k) * spread)
+        y = y0 + int(rnd(seed, "y", k) * 7)
+        c.put(x, y, "mortar", 6 if k % 3 else 5)
+        if k % 2:
+            c.put(x + 1, y, "stone", 8)
 
 
 def loose_block(state: str) -> "ld.Canvas":
     c = canvas(BLOCK_W, BLOCK_H)
-    dy = {"seated": 0, "slipped": 2}[state]
-    for py in range(BLOCK_H):
-        for px in range(BLOCK_W):
-            block_pixel(c, px, py, px + 0.5, py + 0.5, dy)
-    draw_cracks(c, dy)
-    if state == "slipped":   # grit trickling from the torn top and the split
-        for k in range(8):
-            x = 8 + int(rnd("trk", k) * 48)
-            for j in range(1 + k % 3):
-                c.put(x, 50 + j * 2, "stone", 8)
+    tilt, drop, n = BLOCK_STATES[state]
+    chunk(c, tilt, drop)
+    if n:
+        crumbs(c, n, state, 47 + int(drop), spread=8 if state == "slipped" else 0)
     return c
 
 
 def falling_block() -> "ld.Canvas":
-    """The same block tipping forward as it drops (rotated 9 degrees), plus loose bits."""
+    """The chunk tipping as it drops (12 degrees), with crumbs trailing above it."""
     c = canvas(BLOCK_W + 8, BLOCK_H + 8)
-    src = loose_block("seated")
-    a = math.radians(9)
-    cx, cy = 32.0, 28.0
-    for py in range(c.h):
-        for px in range(c.w):
-            x, y = px + 0.5 - 4 - cx, py + 0.5 - 4 - cy
-            sx = x * math.cos(a) + y * math.sin(a) + cx
-            sy = -x * math.sin(a) + y * math.cos(a) + cy
-            p = src.get(int(sx), int(sy))
-            if p:
-                c.px[py][px] = p
-    for k in range(6):
-        x, y = 4 + int(rnd("fb", k) * 60), int(rnd("fby", k) * 6)
-        c.put(x, y, "brick", 6)
-        c.put(x + 1, y, "brick", 4)
+    chunk(c, -12.0, 2.0, ox=4.0, oy=4.0)
+    for k in range(7):
+        x, y = 8 + int(rnd("fb", k) * 56), int(rnd("fby", k) * 5)
+        c.put(x, y, "mortar", 6)
+        c.put(x + 1, y, "stone", 8 if k % 2 else 6)
     return c
 
 
@@ -459,36 +483,58 @@ def hazard_grit() -> "ld.Canvas":
 
 
 def wall_cavity() -> "ld.Canvas":
-    """Backwall decal: the socket the block is sliding out of. With the block seated, a dark
-    2-3 px gap frames it (the 'loose' tell); after the fall the whole hole shows."""
+    """Backwall decal: the socket the chunk is tearing out of, drawn with depth. A lit left
+    inner reveal of broken brick ends (it faces the torch), a shadowed top reveal, a dark
+    recessed back with faint bricks, a lit sill, ragged edges and cracks. With the chunk
+    seated only uneven slivers show (wide above, a reveal on the left, nothing on the
+    right); after the fall the whole socket reads as a hole into the wall."""
     c = canvas(80, 64)
-    ox, oy = 8, 8          # block (64 x 48) sits at decal (8, 8)
+    ox, oy = 8, 8          # block-local (0, 0) sits at decal (8, 8)
+
+    def hole(x: float, y: float) -> bool:      # block-local
+        grow_top = 2 + 3 * rnd("cvt", int(x) // 5)
+        grow_left = 1 + 2 * rnd("cvl", int(y) // 4)
+        if y > 44.5:
+            return False
+        return (in_poly(x, y) or in_poly(x - EXTRUDE[0] * 0.6, y - EXTRUDE[1] * 0.6)
+                or in_poly(x, y + grow_top) or in_poly(x + grow_left, y))
+
     for py in range(64):
         for px in range(80):
-            x, y = px + 0.5, py + 0.5
-            # the block has slid down and forward: a wide ragged gap above it, a narrow one on
-            # the left, a hairline on the lit right side, none below (it rests on its lip)
-            notch = (18 <= x < 34 and 0 <= y < 6) or (46 <= x < 60 and 1 <= y < 6)
-            top = 4 + (2 if rnd("cvt", px // 5) > 0.5 else 0)
-            left = 5 + (1 if rnd("cvl", py // 4) > 0.6 else 0)
-            inside = (left <= x < 74 and top <= y < 52) or notch
-            if not inside:
+            x, y = px + 0.5 - ox, py + 0.5 - oy
+            if not hole(x, y):
                 continue
-            if x >= 72:                    # lit broken lip on the torch side
-                c.put(px, py, "brick", 7.4)
-            elif y >= 50:
-                c.put(px, py, "brick", 2)
+            left_reveal = any(not hole(x - k, y) for k in (1, 2, 3, 4))
+            top_reveal = any(not hole(x, y - k) for k in (1, 2, 3))
+            if not hole(x, y + 1.0):
+                c.put(px, py, "brick", 6.2)                      # lit sill
+            elif left_reveal and not top_reveal:
+                broken = (int(y) % 8 == 0) or rnd("lrv", int(y) // 8, int(x)) < 0.15
+                if broken:
+                    c.put(px, py, "mortar", 2)
+                else:
+                    depth = sum(1 for k in (1, 2, 3) if hole(x - k, y))
+                    c.put(px, py, "brick", 7.0 - 0.9 * depth)
+            elif top_reveal:
+                c.put(px, py, "brick", 1.0 if rnd("trv", px, py) > 0.2 else 2.0)
             else:
-                c.put(px, py, "brick", 0 if rnd("cav", px // 3, py // 3) > 0.2 else 1)
-    cracks = [[(5, 30), (1, 36), (0, 44)], [(74, 8), (78, 3), (79, 0)], [(30, 59), (28, 63)],
-              [(58, 59), (61, 63)], [(4, 8), (0, 4)]]
+                # recessed back wall: faint cold bricks, darker toward the upper left
+                gy = int(y + 2)
+                row = gy // 6
+                joint = gy % 6 == 0 or (int(x) + 6 * (row % 2)) % 12 == 0
+                if joint:
+                    c.put(px, py, "mortar", 0)
+                else:
+                    c.put(px, py, "brick", 0.4 + 0.012 * (x + y))
+    cracks = [[(6, 30), (2, 35), (1, 43)], [(73, 10), (77, 5), (79, 0)], [(25, 52), (23, 58), (25, 63)],
+              [(55, 53), (59, 60)], [(10, 9), (5, 4), (4, 0)]]
     for line in cracks:
         for (x0, y0), (x1, y1) in zip(line, line[1:]):
             steps = max(abs(x1 - x0), abs(y1 - y0))
             for k in range(steps + 1):
                 x = round(x0 + (x1 - x0) * k / steps)
                 y = round(y0 + (y1 - y0) * k / steps)
-                if 0 <= x < 80 and 0 <= y < 64:
+                if 0 <= x < 80 and 0 <= y < 64 and not c.get(x, y):
                     c.put(x, y, "mortar", 0)
     return c
 
@@ -843,7 +889,7 @@ def build_atlases() -> dict:
                         anchor_name="shore foot (bottom of the timber on the deck); all four states "
                                     "share this rect and placement", grid_snap=8, grammar=["A", "B"],
                         breakable={"group": "raking_shore", "state": state})
-    for state in ("seated", "slipped"):
+    for state in ("seated", "settling", "slipped"):
         props.add_piece(f"loose_block_{state}", loose_block(state), anchor=[32, 48],
                         anchor_name="bottom centre of the block (rests on the shore head cap)",
                         grid_snap=8, grammar=["A", "B"],
@@ -966,7 +1012,7 @@ def build_contract(pieces: list[dict], grids: dict) -> dict:
         "state_groups": {
             "raking_shore": {"states": ["intact", "damaged_1", "damaged_2", "broken"],
                              "note": "same rect and placement; gameplay swaps the piece per hit"},
-            "raking_shore_load": {"states": ["seated", "slipped", "falling", "landed"],
+            "raking_shore_load": {"states": ["seated", "settling", "slipped", "falling", "landed"],
                                   "note": "seated/slipped share a rect; falling is the debris sprite "
                                           "moved by gameplay; landed is placed on the walking line"},
             "timber_set": {"states": ["intact", "smashed"]},

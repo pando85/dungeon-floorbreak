@@ -37,7 +37,7 @@ Rejected: the brass boiler cap (copper or brass machinery belongs in C and the w
 
 ### Contract: `extends`
 
-`assets/source/terrain/floor01/floor01_opening_kit.json` is an `env-kit-v2` **extension contract**. It has `"extends": "<ENV-01 contract>"` and adds three atlases and 19 pieces, with no tiles. `scripts/env_kit.py` (`resolve_extends`) merges it onto the base. It inherits the palette, layers, coordinates, walking-line rule, roles and lighting schema, and must not redeclare them. Atlas names and ids must be new. The base file is never modified, and layouts that name the base keep validating against the base alone. **The Rust loader (`src/env_kit.rs`) does not support `extends` yet.** That is an integrator task when the route is wired in: merge the same way, or flatten at load.
+`assets/source/terrain/floor01/floor01_opening_kit.json` is an `env-kit-v2` **extension contract**. It has `"extends": "<ENV-01 contract>"` and adds three atlases and 20 pieces, with no tiles. `scripts/env_kit.py` (`resolve_extends`) merges it onto the base. It inherits the palette, layers, coordinates, walking-line rule, roles and lighting schema, and must not redeclare them. Atlas names and ids must be new. The base file is never modified, and layouts that name the base keep validating against the base alone. **The Rust loader (`src/env_kit.rs`) does not support `extends` yet.** That is an integrator task when the route is wired in: merge the same way, or flatten at load.
 
 ## Pieces
 
@@ -46,10 +46,10 @@ All sizes are in px; anchor = piece-local px.
 | Piece id | Atlas | Size | Layer | Anchor / placement | States | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `shore_post_intact`, `_damaged_1`, `_damaged_2`, `_broken` | opening_props | 136×144 | prop | foot (16, 138); placed at (2952, 160) | 4, one rect | 11 px timber from foot (2968, 298) to head (3020, 168), about 68°. Lower 30 % is dry rot. d1: notch at the strike point with pale fibres. d2: deep notch, a split up the grain, the shaft bows 1.6 px and the head slips 2 px. broken: a jagged stub, and the upper shaft lies on the deck |
-| `loose_block_seated`, `_slipped` | opening_props | 64×56 | prop | bottom centre (32, 48); placed at (3008, 120) | 2, one rect | 60×34 dressed corbel stone, torn brick stubs on top, a lip course and a shadowed underside, one big split with a lit lip and two hairlines. slipped: content 2 px lower plus a grit trickle |
-| `loose_block_falling` | opening_props | 72×64 | prop | (36, 52) | debris sprite | the same block tipped 9°, with loose brick bits. Gameplay moves it |
+| `loose_block_seated`, `_settling`, `_slipped` | opening_props | 64×56 | prop | bottom centre (32, 48); placed at (3008, 120) | 3, one rect | **v2 chunk:** a heavy 3D mass of three dressed stones with an angular broken outline. The front face is lit toward the torch; extruded 6 px up and right, it shows a dim top face and a torch-lit right face, over a shadowed underside. One big split has a lit lip and crumbling mortar, plus a hairline. It is still keyed into the wall at the upper right. settling (hit 1): tilts 1.5° left-down, drops 1 px, first crumbs. slipped (hit 2): tilts 4° and drops 3 px, with a crumb shower: the "next hit drops it" tell |
+| `loose_block_falling` | opening_props | 72×64 | prop | (36, 52) | debris sprite | the same chunk tipped 12° left-down, with crumbs trailing above. Gameplay moves it |
 | `loose_block_landed` | opening_props | 96×32 | prop | bottom centre (48, 30) on the walking line | | two big chunks, bricks and a dust skirt. **Non-collidable** |
-| `wall_cavity` | opening_decal | 80×64 | backwall_decal | block xy − (8, 8) | | the socket: a wide ragged gap above the block, a narrow one on the left, a lit lip on the right, cracks. It frames the seated block (the "loose" tell) and shows whole after the fall |
+| `wall_cavity` | opening_decal | 80×64 | backwall_decal | block xy − (8, 8) | | the socket, drawn as depth: a lit left inner reveal of broken brick ends, a shadowed top reveal, a dark recessed back with faint bricks, a lit sill, a ragged outline and cracks. With the chunk seated, only uneven slivers show (above and on the left); after the fall it reads as a hole into the wall |
 | `hazard_grit` | opening_props | 96×16 | prop | (2992, 288) | | pale grit and chips on the deck under the block: an in-world "things fall here" tell |
 | `timber_set_intact`, `_smashed` | opening_props | 80×104 | prop | bottom centre on the back line; (1104 / 1424, 184) | 2 | mine-style set: two 8 px posts and a 10 px header about 120 px above the walking line, knee braces. smashed: stubs and two header pieces on the floor |
 | `timber_barricade_intact`, `_smashed` | opening_props | 96×176 | prop | bottom centre on the back line; (2304, 112) | 2 | two 12 px posts, nine nailed planks and a diagonal brace. smashed: a left stub, a leaning right post, planks on the floor, one plank hanging by a nail |
@@ -123,7 +123,7 @@ The full plan is in `env02_route_plan_unlit.png`.
 ### CP-03
 
 1. **Hits to break: 3.** Any melee hit whose box overlaps the shore's strike band (x around 2975, y 271 to 290: Carl's jab at +16 to 22 px and his kick at +15 to 21 px ahead of the pivot both reach) advances intact → damaged_1 → damaged_2 → broken. Damage is one per hit event, deduplicated per attack; held inputs never repeat it. Goblins do not damage it.
-2. **Telegraph:** on damaged_2 the block swaps to `_slipped` and a dust trickle starts (VFX). That is the "next hit drops it" tell.
+2. **Telegraph:** each hit moves the block too. damaged_1 swaps it to `_settling` (it tilts and the first crumbs fall), and damaged_2 swaps it to `_slipped` (it tilts further, drops 3 px and sheds a crumb shower). That is the "next hit drops it" tell. The causal chain reads at 1x: rotten shore foot → block slips → it falls into the region marked by the grit.
 3. **Fall:** 6 ticks after the break, the block (`loose_block_falling`) drops straight down from bottom y 168 to the walking line, 140 px. That takes about 0.52 s at the hero's 1050 px/s² gravity, and the fall can be tuned. **One impact event, on the landing tick:** every actor whose hurtbox overlaps `hazard_fall_region` takes it. Goblins are defeated, with the kill credited to the player who landed the breaking hit. Proposal: players inside take one hit and knockback (it is a real risk), but the designed strike position is outside the region.
 4. **Hazard footprint:** [3000, 168, 80, 140]. That is the block's 64 px plus 8 px each side. Carl at the strike position (pivot about 2956, right edge about 2968) is 32 px clear (tested).
 5. **After:** `loose_block_landed` sits on the walking line and is **non-collidable**. Navigation and collision are unchanged, so the exit stays reachable in any event order: shore first, goblins first, or the shore never touched. The direct melee kill is always the alternative.
@@ -133,30 +133,35 @@ The full plan is in `env02_route_plan_unlit.png`.
 
 When a player enters the `exit_guild` rect, the portal swaps closed → open (a 1-frame `ajar` in-between is a Sonnet task), then the level completes. `protected_exit_region` holds no breakable, hazard, blocker or spawn (tested), and its floor is ordinary reinforced deck.
 
-## Sonnet execution tasks (phase 2)
+## Sonnet execution tasks (phase 2, final)
 
-Design decisions above are frozen; send design problems back to Opus.
+Design decisions above are frozen, including the chunk redesign of the block (v2). Rects, anchors, the fall region and the hit count must not change. Send design problems back to Opus.
 
-1. **Polish the keys** without changing their rects or anchors:
-   - block: more volume (a 2 px top face catching light, a softer bevel), and the cavity gap must not read as a picture frame at 1x;
-   - landed rubble: chunk shapes that clearly come from the block (same split);
-   - barricade: plank width and tone variety, and dark gaps between the planks;
-   - shore damaged_1: a slightly larger notch so it reads at 1x;
-   - barricade: a full-height variant (96×256) that closes up to the cornice, so the full-height blocker is visible.
-2. **Add the missing frames** as new pieces or animated pieces (`animation` with a manifest tag), keeping the palette:
-   - `shore_dust_trickle` (3 frames, 8×24);
+1. **Full-height barricade variant (required).** Add `timber_barricade_full_intact` and `timber_barricade_full_smashed` at 96×256. Use the same bottom anchor (48, 256) on the floor back line and place them at (2304, 32). Planks or a header must close up to the cornice, so the full-height `barricade` blocker (y 32 to the walking line) is visible. The layouts swap to this variant; the 96×176 pair stays as a lower option. Keep the same 2-state group and one rect per group.
+2. **Soffit tiles for the chase-passage ceiling steps (required).** Add a small `collision` tileset for the two step columns of the lowered ceiling (columns 61 and 104 in both options), replacing the borrowed `wall_end_*` and `ceiling_corner_*` tiles:
+   - `soffit_end_l` / `soffit_end_r`: the hanging face of the lowered soffit, in two quoin phases (`_b`);
+   - `soffit_corner_l` / `soffit_corner_r`: the high cornice meeting the face, and the low cornice wrapping round its outer corner.
+
+   The tiles must be opaque and collidable with the `[0, 0, 16, 16]` collider, and keep the validator's panel and edge rules. Use dark soffit masonry, so the step reads as a heavy lintel and not a corridor end wall. Both ceiling options must validate.
+3. **Polish without design change:**
+   - `loose_block_landed`: two chunk halves that follow the v2 split (the right stone and the left pair), plus crumbs;
+   - barricade: plank width and tone variety, with dark gaps between the planks;
+   - `shore_post_damaged_1`: a slightly larger notch so it reads at 1x.
+4. **Missing frames,** as pieces or animated pieces (`animation` with a manifest tag), on the same palette:
+   - `shore_dust_trickle` (3 frames, 8×24, under the block from damaged_1 on);
    - `block_impact_dust` (4 frames, 112×40);
    - `timber_splinter_burst` (4 frames, 48×48);
    - `guild_portal_ajar` (1 frame, same rect as the portal).
-3. **Soffit edge tiles:** add a small tileset for the lowered-ceiling steps (`soffit_end_l/r`, `soffit_corner_l/r`, in two quoin phases), replacing the borrowed `wall_end_*` and `ceiling_corner_*` at columns 61 and 104. They must keep the validator's panel and edge rules.
-4. **Optional:** `wall_breach` (192×176, backwall_decal), only if CHASE-01 rejects the arch-window wedge.
-5. **Validators and tests:** keep `tests/test_art_env02_opening.py` green, and add:
+5. **Optional:** `wall_breach` (192×176, backwall_decal), only if CHASE-01 rejects the arch-window wedge (see note 8).
+6. **Validators and tests:** keep `tests/test_art_env02_opening.py` green, and add:
    - R1: each state group shares one rect;
    - R2: no new palette colours;
-   - R3: the fall region is fully below the block and fully above the walking line;
+   - R3: the fall region lies fully below the block and above the walking line;
    - R4: the strike band is reachable by the jab and the kick;
-   - R5: no text-like glyphs. This is a review item.
-6. **Regenerate the evidence:** run `python3 scripts/make_env02_evidence.py --out docs/evidence/env-02`, update `SHA256SUMS`, then add GIFs of the CP-03 sequence and the portal opening.
+   - R5: the full-height barricade art covers the blocker rect;
+   - R6: soffit tiles appear only at the step columns.
+7. **Evidence:** regenerate `docs/evidence/env-02` (`make_env02_evidence.py`, `SHA256SUMS`), and add GIFs of the CP-03 sequence and the portal opening.
+8. **DOZ-01 interface note (Sonnet does not draw the Dozer here).** The S2 entry and the S5 wedge go through 192×218 arch windows, but the pursuer is 259 px long. The turn-in and the wedge therefore need an **end-on (rear three-quarter) or wedged pose at most 192 px wide and 155 px tall**, drawn in DOZ-01, with the wheel-spin loop visible from behind. ENV-02 only reserves the `pursuer_spawn` and `pursuer_wedge` rects. If DOZ-01 cannot supply that pose, ENV-02 falls back to `wall_breach` (task 5) at the S5 wedge.
 
 ## Acceptance targets (for the independent Opus review)
 
@@ -165,19 +170,18 @@ Design decisions above are frozen; send design problems back to Opus.
    - Carl, Donut and goblins stay distinct from the set (measured in `measurements.json`);
    - the alcove reads as a place to hide;
    - the portal reads as the safe, warm goal.
-2. **State legibility:** each of the 4 shore states is distinguishable at 1x in `env02_cp03_state_sequence_lit_2x.png`.
+2. **State legibility:** each of the 4 shore states and the matching block state (seated, settling, slipped, falling) is distinguishable at 1x in `env02_cp03_state_sequence_lit_2x.png`.
 3. **Grammar and locks:** a dry, clean brick catacomb; copper only in S3; no factory, sewer or workshop look; no text or logos; antihero tone (scrappy and improvised, not heroic or ornate).
 4. **Data:** both layouts validate; the ids are IP-neutral; state groups share rects; the strike is outside the hazard; the protected exit is clear (all tested).
 5. **Palette:** no new colours; each atlas has at most 63.
 
 ## Known weak spots
 
-- **Barricade height:** the art reaches y 112 but the blocker is full height (y 32), so an 80 px band above the planks blocks without showing it. Sonnet should extend the barricade with planks or a header to the cornice (a 96×256 variant), keeping the bottom anchor.
-
-- **Block (CP-03 load):** it reads as a cracked slab in a socket. At 1x it is flatter than ENV-01's arch stones, and the even gap can read as a frame.
-- **Ceiling transitions in S3:** the borrowed end-wall quoins at the two step columns read as wall ends, not as a soffit (Sonnet task 3).
-- **Goblin luminance** against the brick in S5 is low (mean ΔL* about −3 to +3). The silhouette edge contrast is fine (17 to 24). The fix belongs to the scene lighting or GOB-01, not to this kit.
-- The **pursuer entry and wedge through arch windows** are a depth trick that only CHASE-01 can prove in Bevy. `wall_breach` is the fallback.
+- **Barricade height:** the art reaches y 112 but the blocker is full height (y 32), so an 80 px band above the planks blocks without showing it (Sonnet task 1).
+- **Block (CP-03 load), v2:** redesigned as a 3D chunk with a socket drawn as depth. Its top face is deliberately dim (it faces away from the torch), so the volume relies on the lit right face; the independent review should check it at 1x. `loose_block_landed` still uses the v1 rubble shapes (Sonnet task 3).
+- **Ceiling transitions in S3:** the borrowed end-wall quoins at the two step columns read as wall ends, not as a soffit (Sonnet task 2).
+- **Goblin luminance** against the brick in S5 is low (mean ΔL* about −3 to +3). The silhouette edge contrast is fine (17 to 24). Left alone on purpose: it is judged in Bevy with the real A1 lighting.
+- The **pursuer entry and wedge through arch windows** are a depth trick that only CHASE-01 can prove in Bevy. Sonnet task 8 records the end-on pose DOZ-01 needs; `wall_breach` is the fallback.
 - No Bevy capture; all evidence is the Pillow A1 model.
 
 ## Rights and provenance
