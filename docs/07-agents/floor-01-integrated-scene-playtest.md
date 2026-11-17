@@ -106,6 +106,18 @@ Do **not** test or implement mounted magic in a **pre-Guild** fixture, where Don
 
 **Selection rule:** favor the *simplest* variant demonstrably increasing meaningful choice for both 1P and 2P. Reject a version that forces a second human to spectate, undermines unmounted play, hides hazards, or needs complicated input combos. No numeric pass thresholds before real measurements.
 
+## Stage D0 — combat in the first playable integrated opening
+
+The owner requested that [combat-feel and hybrid-physics tests](floor-01-integrated-combat-probes.md) be **embedded in the opening Floor 1 scene**. Reuse the planned **post-chase on-foot goblin encounter** rather than creating a separate permanent combat sandbox or requiring the Dozer to become a killable boss.
+
+The same scene must support reproducible fixtures for:
+- **CP-01 basic hit and ordinary goblin takedown** (first mandatory combat quality gate);
+- **CP-02 knockback into another goblin** (initially stagger/position without automatic collision damage);
+- **CP-03 one authored environment-driven defeat** (only when a story-available physical interaction and protected geometry are ready);
+- **CP-04 defeated-body contact** as an optional A/B experiment, **not** required for scene acceptance.
+
+Capture fixed-step traces, actual Bevy visual evidence, controller-play notes, restart and exit reachability. Record variants that do not exist as **N/A—not implemented**. Repeat CP fixtures with real 1P switching and 2P ownership when WORK-005/006 foundations exist; do not fake co-op validation with the current passive Donut follower. Normal story play should not surface debug fixture controls or a long forced training sequence.
+
 ## Stage D — first genuinely cooperative action loop
 
 Only after Stage A/B foundations are understood:
