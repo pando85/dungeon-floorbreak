@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the ENV-02 design evidence (key sheet, route plan, ceiling options, lit frames).
+"""Render the ENV-02 evidence (key sheet, route plan, ceiling options, lit frames).
 
 Inputs are the exported atlases (``bash scripts/export_assets.sh``) and the committed
 ENV-02 contract and route layouts. Everything is a deterministic **art preview** made
@@ -127,21 +127,42 @@ def key_sheet(kit: ek.Kit, factor: int) -> Image.Image:
          ["loose_block_seated", "loose_block_settling", "loose_block_slipped", "loose_block_falling",
           "loose_block_landed",
           "wall_cavity", "hazard_grit"]),
-        ("pursuer-smashed timber (presentation + authored event): set and barricade, intact / smashed",
+        ("pursuer-smashed timber (presentation + authored event): timber set, 96x176 low barricade",
          ["timber_set_intact", "timber_set_smashed", "timber_barricade_intact", "timber_barricade_smashed"]),
+        ("full-height barricade 96x256 (closes up to the cornice, covers the blocker): intact / smashed",
+         ["timber_barricade_full_intact", "timber_barricade_full_smashed"]),
         ("dodge pocket and maintenance hint: alcove niche (backwall decal), iron hatch",
          ["alcove_niche", "maint_hatch"]),
-        ("guild exit: portal closed / open, hanging sign (lantern pictogram, no text)",
-         ["guild_portal_closed", "guild_portal_open", "guild_sign"]),
+        ("guild exit: portal closed / ajar / open, hanging sign (lantern pictogram, no text)",
+         ["guild_portal_closed", "guild_portal_ajar", "guild_portal_open", "guild_sign"]),
+        ("presentation frames (frame 0 of each loop; the 3x sheet scales every frame equally)",
+         ["shore_dust_trickle", "block_impact_dust", "timber_splinter_burst"]),
     ]
+    anim_frames = {"shore_dust_trickle": 3, "block_impact_dust": 4, "timber_splinter_burst": 4}
+    tile_ids = ["soffit_end_l", "soffit_end_l_b", "soffit_end_r", "soffit_end_r_b", "soffit_corner_l",
+                "soffit_corner_r", "soffit_joint_l", "soffit_joint_r"]
     pad, gap, label_h = 8, 10, 14
     under = (52, 46, 58, 255)
     rows = []
     for title, ids in groups:
-        imgs = [(pid, ek.scale(kit.crop(kit.pieces[pid]["atlas"], kit.pieces[pid]["rect"]), factor))
-                for pid in ids]
+        imgs = []
+        for pid in ids:
+            piece = kit.pieces[pid]
+            if pid in anim_frames:     # all frames of the loop, side by side
+                for i, fr in enumerate(piece["animation"]["frames"]):
+                    rect = [fr["frame"][k] for k in ("x", "y", "w", "h")]
+                    imgs.append((f"{pid} f{i}", ek.scale(kit.crop(piece["atlas"], rect), factor)))
+            else:
+                imgs.append((pid, ek.scale(kit.crop(piece["atlas"], piece["rect"]), factor)))
         rows.append((title, imgs))
-    width = max(sum(i.width + gap for _p, i in imgs) + pad * 2 for _t, imgs in rows)
+    tiles = [(tid, ek.scale(kit.crop(kit.tiles[tid]["atlas"], kit.tiles[tid]["rect"]), factor * 2))
+             for tid in tile_ids]
+    rows.append(("soffit tiles (collision tileset, 2x the sheet scale): l = left step (col 61), r = "
+                 "right step (col 104), _b = 2nd quoin phase", tiles))
+    def slot(pid: str, img: Image.Image) -> int:
+        return max(img.width, 6 * len(pid) + 4) + gap
+
+    width = max(sum(slot(p, i) for p, i in imgs) + pad * 2 for _t, imgs in rows)
     height = sum(label_h * 2 + max(i.height for _p, i in imgs) + pad * 2 for _t, imgs in rows)
     sheet = Image.new("RGBA", (max(width, 760), height), PAGE + (255,))
     draw = ImageDraw.Draw(sheet)
@@ -154,7 +175,7 @@ def key_sheet(kit: ek.Kit, factor: int) -> Image.Image:
             text(draw, (x, y), pid, fill=(190, 180, 170))
             sheet.paste(Image.new("RGBA", img.size, under), (x, y + label_h))
             sheet.alpha_composite(img, (x, y + label_h))
-            x += img.width + gap
+            x += slot(pid, img)
         y += label_h + max(i.height for _p, i in imgs) + pad * 2
     return sheet
 
@@ -255,6 +276,22 @@ def save(img: Image.Image, path: Path, written: list[Path]) -> None:
     written.append(path)
 
 
+def save_gif(frames: list[tuple[Image.Image, int]], path: Path, written: list[Path]) -> None:
+    """Deterministic GIF: one shared 255-colour palette from the first frame, no dithering."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rgb = [f.convert("RGB") for f, _ms in frames]
+    big = Image.new("RGB", (rgb[0].width, sum(f.height for f in rgb[:6])))
+    y = 0
+    for f in rgb[:6]:
+        big.paste(f, (0, y))
+        y += f.height
+    base = big.quantize(colors=255, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    pal = [f.quantize(palette=base, dither=Image.Dither.NONE) for f in rgb]
+    pal[0].save(path, format="GIF", save_all=True, append_images=pal[1:], duration=[ms for _f, ms in frames],
+                loop=0, optimize=False, disposal=1)
+    written.append(path)
+
+
 def render(out: Path) -> dict:
     layout = ek.load_layout(LAYOUT_R)
     layout_t = ek.load_layout(LAYOUT_T)
@@ -268,62 +305,128 @@ def render(out: Path) -> dict:
     save(route_plan(kit, layout), out / "env02_route_plan_unlit.png", written)
     save(ceiling_options(kit, {"R": layout, "T": layout_t}), out / "env02_ceiling_options_unlit_2x.png",
          written)
+    walk = layout["base_walk_line_y"]
+
+    def both_scales(name: str, lay: dict, view: list[int], act, box) -> Image.Image:
+        lit1 = el.render_lit(kit, lay, view, 1, act, boxes=box)
+        save(lit1, out / f"env02_lit_{name}_640x360.png", written)
+        save(el.render_lit(kit, lay, view, 3, act, boxes=box), out / f"env02_lit_{name}_1920x1080.png", written)
+        return lit1
+
+    # --- S1 intro: Carl at the spawn, Donut behind him, a goblin at scale (reference) near the door
+    cast1 = [(CARL, 104, False), (DONUT, 62, False), (GOB_A, 330, True)]
+    act1, box1 = actors(kit, layout, cast1)
+    both_scales("s1_intro", layout, layout["views"]["s1_intro_640x360"], act1, box1)
+    # --- S2 arch bay: the pursuer's entry window; Carl and Donut crossing, a goblin at scale
+    cast2 = [(CARL, 700, False), (DONUT, 656, False), (GOB_B, 860, True)]
+    act2, box2 = actors(kit, layout, cast2)
+    both_scales("s2_arch", layout, layout["views"]["s2_arch_640x360"], act2, box2)
+    # --- S3 chase passage, both ceiling options: Carl and Donut fleeing right, a goblin rider behind
+    s3 = layout["views"]["s3_chase_640x360"]
+    for opt, lay in (("R", layout), ("T", layout_t)):
+        act3, box3 = actors(kit, lay, [(CARL, 1328, False), (DONUT, 1290, False), (GOB_A, 1180, False)])
+        both_scales(f"s3_chase_option_{opt}", lay, s3, act3, box3)
 
     shore = marker(layout, "breakable_shore")
     strike_x = shore["x"]
+    # --- S4 widened: Carl and Donut pressed into the alcove, waiting for the charge; the full-height
+    # barricade closes the passage on the right; a goblin at scale in front of it
+    s4 = layout["views"]["s4_widened_640x360"]
+    pocket = marker(layout, "safe_pocket_alcove")
+    act4, box4 = actors(kit, layout, [(CARL, pocket["x"] - 18, False), (DONUT, pocket["x"] + 22, True),
+                                      (GOB_B, 2240, True)])
+    both_scales("s4_widened", layout, s4, act4, box4)
     # --- S5 skirmish: Carl at the strike position, Donut behind, three goblins (two in the fall region)
     s5 = layout["views"]["s5_skirmish_640x360"]
     cast5 = [(CARL, strike_x - 19, False), (DONUT, strike_x - 64, False), (GOB_A, 3024, True),
              (GOB_B, 3060, True), (GOB_A, 3150, True)]
     act5, box5 = actors(kit, layout, cast5)
-    lit5 = el.render_lit(kit, layout, s5, 1, act5, boxes=box5)
-    save(lit5, out / "env02_lit_s5_skirmish_640x360.png", written)
-    save(el.render_lit(kit, layout, s5, 3, act5, boxes=box5), out / "env02_lit_s5_skirmish_1920x1080.png",
-         written)
-    # --- S4 widened: Carl and Donut pressed into the alcove, waiting for the charge
-    s4 = layout["views"]["s4_widened_640x360"]
-    pocket = marker(layout, "safe_pocket_alcove")
-    act4, box4 = actors(kit, layout, [(CARL, pocket["x"] - 18, False), (DONUT, pocket["x"] + 22, True)])
-    save(el.render_lit(kit, layout, s4, 1, act4, boxes=box4), out / "env02_lit_s4_widened_640x360.png", written)
-    save(el.render_lit(kit, layout, s4, 3, act4, boxes=box4), out / "env02_lit_s4_widened_1920x1080.png", written)
-    # --- S3 chase passage (option R) and option T, Carl and Donut fleeing right
-    s3 = layout["views"]["s3_chase_640x360"]
-    for opt, lay in (("R", layout), ("T", layout_t)):
-        act3, box3 = actors(kit, lay, [(CARL, 1328, False), (DONUT, 1290, False)])
-        save(el.render_lit(kit, lay, s3, 1, act3, boxes=box3), out / f"env02_lit_s3_chase_option_{opt}_640x360.png",
-             written)
-    # --- S6 guild: portal open, Carl walking in, Donut following
+    lit5 = both_scales("s5_skirmish", layout, s5, act5, box5)
+    # --- S6 guild: closed (no actors), open (Carl walking in, Donut following)
     s6 = layout["views"]["s6_guild_640x360"]
     open6 = swap(layout, "guild_portal_closed", "guild_portal_open")
     exit_m = marker(layout, "exit_guild")
     act6, box6 = actors(kit, open6, [(CARL, exit_m["x"] - 30, False), (DONUT, exit_m["x"] - 90, False)])
     save(el.render_lit(kit, layout, s6, 1), out / "env02_lit_s6_guild_closed_640x360.png", written)
+    save(el.render_lit(kit, layout, s6, 3), out / "env02_lit_s6_guild_closed_1920x1080.png", written)
     save(el.render_lit(kit, open6, s6, 1, act6, boxes=box6), out / "env02_lit_s6_guild_open_640x360.png", written)
     save(el.render_lit(kit, open6, s6, 3, act6, boxes=box6), out / "env02_lit_s6_guild_open_1920x1080.png", written)
 
-    # --- CP-03 state sequence in scene (lit, nearest 2x crops)
+    # --- Guild door states closed / ajar / open (lit, 2x) and the opening as a GIF
+    dview = [3216, 130, 320, 230]
+    states6 = [("closed", "guild_portal_closed", 110, 90), ("ajar", "guild_portal_ajar", 78, 130),
+               ("open", "guild_portal_open", 36, 90)]
+    panels, gif6 = [], []
+    for name, pid, carl_dx, donut_dx in states6:
+        lay = swap(layout, "guild_portal_closed", pid) if pid != "guild_portal_closed" else layout
+        act, box = actors(kit, lay, [(CARL, exit_m["x"] - carl_dx, False), (DONUT, exit_m["x"] - donut_dx - 40, False)])
+        img = el.render_lit(kit, lay, dview, 2, act, boxes=box)
+        panels.append(label(img, f"guild door: {name}"))
+        gif6.append((panels[-1], {"closed": 900, "ajar": 500, "open": 1400}[name]))
+    strip = Image.new("RGB", (sum(p.width for p in panels) + 8 * 2, panels[0].height), PAGE)
+    x = 0
+    for p in panels:
+        strip.paste(p, (x, 0))
+        x += p.width + 8
+    save(strip, out / "env02_guild_door_states_lit_2x.png", written)
+    save_gif(gif6, out / "env02_guild_door_opening_lit_2x.gif", written)
+
+    # --- Soffit steps of the lowered ceiling, option R and T, left and right step (lit, 3x)
+    soff = []
+    for opt, lay in (("R", layout), ("T", layout_t)):
+        for side, vx in (("left step (column 61)", 912), ("right step (column 104)", 1632)):
+            soff.append(label(el.render_lit(kit, lay, [vx, 0, 128, 220], 3), f"option {opt}, {side}"))
+    strip = Image.new("RGB", (sum(p.width for p in soff) + 8 * 3, soff[0].height), PAGE)
+    x = 0
+    for p in soff:
+        strip.paste(p, (x, 0))
+        x += p.width + 8
+    save(strip, out / "env02_soffit_steps_lit_3x.png", written)
+
+    # --- CP-03 state sequence in scene (lit, nearest 2x crops) and the same as a GIF
     crop_box = (2896, 100, 3216, 330)
     view = [crop_box[0], crop_box[1], crop_box[2] - crop_box[0], crop_box[3] - crop_box[1]]
     block = marker(layout, "falling_block")
     bx, by = block["rect"][0], block["rect"][1]
-    states = [
-        ("1 intact", layout, cast5),
-        ("2 hit 1: damaged_1 + block settling", swap(swap(layout, "shore_post_intact", "shore_post_damaged_1"),
-                                                   "loose_block_seated", "loose_block_settling"), cast5),
-        ("3 hit 2: damaged_2 + block slipped", swap(swap(layout, "shore_post_intact", "shore_post_damaged_2"),
-                                                   "loose_block_seated", "loose_block_slipped"), cast5),
-        ("4 hit 3: broken, block falling", swap(swap(layout, "shore_post_intact", "shore_post_broken"),
-                                                "loose_block_seated", "loose_block_falling", -4, 70), cast5),
-        ("5 landed: rubble in the fall region", add(swap(swap(layout, "shore_post_intact", "shore_post_broken"),
-                                                         "loose_block_seated", None),
-                                                    "prop", "loose_block_landed", bx - 16, 280),
-         [c for c in cast5 if c[1] < 3000 or c[1] > 3100]),
-    ]
-    tiles = []
-    for name, lay, cast in states:
+    hazard = marker(layout, "hazard_fall_region")["rect"]
+    centre_x = hazard[0] + hazard[2] // 2
+    strike = (strike_x, walk - 28)
+    trickle = (bx + 41 - 4, by + 46)
+    burst = (strike[0] - 24, strike[1] - 24)
+    shore_states = [("shore_post_intact", "loose_block_seated"),
+                    ("shore_post_damaged_1", "loose_block_settling"),
+                    ("shore_post_damaged_2", "loose_block_slipped")]
+
+    def state_layout(shore_piece: str, block_piece: str | None, extra=()) -> dict:
+        lay = swap(layout, "shore_post_intact", shore_piece) if shore_piece != "shore_post_intact" else layout
+        if block_piece is None:
+            lay = swap(lay, "loose_block_seated", None)
+        elif block_piece != "loose_block_seated":
+            lay = swap(lay, "loose_block_seated", block_piece)
+        for layer, piece, x, y in extra:
+            lay = add(lay, layer, piece, x, y)
+        return lay
+
+    def frame(lay: dict, cast, time_ms: int = 0) -> Image.Image:
         act, box = actors(kit, lay, cast)
-        img = el.render_lit(kit, lay, view, 2, act, boxes=box)
-        tiles.append(label(img, name))
+        return el.render_lit(kit, lay, view, 2, act, time_ms=time_ms, boxes=box)
+
+    tiles = []
+    for i, (name, spiece, bpiece, dust) in enumerate([
+            ("1 intact", "shore_post_intact", "loose_block_seated", False),
+            ("2 hit 1: damaged_1, block settling, trickle", "shore_post_damaged_1", "loose_block_settling", True),
+            ("3 hit 2: damaged_2, block slipped, trickle", "shore_post_damaged_2", "loose_block_slipped", True)]):
+        extra = [("prop", "shore_dust_trickle", *trickle)] if dust else []
+        tiles.append(label(frame(state_layout(spiece, bpiece, extra), cast5, 110), name))
+    falling = state_layout("shore_post_broken", None, [("prop", "loose_block_falling", centre_x - 36, 120 + 70)])
+    tiles.append(label(frame(falling, cast5), "4 hit 3: broken, block falling"))
+    landed = state_layout("shore_post_broken", None, [("prop", "loose_block_landed", centre_x - 48, walk - 30),
+                                                      ("prop", "block_impact_dust", centre_x - 56, walk - 36)])
+    cast_landed = [c for c in cast5 if c[1] < 3000 or c[1] > 3100]
+    tiles.append(label(frame(landed, cast_landed, 80), "5 landed: rubble and impact dust"))
+    burst_lay = state_layout("shore_post_damaged_1", "loose_block_settling",
+                             [("prop", "timber_splinter_burst", *burst)])
+    tiles.append(label(frame(burst_lay, cast5, 60), "(hit flash: splinter burst frame 2)"))
     strip = Image.new("RGB", (sum(t.width for t in tiles) + 8 * (len(tiles) - 1), tiles[0].height), PAGE)
     x = 0
     for t in tiles:
@@ -331,16 +434,45 @@ def render(out: Path) -> dict:
         x += t.width + 8
     save(strip, out / "env02_cp03_state_sequence_lit_2x.png", written)
 
+    gif: list[tuple[Image.Image, int]] = []
+    gif.append((label(frame(state_layout("shore_post_intact", "loose_block_seated"), cast5), "intact"), 700))
+    for spiece, bpiece, nm in (("shore_post_damaged_1", "loose_block_settling", "hit 1"),
+                               ("shore_post_damaged_2", "loose_block_slipped", "hit 2")):
+        for k in range(4):              # splinter burst at the hit, then the trickle loops
+            lay = state_layout(spiece, bpiece, [("prop", "timber_splinter_burst", *burst),
+                                                ("prop", "shore_dust_trickle", *trickle)])
+            gif.append((label(frame(lay, cast5, 60 * k + 1), nm), 60))
+        for k in range(6):
+            lay = state_layout(spiece, bpiece, [("prop", "shore_dust_trickle", *trickle)])
+            gif.append((label(frame(lay, cast5, 110 * k), nm), 110))
+    for k in range(4):                  # hit 3: the shore breaks, the block holds a moment
+        lay = state_layout("shore_post_broken", "loose_block_slipped",
+                           [("prop", "timber_splinter_burst", *burst)])
+        gif.append((label(frame(lay, cast5, 60 * k + 1), "hit 3: broken"), 60))
+    for t in (0.2, 0.4, 0.6, 0.8, 0.95):     # the drop: 140 px under constant gravity
+        y = 168 + 140 * t * t
+        lay = state_layout("shore_post_broken", None, [("prop", "loose_block_falling", centre_x - 36,
+                                                        int(y) - 52)])
+        gif.append((label(frame(lay, cast5), "falling"), 60))
+    for k in range(4):
+        lay = state_layout("shore_post_broken", None, [("prop", "loose_block_landed", centre_x - 48, walk - 30),
+                                                       ("prop", "block_impact_dust", centre_x - 56, walk - 36)])
+        gif.append((label(frame(lay, cast_landed, 80 * k + 1), "landed"), 80))
+    lay = state_layout("shore_post_broken", None, [("prop", "loose_block_landed", centre_x - 48, walk - 30)])
+    gif.append((label(frame(lay, cast_landed), "landed"), 1500))
+    save_gif(gif, out / "env02_cp03_sequence_lit_2x.gif", written)
+
     mask = el.actor_mask(act5, s5)
     report = {
-        "format": "env02-design-evidence-v1",
+        "format": "env02-evidence-v2",
         "note": "Pillow art preview with the ENV-01 lighting model on exported atlases; not a Bevy "
                 "capture and not gameplay evidence.",
         "layouts": [LAYOUT_R, LAYOUT_T],
         "readability_s5_640x360": dict(zip(["carl_h52", "donut_h40", "goblin_a", "goblin_b", "goblin_a_2"],
                                            el.measure(lit5, mask, box5, s5))),
         "atlas_colours": {name: len(a["grid"]["palette"]) for name, a in kit.atlases.items()
-                          if name.startswith(("floor01_opening", "floor01_guild"))},
+                          if name.startswith(("floor01_opening", "floor01_guild", "floor01_soffit",
+                                              "floor01_shore", "floor01_block", "floor01_splinter"))},
         "lit_colours_s5_640x360": el.colour_count(lit5),
         "files": [p.relative_to(out).as_posix() for p in written],
     }

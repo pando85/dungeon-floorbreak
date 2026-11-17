@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "floor01_splinter_burst_v1",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/splinter_burst.ase",
+  "grid_source": "assets/source/props/floor01/splinter_burst.grid.json",
+  "output_atlas": "generated/art/floor01_splinter_burst.png",
+  "output_metadata": "generated/art/floor01_splinter_burst.json",
+  "palette_id": "floor01-catacomb-v2",
+  "frame_size": [48, 48],
+  "pivot": [24, 24],
+  "animation_tags": ["burst"],
+  "required_alpha": true,
+  "kit_contract": "assets/source/terrain/floor01/floor01_opening_kit.json",
+  "owner": "AI-authored environment pixel art (ENV-02: design and keys Claude Opus, full-set execution Claude Sonnet; independent review pending)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "provenance": {
+    "origin": "Original pixel-grid-v1 4-frame burst of timber splinters for the Floor 1 opening route (ENV-02 on the ENV-01 kit); not cropped, traced or resampled from concept art",
+    "generator": "Deterministic authoring script scripts/author_floor01_opening.py written by AI agents (design and keys Claude Opus, full-set execution Claude Sonnet), reusing the ENV-01 shading helpers (scripts/author_floor01_kit.py, scripts/lookdev_floor01_author.py); no image-model raster output",
+    "generated_art": true,
+    "input_reference_ids": ["floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)", "lookdev-floor01-resolution-spike/A1 (owner-approved target frame, 2026-11-16)"]
+  }
+}

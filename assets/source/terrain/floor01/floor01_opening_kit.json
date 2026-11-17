@@ -2,9 +2,17 @@
   "format": "env-kit-v2",
   "kit_id": "floor01_opening",
   "extends": "assets/source/terrain/floor01/floor01_catacomb_kit.json",
-  "status": "proposed - ENV-02 design phase 1 keys (Claude Opus); Sonnet execution and an independent Opus review pending; not owner-approved",
-  "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract (env_kit.py resolve_extends). Adds atlases and pieces only; no new tiles, no new palette colours.",
-  "palette_use": {"floor01_opening_props": 36, "floor01_opening_decal": 16, "floor01_guild": 32},
+  "status": "proposed - ENV-02 full set drawn (Claude Sonnet) on the Opus keys; awaiting independent Opus review; not owner-approved",
+  "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract (env_kit.py resolve_extends). Adds atlases, pieces and the 8 soffit tiles of the chase-passage ceiling steps; no new palette colours. Soffit tile sides: l = the left step (column 61), r = the right step (column 104); soffit_joint_* sit one column outside the step (60 / 105) at the high cornice.",
+  "palette_use": {
+    "floor01_opening_props": 36,
+    "floor01_opening_decal": 16,
+    "floor01_guild": 32,
+    "floor01_soffit": 12,
+    "floor01_shore_dust": 4,
+    "floor01_block_impact": 6,
+    "floor01_splinter_burst": 6
+  },
   "atlases": {
     "floor01_opening_props": {
       "grid": "assets/source/props/floor01/opening_props.grid.json",
@@ -23,9 +31,114 @@
       "manifest": "assets/manifests/floor01_guild.json",
       "image": "generated/art/floor01_guild.png",
       "metadata": "generated/art/floor01_guild.json"
+    },
+    "floor01_soffit": {
+      "grid": "assets/source/terrain/floor01/soffit.grid.json",
+      "manifest": "assets/manifests/floor01_soffit.json",
+      "image": "generated/art/floor01_soffit.png",
+      "metadata": "generated/art/floor01_soffit.json"
+    },
+    "floor01_shore_dust": {
+      "grid": "assets/source/props/floor01/shore_dust.grid.json",
+      "manifest": "assets/manifests/floor01_shore_dust.json",
+      "image": "generated/art/floor01_shore_dust.png",
+      "metadata": "generated/art/floor01_shore_dust.json"
+    },
+    "floor01_block_impact": {
+      "grid": "assets/source/props/floor01/block_impact.grid.json",
+      "manifest": "assets/manifests/floor01_block_impact.json",
+      "image": "generated/art/floor01_block_impact.png",
+      "metadata": "generated/art/floor01_block_impact.json"
+    },
+    "floor01_splinter_burst": {
+      "grid": "assets/source/props/floor01/splinter_burst.grid.json",
+      "manifest": "assets/manifests/floor01_splinter_burst.json",
+      "image": "generated/art/floor01_splinter_burst.png",
+      "metadata": "generated/art/floor01_splinter_burst.json"
     }
   },
-  "tiles": [],
+  "tiles": [
+    {
+      "id": "soffit_end_l",
+      "atlas": "floor01_soffit",
+      "grid_index": 0,
+      "rect": [0, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "collider": [0, 0, 16, 16]
+    },
+    {
+      "id": "soffit_end_l_b",
+      "atlas": "floor01_soffit",
+      "grid_index": 1,
+      "rect": [16, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "collider": [0, 0, 16, 16]
+    },
+    {
+      "id": "soffit_end_r",
+      "atlas": "floor01_soffit",
+      "grid_index": 2,
+      "rect": [32, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "collider": [0, 0, 16, 16]
+    },
+    {
+      "id": "soffit_end_r_b",
+      "atlas": "floor01_soffit",
+      "grid_index": 3,
+      "rect": [48, 0, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "collider": [0, 0, 16, 16]
+    },
+    {
+      "id": "soffit_corner_l",
+      "atlas": "floor01_soffit",
+      "grid_index": 4,
+      "rect": [0, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "collider": [0, 0, 16, 16]
+    },
+    {
+      "id": "soffit_corner_r",
+      "atlas": "floor01_soffit",
+      "grid_index": 5,
+      "rect": [16, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "collider": [0, 0, 16, 16]
+    },
+    {
+      "id": "soffit_joint_l",
+      "atlas": "floor01_soffit",
+      "grid_index": 6,
+      "rect": [32, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "collider": [0, 0, 16, 16]
+    },
+    {
+      "id": "soffit_joint_r",
+      "atlas": "floor01_soffit",
+      "grid_index": 7,
+      "rect": [48, 16, 16, 16],
+      "role": "collision",
+      "collidable": true,
+      "grammar": ["A", "B", "C"],
+      "collider": [0, 0, 16, 16]
+    }
+  ],
   "pieces": [
     {
       "id": "shore_post_intact",
@@ -221,6 +334,32 @@
       "grammar": ["C"]
     },
     {
+      "id": "timber_barricade_full_intact",
+      "atlas": "floor01_opening_props",
+      "rect": [0, 464, 96, 256],
+      "role": "prop",
+      "layer": "prop",
+      "collidable": false,
+      "anchor": [48, 256],
+      "anchor_name": "bottom centre on the floor back line (y = 288); the top meets the cornice underside (y = 32)",
+      "grid_snap": 8,
+      "grammar": ["A"],
+      "state_of": {"group": "timber_barricade_full", "state": "intact"}
+    },
+    {
+      "id": "timber_barricade_full_smashed",
+      "atlas": "floor01_opening_props",
+      "rect": [96, 464, 96, 256],
+      "role": "prop",
+      "layer": "prop",
+      "collidable": false,
+      "anchor": [48, 256],
+      "anchor_name": "bottom centre on the floor back line (y = 288); the top meets the cornice underside (y = 32)",
+      "grid_snap": 8,
+      "grammar": ["A"],
+      "state_of": {"group": "timber_barricade_full", "state": "smashed"}
+    },
+    {
       "id": "alcove_niche",
       "atlas": "floor01_opening_decal",
       "rect": [0, 0, 96, 96],
@@ -327,6 +466,103 @@
       "anchor_name": "bracket wall plate (top_left + (0, 2))",
       "grid_snap": 8,
       "grammar": ["A"]
+    },
+    {
+      "id": "guild_portal_ajar",
+      "atlas": "floor01_guild",
+      "rect": [0, 136, 112, 136],
+      "role": "prop",
+      "layer": "prop",
+      "collidable": false,
+      "anchor": [56, 136],
+      "anchor_name": "bottom centre on the floor back line (y = 288)",
+      "grid_snap": 8,
+      "grammar": ["A"],
+      "lights": [
+        {
+          "id": "interior",
+          "offset": [56, 60],
+          "colour": "#ffc27a",
+          "radius": 170,
+          "intensity": 0.32,
+          "group": "scene",
+          "glow": {"radius": 28, "additive": 0.07}
+        },
+        {
+          "id": "spill",
+          "offset": [56, 132],
+          "colour": "#ffc27a",
+          "radius": 130,
+          "intensity": 0.3,
+          "group": "scene",
+          "project": "walk_line",
+          "project_dy": -4,
+          "squash_y": 0.32
+        }
+      ],
+      "state_of": {"group": "guild_portal", "state": "ajar"}
+    },
+    {
+      "id": "shore_dust_trickle",
+      "atlas": "floor01_shore_dust",
+      "rect": [0, 0, 8, 24],
+      "role": "prop",
+      "layer": "prop",
+      "collidable": false,
+      "anchor": [4, 0],
+      "anchor_name": "top centre; place under the block's split (block + (41, 46)) from damaged_1 on",
+      "grid_snap": 1,
+      "grammar": ["A", "B", "C"],
+      "animation": {
+        "tag": {"name": "trickle", "from": 0, "to": 2, "direction": "forward"},
+        "frames": [
+          {"frame": {"x": 0, "y": 0, "w": 8, "h": 24}, "duration": 110},
+          {"frame": {"x": 8, "y": 0, "w": 8, "h": 24}, "duration": 110},
+          {"frame": {"x": 16, "y": 0, "w": 8, "h": 24}, "duration": 110}
+        ]
+      }
+    },
+    {
+      "id": "block_impact_dust",
+      "atlas": "floor01_block_impact",
+      "rect": [0, 0, 112, 40],
+      "role": "prop",
+      "layer": "prop",
+      "collidable": false,
+      "anchor": [56, 36],
+      "anchor_name": "bottom centre on the walking line at the centre of the fall region",
+      "grid_snap": 1,
+      "grammar": ["A", "B", "C"],
+      "animation": {
+        "tag": {"name": "impact", "from": 0, "to": 3, "direction": "forward"},
+        "frames": [
+          {"frame": {"x": 0, "y": 0, "w": 112, "h": 40}, "duration": 80},
+          {"frame": {"x": 112, "y": 0, "w": 112, "h": 40}, "duration": 80},
+          {"frame": {"x": 224, "y": 0, "w": 112, "h": 40}, "duration": 80},
+          {"frame": {"x": 336, "y": 0, "w": 112, "h": 40}, "duration": 80}
+        ]
+      }
+    },
+    {
+      "id": "timber_splinter_burst",
+      "atlas": "floor01_splinter_burst",
+      "rect": [0, 0, 48, 48],
+      "role": "prop",
+      "layer": "prop",
+      "collidable": false,
+      "anchor": [24, 24],
+      "anchor_name": "centre of the break (the hit point of the timber)",
+      "grid_snap": 1,
+      "grammar": ["A", "B", "C"],
+      "animation": {
+        "tag": {"name": "burst", "from": 0, "to": 3, "direction": "forward"},
+        "frames": [
+          {"frame": {"x": 0, "y": 0, "w": 48, "h": 48}, "duration": 60},
+          {"frame": {"x": 48, "y": 0, "w": 48, "h": 48}, "duration": 60},
+          {"frame": {"x": 96, "y": 0, "w": 48, "h": 48}, "duration": 60},
+          {"frame": {"x": 144, "y": 0, "w": 48, "h": 48}, "duration": 60}
+        ]
+      }
     }
   ],
   "state_groups": {
@@ -339,13 +575,23 @@
       "note": "seated/slipped share a rect; falling is the debris sprite moved by gameplay; landed is placed on the walking line"
     },
     "timber_set": {"states": ["intact", "smashed"]},
-    "timber_barricade": {"states": ["intact", "smashed"]},
-    "guild_portal": {"states": ["closed", "open"]}
+    "timber_barricade": {
+      "states": ["intact", "smashed"],
+      "note": "96x176 lower option; the layouts use the full-height pair"
+    },
+    "timber_barricade_full": {
+      "states": ["intact", "smashed"],
+      "note": "96x256, bottom on the back line, top at the cornice (y 32): covers the full-height barricade blocker"
+    },
+    "guild_portal": {
+      "states": ["closed", "ajar", "open"],
+      "note": "ajar is the 1-frame in-between played when a player enters exit_guild; same rect as closed and open"
+    }
   },
   "usage_rules": {
-    "S3_chase": "C grammar under a lowered ceiling: copper run along the cornice, valve on a drop, maint_hatch at chest height, timber_set_* every 320 px or so (bottom on the floor back line), jump humps as 1-tile platforms.",
-    "S4_widened": "A grammar at full height: alcove_niche on a 1-tile ledge (6 columns), a pooled torch right of the niche, timber_barricade_* closing the end.",
-    "S5_skirmish": "raking shore set: wall_cavity at block - (8, 8), loose_block_* at the shore head, shore_post_* foot on the deck, hazard_grit centred on the fall region; keep a pier or wall torch within 120 px so the set reads lit.",
+    "S3_chase": "C grammar under a lowered ceiling: copper run along the cornice, valve on a drop, maint_hatch at chest height, timber_set_* every 320 px or so (bottom on the floor back line), jump humps as 1-tile platforms. The two ceiling steps use the soffit tiles: soffit_end_l/_b (left step), soffit_end_r/_b (right step), soffit_corner_* at the low cornice, soffit_joint_* at the high cornice next to the face.",
+    "S4_widened": "A grammar at full height: alcove_niche on a 1-tile ledge (6 columns), a pooled torch right of the niche, timber_barricade_full_* (96x256, y 32) closing the end.",
+    "S5_skirmish": "raking shore set: wall_cavity at block - (8, 8), loose_block_* at the shore head, shore_post_* foot on the deck, hazard_grit centred on the fall region; keep a pier or wall torch within 120 px so the set reads lit. Presentation frames: shore_dust_trickle under the block's split from damaged_1, timber_splinter_burst at each hit, block_impact_dust on the landing.",
     "S6_guild": "guild_portal_* bottom on the floor back line, guild_sign right of the portal at y 168, nothing breakable within 160 px of the portal."
   }
 }

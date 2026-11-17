@@ -56,14 +56,23 @@ ATLAS_FILES = {
     "floor01_opening_props": ("assets/source/props/floor01/opening_props", "decor_atlas"),
     "floor01_opening_decal": ("assets/source/terrain/floor01/opening_decal", "decor_atlas"),
     "floor01_guild": ("assets/source/props/floor01/guild_exit", "decor_atlas"),
+    "floor01_soffit": ("assets/source/terrain/floor01/soffit", "tileset"),
+    "floor01_shore_dust": ("assets/source/props/floor01/shore_dust", "prop_animation"),
+    "floor01_block_impact": ("assets/source/props/floor01/block_impact", "prop_animation"),
+    "floor01_splinter_burst": ("assets/source/props/floor01/splinter_burst", "prop_animation"),
 }
 ATLAS_WIDTH = {"floor01_opening_props": 512, "floor01_opening_decal": 192, "floor01_guild": 272}
 ATLAS_ORIGIN = {
+    "floor01_soffit": "collision tiles for the two steps of the lowered chase-passage ceiling "
+                      "(hanging soffit faces, cornice corners and junctions)",
+    "floor01_shore_dust": "3-frame crumb trickle under the loose block",
+    "floor01_block_impact": "4-frame dust cloud thrown out by the landing block",
+    "floor01_splinter_burst": "4-frame burst of timber splinters",
     "floor01_opening_props": "raking timber shore (CP-03 breakable) in four states, loose masonry "
-                             "block (seated/slipped/falling/landed), hazard grit, timber set and "
-                             "barricade (intact/smashed) and an iron maintenance hatch",
+                             "block (seated/settling/slipped/falling/landed), hazard grit, timber set, "
+                             "barricade (low and full-height, intact/smashed) and an iron maintenance hatch",
     "floor01_opening_decal": "alcove niche (dodge pocket) and wall cavity decals",
-    "floor01_guild": "guild portal (closed/open) with warm interior light and a hanging sign "
+    "floor01_guild": "guild portal (closed/ajar/open) with warm interior light and a hanging sign "
                      "without text or logos",
 }
 
@@ -119,6 +128,7 @@ STRIKE = {"x": SHORE_FOOT_X + 7, "y_band": [WALK_Y - 37, WALK_Y - 18]}
 GUILD_X = 3368                         # portal piece left x (112 wide)
 TIMBER_SETS = [1104, 1424]             # timber set piece x (80 wide) in S3
 BARRICADE_X = 2304                     # barricade piece x (96 wide) at the end of S4
+BARRICADE_FULL_Y = 32                  # full-height barricade piece y (96 x 256, closes up to the cornice)
 HATCH_XY = (1200, 208)
 ALCOVE_XY = (2064, 176)
 CHARGE_X = 2064 - 176                  # charge trigger: alcove entrance 176 px ahead
@@ -229,8 +239,8 @@ def shore_beam(c, state: str) -> None:
                 lut(c, px, py, TIMBER, 0.5)
     # damage: notch / split at the strike point, pale fresh fibres, crack up the grain
     if state in ("damaged_1", "damaged_2"):
-        depth = 3.2 if state == "damaged_1" else 7.0
-        span = 0.035 if state == "damaged_1" else 0.05
+        depth = 4.6 if state == "damaged_1" else 7.0
+        span = 0.047 if state == "damaged_1" else 0.05
         for py in range(c.h):
             for px in range(c.w):
                 x, y = px + 0.5, py + 0.5
@@ -250,7 +260,7 @@ def shore_beam(c, state: str) -> None:
                         and abs(s) < SHORE_HALF - 0.6:
                     lut(c, px, py, ROT, 0)     # split running up the grain
         # splinters sticking out of the notch (lit side)
-        n = 3 if state == "damaged_1" else 6
+        n = 4 if state == "damaged_1" else 6
         for k in range(n):
             t = STRIKE_T + (rnd("spl", state, k) - 0.5) * span * 1.4
             length = math.hypot(head[0] - fx, head[1] - fy)
@@ -427,37 +437,72 @@ def falling_block() -> "ld.Canvas":
     return c
 
 
-def landed_rubble() -> "ld.Canvas":
-    """Broken masonry on the deck: two big chunks, bricks and a dust skirt. Non-collidable."""
-    c = canvas(96, 32)
-    chunks = [(30.0, 17.0, 22.0, 12.0, -0.25, "c1"), (64.0, 20.0, 14.0, 9.0, 0.3, "c2"),
-              (82.0, 25.0, 6.0, 5.0, 0.0, "c3"), (13.0, 25.0, 7.0, 5.0, 0.2, "c4")]
-    for py in range(32):
-        for px in range(96):
+RUBBLE_RIGHT = [(47, 29), (46, 24), (49, 19), (48, 15), (54, 11), (61, 9), (68, 10), (73, 8), (79, 11),
+                (82, 16), (81, 22), (84, 26), (83, 29)]
+RUBBLE_RIGHT_CRACK = [(61, 9), (59, 16), (62, 22), (58, 29)]
+RUBBLE_LEFT_LOW = [(8, 29), (7, 25), (11, 21), (20, 20), (30, 21), (34, 25), (33, 29)]
+RUBBLE_LEFT_UP = [(13, 21), (14, 16), (19, 12), (26, 11), (31, 14), (32, 19), (30, 22), (20, 22)]
+
+
+def rubble_stone(c, poly, seed: str, crack=None, base: float = 5.0) -> None:
+    """One landed chunk: torch-lit top and right bevels, dim left bevel, shadowed foot."""
+    xs = [p[0] for p in poly]
+    ys = [p[1] for p in poly]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    for py in range(y0, y1 + 1):
+        for px in range(x0, x1 + 1):
             x, y = px + 0.5, py + 0.5
-            for cx, cy, hw, hh, tilt, seed in chunks:
-                lx = x - cx
-                ly = y - cy - tilt * lx
-                if abs(lx) < hw and abs(ly) < hh and y < 30:
-                    top = ly < -hh + 2.2
-                    left = lx < -hw + 1.6
-                    joint = abs(lx) < 0.6 and seed == "c1"
-                    if joint:
-                        c.put(px, py, "mortar", 1)
-                    elif top:
-                        c.put(px, py, "stone", 8.6 - 0.02 * x)
-                    else:
-                        c.put(px, py, "stone", (6.4 if left else 4.9) - 0.03 * x
-                              + (rnd(seed, int(lx // 6), int(ly // 5)) - 0.5) * 1.0 - 1.2 * (ly + hh) / (2 * hh))
-                    break
-            else:
-                # dust and bricks around the base
-                if y > 26 and rnd("dust", px, py) < 0.35 * (1 - abs(x - 48) / 50):
-                    c.put(px, py, "stone", 6.5 if rnd("dc", px) > 0.5 else 5)
-    for k, (bx, by) in enumerate([(4, 22), (50, 9), (88, 18), (58, 27), (40, 3)]):
-        for py in range(by, by + 4):
+            if not in_poly(x, y, poly):
+                continue
+            if crack:
+                cr = near_line(x, y, crack)
+                if cr is not None:
+                    c.put(px, py, "mortar", 0) if cr > -0.25 else c.put(px, py, "stone", 9.6)
+                    continue
+                if near_line(x, y, crack, 2.0) is not None and rnd("rcr", px, py) < 0.3:
+                    c.put(px, py, "mortar", 5)
+                    continue
+            v = base + 1.6 * (x - x0) / (x1 - x0) + (rnd(seed, px // 4, py // 4) - 0.5) * 1.0
+            v -= 1.4 * (y - y0) / (y1 - y0)
+            if not in_poly(x, y - 2.0, poly):
+                v = 8.5 - 0.02 * x                       # lit top face
+            elif not in_poly(x - 1.4, y, poly):
+                v -= 1.0
+            elif not in_poly(x + 1.4, y, poly):
+                v += 1.0
+            if rnd("rpit", px, py) < 0.05:
+                v -= 1.5
+            c.put(px, py, "stone", v)
+
+
+def landed_rubble() -> "ld.Canvas":
+    """Broken masonry on the deck, following the v2 split of the block: the right stone
+    (with the big crack) lying on its side and the left pair (two stones, one on the other),
+    plus crumbs, a few bricks and a dust skirt. Non-collidable."""
+    c = canvas(96, 32)
+    for py in range(32):                 # dust skirt first, chunks cover it
+        for px in range(96):
+            y = py + 0.5
+            if y > 26 and rnd("dust", px, py) < 0.35 * (1 - abs(px + 0.5 - 48) / 50):
+                c.put(px, py, "stone", 6.5 if rnd("dc", px) > 0.5 else 5)
+    rubble_stone(c, RUBBLE_LEFT_LOW, "rl2")
+    rubble_stone(c, RUBBLE_LEFT_UP, "rl1")
+    for px in range(14, 31):             # the bed joint between the two left stones
+        if in_poly(px + 0.5, 21.5, RUBBLE_LEFT_LOW) and in_poly(px + 0.5, 20.5, RUBBLE_LEFT_UP):
+            c.put(px, 22, "mortar", 1)
+    rubble_stone(c, RUBBLE_RIGHT, "rr", crack=RUBBLE_RIGHT_CRACK, base=5.2)
+    for bx, by in ((1, 26), (36, 26), (86, 24)):      # loose bricks
+        for py in range(by, min(by + 4, 30)):
             for px in range(bx, bx + 7):
-                c.put(px, py, "brick", 7.4 if py == by else 5.2 - (0.8 if px == bx + 6 else 0))
+                if not c.get(px, py):
+                    c.put(px, py, "brick", 7.4 if py == by else 5.2 - (0.8 if px == bx + 6 else 0))
+    for k in range(14):                  # crumbs around the heap
+        x = 2 + int(rnd("rcx", k) * 92)
+        y = 22 + int(rnd("rcy", k) * 8)
+        if not c.get(x, y):
+            c.put(x, y, "mortar", 6 if k % 3 else 5)
+            if k % 2 and not c.get(x + 1, y):
+                c.put(x + 1, y, "stone", 8)
     return c
 
 
@@ -544,12 +589,12 @@ def wall_cavity() -> "ld.Canvas":
 # ---------------------------------------------------------------------------
 
 def plank(c, x0: float, y0: float, x1: float, y1: float, half: float, seed: str,
-          lit_side: int = 1, nails: bool = True) -> None:
+          lit_side: int = 1, nails: bool = True, bias: float = 0.0) -> None:
     for py in range(max(0, int(min(y0, y1) - half - 2)), min(c.h, int(max(y0, y1) + half + 2))):
         for px in range(max(0, int(min(x0, x1) - half - 2)), min(c.w, int(max(x0, x1) + half + 2))):
             t, s, length = beam_coords(px + 0.5, py + 0.5, (x0, y0), (x1, y1))
             if 0 <= t <= 1 and -half <= s < half:
-                lut(c, px, py, TIMBER, timber_value(t, s, half, length, seed, lit_side))
+                lut(c, px, py, TIMBER, timber_value(t, s, half, length, seed, lit_side) + bias)
     if nails:
         for t in (0.06, 0.94):
             nx, ny = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
@@ -603,6 +648,65 @@ def barricade(state: str) -> "ld.Canvas":
             x = 6 + k * 1.4
             y = 128 - 1 - int(rnd("bss", k) * 6)
             c.put(int(x), y, *SPLINTER[3 if k % 2 else 2])
+    return c
+
+
+BARRICADE_FULL_H = 256
+
+
+def barricade_gap_fill(c, x0: int, x1: int, y0: int, y1: int) -> None:
+    """Dark void behind the planks: the gaps between boards read as shadow, not as the wall."""
+    for py in range(y0, y1):
+        for px in range(x0, x1):
+            r = rnd("bgap", px, py)
+            top = 1.0 if py < y0 + 10 else 0.0
+            if r < 0.78 - 0.1 * top:
+                c.put(px, py, "iron", 0)
+            elif r < 0.93:
+                c.put(px, py, "mortar", 0)
+            else:
+                c.put(px, py, "iron", 1)
+
+
+def barricade_full(state: str) -> "ld.Canvas":
+    """Full-height barricade (96 x 256): the same planks-on-posts build as the 176 px key, but
+    closed up to the cornice, so the full-height ``barricade`` blocker is visible all the way up.
+    Plank width and tone vary, and dark gaps sit between the boards."""
+    h = BARRICADE_FULL_H
+    c = canvas(96, h)
+    if state == "intact":
+        barricade_gap_fill(c, 6, 90, 8, h)
+        plank(c, 12, h - 1, 12, 0, 6.0, "bpl", nails=False)
+        plank(c, 84, h - 1, 84, 0, 6.0, "bpr", nails=False)
+        y, k = 18.0, 0
+        while y < h - 14:
+            half = 3.5 + 2.5 * rnd("bfw", k)               # 3.5..6.0: boards of different widths
+            tilt = (rnd("bfl", k) - 0.5) * 5
+            bias = (rnd("bft", k) - 0.5) * 1.8             # tone variety plank to plank
+            plank(c, 2, y - tilt, 94, y + tilt, half, f"bf{k}", bias=bias)
+            y += half * 2 + 5 + 8 * rnd("bfg", k)          # 5..13 px of dark gap above the next board
+            k += 1
+        plank(c, 0, 5, 96, 5, 5.5, "bfh", bias=-0.4)        # header wedged under the cornice
+        plank(c, 2, h - 5, 94, h - 5, 4.5, "bfsill", bias=-0.3)     # sill board on the deck
+        plank(c, 16, h - 8, 80, 40, 3.0, "bfdiag", nails=False, bias=0.3)
+    else:
+        plank(c, 12, h - 1, 12, h - 48, 6.0, "bpl", nails=False)
+        plank(c, 84, h - 1, 74, h - 116, 6.0, "bpr", nails=False)     # leaning right post
+        for k, (a, b) in enumerate([((4, 250), (52, 240)), ((44, 252), (92, 246)),
+                                    ((20, 242), (60, 230)), ((60, 238), (90, 222)),
+                                    ((78, 142), (94, 192))]):
+            plank(c, a[0], a[1], b[0], b[1], 4.0 + (k % 3) * 0.6, f"bfs{k}", nails=k == 4,
+                  bias=(rnd("bfsb", k) - 0.5) * 1.6)
+        for k in range(9):
+            x = 6 + k * 1.4
+            y = h - 48 - 1 - int(rnd("bfss", k) * 6)
+            c.put(int(x), y, *SPLINTER[3 if k % 2 else 2])
+        # the header is torn off but two stubs still hang from the cornice
+        plank(c, 0, 5, 30, 6, 5.0, "bfh1", bias=-0.4)
+        plank(c, 66, 5, 96, 4, 5.0, "bfh2", bias=-0.4)
+        for x in (31, 32, 65, 64):
+            for j in range(3):
+                c.put(x, 1 + j * 3 + (x % 2), *SPLINTER[3 if j % 2 else 2])
     return c
 
 
@@ -871,6 +975,223 @@ def guild_sign() -> "ld.Canvas":
 
 
 # ---------------------------------------------------------------------------
+# Guild portal, ajar (the 1-frame in-between: leaves part, a warm slit shows)
+# ---------------------------------------------------------------------------
+AJAR_HALF = 7.0          # half width of the slit between the leaves (px)
+
+
+def portal_ajar() -> "ld.Canvas":
+    """Closed leaves with a 14 px warm slit down the meeting stile: the interior of the open
+    portal shows through it, bordered by dark leaf edges."""
+    closed, opened = portal("closed"), portal("open")
+    c = canvas(PORTAL_W, PORTAL_H)
+    for py in range(PORTAL_H):
+        for px in range(PORTAL_W):
+            x = px + 0.5
+            dx = abs(x - PORTAL_CX)
+            base = closed.px[py][px]
+            inside = py < PORTAL_H - 8 and in_arch(x, py + 0.5, OPEN_HALF, OPEN_R)
+            if inside and dx < AJAR_HALF and opened.px[py][px] is not None:
+                c.px[py][px] = opened.px[py][px]
+            elif inside and dx < AJAR_HALF + 1.6 and py > 20:
+                lut(c, px, py, TIMBER, 5.0 if x < PORTAL_CX else 1.4)     # swung leaf edges
+            else:
+                c.px[py][px] = base
+    return c
+
+
+# ---------------------------------------------------------------------------
+# Soffit tiles: the two steps of the lowered chase-passage ceiling (collision tileset)
+# ---------------------------------------------------------------------------
+# side "l" is the LEFT step (column 61: lit exposed edge at the tile's left), side "r" the
+# RIGHT step (column 104: exposed edge at the right). The mass behind is the dark fill
+# masonry of the lowered span (brick_00 faces, mortar joints), so the step reads as a heavy
+# lintel face and not as a corridor end wall; the lit quoins are narrow (3 and 5 px).
+
+def soffit_pixel(c, px: int, py: int, side: str, phase: int) -> None:
+    lx = px if side == "l" else 15 - px                  # 0 = exposed edge
+    course = (py // 8 + phase) % 2
+    qw = 5 if course == 0 else 3
+    dv = py % 8
+    if dv == 0:
+        c.put(px, py, "mortar", 0)
+        return
+    if lx < qw:
+        if lx == qw - 1:
+            c.put(px, py, "mortar", 0)                     # joint between quoin and mass
+            return
+        edge = lx == 0
+        v = 4.4 + (2.4 if edge else 0.0) + (0.7 if dv == 1 else 0.0) \
+            + (rnd("sq", side, course, py // 8) - 0.5) * 0.6
+        c.put(px, py, "stone", v)
+        return
+    c.put(px, py, "brick", 0)
+    if rnd("sbr", side, phase, px, py) < 0.08:
+        c.put(px, py, "mortar", 1)
+
+
+def soffit_face(side: str, phase: int) -> "ld.Canvas":
+    c = canvas(TILE, TILE)
+    for py in range(TILE):
+        for px in range(TILE):
+            soffit_pixel(c, px, py, side, phase)
+    return c
+
+
+def soffit_corner(side: str) -> "ld.Canvas":
+    """Low cornice wrapping round the outer corner of the soffit: the vault course keeps the
+    quoin face of the tiles above; the cornice below turns the corner with a 4 px lit return."""
+    c = kit.cornice("a", 1)
+    for py in range(TILE):
+        for px in range(TILE):
+            lx = px if side == "l" else 15 - px
+            if py < 4:
+                soffit_pixel(c, px, py, side, 1)           # row low-1 follows an odd row: phase b
+            elif lx < 4 and py > 4:
+                c.put(px, py, "stone", (7.6, 6.2, 4.8, 3.6)[lx] - (0.5 if py > 12 else 0.0)
+                      + (rnd("scr", side, py) - 0.5) * 0.4)
+            elif lx < 4:
+                c.put(px, py, "mortar", 0)
+    return c
+
+
+def soffit_joint(side: str) -> "ld.Canvas":
+    """High cornice meeting the hanging face: its last 5 px (toward the step) are cut by the
+    dark face with a lit quoin edge, so the face reads as standing proud of the cornice."""
+    c = kit.cornice("a", 1)
+    for py in range(TILE):
+        for px in range(TILE):
+            lx = (15 - px) if side == "l" else px          # 0 = the end that meets the face
+            if lx > 4:
+                continue
+            if lx == 4:
+                c.put(px, py, "mortar", 0)
+            elif lx == 3 and py >= 4:
+                c.put(px, py, "stone", 5.6 + (0.6 if py < 7 else 0.0))
+            else:
+                c.px[py][px] = ("brick", 0) if rnd("sj", side, px, py) > 0.1 else ("mortar", 1)
+    return c
+
+
+SOFFIT_TILES = {                                          # id -> (builder, args)
+    "soffit_end_l": ("face", ("l", 0)), "soffit_end_l_b": ("face", ("l", 1)),
+    "soffit_end_r": ("face", ("r", 0)), "soffit_end_r_b": ("face", ("r", 1)),
+    "soffit_corner_l": ("corner", ("l",)), "soffit_corner_r": ("corner", ("r",)),
+    "soffit_joint_l": ("joint", ("l",)), "soffit_joint_r": ("joint", ("r",)),
+}
+
+
+def build_soffit() -> "kit.Atlas":
+    a = kit.Atlas("floor01_soffit", "tileset")
+    build = {"face": soffit_face, "corner": soffit_corner, "joint": soffit_joint}
+    for tid, (kind, args) in SOFFIT_TILES.items():
+        a.add_tile(tid, build[kind](*args))
+    return a
+
+
+# ---------------------------------------------------------------------------
+# Missing frames: dust trickle, impact dust, timber splinter burst (animated pieces)
+# ---------------------------------------------------------------------------
+FX = {   # atlas -> (piece id, tag, frame w, h, frame count, duration ms, anchor, anchor note)
+    "floor01_shore_dust": ("shore_dust_trickle", "trickle", 8, 24, 3, 110, [4, 0],
+                           "top centre; place under the block's split (block + (41, 46)) from damaged_1 on"),
+    "floor01_block_impact": ("block_impact_dust", "impact", 112, 40, 4, 80, [56, 36],
+                             "bottom centre on the walking line at the centre of the fall region"),
+    "floor01_splinter_burst": ("timber_splinter_burst", "burst", 48, 48, 4, 60, [24, 24],
+                               "centre of the break (the hit point of the timber)"),
+}
+
+
+def shore_dust_frame(f: int) -> "ld.Canvas":
+    """A thin stream of crumbs falling from the block: each crumb drops 8 px per frame and
+    wraps after 24 px, so three frames loop seamlessly."""
+    c = canvas(8, 24)
+    for k in range(7):
+        y = (int(rnd("sd", k) * 24) // 8 * 8 + (k * 3) % 8 + 8 * f) % 24
+        x = 3 + int(rnd("sdx", k) * 3) - (1 if k % 3 == 0 else 0)
+        c.put(x, y, "mortar", 6 if k % 3 else 5)
+        if k % 2 == 0 and y > 0:
+            c.put(x, y - 1, "stone", 7)
+        if k % 3 == 1 and x + 1 < 8:
+            c.put(x + 1, y, "stone", 8)
+    return c
+
+
+def block_impact_frame(f: int) -> "ld.Canvas":
+    """Dust thrown out along the deck by the landing: a low cloud that widens, rises and thins."""
+    c = canvas(112, 40)
+    hw = (16, 30, 42, 50)[f]
+    hh = (9, 16, 22, 26)[f]
+    keep = (1.0, 0.85, 0.6, 0.38)[f]
+    for py in range(40):
+        for px in range(112):
+            dx = (px + 0.5 - 56) / hw
+            dy = (37 - (py + 0.5)) / hh
+            if dy < -0.12:
+                continue
+            d = math.hypot(dx, max(dy, 0.0) * 1.1)
+            if d >= 1.0:
+                continue
+            p = (1 - d) ** 0.7 * keep + 0.08 * keep
+            if rnd("bi", f, px, py) < p * 0.85:
+                if d < 0.35:
+                    c.put(px, py, "stone", 8)
+                elif d < 0.7:
+                    c.put(px, py, "stone", 6.4 if rnd("bic", f, px, py) > 0.3 else 5)
+                else:
+                    c.put(px, py, "mortar", 6 if rnd("bic", f, px, py) > 0.5 else 5)
+    for k in range(5 if f < 3 else 0):                   # chips thrown out and falling back
+        ang = (k + 0.5) / 5 * math.pi
+        r = 12 + f * 9 + rnd("bik", k) * 6
+        x = 56 - math.cos(ang) * r * (1.4 if k % 2 else 1.0)
+        y = 37 - math.sin(ang) * (14 + 4 * f) * (1.0 if f < 2 else 0.5) + (f * f) * 1.5
+        for dx in range(2):
+            for dy in range(2):
+                c.put(int(x) + dx, int(y) + dy, "stone", 8.6 if dy == 0 else 5.5)
+    return c
+
+
+def line_px(x0: float, y0: float, x1: float, y1: float):
+    n = max(1, int(max(abs(x1 - x0), abs(y1 - y0))))
+    for i in range(n + 1):
+        yield round(x0 + (x1 - x0) * i / n), round(y0 + (y1 - y0) * i / n)
+
+
+def splinter_frame(f: int) -> "ld.Canvas":
+    """Timber splinters flying out of a hit, falling under gravity, with a pale core flash."""
+    c = canvas(48, 48)
+    n = 11 if f < 3 else 8
+    for k in range(n):
+        ang = (k / n + (rnd("spa", k) - 0.5) * 0.12) * math.tau
+        r0 = 3 + f * 5.2 + rnd("spr", k) * 3
+        ln = 3 + rnd("spl", k) * 4
+        sag = f * f * 0.9
+        x0, y0 = 24 + math.cos(ang) * r0, 24 + math.sin(ang) * r0 * 0.9 + sag
+        x1, y1 = 24 + math.cos(ang) * (r0 + ln), 24 + math.sin(ang) * (r0 + ln) * 0.9 + sag
+        for i, (x, y) in enumerate(line_px(x0, y0, x1, y1)):
+            if k % 3 == 0:
+                c.put(x, y, "stone", 9 if i == 0 else 7)       # pale fresh fibres
+            else:
+                lut(c, x, y, TIMBER, 4.6 if i % 2 == 0 else 2.6)
+        if k % 2 == 0:
+            c.put(round(x1), round(y1), "stone", 8.6)
+    if f == 0:                                           # impact flash at the hit
+        for dx, dy in ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1), (-2, 0), (2, 0), (0, -2), (0, 2)):
+            c.put(24 + dx, 24 + dy, "stone", 10 if dx == 0 and dy == 0 else 8.6)
+    for k in range(4 + f):                                # grit
+        x = 24 + int((rnd("spg", f, k) - 0.5) * (14 + f * 10))
+        y = 24 + int((rnd("spgy", f, k) - 0.5) * (12 + f * 8)) + f
+        c.put(x, y, "mortar", 6)
+    return c
+
+
+def fx_frames(name: str) -> list:
+    fn = {"floor01_shore_dust": shore_dust_frame, "floor01_block_impact": block_impact_frame,
+          "floor01_splinter_burst": splinter_frame}[name]
+    return [fn(f) for f in range(FX[name][4])]
+
+
+# ---------------------------------------------------------------------------
 # Atlases, contract
 # ---------------------------------------------------------------------------
 
@@ -915,6 +1236,11 @@ def build_atlases() -> dict:
                         grammar=["A"], breakable={"group": "timber_barricade", "state": state})
     props.add_piece("maint_hatch", hatch(), anchor=[0, 0], anchor_name="top_left (brick-aligned)",
                     grid_snap=8, grammar=["C"])
+    for state in ("intact", "smashed"):
+        props.add_piece(f"timber_barricade_full_{state}", barricade_full(state), anchor=[48, 256],
+                        anchor_name="bottom centre on the floor back line (y = 288); the top meets "
+                                    "the cornice underside (y = 32)", grid_snap=8, grammar=["A"],
+                        breakable={"group": "timber_barricade_full", "state": state})
     for p in props.pieces:
         p.setdefault("role", "prop")
         p.setdefault("layer", "prop")
@@ -945,6 +1271,13 @@ def build_atlases() -> dict:
                                        project="walk_line", project_dy=-4, squash_y=0.34)])
     guild.add_piece("guild_sign", guild_sign(), anchor=[0, 2],
                     anchor_name="bracket wall plate (top_left + (0, 2))", grid_snap=8, grammar=["A"])
+    guild.add_piece("guild_portal_ajar", portal_ajar(), anchor=[cx, PORTAL_H],
+                    anchor_name="bottom centre on the floor back line (y = 288)", grid_snap=8,
+                    grammar=["A"], breakable={"group": "guild_portal", "state": "ajar"},
+                    lights=[warm_light("interior", [cx, 60], 170, 0.32,
+                                       glow={"radius": 28, "additive": 0.07}),
+                            warm_light("spill", [cx, PORTAL_H - 4], 130, 0.3,
+                                       project="walk_line", project_dy=-4, squash_y=0.32)])
     for p in guild.pieces:
         p.setdefault("role", "prop")
         p.setdefault("layer", "prop")
@@ -957,9 +1290,10 @@ def atlas_ref(name: str) -> dict:
             "image": f"generated/art/{name}.png", "metadata": f"generated/art/{name}.json"}
 
 
-def manifest(name: str, grid: dict) -> dict:
+def manifest(name: str, grid: dict, tiles: list[str] | None = None, frame_size=None,
+             pivot=(0, 0), tags=()) -> dict:
     stem, kind = ATLAS_FILES[name]
-    return {
+    m = {
         "schema_version": 1,
         "id": f"{name}_v1",
         "type": kind,
@@ -968,24 +1302,24 @@ def manifest(name: str, grid: dict) -> dict:
         "output_atlas": f"generated/art/{name}.png",
         "output_metadata": f"generated/art/{name}.json",
         "palette_id": kit.PALETTE_ID,
-        "frame_size": list(grid["canvas"]),
-        "pivot": [0, 0],
-        "animation_tags": [],
-        "required_alpha": True,
+        "frame_size": list(frame_size or grid["canvas"]),
+        "pivot": list(pivot),
+        "animation_tags": list(tags),
+        "required_alpha": kind != "tileset",
         "kit_contract": CONTRACT_REL,
-        "owner": "AI-authored environment pixel art (ENV-02 design phase 1 keys, Claude Opus)",
+        "owner": "AI-authored environment pixel art (ENV-02: design and keys Claude Opus, "
+                 "full-set execution Claude Sonnet; independent review pending)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "license": "Original repo-specific environment art; no standalone asset reuse license; "
                    "no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "provenance": {
             "origin": f"Original pixel-grid-v1 {ATLAS_ORIGIN[name]} for the Floor 1 opening route "
-                      "(ENV-02 design phase 1 keys on the ENV-01 kit); not cropped, traced or "
-                      "resampled from concept art",
+                      "(ENV-02 on the ENV-01 kit); not cropped, traced or resampled from concept art",
             "generator": "Deterministic authoring script scripts/author_floor01_opening.py written by "
-                         "an AI agent (Claude Opus), reusing the ENV-01 shading helpers "
-                         "(scripts/author_floor01_kit.py, scripts/lookdev_floor01_author.py); "
-                         "no image-model raster output",
+                         "AI agents (design and keys Claude Opus, full-set execution Claude Sonnet), "
+                         "reusing the ENV-01 shading helpers (scripts/author_floor01_kit.py, "
+                         "scripts/lookdev_floor01_author.py); no image-model raster output",
             "generated_art": True,
             "input_reference_ids": [
                 "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
@@ -993,21 +1327,31 @@ def manifest(name: str, grid: dict) -> dict:
             ],
         },
     }
+    if kind == "tileset":
+        m["tile_size"] = [TILE, TILE]
+        m["tiles"] = tiles
+    return m
 
 
-def build_contract(pieces: list[dict], grids: dict) -> dict:
+STATUS = ("proposed - ENV-02 full set drawn (Claude Sonnet) on the Opus keys; awaiting independent "
+          "Opus review; not owner-approved")
+
+
+def build_contract(tiles: list[dict], pieces: list[dict], grids: dict) -> dict:
     return {
         "format": "env-kit-v2",
         "kit_id": KIT_ID,
         "extends": kit.CONTRACT_REL,
-        "status": "proposed - ENV-02 design phase 1 keys (Claude Opus); Sonnet execution and an "
-                  "independent Opus review pending; not owner-approved",
+        "status": STATUS,
         "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and "
                           "lighting schema from the ENV-01 contract (env_kit.py resolve_extends). "
-                          "Adds atlases and pieces only; no new tiles, no new palette colours.",
+                          "Adds atlases, pieces and the 8 soffit tiles of the chase-passage ceiling "
+                          "steps; no new palette colours. Soffit tile sides: l = the left step "
+                          "(column 61), r = the right step (column 104); soffit_joint_* sit one "
+                          "column outside the step (60 / 105) at the high cornice.",
         "palette_use": {name: len(g["palette"]) for name, g in grids.items()},
         "atlases": {name: atlas_ref(name) for name in ATLAS_FILES},
-        "tiles": [],
+        "tiles": tiles,
         "pieces": pieces,
         "state_groups": {
             "raking_shore": {"states": ["intact", "damaged_1", "damaged_2", "broken"],
@@ -1016,18 +1360,31 @@ def build_contract(pieces: list[dict], grids: dict) -> dict:
                                   "note": "seated/slipped share a rect; falling is the debris sprite "
                                           "moved by gameplay; landed is placed on the walking line"},
             "timber_set": {"states": ["intact", "smashed"]},
-            "timber_barricade": {"states": ["intact", "smashed"]},
-            "guild_portal": {"states": ["closed", "open"]},
+            "timber_barricade": {"states": ["intact", "smashed"],
+                                 "note": "96x176 lower option; the layouts use the full-height pair"},
+            "timber_barricade_full": {"states": ["intact", "smashed"],
+                                      "note": "96x256, bottom on the back line, top at the cornice "
+                                              "(y 32): covers the full-height barricade blocker"},
+            "guild_portal": {"states": ["closed", "ajar", "open"],
+                             "note": "ajar is the 1-frame in-between played when a player enters "
+                                     "exit_guild; same rect as closed and open"},
         },
         "usage_rules": {
             "S3_chase": "C grammar under a lowered ceiling: copper run along the cornice, valve on a "
                         "drop, maint_hatch at chest height, timber_set_* every 320 px or so (bottom "
-                        "on the floor back line), jump humps as 1-tile platforms.",
+                        "on the floor back line), jump humps as 1-tile platforms. The two ceiling "
+                        "steps use the soffit tiles: soffit_end_l/_b (left step), soffit_end_r/_b "
+                        "(right step), soffit_corner_* at the low cornice, soffit_joint_* at the "
+                        "high cornice next to the face.",
             "S4_widened": "A grammar at full height: alcove_niche on a 1-tile ledge (6 columns), a "
-                          "pooled torch right of the niche, timber_barricade_* closing the end.",
+                          "pooled torch right of the niche, timber_barricade_full_* (96x256, y 32) "
+                          "closing the end.",
             "S5_skirmish": "raking shore set: wall_cavity at block - (8, 8), loose_block_* at the "
                            "shore head, shore_post_* foot on the deck, hazard_grit centred on the fall "
-                           "region; keep a pier or wall torch within 120 px so the set reads lit.",
+                           "region; keep a pier or wall torch within 120 px so the set reads lit. "
+                           "Presentation frames: shore_dust_trickle under the block's split from "
+                           "damaged_1, timber_splinter_burst at each hit, block_impact_dust on the "
+                           "landing.",
             "S6_guild": "guild_portal_* bottom on the floor back line, guild_sign right of the "
                         "portal at y 168, nothing breakable within 160 px of the portal.",
         },
@@ -1094,8 +1451,8 @@ def build_layout(contract: dict, option: str) -> dict:
     fill_run(0, 2, cols, "ceiling_fill", ["a", "s"], salt="c0")
     cl, cr = LOW_CEIL
     for r in range(1, low - 1):
-        collision[r][cl] = "wall_end_r" if r % 2 else "wall_end_r_b"
-        collision[r][cr] = "wall_end_l" if r % 2 else "wall_end_l_b"
+        collision[r][cl] = "soffit_end_l" if r % 2 else "soffit_end_l_b"
+        collision[r][cr] = "soffit_end_r" if r % 2 else "soffit_end_r_b"
         if r == low - 2:       # the course right above the low cornice keeps the ceiling look
             fill_run(r, cl + 1, cr, "ceiling_fill", ["a", "s"], salt=f"c{r}")
         else:                  # deeper soffit mass: the dark fill blocks of the floor stack
@@ -1105,11 +1462,11 @@ def build_layout(contract: dict, option: str) -> dict:
     # cornice rows: high cornice (row 1) on both sides, low cornice (row low-1) inside
     collision[1][1] = "ceiling_corner_in_l"
     fill_run(1, 2, cl - 1, "cornice", ["a", "b", "s"], salt="k1a")
-    collision[1][cl - 1] = "ceiling_corner_in_r"
-    collision[1][cr + 1] = "ceiling_corner_in_l"
+    collision[1][cl - 1] = "soffit_joint_l"
+    collision[1][cr + 1] = "soffit_joint_r"
     fill_run(1, cr + 2, cols, "cornice", ["a", "b", "s"], salt="k1b")
-    collision[low - 1][cl] = "ceiling_corner_out_l"
-    collision[low - 1][cr] = "ceiling_corner_out_r"
+    collision[low - 1][cl] = "soffit_corner_l"
+    collision[low - 1][cr] = "soffit_corner_r"
     fill_run(low - 1, cl + 1, cr, "cornice", ["a", "b", "s"], salt="klow")
 
     # --- floor stack -----------------------------------------------------------------
@@ -1262,7 +1619,7 @@ def build_layout(contract: dict, option: str) -> dict:
         props.append({"piece": "timber_set_intact", "x": x, "y": BACK_Y - 104})
     # S4: alcove niche on the ledge, barricade
     decals.append({"piece": "alcove_niche", "x": ALCOVE_XY[0], "y": ALCOVE_XY[1]})
-    props.append({"piece": "timber_barricade_intact", "x": BARRICADE_X, "y": BACK_Y - 176})
+    props.append({"piece": "timber_barricade_full_intact", "x": BARRICADE_X, "y": BARRICADE_FULL_Y})
     # S5: the CP-03 raking shore set
     decals.append({"piece": "wall_cavity", "x": BLOCK_XY[0] - 8, "y": BLOCK_XY[1] - 8})
     props.append({"piece": "hazard_grit", "x": HAZARD[0] - 8, "y": BACK_Y})
@@ -1320,7 +1677,7 @@ def build_layout(contract: dict, option: str) -> dict:
                  "range 64..116). 80 px wide: Carl and Donut fit together. Actors whose feet are on "
                  "the ledge inside it are skipped by pursuer contact and drawn behind it"},
         {"id": "barricade", "kind": "scripted_blocker", "x": BARRICADE_X + 48, "y": BACK_Y - 1,
-         "rect": [BARRICADE_X + 8, 32, 80, walk - 32], "art": "timber_barricade",
+         "rect": [BARRICADE_X + 8, 32, 80, walk - 32], "art": "timber_barricade_full",
          "note": "blocks actors until the pursuer reaches it (or a fallback timer); then removed "
                  "and swapped to timber_barricade_smashed"},
         {"id": "pursuer_wedge", "kind": "pursuer_end", "x": BAYS[1] * TILE + 152, "y": walk - 1,
@@ -1349,6 +1706,8 @@ def build_layout(contract: dict, option: str) -> dict:
          "note": "walk into the guild portal; it opens (closed -> open) when a player enters the rect"},
     ]
     views = {
+        "s1_intro_640x360": [0, 20, 640, 360],
+        "s2_arch_640x360": [496, 20, 640, 360],
         "s3_chase_640x360": [944, 20, 640, 360],
         "s4_widened_640x360": [1968, 20, 640, 360],
         "s5_skirmish_640x360": [2768, 20, 640, 360],
@@ -1361,8 +1720,9 @@ def build_layout(contract: dict, option: str) -> dict:
         "layout_id": "floor01_opening_route_proposal" + ("" if option == "R" else "_ceiling_t"),
         "kit": KIT_ID,
         "kit_contract": CONTRACT_REL,
-        "status": "ENV-02 design proposal (phase 1): full opening route for review and CHASE-01 / "
-                  "CP-03 planning; not authored level geometry, not wired into floor01_scene",
+        "status": "ENV-02 route proposal, full piece set drawn (Claude Sonnet) on the Opus keys, "
+                  "awaiting independent Opus review: full opening route for CHASE-01 / CP-03 "
+                  "planning; not authored level geometry, not wired into floor01_scene",
         "tile_size": [TILE, TILE],
         "grid_size": [cols, rows],
         "pixel_size": [cols * TILE, rows * TILE],
@@ -1418,7 +1778,7 @@ def ek_sample_lighting() -> dict:
 
 def build_all() -> dict:
     atlases = build_atlases()
-    grids, manifests, pieces = {}, {}, []
+    grids, manifests, pieces, tiles = {}, {}, [], []
     for name, atlas in atlases.items():
         img, entries = kit.pack_pieces(atlas, ATLAS_WIDTH[name])
         grids[name] = kit.grid_from([img])
@@ -1432,7 +1792,30 @@ def build_all() -> dict:
                     entry["state_of" if key == "breakable" else key] = e[key]
             pieces.append(entry)
         manifests[name] = manifest(name, grids[name])
-    contract = build_contract(pieces, grids)
+    # soffit tileset (collision role: opaque, collidable, [0, 0, 16, 16] collider)
+    soffit = build_soffit()
+    img, entries = kit.pack_tiles(soffit, 4)
+    grids["floor01_soffit"] = kit.grid_from([img])
+    for e in entries:
+        tiles.append({"id": e["id"], "atlas": "floor01_soffit", "grid_index": e["grid_index"],
+                      "rect": e["rect"], "role": "collision", "collidable": True,
+                      "grammar": ["A", "B", "C"], "collider": [0, 0, TILE, TILE]})
+    manifests["floor01_soffit"] = manifest("floor01_soffit", grids["floor01_soffit"],
+                                           tiles=[e["id"] for e in entries])
+    # animated pieces: one atlas per size (the exporter needs one canvas size per sprite)
+    for name, (pid, tag, w, h, n, dur, anchor, anchor_name) in FX.items():
+        frames = fx_frames(name)
+        grids[name] = kit.grid_from([], layer_names=["main"], durations=[dur] * n,
+                                    tags=[{"name": tag, "from": 0, "to": n - 1, "direction": "forward"}],
+                                    pivot=tuple(anchor), frames_layers=[{"main": f} for f in frames])
+        pieces.append({"id": pid, "atlas": name, "rect": [0, 0, w, h], "role": "prop", "layer": "prop",
+                       "collidable": False, "anchor": list(anchor), "anchor_name": anchor_name,
+                       "grid_snap": 1, "grammar": ["A", "B", "C"],
+                       "animation": {"tag": {"name": tag, "from": 0, "to": n - 1, "direction": "forward"},
+                                     "frames": [{"frame": {"x": w * i, "y": 0, "w": w, "h": h},
+                                                 "duration": dur} for i in range(n)]}})
+        manifests[name] = manifest(name, grids[name], frame_size=[w, h], pivot=anchor, tags=[tag])
+    contract = build_contract(tiles, pieces, grids)
     base = __import__("json").loads((ROOT / kit.CONTRACT_REL).read_text(encoding="utf-8"))
     merged = dict(base)
     merged["tiles"] = base["tiles"]

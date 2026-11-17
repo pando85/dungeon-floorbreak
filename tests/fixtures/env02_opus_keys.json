@@ -1,0 +1,311 @@
+{
+ "note": "Frozen Opus keys of ENV-02 (design phase 1, commits 845cee2..add2ce2). Never edit. sha256 = SHA-256 of the piece rect's RGBA bytes (row-major, transparent = 00000000) decoded from the committed pixel-grid-v1 source of its atlas (cels.main, frame 0). 'polished' lists the two keys the spec's Sonnet task 3 explicitly asks to polish: they keep rect, anchor and layer; their Opus-key hash is kept for the record and the polished hash is frozen as well.",
+ "frozen": {
+  "shore_post_intact": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    0,
+    0,
+    136,
+    144
+   ],
+   "anchor": [
+    16,
+    138
+   ],
+   "layer": "prop",
+   "sha256": "64383550951f919501651ab8726d2bf185213477baefeef8c2a573d2b9696af2"
+  },
+  "shore_post_damaged_2": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    272,
+    0,
+    136,
+    144
+   ],
+   "anchor": [
+    16,
+    138
+   ],
+   "layer": "prop",
+   "sha256": "3bd57ee71a8a1d03368c67ef20b72e418c568d62c1d430729b0243f39ed83e6f"
+  },
+  "shore_post_broken": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    0,
+    144,
+    136,
+    144
+   ],
+   "anchor": [
+    16,
+    138
+   ],
+   "layer": "prop",
+   "sha256": "1128b301bbc6f58c08110a5e4ac67de821053e18fb83eedbad8dde6a9fed747d"
+  },
+  "loose_block_seated": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    136,
+    144,
+    64,
+    56
+   ],
+   "anchor": [
+    32,
+    48
+   ],
+   "layer": "prop",
+   "sha256": "51bd93cd59e9b99c1acbe5e0b39b79324debdab3e781b49403cbd1ca52124821"
+  },
+  "loose_block_settling": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    200,
+    144,
+    64,
+    56
+   ],
+   "anchor": [
+    32,
+    48
+   ],
+   "layer": "prop",
+   "sha256": "790751e466012c30467535a38e8011cfa297adf703645f09de935dacf60f133b"
+  },
+  "loose_block_slipped": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    264,
+    144,
+    64,
+    56
+   ],
+   "anchor": [
+    32,
+    48
+   ],
+   "layer": "prop",
+   "sha256": "20cdcb6590a7633585ed14dc07391a65df9ca4b202d4dd2f31e222de4887d81b"
+  },
+  "loose_block_falling": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    328,
+    144,
+    72,
+    64
+   ],
+   "anchor": [
+    36,
+    52
+   ],
+   "layer": "prop",
+   "sha256": "99a50a21f64dbc559107cdbcc955c14d3e35c325884c33d1f5aeacbddf245cab"
+  },
+  "hazard_grit": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    0,
+    288,
+    96,
+    16
+   ],
+   "anchor": [
+    48,
+    8
+   ],
+   "layer": "prop",
+   "sha256": "2f57a3771dc289b9d0e15b59de29cef150c15cbe12e9d063e934399311eab4af"
+  },
+  "timber_set_intact": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    96,
+    288,
+    80,
+    104
+   ],
+   "anchor": [
+    40,
+    104
+   ],
+   "layer": "prop",
+   "sha256": "dffdf092ee3f31df4fa9e4cb424411c20bf61f2bd990371665097b5d33f33387"
+  },
+  "timber_set_smashed": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    176,
+    288,
+    80,
+    104
+   ],
+   "anchor": [
+    40,
+    104
+   ],
+   "layer": "prop",
+   "sha256": "a02ece4b6adbd44827535427ad53f42ac979acd1a78afa454e9eb787072d6480"
+  },
+  "timber_barricade_intact": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    256,
+    288,
+    96,
+    176
+   ],
+   "anchor": [
+    48,
+    176
+   ],
+   "layer": "prop",
+   "sha256": "be96025cf994321843dc4541956ee6175c03efb56b985598979a56201897cafc"
+  },
+  "timber_barricade_smashed": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    352,
+    288,
+    96,
+    176
+   ],
+   "anchor": [
+    48,
+    176
+   ],
+   "layer": "prop",
+   "sha256": "65bbd0c8ad5a20b0169d43048ab7872c4bdcaa825e7e011e006f69dc29dab25c"
+  },
+  "maint_hatch": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    448,
+    288,
+    32,
+    32
+   ],
+   "anchor": [
+    0,
+    0
+   ],
+   "layer": "prop",
+   "sha256": "57757435f6465d41b18ec1a4ef46004d97a325508190d72a37b88e6550799cd7"
+  },
+  "alcove_niche": {
+   "atlas": "floor01_opening_decal",
+   "rect": [
+    0,
+    0,
+    96,
+    96
+   ],
+   "anchor": [
+    48,
+    96
+   ],
+   "layer": "backwall_decal",
+   "sha256": "148871237d358e0e31647e69082576fd344a472fa9ee9a683e289f23c291e233"
+  },
+  "wall_cavity": {
+   "atlas": "floor01_opening_decal",
+   "rect": [
+    96,
+    0,
+    80,
+    64
+   ],
+   "anchor": [
+    8,
+    8
+   ],
+   "layer": "backwall_decal",
+   "sha256": "81124511a397c6ee6e866522997e249422fc64bd02393a735e2176b836bfd3b4"
+  },
+  "guild_portal_closed": {
+   "atlas": "floor01_guild",
+   "rect": [
+    0,
+    0,
+    112,
+    136
+   ],
+   "anchor": [
+    56,
+    136
+   ],
+   "layer": "prop",
+   "sha256": "4d6cee1c0c69581d085b629e5c1779ca61e5b0d8438fefa4ce21086610d07bda"
+  },
+  "guild_portal_open": {
+   "atlas": "floor01_guild",
+   "rect": [
+    112,
+    0,
+    112,
+    136
+   ],
+   "anchor": [
+    56,
+    136
+   ],
+   "layer": "prop",
+   "sha256": "c3e484b8e823ef7bbd7a2b8c837a761777381af32d988a0754bc435b6c1ff899"
+  },
+  "guild_sign": {
+   "atlas": "floor01_guild",
+   "rect": [
+    224,
+    0,
+    40,
+    44
+   ],
+   "anchor": [
+    0,
+    2
+   ],
+   "layer": "prop",
+   "sha256": "7a7b5dbcb179050737776891ad5e564d85aa47955478069f80e244e8f058f619"
+  }
+ },
+ "polished": {
+  "shore_post_damaged_1": {
+   "reason": "ENV-02 spec Sonnet task 3: slightly larger notch so it reads at 1x",
+   "opus_key_sha256": "2d118b746f6cb611b24a6ffd4444380f2f2ececcba0fd1cd70393df52eb5ff1e",
+   "sha256": "8d3ee3317e9fb15ed5bf3221a9e930383f30097fd0b1821a82fef4ee80866ed1",
+   "rect": [
+    136,
+    0,
+    136,
+    144
+   ],
+   "anchor": [
+    16,
+    138
+   ],
+   "atlas": "floor01_opening_props",
+   "layer": "prop"
+  },
+  "loose_block_landed": {
+   "reason": "ENV-02 spec Sonnet task 3: rubble follows the v2 split (right stone, left pair, crumbs)",
+   "opus_key_sha256": "9a4ffb60b122b1765e5504e57c2d213484238494d94317bb6dd492f63961d2ac",
+   "sha256": "17737f488da548d449f2d72e7e94a3e5e018c1eabc4a0bb8ccf8f7615fcb41ad",
+   "rect": [
+    400,
+    144,
+    96,
+    32
+   ],
+   "anchor": [
+    48,
+    30
+   ],
+   "atlas": "floor01_opening_props",
+   "layer": "prop"
+  }
+ }
+}

@@ -1,5 +1,5 @@
 {
-  "format": "env02-design-evidence-v1",
+  "format": "env02-evidence-v2",
   "note": "Pillow art preview with the ENV-01 lighting model on exported atlases; not a Bevy capture and not gameplay evidence.",
   "layouts": [
     "assets/levels/floor01/opening_route_proposal.json",
@@ -50,7 +50,11 @@
   "atlas_colours": {
     "floor01_opening_props": 36,
     "floor01_opening_decal": 16,
-    "floor01_guild": 32
+    "floor01_guild": 32,
+    "floor01_soffit": 12,
+    "floor01_shore_dust": 4,
+    "floor01_block_impact": 6,
+    "floor01_splinter_burst": 6
   },
   "lit_colours_s5_640x360": 4832,
   "files": [
@@ -58,15 +62,26 @@
     "env02_key_sheet_3x.png",
     "env02_route_plan_unlit.png",
     "env02_ceiling_options_unlit_2x.png",
-    "env02_lit_s5_skirmish_640x360.png",
-    "env02_lit_s5_skirmish_1920x1080.png",
+    "env02_lit_s1_intro_640x360.png",
+    "env02_lit_s1_intro_1920x1080.png",
+    "env02_lit_s2_arch_640x360.png",
+    "env02_lit_s2_arch_1920x1080.png",
+    "env02_lit_s3_chase_option_R_640x360.png",
+    "env02_lit_s3_chase_option_R_1920x1080.png",
+    "env02_lit_s3_chase_option_T_640x360.png",
+    "env02_lit_s3_chase_option_T_1920x1080.png",
     "env02_lit_s4_widened_640x360.png",
     "env02_lit_s4_widened_1920x1080.png",
-    "env02_lit_s3_chase_option_R_640x360.png",
-    "env02_lit_s3_chase_option_T_640x360.png",
+    "env02_lit_s5_skirmish_640x360.png",
+    "env02_lit_s5_skirmish_1920x1080.png",
     "env02_lit_s6_guild_closed_640x360.png",
+    "env02_lit_s6_guild_closed_1920x1080.png",
     "env02_lit_s6_guild_open_640x360.png",
     "env02_lit_s6_guild_open_1920x1080.png",
-    "env02_cp03_state_sequence_lit_2x.png"
+    "env02_guild_door_states_lit_2x.png",
+    "env02_guild_door_opening_lit_2x.gif",
+    "env02_soffit_steps_lit_3x.png",
+    "env02_cp03_state_sequence_lit_2x.png",
+    "env02_cp03_sequence_lit_2x.gif"
   ]
 }

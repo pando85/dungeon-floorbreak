@@ -1,6 +1,6 @@
 # ENV-02: Floor 1 opening route pieces (design spec, phase 1)
 
-**Status:** design phase 1 of the [AGENTS.md art pipeline](../../AGENTS.md#model-routing-for-art-work). Design and keys by Claude Opus (2026-11-17). **Execution pending (Claude Sonnet); independent review pending (a separate Claude Opus agent); owner review at the end only.** Nothing here is wired into `floor01_scene`; the integrator owns that.
+**Status:** full set drawn (Sonnet), awaiting independent Opus review. This follows the [AGENTS.md art pipeline](../../AGENTS.md#model-routing-for-art-work): design and keys by Claude Opus (2026-11-17), full-set execution by Claude Sonnet (2026-11-17), **independent review pending (a separate Claude Opus agent); owner review at the end only.** Nothing here is wired into `floor01_scene`; the integrator owns that. The evidence images are Pillow previews; the Bevy captures come when the integrator wires the route in.
 **Builds on:** the owner-approved ENV-01 kit ([kit doc](floor-01-catacomb-kit.md), `env-kit-v2`), [ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md) (A1 frame: 640×360 pixel layers plus a full-resolution lighting pass, deep floor, walking line at y 308).
 **Drives:** CHASE-01 (the pursuit, segments C and D of the [opening handoff](../07-agents/floor-01-opening-encounter-handoff.md)) and CP-03 (the environmental kill in segment E, [combat probes](../07-agents/floor-01-integrated-combat-probes.md), [Fixture 3](../01-design/combat-feel-hybrid-physics.md)).
 **Evidence:** [`docs/evidence/env-02/`](../evidence/env-02/README.md).
@@ -30,14 +30,14 @@ Rejected: the brass boiler cap (copper or brass machinery belongs in C and the w
 ## Grid, palette, layers (unchanged from ENV-01)
 
 - 16 px tiles, virtual 640×360 / 640×400, floor back line y 288, walking line y 308 (4 px behind the 24 px deep-floor lip), actor pivot at walking line − 1 (0 px sink).
-- Palette `floor01-catacomb-v2`: **no new colours**. Atlas use: `floor01_opening_props` 33, `floor01_opening_decal` 14, `floor01_guild` 32 (max 63 each).
+- Palette `floor01-catacomb-v2`: **no new colours**. Atlas use: `floor01_opening_props` 36, `floor01_opening_decal` 16, `floor01_guild` 32, `floor01_soffit` 12, `floor01_shore_dust` 4, `floor01_block_impact` 6, `floor01_splinter_burst` 6 (max 63 each; all colours are ENV-01 palette entries, tested).
 - Timber uses `wood_00..05` plus `floor_07/08` for torch-lit edges. Fresh splinters use `stone_06..09` (pale, warm). Dry rot uses `mortar_01..03` and `iron_03..05` (grey-brown, crumbly, never black). Dressed stone uses `stone_*`; the guild glow uses `flame_*` and `gal_warm_*` (these bloom, by the existing `emissive_colours` rule).
 - Layers and draw order are inherited: `backwall_decal` (3) for the alcove and the wall cavity, `prop` (6) for everything else, actors (7) in front of all new pieces. **All pieces are non-collidable** (contract rule). Any blocking is an authored gameplay rect (marker), never a piece.
 - Light: the pieces carry baked light from their nearest torch (S5 torch to the right of the block; S4 torch to the right of the niche). Emitters exist only on the guild portal (presentation only).
 
 ### Contract: `extends`
 
-`assets/source/terrain/floor01/floor01_opening_kit.json` is an `env-kit-v2` **extension contract**. It has `"extends": "<ENV-01 contract>"` and adds three atlases and 20 pieces, with no tiles. `scripts/env_kit.py` (`resolve_extends`) merges it onto the base. It inherits the palette, layers, coordinates, walking-line rule, roles and lighting schema, and must not redeclare them. Atlas names and ids must be new. The base file is never modified, and layouts that name the base keep validating against the base alone. **The Rust loader (`src/env_kit.rs`) does not support `extends` yet.** That is an integrator task when the route is wired in: merge the same way, or flatten at load.
+`assets/source/terrain/floor01/floor01_opening_kit.json` is an `env-kit-v2` **extension contract**. It has `"extends": "<ENV-01 contract>"` and adds seven atlases, 29 pieces and the 8 soffit tiles. `scripts/env_kit.py` (`resolve_extends`) merges it onto the base. It inherits the palette, layers, coordinates, walking-line rule, roles and lighting schema, and must not redeclare them. Atlas names and ids must be new. The base file is never modified, and layouts that name the base keep validating against the base alone. **The Rust loader (`src/env_kit.rs`) does not support `extends` yet.** That is an integrator task when the route is wired in: merge the same way, or flatten at load.
 
 ## Pieces
 
@@ -133,7 +133,7 @@ The full plan is in `env02_route_plan_unlit.png`.
 
 When a player enters the `exit_guild` rect, the portal swaps closed → open (a 1-frame `ajar` in-between is a Sonnet task), then the level completes. `protected_exit_region` holds no breakable, hazard, blocker or spawn (tested), and its floor is ordinary reinforced deck.
 
-## Sonnet execution tasks (phase 2, final)
+## Sonnet execution tasks (phase 2, final; done, see the execution record below)
 
 Design decisions above are frozen, including the chunk redesign of the block (v2). Rects, anchors, the fall region and the hit count must not change. Send design problems back to Opus.
 
@@ -163,6 +163,19 @@ Design decisions above are frozen, including the chunk redesign of the block (v2
 7. **Evidence:** regenerate `docs/evidence/env-02` (`make_env02_evidence.py`, `SHA256SUMS`), and add GIFs of the CP-03 sequence and the portal opening.
 8. **DOZ-01 interface note (Sonnet does not draw the Dozer here).** The S2 entry and the S5 wedge go through 192×218 arch windows, but the pursuer is 259 px long. The turn-in and the wedge therefore need an **end-on (rear three-quarter) or wedged pose at most 192 px wide and 155 px tall**, drawn in DOZ-01, with the wheel-spin loop visible from behind. ENV-02 only reserves the `pursuer_spawn` and `pursuer_wedge` rects. If DOZ-01 cannot supply that pose, ENV-02 falls back to `wall_breach` (task 5) at the S5 wedge.
 
+## Execution record (Sonnet, phase 2)
+
+All eight tasks above are executed; rects, anchors, the fall region and the hit count are unchanged.
+
+- **Frozen keys:** `tests/fixtures/env02_opus_keys.json` freezes the pixel hash of 18 Opus keys, and `FrozenKeyTests` fails if one changes. The two keys that task 3 explicitly asks to polish (`shore_post_damaged_1`, `loose_block_landed`) keep rect, anchor and layer; their Opus-key hash is kept in the fixture and the polished hash is frozen too. `guild_sign` and every other key are byte-identical. New pieces are appended to each atlas, so no existing rect moved.
+- **Task 1:** `timber_barricade_full_intact` / `_smashed` (96x256, anchor (48, 256), placed at (2304, 32)). Boards vary in width (7 to 12 px) and tone, dark gaps are filled between them, and a header and a sill close the top and the bottom: every row of the blocker rect is covered (R5, at least 85 % opaque). Both layouts use it; the 96x176 pair is unchanged.
+- **Task 2:** new tileset atlas `floor01_soffit` with 8 collision tiles (opaque, `[0, 0, 16, 16]` collider). The spec names `soffit_end_l/_r` (+`_b`) and `soffit_corner_l/_r` but describes two corner functions, so the contract has **8 tiles**: `soffit_end_l`, `_l_b`, `_r`, `_r_b` (hanging face, columns 61 and 104), `soffit_corner_l/_r` (low cornice wrapping the outer corner, row low-1 of the step column) and `soffit_joint_l/_r` (high cornice meeting the face, row 1 one column outside the step: columns 60 and 105). **Side convention: `l` is the left step (column 61), `r` the right step (column 104).** R6 therefore reads: face and corner tiles only at the step columns, joint tiles only at the two cornice columns beside them. Face masonry is the dark fill (`brick_00`, `mortar_00`) with narrow lit quoins (3 and 5 px).
+- **Task 3:** `loose_block_landed` is redrawn as the right stone (with the big crack), the left pair (two stones, bed joint) and crumbs; the barricade polish is in the full-height variant; `shore_post_damaged_1` has a deeper, wider notch.
+- **Task 4:** `shore_dust_trickle` (3 frames, 8x24), `block_impact_dust` (4, 112x40), `timber_splinter_burst` (4, 48x48), each in its own `prop_animation` atlas (the exporter needs one canvas size per sprite) with a manifest tag, and `guild_portal_ajar` (112x136, same rect; a warm slit between the leaves). Ajar lights are interpolated between closed and open (`interior` r 170, i 0.32; `spill` r 130, i 0.3): a Sonnet choice for the reviewer to confirm.
+- **Task 5** (`wall_breach`) is not drawn: the optional condition (CHASE-01 rejects the wedge) has not occurred. **Task 8** is a note for DOZ-01 and needs no art here.
+- **Tests (task 6):** R1 to R6, 23 markers, hit point outside the fall region, exit reachable in any break order, alcove clear height 64 to 116 px, chase ceiling at least 164 px.
+- **Evidence (task 7):** [`docs/evidence/env-02`](../evidence/env-02/README.md), including GIFs of the CP-03 sequence and the portal opening.
+
 ## Acceptance targets (for the independent Opus review)
 
 1. **Readability at 1x (640×360, lit):**
@@ -177,13 +190,13 @@ Design decisions above are frozen, including the chunk redesign of the block (v2
 
 ## Known weak spots
 
-- **Barricade height:** the art reaches y 112 but the blocker is full height (y 32), so an 80 px band above the planks blocks without showing it (Sonnet task 1).
-- **Block (CP-03 load), v2:** redesigned as a 3D chunk with a socket drawn as depth. Its top face is deliberately dim (it faces away from the torch), so the volume relies on the lit right face; the independent review should check it at 1x. `loose_block_landed` still uses the v1 rubble shapes (Sonnet task 3).
-- **Ceiling transitions in S3:** the borrowed end-wall quoins at the two step columns read as wall ends, not as a soffit (Sonnet task 2).
+- **Barricade height:** fixed by the full-height variant (Sonnet task 1); the 96x176 pair remains only as a lower option.
+- **Block (CP-03 load), v2:** redesigned as a 3D chunk with a socket drawn as depth. Its top face is deliberately dim (it faces away from the torch), so the volume relies on the lit right face; the independent review should check it at 1x. `loose_block_landed` now follows the v2 split (Sonnet task 3); it is small at 1x, so the review should check that it reads as the block's remains.
+- **Ceiling transitions in S3:** replaced by the dedicated soffit tiles (Sonnet task 2); the review should judge the steps in `env02_soffit_steps_lit_3x.png` and the S3 frames.
 - **Goblin luminance** against the brick in S5 is low (mean ΔL* about −3 to +3). The silhouette edge contrast is fine (17 to 24). Left alone on purpose: it is judged in Bevy with the real A1 lighting.
 - The **pursuer entry and wedge through arch windows** are a depth trick that only CHASE-01 can prove in Bevy. Sonnet task 8 records the end-on pose DOZ-01 needs; `wall_breach` is the fallback.
 - No Bevy capture; all evidence is the Pillow A1 model.
 
 ## Rights and provenance
 
-Original pixel art written by Claude Opus as deterministic rules in `scripts/author_floor01_opening.py`, reusing the ENV-01 shading helpers. There is no image-model raster output, and nothing is cropped, traced or resampled from concept images. The guild sign and keystone carry an invented lantern pictogram: no letters, no real-world mark. Actor previews composite the approved Carl 52 and Donut 40 atlases and the GOB-01 h36 candidates under the owner-reported `ART-PUBLICATION-ALL-V1` scope in [rights-and-release.md](../04-production/rights-and-release.md). That scope is not independently verified, is not a public reuse licence and grants no right to distribute a game or an asset pack. The manifests stay `prototype_fixture_unapproved`. Design by Claude Opus; execution pending (Claude Sonnet); review pending (a separate Claude Opus agent).
+Original pixel art written by Claude Opus (keys) and Claude Sonnet (full set) as deterministic rules in `scripts/author_floor01_opening.py`, reusing the ENV-01 shading helpers. There is no image-model raster output, and nothing is cropped, traced or resampled from concept images. The guild sign and keystone carry an invented lantern pictogram: no letters, no real-world mark. Actor previews composite the approved Carl 52 and Donut 40 atlases and the GOB-01 h36 candidates under the owner-reported `ART-PUBLICATION-ALL-V1` scope in [rights-and-release.md](../04-production/rights-and-release.md). That scope is not independently verified, is not a public reuse licence and grants no right to distribute a game or an asset pack. The manifests stay `prototype_fixture_unapproved`. Design and keys by Claude Opus; full-set execution by Claude Sonnet; review pending (a separate Claude Opus agent).
