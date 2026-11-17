@@ -26,9 +26,9 @@ These notes were checked against the owner-supplied **Book 1 EPUB**, specificall
 - **The Ball:** the source describes a violently rolling formation of **30+ Tusklings**, with aristocratic costumes mixed into the mass. The related concentric/gated arena with changeable walls is a *separate environment design*, not proof that all stage lighting or dimensions from the sheet are canonical.
 - Names, captions, production-class labels, exact sizes, invented attacks and gameplay mechanics printed in AI-generated image panels are **not self-authenticating canon or balance decisions**. Do not repaint the owner's approved source images to hide their exploratory nature.
 
-## Required image references (owner upload to this PR branch)
+## Approved image references — uploaded and verified
 
-Upload these **three original, unchanged PNGs** to `assets/concept/floor-01/enemies/`:
+The owner committed the following **three original, unchanged PNGs** to `assets/concept/floor-01/enemies/`:
 
 | File | Subject | Notes |
 | --- | --- | --- |
@@ -36,7 +36,7 @@ Upload these **three original, unchanged PNGs** to `assets/concept/floor-01/enem
 | `floor01-troglodyte-family-approved.png` | Pygmy, Basher, Virtuoso, Juicer | Entire visual concept family approved |
 | `floor01-ball-of-swine-approved.png` | Rolling Ball + Tuskling variants | Visual concept approved |
 
-The expected SHA-256 hashes, original conversation filenames, image dimensions and byte sizes are pinned in the **existing** `assets/concept/floor-01/enemies/manifest.json`, alongside all five files from the previous PR #50. The three new files are **absent** until the owner uploads them. No existing image or approval is replaced. The art-assets manifest validator must pass **after** upload and before merge.
+The expected SHA-256 hashes, original conversation filenames, image dimensions and byte sizes are pinned in the **existing** `assets/concept/floor-01/enemies/manifest.json`, alongside all five files from the previous PR #50. All three are present and each Git blob ID matches the independently computed SHA-1 of the source bytes; source SHA-256, byte counts and dimensions also match the manifest. No existing image or approval was replaced. The eight-image art-assets manifest validator passed on the uploaded PR head; final CI must be rerun after any further documentation changes.
 
 **Provenance and publication:** All three are original OpenAI-generated concept images from the project's ChatGPT conversation. Source inspiration is the owner's previously supplied Book 1 EPUB and the project's approved A1 visual direction; no book excerpts, ripped sprites or externally sourced fan illustrations are included. Publication follows the owner-reported `ART-PUBLICATION-ALL-V1` record in the [rights policy](../04-production/rights-and-release.md), which is **not** a general licence to ship a playable adaptation or standalone asset pack.
 
@@ -58,6 +58,6 @@ Also still unfinished as **individual environment concept studies**, separate fr
 - [x] All existing enemy approvals preserved
 - [x] Hoarder study, troglodyte family, The Ball of Swine and Tusklings recorded with correct approval boundaries
 - [x] Original image hashes and metadata computed from the three local originals
-- [ ] Three unchanged source PNGs committed by owner to this PR branch
-- [ ] All eight concept PNGs pass the automated hash/dimension/byte validator
-- [ ] Required CI checks green on the final PR head
+- [x] Three unchanged source PNGs committed by owner to this PR branch
+- [x] All eight concept PNGs pass the automated hash/dimension/byte validator
+- [ ] Required CI checks green on the final PR head after documentation cleanup
