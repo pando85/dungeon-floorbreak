@@ -96,13 +96,13 @@
       "duration_ms": 100,
       "bbox": [
         13,
-        8,
+        9,
         42,
         55
       ],
       "opaque_width": 30,
-      "opaque_height": 48,
-      "opaque_pixels": 764,
+      "opaque_height": 47,
+      "opaque_pixels": 771,
       "lowest_opaque_row": 55
     },
     {
@@ -112,12 +112,12 @@
       "bbox": [
         15,
         5,
-        38,
+        40,
         55
       ],
-      "opaque_width": 24,
+      "opaque_width": 26,
       "opaque_height": 51,
-      "opaque_pixels": 797,
+      "opaque_pixels": 801,
       "lowest_opaque_row": 55
     },
     {
@@ -282,7 +282,7 @@
       ],
       "opaque_width": 45,
       "opaque_height": 37,
-      "opaque_pixels": 805,
+      "opaque_pixels": 807,
       "lowest_opaque_row": 38
     },
     {
@@ -297,7 +297,7 @@
       ],
       "opaque_width": 46,
       "opaque_height": 36,
-      "opaque_pixels": 827,
+      "opaque_pixels": 831,
       "lowest_opaque_row": 55
     },
     {
@@ -312,7 +312,7 @@
       ],
       "opaque_width": 42,
       "opaque_height": 36,
-      "opaque_pixels": 751,
+      "opaque_pixels": 755,
       "lowest_opaque_row": 55
     },
     {
@@ -372,21 +372,21 @@
   },
   "manifest": "assets/manifests/carl_book1_h52_melee.json",
   "sha256": {
-    "contact_sheet_x1.png": "3c380d231aeeaa0e32c3bc227ab11afc7f1ae01d86ce6ae31648e90a06ade446",
-    "contact_sheet_x6.png": "c9275ceb9e6b78ba3b7e15146ebaa41fe82feaa7f8ce5c2277e699ead9726e0a",
+    "contact_sheet_x1.png": "f73357516819e85776f1e1ae2569e85529f70780d58f90ca5359807d49be6a8e",
+    "contact_sheet_x6.png": "42f82868047dc41df77d1c39b4b34c5b692d5f14105e6ec7e9a14a11d73576f7",
     "floor01_kick_1920x1080.png": "83f971ce7cfcf57886043084ba2d33a38961e3a5a7582e4eda6e9de10c43fc19",
     "floor01_kick_640x360.png": "26424db1b3a38426f4d8f59075d41a67aea38fe311565bf0bfd91cdced04baf0",
     "floor01_kick_crop_x6.png": "ae3e41ebe71519a10131cf95855b36f5f811f92777d72dffde3433757b2a41ce",
     "floor01_kick_sequence_1920x1080.png": "04a51e50837b32b2f1e81ec606464e14ccece67f7380791eeba9881ed3f0569c",
-    "floor01_lineup_1920x1080.png": "2c1808b0ed6fc906ecf1c616d1843d5ca84305dcf6f521da3894839252593fc6",
+    "floor01_lineup_1920x1080.png": "7bce705f8e97c5da02b2cc3d910b738a1bcfdc2438f24727c3da3d6a857ea04d",
     "hurt_x4.gif": "8b0f65eeb8b3714e5757777506437f9faf825d719a56857b3e5b46263b07df16",
-    "jab_haymaker_x4.gif": "3585052dacaf7f1bfe496016fdf161e4ccce9177ebf2ef2166015427f6f6dd76",
+    "jab_haymaker_x4.gif": "0917d8ac4eb2c6ef25180d6c3db0a20ce1cfcdf6bd0dd90a7cc12f475e07a934",
     "jab_kick_x4.gif": "11090d9b15b1a38da5fcddb295c4837443d758e8e1d9ea8146eb1dffe531e7ab",
     "kick_x4.gif": "50a2e73e17ab1abd8a24dede4c5d72cc791291fc8d61a0638f9a0dabf95db296",
-    "knockdown_getup_x4.gif": "9b6dbeea5d457bb094278bf113ef25803504e04d8b399a62b4e62ed0aa777262",
-    "opus_keys_x6.png": "a215192c4d65413e4bdc6dba1b894d3d166ce8bb48398a6aa233ec58314412a4",
-    "punch_a_x4.gif": "a9fff429e8998fa971b00619442c8d184c9729e10c81834be6fd3723df7aaa0c",
-    "punch_b_x4.gif": "56936a2ea3dd9a6ca16b9bdbefec8e1a04c517c53c49feed2713233e0c1db5d5",
+    "knockdown_getup_x4.gif": "77f2809268408166b2b685f53b6abf6d8e3945ffbab8f44226f8b26cc6aa7f36",
+    "opus_keys_x6.png": "b2ac27b9072b98a658c3aeddc481a54e2b4269c26f0ddde46d8f35bcf7f47d25",
+    "punch_a_x4.gif": "ad301d4ea45afffcd98bdd711246450f501dc62c88f190261a957026a3ed9f29",
+    "punch_b_x4.gif": "171832baa7bbbf6b9d2d9fce803b08231deb8942c842ff4c02d0627a7deb0d0a",
     "timing_diagram.png": "c949838e221a1189b3dc6ae7278ff2a894f6d5ba8dd62aa245ffd5d3ac3e897a"
   }
 }

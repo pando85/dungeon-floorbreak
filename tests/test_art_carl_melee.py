@@ -324,8 +324,14 @@ def foot_snap(grid: dict, a: int, b: int) -> int:
     return max(abs(x[0] - y[0]) for x, y in zip(ra, rb))
 
 
+IDLE_SNAP_LIMIT = {"b3": 5}   # b2 keeps b1's wide stance (a key), so b3 cannot be within 2 px of both b2 and the idle
+IDLE_SNAP_DEFAULT = 2
+
+
 def check_foot_snaps(grid: dict, loco: dict) -> list[str]:
-    """Hand-overs to idle snap a Croc by at most 2 px; the jab hands its support foot to the kick within 1 px."""
+    """Foot slides on grounded frames: hand-overs to idle snap a Croc by at most 2 px (b3: 5, see
+    IDLE_SNAP_LIMIT); b2 to b3 at most 2 px; the jab hands its support foot to the kick and the
+    haymaker within 1 px."""
     errs, idle = [], pga.composite_keys(loco, 0)[55]
     idle_runs = []
     start = None
@@ -341,12 +347,38 @@ def check_foot_snaps(grid: dict, loco: dict) -> list[str]:
             errs.append(f"{fid}: {len(runs)} Croc runs on row 55, idle has {len(idle_runs)}")
             continue
         snap = max(abs(a[0] - b[0]) for a, b in zip(runs, idle_runs))
-        if snap > 2:
-            errs.append(f"{fid} -> idle snaps a Croc by {snap} px (max 2)")
+        limit = IDLE_SNAP_LIMIT.get(fid, IDLE_SNAP_DEFAULT)
+        if snap > limit:
+            errs.append(f"{fid} -> idle snaps a Croc by {snap} px (max {limit})")
+    snap = foot_snap(grid, FRAME_IDS.index("b2"), FRAME_IDS.index("b3"))
+    if snap > 2:
+        errs.append(f"b2 -> b3 slides a Croc by {snap} px (max 2)")
     for a, b in (("a2", "k0"), ("a2", "b0")):
         ra, rb = row_runs(grid, FRAME_IDS.index(a)), row_runs(grid, FRAME_IDS.index(b))
-        if ra[0][0] != rb[0][0] and abs(ra[0][0] - rb[0][0]) > 1:
+        if abs(ra[0][0] - rb[0][0]) > 1:
             errs.append(f"{a} -> {b}: the back foot slides {abs(ra[0][0] - rb[0][0])} px (max 1)")
+    return errs
+
+
+def check_d1_grounding(grid: dict) -> list[str]:
+    """d1: both Crocs stand on row 55 (no floating foot) and floor shows between them (a free column)."""
+    errs, i = [], FRAME_IDS.index("d1")
+    shoes = cel_pixels(grid, i, "shoes")
+    cols = sorted({x for x, _y, _c in shoes})
+    groups, cur = [], [cols[0]]
+    for x in cols[1:]:
+        if x == cur[-1] + 1:
+            cur.append(x)
+        else:
+            groups.append(cur)
+            cur = [x]
+    groups.append(cur)
+    if len(groups) != 2:
+        errs.append(f"d1: {len(groups)} separate Croc groups, expected 2 with floor between them")
+    for g in groups:
+        bottom = max(y for x, y, _c in shoes if g[0] <= x <= g[-1])
+        if bottom != 55:
+            errs.append(f"d1: the Croc at x{g[0]}-{g[-1]} ends on row {bottom}, expected 55")
     return errs
 
 
@@ -410,6 +442,17 @@ class CarlMeleeGridTests(unittest.TestCase):
 
     def test_foot_snaps(self) -> None:
         self.assertClean(check_foot_snaps(self.grid, self.loco))
+
+    def test_d1_crocs_are_grounded_and_separate(self) -> None:
+        self.assertClean(check_d1_grounding(self.grid))
+
+    def test_hand_fingers_are_closed(self) -> None:
+        """No K/M comb on the open hands of kb and d0: no row of 3 or more single-pixel `M` fingers split by `K`."""
+        for fid, layers in (("kb", ("near_arm", "far_arm")), ("d0", ("near_arm", "far_arm"))):
+            for layer in layers:
+                for row in self.grid["frames"][FRAME_IDS.index(fid)]["cels"][layer]:
+                    self.assertNotIn("KMKMK", row, f"{fid} {layer}")
+                    self.assertNotIn(".K.K.K", row, f"{fid} {layer}")
 
     def test_grid_equals_authoring_script_output(self) -> None:
         import author_carl_melee as author
@@ -514,10 +557,16 @@ class CarlMeleeGridTests(unittest.TestCase):
         clear_layer(g, 6, "watch")
         self.assertRejects(check_watch(g, keys), "frame 6")
         g2 = self.mutated()
-        for layer in ("shoes", "legs"):                          # b3's front foot 3 px right
+        for layer in ("shoes", "legs"):                          # b3's front foot 3 px left: 5 px from b2
             rows = g2["frames"][7]["cels"][layer]
-            g2["frames"][7]["cels"][layer] = [r[:24] + ("." * 3 + r[24:-3]) for r in rows]
-        self.assertRejects(check_foot_snaps(g2, self.loco), "b3")
+            g2["frames"][7]["cels"][layer] = [r[:24] + r[27:24 + 24] + "." * 3 + r[48:] for r in rows]
+        self.assertRejects(check_foot_snaps(g2, self.loco), "b2 -> b3")
+
+    def test_rejects_floating_far_croc_in_d1(self) -> None:
+        g = self.mutated()
+        rows = g["frames"][20]["cels"]["shoes"]
+        g["frames"][20]["cels"]["shoes"] = [("." * 48 if y == 55 else r) for y, r in enumerate(rows)]
+        self.assertRejects(check_d1_grounding(g), "expected 55")
 
     def test_rejects_reach_mismatch(self) -> None:
         g = self.mutated()

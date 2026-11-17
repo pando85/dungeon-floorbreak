@@ -328,8 +328,8 @@ def a2() -> Frame:
     f.add("legs", rect(KA["legs"], 0, 0, 25, H), 1, 0)
     f.add("shoes", rect(KA["shoes"], 0, 0, 29, H), 1, 0)
     # far arm bent half back: elbow ~x36 row 23, fist x37-41 rows 18-21
-    sleeve_arm(f, "far_arm", [(31, 22), (35, 23), (37, 21)], 2.0)
-    f.add("far_arm", FIST_SMALL, 37, 18)
+    sleeve_arm(f, "far_arm", [(31, 23), (35, 24), (37, 22)], 2.0)
+    f.add("far_arm", FIST_SMALL, 37, 19)
     f.add("near_arm", BACK_ARM["near_arm"], 1, -1)
     f.add("watch", BACK_ARM["watch"], 1, -1)
     return f
@@ -369,24 +369,24 @@ def watch_cuff(f: Frame, x: int, y: int, bar: tuple[tuple[int, int], ...] = ((0,
 
 
 def b2() -> Frame:
-    """Follow-through of the b1 hook: the arm carries on round and down in front of the lower chest."""
-    f = upper(Frame(), (7, 3), "v3", (1, 1))
-    f.add("legs", rect(B1["legs"], 0, 40, W, H))
+    """Follow-through of the b1 overhand: the chop carries on down and through, the fist low in front of the boxers."""
+    f = upper(Frame(), (7, 4), "v3", (1, 1))
+    f.add("legs", rect(B1["legs"], 0, 40, W, H))                 # feet exactly as b1 (no slide)
     f.add("shoes", B1["shoes"])
-    f.add("boxers", rect(B1["boxers"], 0, 42, W, H))
-    f.add("far_arm", B1["far_arm"], 1, 0)          # far fist stays back at the hip
-    # near arm: b1's upper-arm band, then the forearm falls from the elbow to the fist (x34-39 rows 27-32)
-    # stopgap until the round-2 b2 redraw (spec section 15): b1's upper-arm band only, not the new b1 fist
-    f.add("near_arm", rect(B1["near_arm"], 0, 22, 38, 27), 1, 0)
-    sleeve_arm(f, "near_arm", [(37, 24), (36, 28)], 2.0)
-    f.add("near_arm", FIST_BIG, 34, 27)
-    watch_cuff(f, 36, 26, ((-1, 0), (1, 0)))
+    f.add("boxers", rect(B1["boxers"], 0, 42, W, H), 0, 1)        # hems one row lower under the lower seat
+    f.add("far_arm", B1["far_arm"], 1, 1)                        # far fist stays back at the hip
+    # near arm: upper arm out level from the chest front to the elbow (x37 row 27), then the forearm points
+    # down to the fist (x37-42 rows 32-37)
+    sleeve_arm(f, "near_arm", [(28, 25), (37, 27)], 2.0)
+    sleeve_arm(f, "near_arm", [(38, 28), (39, 32)], 2.0)
+    f.add("near_arm", FIST_BIG, 37, 32)
+    watch_cuff(f, 39, 31, ((-1, 0), (1, 0)))
     return f
 
 
 def b3() -> Frame:
     f = upper(Frame(), (2, 1), "v0")
-    standing_legs(f, 40, 18, 27, 15, 27)   # front Croc x27: 1 px from the idle (x26), the spec x29 was a 3 px snap
+    standing_legs(f, 40, 18, 27, 15, 31)   # front Croc x31: 2 px from b2 (x34) on a grounded frame; the idle is 5 px away (section 13)
     idle_arms(f, (2, 1))
     return f
 
@@ -494,9 +494,9 @@ def d1() -> Frame:
     # near leg straight forward on the floor, toe-up Croc ending by x46 (heel on the floor)
     f.add("legs", shade_skin(capsule((27, 52.5), (36, 52.5), 1.8)))
     f.add("shoes", CROC_HEEL, 36, 50)
-    # far leg, knee up; its flat Croc is raised 1 row and 3 px of near shin show between the two Crocs
+    # far leg, knee up; its flat Croc stands on row 55 and 3 px of near shin show between the two Crocs
     f.add("legs", leg_bent((28, 50), (31, 45), (29, 49), 2.6, 2.4, 2.0))
-    f.add("shoes", CROC_FLAT, 25, -1)
+    f.add("shoes", CROC_FLAT, 25, 0)
     # near arm propped behind: sleeve down to a bunched cuff with the watch, then a flat palm on the floor
     sleeve_arm(f, "near_arm", [(13, 36), (10, 47)], 2.0)
     f.add("near_arm", parse("""
