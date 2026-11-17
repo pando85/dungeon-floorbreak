@@ -112,7 +112,9 @@ class _FullSet:
         for frame in self.grid["frames"]:
             body, weapon = layer_pix(frame, "body"), layer_pix(frame, "weapon")
             self.assertFalse(set(body) & set(weapon), "body and weapon cels overlap")
-            self.assertFalse(set(body.values()) & WEAPON, "weapon key on the body layer")
+            n = self.grid["frames"].index(frame)
+            wood = {c for c in body.values() if c in WEAPON}
+            self.assertEqual(wood, set() if n in KEYS else wood & set("xy"), "weapon key on the body layer")
 
     # ---- contact rows and airborne frames
     def test_grounded_frames_end_on_row_55(self) -> None:
@@ -220,6 +222,50 @@ class _FullSet:
         for n in (20, 21, 22, 25):
             self.assertGreaterEqual(bbox(self.f[n])[1], 38, n)
             self.assertLessEqual(bbox(self.f[n])[2] - bbox(self.f[n])[0] + 1, 60)
+
+    def row_runs(self, n: int, y: int = 55) -> list[tuple[int, int]]:
+        runs: list[list[int]] = []
+        for x, c in enumerate(self.f[n][y]):
+            if c != ".":
+                if runs and x == runs[-1][1] + 1:
+                    runs[-1][1] = x
+                else:
+                    runs.append([x, x])
+        return [(a, b) for a, b in runs]
+
+    def test_d1_planted_foot_travels_back_at_most_6_px_per_frame_without_skating(self) -> None:
+        """Review D1: the planted foot moves back about 5 px per frame (62 px/s at 60 Hz is about 1 px per tick)."""
+        for frames in ((4, 5, 6), (7, 8, 9)):
+            xs = [self.row_runs(n)[-1][0] for n in frames]           # left edge of the rightmost row-55 run
+            steps = [b - a for a, b in zip(xs, xs[1:])]
+            self.assertTrue(all(-6 <= d <= 0 for d in steps), (frames, xs))   # never forward, at most 6 px back
+        self.assertEqual([self.row_runs(n)[-1][0] for n in (4, 5, 6)], [33, 28, 23])
+        self.assertEqual([self.row_runs(n)[-1][0] for n in (7, 8, 9)], [31, 26, 21])
+        self.assertEqual(self.row_runs(6)[-1], (23, 30))
+        self.assertEqual(self.row_runs(9)[-1], (21, 28))
+
+    def test_d1_swinging_foot_is_a_5_by_2_foot_on_rows_49_to_52(self) -> None:
+        for n in (6, 9):
+            skin = {(x, y) for y in (50, 51) for x in range(28, 33)
+                    if self.f[n][y][x] in "lms" or self.f[n][y][x] in "a"}
+            self.assertGreaterEqual(len(skin), 6, n)      # most of the 5 x 2 interior is visible
+            self.assertGreaterEqual(self.f[n][49][27:34].count("K"), 4, n)   # top edge (the planted shin may cover some)
+            self.assertGreaterEqual(self.f[n][52][27:34].count("K"), 4, n)   # sole outline
+
+    def test_d6_frame_17_feet_sit_between_hurt_and_idle(self) -> None:
+        self.assertEqual(self.row_runs(17), [(15, 22), (28, 36)])
+
+    def test_d7_rope_belt_is_on_the_body_layer_in_every_in_between(self) -> None:
+        for n, frame in enumerate(self.grid["frames"]):
+            if n in KEYS:
+                continue                                      # the frozen Opus keys carry the belt on weapon
+            weapon = layer_flat(self.grid, n, "weapon")
+            for y, row in enumerate(weapon):
+                run = best = 0
+                for c in row:
+                    run = run + 1 if c in "xy" else 0
+                    best = max(best, run)
+                self.assertLess(best, 7, f"belt pixels on the weapon layer: frame {n} row {y}")
 
     def test_in_betweens_differ_from_every_other_frame(self) -> None:
         seen = {}

@@ -183,19 +183,19 @@ def f3() -> Pix:
 
 # ------------------------------------------------------------------ walk family (frames 5, 6, 8, 9)
 
-PASS_FOOT = """
-KmaK.....
-.KmaK....
-..KmaK...
-...KmaKKK
-...KmmaaaK
-...KKKKKKK
+SWING_LEG = """
+KmaK.........
+.KmaK.KKKKKKK
+..KmaKKmmmmmK
+...KKKKaaaaaK
+......KKKKKKK
 """
 
 
-def pass_foot(light: bool) -> Pix:
-    """The lifted leg swinging through: shin down-forward, flat foot on rows 51 to 53 at x 24 to 30."""
-    p = parse(PASS_FOOT, 21, 48)
+def swing_leg(light: bool) -> Pix:
+    """The lifted leg swinging through: a 2 px wide shin and a 5 x 2 foot (7 x 4 with its outline) on rows 49 to
+    52 at x 27 to 33."""
+    p = parse(SWING_LEG, 21, 48)
     if light:
         p = {k: {"m": "l", "a": "s"}.get(c, c) for k, c in p.items()}
     return p
@@ -219,19 +219,35 @@ def walk_down(key: int) -> Pix:
     return over(new_back, front, shift(up, 0, 1))
 
 
+PLANTED_SHIN = {
+    4: ("""
+KlmsK.
+""", [28, 27, 26, 25]),
+    7: ("""
+KmaK
+""", [29, 27, 25, 23]),
+}
+
+
 def walk_pass(key: int) -> Pix:
-    """Walk 'pass' frame: the body at idle height, the front foot planted under the pivot, the far leg
-    swinging through behind the shin, the pineapple 1 px higher."""
+    """Walk 'pass' frame: the body at idle height; the planted front foot another 5 px back (it travels back 5 px
+    per frame at the 62 px/s chase speed: x 33, 28, 23 for frames 4 to 6 and x 31, 26, 21 for 7 to 9); the leg is
+    the key's hip rows, a drawn 2 px shin running down to the key's foot rows shifted 10 px; the far leg swings
+    through with a 5 x 2 foot; the pineapple 1 px higher."""
     p = key_pix(key)
     up, legs = cut(p, lambda x, y: y <= 46)
     front, _back = cut(legs, lambda x, y: x >= 27)
-    dx = {47: 0, 48: 0, 49: -1, 50: -1, 51: -2, 52: -3, 53: -4, 54: -4, 55: -4}
-    if key == 7:
-        dx = {47: 0, 48: 0, 49: 0, 50: -1, 51: -1, 52: -2, 53: -3, 54: -3, 55: -3}
-    front = shear(front, lambda x, y: True, lambda y: dx[y])
+    hip = {k: c for k, c in front.items() if k[1] <= 48}
+    foot = shift({k: c for k, c in front.items() if k[1] >= 53}, -10, 0)
+    shin_text, xs = PLANTED_SHIN[key]
+    shin: Pix = {}
+    for i, x in enumerate(xs):
+        shin.update(parse(shin_text, x, 49 + i))
+    leg = over(foot, shin, hip)
     up = shift(up, 0, -1)
     up = move(up, lambda x, y: x >= 45 and y <= 36, 0, -1)
-    return over(pass_foot(light=(key == 7)), front, up)
+    swing = swing_leg(light=(key == 7))
+    return over(swing, leg, up) if key == 4 else over(leg, swing, up)
 
 
 def f5() -> Pix: return walk_down(4)
@@ -343,16 +359,19 @@ def key_weapon(a: int) -> Pix:
 
 def f17() -> Pix:
     """Hurt stagger, halfway from 16 to 0: the head half way back (2 px forward of frame 16), the arm lowered to
-    shoulder height, the front heel down on row 55 (frame 0's front leg), the pineapple hanging low behind at
-    x 2 to 10."""
+    shoulder height, the pineapple hanging low behind at x 2 to 10, the back foot at x 15 to 22 (frame 16's back
+    leg, 4 px forward) and the flat front foot at x 28 to 36 (frame 0's front leg, 1 px back)."""
     p = key_pix(16)
     weapon = key_weapon(16)
-    fruit = shift({k: c for k, c in weapon.items() if k[1] >= 35}, 2, 0)
-    p = erase(p, lambda x, y: (x, y) in weapon)
+    stick_fruit = {k: c for k, c in weapon.items() if k[0] <= 12}      # the rope belt stays where it is
+    fruit = shift({k: c for k, c in stick_fruit.items() if k[1] >= 35}, 2, 0)
+    p = erase(p, lambda x, y: (x, y) in stick_fruit)
     head, rest = cut(p, lambda x, y: x >= 19 and y <= 34)
     rest = erase(rest, lambda x, y: x <= 18 and y <= 34)
+    back, rest = cut(rest, lambda x, y: x <= 24 and y >= 47)
+    back = shear(back, lambda x, y: True, lambda y: {47: 0, 48: 1, 49: 1, 50: 2, 51: 3}.get(y, 4))
     rest = erase(rest, lambda x, y: x >= 24 and y >= 47)
-    leg = shift({k: c for k, c in key_pix(0).items() if k[0] >= 28 and k[1] >= 47}, -3, 0)
+    leg = shift({k: c for k, c in key_pix(0).items() if k[0] >= 28 and k[1] >= 47}, -1, 0)
     arm = parse("""
 ..KKKKK...
 .KllllsK..
@@ -369,7 +388,7 @@ KyK.
 yK..
 """, 8, 31)
     head = outline_exposed(shift(head, 2, 0), lambda x, y: y <= 34 and 19 <= x <= 23)
-    return over(leg, rest, arm, head, stick, fruit)
+    return over(leg, back, rest, arm, head, stick, fruit)
 
 
 def lean18(x: int, y: int) -> tuple[int, int]:
@@ -377,17 +396,37 @@ def lean18(x: int, y: int) -> tuple[int, int]:
     return x - round(0.6 * (46 - y)) + 12, y - 2
 
 
+def idle_pineapple() -> Pix:
+    """The idle pineapple stamp (leaf, fruit and outline) cut out of key 0."""
+    return {k: c for k, c in key_pix(0).items() if k[0] >= 45 and k[1] <= 36}
+
+
 def f18() -> Pix:
     """Knockback launch, halfway from 16 to 19: frame 16's body leaned back about 35 degrees by translating its
-    rows (the legs tucked: frame 0's front leg, frame 16's back leg), the feet just off the floor (lowest row 53)."""
+    rows (the legs tucked: frame 0's front leg, frame 16's back leg), the feet just off the floor (lowest row 53).
+    The weapon starts its arc: the stick stands vertical above the hand and the idle pineapple is upright on it
+    (fruit interior from x 10, row 10)."""
     p = key_pix(16)
+    weapon = key_weapon(16)
+    p = erase(p, lambda x, y: (x, y) in weapon and x <= 12)
     p = erase(p, lambda x, y: x >= 24 and y >= 47)
     p = over(shift({k: c for k, c in key_pix(0).items() if k[0] >= 28 and k[1] >= 47}, -3, 0), p)
     out: Pix = {}
     for (x, y), c in p.items():
         out[lean18(x, y)] = c
-    return out
-
+    fruit = idle_pineapple()
+    inner = [k for k, c in fruit.items() if c in "FGH"]
+    fx, fy = min(x for x, _ in inner), min(y for _, y in inner)
+    fruit = shift(fruit, 10 - fx, 10 - fy)
+    fruit_bottom = max(y for _, y in fruit)
+    cx = (min(x for x, _ in fruit) + max(x for x, _ in fruit)) // 2
+    hand_top = min(y for (x, y), c in out.items() if 7 <= x <= 15 and y >= fruit_bottom + 2 and c != "K")
+    stick = {}
+    for y in range(fruit_bottom, hand_top):
+        stick[(cx, y)] = "y"
+        stick[(cx - 1, y)] = "K"
+        stick[(cx + 1, y)] = "K"
+    return over(stick, out, fruit)
 
 
 # ------------------------------------------------------------------ down, getup (frames 20, 21, 23, 24)
@@ -447,11 +486,17 @@ KllsKK..
 KKKK....
 """, 15, 48)
     legs = parse("""
-KKKKKKKKKKKKKKKK
-KlllllllllllllllK
-KmmmmmmmmmmmmmsmK
-KKKKKKKKKKKKKKKKK
-""", 30, 52)
+....KKKK.....
+...KllllK....
+..KlmmmmssK..
+.KlmmmsKKsmK.
+KlmmmsK..KsmK
+KmmmsK....KsmK
+KKssK......KsmK
+...........KsmK
+..........KmmmK
+..........KsssK
+""", 32, 46)
     weapon = shift(key_weapon(22), 4, 0)
     return over(weapon, props, legs, sheared, head)
 
@@ -481,18 +526,12 @@ KyKK.......
 ....KKKKKKK.
 """, 34, 50)
     near = parse("""
-..KKKKKKKKKKKKKKKK..
-.KlllllllllllllllK..
-KlmmmmmmmmmmmmmlmK..
-KKKKKKKKKKKKKKKKKK..
+KK.............KKKK
+KlK......KKKKKKKllK
+KllKKKKKKllllllllmmK
+KsssssssssssssssssK
 """, 17, 52)
-    knee = parse("""
-KllK
-KlmK
-KmsK
-KKKK
-""", 31, 52)
-    return over(far, near, knee, body, stick, fruit)
+    return over(far, near, body, stick, fruit)
 
 
 FRAMES = {1: f1, 2: f2, 3: f3, 5: f5, 6: f6, 8: f8, 9: f9, 10: f10, 14: f14, 15: f15, 17: f17, 18: f18,
@@ -633,7 +672,35 @@ def a_cels(n: int) -> dict[str, list[str]]:
     if n in KEY_IDS:
         c = key_cels(n)
         return {"body": list(c["body"]), "weapon": list(c["weapon"])}
-    return ag.split_layers(rows_of(build_a_pix(n)))
+    return belt_to_body(ag.split_layers(rows_of(build_a_pix(n))))
+
+
+BELT_RUN = 7   # the rope belt is a horizontal run of at least 7 wood pixels; the stick never runs that long
+
+
+def belt_pixels(weapon: Pix) -> Pix:
+    """The rope belt inside a weapon cel: horizontal runs of >= BELT_RUN consecutive wood (x, y) pixels."""
+    out: Pix = {}
+    for y in sorted({y for _x, y in weapon}):
+        xs = sorted(x for (x, yy), c in weapon.items() if yy == y and c in "xy")
+        run: list[int] = []
+        for x in xs + [None]:
+            if run and (x is None or x != run[-1] + 1):
+                if len(run) >= BELT_RUN:
+                    out.update({(rx, y): weapon[(rx, y)] for rx in run})
+                run = []
+            if x is not None:
+                run.append(x)
+    return out
+
+
+def belt_to_body(cels: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Review D7: the rope belt belongs to the body. Applied to in-between frames only; the frozen keys keep it
+    on the weapon layer exactly as the Opus keys were saved."""
+    weapon = parse("\n".join(cels["weapon"]))
+    belt = belt_pixels(weapon)
+    body = over(parse("\n".join(cels["body"])), belt)
+    return {"body": rows_of(body), "weapon": rows_of({k: c for k, c in weapon.items() if k not in belt})}
 
 
 def build(variant: str) -> dict:
