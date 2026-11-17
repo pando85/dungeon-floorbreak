@@ -170,6 +170,11 @@ pub struct ClipSet {
     pub frame_size: (i32, i32),
     pub pivot: (i32, i32),
     pub frame_count: usize,
+    /// Atlas frames whose feet are off the floor even though their tag is
+    /// grounded (Donut's gallop suspension, run frames 8 and 9), from the
+    /// manifest's `locomotion.airborne_frames`. A stalled run is never held on
+    /// one of these: a hovering pose would freeze mid-gallop.
+    pub airborne_frames: Vec<usize>,
     clips: [Clip; 6],
 }
 
@@ -185,6 +190,8 @@ struct ManifestData {
 struct LocomotionBlock {
     #[serde(default)]
     playback: BTreeMap<String, String>,
+    #[serde(default)]
+    airborne_frames: Vec<usize>,
 }
 
 #[derive(Deserialize)]
@@ -248,10 +255,13 @@ impl ClipSet {
     fn build(manifest: &str, durations: Vec<u32>, tags: Vec<TagRange>) -> Result<Self, String> {
         let manifest: ManifestData =
             serde_json::from_str(manifest).map_err(|e| format!("manifest json: {e}"))?;
-        let playback = manifest
+        let block = manifest
             .locomotion
-            .map(|block| block.playback)
             .ok_or("manifest has no locomotion.playback block")?;
+        let (playback, airborne_frames) = (block.playback, block.airborne_frames);
+        if let Some(frame) = airborne_frames.iter().find(|f| **f >= durations.len()) {
+            return Err(format!("airborne frame {frame} is outside the atlas"));
+        }
         if let Some(index) = durations.iter().position(|d| *d == 0) {
             return Err(format!("frame {index} has a zero duration"));
         }
@@ -295,6 +305,7 @@ impl ClipSet {
             frame_size: (manifest.frame_size[0], manifest.frame_size[1]),
             pivot: (manifest.pivot[0], manifest.pivot[1]),
             frame_count: durations.len(),
+            airborne_frames,
             clips: clips.try_into().expect("six clips"),
         })
     }
@@ -463,9 +474,14 @@ impl Animator {
     /// passes, nothing changes) when it is grounded and was grounded: the
     /// caller uses this for a brief stall of the trail it derives the speed
     /// from. Returns false (and does nothing) in any other state, in which case
-    /// the caller steps normally.
+    /// the caller steps normally. A run frame with no paw on the floor (the
+    /// manifest's `airborne_frames`) is never held: the actor would hover
+    /// mid-gallop, so the caller's normal step (speed zero) takes it to idle.
     pub fn hold_run(&mut self, grounded: bool) -> bool {
-        self.tag == Tag::Run && grounded && self.was_grounded == Some(true)
+        self.tag == Tag::Run
+            && grounded
+            && self.was_grounded == Some(true)
+            && !self.clips.airborne_frames.contains(&self.atlas_index())
     }
 
     fn enter(&mut self, tag: Tag) {
@@ -881,6 +897,59 @@ mod tests {
         assert!(
             !a.clips().clip(Tag::JumpStart).is_empty(),
             "jump_start exists but is not used in the air"
+        );
+    }
+
+    #[test]
+    fn a_stalled_run_is_never_held_on_a_frame_without_a_paw_on_the_floor() {
+        let donut_set = donut();
+        assert_eq!(donut_set.airborne_frames, [8, 9]);
+        assert!(carl().airborne_frames.is_empty());
+        let mut a = Animator::new(donut_set, DONUT_RUN_PACING);
+        a.step(ground(RUN_SPEED));
+        let mut held = Vec::new();
+        let mut refused = Vec::new();
+        for _ in 0..60 {
+            a.step(ground(RUN_SPEED));
+            if a.hold_run(true) {
+                held.push(a.atlas_index());
+            } else {
+                refused.push(a.atlas_index());
+            }
+        }
+        assert!(held.iter().all(|i| ![8, 9].contains(i)), "{held:?}");
+        assert!(refused.iter().all(|i| [8, 9].contains(i)), "{refused:?}");
+        assert!(
+            held.contains(&4) && held.contains(&7),
+            "paw frames are held"
+        );
+        assert!(refused.contains(&8) && refused.contains(&9));
+        // Where the hold is refused the caller steps with speed 0: run -> idle.
+        while a.atlas_index() != 8 {
+            a.step(ground(RUN_SPEED));
+        }
+        assert!(!a.hold_run(true));
+        a.step(ground(0.0));
+        assert_eq!((a.tag(), a.atlas_index()), (Tag::Idle, 0));
+        // Carl has no such frames: every run frame can be held.
+        let mut c = carl_animator();
+        c.step(ground(RUN_SPEED));
+        for _ in 0..40 {
+            c.step(ground(RUN_SPEED));
+            assert!(c.hold_run(true));
+        }
+    }
+
+    #[test]
+    fn bad_airborne_frames_are_rejected() {
+        let manifest = read("assets/manifests/donut_h40_locomotion.json");
+        let grid = read("assets/source/characters/donut/donut_h40_locomotion.grid.json");
+        let bad = manifest.replace("      9\n", "      99\n");
+        assert_ne!(bad, manifest);
+        assert!(
+            ClipSet::from_grid_json(&bad, &grid)
+                .unwrap_err()
+                .contains("airborne frame 99")
         );
     }
 

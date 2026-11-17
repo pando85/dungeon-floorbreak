@@ -13,7 +13,10 @@
 //!
 //! A stall shorter than [`STALL_HOLD_TICKS`] ticks of a running actor holds the
 //! current run frame (no idle flash, no restart of the cycle); only the
-//! [`STALL_HOLD_TICKS`]th consecutive still tick goes to idle.
+//! [`STALL_HOLD_TICKS`]th consecutive still tick goes to idle. The hold applies
+//! only while Carl still pushes (his commanded speed is non-zero): a real stop
+//! idles Donut on the same tick. A frame with no paw on the floor (Donut's
+//! gallop suspension, the manifest's `airborne_frames`) is never held either.
 //!
 //! After the exit is reached the simulation stops; both actors then see zero
 //! horizontal velocity, so they settle into idle instead of running in place.
@@ -133,7 +136,10 @@ impl SceneAnimators {
         drive(&mut self.carl, carl_speed, hero.grounded, hero.vy);
         self.carl_prev_x = hero.x;
         let donut = &world.donut;
-        let donut_speed = if world.complete {
+        // The stall hold bridges trail stalls while Carl still pushes (a step
+        // jumped in place, a wall). When Carl really stops (stick released, no
+        // commanded speed) her trail stops on the same tick: no hold, idle at once.
+        let donut_speed = if world.complete || hero.vx.abs() <= MOVE_THRESHOLD_PX_S {
             self.donut_stall.release()
         } else {
             self.donut_stall
@@ -359,11 +365,10 @@ mod tests {
             "Donut takes off {} ticks after Carl",
             donut_jump - carl_jump
         );
-        // Her stall hold makes her go idle on the 6th still tick, 5 ticks
-        // (83 ms) after his intentional stop.
+        // A real stop idles her on the tick her trail stops (no stall hold).
         let stop = RUN_JUMP_STOP_TICK as usize;
-        assert_eq!(rows[stop + 4].4, Tag::Run);
-        assert_eq!(rows[stop + 5].4, Tag::Idle);
+        assert_eq!(rows[stop - 1].4, Tag::Run);
+        assert_eq!(rows[stop].4, Tag::Idle);
     }
 
     #[test]
@@ -489,26 +494,105 @@ mod tests {
     }
 
     #[test]
-    fn donut_keeps_running_through_a_three_tick_stall_and_idles_after_six() {
-        // walk_right ticks 468-470: a three-tick stall at the second step.
+    fn a_stall_on_the_gallop_suspension_goes_to_idle_instead_of_hovering() {
+        // walk_right ticks 468-470: a three-tick stall while Donut shows run
+        // frame 9 (no paw on the floor). Holding it would freeze her mid-gallop;
+        // she shows idle instead and restarts the run on frame 4.
         let rows = run(Scenario::WalkRight, 613, true);
-        for tick in 462..=478 {
+        assert_eq!(rows[466].5, 9, "tick 467 is still the suspension frame");
+        for tick in 468..=470 {
             assert_eq!(
                 donut_tag_at(&rows, tick),
-                Tag::Run,
+                Tag::Idle,
                 "walk_right tick {tick}"
             );
         }
-        let held = rows[466].5;
-        assert!(
-            (467..=470).all(|t| rows[t - 1].5 == held),
-            "the frame does not advance while the trail is stalled"
-        );
-        // A long stall still ends in idle: Carl jumping in place at the first
-        // wall (run_jump ticks 46-50 hold, tick 51 is the 6th still tick).
+        assert_eq!(donut_tag_at(&rows, 471), Tag::Run);
+        assert_eq!(rows[470].5, 4);
+    }
+
+    #[test]
+    fn donut_never_shows_a_held_frame_without_a_paw_on_the_floor() {
+        // A held frame repeats its atlas index on consecutive ticks while her
+        // trail is stalled; the suspension frames (8, 9) may repeat only for
+        // their natural duration (at most 6 ticks at 185 px/s), never as a hold
+        // that outlasts a stall of 6 ticks.
+        for (scenario, ticks) in [
+            (Scenario::RunJump, RUN_JUMP_TOTAL_TICKS),
+            (Scenario::WalkRight, 613),
+        ] {
+            let rows = run(scenario, ticks, true);
+            let mut streak = 0;
+            for window in rows.windows(2) {
+                let (prev, cur) = (window[0].5, window[1].5);
+                if cur == prev && (cur == 8 || cur == 9) && window[1].4 == Tag::Run {
+                    streak += 1;
+                    assert!(
+                        streak <= 6,
+                        "{scenario:?}: frame {cur} shown {streak} ticks in a row"
+                    );
+                } else {
+                    streak = 0;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_real_stop_idles_donut_on_the_tick_her_trail_stops() {
+        // run_jump: Carl is released at tick 260 (the stick, not a wall). Her
+        // trail stops on the same tick, and she must not hover on the gallop
+        // frame 8 for 5 more ticks.
         let rows = run(Scenario::RunJump, RUN_JUMP_TOTAL_TICKS, true);
-        assert_eq!(donut_tag_at(&rows, 50), Tag::Run);
-        assert_eq!(donut_tag_at(&rows, 51), Tag::Idle);
+        let stop = RUN_JUMP_STOP_TICK as usize;
+        assert_eq!(
+            donut_tag_at(&rows, stop),
+            Tag::Run,
+            "still moving at tick 260"
+        );
+        for tick in stop + 1..=stop + 8 {
+            assert_eq!(donut_tag_at(&rows, tick), Tag::Idle, "tick {tick}");
+            assert_eq!(rows[tick - 1].5, 0, "idle frame 0 at tick {tick}");
+        }
+    }
+
+    #[test]
+    fn donut_holds_only_while_carl_still_pushes_and_never_past_six_ticks() {
+        use crate::input::RawInput;
+        let kit = kit();
+        let mut sim = SceneSim::new(&kit, 360).unwrap();
+        let mut anim = animators(&sim.world);
+        // (donut x, tag, atlas index) per tick; Carl presses into the wall.
+        let mut rows: Vec<(f32, Tag, usize)> = Vec::new();
+        for _ in 0..150 {
+            sim.step(RawInput {
+                move_x: 1.0,
+                ..RawInput::default()
+            });
+            anim.step(&sim.world);
+            rows.push((
+                sim.world.donut.x,
+                anim.donut.tag(),
+                anim.donut.atlas_index(),
+            ));
+        }
+        let first_still = (1..rows.len())
+            .find(|&i| rows[i].0 == rows[i - 1].0)
+            .expect("Donut arrives behind Carl and stops");
+        // While Carl pushes, still ticks 1 to 5 are Run on the same frame, or
+        // Idle at once when that frame has no paw on the floor; tick 6 is Idle.
+        let before = rows[first_still - 1].2;
+        let on_suspension = [8, 9].contains(&before);
+        for k in 0..5 {
+            let (_, tag, frame) = rows[first_still + k];
+            if on_suspension {
+                assert_eq!(tag, Tag::Idle, "still tick {} on frame {before}", k + 1);
+            } else {
+                assert_eq!((tag, frame), (Tag::Run, before), "still tick {}", k + 1);
+            }
+        }
+        assert_eq!(rows[first_still + 5].1, Tag::Idle, "the 6th still tick");
+        assert_eq!(rows.last().unwrap().1, Tag::Idle);
     }
 
     #[test]

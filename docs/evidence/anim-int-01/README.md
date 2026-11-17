@@ -32,13 +32,13 @@ Stand until tick 30, run right (the `walk_right` rule jumps the two low steps ne
 | Donut's apex | 206 | `jump_fall:13` | `jump_fall:13` |
 | touchdown | 220 | `land:14` (impact, 5 ticks), `run:4` on tick 225 | `jump_fall:13` |
 | Donut touches down | 231 | `run` | `land:14`, run again on tick 236 |
-| stop (stick released) | 261 | `idle:0` at once | still `run` (stall hold), `idle:0` on tick 266 |
+| stop (stick released) | 261 | `idle:0` at once | `idle:0` on the same tick (her trail stops; no hold, no hover on the gallop frame) |
 | standing jump: impulse / apex / touchdown | 291 / 316 / 340 | `jump_start:11` / `jump_fall:13` / `land:14`, idle from tick 351 | idle throughout (her trail does not move) |
 
 ## What was checked
 
 - **The simulation did not change.** `FLOOR1_SCENE_STATE` of `walk_right` at ticks 250 and 613, `turn_around` at 300 and `idle` at 100 are identical to the pre-change binary (hashes `931868d6afa56498`, `82b8f87fa644de48`, `75255221e2d2c9e9`, `fd9659435d2907c8`), the existing golden traces pass unchanged, and a unit test compares the state hash on every tick with and without animation. The `--reference-frame` capture is pixel-identical (0 differing pixels) to the pre-change binary, and the Pillow comparison gates still pass.
-- **Takeoff and landing, tick by tick.** The two strips show every tick. After the first review round the crouch frame is no longer shown in the air, the recovery frame no longer flashes for one tick when Carl lands running, and Donut no longer flashes idle on one- to three-tick trail stalls (unit tests pin run_jump t41, walk_right t11 and t468-470).
+- **Takeoff and landing, tick by tick.** The two strips show every tick. After the first review round the crouch frame is no longer shown in the air, the recovery frame no longer flashes for one tick when Carl lands running, and Donut no longer flashes idle on one-tick trail stalls on a paw frame (unit tests pin run_jump t41 and walk_right t11); at a real stop she goes idle on the same tick (run_jump t261).
 - **Render and headless agree.** For all 81 captures the animation state the render printed equals the state of the headless trace at that tick (`make_anim_int_evidence.py` refuses to build otherwise), and CI requires the committed `anim_trace.txt` and `capture_log.txt` to be reproduced exactly.
 - **Frame times.** Carl runs at 43 ms per frame at 185 px/s (slip-free), Donut at 80/80/80/80/90/80 ms; see the scene doc for the formulas and constants.
 
@@ -59,5 +59,5 @@ The state logs are deterministic; the PNG and GIF pixels depend on the GPU and d
 
 - **Donut's hop onto the low platform (ticks 91 to 96 of the scenario, not in the GIF window) is still rough.** The simulation's trail collapses vertical-only samples, so her replayed foot height rises about 19 px in one tick (92, 96.9, 116.1, 122.1, 127.8, 133.2) above the 108 px platform top and snaps to 108 on touchdown. After the takeoff fix she holds `jump_start:11` for the whole hop instead of showing the crouch, which reads better, but the vertical snap remains. The trail is simulation code and is unchanged in this PR (see the scene doc, known gaps).
 - Donut's contact shadow keeps the old idle footprint and does not follow her stretched run frames (per-tag footprint deferred).
-- Donut goes idle 5 ticks after Carl stops (stall hold).
+- A trail stall on Donut's gallop suspension frames (atlas 8 and 9) still flashes idle for a few ticks (walk_right t468-470, outside this scenario): holding them would hover her 4 px above the floor.
 - Software-rendered frames say nothing about performance, GPU look or controller feel.

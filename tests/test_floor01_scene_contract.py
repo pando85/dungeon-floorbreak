@@ -150,6 +150,17 @@ class ActorContractTests(unittest.TestCase):
         with self.assertRaisesRegex(scene.ContractError, r"frame 12 \(jump_rise\) lowest"):
             check_carl(manifest, metadata, image)
 
+    def test_declared_airborne_frames_must_be_off_the_floor(self):
+        manifest, metadata, image = actor_fixture()
+        manifest["locomotion"]["airborne_frames"] = [12, 13]
+        check_carl(manifest, metadata, image)
+        manifest["locomotion"]["airborne_frames"] = [4]  # a run frame on the pivot row
+        with self.assertRaisesRegex(scene.ContractError, "declared airborne"):
+            check_carl(manifest, metadata, image)
+        manifest["locomotion"]["airborne_frames"] = [99]
+        with self.assertRaisesRegex(scene.ContractError, "outside the atlas"):
+            check_carl(manifest, metadata, image)
+
     def test_wrong_neutral_height_is_rejected(self):
         manifest, metadata, image = actor_fixture(top=8)
         with self.assertRaisesRegex(scene.ContractError, "neutral frame is 48 px"):

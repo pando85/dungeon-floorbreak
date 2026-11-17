@@ -122,10 +122,10 @@ FLOOR1_SCENE_STATE tick=259 hero=648.833,118.000 cam=313,20 hash=94160dfea95254c
 FLOOR1_ANIM_STATE tick=259 carl=run:5 donut=run:8
 FLOOR1_CAPTURE index=40 tick=262 file=frames/frame_0040_tick_00262.png
 FLOOR1_SCENE_STATE tick=262 hero=651.916,118.000 cam=316,20 hash=102ab789c3e67545
-FLOOR1_ANIM_STATE tick=262 carl=idle:0 donut=run:8
+FLOOR1_ANIM_STATE tick=262 carl=idle:0 donut=idle:0
 FLOOR1_CAPTURE index=41 tick=265 file=frames/frame_0041_tick_00265.png
 FLOOR1_SCENE_STATE tick=265 hero=651.916,118.000 cam=316,20 hash=8934cd0f2db98022
-FLOOR1_ANIM_STATE tick=265 carl=idle:0 donut=run:8
+FLOOR1_ANIM_STATE tick=265 carl=idle:0 donut=idle:0
 FLOOR1_CAPTURE index=42 tick=268 file=frames/frame_0042_tick_00268.png
 FLOOR1_SCENE_STATE tick=268 hero=651.916,118.000 cam=316,20 hash=7d8ab7e932922b13
 FLOOR1_ANIM_STATE tick=268 carl=idle:0 donut=idle:0
@@ -143,7 +143,7 @@ FLOOR1_SCENE_STATE tick=280 hero=651.916,118.000 cam=316,20 hash=ecf61aee8f3fa95
 FLOOR1_ANIM_STATE tick=280 carl=idle:0 donut=idle:0
 FLOOR1_CAPTURE index=47 tick=283 file=frames/frame_0047_tick_00283.png
 FLOOR1_SCENE_STATE tick=283 hero=651.916,118.000 cam=316,20 hash=38494a07cd061404
-FLOOR1_ANIM_STATE tick=283 carl=idle:0 donut=idle:0
+FLOOR1_ANIM_STATE tick=283 carl=idle:0 donut=idle:1
 FLOOR1_CAPTURE index=48 tick=286 file=frames/frame_0048_tick_00286.png
 FLOOR1_SCENE_STATE tick=286 hero=651.916,118.000 cam=316,20 hash=833a039d79097d1d
 FLOOR1_ANIM_STATE tick=286 carl=idle:0 donut=idle:1
@@ -158,7 +158,7 @@ FLOOR1_SCENE_STATE tick=295 hero=651.916,150.292 cam=316,20 hash=82b2c0c11d55fdc
 FLOOR1_ANIM_STATE tick=295 carl=jump_start:11 donut=idle:1
 FLOOR1_CAPTURE index=52 tick=298 file=frames/frame_0052_tick_00298.png
 FLOOR1_SCENE_STATE tick=298 hero=651.916,166.167 cam=316,20 hash=e391dcbe1b5a4557
-FLOOR1_ANIM_STATE tick=298 carl=jump_rise:12 donut=idle:1
+FLOOR1_ANIM_STATE tick=298 carl=jump_rise:12 donut=idle:2
 FLOOR1_CAPTURE index=53 tick=301 file=frames/frame_0053_tick_00301.png
 FLOOR1_SCENE_STATE tick=301 hero=651.916,179.417 cam=316,20 hash=b242fe83caf9597c
 FLOOR1_ANIM_STATE tick=301 carl=jump_rise:12 donut=idle:2
@@ -167,10 +167,10 @@ FLOOR1_SCENE_STATE tick=304 hero=651.916,190.042 cam=316,20 hash=c03abaca72b9b6c
 FLOOR1_ANIM_STATE tick=304 carl=jump_rise:12 donut=idle:2
 FLOOR1_CAPTURE index=55 tick=307 file=frames/frame_0055_tick_00307.png
 FLOOR1_SCENE_STATE tick=307 hero=651.916,198.042 cam=316,20 hash=da44d5c77e2f07aa
-FLOOR1_ANIM_STATE tick=307 carl=jump_rise:12 donut=idle:2
+FLOOR1_ANIM_STATE tick=307 carl=jump_rise:12 donut=idle:3
 FLOOR1_CAPTURE index=56 tick=310 file=frames/frame_0056_tick_00310.png
 FLOOR1_SCENE_STATE tick=310 hero=651.916,203.417 cam=316,20 hash=247f918909f362e3
-FLOOR1_ANIM_STATE tick=310 carl=jump_rise:12 donut=idle:2
+FLOOR1_ANIM_STATE tick=310 carl=jump_rise:12 donut=idle:3
 FLOOR1_CAPTURE index=57 tick=313 file=frames/frame_0057_tick_00313.png
 FLOOR1_SCENE_STATE tick=313 hero=651.916,206.167 cam=316,20 hash=d91c9de17a820f17
 FLOOR1_ANIM_STATE tick=313 carl=jump_rise:12 donut=idle:3
@@ -185,7 +185,7 @@ FLOOR1_SCENE_STATE tick=322 hero=651.916,198.667 cam=316,20 hash=6137520adf90d96
 FLOOR1_ANIM_STATE tick=322 carl=jump_fall:13 donut=idle:3
 FLOOR1_CAPTURE index=61 tick=325 file=frames/frame_0061_tick_00325.png
 FLOOR1_SCENE_STATE tick=325 hero=651.916,190.917 cam=316,20 hash=0437c39bd9f66c9e
-FLOOR1_ANIM_STATE tick=325 carl=jump_fall:13 donut=idle:3
+FLOOR1_ANIM_STATE tick=325 carl=jump_fall:13 donut=idle:0
 FLOOR1_CAPTURE index=62 tick=328 file=frames/frame_0062_tick_00328.png
 FLOOR1_SCENE_STATE tick=328 hero=651.916,180.542 cam=316,20 hash=fb5eca0468d7e620
 FLOOR1_ANIM_STATE tick=328 carl=jump_fall:13 donut=idle:0
@@ -203,10 +203,10 @@ FLOOR1_SCENE_STATE tick=340 hero=651.916,118.000 cam=316,20 hash=b54c03a00261d77
 FLOOR1_ANIM_STATE tick=340 carl=land:14 donut=idle:0
 FLOOR1_CAPTURE index=67 tick=343 file=frames/frame_0067_tick_00343.png
 FLOOR1_SCENE_STATE tick=343 hero=651.916,118.000 cam=316,20 hash=f1988791132e5200
-FLOOR1_ANIM_STATE tick=343 carl=land:14 donut=idle:0
+FLOOR1_ANIM_STATE tick=343 carl=land:14 donut=idle:1
 FLOOR1_CAPTURE index=68 tick=346 file=frames/frame_0068_tick_00346.png
 FLOOR1_SCENE_STATE tick=346 hero=651.916,118.000 cam=316,20 hash=1e6caaf163cbba89
-FLOOR1_ANIM_STATE tick=346 carl=land:15 donut=idle:0
+FLOOR1_ANIM_STATE tick=346 carl=land:15 donut=idle:1
 FLOOR1_CAPTURE index=69 tick=349 file=frames/frame_0069_tick_00349.png
 FLOOR1_SCENE_STATE tick=349 hero=651.916,118.000 cam=316,20 hash=3490e69d8c4f7c76
 FLOOR1_ANIM_STATE tick=349 carl=land:15 donut=idle:1
@@ -218,10 +218,10 @@ FLOOR1_SCENE_STATE tick=355 hero=651.916,118.000 cam=316,20 hash=11b621df6d032d8
 FLOOR1_ANIM_STATE tick=355 carl=idle:0 donut=idle:1
 FLOOR1_CAPTURE index=72 tick=358 file=frames/frame_0072_tick_00358.png
 FLOOR1_SCENE_STATE tick=358 hero=651.916,118.000 cam=316,20 hash=c95cfa225622f2e5
-FLOOR1_ANIM_STATE tick=358 carl=idle:0 donut=idle:1
+FLOOR1_ANIM_STATE tick=358 carl=idle:0 donut=idle:2
 FLOOR1_CAPTURE index=73 tick=361 file=frames/frame_0073_tick_00361.png
 FLOOR1_SCENE_STATE tick=361 hero=651.916,118.000 cam=316,20 hash=f6c37c5d4a0e1242
-FLOOR1_ANIM_STATE tick=361 carl=idle:0 donut=idle:1
+FLOOR1_ANIM_STATE tick=361 carl=idle:0 donut=idle:2
 FLOOR1_CAPTURE index=74 tick=364 file=frames/frame_0074_tick_00364.png
 FLOOR1_SCENE_STATE tick=364 hero=651.916,118.000 cam=316,20 hash=0ded03317d2cf033
 FLOOR1_ANIM_STATE tick=364 carl=idle:0 donut=idle:2
@@ -230,7 +230,7 @@ FLOOR1_SCENE_STATE tick=367 hero=651.916,118.000 cam=316,20 hash=2529b85e5be57c3
 FLOOR1_ANIM_STATE tick=367 carl=idle:0 donut=idle:2
 FLOOR1_CAPTURE index=76 tick=370 file=frames/frame_0076_tick_00370.png
 FLOOR1_SCENE_STATE tick=370 hero=651.916,118.000 cam=316,20 hash=5a76fd691b578ae1
-FLOOR1_ANIM_STATE tick=370 carl=idle:0 donut=idle:2
+FLOOR1_ANIM_STATE tick=370 carl=idle:0 donut=idle:3
 FLOOR1_CAPTURE index=77 tick=373 file=frames/frame_0077_tick_00373.png
 FLOOR1_SCENE_STATE tick=373 hero=651.916,118.000 cam=316,20 hash=6a0fab270e12f58e
 FLOOR1_ANIM_STATE tick=373 carl=idle:0 donut=idle:3

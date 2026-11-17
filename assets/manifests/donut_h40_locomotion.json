@@ -59,6 +59,10 @@
     "mixed_tags": [
       "run"
     ],
+    "airborne_frames": [
+      8,
+      9
+    ],
     "playback": {
       "idle": "loop",
       "run": "loop",

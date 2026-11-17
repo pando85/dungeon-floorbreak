@@ -87,6 +87,9 @@ def check_actor(name: str, size, pivot, opaque_height: int, manifest: dict,
     ranges = tag_ranges(name, metadata)
     grounded = set(manifest.get("locomotion", {}).get("grounded_tags", ["idle"]))
     require("idle" in grounded, f"{name}: idle must be a grounded tag")
+    airborne_frames = set(manifest.get("locomotion", {}).get("airborne_frames", []))
+    require(all(0 <= f < FRAMES for f in airborne_frames),
+            f"{name}: airborne_frames outside the atlas")
     tag_of = {i: tag for tag, (lo, hi) in ranges.items() for i in range(lo, hi + 1)}
     require_binary_alpha(name, image)
     alpha = image.convert("RGBA").getchannel("A")
@@ -100,6 +103,12 @@ def check_actor(name: str, size, pivot, opaque_height: int, manifest: dict,
         require(bbox is not None, f"{name}: frame {index} is empty")
         # bbox bottom is exclusive: the lowest opaque row is bottom - 1.
         lowest = bbox[3] - 1
+        if index in airborne_frames:
+            # Declared hover frames (Donut's gallop suspension): the animation
+            # never holds a stalled run on them, so they must really be off the floor.
+            require(lowest < pivot[1],
+                    f"{name}: frame {index} is declared airborne but its lowest opaque row "
+                    f"{lowest} is on the pivot row {pivot[1]}")
         if tag_of[index] in grounded:
             require(lowest == pivot[1],
                     f"{name}: frame {index} ({tag_of[index]}) lowest opaque row {lowest} != "
