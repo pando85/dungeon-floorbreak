@@ -30,6 +30,7 @@ Source-of-truth metadata (JSON per animation tag) contains `tag`, `direction`, `
 - Carl / demolitionist: weight transfer before bomb throw; grounded stance after detonation; distinctive stomp/land.
 - Donut / caster: tail, ears and eyes convey arrogance/surprise; cast requires clear silhouette even when face is occluded; do not make magical attack solely color-dependent.
 - Mongo / charger (later): long anticipation silhouette and convincing momentum; recovery cannot clip through solid terrain.
+- Donut locomotion candidate (owner-approved 2026-11-17, not yet integrated into Bevy): [ANIM-DONUT-01](donut-locomotion-anim-01.md).
 
 ## Production strategy for AI agents
 
