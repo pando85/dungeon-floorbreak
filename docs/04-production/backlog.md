@@ -35,6 +35,12 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
 
+## Hybrid combat physics and feel (owner approval, 2026-11-17)
+
+- **Approved direction:** [combat-feel and hybrid-physics contract](../01-design/combat-feel-hybrid-physics.md). Ordinary enemies fall after a few satisfying hits, with physical feedback, predictable knockback and emergent enemy/environment interactions rather than memorized combo strings or HP-sponges.
+- **Validation proposal:** COMBAT-PHYS-01 in stages: one enemy/direct hit -> knockback into enemy/solid -> one controlled authored environmental defeat -> contrasting Carl/Donut positions and 1P/2P. **No promise that the integrated Floor 1 corridor currently supports combat.**
+- **Still unknown:** exact hit count, knockback strength, collision damage for flying/corpse bodies, hitstop length, camera motion, combo scoring, and boss resistance. These require playtests and deterministic Rust+Bevy evidence.
+
 ## Combat-first design priority (owner decision, 2026-11-17)
 
 - **Mandatory:** [combat-first encounter rule](../01-design/combat-first-encounter-design.md). A satisfying basic kill, one clearly causal spectacular environmental kill, and a genuine Carl/Donut combat opportunity outrank expanding traversal gates or extra scenic areas. The game is **action first**, not a chain of puzzle rooms. Quiet refuges/chases are deliberate contrasts.
