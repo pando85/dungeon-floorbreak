@@ -1,0 +1,159 @@
+{
+  "files": {
+    "floor01_keys_1920x1080.png": "b8f19d7d57d12c5819ceff1f0e3d5252c009274b6cd228223262e2fed933d661",
+    "floor01_keys_640x360.png": "76127970ede047e26f18019e840ece7e540fbc75473045b60ae03a2ab7f38c32",
+    "floor01_lineup_1920x1080.png": "a1418d460a46b8188c5477bf8aea6e20d0bbe261b84862d2079b68f1009dd51a",
+    "floor01_lineup_640x360.png": "eb0e3921880481d0404f058b9715f13f814a902e8c1ef68f5e77737ddf79879e",
+    "floor01_size_h36_1920x1080.png": "6ef955bb7aeab8581c5d7e9cc7052a226d69cae4e2435c7b292182a3e8e2d8ba",
+    "floor01_size_h36_640x360.png": "3f90434f88cf1e97aabd832ac99ff327f1bb446ce63f79f51329677be6a1cb9a",
+    "floor01_size_h40_1920x1080.png": "f1f58357d5d942dc08f32036864e77e60d696c333e1dea7e7af59c7518d9e491",
+    "floor01_size_h40_640x360.png": "ef39821a5e4ab7f064a07a2925096f8c4bf04d33e119dcc97c437c591133e792",
+    "floor01_size_h44_1920x1080.png": "b7ecc056cf26b501d2997efb79d9ddbf18dff220718edea5bb58a9278adc7535",
+    "floor01_size_h44_640x360.png": "e83ea088b8511a88ed8150e181305b8fbcc9c05e19495d47858085582b48a68a",
+    "key_pose_sheet.png": "1a1633f42741813217ee9094b4de2ce2db9708684d8cd96b427ba8788205613d",
+    "size_study_sheet.png": "9823dbf250456954b4f9e76272d0ebcd02a6c485fb4fbaeb257ec0fda0ecd012"
+  },
+  "keys_variant_a_h36": {
+    "attack tell (key 11)": {
+      "bbox": [
+        5,
+        1,
+        47,
+        56
+      ],
+      "colours": 18,
+      "lowest_row": 55,
+      "opaque_area_px": 791,
+      "opaque_height": 55,
+      "opaque_width": 42
+    },
+    "hurt (key 16)": {
+      "bbox": [
+        0,
+        23,
+        41,
+        56
+      ],
+      "colours": 17,
+      "lowest_row": 55,
+      "opaque_area_px": 661,
+      "opaque_height": 33,
+      "opaque_width": 41
+    },
+    "idle (key 0)": {
+      "bbox": [
+        18,
+        20,
+        54,
+        56
+      ],
+      "colours": 18,
+      "lowest_row": 55,
+      "opaque_area_px": 729,
+      "opaque_height": 36,
+      "opaque_width": 36
+    },
+    "knockback air (key 19)": {
+      "bbox": [
+        7,
+        19,
+        50,
+        51
+      ],
+      "colours": 17,
+      "lowest_row": 50,
+      "opaque_area_px": 707,
+      "opaque_height": 32,
+      "opaque_width": 43
+    },
+    "swing impact (key 13)": {
+      "bbox": [
+        5,
+        24,
+        58,
+        56
+      ],
+      "colours": 16,
+      "lowest_row": 55,
+      "opaque_area_px": 811,
+      "opaque_height": 32,
+      "opaque_width": 53
+    }
+  },
+  "note": "Composed review renders (A1 lighting via scripts/env_kit_light.py), not Bevy captures.",
+  "reference": {
+    "carl_h52_idle": {
+      "bbox": [
+        8,
+        4,
+        31,
+        56
+      ],
+      "colours": 23,
+      "lowest_row": 55,
+      "opaque_area_px": 837,
+      "opaque_height": 52,
+      "opaque_width": 23
+    },
+    "donut_h40_idle": {
+      "bbox": [
+        0,
+        4,
+        45,
+        44
+      ],
+      "colours": 22,
+      "lowest_row": 43,
+      "opaque_area_px": 1305,
+      "opaque_height": 40,
+      "opaque_width": 45
+    }
+  },
+  "size_options": {
+    "h36": {
+      "bbox": [
+        18,
+        20,
+        54,
+        56
+      ],
+      "colours": 18,
+      "implied_feet_if_carl_is_6ft": 4.15,
+      "lowest_row": 55,
+      "opaque_area_px": 666,
+      "opaque_height": 36,
+      "opaque_width": 36,
+      "ratio_to_carl": 0.692
+    },
+    "h40": {
+      "bbox": [
+        17,
+        16,
+        57,
+        56
+      ],
+      "colours": 18,
+      "implied_feet_if_carl_is_6ft": 4.62,
+      "lowest_row": 55,
+      "opaque_area_px": 830,
+      "opaque_height": 40,
+      "opaque_width": 40,
+      "ratio_to_carl": 0.769
+    },
+    "h44": {
+      "bbox": [
+        16,
+        12,
+        60,
+        56
+      ],
+      "colours": 18,
+      "implied_feet_if_carl_is_6ft": 5.08,
+      "lowest_row": 55,
+      "opaque_area_px": 988,
+      "opaque_height": 44,
+      "opaque_width": 44,
+      "ratio_to_carl": 0.846
+    }
+  }
+}
