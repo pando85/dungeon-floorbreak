@@ -7,7 +7,7 @@
 
 ## Enemy concept approval update (2026-11-17)
 
-**All Floor 01 enemy visual concepts in the later owner review are approved**, including the C+A Bad Llama, Scatterers/Brood Guardian, Rot Sticker, Green Slime and The Hoarder, in addition to the existing opening goblins and Murder Dozer. The earlier sentence in this atlas saying final enemy designs await approval is superseded **for this specific approved concept batch** by the [enemy concept roster](floor-01-enemy-concept-roster.md). Original production pixels, animation, exact sprite scales, game mechanics and Bevy review still have their own gates. Owner will commit the five newly approved concept PNGs to the concept-roster PR branch; the atlas' area layout remains only an art inventory.
+**All Floor 01 enemy visual concepts in the later owner review are approved**, including the C+A Bad Llama, Scatterers/Brood Guardian, Rot Sticker, Green Slime and The Hoarder, in addition to the existing opening goblins and Murder Dozer. The earlier sentence in this atlas saying final enemy designs await approval is superseded **for this specific approved concept batch** by the [enemy concept roster](floor-01-enemy-concept-roster.md). Original production pixels, animation, exact sprite scales, game mechanics and Bevy review still have their own gates. The owner has committed the five newly approved concept PNGs to `assets/concept/floor-01/enemies/`; their checksums and dimensions are recorded in that directory's manifest. The atlas' area layout remains only an art inventory.
 
 ## Artistic premise
 
