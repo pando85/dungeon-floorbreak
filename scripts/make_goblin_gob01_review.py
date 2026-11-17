@@ -34,15 +34,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pixel_grid_to_ase as pg  # noqa: E402
 
-GOBLIN_KEYS = {"A": "assets/source/characters/goblin/goblin_a_h36_keys.grid.json",
-               "B": "assets/source/characters/goblin/goblin_b_h36_keys.grid.json"}
+GOBLIN_KEYS = {"A": "assets/source/characters/goblin/goblin_a_h36.grid.json",
+               "B": "assets/source/characters/goblin/goblin_b_h36.grid.json"}
 GOBLIN_STUDY = "assets/source/characters/goblin/goblin_size_study.grid.json"
 CARL = "assets/source/characters/carl/carl_h52.grid.json"
 DONUT = "assets/source/characters/donut/donut_h40.grid.json"
 LAYOUT = "assets/levels/floor01/corridor_abc_sample.json"
 DEFAULT_OUT = ROOT / "generated" / "art" / "gob01_review"
 HEIGHTS = (36, 40, 44)
-ATLAS = [0, 4, 7, 11, 12, 13, 16, 19, 22, 25, 26]   # atlas frame of each key in the key grids
+ATLAS = [0, 4, 7, 11, 12, 13, 16, 19, 22, 25, 26]   # atlas frames of the 11 Opus keys in the full sets
 KEY_LABELS = {0: "idle", 4: "walk contact", 7: "walk contact (far)", 11: "attack tell", 12: "swing smear",
               13: "swing impact", 16: "hurt", 19: "knockback air", 22: "down", 25: "corpse",
               26: "knockback contact"}
@@ -291,7 +291,10 @@ def main(argv: list[str] | None = None) -> int:
     carl_frames, carl_piv, _ = grid_frames(CARL)
     donut_frames, donut_piv, _ = grid_frames(DONUT)
     study = grid_frames(GOBLIN_STUDY)
-    keys = {v: grid_frames(p) for v, p in GOBLIN_KEYS.items()}
+    keys = {}
+    for v, path in GOBLIN_KEYS.items():   # the full 27-frame sets; the key sheets use the 11 Opus keys only
+        frames, piv, grid = grid_frames(path)
+        keys[v] = ([frames[a] for a in ATLAS], piv, grid)
     carl = (carl_frames[0], carl_piv)
     donut = (donut_frames[0], donut_piv)
     floor = Floor()

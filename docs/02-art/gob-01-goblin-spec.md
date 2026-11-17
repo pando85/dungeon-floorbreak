@@ -1,6 +1,6 @@
 # GOB-01: common goblin design spec
 
-**Status:** design complete for keys (phases 1 and 2), 2026-11-17. The in-betweens and full atlases are next (Sonnet), followed by an independent Opus review. Nothing here is wired into Bevy.
+**Status:** full set drawn (Sonnet), awaiting independent Opus review (2026-11-17). Keys (phases 1 and 2) by Opus; the 16 in-betweens per variant, the 27-frame atlases, validators and evidence (phase 3) by Sonnet. Nothing here is wired into Bevy.
 
 **Decision record:** height **36 px**, frame **64 × 56**, pivot **(28, 55)**. The height was proposed by the designing Opus agent and **decided by a separate, independent Opus agent**, under the owner's rule that enemy sizes are proposed by one Opus agent and decided by another. The tick windows in section 4 are a **proposal** for the combat work order, because WORK-021 has no goblin attack yet.
 
@@ -262,10 +262,29 @@ Phase 2 updates the key-pose sheet and the lit key scene only.
 
 | File | Role |
 | --- | --- |
-| `assets/source/characters/goblin/goblin_a_h36_keys.grid.json` / `.ase` | variant A keys (11 of the 27 frames: atlas frames 0, 4, 7, 11, 12, 13, 16, 19, 22, 25 and 26), layers `body` and `weapon` |
-| `assets/source/characters/goblin/goblin_b_h36_keys.grid.json` / `.ase` | variant B keys: A's cels plus `accessory` |
+| `assets/source/characters/goblin/goblin_a_h36.grid.json` / `.ase` | variant A, all 27 frames (11 frozen Opus keys + 16 in-betweens), layers `body` and `weapon`; `duration_ms` is the tick table at 60 Hz |
+| `assets/source/characters/goblin/goblin_b_h36.grid.json` / `.ase` | variant B: A's `body` and `weapon` cels plus an `accessory` layer on every frame |
 | `assets/source/characters/goblin/goblin_size_study.grid.json` / `.ase` | block-ins at 36, 40 and 44 px |
-| `assets/manifests/goblin_a_h36_keys.json`, `goblin_b_h36_keys.json`, `goblin_size_study.json` | candidate manifests (`prototype_fixture_unapproved`); `keys.atlas_frames` maps grid frames to atlas frames |
+| `assets/manifests/goblin_a_h36.json`, `goblin_b_h36.json`, `goblin_size_study.json` | candidate manifests (`prototype_fixture_unapproved`); `goblin.frames` is the per-frame tag, ticks, preview duration and author (`key` or `sonnet`) |
+| `tests/fixtures/goblin_gob01_keys.json` | the 11 frozen Opus keys (body, weapon and the B accessory); never edit |
 | `scripts/author_goblin_gob01.py` | palette, layer split, size-study generator |
-| `scripts/make_goblin_gob01_review.py` | size-study sheet, key-pose sheet (A and B), lit Floor 1 compositions |
-| `tests/test_art_goblin_gob01.py` | contract tests for the sources and the R1 to R9 rules on the keys |
+| `scripts/author_goblin_frames.py` | deterministic authoring record of the 16 in-betweens and the B overlay (`--check` verifies the committed grids and manifests) |
+| `scripts/make_goblin_gob01_review.py`, `scripts/make_goblin_gob01_set_review.py` | size-study, key-pose and full-set evidence (GIFs, contact sheets, lit scenes, CP-02 strip, layout diagram) |
+| `tests/test_art_goblin_gob01.py` | contract tests: frozen keys, tags and ticks, pivot, contact rows, airborne frames, palette, lint, R1 to R10 on all 27 frames of A and B, B = A + accessory |
+| `tests/fixtures/carl_kick_cp02_frames.json` | four Carl kick frames (ANIM-CARL-02 candidate) used only by the CP-02 evidence strip |
+
+## 13. Execution notes (Sonnet, phase 3)
+
+How the in-betweens were built and where the notes of section 9 were ambiguous. None of these changes a key, a tag or a tick.
+
+- **Method.** Parts of a key are cut with a rectangle or a row rule and pasted translated; legs use a row-wise integer shear; a few hand-placed pixels and ASCII stamps close the seams; a deterministic despeckle pass recolours orphan pixels. No pixel is resampled or rotated. Frames 18 and 23 lean the torso by translating whole rows by an integer that grows with height (a shear of about 0.6 and 0.7), which is the only way to get a lean without rotating.
+- **R1 and frame 10.** The pineapple of frame 10 (fruit rows 15 to 22, leaf from row 9) is the highest opaque point and above the idle head (row 20), but not 12 px above it as in key 11, because section 9 fixes its rows at 14 to 22. The test therefore applies "at least 12 px above the head" to frame 11 and "highest point, above the head" to frame 10.
+- **R2 and frame 10.** Frame 10's mouth is half open (one `o` row, 7 pixels) as section 9 says; the 4 x 2 block is tested on frame 11 only.
+- **Frame 10 head.** Section 9 says "head 1 px back" while the B offsets say frames 10 and 11 share the same (+2, +2) head offset. The frame is built from the key 11 body, shifted 1 px up and back, with the head and overlay moving together.
+- **Frame 14 fists.** Section 9 puts the fists at about (38, 40), which is the clenched mouth of frame 13's face ("face unchanged"). The fists sit just under the chin instead (about (38, 46)) so the face stays visible; the stick runs from there to the pineapple on the floor.
+- **Frame 17 head.** The head is frame 16's head moved 2 px forward (no rotation is allowed, and an upright idle head would not carry the white eyes of the key).
+- **Frame 18 head.** Rotating the frame 19 profile head is not allowed, so the thrown-back head of frame 16 (already facing up-right, with an `o` mouth) is leaned with the body; the arm of key 16 is kept.
+- **Frame 20 and 21 knees.** "Far knee" is read as the left small knee strip at x 33 to 36.
+- **Walk passing feet (frames 6 and 9).** The foot is a 7 x 3 ASCII stamp at x 24 to 30, rows 51 to 53, so it is wider than a stride foot would be at x6; the far shin is thin.
+- **Variant B.** Each key overlay is split into a head part and a vest-patch part; each part translates with the part of the body it sits on (head, vest). Frame 2 moves the two notch pixels with the twitching ear tip. Orphan pixels created by the overlay are recoloured on the `accessory` layer only, so B's `body` and `weapon` cels stay equal to A's.
+- **GIF timing.** GIF delays are centiseconds; they are rounded on the cumulative tick count so cycles keep their exact length.
