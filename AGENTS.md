@@ -72,3 +72,8 @@ Every art work order (characters, animation, environments, props, enemies, vehic
 ## First work order
 
 Continue from the right-scrolling combat WORK-021 greybox and the current top-priority work in `docs/04-production/backlog.md`. Do not begin with character illustrations, online networking, Steam integration or a complete loot system.
+
+## ChatGPT → Hermes mobile concept-image handoffs
+
+When the owner requests a PR containing ChatGPT-generated concept images, follow [the mobile PR handoff protocol](docs/07-agents/chatgpt-hermes-image-pr.md). Prepare a draft PR with documented pending image slots and produce a **PR-specific ZIP** (Spanish instructions, Hermes task and JSON mapping) in the same response. Hermes receives original PNGs separately and commits them to **that PR branch**, updating provenance, manifests and validation. Never claim missing images or hashes exist, mark an incomplete image PR ready, or auto-merge.
+
