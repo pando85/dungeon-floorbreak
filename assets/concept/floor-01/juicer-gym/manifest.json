@@ -1,0 +1,26 @@
+{
+  "schema": "the-crawl-concept-image-manifest-v1",
+  "project": "THE CRAWL — NO PANTS. NO MERCY.",
+  "status": "owner-approved gym mood; standalone refinement is a pending review candidate",
+  "source": "Original OpenAI-generated concept images in project conversation. Exact bytes remain pending owner upload on this PR branch.",
+  "assets": [
+    {
+      "path": "assets/concept/floor-01/juicer-gym/floor01-juicer-gym-approved-mood-reference.png",
+      "sha256": "6d95e529e745fedb742eed951047bb286aee99dfe814be64933ed9b774835fba",
+      "bytes": 1457688,
+      "width": 1672,
+      "height": 470,
+      "source_conversation_file": "the-crawl-juicers-gym-concept-study.png",
+      "review_status": "owner-approved visual identity"
+    },
+    {
+      "path": "assets/concept/floor-01/juicer-gym/floor01-juicer-gym-standalone-revision-candidate.png",
+      "sha256": "001d696b86e5e450ad6b41864b440e2ce5a2e549ad0870fd3c327213f13bd081",
+      "bytes": 2685319,
+      "width": 1774,
+      "height": 887,
+      "source_conversation_file": "a_highly_detailed_pixel_art_concept_board_in_a_gri.png",
+      "review_status": "new standalone composition pending owner approval"
+    }
+  ]
+}
