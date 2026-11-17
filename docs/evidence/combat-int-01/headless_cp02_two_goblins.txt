@@ -1,0 +1,11 @@
+COMBAT_EVENT tick=83 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=86 kind=hit move=jab instance=1 target=0 damage=1 health_left=1
+COMBAT_EVENT tick=97 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=100 kind=hit move=jab instance=2 target=0 damage=1 health_left=0
+COMBAT_EVENT tick=100 kind=enemy_defeated target=0
+COMBAT_EVENT tick=114 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=117 kind=hit move=jab instance=3 target=1 damage=1 health_left=1
+COMBAT_EVENT tick=128 kind=move_started move=jab instance=4
+COMBAT_EVENT tick=131 kind=hit move=jab instance=4 target=1 damage=1 health_left=0
+COMBAT_EVENT tick=131 kind=enemy_defeated target=1
+COMBAT_STATE fixture=cp02_two_goblins seed=0xc020001 tick=260 hero_hp=4 deaths=0 enemies=e0=436.034/0,e1=436.001/0 hash=f4e11cc71da438a1

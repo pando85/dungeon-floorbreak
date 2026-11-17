@@ -4,6 +4,10 @@
 
 Normalize keyboard/gamepad/Steam Input actions into `PlayerAction { tick, player_slot, movement_axis, aim_axis, jump_pressed, attack_pressed, special_pressed, interact_pressed, swap_pressed }`. Input is a frontend adapter only. Recorded actions must replay headlessly without physical gamepads. Never couple character abilities to hardcoded gamepad device IDs.
 
+## Melee and the secondary action before the Guild (COMBAT-INT-01)
+
+Binding decision (orchestrator, 2026-11-17), adjustable after playtest: Carl has no bombs or explosives before the Guild, so the secondary/special action that WORK-021 used for bombs (`special_pressed`; K / East in the greybox) drives the **push kick** in the Floor 1 scene fixtures. `attack_pressed` (J / West) is the jab. Both act on press edges only: a held button never repeats a move, and a press made while a move runs is buffered for 6 ticks ([move table and buffering](floor01-scene.md#combat-fixtures-combat-int-01)). Pressing a direction with the attack turns Carl first. Bombs stay WORK-021-only and unreachable in the scene. The kick can move to hold-attack or a jab follow-up if playtest says so; the table in `src/combat.rs` does not change.
+
 ## Controller plan
 
 See [gameplay](../01-design/gameplay.md) for action mapping. Use 2-player local co-op with explicit controller assignment and UI state. A player may use a gamepad while the second uses a different gamepad or keyboard (keyboard co-op is optional). Support hot unplug/pause rather than sending stuck movement input after disconnect.

@@ -1,6 +1,10 @@
 //! Deterministic 60 Hz, IP-neutral linear combat greybox.
 //! Gameplay state is independent of Bevy rendering and can run without a GPU.
 
+use crate::combat::{
+    Attacker, CombatEvent, GREYBOX_STRIKE, HERO_HEALTH, MoveRunner, resolve_strike,
+};
+pub use crate::combat::{ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Enemy};
 use crate::input::InputFrame;
 
 pub const TICK_SECONDS: f32 = 1.0 / 60.0;
@@ -8,15 +12,12 @@ pub const STAGE_WIDTH: f32 = 2048.0;
 pub const FLOOR_TOP: f32 = -120.0;
 pub const HERO_HALF_WIDTH: f32 = 12.0;
 pub const HERO_HALF_HEIGHT: f32 = 26.0;
-pub const ENEMY_HALF_WIDTH: f32 = 12.0;
-pub const ENEMY_HALF_HEIGHT: f32 = 19.0;
 
 const RUN_SPEED: f32 = 185.0;
 const JUMP_SPEED: f32 = 440.0;
 const GRAVITY: f32 = 1050.0;
 const JUMP_BUFFER_TICKS: u8 = 7;
 const COYOTE_TICKS: u8 = 6;
-const MELEE_COOLDOWN: u8 = 14;
 const BOMB_COOLDOWN: u16 = 135;
 const BOMB_FUSE: u8 = 30;
 const BOMB_RADIUS: f32 = 84.0;
@@ -45,7 +46,7 @@ impl Rect {
         )
     }
 
-    fn overlaps(self, other: Self) -> bool {
+    pub fn overlaps(self, other: Self) -> bool {
         self.left < other.right()
             && self.right() > other.left
             && self.bottom < other.top()
@@ -90,7 +91,9 @@ pub struct Hero {
     pub grounded: bool,
     pub health: u8,
     pub invulnerable_ticks: u8,
-    pub melee_cooldown: u8,
+    /// Melee move clock (the WORK-021 strike is a 14-tick move, see
+    /// [`crate::combat`]); the Floor 1 scene drives its own moves through it.
+    pub melee: MoveRunner,
     pub bomb_cooldown: u16,
     coyote_ticks: u8,
     jump_buffer_ticks: u8,
@@ -110,21 +113,14 @@ impl Hero {
             vy: 0.0,
             facing: 1,
             grounded: true,
-            health: 4,
+            health: HERO_HEALTH,
             invulnerable_ticks: 0,
-            melee_cooldown: 0,
+            melee: MoveRunner::default(),
             bomb_cooldown: 0,
             coyote_ticks: COYOTE_TICKS,
             jump_buffer_ticks: 0,
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Enemy {
-    pub x: f32,
-    pub y: f32,
-    pub health: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -240,11 +236,7 @@ impl World {
         // Keep the very first screen safe until the player chooses to advance.
         let enemies = [350.0, 465.0, 765.0, 1010.0, 1540.0, 1790.0]
             .into_iter()
-            .map(|x| Enemy {
-                x,
-                y: FLOOR_TOP + ENEMY_HALF_HEIGHT,
-                health: 2,
-            })
+            .map(|x| Enemy::new(x, FLOOR_TOP + ENEMY_HALF_HEIGHT))
             .collect();
 
         Self {
@@ -265,25 +257,31 @@ impl World {
         }
         self.tick += 1;
         self.hero.invulnerable_ticks = self.hero.invulnerable_ticks.saturating_sub(1);
-        self.hero.melee_cooldown = self.hero.melee_cooldown.saturating_sub(1);
         self.hero.bomb_cooldown = self.hero.bomb_cooldown.saturating_sub(1);
         for blast in &mut self.blasts {
             blast.remaining = blast.remaining.saturating_sub(1);
         }
         self.blasts.retain(|blast| blast.remaining > 0);
 
-        if input.attack_pressed && self.hero.melee_cooldown == 0 {
-            self.hero.melee_cooldown = MELEE_COOLDOWN;
-            let facing = self.hero.facing as f32;
-            for enemy in &mut self.enemies {
-                let forward = (enemy.x - self.hero.x) * facing;
-                if enemy.health > 0
-                    && (-9.0..=54.0).contains(&forward)
-                    && (enemy.y - self.hero.y).abs() <= 44.0
-                {
-                    enemy.health -= 1;
-                }
-            }
+        // The WORK-021 strike through the shared combat domain: a 14-tick move
+        // that hits on its first tick, with no buffering and no reaction.
+        let request = input.attack_pressed.then_some(&GREYBOX_STRIKE);
+        if let Some(move_tick) = self.hero.melee.step(request, 0, true) {
+            let attacker = Attacker {
+                x: self.hero.x,
+                y: self.hero.y,
+                half_height: HERO_HALF_HEIGHT,
+                facing: self.hero.facing,
+            };
+            let mut events: Vec<CombatEvent> = Vec::new();
+            resolve_strike(
+                &mut self.hero.melee,
+                &move_tick,
+                attacker,
+                &mut self.enemies,
+                self.tick,
+                &mut events,
+            );
         }
 
         if input.ability_pressed && self.hero.bomb_cooldown == 0 {
@@ -340,44 +338,25 @@ impl World {
         }
     }
 
-    fn solid_at(&self, candidate: Rect) -> bool {
-        self.blocks
-            .iter()
-            .any(|b| b.intact && candidate.overlaps(b.rect))
-    }
-
     fn move_hero(&mut self, input: &InputFrame) {
         step_hero(&mut self.hero, input, &self.blocks, STAGE_WIDTH);
     }
 
     fn move_enemies(&mut self) {
-        // Deliberately simple ground chasers. They stop at permanent geometry;
-        // they do not try to solve the raised route in the first combat test.
-        for index in 0..self.enemies.len() {
-            if self.enemies[index].health == 0 {
+        // Deliberately simple ground chasers (shared `combat::Enemy`). They stop
+        // at permanent geometry; they do not try to solve the raised route in
+        // the first combat test.
+        for enemy in &mut self.enemies {
+            if !enemy.alive() {
                 continue;
             }
-            let dx = self.hero.x - self.enemies[index].x;
-            if dx.abs() < 220.0 && dx.abs() > 22.0 {
-                let candidate_x = self.enemies[index].x + dx.signum() * 62.0 * TICK_SECONDS;
-                let candidate = Rect {
-                    left: candidate_x - ENEMY_HALF_WIDTH,
-                    bottom: self.enemies[index].y - ENEMY_HALF_HEIGHT,
-                    width: ENEMY_HALF_WIDTH * 2.0,
-                    height: ENEMY_HALF_HEIGHT * 2.0,
-                };
-                if !self.solid_at(candidate) {
-                    self.enemies[index].x = candidate_x;
-                }
-            }
-            let enemy = &self.enemies[index];
-            if self.hero.invulnerable_ticks == 0
-                && (enemy.x - self.hero.x).abs() < 23.0
-                && (enemy.y - self.hero.y).abs() < 36.0
-            {
-                self.hero.health -= 1;
-                self.hero.invulnerable_ticks = 55;
-            }
+            enemy.step(self.hero.x, &self.blocks);
+            enemy.contact(
+                self.hero.x,
+                self.hero.y,
+                &mut self.hero.health,
+                &mut self.hero.invulnerable_ticks,
+            );
         }
     }
 

@@ -1,0 +1,6 @@
+COMBAT_EVENT tick=122 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=125 kind=hit move=jab instance=1 target=0 damage=1 health_left=1
+COMBAT_EVENT tick=136 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=139 kind=hit move=jab instance=2 target=0 damage=1 health_left=0
+COMBAT_EVENT tick=139 kind=enemy_defeated target=0
+COMBAT_STATE fixture=cp01_single_goblin seed=0xc010001 tick=200 hero_hp=4 deaths=0 enemies=e0=435.734/0 hash=c6952df1e99c7c0a
