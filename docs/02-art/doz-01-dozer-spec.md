@@ -466,3 +466,13 @@ All 11 items of section 7.3 are done. Every Opus key is pixel-identical and froz
 - **Timing.** The tick counts of section 5 are in the manifests (`dozer.frames`) and in the rig contract (`timing`). The preview durations are `round(ticks * 1000 / 60)`, and 100 ms for static and state-driven frames. The wheel atlas holds the cruise rate (2 ticks); the runtime picks 1, 2 or 3 ticks per state.
 - **State choreography (item 11).** Section 5 fixes ticks but not which frame plays in each state. The GIFs use: cruise, idle 0/1 (B 8 ticks late); tell, yell 0/1 and the lever pull with the hull squat; charge, lurch back for 8 ticks, then yell and point/jab; brake, lurch forward for 10 ticks, then idle; strain, idle and the lever pull. The squat is a 1 px drop of the hull and riders for the whole tell and the first 4 charge ticks (the tread hides the overlap); section 3 and section 9 word it differently ("at the rear"), and a real rear-only squat would need a sheared hull. Strain rattle, "double rate (1 px every 3 ticks)", is read as 1 tick up every 3. The yoke, wheel and tread do not rattle. The brake slides the whole rig 4 px in 8 ticks while the camera stays on the unslid position.
 - **Open for the reviewer** (the review answered these; see section 7.4 for the design fixes). The smear's nearly closed ring; the dark `2` posts against the plum outline are low contrast at 1x; the yoke's second rivet row is short (4 rivets); in the lit chase Donut runs 54 px behind Carl (the unlit stretch has a raised step ahead of Carl's usual place).
+
+## Sonnet tasks (after the design fix round)
+
+The design decisions for D2, D3 and D7 are final (section 7.4), and the keys are re-frozen. Sonnet owns the following:
+
+1. **Black smoke in-betweens** `black_1`, `black_3`, `black_4` and `black_5`, redrawn to the D2 plan in section 5. Add their width and pixel-drop tests.
+2. **Engineer frames** `engineer_jab`, `engineer_hold` and `engineer_idle_1`. They carry the deeper D7 pot through `pot_px`. Check them at 1x and x4: eyes visible, and the handle clear of the ear tip.
+3. **GIF tick sampling.** The charge GIFs draw every second tick, so they may never show the smear, which now plays on charge ticks 3, 7, 11 and so on (`charge.smear_every` = 4). Sample so that smear ticks appear.
+4. **Evidence after items 1 to 3:** regenerate the state GIFs, the lit chases, `part_contact_sheet.png` and `SHA256SUMS`. Update the README rows for the charge smear and the black smoke, and its "weakest points" list. The fix-round commit already regenerated the evidence once, with the in-betweens still in their phase-2 shapes.
+5. **Review follow-ups owned by Sonnet:** the cab post colours, the spoke cleanup and the yoke rivets.
