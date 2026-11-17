@@ -305,7 +305,7 @@ class FrozenKeyTests(unittest.TestCase):
         self.assertEqual(piece["layer"], entry["layer"], pid)
 
     def test_frozen_keys_are_pixel_identical(self) -> None:
-        self.assertEqual(len(self.fixture["frozen"]), 18)
+        self.assertEqual(len(self.fixture["frozen"]), 19)
         for pid, entry in self.fixture["frozen"].items():
             with self.subTest(piece=pid):
                 self.check_piece(pid, entry)
@@ -313,7 +313,7 @@ class FrozenKeyTests(unittest.TestCase):
                 self.assertEqual(got, entry["sha256"], f"{pid}: an Opus key changed")
 
     def test_polished_keys_keep_their_rect_and_match_the_frozen_polish(self) -> None:
-        self.assertEqual(set(self.fixture["polished"]), {"shore_post_damaged_1", "loose_block_landed"})
+        self.assertEqual(set(self.fixture["polished"]), {"loose_block_landed"})
         for pid, entry in self.fixture["polished"].items():
             with self.subTest(piece=pid):
                 self.check_piece(pid, entry)
@@ -486,21 +486,25 @@ class PhaseTwoTests(unittest.TestCase):
             blocker = marker(layout, "barricade")["rect"]
             item = next(i for i in layout["piece_layers"]["prop"] if i["piece"] == "timber_barricade_full_intact")
             piece = self.kit.pieces[item["piece"]]
-            self.assertEqual(piece["rect"][2:], [96, 256])
-            self.assertEqual(piece["anchor"], [48, 256])
+            self.assertEqual(piece["rect"][2:], [96, 280])
+            self.assertEqual(piece["anchor"], [48, 280])
             self.assertEqual(item["y"], 32)                       # top at the cornice underside
-            self.assertEqual(item["y"] + 256, 288)                # bottom on the floor back line
+            # bottom on the deck's front lip: the art crosses the whole walking lane
+            self.assertEqual(item["y"] + 280, layout["base_walk_line_y"] + 4)
             self.assertTrue(item["x"] <= blocker[0] and blocker[0] + blocker[2] <= item["x"] + 96)
             self.assertLessEqual(item["y"], blocker[1])
             art = self.kit.crop(piece["atlas"], piece["rect"]).getchannel("A")
             bx0, bx1 = blocker[0] - item["x"], blocker[0] + blocker[2] - item["x"]
             opaque = 0
-            for y in range(256):
+            for y in range(280):
                 row = [art.getpixel((x, y)) for x in range(bx0, bx1)]
                 self.assertTrue(any(v == 255 for v in row), f"{name}: row {y} of the barricade is empty")
                 opaque += sum(1 for v in row if v == 255)
-            self.assertGreater(opaque / (256 * (bx1 - bx0)), 0.85)   # no invisible band
-            self.assertEqual(self.kit.pieces["timber_barricade_full_smashed"]["rect"][2:], [96, 256])
+            self.assertGreater(opaque / (280 * (bx1 - bx0)), 0.85)   # no invisible band
+            # the lane band (deck back line to front lip) is covered: it blocks the passage
+            lane = [art.getpixel((x, y)) for y in range(256, 280) for x in range(bx0, bx1)]
+            self.assertGreater(sum(1 for v in lane if v == 255) / len(lane), 0.8)
+            self.assertEqual(self.kit.pieces["timber_barricade_full_smashed"]["rect"][2:], [96, 280])
 
     def test_r6_soffit_tiles_appear_only_at_the_step_columns(self) -> None:
         lo, hi = 61, 104

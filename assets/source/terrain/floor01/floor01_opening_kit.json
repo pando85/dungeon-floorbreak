@@ -336,12 +336,12 @@
     {
       "id": "timber_barricade_full_intact",
       "atlas": "floor01_opening_props",
-      "rect": [0, 464, 96, 256],
+      "rect": [0, 464, 96, 280],
       "role": "prop",
       "layer": "prop",
       "collidable": false,
-      "anchor": [48, 256],
-      "anchor_name": "bottom centre on the floor back line (y = 288); the top meets the cornice underside (y = 32)",
+      "anchor": [48, 280],
+      "anchor_name": "bottom centre on the deck's front lip (y = 312): the piece crosses the walking lane; the top meets the cornice underside (y = 32)",
       "grid_snap": 8,
       "grammar": ["A"],
       "state_of": {"group": "timber_barricade_full", "state": "intact"}
@@ -349,12 +349,12 @@
     {
       "id": "timber_barricade_full_smashed",
       "atlas": "floor01_opening_props",
-      "rect": [96, 464, 96, 256],
+      "rect": [96, 464, 96, 280],
       "role": "prop",
       "layer": "prop",
       "collidable": false,
-      "anchor": [48, 256],
-      "anchor_name": "bottom centre on the floor back line (y = 288); the top meets the cornice underside (y = 32)",
+      "anchor": [48, 280],
+      "anchor_name": "bottom centre on the deck's front lip (y = 312): the piece crosses the walking lane; the top meets the cornice underside (y = 32)",
       "grid_snap": 8,
       "grammar": ["A"],
       "state_of": {"group": "timber_barricade_full", "state": "smashed"}
@@ -581,7 +581,7 @@
     },
     "timber_barricade_full": {
       "states": ["intact", "smashed"],
-      "note": "96x256, bottom on the back line, top at the cornice (y 32): covers the full-height barricade blocker"
+      "note": "96x280 from the cornice (y 32) to the deck's front lip (y 312): crosses the walking lane and covers the full-height barricade blocker"
     },
     "guild_portal": {
       "states": ["closed", "ajar", "open"],
@@ -590,7 +590,7 @@
   },
   "usage_rules": {
     "S3_chase": "C grammar under a lowered ceiling: copper run along the cornice, valve on a drop, maint_hatch at chest height, timber_set_* every 320 px or so (bottom on the floor back line), jump humps as 1-tile platforms. The two ceiling steps use the soffit tiles: soffit_end_l/_b (left step), soffit_end_r/_b (right step), soffit_corner_* at the low cornice, soffit_joint_* at the high cornice next to the face.",
-    "S4_widened": "A grammar at full height: alcove_niche on a 1-tile ledge (6 columns), a pooled torch right of the niche, timber_barricade_full_* (96x256, y 32) closing the end.",
+    "S4_widened": "A grammar at full height: alcove_niche on a 1-tile ledge (6 columns), a pooled torch right of the niche, timber_barricade_full_* (96x280, y 32 to the lip) closing the end.",
     "S5_skirmish": "raking shore set: wall_cavity at block - (8, 8), loose_block_* at the shore head, shore_post_* foot on the deck, hazard_grit centred on the fall region; keep a pier or wall torch within 120 px so the set reads lit. Presentation frames: shore_dust_trickle under the block's split from damaged_1, timber_splinter_burst at each hit, block_impact_dust on the landing.",
     "S6_guild": "guild_portal_* bottom on the floor back line, guild_sign right of the portal at y 168, nothing breakable within 160 px of the portal."
   }

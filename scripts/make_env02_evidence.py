@@ -129,7 +129,7 @@ def key_sheet(kit: ek.Kit, factor: int) -> Image.Image:
           "wall_cavity", "hazard_grit"]),
         ("pursuer-smashed timber (presentation + authored event): timber set, 96x176 low barricade",
          ["timber_set_intact", "timber_set_smashed", "timber_barricade_intact", "timber_barricade_smashed"]),
-        ("full-height barricade 96x256 (closes up to the cornice, covers the blocker): intact / smashed",
+        ("full-height barricade 96x280 (cornice to the deck front lip: crosses the lane, covers the blocker): intact / smashed",
          ["timber_barricade_full_intact", "timber_barricade_full_smashed"]),
         ("dodge pocket and maintenance hint: alcove niche (backwall decal), iron hatch",
          ["alcove_niche", "maint_hatch"]),
@@ -461,6 +461,36 @@ def render(out: Path) -> dict:
     lay = state_layout("shore_post_broken", None, [("prop", "loose_block_landed", centre_x - 48, walk - 30)])
     gif.append((label(frame(lay, cast_landed), "landed"), 1500))
     save_gif(gif, out / "env02_cp03_sequence_lit_2x.gif", written)
+
+    # --- design fix round: the rotten shore foot at 1x and 4x, and the barricade in the lane
+    feet = []
+    for st in ("intact", "damaged_1", "damaged_2", "broken"):
+        lay = layout if st == "intact" else swap(layout, "shore_post_intact", f"shore_post_{st}")
+        act, box = actors(kit, lay, [(CARL, shore["x"] - 26, False)])
+        feet.append(el.render_lit(kit, lay, [2920, 230, 120, 90], 1, act, boxes=box))
+    row = Image.new("RGB", (sum(f.width for f in feet) + 6 * (len(feet) - 1), feet[0].height), PAGE)
+    x = 0
+    for f in feet:
+        row.paste(f, (x, 0))
+        x += f.width + 6
+    sheet = Image.new("RGB", (row.width * 4, row.height * 5 + 24), PAGE)
+    sheet.paste(row, (0, 24))
+    sheet.paste(row.resize((row.width * 4, row.height * 4), Image.Resampling.NEAREST), (0, 24 + row.height))
+    text(ImageDraw.Draw(sheet), (6, 6), "Fix round: rotten shore foot (intact / d1 / d2 / broken), lit, 1x (top) "
+         "and nearest 4x: warm wood, eaten outline, neck at the strike band, pale fibres, crumbling base")
+    save(sheet, out / "env02_fix_shore_foot_1x_4x.png", written)
+    bview = [2160, 20, 320, 330]
+    act_b, box_b = actors(kit, layout, [(CARL, 2296, False), (DONUT, 2240, False)])
+    smashed = swap(layout, "timber_barricade_full_intact", "timber_barricade_full_smashed")
+    act_s, box_s = actors(kit, smashed, [(CARL, 2350, False)])
+    pair = [label(el.render_lit(kit, layout, bview, 2, act_b, boxes=box_b),
+                  "intact: crosses the lane to the deck lip (y 312); Carl stopped at the blocker"),
+            label(el.render_lit(kit, smashed, bview, 2, act_s, boxes=box_s),
+                  "smashed: boards thrown across the lane; Carl walks over them")]
+    both = Image.new("RGB", (pair[0].width * 2 + 8, pair[0].height), PAGE)
+    both.paste(pair[0], (0, 0))
+    both.paste(pair[1], (pair[0].width + 8, 0))
+    save(both, out / "env02_fix_barricade_lane_lit_2x.png", written)
 
     mask = el.actor_mask(act5, s5)
     report = {

@@ -7,7 +7,7 @@
   "output_atlas": "generated/art/floor01_opening_props.png",
   "output_metadata": "generated/art/floor01_opening_props.json",
   "palette_id": "floor01-catacomb-v2",
-  "frame_size": [512, 720],
+  "frame_size": [512, 744],
   "pivot": [0, 0],
   "animation_tags": [],
   "required_alpha": true,

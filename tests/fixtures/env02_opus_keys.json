@@ -1,5 +1,5 @@
 {
- "note": "Frozen Opus keys of ENV-02 (design phase 1, commits 845cee2..add2ce2). Never edit. sha256 = SHA-256 of the piece rect's RGBA bytes (row-major, transparent = 00000000) decoded from the committed pixel-grid-v1 source of its atlas (cels.main, frame 0). 'polished' lists the two keys the spec's Sonnet task 3 explicitly asks to polish: they keep rect, anchor and layer; their Opus-key hash is kept for the record and the polished hash is frozen as well.",
+ "note": "Frozen Opus keys of ENV-02 (design phase 1, commits 845cee2..add2ce2). Never edit. sha256 = SHA-256 of the piece rect's RGBA bytes (row-major, transparent = 00000000) decoded from the committed pixel-grid-v1 source of its atlas (cels.main, frame 0). 'polished' lists the two keys the spec's Sonnet task 3 explicitly asks to polish: they keep rect, anchor and layer; their Opus-key hash is kept for the record and the polished hash is frozen as well. Design fix round (Claude Opus, after the independent review): the four shore_post_* keys were re-keyed on a new rotten foot (warm wood, eaten outline, narrowed strike band, pale fibres, crumbling base); shore_post_damaged_1 is now a frozen Opus key (it includes the 1x-readable notch). timber_barricade_full_* was redesigned to cross the walking lane (96x280) and is not frozen: Sonnet polishes its plank rhythm.",
  "frozen": {
   "shore_post_intact": {
    "atlas": "floor01_opening_props",
@@ -14,7 +14,22 @@
     138
    ],
    "layer": "prop",
-   "sha256": "64383550951f919501651ab8726d2bf185213477baefeef8c2a573d2b9696af2"
+   "sha256": "260c67f445a0377c27f1e9adecaa8cb91eb971b69cc73b457cf46fb83a2aaba2"
+  },
+  "shore_post_damaged_1": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    136,
+    0,
+    136,
+    144
+   ],
+   "anchor": [
+    16,
+    138
+   ],
+   "layer": "prop",
+   "sha256": "92b3e99ab0152694d24293df240bf2ea803077da9ccb8cf91c3fba4610a3b23c"
   },
   "shore_post_damaged_2": {
    "atlas": "floor01_opening_props",
@@ -29,7 +44,7 @@
     138
    ],
    "layer": "prop",
-   "sha256": "3bd57ee71a8a1d03368c67ef20b72e418c568d62c1d430729b0243f39ed83e6f"
+   "sha256": "f7e0c6a34a448ebca8b50fe8b21acdf2c120d2e1e24a54ee986d34e39e76a845"
   },
   "shore_post_broken": {
    "atlas": "floor01_opening_props",
@@ -44,7 +59,7 @@
     138
    ],
    "layer": "prop",
-   "sha256": "1128b301bbc6f58c08110a5e4ac67de821053e18fb83eedbad8dde6a9fed747d"
+   "sha256": "b3e09537a60eaeea4ae904b69e284afc92f2c7fbee098bc1a22e8198c8917dea"
   },
   "loose_block_seated": {
    "atlas": "floor01_opening_props",
@@ -273,23 +288,6 @@
   }
  },
  "polished": {
-  "shore_post_damaged_1": {
-   "reason": "ENV-02 spec Sonnet task 3: slightly larger notch so it reads at 1x",
-   "opus_key_sha256": "2d118b746f6cb611b24a6ffd4444380f2f2ececcba0fd1cd70393df52eb5ff1e",
-   "sha256": "8d3ee3317e9fb15ed5bf3221a9e930383f30097fd0b1821a82fef4ee80866ed1",
-   "rect": [
-    136,
-    0,
-    136,
-    144
-   ],
-   "anchor": [
-    16,
-    138
-   ],
-   "atlas": "floor01_opening_props",
-   "layer": "prop"
-  },
   "loose_block_landed": {
    "reason": "ENV-02 spec Sonnet task 3: rubble follows the v2 split (right stone, left pair, crumbs)",
    "opus_key_sha256": "9a4ffb60b122b1765e5504e57c2d213484238494d94317bb6dd492f63961d2ac",

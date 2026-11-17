@@ -45,7 +45,7 @@ All sizes are in px; anchor = piece-local px.
 
 | Piece id | Atlas | Size | Layer | Anchor / placement | States | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `shore_post_intact`, `_damaged_1`, `_damaged_2`, `_broken` | opening_props | 136×144 | prop | foot (16, 138); placed at (2952, 160) | 4, one rect | 11 px timber from foot (2968, 298) to head (3020, 168), about 68°. Lower 30 % is dry rot. d1: notch at the strike point with pale fibres. d2: deep notch, a split up the grain, the shaft bows 1.6 px and the head slips 2 px. broken: a jagged stub, and the upper shaft lies on the deck |
+| `shore_post_intact`, `_damaged_1`, `_damaged_2`, `_broken` | opening_props | 136×144 | prop | foot (16, 138); placed at (2952, 160) | 4, one rect | 11 px timber from foot (2968, 298) to head (3020, 168), about 68°. **Rotten foot (design fix round, re-keyed):** the lower 30 % stays warm wood (`wood_02/03`, never metal grey, no banding). The rot shows in the outline: a neck about 2.5 px narrower at the strike band (local y 111 to 130), 1 to 2 px bites eaten in irregular 2 to 4 px runs, dark bite rims on the shadow edge and pale `stone_06` torn fibres on the lit edge. It ends in a soft, splayed base with crumbs on the sole plate. d1: notch at the strike point with pale fibres. d2: deep notch, a split up the grain, the shaft bows 1.6 px and the head slips 2 px. broken: a jagged stub, and the upper shaft lies on the deck |
 | `loose_block_seated`, `_settling`, `_slipped` | opening_props | 64×56 | prop | bottom centre (32, 48); placed at (3008, 120) | 3, one rect | **v2 chunk:** a heavy 3D mass of three dressed stones with an angular broken outline. The front face is lit toward the torch; extruded 6 px up and right, it shows a dim top face and a torch-lit right face, over a shadowed underside. One big split has a lit lip and crumbling mortar, plus a hairline. It is still keyed into the wall at the upper right. settling (hit 1): tilts 1.5° left-down, drops 1 px, first crumbs. slipped (hit 2): tilts 4° and drops 3 px, with a crumb shower: the "next hit drops it" tell |
 | `loose_block_falling` | opening_props | 72×64 | prop | (36, 52) | debris sprite | the same chunk tipped 12° left-down, with crumbs trailing above. Gameplay moves it |
 | `loose_block_landed` | opening_props | 96×32 | prop | bottom centre (48, 30) on the walking line | | two big chunks, bricks and a dust skirt. **Non-collidable** |
@@ -163,12 +163,41 @@ Design decisions above are frozen, including the chunk redesign of the block (v2
 7. **Evidence:** regenerate `docs/evidence/env-02` (`make_env02_evidence.py`, `SHA256SUMS`), and add GIFs of the CP-03 sequence and the portal opening.
 8. **DOZ-01 interface note (Sonnet does not draw the Dozer here).** The S2 entry and the S5 wedge go through 192×218 arch windows, but the pursuer is 259 px long. The turn-in and the wedge therefore need an **end-on (rear three-quarter) or wedged pose at most 192 px wide and 155 px tall**, drawn in DOZ-01, with the wheel-spin loop visible from behind. ENV-02 only reserves the `pursuer_spawn` and `pursuer_wedge` rects. If DOZ-01 cannot supply that pose, ENV-02 falls back to `wall_breach` (task 5) at the S5 wedge.
 
+## Design fix round (Claude Opus, after the independent review)
+
+The independent Opus review failed the Sonnet set on two MAJOR design items. Both are re-keyed by Opus here; Sonnet's other execution work is untouched.
+
+1. **`shore_post_*` (all four states):** the old foot read as a metal sleeve or wrapped grip ("reinforced"), because it was about 95 % iron and mortar greys drawn in regular horizontal bands. The new foot is described in the piece table. All four states are re-cut on the same foot. The notch, the d2 split, the stub and the fallen shaft are unchanged, and so are rects, anchors, `STRIKE_T` and the hit count. All four are frozen Opus keys again (`tests/fixtures/env02_opus_keys.json`: 19 frozen, `loose_block_landed` stays polished). The player reads "hit here, it's weak" from the silhouette, which is thinnest and most chewed exactly at the fist and kick height.
+2. **`timber_barricade_full_*` crosses the walking lane:**
+   - **The problem:** the 96×256 art stood on the floor back line (bottom y 288), so actors walked visibly in front of it on the deck while the blocker stopped them. It read as a boarded doorway in the back wall.
+   - **The redesign:** the piece is now **96×280, anchor (48, 280) on the deck's front lip (y 312)**, placed at (2304, 32). From the cornice down to the lip it covers the whole deck depth: two wide lane boards over the deck between the posts, the posts run down to the lip, a sill board lies on the front lip, and two kicker braces run from the posts down to the deck front.
+   - **Layer:** it stays in `prop` (draw order 6, behind actors). The `barricade` blocker stops actors at its left face (x 2312), so nothing walks in front of it. A `foreground` layer was rejected because it would also draw over the pursuer as it charges through.
+   - **Tests:** R5 now checks the 280-row cover and that at least 80 % of the lane band (y 288 to 312) is opaque.
+
+### Sonnet task 9 (fix round): barricade plank rhythm and the smashed pose
+
+Do not change the rect, the anchor, the lane footing, the posts or the sill. Redraw only the boards between the posts, to remove the ladder look:
+
+- 7 to 9 boards of mixed width (6 to 14 px), with gaps of 2 to 7 px that never repeat twice in a row. Two or three boards are off-angle (6 to 12 degrees) and nailed over their neighbours, and one or two short vertical slats patch a gap. No even rhythm and no full-width diagonal running from post to post.
+- Boards may overhang a post by 2 to 6 px on either side, but nothing may extend left of x 2304, so the art stays inside the blocker side. Keep the header under the cornice.
+- **Smashed (same rect):**
+  - the left post is snapped about 30 px above the back line with a splintered top;
+  - the right post leans into the next bay, top about 18 px further right;
+  - 4 to 6 boards are thrown across the lane band (y 288 to 312), lying low and flat so actors walk over them;
+  - one board still hangs by a nail;
+  - two header stubs hang from the cornice.
+
+  Everything stays in `prop` (behind actors). Nothing may rise above 40 px over the walking line inside the lane once the blocker is removed.
+- Keep R5 green, then regenerate `env02_key_sheet_*`, `env02_lit_s4_widened_*` and `SHA256SUMS`.
+
+**Pieces Sonnet must redraw to match:** `timber_barricade_full_intact` and `timber_barricade_full_smashed` (task 9 only). The 96×176 `timber_barricade_*` pair still stands on the back line, so it must **not** be used as a lane blocker; leave it as a background-only option. Nothing else needs redrawing. The shore keys are final, and `shore_dust_trickle` keeps its position under the block.
+
 ## Execution record (Sonnet, phase 2)
 
 All eight tasks above are executed; rects, anchors, the fall region and the hit count are unchanged.
 
 - **Frozen keys:** `tests/fixtures/env02_opus_keys.json` freezes the pixel hash of 18 Opus keys, and `FrozenKeyTests` fails if one changes. The two keys that task 3 explicitly asks to polish (`shore_post_damaged_1`, `loose_block_landed`) keep rect, anchor and layer; their Opus-key hash is kept in the fixture and the polished hash is frozen too. `guild_sign` and every other key are byte-identical. New pieces are appended to each atlas, so no existing rect moved.
-- **Task 1:** `timber_barricade_full_intact` / `_smashed` (96x256, anchor (48, 256), placed at (2304, 32)). Boards vary in width (7 to 12 px) and tone, dark gaps are filled between them, and a header and a sill close the top and the bottom: every row of the blocker rect is covered (R5, at least 85 % opaque). Both layouts use it; the 96x176 pair is unchanged.
+- **Task 1:** `timber_barricade_full_intact` / `_smashed` (96x256, anchor (48, 256), placed at (2304, 32)); **superseded** by the design fix round: 96×280, anchor (48, 280) on the deck front lip. Boards vary in width (7 to 12 px) and tone, dark gaps are filled between them, and a header and a sill close the top and the bottom: every row of the blocker rect is covered (R5, at least 85 % opaque). Both layouts use it; the 96x176 pair is unchanged.
 - **Task 2:** new tileset atlas `floor01_soffit` with 8 collision tiles (opaque, `[0, 0, 16, 16]` collider). The spec names `soffit_end_l/_r` (+`_b`) and `soffit_corner_l/_r` but describes two corner functions, so the contract has **8 tiles**: `soffit_end_l`, `_l_b`, `_r`, `_r_b` (hanging face, columns 61 and 104), `soffit_corner_l/_r` (low cornice wrapping the outer corner, row low-1 of the step column) and `soffit_joint_l/_r` (high cornice meeting the face, row 1 one column outside the step: columns 60 and 105). **Side convention: `l` is the left step (column 61), `r` the right step (column 104).** R6 therefore reads: face and corner tiles only at the step columns, joint tiles only at the two cornice columns beside them. Face masonry is the dark fill (`brick_00`, `mortar_00`) with narrow lit quoins (3 and 5 px).
 - **Task 3:** `loose_block_landed` is redrawn as the right stone (with the big crack), the left pair (two stones, bed joint) and crumbs; the barricade polish is in the full-height variant; `shore_post_damaged_1` has a deeper, wider notch.
 - **Task 4:** `shore_dust_trickle` (3 frames, 8x24), `block_impact_dust` (4, 112x40), `timber_splinter_burst` (4, 48x48), each in its own `prop_animation` atlas (the exporter needs one canvas size per sprite) with a manifest tag, and `guild_portal_ajar` (112x136, same rect; a warm slit between the leaves). Ajar lights are interpolated between closed and open (`interior` r 170, i 0.32; `spill` r 130, i 0.3): a Sonnet choice for the reviewer to confirm.
@@ -190,7 +219,7 @@ All eight tasks above are executed; rects, anchors, the fall region and the hit 
 
 ## Known weak spots
 
-- **Barricade height:** fixed by the full-height variant (Sonnet task 1); the 96x176 pair remains only as a lower option.
+- **Barricade:** the full-height variant now crosses the walking lane (96×280, design fix round). Its plank rhythm still reads a little like a ladder until Sonnet task 9 lands. The 96x176 pair is background-only.
 - **Block (CP-03 load), v2:** redesigned as a 3D chunk with a socket drawn as depth. Its top face is deliberately dim (it faces away from the torch), so the volume relies on the lit right face; the independent review should check it at 1x. `loose_block_landed` now follows the v2 split (Sonnet task 3); it is small at 1x, so the review should check that it reads as the block's remains.
 - **Ceiling transitions in S3:** replaced by the dedicated soffit tiles (Sonnet task 2); the review should judge the steps in `env02_soffit_steps_lit_3x.png` and the S3 frames.
 - **Goblin luminance** against the brick in S5 is low (mean ΔL* about −3 to +3). The silhouette edge contrast is fine (17 to 24). Left alone on purpose: it is judged in Bevy with the real A1 lighting.

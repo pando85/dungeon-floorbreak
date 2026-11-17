@@ -16,7 +16,7 @@ python3 scripts/make_env02_evidence.py --out docs/evidence/env-02
 
 | File | What it shows |
 | --- | --- |
-| `env02_key_sheet_1x.png`, `env02_key_sheet_3x.png` | Every ENV-02 piece by group: the shore in 4 states; the block (seated, settling, slipped, falling, landed), wall cavity and hazard grit; the timber set and the 96x176 low barricade; the **full-height barricade 96x256**; the alcove niche and hatch; the guild portal closed, **ajar** and open, and the sign; every frame of the dust trickle, impact dust and splinter burst loops; the 8 soffit tiles |
+| `env02_key_sheet_1x.png`, `env02_key_sheet_3x.png` | Every ENV-02 piece by group: the shore in 4 states; the block (seated, settling, slipped, falling, landed), wall cavity and hazard grit; the timber set and the 96x176 low barricade; the **full-height barricade 96x280**; the alcove niche and hatch; the guild portal closed, **ajar** and open, and the sign; every frame of the dust trickle, impact dust and splinter burst loops; the 8 soffit tiles |
 | `env02_route_plan_unlit.png` | The full 3584x400 route at 1x, unlit, split into two rows. Segment boundaries; the 23 marker rects and crosses colour-coded by kind (red: pursuer; orange: pursuer breakables, blocker and charge zone; magenta: fall region; cyan: safe pocket and protected exit; green: spawn, checkpoints, enemy spawns and exit; yellow: shore, block and humps; violet: clearance gauge); the pursuer path is drawn 70 px above the walking line |
 | `env02_ceiling_options_unlit_2x.png` | S3 under option R (clearance 212 px) and option T (180 px), with the DOZ-01 h120 pursuer gauge (155x259 px) on the walking line and a marker at the recommended 200 px |
 | `env02_lit_s1_intro_*`, `env02_lit_s2_arch_*` | S1 (Carl at the spawn, Donut behind, a goblin near the door) and S2 (the arch bay, the pursuer's entry window), each at 640x360 and 1920x1080 |
@@ -30,6 +30,13 @@ python3 scripts/make_env02_evidence.py --out docs/evidence/env-02
 | `env02_cp03_sequence_lit_2x.gif` | The same sequence animated: splinter burst and trickle at each hit, the drop of the block (140 px under constant gravity) and the landing with impact dust |
 
 The 1920x1080 files are an exact x3 of the 640x360 view, with the light computed at output resolution (ADR-0007). Actors are frame 0 of the approved Carl 52 and Donut 40 atlases and of the GOB-01 h36 goblin candidates (mirrored to face left), placed on the walking line with 0 px sink. **Goblin positions in S1 to S4 are scale references only**: no goblin is planned there. The pursuer is not drawn (DOZ-01).
+
+## Design fix round (Opus, after the independent review)
+
+| File | What it shows |
+| --- | --- |
+| `env02_fix_shore_foot_1x_4x.png` | The re-keyed rotten shore foot in its 4 states, lit, at 1x and nearest 4x, with Carl at the strike position. It is warm wood with an eaten outline, a neck at the strike band, pale fibres and a crumbling base, and no metal-sleeve banding |
+| `env02_fix_barricade_lane_lit_2x.png` | The full-height barricade redesigned to cross the walking lane (96×280, bottom on the deck's front lip). On the left it is intact, with Carl stopped at the blocker; on the right it is smashed, with boards thrown across the lane |
 
 ## Known weak spots
 

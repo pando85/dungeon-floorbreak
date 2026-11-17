@@ -8,10 +8,10 @@
   "readability_s5_640x360": {
     "carl_h52": {
       "actor_mean_L": 39.5,
-      "surround_mean_L": 26.0,
-      "delta_L": 13.5,
-      "luminance_contrast_ratio": 2.15,
-      "silhouette_edge_mean_abs_dL": 17.0,
+      "surround_mean_L": 26.4,
+      "delta_L": 13.1,
+      "luminance_contrast_ratio": 2.12,
+      "silhouette_edge_mean_abs_dL": 16.9,
       "edge_samples": 240
     },
     "donut_h40": {
@@ -25,7 +25,7 @@
     "goblin_a": {
       "actor_mean_L": 28.4,
       "surround_mean_L": 25.3,
-      "delta_L": 3.1,
+      "delta_L": 3.0,
       "luminance_contrast_ratio": 1.52,
       "silhouette_edge_mean_abs_dL": 18.7,
       "edge_samples": 385
@@ -56,7 +56,7 @@
     "floor01_block_impact": 6,
     "floor01_splinter_burst": 6
   },
-  "lit_colours_s5_640x360": 4832,
+  "lit_colours_s5_640x360": 4819,
   "files": [
     "env02_key_sheet_1x.png",
     "env02_key_sheet_3x.png",
@@ -82,6 +82,8 @@
     "env02_guild_door_opening_lit_2x.gif",
     "env02_soffit_steps_lit_3x.png",
     "env02_cp03_state_sequence_lit_2x.png",
-    "env02_cp03_sequence_lit_2x.gif"
+    "env02_cp03_sequence_lit_2x.gif",
+    "env02_fix_shore_foot_1x_4x.png",
+    "env02_fix_barricade_lane_lit_2x.png"
   ]
 }

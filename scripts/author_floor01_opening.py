@@ -205,6 +205,57 @@ def sole_plate(c, slip: int = 0) -> None:
             lut(c, px, py, TIMBER, 4.8 if px == int(fx) - 9 + w - 1 else 3.2)
 
 
+def rot_profile(t: float, length: float) -> tuple[float, float]:
+    """How much the dry rot has eaten into each long edge (left, right) at t: a neck of
+    about 2.5 px at the strike band, plus 1-2 px bites in irregular 2-3 px runs, worse toward
+    the foot. Zero above ROT_T. The foot is the same in every state (keys are re-cut on it)."""
+    if t >= ROT_T:
+        return 0.0, 0.0
+    pr = clamp((ROT_T - t) / ROT_T, 0, 1)
+    fade = clamp((ROT_T - t) / 0.06, 0, 1)
+    neck = 1.3 * math.exp(-((t - STRIKE_T) / 0.06) ** 2)
+    seg = int(t * length / (2 + rnd("bseg", int(t * length / 7)) * 2))
+    p = 0.12 + 0.35 * pr + 0.35 * math.exp(-((t - STRIKE_T) / 0.07) ** 2)
+    bl = (1 if rnd("biteL", seg) < p else 0) + (1 if rnd("biteL2", seg) < p * 0.4 else 0)
+    br = (1 if rnd("biteR", seg) < p * 0.8 else 0) + (1 if rnd("biteR2", seg) < p * 0.3 else 0)
+    return (neck + bl) * fade, (neck + br) * fade
+
+
+def rot_pixel(c, px: int, py: int, t: float, s: float, lo: float, hi: float, length: float,
+              bitten: tuple[bool, bool]) -> None:
+    """Dry-rotted foot: warm wood_02/03 (never metal grey), soft streaks along the grain,
+    dark pits, pale stone_06 torn fibres on the eaten edges; no regular banding."""
+    pr = clamp((ROT_T - t) / ROT_T, 0, 1)
+    edge_l, edge_r = s - lo < 1.0, hi - s <= 1.0
+    if edge_l and bitten[0]:
+        lut(c, px, py, TIMBER, 1)                      # dark rim of a bite (cavity depth)
+        return
+    if edge_r and bitten[1]:
+        lut(c, px, py, SPLINTER, 0 if rnd("rfr", px, py) < 0.7 else 1)   # torn pale fibres
+        return
+    if rnd("rpit", px, py) < 0.05 + 0.07 * pr:
+        lut(c, px, py, TIMBER, 0.6)
+        return
+    grain = rnd("rgr", int(s + 6), int(t * length / (3 + 3 * rnd("rgl", int(s + 6))))) - 0.5
+    if rnd("rfib", int(s + 6), int(t * length / 3)) < 0.06 + 0.16 * pr:
+        lut(c, px, py, SPLINTER, 0)                    # loose fibre strands along the grain
+        return
+    v = 2.9 + 0.8 * grain - 0.4 * pr + (1.2 if edge_r else 0.0) - (0.8 if edge_l else 0.0)
+    lut(c, px, py, TIMBER, v)
+
+
+def foot_crumbs(c) -> None:
+    """Soft, crumbling base: rotten crumbs and fibres spilled on the sole plate."""
+    fx, fy = FOOT_L
+    for k in range(14):
+        x = int(fx - 7 + rnd("fcx", k) * 18)
+        y = int(fy - 2 + rnd("fcy", k) * 2.5)
+        if k % 3 == 0:
+            lut(c, x, y, SPLINTER, 0)
+        else:
+            lut(c, x, y, TIMBER, 2 if k % 2 else 3)
+
+
 def shore_beam(c, state: str) -> None:
     fx, fy = FOOT_L
     hx, hy = HEAD_L
@@ -216,22 +267,22 @@ def shore_beam(c, state: str) -> None:
             x, y = px + 0.5, py + 0.5
             t, s, length = beam_coords(x, y, (fx, fy), head)
             s -= bow * math.sin(math.pi * clamp(t, 0, 1))
-            if not (0.0 <= t <= 1.0 and -SHORE_HALF <= s < SHORE_HALF):
+            if not 0.0 <= t <= 1.0:
+                continue
+            cut_l, cut_r = rot_profile(t, length)
+            lo, hi = -SHORE_HALF + cut_l, SHORE_HALF - cut_r
+            if t < 0.035:                      # soft, splayed, crumbling base
+                lo, hi = lo - 0.8, hi + 0.8
+                if (s - lo < 1.3 or hi - s < 1.3) and rnd("crumb_base", px, py) < 0.4:
+                    continue
+            if not lo <= s < hi:
                 continue
             if state == "broken" and t > STRIKE_T - 0.01 - 0.03 * (s + SHORE_HALF) / SHORE_HALF \
                     + 0.05 * rnd("jag", int(s + 5)):
                 continue                       # only the jagged stub stays standing
             v = timber_value(t, s, SHORE_HALF, length, "shore", lit_side=-1) + 0.6
-            if t < ROT_T:
-                # dry rot: grey-brown, cubical checking, fibrous pale flecks; worse toward the foot
-                rot = (ROT_T - t) / ROT_T
-                check_a = int(t * length) % 5 == 0 and rnd("chk", int(s), int(t * length / 5)) < 0.7
-                check_b = int(s + SHORE_HALF) % 3 == 0 and rnd("chk2", int(t * length / 3)) < 0.45 * rot + 0.2
-                if check_a or check_b:
-                    lut(c, px, py, ROT, 0)
-                    continue
-                fleck = rnd("fleck", px, py) < 0.14 * rot
-                lut(c, px, py, ROT, (5 if fleck else 3.4 + (v - 3.6) * 0.6 + rot * 0.5))
+            if t < ROT_T and not (t > ROT_T - 0.04 and rnd("rotmix", px, py) < 0.5):
+                rot_pixel(c, px, py, t, s, lo, hi, length, (cut_l >= 0.9, cut_r >= 0.9))
                 continue
             lut(c, px, py, TIMBER, v)
             # a long drying check up the shaft (grain split): reads as "old timber"
@@ -300,6 +351,7 @@ def shore(state: str) -> "ld.Canvas":
     c = canvas(SHORE_W, SHORE_H)
     sole_plate(c)
     shore_beam(c, state)
+    foot_crumbs(c)
     if state == "broken":
         fallen_upper(c)
         # splintered top of the stub
@@ -651,7 +703,8 @@ def barricade(state: str) -> "ld.Canvas":
     return c
 
 
-BARRICADE_FULL_H = 256
+BARRICADE_FULL_H = 280      # cornice underside (y 32) down to the deck's front lip (y 312)
+BARRICADE_BACK = 256        # piece-local row of the floor back line (y 288)
 
 
 def barricade_gap_fill(c, x0: int, x1: int, y0: int, y1: int) -> None:
@@ -669,39 +722,49 @@ def barricade_gap_fill(c, x0: int, x1: int, y0: int, y1: int) -> None:
 
 
 def barricade_full(state: str) -> "ld.Canvas":
-    """Full-height barricade (96 x 256): the same planks-on-posts build as the 176 px key, but
-    closed up to the cornice, so the full-height ``barricade`` blocker is visible all the way up.
-    Plank width and tone vary, and dark gaps sit between the boards."""
-    h = BARRICADE_FULL_H
+    """Full-height barricade built ACROSS the passage (96 x 280): it stands from the cornice
+    underside down to the deck's front lip (y 312), so it covers the whole walking lane. Posts
+    run down to the lip, a sill board and two kicker braces sit on the deck surface (y 288-312)
+    and the lowest boards hide the deck between the posts: it reads as blocking the lane, not
+    as a boarded doorway in the back wall. Drawn in the ``prop`` layer (behind actors): the
+    blocker rect stops actors at its left face, so nothing ever overlaps it. Plank rhythm is
+    a design key; Sonnet polishes it (spec, task 9)."""
+    h, back = BARRICADE_FULL_H, BARRICADE_BACK
     c = canvas(96, h)
     if state == "intact":
-        barricade_gap_fill(c, 6, 90, 8, h)
+        barricade_gap_fill(c, 6, 90, 8, h - 6)
         plank(c, 12, h - 1, 12, 0, 6.0, "bpl", nails=False)
         plank(c, 84, h - 1, 84, 0, 6.0, "bpr", nails=False)
         y, k = 18.0, 0
-        while y < h - 14:
-            half = 3.5 + 2.5 * rnd("bfw", k)               # 3.5..6.0: boards of different widths
+        while y < back - 6:
+            half = 3.5 + 2.5 * rnd("bfw", k)
             tilt = (rnd("bfl", k) - 0.5) * 5
-            bias = (rnd("bft", k) - 0.5) * 1.8             # tone variety plank to plank
+            bias = (rnd("bft", k) - 0.5) * 1.8
             plank(c, 2, y - tilt, 94, y + tilt, half, f"bf{k}", bias=bias)
-            y += half * 2 + 5 + 8 * rnd("bfg", k)          # 5..13 px of dark gap above the next board
+            y += half * 2 + 5 + 8 * rnd("bfg", k)
             k += 1
-        plank(c, 0, 5, 96, 5, 5.5, "bfh", bias=-0.4)        # header wedged under the cornice
-        plank(c, 2, h - 5, 94, h - 5, 4.5, "bfsill", bias=-0.3)     # sill board on the deck
-        plank(c, 16, h - 8, 80, 40, 3.0, "bfdiag", nails=False, bias=0.3)
+        # lane footing: two wide boards over the deck depth, a sill on the front lip
+        plank(c, 4, back + 3, 92, back + 4, 5.0, "bflane1", bias=-0.2)
+        plank(c, 3, back + 13, 93, back + 12, 5.0, "bflane2", bias=0.2)
+        plank(c, 0, h - 4, 96, h - 4, 4.0, "bfsill", bias=0.5)      # sill on the deck front
+        # kicker braces from the posts down to the deck front: propped in the lane
+        plank(c, 12, back - 26, 3, h - 2, 2.5, "bfkick_l", nails=False, bias=0.4)
+        plank(c, 84, back - 26, 93, h - 2, 2.5, "bfkick_r", nails=False, bias=-0.3)
+        plank(c, 0, 5, 96, 5, 5.5, "bfh", bias=-0.4)                 # header under the cornice
+        plank(c, 16, back - 8, 80, 40, 3.0, "bfdiag", nails=False, bias=0.3)
     else:
-        plank(c, 12, h - 1, 12, h - 48, 6.0, "bpl", nails=False)
-        plank(c, 84, h - 1, 74, h - 116, 6.0, "bpr", nails=False)     # leaning right post
-        for k, (a, b) in enumerate([((4, 250), (52, 240)), ((44, 252), (92, 246)),
-                                    ((20, 242), (60, 230)), ((60, 238), (90, 222)),
-                                    ((78, 142), (94, 192))]):
-            plank(c, a[0], a[1], b[0], b[1], 4.0 + (k % 3) * 0.6, f"bfs{k}", nails=k == 4,
+        # posts snapped near the deck, the boards thrown across the lane (actors walk over them)
+        plank(c, 12, h - 1, 12, back - 30, 6.0, "bpl", nails=False)
+        plank(c, 84, h - 1, 76, back - 100, 6.0, "bpr", nails=False)
+        for k, (a0, b0) in enumerate([((2, h - 6), (50, h - 12)), ((40, h - 3), (94, h - 8)),
+                                      ((10, back + 6), (58, back - 2)), ((54, back + 4), (92, back - 10)),
+                                      ((18, back - 8), (46, back - 18)), ((76, 160), (94, 208))]):
+            plank(c, a0[0], a0[1], b0[0], b0[1], 3.5 + (k % 3) * 0.7, f"bfs{k}", nails=k == 5,
                   bias=(rnd("bfsb", k) - 0.5) * 1.6)
         for k in range(9):
             x = 6 + k * 1.4
-            y = h - 48 - 1 - int(rnd("bfss", k) * 6)
+            y = back - 30 - 1 - int(rnd("bfss", k) * 6)
             c.put(int(x), y, *SPLINTER[3 if k % 2 else 2])
-        # the header is torn off but two stubs still hang from the cornice
         plank(c, 0, 5, 30, 6, 5.0, "bfh1", bias=-0.4)
         plank(c, 66, 5, 96, 4, 5.0, "bfh2", bias=-0.4)
         for x in (31, 32, 65, 64):
@@ -1237,9 +1300,10 @@ def build_atlases() -> dict:
     props.add_piece("maint_hatch", hatch(), anchor=[0, 0], anchor_name="top_left (brick-aligned)",
                     grid_snap=8, grammar=["C"])
     for state in ("intact", "smashed"):
-        props.add_piece(f"timber_barricade_full_{state}", barricade_full(state), anchor=[48, 256],
-                        anchor_name="bottom centre on the floor back line (y = 288); the top meets "
-                                    "the cornice underside (y = 32)", grid_snap=8, grammar=["A"],
+        props.add_piece(f"timber_barricade_full_{state}", barricade_full(state), anchor=[48, 280],
+                        anchor_name="bottom centre on the deck's front lip (y = 312): the piece "
+                                    "crosses the walking lane; the top meets the cornice underside "
+                                    "(y = 32)", grid_snap=8, grammar=["A"],
                         breakable={"group": "timber_barricade_full", "state": state})
     for p in props.pieces:
         p.setdefault("role", "prop")
@@ -1363,8 +1427,9 @@ def build_contract(tiles: list[dict], pieces: list[dict], grids: dict) -> dict:
             "timber_barricade": {"states": ["intact", "smashed"],
                                  "note": "96x176 lower option; the layouts use the full-height pair"},
             "timber_barricade_full": {"states": ["intact", "smashed"],
-                                      "note": "96x256, bottom on the back line, top at the cornice "
-                                              "(y 32): covers the full-height barricade blocker"},
+                                      "note": "96x280 from the cornice (y 32) to the deck's front lip "
+                                              "(y 312): crosses the walking lane and covers the "
+                                              "full-height barricade blocker"},
             "guild_portal": {"states": ["closed", "ajar", "open"],
                              "note": "ajar is the 1-frame in-between played when a player enters "
                                      "exit_guild; same rect as closed and open"},
@@ -1377,7 +1442,7 @@ def build_contract(tiles: list[dict], pieces: list[dict], grids: dict) -> dict:
                         "(right step), soffit_corner_* at the low cornice, soffit_joint_* at the "
                         "high cornice next to the face.",
             "S4_widened": "A grammar at full height: alcove_niche on a 1-tile ledge (6 columns), a "
-                          "pooled torch right of the niche, timber_barricade_full_* (96x256, y 32) "
+                          "pooled torch right of the niche, timber_barricade_full_* (96x280, y 32 to the lip) "
                           "closing the end.",
             "S5_skirmish": "raking shore set: wall_cavity at block - (8, 8), loose_block_* at the "
                            "shore head, shore_post_* foot on the deck, hazard_grit centred on the fall "
