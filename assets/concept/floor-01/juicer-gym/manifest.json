@@ -1,26 +1,17 @@
 {
   "schema": "the-crawl-concept-image-manifest-v1",
   "project": "THE CRAWL — NO PANTS. NO MERCY.",
-  "status": "owner-approved gym mood; standalone refinement is a pending review candidate",
-  "source": "Original OpenAI-generated concept images in project conversation. Exact bytes remain pending owner upload on this PR branch.",
+  "status": "owner-selected standalone gym panorama art-direction reference; encounter mechanics are proposals",
+  "source": "Original OpenAI-generated PNG in 2026-11-17 gym concept follow-up; exact bytes pending upload to the PR branch.",
   "assets": [
     {
-      "path": "assets/concept/floor-01/juicer-gym/floor01-juicer-gym-approved-mood-reference.png",
-      "sha256": "6d95e529e745fedb742eed951047bb286aee99dfe814be64933ed9b774835fba",
-      "bytes": 1457688,
+      "path": "assets/concept/floor-01/juicer-gym/floor01-juicer-gym-standalone-panorama-approved.png",
+      "sha256": "f8612bbb5fca7ffd8c01ce8748872fd363e7be4f40eeb45066ce6c0018786594",
+      "bytes": 3077762,
       "width": 1672,
-      "height": 470,
-      "source_conversation_file": "the-crawl-juicers-gym-concept-study.png",
-      "review_status": "owner-approved visual identity"
-    },
-    {
-      "path": "assets/concept/floor-01/juicer-gym/floor01-juicer-gym-standalone-revision-candidate.png",
-      "sha256": "001d696b86e5e450ad6b41864b440e2ce5a2e549ad0870fd3c327213f13bd081",
-      "bytes": 2685319,
-      "width": 1774,
-      "height": 887,
-      "source_conversation_file": "a_highly_detailed_pixel_art_concept_board_in_a_gri.png",
-      "review_status": "new standalone composition pending owner approval"
+      "height": 941,
+      "source_conversation_file": "a_richly_detailed_pixel_art_side_scrolling_game_en.png",
+      "review_status": "owner-selected gym-only panorama; visual-direction reference, not executable geometry"
     }
   ]
 }
