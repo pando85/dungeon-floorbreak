@@ -1,13 +1,12 @@
-# The Juicer's Gym — separate Floor 01 environment concept PR
+# The Juicer's Gym — original approved panorama
 
-**Owner-approved:** general visual direction / original gym crop.
-**Still awaiting owner review:** revised *standalone room composition*, gameplay-scale layout and all interaction mechanics.
+This directory is part of the **standalone gym concept PR**, distinct from both Floor 01 enemy-sheet PRs and the Ball of Swine arena.
 
-The owner will upload two **unchanged original PNGs** into this directory:
+**Owner-selected image (2026-11-17):**
+- `floor01-juicer-gym-standalone-panorama-approved.png` — original full-width panorama generated in the gym concept follow-up; accepted as a visual direction reference, **not** final pixel-art sprites, native collider geometry or approved gameplay timings.
 
-- `floor01-juicer-gym-approved-mood-reference.png`: previously approved gym-only crop (historic style reference).
-- `floor01-juicer-gym-standalone-revision-candidate.png`: new room-wide concept candidate with reception, turnstile, central combat area and training machines.
+Upload this **one unchanged PNG** to the PR branch `docs/floor01-juicer-gym-standalone-concept`. Expected SHA-256 is pinned in `manifest.json`. The image integrity test is intentionally red until the file appears.
 
-Both expected hashes are in `manifest.json`; the new gym art-assets test intentionally fails until upload. The standalone candidate needs *explicit owner acceptance* before this PR can be marked ready/merged; the first artwork's mood approval does not automatically approve the second's layout.
+Earlier separate original gym mood and candidate concept exports were unavailable during this follow-up, so this PR does **not** demand their bytes or misidentify a crop of this new image as the historical approved art. The existing [atlas gym excerpt](../../atlas-v1/09-juicer-gym-atlas-excerpt.png) remains a historical supplementary visual reference already committed on main.
 
-See [gym design brief](../../../../docs/02-art/floor-01-juicer-gym-standalone-concept.md), and do **not** confuse this with the Ball of Swine arena or convert rendered image panels into native editable sprites.
+Read the [gym environment and encounter direction](../../../../docs/02-art/floor-01-juicer-gym-standalone-concept.md). Combat interactions, boss attacks, solo switching and co-op have **concept direction only**; they are not yet implemented/validated in Rust + Bevy.
