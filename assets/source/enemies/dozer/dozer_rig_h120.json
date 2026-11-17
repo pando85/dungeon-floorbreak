@@ -1,14 +1,22 @@
 {
   "format": "dozer-rig-v0",
-  "status": "DOZ-01 phase 1 proposal (design: Claude Opus); size decision pending (separate Opus)",
+  "status": "DOZ-01 phase 2 design (Claude Opus); size h120 decided by a separate Opus agent",
   "body_height_px": 120,
   "coordinates": "anchors are px relative to the rig origin O (tread footprint midpoint on the walking line); x forward (mirror when facing left), y up. A part's pivot is placed on its anchor.",
   "parts": [
     {
       "part": "smoke_back",
       "z": 0,
-      "atlas": "dozer_smoke (Sonnet)",
-      "anchor": "emitters"
+      "atlas": "dozer_smoke",
+      "frame_size": [
+        24,
+        24
+      ],
+      "pivot": [
+        12,
+        12
+      ],
+      "anchor": "emitters (world space after spawn)"
     },
     {
       "part": "hull_body",

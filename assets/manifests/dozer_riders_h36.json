@@ -17,15 +17,22 @@
   ],
   "animation_tags": [
     "engineer_point",
+    "engineer_lever_pull",
+    "engineer_lurch_back",
+    "engineer_lurch_forward",
     "rider_a_brandish",
-    "rider_b_hold"
+    "rider_a_lurch_back",
+    "rider_a_lurch_forward",
+    "rider_b_hold",
+    "rider_b_lurch_back",
+    "rider_b_lurch_forward"
   ],
   "required_alpha": true,
   "owner": "AI-authored vehicle enemy design keys (fan-concept layer: Goblin Murder Dozer; runtime role IP-neutral large pursuit machine)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "DOZ-01 rider keys: goblin engineer with pot helmet (new pot, pointing arm) and rider A brandishing (GOB-01 frame 11 seated); rider B holding (GOB-01 variant B frame 0 seated, derived)",
-    "generator": "Design, size study and keys: Claude Opus (DOZ-01 phase 1). Size decision pending (a separate Opus agent). Execution pending (Claude Sonnet). Deterministic script output of scripts/author_dozer_doz01.py; riders reuse GOB-01 goblin pixels. No image-model raster output, no tracing, no resampling",
+    "origin": "DOZ-01 rider keys: goblin engineer with the saucepan helmet (point, lever pull, lurch back with the pot hopping off, lurch forward with the pot over his eyes); rider A brandishing (GOB-01 frame 11 seated) and lurching (GOB-01 frame 16 seated; frame 0 seated pitched forward with white eyes); rider B the same from GOB-01 variant B; goblin pixels translated whole",
+    "generator": "Design, size study and keys: Claude Opus (DOZ-01 phases 1 and 2). Size h120 decided by a separate Opus agent. Execution pending (Claude Sonnet). Deterministic script output of scripts/author_dozer_doz01.py; riders reuse GOB-01 goblin pixels. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "floor-01-opening-concept-references-v1"
@@ -34,7 +41,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "dozer": {
-    "status": "DOZ-01 phase 1 design keys; size decision pending; not wired into any Bevy binary",
+    "status": "DOZ-01 phase 2 design keys; size h120 decided by a separate Opus agent; execution (Sonnet) and review (separate Opus) pending; not wired into any Bevy binary",
     "spec": "docs/02-art/doz-01-dozer-spec.md"
   }
 }

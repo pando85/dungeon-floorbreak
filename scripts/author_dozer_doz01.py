@@ -13,11 +13,14 @@ Writes (deterministic, pixel-grid-v1) under ``assets/source/enemies/dozer/``:
   decision, not production pixels.
 - ``dozer_hull_h120.grid.json``: hull key, frame 0 ``body`` (behind the riders) and frame 1 ``front``
   (the rider tub and the cab rail, drawn over the riders' lower bodies).
-- ``dozer_wheel_h120.grid.json``: spiked wheel key, phase 0 of the 4-frame rotation plan.
-- ``dozer_tread_h120.grid.json``: tread key, phase 0 of the 3-frame belt plan.
+- ``dozer_wheel_h120.grid.json``: spiked wheel key (phase 2 redesign), phase 0 of the 4-frame plan.
+- ``dozer_tread_h120.grid.json``: tread key, phase 0 of the 9-frame (1 px) belt plan.
 - ``dozer_yoke_h120.grid.json``: near-side push arm, axle cap and lamp (static).
-- ``dozer_riders_h36.grid.json``: rider keys (engineer, rider A) plus rider B, derived from the
-  GOB-01 variant B overlay.
+- ``dozer_riders_h36.grid.json``: rider keys: engineer point, lever pull and both lurches; rider A
+  brandish and both lurches; rider B hold and both lurches (A's construction on GOB-01 variant B).
+- ``dozer_smoke.grid.json``: smoke keys: black puff frames 0 and 2, steam puff frames 0 and 2.
+
+The size h120 was proposed here and decided by a separate Opus agent (DOZ-01 phase 1 / 2).
 - ``dozer_rig_h120.json``: part pivots, anchors and draw order (the data contract of the spec).
 
 and one manifest per grid under ``assets/manifests/``. ``--check`` compares instead of writing.
@@ -123,6 +126,7 @@ SEATS = {"engineer": (26.0, 98.0), "rider_a": (112.0, 96.0), "rider_b": (140.0, 
 RIM_Y = {"engineer": 105.0, "rider_a": 104.0, "rider_b": 104.0}   # occluder top over each seat
 EMITTERS = {"stack": (89.0, 156.0), "rear_exhaust": (-8.0, 124.0), "kettle": (79.0, 129.0)}
 LAMP = (172.0, 66.0)
+TREAD_PHASES = 9                # belt frames: 1 px steps of the 9 px link pitch
 RIDER_CANVAS = (64, 56)
 RIDER_PIVOT = (28, 55)          # the seat point (hip contact), not the floor
 
@@ -478,7 +482,21 @@ def build_yoke(rs: Raster) -> None:
 
 
 def wheel_rows(phase_deg: float, s: float = 1.0, canvas: int | None = None) -> tuple[list[list[str]], int]:
-    """Spiked wheel at a rotation phase (degrees, clockwise). Returns rows and the centre index."""
+    """Spiked wheel at a rotation phase (degrees, clockwise). Returns rows and the centre index.
+
+    Phase 2 redesign (the lethal part is the brightest thing on the machine):
+
+    * 12 spikes in iron 4 / 5 with a 6 face on the side towards the upper-left light, the
+      outer 2 px of every spike in 7, outlined in K;
+    * a 3 px rim band (5 outside, 3 inside) carrying the 12 bolt glints between the spikes;
+    * a dark drum (rust Q / W) with E only as an upper-left crescent inside the rim;
+    * 12 spokes, 2 px of iron 2 with a 1 px iron 4 edge on the lit side, from the brass hub
+      to a 2 px iron 3 ring at r 30.
+
+    Every feature is 12-fold symmetric, so phases 0, 7.5, 15 and 22.5 degrees loop over one
+    30 degree spike period. All shading is in screen space (light from the upper left), so
+    the light does not turn with the wheel.
+    """
     tip, rim = WHEEL_TIP * s, WHEEL_RIM * s
     size = canvas or (2 * math.ceil(tip) + 3)
     c0 = size // 2
@@ -486,7 +504,11 @@ def wheel_rows(phase_deg: float, s: float = 1.0, canvas: int | None = None) -> t
     inside = [[False] * size for _ in range(size)]
     lx, ly = -0.6, 0.8
     step = 360.0 / SPIKES
+    phase_deg = phase_deg % step        # every feature is 12-fold: the 30 degree loop is exact
     base_half = 5.0 * s
+    band_in = rim - 3.0 * s             # rim band: (rim - 3, rim]
+    ring_out, ring_in = 31.0 * s, 29.0 * s
+    hub = 10.0 * s
     for r in range(size):
         for c in range(size):
             x, y = c - c0, c0 - r      # pixel centres on integers: the centre pixel is the axle
@@ -498,49 +520,47 @@ def wheel_rows(phase_deg: float, s: float = 1.0, canvas: int | None = None) -> t
             rel = (ang - (90.0 - phase_deg)) % step
             delta = rel if rel <= step / 2 else rel - step
             lat = d * math.sin(math.radians(delta))
+            phi = math.radians(ang - delta)                     # axis of the nearest spike / spoke
+            nx, ny = -math.sin(phi), math.cos(phi)              # normal on the +delta side
+            side = 1 if lat >= 0 else -1
+            lit_side = side * (nx * lx + ny * ly)               # > 0: this half faces the light
+            radial_lit = (x * lx + y * ly) / max(1.0, d)        # > 0: upper-left of the wheel
             key = None
-            if d >= rim - 1.0:
+            if d > rim:
                 half = base_half * max(0.0, (tip - d) / (tip - rim + 1.0))
                 if abs(lat) <= half + 0.35:
-                    phi = math.radians(ang - delta)
-                    nx, ny = -math.sin(phi), math.cos(phi)       # normal on the +delta side
-                    side = 1 if lat >= 0 else -1
-                    lit = side * (nx * lx + ny * ly)
-                    if d > tip - 3.0 * s:
-                        key = "6" if lit > 0 else "4"
-                    elif abs(lat) < 0.8:
-                        key = "4" if lit > 0.3 else "3"
+                    if d > tip - 2.0 * s:
+                        key = "7"                               # bright tip, outer 2 px
+                    elif lit_side > 0.3:
+                        key = "6"                               # lit face
+                    elif lit_side > -0.3 or abs(lat) < 0.8:
+                        key = "5"
                     else:
-                        key = "5" if lit > 0.3 else ("3" if lit > -0.3 else "1")
-                    if d < rim + 1.5 and key in "13":
-                        key = "2"
-            if key is None and d <= rim:
-                lit = (x * lx + y * ly) / max(1.0, d)
-                if d > rim - 4.0 * s:                          # forged rim band
-                    key = "5" if lit > 0.45 else ("4" if lit > 0.0 else ("3" if lit > -0.5 else "2"))
-                    if rim - 4.0 * s < d <= rim - 3.0 * s:
-                        key = "1" if lit < 0.3 else "3"
-                elif d > 10.0 * s:                              # riveted drum plate
-                    key = "E" if lit > 0.35 else ("W" if lit > -0.45 else "Q")
-                    if d > rim - 6.0 * s and lit < -0.2:
-                        key = "Q"
-                elif d > 7.0 * s:                               # hub
-                    key = "S" if lit > 0.3 else ("N" if lit > -0.3 else "M")
+                        key = "4"
+            elif d > band_in:                                   # 3 px rim band
+                key = "5" if d > rim - 2.0 * s else "3"
+            elif d > ring_out:                                  # drum plate between ring and rim
+                key = "E" if radial_lit > 0.55 else ("W" if radial_lit > -0.5 else "Q")
+            elif d > ring_in:                                   # 2 px inner ring
+                key = "3"
+            elif d > hub:                                       # spokes over the dark drum
+                if abs(lat) <= 1.0:
+                    key = "2"
+                elif abs(lat) <= 2.0 and lit_side > 0:
+                    key = "4"                                   # 1 px lit edge
                 else:
-                    key = "M" if lit > 0 else "L"
+                    key = "E" if (radial_lit > 0.7 and d > 22.0 * s) else ("W" if radial_lit > -0.3 else "Q")
+            elif d > 7.0 * s:                                   # brass hub
+                key = "S" if radial_lit > 0.3 else ("N" if radial_lit > -0.3 else "M")
+            else:
+                key = "M" if radial_lit > 0 else "L"
             if key is not None:
                 rows[r][c] = key
                 inside[r][c] = True
-    # 12 radial ribs on the drum and 12 bolts between them, turning with the phase
+    # 12 bolt glints on the rim band, between the spikes, turning with the phase
     for k in range(SPIKES):
-        a = math.radians(90.0 - phase_deg - k * step)
-        for t10 in range(int(12 * s * 10), int((rim - 7 * s) * 10) + 1, 5):
-            t = t10 / 10.0
-            c, r = c0 + round(t * math.cos(a)), c0 - round(t * math.sin(a))
-            if inside[r][c] and rows[r][c] in "QWE":
-                rows[r][c] = "Q" if rows[r][c] != "Q" else "0"
         b = math.radians(90.0 - phase_deg - (k + 0.5) * step)
-        t = rim - 6.5 * s
+        t = rim - 1.5 * s
         c, r = c0 + round(t * math.cos(b)), c0 - round(t * math.sin(b))
         rows[r][c] = "7"
     for r in range(size):
@@ -548,18 +568,13 @@ def wheel_rows(phase_deg: float, s: float = 1.0, canvas: int | None = None) -> t
             if not inside[r][c] and any(0 <= c + dc < size and 0 <= r + dr < size and inside[r + dr][c + dc]
                                         for dc, dr in ((0, 1), (1, 0), (0, -1), (-1, 0))):
                 rows[r][c] = "K"
-    # spike tips: one glint pixel on the lit spikes
-    for k in range(SPIKES):
-        a = math.radians(90.0 - phase_deg - k * step)
-        t = tip - 2.0 * s
-        c, r = c0 + round(t * math.cos(a)), c0 - round(t * math.sin(a))
-        if rows[r][c] == "6":
-            rows[r][c] = "7"
     return rows, c0
 
 
 def tread_rows(phase: int, s: float = 1.0) -> tuple[list[list[str]], tuple[int, int]]:
-    """Tread unit at belt phase ``phase`` (0, 1, 2: 3 px steps of the 9 px link pitch).
+    """Tread unit at belt phase ``phase`` (0 to 8: 1 px steps of the 9 px link pitch; the
+    runtime shows frame ``floor(distance) mod 9``). Increasing phase is forward travel: the
+    bottom run moves back and the top run forward relative to the hull.
     Returns rows and the pivot (footprint midpoint on the contact row)."""
     ro, ri = 16.0 * s, 10.5 * s
     length = (TREAD_X[1] - TREAD_X[0]) * s
@@ -572,7 +587,8 @@ def tread_rows(phase: int, s: float = 1.0) -> tuple[list[list[str]], tuple[int, 
     total = 2 * straight + 2 * math.pi * rm
     n_links = max(1, round(total / (9.0 * s)))
     pitch = total / n_links
-    shift = phase * pitch / 3.0
+    shift = phase * pitch / TREAD_PHASES
+    phase_px = shift                     # belt travel of this phase, px
     rows = [["."] * w for _ in range(h)]
     inside = [[False] * w for _ in range(h)]
     road = [xa + (xb - xa) * f for f in (0.2, 0.4, 0.6, 0.8)]
@@ -622,10 +638,6 @@ def tread_rows(phase: int, s: float = 1.0) -> tuple[list[list[str]], tuple[int, 
                         key = "4" if lit > 0.4 else ("3" if lit > -0.3 else "2")
                         if dd <= 2.4 * s:
                             key = "S" if lit > 0 else "N"
-                        elif 3.5 * s < dd <= 4.6 * s:
-                            ang = math.atan2(y - cy - 2.5 * s, x - rx) + (u * 0 + phase * 3.0 * s) / rr
-                            if (math.degrees(ang) % 72.0) < 20.0:
-                                key = "1"
                 for ex in (xa, xb):
                     dd = math.hypot(x - ex, y - cy)
                     if dd <= 9.5 * s:
@@ -634,7 +646,7 @@ def tread_rows(phase: int, s: float = 1.0) -> tuple[list[list[str]], tuple[int, 
                         if dd <= 3.0 * s:
                             key = "S" if lit > 0 else "M"
                         elif dd > 7.6 * s:
-                            ang = math.degrees(math.atan2(y - cy, x - ex)) + phase * 3.0 * s / (9.5 * s) * 57.2958
+                            ang = math.degrees(math.atan2(y - cy, x - ex)) - math.degrees(phase_px / (9.5 * s))
                             key = "T" if (ang % (360.0 / 7)) < 25.0 and lit > -0.3 else key
                 # track frame bar across the upper half of the road wheels, riveted
                 if xa + 6 * s <= x <= xb - 6 * s and cy - 6.0 * s <= y <= cy - 1.5 * s:
@@ -651,6 +663,24 @@ def tread_rows(phase: int, s: float = 1.0) -> tuple[list[list[str]], tuple[int, 
         rr = int(cy - 4.5 * s)
         if rows[rr][i] in "TEW":
             rows[rr][i] = "7"
+    # road-wheel hubs: 5 dark bolts at r 4.5 turning clockwise with the belt (1 px of travel
+    # turns a 7 px wheel by 8.2 degrees, so 9 phases turn it 73.7 degrees, one 5-fold period
+    # within 1.7 degrees); the bolt nearest the upper-left light carries the one 7 glint
+    for rx in road:
+        hub_y = cy + 2.5 * s
+        theta = phase_px / (7.0 * s)
+        best = None
+        for k in range(5):
+            a = math.radians(-90.0 + 72.0 * k) + theta          # screen coords: clockwise
+            bx, by = rx + 4.5 * s * math.cos(a), hub_y + 4.5 * s * math.sin(a)
+            c, r = math.floor(bx), math.floor(by)
+            if 0 <= c < w and 0 <= r < h and inside[r][c]:
+                rows[r][c] = "1"
+                score = (bx - rx) * 0.7071 + (by - hub_y) * 0.7071   # most negative = upper-left
+                if best is None or score < best[0]:
+                    best = (score, c, r)
+        if best is not None:
+            rows[best[2]][best[1]] = "7"
     pivot = (round(w / 2) - 1, h - 1)
     return rows, pivot
 
@@ -695,26 +725,121 @@ def _stamp(rows: list[list[str]], art: list[str], x0: int, y0: int, under: bool 
 
 SEAT_SHIFT = 9   # goblin rows move down 9: the shorts hem (row 46) lands on the seat row 55
 
-# Pot helmet: an upside-down saucepan jammed down to the brow of the frame-0 head (rows after
-# the seat shift). Vertical-cylinder shading (light from the left), a dent in the crown, a lit
-# glint, a rolled lip wider than the pot, and the saucepan handle sticking out to the back above
-# the ear. x0 = 12, y0 = 22.
-POT = [
-    "              KKKKKKKKKKKKKK    ",
-    "             K5666655KK5543K    ",
-    "             K5676655335543K    ",
-    "             K56666555555432K   ",
-    "KKKKKKKKKKKKKK5666655555543K    ",
-    "K44555555555554666655555543K    ",
-    "K233333333333336666555555432K   ",
-    "KKKKKKKKKKKKKKK666655555543K    ",
-    "             K56666555555432K   ",
-    "           KK66666666666655542KK",
-    "           K3333333333333333332K",
-    "            KKKKKKKKKKKKKKKKKKK ",
-]
-# Far arm pointing forward under the chin (shade-side skin), drawn only where the canvas is
-# empty so the head and the near arm stay in front. x0 = 38, y0 = 39.
+# ---- rider construction (all coordinates are rider-canvas pixels AFTER the seat shift) ----
+#
+# The goblin parts come from GOB-01 key pixels, translated whole: the frame-0 head (grin), the
+# frame-11 head (yell: frame 0's head moved (+2, +2) with the jaw open), the frame-16 head
+# (hurt: thrown back, white eyes) and the frame-0 torso, near arm and vest. New pixels drawn here:
+# the pot helmet, the engineer's arms and a few seams. No resampling, no rotation.
+
+_HEAD0_TOP = 20
+
+
+def _head0_mask() -> set[tuple[int, int]]:
+    """Frame-0 head pixels (unshifted): rows 20-29 right of the ear root, rows 30-33 right of the
+    vest boundary (x >= 27, 28, 29, 30)."""
+    mask = set()
+    for y in range(20, 34):
+        x0 = 18 if y <= 29 else (27, 28, 29, 30)[y - 30]
+        for x in range(x0, 64):
+            mask.add((x, y))
+    return mask
+
+
+def _pixels(rows, keep=None) -> dict[tuple[int, int], str]:
+    return {(x, y): c for y, r in enumerate(rows) for x, c in enumerate(r)
+            if c != "." and (keep is None or (x, y) in keep)}
+
+
+def head_px(variant: str, kind: str) -> dict[tuple[int, int], str]:
+    """A GOB-01 head in frame-0 position, seat-shifted. kind: grin (frame 0) or yell (frame 11)."""
+    mask = _head0_mask()
+    layers = {"body", "accessory"}                   # never the pineapple (weapon layer)
+    if kind == "grin":
+        px = _pixels(_goblin(variant, 0, layers), mask)
+    else:
+        f = _goblin(variant, 11, layers)
+        px = {}
+        for (x, y) in mask:
+            if x + 2 < 64 and f[y + 2][x + 2] != ".":
+                px[(x, y)] = f[y + 2][x + 2]
+        for y in range(31, 37):                      # the open jaw below the frame-0 head line
+            for x in range(30, 62):
+                if f[y][x] != ".":
+                    px[(x - 2, y - 2)] = f[y][x]
+    return {(x, y + SEAT_SHIFT): c for (x, y), c in px.items()}
+
+
+def torso_px(variant: str, weapon: bool) -> dict[tuple[int, int], str]:
+    """Frame-0 body without the head (vest, near arm, shorts), seat-shifted."""
+    rows = _goblin(variant, 0, None if weapon else {"body", "accessory"})
+    mask = _head0_mask()
+    return {(x, y + SEAT_SHIFT): c for (x, y), c in _pixels(rows).items() if (x, y) not in mask}
+
+
+def _canvas() -> list[list[str]]:
+    return [["."] * RIDER_CANVAS[0] for _ in range(RIDER_CANVAS[1])]
+
+
+def _paint(rows, px: dict, dx: int = 0, dy: int = 0, under: bool = False) -> None:
+    for (x, y), c in px.items():
+        X, Y = x + dx, y + dy
+        if 0 <= X < RIDER_CANVAS[0] and 0 <= Y < RIDER_CANVAS[1]:
+            if under and rows[Y][X] != ".":
+                continue
+            rows[Y][X] = c
+
+
+def _outlined(fill: dict[tuple[int, int], str]) -> dict[tuple[int, int], str]:
+    """Fill pixels plus a K outline on every empty 4-neighbour."""
+    out = dict(fill)
+    for (x, y) in fill:
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            q = (x + dx, y + dy)
+            if q not in fill:
+                out.setdefault(q, "K")
+    return out
+
+
+def pot_px(lift: int = 0, tilt: int = 0, dx: int = 0) -> dict[tuple[int, int], str]:
+    """The engineer's saucepan, upside down, jammed to the brow (phase 2 redesign).
+
+    Flat top with a 1 px light row and a 2 px K notch on the top-front corner; a 4-row body
+    shaded as a vertical cylinder (light left); a rolled lip only 1 px wider than the body on
+    each side, on the rows just above the brow; a 2 px handle about 11 px long leaving the lip
+    and rising 2 px toward the back, with a 1 px K hanging hole 2 px from its end.
+    ``lift`` raises it, ``tilt`` moves the top rows back (tilted back), ``dx`` moves it all."""
+    fill: dict[tuple[int, int], str] = {}
+    shade = {27: "5", 28: "6", 29: "6", 30: "6", 36: "4", 37: "4", 38: "4", 39: "3", 40: "2"}
+    for y in range(27, 31):
+        for x in range(27, 41):
+            fill[(x, y)] = "6" if y == 27 else shade.get(x, "5")
+    for x in range(26, 42):
+        fill[(x, 31)] = "6" if x <= 35 else ("5" if x <= 39 else "4")
+        fill[(x, 32)] = "3" if x <= 39 else "2"
+    for x in range(22, 26):                       # handle: rows 31-32 at the lip ...
+        fill[(x, 31)], fill[(x, 32)] = "5", "3"
+    for x in range(18, 22):                       # ... rising 1 px ...
+        fill[(x, 30)], fill[(x, 31)] = "5", "3"
+    for x in range(14, 18):                       # ... and 2 px at the back end
+        fill[(x, 29)], fill[(x, 30)] = "5", "3"
+    px = _outlined(fill)
+    px[(16, 29)] = "K"                            # hanging hole, 2 px from the end
+    px[(39, 27)] = px[(40, 27)] = "K"             # notch on the top-front corner
+    px[(29, 28)] = "7"                            # glint
+    out = {}
+    for (x, y), c in px.items():
+        shift = tilt if y <= 28 else 0
+        out[(x + dx - shift, y - lift)] = c
+    return out
+
+
+def _white_eyes(px: dict) -> dict:
+    return {p: ("w" if c == "e" else c) for p, c in px.items()}
+
+
+# engineer arms (new pixels): the far arm pointing forward under the chin, and the arms
+# reaching to the lever knob at about (40, 47)
 POINT = [
     "             KKKK      ",
     "KKKKKKKKKKKKKsmmmKKKKK ",
@@ -723,23 +848,93 @@ POINT = [
     "KKKKKKKKKKKKKKsssK     ",
     "              KKK      ",
 ]
+# lever pull: both forearms straight to the knob (near arm lit, far arm in shade above it)
+PULL_ARMS = [
+    "  KKKKKKKK   ",
+    " KssssssssKK ",
+    "KKKKKKKKsssK ",
+    "KllmmmmmmmmmK",
+    "KmmmmmmmmsmmK",
+    " KKKKKKKKKKK ",
+]
 
 
-def rider_engineer() -> list[list[str]]:
-    rows = _shift(_goblin("a", 0, layers={"body"}), 0, SEAT_SHIFT)   # no pineapple: tool-focused
-    _stamp(rows, POT, 12, 22)
-    _stamp(rows, POINT, 38, 39, under=True)
+def _stamp_px(art: list[str], x0: int, y0: int) -> dict[tuple[int, int], str]:
+    return {(x0 + i, y0 + j): ch for j, line in enumerate(art) for i, ch in enumerate(line) if ch != " "}
+
+
+def rider_engineer(pose: str = "point") -> list[list[str]]:
+    """Engineer keys: ``point`` (phase 1 key), ``lever_pull``, ``lurch_back``, ``lurch_forward``."""
+    rows = _canvas()
+    lean = {"point": 0, "lever_pull": -2, "lurch_back": -3, "lurch_forward": 2}[pose]
+    drop = {"lurch_forward": 1}.get(pose, 0)
+    torso = torso_px("a", weapon=False)
+    yell = pose in ("lever_pull", "lurch_back")
+    head = head_px("a", "yell" if yell else "grin")
+    if pose == "lurch_back":
+        head = _white_eyes(head)
+    _paint(rows, torso, lean, drop)
+    _paint(rows, head, lean, drop)
+    if pose == "point":
+        _paint(rows, _stamp_px(POINT, 38, 39), under=True)
+        _paint(rows, pot_px())
+    elif pose == "lever_pull":
+        _paint(rows, _stamp_px(PULL_ARMS, 30, 42))
+        _paint(rows, pot_px(tilt=1, dx=lean))
+    elif pose == "lurch_back":
+        _paint(rows, _stamp_px(PULL_ARMS, 29, 42))
+        _paint(rows, pot_px(lift=3, tilt=1, dx=lean))     # the pot hops off his head
+    else:  # lurch_forward: the pot slides down over his eyes
+        _paint(rows, pot_px(lift=-3, dx=lean + 1), 0, drop)
     return rows
+
+
+HIDDEN_FROM_ROW = 48   # rider-canvas rows from here down are always behind the tub (rim y 104, seat y 96)
+
+
+def _clean_hidden(rows: list[list[str]]) -> list[list[str]]:
+    """Despeckle only the rows the tub always hides (cropping the goblin legs leaves orphans
+    there); the visible GOB-01 pixels stay byte-identical."""
+    clean = despeckle([r[:] for r in rows])
+    return rows[:HIDDEN_FROM_ROW] + clean[HIDDEN_FROM_ROW:]
 
 
 def rider_brandish(variant: str) -> list[list[str]]:
     """GOB-01 attack-tell key (frame 11) seated: pineapple raised back, mouth open."""
-    return _shift(_goblin(variant, 11), 0, SEAT_SHIFT)
+    return _clean_hidden(_shift(_goblin(variant, 11), 0, SEAT_SHIFT))
 
 
 def rider_hold(variant: str) -> list[list[str]]:
     """GOB-01 idle key (frame 0) seated: pineapple held upright at the rim."""
-    return _shift(_goblin(variant, 0), 0, SEAT_SHIFT)
+    return _clean_hidden(_shift(_goblin(variant, 0), 0, SEAT_SHIFT))
+
+
+def rider_lurch(variant: str, direction: str) -> list[list[str]]:
+    """Common rider lurch keys (A; B is the same with the GOB-01 B overlay).
+
+    ``back`` (charge start): the GOB-01 hurt key (frame 16) seated: head thrown back, white eyes,
+    O mouth, the pineapple arm flung up and back.
+    ``forward`` (brake): the seated hold pose pitched 2 px forward and 1 px down, white eyes."""
+    if direction == "back":
+        return _clean_hidden(_shift(_goblin(variant, 16), 0, SEAT_SHIFT))
+    rows = _canvas()
+    _paint(rows, _white_eyes(_pixels(rider_hold(variant))), 2, 1)
+    return _clean_hidden(rows)
+
+
+RIDER_KEYS = [   # (tag, rider part, builder) in atlas order
+    ("engineer_point", "engineer", lambda: despeckle(rider_engineer("point"))),
+    ("engineer_lever_pull", "engineer", lambda: despeckle(rider_engineer("lever_pull"))),
+    ("engineer_lurch_back", "engineer", lambda: despeckle(rider_engineer("lurch_back"))),
+    ("engineer_lurch_forward", "engineer", lambda: despeckle(rider_engineer("lurch_forward"))),
+    ("rider_a_brandish", "rider_a", lambda: rider_brandish("a")),
+    ("rider_a_lurch_back", "rider_a", lambda: rider_lurch("a", "back")),
+    ("rider_a_lurch_forward", "rider_a", lambda: rider_lurch("a", "forward")),
+    ("rider_b_hold", "rider_b", lambda: rider_hold("b")),
+    ("rider_b_lurch_back", "rider_b", lambda: rider_lurch("b", "back")),
+    ("rider_b_lurch_forward", "rider_b", lambda: rider_lurch("b", "forward")),
+]
+RIDER_SEATED = {"engineer": "engineer_point", "rider_a": "rider_a_brandish", "rider_b": "rider_b_hold"}
 
 
 # ------------------------------------------------------------------ assembly
@@ -828,10 +1023,11 @@ def grid_from(frames: list[tuple[dict[str, list[list[str]]], int]], canvas, pivo
 
 
 def riders_all() -> dict[str, list[list[str]]]:
-    # rider A and B are GOB-01 key pixels translated whole: never despeckled (frame 11 keeps its
-    # approved lone stick pixel); the engineer's new stamps are cleaned
-    return {"engineer": despeckle(rider_engineer()), "rider_a": rider_brandish("a"),
-            "rider_b": rider_hold("b")}
+    """The seated pose of each rider used for the assembled machine. Rider A and B frames are
+    GOB-01 key pixels translated whole and never despeckled (GOB-01 frame 11 keeps its approved
+    lone stick pixel); the engineer's new pixels are cleaned."""
+    build = {tag: fn for tag, _part, fn in RIDER_KEYS}
+    return {part: build[tag]() for part, tag in RIDER_SEATED.items()}
 
 
 def size_study_grid() -> dict:
@@ -888,11 +1084,57 @@ def yoke_grid() -> dict:
 
 
 def riders_grid() -> dict:
-    r = riders_all()
-    tags = [{"name": n, "from": i, "to": i, "direction": "forward"}
-            for i, n in enumerate(("engineer_point", "rider_a_brandish", "rider_b_hold"))]
-    return grid_from([({"rider": r["engineer"]}, 200), ({"rider": r["rider_a"]}, 200),
-                      ({"rider": r["rider_b"]}, 200)], RIDER_CANVAS, RIDER_PIVOT, ["rider"], tags)
+    tags = [{"name": tag, "from": i, "to": i, "direction": "forward"} for i, (tag, _p, _f) in enumerate(RIDER_KEYS)]
+    return grid_from([({"rider": fn()}, 200) for _t, _p, fn in RIDER_KEYS], RIDER_CANVAS, RIDER_PIVOT,
+                     ["rider"], tags)
+
+
+# ------------------------------------------------------------------ smoke keys (phase 2)
+
+SMOKE_CANVAS = (24, 24)
+SMOKE_PIVOT = (12, 12)
+# (centre x, centre y, radius) lumps per key; frame 0 is the 6 px spawn, frame 2 the 16 px puff
+SMOKE_LUMPS = {
+    "black_0": [(12.0, 12.5, 2.6), (13.5, 11.0, 1.8)],
+    "black_2": [(12.0, 13.5, 5.6), (8.0, 10.5, 3.6), (15.0, 9.5, 4.2), (17.5, 14.0, 3.4), (6.5, 14.5, 2.6)],
+    "steam_0": [(12.0, 12.5, 2.2), (13.2, 11.4, 1.5)],
+    "steam_2": [(12.0, 13.0, 4.4), (9.0, 10.5, 3.0), (14.5, 10.0, 3.2), (16.0, 13.5, 2.6)],
+}
+SMOKE_RAMPS = {"black": ("+", "=", "-", ":"), "steam": (";", "/", "*", "*")}
+
+
+def smoke_rows(name: str) -> list[list[str]]:
+    """Round, lumpy blob with no outline: body in ramp[1], a 1 px darker underside (ramp[0]),
+    an upper-left lit band (ramp[2]) and a few brightest pixels on the upper-left edge (ramp[3])."""
+    w, h = SMOKE_CANVAS
+    ramp = SMOKE_RAMPS[name.split("_")[0]]
+    lumps = SMOKE_LUMPS[name]
+
+    def inside(x, y):
+        return any((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r * r for cx, cy, r in lumps)
+    rows = [["."] * w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            if not inside(x, y):
+                continue
+            if not inside(x, y + 1):
+                key = ramp[0]
+            elif not inside(x - 1, y - 1) and not inside(x, y - 1):
+                key = ramp[3]
+            elif not inside(x - 1, y - 1) or not inside(x - 2, y - 2):
+                key = ramp[2]
+            else:
+                key = ramp[1]
+            rows[y][x] = key
+    return despeckle(rows)
+
+
+def smoke_grid() -> dict:
+    names = ("black_0", "black_2", "steam_0", "steam_2")
+    ms = {"black": round(4 * 1000 / 60), "steam": round(3 * 1000 / 60)}
+    frames = [({"smoke": smoke_rows(n)}, ms[n.split("_")[0]]) for n in names]
+    tags = [{"name": n, "from": i, "to": i, "direction": "forward"} for i, n in enumerate(names)]
+    return grid_from(frames, SMOKE_CANVAS, SMOKE_PIVOT, ["smoke"], tags)
 
 
 def rig_contract() -> dict:
@@ -902,12 +1144,13 @@ def rig_contract() -> dict:
         return [round(x - O_X), round(y)]
     return {
         "format": "dozer-rig-v0",
-        "status": "DOZ-01 phase 1 proposal (design: Claude Opus); size decision pending (separate Opus)",
+        "status": "DOZ-01 phase 2 design (Claude Opus); size h120 decided by a separate Opus agent",
         "body_height_px": H_KEY,
         "coordinates": "anchors are px relative to the rig origin O (tread footprint midpoint on the walking line); "
                        "x forward (mirror when facing left), y up. A part's pivot is placed on its anchor.",
         "parts": [
-            {"part": "smoke_back", "z": 0, "atlas": "dozer_smoke (Sonnet)", "anchor": "emitters"},
+            {"part": "smoke_back", "z": 0, "atlas": "dozer_smoke", "frame_size": list(SMOKE_CANVAS),
+             "pivot": list(SMOKE_PIVOT), "anchor": "emitters (world space after spawn)"},
             {"part": "hull_body", "z": 1, "atlas": "dozer_hull_h120", "tag": "body",
              "frame_size": hull["canvas"], "pivot": hull["pivot"], "anchor": [0, 0]},
             {"part": "tread", "z": 2, "atlas": "dozer_tread_h120", "tag": "roll",
@@ -937,8 +1180,8 @@ def rig_contract() -> dict:
 
 LICENSE = ("Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse "
            "license; no game/asset-pack distribution rights")
-GENERATOR = ("Design, size study and keys: Claude Opus (DOZ-01 phase 1). Size decision pending (a separate "
-             "Opus agent). Execution pending (Claude Sonnet). Deterministic script output of "
+GENERATOR = ("Design, size study and keys: Claude Opus (DOZ-01 phases 1 and 2). Size h120 decided by a "
+             "separate Opus agent. Execution pending (Claude Sonnet). Deterministic script output of "
              "scripts/author_dozer_doz01.py; riders reuse GOB-01 goblin pixels. No image-model raster output, "
              "no tracing, no resampling")
 ASSETS = {
@@ -955,8 +1198,13 @@ ASSETS = {
     "dozer_yoke_h120": ("dozer_yoke_h120_key_v0", "vehicle_part",
                         "DOZ-01 near-side push arm with axle cap and lamp (static)"),
     "dozer_riders_h36": ("dozer_riders_h36_keys_v0", "character_key_poses",
-                         "DOZ-01 rider keys: goblin engineer with pot helmet (new pot, pointing arm) and rider A "
-                         "brandishing (GOB-01 frame 11 seated); rider B holding (GOB-01 variant B frame 0 seated, derived)"),
+                         "DOZ-01 rider keys: goblin engineer with the saucepan helmet (point, lever pull, lurch back "
+                         "with the pot hopping off, lurch forward with the pot over his eyes); rider A brandishing "
+                         "(GOB-01 frame 11 seated) and lurching (GOB-01 frame 16 seated; frame 0 seated pitched forward "
+                         "with white eyes); rider B the same from GOB-01 variant B; goblin pixels translated whole"),
+    "dozer_smoke": ("dozer_smoke_keys_v0", "vfx_keys",
+                    "DOZ-01 smoke keys: black exhaust puff frames 0 and 2 and steam puff frames 0 and 2 "
+                    "(lumpy blobs, no outline, darker underside)"),
 }
 
 
@@ -986,7 +1234,8 @@ def manifest(stem: str, grid: dict) -> dict:
         },
         "license": LICENSE,
         "review_status": "prototype_fixture_unapproved",
-        "dozer": {"status": "DOZ-01 phase 1 design keys; size decision pending; not wired into any Bevy binary",
+        "dozer": {"status": "DOZ-01 phase 2 design keys; size h120 decided by a separate Opus agent; "
+                            "execution (Sonnet) and review (separate Opus) pending; not wired into any Bevy binary",
                   "spec": "docs/02-art/doz-01-dozer-spec.md"},
     }
 
@@ -994,7 +1243,8 @@ def manifest(stem: str, grid: dict) -> dict:
 def build_all() -> dict[Path, str]:
     grids = {"dozer_size_study": size_study_grid(), "dozer_hull_h120": hull_grid(),
              "dozer_wheel_h120": wheel_grid(), "dozer_tread_h120": tread_grid(),
-             "dozer_yoke_h120": yoke_grid(), "dozer_riders_h36": riders_grid()}
+             "dozer_yoke_h120": yoke_grid(), "dozer_riders_h36": riders_grid(),
+             "dozer_smoke": smoke_grid()}
     out: dict[Path, str] = {}
     for stem, grid in grids.items():
         pg.validate_grid(grid)

@@ -58,9 +58,11 @@ CYAN, YELLOW, WHITE, GREY = (0, 220, 255), (255, 214, 0), (236, 232, 240), (150,
 RED, BLUE, GREEN, ORANGE = (255, 70, 70), (90, 160, 255), (120, 230, 120), (255, 150, 60)
 
 # planned frame counts per part (spec section 5) for the atlas-cost estimate
-PLAN_FRAMES = {"hull": 2, "wheel": 4, "tread": 3, "yoke": 1}
-RIDER_FRAMES = 3 * 6          # 3 riders x (idle 2, yell 2, lurch back, lurch forward)
-SMOKE_PX = 24 * 24 * 6 + 16 * 16 * 5
+PLAN_FRAMES = {"hull": 2, "wheel": 5, "tread": 9, "yoke": 1}   # wheel 4 + optional smear; tread 9 x 1 px
+# engineer: point, jab, idle 0/1, lever pull, lurch back/forward (7); A and B: idle 0/1, yell 0/1,
+# lurch back/forward (6 each)
+RIDER_FRAMES = 7 + 6 + 6
+SMOKE_PX = 24 * 24 * (6 + 5) + 16 * 16 * 3   # smoke atlas (24 x 24 frames) + the shared 3-frame hit-spark
 
 
 def rows_to_img(rows) -> Image.Image:
@@ -97,9 +99,13 @@ def machine(h: int) -> tuple[Image.Image, tuple[int, int]]:
     return frames[names.index(f"h{h}")], piv
 
 
-def compose_rig(rig: dict, rider_frames: dict[str, int] | None = None) -> tuple[Image.Image, tuple[int, int]]:
+def rider_index(grid: dict, tag: str) -> int:
+    return next(t["from"] for t in grid["tags"] if t["name"] == tag)
+
+
+def compose_rig(rig: dict, rider_tags: dict[str, str] | None = None) -> tuple[Image.Image, tuple[int, int]]:
     """Assemble the h120 parts from their grids with the rig contract (pivot onto anchor, by z)."""
-    rider_frames = rider_frames or {"engineer": 0, "rider_a": 1, "rider_b": 2}
+    rider_tags = rider_tags or ad.RIDER_SEATED
     parts = []
     for p in rig["parts"]:
         if "tag" not in p:
@@ -107,7 +113,7 @@ def compose_rig(rig: dict, rider_frames: dict[str, int] | None = None) -> tuple[
         atlas = p["atlas"]
         frames, piv, grid = grid_imgs(f"{DOZER}/{atlas}.grid.json")
         if atlas == "dozer_riders_h36":
-            img = frames[rider_frames[p["part"]]]
+            img = frames[rider_index(grid, rider_tags[p["part"]])]
         else:
             t = next(t for t in grid["tags"] if t["name"] == p["tag"])
             img = frames[t["from"]]
@@ -134,7 +140,7 @@ def option_metrics(h: int) -> dict:
     parts_px = (hull_w * hull_h * PLAN_FRAMES["hull"] + wheel * wheel * PLAN_FRAMES["wheel"]
                 + tread[0] * tread[1] * PLAN_FRAMES["tread"] + yoke[0] * yoke[1] * PLAN_FRAMES["yoke"])
     riders_px = 64 * 56 * RIDER_FRAMES
-    mono = (x1 - x0) * (y1 - y0) * 12 * 2   # lcm(4 wheel, 3 tread) x 2 rider states, flattened
+    mono = (x1 - x0) * (y1 - y0) * 36 * 2   # lcm(4 wheel, 9 tread) x 2 rider states, flattened
     total_h = piv[1] + 1 - y0
     front = x1 - 1 - piv[0]
     rear = piv[0] - x0
@@ -240,17 +246,17 @@ def size_sheet(chase: Chase, scenes: dict[int, Image.Image], metrics: dict[int, 
     sheet_h = head + big.height + 30 + table_h + 30 + crop_h + 40
     sheet = Image.new("RGB", (sheet_w, sheet_h), BG)
     ds = ImageDraw.Draw(sheet)
-    label(ds, (8, 8), "DOZ-01 size study (proposal; a separate Opus agent decides). Native block-ins x2 on one floor, "
+    label(ds, (8, 8), "DOZ-01 size study: h120 decided by a separate Opus agent. Native block-ins x2 on one floor, "
                       "riders unscaled at 36 px. Body height = floor to boiler dome top. Approved Carl 52 / Donut 40 at right.")
     label(ds, (8, 22), "Guides: Carl height, his jump apex (feet 92 px, from JUMP_SPEED 440 and GRAVITY 1050) and his "
                        "head at the apex. Corridor clearance floor to ceiling collider: 276 px.", GREY)
     sheet.paste(big, (0, head))
     for px, cap, w in anchors:
         h = int(cap[1:])
-        label(ds, (px * k, head + 6), f"{cap}" + ("  (recommended)" if h == RECOMMENDED else ""),
+        label(ds, (px * k, head + 6), f"{cap}" + ("  (decided)" if h == RECOMMENDED else ""),
               YELLOW if h == RECOMMENDED else WHITE)
     y = head + big.height + 14
-    cols = [("", 230)] + [(f"h{h}" + (" (rec.)" if h == RECOMMENDED else ""), 170) for h in ad.SIZE_OPTIONS]
+    cols = [("", 230)] + [(f"h{h}" + (" (decided)" if h == RECOMMENDED else ""), 170) for h in ad.SIZE_OPTIONS]
     rows = [
         ("opaque height / length (px)", lambda m: f"{m['opaque_height_px']} / {m['opaque_length_px']}"),
         ("view fraction (h / w)", lambda m: f"{m['view_height_fraction']:.2f} / {m['view_length_fraction']:.2f}"),
@@ -266,7 +272,7 @@ def size_sheet(chase: Chase, scenes: dict[int, Image.Image], metrics: dict[int, 
     ]
     x = 8
     for name, w in cols:
-        label(ds, (x, y), name, YELLOW if "rec" in name else WHITE)
+        label(ds, (x, y), name, YELLOW if "decided" in name else WHITE)
         x += w
     for i, (name, fn) in enumerate(rows):
         x = 8
@@ -282,7 +288,7 @@ def size_sheet(chase: Chase, scenes: dict[int, Image.Image], metrics: dict[int, 
     x = 16
     for h, c in zip(ad.SIZE_OPTIONS, crops):
         sheet.paste(c, (x, y + 18))
-        label(ds, (x, y + 22 + c.height), f"h{h}" + ("  (recommended)" if h == RECOMMENDED else ""),
+        label(ds, (x, y + 22 + c.height), f"h{h}" + ("  (decided)" if h == RECOMMENDED else ""),
               YELLOW if h == RECOMMENDED else WHITE)
         x += c.width + 16
     return sheet
@@ -304,7 +310,8 @@ def key_sheet(rig: dict) -> Image.Image:
     wheel_f, wheel_p, _ = grid_imgs(f"{DOZER}/dozer_wheel_h120.grid.json")
     tread_f, tread_p, _ = grid_imgs(f"{DOZER}/dozer_tread_h120.grid.json")
     yoke_f, yoke_p, _ = grid_imgs(f"{DOZER}/dozer_yoke_h120.grid.json")
-    rid_f, rid_p, _ = grid_imgs(f"{DOZER}/dozer_riders_h36.grid.json")
+    rid_f, rid_p, rid_g = grid_imgs(f"{DOZER}/dozer_riders_h36.grid.json")
+    smoke_f, smoke_p, smoke_g = grid_imgs(f"{DOZER}/dozer_smoke.grid.json")
     comp, _cp = compose_rig(rig)
     blocks = []
     # row 1: assembled machine x3 and x1
@@ -319,25 +326,33 @@ def key_sheet(rig: dict) -> Image.Image:
     for i in range(4):
         rows, c0 = ad.wheel_rows(7.5 * i)
         plan.append((boxed(rows_to_img(ad.despeckle(rows)), 2, (c0, c0)), f"plan phase {i} ({7.5 * i:.1f} deg)"))
-    blocks.append(("Wheel key x4 (phase 0, pivot = axle) and the rotation plan x2: 12 spikes, 4 frames of 7.5 deg "
-                   "cover one 30 deg spike period (plan previews from the same geometry, not keys).",
+    blocks.append(("Wheel key x4 (phase 2 redesign: bright spike ring, rim bolts, dark drum, 12 spokes; pivot = axle) "
+                   "and the rotation plan x2: 4 frames of 7.5 deg loop over one 30 deg spike period (plan previews "
+                   "from the same geometry, not keys).",
                    [(boxed(wheel_f[0], 4, wheel_p), "key 99x99")] + plan))
     tplan = []
-    for i in range(3):
+    for i in (1, 2, 3):
         rows, tp = ad.tread_rows(i)
-        tplan.append((boxed(rows_to_img(ad.despeckle(rows)), 2, tp), f"plan phase {i} (+{3 * i} px)"))
+        tplan.append((boxed(rows_to_img(ad.despeckle(rows)), 2, tp), f"plan phase {i} (+{i} px)"))
     blocks.append(("Tread key x4 (phase 0, pivot = footprint midpoint on the contact row) and the belt plan x2: "
-                   "9 px link pitch, 3 frames of 3 px, advanced by distance travelled.",
+                   "9 px link pitch, 9 frames of 1 px, frame = floor(distance) mod 9; one lit bolt per road-wheel hub.",
                    [(boxed(tread_f[0], 4, tread_p), "key 151x34")] + tplan))
-    blocks.append(("Rider keys x6 (pivot = seat point): engineer (key: pot helmet, pointing, hand on the lever), "
-                   "rider A (key: GOB-01 tell seated), rider B (derived: GOB-01 B idle seated). Yoke x4 (pivot = axle).",
-                   [(boxed(rid_f[0], 6, rid_p), "engineer_point"), (boxed(rid_f[1], 6, rid_p), "rider_a_brandish"),
-                    (boxed(rid_f[2], 6, rid_p), "rider_b_hold (derived)"), (boxed(yoke_f[0], 4, yoke_p), "yoke 64x44")]))
+    riders = [(boxed(rid_f[t["from"]], 4, rid_p), t["name"] + (" (derived)" if t["name"] == "rider_b_hold" else ""))
+              for t in rid_g["tags"]]
+    blocks.append(("Rider keys x4 (pivot = seat point; the band below each rim row is always hidden by the tub). "
+                   "Engineer: point, lever pull, lurch back (pot hops off), lurch forward (pot over his eyes).",
+                   riders[:4] + [(boxed(yoke_f[0], 4, yoke_p), "yoke 64x44")]))
+    blocks.append(("Rider A and B keys x4: brandish / hold, lurch back (GOB-01 hurt key seated), lurch forward "
+                   "(hold pitched 2 px forward, white eyes). B = A + GOB-01 B overlay.",
+                   riders[4:]))
+    blocks.append(("Smoke keys x8 (24 x 24, pivot = centre): black exhaust frames 0 (6 px spawn) and 2 (16 px), "
+                   "steam frames 0 and 2. No outline, darker underside, lit upper-left.",
+                   [(boxed(smoke_f[t["from"]], 8, smoke_p), t["name"]) for t in smoke_g["tags"]]))
     width = 16 + max(sum(im.width + 16 for im, _ in items) for _t, items in blocks)
     height = 30 + sum(30 + max(im.height for im, _ in items) + 22 for _t, items in blocks)
     sheet = Image.new("RGB", (width, height), BG)
     d = ImageDraw.Draw(sheet)
-    label(d, (8, 8), "DOZ-01 keys at the proposed 120 px body height (design: Claude Opus). Palette dozer-floor01-v0 + "
+    label(d, (8, 8), "DOZ-01 keys at the decided 120 px body height (design: Claude Opus, phases 1 and 2). Palette dozer-floor01-v0 + "
                      "GOB-01 goblin palette. Authored facing right; the runtime mirrors around each pivot.")
     y = 30
     for title, items in blocks:
@@ -402,7 +417,7 @@ def layout_diagram(rig: dict) -> Image.Image:
     for p in sorted([p for p in rig["parts"] if "tag" in p], key=lambda q: q["z"]):
         frames, piv, grid = grid_imgs(f"{DOZER}/{p['atlas']}.grid.json")
         if p["atlas"] == "dozer_riders_h36":
-            img = frames[{"engineer": 0, "rider_a": 1, "rider_b": 2}[p["part"]]]
+            img = frames[rider_index(grid, ad.RIDER_SEATED[p["part"]])]
         else:
             t = next(t for t in grid["tags"] if t["name"] == p["tag"])
             img = frames[t["from"]]
@@ -437,8 +452,8 @@ def layout_diagram(rig: dict) -> Image.Image:
         x += im.width + 16
     # charge timeline (proposal, 60 Hz ticks)
     y = 40 + big.height + 30 + row_h
-    label(ds, (8, y), "Segment D charge (proposal, ticks at 60 Hz): tell 36 -> charge until overshoot -> brake 24 -> "
-                      "stuck/turn 90 -> resume chase.")
+    label(ds, (8, y), "Segment D charge (proposal, ticks at 60 Hz): only when the gap is >= 140 px; tell 36 -> charge "
+                      "until overshoot -> brake 24 -> stuck/turn 90 -> resume chase.")
     segs = [("tell 36", 36, ORANGE), ("charge (<= 90)", 90, RED), ("brake 24", 24, YELLOW),
             ("stuck / turn 90", 90, BLUE), ("resume", 40, GREEN)]
     x, scale = 16, 4
@@ -452,6 +467,18 @@ def layout_diagram(rig: dict) -> Image.Image:
     for i, n in enumerate(notes):
         label(ds, (16, y + 56 + 14 * i), n, GREY)
     return sheet
+
+
+def lstar(key: str) -> float:
+    """CIELAB L* / 100 of a palette key."""
+    rgba = next(c for k, _n, c, _a in ad.ALL_PALETTE if k == key)
+
+    def lin(c: float) -> float:
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (int(rgba[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    y = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    f = y ** (1 / 3) if y > 0.008856 else 7.787 * y + 16 / 116
+    return (116 * f - 16) / 100
 
 
 def sha(path: Path) -> str:
@@ -493,11 +520,20 @@ def main(argv: list[str] | None = None) -> int:
                       "corridor_clearance_px": CEILING_CLEARANCE, "chase_gap_px": GAP,
                       "carl_run_speed_px_s": 185},
         "size_options": {f"h{h}": m for h, m in metrics.items()},
-        "recommended": f"h{RECOMMENDED}",
+        "decided": f"h{RECOMMENDED} (separate Opus decider; proposed by the designer)",
         "keys": {},
         "files": {},
     }
-    for stem in ("dozer_hull_h120", "dozer_wheel_h120", "dozer_tread_h120", "dozer_yoke_h120", "dozer_riders_h36"):
+    ring = []
+    rows, c0 = ad.wheel_rows(0.0)
+    rows = ad.despeckle(rows)
+    for y, r in enumerate(rows):
+        for x, c in enumerate(r):
+            if c not in ".K" and math.hypot(x - c0, y - c0) > ad.WHEEL_RIM:
+                ring.append(lstar(c))
+    measurements["wheel_spike_ring_mean_lstar"] = round(sum(ring) / len(ring), 3)
+    for stem in ("dozer_hull_h120", "dozer_wheel_h120", "dozer_tread_h120", "dozer_yoke_h120", "dozer_riders_h36",
+                 "dozer_smoke"):
         grid = pg.load_grid(ROOT / DOZER / f"{stem}.grid.json")
         lint = pg.lint_grid(grid)
         measurements["keys"][stem] = {"canvas": grid["canvas"], "pivot": grid["pivot"],

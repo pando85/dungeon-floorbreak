@@ -1,16 +1,17 @@
 {
+  "decided": "h120 (separate Opus decider; proposed by the designer)",
   "files": {
-    "floor01_chase_h120_1920x1080.png": "46d4a61f28a1c3fd037d9f88d76380190866ade802f7242b71bb060f7e3276d7",
-    "floor01_chase_h120_640x360.png": "55a1863e4940ac08294cbe4e586763d340fd73f8ddcf78bb32e10c3221744021",
-    "floor01_chase_h150_1920x1080.png": "be4ce77816e41305d376fec8ba32b0ef8b47c775777c9ed4874f296a098b5a2f",
-    "floor01_chase_h150_640x360.png": "6b94e355226d8c16b29538ce2b095a5f5baa8f82e9842f787849cfe2d6d1dff4",
-    "floor01_chase_h96_1920x1080.png": "993f149967fb4a861593489642786b4881d18e00edf75cf8a65a30548e9b9836",
-    "floor01_chase_h96_640x360.png": "0d536b9a6f74606f9e6a11bea7c1a8d63dddfbfacacb1d4ac86c95c72ff37d4c",
-    "floor01_chase_keys_h120_1920x1080.png": "62f6ec908bec2652c50c2166be42aeebed71f4d2387fd9950fdce99e0fa0c1d1",
-    "floor01_chase_keys_h120_640x360.png": "7c74ae2b0441811dd88963bf3ed088cf0cfbdb078dbac0d9b2bf6e5ddd1167b2",
-    "key_sheet.png": "a8e73e3345995123ce443f0a552c25b3a077fef5951feabfb89ba1e39dd0532e",
-    "part_layout_diagram.png": "6d09f9620c5242cb19761b173fd943e0956c4d15ab9dbe6a70561eb67679078d",
-    "size_study_sheet.png": "a10b9ba3043986fe2955d73e30a26da0555c5af2781cebd0074a2182a9ff902f"
+    "floor01_chase_h120_1920x1080.png": "7021a047aeb01a91d0275f121e0b37f95f54e44824fba5257a19218340970bbd",
+    "floor01_chase_h120_640x360.png": "e1f6d6236aea3b95f2cfc1127e820ea99296854c5bb6176086a3f21e5ba91bb9",
+    "floor01_chase_h150_1920x1080.png": "2e6702e0d78aba6b5930f58fcafca7da3f183065fb0cc8c2223dce8fd0b84bf8",
+    "floor01_chase_h150_640x360.png": "f88e0a2962ed9730cf34fe0c98e40c0fb404fe456a852b2ea681b48bb655c2c3",
+    "floor01_chase_h96_1920x1080.png": "ba92b0db8d953808b054940ddc7144c3e62d8091e5412e20901dbc1107fc3694",
+    "floor01_chase_h96_640x360.png": "74ed0aacea7be1cfee6b58f4f7490a4a5b90f5eb02d6af10f0c67265e96f3db2",
+    "floor01_chase_keys_h120_1920x1080.png": "785ecaf79c29d48c60ae29882ccbc4358d2d741bbcb617de60301a8d657d1f19",
+    "floor01_chase_keys_h120_640x360.png": "1e2e5d7289a1d6d81367e4fd7fa1424381e4ae7f89ff81e9a6272156be15cac1",
+    "key_sheet.png": "b5f4df1bf3dee813670978dc68e2832ff8605b60123f80e8158828928bc7cd14",
+    "part_layout_diagram.png": "1eeb7a6ce493a7e0e9a782b9120e26bf62eb969f34db51467157ec1acc8b6ed9",
+    "size_study_sheet.png": "9685817c54af4a79e2a05d9b217775778a8c48d98dfdf82a73a5a68d972b7d3e"
   },
   "keys": {
     "dozer_hull_h120": {
@@ -41,16 +42,53 @@
       "isolated": [
         0,
         0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         0
       ],
       "orphans": [
         0,
-        8,
-        1
+        0,
+        0,
+        0,
+        3,
+        5,
+        0,
+        0,
+        5,
+        0
       ],
       "pivot": [
         28,
         55
+      ]
+    },
+    "dozer_smoke": {
+      "canvas": [
+        24,
+        24
+      ],
+      "colours": 7,
+      "isolated": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "pivot": [
+        12,
+        12
       ]
     },
     "dozer_tread_h120": {
@@ -75,7 +113,7 @@
         99,
         99
       ],
-      "colours": 16,
+      "colours": 14,
       "isolated": [
         0
       ],
@@ -106,7 +144,6 @@
     }
   },
   "note": "Composed review renders (A1 lighting via scripts/env_kit_light.py), not Bevy captures.",
-  "recommended": "h120",
   "reference": {
     "carl_h52": 52,
     "carl_jump_apex_feet_px": 92,
@@ -116,11 +153,11 @@
   },
   "size_options": {
     "h120": {
-      "atlas_px_monolithic_estimate": 963480,
-      "atlas_px_parts": 113422,
-      "atlas_px_riders": 64512,
-      "atlas_px_smoke": 4736,
-      "atlas_px_total_split": 182670,
+      "atlas_px_monolithic_estimate": 2890440,
+      "atlas_px_parts": 154027,
+      "atlas_px_riders": 68096,
+      "atlas_px_smoke": 7104,
+      "atlas_px_total_split": 229227,
       "body_height_px": 120,
       "ceiling_clearance_px": 121,
       "front_from_O_px": 173,
@@ -158,11 +195,11 @@
       "wheel_tip_to_tip_px": 96
     },
     "h150": {
-      "atlas_px_monolithic_estimate": 1491504,
-      "atlas_px_parts": 175804,
-      "atlas_px_riders": 64512,
-      "atlas_px_smoke": 4736,
-      "atlas_px_total_split": 245052,
+      "atlas_px_monolithic_estimate": 4474512,
+      "atlas_px_parts": 238309,
+      "atlas_px_riders": 68096,
+      "atlas_px_smoke": 7104,
+      "atlas_px_total_split": 313509,
       "body_height_px": 150,
       "ceiling_clearance_px": 83,
       "front_from_O_px": 216,
@@ -200,11 +237,11 @@
       "wheel_tip_to_tip_px": 120
     },
     "h96": {
-      "atlas_px_monolithic_estimate": 616032,
-      "atlas_px_parts": 74742,
-      "atlas_px_riders": 64512,
-      "atlas_px_smoke": 4736,
-      "atlas_px_total_split": 143990,
+      "atlas_px_monolithic_estimate": 1848096,
+      "atlas_px_parts": 101799,
+      "atlas_px_riders": 68096,
+      "atlas_px_smoke": 7104,
+      "atlas_px_total_split": 176999,
       "body_height_px": 96,
       "ceiling_clearance_px": 152,
       "front_from_O_px": 138,
@@ -241,5 +278,6 @@
       "view_length_fraction": 0.323,
       "wheel_tip_to_tip_px": 77
     }
-  }
+  },
+  "wheel_spike_ring_mean_lstar": 0.581
 }
