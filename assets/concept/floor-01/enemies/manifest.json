@@ -2,7 +2,7 @@
   "schema": "the-crawl-concept-image-manifest-v1",
   "project": "THE CRAWL — NO PANTS. NO MERCY.",
   "status": "owner-approved visual concept direction; not production-ready art or canonical lore verification",
-  "source": "Images produced in the project ChatGPT conversation; original files will be uploaded byte-for-byte by the owner. Hashes verified against the project source ZIP; not all files are present at initial PR creation.",
+  "source": "Images produced in the project ChatGPT conversation; copied byte-for-byte, not repainted, rescaled or extracted into sprite frames.",
   "assets": [
     {
       "path": "assets/concept/floor-01/enemies/bad-llama-abc-exploration.png",

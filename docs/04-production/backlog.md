@@ -1,5 +1,9 @@
 # Agent-ready prioritized backlog
 
+## Approved Floor 01 enemy concept batch (2026-11-17)
+
+**Owner approved all visual enemy concepts:** opening common goblins A/B, pot-helmet engineer, Murder Dozer, Bad Llama C+A, Scatterer, Scatterer Brood Guardian, Rot Sticker, Green Slime and The Hoarder. See [the concept roster](../02-art/floor-01-enemy-concept-roster.md) for individual source refs, boundaries and the upload manifest. The concept PR is documentation-only until the owner uploads its five PNGs; final pixel masters and gameplay remain separate work. **Do not restart existing goblin/Dozer/scene work**: common goblin A/B native sources are already in main; check current open integration and Dozer PRs before assigning new art agents.
+
 The repository includes design docs, a Bevy WORK-001 runtime spike, approved mood references, and WORK-008 editable art/export fixtures. Status of each item depends on its own CI and review evidence; see [work order protocol](../07-agents/workorders.md).
 
 | ID | Priority | Stage | Deliverable | Acceptance evidence |
