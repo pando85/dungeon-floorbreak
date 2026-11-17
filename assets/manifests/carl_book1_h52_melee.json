@@ -80,10 +80,10 @@
     "hit_boxes_px": {
       "note": "Art reach in sprite pixels relative to the pivot, facing right: x forward, y up from the floor, inclusive. A guide for gameplay data, not authoritative collision.",
       "punch_a_contact": {
-        "fist": [16, 31, 21, 36]
+        "fist": [16, 29, 21, 34]
       },
       "punch_b_contact": {
-        "fist": [16, 35, 21, 41]
+        "fist": [16, 27, 21, 37]
       },
       "kick_contact": {
         "sole": [15, 18, 21, 27],

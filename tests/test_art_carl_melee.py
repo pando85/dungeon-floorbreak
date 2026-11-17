@@ -424,7 +424,7 @@ class CarlMeleeGridTests(unittest.TestCase):
     # -- negative tests
     def test_rejects_changed_key(self) -> None:
         g = self.mutated()
-        put_pixel(g, 1, "far_arm", 44, 21, "K")
+        put_pixel(g, 1, "far_arm", 44, 23, "K")  # a1 fist interior (fix round 2: fist rows 21-26)
         self.assertRejects(check_keys(g, self.keys, self.manifest), "key a1")
 
     def test_rejects_wrong_duration(self) -> None:

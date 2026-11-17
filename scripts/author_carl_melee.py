@@ -376,7 +376,8 @@ def b2() -> Frame:
     f.add("boxers", rect(B1["boxers"], 0, 42, W, H))
     f.add("far_arm", B1["far_arm"], 1, 0)          # far fist stays back at the hip
     # near arm: b1's upper-arm band, then the forearm falls from the elbow to the fist (x34-39 rows 27-32)
-    f.add("near_arm", rect(B1["near_arm"], 0, 22, W, 27), 1, 0)
+    # stopgap until the round-2 b2 redraw (spec section 15): b1's upper-arm band only, not the new b1 fist
+    f.add("near_arm", rect(B1["near_arm"], 0, 22, 38, 27), 1, 0)
     sleeve_arm(f, "near_arm", [(37, 24), (36, 28)], 2.0)
     f.add("near_arm", FIST_BIG, 34, 27)
     watch_cuff(f, 36, 26, ((-1, 0), (1, 0)))

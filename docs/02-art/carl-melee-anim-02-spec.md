@@ -1,6 +1,6 @@
 # ANIM-CARL-02: Carl unarmed melee, design spec (phase 1)
 
-**Status:** full set drawn (Sonnet), awaiting independent Opus review (second round). Design and the eight Opus key poses: Claude Opus, 2026-11-17 (four in phase 1, four in the fix round, section 14). The other 16 frames: Claude Sonnet (phase 2, section 13; the fix-round redraws and corrections are done, section 13). Review: pending, then owner review. Nothing here is owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
+**Status:** second independent Opus review PASSED WITH FOLLOW-UPS; design fix round 2 (section 15) re-aimed the jab and the haymaker at the decided 36 px goblin. Design and the eight Opus key poses: Claude Opus, 2026-11-17 (four in phase 1, four in fix round 1, section 14; a1 and b1 revised in fix round 2). The other 16 frames: Claude Sonnet (section 13); the round-2 redraws in section 15 are pending. Then owner review. Nothing here is owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
 
 Read with: [ANIM-CARL-01 locomotion](carl-locomotion-anim-01.md) (frame, pivot and identity rules this spec inherits), [Carl bible](carl-character-bible.md), [antihero tone](../01-design/antihero-tone.md), [combat feel / hybrid physics](../01-design/combat-feel-hybrid-physics.md), [Floor 1 combat probes](../07-agents/floor-01-integrated-combat-probes.md) (CP-01, CP-02), [animation system](animation.md).
 
@@ -65,12 +65,12 @@ Cadence: mashing attack gives the one-two with hits on t3 and t12 (150 ms apart,
 
 | Key | Part | x | y |
 | --- | --- | --- | --- |
-| jab contact | fist | +16 .. +21 | 31 .. 36 (a 38-40 px goblin's face) |
+| jab contact | fist | +16 .. +21 | 29 .. 34 (a 36 px goblin's brow and forehead; fix round 2) |
 | kick contact | Croc sole | +15 .. +21 | 18 .. 27 (a goblin's chest) |
 | kick contact | whole leg | +7 .. +21 | 15 .. 27 |
-| haymaker (hook) contact | fist | +16 .. +21 | 35 .. 41 (the top of a 38-40 px goblin's head) |
+| haymaker (overhand) contact | fist and forearm | +16 .. +21 | 27 .. 37 (fist 27 .. 32 on a 36 px goblin's eyes and nose; 33 .. 37 is the forearm above it; fix round 2) |
 
-These numbers are in the manifest (`melee.hit_boxes_px`) as a guide; hitboxes stay gameplay data. The hook reaches as far as the jab but lands 5 px higher, so the jab's proposed push (about 4 px) can carry a goblin out of hook range. Proposal for the gameplay owner: give `punch_b` a forward root step of about 4 px during b0-b1 (the art already lunges: U.x +6 at b1 against +3 at a1), or keep the jab push at 2 px or less.
+These numbers are in the manifest (`melee.hit_boxes_px`) as a guide; hitboxes stay gameplay data. Target: the decided common goblin (GOB-01) is 36 px tall with a 22 x 34 hurtbox from the floor; its head is y 25..35 and its face y 26..30. All three contact boxes overlap the y 22..34 band. The overhand reaches as far as the jab, so the jab's proposed push (about 4 px) can carry a goblin out of hook range. Proposal for the gameplay owner: give `punch_b` a forward root step of about 4 px during b0-b1 (the art already lunges: U.x +6 at b1 against +3 at a1), or keep the jab push at 2 px or less.
 
 **Contradiction to flag (not changed here):** WORK-021's melee hits anything from -9 to +54 px ahead of the hero centre (and 44 px vertically). The art reaches +21, so a goblin whose centre is more than about +33 away (21 + its 12 px half-width) would be hit with a visible gap. The gameplay owner should either shrink the range to the art (about +34 centre to centre) or accept the gap. The jab also misses targets shorter than 31 px; there are none in Floor 1 today.
 
@@ -89,8 +89,8 @@ Two more stamps come from the fix-round keys: `HAND_OPEN_UP` (7 x 6 open hand, f
 | Frame | Ticks | Owner | Pose |
 | --- | --- | --- | --- |
 | a0 chamber | t0-2 | Sonnet | U(+1, +1), head v3 (0, 0). Far fist cocked by the chin: `FIST_SMALL` at x33-37, rows 17-20, sleeve mostly behind the torso. Near arm starts back: idle near arm moved (-2, +1). Feet: back `CROC_FLAT` x14-23, front `CROC_FLAT` x28-37 (front foot sliding forward) |
-| **a1 contact** | t3-6 (active t3-4, **hit t3**) | **Opus key** | U(+3, +2), head v3 (0, 0). Far arm straight at shoulder height: sleeve rows 20-24 from behind the chest to x40, cuff with glint, `FIST_BIG` x41-46 rows 19-24. Near arm thrown back (`BACK_ARM`, fist x9-14 rows 31-34). Wide stance: back leg straight, `CROC_FLAT` x13-22; front knee bent over the toes, `CROC_FLAT` x31-40 |
-| a2 retract | t7-10 | Sonnet | U(+3, +2), head v3 (0, 0), legs identical to a1. Far arm bent half back: elbow at about x36 row 23, `FIST_SMALL` at x37-41 rows 18-21. Near arm: `BACK_ARM` moved (+1, -1) |
+| **a1 contact** | t3-6 (active t3-4, **hit t3**) | **Opus key** | U(+3, +2), head v3 (0, 0). Far arm thrown straight out and angled slightly down (fix round 2, for the 36 px goblin): the sleeve band steps down 1 px at x34 and 1 px more at the cuff (x38), `FIST_BIG` x41-46 rows 21-26. Near arm thrown back (`BACK_ARM`, fist x9-14 rows 31-34). Wide stance: back leg straight, `CROC_FLAT` x13-22; front knee bent over the toes, `CROC_FLAT` x31-40 |
+| a2 retract | t7-10 | Sonnet (**check**, fix round 2) | U(+3, +2), head v3 (0, 0), legs identical to a1. Far arm bent half back: elbow at about x36 row 24, `FIST_SMALL` at x37-41 rows 19-22 (1 px lower than before, so the fist does not jump up 3 px after the lowered a1). Near arm: `BACK_ARM` moved (+1, -1) |
 | a3 settle | t11-13 | Sonnet | U(+1, +1), head v0 (0, 0). Far arm hanging forward-down, relaxed: k3's far arm moved (+2, +1). Near arm: idle near arm moved (+1, +1). Feet: back x14-23, front x28-37. Hands over to idle with at most a 2 px foot snap |
 
 ### 5.2 `punch_b`: haymaker (frames 4-7)
@@ -98,8 +98,8 @@ Two more stamps come from the fix-round keys: `HAND_OPEN_UP` (7 x 6 open hand, f
 | Frame | Ticks | Owner | Pose |
 | --- | --- | --- | --- |
 | **b0 wind** | t0-4 | **Opus key** (fix round) | U(0, +2), head v3 (-1, 0): he leans back to load. Legs identical to a1 (feet do not move). Near arm cocked to throw: upper arm rising back from the shoulder to a high elbow at about x9-12 rows 15-19, forearm angled forward and up, `FIST_SMALL` at x13-18 rows 11-14, behind the ear (over the back of the hair). Far fist pulled to the chest: `FIST_SMALL` at x32-37 rows 22-25. Not a raised hand: the elbow points back |
-| **b1 contact** | t5-9 (active t5-7, **hit t5**) | **Opus key** (fix round) | A hook, not a second jab. U(+6, +3), head v2 (+1, +1): he yells and tucks the chin. Body turn: the near shoulder has come round, so the near arm starts at the chest front (about x25-29 rows 23-27), the upper arm runs out level under the chin to the elbow at about x36 row 22 (shoulder height), and the forearm rises to `FIST_BIG` at x41-46 **rows 14-19** (head height, beside the face, which stays clear). The far arm is yanked back to the hip: `FIST_SMALL` at x12-17 rows 30-33 behind the back. The pin is hidden by the sleeve. Front `CROC_FLAT` x33-42 with the knee deep (about x39 row 46); back foot up on its toe: `CROC_TOE` at x15-20, bottom on row 55 |
-| b2 overswing | t10-15 | Sonnet (**redraw**, fix round) | Follow-through of the b1 hook. U(+7, +3), head v3 (+1, +1) (chin down, over-rotated, off balance). The near arm keeps its b1 shape and carries on round and down: elbow at about x37 row 26, `FIST_BIG` at about x34-39 rows 27-32, in front of the lower chest (never level at shoulder height, so it does not read as a jab). Far fist stays back at the hip as in b1 (about x13-18 rows 30-33). Feet exactly as b1 (no slide). Delete the whole pin when the sleeve covers 3 or more of its 4 pixels; never leave a single pin pixel |
+| **b1 contact** | t5-9 (active t5-7, **hit t5**) | **Opus key** (fix round 2) | An overhand chop, not a second jab: the arm comes over the top from b0's cocked fist and lands down on the goblin's face. U(+6, +3), head v2 (-1, 0): he yells and pulls his head back from his own swing. Body turn: the near shoulder has come round, so the near arm starts at the chest front (about x26-30 rows 24-28) and rises to a high elbow at about x38-41 rows 17-20, right of and below the face (which stays clear); the forearm chops down to `FIST_BIG` at x41-46 **rows 23-28** (y 27..32). The far arm is yanked back to the hip: `FIST_SMALL` at x12-17 rows 30-33 behind the back. The pin is hidden by the sleeve. Front `CROC_FLAT` x33-42 with the knee deep (about x39 row 46); back foot up on its toe: `CROC_TOE` at x15-20, bottom on row 55 |
+| b2 overswing | t10-15 | Sonnet (**redraw**, fix round 2) | Follow-through of the b1 overhand: the chop carries on down and through. U(+7, +4), head v3 (+1, +1) (chin down, over-committed, nearly falling in). The elbow drops to about x37 row 27 and the forearm points down: `FIST_BIG` at about x37-42 rows 32-37, low in front of the boxers (lower than b1, never back up at shoulder height). Far fist stays back at the hip as in b1 (about x13-18 rows 31-34). Feet exactly as b1 (no slide; the b2 to b3 front-foot jump is a separate execution item). Delete the whole pin when the sleeve covers 3 or more of its 4 pixels; never leave a single pin pixel |
 | b3 recover | t16-21 | Sonnet | U(+2, +1), head v0 (0, 0). Idle arms moved (+2, +1). Feet: back `CROC_FLAT` x15-24, front x29-38. Hands over to idle |
 
 ### 5.3 `kick`: front push kick (frames 8-14)
@@ -244,7 +244,7 @@ How the 20 frames were made and where they depart from the tables above (all dep
 - **Method.** `scripts/author_carl_melee.py` places the identity-locked upper block (translated master pixels), copies the stamps named in section 5 (`CROC_FLAT`, `CROC_HEEL`, `CROC_TOE`, `CROC_SOLE`, `FIST_BIG`, `FIST_SMALL`, `BACK_ARM`, `RAISED_ARM`, the k3 and k1 boxer flaps) and rasterises legs and sleeves from centre lines with the master ramps. A cleanup pass merges orphan pixels of hand-shaped parts into their neighbours; master pixels are never touched.
 - **Arm offsets aligned to U.** Where a stamp offset in section 5 would detach an arm from its shoulder, the offset was set to the difference between the two U values: a3 far arm (+3,-1) instead of (+2,+1), h1 far arm (-1,0) instead of (-2,0).
 - **Pin hidden by an arm** (corrected in the fix round). `pin` is the top layer, so a sleeve cannot cover it by draw order; the builder (`occlude_pin`) deletes the pin pixels that sit under the near arm. The pin is never moved or redrawn, but this is a deletion of master pixels, allowed only for this occlusion. Current state: b1 hides all 4 pin pixels, h1 hides all 4, b2 hides 3 (a 1 px remnant, removed by the b2 redraw rule in section 5.2); kb and every other frame show the full pin.
-- **Added reach box.** The manifest has `hit_boxes_px.punch_b_contact.fist`, measured on b1. Fix round: the hook key changes it to [16, 35, 21, 41] (it was [15, 31, 20, 36] on the rejected level swing). It is a guide, not collision.
+- **Added reach box.** The manifest has `hit_boxes_px.punch_b_contact.fist`, measured on b1. Fix round 1: the hook key changed it to [16, 35, 21, 41] (it was [15, 31, 20, 36] on the rejected level swing). Fix round 2: the overhand key makes it [16, 27, 21, 37], and the lowered jab makes `punch_a_contact.fist` [16, 29, 21, 34]. It is a guide, not collision.
 - **d1 far foot.** `CROC_FLAT` at x30-39 (spec: about x32-41) so it does not hide behind the near foot.
 - **Orphans.** Lint reports 0 to 5 orphan pixels per frame, 0 isolated. The remaining ones are master jacket and neck pixels beside an offset head (as in the keys) and a few sleeve edge pixels.
 - **Superseded by the fix round.** The first review failed kb, d0, b1 and b0. They are now Opus keys (section 14).
@@ -279,3 +279,22 @@ The first independent Opus review failed the set. The four design items were fix
 - The review's execution items (non-design) stay with Sonnet as listed in the review.
 
 **Self-review of the fix-round keys (Opus, not approval):** at 1x the four new keys read as intended. kb is a V with the feet above the butt and both open hands behind him. d0 is a splat, arms wide. b0 is a cocked throw. b1 is a bent arm with the fist beside the head. Weak points: b1's sleeve crosses the dark jacket, so the read rests on the fist position and the bent shape more than on the sleeve; the open hands are 6-7 px stamps whose fingers read as a jagged edge at 1x rather than as distinct fingers; kb's far shin is short. The head offsets (+1, +1) on b1 and (-1, 0) on b0 are within the identity rule and pass the identity test.
+
+## 15. Design fix round 2 (Opus): aim at the 36 px goblin
+
+The second independent review passed the set with follow-ups and found one design problem: the fix-round-1 hook put the fist at y 36..41, over the head of the decided common goblin (GOB-01, PR #44: 36 px tall, hurtbox 22 x 34 from the floor). The jab at y 31..36 only clipped the crown. Every Floor 1 enemy is this goblin, so both blows must visibly land on it.
+
+| Item | Fix |
+| --- | --- |
+| Haymaker passes over a 36 px goblin | **b1 redrawn as an overhand chop** (frozen Opus key). From b0's fist behind the ear, the arm comes over the top: the elbow is high, right of and below Carl's face, and the forearm chops down so the fist lands at y 27..32 on the goblin's eyes and nose. It stays heavier and different from the jab: the arm is bent and arched, not straight; Carl lunges 3 px further, rises on his back toe and yanks the far fist to his hip. The reach box is [16, 27, 21, 37] (the top 5 px are the forearm). Silhouette IoU with a1: 0.61 |
+| Jab only clips the crown | **a1 angled 2 px down** (frozen Opus key; only the far-arm layer changed: the band steps down 1 px at x34 and 1 px at x38). The fist is now at y 29..34, on the goblin's brow, and still a straight lead-hand pop |
+| b0 | Unchanged: the cocked fist behind the ear is the right wind-up for an overhand |
+
+Reference renders against the GOB-01 goblin idle (PR #44, commit 4ebc313), each goblin at the farthest distance the blow still hits: [`goblin36_contact_x6.png`](../evidence/anim-carl-02/goblin36_contact_x6.png) and [`goblin36_contact_1920x1080.png`](../evidence/anim-carl-02/goblin36_contact_1920x1080.png). At that distance the fist overlaps the goblin's head by up to 6 px, so **draw the attacker over the target during active frames** (an integration note: otherwise the goblin's head hides Carl's fist).
+
+**Sonnet redraws required (round 2):**
+
+- **b2:** new follow-through of the overhand (section 5.2 row): the fist carries on down to rows 32-37.
+- **a2:** check, and lower the fist 1 px as in its section 5.1 row, so the retract does not jump.
+- No change for b0, b3 (it starts from b2), the kick, the hurt, the knockdown or the get-up frames.
+- The execution follow-ups from the second review stay with Sonnet as listed there (the b2 to b3 front-foot jump, the kb/d0 hand combs, d1's far Croc on row 55).
