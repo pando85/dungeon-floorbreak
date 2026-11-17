@@ -8,8 +8,9 @@ the editable source of the tags ``punch_a``, ``punch_b``, ``kick``, ``hurt``, ``
 
 How the frames are made (no resampling, no rotation, no image model):
 
-* **Frozen Opus keys.** ``tests/fixtures/carl_melee_phase1_keys.json`` holds the four phase 1 key
-  poses (a1, k1, k3, h0). They are copied into frames 1, 9, 11 and 15 without any change.
+* **Frozen Opus keys.** ``tests/fixtures/carl_melee_phase1_keys.json`` holds the Opus key poses: the
+  four phase 1 keys (a1, k1, k3, h0) and the four design-fix-round keys (b0, b1, kb, d0). They are
+  copied into frames 1, 4, 5, 9, 11, 15, 18 and 19 without any change.
 * **Copied from the approved locomotion idle** (``carl_h52_locomotion.grid.json``): hair, head
   (neutral face v0, glance v1), torso, jacket, pin and the boxer seat (master rows 31-38) are the
   master's own pixels, only translated (the spec's U(dx, dy)). The effort/wince/pain faces are
@@ -354,33 +355,6 @@ def a1_stance(f: Frame) -> None:
     f.add("boxers", rect(KA["boxers"], 0, 41, W, H))
 
 
-def b0() -> Frame:
-    f = upper(Frame(), (1, 2), "v3")
-    a1_stance(f)
-    f.add("near_arm", RAISED_ARM["near_arm"], 3, 0)
-    f.add("watch", RAISED_ARM["watch"], 3, 0)
-    sleeve_arm(f, "far_arm", [(30, 27), (33, 26)], 2.0)
-    f.add("far_arm", FIST_SMALL, 33, 22)
-    return f
-
-
-def b1() -> Frame:
-    f = upper(Frame(), (5, 2), "v2", (1, 0))
-    # legs: back foot up on its toe, front knee deep
-    hem(f, 19, 41, HEM_BACK)
-    hem(f, 29, 41, HEM_FRONT)
-    f.add("legs", leg((22, 42), (17, 48), 3.0, 2.0))
-    croc_toe_down(f, 14)
-    f.add("legs", leg_bent((33, 42), (38, 46), (36, 49), 3.0, 2.8, 2.0))
-    croc_flat(f, 32)
-    # near arm swung round level over the jacket
-    f.add("near_arm", rect(IDLE0["near_arm"], 0, 18, W, 21), 5, 2)
-    sleeve_arm(f, "near_arm", [(23, 22), (36, 22)], 2.0)
-    f.add("near_arm", CUFF, 40, 20)
-    f.add("near_arm", FIST_BIG, 40, 19)
-    return f
-
-
 def b2() -> Frame:
     f = upper(Frame(), (6, 3), "v3", (1, 1))
     hem(f, 20, 42, HEM_BACK)
@@ -494,41 +468,6 @@ def h0() -> Frame:
     return from_key(H0, tuple(LAYERS))
 
 
-def kb() -> Frame:
-    """Knocked back, airborne: lowest opaque row <= 53, never ground-snapped."""
-    f = upper(Frame(), (-3, -2), "pain", (-2, -1))
-    # far thigh first (higher, darker boxer flap), then the near one
-    f.add("legs", leg_bent((31, 31), (36, 33), (35, 41), 3.0, 2.6, 2.0))
-    flap(f, (1, -5), dark=True)
-    f.add("shoes", CROC_TOE, 32, 42)
-    f.add("legs", leg_bent((32, 33), (39, 35), (40, 41), 3.0, 2.6, 2.2))
-    flap(f, (-1, -4))
-    f.add("shoes", CROC_SOLE, 38, 39)
-    # arms trail forward at chest height with loose hands, the far one 3 px lower
-    sleeve_arm(f, "near_arm", [(16, 21), (27, 24)], 2.0)
-    f.add("near_arm", FIST_SMALL, 28, 22)
-    sleeve_arm(f, "far_arm", [(27, 21), (32, 27)], 2.0)
-    f.add("far_arm", FIST_SMALL, 32, 27)
-    return f
-
-
-def d0() -> Frame:
-    f = upper(Frame(), (-4, 15), "pain", (0, 1))
-    f.add("boxers", parse("KUUUUUUUUUUUUUUUK", 12, 54))
-    f.add("boxers", parse("KKKKKKKKKKKKKKK", 13, 55))
-    # legs bounce up: thighs forward, knees about x34-36, Crocs toe-up with the heels off the floor
-    f.add("legs", leg_bent((27, 50), (34, 45), (38, 49), 2.6, 2.4, 2.0))
-    f.add("shoes", CROC_HEEL, 36, 45)
-    f.add("legs", leg_bent((27, 51), (35, 47), (39, 50), 2.8, 2.6, 2.0))
-    f.add("shoes", CROC_HEEL, 36, 46)
-    # arms bounce up
-    f.add("near_arm", RAISED_ARM["near_arm"], -2, 13)
-    f.add("watch", RAISED_ARM["watch"], -2, 13)
-    sleeve_arm(f, "far_arm", [(26, 36), (31, 29)], 2.0)
-    f.add("far_arm", FIST_SMALL, 30, 26)
-    return f
-
-
 def d1() -> Frame:
     f = upper(Frame(), (-4, 15), "v0", (0, 1))
     f.add("boxers", parse("KUUUUUUUUUUUUUUUK", 12, 54))
@@ -622,9 +561,9 @@ def occlude_pin(f: Frame) -> Frame:
     return f
 
 
-FRAMES = {"a0": a0, "a1": a1, "a2": a2, "a3": a3, "b0": b0, "b1": b1, "b2": b2, "b3": b3,
+FRAMES = {"a0": a0, "a1": a1, "a2": a2, "a3": a3, "b2": b2, "b3": b3,
           "k0": k0, "k1": k1, "k2": k2, "k3": k3, "k4": k4, "k5": k5, "k6": k6,
-          "h0": h0, "h1": h1, "h2": h2, "kb": kb, "d0": d0, "d1": d1, "g0": g0, "g1": g1, "g2": g2}
+          "h0": h0, "h1": h1, "h2": h2, "d1": d1, "g0": g0, "g1": g1, "g2": g2}
 
 # ------------------------------------------------------------------ atlas layout and build
 
@@ -633,7 +572,7 @@ ORDER = ["a0", "a1", "a2", "a3", "b0", "b1", "b2", "b3", "k0", "k1", "k2", "k3",
          "h0", "h1", "h2", "kb", "d0", "d1", "g0", "g1", "g2"]
 TAGS = [("punch_a", "a0", "a3"), ("punch_b", "b0", "b3"), ("kick", "k0", "k6"), ("hurt", "h0", "h2"),
         ("knockback", "kb", "kb"), ("knockdown", "d0", "d1"), ("getup", "g0", "g2")]
-KEY_FRAMES = {"a1": "a1", "k1": "k1", "k3": "k3", "h0": "h0"}
+KEY_FRAMES = {"a1": "a1", "b0": "b0", "b1": "b1", "k1": "k1", "k3": "k3", "h0": "h0", "kb": "kb", "d0": "d0"}
 KB_HOLD_MS = 100  # knockback hold frame: preview only, the real hold lasts while airborne
 
 

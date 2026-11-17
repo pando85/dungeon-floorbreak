@@ -1,6 +1,6 @@
 # ANIM-CARL-02: Carl unarmed melee, design spec (phase 1)
 
-**Status:** full set drawn (Sonnet), awaiting independent Opus review. Design and the four key poses: Claude Opus, 2026-11-17. The other 20 frames: Claude Sonnet (phase 2, see section 13). Review: pending (phase 3), then owner review. Nothing here is owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
+**Status:** design fix round after the first independent Opus review (FAILED). Design and the eight Opus key poses: Claude Opus, 2026-11-17 (four in phase 1, four in the fix round, section 14). The other 16 frames: Claude Sonnet (phase 2, section 13); the redraws listed in section 14 are pending. Review: a second independent Opus review follows the redraws, then owner review. Nothing here is owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
 
 Read with: [ANIM-CARL-01 locomotion](carl-locomotion-anim-01.md) (frame, pivot and identity rules this spec inherits), [Carl bible](carl-character-bible.md), [antihero tone](../01-design/antihero-tone.md), [combat feel / hybrid physics](../01-design/combat-feel-hybrid-physics.md), [Floor 1 combat probes](../07-agents/floor-01-integrated-combat-probes.md) (CP-01, CP-02), [animation system](animation.md).
 
@@ -68,8 +68,9 @@ Cadence: mashing attack gives the one-two with hits on t3 and t12 (150 ms apart,
 | jab contact | fist | +16 .. +21 | 31 .. 36 (a 38-40 px goblin's face) |
 | kick contact | Croc sole | +15 .. +21 | 18 .. 27 (a goblin's chest) |
 | kick contact | whole leg | +7 .. +21 | 15 .. 27 |
+| haymaker (hook) contact | fist | +16 .. +21 | 35 .. 41 (the top of a 38-40 px goblin's head) |
 
-These numbers are in the manifest (`melee.hit_boxes_px`) as a guide; hitboxes stay gameplay data.
+These numbers are in the manifest (`melee.hit_boxes_px`) as a guide; hitboxes stay gameplay data. The hook reaches as far as the jab but lands 5 px higher, so the jab's proposed push (about 4 px) can carry a goblin out of hook range. Proposal for the gameplay owner: give `punch_b` a forward root step of about 4 px during b0-b1 (the art already lunges: U.x +6 at b1 against +3 at a1), or keep the jab push at 2 px or less.
 
 **Contradiction to flag (not changed here):** WORK-021's melee hits anything from -9 to +54 px ahead of the hero centre (and 44 px vertically). The art reaches +21, so a goblin whose centre is more than about +33 away (21 + its 12 px half-width) would be hit with a visible gap. The gameplay owner should either shrink the range to the art (about +34 centre to centre) or accept the gap. The jab also misses targets shorter than 31 px; there are none in Floor 1 today.
 
@@ -79,7 +80,9 @@ Coordinates are canvas pixels (x right, y down; floor = row 55). **U(dx, dy)** i
 
 Stamps to reuse (copy the pixels from the named key, do not redraw): `CROC_FLAT` (master), `CROC_HEEL` (heel strike, toe up: run frame 4 front foot, used in h0), `CROC_TOE` (toe down: hanging foot of k1), `CROC_SOLE` (sole forward: k3), `FIST_BIG` (6 x 6 fist with outline: a1), `FIST_SMALL` (5 x 4: k1 far fist), `BACK_ARM` (near arm swung back-down with fist: a1 rows 20-34), `RAISED_ARM` (near arm up-back: k3).
 
-**Opus keys are final for pose, silhouette and contact pixels.** Sonnet keeps them pixel-identical; any change to a key goes back to Opus. Two Sonnet frames are **secondary keys** (b1, d1): Sonnet draws them from the spec, and the reviewer checks them first.
+**Opus keys are final for pose, silhouette and contact pixels.** There are eight: a1, b0, b1, k1, k3, h0, kb and d0, frozen in `tests/fixtures/carl_melee_phase1_keys.json` and copied verbatim by `scripts/author_carl_melee.py`. Sonnet keeps them pixel-identical; any change to a key goes back to Opus. One Sonnet frame is a **secondary key** (d1): Sonnet draws it from the spec, and the reviewer checks it first.
+
+Two more stamps come from the fix-round keys: `HAND_OPEN_UP` (7 x 6 open hand, fingers up: kb near hand) and `HAND_OPEN_SIDE` (6 x 7 open hands, fingers pointing out: d0 near hand points left, d0 far hand points right).
 
 ### 5.1 `punch_a`: jab (frames 0-3 of the final atlas)
 
@@ -94,9 +97,9 @@ Stamps to reuse (copy the pixels from the named key, do not redraw): `CROC_FLAT`
 
 | Frame | Ticks | Owner | Pose |
 | --- | --- | --- | --- |
-| b0 wind | t0-4 | Sonnet | U(+1, +2), head v3 (0, 0). Legs identical to a1 (feet do not move). Near arm wound back and up behind the head: `RAISED_ARM` moved (+3, 0), fist at about x11-15 rows 10-13. Far fist pulled to the chest: `FIST_SMALL` at x33-37 rows 22-25 |
-| b1 contact | t5-9 (active t5-7, **hit t5**) | **Sonnet, secondary key** | U(+5, +2), head v2 (+1, 0): he yells and over-commits. Near arm swung round level at shoulder height **over** the jacket (near_arm layer): shoulder cap from the master near arm, horizontal sleeve rows 20-24 to x38 with a `T` top edge and a `K` line where it crosses the jacket, cuff with glint, `FIST_BIG` at x40-45 rows 19-24. Far arm hidden behind the body. Front `CROC_FLAT` x32-41 with the knee deeper (about x37 row 46); back foot up on its toe: `CROC_TOE` with its bottom on row 55 at x14-19, back leg a straight diagonal |
-| b2 overswing | t10-15 | Sonnet | U(+6, +3), head v3 (+1, +1) (chin down, off balance). Near arm carried on down and across: `FIST_BIG` at x36-41 rows 30-35, in front of the boxers. Far arm hidden. Front `CROC_FLAT` x33-42 with a deep knee bend; back leg trails with `CROC_TOE` at x12-17 (bottom on row 55) |
+| **b0 wind** | t0-4 | **Opus key** (fix round) | U(0, +2), head v3 (-1, 0): he leans back to load. Legs identical to a1 (feet do not move). Near arm cocked to throw: upper arm rising back from the shoulder to a high elbow at about x9-12 rows 15-19, forearm angled forward and up, `FIST_SMALL` at x13-18 rows 11-14, behind the ear (over the back of the hair). Far fist pulled to the chest: `FIST_SMALL` at x32-37 rows 22-25. Not a raised hand: the elbow points back |
+| **b1 contact** | t5-9 (active t5-7, **hit t5**) | **Opus key** (fix round) | A hook, not a second jab. U(+6, +3), head v2 (+1, +1): he yells and tucks the chin. Body turn: the near shoulder has come round, so the near arm starts at the chest front (about x25-29 rows 23-27), the upper arm runs out level under the chin to the elbow at about x36 row 22 (shoulder height), and the forearm rises to `FIST_BIG` at x41-46 **rows 14-19** (head height, beside the face, which stays clear). The far arm is yanked back to the hip: `FIST_SMALL` at x12-17 rows 30-33 behind the back. The pin is hidden by the sleeve. Front `CROC_FLAT` x33-42 with the knee deep (about x39 row 46); back foot up on its toe: `CROC_TOE` at x15-20, bottom on row 55 |
+| b2 overswing | t10-15 | Sonnet (**redraw**, fix round) | Follow-through of the b1 hook. U(+7, +3), head v3 (+1, +1) (chin down, over-rotated, off balance). The near arm keeps its b1 shape and carries on round and down: elbow at about x37 row 26, `FIST_BIG` at about x34-39 rows 27-32, in front of the lower chest (never level at shoulder height, so it does not read as a jab). Far fist stays back at the hip as in b1 (about x13-18 rows 30-33). Feet exactly as b1 (no slide). Delete the whole pin when the sleeve covers 3 or more of its 4 pixels; never leave a single pin pixel |
 | b3 recover | t16-21 | Sonnet | U(+2, +1), head v0 (0, 0). Idle arms moved (+2, +1). Feet: back `CROC_FLAT` x15-24, front x29-38. Hands over to idle |
 
 ### 5.3 `kick`: front push kick (frames 8-14)
@@ -127,11 +130,11 @@ The identity lock forbids rotating the head and jacket, so Carl never lies flat.
 
 | Frame | Ticks | Owner | Pose |
 | --- | --- | --- | --- |
-| kb launched | hold while airborne | Sonnet | Airborne: lowest opaque row at most 53. U(-3, -2), pain head (-2, -1). Jackknife: both thighs forward (two boxer flaps like k3, the far one 1 px higher and drawn first in darker `V`), shins down-forward, near foot `CROC_SOLE`-like toward the front (about x36-42 rows 38-47), far foot `CROC_TOE` about x32-37 rows 41-47. Both arms trail forward at chest height with loose hands (`FIST_SMALL` acceptable), the far one 3 px lower. **No raised fist** (it reads as cheering) |
-| d0 butt impact | t0-5 | Sonnet | U(-4, +15) (boxer seat bottom on row 53, hem flattened onto rows 54-55: the butt is the contact), pain head (0, +1). Legs bounce up: knees about x34-36 rows 45-48, Crocs toe-up at about x37-46 rows 44-52 (heels off the floor). Arms bounce up: `RAISED_ARM` moved (-2, +13), far fist about x30-34 rows 26-29 |
-| d1 sprawled | t6-35 | **Sonnet, secondary key** | U(-4, +15), head v0 (0, +1): the bewildered fall face. Near leg straight forward, heel on the floor, `CROC_HEEL`-style toe-up foot ending by x45; far leg knee up, `CROC_FLAT` about x32-41. Near hand propped behind on the floor (hand rows 51-55 at about x5-9). Far hand resting on the far knee (about x30-34 rows 44-47) |
-| g0 knee | t0-7 | Sonnet | U(-1, +8), head v3 (0, 0). Kneeling: near knee on the floor (rows 51-55 at about x22-27), near shin back along the floor, `CROC_TOE` lying at about x8-13; far foot planted forward `CROC_FLAT` x27-36, far knee up at about x31 row 44. Near hand pushing on the far knee (about x28-32 rows 42-45) |
-| g1 push up | t8-15 | Sonnet | U(+1, +4), head v3 (0, 0), hunched. Front `CROC_FLAT` x27-36, knee about x32 row 46; back leg straightening onto its toe (`CROC_TOE` x12-17, bottom on row 55). Near hand on the front thigh (about x29-33 rows 40-43) |
+| **kb launched** | hold while airborne | **Opus key** (fix round) | Airborne: lowest opaque row 38 (at most 53). U(-6, -1), pain head (-2, -1): the upper block sits well behind the pivot so the butt leads the flight. Jackknife: the seat is closed by a flat `U` hem (row 38); the near boxer leg rises up-forward (x24-31 rows 29-36), knee at about x33 row 29, shin up to a side-on `CROC_HEEL` at x35-45 rows 23-28 (toe up), so the feet are higher than the butt; the far shin (darker ramp) runs forward under it to a `CROC_TOE` at x35-40 rows 32-38. The two Crocs are 3 rows apart, never one pink block. Both arms flung back with open hands, reaching behind for the fall: near arm up-back to `HAND_OPEN_UP` at x2-8 rows 5-10, far arm level back to a `HAND_OPEN_SIDE` (left) at x1-6 rows 20-26. No fists |
+| **d0 butt impact** | t0-5 | **Opus key** (fix round) | U(-4, +15) (boxer seat bottom on row 53, hem flattened onto rows 54-55: the butt is the contact), pain head (0, +1). Legs bounce up with the feet apart: near knee about x33 row 44, near `CROC_HEEL` at x36-46 rows 40-45; far leg lower in the darker ramp, `CROC_HEEL` at x34-44 rows 48-53 (heels off the floor). Arms flung out sideways at shoulder height with open splayed hands: near `HAND_OPEN_SIDE` (left) at x1-6 rows 28-34, far one (right) at x34-39 rows 28-34. **No fists above the shoulders** (that read as cheering) |
+| d1 sprawled | t6-35 | **Sonnet, secondary key** (**redraw feet**, fix round) | U(-4, +15), head v0 (0, +1): the bewildered fall face. Near leg straight forward, heel on the floor, toe-up `CROC_HEEL` at about x36-46; far leg knee up, `CROC_FLAT` at about x26-35, so a column of floor shows between the two Crocs (at least 1 px; no pink block). Near hand propped behind on the floor (hand rows 51-55 at about x5-9). Far hand resting on the far knee. Coming from d0, the arms drop from the sideways splat to these props |
+| g0 knee | t0-7 | Sonnet (**redraw**, fix round) | U(-1, **+11**), head v3 (0, 0): a low kneel, so the upper block rises 4 px from d1 (+15) instead of popping 7. Near knee on the floor (rows 51-55 at about x22-27), near shin back along the floor, `CROC_TOE` lying at about x8-13; far foot planted forward `CROC_FLAT` x27-36, far knee up at about x31 row 47 (hip lower than before). Near hand pushing on the far knee |
+| g1 push up | t8-15 | Sonnet (**redraw**, fix round) | U(+1, **+6**), head v3 (0, 0), hunched (rises 5 px from g0, then 5 px to g2's +1). Front `CROC_FLAT` x27-36, knee about x32 row 46; back leg straightening onto its toe (`CROC_TOE` x12-17, bottom on row 55). Near hand on the front thigh (about x29-33 rows 40-43) |
 | g2 stumble | t16-21 | Sonnet | U(+1, +1), head **v1** (glance back, closed mouth: "did anyone see that?"). Feet x14-23 and x27-36. Near arm: idle moved (-1, +1); far arm: idle moved (+2, +1). Hands over to idle |
 
 ## 6. Planned final atlas layout (phase 2)
@@ -148,7 +151,7 @@ The identity lock forbids rotating the head and jacket, so Carl never lies flat.
 | 19-20 | `knockdown` (d0, d1) | once, d1 holds until get-up | grounded |
 | 21-23 | `getup` (g0-g2) | once | grounded |
 
-Phase 1 holds only the keys (a1 = frame 0, k1 = 1, k3 = 2, h0 = 3). Sonnet rebuilds the grid to the layout above, keeping these four frames pixel-identical at their new indices (a1 = 1, k1 = 9, k3 = 11, h0 = 15), and updates the manifest (`animation_tags`, `grounded_tags`, `airborne_tags`, `playback`, `phase1_keys` renamed to `keys` with the new indices). Durations in the grid are the tick ranges converted to ms (the knockback hold frame: 100 ms, preview only).
+Phase 1 holds only the keys (a1 = frame 0, k1 = 1, k3 = 2, h0 = 3). Sonnet rebuilds the grid to the layout above, keeping these four frames pixel-identical at their new indices (a1 = 1, k1 = 9, k3 = 11, h0 = 15), and updates the manifest (`animation_tags`, `grounded_tags`, `airborne_tags`, `playback`, `phase1_keys` renamed to `keys` with the new indices). Durations in the grid are the tick ranges converted to ms (the knockback hold frame: 100 ms, preview only). Fix round: the manifest `melee.keys` also lists b0 = 4, b1 = 5, kb = 18 and d0 = 19.
 
 ## 7. State and timing
 
@@ -190,7 +193,7 @@ Interrupts: any hit during an attack cancels it (no super armour in Book 1). Whe
 
 ## 9. Identity locks and pixel rules (same as ANIM-CARL-01)
 
-- `hair`, `head`, `torso`, `jacket`, `pin` and the boxer seat (master boxer rows 31-38, with the hearts) are the master's own pixels, **translated only**: no redraw, rotation, resampling or flip. The head may sit up to 2 px off its idle position relative to the jacket (used: (-1, +1), (-1, 0), (-2, -1)); the keys prove these joins stay clean.
+- `hair`, `head`, `torso`, `jacket`, `pin` and the boxer seat (master boxer rows 31-38, with the hearts) are the master's own pixels, **translated only**: no redraw, rotation, resampling or flip. The head may sit up to 2 px off its idle position relative to the jacket (used: (-1, +1), (-1, 0), (-2, -1), (+1, +1), (0, +1)); the keys prove these joins stay clean.
 - Faces: v0-v3 plus the 4 px pain edit. Any head must stay within 4 changed pixels of a master idle head (the ANIM-CARL-01 test, `HEAD_TOLERANCE` 8 symmetric). Hair is a pure translation of a master hair.
 - A heart that a re-pixelled boxer leg would cut is removed, not left as a fragment (k1 and k3 each lose one heart cell). Boxer legs carry no hearts.
 - Same 23-colour palette and 11 layers in master order. `.` is the only transparency.
@@ -214,7 +217,7 @@ Interrupts: any hit during an attack cancels it (no super armour in Book 1). Whe
 - Tone gate (antihero-tone.md): scrappy and a little wrong, never a martial-arts form, superhero pose, flex or cheering fist.
 - Identity: same face, hair, jacket, pin and boxers in all 24 frames; no shimmer between frames of one move.
 - Timing: the GIFs at tick timing feel fast for the jab and heavy for the kick; contact frames line up with the hit ticks.
-- Secondary keys b1 and d1 first.
+- The fix-round keys (b0, b1, kb, d0) and the secondary key d1 first. b1 must not read as a second jab (fist height, bent arm, body turn); kb must read as a jackknife, not as sitting in the air; neither kb nor d0 may show a cheering fist.
 
 ## 11. Self-review of the keys (Opus, not approval)
 
@@ -240,8 +243,30 @@ How the 20 frames were made and where they depart from the tables above (all dep
 
 - **Method.** `scripts/author_carl_melee.py` places the identity-locked upper block (translated master pixels), copies the stamps named in section 5 (`CROC_FLAT`, `CROC_HEEL`, `CROC_TOE`, `CROC_SOLE`, `FIST_BIG`, `FIST_SMALL`, `BACK_ARM`, `RAISED_ARM`, the k3 and k1 boxer flaps) and rasterises legs and sleeves from centre lines with the master ramps. A cleanup pass merges orphan pixels of hand-shaped parts into their neighbours; master pixels are never touched.
 - **Arm offsets aligned to U.** Where a stamp offset in section 5 would detach an arm from its shoulder, the offset was set to the difference between the two U values: a3 far arm (+3,-1) instead of (+2,+1), h1 far arm (-1,0) instead of (-2,0).
-- **Pin hidden by an arm.** The pin layer is dropped where the near arm crosses it (b1, b2, kb), the same occlusion a real sleeve would give. The pin is never moved or edited.
-- **Added reach box.** The manifest gets `hit_boxes_px.punch_b_contact.fist` = [15, 31, 20, 36], measured on b1 (the spec lists only jab and kick). It is a guide, not collision.
+- **Pin hidden by an arm** (corrected in the fix round). `pin` is the top layer, so a sleeve cannot cover it by draw order; the builder (`occlude_pin`) deletes the pin pixels that sit under the near arm. The pin is never moved or redrawn, but this is a deletion of master pixels, allowed only for this occlusion. Current state: b1 hides all 4 pin pixels, h1 hides all 4, b2 hides 3 (a 1 px remnant, removed by the b2 redraw rule in section 5.2); kb and every other frame show the full pin.
+- **Added reach box.** The manifest has `hit_boxes_px.punch_b_contact.fist`, measured on b1. Fix round: the hook key changes it to [16, 35, 21, 41] (it was [15, 31, 20, 36] on the rejected level swing). It is a guide, not collision.
 - **d1 far foot.** `CROC_FLAT` at x30-39 (spec: about x32-41) so it does not hide behind the near foot.
 - **Orphans.** Lint reports 0 to 5 orphan pixels per frame, 0 isolated. The remaining ones are master jacket and neck pixels beside an offset head (as in the keys) and a few sleeve edge pixels.
-- **Open for the reviewer.** The knockback frame (kb) is the weakest read: at 1x it reads as "seated in the air", the Croc sole is large. The b1 and d1 secondary keys are drawn to the table but have had no independent look yet.
+- **Superseded by the fix round.** The first review failed kb, d0, b1 and b0. They are now Opus keys (section 14).
+
+## 14. Design fix round (Opus, after the first independent review)
+
+The first independent Opus review failed the set. The four design items were fixed by redesigning the frames as new frozen Opus keys (`tests/fixtures/carl_melee_phase1_keys.json`, keys `b0`, `b1`, `kb`, `d0`; `scripts/author_carl_melee.py` copies them verbatim, `--check` and `tests/test_art_carl_melee.py` cover them). Evidence: [`opus_keys_x6.png`](../evidence/anim-carl-02/opus_keys_x6.png) shows all eight keys next to the idle.
+
+| Review item | Fix |
+| --- | --- |
+| 1. kb reads as "seated in the air": vertical shins, a face-on sole stamp plus the far Croc as one 13 x 10 pink block | A real jackknife: the upper block is 6 px behind the pivot so the butt leads, the seat is closed by a flat hem, the near thigh rises to the knee at row 29 and the side-on `CROC_HEEL` sits at rows 23-28, above the butt. The far foot is a separate `CROC_TOE` 3 rows lower. Arms flung back with open hands. Lowest row 38 |
+| 2. d0 shows cheering fists above the shoulders | Arms flung out sideways at shoulder height with open splayed hands (fingers pointing out). The feet were also split apart (they formed the same pink block as kb) |
+| 3. b1 reads as a second jab (silhouette IoU 0.69 with a1, the same arm band on rows 19-24) | A hook with a body turn: the arm starts at the chest front, the elbow is out at shoulder height under the chin, and the fist is at head height (rows 14-19) beside a clear face. The far fist is yanked back to the hip. The reach box is now [16, 35, 21, 41]: as far as the jab, 5 px higher |
+| 4. b0 reads as raising a hand (straight vertical arm, fist up) | Bent elbow pointing back, fist cocked behind the ear, upper block leaning back 1 px |
+| 5. (optional) d1 to g0 pops the upper block 7 px | Fixed in the spec: g0 U.y +11 and g1 U.y +6, so the rise is 15, 11, 6, 1 (steps of 4, 5 and 5). Sonnet redraws g0 and g1 |
+
+**Sonnet redraws required to match the new keys** (execution, rows in section 5):
+
+- **b2** (after the hook): new follow-through, fist down-across in front of the lower chest, far fist kept at the hip, feet as b1, and the pin rule.
+- **d1** (after the new d0): split the two Crocs with floor showing between them.
+- **g0, g1** (option 5): new U.y values (+11, +6) and the legs re-fitted to the lower and higher hips.
+- Check, no redraw expected: **a2/a3** (unchanged, the cancel into b0 happens at t7), **b3** (starts from b2), **k-frames, h-frames** (unchanged). kb has no drawn neighbour: it is entered from any state and leaves into d0.
+- The review's execution items (non-design) stay with Sonnet as listed in the review.
+
+**Self-review of the fix-round keys (Opus, not approval):** at 1x the four new keys read as intended. kb is a V with the feet above the butt and both open hands behind him. d0 is a splat, arms wide. b0 is a cocked throw. b1 is a bent arm with the fist beside the head. Weak points: b1's sleeve crosses the dark jacket, so the read rests on the fist position and the bent shape more than on the sleeve; the open hands are 6-7 px stamps whose fingers read as a jagged edge at 1x rather than as distinct fingers; kb's far shin is short. The head offsets (+1, +1) on b1 and (-1, 0) on b0 are within the identity rule and pass the identity test.

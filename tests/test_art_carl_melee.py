@@ -36,7 +36,8 @@ ATLAS_PNG = ROOT / "generated/art/carl_book1_h52_melee.png"
 TAG_COUNTS = {"punch_a": 4, "punch_b": 4, "kick": 7, "hurt": 3, "knockback": 1, "knockdown": 2, "getup": 3}
 FRAME_IDS = ["a0", "a1", "a2", "a3", "b0", "b1", "b2", "b3", "k0", "k1", "k2", "k3", "k4", "k5", "k6",
              "h0", "h1", "h2", "kb", "d0", "d1", "g0", "g1", "g2"]
-KEY_IDS = {"a1": "punch_a_contact", "k1": "kick_windup", "k3": "kick_contact", "h0": "hurt_impact"}
+KEY_IDS = {"a1": "punch_a_contact", "b0": "punch_b_windup", "b1": "punch_b_contact", "k1": "kick_windup",
+           "k3": "kick_contact", "h0": "hurt_impact", "kb": "knockback", "d0": "knockdown_impact"}
 # tick contract of the spec (section 4): (total ticks, active ticks, hit tick)
 MOVES = {"punch_a": (14, [3, 4], 3), "punch_b": (22, [5, 7], 5), "kick": (36, [13, 16], 13),
          "hurt": (18, None, None), "knockdown": (36, None, None), "getup": (22, None, None)}
@@ -90,7 +91,7 @@ def check_manifest(m: dict, grid: dict) -> list[str]:
         errs.append(f"tick_hz {mel.get('tick_hz')}")
     index = {fid: i for i, fid in enumerate(FRAME_IDS)}
     if mel.get("keys") != {name: index[fid] for fid, name in KEY_IDS.items()}:
-        errs.append(f"keys {mel.get('keys')} do not point at a1/k1/k3/h0")
+        errs.append(f"keys {mel.get('keys')} do not point at the Opus key frames")
     if "phase1_keys" in mel:
         errs.append("phase1_keys must be renamed to keys")
     if m.get("review_status") != "prototype_fixture_unapproved":
@@ -485,7 +486,8 @@ class CarlMeleeExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
             self.assertEqual(previews.main(["--no-floor", "--out", str(out)]), 0)
-            names = ["contact_sheet_x1.png", "contact_sheet_x6.png", "timing_diagram.png", "punch_a_x4.gif",
+            names = ["contact_sheet_x1.png", "contact_sheet_x6.png", "opus_keys_x6.png", "timing_diagram.png",
+                     "punch_a_x4.gif",
                      "punch_b_x4.gif", "jab_haymaker_x4.gif", "jab_kick_x4.gif", "kick_x4.gif", "hurt_x4.gif",
                      "knockdown_getup_x4.gif", "measurements.json"]
             for name in names:

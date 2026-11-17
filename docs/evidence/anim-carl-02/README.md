@@ -13,6 +13,7 @@ They are copied here unchanged. `SHA256SUMS` lists their hashes; `measurements.j
 | --- | --- |
 | `contact_sheet_x1.png` | the approved idle (reference) and all 24 frames at native size, atlas order |
 | `contact_sheet_x6.png` | one row per move at x6: frame name, tick window, hit tick (red), phase stripe (startup, active, recovery, reaction, airborne), Opus keys outlined in yellow, floor line (cyan), pivot (yellow) and the art reach from the manifest (red: fist / Croc sole, magenta: whole kicking leg) |
+| `opus_keys_x6.png` | the approved idle and the eight frozen Opus keys at x6: phase 1 (a1 jab contact, k1 kick wind-up, k3 kick contact, h0 hurt impact) and the design fix round (b0 haymaker wind-up, b1 hook contact, kb knockback jackknife, d0 butt impact) |
 | `timing_diagram.png` | the tick contract of all moves drawn from the manifest `melee.moves` block (unchanged from phase 1: the tick table was not touched) |
 | `punch_a_x4.gif`, `punch_b_x4.gif`, `kick_x4.gif`, `hurt_x4.gif` | one move each at x4, played at the 60 Hz tick durations |
 | `jab_haymaker_x4.gif`, `jab_kick_x4.gif` | the CP-01 string (jab cut at tick 7, haymaker starts there: hits on t3 and t12, 29 ticks) and the jab > kick string |

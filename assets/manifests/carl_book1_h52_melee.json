@@ -69,9 +69,13 @@
     },
     "keys": {
       "punch_a_contact": 1,
+      "punch_b_windup": 4,
+      "punch_b_contact": 5,
       "kick_windup": 9,
       "kick_contact": 11,
-      "hurt_impact": 15
+      "hurt_impact": 15,
+      "knockback": 18,
+      "knockdown_impact": 19
     },
     "hit_boxes_px": {
       "note": "Art reach in sprite pixels relative to the pivot, facing right: x forward, y up from the floor, inclusive. A guide for gameplay data, not authoritative collision.",
@@ -79,7 +83,7 @@
         "fist": [16, 31, 21, 36]
       },
       "punch_b_contact": {
-        "fist": [15, 31, 20, 36]
+        "fist": [16, 35, 21, 41]
       },
       "kick_contact": {
         "sole": [15, 18, 21, 27],
@@ -107,8 +111,8 @@
         "hit_tick": 5,
         "cancel": {"into": [], "buffer_ticks": null, "earliest_start_tick": null},
         "frames": [
-          {"name": "b0 wind", "ticks": [0, 4], "phase": "startup", "key": false},
-          {"name": "b1 contact", "ticks": [5, 9], "phase": "active", "key": false},
+          {"name": "b0 wind", "ticks": [0, 4], "phase": "startup", "key": true},
+          {"name": "b1 contact", "ticks": [5, 9], "phase": "active", "key": true},
           {"name": "b2 overswing", "ticks": [10, 15], "phase": "recovery", "key": false},
           {"name": "b3 recover", "ticks": [16, 21], "phase": "recovery", "key": false}
         ]
@@ -148,8 +152,8 @@
         "hit_tick": null,
         "cancel": {"into": ["getup"], "buffer_ticks": null, "earliest_start_tick": 36},
         "frames": [
-          {"name": "kb launched (hold while airborne)", "ticks": null, "phase": "airborne", "key": false},
-          {"name": "d0 butt impact", "ticks": [0, 5], "phase": "reaction", "key": false},
+          {"name": "kb launched (hold while airborne)", "ticks": null, "phase": "airborne", "key": true},
+          {"name": "d0 butt impact", "ticks": [0, 5], "phase": "reaction", "key": true},
           {"name": "d1 sprawled", "ticks": [6, 35], "phase": "reaction", "key": false}
         ]
       },

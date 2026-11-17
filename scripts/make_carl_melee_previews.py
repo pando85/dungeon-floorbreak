@@ -201,6 +201,33 @@ def contact_sheet_x6(frames: list[Image.Image], table: list[dict], manifest: dic
     return sheet
 
 
+def opus_keys_x6(idle: Image.Image, frames: list[Image.Image], table: list[dict], manifest: dict,
+                 s: int = 6) -> Image.Image:
+    """The approved idle and every frozen Opus key frame side by side at x6 (floor line, pivot)."""
+    keys = [i for i, r in enumerate(table) if r["key"]]
+    images = [("idle (approved ref)", "locomotion frame 0", idle)]
+    images += [(f"{table[i]['move']}: {table[i]['name']}", f"#{i}  {frame_timing(table[i])}", frames[i]) for i in keys]
+    pivot = manifest["pivot"]
+    w, h = idle.size
+    head, foot, gap = 30, 12, 8
+    cell_w = w * s
+    sheet = Image.new("RGB", (len(images) * (cell_w + gap) + gap, head + h * s + foot + 2 * gap), loco.BG_SHEET6)
+    draw, font = ImageDraw.Draw(sheet), ImageFont.load_default()
+    for col, (title, timing, img) in enumerate(images):
+        ox, oy = gap + col * (cell_w + gap), gap
+        draw.text((ox, oy), title, fill=WHITE, font=font)
+        draw.text((ox, oy + 13), timing, fill=WHITE, font=font)
+        big = img.resize((cell_w, h * s), Image.Resampling.NEAREST)
+        cell = Image.new("RGBA", big.size, loco.BG_SHEET6 + (255,))
+        cell.alpha_composite(big)
+        sheet.paste(cell.convert("RGB"), (ox, oy + head))
+        line_y = oy + head + (pivot[1] + 1) * s
+        draw.line([(ox, line_y), (ox + cell_w - 1, line_y)], fill=loco.CYAN, width=1)
+        cx = ox + pivot[0] * s + s // 2
+        draw.rectangle([cx - 2, line_y + 3, cx + 2, line_y + 7], fill=loco.YELLOW)
+    return sheet
+
+
 # ---------------------------------------------------------------- timing diagram
 
 def timing_diagram(manifest: dict, px: int = 14) -> Image.Image:
@@ -422,6 +449,7 @@ def main(argv: list[str] | None = None) -> int:
         written: list[Path] = []
         for name, img in (("contact_sheet_x1.png", contact_sheet_x1(loco_frames[0], frames)),
                           ("contact_sheet_x6.png", contact_sheet_x6(frames, table, manifest)),
+                          ("opus_keys_x6.png", opus_keys_x6(loco_frames[0], frames, table, manifest)),
                           ("timing_diagram.png", timing_diagram(manifest))):
             img.save(out / name, format="PNG", optimize=False)
             written.append(out / name)
