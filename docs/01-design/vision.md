@@ -10,6 +10,10 @@ A darkly comic, detailed-pixel-art, 2D action platformer about two contrasting c
 
 Controller-first single-player and same-screen two-player local co-op for Linux desktop and Steam Deck. Fast, readable, laugh-out-loud improvisation rather than a precision-platforming simulator. Sessions of 5–15 minutes per floor/section; an initial slice of ~5 minutes is enough to validate the core fun.
 
+## Mandatory primary gameplay goal (owner decision, 2026-11-17)
+
+**THE CRAWL is combat-first: the central pleasure is killing enemies in spectacular, creative and satisfying ways.** Traversal, switching, asymmetric character gates and selective destruction should continually create more exciting fighting options, not transform the game into a mainly puzzle-driven platformer. Quiet exploration and the opening Dozer escape are intentional pacing exceptions; action should be the dominant reason players keep playing. See [combat-first encounter design](combat-first-encounter-design.md). No kill quota or promise of constant action is implied.
+
 ## Pillars (priority order)
 
 1. **Distinct character fantasy.** Carl is a resourceful, close-range, explosive trapmaker; Donut is expressive, mobile, ranged and magical; Mongo is an impactful kinetic disruption tool later. Switching/coordination must have a tactical payoff.
@@ -36,7 +40,7 @@ No pixel-perfect granular fluid/temperature simulation; no full environmental pr
 
 ## Scope choices still open
 
-- One-player control model: instant switch between Carl/Donut vs main+AI companion (must prototype both).
+- **Approved target (2026-11-16):** hybrid solo switching + AI companion/context commands, with two-player local co-op from the start. Mechanic UX, camera and controller ownership still require real testing; see [Floor 01 design bible](floor-01-gameplay-progression-v0.md). Shoulder Mode and mounted attacks remain unapproved experimental ideas.
 - Checkpoint/death model: short replayable stages vs limited lives.
 - Progression scale: authored level campaigns first, then optional run modifiers/loot.
 - How far dark comedy can go while remaining legible and accessible.

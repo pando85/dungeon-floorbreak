@@ -18,7 +18,7 @@
 
 - **Fantasy:** Self-important, charismatic, magical ranged specialist; high mobility and visual personality.
 - **Silhouette:** **tortoiseshell Persian** show cat with long, fluffy black/beige/white fur, compact quadruped body, flat face, large yellow eyes, small ears and bushy tail. This corrects the earlier generic white/light-fur placeholder; retain fixed coat markings across frames and contrast via lighting/outline, not recoloring. See the [lore-grounded Donut visual brief](../02-art/donut-character-brief.md), pending owner approval of a specific concept.
-- **Baseline:** quick traversal, optional double jump, ranged basic spell, short cooldown control effect.
+- **Combat-role baseline after appropriate story unlocks (proposal):** quick traversal, optional double jump, ranged basic spell, short-cooldown control effect. **Important progression boundary:** Donut is playable from the first moment in 2P, but is **not** a spellcaster before the story grants magic. Pre-unlock claw/bite/evasion/small interactions are exploratory game-mechanic candidates, not verified canon. Exact unlock timing and spell identity require book-chapter evidence.
 - **Special:** environmental modifier (e.g., freeze brittle props or shove foes), intentionally synergistic with bombs.
 - **Weakness:** low structural damage and limited defense while casting.
 - **Required animation tags:** idle, run, rise, fall, land, cast, hurt, death, emote; modular tail/ears/face where good.
