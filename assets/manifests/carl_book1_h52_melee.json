@@ -17,15 +17,19 @@
   ],
   "animation_tags": [
     "punch_a",
+    "punch_b",
     "kick",
-    "hurt"
+    "hurt",
+    "knockback",
+    "knockdown",
+    "getup"
   ],
   "required_alpha": true,
   "owner": "AI-authored pixel animation candidate (fan-concept layer: Carl -> demolitionist)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "ANIM-CARL-02 phase 1 melee key poses derived from the owner-approved 52 px master assets/source/characters/carl/carl_h52.grid.json (via the approved ANIM-CARL-01 48 x 56 canvas): head, hair, torso, jacket, boxer seat (hearts) and pin are the master's own pixels, translated only; the hurt face closes both eyes (4 px); arms, legs, boxer legs, Crocs and fists are re-pixelled per pose in pixel-grid-v1",
-    "generator": "Hand-placed pixel grids by an AI agent (Claude Opus, design phase); no image-model raster output, no resampling, no rotation of master pixels",
+    "origin": "ANIM-CARL-02 melee candidate (4 Opus key poses plus 20 Sonnet frames) derived from the owner-approved 52 px master assets/source/characters/carl/carl_h52.grid.json (via the approved ANIM-CARL-01 48 x 56 canvas): head, hair, torso, jacket, boxer seat (hearts) and pin are the master's own pixels, translated only; the hurt face closes both eyes (4 px); arms, legs, boxer legs, Crocs and fists are re-pixelled per pose in pixel-grid-v1 (scripts/author_carl_melee.py is the deterministic authoring record)",
+    "generator": "Design and 4 key poses: Claude Opus (hand-placed pixel grids). Remaining 20 frames: Claude Sonnet, composed by scripts/author_carl_melee.py from master pixels, key stamps and rasterised limbs; no image-model raster output, no resampling, no rotation of master pixels",
     "generated_art": true,
     "input_reference_ids": [
       "CARL-CONCEPT-APPROVED-V1"
@@ -34,7 +38,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "melee": {
-    "status": "phase 1 design keys only (4 of the 24 planned frames); awaiting Sonnet execution and an independent Opus review; not wired into any Bevy binary",
+    "status": "full set drawn (Sonnet), awaiting independent Opus review; 24 frames, 4 of them Opus keys; not wired into any Bevy binary",
     "spec": "docs/02-art/carl-melee-anim-02-spec.md",
     "master": "assets/manifests/carl_book1_h52.json",
     "locomotion": "assets/manifests/carl_book1_h52_locomotion.json",
@@ -45,25 +49,37 @@
     "tick_hz": 60,
     "grounded_tags": [
       "punch_a",
+      "punch_b",
       "kick",
-      "hurt"
+      "hurt",
+      "knockdown",
+      "getup"
     ],
-    "airborne_tags": [],
+    "airborne_tags": [
+      "knockback"
+    ],
     "playback": {
       "punch_a": "once",
+      "punch_b": "once",
       "kick": "once",
-      "hurt": "once"
+      "hurt": "once",
+      "knockback": "hold",
+      "knockdown": "once",
+      "getup": "once"
     },
-    "phase1_keys": {
-      "punch_a_contact": 0,
-      "kick_windup": 1,
-      "kick_contact": 2,
-      "hurt_impact": 3
+    "keys": {
+      "punch_a_contact": 1,
+      "kick_windup": 9,
+      "kick_contact": 11,
+      "hurt_impact": 15
     },
     "hit_boxes_px": {
       "note": "Art reach in sprite pixels relative to the pivot, facing right: x forward, y up from the floor, inclusive. A guide for gameplay data, not authoritative collision.",
       "punch_a_contact": {
         "fist": [16, 31, 21, 36]
+      },
+      "punch_b_contact": {
+        "fist": [15, 31, 20, 36]
       },
       "kick_contact": {
         "sole": [15, 18, 21, 27],

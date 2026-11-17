@@ -1,15 +1,17 @@
 # ANIM-CARL-02: Carl unarmed melee, design spec (phase 1)
 
-**Status:** phase 1 design by Claude Opus, 2026-11-17. Four key poses are authored; the other 20 frames are specified here for Claude Sonnet (phase 2), followed by a separate Opus review (phase 3) and then owner review. Nothing here is owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
+**Status:** full set drawn (Sonnet), awaiting independent Opus review. Design and the four key poses: Claude Opus, 2026-11-17. The other 20 frames: Claude Sonnet (phase 2, see section 13). Review: pending (phase 3), then owner review. Nothing here is owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
 
 Read with: [ANIM-CARL-01 locomotion](carl-locomotion-anim-01.md) (frame, pivot and identity rules this spec inherits), [Carl bible](carl-character-bible.md), [antihero tone](../01-design/antihero-tone.md), [combat feel / hybrid physics](../01-design/combat-feel-hybrid-physics.md), [Floor 1 combat probes](../07-agents/floor-01-integrated-combat-probes.md) (CP-01, CP-02), [animation system](animation.md).
 
 | File | Role |
 | --- | --- |
-| `assets/source/characters/carl/carl_h52_melee.grid.json` | pixel-grid-v1 source, phase 1: the 4 Opus keys (tags `punch_a` 0, `kick` 1-2, `hurt` 3) |
+| `assets/source/characters/carl/carl_h52_melee.grid.json` | pixel-grid-v1 source, 24 frames in the section-6 layout (the 4 Opus keys at frames 1, 9, 11 and 15, unchanged) |
+| `scripts/author_carl_melee.py` | deterministic authoring record of the 20 Sonnet frames (`--check` verifies the committed grid) |
+| `tests/test_art_carl_melee.py`, `tests/fixtures/carl_melee_phase1_keys.json` | contract tests and the frozen Opus keys they compare against |
 | `assets/source/characters/carl/carl_h52_melee.ase` | built from the grid by `scripts/pixel_grid_to_ase.py` (via `scripts/export_assets.sh`) |
 | `assets/manifests/carl_book1_h52_melee.json` | candidate manifest `carl_book1_h52_melee_candidate_v1`. Its `melee.moves` block is the **machine-readable tick contract** of this spec (the timing diagram is drawn from it) |
-| `scripts/make_carl_melee_previews.py` | key-pose sheets, timing diagram, lit Floor 1 kick mock, `measurements.json` |
+| `scripts/make_carl_melee_previews.py` | contact sheets, timing diagram, tick-timed GIFs, lit Floor 1 compositions, `measurements.json` |
 | [`docs/evidence/anim-carl-02/`](../evidence/anim-carl-02/README.md) | committed renders with SHA-256 sums |
 
 ## 1. Acting brief
@@ -231,3 +233,15 @@ Interrupts: any hit during an attack cancels it (no super armour in Book 1). Whe
 ## 12. Out of scope
 
 Bevy integration, gameplay constants, input bindings, hit VFX and SFX, goblin art and goblin reaction frames, airborne attacks, bombs, Donut, Mongo.
+
+## 13. Phase 2 execution notes (Sonnet)
+
+How the 20 frames were made and where they depart from the tables above (all departures are within the spec's 2 px tolerance unless stated; none touches a key, a tick or a pivot):
+
+- **Method.** `scripts/author_carl_melee.py` places the identity-locked upper block (translated master pixels), copies the stamps named in section 5 (`CROC_FLAT`, `CROC_HEEL`, `CROC_TOE`, `CROC_SOLE`, `FIST_BIG`, `FIST_SMALL`, `BACK_ARM`, `RAISED_ARM`, the k3 and k1 boxer flaps) and rasterises legs and sleeves from centre lines with the master ramps. A cleanup pass merges orphan pixels of hand-shaped parts into their neighbours; master pixels are never touched.
+- **Arm offsets aligned to U.** Where a stamp offset in section 5 would detach an arm from its shoulder, the offset was set to the difference between the two U values: a3 far arm (+3,-1) instead of (+2,+1), h1 far arm (-1,0) instead of (-2,0).
+- **Pin hidden by an arm.** The pin layer is dropped where the near arm crosses it (b1, b2, kb), the same occlusion a real sleeve would give. The pin is never moved or edited.
+- **Added reach box.** The manifest gets `hit_boxes_px.punch_b_contact.fist` = [15, 31, 20, 36], measured on b1 (the spec lists only jab and kick). It is a guide, not collision.
+- **d1 far foot.** `CROC_FLAT` at x30-39 (spec: about x32-41) so it does not hide behind the near foot.
+- **Orphans.** Lint reports 0 to 5 orphan pixels per frame, 0 isolated. The remaining ones are master jacket and neck pixels beside an offset head (as in the keys) and a few sleeve edge pixels.
+- **Open for the reviewer.** The knockback frame (kb) is the weakest read: at 1x it reads as "seated in the air", the Croc sole is large. The b1 and d1 secondary keys are drawn to the table but have had no independent look yet.
