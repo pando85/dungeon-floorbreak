@@ -24,7 +24,7 @@
   "owner": "AI-authored size-study block-ins (fan-concept layer: common Floor 1 goblin)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "GOB-01 phase 1 size study: one parametric idle pose rasterized natively at 36, 40 and 44 px opaque height by scripts/author_goblin_gob01.py size-study (block-in only, not production pixels; no resampling between heights)",
+    "origin": "GOB-01 size study (36 px decided by an independent Opus agent): one parametric idle pose rasterized natively at 36, 40 and 44 px opaque height by scripts/author_goblin_gob01.py size-study (block-in only, not production pixels; no resampling between heights)",
     "generator": "Claude Opus (design); deterministic script output",
     "generated_art": true,
     "input_reference_ids": [

@@ -89,7 +89,8 @@
   {
    "key": "H",
    "name": "pineapple_light",
-   "rgba": "#f4c84aff"
+   "rgba": "#f4c84aff",
+   "accent": true
   },
   {
    "key": "V",

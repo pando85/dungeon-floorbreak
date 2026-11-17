@@ -47,14 +47,15 @@ PALETTE = [
     ("e", "eye_yellow", "#ffd23aff", True),
     ("w", "tooth_white", "#efe4c4ff", True),
     ("o", "mouth_dark", "#5c1426ff", False),
-    ("R", "tongue_red", "#b8322eff", False),
+    ("R", "red_mid", "#b8322eff", False),  # tongue; variant B bandana
     ("x", "wood_dark", "#4a2c1cff", False),
     ("y", "wood_mid", "#8c5c32ff", False),
     ("F", "pineapple_dark", "#7a3c12ff", False),
     ("G", "pineapple_mid", "#d08826ff", False),
-    ("H", "pineapple_light", "#f4c84aff", False),
+    ("H", "pineapple_light", "#f4c84aff", True),  # accent: single-pixel facet highlights
     ("V", "leaf_dark", "#1d4a3cff", False),
     ("v", "leaf_mid", "#3e8a5cff", False),
+    ("B", "rag_red_dark", "#6e1a22ff", False),  # variant B bandana shadow (R is its mid tone)
 ]
 WEAPON_KEYS = set("xyFGHVv")
 RAMPS = {

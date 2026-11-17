@@ -34,21 +34,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pixel_grid_to_ase as pg  # noqa: E402
 
-GOBLIN_KEYS = "assets/source/characters/goblin/goblin_a_h36_keys.grid.json"
+GOBLIN_KEYS = {"A": "assets/source/characters/goblin/goblin_a_h36_keys.grid.json",
+               "B": "assets/source/characters/goblin/goblin_b_h36_keys.grid.json"}
 GOBLIN_STUDY = "assets/source/characters/goblin/goblin_size_study.grid.json"
 CARL = "assets/source/characters/carl/carl_h52.grid.json"
 DONUT = "assets/source/characters/donut/donut_h40.grid.json"
 LAYOUT = "assets/levels/floor01/corridor_abc_sample.json"
 DEFAULT_OUT = ROOT / "generated" / "art" / "gob01_review"
 HEIGHTS = (36, 40, 44)
-KEY_LABELS = ["idle (key 0)", "attack tell (key 11)", "swing impact (key 13)", "hurt (key 16)",
-              "knockback air (key 19)"]
+ATLAS = [0, 4, 7, 11, 12, 13, 16, 19, 22, 25, 26]   # atlas frame of each key in the key grids
+KEY_LABELS = {0: "idle", 4: "walk contact", 7: "walk contact (far)", 11: "attack tell", 12: "swing smear",
+              13: "swing impact", 16: "hurt", 19: "knockback air", 22: "down", 25: "corpse",
+              26: "knockback contact"}
+AIRBORNE = {19: 18, 26: 12}    # atlas frame -> lift in px when staged in flight
 # walking-line x positions in the Floor 1 layout (view x 328..968)
 DONUT_X, CARL_X = 404, 452
 PAIR_X = (506, 556)           # two goblins facing Carl: 54 px (Carl's reach) and 104 px away
 LINEUP_X = (540, 640, 740)
-KEYS_X = (500, 560, 628, 692, 760)
-KNOCK_LIFT = 18                # knockback key drawn this many px above the floor
+# Carl facing a mixed group on lit Floor 1: (variant, atlas frame, walking-line x)
+KEY_SCENE = [("A", 11, 500), ("A", 13, 556), ("B", 16, 628), ("A", 19, 690), ("B", 4, 752), ("A", 0, 812),
+             ("B", 22, 876)]
 BG = (24, 23, 34)
 GROUND_LIGHT, GROUND_DARK = (74, 68, 100), (52, 48, 74)
 CYAN, YELLOW, WHITE, GREY = (0, 220, 255), (255, 214, 0), (236, 232, 240), (150, 146, 170)
@@ -203,55 +208,67 @@ def size_sheet(carl, donut, study, scenes, floor: Floor) -> Image.Image:
     x = 16
     for h, crop in crops:
         sheet.paste(crop, (x, y + head))
-        label(d, (x, y + head + crop.height + 6), f"option {h} px" + ("  (recommended)" if h == 36 else ""),
+        label(d, (x, y + head + crop.height + 6), f"option {h} px" + ("  (decided)" if h == 36 else ""),
               YELLOW if h == 36 else WHITE)
         x += crop.width + 16
     return sheet
 
 
-def key_sheet(keys, carl, scene_keys: Image.Image, floor: Floor) -> Image.Image:
-    frames, piv, _grid = keys
-    k = 6
-    cell_w, cell_h = frames[0].width * k, frames[0].height * k
+def key_sheet(variants, scene_keys: Image.Image, floor: Floor) -> Image.Image:
+    """variants: {"A": (frames, pivot, grid), "B": ...}; frames follow ATLAS."""
+    k = 3
+    frames_a, piv, _grid = variants["A"]
+    cell_w, cell_h = frames_a[0].width * k, frames_a[0].height * k
     head = 28
-    sheet_w = 16 + (cell_w + 16) * len(frames)
-    x1_strip = Image.new("RGB", (sheet_w, 90), BG)
+    n = len(ATLAS)
+    sheet_w = 16 + (cell_w + 12) * n
+    strip_h = 160
+    x1_strip = Image.new("RGB", (sheet_w, strip_h), BG)
     d1 = ImageDraw.Draw(x1_strip)
-    label(d1, (8, 4), "1x (native) on a flat floor; knockback lifted, as in flight:")
-    floor_y = 76
-    d1.rectangle([0, floor_y + 1, sheet_w - 1, floor_y + 1], fill=GROUND_LIGHT)
-    d1.rectangle([0, floor_y + 2, sheet_w - 1, 89], fill=GROUND_DARK)
-    for i, img in enumerate(frames):
-        lift = KNOCK_LIFT if i == 4 else 0
-        x1_strip.paste(img, (40 + i * 70 - piv[0], floor_y - piv[1] - lift), img)
-    cells = Image.new("RGB", (sheet_w, cell_h + 40), BG)
-    dc = ImageDraw.Draw(cells)
-    for i, img in enumerate(frames):
-        x = 16 + i * (cell_w + 16)
-        cell = Image.new("RGBA", frames[0].size, (36, 34, 50, 255))
-        cell.alpha_composite(img)
-        big = up(cell, k)
-        db = ImageDraw.Draw(big)
-        db.line([(0, piv[1] * k + k - 1), (big.width, piv[1] * k + k - 1)], fill=CYAN)
-        db.rectangle([piv[0] * k, piv[1] * k, piv[0] * k + k - 1, piv[1] * k + k - 1], outline=YELLOW)
-        cells.paste(big, (x, 0))
-        info = bbox_info(img)
-        label(dc, (x, cell_h + 6), f"{KEY_LABELS[i]}  h={info['opaque_height']} lowest row={info['lowest_row']}")
+    label(d1, (8, 4), "1x (native) on a flat floor, top A, bottom B; airborne keys lifted as in flight. "
+                      "Tell (3rd) and hurt (4th) sit side by side for the 1x readability check.")
+    for row, var in enumerate(("A", "B")):
+        floor_y = 76 + row * 72
+        d1.rectangle([0, floor_y + 1, sheet_w - 1, floor_y + 1], fill=GROUND_LIGHT)
+        d1.rectangle([0, floor_y + 2, sheet_w - 1, floor_y + 5], fill=GROUND_DARK)
+        order = [0, 4, 11, 16, 13, 12, 7, 19, 26, 22, 25]
+        for i, a in enumerate(order):
+            img = variants[var][0][ATLAS.index(a)]
+            x1_strip.paste(img, (40 + i * 62 - piv[0], floor_y - piv[1] - AIRBORNE.get(a, 0)), img)
+    blocks = []
+    for var in ("A", "B"):
+        cells = Image.new("RGB", (sheet_w, cell_h + 34), BG)
+        dc = ImageDraw.Draw(cells)
+        for i, a in enumerate(ATLAS):
+            img = variants[var][0][i]
+            x = 16 + i * (cell_w + 12)
+            cell = Image.new("RGBA", img.size, (36, 34, 50, 255))
+            cell.alpha_composite(img)
+            big = up(cell, k)
+            db = ImageDraw.Draw(big)
+            db.line([(0, piv[1] * k + k - 1), (big.width, piv[1] * k + k - 1)], fill=CYAN)
+            db.rectangle([piv[0] * k, piv[1] * k, piv[0] * k + k - 1, piv[1] * k + k - 1], outline=YELLOW)
+            cells.paste(big, (x, 0))
+            info = bbox_info(img)
+            label(dc, (x, cell_h + 4), f"{var} {a}: {KEY_LABELS[a]}")
+            label(dc, (x, cell_h + 18), f"h={info['opaque_height']} w={info['opaque_width']} low={info['lowest_row']}", GREY)
+        blocks.append(cells)
     g = floor.ground(CARL_X) - floor.view[1]
     x0, _ = floor.view_xy(CARL_X - 40, 0)
-    x1, _ = floor.view_xy(KEYS_X[-1] + 40, 0)
+    x1, _ = floor.view_xy(KEY_SCENE[-1][2] + 50, 0)
     crop1 = scene_keys.crop((x0, g - 70, x1, g + 12))
     crop3 = up(crop1, 3)
-    height = head + x1_strip.height + cells.height + 30 + crop1.height + 12 + crop3.height + 30
+    height = head + x1_strip.height + sum(b.height for b in blocks) + 30 + crop1.height + 12 + crop3.height + 16
     width = max(sheet_w, crop3.width + 32)
     sheet = Image.new("RGB", (width, height), BG)
     d = ImageDraw.Draw(sheet)
-    label(d, (8, 8), "GOB-01 variant A keys, 36 px, frame 64x56, pivot (28,55): cyan = contact row 55, "
-                     "yellow box = pivot. Facing right as authored; flipped at runtime.")
+    label(d, (8, 8), "GOB-01 keys, 36 px (decided), frame 64x56, pivot (28,55); x3 cells: cyan = contact row 55, "
+                     "yellow box = pivot. Variant A above, variant B (accessory overlay) below. Facing right; flipped at runtime.")
     y = head
     sheet.paste(x1_strip, (0, y)); y += x1_strip.height
-    sheet.paste(cells, (0, y)); y += cells.height
-    label(d, (8, y + 8), "Lit Floor 1 at 1x and x3: Carl (52) facing idle, tell, swing, hurt and knockback (all facing him).")
+    for b in blocks:
+        sheet.paste(b, (0, y)); y += b.height
+    label(d, (8, y + 8), "Lit Floor 1 at 1x and x3: Carl (52) facing A tell, A swing, B hurt, A knockback, B walk, A idle, B down.")
     y += 30
     sheet.paste(crop1, (16, y)); y += crop1.height + 12
     sheet.paste(crop3, (16, y))
@@ -274,7 +291,7 @@ def main(argv: list[str] | None = None) -> int:
     carl_frames, carl_piv, _ = grid_frames(CARL)
     donut_frames, donut_piv, _ = grid_frames(DONUT)
     study = grid_frames(GOBLIN_STUDY)
-    keys = grid_frames(GOBLIN_KEYS)
+    keys = {v: grid_frames(p) for v, p in GOBLIN_KEYS.items()}
     carl = (carl_frames[0], carl_piv)
     donut = (donut_frames[0], donut_piv)
     floor = Floor()
@@ -300,19 +317,19 @@ def main(argv: list[str] | None = None) -> int:
         scenes3[h] = Image.open(out / f"floor01_size_h{h}_1920x1080.png").convert("RGB")
     lineup = base + [(*flip(img, study[1]), x, 0) for img, x in zip(study[0], LINEUP_X)]
     both(lineup, "floor01_lineup")
-    key_entries = base[1:] + [(*flip(img, keys[1]), x, KNOCK_LIFT if i == 4 else 0)
-                              for i, (img, x) in enumerate(zip(keys[0], KEYS_X))]
+    key_entries = base[1:] + [(*flip(keys[v][0][ATLAS.index(a)], keys[v][1]), x, AIRBORNE.get(a, 0))
+                              for v, a, x in KEY_SCENE]
     scene_keys = both(key_entries, "floor01_keys")
 
     save(size_sheet(carl, donut, study, scenes3, floor), "size_study_sheet.png")
-    save(key_sheet(keys, carl, scene_keys, floor), "key_pose_sheet.png")
+    save(key_sheet(keys, scene_keys, floor), "key_pose_sheet.png")
 
     carl_h = bbox_info(carl[0])["opaque_height"]
     measurements = {
         "note": "Composed review renders (A1 lighting via scripts/env_kit_light.py), not Bevy captures.",
         "reference": {"carl_h52_idle": bbox_info(carl[0]), "donut_h40_idle": bbox_info(donut[0])},
         "size_options": {},
-        "keys_variant_a_h36": {},
+        "keys_h36": {"A": {}, "B": {}},
         "files": {},
     }
     for img, h in zip(study[0], HEIGHTS):
@@ -320,8 +337,9 @@ def main(argv: list[str] | None = None) -> int:
         info["ratio_to_carl"] = round(info["opaque_height"] / carl_h, 3)
         info["implied_feet_if_carl_is_6ft"] = round(6 * info["opaque_height"] / carl_h, 2)
         measurements["size_options"][f"h{h}"] = info
-    for label_, img in zip(KEY_LABELS, keys[0]):
-        measurements["keys_variant_a_h36"][label_] = bbox_info(img)
+    for v in ("A", "B"):
+        for a, img in zip(ATLAS, keys[v][0]):
+            measurements["keys_h36"][v][f"{a:02d} {KEY_LABELS[a]}"] = bbox_info(img)
     for path in written:
         measurements["files"][path.name] = sha(path)
     mpath = out / "measurements.json"
