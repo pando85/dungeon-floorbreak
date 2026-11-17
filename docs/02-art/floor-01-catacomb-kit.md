@@ -206,6 +206,8 @@ Measured on the lit 640×360 frame (`measurements.json`), with the A1 frame and 
 
 ## ENV-02 follow-ups (listed, not built)
 
+The opening-route pieces (chase passage, CP-03 breakable, guild exit) are designed in the [ENV-02 spec](env-02-opening-spec.md) as an `extends` contract on this kit; the items below remain open.
+
 - More brick panel variants and an extra pool size if Bevy shows visible repetition.
 - Pier and arch variants for adjacent bays (a shared double-jamb pier).
 - Bevy capture with the real lighting pass (COMP-01), 4K and Deck hardware checks.

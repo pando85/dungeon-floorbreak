@@ -864,7 +864,11 @@ class EnvKitTests(unittest.TestCase):
 
     # ---- layout discovery ------------------------------------------------
     def test_find_layouts_finds_the_committed_layout(self) -> None:
-        self.assertEqual([p.relative_to(ROOT).as_posix() for p in ek.find_layouts()], [LAYOUT])
+        self.assertEqual([p.relative_to(ROOT).as_posix() for p in ek.find_layouts()], [
+            LAYOUT,
+            "assets/levels/floor01/opening_route_proposal.json",            # ENV-02 proposal
+            "assets/levels/floor01/opening_route_proposal_ceiling_t.json",  # ENV-02 option T
+        ])
 
     def test_find_layouts_fails_on_unparsable_and_unknown_versions(self) -> None:
         cases = {"broken.json": "{not json",

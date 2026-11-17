@@ -1,0 +1,72 @@
+{
+  "format": "env02-design-evidence-v1",
+  "note": "Pillow art preview with the ENV-01 lighting model on exported atlases; not a Bevy capture and not gameplay evidence.",
+  "layouts": [
+    "assets/levels/floor01/opening_route_proposal.json",
+    "assets/levels/floor01/opening_route_proposal_ceiling_t.json"
+  ],
+  "readability_s5_640x360": {
+    "carl_h52": {
+      "actor_mean_L": 39.5,
+      "surround_mean_L": 26.0,
+      "delta_L": 13.5,
+      "luminance_contrast_ratio": 2.15,
+      "silhouette_edge_mean_abs_dL": 17.0,
+      "edge_samples": 240
+    },
+    "donut_h40": {
+      "actor_mean_L": 48.8,
+      "surround_mean_L": 28.4,
+      "delta_L": 20.3,
+      "luminance_contrast_ratio": 2.84,
+      "silhouette_edge_mean_abs_dL": 29.3,
+      "edge_samples": 234
+    },
+    "goblin_a": {
+      "actor_mean_L": 28.4,
+      "surround_mean_L": 25.3,
+      "delta_L": 3.1,
+      "luminance_contrast_ratio": 1.52,
+      "silhouette_edge_mean_abs_dL": 18.7,
+      "edge_samples": 385
+    },
+    "goblin_b": {
+      "actor_mean_L": 26.6,
+      "surround_mean_L": 29.7,
+      "delta_L": -3.0,
+      "luminance_contrast_ratio": 1.16,
+      "silhouette_edge_mean_abs_dL": 19.7,
+      "edge_samples": 363
+    },
+    "goblin_a_2": {
+      "actor_mean_L": 29.4,
+      "surround_mean_L": 32.0,
+      "delta_L": -2.6,
+      "luminance_contrast_ratio": 1.21,
+      "silhouette_edge_mean_abs_dL": 23.7,
+      "edge_samples": 266
+    }
+  },
+  "atlas_colours": {
+    "floor01_opening_props": 33,
+    "floor01_opening_decal": 14,
+    "floor01_guild": 32
+  },
+  "lit_colours_s5_640x360": 4825,
+  "files": [
+    "env02_key_sheet_1x.png",
+    "env02_key_sheet_3x.png",
+    "env02_route_plan_unlit.png",
+    "env02_ceiling_options_unlit_2x.png",
+    "env02_lit_s5_skirmish_640x360.png",
+    "env02_lit_s5_skirmish_1920x1080.png",
+    "env02_lit_s4_widened_640x360.png",
+    "env02_lit_s4_widened_1920x1080.png",
+    "env02_lit_s3_chase_option_R_640x360.png",
+    "env02_lit_s3_chase_option_T_640x360.png",
+    "env02_lit_s6_guild_closed_640x360.png",
+    "env02_lit_s6_guild_open_640x360.png",
+    "env02_lit_s6_guild_open_1920x1080.png",
+    "env02_cp03_state_sequence_lit_2x.png"
+  ]
+}

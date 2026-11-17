@@ -136,10 +136,48 @@ class Kit:
         return self._crops[key]
 
 
+# An extension contract (``extends``) inherits these from its base and must not redeclare
+# them: one palette, one layer stack, one coordinate system and one walking-line rule.
+INHERITED_KEYS = ("palette_id", "palette", "palette_policy", "tile_size", "coordinate_system",
+                  "layers", "actor_draw_order", "actor_light_group", "roles", "walk_line", "lighting")
+
+
+def resolve_extends(contract: dict, path: Path, chain: tuple[Path, ...] = ()) -> dict:
+    """Merge an ``extends`` contract onto its base (recursively).
+
+    The extension adds atlases, tiles and pieces (ids and atlas names must be new) and may
+    override descriptive fields (kit_id, status, usage_rules, ...). The base contract file is
+    never modified; layouts that name the base keep validating against the base alone."""
+    base_ref = contract.get("extends")
+    if base_ref is None:
+        return contract
+    check(path not in chain, f"contract extends cycle through {path}")
+    base_path = repo_path(base_ref).resolve()
+    check(base_path != path, f"contract {path} extends itself")
+    base = load_json(base_path)
+    check_format(base, CONTRACT_FORMAT, f"base contract {base_ref}")
+    base = resolve_extends(base, base_path, chain + (path,))
+    redeclared = [k for k in INHERITED_KEYS if k in contract]
+    check(not redeclared, f"extension contract redeclares inherited field(s) {redeclared}; "
+          "palette, layers, coordinates, walking line and lighting come from the base")
+    merged = dict(base)
+    for key, value in contract.items():
+        if key not in ("atlases", "tiles", "pieces"):
+            merged[key] = value
+    clash = sorted(set(base.get("atlases", {})) & set(contract.get("atlases", {})))
+    check(not clash, f"extension contract redefines base atlas(es) {clash}")
+    merged["atlases"] = {**base.get("atlases", {}), **contract.get("atlases", {})}
+    merged["tiles"] = list(base.get("tiles", [])) + list(contract.get("tiles", []))
+    merged["pieces"] = list(base.get("pieces", [])) + list(contract.get("pieces", []))
+    merged["extends_chain"] = [base_ref] + list(base.get("extends_chain", []))
+    return merged
+
+
 def load_kit(contract_path: str | Path, load_grids: bool = True) -> Kit:
     resolved = (contract_path if isinstance(contract_path, Path) else repo_path(contract_path)).resolve()
     contract = load_json(resolved)
     check_format(contract, CONTRACT_FORMAT, "contract")
+    contract = resolve_extends(contract, resolved)
     atlases = {}
     for name, ref in contract.get("atlases", {}).items():
         manifest = load_json(ref["manifest"])
