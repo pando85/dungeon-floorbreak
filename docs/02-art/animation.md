@@ -47,4 +47,4 @@ Source-of-truth metadata (JSON per animation tag) contains `tag`, `direction`, `
 
 ## Carl locomotion candidate (ANIM-CARL-01)
 
-Draft, awaiting owner art review: [carl-locomotion-anim-01.md](carl-locomotion-anim-01.md). Pipeline note for integration: locomotion atlases may use a wider frame than the idle master as long as the pivot keeps the same foot-relative position (Carl: 36x56 / pivot 19,55 padded to 48x56 / pivot 25,55). Grounded tags keep the lowest opaque row on the pivot row; airborne tags keep the pivot on the physics foot line and may draw the feet above it. Loop / once / hold playback is recorded per tag in the manifest.
+Owner-approved 2026-11-17 (not yet integrated into Bevy): [carl-locomotion-anim-01.md](carl-locomotion-anim-01.md). Pipeline note for integration: locomotion atlases may use a wider frame than the idle master as long as the pivot keeps the same foot-relative position (Carl: 36x56 / pivot 19,55 padded to 48x56 / pivot 25,55). Grounded tags keep the lowest opaque row on the pivot row; airborne tags keep the pivot on the physics foot line and may draw the feet above it. Loop / once / hold playback is recorded per tag in the manifest.

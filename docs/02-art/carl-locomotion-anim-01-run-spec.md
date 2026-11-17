@@ -1,6 +1,6 @@
 # ANIM-CARL-01 run, round 2: design spec for the execution agent
 
-**Status:** design by Claude Opus (round 2, after the independent Opus review of PR #34). Execution by Claude Sonnet, followed by a separate Opus review. Draft, awaiting owner art review. Execution done by Claude Sonnet (see section 9); review pending an independent Opus pass. This spec supersedes the run section ("Run speed and foot slip") of [carl-locomotion-anim-01.md](carl-locomotion-anim-01.md). Jump, land and idle are unchanged and passed review.
+**Status:** design by Claude Opus (round 2, after the independent Opus review of PR #34). Execution by Claude Sonnet, followed by a separate Opus review. Owner-approved 2026-11-17. Execution done by Claude Sonnet (see section 9); review pending an independent Opus pass. This spec supersedes the run section ("Run speed and foot slip") of [carl-locomotion-anim-01.md](carl-locomotion-anim-01.md). Jump, land and idle are unchanged and passed review.
 
 Source: `assets/source/characters/carl/carl_h52_locomotion.grid.json` (frames 4-9 = `run`). Canvas 48 x 56, pivot (25, 55), contact row 55. All coordinates below are canvas pixels, x right, y down.
 
