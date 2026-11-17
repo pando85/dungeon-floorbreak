@@ -2,7 +2,7 @@
 
 ## Operating principle
 
-Code is created by local agents; a human sets priorities and evaluates play feel, design coherence and public-release decisions. Use one explicit work order per PR. An agent may use tools/models suited to coding or art, but the engineering contract is model-neutral; art work follows the Opus design, Sonnet execution, Opus review pipeline in [AGENTS.md](../../AGENTS.md#model-routing-for-art-work).
+Code is created by local agents; a human sets priorities and evaluates play feel, design coherence and public-release decisions. Use one explicit work order per PR. An agent may use tools/models suited to coding or art, but the engineering contract is model-neutral; art work follows the Opus design, Sonnet execution, Opus review pipeline in [AGENTS.md](../../AGENTS.md#model-routing-for-art-work). Orchestration rules for any tool (model tiers, briefs, reports, CI waiting, reviews, top-tier budget) live in [agent-orchestration.md](agent-orchestration.md).
 
 ## Prompt template
 
