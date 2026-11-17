@@ -115,21 +115,26 @@ The fixed 60 Hz tick drives everything simulated: hero, Donut and camera; torch 
 ```text
  idle  <-- moving / stopped -->  run            instant; run restarts on its first frame
 
- grounded -> airborne, vy > 0    jump_start (once, shown from the impulse tick)
+ grounded -> airborne, vy > 0    jump_start (once; starts on its toe-off frame 11 on the impulse tick)
                                    --> jump_rise (hold while vy > 0)
                                    <-> jump_fall (hold while vy <= 0; the switch is the apex)
  grounded -> airborne, vy <= 0   jump_fall (walked off a ledge: no jump_start)
+ jump while airborne (coyote)    jump_fall -> jump_rise, no jump_start (intended: already up)
  airborne -> grounded            land (once) --> idle, or run when moving
-                                   run cuts land short once the impact frame has played
+                                   run cuts land short on the tick the impact frame ends
  jump while grounded             interrupts land (takeoff always wins)
+ run, speed measured 0           held on its frame for 5 ticks, idle on the 6th (stall hold)
 ```
 
-Inputs per fixed tick, derived from the finished simulation state (`scene_anim`): `grounded`, `vx`, `vy`. A grounded actor is "moving" above 0.1 px/s (the hero's facing threshold). Rules:
+Inputs per fixed tick, derived from the finished simulation state (`scene_anim`): `grounded`, `vx`, `vy`. A grounded actor is "moving" above 0.1 px/s (the hero's facing threshold). `vx` is the **measured** speed (displacement per tick times 60), not the commanded one. Rules:
 
-- **No jump delay.** The jump impulse happens on the same tick as before. `jump_start` starts on that tick and plays its two frames (crouch 50 ms, takeoff 70 ms) on top of the takeoff, then `jump_rise` or `jump_fall` follows by the sign of `vy`. It is never cut short by an early apex (a ceiling bonk): it finishes, then falls.
+- **No jump delay.** The jump impulse happens on the same tick as before. `jump_start` starts on that tick **on its toe-off frame (atlas frame 11, 70 ms)** on top of the takeoff, then `jump_rise` or `jump_fall` follows by the sign of `vy` (`JUMP_START_TAKEOFF_FRAME = 1`). The anticipation crouch (frame 10, 50 ms) is never shown on a takeoff: the impulse leaves no grounded tick to show it on, and in the air it popped the pose (7 to 21 px up for 3 ticks, then the head jumped 11 px). It stays in the atlas for a future grounded anticipation. It is never cut short by an early apex (a ceiling bonk): it finishes, then falls.
+- **Coyote jump.** A jump from the air right after a walk-off goes `jump_fall` to `jump_rise` with no `jump_start` (intended: the actor is already off the ground; tested).
 - **Rise and fall are held frames** chosen by the sign of `vy` every tick; the apex tick is the first tick with `vy <= 0`.
-- **Land plays once on touchdown** (impact 80 ms, recovery 100 ms for Carl; 80 and 110 ms for Donut). If the actor is **moving**, `run` may cut the landing short as soon as the impact frame has finished (`LAND_CUT_AFTER_FRAMES = 1`): at 60 Hz the impact frame shows for 5 ticks, the recovery frame appears for 1 tick, then run. A standing actor plays the whole landing (11 ticks) and goes to idle. A new jump interrupts the landing at any time.
+- **Land plays once on touchdown** (impact 80 ms, recovery 100 ms for Carl; 80 and 110 ms for Donut). If the actor is **moving**, `run` cuts the landing short on the tick the impact frame ends (`LAND_CUT_AFTER_FRAMES = 1`, applied inside the frame advance): at 60 Hz the impact frame shows for 5 ticks and run shows on the 6th; the recovery frame is never shown for a single tick. A standing actor plays the whole landing (11 ticks) and goes to idle. A new jump interrupts the landing at any time.
 - **Entering a state shows its first frame on the same tick**; time accumulates on later ticks. Idle restarts from its first frame after run or land (idle durations are the authored 420/260/560/260 ms for Carl and 320/260/180/260 ms for Donut, so the two actors do not blink in sync).
+- **Stall hold** (`scene_anim::STALL_HOLD_TICKS = 6`). When a running actor's measured speed drops to zero, the run frame is held (no time passes, no restart) for 5 ticks and the 6th consecutive still tick shows idle. Donut's trail stalls for 1 to 3 ticks when Carl jumps a step or presses into a wall, and each flash of the taller idle pose restarted her run at frame 0. An intentional stop (stick released) has no hold for Carl: idle on the first still tick. Donut cannot tell the difference, so she goes idle 5 ticks (83 ms) after Carl stops.
+- **Walls.** Carl's animation speed is his displacement, so pushing into a wall shows run for 5 ticks and then idle, not a run in place. The simulation is untouched (`vx` stays commanded; only the animation input is derived differently).
 - After the exit arch is reached the simulation stops; both actors see zero speed and settle into idle.
 
 ### Clock and timing
@@ -160,24 +165,30 @@ Every frame, grounded or airborne, is drawn with its pivot at the physics foot p
 
 ### Donut
 
-She stays the passive trail follower, 32 px behind on Carl's path, and may overlap or pass through him. Her animation is derived from her own trail motion, not from Carl's state: `vx`, `vy` are the differences between her consecutive trail positions (x and foot height) times 60, and she is airborne when her foot is more than 0.25 px above the floor under her (the highest intact solid top below her foot at her x). She therefore starts running on the tick Carl does, takes off about 10 ticks after him (32 px at 185 px/s) and lands where he landed.
+She stays the passive trail follower, 32 px behind on Carl's path, and may overlap or pass through him. Her animation is derived from her own trail motion, not from Carl's state: `vx`, `vy` are the differences between her consecutive trail positions (x and foot height) times 60, and she is airborne when her foot is more than 0.25 px above the floor under her (the highest intact solid top below her foot at her x). She therefore starts running on the tick Carl does, takes off about 10 ticks after him (32 px at 185 px/s) and lands where he landed. Brief trail stalls are bridged by the stall hold above.
 
 ### Tests and evidence
 
-- `anim::tests` (state machine, headless, data read from the committed manifests and grids): `clips_come_from_the_manifest_and_the_grid_source`, `run_pacing_matches_the_specs_at_the_documented_speeds` (0, 145, 185 px/s and Donut's rule), `idle_loops_with_the_authored_durations`, `idle_and_run_switch_on_the_move_threshold`, `run_frames_follow_the_speed_linked_time_and_loop`, `takeoff_starts_jump_start_on_the_same_tick_then_rises_then_falls`, `jump_start_is_not_cut_by_an_early_apex_but_hands_over_by_velocity`, `walking_off_a_ledge_goes_straight_to_fall`, `touchdown_plays_land_once_then_idles`, `running_cuts_land_short_only_after_the_impact_frame`, `a_new_jump_interrupts_land`, `the_same_input_trace_gives_the_same_frame_sequence`.
-- `scene_anim::tests` (the real corridor world): `run_jump_plays_every_carl_state_in_order`, `carl_takes_off_on_the_impulse_tick_and_turns_at_the_apex`, `running_land_is_cut_into_run_but_the_standing_one_plays_out`, `donut_derives_her_own_states_from_her_trail`, **`animation_does_not_change_the_simulation`** (the state hash is equal on every tick with and without animation, for four scenarios), `the_frame_sequence_is_deterministic`.
+- `anim::tests` (state machine, headless, data read from the committed manifests and grids): `clips_come_from_the_manifest_and_the_grid_source`, `run_pacing_matches_the_specs_at_the_documented_speeds` (0, 145, 185 px/s and Donut's rule), `the_anticipation_crouch_is_never_shown_on_a_takeoff`, `a_coyote_jump_after_a_walk_off_has_no_jump_start`, `hold_run_freezes_a_grounded_run_and_does_nothing_otherwise`, `idle_loops_with_the_authored_durations`, `idle_and_run_switch_on_the_move_threshold`, `run_frames_follow_the_speed_linked_time_and_loop`, `takeoff_starts_jump_start_on_the_same_tick_then_rises_then_falls`, `jump_start_is_not_cut_by_an_early_apex_but_hands_over_by_velocity`, `walking_off_a_ledge_goes_straight_to_fall`, `touchdown_plays_land_once_then_idles`, `running_cuts_land_short_only_after_the_impact_frame`, `a_new_jump_interrupts_land`, `the_same_input_trace_gives_the_same_frame_sequence`.
+- `scene_anim::tests` (the real corridor world): `run_jump_plays_every_carl_state_in_order`, `carl_takes_off_on_the_impulse_tick_and_turns_at_the_apex`, `running_land_is_cut_into_run_but_the_standing_one_plays_out`, `donut_derives_her_own_states_from_her_trail`, `donut_keeps_running_through_one_tick_trail_stalls` (run_jump t41, walk_right t11), `donut_keeps_running_through_a_three_tick_stall_and_idles_after_six` (walk_right t468-470), `carl_pushing_into_a_wall_settles_into_idle_after_the_stall_hold`, `the_stall_filter_holds_for_five_ticks_and_idles_on_the_sixth`, **`animation_does_not_change_the_simulation`** (the state hash is equal on every tick with and without animation, for four scenarios), `the_frame_sequence_is_deterministic`.
 - `actor_sprite::tests`: placement, flip asymmetry for the new canvases, no snapping when airborne, shadow footprint.
-- CI (`floor01-scene.yml`): the contract checker pins both locomotion atlases (16 frames, six tags in order, grounded frames on the pivot row, no frame below it); every frozen and live render step also compares `FLOOR1_ANIM_STATE` with the headless run; the `anim-sequence` mode captures 81 real 1920 x 1080 Bevy frames of the `run_jump` scenario (ticks 142, 145, ... 382), checks the final state against the headless run, builds the evidence with `scripts/make_anim_int_evidence.py` and requires the committed `anim_trace.txt` and `capture_log.txt` to be reproduced byte for byte.
-- Evidence: [`docs/evidence/anim-int-01/`](../evidence/anim-int-01/README.md) (GIF, key stills, owner timeline diagram, state logs, `SHA256SUMS`).
+- CI (`floor01-scene.yml`): the contract checker pins both locomotion atlases (16 frames, six tags in order, grounded frames on the pivot row, no frame below it); the exported atlas JSON must equal the committed grid sources (`REQUIRE_EXPORTED_ATLAS=1`: a missing export fails that test instead of skipping it); every frozen and live render step also compares `FLOOR1_ANIM_STATE` with the headless run; the `anim-sequence` mode captures 81 real 1920 x 1080 Bevy frames of the `run_jump` scenario (ticks 142, 145, ... 382), checks the final state against the headless run, builds the evidence with `scripts/make_anim_int_evidence.py` and also captures per-tick strips around a takeoff and a landing, and requires the committed `anim_trace.txt` and the `capture_log*.txt` files to be reproduced byte for byte.
+- Evidence: [`docs/evidence/anim-int-01/`](../evidence/anim-int-01/README.md) (GIF, key stills, per-tick takeoff and landing strips, owner timeline diagram, state logs, `SHA256SUMS`).
 
 ### Known gaps
 
-1. The crouch frame of `jump_start` shows on the impulse tick, so for 3 ticks (50 ms, about 21 px of rise) a crouched pose is already off the floor. The physics must not wait, so a visible anticipation on the ground is impossible; skipping frame 10 (play the takeoff frame only) is the obvious alternative and a small change in `Animator` for the playtest.
-2. The contact shadow does not follow the width of the stretched frames (see Placement).
-3. Carl keeps "running" in place while pushing into a wall (his `vx` is non-zero); Donut then stands, because her trail does not advance.
+1. **Donut's hop onto a platform is not smooth.** `corridor.rs::record_trail` collapses vertical-only trail samples, so when Carl jumps a step at a wall (run_jump ticks 91-96) her replayed foot height jumps about 19 px in one tick (92, 96.9, 116.1, 122.1, 127.8, 133.2) and sits above the 108 px platform top, then snaps to 108 on touchdown. With the takeoff fix she shows `jump_start` frame 11 for that whole hop (no crouch), which reads as a hold rather than a pop, but the snap down is still visible. The cause is in the simulation trail, which this PR does not change; a later change to the trail (or a presentation-side smoothing of her foot height) must fix it.
+2. **Donut's stop lags Carl's by 5 ticks (83 ms)** because of the stall hold (see above).
+3. **Coyote jump:** walk-off then jump shows `jump_fall` then `jump_rise` with no `jump_start`; documented as intended, not a defect.
 4. No walk cycle exists for Donut below about 114 px/s, so a slow analogue stick shows a slow run (130 ms cap) whose paws drift backwards.
 5. Frame times and the land cut rule are first choices, never played by a human.
-6. Character Playground still uses the old idle atlases.
+
+### Follow-ups (deferred, not in this PR)
+
+- **Per-tag Donut shadow footprint** (review item F3). The contact shadow keeps the old idle footprint (46 px, pivot column 22), but her run and rise frames extend 10 to 16 px behind it, so the shadow does not follow her stretched body. It needs a per-tag footprint in `ActorSpec` and a lighting comparison, so it was left out to keep the lighting byte-identical.
+- Switch the Character Playground to the locomotion atlases and this state machine.
+- Smooth Donut's foot height on step hops (gap 1).
+- Grounded anticipation (frame 10) for a charged jump, if the design ever needs one.
 
 ## Lighting (COMP-02)
 

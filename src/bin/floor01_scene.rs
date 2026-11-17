@@ -1255,6 +1255,15 @@ fn watchdog(
 /// and the most frames to wait for the file to appear.
 const CAPTURE_SETTLE_FRAMES: u32 = 4;
 const CAPTURE_TIMEOUT_FRAMES: u32 = 900;
+/// Frames the saved file must keep its size before the next step.
+const CAPTURE_STABLE_FRAMES: u32 = 2;
+
+#[derive(Debug, Default)]
+struct PendingFile {
+    waited: u32,
+    last_len: u64,
+    stable: u32,
+}
 
 #[derive(Debug)]
 enum CapturePhase {
@@ -1263,7 +1272,7 @@ enum CapturePhase {
     /// Frames left before the next screenshot request.
     Settle(u32),
     /// Requested; waiting for the file, with the frames waited so far.
-    Pending(PathBuf, u32),
+    Pending(PathBuf, PendingFile),
 }
 
 /// `--capture-sequence`: step the scenario by hand in the real render loop and
@@ -1326,18 +1335,28 @@ fn capture_sequence(
             commands
                 .spawn(Screenshot::primary_window())
                 .observe(save_to_disk(path.clone()));
-            CapturePhase::Pending(path, 0)
+            CapturePhase::Pending(path, PendingFile::default())
         }
-        CapturePhase::Pending(path, waited) => {
-            if !std::fs::metadata(&path).is_ok_and(|m| m.len() > 0) {
-                if waited > CAPTURE_TIMEOUT_FRAMES {
+        CapturePhase::Pending(path, mut file) => {
+            // The file must exist, be non-empty and keep the same size for
+            // CAPTURE_STABLE_FRAMES frames, so a still-growing PNG is not read.
+            let len = std::fs::metadata(&path).map_or(0, |m| m.len());
+            if len > 0 && len == file.last_len {
+                file.stable += 1;
+            } else {
+                file.stable = 0;
+            }
+            file.last_len = len;
+            if file.stable < CAPTURE_STABLE_FRAMES {
+                file.waited += 1;
+                if file.waited > CAPTURE_TIMEOUT_FRAMES {
                     fail(
                         &mut exit,
                         &format!("screenshot {} was never written", path.display()),
                     );
                     return;
                 }
-                seq.phase = CapturePhase::Pending(path, waited + 1);
+                seq.phase = CapturePhase::Pending(path, file);
                 return;
             }
             println!(

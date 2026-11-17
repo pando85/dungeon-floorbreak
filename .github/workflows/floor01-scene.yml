@@ -58,6 +58,10 @@ jobs:
         run: bash scripts/export_assets.sh
       - name: Check actor pivots, kit atlases and layout against the contract
         run: python3 scripts/check_floor01_scene_contract.py
+      - name: Exported atlas JSON must equal the committed grid sources (fails instead of skipping)
+        env:
+          REQUIRE_EXPORTED_ATLAS: '1'
+        run: cargo test --locked --lib exported_atlas_json_matches_the_grid_source_when_present
       - name: Negative tests for the scene contract checker
         run: python3 -m unittest discover -s tests -p 'test_floor01_scene_*.py' -v
       - name: Compile the Floor 1 scene
@@ -101,11 +105,15 @@ jobs:
             --frames artifacts/anim-int-01/frames \
             --log artifacts/floor01-scene-anim-sequence-1920x1080.log \
             --trace artifacts/anim-int-01/anim_trace_full.txt \
-            --out artifacts/anim-int-01/evidence
+            --out artifacts/anim-int-01/evidence \
+            --strip takeoff=artifacts/anim-int-01/frames_takeoff:artifacts/anim-int-01/strip_takeoff.log \
+            --strip landing=artifacts/anim-int-01/frames_landing:artifacts/anim-int-01/strip_landing.log
           # The per-tick animation trace and the per-capture state lines are
           # deterministic: this runner must reproduce the committed ones exactly.
           diff docs/evidence/anim-int-01/anim_trace.txt artifacts/anim-int-01/evidence/anim_trace.txt
           diff docs/evidence/anim-int-01/capture_log.txt artifacts/anim-int-01/evidence/capture_log.txt
+          diff docs/evidence/anim-int-01/capture_log_strip_takeoff.txt artifacts/anim-int-01/evidence/capture_log_strip_takeoff.txt
+          diff docs/evidence/anim-int-01/capture_log_strip_landing.txt artifacts/anim-int-01/evidence/capture_log_strip_landing.txt
       - name: Frame-interval probe, lighting on (software Vulkan, report only)
         continue-on-error: true
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh perf-lit

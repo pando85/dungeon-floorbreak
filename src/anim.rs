@@ -24,10 +24,14 @@
 //! ```text
 //!   idle <-- moving / stopped --> run          (instant, run restarts at frame 0)
 //!
-//!   grounded -> airborne, vy > 0   : jump_start (once, on the impulse tick)
+//!   grounded -> airborne, vy > 0   : jump_start (once, on the impulse tick,
+//!                                      starting at its toe-off frame)
 //!                                      --> jump_rise (hold, while vy > 0)
 //!                                      <-> jump_fall (hold, vy <= 0; the apex)
-//!   grounded -> airborne, vy <= 0  : jump_fall   (walked off a ledge)
+//!   grounded -> airborne, vy <= 0  : jump_fall   (walked off a ledge; a jump
+//!                                      from the air, such as a coyote jump,
+//!                                      goes jump_fall -> jump_rise and has no
+//!                                      jump_start: the actor is already up)
 //!   airborne -> grounded           : land (once)
 //!                                      --> idle, or run when moving
 //!                                      run may cut land short once the impact
@@ -47,7 +51,16 @@ pub const UNITS_PER_MS: u64 = 60;
 pub const MOVE_THRESHOLD_PX_S: f32 = 0.1;
 /// `land` may be cut short by `run` once this many of its frames have played
 /// (the impact frame): a running actor does not stand through the recovery.
+/// The cut happens on the tick the impact frame ends, so the recovery frame
+/// never flashes for one tick between the impact and the run.
 pub const LAND_CUT_AFTER_FRAMES: usize = 1;
+/// Frame of `jump_start` shown on a jump takeoff. The jump impulse applies on
+/// the tick the actor leaves the ground, so the anticipation crouch (frame 0,
+/// grounded art) can never be shown on the floor; showing it in the air popped
+/// the pose. A takeoff therefore starts on the toe-off frame (frame 1), per the
+/// art notes ("leaving the ground gives jump_start frame 11"). Frame 0 stays in
+/// the atlas for a future grounded anticipation (for example a charged jump).
+pub const JUMP_START_TAKEOFF_FRAME: usize = 1;
 
 /// Carl: ground covered per run frame, in tenths of a pixel (8.0 px, the
 /// authored stride at 60 ms per frame, see the run spec).
@@ -329,6 +342,11 @@ impl RunPacing {
     /// Duration in ms of run frame `run_index` (0-based inside the run clip)
     /// at the given speed. A speed of 0 gives the slowest frame time.
     pub fn frame_ms(&self, run_index: usize, speed_milli: u64) -> u32 {
+        debug_assert!(
+            self.weights.is_empty() || run_index < self.weights.len(),
+            "run frame {run_index} has no weight (table has {})",
+            self.weights.len()
+        );
         if speed_milli == 0 {
             return self.max_ms;
         }
@@ -433,14 +451,30 @@ impl Animator {
             (_, false) => self.airborne_target(input.vy),
         };
         match target {
+            Some(Tag::JumpStart) if self.tag != Tag::JumpStart => {
+                self.enter_at(Tag::JumpStart, JUMP_START_TAKEOFF_FRAME)
+            }
             Some(tag) if tag != self.tag => self.enter(tag),
             _ => self.advance(input, moving),
         }
     }
 
+    /// Hold a running actor on its current run frame for this tick (no time
+    /// passes, nothing changes) when it is grounded and was grounded: the
+    /// caller uses this for a brief stall of the trail it derives the speed
+    /// from. Returns false (and does nothing) in any other state, in which case
+    /// the caller steps normally.
+    pub fn hold_run(&mut self, grounded: bool) -> bool {
+        self.tag == Tag::Run && grounded && self.was_grounded == Some(true)
+    }
+
     fn enter(&mut self, tag: Tag) {
+        self.enter_at(tag, 0);
+    }
+
+    fn enter_at(&mut self, tag: Tag, frame: usize) {
         self.tag = tag;
-        self.frame = 0;
+        self.frame = frame.min(self.clips.clip(tag).len() - 1);
         self.elapsed = 0;
     }
 
@@ -495,6 +529,12 @@ impl Animator {
             if self.frame + 1 < clip.len() {
                 self.elapsed -= duration;
                 self.frame += 1;
+                // A running actor leaves the landing on the tick the impact
+                // frame ends: the recovery frame is never shown for a tick.
+                if self.tag == Tag::Land && moving && self.frame >= LAND_CUT_AFTER_FRAMES {
+                    self.enter(Tag::Run);
+                    return;
+                }
                 continue;
             }
             match clip.playback {
@@ -613,7 +653,10 @@ mod tests {
 
     #[test]
     fn exported_atlas_json_matches_the_grid_source_when_present() {
-        // The export is gitignored: only compare when it exists.
+        // The export is gitignored: compare when it exists. With
+        // REQUIRE_EXPORTED_ATLAS=1 (set in the floor01-scene workflow after the
+        // export step) a missing export fails the test instead of skipping it.
+        let required = std::env::var_os("REQUIRE_EXPORTED_ATLAS").is_some_and(|v| v == "1");
         for (manifest, atlas, set) in [
             (
                 "assets/manifests/carl_book1_h52_locomotion.json",
@@ -627,7 +670,12 @@ mod tests {
             ),
         ] {
             let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(atlas);
-            let Ok(text) = std::fs::read_to_string(path) else {
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                assert!(
+                    !required,
+                    "{} is missing but REQUIRE_EXPORTED_ATLAS=1",
+                    path.display()
+                );
                 continue;
             };
             assert_eq!(
@@ -771,22 +819,19 @@ mod tests {
     fn takeoff_starts_jump_start_on_the_same_tick_then_rises_then_falls() {
         let mut a = carl_animator();
         drive(&mut a, ground(RUN_SPEED), 20);
-        // The impulse tick: left the ground with vy > 0.
+        // The impulse tick: left the ground with vy > 0. The toe-off frame
+        // shows at once; the anticipation crouch (frame 10) is never shown in
+        // the air.
         a.step(air(RUN_SPEED, 432.0));
         assert_eq!(
             (a.tag(), a.atlas_index()),
-            (Tag::JumpStart, 10),
-            "crouch on the takeoff tick"
+            (Tag::JumpStart, 11),
+            "toe-off on the takeoff tick"
         );
-        // 50 ms = 3 ticks on frame 10, then frame 11 for 70 ms = 4.2 ticks.
-        a.step(air(RUN_SPEED, 415.0));
-        a.step(air(RUN_SPEED, 397.0));
-        assert_eq!(a.atlas_index(), 10);
-        a.step(air(RUN_SPEED, 380.0));
-        assert_eq!(a.atlas_index(), 11);
-        drive(&mut a, air(RUN_SPEED, 300.0), 4);
+        // 70 ms = 4.2 ticks on frame 11.
+        drive(&mut a, air(RUN_SPEED, 400.0), 4);
         assert_eq!((a.tag(), a.atlas_index()), (Tag::JumpStart, 11));
-        a.step(air(RUN_SPEED, 280.0));
+        a.step(air(RUN_SPEED, 330.0));
         assert_eq!(
             (a.tag(), a.atlas_index()),
             (Tag::JumpRise, 12),
@@ -803,14 +848,70 @@ mod tests {
     }
 
     #[test]
+    fn the_anticipation_crouch_is_never_shown_on_a_takeoff() {
+        for set in [carl(), donut()] {
+            let pacing = if set.frame_size.0 == 48 {
+                CARL_RUN_PACING
+            } else {
+                DONUT_RUN_PACING
+            };
+            let mut a = Animator::new(set, pacing);
+            a.step(ground(0.0));
+            a.step(air(0.0, 440.0));
+            let mut shown = vec![a.atlas_index()];
+            for _ in 0..20 {
+                a.step(air(0.0, 300.0));
+                shown.push(a.atlas_index());
+            }
+            assert!(!shown.contains(&10), "{shown:?}");
+            assert_eq!(shown[0], 11);
+        }
+    }
+
+    #[test]
+    fn a_coyote_jump_after_a_walk_off_has_no_jump_start() {
+        // Walked off a ledge (fall), then jumped from the air within the coyote
+        // window: the actor is already up, so it goes fall -> rise directly.
+        let mut a = carl_animator();
+        drive(&mut a, ground(RUN_SPEED), 5);
+        a.step(air(RUN_SPEED, -17.5));
+        assert_eq!(a.tag(), Tag::JumpFall);
+        a.step(air(RUN_SPEED, 422.5));
+        assert_eq!((a.tag(), a.atlas_index()), (Tag::JumpRise, 12));
+        assert!(
+            !a.clips().clip(Tag::JumpStart).is_empty(),
+            "jump_start exists but is not used in the air"
+        );
+    }
+
+    #[test]
+    fn hold_run_freezes_a_grounded_run_and_does_nothing_otherwise() {
+        let mut a = carl_animator();
+        assert!(!a.hold_run(true), "idle is not held");
+        a.step(ground(RUN_SPEED));
+        drive(&mut a, ground(RUN_SPEED), 5);
+        let (frame, label) = (a.frame_in_clip(), a.label());
+        for _ in 0..100 {
+            assert!(a.hold_run(true));
+        }
+        assert_eq!((a.frame_in_clip(), a.label()), (frame, label));
+        assert!(!a.hold_run(false), "not grounded: step normally");
+        // Time did not pass while held: the next frame change comes on schedule.
+        a.step(ground(RUN_SPEED));
+        assert_eq!(a.tag(), Tag::Run);
+        a.step(ground(0.0));
+        assert_eq!(a.tag(), Tag::Idle);
+    }
+
+    #[test]
     fn jump_start_is_not_cut_by_an_early_apex_but_hands_over_by_velocity() {
         let mut a = carl_animator();
         a.step(ground(0.0));
         a.step(air(0.0, 440.0));
         assert_eq!(a.tag(), Tag::JumpStart);
-        // A ceiling bonk zeroes vy: jump_start keeps playing (120 ms = 7.2
+        // A ceiling bonk zeroes vy: jump_start keeps playing (70 ms = 4.2
         // ticks), then falls.
-        drive(&mut a, air(0.0, -10.0), 7);
+        drive(&mut a, air(0.0, -10.0), 4);
         assert_eq!(a.tag(), Tag::JumpStart);
         a.step(air(0.0, -10.0));
         assert_eq!((a.tag(), a.atlas_index()), (Tag::JumpFall, 13));
@@ -861,9 +962,8 @@ mod tests {
         // While the impact frame is still showing, run does not cut in.
         drive(&mut a, ground(RUN_SPEED), 4);
         assert_eq!((a.tag(), a.atlas_index()), (Tag::Land, 14));
-        // The recovery frame appears on tick 5; the next tick hands over to run.
-        a.step(ground(RUN_SPEED));
-        assert_eq!((a.tag(), a.atlas_index()), (Tag::Land, 15));
+        // On the tick the impact frame ends, run shows at once: the recovery
+        // frame never flashes for one tick.
         a.step(ground(RUN_SPEED));
         assert_eq!(
             (a.tag(), a.atlas_index()),
@@ -887,7 +987,7 @@ mod tests {
         a.step(ground(0.0));
         assert_eq!(a.tag(), Tag::Land);
         a.step(air(0.0, 432.0));
-        assert_eq!((a.tag(), a.atlas_index()), (Tag::JumpStart, 10));
+        assert_eq!((a.tag(), a.atlas_index()), (Tag::JumpStart, 11));
     }
 
     #[test]
@@ -905,12 +1005,12 @@ mod tests {
         let mut b = Animator::new(donut(), DONUT_RUN_PACING);
         b.step(ground(0.0));
         b.step(air(0.0, 100.0));
-        assert_eq!((b.tag(), b.atlas_index()), (Tag::JumpStart, 10));
-        // jump_start: 90 ms = 5.4 ticks on the crouch, then 70 ms.
-        drive(&mut b, air(0.0, 100.0), 5);
-        assert_eq!(b.atlas_index(), 10);
+        assert_eq!((b.tag(), b.atlas_index()), (Tag::JumpStart, 11));
+        // jump_start starts on the toe-off frame: 70 ms = 4.2 ticks, then rise.
+        drive(&mut b, air(0.0, 100.0), 4);
+        assert_eq!((b.tag(), b.atlas_index()), (Tag::JumpStart, 11));
         drive(&mut b, air(0.0, 100.0), 1);
-        assert_eq!(b.atlas_index(), 11);
+        assert_eq!((b.tag(), b.atlas_index()), (Tag::JumpRise, 12));
     }
 
     /// A fixed input trace covering every state.

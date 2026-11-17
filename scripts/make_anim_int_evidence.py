@@ -7,6 +7,8 @@ Inputs are produced by the floor01_scene binary:
       --capture-dir <frames> > <capture.log>
   floor01_scene --headless-floor01-smoke --scenario run_jump --capture-tick 382 \
       --anim-trace > <trace.txt>
+  floor01_scene --scale 3 --scenario run_jump --capture-sequence 168:1:15 \
+      --capture-dir <strip frames> > <strip.log>      (one per --strip)
 
 The capture log carries one `FLOOR1_CAPTURE` line per saved 1920x1080 window
 screenshot followed by its `FLOOR1_SCENE_STATE` and `FLOOR1_ANIM_STATE` lines.
@@ -21,7 +23,10 @@ Outputs (all deterministic for the same inputs, Pillow only):
   still_landing.png               the touchdown tick (land impact frame)
   timeline_run_jump.png           ticks on x: animation state and frame index per actor,
                                   height curves, markers for jump input, apex and touchdown
+  strip_<name>.png                per-tick contact strips (every tick, no sampling) around a
+                                  takeoff and a landing, from --strip captures
   capture_log.txt, anim_trace.txt the raw state lines the images were made from
+  capture_log_strip_<name>.txt    the state lines of each strip
   SHA256SUMS                      checksums of every file above
 """
 from __future__ import annotations
@@ -232,6 +237,43 @@ def build_gif(frames_dir: Path, captures: list[Capture], out: Path) -> None:
                    loop=0, optimize=False, disposal=1)
 
 
+# --------------------------------------------------------------------- strips --
+
+STRIP_COLUMNS = 4
+STRIP_CELL = (480, 460)          # crop of the 1920x1080 frame, 3x pixels
+STRIP_TOP = 440                  # crop rows 440..900 hold the floor and the apex region
+STRIP_LABEL_H = 38
+
+
+def build_strip(frames_dir: Path, captures: list[Capture], out: Path) -> None:
+    """Every captured tick as one cell: crop around Carl, tick and states above it."""
+    small = font(15)
+    cell_w, cell_h = STRIP_CELL
+    rows_n = (len(captures) + STRIP_COLUMNS - 1) // STRIP_COLUMNS
+    sheet = Image.new("RGB", (cell_w * STRIP_COLUMNS, (cell_h + STRIP_LABEL_H) * rows_n), BACKGROUND)
+    draw = ImageDraw.Draw(sheet)
+    for position, capture in enumerate(captures):
+        image = Image.open(frames_dir / capture.file).convert("RGB")
+        if image.size != (1920, 1080):
+            raise EvidenceError(f"{capture.file} is {image.size}, expected 1920x1080")
+        carl_x = round((capture.hero_x - capture.cam_left) * 3)
+        left = min(max(carl_x - 330, 0), 1920 - cell_w)
+        cell = image.crop((left, STRIP_TOP, left + cell_w, STRIP_TOP + cell_h))
+        x = (position % STRIP_COLUMNS) * cell_w
+        y = (position // STRIP_COLUMNS) * (cell_h + STRIP_LABEL_H)
+        sheet.paste(cell, (x, y + STRIP_LABEL_H))
+        draw.text((x + 6, y + 3), f"tick {capture.tick}", fill=FOREGROUND, font=small)
+        draw.text((x + 6, y + 20), f"Carl {capture.carl}   Donut {capture.donut}", fill=MUTED, font=small)
+        draw.rectangle((x, y, x + cell_w - 1, y + cell_h + STRIP_LABEL_H - 1), outline=(60, 64, 76))
+    sheet.save(out, optimize=True)
+
+
+def state_lines(text: str, directory: Path, name: str) -> str:
+    keep = ("FLOOR1_CAPTURE", "FLOOR1_SCENE_STATE", "FLOOR1_ANIM_STATE")
+    return "\n".join(line for line in text.splitlines() if line.startswith(keep)) \
+        .replace(str(directory), name) + "\n"
+
+
 # ------------------------------------------------------------------ timeline --
 
 def draw_timeline(rows: list[Row], first: int, last: int, markers: list[dict[str, int]],
@@ -395,9 +437,21 @@ def run(args: argparse.Namespace) -> None:
     draw_timeline(rows, first, last, [running, standing],
                   donut_events(rows, first, last), args.out / "timeline_run_jump.png")
     (args.out / "capture_log.txt").write_text(
-        "\n".join(line for line in log_text.splitlines()
-                  if line.startswith(("FLOOR1_CAPTURE", "FLOOR1_SCENE_STATE", "FLOOR1_ANIM_STATE")))
-        .replace(str(args.frames), "frames") + "\n", encoding="utf-8")
+        state_lines(log_text, args.frames, "frames"), encoding="utf-8")
+    for spec in args.strip or []:
+        name, _, rest = spec.partition("=")
+        directory, _, log_path = rest.partition(":")
+        if not (name and directory and log_path):
+            raise EvidenceError(f"--strip expects NAME=FRAMES_DIR:LOG, got {spec!r}")
+        strip_text = Path(log_path).read_text(encoding="utf-8")
+        strip_captures = parse_captures(strip_text)
+        check_log_against_trace(strip_captures, rows)
+        for capture in strip_captures:
+            if not (Path(directory) / capture.file).is_file():
+                raise EvidenceError(f"missing strip frame {capture.file}")
+        build_strip(Path(directory), strip_captures, args.out / f"strip_{name}.png")
+        (args.out / f"capture_log_strip_{name}.txt").write_text(
+            state_lines(strip_text, Path(directory), f"frames_{name}"), encoding="utf-8")
     (args.out / "anim_trace.txt").write_text(
         "\n".join(line for line in trace_text.splitlines()
                   if line.startswith(("FLOOR1_ANIM_TRACE", "FLOOR1_SCENE_STATE", "FLOOR1_ANIM_STATE")))
@@ -415,6 +469,8 @@ def main() -> int:
     parser.add_argument("--log", type=Path, required=True, help="stdout of the capture run")
     parser.add_argument("--trace", type=Path, required=True, help="stdout of the --anim-trace run")
     parser.add_argument("--out", type=Path, required=True, help="evidence output directory")
+    parser.add_argument("--strip", action="append", metavar="NAME=FRAMES_DIR:LOG",
+                        help="per-tick strip capture (repeatable), e.g. takeoff=dir:strip.log")
     try:
         run(parser.parse_args())
     except (EvidenceError, OSError, StopIteration) as error:

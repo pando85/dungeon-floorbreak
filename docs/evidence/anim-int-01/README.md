@@ -9,13 +9,15 @@ Real Bevy captures (not Pillow models) of the Floor 1 corridor scene playing the
 | File | Content |
 | --- | --- |
 | `run_jump_1080p.gif` | the whole run, 81 frames, one frame per 3 fixed ticks (50 ms, so it plays in real time), cropped to 1056 x 594 of the 1920x1080 window around the actors, with the tick and both actors' `tag:atlas frame` burned into the top bar |
-| `still_mid_run.png` | full 1920x1080 frame, tick 160: Carl `run:7`, Donut `run:6`, both on the floor |
-| `still_jump_start.png` | tick 172: the first captured tick after the impulse, Carl `jump_start:10` (crouch, already rising) and Donut still running |
+| `still_mid_run.png` | full 1920x1080 frame, tick 160: Carl `run:8`, Donut `run:7`, both on the floor |
+| `still_jump_start.png` | tick 172: the first captured tick after the impulse, Carl `jump_start:11` (the toe-off frame, already rising) and Donut still running |
+| `strip_takeoff.png` | **every tick** (168 to 182, no sampling) around the running takeoff: run, the impulse tick 171 with `jump_start:11`, hold, `jump_rise:12` from tick 176; no crouch in the air, no pop |
+| `strip_landing.png` | **every tick** (218 to 230) around the running landing: `land:14` on ticks 220 to 224, `run:4` on tick 225 (the cut), `land:15` never shown |
 | `still_apex.png` | tick 196, the apex tick of the running jump: Carl switches to `jump_fall:13`, Donut is still rising in `jump_rise:12` (she replays his path 10 ticks later) |
 | `still_landing.png` | tick 220, the touchdown tick: Carl `land:14` (impact) with the feet on the floor, Donut still falling |
 | `timeline_run_jump.png` | **for the owner:** ticks on the x axis (ticks 142 to 382), one bar per atlas frame with its index for Carl and Donut, colour per state, foot-height curves of both actors, markers for the jump input, the apex and the touchdown (Carl above, Donut below) |
 | `anim_trace.txt` | one `FLOOR1_ANIM_TRACE` row per simulated tick (0 to 382) from the headless run: hero position, velocity, grounded, and what each animator shows, plus the final state lines |
-| `capture_log.txt` | the `FLOOR1_CAPTURE`, `FLOOR1_SCENE_STATE` and `FLOOR1_ANIM_STATE` lines of the 81 captured frames |
+| `capture_log.txt`, `capture_log_strip_takeoff.txt`, `capture_log_strip_landing.txt` | the `FLOOR1_CAPTURE`, `FLOOR1_SCENE_STATE` and `FLOOR1_ANIM_STATE` lines of the 81 GIF frames and of the two strips |
 | `SHA256SUMS` | checksums |
 
 ## The scenario (`--scenario run_jump`)
@@ -24,18 +26,19 @@ Stand until tick 30, run right (the `walk_right` rule jumps the two low steps ne
 
 | Event | Tick | Carl | Donut |
 | --- | --- | --- | --- |
-| jump input applied (impulse tick) | 171 | `jump_start:10` on the same tick | still running |
-| Donut leaves the ground (32 px later at 185 px/s) | 181 | `jump_rise:12` | `jump_start:10` |
+| jump input applied (impulse tick) | 171 | `jump_start:11` on the same tick, `jump_rise:12` from tick 176 | still running |
+| Donut leaves the ground (32 px later at 185 px/s) | 181 | `jump_rise:12` | `jump_start:11`, `jump_rise:12` from tick 186 |
 | apex (first tick with `vy <= 0`) | 196 | `jump_fall:13` | `jump_rise:12` |
 | Donut's apex | 206 | `jump_fall:13` | `jump_fall:13` |
-| touchdown | 220 | `land:14` (impact), run again on tick 226 | `jump_fall:13` |
-| Donut touches down | 231 | `run` | `land:14`, run again on tick 237 |
-| stop | 261 | `idle:0` | `idle:0` |
-| standing jump: impulse / apex / touchdown | 291 / 316 / 340 | `jump_start:10` / `jump_fall:13` / `land:14`, idle from tick 351 | idle throughout (her trail does not move) |
+| touchdown | 220 | `land:14` (impact, 5 ticks), `run:4` on tick 225 | `jump_fall:13` |
+| Donut touches down | 231 | `run` | `land:14`, run again on tick 236 |
+| stop (stick released) | 261 | `idle:0` at once | still `run` (stall hold), `idle:0` on tick 266 |
+| standing jump: impulse / apex / touchdown | 291 / 316 / 340 | `jump_start:11` / `jump_fall:13` / `land:14`, idle from tick 351 | idle throughout (her trail does not move) |
 
 ## What was checked
 
 - **The simulation did not change.** `FLOOR1_SCENE_STATE` of `walk_right` at ticks 250 and 613, `turn_around` at 300 and `idle` at 100 are identical to the pre-change binary (hashes `931868d6afa56498`, `82b8f87fa644de48`, `75255221e2d2c9e9`, `fd9659435d2907c8`), the existing golden traces pass unchanged, and a unit test compares the state hash on every tick with and without animation. The `--reference-frame` capture is pixel-identical (0 differing pixels) to the pre-change binary, and the Pillow comparison gates still pass.
+- **Takeoff and landing, tick by tick.** The two strips show every tick. After the first review round the crouch frame is no longer shown in the air, the recovery frame no longer flashes for one tick when Carl lands running, and Donut no longer flashes idle on one- to three-tick trail stalls (unit tests pin run_jump t41, walk_right t11 and t468-470).
 - **Render and headless agree.** For all 81 captures the animation state the render printed equals the state of the headless trace at that tick (`make_anim_int_evidence.py` refuses to build otherwise), and CI requires the committed `anim_trace.txt` and `capture_log.txt` to be reproduced exactly.
 - **Frame times.** Carl runs at 43 ms per frame at 185 px/s (slip-free), Donut at 80/80/80/80/90/80 ms; see the scene doc for the formulas and constants.
 
@@ -54,7 +57,7 @@ The state logs are deterministic; the PNG and GIF pixels depend on the GPU and d
 
 ## Known gaps
 
-- The `jump_start` crouch frame shows on the impulse tick, so Carl is already 7 to 21 px up while it is on screen (the physics must not wait). See the scene doc.
-- The contact shadow keeps the old idle footprint, so it does not widen under Donut's stretched run frames.
-- Carl runs in place against a wall; Donut stands.
+- **Donut's hop onto the low platform (ticks 91 to 96 of the scenario, not in the GIF window) is still rough.** The simulation's trail collapses vertical-only samples, so her replayed foot height rises about 19 px in one tick (92, 96.9, 116.1, 122.1, 127.8, 133.2) above the 108 px platform top and snaps to 108 on touchdown. After the takeoff fix she holds `jump_start:11` for the whole hop instead of showing the crouch, which reads better, but the vertical snap remains. The trail is simulation code and is unchanged in this PR (see the scene doc, known gaps).
+- Donut's contact shadow keeps the old idle footprint and does not follow her stretched run frames (per-tag footprint deferred).
+- Donut goes idle 5 ticks after Carl stops (stall hold).
 - Software-rendered frames say nothing about performance, GPU look or controller feel.

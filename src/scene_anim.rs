@@ -3,17 +3,83 @@
 //! [`Animator`]. Presentation only: this module reads a `&CorridorWorld` and
 //! nothing flows back, so the simulation hash cannot depend on it.
 //!
-//! * Carl: `grounded`, `vx` and `vy` straight from the hero.
+//! * Carl: `grounded` and `vy` straight from the hero. His animation speed is
+//!   his actual displacement per tick (times 60), not the commanded `vx`, so
+//!   pushing into a wall does not show a run in place. While the stick is
+//!   released the speed is zero at once.
 //! * Donut (passive trail follower): velocity from the difference between her
 //!   consecutive trail positions, airborne when her foot is above the floor
 //!   under her (the highest solid top below her foot at her x).
 //!
+//! A stall shorter than [`STALL_HOLD_TICKS`] ticks of a running actor holds the
+//! current run frame (no idle flash, no restart of the cycle); only the
+//! [`STALL_HOLD_TICKS`]th consecutive still tick goes to idle.
+//!
 //! After the exit is reached the simulation stops; both actors then see zero
 //! horizontal velocity, so they settle into idle instead of running in place.
 
-use crate::anim::{AnimInput, Animator};
+use crate::anim::{AnimInput, Animator, MOVE_THRESHOLD_PX_S};
 use crate::corridor::CorridorWorld;
 use crate::prototype::TICK_SECONDS;
+
+/// A running actor whose measured speed drops to zero keeps its run frame for
+/// this many ticks minus one; the 6th consecutive still tick shows idle. Donut's
+/// trail stalls for a few ticks when Carl jumps in place or presses into a
+/// wall, and every flash of the taller idle pose restarted her run at frame 0.
+pub const STALL_HOLD_TICKS: u32 = 6;
+
+/// What the speed of one tick means for the animation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Speed {
+    /// Moving at this speed (px/s).
+    Moving(f32),
+    /// Still, but for fewer than [`STALL_HOLD_TICKS`] ticks: hold a run frame.
+    Stalled,
+    /// Still for good: idle.
+    Still,
+}
+
+/// Counts consecutive still ticks.
+#[derive(Debug, Clone, Copy, Default)]
+struct StallFilter {
+    still_ticks: u32,
+}
+
+impl StallFilter {
+    fn apply(&mut self, vx: f32) -> Speed {
+        if vx.abs() > MOVE_THRESHOLD_PX_S {
+            self.still_ticks = 0;
+            Speed::Moving(vx)
+        } else {
+            self.still_ticks = self.still_ticks.saturating_add(1);
+            if self.still_ticks < STALL_HOLD_TICKS {
+                Speed::Stalled
+            } else {
+                Speed::Still
+            }
+        }
+    }
+
+    /// Standing still on purpose (stick released, scene finished): no hold.
+    fn release(&mut self) -> Speed {
+        self.still_ticks = STALL_HOLD_TICKS;
+        Speed::Still
+    }
+}
+
+fn drive(animator: &mut Animator, speed: Speed, grounded: bool, vy: f32) {
+    let vx = match speed {
+        Speed::Moving(vx) => vx,
+        Speed::Stalled => {
+            if animator.hold_run(grounded) {
+                return;
+            }
+            0.0
+        }
+        Speed::Still => 0.0,
+    };
+    animator.step(AnimInput { grounded, vx, vy });
+}
 
 /// Donut counts as airborne when her foot is more than this far above the
 /// floor under her. Her trail position is interpolated, so allow float noise.
@@ -25,6 +91,10 @@ pub struct SceneAnimators {
     pub donut: Animator,
     /// Donut's `(x, foot_y)` on the previous tick.
     donut_prev: (f32, f32),
+    /// Carl's x on the previous tick.
+    carl_prev_x: f32,
+    carl_stall: StallFilter,
+    donut_stall: StallFilter,
 }
 
 impl SceneAnimators {
@@ -34,6 +104,9 @@ impl SceneAnimators {
             carl,
             donut,
             donut_prev: (world.donut.x, world.donut.foot_y),
+            carl_prev_x: world.hero.x,
+            carl_stall: StallFilter::default(),
+            donut_stall: StallFilter::default(),
         }
     }
 
@@ -42,27 +115,36 @@ impl SceneAnimators {
         self.carl.reset();
         self.donut.reset();
         self.donut_prev = (world.donut.x, world.donut.foot_y);
+        self.carl_prev_x = world.hero.x;
+        self.carl_stall = StallFilter::default();
+        self.donut_stall = StallFilter::default();
     }
 
     /// Advance both animators by one fixed tick of `world` (call after the
     /// simulation step of that tick).
     pub fn step(&mut self, world: &CorridorWorld) {
         let hero = &world.hero;
-        self.carl.step(AnimInput {
-            grounded: hero.grounded,
-            vx: if world.complete { 0.0 } else { hero.vx },
-            vy: hero.vy,
-        });
+        let carl_speed = if world.complete || hero.vx.abs() <= MOVE_THRESHOLD_PX_S {
+            self.carl_stall.release()
+        } else {
+            self.carl_stall
+                .apply((hero.x - self.carl_prev_x) / TICK_SECONDS)
+        };
+        drive(&mut self.carl, carl_speed, hero.grounded, hero.vy);
+        self.carl_prev_x = hero.x;
         let donut = &world.donut;
-        self.donut.step(AnimInput {
-            grounded: donut_grounded(world),
-            vx: if world.complete {
-                0.0
-            } else {
-                (donut.x - self.donut_prev.0) / TICK_SECONDS
-            },
-            vy: (donut.foot_y - self.donut_prev.1) / TICK_SECONDS,
-        });
+        let donut_speed = if world.complete {
+            self.donut_stall.release()
+        } else {
+            self.donut_stall
+                .apply((donut.x - self.donut_prev.0) / TICK_SECONDS)
+        };
+        drive(
+            &mut self.donut,
+            donut_speed,
+            donut_grounded(world),
+            (donut.foot_y - self.donut_prev.1) / TICK_SECONDS,
+        );
         self.donut_prev = (donut.x, donut.foot_y);
     }
 
@@ -200,8 +282,8 @@ mod tests {
         assert!(!rows[takeoff].0, "airborne on the impulse tick");
         assert_eq!(
             (rows[takeoff].2, rows[takeoff].3),
-            (Tag::JumpStart, 10),
-            "jump_start plays on top of the takeoff, no delay"
+            (Tag::JumpStart, 11),
+            "jump_start (toe-off frame) plays on top of the takeoff, no delay"
         );
         let apex = (takeoff..rows.len())
             .find(|&i| rows[i].1 <= 0.0)
@@ -226,8 +308,13 @@ mod tests {
         let first_cut = (first_land..rows.len())
             .find(|&i| rows[i].2 == Tag::Run)
             .unwrap();
-        // Impact frame (80 ms = 4.8 ticks) + one recovery tick, then run.
-        assert_eq!(first_cut - first_land, 6);
+        // The impact frame (80 ms = 4.8 ticks) shows for 5 ticks and run follows
+        // at once: the recovery frame never flashes.
+        assert_eq!(first_cut - first_land, 5);
+        assert!(
+            rows[first_land..first_cut].iter().all(|r| r.3 == 14),
+            "only the impact frame is shown before the cut"
+        );
         let standing_land = (RUN_JUMP_STANDING_JUMP_TICK as usize..rows.len())
             .find(|&i| rows[i].2 == Tag::Land)
             .unwrap();
@@ -272,8 +359,11 @@ mod tests {
             "Donut takes off {} ticks after Carl",
             donut_jump - carl_jump
         );
+        // Her stall hold makes her go idle on the 6th still tick, 5 ticks
+        // (83 ms) after his intentional stop.
         let stop = RUN_JUMP_STOP_TICK as usize;
-        assert_eq!(rows[stop + 1].4, Tag::Idle);
+        assert_eq!(rows[stop + 4].4, Tag::Run);
+        assert_eq!(rows[stop + 5].4, Tag::Idle);
     }
 
     #[test]
@@ -352,5 +442,134 @@ mod tests {
             anim.state_line(0),
             "FLOOR1_ANIM_STATE tick=0 carl=idle:0 donut=idle:0"
         );
+    }
+
+    // ---- stalls (B2) and wall pushes (F2) ----
+
+    fn donut_tag_at(rows: &[Row], tick: usize) -> Tag {
+        rows[tick - 1].4
+    }
+
+    #[test]
+    fn the_stall_filter_holds_for_five_ticks_and_idles_on_the_sixth() {
+        let mut filter = StallFilter::default();
+        assert_eq!(filter.apply(185.0), Speed::Moving(185.0));
+        for _ in 0..5 {
+            assert_eq!(filter.apply(0.0), Speed::Stalled);
+        }
+        assert_eq!(filter.apply(0.0), Speed::Still);
+        assert_eq!(filter.apply(0.0), Speed::Still);
+        // Moving again restarts the count.
+        assert_eq!(filter.apply(-90.0), Speed::Moving(-90.0));
+        assert_eq!(filter.apply(0.0), Speed::Stalled);
+        assert_eq!(filter.release(), Speed::Still);
+    }
+
+    #[test]
+    fn donut_keeps_running_through_one_tick_trail_stalls() {
+        // run_jump tick 41: her trail stops for one tick while Carl jumps the
+        // first step; she used to flash idle and restart the run at frame 0.
+        let rows = run(Scenario::RunJump, RUN_JUMP_TOTAL_TICKS, true);
+        for tick in 38..=45 {
+            assert_eq!(donut_tag_at(&rows, tick), Tag::Run, "run_jump tick {tick}");
+        }
+        assert_eq!(
+            rows[40].5, rows[39].5,
+            "the run frame is held, not restarted"
+        );
+        // walk_right tick 11: the same one-tick stall at the first step.
+        let rows = run(Scenario::WalkRight, 613, true);
+        for tick in 8..=14 {
+            assert_eq!(
+                donut_tag_at(&rows, tick),
+                Tag::Run,
+                "walk_right tick {tick}"
+            );
+        }
+    }
+
+    #[test]
+    fn donut_keeps_running_through_a_three_tick_stall_and_idles_after_six() {
+        // walk_right ticks 468-470: a three-tick stall at the second step.
+        let rows = run(Scenario::WalkRight, 613, true);
+        for tick in 462..=478 {
+            assert_eq!(
+                donut_tag_at(&rows, tick),
+                Tag::Run,
+                "walk_right tick {tick}"
+            );
+        }
+        let held = rows[466].5;
+        assert!(
+            (467..=470).all(|t| rows[t - 1].5 == held),
+            "the frame does not advance while the trail is stalled"
+        );
+        // A long stall still ends in idle: Carl jumping in place at the first
+        // wall (run_jump ticks 46-50 hold, tick 51 is the 6th still tick).
+        let rows = run(Scenario::RunJump, RUN_JUMP_TOTAL_TICKS, true);
+        assert_eq!(donut_tag_at(&rows, 50), Tag::Run);
+        assert_eq!(donut_tag_at(&rows, 51), Tag::Idle);
+    }
+
+    #[test]
+    fn carl_pushing_into_a_wall_settles_into_idle_after_the_stall_hold() {
+        use crate::input::RawInput;
+        let kit = kit();
+        let mut sim = SceneSim::new(&kit, 360).unwrap();
+        let mut anim = animators(&sim.world);
+        let mut rows: Vec<(f32, Tag, u64)> = Vec::new();
+        for _ in 0..90 {
+            sim.step(RawInput {
+                move_x: 1.0,
+                ..RawInput::default()
+            });
+            anim.step(&sim.world);
+            rows.push((sim.world.hero.x, anim.carl.tag(), sim.state_hash()));
+        }
+        // The first still tick is the first row whose x equals the previous one.
+        let first_still = (1..rows.len())
+            .find(|&i| rows[i].0 == rows[i - 1].0)
+            .expect("Carl reaches the wall");
+        for (i, row) in rows[..first_still + 5].iter().enumerate() {
+            assert_eq!(row.1, Tag::Run, "row {i} (still from row {first_still})");
+        }
+        assert_eq!(
+            rows[first_still + 5].1,
+            Tag::Idle,
+            "the 6th still tick is idle"
+        );
+        assert_eq!(rows.last().unwrap().1, Tag::Idle);
+        // Animation does not touch the sim: the same input without animators
+        // gives the same hashes.
+        let mut bare = SceneSim::new(&kit, 360).unwrap();
+        for row in &rows {
+            bare.step(RawInput {
+                move_x: 1.0,
+                ..RawInput::default()
+            });
+            assert_eq!(bare.state_hash(), row.2);
+        }
+    }
+
+    #[test]
+    fn releasing_the_stick_stops_the_run_at_once() {
+        // No stall hold for an intentional stop: idle on the first still tick.
+        let rows = run(Scenario::RunJump, RUN_JUMP_TOTAL_TICKS, true);
+        let stop = RUN_JUMP_STOP_TICK as usize;
+        assert_eq!(rows[stop - 1].2, Tag::Run);
+        assert_eq!(rows[stop].2, Tag::Idle);
+    }
+
+    #[test]
+    fn a_coyote_jump_has_no_jump_start() {
+        // Walk off a platform, then jump from the air: fall -> rise only. The
+        // animator rule is tested in `anim`; here the real sim must agree that
+        // walk-offs never show jump_start.
+        let rows = run(Scenario::WalkRight, 613, true);
+        for window in rows.windows(2) {
+            if window[1].2 == Tag::JumpStart && window[0].2 != Tag::JumpStart {
+                assert!(window[0].0, "jump_start only from the ground");
+            }
+        }
     }
 }

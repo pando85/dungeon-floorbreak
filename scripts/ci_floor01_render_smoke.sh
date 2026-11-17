@@ -154,6 +154,27 @@ if [[ "$mode" == anim-sequence ]]; then
     exit 1
   fi
   echo "FLOOR1_ANIM_SEQUENCE_MATCH: $rendered_state / $rendered_anim"
+  # Per-tick strips: the 3-tick sequence cannot show a one-tick event, so the
+  # takeoff (impulse tick 171) and the landing (touchdown 220, run cut 225)
+  # are captured again at every tick.
+  for strip in "takeoff:168:1:15" "landing:218:1:13"; do
+    IFS=: read -r name first step count <<<"$strip"
+    strip_log="${anim_dir}/strip_${name}.log"
+    timeout 300 ./target/debug/floor01_scene --scale 3 --scenario run_jump \
+      --capture-sequence "${first}:${step}:${count}" \
+      --capture-dir "${anim_dir}/frames_${name}" > "$strip_log" 2>&1 || {
+      tail -n 20 "$strip_log"
+      echo "Strip capture $name failed" >&2
+      exit 1
+    }
+    if ! grep -q "FLOOR1_CAPTURE_SEQUENCE_DONE count=${count}" "$strip_log" \
+      || grep -qE 'FLOOR1_ASSET_FAILURE|FLOOR1_CAPTURE_FAILURE|FLOOR1_LIGHTING_WARNING' "$strip_log"; then
+      tail -n 20 "$strip_log"
+      echo "Strip capture $name did not complete" >&2
+      exit 1
+    fi
+    echo "FLOOR1_ANIM_STRIP_OK: $name ($count frames from tick $first)"
+  done
   echo "FLOOR1_RENDER_OK: $mode ($anim_count frames of $expected, ticks ${anim_first}..${anim_last})"
   exit 0
 fi
