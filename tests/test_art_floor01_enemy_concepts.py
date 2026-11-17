@@ -23,6 +23,9 @@ EXPECTED_NAMES = {
     "scatterers-rot-sticker-slime-bestiary.png",
     "floor01-bestiary-exploration-sheet.png",
     "floor01-enemy-lineup-approved.png",
+    "floor01-hoarder-individual-study.png",
+    "floor01-troglodyte-family-approved.png",
+    "floor01-ball-of-swine-approved.png",
 }
 
 

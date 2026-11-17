@@ -2,7 +2,7 @@
   "schema": "the-crawl-concept-image-manifest-v1",
   "project": "THE CRAWL — NO PANTS. NO MERCY.",
   "status": "owner-approved visual concept direction; not production-ready art or canonical lore verification",
-  "source": "Images produced in the project ChatGPT conversation; copied byte-for-byte, not repainted, rescaled or extracted into sprite frames.",
+  "source": "Images produced in the project ChatGPT conversations; new approvals are documented in docs/02-art/floor-01-late-enemy-boss-concepts.md. All referenced PNGs must be uploaded and retained byte-for-byte; generated text and sizes are not canonical gameplay contracts.",
   "assets": [
     {
       "path": "assets/concept/floor-01/enemies/bad-llama-abc-exploration.png",
@@ -43,6 +43,30 @@
       "width": 1536,
       "height": 1024,
       "source_conversation_file": "a_high_detail_pixel_art_concept_sheet_enemy_desi.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-hoarder-individual-study.png",
+      "sha256": "1747fb017a11f65c8cdeaf9a03196595ed5cb26ce666e1ddc376224c2387ac9f",
+      "bytes": 2806620,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "a_detailed_pixel_art_concept_board_in_a_gritty_ret.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png",
+      "sha256": "9a28007bff4f5bc77aa9fd85a9f5f974eacdbb5ff7f8fd5a1e82a868d668ca65",
+      "bytes": 2876255,
+      "width": 1448,
+      "height": 1086,
+      "source_conversation_file": "troglodyte_family_bestiary_sheet.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-ball-of-swine-approved.png",
+      "sha256": "cf850b90f87bd85cbc5835d24b774a752e69654ae2a6b77b426111df9f06a995",
+      "bytes": 3365214,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "a_highly_detailed_pixel_art_concept_board_for_a_vi.png"
     }
   ]
 }
