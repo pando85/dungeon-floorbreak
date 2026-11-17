@@ -2,6 +2,7 @@
 Opus keys, the tick table and the readability rules R1 to R10 of docs/02-art/gob-01-goblin-spec.md."""
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import unittest
@@ -284,6 +285,18 @@ class _FullSet:
             self.assertEqual(frame["cels"]["weapon"], cels["weapon"], n)
             if self.variant == "b":
                 self.assertEqual(frame["cels"]["accessory"], cels["accessory"], n)
+
+    def test_key_11_differs_from_the_opus_original_by_exactly_the_stick_fix(self) -> None:
+        """The one deliberate edit of a frozen key (DOZ-01 rider A fist-to-stick gap, GOB-01 spec
+        section 13): three weapon pixels become y. Reverting them restores the Opus original."""
+        cels = json.loads(FIXTURE.read_text(encoding="utf-8"))["keys"]["11"]
+        weapon = list(cels["weapon"])
+        for (x, y), old in (((10, 14), "K"), ((13, 17), "K"), ((14, 17), "x")):
+            self.assertEqual(weapon[y][x], "y", (x, y))
+            weapon[y] = weapon[y][:x] + old + weapon[y][x + 1:]
+        original = {"body": cels["body"], "weapon": weapon, "accessory": cels["accessory"]}
+        digest = hashlib.sha256(json.dumps(original, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        self.assertEqual(digest, "cba8628242b457cc03abc05545a4de7ea1b17bde1448c3787f4e77821a79afb2")
 
     def test_sources_match_the_generator(self) -> None:
         v = self.variant.upper()
