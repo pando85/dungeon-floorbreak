@@ -1,0 +1,194 @@
+{
+  "format": "dozer-rig-v0",
+  "status": "DOZ-01 phase 1 proposal (design: Claude Opus); size decision pending (separate Opus)",
+  "body_height_px": 120,
+  "coordinates": "anchors are px relative to the rig origin O (tread footprint midpoint on the walking line); x forward (mirror when facing left), y up. A part's pivot is placed on its anchor.",
+  "parts": [
+    {
+      "part": "smoke_back",
+      "z": 0,
+      "atlas": "dozer_smoke (Sonnet)",
+      "anchor": "emitters"
+    },
+    {
+      "part": "hull_body",
+      "z": 1,
+      "atlas": "dozer_hull_h120",
+      "tag": "body",
+      "frame_size": [
+        175,
+        160
+      ],
+      "pivot": [
+        87,
+        159
+      ],
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "part": "tread",
+      "z": 2,
+      "atlas": "dozer_tread_h120",
+      "tag": "roll",
+      "frame_size": [
+        151,
+        34
+      ],
+      "pivot": [
+        75,
+        33
+      ],
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "part": "engineer",
+      "z": 3,
+      "atlas": "dozer_riders_h36",
+      "tag": "engineer_*",
+      "frame_size": [
+        64,
+        56
+      ],
+      "pivot": [
+        28,
+        55
+      ],
+      "anchor": [
+        -48,
+        98
+      ]
+    },
+    {
+      "part": "rider_a",
+      "z": 3,
+      "atlas": "dozer_riders_h36",
+      "tag": "rider_a_*",
+      "frame_size": [
+        64,
+        56
+      ],
+      "pivot": [
+        28,
+        55
+      ],
+      "anchor": [
+        38,
+        96
+      ]
+    },
+    {
+      "part": "rider_b",
+      "z": 4,
+      "atlas": "dozer_riders_h36",
+      "tag": "rider_b_*",
+      "frame_size": [
+        64,
+        56
+      ],
+      "pivot": [
+        28,
+        55
+      ],
+      "anchor": [
+        66,
+        96
+      ]
+    },
+    {
+      "part": "hull_front",
+      "z": 5,
+      "atlas": "dozer_hull_h120",
+      "tag": "front",
+      "frame_size": [
+        175,
+        160
+      ],
+      "pivot": [
+        87,
+        159
+      ],
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "part": "wheel",
+      "z": 6,
+      "atlas": "dozer_wheel_h120",
+      "tag": "spin",
+      "frame_size": [
+        99,
+        99
+      ],
+      "pivot": [
+        49,
+        49
+      ],
+      "anchor": [
+        124,
+        49
+      ]
+    },
+    {
+      "part": "yoke",
+      "z": 7,
+      "atlas": "dozer_yoke_h120",
+      "tag": "static",
+      "frame_size": [
+        64,
+        44
+      ],
+      "pivot": [
+        54,
+        30
+      ],
+      "anchor": [
+        124,
+        49
+      ]
+    }
+  ],
+  "occluder_rows": {
+    "engineer": 105,
+    "rider_a": 104,
+    "rider_b": 104
+  },
+  "emitters": {
+    "stack": [
+      15,
+      156
+    ],
+    "rear_exhaust": [
+      -82,
+      124
+    ],
+    "kettle": [
+      5,
+      129
+    ]
+  },
+  "lights": {
+    "lamp": [
+      98,
+      66
+    ],
+    "firebox": [
+      -30,
+      49
+    ]
+  },
+  "extents": {
+    "rear_x": -84,
+    "front_x": 172,
+    "top_y_stack": 156,
+    "dome_y": 120,
+    "tub_rim_y": 104
+  }
+}

@@ -1,0 +1,245 @@
+{
+  "files": {
+    "floor01_chase_h120_1920x1080.png": "46d4a61f28a1c3fd037d9f88d76380190866ade802f7242b71bb060f7e3276d7",
+    "floor01_chase_h120_640x360.png": "55a1863e4940ac08294cbe4e586763d340fd73f8ddcf78bb32e10c3221744021",
+    "floor01_chase_h150_1920x1080.png": "be4ce77816e41305d376fec8ba32b0ef8b47c775777c9ed4874f296a098b5a2f",
+    "floor01_chase_h150_640x360.png": "6b94e355226d8c16b29538ce2b095a5f5baa8f82e9842f787849cfe2d6d1dff4",
+    "floor01_chase_h96_1920x1080.png": "993f149967fb4a861593489642786b4881d18e00edf75cf8a65a30548e9b9836",
+    "floor01_chase_h96_640x360.png": "0d536b9a6f74606f9e6a11bea7c1a8d63dddfbfacacb1d4ac86c95c72ff37d4c",
+    "floor01_chase_keys_h120_1920x1080.png": "62f6ec908bec2652c50c2166be42aeebed71f4d2387fd9950fdce99e0fa0c1d1",
+    "floor01_chase_keys_h120_640x360.png": "7c74ae2b0441811dd88963bf3ed088cf0cfbdb078dbac0d9b2bf6e5ddd1167b2",
+    "key_sheet.png": "a8e73e3345995123ce443f0a552c25b3a077fef5951feabfb89ba1e39dd0532e",
+    "part_layout_diagram.png": "6d09f9620c5242cb19761b173fd943e0956c4d15ab9dbe6a70561eb67679078d",
+    "size_study_sheet.png": "a10b9ba3043986fe2955d73e30a26da0555c5af2781cebd0074a2182a9ff902f"
+  },
+  "keys": {
+    "dozer_hull_h120": {
+      "canvas": [
+        175,
+        160
+      ],
+      "colours": 31,
+      "isolated": [
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0
+      ],
+      "pivot": [
+        87,
+        159
+      ]
+    },
+    "dozer_riders_h36": {
+      "canvas": [
+        64,
+        56
+      ],
+      "colours": 26,
+      "isolated": [
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        8,
+        1
+      ],
+      "pivot": [
+        28,
+        55
+      ]
+    },
+    "dozer_tread_h120": {
+      "canvas": [
+        151,
+        34
+      ],
+      "colours": 15,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        75,
+        33
+      ]
+    },
+    "dozer_wheel_h120": {
+      "canvas": [
+        99,
+        99
+      ],
+      "colours": 16,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        49,
+        49
+      ]
+    },
+    "dozer_yoke_h120": {
+      "canvas": [
+        64,
+        44
+      ],
+      "colours": 13,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        54,
+        30
+      ]
+    }
+  },
+  "note": "Composed review renders (A1 lighting via scripts/env_kit_light.py), not Bevy captures.",
+  "recommended": "h120",
+  "reference": {
+    "carl_h52": 52,
+    "carl_jump_apex_feet_px": 92,
+    "carl_run_speed_px_s": 185,
+    "chase_gap_px": 213,
+    "corridor_clearance_px": 276
+  },
+  "size_options": {
+    "h120": {
+      "atlas_px_monolithic_estimate": 963480,
+      "atlas_px_parts": 113422,
+      "atlas_px_riders": 64512,
+      "atlas_px_smoke": 4736,
+      "atlas_px_total_split": 182670,
+      "body_height_px": 120,
+      "ceiling_clearance_px": 121,
+      "front_from_O_px": 173,
+      "implied_feet_if_carl_is_6ft": 13.8,
+      "jump_onto_tub_possible": false,
+      "jump_over_wheel_possible": false,
+      "opaque_height_px": 155,
+      "opaque_length_px": 259,
+      "part_frames": {
+        "hull": [
+          175,
+          160
+        ],
+        "tread": [
+          151,
+          34
+        ],
+        "wheel": [
+          99,
+          99
+        ],
+        "yoke": [
+          64,
+          44
+        ]
+      },
+      "ratio_body_to_carl": 2.31,
+      "rear_from_O_px": 85,
+      "rider_heads_px": 121,
+      "rider_to_body_ratio": 0.3,
+      "scale": 1.0,
+      "tub_rim_px": 104,
+      "view_height_fraction": 0.431,
+      "view_length_fraction": 0.405,
+      "wheel_tip_to_tip_px": 96
+    },
+    "h150": {
+      "atlas_px_monolithic_estimate": 1491504,
+      "atlas_px_parts": 175804,
+      "atlas_px_riders": 64512,
+      "atlas_px_smoke": 4736,
+      "atlas_px_total_split": 245052,
+      "body_height_px": 150,
+      "ceiling_clearance_px": 83,
+      "front_from_O_px": 216,
+      "implied_feet_if_carl_is_6ft": 17.3,
+      "jump_onto_tub_possible": false,
+      "jump_over_wheel_possible": false,
+      "opaque_height_px": 193,
+      "opaque_length_px": 322,
+      "part_frames": {
+        "hull": [
+          218,
+          200
+        ],
+        "tread": [
+          188,
+          42
+        ],
+        "wheel": [
+          123,
+          123
+        ],
+        "yoke": [
+          80,
+          55
+        ]
+      },
+      "ratio_body_to_carl": 2.88,
+      "rear_from_O_px": 105,
+      "rider_heads_px": 145,
+      "rider_to_body_ratio": 0.24,
+      "scale": 1.25,
+      "tub_rim_px": 130,
+      "view_height_fraction": 0.536,
+      "view_length_fraction": 0.503,
+      "wheel_tip_to_tip_px": 120
+    },
+    "h96": {
+      "atlas_px_monolithic_estimate": 616032,
+      "atlas_px_parts": 74742,
+      "atlas_px_riders": 64512,
+      "atlas_px_smoke": 4736,
+      "atlas_px_total_split": 143990,
+      "body_height_px": 96,
+      "ceiling_clearance_px": 152,
+      "front_from_O_px": 138,
+      "implied_feet_if_carl_is_6ft": 11.1,
+      "jump_onto_tub_possible": true,
+      "jump_over_wheel_possible": true,
+      "opaque_height_px": 124,
+      "opaque_length_px": 207,
+      "part_frames": {
+        "hull": [
+          141,
+          129
+        ],
+        "tread": [
+          122,
+          28
+        ],
+        "wheel": [
+          81,
+          81
+        ],
+        "yoke": [
+          52,
+          36
+        ]
+      },
+      "ratio_body_to_carl": 1.85,
+      "rear_from_O_px": 68,
+      "rider_heads_px": 102,
+      "rider_to_body_ratio": 0.375,
+      "scale": 0.8,
+      "tub_rim_px": 83,
+      "view_height_fraction": 0.344,
+      "view_length_fraction": 0.323,
+      "wheel_tip_to_tip_px": 77
+    }
+  }
+}

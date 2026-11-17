@@ -1,0 +1,213 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  99,
+  99
+ ],
+ "pivot": [
+  49,
+  49
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_plum",
+   "rgba": "#1b1124ff"
+  },
+  {
+   "key": "0",
+   "name": "iron_0",
+   "rgba": "#121220ff"
+  },
+  {
+   "key": "1",
+   "name": "iron_1",
+   "rgba": "#1e2032ff"
+  },
+  {
+   "key": "2",
+   "name": "iron_2",
+   "rgba": "#2c3046ff"
+  },
+  {
+   "key": "3",
+   "name": "iron_3",
+   "rgba": "#3f445eff"
+  },
+  {
+   "key": "4",
+   "name": "iron_4",
+   "rgba": "#575e7aff"
+  },
+  {
+   "key": "5",
+   "name": "iron_5",
+   "rgba": "#78809aff"
+  },
+  {
+   "key": "6",
+   "name": "iron_6",
+   "rgba": "#a3abbfff"
+  },
+  {
+   "key": "7",
+   "name": "iron_glint",
+   "rgba": "#dde2ecff",
+   "accent": true
+  },
+  {
+   "key": "Q",
+   "name": "rust_0",
+   "rgba": "#2a1612ff"
+  },
+  {
+   "key": "W",
+   "name": "rust_1",
+   "rgba": "#4a2318ff"
+  },
+  {
+   "key": "E",
+   "name": "rust_2",
+   "rgba": "#6c321eff"
+  },
+  {
+   "key": "L",
+   "name": "brass_1",
+   "rgba": "#43331aff"
+  },
+  {
+   "key": "M",
+   "name": "brass_2",
+   "rgba": "#6a5224ff"
+  },
+  {
+   "key": "N",
+   "name": "brass_3",
+   "rgba": "#93752eff"
+  },
+  {
+   "key": "S",
+   "name": "brass_4",
+   "rgba": "#bc9a3aff"
+  }
+ ],
+ "layers": [
+  "wheel"
+ ],
+ "frames": [
+  {
+   "duration_ms": 33,
+   "cels": {
+    "wheel": [
+     ".................................................K.................................................",
+     "................................................K6K................................................",
+     "................................................K6K................................................",
+     "...............................................K674K...............................................",
+     "...............................................K644K...............................................",
+     "...............................................K541K...............................................",
+     "..............................................K55411K..............................................",
+     ".........................KK...................K55411K...................KK.........................",
+     "........................K64K.................K5554111K.................K64K........................",
+     "........................K644K................K5554111K................K674K........................",
+     ".........................K633K...............K5554111K...............K544K.........................",
+     ".........................K3333KK............K555541111K............KK5531K.........................",
+     ".........................K333333K...........K555542222K...........K555431K.........................",
+     ".........................K3333333K.......KKKK555542222KKKK.......K5554311K.........................",
+     ".........................K33333333K...KKK55555555422222555KKK...K55554311K.........................",
+     ".........................K333333332KKK55555555555555555555555KKK555543111K.........................",
+     "..........................K333332222555555555555535555555555555555554111K..........................",
+     "..........................K3332222255555533333333E3333333355555555542111K..........................",
+     "..........................K322222555553333EEEEEEEEEEEEEEE333355554422221K..........................",
+     "..........................K22225555533EEEEEEEEEEEEEEEEEEEEEEE33544442222K..........................",
+     "..........................K222555533EEEEEEEEEEEEEEEEEEEEEEEEEEE334444222K..........................",
+     "..........................K2255533EEEEEEE7EEEEEEEEEEEEEEE7EEEEEEE3344422K..........................",
+     ".........................K555553EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE344444K.........................",
+     "........................K555533EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEWW114444K........................",
+     "........KK.............K555533EEEEQQEEEEEEEEEEEEEEEEEEEEEEEEEEEQQEWWW114444K.............KK........",
+     ".......K66KKKKKK......K55553EEEEEEE0EEEEEEEEEEEEEEEEEEEEEEEEEEE0EWWWWWW14444K......KKKKKK66K.......",
+     ".......K44655555KKKKKK55553EEEEEEEEE0EEEEEEEEEEEEEEEEEEEEEEEEE00WWWWWWWW14444KKKKKK55555644K.......",
+     "........K44445555555555553EEEEEEEEEE0EEEEEEEEEEEEEEEEEEEEEEEEE0EWWWWWWWWW14445555555554444K........",
+     ".........K113445555555553EEE7EEEEEEEE0EEEEEEEEEEEEEEEEEEEEEEE0EWWWWWWW7WWW144555555544311K.........",
+     "..........K11334555555533EEEEEEEEEEEE0EEEEEEEEEEEEEEEEEEEEEEE0WWWWWWWWWWWW11335555543311K..........",
+     "...........K111334555553EEEEEEEEEEEEEE0EEEEEEEEEEEEEEEEEEEEE0EWWWWWWWWWWWWW133355433111K...........",
+     "...........K11111245553EEEEEEEEEEEEEEEQQEEEEEEEEEEEEEEEEEEEQQWWWWWWWWWWWWWWW13334211111K...........",
+     "............K111222553EEEEEEEEEEEEEEEEE0EEEEEEEEEEEEEEEEEEE0WWWWWWWWWWWWWWWWW133222111K............",
+     ".............K11225553EEEEEEEEEEEEEEEEEE0EEEEEEEEEEEEEEEEE0WWWWWWWWWWWWWWWWWW13332211K.............",
+     "..............K222553EEEQEEEEEEEEEEEEEEE0EEEEEEEEEEEEEEEEE0WWWWWWWWWWWWWWWWWWW133222K..............",
+     "...............K25553EEEQ0EEEEEEEEEEEEEEE0EEEEEEEEEEEEEEE0WWWWWWWWWWWWWWW00WWW13332K...............",
+     "...............K5553EEEEEE00EEEEEEEEEEEEE0EEEEEEEEEEEEEEE0WWWWWWWWWWWWWQ0WWWWQQ1333K...............",
+     "...............K5553EEEEEEEE00EEEEEEEEEEEE0EEEEEEEEEEEEE0WWWWWWWWWWWWQQQWWWWWQQ1333K...............",
+     "..............K5553EEEEEEEEEEE0QEEEEEEEEEEQQEEEEEEEEEEEQQWWWWWWWWWWW0QWWWWWWWQQQ1333K..............",
+     "..............K5553EEEEEEEEEEEEQ0EEEEEEEEEEQEEEEESEEEEEQWWWWWWWWWW00WWWWWWWWWWQQ1333K..............",
+     "..............K5553EEEEEEEEEEEEEE00EEEEEEEEEESSSSSSSSSEWWWWWWWWWQ0WWWWWWWWWWWWQQ1333K..............",
+     ".............K55533EE7EEEEEEEEEEEEE00EEEEEESSSSSSSSSSSSNWWWWWWW0QWWWWWWWWWWWW7QQ11333K.............",
+     ".............K5553EEEEEEEEEEEEEEEEEEE0QEEESSSSSSSMSSSSSNNWWWW00WWWWWWWWWWWWWWWWQQ1333K.............",
+     ".............K5553EEEEEEEEEEEEEEEEEEEEQQESSSSSMMMMMMMSNNNNWW0WWWWWWWWWWWWWWWWWWQQ1333K.............",
+     "...........KKK5553EEEEEEEEEEEEEEEEEEEEEEESSSSMMMMMMMMMNNNNWWWWWWWWWWWWWWWWWWWQQQQ1335KKK...........",
+     "........KKK5555553EEEEEEEEEEEEEEEEEEEEEESSSSMMMMMMMMMMMNNNNWWWWWWWWWWWWWQQQQQQQQQ1325555KKK........",
+     "......KK5555555553EEEEEEEEEEEEEEEEEEEEEESSSMMMMMMMMMMMLLNNMWWWWWWWQQQQQQQQQQQQQQQ1225555555KK......",
+     "...KKK555555555553EEEEEEEEEEEEEEEEEEEEEESSSMMMMMMMMMLLLLMMMWWQQQQQQQQQQQQQQQQQQQQ122555555555KKK...",
+     ".KK665555555555553EEEEEEEEEEEEEEEEEEEEEESSSMMMMMMMMLLLLLMMMQQQQQQQQQQQQQQQQQQQQQQ122555555555566KK.",
+     "K4443333333322253EEEEEEEEEEEEEEEEEEEEEESSSMMMMMMMLLLLLLLLMMMQ000000000000000000QQQ1244444444444766K",
+     ".KK441111111222553EEEEEEEEEEEEEEEEEEEEEESSSMMMMMLLLLLLLLMMMQQQQQQQQQQQQQQQQQQQQQQ122222111111144KK.",
+     "...KKK111111222553EEEEEEEEEEEEEEEEEEEEEESSSMMMMLLLLLLLLLMMMQQQQQQQQQQQQQQQQQQQQQQ122222111111KKK...",
+     "......KK1111222553EEEEEEEEEEEEEEEEEEEEEWSNNMMLLLLLLLLLLLMMMQQQQQQQQQQQQQQQQQQQQQQ1222221111KK......",
+     "........KKK1222553EEEEEEEEEEEEEEEEEEWWWWNNNNLLLLLLLLLLLMMMMQQQQQQQQQQQQQQQQQQQQQQ1222221KKK........",
+     "...........KKK2553EEEEEEEEEEEEEEWWWWWWWWWNNNNLLLLLLLLLMMMMQQQQQQQQQQQQQQQQQQQQQQQ1222KKK...........",
+     ".............K5543EEEEEEEEEEEWWWWWWWWW0WWNNNNMLLLLLLLMMMMMQ00QQQQQQQQQQQQQQQQQQQQ1222K.............",
+     ".............K4443EEEEEEEEWWWWWWWWWW00WWWWNNMMMMMLMMMMMMMQQQQ00QQQQQQQQQQQQQQQQQQ1222K.............",
+     ".............K44433EE7WWWWWWWWWWWWQ0WWWWWWWNMMMMMMMMMMMMQQQQQQ000QQQQQQQQQQQQ7QQ11222K.............",
+     "..............K4443WWWWWWWWWWWWWW0QWWWWWWWWWWMMMMMMMMMQQQQQQQQQQ00QQQQQQQQQQQQQQ1222K..............",
+     "..............K4443WWWWWWWWWWWW00WWWWWWWWWWQWQQQQMQQQQQ0QQQQQQQQQQ00QQQQQQQQQQQQ1222K..............",
+     "..............K4441WWWWWWWWWWQ0WWWWWWWWWWWW0QQQQQQQQQQQ00QQQQQQQQQQQ00QQQQQQQQQQ1222K..............",
+     "...............K4441WWWWWWWQQQWWWWWWWWWWWW0WQQQQQ0QQQQQQ0QQQQQQQQQQQQ000QQQQQQQ1222K...............",
+     "...............K4441WWWWWW0QWWWWWWWWWWWWWW0QQQQQQ0QQQQQQ00QQQQQQQQQQQQQ00QQQQQQ1222K...............",
+     "...............K54441WWW00WWWWWWWWWWWWWWW0WQQQQQQ0QQQQQQQ0QQQQQQQQQQQQQQQ00QQQ12225K...............",
+     "..............K555441WWWWWWWWWWWWWWWWWWWQQQQQQQQQ0QQQQQQQQ0QQQQQQQQQQQQQQQQQQQ122555K..............",
+     ".............K55554441WWWWWWWWWWWWWWWWWW0WQQQQQQQ0QQQQQQQQ00QQQQQQQQQQQQQQQQQ12225555K.............",
+     "............K555554441WWWWWWWWWWWWWWWWW0WQQQQQQQQ0QQQQQQQQQ0QQQQQQQQQQQQQQQQQ122455555K............",
+     "...........K55555424441WWWWWWWWWWWWWWWW0WQQQQQQQQ0QQQQQQQQQ00QQQQQQQQQQQQQQQ12222455555K...........",
+     "...........K555442224441WWWWWWWWWWWWWW0WQQQQQQQQQ0QQQQQQQQQQ0QQQQQQQQQQQQQQ122222244555K...........",
+     "..........K55443112224411WWWWWWWWWWWWQQWQQQQQQQQQ0QQQQQQQQQQQ0QQQQQQQQQQQQ11222221134455K..........",
+     ".........K554331112222331WWW7WWWWWWWWQWQQQQQQQQQQ0QQQQQQQQQQQ0QQQQQQQQ7QQQ122222211133455K.........",
+     "........K64331111112223331WWWWWWWWWWQQWQQQQQQQQQQ0QQQQQQQQQQQQ0QQQQQQQQQQ12222221111113346K........",
+     ".......K67411111KKKKKK33331WWQWWWWWW0WQQQQQQQQQQQ0QQQQQQQQQQQQ00QQQQQQQQ12222KKKKKK11111476K.......",
+     ".......K44KKKKKK......K33331QQQWWWW0WWQQQQQQQQQQQ0QQQQQQQQQQQQQ0QQQQQQQ12222K......KKKKKK44K.......",
+     "........KK.............K333311QQQWW0WQQQQQQQQQQQQ0QQQQQQQQQQQQQ00QQQQ112222K.............KK........",
+     "........................K333311QQQQWWQQQQQQQQQQQQ0QQQQQQQQQQQQQQQQQQ112222K........................",
+     ".........................K333331QQQQQQQQQQQQQQQQQ0QQQQQQQQQQQQQQQQQ122222K.........................",
+     "..........................K5533311QQQQQQQ7QQQQQQQ0QQQQQQQ7QQQQQQQ1122222K..........................",
+     "..........................K555333311QQQQQQQQQQQQQ0QQQQQQQQQQQQQ112222222K..........................",
+     "..........................K55553333311QQQQQQQQQQQQQQQQQQQQQQQ11222222222K..........................",
+     "..........................K555542333221111QQQQQQQQQQQQQQQ111122222222223K..........................",
+     "..........................K5554222232222211111111Q1111111122222222222333K..........................",
+     "..........................K555312222222222222222212222222222222222233333K..........................",
+     ".........................K555431112KKK22222222222222222222222KKK233333333K.........................",
+     ".........................K55431111K...KKK22255555222222222KKK...K33333333K.........................",
+     ".........................K5543111K.......KKKK555522222KKKK.......K3333333K.........................",
+     ".........................K543111K...........K555522222K...........K333333K.........................",
+     ".........................K5411KK............K555531111K............KK3333K.........................",
+     ".........................K641K...............K5553111K...............K334K.........................",
+     "........................K644K................K5553111K................K674K........................",
+     "........................K64K.................K5553111K.................K64K........................",
+     ".........................KK...................K55311K...................KK.........................",
+     "..............................................K55311K..............................................",
+     "...............................................K531K...............................................",
+     "...............................................K634K...............................................",
+     "...............................................K644K...............................................",
+     "................................................K4K................................................",
+     "................................................K4K................................................",
+     ".................................................K................................................."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "spin",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}
