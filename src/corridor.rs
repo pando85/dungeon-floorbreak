@@ -3,7 +3,8 @@
 //! fixed 60 Hz tick and independent of Bevy, rendering and lighting.
 //!
 //! Deliberately absent: enemies, bombs, health, melee. `attack` and `ability`
-//! inputs are ignored. Hero physics is the greybox's `step_hero`.
+//! inputs are ignored here; the combat fixtures layer melee and goblins on top
+//! in `combat_scene` without changing this simulation. Hero physics is the greybox's `step_hero`.
 
 use std::collections::VecDeque;
 use std::str::FromStr;
@@ -58,7 +59,19 @@ pub struct CorridorWorld {
 
 impl CorridorWorld {
     pub fn new(kit: &EnvKit) -> Self {
-        let spawn = kit.spawn_centre(HERO_HALF_HEIGHT);
+        Self::with_spawn(kit, kit.spawn_centre(HERO_HALF_HEIGHT))
+    }
+
+    /// A world whose hero spawns (and restarts) standing on the walking line at
+    /// column `x` (scenario fixtures start away from the story spawn). `None`
+    /// when the column has no walking line.
+    pub fn new_at(kit: &EnvKit, x: i32) -> Option<Self> {
+        let line = kit.walking_line_at(x)?;
+        let centre_y = to_world_y(kit.height, line) + HERO_HALF_HEIGHT;
+        Some(Self::with_spawn(kit, (x as f32, centre_y)))
+    }
+
+    fn with_spawn(kit: &EnvKit, spawn: (f32, f32)) -> Self {
         let exit = kit.exit.map(|r| rect_to_world(kit.height, r));
         let mut world = Self {
             hero: Hero::at(spawn.0, spawn.1),
@@ -350,7 +363,17 @@ pub struct SceneSim {
 
 impl SceneSim {
     pub fn new(kit: &EnvKit, view_h: i32) -> Result<Self, String> {
-        let world = CorridorWorld::new(kit);
+        Self::with_world(kit, view_h, CorridorWorld::new(kit))
+    }
+
+    /// [`Self::new`] with the hero starting at column `x` (scenario fixtures).
+    pub fn new_at(kit: &EnvKit, view_h: i32, x: i32) -> Result<Self, String> {
+        let world = CorridorWorld::new_at(kit, x)
+            .ok_or_else(|| format!("no walking line at column {x}"))?;
+        Self::with_world(kit, view_h, world)
+    }
+
+    fn with_world(kit: &EnvKit, view_h: i32, world: CorridorWorld) -> Result<Self, String> {
         let name = if view_h == 400 {
             "abc_640x400"
         } else {
