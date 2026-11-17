@@ -27,7 +27,7 @@ python3 scripts/make_env02_evidence.py --out docs/evidence/env-02
 | `env02_guild_door_states_lit_2x.png`, `env02_guild_door_opening_lit_2x.gif` | The guild door closed, ajar and open at 2x, with Carl approaching, and the opening as a 3-frame GIF |
 | `env02_soffit_steps_lit_3x.png` | The two steps of the lowered ceiling (left step column 61, right step column 104) under options R and T at 3x, lit |
 | `env02_cp03_state_sequence_lit_2x.png` | The shore set in 6 panels at 2x: intact; hit 1 (damaged_1, block settling, dust trickle); hit 2 (damaged_2, block slipped, trickle); hit 3 (broken, block falling); landed (rubble and impact dust); and a splinter burst frame at the hit |
-| `env02_cp03_sequence_lit_2x.gif` | The same sequence animated: splinter burst and trickle at each hit, the drop of the block (140 px under constant gravity) and the landing with impact dust |
+| `env02_cp03_sequence_lit_2x.gif` | The same sequence animated on a real timeline: splinter burst and trickle at each hit; after hit 3 the block holds for 6 ticks (100 ms), falls 140 px under 1050 px/s^2 (about 0.52 s) and lands with impact dust |
 
 The 1920x1080 files are an exact x3 of the 640x360 view, with the light computed at output resolution (ADR-0007). Actors are frame 0 of the approved Carl 52 and Donut 40 atlases and of the GOB-01 h36 goblin candidates (mirrored to face left), placed on the walking line with 0 px sink. **Goblin positions in S1 to S4 are scale references only**: no goblin is planned there. The pursuer is not drawn (DOZ-01).
 
@@ -46,4 +46,5 @@ These are the same as in the [spec](../../02-art/env-02-opening-spec.md#known-we
 - the landed rubble and the impact dust are small at 1x; the review should check they read as the block's remains;
 - the goblins have low mean luminance contrast against the lit brick;
 - the pursuer's entry and wedge through the arch windows need CHASE-01 in Bevy to prove they work;
-- the ajar lights and the three animation timings (110, 80 and 60 ms per frame) are Sonnet choices for the reviewer to confirm.
+- the ajar lights are a Sonnet choice for the reviewer to confirm; the animation timings follow 60 Hz ticks (117, 83 and 67 ms per frame: 7, 5 and 4 ticks);
+- the alcove darkening and Donut overlapping the right jamb can only be proved in Bevy (integrator note in the spec).

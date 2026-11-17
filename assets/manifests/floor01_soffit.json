@@ -7,7 +7,7 @@
   "output_atlas": "generated/art/floor01_soffit.png",
   "output_metadata": "generated/art/floor01_soffit.json",
   "palette_id": "floor01-catacomb-v2",
-  "frame_size": [64, 32],
+  "frame_size": [80, 32],
   "pivot": [0, 0],
   "animation_tags": [],
   "required_alpha": false,
@@ -23,5 +23,5 @@
     "input_reference_ids": ["floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)", "lookdev-floor01-resolution-spike/A1 (owner-approved target frame, 2026-11-16)"]
   },
   "tile_size": [16, 16],
-  "tiles": ["soffit_end_l", "soffit_end_l_b", "soffit_end_r", "soffit_end_r_b", "soffit_corner_l", "soffit_corner_r", "soffit_joint_l", "soffit_joint_r"]
+  "tiles": ["soffit_end_l", "soffit_end_l_b", "soffit_end_l_c", "soffit_end_r", "soffit_end_r_b", "soffit_end_r_c", "soffit_corner_l", "soffit_corner_r", "soffit_joint_l", "soffit_joint_r"]
 }

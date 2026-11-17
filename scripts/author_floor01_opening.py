@@ -489,11 +489,11 @@ def falling_block() -> "ld.Canvas":
     return c
 
 
-RUBBLE_RIGHT = [(47, 29), (46, 24), (49, 19), (48, 15), (54, 11), (61, 9), (68, 10), (73, 8), (79, 11),
-                (82, 16), (81, 22), (84, 26), (83, 29)]
-RUBBLE_RIGHT_CRACK = [(61, 9), (59, 16), (62, 22), (58, 29)]
-RUBBLE_LEFT_LOW = [(8, 29), (7, 25), (11, 21), (20, 20), (30, 21), (34, 25), (33, 29)]
-RUBBLE_LEFT_UP = [(13, 21), (14, 16), (19, 12), (26, 11), (31, 14), (32, 19), (30, 22), (20, 22)]
+RUBBLE_RIGHT = [(48, 30), (47, 24), (50, 18), (49, 12), (55, 7), (64, 4), (73, 5), (78, 1), (87, 4),
+                (93, 10), (95, 17), (93, 23), (95, 27), (95, 30)]
+RUBBLE_RIGHT_CRACK = [(67, 4), (65, 12), (68, 20), (63, 30)]
+RUBBLE_LEFT_LOW = [(3, 30), (2, 25), (6, 20), (17, 17), (30, 18), (41, 21), (46, 26), (45, 30)]
+RUBBLE_LEFT_UP = [(9, 19), (10, 11), (15, 6), (24, 3), (33, 6), (38, 12), (39, 18), (35, 21), (15, 21)]
 
 
 def rubble_stone(c, poly, seed: str, crack=None, base: float = 5.0) -> None:
@@ -535,22 +535,22 @@ def landed_rubble() -> "ld.Canvas":
     for py in range(32):                 # dust skirt first, chunks cover it
         for px in range(96):
             y = py + 0.5
-            if y > 26 and rnd("dust", px, py) < 0.35 * (1 - abs(px + 0.5 - 48) / 50):
+            if y > 23 and rnd("dust", px, py) < 0.55 * (1 - abs(px + 0.5 - 48) / 56):
                 c.put(px, py, "stone", 6.5 if rnd("dc", px) > 0.5 else 5)
     rubble_stone(c, RUBBLE_LEFT_LOW, "rl2")
     rubble_stone(c, RUBBLE_LEFT_UP, "rl1")
-    for px in range(14, 31):             # the bed joint between the two left stones
+    for px in range(10, 36):             # the bed joint between the two left stones
         if in_poly(px + 0.5, 21.5, RUBBLE_LEFT_LOW) and in_poly(px + 0.5, 20.5, RUBBLE_LEFT_UP):
-            c.put(px, 22, "mortar", 1)
+            c.put(px, 21, "mortar", 1)
     rubble_stone(c, RUBBLE_RIGHT, "rr", crack=RUBBLE_RIGHT_CRACK, base=5.2)
-    for bx, by in ((1, 26), (36, 26), (86, 24)):      # loose bricks
+    for bx, by in ((0, 26), (44, 25), (45, 28), (86, 28), (20, 28)):      # loose bricks, the spill
         for py in range(by, min(by + 4, 30)):
             for px in range(bx, bx + 7):
                 if not c.get(px, py):
                     c.put(px, py, "brick", 7.4 if py == by else 5.2 - (0.8 if px == bx + 6 else 0))
-    for k in range(14):                  # crumbs around the heap
+    for k in range(30):                  # crumbs around the heap
         x = 2 + int(rnd("rcx", k) * 92)
-        y = 22 + int(rnd("rcy", k) * 8)
+        y = 16 + int(rnd("rcy", k) * 15)
         if not c.get(x, y):
             c.put(x, y, "mortar", 6 if k % 3 else 5)
             if k % 2 and not c.get(x + 1, y):
@@ -559,23 +559,32 @@ def landed_rubble() -> "ld.Canvas":
 
 
 def hazard_grit() -> "ld.Canvas":
-    """Pale grit and chips already lying where bits fell: an in-world 'danger below' tell."""
+    """Pale grit, 2x2 chips and a scuff line lying where bits fell: an in-world 'danger below'
+    tell. Densest under the block (piece x 48), with hard ends at the fall region (x 8 and 88)."""
     c = canvas(96, 16)
     for py in range(16):
-        for px in range(96):
-            x = px + 0.5
-            w = max(0.0, 1 - abs(x - 48) / 46)
-            r = rnd("grit", px, py)
-            if r < 0.11 * w * w * (1.4 if py > 6 else 0.8):
-                c.put(px, py, "stone", 8 if r < 0.04 else 6)
-            elif r > 0.985 - 0.02 * w:
+        for px in range(8, 88):
+            w = max(0.0, 1 - abs(px + 0.5 - 48) / 40)
+            r = rnd("grit2", px, py)
+            if r < 0.034 + 0.06 * w * w:
+                c.put(px, py, "stone", 8 if r < 0.06 else 7 if r < 0.12 else 6)
+            elif r > 0.97:
                 c.put(px, py, "brick", 6)
-    for k in range(5):                    # chips with a 1 px shadow
-        x, y = 14 + int(rnd("chip", k) * 66), 4 + int(rnd("chipy", k) * 9)
-        c.put(x, y, "stone", 8.6)
-        c.put(x + 1, y, "stone", 7)
-        c.put(x, y + 1, "stone", 3)
-        c.put(x + 1, y + 1, "stone", 2)
+    for k in range(30):                   # 2x2 pale chips with a 1 px shade, weighted to the middle
+        x = 9 + int((0.5 + (rnd("chipx", k) - 0.5) * (1.0 - 0.45 * rnd("chipw", k))) * 76)
+        y = 2 + int(rnd("chipy", k) * 11)
+        x = min(max(x, 8), 85)
+        for dx in range(2):
+            for dy in range(2):
+                c.put(x + dx, y + dy, "stone", 9 if (dx == 0 and dy == 0) else 8)
+        c.put(x + 2, y + 1, "stone", 4)
+        c.put(x, y + 2, "stone", 3)
+    y0 = 10                               # a scuff line dragged through the grit
+    for x in range(30, 64):
+        y = y0 + (1 if (x // 7) % 2 else 0)
+        c.put(x, y, "mortar", 4 if x % 3 else 3)
+        if x % 5 == 0:
+            c.put(x, y - 1, "stone", 5)
     return c
 
 
@@ -707,18 +716,56 @@ BARRICADE_FULL_H = 280      # cornice underside (y 32) down to the deck's front 
 BARRICADE_BACK = 256        # piece-local row of the floor back line (y 288)
 
 
+BARRICADE_GAPS = [2, 3, 2, 7, 3, 2, 4, 2, 3, 7, 2, 3, 2, 4, 3, 2]   # px between boards, never equal twice running
+BARRICADE_PATCHED = (3, 9)       # indices of the two wide (7 px) gaps that a short vertical slat patches
+BARRICADE_OFF_ANGLE = [(62, 9.0, 3.4), (132, -7.0, 3.0), (196, 11.0, 3.6)]   # centre y, degrees, half width
+BARRICADE_ZONE = (11, 253)       # piece-local rows between the header and the lane boards
+
+
 def barricade_gap_fill(c, x0: int, x1: int, y0: int, y1: int) -> None:
-    """Dark void behind the planks: the gaps between boards read as shadow, not as the wall."""
+    """Narrow shadow between the boards: mortar_00 (and a little mortar_01), so a gap reads as
+    a seam and not as a black void."""
     for py in range(y0, y1):
         for px in range(x0, x1):
-            r = rnd("bgap", px, py)
-            top = 1.0 if py < y0 + 10 else 0.0
-            if r < 0.78 - 0.1 * top:
-                c.put(px, py, "iron", 0)
-            elif r < 0.93:
-                c.put(px, py, "mortar", 0)
-            else:
-                c.put(px, py, "iron", 1)
+            c.put(px, py, "mortar", 0 if rnd("bgap", px, py) < 0.88 else 1)
+
+
+def barricade_boards(c) -> None:
+    """The boards between the posts: mixed thickness (8 to 14 px) with an uneven rhythm of
+    2 to 7 px gaps, tone variety, overhang past the posts (2 to 6 px), two wide gaps patched by
+    short vertical slats and three off-angle boards nailed over their neighbours. No board
+    repeats its neighbour's thickness, and nothing runs post to post as a diagonal."""
+    z0, z1 = BARRICADE_ZONE
+    barricade_gap_fill(c, 6, 90, z0, z1)
+    y, k = float(z0), 0
+    gaps = []
+    while True:
+        gap = BARRICADE_GAPS[k % len(BARRICADE_GAPS)]
+        thick = 8 + int(rnd("bth", k) * 7)                     # 8..14
+        if k and thick == prev:
+            thick = 8 + (thick - 8 + 3) % 7
+        if y + gap + thick > z1 - 6:
+            thick = z1 - (y + gap)                              # the last board closes the zone
+            thick = max(thick, 8)
+        top = y + gap
+        mid = top + thick / 2
+        tilt = (rnd("bfl", k) - 0.5) * 3.0
+        o_l, o_r = 2 + int(rnd("bol", k) * 5), 2 + int(rnd("bor", k) * 5)
+        bias = (rnd("bft", k) - 0.5) * 1.8 + (-1.0 if k % 5 == 2 else 0.7 if k % 5 == 4 else 0.0)
+        plank(c, 6 - o_l, mid - tilt, 90 + o_r, mid + tilt, thick / 2, f"bf{k}", bias=bias)
+        gaps.append((y, top))
+        prev = thick
+        y = top + thick
+        k += 1
+        if y >= z1 - 6:
+            break
+    for idx, x in zip(BARRICADE_PATCHED, (46, 30)):           # short vertical slats patching wide gaps
+        g0, g1 = gaps[idx]
+        plank(c, x, g0 - 4, x + 1, g1 + 4, 3.2, f"bslat{idx}", bias=0.6 - 0.9 * (idx % 2))
+    for k, (cy, deg, half) in enumerate(BARRICADE_OFF_ANGLE):   # off-angle boards nailed over
+        a = math.radians(deg)
+        dy = math.tan(a) * 44
+        plank(c, 5, cy - dy, 91, cy + dy, half, f"boff{k}", bias=(-0.6, 0.5, -0.2)[k])
 
 
 def barricade_full(state: str) -> "ld.Canvas":
@@ -727,22 +774,14 @@ def barricade_full(state: str) -> "ld.Canvas":
     run down to the lip, a sill board and two kicker braces sit on the deck surface (y 288-312)
     and the lowest boards hide the deck between the posts: it reads as blocking the lane, not
     as a boarded doorway in the back wall. Drawn in the ``prop`` layer (behind actors): the
-    blocker rect stops actors at its left face, so nothing ever overlaps it. Plank rhythm is
-    a design key; Sonnet polishes it (spec, task 9)."""
+    blocker rect stops actors at its left face, so nothing ever overlaps it. The boards between
+    the posts follow spec task 9 (uneven rhythm, patched gaps, off-angle boards)."""
     h, back = BARRICADE_FULL_H, BARRICADE_BACK
     c = canvas(96, h)
     if state == "intact":
-        barricade_gap_fill(c, 6, 90, 8, h - 6)
         plank(c, 12, h - 1, 12, 0, 6.0, "bpl", nails=False)
         plank(c, 84, h - 1, 84, 0, 6.0, "bpr", nails=False)
-        y, k = 18.0, 0
-        while y < back - 6:
-            half = 3.5 + 2.5 * rnd("bfw", k)
-            tilt = (rnd("bfl", k) - 0.5) * 5
-            bias = (rnd("bft", k) - 0.5) * 1.8
-            plank(c, 2, y - tilt, 94, y + tilt, half, f"bf{k}", bias=bias)
-            y += half * 2 + 5 + 8 * rnd("bfg", k)
-            k += 1
+        barricade_boards(c)
         # lane footing: two wide boards over the deck depth, a sill on the front lip
         plank(c, 4, back + 3, 92, back + 4, 5.0, "bflane1", bias=-0.2)
         plank(c, 3, back + 13, 93, back + 12, 5.0, "bflane2", bias=0.2)
@@ -751,20 +790,28 @@ def barricade_full(state: str) -> "ld.Canvas":
         plank(c, 12, back - 26, 3, h - 2, 2.5, "bfkick_l", nails=False, bias=0.4)
         plank(c, 84, back - 26, 93, h - 2, 2.5, "bfkick_r", nails=False, bias=-0.3)
         plank(c, 0, 5, 96, 5, 5.5, "bfh", bias=-0.4)                 # header under the cornice
-        plank(c, 16, back - 8, 80, 40, 3.0, "bfdiag", nails=False, bias=0.3)
     else:
-        # posts snapped near the deck, the boards thrown across the lane (actors walk over them)
+        # left post snapped 30 px above the back line with a splintered top; the right post is
+        # thrown over to lean into the next bay (top 18 px further right than its foot)
         plank(c, 12, h - 1, 12, back - 30, 6.0, "bpl", nails=False)
-        plank(c, 84, h - 1, 76, back - 100, 6.0, "bpr", nails=False)
-        for k, (a0, b0) in enumerate([((2, h - 6), (50, h - 12)), ((40, h - 3), (94, h - 8)),
-                                      ((10, back + 6), (58, back - 2)), ((54, back + 4), (92, back - 10)),
-                                      ((18, back - 8), (46, back - 18)), ((76, 160), (94, 208))]):
-            plank(c, a0[0], a0[1], b0[0], b0[1], 3.5 + (k % 3) * 0.7, f"bfs{k}", nails=k == 5,
-                  bias=(rnd("bfsb", k) - 0.5) * 1.6)
-        for k in range(9):
-            x = 6 + k * 1.4
-            y = back - 30 - 1 - int(rnd("bfss", k) * 6)
-            c.put(int(x), y, *SPLINTER[3 if k % 2 else 2])
+        for x in range(6, 18):                                  # jagged, pale splintered break
+            top = back - 30 - int(rnd("bsn", x) * 6) - (3 if x % 4 == 1 else 0)
+            for y in range(top, back - 29):
+                if c.get(x, y) is None:
+                    c.put(x, y, *SPLINTER[3 if (x + y) % 3 else 2])
+        plank(c, 73, h - 1, 91, back - 100, 5.0, "bpr", nails=False)
+        for y0, x0 in ((back - 96, 91), (back - 98, 93), (back - 100, 89)):   # splintered top
+            c.put(x0, y0, *SPLINTER[3])
+            c.put(x0 + 1, y0 - 1, *SPLINTER[2])
+        # four to six boards thrown across the lane band, lying low and flat (actors walk over them)
+        for k, (a0, b0, half) in enumerate([((2, h - 6), (50, h - 11), 3.6), ((40, h - 3), (94, h - 8), 3.8),
+                                            ((6, back + 8), (56, back + 2), 3.5),
+                                            ((52, back + 5), (92, back - 3), 3.6),
+                                            ((20, back - 1), (48, back - 7), 3.2)]):
+            plank(c, a0[0], a0[1], b0[0], b0[1], half, f"bfs{k}", bias=(rnd("bfsb", k) - 0.5) * 1.6)
+        # one board still hangs by a nail from the leaning post
+        plank(c, 80, 168, 94, 214, 3.4, "bfs_hang", nails=True, bias=-0.4)
+        # the header is torn off but two stubs still hang from the cornice
         plank(c, 0, 5, 30, 6, 5.0, "bfh1", bias=-0.4)
         plank(c, 66, 5, 96, 4, 5.0, "bfh2", bias=-0.4)
         for x in (31, 32, 65, 64):
@@ -979,11 +1026,17 @@ def portal(state: str) -> "ld.Canvas":
                     continue
                 if y > PORTAL_H - 22:      # interior floor, brightest at the threshold
                     t = (y - (PORTAL_H - 22)) / 22
-                    c.put(px, py, "floor", 7.6 + 2.6 * t)
+                    if y > PORTAL_H - 5:       # bright threshold strip: the only warm bloom besides the lamp
+                        c.put(px, py, "gal_warm", 5 if y > PORTAL_H - 3 else 4)
+                    else:
+                        c.put(px, py, "floor", 7.0 + 2.0 * t)
                     continue
                 lamp_d = math.hypot(x - PORTAL_CX, y - 50)
                 if lamp_d < 3.5:
                     c.put(px, py, "flame", 5 if lamp_d < 1.8 else 4)
+                    continue
+                if lamp_d < 7.5:               # the lamp's own glow
+                    c.put(px, py, "gal_warm", 6 if lamp_d < 5 else 5)
                     continue
                 if abs(x - PORTAL_CX) < 0.6 and 22 < y < 46:
                     c.put(px, py, "iron", 2)
@@ -994,10 +1047,10 @@ def portal(state: str) -> "ld.Canvas":
                     c.put(px, py, "wood", 2 if y > PORTAL_H - 29 else 4)
                     continue
                 if far:
-                    c.put(px, py, "gal_warm", 6 if abs(x - PORTAL_CX - 10) < 7 else 5)
+                    c.put(px, py, "stone", 7 if abs(x - PORTAL_CX - 10) < 7 else 6)
                     continue
                 glow = 1 - clamp(lamp_d / 70, 0, 1)
-                c.put(px, py, "gal_warm", 3.2 + 2.6 * glow)
+                c.put(px, py, "stone", 6.0 + 2.0 * glow - 0.35 * ((px + py) % 2))
     return c
 
 
@@ -1074,30 +1127,41 @@ def portal_ajar() -> "ld.Canvas":
 def soffit_pixel(c, px: int, py: int, side: str, phase: int) -> None:
     lx = px if side == "l" else 15 - px                  # 0 = exposed edge
     course = (py // 8 + phase) % 2
-    qw = 5 if course == 0 else 3
+    qw = 7 if course == 0 else 5                         # 6 px and 4 px lit quoins + a 1 px dark return
     dv = py % 8
     if dv == 0:
-        c.put(px, py, "mortar", 0)
+        c.put(px, py, "mortar", 3)                       # course joint: clearly lighter than the face
         return
     if lx < qw:
         if lx == qw - 1:
-            c.put(px, py, "mortar", 0)                     # joint between quoin and mass
+            c.put(px, py, "mortar", 0)                   # the 1 px dark return behind the quoin
             return
         edge = lx == 0
         v = 4.4 + (2.4 if edge else 0.0) + (0.7 if dv == 1 else 0.0) \
             + (rnd("sq", side, course, py // 8) - 0.5) * 0.6
         c.put(px, py, "stone", v)
         return
+    if lx == 15 and course == 0:
+        c.put(px, py, "mortar", 3)                       # block joint on the running bond
+        return
     c.put(px, py, "brick", 0)
     if rnd("sbr", side, phase, px, py) < 0.08:
         c.put(px, py, "mortar", 1)
 
 
-def soffit_face(side: str, phase: int) -> "ld.Canvas":
+def soffit_face(side: str, phase: int, cut_end: bool = False) -> "ld.Canvas":
+    """cut_end: the row just above the low cornice, where the blue ceiling course of the
+    lowered span runs into the face: the course (ceiling_fill pixels) stops at the quoin's dark
+    return, so it reads as a cut end."""
     c = canvas(TILE, TILE)
+    cold = kit.ceiling_fill("s", 1)
     for py in range(TILE):
         for px in range(TILE):
-            soffit_pixel(c, px, py, side, phase)
+            lx = px if side == "l" else 15 - px
+            if cut_end and lx >= (7 if (py // 8 + phase) % 2 == 0 else 5):
+                c.px[py][px] = cold.px[py][px]
+            else:
+                soffit_pixel(c, px, py, side, phase)
     return c
 
 
@@ -1138,10 +1202,22 @@ def soffit_joint(side: str) -> "ld.Canvas":
 
 SOFFIT_TILES = {                                          # id -> (builder, args)
     "soffit_end_l": ("face", ("l", 0)), "soffit_end_l_b": ("face", ("l", 1)),
+    "soffit_end_l_c": ("face", ("l", 1, True)),
     "soffit_end_r": ("face", ("r", 0)), "soffit_end_r_b": ("face", ("r", 1)),
+    "soffit_end_r_c": ("face", ("r", 1, True)),
     "soffit_corner_l": ("corner", ("l",)), "soffit_corner_r": ("corner", ("r",)),
     "soffit_joint_l": ("joint", ("l",)), "soffit_joint_r": ("joint", ("r",)),
 }
+
+
+SOFFIT_FACING = ("drawn for the exposed edge on the %s (the %s step, column %s): lit quoins and the "
+                 "return sit on that side; the tile is a pair with its mirror-side tile, not a mirror "
+                 "of it: do not mirror it")
+
+
+def soffit_facing(tid: str) -> str:
+    left = "_l" in tid
+    return SOFFIT_FACING % (("left", "left", "61") if left else ("right", "right", "104"))
 
 
 def build_soffit() -> "kit.Atlas":
@@ -1156,11 +1232,11 @@ def build_soffit() -> "kit.Atlas":
 # Missing frames: dust trickle, impact dust, timber splinter burst (animated pieces)
 # ---------------------------------------------------------------------------
 FX = {   # atlas -> (piece id, tag, frame w, h, frame count, duration ms, anchor, anchor note)
-    "floor01_shore_dust": ("shore_dust_trickle", "trickle", 8, 24, 3, 110, [4, 0],
+    "floor01_shore_dust": ("shore_dust_trickle", "trickle", 8, 24, 3, 117, [4, 0],
                            "top centre; place under the block's split (block + (41, 46)) from damaged_1 on"),
-    "floor01_block_impact": ("block_impact_dust", "impact", 112, 40, 4, 80, [56, 36],
+    "floor01_block_impact": ("block_impact_dust", "impact", 112, 40, 4, 83, [56, 36],
                              "bottom centre on the walking line at the centre of the fall region"),
-    "floor01_splinter_burst": ("timber_splinter_burst", "burst", 48, 48, 4, 60, [24, 24],
+    "floor01_splinter_burst": ("timber_splinter_burst", "burst", 48, 48, 4, 67, [24, 24],
                                "centre of the break (the hit point of the timber)"),
 }
 
@@ -1181,28 +1257,42 @@ def shore_dust_frame(f: int) -> "ld.Canvas":
 
 
 def block_impact_frame(f: int) -> "ld.Canvas":
-    """Dust thrown out along the deck by the landing: a low cloud that widens, rises and thins."""
+    """Dust thrown out along the deck by the landing: a low cloud that widens, rises and thins.
+    The late frames are built from 2x2 and 2x1 puff clusters that fade through darker tones, so
+    they stay a cloud and do not break into single pixels."""
     c = canvas(112, 40)
     hw = (16, 30, 42, 50)[f]
     hh = (9, 16, 22, 26)[f]
-    keep = (1.0, 0.85, 0.6, 0.38)[f]
-    for py in range(40):
-        for px in range(112):
-            dx = (px + 0.5 - 56) / hw
-            dy = (37 - (py + 0.5)) / hh
+    keep = (1.0, 0.85, 0.7, 0.55)[f]
+    step = 1 if f < 2 else 2
+    for cy in range(0, 40, step):
+        for cx in range(0, 112, step):
+            dx = (cx + step / 2 - 56) / hw
+            dy = (37 - (cy + step / 2)) / hh
             if dy < -0.12:
                 continue
             d = math.hypot(dx, max(dy, 0.0) * 1.1)
             if d >= 1.0:
                 continue
             p = (1 - d) ** 0.7 * keep + 0.08 * keep
-            if rnd("bi", f, px, py) < p * 0.85:
+            if rnd("bi", f, cx, cy) >= p * 0.85:
+                continue
+            if f < 2:
                 if d < 0.35:
-                    c.put(px, py, "stone", 8)
+                    c.put(cx, cy, "stone", 8)
                 elif d < 0.7:
-                    c.put(px, py, "stone", 6.4 if rnd("bic", f, px, py) > 0.3 else 5)
+                    c.put(cx, cy, "stone", 6.4 if rnd("bic", f, cx, cy) > 0.3 else 5)
                 else:
-                    c.put(px, py, "mortar", 6 if rnd("bic", f, px, py) > 0.5 else 5)
+                    c.put(cx, cy, "mortar", 6 if rnd("bic", f, cx, cy) > 0.5 else 5)
+                continue
+            if f == 2:
+                tone = ("stone", 7.0) if d < 0.4 else ("stone", 5.5) if d < 0.75 else ("mortar", 6)
+            else:
+                tone = ("stone", 5.5) if d < 0.4 else ("stone", 4.0) if d < 0.75 else ("mortar", 5)
+            w2 = 2 if rnd("biw", f, cx, cy) > 0.35 else 1                   # 2x2 or 2x1 clusters
+            for dx2 in range(2):
+                for dy2 in range(w2):
+                    c.put(cx + dx2, cy + dy2, *tone)
     for k in range(5 if f < 3 else 0):                   # chips thrown out and falling back
         ang = (k + 0.5) / 5 * math.pi
         r = 12 + f * 9 + rnd("bik", k) * 6
@@ -1211,7 +1301,17 @@ def block_impact_frame(f: int) -> "ld.Canvas":
         for dx in range(2):
             for dy in range(2):
                 c.put(int(x) + dx, int(y) + dy, "stone", 8.6 if dy == 0 else 5.5)
+    if f == 3:                                           # rebalance the drift: mass left of the anchor
+        pts = [(x, y) for y in range(40) for x in range(112) if c.px[y][x] is not None]
+        if pts and sum(x for x, _y in pts) / len(pts) > 56:
+            c = blit_mirror(c)
     return c
+
+
+def blit_mirror(src: "ld.Canvas") -> "ld.Canvas":
+    out = canvas(src.w, src.h)
+    kit.blit(out, src, 0, 0, mirror_x=True)
+    return out
 
 
 def line_px(x0: float, y0: float, x1: float, y1: float):
@@ -1227,21 +1327,28 @@ def splinter_frame(f: int) -> "ld.Canvas":
     for k in range(n):
         ang = (k / n + (rnd("spa", k) - 0.5) * 0.12) * math.tau
         r0 = 3 + f * 5.2 + rnd("spr", k) * 3
-        ln = 3 + rnd("spl", k) * 4
+        ln = 3 + rnd("spl", k) * 4 if f < 3 else 2.0
         sag = f * f * 0.9
         x0, y0 = 24 + math.cos(ang) * r0, 24 + math.sin(ang) * r0 * 0.9 + sag
         x1, y1 = 24 + math.cos(ang) * (r0 + ln), 24 + math.sin(ang) * (r0 + ln) * 0.9 + sag
-        for i, (x, y) in enumerate(line_px(x0, y0, x1, y1)):
+        if f == 3:                       # slivers: exactly 2 touching pixels along the flight direction
+            sx = int(round(math.cos(ang)))
+            sy = int(round(math.sin(ang)))
+            sx, sy = (sx, sy) if (sx or sy) else (1, 0)
+            pts = [(round(x0), round(y0)), (round(x0) + sx, round(y0) + sy)]
+        else:
+            pts = list(line_px(x0, y0, x1, y1))
+        for i, (x, y) in enumerate(pts):
             if k % 3 == 0:
                 c.put(x, y, "stone", 9 if i == 0 else 7)       # pale fresh fibres
             else:
                 lut(c, x, y, TIMBER, 4.6 if i % 2 == 0 else 2.6)
-        if k % 2 == 0:
+        if k % 2 == 0 and f < 3:
             c.put(round(x1), round(y1), "stone", 8.6)
     if f == 0:                                           # impact flash at the hit
         for dx, dy in ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1), (-2, 0), (2, 0), (0, -2), (0, 2)):
             c.put(24 + dx, 24 + dy, "stone", 10 if dx == 0 and dy == 0 else 8.6)
-    for k in range(4 + f):                                # grit
+    for k in range(4 + f if f < 3 else 0):                # grit (none in the last frame: slivers only)
         x = 24 + int((rnd("spg", f, k) - 0.5) * (14 + f * 10))
         y = 24 + int((rnd("spgy", f, k) - 0.5) * (12 + f * 8)) + f
         c.put(x, y, "mortar", 6)
@@ -1330,7 +1437,7 @@ def build_atlases() -> dict:
                     anchor_name="bottom centre on the floor back line (y = 288)", grid_snap=8,
                     grammar=["A"], breakable={"group": "guild_portal", "state": "open"},
                     lights=[warm_light("interior", [cx, 60], 240, 0.5,
-                                       glow={"radius": 52, "additive": 0.1}),
+                                       glow={"radius": 28, "additive": 0.1}),
                             warm_light("spill", [cx, PORTAL_H - 4], 170, 0.5,
                                        project="walk_line", project_dy=-4, squash_y=0.34)])
     guild.add_piece("guild_sign", guild_sign(), anchor=[0, 2],
@@ -1409,7 +1516,7 @@ def build_contract(tiles: list[dict], pieces: list[dict], grids: dict) -> dict:
         "status": STATUS,
         "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and "
                           "lighting schema from the ENV-01 contract (env_kit.py resolve_extends). "
-                          "Adds atlases, pieces and the 8 soffit tiles of the chase-passage ceiling "
+                          "Adds atlases, pieces and the 10 soffit tiles of the chase-passage ceiling "
                           "steps; no new palette colours. Soffit tile sides: l = the left step "
                           "(column 61), r = the right step (column 104); soffit_joint_* sit one "
                           "column outside the step (60 / 105) at the high cornice.",
@@ -1438,9 +1545,11 @@ def build_contract(tiles: list[dict], pieces: list[dict], grids: dict) -> dict:
             "S3_chase": "C grammar under a lowered ceiling: copper run along the cornice, valve on a "
                         "drop, maint_hatch at chest height, timber_set_* every 320 px or so (bottom "
                         "on the floor back line), jump humps as 1-tile platforms. The two ceiling "
-                        "steps use the soffit tiles: soffit_end_l/_b (left step), soffit_end_r/_b "
-                        "(right step), soffit_corner_* at the low cornice, soffit_joint_* at the "
-                        "high cornice next to the face.",
+                        "steps use the soffit tiles: soffit_end_l/_b/_c (left step), "
+                        "soffit_end_r/_b/_c (right step; _c is the cut end of the blue ceiling "
+                        "course just above the low cornice), soffit_corner_* at the low cornice, "
+                        "soffit_joint_* at the high cornice next to the face. Tiles are drawn per "
+                        "side: do not mirror them.",
             "S4_widened": "A grammar at full height: alcove_niche on a 1-tile ledge (6 columns), a "
                           "pooled torch right of the niche, timber_barricade_full_* (96x280, y 32 to the lip) "
                           "closing the end.",
@@ -1516,8 +1625,10 @@ def build_layout(contract: dict, option: str) -> dict:
     fill_run(0, 2, cols, "ceiling_fill", ["a", "s"], salt="c0")
     cl, cr = LOW_CEIL
     for r in range(1, low - 1):
-        collision[r][cl] = "soffit_end_l" if r % 2 else "soffit_end_l_b"
-        collision[r][cr] = "soffit_end_r" if r % 2 else "soffit_end_r_b"
+        # the row above the low cornice is the cut end of the blue ceiling course (_c)
+        suffix = "_c" if r == low - 2 else "" if r % 2 else "_b"
+        collision[r][cl] = f"soffit_end_l{suffix}"
+        collision[r][cr] = f"soffit_end_r{suffix}"
         if r == low - 2:       # the course right above the low cornice keeps the ceiling look
             fill_run(r, cl + 1, cr, "ceiling_fill", ["a", "s"], salt=f"c{r}")
         else:                  # deeper soffit mass: the dark fill blocks of the floor stack
@@ -1859,12 +1970,13 @@ def build_all() -> dict:
         manifests[name] = manifest(name, grids[name])
     # soffit tileset (collision role: opaque, collidable, [0, 0, 16, 16] collider)
     soffit = build_soffit()
-    img, entries = kit.pack_tiles(soffit, 4)
+    img, entries = kit.pack_tiles(soffit, 5)
     grids["floor01_soffit"] = kit.grid_from([img])
     for e in entries:
         tiles.append({"id": e["id"], "atlas": "floor01_soffit", "grid_index": e["grid_index"],
                       "rect": e["rect"], "role": "collision", "collidable": True,
-                      "grammar": ["A", "B", "C"], "collider": [0, 0, TILE, TILE]})
+                      "grammar": ["A", "B", "C"], "collider": [0, 0, TILE, TILE],
+                      "facing": soffit_facing(e["id"])})
     manifests["floor01_soffit"] = manifest("floor01_soffit", grids["floor01_soffit"],
                                            tiles=[e["id"] for e in entries])
     # animated pieces: one atlas per size (the exporter needs one canvas size per sprite)

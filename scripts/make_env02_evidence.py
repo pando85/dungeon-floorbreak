@@ -34,6 +34,8 @@ CARL = "assets/manifests/carl_book1_h52.json"
 DONUT = "assets/manifests/donut_scale_h40.json"
 GOB_A = "assets/manifests/goblin_a_h36.json"
 GOB_B = "assets/manifests/goblin_b_h36.json"
+# frame durations of the presentation loops, in ms (60 Hz ticks: 7, 5 and 4)
+TRICKLE_MS, IMPACT_MS, BURST_MS = 117, 83, 67
 PAGE = (20, 18, 26)
 INK = (236, 224, 200)
 KIND_COLOURS = {
@@ -417,16 +419,16 @@ def render(out: Path) -> dict:
             ("2 hit 1: damaged_1, block settling, trickle", "shore_post_damaged_1", "loose_block_settling", True),
             ("3 hit 2: damaged_2, block slipped, trickle", "shore_post_damaged_2", "loose_block_slipped", True)]):
         extra = [("prop", "shore_dust_trickle", *trickle)] if dust else []
-        tiles.append(label(frame(state_layout(spiece, bpiece, extra), cast5, 110), name))
+        tiles.append(label(frame(state_layout(spiece, bpiece, extra), cast5, TRICKLE_MS), name))
     falling = state_layout("shore_post_broken", None, [("prop", "loose_block_falling", centre_x - 36, 120 + 70)])
     tiles.append(label(frame(falling, cast5), "4 hit 3: broken, block falling"))
     landed = state_layout("shore_post_broken", None, [("prop", "loose_block_landed", centre_x - 48, walk - 30),
                                                       ("prop", "block_impact_dust", centre_x - 56, walk - 36)])
     cast_landed = [c for c in cast5 if c[1] < 3000 or c[1] > 3100]
-    tiles.append(label(frame(landed, cast_landed, 80), "5 landed: rubble and impact dust"))
+    tiles.append(label(frame(landed, cast_landed, IMPACT_MS), "5 landed: rubble and impact dust"))
     burst_lay = state_layout("shore_post_damaged_1", "loose_block_settling",
                              [("prop", "timber_splinter_burst", *burst)])
-    tiles.append(label(frame(burst_lay, cast5, 60), "(hit flash: splinter burst frame 2)"))
+    tiles.append(label(frame(burst_lay, cast5, BURST_MS), "(hit flash: splinter burst frame 2)"))
     strip = Image.new("RGB", (sum(t.width for t in tiles) + 8 * (len(tiles) - 1), tiles[0].height), PAGE)
     x = 0
     for t in tiles:
@@ -438,26 +440,34 @@ def render(out: Path) -> dict:
     gif.append((label(frame(state_layout("shore_post_intact", "loose_block_seated"), cast5), "intact"), 700))
     for spiece, bpiece, nm in (("shore_post_damaged_1", "loose_block_settling", "hit 1"),
                                ("shore_post_damaged_2", "loose_block_slipped", "hit 2")):
-        for k in range(4):              # splinter burst at the hit, then the trickle loops
+        for k in range(4):              # splinter burst at the hit (4 ticks per frame), trickle loops
             lay = state_layout(spiece, bpiece, [("prop", "timber_splinter_burst", *burst),
                                                 ("prop", "shore_dust_trickle", *trickle)])
-            gif.append((label(frame(lay, cast5, 60 * k + 1), nm), 60))
+            gif.append((label(frame(lay, cast5, BURST_MS * k + 1), nm), BURST_MS))
         for k in range(6):
             lay = state_layout(spiece, bpiece, [("prop", "shore_dust_trickle", *trickle)])
-            gif.append((label(frame(lay, cast5, 110 * k), nm), 110))
-    for k in range(4):                  # hit 3: the shore breaks, the block holds a moment
-        lay = state_layout("shore_post_broken", "loose_block_slipped",
-                           [("prop", "timber_splinter_burst", *burst)])
-        gif.append((label(frame(lay, cast5, 60 * k + 1), "hit 3: broken"), 60))
-    for t in (0.2, 0.4, 0.6, 0.8, 0.95):     # the drop: 140 px under constant gravity
-        y = 168 + 140 * t * t
-        lay = state_layout("shore_post_broken", None, [("prop", "loose_block_falling", centre_x - 36,
-                                                        int(y) - 52)])
-        gif.append((label(frame(lay, cast5), "falling"), 60))
+            gif.append((label(frame(lay, cast5, TRICKLE_MS * k), nm), TRICKLE_MS))
+    # hit 3 on a real timeline (50 ms steps): the shore breaks at t = 0, the block holds for 6 ticks
+    # (100 ms), then falls 140 px under 1050 px/s^2 (about 0.52 s) and lands with impact dust
+    t_land = int(100 + 1000 * (2 * 140 / 1050) ** 0.5)
+    t = 0
+    while t < t_land:
+        extra = [("prop", "timber_splinter_burst", *burst)] if t < 4 * BURST_MS else []
+        if t < 100:
+            lay = state_layout("shore_post_broken", "loose_block_slipped", extra)
+            nm = "hit 3: broken, block holds (6 ticks)"
+        else:
+            tf = (t - 100) / 1000
+            y = 168 + 525 * tf * tf
+            lay = state_layout("shore_post_broken", None,
+                               extra + [("prop", "loose_block_falling", centre_x - 36, int(y) - 52)])
+            nm = "falling"
+        gif.append((label(frame(lay, cast5, t + 1), nm), 50))
+        t += 50
     for k in range(4):
         lay = state_layout("shore_post_broken", None, [("prop", "loose_block_landed", centre_x - 48, walk - 30),
                                                        ("prop", "block_impact_dust", centre_x - 56, walk - 36)])
-        gif.append((label(frame(lay, cast_landed, 80 * k + 1), "landed"), 80))
+        gif.append((label(frame(lay, cast_landed, IMPACT_MS * k + 1), "landed"), IMPACT_MS))
     lay = state_layout("shore_post_broken", None, [("prop", "loose_block_landed", centre_x - 48, walk - 30)])
     gif.append((label(frame(lay, cast_landed), "landed"), 1500))
     save_gif(gif, out / "env02_cp03_sequence_lit_2x.gif", written)

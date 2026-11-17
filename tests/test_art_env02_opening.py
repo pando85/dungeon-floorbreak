@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import env_kit as ek  # noqa: E402
+from PIL import Image  # noqa: E402
 
 BASE = "assets/source/terrain/floor01/floor01_catacomb_kit.json"
 CONTRACT = "assets/source/terrain/floor01/floor01_opening_kit.json"
@@ -24,8 +25,8 @@ CARL_JAB_REACH = (16, 22)      # src/combat.rs CARL_JAB fist box, px ahead of th
 CARL_HALF_WIDTH = 12           # generous half-width of the 52 px Carl idle silhouette
 
 
-SOFFIT_IDS = {"soffit_end_l", "soffit_end_l_b", "soffit_end_r", "soffit_end_r_b", "soffit_corner_l",
-              "soffit_corner_r", "soffit_joint_l", "soffit_joint_r"}
+SOFFIT_IDS = {"soffit_end_l", "soffit_end_l_b", "soffit_end_l_c", "soffit_end_r", "soffit_end_r_b",
+              "soffit_end_r_c", "soffit_corner_l", "soffit_corner_r", "soffit_joint_l", "soffit_joint_r"}
 MARKER_IDS = [
     "player_spawn", "checkpoint_chase", "trigger_chase_start", "pursuer_spawn", "pursuer_path",
     "clearance_gauge_s3", "timber_set_a", "timber_set_b", "jump_hump_a", "jump_hump_b",
@@ -305,7 +306,7 @@ class FrozenKeyTests(unittest.TestCase):
         self.assertEqual(piece["layer"], entry["layer"], pid)
 
     def test_frozen_keys_are_pixel_identical(self) -> None:
-        self.assertEqual(len(self.fixture["frozen"]), 19)
+        self.assertEqual(len(self.fixture["frozen"]), 17)
         for pid, entry in self.fixture["frozen"].items():
             with self.subTest(piece=pid):
                 self.check_piece(pid, entry)
@@ -313,7 +314,8 @@ class FrozenKeyTests(unittest.TestCase):
                 self.assertEqual(got, entry["sha256"], f"{pid}: an Opus key changed")
 
     def test_polished_keys_keep_their_rect_and_match_the_frozen_polish(self) -> None:
-        self.assertEqual(set(self.fixture["polished"]), {"loose_block_landed"})
+        self.assertEqual(set(self.fixture["polished"]),
+                         {"loose_block_landed", "hazard_grit", "guild_portal_open"})
         for pid, entry in self.fixture["polished"].items():
             with self.subTest(piece=pid):
                 self.check_piece(pid, entry)
@@ -529,8 +531,60 @@ class PhaseTwoTests(unittest.TestCase):
                 for c in (lo, hi):
                     self.assertTrue(grid[r][c].startswith("soffit_"), (name, r, c))
             for r in range(1, low - 1):
-                self.assertEqual(grid[r][lo], "soffit_end_l" if r % 2 else "soffit_end_l_b")
-                self.assertEqual(grid[r][hi], "soffit_end_r" if r % 2 else "soffit_end_r_b")
+                suffix = "_c" if r == low - 2 else "" if r % 2 else "_b"     # _c: cut end of the blue course
+                self.assertEqual(grid[r][lo], f"soffit_end_l{suffix}")
+                self.assertEqual(grid[r][hi], f"soffit_end_r{suffix}")
+
+    def test_soffit_tiles_carry_a_facing_note_and_are_not_mirrors(self) -> None:
+        for t in self.contract["tiles"]:
+            self.assertIn("do not mirror", t["facing"], t["id"])
+            self.assertIn("left" if "_l" in t["id"] else "right", t["facing"], t["id"])
+        for a, b in (("soffit_end_l", "soffit_end_r"), ("soffit_end_l_b", "soffit_end_r_b"),
+                     ("soffit_end_l_c", "soffit_end_r_c")):
+            ia = self.kit.crop("floor01_soffit", self.kit.tiles[a]["rect"])
+            ib = self.kit.crop("floor01_soffit", self.kit.tiles[b]["rect"]).transpose(
+                Image.Transpose.FLIP_LEFT_RIGHT)
+            self.assertNotEqual(ia.tobytes(), ib.tobytes(), (a, b))
+
+    def test_fix_round_landed_rubble_grit_and_portal_numbers(self) -> None:
+        def opaque(pid):
+            a = self.kit.crop(self.kit.pieces[pid]["atlas"], self.kit.pieces[pid]["rect"]).getchannel("A")
+            return a, a.tobytes().count(255)
+        landed, n_landed = opaque("loose_block_landed")
+        self.assertGreaterEqual(n_landed, 2000)            # the seated block is 2363
+        grit, n_grit = opaque("hazard_grit")
+        self.assertTrue(0.18 <= n_grit / (96 * 16) <= 0.22, n_grit)
+        xs = [x for y in range(16) for x in range(96) if grit.getpixel((x, y)) == 255]
+        self.assertEqual((min(xs), max(xs)), (8, 87))      # hard ends at the fall region (3000 / 3080)
+        portal = self.kit.crop("floor01_guild", self.kit.pieces["guild_portal_open"]["rect"])
+        raw = portal.tobytes()
+        warm = [raw[i:i + 4] for i in range(0, len(raw), 4) if raw[i + 3] == 255]
+        grid = self.grids["floor01_guild"]
+        gal = {tuple(int(e["rgba"][i:i + 2], 16) for i in (1, 3, 5)) for e in grid["palette"]
+               if e["name"].startswith("gal_warm")}
+        share = sum(1 for p in warm if tuple(p[:3]) in gal) / len(warm)
+        self.assertLess(share, 0.12, share)                # was 42 %: glow only on the lamp and the threshold
+        interior = next(l for l in self.kit.pieces["guild_portal_open"]["lights"] if l["id"] == "interior")
+        self.assertEqual(interior["glow"]["radius"], 28)
+
+    def test_fix_round_barricade_rhythm_and_smashed_pose(self) -> None:
+        item_piece = self.kit.pieces["timber_barricade_full_intact"]
+        art = self.kit.crop(item_piece["atlas"], item_piece["rect"])
+        # near-black gap rows (mortar_00 across the middle of the boards) stay under 15 % of the height
+        mortar00 = ek.parse_rgba(next(e["rgba"] for e in ek.load_json(BASE)["palette"] if e["name"] == "mortar_00"))
+        dark_rows = 0
+        for y in range(11, 253):
+            run = [art.getpixel((x, y))[:3] for x in range(20, 76)]
+            if sum(1 for p in run if p == mortar00[:3]) > 0.6 * len(run):
+                dark_rows += 1
+        self.assertLessEqual(dark_rows / 280, 0.15, dark_rows)
+        smashed = self.kit.crop(item_piece["atlas"], self.kit.pieces["timber_barricade_full_smashed"]["rect"])
+        a = smashed.getchannel("A")
+        # nothing in the middle of the lane rises above 40 px over the walking line once smashed
+        for y in range(40, 236):
+            for x in range(20, 70):
+                self.assertEqual(a.getpixel((x, y)), 0, (x, y))
+        self.assertGreater(sum(1 for y in range(236, 280) for x in range(0, 96) if a.getpixel((x, y)) == 255), 600)
 
     def test_new_animations_are_declared_with_manifest_tags(self) -> None:
         expect = {"shore_dust_trickle": (3, [8, 24]), "block_impact_dust": (4, [112, 40]),
@@ -541,6 +595,8 @@ class PhaseTwoTests(unittest.TestCase):
             self.assertEqual(piece["rect"][2:], size, pid)
             manifest = self.kit.atlases[piece["atlas"]]["manifest"]
             self.assertIn(piece["animation"]["tag"]["name"], manifest["animation_tags"], pid)
+        for pid, ms in (("shore_dust_trickle", 117), ("block_impact_dust", 83), ("timber_splinter_burst", 67)):
+            self.assertTrue(all(f["duration"] == ms for f in self.kit.pieces[pid]["animation"]["frames"]), pid)
         ajar, closed = self.kit.pieces["guild_portal_ajar"], self.kit.pieces["guild_portal_closed"]
         self.assertEqual(ajar["rect"][2:], closed["rect"][2:])
 

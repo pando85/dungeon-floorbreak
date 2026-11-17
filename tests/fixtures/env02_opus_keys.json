@@ -121,21 +121,6 @@
    "layer": "prop",
    "sha256": "99a50a21f64dbc559107cdbcc955c14d3e35c325884c33d1f5aeacbddf245cab"
   },
-  "hazard_grit": {
-   "atlas": "floor01_opening_props",
-   "rect": [
-    0,
-    288,
-    96,
-    16
-   ],
-   "anchor": [
-    48,
-    8
-   ],
-   "layer": "prop",
-   "sha256": "2f57a3771dc289b9d0e15b59de29cef150c15cbe12e9d063e934399311eab4af"
-  },
   "timber_set_intact": {
    "atlas": "floor01_opening_props",
    "rect": [
@@ -256,21 +241,6 @@
    "layer": "prop",
    "sha256": "4d6cee1c0c69581d085b629e5c1779ca61e5b0d8438fefa4ce21086610d07bda"
   },
-  "guild_portal_open": {
-   "atlas": "floor01_guild",
-   "rect": [
-    112,
-    0,
-    112,
-    136
-   ],
-   "anchor": [
-    56,
-    136
-   ],
-   "layer": "prop",
-   "sha256": "c3e484b8e823ef7bbd7a2b8c837a761777381af32d988a0754bc435b6c1ff899"
-  },
   "guild_sign": {
    "atlas": "floor01_guild",
    "rect": [
@@ -289,9 +259,9 @@
  },
  "polished": {
   "loose_block_landed": {
-   "reason": "ENV-02 spec Sonnet task 3: rubble follows the v2 split (right stone, left pair, crumbs)",
+   "reason": "ENV-02 spec Sonnet task 3 (fix round: halves ~44x28 and ~40x26 plus brick spill, >= 2000 px)",
    "opus_key_sha256": "9a4ffb60b122b1765e5504e57c2d213484238494d94317bb6dd492f63961d2ac",
-   "sha256": "17737f488da548d449f2d72e7e94a3e5e018c1eabc4a0bb8ccf8f7615fcb41ad",
+   "sha256": "3bb5ef9e6ca8eb625597249ad726648ded2b99408df78e5a281ddfdfe66e4d82",
    "rect": [
     400,
     144,
@@ -303,6 +273,40 @@
     30
    ],
    "atlas": "floor01_opening_props",
+   "layer": "prop"
+  },
+  "hazard_grit": {
+   "reason": "ENV-02 fix round (Opus review): 18-22 % coverage, 2x2 pale chips and a scuff line, densest under the block, hard ends at the fall region",
+   "opus_key_sha256": "2f57a3771dc289b9d0e15b59de29cef150c15cbe12e9d063e934399311eab4af",
+   "sha256": "1843c4e8840108367149cbd025438da9c7f34ffcc0ce87e2fc62449ff2f94c96",
+   "rect": [
+    0,
+    288,
+    96,
+    16
+   ],
+   "anchor": [
+    48,
+    8
+   ],
+   "atlas": "floor01_opening_props",
+   "layer": "prop"
+  },
+  "guild_portal_open": {
+   "reason": "ENV-02 fix round (Opus review): no gal_warm furnace; glow only on the lamp and the threshold strip",
+   "opus_key_sha256": "c3e484b8e823ef7bbd7a2b8c837a761777381af32d988a0754bc435b6c1ff899",
+   "sha256": "82d97401da884c94c5e4dc90260cc2cb5ba05fd760bdea59b1d6eb828a96f112",
+   "rect": [
+    112,
+    0,
+    112,
+    136
+   ],
+   "anchor": [
+    56,
+    136
+   ],
+   "atlas": "floor01_guild",
    "layer": "prop"
   }
  }
