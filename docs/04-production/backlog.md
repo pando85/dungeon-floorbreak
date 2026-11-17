@@ -35,6 +35,13 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
 
+## Opening-scene combat integration handoff (owner direction, 2026-11-17)
+
+- **Use the first integrated scene as the combat testbed:** [Floor 01 opening combat probes](../07-agents/floor-01-integrated-combat-probes.md). Keep the opening Dozer chase as escape; add the planned small **on-foot goblin fight** after the chase with reproducible CP-01/02/03 fixtures in the **same Bevy runtime**.
+- **Critical first tests:** a satisfying ordinary hit/kill, one knockback into another enemy, then an optional single authored environmental elimination if safe and story-valid. Defeated-body impacts (CP-04) are an A/B research spike, not a prerequisite.
+- **Integration discipline:** re-use WORK-021's deterministic combat contracts; the current integrated corridor alone is not a combat demo. Preserve pre-Guild ability constraints (no Donut magic, no early Carl bomb simply because greybox has it) and avoid simultaneous writes to scene ownership/colliders.
+- **Co-op validation:** run the same battle in solo-switch and 2P when those features are actually available; never mark missing controls as tested or block all basic hit testing on future multiplayer.
+
 ## Hybrid combat physics and feel (owner approval, 2026-11-17)
 
 - **Approved direction:** [combat-feel and hybrid-physics contract](../01-design/combat-feel-hybrid-physics.md). Ordinary enemies fall after a few satisfying hits, with physical feedback, predictable knockback and emergent enemy/environment interactions rather than memorized combo strings or HP-sponges.
