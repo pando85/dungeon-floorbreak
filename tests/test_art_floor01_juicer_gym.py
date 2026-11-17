@@ -1,7 +1,7 @@
-"""Protect the approved Juicer Gym concept source bytes in their own art PR.
+"""Validate source bytes for the Juicer Gym's selected standalone concept.
 
-Concept sheets are *not* native gameplay textures; hashes prevent accidental
-crops, recompression or asset swaps between visual review and production.
+Concepts are references, not native textures. We pin the exact original source
+instead of substituting crops or recompressed derivatives for approved artwork.
 """
 import hashlib
 import io
@@ -11,14 +11,10 @@ import unittest
 
 from PIL import Image
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DIR = ROOT / "assets/concept/floor-01/juicer-gym"
 MANIFEST = DIR / "manifest.json"
-EXPECTED = {
-    "floor01-juicer-gym-approved-mood-reference.png",
-    "floor01-juicer-gym-standalone-revision-candidate.png",
-}
+EXPECTED = {"floor01-juicer-gym-standalone-panorama-approved.png"}
 
 
 class JuicerGymConceptImageTest(unittest.TestCase):
@@ -28,7 +24,7 @@ class JuicerGymConceptImageTest(unittest.TestCase):
 
         self.assertEqual(manifest["schema"], "the-crawl-concept-image-manifest-v1")
         entries = manifest["assets"]
-        self.assertEqual(len(entries), 2)
+        self.assertEqual(len(entries), 1)
         self.assertEqual({Path(e["path"]).name for e in entries}, EXPECTED)
         self.assertEqual({p.name for p in DIR.glob("*.png")}, EXPECTED)
 
