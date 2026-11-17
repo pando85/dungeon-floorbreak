@@ -203,6 +203,85 @@ class ActorContractTests(unittest.TestCase):
                               metadata, image)
 
 
+COMBAT_TAGS = (("punch", 0, 1), ("hurt", 2, 2), ("knockback", 3, 3))
+COMBAT_FRAMES = 4
+
+
+def combat_fixture(lift=6, width=48, height=56, pivot=(25, 55)):
+    """A 4-frame melee-like row: frame 3 (knockback) ends `lift` rows above the pivot row."""
+    image = Image.new("RGBA", (width * COMBAT_FRAMES, height), (0, 0, 0, 0))
+    for frame in range(COMBAT_FRAMES):
+        bottom = height - lift if frame == 3 else height
+        for y in range(4, bottom):
+            for x in range(frame * width + 12, frame * width + 40):
+                image.putpixel((x, y), (200, 120, 80, 255))
+    manifest = {"frame_size": [width, height], "pivot": list(pivot),
+                "melee": {"airborne_tags": ["knockback"]}}
+    metadata = {
+        "frames": [{"frame": {"x": i * width, "y": 0, "w": width, "h": height}}
+                   for i in range(COMBAT_FRAMES)],
+        "meta": {"frameTags": [{"name": n, "from": lo, "to": hi, "direction": "forward"}
+                               for n, lo, hi in COMBAT_TAGS]},
+    }
+    return manifest, metadata, image
+
+
+def check_combat(manifest, metadata, image):
+    scene.check_combat_actor("melee_fixture", (48, 56), (25, 55), COMBAT_FRAMES,
+                             tuple(n for n, _, _ in COMBAT_TAGS), ("knockback",),
+                             manifest, metadata, image)
+
+
+class CombatActorContractTests(unittest.TestCase):
+    def test_pinned_combat_atlases_are_melee_and_both_goblin_variants(self):
+        self.assertEqual(
+            [(name, size, pivot, count) for name, size, pivot, count, _, _ in scene.COMBAT_ACTORS],
+            [("carl_book1_h52_melee", (48, 56), (25, 55), 24),
+             ("goblin_a_h36", (64, 56), (28, 55), 27),
+             ("goblin_b_h36", (64, 56), (28, 55), 27)])
+
+    def test_valid_combat_atlas_passes(self):
+        check_combat(*combat_fixture())
+
+    def test_a_grounded_frame_off_the_pivot_row_is_rejected(self):
+        manifest, metadata, _ = combat_fixture()
+        image = Image.new("RGBA", (48 * COMBAT_FRAMES, 56), (0, 0, 0, 0))
+        for frame in range(COMBAT_FRAMES):
+            for y in range(4, 54):
+                for x in range(frame * 48 + 12, frame * 48 + 40):
+                    image.putpixel((x, y), (1, 2, 3, 255))
+        with self.assertRaisesRegex(scene.ContractError, "lowest opaque row"):
+            check_combat(manifest, metadata, image)
+
+    def test_an_airborne_frame_on_the_pivot_row_is_rejected(self):
+        with self.assertRaisesRegex(scene.ContractError, "airborne but its lowest"):
+            check_combat(*combat_fixture(lift=0))
+
+    def test_changed_pivot_tags_or_frame_count_are_rejected(self):
+        manifest, metadata, image = combat_fixture()
+        manifest["pivot"] = [24, 55]
+        with self.assertRaisesRegex(scene.ContractError, "pivot changed"):
+            check_combat(manifest, metadata, image)
+        manifest, metadata, image = combat_fixture()
+        metadata["meta"]["frameTags"].reverse()
+        with self.assertRaisesRegex(scene.ContractError, "animation tags"):
+            check_combat(manifest, metadata, image)
+        manifest, metadata, image = combat_fixture()
+        metadata["frames"].pop()
+        with self.assertRaisesRegex(scene.ContractError, "expected 4 frames"):
+            check_combat(manifest, metadata, image)
+
+    def test_a_padded_atlas_or_undeclared_airborne_tag_is_rejected(self):
+        manifest, metadata, image = combat_fixture()
+        padded = Image.new("RGBA", (48 * COMBAT_FRAMES + 8, 56))
+        padded.paste(image)
+        with self.assertRaisesRegex(scene.ContractError, "one row"):
+            check_combat(manifest, metadata, padded)
+        manifest["melee"]["airborne_tags"] = []
+        with self.assertRaisesRegex(scene.ContractError, "manifest airborne_tags"):
+            check_combat(manifest, metadata, image)
+
+
 class AlphaTests(unittest.TestCase):
     def test_partial_alpha_in_an_actor_atlas_is_rejected(self):
         manifest, metadata, image = actor_fixture()
