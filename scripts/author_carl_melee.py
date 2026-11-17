@@ -80,6 +80,7 @@ KA = layers_from_cels(KEYFILE["keys"]["a1"]["cels"])
 K1 = layers_from_cels(KEYFILE["keys"]["k1"]["cels"])
 K3 = layers_from_cels(KEYFILE["keys"]["k3"]["cels"])
 H0 = layers_from_cels(KEYFILE["keys"]["h0"]["cels"])
+B1 = layers_from_cels(KEYFILE["keys"]["b1"]["cels"])
 PALETTE = LOCO["palette"]
 
 # Head variants in idle-0 coordinates (the keys' heads translated back by their U + head offset).
@@ -152,6 +153,7 @@ K1_FAR_ARM = rect(K1["far_arm"], 0, 0, W, 27)                          # fist + 
 K3_FAR_ARM = K3["far_arm"]
 BACK_ARM = {l: rect(KA[l], 0, 20, W, 34) for l in ("near_arm", "watch")}   # a1 near arm swung back
 RAISED_ARM = {l: K3[l] for l in ("near_arm", "watch")}                      # k3 near arm up-back
+BACK_ARM_H0 = {l: H0[l] for l in ("near_arm", "watch")}                     # h0 near arm flung back (hurt)
 
 
 def croc_flat(f: Frame, x: int) -> None:
@@ -319,7 +321,12 @@ def a1() -> Frame:
 
 
 def a2() -> Frame:
-    f = from_key(KA, ("torso", "boxers", "jacket", "head", "hair", "pin", "legs", "shoes"))
+    f = from_key(KA, ("torso", "boxers", "jacket", "head", "hair", "pin"))
+    # legs as a1, but the back leg and Croc settle 1 px toward the kick's support foot (a1 x13, a2 x14, k0 x15)
+    f.add("legs", rect(KA["legs"], 26, 0, W, H))
+    f.add("shoes", rect(KA["shoes"], 30, 0, W, H))
+    f.add("legs", rect(KA["legs"], 0, 0, 25, H), 1, 0)
+    f.add("shoes", rect(KA["shoes"], 0, 0, 29, H), 1, 0)
     # far arm bent half back: elbow ~x36 row 23, fist x37-41 rows 18-21
     sleeve_arm(f, "far_arm", [(31, 22), (35, 23), (37, 21)], 2.0)
     f.add("far_arm", FIST_SMALL, 37, 18)
@@ -355,22 +362,30 @@ def a1_stance(f: Frame) -> None:
     f.add("boxers", rect(KA["boxers"], 0, 41, W, H))
 
 
+def watch_cuff(f: Frame, x: int, y: int, bar: tuple[tuple[int, int], ...] = ((0, -1), (0, 1))) -> None:
+    """One ``w`` on a bunched T cuff of the near arm: T at (x, y) and along ``bar``, the watch face on (x, y)."""
+    f.add("near_arm", {(x, y): "T", **{(x + dx, y + dy): "T" for dx, dy in bar}})
+    f.add("watch", {(x, y): "w"})
+
+
 def b2() -> Frame:
-    f = upper(Frame(), (6, 3), "v3", (1, 1))
-    hem(f, 20, 42, HEM_BACK)
-    hem(f, 30, 42, HEM_FRONT)
-    f.add("legs", leg((23, 43), (15, 48), 3.0, 2.0))
-    croc_toe_down(f, 12)
-    f.add("legs", leg_bent((34, 43), (39, 47), (37, 49), 3.0, 2.8, 2.0))
-    croc_flat(f, 33)
-    sleeve_arm(f, "near_arm", [(23, 23), (34, 30)], 2.7)
-    f.add("near_arm", FIST_BIG, 36, 30)
+    """Follow-through of the b1 hook: the arm carries on round and down in front of the lower chest."""
+    f = upper(Frame(), (7, 3), "v3", (1, 1))
+    f.add("legs", rect(B1["legs"], 0, 40, W, H))
+    f.add("shoes", B1["shoes"])
+    f.add("boxers", rect(B1["boxers"], 0, 42, W, H))
+    f.add("far_arm", B1["far_arm"], 1, 0)          # far fist stays back at the hip
+    # near arm: b1's upper-arm band, then the forearm falls from the elbow to the fist (x34-39 rows 27-32)
+    f.add("near_arm", rect(B1["near_arm"], 0, 22, W, 27), 1, 0)
+    sleeve_arm(f, "near_arm", [(37, 24), (36, 28)], 2.0)
+    f.add("near_arm", FIST_BIG, 34, 27)
+    watch_cuff(f, 36, 26, ((-1, 0), (1, 0)))
     return f
 
 
 def b3() -> Frame:
     f = upper(Frame(), (2, 1), "v0")
-    standing_legs(f, 40, 18, 28, 15, 29)
+    standing_legs(f, 40, 18, 27, 15, 27)   # front Croc x27: 1 px from the idle (x26), the spec x29 was a 3 px snap
     idle_arms(f, (2, 1))
     return f
 
@@ -408,6 +423,7 @@ def k2() -> Frame:
     f.add("shoes", CROC_SOLE, 37, 31)
     sleeve_arm(f, "near_arm", [(15, 22), (8, 21)], 2.0)
     f.add("near_arm", FIST_SMALL, 2, 19)
+    watch_cuff(f, 8, 21)
     sleeve_arm(f, "far_arm", [(28, 20), (32, 23)], 2.0)
     f.add("far_arm", FIST_SMALL, 31, 21)
     return f
@@ -425,6 +441,7 @@ def k4() -> Frame:
     f.add("shoes", CROC_TOE, 32, 44)
     sleeve_arm(f, "near_arm", [(16, 23), (10, 22)], 2.0)
     f.add("near_arm", FIST_SMALL, 4, 20)
+    watch_cuff(f, 9, 22)
     f.add("far_arm", K3_FAR_ARM, 1, 0)
     return f
 
@@ -438,6 +455,7 @@ def k5() -> Frame:
     croc_flat(f, 15)
     sleeve_arm(f, "near_arm", [(20, 24), (28, 29)], 2.0)
     f.add("near_arm", FIST_SMALL, 29, 29)
+    watch_cuff(f, 27, 28, ((-1, 0), (0, 1)))
     return f
 
 
@@ -451,8 +469,8 @@ def k6() -> Frame:
 def h1() -> Frame:
     f = upper(Frame(), (-3, 2), "v3", (-1, 0))
     standing_legs(f, 41, 13, 22, 10, 24)
-    f.add("near_arm", BACK_ARM["near_arm"], 3, -1)
-    f.add("watch", BACK_ARM["watch"], 3, -1)
+    f.add("near_arm", BACK_ARM_H0["near_arm"], 3, -1)
+    f.add("watch", BACK_ARM_H0["watch"], 3, -1)
     f.add("far_arm", K3_FAR_ARM, -1, 0)
     return f
 
@@ -472,48 +490,66 @@ def d1() -> Frame:
     f = upper(Frame(), (-4, 15), "v0", (0, 1))
     f.add("boxers", parse("KUUUUUUUUUUUUUUUK", 12, 54))
     f.add("boxers", parse("KKKKKKKKKKKKKKK", 13, 55))
-    # far leg, knee up
-    f.add("legs", leg_bent((28, 50), (32, 45), (34, 49), 2.6, 2.4, 2.0))
-    croc_flat(f, 30)
-    # near leg straight forward on the floor, toe-up Croc ending by x45
-    f.add("legs", leg((26, 52), (37, 53), 2.0, 2.0))
-    f.add("shoes", CROC_HEEL, 35, 50)
-    # near hand propped behind on the floor
-    sleeve_arm(f, "near_arm", [(14, 37), (10, 46)], 2.0)
-    f.add("near_arm", leg((10, 46), (8, 51), 1.5, 1.5))
-    f.add("near_arm", FIST_SMALL, 5, 52)
-    # far hand resting on the far knee
-    sleeve_arm(f, "near_arm", [(26, 36), (31, 42)], 2.0)
-    f.add("near_arm", FIST_SMALL, 30, 43)
+    # near leg straight forward on the floor, toe-up Croc ending by x46 (heel on the floor)
+    f.add("legs", shade_skin(capsule((27, 52.5), (36, 52.5), 1.8)))
+    f.add("shoes", CROC_HEEL, 36, 50)
+    # far leg, knee up; its flat Croc is raised 1 row and 3 px of near shin show between the two Crocs
+    f.add("legs", leg_bent((28, 50), (31, 45), (29, 49), 2.6, 2.4, 2.0))
+    f.add("shoes", CROC_FLAT, 25, -1)
+    # near arm propped behind: sleeve down to a bunched cuff with the watch, then a flat palm on the floor
+    sleeve_arm(f, "near_arm", [(13, 36), (10, 47)], 2.0)
+    f.add("near_arm", parse("""
+KTTTK
+KTTTK
+KJJJK
+.SMD.
+""", 8, 48))
+    f.add("near_arm", parse("""
+LLMMSD
+LMMMSD
+SMMSD
+SSSDD
+""", 5, 52))
+    watch_cuff(f, 10, 49, ((-1, 0), (1, 0)))
+    # far hand resting on the far knee: far arm layer, above the knee
+    sleeve_arm(f, "far_arm", [(25, 35), (31, 40)], 2.0)
+    f.add("far_arm", FIST_SMALL, 30, 40)
     return f
 
 
 def g0() -> Frame:
-    f = upper(Frame(), (-1, 8), "v3")
-    hem(f, 17, 47, HEM_BACK)
-    hem(f, 25, 47, HEM_FRONT)
-    # near leg kneeling: knee on the floor, shin back along the floor, toe on the floor
-    f.add("legs", leg((20, 48), (25, 52), 3.0, 2.5))
-    f.add("legs", leg((24, 53), (14, 53), 1.5, 1.5))
+    """Low kneel: U.y +11 (rise 15, 11, 6, 1 over d1, g0, g1, g2)."""
+    f = upper(Frame(), (-1, 11), "v3")
+    hem(f, 16, 50, HEM_BACK)
+    hem(f, 25, 50, HEM_FRONT)
+    # near leg: thigh to the knee on the floor (rows 51-55, x22-27), shin back along the floor, toe on the floor
+    f.add("legs", leg((19, 51), (24, 53), 3.0, 2.4))
+    shin = shade_skin(capsule((15, 53.5), (26, 53.5), 1.9))
+    top = min(y for _, y in shin)
+    f.add("legs", {k: ("M" if y == top and c == "S" else c) for k, c in shin.items() for y in [k[1]]})
     croc_toe_down(f, 8)
-    # far foot planted forward, knee up
-    f.add("legs", leg_bent((29, 48), (31, 44), (31, 49), 3.0, 2.6, 2.0))
+    # far foot planted forward, knee up in front of the seat
+    f.add("legs", leg_bent((28, 52), (32, 47), (31, 50), 2.6, 2.4, 2.0))
     croc_flat(f, 27)
-    sleeve_arm(f, "near_arm", [(17, 30), (27, 39)], 2.3)
-    f.add("near_arm", FIST_SMALL, 28, 41)
+    # near hand pushes on the far knee
+    sleeve_arm(f, "near_arm", [(17, 33), (27, 42)], 2.3)
+    f.add("near_arm", FIST_SMALL, 28, 43)
+    watch_cuff(f, 26, 41, ((-1, 1), (1, -1)))
     return f
 
 
 def g1() -> Frame:
-    f = upper(Frame(), (1, 4), "v3")
-    hem(f, 17, 43, HEM_BACK)
-    hem(f, 27, 43, HEM_FRONT)
-    f.add("legs", leg((20, 44), (15, 48), 3.0, 2.0))
+    """Push up: U.y +6, hunched."""
+    f = upper(Frame(), (1, 6), "v3")
+    hem(f, 17, 45, HEM_BACK)
+    hem(f, 27, 45, HEM_FRONT)
+    f.add("legs", leg((20, 47), (15, 49), 2.8, 1.8))
     croc_toe_down(f, 12)
-    f.add("legs", leg_bent((31, 44), (33, 46), (31, 49), 3.0, 2.6, 2.0))
+    f.add("legs", leg_bent((31, 46), (33, 47), (31, 49), 3.0, 2.8, 2.0))
     croc_flat(f, 27)
-    sleeve_arm(f, "near_arm", [(18, 26), (28, 36)], 2.3)
-    f.add("near_arm", FIST_SMALL, 30, 41)
+    sleeve_arm(f, "near_arm", [(19, 28), (33, 35), (32, 41)], 2.0)
+    f.add("near_arm", FIST_SMALL, 30, 43)
+    watch_cuff(f, 32, 41, ((-1, 0), (1, 0)))
     return f
 
 
@@ -555,9 +591,11 @@ def cleanup(f: Frame, passes: int = 4) -> Frame:
 
 
 def occlude_pin(f: Frame) -> Frame:
-    """The pin sits on the jacket: an arm drawn across it hides it."""
-    for k in [k for k in f.L["pin"] if k in f.L["near_arm"]]:
-        del f.L["pin"][k]
+    """The pin sits on the jacket. A sleeve that covers 3 or 4 of its 4 pixels hides the whole pin (the
+    pin is never left as a fragment); 1 or 2 covered pixels leave it whole, drawn over the sleeve outline."""
+    covered = [k for k in f.L["pin"] if k in f.L["near_arm"]]
+    if len(covered) >= 3:
+        f.L["pin"].clear()
     return f
 
 

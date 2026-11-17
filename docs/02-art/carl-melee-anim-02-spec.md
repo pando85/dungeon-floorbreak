@@ -1,13 +1,13 @@
 # ANIM-CARL-02: Carl unarmed melee, design spec (phase 1)
 
-**Status:** design fix round after the first independent Opus review (FAILED). Design and the eight Opus key poses: Claude Opus, 2026-11-17 (four in phase 1, four in the fix round, section 14). The other 16 frames: Claude Sonnet (phase 2, section 13); the redraws listed in section 14 are pending. Review: a second independent Opus review follows the redraws, then owner review. Nothing here is owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
+**Status:** full set drawn (Sonnet), awaiting independent Opus review (second round). Design and the eight Opus key poses: Claude Opus, 2026-11-17 (four in phase 1, four in the fix round, section 14). The other 16 frames: Claude Sonnet (phase 2, section 13; the fix-round redraws and corrections are done, section 13). Review: pending, then owner review. Nothing here is owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
 
 Read with: [ANIM-CARL-01 locomotion](carl-locomotion-anim-01.md) (frame, pivot and identity rules this spec inherits), [Carl bible](carl-character-bible.md), [antihero tone](../01-design/antihero-tone.md), [combat feel / hybrid physics](../01-design/combat-feel-hybrid-physics.md), [Floor 1 combat probes](../07-agents/floor-01-integrated-combat-probes.md) (CP-01, CP-02), [animation system](animation.md).
 
 | File | Role |
 | --- | --- |
-| `assets/source/characters/carl/carl_h52_melee.grid.json` | pixel-grid-v1 source, 24 frames in the section-6 layout (the 4 Opus keys at frames 1, 9, 11 and 15, unchanged) |
-| `scripts/author_carl_melee.py` | deterministic authoring record of the 20 Sonnet frames (`--check` verifies the committed grid) |
+| `assets/source/characters/carl/carl_h52_melee.grid.json` | pixel-grid-v1 source, 24 frames in the section-6 layout (the 8 Opus keys at frames 1, 4, 5, 9, 11, 15, 18 and 19, unchanged) |
+| `scripts/author_carl_melee.py` | deterministic authoring record of the 16 Sonnet frames (`--check` verifies the committed grid) |
 | `tests/test_art_carl_melee.py`, `tests/fixtures/carl_melee_phase1_keys.json` | contract tests and the frozen Opus keys they compare against |
 | `assets/source/characters/carl/carl_h52_melee.ase` | built from the grid by `scripts/pixel_grid_to_ase.py` (via `scripts/export_assets.sh`) |
 | `assets/manifests/carl_book1_h52_melee.json` | candidate manifest `carl_book1_h52_melee_candidate_v1`. Its `melee.moves` block is the **machine-readable tick contract** of this spec (the timing diagram is drawn from it) |
@@ -248,6 +248,15 @@ How the 20 frames were made and where they depart from the tables above (all dep
 - **d1 far foot.** `CROC_FLAT` at x30-39 (spec: about x32-41) so it does not hide behind the near foot.
 - **Orphans.** Lint reports 0 to 5 orphan pixels per frame, 0 isolated. The remaining ones are master jacket and neck pixels beside an offset head (as in the keys) and a few sleeve edge pixels.
 - **Superseded by the fix round.** The first review failed kb, d0, b1 and b0. They are now Opus keys (section 14).
+
+- **Execution fix round (after the first review).**
+  - h1: the near arm is now h0's `BACK_ARM` (not a1's) shifted (+3,-1), root at x14-19 row 20, hand x4-8 rows 31-34, with the `w`. All 4 pin pixels stay (one lands on a sleeve outline pixel, the pin draws over it).
+  - d1: the near arm is a K/T/j/J sleeve down to a bunched T cuff with the `w` (rows 48-50), a wrist and a flat palm (rows 52-55, x5-9, L top, no K cap row). The two Crocs are separated: far `CROC_FLAT` at x25-34 raised one row (rows 49-54), near toe-up `CROC_HEEL` at x36-46, and a 3 px skin shin of the near leg between them. The far hand rests above the far knee on the `far_arm` layer. Departure: the coordinator note put the shin at x29-32; the far Croc sits there, so the shin shows at x34-36.
+  - b2: redrawn from the hook b1 (upper-arm band of b1, forearm falling from the elbow, `FIST_BIG` at x34-39 rows 27-32, far fist at the hip as in b1, legs and hems copied from b1). The pin is removed whole when a sleeve covers 3 or 4 of its pixels; 1 or 2 covered pixels leave it whole. The pin test now accepts only the 4 master pixels or none.
+  - `w`: one watch face on a near-arm cuff pixel in every frame outside the 8 keys (tested). New cuffs on b2, k2, k4, k5, d1, g0, g1.
+  - g0 (U.y +11) and g1 (U.y +6): legs refitted. g0 near shin is a rounded tube with an M top edge, lowest row 55 (it no longer merges with the floor as a flat S/D plank).
+  - Foot snaps: b3 front Croc x27 (idle x26, 1 px; the spec x29-38 was a 3 px snap); a2 back leg and Croc 1 px right of a1 (a1 x13, a2 x14, k0 x15 and b0 x13), so jab to kick and jab to haymaker slide at most 1 px. Both are tested (`check_foot_snaps`).
+  - Reach box: the box is the tight bounding box of the arm-layer pixels at or beyond its first column, including the sleeve-edge `K` in that column, for both fists (a1 [16,31,21,36], b1 [16,35,21,41]) and the sole (shoes layer). The test compares all extents.
 
 ## 14. Design fix round (Opus, after the first independent review)
 

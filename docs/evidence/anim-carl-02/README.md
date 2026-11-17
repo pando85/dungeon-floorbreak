@@ -19,7 +19,7 @@ They are copied here unchanged. `SHA256SUMS` lists their hashes; `measurements.j
 | `jab_haymaker_x4.gif`, `jab_kick_x4.gif` | the CP-01 string (jab cut at tick 7, haymaker starts there: hits on t3 and t12, 29 ticks) and the jab > kick string |
 | `knockdown_getup_x4.gif` | 12 ticks of the knockback hold (state-driven in game, so its length here is only a preview), butt impact (6), sprawl (30), get-up (22) |
 | `floor01_kick_640x360.png`, `floor01_kick_1920x1080.png`, `floor01_kick_crop_x6.png` | the kick contact in the lit Floor 1 corridor (A1 compositor, `scripts/env_kit_light.py`) next to two grey goblin-sized placeholder silhouettes (40 px, 30 px apart; CP-02 setup). The Croc sole touches goblin A at the manifest reach (+21 px). 640 x 360, exact 3x 1080p, and a 160 x 90 virtual-pixel window enlarged to x6 |
-| `floor01_lineup_1920x1080.png` | gameplay-scale lineup, exact 3x 1080p: jab contact, haymaker contact, kick wind-up, kick contact, hurt recoil, sprawl and kneeling get-up, 78 px apart |
+| `floor01_lineup_1920x1080.png` | gameplay-scale lineup, exact 3x 1080p: jab contact, hook contact, kick contact, hurt impact (h0), hurt recoil (h1), knockback (kb), butt impact (d0), sprawl (d1), kneeling (g0) and push-up (g1), 58 px apart |
 | `floor01_kick_sequence_1920x1080.png` | kick sequence mock, exact 3x 1080p: the wind-up as a faint ghost, the contact, goblin A launched with the proposed values (vx 300 px/s, vy 220 px/s, `GRAVITY` 1050; ghosts at 4, 8, 14, 20 and 25 ticks after the hit) over goblin B, which stands 30 px behind it |
 | `measurements.json` | per-frame bbox, opaque size, lowest row, durations, file hashes |
 

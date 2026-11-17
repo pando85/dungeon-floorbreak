@@ -104,8 +104,8 @@ GOBLIN_GAP = 30  # px between the two goblin pivots (CP-02: "two goblins close t
 CARL_X = 520  # level x of Carl's pivot in the Floor 1 kick mocks
 # proposed kick launch (spec section 4): vx 300 px/s, vy 220 px/s, GRAVITY 1050 px/s^2
 LAUNCH_VX, LAUNCH_VY, GRAVITY = 300.0, 220.0, 1050.0
-LINEUP_X = [372, 450, 528, 606, 684, 762, 840]
-LINEUP_FRAMES = ["a1", "b1", "k1", "k3", "h1", "d1", "g0"]
+LINEUP_FRAMES = ["a1", "b1", "k3", "h0", "h1", "kb", "d0", "d1", "g0", "g1"]
+LINEUP_X = [380 + 58 * i for i in range(len(LINEUP_FRAMES))]
 
 
 def goblin_sprite() -> Image.Image:

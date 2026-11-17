@@ -233,10 +233,11 @@ def check_identity(grid: dict, loco: dict) -> list[str]:
                         f"(max {HEAD_TOLERANCE})")
         for layer, allowed in locked.items():
             pix = cel_pixels(grid, i, layer)
-            # the pin may be hidden behind an arm: a subset of the master pin is fine, a changed pixel is not
+            # a sleeve may hide the whole pin, never a fragment: all 4 master pixels or none
             if layer == "pin":
-                if pix and not any(normalise(pix) <= a for a in allowed):
-                    errs.append(f"frame {i} ({tag}): pin is not the master pin")
+                if pix and normalise(pix) not in allowed:
+                    errs.append(f"frame {i} ({tag}): pin is a fragment or changed ({len(pix)} px), "
+                                f"expected the 4 master pixels or none")
             elif normalise(pix) not in allowed:
                 errs.append(f"frame {i} ({tag}): {layer} is not a pure translation of the master {layer}")
     return errs
@@ -265,6 +266,9 @@ def check_reach(grid: dict, m: dict, evidence: dict) -> list[str]:
                 bad = [p for p in inside if not (x0 <= p[0] <= x1 and y0 <= p[1] <= y1)]
                 if bad:
                     errs.append(f"{name}.{part}: pixels outside the box {[x0, y0, x1, y1]}: {bad[:3]}")
+                ys = [p[1] for p in inside]
+                if inside and (min(ys), max(ys)) != (y0, y1):
+                    errs.append(f"{name}.{part}: art spans y {min(ys)}..{max(ys)}, manifest says {y0}..{y1}")
                 if info["max_x"] != x1:
                     errs.append(f"{name}.{part}: art reaches +{info['max_x']}, manifest says +{x1}")
                 if min(p[0] for p in inside) != x0:
@@ -281,6 +285,68 @@ def check_reach(grid: dict, m: dict, evidence: dict) -> list[str]:
         want = max(b[2] for b in m["melee"]["hit_boxes_px"][name].values())
         if got != want:
             errs.append(f"{name}: evidence measurements.json bbox reaches +{got}, manifest +{want}")
+    return errs
+
+
+def check_watch(grid: dict, keys_idx: set[int]) -> list[str]:
+    """Every frame outside the Opus keys carries the near-arm watch: `w` on a near-arm cuff pixel."""
+    errs = []
+    for i in range(len(grid["frames"])):
+        if i in keys_idx:
+            continue
+        watch = cel_pixels(grid, i, "watch")
+        near = {(x, y) for x, y, _c in cel_pixels(grid, i, "near_arm")}
+        face = [(x, y) for x, y, c in watch if c == "w"]
+        if len(face) != 1:
+            errs.append(f"frame {i} ({FRAME_IDS[i]}): {len(face)} `w` pixels in the watch layer, expected 1")
+        elif face[0] not in near:
+            errs.append(f"frame {i} ({FRAME_IDS[i]}): the watch face is not on a near-arm pixel")
+    return errs
+
+
+def row_runs(grid: dict, index: int, row: int = 55) -> list[tuple[int, int]]:
+    flat = pga.composite_keys(grid, index)[row]
+    runs, start = [], None
+    for x, c in enumerate(flat + ["."]):
+        if c != "." and start is None:
+            start = x
+        elif c == "." and start is not None:
+            runs.append((start, x - 1))
+            start = None
+    return runs
+
+
+def foot_snap(grid: dict, a: int, b: int) -> int:
+    """Largest left-edge shift between the Crocs of two grounded frames (row 55 runs, matched in order)."""
+    ra, rb = row_runs(grid, a), row_runs(grid, b)
+    if len(ra) != len(rb):
+        return 99
+    return max(abs(x[0] - y[0]) for x, y in zip(ra, rb))
+
+
+def check_foot_snaps(grid: dict, loco: dict) -> list[str]:
+    """Hand-overs to idle snap a Croc by at most 2 px; the jab hands its support foot to the kick within 1 px."""
+    errs, idle = [], pga.composite_keys(loco, 0)[55]
+    idle_runs = []
+    start = None
+    for x, c in enumerate(idle + ["."]):
+        if c != "." and start is None:
+            start = x
+        elif c == "." and start is not None:
+            idle_runs.append((start, x - 1))
+            start = None
+    for fid in ("a3", "b3", "k6", "h2", "g2"):
+        runs = row_runs(grid, FRAME_IDS.index(fid))
+        if len(runs) != len(idle_runs):
+            errs.append(f"{fid}: {len(runs)} Croc runs on row 55, idle has {len(idle_runs)}")
+            continue
+        snap = max(abs(a[0] - b[0]) for a, b in zip(runs, idle_runs))
+        if snap > 2:
+            errs.append(f"{fid} -> idle snaps a Croc by {snap} px (max 2)")
+    for a, b in (("a2", "k0"), ("a2", "b0")):
+        ra, rb = row_runs(grid, FRAME_IDS.index(a)), row_runs(grid, FRAME_IDS.index(b))
+        if ra[0][0] != rb[0][0] and abs(ra[0][0] - rb[0][0]) > 1:
+            errs.append(f"{a} -> {b}: the back foot slides {abs(ra[0][0] - rb[0][0])} px (max 1)")
     return errs
 
 
@@ -336,6 +402,14 @@ class CarlMeleeGridTests(unittest.TestCase):
 
     def test_reach_matches_manifest_and_evidence(self) -> None:
         self.assertClean(check_reach(self.grid, self.manifest, self.evidence))
+
+    def test_watch_on_every_non_key_frame(self) -> None:
+        keys = {FRAME_IDS.index(fid) for fid in KEY_IDS}
+        self.assertEqual(len(keys), 8)
+        self.assertClean(check_watch(self.grid, keys))
+
+    def test_foot_snaps(self) -> None:
+        self.assertClean(check_foot_snaps(self.grid, self.loco))
 
     def test_grid_equals_authoring_script_output(self) -> None:
         import author_carl_melee as author
@@ -422,6 +496,28 @@ class CarlMeleeGridTests(unittest.TestCase):
         self.assertRejects(errs, "frame 4")
         self.assertTrue(any("frame 5" in e and "head" in e for e in errs))
         self.assertTrue(any("frame 6" in e and "jacket" in e for e in errs))
+
+    def test_rejects_pin_fragment(self) -> None:
+        g = self.mutated()
+        pin = [(x, y) for x, y, _c in cel_pixels(g, 6, "pin")]
+        self.assertEqual(pin, [], "b2 hides the whole pin")
+        put_pixel(g, 6, "pin", 29, 23, "G")                      # the lone yellow pixel the review found
+        self.assertRejects(check_identity(g, self.loco), "fragment")
+        g2 = self.mutated()
+        x, y, _c = sorted(cel_pixels(g2, 16, "pin"))[0]          # h1 shows the full pin
+        put_pixel(g2, 16, "pin", x, y, ".")
+        self.assertRejects(check_identity(g2, self.loco), "frame 16")
+
+    def test_rejects_missing_watch_and_foot_snap(self) -> None:
+        keys = {FRAME_IDS.index(fid) for fid in KEY_IDS}
+        g = self.mutated()
+        clear_layer(g, 6, "watch")
+        self.assertRejects(check_watch(g, keys), "frame 6")
+        g2 = self.mutated()
+        for layer in ("shoes", "legs"):                          # b3's front foot 3 px right
+            rows = g2["frames"][7]["cels"][layer]
+            g2["frames"][7]["cels"][layer] = [r[:24] + ("." * 3 + r[24:-3]) for r in rows]
+        self.assertRejects(check_foot_snaps(g2, self.loco), "b3")
 
     def test_rejects_reach_mismatch(self) -> None:
         g = self.mutated()
