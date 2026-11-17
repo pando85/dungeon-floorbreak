@@ -67,6 +67,30 @@
       "width": 1672,
       "height": 941,
       "source_conversation_file": "a_highly_detailed_pixel_art_concept_board_for_a_vi.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-dungeon-rat-concept-approved.png",
+      "sha256": "663838dd640e8a9ca9961c0a46d1415406b4221177aa7452defaac0fbf7921e5",
+      "bytes": 2122814,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "concepto_de_enemigo_rata_de_mazmorra.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-goblin-bomb-bard-concept-approved.png",
+      "sha256": "153f1ac072aeca4f9bb94dcea0f89fa6464613127a43a1db28de2ad9b1c6970b",
+      "bytes": 2401167,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "concepto_del_bombardo_goblin.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-goblin-copper-chopper-concept-approved.png",
+      "sha256": "d8ce0654f728d006b0763947818237cfd327c30c0dc0c48de0442158132a23e5",
+      "bytes": 2458220,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "concepto_del_chopper_goblin_de_the_crawl.png"
     }
   ]
 }
