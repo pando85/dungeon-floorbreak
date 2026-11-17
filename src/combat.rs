@@ -10,8 +10,11 @@
 //!   of the Floor 1 scene (art contract: `docs/02-art/carl-melee-anim-02-spec.md`).
 //! * [`MoveRunner`]: the per-attacker move clock with press buffering and a
 //!   per-move-instance hit list, so a target is hit at most once per move.
-//! * [`Enemy`]: health, stagger, a deterministic push impulse, ground chase and
-//!   the WORK-021 contact damage rule.
+//! * [`Enemy`]: the WORK-021 greybox enemy (health, ground chase, contact
+//!   damage). The Floor 1 scene goblin is [`crate::goblin::Goblin`]; both are
+//!   [`StrikeTarget`]s of the same [`resolve_strike`].
+//! * Hit feedback (CP-01): a [`Reaction`] carries hit-stop, stagger and the
+//!   knockback impulse; the numbers live in [`crate::feel`].
 //! * [`CombatEvent`]: what happened on which tick, for replay logs.
 //!
 //! Bombs and explosives are not part of this module; they stay in the
@@ -19,6 +22,9 @@
 
 use std::fmt;
 
+use crate::feel::{
+    HAYMAKER_FEEL, HAYMAKER_STEP_PX, HAYMAKER_STEP_TICKS, JAB_FEEL, KICK_FEEL, MoveFeel,
+};
 use crate::prototype::{Block, Rect, TICK_SECONDS};
 
 pub const ENEMY_HALF_WIDTH: f32 = 12.0;
@@ -36,8 +42,6 @@ const CHASE_STOP: f32 = 22.0;
 /// Contact damage reach (centre to centre) of WORK-021.
 const CONTACT_X: f32 = 23.0;
 const CONTACT_Y: f32 = 36.0;
-/// A push impulse is applied evenly over this many ticks.
-const PUSH_TICKS: u8 = 4;
 
 // ------------------------------------------------------------------- moves --
 
@@ -64,26 +68,46 @@ pub enum HitShape {
     },
 }
 
-/// What a landed hit does to the target besides damage.
+/// What a landed hit does to the target besides damage (hit feedback, CP-01).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Reaction {
-    /// Ticks the target is staggered (no chase, no contact damage).
+    /// Ticks the target is staggered (no attack, no tell, no walking).
     pub stagger_ticks: u8,
-    /// Total push away from the attacker, in pixels, spread over a few ticks.
-    pub push_px: f32,
+    /// Knockback impulse in px/s: `knock_vx` away from the attacker, `knock_vy`
+    /// upwards. Zero for the greybox.
+    pub knock_vx: f32,
+    pub knock_vy: f32,
+    /// Ticks the attacker's move clock and the target freeze on the hit.
+    pub hit_stop: u8,
+    /// Camera kick on the confirming hit, virtual pixels (presentation only).
+    pub camera_kick_px: u8,
 }
 
 impl Reaction {
     pub const NONE: Self = Self {
         stagger_ticks: 0,
-        push_px: 0.0,
+        knock_vx: 0.0,
+        knock_vy: 0.0,
+        hit_stop: 0,
+        camera_kick_px: 0,
     };
+
+    pub const fn from_feel(feel: MoveFeel) -> Self {
+        Self {
+            stagger_ticks: feel.stagger,
+            knock_vx: feel.knock_vx,
+            knock_vy: feel.knock_vy,
+            hit_stop: feel.hit_stop,
+            camera_kick_px: feel.camera_kick_px,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoveId {
     GreyboxStrike,
     Jab,
+    Haymaker,
     PushKick,
 }
 
@@ -92,13 +116,37 @@ impl MoveId {
         match self {
             Self::GreyboxStrike => "greybox_strike",
             Self::Jab => "jab",
+            Self::Haymaker => "haymaker",
             Self::PushKick => "push_kick",
         }
     }
 }
 
+/// A string: a press of `on` while the running move is at a tick in
+/// `press_from..=press_to` starts `into` as soon as the running move has reached
+/// `earliest` (the press tick itself when that is later). Resolved through the
+/// move table ([`carl_move`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Chain {
+    pub on: MoveId,
+    pub into: MoveId,
+    pub press_from: u16,
+    pub press_to: u16,
+    pub earliest: u16,
+}
+
+/// Forward motion of the attacker on move ticks `from_tick..=to_tick`
+/// (`px_per_tick` each, the way the attacker faces): applied by the scene,
+/// stopped by walls and at body contact with an alive target.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RootStep {
+    pub from_tick: u16,
+    pub to_tick: u16,
+    pub px_per_tick: f32,
+}
+
 /// One attack as data. Tick `0` of the move is the tick the input is accepted;
-/// the first active tick (`startup`) is the hit tick.
+/// the first active tick (`startup`) is the earliest hit tick.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MoveSpec {
     pub id: MoveId,
@@ -108,6 +156,10 @@ pub struct MoveSpec {
     pub shape: HitShape,
     pub damage: u8,
     pub reaction: Reaction,
+    /// The string this move can cancel into, if any.
+    pub chain: Option<Chain>,
+    /// A forward step during the move, if any.
+    pub root_step: Option<RootStep>,
 }
 
 impl MoveSpec {
@@ -130,13 +182,15 @@ pub const GREYBOX_STRIKE: MoveSpec = MoveSpec {
     },
     damage: 1,
     reaction: Reaction::NONE,
+    chain: None,
+    root_step: None,
 };
 
 /// Carl's jab (`punch_a` of the melee art): startup 3, active 2, recovery 9.
-/// The fist box is +16..21 px ahead of the pivot at 31..36 px above the feet
-/// (art reach table), written as the half-open box `[16, 22) x [31, 37)`.
-/// Reaction values are the proposed starting values (stagger 10, push about
-/// 4 px), tuned in the hit-feel work.
+/// The fist box (art reach table, PR #43 after its redesign) is +16..21 px ahead
+/// of the pivot at 29..34 px above the feet, written as the half-open box
+/// `[16, 22) x [29, 35)`. A second attack press at jab ticks 3..=13 starts the
+/// haymaker at tick 7 or later. Reaction: [`JAB_FEEL`].
 pub const CARL_JAB: MoveSpec = MoveSpec {
     id: MoveId::Jab,
     startup: 3,
@@ -145,20 +199,51 @@ pub const CARL_JAB: MoveSpec = MoveSpec {
     shape: HitShape::Box {
         x_min: 16.0,
         x_max: 22.0,
-        y_min: 31.0,
-        y_max: 37.0,
+        y_min: 29.0,
+        y_max: 35.0,
     },
     damage: 1,
-    reaction: Reaction {
-        stagger_ticks: 10,
-        push_px: 4.0,
+    reaction: Reaction::from_feel(JAB_FEEL),
+    chain: Some(Chain {
+        on: MoveId::Jab,
+        into: MoveId::Haymaker,
+        press_from: 3,
+        press_to: 13,
+        earliest: 7,
+    }),
+    root_step: None,
+};
+
+/// Carl's haymaker (`punch_b`, an overhand chop): startup 5, active 3, recovery
+/// 14, total 22. Contact box +16..21 px ahead at 27..37 px above the feet
+/// (`[16, 22) x [27, 38)`). It hits on its first active tick at which the box
+/// overlaps a target. Ends the string. Steps Carl forward 4 px (1 px per tick on
+/// move ticks 1..=4). Reaction: [`HAYMAKER_FEEL`].
+pub const CARL_HAYMAKER: MoveSpec = MoveSpec {
+    id: MoveId::Haymaker,
+    startup: 5,
+    active: 3,
+    recovery: 14,
+    shape: HitShape::Box {
+        x_min: 16.0,
+        x_max: 22.0,
+        y_min: 27.0,
+        y_max: 38.0,
     },
+    damage: 1,
+    reaction: Reaction::from_feel(HAYMAKER_FEEL),
+    chain: None,
+    root_step: Some(RootStep {
+        from_tick: 1,
+        to_tick: HAYMAKER_STEP_TICKS,
+        px_per_tick: HAYMAKER_STEP_PX / HAYMAKER_STEP_TICKS as f32,
+    }),
 };
 
 /// Carl's push kick (`kick` of the melee art): startup 13, active 4,
 /// recovery 19. The sole box is +15..21 px ahead at 18..27 px above the feet.
 /// Its knockback behaviour (launch, CP-02) is NOT defined yet: it deals the
-/// jab's damage and reaction as a placeholder.
+/// jab's reaction with the kick's 8-tick hit-stop ([`KICK_FEEL`]).
 pub const CARL_PUSH_KICK: MoveSpec = MoveSpec {
     id: MoveId::PushKick,
     startup: 13,
@@ -171,14 +256,19 @@ pub const CARL_PUSH_KICK: MoveSpec = MoveSpec {
         y_max: 28.0,
     },
     damage: 1,
-    reaction: Reaction {
-        stagger_ticks: 10,
-        push_px: 4.0,
-    },
+    reaction: Reaction::from_feel(KICK_FEEL),
+    chain: None,
+    root_step: None,
 };
 
-/// Carl's move table (the documented move table of the Floor 1 scene).
-pub const CARL_MOVES: [&MoveSpec; 2] = [&CARL_JAB, &CARL_PUSH_KICK];
+/// Carl's move table, the one lookup of the Floor 1 scene (strings and the
+/// event log resolve moves through [`carl_move`]).
+pub const CARL_MOVES: [&MoveSpec; 3] = [&CARL_JAB, &CARL_HAYMAKER, &CARL_PUSH_KICK];
+
+/// The Carl move with this id (`None` for the WORK-021 greybox strike).
+pub fn carl_move(id: MoveId) -> Option<&'static MoveSpec> {
+    CARL_MOVES.iter().copied().find(|spec| spec.id == id)
+}
 
 /// How long a press made while a move is still running is remembered, in
 /// ticks. A press shorter than this before the move ends starts the next move
@@ -204,13 +294,9 @@ pub struct MoveTick {
     pub phase: Phase,
     /// True on the tick the move started.
     pub started: bool,
-}
-
-impl MoveTick {
-    /// The hit tick: the first active tick.
-    pub fn first_active(&self) -> bool {
-        self.phase == Phase::Active && self.tick == self.spec.startup
-    }
+    /// True while the attacker is frozen by hit-stop: the clock did not move
+    /// and the tick resolves no hit.
+    pub frozen: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -229,13 +315,24 @@ struct Buffered {
     expires: u64,
 }
 
-/// Move clock with press buffering and per-instance hit dedup.
+/// Move clock with press buffering, strings, hit-stop and per-instance hit
+/// dedup.
+///
+/// Hit-stop (`hold`) freezes the move clock: while it runs the move tick does
+/// not advance and neither does the buffer clock, so a press made during the
+/// freeze is judged by the move tick it froze on (a press during a jab's
+/// hit-stop is inside the haymaker window) and a buffered press does not
+/// expire during the freeze.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MoveRunner {
     clock: u64,
     next_instance: u32,
     current: Option<Running>,
     buffered: Option<Buffered>,
+    chained: Option<&'static MoveSpec>,
+    hold: u8,
+    /// The last [`Self::step`] was a frozen tick (display only, not hashed).
+    froze: bool,
 }
 
 impl MoveRunner {
@@ -250,29 +347,50 @@ impl MoveRunner {
         buffer_ticks: u8,
         can_act: bool,
     ) -> Option<MoveTick> {
+        self.froze = false;
+        if !can_act {
+            self.clock += 1;
+            self.current = None;
+            self.buffered = None;
+            self.chained = None;
+            self.hold = 0;
+            return None;
+        }
+        if self.hold > 0 && self.current.is_some() {
+            // Hit-stop: nothing advances, the press is still remembered.
+            self.hold -= 1;
+            self.froze = true;
+            if let Some(spec) = request {
+                self.note_press(spec, buffer_ticks);
+            }
+            return self.snapshot(false, true);
+        }
+        self.hold = 0;
         self.clock += 1;
         let mut started = false;
         if let Some(running) = self.current.as_mut() {
             running.tick += 1;
             if running.tick >= running.spec.total() {
                 self.current = None;
+                self.chained = None;
             }
-        }
-        if !can_act {
-            self.current = None;
-            self.buffered = None;
-            return None;
         }
         if let Some(spec) = request {
             if self.current.is_none() {
                 self.start(spec);
                 started = true;
-            } else if buffer_ticks > 0 {
-                self.buffered = Some(Buffered {
-                    spec,
-                    expires: self.clock + u64::from(buffer_ticks),
-                });
+            } else {
+                self.note_press(spec, buffer_ticks);
             }
+        }
+        // A string: start the chained move once the running one is at or past
+        // its earliest cancel tick.
+        if let (Some(running), Some(into)) = (self.current.as_ref(), self.chained)
+            && let Some(chain) = running.spec.chain
+            && running.tick >= chain.earliest
+        {
+            self.start(into);
+            started = true;
         }
         if self.current.is_none()
             && let Some(buffered) = self.buffered.take()
@@ -281,18 +399,33 @@ impl MoveRunner {
             self.start(buffered.spec);
             started = true;
         }
-        self.current.as_ref().map(|running| MoveTick {
-            spec: running.spec,
-            tick: running.tick,
-            instance: running.instance,
-            phase: phase_of(running.spec, running.tick),
-            started,
-        })
+        self.snapshot(started, false)
+    }
+
+    /// A press while a move runs: inside the running move's string window it
+    /// is the chained move; otherwise it is remembered for `buffer_ticks`.
+    fn note_press(&mut self, spec: &'static MoveSpec, buffer_ticks: u8) {
+        let Some(running) = self.current.as_ref() else {
+            return;
+        };
+        if let Some(chain) = running.spec.chain
+            && chain.on == spec.id
+            && (chain.press_from..=chain.press_to).contains(&running.tick)
+            && let Some(into) = carl_move(chain.into)
+        {
+            self.chained.get_or_insert(into);
+        } else if buffer_ticks > 0 {
+            self.buffered = Some(Buffered {
+                spec,
+                expires: self.clock + u64::from(buffer_ticks),
+            });
+        }
     }
 
     fn start(&mut self, spec: &'static MoveSpec) {
         self.next_instance += 1;
         self.buffered = None;
+        self.chained = None;
         self.current = Some(Running {
             spec,
             tick: 0,
@@ -301,10 +434,34 @@ impl MoveRunner {
         });
     }
 
-    /// Interrupt (the attacker was hit): the move and any buffered press end.
+    fn snapshot(&self, started: bool, frozen: bool) -> Option<MoveTick> {
+        self.current.as_ref().map(|running| MoveTick {
+            spec: running.spec,
+            tick: running.tick,
+            instance: running.instance,
+            phase: phase_of(running.spec, running.tick),
+            started,
+            frozen,
+        })
+    }
+
+    /// Interrupt (the attacker was hit): the move, any buffered press and any
+    /// hit-stop end.
     pub fn cancel(&mut self) {
         self.current = None;
         self.buffered = None;
+        self.chained = None;
+        self.hold = 0;
+    }
+
+    /// Freeze the move clock for `ticks` more ticks (a confirmed hit).
+    pub fn begin_hit_stop(&mut self, ticks: u8) {
+        self.hold = self.hold.max(ticks);
+    }
+
+    /// Ticks of hit-stop still to run.
+    pub fn hit_stop_left(&self) -> u8 {
+        self.hold
     }
 
     /// A move is running (the attacker is committed).
@@ -314,13 +471,10 @@ impl MoveRunner {
 
     /// The running move's clock without advancing it.
     pub fn current(&self) -> Option<MoveTick> {
-        self.current.as_ref().map(|running| MoveTick {
-            spec: running.spec,
-            tick: running.tick,
-            instance: running.instance,
-            phase: phase_of(running.spec, running.tick),
-            started: running.tick == 0,
-        })
+        self.snapshot(
+            self.current.as_ref().is_some_and(|r| r.tick == 0),
+            self.froze,
+        )
     }
 
     /// True the first time `target` is recorded for the running move instance.
@@ -356,6 +510,8 @@ impl MoveRunner {
             }
             None => mix(0),
         }
+        mix(self.chained.map_or(0, |spec| 1 + spec.id as u64));
+        mix(u64::from(self.hold));
     }
 }
 
@@ -378,6 +534,9 @@ pub enum EnemyAi {
     Passive,
 }
 
+/// The WORK-021 greybox enemy: health, a ground chase and contact damage. The
+/// Floor 1 scene goblin (tell, swing, hit-stop, knockback) is
+/// [`crate::goblin::Goblin`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Enemy {
     pub x: f32,
@@ -386,11 +545,8 @@ pub struct Enemy {
     pub ai: EnemyAi,
     /// +1 / -1: the way the enemy faces (towards the hero while it chases).
     pub facing: i8,
-    /// Ticks left of the stagger after a hit; no chase and no contact damage.
+    /// Ticks left of a stagger; no chase and no contact damage.
     pub stagger_ticks: u8,
-    /// Ticks of the push impulse left and its signed per-tick step in pixels.
-    pub push_ticks: u8,
-    pub push_dx: f32,
     /// Ticks since the enemy was defeated (0 while alive).
     pub defeated_ticks: u16,
 }
@@ -414,8 +570,6 @@ impl Enemy {
             ai,
             facing: -1,
             stagger_ticks: 0,
-            push_ticks: 0,
-            push_dx: 0.0,
             defeated_ticks: 0,
         }
     }
@@ -435,17 +589,11 @@ impl Enemy {
         body_rect(self.x, self.y)
     }
 
-    /// Apply a landed move: damage, stagger and the push impulse away from the
-    /// attacker (`attacker_facing` is +1 / -1).
-    pub fn apply_hit(&mut self, spec: &MoveSpec, attacker_facing: i8) -> HitOutcome {
+    /// Apply a landed move: damage and the stagger of its reaction.
+    pub fn apply_hit(&mut self, spec: &MoveSpec, _attacker_facing: i8) -> HitOutcome {
         self.health = self.health.saturating_sub(spec.damage);
         if spec.reaction.stagger_ticks > 0 {
             self.stagger_ticks = spec.reaction.stagger_ticks;
-        }
-        if spec.reaction.push_px != 0.0 {
-            self.push_ticks = PUSH_TICKS;
-            self.push_dx =
-                f32::from(attacker_facing) * spec.reaction.push_px / f32::from(PUSH_TICKS);
         }
         if self.health == 0 {
             self.stagger_ticks = 0;
@@ -457,21 +605,18 @@ impl Enemy {
         }
     }
 
-    /// One fixed tick of enemy behaviour: finish a push, hold a stagger, or
-    /// chase the hero (the WORK-021 ground chaser: closer than 220 px and
-    /// farther than 22 px, 62 px/s, stopped by solid geometry).
+    /// One fixed tick of enemy behaviour: hold a stagger, or chase the hero
+    /// (the WORK-021 ground chaser: closer than 220 px and farther than 22 px,
+    /// 62 px/s, stopped by solid geometry).
     pub fn step(&mut self, hero_x: f32, solids: &[Block]) {
         if self.health == 0 {
             self.defeated_ticks = self.defeated_ticks.saturating_add(1);
-            self.push(solids);
             return;
         }
         if self.stagger_ticks > 0 {
             self.stagger_ticks -= 1;
-            self.push(solids);
             return;
         }
-        self.push(solids);
         if self.ai == EnemyAi::Passive {
             return;
         }
@@ -482,17 +627,6 @@ impl Enemy {
             if !solid_at(solids, body_rect(candidate_x, self.y)) {
                 self.x = candidate_x;
             }
-        }
-    }
-
-    fn push(&mut self, solids: &[Block]) {
-        if self.push_ticks == 0 {
-            return;
-        }
-        self.push_ticks -= 1;
-        let candidate_x = self.x + self.push_dx;
-        if !solid_at(solids, body_rect(candidate_x, self.y)) {
-            self.x = candidate_x;
         }
     }
 
@@ -518,22 +652,9 @@ impl Enemy {
         }
         false
     }
-
-    /// Fold the full enemy state into a state hash.
-    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
-        mix(u64::from(self.x.to_bits()));
-        mix(u64::from(self.y.to_bits()));
-        mix(u64::from(self.health));
-        mix(self.ai as u64);
-        mix(self.facing as u64);
-        mix(u64::from(self.stagger_ticks));
-        mix(u64::from(self.push_ticks));
-        mix(u64::from(self.push_dx.to_bits()));
-        mix(u64::from(self.defeated_ticks));
-    }
 }
 
-fn body_rect(x: f32, y: f32) -> Rect {
+pub(crate) fn body_rect(x: f32, y: f32) -> Rect {
     Rect {
         left: x - ENEMY_HALF_WIDTH,
         bottom: y - ENEMY_HALF_HEIGHT,
@@ -542,7 +663,7 @@ fn body_rect(x: f32, y: f32) -> Rect {
     }
 }
 
-fn solid_at(solids: &[Block], candidate: Rect) -> bool {
+pub(crate) fn solid_at(solids: &[Block], candidate: Rect) -> bool {
     solids
         .iter()
         .any(|block| block.intact && candidate.overlaps(block.rect))
@@ -585,64 +706,117 @@ pub fn hit_box(shape: &HitShape, attacker: &Attacker) -> Option<Rect> {
     })
 }
 
-fn reaches(shape: &HitShape, attacker: &Attacker, enemy: &Enemy) -> bool {
+/// Something a strike can land on: the greybox [`Enemy`] and the scene
+/// [`crate::goblin::Goblin`].
+pub trait StrikeTarget {
+    /// Has a hurtbox: a defeated target has none.
+    fn hurtbox_active(&self) -> bool;
+    /// Can take a hit right now: false while the target is frozen in hit-stop
+    /// (a target is never hit again inside the freeze it just caused).
+    fn can_be_hit(&self) -> bool {
+        self.hurtbox_active()
+    }
+    fn body(&self) -> Rect;
+    /// Centre of the body (the WORK-021 reach test measures from it).
+    fn centre(&self) -> (f32, f32);
+    /// Apply a landed move; returns the outcome and the hit-stop ticks the
+    /// attacker must freeze for.
+    fn take_hit(&mut self, spec: &MoveSpec, attacker_facing: i8) -> (HitOutcome, u8);
+}
+
+impl StrikeTarget for Enemy {
+    fn hurtbox_active(&self) -> bool {
+        self.alive()
+    }
+
+    fn body(&self) -> Rect {
+        Enemy::body(self)
+    }
+
+    fn centre(&self) -> (f32, f32) {
+        (self.x, self.y)
+    }
+
+    fn take_hit(&mut self, spec: &MoveSpec, attacker_facing: i8) -> (HitOutcome, u8) {
+        (self.apply_hit(spec, attacker_facing), 0)
+    }
+}
+
+fn reaches(shape: &HitShape, attacker: &Attacker, target: &impl StrikeTarget) -> bool {
     match shape {
         HitShape::GreyboxReach {
             back,
             front,
             vertical,
         } => {
-            let forward = (enemy.x - attacker.x) * f32::from(attacker.facing);
-            (*back..=*front).contains(&forward) && (enemy.y - attacker.y).abs() <= *vertical
+            let (tx, ty) = target.centre();
+            let forward = (tx - attacker.x) * f32::from(attacker.facing);
+            (*back..=*front).contains(&forward) && (ty - attacker.y).abs() <= *vertical
         }
-        HitShape::Box { .. } => hit_box(shape, attacker).is_some_and(|b| b.overlaps(enemy.body())),
+        HitShape::Box { .. } => hit_box(shape, attacker).is_some_and(|b| b.overlaps(target.body())),
     }
 }
 
-/// Resolve the running move against `enemies` (stable index order) on an
-/// active tick. A target is hit at most once per move instance, defeated
-/// targets are skipped. Hits are applied and logged to `events`.
-pub fn resolve_strike(
+/// Resolve the running move against `targets` (stable index order) on an
+/// active tick. A target is hit at most once per move instance, on the first
+/// active tick at which its body overlaps the hit box; defeated targets and
+/// targets frozen in hit-stop are skipped, and a tick frozen by the attacker's
+/// own hit-stop resolves nothing. A confirmed hit starts the attacker's
+/// hit-stop (the longest of the targets hit this tick). Hits are applied and
+/// logged to `events`.
+pub fn resolve_strike<T: StrikeTarget>(
     runner: &mut MoveRunner,
     move_tick: &MoveTick,
     attacker: Attacker,
-    enemies: &mut [Enemy],
+    targets: &mut [T],
     sim_tick: u64,
     events: &mut Vec<CombatEvent>,
 ) {
-    if move_tick.phase != Phase::Active {
+    if move_tick.phase != Phase::Active || move_tick.frozen {
         return;
     }
     let spec = move_tick.spec;
-    for (index, enemy) in enemies.iter_mut().enumerate() {
-        if !enemy.alive() || !reaches(&spec.shape, &attacker, enemy) {
+    let mut attacker_stop = 0u8;
+    for (index, target) in targets.iter_mut().enumerate() {
+        if !target.can_be_hit() || !reaches(&spec.shape, &attacker, target) {
             continue;
         }
-        let target = index as u32;
-        if !runner.record_hit(target) {
+        let id = index as u32;
+        if !runner.record_hit(id) {
             continue;
         }
-        let outcome = enemy.apply_hit(spec, attacker.facing);
+        let (outcome, stop) = target.take_hit(spec, attacker.facing);
+        attacker_stop = attacker_stop.max(stop);
         events.push(CombatEvent::Hit {
             tick: sim_tick,
             move_id: spec.id,
             instance: move_tick.instance,
-            target,
+            target: id,
             damage: spec.damage,
-            health_left: enemy.health,
+            health_left: match outcome {
+                HitOutcome::Hurt { health_left } => health_left,
+                HitOutcome::Defeated => 0,
+            },
+            hit_stop: stop,
         });
         if outcome == HitOutcome::Defeated {
             events.push(CombatEvent::EnemyDefeated {
                 tick: sim_tick,
-                target,
+                target: id,
             });
         }
     }
+    runner.begin_hit_stop(attacker_stop);
 }
 
 // ------------------------------------------------------------------- events --
 
 /// Something that happened on a fixed tick, for deterministic replay logs.
+///
+/// Ticks are **attempt-local**: the scene tick counter starts again at 1 after
+/// a restart. A [`CombatEvent::Restart`] carries the tick the finished attempt
+/// ended on (the tick that triggered it), so a log reads as: events of attempt
+/// 1 up to `Restart{tick: N}`, then the ticks of attempt 2 from 1.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CombatEvent {
     MoveStarted {
@@ -657,10 +831,27 @@ pub enum CombatEvent {
         target: u32,
         damage: u8,
         health_left: u8,
+        /// Ticks the attacker and the target freeze (0 for the greybox).
+        hit_stop: u8,
     },
     EnemyDefeated {
         tick: u64,
         target: u32,
+    },
+    /// A goblin took an attack token and started its tell (attack tick 0).
+    GoblinTell {
+        tick: u64,
+        goblin: u32,
+    },
+    /// A goblin's swing became active (attack tick 26).
+    GoblinSwing {
+        tick: u64,
+        goblin: u32,
+    },
+    /// A hit cancelled a goblin's tell; its token went back.
+    GoblinInterrupted {
+        tick: u64,
+        goblin: u32,
     },
     HeroHurt {
         tick: u64,
@@ -697,6 +888,7 @@ impl CombatEvent {
                 target,
                 damage,
                 health_left,
+                hit_stop,
             } => {
                 mix(2);
                 mix(tick);
@@ -705,6 +897,7 @@ impl CombatEvent {
                 mix(u64::from(target));
                 mix(u64::from(damage));
                 mix(u64::from(health_left));
+                mix(u64::from(hit_stop));
             }
             Self::EnemyDefeated { tick, target } => {
                 mix(3);
@@ -730,6 +923,21 @@ impl CombatEvent {
                 mix(tick);
                 mix(u64::from(deaths));
             }
+            Self::GoblinTell { tick, goblin } => {
+                mix(7);
+                mix(tick);
+                mix(u64::from(goblin));
+            }
+            Self::GoblinSwing { tick, goblin } => {
+                mix(8);
+                mix(tick);
+                mix(u64::from(goblin));
+            }
+            Self::GoblinInterrupted { tick, goblin } => {
+                mix(9);
+                mix(tick);
+                mix(u64::from(goblin));
+            }
         }
     }
 }
@@ -753,15 +961,34 @@ impl fmt::Display for CombatEvent {
                 target,
                 damage,
                 health_left,
+                hit_stop,
             } => write!(
                 f,
-                "COMBAT_EVENT tick={tick} kind=hit move={} instance={instance} target={target} damage={damage} health_left={health_left}",
+                "COMBAT_EVENT tick={tick} kind=hit move={} instance={instance} target={target} damage={damage} health_left={health_left} hit_stop={hit_stop}",
                 move_id.name()
             ),
             Self::EnemyDefeated { tick, target } => {
                 write!(
                     f,
                     "COMBAT_EVENT tick={tick} kind=enemy_defeated target={target}"
+                )
+            }
+            Self::GoblinTell { tick, goblin } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=goblin_tell goblin={goblin}"
+                )
+            }
+            Self::GoblinSwing { tick, goblin } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=goblin_swing goblin={goblin}"
+                )
+            }
+            Self::GoblinInterrupted { tick, goblin } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=goblin_interrupted goblin={goblin}"
                 )
             }
             Self::HeroHurt {
@@ -841,24 +1068,218 @@ mod tests {
         assert_eq!(first_active, vec![13]);
     }
 
+    fn starts_of(
+        spec: &'static MoveSpec,
+        press_on: &[u64],
+        buffer: u8,
+        ticks: u64,
+    ) -> Vec<(u64, MoveId)> {
+        let mut runner = MoveRunner::default();
+        let mut starts = Vec::new();
+        for tick in 1..=ticks {
+            let request = press_on.contains(&tick).then_some(spec);
+            if let Some(m) = runner.step(request, buffer, true)
+                && m.started
+            {
+                starts.push((tick, m.spec.id));
+            }
+        }
+        starts
+    }
+
     #[test]
     fn a_held_button_is_one_press_and_a_late_press_is_buffered_once() {
         // InputFrame turns a held button into a single press edge: one press
         // yields exactly one move instance however long the button is held.
+        assert_eq!(
+            starts_of(&CARL_HAYMAKER, &[1], CARL_BUFFER_TICKS, 60),
+            vec![(1, MoveId::Haymaker)]
+        );
+        // The haymaker has no string: a press in the last CARL_BUFFER_TICKS of
+        // the move starts the next move the tick the first one ends (tick 23:
+        // total 22).
+        assert_eq!(
+            starts_of(&CARL_HAYMAKER, &[1, 19], CARL_BUFFER_TICKS, 60),
+            vec![(1, MoveId::Haymaker), (23, MoveId::Haymaker)]
+        );
+    }
+
+    #[test]
+    fn the_buffer_window_boundary_is_exactly_six_ticks_before_the_move_ends() {
+        // Move pressed on tick 1 ends on tick 23 (total 22). A press on tick p
+        // is remembered until p + 6, so p = 17 still starts the next move on
+        // tick 23 and p = 16 is forgotten.
+        let at = |p: u64| starts_of(&CARL_HAYMAKER, &[1, p], CARL_BUFFER_TICKS, 60);
+        assert_eq!(at(17), vec![(1, MoveId::Haymaker), (23, MoveId::Haymaker)]);
+        assert_eq!(at(16), vec![(1, MoveId::Haymaker)]);
+        // The last tick of the move (22) is inside the window, the move's own
+        // press tick plus the whole length is not needed.
+        assert_eq!(at(22), vec![(1, MoveId::Haymaker), (23, MoveId::Haymaker)]);
+    }
+
+    #[test]
+    fn the_jab_string_window_is_ticks_3_to_13_and_the_haymaker_starts_at_tick_7_or_later() {
+        // The jab is pressed on tick 1 (jab tick 0); a second attack press on
+        // tick 1 + t is at jab tick t.
+        let second = |t: u64| starts_of(&CARL_JAB, &[1, 1 + t], CARL_BUFFER_TICKS, 60);
+        // Too early (jab ticks 0..=2): forgotten, only the jab.
+        assert_eq!(second(2), vec![(1, MoveId::Jab)]);
+        // Window start (jab tick 3): chained, but not before jab tick 7 =
+        // tick 8.
+        assert_eq!(second(3), vec![(1, MoveId::Jab), (8, MoveId::Haymaker)]);
+        assert_eq!(second(6), vec![(1, MoveId::Jab), (8, MoveId::Haymaker)]);
+        // From jab tick 7 the haymaker starts on the press tick itself.
+        assert_eq!(second(7), vec![(1, MoveId::Jab), (8, MoveId::Haymaker)]);
+        assert_eq!(second(9), vec![(1, MoveId::Jab), (10, MoveId::Haymaker)]);
+        // Window end (jab tick 13).
+        assert_eq!(second(13), vec![(1, MoveId::Jab), (14, MoveId::Haymaker)]);
+        // Jab tick 14 does not exist: the jab is over, a press is a new jab.
+        assert_eq!(second(14), vec![(1, MoveId::Jab), (15, MoveId::Jab)]);
+        // The haymaker ends the string: a press during it is buffered, never a
+        // third blow of the string; held buttons never chain.
+        let starts = starts_of(&CARL_JAB, &[1, 4, 6], CARL_BUFFER_TICKS, 60);
+        assert_eq!(starts, vec![(1, MoveId::Jab), (8, MoveId::Haymaker)]);
+    }
+
+    #[test]
+    fn hit_stop_freezes_the_move_clock_and_a_press_during_it_still_counts() {
         let mut runner = MoveRunner::default();
-        let log = runner_ticks(&mut runner, &CARL_JAB, &[1], CARL_BUFFER_TICKS, 60);
-        assert_eq!(log.iter().filter(|e| e.3).count(), 1);
-        // A press in the last CARL_BUFFER_TICKS of the move starts the next
-        // move the tick the first one ends (tick 15 here: total 14).
+        let mut log = Vec::new();
+        for tick in 1..=14u64 {
+            let request = (tick == 1 || tick == 6).then_some(&CARL_JAB);
+            let m = runner.step(request, CARL_BUFFER_TICKS, true);
+            if tick == 4 {
+                // Jab tick 3 = the hit tick: freeze for 3 ticks.
+                runner.begin_hit_stop(3);
+            }
+            log.push((tick, m.map(|m| (m.tick, m.frozen, m.started, m.spec.id))));
+        }
+        // Ticks 5, 6 and 7 are frozen on jab tick 3; the clock resumes on 8.
+        let tick_of = |t: u64| log[t as usize - 1].1.unwrap();
+        assert_eq!(tick_of(4), (3, false, false, MoveId::Jab));
+        for frozen in 5..=7 {
+            assert_eq!(tick_of(frozen).0, 3);
+            assert!(tick_of(frozen).1, "tick {frozen} is frozen");
+        }
+        assert_eq!(tick_of(8), (4, false, false, MoveId::Jab));
+        // The press on tick 6 (during the freeze, jab tick 3) chained: the
+        // haymaker starts when the jab reaches tick 7 = tick 11.
+        assert_eq!(tick_of(11), (0, false, true, MoveId::Haymaker));
+    }
+
+    #[test]
+    fn a_frozen_tick_resolves_no_hit_and_a_defeated_target_stays_skipped() {
+        let carl = facing_right_carl();
+        let mut enemies = [goblin_at(125.0)];
         let mut runner = MoveRunner::default();
-        let log = runner_ticks(&mut runner, &CARL_JAB, &[1, 10], CARL_BUFFER_TICKS, 60);
-        let starts: Vec<u64> = log.iter().filter(|e| e.3).map(|e| e.0).collect();
-        assert_eq!(starts, vec![1, 15]);
-        // A press earlier than the buffer window is forgotten.
+        let mut events = Vec::new();
+        let mut m = None;
+        for tick in 1..=4u64 {
+            m = runner.step((tick == 1).then_some(&CARL_JAB), 0, true);
+        }
+        let mut frozen = m.unwrap();
+        frozen.frozen = true;
+        resolve_strike(&mut runner, &frozen, carl, &mut enemies, 4, &mut events);
+        assert!(events.is_empty(), "a frozen tick hits nothing");
+        let live = MoveTick {
+            frozen: false,
+            ..frozen
+        };
+        resolve_strike(&mut runner, &live, carl, &mut enemies, 4, &mut events);
+        assert_eq!(events.len(), 1);
+        // The attacker froze for the move's hit-stop only if the target
+        // reported one: the greybox enemy reports none.
+        assert_eq!(runner.hit_stop_left(), 0);
+    }
+
+    #[test]
+    fn a_hit_lands_on_the_first_active_tick_at_which_the_box_overlaps() {
+        // The goblin is out of reach on the first active tick (jab tick 3) and
+        // steps into the box on the second (tick 4): that is the hit tick.
+        let carl = facing_right_carl();
+        let mut enemy = [goblin_at(100.0 + 37.0)]; // left edge +25: out of reach
         let mut runner = MoveRunner::default();
-        let log = runner_ticks(&mut runner, &CARL_JAB, &[1, 5], CARL_BUFFER_TICKS, 60);
-        let starts: Vec<u64> = log.iter().filter(|e| e.3).map(|e| e.0).collect();
-        assert_eq!(starts, vec![1]);
+        let mut events = Vec::new();
+        let mut hit_tick = None;
+        for tick in 1..=8u64 {
+            if tick == 5 {
+                enemy[0].x = 100.0 + 33.0; // left edge +21: inside [16, 22)
+            }
+            if let Some(m) = runner.step((tick == 1).then_some(&CARL_JAB), 0, true) {
+                resolve_strike(&mut runner, &m, carl, &mut enemy, tick, &mut events);
+            }
+            if hit_tick.is_none() && !events.is_empty() {
+                hit_tick = Some(tick);
+            }
+        }
+        // Move tick 3 is tick 4, move tick 4 is tick 5 (the second active tick).
+        assert_eq!(hit_tick, Some(5));
+        assert_eq!(events.len(), 1);
+        // The same for the haymaker: out of reach on its first active tick
+        // (move tick 5), in on its second.
+        let mut enemy = [goblin_at(100.0 + 37.0)];
+        let mut runner = MoveRunner::default();
+        let mut events = Vec::new();
+        let mut hit_tick = None;
+        for tick in 1..=12u64 {
+            if tick == 8 {
+                enemy[0].x = 100.0 + 33.0;
+            }
+            if let Some(m) = runner.step((tick == 1).then_some(&CARL_HAYMAKER), 0, true) {
+                resolve_strike(&mut runner, &m, carl, &mut enemy, tick, &mut events);
+            }
+            if hit_tick.is_none() && !events.is_empty() {
+                hit_tick = Some(tick);
+            }
+        }
+        // Haymaker tick 5 is tick 6; tick 8 is its third active tick, the
+        // first at which the goblin overlaps.
+        assert_eq!(hit_tick, Some(8));
+    }
+
+    #[test]
+    fn the_move_table_is_the_lookup_and_matches_the_art_boxes() {
+        for spec in CARL_MOVES {
+            assert_eq!(carl_move(spec.id), Some(spec));
+        }
+        assert_eq!(carl_move(MoveId::GreyboxStrike), None);
+        let boxed = |spec: &MoveSpec| match spec.shape {
+            HitShape::Box {
+                x_min,
+                x_max,
+                y_min,
+                y_max,
+            } => (x_min, x_max, y_min, y_max),
+            HitShape::GreyboxReach { .. } => unreachable!(),
+        };
+        // PR #43 reach boxes after the redesign (half-open).
+        assert_eq!(boxed(&CARL_JAB), (16.0, 22.0, 29.0, 35.0));
+        assert_eq!(boxed(&CARL_HAYMAKER), (16.0, 22.0, 27.0, 38.0));
+        assert_eq!(boxed(&CARL_PUSH_KICK), (15.0, 22.0, 18.0, 28.0));
+        assert_eq!(
+            (
+                CARL_HAYMAKER.startup,
+                CARL_HAYMAKER.active,
+                CARL_HAYMAKER.recovery
+            ),
+            (5, 3, 14)
+        );
+        assert_eq!(CARL_HAYMAKER.total(), 22);
+        // The haymaker steps Carl 4 px, 1 px per tick on move ticks 1..=4; the
+        // other moves keep the feet planted.
+        let step = CARL_HAYMAKER.root_step.unwrap();
+        assert_eq!(
+            (step.from_tick, step.to_tick, step.px_per_tick),
+            (1, 4, 1.0)
+        );
+        assert!(CARL_JAB.root_step.is_none() && CARL_PUSH_KICK.root_step.is_none());
+        // Camera kick: heavy blows only.
+        assert_eq!(CARL_JAB.reaction.camera_kick_px, 0);
+        assert_eq!(CARL_HAYMAKER.reaction.camera_kick_px, 2);
+        // Hit-stop values of the Carl melee spec section 4.
+        assert_eq!(CARL_JAB.reaction.hit_stop, 3);
+        assert_eq!(CARL_HAYMAKER.reaction.hit_stop, 5);
+        assert_eq!(CARL_PUSH_KICK.reaction.hit_stop, 8);
     }
 
     #[test]
@@ -952,20 +1373,15 @@ mod tests {
     }
 
     #[test]
-    fn a_hit_staggers_pushes_away_and_a_staggered_enemy_deals_no_contact_damage() {
+    fn a_hit_staggers_and_a_staggered_enemy_deals_no_contact_damage() {
         let mut enemy = Enemy::new(200.0, 119.0);
         enemy.apply_hit(&CARL_JAB, 1);
         assert_eq!(enemy.stagger_ticks, 10);
-        let x0 = enemy.x;
-        for _ in 0..4 {
-            enemy.step(0.0, &[]);
-        }
-        assert_eq!(enemy.x, x0 + 4.0);
         let mut health = HERO_HEALTH;
         let mut invulnerable = 0;
         // Staggered: standing on the hero does no damage.
         assert!(!enemy.contact(enemy.x, enemy.y, &mut health, &mut invulnerable));
-        for _ in 0..6 {
+        for _ in 0..10 {
             enemy.step(0.0, &[]);
         }
         assert!(!enemy.staggered());

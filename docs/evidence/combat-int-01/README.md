@@ -1,5 +1,7 @@
 # COMBAT-INT-01 evidence
 
+**This is the PR #45 baseline, kept for comparison.** The CP-01 feel pass changed the combat rules, so the `headless_*.txt` logs and hashes below no longer reproduce with the current code; CI now diffs [the CP-01 evidence](../cp01-feel/README.md) instead.
+
 Real Bevy captures and deterministic logs of the Floor 1 combat fixtures. **Mechanical probes only**: the goblin is a disclosed placeholder rectangle (magenta band on its head) and Carl's strike is a small pale box, because the GOB-01 and ANIM-CARL-02 art have not merged. Nothing here is a feel verdict or an art approval; hit-stop and knockback tuning come in the next PR.
 
 | File | What it shows |
@@ -13,15 +15,7 @@ Real Bevy captures and deterministic logs of the Floor 1 combat fixtures. **Mech
 
 Stills and GIF are screenshots of the real Bevy window (lighting on, Xvfb with software Vulkan on the author's machine), 1920x1080 = 640x360 x 3. They are not reproduced bit for bit by CI (rendering varies by driver); the event logs and hashes are: CI diffs the headless replays against these `headless_*.txt` files and requires the real render loop to print the same events and final state.
 
-Reproduce (from the repository root, after `bash scripts/export_assets.sh`):
-
-```sh
-cargo build --locked --bin floor01_scene
-bash scripts/ci_floor01_combat.sh headless
-xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render
-bash scripts/make_combat_int_evidence.sh
-sha256sum -c docs/evidence/combat-int-01/SHA256SUMS   # from inside that directory
-```
+Reproduce: check out the PR #45 merge commit (`85820b2`) and run its `scripts/ci_floor01_combat.sh` and `scripts/make_combat_int_evidence.sh` (the latter was removed by the CP-01 PR, which replaces it with `scripts/make_cp01_feel_evidence.sh`).
 
 Final hashes: `cp01_single_goblin` `c6952df1e99c7c0a`, `cp01_two_hits` `382bcaedf5dde492`, `cp02_two_goblins` `f4e11cc71da438a1`. The story run is unchanged: `--scenario walk_right --capture-tick 250` still ends in `FLOOR1_SCENE_STATE ... hash=931868d6afa56498`.
 

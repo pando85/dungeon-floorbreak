@@ -136,7 +136,7 @@ jobs:
             artifacts/floor01-scene-*.log
             artifacts/floor01-lighting-*
             artifacts/anim-int-01/evidence/
-            artifacts/combat-int-01/*.txt
-            artifacts/combat-int-01/*.log
-            artifacts/combat-int-01/frames_cp01_single_goblin/
+            artifacts/cp01-feel/*.txt
+            artifacts/cp01-feel/*.log
+            artifacts/cp01-feel/frames_*/
           if-no-files-found: warn

@@ -7,6 +7,8 @@ pub mod combat;
 pub mod combat_scene;
 pub mod corridor;
 pub mod env_kit;
+pub mod feel;
+pub mod goblin;
 pub mod input;
 pub mod light_pass;
 pub mod lighting;
