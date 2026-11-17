@@ -1,6 +1,6 @@
 # GOB-01 evidence: goblin size study, keys and the full 27-frame set (A and B)
 
-These are review renders for the [GOB-01 design spec](../../02-art/gob-01-goblin-spec.md). They are composed PNGs and GIFs lit with the A1 compositor (`scripts/env_kit_light.py`), not Bevy captures. The goblin is not wired into any binary. Status: candidate, **full set drawn (Sonnet), awaiting independent Opus review**. The size (36 px) was decided by an independent Opus agent. The 11 keys are the Opus keys, frozen byte for byte in `tests/fixtures/goblin_gob01_keys.json`; the other 16 frames per variant are in-betweens.
+These are review renders for the [GOB-01 design spec](../../02-art/gob-01-goblin-spec.md). They are composed PNGs and GIFs lit with the A1 compositor (`scripts/env_kit_light.py`), not Bevy captures. The goblin is not wired into any binary. Status: candidate, **Opus review PASSED 2026-11-17 (design: Claude Opus; size decision and review: a separate Claude Opus; execution: Claude Sonnet); awaiting owner review; Bevy integration pending**. The size (36 px) was decided by an independent Opus agent. The 11 keys are the Opus keys, frozen byte for byte in `tests/fixtures/goblin_gob01_keys.json`; the other 16 frames per variant are in-betweens.
 
 Regenerate with:
 
@@ -37,11 +37,11 @@ The files are copied here unchanged. `SHA256SUMS` lists their hashes; `measureme
 
 The block-ins in the size study are rasterized natively at each height by one generator (`scripts/author_goblin_gob01.py size-study`), so the three options are compared with one method. They are not production pixels.
 
-## Known weak spots for the reviewer
+## Known weak spots and follow-ups
 
 - Frame 18 (launch) leans key 16 by translating whole rows (no pixel is rotated); its arm is rough, and the stick above the hand is only about 3 px because the hand stays at its leaned frame-16 place (row 21) while the fruit sits at rows 10 to 17.
 - Frames 23 (push up) and 24 (kneel) are composed from frame 0 and frame 22 parts plus ASCII legs; the legs are thin at this size.
 - The walk passing frames (6 and 9) put the planted foot 5 px back per frame as asked; the back feet of the frozen keys 4 and 7 mean the next frame still jumps.
 - The rope belt is on the `weapon` layer in the frozen keys and on `body` in the in-betweens.
 
-Provenance: design and keys by Claude Opus; size decided by an independent Claude Opus agent; in-betweens, atlases, validators and evidence by Claude Sonnet; no tracing of the concept references; review pending (independent Opus).
+Provenance: design and keys by Claude Opus; size decided by an independent Claude Opus agent; in-betweens, atlases, validators and evidence by Claude Sonnet; no tracing of the concept references; review: Claude Opus, PASS (2026-11-17).

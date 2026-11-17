@@ -1,6 +1,6 @@
 # GOB-01: common goblin design spec
 
-**Status:** full set drawn (Sonnet), awaiting independent Opus review (2026-11-17). Keys (phases 1 and 2) by Opus; the 16 in-betweens per variant, the 27-frame atlases, validators and evidence (phase 3) by Sonnet. Nothing here is wired into Bevy.
+**Status:** Opus review PASSED 2026-11-17 (design: Claude Opus; size decision and review: a separate Claude Opus; execution: Claude Sonnet); awaiting owner review; Bevy integration pending. Keys (phases 1 and 2) by Opus; the 16 in-betweens per variant, the 27-frame atlases, validators and evidence (phase 3) by Sonnet. Nothing here is wired into Bevy.
 
 **Decision record:** height **36 px**, frame **64 × 56**, pivot **(28, 55)**. The height was proposed by the designing Opus agent and **decided by a separate, independent Opus agent**, under the owner's rule that enemy sizes are proposed by one Opus agent and decided by another. The tick windows in section 4 are a **proposal** for the combat work order, because WORK-021 has no goblin attack yet.
 
@@ -292,3 +292,9 @@ How the in-betweens were built and where the notes of section 9 were ambiguous. 
 - **Rope belt (review D7).** In the 16 in-betweens the belt (a run of 7 or more wood pixels) is on the `body` layer. The frozen Opus keys carry it on `weapon` and are unchanged; that is for the designer to decide.
 - **Variant B.** Each key overlay is split into a head part and a vest-patch part; each part translates with the part of the body it sits on (head, vest). Frame 2 moves the two notch pixels with the twitching ear tip. Orphan pixels created by the overlay are recoloured on the `accessory` layer only, so B's `body` and `weapon` cels stay equal to A's.
 - **GIF timing.** GIF delays are centiseconds; they are rounded on the cumulative tick count so cycles keep their exact length.
+
+## 14. Follow-ups after the review
+
+- Walk keys 4 and 7: the back foot of the frozen keys makes a 3 to 4 px slip at the 6 to 7 and 9 to 4 transitions; judge it in Bevy.
+- Frame 18 (launch): the stick above the hand is about 3 px instead of 6.
+- Belt layer: the frozen keys carry the rope belt on `weapon`, the in-betweens on `body`.

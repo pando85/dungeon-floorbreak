@@ -483,6 +483,7 @@ def f23() -> Pix:
 ..KlmsK.
 .KlmsK..
 KllsKK..
+KllsK...
 KKKK....
 """, 15, 48)
     legs = parse("""
@@ -788,7 +789,7 @@ def manifest(variant: str) -> dict:
             "origin": origin,
             "generator": ("Design, size study and keys: Claude Opus (two separate agents propose and decide the size). "
                           "In-betweens, atlases, validators and evidence: Claude Sonnet, composed by "
-                          "scripts/author_goblin_frames.py. Review: pending (independent Claude Opus). No image-model "
+                          "scripts/author_goblin_frames.py. Review: Claude Opus, PASS 2026-11-17 (a separate agent from the designer). No image-model "
                           "raster output, no tracing, no resampling"),
             "generated_art": True,
             "input_reference_ids": ["floor-01-opening-concept-references-v1"],
@@ -796,7 +797,7 @@ def manifest(variant: str) -> dict:
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "goblin": {
-            "status": "full set drawn (Sonnet), awaiting independent Opus review; 27 frames, 11 of them Opus keys; not wired into any Bevy binary",
+            "status": "Opus review PASSED 2026-11-17; awaiting owner review; Bevy integration pending; 27 frames, 11 of them Opus keys; not wired into any Bevy binary",
             "spec": "docs/02-art/gob-01-goblin-spec.md",
             "variant": variant,
             "opaque_height_idle": 36,
