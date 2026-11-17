@@ -38,17 +38,17 @@ Owner-approved **light steam-powered goblin motorcycle/sidecar direction**, dist
 - Preserve original uploaded reference images unchanged. Record provenance and SHA-256 values in the existing [enemy reference manifest](../../assets/concept/floor-01/enemies/manifest.json).
 - Publication remains limited by the owner-reported art-only permission scope in the [rights policy](../04-production/rights-and-release.md); this does not clear distribution of a playable game or standalone asset pack.
 
-## Owner image upload for this concept PR
+## Owner image upload — verified
 
-These three *original byte-identical* files are expected under `assets/concept/floor-01/enemies/`:
+These three *original byte-identical* files are committed under `assets/concept/floor-01/enemies/`:
 
 | Image | Status |
 | --- | --- |
-| `floor01-dungeon-rat-concept-approved.png` | Owner upload pending |
-| `floor01-goblin-bomb-bard-concept-approved.png` | Owner upload pending |
-| `floor01-goblin-copper-chopper-concept-approved.png` | Owner upload pending |
+| `floor01-dungeon-rat-concept-approved.png` | Uploaded, source identity verified |
+| `floor01-goblin-bomb-bard-concept-approved.png` | Uploaded, source identity verified |
+| `floor01-goblin-copper-chopper-concept-approved.png` | Uploaded, source identity verified |
 
-The exact SHA-256, Git blob SHA-1, file lengths and dimensions were computed from the local originals and bundled in the handoff ZIP. The existing directory manifest gains three entries (8 → 11); `tests/test_art_floor01_enemy_concepts.py` gains three required names and will deliberately fail if any uploads are missing or altered. **Do not merge until owner upload and the final CI pass.**
+The source originals were independently checked against uploaded Git blob SHA-1 identifiers, and the recorded SHA-256, file lengths and dimensions match. The image manifest now has eleven entries (previous eight preserved), and `tests/test_art_floor01_enemy_concepts.py` requires all eleven unchanged PNGs. **The art-assets check passed on the upload commit**; rerun final CI after the documentation update before merging.
 
 ## Follow-up work, deliberately excluded
 
@@ -59,6 +59,6 @@ The **Juicer's Gym** environment concept is **approved in mood and visual identi
 - [x] Three owner-approved minor enemy/vehicle directions accurately recorded.
 - [x] References pinned by SHA-256 and byte/dimension metadata.
 - [x] Existing 8 PNGs and approvals preserved.
-- [ ] Owner commits the three source PNGs in this branch.
-- [ ] Eleven-image hash/dimension validation passes.
+- [x] Owner committed all three original PNGs unchanged.
+- [x] Eleven-image hash/dimension validation passed on the upload commit.
 - [ ] Final PR CI green.
