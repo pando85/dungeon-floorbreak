@@ -1,59 +1,80 @@
-# Floor 01 — The Juicer's Gym, standalone environment concept
+# Floor 01 — The Juicer's Gym: approved environment direction
 
-**Status (2026-11-17):** The **gym's visual identity and mood** were owner-approved in the project conversation. A revised **standalone** concept board is now available **for owner review**, not yet approved as the final room composition. Do not imply that its interaction icons, poses, signs, room distances or native sprite measurements are locked.
+**Status (2026-11-17):** The 1990s gym-in-catacombs mood was approved earlier. In the follow-up session, the owner explicitly chose to save a newly generated full-width **gym-only panorama** and the accompanying **proposed encounter direction**. This approves the image as an **art-direction reference**, not native level topology, exact boss behavior, balance, final sprites, collider dimensions, or book canon.
 
-**Scope:** environment concept only. No gameplay code, combat physics, Bevy atlas, encounter layout implementation, final pixel-grid environmental kit or release permission.
+**Scope of this PR:** original standalone environment concept image, source-byte validation, and creative encounter notes. No Bevy gameplay, editable .ase sprites, damage/physics schemas, animation implementation, or completed boss fight is implied.
 
-## Existing approval
+## Art direction and continuity
 
-The owner approved the gritty, comically exaggerated **1990s gym inside the recognizable Floor 01 stone catacombs**: brick arches, industrial piping, warm suspended lamps, occasional magenta fluorescent accents, cracked mirrors, rusty squat/bench equipment, weights, lockers and an expressive bodybuilder mural.
+Keep the approved A/B/C Floor 01 catacomb language: red-brown brickwork, carved arches, industrial pipe retrofit, amber hanging lights and restrained magenta fluorescent accents concentrated inside the gym. A ridiculous 1990s bodybuilding mural, battered reception desk, turnstile, rusty workout equipment, dumbbells, cracked mirrors, lockers, squat rack, cable station, hanging punching bag and tires convey local personality and dark physical comedy.
 
-This is distinct from the later **Ball of Swine arena**. The first pass mixed both spaces in a single image; the approved gym mood was preserved in the **gym-only crop** and is now being developed into its own complete concept.
+The Juicer's Gym remains **separate from the Ball of Swine ring arena**. Do not add concentric rings, pig emblems, arena audience stands, or floor-wide saturated neon. The gym scene must read as a **side-scrolling combat location**, not a top-down floor plan.
 
-### Source and art compatibility
+## Owner-selected single-room panorama
 
-The [Floor 01 art atlas](floor-01-art-atlas-v1.md) identifies the Juicer gym as a special room containing **reception, turnstile, exercise machines, mirrors and heavy weights**, rather than a generic factory or neon coliseum. Maintain existing A/B/C catacomb material grammar: ordinary torchlit brick/stone foreground, architectural recesses and *locally concentrated* gym/industrial props. The area is a deliberate late-floor visual surprise, not a mandate to re-theme every corridor.
+The new reference is a coherent left-to-right view with these three contiguous landmarks:
 
-Character/engine references remain the already-approved Carl **52 opaque pixels**, Donut **40 opaque pixels**, virtual 640×360/640×400, original Rust + Bevy integration. The tiny illustrative characters in AI concept boards do not replace their canonical source art.
+1. **A / Reception and threshold:** service desk and old terminal, shelving/lockers, a **separate legible turnstile**, and a recognizable gym banner. The left threshold is a safe entry/readability beat, not an irreversible lock.
+2. **B / Central fighting lane:** the largest continuous playable floor, mirrors, bodybuilder mural, bench press, dumbbells and squat station arranged in or behind the midground. Enemies and players must retain visual priority; avoid permanent tall foreground clutter or a narrow collision obstacle course.
+3. **C / Machines and onward exit:** cable machine/pulleys, hanging bag, stacked weights/tires and stone arch transition. Opportunities for environmental combat must not close the exit.
 
-## Proposed single-room side-scrolling composition
+The concept artwork is **illustrative**: its illustrated apparent pixels are not the game's actual source-pixel scale, and its prop placement is not literal collider geometry. The approved Carl 52 px and Donut 40 px masters are the scale authority at 640×360 and 640×400 virtual resolutions.
 
-An intuitive left-to-right panorama of **three connected zones**, with one visually continuous walking line and a camera-friendly action corridor.
+## Candidate gym combat interactions (NOT implemented or numerically approved)
 
-1. **Entrance / reception (left):** brick threshold and clear gym identity, compact wooden/metal service counter, old computer or ledger, small display shelves and lockers; a *separate clearly recognizable turnstile* that establishes access flow without blocking gameplay permanently.
-2. **Main gym / central fighting space:** largest uninterrupted foreground floor, mirrors across the back wall, several weight stations, bench press and loosely clustered dumbbells in the midground; keep scenery legible during launches and impacts. The Juicer's mural is atmosphere, **not a character sprite**. Avoid giant permanent pillars within the primary player-versus-enemy sightline.
-3. **Training machines (right):** weight machine/cable station, punching bag, tires and secondary gym props; a final architectural threshold for continued movement. Preserve the natural catacomb structure beneath these props.
+These proposals implement the already-approved combat-first direction: quick, consequential strikes, readable physical reactions and occasional spectacular environmental kills. **Direct boss combat must remain a viable route**; these props create options, not a mandatory switch puzzle.
 
-**One room / one theme.** Do not include the Ball of Swine arena, concentric ring mechanics, pig emblems or crowd-stands in this environment study.
+| Prop | Candidate effect | Safety / implementation boundary |
+| --- | --- | --- |
+| Loose dumbbells, weight plates | Light weights get launched or kicked; a heavy plate may fall when an authored support releases | Weight/impulse classes fixed by deterministic gameplay logic, not free physics chaos |
+| Bench press / workout bench | Shove, topple or temporarily block a lane; impact briefly interrupts an enemy | Does not create an unpassable permanent wall |
+| Hanging punching bag | Clear swinging pendulum; timed impact can interrupt a boss charge | Consistent tell, bounded swing, authored hit registration |
+| Cracked mirrors | Visible localized shattering on hits | Cosmetic by default; no surprise offscreen glass damage |
+| High pulley / weight stack | Donut can reach a high mechanism; released weights threaten a marked ground region | Requires an already-unlocked capability; solo switch and 2P both possible |
 
-## Art-direction and readability tests before final approval
+**Structural boundary:** stone arches, load-bearing floor, primary passage and required regroup locations are protected. Broken props may create short-term tactical changes but never strand an actor. L3 general structural collapse and simulated corpse projectiles are *not* granted by these concept images.
 
-- **Framing:** the wide composition must be recognizable as one connected 2D level, with a clearly illustrated transition between reception, playable main gym and machines. Do not treat a cropped overview as executable topology.
-- **Reception/turnstile:** both visible in the actual main panorama, with a focused inset that explains their different silhouettes.
-- **Combat-first visual hierarchy:** bright player/enemy silhouettes and the walking plane read in front of darker background gym gear, at 1× native virtual resolution. Show room clearance for physical knockback and multi-enemy combat without turning every object into a collision obstacle.
-- **Prop material taxonomy:** separate candidate *breakable* glass, loose weights, benches and hanging bags from **structural, load-bearing walls, floors and arches**. Generated labels such as “explode”, “throw”, “crush” or “hazard” are *visual ideas*, **not approved gameplay mechanics**. Detailed deterministic collision, destruction and no-softlock rules belong to local agents after their own design approval.
-- **Lighting:** retained soft warm floor pools and warm spotlights; magenta fluorescent accents only in and around the gym. Avoid continuous neon fog, too much reflective bloom or light that hides attacks.
-- **Rights and continuity:** no unauthorized real-world logos, brand marks, ripped character art or direct-book quotes. Any Carl/Donut stand-ins in the candidate concept are illustrative and not the approved sprites.
+## Proposed Juicer boss arc (three encounter beats; design hypothesis)
 
-## Reference image tracking
+1. **Warm-up / establish tells:** exaggerated melee strikes, a stomp and a committed charge are readable and punishable. Carl can use normal attacks during recoveries. A collision with a gym fixture creates feedback, not an automatic instant win.
+2. **Use the room:** boss attacks displace selected benches or equipment; bag/weights/pulley interactions create optional interruptions. Donut gains positional utility through elevated access or an ability legitimately unlocked by this late-floor story beat.
+3. **No rest / transformed battlefield:** pressure rises and selected props break. The fight remains readable at native resolution, with a direct-damage finish **or** a well-telegraphed environmental finish. No repeating invulnerability gates or mandatory memorize-the-pattern inputs.
 
-| Filename | Scope |
+**Boss scaling note:** preserve the owner-approved grotesquely muscular troglodyte art family, but verify the eventual runtime height against the novel and the approved character scales; the exploratory artwork deliberately exaggerates relative size. Move lists and apparent weaknesses are **gameplay adaptations, not verified book facts**.
+
+## Solo / local co-op contract
+
+- **Carl:** close physical force, strikes, heavy props, punish recovery windows and selective destruction.
+- **Donut:** jump higher/farther, reach elevated fixtures and create positions or interruptions. She is playable in 2P from the beginning; **no early magic before story unlock**.
+- **Solo:** the same encounter must work with instant switch and a robust companion; never require a second human, simultaneous mutually exclusive inputs or unsupported Shoulder Mode.
+- **2P:** both humans retain purposeful actions; shared camera must keep sprites and cues legible without indiscriminate shrinking.
+
+These are encounter hypotheses to test, not a declaration that WORK-005/006 or boss integration already exist.
+
+## Visual and engineering acceptance boundaries
+
+- Preserve a clear continuous main fighting floor and a reachable onward exit after every authored destruction sequence.
+- Maintain warm/cool contrast with accent magenta, not constant neon bloom.
+- Keep broken mirrors cosmetic until tested, and keep physics contacts deterministic (bounded impulses, deduped ordered events).
+- Evaluate impact, bosses, cooperative control and environmental death on real Rust + Bevy playtests; CI alone cannot approve game feel.
+- Keep the **Juicer** encounter separate from the **Ball of Swine** arena concept and the opening goblin CP-01/02/03 integration of issue #40.
+
+## Art reference and provenance
+
+| Reference | Availability and meaning |
 | --- | --- |
-| `assets/concept/floor-01/juicer-gym/floor01-juicer-gym-approved-mood-reference.png` | **Owner-approved visual identity**: the cropped original gym concept, historic baseline; not a complete gym room layout |
-| `assets/concept/floor-01/juicer-gym/floor01-juicer-gym-standalone-revision-candidate.png` | **New concept candidate for owner review**: gym-only wide panorama, reception, turnstile, three zones and prop insets; room-geometry and interaction text not approved |
+| [Floor 01 provisional gym atlas excerpt](../../assets/concept/floor-01/atlas-v1/09-juicer-gym-atlas-excerpt.png) | Already on main; supplementary historical area reference, not the previously exported owner-approved mood crop |
+| [New approved standalone panorama](../../assets/concept/floor-01/juicer-gym/floor01-juicer-gym-standalone-panorama-approved.png) | **Original generated PNG** selected in the 2026-11-17 gym follow-up; source pixels and SHA-256 pinned in the local [manifest](../../assets/concept/floor-01/juicer-gym/manifest.json) |
 
-Both are original OpenAI-generated images in the current project conversation. The original bytes, SHA-256, dimensions and generated source names are recorded in the image [manifest](../../assets/concept/floor-01/juicer-gym/manifest.json) and the user handoff archive. The owner must upload the two source PNGs to this **separate PR** branch before the integrity tests can pass. Preserve images unchanged rather than pretending the source drawings are native pixel art.
+The previously prepared original cropped mood sheet and the earlier revised candidate had different source files and are **not available in this session**. Do not substitute new derivatives for those historical originals or keep their old hashes in the manifest. This PR requires **only the newly owner-selected PNG**, with earlier approved atmosphere preserved in text and the existing atlas.
 
-The owner's reported public art permission is recorded in the [rights and release policy](../04-production/rights-and-release.md); it is not a licence to distribute a game or source-derived standalone asset pack.
+Original OpenAI-generated art; no novel excerpts, fan art or ripped sprites. Publication and playable-adaptation permissions remain governed by [rights-and-release](../04-production/rights-and-release.md).
 
-## Remaining work before closing this independent concept PR
+## Remaining PR gates
 
-- [x] Owner-approved gym *mood* and materials recorded separately from enemies.
-- [x] New **standalone** gym composition drafted with reception, turnstile and combat space.
-- [x] Original reference/candidate hashes and dimensions pinned.
-- [ ] Owner reviews the revised room **composition**; revise if necessary and pin final accepted reference.
-- [ ] Both original PNG files uploaded in `assets/concept/floor-01/juicer-gym/`.
-- [ ] New art-manifest test and docs CI green on the *final* head.
-- [ ] Review approved visual scope, mark PR ready, and merge.
-
-**Outside this PR:** finalized art tiles, editable `.ase` masters, combat mechanics, destructible prop implementation, routing, scripted Juicer behavior, Ball of Swine arena and playable level.
+- [x] Gym identity and owner-selected new standalone panorama documented
+- [x] Proposed environmental interactions and boss encounter recorded as concepts
+- [x] Original image metadata pinned in the manifest
+- [ ] Upload the exact original PNG to this PR's branch
+- [ ] Image checksum and relevant CI checks pass on final PR head
+- [ ] Mark PR ready and merge after image upload and checks; playable encounter still requires independent implementation/feel review
