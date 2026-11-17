@@ -10,7 +10,7 @@ All images in this directory are **owner-approved conceptual visuals** from the 
 
 ## Late-floor boss concept batch (2026-11-17)
 
-**Owner-upload pending on PR:** The following original ChatGPT images are approved as visual references and their exact source bytes have been pinned in `manifest.json`. Upload unchanged PNGs to this directory, then run the art-assets validation before merging.
+**Owner upload verified (2026-11-17):** All three original ChatGPT PNGs are now committed. Their Git blob SHA-1 IDs match independently computed originals, and their SHA-256, byte counts and dimensions match `manifest.json`. The eight-image integrity validator is green in the art-assets CI. This verifies file identity, not in-game production readiness.
 
 - `floor01-hoarder-individual-study.png`: dedicated Hoarder three-variant exploration (the character's overall direction is approved; no single production variant selected).
 - `floor01-troglodyte-family-approved.png`: **approved** Pygmy, Basher, Virtuoso and Juicer family sheet.
