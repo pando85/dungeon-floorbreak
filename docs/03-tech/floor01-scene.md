@@ -2,7 +2,7 @@
 
 **Status:** functional integration for human review; not accepted. The scene composes the owner-approved ENV-01 kit (`env-kit-v2` contract, `env-kit-layout-v2` sample layout) with the approved Carl 52 px and Donut 40 px atlases. **COMP-02 adds the A1 lighting pass** ([ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md)): cold ambient per layer group, warm torch pools, floor pools, contact shadows, per-layer haze, additive glow and flame-only bloom, computed at output resolution on top of the integer-scaled pixel layers. It is presentation only and `--no-lighting` restores the COMP-01 look. No acceptance of the look or of performance is claimed: see [Lighting](#lighting-comp-02) for measurements and known divergences. **ANIM-INT-01** replaced the idle-only actor atlases with the owner-approved Carl (48 x 56) and Donut (72 x 44) locomotion atlases and a deterministic animation state machine (idle, run, jump, land); see [Animation](#animation-anim-int-01). Animation is presentation only: physics, movement, collision, camera and lighting are unchanged and the `FLOOR1_SCENE_STATE` hashes are identical to before.
 
-It is a separate binary from the combat greybox and the Character Playground; both keep working. There are no enemies, bombs, health or new mechanics here, and `attack` / `ability` inputs are ignored.
+It is a separate binary from the combat greybox and the Character Playground; both keep working. **The normal story run has no enemies, bombs, health or new mechanics, and `attack` / `ability` inputs are ignored there.** **COMBAT-INT-01** adds named combat fixtures (`--fixture`) to the same binary: Carl's melee and placeholder goblins on clean ground, see [Combat fixtures](#combat-fixtures-combat-int-01). The normal route, its camera and its `FLOOR1_SCENE_STATE` hashes are unchanged.
 
 ## Run
 
@@ -29,6 +29,9 @@ Run from the repository root. A missing atlas is a setup failure: the binary pri
 | `--capture-sequence <first:step:count>` `--capture-dir <dir>` | needs `--scenario`: pre-simulate `first` ticks, then in the real render loop save `count` window screenshots (`frame_NNNN_tick_TTTTT.png`) `step` ticks apart into `dir`, print a `FLOOR1_CAPTURE` line plus the scene and animation state lines for each, and exit. Used for the ANIM-INT-01 evidence |
 | `--anim-trace` | with `--headless-floor01-smoke` and `--scenario`: print one `FLOOR1_ANIM_TRACE` row (tick, hero position and velocity, grounded, both actors' animation state) per simulated tick |
 | `--freeze` | do not advance the simulation (start state, or the captured state) |
+| `--fixture <name>` | COMBAT-INT-01: run a combat fixture (`cp01_single_goblin`, `cp01_two_hits`, `cp02_two_goblins`) instead of the story corridor; scripted by default. Works with `--exit-after-ticks`, `--capture-tick`, `--capture-sequence` and `--headless-floor01-smoke` like `--scenario`; exclusive with `--scenario` |
+| `--manual` | with `--fixture`: the keyboard or pad drives Carl (J / West jab, K / East push kick, R / North restarts the fixture) instead of the script |
+| `--debug-combat` | with `--fixture`: draw Carl's hit box (red, active ticks only) and the goblin hurt boxes (green) |
 | `--debug-collision` | overlay merged solids (red), walking lines (cyan) and Carl's AABB (green) |
 | `--headless-floor01-smoke` | no window or GPU: parse, derive solids, simulate, print state lines |
 
@@ -312,6 +315,76 @@ CI prints the same `FLOOR1_PERF` line from its report-only (`continue-on-error`)
 - Unsupported on purpose: emitters in the `foreground` or `actors` group, more than 6 slots, 64 lights, 8 shadows or 16 emissive colours (all but the contact shadows are checked at load).
 - Window: the window is created with `scale_factor_override(1.0)`, so an OS scale factor cannot turn the 3x into a fractional ratio; window size equals virtual size x scale in real pixels.
 
+## Combat fixtures (COMBAT-INT-01)
+
+Foundation for the combat probes of [the opening workorder](../07-agents/floor-01-integrated-combat-probes.md): named, deterministic fixtures in the same executable, run through the combat domain that WORK-021 uses. **Not tuned for feel** (hit-stop, knockback and the goblin attack are the next PRs); the human CP-01 verdict is still open.
+
+### One source of truth
+
+| Module | Role |
+| --- | --- |
+| `src/combat.rs` | Bevy-free combat domain: `MoveSpec` move data, `MoveRunner` (move clock, press buffer, per-instance hit list), `Enemy` (health, stagger, push impulse, chase, contact damage), `resolve_strike`, `CombatEvent` |
+| `src/combat_scene.rs` | Bevy-free fixtures (`Fixture`, `CombatState`, `FixtureSim`) layered on `SceneSim`; Carl's hurt flinch, defeat and restart; event log and state hash |
+| `src/prototype.rs` | the WORK-021 greybox `World` now calls `combat` (strike `GREYBOX_STRIKE`, `Enemy::step`, `Enemy::contact`); its three golden traces are unchanged |
+| `src/corridor.rs` | only `new_at` constructors (start at a given column); the story simulation and hashes are untouched |
+| `src/bin/floor01_scene.rs` | arguments, input adapter and placeholder visuals; reads the state, never writes it |
+
+Bombs and explosives stay in the WORK-021 `World` only. Nothing in `combat`, `combat_scene` or the scene binary can create one (a test guards the sources); before the Guild the secondary action is the push kick.
+
+### Move table
+
+A const table in `src/combat.rs` (`CARL_MOVES`: `CARL_JAB`, `CARL_PUSH_KICK`; `GREYBOX_STRIKE` is WORK-021 as data). Timings are the ticks of the Carl melee art spec (`docs/02-art/carl-melee-anim-02-spec.md`, PR #43); tick 0 is the tick the input is accepted.
+
+| Move | Input | Startup | Active | Recovery | Total | Hit box (pivot-relative, half-open) | Reaction |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `jab` | attack (J / West) | 3 | 2 | 9 | 14 | x +16..22 (the fist reaches +21), y 31..37 above the feet | damage 1, stagger 10 ticks, push 4 px |
+| `push_kick` | secondary (K / East) | 13 | 4 | 19 | 36 | x +15..22, y 18..28 | placeholder = the jab's; the launch is CP-02 |
+| `greybox_strike` | WORK-021 only | 0 | 1 | 13 | 14 | centre distance -9..54, 44 vertical | none (the old 54 px greybox reach) |
+
+* The hit lands on the **first active tick** (`jab`: move tick 3), never on the press tick, and only if the target body (24 x 38) overlaps the box in front of Carl. Facing mirrors the box; a target behind Carl is never hit.
+* A target is hit **at most once per move instance**: two active ticks, a lingering overlap or a held button never repeat damage. A new press is a new move.
+* **Buffering:** only press edges count (a held button is one press). A press made while a move runs is remembered for 6 ticks (`CARL_BUFFER_TICKS`): inside the last 6 ticks it starts the next move on the tick the current one ends; earlier presses are forgotten. WORK-021 uses buffer 0 (its cooldown of 14).
+* While a move runs on the ground, Carl's feet stay planted and jumping is off (the art assumes no root motion). Pressing a direction with the attack turns Carl first. Being hurt cancels the move.
+* The goblin: body 24 x 38 (as WORK-021), two hits, stagger (no chase, no contact damage) and a 4 px push, defeat removes it from the hurt test and from contact damage. WORK-021's contact damage on Carl stays (centre distance under 23 x 36, 55 ticks of invulnerability, then 18 ticks of hurt flinch in the fixtures). Carl has 4 hit points; at 0 he lies defeated for 45 ticks and the fixture restarts by itself (`R` / North restarts at once).
+
+### Fixtures
+
+Tick numbers are the scene tick after the step (the first step is tick 1); script spans and event ticks use the same numbering. Each fixture has a seed (recorded in `COMBAT_STATE` and in the hash; nothing draws randomness yet), Carl's start column, goblin spawns and an optional input script. Fixtures stand on clean ground (a test checks the walking line along the whole span); Donut is not drawn in them.
+
+| Fixture | Setup | Script | Final `COMBAT_STATE` hash |
+| --- | --- | --- | --- |
+| `cp01_single_goblin` | Carl at column 400, one chasing goblin at 560 | jab on tick 122 (hit 125), jab on 136 (hit 139, defeated); 200 ticks | `c6952df1e99c7c0a` |
+| `cp01_two_hits` | Carl at 400, a stationary goblin at 428 | attack HELD ticks 10..59 (one hit on 13), a fresh press on 70 (hit 73, defeated); 120 ticks | `382bcaedf5dde492` |
+| `cp02_two_goblins` | Carl at 400, chasing goblins at 520 and 552 | four jabs defeat them one after the other (placeholder for the knockback work); 260 ticks | `f4e11cc71da438a1` |
+
+Headless replay prints `COMBAT_EVENT tick=... kind=...` per event, then `FLOOR1_SCENE_STATE`, `FLOOR1_ANIM_STATE` and a final `COMBAT_STATE fixture=... seed=... tick=... hero_hp=... deaths=... enemies=... hash=...`. The render loop prints the same events live and the same final lines with `--exit-after-ticks`.
+
+```sh
+# headless, no GPU (add --capture-tick N to stop at tick N)
+cargo run --locked --bin floor01_scene -- --headless-floor01-smoke --fixture cp01_single_goblin
+# the same fixture in the real render loop, 1920x1080, final state must equal the headless one
+bash scripts/export_assets.sh
+cargo run --locked --bin floor01_scene -- --scale 3 --fixture cp01_single_goblin --exit-after-ticks 200
+# play it yourself (J / West jab, K / East push kick, R / North restart)
+cargo run --locked --bin floor01_scene -- --scale 3 --fixture cp01_single_goblin --manual --debug-combat
+# the evidence capture (61 real frames) and the CI checks
+xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render
+bash scripts/ci_floor01_combat.sh headless
+bash scripts/make_combat_int_evidence.sh   # stills, GIF, logs and SHA256SUMS
+```
+
+### Disclosed placeholders
+
+The GOB-01 goblin art and the ANIM-CARL-02 melee art have not merged. In fixtures **a goblin is a flat 24 x 38 rectangle** (olive green, pale on stagger, a flat dark slab when defeated) with a **magenta band on its head that labels it a placeholder**. Carl keeps his locomotion frames; a small pale box shows the fist or sole during the move's contact frames (active ticks plus two), Carl turns red while hurt and lies down when defeated. These are mechanical probes, not approved art.
+
+### Evidence and tests
+
+[Evidence](../evidence/combat-int-01/README.md): real Bevy 1920x1080 stills at the hit (tick 125), the stagger and the defeat, a GIF, the headless event logs and `SHA256SUMS`. Rust tests cover: the hit on the active tick; cooldown, recovery and buffering; no repeated damage from a held button or an overlap; facing and in-front-only hits; defeat after two hits and a corpse that neither collides nor takes hits; Carl's flinch, defeat and restart; restart determinism; the same trace giving the same event log and hash; the committed hashes; clean ground under every fixture; the unchanged corridor hashes (walk_right at 250 and 613 ticks); and the old greybox golden traces.
+
+### Next (not in this PR)
+
+The goblin tell/swing attack (24-tick tell, hits on active ticks 26..29, from the GOB-01 spec) instead of contact damage; hit-stop and the knockback tuning (CP-01 feel); the kick launch and the goblin-into-goblin contact (CP-02); the haymaker string; real Carl melee and goblin art; fixtures on the normal route (OPENING-01).
+
 ## Known limits
 
 1. Lighting is functional but unreviewed: no human has judged the look, the flicker, or the readability of actors. The reference comparison covers one pose and one camera window.
@@ -326,6 +399,6 @@ CI prints the same `FLOOR1_PERF` line from its report-only (`continue-on-error`)
 
 ## CI
 
-`.github/workflows/floor01-scene.yml`: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model and **fails** the job on divergence (whole-frame mean dE76 <= 1.5, p95 <= 3, |mean delta L*| <= 1, every region mean dE76 <= 2.5; measured 0.55 / 0.90 / 0.23 / <= 0.55, so the gates leave margin for a software rasteriser); the `live-lit` / `live-unlit` steps step the scenario live and compare final states; any `FLOOR1_LIGHTING_WARNING` fails a render step. the `anim-sequence` step captures 81 real frames of the `run_jump` scenario and builds the ANIM-INT-01 evidence (see [Animation](#animation-anim-int-01)); `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
+`.github/workflows/floor01-scene.yml` also replays the combat fixtures: `scripts/ci_floor01_combat.sh headless` (every fixture twice, compared with the committed logs in `docs/evidence/combat-int-01`) and `scripts/ci_floor01_combat.sh render` (the real render loop at 1920x1080 must reproduce the headless events and hash, then 61 real frames of `cp01_single_goblin`). The scene CI, in short: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model and **fails** the job on divergence (whole-frame mean dE76 <= 1.5, p95 <= 3, |mean delta L*| <= 1, every region mean dE76 <= 2.5; measured 0.55 / 0.90 / 0.23 / <= 0.55, so the gates leave margin for a software rasteriser); the `live-lit` / `live-unlit` steps step the scenario live and compare final states; any `FLOOR1_LIGHTING_WARNING` fails a render step. the `anim-sequence` step captures 81 real frames of the `run_jump` scenario and builds the ANIM-INT-01 evidence (see [Animation](#animation-anim-int-01)); `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
 
 **Rights:** the character art is public fan-concept art under the recorded scope in [the rights register](../04-production/rights-and-release.md); it does not establish rights to distribute a playable game.

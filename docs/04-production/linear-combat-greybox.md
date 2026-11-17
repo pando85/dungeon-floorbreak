@@ -36,6 +36,7 @@ Two-hit goblin ground chasers, four player hit points, temporary invulnerability
 ## Implementation and verification
 
 - src/prototype.rs: pure fixed-step (60 Hz) simulation; gravity/collisions, buffered jump/coyote time, melee, bombs, destructible material, AI.
+- src/combat.rs (COMBAT-INT-01): the melee, enemy, damage and cooldown domain now lives in this Bevy-free module and is shared with the Floor 1 scene fixtures; WORK-021 uses it as data (`GREYBOX_STRIKE`, cooldown 14, reach -9..54) and its golden traces are unchanged. Bombs stay here only.
 - src/main.rs: Bevy gamepad/keyboard input adapter, placeholder sprites, scroll camera and visibility updates.
 - Test with cargo fmt --all -- --check, cargo clippy --locked --all-targets -- -D warnings, cargo test --locked --all-targets.
 - Run the headless scenario with cargo run -- --headless-combat-smoke.

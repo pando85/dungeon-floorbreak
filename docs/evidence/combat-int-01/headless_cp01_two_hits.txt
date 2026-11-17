@@ -1,0 +1,6 @@
+COMBAT_EVENT tick=10 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=13 kind=hit move=jab instance=1 target=0 damage=1 health_left=1
+COMBAT_EVENT tick=70 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=73 kind=hit move=jab instance=2 target=0 damage=1 health_left=0
+COMBAT_EVENT tick=73 kind=enemy_defeated target=0
+COMBAT_STATE fixture=cp01_two_hits seed=0xc010002 tick=120 hero_hp=4 deaths=0 enemies=e0=436.000/0 hash=382bcaedf5dde492

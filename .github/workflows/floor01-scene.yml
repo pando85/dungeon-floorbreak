@@ -114,6 +114,10 @@ jobs:
           diff docs/evidence/anim-int-01/capture_log.txt artifacts/anim-int-01/evidence/capture_log.txt
           diff docs/evidence/anim-int-01/capture_log_strip_takeoff.txt artifacts/anim-int-01/evidence/capture_log_strip_takeoff.txt
           diff docs/evidence/anim-int-01/capture_log_strip_landing.txt artifacts/anim-int-01/evidence/capture_log_strip_landing.txt
+      - name: Combat fixtures, headless replays (must equal the committed logs and be deterministic)
+        run: bash scripts/ci_floor01_combat.sh headless
+      - name: Combat fixtures, real Bevy 1920x1080 loop (must reproduce the headless events and hash) and CP-01 capture
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render
       - name: Frame-interval probe, lighting on (software Vulkan, report only)
         continue-on-error: true
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh perf-lit
@@ -132,4 +136,7 @@ jobs:
             artifacts/floor01-scene-*.log
             artifacts/floor01-lighting-*
             artifacts/anim-int-01/evidence/
+            artifacts/combat-int-01/*.txt
+            artifacts/combat-int-01/*.log
+            artifacts/combat-int-01/frames_cp01_single_goblin/
           if-no-files-found: warn
