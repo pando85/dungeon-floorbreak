@@ -210,11 +210,11 @@
     {
       "id": "alcove_niche",
       "atlas": "floor01_opening_decal",
-      "rect": [0, 0, 96, 112],
+      "rect": [0, 0, 96, 96],
       "role": "backwall",
       "layer": "backwall_decal",
       "collidable": false,
-      "anchor": [48, 112],
+      "anchor": [48, 96],
       "anchor_name": "bottom centre on the ledge's deck back line (ledge row top)",
       "grid_snap": 16,
       "grammar": ["A"],

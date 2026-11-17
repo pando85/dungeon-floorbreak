@@ -172,8 +172,33 @@ class OpeningRouteTests(unittest.TestCase):
                 else:
                     self.assertEqual(tops[c], layout["base_walk_line_y"] - 16, c)
             self.assertGreaterEqual(spec["clearance_px"] - spec["fits_pursuer_total_height_max_px"], 16)
+        doz = self.r["design_parameters"]["pursuer_interface"]
+        for layout in (self.r, self.t):
+            for spec in layout["design_parameters"]["pursuer_clearance"]["options"].values():
+                self.assertGreaterEqual(spec["clearance_px"], doz["ceiling_min_px"])
+                self.assertGreaterEqual(spec["fits_pursuer_total_height_max_px"], doz["total_height_px"])
         self.assertGreaterEqual(self.r["design_parameters"]["pursuer_clearance"]["options"]["R"]
-                                ["fits_pursuer_total_height_max_px"], 150)   # DOZ-01 upper bound
+                                ["clearance_px"], doz["ceiling_recommended_px"])
+
+    def test_refuge_is_too_low_for_the_pursuer_and_reachable_inside_the_charge(self) -> None:
+        doz = self.r["design_parameters"]["pursuer_interface"]
+        pocket = marker(self.r, "safe_pocket_alcove")
+        lo, hi = doz["refuge_clear_height_px"]
+        self.assertTrue(lo <= pocket["clear_height_px"] <= hi)
+        self.assertEqual(pocket["clear_height_px"], pocket["rect"][3])
+        self.assertLess(pocket["clear_height_px"], doz["total_height_px"])
+        self.assertGreaterEqual(pocket["rect"][2], 24 + 44)      # Carl and Donut side by side
+        charge = marker(self.r, "pursuer_charge_zone")
+        dist = charge["refuge_entry_x"] - charge["x"]
+        self.assertEqual(dist, charge["refuge_distance_px"])
+        for speed in (145, self.r["design_parameters"]["hero_run_px_s"]):
+            ticks = dist / speed * 60
+            self.assertLess(ticks, doz["charge_ticks"] - 10, speed)   # 10-tick margin for the hop
+        # when the pursuer's front hits the barricade its body still covers the refuge entrance,
+        # so the barricade opens before anyone can leave the alcove into its path
+        barricade = marker(self.r, "barricade")
+        self.assertLess(barricade["rect"][0] - charge["refuge_entry_x"], doz["length_px"])
+        self.assertEqual(barricade["rect"][1], 32)               # full height: nobody hops over it
 
     def test_strike_position_is_outside_the_fall_region(self) -> None:
         for layout in (self.r, self.t):

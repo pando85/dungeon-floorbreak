@@ -217,10 +217,13 @@ def ceiling_options(kit: ek.Kit, layouts: dict) -> Image.Image:
         draw = ImageDraw.Draw(over)
         under = gauge["rect"][1]
         walk = layout["base_walk_line_y"]
-        for hgt, length, colour, lx in ((150, 224, (255, 80, 80), 1160), (96, 176, (255, 170, 60), 1440)):
+        doz = layout["design_parameters"]["pursuer_interface"]
+        for hgt, length, colour, lx, name in (
+                (doz["total_height_px"], doz["length_px"], (255, 80, 80), 1160, "DOZ-01 h120 pursuer"),
+                (doz["ceiling_recommended_px"], 24, (120, 220, 255), 1480, "recommended")):
             bx = lx - x0
             draw.rectangle([bx, walk - hgt, bx + length, walk - 1], outline=colour + (255,), width=2)
-            draw.text((bx + 4, walk - hgt + 4), f"pursuer gauge {hgt} px", fill=colour)
+            draw.text((bx + 4, walk - hgt + 4), f"{name} {hgt} px", fill=colour)
         ax = 1100 - x0
         draw.line([(ax, under), (ax, walk)], fill=(200, 120, 255, 255), width=2)
         draw.text((ax + 4, (under + walk) // 2), f"clear {walk - under} px", fill=(200, 120, 255))

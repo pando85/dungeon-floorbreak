@@ -86,14 +86,23 @@ SEGMENTS = [  # id, grammar (kit grammar), handoff beat, purpose, col0, col1
     ("S6_guild", "A", "E", "guild portal: safe, warm, protected exit", 206, 224),
 ]
 BAYS = [40, 163]                       # arch bay origin columns (S2, S5)
+# DOZ-01 interface (decided by a separate Opus agent, 2026-11-17): h120 body, 155 px tall
+# including the stack, 259 px long; the charge closes about 82 px over 90 ticks and starts
+# only when the gap is >= 140 px. Ceiling >= 164 px above the walking line (>= 200 px
+# recommended so smoke and riders read); a refuge the pursuer cannot follow is 64..116 px clear.
+PURSUER = {"total_height_px": 155, "length_px": 259, "charge_closes_px": 82, "charge_ticks": 90,
+           "charge_min_gap_px": 140, "ceiling_min_px": 164, "ceiling_recommended_px": 200,
+           "refuge_clear_height_px": [64, 116], "source": "DOZ-01 decision (Opus), h120"}
+HERO_RUN_PX_S = 185          # src/anim.rs RUN_SPEED (greybox); 145 px/s is the slow check
 CEILING_OPTIONS = {                    # rows of the lowered ceiling (last row = cornice)
-    "R": {"rows": 7, "underside_y": 112, "clearance_px": WALK_Y - 112,
-          "fits_pursuer_total_height_max_px": WALK_Y - 112 - 16,
-          "note": "roomy: any pursuer up to 180 px including stacks, with 16 px margin"},
-    "T": {"rows": 9, "underside_y": 144, "clearance_px": WALK_Y - 144,
-          "fits_pursuer_total_height_max_px": WALK_Y - 144 - 16,
-          "note": "tight: pursuer up to 148 px including stacks; stacks scrape the cornice "
-                  "(spark VFX) when the pursuer is 132-148 px"},
+    "R": {"rows": 6, "underside_y": 96, "clearance_px": WALK_Y - 96,
+          "fits_pursuer_total_height_max_px": WALK_Y - 96 - 16,
+          "note": "recommended: 212 px clear (DOZ-01 asks >= 200 so smoke and riders read); "
+                  "57 px above the 155 px pursuer"},
+    "T": {"rows": 8, "underside_y": 128, "clearance_px": WALK_Y - 128,
+          "fits_pursuer_total_height_max_px": WALK_Y - 128 - 16,
+          "note": "tight: 180 px clear (DOZ-01 minimum 164); 25 px above the 155 px pursuer, so "
+                  "its smoke flattens against the soffit and the stack may scrape (spark VFX)"},
 }
 LOW_CEIL = (61, 104)                   # first / last column of the lowered ceiling in S3
 HUMPS = [(73, 76, 1), (91, 94, 1)]     # jump humps in S3 (end_l, end_r, height)
@@ -109,9 +118,10 @@ HAZARD = [SHORE_FOOT_X + 32, 168, 80, WALK_Y - 168]   # fall region rect (x, y, 
 STRIKE = {"x": SHORE_FOOT_X + 7, "y_band": [WALK_Y - 37, WALK_Y - 18]}
 GUILD_X = 3368                         # portal piece left x (112 wide)
 TIMBER_SETS = [1104, 1424]             # timber set piece x (80 wide) in S3
-BARRICADE_X = 2464                     # barricade piece x (96 wide) at the end of S4
+BARRICADE_X = 2304                     # barricade piece x (96 wide) at the end of S4
 HATCH_XY = (1200, 208)
-ALCOVE_XY = (2064, 160)
+ALCOVE_XY = (2064, 176)
+CHARGE_X = 2064 - 176                  # charge trigger: alcove entrance 176 px ahead
 
 
 # ---------------------------------------------------------------------------
@@ -583,14 +593,14 @@ def hatch() -> "ld.Canvas":
 # ---------------------------------------------------------------------------
 # Dodge alcove (backwall decal)
 # ---------------------------------------------------------------------------
-ALCOVE_W, ALCOVE_H = 96, 112
+ALCOVE_W, ALCOVE_H = 96, 96
 
 
 def alcove() -> "ld.Canvas":
     """Recessed niche in the brick wall: segmental stone head, stone jambs, a cold deep
     interior (out of the torchlight) and a lit inner reveal. The ledge deck covers its foot."""
     c = canvas(ALCOVE_W, ALCOVE_H)
-    cx, spring, r_in, r_out = 48.0, 40.0, 40.0, 50.0
+    cx, spring, r_in, r_out = 48.0, 44.0, 40.0, 50.0
     jamb = 8
     for py in range(ALCOVE_H):
         for px in range(ALCOVE_W):
@@ -864,7 +874,7 @@ def build_atlases() -> dict:
         p.setdefault("layer", "prop")
 
     decal = kit.Atlas("floor01_opening_decal", "decor_atlas")
-    decal.add_piece("alcove_niche", alcove(), anchor=[48, 112],
+    decal.add_piece("alcove_niche", alcove(), anchor=[48, ALCOVE_H],
                     anchor_name="bottom centre on the ledge's deck back line (ledge row top)",
                     grid_snap=16, grammar=["A"], decal=True, role="backwall", layer="backwall_decal")
     decal.add_piece("wall_cavity", wall_cavity(), anchor=[8, 8],
@@ -1234,7 +1244,7 @@ def build_layout(contract: dict, option: str) -> dict:
          "note": "pursuer emerges from the gallery through the S2 arch window (turn-in is "
                  "presentation); body enters the lane at the window centre"},
         {"id": "pursuer_path", "kind": "pursuer_path", "x": BAYS[0] * TILE + 152, "y": walk - 1,
-         "points": [[BAYS[0] * TILE + 152, walk], [1712, walk], [1856, walk], [BARRICADE_X + 48, walk],
+         "points": [[BAYS[0] * TILE + 152, walk], [1712, walk], [CHARGE_X, walk], [BARRICADE_X + 48, walk],
                     [BAYS[1] * TILE + 152, walk]],
          "note": "lane path at the walking line; ceiling clearance in S3 is design_parameters.pursuer_clearance"},
         {"id": "clearance_gauge_s3", "kind": "clearance_gauge", "x": LOW_CEIL[0] * TILE, "y": under,
@@ -1251,15 +1261,20 @@ def build_layout(contract: dict, option: str) -> dict:
          "note": "1-tile raised paving: hop or step while fleeing"},
         {"id": "jump_hump_b", "kind": "jump_lane", "x": HUMPS[1][0] * TILE, "y": walk - TILE - 1,
          "rect": [HUMPS[1][0] * TILE, walk - TILE, (HUMPS[1][1] - HUMPS[1][0] + 1) * TILE, TILE]},
-        {"id": "pursuer_charge_zone", "kind": "pursuer_charge", "x": 1856, "y": walk - 1,
-         "rect": [1856, 32, BARRICADE_X + 96 - 1856, walk - 32],
-         "note": "the pursuer accelerates from x 1856 and cannot brake before the barricade"},
+        {"id": "pursuer_charge_zone", "kind": "pursuer_charge", "x": CHARGE_X, "y": walk - 1,
+         "rect": [CHARGE_X, 32, BARRICADE_X + 96 - CHARGE_X, walk - 32],
+         "refuge_entry_x": LEDGE[0] * TILE, "refuge_distance_px": LEDGE[0] * TILE - CHARGE_X,
+         "note": "leading player crosses x -> the pursuer charges if the gap is >= 140 px (DOZ-01); "
+                 "the refuge entrance is 176 px ahead: 57 ticks at 185 px/s, 73 at 145 px/s, inside "
+                 "the 90-tick charge; momentum carries it past the alcove into the barricade"},
         {"id": "safe_pocket_alcove", "kind": "safe_pocket", "x": LEDGE[0] * TILE + 48, "y": ledge_walk - 1,
          "rect": [LEDGE[0] * TILE + 8, ALCOVE_XY[1] + 12, 80, ledge_walk - ALCOVE_XY[1] - 12],
-         "note": "actors whose feet are on the ledge inside this rect are skipped by pursuer contact "
-                 "and drawn behind the pursuer (proposal for CHASE-01)"},
+         "clear_height_px": ledge_walk - ALCOVE_XY[1] - 12,
+         "note": "refuge the pursuer cannot follow (clear height 104 px < 155 px pursuer; DOZ-01 "
+                 "range 64..116). 80 px wide: Carl and Donut fit together. Actors whose feet are on "
+                 "the ledge inside it are skipped by pursuer contact and drawn behind it"},
         {"id": "barricade", "kind": "scripted_blocker", "x": BARRICADE_X + 48, "y": BACK_Y - 1,
-         "rect": [BARRICADE_X + 8, 112, 80, walk - 112], "art": "timber_barricade",
+         "rect": [BARRICADE_X + 8, 32, 80, walk - 32], "art": "timber_barricade",
          "note": "blocks actors until the pursuer reaches it (or a fallback timer); then removed "
                  "and swapped to timber_barricade_smashed"},
         {"id": "pursuer_wedge", "kind": "pursuer_end", "x": BAYS[1] * TILE + 152, "y": walk - 1,
@@ -1310,8 +1325,11 @@ def build_layout(contract: dict, option: str) -> dict:
         "requirements": {"continuous_floor": True, "max_step_tiles": 2},
         "design_parameters": {
             "pursuer_clearance": {"selected": option, "options": CEILING_OPTIONS,
-                                  "rule": "clearance = walking line - lowered cornice underside; choose "
-                                          "R unless the DOZ-01 total height (body + stacks) is <= 148 px"},
+                                  "rule": "clearance = walking line - lowered cornice underside; DOZ-01 "
+                                          "needs >= 164 px (>= 200 recommended): R (212) is the "
+                                          "default, T (180) the tight alternative"},
+            "pursuer_interface": PURSUER,
+            "hero_run_px_s": HERO_RUN_PX_S,
             "hazard": {"rect": HAZARD, "strike": STRIKE, "hits_to_break": 3},
         },
         "segments": [{"id": sid, "grammar": g, "beat": beat, "purpose": purpose,
