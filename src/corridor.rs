@@ -243,10 +243,29 @@ pub enum Scenario {
     WalkRight,
     /// `WalkRight` for [`TURN_AROUND_TICK`] ticks, then hold left (flip check).
     TurnAround,
+    /// Animation review run: stand, run right (`WalkRight` jumps the two low
+    /// steps), jump on the open floor while running, keep running (land into
+    /// the run), stop, then jump in place and stand through the landing.
+    /// Timings are the `RUN_JUMP_*` constants.
+    RunJump,
 }
 
 /// Tick at which the `TurnAround` scenario reverses direction.
 pub const TURN_AROUND_TICK: u64 = 150;
+
+/// `RunJump` timings, in completed ticks (the input applies to the next step).
+/// Stand until the run starts.
+pub const RUN_JUMP_RUN_TICK: u64 = 30;
+/// Jump while running on the open floor (after the two low steps near the
+/// spawn, which `WalkRight`'s rule jumps over).
+pub const RUN_JUMP_RUNNING_JUMP_TICK: u64 = 170;
+/// Release the stick (stop running).
+pub const RUN_JUMP_STOP_TICK: u64 = 260;
+/// Jump in place after stopping.
+pub const RUN_JUMP_STANDING_JUMP_TICK: u64 = 290;
+/// Ticks that show the whole `RunJump` scenario including the final landing
+/// (the evidence capture runs ticks 142, 145, ... 382).
+pub const RUN_JUMP_TOTAL_TICKS: u64 = 382;
 
 impl FromStr for Scenario {
     type Err = String;
@@ -256,8 +275,9 @@ impl FromStr for Scenario {
             "idle" => Ok(Self::Idle),
             "walk_right" => Ok(Self::WalkRight),
             "turn_around" => Ok(Self::TurnAround),
+            "run_jump" => Ok(Self::RunJump),
             other => Err(format!(
-                "unknown scenario {other:?} (expected idle, walk_right or turn_around)"
+                "unknown scenario {other:?} (expected idle, walk_right, turn_around or run_jump)"
             )),
         }
     }
@@ -267,6 +287,19 @@ impl Scenario {
     pub fn input(self, world: &CorridorWorld) -> RawInput {
         match self {
             Self::Idle => RawInput::default(),
+            Self::RunJump => {
+                let tick = world.tick;
+                let mut raw = if (RUN_JUMP_RUN_TICK..RUN_JUMP_STOP_TICK).contains(&tick) {
+                    // The walk_right rule runs right and jumps the low steps.
+                    Self::WalkRight.input(world)
+                } else {
+                    RawInput::default()
+                };
+                if tick == RUN_JUMP_RUNNING_JUMP_TICK || tick == RUN_JUMP_STANDING_JUMP_TICK {
+                    raw.jump = true;
+                }
+                raw
+            }
             Self::TurnAround if world.tick >= TURN_AROUND_TICK => RawInput {
                 move_x: -1.0,
                 ..RawInput::default()
@@ -356,9 +389,22 @@ impl SceneSim {
 
     /// Pre-simulate `ticks` fixed ticks of a scripted scenario.
     pub fn run_scenario(&mut self, scenario: Scenario, ticks: u64) {
+        self.run_scenario_observed(scenario, ticks, |_| {});
+    }
+
+    /// [`Self::run_scenario`], calling `observe` with the finished state after
+    /// every tick (the presentation layer steps its animation there; the
+    /// observer only reads).
+    pub fn run_scenario_observed(
+        &mut self,
+        scenario: Scenario,
+        ticks: u64,
+        mut observe: impl FnMut(&SceneSim),
+    ) {
         for _ in 0..ticks.min(MAX_SCENARIO_TICKS) {
             let raw = scenario.input(&self.world);
             self.step(raw);
+            observe(self);
         }
     }
 

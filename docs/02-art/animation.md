@@ -30,7 +30,7 @@ Source-of-truth metadata (JSON per animation tag) contains `tag`, `direction`, `
 - Carl / demolitionist: weight transfer before bomb throw; grounded stance after detonation; distinctive stomp/land.
 - Donut / caster: tail, ears and eyes convey arrogance/surprise; cast requires clear silhouette even when face is occluded; do not make magical attack solely color-dependent.
 - Mongo / charger (later): long anticipation silhouette and convincing momentum; recovery cannot clip through solid terrain.
-- Donut locomotion candidate (owner-approved 2026-11-17, not yet integrated into Bevy): [ANIM-DONUT-01](donut-locomotion-anim-01.md).
+- Donut locomotion candidate (owner-approved 2026-11-17, integrated into the Floor 1 scene by ANIM-INT-01): [ANIM-DONUT-01](donut-locomotion-anim-01.md).
 
 ## Production strategy for AI agents
 
@@ -48,7 +48,7 @@ Source-of-truth metadata (JSON per animation tag) contains `tag`, `direction`, `
 
 ## Carl locomotion candidate (ANIM-CARL-01)
 
-Owner-approved 2026-11-17 (not yet integrated into Bevy): [carl-locomotion-anim-01.md](carl-locomotion-anim-01.md). Pipeline note for integration: locomotion atlases may use a wider frame than the idle master as long as the pivot keeps the same foot-relative position (Carl: 36x56 / pivot 19,55 padded to 48x56 / pivot 25,55). Grounded tags keep the lowest opaque row on the pivot row; airborne tags keep the pivot on the physics foot line and may draw the feet above it. Loop / once / hold playback is recorded per tag in the manifest.
+Owner-approved 2026-11-17 (integrated into the Floor 1 scene by ANIM-INT-01): [carl-locomotion-anim-01.md](carl-locomotion-anim-01.md). Pipeline note for integration: locomotion atlases may use a wider frame than the idle master as long as the pivot keeps the same foot-relative position (Carl: 36x56 / pivot 19,55 padded to 48x56 / pivot 25,55). Grounded tags keep the lowest opaque row on the pivot row; airborne tags keep the pivot on the physics foot line and may draw the feet above it. Loop / once / hold playback is recorded per tag in the manifest.
 
 ## Carl melee candidate (ANIM-CARL-02)
 
