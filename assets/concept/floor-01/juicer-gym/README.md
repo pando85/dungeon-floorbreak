@@ -7,6 +7,6 @@ This directory is part of the **standalone gym concept PR**, distinct from both 
 
 Upload this **one unchanged PNG** to the PR branch `docs/floor01-juicer-gym-standalone-concept`. Expected SHA-256 is pinned in `manifest.json`. The image integrity test is intentionally red until the file appears.
 
-Earlier separate original gym mood and candidate concept exports were unavailable during this follow-up, so this PR does **not** demand their bytes or misidentify a crop of this new image as the historical approved art. The existing [atlas gym excerpt](../../atlas-v1/09-juicer-gym-atlas-excerpt.png) remains a historical supplementary visual reference already committed on main.
+Earlier separate original gym mood and candidate concept exports were unavailable during this follow-up, so this PR does **not** demand their bytes or misidentify a crop of this new image as the historical approved art. The existing [atlas gym excerpt](../atlas-v1/09-juicer-gym-atlas-excerpt.png) remains a historical supplementary visual reference already committed on main.
 
 Read the [gym environment and encounter direction](../../../../docs/02-art/floor-01-juicer-gym-standalone-concept.md). Combat interactions, boss attacks, solo switching and co-op have **concept direction only**; they are not yet implemented/validated in Rust + Bevy.
