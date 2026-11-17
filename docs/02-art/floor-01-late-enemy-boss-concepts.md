@@ -40,6 +40,10 @@ The expected SHA-256 hashes, original conversation filenames, image dimensions a
 
 **Provenance and publication:** All three are original OpenAI-generated concept images from the project's ChatGPT conversation. Source inspiration is the owner's previously supplied Book 1 EPUB and the project's approved A1 visual direction; no book excerpts, ripped sprites or externally sourced fan illustrations are included. Publication follows the owner-reported `ART-PUBLICATION-ALL-V1` record in the [rights policy](../04-production/rights-and-release.md), which is **not** a general licence to ship a playable adaptation or standalone asset pack.
 
+## Subsequent minor-enemy concept approval (2026-11-17)
+
+Following this earlier boss-art batch, the owner approved the visual concepts of the **Level-2 dungeon rat, Goblin Bomb Bard and Goblin Copper Chopper with sidecar**. Their original reference images and exact hashes are collected in the [minor-enemy concept supplement](floor-01-minor-enemy-concepts.md) and the eleven-image manifest. The list below is retained as **historical work still outstanding at the time of this boss PR**, not as the current approval state. A single exact Goblin Chieftain design remains optional; independent **Juicer gym** and **Ball of Swine arena** environment concepts remain separate work.
+
 ## What remains after this batch
 
 The **principal first-floor enemy/boss concepts** are covered. The remaining identified enemies/contraptions that merit **new** visual studies, based on the same first-book Floor 1 chapters, are:

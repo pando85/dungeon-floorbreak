@@ -26,6 +26,9 @@ EXPECTED_NAMES = {
     "floor01-hoarder-individual-study.png",
     "floor01-troglodyte-family-approved.png",
     "floor01-ball-of-swine-approved.png",
+    "floor01-dungeon-rat-concept-approved.png",
+    "floor01-goblin-bomb-bard-concept-approved.png",
+    "floor01-goblin-copper-chopper-concept-approved.png",
 }
 
 
