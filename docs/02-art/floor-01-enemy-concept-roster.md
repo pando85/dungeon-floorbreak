@@ -22,7 +22,7 @@ Concept approval is **not** approval of all text generated *inside* images, exac
 
 ## Later approved enemy and boss concepts
 
-**The Hoarder study, Troglodyte Pygmy/Basher/Virtuoso, The Juicer, The Ball of Swine and its Tusklings** have subsequently received the owner's visual concept approval. The specific images, caveats and remaining minor enemies are recorded in the [late-Floor 01 approval supplement](floor-01-late-enemy-boss-concepts.md) and three new entries in the enemy image manifest. The original five images and their approvals remain unchanged; the new three PNGs require owner upload on the supplement PR before they are counted as committed assets.
+**The Hoarder study, Troglodyte Pygmy/Basher/Virtuoso, The Juicer, The Ball of Swine and its Tusklings** have subsequently received the owner's visual concept approval. The specific images, caveats and remaining minor enemies are recorded in the [late-Floor 01 approval supplement](floor-01-late-enemy-boss-concepts.md) and three new entries in the enemy image manifest. The original five images and their approvals remain unchanged; the three newer PNGs have also been uploaded, verified against the original bytes and recorded in the eight-image manifest.
 
 ## Five original concept images — uploaded and verified
 
