@@ -43,4 +43,6 @@ The block-ins in the size study are rasterized natively at each height by one ge
 - Frames 23 (push up) and 24 (kneel) are composed from frame 0 and frame 22 parts plus ASCII legs; the legs are flat bars at this size.
 - The two walk passing feet (frames 6 and 9) are a small ASCII stamp and read thin at x6.
 
+**Design fix round (Opus, after the independent review):** the weapon cels of keys 12, 19 and 26 were redrawn in `tests/fixtures/goblin_gob01_keys.json`. In 12 the `H` arc is only its trailing half, and the fruit is the full-size idle pineapple (D3, D4). In 19 and 26 the weapon trails up-right from the hand by the hip, with the crown pointing away from the head (D2). The affected renders were regenerated: `attack_swing`, `knockback` and `knockback_contact` GIFs, the contact sheets, `cp02_strip.png`, `layout_diagram.png`, the key-pose sheet and the key scene. Frame 18 still shows the old weapon until Sonnet redraws it (spec section 9).
+
 Provenance: design and keys by Claude Opus; size decided by an independent Claude Opus agent; in-betweens, atlases, validators and evidence by Claude Sonnet; no tracing of the concept references; review pending (independent Opus).

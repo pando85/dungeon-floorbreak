@@ -1,7 +1,7 @@
 {
   "files": {
-    "floor01_keys_1920x1080.png": "8f34f4960d842f0bc3443da71c2f86d52d0c6cdda54bbae1efba291b0e26a357",
-    "floor01_keys_640x360.png": "b1958b1ff6bf7736f4581a0b4cbc7b29812e952c10167903b8f2d3c54e0af0cc",
+    "floor01_keys_1920x1080.png": "0b92659816cf025bbdf7c5e63dcc76fcbbe5c115f93be75377c98e83af5a8722",
+    "floor01_keys_640x360.png": "c7a0d8b8807030740dbbe9ebac3592d046d8e49f28abebee6676ec8a56c1a016",
     "floor01_lineup_1920x1080.png": "a1418d460a46b8188c5477bf8aea6e20d0bbe261b84862d2079b68f1009dd51a",
     "floor01_lineup_640x360.png": "eb0e3921880481d0404f058b9715f13f814a902e8c1ef68f5e77737ddf79879e",
     "floor01_size_h36_1920x1080.png": "6ef955bb7aeab8581c5d7e9cc7052a226d69cae4e2435c7b292182a3e8e2d8ba",
@@ -10,7 +10,7 @@
     "floor01_size_h40_640x360.png": "ef39821a5e4ab7f064a07a2925096f8c4bf04d33e119dcc97c437c591133e792",
     "floor01_size_h44_1920x1080.png": "b7ecc056cf26b501d2997efb79d9ddbf18dff220718edea5bb58a9278adc7535",
     "floor01_size_h44_640x360.png": "e83ea088b8511a88ed8150e181305b8fbcc9c05e19495d47858085582b48a68a",
-    "key_pose_sheet.png": "5119c3591706f5312d2c2c11ef6ed3926a9e5bf91c55a9646a7198f15ebf0f81",
+    "key_pose_sheet.png": "e7eed2b1e8a2c73677a59638376789fbf2769b929501cff53eacbcb765d87046",
     "size_study_sheet.png": "597e7d53d02f2061f9375271b4129a81af5d276b1416108a414c0f3b18443c9c"
   },
   "keys_h36": {
@@ -70,14 +70,14 @@
       "12 swing smear": {
         "bbox": [
           11,
-          2,
+          0,
           48,
           56
         ],
-        "colours": 14,
+        "colours": 15,
         "lowest_row": 55,
-        "opaque_area_px": 802,
-        "opaque_height": 54,
+        "opaque_area_px": 817,
+        "opaque_height": 56,
         "opaque_width": 37
       },
       "13 swing impact": {
@@ -109,15 +109,15 @@
       "19 knockback air": {
         "bbox": [
           12,
-          16,
-          46,
+          9,
+          48,
           47
         ],
-        "colours": 17,
+        "colours": 18,
         "lowest_row": 46,
-        "opaque_area_px": 480,
-        "opaque_height": 31,
-        "opaque_width": 34
+        "opaque_area_px": 491,
+        "opaque_height": 38,
+        "opaque_width": 36
       },
       "22 down": {
         "bbox": [
@@ -148,15 +148,15 @@
       "26 knockback contact": {
         "bbox": [
           16,
-          11,
-          43,
+          6,
+          46,
           45
         ],
-        "colours": 15,
+        "colours": 17,
         "lowest_row": 44,
-        "opaque_area_px": 382,
-        "opaque_height": 34,
-        "opaque_width": 27
+        "opaque_area_px": 406,
+        "opaque_height": 39,
+        "opaque_width": 30
       }
     },
     "B": {
@@ -215,14 +215,14 @@
       "12 swing smear": {
         "bbox": [
           11,
-          2,
+          0,
           48,
           56
         ],
-        "colours": 17,
+        "colours": 18,
         "lowest_row": 55,
-        "opaque_area_px": 804,
-        "opaque_height": 54,
+        "opaque_area_px": 819,
+        "opaque_height": 56,
         "opaque_width": 37
       },
       "13 swing impact": {
@@ -254,15 +254,15 @@
       "19 knockback air": {
         "bbox": [
           12,
-          16,
-          46,
+          9,
+          48,
           47
         ],
-        "colours": 18,
+        "colours": 19,
         "lowest_row": 46,
-        "opaque_area_px": 480,
-        "opaque_height": 31,
-        "opaque_width": 34
+        "opaque_area_px": 491,
+        "opaque_height": 38,
+        "opaque_width": 36
       },
       "22 down": {
         "bbox": [
@@ -293,15 +293,15 @@
       "26 knockback contact": {
         "bbox": [
           16,
-          11,
-          43,
+          6,
+          46,
           45
         ],
-        "colours": 17,
+        "colours": 19,
         "lowest_row": 44,
-        "opaque_area_px": 382,
-        "opaque_height": 34,
-        "opaque_width": 27
+        "opaque_area_px": 406,
+        "opaque_height": 39,
+        "opaque_width": 30
       }
     }
   },

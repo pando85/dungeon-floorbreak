@@ -183,7 +183,7 @@ A uses 19 colours and B 20. The colours are tuned for the A1 lighting (warm torc
 - **0 idle (accepted, polished).** Hunched, with a big bald head ahead of the leather-vest hump. A long ear sweeps back. Glaring yellow eyes, a hooked nose and an upper row of teeth. The stick is held forward with the pineapple upright at chest height. Polish: a `u` rim on the hump top and 2 notches in the vest hem.
 - **4 / 7 walk contacts.** The idle upper body sits 1 px lower. The leading foot strikes with the heel on row 55 and the trailing foot pushes off its toes; frame 7 mirrors the legs. The stride is about ±8 px around the pivot.
 - **11 tell (accepted, polished).** The torso leans back with a braced stance. The arm rises from a thickened shoulder at about (24, 30); a 2 × 2 far hand sits higher on the stick. The pineapple is the highest point (row 1, 21 px above the head), and the mouth is open in a yell.
-- **12 smear.** The stick is vertical with the pineapple overhead at x 26 to 31 and rows 2 to 10, held by both arms. A 1 px `H` arc runs from behind the head, over the top, to the front. Squeezed eyes and clenched teeth.
+- **12 smear (design fix D3/D4).** The stick is vertical, held by both arms. The pineapple is overhead and the **same size as in 11 and 13**: the idle pineapple (same diamond pattern), with its fruit interior at x 26 to 31 and rows 4 to 10 inside an outline from x 25 and row 3, and a 3-row crown pointing up (rows 0 to 2). The `H` arc is **only the trailing half**. It runs from behind the head (tail at about x 11, row 17; 1 px wide) up to the fruit (2 px wide over its last stretch, ending at x 24), and nothing lies at x 25 or more. Squeezed eyes and clenched teeth.
 - **13 swing impact (overhead bonk).**
   - The hump is high and the head is down under the arms.
   - Both arms reach forward-up, with the far arm visible in `s`. The fists are at x 38 to 41, rows 25 to 28.
@@ -195,11 +195,11 @@ A uses 19 colours and B 20. The colours are tuned for the A1 lighting (warm torc
   - The torso is tilted about 20 degrees, with the head low on the side away from Carl (left) and the feet high toward him.
   - A **new thrown-back profile head**: chin up, nose spike up, a 2 × 2 eye white with a `K` pupil, an open mouth with a 2 × 3 `R` tongue, and the ear swept back.
   - The thighs are 3 px wide, the knees bent, the feet 3 × 2.
-  - The near arm is flung toward Carl, and the pineapple trails back over the body.
+  - The near arm is flung toward Carl, with the hand by the hip at x 31 to 33, rows 29 to 31. **Design fix D2:** the weapon trails. The stick runs up and to the right from the hand (about (34, 28) to (40, 21)). The pineapple's centre is at about (42, 16.5): fruit interior x 40 to 44, rows 14 to 19, with the crown pointing up and away from the head (leaves x 40 to 46, rows 10 to 13).
   - Compact: 34 × 31 px, lowest row 46, with the head as the clean leading edge.
 - **22 down.** Lying on the back, head left and face up, eyes dazed, mouth open. The knees are up, the arm has flopped onto the stick, and the pineapple is still attached.
 - **25 corpse.** As 22, but with X eyes and the tongue out. The pineapple has come off and rolled 6 px away; the stick lies bare.
-- **26 knockback contact.** The knockback pose crumpled into a ball (27 × 34 px, airborne, lowest row 44). The head is squashed against the side it hit, the eyes are shut, and the knees and arm are bunched with the pineapple up.
+- **26 knockback contact.** The knockback pose crumpled into a ball (27 × 34 px, airborne, lowest row 44). The head is squashed against the side it hit, the eyes are shut, and the knees and arm are bunched. **Design fix D2:** the weapon trails exactly as in 19, slightly tighter: the stick runs from about (35, 24) to (39, 19), the fruit interior is at x 39 to 42, rows 11 to 17, and the crown points up and away (rows 7 to 10).
 
 ## 9. In-between list for Sonnet (no design decisions needed)
 
@@ -223,8 +223,8 @@ General rules:
 | 14 | Follow-through: frame 13's body 2 px lower and 1 px further forward; arms straight down-forward; **pineapple on the floor**, crown leading, lowest row 55, centre x 46 to 50; stick from the fists at about (38, 40) down to it; face unchanged |
 | 15 | Halfway from 14 to 0: torso upright, stick pulled back across the body, pineapple at x 40 to 46, rows 36 to 44; eyes open (yellow) again |
 | 17 | Halfway from 16 to 0: head back to 2 px behind idle with no shear; eyes still white; arm lowered to shoulder height; front heel down on row 55; pineapple hanging low behind at x 2 to 10 |
-| 18 | Launch, halfway from 16 to 19: body tilted 45 degrees back, feet leaving the floor (lowest row 53); head is the frame-19 profile head turned to face up-right; tongue not yet out (`o` mouth); arm flung forward |
-| 20 | Floor impact: frame 22 squashed 2 px (body rows 1 px lower, knees 1 px lower); a 1 px squash wider on both ends; eyes shut |
+| 18 | Launch, halfway from 16 to 19: body tilted 45 degrees back, feet leaving the floor (lowest row 53); head is the frame-19 profile head turned to face up-right; tongue not yet out (`o` mouth); arm flung forward. **Weapon (design fix D2):** the hand keeps its frame-16 place above the shoulder. The stick stands **vertical above the hand** (about 6 px, 1 px `y` with `K` sides). The fruit is **upright, crown up**, with its interior at about x 10 to 15, rows 10 to 17: the idle pineapple stamp. This is the start of the weapon's arc 16 → 18 → 19 → 20: low behind, then straight up, then trailing up-right, then down on the floor in front |
+| 20 | Floor impact: frame 22 squashed 2 px (body rows 1 px lower, knees 1 px lower); a 1 px squash wider on both ends; eyes shut. **Weapon (design fix D2):** the stick lies along the floor from the flopped hand toward the feet, and the pineapple is on the floor beyond the feet on the same side it trailed to in 19, still attached, crown pointing away from the head: interior x 47 to 53, rows 50 to 54, crown x 54 to 57, lowest row 55. This is the frame-22 weapon, so 20, 21 and 22 keep it in place |
 | 21 | Settle: frame 22 with the head lifted 1 px and the far knee 1 px lower; eyes dazed |
 | 23 | Push up: torso rotated to about 45 degrees (sitting up), head an upright idle head (dazed eyes, a `K` line over `w`); arms behind as props; stick on the floor |
 | 24 | Kneel: frame 0's upper body 4 px lower, the near knee on the floor at (34, 55), far foot planted; the fist closing on the stick, pineapple on the floor in front |
