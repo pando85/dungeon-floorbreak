@@ -1,6 +1,6 @@
 # ANIM-DONUT-01: evidence for the Donut locomotion candidate
 
-Review aids for a human art decision, **not approvals**. Status: draft, awaiting owner art review. **Round 3** (after the independent Opus reviews of rounds 1 and 2). Write-up, frame table and self-review: [`docs/02-art/donut-locomotion-anim-01.md`](../../02-art/donut-locomotion-anim-01.md).
+Review aids for the human art decision. Status: owner-approved 2026-11-17 (not yet integrated into Bevy). **Round 3** (after the independent Opus reviews of rounds 1 and 2). Write-up, frame table and self-review: [`docs/02-art/donut-locomotion-anim-01.md`](../../02-art/donut-locomotion-anim-01.md).
 
 - **Rights record:** `ART-PUBLICATION-ALL-V1` in [`docs/04-production/rights-and-release.md`](../../04-production/rights-and-release.md) (owner-reported publication scope, 2026-11-15, not independently verified; no public reuse licence and no game or standalone asset-pack distribution right).
 - **Integrity:** `SHA256SUMS` lists every file; `python3 scripts/check_docs.py` verifies it.
