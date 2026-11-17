@@ -66,7 +66,7 @@ These are encounter hypotheses to test, not a declaration that WORK-005/006 or b
 | [Floor 01 provisional gym atlas excerpt](../../assets/concept/floor-01/atlas-v1/09-juicer-gym-atlas-excerpt.png) | Already on main; supplementary historical area reference, not the previously exported owner-approved mood crop |
 | [New approved standalone panorama](../../assets/concept/floor-01/juicer-gym/floor01-juicer-gym-standalone-panorama-approved.png) | **Original generated PNG** selected in the 2026-11-17 gym follow-up; source pixels and SHA-256 pinned in the local [manifest](../../assets/concept/floor-01/juicer-gym/manifest.json) |
 
-The previously prepared original cropped mood sheet and the earlier revised candidate had different source files and are **not available in this session**. Do not substitute new derivatives for those historical originals or keep their old hashes in the manifest. This PR requires **only the newly owner-selected PNG**, with earlier approved atmosphere preserved in text and the existing atlas.
+The previously prepared original cropped mood sheet and the earlier revised candidate had different source files and are **not available in this session**. Do not substitute new derivatives for those historical originals or keep their old hashes in the manifest. The newly owner-selected original PNG is committed and matches the manifest. Earlier approved atmosphere remains recorded in text and the existing atlas.
 
 Original OpenAI-generated art; no novel excerpts, fan art or ripped sprites. Publication and playable-adaptation permissions remain governed by [rights-and-release](../04-production/rights-and-release.md).
 
@@ -75,6 +75,6 @@ Original OpenAI-generated art; no novel excerpts, fan art or ripped sprites. Pub
 - [x] Gym identity and owner-selected new standalone panorama documented
 - [x] Proposed environmental interactions and boss encounter recorded as concepts
 - [x] Original image metadata pinned in the manifest
-- [ ] Upload the exact original PNG to this PR's branch
-- [ ] Image checksum and relevant CI checks pass on final PR head
+- [x] Upload the exact original PNG to this PR's branch; byte count, SHA-256 and Git blob SHA verified
+- [ ] Relevant CI checks pass on the final PR head (image hash validation passed on the uploaded head)
 - [ ] Mark PR ready and merge after image upload and checks; playable encounter still requires independent implementation/feel review
