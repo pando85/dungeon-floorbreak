@@ -44,3 +44,7 @@ Source-of-truth metadata (JSON per animation tag) contains `tag`, `direction`, `
 ## Known hazards and mitigations
 
 **Inconsistent AI frames:** lock canonical master, palette and perspective. **Jitter:** validate pivot/foot contact across frames. **Scope explosion:** start with five tags; defer extra emotes. **Rigged pixel art artifacts:** never rotate single-pixel limbs across large angles without manual re-pixeling. **Animation and damage desync:** authoritative frame-independent attack timeline with event markers.
+
+## Carl locomotion candidate (ANIM-CARL-01)
+
+Owner-approved 2026-11-17 (not yet integrated into Bevy): [carl-locomotion-anim-01.md](carl-locomotion-anim-01.md). Pipeline note for integration: locomotion atlases may use a wider frame than the idle master as long as the pivot keeps the same foot-relative position (Carl: 36x56 / pivot 19,55 padded to 48x56 / pivot 25,55). Grounded tags keep the lowest opaque row on the pivot row; airborne tags keep the pivot on the physics foot line and may draw the feet above it. Loop / once / hold playback is recorded per tag in the manifest.
