@@ -1,0 +1,42 @@
+FLOOR1_SCENE_STATE tick=218 hero=522.417,127.000 cam=186,20 hash=eb1eef27f27748d0
+FLOOR1_ANIM_STATE tick=218 carl=jump_fall:13 donut=jump_fall:13
+FLOOR1_CAPTURE index=0 tick=218 file=frames_landing/frame_0000_tick_00218.png
+FLOOR1_SCENE_STATE tick=218 hero=522.417,127.000 cam=186,20 hash=eb1eef27f27748d0
+FLOOR1_ANIM_STATE tick=218 carl=jump_fall:13 donut=jump_fall:13
+FLOOR1_CAPTURE index=1 tick=219 file=frames_landing/frame_0001_tick_00219.png
+FLOOR1_SCENE_STATE tick=219 hero=525.501,120.042 cam=190,20 hash=524a825f6dd4a7ea
+FLOOR1_ANIM_STATE tick=219 carl=jump_fall:13 donut=jump_fall:13
+FLOOR1_CAPTURE index=2 tick=220 file=frames_landing/frame_0002_tick_00220.png
+FLOOR1_SCENE_STATE tick=220 hero=528.584,118.000 cam=193,20 hash=96782eb1e7352f98
+FLOOR1_ANIM_STATE tick=220 carl=land:14 donut=jump_fall:13
+FLOOR1_CAPTURE index=3 tick=221 file=frames_landing/frame_0003_tick_00221.png
+FLOOR1_SCENE_STATE tick=221 hero=531.667,118.000 cam=196,20 hash=49496b62a12e4d7d
+FLOOR1_ANIM_STATE tick=221 carl=land:14 donut=jump_fall:13
+FLOOR1_CAPTURE index=4 tick=222 file=frames_landing/frame_0004_tick_00222.png
+FLOOR1_SCENE_STATE tick=222 hero=534.750,118.000 cam=199,20 hash=0b67255fc66ec1d8
+FLOOR1_ANIM_STATE tick=222 carl=land:14 donut=jump_fall:13
+FLOOR1_CAPTURE index=5 tick=223 file=frames_landing/frame_0005_tick_00223.png
+FLOOR1_SCENE_STATE tick=223 hero=537.834,118.000 cam=202,20 hash=64a2cf08b00b8784
+FLOOR1_ANIM_STATE tick=223 carl=land:14 donut=jump_fall:13
+FLOOR1_CAPTURE index=6 tick=224 file=frames_landing/frame_0006_tick_00224.png
+FLOOR1_SCENE_STATE tick=224 hero=540.917,118.000 cam=205,20 hash=bf160f3226e8c0e4
+FLOOR1_ANIM_STATE tick=224 carl=land:14 donut=jump_fall:13
+FLOOR1_CAPTURE index=7 tick=225 file=frames_landing/frame_0007_tick_00225.png
+FLOOR1_SCENE_STATE tick=225 hero=544.000,118.000 cam=208,20 hash=e1b05fbee471e952
+FLOOR1_ANIM_STATE tick=225 carl=run:4 donut=jump_fall:13
+FLOOR1_CAPTURE index=8 tick=226 file=frames_landing/frame_0008_tick_00226.png
+FLOOR1_SCENE_STATE tick=226 hero=547.084,118.000 cam=211,20 hash=bdb8bbc15dbd9ffb
+FLOOR1_ANIM_STATE tick=226 carl=run:4 donut=jump_fall:13
+FLOOR1_CAPTURE index=9 tick=227 file=frames_landing/frame_0009_tick_00227.png
+FLOOR1_SCENE_STATE tick=227 hero=550.167,118.000 cam=214,20 hash=fabb3c981be498d7
+FLOOR1_ANIM_STATE tick=227 carl=run:4 donut=jump_fall:13
+FLOOR1_CAPTURE index=10 tick=228 file=frames_landing/frame_0010_tick_00228.png
+FLOOR1_SCENE_STATE tick=228 hero=553.250,118.000 cam=217,20 hash=89dae73f116894ae
+FLOOR1_ANIM_STATE tick=228 carl=run:5 donut=jump_fall:13
+FLOOR1_CAPTURE index=11 tick=229 file=frames_landing/frame_0011_tick_00229.png
+FLOOR1_SCENE_STATE tick=229 hero=556.334,118.000 cam=220,20 hash=3d11aa920597c759
+FLOOR1_ANIM_STATE tick=229 carl=run:5 donut=jump_fall:13
+FLOOR1_CAPTURE index=12 tick=230 file=frames_landing/frame_0012_tick_00230.png
+FLOOR1_SCENE_STATE tick=230 hero=559.417,118.000 cam=223,20 hash=304892a28efc3eb6
+FLOOR1_ANIM_STATE tick=230 carl=run:5 donut=jump_fall:13
+FLOOR1_CAPTURE_SEQUENCE_DONE count=13
