@@ -21,6 +21,10 @@
 
 This is an **action game with selective traversal puzzles**, not a puzzle-platformer with occasional enemies.
 
+## Approved feel and physical-interaction direction (2026-11-17)
+
+The owner approved **fast, heavy, low-HP-sponge combat; straightforward attacks plus spectacular environmental kills; emergent combos over long input memorization; and a hybrid deterministic simulation/presentation physics approach** for enemy knockback, impacts and potential chain reactions. Exact contact-damage rules, attack counts and collision responses remain test hypotheses. See [combat feel and hybrid enemy physics](combat-feel-hybrid-physics.md) and run the COMBAT-PHYS-01 staged tests before authoring a full combat catalogue.
+
 ## Three independent satisfaction tests
 
 Every playable combat iteration should establish:
