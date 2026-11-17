@@ -35,5 +35,37 @@
     ]
   },
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
-  "review_status": "prototype_fixture_unapproved"
+  "review_status": "prototype_fixture_unapproved",
+  "locomotion": {
+    "status": "owner-approved 2026-11-17; drawn by the Floor 1 scene (ANIM-INT-01)",
+    "master": "assets/manifests/donut_scale_h40.json",
+    "master_frame_size": [
+      46,
+      44
+    ],
+    "master_pivot": [
+      22,
+      43
+    ],
+    "grounded_tags": [
+      "idle",
+      "jump_start",
+      "land"
+    ],
+    "airborne_tags": [
+      "jump_rise",
+      "jump_fall"
+    ],
+    "mixed_tags": [
+      "run"
+    ],
+    "playback": {
+      "idle": "loop",
+      "run": "loop",
+      "jump_start": "once",
+      "jump_rise": "hold",
+      "jump_fall": "hold",
+      "land": "once"
+    }
+  }
 }

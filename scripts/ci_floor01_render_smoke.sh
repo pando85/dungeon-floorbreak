@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run inside xvfb-run with the target display resolution.
-# Usage: ci_floor01_render_smoke.sh desktop|desktop-720|deck|advanced|advanced-deck|nolight|nolight-advanced|reference|collision|live-lit|live-unlit|perf-lit|perf-unlit
+# Usage: ci_floor01_render_smoke.sh desktop|desktop-720|deck|advanced|advanced-deck|nolight|nolight-advanced|reference|collision|live-lit|live-unlit|perf-lit|perf-unlit|anim-sequence
 # desktop is the primary 1920x1080 (x3) capture; desktop-720 is 1280x720 (x2).
 set -euo pipefail
 mode="${1:-desktop}"
@@ -8,6 +8,14 @@ mkdir -p artifacts
 # Scripted capture position: walk_right for 250 ticks puts the camera across the
 # end of B1 and the start of C1 (see docs/03-tech/floor01-scene.md).
 advanced_ticks=250
+# ANIM-INT-01 capture: the run_jump scenario, real 1920x1080 window screenshots
+# every 3 fixed ticks (ticks 142, 145, ... 382). The ticks are chosen so the
+# running jump's takeoff+1, apex and touchdown ticks (172, 196, 220) are captured.
+anim_first=142
+anim_step=3
+anim_count=81
+anim_last=$((anim_first + anim_step * (anim_count - 1)))
+anim_dir="artifacts/anim-int-01"
 case "$mode" in
   desktop) suffix="1920x1080"; expected="1920x1080"; args=(--scale 3); frozen=0 ;;
   desktop-720) suffix="640x360"; expected="1280x720"; args=(); frozen=0 ;;
@@ -31,6 +39,9 @@ case "$mode" in
     args=(--no-lighting --perf-frames 100); frozen=0 ;;
   collision) suffix="collision-640x360"; expected="1280x720"
     args=(--scenario walk_right --capture-tick 80 --debug-collision); frozen=1 ;;
+  anim-sequence) suffix="anim-sequence-1920x1080"; expected="1920x1080"
+    args=(--scale 3 --scenario run_jump --capture-sequence "${anim_first}:${anim_step}:${anim_count}"
+      --capture-dir "${anim_dir}/frames"); frozen=0 ;;
   *) echo "Unknown capture mode: $mode" >&2; exit 2 ;;
 esac
 base="artifacts/floor01-scene-${suffix}"
@@ -75,6 +86,17 @@ if [[ "$mode" == live-* ]]; then
     exit 1
   fi
   echo "FLOOR1_LIVE_STATE_MATCH: $live_state"
+  # Animation is presentation only but must be deterministic too: the live
+  # render loop and the headless run show the same frames.
+  live_anim="$(grep '^FLOOR1_ANIM_STATE' "${base}.log" | tail -n 1)"
+  headless_anim="$(./target/debug/floor01_scene --headless-floor01-smoke --scenario walk_right --capture-tick "$advanced_ticks" | grep '^FLOOR1_ANIM_STATE' | tail -n 1)"
+  if [[ -z "$live_anim" || "$live_anim" != "$headless_anim" ]]; then
+    echo "Live animation state differs from the headless run" >&2
+    echo "  headless: $headless_anim" >&2
+    echo "  live:     $live_anim" >&2
+    exit 1
+  fi
+  echo "FLOOR1_LIVE_ANIM_MATCH: $live_anim"
   if [[ "$mode" == "live-unlit" && -f artifacts/floor01-scene-live-lit-640x360.log ]]; then
     lit_state="$(grep '^FLOOR1_SCENE_STATE' artifacts/floor01-scene-live-lit-640x360.log | tail -n 1)"
     if [[ "$lit_state" != "$live_state" ]]; then
@@ -86,6 +108,53 @@ if [[ "$mode" == live-* ]]; then
     echo "FLOOR1_LIVE_LIGHTING_STATE_IDENTICAL: $live_state"
   fi
   echo "FLOOR1_RENDER_OK: $mode (live state run; no window geometry check)"
+  exit 0
+fi
+if [[ "$mode" == anim-sequence ]]; then
+  # The binary steps the scenario by hand and saves one window screenshot per
+  # step, then exits. Check every frame, then the final state against the
+  # headless simulation, and keep the headless per-tick trace for the evidence.
+  for _ in $(seq 1 600); do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    tail -n 20 "${base}.log"
+    echo "Capture sequence did not finish" >&2
+    exit 1
+  fi
+  if grep -qE 'FLOOR1_ASSET_FAILURE|FLOOR1_CAPTURE_FAILURE' "${base}.log" \
+    || ! grep -q "FLOOR1_CAPTURE_SEQUENCE_DONE count=${anim_count}" "${base}.log"; then
+    tail -n 20 "${base}.log"
+    echo "Capture sequence failed" >&2
+    exit 1
+  fi
+  frames="$(find "${anim_dir}/frames" -name 'frame_*.png' | wc -l)"
+  if [[ "$frames" -ne "$anim_count" ]]; then
+    echo "Expected $anim_count frames, found $frames" >&2
+    exit 1
+  fi
+  for frame in "${anim_dir}"/frames/frame_*.png; do
+    size="$(identify -format '%wx%h' "$frame")"
+    if [[ "$size" != "$expected" ]]; then
+      echo "$frame is $size, expected $expected" >&2
+      exit 1
+    fi
+  done
+  ./target/debug/floor01_scene --headless-floor01-smoke --scenario run_jump \
+    --capture-tick "$anim_last" --anim-trace > "${anim_dir}/anim_trace_full.txt"
+  headless_state="$(grep '^FLOOR1_SCENE_STATE' "${anim_dir}/anim_trace_full.txt" | tail -n 1)"
+  headless_anim="$(grep '^FLOOR1_ANIM_STATE' "${anim_dir}/anim_trace_full.txt" | tail -n 1)"
+  rendered_state="$(grep '^FLOOR1_SCENE_STATE' "${base}.log" | tail -n 1)"
+  rendered_anim="$(grep '^FLOOR1_ANIM_STATE' "${base}.log" | tail -n 1)"
+  if [[ "$headless_state" != "$rendered_state" || "$headless_anim" != "$rendered_anim" ]]; then
+    echo "Final state differs between the headless run and the capture sequence" >&2
+    echo "  headless: $headless_state / $headless_anim" >&2
+    echo "  rendered: $rendered_state / $rendered_anim" >&2
+    exit 1
+  fi
+  echo "FLOOR1_ANIM_SEQUENCE_MATCH: $rendered_state / $rendered_anim"
+  echo "FLOOR1_RENDER_OK: $mode ($anim_count frames of $expected, ticks ${anim_first}..${anim_last})"
   exit 0
 fi
 # The binary has its own 10 s asset watchdog; allow a little more for startup.
@@ -164,6 +233,17 @@ if [[ "$frozen" -eq 1 ]]; then
     exit 1
   fi
   echo "FLOOR1_STATE_MATCH: $rendered_state"
+  # The animation state (tag and atlas frame per actor) is derived from the
+  # simulation and must match between the headless run and the render too.
+  expected_anim="$(./target/debug/floor01_scene --headless-floor01-smoke "${headless_args[@]}" | grep '^FLOOR1_ANIM_STATE' | tail -n 1)"
+  rendered_anim="$(grep '^FLOOR1_ANIM_STATE' "${base}.log" | tail -n 1)"
+  if [[ -z "$expected_anim" || "$expected_anim" != "$rendered_anim" ]]; then
+    echo "Animation state mismatch between headless and render" >&2
+    echo "  headless: $expected_anim" >&2
+    echo "  rendered: $rendered_anim" >&2
+    exit 1
+  fi
+  echo "FLOOR1_ANIM_MATCH: $rendered_anim"
 fi
 
 case "$mode" in

@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Validate what the Floor 1 corridor scene (COMP-01) loads at runtime.
+"""Validate what the Floor 1 corridor scene (COMP-01, ANIM-INT-01) loads at runtime.
 
-Checks the pinned actor atlases (Carl 52 px, Donut 40 px: pivots, four idle
-frames, lowest opaque row == pivot row, i.e. 0 px foot sink) and the exported
-environment kit atlases against the contract and the sample layout (every atlas
-present, every referenced tile/piece rect inside its atlas, collision and
-backwall tiles fully opaque, collider rule, z table). Run after
+Checks the pinned actor atlases (the Carl 52 px and Donut 40 px locomotion
+atlases: canvas, pivots, the six animation tags in order over 16 frames, four
+identical-height idle frames, lowest opaque row == pivot row for grounded
+frames, i.e. 0 px foot sink, and never below the pivot row for the rest) and
+the exported environment kit atlases against the contract and the sample layout
+(every atlas present, every referenced tile/piece rect inside its atlas,
+collision and backwall tiles fully opaque, collider rule, z table). Run after
 `bash scripts/export_assets.sh`.
 """
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -21,10 +24,12 @@ LAYOUT = "assets/levels/floor01/corridor_abc_sample.json"
 
 # name, frame size, pivot (x, lowest opaque row), approved opaque height
 ACTORS = (
-    ("carl_book1_h52", (36, 56), (19, 55), 52),
-    ("donut_scale_h40", (46, 44), (22, 43), 40),
+    ("carl_book1_h52_locomotion", (48, 56), (25, 55), 52),
+    ("donut_h40_locomotion", (72, 44), (46, 43), 40),
 )
-FRAMES = 4
+TAGS = ("idle", "run", "jump_start", "jump_rise", "jump_fall", "land")
+IDLE_FRAMES = 4
+FRAMES = 16
 Z_TABLE = {
     "parallax_far": 0, "parallax_mid": 1, "backwall": 2, "backwall_decal": 3,
     "collision": 4, "structure": 5, "prop": 6, "foreground": 8,
@@ -51,15 +56,38 @@ def require_binary_alpha(name: str, image: Image.Image) -> None:
     require(partial == 0, f"{name}: {partial} partially transparent pixels (alpha must be 0 or 255)")
 
 
+def tag_ranges(name: str, metadata: dict) -> dict[str, tuple[int, int]]:
+    """Frame ranges of the six locomotion tags, contiguous from frame 0."""
+    tags = metadata.get("meta", {}).get("frameTags", [])
+    require([t["name"] for t in tags] == list(TAGS),
+            f"{name}: animation tags are {[t['name'] for t in tags]}, expected {list(TAGS)}")
+    ranges = {}
+    expected_start = 0
+    for tag in tags:
+        require(tag["from"] == expected_start and tag["to"] >= tag["from"],
+                f"{name}: tag {tag['name']} is not contiguous")
+        ranges[tag["name"]] = (tag["from"], tag["to"])
+        expected_start = tag["to"] + 1
+    require(expected_start == FRAMES, f"{name}: tags cover {expected_start} frames, expected {FRAMES}")
+    idle = ranges["idle"]
+    require(idle[1] - idle[0] + 1 == IDLE_FRAMES, f"{name}: expected {IDLE_FRAMES} idle frames")
+    return ranges
+
+
 def check_actor(name: str, size, pivot, opaque_height: int, manifest: dict,
                 metadata: dict, image: Image.Image) -> None:
     require(tuple(manifest["frame_size"]) == tuple(size), f"{name}: canvas changed")
     require(tuple(manifest["pivot"]) == tuple(pivot), f"{name}: pivot changed")
-    require(name.endswith(f"h{opaque_height}"), f"{name}: approved height changed")
+    require(re.search(rf"_h{opaque_height}(_|$)", name) is not None,
+            f"{name}: approved height changed")
     frames = metadata["frames"]
-    require(len(frames) == FRAMES, f"{name}: expected {FRAMES} idle frames")
+    require(len(frames) == FRAMES, f"{name}: expected {FRAMES} frames (4 idle + locomotion)")
     require(image.size == (size[0] * FRAMES, size[1]),
             f"{name}: atlas is {image.size}, Bevy expects {FRAMES} unpadded frames in one row")
+    ranges = tag_ranges(name, metadata)
+    grounded = set(manifest.get("locomotion", {}).get("grounded_tags", ["idle"]))
+    require("idle" in grounded, f"{name}: idle must be a grounded tag")
+    tag_of = {i: tag for tag, (lo, hi) in ranges.items() for i in range(lo, hi + 1)}
     require_binary_alpha(name, image)
     alpha = image.convert("RGBA").getchannel("A")
     heights = []
@@ -71,18 +99,27 @@ def check_actor(name: str, size, pivot, opaque_height: int, manifest: dict,
         bbox = cell.point(lambda a: 255 if a else 0).getbbox()
         require(bbox is not None, f"{name}: frame {index} is empty")
         # bbox bottom is exclusive: the lowest opaque row is bottom - 1.
-        require(bbox[3] - 1 == pivot[1],
-                f"{name}: frame {index} lowest opaque row {bbox[3] - 1} != pivot row {pivot[1]} "
-                "(feet would sink or float on the walking line)")
+        lowest = bbox[3] - 1
+        if tag_of[index] in grounded:
+            require(lowest == pivot[1],
+                    f"{name}: frame {index} ({tag_of[index]}) lowest opaque row {lowest} != "
+                    f"pivot row {pivot[1]} (feet would sink or float on the walking line)")
+        else:
+            # Airborne or suspension frames draw their feet above the pivot row
+            # (the pivot is the physics foot); below it would sink into the floor.
+            require(lowest <= pivot[1],
+                    f"{name}: frame {index} ({tag_of[index]}) lowest opaque row {lowest} is below "
+                    f"the pivot row {pivot[1]} (feet would sink)")
         require(bbox[0] <= pivot[0] < bbox[2],
                 f"{name}: frame {index} pivot column outside the opaque width")
         heights.append(bbox[3] - bbox[1])
-    # Frame 0 is the neutral pose at the approved height; the other idle frames
-    # may bob by at most one pixel (Donut's hair/crown), never hanging below the pivot.
-    require(heights[0] == opaque_height,
-            f"{name}: neutral frame is {heights[0]} px tall, approved {opaque_height} px")
-    require(all(opaque_height - 1 <= h <= opaque_height + 1 for h in heights),
-            f"{name}: idle frame heights {heights} stray more than 1 px from {opaque_height}")
+    # Idle frame 0 is the neutral pose at the approved height; the other idle
+    # frames may bob by at most one pixel (Donut's hair/crown).
+    idle_heights = heights[ranges["idle"][0]:ranges["idle"][1] + 1]
+    require(idle_heights[0] == opaque_height,
+            f"{name}: neutral frame is {idle_heights[0]} px tall, approved {opaque_height} px")
+    require(all(opaque_height - 1 <= h <= opaque_height + 1 for h in idle_heights),
+            f"{name}: idle frame heights {idle_heights} stray more than 1 px from {opaque_height}")
 
 
 def check_kit(contract: dict, layout: dict, images: dict[str, Image.Image]) -> dict:
@@ -181,7 +218,8 @@ def run(root: Path = ROOT) -> None:
         image_path = root / manifest["output_atlas"]
         require(image_path.is_file(), f"{name}: exported atlas missing (run export_assets.sh)")
         check_actor(name, size, pivot, height, manifest, metadata, Image.open(image_path))
-        print(f"FLOOR1_CONTRACT_OK: actor {name} {height}px, pivot {pivot}, feet on the pivot row")
+        print(f"FLOOR1_CONTRACT_OK: actor {name} {height}px, pivot {pivot}, "
+              f"{FRAMES} frames, grounded feet on the pivot row")
     layout = json.loads((root / LAYOUT).read_text())
     contract = json.loads((root / layout["kit_contract"]).read_text())
     images = {}

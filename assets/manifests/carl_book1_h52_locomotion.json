@@ -37,7 +37,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "locomotion": {
-    "status": "candidate, draft, awaiting owner art review; not wired into any Bevy binary",
+    "status": "owner-approved 2026-11-17; drawn by the Floor 1 scene (ANIM-INT-01), not by the Character Playground yet",
     "master": "assets/manifests/carl_book1_h52.json",
     "master_frame_size": [
       36,

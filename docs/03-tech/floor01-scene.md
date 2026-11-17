@@ -1,6 +1,6 @@
 # THE CRAWL — Floor 1 corridor scene (COMP-01)
 
-**Status:** functional integration for human review; not accepted. The scene composes the owner-approved ENV-01 kit (`env-kit-v2` contract, `env-kit-layout-v2` sample layout) with the approved Carl 52 px and Donut 40 px atlases. **COMP-02 adds the A1 lighting pass** ([ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md)): cold ambient per layer group, warm torch pools, floor pools, contact shadows, per-layer haze, additive glow and flame-only bloom, computed at output resolution on top of the integer-scaled pixel layers. It is presentation only and `--no-lighting` restores the COMP-01 look. No acceptance of the look or of performance is claimed: see [Lighting](#lighting-comp-02) for measurements and known divergences.
+**Status:** functional integration for human review; not accepted. The scene composes the owner-approved ENV-01 kit (`env-kit-v2` contract, `env-kit-layout-v2` sample layout) with the approved Carl 52 px and Donut 40 px atlases. **COMP-02 adds the A1 lighting pass** ([ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md)): cold ambient per layer group, warm torch pools, floor pools, contact shadows, per-layer haze, additive glow and flame-only bloom, computed at output resolution on top of the integer-scaled pixel layers. It is presentation only and `--no-lighting` restores the COMP-01 look. No acceptance of the look or of performance is claimed: see [Lighting](#lighting-comp-02) for measurements and known divergences. **ANIM-INT-01** replaced the idle-only actor atlases with the owner-approved Carl (48 x 56) and Donut (72 x 44) locomotion atlases and a deterministic animation state machine (idle, run, jump, land); see [Animation](#animation-anim-int-01). Animation is presentation only: physics, movement, collision, camera and lighting are unchanged and the `FLOOR1_SCENE_STATE` hashes are identical to before.
 
 It is a separate binary from the combat greybox and the Character Playground; both keep working. There are no enemies, bombs, health or new mechanics here, and `attack` / `ability` inputs are ignored.
 
@@ -24,13 +24,15 @@ Run from the repository root. A missing atlas is a setup failure: the binary pri
 | `--reference-frame` | review capture: camera pinned to layout view `abc_640x360` (`abc_640x400` with `--deck`), Carl and Donut standing at the ENV-01 preview positions (`preview.actor_check`), first idle frames, presentation tick 0, simulation untouched. Matches `docs/evidence/floor01-catacomb-kit/lit_abc_*.png` |
 | `--exit-after-ticks <N>` | needs `--scenario`, live run: step the scenario for N fixed ticks in the real render loop, print `FLOOR1_SCENE_STATE` and exit (CI compares the lit and `--no-lighting` runs) |
 | `--perf-frames <N>` | measure N frame intervals after 120 warm-up frames with vsync off, print `FLOOR1_PERF ...` and exit |
-| `--scenario <name>` | scripted input: `idle`, `walk_right` (holds right, jumps at steps, reaches the exit in 613 ticks), `turn_around` (right for 150 ticks, then left) |
+| `--scenario <name>` | scripted input: `idle`, `walk_right` (holds right, jumps at steps, reaches the exit in 613 ticks), `turn_around` (right for 150 ticks, then left), `run_jump` (stand 30 ticks, run right over the two low steps, a running jump at tick 170, stop at 260, a standing jump at 290; 382 ticks cover it all) |
 | `--capture-tick <N>` | needs `--scenario`: pre-simulate N fixed ticks headlessly, then render that frozen state |
+| `--capture-sequence <first:step:count>` `--capture-dir <dir>` | needs `--scenario`: pre-simulate `first` ticks, then in the real render loop save `count` window screenshots (`frame_NNNN_tick_TTTTT.png`) `step` ticks apart into `dir`, print a `FLOOR1_CAPTURE` line plus the scene and animation state lines for each, and exit. Used for the ANIM-INT-01 evidence |
+| `--anim-trace` | with `--headless-floor01-smoke` and `--scenario`: print one `FLOOR1_ANIM_TRACE` row (tick, hero position and velocity, grounded, both actors' animation state) per simulated tick |
 | `--freeze` | do not advance the simulation (start state, or the captured state) |
 | `--debug-collision` | overlay merged solids (red), walking lines (cyan) and Carl's AABB (green) |
 | `--headless-floor01-smoke` | no window or GPU: parse, derive solids, simulate, print state lines |
 
-Controls: **A/D** or arrows or left stick/D-pad move, **Space** or South jumps, **R** or North restarts, **Esc** or Start quits. Reaching the B2 arch prints `FLOOR1_EXIT_REACHED` and stops the simulation (restart with R); torches and idle frames keep animating on a separate presentation tick. The window is not resizable (ADR-0007 integer scaling: window = virtual size x scale). Moving and jumping still show the **idle** frames: no locomotion art exists yet.
+Controls: **A/D** or arrows or left stick/D-pad move, **Space** or South jumps, **R** or North restarts, **Esc** or Start quits. Reaching the B2 arch prints `FLOOR1_EXIT_REACHED` and stops the simulation (restart with R); torches keep animating on a separate presentation tick and both actors settle into idle. The window is not resizable (ADR-0007 integer scaling: window = virtual size x scale). Carl and Donut play the approved idle, run, jump and land animations ([Animation](#animation-anim-int-01)).
 
 ## Architecture
 
@@ -41,7 +43,9 @@ Pure library modules (headless, unit-tested) and one Bevy adapter:
 | `env_kit` | serde structs for contract v2 and layout v2 (unknown fields, including all lighting data, are ignored); derived draw lists, the z table, parallax strips, markers and collision. Rejects v1 files. |
 | `corridor` | `CorridorWorld` (Carl, Donut, solids, tick, state hash), `SceneSim` (world + camera + input), scripted scenarios. |
 | `scroll_camera` | integer, deterministic camera rig |
-| `actor_sprite` | pivot, flip and foot maths, idle frame from the tick |
+| `actor_sprite` | pivot, flip and foot maths; loads each actor's frame size, pivot, tags and durations from its manifest and the exported atlas JSON (`load_actor`) |
+| `anim` | the animation state machine, clip data (`ClipSet`) and run pacing rules: pure, integer clock, no Bevy types |
+| `scene_anim` | derives Carl's and Donut's animation inputs from the finished simulation state and steps their animators (read-only on the world) |
 | `prototype::step_hero` | the greybox's hero physics, extracted so both scenes share one implementation; `World::move_hero` delegates (two golden bit-trace tests of the greybox hero were added first and pass unchanged after the extraction; they are a coarse regression net, and direct `step_hero` tests pin coyote time, the jump buffer, wall push-out, ceiling bonk and landing individually) |
 | `lighting` | pure lighting data: profile parsing and validation, slot plan, emitter derivation from the contract, per-frame `gather` (lights in view pixels, flicker from the tick), contact shadows, reference falloff curves. No Bevy types |
 | `light_pass` | Bevy adapter for the lighting pass: GPU uniform packing, `LightingMaterial` (`Material2d`), camera and full-screen-quad rig, `light_pass.wgsl` |
@@ -91,7 +95,89 @@ Donut trails Carl by **32 px of horizontal path length**, replaying the trail of
 
 ## Determinism
 
-The fixed 60 Hz tick drives everything simulated: hero, Donut, camera, torch and idle frames. State hashing is FNV-1a over f32 bit patterns. `FLOOR1_SCENE_STATE tick=... hero=... cam=... hash=...` is printed by the headless smoke and by the render process; CI requires the two lines to be identical for the frozen captures (`--scenario walk_right --capture-tick 250`). That proves **cross-process determinism of the simulation state** (the same scripted input gives the same state in two separate runs). It does **not** prove that the rendered pixels show that state; pixel correctness rests on the screenshot size/colour checks, the author's review and the human playtest. Rendered pixels are not compared bit-for-bit across GPUs.
+The fixed 60 Hz tick drives everything simulated: hero, Donut and camera; torch flicker and the actor animations are derived from the tick count too. State hashing is FNV-1a over f32 bit patterns. `FLOOR1_SCENE_STATE tick=... hero=... cam=... hash=...` is printed by the headless smoke and by the render process; CI requires the two lines to be identical for the frozen captures (`--scenario walk_right --capture-tick 250`). That proves **cross-process determinism of the simulation state** (the same scripted input gives the same state in two separate runs). It does **not** prove that the rendered pixels show that state; pixel correctness rests on the screenshot size/colour checks, the author's review and the human playtest. Rendered pixels are not compared bit-for-bit across GPUs. The animation state is checked the same way: `FLOOR1_ANIM_STATE tick=... carl=<tag>:<atlas frame> donut=<tag>:<atlas frame>` must be identical between the headless run and the render for every frozen and live capture, and the committed per-tick trace of the `run_jump` scenario is reproduced exactly by CI (see [Animation](#animation-anim-int-01)).
+
+## Animation (ANIM-INT-01)
+
+**Status:** functional integration of the owner-approved locomotion art ([Carl](../02-art/carl-locomotion-anim-01.md), [Donut](../02-art/donut-locomotion-anim-01.md)) for human review. Nobody has judged the game feel; see the known gaps below. The Character Playground is unchanged and still uses the old idle atlases (switching it is a follow-up).
+
+### Data, not constants
+
+| Actor | Atlas | Canvas | Pivot | Source of truth |
+| --- | --- | --- | --- | --- |
+| Carl | `carl_book1_h52_locomotion.png` | 48 x 56, 16 frames | (25, 55) | `assets/manifests/carl_book1_h52_locomotion.json` + exported `generated/art/carl_book1_h52_locomotion.json` |
+| Donut | `donut_h40_locomotion.png` | 72 x 44, 16 frames | (46, 43) | `assets/manifests/donut_h40_locomotion.json` + exported `generated/art/donut_h40_locomotion.json` |
+
+`actor_sprite::load_actor` reads the frame size and pivot from the manifest, the six tags (`idle`, `run`, `jump_start`, `jump_rise`, `jump_fall`, `land`) with their frame ranges and per-frame durations from the exported atlas JSON, and the playback mode of each tag (`loop`, `once`, `hold`) from the manifest's `locomotion.playback` block. Donut's manifest gained that block in this work (Carl's already had it). The atlas PNG name comes from the manifest's `output_atlas`. The headless smoke reads the same tags and durations from the committed pixel-grid sources instead (`FrameSource::GridSource`), so it needs no export; a test compares both sources when the export exists. The idle frames of both atlases are pixel-identical copies of the approved idle, so the `--reference-frame` capture is pixel-identical to the pre-ANIM-INT-01 one (measured: 0 differing pixels) and still passes the Pillow comparison gates.
+
+### State machine
+
+```text
+ idle  <-- moving / stopped -->  run            instant; run restarts on its first frame
+
+ grounded -> airborne, vy > 0    jump_start (once, shown from the impulse tick)
+                                   --> jump_rise (hold while vy > 0)
+                                   <-> jump_fall (hold while vy <= 0; the switch is the apex)
+ grounded -> airborne, vy <= 0   jump_fall (walked off a ledge: no jump_start)
+ airborne -> grounded            land (once) --> idle, or run when moving
+                                   run cuts land short once the impact frame has played
+ jump while grounded             interrupts land (takeoff always wins)
+```
+
+Inputs per fixed tick, derived from the finished simulation state (`scene_anim`): `grounded`, `vx`, `vy`. A grounded actor is "moving" above 0.1 px/s (the hero's facing threshold). Rules:
+
+- **No jump delay.** The jump impulse happens on the same tick as before. `jump_start` starts on that tick and plays its two frames (crouch 50 ms, takeoff 70 ms) on top of the takeoff, then `jump_rise` or `jump_fall` follows by the sign of `vy`. It is never cut short by an early apex (a ceiling bonk): it finishes, then falls.
+- **Rise and fall are held frames** chosen by the sign of `vy` every tick; the apex tick is the first tick with `vy <= 0`.
+- **Land plays once on touchdown** (impact 80 ms, recovery 100 ms for Carl; 80 and 110 ms for Donut). If the actor is **moving**, `run` may cut the landing short as soon as the impact frame has finished (`LAND_CUT_AFTER_FRAMES = 1`): at 60 Hz the impact frame shows for 5 ticks, the recovery frame appears for 1 tick, then run. A standing actor plays the whole landing (11 ticks) and goes to idle. A new jump interrupts the landing at any time.
+- **Entering a state shows its first frame on the same tick**; time accumulates on later ticks. Idle restarts from its first frame after run or land (idle durations are the authored 420/260/560/260 ms for Carl and 320/260/180/260 ms for Donut, so the two actors do not blink in sync).
+- After the exit arch is reached the simulation stops; both actors see zero speed and settle into idle.
+
+### Clock and timing
+
+Animation time is an integer count of 1/60000 s units (`anim::TICK_UNITS = 1000` per fixed tick, `UNITS_PER_MS = 60`), so 60 Hz ticks and whole-millisecond durations meet exactly; no float time and no wall clock. A frame advances when the accumulated units reach its duration and the remainder carries over, so a 43 ms frame lasts 3, 3, 2, 3, 3, 2, ... ticks (about 2.58 on average).
+
+**Run frame time is speed-linked** (the authored durations of the run frames are ignored):
+
+```text
+Carl:   frame_ms = clamp( round( 8000 / |vx| ), CARL_RUN_FLOOR_MS, CARL_RUN_CEIL_MS )       (43, 90)
+Donut:  frame_ms = clamp( round( w[i] * 1000 * 14.8 / |vx| ), 50, 130 )     w = [1,1,1,1,1.125,1]
+```
+
+| Constant (`anim.rs`) | Value | Note |
+| --- | --- | --- |
+| `CARL_RUN_GROUND_TENTHS_PX` | 80 | 8.0 px of ground per run frame (the authored stride) |
+| `CARL_RUN_FLOOR_MS` | **43** | slip-free at the 185 px/s greybox `RUN_SPEED` (8000 / 185 = 43.2). The earlier 50 ms floor left about 1.3 px of foot slip per frame. **A review choice, adjustable after playtest** |
+| `CARL_RUN_CEIL_MS` | 90 | slow starts look slower, not frantic |
+| `DONUT_RUN_GROUND_TENTHS_PX` | 148 | 14.8 px of ground per frame |
+| `DONUT_RUN_FLOOR_MS` / `CEIL_MS` | 50 / 130 | below about 114 px/s the cap applies (no walk cycle exists) |
+| `DONUT_RUN_WEIGHTS` | 9/8 on run frame 4 | the gallop suspension (atlas frame 8) is held 1.125 times as long |
+
+Integer maths (`RunPacing::frame_ms`): ground distance in tenths of a pixel, the weight as a fraction, the speed in milli-pixels per second, round half up. Resulting frame times (ms): Carl 90 at 0 px/s, 55 at 145, **43 at 185**; Donut 80, 80, 80, 80, 90, 80 at 185 px/s (the atlas values) and 102, 102, 102, 102, 115, 102 at 145. The run phase (frame and elapsed time) is kept when the speed changes; a changed speed only changes the length of the current and later frames.
+
+### Placement
+
+Every frame, grounded or airborne, is drawn with its pivot at the physics foot position: `actor_center(spec, foot_x, foot_y, flip)`. There is no ground snapping, so the rise and fall frames (feet drawn above the pivot row) and the gallop suspension float exactly as authored; grounded frames keep the 0 px foot sink. The documented 1 px flip asymmetry holds for the wider canvases (both widths are even; tested for 48 and 72). The contact shadow keeps the footprint (width and pivot column) of the old idle canvases (`CARL_SHADOW_FOOTPRINT` 36/19, `DONUT_SHADOW_FOOTPRINT` 46/22, pinned against the old manifests by a test), so the lighting is unchanged: the shadow does not widen for Donut's stretched run frames.
+
+### Donut
+
+She stays the passive trail follower, 32 px behind on Carl's path, and may overlap or pass through him. Her animation is derived from her own trail motion, not from Carl's state: `vx`, `vy` are the differences between her consecutive trail positions (x and foot height) times 60, and she is airborne when her foot is more than 0.25 px above the floor under her (the highest intact solid top below her foot at her x). She therefore starts running on the tick Carl does, takes off about 10 ticks after him (32 px at 185 px/s) and lands where he landed.
+
+### Tests and evidence
+
+- `anim::tests` (state machine, headless, data read from the committed manifests and grids): `clips_come_from_the_manifest_and_the_grid_source`, `run_pacing_matches_the_specs_at_the_documented_speeds` (0, 145, 185 px/s and Donut's rule), `idle_loops_with_the_authored_durations`, `idle_and_run_switch_on_the_move_threshold`, `run_frames_follow_the_speed_linked_time_and_loop`, `takeoff_starts_jump_start_on_the_same_tick_then_rises_then_falls`, `jump_start_is_not_cut_by_an_early_apex_but_hands_over_by_velocity`, `walking_off_a_ledge_goes_straight_to_fall`, `touchdown_plays_land_once_then_idles`, `running_cuts_land_short_only_after_the_impact_frame`, `a_new_jump_interrupts_land`, `the_same_input_trace_gives_the_same_frame_sequence`.
+- `scene_anim::tests` (the real corridor world): `run_jump_plays_every_carl_state_in_order`, `carl_takes_off_on_the_impulse_tick_and_turns_at_the_apex`, `running_land_is_cut_into_run_but_the_standing_one_plays_out`, `donut_derives_her_own_states_from_her_trail`, **`animation_does_not_change_the_simulation`** (the state hash is equal on every tick with and without animation, for four scenarios), `the_frame_sequence_is_deterministic`.
+- `actor_sprite::tests`: placement, flip asymmetry for the new canvases, no snapping when airborne, shadow footprint.
+- CI (`floor01-scene.yml`): the contract checker pins both locomotion atlases (16 frames, six tags in order, grounded frames on the pivot row, no frame below it); every frozen and live render step also compares `FLOOR1_ANIM_STATE` with the headless run; the `anim-sequence` mode captures 81 real 1920 x 1080 Bevy frames of the `run_jump` scenario (ticks 142, 145, ... 382), checks the final state against the headless run, builds the evidence with `scripts/make_anim_int_evidence.py` and requires the committed `anim_trace.txt` and `capture_log.txt` to be reproduced byte for byte.
+- Evidence: [`docs/evidence/anim-int-01/`](../evidence/anim-int-01/README.md) (GIF, key stills, owner timeline diagram, state logs, `SHA256SUMS`).
+
+### Known gaps
+
+1. The crouch frame of `jump_start` shows on the impulse tick, so for 3 ticks (50 ms, about 21 px of rise) a crouched pose is already off the floor. The physics must not wait, so a visible anticipation on the ground is impossible; skipping frame 10 (play the takeoff frame only) is the obvious alternative and a small change in `Animator` for the playtest.
+2. The contact shadow does not follow the width of the stretched frames (see Placement).
+3. Carl keeps "running" in place while pushing into a wall (his `vx` is non-zero); Donut then stands, because her trail does not advance.
+4. No walk cycle exists for Donut below about 114 px/s, so a slow analogue stick shows a slow run (130 ms cap) whose paws drift backwards.
+5. Frame times and the land cut rule are first choices, never played by a human.
+6. Character Playground still uses the old idle atlases.
 
 ## Lighting (COMP-02)
 
@@ -217,7 +303,7 @@ CI prints the same `FLOOR1_PERF` line from its report-only (`continue-on-error`)
 ## Known limits
 
 1. Lighting is functional but unreviewed: no human has judged the look, the flicker, or the readability of actors. The reference comparison covers one pose and one camera window.
-2. Idle frames are shown while moving and jumping; no locomotion or jump art exists.
+2. The animation (idle, run, jump, land) is a first integration that no human has played: see [Animation > Known gaps](#known-gaps).
 3. No viewport letterbox adapter: at a non-integer window scale (or a size that is not a multiple of 640x360 / 640x400) the slot textures are still read with exact nearest sampling, but pixels may be uneven. `--scale N` with a matching window is the supported path; letterboxing is deferred (see `camera.rs`).
 4. Flip asymmetry: the flipped sprite's pivot column lands 1 px left of the unflipped one (same as the Playground). Half-pixel centres are deliberately not used.
 5. Donut passes through Carl when he reverses; she does not walk around or avoid him. Owner decision 2026-11-16: allowed for now; revisit later.
@@ -228,6 +314,6 @@ CI prints the same `FLOOR1_PERF` line from its report-only (`continue-on-error`)
 
 ## CI
 
-`.github/workflows/floor01-scene.yml`: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model and **fails** the job on divergence (whole-frame mean dE76 <= 1.5, p95 <= 3, |mean delta L*| <= 1, every region mean dE76 <= 2.5; measured 0.55 / 0.90 / 0.23 / <= 0.55, so the gates leave margin for a software rasteriser); the `live-lit` / `live-unlit` steps step the scenario live and compare final states; any `FLOOR1_LIGHTING_WARNING` fails a render step. `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
+`.github/workflows/floor01-scene.yml`: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model and **fails** the job on divergence (whole-frame mean dE76 <= 1.5, p95 <= 3, |mean delta L*| <= 1, every region mean dE76 <= 2.5; measured 0.55 / 0.90 / 0.23 / <= 0.55, so the gates leave margin for a software rasteriser); the `live-lit` / `live-unlit` steps step the scenario live and compare final states; any `FLOOR1_LIGHTING_WARNING` fails a render step. the `anim-sequence` step captures 81 real frames of the `run_jump` scenario and builds the ANIM-INT-01 evidence (see [Animation](#animation-anim-int-01)); `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
 
 **Rights:** the character art is public fan-concept art under the recorded scope in [the rights register](../04-production/rights-and-release.md); it does not establish rights to distribute a playable game.

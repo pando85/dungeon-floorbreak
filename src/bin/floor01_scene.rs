@@ -1,7 +1,10 @@
-//! Floor 1 corridor scene: COMP-01 integration plus the COMP-02 lighting pass.
+//! Floor 1 corridor scene: COMP-01 integration plus the COMP-02 lighting pass
+//! and the ANIM-INT-01 locomotion animation.
 //!
 //! Renders the ENV-01 kit layout with the approved Carl 52 px and Donut 40 px
-//! atlases. Pixel layers stay at the virtual resolution; the A1 lighting pass
+//! locomotion atlases (idle, run, jump, land; the deterministic state machine
+//! lives in `anim` / `scene_anim`, this binary only maps its state to an atlas
+//! cell). Pixel layers stay at the virtual resolution; the A1 lighting pass
 //! (ambient, torch pools, shadow, haze, glow, flame bloom) runs at output
 //! resolution (`light_pass`) and is presentation only. `--no-lighting` draws
 //! the COMP-01 look. There are no enemies and no new mechanics. Simulation,
@@ -9,7 +12,7 @@
 //! reads input, then draws that state. Character art is fan-concept material
 //! and does not imply game distribution rights.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use bevy::{
@@ -18,12 +21,16 @@ use bevy::{
     asset::LoadState,
     camera::{ScalingMode, visibility::RenderLayers},
     prelude::*,
+    render::view::screenshot::{Screenshot, save_to_disk},
     sprite::Anchor,
     window::{PresentMode, PrimaryWindow, WindowResolution},
 };
 use dungeon_floorbreak::{
-    actor_sprite::{ActorSpec, CARL, DONUT, actor_center, idle_frame},
-    corridor::{Scenario, SceneSim},
+    actor_sprite::{
+        ActorAssets, ActorSpec, FrameSource, actor_center, load_carl, load_donut, shadow_center_x,
+    },
+    anim::{Animator, Tag},
+    corridor::{CorridorWorld, Scenario, SceneSim},
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
@@ -34,6 +41,7 @@ use dungeon_floorbreak::{
     },
     lighting::{ShadowEllipse, ViewRect, contact_shadow},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH},
+    scene_anim::SceneAnimators,
 };
 
 const LAYOUT_PATH: &str = "assets/levels/floor01/corridor_abc_sample.json";
@@ -59,6 +67,26 @@ struct Args {
     /// Live run: step the scripted scenario for this many fixed ticks in the
     /// real render loop, print `FLOOR1_SCENE_STATE` and exit.
     exit_after_ticks: Option<u64>,
+    /// Review capture sequence `first:step:count`: pre-simulate `first` ticks
+    /// of the scenario, then save `count` window screenshots `step` ticks
+    /// apart into `capture_dir` and exit.
+    capture_sequence: Option<(u64, u64, u64)>,
+    capture_dir: Option<PathBuf>,
+    /// Headless only: print one `FLOOR1_ANIM_TRACE` line per simulated tick.
+    anim_trace: bool,
+}
+
+/// Parse `first:step:count` of `--capture-sequence`.
+fn parse_sequence(value: &str) -> Result<(u64, u64, u64), String> {
+    let bad = || format!("bad capture sequence {value:?} (expected first:step:count)");
+    let mut parts = value.split(':');
+    let mut next =
+        || -> Result<u64, String> { parts.next().ok_or_else(bad)?.parse().map_err(|_| bad()) };
+    let (first, step, count) = (next()?, next()?, next()?);
+    if parts.next().is_some() || step == 0 || !(1..=1000).contains(&count) {
+        return Err(bad());
+    }
+    Ok((first, step, count))
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
@@ -74,6 +102,9 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         reference_frame: false,
         perf_frames: None,
         exit_after_ticks: None,
+        capture_sequence: None,
+        capture_dir: None,
+        anim_trace: false,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -84,6 +115,17 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             "--debug-collision" => parsed.debug_collision = true,
             "--no-lighting" => parsed.no_lighting = true,
             "--reference-frame" => parsed.reference_frame = true,
+            "--anim-trace" => parsed.anim_trace = true,
+            "--capture-sequence" => {
+                let value = iter
+                    .next()
+                    .ok_or("--capture-sequence needs first:step:count")?;
+                parsed.capture_sequence = Some(parse_sequence(value)?);
+            }
+            "--capture-dir" => {
+                let value = iter.next().ok_or("--capture-dir needs a directory")?;
+                parsed.capture_dir = Some(PathBuf::from(value));
+            }
             "--exit-after-ticks" => {
                 let value = iter.next().ok_or("--exit-after-ticks needs a tick count")?;
                 parsed.exit_after_ticks = Some(
@@ -141,6 +183,25 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
                 .into(),
         );
     }
+    if parsed.capture_sequence.is_some() != parsed.capture_dir.is_some() {
+        return Err("--capture-sequence and --capture-dir go together".into());
+    }
+    if parsed.capture_sequence.is_some()
+        && (parsed.scenario.is_none()
+            || parsed.capture_tick.is_some()
+            || parsed.exit_after_ticks.is_some()
+            || parsed.freeze
+            || parsed.reference_frame
+            || parsed.perf_frames.is_some())
+    {
+        return Err(
+            "--capture-sequence needs --scenario and no --capture-tick, --exit-after-ticks, --freeze, --reference-frame or --perf-frames"
+                .into(),
+        );
+    }
+    if parsed.anim_trace && (!parsed.headless || parsed.scenario.is_none()) {
+        return Err("--anim-trace needs --headless-floor01-smoke and --scenario".into());
+    }
     if parsed.reference_frame && (parsed.scenario.is_some() || parsed.capture_tick.is_some()) {
         return Err("--reference-frame pins its own state; drop --scenario/--capture-tick".into());
     }
@@ -151,13 +212,53 @@ fn view_height(deck: bool) -> i32 {
     if deck { 400 } else { 360 }
 }
 
-/// Build the simulation in the requested state (scenario pre-simulated).
-fn build_sim(kit: &EnvKit, args: &Args) -> Result<SceneSim, String> {
+/// Ticks a scenario is pre-simulated for: the capture tick, or the first tick
+/// of a capture sequence.
+fn presim_ticks(args: &Args) -> Option<u64> {
+    args.capture_tick
+        .or(args.capture_sequence.map(|(first, _, _)| first))
+}
+
+/// Build the simulation and its animators in the requested state (scenario
+/// pre-simulated). The animators are stepped from the finished state of every
+/// tick and never feed back into the simulation.
+fn build_scene(
+    kit: &EnvKit,
+    args: &Args,
+    actors: &Actors,
+) -> Result<(SceneSim, SceneAnimators), String> {
     let mut sim = SceneSim::new(kit, view_height(args.deck))?;
-    if let (Some(scenario), Some(ticks)) = (args.scenario, args.capture_tick) {
-        sim.run_scenario(scenario, ticks);
+    let mut anim = actors.animators(&sim.world);
+    if let (Some(scenario), Some(ticks)) = (args.scenario, presim_ticks(args)) {
+        let trace = args.anim_trace;
+        sim.run_scenario_observed(scenario, ticks, |state| {
+            anim.step(&state.world);
+            if trace {
+                println!("{}", trace_line(state, &anim));
+            }
+        });
     }
-    Ok(sim)
+    Ok((sim, anim))
+}
+
+/// One `--anim-trace` row: simulation values the timeline needs, and what each
+/// animator shows.
+fn trace_line(sim: &SceneSim, anim: &SceneAnimators) -> String {
+    let hero = &sim.world.hero;
+    let donut = &sim.world.donut;
+    format!(
+        "FLOOR1_ANIM_TRACE tick={} hero_x={:.3} hero_foot_y={:.3} vx={:.3} vy={:.3} grounded={} donut_x={:.3} donut_foot_y={:.3} carl={} donut={}",
+        sim.world.tick,
+        hero.x,
+        hero.y - HERO_HALF_HEIGHT,
+        hero.vx,
+        hero.vy,
+        u8::from(hero.grounded),
+        donut.x,
+        donut.foot_y,
+        anim.carl.label(),
+        anim.donut.label(),
+    )
 }
 
 fn failure(message: &str) -> ExitCode {
@@ -183,8 +284,23 @@ fn main() -> ExitCode {
         Ok(kit) => kit,
         Err(error) => return failure(&format!("{error} (run from the repository root)")),
     };
+    // The windowed scene draws the exported atlases; the headless smoke needs
+    // no export and reads the same frame data from the committed pixel grids.
+    let source = if args.headless {
+        FrameSource::GridSource
+    } else {
+        FrameSource::ExportedAtlas
+    };
+    let actors = match Actors::load(&root, source) {
+        Ok(actors) => actors,
+        Err(error) => {
+            return failure(&format!(
+                "{error} (run bash scripts/export_assets.sh from the repository root)"
+            ));
+        }
+    };
     if args.headless {
-        return match headless_smoke(&kit, &args) {
+        return match headless_smoke(&kit, &args, &actors) {
             Ok(()) => ExitCode::SUCCESS,
             Err(message) => {
                 println!("FLOOR1_HEADLESS_FAILURE: {message}");
@@ -192,11 +308,11 @@ fn main() -> ExitCode {
             }
         };
     }
-    let sim = match build_sim(&kit, &args) {
-        Ok(sim) => sim,
+    let (sim, anim) = match build_scene(&kit, &args, &actors) {
+        Ok(scene) => scene,
         Err(message) => return failure(&message),
     };
-    run_window(kit, sim, args, &root);
+    run_window(kit, sim, anim, actors, args, &root);
     ExitCode::SUCCESS
 }
 
@@ -204,6 +320,35 @@ fn main() -> ExitCode {
 
 #[derive(Resource)]
 struct Sim(SceneSim);
+
+/// Presentation-only animation state, stepped once per fixed tick from the
+/// finished simulation state.
+#[derive(Resource)]
+struct Anim(SceneAnimators);
+
+/// Carl's and Donut's frame data, read from the manifests and atlas JSON.
+#[derive(Resource, Clone)]
+struct Actors {
+    carl: ActorAssets,
+    donut: ActorAssets,
+}
+
+impl Actors {
+    fn load(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Ok(Self {
+            carl: load_carl(root, source)?,
+            donut: load_donut(root, source)?,
+        })
+    }
+
+    fn animators(&self, world: &CorridorWorld) -> SceneAnimators {
+        SceneAnimators::new(
+            Animator::new(self.carl.clips.clone(), self.carl.pacing),
+            Animator::new(self.donut.clips.clone(), self.donut.pacing),
+            world,
+        )
+    }
+}
 
 #[derive(Resource)]
 struct Setup {
@@ -295,7 +440,14 @@ struct ActorVisual {
 #[derive(Component)]
 struct HeroBox;
 
-fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
+fn run_window(
+    kit: EnvKit,
+    sim: SceneSim,
+    anim: SceneAnimators,
+    actors: Actors,
+    args: Args,
+    root: &Path,
+) {
     // Bevy 0.20 resolves a relative AssetPlugin path from the binary directory,
     // so give it an absolute directory below the repository root.
     let asset_directory = root.join("generated/art").to_string_lossy().into_owned();
@@ -303,7 +455,12 @@ fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
         VIRTUAL_WIDTH as u32 * args.scale,
         view_height(args.deck) as u32 * args.scale,
     );
-    let freeze = args.freeze || args.capture_tick.is_some() || args.reference_frame;
+    let capture = args
+        .capture_sequence
+        .zip(args.capture_dir.clone())
+        .map(|((first, step, count), dir)| CaptureSequence::new(first, step, count, dir));
+    let freeze =
+        args.freeze || args.capture_tick.is_some() || args.reference_frame || capture.is_some();
     let scenario = if freeze { None } else { args.scenario };
     let exit_after = args.exit_after_ticks;
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
@@ -349,6 +506,8 @@ fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
     .insert_resource(ClearColor(Color::srgb_u8(6, 5, 12)))
     .insert_resource(Time::<Fixed>::from_hz(60.0))
     .insert_resource(Sim(sim))
+    .insert_resource(Anim(anim))
+    .insert_resource(actors)
     .insert_resource(Frozen(freeze))
     .insert_resource(ExitAfter(exit_after))
     .insert_resource(LightingOn(lighting_on))
@@ -366,6 +525,7 @@ fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
             update_lighting,
             watchdog,
             perf_probe,
+            capture_sequence,
         )
             .chain(),
     )
@@ -375,6 +535,9 @@ fn run_window(kit: EnvKit, sim: SceneSim, args: Args, root: &Path) {
     }
     if let Some(perf) = perf {
         app.insert_resource(perf);
+    }
+    if let Some(capture) = capture {
+        app.insert_resource(capture);
     }
     app.run();
 }
@@ -408,6 +571,7 @@ fn setup(
     materials: Option<ResMut<Assets<LightingMaterial>>>,
     lighting_on: Res<LightingOn>,
     setup: Res<Setup>,
+    actors: Res<Actors>,
 ) {
     let kit = &setup.kit;
     let args = &setup.args;
@@ -433,8 +597,8 @@ fn setup(
             .map(|(_, h)| h.clone())
             .expect("atlas named by the contract")
     };
-    let carl_texture: Handle<Image> = asset_server.load(CARL.atlas);
-    let donut_texture: Handle<Image> = asset_server.load(DONUT.atlas);
+    let carl_texture: Handle<Image> = asset_server.load(actors.carl.atlas_asset.clone());
+    let donut_texture: Handle<Image> = asset_server.load(actors.donut.atlas_asset.clone());
 
     if let (Some(lighting), Some(mut materials)) = (lighting, materials) {
         // Lighting on: slot cameras render the pixel layers at virtual
@@ -512,23 +676,30 @@ fn setup(
     }
 
     // Actors at the contract's actor draw order; Carl in front of Donut.
-    let mut spawn_actor = |spec: ActorSpec, texture: &Handle<Image>, is_hero: bool, z: f32| {
+    let mut spawn_actor = |assets: &ActorAssets, texture: &Handle<Image>, is_hero: bool, z: f32| {
+        // One row of `frame_count` equally sized, unpadded frames.
         let layout = layouts.add(TextureAtlasLayout::from_grid(
-            UVec2::new(spec.width as u32, spec.height as u32),
-            4,
+            UVec2::new(assets.spec.width as u32, assets.spec.height as u32),
+            assets.clips.frame_count as u32,
             1,
             None,
             None,
         ));
         commands.spawn((
             ActorVisual { is_hero },
-            Sprite::from_atlas_image(texture.clone(), TextureAtlas { layout, index: 0 }),
+            Sprite::from_atlas_image(
+                texture.clone(),
+                TextureAtlas {
+                    layout,
+                    index: assets.clips.clip(Tag::Idle).first,
+                },
+            ),
             Transform::from_xyz(0.0, 0.0, z),
             layers_of("actors"),
         ));
     };
-    spawn_actor(DONUT, &donut_texture, false, kit.actor_z);
-    spawn_actor(CARL, &carl_texture, true, kit.actor_z + 0.1);
+    spawn_actor(&actors.donut, &donut_texture, false, kit.actor_z);
+    spawn_actor(&actors.carl, &carl_texture, true, kit.actor_z + 0.1);
 
     // Optional collision overlay: merged solids and walking lines.
     let mut debug_entities = 0usize;
@@ -592,8 +763,8 @@ fn setup(
         debug_entities += 1;
     }
 
-    handles.push((CARL.atlas.to_owned(), carl_texture));
-    handles.push((DONUT.atlas.to_owned(), donut_texture));
+    handles.push((actors.carl.atlas_asset.clone(), carl_texture));
+    handles.push((actors.donut.atlas_asset.clone(), donut_texture));
     let tiles = kit.tiles.len();
     let pieces = kit.pieces.len();
     let counts = format!(
@@ -659,6 +830,7 @@ fn fixed_step(
     scenario: Res<LiveScenario>,
     mut controls: ResMut<Controls>,
     mut sim: ResMut<Sim>,
+    mut anim: ResMut<Anim>,
     mut after_exit: ResMut<AfterExitTicks>,
     mut exit: MessageWriter<AppExit>,
 ) {
@@ -675,6 +847,7 @@ fn fixed_step(
     }
     if restart {
         sim.0.reset();
+        anim.0.reset(&sim.0.world);
         after_exit.0 = 0;
         println!("FLOOR1_RESTART");
     }
@@ -703,6 +876,7 @@ fn fixed_step(
     };
     let was_complete = sim.0.world.complete;
     sim.0.step(raw);
+    anim.0.step(&sim.0.world);
     if sim.0.world.complete && !was_complete {
         println!("FLOOR1_EXIT_REACHED tick={}", sim.0.world.tick);
     }
@@ -713,6 +887,7 @@ fn fixed_step(
         && sim.0.world.tick >= limit
     {
         println!("{}", sim.0.state_line());
+        println!("{}", anim.0.state_line(sim.0.world.tick));
         exit.write(AppExit::Success);
     }
 }
@@ -748,7 +923,8 @@ fn actor_poses(
     state: &SceneSim,
     setup: &Setup,
     reference: &ReferencePose,
-    anim_tick: u64,
+    actors: &Actors,
+    anim: &SceneAnimators,
 ) -> [ActorPose; 2] {
     if let Some(pose) = reference.0 {
         // Both stand on the walking line of their column, first idle frame,
@@ -764,35 +940,40 @@ fn actor_poses(
                 foot_x: x,
                 foot_y: to_world_y(kit.height, line),
                 flip: false,
+                // First idle frame (the ENV-01 preview's neutral pose).
                 frame: 0,
             }
         };
-        return [at(CARL, true, pose.carl_x), at(DONUT, false, pose.donut_x)];
+        return [
+            at(actors.carl.spec, true, pose.carl_x),
+            at(actors.donut.spec, false, pose.donut_x),
+        ];
     }
     let hero = &state.world.hero;
     let donut = &state.world.donut;
     [
         ActorPose {
-            spec: CARL,
+            spec: actors.carl.spec,
             is_hero: true,
             foot_x: hero.x,
+            // The physics foot position, also while airborne: no snapping.
             foot_y: hero.y - HERO_HALF_HEIGHT,
             flip: hero.facing < 0,
-            frame: idle_frame(anim_tick, 0),
+            frame: anim.carl.atlas_index(),
         },
         ActorPose {
-            spec: DONUT,
+            spec: actors.donut.spec,
             is_hero: false,
             foot_x: donut.x,
             foot_y: donut.foot_y,
             flip: donut.facing < 0,
-            frame: idle_frame(anim_tick, 2),
+            frame: anim.donut.atlas_index(),
         },
     ]
 }
 
-/// Presentation tick: torches, idle frames and light flicker. The reference
-/// frame pins it to 0 (the preview's `time_ms = 0`).
+/// Presentation tick: torches and light flicker. The reference frame pins it
+/// to 0 (the preview's `time_ms = 0`). Actor frames come from [`Anim`].
 fn presentation_tick(
     state: &SceneSim,
     after_exit: &AfterExitTicks,
@@ -808,6 +989,8 @@ fn presentation_tick(
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_visuals(
     sim: Res<Sim>,
+    anim: Res<Anim>,
+    actors: Res<Actors>,
     after_exit: Res<AfterExitTicks>,
     setup: Res<Setup>,
     reference: Res<ReferencePose>,
@@ -817,7 +1000,7 @@ fn sync_visuals(
         (Without<SceneCamera>, Without<ActorVisual>, Without<HeroBox>),
     >,
     mut torches: Query<(&Torch, &mut Sprite), Without<ActorVisual>>,
-    mut actors: Query<
+    mut actor_sprites: Query<
         (&ActorVisual, &mut Transform, &mut Sprite),
         (Without<SceneCamera>, Without<Parallax>, Without<HeroBox>),
     >,
@@ -863,8 +1046,8 @@ fn sync_visuals(
         sprite.rect = Some(torch.rects[frame]);
     }
 
-    let poses = actor_poses(state, &setup, &reference, anim_tick);
-    for (actor, mut transform, mut sprite) in &mut actors {
+    let poses = actor_poses(state, &setup, &reference, &actors, &anim.0);
+    for (actor, mut transform, mut sprite) in &mut actor_sprites {
         let pose = poses
             .iter()
             .find(|p| p.is_hero == actor.is_hero)
@@ -892,6 +1075,8 @@ fn sync_visuals(
 fn update_lighting(
     rig: Option<Res<LightRig>>,
     sim: Res<Sim>,
+    anim: Res<Anim>,
+    actors: Res<Actors>,
     after_exit: Res<AfterExitTicks>,
     setup: Res<Setup>,
     reference: Res<ReferencePose>,
@@ -923,10 +1108,11 @@ fn update_lighting(
     }
     let mut shadows: Vec<ShadowEllipse> = Vec::new();
     if let Some(profile) = scene.profile.actor_contact_shadow.as_ref() {
-        for pose in actor_poses(state, &setup, &reference, tick) {
+        for pose in actor_poses(state, &setup, &reference, &actors, &anim.0) {
             // The shadow lies on the walking line under the actor (also while
-            // it jumps), centred on the sprite box.
-            let (centre_x, _) = actor_center(pose.spec, pose.foot_x, pose.foot_y, pose.flip);
+            // it jumps), centred on the footprint of the old idle canvas so the
+            // wider locomotion frames do not change the lighting.
+            let centre_x = shadow_center_x(pose.spec, pose.foot_x, pose.flip);
             let line = kit
                 .walking_line_at(pose.foot_x.round() as i32)
                 .unwrap_or(kit.height - pose.foot_y.round() as i32);
@@ -934,7 +1120,7 @@ fn update_lighting(
                 profile,
                 centre_x,
                 line as f32,
-                pose.spec.width as f32,
+                pose.spec.shadow_width as f32,
                 view,
             ));
         }
@@ -1027,6 +1213,7 @@ fn watchdog(
     images: Res<Assets<Image>>,
     time: Res<Time<Real>>,
     sim: Res<Sim>,
+    anim: Res<Anim>,
     loading: Option<ResMut<Loading>>,
     mut exit: MessageWriter<AppExit>,
 ) {
@@ -1053,6 +1240,7 @@ fn watchdog(
             loading.counts
         );
         println!("{}", sim.0.state_line());
+        println!("{}", anim.0.state_line(sim.0.world.tick));
         loading.reported = true;
     } else if time.elapsed_secs() > WATCHDOG_SECONDS {
         println!("FLOOR1_ASSET_FAILURE: textures not loaded within {WATCHDOG_SECONDS} s");
@@ -1061,9 +1249,124 @@ fn watchdog(
     }
 }
 
+// ------------------------------------------------------------ capture sequence
+
+/// Render frames to wait after a state change before the screenshot request,
+/// and the most frames to wait for the file to appear.
+const CAPTURE_SETTLE_FRAMES: u32 = 4;
+const CAPTURE_TIMEOUT_FRAMES: u32 = 900;
+
+#[derive(Debug)]
+enum CapturePhase {
+    /// Textures not loaded yet.
+    WaitReady,
+    /// Frames left before the next screenshot request.
+    Settle(u32),
+    /// Requested; waiting for the file, with the frames waited so far.
+    Pending(PathBuf, u32),
+}
+
+/// `--capture-sequence`: step the scenario by hand in the real render loop and
+/// save a window screenshot every `step` ticks (the fixed step is frozen).
+#[derive(Resource)]
+struct CaptureSequence {
+    step: u64,
+    count: u64,
+    dir: PathBuf,
+    index: u64,
+    phase: CapturePhase,
+}
+
+impl CaptureSequence {
+    fn new(_first: u64, step: u64, count: u64, dir: PathBuf) -> Self {
+        Self {
+            step,
+            count,
+            dir,
+            index: 0,
+            phase: CapturePhase::WaitReady,
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn capture_sequence(
+    mut commands: Commands,
+    seq: Option<ResMut<CaptureSequence>>,
+    loading: Option<Res<Loading>>,
+    setup: Res<Setup>,
+    mut sim: ResMut<Sim>,
+    mut anim: ResMut<Anim>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let Some(mut seq) = seq else { return };
+    let Some(scenario) = setup.args.scenario else {
+        return;
+    };
+    let fail = |exit: &mut MessageWriter<AppExit>, message: &str| {
+        println!("FLOOR1_CAPTURE_FAILURE: {message}");
+        exit.write(AppExit::error());
+    };
+    let phase = std::mem::replace(&mut seq.phase, CapturePhase::WaitReady);
+    seq.phase = match phase {
+        CapturePhase::WaitReady if loading.is_some_and(|l| l.reported) => {
+            CapturePhase::Settle(CAPTURE_SETTLE_FRAMES)
+        }
+        CapturePhase::WaitReady => CapturePhase::WaitReady,
+        CapturePhase::Settle(frames) if frames > 0 => CapturePhase::Settle(frames - 1),
+        CapturePhase::Settle(_) => {
+            if let Err(error) = std::fs::create_dir_all(&seq.dir) {
+                fail(&mut exit, &format!("{}: {error}", seq.dir.display()));
+                return;
+            }
+            let path = seq.dir.join(format!(
+                "frame_{:04}_tick_{:05}.png",
+                seq.index, sim.0.world.tick
+            ));
+            commands
+                .spawn(Screenshot::primary_window())
+                .observe(save_to_disk(path.clone()));
+            CapturePhase::Pending(path, 0)
+        }
+        CapturePhase::Pending(path, waited) => {
+            if !std::fs::metadata(&path).is_ok_and(|m| m.len() > 0) {
+                if waited > CAPTURE_TIMEOUT_FRAMES {
+                    fail(
+                        &mut exit,
+                        &format!("screenshot {} was never written", path.display()),
+                    );
+                    return;
+                }
+                seq.phase = CapturePhase::Pending(path, waited + 1);
+                return;
+            }
+            println!(
+                "FLOOR1_CAPTURE index={} tick={} file={}",
+                seq.index,
+                sim.0.world.tick,
+                path.display()
+            );
+            println!("{}", sim.0.state_line());
+            println!("{}", anim.0.state_line(sim.0.world.tick));
+            seq.index += 1;
+            if seq.index >= seq.count {
+                println!("FLOOR1_CAPTURE_SEQUENCE_DONE count={}", seq.count);
+                exit.write(AppExit::Success);
+                return;
+            }
+            for _ in 0..seq.step {
+                let raw = scenario.input(&sim.0.world);
+                sim.0.step(raw);
+                anim.0.step(&sim.0.world);
+            }
+            CapturePhase::Settle(CAPTURE_SETTLE_FRAMES)
+        }
+    };
+}
+
 // ------------------------------------------------------------ headless smoke
 
-fn headless_smoke(kit: &EnvKit, args: &Args) -> Result<(), String> {
+fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors) -> Result<(), String> {
     if kit.solid_rects.is_empty() || kit.tiles.is_empty() {
         return Err("layout produced no tiles or no solids".into());
     }
@@ -1096,8 +1399,9 @@ fn headless_smoke(kit: &EnvKit, args: &Args) -> Result<(), String> {
         kit.pieces.len(),
         kit.solid_rects.len()
     );
-    let sim = build_sim(kit, args)?;
+    let (sim, anim) = build_scene(kit, args, actors)?;
     println!("{}", sim.state_line());
+    println!("{}", anim.state_line(sim.world.tick));
     Ok(())
 }
 
@@ -1141,6 +1445,93 @@ mod tests {
             .is_err()
         );
         assert!(args(&["--scenario", "idle", "--freeze", "--exit-after-ticks", "9"]).is_err());
+    }
+
+    #[test]
+    fn capture_sequence_flags_parse_and_validate() {
+        let a = args(&[
+            "--scenario",
+            "run_jump",
+            "--capture-sequence",
+            "142:3:81",
+            "--capture-dir",
+            "frames",
+        ])
+        .unwrap();
+        assert_eq!(a.capture_sequence, Some((142, 3, 81)));
+        assert_eq!(a.capture_dir, Some(PathBuf::from("frames")));
+        assert_eq!(a.scenario, Some(Scenario::RunJump));
+        let bad = |list: &[&str]| args(list).is_err();
+        // Needs both flags and a scenario.
+        assert!(bad(&[
+            "--scenario",
+            "run_jump",
+            "--capture-sequence",
+            "0:3:5"
+        ]));
+        assert!(bad(&["--capture-sequence", "0:3:5", "--capture-dir", "d"]));
+        // Malformed or degenerate sequences.
+        for sequence in ["0:3", "0:0:5", "0:3:0", "0:3:5:7", "a:b:c", "0:3:1001"] {
+            assert!(
+                bad(&[
+                    "--scenario",
+                    "run_jump",
+                    "--capture-sequence",
+                    sequence,
+                    "--capture-dir",
+                    "d"
+                ]),
+                "{sequence}"
+            );
+        }
+        // Mutually exclusive with the frozen and live modes.
+        for extra in [
+            ["--capture-tick", "5"],
+            ["--exit-after-ticks", "9"],
+            ["--freeze", ""],
+        ] {
+            let mut list = vec![
+                "--scenario",
+                "run_jump",
+                "--capture-sequence",
+                "0:3:5",
+                "--capture-dir",
+                "d",
+            ];
+            list.extend(extra.iter().filter(|s| !s.is_empty()));
+            assert!(bad(&list), "{extra:?}");
+        }
+    }
+
+    #[test]
+    fn anim_trace_is_headless_only() {
+        let a = args(&[
+            "--headless-floor01-smoke",
+            "--scenario",
+            "run_jump",
+            "--anim-trace",
+        ])
+        .unwrap();
+        assert!(a.anim_trace);
+        assert!(args(&["--scenario", "run_jump", "--anim-trace"]).is_err());
+        assert!(args(&["--headless-floor01-smoke", "--anim-trace"]).is_err());
+    }
+
+    #[test]
+    fn presim_covers_the_capture_tick_and_the_sequence_start() {
+        let a = args(&["--scenario", "idle", "--capture-tick", "7"]).unwrap();
+        assert_eq!(presim_ticks(&a), Some(7));
+        let a = args(&[
+            "--scenario",
+            "idle",
+            "--capture-sequence",
+            "142:3:2",
+            "--capture-dir",
+            "d",
+        ])
+        .unwrap();
+        assert_eq!(presim_ticks(&a), Some(142));
+        assert_eq!(presim_ticks(&args(&[]).unwrap()), None);
     }
 
     #[test]
