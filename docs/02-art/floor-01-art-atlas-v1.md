@@ -11,6 +11,10 @@
 
 **Late concept-boss update (2026-11-17):** The Hoarder individual exploration, Troglodyte family and The Ball of Swine/Tusklings now have [dedicated visual concept approval documentation](floor-01-late-enemy-boss-concepts.md). The **standalone gym and ring/spiral arena environment views remain outstanding**; their existing atlas crops do not establish final compositions or game geometry.
 
+## Juicer Gym standalone concept follow-up (2026-11-17)
+
+The owner approved the Juicer Gym's **1990s industrial-catacomb visual mood** after the original multi-area atlas. Its separate [standalone gym concept brief](floor-01-juicer-gym-standalone-concept.md) documents a new room-wide candidate with entrance/reception, turnstile, central combat space and training machines. That **revised composition is pending its own owner review** and original reference image upload; do not mark the earlier atlas crop as a finalized playable layout. This study is an independent PR from both the late enemy concepts and the Ball of Swine arena.
+
 ## Artistic premise
 
 **One floor; one recognizable architectural language; several memorable places.**
