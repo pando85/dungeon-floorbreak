@@ -706,9 +706,39 @@ def wheel_frame(i: int) -> list[list[str]]:
 
 
 def wheel_smear() -> list[list[str]]:
-    """Optional charge smear (spec 7.3 item 2): phase 0 with the spike tips in 6 instead of 7 and, for every
-    spike, a 1 px iron-5 arc at radius 46 that runs from its tip 26 degrees in the spin direction (clockwise),
-    framed in K. Shown on every second charge frame only."""
+    """Charge smear, fix round D3 (Opus): phase 0 with the spike tips in 6 instead of 7 and, behind every tip,
+    a 1 px iron-4 arc at radius 46 trailing 12 degrees against the spin (counter-clockwise, since the wheel
+    turns clockwise), with no K frame, so the twelve short streaks never close into a ring. Shown on 1 charge
+    tick in 4 (rig: ``charge.smear_every`` = 4)."""
+    rows = wheel_frame(0)
+    n = len(rows)
+    c0 = n // 2
+    for y in range(n):
+        for x in range(n):
+            if rows[y][x] == "7" and math.hypot(x - c0, y - c0) > WHEEL_TIP - 2.0:
+                rows[y][x] = "6"
+    arc = []
+    for k in range(SPIKES):
+        a0 = 90.0 - k * 360.0 / SPIKES            # the spike's axis, degrees counter-clockwise from +x
+        for step in range(0, SMEAR_DEG * 10 + 1):  # 0.1 degree steps behind the tip
+            a = math.radians(a0 + step / 10.0)
+            p = (c0 + round(SMEAR_R * math.cos(a)), c0 - round(SMEAR_R * math.sin(a)))
+            if p not in arc:
+                arc.append(p)
+    for x, y in arc:
+        if rows[y][x] == ".":
+            rows[y][x] = "4"
+    return rows
+
+
+SMEAR_DEG = 12        # arc length behind each tip
+SMEAR_R = 46.0        # arc radius (the spike tips reach 48)
+SMEAR_EVERY = 4       # the smear replaces the wheel frame on 1 charge tick in 4
+
+
+def _wheel_smear_phase2() -> list[list[str]]:
+    """The phase-2 (Sonnet) smear, kept only as a record of what D3 replaced: 26 degree iron-5 arcs ahead of
+    each tip, framed in K. Not exported."""
     rows = wheel_frame(0)
     n = len(rows)
     c0 = n // 2
@@ -897,14 +927,15 @@ def pot_px(lift: int = 0, tilt: int = 0, dx: int = 0) -> dict[tuple[int, int], s
     each side, on the rows just above the brow; a 2 px handle about 11 px long leaving the lip
     and rising 2 px toward the back, with a 1 px K hanging hole 2 px from its end.
     ``lift`` raises it, ``tilt`` moves the top rows back (tilted back), ``dx`` moves it all."""
+    # fix round D7 (Opus): a deeper pot, 6 rows x 14 px over a 1 px lip, so it cannot read as a brimmed hat
+    # at 1080p. The handle is unchanged.
     fill: dict[tuple[int, int], str] = {}
     shade = {27: "5", 28: "6", 29: "6", 30: "6", 36: "4", 37: "4", 38: "4", 39: "3", 40: "2"}
-    for y in range(27, 31):
+    for y in range(26, 32):
         for x in range(27, 41):
-            fill[(x, y)] = "6" if y == 27 else shade.get(x, "5")
+            fill[(x, y)] = "6" if y == 26 else shade.get(x, "5")
     for x in range(26, 42):
-        fill[(x, 31)] = "6" if x <= 35 else ("5" if x <= 39 else "4")
-        fill[(x, 32)] = "3" if x <= 39 else "2"
+        fill[(x, 32)] = "6" if x <= 35 else ("5" if x <= 39 else "4")
     for x in range(22, 26):                       # handle: rows 31-32 at the lip ...
         fill[(x, 31)], fill[(x, 32)] = "5", "3"
     for x in range(18, 22):                       # ... rising 1 px ...
@@ -913,11 +944,11 @@ def pot_px(lift: int = 0, tilt: int = 0, dx: int = 0) -> dict[tuple[int, int], s
         fill[(x, 29)], fill[(x, 30)] = "5", "3"
     px = _outlined(fill)
     px[(16, 29)] = "K"                            # hanging hole, 2 px from the end
-    px[(39, 27)] = px[(40, 27)] = "K"             # notch on the top-front corner
+    px[(39, 26)] = px[(40, 26)] = "K"             # notch on the top-front corner
     px[(29, 28)] = "7"                            # glint
     out = {}
     for (x, y), c in px.items():
-        shift = tilt if y <= 28 else 0
+        shift = tilt if y <= 27 else 0               # tilt moves the top 2 rows (outline and light row)
         out[(x + dx - shift, y - lift)] = c
     return out
 
@@ -1325,9 +1356,13 @@ SMOKE_PIVOT = (12, 12)
 # (centre x, centre y, radius) lumps per frame. Frames 0 and 2 are the Opus keys (the 6 px spawn and the 16 px
 # puff); 1 is the 10 px growth, 3 breaks up into 2 lumps, 4 is thin (3 small lumps), 5 is the last wisp.
 SMOKE_LUMPS = {
-    "black_0": [(12.0, 12.5, 2.6), (13.5, 11.0, 1.8)],
+    # fix round D2 (Opus): the black keys are bigger, lighter puffs with broken edges (black_0 8 px, black_2
+    # 20 px). black_1 / 3 / 4 / 5 are still Sonnet's phase-2 shapes and are redrawn by Sonnet to the D2 plan
+    # (spec 5 and 7.3): 14, 22 and 22 px, with pixel drop from 30 % of life.
+    "black_0": [(12.0, 12.6, 2.5), (9.9, 12.0, 1.7), (14.0, 11.2, 1.9), (11.6, 10.0, 1.7)],
     "black_1": [(12.0, 13.0, 4.0), (9.5, 11.5, 2.4), (14.5, 11.0, 2.6)],
-    "black_2": [(12.0, 13.5, 5.6), (8.0, 10.5, 3.6), (15.0, 9.5, 4.2), (17.5, 14.0, 3.4), (6.5, 14.5, 2.6)],
+    "black_2": [(12.0, 13.0, 5.6), (7.0, 12.0, 3.8), (16.5, 10.5, 4.4), (18.6, 14.2, 3.2), (4.6, 14.6, 2.6),
+                (11.0, 8.6, 3.6)],
     "black_3": [(7.0, 14.0, 4.2), (6.0, 11.0, 2.4), (17.0, 10.5, 3.8), (18.0, 13.5, 2.4)],
     "black_4": [(5.0, 14.5, 2.4), (12.0, 10.5, 2.2), (19.0, 14.0, 2.0)],
     "black_5": [(12.0, 11.5, 1.3)],
@@ -1338,6 +1373,13 @@ SMOKE_LUMPS = {
     "steam_4": [(6.0, 13.5, 2.0), (12.5, 10.5, 1.8), (18.0, 13.0, 1.8)],
 }
 SMOKE_RAMPS = {"black": ("+", "=", "-", ":"), "steam": (";", "/", "*", "*")}
+# broken edges of the black keys: (centre x, centre y, radius) bites taken out of the silhouette
+SMOKE_BITES = {
+    "black_0": [(14.9, 13.9, 0.9)],
+    "black_2": [(2.4, 12.6, 1.5), (21.6, 11.0, 1.3), (14.6, 5.6, 1.4), (9.0, 18.6, 1.4), (20.4, 17.4, 1.2),
+                (6.0, 9.0, 1.2)],
+}
+BLACK_REDESIGNED = ("black_0", "black_2")
 
 
 def smoke_rows(name: str) -> list[list[str]]:
@@ -1346,9 +1388,14 @@ def smoke_rows(name: str) -> list[list[str]]:
     w, h = SMOKE_CANVAS
     ramp = SMOKE_RAMPS[name.split("_")[0]]
     lumps = SMOKE_LUMPS[name]
+    bites = SMOKE_BITES.get(name, [])
 
     def inside(x, y):
-        return any((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r * r for cx, cy, r in lumps)
+        p = (x + 0.5, y + 0.5)
+        return (any((p[0] - cx) ** 2 + (p[1] - cy) ** 2 <= r * r for cx, cy, r in lumps)
+                and not any((p[0] - cx) ** 2 + (p[1] - cy) ** 2 <= r * r for cx, cy, r in bites))
+    if name.startswith("black"):
+        return black_puff_rows(inside)
     rows = [["."] * w for _ in range(h)]
     for y in range(h):
         for x in range(w):
@@ -1363,6 +1410,26 @@ def smoke_rows(name: str) -> list[list[str]]:
             else:
                 key = ramp[1]
             rows[y][x] = key
+    return despeckle(rows)
+
+
+def black_puff_rows(inside) -> list[list[str]]:
+    """Black exhaust puff, fix round D2: a light ``:`` cap on the top third of the puff's height, a ``-`` body,
+    and ``+`` only on the underside row (each column's lowest pixel). No ``=``, no outline, no dither: the puff
+    must read as smoke, not debris, over unlit brick."""
+    w, h = SMOKE_CANVAS
+    pts = [(x, y) for y in range(h) for x in range(w) if inside(x, y)]
+    top = min(y for _x, y in pts)
+    bottom = max(y for _x, y in pts)
+    cap_to = top + (bottom - top + 1) / 3.0
+    rows = [["."] * w for _ in range(h)]
+    for x, y in pts:
+        if not inside(x, y + 1):
+            rows[y][x] = "+"
+        elif y + 0.5 < cap_to:
+            rows[y][x] = ":"
+        else:
+            rows[y][x] = "-"
     return despeckle(rows)
 
 
@@ -1417,7 +1484,8 @@ RIG_STATES = {
     "tell": {"ticks": 36, "px_per_tick": round(160 / 60, 4), "wheel": 1, "rattle": {"period": 6, "up": 3, "rider_lag": 2},
              "stack_puff_every": 4, "rear_puff_every": 20, "steam": {"burst": 3, "every": 6, "start": 0}, "squat": True,
              "engineer": "lever pull, held", "riders": "yell 0/1, 6 ticks each, 3 loops"},
-    "charge": {"ticks": 90, "px_per_tick": 4.0, "wheel": 1, "rattle": {"period": 6, "up": 3, "rider_lag": 2},
+    "charge": {"ticks": 90, "px_per_tick": 4.0, "wheel": 1, "smear_every": SMEAR_EVERY,
+               "rattle": {"period": 6, "up": 3, "rider_lag": 2},
                "stack_puff_every": 8, "rear_puff_every": 20, "steam": None, "squat": "first 4 ticks",
                "engineer": "lurch back for 8 ticks, then point/jab 8 ticks each",
                "riders": "lurch back for 8 ticks, then yell 0/1, 6 ticks each"},
@@ -1469,7 +1537,8 @@ def rig_contract() -> dict:
              "anchor": list(fronts["front_tub"]["anchor"])},
             {"part": "wheel", "z": 6, "atlas": "dozer_wheel_h120", "tag": "spin",
              "frame_size": wheel["canvas"], "pivot": wheel["pivot"], "anchor": anchor(*AXLE),
-             "frame_rule": "phase_0..phase_3 (7.5 degrees each); smear replaces every second charge frame"},
+             "frame_rule": "phase_0..phase_3 (7.5 degrees each); during the charge the smear replaces the wheel frame "
+                           "on 1 tick in 4 (charge.smear_every)"},
             {"part": "yoke", "z": 7, "atlas": "dozer_yoke_h120", "tag": "static",
              "frame_size": yoke["canvas"], "pivot": yoke["pivot"], "anchor": anchor(*AXLE)},
             {"part": "hit_spark", "z": 8, "atlas": "vfx_hit_spark_metal", "frame_size": list(SPARK_CANVAS),

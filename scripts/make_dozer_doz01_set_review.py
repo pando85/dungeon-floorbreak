@@ -99,8 +99,8 @@ def simulate(rig: dict) -> list[dict]:
             wheel_phase += 1.0 / st["wheel"]
             wheel_i = int(wheel_phase) % 4
             wheel = f"phase_{wheel_i}"
-            if name == "charge" and t % 2 == 1:
-                wheel = "smear"                     # the smear replaces every second charge frame
+            if st.get("smear_every") and t % st["smear_every"] == st["smear_every"] - 1:
+                wheel = "smear"                     # fix round D3: the smear shows on 1 charge tick in 4
             # rattle (moving states) with the riders `rider_lag` ticks late; squat overrides it
             body_dy = rider_dy = 0
             r = st["rattle"]

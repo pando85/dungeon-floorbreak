@@ -7,7 +7,9 @@ Status:
 - **Design:** Claude Opus, phases 1 and 2.
 - **Size:** h120, decided by a separate Claude Opus agent.
 - **Execution:** Claude Sonnet. The full frame set is drawn (spec section 7.3; notes and open points in spec section 15).
-- **Pending:** an independent Claude Opus review, then the owner's review.
+- **Review:** the independent Claude Opus review returned PASS WITH FOLLOW-UPS.
+- **Design fix round** (Claude Opus; spec section 7.4): D2 bigger, lighter black smoke keys; D3 a short trailing wheel smear on 1 charge tick in 4; D7 a deeper engineer pot. Every render here was regenerated with them.
+- **Pending:** Sonnet's redraw list in spec section 7.4 (the black smoke in-betweens and a check of the engineer frames), then the owner's review.
 
 ## Regenerate
 
@@ -26,7 +28,7 @@ python3 scripts/make_dozer_doz01_set_review.py --out docs/evidence/doz-01   # GI
 | --- | --- |
 | `cruise_x1.gif`, `cruise_x3.gif` | Cruise at 160 px/s for 120 ticks: tread frame = floor(distance) mod 9, wheel at 2 ticks per frame, rattle with the riders 2 ticks late, black puffs from the stack (every 12 ticks) and the rear exhaust (every 20), idle 0/1 for the riders (B 8 ticks late) and the engineer |
 | `tell_x1.gif`, `tell_x3.gif` | The 36 tick charge tell: wheel at 1 tick per frame, stack puffs every 4 ticks, a 3-puff steam burst, the engineer's lever pull, the riders' yell 0/1 (6 ticks each, 3 loops), the hull and riders squat 1 px |
-| `charge_x1.gif`, `charge_x3.gif` | The 90 tick charge at 240 px/s (4 px per tick): lurch back for 8 ticks, then yell and point/jab; the wheel smear on every second frame; stack puffs every 8 ticks |
+| `charge_x1.gif`, `charge_x3.gif` | The 90 tick charge at 240 px/s (4 px per tick): lurch back for 8 ticks, then yell and point/jab; the wheel smear on 1 charge tick in 4 (D3; whether a GIF frame lands on a smear tick depends on the GIF tick sampling, which Sonnet is reworking); stack puffs every 8 ticks |
 | `brake_x1.gif`, `brake_x3.gif` | The 24 tick brake: the treads stop, the rig slides 4 px, lurch forward for 10 ticks, a steam burst |
 | `strain_x1.gif`, `strain_x3.gif` | The 90 tick strain: rattle at double rate, puffs from all three emitters, the wheel at 3 ticks per frame |
 | `floor01_chase_lit_640x360.png`, `floor01_chase_lit_1920x1080.png` | The machine chasing Carl and Donut on lit Floor 1, the wheel in front of a **torch-lit** stretch of brick (native and x3). Carl is 213 px ahead of the wheel tip, Donut behind him. The contact shadow is the tread footprint |
@@ -44,8 +46,8 @@ The state table (ticks, speed, wheel rate, rattle, puff schedule) and the emitte
 
 ## Weakest points (for the reviewer)
 
-- The black smoke is dark by design; it reads weakly against both lit and unlit brick (see the two chase scenes).
-- The charge smear is an almost closed ring at the spike tips.
+- The black smoke keys are fixed (D2), but the in-betweens `black_1` and `black_3` to `black_5` keep their phase-2 shapes until Sonnet redraws them, so the puffs still shrink late in their life.
+- The charge smear is fixed (D3): twelve short trailing arcs with no ring.
 - The cab posts are dark iron against the plum outline and read faintly at 1x.
 - The yoke's second rivet row has only 4 rivets.
 - The engineer's idle 0 has no pointing arm; it reads as an empty-handed idle at 1x.

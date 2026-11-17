@@ -1,6 +1,6 @@
 # DOZ-01: Goblin Murder Dozer design spec
 
-**Status:** **full set drawn (Sonnet), awaiting independent Opus review.** Design by Claude Opus (phases 1 and 2, 2026-11-17); execution by Claude Sonnet (section 7.3, notes in section 15).
+**Status:** **full set drawn (Sonnet). The independent Opus review returned PASS WITH FOLLOW-UPS; the design fix round (D2, D3, D7) is done by the Opus designer (section 7.4). Sonnet redraws the frames listed in section 7.4.** Design by Claude Opus (phases 1 and 2 and the fix round, 2026-11-17); execution by Claude Sonnet (section 7.3, notes in section 15).
 
 - **Size decided: h120.** A separate, independent Claude Opus agent made the decision, under the owner's rule that one Opus agent proposes enemy sizes and another decides them. The decider kept the rig, frame sizes and pivots as proposed. It sent back two redesigns (wheel phase 0 and the engineer's pot) and the phase 2 keys, all done here.
 - **Next:** a separate Claude Opus agent reviews the set against this spec. Then the owner reviews the finished images.
@@ -136,7 +136,7 @@ There are 39 machine colours (7 of them for smoke and steam) plus the shared out
 | L M N S Z | brass (ENV-01 `brass_01` to `05`; Z accent) | `#43331a` `#6a5224` `#93752e` `#bc9a3a` `#e0c25a` | firebox door, gauge, kettle, collar, hubs, axle cap |
 | X | bone_paint | `#d8cdb0` | painted teeth, gauge face |
 | j k n q z | fire (ENV-01 emissive colours) | `#8a2a12` `#d4501a` `#f58a26` `#ffc048` `#ffe98a` | **only** the firebox slots and the lamp glass (tested). These are the ENV-01 bloom colours, so the slots can glow if the runtime ever blooms actors |
-| + = - : | smoke ramp | `#1c1a22` `#2e2a34` `#4a4450` `#6c6474` | black exhaust puffs: + underside, = body, - lit band, : brightest edge |
+| + = - : | smoke ramp | `#1c1a22` `#2e2a34` `#4a4450` `#6c6474` | black exhaust puffs (fix round D2): `:` cap on the top third, `-` body, `+` only on the underside row (each column's lowest pixel). `=` is no longer used by the puffs |
 | ; / * | steam ramp | `#9c9cae` `#c6c8d4` `#eceef4` | kettle and brake steam: ; underside, / body, * lit |
 
 Rules:
@@ -151,9 +151,9 @@ The simulation advances every part from ticks and travelled distance, never from
 
 | Part | Rule | Ticks per frame | Notes |
 | --- | --- | --- | --- |
-| Wheel spin | 4 frames of 7.5 degrees. With 12-fold features, the cycle repeats every 30 degrees | stopped: hold; strain: 3; cruise: 2 (225 deg/s); charge: 1 (450 deg/s) | Driven faster than rolling (191 deg/s at 160 px/s), so it reads as a powered grinder. The optional smear frame replaces every second charge frame. The light stays fixed |
+| Wheel spin | 4 frames of 7.5 degrees. With 12-fold features, the cycle repeats every 30 degrees | stopped: hold; strain: 3; cruise: 2 (225 deg/s); charge: 1 (450 deg/s) | Driven faster than rolling (191 deg/s at 160 px/s), so it reads as a powered grinder. **Fix round D3:** during the charge the smear replaces the wheel frame on **1 tick in 4** (rig `charge.smear_every` = 4, on charge ticks 3, 7, 11 ...), not every second tick, which flickered at 30 Hz. The light stays fixed |
 | Tread belt | **9 frames, 1 px steps** of a 9 px link pitch; **frame = floor(distance) mod 9** | distance-driven | Slip-free at any speed. It reads forward while the step per tick is under half the pitch: up to 4 px per tick (240 px/s, the charge) and ambiguous from 4.5 px per tick (270 px/s). Phase 1 planned 3 frames of 3 px, and that version flickers backward above 3 px per tick (180 px/s), including the charge: a tick that advances 2 frames of 3 reads as a step back. Road wheels turn 8.2 degrees per frame inside the same 9 frames |
-| Black smoke (stack) | 6 frames: spawn 6 px (key 0), 10 px, 16 px (key 2), breaking up, thin, last wisp | 4 per frame (24-tick life) | One puff every 12 ticks at cruise, every 4 during the charge tell, every 8 during the charge. It rises 0.5 px per tick and stays in world space, so it trails behind. At most 8 puffs alive |
+| Black smoke (stack) | **Fix round D2:** 6 frames, widths **8 px (key 0), 14 px, 20 px (key 2), 22, 22, 22 px**, with broken edges. From 30 % of life on (frame 2, tick 8 of 24), the puff drops pixels in clumps of 2 to 4 at its edges, never as single-pixel dither: frame 2 only notches, frame 3 about 15 % of its pixels gone, frame 4 about 30 %, frame 5 about 50 % (it breaks into 3 or 4 pieces). It never shrinks into specks | 4 per frame (24-tick life) | One puff every 12 ticks at cruise, every 4 during the charge tell, every 8 during the charge. It rises 0.5 px per tick and stays in world space, so it trails behind. At most 8 puffs alive |
 | Rear exhaust | same black puff | 4 | every 20 ticks while moving |
 | Steam (kettle) | 5 frames (keys 0 and 2) | 3 | only in the charge tell, the brake and strain: a 3-puff burst |
 | Hit-spark | 3 frames: star, burst, fade | 2 each | only for Carl's melee on the hull **from behind** (section 9) |
@@ -208,14 +208,14 @@ The contact shadow is per actor box. For the Dozer, the runtime should use the t
 - The belt's bottom run lies on the contact row (row 33).
 - Each road-wheel hub has 5 dark bolts. The one nearest the upper-left carries the `7` glint, so the glint keeps the light fixed while the bolts turn.
 
-**`engineer_point` (phase 2 pot redesign).** The body is the GOB-01 idle body seated: rows shifted down 9, no pineapple. Over it go the saucepan, the pointing far arm and the near hand on the lever knob. The saucepan:
+**`engineer_point` (phase 2 pot redesign, deepened in fix round D7).** The body is the GOB-01 idle body seated: rows shifted down 9, no pineapple. Over it go the saucepan, the pointing far arm and the near hand on the lever knob. The saucepan:
 
 - jammed down to the brow;
-- a **flat top** with a 1 px `6` light row;
+- a **flat top** with a 1 px `6` light row (rider-canvas row 26; outline row 25);
 - a 2 px `K` notch on the top-front corner;
-- a 4-row body shaded as a cylinder;
-- a lip only 1 px wider than the body on each side, on the rows just above the brow;
-- a **2 px handle about 11 px long**. It leaves the lip, rises 2 px toward the back and has a 1 px `K` hanging hole 2 px from its end. At 1x it reads as a saucepan, not a top hat.
+- **a body 6 rows deep and 14 px wide** (rows 26 to 31, x 27 to 40), shaded as a cylinder (D7: the 4-row pot read as a brimmed hat at 1080p);
+- **a 1 px lip** (row 32), only 1 px wider than the body on each side, just above the brow;
+- a **2 px handle about 11 px long**, unchanged. It leaves the lip, rises 2 px toward the back and has a 1 px `K` hanging hole 2 px from its end.
 
 **`engineer_lever_pull`.** The torso and head lean back 2 px. The head is the GOB-01 yelling head (frame 11 moved by (-2, -2)). Both forearms reach straight to the knob: the near arm lit, the far arm in shade above it. The pot tilts back, with its top 2 rows 1 px back.
 
@@ -231,11 +231,10 @@ The contact shadow is per actor box. For the Dozer, the runtime should use the t
 
 **Rider B (`rider_b_hold`, `rider_b_lurch_back`, `rider_b_lurch_forward`).** The same construction from GOB-01 variant B (the bandana overlay). `rider_b_hold` is derived, not a new key.
 
-**Smoke, frames 0 and 2.** Lumpy round blobs with no outline:
+**Smoke, frames 0 and 2.** Lumpy blobs with no outline.
 
-- the body in the middle tone, a 1 px darker underside, an upper-left lit band and a few brightest edge pixels;
-- black frame 0 is the 6 px spawn and black frame 2 the 16 px puff;
-- steam frames 0 and 2 are smaller and paler.
+- **Black (fix round D2):** frame 0 is the **8 px** spawn and frame 2 the **20 px** puff, both with broken edges (bites out of the silhouette). A light `:` cap covers the top third of the puff's height, the body is `-`, and `+` is used only on the underside row. The phase-2 puffs (mostly `=`, 6 and 16 px) read as dark debris over unlit brick.
+- **Steam** frames 0 and 2 are unchanged: smaller and paler, with a body in the middle tone, a 1 px darker underside and an upper-left lit band.
 
 For every rider frame, the visible rows (above row 48) are GOB-01 pixels translated whole, apart from the engineer's new pot and arms. Only the always-hidden rows are despeckled.
 
@@ -251,16 +250,30 @@ For every rider frame, the visible rows (above row 48) are GOB-01 pixels transla
 | # | Atlas | Work | Acceptance |
 | --- | --- | --- | --- |
 | 1 | wheel | Phases 1 to 3: `wheel_rows(7.5)`, `(15)`, `(22.5)`, then hand cleanup. Every spike keeps its `K` outline and its 2 px `7` tip; the spokes stay 2 + 1 px wide with no broken pixels; the hub and rings stay concentric (no wobble); the drum crescent stays upper-left | spike-ring mean L* at least 0.5 in every frame; phase 0 to 3 loops into phase 0 |
-| 2 | wheel | Optional charge smear: phase 0 with a 1 px iron-5 arc joining the spike tips in the spin direction, and the tips in `6` instead of `7` | shown on every second charge frame only |
+| 2 | wheel | Charge smear: phase 0 with the tips in `6` and a short motion streak at each tip. **Replaced by the Opus fix round D3** (section 7.4): 12 degree iron-4 arcs trailing behind each tip, no `K` frame | shown on 1 charge tick in 4 |
 | 3 | tread | 9 phases: `tread_rows(0..8)` (1 px steps; frame = floor(distance) mod 9). Each road-wheel hub keeps exactly one off-centre `7` bolt (the one nearest the upper-left); check the end wheels for popping at the 8 to 0 wrap | contact row 33 in all 9 frames; the cleat count on the bottom run differs by at most one between frames |
 | 4 | hull | Trim `front` into its own box (two boxes: cab rail and tub) and recompute its pivot so that O stays on anchor (0, 0). Add 2 px iron-`2` posts at the cab corners (the rail ends) on `front` | the rig still reproduces the assembly; riders are still hidden below the rim |
 | 5 | yoke | Polish: two rivet rows along the arm, a 2 px iron-`1` underside, and one rust streak (`E` over `W`) from the lamp mount | 0 orphans |
 | 6 | riders | Idle 0 and 1 for A, B and the engineer (section 5). Yell 1 for A and B. The engineer's jab (the point key with the finger 1 px forward) | visible rows stay GOB-01 pixels; hidden-below-rim test |
 | 7 | riders | **Rider A fist-to-stick gap:** in `rider_a_brandish`, `rider_a_yell_1` and every frame built on GOB-01 frame 11, close the gap with a continuous 1 px `y` stick with `K` edges from the fist to the pineapple. The same gap exists in merged GOB-01 frame 11; fix it there too, in its own commit, and update the GOB-01 frozen-key fixture deliberately | no gap between fist and stick at 1x |
-| 8 | smoke | Black puff: 6 frames from keys 0 and 2 (add 1: 10 px; 3: breaking up into 2 lumps; 4: thin, 3 small lumps; 5: last wisp, 2 to 3 px). Steam: 5 frames from keys 0 and 2 (add 1, 3 and 4 the same way). No outline, no dithered transparency | own ramp only; darker underside in every frame |
+| 8 | smoke | Black puff: 6 frames from keys 0 and 2 (**superseded by fix round D2**, section 7.4: 8, 14, 20, 22, 22, 22 px with pixel drop from 30 % of life; the original plan was 1: 10 px; 3: breaking up into 2 lumps; 4: thin, 3 small lumps; 5: last wisp, 2 to 3 px). Steam: 5 frames from keys 0 and 2 (add 1, 3 and 4 the same way). No outline, no dithered transparency | own ramp only; darker underside in every frame |
 | 9 | VFX | Hit-spark, 3 frames, 16 x 16, pivot (8, 8): a 4-point star (`7` core, `6` arms), a burst with 4 to 6 short iron-`5` streaks, and a fade (2 to 3 pixels of `4`). It is shared with other metal hits | 0 isolated pixels |
 | 10 | tests | Spike-ring brightness on all wheel frames; tread contact row on all 9 frames; the simulated-apex margin (`< 90`, documented CHASE-01 target); hidden-below-rim on every rider frame | green in CI |
 | 11 | evidence | GIFs of **cruise, tell, charge, brake and strain**, at x1 and x3, driven by the section 5 timing. A lit chase at 640 x 360 and 1920 x 1080 with the wheel **in front of both a torch-lit and an unlit stretch of brick**. A rig and timing diagram (frame layout, pivots, tick bars, state flow). A new `SHA256SUMS` | README lists every file |
+
+### 7.4 Design fix round after the independent Opus review (Opus, 2026-11-17)
+
+The independent Opus review returned PASS WITH FOLLOW-UPS. These are the design fixes, done by the Opus designer. The frozen fixture `tests/fixtures/dozer_doz01_keys.json` was updated deliberately for the six changed keys: `dozer_smoke:black_0`, `black_2` and the four engineer keys.
+
+- **D2, black smoke.** The phase-2 puffs were 3 to 8 px dark specks over unlit brick and read as debris, adding little to the tell. The new keys are black 0, 8 px wide, and black 2, 20 px wide. Both have broken edges, a `:` cap on the top third, a `-` body and `+` only on the underside row. The life plan is in section 5. The shared renderer `black_puff_rows` restyles every black frame, but the in-between shapes are still the phase-2 ones. Steam is unchanged.
+- **D3, wheel smear.** The phase-2 smear had arcs covering 26 degrees of each 30 degree gap, framed in `K`. That made an almost closed ring at r 46 that read as a cage, and it flickered at 30 Hz. The new smear is phase 0 with the tips in `6` and twelve 1 px **iron-4 arcs 12 degrees long at r 46, trailing behind each tip** (counter-clockwise, because the wheel turns clockwise), with **no `K` frame**. It shows on **1 charge tick in 4** (`charge.smear_every` = 4 in the rig tick table). The smear is a generated frame, not a frozen key.
+- **D7, engineer pot.** The pot is now 6 rows deep and 14 px wide over a 1 px lip, with the handle unchanged. `pot_px` builds it for every engineer frame, so the keys `engineer_point`, `engineer_lever_pull`, `engineer_lurch_back` and `engineer_lurch_forward` and the Sonnet frames `engineer_jab`, `engineer_hold` and `engineer_idle_1` all carry the new pot. The lurch keys keep their offsets: the pot hops 3 px on the lurch back and slides 3 px over the eyes on the lurch forward.
+
+**Sonnet redraw list (fix round):**
+
+1. **Black smoke in-betweens** `black_1`, `black_3`, `black_4`, `black_5` to the D2 plan: 14, 22, 22 and 22 px wide; pixel drop in edge clumps of about 15 %, 30 % and 50 % in frames 3, 4 and 5; same ramp rule as the keys; no specks. Add their width and pixel-drop tests.
+2. **Engineer frames** `engineer_jab`, `engineer_hold`, `engineer_idle_1`: regenerated automatically with the deeper pot. Check them at 1x and x4: the pot must not cover the eyes in jab, hold or idle 1, and the handle must clear the ear tip. No hand edits are expected.
+3. **Evidence:** redraw the charge GIFs with the new smear rule (1 tick in 4) and the new smoke, and regenerate the part contact sheet, the lit chases and `SHA256SUMS`. The review sheets regenerated in this round already show the new keys.
 
 ## 8. Validators
 
@@ -307,13 +320,20 @@ These are automated in `tests/test_art_dozer_doz01.py` for the keys. Extend them
 - The visible rows of rider A and B keys equal the seated GOB-01 frames they come from.
 - The lurches show white eyes, or for the engineer's forward lurch, the pot over his eyes. In his lurch back, the pot hops at least 3 px.
 - The lever pull leans back, opens the mouth and reaches the knob.
-- The pot has its flat top, light row, notch, lip, handle rise and hanging hole.
+- The pot has its flat top, light row and notch, a body 6 rows deep and 14 px wide, a 1 px lip, the handle rise and the hanging hole (D7).
 
 **Smoke:**
 
 - 24 x 24 frames, pivot at the centre.
 - Each puff uses only its own ramp, with no outline and a darker underside.
-- The puffs are 6 px and 16 px wide.
+- D2: the black keys are 8 px and 20 px wide. `:` appears only in the top third and `+` only on each column's lowest pixel, with no `=`, and the puffs are clearly lighter than the phase-2 `=` body.
+
+**Wheel smear (D3):**
+
+- Tips in `6`.
+- The added pixels are all iron `4` at r 46, with no `K`.
+- Every arc pixel lies 0 to 12 degrees behind its spike axis, so the arcs cover less than half of the circle.
+- `charge.smear_every` is 4.
 
 **Gameplay geometry:**
 
@@ -445,4 +465,4 @@ All 11 items of section 7.3 are done. Every Opus key is pixel-identical and froz
 - **Tests (item 10).** `tests/test_art_dozer_doz01.py` covers every frame (frozen keys, wheel, tread, hull, riders, smoke, spark, timing, rig). The simulated apex target (below 90 px) is unchanged.
 - **Timing.** The tick counts of section 5 are in the manifests (`dozer.frames`) and in the rig contract (`timing`). The preview durations are `round(ticks * 1000 / 60)`, and 100 ms for static and state-driven frames. The wheel atlas holds the cruise rate (2 ticks); the runtime picks 1, 2 or 3 ticks per state.
 - **State choreography (item 11).** Section 5 fixes ticks but not which frame plays in each state. The GIFs use: cruise, idle 0/1 (B 8 ticks late); tell, yell 0/1 and the lever pull with the hull squat; charge, lurch back for 8 ticks, then yell and point/jab; brake, lurch forward for 10 ticks, then idle; strain, idle and the lever pull. The squat is a 1 px drop of the hull and riders for the whole tell and the first 4 charge ticks (the tread hides the overlap); section 3 and section 9 word it differently ("at the rear"), and a real rear-only squat would need a sheared hull. Strain rattle, "double rate (1 px every 3 ticks)", is read as 1 tick up every 3. The yoke, wheel and tread do not rattle. The brake slides the whole rig 4 px in 8 ticks while the camera stays on the unslid position.
-- **Open for the reviewer.** The smear's nearly closed ring; the dark `2` posts against the plum outline are low contrast at 1x; the yoke's second rivet row is short (4 rivets); in the lit chase Donut runs 54 px behind Carl (the unlit stretch has a raised step ahead of Carl's usual place).
+- **Open for the reviewer** (the review answered these; see section 7.4 for the design fixes). The smear's nearly closed ring; the dark `2` posts against the plum outline are low contrast at 1x; the yoke's second rivet row is short (4 rivets); in the lit chase Donut runs 54 px behind Carl (the unlit stretch has a raised step ahead of Carl's usual place).

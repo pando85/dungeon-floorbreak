@@ -311,15 +311,36 @@ class FramesAndPivots(unittest.TestCase):
             dark = "+" if kind == "black" else ";"
             self.assertIn(dark, rows[max(y for _x, y in px)], f"{name}: 1 px darker underside")
             self.assertTrue(all(any(c == dark for c in r) for r in [rows[max(y for _x, y in px)]]))
-        self.assertTrue(5 <= widths["black_0"] <= 7, widths)                 # the 6 px spawn
-        self.assertTrue(9 <= widths["black_1"] <= 11, widths)                # 10 px
-        self.assertTrue(15 <= widths["black_2"] <= 17, widths)               # the 16 px puff
-        self.assertEqual((comps["black_3"], comps["black_4"]), (2, 3))       # breaking up, thin
-        self.assertTrue(2 <= widths["black_5"] <= 3, widths)                  # last wisp: 2 to 3 px wide
+        # fix round D2 (Opus keys): the black puff grows 8, 14, 20, 22 px; black_1 / 3 / 4 / 5 are redrawn by
+        # Sonnet to that plan (spec 5 and 7.3) and get their width and pixel-drop checks then
+        self.assertEqual(widths["black_0"], 8, widths)
+        self.assertEqual(widths["black_2"], 20, widths)
         self.assertLess(widths["steam_2"], widths["black_2"])
         self.assertTrue(widths["steam_0"] < widths["steam_1"] < widths["steam_2"], widths)
         self.assertEqual((comps["steam_3"], comps["steam_4"]), (2, 3))
-        self.assertTrue(all(count[f"black_{i}"] > count[f"black_{i + 1}"] for i in (2, 3, 4)), "a puff thins out")
+
+    def test_black_smoke_keys_read_as_smoke(self) -> None:
+        """D2: a light ``:`` cap on the top third of the puff, a ``-`` body, ``+`` only on each column's lowest
+        pixel, no ``=``; broken edges (the silhouette is not a plain union of round lumps)."""
+        g = load("dozer_smoke")
+        for name in ad.BLACK_REDESIGNED:
+            rows = flat(g, tag_index(g, name))
+            px = opaque(rows)
+            top, bottom = min(y for _x, y in px), max(y for _x, y in px)
+            cap_to = top + (bottom - top + 1) / 3.0
+            keys = {c for r in rows for c in r} - {"."}
+            self.assertEqual(keys, {":", "-", "+"}, name)
+            for x, y in px:
+                c = rows[y][x]
+                lowest = (x, y + 1) not in px
+                if c == "+":
+                    self.assertTrue(lowest, f"{name} {(x, y)}: + only on the underside")
+                if c == ":":
+                    self.assertLess(y + 0.5, cap_to + 1, f"{name} {(x, y)}: : only in the top third")
+            light = sum(lstar(PALETTE[rows[y][x]]) for x, y in px) / len(px)
+            old_body = lstar(PALETTE["="])                 # the phase-2 puffs were mostly = (L* 0.18)
+            self.assertGreater(light, old_body + 0.08, f"{name}: lighter than the old dark speck (L* {light:.2f})")
+        self.assertTrue(ad.SMOKE_BITES["black_2"], "broken edges")
 
     def test_hit_spark(self) -> None:
         g = load("vfx_hit_spark_metal")
@@ -378,6 +399,7 @@ class Timing(unittest.TestCase):
         self.assertEqual(states["charge"]["px_per_tick"] * 60, 240)
         self.assertEqual((states["tell"]["wheel"], states["cruise"]["wheel"], states["strain"]["wheel"]), (1, 2, 3))
         self.assertEqual(states["strain"]["rattle"]["period"], 3, "strain rattles at double rate")
+        self.assertEqual(states["charge"]["smear_every"], 4, "D3: the smear shows on 1 charge tick in 4")
         self.assertEqual(states["tell"]["stack_puff_every"], 4)
         self.assertEqual(states["cruise"]["stack_puff_every"], 12)
         self.assertEqual(states["charge"]["stack_puff_every"], 8)
@@ -468,15 +490,25 @@ class WheelReadsAsTheHazard(unittest.TestCase):
             self.assertGreater(sum(p[1] for p in e) / len(e), 5, f"phase {i}")
 
     def test_charge_smear(self) -> None:
+        """Fix round D3: twelve 12-degree iron-4 arcs trailing behind the tips (counter-clockwise: the wheel turns
+        clockwise), no K frame, tips in 6; never a closed ring."""
         base, smear = self.frames()[0], self.frames()[4]
         c0 = len(base) // 2
         tips = [(x, y) for y, r in enumerate(base) for x, c in enumerate(r)
                 if c == "7" and math.hypot(x - c0, y - c0) > ad.WHEEL_TIP - 2]
         self.assertTrue(tips)
         self.assertTrue(all(smear[y][x] == "6" for x, y in tips), "tips in 6 instead of 7")
-        arc = [(x, y) for y in range(len(base)) for x in range(len(base)) if base[y][x] == "." and smear[y][x] == "5"]
-        self.assertGreater(len(arc), 100, "1 px iron-5 arcs joining the spike tips")
-        self.assertTrue(all(44 < math.hypot(x - c0, y - c0) < 48 for x, y in arc))
+        new = [(x, y) for y in range(len(base)) for x in range(len(base)) if base[y][x] == "." and smear[y][x] != "."]
+        self.assertTrue(all(smear[y][x] == "4" for x, y in new), "arcs in iron 4, no K frame")
+        self.assertTrue(all(45 < math.hypot(x - c0, y - c0) < 47 for x, y in new), "arcs at r 46")
+        self.assertTrue(80 <= len(new) <= 130, len(new))
+        # every arc pixel lies 0 to 12 degrees behind (counter-clockwise of) the nearest spike axis
+        for x, y in new:
+            ang = math.degrees(math.atan2(c0 - y, x - c0))
+            behind = (ang - 90.0) % 30.0
+            self.assertLessEqual(behind, ad.SMEAR_DEG + 1.5, (x, y, behind))
+        coverage = len({round(math.degrees(math.atan2(c0 - y, x - c0))) % 360 for x, y in new}) / 360
+        self.assertLess(coverage, 0.5, "the arcs leave most of the circle open: no cage")
         same = [(x, y) for y in range(len(base)) for x in range(len(base))
                 if base[y][x] != "." and smear[y][x] != base[y][x] and (x, y) not in tips]
         self.assertFalse(same, "everything else of phase 0 is unchanged")
@@ -752,13 +784,17 @@ class RigContract(unittest.TestCase):
         back with a K hanging hole 2 px from its end."""
         eng = flat(load("dozer_riders_h36"), 0)
         top = 26
+        # fix round D7: 6 rows deep and 14 wide over a 1 px lip (rows 26 to 31, lip row 32), handle unchanged
+        top = 25
         self.assertTrue(all(eng[top][x] == "K" for x in range(27, 41)), "flat top outline")
-        self.assertTrue(all(eng[27][x] == "6" for x in range(27, 39)), "1 px light row")
-        self.assertEqual((eng[27][39], eng[27][40]), ("K", "K"), "notch on the top-front corner")
-        self.assertEqual((eng[31][41], eng[31][42], eng[30][41]), ("4", "K", "K"),
-                         "lip 1 px wider than the body at the front")
-        self.assertEqual((eng[32][26], eng[30][26]), ("3", "K"), "and at the back, where the handle joins it")
-        self.assertEqual((eng[29][26], eng[29][41]), ("K", "K"), "body outline")
+        self.assertTrue(all(eng[26][x] == "6" for x in range(27, 39)), "1 px light row")
+        self.assertEqual((eng[26][39], eng[26][40]), ("K", "K"), "notch on the top-front corner")
+        body = [(x, y) for y in range(26, 32) for x in range(27, 41)]
+        self.assertTrue(all(eng[y][x] in "234567K" for x, y in body), "6 x 14 pot body")
+        self.assertTrue(all(eng[y][26] == "K" and eng[y][41] == "K" for y in range(26, 32)), "body outline")
+        self.assertEqual((eng[32][41], eng[32][42], eng[31][41]), ("4", "K", "K"),
+                         "1 px lip, 1 px wider than the body at the front")
+        self.assertEqual((eng[32][26], eng[33][26]), ("6", "K"), "and at the back, where the handle joins it")
         self.assertEqual((eng[31][24], eng[32][24]), ("5", "3"), "handle leaves the lip rows")
         self.assertEqual((eng[29][14], eng[30][14]), ("5", "3"), "handle end rises 2 px")
         self.assertEqual(eng[29][16], "K", "hanging hole 2 px from the end")
