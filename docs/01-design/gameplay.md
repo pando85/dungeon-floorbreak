@@ -31,6 +31,10 @@ Prove simultaneous device assignment for two gamepads and hotplug behavior. Avoi
 - **Approved identity:** Donut jumps higher and reaches farther surfaces; Carl breaks and opens routes through selectively destructible obstacles. Tune actual numbers and input feel after prototype evidence. **Solo completion requires access to both protagonists through switching**, not independent completion by Carl alone or Donut alone. Same critical path works with 2P.
 - Separate `DesiredAction` from device inputs; record/replay the former.
 
+## Approved combat-feel rule (2026-11-17)
+
+Normal enemies should generally go down in a small number of impactful hits; challenge comes from their patterns, pressure and the environment. **Combos emerge through movement, positioning, knockback, other enemies and selective destruction**, rather than long memorized button strings. Use hybrid deterministic gameplay physics and expressive Bevy presentation to enable predictable wall/prop/enemy impacts and eventual readable chains. **Exact attack inputs, collision contact damage, kill counts and launch values are experiment candidates**, not approved implementations. See [combat feel and hybrid enemy physics](combat-feel-hybrid-physics.md).
+
 ## Combat
 
 - Carl: short-medium attacks, timed bomb/charge placement, traps; powerful against breakable surfaces, limited mobility.
