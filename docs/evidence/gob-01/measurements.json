@@ -1,0 +1,384 @@
+{
+  "files": {
+    "floor01_keys_1920x1080.png": "0b92659816cf025bbdf7c5e63dcc76fcbbe5c115f93be75377c98e83af5a8722",
+    "floor01_keys_640x360.png": "c7a0d8b8807030740dbbe9ebac3592d046d8e49f28abebee6676ec8a56c1a016",
+    "floor01_lineup_1920x1080.png": "a1418d460a46b8188c5477bf8aea6e20d0bbe261b84862d2079b68f1009dd51a",
+    "floor01_lineup_640x360.png": "eb0e3921880481d0404f058b9715f13f814a902e8c1ef68f5e77737ddf79879e",
+    "floor01_size_h36_1920x1080.png": "6ef955bb7aeab8581c5d7e9cc7052a226d69cae4e2435c7b292182a3e8e2d8ba",
+    "floor01_size_h36_640x360.png": "3f90434f88cf1e97aabd832ac99ff327f1bb446ce63f79f51329677be6a1cb9a",
+    "floor01_size_h40_1920x1080.png": "f1f58357d5d942dc08f32036864e77e60d696c333e1dea7e7af59c7518d9e491",
+    "floor01_size_h40_640x360.png": "ef39821a5e4ab7f064a07a2925096f8c4bf04d33e119dcc97c437c591133e792",
+    "floor01_size_h44_1920x1080.png": "b7ecc056cf26b501d2997efb79d9ddbf18dff220718edea5bb58a9278adc7535",
+    "floor01_size_h44_640x360.png": "e83ea088b8511a88ed8150e181305b8fbcc9c05e19495d47858085582b48a68a",
+    "key_pose_sheet.png": "e7eed2b1e8a2c73677a59638376789fbf2769b929501cff53eacbcb765d87046",
+    "size_study_sheet.png": "597e7d53d02f2061f9375271b4129a81af5d276b1416108a414c0f3b18443c9c"
+  },
+  "keys_h36": {
+    "A": {
+      "00 idle": {
+        "bbox": [
+          18,
+          20,
+          54,
+          56
+        ],
+        "colours": 18,
+        "lowest_row": 55,
+        "opaque_area_px": 729,
+        "opaque_height": 36,
+        "opaque_width": 36
+      },
+      "04 walk contact": {
+        "bbox": [
+          12,
+          21,
+          54,
+          56
+        ],
+        "colours": 18,
+        "lowest_row": 55,
+        "opaque_area_px": 727,
+        "opaque_height": 35,
+        "opaque_width": 42
+      },
+      "07 walk contact (far)": {
+        "bbox": [
+          15,
+          21,
+          54,
+          56
+        ],
+        "colours": 18,
+        "lowest_row": 55,
+        "opaque_area_px": 719,
+        "opaque_height": 35,
+        "opaque_width": 39
+      },
+      "11 attack tell": {
+        "bbox": [
+          5,
+          1,
+          47,
+          56
+        ],
+        "colours": 18,
+        "lowest_row": 55,
+        "opaque_area_px": 837,
+        "opaque_height": 55,
+        "opaque_width": 42
+      },
+      "12 swing smear": {
+        "bbox": [
+          11,
+          0,
+          48,
+          56
+        ],
+        "colours": 15,
+        "lowest_row": 55,
+        "opaque_area_px": 817,
+        "opaque_height": 56,
+        "opaque_width": 37
+      },
+      "13 swing impact": {
+        "bbox": [
+          5,
+          25,
+          59,
+          56
+        ],
+        "colours": 16,
+        "lowest_row": 55,
+        "opaque_area_px": 775,
+        "opaque_height": 31,
+        "opaque_width": 54
+      },
+      "16 hurt": {
+        "bbox": [
+          0,
+          22,
+          40,
+          56
+        ],
+        "colours": 16,
+        "lowest_row": 55,
+        "opaque_area_px": 705,
+        "opaque_height": 34,
+        "opaque_width": 40
+      },
+      "19 knockback air": {
+        "bbox": [
+          12,
+          9,
+          48,
+          47
+        ],
+        "colours": 18,
+        "lowest_row": 46,
+        "opaque_area_px": 491,
+        "opaque_height": 38,
+        "opaque_width": 36
+      },
+      "22 down": {
+        "bbox": [
+          4,
+          40,
+          57,
+          56
+        ],
+        "colours": 15,
+        "lowest_row": 55,
+        "opaque_area_px": 437,
+        "opaque_height": 16,
+        "opaque_width": 53
+      },
+      "25 corpse": {
+        "bbox": [
+          4,
+          40,
+          63,
+          56
+        ],
+        "colours": 16,
+        "lowest_row": 55,
+        "opaque_area_px": 452,
+        "opaque_height": 16,
+        "opaque_width": 59
+      },
+      "26 knockback contact": {
+        "bbox": [
+          16,
+          6,
+          46,
+          45
+        ],
+        "colours": 17,
+        "lowest_row": 44,
+        "opaque_area_px": 406,
+        "opaque_height": 39,
+        "opaque_width": 30
+      }
+    },
+    "B": {
+      "00 idle": {
+        "bbox": [
+          18,
+          20,
+          54,
+          56
+        ],
+        "colours": 20,
+        "lowest_row": 55,
+        "opaque_area_px": 736,
+        "opaque_height": 36,
+        "opaque_width": 36
+      },
+      "04 walk contact": {
+        "bbox": [
+          12,
+          21,
+          54,
+          56
+        ],
+        "colours": 20,
+        "lowest_row": 55,
+        "opaque_area_px": 734,
+        "opaque_height": 35,
+        "opaque_width": 42
+      },
+      "07 walk contact (far)": {
+        "bbox": [
+          15,
+          21,
+          54,
+          56
+        ],
+        "colours": 20,
+        "lowest_row": 55,
+        "opaque_area_px": 726,
+        "opaque_height": 35,
+        "opaque_width": 39
+      },
+      "11 attack tell": {
+        "bbox": [
+          5,
+          1,
+          47,
+          56
+        ],
+        "colours": 20,
+        "lowest_row": 55,
+        "opaque_area_px": 843,
+        "opaque_height": 55,
+        "opaque_width": 42
+      },
+      "12 swing smear": {
+        "bbox": [
+          11,
+          0,
+          48,
+          56
+        ],
+        "colours": 18,
+        "lowest_row": 55,
+        "opaque_area_px": 819,
+        "opaque_height": 56,
+        "opaque_width": 37
+      },
+      "13 swing impact": {
+        "bbox": [
+          5,
+          25,
+          59,
+          56
+        ],
+        "colours": 19,
+        "lowest_row": 55,
+        "opaque_area_px": 775,
+        "opaque_height": 31,
+        "opaque_width": 54
+      },
+      "16 hurt": {
+        "bbox": [
+          0,
+          22,
+          40,
+          56
+        ],
+        "colours": 18,
+        "lowest_row": 55,
+        "opaque_area_px": 712,
+        "opaque_height": 34,
+        "opaque_width": 40
+      },
+      "19 knockback air": {
+        "bbox": [
+          12,
+          9,
+          48,
+          47
+        ],
+        "colours": 19,
+        "lowest_row": 46,
+        "opaque_area_px": 491,
+        "opaque_height": 38,
+        "opaque_width": 36
+      },
+      "22 down": {
+        "bbox": [
+          4,
+          40,
+          57,
+          56
+        ],
+        "colours": 17,
+        "lowest_row": 55,
+        "opaque_area_px": 437,
+        "opaque_height": 16,
+        "opaque_width": 53
+      },
+      "25 corpse": {
+        "bbox": [
+          4,
+          40,
+          63,
+          56
+        ],
+        "colours": 17,
+        "lowest_row": 55,
+        "opaque_area_px": 452,
+        "opaque_height": 16,
+        "opaque_width": 59
+      },
+      "26 knockback contact": {
+        "bbox": [
+          16,
+          6,
+          46,
+          45
+        ],
+        "colours": 19,
+        "lowest_row": 44,
+        "opaque_area_px": 406,
+        "opaque_height": 39,
+        "opaque_width": 30
+      }
+    }
+  },
+  "note": "Composed review renders (A1 lighting via scripts/env_kit_light.py), not Bevy captures.",
+  "reference": {
+    "carl_h52_idle": {
+      "bbox": [
+        8,
+        4,
+        31,
+        56
+      ],
+      "colours": 23,
+      "lowest_row": 55,
+      "opaque_area_px": 837,
+      "opaque_height": 52,
+      "opaque_width": 23
+    },
+    "donut_h40_idle": {
+      "bbox": [
+        0,
+        4,
+        45,
+        44
+      ],
+      "colours": 22,
+      "lowest_row": 43,
+      "opaque_area_px": 1305,
+      "opaque_height": 40,
+      "opaque_width": 45
+    }
+  },
+  "size_options": {
+    "h36": {
+      "bbox": [
+        18,
+        20,
+        54,
+        56
+      ],
+      "colours": 18,
+      "implied_feet_if_carl_is_6ft": 4.15,
+      "lowest_row": 55,
+      "opaque_area_px": 666,
+      "opaque_height": 36,
+      "opaque_width": 36,
+      "ratio_to_carl": 0.692
+    },
+    "h40": {
+      "bbox": [
+        17,
+        16,
+        57,
+        56
+      ],
+      "colours": 18,
+      "implied_feet_if_carl_is_6ft": 4.62,
+      "lowest_row": 55,
+      "opaque_area_px": 830,
+      "opaque_height": 40,
+      "opaque_width": 40,
+      "ratio_to_carl": 0.769
+    },
+    "h44": {
+      "bbox": [
+        16,
+        12,
+        60,
+        56
+      ],
+      "colours": 18,
+      "implied_feet_if_carl_is_6ft": 5.08,
+      "lowest_row": 55,
+      "opaque_area_px": 988,
+      "opaque_height": 44,
+      "opaque_width": 44,
+      "ratio_to_carl": 0.846
+    }
+  }
+}

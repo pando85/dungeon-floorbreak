@@ -1,0 +1,303 @@
+{
+  "schema_version": 1,
+  "id": "goblin_common_b_h36_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/goblin/goblin_b_h36.ase",
+  "grid_source": "assets/source/characters/goblin/goblin_b_h36.grid.json",
+  "output_atlas": "generated/art/goblin_b_h36.png",
+  "output_metadata": "generated/art/goblin_b_h36.json",
+  "palette_id": "goblin-floor01-v0",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    28,
+    55
+  ],
+  "animation_tags": [
+    "idle",
+    "walk",
+    "attack_tell",
+    "attack_swing",
+    "attack_recover",
+    "hurt",
+    "knockback",
+    "down",
+    "getup",
+    "corpse",
+    "knockback_contact"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy animation candidate (fan-concept layer: common Floor 1 goblin; runtime role IP-neutral small melee enemy)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "GOB-01 common goblin variant B: variant A's body and weapon cels unchanged plus an accessory layer (red rag bandana with two tails, ear notch, missing upper tooth, stitched vest patch) for all 27 frames: the 11 key overlays are frozen, the 16 in-between overlays are the key overlay translated with the head and the vest of each frame; visual variation only, same frames, timing, pivot and boxes",
+    "generator": "Design, size study and keys: Claude Opus (two separate agents propose and decide the size). In-betweens, atlases, validators and evidence: Claude Sonnet, composed by scripts/author_goblin_frames.py. Review: Claude Opus, PASS 2026-11-17 (a separate agent from the designer). No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-opening-concept-references-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "goblin": {
+    "status": "Opus review PASSED 2026-11-17; awaiting owner review; Bevy integration pending; 27 frames, 11 of them Opus keys; not wired into any Bevy binary",
+    "spec": "docs/02-art/gob-01-goblin-spec.md",
+    "variant": "B",
+    "opaque_height_idle": 36,
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "grounded_tags": [
+      "idle",
+      "walk",
+      "attack_tell",
+      "attack_swing",
+      "attack_recover",
+      "hurt",
+      "down",
+      "getup",
+      "corpse"
+    ],
+    "airborne_tags": [
+      "knockback",
+      "knockback_contact"
+    ],
+    "playback": {
+      "idle": "loop",
+      "walk": "loop",
+      "attack_tell": "once",
+      "attack_swing": "once",
+      "attack_recover": "once",
+      "hurt": "once",
+      "knockback": "hold",
+      "down": "hold",
+      "getup": "once",
+      "corpse": "hold",
+      "knockback_contact": "once"
+    },
+    "key_frames": [
+      0,
+      4,
+      7,
+      11,
+      12,
+      13,
+      16,
+      19,
+      22,
+      25,
+      26
+    ],
+    "key_fixture": "tests/fixtures/goblin_gob01_keys.json",
+    "attack_ticks": {
+      "tell": [
+        0,
+        23
+      ],
+      "swing_smear": [
+        24,
+        25
+      ],
+      "swing_impact": [
+        26,
+        29
+      ],
+      "recover": [
+        30,
+        49
+      ]
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "idle",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "key"
+      },
+      {
+        "index": 1,
+        "tag": "idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 2,
+        "tag": "idle",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "sonnet"
+      },
+      {
+        "index": 3,
+        "tag": "idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 4,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "key"
+      },
+      {
+        "index": 5,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "sonnet"
+      },
+      {
+        "index": 6,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "sonnet"
+      },
+      {
+        "index": 7,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "key"
+      },
+      {
+        "index": 8,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "sonnet"
+      },
+      {
+        "index": 9,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "sonnet"
+      },
+      {
+        "index": 10,
+        "tag": "attack_tell",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "sonnet"
+      },
+      {
+        "index": 11,
+        "tag": "attack_tell",
+        "ticks": 18,
+        "duration_ms": 300,
+        "author": "key"
+      },
+      {
+        "index": 12,
+        "tag": "attack_swing",
+        "ticks": 2,
+        "duration_ms": 33,
+        "author": "key"
+      },
+      {
+        "index": 13,
+        "tag": "attack_swing",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key"
+      },
+      {
+        "index": 14,
+        "tag": "attack_recover",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "sonnet"
+      },
+      {
+        "index": 15,
+        "tag": "attack_recover",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 16,
+        "tag": "hurt",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key"
+      },
+      {
+        "index": 17,
+        "tag": "hurt",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 18,
+        "tag": "knockback",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "sonnet"
+      },
+      {
+        "index": 19,
+        "tag": "knockback",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key"
+      },
+      {
+        "index": 20,
+        "tag": "down",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "sonnet"
+      },
+      {
+        "index": 21,
+        "tag": "down",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 22,
+        "tag": "down",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key"
+      },
+      {
+        "index": 23,
+        "tag": "getup",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 24,
+        "tag": "getup",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "sonnet"
+      },
+      {
+        "index": 25,
+        "tag": "corpse",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key"
+      },
+      {
+        "index": 26,
+        "tag": "knockback_contact",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "key"
+      }
+    ]
+  }
+}
