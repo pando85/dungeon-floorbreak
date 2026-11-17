@@ -1,0 +1,13 @@
+COMBAT_EVENT tick=83 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=86 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=97 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=102 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=102 kind=enemy_defeated target=0
+COMBAT_EVENT tick=120 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=128 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=131 kind=hit move=jab instance=3 target=1 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=131 kind=goblin_interrupted goblin=1
+COMBAT_EVENT tick=138 kind=move_started move=haymaker instance=4
+COMBAT_EVENT tick=143 kind=hit move=haymaker instance=4 target=1 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=143 kind=enemy_defeated target=1
+COMBAT_STATE fixture=cp02_two_goblins seed=0xc020001 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies=e0=484.667/0,e1=481.534/0 hash=6e82b7de91397bea

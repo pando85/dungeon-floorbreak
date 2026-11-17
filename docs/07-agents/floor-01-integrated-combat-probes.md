@@ -1,6 +1,6 @@
 # Floor 01 — Integrated combat probes (first playable scene handoff)
 
-**Status:** gameplay evaluation workorder / integration proposal, 2026-11-17. **Not implemented.** Intended to be included in the FIRST integrated Rust + Bevy playable scene under preparation, not built as an unrelated permanent demo.
+**Status:** gameplay evaluation workorder / integration proposal, 2026-11-17. **CP-01 first feel pass implemented in review (PR "CP-01: goblin takedown feel", disclosed placeholder visuals, owner playtest pending, see [the scene doc](../03-tech/floor01-scene.md#combat-fixtures-combat-int-01-cp-01)); CP-02 to CP-04 not implemented.** Intended to be included in the FIRST integrated Rust + Bevy playable scene under preparation, not built as an unrelated permanent demo.
 
 **Owner instruction:** include the combat-feel and hybrid-physics experiments directly in the opening playable scene and its test scenarios. Preserve the story progression and avoid turning the chase into a disconnected training arena.
 

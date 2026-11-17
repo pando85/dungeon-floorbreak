@@ -2,7 +2,7 @@
 
 **Status:** functional integration for human review; not accepted. The scene composes the owner-approved ENV-01 kit (`env-kit-v2` contract, `env-kit-layout-v2` sample layout) with the approved Carl 52 px and Donut 40 px atlases. **COMP-02 adds the A1 lighting pass** ([ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md)): cold ambient per layer group, warm torch pools, floor pools, contact shadows, per-layer haze, additive glow and flame-only bloom, computed at output resolution on top of the integer-scaled pixel layers. It is presentation only and `--no-lighting` restores the COMP-01 look. No acceptance of the look or of performance is claimed: see [Lighting](#lighting-comp-02) for measurements and known divergences. **ANIM-INT-01** replaced the idle-only actor atlases with the owner-approved Carl (48 x 56) and Donut (72 x 44) locomotion atlases and a deterministic animation state machine (idle, run, jump, land); see [Animation](#animation-anim-int-01). Animation is presentation only: physics, movement, collision, camera and lighting are unchanged and the `FLOOR1_SCENE_STATE` hashes are identical to before.
 
-It is a separate binary from the combat greybox and the Character Playground; both keep working. **The normal story run has no enemies, bombs, health or new mechanics, and `attack` / `ability` inputs are ignored there.** **COMBAT-INT-01** adds named combat fixtures (`--fixture`) to the same binary: Carl's melee and placeholder goblins on clean ground, see [Combat fixtures](#combat-fixtures-combat-int-01). The normal route, its camera and its `FLOOR1_SCENE_STATE` hashes are unchanged.
+It is a separate binary from the combat greybox and the Character Playground; both keep working. **The normal story run has no enemies, bombs, health or new mechanics, and `attack` / `ability` inputs are ignored there.** **COMBAT-INT-01** adds named combat fixtures (`--fixture`) to the same binary and **CP-01** gives them their first feel pass (hit-stop, stagger, knockback, the goblin's telegraphed attack, defeat, fast retry): Carl's melee and placeholder goblins on clean ground, see [Combat fixtures](#combat-fixtures-combat-int-01-cp-01). The normal route, its camera and its `FLOOR1_SCENE_STATE` hashes are unchanged.
 
 ## Run
 
@@ -29,8 +29,9 @@ Run from the repository root. A missing atlas is a setup failure: the binary pri
 | `--capture-sequence <first:step:count>` `--capture-dir <dir>` | needs `--scenario`: pre-simulate `first` ticks, then in the real render loop save `count` window screenshots (`frame_NNNN_tick_TTTTT.png`) `step` ticks apart into `dir`, print a `FLOOR1_CAPTURE` line plus the scene and animation state lines for each, and exit. Used for the ANIM-INT-01 evidence |
 | `--anim-trace` | with `--headless-floor01-smoke` and `--scenario`: print one `FLOOR1_ANIM_TRACE` row (tick, hero position and velocity, grounded, both actors' animation state) per simulated tick |
 | `--freeze` | do not advance the simulation (start state, or the captured state) |
-| `--fixture <name>` | COMBAT-INT-01: run a combat fixture (`cp01_single_goblin`, `cp01_two_hits`, `cp02_two_goblins`) instead of the story corridor; scripted by default. Works with `--exit-after-ticks`, `--capture-tick`, `--capture-sequence` and `--headless-floor01-smoke` like `--scenario`; exclusive with `--scenario` |
-| `--manual` | with `--fixture`: the keyboard or pad drives Carl (J / West jab, K / East push kick, R / North restarts the fixture) instead of the script |
+| `--fixture <name>` | combat fixture (`cp01_single_goblin`, `cp01_two_hits`, `cp02_two_goblins`, `cp01_goblin_attacks`, `cp01_interrupt`, `cp01_haymaker_chain`, `cp01_retry`) instead of the story corridor; scripted by default. Works with `--exit-after-ticks` (counted over every attempt), `--capture-tick`, `--capture-sequence` and `--headless-floor01-smoke` like `--scenario`; exclusive with `--scenario` |
+| `--manual` | with `--fixture`: the keyboard or pad drives Carl (J / West jab, J again inside the jab's window = haymaker, K / East push kick, R / North restarts the fixture) instead of the script |
+| `--combat-trace` | with `--headless-floor01-smoke` and `--fixture`: print one `COMBAT_TRACE` row per simulated tick (Carl's move, goblin modes, hit-stop) |
 | `--debug-combat` | with `--fixture`: draw Carl's hit box (red, active ticks only) and the goblin hurt boxes (green) |
 | `--debug-collision` | overlay merged solids (red), walking lines (cyan) and Carl's AABB (green) |
 | `--headless-floor01-smoke` | no window or GPU: parse, derive solids, simulate, print state lines |
@@ -315,75 +316,149 @@ CI prints the same `FLOOR1_PERF` line from its report-only (`continue-on-error`)
 - Unsupported on purpose: emitters in the `foreground` or `actors` group, more than 6 slots, 64 lights, 8 shadows or 16 emissive colours (all but the contact shadows are checked at load).
 - Window: the window is created with `scale_factor_override(1.0)`, so an OS scale factor cannot turn the 3x into a fractional ratio; window size equals virtual size x scale in real pixels.
 
-## Combat fixtures (COMBAT-INT-01)
+## Combat fixtures (COMBAT-INT-01, CP-01)
 
-Foundation for the combat probes of [the opening workorder](../07-agents/floor-01-integrated-combat-probes.md): named, deterministic fixtures in the same executable, run through the combat domain that WORK-021 uses. **Not tuned for feel** (hit-stop, knockback and the goblin attack are the next PRs); the human CP-01 verdict is still open.
+Foundation (COMBAT-INT-01) and first feel pass (CP-01, this PR) of the combat probes of [the opening workorder](../07-agents/floor-01-integrated-combat-probes.md): named, deterministic fixtures in the same executable, run through the combat domain that WORK-021 uses. **CP-01 adds hit-stop, stagger, knockback, a defeat with a corpse, the goblin's telegraphed attack (replacing the contact-damage placeholder), the jab-haymaker string and a fast retry, on DISCLOSED PLACEHOLDER visuals.** Every number is a starting value for the owner's playtest; the human CP-01 verdict (is it immediate, heavy, readable and worth repeating?) is still open. Design contract: [combat feel and hybrid physics](../01-design/combat-feel-hybrid-physics.md), section 5, Fixture 1.
 
 ### One source of truth
 
 | Module | Role |
 | --- | --- |
-| `src/combat.rs` | Bevy-free combat domain: `MoveSpec` move data, `MoveRunner` (move clock, press buffer, per-instance hit list), `Enemy` (health, stagger, push impulse, chase, contact damage), `resolve_strike`, `CombatEvent` |
-| `src/combat_scene.rs` | Bevy-free fixtures (`Fixture`, `CombatState`, `FixtureSim`) layered on `SceneSim`; Carl's hurt flinch, defeat and restart; event log and state hash |
-| `src/prototype.rs` | the WORK-021 greybox `World` now calls `combat` (strike `GREYBOX_STRIKE`, `Enemy::step`, `Enemy::contact`); its three golden traces are unchanged |
+| `src/feel.rs` | **every tuning value of CP-01 in one file**: hit-stop, stagger, knockback, camera kick, the goblin attack timeline and token rule, Carl's hurt and knockdown, the retry delay |
+| `src/combat.rs` | Bevy-free combat domain: `MoveSpec` move data and the `CARL_MOVES` table (the one move lookup, `carl_move`), `MoveRunner` (move clock, press buffer, string, hit-stop, per-instance hit list), `StrikeTarget` and `resolve_strike`, `CombatEvent`; `Enemy` is the WORK-021 greybox enemy |
+| `src/goblin.rs` | Bevy-free scene goblin: the state machine (neutral, attack, hurt, airborne, down, corpse), knockback physics, the swing box, `take_hit` |
+| `src/combat_scene.rs` | Bevy-free fixtures (`Fixture`, `CombatState`, `FixtureSim`) layered on `SceneSim`: the attack token, tell spacing, the blow on Carl, his hurt, knockdown and restart; the capped event log and the state hash; the presentation helpers (`camera_kick`, `flash`) |
+| `src/prototype.rs` | the WORK-021 greybox `World` calls `combat` (strike `GREYBOX_STRIKE`, `Enemy::step`, `Enemy::contact`); its three golden traces are unchanged |
 | `src/corridor.rs` | only `new_at` constructors (start at a given column); the story simulation and hashes are untouched |
 | `src/bin/floor01_scene.rs` | arguments, input adapter and placeholder visuals; reads the state, never writes it |
 
-Bombs and explosives stay in the WORK-021 `World` only. Nothing in `combat`, `combat_scene` or the scene binary can create one (a test guards the sources); before the Guild the secondary action is the push kick.
+Bombs and explosives stay in the WORK-021 `World` only. Nothing in `combat`, `combat_scene`, `goblin`, `feel` or the scene binary can create one (a test guards the sources); before the Guild the secondary action is the push kick.
+
+### Tick order and determinism
+
+One fixed tick (60 Hz) always runs in the same order: Carl's move clock and strike against the goblins (index order; **Carl wins a same-tick trade**), the scene step (Carl's physics, Donut's trail, the camera), then each goblin in index order (attack token, tell, swing and the blow on Carl). No wall-clock time and no randomness (the fixture `seed` is recorded and hashed; nothing draws from it). Tick numbers are the scene tick after the step (the first step is tick 1) and are **attempt-local**: a restart brings the tick back to 0, so the next attempt counts from 1 again. The `restart` event carries the tick the finished attempt ended on (the triggering tick), and `COMBAT_STATE` also prints `elapsed`, the ticks over every attempt (the live loop's `--exit-after-ticks` counts that).
 
 ### Move table
 
-A const table in `src/combat.rs` (`CARL_MOVES`: `CARL_JAB`, `CARL_PUSH_KICK`; `GREYBOX_STRIKE` is WORK-021 as data). Timings are the ticks of the Carl melee art spec (`docs/02-art/carl-melee-anim-02-spec.md`, PR #43); tick 0 is the tick the input is accepted.
+A const table in `src/combat.rs` (`CARL_MOVES`: `CARL_JAB`, `CARL_HAYMAKER`, `CARL_PUSH_KICK`; `GREYBOX_STRIKE` is WORK-021 as data). Timings and boxes are the ones of the Carl melee art spec (`docs/02-art/carl-melee-anim-02-spec.md`, PR #43, reach boxes after its redesign); tick 0 is the tick the input is accepted.
 
-| Move | Input | Startup | Active | Recovery | Total | Hit box (pivot-relative, half-open) | Reaction |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `jab` | attack (J / West) | 3 | 2 | 9 | 14 | x +16..22 (the fist reaches +21), y 31..37 above the feet | damage 1, stagger 10 ticks, push 4 px |
-| `push_kick` | secondary (K / East) | 13 | 4 | 19 | 36 | x +15..22, y 18..28 | placeholder = the jab's; the launch is CP-02 |
-| `greybox_strike` | WORK-021 only | 0 | 1 | 13 | 14 | centre distance -9..54, 44 vertical | none (the old 54 px greybox reach) |
+| Move | Input | Startup | Active | Recovery | Total | Hit box (pivot-relative, half-open, art reach) | Hit-stop | Stagger | Knockback |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `jab` | attack (J / West) | 3 | 2 | 9 | 14 | x +16..22, y 29..35 above the feet (fist [16,29,21,34]) | 3 | 10 | 40 px/s, about 1 px |
+| `haymaker` | attack again inside the jab's window | 5 | 3 | 14 | 22 | x +16..22, y 27..38 (overhand chop [16,27,21,37]) | 5 | 18 | 80 px/s with a 60 px/s hop, about 12 px |
+| `push_kick` | secondary (K / East) | 13 | 4 | 19 | 36 | x +15..22, y 18..28 | 8 | 10 | the jab's until CP-02 |
+| `greybox_strike` | WORK-021 only | 0 | 1 | 13 | 14 | centre distance -9..54, 44 vertical | none | none | none |
 
-* The hit lands on the **first active tick** (`jab`: move tick 3), never on the press tick, and only if the target body (24 x 38) overlaps the box in front of Carl. Facing mirrors the box; a target behind Carl is never hit.
-* A target is hit **at most once per move instance**: two active ticks, a lingering overlap or a held button never repeat damage. A new press is a new move.
-* **Buffering:** only press edges count (a held button is one press). A press made while a move runs is remembered for 6 ticks (`CARL_BUFFER_TICKS`): inside the last 6 ticks it starts the next move on the tick the current one ends; earlier presses are forgotten. WORK-021 uses buffer 0 (its cooldown of 14).
+* The hit lands on the **first active tick at which the box overlaps the target**, never on the press tick: normally the first active tick (`jab`: move tick 3, `haymaker`: move tick 5), later when the target steps into the box during the second or third active tick (a test pins this). The target body is 24 x 38 and the box is in front of Carl; facing mirrors it and a target behind Carl is never hit.
+* A target is hit **at most once per move instance**: a lingering overlap, the second active tick or a held button never repeat damage. A new press is a new move.
+* **The string:** a second attack press while the jab is at move ticks 3 to 13 (inclusive) starts the haymaker as soon as the jab has reached tick 7 (on the press tick itself when that is later), as in the art spec ("press buffered t3-13, the next move starts at max(t7, press tick)"). A press at jab ticks 0 to 2 is forgotten, one after tick 13 is a new jab. The haymaker ends the string. The window is judged in **move ticks**, so a press during the jab's hit-stop counts as the tick it froze on.
+* **Buffering:** only press edges count (a held button is one press). A press made while a move runs (other than the string) is remembered for 6 ticks (`CARL_BUFFER_TICKS`): inside the last 6 ticks of the move it starts the next move on the tick the current one ends; earlier presses are forgotten (the boundary is tested). WORK-021 uses buffer 0 (its cooldown of 14).
 * While a move runs on the ground, Carl's feet stay planted and jumping is off (the art assumes no root motion). Pressing a direction with the attack turns Carl first. Being hurt cancels the move.
-* The goblin: body 24 x 38 (as WORK-021), two hits, stagger (no chase, no contact damage) and a 4 px push, defeat removes it from the hurt test and from contact damage. WORK-021's contact damage on Carl stays (centre distance under 23 x 36, 55 ticks of invulnerability, then 18 ticks of hurt flinch in the fixtures). Carl has 4 hit points; at 0 he lies defeated for 45 ticks and the fixture restarts by itself (`R` / North restarts at once).
+* **Integration rule for the real art (PR #43):** draw Carl above the target during his active frames so the goblin's head does not hide his fist. In this placeholder PR Carl is always drawn above every goblin part (`CARL_Z_OFFSET` 0.1 against 0.05 to 0.07; a test pins the order); the art PR must keep that during the active frames.
+
+### Hit feedback (CP-01)
+
+**Hit-stop** is an authoritative sim state: on a confirmed hit the attacker's move clock freezes and so does the target (every timer, its motion, its swing progress). During the freeze: the move tick does not advance (a press made then still counts), a frozen tick resolves no hit, a target inside the freeze it just caused cannot be hit again, a frozen goblin neither advances its swing nor deals damage, and Carl's physics stand still while he is frozen (as the attacker or after a blow on him; after a blow his flinch and invulnerability stand still too) while the scene tick, Donut and the camera go on. The attacker freezes for the hit tick's following `hit_stop` ticks; the goblin's own step on the hit tick is skipped too, so it loses one tick more (documented, tested). After the freeze everything resumes exactly where it stopped. The killing hit freezes `LETHAL_HIT_STOP_BONUS` (3) ticks longer.
+
+**Stagger** (`Hurt`): a hit during the tell or the recovery cancels the goblin's attack and returns its token; it cannot attack or walk for the move's stagger ticks and then waits **20 more ticks** (post-hurt cooldown, walking allowed) before any new tell. A hit during the swing (smear and impact, as in the GOB-01 state diagram, "`attack_swing` cannot be interrupted") deals damage and hit-stop but no stagger and no knockback: a committed swing, see the open questions.
+
+**Knockback** is a deterministic impulse: horizontal (away from Carl) and a small vertical hop, applied once as a velocity; gravity (1050 px/s^2) and ground friction (1200 px/s^2) do the rest. It is bounded (speed clamped to 300 px/s) and stopped dead by solid geometry and the layout edge (tested with a wall). Carl and Donut do not push the goblin and goblins do not collide with each other yet (CP-02).
+
+**Defeat:** the killing hit launches the goblin (130 px/s with a 180 px/s hop: about 21 ticks in the air and 52 px), it lands and lies `down` for 30 ticks, then stays as a **corpse**. From the killing hit on it has no hurtbox, holds no attack token, never starts or lands a swing, cannot be hit and never collides with or hurts Carl (tested: Carl walks through it). The corpse stays (no fade, no physics: CP-04 is out of scope).
+
+**Presentation only** (read the sim, never write it; the sim hash does not include it, tested): an **impact flash** (the target is drawn white for 3 ticks after a hit) and a **camera kick** (1 virtual px on a jab, 2 on a haymaker or kick, +1 on the killing hit, along the hit direction, fading linearly over 6 ticks, kept inside the layout). Both derive from the last confirmed hit and the tick: `CombatState::camera_kick(tick)` and `CombatState::flash(goblin, tick)`.
+
+### The goblin attack (GOB-01 spec section 4)
+
+The WORK-021 contact damage is gone: **Carl takes damage only from a swing's active window, never from body contact** (tested: standing inside a goblin does nothing). Carl keeps his hurt invulnerability (55 ticks, which also blocks a second goblin's swing in that window, tested).
+
+| Phase | Attack ticks (tell start = 0) | Notes |
+| --- | --- | --- |
+| approach | - | walks at 62 px/s towards Carl within 220 px, to 30 px with a token and to 60 px without one |
+| tell | 0..24 (6 lead-in + 18 wind-up) | starts when |dx| <= 30, grounded, both cooldowns at 0 and a token is granted; **interruptible**; drawn orange with the club raised |
+| smear | 24..26 | no hit box |
+| impact | **26..29** | **the hit is active here only**: box x +8..30 in front of the feet, y 0..30; at most one blow per attack, on the first tick at which it overlaps Carl's body (24 x 52); only in front of the goblin |
+| recover | 30..49 | vulnerable; the token goes back at tick 30 |
+| cooldown | 40 ticks idle or walking | before the next tell |
+
+**Attack token (group rule):** at most 2 goblins in a tell or a swing at once; two tell starts at least 8 ticks apart; the free slots go to the goblins that could attack now, lowest distance to Carl first and ties to the lower index; the others keep walking or idle 34 to 60 px away. Tested with three goblins (never more than two, tells on ticks 1 and 9, the third waits until a token returns) and with the two-goblin fixtures.
+
+### Carl's hurt, knockdown and retry
+
+A blow: 1 hit point (Carl has 4), 55 ticks of invulnerability, an 18-tick flinch (`hurt`, no actions, the move cancelled), Carl turns to face the goblin, and Carl and that goblin freeze for 4 ticks. The fourth lost hit point is the **knockdown**: a 7-tick freeze, then Carl is launched away from the goblin (120 px/s with a 160 px/s hop, about 42 px, stopped by walls) and lies down. **Fast retry:** the fixture restarts by itself `RESTART_DELAY_TICKS` = 40 ticks after the defeating blow (at most 45; `R` / North restarts at once) and the restart is deterministic (the same script gives the same attempt).
 
 ### Fixtures
 
-Tick numbers are the scene tick after the step (the first step is tick 1); script spans and event ticks use the same numbering. Each fixture has a seed (recorded in `COMBAT_STATE` and in the hash; nothing draws randomness yet), Carl's start column, goblin spawns and an optional input script. Fixtures stand on clean ground (a test checks the walking line along the whole span); Donut is not drawn in them.
+Each fixture has a seed, Carl's start column, goblin spawns and an optional input script. Fixtures stand on clean ground (a test checks the walking line 100 px around the whole span); Donut is shown as the passive trail follower (no combat role and no influence on the combat sim; the scene hash already includes her, as in the corridor).
 
 | Fixture | Setup | Script | Final `COMBAT_STATE` hash |
 | --- | --- | --- | --- |
-| `cp01_single_goblin` | Carl at column 400, one chasing goblin at 560 | jab on tick 122 (hit 125), jab on 136 (hit 139, defeated); 200 ticks | `c6952df1e99c7c0a` |
-| `cp01_two_hits` | Carl at 400, a stationary goblin at 428 | attack HELD ticks 10..59 (one hit on 13), a fresh press on 70 (hit 73, defeated); 120 ticks | `382bcaedf5dde492` |
-| `cp02_two_goblins` | Carl at 400, chasing goblins at 520 and 552 | four jabs defeat them one after the other (placeholder for the knockback work); 260 ticks | `f4e11cc71da438a1` |
+| `cp01_single_goblin` | Carl at column 400, one chasing goblin at 560 | jab on tick 122 (hit 125); a second press on 136, inside the jab's window, is the haymaker (hit 141, defeated); 200 ticks. The same inputs as the PR #45 baseline | `e6537a1f17b0567b` |
+| `cp01_two_hits` | Carl at 400, a stationary goblin at 428 | attack HELD ticks 10..59 (one hit on 13), a fresh press on 70 (hit 73, defeated); 140 ticks | `e0663f9481b15b06` |
+| `cp02_two_goblins` | Carl at 400, chasing goblins at 520 and 552 | jab and haymaker on each goblin (presses 83, 97, 128, 135): a placeholder for the knockback work; 260 ticks | `6e82b7de91397bea` |
+| `cp01_goblin_attacks` | Carl idles, one chasing goblin at 560 | none: tell 127, swing and blow 153, tell 222, swing and blow 248; 300 ticks | `a8aa111180066441` |
+| `cp01_interrupt` | as above | jab on 137, hit on 140 inside the tell (attack tick 13): the swing (153) never happens, the next tell waits until 175; 200 ticks | `5ef20dc28a509345` |
+| `cp01_haymaker_chain` | as above | presses 137 and 141: the jab hits on 140, the haymaker starts on 147 (jab tick 7) and kills on 152; 230 ticks | `d48f327294242862` |
+| `cp01_retry` | Carl idles against goblins at 520 and 552 | none: defeated on 400, restart on 439 (40 ticks later), the same attempt again, defeated again on elapsed 839; 840 ticks | `ea023975d3500132` |
 
-Headless replay prints `COMBAT_EVENT tick=... kind=...` per event, then `FLOOR1_SCENE_STATE`, `FLOOR1_ANIM_STATE` and a final `COMBAT_STATE fixture=... seed=... tick=... hero_hp=... deaths=... enemies=... hash=...`. The render loop prints the same events live and the same final lines with `--exit-after-ticks`.
+The hashes of the three PR #45 fixtures changed on purpose: the goblin now has modes, hit-stop, knockback and an attack, the `Hit` event carries `hit_stop`, the haymaker replaces the second jab, the hash covers the held buttons and `elapsed`, and the goblin no longer deals contact damage. The baseline (`c6952df1e99c7c0a`, `382bcaedf5dde492`, `f4e11cc71da438a1`) stays in [the PR #45 evidence](../evidence/combat-int-01/README.md). **The story route hashes are unchanged** (`walk_right` at 250 ticks `931868d6afa56498`, at 613 `82b8f87fa644de48`).
+
+Headless replay prints `COMBAT_EVENT tick=... kind=...` per event, then `FLOOR1_SCENE_STATE`, `FLOOR1_ANIM_STATE` and a final `COMBAT_STATE fixture=... seed=... tick=... elapsed=... hero_hp=... deaths=... enemies=... hash=...`; `--combat-trace` adds one `COMBAT_TRACE` row per tick (Carl's move and tick, `!` while frozen, positions, each goblin's mode, attack tick, hit-stop and health). The render loop prints the same events live and the same final lines with `--exit-after-ticks`. The event log in memory keeps the newest 512 events (`EVENT_LOG_CAP`; a long `--manual` session cannot grow it without bound).
 
 ```sh
-# headless, no GPU (add --capture-tick N to stop at tick N)
-cargo run --locked --bin floor01_scene -- --headless-floor01-smoke --fixture cp01_single_goblin
+# headless, no GPU (add --capture-tick N to stop at tick N, --combat-trace for a row per tick)
+cargo run --locked --bin floor01_scene -- --headless-floor01-smoke --fixture cp01_haymaker_chain
 # the same fixture in the real render loop, 1920x1080, final state must equal the headless one
 bash scripts/export_assets.sh
-cargo run --locked --bin floor01_scene -- --scale 3 --fixture cp01_single_goblin --exit-after-ticks 200
-# play it yourself (J / West jab, K / East push kick, R / North restart)
+cargo run --locked --bin floor01_scene -- --scale 3 --fixture cp01_haymaker_chain --exit-after-ticks 230
+# play it yourself (J / West jab then J again = haymaker, K / East push kick, R / North restart)
 cargo run --locked --bin floor01_scene -- --scale 3 --fixture cp01_single_goblin --manual --debug-combat
-# the evidence capture (61 real frames) and the CI checks
-xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render
+# the CI checks and the evidence (real frames, GIFs, strip, diagrams, logs, SHA256SUMS)
 bash scripts/ci_floor01_combat.sh headless
-bash scripts/make_combat_int_evidence.sh   # stills, GIF, logs and SHA256SUMS
+xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render
+bash scripts/make_cp01_feel_evidence.sh
 ```
+
+### Tuning values (all in `src/feel.rs`)
+
+| Value | Starting value | Why |
+| --- | --- | --- |
+| hit-stop: jab / haymaker / kick | 3 / 5 / 8 ticks | the melee art spec's proposal; 3 ticks (50 ms) is the least that reads as contact without making the jab sluggish |
+| hit-stop bonus on the killing hit | +3 ticks | the last blow must land harder than the first |
+| stagger: jab / haymaker | 10 / 18 ticks | the melee art spec; longer than the jab's 14-tick recovery would stun-lock one goblin, shorter lets it counter |
+| post-hurt cooldown, attack cooldown | 20 / 40 ticks | GOB-01 spec: a hit goblin does not retaliate at once, a goblin does not chain attacks |
+| knockback: jab / haymaker | 40 px/s about 1 px / 80 px/s with a 60 px/s hop about 12 px | the art spec's "jab at most 2 px, haymaker about 12 px"; a jab push above 2 px carries the goblin out of the haymaker's 34 px reach |
+| knockback of the killing hit | 130 px/s with 180 px/s up: 21 ticks, 52 px | clear kill confirmation without leaving the screen (CP-02 will tune it against the second goblin) |
+| knockback bound | 300 px/s, gravity 1050, friction 1200 | an upper bound for any future move; gravity is the WORK-021 value |
+| camera kick: jab / haymaker, kick / killing bonus | 1 / 2 virtual px, +1; 6 ticks | 3 to 9 screen px at 1080p: felt, not seasick; presentation only |
+| impact flash | 3 ticks | readable without hiding the pose |
+| goblin timeline | tell 24 (6 + 18), smear 2, impact 26..29, recover 20, trigger 30 px | GOB-01 spec section 4 |
+| attack tokens, tell spacing | 2, 8 ticks | GOB-01 spec: no more than two goblins attack at once, a visible beat between starts |
+| goblin stand-off without a token | 60 px | inside the spec's 34..60 px |
+| down time, then corpse | 30 ticks | GOB-01 spec |
+| Carl: flinch, hurt freeze, knockdown freeze | 18, 4, 7 ticks | melee art spec flinch; a blow on Carl should land like his |
+| Carl: knockdown launch | 120 px/s with 160 px/s up | about 42 px away from the goblin |
+| restart delay | 40 ticks after the defeating blow (at most 45) | fast retry: knockdown, a short sprawl, go again |
 
 ### Disclosed placeholders
 
-The GOB-01 goblin art and the ANIM-CARL-02 melee art have not merged. In fixtures **a goblin is a flat 24 x 38 rectangle** (olive green, pale on stagger, a flat dark slab when defeated) with a **magenta band on its head that labels it a placeholder**. Carl keeps his locomotion frames; a small pale box shows the fist or sole during the move's contact frames (active ticks plus two), Carl turns red while hurt and lies down when defeated. These are mechanical probes, not approved art.
+The GOB-01 goblin art and the ANIM-CARL-02 melee art have not merged (real art is wired in by a later PR). In fixtures **a goblin is a flat 24 x 38 rectangle** (olive green; orange in its tell with a raised brown club box; a red box over the swing's hit area while it is active; pale while staggered; white for 3 ticks after a hit; tipped back while flying; a flat slab when down, a darker one as a corpse) with a **magenta band on its head that labels it a placeholder**. Carl keeps his locomotion frames; a small pale box shows the fist or sole during the move's contact frames (active ticks plus two), Carl turns red while hurt and tips over when knocked down. Donut follows as the passive trail follower. These are mechanical probes, not approved art.
 
 ### Evidence and tests
 
-[Evidence](../evidence/combat-int-01/README.md): real Bevy 1920x1080 stills at the hit (tick 125), the stagger and the defeat, a GIF, the headless event logs and `SHA256SUMS`. Rust tests cover: the hit on the active tick; cooldown, recovery and buffering; no repeated damage from a held button or an overlap; facing and in-front-only hits; defeat after two hits and a corpse that neither collides nor takes hits; Carl's flinch, defeat and restart; restart determinism; the same trace giving the same event log and hash; the committed hashes; clean ground under every fixture; the unchanged corridor hashes (walk_right at 250 and 613 ticks); and the old greybox golden traces.
+[Evidence](../evidence/cp01-feel/README.md): real Bevy 1920x1080 captures (GIFs of `cp01_single_goblin`, `cp01_haymaker_chain` and `cp01_interrupt`, stills, a per-tick strip around the killing hit with the hit-stop visible), timing diagrams (input, startup, hit-stop, stagger, knockback, defeat; the goblin tell and swing), the per-tick traces, the headless event logs and `SHA256SUMS`, compared with the PR #45 baseline. Rust tests cover: hit-stop determinism and its effect on every timer; no damage during the hit-stop (a frozen swing opens late and hurts once, a frozen target cannot be hit again); the stagger cancelling the tell and the post-hurt cooldown; the attack token limit and the tell spacing; the swing hitting only on attack ticks 26 to 29 and only in front; knockback bounded and stopped by walls and the layout edge; defeat removing collision and threat; restart determinism and the restart event's tick; the string window boundaries (jab ticks 2, 3, 7, 13, 14) and the buffer window boundary; the first overlapping active tick; the held-button state in the hash; the capped event log; the presentation never changing the hash; Donut not changing the combat sim; the committed hashes; clean ground under every fixture; the unchanged corridor hashes; and the old greybox golden traces.
 
 ### Next (not in this PR)
 
-The goblin tell/swing attack (24-tick tell, hits on active ticks 26..29, from the GOB-01 spec) instead of contact damage; hit-stop and the knockback tuning (CP-01 feel); the kick launch and the goblin-into-goblin contact (CP-02); the haymaker string; real Carl melee and goblin art; fixtures on the normal route (OPENING-01).
+The kick launch and the goblin-into-goblin contact (CP-02); the environmental kill (CP-03); wiring in the real Carl melee (PR #43) and goblin (PR #44) art once they merge (frame selection from the move clock and the goblin state, Carl above the target in his active frames); fixtures on the normal route (OPENING-01); a non-lethal heavy hit that launches (the spec's `knockback` state with a getup).
+
+### Open design questions (for the owner's playtest)
+
+1. Is the swing really uninterruptible (GOB-01 spec, as built) or should any hit stagger it? Today a jab that lands in the smear or the impact only freezes and damages the goblin and Carl still takes the blow.
+2. Hit-stop lengths (3 / 5 / 8, +3 on a kill, 4 and 7 on Carl) and the camera kick (1 to 3 px): too little, too much?
+3. Is a corpse that stays right, or should it fade? Does 52 px of launch on the last blow read as a kill confirmation or as too much?
+4. Haymaker reach: with a jab push of 1 px the haymaker connects at 30 to 33 px but not on a goblin that was hit while still walking at 33+ px: is a forward step on the haymaker wanted (the art lunges)?
+5. Should a goblin without a token back off instead of standing still at 34 to 60 px?
 
 ## Known limits
 
@@ -399,6 +474,6 @@ The goblin tell/swing attack (24-tick tell, hits on active ticks 26..29, from th
 
 ## CI
 
-`.github/workflows/floor01-scene.yml` also replays the combat fixtures: `scripts/ci_floor01_combat.sh headless` (every fixture twice, compared with the committed logs in `docs/evidence/combat-int-01`) and `scripts/ci_floor01_combat.sh render` (the real render loop at 1920x1080 must reproduce the headless events and hash, then 61 real frames of `cp01_single_goblin`). The scene CI, in short: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model and **fails** the job on divergence (whole-frame mean dE76 <= 1.5, p95 <= 3, |mean delta L*| <= 1, every region mean dE76 <= 2.5; measured 0.55 / 0.90 / 0.23 / <= 0.55, so the gates leave margin for a software rasteriser); the `live-lit` / `live-unlit` steps step the scenario live and compare final states; any `FLOOR1_LIGHTING_WARNING` fails a render step. the `anim-sequence` step captures 81 real frames of the `run_jump` scenario and builds the ANIM-INT-01 evidence (see [Animation](#animation-anim-int-01)); `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
+`.github/workflows/floor01-scene.yml` also replays the combat fixtures: `scripts/ci_floor01_combat.sh headless` (every fixture twice, compared with the committed logs in `docs/evidence/cp01-feel`) and `scripts/ci_floor01_combat.sh render` (the real render loop at 1920x1080 must reproduce the headless events and hash of all seven fixtures, then 61 real frames of each of `cp01_single_goblin`, `cp01_haymaker_chain` and `cp01_interrupt`). The scene CI, in short: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model and **fails** the job on divergence (whole-frame mean dE76 <= 1.5, p95 <= 3, |mean delta L*| <= 1, every region mean dE76 <= 2.5; measured 0.55 / 0.90 / 0.23 / <= 0.55, so the gates leave margin for a software rasteriser); the `live-lit` / `live-unlit` steps step the scenario live and compare final states; any `FLOOR1_LIGHTING_WARNING` fails a render step. the `anim-sequence` step captures 81 real frames of the `run_jump` scenario and builds the ANIM-INT-01 evidence (see [Animation](#animation-anim-int-01)); `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
 
 **Rights:** the character art is public fan-concept art under the recorded scope in [the rights register](../04-production/rights-and-release.md); it does not establish rights to distribute a playable game.

@@ -38,6 +38,7 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
+    goblin::{AttackPhase, GoblinMode},
     input::RawInput,
     light_pass::{
         LAYER_DEBUG, LightPassPlugin, LightRig, LightingMaterial, PassFrame, SceneCamera,
@@ -53,6 +54,17 @@ use dungeon_floorbreak::{
 const GOBLIN_COLOR: Color = Color::srgb(0.38, 0.52, 0.24);
 const GOBLIN_STAGGER_COLOR: Color = Color::srgb(0.82, 0.86, 0.5);
 const GOBLIN_DEFEATED_COLOR: Color = Color::srgb(0.2, 0.26, 0.16);
+/// A goblin in its tell (orange: it is about to swing), the impact flash
+/// (white, a few ticks after a hit) and the placeholder club.
+const GOBLIN_TELL_COLOR: Color = Color::srgb(0.78, 0.5, 0.18);
+const GOBLIN_FLASH_COLOR: Color = Color::WHITE;
+const CLUB_COLOR: Color = Color::srgb(0.46, 0.3, 0.14);
+const CLUB_SWING_COLOR: Color = Color::srgb(0.95, 0.25, 0.15);
+/// Draw order above the actor plane: Carl is always drawn above the goblin and
+/// its parts, so the goblin's head never hides his fist (the melee art asks
+/// for Carl above the target during his active frames; a test pins the order).
+const CARL_Z_OFFSET: f32 = 0.1;
+const GOBLIN_Z_OFFSET: f32 = 0.05;
 const PLACEHOLDER_MAGENTA: Color = Color::srgb(0.84, 0.16, 0.78);
 const STRIKE_COLOR: Color = Color::srgb(1.0, 0.93, 0.55);
 /// Carl tint while hurt, and when defeated.
@@ -95,6 +107,8 @@ struct Args {
     capture_dir: Option<PathBuf>,
     /// Headless only: print one `FLOOR1_ANIM_TRACE` line per simulated tick.
     anim_trace: bool,
+    /// Fixture only, headless: one `COMBAT_TRACE` row per simulated tick.
+    combat_trace: bool,
 }
 
 /// Parse `first:step:count` of `--capture-sequence`.
@@ -129,6 +143,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         capture_sequence: None,
         capture_dir: None,
         anim_trace: false,
+        combat_trace: false,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -148,6 +163,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             "--no-lighting" => parsed.no_lighting = true,
             "--reference-frame" => parsed.reference_frame = true,
             "--anim-trace" => parsed.anim_trace = true,
+            "--combat-trace" => parsed.combat_trace = true,
             "--capture-sequence" => {
                 let value = iter
                     .next()
@@ -244,6 +260,9 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
                 .into(),
         );
     }
+    if parsed.combat_trace && (!parsed.headless || parsed.fixture.is_none()) {
+        return Err("--combat-trace needs --headless-floor01-smoke and --fixture".into());
+    }
     if parsed.anim_trace && (!parsed.headless || parsed.scenario.is_none()) {
         return Err("--anim-trace needs --headless-floor01-smoke and --scenario".into());
     }
@@ -283,6 +302,9 @@ fn build_scene(
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let raw = fixture.input(sim.world.tick + 1);
             step_combat(&mut sim, &mut combat, &mut anim, raw);
+            if args.combat_trace {
+                println!("{}", combat.trace_line(&sim));
+            }
         }
         return Ok((sim, anim, Some(combat)));
     }
@@ -315,6 +337,12 @@ fn step_combat(
     } else {
         anim.reset(&sim.world);
     }
+}
+
+/// Ticks stepped so far: over every attempt in a fixture (a restart brings
+/// the scene tick back to 0), the scene tick otherwise.
+fn elapsed_ticks(sim: &SceneSim, combat: Option<&CombatState>) -> u64 {
+    combat.map_or(sim.world.tick, |combat| combat.elapsed)
 }
 
 /// Print the combat events recorded since the last call.
@@ -538,14 +566,20 @@ struct HeroBox;
 /// is a flat 24 x 38 rectangle (the WORK-021 body box) with a magenta band on
 /// top that marks it as a placeholder. State is shown by colour and shape only.
 #[derive(Component)]
-struct GoblinVisual {
+struct GoblinPart {
     index: usize,
+    kind: GoblinPartKind,
 }
 
-/// The magenta "placeholder" band on a goblin's head.
-#[derive(Component)]
-struct GoblinMarker {
-    index: usize,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GoblinPartKind {
+    /// The 24 x 38 body rectangle.
+    Body,
+    /// The magenta "placeholder" band on the goblin's head.
+    Marker,
+    /// DISCLOSED PLACEHOLDER for the pineapple club: raised in the tell, a red
+    /// box over the swing's hit area while it is active, lowered in recovery.
+    Club,
 }
 
 /// DISCLOSED PLACEHOLDER for Carl's melee art (ANIM-CARL-02 has not merged):
@@ -829,7 +863,12 @@ fn setup(
         ));
     };
     spawn_actor(&actors.donut, &donut_texture, false, kit.actor_z);
-    spawn_actor(&actors.carl, &carl_texture, true, kit.actor_z + 0.1);
+    spawn_actor(
+        &actors.carl,
+        &carl_texture,
+        true,
+        kit.actor_z + CARL_Z_OFFSET,
+    );
 
     // Combat fixture only: placeholder goblins, the strike marker and the
     // optional debug boxes.
@@ -837,18 +876,34 @@ fn setup(
     if let Some(state) = combat.0.as_ref() {
         for index in 0..state.enemies.len() {
             commands.spawn((
-                GoblinVisual { index },
+                GoblinPart {
+                    index,
+                    kind: GoblinPartKind::Body,
+                },
                 Sprite::from_color(GOBLIN_COLOR, Vec2::new(24.0, 38.0)),
-                Transform::from_xyz(0.0, 0.0, kit.actor_z + 0.05),
+                Transform::from_xyz(0.0, 0.0, kit.actor_z + GOBLIN_Z_OFFSET),
                 layers_of("actors"),
             ));
             commands.spawn((
-                GoblinMarker { index },
+                GoblinPart {
+                    index,
+                    kind: GoblinPartKind::Marker,
+                },
                 Sprite::from_color(PLACEHOLDER_MAGENTA, Vec2::new(24.0, 4.0)),
-                Transform::from_xyz(0.0, 0.0, kit.actor_z + 0.06),
+                Transform::from_xyz(0.0, 0.0, kit.actor_z + GOBLIN_Z_OFFSET + 0.01),
                 layers_of("actors"),
             ));
-            combat_entities += 2;
+            commands.spawn((
+                GoblinPart {
+                    index,
+                    kind: GoblinPartKind::Club,
+                },
+                Sprite::from_color(CLUB_COLOR, Vec2::new(6.0, 16.0)),
+                Transform::from_xyz(0.0, 0.0, kit.actor_z + GOBLIN_Z_OFFSET + 0.02),
+                Visibility::Hidden,
+                layers_of("actors"),
+            ));
+            combat_entities += 3;
         }
         commands.spawn((
             StrikeVisual,
@@ -1035,7 +1090,7 @@ fn fixed_step(
         return;
     }
     if let Some(limit) = exit_after.0
-        && sim.0.world.tick >= limit
+        && elapsed_ticks(&sim.0, combat.0.as_ref()) >= limit
     {
         // Already reported; further fixed steps of this frame do nothing.
         return;
@@ -1096,7 +1151,7 @@ fn fixed_step(
         after_exit.0 += 1;
     }
     if let Some(limit) = exit_after.0
-        && sim.0.world.tick >= limit
+        && elapsed_ticks(&sim.0, combat.0.as_ref()) >= limit
     {
         println!("{}", sim.0.state_line());
         println!("{}", anim.0.state_line(sim.0.world.tick));
@@ -1118,8 +1173,14 @@ struct ActorPose {
     frame: usize,
 }
 
-/// View top-left in layout px: the scroll camera, or the reference view.
-fn view_origin(state: &SceneSim, setup: &Setup, reference: &ReferencePose) -> (i32, i32) {
+/// View top-left in layout px: the scroll camera plus the combat camera kick
+/// (presentation only, kept inside the layout), or the reference view.
+fn view_origin(
+    state: &SceneSim,
+    setup: &Setup,
+    reference: &ReferencePose,
+    kick: i32,
+) -> (i32, i32) {
     if reference.0.is_some() {
         let name = if setup.args.deck {
             REFERENCE_VIEW_DECK
@@ -1130,7 +1191,19 @@ fn view_origin(state: &SceneSim, setup: &Setup, reference: &ReferencePose) -> (i
             return (view.x, view.y);
         }
     }
-    (state.camera.left(), state.camera.top())
+    let widest = (setup.kit.width - VIRTUAL_WIDTH).max(0);
+    (
+        (state.camera.left() + kick).clamp(0, widest),
+        state.camera.top(),
+    )
+}
+
+/// The camera kick of the combat fixture at the current tick (0 outside one).
+fn camera_kick(sim: &SceneSim, combat: &Combat) -> i32 {
+    combat
+        .0
+        .as_ref()
+        .map_or(0, |state| state.camera_kick(sim.world.tick))
 }
 
 /// Carl and Donut as drawn: the simulation state, or the reference pose.
@@ -1204,6 +1277,7 @@ fn presentation_tick(
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_visuals(
     sim: Res<Sim>,
+    combat: Res<Combat>,
     anim: Res<Anim>,
     actors: Res<Actors>,
     after_exit: Res<AfterExitTicks>,
@@ -1233,7 +1307,7 @@ fn sync_visuals(
     let state = &sim.0;
     let height = kit.height;
     let view_h = view_height(setup.args.deck);
-    let (left, top) = view_origin(state, &setup, &reference);
+    let (left, top) = view_origin(state, &setup, &reference, camera_kick(state, &combat));
     let anim_tick = presentation_tick(state, &after_exit, &reference);
 
     // Every scene camera (the plain one, or the lighting slot cameras and the
@@ -1285,24 +1359,15 @@ fn sync_visuals(
 
 /// Combat fixture presentation (placeholders; reads the simulation only):
 /// goblin rectangles by state, the strike marker during the move's contact
-/// frames, Carl's hurt tint and defeated pose, Donut hidden, optional boxes.
+/// frames, Carl's hurt tint and knocked-down pose, optional boxes. Donut is
+/// shown as the passive follower.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_combat_visuals(
     sim: Res<Sim>,
     combat: Res<Combat>,
     mut goblins: Query<
-        (&GoblinVisual, &mut Transform, &mut Sprite),
+        (&GoblinPart, &mut Transform, &mut Sprite, &mut Visibility),
         (
-            Without<GoblinMarker>,
-            Without<StrikeVisual>,
-            Without<ActorVisual>,
-            Without<CombatDebugBox>,
-        ),
-    >,
-    mut markers: Query<
-        (&GoblinMarker, &mut Transform, &mut Visibility),
-        (
-            Without<GoblinVisual>,
             Without<StrikeVisual>,
             Without<ActorVisual>,
             Without<CombatDebugBox>,
@@ -1312,8 +1377,7 @@ fn sync_combat_visuals(
         (&mut Transform, &mut Visibility, &mut Sprite),
         (
             With<StrikeVisual>,
-            Without<GoblinVisual>,
-            Without<GoblinMarker>,
+            Without<GoblinPart>,
             Without<ActorVisual>,
             Without<CombatDebugBox>,
         ),
@@ -1321,8 +1385,7 @@ fn sync_combat_visuals(
     mut actors: Query<
         (&ActorVisual, &mut Transform, &mut Sprite, &mut Visibility),
         (
-            Without<GoblinVisual>,
-            Without<GoblinMarker>,
+            Without<GoblinPart>,
             Without<StrikeVisual>,
             Without<CombatDebugBox>,
         ),
@@ -1330,8 +1393,7 @@ fn sync_combat_visuals(
     mut boxes: Query<
         (&CombatDebugBox, &mut Transform, &mut Visibility),
         (
-            Without<GoblinVisual>,
-            Without<GoblinMarker>,
+            Without<GoblinPart>,
             Without<StrikeVisual>,
             Without<ActorVisual>,
         ),
@@ -1341,32 +1403,101 @@ fn sync_combat_visuals(
         return;
     };
     let hero = &sim.0.world.hero;
+    let tick = sim.0.world.tick;
 
-    for (visual, mut transform, mut sprite) in &mut goblins {
-        let enemy = &state.enemies[visual.index];
-        let (colour, size, centre_y) = if !enemy.alive() {
-            // Defeated: lying flat on the floor, no longer a body.
-            let foot = enemy.y - ENEMY_HALF_HEIGHT;
-            (GOBLIN_DEFEATED_COLOR, Vec2::new(34.0, 10.0), foot + 5.0)
-        } else if enemy.staggered() {
-            (GOBLIN_STAGGER_COLOR, Vec2::new(24.0, 38.0), enemy.y)
-        } else {
-            (GOBLIN_COLOR, Vec2::new(24.0, 38.0), enemy.y)
-        };
-        sprite.color = colour;
-        sprite.custom_size = Some(size);
-        transform.translation.x = enemy.x.round();
-        transform.translation.y = centre_y.round();
-    }
-    for (marker, mut transform, mut visibility) in &mut markers {
-        let enemy = &state.enemies[marker.index];
-        transform.translation.x = enemy.x.round();
-        transform.translation.y = (enemy.y + ENEMY_HALF_HEIGHT - 2.0).round();
-        *visibility = if enemy.alive() {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
+    for (part, mut transform, mut sprite, mut visibility) in &mut goblins {
+        let goblin = &state.enemies[part.index];
+        let foot = goblin.y - ENEMY_HALF_HEIGHT;
+        let facing = f32::from(goblin.facing);
+        match part.kind {
+            GoblinPartKind::Body => {
+                let flash = state.flash(part.index, tick);
+                let lying = matches!(goblin.mode, GoblinMode::Down | GoblinMode::Corpse);
+                let (colour, size, centre_y, tilt) = if lying {
+                    // Down, then a corpse that stays: a flat slab, no longer a
+                    // body (it neither collides nor hurts).
+                    (
+                        if goblin.mode == GoblinMode::Corpse {
+                            GOBLIN_DEFEATED_COLOR
+                        } else {
+                            GOBLIN_STAGGER_COLOR
+                        },
+                        Vec2::new(34.0, 10.0),
+                        foot + 5.0,
+                        0.0,
+                    )
+                } else if goblin.mode == GoblinMode::Airborne {
+                    // Launched by the killing hit: tipped back in the air.
+                    let away = if goblin.vx >= 0.0 { -1.0 } else { 1.0 };
+                    (
+                        GOBLIN_STAGGER_COLOR,
+                        Vec2::new(24.0, 38.0),
+                        goblin.y,
+                        away * 0.9,
+                    )
+                } else if goblin.staggered() {
+                    (GOBLIN_STAGGER_COLOR, Vec2::new(24.0, 38.0), goblin.y, 0.0)
+                } else if goblin.attack_phase() == Some(AttackPhase::Tell) {
+                    (GOBLIN_TELL_COLOR, Vec2::new(24.0, 38.0), goblin.y, 0.0)
+                } else {
+                    (GOBLIN_COLOR, Vec2::new(24.0, 38.0), goblin.y, 0.0)
+                };
+                sprite.color = if flash { GOBLIN_FLASH_COLOR } else { colour };
+                sprite.custom_size = Some(size);
+                transform.translation.x = goblin.x.round();
+                transform.translation.y = centre_y.round();
+                transform.rotation = Quat::from_rotation_z(tilt);
+            }
+            GoblinPartKind::Marker => {
+                transform.translation.x = goblin.x.round();
+                transform.translation.y = (goblin.y + ENEMY_HALF_HEIGHT - 2.0).round();
+                transform.rotation = Quat::IDENTITY;
+                *visibility = if goblin.alive() {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+            }
+            GoblinPartKind::Club => {
+                // Raised through the tell, a red box over the swing's hit area
+                // while it is active, lowered in recovery; none otherwise.
+                let (colour, size, cx, cy) = match goblin.attack_phase() {
+                    Some(AttackPhase::Tell) => (
+                        CLUB_COLOR,
+                        Vec2::new(6.0, 16.0),
+                        goblin.x + facing * 6.0,
+                        foot + 38.0 + 6.0,
+                    ),
+                    Some(AttackPhase::Smear) => (
+                        CLUB_COLOR,
+                        Vec2::new(16.0, 6.0),
+                        goblin.x + facing * 14.0,
+                        foot + 34.0,
+                    ),
+                    Some(AttackPhase::Impact) => {
+                        let rect = goblin.swing_box();
+                        let (cx, cy) = rect.center();
+                        (CLUB_SWING_COLOR, Vec2::new(rect.width, rect.height), cx, cy)
+                    }
+                    Some(AttackPhase::Recover) => (
+                        CLUB_COLOR,
+                        Vec2::new(16.0, 5.0),
+                        goblin.x + facing * 16.0,
+                        foot + 3.0,
+                    ),
+                    None => (CLUB_COLOR, Vec2::ONE, 0.0, 0.0),
+                };
+                sprite.color = colour;
+                sprite.custom_size = Some(size);
+                transform.translation.x = cx.round();
+                transform.translation.y = cy.round();
+                *visibility = if goblin.alive() && goblin.attack_phase().is_some() {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+            }
+        }
     }
 
     // The strike marker shows for the move's contact frames: the active ticks
@@ -1391,8 +1522,8 @@ fn sync_combat_visuals(
 
     for (actor, mut transform, mut sprite, mut visibility) in &mut actors {
         if !actor.is_hero {
-            // Fixtures show Carl alone; Donut is a passive follower here.
-            *visibility = Visibility::Hidden;
+            // Donut is the passive trail follower here (no combat role yet).
+            *visibility = Visibility::Inherited;
             continue;
         }
         sprite.color = if state.hero_defeated {
@@ -1404,9 +1535,13 @@ fn sync_combat_visuals(
         };
         if state.hero_defeated {
             // Carl lies down (placeholder for the knockdown art).
-            let turn = -std::f32::consts::FRAC_PI_2 * f32::from(hero.facing);
+            // Tipped back while he is still in the air, flat once he lands.
+            let lie = if hero.grounded { 1.0 } else { 0.5 };
+            let turn = -std::f32::consts::FRAC_PI_2 * f32::from(hero.facing) * lie;
             transform.rotation = Quat::from_rotation_z(turn);
-            transform.translation.y -= 4.0;
+            if hero.grounded {
+                transform.translation.y -= 4.0;
+            }
         } else {
             transform.rotation = Quat::IDENTITY;
         }
@@ -1478,7 +1613,7 @@ fn update_lighting(
     };
     let state = &sim.0;
     let view_h = view_height(setup.args.deck);
-    let (left, top) = view_origin(state, &setup, &reference);
+    let (left, top) = view_origin(state, &setup, &reference, camera_kick(state, &combat));
     let tick = presentation_tick(state, &after_exit, &reference);
     let view = ViewRect {
         left,
@@ -1494,10 +1629,6 @@ fn update_lighting(
     let mut shadows: Vec<ShadowEllipse> = Vec::new();
     if let Some(profile) = scene.profile.actor_contact_shadow.as_ref() {
         for pose in actor_poses(state, &setup, &reference, &actors, &anim.0) {
-            if combat.0.is_some() && !pose.is_hero {
-                // Donut is hidden in combat fixtures: no floating shadow.
-                continue;
-            }
             // The shadow lies on the walking line under the actor (also while
             // it jumps), centred on the footprint of the old idle canvas so the
             // wider locomotion frames do not change the lighting.
@@ -1943,6 +2074,29 @@ mod tests {
             list.extend(extra.iter().filter(|s| !s.is_empty()));
             assert!(bad(&list), "{extra:?}");
         }
+    }
+
+    #[test]
+    fn carl_is_drawn_above_every_goblin_part() {
+        // The goblin's head must not hide Carl's fist: Carl's plane is above the
+        // goblin body, its placeholder band and its club (offsets 0.05, 0.06,
+        // 0.07 above the actor plane), and below the strike marker (0.15).
+        const { assert!(CARL_Z_OFFSET > GOBLIN_Z_OFFSET + 0.02) };
+        const { assert!(CARL_Z_OFFSET < 0.15) };
+    }
+
+    #[test]
+    fn combat_trace_is_headless_fixture_only() {
+        let a = args(&[
+            "--headless-floor01-smoke",
+            "--fixture",
+            "cp01_two_hits",
+            "--combat-trace",
+        ])
+        .unwrap();
+        assert!(a.combat_trace);
+        assert!(args(&["--combat-trace"]).is_err());
+        assert!(args(&["--fixture", "cp01_two_hits", "--combat-trace"]).is_err());
     }
 
     #[test]

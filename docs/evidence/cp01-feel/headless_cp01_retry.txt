@@ -1,0 +1,43 @@
+COMBAT_EVENT tick=89 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=115 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=115 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=120 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=146 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=184 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=210 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=210 kind=hero_hurt source=0 health_left=2
+COMBAT_EVENT tick=211 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=237 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=279 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=302 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=305 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=305 kind=hero_hurt source=0 health_left=1
+COMBAT_EVENT tick=328 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=374 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=393 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=400 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=400 kind=hero_hurt source=0 health_left=0
+COMBAT_EVENT tick=400 kind=hero_defeated
+COMBAT_EVENT tick=419 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=439 kind=restart deaths=1
+COMBAT_EVENT tick=89 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=115 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=115 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=120 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=146 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=184 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=210 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=210 kind=hero_hurt source=0 health_left=2
+COMBAT_EVENT tick=211 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=237 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=279 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=302 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=305 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=305 kind=hero_hurt source=0 health_left=1
+COMBAT_EVENT tick=328 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=374 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=393 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=400 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=400 kind=hero_hurt source=0 health_left=0
+COMBAT_EVENT tick=400 kind=hero_defeated
+COMBAT_STATE fixture=cp01_retry seed=0xc010006 tick=401 elapsed=840 hero_hp=0 deaths=2 enemies=e0=429.067/2,e1=429.034/2 hash=ea023975d3500132
