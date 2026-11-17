@@ -6,6 +6,8 @@
 
 **Later visual approval:** The Hoarder dedicated study, Troglodyte Pygmy/Basher/Virtuoso and The Juicer, plus the Ball of Swine and constituent Tusklings, are recorded in [the supplementary roster](../02-art/floor-01-late-enemy-boss-concepts.md). All three new images are now committed and validated against the eight-entry manifest in the late concept PR; local production agents should not duplicate that conceptual work. Potential remaining concept tasks are Level-2 rats, Goblin Bomb Bard, Goblin Copper Chopper (sidecar), optional unseen Goblin Chieftain, plus standalone Juicer gym and Ball of Swine arena views.
 
+**Later minor-enemy visual concepts (2026-11-17):** The owner accepted the Dungeon Rat, Goblin Bomb Bard and Goblin Copper Chopper visual directions; see [the approved minor-enemy brief](../02-art/floor-01-minor-enemy-concepts.md). The three original concept PNGs are pending owner upload on their **separate** PR; the manifest/test now requires eleven images. The Juicer's Gym visual treatment is owner-approved, but its standalone environment concept and reception/turnstile/room layout remain work for a **different** PR. No new combat mechanics or engine assets are authorized by these concept approvals.
+
 The repository includes design docs, a Bevy WORK-001 runtime spike, approved mood references, and WORK-008 editable art/export fixtures. Status of each item depends on its own CI and review evidence; see [work order protocol](../07-agents/workorders.md).
 
 | ID | Priority | Stage | Deliverable | Acceptance evidence |
