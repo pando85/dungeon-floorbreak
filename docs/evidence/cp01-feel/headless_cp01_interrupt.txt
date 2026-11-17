@@ -2,5 +2,5 @@ COMBAT_EVENT tick=127 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=137 kind=move_started move=jab instance=1
 COMBAT_EVENT tick=140 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
 COMBAT_EVENT tick=140 kind=goblin_interrupted goblin=0
-COMBAT_EVENT tick=175 kind=goblin_tell goblin=0
-COMBAT_STATE fixture=cp01_interrupt seed=0xc010004 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=429.768/1 hash=5ef20dc28a509345
+COMBAT_EVENT tick=177 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=cp01_interrupt seed=0xc010004 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=429.701/1 hash=ee81fa34f09491e0

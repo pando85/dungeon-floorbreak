@@ -1,300 +1,300 @@
-COMBAT_TRACE tick=1 elapsed=1 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=558.97 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=2 elapsed=2 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=557.93 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=3 elapsed=3 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=556.90 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=4 elapsed=4 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=555.87 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=5 elapsed=5 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=554.83 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=6 elapsed=6 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=553.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=7 elapsed=7 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=552.77 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=8 elapsed=8 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=551.73 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=9 elapsed=9 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=550.70 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=10 elapsed=10 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=549.67 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=11 elapsed=11 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=548.63 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=12 elapsed=12 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=547.60 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=13 elapsed=13 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=546.57 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=14 elapsed=14 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=545.53 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=15 elapsed=15 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=544.50 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=16 elapsed=16 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=543.47 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=17 elapsed=17 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=542.43 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=18 elapsed=18 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=541.40 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=19 elapsed=19 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=540.37 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=20 elapsed=20 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=539.33 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=21 elapsed=21 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=538.30 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=22 elapsed=22 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=537.27 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=23 elapsed=23 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=536.23 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=24 elapsed=24 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=535.20 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=25 elapsed=25 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=534.17 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=26 elapsed=26 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=533.13 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=27 elapsed=27 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=532.10 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=28 elapsed=28 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=531.07 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=29 elapsed=29 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=530.03 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=30 elapsed=30 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=529.00 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=31 elapsed=31 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=527.97 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=32 elapsed=32 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=526.93 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=33 elapsed=33 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=525.90 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=34 elapsed=34 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=524.87 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=35 elapsed=35 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=523.83 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=36 elapsed=36 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=522.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=37 elapsed=37 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=521.77 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=38 elapsed=38 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=520.73 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=39 elapsed=39 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=519.70 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=40 elapsed=40 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=518.67 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=41 elapsed=41 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=517.63 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=42 elapsed=42 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=516.60 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=43 elapsed=43 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=515.57 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=44 elapsed=44 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=514.53 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=45 elapsed=45 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=513.50 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=46 elapsed=46 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=512.47 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=47 elapsed=47 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=511.43 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=48 elapsed=48 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=510.40 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=49 elapsed=49 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=509.37 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=50 elapsed=50 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=508.33 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=51 elapsed=51 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=507.30 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=52 elapsed=52 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=506.27 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=53 elapsed=53 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=505.23 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=54 elapsed=54 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=504.20 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=55 elapsed=55 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=503.17 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=56 elapsed=56 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=502.13 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=57 elapsed=57 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=501.10 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=58 elapsed=58 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=500.07 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=59 elapsed=59 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=499.03 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=60 elapsed=60 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=498.00 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=61 elapsed=61 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=496.97 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=62 elapsed=62 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=495.93 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=63 elapsed=63 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=494.90 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=64 elapsed=64 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=493.87 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=65 elapsed=65 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=492.83 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=66 elapsed=66 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=491.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=67 elapsed=67 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=490.77 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=68 elapsed=68 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=489.73 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=69 elapsed=69 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=488.70 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=70 elapsed=70 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=487.67 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=71 elapsed=71 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=486.63 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=72 elapsed=72 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=485.60 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=73 elapsed=73 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=484.57 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=74 elapsed=74 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=483.53 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=75 elapsed=75 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=482.50 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=76 elapsed=76 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=481.47 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=77 elapsed=77 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=480.43 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=78 elapsed=78 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=479.40 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=79 elapsed=79 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=478.37 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=80 elapsed=80 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=477.33 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=81 elapsed=81 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=476.30 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=82 elapsed=82 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=475.27 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=83 elapsed=83 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=474.23 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=84 elapsed=84 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=473.20 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=85 elapsed=85 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=472.17 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=86 elapsed=86 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=471.13 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=87 elapsed=87 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=470.10 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=88 elapsed=88 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=469.07 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=89 elapsed=89 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=468.03 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=90 elapsed=90 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=467.00 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=91 elapsed=91 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=465.97 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=92 elapsed=92 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=464.93 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=93 elapsed=93 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=463.90 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=94 elapsed=94 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=462.87 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=95 elapsed=95 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=461.83 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=96 elapsed=96 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=460.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=97 elapsed=97 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=459.77 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=98 elapsed=98 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=458.73 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=99 elapsed=99 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=457.70 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=100 elapsed=100 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=456.67 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=101 elapsed=101 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=455.63 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=102 elapsed=102 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=454.60 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=103 elapsed=103 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=453.57 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=104 elapsed=104 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=452.53 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=105 elapsed=105 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=451.50 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=106 elapsed=106 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=450.47 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=107 elapsed=107 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=449.43 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=108 elapsed=108 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=448.40 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=109 elapsed=109 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=447.37 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=110 elapsed=110 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=446.33 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=111 elapsed=111 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=445.30 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=112 elapsed=112 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=444.27 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=113 elapsed=113 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=443.23 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=114 elapsed=114 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=442.20 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=115 elapsed=115 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=441.17 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=116 elapsed=116 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=440.13 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=117 elapsed=117 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=439.10 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=118 elapsed=118 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=438.07 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=119 elapsed=119 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=437.03 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=120 elapsed=120 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=436.00 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=121 elapsed=121 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=434.97 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=122 elapsed=122 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=433.93 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=123 elapsed=123 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=432.90 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=124 elapsed=124 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=431.87 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=125 elapsed=125 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=430.83 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=126 elapsed=126 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=127 elapsed=127 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=128 elapsed=128 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=1 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=129 elapsed=129 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=2 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=130 elapsed=130 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=3 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=131 elapsed=131 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=4 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=132 elapsed=132 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=5 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=133 elapsed=133 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=6 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=134 elapsed=134 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=7 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=135 elapsed=135 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=8 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=136 elapsed=136 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=9 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=137 elapsed=137 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=10 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=138 elapsed=138 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=11 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=139 elapsed=139 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=12 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=140 elapsed=140 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=13 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=141 elapsed=141 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=14 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=142 elapsed=142 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=15 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=143 elapsed=143 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=16 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=144 elapsed=144 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=17 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=145 elapsed=145 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=18 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=146 elapsed=146 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=19 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=147 elapsed=147 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=20 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=148 elapsed=148 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=21 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=149 elapsed=149 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=22 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=150 elapsed=150 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=23 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=151 elapsed=151 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Smear g0_t=24 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=152 elapsed=152 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Smear g0_t=25 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=153 elapsed=153 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=4 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=4 g0_hp=2
-COMBAT_TRACE tick=154 elapsed=154 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=3 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=3 g0_hp=2
-COMBAT_TRACE tick=155 elapsed=155 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=2 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=2 g0_hp=2
-COMBAT_TRACE tick=156 elapsed=156 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=1 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=1 g0_hp=2
-COMBAT_TRACE tick=157 elapsed=157 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=0 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=158 elapsed=158 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=17 carl_stop=0 invuln=54 kick=0 g0=Attack/Impact g0_t=27 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=159 elapsed=159 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=16 carl_stop=0 invuln=53 kick=0 g0=Attack/Impact g0_t=28 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=160 elapsed=160 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=15 carl_stop=0 invuln=52 kick=0 g0=Attack/Impact g0_t=29 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=161 elapsed=161 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=14 carl_stop=0 invuln=51 kick=0 g0=Attack/Recover g0_t=30 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=162 elapsed=162 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=13 carl_stop=0 invuln=50 kick=0 g0=Attack/Recover g0_t=31 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=163 elapsed=163 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=12 carl_stop=0 invuln=49 kick=0 g0=Attack/Recover g0_t=32 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=164 elapsed=164 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=11 carl_stop=0 invuln=48 kick=0 g0=Attack/Recover g0_t=33 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=165 elapsed=165 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=10 carl_stop=0 invuln=47 kick=0 g0=Attack/Recover g0_t=34 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=166 elapsed=166 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=9 carl_stop=0 invuln=46 kick=0 g0=Attack/Recover g0_t=35 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=167 elapsed=167 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=8 carl_stop=0 invuln=45 kick=0 g0=Attack/Recover g0_t=36 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=168 elapsed=168 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=7 carl_stop=0 invuln=44 kick=0 g0=Attack/Recover g0_t=37 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=169 elapsed=169 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=6 carl_stop=0 invuln=43 kick=0 g0=Attack/Recover g0_t=38 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=170 elapsed=170 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=5 carl_stop=0 invuln=42 kick=0 g0=Attack/Recover g0_t=39 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=171 elapsed=171 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=4 carl_stop=0 invuln=41 kick=0 g0=Attack/Recover g0_t=40 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=172 elapsed=172 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=3 carl_stop=0 invuln=40 kick=0 g0=Attack/Recover g0_t=41 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=173 elapsed=173 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=2 carl_stop=0 invuln=39 kick=0 g0=Attack/Recover g0_t=42 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=174 elapsed=174 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=1 carl_stop=0 invuln=38 kick=0 g0=Attack/Recover g0_t=43 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=175 elapsed=175 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=37 kick=0 g0=Attack/Recover g0_t=44 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=176 elapsed=176 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=36 kick=0 g0=Attack/Recover g0_t=45 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=177 elapsed=177 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=35 kick=0 g0=Attack/Recover g0_t=46 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=178 elapsed=178 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=34 kick=0 g0=Attack/Recover g0_t=47 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=179 elapsed=179 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=33 kick=0 g0=Attack/Recover g0_t=48 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=180 elapsed=180 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=32 kick=0 g0=Attack/Recover g0_t=49 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=181 elapsed=181 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=31 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=182 elapsed=182 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=30 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=183 elapsed=183 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=29 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=184 elapsed=184 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=28 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=185 elapsed=185 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=27 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=186 elapsed=186 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=26 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=187 elapsed=187 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=25 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=188 elapsed=188 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=24 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=189 elapsed=189 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=23 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=190 elapsed=190 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=22 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=191 elapsed=191 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=21 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=192 elapsed=192 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=20 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=193 elapsed=193 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=19 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=194 elapsed=194 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=18 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=195 elapsed=195 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=17 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=196 elapsed=196 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=16 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=197 elapsed=197 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=15 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=198 elapsed=198 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=14 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=199 elapsed=199 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=13 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=200 elapsed=200 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=12 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=201 elapsed=201 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=11 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=202 elapsed=202 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=10 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=203 elapsed=203 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=9 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=204 elapsed=204 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=8 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=205 elapsed=205 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=7 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=206 elapsed=206 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=6 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=207 elapsed=207 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=5 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=208 elapsed=208 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=4 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=209 elapsed=209 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=3 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=210 elapsed=210 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=2 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=211 elapsed=211 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=1 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=212 elapsed=212 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=213 elapsed=213 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=214 elapsed=214 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=215 elapsed=215 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=216 elapsed=216 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=217 elapsed=217 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=218 elapsed=218 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=219 elapsed=219 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=220 elapsed=220 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=221 elapsed=221 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=222 elapsed=222 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=223 elapsed=223 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=1 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=224 elapsed=224 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=2 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=225 elapsed=225 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=3 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=226 elapsed=226 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=4 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=227 elapsed=227 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=5 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=228 elapsed=228 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=6 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=229 elapsed=229 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=7 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=230 elapsed=230 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=8 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=231 elapsed=231 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=9 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=232 elapsed=232 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=10 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=233 elapsed=233 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=11 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=234 elapsed=234 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=12 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=235 elapsed=235 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=13 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=236 elapsed=236 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=14 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=237 elapsed=237 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=15 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=238 elapsed=238 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=16 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=239 elapsed=239 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=17 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=240 elapsed=240 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=18 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=241 elapsed=241 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=19 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=242 elapsed=242 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=20 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=243 elapsed=243 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=21 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=244 elapsed=244 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=22 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=245 elapsed=245 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Tell g0_t=23 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=246 elapsed=246 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Smear g0_t=24 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=247 elapsed=247 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 g0=Attack/Smear g0_t=25 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=248 elapsed=248 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=4 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=4 g0_hp=2
-COMBAT_TRACE tick=249 elapsed=249 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=3 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=3 g0_hp=2
-COMBAT_TRACE tick=250 elapsed=250 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=2 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=2 g0_hp=2
-COMBAT_TRACE tick=251 elapsed=251 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=1 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=1 g0_hp=2
-COMBAT_TRACE tick=252 elapsed=252 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=0 invuln=55 kick=0 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=253 elapsed=253 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=17 carl_stop=0 invuln=54 kick=0 g0=Attack/Impact g0_t=27 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=254 elapsed=254 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=16 carl_stop=0 invuln=53 kick=0 g0=Attack/Impact g0_t=28 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=255 elapsed=255 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=15 carl_stop=0 invuln=52 kick=0 g0=Attack/Impact g0_t=29 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=256 elapsed=256 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=14 carl_stop=0 invuln=51 kick=0 g0=Attack/Recover g0_t=30 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=257 elapsed=257 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=13 carl_stop=0 invuln=50 kick=0 g0=Attack/Recover g0_t=31 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=258 elapsed=258 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=12 carl_stop=0 invuln=49 kick=0 g0=Attack/Recover g0_t=32 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=259 elapsed=259 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=11 carl_stop=0 invuln=48 kick=0 g0=Attack/Recover g0_t=33 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=260 elapsed=260 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=10 carl_stop=0 invuln=47 kick=0 g0=Attack/Recover g0_t=34 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=261 elapsed=261 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=9 carl_stop=0 invuln=46 kick=0 g0=Attack/Recover g0_t=35 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=262 elapsed=262 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=8 carl_stop=0 invuln=45 kick=0 g0=Attack/Recover g0_t=36 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=263 elapsed=263 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=7 carl_stop=0 invuln=44 kick=0 g0=Attack/Recover g0_t=37 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=264 elapsed=264 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=6 carl_stop=0 invuln=43 kick=0 g0=Attack/Recover g0_t=38 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=265 elapsed=265 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=5 carl_stop=0 invuln=42 kick=0 g0=Attack/Recover g0_t=39 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=266 elapsed=266 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=4 carl_stop=0 invuln=41 kick=0 g0=Attack/Recover g0_t=40 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=267 elapsed=267 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=3 carl_stop=0 invuln=40 kick=0 g0=Attack/Recover g0_t=41 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=268 elapsed=268 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=2 carl_stop=0 invuln=39 kick=0 g0=Attack/Recover g0_t=42 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=269 elapsed=269 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=1 carl_stop=0 invuln=38 kick=0 g0=Attack/Recover g0_t=43 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=270 elapsed=270 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=37 kick=0 g0=Attack/Recover g0_t=44 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=271 elapsed=271 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=36 kick=0 g0=Attack/Recover g0_t=45 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=272 elapsed=272 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=35 kick=0 g0=Attack/Recover g0_t=46 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=273 elapsed=273 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=34 kick=0 g0=Attack/Recover g0_t=47 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=274 elapsed=274 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=33 kick=0 g0=Attack/Recover g0_t=48 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=275 elapsed=275 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=32 kick=0 g0=Attack/Recover g0_t=49 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=276 elapsed=276 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=31 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=277 elapsed=277 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=30 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=278 elapsed=278 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=29 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=279 elapsed=279 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=28 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=280 elapsed=280 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=27 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=281 elapsed=281 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=26 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=282 elapsed=282 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=25 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=283 elapsed=283 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=24 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=284 elapsed=284 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=23 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=285 elapsed=285 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=22 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=286 elapsed=286 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=21 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=287 elapsed=287 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=20 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=288 elapsed=288 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=19 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=289 elapsed=289 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=18 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=290 elapsed=290 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=17 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=291 elapsed=291 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=16 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=292 elapsed=292 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=15 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=293 elapsed=293 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=14 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=294 elapsed=294 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=13 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=295 elapsed=295 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=12 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=296 elapsed=296 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=11 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=297 elapsed=297 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=10 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=298 elapsed=298 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=9 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=299 elapsed=299 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=8 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
-COMBAT_TRACE tick=300 elapsed=300 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=7 kick=0 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=1 elapsed=1 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=558.97 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=2 elapsed=2 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=557.93 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=3 elapsed=3 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=556.90 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=4 elapsed=4 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=555.87 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=5 elapsed=5 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=554.83 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=6 elapsed=6 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=553.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=7 elapsed=7 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=552.77 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=8 elapsed=8 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=551.73 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=9 elapsed=9 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=550.70 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=10 elapsed=10 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=549.67 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=11 elapsed=11 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=548.63 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=12 elapsed=12 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=547.60 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=13 elapsed=13 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=546.57 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=14 elapsed=14 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=545.53 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=15 elapsed=15 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=544.50 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=16 elapsed=16 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=543.47 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=17 elapsed=17 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=542.43 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=18 elapsed=18 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=541.40 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=19 elapsed=19 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=540.37 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=20 elapsed=20 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=539.33 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=21 elapsed=21 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=538.30 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=22 elapsed=22 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=537.27 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=23 elapsed=23 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=536.23 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=24 elapsed=24 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=535.20 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=25 elapsed=25 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=534.17 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=26 elapsed=26 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=533.13 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=27 elapsed=27 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=532.10 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=28 elapsed=28 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=531.07 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=29 elapsed=29 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=530.03 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=30 elapsed=30 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=529.00 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=31 elapsed=31 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=527.97 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=32 elapsed=32 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=526.93 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=33 elapsed=33 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=525.90 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=34 elapsed=34 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=524.87 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=35 elapsed=35 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=523.83 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=36 elapsed=36 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=522.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=37 elapsed=37 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=521.77 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=38 elapsed=38 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=520.73 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=39 elapsed=39 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=519.70 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=40 elapsed=40 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=518.67 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=41 elapsed=41 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=517.63 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=42 elapsed=42 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=516.60 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=43 elapsed=43 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=515.57 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=44 elapsed=44 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=514.53 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=45 elapsed=45 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=513.50 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=46 elapsed=46 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=512.47 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=47 elapsed=47 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=511.43 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=48 elapsed=48 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=510.40 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=49 elapsed=49 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=509.37 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=50 elapsed=50 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=508.33 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=51 elapsed=51 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=507.30 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=52 elapsed=52 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=506.27 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=53 elapsed=53 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=505.23 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=54 elapsed=54 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=504.20 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=55 elapsed=55 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=503.17 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=56 elapsed=56 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=502.13 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=57 elapsed=57 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=501.10 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=58 elapsed=58 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=500.07 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=59 elapsed=59 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=499.03 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=60 elapsed=60 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=498.00 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=61 elapsed=61 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=496.97 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=62 elapsed=62 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=495.93 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=63 elapsed=63 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=494.90 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=64 elapsed=64 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=493.87 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=65 elapsed=65 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=492.83 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=66 elapsed=66 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=491.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=67 elapsed=67 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=490.77 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=68 elapsed=68 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=489.73 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=69 elapsed=69 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=488.70 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=70 elapsed=70 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=487.67 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=71 elapsed=71 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=486.63 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=72 elapsed=72 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=485.60 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=73 elapsed=73 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=484.57 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=74 elapsed=74 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=483.53 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=75 elapsed=75 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=482.50 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=76 elapsed=76 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=481.47 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=77 elapsed=77 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=480.43 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=78 elapsed=78 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=479.40 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=79 elapsed=79 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=478.37 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=80 elapsed=80 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=477.33 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=81 elapsed=81 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=476.30 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=82 elapsed=82 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=475.27 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=83 elapsed=83 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=474.23 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=84 elapsed=84 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=473.20 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=85 elapsed=85 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=472.17 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=86 elapsed=86 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=471.13 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=87 elapsed=87 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=470.10 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=88 elapsed=88 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=469.07 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=89 elapsed=89 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=468.03 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=90 elapsed=90 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=467.00 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=91 elapsed=91 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=465.97 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=92 elapsed=92 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=464.93 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=93 elapsed=93 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=463.90 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=94 elapsed=94 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=462.87 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=95 elapsed=95 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=461.83 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=96 elapsed=96 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=460.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=97 elapsed=97 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=459.77 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=98 elapsed=98 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=458.73 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=99 elapsed=99 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=457.70 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=100 elapsed=100 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=456.67 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=101 elapsed=101 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=455.63 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=102 elapsed=102 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=454.60 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=103 elapsed=103 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=453.57 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=104 elapsed=104 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=452.53 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=105 elapsed=105 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=451.50 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=106 elapsed=106 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=450.47 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=107 elapsed=107 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=449.43 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=108 elapsed=108 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=448.40 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=109 elapsed=109 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=447.37 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=110 elapsed=110 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=446.33 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=111 elapsed=111 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=445.30 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=112 elapsed=112 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=444.27 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=113 elapsed=113 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=443.23 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=114 elapsed=114 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=442.20 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=115 elapsed=115 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=441.17 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=116 elapsed=116 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=440.13 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=117 elapsed=117 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=439.10 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=118 elapsed=118 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=438.07 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=119 elapsed=119 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=437.03 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=120 elapsed=120 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=436.00 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=121 elapsed=121 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=434.97 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=122 elapsed=122 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=433.93 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=123 elapsed=123 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=432.90 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=124 elapsed=124 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=431.87 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=125 elapsed=125 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=430.83 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=126 elapsed=126 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=127 elapsed=127 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=128 elapsed=128 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=1 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=129 elapsed=129 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=2 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=130 elapsed=130 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=3 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=131 elapsed=131 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=4 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=132 elapsed=132 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=5 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=133 elapsed=133 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=6 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=134 elapsed=134 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=7 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=135 elapsed=135 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=8 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=136 elapsed=136 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=9 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=137 elapsed=137 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=10 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=138 elapsed=138 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=11 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=139 elapsed=139 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=12 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=140 elapsed=140 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=13 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=141 elapsed=141 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=14 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=142 elapsed=142 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=15 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=143 elapsed=143 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=16 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=144 elapsed=144 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=17 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=145 elapsed=145 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=18 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=146 elapsed=146 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=19 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=147 elapsed=147 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=20 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=148 elapsed=148 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=21 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=149 elapsed=149 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=22 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=150 elapsed=150 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=23 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=151 elapsed=151 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Smear g0_t=24 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=152 elapsed=152 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=4 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Smear g0_t=25 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=153 elapsed=153 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=4 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=4 g0_hp=2
+COMBAT_TRACE tick=154 elapsed=154 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=3 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=3 g0_hp=2
+COMBAT_TRACE tick=155 elapsed=155 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=2 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=2 g0_hp=2
+COMBAT_TRACE tick=156 elapsed=156 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=1 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=1 g0_hp=2
+COMBAT_TRACE tick=157 elapsed=157 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=18 carl_stop=0 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=158 elapsed=158 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=17 carl_stop=0 invuln=54 kick=0 cam_left=104 g0=Attack/Impact g0_t=27 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=159 elapsed=159 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=16 carl_stop=0 invuln=53 kick=0 cam_left=104 g0=Attack/Impact g0_t=28 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=160 elapsed=160 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=15 carl_stop=0 invuln=52 kick=0 cam_left=104 g0=Attack/Impact g0_t=29 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=161 elapsed=161 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=14 carl_stop=0 invuln=51 kick=0 cam_left=104 g0=Attack/Recover g0_t=30 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=162 elapsed=162 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=13 carl_stop=0 invuln=50 kick=0 cam_left=104 g0=Attack/Recover g0_t=31 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=163 elapsed=163 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=12 carl_stop=0 invuln=49 kick=0 cam_left=104 g0=Attack/Recover g0_t=32 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=164 elapsed=164 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=11 carl_stop=0 invuln=48 kick=0 cam_left=104 g0=Attack/Recover g0_t=33 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=165 elapsed=165 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=10 carl_stop=0 invuln=47 kick=0 cam_left=104 g0=Attack/Recover g0_t=34 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=166 elapsed=166 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=9 carl_stop=0 invuln=46 kick=0 cam_left=104 g0=Attack/Recover g0_t=35 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=167 elapsed=167 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=8 carl_stop=0 invuln=45 kick=0 cam_left=104 g0=Attack/Recover g0_t=36 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=168 elapsed=168 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=7 carl_stop=0 invuln=44 kick=0 cam_left=104 g0=Attack/Recover g0_t=37 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=169 elapsed=169 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=6 carl_stop=0 invuln=43 kick=0 cam_left=104 g0=Attack/Recover g0_t=38 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=170 elapsed=170 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=5 carl_stop=0 invuln=42 kick=0 cam_left=104 g0=Attack/Recover g0_t=39 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=171 elapsed=171 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=4 carl_stop=0 invuln=41 kick=0 cam_left=104 g0=Attack/Recover g0_t=40 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=172 elapsed=172 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=3 carl_stop=0 invuln=40 kick=0 cam_left=104 g0=Attack/Recover g0_t=41 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=173 elapsed=173 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=2 carl_stop=0 invuln=39 kick=0 cam_left=104 g0=Attack/Recover g0_t=42 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=174 elapsed=174 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=1 carl_stop=0 invuln=38 kick=0 cam_left=104 g0=Attack/Recover g0_t=43 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=175 elapsed=175 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=37 kick=0 cam_left=104 g0=Attack/Recover g0_t=44 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=176 elapsed=176 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=36 kick=0 cam_left=104 g0=Attack/Recover g0_t=45 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=177 elapsed=177 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=35 kick=0 cam_left=104 g0=Attack/Recover g0_t=46 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=178 elapsed=178 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=34 kick=0 cam_left=104 g0=Attack/Recover g0_t=47 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=179 elapsed=179 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=33 kick=0 cam_left=104 g0=Attack/Recover g0_t=48 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=180 elapsed=180 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=32 kick=0 cam_left=104 g0=Attack/Recover g0_t=49 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=181 elapsed=181 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=31 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=182 elapsed=182 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=30 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=183 elapsed=183 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=29 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=184 elapsed=184 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=28 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=185 elapsed=185 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=27 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=186 elapsed=186 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=26 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=187 elapsed=187 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=25 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=188 elapsed=188 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=24 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=189 elapsed=189 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=23 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=190 elapsed=190 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=22 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=191 elapsed=191 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=21 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=192 elapsed=192 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=20 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=193 elapsed=193 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=19 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=194 elapsed=194 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=18 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=195 elapsed=195 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=17 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=196 elapsed=196 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=16 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=197 elapsed=197 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=15 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=198 elapsed=198 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=14 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=199 elapsed=199 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=13 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=200 elapsed=200 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=12 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=201 elapsed=201 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=11 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=202 elapsed=202 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=10 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=203 elapsed=203 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=9 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=204 elapsed=204 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=8 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=205 elapsed=205 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=7 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=206 elapsed=206 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=6 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=207 elapsed=207 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=5 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=208 elapsed=208 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=4 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=209 elapsed=209 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=3 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=210 elapsed=210 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=2 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=211 elapsed=211 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=1 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=212 elapsed=212 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=213 elapsed=213 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=214 elapsed=214 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=215 elapsed=215 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=216 elapsed=216 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=217 elapsed=217 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=218 elapsed=218 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=219 elapsed=219 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=220 elapsed=220 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=221 elapsed=221 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=222 elapsed=222 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=223 elapsed=223 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=1 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=224 elapsed=224 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=2 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=225 elapsed=225 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=3 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=226 elapsed=226 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=4 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=227 elapsed=227 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=5 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=228 elapsed=228 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=6 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=229 elapsed=229 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=7 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=230 elapsed=230 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=8 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=231 elapsed=231 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=9 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=232 elapsed=232 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=10 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=233 elapsed=233 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=11 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=234 elapsed=234 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=12 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=235 elapsed=235 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=13 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=236 elapsed=236 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=14 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=237 elapsed=237 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=15 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=238 elapsed=238 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=16 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=239 elapsed=239 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=17 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=240 elapsed=240 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=18 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=241 elapsed=241 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=19 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=242 elapsed=242 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=20 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=243 elapsed=243 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=21 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=244 elapsed=244 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=22 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=245 elapsed=245 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Tell g0_t=23 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=246 elapsed=246 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Smear g0_t=24 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=247 elapsed=247 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=3 hurt=0 carl_stop=0 invuln=0 kick=0 cam_left=104 g0=Attack/Smear g0_t=25 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=248 elapsed=248 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=4 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=4 g0_hp=2
+COMBAT_TRACE tick=249 elapsed=249 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=3 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=3 g0_hp=2
+COMBAT_TRACE tick=250 elapsed=250 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=2 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=2 g0_hp=2
+COMBAT_TRACE tick=251 elapsed=251 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=1 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=1 g0_hp=2
+COMBAT_TRACE tick=252 elapsed=252 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=18 carl_stop=0 invuln=55 kick=0 cam_left=104 g0=Attack/Impact g0_t=26 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=253 elapsed=253 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=17 carl_stop=0 invuln=54 kick=0 cam_left=104 g0=Attack/Impact g0_t=27 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=254 elapsed=254 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=16 carl_stop=0 invuln=53 kick=0 cam_left=104 g0=Attack/Impact g0_t=28 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=255 elapsed=255 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=15 carl_stop=0 invuln=52 kick=0 cam_left=104 g0=Attack/Impact g0_t=29 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=256 elapsed=256 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=14 carl_stop=0 invuln=51 kick=0 cam_left=104 g0=Attack/Recover g0_t=30 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=257 elapsed=257 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=13 carl_stop=0 invuln=50 kick=0 cam_left=104 g0=Attack/Recover g0_t=31 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=258 elapsed=258 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=12 carl_stop=0 invuln=49 kick=0 cam_left=104 g0=Attack/Recover g0_t=32 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=259 elapsed=259 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=11 carl_stop=0 invuln=48 kick=0 cam_left=104 g0=Attack/Recover g0_t=33 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=260 elapsed=260 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=10 carl_stop=0 invuln=47 kick=0 cam_left=104 g0=Attack/Recover g0_t=34 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=261 elapsed=261 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=9 carl_stop=0 invuln=46 kick=0 cam_left=104 g0=Attack/Recover g0_t=35 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=262 elapsed=262 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=8 carl_stop=0 invuln=45 kick=0 cam_left=104 g0=Attack/Recover g0_t=36 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=263 elapsed=263 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=7 carl_stop=0 invuln=44 kick=0 cam_left=104 g0=Attack/Recover g0_t=37 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=264 elapsed=264 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=6 carl_stop=0 invuln=43 kick=0 cam_left=104 g0=Attack/Recover g0_t=38 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=265 elapsed=265 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=5 carl_stop=0 invuln=42 kick=0 cam_left=104 g0=Attack/Recover g0_t=39 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=266 elapsed=266 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=4 carl_stop=0 invuln=41 kick=0 cam_left=104 g0=Attack/Recover g0_t=40 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=267 elapsed=267 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=3 carl_stop=0 invuln=40 kick=0 cam_left=104 g0=Attack/Recover g0_t=41 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=268 elapsed=268 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=2 carl_stop=0 invuln=39 kick=0 cam_left=104 g0=Attack/Recover g0_t=42 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=269 elapsed=269 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=1 carl_stop=0 invuln=38 kick=0 cam_left=104 g0=Attack/Recover g0_t=43 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=270 elapsed=270 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=37 kick=0 cam_left=104 g0=Attack/Recover g0_t=44 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=271 elapsed=271 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=36 kick=0 cam_left=104 g0=Attack/Recover g0_t=45 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=272 elapsed=272 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=35 kick=0 cam_left=104 g0=Attack/Recover g0_t=46 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=273 elapsed=273 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=34 kick=0 cam_left=104 g0=Attack/Recover g0_t=47 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=274 elapsed=274 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=33 kick=0 cam_left=104 g0=Attack/Recover g0_t=48 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=275 elapsed=275 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=32 kick=0 cam_left=104 g0=Attack/Recover g0_t=49 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=276 elapsed=276 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=31 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=277 elapsed=277 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=30 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=278 elapsed=278 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=29 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=279 elapsed=279 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=28 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=280 elapsed=280 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=27 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=281 elapsed=281 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=26 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=282 elapsed=282 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=25 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=283 elapsed=283 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=24 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=284 elapsed=284 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=23 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=285 elapsed=285 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=22 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=286 elapsed=286 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=21 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=287 elapsed=287 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=20 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=288 elapsed=288 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=19 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=289 elapsed=289 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=18 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=290 elapsed=290 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=17 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=291 elapsed=291 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=16 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=292 elapsed=292 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=15 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=293 elapsed=293 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=14 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=294 elapsed=294 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=13 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=295 elapsed=295 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=12 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=296 elapsed=296 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=11 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=297 elapsed=297 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=10 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=298 elapsed=298 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=9 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=299 elapsed=299 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=8 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2
+COMBAT_TRACE tick=300 elapsed=300 carl_move=- carl_x=400.00 carl_y=118.00 carl_hp=2 hurt=0 carl_stop=0 invuln=7 kick=0 cam_left=104 g0=Neutral g0_t=0 g0_x=429.80 g0_y=92.00 g0_hs=0 g0_hp=2

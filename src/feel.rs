@@ -25,16 +25,17 @@ pub struct MoveFeel {
     pub camera_kick_px: u8,
 }
 
-/// Jab (`punch_a`): quick, light. A 40 px/s impulse slides the goblin about
-/// 1 px (40^2 / (2 x 1200), a little more with the per-tick steps): the melee art
-/// asks for at most 2 px, so the haymaker still reaches a goblin the jab pushed
-/// (a hit box reaches 34 px centre to centre).
+/// Jab (`punch_a`): quick, light. A 75 px/s impulse slides the goblin about
+/// 3 px (75^2 / (2 x 1200), a little more with the per-tick steps), a push the
+/// player can see. The haymaker still reaches a goblin the jab pushed because
+/// it steps forward ([`HAYMAKER_STEP_PX`]). Decided by the Opus feel review
+/// (round 1), pending owner playtest. No camera kick: heavy blows only.
 pub const JAB_FEEL: MoveFeel = MoveFeel {
     hit_stop: 3,
     stagger: 10,
-    knock_vx: 40.0,
+    knock_vx: 75.0,
     knock_vy: 0.0,
-    camera_kick_px: 1,
+    camera_kick_px: 0,
 };
 
 /// Haymaker (`punch_b`): the heavier second blow. 80 px/s with a 60 px/s hop
@@ -46,6 +47,14 @@ pub const HAYMAKER_FEEL: MoveFeel = MoveFeel {
     knock_vy: 60.0,
     camera_kick_px: 2,
 };
+
+/// The haymaker steps Carl forward this many pixels in total, one pixel per
+/// tick on haymaker ticks 1..=`HAYMAKER_STEP_TICKS`: it keeps the 34 px reach
+/// on a goblin the jab pushed back about 3 px. The step stops at body contact
+/// (centre distance 24 px with an alive goblin) and at walls; it is gameplay
+/// motion (the art's own lunge is drawn on top of it).
+pub const HAYMAKER_STEP_PX: f32 = 4.0;
+pub const HAYMAKER_STEP_TICKS: u16 = 4;
 
 /// Push kick: only its hit-stop (8 ticks, melee spec) is new; the reaction is
 /// the jab's until the CP-02 kick launch.
@@ -60,10 +69,12 @@ pub const KICK_FEEL: MoveFeel = MoveFeel {
 /// A confirming (killing) hit freezes this many ticks longer than the move's
 /// own hit-stop, so the last blow lands harder.
 pub const LETHAL_HIT_STOP_BONUS: u8 = 3;
-/// The killing hit's launch (replaces the move's knockback): about 21 ticks in
-/// the air, 45 px, then about 7 px of sliding.
-pub const LETHAL_KNOCK_VX: f32 = 130.0;
-pub const LETHAL_KNOCK_VY: f32 = 180.0;
+/// The killing hit's launch (replaces the move's knockback): 24 ticks in the
+/// air with a 21 px apex, 64 px, then about 11 px of sliding: about 75 px in
+/// all. The hit-stop comes before the flight, so a trace shows the whole
+/// `Airborne` mode longer than the flight (freeze 9 ticks + 24 flight).
+pub const LETHAL_KNOCK_VX: f32 = 160.0;
+pub const LETHAL_KNOCK_VY: f32 = 210.0;
 /// Extra camera kick (px) on the killing hit.
 pub const LETHAL_CAMERA_KICK_BONUS: u8 = 1;
 /// Largest horizontal speed any knockback may have (bounded impulse).
@@ -74,9 +85,12 @@ pub const KNOCK_GRAVITY: f32 = 1050.0;
 pub const GROUND_FRICTION: f32 = 1200.0;
 
 /// Presentation only: ticks the target flashes white after a hit and ticks the
-/// camera kick takes to fade out (it decays linearly).
+/// camera kick takes to fade out (a linear decay rounded to whole pixels: the
+/// view only moves by whole virtual pixels, so a 3 px kick passes 3, 3, 2, 2,
+/// 2, 1, 1, 0). The kick shifts the view so the scene jolts the way the goblin
+/// flies, never against the knockback.
 pub const IMPACT_FLASH_TICKS: u8 = 3;
-pub const CAMERA_KICK_TICKS: u8 = 6;
+pub const CAMERA_KICK_TICKS: u8 = 8;
 
 // ---------------------------------------------------------- goblin attack --
 
@@ -108,7 +122,7 @@ pub const SWING_Y_MAX: f32 = 30.0;
 /// At most this many goblins may be in a tell or a swing at once, and two tell
 /// starts are at least `TELL_SPACING` ticks apart (the attack token rule).
 pub const MAX_ATTACKERS: usize = 2;
-pub const TELL_SPACING: u64 = 8;
+pub const TELL_SPACING: u64 = 12;
 /// A defeated goblin lies down this many ticks, then stays as a corpse that
 /// neither collides nor damages.
 pub const DOWN_TICKS: u16 = 30;
@@ -125,5 +139,5 @@ pub const HERO_DEFEAT_HIT_STOP: u8 = 7;
 pub const HERO_KNOCKDOWN_VX: f32 = 120.0;
 pub const HERO_KNOCKDOWN_VY: f32 = 160.0;
 /// Ticks from the defeating hit until the fixture restarts by itself (knockdown
-/// plus a short sprawl; R / North restarts at once). At most 45.
-pub const RESTART_DELAY_TICKS: u16 = 40;
+/// plus a short sprawl; R / North restarts at once). At most 60.
+pub const RESTART_DELAY_TICKS: u16 = 50;

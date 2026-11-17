@@ -689,8 +689,8 @@ mod tests {
 
     #[test]
     fn knockback_is_bounded_and_stopped_by_walls_and_the_layout_edge() {
-        // Open floor: the lethal launch is bounded (about 50 px, never more
-        // than 80).
+        // Open floor: the lethal launch is bounded (about 75 px, never more
+        // than 95).
         let mut g = goblin_at(430.0);
         g.take_hit(&CARL_JAB, 1);
         g.hit_stop = 0;
@@ -699,7 +699,7 @@ mod tests {
             tick(&mut g, 400.0, false);
         }
         let travelled = g.x - 430.0;
-        assert!((40.0..80.0).contains(&travelled), "travelled {travelled}");
+        assert!((60.0..95.0).contains(&travelled), "travelled {travelled}");
         // A wall 30 px in front: the goblin never enters it and stops dead.
         let blocks = [wall(460.0)];
         let mut g = goblin_at(430.0);

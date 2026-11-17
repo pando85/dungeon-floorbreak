@@ -18,8 +18,8 @@
 //! hash so later knockback variance can use it without changing the contract.
 
 use crate::combat::{
-    Attacker, CARL_BUFFER_TICKS, CombatEvent, ENEMY_HALF_HEIGHT, EnemyAi, HERO_INVULNERABLE_TICKS,
-    MoveId, carl_move, resolve_strike, solid_at,
+    Attacker, CARL_BUFFER_TICKS, CombatEvent, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, EnemyAi,
+    HERO_INVULNERABLE_TICKS, MoveId, RootStep, carl_move, resolve_strike, solid_at,
 };
 use crate::corridor::SceneSim;
 use crate::env_kit::EnvKit;
@@ -32,6 +32,10 @@ pub use crate::feel::{HERO_HURT_TICKS, RESTART_DELAY_TICKS};
 use crate::goblin::{Goblin, GoblinMode};
 use crate::input::{InputFrame, RawInput};
 use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect, TICK_SECONDS};
+
+/// Centre-to-centre distance at which Carl's body touches a goblin's (the two
+/// half widths): the haymaker's step stops here.
+const BODY_CONTACT: f32 = HERO_HALF_WIDTH + crate::combat::ENEMY_HALF_WIDTH;
 
 /// One goblin spawn: its centre column and behaviour. It stands on the same
 /// walking line as Carl (checked on load).
@@ -163,8 +167,8 @@ pub const CP02_TWO_GOBLINS: Fixture = Fixture {
     script: &[
         attack(83, 84),
         attack(97, 98),
-        attack(128, 129),
-        attack(135, 136),
+        attack(164, 165),
+        attack(170, 171),
     ],
     ticks: 260,
 };
@@ -214,7 +218,8 @@ pub const CP01_HAYMAKER_CHAIN: Fixture = Fixture {
 };
 
 /// CP-01: Carl idles against two goblins until he is defeated; the fixture
-/// restarts fast and the same script plays again, to the same outcome.
+/// restarts fast and the same script plays again, to the same outcome (defeated
+/// on tick 400, restart on elapsed 449, defeated again on elapsed 849).
 pub const CP01_RETRY: Fixture = Fixture {
     name: "cp01_retry",
     summary: "Carl is defeated, restarts fast and meets the same outcome",
@@ -231,7 +236,7 @@ pub const CP01_RETRY: Fixture = Fixture {
         },
     ],
     script: &[],
-    ticks: 840,
+    ticks: 850,
 };
 
 pub const FIXTURES: [&Fixture; 7] = [
@@ -455,6 +460,12 @@ impl CombatState {
                     instance: move_tick.instance,
                 });
             }
+            if !move_tick.frozen
+                && let Some(step) = move_tick.spec.root_step
+                && (step.from_tick..=step.to_tick).contains(&move_tick.tick)
+            {
+                self.root_step(scene, step);
+            }
             let hero = &scene.world.hero;
             let attacker = Attacker {
                 x: hero.x,
@@ -510,13 +521,12 @@ impl CombatState {
         if self.hero_defeated && !hero_frozen {
             self.drift_hero(scene);
         }
-        let freeze = hero_frozen || melee_frozen;
-        let frozen_hero = freeze.then(|| scene.world.hero.clone());
-        scene.step(gated);
-        if let Some(hero) = frozen_hero {
-            // Frozen in hit-stop: the tick, Donut and the camera advance, Carl
-            // does not move.
-            scene.world.hero = hero;
+        if hero_frozen || melee_frozen {
+            // Frozen in hit-stop: only the tick counter advances. Carl, the
+            // camera and Donut's trail stand still (no motion to restore).
+            scene.hold_tick(gated);
+        } else {
+            scene.step(gated);
         }
 
         self.step_goblins(scene, tick);
@@ -546,6 +556,10 @@ impl CombatState {
             .map(|(index, g)| ((g.x - hero_x).abs(), index))
             .collect();
         ranked.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        // Starvation note: an approved goblin that cannot get within the trigger
+        // distance (a wall or a ledge between it and Carl) keeps its slot and
+        // starves the goblins behind it. Fixtures stand on clean ground, so this
+        // cannot happen yet; revisit with real geometry (the opening scene).
         let approved: Vec<usize> = ranked.iter().take(slots).map(|r| r.1).collect();
         for index in 0..self.enemies.len() {
             let may_start = self
@@ -555,7 +569,7 @@ impl CombatState {
                 hero_x,
                 !self.hero_defeated,
                 &scene.world.solids,
-                self.x_max,
+                self.x_max - ENEMY_HALF_WIDTH,
                 approved.contains(&index),
                 may_start,
             );
@@ -605,8 +619,8 @@ impl CombatState {
         let away = if hero.x >= goblin.x { 1.0 } else { -1.0 };
         let health_left = hero.health;
         self.hurt_ticks = HERO_HURT_TICKS;
-        self.hero_hit_stop = HERO_HURT_HIT_STOP;
-        goblin.hit_stop = HERO_HURT_HIT_STOP;
+        self.hero_hit_stop = self.hero_hit_stop.max(HERO_HURT_HIT_STOP);
+        goblin.hit_stop = goblin.hit_stop.max(HERO_HURT_HIT_STOP);
         self.log(CombatEvent::HeroHurt {
             tick,
             source: index as u32,
@@ -616,13 +630,38 @@ impl CombatState {
             self.hero_defeated = true;
             self.deaths += 1;
             // The heavier knockdown: longer freeze, then launched away.
-            self.hero_hit_stop = HERO_DEFEAT_HIT_STOP;
-            self.enemies[index].hit_stop = HERO_DEFEAT_HIT_STOP;
+            self.hero_hit_stop = self.hero_hit_stop.max(HERO_DEFEAT_HIT_STOP);
+            self.enemies[index].hit_stop = self.enemies[index].hit_stop.max(HERO_DEFEAT_HIT_STOP);
             self.hero_vx = away * HERO_KNOCKDOWN_VX;
             let hero = &mut scene.world.hero;
             hero.vy = HERO_KNOCKDOWN_VY;
             hero.grounded = false;
             self.log(CombatEvent::HeroDefeated { tick });
+        }
+    }
+
+    /// One tick of a move's forward step: stopped by walls, the layout edge and
+    /// body contact (centre distance under `BODY_CONTACT` with an alive goblin
+    /// the step would approach).
+    fn root_step(&self, scene: &mut SceneSim, step: RootStep) {
+        let hero = &mut scene.world.hero;
+        if !hero.grounded {
+            return;
+        }
+        let wanted = hero.x + f32::from(hero.facing) * step.px_per_tick;
+        let candidate = wanted.clamp(HERO_HALF_WIDTH, self.x_max - HERO_HALF_WIDTH);
+        let touching = self.enemies.iter().filter(|g| g.alive()).any(|g| {
+            let after = (g.x - candidate).abs();
+            after < BODY_CONTACT && after < (g.x - hero.x).abs()
+        });
+        let body = Rect {
+            left: candidate - HERO_HALF_WIDTH,
+            bottom: hero.y - HERO_HALF_HEIGHT,
+            width: HERO_HALF_WIDTH * 2.0,
+            height: HERO_HALF_HEIGHT * 2.0,
+        };
+        if !touching && !solid_at(&scene.world.solids, body) {
+            hero.x = candidate;
         }
     }
 
@@ -678,9 +717,12 @@ impl CombatState {
         }
     }
 
-    /// Camera kick in virtual pixels at scene tick `tick` (signed: the way the
-    /// last confirmed hit pushed). Presentation only: a pure function of the
-    /// last confirming hit and the tick; the sim never reads it.
+    /// Camera kick in virtual pixels at scene tick `tick`: the signed offset to
+    /// add to the view's left edge. It is **opposite the hit direction**, so the
+    /// scene jolts the way the goblin flies (a hit to the right moves the view
+    /// left, which moves everything on screen to the right) and never against
+    /// the knockback. Presentation only: a pure function of the last confirming
+    /// hit and the tick; the sim never reads it.
     pub fn camera_kick(&self, tick: u64) -> i32 {
         let Some(confirm) = self.confirm else {
             return 0;
@@ -691,7 +733,7 @@ impl CombatState {
         }
         let left = (u64::from(CAMERA_KICK_TICKS) - age) as f32;
         let px = (f32::from(confirm.kick_px) * left / f32::from(CAMERA_KICK_TICKS)).round();
-        px as i32 * i32::from(confirm.direction)
+        -(px as i32) * i32::from(confirm.direction)
     }
 
     /// True while goblin `index` shows the impact flash (presentation only).
@@ -770,7 +812,7 @@ impl CombatState {
             })
             .collect();
         format!(
-            "COMBAT_TRACE tick={} elapsed={} carl_move={carl} carl_x={:.2} carl_y={:.2} carl_hp={} hurt={} carl_stop={} invuln={} kick={} {}",
+            "COMBAT_TRACE tick={} elapsed={} carl_move={carl} carl_x={:.2} carl_y={:.2} carl_hp={} hurt={} carl_stop={} invuln={} kick={} cam_left={} {}",
             scene.world.tick,
             self.elapsed,
             hero.x,
@@ -780,6 +822,7 @@ impl CombatState {
             self.hero_hit_stop,
             hero.invulnerable_ticks,
             self.camera_kick(scene.world.tick),
+            scene.camera.left(),
             goblins.join(" ")
         )
     }
@@ -864,8 +907,10 @@ impl FixtureSim {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::combat::{CARL_JAB, CARL_PUSH_KICK, ENEMY_HEALTH, HERO_HEALTH, StrikeTarget};
-    use crate::feel::{HERO_HURT_HIT_STOP, JAB_FEEL};
+    use crate::combat::{
+        CARL_HAYMAKER, CARL_JAB, CARL_PUSH_KICK, ENEMY_HEALTH, HERO_HEALTH, StrikeTarget,
+    };
+    use crate::feel::{HERO_HURT_HIT_STOP, JAB_FEEL, TELL_SPACING};
     use std::path::PathBuf;
 
     const LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
@@ -874,13 +919,13 @@ mod tests {
     /// at its default length. CI compares the headless replay and the real
     /// render run against the same values (`docs/evidence/cp01-feel`).
     const EXPECTED_HASHES: [(&str, u64); 7] = [
-        ("cp01_single_goblin", 0xe653_7a1f_17b0_567b),
-        ("cp01_two_hits", 0xe066_3f94_81b1_5b06),
-        ("cp02_two_goblins", 0x6e82_b7de_9139_7bea),
+        ("cp01_single_goblin", 0xcbb3_07e8_a1a7_420f),
+        ("cp01_two_hits", 0x119a_431d_ad6c_7d0b),
+        ("cp02_two_goblins", 0x4f3b_150a_c8a0_c633),
         ("cp01_goblin_attacks", 0xa8aa_1111_8006_6441),
-        ("cp01_interrupt", 0x5ef2_0dc2_8a50_9345),
-        ("cp01_haymaker_chain", 0xd48f_3272_9424_2862),
-        ("cp01_retry", 0xea02_3975_d350_0132),
+        ("cp01_interrupt", 0xee81_fa34_f094_91e0),
+        ("cp01_haymaker_chain", 0x01a7_fa7a_9770_271d),
+        ("cp01_retry", 0xedaa_118c_f0e3_1e94),
     ];
 
     fn kit() -> EnvKit {
@@ -1208,7 +1253,8 @@ mod tests {
         let mut sim = sim_of(&CP01_INTERRUPT);
         sim.run_scripted(CP01_INTERRUPT.ticks);
         let events = events_of(&sim);
-        assert_eq!(tells(&events), vec![127, 175]);
+        // The 3 px jab push makes the goblin walk back in before its next tell.
+        assert_eq!(tells(&events), vec![127, 177]);
         assert_eq!(hits(&events), vec![(140, 0)]);
         assert!(events.contains(&CombatEvent::GoblinInterrupted {
             tick: 140,
@@ -1255,14 +1301,14 @@ mod tests {
     }
 
     #[test]
-    fn at_most_two_goblins_are_in_a_tell_or_swing_and_tells_start_8_ticks_apart() {
+    fn at_most_two_goblins_are_in_a_tell_or_swing_and_tells_start_12_ticks_apart() {
         let mut sim = sim_of(&THREE_GOBLINS);
         assert_eq!(max_tokens(&mut sim, THREE_GOBLINS.ticks), 2);
         let starts = tells(&events_of(&sim));
         assert!(starts.len() >= 3, "all three eventually attack: {starts:?}");
         for pair in starts.windows(2) {
             assert!(
-                pair[1] - pair[0] >= 8,
+                pair[1] - pair[0] >= TELL_SPACING,
                 "tells {} and {} too close",
                 pair[0],
                 pair[1]
@@ -1271,7 +1317,11 @@ mod tests {
         // The nearest goblins get the two tokens: the third waits until the
         // first swing is over (30 ticks after its tell).
         assert_eq!(starts[0], 1);
-        assert_eq!(starts[1], 9, "the second tell waits for the spacing");
+        assert_eq!(
+            starts[1],
+            1 + TELL_SPACING,
+            "the second tell waits for the spacing"
+        );
         assert!(
             starts[2] >= starts[0] + 30,
             "no third token before one returns"
@@ -1292,10 +1342,20 @@ mod tests {
             let mut sim = sim_of(fixture);
             assert!(max_tokens(&mut sim, fixture.ticks) <= 2, "{}", fixture.name);
             let starts = tells(&events_of(&sim));
-            assert!(!starts.is_empty(), "{}", fixture.name);
+            // Carl kills cp02's goblins before they attack; only the retry
+            // fixture has tells to space.
+            assert!(
+                !starts.is_empty() || fixture.name == "cp02_two_goblins",
+                "{}",
+                fixture.name
+            );
             // Tick numbers restart with an attempt; compare within attempts.
             for pair in starts.windows(2).filter(|p| p[1] > p[0]) {
-                assert!(pair[1] - pair[0] >= 8, "{}: {pair:?}", fixture.name);
+                assert!(
+                    pair[1] - pair[0] >= TELL_SPACING,
+                    "{}: {pair:?}",
+                    fixture.name
+                );
             }
         }
         // Two goblins in range together: the spacing is the only limit.
@@ -1319,7 +1379,7 @@ mod tests {
         };
         let mut sim = sim_of(&PAIR);
         sim.run_scripted(PAIR.ticks);
-        assert_eq!(tells(&events_of(&sim)), vec![1, 9]);
+        assert_eq!(tells(&events_of(&sim)), vec![1, 1 + TELL_SPACING]);
     }
 
     #[test]
@@ -1422,7 +1482,7 @@ mod tests {
         )));
         // The final hit launched it away from Carl, bounded.
         let flown = enemy.x - 428.0;
-        assert!((30.0..80.0).contains(&flown), "flew {flown}");
+        assert!((60.0..95.0).contains(&flown), "flew {flown}");
         // Jab the corpse: no hit. Walk through it: no damage, no block.
         let hits_before = hits(&events_of(&sim)).len();
         for _ in 0..3 {
@@ -1502,10 +1562,10 @@ mod tests {
             })
             .expect("the fixture restarts by itself");
         assert_eq!(sim.combat.deaths, 1);
-        // Fast retry: at most 45 ticks from the defeating blow, and the event
+        // Fast retry: under 60 ticks from the defeating blow, and the event
         // carries the tick that triggered the restart (not 0).
         assert_eq!(restart, defeated + u64::from(RESTART_DELAY_TICKS) - 1);
-        assert!(restart - defeated < 45);
+        assert!(restart - defeated < 60);
         // Restarted: Carl is alive again at the fixture start.
         assert!(sim.scene.world.hero.health > 0);
         assert!(!sim.combat.hero_defeated);
@@ -1525,7 +1585,7 @@ mod tests {
         }
         let moved = x0 - sim.scene.world.hero.x;
         assert!((15.0..80.0).contains(&moved), "knocked back {moved}");
-        // The retry is inside 45 ticks of the defeating blow.
+        // The retry is inside 60 ticks of the defeating blow.
         for _ in 0..(RESTART_DELAY_TICKS as usize) {
             sim.step_scripted();
         }
@@ -1762,34 +1822,176 @@ mod tests {
 
     #[test]
     fn presentation_events_are_derived_from_the_hit_and_never_change_the_hash() {
-        let mut sim = sim_of(&CP01_TWO_HITS);
-        sim.run_scripted(13);
-        // The jab confirmed on tick 13: kick 1 px at full strength, fading.
-        assert_eq!(sim.combat.camera_kick(13), 1);
-        assert_eq!(sim.combat.camera_kick(13 + u64::from(CAMERA_KICK_TICKS)), 0);
-        assert!(sim.combat.flash(0, 13) && sim.combat.flash(0, 15));
-        assert!(!sim.combat.flash(0, 16));
+        let mut sim = sim_of(&CP01_HAYMAKER_CHAIN);
+        sim.run_scripted(140);
+        // The jab confirmed on 140: flash, but no camera kick (heavy blows only).
+        assert_eq!(sim.combat.camera_kick(140), 0);
+        assert!(sim.combat.flash(0, 140) && sim.combat.flash(0, 142));
+        assert!(!sim.combat.flash(0, 143));
+        sim.run_scripted(12);
+        // The haymaker killed on 152: kick 2 + 1 (lethal) = 3 virtual px, with
+        // the view moved against the hit direction (see `camera_kick`), fading
+        // over CAMERA_KICK_TICKS ticks through every level.
+        let kicks: Vec<i32> = (152..152 + u64::from(CAMERA_KICK_TICKS) + 1)
+            .map(|t| sim.combat.camera_kick(t))
+            .collect();
+        assert_eq!(kicks, vec![-3, -3, -2, -2, -2, -1, -1, 0, 0]);
         let before = sim.state_hash();
-        let kicks: Vec<i32> = (13..20).map(|t| sim.combat.camera_kick(t)).collect();
-        assert!(kicks.windows(2).all(|w| w[0].abs() >= w[1].abs()));
         // Clearing the whole presentation cache cannot move the sim hash.
         sim.combat.confirm = None;
         sim.combat.flash_tick.fill(None);
         assert_eq!(sim.state_hash(), before);
-        // The killing blow kicks harder (move kick + the lethal bonus).
-        sim.run_scripted(60);
-        assert_eq!(sim.combat.camera_kick(73), 2);
-        // Facing left kicks the other way.
+        assert_eq!(sim.combat.camera_kick(152), 0);
+        // Facing left flips the sign: the push kick (2 px) toward -x.
         let mut left = sim_of(&DUMMY_BEHIND);
         left.step(RawInput {
-            attack: true,
+            ability: true,
             move_x: -1.0,
             ..idle()
         });
-        for _ in 0..3 {
+        for _ in 0..13 {
             left.step(idle());
         }
-        assert_eq!(left.combat.camera_kick(4), -1);
+        assert_eq!(hits(&events_of(&left)), vec![(14, 0)]);
+        assert_eq!(left.combat.camera_kick(14), 2);
+    }
+
+    /// B1: the kick used to move the whole scene towards the attacker, which
+    /// reversed the knockback on screen. The goblin's screen x (world x minus
+    /// the view's left edge, kick included) must never fall behind where it was
+    /// before the hit while it is frozen: it stays or moves along the knockback.
+    #[test]
+    fn the_camera_kick_never_pulls_the_goblin_back_during_hit_stop() {
+        let screen_x = |sim: &FixtureSim, tick: u64| {
+            sim.combat.enemies[0].x
+                - (sim.scene.camera.left() as f32 + sim.combat.camera_kick(tick) as f32)
+        };
+        // Carl facing right: the goblin is knocked to +x.
+        let mut sim = sim_of(&CP01_HAYMAKER_CHAIN);
+        sim.run_scripted(151);
+        let before = screen_x(&sim, 151);
+        let mut moved = false;
+        for tick in 152..=164 {
+            sim.step_scripted();
+            let now = screen_x(&sim, tick);
+            assert!(now >= before - 1e-3, "tick {tick}: {now} behind {before}");
+            moved |= now > before;
+        }
+        assert!(moved, "the kick shows on screen");
+        // Carl facing left: the goblin is knocked to -x, the sign flips.
+        let mut left = sim_of(&DUMMY_BEHIND);
+        left.step(RawInput {
+            ability: true,
+            move_x: -1.0,
+            ..idle()
+        });
+        for _ in 0..12 {
+            left.step(idle());
+        }
+        let before = screen_x(&left, 13);
+        for tick in 14..=30 {
+            left.step(idle());
+            assert!(screen_x(&left, tick) <= before + 1e-3, "tick {tick}");
+        }
+    }
+
+    #[test]
+    fn the_haymaker_steps_carl_forward_4_px_one_per_tick_and_a_jab_does_not() {
+        let mut sim = sim_of(&CP01_HAYMAKER_CHAIN);
+        let mut xs = Vec::new();
+        for _ in 0..155 {
+            sim.step_scripted();
+            xs.push((sim.scene.world.tick, sim.scene.world.hero.x));
+        }
+        let x_at = |t: u64| xs.iter().find(|e| e.0 == t).unwrap().1;
+        // The jab (137..) keeps the feet planted; the haymaker starts on 147.
+        assert_eq!(x_at(147), 400.0);
+        for (tick, x) in [
+            (148, 401.0),
+            (149, 402.0),
+            (150, 403.0),
+            (151, 404.0),
+            (152, 404.0),
+        ] {
+            assert_eq!(x_at(tick), x, "tick {tick}");
+        }
+        assert_eq!(x_at(155), 404.0, "no step after move tick 4");
+    }
+
+    #[test]
+    fn the_haymaker_step_stops_at_body_contact_and_at_walls() {
+        // Body contact: a goblin 27 px away lets Carl close to 24 px, no more.
+        let mut sim = sim_of(&DUMMY_AHEAD);
+        sim.combat.enemies[0].x = 427.0;
+        let step = CARL_HAYMAKER.root_step.unwrap();
+        for _ in 0..4 {
+            sim.combat.root_step(&mut sim.scene, step);
+        }
+        assert_eq!(sim.scene.world.hero.x, 403.0);
+        // A wall 14 px ahead of Carl's right edge.
+        let mut sim = sim_of(&DUMMY_BEHIND);
+        sim.scene.world.solids.push(crate::prototype::Block {
+            rect: Rect {
+                left: 414.0,
+                bottom: 0.0,
+                width: 20.0,
+                height: 400.0,
+            },
+            material: crate::prototype::Material::Stone,
+            intact: true,
+        });
+        for _ in 0..4 {
+            sim.combat.root_step(&mut sim.scene, step);
+        }
+        assert_eq!(sim.scene.world.hero.x, 402.0);
+        // Total free travel is exactly HAYMAKER_STEP_PX.
+        assert_eq!(
+            step.px_per_tick * f32::from(step.to_tick - step.from_tick + 1),
+            crate::feel::HAYMAKER_STEP_PX
+        );
+    }
+
+    #[test]
+    fn a_goblin_launched_at_the_right_layout_edge_stops_with_its_body_inside() {
+        let width = kit().width as f32;
+        let mut sim = sim_of(&DUMMY_AHEAD);
+        let goblin = &mut sim.combat.enemies[0];
+        goblin.x = width - 20.0;
+        goblin.take_hit(&CARL_JAB, 1);
+        goblin.hit_stop = 0;
+        goblin.take_hit(&CARL_JAB, 1);
+        for _ in 0..120 {
+            sim.step(idle());
+            let right_edge = sim.combat.enemies[0].x + crate::combat::ENEMY_HALF_WIDTH;
+            assert!(
+                right_edge <= width + 1e-3,
+                "right edge {right_edge} > {width}"
+            );
+        }
+        // Carl's own bound is the same edge.
+        assert_eq!(
+            sim.combat.enemies[0].x,
+            width - crate::combat::ENEMY_HALF_WIDTH
+        );
+    }
+
+    #[test]
+    fn hit_stop_freezes_the_camera_and_donuts_trail_not_just_carl() {
+        let mut sim = sim_of(&CP01_HAYMAKER_CHAIN);
+        sim.run_scripted(152);
+        let snapshot = |sim: &FixtureSim| {
+            (
+                sim.scene.camera.left(),
+                sim.scene.world.donut.x,
+                sim.scene.world.hero.x,
+            )
+        };
+        let at_hit = snapshot(&sim);
+        for _ in 0..8 {
+            sim.step_scripted();
+            assert_eq!(snapshot(&sim), at_hit, "tick {}", sim.scene.world.tick);
+        }
+        assert_eq!(sim.scene.world.tick, 160, "the tick counter still runs");
     }
 
     #[test]

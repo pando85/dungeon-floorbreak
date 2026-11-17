@@ -22,7 +22,9 @@
 
 use std::fmt;
 
-use crate::feel::{HAYMAKER_FEEL, JAB_FEEL, KICK_FEEL, MoveFeel};
+use crate::feel::{
+    HAYMAKER_FEEL, HAYMAKER_STEP_PX, HAYMAKER_STEP_TICKS, JAB_FEEL, KICK_FEEL, MoveFeel,
+};
 use crate::prototype::{Block, Rect, TICK_SECONDS};
 
 pub const ENEMY_HALF_WIDTH: f32 = 12.0;
@@ -133,6 +135,16 @@ pub struct Chain {
     pub earliest: u16,
 }
 
+/// Forward motion of the attacker on move ticks `from_tick..=to_tick`
+/// (`px_per_tick` each, the way the attacker faces): applied by the scene,
+/// stopped by walls and at body contact with an alive target.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RootStep {
+    pub from_tick: u16,
+    pub to_tick: u16,
+    pub px_per_tick: f32,
+}
+
 /// One attack as data. Tick `0` of the move is the tick the input is accepted;
 /// the first active tick (`startup`) is the earliest hit tick.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -146,6 +158,8 @@ pub struct MoveSpec {
     pub reaction: Reaction,
     /// The string this move can cancel into, if any.
     pub chain: Option<Chain>,
+    /// A forward step during the move, if any.
+    pub root_step: Option<RootStep>,
 }
 
 impl MoveSpec {
@@ -169,6 +183,7 @@ pub const GREYBOX_STRIKE: MoveSpec = MoveSpec {
     damage: 1,
     reaction: Reaction::NONE,
     chain: None,
+    root_step: None,
 };
 
 /// Carl's jab (`punch_a` of the melee art): startup 3, active 2, recovery 9.
@@ -196,12 +211,14 @@ pub const CARL_JAB: MoveSpec = MoveSpec {
         press_to: 13,
         earliest: 7,
     }),
+    root_step: None,
 };
 
 /// Carl's haymaker (`punch_b`, an overhand chop): startup 5, active 3, recovery
 /// 14, total 22. Contact box +16..21 px ahead at 27..37 px above the feet
 /// (`[16, 22) x [27, 38)`). It hits on its first active tick at which the box
-/// overlaps a target. Ends the string. Reaction: [`HAYMAKER_FEEL`].
+/// overlaps a target. Ends the string. Steps Carl forward 4 px (1 px per tick on
+/// move ticks 1..=4). Reaction: [`HAYMAKER_FEEL`].
 pub const CARL_HAYMAKER: MoveSpec = MoveSpec {
     id: MoveId::Haymaker,
     startup: 5,
@@ -216,6 +233,11 @@ pub const CARL_HAYMAKER: MoveSpec = MoveSpec {
     damage: 1,
     reaction: Reaction::from_feel(HAYMAKER_FEEL),
     chain: None,
+    root_step: Some(RootStep {
+        from_tick: 1,
+        to_tick: HAYMAKER_STEP_TICKS,
+        px_per_tick: HAYMAKER_STEP_PX / HAYMAKER_STEP_TICKS as f32,
+    }),
 };
 
 /// Carl's push kick (`kick` of the melee art): startup 13, active 4,
@@ -236,6 +258,7 @@ pub const CARL_PUSH_KICK: MoveSpec = MoveSpec {
     damage: 1,
     reaction: Reaction::from_feel(KICK_FEEL),
     chain: None,
+    root_step: None,
 };
 
 /// Carl's move table, the one lookup of the Floor 1 scene (strings and the
@@ -1242,6 +1265,17 @@ mod tests {
             (5, 3, 14)
         );
         assert_eq!(CARL_HAYMAKER.total(), 22);
+        // The haymaker steps Carl 4 px, 1 px per tick on move ticks 1..=4; the
+        // other moves keep the feet planted.
+        let step = CARL_HAYMAKER.root_step.unwrap();
+        assert_eq!(
+            (step.from_tick, step.to_tick, step.px_per_tick),
+            (1, 4, 1.0)
+        );
+        assert!(CARL_JAB.root_step.is_none() && CARL_PUSH_KICK.root_step.is_none());
+        // Camera kick: heavy blows only.
+        assert_eq!(CARL_JAB.reaction.camera_kick_px, 0);
+        assert_eq!(CARL_HAYMAKER.reaction.camera_kick_px, 2);
         // Hit-stop values of the Carl melee spec section 4.
         assert_eq!(CARL_JAB.reaction.hit_stop, 3);
         assert_eq!(CARL_HAYMAKER.reaction.hit_stop, 5);

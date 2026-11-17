@@ -344,12 +344,13 @@ A const table in `src/combat.rs` (`CARL_MOVES`: `CARL_JAB`, `CARL_HAYMAKER`, `CA
 
 | Move | Input | Startup | Active | Recovery | Total | Hit box (pivot-relative, half-open, art reach) | Hit-stop | Stagger | Knockback |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `jab` | attack (J / West) | 3 | 2 | 9 | 14 | x +16..22, y 29..35 above the feet (fist [16,29,21,34]) | 3 | 10 | 40 px/s, about 1 px |
-| `haymaker` | attack again inside the jab's window | 5 | 3 | 14 | 22 | x +16..22, y 27..38 (overhand chop [16,27,21,37]) | 5 | 18 | 80 px/s with a 60 px/s hop, about 12 px |
+| `jab` | attack (J / West) | 3 | 2 | 9 | 14 | x +16..22, y 29..35 above the feet (fist [16,29,21,34]) | 3 | 10 | 75 px/s, about 3 px; no camera kick |
+| `haymaker` | attack again inside the jab's window | 5 | 3 | 14 | 22 | x +16..22, y 27..38 (overhand chop [16,27,21,37]) | 5 | 18 | 80 px/s with a 60 px/s hop, about 12 px; Carl steps forward 4 px |
 | `push_kick` | secondary (K / East) | 13 | 4 | 19 | 36 | x +15..22, y 18..28 | 8 | 10 | the jab's until CP-02 |
 | `greybox_strike` | WORK-021 only | 0 | 1 | 13 | 14 | centre distance -9..54, 44 vertical | none | none | none |
 
 * The hit lands on the **first active tick at which the box overlaps the target**, never on the press tick: normally the first active tick (`jab`: move tick 3, `haymaker`: move tick 5), later when the target steps into the box during the second or third active tick (a test pins this). The target body is 24 x 38 and the box is in front of Carl; facing mirrors it and a target behind Carl is never hit.
+* **The haymaker's step** (decided by the Opus feel review, round 1): Carl moves 1 px per tick forward on haymaker move ticks 1 to 4 (4 px, `HAYMAKER_STEP_PX`), so the haymaker keeps its 34 px reach on a goblin the jab pushed back about 3 px. The step stops at body contact (centre distance 24 px with an alive goblin it would approach), at walls and at the layout edge; it is skipped while frozen; deterministic and tested. It is gameplay motion on top of the art's own lunge (the art spec asks for either; the owner may drop one in the art PR).
 * A target is hit **at most once per move instance**: a lingering overlap, the second active tick or a held button never repeat damage. A new press is a new move.
 * **The string:** a second attack press while the jab is at move ticks 3 to 13 (inclusive) starts the haymaker as soon as the jab has reached tick 7 (on the press tick itself when that is later), as in the art spec ("press buffered t3-13, the next move starts at max(t7, press tick)"). A press at jab ticks 0 to 2 is forgotten, one after tick 13 is a new jab. The haymaker ends the string. The window is judged in **move ticks**, so a press during the jab's hit-stop counts as the tick it froze on.
 * **Buffering:** only press edges count (a held button is one press). A press made while a move runs (other than the string) is remembered for 6 ticks (`CARL_BUFFER_TICKS`): inside the last 6 ticks of the move it starts the next move on the tick the current one ends; earlier presses are forgotten (the boundary is tested). WORK-021 uses buffer 0 (its cooldown of 14).
@@ -358,15 +359,15 @@ A const table in `src/combat.rs` (`CARL_MOVES`: `CARL_JAB`, `CARL_HAYMAKER`, `CA
 
 ### Hit feedback (CP-01)
 
-**Hit-stop** is an authoritative sim state: on a confirmed hit the attacker's move clock freezes and so does the target (every timer, its motion, its swing progress). During the freeze: the move tick does not advance (a press made then still counts), a frozen tick resolves no hit, a target inside the freeze it just caused cannot be hit again, a frozen goblin neither advances its swing nor deals damage, and Carl's physics stand still while he is frozen (as the attacker or after a blow on him; after a blow his flinch and invulnerability stand still too) while the scene tick, Donut and the camera go on. The attacker freezes for the hit tick's following `hit_stop` ticks; the goblin's own step on the hit tick is skipped too, so it loses one tick more (documented, tested). After the freeze everything resumes exactly where it stopped. The killing hit freezes `LETHAL_HIT_STOP_BONUS` (3) ticks longer.
+**Hit-stop** is an authoritative sim state: on a confirmed hit the attacker's move clock freezes and so does the target (every timer, its motion, its swing progress). During the freeze: the move tick does not advance (a press made then still counts), a frozen tick resolves no hit, a target inside the freeze it just caused cannot be hit again, a frozen goblin neither advances its swing nor deals damage, and **the whole scene stands still while Carl is frozen** (as the attacker or after a blow on him): Carl, the camera and Donut's trail do not move (`SceneSim::hold_tick` only advances the tick counter; after a blow on him his flinch and invulnerability stand still too). Only the combat fixtures use it, so the story route is untouched. The attacker freezes for the hit tick's following `hit_stop` ticks; the goblin's own step on the hit tick is skipped too, so it loses one tick more (documented, tested). After the freeze everything resumes exactly where it stopped. The killing hit freezes `LETHAL_HIT_STOP_BONUS` (3) ticks longer.
 
 **Stagger** (`Hurt`): a hit during the tell or the recovery cancels the goblin's attack and returns its token; it cannot attack or walk for the move's stagger ticks and then waits **20 more ticks** (post-hurt cooldown, walking allowed) before any new tell. A hit during the swing (smear and impact, as in the GOB-01 state diagram, "`attack_swing` cannot be interrupted") deals damage and hit-stop but no stagger and no knockback: a committed swing, see the open questions.
 
 **Knockback** is a deterministic impulse: horizontal (away from Carl) and a small vertical hop, applied once as a velocity; gravity (1050 px/s^2) and ground friction (1200 px/s^2) do the rest. It is bounded (speed clamped to 300 px/s) and stopped dead by solid geometry and the layout edge (tested with a wall). Carl and Donut do not push the goblin and goblins do not collide with each other yet (CP-02).
 
-**Defeat:** the killing hit launches the goblin (130 px/s with a 180 px/s hop: about 21 ticks in the air and 52 px), it lands and lies `down` for 30 ticks, then stays as a **corpse**. From the killing hit on it has no hurtbox, holds no attack token, never starts or lands a swing, cannot be hit and never collides with or hurts Carl (tested: Carl walks through it). The corpse stays (no fade, no physics: CP-04 is out of scope).
+**Defeat:** the killing hit launches the goblin (160 px/s with a 210 px/s hop: about 24 ticks of flight with a 21 px apex, 64 px in the air and about 11 px of sliding, about 75 px in all; the `Airborne` mode in a trace also counts the hit-stop that comes first: 9 frozen ticks for a haymaker kill, so about 33 ticks: the first draft's 21 ticks of flight showed as 28 in the traces for the same reason), it lands and lies `down` for 30 ticks, then stays as a **corpse**. From the killing hit on it has no hurtbox, holds no attack token, never starts or lands a swing, cannot be hit and never collides with or hurts Carl (tested: Carl walks through it). The corpse stays (no fade, no physics: CP-04 is out of scope).
 
-**Presentation only** (read the sim, never write it; the sim hash does not include it, tested): an **impact flash** (the target is drawn white for 3 ticks after a hit) and a **camera kick** (1 virtual px on a jab, 2 on a haymaker or kick, +1 on the killing hit, along the hit direction, fading linearly over 6 ticks, kept inside the layout). Both derive from the last confirmed hit and the tick: `CombatState::camera_kick(tick)` and `CombatState::flash(goblin, tick)`.
+**Presentation only** (read the sim, never write it; the sim hash does not include it, tested): an **impact flash** (the target is drawn white for 3 ticks after a hit) and a **camera kick** (**0 on a jab**, 2 virtual px on a haymaker or kick, +1 on the killing hit, fading linearly over 8 ticks and rounded to whole pixels, so a kill passes 3, 3, 2, 2, 2, 1, 1, 0; kept inside the layout). **Direction (fixed in review round 1):** the view moves *against* the hit direction, so the whole scene jolts the way the goblin flies and never against the knockback; a test pins that the goblin's screen x never falls behind its pre-hit x during the hit-stop. Both derive from the last confirmed hit and the tick: `CombatState::camera_kick(tick)` and `CombatState::flash(goblin, tick)`.
 
 ### The goblin attack (GOB-01 spec section 4)
 
@@ -381,11 +382,11 @@ The WORK-021 contact damage is gone: **Carl takes damage only from a swing's act
 | recover | 30..49 | vulnerable; the token goes back at tick 30 |
 | cooldown | 40 ticks idle or walking | before the next tell |
 
-**Attack token (group rule):** at most 2 goblins in a tell or a swing at once; two tell starts at least 8 ticks apart; the free slots go to the goblins that could attack now, lowest distance to Carl first and ties to the lower index; the others keep walking or idle 34 to 60 px away. Tested with three goblins (never more than two, tells on ticks 1 and 9, the third waits until a token returns) and with the two-goblin fixtures.
+**Attack token (group rule):** at most 2 goblins in a tell or a swing at once; two tell starts at least 12 ticks apart (`TELL_SPACING`); the free slots go to the goblins that could attack now, lowest distance to Carl first and ties to the lower index; the others keep walking or idle 34 to 60 px away. Tested with three goblins (never more than two, tells on ticks 1 and 13, the third waits until a token returns; an approved goblin that cannot reach Carl would starve the others, which cannot happen on the fixtures' clean ground) and with the two-goblin fixtures.
 
 ### Carl's hurt, knockdown and retry
 
-A blow: 1 hit point (Carl has 4), 55 ticks of invulnerability, an 18-tick flinch (`hurt`, no actions, the move cancelled), Carl turns to face the goblin, and Carl and that goblin freeze for 4 ticks. The fourth lost hit point is the **knockdown**: a 7-tick freeze, then Carl is launched away from the goblin (120 px/s with a 160 px/s hop, about 42 px, stopped by walls) and lies down. **Fast retry:** the fixture restarts by itself `RESTART_DELAY_TICKS` = 40 ticks after the defeating blow (at most 45; `R` / North restarts at once) and the restart is deterministic (the same script gives the same attempt).
+A blow: 1 hit point (Carl has 4), 55 ticks of invulnerability, an 18-tick flinch (`hurt`, no actions, the move cancelled), Carl turns to face the goblin, and Carl and that goblin freeze for 4 ticks. The fourth lost hit point is the **knockdown**: a 7-tick freeze, then Carl is launched away from the goblin (120 px/s with a 160 px/s hop, about 42 px, stopped by walls) and lies down. **Fast retry:** the fixture restarts by itself `RESTART_DELAY_TICKS` = 50 ticks after the defeating blow (under 60; `R` / North restarts at once) and the restart is deterministic (the same script gives the same attempt).
 
 ### Fixtures
 
@@ -393,13 +394,13 @@ Each fixture has a seed, Carl's start column, goblin spawns and an optional inpu
 
 | Fixture | Setup | Script | Final `COMBAT_STATE` hash |
 | --- | --- | --- | --- |
-| `cp01_single_goblin` | Carl at column 400, one chasing goblin at 560 | jab on tick 122 (hit 125); a second press on 136, inside the jab's window, is the haymaker (hit 141, defeated); 200 ticks. The same inputs as the PR #45 baseline | `e6537a1f17b0567b` |
-| `cp01_two_hits` | Carl at 400, a stationary goblin at 428 | attack HELD ticks 10..59 (one hit on 13), a fresh press on 70 (hit 73, defeated); 140 ticks | `e0663f9481b15b06` |
-| `cp02_two_goblins` | Carl at 400, chasing goblins at 520 and 552 | jab and haymaker on each goblin (presses 83, 97, 128, 135): a placeholder for the knockback work; 260 ticks | `6e82b7de91397bea` |
+| `cp01_single_goblin` | Carl at column 400, one chasing goblin at 560 | jab on tick 122 (hit 125); a second press on 136, inside the jab's window, is the haymaker (hit 141, defeated); 200 ticks. The same inputs as the PR #45 baseline | `cbb307e8a1a7420f` |
+| `cp01_two_hits` | Carl at 400, a stationary goblin at 428 | attack HELD ticks 10..59 (one hit on 13), a fresh press on 70 (hit 73, defeated); 140 ticks | `119a431dad6c7d0b` |
+| `cp02_two_goblins` | Carl at 400, chasing goblins at 520 and 552 | jab and haymaker on each goblin (presses 83, 97, 164, 170; the first haymaker also catches the second goblin on its later active ticks): a placeholder for the knockback work; 260 ticks | `4f3b150ac8a0c633` |
 | `cp01_goblin_attacks` | Carl idles, one chasing goblin at 560 | none: tell 127, swing and blow 153, tell 222, swing and blow 248; 300 ticks | `a8aa111180066441` |
-| `cp01_interrupt` | as above | jab on 137, hit on 140 inside the tell (attack tick 13): the swing (153) never happens, the next tell waits until 175; 200 ticks | `5ef20dc28a509345` |
-| `cp01_haymaker_chain` | as above | presses 137 and 141: the jab hits on 140, the haymaker starts on 147 (jab tick 7) and kills on 152; 230 ticks | `d48f327294242862` |
-| `cp01_retry` | Carl idles against goblins at 520 and 552 | none: defeated on 400, restart on 439 (40 ticks later), the same attempt again, defeated again on elapsed 839; 840 ticks | `ea023975d3500132` |
+| `cp01_interrupt` | as above | jab on 137, hit on 140 inside the tell (attack tick 13): the swing (153) never happens, the 3 px push makes the goblin walk back in, the next tell comes on 177; 200 ticks | `ee81fa34f09491e0` |
+| `cp01_haymaker_chain` | as above | presses 137 and 141: the jab hits on 140, the haymaker starts on 147 (jab tick 7) and kills on 152 (Carl steps 400 to 404 on 148 to 151); 230 ticks | `01a7fa7a9770271d` |
+| `cp01_retry` | Carl idles against goblins at 520 and 552 | none: defeated on 400, restart on 449 (50 ticks later), the same attempt again, defeated again on elapsed 849; 850 ticks | `edaa118cf0e31e94` |
 
 The hashes of the three PR #45 fixtures changed on purpose: the goblin now has modes, hit-stop, knockback and an attack, the `Hit` event carries `hit_stop`, the haymaker replaces the second jab, the hash covers the held buttons and `elapsed`, and the goblin no longer deals contact damage. The baseline (`c6952df1e99c7c0a`, `382bcaedf5dde492`, `f4e11cc71da438a1`) stays in [the PR #45 evidence](../evidence/combat-int-01/README.md). **The story route hashes are unchanged** (`walk_right` at 250 ticks `931868d6afa56498`, at 613 `82b8f87fa644de48`).
 
@@ -427,18 +428,19 @@ bash scripts/make_cp01_feel_evidence.sh
 | hit-stop bonus on the killing hit | +3 ticks | the last blow must land harder than the first |
 | stagger: jab / haymaker | 10 / 18 ticks | the melee art spec; longer than the jab's 14-tick recovery would stun-lock one goblin, shorter lets it counter |
 | post-hurt cooldown, attack cooldown | 20 / 40 ticks | GOB-01 spec: a hit goblin does not retaliate at once, a goblin does not chain attacks |
-| knockback: jab / haymaker | 40 px/s about 1 px / 80 px/s with a 60 px/s hop about 12 px | the art spec's "jab at most 2 px, haymaker about 12 px"; a jab push above 2 px carries the goblin out of the haymaker's 34 px reach |
-| knockback of the killing hit | 130 px/s with 180 px/s up: 21 ticks, 52 px | clear kill confirmation without leaving the screen (CP-02 will tune it against the second goblin) |
+| knockback: jab / haymaker | 75 px/s about 3 px / 80 px/s with a 60 px/s hop about 12 px | review round 1: a 1 px jab push could not be seen; the haymaker's 4 px step now keeps it in reach |
+| haymaker step | 4 px, 1 px per move tick 1..4 | review round 1: a goblin pushed 3 px stays inside the 34 px reach; stops at body contact (24 px), walls and the layout edge |
+| knockback of the killing hit | 160 px/s with 210 px/s up: 24 ticks of flight, 21 px apex, about 75 px | review round 1: 52 px read as a nudge for a kill; still on screen (CP-02 will tune it against the second goblin) |
 | knockback bound | 300 px/s, gravity 1050, friction 1200 | an upper bound for any future move; gravity is the WORK-021 value |
-| camera kick: jab / haymaker, kick / killing bonus | 1 / 2 virtual px, +1; 6 ticks | 3 to 9 screen px at 1080p: felt, not seasick; presentation only |
+| camera kick: jab / haymaker, kick / killing bonus | 0 / 2 virtual px, +1; fades over 8 ticks | review round 1: heavy blows only, a real decay; the view moves against the hit so the scene jolts along the knockback; presentation only |
 | impact flash | 3 ticks | readable without hiding the pose |
 | goblin timeline | tell 24 (6 + 18), smear 2, impact 26..29, recover 20, trigger 30 px | GOB-01 spec section 4 |
-| attack tokens, tell spacing | 2, 8 ticks | GOB-01 spec: no more than two goblins attack at once, a visible beat between starts |
+| attack tokens, tell spacing | 2, 12 ticks | GOB-01 spec: no more than two goblins attack at once; review round 1 widened the beat between tell starts from 8 to 12 |
 | goblin stand-off without a token | 60 px | inside the spec's 34..60 px |
 | down time, then corpse | 30 ticks | GOB-01 spec |
 | Carl: flinch, hurt freeze, knockdown freeze | 18, 4, 7 ticks | melee art spec flinch; a blow on Carl should land like his |
 | Carl: knockdown launch | 120 px/s with 160 px/s up | about 42 px away from the goblin |
-| restart delay | 40 ticks after the defeating blow (at most 45) | fast retry: knockdown, a short sprawl, go again |
+| restart delay | 50 ticks after the defeating blow (under 60) | review round 1: the 40-tick retry cut the knockdown sprawl short; still fast; `R` restarts at once |
 
 ### Disclosed placeholders
 
@@ -452,13 +454,31 @@ The GOB-01 goblin art and the ANIM-CARL-02 melee art have not merged (real art i
 
 The kick launch and the goblin-into-goblin contact (CP-02); the environmental kill (CP-03); wiring in the real Carl melee (PR #43) and goblin (PR #44) art once they merge (frame selection from the move clock and the goblin state, Carl above the target in his active frames); fixtures on the normal route (OPENING-01); a non-lethal heavy hit that launches (the spec's `knockback` state with a getup).
 
-### Open design questions (for the owner's playtest)
+### Decisions of the Opus feel review, round 1 (pending owner playtest)
 
-1. Is the swing really uninterruptible (GOB-01 spec, as built) or should any hit stagger it? Today a jab that lands in the smear or the impact only freezes and damages the goblin and Carl still takes the blow.
-2. Hit-stop lengths (3 / 5 / 8, +3 on a kill, 4 and 7 on Carl) and the camera kick (1 to 3 px): too little, too much?
-3. Is a corpse that stays right, or should it fade? Does 52 px of launch on the last blow read as a kill confirmation or as too much?
-4. Haymaker reach: with a jab push of 1 px the haymaker connects at 30 to 33 px but not on a goblin that was hit while still walking at 33+ px: is a forward step on the haymaker wanted (the art lunges)?
-5. Should a goblin without a token back off instead of standing still at 34 to 60 px?
+Decided by the Opus feel review, **pending owner playtest** (the owner can change any of them):
+
+1. The swing stays uninterruptible from the smear (attack tick 24) on; a killing hit still cancels it.
+2. Hit-stop stays 3 / 5 / 8 ticks, +3 on a kill. Camera kick: 0 on a jab, 2 on a haymaker and a kick, +1 on a kill, over 8 ticks.
+3. The corpse stays, never collides and does not fade in CP-01.
+4. The haymaker steps Carl forward 4 px (see the move table).
+5. No back-off for goblins without a token: they stand still 34 to 60 px away.
+
+Value changes of the same review: jab knockback 75 px/s, killing-hit launch 160 / 210 px/s, camera kick over 8 ticks, restart 50 ticks, tell spacing 12 ticks (see the tuning table).
+
+### Follow-ups recorded by the review (not implemented in CP-01)
+
+- **F1 (art PR):** show the hurt recoil frame 16 during the killing hit's hit-stop, then the launch frame 18.
+- **F2 (art PR):** show the recoil for 4 ticks, then hold frame 17 for the rest of the stagger.
+- **F3 (CP-02):** cap the lethal hit-stop at 10 ticks.
+- **F4:** corpse budget: keep the newest 4 corpses, fade the older ones over 30 ticks.
+- **F5:** a presentation-only idle shuffle for goblins without a token.
+
+### Still open for the owner's playtest
+
+1. Hit-stop lengths and the camera kick sizes: too little or too much?
+2. Is a 75 px launch the right kill confirmation?
+3. Is the haymaker's 4 px step welcome next to the art's own lunge?
 
 ## Known limits
 
