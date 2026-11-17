@@ -3,6 +3,12 @@
 **Status:** prerequisites merged (PR #21 combat greybox, PR #22 Character Playground, PR #23 concept references). **Ready to plan the first integrated scene with local agents.** Human gameplay/art review intentionally happens on the integrated scene rather than blocking these tooling prototypes.
 **Read first:** `AGENTS.md`, `docs/02-art/floor-01-opening-catacomb-goblins.md`, `docs/02-art/character-scale-approval.md`, `docs/02-art/asset-pipeline.md`, `docs/03-tech/level-data.md`, `docs/01-design/antihero-tone.md`, `docs/04-production/rights-and-release.md`.
 
+## 2026-11-17 integration directive: use this opening as the combat testbed
+
+**Owner direction:** Include the [staged combat/physics probes](floor-01-integrated-combat-probes.md) in the **same first playable Floor 1 scene** rather than in an unrelated permanent combat demo. Preserve the threatening Dozer pursuit, then use the already-planned **post-chase on-foot goblin skirmish** for a basic hit, knockback into a second goblin, and—if safely supported—one authored environmental kill. Make reproducible headless/Bevy scenarios for these tests so gameplay can be tuned without replaying the entire cinematic opening.
+
+**Important:** the separate WORK-021 greybox provides reusable melee, goblin and destruction systems, but its available bombs are **not** an excuse to grant Carl premature story gear. Pre-Guild Donut has no spells. Follow-on 1P switch / real 2P scenarios must remain **pending until implemented**. Experimenting with defeated bodies as projectiles is optional, **not a blocker** for the opening. A single integrator owns `floor01_scene` composition; do not parallelize conflicting edits with the other active scene agents.
+
 ## Dependencies and sequencing
 
 1. **Done:** PR #21 (combat-first linear Floor 1 Bevy greybox) merged, CI passed, start-safe idle regression tested. Keep the deterministic Rust gameplay world and horizontally scrolling camera.
