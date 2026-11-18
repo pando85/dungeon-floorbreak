@@ -273,3 +273,7 @@ The independent top-tier reviewer is the design authority for exactly this chang
 - **Mirror-lit removal.** Deleted `assets/source/characters/llama/llama-01_mirror_lit.grid.json`, the `mirror-lit` command in `scripts/author_llama01.py` and the `scene.mirror_lit_grid` config entry; `scripts/pixelart/scene.py` is reverted to `origin/main` (no diff in the shared toolkit).
 - **Regenerated:** grid, manifest (unchanged), `.ase` (`scripts/pixel_grid_to_ase.py build`), `validate` (13 PASS, 0 FAIL, 2 SKIPPED), evidence, review pack, `SHA256SUMS`, evidence README.
 - **Executor choices:** the ring is drawn only in poses 7 to 12 (the pinned-ear frames); the ears are low-contrast at 1x by design (they lie on the neck), so the aggression now rests on the glow, teeth and eye. The reviewer should judge whether that is enough or whether the ears should stand a little further off the neck.
+
+### Fix round 3: key 3 tail tip (E5 residual)
+
+Key 3 (`WALK_CONTACT`) now ends in the same shaggy tail tip as key 0: `tail_sync=True` on the pose, which offsets the tuft phase so the tip pattern matches the idle tail, positioned per key 3's own tail pose (unchanged). Nothing else in key 3 changed. Key 3 was re-frozen alone in effect (`python3 -m scripts.pixelart freeze --force`; only the frame 3 hash differs in `tests/fixtures/llama-01_keys.json`). Grid, `.ase`, evidence, review pack and `SHA256SUMS` regenerated; the walk loop 3, 4, 5, 6 no longer pops at the tail tip.
