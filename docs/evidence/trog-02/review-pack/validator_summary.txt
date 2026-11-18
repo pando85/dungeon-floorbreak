@@ -1,0 +1,18 @@
+pixelart validate: trog-02 (16 frames)
+  PASS    V01 structure
+  PASS    V02 tags
+  PASS    V03 tick table
+  PASS    V04 palette
+  PASS    V05 isolated pixels
+  PASS    V06 orphan pixels
+  PASS    V07 grounded contact rows
+  SKIPPED V08 airborne frames off the floor (not configured)
+  PASS    V09 frozen keys
+  SKIPPED V10 layers disjoint (not configured)
+  PASS    V11 canvas margin
+  PASS    V12 unique frames
+  PASS    V13 bounding boxes
+  PASS    V14 key counts
+  PASS    V15 non-empty frames
+  PASS    V16 foot drift (loop seam)
+verdict: PASS (14 pass, 0 fail, 2 skipped)

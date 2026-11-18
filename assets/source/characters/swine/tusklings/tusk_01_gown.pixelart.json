@@ -1,0 +1,299 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "tusk-01-gown",
+  "title": "TUSK-01 Tuskling gown atlas (same drawing as tusk-01, costume layer remapped by variant())",
+  "grid": "assets/source/characters/swine/tusklings/tusk_01_gown.grid.json",
+  "frame_size": [
+    56,
+    40
+  ],
+  "pivot": [
+    22,
+    39
+  ],
+  "contact_row": 39,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          18
+        ],
+        [
+          1,
+          12
+        ],
+        [
+          2,
+          14
+        ]
+      ]
+    },
+    "scramble": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          6,
+          5
+        ]
+      ]
+    },
+    "tell": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          20
+        ]
+      ]
+    },
+    "gore": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          9,
+          3
+        ],
+        [
+          10,
+          6
+        ],
+        [
+          11,
+          14
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          12,
+          12
+        ]
+      ]
+    },
+    "down": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          13,
+          8
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          15,
+          null
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "scramble",
+    "tell": "tell",
+    "attack": "gore",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "layers_disjoint": [
+      [
+        "body",
+        "costume"
+      ]
+    ],
+    "bbox": [
+      {
+        "id": "T1-size-idle-30px",
+        "frames": [
+          0
+        ],
+        "top": 10,
+        "bottom": 39
+      },
+      {
+        "id": "T1-idle-width",
+        "frames": [
+          0
+        ],
+        "min_width": 32,
+        "max_width": 38
+      },
+      {
+        "id": "T1-idle-top",
+        "frames": [
+          0,
+          1,
+          2
+        ],
+        "min_top": 9,
+        "max_top": 11,
+        "bottom": 39
+      },
+      {
+        "id": "T3-tell-hold-low-ram",
+        "frames": [
+          8
+        ],
+        "min_top": 13,
+        "min_right": 44
+      },
+      {
+        "id": "T4-impact-reach",
+        "frames": [
+          10
+        ],
+        "min_right": 50
+      },
+      {
+        "id": "T5-down-hold-on-its-back",
+        "frames": [
+          15
+        ],
+        "min_top": 24,
+        "max_width": 44
+      }
+    ],
+    "key_counts": [
+      {
+        "id": "T0-snout-lit",
+        "frames": [
+          0
+        ],
+        "key": "h",
+        "min": 5
+      },
+      {
+        "id": "T0-small-sunk-eye",
+        "frames": [
+          0
+        ],
+        "key": "w",
+        "min": 1,
+        "max": 2
+      },
+      {
+        "id": "T0-eye-small",
+        "frames": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "key": "w",
+        "max": 2
+      },
+      {
+        "id": "T0-eye-white-in-the-tell",
+        "frames": [
+          8,
+          9,
+          10
+        ],
+        "key": "w",
+        "min": 1,
+        "max": 4
+      },
+      {
+        "id": "T4-hurt-eyes-shut",
+        "frames": [
+          12
+        ],
+        "key": "w",
+        "max": 0
+      },
+      {
+        "id": "T5-down-eyes-shut",
+        "frames": [
+          15
+        ],
+        "key": "w",
+        "max": 0
+      }
+    ],
+    "foot_drift": {
+      "max_px": 4,
+      "tags": [
+        "scramble"
+      ]
+    }
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 470
+      },
+      {
+        "frame": 8,
+        "x": 575
+      },
+      {
+        "frame": 10,
+        "x": 635
+      },
+      {
+        "frame": 14,
+        "x": 700
+      },
+      {
+        "frame": 15,
+        "x": 760
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "tell",
+      "gore"
+    ]
+  }
+}
