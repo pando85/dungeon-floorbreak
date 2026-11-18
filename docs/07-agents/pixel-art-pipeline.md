@@ -102,17 +102,19 @@ All three then follow E → G → R → O identically. The Bad Llama gets A beca
 
 Re-check the routing with the ledger after three more assets.
 
-## 5. Pilot results (interim, 2026-11-18)
+## 5. Pilot results (final, 2026-11-18)
 
-USD figures are API list-price estimates from `scripts/agent_cost_report.py`, not billed amounts. The shared packet stage (about 0.55 USD) is split evenly. One monster per configuration, and the monsters differ in difficulty, so these are indications, not proof.
+USD figures are API list-price estimates from `scripts/agent_cost_report.py`, not billed amounts; the per-agent rows are in [cost-ledger.csv](cost-ledger.csv). The shared packet stage (0.55 USD) is split evenly. One monster per configuration, and the monsters differ in difficulty (the Bad Llama is the hardest), so these are indications, not proof. All three are merged (PRs #57, #58, #59).
 
-| Monster | Config | Frames | Top-tier USD | Total USD (est.) | USD per frame | First blind review | Top-tier design rounds |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Dungeon Rat (RAT-01) | B | 19 | 2.3 | about 5.8 | 0.30 | PASS WITH EXECUTION ITEMS, 21/25 | 1 |
-| Scatterer (SCAT-01) | C | 16 | 3.0 | about 5.6 | 0.35 | PASS WITH EXECUTION ITEMS, 20/25 | 1 |
-| Bad Llama (LLAMA-01) | A | 17 | about 5.7 | about 7.9 | 0.46 | FAIL-DESIGN, 17/25 (read as a goat or deer) | 2 |
+| Monster | Config | Frames | Top-tier USD | Medium-tier USD | Total USD | USD per frame | First blind review | Final review | Top-tier design rounds |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Scatterer (SCAT-01) | C | 16 | 2.97 | 2.55 | **5.70** | 0.36 | PASS WITH EXECUTION ITEMS, 20/25 | fix list checked | 1 |
+| Dungeon Rat (RAT-01) | B | 19 | **2.32** | 3.63 | 6.13 | **0.32** | PASS WITH EXECUTION ITEMS, **21/25** | fix list checked | 1 |
+| Bad Llama (LLAMA-01) | A | 17 | 6.45 | 3.19 | 9.82 | 0.58 | FAIL-DESIGN, 17/25 (read as a goat or deer) | re-review PASS WITH EXECUTION ITEMS, 20/25 | 2 |
 
-Other measured costs: an independent top-tier review with the fixed 3-image input costs about 0.5–1.2 USD; a medium-tier fix-list check about 0.15 USD. Medium-tier cost is driven by tool-call count (each call re-reads the context), so long CI waits and merge-conflict fixes were the largest avoidable cost.
+Conclusions used for [routing by difficulty](#routing-by-difficulty):
 
-Final numbers replace this table once all three PRs are merged.
-
+- B and C cost about the same in total; B used the least top-tier spend per frame and scored highest. A cost about 1.6× more because a design defect was found only after keys and in-betweens were drawn, which motivates the silhouette gate.
+- An independent top-tier review with the fixed 3-image input costs 0.5–0.7 USD (up to 1.2 USD for larger assets); a medium-tier fix-list check costs 0.1–0.15 USD.
+- Medium-tier cost tracks tool-call count. The largest avoidable costs were CI waiting and merge conflicts (up to about 2.5 USD per fix agent before the rules in the routing section).
+- **Orchestration overhead:** the top-tier orchestrator session cost about 12 USD for the whole day (two baseline reviews, three pilots, merges and docs), more than any single asset. Keep orchestration terse: delegate, pass file paths instead of pasted content, and avoid re-reading large files.
