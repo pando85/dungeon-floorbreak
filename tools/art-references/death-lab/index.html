@@ -122,7 +122,7 @@ function extremeOverlay(c,kind,t,power){
 const contexts=[0,1,2,3].map(i=>document.getElementById('s'+i).getContext('2d'));
 const timeline=document.getElementById('timeline'),frame=document.getElementById('frame'),powerEl=document.getElementById('power'),powerLabel=document.getElementById('powerLabel');
 let playing=false,last=0,pct=Number(timeline.value),power=Number(powerEl.value);
-function render(){contexts.forEach((c,i)=>stage(c,i,pct/100,power),extremeOverlay(c,i,pct/100,power));frame.textContent=Math.round(pct)+'%';powerLabel.textContent=power+'/4';document.getElementById('powerMeaning').textContent=['','SUBTLE','PUNCHY','SAVAGE','MAXIMUM'][power]}
+function render(){contexts.forEach((c,i)=>{stage(c,i,pct/100,power);extremeOverlay(c,i,pct/100,power)});frame.textContent=Math.round(pct)+'%';powerLabel.textContent=power+'/4';document.getElementById('powerMeaning').textContent=['','SUBTLE','PUNCHY','SAVAGE','MAXIMUM'][power]}
 function anim(ts){if(!playing)return;if(last){pct=(pct+(ts-last)*.045)%101;timeline.value=pct}last=ts;render();requestAnimationFrame(anim)}
 document.getElementById('toggle').addEventListener('click',()=>{playing=!playing;last=0;document.getElementById('toggle').textContent=playing?'Ⅱ Pausar':'▶ Reproducir';if(playing)requestAnimationFrame(anim)});
 document.getElementById('reset').addEventListener('click',()=>{pct=0;timeline.value=0;render()});
