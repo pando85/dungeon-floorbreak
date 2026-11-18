@@ -1,0 +1,22 @@
+{
+  "comment": "Maps the IP-neutral engine cue and state ids (src/audio.rs) to the event ids of docs/audio_events.json. The event ids carry the fan-concept layer (character and franchise-derived names) and stay in this data only. Replace the right-hand side to re-skin without touching code.",
+  "cues": {
+    "PlayerKickSwing": "carl.kick.swing",
+    "PlayerKickHitConfirmed": "carl.kick.hit_confirmed",
+    "EnemyHitReaction": "goblin.hit",
+    "EnemyBodyCollision": "enemy.body_collision",
+    "WallBreak": "environment.concrete_break",
+    "HeavyPropCrash": "gym.metal_weight_crash",
+    "Warning": "floor01.warning"
+  },
+  "music": {
+    "Tension": "floor01.intro",
+    "Combat": "floor01.goblin.combat_start",
+    "Chase": "floor01.dozer.chase_start",
+    "Gym": "floor01.gym.enter"
+  },
+  "ambience": {
+    "Ventilation": "floor01.ventilation",
+    "Gym": "floor01.gym.ambience"
+  }
+}

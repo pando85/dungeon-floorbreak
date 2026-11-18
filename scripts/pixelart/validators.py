@@ -20,7 +20,8 @@ V09   frozen keys             ``rules.frozen_keys`` (SHA-256 per key frame from 
 V10   layers disjoint         ``rules.layers_disjoint`` (lists of layer names)
 V11   canvas margin           ``rules.canvas_margin`` ``[left, top, right, bottom]``
 V12   unique frames           ``rules.unique_frames``
-V13   bounding boxes          ``rules.bbox`` (per-frame top/bottom/left/right/width/height limits)
+V13   bounding boxes          ``rules.bbox`` (per-frame top/bottom/left/right/width/height limits) and the optional
+                              ``rules.disc_top`` (a round body whose crown must stay on a fixed ellipse, lumps free)
 V14   key counts              ``rules.key_counts`` (pixels of a palette key per frame)
 V15   non-empty frames        every frame has at least one opaque pixel
 V16   foot drift              ``rules.foot_drift`` (planted feet of loop tags, seam included)
@@ -28,6 +29,7 @@ V16   foot drift              ``rules.foot_drift`` (planted feet of loop tags, s
 """
 from __future__ import annotations
 
+import math
 import hashlib
 import json
 from dataclasses import dataclass, field
@@ -105,15 +107,19 @@ def foot_drift(row_a: list[str], row_b: list[str]) -> int:
     Each foot is a run on the contact row; it is matched to the nearest run (by centre) of the other frame in both
     directions, and its drift is the smallest of the left-edge, right-edge and centre shifts, so a heel or toe lift
     that moves one edge is not counted as sliding. Feet that touch down or lift off (no run to match) count 0.
+    Matching is one to one, nearest pairs first, so a foot that lifts off is never matched to the other foot when
+    the other frame has fewer runs (a lifted swing foot on a passing frame).
     """
     a, b = contact_spans(row_a), contact_spans(row_b)
-    worst = 0
-    for src, dst in ((a, b), (b, a)):
-        for l0, r0 in src:
-            if not dst:
-                continue
-            l1, r1 = min(dst, key=lambda s: abs((s[0] + s[1]) - (l0 + r0)))
-            worst = max(worst, min(abs(l1 - l0), abs(r1 - r0), abs((l1 + r1) - (l0 + r0)) // 2))
+    pairs = sorted((abs((l1 + r1) - (l0 + r0)), i, j) for i, (l0, r0) in enumerate(a) for j, (l1, r1) in enumerate(b))
+    used_a, used_b, worst = set(), set(), 0
+    for _d, i, j in pairs:
+        if i in used_a or j in used_b:
+            continue
+        used_a.add(i)
+        used_b.add(j)
+        (l0, r0), (l1, r1) = a[i], b[j]
+        worst = max(worst, min(abs(l1 - l0), abs(r1 - r0), abs((l1 + r1) - (l0 + r0)) // 2))
     return worst
 
 
@@ -345,6 +351,36 @@ def v13_bbox(c: Context) -> list[str]:
                     lim = rule.get(op + name)
                     if lim is not None and not ok(v, lim):
                         out.append(f"{rule.get('id', 'bbox')}: frame {f} {name} {v} violates {op + name}={lim}")
+    out += _disc_top(c)
+    return out
+
+
+def _disc_top(c: Context) -> list[str]:
+    """``rules.disc_top``: ``{id, frames|tags, ellipse: [cx, cy, rx, ry], x_range: [x0, x1], tolerance, min_on_disc}``.
+    For each column in the range, the topmost opaque row is compared with the ellipse top. Lumps (ears, hats, tufts)
+    may rise above it freely, but no column may sag more than ``tolerance`` px below it (the disc itself never
+    drops), and at least ``min_on_disc`` columns must sit within ``tolerance`` px of it (the disc's own crown is
+    visible and has not moved)."""
+    out = []
+    for rule in c.cfg.rules.get("disc_top", []):
+        rid = rule.get("id", "disc_top")
+        cx, cy, rx, ry = rule["ellipse"]
+        x0, x1 = rule["x_range"]
+        tol = rule.get("tolerance", 1.0)
+        for f in c.frames_of(rule):
+            flat = c.flats[f]
+            on, worst = 0, float("-inf")
+            for x in range(x0, x1 + 1):
+                top = next((y for y, row in enumerate(flat) if row[x] != "."), None)
+                if top is None:
+                    continue
+                prof = cy - ry * math.sqrt(max(0.0, 1.0 - ((x + 0.5 - cx) / rx) ** 2))
+                worst = max(worst, top - prof)
+                on += abs(top - prof) <= tol
+            if worst > tol:
+                out.append(f"{rid}: frame {f} crown sags {worst:.1f} px below the disc ellipse (tolerance {tol})")
+            if on < rule.get("min_on_disc", 1):
+                out.append(f"{rid}: frame {f} only {on} columns on the disc ellipse (min {rule['min_on_disc']})")
     return out
 
 

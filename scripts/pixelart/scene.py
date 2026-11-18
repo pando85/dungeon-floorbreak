@@ -36,7 +36,7 @@ class Floor:
             raise ToolkitError(f"no walking line at x={x}")
         return top - 1
 
-    def render(self, entries, k: int) -> Image.Image:
+    def render(self, entries, k: int, lit: bool = True) -> Image.Image:
         """entries: ``(sprite, pivot, x, lift[, shadow])``; the pivot row sits on the walking line (minus lift).
 
         ``shadow`` (default True) draws the ground contact shadow; wall or ceiling creatures opt out.
@@ -48,7 +48,7 @@ class Floor:
             layer.alpha_composite(sprite, pos)
             if not rest or rest[0]:
                 boxes.append((pos[0], pos[1] + lift, pos[0] + sprite.width, pos[1] + lift + sprite.height))
-        return self.ekl.render_lit(self.kit, self.layout, self.view, k, layer, boxes=boxes).convert("RGB")
+        return self.ekl.render_lit(self.kit, self.layout, self.view, k, layer, boxes=boxes, lit=lit).convert("RGB")
 
 
 def reference_idle(name: str):
@@ -83,7 +83,11 @@ def entries_for(cfg: AssetConfig, imgs: list[Image.Image]) -> list[tuple]:
         if actor.get("flip", cfg.get("facing", "right") == "right"):
             img, piv = flip(img, pivot)
         shadow = actor.get("shadow", cfg.get("scene", {}).get("shadow", True))  # False: wall/ceiling creature
-        entries.append((img, piv, actor["x"], actor.get("lift", 0), shadow))
+        entry = (img, piv, actor["x"], actor.get("lift", 0), shadow)
+        if actor.get("behind"):       # drawn before Carl and Donut (effects sit behind the actors)
+            entries.insert(0, entry)
+        else:
+            entries.append(entry)
     for ref in cfg.get("scene", {}).get("references", []):
         # extra approved sprites for direct comparison (e.g. GOB-01 A/B next to a later goblin type)
         grid = load_grid_file(repo_path(ref["grid"]))
@@ -94,6 +98,7 @@ def entries_for(cfg: AssetConfig, imgs: list[Image.Image]) -> list[tuple]:
     return entries
 
 
-def render_scene(cfg: AssetConfig, imgs: list[Image.Image], k: int, floor: Floor | None = None) -> Image.Image:
+def render_scene(cfg: AssetConfig, imgs: list[Image.Image], k: int, floor: Floor | None = None,
+                 lit: bool = True) -> Image.Image:
     """The asset's poses facing Carl and Donut on lit Floor 1; ``k`` 1 is 640x360, 3 is 1920x1080."""
-    return (floor or Floor()).render(entries_for(cfg, imgs), k)
+    return (floor or Floor()).render(entries_for(cfg, imgs), k, lit)

@@ -42,3 +42,60 @@ date,work_order,config,stage,tier,model,agent_label,tool_calls,input,cache_write
 2026-11-18,BARD-01,C,fix-check,medium,claude-sonnet-5-5,bard-check,11,16,42947,396606,2467,0.17,1.1,ready
 2026-11-18,BARD-01,C,fix,medium,claude-sonnet-5-5,bard-fix,31,54,97469,2344958,20185,0.68,3.8,done
 2026-11-18,BROOD-01,C,keys+execute,medium,claude-sonnet-5-5,brood-exec,70,132,524105,12631430,152824,4.10,32.3,done; round 2 + re-review fixes
+2026-11-18,CHOP-01,B,draft,medium,claude-sonnet-5-5,chop-draft,35,62,141986,3494179,67530,1.38,9.7,done
+2026-11-18,CHOP-01,B,design-edit,top,claude-opus-5-5,chop-edit,57,94,152251,5558039,69707,3.27,15.7,done; design edit + 7 gate fixes
+2026-11-18,CHOP-01,B,silhouette-gate,top,claude-opus-5-5,chop-gate,7,12,41421,270688,7073,0.40,1.4,FIX-KEYS (7 items; silhouette ok)
+2026-11-18,CHOP-01,B,execute,medium,claude-sonnet-5-5,chop-exec,66,116,153576,6213401,56328,1.57,12.3,done; in-betweens + review fixes
+2026-11-18,CHOP-01,B,review,top,claude-opus-5-5,chop-review,17,26,61100,708543,13125,0.71,2.5,PASS WITH EXECUTION ITEMS 19/25
+2026-11-18,CHOP-01,B,fix-check,medium,claude-sonnet-5-5,chop-check,17,32,38265,780662,7457,0.25,1.9,ready
+2026-11-18,SLIME-01,B,draft,medium,claude-sonnet-5-5,slime-draft,36,60,128915,3125117,57414,1.21,8.1,done
+2026-11-18,SLIME-01,B,design-edit,top,claude-opus-5-5,slime-edit,59,110,322389,6774829,93638,4.84,28.7,design edit + gate fixes + design fix after review
+2026-11-18,SLIME-01,B,silhouette-gate,top,claude-opus-5-5,slime-gate,7,12,42104,269610,8623,0.44,1.5,"FIX-KEYS (values inverted, skull/plate, beads)"
+2026-11-18,SLIME-01,B,execute,medium,claude-sonnet-5-5,slime-exec,54,102,253410,5890790,63290,1.86,17.8,done; in-betweens + rounds 2-3
+2026-11-18,SLIME-01,B,review,top,claude-opus-5-5,slime-review,19,30,137536,763608,17355,1.19,10.2,FAIL-DESIGN 18/25; re-review PASS WITH EXECUTION ITEMS 19/25
+2026-11-18,SLIME-01,B,fix-check,medium,claude-sonnet-5-5,slime-check,7,10,37446,222538,1811,0.13,0.5,ready
+2026-11-18,ROT-01,B,draft,medium,claude-sonnet-5-5,rot-draft,36,54,112570,2495468,50494,1.04,6.8,done
+2026-11-18,ROT-01,B,design-edit,top,claude-opus-5-5,rot-edit,45,84,127145,4158881,56681,2.60,13.1,done; design edit + 4 gate fixes
+2026-11-18,ROT-01,B,silhouette-gate,top,claude-opus-5-5,rot-gate,8,12,40361,267026,7217,0.40,1.4,"FIX-KEYS (outline, dark-stone read, organic variation)"
+2026-11-18,ROT-01,B,execute,medium,claude-sonnet-5-5,rot-exec,32,56,84385,2161745,19815,0.63,6.7,done; in-betweens + review fixes
+2026-11-18,ROT-01,B,review,top,claude-opus-5-5,rot-review,15,24,57356,681235,13235,0.69,2.3,PASS WITH EXECUTION ITEMS 20/25
+2026-11-18,ROT-01,B,fix-check,medium,claude-sonnet-5-5,rot-check,5,6,34257,106442,1350,0.11,0.9,ready
+2026-11-18,VFX-01,shared,packet,medium,claude-sonnet-5-5,vfx01-packet,28,44,75931,1603897,17129,0.52,2.3,PR #76
+2026-11-18,VFX-01,B,draft,medium,claude-sonnet-5-5,vfx01-draft,34,58,101664,2591279,40035,0.91,5.6,done
+2026-11-18,VFX-01,B,design-edit,top,claude-opus-5-5,vfx01-edit,27,52,94626,2200419,33733,1.59,6.7,done
+2026-11-18,VFX-01,B,silhouette-gate,top,claude-opus-5-5,vfx01-gate,8,14,39731,319898,6039,0.38,1.2,"FIX-KEYS minor (lobe caps, grit, rim)"
+2026-11-18,VFX-01,B,execute,medium,claude-sonnet-5-5,vfx01-exec,59,112,139234,6137703,59700,1.56,13.0,done
+2026-11-18,VFX-01,B,review,top,claude-opus-5-5,vfx01-review,16,26,61646,765730,16811,0.80,3.2,PASS WITH EXECUTION ITEMS 19/25
+2026-11-18,VFX-01,B,fix-check,medium,claude-sonnet-5-5,vfx01-check,31,58,70822,2042503,10509,0.49,2.9,ready (applied E6/E7)
+2026-11-18,TROG-01,B,draft,medium,claude-sonnet-5-5,trog-draft,43,68,129200,3622526,60722,1.29,8.0,done
+2026-11-18,TROG-01,B,design-edit,top,claude-opus-5-5,trog-edit,67,138,491996,9235526,104265,6.39,197.7,design edit + gate fixes + design fix after review
+2026-11-18,TROG-01,B,silhouette-gate,top,claude-opus-5-5,trog-gate,7,10,40838,212732,6708,0.38,1.3,"FIX-KEYS (hurt key, grime)"
+2026-11-18,TROG-01,B,execute,medium,claude-sonnet-5-5,trog-exec,59,96,257668,5145394,55651,1.72,20.0,done; in-betweens + rounds 2-3
+2026-11-18,TROG-01,B,review,top,claude-opus-5-5,trog-review,25,42,159144,1311260,25078,1.56,12.6,FAIL-DESIGN 19/25; re-review PASS WITH EXECUTION ITEMS 21/25
+2026-11-18,TROG-01,B,fix-check,medium,claude-sonnet-5-5,trog-check,10,14,36633,324343,2695,0.15,0.6,ready
+2026-11-18,SWINE-01,A,design,top,claude-opus-5-5,swine-design,61,96,352533,6645052,127054,5.63,193.5,spec + all keys + gate fixes
+2026-11-18,SWINE-01,A,silhouette-gate,top,claude-opus-5-5,swine-gate,7,12,45452,268024,7752,0.44,1.5,"FIX-KEY0 (faces, costume, roll landmarks)"
+2026-11-18,SWINE-01,A,execute,medium,claude-sonnet-5-5,swine-exec,91,166,162572,8959421,64124,1.94,18.8,in-betweens + 2 rounds of review fixes
+2026-11-18,SWINE-01,A,review,top,claude-opus-5-5,swine-review,22,36,138627,995126,20146,1.30,10.7,"PASS WITH EXECUTION ITEMS 18/25; re-check FIX (bulges, tux)"
+2026-11-18,SWINE-01,A,fix-check,medium,claude-sonnet-5-5,swine-check,13,24,43581,509919,4578,0.21,3.4,NOT READY (tux) then ready
+2026-11-18,AUDIO-01,-,execute,medium,claude-sonnet-5-5,audio-integration,65,124,330051,8175667,85447,2.50,19.7,PR #80 + review fixes
+2026-11-18,AUDIO-01,-,review,top,claude-opus-5-5,audio-review,26,62,106661,2532924,19705,1.43,8.3,FIX FIRST (2 blockers); re-check MERGE
+2026-11-18,JUICE-01,A,design,top,claude-opus-5-5,JUICE keys phase 2 + gate fixes,66,112,406704,7891493,124510,6.10,35.7,done
+2026-11-18,JUICE-01,A,silhouette-gate,top,claude-opus-5-5,juice-gate,7,12,37953,259758,6756,0.38,1.3,"FIX-KEY0 (head, fists, boils)"
+2026-11-18,JUICE-01,A,execute,medium,claude-sonnet-5-5,JUICE in-betweens,49,104,237012,5295620,48567,1.61,17.8,done
+2026-11-18,JUICE-01,A,review,top,claude-opus-5-5,JUICE blind review,37,60,121438,2239794,35141,1.76,11.2,FAIL-DESIGN (walk) 18/25; re-check FIX 2 items
+2026-11-18,JUICE-01,A,fix-check,medium,claude-sonnet-5-5,JUICE fix check,8,12,35143,262887,3288,0.15,0.7,READY
+2026-11-18,TROG-02,C,design,top,claude-opus-5-5,TROG-02 gate fixes,72,140,375852,9822323,105867,5.96,40.8,done (gate fixes + walk re-plan)
+2026-11-18,TROG-02,C,silhouette-gate,top,claude-opus-5-5,trog02-gate,9,16,39861,376805,6847,0.41,1.3,FIX-KEY0 (7 fixes; deviations accepted)
+2026-11-18,TROG-02,C,execute,medium,claude-sonnet-5-5,TROG-02 keys + in-betweens,48,82,196398,5792859,94150,2.01,13.1,done
+2026-11-18,TROG-02,C,review,top,claude-opus-5-5,TROG-02 blind review,27,50,99494,1941943,34218,1.57,10.7,FAIL-DESIGN (walk) 19/25; re-check PASS
+2026-11-18,TUSK-01,C,design,top,claude-opus-5-5,TUSK gate fixes,53,90,162093,5218688,85714,3.57,18.4,done
+2026-11-18,TUSK-01,C,silhouette-gate,top,claude-opus-5-5,tusk-gate,10,20,45991,490235,10579,0.54,2.0,"FIX-KEY0 (upright stance, sleeve)"
+2026-11-18,TUSK-01,C,execute,medium,claude-sonnet-5-5,TUSK keys + in-betweens,60,112,193158,8526226,108126,2.42,19.3,done
+2026-11-18,TUSK-01,C,review,top,claude-opus-5-5,TUSK blind review,20,38,70680,1148189,18426,0.95,3.4,PASS WITH EXECUTION ITEMS 20/25
+2026-11-18,TUSK-01,C,fix-check,medium,claude-sonnet-5-5,TUSK fix check,11,18,38209,419115,2559,0.16,0.6,READY
+2026-11-18,TROG-03,C,design,top,claude-opus-5-5,TROG-03 spec + hero key,37,66,162856,3812695,73220,3.04,12.8,done
+2026-11-18,TROG-03,C,silhouette-gate,top,claude-opus-5-5,TROG-03 silhouette gate,12,22,60348,617328,16392,0.75,3.1,FIX-KEY0 (drool + scale staging)
+2026-11-18,TROG-03,C,execute,medium,claude-sonnet-5-5,TROG-03 gate fixes + keys + in-betweens,55,108,222579,8390305,96923,2.36,15.6,done
+2026-11-18,TROG-03,C,review,top,claude-opus-5-5,TROG-03 blind review,15,26,82565,686325,11425,0.78,2.1,PASS WITH EXECUTION ITEMS 21/25
+2026-11-18,TROG-03,C,fix-check,medium,claude-sonnet-5-5,TROG-03 fix check,17,28,45073,697977,3937,0.22,0.8,READY

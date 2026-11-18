@@ -147,6 +147,9 @@ pub struct World {
     pub tick: u64,
     pub deaths: u32,
     pub complete: bool,
+    /// Destructible blocks broken by the last [`World::step`] (presentation
+    /// reads it for the wall-break sound; never used by the simulation).
+    pub timbers_broken_last_step: u32,
 }
 
 impl Default for World {
@@ -248,6 +251,7 @@ impl World {
             tick: 0,
             deaths: 0,
             complete: false,
+            timbers_broken_last_step: 0,
         }
     }
 
@@ -256,6 +260,7 @@ impl World {
             return;
         }
         self.tick += 1;
+        self.timbers_broken_last_step = 0;
         self.hero.invulnerable_ticks = self.hero.invulnerable_ticks.saturating_sub(1);
         self.hero.bomb_cooldown = self.hero.bomb_cooldown.saturating_sub(1);
         for blast in &mut self.blasts {
@@ -325,6 +330,7 @@ impl World {
                 && block.rect.squared_distance_to(x, y) <= BOMB_RADIUS * BOMB_RADIUS
             {
                 block.intact = false;
+                self.timbers_broken_last_step += 1;
             }
         }
         for enemy in &mut self.enemies {
