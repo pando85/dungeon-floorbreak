@@ -71,6 +71,10 @@ class Swine01Tests(unittest.TestCase):
             self.assertEqual(self.rows(f), author.Ball(author.pose_for(f)).render())
         self.assertEqual(len({json.dumps(self.rows(f)) for f in author.ROLL_FRAMES}), 6)
 
+    def test_roll_disc_body_is_constant(self) -> None:
+        disc = {tuple(author.pose_for(f)[k] for k in ("cx", "cy", "rx", "ry", "shear")) for f in author.ROLL_FRAMES}
+        self.assertEqual(len(disc), 1, disc)                 # only the turn angle changes; lumps orbit a fixed disc
+
     def test_rim_spacing_has_no_roll_period(self) -> None:
         rim = sorted(p[2] for p in author.PARTS if p[0] == "head" and p[1] >= 0.79)
         gaps = [(b - a) % 360 for a, b in zip(rim, rim[1:] + rim[:1])]

@@ -136,7 +136,7 @@ PARTS = (
 TROTTERS = (35, 140, -125, -40)       # alpha deg: legs kicking out past the rim between rim heads
 TUFTS = (-176, -164, -134, -112, -88, -78, -62, -30, -12, 2, 34, 44, 70, 108, 138, 164, 194)
 TROTTER_OWNER, HAT_OWNER = 90, 95
-ENVELOPE = 2.0     # px a head dome may stand proud of the disc ellipse (ears, tufts, hat and trotters are free)
+ENVELOPE = 3.0     # px past the disc ellipse where the pearl string is cut off
 
 
 def rad(deg: float) -> float:
@@ -262,8 +262,8 @@ class Ball:
         for y in range(self.h):
             for x in range(self.w):
                 u, v = self.uv(x + 0.5, y + 0.5)
-                if u * u + v * v > 1.0 and (self.P["limp"] or self.outside_envelope((x, y))):
-                    continue      # the body fills the envelope ellipse: the crown of the disc is fixed in every pose
+                if u * u + v * v > 1.0:
+                    continue
                 lv = lum3(self.sphere_n(x, y)) * 0.66
                 stripe = (x * 2 + y) % 7 < 2
                 k = ("b" if lv > 0.5 and stripe else "a") if (x + y // 3) % 9 < 4 else flesh_key(lv * 0.9)
@@ -337,30 +337,32 @@ class Ball:
             self.tux(c, A, B, ra, rb, mine, idx)
 
     def tux(self, c, A, B, ra, rb, mine, idx):
-        """Shirt front (a V of `u`/`v`, widest toward the rim), notched lapels (`o` sheen on the lit side, `K`
-        notch) and a `n` bow tie with a `K` knot at the V apex."""
-        pa0, pa1 = -0.45 * ra, 0.62 * ra
-        inside, edge = {}, {}
+        """A true shirt V (wide at the collar, a point at the apex; `u` with a `v` edge and two `v` collar points),
+        a 5 x 3 `n` bow tie with a 1 px `o` knot across the collar end, and a 1 px `o` sheen on the lit lapel edge."""
+        pa0, pa1 = -0.6 * ra, 0.62 * ra
+        pab = pa1 - 1.3
+
+        def half(pa):
+            return 0.7 + 5.5 * max(0.0, min(1.0, (pa - pa0) / (pa1 - pa0)))
+
         for (x, y) in mine:
             dx, dy = x + 0.5 - c[0], y + 0.5 - c[1]
             pa, pb = dx * A[0] + dy * A[1], dx * B[0] + dy * B[1]
-            hw = 2.4 + 0.2 * (pa - pa0)
-            if pa0 - 1.5 <= pa <= pa1 and abs(pb) <= hw:
-                lv = lum3(self.sphere_n(x, y))
-                inside[(x, y)] = "t" if lv < 0.34 else ("v" if lv > 0.5 else "u")
-            elif pa0 - 1.5 <= pa <= pa1 + 1.0 and abs(pb) <= hw + 1.6:
-                edge[(x, y)] = (pa, pb)
-        for q, k in inside.items():
-            self.set(q, k, idx)
-        for q, (pa, pb) in edge.items():
-            lv = lum3(self.sphere_n(*q))
-            notch = abs(pa - (pa0 + 0.55 * (pa1 - pa0))) < 1.0
-            self.set(q, "K" if notch and abs(pb) > 2.4 else ("o" if lv > 0.42 else "n"), idx)
-        for (x, y) in mine:
-            dx, dy = x + 0.5 - c[0], y + 0.5 - c[1]
-            pa, pb = dx * A[0] + dy * A[1], dx * B[0] + dy * B[1]
-            if abs(pa - pa0) <= 1.6 and abs(pb) <= 3.4:
-                self.set((x, y), "K" if abs(pa - pa0) <= 0.7 and abs(pb) <= 0.9 else "n", idx)
+            hw, ap = half(pa), abs(pb)
+            lv = lum3(self.sphere_n(x, y))
+            k = None
+            if abs(pa - pab) <= 0.6 and ap <= 0.6:
+                k = "o"
+            elif abs(pa - pab) <= 1.5 and ap <= 2.5:
+                k = "n"
+            elif pa1 - 2.5 <= pa <= pa1 + 0.5 and hw - 0.5 <= ap <= hw + 1.3:
+                k = "v"
+            elif pa0 - 1.0 <= pa <= pa1 and ap <= hw:
+                k = "v" if ap > hw - 1.0 else ("t" if lv < 0.34 else "u")
+            elif pa0 - 1.0 <= pa <= pa1 and ap <= hw + 1.2 and pb * (B[0] * LIGHT[0] + B[1] * LIGHT[1]) > 0:
+                k = "o"      # sheen on the lit-side lapel edge
+            if k:
+                self.set((x, y), k, idx)
 
     def head(self, idx, part):
         _, rho, alpha, r, up, sa, sb, dress, tusks, mouth = part
@@ -374,7 +376,6 @@ class Ball:
         dome = ell(0, 0, 1.0, 1.0)
         ears = (tri((-0.8, -0.38), (-0.25, -0.86), (-1.05, -1.12)), tri((0.8, -0.38), (0.25, -0.86), (1.05, -1.12)))
         mine = {}
-        lumps = set()
         for p, (a, b) in H.pixels(lambda a, b: dome(a, b) or ears[0](a, b) or ears[1](a, b)):
             rn = math.sqrt(a * a + b * b)
             dn = (a * H.R[0] + b * H.D[0], a * H.R[1] + b * H.D[1])
@@ -389,11 +390,7 @@ class Ball:
             if b < -0.55 and dome(a, b) and int((a * 9 + b * 3) * 2) % 3 == 0:   # coarse bristle on the crown
                 k = "a" if k in "ds" else "b"
             mine[p] = k
-            if (ears[0](a, b) or ears[1](a, b)) or (abs(a) >= 0.5 and b <= 0.1):
-                lumps.add(p)      # ears and their shoulders stay attached to the head
         for p, k in mine.items():
-            if not P["limp"] and p not in lumps and self.outside_envelope(p):
-                continue      # head domes never leave the disc envelope: the disc crown stays put (ears are lumps)
             self.set(p, k, idx)
         self.face(H, idx, tusks, mouth + P["gape_add"])
         if dress == "hat":

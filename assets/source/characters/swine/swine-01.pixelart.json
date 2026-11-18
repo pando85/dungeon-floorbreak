@@ -272,7 +272,7 @@
     ],
     "disc_top": [
       {
-        "id": "S2b-roll-disc-top-fixed",
+        "id": "S2b-roll-disc-body-holds",
         "frames": [
           3,
           4,
@@ -284,15 +284,15 @@
         "ellipse": [
           88,
           83,
-          66,
-          64
+          64,
+          62
         ],
         "x_range": [
           60,
           116
         ],
-        "tolerance": 1.0,
-        "min_on_disc": 15
+        "tolerance": 1.5,
+        "min_on_disc": 0
       }
     ]
   },
