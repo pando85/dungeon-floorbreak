@@ -1,0 +1,35 @@
+{
+  "schema": "the-crawl-concept-image-manifest-v1",
+  "project": "THE CRAWL — NO PANTS. NO MERCY.",
+  "status": "owner-selected Floor 01 Mordecai concept direction C, 2026-11-18; 3 PNGs committed and independently verified against source ZIP (Git blob SHA and SHA-256); not production sprites",
+  "source": "Original OpenAI-generated concept images from THE CRAWL project conversation on 2026-11-18, selected by owner; no outside fan-art pixels or copyrighted book passages used as inputs. Art publication scope owner-reported ART-PUBLICATION-ALL-V1; no game distribution right.",
+  "assets": [
+    {
+      "path": "assets/concept/floor-01/mordecai/01-mordecai-selected-c.png",
+      "sha256": "0b244261550419cf510d83d9a3165ea88ba9f97c105454e5c753fdad186e8601",
+      "bytes": 2801199,
+      "width": 1448,
+      "height": 1086,
+      "source_conversation_file": "mordecai_el_mentor_reticente.png",
+      "review_status": "Owner-selected concept C (Reluctant Mentor); primary look and demeanor"
+    },
+    {
+      "path": "assets/concept/floor-01/mordecai/02-mordecai-turnaround-acting.png",
+      "sha256": "89999dc818458616d6f5e10311b05d948c73610e24941e854c9a23ed9acfc900",
+      "bytes": 2687273,
+      "width": 1536,
+      "height": 1024,
+      "source_conversation_file": "a_highly_detailed_pixel_art_concept_character_shee.png",
+      "review_status": "Supporting turnaround and expressions; not native pixel scale or a final production rig"
+    },
+    {
+      "path": "assets/concept/floor-01/mordecai/03-mordecai-tutorial-guild-storyboard.png",
+      "sha256": "7aedb6608cd718ae2857416f00c54e159caf37866807674c6b9074ad2c5d0ba9",
+      "bytes": 2708588,
+      "width": 1536,
+      "height": 1024,
+      "source_conversation_file": "a_highly_detailed_cinematic_pixel_art_game_conc.png",
+      "review_status": "Supporting Tutorial Guild acting board; captions/route/Carl/Donut illustrations are not authoritative"
+    }
+  ]
+}
