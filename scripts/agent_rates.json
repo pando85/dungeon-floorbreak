@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "currency": "USD",
+  "unit": "per million tokens (MTok)",
+  "as_of": "2026-11-03",
+  "source": "Claude API reference list prices as cached on 2026-11-03 (see docs/07-agents/pixel-art-pipeline.md, section 3)",
+  "cache_write_multiplier": {"5m": 1.25, "1h": 2.0},
+  "models": [
+    {"match": "opus", "tier": "top", "name": "Opus 5.5", "input": 4.0, "output": 20.0, "cache_read": 0.20, "verified": true},
+    {"match": "sonnet", "tier": "medium", "name": "Sonnet 5.5", "input": 2.0, "output": 10.0, "cache_read": 0.10, "verified": true},
+    {"match": "haiku", "tier": "light", "name": "Haiku 5.5", "input": 0.10, "output": 0.50, "cache_read": 0.01, "verified": false}
+  ],
+  "caveats": [
+    "Estimates use API list prices. On a subscription plan they are API-equivalent figures, not billed amounts.",
+    "Cache writes cost 1.25x the input rate for the 5 minute cache and 2x for the 1 hour cache. When a transcript has no 5m/1h split, all cache writes are priced as 5 minute writes.",
+    "The Haiku cache-read rate (0.01) is unverified and assumed to be 0.1x the input rate.",
+    "Model matching is by substring (opus, sonnet, haiku) of the model id in the transcript. An unknown model is priced at 0 and reported as unpriced.",
+    "Fast mode, batch discounts, long-context surcharges and tool-specific fees (for example web search) are not modelled.",
+    "Wall-clock is last minus first transcript timestamp and includes any time the agent waited, for example on CI."
+  ]
+}

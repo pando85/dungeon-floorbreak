@@ -1,0 +1,75 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "gob-01-goblin-a",
+  "title": "GOB-01 common goblin, variant A (parity config mirroring docs/02-art/gob-01-goblin-spec.md)",
+  "grid": "assets/source/characters/goblin/goblin_a_h36.grid.json",
+  "manifest": "assets/manifests/goblin_a_h36.json",
+  "frame_size": [64, 56],
+  "pivot": [28, 55],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 12], [1, 8], [2, 12], [3, 8]]},
+    "walk": {"playback": "loop", "contact": "grounded", "frames": [[4, 5], [5, 5], [6, 5], [7, 5], [8, 5], [9, 5]]},
+    "attack_tell": {"playback": "once", "contact": "grounded", "frames": [[10, 6], [11, 18]]},
+    "attack_swing": {"playback": "once", "contact": "grounded", "frames": [[12, 2], [13, 4]]},
+    "attack_recover": {"playback": "once", "contact": "grounded", "frames": [[14, 12], [15, 8]]},
+    "hurt": {"playback": "once", "contact": "grounded", "frames": [[16, 4], [17, 8]]},
+    "knockback": {"playback": "hold", "contact": "airborne", "frames": [[18, 4], [19, null]]},
+    "down": {"playback": "hold", "contact": "grounded", "frames": [[20, 4], [21, 8], [22, null]]},
+    "getup": {"playback": "once", "contact": "grounded", "frames": [[23, 8], [24, 10]]},
+    "corpse": {"playback": "hold", "contact": "grounded", "frames": [[25, null]]},
+    "knockback_contact": {"playback": "once", "contact": "airborne", "frames": [[26, 3]]}
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_swing",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "layers_disjoint": [["body", "weapon"]],
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "manifest_tick_rows": "goblin.frames",
+    "manifest_tick_hz": "goblin.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/goblin_gob01_keys.json",
+      "frames": [0, 4, 7, 11, 12, 13, 16, 19, 22, 25, 26],
+      "layers": ["body", "weapon"]
+    },
+    "bbox": [
+      {"id": "size-idle-36px", "frames": [0], "top": 20, "bottom": 55},
+      {"id": "R6-airborne-launch-lowest-row", "frames": [18], "bottom": 53},
+      {"id": "R6-airborne-key", "frames": [19], "max_width": 36, "min_height": 22, "max_bottom": 50},
+      {"id": "R6-compact-airborne-cell", "frames": [19, 26], "max_width": 40},
+      {"id": "R10-down-stays-low", "frames": [20, 21, 22, 25], "min_top": 38, "max_width": 60}
+    ],
+    "key_counts": [
+      {"id": "R2-tell-mouth-open", "frames": [11], "key": "o", "min": 8},
+      {"id": "R5-hurt-no-yellow-eyes", "frames": [16, 17], "key": "e", "max": 0},
+      {"id": "R5-hurt-eye-whites", "frames": [16, 17], "key": "w", "min": 1},
+      {"id": "R6-tongue-in-flight", "frames": [19], "key": "R", "min": 6}
+    ]
+  },
+  "review": {
+    "strip_tags": ["attack_tell", "attack_swing", "attack_recover"]
+  },
+  "scene": {
+    "actors": [
+      {"frame": 0, "x": 520},
+      {"frame": 11, "x": 580},
+      {"frame": 13, "x": 640},
+      {"frame": 16, "x": 700},
+      {"frame": 4, "x": 760},
+      {"frame": 22, "x": 820}
+    ]
+  }
+}
