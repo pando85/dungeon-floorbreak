@@ -123,7 +123,7 @@ PARTS = (
     ("head", 0.90, 83, 14, 98, 1.05, 0.8, None, (6, 4, "R"), 5),         # upside down, on the floor
     ("head", 0.93, 124, 11, 132, 1.0, 0.85, None, (4, 5, ""), 4),        # upside down
     ("head", 0.88, 153, 16, 168, 0.95, 0.9, None, (7, 6, ""), 6),        # sideways
-    ("cloth", 0.72, 126, 15, 11),                                         # tux jacket, collar and bow tie
+    ("cloth", 0.70, 126, 19, 15),                                         # tux jacket, collar and bow tie
     ("sequin", 0.76, 30, 14, 10),                                         # red sequin dress scrap
     ("head", 0.12, 172, 24, -122, 0.95, 0.86, None, (8, 7, "R"), 6),     # centre face, buried by its neighbours
     ("head", 0.52, 176, 18, 200, 1.0, 0.85, None, (6, 7, ""), 5),        # back, sideways
@@ -338,12 +338,12 @@ class Ball:
 
     def tux(self, c, A, B, ra, rb, mine, idx):
         """A true shirt V (wide at the collar, a point at the apex; `u` with a `v` edge and two `v` collar points),
-        a 5 x 3 `n` bow tie with a 1 px `o` knot across the collar end, and a 1 px `o` sheen on the lit lapel edge."""
-        pa0, pa1 = -0.6 * ra, 0.62 * ra
-        pab = pa1 - 1.3
+        a 5 x 3 `r` bow tie with a 1 px `g` knot across the collar end, and a 1 px `o` sheen on the lit lapel edge."""
+        pa0, pa1 = -0.4 * ra, 0.6 * ra
+        pab = pa1 - 2.2
 
         def half(pa):
-            return 0.7 + 5.5 * max(0.0, min(1.0, (pa - pa0) / (pa1 - pa0)))
+            return 1.0 + 4.6 * max(0.0, min(1.0, (pa - pa0) / (pa1 - pa0)))
 
         for (x, y) in mine:
             dx, dy = x + 0.5 - c[0], y + 0.5 - c[1]
@@ -352,15 +352,15 @@ class Ball:
             lv = lum3(self.sphere_n(x, y))
             k = None
             if abs(pa - pab) <= 0.6 and ap <= 0.6:
-                k = "o"
+                k = "g"      # knot: the sequin glint
             elif abs(pa - pab) <= 1.5 and ap <= 2.5:
-                k = "n"
+                k = "r"      # bow tie in sequin red, readable on the cream V and the black jacket
             elif pa1 - 2.5 <= pa <= pa1 + 0.5 and hw - 0.5 <= ap <= hw + 1.3:
                 k = "v"
             elif pa0 - 1.0 <= pa <= pa1 and ap <= hw:
                 k = "v" if ap > hw - 1.0 else ("t" if lv < 0.34 else "u")
             elif pa0 - 1.0 <= pa <= pa1 and ap <= hw + 1.2 and pb * (B[0] * LIGHT[0] + B[1] * LIGHT[1]) > 0:
-                k = "o"      # sheen on the lit-side lapel edge
+                k = "t"      # warm sheen on the lit-side lapel edge
             if k:
                 self.set((x, y), k, idx)
 
