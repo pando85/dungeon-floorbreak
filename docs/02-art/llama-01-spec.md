@@ -1,8 +1,8 @@
 # LLAMA-01: Bad Llama readability set, design spec
 
-**Status:** keys frozen; in-betweens, manifest, `.ase` and evidence done (Claude Sonnet, see section 13); `validate` passes (13 PASS, 2 not applicable); independent review pending. Packet prepared by Claude Sonnet (medium tier). Design and keys: Claude Opus (top tier); execution: Claude Sonnet; review: a separate Claude Opus agent (pending).
+**Status:** design fix round 1 done (section 14): the seven keys are redrawn and re-frozen and sections 7 and 8 are rewritten. The ten in-betweens in the atlas still come from the pre-fix list and must be redrawn from the new section 8, then the `.ase`, evidence and review pack regenerated; independent re-review pending. Roles and models are recorded only in section 12.
 
-**Decision record:** height 64 px, frame 96 x 72, pivot (44, 71). Proposed and keyed by the design agent (Claude Opus); decided by the independent top-tier review, then the owner at the end (see section 2).
+**Decision record:** height 64 px, frame 96 x 72, pivot (44, 71), unchanged by fix round 1. Proposed and keyed by the design tier; decided by the independent top-tier review, then the owner at the end (see section 2).
 
 The sections follow `docs/02-art/gob-01-goblin-spec.md`. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
 
@@ -35,9 +35,9 @@ Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png
 
 | Option | Idle opaque height | Ratio to Carl | Implied real height | Why / why not |
 | --- | --- | --- | --- | --- |
-| A | 56 px (60 measured) | 1.08 | about 2.0 m at the ears | Back line sits at Carl's chest; reads as a large dog or goat. The head is only 1 px larger than Carl's, so the teeth and eye collapse to 2 to 3 px. Rejected. |
-| B | **64 px** | **1.23** | **about 2.25 m at the ears** | Back line (row 31) at Carl's shoulder height, ears 12 rows above Carl's head top (row 20), a 71 px long body: a dangerous quadruped. 20 % of the 360 px screen height, so two llamas plus Carl and Donut still fit a 640 px wide fight. Teeth 7 px wide, eye socket 6 px, throat glow 50 to 130 px of hot pixels. **Chosen.** |
-| C | 72 px (71 measured) | 1.38 | about 2.55 m | Closest to the board's printed horse scale, but 80 px long; at 640 x 360 it fills a quarter of the screen width in the attack pose (90 px) and starts to read as a mini-boss, which Floor 1 common enemies are not. Rejected. |
+| A | 56 px (57 measured) | 1.08 | about 2.0 m at the ears | Back line sits at Carl's chest; reads as a large dog or goat. The head is only 1 px larger than Carl's, so the teeth and eye collapse to 2 to 3 px. Rejected. |
+| B | **64 px** | **1.23** | **about 2.25 m at the ears** | Back line (row 34 after fix round 1, was 31) at Carl's upper chest, ears 12 rows above Carl's head top (row 20), so the long neck and head tower over Carl; a 67 px long idle body: a dangerous quadruped. 20 % of the 360 px screen height, so two llamas plus Carl and Donut still fit a 640 px wide fight. Teeth 7 px wide, eye socket 6 px, throat glow 50 to 130 px of hot pixels. **Chosen.** |
+| C | 72 px (72 measured) | 1.38 | about 2.55 m | Closest to the board's printed horse scale, but 80 px long; at 640 x 360 it fills a quarter of the screen width in the attack pose (90 px) and starts to read as a mini-boss, which Floor 1 common enemies are not. Rejected. |
 
 Decision: **64 px idle opaque height** (rows 8 to 71 of frame 0). It is the smallest height at which the face (teeth, socketed eye) and the throat stripe stay readable at 1x, and it keeps a clear class gap above Carl (52) without the screen-filling mass of option C. Proposed by the design agent; the decider is the independent top-tier review, then the owner at final review.
 
@@ -45,8 +45,8 @@ Decision: **64 px idle opaque height** (rows 8 to 71 of frame 0). It is the smal
 
 - **Frame 96 x 72, pivot (44, 71), contact row 71** (the lowest opaque row of every grounded frame). Pivot x is midway between the idle hind and fore hooves (x 28 to 61), so the body mass is centred when mirrored.
 - Grounded tags: `idle`, `walk`, `attack_tell`, `attack_swing`, `hurt`, `down`. Airborne tags: none. Free (not contact-checked): `spit`.
-- **Standing box** 46 x 41 at frame x 16 to 61, rows 31 to 71 (barrel and legs; neck and head excluded so the llama does not body-block with its face).
-- **Hurtbox** (proposal, two rects): body = the standing box; head and neck = 26 x 32 at frame x 56 to 81, rows 8 to 39 in idle. Both follow the pose bbox of the current frame in a later gameplay work order; the throat is **not** a weak point (not approved).
+- **Standing box** 46 x 39 at frame x 18 to 63, rows 33 to 71 (fix round 1) (barrel and legs; neck and head excluded so the llama does not body-block with its face).
+- **Hurtbox** (proposal, two rects): body = the standing box; head and neck = 22 x 33 at frame x 54 to 75, rows 8 to 40 in idle (fix round 1). Both follow the pose bbox of the current frame in a later gameplay work order; the throat is **not** a weak point (not approved).
 - **Attack hitbox:** the llama itself has no melee hitbox in this work order. The **spit projectile** has an 8 x 6 hitbox at frame x 86 to 93, rows 23 to 28 (its hot core), live while the projectile entity exists.
 - **Spit spawn contract:** on the first tick of frame 9 the runtime spawns a separate projectile entity drawn with the `spit` tag using the **same pivot (44, 71)** at the llama's position; the glob is authored at its spawn point (core about (90, 26), pivot offset (+46, -45)), and the entity then translates on its own. Mirror with the llama's facing. Speed, range and damage are gameplay decisions, not art.
 - Authored facing right; the runtime mirrors around the pivot column.
@@ -68,23 +68,23 @@ Tick windows at 60 Hz (`llama-01.pixelart.json` is the source of truth).
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | snarl, neck forward, ears back | 14 | **key** |
-| 1 | `idle` | inhale: barrel and head up 1 px | 10 | Sonnet |
-| 2 | `idle` | exhale, jaw drops 1 px, head back 1 px | 14 | Sonnet |
+| 0 | `idle` | snarl, neck upright S-curve, head high, ears pricked forward | 14 | **key** |
+| 1 | `idle` | inhale: barrel and head up 1 px | 10 | executor |
+| 2 | `idle` | exhale, jaw drops 1 px, head back 1 px | 14 | executor |
 | 3 | `walk` | contact A: near fore forward, near hind back, body down 1 px | 6 | **key** |
-| 4 | `walk` | passing A: far fore and near hind lifted | 6 | Sonnet |
-| 5 | `walk` | contact B: far fore forward, far hind back | 6 | Sonnet |
-| 6 | `walk` | passing B: near fore and far hind lifted | 6 | Sonnet |
-| 7 | `attack_tell` | anticipation: half-rear, glow starting | 8 | Sonnet |
+| 4 | `walk` | passing A: far fore and near hind lifted | 6 | executor |
+| 5 | `walk` | contact B: far fore forward, far hind back | 6 | executor |
+| 6 | `walk` | passing B: near fore and far hind lifted | 6 | executor |
+| 7 | `attack_tell` | anticipation: half-rear, glow starting | 8 | executor |
 | 8 | `attack_tell` | **glow peak**: reared, cheeks and throat puffed, clenched teeth | 22 | **key** |
 | 9 | `attack_swing` | **spit release**: neck thrust level, jaw dropped, mouth flash | 6 | **key** |
-| 10 | `attack_swing` | recover: mouth half shut, glow cooling | 14 | Sonnet |
+| 10 | `attack_swing` | recover: mouth half shut, glow cooling | 14 | executor |
 | 11 | `hurt` | head thrown back, eye squeezed, fore hoof lifted | 12 | **key** |
-| 12 | `down` | buckle onto the fore knees, head dropping | 6 | Sonnet |
-| 13 | `down` | floor impact, head and tail still up | 8 | Sonnet |
+| 12 | `down` | fore knees fold onto the floor, rump sags, head and ears drop | 6 | executor |
+| 13 | `down` | floor impact, head and tail still up | 8 | executor |
 | 14 | `down` | **final**: flat on the belly, neck and head on the floor, X eye, teeth out | hold | **key** |
 | 15 | `spit` | **glob**: hot core, cooling skin, crust tail, one drip | 4 | **key** |
-| 16 | `spit` | glob wobble: stretched 1 px, tail 1 px longer | 4 | Sonnet |
+| 16 | `spit` | glob wobble: stretched 1 px, tail 1 px longer | 4 | executor |
 
 ## 5. State diagram
 
@@ -124,38 +124,44 @@ Chosen by eye for the A1 lighting (warm torch key from the upper left, cold ambi
 
 Packet candidates: the 15 navy candidates (#1-5, 8, 10, 12, 15, 18, 20, 21, 24) are background and rejected. The orange-brown candidates `#753d29`, `#a24727`, `#d47d48`, `#651b17` sit too close to the brick and were rejected for fur. `#e09a63`, `#edb175`, `#a76640` informed the fur ramp but were lightened and desaturated; `#0e0d12` informed the outline; `#3e272a`, `#251c20`, `#453537` informed `a` and `p`. No colour is sampled from the concept.
 
-## 7. Key poses (as authored, frozen)
+## 7. Key poses (as authored, frozen; design fix round 1)
 
-All keys are generated by `scripts/author_llama01.py keys` from one rig (pose dicts `IDLE`, `WALK_CONTACT`, `TELL`, `SPIT`, `HURT`, `DEAD`, function `spit()`); coordinates below are frame pixels.
+All keys are generated by `scripts/author_llama01.py keys` from one rig (pose dicts `IDLE`, `WALK_CONTACT`, `TELL`, `SPIT`, `HURT`, `DEAD`, function `spit()`); coordinates below are frame pixels. Rig rules shared by every frame since fix round 1:
+
+- **Neck** is a chain of 2 or 3 points (`poly()`); `neck_r` gives one radius per point (or start and end). The mane shag sits on the back edge of every segment and the glow axis runs over the whole chain. Standing frames use 3 points (S-curve: the lower neck leans forward out of the withers, the upper neck is near-vertical, the head bends forward); the tell, release and down frames use 2.
+- **Ears** are 3-point bananas (base in the skull, bend, tip), radius 1.8 to 1.0 (`ear_r`), far ear 0.2 thinner in the dark `far` group. Ear attitude is part of the acting: **pricked up and forward** (tips forward of the bend) in idle and walk; **pinned flat back** (tips behind and below the bend, 8 px long) only on tell, release and hurt; limp on the floor in defeat.
+- **Body** is lean: barrel capsule radius 5.5 at the rump to 6.5 at the chest (`barrel_rr`), a small chest-forward belly (8 x 4), and separate hip (6.5 x 7) and shoulder (5.5 x 7.5) masses whose tops sit 1 to 1.5 px above the back line, so the hip bone and withers read. The underline tucks up from the deep chest to the flank.
+- **Legs** taper to 1.2 to 1.3 px shins with a 1.9 to 2.1 px knob at the knee (front) and hock (hind), so the joints read at 1x; hocks point back.
+- **Coat:** irregular tuft sequence `TUFT` (clumpy locks, not an even comb) on every shaggy edge; the barrel is ragged all round (back line included); the tail is a thin-rooted shaggy plume (radius 1.4 to 2.4, shag 2.6). Mange (`MANGE`, relative to the rump) = 4 streaks that follow the hair down and back (2 px wide at the root, 1 px at the tip, `a` root pixel, `p` body) plus 2 bald patches (flat `s`, broken `p` rim). No round spots.
 
 | Frame | Tag | Silhouette and pose notes | Readability reason |
 | --- | --- | --- | --- |
-| 0 | `idle` | Barrel rump (27, 39) to chest (53, 41); neck leans forward from (56, 37) to (66, 19) with a shaggy mane on its back edge; head at (67, 16), muzzle forward to x 80; mouth open a crack (o) with both rows of yellow teeth; socketed eye under a K brow; ears back; plume tail raised. Hooves on row 71 at x 28, 34, 54, 61. bbox x 10-80, rows 8-71. | Snarl and teeth read at 1x; mangy streaks make it grimy, not cute; no hot colours anywhere. |
-| 3 | `walk` | Contact A: body 1 px down, near fore hoof forward at x 62, near hind back at x 21, far legs under the body (x 35, 58); head 1 px forward and down. | Long stride (41 px between outer hooves) sells weight and aggression. |
-| 8 | `attack_tell` | Reared back: rump (25, 41) lower than chest (51, 38); neck nearly vertical (54, 34) to (59, 12); head is the highest point (row 2, ears pinned back); fore legs braced forward (hooves x 59, 64); jaws clenched (8 px tooth block); throat sac puffed (ellipse at (60.5, 22.5)) glowing Y core, O, R; a Y glint in the eye. 28 Y, 50 O, 54 R pixels. | The silhouette rises 6 px above idle and the throat becomes the brightest shape on screen for 22 ticks. |
-| 9 | `attack_swing` | Lunge: body 2 to 3 px forward, hind legs pushed back (hooves x 19, 28); neck thrust nearly level (59, 37) to (74, 25); jaw dropped to (86, 31); mouth filled with Y/O flash; throat glow cooling to R/r; ears flat. bbox right edge x 91. | Direction of the shot is unambiguous (head, neck and mouth flash all point at the target). |
-| 11 | `hurt` | Recoil: body 2 to 3 px back, head flung up and back (skull (54, 12), muzzle pointing up-right), mouth open with upper teeth, eye squeezed to a K chevron, near fore hoof lifted to row 64, tail tucked down. bbox right edge x 67 (13 px behind idle). | A different silhouette from every other frame; no glow, so a hit visibly cancels the tell. |
-| 14 | `down` | Flat on the belly: barrel rows 52-71, near fore leg stretched forward, near hind back, neck and head flat on the floor (head at (76, 64.5)), mouth open with teeth out, X eye, tail limp. bbox x 12-90, rows 52-71. | Unmistakably out of the fight and still darkly funny (teeth out, X eye). |
-| 15 | `spit` | Glob core at (90, 26): Y core, O, R skin, r tail trailing left to x 78, one drip below at (83, 31), 2 `a` crust pixels, K outline. 17 x 11 px. | Hot core plus dark outline reads on both torch-lit brick and dark arches. |
+| 0 | `idle` | Lean barrel rump (29, 41) to chest (51, 41); hip and withers bumps at rows 34 and 34.5; tucked belly. Neck S-curve (54, 40) to (59, 31) to (60, 23), radii 4.8, 3.5, 3.1, with the ragged mane on its back. Skull (62, 19); muzzle forward to x 75, mouth open a crack with both rows of yellow teeth; socketed angry eye. Ears pricked forward: near (60, 16) to (59.5, 12.5) to (61.5, 10), far (62.5, 16) to (63, 13) to (65.5, 10.5). Braced stance, hooves on row 71 at x 27, 33, 55, 62; ragged plume tail raised. bbox x 9-75, rows 8-71 (64 px). | Long upright neck, head carried high and two tall ears read "llama" at 1x; the snarl lives in the head and teeth, not in a lowered neck; mange streaks and the ragged outline read grimy. No hot colours. |
+| 3 | `walk` | Contact A: body 1 px down, near fore forward (hoof x 61), near hind back (x 21), far legs under the body (x 34, 57); head and neck 1 px forward and down; ears stay pricked. bbox x 6-76, rows 8-71. | Long stride (40 px between outer hooves), angled knees and hocks sell weight. |
+| 8 | `attack_tell` | Reared back: rump (27, 42) lower than chest (49, 39); 2-point neck nearly vertical (52, 36) to (59, 12), radii 5.0 to 3.8; throat sac (60.5, 22.5, 3.4 x 6.2) puffs 3 to 4 px out of the thin neck, Y core, O, R; head highest (skull (60, 9)); ears pinned flat back to x 47.5; jaws clenched, Y glint in the eye. bbox top row 3. | Rises 5 px above idle; the puffed sac on a thin neck is the brightest, most distinct shape for 22 ticks. |
+| 9 | `attack_swing` | Lunge: body forward (rump (31, 40), chest (54, 40)), hind hooves pushed back (x 19, 28); neck thrust level (57, 38) to (74, 25), glow 0.67; jaw dropped, mouth filled with Y/O flash; ears pinned back along the neck to x 65. bbox right x 91, top row 16. | Head, neck, ears and flash all point at the target. |
+| 11 | `hurt` | Recoil: body back (rump (26, 42)); 3-point neck (51, 39) to (54, 27) to (54, 15) flung up; muzzle points up-right; mouth open with upper teeth; eye squeezed shut; ears pinned back to x 42.5; near fore hoof lifted to row 64; tail tucked down. bbox right x 67. | Different silhouette from every other frame; no glow, so a hit visibly cancels the tell. |
+| 14 | `down` | Flat on the belly: barrel rows 55-67, legs splayed, neck and head flat on the floor (skull (76, 64.5)), teeth out, X eye, ears limp along the floor behind the head, plume tail flat. bbox x 12-90, rows 53-71. | Unmistakably out of the fight and still darkly funny. |
+| 15 | `spit` | Unchanged: glob core at (90, 26), Y core, O, R skin, r tail to x 78, one drip, 2 `a` crust pixels, K outline. 17 x 11 px. | Hot core plus dark outline reads on brick and dark arches. |
 
-## 8. In-between list for Sonnet (no design decisions needed)
+## 8. In-between list for the executor (no design decisions needed)
 
-General rules: add each in-between as a pose dict in `scripts/author_llama01.py` (use `shifted()` from the named key), add its frame number to `POSES` and render it like the keys, but **do not add it to `KEY_FRAMES`** or to `rules.frozen_keys` (render in-betweens through a separate `INBETWEENS` tuple). Keep the palette, the pivot and contact row 71, and the stamps (`EYES`, `TEETH`). Values not listed stay as in the source key. A leg is `[(x, y, r), ...]` from hip/shoulder down; `*_hoof` is the hoof's top-left-ish anchor (row 69 = on the ground).
+General rules: add each in-between as a pose dict in `scripts/author_llama01.py` (use `shifted()` from the named key), add its frame number to `POSES` and render it like the keys, but **do not add it to `KEY_FRAMES`** or to `rules.frozen_keys` (render in-betweens through the `INBETWEENS` tuple). Keep the palette, the pivot and contact row 71, the stamps (`EYES`, `TEETH`) and `MANGE` (it follows the rump). Values not listed stay as in the source key. A leg is `[(x, y, r), ...]` from hip/shoulder down; `*_hoof` is the hoof anchor (row 69 = on the ground). "Head" means: every neck point except the first, skull, muzzle, jaw, mouth, every ear point, teeth, `eye_at`, nostril (`move_head()` does this). Replace the pre-fix `POSE_*` dicts; do not keep their numbers.
 
 | # | Pose notes |
 | --- | --- |
-| 1 | From `IDLE`: rump, chest, belly, haunch, shoulder y -1; neck end, skull, muzzle, jaw, mouth, ears, teeth, eye_at, nostril y -1; tail end (14, 27). Legs and hooves unchanged (the upper leg points move with the body: first point of each leg y -1). |
-| 2 | From `IDLE`: neck end, skull, muzzle, jaw, ears, teeth, eye_at, nostril x -1; jaw end y +1, mouth third point y +1, lower teeth y +1; tail end (15, 29). |
-| 4 | From `IDLE` body (not the contact body), head x +1: far_front `[(58, 47, 3.0), (60, 53, 2.2), (62, 58, 1.7), (61, 64, 1.4)]`, far_front_hoof (61, 66); near_hind `[(29, 46, 4.5), (30, 53, 3.0), (28, 57, 2.0), (29, 63, 1.5)]`, near_hind_hoof (29, 65); near_front and far_hind as `IDLE`. |
-| 5 | From `WALK_CONTACT` (body and head): far_front `[(58, 48, 3.0), (61, 54, 2.2), (63, 60, 1.7), (65, 67, 1.4)]` hoof (65, 69); near_front `[(54, 48, 3.5), (53, 54, 2.4), (52, 60, 1.8), (52, 67, 1.5)]` hoof (52, 69); far_hind `[(35, 47, 3.5), (34, 54, 2.5), (29, 59, 1.8), (28, 67, 1.4)]` hoof (27, 69); near_hind `[(29, 47, 4.5), (31, 54, 3.0), (29, 59, 2.0), (30, 67, 1.5)]` hoof (30, 69). |
-| 6 | From frame 4 with the lifted pair swapped: near_front `[(53, 47, 3.5), (55, 53, 2.4), (57, 58, 1.8), (56, 64, 1.5)]` hoof (56, 66); far_hind `[(35, 46, 3.5), (37, 53, 2.5), (35, 57, 1.8), (36, 63, 1.4)]` hoof (36, 65); far_front and near_hind as `IDLE`. |
-| 7 | Every body, leg and hoof value = the mean of `IDLE` and `TELL`, rounded to 0.5. Head: neck end (62, 15), neck_r (6.1, 4.3), skull (63, 12, 5.0, 4.3), muzzle ((65, 13), (73, 15.5)), jaw ((65, 18), (72, 20)), mouth None, teeth `[("clench", (70, 14))]`, ears ((61, 9), (56, 6.5)) and ((63, 9), (58, 7)), eye "tell" at (61, 10), nostril (73, 12); glow 0.4, throat None. Must satisfy L2-anticipation rules (R at least 8, Y at most 6, top row at most 7). |
-| 10 | From `SPIT`: glow 0.33; neck end (73, 24); skull, muzzle, jaw, ears, eye_at, nostril x -1, y -1; jaw end (85, 29.5); mouth ((78, 25), (87, 24.5), (85, 28)), mouth_glow 0 (dark mouth); teeth upper (84, 24), lower (82, 27); extra = [] (no flash). Y at most 4; right edge at least 84. |
-| 12 | From `IDLE`: chest (53, 50), belly (40, 48, 14, 7.5), shoulder (54, 52, 6, 7); near_front `[(53, 55, 3.5), (50, 61, 2.4), (55, 67, 1.8)]` hoof (56, 69); far_front `[(57, 55, 3.0), (54, 61, 2.2), (59, 67, 1.6)]` hoof (60, 69); neck ((55, 47), (66, 30)); skull (68, 28, 5.4, 4.4); muzzle ((70, 29), (78, 32)); jaw ((70, 34), (77, 36)); mouth ((71, 33), (80, 33), (78, 36)); ears ((66, 25), (61, 23)) and ((68, 25), (63, 23.2)); eye "shut" at (65, 26); teeth upper (74, 32), lower (75, 36); nostril (78, 29). Top row at least 18. |
-| 13 | From `DEAD`: rump (30, 58), chest (54, 59), belly (42, 63, 13, 6.5); neck end (73, 61), skull (76, 60.5, 4.4, 3.6), muzzle ((78, 61.5), (86, 63)), jaw ((78, 64.2), (85, 65.2)), mouth ((79, 63), (87, 64), (85, 66)), ears ((74, 57.5), (69, 55.5)) and ((76, 57.5), (71, 56)), eye "shut" at (74, 59), teeth upper (84, 63), nostril (85, 61); near_front `[(56, 63, 2.8), (61, 66, 2.0), (66, 68.5, 1.5)]` hoof (67, 69); tail ((24, 57), (18, 54), (-1, 0)). Top row at least 44. |
-| 16 | `spit()` with a `phase` argument: phase 1 = glob ellipse rx 4.4, ry 3.0, core centre (89.7, 26.5); tail end (79, 27.5); drip (83.5, 29) to (82.5, 32); crust stamps at (79, 27) and (82, 32). Must satisfy L6 (at most 18 x 12, left edge at least 76, at least 4 Y). |
+| 1 | Inhale. From `IDLE`: rump, chest, belly, haunch, shoulder y -1; head y -1; first point of each leg y -1 (hooves stay); tail end (13, 27). Top row 7 is allowed (L1 band 7 to 10). |
+| 2 | Exhale and chew. From `IDLE`: head x -1; then jaw end y +1, mouth third point y +1, lower teeth y +1, and both ear **tips** a further x -1 (the ears twitch); tail end (14, 30). |
+| 4 | Passing A. From `IDLE` body, head x +1. far_front `[(56, 46, 3.0), (58, 52, 2.2), (60.5, 57, 1.9), (60, 63, 1.2)]` hoof (60, 65); near_hind `[(29, 45, 4.5), (31, 51, 3.0), (27, 56, 2.1), (28, 62, 1.3)]` hoof (28, 64); near_front and far_hind as `IDLE`. (Lifted hooves clear the floor by 4 to 5 px, which answers review item E3.) |
+| 5 | Contact B. From `WALK_CONTACT` (body and head): far_front `[(56, 47, 3.0), (59, 53, 2.2), (62, 59, 1.9), (64, 67, 1.2)]` hoof (64, 69); near_front `[(52, 47, 3.6), (51, 53, 2.4), (50, 59, 2.1), (50, 67, 1.3)]` hoof (50, 69); far_hind `[(34, 46, 3.5), (33, 53, 2.5), (27, 59, 1.9), (26, 67, 1.2)]` hoof (26, 69); near_hind `[(29, 46, 4.5), (32, 53, 3.0), (28, 59, 2.1), (29, 67, 1.3)]` hoof (29, 69). |
+| 6 | Passing B. From frame 4 (head x +1) with the lifted pair swapped: near_front `[(52, 46, 3.6), (54, 52, 2.4), (56.5, 57, 2.1), (56, 63, 1.3)]` hoof (56, 65); far_hind `[(34, 45, 3.5), (36, 51, 2.5), (32.5, 56, 1.9), (33.5, 62, 1.2)]` hoof (33, 64); far_front and near_hind as `IDLE`. |
+| 7 | Anticipation. Every body, leg, hoof and tail value = the mean of `IDLE` and `TELL`, rounded to 0.5 (`mean_pose`, `INBETWEEN_BODY`). Head: 2-point neck ((53, 38), (60, 16)), neck_r (4.9, 3.6), glow 0.4, throat None; skull (61, 13, 5.0, 4.2); muzzle ((63, 14), (71.5, 16.5)); jaw ((63, 18), (70.5, 20)); muzzle_r (3.7, 2.85); mouth None; teeth `[("clench", (68, 15))]`; ears going back: near ((58.5, 11), (56, 8), (52.5, 7)), far ((60.5, 11), (58, 8.2), (55, 7.5)); eye "tell" at (59, 12); nostril (72, 13). Must satisfy L2 anticipation (R at least 8, Y at most 6, top row at most 7). |
+| 10 | Recover. From `SPIT`: glow 0.33; neck end (73, 24); skull, muzzle, jaw, every ear point, eye_at, nostril x -1, y -1, and both ear **tips** a further y -1 (they start to come up); jaw end (85, 29.5); mouth ((78, 25), (87, 24.5), (85, 28)), mouth_glow 0 (dark mouth); teeth upper (84, 24), lower (82, 27); extra = [] (no flash). Y at most 4; right edge at least 84. |
+| 12 | Buckle (**must clearly leave idle**: fore knees on the floor, rump down 3 px, head 12 px lower, ears limp). From `IDLE`: rump (29, 44), haunch (28, 44, 6.5, 7.0), chest (51, 49), belly (44, 51, 8, 4.0), shoulder (52, 50, 5.5, 6.5); near_front `[(52, 54, 3.4), (55, 60, 2.3), (58, 67, 2.1), (53, 68.5, 1.3)]` hoof (51, 68); far_front `[(56, 54, 3.0), (60, 60, 2.2), (62, 67, 2.0), (57, 68.5, 1.2)]` hoof (55, 68); near_hind `[(29, 48, 4.5), (33, 55, 3.0), (26, 61, 2.1), (27, 67, 1.3)]` hoof (27, 69); far_hind `[(34, 48, 3.5), (37, 55, 2.5), (31.5, 61, 1.9), (33, 67, 1.2)]` hoof (33, 69); neck ((54, 48), (61, 40), (67, 33)), neck_r (4.8, 3.5, 3.1); skull (69, 31, 5.2, 4.2); muzzle ((71, 33), (78, 37)); jaw ((70, 38), (76, 40)); mouth ((72, 36), (80, 38), (76, 40)); ears ((67, 28), (62, 26), (58, 27)) and ((69, 28), (64, 26.4), (60, 27.5)); eye "shut" at (66, 29); teeth upper (75, 35), lower (74, 39); nostril (78, 33); tail ((22, 40), (15, 44), (-1, 0.4)). Top row at least 18 (expected about 24); the bent fore knees must be visible on rows 66 to 70. |
+| 13 | Impact. From `DEAD`: rump (30, 59), chest (54, 60), belly (42, 62.5, 11, 5.0); neck end (73, 61); skull (76, 60.5, 4.4, 3.6); muzzle ((78, 61.5), (86, 63)); jaw ((78, 64.2), (85, 65.2)); mouth ((79, 63), (87, 64), (85, 66)); ears still half up, flopping: ((74, 57.5), (70, 55), (66, 55)) and ((76, 57.5), (72, 55.5), (68, 56)); eye "shut" at (74, 59); teeth upper (84, 63); nostril (85, 61); near_front `[(56, 63, 2.8), (61, 66, 2.0), (66, 68.5, 1.3)]` hoof (67, 69); tail ((24, 58), (19, 53), (-1, 0)) (still up). Top row at least 44. |
+| 16 | Unchanged: `spit(c, phase=1)`. |
 
-Then: write `assets/manifests/llama-01.json` (frame rows and ticks from the config), convert to `.ase` with `scripts/pixel_grid_to_ase.py`, run `validate`, `evidence` and `review-pack`, add a `--check` test for the authoring script, and update READMEs/checksums. A pose that cannot meet its rule goes back to the design tier; do not re-decide it.
+Then: regenerate `assets/manifests/llama-01.json`, the `.ase` (`scripts/pixel_grid_to_ase.py build`), run `validate`, `evidence` and `review-pack`, and update READMEs/checksums. Also apply review items E1 (lit scene: Carl and Donut unobstructed next to an idle llama, one glob in flight) and E2 (note on mirrored lighting) and add a walk-loop GIF (E3). A pose that cannot meet its rule goes back to the design tier; do not re-decide it.
 
 ## 9. Validators and readability rules
 
@@ -193,11 +199,11 @@ The review pack holds exactly three images (contact sheet x4, lit scene 640 x 36
 
 ## 12. Rights and provenance
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Packet: Claude Sonnet. Design, size decision, palette and keys: Claude Opus. Execution (10 in-betweens, manifest, `.ase`, validators, evidence): Claude Sonnet. Review: a separate Claude Opus agent (pending). The keys are rasterized from a parametric rig plus literal stamps in `scripts/author_llama01.py`; no tracing of the concept, no image-model raster output, no colour sampled from the concept.
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Packet: Claude Sonnet. Design, size decision, palette and keys: Claude Opus. Execution (10 in-betweens, manifest, `.ase`, validators, evidence): Claude Sonnet. Review round 1: a separate Claude Opus agent (FAIL-DESIGN). Design fix round 1 (key redesign, re-freeze, sections 7, 8 and 14): Claude Opus. Re-review: pending. The keys are rasterized from a parametric rig plus literal stamps in `scripts/author_llama01.py`; no tracing of the concept, no image-model raster output, no colour sampled from the concept.
 
-## 13. Execution record (Sonnet)
+## 13. Execution record (pre-fix in-betweens)
 
-Executor: Claude Sonnet (medium tier). The ten in-betweens (frames 1, 2, 4, 5, 6, 7, 10, 12, 13, 16) are the pose dicts `POSE_1` to `POSE_13` plus `spit(phase=1)` in `scripts/author_llama01.py`, listed in `INBETWEENS` (never in `KEY_FRAMES` or `rules.frozen_keys`) and rasterized by the same rig as the keys. The seven frozen keys are pixel-identical (V09 passes against `tests/fixtures/llama-01_keys.json`). Every numeric value in section 8 was used as written; no pose had to go back to the design tier.
+Executor: medium tier (see section 12). This record describes the pre-fix round; the in-betweens must be redrawn from the new section 8 (see section 14). The ten in-betweens (frames 1, 2, 4, 5, 6, 7, 10, 12, 13, 16) are the pose dicts `POSE_1` to `POSE_13` plus `spit(phase=1)` in `scripts/author_llama01.py`, listed in `INBETWEENS` (never in `KEY_FRAMES` or `rules.frozen_keys`) and rasterized by the same rig as the keys. The seven frozen keys are pixel-identical (V09 passes against `tests/fixtures/llama-01_keys.json`). Every numeric value in section 8 was used as written; no pose had to go back to the design tier.
 
 Results: `python3 -m scripts.pixelart validate` gives 13 PASS, 0 FAIL, 2 SKIPPED (V08 airborne and V10 layers are not configured for a one-layer set without airborne tags). `rules.manifest_tick_rows` is on, so V03 also checks the manifest tick rows. Review pack: `docs/evidence/llama-01/review-pack/` (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip with release, recover and both `spit` frames).
 
@@ -214,3 +220,18 @@ Where section 8 was silent, the smallest reading was taken; none changes a spec 
 7. **Frame 16** keeps the core radii (3.4 x 2.4) and moves the core centre to (89.7, 26.5); the glob ellipse centre stays (89.5, 26.5). Frame 15 goes through the same function with `phase` 0 and is unchanged.
 8. **Manifest.** `llama_bad_llama_h64_candidate_v1`; `input_reference_ids` names the approved concept PNG by path (the enemy concept manifest has no id field). `attack_ticks` records tell 0 to 29, spit release and spawn 30 to 35 (frame 9), recover 36 to 49. The `.ase` is built by `scripts/pixel_grid_to_ase.py` and was not opened in an Aseprite GUI.
 9. **Evidence layout.** `evidence` writes into `docs/evidence/llama-01/` and the review pack into `review-pack/`; `SHA256SUMS` covers every file except `packet/` and itself.
+
+## 14. Design fix round 1
+
+The independent review of the first key set returned FAIL-DESIGN: at 1x the creature read as a spotted goat or deer, not a mangy, aggressive llama. The seven keys were redrawn through the rig (not hand-patched) and re-frozen with `python3 -m scripts.pixelart freeze --force`; `validate` passes (13 PASS, 2 not applicable) with the pre-fix in-betweens still in the atlas.
+
+| Defect | What changed |
+| --- | --- |
+| D1 long ears lost | Ears are 3-point banana chains, 7 to 8 px long, that break the head silhouette. Pricked up and forward in idle and walk; pinned flat back only on tell (8), release (9) and hurt (11); limp in defeat. The far ear is a dark, thinner second ear, so the pair reads. |
+| D2 neck short and low | The neck is a thin 3-point S-curve (radii 4.8, 3.5, 3.1, was 6.2 to 4.4): forward out of the withers, near-vertical, the head bent forward at the top. The head is carried high (skull row 19 over a back line at row 34), close to the hurt-frame silhouette the review pointed at; the snarl is in the head and teeth. |
+| D3 mange as clean spots | The oval patches are gone. Mange is now 4 streaks that follow the hair down and back plus 2 bald patches with a broken rim; every shaggy edge uses an irregular tuft sequence, the barrel outline (back line included) is ragged, and the tail is a thin-rooted shaggy plume instead of a club. |
+| D4 round barrel on tubes | Lean barrel (radius 5.5 to 6.5, was 8.5), tucked belly, hip-bone and withers masses that rise above the back line, knobby knees and backward hocks, and a braced stance (hind hooves back, fore hooves forward). |
+
+**Kept:** palette `llama-floor01-v0` (17 colours, no change), throat-glow tell (sac now puffs 3 to 4 px out of the thinner neck), release flash and spit glob (frame 15 pixel-identical), 1 px outline, size 64 px, frame 96 x 72, pivot (44, 71), contact row 71, tick windows. The back line drops from row 31 to row 34 so that the 64 px height holds with the taller ears and higher head; the size-study file was regenerated with the new rig (A 57, B 64, C 72 px measured), the decision itself is unchanged.
+
+**Execution notes for the next round:** redraw all ten in-betweens from the new section 8 (they are still the pre-fix ones and do not match the new keys); frame 12 must clearly leave idle (fore knees folded on the floor, rump down, head low, ears limp), which also answers review item E4; frame 4 and 6 lift the hooves 4 to 5 px (E3); then E1, E2 and the evidence.

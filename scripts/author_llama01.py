@@ -92,14 +92,17 @@ def ramp(material: str, v: float) -> str:
     raise ValueError(material)
 
 
+TUFT = (0, 2, 3, 1, 0, 1, 3, 2, 0, 0, 2, 1)   # irregular clumps: matted locks, not an even comb
+
+
 def tuft(s: float, phase: float = 0.0) -> float:
-    return (0.0, 1.0, 2.0, 1.0)[int(math.floor(s + phase)) % 4] / 2.0
+    return TUFT[int(math.floor(s + phase)) % len(TUFT)] / 2.0
 
 
 class Part:
-    def __init__(self, kind, geo, material, group="main", shag=None, glow=0.0, name=""):
+    def __init__(self, kind, geo, material, group="main", shag=None, glow=0.0, name="", span=(0.0, 1.0)):
         self.kind, self.geo, self.material, self.group = kind, geo, material, group
-        self.shag, self.glow, self.name = shag, glow, name
+        self.shag, self.glow, self.name, self.span = shag, glow, name, span
 
     def sample(self, px: float, py: float):
         """Return (inside, v, q, s): light value, front offset (-1..1) and axis position (0..1)."""
@@ -124,7 +127,7 @@ class Part:
                 nx, ny = -nx, -ny
             v = (ox * LIGHT[0] + oy * LIGHT[1]) / max(r, 0.8)
             q = (ox * nx + oy * ny) / max(r, 0.8)
-            return max(-1, min(1, v)), max(-1, min(1, q)), t
+            return max(-1, min(1, v)), max(-1, min(1, q)), self.span[0] + t * (self.span[1] - self.span[0])
         if self.kind == "ell":
             cx, cy, rx, ry = self.geo
             nx, ny = (px - cx) / rx, (py - cy) / ry
@@ -199,6 +202,32 @@ class Canvas:
         for x, y in ring:
             self.px[y][x], self.group[y][x], self.mat[y][x] = "K", group + "_line", None
 
+    def _furry(self, x: int, y: int) -> bool:
+        return 0 <= x < self.w and 0 <= y < self.h and self.mat[y][x] == "fur" and self.px[y][x] not in GLOW
+
+    def streak(self, x, y, length, slope) -> None:
+        """A matted streak that follows the hair down and back: 2 px wide at the root, 1 px toward the tip."""
+        n = int(round(length))
+        for i in range(n):
+            yy = int(round(y)) + i
+            xx = int(round(x + slope * i + 0.6 * math.sin(yy * 2.1 + x * 0.7)))
+            for k in ((0, 1) if i < n * 0.6 else (0,)):
+                if self._furry(xx + k, yy):
+                    self.px[yy][xx + k] = "a" if i == 0 and k == 0 else "p"
+
+    def bald(self, cx, cy, rx, ry) -> None:
+        """A bald, scabby patch: flat shade (no strands) inside a broken dark rim of matted fur."""
+        for y in range(self.h):
+            for x in range(self.w):
+                if not self._furry(x, y):
+                    continue
+                d = math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry)
+                n = 0.3 * math.sin(x * 2.3 + y * 1.7) + 0.2 * math.sin(x * 0.9 - y * 2.9)
+                if d <= 0.6 + n:
+                    self.px[y][x] = "s"
+                elif d <= 1.05 + n and (x * 3 + y) % 3:
+                    self.px[y][x] = "p"
+
     def mange(self, cx, cy, rx, ry) -> None:
         """A ragged dark streak of mangy, matted fur (never a clean round spot)."""
         for y in range(self.h):
@@ -271,7 +300,38 @@ TEETH = {
 }
 
 
-MANGE = ((1, -2, 5.5, 2.6), (16, 4, 4.5, 1.8), (-3, 8, 2.4, 3.6))
+# (kind, dx, dy, a, b) relative to the rump centre. "s" = streak (top x, top y, length, x per row: negative runs
+# back, the way the hair falls); "b" = bald patch (centre, rx, ry). Design fix round 1 (D3): no round spots.
+MANGE = (
+    ("s", -5, -5, 8, -0.45), ("s", 7, -6, 9, -0.35), ("s", 19, -6, 8, -0.4), ("s", -2, 3, 6, -0.3),
+    ("b", 12, 1.5, 3.4, 1.8), ("b", -2, -2, 2.0, 2.4),
+)
+
+
+def poly(pts, radii, material, group="main", shag=None, glow=0.0):
+    """A chain of capsules through ``pts`` (2 or more points); the glow axis position runs over the whole chain.
+
+    ``radii`` has one radius per point, or two (start, end) that are interpolated. ``shag`` may be a function
+    of the segment (a, b) so the mane always sits on the back edge of each segment."""
+    pts = [tuple(q) for q in pts]
+    n = len(pts)
+    if len(radii) != n:
+        radii = [radii[0] + (radii[-1] - radii[0]) * i / (n - 1) for i in range(n)]
+    lens = [math.dist(a, b) for a, b in zip(pts, pts[1:])]
+    total, acc, out = sum(lens) or 1.0, 0.0, []
+    for a, b, ra, rb, ln in zip(pts, pts[1:], radii, radii[1:], lens):
+        sh = shag(a, b) if callable(shag) else shag
+        out.append(Part("cap", (a, b, ra, rb), material, group, shag=sh, glow=glow,
+                        span=(acc / total, (acc + ln) / total)))
+        acc += ln
+    return out
+
+
+def mane(a, b):
+    nx, ny = b[0] - a[0], b[1] - a[1]
+    ln = math.hypot(nx, ny) or 1.0
+    back = (ny / ln, -nx / ln) if ny < 0 else (-ny / ln, nx / ln)   # mane side: the back of the neck
+    return (back, 2.4)
 
 
 def llama(c: Canvas, p: dict) -> None:
@@ -282,19 +342,20 @@ def llama(c: Canvas, p: dict) -> None:
             far.append(Part("cap", ((x1, y1), (x2, y2), r1, r2), "far", "far"))
         hx = p[leg + "_hoof"]
         far.append(Part("ell", (hx[0] + 0.5, hx[1] + 0.6, 2.0, 1.2), "hoof", "far"))
-    ear = p["ear_far"]
-    far.append(Part("cap", (ear[0], ear[1], 1.7, 1.1), "ear_in", "far"))
+    er = p.get("ear_r", (1.8, 1.0))
+    far += poly(p["ear_far"], (er[0] - 0.2, er[-1] - 0.1), "ear_in", "far")
     for part in far:
         c.draw(part)
     c.outline("far")
 
     tail = p["tail"]
-    main.append(Part("cap", (tail[0], tail[1], 3.0, 3.4), "fur", shag=((0, 0), 1.8)))
+    main.append(Part("cap", (tail[0], tail[1], 1.4, 2.4), "fur", shag=((0, 0), 2.6)))   # shaggy plume, thin root
     rump, chest = p["rump"], p["chest"]
-    main.append(Part("cap", (rump, chest, p["barrel_r"], p["barrel_r"] - 0.5), "fur", shag=((0, 1), 1.4)))
-    main.append(Part("ell", p["belly"], "fur", shag=((0, 1), 3.0)))
-    main.append(Part("ell", p["haunch"], "fur", shag=((-1, 0.3), 1.5)))
-    main.append(Part("ell", p["shoulder"], "fur", shag=((0.6, 1), 2.2)))
+    rr = p.get("barrel_rr") or (p["barrel_r"], p["barrel_r"] - 0.5)
+    main.append(Part("cap", (rump, chest, *rr), "fur", shag=((0, 0), 1.0)))              # ragged all round
+    main.append(Part("ell", p["belly"], "fur", shag=((0, 1), 2.0)))
+    main.append(Part("ell", p["haunch"], "fur", shag=((-1, 0.3), 1.6)))
+    main.append(Part("ell", p["shoulder"], "fur", shag=((0.6, 1), 2.0)))
     for leg in ("near_hind", "near_front"):
         pts = p[leg]
         for i, ((x1, y1, r1), (x2, y2, r2)) in enumerate(zip(pts, pts[1:])):
@@ -302,11 +363,7 @@ def llama(c: Canvas, p: dict) -> None:
             main.append(Part("cap", ((x1, y1), (x2, y2), r1, r2), mat, shag=((0, 1), 1.0) if i == 0 else None))
         hx = p[leg + "_hoof"]
         main.append(Part("ell", (hx[0] + 0.5, hx[1] + 0.6, 2.0, 1.2), "hoof"))
-    na, nb = p["neck"]
-    nx, ny = nb[0] - na[0], nb[1] - na[1]
-    ln = math.hypot(nx, ny)
-    back = (ny / ln, -nx / ln) if ny < 0 else (-ny / ln, nx / ln)   # mane side: the back of the neck
-    main.append(Part("cap", (na, nb, p["neck_r"][0], p["neck_r"][1]), "fur", shag=(back, 2.4), glow=p.get("glow", 0.0)))
+    main += poly(p["neck"], p["neck_r"], "fur", shag=mane, glow=p.get("glow", 0.0))
     if p.get("throat"):
         main.append(Part("ell", p["throat"], "fur", glow=1.0, name="throat"))
     main.append(Part("ell", p["skull"], "fur"))
@@ -316,8 +373,7 @@ def llama(c: Canvas, p: dict) -> None:
     main.append(Part("cap", (ma, mb, *p.get("muzzle_r", (3.6, 2.9))), "muzzle"))
     if p.get("mouth"):
         main.append(Part("tri", p["mouth"], "mouth", glow=p.get("mouth_glow", 0.0)))
-    ear = p["ear_near"]
-    main.append(Part("cap", (ear[0], ear[1], 1.9, 1.3), "fur"))
+    main += poly(p["ear_near"], er, "fur")
     for part in main:
         c.draw(part)
     if p.get("throat"):  # the puffed throat sac glows from the inside: core in the middle
@@ -329,8 +385,8 @@ def llama(c: Canvas, p: dict) -> None:
                     c.px[y][x] = "Y" if d < 0.45 else "O" if d < 0.75 else "R"
     rx0, ry0 = rump
     c.strands()
-    for dx, dy, ex, ey in p.get("mange", MANGE):
-        c.mange(rx0 + dx, ry0 + dy, ex, ey)
+    for kind, dx, dy, a, b in p.get("mange", MANGE):
+        (c.streak if kind == "s" else c.bald)(rx0 + dx, ry0 + dy, a, b)
     c.outline("main")
     if p.get("mouth_line"):
         c.line(*p["mouth_line"])
@@ -383,21 +439,25 @@ def hooves(**kw):
     return {k + "_hoof": v for k, v in kw.items()}
 
 
+# Design fix round 1 (spec section 14): lean body with shoulder and hip masses and a tucked belly (D4), a thin
+# S-curved neck carrying the head high (D2), long banana ears that prick forward when aggressive and pin back
+# only on tell, release and hurt (D1), and streaky mange (D3, see MANGE).
 IDLE = {
-    "rump": (27, 39), "chest": (53, 41), "barrel_r": 8.5,
-    "belly": (41, 44, 14, 7.5), "haunch": (27, 43, 8, 9), "shoulder": (54, 44, 6, 8),
-    "near_hind": [(29, 46, 4.5), (31, 54, 3.0), (27, 59, 2.0), (28, 67, 1.5)],
-    "far_hind": [(35, 46, 3.5), (36, 54, 2.5), (33, 59, 1.8), (34, 67, 1.4)],
-    "near_front": [(53, 47, 3.5), (52, 54, 2.4), (53, 60, 1.8), (54, 67, 1.5)],
-    "far_front": [(58, 47, 3.0), (58.5, 54, 2.2), (60, 60, 1.7), (61, 67, 1.4)],
-    **hooves(near_hind=(28, 69), far_hind=(34, 69), near_front=(54, 69), far_front=(61, 69)),
-    "neck": ((56, 37), (66, 19)), "neck_r": (6.2, 4.4),
-    "skull": (67, 16, 5.4, 4.4),
-    "muzzle": ((69, 17), (77, 19)), "jaw": ((69, 23), (76, 25)), "mouth": ((70, 21.5), (80, 21.5), (77, 24.5)),
-    "ear_near": ((65, 12.5), (61, 10.4)), "ear_far": ((67, 12.5), (64, 10.6)),
-    "tail": ((21, 34), (14, 28), (-0.4, -1)),
-    "mouth_line": None, "teeth": [("upper", (73, 20)), ("lower", (74, 24))],
-    "eye": "angry", "eye_at": (65, 14), "nostril": (78, 16),
+    "rump": (29, 41), "chest": (51, 41), "barrel_r": 6.0, "barrel_rr": (5.5, 6.5),
+    "belly": (45, 45.5, 8, 4.0), "haunch": (28, 41, 6.5, 7.0), "shoulder": (52, 42, 5.5, 7.5),
+    "near_hind": [(29, 45, 4.5), (32, 52, 3.0), (26, 59, 2.1), (27, 67, 1.3)],
+    "far_hind": [(34, 45, 3.5), (36, 52, 2.5), (31.5, 59, 1.9), (33, 67, 1.2)],
+    "near_front": [(52, 46, 3.6), (51, 53, 2.4), (53, 59, 2.1), (55, 67, 1.3)],
+    "far_front": [(56, 46, 3.0), (57, 53, 2.2), (59.5, 59, 1.9), (62, 67, 1.2)],
+    **hooves(near_hind=(27, 69), far_hind=(33, 69), near_front=(55, 69), far_front=(62, 69)),
+    "neck": ((54, 40), (59, 31), (60, 23)), "neck_r": (4.8, 3.5, 3.1),
+    "skull": (62, 19, 5.2, 4.2),
+    "muzzle": ((64, 20), (72, 22)), "jaw": ((64, 26), (71, 28)), "mouth": ((65, 24.5), (75, 24.5), (72, 27.5)),
+    "ear_near": ((60, 16), (59.5, 12.5), (61.5, 10.0)), "ear_far": ((62.5, 16), (63, 13), (65.5, 10.5)),
+    "ear_r": (1.8, 1.0),
+    "tail": ((22, 37), (13, 29), (-0.5, -1)),
+    "mouth_line": None, "teeth": [("upper", (68, 23)), ("lower", (69, 27))],
+    "eye": "angry", "eye_at": (60, 17), "nostril": (73, 19),
 }
 
 
@@ -409,48 +469,48 @@ def shifted(base: dict, **over) -> dict:
 
 WALK_CONTACT = shifted(
     IDLE,
-    rump=(27, 40), chest=(53, 42), belly=(41, 45, 14, 7.5), haunch=(27, 44, 8, 9), shoulder=(54, 45, 6, 8),
-    near_front=[(54, 48, 3.5), (57, 54, 2.4), (60, 60, 1.8), (62, 67, 1.5)],
-    far_front=[(57, 48, 3.0), (57, 54, 2.2), (57.5, 60, 1.7), (58, 67, 1.4)],
-    near_hind=[(29, 47, 4.5), (28, 54, 3.0), (23, 59, 2.0), (22, 67, 1.5)],
-    far_hind=[(35, 47, 3.5), (37, 54, 2.5), (34, 59, 1.8), (35, 67, 1.4)],
-    **hooves(near_hind=(21, 69), far_hind=(35, 69), near_front=(62, 69), far_front=(58, 69)),
-    neck=((57, 38), (67, 20)), skull=(68, 17, 5.4, 4.4), muzzle=((70, 18), (78, 20)), jaw=((70, 24), (77, 26)),
-    mouth=((71, 22.5), (81, 22.5), (78, 25.5)),
-    ear_near=((66, 13.5), (62, 11.4)), ear_far=((68, 13.5), (65, 11.6)),
-    tail=((21, 35), (14, 31), (-0.6, -1)),
-    teeth=[("upper", (74, 21)), ("lower", (75, 25))], eye_at=(66, 15), nostril=(79, 17),
+    rump=(29, 42), chest=(51, 42), belly=(45, 46.5, 8, 4.0), haunch=(28, 42, 6.5, 7.0), shoulder=(52, 43, 5.5, 7.5),
+    near_front=[(52, 47, 3.6), (55, 53, 2.4), (58, 59, 2.1), (61, 67, 1.3)],
+    far_front=[(56, 47, 3.0), (56, 53, 2.2), (56.5, 59, 1.9), (57, 67, 1.2)],
+    near_hind=[(29, 46, 4.5), (28, 53, 3.0), (22, 59, 2.1), (21, 67, 1.3)],
+    far_hind=[(34, 46, 3.5), (37, 53, 2.5), (33, 59, 1.9), (34, 67, 1.2)],
+    **hooves(near_hind=(21, 69), far_hind=(34, 69), near_front=(61, 69), far_front=(57, 69)),
+    neck=((54, 41), (60, 32), (61, 24)), skull=(63, 20, 5.2, 4.2), muzzle=((65, 21), (73, 23)), jaw=((65, 27), (72, 29)),
+    mouth=((66, 25.5), (76, 25.5), (73, 28.5)),
+    ear_near=((61, 17), (60.5, 13), (63, 10.0)), ear_far=((63.5, 17), (64.5, 13.5), (67.5, 10.5)),
+    tail=((22, 38), (13, 32), (-0.6, -1)),
+    teeth=[("upper", (69, 24)), ("lower", (70, 28))], eye_at=(61, 18), nostril=(74, 20),
 )
 
 TELL = shifted(
     IDLE,
-    rump=(25, 41), chest=(51, 38), belly=(39, 44, 13.5, 7.0), haunch=(25, 45, 8, 9), shoulder=(52, 42, 6, 8),
-    near_front=[(51, 45, 3.5), (54, 52, 2.4), (57, 59, 1.8), (59, 67, 1.5)],
-    far_front=[(56, 45, 3.0), (59, 52, 2.2), (62, 59, 1.7), (64, 67, 1.4)],
-    near_hind=[(27, 48, 4.5), (30, 55, 3.0), (25, 60, 2.0), (26, 67, 1.5)],
-    far_hind=[(33, 48, 3.5), (35, 55, 2.5), (31, 60, 1.8), (32, 67, 1.4)],
-    **hooves(near_hind=(26, 69), far_hind=(32, 69), near_front=(59, 69), far_front=(64, 69)),
-    neck=((54, 34), (59, 12)), neck_r=(6.0, 4.2), glow=1.0, throat=(60.5, 22.5, 3.2, 6.0),
+    rump=(27, 42), chest=(49, 39), belly=(42, 45, 8, 4.0), haunch=(26, 43, 6.5, 7.0), shoulder=(50, 40, 5.5, 7.5),
+    near_front=[(50, 44, 3.6), (53, 51, 2.4), (56, 58, 2.1), (59, 67, 1.3)],
+    far_front=[(54, 44, 3.0), (58, 51, 2.2), (61, 58, 1.9), (64, 67, 1.2)],
+    near_hind=[(27, 46, 4.5), (30, 53, 3.0), (24, 59, 2.1), (25, 67, 1.3)],
+    far_hind=[(32, 46, 3.5), (35, 53, 2.5), (30, 59, 1.9), (31, 67, 1.2)],
+    **hooves(near_hind=(25, 69), far_hind=(31, 69), near_front=(59, 69), far_front=(64, 69)),
+    neck=((52, 36), (59, 12)), neck_r=(5.0, 3.8), glow=1.0, throat=(60.5, 22.5, 3.4, 6.2),
     skull=(60, 9, 4.8, 4.2), muzzle=((62, 10), (71, 12)), jaw=((62, 13), (70, 14.5)), muzzle_r=(3.8, 2.8),
-    ear_near=((57, 6), (52, 4)), ear_far=((59, 6), (55, 4.2)),
-    tail=((19, 36), (12, 27), (-0.5, -1)),
+    ear_near=((57, 7), (52.5, 5), (47.5, 5.5)), ear_far=((59, 7), (54.5, 5.2), (50, 6)),
+    tail=((20, 38), (11, 28), (-0.5, -1)),
     mouth=None, mouth_line=None, teeth=[("clench", (68, 11))],
     eye="tell", eye_at=(58, 8), nostril=(71, 9),
 )
 
 SPIT = shifted(
     IDLE,
-    rump=(29, 39), chest=(56, 41), belly=(43, 44, 14, 7.5), haunch=(29, 43, 8, 9), shoulder=(57, 44, 6, 8),
-    near_front=[(56, 47, 3.5), (58, 54, 2.4), (60, 60, 1.8), (62, 67, 1.5)],
-    far_front=[(61, 47, 3.0), (62, 54, 2.2), (64, 60, 1.7), (65, 67, 1.4)],
-    near_hind=[(31, 46, 4.5), (28, 54, 3.0), (22, 59, 2.0), (20, 67, 1.5)],
-    far_hind=[(37, 46, 3.5), (36, 54, 2.5), (31, 59, 1.8), (29, 67, 1.4)],
+    rump=(31, 40), chest=(54, 40), belly=(47, 44.5, 8, 4.0), haunch=(30, 40, 6.5, 7.0), shoulder=(55, 41, 5.5, 7.5),
+    near_front=[(55, 46, 3.6), (58, 53, 2.4), (60, 59, 2.1), (62, 67, 1.3)],
+    far_front=[(59, 46, 3.0), (62, 53, 2.2), (64, 59, 1.9), (65, 67, 1.2)],
+    near_hind=[(31, 45, 4.5), (28, 53, 3.0), (22, 59, 2.1), (20, 67, 1.3)],
+    far_hind=[(36, 45, 3.5), (36, 53, 2.5), (31, 59, 1.9), (29, 67, 1.2)],
     **hooves(near_hind=(19, 69), far_hind=(28, 69), near_front=(62, 69), far_front=(65, 69)),
-    neck=((59, 37), (74, 25)), neck_r=(5.5, 3.8), glow=0.67,
+    neck=((57, 38), (74, 25)), neck_r=(5.0, 3.5), glow=0.67,
     skull=(77, 23, 4.6, 3.8), muzzle=((79, 23.5), (87, 23.5)), jaw=((79, 27), (86, 31)), muzzle_r=(3.2, 2.5),
     mouth=((79, 26), (89, 25), (87, 31)), mouth_glow=1.0,
-    ear_near=((75, 20), (69, 18)), ear_far=((77, 20), (71, 18.4)),
-    tail=((22, 34), (13, 31), (-1, -0.3)),
+    ear_near=((75, 20.5), (70, 18.5), (65, 19)), ear_far=((77, 20.5), (72, 18.8), (67, 19.5)),
+    tail=((23, 36), (12, 31), (-1, -0.3)),
     mouth_line=None, teeth=[("upper", (85, 25)), ("lower", (83, 29))],
     eye="angry", eye_at=(75, 21), nostril=(87, 20),
     extra=[(89, 25, ["Y", "O"]), (90, 26, ["R"])],
@@ -458,38 +518,37 @@ SPIT = shifted(
 
 HURT = shifted(
     IDLE,
-    rump=(24, 41), chest=(51, 40), belly=(38, 45, 13.5, 7.5), haunch=(24, 45, 8, 9), shoulder=(52, 43, 6, 8),
-    near_front=[(52, 47, 3.5), (55, 52, 2.4), (57, 57, 1.8), (55, 62, 1.5)],
-    far_front=[(57, 47, 3.0), (58, 54, 2.2), (59, 60, 1.7), (60, 67, 1.4)],
-    near_hind=[(26, 48, 4.5), (28, 55, 3.0), (24, 60, 2.0), (25, 67, 1.5)],
-    far_hind=[(32, 48, 3.5), (34, 55, 2.5), (30, 60, 1.8), (31, 67, 1.4)],
+    rump=(26, 42), chest=(49, 41), belly=(42, 45.5, 8, 4.0), haunch=(25, 43, 6.5, 7.0), shoulder=(50, 42, 5.5, 7.5),
+    near_front=[(50, 46, 3.6), (54, 51, 2.4), (57, 56, 2.1), (55, 62, 1.3)],
+    far_front=[(55, 46, 3.0), (57, 53, 2.2), (58, 59, 1.9), (60, 67, 1.2)],
+    near_hind=[(27, 46, 4.5), (30, 53, 3.0), (24, 59, 2.1), (25, 67, 1.3)],
+    far_hind=[(32, 46, 3.5), (35, 53, 2.5), (30, 59, 1.9), (31, 67, 1.2)],
     **hooves(near_hind=(25, 69), far_hind=(31, 69), near_front=(55, 63), far_front=(60, 69)),
-    neck=((53, 37), (54, 15)), neck_r=(5.5, 3.8),
+    neck=((51, 39), (54, 27), (54, 15)), neck_r=(4.8, 3.5, 3.2),
     skull=(54, 12, 4.6, 3.8), muzzle=((56, 12), (63, 7)), jaw=((56, 15), (63, 12)),
     mouth=((57, 13), (64, 8), (63, 12)),
-    ear_near=((52, 10), (46, 9)), ear_far=((54, 10), (48, 9.6)),
-    tail=((18, 38), (13, 43), (-1, 0.4)),
+    ear_near=((52, 10), (47, 9), (42.5, 10.5)), ear_far=((54, 10), (49, 9.4), (44.5, 11)),
+    tail=((19, 39), (12, 44), (-1, 0.4)),
     mouth_line=None, teeth=[("upper", (61, 8))],
     eye="shut", eye_at=(52, 11), nostril=None,
-    mange=((3, -4, 4.0, 2.2), (13, -1, 3.0, 2.0), (21, -5, 2.6, 1.8), (-2, 7, 2.6, 3.0)),
 )
 
 DEAD = shifted(
     IDLE,
-    rump=(30, 60), chest=(54, 61), barrel_r=7.5, belly=(42, 64, 13, 6.5), haunch=(29, 62, 7, 6.5), shoulder=(54, 63, 5, 5.5),
-    near_front=[(56, 65, 2.8), (63, 67.5, 2.0), (69, 68.5, 1.5)],
+    rump=(30, 61), chest=(54, 62), barrel_rr=(6.0, 6.5), belly=(42, 64.5, 11, 5.0), haunch=(29, 62, 6.5, 6.5),
+    shoulder=(54, 63, 5, 5.5),
+    near_front=[(56, 65, 2.8), (63, 67.5, 2.0), (69, 68.5, 1.3)],
     far_front=[(55, 63, 2.4), (60, 64, 1.8)],
-    near_hind=[(27, 64, 3.5), (21, 67.5, 2.2), (16, 68.5, 1.5)],
+    near_hind=[(27, 64, 3.5), (21, 67.5, 2.2), (16, 68.5, 1.3)],
     far_hind=[(33, 62, 2.6), (29, 64, 1.8)],
     **hooves(near_hind=(14, 69), far_hind=(27, 64), near_front=(70, 69), far_front=(61, 64)),
-    neck=((57, 60), (73, 64.5)), neck_r=(5.0, 3.6),
+    neck=((57, 61), (73, 64.5)), neck_r=(4.6, 3.4),
     skull=(76, 64.5, 4.4, 3.6), muzzle=((78, 65.5), (86, 67)), jaw=((78, 68.2), (85, 69.2)), muzzle_r=(3.0, 2.4),
     mouth=((79, 67), (87, 68), (85, 70)),
-    ear_near=((74, 61.5), (69, 59.5)), ear_far=((76, 61.5), (71, 60)),
-    tail=((24, 59), (17, 64), (-1, 0)),
+    ear_near=((74, 61.5), (69, 60.5), (64.5, 62)), ear_far=((76, 61.5), (71, 61), (66.5, 62.5)),
+    tail=((24, 60), (17, 65), (-1, 0)),
     mouth_line=None, teeth=[("upper", (84, 67))],
     eye="dead", eye_at=(75, 63), nostril=(85, 65),
-    mange=((3, -4, 4.0, 2.0), (13, -2, 3.0, 2.0), (21, -4, 2.6, 1.6)),
 )
 
 
@@ -501,7 +560,7 @@ def mv(pt, dx=0, dy=0):
 
 
 def mv2(pair, dx=0, dy=0):
-    return (mv(pair[0], dx, dy), mv(pair[1], dx, dy))
+    return tuple(mv(q, dx, dy) for q in pair)
 
 
 def mv_leg(leg, dy=0):
@@ -523,7 +582,7 @@ def move_body(p: dict, dy: float) -> dict:
 def move_head(p: dict, dx=0, dy=0) -> dict:
     """Shift the neck end and everything on the head (the neck start stays on the shoulder)."""
     out = {
-        "neck": (p["neck"][0], mv(p["neck"][1], dx, dy)),
+        "neck": (p["neck"][0], *(mv(q, dx, dy) for q in p["neck"][1:])),
         "skull": (p["skull"][0] + dx, p["skull"][1] + dy, p["skull"][2], p["skull"][3]),
         "muzzle": mv2(p["muzzle"], dx, dy), "jaw": mv2(p["jaw"], dx, dy),
         "ear_near": mv2(p["ear_near"], dx, dy), "ear_far": mv2(p["ear_far"], dx, dy),
@@ -652,23 +711,22 @@ def scaled(pose: dict, k: float, pivot=(44, 71), to=(44, 79)) -> dict:
         elif key in ("near_hind", "far_hind", "near_front", "far_front"):
             out[key] = [(*pt(q[:2]), q[2] * k) for q in v]
         elif key in ("neck", "muzzle", "jaw", "ear_near", "ear_far"):
-            out[key] = (pt(v[0]), pt(v[1]))
+            out[key] = tuple(pt(q) for q in v)
         elif key == "tail":
             out[key] = (pt(v[0]), pt(v[1]), v[2])
         elif key == "barrel_r":
             out[key] = v * k
-        elif key == "neck_r":
-            out[key] = (v[0] * k, v[1] * k)
+        elif key in ("neck_r", "barrel_rr", "ear_r"):
+            out[key] = tuple(r * k for r in v)
         elif key == "mouth_line" and v:
             out[key] = tuple(tuple(round(c) for c in pt(q)) for q in v)
         elif key == "teeth":
             out[key] = [(n, tuple(round(c) for c in pt(q))) for n, q in v]
         elif key == "mange":
-            out[key] = [(a * k, b * k, c * k, d * k) for a, b, c, d in v]
+            out[key] = [(m, a * k, b * k, c * k, d if m == "s" else d * k) for m, a, b, c, d in v]
         else:
             out[key] = v
-    out.setdefault("mange", [(a * k, b * k, c * k, d * k) for a, b, c, d in
-                             ((3, -4, 4.0, 2.2), (13, -1, 3.0, 2.0), (21, -5, 2.6, 1.8), (-2, 7, 2.6, 3.0))])
+    out.setdefault("mange", [(m, a * k, b * k, c * k, d if m == "s" else d * k) for m, a, b, c, d in MANGE])
     return out
 
 
