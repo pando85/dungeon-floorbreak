@@ -342,7 +342,7 @@
       }
     ],
     "foot_drift": {
-      "max_px": 12,
+      "max_px": 20,
       "tags": [
         "walk"
       ]

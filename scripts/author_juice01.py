@@ -565,12 +565,14 @@ g = p["blobs"]["gut"]; p["blobs"] = dict(p["blobs"], gut=(g[0], g[1] - 1, g[2], 
 p["fist"] = (37, 26, 11.5, -20); p["far_fist"] = (52, 36, 9.0, -20)
 POSES["breath2"] = p
 
-# 4, 5, 6 walk (passing, contact B, passing B)
-POSES["pass4"] = walk_pose([(2, 34), (12, 20), (9, 6), (17, 1.5)], [(-12, 34), (-18, 18), (-15, 6), (-7, 1.5)],
+# 4, 5, 6 walk (passing, contact B, passing B). Even planted-foot travel of 19 to 20 px per 8 ticks around key 3's
+# frozen wide stride (toe points: near 31 -> 12 -> -8, far 0 -> 20 -> 0 -> -19), and the swinging foot lifted off the
+# contact row on both passing frames (toe at y 6), so the gait is a heavy stomp, not a shuffle or a limp.
+POSES["pass4"] = walk_pose([(2, 34), (10, 20), (2, 5), (12, 1.5)], [(-12, 34), (-4, 18), (-8, 9.5), (0, 6)],
                            (30, 27), (52, 35), 0.2, bob=(-1, 2))
-POSES["contactb5"] = walk_pose([(3, 32), (-6, 17), (-16, 5), (-8, 1.5)], [(-11, 32), (-2, 18), (4, 5), (14, 1.5)],
+POSES["contactb5"] = walk_pose([(3, 32), (-4, 17), (-18, 5), (-8, 1.5)], [(-11, 32), (2, 18), (12, 5), (20, 1.5)],
                                (40, 30), (46, 26), 0.4)
-POSES["passb6"] = walk_pose([(2, 34), (12, 20), (9, 6), (17, 1.5)], [(-12, 34), (-18, 18), (-15, 6), (-7, 1.5)],
+POSES["passb6"] = walk_pose([(2, 34), (12, 19), (2, 9.5), (12, 6)], [(-12, 34), (-4, 20), (-8, 5), (0, 1.5)],
                             (35, 26), (49, 33), 0.2, bob=(-1, 2))
 
 # 7 tell rise: torso, blobs and legs at the midpoint of idle0 and tell8; the fists pulled up to the chest
