@@ -1,0 +1,42 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "anim-donut-02",
+  "title": "ANIM-DONUT-02 Princess Donut melee and damage reactions (40 px): 15 frames, 8 frozen keys, 7 in-betweens",
+  "grid": "assets/source/characters/donut/donut_h40_melee.grid.json",
+  "manifest": "assets/manifests/donut_h40_melee.json",
+  "frame_size": [72, 44],
+  "pivot": [46, 43],
+  "contact_row": 43,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "swat": {"playback": "once", "contact": "grounded", "frames": [[0, 4], [1, 3], [2, 4], [3, 3]]},
+    "pounce": {"playback": "once", "contact": "grounded", "frames": [[4, 10]]},
+    "pounce_air": {"playback": "hold", "contact": "airborne", "frames": [[5, null]]},
+    "pounce_land": {"playback": "once", "contact": "grounded", "frames": [[6, 8], [7, 12]]},
+    "hurt": {"playback": "once", "contact": "grounded", "frames": [[8, 5], [9, 11]]},
+    "knockback": {"playback": "hold", "contact": "airborne", "frames": [[10, null]]},
+    "knockdown": {"playback": "once", "contact": "grounded", "frames": [[11, 6], [12, 30]]},
+    "getup": {"playback": "once", "contact": "grounded", "frames": [[13, 10], [14, 10]]}
+  },
+  "rules": {
+    "max_colors": 22,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 6,
+    "canvas_margin": [1, 1, 1, 0],
+    "unique_frames": true,
+    "manifest_tick_rows": "melee.frames",
+    "manifest_tick_hz": "melee.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/anim-donut-02_keys.json",
+      "frames": [0, 1, 4, 5, 6, 8, 10, 11],
+      "layers": ["tail", "legs_far", "body", "legs_near", "head", "face", "gear", "paw"]
+    },
+    "bbox": [
+      {"id": "swat-contact-reaches-forward", "frames": [1], "min_right": 68},
+      {"id": "airborne-clear-of-floor", "frames": [5, 10], "max_bottom": 41},
+      {"id": "sploot-stays-low", "frames": [11], "min_top": 12}
+    ]
+  }
+}

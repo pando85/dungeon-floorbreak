@@ -1,0 +1,303 @@
+{
+  "asset": "anim-donut-02",
+  "frame_size": [
+    72,
+    44
+  ],
+  "pivot": [
+    46,
+    43
+  ],
+  "frames": [
+    {
+      "index": 0,
+      "name": "s0",
+      "tag": "swat",
+      "key": true,
+      "ticks": 4,
+      "duration_ms": 67,
+      "bbox": [
+        13,
+        8,
+        70,
+        43
+      ],
+      "opaque_size": [
+        58,
+        36
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 1,
+      "name": "s1",
+      "tag": "swat",
+      "key": true,
+      "ticks": 3,
+      "duration_ms": 50,
+      "bbox": [
+        15,
+        7,
+        69,
+        43
+      ],
+      "opaque_size": [
+        55,
+        37
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 2,
+      "name": "s2",
+      "tag": "swat",
+      "key": false,
+      "ticks": 4,
+      "duration_ms": 67,
+      "bbox": [
+        15,
+        8,
+        69,
+        43
+      ],
+      "opaque_size": [
+        55,
+        36
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 3,
+      "name": "s3",
+      "tag": "swat",
+      "key": false,
+      "ticks": 3,
+      "duration_ms": 50,
+      "bbox": [
+        14,
+        7,
+        68,
+        43
+      ],
+      "opaque_size": [
+        55,
+        37
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 4,
+      "name": "p0",
+      "tag": "pounce",
+      "key": true,
+      "ticks": 10,
+      "duration_ms": 167,
+      "bbox": [
+        11,
+        14,
+        68,
+        43
+      ],
+      "opaque_size": [
+        58,
+        30
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 5,
+      "name": "p1",
+      "tag": "pounce_air",
+      "key": true,
+      "ticks": null,
+      "duration_ms": 100,
+      "bbox": [
+        9,
+        4,
+        70,
+        41
+      ],
+      "opaque_size": [
+        62,
+        38
+      ],
+      "lowest_row": 41
+    },
+    {
+      "index": 6,
+      "name": "p2",
+      "tag": "pounce_land",
+      "key": true,
+      "ticks": 8,
+      "duration_ms": 133,
+      "bbox": [
+        22,
+        5,
+        69,
+        43
+      ],
+      "opaque_size": [
+        48,
+        39
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 7,
+      "name": "p3",
+      "tag": "pounce_land",
+      "key": false,
+      "ticks": 12,
+      "duration_ms": 200,
+      "bbox": [
+        18,
+        7,
+        68,
+        43
+      ],
+      "opaque_size": [
+        51,
+        37
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 8,
+      "name": "h0",
+      "tag": "hurt",
+      "key": true,
+      "ticks": 5,
+      "duration_ms": 83,
+      "bbox": [
+        13,
+        8,
+        65,
+        43
+      ],
+      "opaque_size": [
+        53,
+        36
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 9,
+      "name": "h1",
+      "tag": "hurt",
+      "key": false,
+      "ticks": 11,
+      "duration_ms": 183,
+      "bbox": [
+        15,
+        9,
+        67,
+        43
+      ],
+      "opaque_size": [
+        53,
+        35
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 10,
+      "name": "kb",
+      "tag": "knockback",
+      "key": true,
+      "ticks": null,
+      "duration_ms": 100,
+      "bbox": [
+        12,
+        5,
+        66,
+        41
+      ],
+      "opaque_size": [
+        55,
+        37
+      ],
+      "lowest_row": 41
+    },
+    {
+      "index": 11,
+      "name": "d0",
+      "tag": "knockdown",
+      "key": true,
+      "ticks": 6,
+      "duration_ms": 100,
+      "bbox": [
+        12,
+        15,
+        68,
+        43
+      ],
+      "opaque_size": [
+        57,
+        29
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 12,
+      "name": "d1",
+      "tag": "knockdown",
+      "key": false,
+      "ticks": 30,
+      "duration_ms": 500,
+      "bbox": [
+        12,
+        15,
+        68,
+        43
+      ],
+      "opaque_size": [
+        57,
+        29
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 13,
+      "name": "g0",
+      "tag": "getup",
+      "key": false,
+      "ticks": 10,
+      "duration_ms": 167,
+      "bbox": [
+        12,
+        12,
+        68,
+        43
+      ],
+      "opaque_size": [
+        57,
+        32
+      ],
+      "lowest_row": 43
+    },
+    {
+      "index": 14,
+      "name": "g1",
+      "tag": "getup",
+      "key": false,
+      "ticks": 10,
+      "duration_ms": 167,
+      "bbox": [
+        14,
+        6,
+        68,
+        43
+      ],
+      "opaque_size": [
+        55,
+        38
+      ],
+      "lowest_row": 43
+    }
+  ],
+  "scene": {
+    "carl_x": 590,
+    "donut_x": 650,
+    "view": "abc_640x360 (level x 328..968)"
+  }
+}
