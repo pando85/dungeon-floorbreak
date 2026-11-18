@@ -35,7 +35,7 @@ use dungeon_floorbreak::{
     audio::{
         AudioCommand, AudioSettings, StyleBank, cues_from_combat_event, scene_ambience, scene_music,
     },
-    audio_adapter::{AudioQueue, FloorAudioPlugin},
+    audio_adapter::{AudioQueue, FloorAudioPlugin, resolve_pack_dir},
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
         CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, goblin_variant,
@@ -736,7 +736,7 @@ fn run_window(
     )
     .add_plugins(FloorAudioPlugin {
         settings: audio_settings,
-        pack_dir: root.join(dungeon_floorbreak::audio::PACK_DIR),
+        pack_dir: resolve_pack_dir(),
         initial: audio_initial,
     })
     .insert_resource(ClearColor(Color::srgb_u8(6, 5, 12)))

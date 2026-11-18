@@ -4,7 +4,7 @@
 use bevy::{camera::ScalingMode, prelude::*};
 use dungeon_floorbreak::{
     audio::{AudioSettings, cues_from_wall_break},
-    audio_adapter::{AudioQueue, FloorAudioPlugin},
+    audio_adapter::{AudioQueue, FloorAudioPlugin, resolve_pack_dir},
     camera::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH},
     input::{InputFrame, RawInput},
     prototype::{Material, STAGE_WIDTH, World},
@@ -39,9 +39,7 @@ fn main() {
     if !audio_settings.enabled {
         plugins = plugins.disable::<bevy::audio::AudioPlugin>();
     }
-    let pack_dir = std::env::current_dir()
-        .unwrap_or_default()
-        .join(dungeon_floorbreak::audio::PACK_DIR);
+    let pack_dir = resolve_pack_dir();
     App::new()
         .add_plugins(plugins.set(WindowPlugin {
             primary_window: Some(Window {

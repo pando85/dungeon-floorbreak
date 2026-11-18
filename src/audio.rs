@@ -28,7 +28,7 @@ pub const PACK_DIR: &str = "assets/audio/floor01";
 /// the fan-layer event ids live only in `cue_map.json`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CueId {
-    /// Carl's melee move started, hit or miss. The greybox moves (jab,
+    /// The player's melee move started, hit or miss. The greybox moves (jab,
     /// haymaker, push kick) all use the kick whoosh until punch audio exists.
     PlayerKickSwing,
     /// A strike was verified as a hit (a `CombatEvent::Hit`), never a swing.
@@ -680,8 +680,9 @@ impl Ducker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::combat::EnemyAi;
     use crate::combat::{CombatEvent, MoveId};
-    use crate::combat_scene::{FIXTURES, FixtureSim};
+    use crate::combat_scene::{EnemySpawn, FIXTURES, Fixture, FixtureSim};
     use crate::env_kit::EnvKit;
     use std::path::PathBuf;
 
@@ -804,33 +805,73 @@ mod tests {
         assert!(total_hits > 0, "some fixture lands a hit");
     }
 
-    #[test]
-    fn a_swing_at_nothing_is_a_swing_cue_without_a_confirm() {
+    /// A stationary goblin at column `x` (Carl at column 400), no script.
+    macro_rules! dummy {
+        ($name:ident, $x:expr) => {
+            static $name: Fixture = Fixture {
+                name: "audio_test_dummy",
+                summary: "test",
+                seed: 7,
+                carl_x: 400,
+                enemies: &[EnemySpawn {
+                    x: $x,
+                    ai: EnemyAi::Passive,
+                }],
+                script: &[],
+                ticks: 100,
+            };
+        };
+    }
+    dummy!(IN_REACH, 428);
+    dummy!(OUT_OF_REACH, 560);
+
+    /// Run one whole push kick (press, then every tick of the move) against a
+    /// stationary goblin and return the combat events.
+    fn whole_kick(fixture: &'static Fixture) -> Vec<CombatEvent> {
+        use crate::combat::{MoveId, carl_move};
+        use crate::input::RawInput;
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let kit = EnvKit::load(&root, "assets/levels/floor01/corridor_abc_sample.json").unwrap();
-        // Fixtures that start with an enemy out of reach: one manual swing at air.
-        let mut checked = 0;
-        for fixture in FIXTURES {
-            let mut sim = FixtureSim::new(&kit, 360, fixture).unwrap();
-            sim.step(crate::input::RawInput {
-                attack: true,
-                ..Default::default()
-            });
-            let events = sim.combat.events.clone();
-            let cues: Vec<CueId> = events.iter().flat_map(cues_from_combat_event).collect();
-            let hit = events.iter().any(|e| matches!(e, CombatEvent::Hit { .. }));
-            assert!(cues.contains(&CueId::PlayerKickSwing), "{}", fixture.name);
-            if !hit {
-                assert!(
-                    !cues.contains(&CueId::PlayerKickHitConfirmed)
-                        && !cues.contains(&CueId::EnemyHitReaction),
-                    "{}: a miss must not confirm",
-                    fixture.name
-                );
-                checked += 1;
-            }
+        let mut sim = FixtureSim::new(&kit, 360, fixture).unwrap();
+        let total = carl_move(MoveId::PushKick).unwrap().total();
+        sim.step(RawInput {
+            ability: true,
+            ..Default::default()
+        });
+        for _ in 0..total {
+            sim.step(RawInput::default());
         }
-        assert!(checked > 0, "at least one fixture swings at nothing");
+        sim.combat.events.clone()
+    }
+
+    fn count_of(events: &[CombatEvent], cue: CueId) -> usize {
+        events
+            .iter()
+            .flat_map(cues_from_combat_event)
+            .filter(|c| *c == cue)
+            .count()
+    }
+
+    #[test]
+    fn a_whole_kick_out_of_reach_swings_without_a_confirm_and_in_reach_confirms_once() {
+        // The same move, once against a goblin in reach and once against one 160
+        // px away: the hit/miss split comes from `resolve_strike`, not from the
+        // cue mapping.
+        let hits = |e: &[CombatEvent]| {
+            e.iter()
+                .filter(|e| matches!(e, CombatEvent::Hit { .. }))
+                .count()
+        };
+        let hit = whole_kick(&IN_REACH);
+        let miss = whole_kick(&OUT_OF_REACH);
+        assert_eq!(hits(&miss), 0, "the kick out of reach hits nothing");
+        assert_eq!(count_of(&miss, CueId::PlayerKickSwing), 1);
+        assert_eq!(count_of(&miss, CueId::PlayerKickHitConfirmed), 0);
+        assert_eq!(count_of(&miss, CueId::EnemyHitReaction), 0);
+        assert_eq!(hits(&hit), 1, "the kick in reach lands exactly once");
+        assert_eq!(count_of(&hit, CueId::PlayerKickSwing), 1);
+        assert_eq!(count_of(&hit, CueId::PlayerKickHitConfirmed), 1);
+        assert_eq!(count_of(&hit, CueId::EnemyHitReaction), 1);
     }
 
     #[test]

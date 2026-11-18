@@ -40,6 +40,7 @@ FLOORBREAK_AUDIO_STYLE=arcade cargo run --bin floor01_scene -- --fixture cp01_tw
 - Presentation only: the simulation only pushes commands; nothing is read back, hashed or replayed. Variant choice uses a presentation RNG, never the gameplay RNG.
 - At most 2 overlapping major contact transients (hit-confirm, body collision, wall break, heavy crash); extra ones are dropped, not queued.
 - Music duck on a verified hit: about 3.2 dB (from the pack mixer), 150 ms (clamped to 100-180 ms), 40 ms release.
+- With no audio device, one-shots that never get a sink are despawned after about 1 s (Bevy 0.20 would otherwise keep them forever). F10 mute also silences effects already playing.
 - Music and ambience loop; a music state change cuts to the new loop (no crossfade yet).
 
 ## Tests
