@@ -237,7 +237,11 @@ fn ceil_step(w: f32) -> i32 {
 /// The tightest coverage width that fits every actor's safety region and a
 /// readable threat. Not clamped to the bounds of a room.
 pub fn required_width(aspect: Aspect, input: &CameraInput) -> f32 {
-    let (x0, x1, y0, y1) = framing_box(input);
+    required_width_in(aspect, input, None)
+}
+
+pub fn required_width_in(aspect: Aspect, input: &CameraInput, bounds: Option<Bounds>) -> f32 {
+    let (x0, x1, y0, y1) = framing_box_in(input, bounds);
     let w = x1 - x0;
     let h = y1 - y0;
     w.max(h * BASE_W as f32 / aspect.base_h() as f32)
@@ -245,15 +249,22 @@ pub fn required_width(aspect: Aspect, input: &CameraInput) -> f32 {
 
 /// Bounding box (x0, x1, y0, y1) of the safety regions and the readable threat.
 fn framing_box(input: &CameraInput) -> (f32, f32, f32, f32) {
+    framing_box_in(input, None)
+}
+
+/// [`framing_box`] with the safety regions clipped to the camera bounds: an
+/// actor standing at a wall cannot be padded beyond the wall.
+fn framing_box_in(input: &CameraInput, bounds: Option<Bounds>) -> (f32, f32, f32, f32) {
     let mut x0 = f32::MAX;
     let mut x1 = f32::MIN;
     let mut y0 = f32::MAX;
     let mut y1 = f32::MIN;
+    let (bw, bh) = bounds.map_or((f32::MAX, f32::MAX), |b| (b.w as f32, b.h as f32));
     for s in input.subjects {
-        x0 = x0.min(s.x - s.half_w - SAFETY_PAD_X);
-        x1 = x1.max(s.x + s.half_w + SAFETY_PAD_X);
-        y0 = y0.min(s.y - s.half_h - SAFETY_PAD_Y);
-        y1 = y1.max(s.y + s.half_h + SAFETY_PAD_Y);
+        x0 = x0.min((s.x - s.half_w - SAFETY_PAD_X).max(0.0));
+        x1 = x1.max((s.x + s.half_w + SAFETY_PAD_X).min(bw));
+        y0 = y0.min((s.y - s.half_h - SAFETY_PAD_Y).max(0.0));
+        y1 = y1.max((s.y + s.half_h + SAFETY_PAD_Y).min(bh));
     }
     if input.subjects.is_empty() {
         return (0.0, BASE_W as f32, 0.0, 360.0);
@@ -278,12 +289,12 @@ impl CameraOperator {
     pub fn new(mode: CameraMode, aspect: Aspect, bounds: Bounds, input: &CameraInput) -> Self {
         let cov_w = match mode {
             CameraMode::Fixed(c) => coverage_width(c),
-            CameraMode::Auto => ceil_step(required_width(aspect, input)),
+            CameraMode::Auto => ceil_step(required_width_in(aspect, input, Some(bounds))),
         }
         .min(bounds.w)
         .min(bounds.h * BASE_W / aspect.base_h())
         .max(MIN_W.min(bounds.w));
-        let (x0, x1, y0, y1) = framing_box(input);
+        let (x0, x1, y0, y1) = framing_box_in(input, Some(bounds));
         let mut op = Self {
             mode,
             aspect,
@@ -346,7 +357,7 @@ impl CameraOperator {
 
     /// True when every subject's safety region is inside the current view.
     pub fn safety_ok(&self, subjects: &[Subject]) -> bool {
-        subjects.iter().all(|s| safety_inside(self.view, s))
+        subjects.iter().all(|s| safety_inside_in(self.view, s, self.bounds))
     }
 
     /// One presentation tick.
@@ -362,7 +373,7 @@ impl CameraOperator {
         if let CameraMode::Fixed(_) = self.mode {
             return;
         }
-        let raw = required_width(self.aspect, input);
+        let raw = required_width_in(self.aspect, input, Some(self.bounds));
         let need = ceil_step(raw).min(self.max_width());
         let current = self.cov_w;
         if need > current
@@ -421,7 +432,7 @@ impl CameraOperator {
     }
 
     fn step_pan(&mut self, input: &CameraInput) {
-        let (x0, x1, y0, y1) = framing_box(input);
+        let (x0, x1, y0, y1) = framing_box_in(input, Some(self.bounds));
         let mut tx = (x0 + x1) / 2.0;
         let ty = (y0 + y1) / 2.0 - HEADROOM_SHARE * self.aspect.height_for(self.cov_w) as f32;
         // Horizontal bias towards a readable imminent threat, bounded so that
@@ -456,7 +467,7 @@ impl CameraOperator {
         // Emergency: a subject outside the safety region pans faster.
         let probe = self.view;
         for s in input.subjects {
-            if !safety_inside(probe, s) {
+            if !safety_inside_in(probe, s, self.bounds) {
                 emergency = true;
             }
         }
@@ -472,6 +483,14 @@ impl CameraOperator {
         self.cx += dx;
         self.cy += dy;
     }
+}
+
+/// [`safety_inside`] with the region clipped to the camera bounds.
+pub fn safety_inside_in(view: View, s: &Subject, bounds: Bounds) -> bool {
+    ((s.x - s.half_w - SAFETY_PAD_X).max(0.0) >= view.left as f32)
+        && ((s.x + s.half_w + SAFETY_PAD_X).min(bounds.w as f32) <= view.right() as f32)
+        && ((s.y - s.half_h - SAFETY_PAD_Y * 0.5).max(0.0) >= view.top as f32)
+        && ((s.y + s.half_h + SAFETY_PAD_Y * 0.5).min(bounds.h as f32) <= view.bottom() as f32)
 }
 
 /// The safety region of a subject (body plus padding) lies inside the view.

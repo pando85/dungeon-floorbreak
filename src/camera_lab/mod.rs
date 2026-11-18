@@ -8,3 +8,6 @@
 pub mod camera_op;
 pub mod layout;
 pub mod room;
+pub mod sim;
+pub mod script;
+pub mod session;
