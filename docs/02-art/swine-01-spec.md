@@ -152,7 +152,7 @@ Readability set: 18 frames. Tick windows are at 60 Hz.
 | 10 | `attack_tell` | coil hold: squashed to 136 x 114, rocked 6 px back and 20 degrees, rim tufts +3 px, every eye wide, mouths +1 px | 28 | key (frozen) |
 | 11 | `attack_charge` | launch smear: stretched to 156 x 112, 14 px forward, tufts streaked back | 3 | Sonnet |
 | 12 | `attack_charge` | impact: 25 px forward, front flattened into a 40 px vertical face at x 174, eyes wide, mouths +2 px | 6 | key (frozen) |
-| 13 | `attack_charge` | rebound: back to round, 4 px back, mouths open (the punish window) | 24 | Sonnet |
+| 13 | `attack_charge` | rebound: back to round, 21 px back from the impact and about 2 px forward of idle, mouths open (the punish window) | 24 | Sonnet |
 | 14 | `hurt` | recoil: 4 px back, 6 degrees back, 1 px squash, eyes squeezed shut, mouths +2 px squealing | 12 | key (frozen) |
 | 15 | `down` | crack: dark seams split the mass between the heads, 2 px sag | 8 | Sonnet |
 | 16 | `down` | slump: 150 x 90, heads loosening | 12 | Sonnet |
@@ -181,7 +181,7 @@ Triggers are design placeholders; the gameplay work order owns them.
 
 ## 6. Palette
 
-The Ball and the Tusklings share one family palette, `tuskling-floor01-v1` (flesh, tusk, hair, cloth, sequin and flower ramps). The arena's purple UV and laser light is not in the sprite. 20 colours, at most 20 (the gate fix added `e` pearl).
+The Ball and the Tusklings share one family palette, `tuskling-floor01-v1` (flesh, tusk, hair, cloth, sequin and flower ramps). The arena's purple UV and laser light is not in the sprite. 19 colours, at most 20: the review fix merged the pearl colour `e` into tusk ivory `v`, so slot 20 is free for the Tusklings.
 
 | Key | Name | Hex | Nearest candidate | Role |
 | --- | --- | --- | --- | --- |
@@ -194,7 +194,7 @@ The Ball and the Tusklings share one family palette, `tuskling-floor01-v1` (fles
 | `h` | flesh_high | `#f8c4a6` | `#f0c3a2` (16) | lit snout discs only |
 | `t` | tusk_shade | `#9a7a52` | `#d6a387` (23), darkened | tusk underside, pearl shadow |
 | `u` | tusk_mid | `#d8c094` | `#f0c3a2` (16) | tusk, collar, teeth |
-| `v` | tusk_light | `#f6ead0` | `#f8e5cc` (19) | brightest value: tusk tops, pearls, teeth |
+| `v` | tusk_light | `#f6ead0` | `#f8e5cc` (19) | brightest value: tusk tops, pearl beads, shirt front, teeth |
 | `a` | hair_dark | `#5a2e1e` | `#8a4441` (1), darkened | bristle, tufts |
 | `b` | hair_tan | `#a86a38` | `#b05848` (11) | lit bristle, flower centre |
 | `n` | cloth_black | `#231c2a` | `#272543` (15) | hat, jacket, bow tie, hooves |
@@ -204,7 +204,6 @@ The Ball and the Tusklings share one family palette, `tuskling-floor01-v1` (fles
 | `p` | flower_deep | `#4e1f6e` | none (by eye) | flower shade |
 | `q` | flower_mid | `#9b55c4` | none (by eye) | flower petals |
 | `w` | eye_white | `#f0e2cc` | `#f8e5cc` (19) | eyes (accent) |
-| `e` | pearl | `#fff6e6` | `#f8e5cc` (19) | single-pixel pearl beads on a `t` thread (accent, so 1 px beads pass the orphan rule) |
 
 The navy candidates (6, 13, 17, 18, 20, 22) are background and are not used. The palette separates the Ball from the warm brick (lighter, pinker flesh; ivory hooks; a black outline) and from the cold arch (warm hue) at 1x in the A1 lighting (see `docs/evidence/swine-01/key0-scale.png`).
 
@@ -214,14 +213,14 @@ Every key is the feature model of `scripts/author_swine01.py` (`PARTS`, `TROTTER
 
 | Frame | Tag | Pose dict (changes from `POSE0`) | Measured | Readability reason |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | none | bbox x 18-162, y 10-143; `w` 42, `h` 140, `e` 23, `q` 58 | 17 snarling tusked heads, hat, tux, sequins, pearls, flower and trotters in one lumpy ball |
+| 0 | `idle` | none | bbox x 18-162, y 10-143; `w` 42, `h` 140, `q` 58 | 17 snarling tusked heads, hat, tux, sequins, pearls, flower and trotters in one lumpy ball |
 | 3 | `roll` | shear 2, tuft_sweep -2 | y 10-143 | lean and streaked bristle; landmarks carry the turn |
 | 10 | `attack_tell` | theta -20, centre (82, 89), radii 68 x 57, tuft_add 3, eyes wide, gape_add 1 | x 6-156, y 20-143; `w` 60 | lower, wider, rocked back, bristling, every eye wide |
 | 12 | `attack_charge` | centre (113, 85), radii 66 x 60, front_cut 0.94, eyes wide, gape_add 2, tuft_sweep -3 | x 41-174 | the flat front is where the hit lands |
 | 14 | `hurt` | theta -6, centre (84, 84), radii 65 x 61, eyes shut, gape_add 2 | `w` 0 | the only ball-shaped frame with no eye whites |
 | 17 | `down` | theta 60, centre (88, 117), radii 78 x 27, head_k 1.0, head_sb 0.62, eyes shut, limp, tuft_add -1, gape_add 1 | x 5-171, y 80-143; `w` 0 | a heap of limp bodies, the hat on top |
 
-Gate fix applied to key 0 (review points 1-8): snarling maws with fangs, lower teeth and lolling tongues on every head (no round mouths); eyes are a 2 px `K` pupil plus 1-2 px `w` in a `c` socket under an `l`-over-`d` scowl brow, with eye bags and cheek folds; head radii 11-24 px with five buried and eight upside-down or sideways heads; a black jacket with a shirt V and a bow tie, a red sequin field with glints on the lit side, a 23-bead pearl string; a crushed, tilted, outlined top hat with a 2 px red band and a 1 px sheen; four trotters with flesh shanks and black split hooves past the rim; tusks 4-9 px with 7 chipped; irregular rim spacing.
+Gate fix applied to key 0 (review points 1-8): snarling maws with fangs, lower teeth and lolling tongues on every head (no round mouths); eyes are a 2 px `K` pupil plus 1-2 px `w` in a `c` socket under an `l`-over-`d` scowl brow, with eye bags and cheek folds; head radii 11-24 px with five buried and eight upside-down or sideways heads; a black jacket with a `u`/`v` shirt-front V, `o` lapel sheen, `K` lapel notches and a `n` bow tie with a `K` knot at the V apex, a red sequin field with glints on the lit side, a pearl string draped 2 px thick below the front head (two `v` beads, one `t` link); a crushed, tilted, outlined top hat with a 2 px red band and a 1 px sheen; four trotters with flesh shanks and black split hooves past the rim; tusks 4-9 px with 7 chipped; irregular rim spacing.
 
 ## 8. In-between list
 
@@ -233,7 +232,7 @@ For the execution tier: render each in-between as a pose dict through `Ball(dict
 | 2 | theta 2 | heave out: key 0 size, the mass shifts 2 degrees (trotters twitch) |
 | 9 | theta -10, cx 85, cy 86, rx 66, ry 60, tuft_add 1, eyes wide | rock back, half of the coil |
 | 11 | theta 20, cx 104, cy 87, rx 76, ry 56, shear 4, tuft_sweep -5, eyes wide, gape_add 2 | launch smear: stretched 152 x 112, 16 px forward |
-| 13 | theta 10, cx 92, cy 83, rx 63, ry 62, eyes open, gape_add 2 | rebound: round again, 4 px forward of idle, mouths open (punish window) |
+| 13 | theta 10, cx 92, cy 83, rx 63, ry 62, eyes open, gape_add 2 | rebound: round again, about 2 px forward of idle (cx 92 against 88 minus the rim shift), mouths open (punish window) |
 | 15 | theta 20, cx 88, cy 95, rx 70, ry 50, head_sb 0.85, eyes shut, gape_add 1 | crack: sag, crevices widen (add a 1 px `c` seam on every head boundary) |
 | 16 | theta 40, cx 88, cy 105, rx 75, ry 39, head_k 1.0, head_sb 0.72, eyes shut, limp, gape_add 1 | slump, halfway to the heap |
 
@@ -244,16 +243,28 @@ For the execution tier: render each in-between as a pose dict through `Ball(dict
 - Frame 15: section 8 asks for a hand-added 1 px `c` seam on every head boundary. Not done (no pixel edits): the model already draws `c` crevices between heads and the 0.85 head scale widens them. Reviewer to judge whether the crack reads at 1x; if not, it needs a model-level seam parameter (design decision).
 - Roll direction checked on `roll-strip-2x.png`: hat goes upper left, top, right, lower right, lower left, left across frames 3 to 8 and continues into frame 3 at the seam (300 to 360 degrees): clockwise throughout.
 
+### Executor notes (review fixes, 2026-11-18)
+
+Reviewer-prescribed (blind review, PASS WITH EXECUTION ITEMS), all done through the model in `scripts/author_swine01.py`; keys 0, 3, 10, 12, 14 and 17 are re-frozen (`freeze --force`) because every frame changed.
+
+- E1 tux: `Ball.tux` draws a `u`/`v` shirt-front V (widest toward the rim), `o`-sheen lapels with a `K` notch each, and a 5 x 3 `n` bow tie with a `K` knot at the V apex. At 1x the shirt front reads as a cream wedge on black; the bow tie is small (a design call if it must read more).
+- E2 pearls: `Ball.pearls` hangs the string as a sagging parabola between the flanks of the front head (anchors at 1.25 r, sag 1.45 r), 2 px thick, two `v` beads then one `t` link, clipped to the disc envelope. It is drawn after all heads so no head covers it.
+- Palette (R4/N2): `e` is merged into `v` (the palette has 19 colours); the `e` key-count rule is dropped and the test now checks that `e` is absent.
+- E3 frame 15: four `K` fracture lines 2 px wide from the rim toward the centre (`Ball.cracks`, pose value `cracks`), flesh on either side of a line steps to `d`; frame 16 draws the same lines 3 px wide. The "shift the heads 1 px apart" step was not done: the 2 px line is the gap, and a per-head shift would need a model change.
+- E4 roll top: heads are clipped to the disc envelope (the disc ellipse plus 2 px) and the body fills it, so the disc crown is identical in every non-limp pose; ears with their shoulders, tufts, hat, flower and trotters are lumps and remain free. Visible effect: the rim is a rounder disc and head domes no longer scallop it. New validator rule `rules.disc_top` (V13, `scripts/pixelart/validators.py`) measures the crown against the ellipse (see section 9); it replaces the false 3 px claim. The measured sag is at most 0.5 px on frames 3-8.
+- E5 doc: frame 13 rebound text now agrees between sections 4 and 8.
+- Not done: N1 (snout and ear polish) and N3 (strobe check in the arena), both optional or later.
+
 ## 9. Validators and readability rules
 
 Run by `python3 -m scripts.pixelart validate assets/source/characters/swine/swine-01.pixelart.json` (verdict PASS, 13 pass, 3 skipped; `unique_frames` is on):
 
-- V04 palette: at most 20 colours (20 used); V05 isolated pixels: 0; V06 orphan pixels: 0 per frame.
+- V04 palette: at most 20 colours (19 used); V05 isolated pixels: 0; V06 orphan pixels: 0 per frame.
 - V07 contact row: every frame ends on row 143.
 - V09 frozen keys: SHA-256 of frames 0, 3, 10, 12, 14, 17 in `tests/fixtures/swine-01_keys.json`.
-- V13 bbox: S1 idle top 10 / bottom 143, width 128 to 148; S2 roll frames 3-8 top 7 to 13 and width 140 to 150; S3 tell top at least 20 (idle top + 10) and left at most 14 (idle left - 4); S4 impact right at least 174 (idle right + 12); S5 defeat top at least 80, width at most 170.
-- V14 key counts: S0 `w` at least 24 on frames 0 and 3; `h` at least 140 on frame 0 (measured 140 on the gate-fix key 0, frozen by V09); `q` at most 80 on every key; `e` at least 8 (pearl beads); S3 tell `w` at least 40; S4 hurt `w` = 0; S5 defeat `w` = 0.
-- Open for the reviewer: S2 allows the roll top to move 3 px (the spec draft said 2 px) because a rim lump rotating over the top shifts the bbox by 3 px; this needs reviewer sign-off.
+- V13 bbox: S1 idle top 10 / bottom 143, width 128 to 148; S2 roll frames 3-8 lump band top 7 to 13 and width 140 to 150; S2b (`rules.disc_top`, roll frames 3-8) the disc's own crown stays on its ellipse (centre 88, 83, radii 66 x 64, columns 60-116): no column sags more than 1 px below it and at least 15 columns sit within 1 px of it, while lumps (ears, hat, tufts, trotters, flower) may rise above freely; S3 tell top at least 20 (idle top + 10) and left at most 14 (idle left - 4); S4 impact right at least 174 (idle right + 12); S5 defeat top at least 80, width at most 170.
+- V14 key counts: S0 `w` at least 24 on frames 0 and 3; `h` at least 140 on frame 0 (measured 140 on the gate-fix key 0, frozen by V09); `q` at most 80 on every key; S3 tell `w` at least 40; S4 hurt `w` = 0; S5 defeat `w` = 0.
+- Roll top (review fix E4): the earlier "top moves at most 3 px" claim was wrong (5 px measured between frames 5 and 6). The rule is now S2b above: the disc crown is fixed, lumps move inside the 7-13 band.
 
 ## 10. Evidence
 

@@ -176,7 +176,7 @@
         "max_width": 148
       },
       {
-        "id": "S2-roll-keeps-the-ball",
+        "id": "S2-roll-lumps-in-band",
         "frames": [
           3,
           4,
@@ -246,14 +246,6 @@
         "max": 80
       },
       {
-        "id": "S0-pearl-string",
-        "frames": [
-          0
-        ],
-        "key": "e",
-        "min": 8
-      },
-      {
         "id": "S3-tell-eyes-wide",
         "frames": [
           10
@@ -276,6 +268,31 @@
         ],
         "key": "w",
         "max": 0
+      }
+    ],
+    "disc_top": [
+      {
+        "id": "S2b-roll-disc-top-fixed",
+        "frames": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "ellipse": [
+          88,
+          83,
+          66,
+          64
+        ],
+        "x_range": [
+          60,
+          116
+        ],
+        "tolerance": 1.0,
+        "min_on_disc": 15
       }
     ]
   },

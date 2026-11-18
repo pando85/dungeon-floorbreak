@@ -59,11 +59,10 @@ PALETTE = [
     ("p", "flower_deep", "#4e1f6eff", False),
     ("q", "flower_mid", "#9b55c4ff", False),
     ("w", "eye_white", "#f0e2ccff", True),
-    ("e", "pearl", "#fff6e6ff", True),
 ]
 ACCENTS = {p[0] for p in PALETTE if p[3]}
 DARKER = {"h": "l", "l": "m", "m": "s", "s": "d", "d": "c", "c": "c", "v": "u", "u": "t", "t": "a",
-          "b": "a", "a": "c", "o": "n", "n": "n", "r": "d", "g": "r", "q": "p", "p": "n", "K": "K", "w": "w", "e": "e"}
+          "b": "a", "a": "c", "o": "n", "n": "n", "r": "d", "g": "r", "q": "p", "p": "n", "K": "K", "w": "w"}
 _l = (-0.5, -0.62, 0.6)
 LIGHT = tuple(c / math.sqrt(sum(v * v for v in _l)) for c in _l)   # torch key upper left, screen space
 
@@ -75,7 +74,7 @@ ROLL_FRAMES = (3, 4, 5, 6, 7, 8)
 
 # --------------------------------------------------------------------------- poses
 POSE0 = dict(theta=0.0, cx=88.0, cy=83.0, rx=64.0, ry=62.0, shear=0.0, front_cut=None, tuft_add=0, tuft_sweep=0.0,
-             eyes="open", gape_add=0, head_k=None, head_sb=1.0, limp=False)
+             eyes="open", gape_add=0, head_k=None, head_sb=1.0, limp=False, cracks=0.0)
 KEY_POSES = {
     0: {},
     3: dict(shear=2.0, tuft_sweep=-2.0),                                                   # roll, theta 0
@@ -94,9 +93,9 @@ INBETWEENS = {
     9: dict(theta=-10.0, cx=85.0, cy=86.0, rx=66.0, ry=60.0, tuft_add=1, eyes="wide"),
     11: dict(theta=20.0, cx=92.0, cy=87.0, rx=74.0, ry=56.0, shear=4.0, tuft_sweep=-5.0, eyes="wide", gape_add=2),
     13: dict(theta=10.0, cx=92.0, cy=83.0, rx=63.0, ry=62.0, eyes="open", gape_add=2),
-    15: dict(theta=20.0, cx=88.0, cy=95.0, rx=70.0, ry=50.0, head_sb=0.85, eyes="shut", gape_add=1),
+    15: dict(theta=20.0, cx=88.0, cy=95.0, rx=70.0, ry=50.0, head_sb=0.85, eyes="shut", gape_add=1, cracks=2.0),
     16: dict(theta=40.0, cx=88.0, cy=105.0, rx=75.0, ry=39.0, head_k=1.0, head_sb=0.72, eyes="shut", limp=True,
-             gape_add=1),
+             gape_add=1, cracks=3.0),
 }
 
 
@@ -137,6 +136,7 @@ PARTS = (
 TROTTERS = (35, 140, -125, -40)       # alpha deg: legs kicking out past the rim between rim heads
 TUFTS = (-176, -164, -134, -112, -88, -78, -62, -30, -12, 2, 34, 44, 70, 108, 138, 164, 194)
 TROTTER_OWNER, HAT_OWNER = 90, 95
+ENVELOPE = 2.0     # px a head dome may stand proud of the disc ellipse (ears, tufts, hat and trotters are free)
 
 
 def rad(deg: float) -> float:
@@ -246,6 +246,11 @@ class Ball:
             return False
         return 0 <= x < self.w and 0 <= y <= PIVOT[1]
 
+    def outside_envelope(self, p, extra: float = 0.0) -> bool:
+        P = self.P
+        dx, dy = p[0] + 0.5 - P["cx"], p[1] + 0.5 - P["cy"]
+        return (dx / (P["rx"] + ENVELOPE + extra)) ** 2 + (dy / (P["ry"] + ENVELOPE + extra)) ** 2 > 1.0
+
     def set(self, p, k, owner=None):
         if self.inside(*p):
             self.key[p] = k
@@ -257,8 +262,8 @@ class Ball:
         for y in range(self.h):
             for x in range(self.w):
                 u, v = self.uv(x + 0.5, y + 0.5)
-                if u * u + v * v > 1.0:
-                    continue
+                if u * u + v * v > 1.0 and (self.P["limp"] or self.outside_envelope((x, y))):
+                    continue      # the body fills the envelope ellipse: the crown of the disc is fixed in every pose
                 lv = lum3(self.sphere_n(x, y)) * 0.66
                 stripe = (x * 2 + y) % 7 < 2
                 k = ("b" if lv > 0.5 and stripe else "a") if (x + y // 3) % 9 < 4 else flesh_key(lv * 0.9)
@@ -329,16 +334,33 @@ class Ball:
                 k = "g" if (lv > 0.42 and (x * 3 + y * 5) % 7 == 0) else ("d" if lv < 0.31 and (x + 2 * y) % 5 == 0 else "r")
             self.set((x, y), k, idx)
         if kind == "cloth":
-            # soiled collar wedge and a bow tie at the inner end of the jacket
-            tip = (c[0] - A[0] * ra * 0.2, c[1] - A[1] * ra * 0.2)
-            for y in range(int(tip[1] - 8), int(tip[1] + 9)):
-                for x in range(int(tip[0] - 8), int(tip[0] + 9)):
-                    dx, dy = x + 0.5 - tip[0], y + 0.5 - tip[1]
-                    pa, pb = dx * A[0] + dy * A[1], dx * B[0] + dy * B[1]
-                    if -4 <= pa <= 9 and abs(pb) <= 5.0 - (pa + 4) * 0.36 and (x, y) in mine:
-                        self.set((x, y), "u" if pa > 2 else "v", idx)
-                    if -3.5 <= pa <= 1.5 and abs(pb) <= 4.5 and abs(pa + 1) <= 0.8 + abs(pb) * 0.5:
-                        self.set((x, y), "K" if abs(pb) < 1 else "n", idx)
+            self.tux(c, A, B, ra, rb, mine, idx)
+
+    def tux(self, c, A, B, ra, rb, mine, idx):
+        """Shirt front (a V of `u`/`v`, widest toward the rim), notched lapels (`o` sheen on the lit side, `K`
+        notch) and a `n` bow tie with a `K` knot at the V apex."""
+        pa0, pa1 = -0.45 * ra, 0.62 * ra
+        inside, edge = {}, {}
+        for (x, y) in mine:
+            dx, dy = x + 0.5 - c[0], y + 0.5 - c[1]
+            pa, pb = dx * A[0] + dy * A[1], dx * B[0] + dy * B[1]
+            hw = 2.4 + 0.2 * (pa - pa0)
+            if pa0 - 1.5 <= pa <= pa1 and abs(pb) <= hw:
+                lv = lum3(self.sphere_n(x, y))
+                inside[(x, y)] = "t" if lv < 0.34 else ("v" if lv > 0.5 else "u")
+            elif pa0 - 1.5 <= pa <= pa1 + 1.0 and abs(pb) <= hw + 1.6:
+                edge[(x, y)] = (pa, pb)
+        for q, k in inside.items():
+            self.set(q, k, idx)
+        for q, (pa, pb) in edge.items():
+            lv = lum3(self.sphere_n(*q))
+            notch = abs(pa - (pa0 + 0.55 * (pa1 - pa0))) < 1.0
+            self.set(q, "K" if notch and abs(pb) > 2.4 else ("o" if lv > 0.42 else "n"), idx)
+        for (x, y) in mine:
+            dx, dy = x + 0.5 - c[0], y + 0.5 - c[1]
+            pa, pb = dx * A[0] + dy * A[1], dx * B[0] + dy * B[1]
+            if abs(pa - pa0) <= 1.6 and abs(pb) <= 3.4:
+                self.set((x, y), "K" if abs(pa - pa0) <= 0.7 and abs(pb) <= 0.9 else "n", idx)
 
     def head(self, idx, part):
         _, rho, alpha, r, up, sa, sb, dress, tusks, mouth = part
@@ -352,6 +374,7 @@ class Ball:
         dome = ell(0, 0, 1.0, 1.0)
         ears = (tri((-0.8, -0.38), (-0.25, -0.86), (-1.05, -1.12)), tri((0.8, -0.38), (0.25, -0.86), (1.05, -1.12)))
         mine = {}
+        lumps = set()
         for p, (a, b) in H.pixels(lambda a, b: dome(a, b) or ears[0](a, b) or ears[1](a, b)):
             rn = math.sqrt(a * a + b * b)
             dn = (a * H.R[0] + b * H.D[0], a * H.R[1] + b * H.D[1])
@@ -366,7 +389,11 @@ class Ball:
             if b < -0.55 and dome(a, b) and int((a * 9 + b * 3) * 2) % 3 == 0:   # coarse bristle on the crown
                 k = "a" if k in "ds" else "b"
             mine[p] = k
+            if (ears[0](a, b) or ears[1](a, b)) or (abs(a) >= 0.5 and b <= 0.1):
+                lumps.add(p)      # ears and their shoulders stay attached to the head
         for p, k in mine.items():
+            if not P["limp"] and p not in lumps and self.outside_envelope(p):
+                continue      # head domes never leave the disc envelope: the disc crown stays put (ears are lumps)
             self.set(p, k, idx)
         self.face(H, idx, tusks, mouth + P["gape_add"])
         if dress == "hat":
@@ -374,7 +401,7 @@ class Ball:
         if dress == "flower":
             self.flower(H, idx)
         if dress == "pearls":
-            self.pearls(H, idx)
+            self.pearl_head = H
 
     def face(self, H, idx, tusks, mw):
         R, Ds = H.r * H.sa, H.r * H.sb
@@ -525,19 +552,59 @@ class Ball:
         for p, _ab in H.pixels(ell(cx, cy, 0.1, 0.1), pad=1.9):
             self.set(p, "b", idx)
 
-    def pearls(self, H, idx):
-        """A pearl string across the face: single-pixel beads on a t thread, a t shadow under each bead."""
-        pts = bezier(H.world(-0.95, -0.05), H.world(-0.1, 1.25), H.world(0.95, 0.35), n=60)
-        thread = []
-        for p in pts:
-            q = ip(p)
-            if not thread or thread[-1] != q:
-                thread.append(q)
-        for q in thread:
-            self.set(q, "t", idx)
-        for i, q in enumerate(thread):
-            if i % 2 == 0 and 0 < i < len(thread) - 1:
-                self.set(q, "e", idx)
+    def pearls(self, H):
+        """A pearl string draped below the front head: a sagging parabola between two anchors on the head's flanks,
+        2 px thick, two ivory (`v`) beads then one `t` thread link, so it hangs across the jowl and neighbours."""
+        r = H.r
+        x0, y0 = H.c[0] - 1.25 * r, H.c[1] - 0.15 * r
+        x1, y1 = H.c[0] + 1.25 * r, H.c[1] - 0.05 * r
+        sag = 1.45 * r
+        path = []
+        for xi in range(int(round(x0)), int(round(x1)) + 1):
+            t = (xi - x0) / (x1 - x0)
+            y = int(round(y0 + (y1 - y0) * t + sag * 4 * t * (1 - t)))
+            if path and abs(y - path[-1][1]) > 1:
+                step = 1 if y > path[-1][1] else -1
+                for yy in range(path[-1][1] + step, y, step):
+                    path.append((xi, yy))
+            path.append((xi, y))
+        for i, (x, y) in enumerate(path):
+            bead = i % 3 != 2
+            for q in ((x, y), (x, y + 1)):
+                if self.P["limp"] or not self.outside_envelope(q):
+                    self.set(q, "v" if bead else "t", HAT_OWNER)
+
+    def cracks(self):
+        """Frame 15/16 fracture lines (K, ``cracks`` px wide) from the rim toward the centre; the flesh on either
+        side of a line takes the deep `d` edge. Recolours existing pixels only."""
+        w = self.P["cracks"]
+        if not w:
+            return
+        P = self.P
+        lines = (((1.08, -115), (0.8, -105), (0.62, -122), (0.4, -100), (0.15, -86)),
+                 ((1.08, -22), (0.8, -16), (0.6, -30), (0.36, -10)),
+                 ((1.08, 40), (0.8, 56), (0.62, 44), (0.36, 70)),
+                 ((1.08, 162), (0.8, 150), (0.6, 166), (0.36, 146)))
+        marks = set()
+        for ln in lines:
+            pts = [(P["cx"] + rho * P["rx"] * math.cos(rad(a)), P["cy"] + rho * P["ry"] * math.sin(rad(a)))
+                   for rho, a in ln]
+            for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+                dx, dy = bx - ax, by - ay
+                ll = dx * dx + dy * dy
+                for y in range(int(min(ay, by)) - 3, int(max(ay, by)) + 4):
+                    for x in range(int(min(ax, bx)) - 3, int(max(ax, bx)) + 4):
+                        t = max(0.0, min(1.0, ((x + 0.5 - ax) * dx + (y + 0.5 - ay) * dy) / ll))
+                        if math.hypot(x + 0.5 - ax - t * dx, y + 0.5 - ay - t * dy) <= w / 2:
+                            marks.add((x, y))
+        for q in marks:
+            if q in self.key and self.key[q] != "K":
+                for n in ((q[0] + 1, q[1]), (q[0] - 1, q[1]), (q[0], q[1] + 1), (q[0], q[1] - 1)):
+                    if n not in marks and self.key.get(n) in ("m", "l", "h", "s"):
+                        self.key[n] = "d"
+        for q in marks:
+            if q in self.key:
+                self.key[q] = "K"
 
     def separate(self):
         """Crevices: a pixel whose 4-neighbour belongs to a deeper owner gets the crevice key on the front side and
@@ -545,13 +612,13 @@ class Ball:
         snap = dict(self.key)
         for (x, y), k in snap.items():
             mine = self.owner.get((x, y), -1)
-            if k in "wKgvei" or mine < 0 or mine >= TROTTER_OWNER:
+            if k in "wKgv" or mine < 0 or mine >= TROTTER_OWNER:
                 continue
             for q in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
                 o = self.owner.get(q)
                 if o is not None and o < mine and snap.get(q) not in ("K", None):
                     self.key[(x, y)] = "c"
-                    if snap.get(q) not in ("w", "g", "v", "e"):
+                    if snap.get(q) not in ("w", "g", "v"):
                         self.key[q] = DARKER.get(snap[q], "c")
                     break
         for (x, y) in list(self.key):
@@ -565,9 +632,11 @@ class Ball:
                 self.head(i, part)
             else:
                 self.patch(i, *part)
+        self.pearls(self.pearl_head)
         self.trotters()
         self.tufts()
         self.separate()
+        self.cracks()
         rows = [["."] * self.w for _ in range(self.h)]
         for (x, y), k in self.key.items():
             rows[y][x] = k

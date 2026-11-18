@@ -1,27 +1,27 @@
 {
-  "format": "pixelart-keys-v1",
   "asset_id": "swine-01",
-  "layers": [
-    "body"
-  ],
+  "format": "pixelart-keys-v1",
   "keys": {
     "0": {
-      "sha256": "2a1c948fab7be34a1f548a7f0ccaf852b77ebf40accfe396fe663651deadba65"
-    },
-    "3": {
-      "sha256": "f0154c4597fc8941cd91e0ccb1c51df8349eddc91f6f98b5eb40a85ab33e03b5"
+      "sha256": "dcacf61b0854221c1ae4489c3bf3d020bd9bce33d1e13aefb6654258eec81732"
     },
     "10": {
-      "sha256": "619999b6b3d5780f36d0acd982fe608f94053e11f4ce62e3b0b1ace34242fc55"
+      "sha256": "49bed2990e0249f75baac0326b56abfe96e8289d629584a3af624fd6eb646f1a"
     },
     "12": {
-      "sha256": "af5e3f2fdc221c859af309c27dfa984c1311afdbb7460be80cfc173ffdd2504b"
+      "sha256": "9ecb9d3cdbe036658adb3e358ab062319b9be69e21750b35349a2182aacda45e"
     },
     "14": {
-      "sha256": "9dced95b46a1e5d8084e76aad8cb6ba558faf79c710fca2e4a5245861ca2d5ff"
+      "sha256": "6518237ebb82322859dab99758d62607050fd0486ace6a2d21551542069f7172"
     },
     "17": {
-      "sha256": "003c2005f8f02f27ad151f0b59ebc41c5e4a7631bdd11dbb352e8a785318c901"
+      "sha256": "496edaf3012f7a491103307c50464ca8369f36586cbc17bacc9da78e3263964a"
+    },
+    "3": {
+      "sha256": "f9fd7c3fbf0e3a77d76d0311de563da60be1869d22bffa97b17c0fb5e7e5bf40"
     }
-  }
+  },
+  "layers": [
+    "body"
+  ]
 }

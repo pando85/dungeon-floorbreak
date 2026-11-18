@@ -61,7 +61,8 @@ class Swine01Tests(unittest.TestCase):
         text = "".join(rows)
         self.assertGreaterEqual(text.count("w"), 24)        # many small mean eyes, not one mascot face
         self.assertGreaterEqual(text.count("h"), 140)       # lit snouts; measured 140 on the gate-fix key 0
-        self.assertGreaterEqual(text.count("e"), 8)         # pearl string beads
+        self.assertNotIn("e", text)                         # pearl colour merged into tusk ivory `v` (slot 20 is free)
+        self.assertGreaterEqual(text.count("v"), 250)       # tusks, teeth, shirt front and the draped pearl string
         self.assertLessEqual(text.count("q"), 80)           # the flower stays a detail
 
     def test_roll_frames_are_the_frame3_rule_turned_clockwise(self) -> None:
