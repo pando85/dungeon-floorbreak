@@ -459,8 +459,8 @@ def mk(*, torso, hump, neck, jaw, face, near_arm, near_hand, far_arm, far_hand, 
 # contact plan: every planted foot moves back 6 px per frame, loop seam included; 2 px bob on the passing frames).
 K3 = dict(torso=[(-7, 22), (-1, 29.5), (4, 36)], hump=(2, 37), neck=[(5, 38), (8.5, 44.5)], jaw=(10, 49.0))
 # frame: body dy, near foot (cx, lift), far foot (cx, lift), near wrist x, far wrist x
-WALK_PLAN = {3: (0, (8, 0), (-4, 0), 20, 22), 4: (2, (2, 0), (2, 3), 23, 19), 5: (0, (-4, 0), (8, 0), 26, 16),
-             6: (2, (2, 3), (2, 0), 23, 19)}
+WALK_PLAN = {3: (0, (8, 0), (-4, 0), 20, 22), 4: (2, (2, 0), (4, 4.5), 23, 19), 5: (0, (-4, 0), (8, 0), 26, 16),
+             6: (2, (4, 4.5), (2, 0), 23, 19)}
 
 
 def walk_frame(n: int) -> dict:
@@ -572,9 +572,12 @@ POSES["idle2"] = I0 | {"hair": hair(8, 51.5, sway=-1.0), "cords": [[(-10, 33), (
 # 7: feint onset, halfway from 0 to 8 (face stays the leer)
 POSES["feint7"] = t1.blend(I0, POSES["feint8"], 0.5) | {"face": "leer"}
 POSES["feint7"].pop("jaw", None)
+# the blended near hand would hold its claws level (a pointing finger): both blends keep the family's curled-down claws
+POSES["feint7"]["fingers"] = drooping_hand(*POSES["feint7"]["near_arms"][0]["pts"][2], 0.6)
 # 9: lash: body halfway from 8 to 10, the tongue half out in a whipping S curve
 POSES["lash9"] = t1.blend(POSES["feint8"], POSES["strike10"], 0.5) | {
     "face": "gape", "tongue": L([(16, 49), (26, 53), (36, 47), (44, 50)], [2.0, 1.8, 1.6, 2.0])}
+POSES["lash9"]["fingers"] = drooping_hand(*POSES["lash9"]["near_arms"][0]["pts"][2], 0.6)
 # 13: fall beat, about 50 degrees back, toes on the floor, near arm flung back, far arm forward and down
 POSES["down13"] = mk(
     torso=[(0, 14), (-6, 22), (-12, 30)], hump=(-13, 31), neck=[(-12.5, 32), (-13.5, 34.5)], jaw=(-14, 36), face="pain",

@@ -159,7 +159,8 @@ class Trog03VirtuosoSetTests(unittest.TestCase):
         for cx in (near, far):
             self.assertEqual([c[0] for c in cx], [8, 2, -4])
             self.assertEqual([c[1] for c in cx], [0, 0, 0])               # planted
-        self.assertEqual(plan[6][1][0] - plan[5][1][0], 6)                 # the lifted near foot lands 6 px ahead of -4 + 6
+        self.assertGreater(plan[6][1][0], 2)                               # the lifted foot passes 1 to 2 px ahead of the planted one
+        self.assertGreater(plan[4][2][0], 2)
         self.assertGreater(plan[6][1][1], 0)
         self.assertGreater(plan[4][2][1], 0)
         # seam 6 to 3: the far foot moves 2 to -4
