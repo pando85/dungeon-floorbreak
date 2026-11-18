@@ -1,0 +1,343 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "anim-carl-03",
+  "title": "ANIM-CARL-03 Carl 52 px dynamite throw, equipped special (keys frozen, in-betweens drawn)",
+  "grid": "assets/source/characters/carl/carl_h52_dynamite.grid.json",
+  "frame_size": [
+    48,
+    56
+  ],
+  "pivot": [
+    25,
+    55
+  ],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "dynamite_throw": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          6
+        ],
+        [
+          1,
+          10
+        ],
+        [
+          2,
+          7
+        ],
+        [
+          3,
+          7
+        ],
+        [
+          4,
+          8
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          7,
+          12
+        ],
+        [
+          8,
+          8
+        ]
+      ]
+    },
+    "dynamite_move_light": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          9,
+          4
+        ],
+        [
+          10,
+          4
+        ],
+        [
+          11,
+          4
+        ],
+        [
+          12,
+          4
+        ],
+        [
+          13,
+          4
+        ],
+        [
+          14,
+          4
+        ]
+      ]
+    },
+    "dynamite_move_hold": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          15,
+          4
+        ],
+        [
+          16,
+          4
+        ],
+        [
+          17,
+          4
+        ],
+        [
+          18,
+          4
+        ],
+        [
+          19,
+          4
+        ],
+        [
+          20,
+          4
+        ]
+      ]
+    },
+    "dynamite_move_hold_b": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          21,
+          4
+        ],
+        [
+          22,
+          4
+        ],
+        [
+          23,
+          4
+        ],
+        [
+          24,
+          4
+        ],
+        [
+          25,
+          4
+        ],
+        [
+          26,
+          4
+        ]
+      ]
+    },
+    "dynamite_move_wind": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          27,
+          4
+        ],
+        [
+          28,
+          4
+        ],
+        [
+          29,
+          4
+        ],
+        [
+          30,
+          4
+        ],
+        [
+          31,
+          4
+        ],
+        [
+          32,
+          4
+        ]
+      ]
+    },
+    "dynamite_move_release": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          33,
+          4
+        ],
+        [
+          34,
+          4
+        ],
+        [
+          35,
+          4
+        ],
+        [
+          36,
+          4
+        ],
+        [
+          37,
+          4
+        ],
+        [
+          38,
+          4
+        ]
+      ]
+    },
+    "dynamite_move_follow": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          39,
+          4
+        ],
+        [
+          40,
+          4
+        ],
+        [
+          41,
+          4
+        ],
+        [
+          42,
+          4
+        ],
+        [
+          43,
+          4
+        ],
+        [
+          44,
+          4
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "dynamite_throw",
+    "tell": "dynamite_throw",
+    "attack": "dynamite_throw",
+    "move": "dynamite_move_release"
+  },
+  "rules": {
+    "max_colors": 27,
+    "max_isolated_per_frame": 0,
+    "canvas_margin": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "frozen_keys": {
+      "fixture": "tests/fixtures/anim-carl-03_keys.json",
+      "frames": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "layers": [
+        "far_arm",
+        "legs",
+        "shoes",
+        "torso",
+        "boxers",
+        "jacket",
+        "head",
+        "hair",
+        "prop",
+        "near_arm",
+        "watch",
+        "pin"
+      ]
+    },
+    "unique_frames": true
+  },
+  "review": {
+    "strip_tags": [
+      "dynamite_throw"
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 500,
+        "flip": false
+      },
+      {
+        "frame": 1,
+        "x": 548,
+        "flip": false
+      },
+      {
+        "frame": 2,
+        "x": 596,
+        "flip": false
+      },
+      {
+        "frame": 4,
+        "x": 644,
+        "flip": false
+      },
+      {
+        "frame": 5,
+        "x": 692,
+        "flip": false
+      },
+      {
+        "frame": 6,
+        "x": 740,
+        "flip": false
+      },
+      {
+        "frame": 7,
+        "x": 788,
+        "flip": false
+      },
+      {
+        "frame": 8,
+        "x": 836,
+        "flip": false
+      }
+    ],
+    "references": [
+      {
+        "grid": "assets/source/characters/goblin/goblin_a_h36.grid.json",
+        "x": 900,
+        "frame": 0
+      },
+      {
+        "grid": "assets/source/characters/goblin/goblin_a_h36.grid.json",
+        "x": 924,
+        "frame": 0
+      }
+    ]
+  }
+}

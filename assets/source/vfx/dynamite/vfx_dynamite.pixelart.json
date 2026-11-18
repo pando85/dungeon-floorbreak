@@ -1,0 +1,120 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "anim-carl-03-vfx",
+  "title": "ANIM-CARL-03 dynamite stick in flight and fizzling on the floor (the blast is the VFX-01 burst)",
+  "grid": "assets/source/vfx/dynamite/vfx_dynamite.grid.json",
+  "frame_size": [
+    24,
+    24
+  ],
+  "pivot": [
+    12,
+    12
+  ],
+  "contact_row": 12,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "dynamite_flight": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ]
+    },
+    "dynamite_fizzle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "dynamite_fizzle",
+    "move": "dynamite_flight",
+    "tell": "dynamite_fizzle"
+  },
+  "rules": {
+    "max_colors": 7,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "frozen_keys": {
+      "fixture": "tests/fixtures/anim-carl-03-vfx_keys.json",
+      "frames": [
+        0,
+        3,
+        4
+      ],
+      "layers": [
+        "body"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "stick-compact",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "max_width": 16,
+        "max_height": 16
+      }
+    ],
+    "unique_frames": true
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 560,
+        "lift": 34,
+        "shadow": false
+      },
+      {
+        "frame": 3,
+        "x": 600,
+        "lift": 46,
+        "shadow": false
+      },
+      {
+        "frame": 4,
+        "x": 660,
+        "shadow": false
+      }
+    ]
+  }
+}

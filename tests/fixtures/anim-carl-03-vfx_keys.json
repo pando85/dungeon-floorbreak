@@ -1,0 +1,18 @@
+{
+  "asset_id": "anim-carl-03-vfx",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "ecc0c9afa661f54c16c9af7b20faa4399181c527d9dcaa716a454e01d78ce697"
+    },
+    "3": {
+      "sha256": "853b2b59179192260991c1cf3c0cada5e674f8d5dcc5751344dc90a1ef9f06d9"
+    },
+    "4": {
+      "sha256": "a27fa8632f08fb18b91fe16396f94ba4ffaebba81cc79ac5d1f32bbcef5e9b00"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
