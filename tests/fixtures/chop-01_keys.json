@@ -1,0 +1,29 @@
+{
+  "asset_id": "chop-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "8ea9808da75698339d9148228a161e017c5fd5feae7fb1355de13ee8a387150e"
+    },
+    "10": {
+      "sha256": "6db8ddcfe8b9658170ddd9b73368c09246fd61b52e01e9b4bc90b691ae02eaa0"
+    },
+    "11": {
+      "sha256": "e76bfbe887a241fce786cd27bc7d705b4e6751ecb0f4a614e449faf394e0e897"
+    },
+    "15": {
+      "sha256": "2725acf40287314ce6b773450d8f243f2933818fa6e56668349c6734cd80167e"
+    },
+    "3": {
+      "sha256": "f4609b9633862f5fa0d30407dda89c30f291a5beffa08b3ed22a218ee5d921e9"
+    },
+    "8": {
+      "sha256": "a0ae451258854685296262a2eb424e5a546ff4ff6d885cfd3b9380a024e0e2aa"
+    }
+  },
+  "layers": [
+    "machine",
+    "crew",
+    "weapon"
+  ]
+}

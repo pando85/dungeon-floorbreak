@@ -1,0 +1,27 @@
+{
+  "asset_id": "rot-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "f42099b89c12eecb898ba206f4b0218651cab3586997b492cfe5ad1de08f85ce"
+    },
+    "10": {
+      "sha256": "f1a327ddf7a232860cac5364708d40e9d8b8eceea6b29dc1ea5f7b4986c5fe9b"
+    },
+    "11": {
+      "sha256": "27a861ae1956a56a753b856fd06629c06b8e0e6d6b11e64e5c90fc0397601ac3"
+    },
+    "14": {
+      "sha256": "5175d875f00313f415a4076b54d673d6697eebb1c910289ea153c54a3327caf3"
+    },
+    "3": {
+      "sha256": "63b83b3bdba459b3070815791b1504e0c0323ada49f0c6562e82c050fe3ac5f4"
+    },
+    "8": {
+      "sha256": "44e8435c4898dfb94f27987a7bbf58833a7a9fbbbff35bc45a8653abe3baa665"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

@@ -15,14 +15,14 @@ Owner-approved plan, 2026-11-18. It refines [agent-orchestration.md](agent-orche
 
 | Class | Score | Examples | Route |
 | --- | --- | --- | --- |
-| **Easy** | 0–1 | Brood Guardian, Bomb Bard, Tusklings, Troglodyte variants, props, kit-extension environment pieces | **C**: top tier writes the spec and draws 1 hero key; medium tier draws the rest. A medium-tier-only design with a top-tier review is allowed for pure variants |
-| **Medium** | 2 | Rot Sticker, Green Slime, Troglodyte base | **B**: medium tier drafts size, palette, all keys and the spec; a fresh top-tier editor corrects and freezes them |
+| **Easy** | 0–1 | Brood Guardian, Bomb Bard, Tusklings, Troglodyte variants, props, kit-extension environment pieces | **C**: top tier writes the spec and draws 1 hero key; medium tier draws the rest. **Add the silhouette gate on the hero key when the asset is a new design** (score item 1). A medium-tier-only design with a top-tier review is allowed for pure variants |
+| **Medium** | 2 | Rot Sticker, Green Slime, Troglodyte base | **B + silhouette gate**: medium tier drafts size, palette, all keys and the spec; a fresh top-tier editor corrects and freezes them; the gate checks the edited keys before in-betweens |
 | **Hard** | 3–4 | Bad Llama, Copper Chopper | **B + silhouette gate** |
 | **Boss** | any boss | The Hoarder, The Juicer, Ball of Swine | **A + silhouette gate**: top tier designs and draws every key; budget one extra review round |
 
 **Orchestrator autonomy (owner, 2026-11-18):** the orchestrator picks the next pixel-art work orders itself, following the production order (section 1), the difficulty routing above and any blocking dependencies, and runs **up to three work orders in parallel**. It asks the owner only for decisions that are genuinely the owner's (canon, scope, rights, cross-cutting art direction), and reports per batch.
 
-**Silhouette gate:** after the idle key exists and before any other key or in-between is drawn, a fresh top-tier agent (about 5 tool calls) compares the idle key at 1× in the lit scene with the concept crop and answers one question: does it read as the approved creature? A "no" goes back to design before more pixels are drawn. Reason: in the pilot the A-route Bad Llama was fully keyed and in-betweened before the review found it read as a goat (section 5).
+**Silhouette gate (every new design, decision 2026-11-18 after wave 1, see section 6):** after the idle key (or the edited key set) exists and before in-betweens are drawn, a fresh top-tier agent (about 5 tool calls) compares the idle key at 1× in the lit scene with the concept crop and answers one question: does it read as the approved creature? A "no" goes back to design before more pixels are drawn. Reason: in the pilot the A-route Bad Llama was fully keyed and in-betweened before the review found it read as a goat (section 5).
 
 **Configurations** (as defined in section 4): **A** top tier draws all keys and writes the spec; **B** medium tier drafts, a fresh top-tier editor corrects; **C** top tier writes the spec and one hero key, medium tier draws the rest. Execution (E), gate (G), blind review (R) and the fix loop are the same for all.
 
@@ -120,3 +120,21 @@ Conclusions used for [routing by difficulty](#routing-by-difficulty):
 - An independent top-tier review with the fixed 3-image input costs 0.5–0.7 USD (up to 1.2 USD for larger assets); a medium-tier fix-list check costs 0.1–0.15 USD.
 - Medium-tier cost tracks tool-call count. The largest avoidable costs were CI waiting and merge conflicts (up to about 2.5 USD per fix agent before the rules in the routing section).
 - **Orchestration overhead:** the top-tier orchestrator session cost about 12 USD for the whole day (two baseline reviews, three pilots, merges and docs), more than any single asset. Keep orchestration terse: delegate, pass file paths instead of pasted content, and avoid re-reading large files.
+
+## 6. Wave 1 results (2026-11-18)
+
+Same estimate method as section 5; the shared packet stage is not included. All three are merged (PRs #64, #65, #66).
+
+| Asset | Route | Frames | Top-tier USD | Medium-tier USD | Total USD | USD per frame | Gate | First blind review | Final review |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Brood Guardian (BROOD-01) | C | 16 | 6.87 | 4.36 | 11.23 | 0.70 | none before review; on the redesign: pass | FAIL-DESIGN, 14/25 (read as a woodlouse) | re-review PASS WITH EXECUTION ITEMS, 21/25 |
+| Bomb Bard (BARD-01) | C (variant of GOB-01) | 16 | 3.75 | 3.12 | **6.87** | **0.43** | none | PASS WITH EXECUTION ITEMS, 19/25 | fix list checked |
+| The Hoarder (HOARD-01, boss) | A + gate | 16 | 10.51 | 2.10 | 12.61 | 0.79 | FIX-KEY0 twice (0.54 USD for both), then pass | FAIL-DESIGN, 18/25 (walk loop seam) | re-review PASS WITH EXECUTION ITEMS, 21/25 |
+
+Conclusions:
+
+- **The silhouette gate pays for itself.** It costs about 0.3–0.6 USD per check. The Brood Guardian skipped it (Easy route) and failed the blind review on concept fidelity after all 16 frames were drawn, which roughly doubled its cost against the Bomb Bard. The Hoarder's gate caught a face/hair read problem before 15 frames were built on it. The routing table now adds the gate to every new design, not only Hard and Boss.
+- **Variants stay cheap.** The Bomb Bard, built on the GOB-01 base, passed first time at 0.43 USD per frame.
+- **The blind review still finds what gates miss.** The Hoarder passed the gate but failed on the walk loop, a motion problem a still-image gate cannot see. The executor added validator rule V16 (loop-seam foot drift) so this class of defect is caught automatically; new assets with a walk loop opt in through `rules.foot_drift`.
+- **Resuming an agent is cheaper than a fresh one for fix rounds.** Fix rounds were sent to the original designer or executor with the review file path, and narrow re-reviews to the original reviewer.
+

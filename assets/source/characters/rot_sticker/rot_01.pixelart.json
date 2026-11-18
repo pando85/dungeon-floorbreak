@@ -1,0 +1,67 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "rot-01",
+  "title": "ROT-01 Rot Sticker readability set, first draft: 15 frames (6 keys at 0, 3, 8, 10, 11, 14; 9 in-betweens drawn)",
+  "grid": "assets/source/characters/rot_sticker/rot_01.grid.json",
+  "manifest": "assets/manifests/rot-01.json",
+  "frame_size": [32, 32],
+  "pivot": [6, 16],
+  "contact_row": 16,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "free", "frames": [[0, 14], [1, 12], [2, 14]]},
+    "walk": {"playback": "loop", "contact": "free", "frames": [[3, 8], [4, 8], [5, 8], [6, 8]]},
+    "attack_tell": {"playback": "once", "contact": "free", "frames": [[7, 6], [8, 24]]},
+    "attack_swing": {"playback": "once", "contact": "free", "frames": [[9, 2], [10, 4]]},
+    "hurt": {"playback": "once", "contact": "free", "frames": [[11, 10]]},
+    "down": {"playback": "hold", "contact": "free", "frames": [[12, 4], [13, 8], [14, null]]}
+  },
+  "roles": {"idle": "idle", "move": "walk", "tell": "attack_tell", "attack": "attack_swing", "hurt": "hurt", "defeat": "down"},
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 8,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "manifest_tick_rows": "rot_sticker.frames",
+    "manifest_tick_hz": "rot_sticker.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/rot-01_keys.json",
+      "frames": [0, 3, 8, 10, 11, 14],
+      "layers": ["body"]
+    },
+    "bbox": [
+      {"id": "Z1-size-idle-20px", "frames": [0], "top": 6, "bottom": 25, "height": 20, "left": 6},
+      {"id": "Z2-dome-depth-idle", "frames": [0], "min_right": 17, "max_right": 21},
+      {"id": "Z3-tell-is-widest-pre-burst", "frames": [8], "min_right": 21, "max_height": 24},
+      {"id": "Z4-burst-is-largest", "frames": [10], "min_right": 22, "min_height": 23, "max_height": 26},
+      {"id": "Z5-hurt-compact", "frames": [11], "max_right": 18},
+      {"id": "Z6-dud-flat", "frames": [12, 13, 14], "max_right": 12}
+    ],
+    "key_counts": [
+      {"id": "Z0-core-glows-alive", "frames": [0, 1, 2, 3, 4, 5, 6], "key": "o", "min": 2},
+      {"id": "Z2-tell-core-hot", "frames": [8], "key": "G", "min": 4},
+      {"id": "Z2-tell-ribs-lit", "frames": [8], "key": "o", "min": 20},
+      {"id": "Z2-idle-core-not-hot", "frames": [0], "key": "G", "max": 0},
+      {"id": "Z3-burst-core-blown", "frames": [10], "key": "G", "min": 40},
+      {"id": "Z4-hurt-flash-white", "frames": [11], "key": "w", "min": 3},
+      {"id": "Z5-dud-no-glow", "frames": [12, 13, 14], "key": "G", "max": 0},
+      {"id": "Z5-dud-no-flash", "frames": [12, 13, 14], "key": "w", "max": 0},
+      {"id": "Z5-dud-no-ember", "frames": [12, 13, 14], "key": "o", "max": 0}
+    ]
+  },
+  "review": {"strip_tags": ["attack_tell", "attack_swing"], "orientations": {"frames": [0, 8], "views": ["wall", "ceiling", "floor", "mirror"]}},
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {"frame": 0, "x": 520, "lift": 20},
+      {"frame": 3, "x": 560, "lift": 20},
+      {"frame": 8, "x": 600, "lift": 20},
+      {"frame": 10, "x": 640, "lift": 20},
+      {"frame": 11, "x": 680, "lift": 20},
+      {"frame": 14, "x": 720, "lift": 20}
+    ]
+  }
+}
