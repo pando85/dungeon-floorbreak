@@ -107,15 +107,19 @@ def foot_drift(row_a: list[str], row_b: list[str]) -> int:
     Each foot is a run on the contact row; it is matched to the nearest run (by centre) of the other frame in both
     directions, and its drift is the smallest of the left-edge, right-edge and centre shifts, so a heel or toe lift
     that moves one edge is not counted as sliding. Feet that touch down or lift off (no run to match) count 0.
+    Matching is one to one, nearest pairs first, so a foot that lifts off is never matched to the other foot when
+    the other frame has fewer runs (a lifted swing foot on a passing frame).
     """
     a, b = contact_spans(row_a), contact_spans(row_b)
-    worst = 0
-    for src, dst in ((a, b), (b, a)):
-        for l0, r0 in src:
-            if not dst:
-                continue
-            l1, r1 = min(dst, key=lambda s: abs((s[0] + s[1]) - (l0 + r0)))
-            worst = max(worst, min(abs(l1 - l0), abs(r1 - r0), abs((l1 + r1) - (l0 + r0)) // 2))
+    pairs = sorted((abs((l1 + r1) - (l0 + r0)), i, j) for i, (l0, r0) in enumerate(a) for j, (l1, r1) in enumerate(b))
+    used_a, used_b, worst = set(), set(), 0
+    for _d, i, j in pairs:
+        if i in used_a or j in used_b:
+            continue
+        used_a.add(i)
+        used_b.add(j)
+        (l0, r0), (l1, r1) = a[i], b[j]
+        worst = max(worst, min(abs(l1 - l0), abs(r1 - r0), abs((l1 + r1) - (l0 + r0)) // 2))
     return worst
 
 
