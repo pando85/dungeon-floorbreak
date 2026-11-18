@@ -24,13 +24,13 @@ For the MVP start with **one real reusable profile** (GOB-01 A/B) and a **simple
 
 **Owner decision (2026-11-18): the default gore preset is 4.** In the owner's words: "The preset level must be 4. Even we want more intensity." Preset 4 is therefore the shipping default and the Death Lab pushes it further (more and larger fragments, more blood and splatter, stronger aftermath, a harder impact read). Presets 1–3 remain only as reduced and accessibility options. Intensity remains presentation-only: no preset changes damage, collision, AI, severability or any eligibility rule, and the replay hash is identical at every preset. Fragment, particle and time-to-live budgets are not fixed here; they will be set after profiling on the target machine.
 
-**Reconciliation with draft PR #79.** The #79 universal death language defines `MonsterDefeated {target, cause, source, intensity, location, tick}`, where its `intensity` means ordinary / heavy / catastrophic. PR A/B must reconcile that sketch with this document: #79's `intensity` is this document's `force_tier` (authoritative), and its `MonsterDefeated` name is superseded by the extended `EnemyDefeated`. This document is the field-level authority for the event; #79 stays the authority for the visual grammar. #79's gore comfort levels map onto the 1–4 presentation scale as follows (a proposal pending gameplay signoff):
+**Reconciliation with draft PR #79.** The #79 universal death language defines `MonsterDefeated {target, cause, source, intensity, location, tick}`, where its `intensity` means ordinary / heavy / catastrophic. PR A/B must reconcile that sketch with this document: #79's `intensity` is this document's `force_tier` (authoritative), and its `MonsterDefeated` name is superseded by the extended `EnemyDefeated`. This document is the field-level authority for the event; #79 stays the authority for the visual grammar. #79's gore comfort levels map onto the 1–4 presentation scale as follows (the mapping is a proposal pending gameplay signoff, except that preset 4 as the default is owner-approved, 2026-11-18):
 
 | #79 gore level | Presentation preset | Note |
 | --- | --- | --- |
 | `off` | 1 | Blood sprites removed (the lab draws none at preset 1); equivalent pose, silhouette and feedback kept |
 | `reduced` | 2 (3 as a selectable intermediate) | Fewer fragments and less blood; a detached head can become a silhouette or puff |
-| `full` | 4 | **Shipping default** and the Death Lab reference direction |
+| `full` | 4 | **Owner-approved default (2026-11-18)** and the Death Lab reference direction; the owner wants even more intensity |
 
 ```rust
 // Sketch of the fields the extended EnemyDefeated could carry.
