@@ -1,6 +1,6 @@
 # Book 1 — Odette and Meadow Lark supporting-cast concept originals
 
-**Status:** five designs **owner-selected** from the 2026-11-18 concept-design conversation. **PNG intake pending Hermes on the draft PR branch**. This folder records a concept-art selection, not production-ready sprites, source layers, rigging or animation.
+**Status:** five designs **owner-selected** from the 2026-11-18 concept-design conversation. **all five original PNGs uploaded and byte-identity verified against the source handoff ZIP (Git blob SHA-1, SHA-256, byte count and dimensions), 2026-11-18**. This folder records a concept-art selection, not production-ready sprites, source layers, rigging or animation.
 
 | Filename | Character | Notes |
 | --- | --- | --- |
@@ -15,7 +15,7 @@
 - Odette first appears **after Floor 01 exit in Book 1**, not inside the first-floor environment; the generated 'Floor 1' caption is not authoritative.
 - No later-floor races, gear, magic or creature transformations. No invented powers or dialogue.
 - Carl **52 px** and Donut **40 px** are existing approved native sprite heights. Sizes printed in AI-generated images are **not** approved; all generated Carl/Donut stand-ins are noncanonical.
-- The five full-resolution PNGs must be committed byte-for-byte. After Hermes intake check `sha256sum -c SHA256SUMS`, image dimensions and byte counts against `manifest.json`.
+- All five full-resolution PNGs are committed byte-for-byte. Local ZIP SHA-256 and Git blob SHA-1 identities match the five PNGs recorded on the PR branch; dimensions and byte counts match `manifest.json`. Recheck `sha256sum -c SHA256SUMS` on any future checkout.
 - Do not cut pseudo-pixel sprites from generated concept paintings. Create original editable source art in a separate production PR.
 
 References: [full design bible](../../../../docs/02-art/book-01-odette-meadow-lark-concept.md), [art direction](../../../../docs/02-art/art-direction.md), [rights policy](../../../../docs/04-production/rights-and-release.md).
