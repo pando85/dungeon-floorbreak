@@ -1,7 +1,7 @@
 {
   "schema": "the-crawl-concept-image-manifest-v1",
   "project": "THE CRAWL — NO PANTS. NO MERCY.",
-  "status": "owner-selected Floor 01 Mordecai concept direction C, 2026-11-18; awaiting exact PNG upload by Hermes, not production sprites",
+  "status": "owner-selected Floor 01 Mordecai concept direction C, 2026-11-18; 3 PNGs committed and independently verified against source ZIP (Git blob SHA and SHA-256); not production sprites",
   "source": "Original OpenAI-generated concept images from THE CRAWL project conversation on 2026-11-18, selected by owner; no outside fan-art pixels or copyrighted book passages used as inputs. Art publication scope owner-reported ART-PUBLICATION-ALL-V1; no game distribution right.",
   "assets": [
     {
