@@ -20,6 +20,8 @@ Owner-approved plan, 2026-11-18. It refines [agent-orchestration.md](agent-orche
 | **Hard** | 3–4 | Bad Llama, Copper Chopper | **B + silhouette gate** |
 | **Boss** | any boss | The Hoarder, The Juicer, Ball of Swine | **A + silhouette gate**: top tier designs and draws every key; budget one extra review round |
 
+**Orchestrator autonomy (owner, 2026-11-18):** the orchestrator picks the next pixel-art work orders itself, following the production order (section 1), the difficulty routing above and any blocking dependencies, and runs **up to three work orders in parallel**. It asks the owner only for decisions that are genuinely the owner's (canon, scope, rights, cross-cutting art direction), and reports per batch.
+
 **Silhouette gate:** after the idle key exists and before any other key or in-between is drawn, a fresh top-tier agent (about 5 tool calls) compares the idle key at 1× in the lit scene with the concept crop and answers one question: does it read as the approved creature? A "no" goes back to design before more pixels are drawn. Reason: in the pilot the A-route Bad Llama was fully keyed and in-betweened before the review found it read as a goat (section 5).
 
 **Configurations** (as defined in section 4): **A** top tier draws all keys and writes the spec; **B** medium tier drafts, a fresh top-tier editor corrects; **C** top tier writes the spec and one hero key, medium tier draws the rest. Execution (E), gate (G), blind review (R) and the fix loop are the same for all.
