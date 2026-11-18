@@ -1,0 +1,77 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "slime-01",
+  "title": "SLIME-01 Green Slime readability set (docs/02-art/slime-01-spec.md)",
+  "grid": "assets/source/characters/slime/slime_01.grid.json",
+  "manifest": "assets/manifests/slime-01.json",
+  "frame_size": [80, 40],
+  "pivot": [40, 39],
+  "contact_row": 39,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 12], [1, 8], [2, 12]]},
+    "creep": {"playback": "loop", "contact": "grounded", "frames": [[3, 8], [4, 8], [5, 8], [6, 8]]},
+    "attack_tell": {"playback": "once", "contact": "grounded", "frames": [[7, 6], [8, 24]]},
+    "attack_lunge": {"playback": "once", "contact": "grounded", "frames": [[9, 2], [10, 6], [11, 20]]},
+    "hurt": {"playback": "once", "contact": "grounded", "frames": [[12, 12]]},
+    "down": {"playback": "hold", "contact": "grounded", "frames": [[13, 6], [14, 10], [15, null]]}
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "creep",
+    "tell": "attack_tell",
+    "attack": "attack_lunge",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 4,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": false,
+    "manifest_tick_rows": "slime.frames",
+    "manifest_tick_hz": "slime.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/slime-01_keys.json",
+      "frames": [0, 3, 8, 10, 12, 15],
+      "layers": ["body"]
+    },
+    "bbox": [
+      {"id": "S1-size-idle-30px", "frames": [0, 1, 2], "top": 10, "bottom": 39, "height": 30},
+      {"id": "S1-idle-width", "frames": [0], "min_width": 58, "max_width": 64},
+      {"id": "S2-creep-low-and-long", "frames": [3, 4, 5, 6], "min_top": 14, "max_height": 26, "min_width": 62, "bottom": 39},
+      {"id": "R1-tell-highest", "frames": [7, 8], "max_top": 6, "min_height": 34, "bottom": 39},
+      {"id": "R1-tell-narrower-than-idle", "frames": [8], "max_width": 48},
+      {"id": "R3-lunge-flat-reach", "frames": [9, 10, 11], "min_top": 21, "min_right": 76, "bottom": 39},
+      {"id": "R4-hurt-flat-and-recoiled", "frames": [12], "min_top": 18, "max_right": 66, "bottom": 39},
+      {"id": "R6-defeat-low-compact", "frames": [13, 14, 15], "min_top": 26, "max_width": 70, "bottom": 39}
+    ],
+    "key_counts": [
+      {"id": "R0-corrosion-cue-alive", "frames": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11], "key": "v", "min": 4},
+      {"id": "R2-tell-acid-beads", "frames": [7, 8], "key": "v", "min": 9},
+      {"id": "R0-skull-inside", "frames": [0, 3, 8, 10, 12], "key": "q", "min": 10},
+      {"id": "R4-hurt-flash", "frames": [12], "key": "w", "min": 8},
+      {"id": "R4-hurt-no-acid", "frames": [12], "key": "v", "max": 0},
+      {"id": "R4-flash-only-on-hurt", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15], "key": "w", "max": 0},
+      {"id": "R5-defeat-no-acid", "frames": [13, 14, 15], "key": "v", "max": 0},
+      {"id": "R5-defeat-no-glint", "frames": [13, 14, 15], "key": "H", "max": 0},
+      {"id": "R5-defeat-skull-and-plate-left", "frames": [15], "key": "q", "min": 8}
+    ]
+  },
+  "review": {
+    "strip_tags": ["attack_tell", "attack_lunge"]
+  },
+  "scene": {
+    "actors": [
+      {"frame": 0, "x": 520},
+      {"frame": 3, "x": 590},
+      {"frame": 8, "x": 650},
+      {"frame": 10, "x": 720},
+      {"frame": 12, "x": 790},
+      {"frame": 15, "x": 850}
+    ]
+  }
+}
