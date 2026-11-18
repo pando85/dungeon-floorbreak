@@ -3,6 +3,7 @@
   "asset_id": "scat-01",
   "title": "SCAT-01 Scatterer readability set (docs/02-art/scat-01-spec.md)",
   "grid": "assets/source/characters/scatterer/scat-01.grid.json",
+  "manifest": "assets/manifests/scat-01.json",
   "frame_size": [48, 32],
   "pivot": [24, 31],
   "contact_row": 31,
@@ -31,6 +32,8 @@
     "max_orphans_per_frame": 4,
     "canvas_margin": [0, 0, 0, 0],
     "unique_frames": true,
+    "manifest_tick_rows": "scatterer.frames",
+    "manifest_tick_hz": "scatterer.tick_hz",
     "frozen_keys": {
       "fixture": "tests/fixtures/scat-01_keys.json",
       "frames": [0],
