@@ -5,15 +5,11 @@ Writes ``assets/source/characters/scatterer/brood/brood-01.grid.json`` (pixel-gr
 the matching ``.ase`` via ``scripts/pixel_grid_to_ase.py``. Design spec:
 ``docs/02-art/brood-01-spec.md``.
 
-Design phase: key frame 0 (``idle``, the master silhouette) is built by the part
-functions below (``shell``, ``ootheca``, ``head``, ``antennae``, ``legs``), each a
-fixed list of pixels or polylines. Frame 0 is frozen in
-``tests/fixtures/brood-01_keys.json``: do not edit the key-0 part functions; to
-pose other frames, call them with offsets or copy them into new functions
-(spec sections 7 and 8).
-
-Frames 1 to 15 are PLACEHOLDER copies of frame 0 until the execution tier draws
-them. No concept pixels are traced or resampled; every pixel is placed by this file.
+Key frame 0 (``idle``, the master silhouette, design round 2) is built from the parts below
+(``k2_shell``, ``k2_head``, ``k2_mandibles``, legs, antennae); frames 1 to 15 (keys 3, 8, 10, 12, 15 and the ten
+in-betweens) are composed from the same parts by the execution-tier functions (spec sections 7, 8 and 13).
+Frame 0 and keys 3, 8, 10, 12, 15 are frozen in ``tests/fixtures/brood-01_keys.json``.
+No concept pixels are traced or resampled; every pixel is placed by this file.
 """
 from __future__ import annotations
 
@@ -33,7 +29,7 @@ PIVOT = [37, 43]
 FLOOR = 43
 
 # Palette `scatterer-floor01-v1` (16 shared keys, unchanged hex) + 2 Brood Guardian keys
-# (`y`, `o`); 18 of 20, 2 slots stay free (spec section 6).
+# (`y`); 17 of 20 (the egg-case colour `o` was cut with the egg case in round 2).
 PALETTE = [
     # key, name, rgba, accent
     ("K", "outline_char", "#1c0e12ff", False),
@@ -53,7 +49,6 @@ PALETTE = [
     ("r", "eye_glow", "#ff4a32ff", True),
     ("w", "eye_flash", "#efe3d3ff", True),
     ("y", "crust_pale", "#c4a888ff", True),
-    ("o", "ootheca_brown", "#74492fff", False),
 ]
 ACCENTS = {k for k, _n, _c, acc in PALETTE if acc}
 
@@ -94,177 +89,6 @@ def _interp(pts, x):
         if x0 <= x <= x1:
             return round(y0 + (y1 - y0) * (x - x0) / (x1 - x0)) if x1 != x0 else y0
     raise ValueError(x)
-
-
-# ---------------------------------------------------------------------------
-# Key 0 parts. Coordinates are frame pixels, facing right, idle pose.
-# ---------------------------------------------------------------------------
-# Dome top outline (x, row): rear tip x 11, highest rows 22..23 at x 27..41, pronotum
-# shield x 51..65 dropping to the lip over the head.
-SHELL_TOP = [(11, 34), (12, 31), (14, 29), (17, 27), (21, 25), (26, 23), (30, 22), (39, 22), (44, 23),
-             (49, 24), (51, 25), (56, 25), (61, 27), (64, 29), (66, 31)]
-# Belly outline (x, row): rear underside curls up to the tip; flat belly line on row 37.
-SHELL_BOT = [(11, 35), (13, 36), (16, 37), (60, 37), (63, 36), (66, 33)]
-# Plate seams: (x at the dome top, slope back per row). Four abdominal seams, one pronotum seam.
-SEAMS = [(19, 3), (27, 3), (35, 3), (43, 3)]
-PRONOTUM_X = 50  # the pronotum seam bows forward from (50, top) to (53, 36)
-SPIKES = [(19, -1), (27, -1), (35, -1), (43, -1)]  # one serrated thorn at the top of each seam
-CRUST = [(23, 29), (24, 29), (24, 30), (31, 27), (32, 27), (32, 28), (40, 31), (41, 31), (56, 29), (57, 29)]
-PITS = [(25, 30), (33, 28), (42, 31)]  # dark pocks next to the crust patches (`a`)
-
-
-def _band(t: float) -> str:
-    """Shell band by relative depth t in [0, 1] from the dome top to the belly (A1 torch from above)."""
-    if t < 0.13:
-        return "f"
-    if t < 0.32:
-        return "d"
-    if t < 0.62:
-        return "c"
-    if t < 0.84:
-        return "b"
-    return "a"
-
-
-def shell() -> dict:
-    """Outlined dome, plate seams, pronotum shield, crust, cold rim. Returns {(x, y): key}."""
-    px = {}
-    x0, x1 = SHELL_TOP[0][0], SHELL_TOP[-1][0]
-    for x in range(x0, x1 + 1):
-        top, bot = _interp(SHELL_TOP, x), _interp(SHELL_BOT, x)
-        for y in range(top, bot + 1):
-            if y in (top, bot):
-                px[(x, y)] = "K"
-            else:
-                px[(x, y)] = _band((y - top) / max(1, bot - top))
-    # torch sheen: the row under the top outline on the highest plates and the pronotum crown
-    for x in range(x0, x1 + 1):
-        top = _interp(SHELL_TOP, x)
-        if 22 <= x <= 49 or 52 <= x <= 60:
-            px[(x, top + 1)] = "h"
-    # abdominal seams (`a`), slanting back as they go down; the plate edge in front of each seam is lit
-    for sx, slope in SEAMS:
-        top = _interp(SHELL_TOP, sx)
-        for y in range(top + 1, 37):
-            x = sx - (y - top) // slope
-            px[(x, y)] = "a"
-            if top + 2 <= y <= top + 3 and px.get((x + 1, y), "K") != "K":
-                px[(x + 1, y)] = "f"
-    # pronotum seam (`K`), bowing forward: separates the shield from the abdomen
-    for y in range(_interp(SHELL_TOP, PRONOTUM_X), 37):
-        x = PRONOTUM_X + (1 if y >= 28 else 0) + (1 if y >= 31 else 0) + (1 if y >= 34 else 0)
-        px[(x, y)] = "K"
-    # pronotum shield: brighter lit crown (`f`) over 3 rows, the lip shadowed (`b`) where it overhangs the head
-    for x in range(PRONOTUM_X + 2, x1):
-        top = _interp(SHELL_TOP, x)
-        for y in (top + 2, top + 3):
-            if px.get((x, y)) not in (None, "K"):
-                px[(x, y)] = "f"
-    for x, y in CRUST:
-        px[(x, y)] = "y"
-    for x, y in PITS:
-        px[(x, y)] = "a"
-    # cold rim (`v`) along the rear underside, belly shade (`u`) above the belly line
-    for x in range(14, 30):
-        px[(x, 36)] = "v"
-    for x in range(30, 50):
-        px[(x, 36)] = "u"
-    # serrated thorns on the dome: a 2 px `K` hook leaning back at each seam top
-    for sx, _ in SPIKES:
-        top = _interp(SHELL_TOP, sx)
-        px[(sx, top - 1)] = "K"
-        px[(sx - 1, top - 2)] = "K"
-    for (x, y), c in list(px.items()):  # seal: an empty pixel next to shell fill becomes outline `K`
-        if c != "K":
-            for q in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-                px.setdefault(q, "K")
-    return px
-
-
-def ootheca() -> dict:
-    """The egg case carried at the abdomen tip: a ridged capsule, x 4..11, rows 31..37."""
-    rows = {
-        31: (6, "KKKK"),
-        32: (5, "KssssK"),
-        33: (4, "KooooooK"),
-        34: (4, "KogogogK"),
-        35: (4, "KogogogK"),
-        36: (5, "KooooK"),
-        37: (6, "KKKK"),
-    }
-    return {(x0 + i, y): c for y, (x0, s) in rows.items() for i, c in enumerate(s)}
-
-
-def head() -> dict:
-    """Lowered head under the pronotum lip: x 59..69, rows 30..38; 3 x 3 red eye under a heavy `K` brow;
-    two cream fangs (near x 68..72, far x 63..66) hooking down to row 42."""
-    rows = {
-        30: (61, "KKKK"),
-        31: (60, "KcKKKKK"),
-        32: (59, "KccKrrHKK"),
-        33: (59, "KcccerrddK"),
-        34: (59, "KbccceedddK"),
-        35: (59, "KbbcccccdhK"),
-        36: (59, "KabbccccdhK"),
-        37: (60, "KabbcccdKhK"),
-        38: (61, "KabbbKKKhHK"),
-        39: (62, "KKKhKK.KhHK"),
-        40: (63, "KhHK..KhHK"),
-        41: (64, "KHK..KHHK"),
-        42: (64, "KHK.KHK"),
-    }
-    px = {(x0 + i, y): c for y, (x0, s) in rows.items() for i, c in enumerate(s) if c != "."}
-    return px
-
-
-def antennae(cv: Cv) -> None:
-    """Near antenna `j` up-forward from the head to the apex (row 14) and a drooping tip; far antenna `d`
-    up and back over the pronotum (apex row 16)."""
-    cv.poly([(56, 27), (55, 24), (53, 21), (51, 19), (48, 17), (45, 16), (42, 16), (40, 17)], "d")
-    cv.poly([(65, 30), (66, 28), (67, 25), (68, 22), (69, 19), (70, 17), (71, 15), (73, 14), (75, 14),
-             (77, 15), (78, 17), (78, 19)], "j")
-    cv.put(65, 29, "j")
-    for p in [(67, 24), (69, 18), (74, 14)]:  # segment beads, lighter
-        cv.put(*p, "s")
-
-
-def _leg(cv, coxa, knee, foot, back: bool, near: bool, spines=()):
-    """Near legs: 2 px femur (`j` over `g`), tibia `j` with a `g` back edge, `s` spines, `g` tarsus.
-    Far legs: 1 px `a`. Every foot ends in a 2 px tarsus on the floor row."""
-    if near:
-        cv.line(coxa, knee, "j")
-        cv.line((coxa[0], coxa[1] + 1), (knee[0], knee[1] + 1), "g")
-        d = 1 if back else -1  # the shaded back edge of the tibia, full length above the tarsus
-        cv.line((knee[0] + d, knee[1] + 1), (foot[0] + d, foot[1] - 1), "g")
-        cv.line(knee, foot, "j")
-        cv.put(foot[0] + (-1 if back else 1), foot[1], "g")
-        cv.put(*foot, "g")
-        for p in spines:
-            cv.put(*p, "s")
-    else:
-        cv.line(coxa, knee, "a")
-        cv.line(knee, foot, "a")
-        cv.put(foot[0] + (-1 if back else 1), foot[1], "a")
-
-
-def far_legs(cv: Cv) -> None:
-    _leg(cv, (27, 37), (21, 36), (17, 43), True, False)
-    _leg(cv, (41, 37), (45, 38), (47, 43), False, False)
-    _leg(cv, (56, 37), (60, 39), (63, 43), False, False)
-
-
-def near_legs(cv: Cv) -> None:
-    # rear: femur back and up along the belly to a raised knee, tibia down-back to the foot
-    _leg(cv, (24, 37), (13, 34), (4, 43), True, True, spines=[(12, 33), (9, 37), (6, 40)])
-    # mid: femur down-back, tibia down to the foot
-    _leg(cv, (37, 37), (32, 39), (27, 43), True, True, spines=[(30, 40), (28, 41)])
-    # front: femur down-forward, tibia forward to the foot under the head
-    _leg(cv, (52, 37), (55, 40), (58, 43), False, True, spines=[(56, 39), (58, 41)])
-
-
-def frame_idle0() -> list[str]:
-    """Key 0, v2 (design round 2, after the FAIL-DESIGN review D1 to D3): the frozen hero key."""
-    return k2_idle0()
 
 
 # ---------------------------------------------------------------------------
@@ -320,8 +144,9 @@ def k2_shell() -> dict:
                 px[(x - 1, y)] = "b" if t > 0.3 else "c"  # the next plate tucks into shadow
     for p in [(33, 21), (34, 21), (35, 21), (34, 22), (35, 22), (56, 20), (57, 20), (58, 20)]:  # two crust scars
         px[p] = "y"
-    for p in [(33, 22), (57, 21)]:
+    for p in [(33, 22), (33, 23), (57, 21), (58, 21)]:  # pits, each a 2 px run (round 2 orphan cleanup)
         px[p] = "a"
+    px[(15, 29)] = "K"  # rear-tip outline step extended to a 2 px run
     for x in (17, 18, 19, 20):  # cold rim only at the rear underside
         px[(x, _interp(K2_BOT, x) - 1)] = "v"
     for x in list(range(29, 35)) + list(range(41, 47)):  # cold sternites between the leg sockets
@@ -351,17 +176,6 @@ def k2_head() -> dict:
     return px
 
 
-def _mandible(spine, widths, lit="h", edge="H") -> dict:
-    """A thick hooked mandible along `spine` (centre points), `widths` px wide (grown downward);
-    body `lit`, front/top edge `edge`, outlined `K`."""
-    px = {}
-    for (x, y), w in zip(spine, widths):
-        for k in range(w):
-            px[(x, y + k)] = lit
-        px[(x, y)] = edge
-    return _seal(px, lit + edge)
-
-
 def _hook(path, lit, edge, thick_to) -> dict:
     """A hooked mandible: the front edge `edge` along `path`, a `lit` body 1 px behind it (2 px behind for
     the first `thick_to` points), outlined `K`."""
@@ -375,62 +189,17 @@ def _hook(path, lit, edge, thick_to) -> dict:
     return _seal(px, lit + edge)
 
 
-def k2_mandibles() -> tuple[dict, dict]:
-    """Near mandible: thick at the mouth, curving down-forward, the tip hooking back (Carl's shin height).
-    Far mandible: the same hook 4 px behind, darker (`j` body, `h` edge)."""
-    near = _hook([(70, 32), (72, 33), (73, 35), (74, 37), (74, 39), (73, 40), (71, 41)], "h", "H", 4)
-    far = _hook([(66, 34), (67, 36), (68, 38), (67, 40), (65, 41)], "j", "h", 2)
-    return near, far
+NEAR_PATH0 = [(70, 32), (72, 33), (73, 35), (74, 37), (74, 39), (73, 40), (71, 41)]
+FAR_PATH0 = [(66, 34), (67, 36), (68, 38), (67, 40), (65, 41)]
 
 
-def k2_leg(cv: Cv, coxa, knee, foot, near: bool, spines=()) -> None:
-    """2 px femur and tibia, outlined `K`; near legs in the chitin ramp (`d` lit top, `b` under),
-    far legs `b`/`a`; `K` tarsus on the floor; `s` spine ticks outside the outline."""
-    top, low = ("d", "b") if near else ("b", "a")
-    t = Cv()
-    t.line(coxa, knee, top)
-    t.line((coxa[0], coxa[1] + 1), (knee[0], knee[1] + 1), low)
-    mid = ((knee[0] + foot[0]) // 2, (knee[1] + foot[1]) // 2)
-    t.line(knee, foot, top)
-    t.line((knee[0] + 1, knee[1]), (mid[0] + 1, mid[1]), low)
-    px = _seal(t.p, top + low)
-    px = {p: c for p, c in px.items() if p[1] <= FLOOR}
-    for dx in (-1, 0, 1):
-        px[(foot[0] + dx, FLOOR)] = "K"
-    for p, c in px.items():
-        cv.put(*p, c)
-    for p in spines:
-        cv.put(*p, "s")
-
-
-def k2_idle0() -> list[str]:
-    cv = Cv()
-    # far legs (behind the body)
-    k2_leg(cv, (28, 33), (24, 37), (21, 42), False)
-    k2_leg(cv, (42, 33), (45, 37), (46, 42), False)
-    k2_leg(cv, (54, 33), (60, 37), (65, 42), False)
-    # far antenna, up and back over the pronotum
-    cv.poly([(61, 23), (60, 20), (58, 17), (56, 14), (53, 12), (50, 11), (47, 12)], "d")
-    far_m = k2_mandibles()[1]
-    for p, c in far_m.items():
-        cv.put(*p, c)
-    for p, c in k2_shell().items():
-        cv.put(*p, c)
-    for p, c in k2_head().items():
-        cv.put(*p, c)
-    near_m = k2_mandibles()[0]
-    for p, c in near_m.items():
-        cv.put(*p, c)
-    # near antenna: 2 px root, then up-forward to the apex (row 10) and a drooping tip
-    cv.poly([(68, 23), (69, 20), (70, 17), (71, 14), (72, 12), (74, 10), (76, 10), (78, 12), (78, 14)], "j")
-    cv.poly([(67, 23), (68, 20)], "j")
-    for p in [(69, 19), (72, 12), (77, 11)]:
-        cv.put(*p, "s")
-    # near legs (in front): rear knee raised high and back, mid under the body, front braced under the head
-    k2_leg(cv, (25, 33), (15, 36), (7, 42), True, spines=[(14, 34), (10, 37), (7, 40)])
-    k2_leg(cv, (38, 33), (33, 37), (29, 42), True, spines=[(31, 36), (29, 39)])
-    k2_leg(cv, (50, 33), (55, 37), (58, 42), True, spines=[(56, 35), (60, 39)])
-    return cv.rows()
+def _under(px: dict) -> dict:
+    """1 px dark underside (`K`) under every cream mandible tip so it does not merge with the lit floor."""
+    out = dict(px)
+    for (x, y), c in px.items():
+        if c == "H" and (x, y + 1) not in px and y + 1 <= FLOOR:
+            out[(x, y + 1)] = "K"
+    return out
 
 
 def write_key0_scale(out: Path = ROOT / "docs" / "evidence" / "brood-01" / "key0-scale.png") -> Path:
@@ -454,49 +223,30 @@ def write_key0_scale(out: Path = ROOT / "docs" / "evidence" / "brood-01" / "key0
     return out
 
 
-def frame_idle0_v1() -> list[str]:
-    """Round-1 key 0 (failed review). Kept only because the pre-gate frames 1 to 15 are composed from its parts."""
-    cv = Cv()
-    far_legs(cv)
-    antennae(cv)
-    for p, c in ootheca().items():
-        cv.put(*p, c)
-    for p, c in shell().items():
-        cv.put(*p, c)
-    for p, c in head().items():
-        cv.put(*p, c)
-    near_legs(cv)
-    return cv.rows()
-
-
 # ---------------------------------------------------------------------------
-# Execution tier: keys 3, 8, 10, 12, 15 and the 10 in-betweens (spec sections 7 and 8).
-# Frame 0 above is frozen. The helpers below split its parts, translate them whole
-# (never resample or rotate), re-seal the outline and redraw legs, antennae and fangs.
-# ``assemble()`` with its defaults reproduces key 0 pixel for pixel (checked by the tests).
+# Parts split from key 0 v2, and the pose helpers for frames 1 to 15 (execution tier, round 2).
+# Whole parts are translated (never resampled or rotated); outlines are re-sealed with `K`; legs,
+# antennae and mandibles are redrawn from short polylines. ``assemble()`` with its defaults is key 0.
 # ---------------------------------------------------------------------------
-SHELL0, EGG0, HEAD0 = shell(), ootheca(), head()
-NEAR_FANG0 = {p: c for p, c in HEAD0.items() if (p[0] >= 69 and p[1] >= 37) or (p[0] >= 68 and p[1] >= 40)}
-FAR_FANG0 = {p: c for p, c in HEAD0.items() if p[0] <= 66 and p[1] >= 40}
-HEAD_CORE0 = {p: c for p, c in HEAD0.items() if p not in NEAR_FANG0 and p not in FAR_FANG0}
-EYE0 = [(63, 32), (64, 32), (65, 32), (63, 33), (64, 33), (65, 33), (64, 34), (65, 34)]
-ANT_NEAR0 = [(65, 30), (66, 28), (67, 25), (68, 22), (69, 19), (70, 17), (71, 15), (73, 14), (75, 14), (77, 15),
-             (78, 17), (78, 19)]
-ANT_FAR0 = [(56, 27), (55, 24), (53, 21), (51, 19), (48, 17), (45, 16), (42, 16), (40, 17)]
-BEADS0 = [(67, 24), (69, 18), (74, 14)]
-# Leg specs: (coxa, knee, foot anchor, back, spines). The anchor is the tarsus pixel next to the leg line;
-# the 2 px tarsus extends back (back=True) or forward from it. spines None = computed along the tibia.
-NEAR0 = {"rear": ((24, 37), (13, 34), (4, 43), True, [(12, 33), (9, 37), (6, 40)]),
-         "mid": ((37, 37), (32, 39), (27, 43), True, [(30, 40), (28, 41)]),
-         "front": ((52, 37), (55, 40), (58, 43), False, [(56, 39), (58, 41)])}
-FAR0 = {"rear": ((27, 37), (21, 36), (17, 43), True, None),
-        "mid": ((41, 37), (45, 38), (47, 43), False, None),
-        "front": ((56, 37), (60, 39), (63, 43), False, None)}
+SHELL0, HEAD0 = k2_shell(), k2_head()
+EYE0 = [(63, 26), (64, 26), (65, 26), (63, 27), (64, 27), (65, 27), (63, 28), (64, 28), (65, 28)]
+ANT_NEAR0 = [(68, 23), (69, 20), (70, 17), (71, 14), (72, 12), (74, 10), (76, 10), (78, 12), (78, 14)]
+ANT_FAR0 = [(61, 23), (60, 20), (58, 17), (56, 14), (53, 12), (50, 11), (47, 12)]
+NEAR0 = {"rear": ((25, 33), (15, 36), (7, 42), True, [(14, 34), (10, 37), (7, 40)]),
+         "mid": ((38, 33), (33, 37), (29, 42), True, [(31, 36), (29, 39)]),
+         "front": ((50, 33), (55, 37), (58, 42), True, [(56, 35), (60, 39)])}
+FAR0 = {"rear": ((28, 33), (24, 37), (21, 42), False, ()),
+        "mid": ((42, 33), (45, 37), (46, 42), False, ()),
+        "front": ((54, 33), (60, 37), (65, 42), False, ())}
 
 
 def mv(px, dx=0, dy=0, dyf=None):
     """Translate a part whole; dyf(original x) gives a per-column dy."""
     return {(x + dx, y + (dyf(x) if dyf else dy)): c for (x, y), c in px.items()}
+
+
+def clip(px):
+    return {(x, y): c for (x, y), c in px.items() if 0 <= x < W and 0 <= y < H}
 
 
 def seal_px(px):
@@ -505,9 +255,9 @@ def seal_px(px):
     for (x, y), c in px.items():
         if c != "K":
             for q in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-                if q not in px and 0 <= q[0] < W and 0 <= q[1] < H:
+                if q not in px:
                     out[q] = "K"
-    return out
+    return clip(out)
 
 
 def drop_row(px, row):
@@ -515,15 +265,15 @@ def drop_row(px, row):
     return {(x, y + 1 if y < row else y): c for (x, y), c in px.items() if y != row}
 
 
-def body(dx=0, dyf=None, shell_px=None):
-    out = {}
-    for src in (EGG0, shell_px or SHELL0):
-        out.update(mv(src, dx, dyf=dyf or (lambda x: 0)))
-    return seal_px(out)
+def body(dx=0, dyf=None, shell_px=None, dy=0):
+    """Shell translated by (dx, dy) or by a per-column dyf; the outline is re-sealed only when columns move
+    unevenly or the shell was edited (a plain translation keeps key 0's outline exactly)."""
+    moved = mv(shell_px or SHELL0, dx, dy, dyf)
+    return seal_px(moved) if (dyf is not None or shell_px is not None) else moved
 
 
-def head_core(dx=0, dy=0, eye=None, max_row=39):
-    core = {p: c for p, c in HEAD_CORE0.items() if p[1] <= max_row}
+def head_px(dx=0, dy=0, eye=None):
+    core = dict(HEAD0)
     for p, c in (eye or {}).items():
         assert p in core, p
         core[p] = c
@@ -531,285 +281,263 @@ def head_core(dx=0, dy=0, eye=None, max_row=39):
 
 
 def shear(px, dx=0, dy=0, rows_from=0, tip_dx=0):
-    """Translate a fang whole; original rows >= rows_from get an extra tip_dx; rows below the canvas are cut."""
-    return {(x + dx + (tip_dx if y >= rows_from else 0), y + dy): c for (x, y), c in px.items() if y + dy < H}
+    """Translate a mandible whole; original rows >= rows_from get an extra tip_dx."""
+    return {(x + dx + (tip_dx if y >= rows_from else 0), y + dy): c for (x, y), c in px.items()}
 
 
-def key0_fangs(dx=0, dy=0, near_dx=0, far_dx=0, rows_from=41):
-    out = shear(FAR_FANG0, dx, dy, rows_from, far_dx)
-    out.update(shear(NEAR_FANG0, dx, dy, rows_from, near_dx))
-    return out
+def mand_pair(dx=0, dy=0, n_near=7, n_far=5, near_tip=0, far_tip=0, rows_from=38):
+    """Key-0 mandibles translated by (dx, dy), optionally truncated to the first n points of each hook
+    and sheared at the tip rows (near_tip / far_tip px). Returns (near, far)."""
+    near = _under(_hook([(x + dx, y + dy) for x, y in NEAR_PATH0[:n_near]], "h", "H", min(4, n_near)))
+    far = _hook([(x + dx, y + dy) for x, y in FAR_PATH0[:n_far]], "j", "h", min(2, n_far))
+    if near_tip:
+        near = shear(near, rows_from=rows_from + dy, tip_dx=near_tip)
+    if far_tip:
+        far = shear(far, rows_from=rows_from + dy, tip_dx=far_tip)
+    return near, far
 
 
 def shift_pts(pts, start, dx=0, dy=0, end=99):
     return [(x + dx, y + dy) if start <= i < end else (x, y) for i, (x, y) in enumerate(pts)]
 
 
-def draw_ants(cv, near, far, beads=None):
-    cv.poly(far, "d")
-    cv.poly(near, "j")
-    cv.put(near[0][0], near[0][1] - 1, "j")
-    for p in beads or [near[2], near[-5], near[-4]]:
-        cv.put(*p, "s")
+def beads_of(near):
+    return [(near[1][0], near[1][1] - 1), near[4], (near[6][0] + 1, near[6][1] + 1)]
 
 
 def auto_spines(knee, foot):
-    return [(round(knee[0] + t * (foot[0] - knee[0])), round(knee[1] + t * (foot[1] - knee[1])) - 1)
-            for t in (0.4, 0.75)]
+    return [(round(knee[0] + t * (foot[0] - knee[0])), round(knee[1] + t * (foot[1] - knee[1])) - 2)
+            for t in (0.45, 0.8)]
 
 
-def tip(lo, row, back):
-    """Foot anchor for a 2 px tarsus covering x lo..lo+1."""
-    return (lo + 1, row) if back else (lo, row)
+def leg(cv, spec):
+    """2 px femur and tibia, outlined `K`; near legs in the chitin ramp (`d` lit top, `b` under), far legs
+    `b`/`a`; a 3 px `K` tarsus one row under the foot; `s` spine ticks outside the outline."""
+    coxa, knee, foot, near, spines = spec
+    top, low = ("d", "b") if near else ("b", "a")
+    t = Cv()
+    t.line(coxa, knee, top)
+    t.line((coxa[0], coxa[1] + 1), (knee[0], knee[1] + 1), low)
+    mid = ((knee[0] + foot[0]) // 2, (knee[1] + foot[1]) // 2)
+    t.line(knee, foot, top)
+    t.line((knee[0] + 1, knee[1]), (mid[0] + 1, mid[1]), low)
+    px = {p: c for p, c in _seal(t.p, top + low).items() if 0 <= p[0] < W and p[1] <= FLOOR}
+    for dx in (-1, 0, 1):
+        px[(foot[0] + dx, min(foot[1] + 1, FLOOR))] = "K"
+    cv.putm(px)
+    for p in (auto_spines(knee, foot) if near and spines is None else spines or ()):
+        cv.put(*p, "s")
 
 
-def put_legs(cv, specs, near):
-    for coxa, knee, foot, back, spines in specs.values():
-        _leg(cv, coxa, knee, foot, back, near, spines if spines is not None else (auto_spines(knee, foot) if near else ()))
+def nl(coxa, knee, foot, spines=None):
+    return (coxa, knee, foot, True, spines)
+
+
+def fl(coxa, knee, foot):
+    return (coxa, knee, foot, False, ())
 
 
 def shifted(specs, dx, dy):
-    return {k: ((c[0] + dx, c[1] + dy), (kn[0] + dx, kn[1] + dy), (f[0] + dx, f[1] + dy), b,
-                [(sx + dx, sy + dy) for sx, sy in sp] if sp else sp) for k, (c, kn, f, b, sp) in specs.items()}
+    return {k: ((c[0] + dx, c[1] + dy), (kn[0] + dx, kn[1] + dy), (f[0] + dx, f[1] + dy), n,
+                [(sx + dx, sy + dy) for sx, sy in sp] if sp else sp) for k, (c, kn, f, n, sp) in specs.items()}
 
 
-def put_outlined(cv, px):
-    """Draw fang pixels, then wrap their empty neighbours in outline K."""
-    for p, c in px.items():
-        cv.put(*p, c)
-    for (x, y), c in px.items():
-        if c != "K":
-            for q in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-                if q not in cv.p and 0 <= q[0] < W and 0 <= q[1] < H:
-                    cv.put(*q, "K")
-
-
-def v_fangs(fx, ru, rl, full=True):
-    """Spread fangs in a V from the head front column fx: upper arm from row ru, lower arm from row rl."""
-    if full:
-        up_h = [(1, 0), (2, -1), (3, -2), (4, -3)]
-        up_e = [(1, -1), (2, -2), (3, -3), (4, -4), (5, -3), (5, -2)]
-        lo_h = [(1, 0), (2, 1), (3, 2), (4, 3)]
-        lo_e = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 3), (5, 2)]
-    elif full is None:  # short: the dash frame keeps every fang pixel left of x 76 (only the impact frame reaches it)
-        up_h = [(1, 0), (2, -1)]
-        up_e = [(1, -1), (2, -2), (3, -2)]
-        lo_h = [(1, 0), (2, 1)]
-        lo_e = [(1, 1), (2, 2), (3, 2)]
-    else:
-        up_h = [(1, 0), (2, -1), (3, -1)]
-        up_e = [(1, -1), (2, -2), (3, -2), (4, -2)]
-        lo_h = [(1, 0), (2, 1), (3, 1)]
-        lo_e = [(1, 1), (2, 2), (3, 2), (4, 2)]
-    px = {}
-    for r, hs, es in ((ru, up_h, up_e), (rl, lo_h, lo_e)):
-        for dx, dy in hs:
-            px[(fx + dx, r + dy)] = "h"
-        for dx, dy in es:
-            px[(fx + dx, r + dy)] = "H"
-    return px
-
-
-def assemble(far, ants, bod, hd, fangs, near, rear_behind=False, post=None, plain=False):
-    """z-order of key 0: far legs, antennae, egg case + shell, head, fangs, near legs (rear leg behind the
-    egg case when rear_behind)."""
+def assemble(far, ants, bod, hd, mands, near, post=None):
+    """z-order of key 0: far legs, far antenna, far mandible, shell, head, near mandible, near antenna
+    (2 px root, beads), near legs."""
+    near_ant, far_ant = ants
     cv = Cv()
-    put_legs(cv, far, False)
-    draw_ants(cv, *ants)
-    if rear_behind:
-        put_legs(cv, {"rear": near["rear"]}, True)
+    for spec in far.values():
+        leg(cv, spec)
+    cv.poly(far_ant, "d")
+    cv.putm(clip(mands[1]))
     cv.putm(bod)
     if post:
         post(cv)
     cv.putm(hd)
-    if fangs:
-        cv.putm(fangs) if plain else put_outlined(cv, fangs)
-    put_legs(cv, {k: v for k, v in near.items() if not (rear_behind and k == "rear")}, True)
+    cv.putm(clip(mands[0]))
+    cv.poly(near_ant, "j")
+    cv.poly([(near_ant[0][0] - 1, near_ant[0][1]), (near_ant[1][0] - 1, near_ant[1][1])], "j")
+    for p in beads_of(near_ant):
+        cv.put(*p, "s")
+    for spec in near.values():
+        leg(cv, spec)
     return cv
+
+
+def key0() -> list[str]:
+    cv = assemble(FAR0, (ANT_NEAR0, ANT_FAR0), body(), head_px(), mand_pair(), NEAR0)
+    return cv.rows()
 
 
 # ---- idle in-betweens ------------------------------------------------------
 def frame_1():
-    ants = (shift_pts(ANT_NEAR0, 5, 1, -1), shift_pts(ANT_FAR0, 4, -1, 0), [(67, 24), (70, 17), (75, 13)])
-    return assemble(FAR0, ants, body(), head_core(), key0_fangs(near_dx=1), NEAR0, plain=True).rows()
+    ants = (shift_pts(ANT_NEAR0, 5, 1, -1), shift_pts(ANT_FAR0, 3, -1, 0))
+    return assemble(FAR0, ants, body(), head_px(), mand_pair(near_tip=1), NEAR0).rows()
 
 
 def frame_2():
-    moved = {(x, y): c for (x, y), c in SHELL0.items() if not (20 <= y <= 28 and 12 <= x <= 50)}
-    for (x, y), c in SHELL0.items():  # the dome slice drops 1 and wins over the rows it lands on
-        if 20 <= y <= 28 and 12 <= x <= 50:
+    moved = {(x, y): c for (x, y), c in SHELL0.items() if not (15 <= y <= 24 and 16 <= x <= 52)}
+    for (x, y), c in SHELL0.items():  # the dome slice settles 1 and wins over the rows it lands on
+        if 15 <= y <= 24 and 16 <= x <= 52:
             moved[(x, y + 1)] = c
-    ants = (shift_pts(ANT_NEAR0, 6, 0, 1), ANT_FAR0, [(67, 24), (69, 18), (74, 15)])
-    return assemble(FAR0, ants, body(shell_px=moved), head_core(), key0_fangs(), NEAR0, plain=True).rows()
+    ants = (shift_pts(ANT_NEAR0, 5, 0, 1), ANT_FAR0)
+    return assemble(FAR0, ants, body(shell_px=moved), head_px(), mand_pair(), NEAR0).rows()
 
 
 # ---- walk -----------------------------------------------------------------
 def walk(n):
     bx, by = 1, (-1 if n in (4, 6) else 0)
     a_down = n in (3, 4)  # tripod A (near rear, near front, far mid) planted in 3 and 4; tripod B in 5 and 6
-    lift = {3: 41, 4: 40, 5: 41, 6: 40}[n]
-    A = {"nrear": (1, 1), "nfront": (63, 61), "fmid": (43, 41)}  # (planted lo, lifted lo)
-    B = {"nmid": (36, 34), "frear": (24, 22), "ffront": (69, 67)}
-    la = {k: (v[0] if a_down else v[1] + (1 if n == 6 else 0)) for k, v in A.items()}
-    lb = {k: (v[1] + (1 if n == 4 else 0) if a_down else v[0]) for k, v in B.items()}
-    ra, rb = (43, lift) if a_down else (lift, 43)
-    near = {
-        "rear": ((24 + bx, 37 + by), (12, (34 if a_down else 33) + by), tip(la["nrear"], ra, True), True, None),
-        "mid": ((37 + bx, 37 + by), ((36 if a_down else 39), (38 if n == 4 else 39) + by),
-                tip(lb["nmid"], rb, True), True, None),
-        "front": ((52 + bx, 37 + by), (58, (40 if a_down else 39) + by), tip(la["nfront"], ra, False), False, None),
-    }
-
-    def fk(cx, lo, fwd):
-        return ((cx + lo) // 2 + (1 if fwd else 0), 38 + by)
-
-    far = {"rear": ((27 + bx, 37 + by), fk(27 + bx, lb["frear"], False), tip(lb["frear"], rb, True), True, None),
-           "mid": ((41 + bx, 37 + by), fk(41 + bx, la["fmid"], True), tip(la["fmid"], ra, True), True, None),
-           "front": ((56 + bx, 37 + by), fk(56 + bx, lb["ffront"], True), tip(lb["ffront"], rb, False), False, None)}
+    lift = {3: 40, 4: 39, 5: 40, 6: 39}[n]  # foot row of a lifted leg (tarsus one row lower)
+    A = {"nrear": (5, 3), "nfront": (62, 60), "fmid": (43, 41)}  # (planted x, lifted x)
+    B = {"nmid": (35, 33), "frear": (27, 25), "ffront": (71, 69)}
+    xa = {k: (v[0] if a_down else v[1] + (1 if n == 6 else 0)) for k, v in A.items()}
+    xb = {k: (v[1] + (1 if n == 4 else 0) if a_down else v[0]) for k, v in B.items()}
+    ya, yb = (42, lift) if a_down else (lift, 42)
+    ka, kb = (0 if a_down else -1), (0 if not a_down else -1)  # knees rise on the lifted tripod
+    near = {"rear": nl((25 + bx, 33 + by), (14 + (0 if a_down else 1), 36 + ka + by), (xa["nrear"], ya)),
+            "mid": nl((38 + bx, 33 + by), ((37 if n in (4,) else 38 if not a_down else 36), 36 + kb + by),
+                      (xb["nmid"], yb)),
+            "front": nl((50 + bx, 33 + by), (57, 37 + ka + by), (xa["nfront"], ya))}
+    far = {"rear": fl((28 + bx, 33 + by), ((28 + bx + xb["frear"]) // 2, 37 + kb + by), (xb["frear"], yb)),
+           "mid": fl((42 + bx, 33 + by), ((42 + bx + xa["fmid"]) // 2 + 1, 37 + ka + by), (xa["fmid"], ya)),
+           "front": fl((54 + bx, 33 + by), ((54 + bx + xb["ffront"]) // 2 + 1, 37 + kb + by), (xb["ffront"], yb))}
     ex = (1, 0) if n in (4, 6) else (1, 1)
-    near_ant = shift_pts([(x + bx, y + by) for x, y in ANT_NEAR0], 5, *ex, end=10)
+    near_ant = shift_pts([(x + bx, y + by) for x, y in ANT_NEAR0], 4, *ex, end=7)
     far_ant = [(x + bx, y + by) for x, y in ANT_FAR0]
-    beads = [(67 + bx, 24 + by), (70 + bx, 18 + by), (74 + bx + ex[0], 14 + by + ex[1])]
-    return assemble(far, (near_ant, far_ant, beads), body(bx, lambda x: by), head_core(bx, by),
-                    key0_fangs(bx, by), near, rear_behind=True, plain=True).rows()
+    mands = mand_pair(bx, by)
+    return assemble(far, (near_ant, far_ant), body(bx, dy=by), head_px(bx, by), mands, near).rows()
 
 
 # ---- tell -----------------------------------------------------------------
+UP_PATH = [(69, 24), (71, 22), (72, 20), (73, 18), (73, 16), (72, 15), (70, 15)]  # frame 8 absolute coordinates
+LOW_PATH = [(69, 27), (71, 28), (73, 30), (74, 32), (74, 34), (73, 35), (71, 35)]
+
+
+def v_mands(dx, dy, n):
+    """Mandibles spread in a V (upper arm far, lower arm near), first n points of each hook, translated."""
+    far = _under(_hook([(x + dx, y + dy) for x, y in UP_PATH[:n]], "h", "H", min(4, n)))
+    near = _under(_hook([(x + dx, y + dy) for x, y in LOW_PATH[:n]], "h", "H", min(4, n)))
+    return near, far
+
+
 def frame_7():
-    dyf = lambda x: 1 if x <= 18 else (0 if x <= 30 else (-1 if x <= 42 else (-2 if x <= 50 else -4)))
-    near = {"rear": ((23, 37), (12, 35), tip(1, 43, True), True, None),
-            "mid": ((36, 36), (31, 39), tip(25, 43, True), True, None),
-            "front": ((51, 33), (55, 36), tip(58, 43, False), False, None)}
-    far = {"rear": ((26, 37), (20, 36), tip(15, 43, True), True, None),
-           "mid": ((40, 36), (44, 38), tip(46, 43, False), False, None),
-           "front": ((55, 33), (60, 37), tip(63, 43, False), False, None)}
-    ants = ([(63, 26), (64, 23), (65, 19), (66, 16), (67, 13), (68, 11), (70, 10), (72, 10), (74, 12), (75, 14)],
-            [(55, 23), (52, 19), (49, 16), (46, 13), (44, 12), (42, 12), (40, 13)])
-    return assemble(far, ants, body(-1, dyf), head_core(-1, -4, {(63, 33): "r"}), v_fangs(68, 31, 34, False),
-                    near, rear_behind=True).rows()
+    dyf = lambda x: 1 if x <= 30 else (0 if x <= 37 else (-1 if x <= 45 else (-2 if x <= 51 else -3)))
+    near = {"rear": nl((24, 34), (14, 37), (6, 42)), "mid": nl((37, 32), (32, 36), (28, 42)),
+            "front": nl((49, 31), (55, 35), (59, 42))}
+    far = {"rear": fl((27, 34), (23, 37), (20, 42)), "mid": fl((41, 32), (44, 36), (46, 42)),
+           "front": fl((53, 31), (60, 35), (65, 42))}
+    ants = ([(67, 20), (68, 17), (69, 14), (70, 11), (71, 9), (72, 7), (74, 7), (76, 9), (76, 11)],
+            [(60, 20), (59, 17), (57, 14), (55, 11), (52, 9), (49, 8), (46, 9)])
+    return assemble(far, ants, body(-1, dyf), head_px(-1, -3, {(64, 28): "r"}), v_mands(1, 3, 4), near).rows()
 
 
 def frame_8():
-    dyf = lambda x: 2 if x <= 18 else (0 if x <= 30 else (-2 if x <= 42 else (-4 if x <= 50 else -7)))
+    dyf = lambda x: 2 if x <= 30 else (0 if x <= 37 else (-2 if x <= 45 else (-4 if x <= 51 else -6)))
     bod = body(-2, dyf)
 
     def post(cv):  # cold belly reveal under the raised belly line
-        for x in range(30, 59):
+        for x in range(36, 53):
             ys = [y for (xx, y) in bod if xx == x]
             if ys and (x, max(ys) + 1) not in cv.p:
                 cv.put(x, max(ys) + 1, "u")
 
-    near = {"rear": ((22, 37), (11, 35), tip(1, 43, True), True, None),
-            "mid": ((35, 35), (30, 38), tip(24, 43, True), True, None),
-            "front": ((48, 30), (55, 27), (60, 31), False, [(57, 26), (59, 29)])}
-    far = {"rear": ((25, 37), (19, 36), tip(14, 43, True), True, None),
-           "mid": ((39, 35), (43, 38), tip(45, 43, False), False, None),
-           "front": ((48, 32), (55, 29), (60, 33), False, None)}
-    ants = ([(62, 22), (63, 19), (64, 16), (66, 12), (68, 9), (69, 6), (71, 6), (73, 7), (75, 9)],
-            [(52, 20), (50, 16), (48, 12), (46, 9), (45, 8), (44, 8), (42, 9), (41, 10)],
-            [(64, 16), (68, 9), (72, 6)])
-    hd = head_core(-2, -8, {(63, 33): "r", (64, 34): "r"})
-    return assemble(far, ants, bod, hd, v_fangs(67, 27, 30, True), near, rear_behind=True, post=post).rows()
+    near = {"rear": nl((23, 35), (13, 38), (3, 42)), "mid": nl((36, 31), (31, 36), (25, 42)),
+            "front": nl((48, 29), (55, 25), (60, 28), [(57, 23), (59, 26)])}
+    far = {"rear": fl((26, 35), (22, 38), (17, 42)), "mid": fl((40, 31), (44, 36), (49, 42)),
+           "front": fl((52, 29), (58, 27), (62, 30))}
+    ants = ([(66, 17), (67, 14), (68, 11), (69, 8), (70, 6), (71, 4), (73, 4), (75, 6), (75, 8)],
+            [(59, 17), (58, 14), (56, 11), (54, 8), (51, 6), (48, 5), (45, 6)])
+    hd = head_px(-2, -6, {(64, 28): "r"})
+    return assemble(far, ants, bod, hd, v_mands(0, 0, 7), near, post=post).rows()
 
 
 # ---- attack ---------------------------------------------------------------
 def frame_9():
-    near = {"rear": ((27, 37), (18, 39), tip(9, 43, True), True, None),
-            "mid": ((40, 37), (35, 39), tip(29, 43, True), True, None),
-            "front": ((55, 37), (61, 40), tip(66, 43, False), False, None)}
-    far = {"rear": ((30, 37), (24, 38), tip(19, 43, True), True, None),
-           "mid": ((44, 37), (47, 39), tip(48, 43, True), True, None),
-           "front": ((59, 37), (66, 40), tip(70, 43, False), False, None)}
-    ants = ([(68, 30), (68, 27), (67, 24), (66, 21), (64, 19), (61, 18), (58, 18), (56, 19)],
-            [(59, 27), (58, 24), (56, 21), (53, 19), (50, 18), (47, 18), (44, 19)])
-    return assemble(far, ants, body(3), head_core(3, 0), v_fangs(72, 35, 38, None), near).rows()
+    near = {"rear": nl((28, 33), (19, 36), (10, 42)), "mid": nl((41, 33), (36, 37), (31, 42)),
+            "front": nl((53, 33), (60, 37), (64, 42))}
+    far = {"rear": fl((31, 33), (26, 37), (23, 42)), "mid": fl((45, 33), (48, 37), (49, 42)),
+           "front": fl((57, 33), (64, 37), (68, 42))}
+    ants = ([(70, 23), (70, 20), (69, 17), (68, 14), (66, 12), (63, 11), (60, 11), (57, 12), (55, 13)],
+            [(63, 23), (61, 20), (58, 17), (55, 15), (52, 14), (49, 14), (46, 15)])
+    return assemble(far, ants, body(3), head_px(2, 0), mand_pair(2, 0, 3, 3), near).rows()
 
 
 def frame_10():
-    bod = body(6, None, drop_row(SHELL0, 26))  # flattened: band row 26 deleted, the rows above drop 1
-    near = {"rear": ((30, 37), (19, 39), tip(6, 43, True), True, None),
-            "mid": ((43, 37), (36, 39), tip(28, 43, True), True, None),
-            "front": ((58, 37), (65, 40), tip(70, 43, False), False, None)}
-    far = {"rear": ((33, 37), (27, 38), tip(20, 43, True), True, None),
-           "mid": ((47, 37), (49, 39), tip(49, 43, True), True, None),
-           "front": ((62, 37), (69, 40), tip(72, 43, False), False, None)}
-    ants = ([(72, 30), (70, 27), (67, 24), (64, 22), (60, 21), (56, 21), (53, 22), (52, 23)],
-            [(66, 28), (65, 27), (64, 26), (63, 25)])
-    # fangs pinched shut: near fang from the cheek, far fang from the lower jaw; the tips meet at x 78..79
-    fangs = {(77, 38): "h", (77, 39): "h", (78, 39): "H", (78, 40): "H", (79, 40): "H", (79, 39): "H",
-             (75, 41): "h", (76, 41): "H", (77, 41): "H", (77, 40): "H"}
-    return assemble(far, ants, bod, head_core(8, 1), fangs, near).rows()
+    bod = body(7, None, drop_row(SHELL0, 22))  # flattened: band row 22 deleted, the rows above drop 1
+    near = {"rear": nl((32, 33), (21, 36), (10, 42)), "mid": nl((45, 33), (38, 37), (31, 42)),
+            "front": nl((57, 33), (64, 37), (68, 42))}
+    far = {"rear": fl((35, 33), (29, 37), (23, 42)), "mid": fl((49, 33), (52, 37), (53, 42)),
+           "front": fl((61, 33), (68, 37), (72, 42))}
+    ants = ([(72, 24), (70, 21), (67, 18), (63, 15), (59, 13), (55, 13), (51, 14), (48, 15), (46, 16)],
+            [(70, 24), (68, 21), (66, 19), (64, 18)])
+    near_m = mand_pair(4, 1)[0]  # thrust: the near mandible tip reaches x 78
+    far_m = _hook([(70, 35), (72, 37), (74, 39), (76, 41), (78, 41)], "j", "h", 2)  # closes on it
+    return assemble(far, ants, bod, head_px(4, 1), (near_m, far_m), near).rows()
 
 
 def frame_11():
-    near_ant = [(x + 3 - (round(3 * min(1, (30 - y) / 16)) if y < 30 else 0), y) for x, y in ANT_NEAR0]
-    far_ant = [(x + 3 - (round(3 * min(1, (27 - y) / 11)) if y < 27 else 0), y) for x, y in ANT_FAR0]
-    ants = (shift_pts(near_ant, 5, 1, -1, end=10), shift_pts(far_ant, 4, -1, 0), [(70, 24), (71, 17), (75, 13)])
-    return assemble(shifted(FAR0, 3, 0), ants, body(3), head_core(3, 0), key0_fangs(3, 0, near_dx=1),
-                    shifted(NEAR0, 3, 0), plain=True).rows()
+    ants = (shift_pts([(x + 1, y) for x, y in ANT_NEAR0], 5, 1, -1, end=7),
+            shift_pts([(x + 1, y) for x, y in ANT_FAR0], 3, -1, 0))
+    return assemble(shifted(FAR0, 1, 0), ants, body(1), head_px(1, 0), mand_pair(1, 0, far_tip=-1),
+                    shifted(NEAR0, 1, 0)).rows()
 
 
 # ---- hurt -----------------------------------------------------------------
 def frame_12():
-    dyf = lambda x: 0 if x <= 30 else (-1 if x <= 50 else -2)
+    dyf = lambda x: 0 if x <= 37 else (-1 if x <= 51 else -2)
     eye = {p: "w" for p in EYE0}
-    eye.update({(63, 33): "K", (65, 32): "H"})
-    near = {"rear": ((21, 37), (10, 34), tip(0, 43, True), True, None),
-            "mid": ((34, 36), (29, 38), tip(23, 43, True), True, None),
-            "front": ((49, 35), (52, 38), (56, 41), False, None)}
-    far = {"rear": ((24, 37), (18, 36), tip(13, 43, True), True, None),
-           "mid": ((38, 36), (42, 38), tip(44, 43, False), False, None),
-           "front": ((53, 35), (57, 38), tip(60, 43, False), False, None)}
-    ants = ([(62, 28), (63, 25), (64, 22), (65, 19), (66, 16), (65, 16), (64, 16), (62, 17), (60, 19)],
-            [(53, 25), (50, 22), (46, 20), (42, 19), (38, 19), (34, 19)])
-    return assemble(far, ants, body(-3, dyf), head_core(-3, -2, eye), key0_fangs(-3, -2, near_dx=1, far_dx=-1),
-                    near, rear_behind=True, plain=True).rows()
+    eye.update({(63, 28): "K"})  # H glint kept at (65, 26)
+    eye[(65, 26)] = "H"
+    near = {"rear": nl((22, 33), (12, 36), (4, 42)), "mid": nl((35, 32), (30, 36), (26, 42)),
+            "front": nl((47, 32), (52, 35), (56, 40))}
+    far = {"rear": fl((25, 33), (21, 37), (18, 42)), "mid": fl((39, 32), (42, 36), (43, 42)),
+           "front": fl((51, 31), (57, 35), (62, 42))}
+    ants = ([(65, 21), (63, 18), (61, 15), (59, 13), (57, 12), (55, 12), (53, 13), (51, 14), (49, 16)],
+            [(58, 21), (56, 19), (53, 16), (49, 14), (45, 13), (41, 13), (38, 14)])
+    return assemble(far, ants, body(-3, dyf), head_px(-3, -2, eye), mand_pair(-3, -2, near_tip=1, far_tip=-1),
+                    near).rows()
 
 
 # ---- defeat ---------------------------------------------------------------
 def frame_13():
     eye = {p: "a" for p in EYE0}
-    eye.update({(63, 33): "e", (64, 33): "e", (64, 34): "e", (65, 34): "e"})
-    near = {"rear": ((24, 40), (11, 36), tip(3, 43, True), True, None),
-            "mid": ((37, 40), (30, 41), tip(26, 43, True), True, None),
-            "front": ((52, 40), (57, 42), tip(58, 43, False), False, None)}
-    far = {"rear": ((27, 40), (22, 40), tip(16, 43, True), True, None),
-           "mid": ((41, 40), (46, 41), tip(47, 43, False), False, None),
-           "front": ((56, 40), (62, 42), tip(63, 43, False), False, None)}
-    ants = ([(65, 33), (66, 30), (68, 26), (70, 22), (72, 19), (74, 18), (76, 19), (77, 22), (77, 25)],
-            [(56, 30), (54, 27), (51, 24), (48, 22), (45, 21), (42, 22), (40, 24)])
-    return assemble(far, ants, body(0, lambda x: 3), head_core(0, 3, eye), key0_fangs(0, 3), near,
-                    rear_behind=True, plain=True).rows()
+    eye.update({(63, 28): "e", (64, 28): "e", (65, 28): "e"})
+    near = {"rear": nl((25, 37), (13, 38), (7, 42)), "mid": nl((38, 37), (31, 39), (29, 42)),
+            "front": nl((50, 37), (57, 39), (58, 42))}
+    far = {"rear": fl((28, 37), (22, 39), (21, 42)), "mid": fl((42, 37), (47, 39), (46, 42)),
+           "front": fl((54, 37), (62, 39), (65, 42))}
+    ants = ([(68, 27), (69, 24), (70, 21), (71, 19), (72, 18), (74, 18), (76, 19), (77, 21), (77, 23)],
+            [(61, 27), (59, 24), (56, 21), (53, 20), (50, 20), (47, 21), (45, 23)])
+    return assemble(far, ants, body(0, dy=4), head_px(0, 4, eye), mand_pair(0, 4, 5, 3), near).rows()
 
 
-def frame_15(squash=False, ant_near=None, eye_e=()):
-    """Settled defeat (also frame 14 with `squash`): the Guardian lies belly-down, legs flat, eye dark."""
-    sh = drop_row(SHELL0, 25) if squash else SHELL0  # frame 14: band row 30 of the dropped shell is deleted
+def frame_15(squash=False, near_ant=None, eye_e=()):
+    """Settled defeat (also frame 14 with `squash`): belly-down, legs flat, eye dark, no glow."""
+    sh = drop_row(SHELL0, 22) if squash else SHELL0  # frame 14: one band row of the dropped shell deleted
     eye = {p: "a" for p in EYE0}
     for p in eye_e:
         eye[p] = "e"
     if not eye_e:
-        eye[(64, 33)] = "K"
-    near = {"rear": ((24, 42), (12, 42), tip(0, 43, True), True, None),
-            "mid": ((37, 42), (31, 42), tip(26, 43, True), True, None),
-            "front": ((52, 42), (57, 42), tip(62, 43, False), False, None)}
-    cv = Cv()
-    for p in ((29, 43), (30, 43), (45, 43), (46, 43)):  # far legs show only their tips
-        cv.put(*p, "a")
-    ants_far = [(48, 27), (50, 25), (53, 25), (56, 26), (58, 28), (60, 30)]  # bent over the pronotum, ends row 30
-    ants_near = ant_near or [(70, 39), (71, 40), (72, 41), (73, 41), (75, 42), (76, 42), (77, 43)]  # lies down
-    draw_ants(cv, ants_near, ants_far, None if ant_near else [(72, 41), (76, 42)])
-    put_legs(cv, {"rear": near["rear"]}, True)
-    cv.putm(body(0, lambda x: 5, sh))
-    cv.putm(head_core(0, 5, eye, max_row=38))
-    put_outlined(cv, {(69, 41): "h", (69, 42): "h", (70, 42): "H", (70, 43): "H", (66, 43): "H", (65, 43): "h"})
-    put_legs(cv, {k: v for k, v in near.items() if k != "rear"}, True)
-    return cv.rows()
+        eye[(64, 27)] = "K"
+    near = {"rear": nl((25, 41), (13, 42), (2, 42), []), "mid": nl((38, 41), (32, 42), (27, 42), []),
+            "front": nl((50, 41), (56, 42), (62, 42), [])}
+    far = {"rear": fl((28, 42), (25, 42), (21, 42)), "mid": fl((42, 42), (45, 42), (47, 42)),
+           "front": fl((54, 42), (60, 42), (65, 42))}
+    ants = (near_ant or [(70, 39), (72, 40), (74, 41), (75, 41), (76, 42), (77, 42), (78, 42), (78, 43), (79, 43)],
+            [(60, 31), (60, 28), (58, 26), (56, 24), (54, 23), (52, 24), (50, 25)])
+    mands = (_under(_hook([(72, 39), (73, 41), (73, 43)], "j", "H", 2)), {})  # short, closed, tips on row 43
+    return assemble(far, ants, body(0, None, sh if squash else None, 8), head_px(0, 7, eye), mands, near).rows()
 
 
 def frame_14():
-    return frame_15(True, [(66, 35), (68, 31), (71, 29), (74, 29), (76, 31), (77, 34), (77, 37)],
-                    ((64, 34), (65, 34)))
+    return frame_15(True, [(70, 32), (72, 30), (74, 29), (76, 29), (77, 30), (78, 32), (78, 34), (78, 36), (78, 38)],
+                    ((64, 28), (65, 28)))
+
+
+def frame_idle0() -> list[str]:
+    return despeckle(key0())
 
 
 # Frame table (spec section 4): index -> (tag, ticks). Ticks are 60 Hz; 0 = state-driven hold.
@@ -837,6 +565,7 @@ def despeckle(rows: list[str]) -> list[str]:
                 around = [g[y + dy][x + dx] for dx in (-1, 0, 1) for dy in (-1, 0, 1)
                           if (dx or dy) and 0 <= x + dx < W and 0 <= y + dy < H and g[y + dy][x + dx] != "."]
                 if around and c not in around:
+                    around = [k for k in around if k != "K"] or around  # fold into a colour, not the outline
                     counts = {k: around.count(k) for k in dict.fromkeys(around)}
                     g[y][x] = max(counts, key=lambda k: counts[k])
                     changed = True
@@ -846,9 +575,9 @@ def despeckle(rows: list[str]) -> list[str]:
 
 
 def all_frames() -> list[list[str]]:
-    drawn = [frame_idle0(), frame_1(), frame_2(), walk(3), walk(4), walk(5), walk(6), frame_7(), frame_8(),
+    drawn = [key0(), frame_1(), frame_2(), walk(3), walk(4), walk(5), walk(6), frame_7(), frame_8(),
              frame_9(), frame_10(), frame_11(), frame_12(), frame_13(), frame_14(), frame_15()]
-    return [drawn[0]] + [despeckle(f) for f in drawn[1:]]
+    return [despeckle(f) for f in drawn]
 
 
 def build() -> dict:
@@ -868,13 +597,13 @@ def build() -> dict:
     }
 
 
-AUTHORS = {0: "key (Claude Opus, frozen)", 3: "key (Claude Sonnet, spec section 7)",
+AUTHORS = {0: "key (Claude Opus, frozen; orphan cleanup by Claude Sonnet per review)", 3: "key (Claude Sonnet, spec section 7)",
            8: "key (Claude Sonnet, spec section 7)", 10: "key (Claude Sonnet, spec section 7)",
            12: "key (Claude Sonnet, spec section 7)", 15: "key (Claude Sonnet, spec section 7)"}
 BOXES = {  # frame pixels (x, y, w, h); pivot-relative values are in spec section 3
-    "standing": [13, 24, 50, 20],
-    "hurtbox": [4, 22, 66, 18],
-    "hurtbox_tell_hold": [2, 14, 66, 28],
+    "standing": [16, 15, 46, 29],
+    "hurtbox": [14, 15, 59, 21],
+    "hurtbox_tell_hold": [12, 9, 60, 28],
     "attack_hitbox": [66, 30, 14, 12],
 }
 
@@ -920,7 +649,7 @@ def write_manifest() -> None:
         "brood": {
             "status": "execution done, independent top-tier review pending; not wired into any Bevy binary",
             "spec": "docs/02-art/brood-01-spec.md",
-            "opaque_height_idle": 30,
+            "opaque_height_idle": 34,
             "tick_hz": 60,
             "hold_preview_ms": 100,
             "grounded_tags": [n for n, _a, _b in TAGS],

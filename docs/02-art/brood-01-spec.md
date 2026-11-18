@@ -1,6 +1,6 @@
 # BROOD-01: Scatterer Brood Guardian readability set, design spec
 
-**Status:** design round 2 (after the FAIL-DESIGN review 14/25): key 0 redrawn and re-frozen, silhouette gate pending. Validator today: V06 fails on key 0 (10 orphan pixels, limit 6: single plate-rim and shadow pixels; open, decide at the gate whether to clean them or raise the limit), V13 and V14 fail only on the stale frames 1 to 15. Frames 1 to 15 are the round-1 execution, composed from the round-1 key 0; they no longer match key 0 and are redrawn after the gate (validator rules derived from key 0 v2 may fail on them until then). Review pending.
+**Status:** design round 2 done (key 0 v2 approved at the silhouette gate). Execution round 2 done: key 0 orphan cleanup (reviewer-prescribed), keys 3, 8, 10, 12, 15 and the 10 in-betweens redrawn from the key-0 v2 parts, all six keys re-frozen, validators V01 to V15 pass, evidence regenerated in `docs/evidence/brood-01/`. Independent review of the full set pending.
 
 **Decision record:** height 34 px (round 2; was 30), frame 80 x 44, pivot (37, 43). Proposed by the design step; decided by the independent review.
 
@@ -133,7 +133,7 @@ The guard radius is an art motive, not an approved mechanic; gameplay decides.
 
 ## 6. Palette
 
-Palette `scatterer-floor01-v1`, extended for the Brood Guardian: **the 16 Scatterer keys are reused with identical hex**, plus **2 new keys** (`y`, `o`), so the shared species palette has **18 of 20** colours and 2 slots stay free. No key is skipped (`w` is used only on hurt).
+Palette `scatterer-floor01-v1`, extended for the Brood Guardian: **the 16 Scatterer keys are reused with identical hex**, plus **1 new key** (`y`), so the palette has **17 of 20** colours and 3 slots stay free (the round-1 egg-case key `o` is removed). No key is skipped (`w` is used only on hurt).
 
 | Key | Name | Hex | Role on the Brood Guardian | Accent (orphan-exempt) |
 | --- | --- | --- | --- | --- |
@@ -154,7 +154,7 @@ Palette `scatterer-floor01-v1`, extended for the Brood Guardian: **the 16 Scatte
 | `r` | eye_glow | `#ff4a32` | eye glow; never on hurt (12) or the settled defeat (14, 15) | yes |
 | `w` | eye_flash | `#efe3d3` | hurt flash eye only | yes |
 | `y` | crust_pale | `#c4a888` | **new.** Pale dried crust and scars on the plates (the board's tan speckle), 2 to 3 px patches | yes |
-| `o` | ootheca_brown | `#74492f` | **cut in round 2** (no egg case). Still in the grid palette only because the pre-gate frames 1 to 15 use it; the redraw removes it (palette 17 of 20). | |
+| `o` | ootheca_brown | `#74492f` | **removed in round 2** (egg case cut); no longer in the grid palette (17 of 20 colours). | |
 
 Packet candidates, by eye (the navy and near-black candidates are the board background):
 
@@ -308,24 +308,23 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Spec + hero key (frame 0), rounds 1 and 2: Claude Opus. Executed by: Claude Sonnet (keys 3/8/10/12/15, in-betweens, manifest, tests and evidence). Independently reviewed by: pending.
+- Spec + hero key (frame 0), rounds 1 and 2: Claude Opus. Executed by: Claude Sonnet (key 0 cleanup, keys 3/8/10/12/15, in-betweens, manifest, tests and evidence; round 2 redrawn on the redesigned key 0). Independently reviewed by: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
 
 ## 13. Executor notes
 
-Readings the execution step took where the spec was ambiguous or impossible. None changes size, palette, silhouette, boxes or ticks.
+Round 2 (redrawn on the redesigned key 0). Readings the execution step took where the spec was ambiguous or impossible. None changes size, palette, silhouette outline, boxes or ticks.
 
-1. **Frame 11 antennae (impossible as written).** "Frame 0 at dx +3" would put the near antenna tip at x 81, outside the 80 px canvas. Body, head, fangs and legs move +3; the antenna root moves +3 and the tip fades back to about +1 (frame 1's raised apex, kept inside the canvas). Same canvas clamp for frame 3's antenna (tip x 79).
-2. **Walk stride (frames 3 to 6).** The spec fixes only frame 3's feet. Conservative model: tripod B lands 2 px forward of where it hung in frame 3 (frame 4 is the halfway lift on row 40, frame 5 lands), tripod A lifts 2 px behind its contact x (the near rear foot stays at x 1..2 because x -1 is off canvas). Knees are chosen by eye.
-3. **Near rear leg drawn behind the egg case** in frames 3 to 8 and 12 to 15. Drawn in front it cuts through the egg case and the `o` count drops under R0.
-4. **Frames 13 to 15 head and fangs.** A head dy of +3 or +5 puts the key-0 jaw underside and fang tips below row 43. Frame 13 keeps the key-0 fangs cut at the canvas edge. Frames 14 and 15 use the head down to orig row 38 and a 6 px closed fang pair with tips on row 43 (3 `H`).
-5. **Frame 9 fangs.** "Half closed" is drawn as a short V (largest reach x 75) so that fang `H` at x 76 or more stays exclusive to frame 10. Head dx +3, dy 0.
-6. **Frame 10 fangs.** Two short pinched fangs meeting at x 78..79, 7 `H` at x 76 or more; the tip is `H` on the canvas edge (x 79, no outline on the right).
-7. **Frame 15 and 14 antennae and far legs.** The near antenna lies down from the head front (its root cannot lie on the floor from the head top). Only the rear and mid far legs show tips; the far front tip is hidden by the head and the near front tibia. Frame 14 squashes the shell by deleting orig row 25 (row 30 after the drop).
-8. **Frame 12 eye.** `w` on 6 eye pixels, `H` glint kept at (65,32), `K` pupil at (63,33); fangs sheared by row (tip rows 41 and 42), antennae thrown back (apex row 16).
-9. **Frame 8 front leg.** Coxa at (48,30) as written (the raised column would give (50,30)); the leg overlaps the lower back of the head, drawn in front.
-10. **Test bound for defeat `H`.** Spec limits frame 15 to 3 `H`; frames 13 and 14 are bounded at 4 (key-0 fangs kept on 13).
-11. **Cleanup.** A deterministic despeckle pass (as SCAT-01) runs on frames 1 to 15; frame 0 is never touched.
-12. **Hurtbox on the swing.** `hurtbox` dx +3, +6, +3 for frames 9 to 11 is recorded as `swing_hurtbox_dx` in the manifest.
+1. **Key 0 cleanup (reviewer-prescribed, silhouette gate).** The outline, bbox (x 6 to 78, rows 10 to 43) and the silhouette are unchanged. The 10 single-pixel orphans were removed: three deliberate marks were extended into 2 px runs (the `a` pits at (57..58, 21) and (33, 22..23), the rear-tip `K` step at (15, 28..29)); the seven stray pixels were folded into the neighbouring band colour (`f` to `d`, `a` to `b`, never into the outline). Key 0 now has 0 orphans and 0 isolated pixels. The cream mandible tips get a 1 px `K` underside (`_under`). Key 0 re-frozen with the reason "orphan cleanup after silhouette gate".
+2. **Egg case removed.** `ootheca`, the round-1 shell/head/fang/leg parts, `frame_idle0_v1` and the palette key `o` are deleted (palette 17 of 20); no frame uses `o`.
+3. **Fang reach.** Key 0's near mandible `H` already reaches x 74, so any head dx above +1 would put cream at x 76 or more outside frame 10. Frame 9 (dash) uses body dx +3, head dx +2 and shortened hooks (3 points); frame 11 (recover) uses a whole-body dx +1 instead of +3 (its near antenna tip would otherwise leave the canvas) with the far mandible opened 1 px.
+4. **Impact (review E3).** Body dx +7 (shell flattened by deleting band row 22), head dx +4 dy +1 (a head dx of +11 would leave the canvas): the near mandible tip reaches x 78 and the far mandible is drawn closing on it. The shell overlaps the head's rear by 3 px, hidden under the head.
+5. **Tell.** Rear crouch +2 (x 14 to 30), front abdomen rising 0, -2, -4, pronotum and head -6; top row 4 (40 px), mandibles spread in a V (two thick 7 point hooks, 14 `H`), 6 `r`, cold `u` strip under the raised belly. Ramp frame 7 is the half pose (head -3, 4 point hooks).
+6. **Walk stride.** The spec fixes only frame 3's feet. Tripod B lands 2 px forward of where it hung in frame 3 (frame 4 is the halfway lift), tripod A lifts 2 px behind its contact x; knees chosen by eye. Near antenna bob limited to its upper points so the tip stays on the canvas.
+7. **Defeat.** Frame 13 buckles by 4 with the knees 2 px lower and further out, eye dimmed to the 3 `e` rim pixels. Frames 14 and 15 drop the shell by 8 (belly row 42, top row 23, frame 14 squashed by 1); the head drops by 7 (its outline would leave the canvas at 8), mandibles are a 3 px closed pair with tips on row 43 (3 `H`), legs flat, far legs show only their tips, the eye is `a` with one `K`.
+8. **Hurt.** `w` on 8 eye pixels, `H` glint kept at (65, 26), `K` pupil at (63, 28), mandibles gaped by shearing the tip rows (near +1, far -1), antennae thrown back along the dome.
+9. **Review items.** E1 (grey underside rod) and E2 (crust specks) were already resolved in key 0 v2 (`u` only between leg sockets, two grouped scars). E3 is item 4. D1 to D3 were design items resolved at the gate.
+10. **Boxes.** Re-measured after the redraw and recorded in the manifest: standing `[16, 15, 46, 29]`, hurtbox `[14, 15, 59, 21]`, tell-hold hurtbox `[12, 9, 60, 28]`; the attack hitbox is unchanged.
+11. **Cleanup pass.** A deterministic despeckle pass (folds a stray non-accent pixel into a neighbouring colour, never into `K` when another colour is present) runs on every frame.
 
-Spec conflicts: none that blocks the validator.
+Spec conflicts: none that blocks the validator. The older per-frame notes in section 7 and in the section 8 table are superseded by the round 2 notes above.

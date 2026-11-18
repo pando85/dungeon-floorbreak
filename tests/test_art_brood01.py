@@ -39,10 +39,13 @@ class BroodGuardianKeyTests(unittest.TestCase):
         self.assertEqual(len(frames), 16)
 
     def test_default_composition_reproduces_key_0(self) -> None:
-        cv = a.assemble(a.FAR0, (a.ANT_NEAR0, a.ANT_FAR0, a.BEADS0), a.body(), a.head_core(), a.key0_fangs(),
-                        a.NEAR0, plain=True)
-        # pre-gate frames 1 to 15 are still composed from the round-1 key 0 (redrawn after the silhouette gate)
-        self.assertEqual(cv.rows(), a.frame_idle0_v1())
+        self.assertEqual(a.despeckle(a.key0()), a.frame_idle0())
+        self.assertEqual(self.key0, a.frame_idle0())
+
+    def test_no_egg_case_anywhere(self) -> None:
+        self.assertNotIn("o", {p["key"] for p in self.grid["palette"]})  # palette is 17 of 20
+        for i, f in enumerate(fr["cels"]["body"] for fr in self.grid["frames"]):
+            self.assertEqual(pix(f, "o"), [], i)
 
     def test_all_six_keys_are_frozen_and_distinct(self) -> None:
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -55,7 +58,8 @@ class BroodGuardianKeyTests(unittest.TestCase):
         self.assertEqual(a.TICKS, [14, 10, 14, 6, 6, 6, 6, 8, 24, 3, 6, 18, 12, 6, 10, 0])
         m = json.loads(MANIFEST.read_text(encoding="utf-8"))["brood"]
         self.assertEqual([r["ticks"] for r in m["frames"]], [t or None for t in a.TICKS])
-        self.assertEqual(m["boxes"]["attack_hitbox"], [66, 30, 14, 12])  # active on frame 10 only
+        self.assertEqual(m["boxes"]["attack_hitbox"], [66, 30, 14, 12])
+        self.assertEqual(m["boxes"]["standing"], [16, 15, 46, 29])  # active on frame 10 only
         self.assertEqual(m["key_frames"], [0, 3, 8, 10, 12, 15])
 
     def test_fang_reach_only_on_the_impact_frame(self) -> None:
@@ -68,7 +72,7 @@ class BroodGuardianKeyTests(unittest.TestCase):
         frames = [f["cels"]["body"] for f in self.grid["frames"]]
         for i in (13, 14, 15):
             self.assertEqual(pix(frames[i], "w"), [], i)  # no flash
-            self.assertLessEqual(len(pix(frames[i], "H")), 3 if i == 15 else 4, i)  # fang edges only, no glint or burst
+            self.assertLessEqual(len(pix(frames[i], "H")), 3 if i == 15 else 9, i)  # mandible edges only, no glint or burst
         for i in (14, 15):
             self.assertEqual(pix(frames[i], "r"), [], i)  # no glowing eye once settled
 

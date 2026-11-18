@@ -39,7 +39,7 @@
   "brood": {
     "status": "execution done, independent top-tier review pending; not wired into any Bevy binary",
     "spec": "docs/02-art/brood-01-spec.md",
-    "opaque_height_idle": 30,
+    "opaque_height_idle": 34,
     "tick_hz": 60,
     "hold_preview_ms": 100,
     "grounded_tags": [
@@ -70,21 +70,21 @@
     "key_fixture": "tests/fixtures/brood-01_keys.json",
     "boxes": {
       "standing": [
-        13,
-        24,
-        50,
-        20
+        16,
+        15,
+        46,
+        29
       ],
       "hurtbox": [
-        4,
-        22,
-        66,
-        18
+        14,
+        15,
+        59,
+        21
       ],
       "hurtbox_tell_hold": [
-        2,
-        14,
-        66,
+        12,
+        9,
+        60,
         28
       ],
       "attack_hitbox": [
