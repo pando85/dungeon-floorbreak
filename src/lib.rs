@@ -2,6 +2,8 @@
 
 pub mod actor_sprite;
 pub mod anim;
+pub mod audio;
+pub mod audio_adapter;
 pub mod camera;
 pub mod combat;
 pub mod combat_anim;
