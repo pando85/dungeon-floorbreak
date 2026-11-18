@@ -28,7 +28,7 @@ Carl must remain the unglamorous antihero with purple/dark jacket, heart-pattern
 
 ## Local agent workflow
 
-1. Read `AGENTS.md`, [this README](README.md), [universal death language design proposal](../../../docs/01-design/character-progression-horizon.md) for long-term context, the combat-feel specification, destruction contract, and GOB-01/Carl art specs.
+1. Read `AGENTS.md`, [this README](README.md), [universal death-language proposal (draft PR #79)](https://github.com/pando85/dungeon-floorbreak/blob/feat/i03-goblin-defeat-modes/docs/01-design/universal-monster-death-language-v0.md) for the tentative visual grammar and [character progression horizon](../../../docs/01-design/character-progression-horizon.md) for long-term context, the combat-feel specification, destruction contract, and GOB-01/Carl art specs.
 2. Run the HTML and inspect **1/4 vs 4/4** at the same timeline position for each of the four scenarios. The selected target is **4**, but maintain a readable reduced-presentation option without altering combat rules.
 3. Treat this as a **visual grammar for staging**: anticipation -> contact -> reaction / fragment emission -> physical-looking but cosmetic trajectory -> clear aftermath.
 4. Implement reusable species profiles, validated damage cause, material-specific effects and detachable-part art **in the Rust+Bevy pipeline**, not by embedding Canvas code into Bevy or shipping the RLE sample as production sprites.
