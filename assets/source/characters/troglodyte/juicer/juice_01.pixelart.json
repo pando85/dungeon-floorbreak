@@ -1,0 +1,377 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "juice-01",
+  "title": "JUICE-01 The Juicer (Floor 1 Gym troglodyte boss): phase 2, the full 16-frame atlas (six frozen keys at 0, 3, 8, 10, 12, 15 and ten in-betweens)",
+  "grid": "assets/source/characters/troglodyte/juicer/juice_01.grid.json",
+  "manifest": "assets/manifests/juice-01.json",
+  "frame_size": [
+    160,
+    136
+  ],
+  "pivot": [
+    72,
+    135
+  ],
+  "contact_row": 135,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          14
+        ],
+        [
+          1,
+          10
+        ],
+        [
+          2,
+          14
+        ]
+      ]
+    },
+    "walk": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          8
+        ],
+        [
+          4,
+          8
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          6,
+          8
+        ]
+      ]
+    },
+    "attack_tell": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          28
+        ]
+      ]
+    },
+    "attack_pound": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          9,
+          3
+        ],
+        [
+          10,
+          6
+        ]
+      ]
+    },
+    "attack_recover": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          11,
+          24
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          12,
+          14
+        ]
+      ]
+    },
+    "down": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          13,
+          6
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          15,
+          null
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_pound",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 40,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "manifest_tick_rows": "juicer.frames",
+    "manifest_tick_hz": "juicer.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/juice-01_keys.json",
+      "frames": [
+        0,
+        3,
+        8,
+        10,
+        12,
+        15
+      ],
+      "layers": [
+        "body"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "size-idle-100px",
+        "frames": [
+          0
+        ],
+        "top": 36,
+        "bottom": 135
+      },
+      {
+        "id": "R-walk-not-taller-than-idle",
+        "frames": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "min_top": 36
+      },
+      {
+        "id": "R-rise-below-tell",
+        "frames": [
+          7
+        ],
+        "min_top": 17
+      },
+      {
+        "id": "R-tell-tallest",
+        "frames": [
+          8
+        ],
+        "max_top": 16
+      },
+      {
+        "id": "R-smear-between",
+        "frames": [
+          9
+        ],
+        "min_top": 40,
+        "min_width": 100
+      },
+      {
+        "id": "R-pound-low-and-wide",
+        "frames": [
+          10
+        ],
+        "min_top": 62,
+        "min_width": 100
+      },
+      {
+        "id": "R-recover-low",
+        "frames": [
+          11
+        ],
+        "min_top": 55
+      },
+      {
+        "id": "R-hurt-below-tell",
+        "frames": [
+          12
+        ],
+        "min_top": 17,
+        "max_top": 30
+      },
+      {
+        "id": "R-down-stays-low",
+        "frames": [
+          14,
+          15
+        ],
+        "min_top": 80
+      },
+      {
+        "id": "R-down-final-lowest",
+        "frames": [
+          15
+        ],
+        "min_top": 100
+      }
+    ],
+    "key_counts": [
+      {
+        "id": "R1-idle-walk-eye-red",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "key": "e",
+        "min": 3
+      },
+      {
+        "id": "R2-tell-roar-open",
+        "frames": [
+          8,
+          9,
+          10
+        ],
+        "key": "o",
+        "min": 70
+      },
+      {
+        "id": "R2-growl-under-half-roar",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          11
+        ],
+        "key": "o",
+        "max": 40
+      },
+      {
+        "id": "R5-hurt-down-no-red-eye",
+        "frames": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "key": "e",
+        "max": 0
+      },
+      {
+        "id": "R5-down-tongue",
+        "frames": [
+          14,
+          15
+        ],
+        "key": "q",
+        "min": 4
+      },
+      {
+        "id": "R6-boils-visible",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "key": "b",
+        "min": 40
+      },
+      {
+        "id": "R7-chain-iron-visible",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "key": "j",
+        "min": 20
+      }
+    ],
+    "foot_drift": {
+      "max_px": 20,
+      "tags": [
+        "walk"
+      ]
+    }
+  },
+  "review": {
+    "strip_tags": [
+      "attack_tell",
+      "attack_pound"
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 550
+      },
+      {
+        "frame": 8,
+        "x": 660
+      },
+      {
+        "frame": 10,
+        "x": 770
+      },
+      {
+        "frame": 15,
+        "x": 890
+      }
+    ]
+  }
+}
