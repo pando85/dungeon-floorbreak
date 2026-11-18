@@ -5,10 +5,10 @@
 //! and tuning are lab hypotheses. The camera (`camera_op`) is presentation only
 //! and never enters the simulation hash.
 
+pub mod art;
 pub mod camera_op;
 pub mod layout;
 pub mod room;
-pub mod sim;
 pub mod script;
 pub mod session;
-pub mod art;
+pub mod sim;

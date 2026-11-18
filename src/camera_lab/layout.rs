@@ -191,17 +191,15 @@ pub fn compose(room: &Room, base_layout: &Value) -> (Value, Plan) {
     gaps.push((at, w - WALL_PX));
     let mut ground_bays: Vec<i32> = Vec::new();
     for (a, b) in gaps {
-        let mut x = a;
-        while x + BAY_W <= b {
-            // Centre the bays of a gap.
-            let n = (b - a + 32) / (BAY_W + 32);
-            let used = n * BAY_W + (n - 1) * 32;
-            let first = a + (b - a - used) / 2;
-            let _ = x;
-            for k in 0..n.max(1) {
-                ground_bays.push((first + k * (BAY_W + 32)) / TILE * TILE);
-            }
-            break;
+        // Centre as many bays as fit in the gap.
+        let n = (b - a + 32) / (BAY_W + 32);
+        if n < 1 {
+            continue;
+        }
+        let used = n * BAY_W + (n - 1) * 32;
+        let first = a + (b - a - used) / 2;
+        for k in 0..n {
+            ground_bays.push((first + k * (BAY_W + 32)) / TILE * TILE);
         }
     }
     // Upper tiers continue over the whole width on the same 368 px pitch plus the
@@ -323,10 +321,16 @@ pub fn compose(room: &Room, base_layout: &Value) -> (Value, Plan) {
     }
     anchors.push(w - WALL_PX - 40);
     for tx in anchors {
-        if blocked_x.iter().any(|&(a, b)| a < tx + 24 && b > tx - 24 && a != b) {
+        if blocked_x
+            .iter()
+            .any(|&(a, b)| a < tx + 24 && b > tx - 24 && a != b)
+        {
             continue;
         }
-        plan.torches.push(Torch { x: tx, y: fr * TILE - 144 });
+        plan.torches.push(Torch {
+            x: tx,
+            y: fr * TILE - 144,
+        });
     }
     plan.torches.sort_by_key(|t| (t.x, t.y));
     plan.torches.dedup_by_key(|t| (t.x, t.y));
@@ -494,6 +498,17 @@ pub fn compose(room: &Room, base_layout: &Value) -> (Value, Plan) {
         room.exit.x - 24,
         room.floor_y - 136,
     );
+
+    // Heat vents of the room data are drawn with the kit's hazard grit (the only
+    // approved floor hazard piece) so the damage zone is never invisible.
+    for hz in &room.hazards {
+        place(
+            &mut prop,
+            "hazard_grit",
+            hz.rect.x + hz.rect.w / 2 - 48,
+            room.floor_y - 16,
+        );
+    }
 
     // Setting flavour: only existing pieces, re-arranged.
     match room.setting {

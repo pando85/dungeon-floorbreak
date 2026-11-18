@@ -151,7 +151,7 @@ pub fn output_scale(out_w: u32, cov_w: i32) -> f32 {
 /// True when every world pixel maps to a whole number of output pixels (no
 /// uneven texel widths).
 pub fn is_integer_scale(out_w: u32, cov_w: i32) -> bool {
-    out_w % cov_w as u32 == 0
+    out_w.is_multiple_of(cov_w as u32)
 }
 
 /// Widths in output pixels that the texels of a coverage take: `(narrow, wide)`.
@@ -253,12 +253,8 @@ pub fn required_width_in(aspect: Aspect, input: &CameraInput, bounds: Option<Bou
     w.max(h * BASE_W as f32 / aspect.base_h() as f32)
 }
 
-/// Bounding box (x0, x1, y0, y1) of the safety regions and the readable threat.
-fn framing_box(input: &CameraInput) -> (f32, f32, f32, f32) {
-    framing_box_in(input, None)
-}
-
-/// [`framing_box`] with the safety regions clipped to the camera bounds: an
+/// Bounding box (x0, x1, y0, y1) of the safety regions and the readable threat,
+/// with the safety regions clipped to the camera bounds: an
 /// actor standing at a wall cannot be padded beyond the wall.
 fn framing_box_in(input: &CameraInput, bounds: Option<Bounds>) -> (f32, f32, f32, f32) {
     let mut x0 = f32::MAX;
@@ -364,7 +360,9 @@ impl CameraOperator {
 
     /// True when every subject's safety region is inside the current view.
     pub fn safety_ok(&self, subjects: &[Subject]) -> bool {
-        subjects.iter().all(|s| safety_inside_in(self.view, s, self.bounds))
+        subjects
+            .iter()
+            .all(|s| safety_inside_in(self.view, s, self.bounds))
     }
 
     /// One presentation tick.
@@ -452,7 +450,11 @@ impl CameraOperator {
         }
         let want = lowest - (FLOOR_SHARE - 0.5) * h;
         let (lo, hi) = (y1 - h / 2.0, y0 + h / 2.0);
-        if lo <= hi { want.clamp(lo, hi) } else { (y0 + y1) / 2.0 }
+        if lo <= hi {
+            want.clamp(lo, hi)
+        } else {
+            (y0 + y1) / 2.0
+        }
     }
 
     fn step_pan(&mut self, input: &CameraInput) {
@@ -676,7 +678,7 @@ mod tests {
             ROOM,
             &input(&subs, None, false),
         );
-        assert_eq!(cam.view().w, 640 + 0 * 32 + 0, "close pair stays at 1.0x");
+        assert_eq!(cam.view().w, 640, "close pair stays at 1.0x");
         // Move Donut away slowly to a 700 px separation; the camera zooms out.
         let mut missed = 0;
         for tick in 0..900 {

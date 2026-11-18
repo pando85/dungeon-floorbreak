@@ -4,9 +4,7 @@
 //! reproduces exactly (state hash and event log) at every coverage.
 
 use super::room::{PropKind, Room};
-use super::sim::{
-    CARL, DONUT, Foe, FoeMode, Hittable, LabInput, LabSim, Mode, PropMode,
-};
+use super::sim::{CARL, DONUT, Foe, FoeMode, Hittable, LabInput, LabSim, Mode, PropMode};
 use crate::combat::EnemyAi;
 use crate::goblin::GoblinMode;
 use crate::prototype::Rect;
@@ -45,7 +43,11 @@ pub struct Script {
 }
 
 const fn d(from: u64, actor: usize, behavior: Behavior) -> Directive {
-    Directive { from, actor, behavior }
+    Directive {
+        from,
+        actor,
+        behavior,
+    }
 }
 
 /// One scripted run per room (2P with both actors scripted), plus a solo run of
@@ -54,18 +56,69 @@ pub fn scripts() -> Vec<Script> {
     use Behavior::*;
     let two = Mode::TwoPlayer;
     vec![
-        Script { room: 0, name: "room01_first_rematch", mode: two, seed: 1, ticks: 1500,
-            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(420, DONUT, Hunt)] },
-        Script { room: 1, name: "room02_hunters_from_above", mode: two, seed: 2, ticks: 1500,
-            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(300, DONUT, Climb(1)), d(700, DONUT, Hunt)] },
-        Script { room: 2, name: "room03_break_a_breach", mode: two, seed: 3, ticks: 1800,
-            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(360, DONUT, Hunt), d(560, CARL, BreakProp(2))] },
-        Script { room: 3, name: "room04_hoarder_lair", mode: two, seed: 4, ticks: 1800,
-            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(500, DONUT, Hunt)] },
-        Script { room: 4, name: "room05_gym_separation", mode: two, seed: 5, ticks: 2100,
-            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(1)), d(900, DONUT, Exit)] },
-        Script { room: 5, name: "room06_swine_boss", mode: two, seed: 6, ticks: 2400,
-            directives: vec![d(0, CARL, GoTo(900)), d(0, DONUT, GoTo(1020)), d(300, CARL, Hunt), d(300, DONUT, Hunt)] },
+        Script {
+            room: 0,
+            name: "room01_first_rematch",
+            mode: two,
+            seed: 1,
+            ticks: 1500,
+            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(420, DONUT, Hunt)],
+        },
+        Script {
+            room: 1,
+            name: "room02_hunters_from_above",
+            mode: two,
+            seed: 2,
+            ticks: 1500,
+            directives: vec![
+                d(0, CARL, Hunt),
+                d(0, DONUT, Climb(0)),
+                d(300, DONUT, Climb(1)),
+                d(700, DONUT, Hunt),
+            ],
+        },
+        Script {
+            room: 2,
+            name: "room03_break_a_breach",
+            mode: two,
+            seed: 3,
+            ticks: 1800,
+            directives: vec![
+                d(0, CARL, Hunt),
+                d(0, DONUT, Climb(0)),
+                d(360, DONUT, Hunt),
+                d(560, CARL, BreakProp(2)),
+            ],
+        },
+        Script {
+            room: 3,
+            name: "room04_hoarder_lair",
+            mode: two,
+            seed: 4,
+            ticks: 1800,
+            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(500, DONUT, Hunt)],
+        },
+        Script {
+            room: 4,
+            name: "room05_gym_separation",
+            mode: two,
+            seed: 5,
+            ticks: 2100,
+            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(1)), d(900, DONUT, Exit)],
+        },
+        Script {
+            room: 5,
+            name: "room06_swine_boss",
+            mode: two,
+            seed: 6,
+            ticks: 2400,
+            directives: vec![
+                d(0, CARL, GoTo(900)),
+                d(0, DONUT, GoTo(1020)),
+                d(300, CARL, Hunt),
+                d(300, DONUT, Hunt),
+            ],
+        },
     ]
 }
 
@@ -83,8 +136,7 @@ fn behavior_at(script: &Script, actor: usize, tick: u64) -> Behavior {
     script
         .directives
         .iter()
-        .filter(|d| d.actor == actor && d.from <= tick)
-        .last()
+        .rfind(|d| d.actor == actor && d.from <= tick)
         .map_or(Behavior::Idle, |d| d.behavior)
 }
 
@@ -128,7 +180,11 @@ pub fn bot_input(sim: &LabSim, actor: usize, behavior: Behavior) -> LabInput {
         return input;
     }
     let my_feet = me.body.feet_y();
-    let (stop, reach) = if actor == CARL { (26.0, 40.0) } else { (22.0, 34.0) };
+    let (stop, reach) = if actor == CARL {
+        (26.0, 40.0)
+    } else {
+        (22.0, 34.0)
+    };
     let mut tx = me.body.x;
     let mut attack_target: Option<(f32, f32)> = None;
     match behavior {
@@ -145,7 +201,10 @@ pub fn bot_input(sim: &LabSim, actor: usize, behavior: Behavior) -> LabInput {
                 let left = plat.x as f32 - 44.0;
                 let right = plat.right() as f32 + 44.0;
                 let from_left = (me.body.x - left).abs() <= (me.body.x - right).abs();
-                if sim.room.steps.iter().any(|s| s.x as f32 >= plat.x as f32 - 200.0 && (s.right() as f32) <= plat.x as f32) && actor == CARL {
+                if sim.room.steps.iter().any(|s| {
+                    s.x as f32 >= plat.x as f32 - 200.0 && (s.right() as f32) <= plat.x as f32
+                }) && actor == CARL
+                {
                     tx = plat.x as f32 + plat.w as f32 / 2.0;
                 } else {
                     tx = if from_left { left + 30.0 } else { right - 30.0 };
@@ -217,10 +276,10 @@ pub fn bot_input(sim: &LabSim, actor: usize, behavior: Behavior) -> LabInput {
                 if (t / 60) % 5 == 4 {
                     input.physical = t % 60 == 2;
                 } else {
-                    input.primary = t % 10 == 0;
+                    input.primary = t.is_multiple_of(10);
                 }
             } else {
-                input.primary = t % 14 == 0;
+                input.primary = t.is_multiple_of(14);
             }
         }
     }
@@ -235,7 +294,10 @@ pub fn bot_input(sim: &LabSim, actor: usize, behavior: Behavior) -> LabInput {
         let enemies = sim.room.enemies.len();
         let wall = sim.targets[enemies..].iter().find_map(|t| match t {
             Hittable::Prop(p)
-                if p.def.breakable && p.mode == PropMode::Intact && p.rect.overlaps(probe) && p.rect.height > 80.0 =>
+                if p.def.breakable
+                    && p.mode == PropMode::Intact
+                    && p.rect.overlaps(probe)
+                    && p.rect.height > 80.0 =>
             {
                 Some(p.rect)
             }
@@ -247,9 +309,9 @@ pub fn bot_input(sim: &LabSim, actor: usize, behavior: Behavior) -> LabInput {
             let t = sim.tick;
             input.move_x = input.move_x.signum() * 0.3;
             if actor == CARL {
-                input.primary = t % 10 == 0;
+                input.primary = t.is_multiple_of(10);
             } else {
-                input.primary = t % 14 == 0;
+                input.primary = t.is_multiple_of(14);
             }
             return input;
         }
@@ -262,7 +324,11 @@ pub fn bot_input(sim: &LabSim, actor: usize, behavior: Behavior) -> LabInput {
             width: 4.0,
             height: 6.0,
         };
-        if sim.blocks().iter().any(|b| b.intact && probe.overlaps(b.rect)) {
+        if sim
+            .blocks()
+            .iter()
+            .any(|b| b.intact && probe.overlaps(b.rect))
+        {
             input.jump = true;
         }
     }
@@ -289,7 +355,7 @@ pub fn run(room: &Room, script: &Script) -> Trace {
     for _ in 0..script.ticks {
         let inputs = script_inputs(&sim, script);
         sim.step(inputs);
-        if sim.tick % 60 == 0 {
+        if sim.tick.is_multiple_of(60) {
             hashes.push(sim.state_hash());
         }
     }
@@ -300,7 +366,10 @@ pub fn run(room: &Room, script: &Script) -> Trace {
         tick_hashes: hashes,
         alive_foes: sim.alive_foes(),
         broken_props: sim.broken_props(),
-        exits: [sim.actors[CARL].exit_reached, sim.actors[DONUT].exit_reached],
+        exits: [
+            sim.actors[CARL].exit_reached,
+            sim.actors[DONUT].exit_reached,
+        ],
         downs: [sim.actors[CARL].downs, sim.actors[DONUT].downs],
     }
 }

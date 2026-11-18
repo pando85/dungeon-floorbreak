@@ -32,7 +32,7 @@ use dungeon_floorbreak::{
     actor_sprite::{ActorSpec, actor_center, shadow_center_x},
     camera_lab::{
         art::{ArtSet, AtlasId, Clips, Pose},
-        camera_op::{Aspect, CameraMode, effective_px, is_integer_scale, MAX_W, View},
+        camera_op::{Aspect, CameraMode, MAX_W, View, effective_px, is_integer_scale},
         layout::build_kit,
         room::{PropKind, Room, load_rooms},
         script::{Script, script_inputs, scripts, solo_script},
@@ -43,8 +43,13 @@ use dungeon_floorbreak::{
         },
     },
     combat::CombatEvent,
-    env_kit::{Contract, EnvKit, IRect, animation_frame, parallax_copies, parallax_start, to_world_y},
-    light_pass::{LightPassPlugin, LightRig, LightingMaterial, PassFrame, SceneCamera, slot_layer, spawn_rig, update_rig},
+    env_kit::{
+        Contract, EnvKit, IRect, animation_frame, parallax_copies, parallax_start, to_world_y,
+    },
+    light_pass::{
+        LightPassPlugin, LightRig, LightingMaterial, PassFrame, SceneCamera, slot_layer, spawn_rig,
+        update_rig,
+    },
     lighting::{MAX_SHADOWS, ShadowEllipse, ViewRect, contact_shadow},
 };
 
@@ -97,7 +102,11 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
     };
     let mut it = raw.iter().skip(1);
     while let Some(flag) = it.next() {
-        let mut value = || it.next().cloned().ok_or_else(|| format!("{flag} needs a value"));
+        let mut value = || {
+            it.next()
+                .cloned()
+                .ok_or_else(|| format!("{flag} needs a value"))
+        };
         match flag.as_str() {
             "--room" => {
                 let n: usize = value()?.parse().map_err(|_| "--room 1..6")?;
@@ -128,25 +137,35 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
             "--output" => {
                 let v = value()?;
                 let (w, h) = v.split_once('x').ok_or("--output WxH")?;
-                a.output = (w.parse().map_err(|_| "--output WxH")?, h.parse().map_err(|_| "--output WxH")?);
+                a.output = (
+                    w.parse().map_err(|_| "--output WxH")?,
+                    h.parse().map_err(|_| "--output WxH")?,
+                );
             }
             "--seed" => a.seed = value()?.parse().map_err(|_| "--seed N")?,
             "--script" => a.script = true,
             "--idle" => a.idle = true,
             "--headless" => a.headless = true,
             "--ticks" => a.ticks = Some(value()?.parse().map_err(|_| "--ticks N")?),
-            "--exit-after-ticks" => a.exit_after_ticks = Some(value()?.parse().map_err(|_| "--exit-after-ticks N")?),
+            "--exit-after-ticks" => {
+                a.exit_after_ticks = Some(value()?.parse().map_err(|_| "--exit-after-ticks N")?)
+            }
             "--capture-sequence" => {
                 let v = value()?;
                 let p: Vec<&str> = v.split(':').collect();
                 if p.len() != 3 {
                     return Err("--capture-sequence first:step:count".into());
                 }
-                let n = |s: &str| s.parse::<u64>().map_err(|_| "--capture-sequence first:step:count".to_owned());
+                let n = |s: &str| {
+                    s.parse::<u64>()
+                        .map_err(|_| "--capture-sequence first:step:count".to_owned())
+                };
                 a.capture_sequence = Some((n(p[0])?, n(p[1])?, n(p[2])?));
             }
             "--capture-dir" => a.capture_dir = Some(PathBuf::from(value()?)),
-            "--perf-frames" => a.perf_frames = Some(value()?.parse().map_err(|_| "--perf-frames N")?),
+            "--perf-frames" => {
+                a.perf_frames = Some(value()?.parse().map_err(|_| "--perf-frames N")?)
+            }
             "--start-tick" => a.start_tick = value()?.parse().map_err(|_| "--start-tick N")?,
             "--separate" => a.separate = Some(value()?.parse().map_err(|_| "--separate X")?),
             "--help" | "-h" => {
@@ -169,11 +188,19 @@ fn failure(message: &str) -> ExitCode {
 }
 
 fn inputs_of(sim: &LabSim, script: &Script, idle: bool) -> [LabInput; 2] {
-    if idle { [LabInput::default(); 2] } else { script_inputs(sim, script) }
+    if idle {
+        [LabInput::default(); 2]
+    } else {
+        script_inputs(sim, script)
+    }
 }
 
 fn script_for(room: usize, mode: Mode) -> Script {
-    if mode == Mode::Solo { solo_script(room) } else { scripts().remove(room) }
+    if mode == Mode::Solo {
+        solo_script(room)
+    } else {
+        scripts().remove(room)
+    }
 }
 
 fn main() -> ExitCode {
@@ -196,7 +223,13 @@ fn main() -> ExitCode {
     let room = rooms[args.room].clone();
     let aspect = Aspect::from_output(args.output.0, args.output.1);
     let script = script_for(args.room, args.mode);
-    let mut session = Session::new(&room, args.mode, if args.script { script.seed } else { args.seed }, args.coverage, aspect);
+    let mut session = Session::new(
+        &room,
+        args.mode,
+        if args.script { script.seed } else { args.seed },
+        args.coverage,
+        aspect,
+    );
     if let Some(x) = args.separate {
         separate(&mut session, x);
         session.reframe();
@@ -217,7 +250,9 @@ fn main() -> ExitCode {
         }
     };
     // Pre-simulate the script to the requested start tick.
-    let start = args.capture_sequence.map_or(args.start_tick, |c| c.0.max(args.start_tick));
+    let start = args
+        .capture_sequence
+        .map_or(args.start_tick, |c| c.0.max(args.start_tick));
     if args.script || start > 0 {
         for _ in 0..start {
             let inputs = inputs_of(&session.sim, &script, args.idle);
@@ -245,7 +280,16 @@ fn headless(room: &Room, session: &mut Session, script: &Script, args: &Args) ->
     let ticks = args.ticks.unwrap_or(script.ticks);
     println!(
         "LAB_START room={} name={:?} mode={:?} seed={} ticks={} coverage={:?} aspect={:?} render={}x{} floor={}",
-        room.id, room.name, script.mode, script.seed, ticks, args.coverage, session.aspect, room.render.0, room.render.1, room.floor_y
+        room.id,
+        room.name,
+        script.mode,
+        script.seed,
+        ticks,
+        args.coverage,
+        session.aspect,
+        room.render.0,
+        room.render.1,
+        room.floor_y
     );
     for _ in 0..ticks {
         let inputs = if args.script || script.mode == Mode::Solo || args.mode == Mode::TwoPlayer {
@@ -257,11 +301,17 @@ fn headless(room: &Room, session: &mut Session, script: &Script, args: &Args) ->
         for e in session.sim.take_new_events() {
             println!("{e}");
         }
-        if session.sim.tick % 60 == 0 {
+        if session.sim.tick.is_multiple_of(60) {
             println!("{}", session.sim.state_line());
             println!(
                 "LAB_CAMERA tick={} left={} top={} w={} h={} coverage={:.3} zoom_changes={}",
-                session.sim.tick, view.left, view.top, view.w, view.h, session.camera.coverage(), session.camera.zoom_changes
+                session.sim.tick,
+                view.left,
+                view.top,
+                view.w,
+                view.h,
+                session.camera.coverage(),
+                session.camera.zoom_changes
             );
         }
     }
@@ -370,15 +420,28 @@ struct FxSprite {
 // ---------------------------------------------------------------------- setup
 
 fn image_rect(r: IRect) -> Rect {
-    Rect::new(r.x as f32, r.y as f32, (r.x + r.w) as f32, (r.y + r.h) as f32)
+    Rect::new(
+        r.x as f32,
+        r.y as f32,
+        (r.x + r.w) as f32,
+        (r.y + r.h) as f32,
+    )
 }
 
 fn atlas_sprite(image: &Handle<Image>, rect: IRect) -> Sprite {
-    Sprite { image: image.clone(), rect: Some(image_rect(rect)), ..default() }
+    Sprite {
+        image: image.clone(),
+        rect: Some(image_rect(rect)),
+        ..default()
+    }
 }
 
 fn piece_of<'a>(contract: &'a Contract, id: &str) -> &'a dungeon_floorbreak::env_kit::PieceDef {
-    contract.pieces.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("kit piece {id}"))
+    contract
+        .pieces
+        .iter()
+        .find(|p| p.id == id)
+        .unwrap_or_else(|| panic!("kit piece {id}"))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -394,10 +457,17 @@ fn run_window(
 ) {
     let asset_directory = root.join("generated/art").to_string_lossy().into_owned();
     let frozen = args.capture_sequence.is_some();
-    let present_mode = if args.perf_frames.is_some() { PresentMode::AutoNoVsync } else { PresentMode::AutoVsync };
+    let present_mode = if args.perf_frames.is_some() {
+        PresentMode::AutoNoVsync
+    } else {
+        PresentMode::AutoVsync
+    };
     let lab = Lab {
         session,
-        scripted: args.script || args.capture_sequence.is_some() || args.perf_frames.is_some() || args.exit_after_ticks.is_some(),
+        scripted: args.script
+            || args.capture_sequence.is_some()
+            || args.perf_frames.is_some()
+            || args.exit_after_ticks.is_some(),
         script,
         frozen,
         idle: args.idle,
@@ -408,12 +478,16 @@ fn run_window(
     app.add_plugins(
         DefaultPlugins
             .set(ImagePlugin::default_nearest())
-            .set(AssetPlugin { file_path: asset_directory, ..default() })
+            .set(AssetPlugin {
+                file_path: asset_directory,
+                ..default()
+            })
             .disable::<bevy::audio::AudioPlugin>()
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: TITLE.into(),
-                    resolution: WindowResolution::new(args.output.0, args.output.1).with_scale_factor_override(1.0),
+                    resolution: WindowResolution::new(args.output.0, args.output.1)
+                        .with_scale_factor_override(1.0),
                     resizable: false,
                     present_mode,
                     ..default()
@@ -424,25 +498,48 @@ fn run_window(
     .insert_resource(ClearColor(Color::srgb_u8(6, 5, 12)))
     .insert_resource(Time::<Fixed>::from_hz(60.0))
     .insert_resource(lab)
-    .insert_resource(Setup { kit, contract, art, room, args: args.clone() })
+    .insert_resource(Setup {
+        kit,
+        contract,
+        art,
+        room,
+        args: args.clone(),
+    })
     .init_resource::<Taps>()
     .init_resource::<Fx>()
     .add_systems(Startup, setup)
     .add_systems(
         Update,
-        (capture_input, sync_visuals, spawn_fx, update_lighting, watchdog, perf_probe, capture_sequence).chain(),
+        (
+            capture_input,
+            sync_visuals,
+            spawn_fx,
+            update_lighting,
+            watchdog,
+            perf_probe,
+            capture_sequence,
+        )
+            .chain(),
     )
     .add_systems(FixedUpdate, fixed_step)
     .add_plugins(LightPassPlugin);
     if let Some(target) = args.perf_frames {
-        app.insert_resource(Perf { target, warmup: 120, seen: 0, intervals_ms: Vec::with_capacity(target) });
+        app.insert_resource(Perf {
+            target,
+            warmup: 120,
+            seen: 0,
+            intervals_ms: Vec::with_capacity(target),
+        });
     }
     if let Some((first, step, count)) = args.capture_sequence {
         app.insert_resource(CaptureSequence {
             _first: first,
             step,
             count,
-            dir: args.capture_dir.clone().unwrap_or_else(|| PathBuf::from("artifacts/camera-lab")),
+            dir: args
+                .capture_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("artifacts/camera-lab")),
             index: 0,
             phase: CapturePhase::WaitReady,
         });
@@ -464,15 +561,29 @@ fn setup(
     let _ = &mut layouts;
     let kit = &setup.kit;
     let height = kit.height;
-    let lighting = kit.lighting.as_ref().expect("the lab layouts carry the A1 lighting profile");
+    let lighting = kit
+        .lighting
+        .as_ref()
+        .expect("the lab layouts carry the A1 lighting profile");
     let layers_of = |layer: &str| -> RenderLayers {
-        lighting.plan.layer_slot.get(layer).map_or_else(RenderLayers::default, |slot| slot_layer(*slot))
+        lighting
+            .plan
+            .layer_slot
+            .get(layer)
+            .map_or_else(RenderLayers::default, |slot| slot_layer(*slot))
     };
     let aspect = lab.session.aspect;
     let max_h = aspect.height_for(MAX_W);
     // Slot targets are allocated for the largest coverage; each frame renders the
     // current coverage 1:1 into the top-left region (see `sync_visuals`).
-    let rig = spawn_rig(&mut commands, &mut images, &mut meshes, &mut materials, lighting, UVec2::new(MAX_W as u32, max_h as u32));
+    let rig = spawn_rig(
+        &mut commands,
+        &mut images,
+        &mut meshes,
+        &mut materials,
+        lighting,
+        UVec2::new(MAX_W as u32, max_h as u32),
+    );
     commands.insert_resource(rig);
 
     let mut handles: Vec<(String, Handle<Image>)> = Vec::new();
@@ -482,14 +593,22 @@ fn setup(
     let kit_handles = handles.clone();
     commands.insert_resource(AtlasHandles(kit_handles.iter().cloned().collect()));
     let atlas = |name: &str| -> Handle<Image> {
-        kit_handles.iter().find(|(n, _)| n == name).map(|(_, h)| h.clone()).unwrap_or_else(|| panic!("atlas {name}"))
+        kit_handles
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, h)| h.clone())
+            .unwrap_or_else(|| panic!("atlas {name}"))
     };
 
     for tile in &kit.tiles {
         commands.spawn((
             atlas_sprite(&atlas(&tile.atlas), tile.rect),
             Anchor::TOP_LEFT,
-            Transform::from_xyz((tile.col * kit.tile) as f32, to_world_y(height, tile.row * kit.tile), tile.z),
+            Transform::from_xyz(
+                (tile.col * kit.tile) as f32,
+                to_world_y(height, tile.row * kit.tile),
+                tile.z,
+            ),
             layers_of(&tile.layer),
         ));
     }
@@ -525,30 +644,56 @@ fn setup(
 
     // Actor and enemy textures.
     let mut tex: std::collections::BTreeMap<AtlasId, Handle<Image>> = Default::default();
-    for (id, _) in setup.art.clips.iter() {
+    for id in setup.art.clips.keys() {
         let h: Handle<Image> = asset_server.load(id.image().to_owned());
         handles.push((id.image().to_owned(), h.clone()));
         tex.insert(*id, h);
     }
     let sprite_of = |id: AtlasId, z: f32, layers: RenderLayers| {
         (
-            Sprite { image: tex[&id].clone(), rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)), ..default() },
+            Sprite {
+                image: tex[&id].clone(),
+                rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                ..default()
+            },
             Transform::from_xyz(0.0, 0.0, z),
             Visibility::Hidden,
             layers,
         )
     };
     let actors_layer = layers_of("actors");
-    for (i, (loco, melee)) in [(AtlasId::CarlLoco, AtlasId::CarlMelee), (AtlasId::DonutLoco, AtlasId::DonutMelee)].into_iter().enumerate() {
+    for (i, (loco, melee)) in [
+        (AtlasId::CarlLoco, AtlasId::CarlMelee),
+        (AtlasId::DonutLoco, AtlasId::DonutMelee),
+    ]
+    .into_iter()
+    .enumerate()
+    {
         let z = kit.actor_z + if i == CARL { ACTOR_Z_CARL } else { 0.0 };
-        commands.spawn((ActorSprite { actor: i, melee: false }, sprite_of(loco, z, actors_layer.clone())));
-        commands.spawn((ActorSprite { actor: i, melee: true }, sprite_of(melee, z, actors_layer.clone())));
+        commands.spawn((
+            ActorSprite {
+                actor: i,
+                melee: false,
+            },
+            sprite_of(loco, z, actors_layer.clone()),
+        ));
+        commands.spawn((
+            ActorSprite {
+                actor: i,
+                melee: true,
+            },
+            sprite_of(melee, z, actors_layer.clone()),
+        ));
     }
     let sim = &lab.session.sim;
     for (index, t) in sim.targets.iter().enumerate() {
         let id = match t {
             Hittable::Goblin(_) => {
-                if index % 2 == 0 { AtlasId::GoblinA } else { AtlasId::GoblinB }
+                if index % 2 == 0 {
+                    AtlasId::GoblinA
+                } else {
+                    AtlasId::GoblinB
+                }
             }
             Hittable::Foe(f) => match f.spec.kind {
                 dungeon_floorbreak::camera_lab::room::EnemyKind::Llama => AtlasId::Llama,
@@ -563,7 +708,11 @@ fn setup(
         };
         commands.spawn((
             FoeSprite { index },
-            sprite_of(id, kit.actor_z + FOE_Z - index as f32 * 0.001, actors_layer.clone()),
+            sprite_of(
+                id,
+                kit.actor_z + FOE_Z - index as f32 * 0.001,
+                actors_layer.clone(),
+            ),
         ));
     }
     // Props: a sprite per prop (two leaves for the gate), art chosen per state.
@@ -575,7 +724,11 @@ fn setup(
             let piece = piece_of(&setup.contract, "loose_block_seated");
             commands.spawn((
                 PropSprite { prop, part },
-                Sprite { image: atlas(&piece.atlas), rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)), ..default() },
+                Sprite {
+                    image: atlas(&piece.atlas),
+                    rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                    ..default()
+                },
                 Transform::from_xyz(0.0, 0.0, layer_z_of(kit, "prop") + 0.5),
                 Visibility::Hidden,
                 layers_of("prop"),
@@ -587,14 +740,23 @@ fn setup(
         let piece = piece_of(&setup.contract, "loose_block_seated");
         commands.spawn((
             ProjSprite { slot },
-            Sprite { image: atlas(&piece.atlas), custom_size: Some(Vec2::new(5.0, 5.0)), color: Color::srgb(0.7, 1.0, 0.35), rect: None, ..default() },
+            Sprite {
+                image: atlas(&piece.atlas),
+                custom_size: Some(Vec2::new(5.0, 5.0)),
+                color: Color::srgb(0.7, 1.0, 0.35),
+                rect: None,
+                ..default()
+            },
             Transform::from_xyz(0.0, 0.0, kit.actor_z + 0.3),
             Visibility::Hidden,
             actors_layer.clone(),
         ));
     }
     let _ = (&setup.room, atlas_clone(&handles));
-    handles.push(("fx".into(), asset_server.load("vfx_hit_spark_metal.png".to_owned())));
+    handles.push((
+        "fx".into(),
+        asset_server.load("vfx_hit_spark_metal.png".to_owned()),
+    ));
     println!(
         "LAB_ENTITIES room={} tiles={} pieces={} parallax_copies={} foes={} props={} render={}x{}",
         setup.room.id,
@@ -606,7 +768,10 @@ fn setup(
         kit.width,
         kit.height
     );
-    commands.insert_resource(Loading { handles, reported: false });
+    commands.insert_resource(Loading {
+        handles,
+        reported: false,
+    });
 }
 
 fn atlas_clone(h: &[(String, Handle<Image>)]) -> usize {
@@ -665,19 +830,32 @@ fn capture_input(
         if keys.just_pressed(key) {
             let aspect = lab.session.aspect;
             let room = lab.session.sim.room.clone();
-            let (subjects, threat, hold) = dungeon_floorbreak::camera_lab::session::camera_input_of(&lab.session.sim);
+            let (subjects, threat, hold) =
+                dungeon_floorbreak::camera_lab::session::camera_input_of(&lab.session.sim);
             lab.session.camera = dungeon_floorbreak::camera_lab::camera_op::CameraOperator::new(
                 mode,
                 aspect,
-                dungeon_floorbreak::camera_lab::camera_op::Bounds { w: room.render.0, h: room.render.1 },
-                &dungeon_floorbreak::camera_lab::camera_op::CameraInput { subjects: &subjects, threat, impact_hold: hold },
+                dungeon_floorbreak::camera_lab::camera_op::Bounds {
+                    w: room.render.0,
+                    h: room.render.1,
+                },
+                &dungeon_floorbreak::camera_lab::camera_op::CameraInput {
+                    subjects: &subjects,
+                    threat,
+                    impact_hold: hold,
+                },
             );
             println!("LAB_COVERAGE {mode:?}");
         }
     }
 }
 
-fn manual_inputs(keys: &ButtonInput<KeyCode>, pads: &Query<&Gamepad>, taps: &mut Taps, mode: Mode) -> [LabInput; 2] {
+fn manual_inputs(
+    keys: &ButtonInput<KeyCode>,
+    pads: &Query<&Gamepad>,
+    taps: &mut Taps,
+    mode: Mode,
+) -> [LabInput; 2] {
     let axis = |neg: &[KeyCode], pos: &[KeyCode]| -> f32 {
         let l = neg.iter().any(|k| keys.pressed(*k));
         let r = pos.iter().any(|k| keys.pressed(*k));
@@ -704,8 +882,18 @@ fn manual_inputs(keys: &ButtonInput<KeyCode>, pads: &Query<&Gamepad>, taps: &mut
     }
     for (i, pad) in pads.iter().take(2).enumerate() {
         let stick = pad.left_stick().x;
-        let x = if stick.abs() > 0.18 { stick } else { pad.dpad().x };
-        let target = if mode == Mode::Solo { &mut a } else if i == 0 { &mut a } else { &mut b };
+        let x = if stick.abs() > 0.18 {
+            stick
+        } else {
+            pad.dpad().x
+        };
+        // Solo: any pad drives the controlled actor; 2P: pad 1 is player 1, pad 2
+        // player 2.
+        let target = if mode == Mode::Solo || i == 0 {
+            &mut a
+        } else {
+            &mut b
+        };
         if x != 0.0 {
             target.move_x = x;
         }
@@ -720,7 +908,11 @@ fn manual_inputs(keys: &ButtonInput<KeyCode>, pads: &Query<&Gamepad>, taps: &mut
             break;
         }
     }
-    *taps = Taps { switch: false, restart: taps.restart, ..Taps::default() };
+    *taps = Taps {
+        switch: false,
+        restart: taps.restart,
+        ..Taps::default()
+    };
     [a, b]
 }
 
@@ -779,13 +971,69 @@ fn sync_visuals(
     setup: Res<Setup>,
     atlas_handles: Option<Res<AtlasHandles>>,
     mut cameras: Query<(&mut Camera, &mut Projection, &mut Transform), With<SceneCamera>>,
-    mut parallax: Query<(&Parallax, &mut Transform, &mut Visibility), (Without<SceneCamera>, Without<ActorSprite>)>,
-    mut torches: Query<(&Torch, &mut Sprite), (Without<ActorSprite>, Without<FoeSprite>, Without<PropSprite>, Without<ProjSprite>, Without<FxSprite>)>,
-    mut actor_sprites: Query<(&ActorSprite, &mut Transform, &mut Sprite, &mut Visibility), (Without<SceneCamera>, Without<Parallax>, Without<FoeSprite>, Without<PropSprite>, Without<ProjSprite>)>,
-    mut foe_sprites: Query<(&FoeSprite, &mut Transform, &mut Sprite, &mut Visibility), (Without<SceneCamera>, Without<Parallax>, Without<ActorSprite>, Without<PropSprite>, Without<ProjSprite>)>,
-    mut prop_sprites: Query<(&PropSprite, &mut Transform, &mut Sprite, &mut Visibility), (Without<SceneCamera>, Without<Parallax>, Without<ActorSprite>, Without<FoeSprite>, Without<ProjSprite>)>,
-    mut proj_sprites: Query<(&ProjSprite, &mut Transform, &mut Visibility), (Without<SceneCamera>, Without<Parallax>, Without<ActorSprite>, Without<FoeSprite>, Without<PropSprite>)>,
-    mut fx_sprites: Query<(&FxSprite, &mut Sprite), (Without<ActorSprite>, Without<FoeSprite>, Without<PropSprite>, Without<Torch>)>,
+    mut parallax: Query<
+        (&Parallax, &mut Transform, &mut Visibility),
+        (Without<SceneCamera>, Without<ActorSprite>),
+    >,
+    mut torches: Query<
+        (&Torch, &mut Sprite),
+        (
+            Without<ActorSprite>,
+            Without<FoeSprite>,
+            Without<PropSprite>,
+            Without<ProjSprite>,
+            Without<FxSprite>,
+        ),
+    >,
+    mut actor_sprites: Query<
+        (&ActorSprite, &mut Transform, &mut Sprite, &mut Visibility),
+        (
+            Without<SceneCamera>,
+            Without<Parallax>,
+            Without<FoeSprite>,
+            Without<PropSprite>,
+            Without<ProjSprite>,
+        ),
+    >,
+    mut foe_sprites: Query<
+        (&FoeSprite, &mut Transform, &mut Sprite, &mut Visibility),
+        (
+            Without<SceneCamera>,
+            Without<Parallax>,
+            Without<ActorSprite>,
+            Without<PropSprite>,
+            Without<ProjSprite>,
+        ),
+    >,
+    mut prop_sprites: Query<
+        (&PropSprite, &mut Transform, &mut Sprite, &mut Visibility),
+        (
+            Without<SceneCamera>,
+            Without<Parallax>,
+            Without<ActorSprite>,
+            Without<FoeSprite>,
+            Without<ProjSprite>,
+        ),
+    >,
+    mut proj_sprites: Query<
+        (&ProjSprite, &mut Transform, &mut Visibility),
+        (
+            Without<SceneCamera>,
+            Without<Parallax>,
+            Without<ActorSprite>,
+            Without<FoeSprite>,
+            Without<PropSprite>,
+        ),
+    >,
+    mut fx_sprites: Query<
+        (&FxSprite, &mut Sprite),
+        (
+            Without<ActorSprite>,
+            Without<FoeSprite>,
+            Without<PropSprite>,
+            Without<Torch>,
+        ),
+    >,
 ) {
     let kit = &setup.kit;
     let sim = &lab.session.sim;
@@ -802,7 +1050,10 @@ fn sync_visuals(
             ..default()
         });
         if let Projection::Orthographic(o) = projection.as_mut() {
-            o.scaling_mode = bevy::camera::ScalingMode::Fixed { width: view.w as f32, height: view.h as f32 };
+            o.scaling_mode = bevy::camera::ScalingMode::Fixed {
+                width: view.w as f32,
+                height: view.h as f32,
+            };
         }
         tf.translation.x = (view.left + view.w / 2) as f32;
         tf.translation.y = to_world_y(height, view.top + view.h / 2);
@@ -834,21 +1085,40 @@ fn sync_visuals(
         shadow_width: c.frame_w,
         shadow_pivot_x: c.pivot.0,
     };
-    let place = |pose: &Pose, tf: &mut Transform, sprite: &mut Sprite, vis: &mut Visibility, shown: bool| {
+    let place = |pose: &Pose,
+                 tf: &mut Transform,
+                 sprite: &mut Sprite,
+                 vis: &mut Visibility,
+                 shown: bool| {
         let c = art.get(pose.atlas);
         let (cx, cy) = actor_center(spec_of(c), pose.foot_x, pose.foot_y, pose.flip);
         tf.translation.x = cx;
         tf.translation.y = cy;
         sprite.flip_x = pose.flip;
         let (r, _) = c.frames[pose.frame];
-        sprite.rect = Some(Rect::new(r.x as f32, r.y as f32, (r.x + r.w) as f32, (r.y + r.h) as f32));
-        sprite.color = if pose.flash { Color::linear_rgb(2.0, 2.0, 2.0) } else { Color::WHITE };
-        *vis = if shown { Visibility::Inherited } else { Visibility::Hidden };
+        sprite.rect = Some(Rect::new(
+            r.x as f32,
+            r.y as f32,
+            (r.x + r.w) as f32,
+            (r.y + r.h) as f32,
+        ));
+        sprite.color = if pose.flash {
+            Color::linear_rgb(2.0, 2.0, 2.0)
+        } else {
+            Color::WHITE
+        };
+        *vis = if shown {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
     };
     for (a, mut tf, mut sprite, mut vis) in &mut actor_sprites {
         let pose = art.actor_pose(sim, a.actor);
         let melee_pose = matches!(pose.atlas, AtlasId::CarlMelee | AtlasId::DonutMelee);
-        let flash = sim.actors[a.actor].invuln > 0 && (sim.tick / 3) % 2 == 0 && sim.actors[a.actor].invuln > 40;
+        let flash = sim.actors[a.actor].invuln > 0
+            && (sim.tick / 3).is_multiple_of(2)
+            && sim.actors[a.actor].invuln > 40;
         let pose = Pose { flash, ..pose };
         place(&pose, &mut tf, &mut sprite, &mut vis, melee_pose == a.melee);
     }
@@ -858,13 +1128,18 @@ fn sync_visuals(
             Hittable::Foe(foe) => (art.foe_pose(sim, f.index, foe), foe.hit_stop > 0),
             Hittable::Prop(_) => continue,
         };
-        let pose = Pose { flash: hit && tick.saturating_sub(sim.last_hit_tick) < 3, ..pose };
+        let pose = Pose {
+            flash: hit && tick.saturating_sub(sim.last_hit_tick) < 3,
+            ..pose
+        };
         place(&pose, &mut tf, &mut sprite, &mut vis, true);
     }
     // Props.
     let piece = |id: &str| piece_of(&setup.contract, id);
     for (p, mut tf, mut sprite, mut vis) in &mut prop_sprites {
-        let Hittable::Prop(ps) = &sim.targets[sim.room.enemies.len() + p.prop] else { continue };
+        let Hittable::Prop(ps) = &sim.targets[sim.room.enemies.len() + p.prop] else {
+            continue;
+        };
         let (id, shown) = prop_art(ps, p.part);
         let Some(id) = id else {
             *vis = Visibility::Hidden;
@@ -874,7 +1149,12 @@ fn sync_visuals(
         if let Some(h) = atlas_handles.as_ref().and_then(|a| a.0.get(&def.atlas)) {
             sprite.image = h.clone();
         }
-        sprite.rect = Some(Rect::new(def.rect[0] as f32, def.rect[1] as f32, (def.rect[0] + def.rect[2]) as f32, (def.rect[1] + def.rect[3]) as f32));
+        sprite.rect = Some(Rect::new(
+            def.rect[0] as f32,
+            def.rect[1] as f32,
+            (def.rect[0] + def.rect[2]) as f32,
+            (def.rect[1] + def.rect[3]) as f32,
+        ));
         let (w, h) = (def.rect[2] as f32, def.rect[3] as f32);
         let r = ps.rect;
         let cx = r.left + r.width / 2.0;
@@ -882,15 +1162,17 @@ fn sync_visuals(
         let (x, bottom) = if ps.def.kind == PropKind::Gate {
             let lift = gate_open_at(sim.tick) * (r.height - 6.0);
             (cx, r.bottom + lift + p.part as f32 * 88.0)
-        } else if ps.def.kind == PropKind::HangingWeight {
-            (cx, r.bottom)
         } else {
             (cx, r.bottom)
         };
         tf.translation.x = (x).round();
         tf.translation.y = (bottom + h / 2.0).round();
         let _ = w;
-        *vis = if shown { Visibility::Inherited } else { Visibility::Hidden };
+        *vis = if shown {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
     }
     for (pj, mut tf, mut vis) in &mut proj_sprites {
         match sim.projectiles.get(pj.slot) {
@@ -922,7 +1204,9 @@ fn sync_visuals(
 fn prop_art(ps: &PropState, part: usize) -> (Option<&'static str>, bool) {
     use PropMode::*;
     match (ps.def.kind, ps.mode) {
-        (PropKind::Crate, Intact) | (PropKind::Weight, Intact) => (Some("loose_block_seated"), true),
+        (PropKind::Crate, Intact) | (PropKind::Weight, Intact) => {
+            (Some("loose_block_seated"), true)
+        }
         (PropKind::Crate, _) | (PropKind::Weight, _) => (Some("loose_block_landed"), true),
         (PropKind::WeakWall, Intact) => (Some("timber_set_intact"), true),
         (PropKind::WeakWall, _) => (Some("timber_set_smashed"), true),
@@ -956,7 +1240,11 @@ fn spawn_fx(
     let sim = &lab.session.sim;
     let kit = &setup.kit;
     let lighting = kit.lighting.as_ref().unwrap();
-    let actors = lighting.plan.layer_slot.get("actors").map_or_else(RenderLayers::default, |s| slot_layer(*s));
+    let actors = lighting
+        .plan
+        .layer_slot
+        .get("actors")
+        .map_or_else(RenderLayers::default, |s| slot_layer(*s));
     for event in sim.events.iter().skip(fx.events_seen) {
         match *event {
             LabEvent::Combat(CombatEvent::Hit { target, tick, .. }) => {
@@ -970,23 +1258,55 @@ fn spawn_fx(
                     .into_iter()
                     .map(|i| {
                         let (r, d) = c.frames[i];
-                        (Rect::new(r.x as f32, r.y as f32, (r.x + r.w) as f32, (r.y + r.h) as f32), d)
+                        (
+                            Rect::new(
+                                r.x as f32,
+                                r.y as f32,
+                                (r.x + r.w) as f32,
+                                (r.y + r.h) as f32,
+                            ),
+                            d,
+                        )
                     })
                     .collect();
-                spawn_fx_sprite(&mut commands, asset_server.load("vfx_hit_spark_metal.png".to_owned()), tick, frames, (cx.round(), cy.round()), kit.actor_z + 0.4, actors.clone());
+                spawn_fx_sprite(
+                    &mut commands,
+                    asset_server.load("vfx_hit_spark_metal.png".to_owned()),
+                    tick,
+                    frames,
+                    (cx.round(), cy.round()),
+                    kit.actor_z + 0.4,
+                    actors.clone(),
+                );
             }
             LabEvent::PropBroken { tick, prop, .. } => {
                 if let Hittable::Prop(p) = &sim.targets[sim.room.enemies.len() + prop as usize] {
                     let def = piece_of(&setup.contract, "timber_splinter_burst");
                     let (cx, cy) = p.rect.center();
-                    spawn_piece_fx(&mut commands, &asset_server, kit, def, tick, (cx.round(), cy.round()), actors.clone());
+                    spawn_piece_fx(
+                        &mut commands,
+                        &asset_server,
+                        kit,
+                        def,
+                        tick,
+                        (cx.round(), cy.round()),
+                        actors.clone(),
+                    );
                 }
             }
             LabEvent::WeightLanded { tick, prop, x } => {
                 let def = piece_of(&setup.contract, "block_impact_dust");
                 let floor = sim.floor_top();
                 let _ = prop;
-                spawn_piece_fx(&mut commands, &asset_server, kit, def, tick, (x as f32, floor + 20.0), actors.clone());
+                spawn_piece_fx(
+                    &mut commands,
+                    &asset_server,
+                    kit,
+                    def,
+                    tick,
+                    (x as f32, floor + 20.0),
+                    actors.clone(),
+                );
             }
             _ => {}
         }
@@ -1015,10 +1335,21 @@ fn spawn_fx_sprite(
     layers: RenderLayers,
 ) {
     let rects: Vec<Rect> = frames.iter().map(|f| f.0).collect();
-    let durations: Vec<u32> = frames.iter().map(|f| ((f.1 as f32) * 0.06).round().max(1.0) as u32).collect();
+    let durations: Vec<u32> = frames
+        .iter()
+        .map(|f| ((f.1 as f32) * 0.06).round().max(1.0) as u32)
+        .collect();
     commands.spawn((
-        FxSprite { start, rects: rects.clone(), durations },
-        Sprite { image, rect: Some(rects[0]), ..default() },
+        FxSprite {
+            start,
+            rects: rects.clone(),
+            durations,
+        },
+        Sprite {
+            image,
+            rect: Some(rects[0]),
+            ..default()
+        },
         Transform::from_xyz(at.0, at.1, z),
         layers,
     ));
@@ -1033,19 +1364,42 @@ fn spawn_piece_fx(
     at: (f32, f32),
     layers: RenderLayers,
 ) {
-    let Some(anim) = def.animation.as_ref() else { return };
+    let Some(anim) = def.animation.as_ref() else {
+        return;
+    };
     let asset = kit.atlases[&def.atlas].clone();
     let frames: Vec<(Rect, u32)> = anim
         .frames
         .iter()
-        .map(|f| (Rect::new(f.frame.x as f32, f.frame.y as f32, (f.frame.x + f.frame.w) as f32, (f.frame.y + f.frame.h) as f32), f.duration))
+        .map(|f| {
+            (
+                Rect::new(
+                    f.frame.x as f32,
+                    f.frame.y as f32,
+                    (f.frame.x + f.frame.w) as f32,
+                    (f.frame.y + f.frame.h) as f32,
+                ),
+                f.duration,
+            )
+        })
         .collect();
     let rects: Vec<Rect> = frames.iter().map(|f| f.0).collect();
     // The piece durations are in milliseconds.
-    let durations: Vec<u32> = frames.iter().map(|f| ((f.1 as f32) * 0.06).round().max(1.0) as u32).collect();
+    let durations: Vec<u32> = frames
+        .iter()
+        .map(|f| ((f.1 as f32) * 0.06).round().max(1.0) as u32)
+        .collect();
     commands.spawn((
-        FxSprite { start, rects: rects.clone(), durations },
-        Sprite { image: asset_server.load(asset), rect: Some(rects[0]), ..default() },
+        FxSprite {
+            start,
+            rects: rects.clone(),
+            durations,
+        },
+        Sprite {
+            image: asset_server.load(asset),
+            rect: Some(rects[0]),
+            ..default()
+        },
         Transform::from_xyz(at.0, at.1, kit.actor_z + 0.35),
         layers,
     ));
@@ -1060,12 +1414,21 @@ fn update_lighting(
     materials: Option<ResMut<Assets<LightingMaterial>>>,
     mut dropped_reported: Local<bool>,
 ) {
-    let (Some(rig), Some(mut materials), Ok(window)) = (rig, materials, windows.single()) else { return };
+    let (Some(rig), Some(mut materials), Ok(window)) = (rig, materials, windows.single()) else {
+        return;
+    };
     let kit = &setup.kit;
-    let Some(scene) = kit.lighting.as_ref() else { return };
+    let Some(scene) = kit.lighting.as_ref() else {
+        return;
+    };
     let sim = &lab.session.sim;
     let v = lab.session.view();
-    let view = ViewRect { left: v.left, top: v.top, w: v.w, h: v.h };
+    let view = ViewRect {
+        left: v.left,
+        top: v.top,
+        w: v.w,
+        h: v.h,
+    };
     let (gathered, dropped) = scene.gather(kit, view, sim.tick);
     if dropped > 0 && !*dropped_reported {
         println!("LAB_LIGHTING_WARNING: {dropped} lights over the pass limit were dropped");
@@ -1088,29 +1451,62 @@ fn update_lighting(
                 shadow_width: width as i32,
                 shadow_pivot_x: spec_pivot.0,
             };
-            shadows.push(contact_shadow(profile, shadow_center_x(spec, x, flip), line, width, view));
+            shadows.push(contact_shadow(
+                profile,
+                shadow_center_x(spec, x, flip),
+                line,
+                width,
+                view,
+            ));
         };
-        for i in 0..2 {
-            let a = &sim.actors[i];
+        for (i, a) in sim.actors.iter().enumerate() {
             if a.down() {
                 continue;
             }
-            put(a.body.x, a.body.feet_y(), if i == CARL { 36.0 } else { 46.0 }, a.body.facing < 0, (if i == CARL { 19 } else { 22 }, 0));
+            put(
+                a.body.x,
+                a.body.feet_y(),
+                if i == CARL { 36.0 } else { 46.0 },
+                a.body.facing < 0,
+                (if i == CARL { 19 } else { 22 }, 0),
+            );
         }
         for t in &sim.targets {
             match t {
                 Hittable::Goblin(g) => put(g.x, g.y - 19.0, 28.0, g.facing < 0, (14, 0)),
-                Hittable::Foe(f) => put(f.x, f.y - f.spec.hh, (f.spec.hw * 2.0).max(24.0), f.facing < 0, ((f.spec.hw) as i32, 0)),
+                Hittable::Foe(f) => put(
+                    f.x,
+                    f.y - f.spec.hh,
+                    (f.spec.hw * 2.0).max(24.0),
+                    f.facing < 0,
+                    ((f.spec.hw) as i32, 0),
+                ),
                 Hittable::Prop(_) => {}
             }
         }
     }
-    let frame = PassFrame { scene, gathered: &gathered, shadows: &shadows, view_w: v.w as u32, view_h: v.h as u32, view_top: v.top };
-    update_rig(&rig, &mut materials, &frame, Vec2::new(window.physical_width() as f32, window.physical_height() as f32));
+    let frame = PassFrame {
+        scene,
+        gathered: &gathered,
+        shadows: &shadows,
+        view_w: v.w as u32,
+        view_h: v.h as u32,
+        view_top: v.top,
+    };
+    update_rig(
+        &rig,
+        &mut materials,
+        &frame,
+        Vec2::new(
+            window.physical_width() as f32,
+            window.physical_height() as f32,
+        ),
+    );
 }
 
 // ----------------------------------------------------------------- watchdog
 
+#[allow(clippy::too_many_arguments)]
 fn watchdog(
     asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
@@ -1134,9 +1530,15 @@ fn watchdog(
         }
     }
     if loading.handles.iter().all(|(_, h)| images.get(h).is_some()) {
-        let out = windows.single().map(|w| (w.physical_width(), w.physical_height())).unwrap_or((0, 0));
+        let out = windows
+            .single()
+            .map(|w| (w.physical_width(), w.physical_height()))
+            .unwrap_or((0, 0));
         let v = lab.session.view();
-        println!("LAB_TEXTURES_READY: {} atlases loaded", loading.handles.len());
+        println!(
+            "LAB_TEXTURES_READY: {} atlases loaded",
+            loading.handles.len()
+        );
         println!(
             "LAB_OUTPUT window={}x{} view={}x{} coverage={:.3} scale={:.4} integer={} carl_px={:.1} donut_px={:.1}",
             out.0,
@@ -1165,7 +1567,9 @@ fn read_proc_status(key: &str) -> u64 {
     std::fs::read_to_string("/proc/self/status")
         .ok()
         .and_then(|s| {
-            s.lines().find(|l| l.starts_with(key)).and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
+            s.lines()
+                .find(|l| l.starts_with(key))
+                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
         })
         .unwrap_or(0)
 }
@@ -1194,7 +1598,10 @@ fn perf_probe(
         let n = s.len();
         let rank = |q: f32| s[(((q * n as f32).ceil() as usize).max(1) - 1).min(n - 1)];
         let mean = s.iter().sum::<f32>() / n as f32;
-        let size = window.single().map(|w| format!("{}x{}", w.physical_width(), w.physical_height())).unwrap_or_default();
+        let size = window
+            .single()
+            .map(|w| format!("{}x{}", w.physical_width(), w.physical_height()))
+            .unwrap_or_default();
         let v = lab.session.view();
         println!(
             "LAB_PERF room={} coverage={} view={}x{} frames={} median_ms={:.2} p95_ms={:.2} p99_ms={:.2} mean_ms={:.2} max_ms={:.2} window={size} present=AutoNoVsync rss_kb={} hwm_kb={}",
@@ -1258,7 +1665,9 @@ fn capture_sequence(
     let Some(mut seq) = seq else { return };
     let phase = std::mem::replace(&mut seq.phase, CapturePhase::WaitReady);
     seq.phase = match phase {
-        CapturePhase::WaitReady if loading.is_some_and(|l| l.reported) => CapturePhase::Settle(CAPTURE_SETTLE_FRAMES),
+        CapturePhase::WaitReady if loading.is_some_and(|l| l.reported) => {
+            CapturePhase::Settle(CAPTURE_SETTLE_FRAMES)
+        }
         CapturePhase::WaitReady => CapturePhase::WaitReady,
         CapturePhase::Settle(n) if n > 0 => CapturePhase::Settle(n - 1),
         CapturePhase::Settle(_) => {
@@ -1267,8 +1676,13 @@ fn capture_sequence(
                 exit.write(AppExit::error());
                 return;
             }
-            let path = seq.dir.join(format!("frame_{:04}_tick_{:05}.png", seq.index, lab.session.sim.tick));
-            commands.spawn(Screenshot::primary_window()).observe(save_to_disk(path.clone()));
+            let path = seq.dir.join(format!(
+                "frame_{:04}_tick_{:05}.png",
+                seq.index, lab.session.sim.tick
+            ));
+            commands
+                .spawn(Screenshot::primary_window())
+                .observe(save_to_disk(path.clone()));
             CapturePhase::Pending(path, PendingFile::default())
         }
         CapturePhase::Pending(path, mut file) => {
@@ -1282,7 +1696,10 @@ fn capture_sequence(
             if file.stable < CAPTURE_STABLE_FRAMES {
                 file.waited += 1;
                 if file.waited > CAPTURE_TIMEOUT_FRAMES {
-                    println!("LAB_CAPTURE_FAILURE: screenshot {} was never written", path.display());
+                    println!(
+                        "LAB_CAPTURE_FAILURE: screenshot {} was never written",
+                        path.display()
+                    );
                     exit.write(AppExit::error());
                     return;
                 }
@@ -1311,7 +1728,13 @@ fn capture_sequence(
                 let inputs = inputs_of(&lab.session.sim, &lab.script, lab.idle);
                 lab.session.step(inputs);
             }
-            let events: Vec<String> = lab.session.sim.take_new_events().iter().map(ToString::to_string).collect();
+            let events: Vec<String> = lab
+                .session
+                .sim
+                .take_new_events()
+                .iter()
+                .map(ToString::to_string)
+                .collect();
             for e in events {
                 println!("{e}");
             }

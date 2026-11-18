@@ -127,14 +127,23 @@ impl Clips {
                 let m = json_of(root, &format!("assets/manifests/{file}"))?;
                 let pair = |key: &str| -> Result<(i32, i32), String> {
                     let a = m[key].as_array().ok_or_else(|| format!("{file}: {key}"))?;
-                    Ok((a[0].as_i64().unwrap_or(0) as i32, a[1].as_i64().unwrap_or(0) as i32))
+                    Ok((
+                        a[0].as_i64().unwrap_or(0) as i32,
+                        a[1].as_i64().unwrap_or(0) as i32,
+                    ))
                 };
                 (pair("frame_size")?, pair("pivot")?)
             }
             None => {
-                let m = json_of(root, "assets/source/characters/swine/swine-01.pixelart.json")?;
+                let m = json_of(
+                    root,
+                    "assets/source/characters/swine/swine-01.pixelart.json",
+                )?;
                 let pair = |key: &str| -> (i32, i32) {
-                    (m[key][0].as_i64().unwrap_or(0) as i32, m[key][1].as_i64().unwrap_or(0) as i32)
+                    (
+                        m[key][0].as_i64().unwrap_or(0) as i32,
+                        m[key][1].as_i64().unwrap_or(0) as i32,
+                    )
                 };
                 (pair("frame_size"), pair("pivot"))
             }
@@ -157,10 +166,20 @@ impl Clips {
         for t in atlas["meta"]["frameTags"].as_array().ok_or("frameTags")? {
             tags.insert(
                 t["name"].as_str().unwrap_or("").to_owned(),
-                (t["from"].as_u64().unwrap_or(0) as usize, t["to"].as_u64().unwrap_or(0) as usize),
+                (
+                    t["from"].as_u64().unwrap_or(0) as usize,
+                    t["to"].as_u64().unwrap_or(0) as usize,
+                ),
             );
         }
-        Ok(Self { id, frame_w: frame.0, frame_h: frame.1, pivot, frames, tags })
+        Ok(Self {
+            id,
+            frame_w: frame.0,
+            frame_h: frame.1,
+            pivot,
+            frames,
+            tags,
+        })
     }
 
     pub fn has(&self, tag: &str) -> bool {
@@ -168,15 +187,19 @@ impl Clips {
     }
 
     fn range(&self, tag: &str) -> (usize, usize) {
-        *self.tags.get(tag).or_else(|| self.tags.get("idle")).unwrap_or(&(0, 0))
+        *self
+            .tags
+            .get(tag)
+            .or_else(|| self.tags.get("idle"))
+            .unwrap_or(&(0, 0))
     }
 
     /// Frame of `tag` shown `age` ticks after it started; the last frame holds.
     pub fn frame_at(&self, tag: &str, age: u32) -> usize {
         let (a, b) = self.range(tag);
         let mut left = age;
-        for i in a..=b {
-            let ticks = self.frames[i].1;
+        for (i, (_, ticks)) in self.frames.iter().enumerate().take(b + 1).skip(a) {
+            let ticks = *ticks;
             if left < ticks {
                 return i;
             }
@@ -251,11 +274,19 @@ impl ArtSet {
         let l = self.get(loco);
         if a.down() {
             let tag = "knockdown";
-            return Pose { atlas: melee, frame: m.frame_at(tag, a.down_ticks as u32), ..base };
+            return Pose {
+                atlas: melee,
+                frame: m.frame_at(tag, a.down_ticks as u32),
+                ..base
+            };
         }
         if a.hurt_ticks > 0 {
             let age = u32::from(crate::feel::HERO_HURT_TICKS.saturating_sub(a.hurt_ticks));
-            return Pose { atlas: melee, frame: m.frame_at("hurt", age), ..base };
+            return Pose {
+                atlas: melee,
+                frame: m.frame_at("hurt", age),
+                ..base
+            };
         }
         if let Some(mt) = a.current_move() {
             let tag = match (i, mt.spec.id) {
@@ -282,11 +313,18 @@ impl ArtSet {
         } else {
             "idle"
         };
-        Pose { frame: l.loop_frame(tag, sim.tick), ..base }
+        Pose {
+            frame: l.loop_frame(tag, sim.tick),
+            ..base
+        }
     }
 
     pub fn goblin_pose(&self, sim: &LabSim, index: usize, g: &Goblin) -> Pose {
-        let id = if index % 2 == 0 { AtlasId::GoblinA } else { AtlasId::GoblinB };
+        let id = if index.is_multiple_of(2) {
+            AtlasId::GoblinA
+        } else {
+            AtlasId::GoblinB
+        };
         let c = self.get(id);
         let tick = sim.tick;
         let frame = match g.mode {
@@ -298,11 +336,15 @@ impl ArtSet {
                 }
             }
             GoblinMode::Attack => match crate::goblin::attack_phase(g.attack_tick) {
-                crate::goblin::AttackPhase::Tell => c.progress_frame("attack_tell", u32::from(g.attack_tick), 24),
+                crate::goblin::AttackPhase::Tell => {
+                    c.progress_frame("attack_tell", u32::from(g.attack_tick), 24)
+                }
                 crate::goblin::AttackPhase::Smear | crate::goblin::AttackPhase::Impact => {
                     c.progress_frame("attack_swing", u32::from(g.attack_tick) - 24, 6)
                 }
-                crate::goblin::AttackPhase::Recover => c.progress_frame("attack_recover", u32::from(g.attack_tick) - 30, 20),
+                crate::goblin::AttackPhase::Recover => {
+                    c.progress_frame("attack_recover", u32::from(g.attack_tick) - 30, 20)
+                }
             },
             GoblinMode::Hurt => c.frame_at("hurt", 0),
             GoblinMode::Airborne => c.frame_at("knockback", g.down_ticks as u32),
@@ -327,7 +369,9 @@ impl ArtSet {
             EnemyKind::Hoarder => (AtlasId::Hoarder, "attack_swing", "attack_swing"),
             EnemyKind::Trog => (AtlasId::Trog, "attack_smash", "attack_recover"),
             EnemyKind::Juicer => (AtlasId::Juicer, "attack_pound", "attack_recover"),
-            EnemyKind::Ball | EnemyKind::Goblin => (AtlasId::Swine, "attack_charge", "attack_charge"),
+            EnemyKind::Ball | EnemyKind::Goblin => {
+                (AtlasId::Swine, "attack_charge", "attack_charge")
+            }
         };
         let c = self.get(id);
         let tick = sim.tick;
@@ -336,22 +380,40 @@ impl ArtSet {
             FoeMode::Neutral => {
                 let moving = f.vx.abs() > 1.0;
                 let tag = if moving {
-                    if id == AtlasId::Swine { "roll" } else if c.has("walk") { "walk" } else { "creep" }
+                    if id == AtlasId::Swine {
+                        "roll"
+                    } else if c.has("walk") {
+                        "walk"
+                    } else {
+                        "creep"
+                    }
                 } else {
                     "idle"
                 };
                 c.loop_frame(tag, tick + index as u64 * 11)
             }
-            FoeMode::Tell => c.progress_frame("attack_tell", u32::from(f.mode_tick), u32::from(f.spec.tell)),
+            FoeMode::Tell => c.progress_frame(
+                "attack_tell",
+                u32::from(f.mode_tick),
+                u32::from(f.spec.tell),
+            ),
             FoeMode::Active => {
-                let tag = if ranged && c.has("spit") { "spit" } else { attack_tag };
+                let tag = if ranged && c.has("spit") {
+                    "spit"
+                } else {
+                    attack_tag
+                };
                 c.progress_frame(tag, u32::from(f.mode_tick), u32::from(f.spec.active))
             }
             FoeMode::Recover => {
                 if id == AtlasId::Swine {
                     c.frame_at(if f.stun > 0 { "hurt" } else { "idle" }, 0)
                 } else {
-                    c.progress_frame(recover_tag, u32::from(f.mode_tick), u32::from(f.spec.recover).max(1))
+                    c.progress_frame(
+                        recover_tag,
+                        u32::from(f.mode_tick),
+                        u32::from(f.spec.recover).max(1),
+                    )
                 }
             }
             FoeMode::Hurt => c.frame_at("hurt", 0),
@@ -375,7 +437,10 @@ fn sim_goblin_walking(_g: &Goblin) -> bool {
 
 /// Every atlas the lab reads, for the load check of the binary and the tests.
 pub fn required_assets() -> Vec<String> {
-    ALL_ATLASES.iter().map(|a| format!("generated/art/{}", a.image())).collect()
+    ALL_ATLASES
+        .iter()
+        .map(|a| format!("generated/art/{}", a.image()))
+        .collect()
 }
 
 /// Donut and Carl indices for pose lookups.
@@ -396,23 +461,116 @@ mod tests {
         if !root().join("generated/art/goblin_a_h36.json").exists()
             || !root().join("generated/art/swine_01.json").exists()
         {
-            eprintln!("atlases not exported; run scripts/export_assets.sh and scripts/camera_lab_assets.sh");
+            eprintln!(
+                "atlases not exported; run scripts/export_assets.sh and scripts/camera_lab_assets.sh"
+            );
             return;
         }
         let art = ArtSet::load(root()).unwrap();
         for (id, tags) in [
-            (AtlasId::CarlLoco, &["idle", "run", "jump_rise", "jump_fall"][..]),
-            (AtlasId::CarlMelee, &["punch_a", "punch_b", "kick", "hurt", "knockdown"][..]),
-            (AtlasId::DonutLoco, &["idle", "run", "jump_rise", "jump_fall"][..]),
-            (AtlasId::DonutMelee, &["swat", "pounce", "hurt", "knockdown"][..]),
-            (AtlasId::GoblinA, &["idle", "walk", "attack_tell", "attack_swing", "attack_recover", "hurt", "knockback", "down", "corpse"][..]),
-            (AtlasId::Llama, &["idle", "walk", "attack_tell", "spit", "hurt", "down"][..]),
-            (AtlasId::Engineer, &["idle", "walk", "attack_tell", "attack_ram", "attack_recover", "hurt", "down"][..]),
-            (AtlasId::Scatterer, &["idle", "walk", "attack_tell", "attack_swing", "hurt", "down"][..]),
-            (AtlasId::Hoarder, &["idle", "walk", "attack_tell", "attack_swing", "hurt", "down"][..]),
-            (AtlasId::Trog, &["idle", "walk", "attack_tell", "attack_smash", "attack_recover", "hurt", "down"][..]),
-            (AtlasId::Juicer, &["idle", "walk", "attack_tell", "attack_pound", "attack_recover", "hurt", "down"][..]),
-            (AtlasId::Swine, &["idle", "roll", "attack_tell", "attack_charge", "hurt", "down"][..]),
+            (
+                AtlasId::CarlLoco,
+                &["idle", "run", "jump_rise", "jump_fall"][..],
+            ),
+            (
+                AtlasId::CarlMelee,
+                &["punch_a", "punch_b", "kick", "hurt", "knockdown"][..],
+            ),
+            (
+                AtlasId::DonutLoco,
+                &["idle", "run", "jump_rise", "jump_fall"][..],
+            ),
+            (
+                AtlasId::DonutMelee,
+                &["swat", "pounce", "hurt", "knockdown"][..],
+            ),
+            (
+                AtlasId::GoblinA,
+                &[
+                    "idle",
+                    "walk",
+                    "attack_tell",
+                    "attack_swing",
+                    "attack_recover",
+                    "hurt",
+                    "knockback",
+                    "down",
+                    "corpse",
+                ][..],
+            ),
+            (
+                AtlasId::Llama,
+                &["idle", "walk", "attack_tell", "spit", "hurt", "down"][..],
+            ),
+            (
+                AtlasId::Engineer,
+                &[
+                    "idle",
+                    "walk",
+                    "attack_tell",
+                    "attack_ram",
+                    "attack_recover",
+                    "hurt",
+                    "down",
+                ][..],
+            ),
+            (
+                AtlasId::Scatterer,
+                &[
+                    "idle",
+                    "walk",
+                    "attack_tell",
+                    "attack_swing",
+                    "hurt",
+                    "down",
+                ][..],
+            ),
+            (
+                AtlasId::Hoarder,
+                &[
+                    "idle",
+                    "walk",
+                    "attack_tell",
+                    "attack_swing",
+                    "hurt",
+                    "down",
+                ][..],
+            ),
+            (
+                AtlasId::Trog,
+                &[
+                    "idle",
+                    "walk",
+                    "attack_tell",
+                    "attack_smash",
+                    "attack_recover",
+                    "hurt",
+                    "down",
+                ][..],
+            ),
+            (
+                AtlasId::Juicer,
+                &[
+                    "idle",
+                    "walk",
+                    "attack_tell",
+                    "attack_pound",
+                    "attack_recover",
+                    "hurt",
+                    "down",
+                ][..],
+            ),
+            (
+                AtlasId::Swine,
+                &[
+                    "idle",
+                    "roll",
+                    "attack_tell",
+                    "attack_charge",
+                    "hurt",
+                    "down",
+                ][..],
+            ),
         ] {
             let c = art.get(id);
             for t in tags {
@@ -420,8 +578,20 @@ mod tests {
             }
         }
         // Production sizes: Carl 48x56 frame with the 52 px figure, Donut 72x44.
-        assert_eq!((art.get(AtlasId::CarlLoco).frame_w, art.get(AtlasId::CarlLoco).frame_h), (48, 56));
-        assert_eq!((art.get(AtlasId::DonutLoco).frame_w, art.get(AtlasId::DonutLoco).frame_h), (72, 44));
+        assert_eq!(
+            (
+                art.get(AtlasId::CarlLoco).frame_w,
+                art.get(AtlasId::CarlLoco).frame_h
+            ),
+            (48, 56)
+        );
+        assert_eq!(
+            (
+                art.get(AtlasId::DonutLoco).frame_w,
+                art.get(AtlasId::DonutLoco).frame_h
+            ),
+            (72, 44)
+        );
         assert_eq!(art.get(AtlasId::Swine).frame_w, 176);
     }
 
@@ -434,7 +604,19 @@ mod tests {
             frame_w: 1,
             frame_h: 1,
             pivot: (0, 0),
-            frames: (0..3).map(|i| (FrameRect { x: i, y: 0, w: 1, h: 1 }, 4)).collect(),
+            frames: (0..3)
+                .map(|i| {
+                    (
+                        FrameRect {
+                            x: i,
+                            y: 0,
+                            w: 1,
+                            h: 1,
+                        },
+                        4,
+                    )
+                })
+                .collect(),
             tags,
         };
         assert_eq!(c.frame_at("a", 0), 0);

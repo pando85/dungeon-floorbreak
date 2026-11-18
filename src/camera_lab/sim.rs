@@ -198,6 +198,7 @@ impl Body {
 /// horizontal sweep and gravity landing as [`crate::prototype::step_hero`]
 /// (a test proves equality for Carl's numbers), with the body size and the run
 /// and jump speeds as parameters so Donut can use it.
+#[allow(clippy::too_many_arguments)]
 pub fn step_body(
     b: &mut Body,
     jump_pressed: bool,
@@ -535,7 +536,13 @@ pub struct Foe {
 }
 
 impl Foe {
-    fn new(spec: FoeSpec, x: f32, floor_top: f32, hp: Option<u8>, perch: Option<(f32, f32)>) -> Self {
+    fn new(
+        spec: FoeSpec,
+        x: f32,
+        floor_top: f32,
+        hp: Option<u8>,
+        perch: Option<(f32, f32)>,
+    ) -> Self {
         let y = floor_top + spec.hh;
         Self {
             spec,
@@ -633,7 +640,11 @@ impl StrikeTarget for Foe {
                 self.mode = FoeMode::Hurt;
                 self.mode_tick = 0;
                 self.swing_hit = false;
-                let stagger = if self.spec.knock == 0.0 { 0 } else { spec.reaction.stagger_ticks };
+                let stagger = if self.spec.knock == 0.0 {
+                    0
+                } else {
+                    spec.reaction.stagger_ticks
+                };
                 self.vx = dir * spec.reaction.knock_vx * self.spec.knock;
                 if self.spec.knock == 0.0 || stagger == 0 {
                     self.mode = FoeMode::Neutral;
@@ -698,7 +709,12 @@ impl StrikeTarget for PropState {
         if self.hp == 0 {
             (HitOutcome::Defeated, 3)
         } else {
-            (HitOutcome::Hurt { health_left: self.hp }, 2)
+            (
+                HitOutcome::Hurt {
+                    health_left: self.hp,
+                },
+                2,
+            )
         }
     }
 }
@@ -764,21 +780,73 @@ pub struct Projectile {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabEvent {
     Combat(CombatEvent),
-    PropHit { tick: u64, prop: u32, hp: u8 },
-    PropBroken { tick: u64, prop: u32, seed: u32 },
-    WeightFell { tick: u64, prop: u32 },
-    WeightLanded { tick: u64, prop: u32, x: i32 },
-    ImpactDamage { tick: u64, victim: u32, is_actor: bool },
-    ActorHurt { tick: u64, actor: u8, health: u8 },
-    ActorDown { tick: u64, actor: u8 },
-    ActorRevived { tick: u64, actor: u8 },
-    Switched { tick: u64, to: u8 },
-    SpecialLocked { tick: u64, actor: u8 },
-    SpitFired { tick: u64, foe: u32 },
-    BossTell { tick: u64, foe: u32 },
-    BossCharge { tick: u64, foe: u32, dir: i8 },
-    BossStunned { tick: u64, foe: u32, by_gate: bool },
-    ExitReached { tick: u64, actor: u8 },
+    PropHit {
+        tick: u64,
+        prop: u32,
+        hp: u8,
+    },
+    PropBroken {
+        tick: u64,
+        prop: u32,
+        seed: u32,
+    },
+    WeightFell {
+        tick: u64,
+        prop: u32,
+    },
+    WeightLanded {
+        tick: u64,
+        prop: u32,
+        x: i32,
+    },
+    ImpactDamage {
+        tick: u64,
+        victim: u32,
+        is_actor: bool,
+    },
+    ActorHurt {
+        tick: u64,
+        actor: u8,
+        health: u8,
+    },
+    ActorDown {
+        tick: u64,
+        actor: u8,
+    },
+    ActorRevived {
+        tick: u64,
+        actor: u8,
+    },
+    Switched {
+        tick: u64,
+        to: u8,
+    },
+    SpecialLocked {
+        tick: u64,
+        actor: u8,
+    },
+    SpitFired {
+        tick: u64,
+        foe: u32,
+    },
+    BossTell {
+        tick: u64,
+        foe: u32,
+    },
+    BossCharge {
+        tick: u64,
+        foe: u32,
+        dir: i8,
+    },
+    BossStunned {
+        tick: u64,
+        foe: u32,
+        by_gate: bool,
+    },
+    ExitReached {
+        tick: u64,
+        actor: u8,
+    },
 }
 
 impl LabEvent {
@@ -808,13 +876,21 @@ impl LabEvent {
                 mix(u64::from(prop));
                 mix(x as u64);
             }
-            Self::ImpactDamage { tick, victim, is_actor } => {
+            Self::ImpactDamage {
+                tick,
+                victim,
+                is_actor,
+            } => {
                 mix(105);
                 mix(tick);
                 mix(u64::from(victim));
                 mix(u64::from(is_actor));
             }
-            Self::ActorHurt { tick, actor, health } => {
+            Self::ActorHurt {
+                tick,
+                actor,
+                health,
+            } => {
                 mix(106);
                 mix(tick);
                 mix(u64::from(actor));
@@ -875,21 +951,61 @@ impl fmt::Display for LabEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Self::Combat(e) => write!(f, "{e}"),
-            Self::PropHit { tick, prop, hp } => write!(f, "LAB_EVENT tick={tick} kind=prop_hit prop={prop} hp={hp}"),
-            Self::PropBroken { tick, prop, seed } => write!(f, "LAB_EVENT tick={tick} kind=prop_broken prop={prop} debris_seed={seed}"),
-            Self::WeightFell { tick, prop } => write!(f, "LAB_EVENT tick={tick} kind=weight_fell prop={prop}"),
-            Self::WeightLanded { tick, prop, x } => write!(f, "LAB_EVENT tick={tick} kind=weight_landed prop={prop} x={x}"),
-            Self::ImpactDamage { tick, victim, is_actor } => write!(f, "LAB_EVENT tick={tick} kind=impact_damage victim={victim} actor={is_actor}"),
-            Self::ActorHurt { tick, actor, health } => write!(f, "LAB_EVENT tick={tick} kind=actor_hurt actor={actor} health={health}"),
-            Self::ActorDown { tick, actor } => write!(f, "LAB_EVENT tick={tick} kind=actor_down actor={actor}"),
-            Self::ActorRevived { tick, actor } => write!(f, "LAB_EVENT tick={tick} kind=actor_revived actor={actor}"),
+            Self::PropHit { tick, prop, hp } => {
+                write!(f, "LAB_EVENT tick={tick} kind=prop_hit prop={prop} hp={hp}")
+            }
+            Self::PropBroken { tick, prop, seed } => write!(
+                f,
+                "LAB_EVENT tick={tick} kind=prop_broken prop={prop} debris_seed={seed}"
+            ),
+            Self::WeightFell { tick, prop } => {
+                write!(f, "LAB_EVENT tick={tick} kind=weight_fell prop={prop}")
+            }
+            Self::WeightLanded { tick, prop, x } => write!(
+                f,
+                "LAB_EVENT tick={tick} kind=weight_landed prop={prop} x={x}"
+            ),
+            Self::ImpactDamage {
+                tick,
+                victim,
+                is_actor,
+            } => write!(
+                f,
+                "LAB_EVENT tick={tick} kind=impact_damage victim={victim} actor={is_actor}"
+            ),
+            Self::ActorHurt {
+                tick,
+                actor,
+                health,
+            } => write!(
+                f,
+                "LAB_EVENT tick={tick} kind=actor_hurt actor={actor} health={health}"
+            ),
+            Self::ActorDown { tick, actor } => {
+                write!(f, "LAB_EVENT tick={tick} kind=actor_down actor={actor}")
+            }
+            Self::ActorRevived { tick, actor } => {
+                write!(f, "LAB_EVENT tick={tick} kind=actor_revived actor={actor}")
+            }
             Self::Switched { tick, to } => write!(f, "LAB_EVENT tick={tick} kind=switched to={to}"),
-            Self::SpecialLocked { tick, actor } => write!(f, "LAB_EVENT tick={tick} kind=special_locked actor={actor}"),
+            Self::SpecialLocked { tick, actor } => {
+                write!(f, "LAB_EVENT tick={tick} kind=special_locked actor={actor}")
+            }
             Self::SpitFired { tick, foe } => write!(f, "LAB_EVENT tick={tick} kind=spit foe={foe}"),
-            Self::BossTell { tick, foe } => write!(f, "LAB_EVENT tick={tick} kind=boss_tell foe={foe}"),
-            Self::BossCharge { tick, foe, dir } => write!(f, "LAB_EVENT tick={tick} kind=boss_charge foe={foe} dir={dir}"),
-            Self::BossStunned { tick, foe, by_gate } => write!(f, "LAB_EVENT tick={tick} kind=boss_stunned foe={foe} gate={by_gate}"),
-            Self::ExitReached { tick, actor } => write!(f, "LAB_EVENT tick={tick} kind=exit_reached actor={actor}"),
+            Self::BossTell { tick, foe } => {
+                write!(f, "LAB_EVENT tick={tick} kind=boss_tell foe={foe}")
+            }
+            Self::BossCharge { tick, foe, dir } => write!(
+                f,
+                "LAB_EVENT tick={tick} kind=boss_charge foe={foe} dir={dir}"
+            ),
+            Self::BossStunned { tick, foe, by_gate } => write!(
+                f,
+                "LAB_EVENT tick={tick} kind=boss_stunned foe={foe} gate={by_gate}"
+            ),
+            Self::ExitReached { tick, actor } => {
+                write!(f, "LAB_EVENT tick={tick} kind=exit_reached actor={actor}")
+            }
         }
     }
 }
@@ -918,7 +1034,7 @@ pub fn gate_open_at(tick: u64) -> f32 {
 /// True during the last ticks before the gate comes down (the visible warning).
 pub fn gate_warning_at(tick: u64) -> bool {
     let p = tick % GATE_PERIOD;
-    p >= GATE_PERIOD - GATE_WARNING && p < GATE_PERIOD - 30
+    (GATE_PERIOD - GATE_WARNING..GATE_PERIOD - 30).contains(&p)
 }
 
 #[derive(Clone)]
@@ -981,13 +1097,13 @@ impl LabSim {
             left: 0.0,
             bottom: 0.0,
             width: room.play_x.0 as f32,
-            height: height,
+            height,
         }));
         blocks.push(stone(Rect {
             left: room.play_x.1 as f32,
             bottom: 0.0,
             width: (room.render.0 - room.play_x.1) as f32,
-            height: height,
+            height,
         }));
         for p in &room.platforms {
             blocks.push(stone(rect_up(height, p.rect)));
@@ -1043,7 +1159,9 @@ impl LabSim {
                     }
                     targets.push(Hittable::Goblin(g));
                 }
-                Some(spec) => targets.push(Hittable::Foe(Foe::new(spec, e.x as f32, top, e.hp, perch))),
+                Some(spec) => {
+                    targets.push(Hittable::Foe(Foe::new(spec, e.x as f32, top, e.hp, perch)))
+                }
             }
         }
         for s in states {
@@ -1059,8 +1177,20 @@ impl LabSim {
             rng: seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1,
             height,
             actors: [
-                Actor::new(room.spawn_carl as f32, carl_y, HERO_HALF_WIDTH, HERO_HALF_HEIGHT, crate::combat::HERO_HEALTH),
-                Actor::new(room.spawn_donut as f32, donut_y, DONUT_HALF_WIDTH, DONUT_HALF_HEIGHT, DONUT_HEALTH),
+                Actor::new(
+                    room.spawn_carl as f32,
+                    carl_y,
+                    HERO_HALF_WIDTH,
+                    HERO_HALF_HEIGHT,
+                    crate::combat::HERO_HEALTH,
+                ),
+                Actor::new(
+                    room.spawn_donut as f32,
+                    donut_y,
+                    DONUT_HALF_WIDTH,
+                    DONUT_HALF_HEIGHT,
+                    DONUT_HEALTH,
+                ),
             ],
             active: CARL,
             switch_cooldown: 0,
@@ -1110,7 +1240,9 @@ impl LabSim {
     pub fn ground_below(&self, x: f32, feet_y: f32) -> f32 {
         self.blocks
             .iter()
-            .filter(|b| b.intact && x >= b.rect.left && x < b.rect.right() && b.rect.top() <= feet_y + 1.0)
+            .filter(|b| {
+                b.intact && x >= b.rect.left && x < b.rect.right() && b.rect.top() <= feet_y + 1.0
+            })
             .map(|b| b.rect.top())
             .fold(self.floor_top(), f32::max)
     }
@@ -1169,10 +1301,13 @@ impl LabSim {
             height: 8.0,
         };
         let blocked = input.move_x != 0.0
-            && self.blocks.iter().any(|b| b.intact && ahead.overlaps(b.rect));
+            && self
+                .blocks
+                .iter()
+                .any(|b| b.intact && ahead.overlaps(b.rect));
         let leader_above = lead.body.feet_y() > me.body.feet_y() + 20.0;
         input.jump = me.body.grounded
-            && (blocked || (leader_above && dx.abs() < 120.0 && self.tick % 40 == 0));
+            && (blocked || (leader_above && dx.abs() < 120.0 && self.tick.is_multiple_of(40)));
         // Strike a live foe within reach in front, on a slow rhythm.
         let reach = if actor == CARL { 44.0 } else { 34.0 };
         let near = self.targets.iter().any(|t| {
@@ -1181,8 +1316,7 @@ impl LabSim {
                 Hittable::Prop(_) => false,
                 _ => t.hurtbox_active(),
             };
-            live
-                && (cx - me.body.x) * f32::from(me.body.facing) > 0.0
+            live && (cx - me.body.x) * f32::from(me.body.facing) > 0.0
                 && (cx - me.body.x).abs() < reach + 12.0
                 && (cy - me.body.y).abs() < 44.0
         });
@@ -1198,7 +1332,12 @@ impl LabSim {
             .enumerate()
             .filter(|(_, a)| !a.down() && (a.body.feet_y() - y_feet).abs() <= reach_y)
             .map(|(i, a)| (i, a.body.x))
-            .min_by(|a, b| (a.1 - x).abs().total_cmp(&(b.1 - x).abs()).then(a.0.cmp(&b.0)))
+            .min_by(|a, b| {
+                (a.1 - x)
+                    .abs()
+                    .total_cmp(&(b.1 - x).abs())
+                    .then(a.0.cmp(&b.0))
+            })
     }
 
     /// One fixed tick. `inputs[0]` is player 1 (Carl in 2P, the controlled actor
@@ -1247,7 +1386,11 @@ impl LabSim {
             let edge = special && !self.special_prev[slot];
             self.special_prev[slot] = special;
             if edge {
-                let actor = if self.mode == Mode::Solo { self.active } else { slot };
+                let actor = if self.mode == Mode::Solo {
+                    self.active
+                } else {
+                    slot
+                };
                 self.log(LabEvent::SpecialLocked {
                     tick: self.tick,
                     actor: actor as u8,
@@ -1269,7 +1412,9 @@ impl LabSim {
         let occupied = self.actors.iter().any(|a| a.body.rect().overlaps(rect))
             || self.targets.iter().any(|t| match t {
                 Hittable::Goblin(g) => g.alive() && g.body().overlaps(rect),
-                Hittable::Foe(f) => f.alive() && f.spec.kind != EnemyKind::Ball && f.body().overlaps(rect),
+                Hittable::Foe(f) => {
+                    f.alive() && f.spec.kind != EnemyKind::Ball && f.body().overlaps(rect)
+                }
                 _ => false,
             });
         let closed = open < 0.5 && !(occupied && !self.blocks[block].intact);
@@ -1283,9 +1428,21 @@ impl LabSim {
     fn step_actor(&mut self, i: usize, input: LabInput) {
         let tick = self.tick;
         let (run, jump, half_h, min_x, max_x) = if i == CARL {
-            (CARL_RUN, CARL_JUMP, HERO_HALF_HEIGHT, self.room.play_x.0 as f32 + HERO_HALF_WIDTH, self.room.play_x.1 as f32 - HERO_HALF_WIDTH)
+            (
+                CARL_RUN,
+                CARL_JUMP,
+                HERO_HALF_HEIGHT,
+                self.room.play_x.0 as f32 + HERO_HALF_WIDTH,
+                self.room.play_x.1 as f32 - HERO_HALF_WIDTH,
+            )
         } else {
-            (DONUT_RUN, DONUT_JUMP, DONUT_HALF_HEIGHT, self.room.play_x.0 as f32 + DONUT_HALF_WIDTH, self.room.play_x.1 as f32 - DONUT_HALF_WIDTH)
+            (
+                DONUT_RUN,
+                DONUT_JUMP,
+                DONUT_HALF_HEIGHT,
+                self.room.play_x.0 as f32 + DONUT_HALF_WIDTH,
+                self.room.play_x.1 as f32 - DONUT_HALF_WIDTH,
+            )
         };
         let _ = half_h;
         {
@@ -1330,7 +1487,9 @@ impl LabSim {
         if can_act && request.is_some() && !self.actors[i].runner.busy() && input.move_x != 0.0 {
             self.actors[i].body.facing = if input.move_x > 0.0 { 1 } else { -1 };
         }
-        let move_tick = self.actors[i].runner.step(request, CARL_BUFFER_TICKS, can_act);
+        let move_tick = self.actors[i]
+            .runner
+            .step(request, CARL_BUFFER_TICKS, can_act);
         if let Some(mt) = move_tick {
             if mt.started {
                 self.log(LabEvent::Combat(CombatEvent::MoveStarted {
@@ -1354,10 +1513,22 @@ impl LabSim {
             };
             let mut hits = Vec::new();
             let mut runner = std::mem::take(&mut self.actors[i].runner);
-            resolve_strike(&mut runner, &mt, attacker, &mut self.targets, tick, &mut hits);
+            resolve_strike(
+                &mut runner,
+                &mt,
+                attacker,
+                &mut self.targets,
+                tick,
+                &mut hits,
+            );
             self.actors[i].runner = runner;
             for event in hits {
-                if let CombatEvent::Hit { target, health_left, .. } = event {
+                if let CombatEvent::Hit {
+                    target,
+                    health_left,
+                    ..
+                } = event
+                {
                     self.last_hit_tick = tick;
                     self.after_hit(target as usize, health_left, attacker);
                 }
@@ -1366,21 +1537,35 @@ impl LabSim {
         }
         // Committed on the ground: the feet stay planted.
         let committed = self.actors[i].runner.busy() && self.actors[i].body.grounded;
-        let (move_x, jump_pressed) = if !can_act {
-            (0.0, false)
-        } else if committed {
+        let (move_x, jump_pressed) = if !can_act || committed {
             (0.0, false)
         } else {
-            (input.move_x.clamp(-1.0, 1.0), self.actors[i].input.jump_pressed)
+            (
+                input.move_x.clamp(-1.0, 1.0),
+                self.actors[i].input.jump_pressed,
+            )
         };
-        let move_x = if self.actors[i].input.held.move_x == 0.0 { 0.0 } else { move_x };
+        let move_x = if self.actors[i].input.held.move_x == 0.0 {
+            0.0
+        } else {
+            move_x
+        };
         if self.actors[i].hit_stop > 0 || melee_frozen {
             // Frozen: nothing moves.
             return;
         }
         let blocks = self.blocks.clone();
         let a = &mut self.actors[i];
-        step_body(&mut a.body, jump_pressed, move_x, run, jump, &blocks, min_x, max_x);
+        step_body(
+            &mut a.body,
+            jump_pressed,
+            move_x,
+            run,
+            jump,
+            &blocks,
+            min_x,
+            max_x,
+        );
     }
 
     fn root_step(&mut self, i: usize, step: RootStep) {
@@ -1395,7 +1580,11 @@ impl LabSim {
             width: a.body.hw * 2.0,
             height: a.body.hh * 2.0,
         };
-        if !self.blocks.iter().any(|b| b.intact && candidate.overlaps(b.rect)) {
+        if !self
+            .blocks
+            .iter()
+            .any(|b| b.intact && candidate.overlaps(b.rect))
+        {
             a.body.x = wanted;
         }
     }
@@ -1407,10 +1596,18 @@ impl LabSim {
             let prop_index = target - enemies;
             if health_left == 0 {
                 let seed = self.rand();
-                self.log(LabEvent::PropBroken { tick, prop: prop_index as u32, seed });
+                self.log(LabEvent::PropBroken {
+                    tick,
+                    prop: prop_index as u32,
+                    seed,
+                });
                 self.break_prop(prop_index);
             } else {
-                self.log(LabEvent::PropHit { tick, prop: prop_index as u32, hp: health_left });
+                self.log(LabEvent::PropHit {
+                    tick,
+                    prop: prop_index as u32,
+                    hp: health_left,
+                });
             }
         }
     }
@@ -1436,7 +1633,10 @@ impl LabSim {
             w.mode = PropMode::Falling;
             w.vy = 0.0;
             let tick = self.tick;
-            self.log(LabEvent::WeightFell { tick, prop: weight as u32 });
+            self.log(LabEvent::WeightFell {
+                tick,
+                prop: weight as u32,
+            });
         }
     }
 
@@ -1466,7 +1666,9 @@ impl LabSim {
         let blocks = self.blocks.clone();
         let x_max = self.room.play_x.1 as f32 - 12.0;
         for index in 0..enemies {
-            let may_start = self.last_tell_start.is_none_or(|s| tick - s >= TELL_SPACING);
+            let may_start = self
+                .last_tell_start
+                .is_none_or(|s| tick - s >= TELL_SPACING);
             match self.targets[index].clone() {
                 Hittable::Goblin(mut g) => {
                     let feet = g.y - crate::combat::ENEMY_HALF_HEIGHT;
@@ -1476,7 +1678,14 @@ impl LabSim {
                         None => (g.x, false),
                     };
                     let was_attacking = g.token_held();
-                    let step = g.step(hx, alive, &blocks, x_max, approved.contains(&index), may_start);
+                    let step = g.step(
+                        hx,
+                        alive,
+                        &blocks,
+                        x_max,
+                        approved.contains(&index),
+                        may_start,
+                    );
                     if let Some(Hittable::Foe(_)) = None::<Hittable> {}
                     // Perch guards stay on their platform.
                     if let Some(range) = self.perch_range(index) {
@@ -1484,13 +1693,26 @@ impl LabSim {
                     }
                     if step.started_tell {
                         self.last_tell_start = Some(tick);
-                        self.log(LabEvent::Combat(CombatEvent::GoblinTell { tick, goblin: index as u32 }));
+                        self.log(LabEvent::Combat(CombatEvent::GoblinTell {
+                            tick,
+                            goblin: index as u32,
+                        }));
                     }
                     if step.swing_began {
-                        self.log(LabEvent::Combat(CombatEvent::GoblinSwing { tick, goblin: index as u32 }));
+                        self.log(LabEvent::Combat(CombatEvent::GoblinSwing {
+                            tick,
+                            goblin: index as u32,
+                        }));
                     }
-                    if was_attacking && g.mode != GoblinMode::Attack && g.attack_tick == 0 && g.hit_stop > 0 {
-                        self.log(LabEvent::Combat(CombatEvent::GoblinInterrupted { tick, goblin: index as u32 }));
+                    if was_attacking
+                        && g.mode != GoblinMode::Attack
+                        && g.attack_tick == 0
+                        && g.hit_stop > 0
+                    {
+                        self.log(LabEvent::Combat(CombatEvent::GoblinInterrupted {
+                            tick,
+                            goblin: index as u32,
+                        }));
                     }
                     let swing = (step.impact).then(|| g.swing_box());
                     let (gx, source) = (g.x, index as u32);
@@ -1500,10 +1722,15 @@ impl LabSim {
                             if swing_hit {
                                 break;
                             }
-                            if self.actor_hittable(ai) && boxr.overlaps(self.actors[ai].body.rect()) {
+                            if self.actor_hittable(ai) && boxr.overlaps(self.actors[ai].body.rect())
+                            {
                                 swing_hit = true;
                                 g.hit_stop = g.hit_stop.max(crate::feel::HERO_HURT_HIT_STOP);
-                                let away = if self.actors[ai].body.x >= gx { 1.0 } else { -1.0 };
+                                let away = if self.actors[ai].body.x >= gx {
+                                    1.0
+                                } else {
+                                    -1.0
+                                };
                                 self.hurt_actor(ai, 1, away, source);
                             }
                         }
@@ -1521,17 +1748,28 @@ impl LabSim {
         // Launched enemies bump destructible props: one damage per flight.
         for index in 0..enemies {
             let (body, speed) = match &self.targets[index] {
-                Hittable::Goblin(g) if matches!(g.mode, GoblinMode::Hurt | GoblinMode::Airborne) => (g.body(), g.vx.abs()),
+                Hittable::Goblin(g)
+                    if matches!(g.mode, GoblinMode::Hurt | GoblinMode::Airborne) =>
+                {
+                    (g.body(), g.vx.abs())
+                }
                 _ => continue,
             };
             if speed < 60.0 {
                 continue;
             }
-            let probe = Rect { left: body.left - 3.0, width: body.width + 6.0, ..body };
+            let probe = Rect {
+                left: body.left - 3.0,
+                width: body.width + 6.0,
+                ..body
+            };
             for p in enemies..self.targets.len() {
                 let hit = match &mut self.targets[p] {
                     Hittable::Prop(ps)
-                        if ps.def.breakable && ps.mode == PropMode::Intact && ps.bump_cooldown == 0 && ps.rect.overlaps(probe) =>
+                        if ps.def.breakable
+                            && ps.mode == PropMode::Intact
+                            && ps.bump_cooldown == 0
+                            && ps.rect.overlaps(probe) =>
                     {
                         ps.hp = ps.hp.saturating_sub(1);
                         ps.bump_cooldown = 30;
@@ -1575,15 +1813,25 @@ impl LabSim {
         a.body.vx = away * 120.0;
         let health = a.health;
         let _ = source;
-        self.log(LabEvent::ActorHurt { tick, actor: i as u8, health });
+        self.log(LabEvent::ActorHurt {
+            tick,
+            actor: i as u8,
+            health,
+        });
         if health == 0 {
             let a = &mut self.actors[i];
             a.down_ticks = 1;
             a.downs += 1;
-            self.log(LabEvent::ActorDown { tick, actor: i as u8 });
+            self.log(LabEvent::ActorDown {
+                tick,
+                actor: i as u8,
+            });
             if self.mode == Mode::Solo && self.active == i && !self.actors[1 - i].down() {
                 self.active = 1 - i;
-                self.log(LabEvent::Switched { tick, to: self.active as u8 });
+                self.log(LabEvent::Switched {
+                    tick,
+                    to: self.active as u8,
+                });
             }
         }
     }
@@ -1593,15 +1841,25 @@ impl LabSim {
         for i in 0..2 {
             if self.actors[i].down_ticks >= DOWN_TICKS {
                 let partner = &self.actors[1 - i];
-                let px = if partner.down() { self.room.spawn_carl as f32 } else { partner.body.x };
+                let px = if partner.down() {
+                    self.room.spawn_carl as f32
+                } else {
+                    partner.body.x
+                };
                 let a = &mut self.actors[i];
                 a.down_ticks = 0;
                 a.health = (a.max_health / 2).max(1);
                 a.invuln = HERO_INVULNERABLE_TICKS;
-                a.body.x = (px - 36.0 * f32::from(partner_side(i))).clamp(self.room.play_x.0 as f32 + 20.0, self.room.play_x.1 as f32 - 20.0);
+                a.body.x = (px - 36.0 * f32::from(partner_side(i))).clamp(
+                    self.room.play_x.0 as f32 + 20.0,
+                    self.room.play_x.1 as f32 - 20.0,
+                );
                 a.body.y = self.height - self.room.floor_y as f32 + a.body.hh + 1.0;
                 a.body.vy = 0.0;
-                self.log(LabEvent::ActorRevived { tick, actor: i as u8 });
+                self.log(LabEvent::ActorRevived {
+                    tick,
+                    actor: i as u8,
+                });
             }
         }
     }
@@ -1621,7 +1879,12 @@ impl LabSim {
         let integrate = |f: &mut Foe, blocks: &[Block]| {
             if f.vx != 0.0 {
                 let wanted = (f.x + f.vx * TICK_SECONDS).clamp(x_min, x_max);
-                let rect = Rect { left: wanted - spec.hw, bottom: f.y - spec.hh, width: spec.hw * 2.0, height: spec.hh * 2.0 };
+                let rect = Rect {
+                    left: wanted - spec.hw,
+                    bottom: f.y - spec.hh,
+                    width: spec.hw * 2.0,
+                    height: spec.hh * 2.0,
+                };
                 let blocked = blocks.iter().any(|b| b.intact && rect.overlaps(b.rect));
                 if !blocked {
                     f.x = wanted;
@@ -1667,18 +1930,29 @@ impl LabSim {
                     let dist = dx.abs();
                     if dist < spec.sight {
                         f.facing = if dx > 0.0 { 1 } else { -1 };
-                        let range_ok = if spec.ranged { dist <= spec.trigger && dist >= 120.0 } else { dist <= spec.trigger };
+                        let range_ok = if spec.ranged {
+                            dist <= spec.trigger && dist >= 120.0
+                        } else {
+                            dist <= spec.trigger
+                        };
                         if f.cooldown == 0 && range_ok && may_attack(self, index, tick) {
                             f.mode = FoeMode::Tell;
                             f.mode_tick = 0;
                             f.swing_hit = false;
                             self.last_tell_start = Some(tick);
                             if boss {
-                                self.log(LabEvent::BossTell { tick, foe: index as u32 });
+                                self.log(LabEvent::BossTell {
+                                    tick,
+                                    foe: index as u32,
+                                });
                             }
                         } else if dist > spec.trigger * 0.6 || boss {
                             // Close in (the boss paces towards its target).
-                            let keep = if spec.ranged { 260.0 } else { spec.trigger * 0.5 };
+                            let keep = if spec.ranged {
+                                260.0
+                            } else {
+                                spec.trigger * 0.5
+                            };
                             if dist > keep {
                                 f.vx = f32::from(f.facing) * spec.speed;
                             } else if spec.ranged && dist < 180.0 {
@@ -1698,7 +1972,11 @@ impl LabSim {
                     if boss {
                         // Commit the direction now: the tell showed it.
                         f.charge_dir = f.facing;
-                        self.log(LabEvent::BossCharge { tick, foe: index as u32, dir: f.charge_dir });
+                        self.log(LabEvent::BossCharge {
+                            tick,
+                            foe: index as u32,
+                            dir: f.charge_dir,
+                        });
                     }
                 }
             }
@@ -1710,14 +1988,20 @@ impl LabSim {
                     integrate(f, blocks);
                     let rect = f.body();
                     // Struck structures: a closed gate (stun), a wall, breakable props.
-                    let ahead = Rect { left: rect.left + f32::from(f.charge_dir) * 6.0, ..rect };
+                    let ahead = Rect {
+                        left: rect.left + f32::from(f.charge_dir) * 6.0,
+                        ..rect
+                    };
                     let mut stunned = None;
                     if let Some(gb) = self.gate_block
                         && self.blocks[gb].intact
                         && ahead.overlaps(self.blocks[gb].rect)
                     {
                         stunned = Some(true);
-                    } else if (f.x - x_min).abs() < 1.0 || (f.x - x_max).abs() < 1.0 || (f.x - before).abs() < 0.01 && f.vx == 0.0 {
+                    } else if (f.x - x_min).abs() < 1.0
+                        || (f.x - x_max).abs() < 1.0
+                        || (f.x - before).abs() < 0.01 && f.vx == 0.0
+                    {
                         stunned = Some(false);
                     }
                     // Smash weak props in the lane.
@@ -1730,14 +2014,23 @@ impl LabSim {
                                 ps.hp = 0;
                             }
                             let seed = self.rand();
-                            self.log(LabEvent::PropBroken { tick, prop: (p - enemies) as u32, seed });
+                            self.log(LabEvent::PropBroken {
+                                tick,
+                                prop: (p - enemies) as u32,
+                                seed,
+                            });
                             self.break_prop(p - enemies);
                         }
                     }
                     // Contact damage on actors in the lane.
                     for ai in 0..2 {
-                        if self.actor_hittable(ai) && f.body().overlaps(self.actors[ai].body.rect()) {
-                            let away = if self.actors[ai].body.x >= f.x { 1.0 } else { -1.0 };
+                        if self.actor_hittable(ai) && f.body().overlaps(self.actors[ai].body.rect())
+                        {
+                            let away = if self.actors[ai].body.x >= f.x {
+                                1.0
+                            } else {
+                                -1.0
+                            };
                             self.hurt_actor(ai, spec.damage, away, index as u32);
                         }
                     }
@@ -1748,7 +2041,11 @@ impl LabSim {
                         f.stun = if by_gate { 150 } else { 60 };
                         f.mode = FoeMode::Recover;
                         f.mode_tick = spec.recover.saturating_sub(f.stun.min(spec.recover));
-                        self.log(LabEvent::BossStunned { tick, foe: index as u32, by_gate });
+                        self.log(LabEvent::BossStunned {
+                            tick,
+                            foe: index as u32,
+                            by_gate,
+                        });
                         // A stunned boss is open to hits: Hurt-ish recover that
                         // hits interrupt (not Active).
                     } else if f.mode_tick >= spec.active {
@@ -1770,12 +2067,24 @@ impl LabSim {
                         (self.actors[i].body.x, self.actors[i].body.y)
                     });
                     let jitter = (self.rand() % 17) as f32 - 8.0;
-                    let (sx, sy) = (f.x + f32::from(f.facing) * (spec.hw + 6.0), f.y + spec.hh * 0.3);
+                    let (sx, sy) = (
+                        f.x + f32::from(f.facing) * (spec.hw + 6.0),
+                        f.y + spec.hh * 0.3,
+                    );
                     let (dx, dy) = (aim.0 - sx, aim.1 + jitter - sy);
                     let len = (dx * dx + dy * dy).sqrt().max(1.0);
                     let speed = 210.0;
-                    self.projectiles.push(Projectile { x: sx, y: sy, vx: dx / len * speed, vy: dy / len * speed, life: 150 });
-                    self.log(LabEvent::SpitFired { tick, foe: index as u32 });
+                    self.projectiles.push(Projectile {
+                        x: sx,
+                        y: sy,
+                        vx: dx / len * speed,
+                        vy: dy / len * speed,
+                        life: 150,
+                    });
+                    self.log(LabEvent::SpitFired {
+                        tick,
+                        foe: index as u32,
+                    });
                 }
                 // Melee hit box on the active frames.
                 if !spec.ranged
@@ -1785,7 +2094,11 @@ impl LabSim {
                     for ai in 0..2 {
                         if self.actor_hittable(ai) && boxr.overlaps(self.actors[ai].body.rect()) {
                             f.swing_hit = true;
-                            let away = if self.actors[ai].body.x >= f.x { 1.0 } else { -1.0 };
+                            let away = if self.actors[ai].body.x >= f.x {
+                                1.0
+                            } else {
+                                -1.0
+                            };
                             self.hurt_actor(ai, spec.damage, away, index as u32);
                             break;
                         }
@@ -1838,11 +2151,20 @@ impl LabSim {
             }
             // A falling or landing weight hurts what is below it, once each.
             let (falling, rect, mask) = match &self.targets[p] {
-                Hittable::Prop(ps) => (matches!(ps.mode, PropMode::Falling) || landed.is_some(), ps.rect, ps.hit_mask),
+                Hittable::Prop(ps) => (
+                    matches!(ps.mode, PropMode::Falling) || landed.is_some(),
+                    ps.rect,
+                    ps.hit_mask,
+                ),
                 _ => continue,
             };
             if falling {
-                let zone = Rect { left: rect.left - 10.0, width: rect.width + 20.0, bottom: rect.bottom - 4.0, height: rect.height + 8.0 };
+                let zone = Rect {
+                    left: rect.left - 10.0,
+                    width: rect.width + 20.0,
+                    bottom: rect.bottom - 4.0,
+                    height: rect.height + 8.0,
+                };
                 let mut new_mask = mask;
                 for e in 0..enemies {
                     let (alive, body) = match &self.targets[e] {
@@ -1852,16 +2174,35 @@ impl LabSim {
                     };
                     if alive && new_mask & (1 << e) == 0 && zone.overlaps(body) {
                         new_mask |= 1 << e;
-                        self.log(LabEvent::ImpactDamage { tick, victim: e as u32, is_actor: false });
-                        let dir = if body.center().0 >= rect.center().0 { 1 } else { -1 };
+                        self.log(LabEvent::ImpactDamage {
+                            tick,
+                            victim: e as u32,
+                            is_actor: false,
+                        });
+                        let dir = if body.center().0 >= rect.center().0 {
+                            1
+                        } else {
+                            -1
+                        };
                         self.crush_enemy(e, dir);
                     }
                 }
                 for ai in 0..2 {
-                    if self.actor_hittable(ai) && new_mask & (1 << (16 + ai)) == 0 && zone.overlaps(self.actors[ai].body.rect()) {
+                    if self.actor_hittable(ai)
+                        && new_mask & (1 << (16 + ai)) == 0
+                        && zone.overlaps(self.actors[ai].body.rect())
+                    {
                         new_mask |= 1 << (16 + ai);
-                        self.log(LabEvent::ImpactDamage { tick, victim: ai as u32, is_actor: true });
-                        let away = if self.actors[ai].body.x >= rect.center().0 { 1.0 } else { -1.0 };
+                        self.log(LabEvent::ImpactDamage {
+                            tick,
+                            victim: ai as u32,
+                            is_actor: true,
+                        });
+                        let away = if self.actors[ai].body.x >= rect.center().0 {
+                            1.0
+                        } else {
+                            -1.0
+                        };
                         self.hurt_actor(ai, 1, away, 99);
                     }
                 }
@@ -1870,7 +2211,11 @@ impl LabSim {
                 }
             }
             if let Some((prop, cx)) = landed {
-                self.log(LabEvent::WeightLanded { tick, prop: prop as u32, x: cx as i32 });
+                self.log(LabEvent::WeightLanded {
+                    tick,
+                    prop: prop as u32,
+                    x: cx as i32,
+                });
             }
         }
     }
@@ -1879,12 +2224,21 @@ impl LabSim {
         let tick = self.tick;
         let spec = MoveSpec {
             damage: 2,
-            reaction: Reaction { stagger_ticks: 20, knock_vx: 100.0, knock_vy: 0.0, hit_stop: 6, camera_kick_px: 0 },
+            reaction: Reaction {
+                stagger_ticks: 20,
+                knock_vx: 100.0,
+                knock_vy: 0.0,
+                hit_stop: 6,
+                camera_kick_px: 0,
+            },
             ..DONUT_SWAT
         };
         let (outcome, _) = self.targets[e].take_hit(&spec, dir);
         if outcome == HitOutcome::Defeated {
-            self.log(LabEvent::Combat(CombatEvent::EnemyDefeated { tick, target: e as u32 }));
+            self.log(LabEvent::Combat(CombatEvent::EnemyDefeated {
+                tick,
+                target: e as u32,
+            }));
         }
     }
 
@@ -1897,8 +2251,14 @@ impl LabSim {
             p.x += p.vx * TICK_SECONDS;
             p.y += p.vy * TICK_SECONDS;
             p.life = p.life.saturating_sub(1);
-            let r = Rect { left: p.x - 3.0, bottom: p.y - 3.0, width: 6.0, height: 6.0 };
-            let mut dead = p.life == 0 || self.blocks.iter().any(|b| b.intact && b.rect.overlaps(r));
+            let r = Rect {
+                left: p.x - 3.0,
+                bottom: p.y - 3.0,
+                width: 6.0,
+                height: 6.0,
+            };
+            let mut dead =
+                p.life == 0 || self.blocks.iter().any(|b| b.intact && b.rect.overlaps(r));
             if !dead {
                 for ai in 0..2 {
                     if self.actor_hittable(ai) && self.actors[ai].body.rect().overlaps(r) {
@@ -1922,7 +2282,14 @@ impl LabSim {
             for h in self.room.hazards.clone() {
                 let r = rect_up(height, h.rect);
                 let a = &self.actors[i];
-                if self.actor_hittable(i) && a.heat_cooldown == 0 && a.body.grounded && a.body.rect().overlaps(Rect { height: r.height + 2.0, ..r }) {
+                if self.actor_hittable(i)
+                    && a.heat_cooldown == 0
+                    && a.body.grounded
+                    && a.body.rect().overlaps(Rect {
+                        height: r.height + 2.0,
+                        ..r
+                    })
+                {
                     self.actors[i].heat_cooldown = 60;
                     self.hurt_actor(i, 1, 0.0, 97);
                 }
@@ -1934,9 +2301,15 @@ impl LabSim {
         let tick = self.tick;
         let exit = rect_up(self.height, self.room.exit);
         for i in 0..2 {
-            if !self.actors[i].exit_reached && !self.actors[i].down() && self.actors[i].body.rect().overlaps(exit) {
+            if !self.actors[i].exit_reached
+                && !self.actors[i].down()
+                && self.actors[i].body.rect().overlaps(exit)
+            {
                 self.actors[i].exit_reached = true;
-                self.log(LabEvent::ExitReached { tick, actor: i as u8 });
+                self.log(LabEvent::ExitReached {
+                    tick,
+                    actor: i as u8,
+                });
             }
         }
     }
@@ -2095,18 +2468,33 @@ mod tests {
     fn carl_body_physics_equals_the_shared_hero_step() {
         // A floor and a step; the same scripted inputs through both steppers.
         let floor = Block {
-            rect: Rect { left: 0.0, bottom: 0.0, width: 2000.0, height: 100.0 },
+            rect: Rect {
+                left: 0.0,
+                bottom: 0.0,
+                width: 2000.0,
+                height: 100.0,
+            },
             material: Material::Stone,
             intact: true,
         };
         let step = Block {
-            rect: Rect { left: 400.0, bottom: 100.0, width: 48.0, height: 40.0 },
+            rect: Rect {
+                left: 400.0,
+                bottom: 100.0,
+                width: 48.0,
+                height: 40.0,
+            },
             material: Material::Stone,
             intact: true,
         };
         let blocks = [floor, step];
         let mut hero = Hero::at(100.0, 100.0 + HERO_HALF_HEIGHT);
-        let mut body = Body::new(100.0, 100.0 + HERO_HALF_HEIGHT, HERO_HALF_WIDTH, HERO_HALF_HEIGHT);
+        let mut body = Body::new(
+            100.0,
+            100.0 + HERO_HALF_HEIGHT,
+            HERO_HALF_WIDTH,
+            HERO_HALF_HEIGHT,
+        );
         let mut frame = InputFrame::default();
         for t in 0..900u32 {
             let raw = RawInput {
@@ -2116,8 +2504,21 @@ mod tests {
             };
             frame.advance(raw);
             step_hero(&mut hero, &frame, &blocks, 1988.0);
-            step_body(&mut body, frame.jump_pressed, frame.held.move_x, CARL_RUN, CARL_JUMP, &blocks, HERO_HALF_WIDTH, 1988.0);
-            assert_eq!((hero.x, hero.y, hero.vy, hero.grounded), (body.x, body.y, body.vy, body.grounded), "tick {t}");
+            step_body(
+                &mut body,
+                frame.jump_pressed,
+                frame.held.move_x,
+                CARL_RUN,
+                CARL_JUMP,
+                &blocks,
+                HERO_HALF_WIDTH,
+                1988.0,
+            );
+            assert_eq!(
+                (hero.x, hero.y, hero.vy, hero.grounded),
+                (body.x, body.y, body.vy, body.grounded),
+                "tick {t}"
+            );
         }
     }
 
@@ -2134,7 +2535,10 @@ mod tests {
         let room = &rooms()[0];
         let mut sim = LabSim::new(room, Mode::TwoPlayer, 1);
         let (cx, dx) = (sim.actors[CARL].body.x, sim.actors[DONUT].body.x);
-        let mut p1 = LabInput { move_x: 1.0, ..Default::default() };
+        let mut p1 = LabInput {
+            move_x: 1.0,
+            ..Default::default()
+        };
         let p2 = LabInput::default();
         for _ in 0..30 {
             sim.step([p1, p2]);
@@ -2146,11 +2550,21 @@ mod tests {
         sim.step([p1, p2]);
         p1.switch = false;
         sim.step([p1, p2]);
-        assert!(sim.events.iter().all(|e| !matches!(e, LabEvent::Switched { .. })));
+        assert!(
+            sim.events
+                .iter()
+                .all(|e| !matches!(e, LabEvent::Switched { .. }))
+        );
         // Player 2 moves Donut only.
         let carl_x = sim.actors[CARL].body.x;
         for _ in 0..30 {
-            sim.step([LabInput::default(), LabInput { move_x: -1.0, ..Default::default() }]);
+            sim.step([
+                LabInput::default(),
+                LabInput {
+                    move_x: -1.0,
+                    ..Default::default()
+                },
+            ]);
         }
         assert!(sim.actors[DONUT].body.x < dx - 50.0);
         assert!((sim.actors[CARL].body.x - carl_x).abs() < 1.0);
@@ -2161,7 +2575,10 @@ mod tests {
         let room = &rooms()[0];
         let mut sim = LabSim::new(room, Mode::Solo, 1);
         assert_eq!(sim.active, CARL);
-        let sw = LabInput { switch: true, ..Default::default() };
+        let sw = LabInput {
+            switch: true,
+            ..Default::default()
+        };
         sim.step([sw, idle()[1]]);
         assert_eq!(sim.active, DONUT);
         // Held L1 does not switch again, a cooldown protects a mash.
@@ -2169,26 +2586,46 @@ mod tests {
         assert_eq!(sim.active, DONUT);
         let carl0 = sim.actors[CARL].body.x;
         for _ in 0..60 {
-            sim.step([LabInput { move_x: 1.0, ..Default::default() }, idle()[1]]);
+            sim.step([
+                LabInput {
+                    move_x: 1.0,
+                    ..Default::default()
+                },
+                idle()[1],
+            ]);
         }
         // Slot 0 now drives Donut; the companion AI keeps Carl near her.
         assert!(sim.actors[DONUT].body.x > room.spawn_donut as f32 + 60.0);
-        assert!(sim.actors[CARL].body.x > carl0 + 20.0, "the companion follows");
+        assert!(
+            sim.actors[CARL].body.x > carl0 + 20.0,
+            "the companion follows"
+        );
     }
 
     #[test]
     fn story_gated_specials_do_nothing_and_are_logged_locked() {
         let room = &rooms()[0];
         let mut sim = LabSim::new(room, Mode::TwoPlayer, 1);
-        let special = LabInput { special: true, ..Default::default() };
+        let special = LabInput {
+            special: true,
+            ..Default::default()
+        };
         let before = sim.state_hash();
         sim.step([special, special]);
-        let kinds: Vec<_> = sim.events.iter().filter(|e| matches!(e, LabEvent::SpecialLocked { .. })).collect();
+        let kinds: Vec<_> = sim
+            .events
+            .iter()
+            .filter(|e| matches!(e, LabEvent::SpecialLocked { .. }))
+            .collect();
         assert_eq!(kinds.len(), 2);
         assert!(sim.projectiles.is_empty());
         assert_ne!(before, sim.state_hash());
         // No move was started by the special button.
-        assert!(sim.events.iter().all(|e| !matches!(e, LabEvent::Combat(CombatEvent::MoveStarted { .. }))));
+        assert!(
+            sim.events
+                .iter()
+                .all(|e| !matches!(e, LabEvent::Combat(CombatEvent::MoveStarted { .. })))
+        );
     }
 
     #[test]
@@ -2196,8 +2633,17 @@ mod tests {
         let room = &rooms()[0];
         let mut sim = LabSim::new(room, Mode::TwoPlayer, 1);
         for _ in 0..900 {
-            sim.step([LabInput { move_x: 1.0, ..Default::default() }, idle()[1]]);
-            assert!((sim.actors[CARL].body.x - sim.actors[DONUT].body.x).abs() <= MAX_SEPARATION_X + 1.0);
+            sim.step([
+                LabInput {
+                    move_x: 1.0,
+                    ..Default::default()
+                },
+                idle()[1],
+            ]);
+            assert!(
+                (sim.actors[CARL].body.x - sim.actors[DONUT].body.x).abs()
+                    <= MAX_SEPARATION_X + 1.0
+            );
         }
     }
 
@@ -2212,7 +2658,11 @@ mod tests {
                 let inputs = crate::camera_lab::script::script_inputs(&sim, &script);
                 sim.step(inputs);
             }
-            assert!(sim.blocks()[..protected].iter().all(|b| b.intact), "{}", room.id);
+            assert!(
+                sim.blocks()[..protected].iter().all(|b| b.intact),
+                "{}",
+                room.id
+            );
         }
         // Even with every prop broken the exit stays reachable (room data test).
     }
@@ -2222,24 +2672,48 @@ mod tests {
         let rooms = rooms();
         let script = scripts().remove(2);
         let trace = run(&rooms[2], &script);
-        let at = |needle: &str| trace.events.iter().position(|e| e.contains(needle)).unwrap_or_else(|| panic!("no {needle}"));
+        let at = |needle: &str| {
+            trace
+                .events
+                .iter()
+                .position(|e| e.contains(needle))
+                .unwrap_or_else(|| panic!("no {needle}"))
+        };
         let broken = at("kind=prop_broken prop=2");
         let fell = at("kind=weight_fell prop=3");
         let landed = at("kind=weight_landed prop=3");
         assert!(broken < fell && fell < landed, "cause to effect order");
-        assert!(trace.events.iter().any(|e| e.contains("kind=impact_damage")), "the falling weight hurt a goblin");
+        assert!(
+            trace
+                .events
+                .iter()
+                .any(|e| e.contains("kind=impact_damage")),
+            "the falling weight hurt a goblin"
+        );
     }
 
     #[test]
     fn the_gate_cycle_opens_often_and_never_closes_on_a_body() {
         let open_ticks = (0..GATE_PERIOD).filter(|t| gate_open_at(*t) >= 0.5).count() as u64;
-        assert!(open_ticks * 100 / GATE_PERIOD >= 40, "the gate is open {open_ticks} of {GATE_PERIOD} ticks");
-        assert!((0..GATE_PERIOD).any(|t| gate_warning_at(t)), "a visible warning before closing");
+        assert!(
+            open_ticks * 100 / GATE_PERIOD >= 40,
+            "the gate is open {open_ticks} of {GATE_PERIOD} ticks"
+        );
+        assert!(
+            (0..GATE_PERIOD).any(gate_warning_at),
+            "a visible warning before closing"
+        );
         let rooms = rooms();
         let room = &rooms[5];
         let mut sim = LabSim::new(room, Mode::TwoPlayer, 1);
         // Put Carl under the gate when it is open and run through a closing.
-        let gate = sim.room.props.iter().find(|p| p.kind == PropKind::Gate).unwrap().rect;
+        let gate = sim
+            .room
+            .props
+            .iter()
+            .find(|p| p.kind == PropKind::Gate)
+            .unwrap()
+            .rect;
         // Wait until the gate is open, then stand in its lane through a closing.
         while gate_open_at(sim.tick + 1) < 0.9 {
             sim.step(idle());
@@ -2250,7 +2724,14 @@ mod tests {
             sim.step(idle());
             let block = sim.gate_block.unwrap();
             if sim.blocks[block].intact {
-                assert!(!sim.actors[CARL].body.rect().overlaps(sim.blocks[block].rect), "crushed at tick {}", sim.tick);
+                assert!(
+                    !sim.actors[CARL]
+                        .body
+                        .rect()
+                        .overlaps(sim.blocks[block].rect),
+                    "crushed at tick {}",
+                    sim.tick
+                );
             }
         }
     }
@@ -2260,9 +2741,21 @@ mod tests {
         let rooms = rooms();
         let script = scripts().remove(5);
         let trace = run(&rooms[5], &script);
-        let tell = trace.events.iter().position(|e| e.contains("kind=boss_tell")).unwrap();
-        let charge = trace.events.iter().position(|e| e.contains("kind=boss_charge")).unwrap();
-        let stun = trace.events.iter().position(|e| e.contains("kind=boss_stunned foe=0 gate=true")).unwrap();
+        let tell = trace
+            .events
+            .iter()
+            .position(|e| e.contains("kind=boss_tell"))
+            .unwrap();
+        let charge = trace
+            .events
+            .iter()
+            .position(|e| e.contains("kind=boss_charge"))
+            .unwrap();
+        let stun = trace
+            .events
+            .iter()
+            .position(|e| e.contains("kind=boss_stunned foe=0 gate=true"))
+            .unwrap();
         assert!(tell < charge && charge < stun);
     }
 

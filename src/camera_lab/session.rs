@@ -41,12 +41,15 @@ pub fn camera_input_of(sim: &LabSim) -> (Vec<Subject>, Option<Threat>, bool) {
             && f.alive()
             && matches!(
                 f.spec.kind,
-                crate::camera_lab::room::EnemyKind::Ball | crate::camera_lab::room::EnemyKind::Llama
+                crate::camera_lab::room::EnemyKind::Ball
+                    | crate::camera_lab::room::EnemyKind::Llama
             )
         {
             let (left, dir) = match (f.mode, foe_phase_progress(f)) {
                 (FoeMode::Tell, Some((_, left))) => (left, f.facing),
-                (FoeMode::Active, _) if f.spec.kind == crate::camera_lab::room::EnemyKind::Ball => (0, f.charge_dir),
+                (FoeMode::Active, _) if f.spec.kind == crate::camera_lab::room::EnemyKind::Ball => {
+                    (0, f.charge_dir)
+                }
                 _ => continue,
             };
             let candidate = Threat {
@@ -63,7 +66,10 @@ pub fn camera_input_of(sim: &LabSim) -> (Vec<Subject>, Option<Threat>, bool) {
             }
         }
     }
-    let impact = sim.actors.iter().any(|a| a.hit_stop > 0 || a.runner.hit_stop_left() > 0)
+    let impact = sim
+        .actors
+        .iter()
+        .any(|a| a.hit_stop > 0 || a.runner.hit_stop_left() > 0)
         || sim.tick.saturating_sub(sim.last_hit_tick) < 10 && sim.last_hit_tick > 0
         || sim.targets.iter().any(|t| match t {
             Hittable::Goblin(g) => g.hit_stop > 0,
@@ -81,10 +87,21 @@ impl Session {
         let op = CameraOperator::new(
             camera,
             aspect,
-            Bounds { w: room.render.0, h: room.render.1 },
-            &CameraInput { subjects: &subjects, threat, impact_hold },
+            Bounds {
+                w: room.render.0,
+                h: room.render.1,
+            },
+            &CameraInput {
+                subjects: &subjects,
+                threat,
+                impact_hold,
+            },
         );
-        Self { sim, camera: op, aspect }
+        Self {
+            sim,
+            camera: op,
+            aspect,
+        }
     }
 
     /// Rebuild the operator on the current simulation state (no easing): used
@@ -94,15 +111,26 @@ impl Session {
         self.camera = CameraOperator::new(
             self.camera.mode(),
             self.aspect,
-            Bounds { w: self.sim.room.render.0, h: self.sim.room.render.1 },
-            &CameraInput { subjects: &subjects, threat, impact_hold },
+            Bounds {
+                w: self.sim.room.render.0,
+                h: self.sim.room.render.1,
+            },
+            &CameraInput {
+                subjects: &subjects,
+                threat,
+                impact_hold,
+            },
         );
     }
 
     pub fn step(&mut self, inputs: [LabInput; 2]) -> View {
         self.sim.step(inputs);
         let (subjects, threat, impact_hold) = camera_input_of(&self.sim);
-        self.camera.step(&CameraInput { subjects: &subjects, threat, impact_hold })
+        self.camera.step(&CameraInput {
+            subjects: &subjects,
+            threat,
+            impact_hold,
+        })
     }
 
     pub fn view(&self) -> View {
@@ -111,7 +139,11 @@ impl Session {
 
     /// Active focus actor (solo) or Carl.
     pub fn focus(&self) -> usize {
-        if self.sim.mode == Mode::Solo { self.sim.active } else { CARL }
+        if self.sim.mode == Mode::Solo {
+            self.sim.active
+        } else {
+            CARL
+        }
     }
 }
 
@@ -120,21 +152,30 @@ mod tests {
     use super::*;
     use crate::camera_lab::camera_op::{COVERAGE_CANDIDATES, safety_inside_in, visible_share};
     use crate::camera_lab::room::load_rooms;
-    use crate::camera_lab::script::{scripts, solo_script, script_inputs, run};
+    use crate::camera_lab::script::{run, script_inputs, scripts, solo_script};
     use std::path::Path;
 
     fn rooms() -> Vec<Room> {
         load_rooms(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap()
     }
 
-    fn drive(room: &Room, script: &crate::camera_lab::script::Script, cam: CameraMode, aspect: Aspect) -> (u64, Vec<View>, Vec<String>) {
+    fn drive(
+        room: &Room,
+        script: &crate::camera_lab::script::Script,
+        cam: CameraMode,
+        aspect: Aspect,
+    ) -> (u64, Vec<View>, Vec<String>) {
         let mut s = Session::new(room, script.mode, script.seed, cam, aspect);
         let mut views = Vec::new();
         for _ in 0..script.ticks {
             let inputs = script_inputs(&s.sim, script);
             views.push(s.step(inputs));
         }
-        (s.sim.state_hash(), views, s.sim.events.iter().map(|e| e.to_string()).collect())
+        (
+            s.sim.state_hash(),
+            views,
+            s.sim.events.iter().map(|e| e.to_string()).collect(),
+        )
     }
 
     /// The headline determinism check: the same scripted run at 1.0, 1.25,
@@ -150,11 +191,19 @@ mod tests {
             let modes: Vec<(CameraMode, Aspect)> = COVERAGE_CANDIDATES
                 .iter()
                 .map(|c| (CameraMode::Fixed(*c), Aspect::Wide16x9))
-                .chain([(CameraMode::Auto, Aspect::Wide16x9), (CameraMode::Auto, Aspect::Deck16x10), (CameraMode::Fixed(1.5), Aspect::Deck16x10)])
+                .chain([
+                    (CameraMode::Auto, Aspect::Wide16x9),
+                    (CameraMode::Auto, Aspect::Deck16x10),
+                    (CameraMode::Fixed(1.5), Aspect::Deck16x10),
+                ])
                 .collect();
             for (cam, aspect) in modes {
                 let (hash, views, events) = drive(room, &script, cam, aspect);
-                assert_eq!(hash, baseline.final_hash, "{} {cam:?} {aspect:?}", script.name);
+                assert_eq!(
+                    hash, baseline.final_hash,
+                    "{} {cam:?} {aspect:?}",
+                    script.name
+                );
                 assert_eq!(events, baseline.events, "{} {cam:?}", script.name);
                 view_sets.push(views);
             }
@@ -201,7 +250,11 @@ mod tests {
         for i in [0usize, 3, 5] {
             let script = solo_script(i);
             let r = run(&rooms[i], &script);
-            assert!(r.events.iter().any(|e| e.contains("kind=switched")), "{}", rooms[i].id);
+            assert!(
+                r.events.iter().any(|e| e.contains("kind=switched")),
+                "{}",
+                rooms[i].id
+            );
             let again = run(&rooms[i], &script);
             assert_eq!(r.final_hash, again.final_hash);
         }
@@ -212,7 +265,13 @@ mod tests {
         let rooms = rooms();
         for script in scripts() {
             let room = &rooms[script.room];
-            let mut s = Session::new(room, script.mode, script.seed, CameraMode::Auto, Aspect::Wide16x9);
+            let mut s = Session::new(
+                room,
+                script.mode,
+                script.seed,
+                CameraMode::Auto,
+                Aspect::Wide16x9,
+            );
             let mut out_of_safety = 0u64;
             let mut worst_share = 1.0f32;
             for tick in 0..script.ticks {
@@ -221,18 +280,38 @@ mod tests {
                 let (subs, _, _) = camera_input_of(&s.sim);
                 if tick > 90 {
                     for sub in &subs {
-                        if !safety_inside_in(v, sub, Bounds { w: room.render.0, h: room.render.1 }) {
+                        if !safety_inside_in(
+                            v,
+                            sub,
+                            Bounds {
+                                w: room.render.0,
+                                h: room.render.1,
+                            },
+                        ) {
                             out_of_safety += 1;
                         }
                         worst_share = worst_share.min(visible_share(v, sub));
                     }
                 }
-                assert!(v.left >= 0 && v.right() <= room.render.0 && v.top >= 0 && v.bottom() <= room.render.1);
+                assert!(
+                    v.left >= 0
+                        && v.right() <= room.render.0
+                        && v.top >= 0
+                        && v.bottom() <= room.render.1
+                );
             }
             // Brief catch-up after a jump or a knockback is fine; a persistent
             // violation is not.
-            assert!(out_of_safety < script.ticks / 4, "{}: {out_of_safety} ticks out of safety", script.name);
-            assert!(worst_share > 0.5, "{}: an actor was {worst_share} visible", script.name);
+            assert!(
+                out_of_safety < script.ticks / 4,
+                "{}: {out_of_safety} ticks out of safety",
+                script.name
+            );
+            assert!(
+                worst_share > 0.5,
+                "{}: an actor was {worst_share} visible",
+                script.name
+            );
         }
     }
 }
