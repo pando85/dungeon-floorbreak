@@ -4,6 +4,24 @@
   "keys": {
     "0": {
       "sha256": "a27306c1efdc2fe31fd0950e892a0ad1fdccfc44be6f355df0c2991200c8fbfb"
+    },
+    "10": {
+      "sha256": "db17f0312b3f127a9dd0c33b11a4c815cfc97add7484357f2eca2154d11f6905"
+    },
+    "12": {
+      "sha256": "e183114619bf38bae7ed74cc4c544d63e6cd5d1dca9791097dd3d41005f8ce1d"
+    },
+    "15": {
+      "sha256": "2356a7e81d481f516551fe5a608ecc218c37b41f90597e3f32e88089f6a3e1aa"
+    },
+    "3": {
+      "sha256": "4f6b8ee47e31114d7f1068b083d91fe0a2485691a97d72f72902cfc13d115ac7"
+    },
+    "7": {
+      "sha256": "42cb18cacde2b6300345e86f8fac67d913b3d6a7a62c1aa28f2deb5dd61ef88d"
+    },
+    "8": {
+      "sha256": "eff2f2a083c7c18acfb3a99a7c97f276eb7856ca7e590acf9ce66cdd2d4960d6"
     }
   },
   "layers": [

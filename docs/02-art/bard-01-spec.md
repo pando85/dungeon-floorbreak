@@ -1,6 +1,6 @@
 # BARD-01: Goblin Bomb Bard readability set, design spec
 
-**Status:** design done (this spec plus the frozen idle hero key 0). Execution pending (keys 3, 7, 8, 10, 12, 15 and 9 in-betweens). Review pending.
+**Status:** design done; execution done (7 keys frozen: 0, 3, 7, 8, 10, 12, 15; 9 in-betweens drawn; validator PASS, evidence and review pack committed). Independent review pending.
 
 **Decision record:** height 40 px (every frame at most 43 px), frame 64 x 56, pivot (28, 55), 16 frames, layers `body` and `prop`. Proposed by the design step; bounded by the work-order cap; confirmed or rejected by the independent review.
 
@@ -252,7 +252,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Spec and hero key 0: Claude Opus. Key 0 is literal pixel segments in `scripts/author_bard01.py`; the head reuses the GOB-01 variant A idle head (own project art). Executed by: pending. Independently reviewed by: pending.
+- Spec and hero key 0: Claude Opus. Key 0 is literal pixel segments in `scripts/author_bard01.py`; the head reuses the GOB-01 variant A idle head (own project art). Keys 3/7/8/10/12/15 + in-betweens + execution: Claude Sonnet. Independently reviewed by: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
 
 ## 13. Execution notes
@@ -260,6 +260,23 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - Draw keys 3, 7, 8, 10, 12, 15 first (section 7), then the in-betweens (section 8), all as new segment tables or `Canvas` calls in `scripts/author_bard01.py`; extend `FRAMES`, `TAGS`, `TICKS` and `KEY_FRAMES`, and write the manifest from the same script. Frame 0 must stay byte-identical (the frozen digest guards it).
 - Rotated bells (frames 7, 12, 13, 15) are drawn by hand from `BELL_IDLE`'s colour logic: rim column `h`, the cone half toward the light `b` with an `h` edge, the half away from it `n`, 1 px `K` outline.
 - Design problems found during execution (a pose that cannot meet a rule, a palette clash) go back to the design step; do not change the rules to fit the pixels.
+
+### Executor notes
+
+Conservative readings where the spec was ambiguous or its coordinates disagreed (no design decision changed; rules, palette, size cap, ticks, boxes and the spawn point are untouched):
+
+- **Despeckle pass.** Frames 1 to 15 (never frame 0) go through `despeckle()` in `scripts/author_bard01.py`: a pixel with no opaque neighbour is dropped and a non-accent pixel with no same-key neighbour takes its neighbours' majority key (the brass fuse caps `b` are kept). Needed to meet V05/V06 on the rotated and rule-drawn frames. Keys were frozen after this pass.
+- **Shifts apply to whole parts.** "Rows shift" means head, torso/pack, belt bomb, horn and fists move together unless the row says otherwise. Frame 7: the pack bomb moves up 1 with the pack ("unchanged" read as unchanged in shape and unlit).
+- **Legs start under the shorts.** Frames 3, 5 and 7 draw thighs from the first row below the moved shorts (row 47 in 3 and 5; row 45 in 7), not at the spec's row 46. Frame 4 and 6 raised boots are 4 rows tall (rows 49 to 52) to fit the stated span.
+- **Frame 7 pipe angle.** Mouthpiece (38, 27) and a rim in x 47 to 55, rows 17 to 27 give a pipe of about 25 degrees (spec says "about 35"); the rim box was kept. The 3-px near fist sits under the pipe (it overlaps the chest), the far hand is a literal 4 x 4 at x 42 to 45.
+- **Frame 7 face.** Eye lines and puffed cheeks are applied in key-0 head coordinates before the 1-row lift, so the spec's frame-space "row 23" eye line is the key-0 eye row. The mouthpiece pixel at (38, 27) covers the right edge of the closed mouth.
+- **Frame 8.** Near arm is a 2-row band with a K outline from the shoulder (27, 32) over the pack top to a 4 x 4 hand at x 11 to 14, rows 29 to 32; the arm column on the torso is filled with vest (`t`) in every frame where the near arm is raised (8, 9, 10, 12).
+- **Frames 9 and 10 draw order.** The raised near arm in 9 is in front of the head side; in 10 the near arm is drawn behind the face (it would otherwise hide the open mouth) and only the open hand (x 44 to 47) is in front. In 9 the bomb sits behind the head and the hand is in front. The optional smear arc of frame 9 is not drawn. The mirrored horn in 9 and 10 uses `BELL_IDLE` reversed row by row; the far hand is a 4 x 4 literal at x 22 to 25 with a short far-arm stub.
+- **Frame 11.** Horn dx 0, dy +2 (keeps the right edge at 53, rule 54); the far hand holds the pipe near the torso (dx -5) so the empty open near hand (x 38 to 41, rows 40 to 43) does not overlap it.
+- **Frame 12.** Goggles pixels are lifted 1 row (over the headwrap) and the vacated row is filled with skin; the nose tip is the key-0 tip moved 1 row up. The near fist (x 36 to 39, rows 28 to 31) is a 4 x 4 literal joined to the torso by 2 skin pixels. No far hand.
+- **Frame 13 (in-between).** The head, torso and pack bomb are a nearest-neighbour rotation of the key-0 parts by 42 degrees counter-clockwise (pivot (31, 44) to (26, 51)); the legs are key 0. Result is rough at 8x but reads as a tumble at 1x; flagged for the reviewer.
+- **Frames 14 and 15.** One shared function `lying(lift, bomb)` draws both; frame 14 lifts head, torso, pack, scarf, horn and arm by 2 and puts the bomb at (52, 49), where it overlaps the near boot by 1 column (prop over body). Frame 15 body spans x 4 to 56 and the bomb x 57 to 63. Shapes are rule-drawn (discs, thick lines, scanline rows) with edge shading; the bell is the generic `bell()` helper (rim column `h`, lit half `b`, shaded half `n`).
+- **Rotated bells** (7, 12, 13, 15) use the generic `bell()` helper that follows the spec's colour logic; they are not literal pixel copies of `BELL_IDLE`.
 
 ## 14. Follow-ups after this work order
 

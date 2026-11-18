@@ -38,7 +38,7 @@
     "manifest_tick_hz": "bard.tick_hz",
     "frozen_keys": {
       "fixture": "tests/fixtures/bard-01_keys.json",
-      "frames": [0],
+      "frames": [0, 3, 7, 8, 10, 12, 15],
       "layers": ["body", "prop"]
     },
     "bbox": [
