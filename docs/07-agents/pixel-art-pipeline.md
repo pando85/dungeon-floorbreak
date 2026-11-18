@@ -138,3 +138,32 @@ Conclusions:
 - **The blind review still finds what gates miss.** The Hoarder passed the gate but failed on the walk loop, a motion problem a still-image gate cannot see. The executor added validator rule V16 (loop-seam foot drift) so this class of defect is caught automatically; new assets with a walk loop opt in through `rules.foot_drift`.
 - **Resuming an agent is cheaper than a fresh one for fix rounds.** Fix rounds were sent to the original designer or executor with the review file path, and narrow re-reviews to the original reviewer.
 
+
+## 7. Wave 2 results (2026-11-18)
+
+Same estimate method as section 5 (see [cost-ledger.csv](cost-ledger.csv)); the shared packet stage is not included, except that VFX-01's packet row (0.52 USD) is in its medium-tier total. Eight assets are merged (PRs #68, #69, #70, #73, #75, #76, #81, #82); JUICE-01 (#74) and TROG-03 (#84) were ready and merging on green CI when this was written. AUDIO-01 (3.93 USD, an integration and code-review job, not an art asset) is left out of the table. Every asset had a silhouette gate, and every gate returned FIX-KEY0 or FIX-KEYS, so the Gate column lists what it caught.
+
+USD per frame divides the total by the frames in the atlas. TUSK-01 delivers two 16-frame atlases (tux and gown) from one set of keys, so it is counted as 16 frames (0.48 USD per frame); counted as 32 delivered frames it is 0.24.
+
+| Asset | Route | Frames | Top-tier USD | Medium-tier USD | Total USD | USD per frame | Gate | First blind review | Final review |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Copper Chopper (CHOP-01) | B | 16 | 4.38 | 3.20 | 7.58 | 0.47 | FIX-KEYS, 7 items (depth order, defeat, attack) | PASS WITH EXECUTION ITEMS, 19/25 | fix list checked |
+| Green Slime (SLIME-01) | B | 16 | 6.47 | 3.20 | 9.67 | 0.60 | FIX-KEYS (values inverted, skull and plate, beads) | FAIL-DESIGN, 18/25 (narrow: per-frame bbox rules, plate) | re-review PASS WITH EXECUTION ITEMS, 19/25 |
+| Rot Sticker (ROT-01) | B | 15 | 3.69 | 1.78 | **5.47** | **0.36** | FIX-KEYS (outline, dark-stone read, organic variation) | PASS WITH EXECUTION ITEMS, 20/25 | fix list checked |
+| Bomb and burst VFX (VFX-01) | B | 12 | 2.77 | 3.48 | 6.25 | 0.52 | FIX-KEYS, minor (lobe caps, grit, rim) | PASS WITH EXECUTION ITEMS, 19/25 | fix list checked |
+| Troglodyte Pygmy (TROG-01, family base) | B | 16 | 8.33 | 3.16 | 11.49 | 0.72 | FIX-KEYS (hurt key, grime) | FAIL-DESIGN, 19/25 (landing, hurt, defeat) | re-review PASS WITH EXECUTION ITEMS, 21/25 |
+| Ball of Swine (SWINE-01, boss) | A | 18 | 7.37 | 2.15 | 9.52 | 0.53 | FIX-KEY0 (faces, costume, roll landmarks) | PASS WITH EXECUTION ITEMS, 18/25 | re-check FIX (rim clipping, tux), then fixed and checked ready |
+| The Juicer (JUICE-01, boss) | A | 16 | 8.24 | 1.76 | 10.00 | 0.63 | FIX-KEY0 (head, fists, boils) | FAIL-DESIGN, 18/25 (walk only) | narrow re-review passed, fix check ready |
+| Troglodyte Basher (TROG-02) | C | 16 | 7.94 | 2.01 | 9.95 | 0.62 | FIX-KEY0, 7 fixes (fangs, rope knots, deltoid, grime) | FAIL-DESIGN, 19/25 (walk only) | narrow re-review PASS |
+| Tusklings (TUSK-01) | C | 16 per atlas, two atlases | 5.06 | 2.58 | 7.64 | 0.48 per atlas frame | FIX-KEY0 (upright stance, sleeve) | PASS WITH EXECUTION ITEMS, 20/25 | fix check ready |
+| Troglodyte Virtuoso (TROG-03) | C | 16 | 4.57 | 2.58 | 7.15 | 0.45 | FIX-KEY0, 2 small items (drool, scale staging) | PASS WITH EXECUTION ITEMS, 21/25 | fix check ready |
+
+Wave total: 58.82 USD top tier plus 25.90 USD medium tier, 84.72 USD for ten assets (about 8.5 USD each).
+
+Conclusions:
+
+- **Every asset had a gate, and the gates caught key issues early.** All ten returned FIX-KEY0 or FIX-KEYS before any in-between was drawn, and the fixes were small enough to apply without a re-gate. The gate cost 0.38 to 0.75 USD per check, against the 1 to 3 USD of top-tier rework a late design defect costs.
+- **The FAIL-DESIGN verdicts were narrow, and mostly walk loops.** Four assets failed the first blind review (SLIME-01, TROG-01, JUICE-01, TROG-02), none with a wholesale redesign. JUICE-01 and TROG-02 failed on the walk only (planted feet that slid); SLIME-01 on per-frame bbox rules and the plate; TROG-01 on the landing, hurt and defeat frames. The narrow re-review by the same reviewer passed each one.
+- **The V16 foot-drift pairing bug was fixed once and then designed around.** During JUICE-01 the validator matched a lifted foot to the other planted foot; contacts now pair one to one, with unit tests, and TUSK-01 and TROG-02 reused the fix. From then on the walk contact plan (which foot is planted for how many frames, px per frame, bob) was written into the spec up front, and TROG-03 passed its first blind review at 21/25 with no design defects.
+- **Folding small reviewer-prescribed gate fixes into the medium-tier execution saved a top-tier round.** TROG-03's two gate items (drool, scale staging) were applied by the executor, not sent back to the designer, which kept its top-tier spend at 4.57 USD, the lowest of the wave after ROT-01 and CHOP-01.
+- **Family variants mostly cost less than bosses, with one exception.** TUSK-01 (7.64 USD) and TROG-03 (7.15 USD) were cheaper per asset than SWINE-01 (9.52) and JUICE-01 (10.00). TROG-02 (9.95 USD) cost as much as a boss because of its walk design round, which TROG-03 then avoided. The family base TROG-01 was the most expensive asset of the wave (11.49 USD): it carries the construction contract the variants reuse.
