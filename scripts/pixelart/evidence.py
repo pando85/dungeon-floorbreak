@@ -83,7 +83,53 @@ def contact_sheet(cfg: AssetConfig, imgs: list[Image.Image], k: int, max_width: 
         x, y = pad + c * (w * k + gap), head + r * (h * k + cap_h + gap)
         sheet.paste(cell(img, k, cfg.pivot, cfg.contact_row).convert("RGB"), (x, y))
         label(d, (x + 1, y + h * k + 1), caption(cfg, i, keys, full), YELLOW if i in keys else GREY, 11 if full else 9)
-    return sheet
+    return _with_orientations(cfg, imgs, sheet, k) if full else sheet
+
+
+def orient(img: Image.Image, pivot, how: str, size: int = 48) -> Image.Image:
+    """``img`` placed with its pivot at the centre of a ``size`` cell, then ``how``: wall (as authored), ceiling (90 degrees
+    clockwise about the pivot), floor (90 degrees counter-clockwise) or mirror (horizontal flip about the pivot column)."""
+    c = size // 2
+    src = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    src.alpha_composite(img, (c - pivot[0], c - pivot[1]))
+    if how == "wall":
+        return src
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    sp, op = src.load(), out.load()
+    for y in range(size):
+        for x in range(size):
+            dx, dy = x - c, y - c
+            nx, ny = {"ceiling": (c - dy, c + dx), "floor": (c + dy, c - dx), "mirror": (c - dx, c + dy)}[how]
+            if 0 <= nx < size and 0 <= ny < size:
+                op[nx, ny] = sp[x, y]
+    return out
+
+
+def _with_orientations(cfg: AssetConfig, imgs: list[Image.Image], sheet: Image.Image, k: int) -> Image.Image:
+    """Optional ``review.orientations`` = ``{"frames": [..], "views": ["wall", "ceiling", "floor", "mirror"]}``: one extra
+    row per listed frame showing the runtime rotations and the mirror of the single authored set."""
+    spec = cfg.get("review", {}).get("orientations")
+    if not spec:
+        return sheet
+    views = spec.get("views", ["wall", "ceiling", "floor", "mirror"])
+    size, gap, cap_h, pad = 48, 6, 16, 4
+    frames = spec["frames"]
+    row_w = len(views) * (size * k + gap)
+    width = max(sheet.width, len(frames) * row_w + 2 * pad)
+    extra = Image.new("RGB", (width, 22 + size * k + cap_h + gap + pad), BG)
+    d = ImageDraw.Draw(extra)
+    label(d, (pad, 5), "orientations from the one authored set: " + ", ".join(views) + " (runtime rotation / mirror about the pivot)",
+          WHITE, 11)
+    for j, f in enumerate(frames):
+        for i, how in enumerate(views):
+            x, y = pad + j * row_w + i * (size * k + gap), 22
+            tile = orient(imgs[f], cfg.pivot, how, size)
+            extra.paste(cell(tile, k, (size // 2, size // 2), None).convert("RGB"), (x, y))
+            label(d, (x + 1, y + size * k + 1), f"{f:02d} {how}", GREY, 11)
+    out = Image.new("RGB", (width, sheet.height + extra.height), BG)
+    out.paste(sheet, (0, 0))
+    out.paste(extra, (0, sheet.height))
+    return out
 
 
 def strip_tags(cfg: AssetConfig) -> list[str]:

@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "id": "rot_sticker_floor01_v1_candidate",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/rot_sticker/rot_01.ase",
+  "grid_source": "assets/source/characters/rot_sticker/rot_01.grid.json",
+  "output_atlas": "generated/art/rot-01.png",
+  "output_metadata": "generated/art/rot-01.json",
+  "palette_id": "rot-sticker-floor01-v1",
+  "frame_size": [
+    32,
+    32
+  ],
+  "pivot": [
+    6,
+    16
+  ],
+  "animation_tags": [
+    "idle",
+    "walk",
+    "attack_tell",
+    "attack_swing",
+    "hurt",
+    "down"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy animation draft (fan-concept layer: Floor 1 Rot Sticker; runtime role IP-neutral surface-crawling contact bomb)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ROT-01 design-edited keys: six keys drawn by rules in scripts/author_rot01.py; nine in-betweens are drawn through the same renderer (see INBETWEENS)",
+    "generator": "Draft spec and keys: Claude Sonnet. Design edit: Claude Opus. In-betweens and execution: Claude Sonnet. Independent review: pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-enemy-concept-scatterers-rot-sticker-slime-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "rot_sticker": {
+    "status": "keys design-edited; in-betweens drawn; review pending; not wired into any Bevy binary",
+    "spec": "docs/02-art/rot-01-spec.md",
+    "opaque_height_idle": 20,
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "orientation": {
+      "authored": "wall_left_attach",
+      "creep_direction": "-y",
+      "ceiling": "rotate 90 degrees clockwise about the pivot at runtime",
+      "floor": "rotate 90 degrees counter-clockwise about the pivot at runtime",
+      "right_wall": "mirror horizontally about the pivot column"
+    },
+    "contact_column": 6,
+    "grounded_tags": [],
+    "airborne_tags": [],
+    "playback": {
+      "idle": "loop",
+      "walk": "loop",
+      "attack_tell": "once",
+      "attack_swing": "once",
+      "hurt": "once",
+      "down": "hold"
+    },
+    "key_frames": [
+      0,
+      3,
+      8,
+      10,
+      11,
+      14
+    ],
+    "key_fixture": "tests/fixtures/rot-01_keys.json",
+    "boxes": {
+      "hurtbox": [
+        6,
+        6,
+        14,
+        20
+      ],
+      "contact_trigger": [
+        6,
+        4,
+        18,
+        24
+      ],
+      "blast_radius_px": 40,
+      "blast_centre": [
+        12,
+        16
+      ]
+    },
+    "attack_ticks": {
+      "tell": [
+        0,
+        29
+      ],
+      "burst_onset": [
+        30,
+        31
+      ],
+      "burst_first": [
+        32,
+        35
+      ]
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "idle",
+        "ticks": 14,
+        "duration_ms": 233,
+        "author": "key"
+      },
+      {
+        "index": 1,
+        "tag": "idle",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "in-between"
+      },
+      {
+        "index": 2,
+        "tag": "idle",
+        "ticks": 14,
+        "duration_ms": 233,
+        "author": "in-between"
+      },
+      {
+        "index": 3,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "key"
+      },
+      {
+        "index": 4,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in-between"
+      },
+      {
+        "index": 5,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in-between"
+      },
+      {
+        "index": 6,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in-between"
+      },
+      {
+        "index": 7,
+        "tag": "attack_tell",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "in-between"
+      },
+      {
+        "index": 8,
+        "tag": "attack_tell",
+        "ticks": 24,
+        "duration_ms": 400,
+        "author": "key"
+      },
+      {
+        "index": 9,
+        "tag": "attack_swing",
+        "ticks": 2,
+        "duration_ms": 33,
+        "author": "in-between"
+      },
+      {
+        "index": 10,
+        "tag": "attack_swing",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key"
+      },
+      {
+        "index": 11,
+        "tag": "hurt",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "key"
+      },
+      {
+        "index": 12,
+        "tag": "down",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "in-between"
+      },
+      {
+        "index": 13,
+        "tag": "down",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in-between"
+      },
+      {
+        "index": 14,
+        "tag": "down",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key"
+      }
+    ]
+  }
+}
