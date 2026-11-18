@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THE CRAWL — Death Lab v0.3</title><style>
+:root{color-scheme:dark;font-family:ui-monospace,Consolas,Menlo,monospace;background:#0d101a;color:#f1e7d9}
+*{box-sizing:border-box}body{margin:0;padding:18px;background:radial-gradient(ellipse at 50% 0%,#222034,#0d101a 78%)}
+.wrap{max-width:1130px;margin:auto}header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;padding:5px 0 16px;border-bottom:1px solid #5e4d54}
+h1{font-weight:900;font-size:clamp(24px,4.4vw,44px);margin:0;letter-spacing:-2px;color:#ff5675;text-shadow:3px 3px #52172a}
+.kicker{color:#a9afc2;font-size:11px;letter-spacing:1.2px}.edition{color:#d4a579;font-size:11px}
+.intro{max-width:850px;line-height:1.5;font-size:13px;color:#c9cad6;margin:15px 0 18px}
+.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 17px;border:1px solid #40384a;padding:10px 12px;border-radius:9px;background:#191827}
+button{background:#d14654;color:white;border:0;border-radius:6px;padding:9px 13px;font-weight:bold;cursor:pointer;font-family:inherit}button:hover{background:#fa5a65}label{color:#bdc1d3;font-size:12px;white-space:nowrap}input[type=range]{accent-color:#e35867;min-width:120px;max-width:220px}#frame{font-size:12px;color:#f0bf6e;min-width:48px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+article{border:1px solid #514654;border-radius:10px;overflow:hidden;background:#181827;box-shadow:0 9px 25px #0005}
+.top{display:flex;justify-content:space-between;gap:8px;padding:10px 11px;align-items:center;min-height:48px}
+.top b{font-size:14px}.tag{font-size:9px;padding:4px 6px;background:#2e3344;color:#d2d3de;border-radius:4px;white-space:nowrap}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated;background:#181322;aspect-ratio:2 / 1}
+.desc{font-size:11px;line-height:1.48;color:#c8c6d3;padding:10px 12px;min-height:66px;border-top:1px solid #363345}
+small{color:#bfb1a9}footer{margin-top:19px;border-top:1px solid #454051;padding-top:12px;color:#aeb0c0;font-size:11px;line-height:1.65}
+strong{color:#f2ce9c}@media(max-width:690px){body{padding:10px}.grid{grid-template-columns:1fr}.controls{gap:8px}input[type=range]{max-width:150px}.intro{font-size:12px}}
+</style></head><body><div class="wrap">
+<header><div><div class="kicker">FLOOR 01 · DEATH SYSTEM · INTERACTIVE CONCEPT</div><h1>THE CRAWL</h1></div><div class="edition">NO PANTS. NO MERCY.<br>GOB-01 · CARL-H52 · ENV-02</div></header>
+<div class="intro">Four art-direction hypotheses (intensity 4 = maximum finish), using <strong>original sprites extracted from the repository grids</strong>. The fragment motion, pixel blood, blades and extra poses are <strong>conceptual simulations</strong>, not approved sprites or mechanics.</div>
+<div class="controls"><button id="toggle">▶ Play</button><label>Moment <input id="timeline" type="range" min="0" max="100" value="78"></label><span id="frame">78%</span><label>Intensity <input id="power" type="range" min="1" max="4" value="4"></label><span id="powerLabel">4/4</span><span id="powerMeaning" style="font-size:11px;color:#ffc58b">MAXIMUM</span><button id="reset" style="background:#404558">↺ Reset</button></div>
+<div class="grid">
+<article><div class="top"><b>01 · BRUTAL IMPACT</b><span class="tag">BASE · PUNCHES AND KICKS</span></div><canvas id="s0" width="384" height="192"></canvas><div class="desc">A hit from Carl conveys force and sends the goblin to the floor. <strong>Reference canon:</strong> blunt blows and death by impact. More expression and weight than a conventional fall.</div></article>
+<article><div class="top"><b>02 · DECAPITATION</b><span class="tag">ADAPTATION · BLADE</span></div><canvas id="s1" width="384" height="192"></canvas><div class="desc">The kick throws the goblin into a stage blade: the head visibly separates and the body falls. <strong>Gameplay license:</strong> we do not attribute this execution to Carl in the first chapter.</div></article>
+<article><div class="top"><b>03 · BODY EXPLOSION</b><span class="tag">TONAL CANON · UNLOCKABLE</span></div><canvas id="s2" width="384" height="192"></canvas><div class="desc">A detonation acquired later splits the body and equipment into fragments. The pieces are cosmetic; the damage resolves only once. <strong>No bombs before the unlock.</strong></div></article>
+<article><div class="top"><b>04 · CRUSH</b><span class="tag">ENV-02 · PROTOTYPE</span></div><canvas id="s3" width="384" height="192"></canvas><div class="desc">Carl breaks the support and a slab falls on the goblin. Dust, recognizable remains and the detached pineapple club. <strong>The block and support are inspired by ENV-02</strong>; the base frames are reused and the aftermath is drawn.</div></article>
+</div>
+<footer><strong>Design rule:</strong> cause → energy → anatomy/material → outcome → remains. Monsters do not necessarily share the same death: a slime disperses and a skeleton comes apart, while the goblin keeps its ears, shape and pineapple weapon. <br><small>References: Carl-H52 melee (48×56), GOB-01 A (64×56), original palettes. Conceptual HTML/Canvas animation; it is not a Bevy capture and does not replace the editable sprites. The deaths are of fantasy creatures and are shown as stylized pixel fragments.</small></footer>
+</div>
+<script>
+'use strict';
+const abc='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const CP=['','#1b1124','#7c3846','#c0624f','#eb9a6c','#fcc596','#28131c','#42231d','#70412d','#251a2e','#352540','#5a4068','#9478a8','#f7e4de','#c3a9c4','#82689a','#ec2f55','#ff86c8','#e23d9a','#97207a','#f6ecec','#140b1a','#ffcf3a','#b8c0d8'];
+const GP=['','#1b1124','#263a26','#46682e','#7a9e36','#b2cc56','#2c1e28','#4c3436','#73524a','#ffd23a','#efe4c4','#5c1426','#b8322e','#4a2c1c','#8c5c32','#7a3c12','#d08826','#f4c84a','#1d4a3c','#3e8a5c'];
+const RLE={
+c1:'_A_A_A_A2AAHAAAIAHBABImAAGCHBICHBIAHhABGAIEHBICHAIAHgAAGAICHBICHBIBHBIfAAGFHBICHAGDIeACGCHAIBFAIBEAGAHAIAGfAABAGAHADBEBGCEBGAEAHAGfAABBGAEADAEAUAVCEAUAVAEAGhAABAGACADBFEEBDiABBAAACADEEADAEADmAACADBEBCAEADmAABAJACADDEADACkAABBLAJFCjAELAKAJBEACAJABhAELABBLAKCEAJBBfABLAMBLBKABBLAFBEAJABALDBDADBSAABALDKAJABBWALAFADAEAJABAKDLDBBFAEADABQAABALDKAJABAJBWALADAEADAJABAJCKALABBLABAFBEADABPAABALCKBJABAKAJBKALCEAJBBDJABAMALABBEADACABOAABALCKAJABCKAJBKALCDAJABAAEBBLABBDBCABNAABALCKAJABDKAJCKALCEAJABDAHBNAABALBKBJABALDKAJDKALBEADAJABXAABELBBALDKAJBKAMAKALBEADAJABWAABALAMCLABAAABALFKALBKALBEADAJABWABBAXCBBAABALEKALCKALADAEADAJABVAABAFBEADABCAABALIKALAEBDAJABVAABAFAEBDABCAABAJIKALCDAJABVAABCDABDAABAJIKALAPBOAJABWACBEAABKJAPBNBBgAABKNAQANAQABfAABFNAQANAQBNCQABfAABFNCQCNAQAOABfAABGNAQENAOABfAABINAQANAQANAOABeAABJNCQANAOABdAABAPENABAAABFNBOABcAABFPABBAABGPABcAADAFCEADACCAADAFDEADACcAADAFCEADACEAADAFDEADACbAADAFBEADACGAADAFCEADACaAADAFBEADACIAADAFCEADACZAADAFBEADACJAADAFBEADACYAADCEADACLAADBEADACYAADBEADACMAADBEADACXAATASBEADACLAATASBEADACWAATASDRBTJAATASDRBTVAATBSARASARATARATIAATBSARASARATARATUAATASARCSARATARATHAATASARCSARATARATTAATHSATHAATHSATUAHTJAHTHA',
+c11:'_A_A_A_AwAAHAAAIAHBABImAAGCHBICHBIAHhABGAIEHBICHAIAHgAAGAICHBICHBIBHBIaACBBAAGFHBICHAGDIYAABAFBEABAACGCHAIBFAIBEAGAHAIAGZAABAFAEADABAAABAGAHADBEBGCEBGAEAHAGZAABCDABAAABBGAEADAEAUAVCEAUAVAEAGaAABAXBLABBAABAGACADBFEEBDbAABALAMALABBABBAAACADEEADAEADbAABALAKAJABFAACADBEBVAEADcAABALAKAJABFAABACADAEBDAEADACbAABALAKAJGBBLFCAJABaAABALBKHLABAKAJBEACAJABAJABZAABALJKABALAKCEAJABAKAJABZAABDJFKABBLAFBEAJABBKAJABZADBEJABBWALAFADAEAJABCKAJABbAFBAJBWALADAEADAJABALCKAJABaAABALDKAJBKALCEAJBBALCKAJABZAABALDKAJBKALCDAJABAAABDLABZAABALDKAJCKALCEAJABAAFBYAABALDKAJDKALBEADAJBBAFBEADABYAABALDKAJBKAMAKALBEADAJBBAFAEBDABFACTPAABALFKALBKALBEADAJABAAABBDABFAATBRASATOAABALEKALCKALADAEADAJABBABBFAATBRATBSATNAABALIKALAEBDAJABJAATARDSATNAABAJIKALCDAJABHABDATBRCSATNAABAJIKALAPBOAJABFABDBFATARDSATNAABKJAPBNEBAABDBFBEATBRASATASATPAABLNABCNAPABBFDEFSATPAABFNAQANAQBNABDNAPABEEADFSATPAABFNCQBNABCNAOAPABBECDACFTQAABGNAQCNABBNBOAPABBDCCXAABINAQANABCOAPABCCZAABJNBQEBdAABAPFNABmAABGPABoAADAFDEADACnAADAFCEADACpAADAFCEADACoAADAFCEADACnAADAFAEADAEADACoAADAEADAEADACqAADBEADACpAATASBEADACoAATASDRBTnAATBSARASARATARATmAATASARCSARATARATlAATHSATmAHTXA',
+g0:'_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_ASAABKAEBtAABAFCBFABBEFABtAABBFACCBBAABBFFEABtAABAFADCCBFKEABIAABBAABfABBBDBCIEBBBEABGAABATBBATABfABBADACADHEBCBBBEABEAABATASABATASABhABBADFEADBJABACAJABAFAEABDAABASATBSBBiAABAFGEADBCCEAFBEABDAABBSBBiABBAFEEBDDBBEADBEADABBAFBiACBAFDEADABBKALAKBBAECDABAAABARAQARAQAPABgABBCIABAFBEADABELAKEBBAABAQAPAQAPAQAPABeAABDIAHAGABDDFBADABEAABARAQAPAQAPAQABdAABBIEHAGABIDABFAABAQAPAQAPAQAPABdAABAIFHBGIBGAABAPAQAPAQBPABdAABAIFHBGABAFAEABCEADABGAABAQAPAQCPABcAABAICHAGCHAGABAFAEADABDEADABFAABBPAQBPABdAABAIDHAGBHAGABAFAEADABCEADABCAIBfAABAIEHAGAHAGABAFAEADABCEEBEOABiAABAIFHBGABAFAEADABBEABBFBEABAODBjAABAIEHCGABAFBEBBEEANABoAABAGAHAGABAGAHCGABADAFCECDABANABpAABBGBBAHBGABBGABDDBBBNABqAABBOBNBOBNCODBAOANABsAABGGAHFGABAOANBBrAABFGAHDGAHBGBBAOABtAABBGABBGAHBBBGAHABBGABvACBAACBBACBAACBwAABAEACABEAABAFADAByAABAEACABEAABAFADABxAABBEACABEAABAFBEABxAABAEACABFAABAFAEABxAABAEACABFAABAFAEABwABBAEADAEABCAABAFBEAFBBuAABBECDAEABAAABAFDEBFBBsAABAEECABAAABAFFDBFABsAFBCAIBZA',
+g19:'_A_A_A_A_A_A_A_A_AnABBAAAB6AABBTABATCB3AABATASATASCTAB3AABATDSAB5ACBATASAB4AABARAPAQBB4AABARAPAQAPAB5AABAPAQAPAQAPAB4AABAQAPAQAPAB5AABAPAQAPAQAB5AABAQAPAQAPAB5AEB5AABBOAB6AABAOANAB6AABBOANAB5AABBOANAB6AABAOANAB6AABAOANCB4AABAOANABCFBB0ACBAOBBAFBEAFCBxAABCFBBAFCEABCFABuACBBFADBBAFBEADABAFBDABoAABDAABBFABAFBDABAFBEADEBoAABAFABBAABAFBEADDBAFAEADABBEABqAABAFABAAABAFBEADABBAABAFBEADABBDAEABoAABAFADBBAFBEADEBAFAEADBBCDCBlAABAFADBBBMAEADABBFABAHABAFBDCBADABCEABhADBAFADABAFBMADABAFBEABAHAGCBAGABAABBAEBCABfABBDFAEADABAFBMABDEABAHEGABBADBfAABBFAEABCEAKBLBBFEABAHCGABmAABAFBEABAKABAEAKCLEECIBBAGABmAABAFCEABBKBEBLADCEBICHAGBBnAABAFJEADCIDHAGABpAABAFIEADAIEHBGABqAABAFGEBDAICHCGBBsAABAFDEBDCBCGCBuAABAFABCDBBCACByAABAACB_A_A_A_A_A_A_A_A_AsA',
+g25:'_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_A_ARAAB9AABAFAB7AABBFAB7AABAFABAABBOACBmAABAFADBBBMABLABBCFABiACBAFAEADBBBMABKAABAEABAFBEAFABfABBCFBEADBBBMABJAABAEABAFDEABeAABBFAEABAEABADAKBLOBAFBEADBEADABQAABKAABAFDEABBEAKCLAFABHFABAHABAFBEADABAFAEADABIAEBAABBATABJAABAFCEABAEABBEBLADAEAFBBEEABAHABAFBEADBBAFAEADABHAABARAPAQAPAQABBTASABJAABAFIECDAEBFABCEABAHAGABAFBDBBAFABAFAEADABFAABARAPAQAPAQAPAQABATASABGACBBFIEADBBAFBEAFEBBGCBAGCBAFCBFAABAPAQAPAQAPAQAPABATBSABEAABCCBFGEBDCIABAFBEAFABCFABDGABBEBBCFABEAABAQAPAQAPAQBPABATBBGAEBAFDEBDABAIBGBHABAFBDABAFBDABCGBBAEBCABAFBDABFAABAQAPAQAPBBCTABLABBCDBBAACBCGTBHADBBABBATABNACBFAGBfAABCA'
+};
+function sprite(k,w,h,pal){const s=RLE[k];const pix=new Uint8Array(w*h);let at=0;for(let i=0;i<s.length;i+=2){const n=abc.indexOf(s[i])+1,col=abc.indexOf(s[i+1]);if(n<1||col<0)throw Error('RLE invalid '+k);pix.fill(col,at,at+n);at+=n}if(at!==w*h)throw Error(`Sprite ${k}: ${at}/${w*h}`);const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d'),img=cx.createImageData(w,h);for(let i=0;i<pix.length;i++){if(!pix[i])continue;const v=pal[pix[i]].slice(1);img.data[4*i]=parseInt(v.slice(0,2),16);img.data[4*i+1]=parseInt(v.slice(2,4),16);img.data[4*i+2]=parseInt(v.slice(4,6),16);img.data[4*i+3]=255}cx.putImageData(img,0,0);return cv}
+const SPR={c1:sprite('c1',48,56,CP),c11:sprite('c11',48,56,CP),g0:sprite('g0',64,56,GP),g19:sprite('g19',64,56,GP),g25:sprite('g25',64,56,GP)};
+// Headless corpse for the decapitation scene: the g25 head (columns 0-21) is masked so the head is drawn only once, as the flying g0 clip.
+{const hc=document.createElement('canvas');hc.width=64;hc.height=56;const hx=hc.getContext('2d');hx.drawImage(SPR.g25,0,0);hx.clearRect(0,0,22,56);SPR.g25h=hc}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const ease=x=>{const y=clamp(x,0,1);return y*y*(3-2*y)};
+function block(c,x,y,w,h,fill){c.fillStyle=fill;c.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h))}
+function drawSprite(c,key,x,y,flip=false,rot=0,scale=1,clip=null){const s=SPR[key];c.save();c.translate(Math.round(x),Math.round(y));c.rotate(rot);c.scale(flip?-scale:scale,scale);c.imageSmoothingEnabled=false;if(clip){c.drawImage(s,...clip,-clip[2]/2,-clip[3]/2,clip[2],clip[3])}else c.drawImage(s,-s.width/2,-s.height/2);c.restore()}
+const W=384,H=192,ground=150;
+const INTENSITY=[0,.15,.5,1,4.2];
+let curPower=4;// Presentation preset of the frame being drawn; preset 1 draws no blood sprites.
+const ext=(w,h,r)=>Math.abs(w/2*Math.sin(r))+Math.abs(h/2*Math.cos(r));// vertical half-extent of a rotated rectangle
+function background(c,scene){block(c,0,0,W,H,'#171627');block(c,0,0,W,27,'#211827');for(let row=0;row<5;row++){for(let col=-1;col<12;col++){const x=col*40+(row%2?20:0),y=27+row*24;block(c,x,y,38,22,((row+col)%4===0)?'#3d303d':'#322b3a');block(c,x+2,y+2,7,2,'#463344');block(c,x+30,y+18,5,2,'#211b2b')}}block(c,26,46,56,87,'#1a2239');block(c,31,52,46,81,'#263450');block(c,34,59,40,74,'#1c2844');block(c,39,66,30,67,'#101e36');block(c,314,29,47,104,'#1e2340');block(c,319,34,38,99,'#273654');block(c,322,41,32,92,'#11213f');block(c,0,139,W,17,'#65505a');block(c,0,151,W,41,'#3c2f36');for(let i=0;i<10;i++){const x=i*45-7;block(c,x,149,43,3,'#94706a');block(c,x+3,163,32,2,'#51404b');block(c,x+19,184,27,2,'#53404a')}
+for(const x of [122,278]){block(c,x,44,2,21,'#754e48');block(c,x-5,58,12,4,'#5d3540');block(c,x-4,53,9,5,'#f7b054');block(c,x-7,60,15,3,'#b85f3c');block(c,x-3,49,7,3,'#ffe5a0')}
+if(scene===1){block(c,294,65,4,71,'#776365');block(c,290,82,5,22,'#ad9290');block(c,285,89,12,10,'#d7bdb1');block(c,278,95,15,5,'#cfd0c9');block(c,290,98,5,11,'#f1c999')}
+if(scene===3){block(c,238,47,78,9,'#6d5646');block(c,250,52,7,60,'#735440');block(c,261,80,9,30,'#916d4e');block(c,272,76,8,34,'#87664e');block(c,251,106,43,5,'#654c41')}
+}
+function sparks(c,x,y,amount,t,colors){for(let i=0;i<amount;i++){let a=(i*2.39996323),r=5+(i%4)*5+t*15;const xx=x+Math.cos(a)*r,yy=Math.min(y+Math.sin(a)*r,ground-3);block(c,xx,yy,2+(i%3===0?2:0),1+(i%4===0?2:0),colors[i%colors.length])}}
+function dust(c,x,y,t,n=9){for(let i=0;i<n;i++){const a=i*2.4,dd=6+(i%5)*4;const px=x+Math.cos(a)*dd*t,py=y-(i%4)*4-Math.sin(a)*8*t;block(c,px,py,5+(i%3)*3,4+(i%2)*3,['#8e766b','#665663','#b5a291','#c5b5a5'][i%4])}}
+function blood(c,x,y,t,n=8){if(t<=0||curPower<2)return;const big=curPower===4?1.7:1;for(let i=0;i<n;i++){const a=-Math.PI*0.9+i*2.1,r=(3+(i%4)*5+14*clamp(t,0,1))*(curPower===4?1.5:1);const bw=(i%3===0?4:2)*big,bh=(i%2?2:3)*big;block(c,x+Math.cos(a)*r,Math.min(y+Math.sin(a)*r+(t*t*14),ground-bh),bw,bh,['#8e253b','#b63c46','#e06555','#3b5e34'][i%4])}}
+function stage(ctx,kind,time,power){curPower=power;const c=ctx;c.imageSmoothingEnabled=false;const t=clamp(time,0,1),strength=INTENSITY[power];background(c,kind);const cx=110,gy=ground-29, gpos=253;
+if(kind===0){const impact=ease((t-.28)/.12),flight=ease((t-.37)/.35);drawSprite(c,'c1',cx+impact*7,ground-28);if(t<.35)drawSprite(c,'g0',gpos-impact*16,gy,true);else if(t<.7)drawSprite(c,'g19',gpos+flight*76,gy-25-Math.sin(flight*Math.PI)*26,false,.2+flight*2.1);else drawSprite(c,'g25',337,ground-28);if(t>.29&&t<.65){sparks(c,gpos-12,105,8+strength*2,t-.28,['#ffe0a1','#ffac6a','#d74f55']);blood(c,gpos-12,105,t-.29,4+strength*2)}if(t>.7)dust(c,333,ground-8,clamp((t-.7)*4,0,1),strength*2+4);}
+if(kind===1){drawSprite(c,'c11',cx,ground-28);const flight=ease((t-.16)/.31);if(t<.51){drawSprite(c,'g19',194+flight*96,gy-14-9*Math.sin(flight*Math.PI),false,.8*flight);}else{drawSprite(c,'g25h',306,ground-28);const u=clamp((t-.51)/.34,0,1),hr=u*Math.PI;drawSprite(c,'g0',293+u*62,Math.min(96-150*u+197*u*u,ground-ext(27,14,hr)-1),false,hr,1,[17,20,27,14]);if(power>1)block(c,294,101,3,7,'#8e253b');blood(c,295,95,t-.5,4+strength*3);}if(t>.45&&t<.8)sparks(c,288,98,8+strength*2,t-.45,['#dcd6c4','#ffce78','#a43d47']);}
+if(kind===2){drawSprite(c,'c11',93,ground-28);const x=249,y=107,blast=ease((t-.35)/.28);if(t<.39){drawSprite(c,'g0',x,gy,true);block(c,213,132,12,6,'#774230');block(c,221,129,3,4,'#d46b40');block(c,222,125,3,3,'#ffc34a')}else{const parts=[[20,20,27,14,-1,-1.2],[16,34,30,16,-.7,.5],[7,42,32,14,1.1,-1.4],[31,20,24,23,1.2,-.2]];if(power>=3)parts.push([19,40,16,15,-1.4,-.6],[30,44,14,11,.4,1],[44,22,12,16,-1.6,1.5],[19,28,12,14,-.5,-1.7]);if(power>=4)parts.push([21,30,10,12,-1.9,.3],[34,32,14,13,.9,-.8],[26,22,14,12,-1.2,.9],[40,40,12,12,.6,1.3]);for(let i=0;i<parts.length;i++){const a=parts[i],r=((i%5)-2)*blast*2.4,px=x+(a[5]??0)*blast*(44+strength*7),py=Math.min(y+(a[4]??0)*blast*(32+strength*5)+blast*blast*18,ground-ext(a[2],a[3],r)-1);drawSprite(c,'g0',px,py,false,r,1,a.slice(0,4))}dust(c,x,y+22,blast,8+strength*3);blood(c,x,y+6,blast,9+strength*5);sparks(c,x,y,6+strength*5,blast,['#ee9846','#ffd27b','#d85446','#6f9d43']);}}
+if(kind===3){const drop=ease((t-.31)/.37);drawSprite(c,'c1',cx,ground-28);if(t<.69)drawSprite(c,'g0',286,gy,true);else{drawSprite(c,'g25',284,ground-28);blood(c,286,ground-13,t-.68,4+strength*3)}const yy=16+drop*87;block(c,240,yy,83,37,'#171627');block(c,244,yy-3,78,37,'#827d78');block(c,246,yy,70,4,'#a5a4a0');block(c,248,yy+8,63,4,'#5a5b63');block(c,262,yy+22,47,10,'#66626a');if(t>.3){dust(c,274,yy+27,drop,6+strength*3)}if(t>.7){sparks(c,280,ground-16,3+power,t-.7,['#d8b68c','#9f9387','#754442']);block(c,303,ground-9,9,4,'#d08826');block(c,305,ground-13,5,5,'#3e8a5c')}}
+}
+// In-game reference grid only: the label is drawn last and never shakes.
+function label(c,kind,t){block(c,8,174,75,10,'#171627cc');c.fillStyle='#dfd3bf';c.font='8px monospace';c.fillText(['IMPACT','BLADE','EXPLOSION','STONE'][kind]+' · '+Math.round(t*100)+'%',13,182)}
+
+const IMPACT=[{t:.29,x:241,y:105},{t:.49,x:288,y:98},{t:.35,x:249,y:107},{t:.68,x:282,y:128}];
+// Deterministic presentation-only impact read: short ray burst and screen shake. No domain state.
+function impactShake(kind,t,power){const dt=t-IMPACT[kind].t;if(power<3||dt<0||dt>=.07)return[0,0];const amp=(power===4?4:1)*(1-dt/.07);return[Math.round(Math.sin(dt*900)*amp),Math.round(Math.cos(dt*700)*amp)]}
+function impactBurst(c,kind,t,power){const m=IMPACT[kind],dt=t-m.t;if(power<3||dt<0||dt>=.08)return;const rays=power===4?16:6,r1=4+dt*260;if(dt<.03)block(c,m.x-7,m.y-2,14,4,'#fff3cf'),block(c,m.x-2,m.y-7,4,14,'#fff3cf');for(let i=0;i<rays;i++){const a=i*Math.PI*2/rays+kind*.3;for(let s=0;s<(power===4?8:4);s+=2)block(c,m.x+Math.cos(a)*(r1+s*2),Math.min(m.y+Math.sin(a)*(r1+s*2),ground-2),2,2,i%2?'#ffe0a1':'#ffffff')}}
+function extremeOverlay(c,kind,t,power){
+  if(power<3||t<.35)return;
+  const max=power===4;
+  const intensity=max?1.7:.16;
+  const k=ease((t-(kind===3?.69:kind===1?.49:kind===2?.38:.32))/.26);
+  if(k<=0)return;
+  c.save();
+  const ox=kind===0?256:kind===1?290:kind===2?249:kind===3?282:249;
+  const oy=kind===3?129:kind===0?105:kind===1?99:104;
+  const n=Math.round(intensity*(kind===2?25:kind===1?14:kind===3?13:10));
+  const blood=kind===3?['#7b2a37','#778d3b','#c0ac92','#4a3439']:['#a32d42','#c33a4b','#6b8d36','#acb24a','#e6b96b'];
+  // Deterministic visual-only pixel splashes: no random state, combat logic or collisions.
+  for(let i=0;i<n;i++){
+    const angle=(i*2.39996323+kind*.57),arc=(9+(i%7)*5+17*k)*intensity;
+    const w=2+(i%3)+(max?1+(i%2)*2:0),hh=2+(i%4===0?2:0)+(max?1+(i%5===0?2:0):0);
+    const x=ox+Math.cos(angle)*arc;
+    const y=Math.min(oy+Math.sin(angle)*arc-6*k+10*k*k,ground-hh);
+    block(c,x,y,w,hh,blood[i%blood.length]);
+  }
+  if(max&&t>.59){
+    // Wall spatter with short drips, kept sparse so actor silhouettes stay clear.
+    for(let i=0;i<20;i++){
+      const a=i*2.39996323+kind,r=(16+(i%6)*8)*k;
+      const sx=ox+Math.cos(a)*r*1.5,sy=Math.min(oy-10+Math.sin(a)*r*.7,ground-34);
+      const col=blood[(i+1)%blood.length];
+      block(c,sx,sy,2+(i%3),2+(i%2),col);
+      if(i%3===0)block(c,sx+1,sy+2,1,(3+(i%4)*2)*k,col);
+    }
+    // Spreading pool and lingering floor debris (all clamped to the floor line).
+    const pw=Math.round((30+(kind===2?44:kind===3?24:16))*k);
+    block(c,ox-pw/2,ground-3,pw,3,kind===3?'#6a2433':'#6e1f32');
+    block(c,ox-pw/2+7,ground-5,Math.round(pw*.55),2,'#a53b47');
+    for(let i=0;i<18;i++){
+      const dw=3+(i%3)*2,dh=2+(i%2)*2;
+      block(c,ox+((i*37)%132-66)*(.35+.65*k),ground-dh,dw,dh,['#6b9139','#455c2c','#c0ac92','#4a3439','#8e253b','#d08826'][i%6]);
+    }
+  }
+  if(max&&t>.59){
+    // Clear, cause-specific aftermath rather than a global particle multiplier.
+    if(kind===0){
+      block(c,325,147,32,3,'#792d40');block(c,331,142,17,5,'#a53b47');
+      block(c,340,138,7,5,'#6c913e');block(c,305,135,6,3,'#bc4549');block(c,350,140,6,4,'#455c2c');
+    }else if(kind===1){
+      // The single detached head is the flying g0 clip in stage(); only stains and a weapon-side pool here.
+      block(c,293,146,34,4,'#8d2a3c');block(c,300,142,16,4,'#b63c46');
+    }else if(kind===2){
+      // Silhouette chunks, club head and localized floor markings.
+      for(let i=0;i<12;i++){
+        const angle=i*1.81+.35,dd=k*(37+i*8);
+        const px=ox+Math.cos(angle)*dd,py=Math.min(oy+Math.sin(angle)*dd-14*k+23*k*k,ground-8);
+        block(c,px-4,py-3,13+(i%2)*4,10,'#1b1124');
+        block(c,px-2,py-3,11+(i%2)*4,8,i%3?'#6b9139':'#455c2c');
+      }
+      block(c,204,146,46,4,'#862e43');block(c,250,147,34,3,'#9b3545');
+      block(c,323,118,7,9,'#d08b26');block(c,326,114,3,4,'#3e8a5c');
+    }else if(kind===3){
+      // Crushed outline and recognizable green limbs beneath the block.
+      block(c,236,142,82,4,'#822a3c');
+      block(c,246,139,23,7,'#1b1124');
+      block(c,248,139,20,6,'#6c923d');
+      block(c,304,141,14,5,'#1b1124');
+      block(c,305,140,10,4,'#90ad4c');
+      block(c,323,146,11,4,'#d18824');
+      block(c,325,142,5,4,'#3e8a5c');
+    }
+  }
+  c.restore();
+}
+const contexts=[0,1,2,3].map(i=>document.getElementById('s'+i).getContext('2d'));
+const timeline=document.getElementById('timeline'),frame=document.getElementById('frame'),powerEl=document.getElementById('power'),powerLabel=document.getElementById('powerLabel');
+let playing=false,last=0,pct=Number(timeline.value),power=Number(powerEl.value);
+function render(){contexts.forEach((c,i)=>{const t=pct/100,s=impactShake(i,t,power);c.fillStyle='#171627';c.fillRect(0,0,W,H);c.save();c.translate(s[0],s[1]);stage(c,i,t,power);extremeOverlay(c,i,t,power);impactBurst(c,i,t,power);c.restore();label(c,i,t)});frame.textContent=Math.round(pct)+'%';powerLabel.textContent=power+'/4';document.getElementById('powerMeaning').textContent=['','SUBTLE','PUNCHY','SAVAGE','MAXIMUM'][power]}
+function anim(ts){if(!playing)return;if(last){pct=(pct+(ts-last)*.045)%101;timeline.value=pct}last=ts;render();requestAnimationFrame(anim)}
+document.getElementById('toggle').addEventListener('click',()=>{playing=!playing;last=0;document.getElementById('toggle').textContent=playing?'Ⅱ Pause':'▶ Play';if(playing)requestAnimationFrame(anim)});
+document.getElementById('reset').addEventListener('click',()=>{pct=0;timeline.value=0;render()});
+timeline.addEventListener('input',()=>{pct=Number(timeline.value);render()});powerEl.addEventListener('input',()=>{power=Number(powerEl.value);render()});render();
+</script></body></html>
