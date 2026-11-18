@@ -12,6 +12,8 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 6. `docs/05-decisions/` for decision status; `docs/06-research/sources.md` for checked upstream links.
 7. `docs/07-agents/agent-orchestration.md` for anyone orchestrating agents (model tiers, briefs, reports, CI waiting, reviews, top-tier budget).
 
+**Monster-death art reference:** Before designing brutal monster deaths, dismemberment, explosive gibs or death-related rendering, read `tools/art-references/death-lab/README.md`, open its standalone `index.html` at **intensity 4**, and read `docs/03-tech/monster-death-system-proposal.md`. The HTML uses original Carl and GOB-01 base sprite pixels but conceptual effects; it is a visual reference, **not** a Bevy implementation or approved production asset. Follow the art-source/palette rules and do not mistake visual fragments for authoritative physics. The broader universal death language is still a draft in PR #79 and needs human review.
+
 **Living-horizon review rule:** For meaningful changes to playable moves, progression, abilities, new floor gameplay, co-op or terrain-combat interactions, compare against `docs/01-design/character-progression-horizon.md`. State in the design PR whether it still fits; update the guide if the direction has materially evolved. A horizon example is never approval to implement it; gameplay signoff still applies.
 
 **Priority on conflict:** legal/rights guardrails and platform safety > accepted ADRs > acceptance criteria > design specifications > implementation convenience. Flag contradictions in a PR, do not silently rewrite design intent.
