@@ -22,8 +22,8 @@
   "scenarios": [
     {
       "id": "ROOM-01",
-      "name": "La primera revancha",
-      "subtitle": "Inicio · Goblins · Combate horizontal",
+      "name": "The First Rematch",
+      "subtitle": "Opening · Goblins · Horizontal brawl",
       "act": 1,
       "setting": "dry-catacomb",
       "width": 1570,
@@ -90,14 +90,14 @@
       ],
       "hazards": [],
       "goal_x": 1490,
-      "purpose": "Primera eliminación satisfactoria, rebote de un goblin contra otro y alternativa destructible. ¿Alejar la cámara permite anticipar al siguiente enemigo?",
-      "expected": "Ver más enemigos sin perder la lectura del contacto, la anticipación y las reacciones de Carl y Donut.",
-      "coop": "Donut puede alcanzar una plataforma y flanquear antes de obtener magia. No necesitamos obligarla a abrir una segunda salida."
+      "purpose": "A first satisfying kill, one goblin bouncing off another, and a destructible alternative. Does pulling the camera back let the player anticipate the next enemy?",
+      "expected": "See more enemies without losing the read of contact, anticipation and the reactions of Carl and Donut.",
+      "coop": "Donut can reach a platform and flank before she has magic. We do not need to force her to open a second exit."
     },
     {
       "id": "ROOM-02",
-      "name": "Cazadores desde arriba",
-      "subtitle": "Bad Llamas · Emboscada vertical",
+      "name": "Hunters From Above",
+      "subtitle": "Bad Llamas · Vertical ambush",
       "act": 1,
       "setting": "heat-catacomb",
       "width": 1530,
@@ -171,14 +171,14 @@
         }
       ],
       "goal_x": 1465,
-      "purpose": "¿Podemos mostrar los ataques que llegan desde arriba, el combate en el suelo y a ambos personajes sin inundar el encuadre de arquitectura vacía?",
-      "expected": "Diferencias de altura claras y cobertura útil. Evitar variar el zoom durante un impacto cuerpo a cuerpo.",
-      "coop": "Donut llega primero a los puntos altos; Carl aprovecha la cobertura y un tabique débil. No atribuir magia antes del desbloqueo correspondiente."
+      "purpose": "Can we show attacks arriving from above, the fight on the ground and both characters without flooding the frame with empty architecture?",
+      "expected": "Clear height differences and useful cover. Avoid changing zoom during a melee impact.",
+      "coop": "Donut reaches the high points first; Carl uses cover and a weak partition wall. Do not attribute magic before the matching unlock."
     },
     {
       "id": "ROOM-03",
-      "name": "Abre una brecha",
-      "subtitle": "Taller goblin · Escenario como arma",
+      "name": "Break A Breach",
+      "subtitle": "Goblin workshop · Scenery as a weapon",
       "act": 2,
       "setting": "workshop",
       "width": 1810,
@@ -272,14 +272,14 @@
       ],
       "hazards": [],
       "goal_x": 1735,
-      "purpose": "La misma pelea de goblins cambia al abrir Carl una pared, destruir un soporte o lanzar enemigos contra maquinaria.",
-      "expected": "Que quepan en el encuadre la causa y su consecuencia: rotura, caída e impacto. Ningún primer plano debe ocultar una muerte.",
-      "coop": "Donut avanza desde arriba mientras Carl cambia el acceso. Ambos deben poder reunirse por una ruta protegida."
+      "purpose": "The same goblin fight changes when Carl opens a wall, destroys a support or knocks enemies into machinery.",
+      "expected": "Cause and consequence fit in the frame: breakage, fall and impact. No foreground element should hide a kill.",
+      "coop": "Donut advances from above while Carl changes the access. Both must be able to regroup along a protected route."
     },
     {
       "id": "ROOM-04",
-      "name": "La guarida del Hoarder",
-      "subtitle": "Scatterers · Presión y densidad",
+      "name": "The Hoarder's Lair",
+      "subtitle": "Scatterers · Pressure and density",
       "act": 2,
       "setting": "hoarder",
       "width": 1690,
@@ -362,14 +362,14 @@
       ],
       "hazards": [],
       "goal_x": 1610,
-      "purpose": "Estrés por densidad de enemigos y decoración: ¿la toma amplia mejora el control de una multitud sin hacer invisibles a los insectos pequeños?",
-      "expected": "Rutas y siluetas reconocibles pese a la densidad. Basura concentrada en la guarida, no en todos los pasillos.",
-      "coop": "Donut rodea al enjambre desde las plataformas. Carl domina el suelo y rompe las barreras que le convienen."
+      "purpose": "Stress test for enemy and decoration density: does the wide shot improve crowd control without making the small insects invisible?",
+      "expected": "Routes and silhouettes stay recognisable despite the density. Trash is concentrated in the lair, not in every corridor.",
+      "coop": "Donut circles the swarm from the platforms. Carl owns the ground and breaks the barriers that suit him."
     },
     {
       "id": "ROOM-05",
-      "name": "El gimnasio del Juicer",
-      "subtitle": "Cooperativo · Separación y reunión",
+      "name": "The Juicer's Gym",
+      "subtitle": "Co-op · Separation and regroup",
       "act": 3,
       "setting": "gym",
       "width": 1900,
@@ -439,14 +439,14 @@
       ],
       "hazards": [],
       "goal_x": 1830,
-      "purpose": "Carl y Donut se separan deliberadamente en vertical y horizontal. ¿Puede la cámara acompañarlos sin convertir a uno en un punto diminuto?",
-      "expected": "Pantalla compartida manejable y roles distintos entre plataformas y suelo, sin recurrir todavía a pantalla partida.",
-      "coop": "Carl utiliza pesos y equipamiento pesado. Donut flanquea por arriba; validar que los dos jugadores siguen participando."
+      "purpose": "Carl and Donut deliberately separate vertically and horizontally. Can the camera follow both without turning one into a tiny dot?",
+      "expected": "A manageable shared screen and distinct roles between platforms and floor, without resorting to split screen yet.",
+      "coop": "Carl uses weights and heavy equipment. Donut flanks from above; validate that both players keep participating."
     },
     {
       "id": "ROOM-06",
       "name": "Ball of Swine",
-      "subtitle": "Jefe · Cargas y puertas móviles",
+      "subtitle": "Boss · Charges and moving gates",
       "act": 3,
       "setting": "arena",
       "width": 2060,
@@ -512,9 +512,9 @@
       ],
       "hazards": [],
       "goal_x": 1980,
-      "purpose": "Mantener visibles a ambos protagonistas, el gran jefe, la anticipación de su carga y la puerta mecánica importante, sin sacudidas ni personajes minúsculos.",
-      "expected": "Podemos probar hasta 960×540 world px o más, pero no hace falta meter los 2060 px de ancho en una sola pantalla.",
-      "coop": "Un jugador provoca la carga; el otro se coloca cerca de la puerta. También debe ser posible vencer mediante daño directo."
+      "purpose": "Keep both protagonists, the big boss, the tell of its charge and the important mechanical gate visible, without shaking or tiny characters.",
+      "expected": "We can test up to 960×540 world px or more, but the full 2060 px width does not need to fit on one screen.",
+      "coop": "One player provokes the charge; the other positions near the gate. Winning by direct damage must also be possible."
     }
   ]
 }

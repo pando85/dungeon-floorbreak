@@ -13,7 +13,7 @@
 
 Open `index.html` in a modern browser. It includes all room definitions directly, so there is no server, internet, or build system requirement.
 
-On mobile, use the directional and attack touch buttons below the viewport. Switch between Carl and Donut with **CAMBIO**. To stress shared camera bounds, tap **Separar dúo**. On desktop, use the following test-only controls:
+On mobile, use the directional and attack touch buttons below the viewport. Switch between Carl and Donut with **SWITCH**. To stress shared camera bounds, tap **Split duo**. On desktop, use the following test-only controls:
 
 | Mode | Move | Jump | Normal hit | Physical hit | Switch |
 |---|---|---|---|---|---|
@@ -27,11 +27,11 @@ On mobile, use the directional and attack touch buttons below the viewport. Swit
 
 | ID | Room | Design question | Primary camera challenge |
 |---|---|---|---|
-| ROOM-01 | La primera revancha | Direct kill vs environmental kill | How much advance warning can a wider view provide without making melee tiny? |
-| ROOM-02 | Cazadores desde arriba | Bad Llamas, threat angles and Donut elevation | Can a wide view show ground and upper telegraphs simultaneously? |
-| ROOM-03 | Abre una brecha | Workshop, breakable wall and falling support | Can the player see *cause → effect* of destructive kills? |
-| ROOM-04 | La guarida del Hoarder | Crowd pressure and tiny threats | Does a zoomed-out view obscure small enemy tells? |
-| ROOM-05 | El gimnasio del Juicer | Co-op vertical and horizontal separation | When do players stop reading their own characters? |
+| ROOM-01 | The First Rematch | Direct kill vs environmental kill | How much advance warning can a wider view provide without making melee tiny? |
+| ROOM-02 | Hunters From Above | Bad Llamas, threat angles and Donut elevation | Can a wide view show ground and upper telegraphs simultaneously? |
+| ROOM-03 | Break A Breach | Workshop, breakable wall and falling support | Can the player see *cause → effect* of destructive kills? |
+| ROOM-04 | The Hoarder's Lair | Crowd pressure and tiny threats | Does a zoomed-out view obscure small enemy tells? |
+| ROOM-05 | The Juicer's Gym | Co-op vertical and horizontal separation | When do players stop reading their own characters? |
 | ROOM-06 | Ball of Swine | Rolling boss, central gate, long run-up | Can the boss and impending impact both fit without hiding players? |
 
 ## Zoom experiment
