@@ -1,6 +1,6 @@
 # ENG-01: Goblin Engineer readability set, design spec
 
-**Status:** design stage. Spec written and hero key 0 (`idle`) drawn and frozen; awaiting the silhouette gate. Keys 3, 10, 12, 13, 14 and 17 and the in-betweens are for the execution stage (sections 7, 8 and 14). No independent review yet.
+**Status:** execution done. Spec written; hero key 0 (`idle`) frozen and the silhouette gate passed; keys 3, 10, 12, 13, 14 and 17 (frozen) and all in-betweens drawn (18 frames, 7 keys); validator PASS (15 pass, 1 skipped), evidence and review pack committed. Independent review pending.
 
 Sections follow `docs/02-art/bard-01-spec.md` (a goblin variant on the GOB-01 base) and `docs/02-art/trog-02-spec.md` (executor detail). Coordinates are frame pixels (x right, y down, frame 64 x 56) unless a table says "from the pivot" (x forward, y up).
 
@@ -36,7 +36,7 @@ Sections follow `docs/02-art/bard-01-spec.md` (a goblin variant on the GOB-01 ba
 
 ### Canon facts that must survive in pixels (reading of the concept and the rider)
 
-- Green goblin skin with the GOB-01 head construction: pointy ears, red eyes, sharp teeth, snarl.
+- Green goblin skin with the GOB-01 head construction: pointy ears, yellow eyes (palette key `e`, as the whole goblin family), sharp teeth, snarl.
 - An upside-down kitchen saucepan jammed on the head, handle sticking out back (to the left in the concept and in the rider).
 - Tool-focused kit visible on the concept figure: a wrench, a grey-blue pauldron on the near shoulder, a wrist wrap, a belt with a buckle, a rag tunic and trousers. Which of these are canon and which are board flourish is resolved in section 12.
 - Same family as GOB-01 A/B: no pineapple on a stick, no spiked club, no bombs.
@@ -203,7 +203,7 @@ python3 -m scripts.pixelart freeze assets/source/characters/goblin/engineer/eng_
 python3 scripts/author_eng01.py key0-scale      # needs bash scripts/export_assets.sh first
 ```
 
-`docs/evidence/eng-01/key0-scale.png` (896 x 360): key 0 at 1x on lit Floor 1 next to Carl, the GOB-01 goblin A and the Bomb Bard (key 0), 640 x 360 unscaled, plus a 4x copy on the right. Execution adds the review pack, a walk strip and the manifest `assets/manifests/eng_01.json` (tick rows, boxes, attack ticks).
+`docs/evidence/eng-01/key0-scale.png` (896 x 360): key 0 at 1x on lit Floor 1 next to Carl, the GOB-01 goblin A and the Bomb Bard (key 0), 640 x 360 unscaled, plus a 4x copy on the right. Execution adds the manifest `assets/manifests/eng_01.json` (tick rows, boxes, attack ticks), the evidence set (GIFs, contact sheets, lit scenes), `walk_strip.png` and `tell_ram_strip.png` (`python3 scripts/author_eng01.py strips`), and `docs/evidence/eng-01/review-pack/` (3 images plus `validator_summary.txt`: `python3 -m scripts.pixelart evidence` and `review-pack` on the config).
 
 ## 11. Files
 
@@ -215,6 +215,8 @@ python3 scripts/author_eng01.py key0-scale      # needs bash scripts/export_asse
 | `tests/fixtures/eng-01_keys.json` | frozen key 0 |
 | `tests/test_art_eng01.py` | spec tests |
 | `docs/evidence/eng-01/key0-scale.png` | scale evidence |
+| `assets/manifests/eng_01.json` | manifest: tag, tick rows, attack ticks, placeholder boxes |
+| `docs/evidence/eng-01/` (`walk_strip.png`, `tell_ram_strip.png`, `review-pack/`) | execution evidence |
 
 ## 12. Resolved questions (from the stub)
 
@@ -233,7 +235,7 @@ python3 scripts/author_eng01.py key0-scale      # needs bash scripts/export_asse
 - **Attack:** the pot ram, its reach, damage and knockback are placeholders. Whether the Engineer fights on foot at all is an owner decision; the set is ready either way.
 - **Move speed:** 40 px/s is a placeholder (slower than the common goblin's 62 px/s chase: a foreman, not a runner).
 - **Wrench use:** any later use of the wrench (repairs, a tool strike) needs a gameplay decision and a spec change; the sprite never shows it in a hand.
-- Gate: pending.
+- Gate: passed (two non-blocking notes, both applied in execution: the eye colour wording in section 1, and the pot-handle length guard in `tests/test_art_eng01.py`).
 
 ## 14. Executor notes (keys 3 to 17 and the in-betweens)
 
@@ -247,6 +249,23 @@ Add each frame to `scripts/author_eng01.py` as literal rows or as block offsets 
 - **Hurt and down:** take the GOB-01 A frame 16 and 20 to 22 `body` layers (never the `weapon` layer), then add the belt row on the hip row and the POT block. Keep the GOB-01 skin and rag pixels as they are.
 - **Checks before reporting:** `python3 -m scripts.pixelart validate` with the section 9 rules, `python3 -m pytest tests -q -k "eng01 or pixelart"`, `key0-scale`, the review pack and the walk strip regenerated. If a section 7 joint and a section 9 target cannot both hold, the target wins; record it here.
 
+### Executor notes (applied; the section 14 text above is the brief)
+
+All frames are composed by `scripts/author_eng01.py` from key 0 pixel blocks; no pixel was edited by hand and key 0 is byte-identical (fixture hash unchanged). Conservative readings and deviations:
+
+1. **Block partition.** HEAD and TORSO share rows 30 to 33 in their boxes; the split is the cape edge (x 27, 28, 29, 29). ARM (near arm and fist) is rows 34 to 41 right of the cape. The skirt and hem rows 43 to 46 belong to TORSO, so LEGS are rows 47 to 55 (the hem row 46 is not a leg row). With a torso offset of +2 the shin shows 3 rows below the hem (frames 3 and 6).
+2. **Legs.** Feet are exact to the contact plan (right ends 39, 35, 31, 27 planted; lifted 3 and 2 px, whole). The shin (rows 47 to 51) moves rigidly with its foot, clamped to stay under the hem (near -10 to +2, far -4 to +13); the foot is wider than the shin, so the clamped remainder shows as a 1 to 2 px step at the shin and foot seam (frame 6 far leg, frames 10 to 12 near leg). A shear was tried and rejected: it left orphan pixels in the shins. Leg pixels at or above the hem row are hidden, and far-leg slivers left behind the near leg are dropped (orphan rule). Frames 4 and 5, 7 and 8 draw the lifted far or near leg behind the planted one.
+3. **Orphan budget.** Key 0 already uses 8 to 9 of the 9 allowed orphan pixels (belt, buckle, wrench), so every other frame had to add none; the hurt belt is a plain rag-mid row with a 2 px `5` buckle for that reason (the key-0 belt pattern would add 10 orphans).
+4. **Pointing arm (10).** Rider `engineer_point` rows 39 to 44, x 40 to 60 (not 39: the rider's chin outline is left out, and row 39 only from x 44), moved to rows 30 to 35 and 2 px left (hand end x 58). The wrench follows the torso (-2, 0) in 10, (+1, +2) in 11 and (+2, +3) in 12 (11 is halfway; the spec gives no offset).
+5. **Rear (9) and arms.** The bent arm is drawn with a 2 px line (upper arm level, forearm at about 45 degrees up, fist at (46, 32)); the key-0 arm is dropped from 9 to 12. In 11 the key-0 arm hangs at the side, moved (-8, +1) (fist about (30, 40)); in 12 the arm swung back is a 2 px skin bar with a 4 x 3 fist at (22 to 25, 40 to 42).
+6. **Ram (11, 12).** The leaning sack is a scanline generator (`lean_sack`): half-width 6, cape banding `u`, `t`, `r`, neck (31, 35) in 11 and (37, 37) in 12, hips (27, 45); skirt, belt and hem rows 42 to 46 are key 0's. Mouth in 12: the tooth row made continuous, the `o` rows closed to `K`.
+7. **Recover (13).** The near arm is key 0's moved (+5, 0), with 4 px of skin stretched out to the cape (fist about (43 to 46, 37 to 40) instead of (44, 37)); the far hand is a 2 px `m` pair at (18 to 19, 34). The POT paints over the HEAD, so no `e` shows (spec priority order is reversed for this frame, as section 7 requires). Slack mouth: the tooth row's `w` moved down one row (`o` above).
+8. **Hurt (14).** GOB-01 frame 16 `body` layer as is; POT offset (-8, -3) chosen directly (top row 13): the rim sits one row above the raised hand's top row, touching and not overlapping. WRENCH (-8, +2) as the spec; belt row on row 44 (see note 3).
+9. **Down (15 to 17).** GOB-01 frames 20 to 22 `body` layers (+10, 0). POT offsets: 15 (-10, +14) (rim row 38, 2 px above the ear tip on row 41), 16 (-10, +30), 17 (-10, +31). No belt row and no wrench (the lying body shows the rag edge at the hip; the spec's "belt row on the hip row" has no hip row in a lying frame).
+10. **Closure.** Frames 3 to 13 close outline seams by adding `K` at every empty 4-neighbour of a non-outline pixel; frames 0 to 2 and 14 to 17 need none.
+11. **Boxes.** The section 3 boxes stay as placeholders; measured opaque extents (px from the pivot) are in the manifest tests only through the tick and tag checks. Frame 14's extent (x -23 to 11) is wider than the placeholder because the hopping pot and handle are not a hurtbox; frame 10's extent (x to 30) is the pointing arm, also not a hurtbox.
+12. **Spec text corrections.** The glint `7` sits at (29, 19), not (28, 19) as section 7 says; the tests use the measured position. Idle 2's pot is the 16 to 23 rows moved up 1 with the key-0 rim row kept on row 24, so the opaque top is row 15 (one row above the idle).
+
 ## 15. Rights and provenance
 
 Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Crops are reference only, never traced or exported. No third-party assets, no copied designs or dialogue, no image-model raster output. Key 0 reuses committed project pixels (GOB-01 A frame 0, DOZ-01 rider frame 2) as recorded in `scripts/author_eng01.py`.
@@ -256,4 +275,6 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - Concept: the owner-approved trio board under `ART-PUBLICATION-ALL-V1`; packet crops are reference only.
 - Packet: script plus Claude Sonnet.
 - Spec + hero key (key 0): Claude Opus.
-- Silhouette gate, execution and independent review: pending.
+- Silhouette gate: passed (independent top-tier review).
+- Remaining keys + in-betweens + execution: Claude Sonnet.
+- Independent review of the finished set: pending.
