@@ -24,7 +24,7 @@
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
     "origin": "VFX-01 draft: 4 key frames (atlas frames 0, 3, 5, 10, fixture tests/fixtures/vfx-01_keys.json) rasterized natively by scripts/author_vfx01.py from rules and a fixed-seed integer hash; the other 7 frames are literal copies of a key (placeholders); layer body",
-    "generator": "Draft spec and keys: Claude Sonnet; top-tier edit and freeze pending. No image-model raster output, no tracing, no resampling",
+    "generator": "Draft spec and keys: Claude Sonnet; design edit and key freeze: Claude Opus; review pending. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "assets/concept/floor-01/enemies/floor01-goblin-bomb-bard-concept-approved.png",
