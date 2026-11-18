@@ -1,5 +1,11 @@
 # Agent-ready prioritized backlog
 
+## MVP controller grammar — approved design (2026-11-18)
+
+**Owner-approved for MVP:** the four face-button verbs are Cross/A jump, Square/X primary attack, Triangle/Y physical attack (**Carl kicks; never enemy grabs**), and Circle/B story-unlocked special. R1/RB interacts; L1/LB swaps heroes in solo. Donut is an agile low-damage cat before the biscuit and gains Magic Missile as her primary after it; Carl remains physically focused and later uses story-earned explosives. The control grammar is future-floor-extensible, controller-independent and explicitly excludes mandatory twin-stick aim, dodge or sprint inputs. See [the authoritative controller contract](../01-design/mvp-controller-contract.md).
+
+**Implementation state:** docs decision only, **not** implemented/validated in the integrated Bevy scene. Existing `special_pressed`-as-kick CP-01 fixture is a temporary mapping; gameplay/QA agents must migrate it to a separate physical-attack logical input, preserve deterministic replay and prove DualSense + Steam Controller/Steam Deck play, true 2P controls, solo swap and pre/post-biscuit capability gates. Game-feel, input timings, aerial move variants and optional aiming/special cycling remain pending human playtests. Avoid parallel modifications to the ongoing combat scene input schema.
+
 ## Approved Floor 01 enemy concept batch (2026-11-17)
 
 **Owner approved all visual enemy concepts:** opening common goblins A/B, pot-helmet engineer, Murder Dozer, Bad Llama C+A, Scatterer, Scatterer Brood Guardian, Rot Sticker, Green Slime and The Hoarder. See [the concept roster](../02-art/floor-01-enemy-concept-roster.md) for individual source refs, boundaries and the upload manifest. The five approved concept PNGs have been uploaded to the concept PR and checked against the image manifest; final native pixel masters and gameplay remain separate work. **Do not restart existing goblin/Dozer/scene work**: common goblin A/B native sources are already in main; check current open integration and Dozer PRs before assigning new art agents.
