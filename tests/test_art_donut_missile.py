@@ -64,8 +64,11 @@ class DonutMissileTests(unittest.TestCase):
             gather = self.cast["frames"][i]["cels"]
             self.assertEqual(gather["gear"][2 + dy][51 + dx], "w")
             release = self.cast["frames"][16 + i]["cels"]["face"]
-            self.assertEqual(release[23 + dy][51 + dx + 1:55 + dx], "KKK")
-            self.assertEqual(release[24 + dy][51 + dx:55 + dx], "WEEW")
+            self.assertEqual(release[23 + dy][52 + dx:55 + dx], "wKw")      # 3 x 2 hiss, two fang points
+            self.assertEqual(release[24 + dy][52 + dx:55 + dx], "KKK")
+            head = self.cast["frames"][16 + i]["cels"]["head"]
+            self.assertEqual(head[8 + dy][40 + dx], ".")                  # ear tips gone on release
+            self.assertNotEqual(gather["head"][8 + dy][40 + dx], ".")     # gather keeps the master ears
 
     def test_keys_frozen_and_inbetweens_listed(self) -> None:
         for cfg_path, keys, inb, total in ((CAST_CFG, author.CAST_KEYS, author.CAST_INBETWEENS, 48),
@@ -83,7 +86,7 @@ class DonutMissileTests(unittest.TestCase):
         self.assertEqual(m["phase_ticks"], {"cast_gather": [0, 3], "cast_release": [4, 9], "cast_follow": [10, 15]})
         self.assertEqual(m["release_tick"], 4)
         self.assertEqual(len(m["projectile_spawn_offset_by_locomotion_frame"]), 16)
-        self.assertEqual(m["projectile_spawn_offset_by_locomotion_frame"][0], [23, -19])
+        self.assertEqual(m["projectile_spawn_offset_by_locomotion_frame"][0], [27, -19])
 
     def test_vfx_palette_ticks_and_glow_caps(self) -> None:
         self.assertLessEqual(len(self.vfx["palette"]), 20)

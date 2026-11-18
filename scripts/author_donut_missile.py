@@ -50,7 +50,8 @@ REFIRE_TICK = 16
 HEAD_OFFSETS = [(0, 0), (0, -1), (0, -1), (0, 0), (0, 4), (0, 5), (-1, 5), (0, 4), (1, 4), (1, 4),
                 (0, 7), (1, 3), (1, 2), (0, 3), (0, 7), (0, 3)]
 THRUST = {"cast_gather": (0, 0), "cast_release": (1, 0), "cast_follow": (1, 0)}
-SPAWN_FRAME0 = (68, 24)          # bolt head centre at the release tick, frame-0 coordinates (right cheek, mouth row)
+SPAWN_FRAME0 = (72, 24)          # bolt pivot at the release tick, frame-0 coordinates: 4 px ahead of the right
+                                 # cheek at mouth row (gate fix: the streaks must not cover the hiss on ticks 4-5)
 CAST_KEYS = (0, 16, 24, 28)
 CAST_INBETWEENS = tuple(range(32, 48))
 
@@ -89,23 +90,24 @@ def cast_head(phase: str, master: dict) -> dict[str, list[str]]:
     face = [list(r) for r in master["face"]]
     tiara = [list(r) if y <= 8 else ["."] * CANVAS[0] for y, r in enumerate(master["gear"])]
 
-    # Ears pinned flat and out (airplane ears): drop the tips, show the inner ear sideways one row lower.
-    for x in (39, 40, 41, 42, 61, 62, 63, 64):
-        head[8][x] = head[9][x] = "."
-    row_put(head, 10, 37, "jjEEBB")
-    row_put(head, 11, 38, "jBEB")
-    row_put(head, 10, 61, "BBEEjK")
-    row_put(head, 11, 62, "BEDK")
-
     if phase == "cast_gather":
-        # Anticipation: upper lids drop one row (focused stare, pupils stay big); the tiara gem charges.
+        # Anticipation: master ears; upper lids drop one row (focused stare, pupils stay big); the gem charges.
         for x in range(43, 61):
             face[16][x] = "."
         row_put(face, 17, 44, "KKKKK")
         row_put(face, 17, 56, "KKKKK")
         put(tiara, {(51, 1): "P", (50, 2): "P", (51, 2): "w", (52, 2): "P", (51, 3): "P", (51, 4): "w", (51, 5): "P"})
     else:
-        # Payoff: angry half-lidded glare (lids two rows down, inner corners lower), short hiss with fangs.
+        # Payoff (gate fix): airplane ears, tips removed, ear wedge 2 rows lower and out past the head outline
+        # with a dark outer edge, so the head outline drops against the master and gather.
+        for x in (39, 40, 41, 42, 61, 62, 63, 64):
+            head[8][x] = head[9][x] = "."
+        row_put(head, 10, 37, "KjEEBB")
+        row_put(head, 11, 37, "KjEB")
+        row_put(head, 10, 61, "BBEEjK")
+        row_put(head, 11, 63, "BEjK")
+        # Angry half-lidded glare (lids two rows down, inner corners lower, outer brow pixel raised: inward slant)
+        # and an open 3 x 2 hiss with two white fang points.
         for y in (16, 17):
             for x in range(43, 61):
                 face[y][x] = "."
@@ -115,10 +117,12 @@ def cast_head(phase: str, master: dict) -> dict[str, list[str]]:
         row_put(face, 19, 54, "KK")
         row_put(face, 19, 45, "w")
         row_put(face, 19, 56, "w")
-        row_put(face, 22, 50, "    ")
-        row_put(face, 23, 50, "KKKK")
-        row_put(face, 24, 50, "WEEW")
-        row_put(face, 25, 51, "cc")
+        row_put(face, 17, 43, "K")
+        row_put(face, 17, 59, "K")
+        for x in range(50, 55):
+            face[23][x] = "."
+        row_put(face, 23, 51, "wKw")
+        row_put(face, 24, 51, "KKK")
         put(tiara, {(51, 4): "P"})
     return {"head": to_rows(head), "face": to_rows(face), "tiara": to_rows(tiara)}
 
@@ -308,6 +312,28 @@ def chunks(g, pts) -> None:
         g[y][x + 1] = ch
 
 
+def merge_orphans(g) -> None:
+    """Recolour every non-accent pixel with no same-key 8-neighbour to its most common opaque neighbour key, so
+    slash anti-aliasing touches its stroke (toolkit V06 orphan definition)."""
+    order = [k for k, *_ in VPALETTE]
+    for _ in range(4):
+        changed = False
+        for y in range(VCANVAS[1]):
+            for x in range(VCANVAS[0]):
+                c = g[y][x]
+                if c in (".", "w"):
+                    continue
+                around = [g[y + dy][x + dx] for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+                          if (dx or dy) and 0 <= x + dx < VCANVAS[0] and 0 <= y + dy < VCANVAS[1]]
+                opaque = [n for n in around if n not in (".", "w")]
+                if c in around or not opaque:
+                    continue
+                g[y][x] = max(sorted(set(opaque), key=order.index), key=opaque.count)
+                changed = True
+        if not changed:
+            return
+
+
 def flash() -> list[str]:
     g = vblank()
     disc(g, 15.5, 15.5, [(0.8, "w"), (2.0, "c"), (3.2, "p"), (4.3, "m"), (5.0, "d")])
@@ -320,6 +346,7 @@ def scratch_peak() -> list[str]:
     disc(g, 15.5, 15.5, [(1.6, "p"), (2.6, "m")])
     slashes(g, 1.2, gap=False, hot=True)
     g[15][15] = g[16][15] = "w"
+    merge_orphans(g)
     chunks(g, [(4, 9, "m"), (3, 21, "v"), (25, 7, "v"), (24, 24, "m"), (11, 4, "l"), (19, 27, "v")])
     return to_rows(g)
 
@@ -327,6 +354,7 @@ def scratch_peak() -> list[str]:
 def scratch_fade() -> list[str]:
     g = vblank()
     slashes(g, 1.0, gap=True, hot=False)
+    merge_orphans(g)
     chunks(g, [(3, 7, "v"), (2, 18, "d"), (25, 4, "l"), (25, 21, "v"), (10, 2, "v")])
     return to_rows(g)
 
@@ -420,6 +448,7 @@ def key_scale(out: Path) -> None:
     from scripts.pixelart.scene import Floor
 
     cast = grid_images(build_cast_grid())
+    loco = grid_images(json.loads(LOCO_GRID.read_text()))
     vfx = grid_images(build_vfx_grid())
     gob_grid = load_grid_file(repo_path("assets/source/characters/goblin/goblin_a_h36.grid.json"))
     gob, gob_piv = flip(grid_images(gob_grid)[0], tuple(gob_grid["pivot"]))
@@ -427,20 +456,27 @@ def key_scale(out: Path) -> None:
     entries = [(cast[0], PIVOT, x0, 0), (cast[16], PIVOT, x0 + 64, 0), (cast[24], PIVOT, x0 + 128, 0),
                (cast[28], PIVOT, x0 + 192, 14, False),
                (vfx[0], VPIVOT, x0 + 268, 19, False), (gob, gob_piv, x0 + 344, 0),
-               (vfx[5], VPIVOT, x0 + 326, 19, False)]
+               (vfx[5], VPIVOT, x0 + 326, 19, False), (vfx[0], VPIVOT, x0 + 100, 50, False)]
+    # Comparison strip: master head vs release head on the run (frame 8) and air (frame 12) bases.
+    compare = [(loco[8], PIVOT, x0, 0), (cast[24], PIVOT, x0 + 70, 0), (loco[12], PIVOT, x0 + 150, 14, False),
+               (cast[28], PIVOT, x0 + 220, 14, False), (vfx[0], VPIVOT, x0 + 300, 40, False)]
     fl = Floor()
     vx, vy = fl.view[0], fl.view[1]
     gy, ox = fl.ground(x0) - vy, x0 - vx
     box = (ox - 52, gy - 62, ox + 380, gy + 10)
     lit = fl.render(entries, 1).crop(box)
     unlit = fl.render(entries, 1, lit=False).crop(box)
-    sheet = Image.new("RGB", (lit.width, lit.height * 2 + 4), (20, 16, 24))
-    sheet.paste(lit, (0, 0))
-    sheet.paste(unlit, (0, lit.height + 4))
+    comp = fl.render(compare, 1).crop(box)
+    sheet = Image.new("RGB", (lit.width, lit.height * 3 + 8), (20, 16, 24))
+    for n, im in enumerate((lit, unlit, comp)):
+        sheet.paste(im, (0, n * (lit.height + 4)))
     out.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(out)
     big = out.with_name(out.stem + "-4x.png")
-    lit.resize((lit.width * 4, lit.height * 4), Image.NEAREST).save(big)
+    both = Image.new("RGB", (lit.width, lit.height * 2 + 4), (20, 16, 24))
+    both.paste(lit, (0, 0))
+    both.paste(comp, (0, lit.height + 4))
+    both.resize((both.width * 4, both.height * 4), Image.NEAREST).save(big)
     print(f"wrote {out.relative_to(ROOT)} {sheet.size} and {big.relative_to(ROOT)}")
 
 

@@ -272,14 +272,15 @@
         "max": 6
       },
       {
-        "id": "C2-release-fangs",
+        "id": "C2-release-fangs-and-catchlights",
         "frames": [
           16,
           24,
           28
         ],
-        "key": "W",
-        "min": 2
+        "key": "w",
+        "min": 4,
+        "max": 4
       }
     ]
   },

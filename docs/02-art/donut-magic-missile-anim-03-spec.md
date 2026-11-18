@@ -1,6 +1,6 @@
 # ANIM-DONUT-03: Princess Donut Magic Missile cast and VFX, design spec
 
-**Status:** design keys frozen; in-betweens (section 9) not drawn; independent art review pending; not wired into any Bevy binary. Nothing here is accepted.
+**Status:** design keys frozen after the silhouette gate fix (section 14); in-betweens (section 9) not drawn; independent art review pending; not wired into any Bevy binary. Nothing here is accepted.
 
 Scope: [MVP controller contract](../01-design/mvp-controller-contract.md#character-actions-and-progression). After the Tutorial Guild biscuit, Donut's primary attack (Square/X) becomes Magic Missile, on the same button, and it **stays movement-compatible**: she casts while standing, running or in the air. Her melee swat and pounce are ANIM-DONUT-02 (separate work order, not touched here). Gear after the biscuit is unchanged at Floor 1 ([gear timeline](donut-gear-timeline.md)): crown/tiara with the magenta gem, collar and charm; no new item is drawn.
 
@@ -8,8 +8,8 @@ Scope: [MVP controller contract](../01-design/mvp-controller-contract.md#charact
 
 A cat casting, not a human wizard: no staff, no wand, no raised paw, no glowing hands. Following the bible's behaviour order (neutral cute, expression change, spell anticipation, payoff, recovery to cute), the whole spell is acted by the **head**:
 
-- **Gather (anticipation):** the ears flatten out sideways (airplane ears), the upper lids drop one row into a focused stare, and the tiara gem charges with a small four-point twinkle. Her magic is tied to the crown she already wears.
-- **Release (payoff):** the head jabs 1 px forward, the lids drop into a half-lidded, inner-corner-down glare, and she hisses: a 4 x 3 open mouth with two fang pixels and a pink tongue. The bolt leaves from her right cheek at mouth height.
+- **Gather (anticipation):** master ears, the upper lids drop one row into a focused stare, and the tiara gem charges with a small four-point twinkle. Her magic is tied to the crown she already wears.
+- **Release (payoff):** the head jabs 1 px forward, the ears flatten out sideways (airplane ears: tips gone, a dark-edged wedge two rows lower and out past the head outline), the lids drop into a half-lidded glare with a raised outer brow pixel (inward slant), and she hisses: a 3 x 2 open mouth in `K` with two white fang points. The head outline itself changes, so the cast reads on the run and air bases. The bolt appears 4 px ahead of her right cheek at mouth height.
 - **Follow (recovery):** mouth closes, lids and ears come back up, the head returns; then she is back to the neutral master face.
 
 Grounded tone: a short, irritated hiss, not a heroic pose. The bolt is small and nasty, not a beam.
@@ -36,7 +36,7 @@ Runtime rule (suggestion for the integration agent): the locomotion state machin
 
 Cast timeline (cast-local ticks, inclusive): **gather 0-3** (4 ticks, 67 ms), **release tick 4** (projectile spawns), **release 4-9** (6 ticks), **follow 10-15** (6 ticks), back to locomotion at tick 16. **Re-fire placeholder: tick 16** (3.75 casts/s); a press during follow buffers. The grid's `duration_ms` per frame is the locomotion frame's duration rounded to whole 60 Hz ticks (preview only; the runtime timing is the locomotion clock plus the phase table above).
 
-Projectile spawn: bolt pivot at **(+23, -19)** from Donut's pivot on idle (right cheek, mouth row), plus the locomotion frame's head offset; the manifest lists all 16 (`projectile_spawn_offset_by_locomotion_frame`). On a run frame the bolt flies 15-16 px above the floor, on idle 19 px, which hits a 36 px goblin's torso.
+Projectile spawn: bolt pivot at **(+27, -19)** from Donut's pivot on idle (4 px ahead of the right cheek, mouth row, so the streaks never cover the hiss on release ticks 4-5), plus the locomotion frame's head offset; the manifest lists all 16 (`projectile_spawn_offset_by_locomotion_frame`). On a run frame the bolt flies 15-16 px above the floor, on idle 19 px, which hits a 36 px goblin's torso.
 
 ## 4. Projectile and impact (VFX)
 
@@ -55,7 +55,8 @@ Placeholders (gameplay tuning owns them): **speed 6 px/tick (360 px/s)**, **rang
 
 - Cast: the approved master's 22 keys, unchanged (test). The twinkle and the mouth reuse `w`, `P`, `M`, `K`, `E`, `W`.
 - VFX `vfx-missile-v0`, 8 colours: `k` #2a0f2e (reserved rim), `d` #7a1a63, `m` #e2309f (= Donut's gem `M`), `p` #ff7fd0, `c` #ffd8f4, `w` #ffffff (accent), `v` #9a6ee0 (= her collar violet), `l` #dbc6fb (= her tiara lilac). Magenta magic per [art direction](art-direction.md).
-- Glow is **baked** (VFX convention of [VFX-01](vfx-01-spec.md) section 5): the A1 pass does not bloom actor-group emitters, so a small hot core and a darker outer ramp carry the glow; white is capped (bolt 2, flash 4, peak 2, fade 0, no core `c` in the fade). Read checked lit and with the A1 pass off (`keys-scale.png`, bottom strip, `Floor.render(..., lit=False)`).
+- Glow is **baked** (VFX convention of [VFX-01](vfx-01-spec.md) section 5): the A1 pass does not bloom actor-group emitters, so a small hot core and a darker outer ramp carry the glow; white is capped (bolt 2, flash 4, peak 2, fade 0, no core `c` in the fade). Read checked lit and with the A1 pass off (`keys-scale.png`, middle strip, `Floor.render(..., lit=False)`).
+- **Pure white `#ffffff`, recorded choice.** VFX-01 uses a warm off-white `#efe3d3` for fire. This spell is cold magenta magic, and its 1-4 px hottest points must stay neutral-to-cool; a warm white would read as fire next to torches. Same value as Donut's catchlight `w`, so the fang points and the bolt core share one white.
 
 ## 6. Difficulty score ([routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty))
 
@@ -74,29 +75,29 @@ Placeholders (gameplay tuning owns them): **speed 6 px/tick (360 px/s)**, **rang
 2. Body, legs and tail of every cast frame equal the locomotion frame (test `test_cast_never_touches_body_legs_or_tail`).
 3. Bolt readable as a small travelling magenta object against warm brick and cold stone, lit and unlit; streaks always trail.
 4. Impact reads as three scratches, not a star burst or explosion; it does not hide the goblin's silhouette for more than the 3-tick peak.
-5. Validators pass (`python3 -m scripts.pixelart validate` on both configs). VFX orphan limit is **12** for the scratch peak (thin anti-aliased slashes); the executor should bring it to 9 or justify 12.
+5. Validators pass (`python3 -m scripts.pixelart validate` on both configs). VFX orphan limit **9**, the same as VFX-01 and the character sets. Measured on the frozen keys: bolt 5, flash 0, scratch peak 0, fade 0 (`merge_orphans` joins slash anti-aliasing to its stroke; motes are 2 px chunks).
 6. White and core caps as in section 5; no frame covers more than 35 % of the VFX cell (test).
 
 ## 8. Per-key executor notes
 
 | Key | Notes |
 | --- | --- |
-| Cast 0 (gather, idle) | Ears: tips removed, inner ear shown one row lower and 2 px out. Lids: face row 16 cleared, row 17 lid. Twinkle: 5 px plus above the gem, gem centre white. Do not add motes (isolated pixels). |
-| Cast 16 (release, idle) | Head, face and tiara +1 px x (collar does not move). Lids at row 18 with the inner two pixels down at row 19; catchlight 1 px at row 19. Mouth rows 23-25: `KKKK` / `WEEW` / `.cc.`. Gem back to plain with a `P` centre (spent). |
+| Cast 0 (gather, idle) | Ears: master (outline differs from release on purpose). Lids: face row 16 cleared, row 17 lid. Twinkle: 5 px plus above the gem, gem centre white. Do not add motes (isolated pixels). |
+| Cast 16 (release, idle) | Head, face and tiara +1 px x (collar does not move). Ears: rows 8-9 tips cleared; left wedge rows 10-11 from x 37 (`KjEEBB` / `KjEB`), right wedge rows 10-11 to x 66 (`BBEEjK` / `BEjK`). Lids at row 18 with the inner two pixels down at row 19; one `K` brow pixel at row 17 on each outer lid end (x 43, 59); catchlight 1 px at row 19. Mouth: master `cc` removed, rows 23-24 at x 51-53 `wKw` / `KKK`. Gem back to plain with a `P` centre (spent). |
 | Cast 24 (release on run frame 8) | Composition key: head offset (+1, +4) plus thrust; check the chin against the near foreleg. |
 | Cast 28 (release on jump rise 12) | Composition key: offset (+1, +2); check the head against the tail streaming behind. |
 | VFX 0 (bolt) | Rear rim `d` joins the streaks; keep three separate streak rows with empty rows between. |
 | VFX 4 (flash) | Round, not spiky; 3 spray chunks only on the caster side. |
-| VFX 5 (peak) | Slashes 5 px apart, steep down-back rake; 2 px white at the centre only. |
+| VFX 5 (peak) | Slashes 5 px apart, steep down-back rake; 2 px white at the centre only; every anti-aliasing pixel touches its stroke (orphans 0). |
 | VFX 7 (fade) | Each slash broken in the middle; no `c` or `w`. |
 
 ## 9. In-between table (no design decisions needed)
 
 | Frames | Currently | Target |
 | --- | --- | --- |
-| 32-47 `cast_follow` | copies of 16-31 | Follow head drawn once at frame-0 position and composited by the same rule: thrust kept (+1, 0), mouth closed to the master `cc` line, lids back to one row lowered (gather lids), ears halfway up (tips back, 1 px lower than master), no twinkle, gem normal. Then turn on `unique_frames`. |
+| 32-47 `cast_follow` | copies of 16-31 | Follow head drawn once at frame-0 position and composited by the same rule: thrust kept (+1, 0), mouth closed to the master `cc` line, no fangs, no brow pixels, lids back to one row lowered (gather lids), ears halfway up (tips back at row 9, wedge 1 px out instead of 2), no twinkle, gem normal. Then turn on `unique_frames` and change rule C2 to frames 16-31 only. |
 | VFX 1-3 | copies of 0 | Streak lengths cycle (8/12/8, 10/10/7, 7/12/10, 9/11/9), head core shifts 1 px fore/aft, white stays 1-2 px; clean loop seam. |
-| VFX 6 | copy of 5 | Between peak and fade: slashes 1 px thinner, centre `c` gone, white gone, motes 2 px further out. |
+| VFX 6 | copy of 5 | Between peak and fade: slashes 1 px thinner, centre `c` gone, white gone, motes (2 px chunks) 2 px further out; run `merge_orphans`, orphans at most 9. |
 | VFX 8 | copy of 7 | Last motes and two short `d`/`v` slash remnants; nothing hot. |
 
 Derived cast frames 1-15 and 17-31 come from the rule; the executor only fixes local collisions (none seen at review scale) and must not edit the frozen keys.
@@ -105,8 +106,8 @@ Derived cast frames 1-15 and 17-31 come from the rule; the executor only fixes l
 
 | File | Shows |
 | --- | --- |
-| `docs/evidence/anim-donut-03/keys-scale.png` | Top: lit Floor 1 at 1x: cast keys 0, 16, 24, 28 (the air key lifted 14 px), a bolt in flight, the scratch peak on a GOB-01 goblin. Bottom: the same with the A1 pass off. |
-| `docs/evidence/anim-donut-03/keys-scale-4x.png` | The lit strip at 4x. |
+| `docs/evidence/anim-donut-03/keys-scale.png` | Strip 1: lit Floor 1 at 1x: cast keys 0, 16, 24, 28 (the air key lifted 14 px), a bolt over lit brick, a bolt in flight, the scratch peak on a GOB-01 goblin. Strip 2: the same with the A1 pass off. Strip 3 (lit): master head vs release head on the run base (locomotion 8 vs cast 24) and the air base (12 vs 28), and a bolt over the stone. |
+| `docs/evidence/anim-donut-03/keys-scale-4x.png` | Strips 1 and 3 at 4x. |
 
 Regenerate: `bash scripts/export_assets.sh` once, then `python3 scripts/author_donut_missile.py keys` and `python3 scripts/author_donut_missile.py key-scale`; rebuild the `.ase` files with `python3 scripts/pixel_grid_to_ase.py build <grid> <ase>` and refreeze with `python3 -m scripts.pixelart freeze --force <config>` only on a design change.
 
@@ -120,12 +121,25 @@ Regenerate: `bash scripts/export_assets.sh` once, then `python3 scripts/author_d
 | `assets/manifests/donut_h40_missile.json`, `assets/manifests/vfx_magic_missile.json` | phase ticks, spawn offsets, placeholders, provenance |
 | `tests/fixtures/anim-donut-03_keys.json`, `tests/fixtures/anim-donut-03-vfx_keys.json`, `tests/test_art_donut_missile.py` | frozen keys and spec tests |
 
-## 12. Open questions
+## 12. Settled questions (silhouette gate)
 
-- Tail: a bottle-brush tail on release would be a strong cat read but breaks the head-only swap (the tail differs per locomotion frame). Left out; reviewer to decide whether it is worth a per-frame tail layer.
-- On the spawn tick the bolt's streaks overlap her right cheek for about 2 ticks; acceptable as "leaving the mouth" or move the spawn 4 px forward.
-- Gather is only 4 ticks; at 1x the lid change is subtle and the twinkle carries the tell. Gameplay may want 6 ticks.
+- Bristling tail: **not in this order.** It breaks the head-only swap and would cost 48 per-frame tail edits; kept as a horizon idea for a later per-frame tail layer.
+- Spawn overlap: **spawn moved 4 px forward** (+27, -19 on idle, +4 on all 16 entries).
+- Gather length: **stays 4 ticks.** The twinkle carries the tell and the release ear change adds an outline cue; gameplay may still tune it to 6.
 
 ## 13. Rights and provenance
 
 Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Spec + keys: Claude Opus. In-betweens and execution: pending. Review: pending. The cast heads are literal pixel edits of the approved master head; the VFX keys are rasterized from rules in `scripts/author_donut_missile.py`. No tracing, no image-model raster output, no third-party missile design used as reference.
+
+## 14. Silhouette gate result
+
+Independent gate verdict: **FIX-KEYS, release head only**; fidelity to the master, the bolt, the impact, the palette and the glow passed. Applied:
+
+1. Open hiss: 3 x 2 `K` mouth under the nose, master mouth line removed.
+2. Fangs: one `w` at each top corner (2 px).
+3. Ears on release: tips removed, wedge 2 rows lower and 1-2 px out past the master outline with a dark outer edge; gather now keeps the master ears so the two phases differ in outline.
+4. Glare: one `K` brow pixel per eye on the outer lid end (inward slant).
+5. Spawn offset +4 px in x on all 16 entries.
+6. Scratch peak and fade: anti-aliasing reconnected (`merge_orphans`), motes as 2 px chunks; orphan limit back to 9 (measured 5, 0, 0, 0 on the VFX keys).
+
+Re-frozen: cast keys 0 (master ears), 16, 24, 28; VFX keys 5 and 7 (0 and 4 unchanged in pixels, fixture rewritten). Release head checked at 1x on the run and air bases against the master head (`keys-scale.png`, strip 3): the head outline drops at the ears, and the open mouth and glare read. No further gate; the blind review follows.

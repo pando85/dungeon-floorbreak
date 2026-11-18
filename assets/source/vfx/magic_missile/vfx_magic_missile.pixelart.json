@@ -77,7 +77,7 @@
   "rules": {
     "max_colors": 20,
     "max_isolated_per_frame": 0,
-    "max_orphans_per_frame": 12,
+    "max_orphans_per_frame": 9,
     "canvas_margin": [
       0,
       0,
