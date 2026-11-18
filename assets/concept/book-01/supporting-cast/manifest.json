@@ -1,8 +1,8 @@
 {
   "schema": "the-crawl-concept-image-manifest-v1",
   "project": "THE CRAWL — NO PANTS. NO MERCY.",
-  "status": "Five owner-selected concept PNGs from Book 1 design conversation (2026-11-18), expected for Hermes intake; art direction only. Not production sprite art or canon-verification evidence.",
-  "source": "Original OpenAI-generated images from 2026-11-18 project conversation. No third-party artwork or novel excerpts were imported. Owner-reported publication scope ART-PUBLICATION-ALL-V1 applies subject to repo rights policy; independent permission not verified.",
+  "status": "Five owner-selected concept PNGs uploaded by Hermes on PR #92; exact source-ZIP byte identity checked against Git blob SHA-1, SHA-256, dimensions and byte counts on 2026-11-18. Concept direction only, not production sprites.",
+  "source": "Original OpenAI-generated images from 2026-11-18 project conversation, uploaded without recompression by Hermes and independently checked against original handoff ZIP. No third-party artwork or novel excerpts imported. Publication rights owner-reported ART-PUBLICATION-ALL-V1; independent consent not verified.",
   "assets": [
     {
       "path": "assets/concept/book-01/supporting-cast/01-odette-on-air-and-unmasked.png",
@@ -12,7 +12,8 @@
       "height": 1024,
       "source_conversation_file": "a_highly_detailed_pixel_art_concept_sheet_char.png",
       "character": "Odette",
-      "review_status": "Owner-selected on-air mantis helmet + red king-crab body and older off-air portrait; artistically selected, not pixel master"
+      "review_status": "Owner-selected on-air mantis helmet + red king-crab body and older off-air portrait; artistically selected, not pixel master",
+      "git_blob_sha1": "2919774766bb29c8ac061c5ecd165f2f0e056d03"
     },
     {
       "path": "assets/concept/book-01/supporting-cast/02-imani-meadow-lark.png",
@@ -22,7 +23,8 @@
       "height": 1024,
       "source_conversation_file": "a_highly_detailed_pixel_art_concept_sheet_in_the_s.png",
       "character": "Imani",
-      "review_status": "Owner-liked Imani concept: overwhelmed but protective worker in scrubs, first-floor human form; costume details not automatically canon"
+      "review_status": "Owner-liked Imani concept: overwhelmed but protective worker in scrubs, first-floor human form; costume details not automatically canon",
+      "git_blob_sha1": "c62b773b5e8e490cda89eb5a803c0de54e7bae29"
     },
     {
       "path": "assets/concept/book-01/supporting-cast/03-elle-mcgibbons-meadow-lark.png",
@@ -32,7 +34,8 @@
       "height": 1086,
       "source_conversation_file": "ficha_de_concepto_elle_mcgibbons.png",
       "character": "Elle McGibbons",
-      "review_status": "Owner-liked Elle human elderly wheelchair concept; wheel chair overall heights illustrative, no Frost Maiden"
+      "review_status": "Owner-liked Elle human elderly wheelchair concept; wheel chair overall heights illustrative, no Frost Maiden",
+      "git_blob_sha1": "00d4e722bf32a093e1d7b96e9582fc78ecae6202"
     },
     {
       "path": "assets/concept/book-01/supporting-cast/04-brandon-andrews-meadow-lark.png",
@@ -42,7 +45,8 @@
       "height": 1086,
       "source_conversation_file": "brandon_andrews_héroe_de_meadow_lark.png",
       "character": "Brandon Andrews",
-      "review_status": "Owner-loved friendly stocky Black maintenance worker / younger brother; prop hammer illustration needs shape verification"
+      "review_status": "Owner-loved friendly stocky Black maintenance worker / younger brother; prop hammer illustration needs shape verification",
+      "git_blob_sha1": "1c7207050860df750c26ae14a1611a04520bbe25"
     },
     {
       "path": "assets/concept/book-01/supporting-cast/05-chris-andrews-meadow-lark.png",
@@ -52,7 +56,8 @@
       "height": 1086,
       "source_conversation_file": "ficha_de_concepto_pixel_art_de_chris_andrews.png",
       "character": "Chris Andrews",
-      "review_status": "Owner-loved older taller Black brother, quieter maintenance worker; styling provisional"
+      "review_status": "Owner-loved older taller Black brother, quieter maintenance worker; styling provisional",
+      "git_blob_sha1": "27102afacc4d1e7b3e033097ea65621ab3ed1c88"
     }
   ]
 }
