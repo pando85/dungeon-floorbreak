@@ -1,6 +1,6 @@
 # ANIM-DONUT-02: Princess Donut melee and damage reactions, design spec (phase 1)
 
-**Status:** phase 1 design: eight keys drawn and frozen, the seven in-betweens are copies of their nearest key and wait for execution (section 6). Nothing here is reviewed or owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
+**Status:** phase 1 design: eight keys drawn and frozen, silhouette-gate fixes applied (section 13), the seven in-betweens are copies of their nearest key and wait for execution (section 6). Nothing here is reviewed or owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
 
 Read with: [ANIM-DONUT-01 locomotion](donut-locomotion-anim-01.md) (frame, pivot, layers and identity rules this spec inherits), [Donut bible](donut-character-bible.md), [gear timeline](donut-gear-timeline.md), [controller contract](../01-design/mvp-controller-contract.md#character-actions-and-progression), [antihero tone](../01-design/antihero-tone.md), and the structural model [ANIM-CARL-02](carl-melee-anim-02-spec.md).
 
@@ -12,14 +12,14 @@ Read with: [ANIM-DONUT-01 locomotion](donut-locomotion-anim-01.md) (frame, pivot
 | `scripts/author_donut_melee.py` | deterministic authoring record of the keys (`--check`, `--evidence`) |
 | `assets/manifests/donut_h40_melee.json` | candidate manifest `donut_h40_melee_candidate_v0`. Its `melee.moves` block is the **machine-readable tick contract**; `melee.frames` is the per-frame tick table |
 | `tests/test_art_donut_melee.py`, `tests/fixtures/anim-donut-02_keys.json` | contract tests and the frozen keys (SHA-256 over all eight layers) |
-| `docs/evidence/anim-donut-02/` | `keys-scale.png` (1×, lit Floor 1, next to Carl and a GOB-01 goblin), `keys-scale-x4.png`, `keys_x6.png` |
+| `docs/evidence/anim-donut-02/` | `keys-scale.png` (1×, lit Floor 1, next to Carl and a GOB-01 goblin; airborne keys over open floor, s1 at the goblin), `keys-scale-x4.png`, `keys_x6.png`, `p0_vs_jump_start_x1.png` / `_x6.png` (s0, locomotion `jump_start`, p0), `SHA256SUMS` |
 
 ## 1. Acting brief
 
 Donut fights like a pampered show cat who has decided this is beneath her and is doing it anyway. She is **agile and fragile**: quick, light, never planted, never a brawler. Every action is a cat action (paw, pounce, pin), never a human punch translated onto a cat. Cuteness stays the default (bible: "cute in neutral"); the attitude is in the timing and the tail, not in a snarl.
 
-- **Swat (primary, Square/X, pre-biscuit).** A quick defensive paw slap at a goblin's ankles: paw up beside the chin, then a short down-and-forward swipe. Low damage; it buys space, it does not win fights.
-- **Pounce (physical, Triangle/Y).** The hunting crouch (head low, plume dropped), a short flat leap with both forepaws thrown forward, then a two-paw pin on landing, plume up ("got it"). Its value is position: it moves her about 45 px fast. Missing it leaves her exposed (fragility = risk).
+- **Swat (primary, Square/X, pre-biscuit).** A quick defensive paw slap at a goblin's shins: paw up in front of the cheek, then a short downward slap. Low damage; it buys space, it does not win fights.
+- **Pounce (physical, Triangle/Y).** The hunting crouch (head low, rump up, plume swept back flat), a short flat leap with both forepaws thrown forward, then a two-paw pin on landing, plume up ("got it"). Its value is position: it moves her about 45 px fast. Missing it leaves her exposed (fragility = risk).
 - **Hurt.** Eyes squeezed shut (the master blink face, the locomotion "oof"), head jerks back and up, the near forepaw snaps off the floor.
 - **Knockback.** Thrown back, eyes shut, all four legs splayed: the startled-cat starfish.
 - **Knockdown and get-up.** She lands belly-down in a **sploot** (forepaws flat in front, hind legs flat behind), head upright. Get-up is quick and dignified: chest up first, then the chin, as in the locomotion `land` recovery.
@@ -40,7 +40,7 @@ Donut fights like a pampered show cat who has decided this is beneath her and is
 ## 3. Tick conventions and movement
 
 - Logic at 60 Hz. **Tick 0** is the fixed tick on which the press is accepted. Active ticks are the ticks on which the hitbox is live; the hit tick is the first active tick; one hit per target per move instance. Frame selection is a pure function of (move, move tick), and of airborne state for the hold frames. `.ase` durations are previews only (`round(ticks × 1000 / 60)`, holds 100 ms).
-- **Swat is movement-compatible** (controller contract: Donut's primary remains movement-compatible). Gameplay does **not** zero `vx` during the swat. The keys are drawn on a standing base with the hind legs planted, so at walking speeds up to about 60 px/s the 14-tick swat skates at most about 14 px; the execution phase shuffles the hind paws forward in s2/s3 to hide that. At full trail speed (up to 185 px/s) the integration should either cap `vx` during the swat or composite the swat's front half over the run cycle. That choice is open (section 8, Q1).
+- **Swat is movement-compatible** (controller contract: Donut's primary remains movement-compatible). Gameplay does **not** zero `vx` during the swat; it **caps** it (decision, section 13): proposal 60 px/s, so the 14-tick swat skates at most about 14 px over planted hind legs; the execution phase shuffles the hind paws forward in s2/s3 to hide that. No composited run-cycle swat (it would need a new layered asset and break the translate-only identity rule).
 - **Pounce has its own impulse** (placeholder, gameplay owns it): launch at t10 with `vx` 180 px/s and `vy` 130 px/s; with `GRAVITY` 1050 that is about 15 ticks airborne, an 8 px apex and about 45 px of travel. Horizontal input is ignored from t0 to touchdown + 8 ticks.
 - Hurt, knockback, knockdown and get-up: no root motion; knockback velocity is gameplay data.
 
@@ -65,7 +65,8 @@ The swat equals Carl's jab length (14) on purpose, so a one-button prototype can
 | s1 swat contact | paw | +13 .. +23 | 5 .. 10 | shins and knees |
 | p1 pounce flight | near paw | +18 .. +24 | 13 .. 16 (+ flight height) | belly / chest at apex |
 | p1 pounce flight | far paw | +15 .. +21 | 6 .. 9 (+ flight height) | thighs |
-| p2 pin landing | both paws | +14 .. +21 | 0 .. 3 | its feet |
+| p2 pin landing | near paw | +11 .. +21 | 0 .. 3 | its feet |
+| p2 pin landing | far paw | +16 .. +23 | 2 .. 5 | its feet |
 
 The same numbers are in `melee.hit_boxes_px`. Hurtbox: unchanged from the locomotion integration (the sim body); sprites never feed collision. The sploot is 4 px lower than idle; whether a downed Donut can be hit is a gameplay decision.
 
@@ -75,11 +76,11 @@ Coordinates are canvas pixels (x right, y down; floor row 43). **U(dx, dy)** tra
 
 | Frame | Key | Source | Pose |
 | --- | --- | --- | --- |
-| 0 | **s0 cock** | loco 15 (land recovery, standing) | U, B, T (-1, +1): weight shifts back. Near fore lifted onto `paw`: forearm up the right edge of the ruff (x59-63, rows 32-37), curled paw beside the chin at x62-67 rows 28-31, outside the ruff silhouette and against the ginger cheek; one `W` toe highlight up-left. Far fore planted |
-| 1 | **s1 swat contact** | loco 15 | U, B, T (+1, 0): leans in. Near fore swiped down-forward onto `paw`: paw x59-69 rows 33-38 (5-10 px above the floor), two `W` claw pixels on the leading edge at x68. Far fore and hinds planted |
-| 4 | **p0 crouch** (tell) | loco 10 (jump_start crouch) | U (0, +2): head low over the paws, eyes on the target. T (-2, +6): plume dropped low behind the rump (the hunting tell; jump_start keeps it up). Hinds bunched under the raised rump |
+| 0 | **s0 cock** | loco 15 (land recovery, standing) | U, B, T (-1, +1): weight shifts back. Near fore lifted onto `paw`: forearm from the shoulder up the right edge of the ruff (x62-68, rows 30-37), curled paw at x65-70 rows 26-29 in front of the cheek, 3 px past the head outline (head right edge x67), `K` on its top and front edges; one `W` toe highlight up-left. Far fore planted |
+| 1 | **s1 swat contact** | loco 15 | U, B, T (+1, 0): leans in. Near fore slapped down onto `paw` (forearm x56-60 rows 30-33): paw x59-69 rows 33-38 (5-10 px above the floor), two `W` claw pixels on the leading edge at x68. Same reach as the cock, 7 rows lower. Far fore and hinds planted |
+| 4 | **p0 crouch** (tell) | loco 10 (jump_start crouch) | U (0, +3): chin down to the forepaws, eyes on the target. Rump up 2 px: the `body` columns x < 44 rise 2 px (back line row 18), and the hind legs grow 2 rows by repeating their haunch row (rows 39-41), paws still on row 43. Plume **re-pixelled for p0 only**: swept back and near-horizontal at x11-29 rows 19-26, crest at or below the back line (master tortoiseshell keys). The tiara is the highest pixel (row 14); the silhouette is a forward-low wedge |
 | 5 | **p1 pounce flight** | loco 12 (jump_rise) | Long tilted body, hinds trailing. Both forelegs replaced: near fore on `paw` reaching forward and slightly up to a paw at x64-70, claws `W` at x69; far fore (shadow ramp `c`) lower at x61-67. Whole frame up 2 px: lowest row 41 |
-| 6 | **p2 pin landing** | loco 10 | U (+1, +1): head pushed in. T (+2, -2): plume up, triumphant. Both forepaws slammed flat in front: near paw x60-67 rows 40-43 with `W` claws, far paw behind it. Rump still up |
+| 6 | **p2 pin landing** | loco 10 | U (+1, +2): head pushed down into the pin. T (+2, -2): plume up, triumphant. Both forepaws slammed in front: near paw x57-67 rows 40-43 with `W` claws (x65-66); far paw (shadow ramp `c`) 2 px forward of and above it, x62-69 rows 38-41. Rump still up |
 | 8 | **h0 flinch** | loco 14 (land impact, blink face) | U (-3, -2), B (-2, -1), T (-3, -1): head jerks back and up, eyes shut. Far fore planted back at x50-55; near fore snapped off the floor (curled paw x52-56 rows 37-41) |
 | 10 | **kb thrown** | loco 14 | U, B, T (-4, -4), blink face. All legs redrawn splayed: near fore forward to x66 (row 35-39), far fore forward-up at x56-63 rows 31-34, near hind down (x30-35, to row 41), far hind back (x20-25). Lowest row 41 |
 | 11 | **d0 sploot impact** | loco 14 | B (0, +1): belly on row 43. U (0, +4): head drops, still upright, eyes shut. T (-4, +8): plume flops low. Near fore flat forward to x67 (rows 40-43); near hind flat behind (ginger haunch continues, paw x13-18) |
@@ -108,7 +109,7 @@ Key read checks at 1× (see `keys-scale.png`): the swat pair reads as paw up, th
 | 13 | `getup` | g0 chest up | 10 (t0-9) | getup | copy of d0 | forelegs straighten under the chest (loco-10 forelegs), B (0, 0), U (0, +2); hinds still flat behind |
 | 14 | `getup` | g1 chin up | 10 (t10-19) | getup | copy of d0 | the loco-15 pose with U (0, -1) (chin up first, dignity restored); hinds back under the hips. Hands over to idle |
 
-In-between rules: head, face and gear are translations of a locomotion head block only (the test enforces this for the keys; extend it to every frame); body and tail are translations; legs and paws are re-pixelled with the master ramps (`K` outline, `C`/`c` cream legs, `W` toe and claw highlights, far legs in the shadow ramp). No isolated pixels, at most 6 orphans per frame. After execution set `unique_frames: true` in the config.
+In-between rules: head, face and gear are translations of a locomotion head block only (the test enforces this for the keys; extend it to every frame); body and tail are translations (p0's re-pixelled plume and raised rump are the one exception; a wiggle variant reuses them); legs and paws are re-pixelled with the master ramps (`K` outline, `C`/`c` cream legs, `W` toe and claw highlights, far legs in the shadow ramp). No isolated pixels, at most 6 orphans per frame. After execution set `unique_frames: true` in the config.
 
 ## 7. State flow
 
@@ -138,11 +139,11 @@ Any hit cancels an attack (no armour). Airborne swat and pounce from a jump are 
 
 ## 8. Open questions (for the gameplay and input owners; nothing decided here)
 
-1. **Swat while running at full speed:** cap `vx` during the swat (simple, skates a little) or composite the swat's front half over the run cycle (needs a layered swat variant and an integration rule).
+1. ~~Swat while running at full speed~~ **Decided at the gate (section 13): cap `vx` during the swat** (proposal 60 px/s; the value is gameplay data).
 2. **Swat auto-repeat:** the contract leaves holding Square unresolved; the art supports a restart at t10.
 3. **Pounce distance and height:** 45 px and 8 px are placeholders; the flight frame holds for any airtime.
 4. **Does the pin hit the target it landed on, or only the flight hit?** The art supports both; the manifest's active rule allows one hit per instance across flight and the first two landing ticks.
-5. **Hurt facing:** frames assume a hit from the front; turn Donut towards the source or accept the mirrored read.
+5. ~~Hurt facing~~ **Decided at the gate (section 13): Donut turns towards the hit source** when hurt or knockback starts; the frames assume a hit from the front.
 
 ## 9. Acceptance targets
 
@@ -162,9 +163,22 @@ Score per [routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-
 ## 11. Self-review of the keys (not approval)
 
 - **Works:** identity holds by construction (every head, face, gear, body and tail pixel is a translated locomotion pixel; the test enforces it). The swat contact reads against the goblin's shins at 1×. The pounce flight and sploot are the clearest silhouettes.
-- **Weak:** the s0 cock is small at 1× (the paw is a 6 × 4 cream shape beside the chin); p0 differs from the locomotion `jump_start` mostly by the dropped plume and the lower head; h0 relies on the blink face and the head jerk; far legs are mostly hidden by the ruff. A reviewer may want a larger cock arc (paw higher on the cheek) or a flattened-ears head variant, which would need an owner-approved face edit.
+- **Weak (before the gate):** the s0 cock sat inside the head outline and p0 read as "standing slightly lower"; both were fixed in section 13. **Still weak:** h0 relies on the blink face and the head jerk; far legs are mostly hidden by the ruff; p0's raised rump makes the hind haunch a 3-row ginger column. A flattened-ears head variant would help hurt and the crouch but needs an owner-approved face edit.
 - No human has judged feel or timing in motion. All tick numbers are proposals.
 
 ## 12. Rights/Provenance
 
 Spec and keys: Claude Opus (design). Built only from the owner-approved Donut master and the owner-approved ANIM-DONUT-01 locomotion pixels; legs and paws hand-placed in pixel-grid-v1 by the authoring script. No generated illustration, concept-board pixel, image-model raster or third-party asset was used.
+
+## 13. Silhouette gate result and fixes
+
+The independent silhouette gate returned **FIX-KEYS** (p0 required, s0 recommended). It passed s1, p1, p2, h0, kb and d0 at 1×, as well as master fidelity, tone and the belly-down sploot. It recorded two answers as decisions: **Q1, cap `vx` during the swat** (no composited run-cycle swat), and **Q5, Donut turns towards the hit source**. Fixes applied and re-frozen:
+
+| Key | Gate request | Applied |
+| --- | --- | --- |
+| p0 (required) | plume at or below the back line; head 1 px lower; rump up 1-2 px; tiara the highest pixel; clearly lower than s0 and `jump_start` | plume re-pixelled swept back (x11-29, rows 19-26; back line row 18); U (0, +3); rump +2 px with the hind legs lengthened 2 rows; tiara row 14 is the top. Tested (`test_p0_is_a_low_forward_wedge`); compare in `p0_vs_jump_start_x6.png` |
+| s0 (recommended) | paw 2 px up and forward past the head outline, `K` top and front edge, forearm continuous to the shoulder | paw x65-70 rows 26-29, 3 px past the head (x67); `K` top row and front column; forearm extended 2 rows into the ruff. Tested (`test_s0_paw_breaks_the_head_outline`). The swat is now a downward slap at equal reach (the test checks a drop of 6 rows or more) |
+| p2 (optional) | separate the two paws; head 1 px lower | far paw 2 px forward and above the near paw in the `c` ramp; U (+1, +2) |
+| evidence (required) | flight key over open floor, s1 at the goblin, p0 vs `jump_start` side by side | `keys-scale.png` re-staged (p1 at x622, kb at x846, s1 at x904 against the goblin at x937); `p0_vs_jump_start_x1.png` and `_x6.png` added |
+
+Every pixel number in sections 4 and 5 was re-measured on the re-frozen grid.

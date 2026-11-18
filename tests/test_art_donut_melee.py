@@ -87,7 +87,8 @@ class DonutMeleeKeysTests(unittest.TestCase):
             self.assertTrue(any(translated(got, s) for s in sources), f"key {k}: identity block was edited")
 
     def test_body_and_tail_are_translations_too(self):
-        for k in KEYS:
+        """Except p0 (gate fix): its rump rises 2 px and its plume is re-pixelled (tail is outside the lock)."""
+        for k in [k for k in KEYS if k != 4]:
             for layer in ("body", "tail"):
                 got = pixels(self.grid["frames"][k]["cels"][layer])
                 ok = any(translated(got, pixels(f["cels"][layer])) for f in self.loco["frames"] if layer in f["cels"])
@@ -101,12 +102,36 @@ class DonutMeleeKeysTests(unittest.TestCase):
             else:
                 self.assertEqual(max(rows), 43, k)
 
-    def test_swat_arc_goes_from_high_and_near_to_low_and_far(self):
+    def test_swat_is_a_downward_slap(self):
         cock = pixels(self.grid["frames"][0]["cels"]["paw"])
         hit = pixels(self.grid["frames"][1]["cels"]["paw"])
-        self.assertLess(min(y for _x, y in cock), min(y for _x, y in hit))
-        self.assertGreater(max(x for x, _y in hit), max(x for x, _y in cock))
+        # after the gate fix the cock is already forward of the head, so the swipe is a downward slap:
+        # the paw drops at least 6 rows at the same reach
+        tip = lambda px: min(y for x, y in px if x >= max(x for x, _y in px) - 5)  # noqa: E731  paw rows
+        self.assertGreaterEqual(tip(hit) - tip(cock), 6)
+        self.assertLessEqual(abs(max(x for x, _y in hit) - max(x for x, _y in cock)), 1)
         self.assertGreaterEqual(max(x for x, _y in hit) - am.PIVOT[0], 22)
+
+    def test_p0_is_a_low_forward_wedge(self):
+        """Gate fix: plume at or below the back line, tiara is the highest pixel, head 3 px below jump_start."""
+        p0 = self.grid["frames"][4]["cels"]
+        top = lambda rows: min(y for _x, y in pixels(rows))  # noqa: E731
+        self.assertGreaterEqual(top(p0["tail"]), top(p0["body"]))
+        everything = flat(self.grid["frames"][4], self.grid["layers"])
+        self.assertEqual(min(y for _x, y in everything), top(p0["gear"]))
+        self.assertEqual(top(p0["head"]) - top(self.loco["frames"][10]["cels"]["head"]), 3)
+        s0_top = min(y for (x, y) in flat(self.grid["frames"][0], ["head", "body", "tail"]))
+        self.assertGreater(min(y for (x, y) in flat(self.grid["frames"][4], ["head", "body", "tail"])), s0_top)
+
+    def test_s0_paw_breaks_the_head_outline(self):
+        """Gate fix: at least 3 px of the cocked paw sit right of the head, with a K top and front edge."""
+        paw = pixels(self.grid["frames"][0]["cels"]["paw"])
+        head_right = max(x for x, _y in pixels(self.grid["frames"][0]["cels"]["head"]))
+        self.assertGreaterEqual(max(x for x, _y in paw) - head_right, 3)
+        top = min(y for _x, y in paw)
+        self.assertTrue(all(c == "K" for (x, y), c in paw.items() if y == top))
+        front = max(x for x, _y in paw)
+        self.assertTrue(all(c == "K" for (x, y), c in paw.items() if x == front))
 
     def test_pounce_reaches_forward(self):
         paw = pixels(self.grid["frames"][5]["cels"]["paw"])

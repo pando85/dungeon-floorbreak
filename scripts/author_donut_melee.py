@@ -109,7 +109,9 @@ def key_s0() -> dict:
     f = base(15)                                   # land recovery: standing profile, chin up
     shift(f, UPPER + ["body", "tail"], -1, 1)
     clear(f, "legs_near", 44, 0)                    # the near fore becomes the swatting paw
-    put(f, "paw", 59, 28, """
+    # gate fix: paw 2 px up and 3 px forward so it breaks the head outline; K on its top and front edges,
+    # forearm continued down into the ruff to the shoulder
+    put(f, "paw", 62, 26, """
 ....KKKK.
 ...KWCCCK
 ...KCCCcK
@@ -119,6 +121,8 @@ def key_s0() -> dict:
 .KCCcK...
 .KCCcK...
 KCCcK....
+KCcK.....
+KCcK.....
 KCcK.....
 """)
     return f
@@ -146,9 +150,36 @@ KcCCK.........
 def key_p0() -> dict:
     """Pounce crouch (the tell): head 2 px lower over the paws, plume dropped low behind the rump."""
     f = base(10)                                   # jump_start crouch: chest low, rear up, hinds bunched
-    shift(f, UPPER, 0, 2)
-    shift(f, ["tail"], -2, 6)
+    shift(f, UPPER, 0, 3)                          # gate fix: chin 1 px lower, within 2 px of the forepaws
+    # gate fix: rump up 2 px. The body behind the chest (x < REAR) rises; the hind legs grow 2 rows by
+    # repeating their top (haunch) row, so the paws stay on row 43.
+    body = [["."] * W for _ in range(H)]
+    for y in range(H):
+        for x in range(W):
+            if f["body"][y][x] != ".":
+                body[y - 2 if x < P0_REAR else y][x] = f["body"][y][x]
+    f["body"] = body
+    for layer in ("legs_near", "legs_far"):
+        top = f[layer][41][:P0_REAR]
+        for y in (39, 40):
+            f[layer][y][:P0_REAR] = [c if c != "." else f[layer][y][x] for x, c in enumerate(top)]
+    # gate fix: the plume is re-pixelled for p0 only, swept back and near-horizontal, crest at the back line
+    # (the tail is outside the identity lock; same tortoiseshell keys as the master plume)
+    f["tail"] = [["."] * W for _ in range(H)]
+    put(f, "tail", 11, 19, """
+.....KKKKKKKKK......
+...KKGGOOBBBBDKK....
+.KKCGOOOBBOOBBDDK...
+KWWCOOOBBBOOOBBDDK..
+KCCGGOBBBBBOOBBBDDK.
+.KccOOOBBBBBBBDDDDK.
+..KKcccBBBBDDDDKKK..
+....KKKKKKKKKK......
+""")
     return f
+
+
+P0_REAR = 44                                       # p0: columns left of the chest that rise with the rump
 
 
 def key_p1() -> dict:
@@ -180,16 +211,17 @@ KccKK.........
 def key_p2() -> dict:
     """Pin landing: both forepaws slammed down in front, head pushed in, plume up (got it)."""
     f = base(10)
-    shift(f, UPPER, 1, 1)
+    shift(f, UPPER, 1, 2)                          # gate option: head 1 px lower into the pin
     shift(f, ["tail"], 2, -2)
     clear(f, "legs_near", 44, 0)
     clear(f, "legs_far", 44, 0)
-    put(f, "legs_far", 50, 39, """
+    # gate option: the far paw lands 2 px forward of and above the near one, in the shadow ramp
+    put(f, "legs_far", 60, 37, """
 KKK.......
-KccK......
-.KcccKKK..
-..KccccccK
-..KKKKKKKK
+KccKKKKK..
+.KccccccKK
+..KKcccccK
+....KKKKKK
 """)
     put(f, "legs_near", 55, 37, """
 KKK...........
@@ -349,9 +381,9 @@ def dump(grid: dict) -> str:
 # Evidence: keys at 1x on lit Floor 1 next to Carl and a GOB-01 goblin, plus a 4x copy and a 6x key sheet
 # ---------------------------------------------------------------------------
 
-SCENE = [  # (key frame, walking-line x, lift)
-    (0, 420, 0), (4, 478, 0), (5, 540, 10), (6, 604, 0), (8, 664, 0), (10, 724, 8), (11, 786, 0), (1, 870, 0)]
-CARL_AT, GOBLIN_AT = 362, 903
+SCENE = [  # (key frame, walking-line x, lift); airborne keys over open floor, clear of the two wall blocks
+    (0, 410, 0), (4, 464, 0), (5, 622, 9), (6, 680, 0), (8, 735, 0), (11, 790, 0), (10, 846, 8), (1, 904, 0)]
+CARL_AT, GOBLIN_AT = 362, 937
 
 
 def evidence() -> list[Path]:
@@ -392,6 +424,16 @@ def evidence() -> list[Path]:
     p = EVIDENCE / "keys_x6.png"
     sheet.save(p)
     out.append(p)
+    # gate check: s0, loco-10 jump_start and p0 side by side (the tell must be the lowest wedge)
+    loco10 = grid_images(LOCO)[10]
+    trio = [imgs[0], loco10, imgs[4]]
+    row = Image.new("RGBA", (W * 3 + 8, H + 4), (52, 46, 60, 255))
+    for n, im in enumerate(trio):
+        row.alpha_composite(im, (n * (W + 4), 2))
+    for k, name in ((1, "p0_vs_jump_start_x1.png"), (6, "p0_vs_jump_start_x6.png")):
+        p = EVIDENCE / name
+        row.resize((row.width * k, row.height * k), Image.NEAREST).convert("RGB").save(p)
+        out.append(p)
     return out
 
 
