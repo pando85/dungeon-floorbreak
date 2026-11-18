@@ -318,7 +318,13 @@ def hem_y(x) -> float:
     return y
 
 
-NOTCH = (0, 2, 4, 1, 0, 3, 5, 2, 0, 1, 4, 2, 0, 3)   # ragged top of the hair: no helmet edge
+NOTCH = (0, 2, 4, 1, 0, 3, 5, 2, 0, 1, 4, 2, 0, 3)
+LOCK_GROUPS = (   # head-local strand groups of the back hair over the near shoulder: uneven lengths and curves
+    [(45, 38), (51, 38), (52, 50), (50, 60), (48, 68), (46, 74), (45, 66), (44, 56), (44, 46)],
+    [(55, 38), (61, 38), (62, 50), (61, 62), (60, 72), (58, 81), (56, 72), (55, 60), (54, 48)],
+    [(59, 69), (61, 68), (64, 76), (63, 78)],
+    [(65, 38), (71, 40), (71, 50), (70, 58), (68, 66), (67, 71), (65, 64), (64, 54), (65, 46)],
+)
 NEAR_FINGERS = (((-5, 3), (-7, 10)), ((-2, 4), (-3, 12)), ((2, 4), (3, 12)), ((5, 2), (7, 9)))
 NEAR_THUMB = ((5, -3), (9, 2))
 FAR_FINGERS = (((-4, 3), (-6, 9)), ((-1, 4), (-1, 11)), ((2, 4), (4, 10)), ((5, 1), (8, 6)))
@@ -365,8 +371,8 @@ IDLE = {
     "face": "idle", "sleeves": "poly", "far_front": False, "stripe": True, "cuffs": True,
 }
 WALK = dict(IDLE, body=(4, 4, 2, 1.0), swing=-3,
-            near_arm=((52, 72), (60, 88), (62, 94), -15), far_arm=((101, 70), (104, 88), (105, 93), 10),
-            near_leg=((46, 111), (38, 113), 25), far_leg=((104, 110), (107, 117), 0), sleeves="cap")
+            near_arm=((44, 71), (45, 88), (44, 94), -6), far_arm=((101, 70), (104, 88), (105, 93), 8),
+            near_leg=((64, 109), (61, 113), 20), far_leg=((104, 110), (107, 117), 0), sleeves="cap")
 TELL = dict(IDLE, body=(-6, -2, -6, 1.0), head=(-6, 0, 0), swing=-12,
             near_arm=((36, 30), (50, 22), (56, 17), 180), far_arm=((100, 28), (100, 19), (100, 15), 160),
             near_leg=((44, 108), (38, 117), 0), far_leg=((96, 108), (102, 117), 0), face="roar", sleeves="cap")
@@ -377,9 +383,9 @@ HURT = dict(IDLE, body=(-5, -4, -1, 1.0), head=(-12, -3, 0), swing=4,
             near_arm=((52, 68), (64, 58), (68, 54), 160), far_arm=((98, 64), (90, 54), (88, 50), 200),
             near_leg=((42, 110), (36, 117), 0), far_leg=((88, 110), (90, 117), 0), face="shut", sleeves="cap",
             far_front=True)
-DEFEAT = dict(IDLE, body=(90, -28, 10, 0.6), head=(-45, 0, 0), swing=0,
-              near_arm=((116, 118), (130, 122), (134, 123), -90), far_arm=((108, 124), (118, 125), (121, 124), -90),
-              near_leg=((62, 116), (34, 120), 80), far_leg=((70, 120), (44, 123), 80), face="shut", sleeves="cap",
+DEFEAT = dict(IDLE, body=(90, -28, 16, 0.55), head=(-45, 0, 0), swing=0,
+              near_arm=((116, 121), (130, 123), (134, 123), -90), far_arm=((108, 125), (118, 126), (121, 125), -90),
+              near_leg=((60, 121), (32, 121), 80), far_leg=((68, 123), (42, 124), 80), face="shut", sleeves="cap",
               stripe=False, cuffs=False)
 
 
@@ -462,11 +468,15 @@ def hoarder(pose: dict) -> list[str]:
            ((46, 60), (46, 71))))))
     c.part("near_arm", "skin", arm("near"))
     c.part("near_sleeve", "shirt", sleeve("near"))
-    c.part("locks_far", "hair", union(t_capsule(H, 89, 34, 2.2, 91, 48, 2.0), t_capsule(H, 91, 48, 2.0, 90, 62, 1.0),
+    c.part("locks_far", "hair", union(t_capsule(H, 92, 34, 2.2, 94, 48, 2.0), t_capsule(H, 94, 48, 2.0, 93, 62, 1.0),
                                       t_capsule(H, 93, 24, 2.0, 96, 42, 2.2), t_capsule(H, 96, 42, 2.2, 95, 60, 1.0),
                                       t_capsule(H, 96, 32, 1.6, 98, 46, 1.6), t_capsule(H, 98, 46, 1.6, 97, 56, 0.8)))
-    # head: 24 x 23, turned about 25 degrees toward the camera; the jaw corner is rounded
-    c.part("head", "skin", union(t_ellipse(H, 81, 29, 11.75, 11.5), t_ellipse(H, 83.5, 38.5, 6, 3.2)))
+    # head: 24 x 23, turned about 25 degrees toward the camera; the jaw tapers to a soft, narrow chin
+    def jaw_ok(x, y):
+        lx, ly = apply(Hi, x, y)
+        return ly <= 34 or abs(lx - 83) <= 11 - (ly - 34) * 1.1
+
+    c.part("head", "skin", union(t_ellipse(H, 81, 29, 11.75, 11.5), t_ellipse(H, 83.5, 38.5, 5, 3)), clip=jaw_ok)
 
     def cap_keep(x, y):
         lx, ly = apply(Hi, x, y)
@@ -476,15 +486,19 @@ def hoarder(pose: dict) -> list[str]:
     cap = {p: n for p, n in t_ellipse(H, 79, 27.5, 13.5, 11.5).items() if cap_keep(*p)}
     c.part("hair_cap", "hair", union(cap, t_line(H, 70, 20, 66, 16), t_line(H, 76, 18, 79, 16),
                                      t_line(H, 86, 19, 88, 16), t_line(H, 74, 24, 76, 38), t_line(H, 77, 23, 78, 26)))
-    # back hair: a mass over the near shoulder ending in ragged locks; the gaps between the ends are partly filled
-    c.part("locks_back", "hair", t_polygon(H, swung(
-        [(50, 34), (64, 34), (72, 40), (73, 52), (71, 64), (69, 72), (67, 80), (65, 76), (63, 74), (61, 79),
-         (59, 74), (56, 73), (54, 80), (52, 72), (49, 76), (48, 81), (47, 64), (47, 50)], sw), (58, 44), (14, 22)))
+    # back hair over the near shoulder: a root band and three tapering strand groups, with shirt showing between
+    c.part("locks_back", "hair", union(
+        t_polygon(H, swung([(45, 33), (71, 35), (71, 40), (45, 40)], sw), (58, 36), (14, 6)),
+        *(t_polygon(H, swung(g, sw), (sum(x for x, _ in g) / len(g), 56), (4, 22)) for g in LOCK_GROUPS)))
     if pose["far_front"]:
         c.part("far_arm", "skin", arm("far"))
         c.part("far_sleeve", "shirt", sleeve("far"))
 
     c.shade(hair_sheen=lambda x, y: (x * 2 + y // 3) % 9 == 0)
+    # blue-grey highlight on the lit (left) edge of each back strand group
+    for (x, y) in [p for p in c.key if c.parts[c.owner[p]] == "locks_back"]:
+        if c.key[(x, y)] != "K" and c.key.get((x - 1, y)) == "K":
+            c.key[(x, y)] = "c"
 
     def where(family, m, pred, key, keep=("K",)):
         mi = inv(m)
@@ -513,11 +527,14 @@ def hoarder(pose: dict) -> list[str]:
     for lx, ly, k in FACES[pose["face"]]:
         x, y = apply(H, lx, ly)
         c.put(round(x), round(y), k)
-    # two 2 px shade curves under the chest: a heavy woman's body, not a sexualised one
-    for x0, x1, xc, yb in ((68, 79, 73.5, 56), (82, 91, 86.5, 55)):
-        where("shirt", B, lambda lx, ly, x0=x0, x1=x1, xc=xc, yb=yb: x0 <= round(lx) <= x1 and
-              0 <= round(ly) - (yb - round(((round(lx) - xc) / ((x1 - x0) / 2)) ** 2 * 3)) <= 1, "t",
-              keep=("K", "g", "t"))
+    # chest mass above the belly, read through light and shade on the baggy shirt (no cleavage, no outline change)
+    for cx, cy, rx, ry in ((76, 51, 5.5, 4.5), (87, 50, 4, 4)):
+        def bust(lx, ly, cx=cx, cy=cy, rx=rx, ry=ry):
+            nx, ny = (lx - cx) / rx, (ly - cy) / ry
+            return nx * nx + ny * ny <= 1, nx, ny
+        where("shirt", B, lambda lx, ly, f=bust: f(lx, ly)[0] and f(lx, ly)[1] + f(lx, ly)[2] < -0.45, "v",
+              keep=("K", "g"))
+        where("shirt", B, lambda lx, ly, f=bust: f(lx, ly)[0] and f(lx, ly)[2] > 0.5, "t", keep=("K", "g"))
     # grime stains on the plain shirt (no print, no logo)
     for sx_, sy_, sw_, sh_ in STAINS:
         where("shirt", B, lambda lx, ly, a=sx_, b=sy_, w=sw_, h=sh_: a <= round(lx) < a + w and b <= round(ly) < b + h,
