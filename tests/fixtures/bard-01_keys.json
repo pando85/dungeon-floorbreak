@@ -1,0 +1,31 @@
+{
+  "asset_id": "bard-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "a27306c1efdc2fe31fd0950e892a0ad1fdccfc44be6f355df0c2991200c8fbfb"
+    },
+    "10": {
+      "sha256": "0f5af0efe3bf4f687f23b6ae47d8bf793395d4dc4409879584e06d1f1d802c13"
+    },
+    "12": {
+      "sha256": "b29c79ec03a98051dd3b7694a4b3cb03abbe952a16da561abd9155b91f40acda"
+    },
+    "15": {
+      "sha256": "2b9a4b468fabc26787be8eecd8d4dcd8cd1abe154fc138fbf614ff0d5ae53f35"
+    },
+    "3": {
+      "sha256": "4f6b8ee47e31114d7f1068b083d91fe0a2485691a97d72f72902cfc13d115ac7"
+    },
+    "7": {
+      "sha256": "42cb18cacde2b6300345e86f8fac67d913b3d6a7a62c1aa28f2deb5dd61ef88d"
+    },
+    "8": {
+      "sha256": "a750ced93e3ce82d4314428c8fdadcbddf2a7aad107d00c9f6334b4e93caa3af"
+    }
+  },
+  "layers": [
+    "body",
+    "prop"
+  ]
+}

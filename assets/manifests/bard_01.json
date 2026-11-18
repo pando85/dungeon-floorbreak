@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "id": "bard_goblin_h40_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/goblin/bard/bard_01.ase",
+  "grid_source": "assets/source/characters/goblin/bard/bard_01.grid.json",
+  "output_atlas": "generated/art/bard_01.png",
+  "output_metadata": "generated/art/bard_01.json",
+  "palette_id": "bard-floor01-v0",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    28,
+    55
+  ],
+  "animation_tags": [
+    "idle",
+    "walk",
+    "attack_tell",
+    "attack_swing",
+    "attack_recover",
+    "hurt",
+    "down"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 Goblin Bomb Bard; runtime role IP-neutral ranged thrower)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "BARD-01 Goblin Bomb Bard at 40 px idle height: 7 frozen keys (atlas frames 0, 3, 7, 8, 10, 12, 15, fixture tests/fixtures/bard-01_keys.json) plus 9 in-betweens built by scripts/author_bard01.py from literal pixel segments, moved or edited key 0 parts and a few rule-drawn shapes; layers body and prop",
+    "generator": "Spec and hero key 0: Claude Opus. Keys 3/7/8/10/12/15, in-betweens, atlas, validators and evidence: Claude Sonnet, composed by scripts/author_bard01.py. Independent top-tier review: pass with execution items (19/25), items applied by Claude Sonnet. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/floor01-goblin-bomb-bard-concept-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "bard": {
+    "status": "keys and in-betweens drawn, independent review passed with execution items (applied); Bevy integration pending; 16 frames, 7 of them keys; not wired into any Bevy binary",
+    "spec": "docs/02-art/bard-01-spec.md",
+    "opaque_height_idle": 40,
+    "height_cap_px": 43,
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "grounded_tags": [
+      "idle",
+      "walk",
+      "attack_tell",
+      "attack_swing",
+      "attack_recover",
+      "hurt",
+      "down"
+    ],
+    "airborne_tags": [],
+    "playback": {
+      "idle": "loop",
+      "walk": "loop",
+      "attack_tell": "once",
+      "attack_swing": "once",
+      "attack_recover": "once",
+      "hurt": "once",
+      "down": "hold"
+    },
+    "key_frames": [
+      0,
+      3,
+      7,
+      8,
+      10,
+      12,
+      15
+    ],
+    "key_fixture": "tests/fixtures/bard-01_keys.json",
+    "attack_ticks": {
+      "tell": [
+        0,
+        29
+      ],
+      "swing": [
+        30,
+        36
+      ],
+      "projectile_spawn_tick": 36,
+      "recover": [
+        37,
+        50
+      ]
+    },
+    "projectile_spawn_px_from_pivot": {
+      "x": 25,
+      "y_up": 35,
+      "frame": 10,
+      "facing_right_authored": true
+    },
+    "boxes_px_from_pivot": {
+      "standing": {
+        "x": [
+          -12,
+          11
+        ],
+        "y": [
+          0,
+          37
+        ]
+      },
+      "hurtbox_idle_move_tell": {
+        "x": [
+          -10,
+          9
+        ],
+        "y": [
+          0,
+          35
+        ]
+      },
+      "hurtbox_hurt": {
+        "x": [
+          -13,
+          6
+        ],
+        "y": [
+          0,
+          35
+        ]
+      },
+      "attack_hitbox": null
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "idle",
+        "ticks": 14,
+        "duration_ms": 233,
+        "author": "key"
+      },
+      {
+        "index": 1,
+        "tag": "idle",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "sonnet"
+      },
+      {
+        "index": 2,
+        "tag": "idle",
+        "ticks": 14,
+        "duration_ms": 233,
+        "author": "sonnet"
+      },
+      {
+        "index": 3,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "key"
+      },
+      {
+        "index": 4,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "sonnet"
+      },
+      {
+        "index": 5,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "sonnet"
+      },
+      {
+        "index": 6,
+        "tag": "walk",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "sonnet"
+      },
+      {
+        "index": 7,
+        "tag": "attack_tell",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "key"
+      },
+      {
+        "index": 8,
+        "tag": "attack_tell",
+        "ticks": 20,
+        "duration_ms": 333,
+        "author": "key"
+      },
+      {
+        "index": 9,
+        "tag": "attack_swing",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "sonnet"
+      },
+      {
+        "index": 10,
+        "tag": "attack_swing",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key"
+      },
+      {
+        "index": 11,
+        "tag": "attack_recover",
+        "ticks": 14,
+        "duration_ms": 233,
+        "author": "sonnet"
+      },
+      {
+        "index": 12,
+        "tag": "hurt",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "key"
+      },
+      {
+        "index": 13,
+        "tag": "down",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "sonnet"
+      },
+      {
+        "index": 14,
+        "tag": "down",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 15,
+        "tag": "down",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key"
+      }
+    ]
+  }
+}
