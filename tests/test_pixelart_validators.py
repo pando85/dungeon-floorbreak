@@ -73,7 +73,7 @@ class BaselineTests(unittest.TestCase):
         self.assertTrue(report["passed"], v.summary(report))
         self.assertEqual(report["counts"]["fail"], 0)
         self.assertEqual({r["id"] for r in report["rules"] if r["status"] == "skipped"},
-                         {"V04", "V05", "V06", "V09", "V10", "V11", "V12", "V13", "V14"})
+                         {"V04", "V05", "V06", "V09", "V10", "V11", "V12", "V13", "V14", "V16"})
 
     def test_report_is_machine_readable_and_summary_is_short(self) -> None:
         report = run(make_cfg(max_colors=3, max_isolated_per_frame=0))
@@ -245,6 +245,47 @@ class LayerMarginUniqueEmptyTests(unittest.TestCase):
         res = result(run(make_cfg(), make_grid(frames)), "V15")
         self.assertEqual(res["status"], "fail")
         self.assertIn("frame 1 is empty", res["failures"])
+
+
+class FootDriftTests(unittest.TestCase):
+    """V16: a planted foot must not slide more than the limit across any step of a loop tag, the seam included."""
+
+    FOOT_A = rows("..mmm...")             # a foot at x 2..4 on the contact row
+    FOOT_B = rows("....mmm.")             # the same foot 2 px further right
+    FOOT_FAR = rows("mmm.....")           # 2 px to the left of FOOT_A
+
+    def _drift(self, frames: list[list[str]], limit: int) -> dict:
+        cels = [{"body": f} for f in frames]
+        n = len(cels)
+        grid = make_grid(cels, durations=[100] * n, tags=[{"name": "a", "from": 0, "to": n - 1}])
+        cfg = make_cfg(foot_drift={"max_px": limit, "tags": ["a"]})
+        cfg.data["tags"] = {"a": {"playback": "loop", "contact": "grounded", "frames": [[i, 6] for i in range(n)]}}
+        return result(run(cfg, grid), "V16")
+
+    def test_small_steps_and_a_matching_seam_pass(self) -> None:
+        self.assertEqual(self._drift([self.FOOT_A, self.FOOT_B], 2)["status"], "pass")
+
+    def test_a_jump_at_the_loop_seam_fails(self) -> None:
+        # steps 0 -> 1 -> 2 are 2 px each, but 2 -> 0 (the seam) is 4 px
+        res = self._drift([self.FOOT_FAR, self.FOOT_A, self.FOOT_B], 2)
+        self.assertEqual(res["status"], "fail")
+        self.assertTrue(any("loop seam" in f and "frame 2 -> 0" in f for f in res["failures"]), res["failures"])
+
+    def test_a_planted_foot_that_jumps_inside_the_loop_fails(self) -> None:
+        wide = rows("......mm")
+        res = self._drift([self.FOOT_A, wide, self.FOOT_A], 2)
+        self.assertEqual(res["status"], "fail")
+
+    def test_lifted_and_landing_feet_are_not_counted(self) -> None:
+        self.assertEqual(self._drift([self.FOOT_A, [BLANK] * H], 1)["status"], "pass")
+
+    def test_heel_lift_that_keeps_one_edge_planted_passes(self) -> None:
+        self.assertEqual(v.foot_drift("..mmmm..", "....mm.."), 0)
+
+    def test_not_configured_is_skipped_and_unknown_tag_is_an_error(self) -> None:
+        self.assertEqual(result(run(make_cfg()), "V16")["status"], "skipped")
+        with self.assertRaises(ToolkitError):
+            run(make_cfg(foot_drift={"max_px": 3, "tags": ["nope"]}))
 
 
 class BoxAndKeyCountTests(unittest.TestCase):

@@ -1,0 +1,355 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "hoard-01",
+  "title": "HOARD-01 The Hoarder (Floor 01 boss) readability set (docs/02-art/hoard-01-spec.md)",
+  "grid": "assets/source/characters/hoarder/hoard-01.grid.json",
+  "frame_size": [
+    160,
+    128
+  ],
+  "pivot": [
+    70,
+    127
+  ],
+  "contact_row": 127,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          16
+        ],
+        [
+          1,
+          12
+        ],
+        [
+          2,
+          16
+        ]
+      ]
+    },
+    "walk": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          8
+        ],
+        [
+          4,
+          8
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          6,
+          8
+        ]
+      ]
+    },
+    "attack_tell": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          26
+        ]
+      ]
+    },
+    "attack_swing": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          9,
+          3
+        ],
+        [
+          10,
+          6
+        ],
+        [
+          11,
+          24
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          12,
+          12
+        ]
+      ]
+    },
+    "down": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          13,
+          8
+        ],
+        [
+          14,
+          12
+        ],
+        [
+          15,
+          null
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_swing",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 6,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/hoard-01_keys.json",
+      "frames": [
+        0,
+        3,
+        8,
+        10,
+        12,
+        15
+      ],
+      "layers": [
+        "body"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "H1-size-idle-112px",
+        "frames": [
+          0
+        ],
+        "top": 16,
+        "bottom": 127
+      },
+      {
+        "id": "H1-idle-width-band",
+        "frames": [
+          0
+        ],
+        "min_width": 90,
+        "max_width": 100
+      },
+      {
+        "id": "H1-walk-contact-band",
+        "frames": [
+          3
+        ],
+        "min_top": 16,
+        "max_top": 20,
+        "max_width": 112
+      },
+      {
+        "id": "H2-tell-is-the-highest-pose",
+        "frames": [
+          8
+        ],
+        "max_top": 6
+      },
+      {
+        "id": "H3-attack-reach",
+        "frames": [
+          10
+        ],
+        "min_right": 145,
+        "min_top": 30
+      },
+      {
+        "id": "H4-hurt-pulled-back",
+        "frames": [
+          12
+        ],
+        "max_right": 108
+      },
+      {
+        "id": "H5-defeat-flat",
+        "frames": [
+          15
+        ],
+        "min_top": 80,
+        "max_width": 140
+      },
+      {
+        "id": "H6-gather-crouch",
+        "frames": [
+          7
+        ],
+        "min_top": 20
+      },
+      {
+        "id": "H6-buckle-drop",
+        "frames": [
+          13
+        ],
+        "min_top": 34
+      },
+      {
+        "id": "H6-floor-impact",
+        "frames": [
+          14
+        ],
+        "min_top": 60
+      }
+    ],
+    "key_counts": [
+      {
+        "id": "H0-eye-whites-visible",
+        "frames": [
+          0,
+          3,
+          8,
+          10
+        ],
+        "key": "w",
+        "min": 3
+      },
+      {
+        "id": "H0-face-scar-visible",
+        "frames": [
+          0,
+          3,
+          8,
+          10,
+          12
+        ],
+        "key": "x",
+        "min": 12
+      },
+      {
+        "id": "H0-burn-limited-to-near-half",
+        "frames": [
+          0,
+          3,
+          8,
+          10,
+          12,
+          15
+        ],
+        "key": "x",
+        "max": 60
+      },
+      {
+        "id": "H0-burn-raised-clusters",
+        "frames": [
+          0
+        ],
+        "key": "y",
+        "min": 8
+      },
+      {
+        "id": "H0-long-dark-hair-mass",
+        "frames": [
+          0
+        ],
+        "key": "a",
+        "min": 300
+      },
+      {
+        "id": "H0-plain-shirt-dominant",
+        "frames": [
+          0
+        ],
+        "key": "u",
+        "min": 600
+      },
+      {
+        "id": "H0-tin-is-a-detail",
+        "frames": [
+          0,
+          3,
+          8,
+          10,
+          12,
+          15
+        ],
+        "key": "n",
+        "max": 6
+      },
+      {
+        "id": "H2-tell-teeth-and-wide-eyes",
+        "frames": [
+          8
+        ],
+        "key": "w",
+        "min": 8
+      },
+      {
+        "id": "H4-hurt-eyes-shut",
+        "frames": [
+          12
+        ],
+        "key": "w",
+        "max": 0
+      },
+      {
+        "id": "H5-defeat-eyes-shut",
+        "frames": [
+          15
+        ],
+        "key": "w",
+        "max": 0
+      }
+    ],
+    "foot_drift": {
+      "max_px": 9,
+      "tags": [
+        "walk"
+      ]
+    }
+  },
+  "review": {
+    "strip_tags": [
+      "attack_tell",
+      "attack_swing"
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 560
+      },
+      {
+        "frame": 8,
+        "x": 760
+      }
+    ]
+  }
+}
