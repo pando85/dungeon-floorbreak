@@ -188,6 +188,18 @@ FACES = {
              "..t.tT.t...",
              "...........",
              "......w...."],
+    # pant (landing recovery): lid dropped over the eye, slack 1-row mouth short of the front, loose fangs, drool
+    "pant": ["...........",
+             "...KKKKK...",
+             "...eKwwK...",
+             "........s..",
+             "...........",
+             "..tT.t.t...",
+             ".ooooooo...",
+             "...........",
+             "...w..w....",
+             "...w..w....",
+             "......w...."],
     # dead (defeat): crossed eye, slack jaw, tongue lolling out past the lip
     "dead": ["...........",
              "....K.K....",
@@ -432,33 +444,51 @@ POSES["leap3"] = {
 
 # KEY 12 hurt: thrown upright and back, head snapped up, dreads whipping forward, near arm flung, eye squeezed shut.
 POSES["hurt4"] = {
-    "far_limbs": [L([(1, 15), (6, 9), (6, 3), (10, 1)], [2.0, 1.6, 1.1, 0.8]),
-                  L([(-2, 24), (2, 20), (4, 15), (5, 11)], [1.7, 1.4, 1.1, 0.8])],
-    "torso": L([(-1, 14), (-3, 21), (-5, 27)], [4.0, 4.3, 3.9]),
-    "near_legs": [L([(-1, 14), (3, 8), (-2, 2), (3, 1)], [2.4, 1.9, 1.3, 0.9])],
+    "far_limbs": [L([(1, 15), (6, 9), (7, 3), (10, 1)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(-5, 23), (-1, 19), (1, 14), (2, 10)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-1, 14), (-4, 21), (-8, 26)], [4.0, 4.3, 3.9]),
+    "near_legs": [L([(-1, 14), (4, 9), (0, 4), (-4, 1)], [2.4, 1.9, 1.3, 0.9])],
     "loin": ragged_loin(-1, 14, 7.5, 1.0),
-    "head": head(-1, 32, tilt=-2.5), "jaw": jaw(-1, 32, 0.8), "hair": hair(-1, 32, sweep=-0.6),
-    "near_arms": [L([(-4, 25), (-10, 28), (-14, 32), (-15, 36)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": hand(-15, 36, -1.0, down=False),
-    "ribs": [(-4, 15, 21), (-1, 16, 22)],
-    "grime": [(-7, 18), (0, 10), (-3, 5), (-12, 30)],
-    "face": "pain", "face_at": (-1, 32),
+    "head": head(-4, 31, tilt=-2.5), "jaw": jaw(-4, 31, 0.8), "hair": hair(-4, 31, sweep=-0.6),
+    "near_arms": [L([(-7, 24), (-12, 27), (-16, 31), (-18, 35)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": hand(-18, 35, -1.0, down=False),
+    "ribs": [(-5, 15, 21), (-2, 16, 22)],
+    "grime": [(-9, 18), (0, 10), (-3, 5), (-14, 29)],
+    "face": "pain", "face_at": (-4, 31),
 }
 
-# KEY 15 defeat (final): sprawled on its back on the floor, limbs splayed, dreads spilled behind the head,
-# tongue lolling, eye crossed.
+# KEY 15 defeat (final): fallen backward the way the hurt throws it: on its back, head behind at x -10 with the chin
+# on the chest and the mop spilled on the floor behind it, knee raised and feet toward the player, near arm flung up
+# and back, tongue lolling, eye crossed.
 POSES["down5"] = {
-    "far_limbs": [L([(-12, 4), (-14, 9), (-9, 12), (-6, 8)], [1.8, 1.5, 1.1, 0.8]),
-                  L([(-1, 5), (-6, 9), (-11, 13), (-15, 14)], [1.6, 1.3, 1.0, 0.8])],
-    "torso": L([(-15, 4), (-6, 5), (3, 5.5)], [3.4, 3.6, 3.4]),
-    "near_legs": [L([(-14, 4), (-9, 10), (-3, 8), (0, 2)], [2.2, 1.8, 1.3, 0.9])],
-    "loin": ragged_loin(-13, 5, 3.5, 3.0),
-    "head": head(12, 6, tilt=0.0), "hair": hair(12, 6),
-    "near_arms": [L([(2, 7), (5, 11), (6, 15), (9, 17)], [1.9, 1.5, 1.1, 0.8])],
-    "fingers": hand(9, 17, 0.7, down=False),
-    "ribs": [(-8, 3, 7), (-5, 3, 8), (-2, 3, 8)],
-    "grime": [(-10, 5), (-3, 3), (-15, 7), (-6, 8)],
-    "face": "dead", "face_at": (12, 6),
+    "far_limbs": [L([(6, 4), (11, 3), (16, 1.5), (19, 1)], [1.8, 1.5, 1.1, 0.8]),
+                  L([(-4, 4), (0, 2.5), (4, 1.5), (8, 1)], [1.6, 1.3, 1.0, 0.8])],
+    "torso": L([(7, 4), (0, 5), (-6, 5.5)], [3.4, 3.6, 3.4]),
+    "near_legs": [L([(7, 4), (10, 10), (14, 7), (17, 1.5)], [2.2, 1.8, 1.3, 0.9])],
+    "loin": ragged_loin(6, 5, 3.5, 0.0),
+    "head": head(-10, 6, tilt=0.0), "hair": hair(-10, 6),
+    "near_arms": [L([(-3, 7), (-3, 11), (-1, 15), (2, 17)], [1.9, 1.5, 1.1, 0.8])],
+    "fingers": hand(2, 17, 0.7, down=False),
+    "ribs": [(-3, 3, 7), (0, 3, 8), (3, 3, 7)],
+    "grime": [(2, 5), (-3, 3), (10, 7), (15, 3)],
+    "face": "dead", "face_at": (-10, 6),
+}
+
+# KEY 11 land (attack_land, the punish window): off balance and spent, never the tell. Body squashed flat and long,
+# rump settled LOW (not loaded), head dipped below the tell height between the splayed claws, the far leg skidding out
+# behind, ropes flopped forward by the impact, half-lidded eye and a slack panting mouth (no roar).
+POSES["land1"] = {
+    "far_limbs": [L([(-11, 9), (-17, 5), (-22, 2), (-25, 0.8)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(3, 9), (4, 5), (2, 2), (0, 1)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-11, 9), (-4, 11), (4, 10)], [4.2, 4.6, 4.2]),
+    "near_legs": [L([(-10, 9), (-4, 6), (-9, 1.5), (-4, 0.8)], [2.7, 2.2, 1.4, 1.0])],
+    "loin": ragged_loin(-11, 9, 6.0, 0.0),
+    "head": head(15, 8), "jaw": jaw(15, 8, 0.3), "hair": hair(15, 8, sweep=-0.8),
+    "near_arms": [L([(4, 10), (11, 7), (18, 4), (23, 2.4)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": planted_hand(23, 2.4),
+    "ribs": [(-6, 7, 12), (-3, 7, 13), (0, 7, 12)],
+    "grime": [(-13, 10), (-6, 12), (-1, 13), (-18, 4), (8, 5)],
+    "face": "pant", "face_at": (15, 8),
 }
 
 # ------------------------------------------------------------------ the ten in-betweens (spec section 8)
@@ -539,21 +569,12 @@ POSES["leap2"] = _launch | {"fingers": L10["fingers"][:3] + hand(_far[0], _far[1
 # 13, 14: collapse (hurt -> down) and floor impact; the arc is mostly done by 13 because the defeat tag must stay low
 H12, D15 = POSES["hurt4"], POSES["down5"]
 _down_jaw = jaw(12, 6, 0.8)
-POSES["down3"] = blend(H12, D15 | {"jaw": _down_jaw}, 0.88) | {"face": "pain"}
-POSES["down3"]["near_legs"] = [L([(-2, 11), (0, 6.5), (-3, 3), (2, 1)], [2.4, 1.9, 1.3, 0.9])]   # the toes still graze the floor
-POSES["down4"] = D15 | {
-    "far_limbs": [L([(-12, 4), (-15, 9.5), (-11, 13), (-8, 9)], [1.8, 1.5, 1.1, 0.8]),
-                  L([(-1, 5), (-7, 9.5), (-12, 14), (-17, 15.5)], [1.6, 1.3, 1.0, 0.8])],
-    "near_legs": [L([(-14, 4), (-10, 10.5), (-4, 8.5), (-1, 2)], [2.2, 1.8, 1.3, 0.9])],
-    "near_arms": [L([(2, 7), (6, 11), (8, 14.5), (12, 16)], [1.9, 1.5, 1.1, 0.8])],
-    "fingers": hand(12, 16, 0.7, down=False),
-    "head": head(12, 6, tilt=0.0), "hair": hair(12, 6, sway=1.5), "face_at": (12, 6),
-}
+POSES["down3"] = blend(H12, D15 | {"jaw": jaw(-10, 6, 0.8)}, 0.5) | {"face": "pain"}
+POSES["down4"] = D15 | {"hair": hair(-10, 6, sway=1.5)}
 
-KEY_FRAMES = {0: "idle0", 3: "walk1", 8: "tell2", 10: "leap3", 12: "hurt4", 15: "down5"}
+KEY_FRAMES = {0: "idle0", 3: "walk1", 8: "tell2", 10: "leap3", 11: "land1", 12: "hurt4", 15: "down5"}
 # the ten in-between frames, drawn as parts (spec section 8); frame 11 is generated from the tell pose plus dust
 INBETWEEN = {1: "idle1", 2: "idle2", 4: "walk2", 5: "walk3", 6: "walk4", 7: "tell1", 9: "leap2", 13: "down3", 14: "down4"}
-LAND_FRAME = 11          # grounded landing: the tell crouch plus a little dust inside the frame
 TAGS = [("idle", [(0, 12), (1, 8), (2, 12)]),
         ("walk", [(3, 6), (4, 6), (5, 6), (6, 6)]),
         ("attack_tell", [(7, 6), (8, 18)]),
@@ -571,20 +592,18 @@ HOLD_MS = 100
 BOXES = {
     "standing": {"x": [-14, 21], "y": [0, 39]},
     "hurtbox_idle_walk": {"x": [-14, 21], "y": [0, 33]},
-    "hurtbox_tell_land": {"x": [-16, 19], "y": [0, 22]},
+    "hurtbox_tell": {"x": [-16, 19], "y": [0, 22]},
+    "hurtbox_land": {"x": [-14, 20], "y": [0, 15]},
     "hurtbox_leap": {"x": [-22, 21], "y": [6, 31]},
-    "hurtbox_hurt": {"x": [-11, 5], "y": [0, 40]},
-    "hurtbox_down": {"x": [-19, 18], "y": [0, 14]},
+    "hurtbox_hurt": {"x": [-14, 2], "y": [0, 39]},
+    "hurtbox_down": {"x": [-22, 19], "y": [0, 12]},
     "attack_hitbox_impact_frame_only": {"x": [14, 32], "y": [13, 33], "frame": 10},
 }
-DUST = [(-21, 1, "C"), (-20, 0, "c"), (-22, 0, "C"), (-19, 1, "c"), (23, 1, "C"), (24, 0, "c"), (24, 1, "C"), (25, 0, "c"), (26, 1, "C")]
 
 
 def pose_for(n: int) -> dict:
     if n in KEY_FRAMES:
         return POSES[KEY_FRAMES[n]]
-    if n == LAND_FRAME:
-        return POSES["tell2"] | {"stamps": DUST}
     return POSES[INBETWEEN[n]]
 
 
@@ -617,7 +636,7 @@ def manifest() -> dict:
     ticks = frame_ticks()
     tag_of = {n: name for name, fr in TAGS for n, _t in fr}
     frames = [{"index": n, "tag": tag_of[n], "ticks": ticks[n], "duration_ms": duration_ms(ticks[n]),
-               "author": "key" if n in KEY_FRAMES else "generated" if n == LAND_FRAME else "inbetween"} for n in range(len(ticks))]
+               "author": "key" if n in KEY_FRAMES else "inbetween"} for n in range(len(ticks))]
     return {
         "schema_version": 1,
         "id": "troglodyte_pygmy_h40_candidate_v0",
@@ -635,7 +654,7 @@ def manifest() -> dict:
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
             "origin": ("TROG-01 Pygmy at a 40 px idle height: 6 draft keys (atlas frames 0, 3, 8, 10, 12, 15) rasterized from pose rules by "
-                       "scripts/author_trog01.py; the other ten slots are in-betweens drawn from the same part rules (frame 11 is the tell crouch plus landing dust); "
+                       "scripts/author_trog01.py; the other ten slots are in-betweens drawn from the same part rules (frame 11, the landing, is a key of its own; landing dust is deferred to the VFX order); "
                        "layer body only"),
             "generator": "Draft spec and keys: Claude Sonnet. Design edit (construction, six keys): Claude Opus. In-betweens and execution: Claude Sonnet. Independent review: pending. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
@@ -697,7 +716,7 @@ def write_keys_x3(out: Path = ROOT / "docs/evidence/trog-01/keys-x3.png") -> Pat
     from scripts.pixelart.scene import Floor
 
     imgs = grid_images(load_grid_file(GRID))
-    entries = [(imgs[n], tuple(PIVOT), CARL_X - 70 + i * 90, 6 if n in (9, 10) else 0)
+    entries = [(imgs[n], tuple(PIVOT), CARL_X - 80 + i * 82, 6 if n in (9, 10) else 0)
                for i, n in enumerate(sorted(KEY_FRAMES))]
     floor = Floor()
     lit = floor.render(entries, 1)

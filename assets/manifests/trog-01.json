@@ -28,7 +28,7 @@
   "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 troglodyte Pygmy; runtime role IP-neutral small fast pouncer)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "TROG-01 Pygmy at a 40 px idle height: 6 draft keys (atlas frames 0, 3, 8, 10, 12, 15) rasterized from pose rules by scripts/author_trog01.py; the other ten slots are in-betweens drawn from the same part rules (frame 11 is the tell crouch plus landing dust); layer body only",
+    "origin": "TROG-01 Pygmy at a 40 px idle height: 6 draft keys (atlas frames 0, 3, 8, 10, 12, 15) rasterized from pose rules by scripts/author_trog01.py; the other ten slots are in-betweens drawn from the same part rules (frame 11, the landing, is a key of its own; landing dust is deferred to the VFX order); layer body only",
     "generator": "Draft spec and keys: Claude Sonnet. Design edit (construction, six keys): Claude Opus. In-betweens and execution: Claude Sonnet. Independent review: pending. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
@@ -68,6 +68,7 @@
       3,
       8,
       10,
+      11,
       12,
       15
     ],
@@ -111,7 +112,7 @@
           33
         ]
       },
-      "hurtbox_tell_land": {
+      "hurtbox_tell": {
         "x": [
           -16,
           19
@@ -119,6 +120,16 @@
         "y": [
           0,
           22
+        ]
+      },
+      "hurtbox_land": {
+        "x": [
+          -14,
+          20
+        ],
+        "y": [
+          0,
+          15
         ]
       },
       "hurtbox_leap": {
@@ -133,22 +144,22 @@
       },
       "hurtbox_hurt": {
         "x": [
-          -11,
-          5
+          -14,
+          2
         ],
         "y": [
           0,
-          40
+          39
         ]
       },
       "hurtbox_down": {
         "x": [
-          -19,
-          18
+          -22,
+          19
         ],
         "y": [
           0,
-          14
+          12
         ]
       },
       "attack_hitbox_impact_frame_only": {
@@ -246,7 +257,7 @@
         "tag": "attack_land",
         "ticks": 14,
         "duration_ms": 233,
-        "author": "generated"
+        "author": "key"
       },
       {
         "index": 12,

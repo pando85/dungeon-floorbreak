@@ -15,7 +15,7 @@ import author_trog01 as at  # noqa: E402
 GRID = ROOT / "assets/source/characters/troglodyte/trog_01.grid.json"
 MANIFEST = ROOT / "assets/manifests/trog-01.json"
 FIXTURE = ROOT / "tests/fixtures/trog-01_keys.json"
-KEYS = (0, 3, 8, 10, 12, 15)
+KEYS = (0, 3, 8, 10, 11, 12, 15)
 
 
 class Trog01PygmyTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class Trog01PygmyTests(unittest.TestCase):
         self.assertEqual(len(self.rows), 16)
         pygmy = self.manifest["pygmy"]
         self.assertEqual(pygmy["key_frames"], list(KEYS))
-        self.assertEqual([f["author"] for f in pygmy["frames"] if f["index"] in KEYS], ["key"] * 6)
+        self.assertEqual([f["author"] for f in pygmy["frames"] if f["index"] in KEYS], ["key"] * 7)
         # tell 24 ticks (0-23), launch 3 (24-26), strike with the hitbox active 8 (27-34), land and recover 14 (35-48)
         self.assertEqual(pygmy["attack_ticks"], {"tell": [0, 23], "leap_launch": [24, 26], "leap_strike_impact": [27, 34],
                                                  "land_recover": [35, 48]})
@@ -68,11 +68,21 @@ class Trog01PygmyTests(unittest.TestCase):
         self.assertGreater(top(3), top(0))      # the scuttle is lower than the idle
         self.assertLess(top(12), top(0))        # the hurt snap is the tallest
 
-    def test_landing_frame_is_the_tell_crouch_plus_dust_only(self):
-        diff = [(y, x) for y, (a, b) in enumerate(zip(self.rows[8], self.rows[11])) for x, (p, q) in enumerate(zip(a, b)) if p != q]
-        self.assertTrue(diff)
-        self.assertLessEqual(len(diff), 12)
-        self.assertGreaterEqual(sum(self.rows[11][y][x] in "cC" for y, x in diff), 5)   # the dust pixels
+    def test_landing_is_its_own_spent_pose_not_the_tell(self):
+        count = lambda n, ch: "".join(self.rows[n]).count(ch)   # noqa: E731
+        top = lambda n: min(y for y, r in enumerate(self.rows[n]) if r.strip("."))   # noqa: E731
+        width = lambda n: len({x for r in self.rows[n] for x, c in enumerate(r) if c != "."})   # noqa: E731
+        self.assertGreater(top(11), top(8))                      # flatter than the coil
+        self.assertGreater(width(11), width(8))                  # splayed wider
+        self.assertLess(count(11, "o"), count(8, "o") // 2)      # no roar in the punish window
+
+    def test_defeat_falls_backward_like_the_hurt(self):
+        def head_x(n):   # mean column of the eye/brow area: the K, w, e pixels of the face sit at the head
+            cols = [x for r in self.rows[n] for x, c in enumerate(r) if c in "w"]
+            return sum(cols) / len(cols)
+        pivot = self.grid["pivot"][0]
+        self.assertLess(head_x(12), pivot)
+        self.assertLess(head_x(15), pivot)
 
     def test_in_betweens_are_drawn_and_the_walk_does_not_slide(self):
         from scripts.pixelart import validators

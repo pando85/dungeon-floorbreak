@@ -152,6 +152,7 @@
         3,
         8,
         10,
+        11,
         12,
         15
       ],
@@ -188,12 +189,12 @@
         "max_width": 44
       },
       {
-        "id": "R-land-low-with-dust",
+        "id": "R-land-flat-and-spent",
         "frames": [
           11
         ],
-        "min_top": 22,
-        "max_width": 56
+        "min_top": 28,
+        "max_width": 60
       },
       {
         "id": "R-leap-clear-of-floor",
@@ -214,12 +215,19 @@
       {
         "id": "R-down-stays-low",
         "frames": [
-          13,
           14,
           15
         ],
         "min_top": 32,
-        "max_width": 50
+        "max_width": 54
+      },
+      {
+        "id": "R-down-fall-beat",
+        "frames": [
+          13
+        ],
+        "min_top": 18,
+        "max_width": 56
       }
     ],
     "key_counts": [
@@ -274,6 +282,14 @@
         ],
         "key": "q",
         "min": 3
+      },
+      {
+        "id": "R4-land-no-roar",
+        "frames": [
+          11
+        ],
+        "key": "o",
+        "max": 12
       }
     ],
     "foot_drift": {
