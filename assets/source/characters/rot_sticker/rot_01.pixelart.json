@@ -52,8 +52,9 @@
       {"id": "Z5-dud-no-ember", "frames": [12, 13, 14], "key": "o", "max": 0}
     ]
   },
-  "review": {"strip_tags": ["attack_tell", "attack_swing"]},
+  "review": {"strip_tags": ["attack_tell", "attack_swing"], "orientations": {"frames": [0, 8], "views": ["wall", "ceiling", "floor", "mirror"]}},
   "scene": {
+    "shadow": false,
     "actors": [
       {"frame": 0, "x": 520, "lift": 20},
       {"frame": 3, "x": 560, "lift": 20},

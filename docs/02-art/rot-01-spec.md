@@ -157,7 +157,7 @@ Triggers are placeholders; no aggro range, health or fuse rule is approved.
 | `a` | shell_0_deep | `#1c1722` | shell shadow, dud skin |
 | `b` | shell_1_shade | `#2b2230` | shell mid-dark |
 | `c` | shell_2_mid | `#3f3243` | shell lit top |
-| `v` | rim_cold | `#6a6682` | cold rim on the upper-right edge, the 1x separation from warm brick |
+| `v` | rim_cold | `#6a6682` | cold accent on both ends of the lip and the shell ring (direction-neutral, mirror-symmetric along the wall), the 1x separation from warm brick |
 | `x` | rot_olive | `#4e4a28` | parasite rot stains, the dud's drip |
 | `m` | rib_dead | `#5a1218` | dim ribs, seam, dead glow, tell halo outer |
 | `r` | rib_red | `#a51418` | spike roots, seam centre, halo inner |
@@ -245,6 +245,11 @@ The review pack holds exactly three images (contact sheet x4, lit scene 640 x 36
 - **Not in scope, noted:** the explosion burst (and any rot splash) is a separate hazard-VFX work order; this set stops at the first burst frame. Wall and ceiling tells, drip stains and decals belong to AREA-HAZARDS-01.
 - Settled in the design edit: oblique view, one set plus runtime rotation and mirror, direction-neutral shading (section 3); key 0 cleaned (section 7).
 - Proposal only, for gameplay: a hit does not cancel the tell, a kill does (section 5). Open for gameplay: does an exploding sticker hurt other enemies?
+### Deferred design notes (not blocking)
+
+- The hurt frame (11) reads slightly like an eye at 1x: a white core inside a dark ring with a white crescent. A later design pass may break the ring or drop the crescent.
+- The concept's red spikes became small `K`/`r` stubs at this size; a later pass may give them more red value or length if the board's look is wanted.
+
 ### Executor notes (in-betweens)
 
 Conservative readings; no key, palette entry, box or validator rule was changed (orphan limit stays 8, `unique_frames` on).
@@ -256,6 +261,7 @@ Conservative readings; no key, palette entry, box or validator rule was changed 
 - **Core `r` (frame 5).** Z0 needs at least 2 `o` in idle and walk frames, so the core keeps `o` in the centre and `r` in the ring.
 - **Frame 7 spikes.** Same lengths as key 0 (1 to 3 px), which is "2 px" on average; no halo, lip `m`.
 - **Frame 9.** `G` core radius 0.55 (about 6 px across, the widest the 5.6 px face allows; "about 8 px" is not reachable without passing key 10's core); one crack on the wall side, halo `r`/`o` (dimmer than key 10's `o`/`g`), spike tips `p` instead of `G`.
+- **Review fixes.** The scene tool's ground contact shadow floated under the wall creatures; `scene.shadow: false` in `rot_01.pixelart.json` turns it off (default stays on for other assets; per-actor `shadow` also works). The contact sheet gains an orientation row (`review.orientations`: frames 0 and 8 as authored, ceiling, floor and mirrored), so the pack stays three images.
 - **Review scene.** The scene tool seats actors on a floor-lift line at the foot of the wall (`lift: 20`), not on the mid-wall brick; frames 0, 3 and 8 sit against brick or pillar base, the others against the pillar. The tool has no wall-mount mode, noted for the toolkit owner.
 
 ## 13. Rights and provenance

@@ -37,13 +37,17 @@ class Floor:
         return top - 1
 
     def render(self, entries, k: int) -> Image.Image:
-        """entries: ``(sprite, pivot, x, lift)``; the pivot row sits on the walking line (minus lift)."""
+        """entries: ``(sprite, pivot, x, lift[, shadow])``; the pivot row sits on the walking line (minus lift).
+
+        ``shadow`` (default True) draws the ground contact shadow; wall or ceiling creatures opt out.
+        """
         layer = Image.new("RGBA", tuple(self.layout["pixel_size"]), (0, 0, 0, 0))
         boxes = []
-        for sprite, piv, x, lift in entries:
+        for sprite, piv, x, lift, *rest in entries:
             pos = (x - piv[0], self.ground(x) - piv[1] - lift)
             layer.alpha_composite(sprite, pos)
-            boxes.append((pos[0], pos[1] + lift, pos[0] + sprite.width, pos[1] + lift + sprite.height))
+            if not rest or rest[0]:
+                boxes.append((pos[0], pos[1] + lift, pos[0] + sprite.width, pos[1] + lift + sprite.height))
         return self.ekl.render_lit(self.kit, self.layout, self.view, k, layer, boxes=boxes).convert("RGB")
 
 
@@ -78,7 +82,8 @@ def entries_for(cfg: AssetConfig, imgs: list[Image.Image]) -> list[tuple]:
         # authored facing right; enemies face Carl on their left, so mirror them (the runtime rule)
         if actor.get("flip", cfg.get("facing", "right") == "right"):
             img, piv = flip(img, pivot)
-        entries.append((img, piv, actor["x"], actor.get("lift", 0)))
+        shadow = actor.get("shadow", cfg.get("scene", {}).get("shadow", True))  # False: wall/ceiling creature
+        entries.append((img, piv, actor["x"], actor.get("lift", 0), shadow))
     return entries
 
 
