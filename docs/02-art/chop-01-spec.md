@@ -1,6 +1,6 @@
 # CHOP-01: Goblin Copper Chopper readability set, design spec
 
-**Status:** design edited; six keys (0, 3, 8, 10, 11, 15) redrawn and frozen. Silhouette gate on key 0 next; in-betweens and review pending.
+**Status:** design edited; six keys (0, 3, 8, 10, 11, 15) redrawn, silhouette gate fixes applied (section 13), keys re-frozen. In-betweens and review pending.
 
 **Decision record:** body height 47 px (opaque idle 52 px with puff), length 95 px, frame 112 x 64, pivot (56, 63); the bike sits in front of the sidecar tub so both bike wheels read; the ram is the only hit; the crew stays baked into the vehicle frames; tell 30 ticks, attack 12 ticks; the wreck is a grounded settle, not a flip; orphan limit 4 (keys at 0). Decided in the design edit (section 13).
 
@@ -137,12 +137,12 @@ Frame table:
 | 7 | `attack_tell` | copy of 8 (anticipation) | 8 | copy |
 | 8 | `attack_tell` | rears 7 degrees, firebox and lamp flare, club straight up, big puff | 22 | key |
 | 9 | `attack_swing` | copy of 10 (smear) | 3 | copy |
-| 10 | `attack_swing` | lunges 5 px, nose slams down, driver prone, rider half-standing chops the club flat forward over the driver, sparks under the front tyre | 9 | key |
+| 10 | `attack_swing` | lunges 6 px, nose slams down, driver prone, rider stands and reaches the club forward over the driver's helmet, spark burst at the front tyre, puff streams back | 9 | key |
 | 11 | `hurt` | jolt back, nose pops up, white lenses, O mouths, club flung back | 4 | key |
 | 12 | `hurt` | copy of 11 | 8 | copy |
 | 13 | `down` | copy of 15 | 6 | copy |
 | 14 | `down` | copy of 15 | 10 | copy |
-| 15 | `down` | wreck settled on the floor: tyres burst flat, hull on the floor, stack knocked crooked, fire and lamp out, dark wisp, crew slumped | hold | key |
+| 15 | `down` | wreck settled on the floor, leaning toward the tub: tyres burst flat, hull on the floor, stack knocked crooked, fire and lamp out, dark wisp, crew slumped, a loose gear ahead | hold | key |
 
 ## 5. State diagram
 
@@ -193,9 +193,9 @@ Six keys (frames 0, 3, 8, 10, 11, 15), frozen in `tests/fixtures/chop-01_keys.js
 | 0 | `idle` | Upright, level. Bike in front: rear wheel (r 10) and front wheel (r 11) both whole; deep tub behind with a raised rear lip, skull plate, rope and its small wheel. Driver in a brown leather jacket, helmet top row 17, yellow goggle lenses, short scarf. Rider's chest, arm and face above the rim, club resting back over his shoulder (angle 145), face drawn over the handle. Firebox `f` with a small `Y` core, lamp `Y` (22 `Y`) | Long, low, wheeled copper machine; two goblins with faces; one thin vertical stack |
 | 3 | `walk` | Rolling: 1 px lower, fork compressed, driver leaning 2 px forward, scarf 1.4 times longer and lifted, rider ducked 1 px, club carried upright (110), wider puff, spokes advanced | Same bike, clearly moving; the scarf is the speed cue at 1x |
 | 8 | `attack_tell` | Pitch +7 degrees about the sidecar wheel: the front wheel lifts about 9 px. Driver hunched forward, firebox grille filled with `Y`, lamp ringed with `f` (40 `Y`), three-blob puff to row 4, rider rises 2 px with the club straight up (100) | Rev and rear: the highest silhouette (row 4 against 12), nose up, brightest glow, held 22 ticks |
-| 10 | `attack_swing` | Lunge 5 px forward and pitch -3.5 degrees about the front wheel: nose slams down, tail lifts about 4 px, driver prone, scarf flat, rider half-standing chops the club flat forward (angle 8) over the driver's back, two sparks under the front tyre (44 `Y`) | Forward-most silhouette (right edge 109 against 102), nose down after nose up, club from vertical to horizontal: the ram contact |
+| 10 | `attack_swing` | Lunge 6 px forward and pitch -3.5 degrees about the front wheel: nose slams down, tail lifts about 4 px (the tub wheel clears the floor), driver prone, scarf and puff streaming straight back, rider stands and reaches the club forward (angle 22): the iron ball sits above and in front of the driver's helmet, over the bars, 2 px clear of helmet and stack. A 14 px `Y`/`f` spark burst fans forward from the tyre contact, a `z` dust clump behind it | Forward-most silhouette (right edge 110 against 102), nose down after nose up, club from straight up at the back to forward over the bars: the ram contact |
 | 11 | `hurt` | Whole machine shifted back 3 px, nose popped up 3 degrees, driver leaning back with an O mouth and white lenses, scarf flung up, rider head thrown back, club flung back (150), two sparks at the front | Knocked back: right edge 98 against 102; no yellow lens or eye pixel (`e` count 0) |
-| 15 | `down` | The wreck settles where it stopped, 4 px lower: both bike tyres burst to flat ellipses on the floor, the tub hull rests on the floor (its wheel hidden under it), the stack is knocked crooked backwards, firebox and lamp dark (`Y` 0, lamp `i`), one dark `i` wisp. Driver slumped over the bars, head down, white eyes; rider slumped over the rim with the club hanging from his limp hand down the hull | Low (top row 20 against 12), dead (no glow), still a machine and still grounded: every part rests on something |
+| 15 | `down` | The wreck settles where it stopped, 4 px lower and leaning toward the tub (shear: fork and stack tilt back about 3 degrees): both bike tyres burst to slumped rubber with a flat 2-row bottom on row 63, a loose gear on the floor ahead of the front wheel, the tub hull rests on the floor (its wheel hidden under it), the stack is knocked crooked backwards, firebox and lamp dark (`Y` 0, lamp `i`), one dark `i` wisp. Driver slumped over the bars, head down, white eyes; rider slumped over the rim with the club hanging from his limp hand down the hull | Low (top row 20 against 12), dead (no glow), still a machine and still grounded: every part rests on something |
 
 Design edit notes. The draft wreck was a vertical reflection of the machine, so the tub floated on the stack and the crew lay apart; the crash board's flip is a mid-air VFX moment, not a resting state. The new key keeps the machine's identity (the player recognises what they destroyed) and reads dead through flat tyres, a dark firebox, the crooked stack and slumped crew. The draft attack chopped the club to mid-machine with no forward motion, so tell and attack differed mostly by pitch; the edit adds the lunge, moves the sparks to the tyre contact and turns the club from straight up (tell) to flat forward (attack), so the step reads in one frame. Every key now has 0 orphan and 0 isolated pixels: thin copper parts (fork, bars, chain stay, tub pipes) are one flat key instead of a 3-tone ramp that broke diagonals into single pixels, club spikes are 2 px clusters, and the rig ends with a deterministic cluster pass (`Canvas.despeckle`: a lone non-accent pixel takes its neighbours' most common key).
 
@@ -274,7 +274,17 @@ Smoke trail, dust kick-up, drift/powerslide streaks, ground sparks, crash debris
 4. Crew sprites: baked in (section 3), with the reason recorded.
 5. Orphans: 0 per key, limit 4 (section 9).
 
-Open for the silhouette gate and review: whether the driver's leather jacket (`u`) separates enough from the boiler at 1x on lit brick, and whether 5 px of lunge in the attack key is enough next to the runtime ram motion.
+Silhouette gate (FIX-KEYS, outline kept) fixes, applied to the keys:
+
+1. Driver jacket: leather ramp `u` with a copper-lit (`C`) top and back edge (firebox bounce), a dark `t` belt with a `D` buckle at the seat, and the red scarf wrapped at the neck so a red band separates helmet and torso.
+2. Attack club: the rider stands and reaches; the ball sits above and in front of the helmet over the bars, 2 px clear of helmet and stack (measured); in keys 8 to 10 it never overlaps the stack column.
+3. Impact: a spark burst fanning forward from the tyre contact plus a dust clump; the puff streams straight back; lunge 6 px.
+4. Evidence: `key0-scale.png` now puts key 0 on lit brick under the torch beside Carl and the goblin, and keys 10 and 15 on the lit brick span right of the archway, all at 1x, with the 4x crop of key 0 below.
+5. Grime: the hull is 1 px deeper, the bottom two rows are dark `p`, six rust patches (`c` with a `C` edge), two rows of dark rivet pairs, two 2 px rope bands (`u` with a `t` shadow side), dark clamp bands on the tub rim, the frame rail and the exhaust. No new colour.
+6. Rider head: radius 5.3 (was 4.5) and a longer, taller ear, the goblin-on-foot head size; the rim is not raised.
+7. Wreck: lean, slumped flat-bottomed tyres, a loose gear ahead of the front wheel.
+
+Open for review: whether 6 px of lunge in the attack key is enough next to the runtime ram motion.
 
 ## 14. Rights and provenance
 

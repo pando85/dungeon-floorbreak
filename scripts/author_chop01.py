@@ -193,13 +193,13 @@ COPPER = ("c", "C", "D")
 RUBBER = ("k", "k", "i")
 SKIN = ("s", "m", "l")
 RAG = ("t", "t", "u")
-JACKET = ("t", "u", "u")
+JACKET = ("u", "u", "C")  # leather lit from above and by the firebox; the belt carries the dark key
 PANEL = ("p", "R", "R")
 SKULL = ["wwwww", "wwwwwww", "wKKwKKw", "wwwKwww", ".wwwww.", ".wKwKw."]
 
 DEFAULT = dict(
     pitch=0.0, pivot_x=26, dy=0, dx=0, lean=0, head=(0, 0), scarf=1.0, scarf_lift=0, glow=1, smoke=1, spoke=0.0,
-    club=(100, 0), rider=(0, 0), rider_head=(0, 0), rider_arm=0, mouth="snarl", eyes="e", sparks=(), wreck=False,
+    club=(100, 0), rider=(0, 0), rider_head=(0, 0), rider_arm=0, reach=0, shear=0.0, burst=None, puff_back=False, debris=False, mouth="snarl", eyes="e", sparks=(), wreck=False,
     driver_arm=0, fork=0,
 )
 
@@ -215,24 +215,32 @@ class Rig:
         dxx, dyy = x - p["pivot_x"], y - 63
         xr = p["pivot_x"] + dxx * math.cos(th) + dyy * math.sin(th)
         yr = 63 - dxx * math.sin(th) + dyy * math.cos(th)
+        xr += p["shear"] * (63 - yr)
         return (xr + p["dx"], yr + p["dy"])
 
     def Ps(self, pts):
         return [self.P(*q) for q in pts]
 
     # ---- machine pieces
+    def bands(self, mask, xs, key="c"):
+        """2 px dark clamp bands across a copper tube at rig x positions."""
+        cols = {int(round(self.P(x, 50)[0])) + d for x in xs for d in (0, 1)}
+        for (x, y) in mask:
+            if x in cols:
+                self.cv.px[(x, y)] = (key, "machine")
+
     def wheel(self, c, r, phase):
         cv = self.cv
         cx, cy = self.P(*c)
         if self.p["wreck"]:  # burst tyre, hub sunk: an ellipse resting on the contact row
-            ry = r - 4
+            ry = r - 5
             cy = 63 - ry
-            cv.paint({(x, y) for (x, y) in disc((cx, cy), r) if ((y - cy) * r / ry) ** 2 + (x - cx) ** 2 <= r * r + 0.25}
-                     | {(x, y) for x in range(int(cx - r), int(cx + r) + 1) for y in range(int(cy - ry), int(cy + ry) + 1)
-                        if ((x - cx) / r) ** 2 + ((y - cy) / ry) ** 2 <= 1.02}, "machine", RUBBER)
-            cv.flat({(x, y) for x in range(int(cx - r + 3), int(cx + r - 2)) for y in range(int(cy - ry + 2), int(cy + ry - 1))
-                     if ((x - cx) / (r - 3)) ** 2 + ((y - cy) / max(ry - 2.5, 1)) ** 2 <= 1.0}, "machine", "c")
-            cv.flat(disc((cx, cy), 1.2), "machine", "C")
+            rub = {(x, y) for x in range(int(cx - r) - 1, int(cx + r) + 2) for y in range(int(cy - ry) - 1, 64)
+                   if ((x - cx) / r) ** 2 + ((y - cy) / ry) ** 2 <= 1.02 or (y >= 62 and abs(x - cx) <= r + 1)}
+            cv.paint(rub, "machine", ("k", "k", "i"))
+            cv.flat({(x, y) for x in range(int(cx - r) + 4, int(cx + r) - 3) for y in range(int(cy - ry) + 2, int(cy) + 2)
+                     if ((x - cx) / (r - 4)) ** 2 + ((y - cy + 1) / max(ry - 3, 1)) ** 2 <= 1.0}, "machine", "c")
+            cv.flat(disc((cx, cy - 1), 1.2), "machine", "C")
             return
         cv.paint(disc((cx, cy), r), "machine", RUBBER)
         cv.flat(disc((cx, cy), r - 3), "machine", "C")
@@ -247,7 +255,9 @@ class Rig:
     def smoke(self, c, size, dark=False):
         cv = self.cv
         cx, cy = self.P(*c)
-        blobs = {1: [(0, 0, 3)], 2: [(0, 0, 3.5), (-4, -2, 3), (3, -3, 2.5)], 3: [(0, 0, 4), (-5, -3, 3.5), (4, -4, 3), (-9, -4, 2.5)]}[size]
+        if self.p["puff_back"]:
+            size = 0
+        blobs = {0: [(0, 0, 3.2), (-5, 1, 3), (-10, 2, 2.5), (-14, 2, 2)], 1: [(0, 0, 3)], 2: [(0, 0, 3.5), (-4, -2, 3), (3, -3, 2.5)], 3: [(0, 0, 4), (-5, -3, 3.5), (4, -4, 3), (-9, -4, 2.5)]}[size]
         m = set()
         for dx, dy, r in blobs:
             m |= disc((cx + dx, cy + dy), r)
@@ -258,14 +268,14 @@ class Rig:
         # rear wheel (mostly hidden by the tub) and chain
         self.wheel((58, 53), 10, p["spoke"] + 0.4)
         # frame rail, engine block, gear
-        cv.paint(chain(self.Ps([(58, 53), (78, 51), (90, 52)]), 1), "machine", "C")
+        self.bands(cv.paint(chain(self.Ps([(58, 53), (78, 51), (90, 52)]), 1), "machine", "C"), (66, 84))
         cv.paint(poly(self.Ps([(64, 46), (82, 46), (83, 55), (64, 56)])), "machine", ("K", "i", "z"))
         gx, gy = P(74, 51)
         cv.paint(disc((gx, gy), 4), "machine", COPPER)
         cv.put(gx, gy, "K", "machine")
         cv.paint(chain(self.Ps([(74, 51), (62, 53)]), 0.5), "machine", "k", outline=False)
         # exhaust pipe low along the engine
-        cv.paint(chain(self.Ps([(84, 57), (56, 58)]), 1.2), "machine", COPPER)
+        self.bands(cv.paint(chain(self.Ps([(84, 57), (56, 58)]), 1.2), "machine", COPPER), (63, 75))
         # boiler / firebox behind the driver, stack above it
         cv.paint(poly(self.Ps([(49, 34), (63, 34), (64, 47), (48, 47)])), "machine", COPPER)
         grill = poly(self.Ps([(52, 38), (60, 38), (60, 45), (52, 45)]))
@@ -305,11 +315,11 @@ class Rig:
         cv.paint(chain(self.Ps([(78, 30), (77, 25), (83, 24)]), 0.8), "machine", "C")
 
     # ---- crew
-    def head(self, c, layer, goggles, mouth, eyes, ear_dx=-5):
+    def head(self, c, layer, goggles, mouth, eyes, ear_dx=-5, r=4.5):
         cv = self.cv
         cx, cy = c
-        cv.paint(disc((cx, cy), 4.5) | poly([(cx + 4, cy - 1), (cx + 7, cy), (cx + 7, cy + 2), (cx + 4, cy + 2)]), layer, SKIN)
-        cv.paint(poly([(cx - 3, cy - 1), (cx + ear_dx - 3, cy - 4), (cx - 2, cy + 1)]), layer, SKIN)
+        cv.paint(disc((cx, cy), r) | poly([(cx + 4, cy - 1), (cx + 7, cy), (cx + 7, cy + 2), (cx + 4, cy + 2)]), layer, SKIN)
+        cv.paint(poly([(cx - 3, cy - 2), (cx + ear_dx - 3, cy - 4 - (r > 5)), (cx - 2, cy + 1)]), layer, SKIN)
         ex, ey = cx + 2, cy - 1
         if goggles:
             cv.paint(poly([(cx - 5, cy - 4), (cx + 4, cy - 5), (cx + 5, cy - 2), (cx - 5, cy - 1)]), layer, ("c", "t", "t"))
@@ -368,8 +378,14 @@ class Rig:
         self.limb(knee, foot, 2.0, "crew", RAG)
         cv.paint(poly([(foot[0] - 2, foot[1] + 1), (foot[0] + 4, foot[1] + 1), (foot[0] + 4, foot[1] + 4), (foot[0] - 2, foot[1] + 4)]), "crew", ("K", "t", "u"))
         # torso, belt, harness
-        self.limb(hip, sh, 3.6, "crew", JACKET)
-        cv.put(hip[0] + 1, hip[1] - 1, "D", "crew")
+        torso = cv.paint(capsule(hip, sh, 3.6), "crew", JACKET)
+        for (x, y) in torso:
+            if (x - 1, y) not in torso and y < hip[1] - 2:  # firebox bounce on the back edge
+                cv.px[(x, y)] = ("C", "crew")
+            elif hip[1] - 3 <= y <= hip[1] - 1:  # belt at the seat
+                cv.px[(x, y)] = ("t", "crew")
+        cv.put(hip[0] + 1, hip[1] - 2, "D", "crew"); cv.put(hip[0] + 2, hip[1] - 2, "D", "crew")
+        cv.paint(disc((sh[0] + 1, sh[1] - 2), 2.3), "crew", ("p", "R", "R"))  # scarf wrap
         # arm to the grip
         grip = P(83, 25 + p["driver_arm"])
         elbow = ((sh[0] + grip[0]) / 2 - 1, (sh[1] + grip[1]) / 2 + 3)
@@ -388,7 +404,7 @@ class Rig:
         sh = (base[0], base[1] - 6)
         hd = P(36 + rx + p["rider_head"][0], 27 + ry + p["rider_head"][1])
         self.limb(base, sh, 3.4, "crew", JACKET)
-        hand = (sh[0] + 4, sh[1] - 1 + p["rider_arm"])
+        hand = (sh[0] + 4 + p["reach"], sh[1] - 1 + p["rider_arm"])
         self.limb(sh, hand, 1.5, "crew", SKIN)
         self.hand(hand, "crew")
         self._hand, self._head = hand, hd
@@ -408,22 +424,40 @@ class Rig:
             cv.put(head_c[0] + 4 * math.cos(sa), head_c[1] - 4 * math.sin(sa), "D", "weapon")
         self.hand(hand, "crew")
         # the rider's face stays in front of the club handle so his snarl reads at 1x
-        self.head(self._head, "crew", False, p["mouth"] if p["mouth"] != "snarl" else "open", p["eyes"], ear_dx=-6)
+        self.head(self._head, "crew", False, p["mouth"] if p["mouth"] != "snarl" else "open", p["eyes"], ear_dx=-8, r=5.3)
+        self._ball = head_c
 
     def tub(self):
         """Tub, skull plate, rope, strut, exhaust stubs and the sidecar wheel."""
         p, cv, P = self.p, self.cv, self.P
-        cv.paint(poly(self.Ps([(13, 37), (20, 40), (56, 40), (59, 47), (54, 56), (22, 57), (14, 51), (12, 43)])), "machine", PANEL)
-        cv.paint(chain(self.Ps([(13, 37), (20, 40), (55, 40)]), 1.2), "machine", "C")
+        hull = cv.paint(poly(self.Ps([(13, 37), (20, 40), (56, 40), (59, 47), (54, 57), (22, 58), (14, 52), (12, 43)])), "machine", PANEL)
+        for (x, y) in hull:  # grime: the bottom two rows of the hull are dark
+            if (x, y + 2) not in hull:
+                cv.px[(x, y)] = ("p", "machine")
+        for c in ((17, 47), (27, 53), (45, 54), (51, 45), (25, 44), (42, 47)):  # rust patches
+            cx, cy = P(*c)
+            for (x, y) in disc((cx, cy), 1.5):
+                if (x, y) in hull:
+                    cv.px[(x, y)] = ("c", "machine")
+            cv.put(cx + 1, cy - 1, "C", "machine"); cv.put(cx + 2, cy - 1, "C", "machine")
+        for ry in (43, 54):  # rivet rows: dark pairs
+            for rx in range(16, 56, 5):
+                if 31 <= rx <= 42 and ry == 43:
+                    continue
+                for d in (0, 1):
+                    x, y = P(rx + d, ry)
+                    if (int(round(x)), int(round(y))) in hull:
+                        cv.put(x, y, "p", "machine")
+        self.bands(cv.paint(chain(self.Ps([(13, 37), (20, 40), (55, 40)]), 1.2), "machine", "C"), (24, 41, 52))
         for yy, row in enumerate(SKULL):
             for xx, ch in enumerate(row):
                 if ch != ".":
                     x, y = P(33 + xx + (7 - len(row)) // 2, 44 + yy)
                     cv.put(x, y, ch, "machine")
-        for (x0, y0, x1, y1) in ((20, 42, 26, 52), (46, 41, 52, 50), (22, 42, 28, 53)):
-            for t in range(0, 9):
-                x, y = P(x0 + (x1 - x0) * t / 8, y0 + (y1 - y0) * t / 8)
-                cv.put(x, y, "u", "machine")
+        for a, b in (((20, 39), (27, 57)), ((47, 39), (52, 56))):  # rope lashings: 2 px bands, shaded underside
+            rope = capsule(P(*a), P(*b), 0.8)
+            for (x, y) in rope:
+                cv.put(x, y, "t" if (x - 1, y) in rope else "u", "machine")
         cv.paint(chain(self.Ps([(55, 50), (63, 49)]), 1.0), "machine", COPPER)
         for yy in (44, 48):
             cv.paint(poly(self.Ps([(9, yy), (14, yy), (14, yy + 3), (9, yy + 3)])), "machine", "C")
@@ -431,6 +465,18 @@ class Rig:
             self.wheel((26, 56), 7, p["spoke"] + 0.9)
 
     def sparks(self):
+        cv = self.cv
+        if self.p["debris"]:
+            cv.paint(disc((106, 61), 1.8), "machine", ("c", "C", "D"))
+            cv.put(106, 61, "K", "machine")
+        if self.p["burst"]:
+            bx, by = self.p["burst"]
+            for dx, dy in ((0, 0), (1, -1), (2, -1), (3, -2), (2, -3), (3, -4), (1, 0)):
+                cv.put(bx + dx, by + dy, "Y", "machine")
+            for dx, dy in ((3, 0), (4, 0), (4, -1), (5, -2), (5, -3), (4, -5), (5, -5)):
+                cv.put(bx + dx, by + dy, "f", "machine")
+            for dx, dy in ((-21, 0), (-20, 0), (-20, -1), (-19, 0)):
+                cv.put(bx + dx, by + dy, "z", "machine")
         for (x, y) in self.p["sparks"]:
             px, py = self.P(x, y)
             self.cv.put(px, py, "Y", "machine")
@@ -458,14 +504,14 @@ POSES = {
             rider_head=(-1, -2), rider_arm=-2, mouth="open", driver_arm=-1),
     # attack impact: lunges 5 px, front slams down, driver prone, rider stands and chops the club flat forward
     # over the driver's back (the ram is the hit; the club is the read), sparks under the front tyre
-    10: dict(pitch=-3.5, pivot_x=90, dx=5, lean=4, scarf=1.5, scarf_lift=0, glow=2, smoke=2, spoke=1.1, club=(8, 0),
-             rider=(5, -2), rider_head=(5, -1), rider_arm=1, mouth="open", driver_arm=1, sparks=((101, 61), (97, 61))),
+    10: dict(pitch=-3.5, pivot_x=90, dx=6, lean=4, scarf=1.6, scarf_lift=0, glow=2, smoke=2, puff_back=True, spoke=1.1,
+             club=(22, 0), rider=(8, -4), rider_head=(7, -2), rider_arm=-6, reach=10, mouth="open", driver_arm=1, burst=(101, 62)),
     # hurt: knocked back, nose popping, white eyes, O mouths, club flung up and back
     11: dict(pitch=3.0, dx=-3, lean=-2, scarf=0.9, scarf_lift=3, glow=1, smoke=1, spoke=0.2, club=(150, 0), rider=(-2, 0),
              rider_head=(-3, -1), mouth="O", eyes="w", head=(-2, -1), sparks=((97, 36), (89, 34))),
     # defeat: the wreck settles where it stopped: tyres burst flat, hull on the floor, fire out, a dark wisp,
     # the driver slumped over the bars and the rider slumped over the rim with the club hanging from his hand
-    15: dict(wreck=True, dy=4, glow=0, smoke=1, spoke=0.7, lean=5, head=(3, 5), driver_arm=5, scarf=0.6, scarf_lift=-3,
+    15: dict(wreck=True, dy=4, shear=-0.06, debris=True, glow=0, smoke=1, spoke=0.7, lean=5, head=(3, 5), driver_arm=5, scarf=0.6, scarf_lift=-3,
              club=(-70, 0), rider=(2, 4), rider_head=(4, 6), rider_arm=4, mouth="O", eyes="w"),
 }
 
@@ -596,7 +642,7 @@ def preview(grid: dict, out: Path, k: int = 4) -> None:
 
 
 def scale_evidence(out: Path) -> None:
-    """Key 0 at 1x on lit Floor 1 beside Carl and a GOB-01 goblin, plus a 4x crop."""
+    """Key 0 at 1x on lit brick beside Carl and a GOB-01 goblin (left), keys 10 and 15 at 1x on lit brick (right), 4x crop below."""
     sys.path.insert(0, str(ROOT / "scripts"))
     import make_goblin_gob01_review as rv
     from PIL import Image
@@ -606,15 +652,21 @@ def scale_evidence(out: Path) -> None:
     chop_f, chop_p, _ = rv.grid_frames(str(GRID.relative_to(ROOT)))
     gob_img, gob_pv = rv.flip(gob_f[0], gob_p)
     chop_img, chop_pv = rv.flip(chop_f[0], chop_p)
-    entries = [(carl_f[0], carl_p, 452, 0), (gob_img, gob_pv, 540, 0), (chop_img, chop_pv, 700, 0)]
+    chop = {n: rv.flip(chop_f[n], chop_p) for n in (0, 10, 15)}
+    entries = [(carl_f[0], carl_p, 345, 0), (gob_img, gob_pv, 385, 0), (chop[0][0], chop[0][1], 470, 0)]
     one = floor.render(entries, 1)
     four = floor.render(entries, 4)
-    g = floor.ground(452) - floor.view[1]
-    x0, _ = floor.view_xy(420, 0)
-    x1, _ = floor.view_xy(760, 0)
+    view = list(floor.view)
+    floor.view = [view[0] + 320] + view[1:]  # lit brick right of the archway, torch at x 920
+    two = floor.render([(chop[10][0], chop[10][1], 862, 0), (chop[15][0], chop[15][1], 975, 0)], 1)
+    floor.view = view
+    g = floor.ground(345) - floor.view[1]
+    x0, _ = floor.view_xy(325, 0)
+    x1, _ = floor.view_xy(530, 0)
     crop = four.crop((x0 * 4, (g - 60) * 4, x1 * 4, (g + 8) * 4))
-    sheet = Image.new("RGB", (max(one.width, crop.width), one.height + crop.height + 8), (24, 23, 34))
+    sheet = Image.new("RGB", (one.width + two.width + 8, one.height + crop.height + 8), (24, 23, 34))
     sheet.paste(one, (0, 0))
+    sheet.paste(two, (one.width + 8, 0))
     sheet.paste(crop, (0, one.height + 8))
     out.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(out)
