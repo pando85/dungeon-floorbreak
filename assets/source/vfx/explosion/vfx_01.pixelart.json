@@ -12,7 +12,7 @@
   "facing": "right",
   "tags": {
     "bomb_flight": {"playback": "loop", "contact": "free", "frames": [[0, 4], [1, 4], [2, 4]]},
-    "burst": {"playback": "once", "contact": "free", "frames": [[3, 2], [4, 3], [5, 4], [6, 4], [7, 5], [8, 6], [9, 8], [10, 10]]}
+    "burst": {"playback": "once", "contact": "free", "frames": [[3, 2], [4, 3], [5, 4], [6, 4], [7, 5], [8, 6], [9, 8], [10, 6], [11, 4]]}
   },
   "roles": {
     "idle": "bomb_flight",
@@ -49,6 +49,19 @@
       {"id": "V5-smoke-no-white", "frames": [10], "key": "w", "max": 0},
       {"id": "V5-smoke-no-core", "frames": [10], "key": "G", "max": 0},
       {"id": "V6-bomb-lit-fuse", "frames": [0], "key": "Y", "min": 4, "max": 12}
+    ]
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {"frame": 5, "x": 456, "lift": 8, "flip": false, "behind": true},
+      {"frame": 0, "x": 520, "lift": 24, "flip": false},
+      {"frame": 3, "x": 570, "lift": 8, "flip": false},
+      {"frame": 5, "x": 620, "lift": 8, "flip": false},
+      {"frame": 7, "x": 670, "lift": 8, "flip": false},
+      {"frame": 8, "x": 720, "lift": 8, "flip": false},
+      {"frame": 10, "x": 770, "lift": 8, "flip": false},
+      {"frame": 11, "x": 820, "lift": 8, "flip": false}
     ]
   },
   "review": {

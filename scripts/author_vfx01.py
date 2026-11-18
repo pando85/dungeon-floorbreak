@@ -6,6 +6,7 @@ Usage:
     python3 scripts/author_vfx01.py keys [--check]
     python3 scripts/author_vfx01.py key-scale [--out PNG]
     python3 scripts/author_vfx01.py keys-x3 [--out PNG]
+    python3 scripts/author_vfx01.py no-lighting [--out PNG]
 
 ``keys`` (re)writes ``assets/source/vfx/explosion/vfx_01.grid.json`` and ``assets/manifests/vfx-01.json``
 (see ``docs/02-art/vfx-01-spec.md`` sections 3 to 8). Frames 0 (bomb flight), 3 (burst flash), 5 (burst peak)
@@ -58,10 +59,10 @@ KEYS = [p[0] for p in PALETTE]
 ACCENT_KEYS = {p[0] for p in PALETTE if p[3]}
 
 # Frame table: tag, 60 Hz ticks. Atlas frames 0-2 bomb_flight, 3-10 burst.
-TAGS = [("bomb_flight", 0, 2), ("burst", 3, 10)]
-TICKS = [4, 4, 4, 2, 3, 4, 4, 5, 6, 8, 10]
+TAGS = [("bomb_flight", 0, 2), ("burst", 3, 11)]
+TICKS = [4, 4, 4, 2, 3, 4, 4, 5, 6, 8, 6, 4]
 KEY_FRAMES = (0, 3, 5, 10)
-INBETWEENS = (1, 2, 4, 6, 7, 8, 9)                   # drawn from the generator, never frozen
+INBETWEENS = (1, 2, 4, 6, 7, 8, 9, 11)                  # drawn from the generator, never frozen
 DAMAGE_ACTIVE_TICKS = (0, 8)                          # placeholder, burst-local ticks 0..8 inclusive (frames 3-5)
 
 
@@ -221,13 +222,14 @@ SPARK2 = [  # phase 2 crown
     "eYYe.",
     ".ee..",
 ]
-# Hand-drawn 120 degree turns of the cap, cord and crown around the fixed body: phase 0 top, 1 lower back, 2 lower front.
+# Hand-drawn 120 degree turns of the cap, cord and crown around the fixed body, played 0, 2, 1 (a forward tumble):
+# frame 0 top, frame 1 lower front, frame 2 lower back.
 # (cap pixel, cord pixels, crown top-left, crown rows, trail pixels streaming behind to the left)
-BOMB_PHASES = {
-    1: ((22, 26), ((21, 27), (20, 28), (19, 28), (18, 29)), (14, 28), SPARK1,
-        ((13, 31, "o"), (12, 31, "o"), (11, 32, "m"), (10, 32, "m"))),
-    2: ((26, 26), ((27, 27), (28, 27), (29, 28)), (30, 28), SPARK2,
-        ((29, 31, "o"), (28, 31, "o"), (27, 32, "m"), (26, 32, "m"))),
+BOMB_PHASES = {   # atlas frame -> (cap, cord (b = brass mid-tone so it holds on warm floor), crown top-left, crown, trail)
+    1: ((26, 26), ((27, 27, "b"), (28, 28, "n")), (29, 28), SPARK2,
+        ((28, 31, "o"), (27, 31, "o"), (26, 32, "m"), (25, 32, "m"))),
+    2: ((22, 26), ((21, 27, "b"), (20, 28, "n")), (16, 28), SPARK1,
+        ((15, 31, "o"), (14, 31, "o"), (13, 32, "m"), (12, 32, "m"))),
 }
 
 
@@ -247,8 +249,8 @@ def bomb_flight(phase: int = 0) -> list[str]:
         cap, cord, crown, rows, trail = BOMB_PHASES[phase]
         c.stamp(21, 21, BODY7)                                    # same body and fixed highlight
         c.put(cap[0], cap[1], "b")
-        for x, y in cord:
-            c.put(x, y, "n")
+        for x, y, k in cord:
+            c.put(x, y, k)
         c.stamp(crown[0], crown[1], rows)
         for x, y, k in trail:
             c.put(x, y, k)
@@ -368,9 +370,11 @@ def smoke_pick(t, dx, dy, x, y, dither: float = 0.80):
     return "Q" if v > 0.48 else "c" if v > 0.0 else "s"
 
 
-def ring_pick(t, dx, dy, x, y):
-    """Frame 7: no G, a g ring around an o centre."""
-    return "o" if t < 0.20 else "g" if t < 0.44 else "o" if t < 0.80 else "r" if t < 0.93 else "m"
+def patch_pick(t, dx, dy, x, y):
+    """Frame 7: no G, one solid off-centre g patch high in the fire (heat rises), o around it, no hole."""
+    if (dx - 1.5) ** 2 + (dy + 3.5) ** 2 < 3.4 ** 2 + ((h2(x, y, 8) % 100) / 100.0) * 2:
+        return "g"
+    return "o" if t < 0.78 else "r" if t < 0.92 else "m"
 
 
 def burst_between(n: int) -> list[str]:
@@ -389,7 +393,7 @@ def burst_between(n: int) -> list[str]:
     elif n == 6:    # cooling: G under 20 px, more o, smoke lobes wider
         for cx, cy, r, sd in PEAK_SMOKE:
             c.blob(cx, cy + 1, r * 1.12, sd, 0.16, sm)
-        fire(c, CX, CY + 2, 11.0, 31, 0.18, fire_pick(0.21, 0.42, 0.80, 0.93))
+        fire(c, CX, CY + 2, 10.5, 31, 0.18, fire_pick(-1.0, 0.34, 0.80, 0.93))   # no G: cooler than the damage window
         for cx, cy, r, sd in ((18, 15, 5.0, 27), (29, 14, 4.5, 28)):
             c.blob(cx, cy, r, sd, 0.18, sm)
         chunks = ((5, 8, "K", True), (42, 9, "q", False), (3, 25, "q", False), (41, 36, "K", True), (8, 40, "K", True))
@@ -397,7 +401,7 @@ def burst_between(n: int) -> list[str]:
     elif n == 7:    # G gone, g ring only, smoke over the top half
         for cx, cy, r, sd in PEAK_SMOKE:
             c.blob(cx, cy + 2, r * 1.25, sd, 0.16, sm)
-        fire(c, CX, CY + 3, 10.0, 31, 0.18, ring_pick)
+        fire(c, CX, CY + 3, 10.0, 33, 0.22, patch_pick)
         for cx, cy, r, sd in ((18, 17, 6.0, 27), (29, 16, 5.5, 28), (24, 14, 6.5, 29)):
             c.blob(cx, cy, r, sd, 0.18, sm)
         chunks = ((4, 8, "K", True), (43, 9, "q", False), (2, 26, "q", False), (42, 38, "K", True), (7, 41, "K", True))
@@ -407,8 +411,8 @@ def burst_between(n: int) -> list[str]:
             c.blob(cx, cy + 3, r * 1.35, sd, 0.16, sm)
         fire(c, CX, CY + 4, 8.0, 31, 0.18,
              lambda t, dx, dy, x, y: "o" if t < 0.45 else "r" if t < 0.80 else "m")
-        for cx, cy, r, sd in ((19, 19, 7.0, 27), (29, 19, 6.5, 28), (24, 17, 7.0, 29), (24, 24, 5.0, 30)):
-            c.blob(cx, cy, r, sd, 0.18, sm)
+        for cx, cy, r, sd in ((16, 22, 5.5, 27), (31, 21, 5.0, 28), (24, 17, 6.0, 29)):   # ragged cover, fire lumps show through
+            c.blob(cx, cy, r, sd, 0.32, lambda t, dx, dy, x, y: smoke_pick(t, dx, dy, x, y, 0.55))
         chunks = ((5, 12, "K", True), (42, 12, "q", False), (3, 28, "q", False), (42, 40, "K", True), (8, 43, "K", True))
         grit = ((14, 41), (30, 43), (40, 35), (22, 38))
     else:           # 9: shrinking r m ember core inside the smoke, puffs begin to dither
@@ -427,6 +431,25 @@ def burst_between(n: int) -> list[str]:
     return c.rows()
 
 
+def smoke_wisps() -> list[str]:
+    """Frame 11: the last thin wisps of frame 10's puffs (about 150 px), so the smoke thins before it despawns."""
+    c = Canvas()
+
+    def wisp(t, dx, dy, x, y):
+        if h2(x // 2, y // 2, 9) % 100 > 58 or t > 0.9:      # clumped in 2 px pairs, never a solid mass
+            return None
+        v = (-dy - dx * 0.6) / 8.0 + ((h2(x, y, 6) % 100) / 100.0 - 0.5) * 0.45
+        return "Q" if v > 0.7 else "c" if v > -0.1 else "s"
+
+    for cx, cy, r, sd in ((20, 11, 6.5, 41), (29, 7, 5.0, 42), (17, 20, 5.5, 43), (31, 18, 4.5, 44)):
+        c.blob(cx, cy, r, sd, 0.16, wisp)
+    for x, y, k in ((14, 38, "m"), (30, 40, "q")):          # the last embers and debris fall
+        chunk(c, x, y, k, True)
+    c.despeckle()
+    c.cleanup()
+    return c.rows()
+
+
 # --------------------------------------------------------------------------- grid, manifest
 def key_rows() -> dict[int, list[str]]:
     return {0: bomb_flight(), 3: burst_flash(), 5: burst_peak(), 10: smoke_fade()}
@@ -437,6 +460,7 @@ def all_rows() -> dict[int, list[str]]:
     rows[1], rows[2] = bomb_flight(1), bomb_flight(2)
     for n in (4, 6, 7, 8, 9):
         rows[n] = burst_between(n)
+    rows[11] = smoke_wisps()
     return rows
 
 
@@ -481,8 +505,8 @@ def build_manifest() -> dict:
         "owner": "AI-authored VFX candidate (fan-concept layer: Goblin Bomb Bard bomb and Rot Sticker burst; runtime role IP-neutral thrown explosive and blast burst)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": ("VFX-01: 4 key frames (atlas frames 0, 3, 5, 10, fixture tests/fixtures/vfx-01_keys.json) and 7 in-betweens "
-                       "(1, 2, 4, 6, 7, 8, 9) rasterized natively by scripts/author_vfx01.py from rules and a fixed-seed integer hash; "
+            "origin": ("VFX-01: 4 key frames (atlas frames 0, 3, 5, 10, fixture tests/fixtures/vfx-01_keys.json) and 8 in-betweens "
+                       "(1, 2, 4, 6, 7, 8, 9, 11) rasterized natively by scripts/author_vfx01.py from rules and a fixed-seed integer hash; "
                        "layer body"),
             "generator": "Draft spec and keys: Claude Sonnet; design edit and key freeze: Claude Opus; silhouette-gate fixes, in-betweens and execution: Claude Sonnet; art review pending. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
@@ -586,14 +610,30 @@ def keys_x3(out: Path) -> None:
     print(f"wrote {out.relative_to(ROOT)} {sheet.size}")
 
 
+def no_lighting(out: Path) -> None:
+    """The review scene (peak behind Carl, bursts 8 px above the walking line, no VFX ground shadows) with the A1 pass off."""
+    sys.path.insert(0, str(ROOT))
+    from scripts.pixelart.config import load_config
+    from scripts.pixelart.common import grid_images
+    from scripts.pixelart import scene
+    cfg = load_config(ROOT / "assets/source/vfx/explosion/vfx_01.pixelart.json")
+    img = scene.render_scene(cfg, grid_images(build_grid()), 3, lit=False)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out)
+    print(f"wrote {out.relative_to(ROOT)} {img.size}")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("mode", choices=("keys", "key-scale", "keys-x3"))
+    ap.add_argument("mode", choices=("keys", "key-scale", "keys-x3", "no-lighting"))
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--out", type=Path, default=ROOT / "docs/evidence/vfx-01/key-scale.png")
     a = ap.parse_args(argv)
     if a.mode == "key-scale":
         key_scale(a.out)
+        return 0
+    if a.mode == "no-lighting":
+        no_lighting(ROOT / "docs/evidence/vfx-01/scene_no_lighting_1920x1080.png" if a.out.name == "key-scale.png" else a.out)
         return 0
     if a.mode == "keys-x3":
         keys_x3(ROOT / "docs/evidence/vfx-01/keys-x3.png" if a.out.name == "key-scale.png" else a.out)

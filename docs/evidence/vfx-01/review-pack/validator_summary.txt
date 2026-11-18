@@ -1,4 +1,4 @@
-pixelart validate: vfx-01 (11 frames)
+pixelart validate: vfx-01 (12 frames)
   PASS    V01 structure
   PASS    V02 tags
   PASS    V03 tick table
