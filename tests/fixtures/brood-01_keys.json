@@ -1,0 +1,12 @@
+{
+  "asset_id": "brood-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "d7ff93b232fe88f0ebc09aeb30e442e7aa32e6be8b414bdacbd81fa578fcf702"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
