@@ -295,7 +295,7 @@ python3 scripts/author_trog01.py key0-scale      # docs/evidence/trog-01/key0-sc
 
 `docs/evidence/trog-01/key0-scale.png` (960 x 360): key 0 at 1x on lit Floor 1 next to Carl and GOB-01 (left, 640 x 360, no scaling), and a 4x copy of key 0 (right). `docs/evidence/trog-01/keys-x3.png` (`python3 scripts/author_trog01.py keys-x3`): the seven keys left to right (0, 3, 8, 10, 11, 12, 15) on lit Floor 1 brick, enlarged 3x. The review pack (`docs/evidence/trog-01/review-pack/`: x4 contact sheet, lit 640 x 360 scene at 3x with the Pygmy on brick, tell-to-attack strip, `validator_summary.txt`) is committed with the in-betweens.
 
-VFX notes (separate work orders, out of scope here): the landing dust is 9 pixels inside the frame; a bigger pounce splash or ground streak and the small "!" alert mark from the sheet are VFX/UX work orders. The Basher's smash debris and the Virtuoso's tongue strike are likewise separate.
+VFX notes (separate work orders, out of scope here): the landing frame carries no dust; a pounce splash or ground streak and the small "!" alert mark from the sheet are VFX/UX work orders. The Basher's smash debris and the Virtuoso's tongue strike are likewise separate.
 
 ## 11. Files
 
