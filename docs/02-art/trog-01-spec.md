@@ -277,7 +277,7 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/troglodyte
 
 - V04 palette: at most 20 colours (15 used); V05 isolated pixels: 0; V06 orphan pixels: at most 9 per frame.
 - V07/V08 contact rows: grounded tags end on row 55; `attack_leap` never touches it (bottom row at most 52).
-- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/trog-01_keys.json` (6 keys: 0, 3, 8, 10, 12, 15).
+- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/trog-01_keys.json` (7 keys: 0, 3, 8, 10, 11, 12, 15).
 - V12 unique frames: on (all 16 frames differ).
 - V16 foot drift: `rules.foot_drift` `{"max_px": 9, "tags": ["walk"]}`, loop seam included (same limit as HOARD-01). Measured with the contact-row foot and hand runs: every step of the walk is at most 9 px.
 - V13 bounding boxes (after the review: the land rule is `R-land-flat-and-spent`, top at least row 28 and at most 60 wide; the down rule covers 14 and 15, at most 54 wide; frame 13 has its own `R-down-fall-beat`, top at least row 18): idle height 40 (top row 16); walk lower than idle (top at least 18); tell lowest and at most 44 wide (top at least 22); land low (top at least 22) and at most 56 wide with its dust; leap clear of the floor and top at most 22; hurt tallest (top at most 14); down low (top at least 32, at most 50 wide).
@@ -341,3 +341,4 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - **Frame 11.** A key now (landing); no in-between work, no dust (deferred to VFX).
 - **Idle (1, 2).** The hand and both feet stay planted; only the shoulders, head, face, near arm root, ribs and the dread tips move.
 - **Not changed.** Idle, tell onset (7) and the boxes were re-checked against the re-frozen keys and needed no change (the keys 0, 3, 8, 10 are bit-identical to round 1).
+- **Round 3 (re-review N2, N3, E3, E4).** Frame 14 is now a real impact beat: the whole body rebounds off the floor (hips, torso and head about 2 px up, the knee up to (10, 12.5) with the foot lifted, the near arm flung up to about (-5, 19)), while the far hand and far foot stay planted so the contact row is touched; 15 is the settled pose. The defeat tongue was a 14-pixel stripe along the jaw; it is now a 5-pixel tongue hanging down 3 px from the mouth corner (the `dead` face template). Key 15 therefore changed, which the reviewer prescribed (N3), so only key 15 was re-frozen with `pixelart freeze --force`; the other six frozen hashes are unchanged. E3 (state diagram tick count) was already fixed to 11 ticks in the designer round. E4: the landing has no dust (frame 11 is a key without it); the VFX order owns any dust, so there is nothing to fix here. The manifest origin text now says 7 keys.

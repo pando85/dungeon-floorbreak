@@ -200,16 +200,16 @@ FACES = {
              "...w..w....",
              "...w..w....",
              "......w...."],
-    # dead (defeat): crossed eye, slack jaw, tongue lolling out past the lip
+    # dead (defeat): crossed eye, slack jaw, a short tongue (5 px) hanging out of the mouth corner (not a stripe along the jaw)
     "dead": ["...........",
              "....K.K....",
              ".....K.....",
              "....K.K....",
              "...........",
              "..ooooooo..",
-             "..oqqqqqqqq",
-             "..t.tqqqq..",
-             ".......qq.."],
+             "..t.tt.qq..",
+             ".......qq..",
+             "........q.."],
 }
 
 HEAD_R = (5.6, 5.3)        # skull (back) and jaw (front) circle radii; the same in every pose (the volume never changes)
@@ -592,13 +592,16 @@ POSES["down3"] = {
     "face": "pain", "face_at": (-8, 21),
 }
 D15 = POSES["down5"]
-POSES["down4"] = D15 | {
-    "far_limbs": [L([(6, 4), (11, 3), (17, 1.5), (21, 1)], [1.8, 1.5, 1.1, 0.8]),
-                  L([(-4, 4), (0, 2.5), (5, 1.5), (10, 1)], [1.6, 1.3, 1.0, 0.8])],
-    "near_legs": [L([(7, 4), (10, 11), (14, 8), (17, 1.5)], [2.2, 1.8, 1.3, 0.9])],
-    "head": head(-10, 7, tilt=0.0), "hair": hair(-10, 7, sway=1.5), "face_at": (-10, 7),
-    "near_arms": [L([(-3, 7), (-5, 11.5), (-4, 15.5), (-2, 18)], [1.9, 1.5, 1.1, 0.8])],
-    "fingers": hand(-2, 18, 0.7, down=False),
+POSES["down4"] = D15 | {      # impact bounce: the whole body rebounds off the floor, limbs flung up
+    "far_limbs": [L([(6, 6), (11, 5), (17, 2.5), (21, 1)], [1.8, 1.5, 1.1, 0.8]),
+                  L([(-4, 6), (0, 4.5), (5, 2.5), (10, 1)], [1.6, 1.3, 1.0, 0.8])],
+    "torso": L([(7, 6), (0, 7), (-6, 7.5)], [3.4, 3.6, 3.4]),
+    "near_legs": [L([(7, 6), (10, 12.5), (14, 10), (17, 4)], [2.2, 1.8, 1.3, 0.9])],
+    "loin": ragged_loin(6, 7, 3.5, 0.0),
+    "head": head(-10, 8.5, tilt=0.0), "hair": hair(-10, 8.5, sway=1.5), "face_at": (-10, 8.5),
+    "near_arms": [L([(-3, 9), (-6, 13), (-6, 17), (-5, 19)], [1.9, 1.5, 1.1, 0.8])],
+    "fingers": hand(-5, 19, 0.7, down=False),
+    "ribs": [(-3, 5, 9), (0, 5, 10), (3, 5, 9)],
 }
 
 KEY_FRAMES = {0: "idle0", 3: "walk1", 8: "tell2", 10: "leap3", 11: "land1", 12: "hurt4", 15: "down5"}
@@ -682,7 +685,7 @@ def manifest() -> dict:
         "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 troglodyte Pygmy; runtime role IP-neutral small fast pouncer)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": ("TROG-01 Pygmy at a 40 px idle height: 6 draft keys (atlas frames 0, 3, 8, 10, 12, 15) rasterized from pose rules by "
+            "origin": ("TROG-01 Pygmy at a 40 px idle height: 7 keys (atlas frames 0, 3, 8, 10, 11, 12, 15) rasterized from pose rules by "
                        "scripts/author_trog01.py; the other ten slots are in-betweens drawn from the same part rules (frame 11, the landing, is a key of its own; landing dust is deferred to the VFX order); "
                        "layer body only"),
             "generator": "Draft spec and keys: Claude Sonnet. Design edit (construction, six keys): Claude Opus. In-betweens and execution: Claude Sonnet. Independent review: pending. No image-model raster output, no tracing, no resampling",

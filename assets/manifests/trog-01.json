@@ -28,7 +28,7 @@
   "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 troglodyte Pygmy; runtime role IP-neutral small fast pouncer)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "TROG-01 Pygmy at a 40 px idle height: 6 draft keys (atlas frames 0, 3, 8, 10, 12, 15) rasterized from pose rules by scripts/author_trog01.py; the other ten slots are in-betweens drawn from the same part rules (frame 11, the landing, is a key of its own; landing dust is deferred to the VFX order); layer body only",
+    "origin": "TROG-01 Pygmy at a 40 px idle height: 7 keys (atlas frames 0, 3, 8, 10, 11, 12, 15) rasterized from pose rules by scripts/author_trog01.py; the other ten slots are in-betweens drawn from the same part rules (frame 11, the landing, is a key of its own; landing dust is deferred to the VFX order); layer body only",
     "generator": "Draft spec and keys: Claude Sonnet. Design edit (construction, six keys): Claude Opus. In-betweens and execution: Claude Sonnet. Independent review: pending. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
