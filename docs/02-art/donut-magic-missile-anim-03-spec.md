@@ -1,6 +1,6 @@
 # ANIM-DONUT-03: Princess Donut Magic Missile cast and VFX, design spec
 
-**Status:** keys frozen after the silhouette gate fix (section 14); in-betweens drawn and both atlases exported, validators pass (section 15); independent art review pending; not wired into any Bevy binary. Nothing here is accepted.
+**Status:** keys frozen after the silhouette gate fix (section 14; VFX key 7 re-frozen after the review, section 15); in-betweens drawn and both atlases exported, validators pass (section 15); independent art review pending; not wired into any Bevy binary. Nothing here is accepted.
 
 Scope: [MVP controller contract](../01-design/mvp-controller-contract.md#character-actions-and-progression). After the Tutorial Guild biscuit, Donut's primary attack (Square/X) becomes Magic Missile, on the same button, and it **stays movement-compatible**: she casts while standing, running or in the air. Her melee swat and pounce are ANIM-DONUT-02 (separate work order, not touched here). Gear after the biscuit is unchanged at Floor 1 ([gear timeline](donut-gear-timeline.md)): crown/tiara with the magenta gem, collar and charm; no new item is drawn.
 
@@ -44,7 +44,7 @@ One grid, `assets/source/vfx/magic_missile/vfx_magic_missile.grid.json`, **32 x 
 
 | Frames | Tag | Ticks | Content |
 | --- | --- | --- | --- |
-| 0-3 | `missile_flight` (loop) | 4, 4, 4, 4 | **Bolt**: hot oval head 8 x 7 (pale core, 2 px white leading the centre, pink, magenta, deep-magenta rear rim) trailing **three parallel claw-scratch streaks** (8, 12, 8 px, pink to magenta to deep to violet tip). Bbox 22 x 7. Key 0; 1-3 in-betweens. |
+| 0-3 | `missile_flight` (loop) | 4, 4, 4, 4 | **Bolt**: hot oval head 8 x 7 (pale core, 2 px white leading the centre, pink, magenta, deep-magenta rear rim) trailing **three parallel claw-scratch streaks** (8, 12, 8 px, pink to magenta to deep to violet tip). Bbox 22 x 7. Key 0; 1-3 in-betweens. Frame 1 is the **launch frame** (streaks 3/4/3, played once at the spawn tick); the loop after it is 2, 3, 0 (`flight_playback` in the manifest). |
 | 4-8 | `missile_impact` (once) | 2, 3, 4, 4, 5 | 4 **flash** (round 10 x 10 disc, 4 white px, 3 spray chunks back toward the caster); 5 **claw-scratch peak**: three parallel slashes raking down-back across the hit point, hot centre lines, 2 white px, violet/magenta/lilac 2 px motes; 6 in-between; 7 **fade**: slashes thinned, broken in the middle, cooled to magenta/deep/violet, motes drifting; 8 in-between. 18 ticks total. |
 
 Travel read: bright leading head, streaks always behind, 6 px per tick against a 22 px sprite, so consecutive positions overlap. The three streaks plus the three-slash impact are the cat signature (a flying scratch); the look is original and IP-neutral, not taken from any game, book cover or tabletop depiction.
@@ -95,10 +95,10 @@ Placeholders (gameplay tuning owns them): **speed 6 px/tick (360 px/s)**, **rang
 
 | Frames | Was (frozen keys, copies) | Drawn (section 15) |
 | --- | --- | --- |
-| 32-47 `cast_follow` | copies of 16-31 | Follow head drawn once at frame-0 position and composited by the same rule: thrust kept (+1, 0), mouth closed to the master `cc` line, no fangs, no brow pixels, lids back to one row lowered (gather lids), ears halfway up (tips back at row 9, wedge 1 px out instead of 2), no twinkle, gem normal. Then turn on `unique_frames` and change rule C2 to frames 16-31 only. |
-| VFX 1-3 | copies of 0 | Streak lengths cycle (8/12/8, 10/10/7, 7/12/10, 9/11/9), head core shifts 1 px fore/aft, white stays 1-2 px; clean loop seam. |
+| 32-47 `cast_follow` | copies of 16-31 | Follow head drawn once at frame-0 position and composited by the same rule: no thrust (the head returns), mouth closed to the master `cc` line, no fangs, no brow pixels, lids back to the master lids, ears halfway up (tips back at row 9, wedge 1 px out instead of 2), no twinkle, gem normal. Then turn on `unique_frames` and change rule C2 to frames 16-31 only. |
+| VFX 1-3 | copies of 0 | Streak lengths cycle (frame 1 launch 3/4/3, then 7/12/10, 9/11/9 against the key's 8/12/8), head core shifts 1 px fore/aft, white stays 1-2 px; frame 1 is played once at spawn so the bolt does not touch her cheek, then the loop 2, 3, 0. |
 | VFX 6 | copy of 5 | Between peak and fade: slashes 1 px thinner, centre `c` gone, white gone, motes (2 px chunks) 2 px further out; run `merge_orphans`, orphans at most 9. |
-| VFX 8 | copy of 7 | Last motes and two short `d`/`v` slash remnants; nothing hot. |
+| VFX 8 | copy of 7 | The lower piece of each of the three scratches (`d`, `v` tips) and two last motes; nothing hot. |
 
 Derived cast frames 1-15 and 17-31 come from the rule; the executor only fixes local collisions (none seen at review scale) and must not edit the frozen keys. All rows above are done; see section 15 for the rules used and the measured results.
 
@@ -119,7 +119,7 @@ All images are Pillow models composed from the committed grids and the A1 lighti
 | `vfx/` | The same for `vfx_magic_missile`: contact sheets, flight and impact GIFs, strip, scenes, `SHA256SUMS`. |
 | `SHA256SUMS` | Checksums of the files in this folder (not of `cast/` and `vfx/`, which carry their own); verified by `python3 scripts/check_docs.py`. |
 
-Regenerate: `bash scripts/export_assets.sh` once, then `python3 scripts/author_donut_missile.py keys` and `python3 scripts/author_donut_missile.py evidence`; the toolkit folders with `python3 -m scripts.pixelart evidence <config> --out docs/evidence/anim-donut-03/{cast,vfx}`; rebuild the `.ase` files with `python3 scripts/pixel_grid_to_ase.py build <grid> <ase>` and refreeze with `python3 -m scripts.pixelart freeze --force <config>` only on a design change.
+Regenerate: `bash scripts/export_assets.sh` once (the Floor 1 kit atlases it writes to `generated/art` are required by `scripts.pixelart evidence`, `review-pack` and the evidence scenes, see the folder README), then `python3 scripts/author_donut_missile.py keys` and `python3 scripts/author_donut_missile.py evidence`; the toolkit folders with `python3 -m scripts.pixelart evidence <config> --out docs/evidence/anim-donut-03/{cast,vfx}`; rebuild the `.ase` files with `python3 scripts/pixel_grid_to_ase.py build <grid> <ase>` and refreeze with `python3 -m scripts.pixelart freeze --force <config>` only on a design change.
 
 ## 11. Files
 
@@ -156,14 +156,15 @@ Re-frozen: cast keys 0 (master ears), 16, 24, 28; VFX keys 5 and 7 (0 and 4 unch
 
 ## 15. Executor status (in-betweens, export, evidence)
 
-Done in `scripts/author_donut_missile.py` by literal pixel rows and float rules (no image-model output, no tracing). Frozen keys 0, 16, 24, 28 and VFX 0, 4, 5, 7 are byte-identical to the fixtures (V09).
+Done in `scripts/author_donut_missile.py` by literal pixel rows and float rules (no image-model output, no tracing). Frozen cast keys 0, 16, 24, 28 and VFX keys 0, 4, 5 are byte-identical to the fixtures (V09); VFX key 7 was re-frozen after the review (see Fade below).
 
-- **Follow head (frames 32-47):** `cast_head("cast_follow")` starts from the gather head (one row lowered lids, closed master mouth, master catchlights, master tiara and gem, no fangs, no brow pixels, no twinkle) and moves the ears halfway: tips one row lower than the master (row 9, `jK` each side), a dark outline pixel one px out past the master wedge (release: two px out, tips gone). The +1 px thrust is kept. Composited per locomotion frame by the same head-offset rule as the other phases, so body, legs and tail stay the locomotion frame's.
-- **Flight loop (VFX 1-3):** `bolt(lengths, core)` with streak lengths 10/10/7, 7/12/10, 9/11/9 (frame 0 stays 8/12/8) and the hot core shifted +1, -1 and 0 px; the oval rim does not move, white stays 2 px, the seam 3 to 0 changes lengths by at most 1 px.
+- **Follow head (frames 32-47):** `cast_head("cast_follow")` is the master face (the master lids, closed mouth, catchlights, no fangs, no brow pixels), the master tiara and gem (no twinkle), and the ears halfway up: tips one row lower than the master (row 9, `jK` each side), a dark outline pixel one px out past the master wedge (release: two px out, tips gone). There is **no thrust**: the head returns to the locomotion position. Composited per locomotion frame by the same head-offset rule as the other phases, so body, legs and tail stay the locomotion frame's.
+- **Flight (VFX 1-3):** `bolt(lengths, core)`. Frame 1 is the **launch frame**: streaks 3/4/3, played once at the release tick, because the frozen key 0 (streaks 8/12/8) overlaps about 12 px of her right cheek at the spawn point; with frame 1 no bolt pixel touches the head, face or gear cel at the spawn point or at +6, +12 and +18 px, on all 16 locomotion bases (test `test_launch_bolt_never_touches_her_head_on_release`). The loop that follows is 2, 3, 0 (streaks 7/12/10, 9/11/9, 8/12/8; core shifted -1, 0, 0 px; white 2 px). The spawn point did not move. Playback is recorded in the manifest as `flight_playback`.
 - **Frame 6 (cooling peak):** `scratch_cooling()`: slashes width 1.1 (peak 1.2), no core `c`, no white, pink body with a magenta rim, the peak's six motes pushed 2 px further from the hit point, `merge_orphans` run.
-- **Frame 8 (last):** `scratch_embers()`: two short `d`/`v` slash remnants (the outer scratches, one end each) and four 2 px motes in `v`/`d`; no `c`, `w`, `p` or `m`.
-- **Validators:** both configs pass with the orphan limit still 9 and isolated 0. Measured orphans on the VFX frames 0-8: 5, 3, 4, 3, 0, 0, 0, 0, 0; white pixels 2, 2, 2, 2, 4, 2, 0, 0, 0. `unique_frames` is now on in both configs; rule C2 covers frames 16-31, C1 frames 0-15 and a new C3 the follow frames 32-47 (catchlight whites only).
+- **Fade (key 7, re-frozen):** `scratch_fade()` now draws each scratch as two clean 2 px wide diagonal pieces (`d`/`m` with `v` tips) with one break in the middle, and three motes instead of five. The earlier version broke into small chevron fragments. This re-freezes key 7 (`tests/fixtures/anim-donut-03-vfx_keys.json`; the other keys are byte-identical) on the review's finding.
+- **Frame 8 (last):** `scratch_embers()`: the lower piece of each of the three scratches (`d` with `v` tips, all three kept so the fade is even) and two last motes; no `c`, `w`, `p` or `m`.
+- **Validators:** both configs pass with the orphan limit still 9 and isolated 0. Measured orphans on the VFX frames 0-8: 5, 1, 4, 3, 0, 0, 0, 0, 0; white pixels 2, 2, 2, 2, 4, 2, 0, 0, 0. `unique_frames` is now on in both configs; rule C2 covers frames 16-31, C1 frames 0-15 and a new C3 the follow frames 32-47 (catchlight whites only).
 - **Export:** `bash scripts/export_assets.sh` produces `generated/art/donut_h40_missile.{png,json}` (48 frames 72 x 44, three tags) and `generated/art/vfx_magic_missile.{png,json}` (9 frames 32 x 32, two tags) with the `.ase` files rebuilt from the grids; `generated/` is git-ignored as for every asset.
 - **Tests:** `tests/test_art_donut_missile.py` gained checks for the follow head (mouth, lids, no fangs, master tiara, ears), unique frames and the orphan limit, the flight cycle, and the cooling and ember frames.
 
-Open questions for the review (not decided by the executor): (1) the follow head differs from the gather head only by the ears and the missing twinkle, as the table asked; the review may want a stronger relax cue. (2) Release brow pixels use `K` on the outer lid ends only (frozen key); no change was made. (3) The tick-resolved cast GIF uses the placeholder speed and range of section 4; timing is gameplay tuning.
+Open questions for the review (not decided by the executor): (1) the follow head is now the master face with halfway ears and no thrust. (2) Release brow pixels use `K` on the outer lid ends only (frozen key); no change was made. (3) The cast GIF uses the placeholder speed and range of section 4; timing is gameplay tuning.

@@ -55,6 +55,16 @@
         6
       ]
     },
+    "flight_playback": {
+      "launch": [
+        1
+      ],
+      "loop": [
+        2,
+        3,
+        0
+      ]
+    },
     "fizzle_at_range": "play missile_impact frames 7-8 only",
     "key_frames": [
       0,

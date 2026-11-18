@@ -102,22 +102,19 @@ class DonutMissileTests(unittest.TestCase):
             self.assertLessEqual(sum(r.count("w") for r in rows), 4, n)
 
     # --- in-betweens (spec section 9)
-    def test_follow_head_recovers_to_the_master_face_with_lowered_lids(self) -> None:
+    def test_follow_head_returns_to_the_master_face_and_position(self) -> None:
         master = self.loco["frames"][0]["cels"]
+        self.assertEqual(author.THRUST["cast_follow"], (0, 0))                       # the head comes back, no jab
         for i in range(16):
             dx, dy = author.HEAD_OFFSETS[i]
-            tx = author.THRUST["cast_follow"][0]
             follow = self.cast["frames"][32 + i]["cels"]
-            shifted = author.shift(master["face"], dx + tx, dy)
-            for y in range(19, 28):                    # mouth, muzzle and chin rows: the master face (mouth closed)
-                self.assertEqual(follow["face"][y + dy], shifted[y + dy], (i, y))
+            self.assertEqual(follow["face"], author.shift(master["face"], dx, dy), i)  # master lids, mouth, catchlights
+            tiara = [r if y <= 8 else "." * 72 for y, r in enumerate(master["gear"])]
+            self.assertEqual(follow["gear"][:9 + dy], author.shift(tiara, dx, dy)[:9 + dy], i)   # master tiara and gem
             gather = self.cast["frames"][i]["cels"]["face"]
-            for y in (16, 17):                         # gather lids, one row lowered; no brow pixels at x 43 / 59
-                self.assertEqual(follow["face"][y + dy][43 + dx + tx:61 + dx + tx], gather[y + dy][43 + dx:61 + dx], (i, y))
-            self.assertEqual(sum(r.count("w") for r in follow["face"]), 4, i)   # catchlights only, no fangs
-            tiara_master = author.shift([r if y <= 8 else "." * 72 for y, r in enumerate(master["gear"])], dx + tx, dy)
-            self.assertEqual(follow["gear"][:9 + dy], tiara_master[:9 + dy], i)       # master tiara and gem
-            self.assertTrue(all("w" not in r and "P" not in r for r in follow["gear"][:9 + dy]), i)  # no twinkle, gem normal
+            self.assertNotEqual(follow["face"], gather, i)                           # gather lids are one row lower
+            self.assertEqual(sum(r.count("w") for r in follow["face"]), 4, i)       # catchlights only, no fangs
+            self.assertTrue(all("w" not in r and "P" not in r for r in follow["gear"][:9 + dy]), i)
 
     def test_follow_ears_sit_halfway_between_master_and_release(self) -> None:
         for i in range(16):
@@ -126,11 +123,12 @@ class DonutMissileTests(unittest.TestCase):
             release = self.cast["frames"][16 + i]["cels"]["head"]
             follow = self.cast["frames"][32 + i]["cels"]["head"]
             self.assertEqual(follow[8 + dy][39 + dx:43 + dx], "....")
-            self.assertEqual(follow[9 + dy][41 + dx:43 + dx], "jK")             # tip one row lower than the master (row 8)
+            self.assertEqual(follow[9 + dy][40 + dx:42 + dx], "jK")             # tip one row lower than the master (row 8)
             self.assertNotEqual(gather[8 + dy][40 + dx], ".")
             self.assertEqual(release[9 + dy][41 + dx], ".")                    # release: tips gone
             self.assertNotEqual(follow, gather)
             self.assertNotEqual(follow, release)
+            self.assertNotEqual(follow, self.loco["frames"][i]["cels"]["head"])     # ears still halfway back
 
     def test_cast_frames_are_unique_and_the_orphan_limit_stays_at_nine(self) -> None:
         keys = [json.dumps(f["cels"], sort_keys=True) for f in self.cast["frames"]]
@@ -153,6 +151,51 @@ class DonutMissileTests(unittest.TestCase):
             for y, want0, want in zip((14, 16, 18), author.BOLT_CYCLE[0][0], author.BOLT_CYCLE[n][0]):
                 self.assertEqual(left(frames[0], y) - left(rows, y), want - want0, (n, y))   # streak lengths cycle
         self.assertEqual(frames[0], author.bolt())
+
+    def test_launch_bolt_never_touches_her_head_on_release(self) -> None:
+        launch = author.FLIGHT_PLAYBACK["launch"][0]
+        rows = self.vfx["frames"][launch]["cels"]["body"]
+        for n in range(16):
+            sx, sy = author.spawn_offset(n)
+            for step in range(0, 4):                                   # launch frame shows for ticks 4-7 (+0..+18 px)
+                px, py = author.PIVOT[0] + sx + 6 * step, author.PIVOT[1] + sy
+                cels = self.cast["frames"][16 + n]["cels"]
+                for y, row in enumerate(rows):
+                    for x, c in enumerate(row):
+                        X, Y = px - 16 + x, py - 16 + y
+                        if c != "." and 0 <= X < 72 and 0 <= Y < 44:
+                            for layer in ("head", "face", "gear"):
+                                self.assertEqual(cels[layer][Y][X], ".", (n, step, x, y, layer))
+        man = json.loads(author.VFX_MANIFEST.read_text())["vfx"]
+        self.assertEqual(man["flight_playback"], {"launch": [1], "loop": [2, 3, 0]})
+
+    def test_fade_frames_are_few_connected_pieces_and_keep_all_three_scratches(self) -> None:
+        def pieces(rows, min_size):
+            seen, out = set(), []
+            for y, r in enumerate(rows):
+                for x, c in enumerate(r):
+                    if c == "." or (x, y) in seen:
+                        continue
+                    stack, comp = [(x, y)], []
+                    seen.add((x, y))
+                    while stack:
+                        cx, cy = stack.pop()
+                        comp.append((cx, cy))
+                        for dx in (-1, 0, 1):
+                            for dy in (-1, 0, 1):
+                                nx, ny = cx + dx, cy + dy
+                                if 0 <= nx < 32 and 0 <= ny < 32 and rows[ny][nx] != "." and (nx, ny) not in seen:
+                                    seen.add((nx, ny))
+                                    stack.append((nx, ny))
+                    out.append(comp)
+            return [c for c in out if len(c) >= min_size]
+        fade = self.vfx["frames"][7]["cels"]["body"]
+        last = self.vfx["frames"][8]["cels"]["body"]
+        self.assertIn(len(pieces(fade, 8)), (4, 5, 6))  # two clean pieces per scratch (tips may touch), no confetti
+        self.assertEqual(sum(len(c) < 8 for c in pieces(fade, 1)), 3)      # only the three 2 px motes are small
+        self.assertEqual(len(pieces(last, 8)), 3)       # one remnant per scratch, the middle one kept
+        for rows in (fade, last):
+            self.assertEqual(sum(r.count("w") + r.count("c") for r in rows), 0)
 
     def test_impact_in_betweens_cool_between_the_keys(self) -> None:
         def count(rows, ch):

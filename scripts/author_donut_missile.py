@@ -52,7 +52,7 @@ REFIRE_TICK = 16
 # head offset (dx, dy) of each locomotion frame relative to idle frame 0 (measured; tests re-measure it)
 HEAD_OFFSETS = [(0, 0), (0, -1), (0, -1), (0, 0), (0, 4), (0, 5), (-1, 5), (0, 4), (1, 4), (1, 4),
                 (0, 7), (1, 3), (1, 2), (0, 3), (0, 7), (0, 3)]
-THRUST = {"cast_gather": (0, 0), "cast_release": (1, 0), "cast_follow": (1, 0)}
+THRUST = {"cast_gather": (0, 0), "cast_release": (1, 0), "cast_follow": (0, 0)}      # the head returns on follow
 SPAWN_FRAME0 = (72, 24)          # bolt pivot at the release tick, frame-0 coordinates: 4 px ahead of the right
                                  # cheek at mouth row (gate fix: the streaks must not cover the hiss on ticks 4-5)
 CAST_KEYS = (0, 16, 24, 28)
@@ -94,13 +94,10 @@ def cast_head(phase: str, master: dict) -> dict[str, list[str]]:
     tiara = [list(r) if y <= 8 else ["."] * CANVAS[0] for y, r in enumerate(master["gear"])]
 
     if phase == "cast_follow":
-        # Recovery (spec section 9): the gather lids (one row lowered), the closed master mouth, no fangs, brow
-        # pixels or twinkle, the master gem, and the ears halfway up: tips one row lower than the master (row 9),
-        # the ear wedge 1 px out past the master outline (release: 2 px, tips gone).
-        for x in range(43, 61):
-            face[16][x] = "."
-        row_put(face, 17, 44, "KKKKK")
-        row_put(face, 17, 56, "KKKKK")
+        # Recovery (spec section 9, review fix): the lids come back to the master lids, the head returns (no
+        # thrust), the closed master mouth, no fangs, brow pixels or twinkle, the master gem, and the ears halfway
+        # up: tips one row lower than the master (row 9), the ear wedge 1 px out past the master outline (release:
+        # 2 px, tips gone). The face cel is the master's; the ears are the only relax cue left.
         for x in (39, 40, 41, 42, 62, 63, 64):
             head[8][x] = "."
         for x in (39, 40, 41, 42, 61, 62, 63, 64):
@@ -377,16 +374,43 @@ def scratch_peak() -> list[str]:
     return to_rows(g)
 
 
+SLASH_U = (-0.55, 0.835)            # rake direction of the claw scratches (down and back)
+SLASH_N = (0.835, 0.55)             # normal to it: the three scratches sit at -5, 0, +5 px
+
+
+def stroke(g, off: float, s0: float, s1: float, length: float, left: str, right: str, tip: str) -> None:
+    """One clean 2 px wide diagonal piece of scratch ``off`` between ``s0`` and ``s1`` (fractions of ``length``): a
+    ``left``/``right`` column pair with a 2 px ``tip`` row at each end (no isolated or fragmented pixels)."""
+    cx, cy = 15.5 + SLASH_N[0] * off, 15.5 + SLASH_N[1] * off
+
+    def point(s):
+        t = (s - 0.5) * length
+        return cx + SLASH_U[0] * t, cy + SLASH_U[1] * t
+
+    (x0, y0), (_x1, y1) = point(s0), point(s1)
+    ya, yb = round(y0), round(y1)
+    for y in range(ya, yb + 1):
+        xl = int(math.floor(x0 + (y - y0) * SLASH_U[0] / SLASH_U[1]))
+        if y in (ya, yb):
+            g[y][xl] = g[y][xl + 1] = tip
+        else:
+            g[y][xl], g[y][xl + 1] = left, right
+
+
 def scratch_fade() -> list[str]:
+    """Key 7: three scratches cooled to magenta/deep/violet, each broken once in the middle into two clean pieces."""
     g = vblank()
-    slashes(g, 1.0, gap=True, hot=False)
-    merge_orphans(g)
-    chunks(g, [(3, 7, "v"), (2, 18, "d"), (25, 4, "l"), (25, 21, "v"), (10, 2, "v")])
+    for off in (-5.0, 0.0, 5.0):
+        stroke(g, off, 0.0, 0.42, 13.0, "d", "m", "v")
+        stroke(g, off, 0.58, 1.0, 13.0, "d", "m", "v")
+    chunks(g, [(25, 4, "l"), (2, 22, "d"), (25, 22, "v")])
     return to_rows(g)
 
 
 # --- in-betweens (spec section 9)
-BOLT_CYCLE = (((8, 12, 8), 0.0), ((10, 10, 7), 1.0), ((7, 12, 10), -1.0), ((9, 11, 9), 0.0))   # frames 0-3
+# frame 1 is the launch frame (short streaks: the release-tick bolt must not touch her cheek, spec section 4)
+BOLT_CYCLE = (((8, 12, 8), 0.0), ((3, 4, 3), 1.0), ((7, 12, 10), -1.0), ((9, 11, 9), 0.0))   # frames 0-3
+FLIGHT_PLAYBACK = {"launch": [1], "loop": [2, 3, 0]}
 PEAK_MOTES = ((4, 9, "m"), (3, 21, "v"), (25, 7, "v"), (24, 24, "m"), (11, 4, "l"), (19, 27, "v"))
 
 
@@ -412,13 +436,11 @@ def scratch_cooling() -> list[str]:
 
 
 def scratch_embers() -> list[str]:
-    """Frame 8, last frame: two short cold slash remnants and the last motes; nothing hot."""
+    """Frame 8, last frame: the lower piece of each of the three scratches, cold and thin, and two last motes."""
     g = vblank()
-    slashes(g, 0.7, gap=False, hot=False, offsets=(-5.0,), span=(0.58, 1.0))
-    slashes(g, 0.7, gap=False, hot=False, offsets=(5.0,), span=(0.0, 0.42))
-    g = [["d" if c == "m" else c for c in r] for r in g]
-    merge_orphans(g)
-    chunks(g, [(2, 7, "v"), (1, 19, "d"), (26, 3, "v"), (27, 21, "d")])
+    for off in (-5.0, 0.0, 5.0):
+        stroke(g, off, 0.60, 1.0, 13.0, "d", "d", "v")
+    chunks(g, [(2, 22, "d"), (26, 5, "v")])
     return to_rows(g)
 
 
@@ -481,6 +503,7 @@ def build_vfx_manifest() -> dict:
             "speed_px_per_tick_placeholder": SPEED_PX_PER_TICK,
             "range_px_placeholder": RANGE_PX,
             "hitbox_placeholder": HITBOX,
+            "flight_playback": FLIGHT_PLAYBACK,
             "fizzle_at_range": "play missile_impact frames 7-8 only",
             "key_frames": list(VFX_KEYS),
             "inbetween_frames": list(VFX_INBETWEENS),
@@ -606,7 +629,7 @@ def cast_scenes(out_dir: Path) -> None:
     # Donut releasing (frame 16) at x 452 beside Carl; a fresh bolt at the spawn point, one 8 ticks later in flight
     # and the scratch peak on a GOB-01 goblin (a bolt from the previous cast).
     entries = [(carl, carl_piv, 404, 0), (cast[16], PIVOT, 452, 0), (gob, gob_piv, GOB_X, 0),
-               bolt(0, FIRST_BOLT_X), bolt(2, FIRST_BOLT_X + 8 * SPEED_PX_PER_TICK), bolt(5, GOB_X - 18)]
+               bolt(1, FIRST_BOLT_X), bolt(3, FIRST_BOLT_X + 8 * SPEED_PX_PER_TICK), bolt(5, GOB_X - 18)]
     for k, tag in ((1, "640x360"), (3, "1920x1080")):
         fl.render(entries, k, True).save(out_dir / f"scene_cast_lit_{tag}.png")
         fl.render(entries, k, False).save(out_dir / f"scene_cast_unlit_{tag}.png")
@@ -619,6 +642,12 @@ def cast_scenes(out_dir: Path) -> None:
     for k, tag in ((1, "640x360"), (3, "1920x1080")):
         fl.render(ph, k, True).save(out_dir / f"scene_phases_lit_{tag}.png")
     print("wrote scene_cast_{lit,unlit}_* and scene_phases_lit_*")
+
+
+def flight_frame(k: int) -> int:
+    """VFX frame of the k-th four-tick step of a bolt's flight: the launch frame once, then the loop."""
+    loop = FLIGHT_PLAYBACK["loop"]
+    return FLIGHT_PLAYBACK["launch"][k] if k < len(FLIGHT_PLAYBACK["launch"]) else loop[(k - len(FLIGHT_PLAYBACK["launch"])) % len(loop)]
 
 
 def cast_sequence_gif(out: Path) -> None:
@@ -642,7 +671,7 @@ def cast_sequence_gif(out: Path) -> None:
         donut = cast[0] if t < 4 else cast[16] if t < 10 else cast[32] if t < 16 else loco[0]
         ents = [(carl, carl_piv, 404, 0), (donut, PIVOT, 452, 0), (gob, gob_piv, GOB_X, 0)]
         if RELEASE_TICK <= t < contact_tick:
-            ents.append((vfx[((t - RELEASE_TICK) // 4) % 4], VPIVOT,
+            ents.append((vfx[flight_frame((t - RELEASE_TICK) // 4)], VPIVOT,
                          FIRST_BOLT_X + SPEED_PX_PER_TICK * (t - RELEASE_TICK), 19, False))
         elif contact_tick <= t < contact_tick + sum(VTICKS[4:]):
             e = max(i for i, s0 in enumerate(impact_start) if s0 <= t - contact_tick)
@@ -683,7 +712,7 @@ def layout_diagram(out: Path) -> None:
             "Body, legs and tail cels are the locomotion frame's; only head, face and tiara change. Keys (filled): 0, 16, 24, 28. "
             "Frames 1-15 and 17-31: the key heads translated by the head offset; 32-47: the follow head.", c.GREY, 11)
     by = 290
-    c.label(d, (14, by), "B. pivot and bolt spawn (cast frame 16, idle base, 6x). Yellow = pivot (46, 43) on the walking line; "
+    c.label(d, (14, by), "B. pivot and bolt spawn (cast frame 16 with the launch bolt, idle base, 6x). Yellow = pivot (46, 43) on the walking line; "
             "cyan cross = bolt pivot at (+27, -19)", c.YELLOW, 12)
     k = 6
     base = c.cell(cast[16], k, PIVOT, 43)
@@ -691,7 +720,7 @@ def layout_diagram(out: Path) -> None:
     panel.paste(base, (0, 0))
     sx = (PIVOT[0] + 27) * k - VPIVOT[0] * k
     sy = (PIVOT[1] - 19) * k - VPIVOT[1] * k
-    panel.alpha_composite(c.up(vfx[0], k), (sx, sy))
+    panel.alpha_composite(c.up(vfx[FLIGHT_PLAYBACK["launch"][0]], k), (sx, sy))
     pd = ImageDraw.Draw(panel)
     cx, cy = (PIVOT[0] + 27) * k + k // 2, (PIVOT[1] - 19) * k + k // 2
     pd.line([(cx - 10, cy), (cx + 10, cy)], fill=c.CYAN)
@@ -723,7 +752,7 @@ def layout_diagram(out: Path) -> None:
         c.label(d, (xx + dx, ty + 72), text, col, 11)
     c.label(d, (14, ty + 46), "cast_*", c.WHITE, 12)
     vy0 = ty + 112
-    names = ["F0", "F1", "F2", "F3", "I4 flash", "I5 peak", "I6", "I7 fade", "I8"]
+    names = ["F0", "F1 launch", "F2", "F3", "I4 flash", "I5 peak", "I6", "I7 fade", "I8"]
     for row, (lo, hi, title) in enumerate(((0, 4, "missile_flight (loop)"), (4, 9, "missile_impact (once)"))):
         y = vy0 + row * 34
         c.label(d, (14, y + 6), title, c.WHITE, 11)
@@ -733,7 +762,7 @@ def layout_diagram(out: Path) -> None:
             d.rectangle([x, y, x + wdt - 2, y + 26], fill=(255, 127, 208) if n < 4 else (226, 48, 159))
             c.label(d, (x + 3, y + 6), f"{names[n]} {VTICKS[n]}t", c.BG, 10)
             x += wdt
-    c.label(d, (tx0, vy0 + 72), "missile_flight loops 4 + 4 + 4 + 4 = 16 t at 6 px/t; missile_impact plays once, 2 + 3 + 4 + 4 + 5 = 18 t "
+    c.label(d, (tx0, vy0 + 72), "missile_flight: launch frame 1 once, then the loop 2, 3, 0 (4 t each, 6 px/t); missile_impact plays once, 2 + 3 + 4 + 4 + 5 = 18 t "
             "(both rows drawn at the same tick scale as the cast bars)", c.GREY, 11)
     out.parent.mkdir(parents=True, exist_ok=True)
     im.save(out)
