@@ -56,7 +56,7 @@ RAMPS = {
     "skin": ("d", "s", "m", "l"),
     "far": ("K", "d", "d", "s"),
     "hair": ("H", "H", "I", "I"),
-    "cloth": ("c", "c", "C", "C"),
+    "cloth": ("c", "c", "c", "C"),
 }
 ACCENTS = {k for k, _n, _c, acc in PALETTE if acc}
 
@@ -183,7 +183,8 @@ FACES = {
              "...........",
              "..ttTttt...",
              ".ooooooooo.",
-             ".oooqqqoo..",
+             ".ooooooooo.",
+             ".oooooooo..",
              "..t.tT.t...",
              "...........",
              "......w...."],
@@ -220,12 +221,14 @@ def jaw(hx, hy, drop=1.0):
 # brow. Offsets from the jaw centre (hx, hy). Every rope ends lower than it starts (gravity) and no point rises above
 # the crown, so the silhouette is a lumpy mop with hanging ropes, never horns. ``sweep`` streams the tips back and
 # lifts them toward the horizontal (motion); a negative sweep throws them forward (hurt whiplash).
-MOP = [(-9, 3), (-9.5, 7), (-7, 11), (-3.5, 13), (-0.5, 12.4), (1.2, 10), (0, 8.2), (-2.5, 6.8), (-5, 5.2), (-6.5, 4)]
+MOP = [(-9, 3), (-9.5, 7), (-7.6, 8.6), (-7, 11), (-5.4, 11.1), (-3.5, 13), (-2, 11.7), (-0.5, 12.4), (1.2, 10), (0, 8.2),
+       (-2.5, 6.8), (-5, 5.2), (-6.5, 4)]
 ROPES = [[(-7, 9), (-11, 8), (-15, 5), (-17, 1), (-17.5, -2)],
          [(-8, 6), (-11, 3.5), (-12, 0), (-11.5, -3)],
          [(-3, 11), (-7, 11), (-11, 9.5), (-14, 7)],
          [(0, 10), (2, 8.6), (3, 6.4)]]
 ROPE_R = 0.95
+BEADS = {0: "t", 1: "w", 2: "t"}   # 1 px bead or knot near the tip of ropes 0, 1 and 2 (the concept's beaded dreads)
 EAR = [(-5, 3.5), (-12, 5), (-7, 1.5)]          # pointed, swept straight back below the crown line, skin over the mop
 
 
@@ -260,8 +263,8 @@ def build(pose: dict) -> list[str]:
         c.thick(rope, [ROPE_R] * len(rope), hair_id)
     for limb in pose.get("near_arms", []):
         c.thick(limb["pts"], limb["r"], arm)
-    for fin in pose.get("fingers", []):
-        c.thick(fin, [0.55] * len(fin), arm)
+    for i, fin in enumerate(pose.get("fingers", [])):
+        c.thick(fin, [0.55] * len(fin), c.add("skin") if i % 3 == 1 else arm)
     for e in hd["ears"]:
         c.poly(e, ear)
     rows = c.render()
@@ -271,12 +274,27 @@ def build(pose: dict) -> list[str]:
         for x in range(w):
             if c.part[y][x] == hair_id and rows[y][x] == "I" and (x % 3 == 0 or (x % 3 == 1 and y % 4 == 0)):
                 rows[y][x] = "H"
+    # beads: the second-to-last point of ropes 0 to 2 carries a 1 px bead or knot
+    for i, key in BEADS.items():
+        bx, by = c.P(*hd["ropes"][i][-2])
+        if c.part[int(by)][int(bx)] == hair_id:
+            rows[int(by)][int(bx)] = key
+    # mottled rim: no skin run of more than 5 clean lit pixels; the 4th and 5th of a longer run drop to mid
+    for y in range(h):
+        run = 0
+        for x in range(w + 1):
+            if x < w and rows[y][x] == "l":
+                run += 1
+                continue
+            if run >= 6:
+                rows[y][x - run + 3] = rows[y][x - run + 4] = "m"
+            run = 0
     # ribs: short shade strokes (x, y_top, y_bottom) on lit/mid skin only: the lean flank
     for rx, ry0, ry1 in pose.get("ribs", []):
         col = int(c.P(rx, 0)[0])
         for y in range(int(c.P(0, ry0)[1]), int(c.P(0, ry1)[1]) + 1):
             if rows[y][col] in "ml":
-                rows[y][col] = "s"
+                rows[y][col] = "d" if rows[y][col] == "l" else "s"
     # grime: 2 px dirt smudges (deep skin) on lit or mid skin, and dirt-caked soles and knuckles on the two floor rows
     for gx, gy in pose.get("grime", []):
         px, py = c.P(gx, gy)
@@ -321,10 +339,18 @@ def despeckle(rows: list[list[str]]) -> None:
 
 # ------------------------------------------------------------------ the six key poses (design units)
 def ragged_loin(x0, y0, drop=7.0, lean=0.0):
-    """Ragged loincloth hanging from the hips: x0, y0 is the hip centre; points hang with torn hems."""
-    return [(x0 - 3.5, y0 + 2), (x0 + 3.5, y0 + 2), (x0 + 3 + lean, y0 - drop * 0.6),
-            (x0 + 1.5 + lean, y0 - drop * 0.35), (x0 + 0.5 + lean, y0 - drop),
-            (x0 - 1.2 + lean, y0 - drop * 0.5), (x0 - 2.5 + lean, y0 - drop * 0.85), (x0 - 3.5 + lean, y0 - drop * 0.3)]
+    """Ragged loincloth hanging down from the hips (gravity): the top edge sits just below the hip centre so the rump
+    skin shows above it, and the hem has three torn points. ``lean`` trails the hem (motion)."""
+    return [(x0 - 3.5, y0 - 0.5), (x0 + 3.5, y0 - 0.5), (x0 + 3.2 + lean, y0 - drop * 0.7),
+            (x0 + 2.0 + lean, y0 - drop * 0.95), (x0 + 1.0 + lean, y0 - drop * 0.62), (x0 - 0.5 + lean, y0 - drop),
+            (x0 - 1.6 + lean, y0 - drop * 0.58), (x0 - 2.8 + lean, y0 - drop * 0.9), (x0 - 3.6 + lean, y0 - drop * 0.45)]
+
+
+def planted_hand(x, y):
+    """Planted claw: three 1 px fingers 4 to 5 px long splayed forward along the contact row from a wrist at (x, y)."""
+    return [[(x, y), (x + 2.0, y - 1.4), (x + 4.6, 0.6)],
+            [(x, y), (x + 2.6, y - 0.2), (x + 5.4, y - 0.6)],
+            [(x, y), (x + 1.8, y + 1.2), (x + 4.4, y + 2.0)]]
 
 
 def hand(x, y, spread=1.0, down=True):
@@ -344,12 +370,12 @@ POSES["idle0"] = {
                   L([(6, 21), (11, 14), (15, 8), (18, 4)], [1.7, 1.4, 1.1, 0.8])],
     "torso": L([(-10, 15), (-4, 21), (3, 24)], [4.0, 4.5, 4.1]),
     "near_legs": [L([(-9, 15), (-3, 9), (-6, 2), (-1, 1)], [2.4, 1.9, 1.3, 0.9])],
-    "loin": ragged_loin(-8, 14, 8.0),
+    "loin": ragged_loin(-8, 14, 8.5),
     "head": head(13, 25), "hair": hair(13, 25),
     "near_arms": [L([(4, 21), (9, 14), (12, 7), (15, 3)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": hand(15, 3, 1.0),
-    "ribs": [(-4, 14, 19), (-1, 15, 20), (2, 16, 21)],
-    "grime": [(-13, 13), (-6, 20), (9, 11), (-4, 6), (-9, 17), (13, 6)],
+    "fingers": planted_hand(15, 3),
+    "ribs": [(-4, 14, 20), (-1, 15, 21), (2, 16, 22)],
+    "grime": [(-13, 13), (-6, 20), (9, 11), (-4, 6), (-9, 17), (13, 6), (-1, 26), (-7, 11)],
     "face": "snarl", "face_at": (13, 25),
 }
 
@@ -359,29 +385,29 @@ POSES["walk1"] = {
                   L([(6, 16), (5, 10), (8, 4), (11, 1)], [1.7, 1.4, 1.1, 0.8])],
     "torso": L([(-10, 13), (-3, 16), (5, 19)], [4.0, 4.4, 4.0]),
     "near_legs": [L([(-9, 13), (-1, 9), (2, 3), (7, 1)], [2.4, 1.9, 1.3, 0.9])],
-    "loin": ragged_loin(-8, 12, 7.0, -2.0),
+    "loin": ragged_loin(-8, 12, 7.5, -1.5),
     "head": head(16, 20), "hair": hair(16, 20, sweep=0.6),
     "near_arms": [L([(5, 17), (12, 12), (18, 7), (21, 3)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": hand(21, 3, 1.0),
-    "ribs": [(-3, 12, 16), (0, 13, 17), (3, 14, 18)],
-    "grime": [(-12, 11), (-5, 15), (0, 6), (-9, 15), (16, 6)],
+    "fingers": planted_hand(21, 3),
+    "ribs": [(-3, 12, 17), (0, 13, 18), (3, 14, 19)],
+    "grime": [(-12, 11), (-5, 15), (0, 6), (-9, 15), (16, 6), (1, 22), (-6, 10)],
     "face": "snarl", "face_at": (16, 20),
 }
 
 # KEY 8 tell hold: coiled to spring, haunches raised and loaded behind, shoulders and head dropped low and thrust
 # forward, jaw hanging open, both hands planted wide. The lowest, most compact grounded pose: it reads as "about to go".
 POSES["tell2"] = {
-    "far_limbs": [L([(-9, 15), (-3, 9), (-7, 1.8), (-2, 0.8)], [2.0, 1.6, 1.1, 0.8]),
-                  L([(5, 12), (11, 7), (16, 3), (20, 0.8)], [1.7, 1.4, 1.1, 0.8])],
-    "torso": L([(-12, 16), (-5, 15), (3, 12)], [4.3, 4.6, 4.1]),
-    "near_legs": [L([(-11, 16), (-5, 10), (-9, 2), (-4, 0.8)], [2.7, 2.2, 1.4, 1.0])],
-    "loin": ragged_loin(-10, 16, 7.0, -1.0),
-    "head": head(13, 15), "jaw": jaw(13, 15, 0.7), "hair": hair(13, 15),
-    "near_arms": [L([(4, 12), (8, 7), (13, 3), (16, 0.8)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": hand(16, 0.8, 1.0),
-    "ribs": [(-5, 12, 16), (-2, 11, 15), (1, 10, 14)],
-    "grime": [(-15, 15), (-8, 19), (-6, 6)],
-    "face": "roar", "face_at": (13, 15),
+    "far_limbs": [L([(-9, 16.5), (-3, 9.5), (-7, 1.8), (-2, 0.8)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(5, 12), (11, 7), (16, 3), (19, 2.4)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-12, 17.5), (-5, 16), (3, 12)], [4.3, 4.6, 4.1]),
+    "near_legs": [L([(-11, 17.5), (-5, 10.5), (-9, 2), (-4, 0.8)], [2.7, 2.2, 1.4, 1.0])],
+    "loin": ragged_loin(-11, 17.5, 7.0, 0.0),
+    "head": head(13, 14), "jaw": jaw(13, 14, 0.7), "hair": hair(13, 14),
+    "near_arms": [L([(4, 12), (8, 7), (12, 4), (15, 2.6)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": planted_hand(15, 2.6),
+    "ribs": [(-5, 12, 18), (-2, 11, 17), (1, 10, 15)],
+    "grime": [(-15, 16), (-8, 20), (-6, 6), (-1, 17), (-12, 9)],
+    "face": "roar", "face_at": (13, 14),
 }
 
 # KEY 10 attack strike (airborne): body stretched flat, one claw high and one low with the gaping mouth between them,
@@ -394,25 +420,25 @@ POSES["leap3"] = {
     "loin": ragged_loin(-12, 17, 5.5, -4.0),
     "head": head(15, 24), "jaw": jaw(15, 24, 0.9), "hair": hair(15, 24, sweep=1.0),
     "near_arms": [L([(4, 20), (11, 16), (18, 15), (24, 16)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": hand(24, 16, 1.0, down=False) + hand(25, 29, 1.0, down=True),
+    "fingers": hand(24, 16, 1.4, down=False) + hand(25, 29, 1.4, down=True),
     "ribs": [(-5, 17, 20), (-2, 18, 21), (1, 19, 22)],
-    "grime": [(-10, 17), (-20, 10), (-3, 22)],
+    "grime": [(-10, 17), (-20, 10), (-3, 22), (-7, 23), (1, 25)],
     "face": "roar", "face_at": (15, 24),
 }
 
 # KEY 12 hurt: thrown upright and back, head snapped up, dreads whipping forward, near arm flung, eye squeezed shut.
 POSES["hurt4"] = {
-    "far_limbs": [L([(-5, 15), (1, 9), (1, 3), (6, 1)], [2.0, 1.6, 1.1, 0.8]),
-                  L([(0, 25), (-5, 29), (-9, 31), (-12, 33)], [1.7, 1.4, 1.1, 0.8])],
-    "torso": L([(-8, 14), (-4, 21), (0, 27)], [4.0, 4.3, 3.9]),
-    "near_legs": [L([(-7, 14), (-2, 8), (-7, 2), (-2, 1)], [2.4, 1.9, 1.3, 0.9])],
-    "loin": ragged_loin(-6, 13, 7.5, 1.0),
-    "head": head(6, 33, tilt=-2.0), "jaw": jaw(6, 33, 0.5), "hair": hair(6, 33, sweep=-0.6),
-    "near_arms": [L([(1, 24), (7, 23), (12, 20), (16, 16)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": hand(16, 16, 1.0, down=True),
-    "ribs": [(-6, 14, 19), (-3, 17, 22), (0, 20, 25)],
-    "grime": [(-10, 12), (-5, 22), (-4, 5)],
-    "face": "pain", "face_at": (6, 33),
+    "far_limbs": [L([(1, 15), (6, 9), (6, 3), (10, 1)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(-2, 24), (2, 20), (4, 15), (5, 11)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-1, 14), (-3, 21), (-5, 27)], [4.0, 4.3, 3.9]),
+    "near_legs": [L([(-1, 14), (3, 8), (-2, 2), (3, 1)], [2.4, 1.9, 1.3, 0.9])],
+    "loin": ragged_loin(-1, 14, 7.5, 1.0),
+    "head": head(-1, 32, tilt=-2.5), "jaw": jaw(-1, 32, 0.8), "hair": hair(-1, 32, sweep=-0.6),
+    "near_arms": [L([(-4, 25), (-10, 28), (-14, 32), (-15, 36)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": hand(-15, 36, -1.0, down=False),
+    "ribs": [(-4, 15, 21), (-1, 16, 22)],
+    "grime": [(-7, 18), (0, 10), (-3, 5), (-12, 30)],
+    "face": "pain", "face_at": (-1, 32),
 }
 
 # KEY 15 defeat (final): sprawled on its back on the floor, limbs splayed, dreads spilled behind the head,
@@ -427,7 +453,7 @@ POSES["down5"] = {
     "near_arms": [L([(2, 7), (5, 11), (6, 15), (9, 17)], [1.9, 1.5, 1.1, 0.8])],
     "fingers": hand(9, 17, 0.7, down=False),
     "ribs": [(-8, 3, 7), (-5, 3, 8), (-2, 3, 8)],
-    "grime": [(-10, 5), (-3, 3)],
+    "grime": [(-10, 5), (-3, 3), (-15, 7), (-6, 8)],
     "face": "dead", "face_at": (12, 6),
 }
 
@@ -450,13 +476,13 @@ HOLD_MS = 100
 
 # placeholder boxes (px from the pivot: x forward, y up), measured from the key bounding boxes; not approved mechanics
 BOXES = {
-    "standing": {"x": [-14, 20], "y": [0, 39]},
+    "standing": {"x": [-14, 21], "y": [0, 39]},
     "hurtbox_idle_walk": {"x": [-14, 21], "y": [0, 33]},
     "hurtbox_tell_land": {"x": [-16, 19], "y": [0, 22]},
     "hurtbox_leap": {"x": [-22, 21], "y": [6, 31]},
-    "hurtbox_hurt": {"x": [-12, 12], "y": [0, 41]},
+    "hurtbox_hurt": {"x": [-11, 5], "y": [0, 40]},
     "hurtbox_down": {"x": [-19, 18], "y": [0, 14]},
-    "attack_hitbox_impact_frame_only": {"x": [14, 30], "y": [13, 33], "frame": 10},
+    "attack_hitbox_impact_frame_only": {"x": [14, 32], "y": [13, 33], "frame": 10},
 }
 DUST = [(-21, 1, "C"), (-20, 0, "c"), (-22, 0, "C"), (-19, 1, "c"), (23, 1, "C"), (24, 0, "c"), (24, 1, "C"), (25, 0, "c"), (26, 1, "C")]
 

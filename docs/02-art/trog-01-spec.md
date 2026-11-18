@@ -1,6 +1,6 @@
 # TROG-01: Troglodyte family (Pygmy, Basher, Virtuoso) readability sets, design spec
 
-**Status:** Pygmy base design edited (size confirmed, construction and six keys redrawn, keys re-frozen); Basher and Virtuoso not started. In-betweens are copies. Silhouette gate and independent review pending.
+**Status:** Pygmy base design edited (size confirmed, construction and six keys redrawn, keys re-frozen); Basher and Virtuoso not started. In-betweens are copies. Silhouette gate passed after the key fixes (section 13); in-betweens next.
 
 **Decision record (Pygmy base, after the design edit):** height 40 px (confirmed), frame 80 x 56, pivot (30, 55), palette `trog-family-v0` (15 core colours, 5 slots allocated to the variants), family height ladder Pygmy 40 / Virtuoso 66 / Basher 66 / Juicer 84 or more (section 2b).
 
@@ -119,11 +119,11 @@ These rules are the family contract. The Pygmy implements them in `scripts/autho
 
 **Face (template, then redraw larger):** placed from the jaw centre (hx, hy). Heavy `K` brow at hx..hx+3; a bulging eye 2 rows by 3 columns (2 x 2 `w` white, 1 or 2 `K` pupil at the front, 2 or 3 `e` red pixels behind and below: bloodshot, never a clean white eye); mouth from the back of the cheek (hx-3) to the front edge (hx+6), at least two thirds of the head length. Idle: clenched `t` teeth row over a dark `o` gash and lower fangs. Roar (tell and attack): a 3-row gaping `o` mouth that breaks the front outline, `q` tongue at the bottom, top and bottom teeth, two drool strands. Pain: the eye squeezed to a `K` slit, no red. Dead: crossed eye, tongue out past the lip. The larger types keep this order and the accents (eye white, red rim, yellow teeth, drool), and add rows (Basher: heavier brow, a 2 to 3 row teeth band; Virtuoso: a narrower mouth that opens taller to release the tongue).
 
-**Hair (dreads, not horns):** a matted crown mop (polygon, `MOP`) sitting on the back two thirds of the skull, about 0.15 H above the skull top, and heavy rope dreads (radius 0.95 px at 40, about 1.5 px at 66) hanging **down and back** from it over the nape and the shoulder hump; the longest ropes reach about 0.45 H behind the jaw centre and end below the jaw line. One short front lock ends above the brow. Rules that keep it from reading as horns at 1x: no rope point ever rises above the crown; every rope ends lower than it starts; the forehead in front of the mop stays skin; the ear (skin) sits on the dark mop and points straight back, below the crown line; every third column of lit hair (`I`) drops to `H` so the mop reads as separate ropes. Motion streams the tips back and up toward the horizontal (`sweep` 0.6 on the walk, 1.0 in the leap); the hurt recoil whips them forward (`sweep` -0.6). Larger types keep the mop-plus-ropes rule with more and longer ropes (the Virtuoso's reach the middle of the back).
+**Hair (dreads, not horns):** a matted crown mop (polygon, `MOP`) sitting on the back two thirds of the skull, about 0.15 H above the skull top, and heavy rope dreads (radius 0.95 px at 40, about 1.5 px at 66) hanging **down and back** from it over the nape and the shoulder hump; the longest ropes reach about 0.45 H behind the jaw centre and end below the jaw line. One short front lock ends above the brow. Rules that keep it from reading as horns at 1x: no rope point ever rises above the crown; every rope ends lower than it starts; the forehead in front of the mop stays skin; the ear (skin) sits on the dark mop and points straight back, below the crown line; every third column of lit hair (`I`) drops to `H` so the mop reads as separate ropes; the mop's top and back edge has three 1 px notches, and ropes 0 to 2 carry a 1 px bead or knot (`t`, `w`, `t`) one point before the tip. Motion streams the tips back and up toward the horizontal (`sweep` 0.6 on the walk, 1.0 in the leap); the hurt recoil whips them forward (`sweep` -0.6). Larger types keep the mop-plus-ropes rule with more and longer ropes (the Virtuoso's reach the middle of the back).
 
-**Skin and grime:** one ramp for the family, `d` `#5a2c3f`, `s` `#8c4651`, `m` `#bf6f64`, `l` `#e5a08c` (torch-lit upper-left rim), with the far limbs on `K`/`d`/`d`/`s`. Pale reddish-pink, cooled so it separates from the orange brick. Grime is part of the construction, not decoration: 2 px `d` smudges on lit or mid skin (4 to 6 per key at 40 px, more on the larger types), and the two rows above the contact row (soles, knuckles) are dirt-caked `d`. No clean, evenly lit skin.
+**Skin and grime:** one ramp for the family, `d` `#5a2c3f`, `s` `#8c4651`, `m` `#bf6f64`, `l` `#e5a08c` (torch-lit upper-left rim), with the far limbs on `K`/`d`/`d`/`s`. Pale reddish-pink, cooled so it separates from the orange brick. Grime is part of the construction, not decoration: 2 px `d` smudges on lit or mid skin (4 to 6 per key at 40 px, more on the larger types), and the two rows above the contact row (soles, knuckles) are dirt-caked `d`. Rib strokes are `d` where they cross the lit rim and `s` on mid skin. No run of more than 5 clean `l` pixels: the 4th and 5th of a longer run drop to `m`. No clean, evenly lit skin.
 
-**Cloth:** a ragged loincloth with a torn hem, `c` `#3b2f2c` and `C` `#72604d`, hanging from behind the hip. Bare hands and feet in every type.
+**Cloth:** a ragged loincloth, `c` `#3b2f2c` dominant with `C` `#72604d` only on the lit top and left fold, hanging **down** from just below the hip centre (the rump skin shows above it) with three torn points on the hem; it never juts up or back. Bare hands and feet in every type. Planted hands (`planted_hand`) splay three 1 px claws 4 to 5 px long forward along the contact row; the middle finger is its own part, so a 1 px `K` gap separates the claws. In the strike the reaching claws are 1.4x longer and lead the silhouette (they are the hitbox). A hurt pose never points a hand at the player.
 
 **Palette allocation:** the 15 core colours (`K d s m l H I c C w e t T o q`) are shared and frozen. The 5 free slots are allocated so that even a single family atlas stays at 20: Basher 2 (forearm wrap grey, mid and light; the necklace and shoulder trash reuse `w`, `t`, `c`, `C`), Virtuoso 3 (purple robe deep, mid, light; the gold bells reuse `t` and `T`, the tongue reuses `q` with `s` and `o` for its shade). The Juicer is a boss with its own atlas: the 15 core colours plus up to 5 of its own.
 
@@ -137,13 +137,13 @@ These rules are the family contract. The Pygmy implements them in `scripts/autho
 
 | Box | x | y | Frames |
 | --- | --- | --- | --- |
-| Standing (opaque extent) | -14 to 20 | 0 to 39 | idle |
+| Standing (opaque extent) | -14 to 21 | 0 to 39 | idle |
 | Hurtbox idle/walk | -14 to 21 | 0 to 33 | 0 to 6 |
 | Hurtbox tell/land | -16 to 19 | 0 to 22 | 7, 8, 11 |
 | Hurtbox leap | -22 to 21 | 6 to 31 | 9, 10 |
-| Hurtbox hurt | -12 to 12 | 0 to 41 | 12 |
+| Hurtbox hurt | -11 to 5 | 0 to 40 | 12 |
 | Hurtbox down | -19 to 18 | 0 to 14 | 13 to 15 |
-| Attack hitbox (strike frame only) | 14 to 30 | 13 to 33 | 10 |
+| Attack hitbox (strike frame only) | 14 to 32 | 13 to 33 | 10 |
 
 - Authored facing right; the runtime mirrors around the pivot column.
 - One atlas, frames 0 to 15, one layer: `body`.
@@ -237,9 +237,9 @@ Design units are px right of the pivot column and up from the contact row. Froze
 | --- | --- | --- | --- |
 | 0 | `idle` | Top row 16 (40 px), x -14 to 20. Hips (-10, 15) rise to the shoulder hump (3, 24); head jaw centre (13, 25), skull (9, 26), at hump height and ahead of it; the mop tops out at y 38 and the ropes hang down the back over the hump to about (-5, 23); near arm from (4, 21) to the hand at (15, 3). Snarl face, 6 grime smudges. | A hunched, long-armed silhouette with a big head and a hanging dread mop that no other Floor 1 enemy has; the head leads. |
 | 3 | `walk` | Top row 21 (35 px), x -18 to 26. Body drops 4 px and leans forward; head (16, 20); near hand reaches to (21, 3); far leg trails to (-17, 2); ropes stream back (sweep 0.6). | Lower and longer than the idle: reads as a scuttle. |
-| 8 | `attack_tell` | Top row 26 (30 px), x -17 to 21. Hips up at (-12, 16), shoulders down at (3, 12), head dropped to (13, 15) with the jaw hanging open (roar), both hands planted at x 16 to 20; legs folded. | The lowest, most compact grounded pose with a gaping mouth: "about to spring". |
+| 8 | `attack_tell` | Top row 27 (29 px), x -17 to 21. Rump up at (-12, 17.5), shoulders down at (3, 12), head dropped to (13, 14) with the jaw hanging open (roar): a forward-tilted wedge; hands planted with claws splayed along the floor; legs folded; the rag hangs straight down. | The lowest, most compact grounded pose with a gaping mouth: "about to spring". |
 | 10 | `attack_leap` | Top row 17, bottom row 50 (5 px off the floor), x -29 to 30. Body flat from (-13, 17) to (4, 22); head (15, 24) roaring; near claw low at (24, 16), far claw high at (25, 29); legs trail to (-28, 11); ropes stream straight back (sweep 1.0). | The longest horizontal bar of the set; two claws and the mouth form the strike front. |
-| 12 | `hurt` | Top row 8 (48 px), x -13 to 21. Torso arched back from (-8, 14) to (0, 27); head snapped up at (6, 33) with the skull tilted 2 px higher; ropes whip forward (sweep -0.6); near arm flung forward-down; eye a shut slit, no red. | The tallest pose and the only one with the head above the back: a recoil. |
+| 12 | `hurt` | Top row 9 (47 px), x -20 to 11. Torso tilted back from the hips (-1, 14) to the shoulders (-5, 27); head (-1, 32) with the skull tilted 2.5 px higher, its centre 2 px behind the hip column; near arm flung back and up to the wrist (-15, 36) with the fingers fanned open; far arm limp forward-down; ropes whip forward (sweep -0.6); eye a shut slit, no red; a 3-row open pain mouth without the tongue. Nothing points at the player. | The tallest pose and the only one with the head above the back: a recoil. |
 | 15 | `down` | Top row 35 (21 px), x -19 to 18. On its back; knee raised at (-9, 10); near arm up to (9, 17); head (12, 6) with the mop and ropes spilled behind it; crossed eye, tongue out. | Lowest, flat on the floor; the red eye is gone. |
 
 ## 8. In-between list
@@ -306,7 +306,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - Packet: script output plus a medium-tier executor (stage P).
 - Draft spec and keys (Pygmy only): Claude Sonnet.
 - Design edit (size decision, shared construction, head/hair/face redesign, six keys redrawn and re-frozen, boxes and strike ticks): Claude Opus.
-- Independent review: pending.
+- Silhouette gate: an independent reviewer (FIX-KEYS); the key fixes after it: Claude Opus.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
 
 ## 13. Design edit: resolved questions and what remains open
@@ -315,4 +315,5 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - Dreads read as horns: fixed by the mop-plus-hanging-ropes rule (section 2b, Hair); no rope rises above the crown.
 - Face at about 10 x 10 px: the head is now 14 x 12 px and the face template 11 x 9 px with three separate accents (section 2).
 - `attack_land` stays a separate tag (section 4).
+- Silhouette gate (FIX-KEYS) applied: the hurt arm is flung back and up with the torso tilted back and a pain mouth (it no longer reads as a grab); the rag hangs down with torn points; the tell rump is 1.5 px higher and the head 1 px lower; claws are longer and gapped; the mop is notched and beaded; there is more grime, and ribs are visible at 1x. Keys re-frozen.
 - Still open: the in-betweens are copies, so the walk is a slide; pounce range, damage and boxes are placeholders; the silhouette gate and the independent review are next.
