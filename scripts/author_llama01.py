@@ -34,7 +34,6 @@ ROOT = Path(__file__).resolve().parent.parent
 LLAMA_DIR = ROOT / "assets/source/characters/llama"
 GRID = LLAMA_DIR / "llama-01.grid.json"
 SIZE_STUDY = LLAMA_DIR / "llama-01_size_study.grid.json"
-MIRROR_LIT = LLAMA_DIR / "llama-01_mirror_lit.grid.json"   # scene-only: same frames, torch from the upper right
 CANVAS = (96, 72)
 PIVOT = (44, 71)
 TICK_HZ = 60
@@ -87,7 +86,7 @@ def ramp(material: str, v: float) -> str:
     if material == "hoof":
         return "h" if v > -0.3 else "a"
     if material == "ear_in":
-        return "s" if v > 0.0 else "a"
+        return "s"            # far ear: one step lighter than fix round 1 (was s/a), reads as fur in shadow (E6)
     if material == "mouth":
         return "o"
     raise ValueError(material)
@@ -117,9 +116,10 @@ class Part:
             d = math.hypot(ox, oy)
             extra = 0.0
             if self.shag and d > 0:
-                (sx, sy), amount = self.shag
+                (sx, sy), amount = self.shag[:2]
                 facing = 1.0 if (sx, sy) == (0, 0) else max(0.0, (ox * sx + oy * sy) / d)
-                extra = amount * tuft(t * math.sqrt(l2) * 1.3, 0.5) * facing
+                phase = self.shag[2] if len(self.shag) > 2 else 0.5
+                extra = amount * tuft(t * math.sqrt(l2) * 1.3, phase) * facing
             if d > r + extra:
                 return None
             ln = math.sqrt(l2) or 1.0
@@ -350,7 +350,10 @@ def llama(c: Canvas, p: dict) -> None:
     c.outline("far")
 
     tail = p["tail"]
-    main.append(Part("cap", (tail[0], tail[1], 1.4, 2.4), "fur", shag=((0, 0), 2.6)))   # shaggy plume, thin root
+    tail_phase = 0.5
+    if p.get("tail_sync"):   # tuft index counted from the tip, so the tip shag matches the IDLE tail (E5)
+        tail_phase += 1.3 * (math.dist(IDLE["tail"][0], IDLE["tail"][1]) - math.dist(tail[0], tail[1]))
+    main.append(Part("cap", (tail[0], tail[1], 1.4, 2.4), "fur", shag=((0, 0), 2.6, tail_phase)))   # shaggy plume, thin root
     rump, chest = p["rump"], p["chest"]
     rr = p.get("barrel_rr") or (p["barrel_r"], p["barrel_r"] - 0.5)
     main.append(Part("cap", (rump, chest, *rr), "fur", shag=((0, 0), 1.0)))              # ragged all round
@@ -374,9 +377,18 @@ def llama(c: Canvas, p: dict) -> None:
     main.append(Part("cap", (ma, mb, *p.get("muzzle_r", (3.6, 2.9))), "muzzle"))
     if p.get("mouth"):
         main.append(Part("tri", p["mouth"], "mouth", glow=p.get("mouth_glow", 0.0)))
-    main += poly(p["ear_near"], er, "fur")
+    ear_parts = poly(p["ear_near"], er, "fur")
+    main += ear_parts
     for part in main:
         c.draw(part)
+    if p.get("ear_ring"):
+        # Ears laid back along the neck (D5): a 1 px dark ring on the neck side keeps the pale ear readable on the pale fur.
+        mask = {(x, y) for y in range(c.h) for x in range(c.w) if any(q.sample(x + 0.5, y + 0.5) for q in ear_parts)}
+        for y in range(c.h):
+            for x in range(c.w):
+                if (x, y) not in mask and c.mat[y][x] == "fur" and c.px[y][x] not in GLOW and any(
+                        (x + dx, y + dy) in mask for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    c.px[y][x] = "K"
     if p.get("throat"):  # the puffed throat sac glows from the inside: core in the middle
         cx, cy, rx, ry = p["throat"]
         for y in range(c.h):
@@ -493,7 +505,7 @@ TELL = shifted(
     **hooves(near_hind=(25, 69), far_hind=(31, 69), near_front=(59, 69), far_front=(64, 69)),
     neck=((52, 36), (59, 12)), neck_r=(5.0, 3.8), glow=1.0, throat=(60.5, 22.5, 3.4, 6.2),
     skull=(60, 9, 4.8, 4.2), muzzle=((62, 10), (71, 12)), jaw=((62, 13), (70, 14.5)), muzzle_r=(3.8, 2.8),
-    ear_near=((57, 7), (52.5, 5), (47.5, 5.5)), ear_far=((59, 7), (54.5, 5.2), (50, 6)),
+    ear_near=((56.5, 9), (54.5, 10.3), (52, 13.2)), ear_far=((56, 10), (53.8, 11.6), (51, 14.8)), ear_ring=True,
     tail=((20, 38), (11, 28), (-0.5, -1)),
     mouth=None, mouth_line=None, teeth=[("clench", (68, 11))],
     eye="tell", eye_at=(58, 8), nostril=(71, 9),
@@ -510,7 +522,7 @@ SPIT = shifted(
     neck=((57, 38), (74, 25)), neck_r=(5.0, 3.5), glow=0.67,
     skull=(77, 23, 4.6, 3.8), muzzle=((79, 23.5), (87, 23.5)), jaw=((79, 27), (86, 31)), muzzle_r=(3.2, 2.5),
     mouth=((79, 26), (89, 25), (87, 31)), mouth_glow=1.0,
-    ear_near=((75, 20.5), (70, 18.5), (65, 19)), ear_far=((77, 20.5), (72, 18.8), (67, 19.5)),
+    ear_near=((73, 21.5), (70.8, 22.6), (67.8, 23.8)), ear_far=((73, 20.6), (70.5, 21.2), (67.5, 22.6)), ear_ring=True,
     tail=((23, 36), (12, 31), (-1, -0.3)),
     mouth_line=None, teeth=[("upper", (85, 25)), ("lower", (83, 29))],
     eye="angry", eye_at=(75, 21), nostril=(87, 20),
@@ -528,7 +540,7 @@ HURT = shifted(
     neck=((51, 39), (54, 27), (54, 15)), neck_r=(4.8, 3.5, 3.2),
     skull=(54, 12, 4.6, 3.8), muzzle=((56, 12), (63, 7)), jaw=((56, 15), (63, 12)),
     mouth=((57, 13), (64, 8), (63, 12)),
-    ear_near=((52, 10), (47, 9), (42.5, 10.5)), ear_far=((54, 10), (49, 9.4), (44.5, 11)),
+    ear_near=((51.5, 11), (49.5, 12.5), (48, 16)), ear_far=((51.5, 10), (49, 11.2), (46.8, 14.2)), ear_ring=True,
     tail=((19, 39), (12, 44), (-1, 0.4)),
     mouth_line=None, teeth=[("upper", (61, 8))],
     eye="shut", eye_at=(52, 11), nostril=None,
@@ -622,11 +634,11 @@ _head_x1 = move_head(IDLE, dx=1)
 
 # 1 Inhale: body, first leg points and head up 1 px, hooves stay.
 POSE_1 = shifted(IDLE, **move_body(IDLE, -1), **move_head(IDLE, dy=-1),
-                 tail=(IDLE["tail"][0], (13, 27), IDLE["tail"][2]))
+                 tail=(IDLE["tail"][0], (13, 27), IDLE["tail"][2]), tail_sync=True)
 
 # 2 Exhale and chew: head x -1, jaw end / mouth third point / lower teeth y +1, ear tips a further x -1.
 _h2 = move_head(IDLE, dx=-1)
-POSE_2 = shifted(IDLE, **_h2, tail=(IDLE["tail"][0], (14, 30), IDLE["tail"][2]))
+POSE_2 = shifted(IDLE, **_h2, tail=(IDLE["tail"][0], (14, 30), IDLE["tail"][2]), tail_sync=True)
 POSE_2["jaw"] = (_h2["jaw"][0], mv(_h2["jaw"][1], 0, 1))
 POSE_2["mouth"] = (_h2["mouth"][0], _h2["mouth"][1], mv(_h2["mouth"][2], 0, 1))
 POSE_2["teeth"] = [(n, mv(q, 0, 1)) if n == "lower" else (n, q) for n, q in _h2["teeth"]]
@@ -645,6 +657,7 @@ POSE_5 = shifted(
     near_front=[(52, 47, 3.6), (51, 53, 2.4), (50, 59, 2.1), (50, 67, 1.3)], near_front_hoof=(50, 69),
     far_hind=[(34, 46, 3.5), (33, 53, 2.5), (27, 59, 1.9), (26, 67, 1.2)], far_hind_hoof=(26, 69),
     near_hind=[(29, 46, 4.5), (32, 53, 3.0), (28, 59, 2.1), (29, 67, 1.3)], near_hind_hoof=(29, 69),
+    tail_sync=True,
 )
 # 6 Passing B: frame 4 with the lifted pair swapped (near fore and far hind up).
 POSE_6 = shifted(
@@ -661,7 +674,7 @@ POSE_7 = shifted(
     neck=(mean_pose(IDLE, TELL, ("neck",))["neck"][0], (60, 16)), neck_r=(4.9, 3.6), glow=0.4, throat=None,
     skull=(61, 13, 5.0, 4.2), muzzle=((63, 14), (71.5, 16.5)), jaw=((63, 18), (70.5, 20)), muzzle_r=(3.7, 2.85),
     mouth=None, teeth=[("clench", (68, 15))],
-    ear_near=((58.5, 11), (56, 8), (52.5, 7)), ear_far=((60.5, 11), (58, 8.2), (55, 7.5)),
+    ear_near=((58, 11), (56, 12.5), (54, 15.5)), ear_far=((58, 10), (55.5, 11.4), (53, 14)), ear_ring=True,
     eye="tell", eye_at=(59, 12), nostril=(72, 13),
 )
 
@@ -684,7 +697,7 @@ POSE_12 = shifted(
     neck=((54, 48), (61, 40), (67, 33)), neck_r=(4.8, 3.5, 3.1),
     skull=(69, 31, 5.2, 4.2), muzzle=((71, 33), (78, 37)), jaw=((70, 38), (76, 40)),
     mouth=((72, 36), (80, 38), (76, 40)),
-    ear_near=((67, 28), (62, 26), (58, 27)), ear_far=((69, 28), (64, 26.4), (60, 27.5)),
+    ear_near=((65.5, 29.5), (63.5, 31.3), (61, 33.3)), ear_far=((66, 28.5), (63.8, 29.9), (61.2, 31.8)), ear_ring=True,
     eye="shut", eye_at=(66, 29), teeth=[("upper", (75, 35)), ("lower", (74, 39))], nostril=(78, 33),
     tail=((22, 40), (15, 44), (-1, 0.4)),
 )
@@ -891,7 +904,7 @@ def report(rows: list[str], label: str) -> None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("mode", choices=("keys", "size-study", "mirror-lit"))
+    ap.add_argument("mode", choices=("keys", "size-study"))
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--preview", type=Path)
     a = ap.parse_args(argv)
@@ -903,23 +916,13 @@ def main(argv=None) -> int:
             preview(data, build_size_study(), a.preview)
         target, text = GRID, dump(data)
         manifest_text = json.dumps(build_manifest(), indent=2) + "\n"
-    elif a.mode == "mirror-lit":
-        # Lit scenes mirror the right-facing frames for enemies that face Carl on their left, which would put the
-        # torch highlights on the right (wrong) side of the flipped llama. Render the same poses with the torch
-        # vector mirrored in x; flipping that grid puts the highlights back toward the upper-left torch.
-        global LIGHT
-        LIGHT = (-LIGHT[0], LIGHT[1])
-        data = build_grid()
-        target, text = MIRROR_LIT, dump(data)
     else:
         data = build_size_study()
         for i, fr in enumerate(data["frames"]):
             report(fr["cels"]["body"], f"study {i}")
         target, text = SIZE_STUDY, dump(data)
     if a.check:
-        if a.mode == "mirror-lit":
-            bad = [] if target.read_text() == text else ["mirror-lit grid"]
-        elif a.mode == "keys":
+        if a.mode == "keys":
             old = json.loads(GRID.read_text())
             bad = [f for f in range(len(TICKS)) if old["frames"][f]["cels"] != data["frames"][f]["cels"]]
             if not MANIFEST.is_file() or MANIFEST.read_text() != manifest_text:

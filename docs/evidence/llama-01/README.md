@@ -7,7 +7,6 @@ Regenerate with:
 ```sh
 bash scripts/export_assets.sh                                   # atlases, including the Floor 1 kit the compositor needs
 python3 scripts/author_llama01.py keys                          # grid + manifest (--check verifies them)
-python3 scripts/author_llama01.py mirror-lit                    # scene-only grid shaded for the mirrored facing
 python3 scripts/pixel_grid_to_ase.py build assets/source/characters/llama/llama-01.grid.json assets/source/characters/llama/llama-01.ase
 python3 -m scripts.pixelart validate assets/source/characters/llama/llama-01.pixelart.json --out docs/evidence/llama-01/validate
 python3 -m scripts.pixelart evidence assets/source/characters/llama/llama-01.pixelart.json --out docs/evidence/llama-01
@@ -19,7 +18,7 @@ python3 -m scripts.pixelart review-pack assets/source/characters/llama/llama-01.
 | File | What it shows |
 | --- | --- |
 | `review-pack/01_contact_sheet_x4.png` | all 17 frames at x4 with frame, tag, ticks and KEY marks, contact row 71 (cyan) and pivot (yellow) |
-| `review-pack/02_lit_scene_640x360_x3.png` | Carl and Donut unobstructed on the left, a spit glob (frame 16) in flight to their right, then a llama releasing it (frame 9), an idle llama (0) and a tell llama (8); llamas are mirrored with the mirror-lit grid so highlights face the upper-left torch; lit Floor 1, shown x3 |
+| `review-pack/02_lit_scene_640x360_x3.png` | Carl and Donut unobstructed on the left, a spit glob (frame 16) in flight to their right, then a llama releasing it (frame 9), an idle llama (0) and a tell llama (8); llamas are mirrored by the runtime flip, as the game will draw them (baked highlights then sit on the far side: accepted project-wide, decision 2026-11-18); lit Floor 1, shown x3 |
 | `review-pack/03_tell_attack_strip.png` | tell (7, 8), release and recover (9, 10) and the spit projectile (15, 16) with the 60 Hz tick bar (8 + 22 + 6 + 14 + 4 + 4) |
 | `review-pack/validator_report.json`, `validator_summary.txt` | the review-pack validator run (V01 to V15) |
 | `validate/validator_report.json`, `validator_summary.txt` | the `validate` run: 13 PASS, 2 SKIPPED (V08, V10 not applicable), 0 FAIL |

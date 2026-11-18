@@ -73,15 +73,11 @@ def entries_for(cfg: AssetConfig, imgs: list[Image.Image]) -> list[tuple]:
     donut, donut_piv = reference_idle("donut")
     entries = [(donut, donut_piv, DONUT_X, 0), (carl, carl_piv, CARL_X, 0)]
     pivot = tuple(cfg.pivot)
-    # Optional ``scene.mirror_lit_grid``: the same frames shaded for the mirrored facing (torch highlights
-    # authored on the side that is upper-left after the flip). Used only for mirrored actors in the scene.
-    mirror_path = cfg.get("scene", {}).get("mirror_lit_grid")
-    mirror_imgs = grid_images(load_grid_file(repo_path(mirror_path))) if mirror_path else imgs
     for actor in default_actors(cfg):
         img, piv = imgs[actor["frame"]], pivot
         # authored facing right; enemies face Carl on their left, so mirror them (the runtime rule)
         if actor.get("flip", cfg.get("facing", "right") == "right"):
-            img, piv = flip(mirror_imgs[actor["frame"]], pivot)
+            img, piv = flip(img, pivot)
         entries.append((img, piv, actor["x"], actor.get("lift", 0)))
     return entries
 

@@ -74,7 +74,6 @@
     "strip_tags": ["attack_tell", "attack_swing", "spit"]
   },
   "scene": {
-    "mirror_lit_grid": "assets/source/characters/llama/llama-01_mirror_lit.grid.json",
     "actors": [
       {"frame": 16, "x": 592},
       {"frame": 9, "x": 660},
