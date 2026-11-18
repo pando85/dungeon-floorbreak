@@ -1,0 +1,217 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "anim-donut-03-vfx",
+  "title": "ANIM-DONUT-03 Magic Missile projectile and impact VFX (docs/02-art/donut-magic-missile-anim-03-spec.md)",
+  "grid": "assets/source/vfx/magic_missile/vfx_magic_missile.grid.json",
+  "manifest": "assets/manifests/vfx_magic_missile.json",
+  "frame_size": [
+    32,
+    32
+  ],
+  "pivot": [
+    16,
+    16
+  ],
+  "contact_row": 16,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "missile_flight": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    },
+    "missile_impact": {
+      "playback": "once",
+      "contact": "free",
+      "frames": [
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          5
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "missile_flight",
+    "move": "missile_flight",
+    "tell": "missile_flight",
+    "attack": "missile_impact",
+    "hurt": "missile_impact",
+    "defeat": "missile_impact"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 12,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": false,
+    "manifest_tick_rows": "vfx.frames",
+    "manifest_tick_hz": "vfx.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/anim-donut-03-vfx_keys.json",
+      "frames": [
+        0,
+        4,
+        5,
+        7
+      ],
+      "layers": [
+        "body"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "M1-bolt-compact",
+        "frames": [
+          0
+        ],
+        "max_width": 24,
+        "max_height": 9
+      },
+      {
+        "id": "M2-flash-small",
+        "frames": [
+          4
+        ],
+        "max_width": 16,
+        "max_height": 12
+      },
+      {
+        "id": "M3-scratch-peak-fits",
+        "frames": [
+          5
+        ],
+        "min_width": 14,
+        "max_width": 26,
+        "max_height": 26
+      },
+      {
+        "id": "M4-fade-stays-in-frame",
+        "frames": [
+          7
+        ],
+        "max_width": 28,
+        "max_height": 26
+      }
+    ],
+    "key_counts": [
+      {
+        "id": "M5-bolt-white-tiny",
+        "frames": [
+          0
+        ],
+        "key": "w",
+        "min": 1,
+        "max": 3
+      },
+      {
+        "id": "M5-flash-white-capped",
+        "frames": [
+          4
+        ],
+        "key": "w",
+        "min": 1,
+        "max": 6
+      },
+      {
+        "id": "M5-peak-white-tiny",
+        "frames": [
+          5
+        ],
+        "key": "w",
+        "max": 2
+      },
+      {
+        "id": "M5-fade-cold",
+        "frames": [
+          7
+        ],
+        "key": "w",
+        "max": 0
+      },
+      {
+        "id": "M5-fade-no-core",
+        "frames": [
+          7
+        ],
+        "key": "c",
+        "max": 0
+      }
+    ]
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520,
+        "lift": 19,
+        "flip": false
+      },
+      {
+        "frame": 4,
+        "x": 580,
+        "lift": 19,
+        "flip": false
+      },
+      {
+        "frame": 5,
+        "x": 640,
+        "lift": 19,
+        "flip": false
+      },
+      {
+        "frame": 7,
+        "x": 700,
+        "lift": 19,
+        "flip": false
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "missile_flight",
+      "missile_impact"
+    ]
+  }
+}

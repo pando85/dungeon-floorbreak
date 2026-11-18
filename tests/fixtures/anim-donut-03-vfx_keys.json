@@ -1,0 +1,21 @@
+{
+  "asset_id": "anim-donut-03-vfx",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "11624201512d4f62f74c4916be89e2ea563558f9e2fd46d65d06eb1b4a01704c"
+    },
+    "4": {
+      "sha256": "c57ac44f246298ad36c491530acc0600e7e47a83eeea11652bd5784b5238a2b7"
+    },
+    "5": {
+      "sha256": "4ab96c08ddda4c24c5401ed29c53393150293b3b17a1cea6e2666cd5099ad94a"
+    },
+    "7": {
+      "sha256": "1a7531428724cc5100dca8ab7c8484a0e1b173fafa0c1fdaaf374a84370cce18"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
