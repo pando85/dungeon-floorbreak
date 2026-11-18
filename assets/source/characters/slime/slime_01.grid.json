@@ -148,14 +148,14 @@
      "................KfadcbbbbbaaaabbbbbbbbbbbbbbbbaabdbbbbbccccK....................",
      "...............KfaaabbbbbbbbbbbbbbaaadbbbbbbbbbbbbbbbbrbccccK...................",
      "...............KfaccbbbbbbbbbbbbbbaaadbbbbbbbbbbbbbbbbbrbvccfK..................",
-     "..............KfccccbbbbbbbbbbbbbbbbbdbbbbbbbbbbbbbbbbvvbbccKfK.................",
-     ".............KfccccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbKKKKKKKKKK.............",
-     "............KfdccccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbvvbbbbuuuuuuuuuK.............",
-     "..........KKfdcccccccccccccccccccccccccccccccccccccKrrrrrssssussssK.............",
-     ".........KffdccccccccccccccccccccccccccccccccccccccKrnnrrssssrrsssK.............",
-     "........KfddcccccccccccccccccccccccccccccccccccccccKrrrrrsrssssssrKK............",
-     "........KffddddddddddddddddddddddddddddddddddddddddKnnnnnrrrrrrrrrKK............",
-     "......ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKcc.........."
+     "..............KfccccbbbbbbbbbbbbbbbbbdbbbbbbbbbbbbbbbbvvbbccdfK.................",
+     ".............KfccccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbccdfK................",
+     "............KfdccccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbvvbbbbbbbccdfK...............",
+     "..........KKfdcccccccccccccccccccccccccccccccccccccccccccKKKKKKKKK..............",
+     ".........KffdccccccccccccccccccccccccccccccccccccccccccccKuuHuuuuuK.............",
+     "........KfddcccccccccccccccccccccccccccccccccccccccnnrrrrssssrsssrKK............",
+     "........KffddddddddddddddddddddddddddddddddddddddddnnnrrnrrrrrrrrKKK............",
+     "......ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKnnnnnKKKKKKKKKKKcc.........."
     ]
    }
   },
@@ -195,14 +195,14 @@
      "................KfadcbbbbbaaaabbbbbbbbbbbbbbbaaaadbbbbbccccK....................",
      "................KfaccbbbbbbbbbbbbbaaadbbbbbbbbaabdbbbbrbccccK...................",
      "...............KfaccbbbbbbbbbbbbbbaaadbbbbbbbbbbbbbbbbbrbvccfK..................",
-     "..............KfccccbbbbbbbbbbbbbbbbbdbbbbbbbbbbbbbbbbvvbbccKfK.................",
-     ".............KfdcccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbKKKKKKKKKK.............",
-     "...........KKfdccccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbvvbbbbuuuuuuuuuK.............",
-     "..........KffdcccccccccccccccccccccccccccccccccccccKrrrrrssssussssK.............",
-     ".........KfddccccccccccccccccccccccccccccccccccccccKrnnrrssssrrsssKK............",
-     "........KfdccccccccccccccccccccccccccccccccccccccccKrrrrrsrssssssrKKK...........",
-     ".......KfffddddddddddddddddddddddddddddddddddddddddKnnnnnrrrrrrrrrKKK...........",
-     ".....ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKcc........."
+     "..............KfccccbbbbbbbbbbbbbbbbbdbbbbbbbbbbbbbbbbvvbbccdfK.................",
+     ".............KfdcccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbccdfK................",
+     "...........KKfdccccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbvvbbbbbbbccdfKK..............",
+     "..........KffdcccccccccccccccccccccccccccccccccccccccccccKKKKKKKKKK.............",
+     ".........KfddccccccccccccccccccccccccccccccccccccccccccccKuuHuuuuuKK............",
+     "........KfdccccccccccccccccccccccccccccccccccccccccnnrrrrssssrsssrKKK...........",
+     ".......KfffddddddddddddddddddddddddddddddddddddddddnnnrrnrrrrrrrrKKKK...........",
+     ".....ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKnnnnnKKKKKKKKKKKKcc........."
     ]
    }
   },
@@ -242,14 +242,14 @@
      "................KfadcbbbbbaaaabbbbbbbbbbbbbbbbbbbbbbbbbbccccK...................",
      "...............KfaadbbbbbbbbbbbbbbaaadbbbbbbbbbbbbbbbbrbccccK...................",
      "...............KfacdbbbbbbbbbbbbbbaaadbbbbbbbbbbbbbbbbbrbvcccK..................",
-     "..............KfcccbbbbbbbbbbbbbbbbbbdbbbbbbbbbbbbbbbbvvbbcccKK.................",
-     ".............KfccccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbKKKKKKKKKK.............",
-     "............KfdcccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbvvbbbbuuuuuuuuuK.............",
-     "..........KKfdcccccccccccccccccccccccccccccccccccccKrrrrrssssussssK.............",
-     ".........KffdccccccccccccccccccccccccccccccccccccccKrnnrrssssrrsssK.............",
-     "........KfddcccccccccccccccccccccccccccccccccccccccKrrrrrsrssssssrKK............",
-     "........KffddddddddddddddddddddddddddddddddddddddddKnnnnnrrrrrrrrrKK............",
-     "......ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKcc.........."
+     "..............KfcccbbbbbbbbbbbbbbbbbbdbbbbbbbbbbbbbbbbvvbbcccfK.................",
+     ".............KfccccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbccdfK................",
+     "............KfdcccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbvvbbbbbbbccdfK...............",
+     "..........KKfdcccccccccccccccccccccccccccccccccccccccccccKKKKKKKKK..............",
+     ".........KffdccccccccccccccccccccccccccccccccccccccccccccKuuHuuuuuK.............",
+     "........KfddcccccccccccccccccccccccccccccccccccccccnnrrrrssssrsssrKK............",
+     "........KffddddddddddddddddddddddddddddddddddddddddnnnrrnrrrrrrrrKKK............",
+     "......ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKnnnnnKKKKKKKKKKKcc.........."
     ]
    }
   },
@@ -290,13 +290,13 @@
      ".....................KfccrbbbbbcggKggjobbcccccccccccddccccccdcfK................",
      ".....................KfcccrbbbbcgKgbgobbbbbcccccccccccccccccdvdfK...............",
      "....................KfcaaadbbbbbcooobbbbbbbbbcccccccccccccvvdccdfK..............",
-     "...................KfccaaadbbbbbaaaabbbbbbbbbbbccccccccccccccKKKKKKKKKK.........",
-     "..................KfdccbbbdbbbbbbbbbbbbbbbbbbbbbbbbbbbbvvccccuuuuuuuuuK.........",
-     "................KKfddccccccccccccccccccccccccccccccccccKrrrrrssssussssK.........",
-     "...............KffdcdccccccccccccccccccccccccccccccccccKrnnrrssssrrsssK.........",
-     "..............KfddccdccccccccccccccccccccccccccccccccccKrrrrrsrssssssrK.........",
-     ".............KfffddddddddddddddddddddddddddddddddddddddKnnnnnrrrrrrrrrKK........",
-     ".......ccccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKcc......"
+     "...................KfccaaadbbbbbaaaabbbbbbbbbbbcccccccccccccccccdfK.............",
+     "..................KfdccbbbdbbbbbbbbbbbbbbbbbbbbbbbbbbbbvvccccccccdfK............",
+     "................KKfddccccccccccccccccccccccccccccccccccccccccKKKKKKKKK..........",
+     "...............KffdcdccccccccccccccccccccccccccccccccccccccccKuuHuuuuuK.........",
+     "..............KfddccdccccccccccccccccccccccccccccccccccnnrrrrssssrsssrK.........",
+     ".............KfffddddddddddddddddddddddddddddddddddddddnnnrrnrrrrrrrrKKK........",
+     ".......ccccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKnnnnnKKKKKKKKKKKcc......"
     ]
    }
   },
@@ -337,13 +337,13 @@
      ".................KfdccbrbbbbbbbbbbbbbbbbbbbbbbcccccccK..........................",
      ".................KfcccbbrbbbbbbbbbbbbbbbbbbbbbbbccccvK..........................",
      "................KfccaaadbbbbbbbbbbbbbbbbbbbbbbbbbvvccK..........................",
-     "................KfccaaadbbbbbbbbbbbbbbbbbbbbbbbbbbccKKKKKKKKKK..................",
-     "................KfcccbbdbbbbbbbbbbbbbbbbbbbbbbvvbbccuuuuuuuuuK..................",
-     "...............KfcccccccccccccccccccccccccccccKrrrrrssssussssK..................",
-     "...............KfcccccccccccccccccccccccccccccKrnnrrssssrrsssK..................",
-     "..............KfccccccccccccccccccccccccccccccKrrrrrsrssssssrK..................",
-     "..............KffdddddddddddddddddddddddddddddKnnnnnrrrrrrrrrK..................",
-     "......ccccccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.................."
+     "................KfccaaadbbbbbbbbbbbbbbbbbbbbbbbbbbccccK.........................",
+     "................KfcccbbdbbbbbbbbbbbbbbbbbbbbbbvvbbccccK.........................",
+     "...............KfcccccccccccccccccccccccccccccccccccKKKKKKKKK...................",
+     "...............KfcccccccccccccccccccccccccccccccccccKuuHuuuuuK..................",
+     "..............KfccccccccccccccccccccccccccccccnnrrrrssssrsssrK..................",
+     "..............KffdddddddddddddddddddddddddddddnnnrrnrrrrrrrrKK..................",
+     "......ccccccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKnnnnnKKKKKKKKK..................."
     ]
    }
   },
@@ -383,14 +383,14 @@
      "......................KfcccbbbbbcqKqqKKqoccccaacdcccccccfffffKK.................",
      "......................KfcccrbbbbccKggKKjocccccccccccccccccccHHKK................",
      "......................KfcccbrbbbbcggKggjobccccccccccccddccccHddvK...............",
-     ".....................KfcaaadbbbbbcgKgbgobbbbccccccccccccccccvvcdKK..............",
-     "....................KfccaaadbbbbbbcooobbbbbbbbcccccccccccccccccKKKKKKKKKK.......",
-     "...................KfdccbbbdbbbbbbaaaabbbbbbbbbccccccccccvvccccuuuuuuuuuK.......",
-     ".................KKfdccccccccccccccccccccccccccccccccccccKrrrrrssssussssK.......",
-     "................KffddccccccccccccccccccccccccccccccccccccKrnnrrssssrrsssK.......",
-     "...............KfddddccccccccccccccccccccccccccccccccccccKrrrrrsrssssssrK.......",
-     "..............KfffdddddddddddddddddddddddddddddddddddddddKnnnnnrrrrrrrrrK.......",
-     ".......cccccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKcc....."
+     ".....................KfcaaadbbbbbcgKgbgobbbbccccccccccccccccvvcdfK..............",
+     "....................KfccaaadbbbbbbcooobbbbbbbbccccccccccccccccccdfK.............",
+     "...................KfdccbbbdbbbbbbaaaabbbbbbbbbccccccccccvvccccccdfKK...........",
+     ".................KKfdccccccccccccccccccccccccccccccccccccccccccKKKKKKKKK........",
+     "................KffddccccccccccccccccccccccccccccccccccccccccccKuuHuuuuuK.......",
+     "...............KfddddccccccccccccccccccccccccccccccccccccnnrrrrssssrsssrK.......",
+     "..............KfffdddddddddddddddddddddddddddddddddddddddnnnrrnrrrrrrrrKK.......",
+     ".......cccccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKnnnnnKKKKKKKKKKcc....."
     ]
    }
   },
@@ -431,13 +431,13 @@
      "....................KfdccbrbbbbbbbbbbbbbbbbbbbbbccccccK.........................",
      "....................KfcccbbrbbbbbbbbbbbbbbbbbbbbbbccvcK.........................",
      "...................KfaaadbbbbbbbbbbbbbbbbbbbbbbbbvvcccK.........................",
-     "...................KfaaadbbbbbbbbbbbbbbbbbbbbbbbbbbcKKKKKKKKKK..................",
-     "..................KffcccdbbbbbbbbbbbbbbbbbbbbbvvbbbcuuuuuuuuuK..................",
-     "..................KffcccccccccccccccccccccccccKrrrrrssssussssK..................",
-     ".................KfcccccccccccccccccccccccccccKrnnrrssssrrsssK..................",
-     ".................KfcccccccccccccccccccccccccccKrrrrrsrssssssrK..................",
-     ".................KfdddddddddddddddddddddddddddKnnnnnrrrrrrrrrK..................",
-     ".......ccccccccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.................."
+     "...................KfaaadbbbbbbbbbbbbbbbbbbbbbbbbbbccccK........................",
+     "..................KffcccdbbbbbbbbbbbbbbbbbbbbbvvbbbccccK........................",
+     "..................KffcccccccccccccccccccccccccccccccKKKKKKKKK...................",
+     ".................KfcccccccccccccccccccccccccccccccccKuuHuuuuuK..................",
+     ".................KfcccccccccccccccccccccccccccnnrrrrssssrsssrK..................",
+     ".................KfdddddddddddddddddddddddddddnnnrrnrrrrrrrrKK..................",
+     ".......ccccccccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKnnnnnKKKKKKKKcc.................."
     ]
    }
   },
@@ -478,13 +478,13 @@
      "................KfdccbbbbbcoooaadbbbccccKK......................................",
      "................KfcccbbbbbaaaaabdbbbbcccffKK....................................",
      "................KfcccbbbbbccbbbbbbbbbbccccffKK..................................",
-     "...............KfcccbbbbbbbbbbbbbbbbbbbccccffKKKKKKKKKKKKKKK....................",
-     "...............KfcccbbbbbbbbbbbbbbbbbbbbccccvvuuuuuuuuuuuuuK....................",
-     "...............KfccccncrccccccccccccccccccccKssussssssussssK....................",
-     "...............KfcccccncrcccccccccccccccccccKsrrssssssrrsssK....................",
-     "...............KfcccccccccccccccccccccccccccKssssssrssssssrK....................",
-     "...............KfdddddddddddddddddddddddddddKrrrrrrrrrrrrrrK....................",
-     ".............ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK...................."
+     "...............KfcccbbbbbbbbbbbbbbbbbbbccccfffKK................................",
+     "...............KfcccbbbbbbbbbbbbbbbbbbbbccccvvffKK..............................",
+     "...............KfccccncrccccccccccccccccccccccddffKKKKKKKKK.....................",
+     "...............KfcccccncrcccccccccccccccccccccKKKKKuuHuuuuuK....................",
+     "...............KfcccccccccccccccccccccccccccKKssssssssrsssrK....................",
+     "...............KfdddddddddddddddddddddddddddKrrssrrrrrrrrrKK....................",
+     ".............ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK......................"
     ]
    }
   },
@@ -523,15 +523,15 @@
      ".................KfdccbbbbbbbbbbbbccccK.........................................",
      "................KfdccbbbbbbbbbaadbccccK.........................................",
      "................KfdccbbbbbddbaaadbbccccK........................................",
-     "................KfcccbbbbbccbaabdbbbccccK.......................................",
-     "................KfcccbbbbbbbbbbbbbbbbcccvvK.....................................",
-     "................KfcccbbbbbbbbbbbbbbbbbKKKKKKKKKKKKKKK...........................",
-     "...............KfcccbnbrbbbbbbbbbbbbbvvuuuuuuuuuuuuuK...........................",
-     "...............KfcccccncrccccccccccccKssussssssussssK...........................",
-     "...............KfccccccccccccccccccccKsrrssssssrrsssK...........................",
-     "...............KfccccccccccccccccccccKssssssrssssssrK...........................",
-     "...............KfddddddddddddddddddddKrrrrrrrrrrrrrrK...........................",
-     ".............ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK..........................."
+     "................KfcccbbbbbccbaabdbbbcccfK.......................................",
+     "................KfcccbbbbbbbbbbbbbbbbcccfKK.....................................",
+     "................KfcccbbbbbbbbbbbbbbbbbcccffKvv..................................",
+     "...............KfcccbnbrbbbbbbbbbbbbbbbccvvfffKK................................",
+     "...............KfcccccncrcccccccccccccccccccddfKKKKKKKKK........................",
+     "...............KfccccccccccccccccccccccccccKKKKKuuHuuuuuK.......................",
+     "...............KfccccccccccccccccccccccccKKssssssssrsssrK.......................",
+     "...............KfddddddddddddddddddddddddKrrssrrrrrrrrrKK.......................",
+     ".............ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK........................."
     ]
    }
   },
@@ -572,12 +572,12 @@
      "......................KfddcccpHdqqocccccccdbbbbbbbbbbbbbbaaadbbbccccK...........",
      ".....................KfdccccpqdqqqqocccccccbbbbbbbbbbbbbbaaadbbbbccccK..........",
      "....................KfdcccccqKqqKKqoccccccbbbbbbbbbbbbbbbbbbdbnbbccccK..........",
-     "...................KfdccccbccKggKKjocKKKKKKKKKKKKKKKbbbbbbbbbbbnbvcccK..........",
-     "..................KfdcccccbccggKggjoKuuvvuuuuuuuuuuKbbbbbbbbvvbbbccccK..........",
-     "..................KfccccccbccgKgcgocKssussssssussssKccccccccccccccccccK.........",
-     ".................KfcccccccccccooocccKsrrssssssrrsssKccccccccccccccccccK.........",
-     ".................KfccccccccccaaaacccKssssssrssssssrKccccccccccccccccccK.........",
-     ".................KfdddddddddddddddddKrrrrrrrrrrrrrrKddddddddddddddddddK.........",
+     "...................KfdccccbccKggKKjoccccccbbbbbbbbbbbbbbbbbbbbbnbvcccK..........",
+     "..................KfdcccccbccggKggjocccccvvbbbbbbbbbbbbbbbbbvvbbbccccK..........",
+     "..................KfccccccbccgKgcgocccccccccKKKKKKKKKcccccccccccccccccK.........",
+     ".................KfcccccccccccooocccccccKKKKKuuHuuuuuKccccccccccccccccK.........",
+     ".................KfccccccccccaaaacccccKKssssssssrsssrKccccccccccccccccK.........",
+     ".................KfdddddddddddddddddddKrrssrrrrrrrrrKKddddddddddddddddK.........",
      ".............ccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK........."
     ]
    }
@@ -619,12 +619,12 @@
      "......................KKcpqhqqHqocccccccccaaaadcccchhhhhhddccccccccccccccK......",
      ".................KKKKKffcqKqqKKqocccccccccccccdcdccddddddcccccccccccccccccK.....",
      "...............KKfffffdbccKggKKjocccccccccccccccdccccccccccccaaadcccccccccK.....",
-     "..............KffdddddcbccggKggjocKKKKKKKKKKKKKKKccccccccccccaaadccccccvvccK....",
-     ".............KfddccccccbccgKgcgocKuuvvuuuuuuuuuuKcccccccccccccccdbbbbccccccfK...",
-     "............KfdccccrcccccccooocccKssussssssussssKcccccccccccccncccccccccccccfK..",
-     "...........KfdccccccrcccccaaaacccKsrrssssssrrsssKccccccccccccccncccccccccccvcK..",
-     "...........KfccccccccccccccccccccKssssssrssssssrKcccccccccccccccccccccccccccvK..",
-     "...........KfddddddddddddddddddddKrrrrrrrrrrrrrrKdddddddddddddddddddddddddddddK.",
+     "..............KffdddddcbccggKggjocccccccccccccccdccccccccccccaaadccccccvvccK....",
+     ".............KfddccccccbccgKgcgocccbbbvvbbccccccccccccccccccccccdbbbbccccccfK...",
+     "............KfdccccrcccccccooocccccccccccKKKKKKKKKccccccccccccncccccccccccccfK..",
+     "...........KfdccccccrcccccaaaacccccccKKKKKuuHuuuuuKccccccccccccncccccccccccvcK..",
+     "...........KfccccccccccccccccccccccKKssssssssrsssrKcccccccccccccccccccccccccvK..",
+     "...........KfddddddddddddddddddddddKrrssrrrrrrrrrKKdddddddddddddddddddddddddddK.",
      "......cccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK."
     ]
    }
@@ -666,12 +666,12 @@
      "...................KKfddccpqdqqobbbbbbbbbbbbbbbbbbbbbccaaadcfK..................",
      "..................KffdcccpqdqqqqobbbbbbbbbbbbbbbbbbbbbcaaadcdfK.................",
      "..................KfdccccqKqqKKqobbbbbbbbbbbbbbbbbbbbbccccdccdfK................",
-     ".................KfccccbccKggKKjobbbbbbbbbKKKKKKKKKKKKKvvcccccdfK...............",
-     "................KfcccccbccggKggjobbbbbbbbKuuvvuuuuuuuuuuKcccccccK...............",
-     "................KfcccccbccgKgcgocccccccccKssussssssussssKcccvccccK..............",
-     "...............KfccccccccccooocccccccccccKsrrssssssrrsssKccccccccK..............",
-     "...............KfcccccccccaaaacccccccccccKssssssrssssssrKccccccccK..............",
-     "...............KfddddddddddddddddddddddddKrrrrrrrrrrrrrrKddddddddK..............",
+     ".................KfccccbccKggKKjobbbbbbbbbbbbbbbbbbbbbbvvcccccdfK...............",
+     "................KfcccccbccggKggjobbbbbbbbbvvbbbbbbbbbbbbccccccccK...............",
+     "................KfcccccbccgKgcgocccccccccccccKKKKKKKKKccccccvccccK..............",
+     "...............KfccccccccccooocccccccccccKKKKKuuHuuuuuKccccccccccK..............",
+     "...............KfcccccccccaaaacccccccccKKssssssssrsssrKccccccccccK..............",
+     "...............KfddddddddddddddddddddddKrrssrrrrrrrrrKKddddddddddK..............",
      "..........cccccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.............."
     ]
    }
@@ -713,13 +713,13 @@
      ".............KwwddooKqqKKpocccccccccccdddddddddwwwwwKK..........................",
      ".............KwwdddoqKKqqpocbbbbbccccccdddddddddddwwwwK.........................",
      "............KwwddddooKKKqobbbbbnbbbbbbcdddddddddddddwwwKK.......................",
-     "...........KwwddddccoooobbbbbbbbnbbbbbbcdddddddddddKKKKKKKKKK...................",
-     "...........KwwddcccbbbbbbbbbbbbbbbbbbbbccccccccdddduuuuuuuuuK...................",
-     "..........KwwddccccccccccccccccccccccccccccccKrrrrrssssussssK...................",
-     ".........KfcddcccccccccccccccccccccccccccccccKrnnrrssssrrsssK...................",
-     ".........KfccccccccccccccccccccccccccccccccccKrrrrrsrssssssrK...................",
-     ".........KfddddddddddddddddddddddddddddddddddKnnnnnrrrrrrrrrK...................",
-     ".......ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.................."
+     "...........KwwddddccoooobbbbbbbbnbbbbbbcddddddddddddddwwwK......................",
+     "...........KwwddcccbbbbbbbbbbbbbbbbbbbbccccccccddddddddwwK......................",
+     "..........KwwddcccccccccccccccccccccccccccccccccccdKKKKKKKKK....................",
+     ".........KfcddcccccccccccccccccccccccccccccccccccccKuuHuuuuuK...................",
+     ".........KfccccccccccccccccccccccccccccccccccnnrrrrssssrsssrK...................",
+     ".........KfddddddddddddddddddddddddddddddddddnnnrrnrrrrrrrrKK...................",
+     ".......ccKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKnnnnnKKKKKKKKKcc.................."
     ]
    }
   },
@@ -760,13 +760,13 @@
      ".................KcbaopqqqqqqoaaaaaaaaaaaaaaaaaaaaabbccK........................",
      "................KcbaaooKggKKooaaaaaaaaaaaaaaaaaaaaaaabbcK.......................",
      "................KcbaaooKggKKjoaaaaaaaaaaaaaaaaaaaaaaaaabcK......................",
-     "...............KcbaaaaoggKggjoaaaaaaaaaaaaaaaaaaaaaaaaaabcKKKKKKK...............",
-     "...............KcbaaaaogKgagoaaaaaaaaaaaaaaaaaaaaaaaaaaaabcKuuuuK...............",
-     "..............KcbaaaaaaooooaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbKssssK...............",
-     ".............KcbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbKsssK...............",
-     ".............KcbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbKsrK...............",
-     "............KccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbKrrK...............",
-     "........aaaaKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK..............."
+     "...............KcbaaaaoggKggjoaaaaaaaaaaaaaaaaaaaaaaaaaabcK.....................",
+     "...............KcbaaaaogKgagoaaaaaaaaaaaaaaaaaaaaaaaaaaaabcK....................",
+     "..............KcbaaaaaaooooaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbKKKKK................",
+     ".............KcbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbKuuuK...............",
+     ".............KcbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbKurK...............",
+     "............KccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbKrKK...............",
+     "........aaaaKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK................."
     ]
    }
   },

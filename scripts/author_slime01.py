@@ -64,15 +64,15 @@ SKULL = [  # 9 x 8, three-quarter skull: far socket 1 px, near socket 2 x 2, jaw
     ".oqKq.qo.",
     "..oooo...",
 ]
-PLATE = [  # 16 x 7, a riveted armour plate: straight lit top edge, squared corner, two rivets with glints, a dent
-    ".KKKKKKKKKKKKKKK",
-    "KuuuuuuuuuuuuuuK",
-    "KssussssssusssrK",
-    "KsrrssssssrrsssK",
-    "KssssssrssssssrK",
-    "KrrrrrrrrrrrrrrK",
-    "KKKKKKKKKKKKKKKK",
+PLATE = [  # 16 x 5, a buckled armour sheet 3 px thick: higher lip on the right with a glint, spaced rivets, dark underside
+    "......KKKKKKKKK.",
+    "..KKKKKuuHuuuuuK",
+    "KKssusssssrsssrK",
+    "KrrssrrrrrrrrrKK",
+    ".KKKKKKKKKKKKK..",
 ]
+PLATE_DEAD = [r.replace("H", "u") for r in PLATE]  # no glint once the creature is defeated
+PLATE_DY = 2  # the plate is 5 rows high and rests on the contact row (rows 35 to 39)
 PLATE_BACK = 6  # the back third of the plate (its left 6 columns) lies under the front skirt of the gel
 PLATE_FLAT = [  # 22 x 4, the plate fallen out flat beside the remains: lit top edge, 2 rivets
     "..KKKKKKKKKKKKKKKKKK..",
@@ -229,15 +229,15 @@ def draw_obj(cv: Cv, rows, ox, oy, cover=0, mask=None, stain_from=99, tint=True)
 def plate_swallowed(cv: Cv, mask, ox, oy):
     """The plate half buried under the front skirt: its back third is seen through the gel (the top two rows stay
     gel, the rust below is shaded toward rust_dark and grit), the front two thirds stand clear with a hard edge."""
-    seen = {"u": "r", "s": "r", "r": "n"}
+    seen = {"u": "r", "s": "r", "r": "n", "K": "n", "H": "r"}
     for j, line in enumerate(PLATE):
         for i, c in enumerate(line):
-            x, y = ox + i, oy + j
+            x, y = ox + i, oy + j + PLATE_DY
             if c == ".":
                 continue
             if i < PLATE_BACK and (x, y) in mask:
                 if j < 2:
-                    continue  # the skirt runs over the plate here
+                    continue  # the skirt runs over the plate's lip here
                 cv.put(x, y, seen.get(c, c))
             else:
                 cv.put(x, y, c)
@@ -452,13 +452,13 @@ def key_tell():
     streaks(cv, mask, (23,), 3)
     bubbles(cv, mask, [(31, 7), (26, 30)])
     sunk_skull(cv, mask, 24, 18)
-    draw_obj(cv, PLATE, 37, 33)
+    draw_obj(cv, PLATE, 41, 35)
     sheen(cv, mask, 20, 30)
     glint(cv, mask, 24)
     acid_crest(cv, mask, (29, 32))  # hot acid beads on the crest: the readable tell
     cv.put(35, tops(mask)[35] + 1, "v")
     lip_drips(cv, mask)
-    acid(cv, [(37, 34), (38, 34), (40, 32), (41, 32)])
+    acid(cv, [(41, 34), (42, 34), (44, 33), (45, 33)])
     return finish(cv)
 
 
@@ -477,11 +477,11 @@ def key_lunge():
     streaks(cv, mask, (48,), 3)
     bubbles(cv, mask, [(52, 31), (40, 29)])
     sunk_skull(cv, mask, 24, 28)
-    draw_obj(cv, PLATE, 33, 33, cover=1, mask=mask)
+    draw_obj(cv, PLATE, 35, 35, cover=1, mask=mask)
     sheen(cv, mask, 26, 72)
     glint(cv, mask, 30)
     glint(cv, mask, 68)
-    acid(cv, [(36, 34), (37, 34), (71, 33), (72, 33), (75, 36), (76, 37)])
+    acid(cv, [(38, 34), (39, 34), (71, 33), (72, 33), (75, 36), (76, 37)])
     return finish(cv)
 
 
@@ -662,7 +662,7 @@ def key_tell_7():
     streaks(cv, mask, (23,), 3)
     bubbles(cv, mask, [(31, 10), (26, 31)])
     sunk_skull(cv, mask, 24, 23)
-    draw_obj(cv, PLATE, 44, 33)
+    draw_obj(cv, PLATE, 44, 35)
     sheen(cv, mask, 20, 31)
     glint(cv, mask, 24)
     acid_crest(cv, mask, (29, 32))
@@ -692,14 +692,14 @@ def lunge_between(balls, film_l, film_r, skull, plate, plate_cover, pockets, bub
 def key_lunge_9():
     """Frame 9: launch. The tell's reared mass is falling forward: 24 px high, the bulb out at x 66, nothing past
     x 70 and no acid past x 66, so the full reach appears only on key 10."""
-    return lunge_between(LUNGE9, 3, 0, (27, 29), (36, 33), 1, [(58, 31, 2, 1), (40, 29, 3, 1)], [(46, 24), (36, 28)], -3,
-                         [(39, 34), (40, 34), (60, 34), (61, 34), (65, 33)], (26, 56))
+    return lunge_between(LUNGE9, 3, 0, (27, 29), (38, 35), 1, [(58, 31, 2, 1), (40, 29, 3, 1)], [(46, 24), (36, 28)], -3,
+                         [(41, 34), (42, 34), (60, 34), (61, 34), (65, 33)], (26, 56))
 
 def key_lunge_11():
     """Frame 11: recover. A visible pull-back toward the creep stretch: 22 px high, the bulb drawn back to x 60,
     nothing past x 70; plate and skull ride back with the mass."""
-    return lunge_between(LUNGE11, 5, 0, (24, 29), (41, 33), 1, [(56, 31, 2, 1), (42, 28, 3, 1)], [(48, 24), (38, 28)], -2,
-                         [(44, 34), (45, 34), (55, 33), (56, 33), (60, 35)], (26, 54))
+    return lunge_between(LUNGE11, 5, 0, (24, 29), (39, 35), 1, [(56, 31, 2, 1), (42, 28, 3, 1)], [(48, 24), (38, 28)], -2,
+                         [(42, 34), (43, 34), (55, 33), (56, 33), (60, 35)], (26, 54))
 
 def crease_rows(cv: Cv, mask, specs):
     top = tops(mask)
@@ -717,7 +717,7 @@ def key_down_13():
     mask = blob([(28, 42, 14, 19), (42, 42, 12, 17), (52, 42, 8, 11), (36, 43, 24, 8)], carve=[(36, 24, 2, 2)],
                 film_l=3, film_r=0)
     cv = Cv()
-    draw_obj(cv, PLATE, 49, 33)
+    draw_obj(cv, PLATE_DEAD, 49, 35)
     shade(cv, mask, dead=True)
     crease_rows(cv, mask, ((21, 2), (44, 2)))
     put_grit(cv, mask, _CREEP_GRIT, 0, 12)

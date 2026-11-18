@@ -254,6 +254,12 @@ The in-betweens use the key machinery (same shading, lenses, skull and plate, gr
 12. **Skull tint:** two new palette keys, `g` bone_gel_lit (`#b4be62`) and `j` bone_gel_dark (`#7d893c`), replace the plain dim bone steps on the lower rows of a skull seen through gel, so it sits in the gel and not on it. The skull on the defeat heap is outside the gel and keeps plain bone. The palette is 19 colours (budget 20); the `q` count rule is unaffected (the upper rows keep `q`).
 13. All six keys were re-frozen for the grit and skull tint (silhouettes unchanged). The plate in frames 1, 2, 4 to 6 uses `plate_swallowed` like keys 0, 3 and 12; frames 7 to 11 use the floor plate like keys 8 and 10.
 
+### Round 3 (executor, re-review items)
+
+14. **Plate redrawn (reviewer-prescribed, keys re-frozen):** the plate read as a brick or crate. It is now a buckled sheet, 16 x 5 px (3 px of body between its outlines, was 16 x 7): a higher lip on the right with a `u` lip and one `H` glint, three spaced `r` rivets (no rivet row), a dark `r` underside. The back third under the gel loses its outline and is tinted toward `n` and `r`. Because the plate is in keys 0, 3, 8, 10 and 12, **all five were re-frozen** (key 15 has its own flat plate; silhouettes are unchanged except the plate's own pixels). The defeat frame 13 uses the same plate without the glint (rule R5: no `H`).
+15. **Plate path:** the floor plate now travels with the body through the attack: x 46 (gather 6), 44 (7), 41 (key 8), 38 (9), 35 (key 10), then back 39 (11) and 45 (hurt 12): a steady drag behind the lunge and a return, not 46 / 39 / 34 / 42.
+16. **Deferred (not changed):** the idle breath (frames 1 and 2) stays subtle, which suits a heavy creature, and the defeat heap (key 15) still leans on the skull for the "remains" read.
+
 ## 9. Validators and readability rules
 
 Run by `python3 -m scripts.pixelart validate assets/source/characters/slime/slime_01.pixelart.json`. The set passes V01 to V15 (V08 and V10 are not configured; V12 `unique_frames` is on again, all 16 frames are distinct):
