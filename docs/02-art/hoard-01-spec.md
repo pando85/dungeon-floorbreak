@@ -89,7 +89,7 @@ Readability set: idle, move, tell, attack, hurt, defeat; 16 frames. Tick windows
 | tell | `attack_tell` | 7-8 | once | 8 + 26 | 34 (readable hold 26 >= 18) |
 | attack | `attack_swing` | 9-11 | once | 3 + 6 + 24 | 33 (smear 3, impact 6 = hitbox ticks, recovery 24 = punish window) |
 | hurt | `hurt` | 12 | once | 12 | 12 |
-| defeat | `down` | 13-15 | hold | 6 + 8 + hold | 14, then a state-driven hold |
+| defeat | `down` | 13-15 | hold | 8 + 12 + hold | 20, then a state-driven hold (staged: buckle 8, floor impact 12, settled hold) |
 
 Frame table:
 
@@ -108,8 +108,8 @@ Frame table:
 | 10 | `attack_swing` | impact: both hands slammed onto the floor in front, grabbing | 6 | key (drawn, frozen) |
 | 11 | `attack_swing` | recovery: hands still on the floor, head lifts, hair settles | 24 | in-between (drawn, pose dict `INB`) |
 | 12 | `hurt` | flinch: head snaps back and away, arms pulled to the chest, eyes shut | 12 | key (drawn, frozen) |
-| 13 | `down` | buckle: knees give, torso drops 18 px, one hand out | 6 | in-between (drawn, pose dict `INB`) |
-| 14 | `down` | impact: knees and near hand on the floor, head down | 8 | in-between (drawn, pose dict `INB`) |
+| 13 | `down` | buckle: knees give, torso drops 18 px, one hand out | 8 | in-between (drawn, pose dict `INB`) |
+| 14 | `down` | impact: knees and near hand on the floor, head down | 12 | in-between (drawn, pose dict `INB`) |
 | 15 | `down` | settled: collapsed forward, prone on her belly with the legs folded under her, head turned to the side, one hand reaching for a scrap, eyes shut | hold | key (drawn, frozen) |
 
 ## 5. State diagram
@@ -196,14 +196,20 @@ For the execution tier, derived from the keys above; no design decisions. The in
 - **Defeat:** prone (collapsed forward), not curled on her side; key 15 is re-keyed lower (top 83) so the hips no longer rise.
 - All six keys are re-frozen (every key shares the hair, jaw and chest construction).
 
-### Executor items (open)
+### Executor items
 
-- Redo the walk in-betweens 4, 5, 6 and the defeat in-between 14 with the section 8 values (they still follow the old keys); then re-check the walk seam.
-- Recovery frame 11: add a settle (1-2 px body squash) and a hair or hem overshoot; splitting 11 into 11a (6 ticks) and 11b (18 ticks) is allowed with a tick-table edit.
-- A longer, staged boss defeat: lengthen 14 to 10-12 ticks or add a 2 px settle frame before the hold.
-- A loop-seam foot-drift validator or test: for every `loop` tag, compare the lowest-row foot spans across each frame pair including the seam; fail if a planted foot moves more than 1.5 x the per-frame ground slide (9 px here).
-- Put the review images and `validator_summary.txt` in `docs/evidence/hoard-01/review-pack/`.
-- Make the skin-through-hole patches on the shirt and knee irregular, with a 1 px torn dark edge.
+Done in round 2 (pose dicts and tick table only; keys, rig and design unchanged):
+
+- Walk in-betweens 4, 5, 6 and defeat in-between 14 redrawn with the section 8 values; 13 re-checked against the re-frozen key 15 (no change needed).
+- Recovery frame 11: body squash (scale 0.97, 2 px lower, 1 degree more pitch), head lifted 4 px and hair swing 3, hands on the floor. The 11a/11b split was not taken: it would renumber the frozen keys 12 and 15 (V09 fixture indices, tags, config), so it stays an option for a design pass.
+- Defeat staged and longer: 13 held 8 ticks, 14 held 12 ticks (20 ticks before the hold, was 14); the body top goes 38, 66, 83 for frames 13, 14, 15 (test `test_defeat_is_staged_and_recovery_is_not_a_freeze`).
+- Loop-seam foot-drift validator **V16** (`rules.foot_drift` in a config, `{"max_px": 9, "tags": ["walk"]}` here; without `tags` it checks every grounded loop tag). It compares the contact-row foot runs of each frame pair of a loop tag, the last-to-first seam included, and fails when a planted foot moves more than `max_px`. Measured walk drifts: 3 to 4: 7 px, 4 to 5: 6, 5 to 6: 6, 6 to 3 (seam): 2.
+- Review images and `validator_summary.txt` are in `docs/evidence/hoard-01/review-pack/`.
+
+Still open (needs a design decision):
+
+- Make the skin-through-hole patches on the shirt and knee irregular, with a 1 px torn dark edge. The patches come from the shared rig (`TEAR_IN`/`TEAR_OUT`, the knee tear), so changing them alters every key and would need a re-freeze; not done in this pose-dict-only pass.
+- Optional: 11a/11b split of the recovery (see above).
 
 ### Executor notes
 
@@ -211,13 +217,12 @@ The ten in-betweens are the `INB` pose dicts in `scripts/author_hoard01.py`; no 
 
 - Frame 1: "belly 1 px out" is not drawn (the rig has no belly parameter; body scale `sx` stays 1.0). Body dy +1 and hands 1 px lower only.
 - Frame 2: the frame-table says "head and shoulders up, hair sways left"; the list above says body dy -1 and swing -1, which is what was drawn. The arms keep key 0's joint points (they hang from the raised shoulder).
-- Frame 4: the frame table says "drops 2 px", the list says dy +4; the list was used (body (2 deg, dx 2, dy 4)); lean and dx are the midpoint of keys 0 and 3. Sleeves use the `cap` style of key 3 for frames 4-6 (key 0 uses `poly`).
-- Frames 5 and 6: "legs together under the hips" and "near foot lands forward" were read as moderate stride values (near ankle x 62 then 68, far ankle x 94 then 100) so that no foot moves more than about 25 px between neighbouring frames. A full mirror of key 3 would swap the feet, which would pop at the 6 to 3 loop seam.
+- Frame 4, 5, 6 (round 2): the section 8 values are used verbatim (the walk is the step-drag shuffle); sleeves use the `cap` style of key 3.
 - Frame 7: head dy +3 was added to head-down 6 degrees (the tilt alone raised the hair to row 17; the list requires top >= 20; drawn top is 20). Face stays `idle` (the roar starts at key 8); sleeves `cap` as in key 8.
 - Frame 9: "arms as one arc" is two arm poses on the swing arc, hands rotated about 110 to 130 degrees; the 2-frame smear itself is not drawn as extra pixels (no pixel edits). Face `roar` (as keys 8 and 10).
-- Frames 13 and 14: values chosen so the tops are 38 and 71 (rules H6); body angle/squash/dy interpolate toward key 15 (angle 20 / 60 / 90, squash 1.0 / 0.8 / 0.6). Face `shut` from frame 13 on (the whites rule only constrains frames 12 and 15).
+- Frame 13: body (20, -6, 18), tops 38 (rule H6). Frame 14: section 8 values (body (60, -18, 26), squash 0.75), top 66; arms are my reading (hands on the floor, one near-hand reach), not listed in section 8. Angle/squash step toward the prone key 15 (20 / 60 / 90, 1.0 / 0.75 / 0.55). Face `shut` from frame 13 on (the whites rule only constrains frames 12 and 15).
 
-Open design question for the top tier (not changed): the walk loop 3-4-5-6 has the far foot forward in key 3 and the near foot forward in frame 6, so the 6 to 3 loop seam resets the near foot by about 30 px (near ankle x 68 to 38) while the far foot moves 7 px. The per-step stride cannot be made continuous with four frames and a fixed key 3; a 6-8 frame walk or a designer-chosen frame 6 that matches key 3's roles would remove it.
+The walk seam question of round 1 is closed by the step-drag redesign and checked by V16 (largest planted-foot drift 7 px, seam 2 px).
 
 ## 9. Validators and readability rules
 
@@ -225,7 +230,7 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/hoarder/ho
 
 - V04 palette: at most 20 colours (19 used). V05 isolated pixels: 0. V06 orphan pixels: at most 6 per frame (the scar-cluster shadow pixels are deliberate single pixels; `y` scar_light and `w`, `n` are accents).
 - V07 contact rows: every frame ends on row 127. V08: no airborne tags. V12 unique frames: on (all 16 frames differ).
-- V09 frozen keys: SHA-256 per key frame for frames 0, 3, 8, 10, 12, 15, fixture `tests/fixtures/hoard-01_keys.json`.
+- V16 foot drift (loop seam): `rules.foot_drift` max 9 px for `walk`, see the executor items. V09 frozen keys: SHA-256 per key frame for frames 0, 3, 8, 10, 12, 15, fixture `tests/fixtures/hoard-01_keys.json`.
 - V13 bbox rules (in the config): H1 idle top 16 bottom 127 and width 90 to 100; H1 walk contact top 16 to 20 and width <= 112; H2 frame 8 top <= 6; H3 frame 10 right >= 145 and top >= 30; H4 frame 12 right <= 108; H5 frame 15 top >= 80 and width <= 140. Executor rules H6 (in the config): frame 7 top >= 20, frame 13 top >= 34, frame 14 top >= 60.
 - V14 key counts (in the config): eye whites `w` >= 3 in frames 0, 3, 8, 10 and >= 8 in frame 8; `w` = 0 in frames 12 and 15; burn `x` >= 12 in frames 0, 3, 8, 10, 12 and <= 60 in every key (near half only); raised clusters `y` >= 8 in frame 0; dark hair `a` >= 300 and shirt `u` >= 600 in frame 0; tin `n` <= 6 in every key (a detail, never a pack).
 
@@ -240,7 +245,7 @@ python3 -m scripts.pixelart evidence assets/source/characters/hoarder/hoard-01.p
 python3 -m scripts.pixelart review-pack assets/source/characters/hoarder/hoard-01.pixelart.json --out <dir>
 ```
 
-Phase 1 evidence: `docs/evidence/hoard-01/key0-scale.png` (top: the 1x scene, key 0 next to Carl on a brick-toned and an arch-toned panel; below: the same scene at 4x). Key design sheet: `docs/evidence/hoard-01/keys-x3.png` (keys 0, 3, 8, 10, 12, 15 at 3x on alternating brick and arch panels). Execution evidence (in-betweens drawn): contact sheets, GIFs per tag, `tell_attack_strip.png`, the 1x scene with Carl (`scene_640x360.png`), `SHA256SUMS` and the review pack (`01_contact_sheet_x4.png`, `02_lit_scene_640x360_x3.png`, `03_tell_attack_strip.png`, `validator_report.json`, `validator_summary.txt`) are in `docs/evidence/hoard-01/`.
+Phase 1 evidence: `docs/evidence/hoard-01/key0-scale.png` (top: the 1x scene, key 0 next to Carl on a brick-toned and an arch-toned panel; below: the same scene at 4x). Key design sheet: `docs/evidence/hoard-01/keys-x3.png` (keys 0, 3, 8, 10, 12, 15 at 3x on alternating brick and arch panels). Execution evidence (in-betweens drawn): contact sheets, GIFs per tag, `tell_attack_strip.png`, the 1x scene with Carl (`scene_640x360.png`), `SHA256SUMS` and the review pack in `docs/evidence/hoard-01/review-pack/` (`01_contact_sheet_x4.png`, `02_lit_scene_640x360_x3.png`, `03_tell_attack_strip.png`, `validator_report.json`, `validator_summary.txt`) are in `docs/evidence/hoard-01/`.
 
 ## 11. Files
 

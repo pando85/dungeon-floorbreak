@@ -191,15 +191,15 @@
    {
     "index": 13,
     "tag": "down",
-    "ticks": 6,
-    "duration_ms": 100,
+    "ticks": 8,
+    "duration_ms": 133,
     "author": "sonnet"
    },
    {
     "index": 14,
     "tag": "down",
-    "ticks": 8,
-    "duration_ms": 133,
+    "ticks": 12,
+    "duration_ms": 200,
     "author": "sonnet"
    },
    {

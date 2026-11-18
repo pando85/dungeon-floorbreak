@@ -64,7 +64,7 @@ LIGHT = tuple(c / math.sqrt(sum(v * v for v in _l)) for c in _l)   # torch key u
 
 TAGS = [("idle", 0, 2), ("walk", 3, 6), ("attack_tell", 7, 8), ("attack_swing", 9, 11), ("hurt", 12, 12),
         ("down", 13, 15)]
-TICKS = [16, 12, 16, 8, 8, 8, 8, 8, 26, 3, 6, 24, 12, 6, 8, None]
+TICKS = [16, 12, 16, 8, 8, 8, 8, 8, 26, 3, 6, 24, 12, 8, 12, None]
 KEY_FRAMES = (0, 3, 8, 10, 12, 15)
 
 
@@ -605,15 +605,15 @@ INB = {
             near_arm=((36, 71), (31, 89), (30, 95), 0), far_arm=((101, 69), (106, 87), (108, 92), 0)),
     2: dict(IDLE, body=(0, 0, -1, 1.0), swing=-1),
     # walk: down (weight onto the far leg, near foot flat and dragging), passing, up (near lands, far heel lifts)
-    4: dict(WALK, body=(2, 2, 4, 1.0), swing=-2,
-            near_arm=((47, 71), (51, 88), (50, 94), -8), far_arm=((101, 69), (105, 87), (106, 92), 5),
-            near_leg=((46, 112), (44, 117), 0), far_leg=((101, 112), (104, 117), 0)),
-    5: dict(WALK, body=(2, 1, 0, 1.0), swing=-1,
-            near_arm=((44, 71), (46, 88), (42, 94), -4), far_arm=((100, 70), (103, 88), (103, 93), 2),
-            near_leg=((56, 111), (62, 117), 0), far_leg=((88, 111), (94, 117), 0)),
-    6: dict(WALK, body=(2, 3, 1, 1.0), swing=-2,
-            near_arm=((50, 72), (56, 88), (54, 94), -10), far_arm=((101, 70), (104, 88), (105, 93), 8),
-            near_leg=((60, 111), (68, 117), 0), far_leg=((98, 109), (100, 113), 25)),
+    4: dict(WALK, body=(3, 3, 4, 1.0), swing=-2,
+            near_arm=((44, 72), (45, 89), (44, 95), -4), far_arm=((101, 70), (104, 88), (105, 93), 6),
+            near_leg=((68, 110), (66, 114), 12), far_leg=((99, 111), (101, 117), 0)),
+    5: dict(WALK, body=(1, 2, 1, 1.0), swing=-1,
+            near_arm=((42, 71), (43, 88), (42, 94), -2), far_arm=((101, 69), (105, 87), (106, 92), 4),
+            near_leg=((70, 111), (72, 117), 0), far_leg=((93, 111), (95, 117), 0)),
+    6: dict(WALK, body=(3, 3, 0, 1.0), swing=-2,
+            near_arm=((44, 72), (45, 89), (44, 95), -4), far_arm=((101, 70), (104, 88), (105, 93), 6),
+            near_leg=((66, 111), (66, 117), 0), far_leg=((100, 108), (99, 114), 25)),
     # tell: gather (body 4 px down, arms drawn back to the hips, head down 6 degrees)
     7: dict(TELL, body=(0, 0, 4, 1.0), head=(6, 0, 3), swing=-4, face="idle",
             near_arm=((36, 76), (41, 92), (46, 100), 0), far_arm=((98, 78), (96, 92), (96, 100), 0),
@@ -622,15 +622,15 @@ INB = {
     9: dict(ATTACK, body=(15, -3, 0, 1.0), head=(-16, 0, 0), swing=-3,
             near_arm=((88, 52), (108, 70), (114, 76), -110), far_arm=((112, 58), (126, 74), (131, 78), -130),
             near_leg=((40, 108), (30, 116), 12), far_leg=((95, 108), (101, 117), 0)),
-    11: dict(ATTACK, head=(-25, 0, -4), swing=2),
+    11: dict(ATTACK, body=(36, -4, 8, 0.97), head=(-25, 0, -4), swing=3),
     # defeat: buckle (knees give, body 18 px down, near hand out), floor impact (body ~60 degrees, squash 0.8)
     13: dict(DEFEAT, body=(20, -6, 18, 1.0), head=(-10, 0, 0), swing=-2,
              near_arm=((78, 86), (96, 104), (102, 110), -30), far_arm=((96, 98), (104, 112), (108, 117), -20),
              near_leg=((66, 114), (42, 117), 0), far_leg=((100, 114), (92, 117), 0),
              stripe=True, cuffs=True),
-    14: dict(DEFEAT, body=(60, -18, 30, 0.8), head=(-25, 0, 0), swing=0,
+    14: dict(DEFEAT, body=(60, -18, 26, 0.75), head=(-25, 0, 0), swing=0,
              near_arm=((106, 108), (118, 118), (122, 121), -70), far_arm=((100, 112), (110, 120), (113, 121), -70),
-             near_leg=((64, 118), (38, 119), 40), far_leg=((76, 120), (50, 122), 40)),
+             near_leg=((60, 119), (36, 120), 60), far_leg=((68, 121), (46, 122), 60)),
 }
 POSES = {0: IDLE, 3: WALK, 8: TELL, 10: ATTACK, 12: HURT, 15: DEFEAT, **INB}
 INBETWEENS = tuple(sorted(INB))

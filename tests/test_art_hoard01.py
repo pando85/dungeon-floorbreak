@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 import author_hoard01 as author  # noqa: E402
 import pixel_grid_to_ase as pg  # noqa: E402
 from scripts.pixelart.config import load_config  # noqa: E402
+from scripts.pixelart import validators  # noqa: E402
 from scripts.pixelart.validators import freeze  # noqa: E402
 
 CONFIG = ROOT / "assets/source/characters/hoarder/hoard-01.pixelart.json"
@@ -58,6 +59,19 @@ class Hoard01Tests(unittest.TestCase):
         self.assertEqual(len(set(cels)), 16)                      # every frame is unique (V12)
         for f in author.INBETWEENS:
             self.assertIn(f, author.INB)                          # a pose dict, not a placeholder copy
+
+    def test_walk_loop_has_no_foot_pop_at_the_seam(self) -> None:
+        """Round 2: no planted foot moves more than 9 px across any walk step, 6 -> 3 included."""
+        rows = [f["cels"]["body"][author.PIVOT[1]] for f in self.grid["frames"]]
+        seq = [3, 4, 5, 6]
+        drifts = [validators.foot_drift(rows[a], rows[b]) for a, b in zip(seq, seq[1:] + seq[:1])]
+        self.assertLessEqual(max(drifts), 9, drifts)
+
+    def test_defeat_is_staged_and_recovery_is_not_a_freeze(self) -> None:
+        self.assertNotEqual(self.grid["frames"][11]["cels"], self.grid["frames"][10]["cels"])
+        self.assertGreaterEqual(author.TICKS[14], 10)             # floor impact held 10-12 ticks
+        tops = [min(y for y, r in enumerate(self.grid["frames"][f]["cels"]["body"]) if r.strip(".")) for f in (13, 14, 15)]
+        self.assertEqual(tops, sorted(tops))                       # the body only goes down: 13 -> 14 -> 15
 
     def test_plain_shirt_has_no_print_colour(self) -> None:
         # the shirt is plain: no palette entry exists for a print or logo

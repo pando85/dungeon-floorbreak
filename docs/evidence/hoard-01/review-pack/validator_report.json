@@ -2,7 +2,7 @@
   "asset_id": "hoard-01",
   "counts": {
     "fail": 0,
-    "pass": 13,
+    "pass": 14,
     "skipped": 2
   },
   "format": "pixelart-report-v1",
@@ -112,6 +112,13 @@
       "failures": [],
       "id": "V15",
       "name": "non-empty frames",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "failures": [],
+      "id": "V16",
+      "name": "foot drift (loop seam)",
       "status": "pass"
     }
   ]
