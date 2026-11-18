@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "vfx_hit_spark_metal_set_v0",
+  "type": "vfx_animation",
+  "source_path": "assets/source/vfx/vfx_hit_spark_metal.ase",
+  "grid_source": "assets/source/vfx/vfx_hit_spark_metal.grid.json",
+  "output_atlas": "generated/art/vfx_hit_spark_metal.png",
+  "output_metadata": "generated/art/vfx_hit_spark_metal.json",
+  "palette_id": "dozer-floor01-v0",
+  "frame_size": [
+    16,
+    16
+  ],
+  "pivot": [
+    8,
+    8
+  ],
+  "animation_tags": [
+    "star",
+    "burst",
+    "fade",
+    "hit_spark"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored vehicle enemy art (fan-concept layer: Goblin Murder Dozer; runtime role IP-neutral large pursuit machine)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "Shared metal hit-spark, 3 frames: a 4-point star, a burst of iron streaks and a fade; 16 x 16, pivot at the contact point",
+    "generator": "Design, size study and keys: Claude Opus (DOZ-01 phases 1 and 2). Size h120 decided by a separate Claude Opus agent. Frame set (every non-key frame, atlases, validators, evidence): Claude Sonnet, deterministic output of scripts/author_dozer_doz01.py; the Opus keys are frozen in tests/fixtures/dozer_doz01_keys.json. Riders reuse GOB-01 goblin pixels. Independent Opus review pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-opening-concept-references-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "dozer": {
+    "status": "DOZ-01 full set drawn (Claude Sonnet), awaiting independent Opus review; size h120 decided by a separate Opus agent; not wired into any Bevy binary",
+    "spec": "docs/02-art/doz-01-dozer-spec.md",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "frames": [
+      {
+        "index": 0,
+        "tag": "star",
+        "ticks": 2,
+        "duration_ms": 33
+      },
+      {
+        "index": 1,
+        "tag": "burst",
+        "ticks": 2,
+        "duration_ms": 33
+      },
+      {
+        "index": 2,
+        "tag": "fade",
+        "ticks": 2,
+        "duration_ms": 33
+      }
+    ]
+  }
+}

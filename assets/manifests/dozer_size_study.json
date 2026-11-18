@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "id": "dozer_size_study_blockin_v0",
+  "type": "vehicle_scale_study",
+  "source_path": "assets/source/enemies/dozer/dozer_size_study.ase",
+  "grid_source": "assets/source/enemies/dozer/dozer_size_study.grid.json",
+  "output_atlas": "generated/art/dozer_size_study.png",
+  "output_metadata": "generated/art/dozer_size_study.json",
+  "palette_id": "dozer-floor01-v0",
+  "frame_size": [
+    354,
+    202
+  ],
+  "pivot": [
+    109,
+    201
+  ],
+  "animation_tags": [
+    "h96",
+    "h120",
+    "h150"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored vehicle enemy art (fan-concept layer: Goblin Murder Dozer; runtime role IP-neutral large pursuit machine)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "DOZ-01 size study: one parametric construction rasterized natively at 96, 120 and 150 px body height, with the 36 px riders unscaled (block-in, not production pixels)",
+    "generator": "Design, size study and keys: Claude Opus (DOZ-01 phases 1 and 2). Size h120 decided by a separate Claude Opus agent. Frame set (every non-key frame, atlases, validators, evidence): Claude Sonnet, deterministic output of scripts/author_dozer_doz01.py; the Opus keys are frozen in tests/fixtures/dozer_doz01_keys.json. Riders reuse GOB-01 goblin pixels. Independent Opus review pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-opening-concept-references-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "dozer": {
+    "status": "DOZ-01 full set drawn (Claude Sonnet), awaiting independent Opus review; size h120 decided by a separate Opus agent; not wired into any Bevy binary",
+    "spec": "docs/02-art/doz-01-dozer-spec.md"
+  }
+}

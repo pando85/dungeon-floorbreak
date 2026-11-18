@@ -267,7 +267,7 @@ Phase 2 updates the key-pose sheet and the lit key scene only.
 | `assets/source/characters/goblin/goblin_b_h36.grid.json` / `.ase` | variant B: A's `body` and `weapon` cels plus an `accessory` layer on every frame |
 | `assets/source/characters/goblin/goblin_size_study.grid.json` / `.ase` | block-ins at 36, 40 and 44 px |
 | `assets/manifests/goblin_a_h36.json`, `goblin_b_h36.json`, `goblin_size_study.json` | candidate manifests (`prototype_fixture_unapproved`); `goblin.frames` is the per-frame tag, ticks, preview duration and author (`key` or `sonnet`) |
-| `tests/fixtures/goblin_gob01_keys.json` | the 11 frozen Opus keys (body, weapon and the B accessory); never edit |
+| `tests/fixtures/goblin_gob01_keys.json` | the 11 frozen Opus keys (body, weapon and the B accessory); never edit, with one recorded exception: the key 11 stick fix (section 13) |
 | `scripts/author_goblin_gob01.py` | palette, layer split, size-study generator |
 | `scripts/author_goblin_frames.py` | deterministic authoring record of the 16 in-betweens and the B overlay (`--check` verifies the committed grids and manifests) |
 | `scripts/make_goblin_gob01_review.py`, `scripts/make_goblin_gob01_set_review.py` | size-study, key-pose and full-set evidence (GIFs, contact sheets, lit scenes, CP-02 strip, layout diagram) |
@@ -292,6 +292,7 @@ How the in-betweens were built and where the notes of section 9 were ambiguous. 
 - **Frames 23 and 24 legs (review D5).** Frame 23 has a bent near leg (knee up at (38, 47), shin to a 3 x 2 foot at x 41 to 45, row 55). Frame 24 has a knee bump at x 32 to 35 and a shin tapering to an upturned toe at x 17 to 19, rows 52 to 55, with a plum top edge and an `s` shade row.
 - **Rope belt (review D7).** In the 16 in-betweens the belt (a run of 7 or more wood pixels) is on the `body` layer. The frozen Opus keys carry it on `weapon` and are unchanged; that is for the designer to decide.
 - **Variant B.** Each key overlay is split into a head part and a vest-patch part; each part translates with the part of the body it sits on (head, vest). Frame 2 moves the two notch pixels with the twitching ear tip. Orphan pixels created by the overlay are recoloured on the `accessory` layer only, so B's `body` and `weapon` cels stay equal to A's.
+- **Key 11 fist-to-stick fix (DOZ-01, the one edit of a frozen key).** The Opus decider of DOZ-01 asked for this minimal edit: in key 11 the stick was a lone dark `x` pixel at (14, 17) below and right of the fist, so at 1x the fist and the stick did not touch. Three `weapon` pixels changed in both variants: (10, 14) `K` to `y` (a 1 px stick between the fruit's bottom and the fist) and (13, 17) `K` and (14, 17) `x` to `y` (the stick leaves the fist and its butt joins it). Both stick runs keep `K` edges all round. Nothing else in key 11 moved; `tests/test_art_goblin_gob01.py` reverts exactly these three pixels and compares the result with the SHA-256 of the Opus original. Frames 10 and 12 to 26 are unchanged, and frame 11's lint counts do not rise (the lone `x` orphan is gone and one `y` orphan appears).
 - **GIF timing.** GIF delays are centiseconds; they are rounded on the cumulative tick count so cycles keep their exact length.
 
 ## 14. Follow-ups after the review

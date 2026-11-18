@@ -1,0 +1,370 @@
+{
+  "decided": "h120 (separate Opus decider; proposed by the designer)",
+  "files": {
+    "floor01_chase_h120_1920x1080.png": "5bf2f10188e04bb1823228afaab4d09dc5c1fe0df002ec991d846226fa35a327",
+    "floor01_chase_h120_640x360.png": "b746db66bc2121c316ba6dfd652af8f426d5062ab8664779615b719d144fba66",
+    "floor01_chase_h150_1920x1080.png": "08eaf8b28af90f9ea702daa475b25f065bb86d9021144029e118ecca7d313986",
+    "floor01_chase_h150_640x360.png": "f8fb53f02e09c89caee97cd8be0e3ee6d5048664067add91f32d54e4b9dc5201",
+    "floor01_chase_h96_1920x1080.png": "216df4f94013956ecb294c55b85058195b71563b581ac08969bd642275e311ce",
+    "floor01_chase_h96_640x360.png": "e4cd653bbae5b982f4c83695ac26c8cb92a8862c7971f68c69b7af977867217a",
+    "floor01_chase_keys_h120_1920x1080.png": "a29d829484f29d6a8fcdffd307ca365e068cb727c4bceb5687a94d0f41a2b8da",
+    "floor01_chase_keys_h120_640x360.png": "3b622aea4fd866d2f6b0b836a4626c59442d359af500e909c1da5cf2c157abb1",
+    "part_layout_diagram.png": "8d29f7b711710562eafc5992a9f498959b7536d03d58559720ff999333e74e29",
+    "size_study_sheet.png": "321506adcdf7c6f86a8210070101cf20828bb56b1f0e4b6d0a85eeecddaeee93"
+  },
+  "keys": {
+    "dozer_front_cab_h120": {
+      "canvas": [
+        60,
+        21
+      ],
+      "colours": 12,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        0,
+        20
+      ]
+    },
+    "dozer_front_tub_h120": {
+      "canvas": [
+        65,
+        82
+      ],
+      "colours": 14,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        0,
+        81
+      ]
+    },
+    "dozer_hull_h120": {
+      "canvas": [
+        175,
+        160
+      ],
+      "colours": 29,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        87,
+        159
+      ]
+    },
+    "dozer_riders_h36": {
+      "canvas": [
+        64,
+        56
+      ],
+      "colours": 26,
+      "isolated": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        2,
+        5,
+        0,
+        0,
+        0,
+        3,
+        2,
+        5,
+        0
+      ],
+      "pivot": [
+        28,
+        55
+      ]
+    },
+    "dozer_smoke": {
+      "canvas": [
+        24,
+        24
+      ],
+      "colours": 6,
+      "isolated": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "pivot": [
+        12,
+        12
+      ]
+    },
+    "dozer_tread_h120": {
+      "canvas": [
+        151,
+        34
+      ],
+      "colours": 15,
+      "isolated": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "pivot": [
+        75,
+        33
+      ]
+    },
+    "dozer_wheel_h120": {
+      "canvas": [
+        99,
+        99
+      ],
+      "colours": 14,
+      "isolated": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "orphans": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "pivot": [
+        49,
+        49
+      ]
+    },
+    "dozer_yoke_h120": {
+      "canvas": [
+        64,
+        44
+      ],
+      "colours": 15,
+      "isolated": [
+        0
+      ],
+      "orphans": [
+        0
+      ],
+      "pivot": [
+        54,
+        30
+      ]
+    }
+  },
+  "note": "Composed review renders (A1 lighting via scripts/env_kit_light.py), not Bevy captures.",
+  "reference": {
+    "carl_h52": 52,
+    "carl_jump_apex_feet_px": 92,
+    "carl_run_speed_px_s": 185,
+    "chase_gap_px": 213,
+    "corridor_clearance_px": 276
+  },
+  "size_options": {
+    "h120": {
+      "atlas_px_monolithic_estimate": 2890440,
+      "atlas_px_parts": 154027,
+      "atlas_px_riders": 68096,
+      "atlas_px_smoke": 7104,
+      "atlas_px_total_split": 229227,
+      "body_height_px": 120,
+      "ceiling_clearance_px": 121,
+      "front_from_O_px": 173,
+      "implied_feet_if_carl_is_6ft": 13.8,
+      "jump_onto_tub_possible": false,
+      "jump_over_wheel_possible": false,
+      "opaque_height_px": 155,
+      "opaque_length_px": 259,
+      "part_frames": {
+        "hull": [
+          175,
+          160
+        ],
+        "tread": [
+          151,
+          34
+        ],
+        "wheel": [
+          99,
+          99
+        ],
+        "yoke": [
+          64,
+          44
+        ]
+      },
+      "ratio_body_to_carl": 2.31,
+      "rear_from_O_px": 85,
+      "rider_heads_px": 121,
+      "rider_to_body_ratio": 0.3,
+      "scale": 1.0,
+      "tub_rim_px": 104,
+      "view_height_fraction": 0.431,
+      "view_length_fraction": 0.405,
+      "wheel_tip_to_tip_px": 96
+    },
+    "h150": {
+      "atlas_px_monolithic_estimate": 4474512,
+      "atlas_px_parts": 238309,
+      "atlas_px_riders": 68096,
+      "atlas_px_smoke": 7104,
+      "atlas_px_total_split": 313509,
+      "body_height_px": 150,
+      "ceiling_clearance_px": 83,
+      "front_from_O_px": 216,
+      "implied_feet_if_carl_is_6ft": 17.3,
+      "jump_onto_tub_possible": false,
+      "jump_over_wheel_possible": false,
+      "opaque_height_px": 193,
+      "opaque_length_px": 322,
+      "part_frames": {
+        "hull": [
+          218,
+          200
+        ],
+        "tread": [
+          188,
+          42
+        ],
+        "wheel": [
+          123,
+          123
+        ],
+        "yoke": [
+          80,
+          55
+        ]
+      },
+      "ratio_body_to_carl": 2.88,
+      "rear_from_O_px": 105,
+      "rider_heads_px": 145,
+      "rider_to_body_ratio": 0.24,
+      "scale": 1.25,
+      "tub_rim_px": 130,
+      "view_height_fraction": 0.536,
+      "view_length_fraction": 0.503,
+      "wheel_tip_to_tip_px": 120
+    },
+    "h96": {
+      "atlas_px_monolithic_estimate": 1848096,
+      "atlas_px_parts": 101799,
+      "atlas_px_riders": 68096,
+      "atlas_px_smoke": 7104,
+      "atlas_px_total_split": 176999,
+      "body_height_px": 96,
+      "ceiling_clearance_px": 152,
+      "front_from_O_px": 138,
+      "implied_feet_if_carl_is_6ft": 11.1,
+      "jump_onto_tub_possible": true,
+      "jump_over_wheel_possible": true,
+      "opaque_height_px": 124,
+      "opaque_length_px": 207,
+      "part_frames": {
+        "hull": [
+          141,
+          129
+        ],
+        "tread": [
+          122,
+          28
+        ],
+        "wheel": [
+          81,
+          81
+        ],
+        "yoke": [
+          52,
+          36
+        ]
+      },
+      "ratio_body_to_carl": 1.85,
+      "rear_from_O_px": 68,
+      "rider_heads_px": 102,
+      "rider_to_body_ratio": 0.375,
+      "scale": 0.8,
+      "tub_rim_px": 83,
+      "view_height_fraction": 0.344,
+      "view_length_fraction": 0.323,
+      "wheel_tip_to_tip_px": 77
+    }
+  },
+  "wheel_spike_ring_mean_lstar": 0.581
+}
