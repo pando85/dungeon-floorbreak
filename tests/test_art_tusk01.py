@@ -45,7 +45,7 @@ class TusklingHeroKeyTests(unittest.TestCase):
         ys = [y for _x, y in pix(self.key0, set("Kcdsmlhtuvabnorgpqw"))]
         xs = [x for x, _y in pix(self.key0, set("Kcdsmlhtuvabnorgpqw"))]
         self.assertEqual((min(ys), max(ys)), (10, 39))  # 30 px idle height on the contact row
-        self.assertEqual((min(xs), max(xs)), (7, 42))   # 36 px wide, tusk tip at pivot + 19
+        self.assertEqual((min(xs), max(xs)), (9, 42))   # 34 px wide (gate fix: no coat-tail flare), tusk tip at pivot + 19
 
     def test_family_features_read_like_the_balls_heads(self) -> None:
         self.assertGreaterEqual(len([p for p in pix(self.key0, "uv") if p[0] >= 38]), 6)  # far tusk hooks past the snout

@@ -106,27 +106,10 @@ def shirt_edge(y: int) -> float:
 
 def key0_design() -> Painter:
     p = Painter()
-    # 1 far leg and trotter (the far side, one step darker)
-    for y in range(29, 33):
-        for x in range(13, 17):
-            p.put(x, y, "s" if x == 14 else "d")
-    for y in (33, 34):
-        for x in range(12, 17):
-            p.put(x, y, "n")
-    p.put(14, 33, "K"), p.put(14, 34, "K")
-    # 2 near leg: short bowed shin and a split trotter
-    for y in range(29, 33):
-        for x in range(22, 27):
-            p.put(x, y, "m" if x == 23 else "s" if x < 25 else "d")
-    for y in (33, 34):
-        for x in range(21, 28):
-            p.put(x, y, "n")
-    p.put(22, 33, "o"), p.put(23, 33, "o")
-    p.put(24, 33, "K"), p.put(24, 34, "K")
-    # 3 coat-tails behind the rump (costume), split at the vent
-    for y in range(25, 33):
-        for x in range(6, 12):
-            if x >= 11 - (y - 25) * 0.75 and not (y >= 30 and x in (8, 9)):
+    # 3 coat-tails hanging straight behind the rump (costume), split at the vent (gate fix 3: no flare)
+    for y in range(24, 32):
+        for x in range(8, 12):
+            if not (y >= 29 and x == 10):
                 p.put(x, y, "n", "costume")
     # 4 trunk: torso, shoulder hump, pot belly
     trunk = set()
@@ -141,12 +124,32 @@ def key0_design() -> Painter:
             nx, ny = (x - 23) / 7.5, (y - 26) / 6.5
             p.put(x, y, "v" if lit(nx, ny) > 0.8 else "u", "costume")
         elif collar(x) <= y <= hem and x < shirt_edge(min(y, 27)):
-            rim = y - 1 < collar(x) or (x - 1, y) not in trunk
+            rim = y - 1 < collar(x)
             p.put(x, y, "o" if rim and x < 20 else "n", "costume")   # 1 px collar and back sheen
     for (x, y) in sorted(trunk):     # lapel sheen: jacket pixels touching the shirt
         if p.px[(x, y)] == ("n", "costume") and p.get(x + 1, y) in ("u", "v") and p.px[(x + 1, y)][1] == "costume":
             p.put(x, y, "o", "costume")
     stamp(p, {(26, 25): "t", (27, 25): "t", (27, 26): "t"}, "costume")   # soiled shirt front
+    # coat hem hangs behind the legs down to row 31/32 (gate fix 2); floor clearance below it
+    for x in range(9, 18):
+        for y in range(24, 31 if (x * 5) % 3 == 0 else 32):
+            if (x, y) not in p.px or p.px[(x, y)][1] == "body":
+                p.put(x, y, "n", "costume")
+    # 1-2 legs in front of the coat, together under the belly (gate fix 1): two short pillars, a K gap at x 21
+    for y in (31, 32):
+        for x in range(17, 21):
+            p.put(x, y, "s" if x == 18 else "d")
+        for x in range(22, 27):
+            p.put(x, y, "m" if x == 23 else "s" if x < 25 else "d")
+    for y in (33, 34):
+        for x in range(16, 21):
+            p.put(x, y, "n")
+        for x in range(22, 28):
+            p.put(x, y, "n")
+    p.put(21, 31, "c"), p.put(21, 32, "c")   # crease between the two shins
+    p.put(18, 33, "K"), p.put(18, 34, "K")
+    p.put(22, 33, "o"), p.put(23, 33, "o")
+    p.put(24, 33, "K"), p.put(24, 34, "K")
     # 6 head: domed skull, jowls, snout bridge, snout disc; a crevice where the skull meets the hump
     head = ell(p, 26, 14.5, 6.5, 6)
     ell(p, 27, 19, 5.5, 2.6, dark=1)
@@ -163,15 +166,25 @@ def key0_design() -> Painter:
     for (x, y) in BOW:
         p.put(x, y, "r", "costume")
     p.put(26, 22, "g", "costume")
-    # 8 near arm: lit sleeve over the jacket and shirt, ivory cuff, flesh trotter-hand on the belly
-    for (x, y) in [(19, 21), (20, 21), (19, 22), (20, 22), (21, 22), (19, 23), (20, 23), (21, 23), (20, 24),
-                   (21, 24), (22, 24), (21, 25), (22, 25), (23, 25), (22, 26), (23, 26)]:
-        p.put(x, y, "n", "costume")
-    stamp(p, {(19, 21): "o", (19, 22): "o", (19, 23): "o", (20, 24): "o", (21, 25): "o", (22, 26): "o"}, "costume")
-    stamp(p, {(24, 26): "v", (24, 27): "v", (23, 27): "u"}, "costume")
-    stamp(p, {(25, 26): "m", (26, 26): "l", (25, 27): "m", (26, 27): "m", (27, 27): "s",
-              (24, 28): "s", (25, 28): "s", (26, 28): "s", (27, 28): "d",
-              (24, 29): "n", (25, 29): "n", (26, 29): "n"})
+    # 8 near arm (gate fix 4-5): sleeve with a K seam on its back edge, n middle, o sheen on its front edge;
+    #   a 3 px ivory cuff; the trotter-hand hangs past the belly outline, ringed in K where it overlaps the body
+    seam = [(19, 21), (19, 22), (19, 23), (20, 24), (21, 25), (22, 26), (23, 27)]
+    front = [(20, 21), (21, 22), (21, 23), (22, 24), (23, 25), (24, 26), (24, 27)]
+    mid = [(20, 22), (20, 23), (21, 24), (22, 25), (23, 26)]
+    stamp(p, {q: "K" for q in seam})
+    stamp(p, {q: "n" for q in mid}, "costume")
+    stamp(p, {q: "o" for q in front}, "costume")
+    stamp(p, {(25, 26): "v", (25, 27): "v", (26, 27): "v"}, "costume")
+    hand = {(27, 27): "m", (28, 27): "l", (29, 27): "m", (30, 27): "s",
+            (27, 28): "m", (28, 28): "m", (29, 28): "m", (30, 28): "s", (31, 28): "s",
+            (27, 29): "s", (28, 29): "s", (29, 29): "s", (30, 29): "d", (31, 29): "d",
+            (28, 30): "n", (29, 30): "n", (30, 30): "n"}
+    stamp(p, hand)
+    cuff = {(25, 26), (25, 27), (26, 27)}
+    for (x, y) in sorted(hand):
+        for q in ((x - 1, y), (x, y + 1), (x + 1, y), (x, y - 1)):
+            if q in p.px and q not in hand and q not in cuff:
+                p.put(*q, "K")
     # 9 face: scowl brow over a small sunk eye with a bag, far eye, cheek fold
     stamp(p, {(23, 11): "l", (24, 11): "l", (25, 12): "l", (26, 12): "l", (27, 12): "l",
               (23, 12): "c", (24, 12): "c", (25, 13): "c", (26, 13): "w", (27, 13): "K", (28, 13): "K",

@@ -1,6 +1,6 @@
 # TUSK-01: Tusklings readability set, design spec
 
-**Status:** design stage. Spec written; hero key 0 (`idle`, tux costume) drawn and frozen; the gown variant is a rule on the same key. Silhouette gate on key 0 at 1x pending. Frames 1 to 15 are for the execution tier (sections 4, 7 and 8).
+**Status:** design stage. Spec written; hero key 0 (`idle`, tux costume) drawn, silhouette gate FIX-KEY0 applied (upright biped stance, coat behind the legs, sleeve seam, hand past the belly) and re-frozen; the gown variant is a rule on the same key. Frames 1 to 15 are for the execution tier (sections 4, 7 and 8).
 
 **Decision record:** one base Tuskling, 30 px idle height (rows 10 to 39), frame 56 x 40, pivot (22, 39), contact row 39; two costume variants (`tux`, `gown`) as a costume-layer key remap plus an accessory swap, not separate drawings; the SWINE-01 palette unchanged (19 keys, slot 20 left free).
 
@@ -41,7 +41,7 @@ Carl 52 px (about 6 ft), Donut 40, goblin 36, Scatterer 15 (opaque idle). The Ba
 | B | 30 px | 0.58 | 3.5 ft | Head 13 x 12 px plus a 4 x 7 px snout disc (19 px across with the snout, close to the Ball's 22 px rim heads), a 5-row snarl, a brow and a sunk eye, tusks 6 to 9 px; tusks at Carl's thigh; under the goblin, so a mob of 3 to 6 reads as minions |
 | C | 36 px | 0.69 | 4.2 ft | Same height as the goblin: minion and goblin read as one tier; 1.44 times the pixels per frame; six on screen crowd the 640 px view |
 
-Decision: **B, 30 px** (rows 10 to 39 of key 0, ear tip to trotter outline). Width 36 px (x 7 to 42): the body is hunched and long, a boar carried upright.
+Decision: **B, 30 px** (rows 10 to 39 of key 0, ear tip to trotter outline). Width 34 px (x 9 to 42): a hunched, pot-bellied biped, both legs under the belly, the coat hanging behind them.
 
 ## 3. Frame, pivot, boxes and atlas
 
@@ -64,13 +64,13 @@ Decision: **B, 30 px** (rows 10 to 39 of key 0, ear tip to trotter outline). Wid
 | 0 K | `idle` (idle) | 18 | Key 0 (section 7): hunched, head low, snarling, near arm hanging over the shirt |
 | 1 | `idle` | 12 | Breathe in: trunk, arm and head up 1 px, belly 1 px wider at rows 32 to 35; legs and trotters fixed |
 | 2 | `idle` | 14 | Snort: head (skull, snout, tusks, ears) down 1 px and 1 px right, tongue 1 px longer; trunk as frame 0 |
-| 3 K | `scramble` (move) | 5 | Contact A: whole upper body 2 px right and 1 px down (pitched forward); near trotter 4 px forward (x 27 to 33), far trotter 3 px back (x 11 to 15); coat-tails flick up 1 px |
-| 4 | `scramble` | 5 | Passing: upper body 1 px up from frame 3; trotters under the body, near at x 21 to 27, far at x 16 to 20 lifted 1 px (outline still on row 39 under the near trotter) |
-| 5 | `scramble` | 5 | Contact B: frame 3 with the legs swapped (far trotter forward to x 24 to 28, near trotter back to x 17 to 23) |
+| 3 K | `scramble` (move) | 5 | Contact A: whole upper body 2 px right and 1 px down (pitched forward); near trotter 4 px forward (x 28 to 33), far trotter 3 px back (x 15 to 19); coat-tails flick up 1 px |
+| 4 | `scramble` | 5 | Passing: upper body 1 px up from frame 3; trotters under the body, near at x 24 to 29 planted, far at x 19 to 23 lifted 1 px and drawn behind the near shin |
+| 5 | `scramble` | 5 | Contact B: frame 3 with the legs swapped (far trotter forward to x 23 to 27, drawn behind the near shin; near trotter back to x 20 to 25) |
 | 6 | `scramble` | 5 | Passing: frame 4 with the legs swapped |
 | 7 | `tell` (tell) | 8 | Dip: head and shoulders down 2 px, snout turns down 1 px, near arm swings back 2 px |
-| 8 K | `tell` | 20 | Hold: head 4 px lower than key 0 (skull top row 18), tusks levelled forward (far tusk tip at x 44 or more, rows 22 to 24), brow down 1 px, eye white 2 px, mouth gape 1 px wider; rump up 1 px; far trotter scraped back to x 9 to 13 |
-| 9 | `gore` (attack) | 3 | Launch: whole body 5 px right, head still low, rear trotter dragging (x 13 to 17), front trotter planted |
+| 8 K | `tell` | 20 | Hold: head 4 px lower than key 0 (skull top row 18), tusks levelled forward (far tusk tip at x 44 or more, rows 22 to 24), brow down 1 px, eye white 2 px, mouth gape 1 px wider; rump up 1 px; far trotter scraped back to x 13 to 17 |
+| 9 | `gore` (attack) | 3 | Launch: whole body 5 px right, head still low, rear trotter dragging (x 16 to 20), front trotter planted (x 29 to 34) |
 | 10 K | `gore` | 6 | Impact: body 8 px right, head thrust up and forward 3 px (tusk tips at x 50 to 53, rows 15 to 22); mouth wide; hitbox active |
 | 11 | `gore` | 14 | Recover: body 3 px right, head drooped 2 px, tongue out 2 px, both trotters planted |
 | 12 K | `hurt` (hurt) | 12 | Snap back: body 2 px left, head up and back 2 px, eyes shut (no `w`, a `c` eye slit), squeal gape 2 px, ears flat |
@@ -100,7 +100,7 @@ down (hold)
 
 The SWINE-01 family palette `tuskling-floor01-v1`, imported unchanged (`author_tusk01.PALETTE = author_swine01.PALETTE`): 19 keys, slot 20 free. No new colour: both variants are built from existing keys. A third costume must come from the same keys or claim slot 20 with a recorded reason.
 
-Key 0 key use: flesh ramp `d s m l` with `h` only on the snout disc (7 px); `c` crevices, socket, mouth and the neck crease where the skull meets the hump; `t u v` tusks, teeth and shirt; `a b` bristle; `n o` jacket, sleeve and hooves; `r g` gums, tongue and bow tie; `w` the eye white (1 px). Counts on key 0: `K` 132, `n` 195, `s` 56, `m` 52, `d` 51, `l` 35, `o` 34, `u` 32, `c` 30, `v` 15, `r` 15, `a` 11, `h` 7, `t` 3, `b` 2, `g` 1, `w` 1.
+Key 0 key use: flesh ramp `d s m l` with `h` only on the snout disc (7 px); `c` crevices, socket, mouth and the neck crease where the skull meets the hump; `t u v` tusks, teeth and shirt; `a b` bristle; `n o` jacket, sleeve and hooves; `r g` gums, tongue and bow tie; `w` the eye white (1 px). Counts on key 0: `n` 204, `K` 137, `s` 63, `m` 56, `d` 43, `l` 35, `c` 32, `u` 26, `o` 20, `v` 16, `r` 15, `a` 11, `h` 7, `t` 2, `b` 2, `g` 1, `w` 1.
 
 ### 6.1 Costume variants (rule)
 
@@ -114,7 +114,9 @@ Key 0 key use: flesh ramp `d s m l` with `h` only on the snout disc (7 px); `c` 
 
 ### Frame 0, `idle` (hero key, drawn and frozen by the designer)
 
-Built by `key0_design()` from shaded ellipses (light from the upper left, `author_swine01.LIGHT`), stamped features, a 4-neighbour `K` outline and the SWINE-01 orphan clean-up. Measured: opaque x 7 to 42, rows 10 to 39 (30 x 36 px), 0 orphans, 0 isolated.
+Built by `key0_design()` from shaded ellipses (light from the upper left, `author_swine01.LIGHT`), stamped features, a 4-neighbour `K` outline and the SWINE-01 orphan clean-up. Measured: opaque x 9 to 42, rows 10 to 39 (30 x 34 px), 0 orphans, 0 isolated (tux and gown).
+
+Gate fix (FIX-KEY0, 2026-11-18): the first draft read as a four-legged hog in a coat (trotters 5 px apart under the back and the chest, flared coat-tails, sleeve `n` on `n`). Fixed: the far leg moved 4 px forward under the belly, the coat hem hangs behind the legs with floor clearance, the tail flare is cut, the sleeve has a `K` seam, the hand breaks the belly outline. Head, eye (1 px `w`), snarl, tusks and bristle are unchanged.
 
 | Part | Canvas pixels | Note |
 | --- | --- | --- |
@@ -125,19 +127,40 @@ Built by `key0_design()` from shaded ellipses (light from the upper left, `autho
 | Snarl | lip `s` row 20 (x 31-36); gums `r` row 21 (x 32-35); fangs `v` row 22 (x 31-32, 34-35); lower teeth `u` row 23 (x 31-32); tongue `r` (35-36, 23-24) | the Ball's snarl at Tuskling size |
 | Tusks | near (28-30, 19-23), tip (30, 19); far (37-40, 21-23), tip (41, 18) | `v` top, `u` body, `t` root; the far tusk hooks past the snout and is the forward-most point |
 | Bristle | `a`/`b` along the hump and crown, rows 12 to 17 | coarse, uneven |
-| Jacket | trunk below the collar line `y = 15 + 0.35 (x - 10)` (design), ragged hem rows 34 to 35, coat-tails x 8 to 13 rows 29 to 36 split at the vent | `n`, 1 px `o` sheen on the collar and back edge, `o` lapel line along the shirt |
+| Jacket | trunk below the collar line `y = 15 + 0.35 (x - 10)` (design); the hem hangs behind the legs, x 11 to 19 down to row 34 or 35 (ragged), rows 37 to 38 empty for x 17 or less; straight coat-tails x 10 to 13, rows 28 to 35, vent slit at x 12 rows 33 to 35 | `n`, 1 px `o` sheen on the collar edge, `o` lapel line along the shirt |
 | Shirt | V from the throat (x 28, row 24) widening to x 24 at row 31, ragged hem rows 31 to 32 | `u`, `v` where lit, a 3 px `t` stain; bare belly `s`/`d` below it |
 | Bow tie | 5 x 3 `r` with a `g` knot, x 26 to 30, rows 25 to 27 | |
-| Near arm | `n` sleeve from (21, 25) to (25, 30) with an `o` back edge, `v`/`u` cuff, flesh trotter-hand (26-29, 30-32) with an `n` hoof row 33 | |
-| Legs | far shin (15-18, 33-36) and trotter (14-18, 37-38); near shin (24-28, 33-36) and trotter (23-29, 37-38) | `K` hoof clefts at x 16 and x 26; `o` 2 px toe sheen on the near trotter |
+| Near arm | sleeve from (21, 25) to (26, 31): `K` seam on its back edge (21,25) (21,26) (21,27) (22,28) (23,29) (24,30) (25,31), `n` middle, `o` front edge (22,25) to (26,31); `v` cuff (27,30) (27,31) (28,31); trotter-hand x 29 to 33, rows 31 to 33 (`l m s d`), `n` hoof (30-32, 34), ringed in `K` where it overlaps the belly | the hand's front 2 columns stick out past the belly outline |
+| Legs | in front of the coat, together under the belly: far shin (19-22, 35-36) and trotter (18-22, 37-38); near shin (24-28, 35-36) and trotter (24-29, 37-38); `c` crease (23, 35-36) and a `K` gap at x 23 between the trotters | `K` hoof clefts at x 20 and x 26; `o` 2 px toe sheen (24-25, 37) |
 
 ### Keys 3, 8, 10, 12, 15 (execution tier)
 
-Draw them from the pose column of section 4 by moving the key-0 parts (head group, trunk group, arm, legs, costume), not by redrawing the head: the head, snarl and tusks are the family read and keep their pixel layout on every frame except where section 4 says the mouth or eye changes. Keep the outline and clean-up rules of key 0. The hurt and down eyes are a 2 px `c` slit in place of `w` + `K`.
+Method for every frame: move the key-0 part groups by the offsets below, then redraw only what the notes name. Groups: **head** (skull, ears, snout, eyes, snarl, tusks, crown bristle, neck crease), **trunk** (torso, hump, belly, jacket, shirt, bow tie, coat hem and tails), **arm** (sleeve with seam, cuff, hand), **legs** (shins, trotters). The head keeps its pixel layout on every frame except where a note changes the mouth, eye or tusk angle; it is the family read. After the moves: re-run the 4-neighbour `K` outline and the orphan clean-up, keep the layers disjoint, keep the coat hem behind the legs with rows 37 to 38 empty behind them (except `down`), and keep the `K` seam between sleeve and trunk. Offsets are canvas pixels from key 0; contact row 39 on every frame.
+
+- **Key 3, `scramble` contact A.** Head, trunk and arm (+2, +1). Arm swings opposite to the forward leg: hand net x 29 to 33 (the arm group moved -2 x after the body offset), rows 32 to 34. Near trotter x 28 to 33 with its shin slanting forward (shin pixels from x 25 at row 35 to x 29 at row 36); far trotter x 15 to 19 with its shin slanting back. Coat-tails 1 px up (bottom row 34). Both trotters on row 38 with the outline on row 39.
+- **Key 8, `tell` hold.** Head (+1, +4): skull top row 18, snout disc centre (38.5, 22). Redraw the far tusk level: root `t` (39, 27), `u` body along row 26 from x 40 to 42, `v` top row 25 from x 41 to 43, tip `v` (44, 24); near tusk the key-0 shape moved (+1, +4). Eye: the socket `c` turns `w`, so the eye is `w w K K` at (28-31, 21); brow `l` 1 px lower over it. Mouth: the gums row and the fang row 1 px further apart (jaw +1). Trunk: the hump and bristle (x 11 to 20) up 1 px, the shoulders under the head down 1 px (a forward pitch). Arm (-2, 0), hand closed to 4 x 3. Far trotter scraped back to x 13 to 17 and lifted 1 px (rows 36 to 37), its shin a diagonal from (19, 35) to (16, 36); near trotter planted at x 24 to 29. Bbox: top 13 or lower on screen (the hump bristle becomes the top), right 44 or more.
+- **Key 10, `gore` impact.** Trunk and legs base (+8, 0); head (+11, -3) from key 0 (tusk tips: far (52, 15), near (41, 16)); fill the 3 px neck stretch with hump flesh and bristle. Mouth wide: jaw 1 px lower, gums 2 rows visible, tongue 1 px longer. Eye `w w K K` as key 8. Trunk sheared forward: rows 14 to 24 +2 x, rows 25 to 30 +1 x. Near trotter planted at x 32 to 37; far leg stretched behind as a diagonal shin from (28, 33) to (21, 37) with the trotter at x 17 to 21 on rows 37 to 38. Coat-tails lag: +4 x only (x 14 to 17), streaming 1 px up. Arm forward: hand at x 37 to 41, rows 29 to 31. Gore hitbox x 44 to 53, rows 15 to 27.
+- **Key 12, `hurt`.** Whole body (-2, 0); head a further (-2, -2) (skull top row 11). Eyes shut: the eye becomes a 2 px `c` slit at the pupil columns (`w` and `K` removed), brow `l` pulled down onto it; the far eye `K` pair turns `c`. Squeal: jaw 2 px lower, mouth `c` 2 rows taller, tongue `r` 3 px out and down. Ears flat: the near ear folded back along the skull (tip at the back of the head, rows 13 to 14). Trunk leans back: rows 14 to 24 -1 x. Arm flung forward and up: hand at x 31 to 34, rows 27 to 29, sleeve re-drawn along that line with its seam. Trotters planted at x 16 to 20 and x 22 to 27. `w` 0.
+- **Key 15, `down` hold.** Redraw lying on its back, head at the right, from the key-0 parts (not a runtime rotation): trunk a horizontal ellipse centred (24, 33), radii 12 x 6, belly up (shirt and bow tie on top, lit `v` on the upper edge; on the gown the red sequins on top); the coat flattened under the body, x 12 to 34, rows 37 to 39. Head on its side: skull centre (39, 33), snout disc up and right at (44, 30), both tusks pointing up, tongue lolling down from the mouth to row 38, eyes a `c` slit, ears hanging to the floor behind the skull. Four trotters in the air, each a 2 px flesh shin and a 4 x 2 `n` hoof with a `K` cleft pointing up: near hand (20-23, 24-26), far hand (16-19, 26-28), near foot (10-13, 25-27), far foot (8-11, 28-30). Bbox: top 24 or lower, width 44 or less; `w` 0; contact row 39 under the coat and the head.
 
 ## 8. In-between list
 
-Frames 1, 2, 4, 6, 7, 9, 11, 13, 14: offsets and part moves from section 4. In-betweens must not introduce new costume shapes; the gown variant follows by `variant()` with the frame's `ANCHORS`.
+Same method and groups as section 7.
+
+| Frame | From | Notes |
+| --- | --- | --- |
+| 1 | key 0 | Head, trunk and arm (0, -1); shins 1 px longer (rows 34 to 36) so the trotters stay on rows 37 to 38; belly edge pixels on rows 32 to 34 +1 x (the breath) |
+| 2 | key 0 | Head (+1, +1) only; the neck crease re-traced along the skull's back edge; tongue 1 px longer (down) |
+| 4 | keys 3 and 0 | Head, trunk and arm (+2, 0); legs as section 4 (near planted x 24 to 29, far lifted at x 19 to 23 behind the near shin); hand at key-0 x + 2 |
+| 5 | key 3 | Legs swapped (section 4); arm swings forward: hand at key-0 x + 4 (5 is a key-derived contact, not frozen) |
+| 6 | frame 4 | Legs swapped: far planted x 18 to 22, near lifted 1 px at x 23 to 28 in front |
+| 7 | keys 0 and 8 | Head (+1, +2), trunk (0, +1), arm (-2, 0); eye still `c w K K`; trotters as key 0 |
+| 9 | key 8 | All groups +5 x; head keeps the key-8 tusk angle; far trotter dragging at x 16 to 20 on rows 37 to 38; near trotter x 29 to 34 |
+| 11 | keys 10 and 0 | Trunk, arm and legs +3 x; head (+3, +2); tongue 2 px longer; both trotters planted (x 21 to 25 and x 27 to 32); eye back to `c w K K` |
+| 13 | key 12 | Body (0, +4) above the trotters; shins removed, knees bowed out 1 px each side; head (-1, +6) lolling, eyes `c` slit; arm limp with the hand at rows 34 to 36 |
+| 14 | keys 13 and 15 | Redraw halfway over: trunk ellipse tilted back about 45 degrees, centred (20, 31); head tipped up at (33, 25); both feet off the floor forward at x 26 to 32, rows 33 to 36; the coat on the floor at x 8 to 18, rows 36 to 39 carries the contact row |
+
+Gown anchors: `ANCHORS[frame]` is the head offset for the ear flower and the trunk offset for the throat (bow tie and pearls) as listed above; frames 14 and 15 use the throat and ear positions of the redrawn pose. In-betweens must not add costume shapes.
 
 ## 9. Validators and readability rules
 
@@ -147,7 +170,7 @@ Frames 1, 2, 4, 6, 7, 9, 11, 13, 14: offsets and part moves from section 4. In-b
 - V13 `T1-size-idle-30px`: frame 0 top 10, bottom 39; `T1-idle-width` 32 to 38.
 - V14 `T0-snout-lit` `h` at least 5; `T0-small-sunk-eye` `w` 1 to 2; `T0-flower-is-gown-only` `q` 0 on the tux grid.
 - Rules for the executor to add: idle frames 0-2 top 9 to 11; tell hold (8) top at least 13 and right at least 44; impact (10) right at least 50; hurt (12) `w` 0; down hold (15) top at least 24, width at most 44, `w` 0; `w` at most 2 on every frame except 8 to 10 (at most 4); `unique_frames` on; V16 foot drift on `scramble`.
-- `tests/test_art_tusk01.py`: key 0 equals the script and the frozen digest; canvas, pivot and disjoint layers; 30 x 36 px; at least 6 ivory pixels at x 38 or more (the far tusk); `h` at least 5, `r` at least 12, `w` at most 2, bristle at least 8, no `q` on the tux; palette equal to the SWINE-01 grid's (19 keys); the gown variant has 0 orphans, no `n`/`o` in the costume, at least 120 `r`, 1 to 6 `q`, at least 3 `v` pearls, and the same silhouette within 4 px.
+- `tests/test_art_tusk01.py`: key 0 equals the script and the frozen digest; canvas, pivot and disjoint layers; 30 x 34 px (x 9 to 42); at least 6 ivory pixels at x 38 or more (the far tusk); `h` at least 5, `r` at least 12, `w` at most 2, bristle at least 8, no `q` on the tux; palette equal to the SWINE-01 grid's (19 keys); the gown variant has 0 orphans, no `n`/`o` in the costume, at least 120 `r`, 1 to 6 `q`, at least 3 `v` pearls, and the same silhouette within 4 px.
 
 ### Acceptance targets
 
