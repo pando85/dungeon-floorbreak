@@ -1,0 +1,79 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "bard-01",
+  "title": "BARD-01 Goblin Bomb Bard readability set (docs/02-art/bard-01-spec.md); design stage: hero key 0 only",
+  "grid": "assets/source/characters/goblin/bard/bard_01.grid.json",
+  "manifest": "assets/manifests/bard_01.json",
+  "frame_size": [64, 56],
+  "pivot": [28, 55],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 14], [1, 10], [2, 14]]},
+    "walk": {"playback": "loop", "contact": "grounded", "frames": [[3, 5], [4, 5], [5, 5], [6, 5]]},
+    "attack_tell": {"playback": "once", "contact": "grounded", "frames": [[7, 10], [8, 20]]},
+    "attack_swing": {"playback": "once", "contact": "grounded", "frames": [[9, 3], [10, 4]]},
+    "attack_recover": {"playback": "once", "contact": "grounded", "frames": [[11, 14]]},
+    "hurt": {"playback": "once", "contact": "grounded", "frames": [[12, 12]]},
+    "down": {"playback": "hold", "contact": "grounded", "frames": [[13, 4], [14, 8], [15, null]]}
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_swing",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "layers_disjoint": [["body", "prop"]],
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "manifest_tick_rows": "bard.frames",
+    "manifest_tick_hz": "bard.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/bard-01_keys.json",
+      "frames": [0],
+      "layers": ["body", "prop"]
+    },
+    "bbox": [
+      {"id": "B1-size-idle-40px", "frames": [0], "top": 16, "bottom": 55},
+      {"id": "B1-height-cap-43px", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "min_top": 13},
+      {"id": "B1-standing-band", "frames": [1, 2, 3, 4, 5, 6], "min_top": 15, "max_top": 17},
+      {"id": "B2-toot-note-above-head", "frames": [7], "max_top": 15},
+      {"id": "B2-tell-bomb-behind-the-back", "frames": [8], "max_left": 10, "max_right": 50},
+      {"id": "B3-whip-bomb-over-the-shoulder", "frames": [9], "max_top": 17},
+      {"id": "B3-release-reach", "frames": [10], "min_right": 56},
+      {"id": "B3-recover-arm-down", "frames": [11], "max_right": 54},
+      {"id": "B4-hurt-recoil", "frames": [12], "max_right": 50},
+      {"id": "B5-down-impact-falling", "frames": [13], "min_top": 26},
+      {"id": "B5-down-low", "frames": [14, 15], "min_top": 38}
+    ],
+    "key_counts": [
+      {"id": "B2-no-spark-outside-tell-and-throw", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15], "key": "Y", "max": 0},
+      {"id": "B2-tell-fuse-lit", "frames": [8], "key": "Y", "min": 1},
+      {"id": "B3-throw-fuse-lit", "frames": [9, 10], "key": "Y", "min": 1},
+      {"id": "B2-toot-note", "frames": [7], "key": "w", "min": 7},
+      {"id": "B4-hurt-no-yellow-eyes", "frames": [12], "key": "e", "max": 0},
+      {"id": "B4-hurt-eye-whites", "frames": [12], "key": "w", "min": 2}
+    ]
+  },
+  "review": {
+    "strip_tags": ["attack_tell", "attack_swing", "attack_recover"]
+  },
+  "scene": {
+    "actors": [
+      {"frame": 0, "x": 520},
+      {"frame": 8, "x": 580},
+      {"frame": 10, "x": 640},
+      {"frame": 12, "x": 700},
+      {"frame": 3, "x": 760},
+      {"frame": 15, "x": 820}
+    ]
+  }
+}

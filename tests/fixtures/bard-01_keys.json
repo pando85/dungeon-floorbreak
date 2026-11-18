@@ -1,0 +1,13 @@
+{
+  "asset_id": "bard-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "a27306c1efdc2fe31fd0950e892a0ad1fdccfc44be6f355df0c2991200c8fbfb"
+    }
+  },
+  "layers": [
+    "body",
+    "prop"
+  ]
+}
