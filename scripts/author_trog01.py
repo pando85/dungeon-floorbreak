@@ -14,7 +14,7 @@ polylines (torso, limbs, dreadlocks) and polygons (ears, loincloth) rasterized a
 literal face stamps. No raster image-model output, no tracing of concept pixels. ``--check`` compares instead
 of writing (exit 1 on a difference).
 
-Draft keys (first-draft design). The Basher and Virtuoso derive from the shared construction recorded in
+Keys after the design edit (head, hair, face and construction redrawn). The Basher and Virtuoso derive from the shared construction recorded in
 ``docs/02-art/trog-01-spec.md`` section 2b; they are not drawn here.
 Presentation-only art tooling; nothing here is wired into the game.
 """
@@ -150,85 +150,149 @@ class Canvas:
 
 
 # ------------------------------------------------------------------ face stamps
-# Literal templates, top-left at (head_x - 3, head_y + 3) in design units; "." leaves the pixel alone.
+# Literal templates, 11 columns x up to 11 rows; top-left at (hx - 4, hy + 4) in design units, where (hx, hy) is the
+# centre of the front (jaw) circle of the head. Brow and eye sit at hx - 1 .. hx + 3; the mouth runs from the back of
+# the cheek (hx - 3) to the front edge (hx + 6, where the roar opens the outline). "." leaves the pixel alone; the
+# accents (e, w, t, T) and the tongue q may overhang the silhouette.
 FACES = {
-    # closed snarl: brow shadow, red-rimmed eye, wide dark mouth line with two hanging fangs, a drool strand
-    "snarl": ["..KKK...",
-              "..wwK...",
-              "...ew...",
-              ".....s..",
-              "..oooooo",
-              "..t.t.tT",
-              ".....w..",
-              ".....w.."],
-    # roar: stretched eye, teeth row over a dark open mouth, lower fangs, drool
-    "roar": ["..KKK...",
-             "..wwK...",
-             "...ew...",
-             "..ttttt.",
-             ".ooooooo",
-             ".ooooooo",
-             "..t.t.tT",
-             "...w..w."],
-    # pain: eye squeezed to a stroke, mouth open flat
-    "pain": ["..KKK...",
-             "..KKK...",
-             "........",
-             "..ttttt.",
-             ".ooooooo",
-             ".ooqqoo.",
-             "..t...t.",
-             "......w."],
-    # dead: crossed eye, slack jaw, tongue out
-    "dead": ["........",
-             "..K.K...",
-             "...K....",
-             "..K.K...",
-             "..ooooo.",
-             "..oqqqqq",
-             "..t.qqq.",
-             "......q."],
+    # idle grimace: heavy brow, bulging bloodshot eye (3 red, 4 white, 2 pupil), clenched teeth over a dark gash, drool
+    "snarl": ["....KKKK...",
+              "...eewwK...",
+              "....ewwK...",
+              "........s..",
+              "..ttTtTtt..",
+              ".ooooooooo.",
+              "..t.tT.tt..",
+              "...w.......",
+              "...w......."],
+    # roar (tell, leap): same eye, upper teeth row, a 3-row gaping mouth that opens the front outline, lower fangs, drool
+    "roar": ["....KKKK...",
+             "...eewwK...",
+             "....ewwK...",
+             "..tTttTtt..",
+             ".oooooooooo",
+             ".oooooooooo",
+             ".oooqqqooo.",
+             "..t.tT.tT..",
+             "...........",
+             "...w....w..",
+             "...w......."],
+    # pain (hurt): eye squeezed to a dark slit, no red; mouth open in a yelp
+    "pain": ["...KKKK....",
+             "....sKKK...",
+             "...........",
+             "..ttTttt...",
+             ".ooooooooo.",
+             ".oooqqqoo..",
+             "..t.tT.t...",
+             "...........",
+             "......w...."],
+    # dead (defeat): crossed eye, slack jaw, tongue lolling out past the lip
+    "dead": ["...........",
+             "....K.K....",
+             ".....K.....",
+             "....K.K....",
+             "...........",
+             "..ooooooo..",
+             "..oqqqqqqqq",
+             "..t.tqqqq..",
+             ".......qq.."],
 }
+
+HEAD_R = (5.6, 5.3)        # skull (back) and jaw (front) circle radii; the same in every pose (the volume never changes)
+
+
+def L(pts, r):
+    return {"pts": pts, "r": r}
+
+
+def head(hx, hy, tilt=-1.0):
+    """The family head: a skull circle 4 px behind and ``-tilt`` px above the jaw circle centred on (hx, hy)."""
+    return L([(hx - 4, hy - tilt), (hx, hy)], list(HEAD_R))
+
+
+def jaw(hx, hy, drop=1.0):
+    """Dropped lower jaw for the open-mouth faces (roar, pain); ``drop`` 0..1 scales how far it hangs."""
+    return L([(hx - 5, hy - 3), (hx + 3, hy - 3 - 2.5 * drop)], [2.8, 2.2 + 0.2 * drop])
+
+
+# Hair: a matted crown mop (polygon) plus heavy rope dreads hanging DOWN and back from it, and one front lock over the
+# brow. Offsets from the jaw centre (hx, hy). Every rope ends lower than it starts (gravity) and no point rises above
+# the crown, so the silhouette is a lumpy mop with hanging ropes, never horns. ``sweep`` streams the tips back and
+# lifts them toward the horizontal (motion); a negative sweep throws them forward (hurt whiplash).
+MOP = [(-9, 3), (-9.5, 7), (-7, 11), (-3.5, 13), (-0.5, 12.4), (1.2, 10), (0, 8.2), (-2.5, 6.8), (-5, 5.2), (-6.5, 4)]
+ROPES = [[(-7, 9), (-11, 8), (-15, 5), (-17, 1), (-17.5, -2)],
+         [(-8, 6), (-11, 3.5), (-12, 0), (-11.5, -3)],
+         [(-3, 11), (-7, 11), (-11, 9.5), (-14, 7)],
+         [(0, 10), (2, 8.6), (3, 6.4)]]
+ROPE_R = 0.95
+EAR = [(-5, 3.5), (-12, 5), (-7, 1.5)]          # pointed, swept straight back below the crown line, skin over the mop
+
+
+def hair(hx, hy, sweep=0.0):
+    mop = [(hx + x, hy + y) for x, y in MOP]
+    ropes = []
+    for rope in ROPES:
+        n = len(rope) - 1
+        ropes.append([(hx + x - 3.0 * sweep * i / n, hy + y + 2.2 * sweep * i / n) for i, (x, y) in enumerate(rope)])
+    return {"mop": mop, "ropes": ropes, "ears": [[(hx + x, hy + y) for x, y in EAR]]}
 
 
 def build(pose: dict) -> list[str]:
     """Rasterize one pose dict into 56 row strings."""
     w, h = CANVAS
     c = Canvas(w, h, PIVOT[1])
-    far = c.add("far"); hair = c.add("hair"); skin = c.add("skin"); cloth = c.add("cloth")
-    # back to front: far limbs, back dreadlocks, far ear, torso, loincloth, head, forelock, near leg, near arm, near ear
+    far = c.add("far"); skin = c.add("skin"); cloth = c.add("cloth"); hair_id = c.add("hair"); arm = c.add("skin")
+    ear = c.add("skin")
+    hd = pose["hair"]
+    # back to front: far limbs, torso, near leg, loincloth, head and jaw, mop and ropes, near arm, ear
     for limb in pose.get("far_limbs", []):
         c.thick(limb["pts"], limb["r"], far)
-    for dread in pose["dreads_back"]:
-        c.thick(dread, [0.75] * len(dread), hair)
     c.thick(pose["torso"]["pts"], pose["torso"]["r"], skin)
     for leg in pose.get("near_legs", []):
         c.thick(leg["pts"], leg["r"], skin)
     c.poly(pose["loin"], cloth)
     c.thick(pose["head"]["pts"], pose["head"]["r"], skin)
-    for dread in pose.get("forelock", []):
-        c.thick(dread, [0.7] * len(dread), hair)
+    if "jaw" in pose:
+        c.thick(pose["jaw"]["pts"], pose["jaw"]["r"], skin)
+    c.poly(hd["mop"], hair_id)
+    for rope in hd["ropes"]:
+        c.thick(rope, [ROPE_R] * len(rope), hair_id)
     for limb in pose.get("near_arms", []):
-        c.thick(limb["pts"], limb["r"], skin)
+        c.thick(limb["pts"], limb["r"], arm)
     for fin in pose.get("fingers", []):
-        c.thick(fin, [0.55] * len(fin), skin)
-    for ear in pose.get("ears", []):
-        c.poly(ear, skin)
+        c.thick(fin, [0.55] * len(fin), arm)
+    for e in hd["ears"]:
+        c.poly(e, ear)
     rows = c.render()
+    # dread texture: every third column of the lit hair falls to the deep tone, so the mop reads as separate hanging
+    # ropes (vertical strands with lumps), not a smooth wig or a solid helmet
+    for y in range(h):
+        for x in range(w):
+            if c.part[y][x] == hair_id and rows[y][x] == "I" and (x % 3 == 0 or (x % 3 == 1 and y % 4 == 0)):
+                rows[y][x] = "H"
     # ribs: short shade strokes (x, y_top, y_bottom) on lit/mid skin only: the lean flank
     for rx, ry0, ry1 in pose.get("ribs", []):
         col = int(c.P(rx, 0)[0])
         for y in range(int(c.P(0, ry0)[1]), int(c.P(0, ry1)[1]) + 1):
             if rows[y][col] in "ml":
                 rows[y][col] = "s"
+    # grime: 2 px dirt smudges (deep skin) on lit or mid skin, and dirt-caked soles and knuckles on the two floor rows
+    for gx, gy in pose.get("grime", []):
+        px, py = c.P(gx, gy)
+        for dx in (0, 1):
+            if rows[int(py)][int(px) + dx] in "ml":
+                rows[int(py)][int(px) + dx] = "d"
+    for y in (PIVOT[1] - 2, PIVOT[1] - 1):
+        rows[y] = ["d" if ch in "lms" else ch for ch in rows[y]]
     # face template
     hx, hy = pose["face_at"]
-    fx, fy = c.P(hx - 3, hy + 3)
+    fx, fy = c.P(hx - 4, hy + 4)
     for ry, line in enumerate(FACES[pose["face"]]):
         for rx, ch in enumerate(line):
             if ch != ".":
                 x, y = int(fx) + rx, int(fy) + ry
-                if rows[y][x] != "." or ch in "ewtT":
+                if rows[y][x] != "." or ch in "ewtTq":
                     rows[y][x] = ch
     for sx, sy, key in pose.get("stamps", []):
         px, py = c.P(sx, sy)
@@ -256,10 +320,6 @@ def despeckle(rows: list[list[str]]) -> None:
 
 
 # ------------------------------------------------------------------ the six key poses (design units)
-def L(pts, r):
-    return {"pts": pts, "r": r}
-
-
 def ragged_loin(x0, y0, drop=7.0, lean=0.0):
     """Ragged loincloth hanging from the hips: x0, y0 is the hip centre; points hang with torn hems."""
     return [(x0 - 3.5, y0 + 2), (x0 + 3.5, y0 + 2), (x0 + 3 + lean, y0 - drop * 0.6),
@@ -277,109 +337,98 @@ def hand(x, y, spread=1.0, down=True):
 
 POSES: dict[str, dict] = {}
 
-# KEY 0 idle: hunched crouch, knuckles near the floor, head thrust forward, dreads standing up and back.
+# KEY 0 idle: hunched crouch, knuckles near the floor, the big head thrust forward and low at shoulder height, a matted
+# dread mop hanging down the back, bloodshot eye, clenched teeth and drool.
 POSES["idle0"] = {
     "far_limbs": [L([(-5, 15), (1, 10), (0, 3), (5, 1)], [2.0, 1.6, 1.1, 0.8]),
-                  L([(6, 21), (10, 14), (14, 8), (17, 5)], [1.7, 1.4, 1.1, 0.8])],
-    "dreads_back": [[(7, 31), (5, 34), (2, 36)], [(9, 32), (9, 35), (8, 37)], [(5, 30), (1, 33), (-4, 33)],
-                    [(6, 30), (3, 31), (-2, 29)]],
-    "torso": L([(-10, 15), (-4, 21), (3, 25)], [4.0, 4.5, 4.1]),
+                  L([(6, 21), (11, 14), (15, 8), (18, 4)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-10, 15), (-4, 21), (3, 24)], [4.0, 4.5, 4.1]),
     "near_legs": [L([(-9, 15), (-3, 9), (-6, 2), (-1, 1)], [2.4, 1.9, 1.3, 0.9])],
-    "loin": ragged_loin(-8, 14, 7.5),
-    "head": L([(9, 27), (12, 26)], [5.0, 4.6]),
-    "forelock": [[(9, 31), (12, 31), (14, 29)]],
-    "near_arms": [L([(4, 22), (9, 14), (12, 7), (15, 3)], [2.0, 1.6, 1.2, 0.9])],
+    "loin": ragged_loin(-8, 14, 8.0),
+    "head": head(13, 25), "hair": hair(13, 25),
+    "near_arms": [L([(4, 21), (9, 14), (12, 7), (15, 3)], [2.0, 1.6, 1.2, 0.9])],
     "fingers": hand(15, 3, 1.0),
-    "ears": [[(8, 30), (3, 35), (5, 28)]],
-    "ribs": [(-4, 14, 19), (-1, 15, 21), (2, 17, 22)],
-    "face": "snarl", "face_at": (12, 27),
+    "ribs": [(-4, 14, 19), (-1, 15, 20), (2, 16, 21)],
+    "grime": [(-13, 13), (-6, 20), (9, 11), (-4, 6), (-9, 17), (13, 6)],
+    "face": "snarl", "face_at": (13, 25),
 }
 
-# KEY 1 walk contact (crouched scuttle): body low and forward, near arm planting ahead, far leg trailing, dreads streaming.
+# KEY 3 walk contact (crouched scuttle): body low and forward, near arm planting ahead, far leg trailing, dreads streaming.
 POSES["walk1"] = {
     "far_limbs": [L([(-8, 13), (-14, 8), (-17, 2), (-13, 0.8)], [2.0, 1.6, 1.1, 0.8]),
-                  L([(6, 17), (4, 10), (7, 4), (10, 1)], [1.7, 1.4, 1.1, 0.8])],
-    "dreads_back": [[(9, 26), (4, 29), (-2, 29)], [(10, 27), (6, 32), (1, 33)], [(8, 25), (3, 26), (-3, 24)]],
-    "torso": L([(-10, 13), (-3, 16), (5, 20)], [4.0, 4.4, 4.0]),
+                  L([(6, 16), (5, 10), (8, 4), (11, 1)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-10, 13), (-3, 16), (5, 19)], [4.0, 4.4, 4.0]),
     "near_legs": [L([(-9, 13), (-1, 9), (2, 3), (7, 1)], [2.4, 1.9, 1.3, 0.9])],
-    "loin": ragged_loin(-8, 12, 6.5, -2.0),
-    "head": L([(11, 22), (14, 21)], [4.5, 4.2]),
-    "forelock": [[(11, 26), (14, 26), (16, 24)]],
-    "near_arms": [L([(5, 18), (12, 14), (18, 8), (21, 3)], [2.0, 1.6, 1.2, 0.9])],
+    "loin": ragged_loin(-8, 12, 7.0, -2.0),
+    "head": head(16, 20), "hair": hair(16, 20, sweep=0.6),
+    "near_arms": [L([(5, 17), (12, 12), (18, 7), (21, 3)], [2.0, 1.6, 1.2, 0.9])],
     "fingers": hand(21, 3, 1.0),
-    "ears": [[(10, 25), (5, 30), (7, 23)]],
-    "ribs": [(-3, 12, 16), (0, 13, 18), (3, 15, 19)],
-    "face": "snarl", "face_at": (14, 22),
+    "ribs": [(-3, 12, 16), (0, 13, 17), (3, 14, 18)],
+    "grime": [(-12, 11), (-5, 15), (0, 6), (-9, 15), (16, 6)],
+    "face": "snarl", "face_at": (16, 20),
 }
 
-# KEY 2 tell hold: coiled to spring, haunches raised and loaded behind, shoulders and head dropped low and thrust
-# forward, both hands planted wide, mouth wide open. The lowest, most compact grounded pose: it reads as "about to go".
+# KEY 8 tell hold: coiled to spring, haunches raised and loaded behind, shoulders and head dropped low and thrust
+# forward, jaw hanging open, both hands planted wide. The lowest, most compact grounded pose: it reads as "about to go".
 POSES["tell2"] = {
     "far_limbs": [L([(-9, 15), (-3, 9), (-7, 1.8), (-2, 0.8)], [2.0, 1.6, 1.1, 0.8]),
-                  L([(5, 13), (10, 7), (15, 3), (19, 0.8)], [1.7, 1.4, 1.1, 0.8])],
-    "dreads_back": [[(8, 20), (5, 25), (2, 27)], [(10, 21), (9, 26), (8, 28)], [(6, 19), (1, 22), (-4, 21)],
-                    [(7, 18), (2, 17), (-4, 15)]],
-    "torso": L([(-12, 16), (-5, 15), (3, 13)], [4.3, 4.6, 4.1]),
+                  L([(5, 12), (11, 7), (16, 3), (20, 0.8)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-12, 16), (-5, 15), (3, 12)], [4.3, 4.6, 4.1]),
     "near_legs": [L([(-11, 16), (-5, 10), (-9, 2), (-4, 0.8)], [2.7, 2.2, 1.4, 1.0])],
-    "loin": ragged_loin(-10, 16, 6.5, -1.0),
-    "head": L([(9, 16), (12, 15)], [5.0, 4.7]),
-    "forelock": [[(9, 20), (12, 21), (14, 19)]],
-    "near_arms": [L([(4, 14), (9, 8), (14, 3), (17, 0.8)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": hand(17, 0.8, 1.0),
-    "ears": [[(7, 19), (2, 25), (4, 17)]],
+    "loin": ragged_loin(-10, 16, 7.0, -1.0),
+    "head": head(13, 15), "jaw": jaw(13, 15, 0.7), "hair": hair(13, 15),
+    "near_arms": [L([(4, 12), (8, 7), (13, 3), (16, 0.8)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": hand(16, 0.8, 1.0),
     "ribs": [(-5, 12, 16), (-2, 11, 15), (1, 10, 14)],
-    "face": "roar", "face_at": (12, 15),
+    "grime": [(-15, 15), (-8, 19), (-6, 6)],
+    "face": "roar", "face_at": (13, 15),
 }
 
-# KEY 3 attack strike (airborne): body stretched flat, arms thrown forward with spread fingers, legs trailing, mouth open.
+# KEY 10 attack strike (airborne): body stretched flat, one claw high and one low with the gaping mouth between them,
+# legs trailing, dreads streaming straight back.
 POSES["leap3"] = {
     "far_limbs": [L([(-12, 19), (-18, 15), (-24, 12), (-28, 11)], [2.0, 1.6, 1.1, 0.8]),
-                  L([(6, 22), (13, 25), (20, 26), (24, 24)], [1.7, 1.4, 1.1, 0.8])],
-    "dreads_back": [[(11, 29), (5, 31), (-1, 31)], [(12, 30), (7, 34), (2, 35)], [(10, 28), (4, 28), (-2, 26)]],
-    "torso": L([(-13, 17), (-5, 20), (4, 23)], [3.8, 4.3, 3.9]),
+                  L([(7, 25), (14, 30), (21, 31), (25, 29)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-13, 17), (-5, 20), (4, 22)], [3.8, 4.3, 3.9]),
     "near_legs": [L([(-12, 18), (-17, 13), (-21, 8), (-25, 6)], [2.3, 1.8, 1.3, 0.9])],
     "loin": ragged_loin(-12, 17, 5.5, -4.0),
-    "head": L([(11, 25), (14, 25)], [4.6, 4.3]),
-    "forelock": [[(11, 29), (14, 30), (16, 28)]],
-    "near_arms": [L([(5, 23), (13, 26), (20, 25), (25, 22)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": hand(25, 22, 1.0, down=True),
-    "ears": [[(10, 28), (5, 33), (7, 26)]],
-    "ribs": [(-5, 17, 20), (-2, 18, 22), (1, 19, 23)],
-    "face": "roar", "face_at": (14, 25),
+    "head": head(15, 24), "jaw": jaw(15, 24, 0.9), "hair": hair(15, 24, sweep=1.0),
+    "near_arms": [L([(4, 20), (11, 16), (18, 15), (24, 16)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": hand(24, 16, 1.0, down=False) + hand(25, 29, 1.0, down=True),
+    "ribs": [(-5, 17, 20), (-2, 18, 21), (1, 19, 22)],
+    "grime": [(-10, 17), (-20, 10), (-3, 22)],
+    "face": "roar", "face_at": (15, 24),
 }
 
-# KEY 4 hurt: thrown upright and back, head snapped up, arms flung, eyes shut tight, mouth open.
+# KEY 12 hurt: thrown upright and back, head snapped up, dreads whipping forward, near arm flung, eye squeezed shut.
 POSES["hurt4"] = {
     "far_limbs": [L([(-5, 15), (1, 9), (1, 3), (6, 1)], [2.0, 1.6, 1.1, 0.8]),
-                  L([(2, 25), (-3, 30), (-7, 33), (-9, 36)], [1.7, 1.4, 1.1, 0.8])],
-    "dreads_back": [[(5, 36), (1, 39), (-4, 39)], [(7, 37), (5, 40), (2, 41)], [(3, 35), (-2, 36), (-7, 35)]],
-    "torso": L([(-8, 14), (-4, 21), (0, 28)], [4.0, 4.3, 3.9]),
+                  L([(0, 25), (-5, 29), (-9, 31), (-12, 33)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-8, 14), (-4, 21), (0, 27)], [4.0, 4.3, 3.9]),
     "near_legs": [L([(-7, 14), (-2, 8), (-7, 2), (-2, 1)], [2.4, 1.9, 1.3, 0.9])],
-    "loin": ragged_loin(-6, 13, 7.0, 1.0),
-    "head": L([(2, 33), (5, 34)], [5.0, 4.6]),
-    "forelock": [[(2, 37), (5, 38), (7, 36)]],
-    "near_arms": [L([(2, 26), (8, 28), (13, 26), (17, 22)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": hand(17, 22, 1.0, down=True),
-    "ears": [[(1, 36), (-4, 41), (-2, 34)]],
-    "ribs": [(-6, 14, 19), (-3, 17, 23), (0, 21, 27)],
-    "face": "pain", "face_at": (5, 34),
+    "loin": ragged_loin(-6, 13, 7.5, 1.0),
+    "head": head(6, 33, tilt=-2.0), "jaw": jaw(6, 33, 0.5), "hair": hair(6, 33, sweep=-0.6),
+    "near_arms": [L([(1, 24), (7, 23), (12, 20), (16, 16)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": hand(16, 16, 1.0, down=True),
+    "ribs": [(-6, 14, 19), (-3, 17, 22), (0, 20, 25)],
+    "grime": [(-10, 12), (-5, 22), (-4, 5)],
+    "face": "pain", "face_at": (6, 33),
 }
 
-# KEY 5 defeat (final): on its back on the floor, limbs splayed, tongue out, eyes crossed, loincloth torn open.
+# KEY 15 defeat (final): sprawled on its back on the floor, limbs splayed, dreads spilled behind the head,
+# tongue lolling, eye crossed.
 POSES["down5"] = {
     "far_limbs": [L([(-12, 4), (-14, 9), (-9, 12), (-6, 8)], [1.8, 1.5, 1.1, 0.8]),
-                  L([(4, 5), (11, 3), (17, 1.5), (21, 1)], [1.6, 1.3, 1.0, 0.8])],
-    "dreads_back": [[(11, 6), (15, 4), (20, 2)], [(11, 5), (16, 6), (21, 5)], [(10, 7), (14, 9), (18, 9)]],
-    "torso": L([(-15, 4), (-6, 5), (4, 5.5)], [3.4, 3.6, 3.4]),
+                  L([(-1, 5), (-6, 9), (-11, 13), (-15, 14)], [1.6, 1.3, 1.0, 0.8])],
+    "torso": L([(-15, 4), (-6, 5), (3, 5.5)], [3.4, 3.6, 3.4]),
     "near_legs": [L([(-14, 4), (-9, 10), (-3, 8), (0, 2)], [2.2, 1.8, 1.3, 0.9])],
     "loin": ragged_loin(-13, 5, 3.5, 3.0),
-    "head": L([(9, 6), (11, 6)], [4.2, 4.0]),
-    "forelock": [[(7, 9), (10, 10), (13, 8)]],
-    "near_arms": [L([(4, 6), (8, 9), (11, 13), (10, 17)], [1.9, 1.5, 1.1, 0.8])],
-    "fingers": hand(10, 17, 0.7, down=False),
-    "ears": [[(8, 9), (4, 14), (6, 7)]],
+    "head": head(12, 6, tilt=0.0), "hair": hair(12, 6),
+    "near_arms": [L([(2, 7), (5, 11), (6, 15), (9, 17)], [1.9, 1.5, 1.1, 0.8])],
+    "fingers": hand(9, 17, 0.7, down=False),
     "ribs": [(-8, 3, 7), (-5, 3, 8), (-2, 3, 8)],
-    "face": "dead", "face_at": (10, 6),
+    "grime": [(-10, 5), (-3, 3)],
+    "face": "dead", "face_at": (12, 6),
 }
 
 KEY_FRAMES = {0: "idle0", 3: "walk1", 8: "tell2", 10: "leap3", 12: "hurt4", 15: "down5"}
@@ -389,7 +438,7 @@ LAND_FRAME = 11          # grounded landing: the tell crouch plus a little dust 
 TAGS = [("idle", [(0, 12), (1, 8), (2, 12)]),
         ("walk", [(3, 6), (4, 6), (5, 6), (6, 6)]),
         ("attack_tell", [(7, 6), (8, 18)]),
-        ("attack_leap", [(9, 3), (10, 6)]),
+        ("attack_leap", [(9, 3), (10, 8)]),
         ("attack_land", [(11, 14)]),
         ("hurt", [(12, 12)]),
         ("down", [(13, 4), (14, 8), (15, None)])]
@@ -402,14 +451,14 @@ HOLD_MS = 100
 # placeholder boxes (px from the pivot: x forward, y up), measured from the key bounding boxes; not approved mechanics
 BOXES = {
     "standing": {"x": [-14, 20], "y": [0, 39]},
-    "hurtbox_idle_walk": {"x": [-14, 17], "y": [0, 36]},
-    "hurtbox_tell_land": {"x": [-17, 14], "y": [0, 24]},
-    "hurtbox_leap": {"x": [-24, 18], "y": [5, 37]},
-    "hurtbox_hurt": {"x": [-12, 12], "y": [0, 43]},
-    "hurtbox_down": {"x": [-19, 14], "y": [0, 20]},
-    "attack_hitbox_impact_frame_only": {"x": [12, 30], "y": [16, 34], "frame": 10},
+    "hurtbox_idle_walk": {"x": [-14, 21], "y": [0, 33]},
+    "hurtbox_tell_land": {"x": [-16, 19], "y": [0, 22]},
+    "hurtbox_leap": {"x": [-22, 21], "y": [6, 31]},
+    "hurtbox_hurt": {"x": [-12, 12], "y": [0, 41]},
+    "hurtbox_down": {"x": [-19, 18], "y": [0, 14]},
+    "attack_hitbox_impact_frame_only": {"x": [14, 30], "y": [13, 33], "frame": 10},
 }
-DUST = [(-10, 1, "C"), (-9, 0, "c"), (-12, 2, "C"), (-13, 1, "c"), (-3, 0, "C"), (-1, 1, "c"), (17, 1, "C"), (20, 0, "c"), (21, 2, "C")]
+DUST = [(-21, 1, "C"), (-20, 0, "c"), (-22, 0, "C"), (-19, 1, "c"), (23, 1, "C"), (24, 0, "c"), (24, 1, "C"), (25, 0, "c"), (26, 1, "C")]
 
 
 def pose_for(n: int) -> dict:
@@ -469,7 +518,7 @@ def manifest() -> dict:
             "origin": ("TROG-01 Pygmy at a 40 px idle height: 6 draft keys (atlas frames 0, 3, 8, 10, 12, 15) rasterized from pose rules by "
                        "scripts/author_trog01.py; the other slots are copies of the nearest key (frame 11 is the tell crouch plus landing dust); "
                        "layer body only"),
-            "generator": "Draft spec and keys: Claude Sonnet. Review and key edit: pending. No image-model raster output, no tracing, no resampling",
+            "generator": "Draft spec and keys: Claude Sonnet. Design edit (construction, six keys): Claude Opus. Independent review: pending. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"],
         },
@@ -486,7 +535,7 @@ def manifest() -> dict:
             "playback": PLAYBACK,
             "key_frames": sorted(KEY_FRAMES),
             "key_fixture": "tests/fixtures/trog-01_keys.json",
-            "attack_ticks": {"tell": [0, 23], "leap_launch": [24, 26], "leap_strike_impact": [27, 32], "land_recover": [33, 46]},
+            "attack_ticks": {"tell": [0, 23], "leap_launch": [24, 26], "leap_strike_impact": [27, 34], "land_recover": [35, 48]},
             "boxes_px_from_pivot": BOXES,
             "frames": frames,
         },
@@ -520,15 +569,39 @@ def write_key0_scale(out: Path = ROOT / "docs/evidence/trog-01/key0-scale.png") 
     return out
 
 
+def write_keys_x3(out: Path = ROOT / "docs/evidence/trog-01/keys-x3.png") -> Path:
+    """The six keys left to right (0, 3, 8, 10, 12, 15) on lit Floor 1 brick, cropped around the actors and enlarged
+    3x (nearest neighbour). Run: ``python3 scripts/author_trog01.py keys-x3``."""
+    sys.path.insert(0, str(ROOT))
+    from PIL import Image
+    from scripts.pixelart.common import CARL_X, grid_images, load_grid_file
+    from scripts.pixelart.scene import Floor
+
+    imgs = grid_images(load_grid_file(GRID))
+    entries = [(imgs[n], tuple(PIVOT), CARL_X - 70 + i * 90, 6 if n in (9, 10) else 0)
+               for i, n in enumerate(sorted(KEY_FRAMES))]
+    floor = Floor()
+    lit = floor.render(entries, 1)
+    ground = max(floor.ground(x) for _i, _p, x, _l in entries)
+    crop = lit.crop((0, ground - 72, lit.width, ground + 10))
+    big = crop.resize((crop.width * 3, crop.height * 3), Image.NEAREST)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    big.save(out)
+    return out
+
+
 def dump(grid: dict) -> str:
     return json.dumps(grid, indent=1) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    parser.add_argument("command", choices=["frames", "key0-scale"])
+    parser.add_argument("command", choices=["frames", "key0-scale", "keys-x3"])
     parser.add_argument("--check", action="store_true", help="compare instead of writing")
     args = parser.parse_args(argv)
+    if args.command == "keys-x3":
+        print(f"wrote {write_keys_x3().relative_to(ROOT)}")
+        return 0
     if args.command == "key0-scale":
         print(f"wrote {write_key0_scale().relative_to(ROOT)}")
         return 0

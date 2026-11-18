@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "trog-01",
-  "title": "TROG-01 Troglodyte Pygmy readability set: 16 frames (6 draft keys at 0, 3, 8, 10, 12, 15; the other slots are copies)",
+  "title": "TROG-01 Troglodyte Pygmy readability set: 16 frames (6 keys at 0, 3, 8, 10, 12, 15 after the design edit; the other slots are copies)",
   "grid": "assets/source/characters/troglodyte/trog_01.grid.json",
   "manifest": "assets/manifests/trog-01.json",
   "frame_size": [
@@ -81,7 +81,7 @@
         ],
         [
           10,
-          6
+          8
         ]
       ]
     },
@@ -182,11 +182,18 @@
         "id": "R-tell-lowest-grounded-upright",
         "frames": [
           7,
-          8,
-          11
+          8
         ],
         "min_top": 22,
         "max_width": 44
+      },
+      {
+        "id": "R-land-low-with-dust",
+        "frames": [
+          11
+        ],
+        "min_top": 22,
+        "max_width": 56
       },
       {
         "id": "R-leap-clear-of-floor",

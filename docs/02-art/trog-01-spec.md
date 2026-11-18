@@ -1,8 +1,8 @@
 # TROG-01: Troglodyte family (Pygmy, Basher, Virtuoso) readability sets, design spec
 
-**Status:** Pygmy base design drafted (spec and six draft keys); Basher and Virtuoso not started. In-betweens are copies. Review pending.
+**Status:** Pygmy base design edited (size confirmed, construction and six keys redrawn, keys re-frozen); Basher and Virtuoso not started. In-betweens are copies. Silhouette gate and independent review pending.
 
-**Decision record (draft, Pygmy base):** height 40 px, frame 80 x 56, pivot (30, 55), palette `trog-family-v0` (15 of 20 colours). Proposed by the draft designer; to be confirmed by the senior designer.
+**Decision record (Pygmy base, after the design edit):** height 40 px (confirmed), frame 80 x 56, pivot (30, 55), palette `trog-family-v0` (15 core colours, 5 slots allocated to the variants), family height ladder Pygmy 40 / Virtuoso 66 / Basher 66 / Juicer 84 or more (section 2b).
 
 The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: ...>`; write numbers, not adjectives. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
 
@@ -91,35 +91,59 @@ Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png
 | B | 48 px | 0.92 | about 5.5 ft crouched | Almost Carl's height: the "small" canon is lost, and the family sizes rise to about 80 px (frames around 128 x 96). The packet proposal. |
 | C | 56 px | 1.08 | about 6.5 ft crouched | Taller than Carl; contradicts "small" outright. |
 
-Decision: **40 px** (option A). The sheet's lineup puts the Pygmy clearly below Carl and well below the Basher and Virtuoso; at 40 px it keeps that order, stays inside the Easy-to-Medium budget, keeps the airborne frame inside a 80 x 56 cell, and leaves the face about 10 x 10 px, which is enough for a red-rimmed eye, brow, wide mouth with fangs and a drool strand. The cost is a thinner face than 48 px would give. Proposed by the draft designer (Claude Sonnet), departing from the packet's 48 px proposal; the decider is the senior designer who edits this draft.
+Decision: **40 px** (option A), confirmed by the design edit for the whole family, not for the Pygmy alone.
 
-## 2b. Shared construction (for the Basher and Virtuoso work orders; not drawn here)
+- Family ratios, measured on the side-by-side panel (`concept_crop_9.png`, opaque tops to soles): Pygmy about 67 px, Basher about 110 px, Virtuoso about 113 px with hair, so Basher : Pygmy is about 1.64 and Virtuoso : Pygmy about 1.69.
+- At a 40 px base the ladder is Pygmy 40, Basher and Virtuoso about 66 (1.27x Carl, brutes that loom over him without filling the screen), and the Juicer boss free to sit clearly above them at 84 px or more, in the same band as the other Floor 1 bosses (the Hoarder is 112 px).
+- At 48 px the ladder becomes 48 / 79 / 81, the variants need frames of about 128 x 96, the Pygmy is nearly Carl's height (0.92) and loses its "small" canon, and the Juicer is pushed to about 110 px or more just to stay the biggest troglodyte on a 360 px screen. 48 px buys a larger face, and the edit gets that face at 40 px instead (below).
+- Face budget at 40 px: the head is now 14 x 12 px (one skull and one jaw circle of radius 5.6 and 5.3, constant in every pose), so the face template is 11 x 9 px: a 3-row heavy brow and bulging bloodshot eye (4 white, 3 red, 2 pupil), a 7 px yellow teeth row over a 9 px dark gash, lower fangs and a 2 px drool strand. At 1x on lit brick the eye white, red rim and teeth read as three separate accents (`keys-x3.png`, `key0-scale.png`).
 
-These are the rules the Pygmy sets. The Basher and Virtuoso are redrawn at their own sizes from these rules, never scaled up from the Pygmy pixels.
+## 2b. Shared construction (for the Basher, Virtuoso and Juicer work orders; not drawn here)
 
-- **Body plan:** a hunched biped with long, thin arms that reach the floor, a lean ribbed torso (1 px shade strokes on the flank, `ribs`), deep-bent legs and bare feet. Hips and shoulders are thick lines of radius 4 to 4.6 px at 40 px; limbs taper 2.4 to 0.8 px. The Basher widens the torso and shoulders (radius about 7 at 66 px) and keeps the long arms and bare feet. The Virtuoso keeps the lean torso and lengthens every limb about 15 %.
-- **Head:** a large, forward-thrust head, about one quarter of the idle height wide (10 px at 40 px, so about 16 px at 64 px), set low and ahead of the shoulders, pointing right in the authored facing. One pointed ear swept back and up (a 3-point polygon), one near-side red-rimmed eye (2 px of eye white `w`, a dark pupil, a red `e` pixel under it), a K brow bar above the eye, a wide mouth line that reaches the back of the cheek, and two to four yellow fangs `t` hanging over the lip with a shade fang `T`, plus a 2 px drool strand `w`. The four face templates (`snarl`, `roar`, `pain`, `dead`) are in `FACES`; larger types redraw them with more rows, not by scaling.
-- **Hair:** dark `H`/`I` dreadlocks: 3 to 4 thin (about 1.5 px) ropes standing up and back from the crown, a short forelock over the brow, thicker and longer on the larger types. Hair is behind the head and ears. The silhouette must not read as horns: keep the ropes bent and uneven.
-- **Skin ramp:** one ramp for the family, `d` `#5a2c3f` (deep, cool), `s` `#8c4651`, `m` `#bf6f64`, `l` `#e5a08c` (torch-lit), with the far limbs on a darker `K`/`d`/`d`/`s` ramp. Pale reddish-pink, cooled and pinked so it separates from the orange brick; the upper-left rim is `l`.
-- **Cloth:** a ragged loincloth with a torn hem, `c` `#3b2f2c` and `C` `#72604d`. Bare hands with three long fingers and bare feet in every type.
-- **Palette:** 15 of 20 colours used (`K d s m l H I c C w e t T o q`). Five slots are kept free: one grey wrap tone for the Basher (forearm wraps, necklace string, trash), three for the Virtuoso's purple robe ramp, one gold for his bells. His long pink tongue reuses `q`. Variants must not take more than these five.
-- **Frame and pivot convention:** facing right, pivot on the contact row, about 6 px of margin behind the pivot for hair and trailing legs and the body reach ahead of the pivot is larger than the margin behind it. Sizes of the other types are not decided here: by the sheet's by-eye ratios (Basher about 1.66x, Virtuoso about 1.6x the Pygmy) they would be about 66 and 64 px, to be confirmed by their own size studies.
+These rules are the family contract. The Pygmy implements them in `scripts/author_trog01.py` (`HEAD_R`, `head`, `jaw`, `MOP`, `ROPES`, `EAR`, `hair`, `FACES`, `build`). The Basher, Virtuoso and Juicer are redrawn at their own sizes from these rules, never scaled up from Pygmy pixels. Lengths are given at the Pygmy's 40 px as a fraction of the idle height `H` so the larger types can scale the numbers, not the pixels.
+
+**Height ladder (decided here; each variant confirms it in its own size study, within plus or minus 2 px):**
+
+| Type | Idle opaque height | Ratio to the Pygmy | Ratio to Carl (52) | Frame (proposed) | Posture |
+| --- | --- | --- | --- | --- | --- |
+| Pygmy | 40 | 1.00 | 0.77 | 80 x 56 | hunched, knuckles near the floor |
+| Basher | 66 | 1.65 | 1.27 | 112 x 80 | hunched brute, head below the shoulder line |
+| Virtuoso | 66 (hair included) | 1.65 | 1.27 | 112 x 80, wider for the tongue strike | taller, less hunched, lean |
+| Juicer (boss, own work order) | 84 or more | 2.1 or more | 1.6 or more | own decision | must out-mass the Basher by at least 20 % in height |
+
+**Order of parts (back to front), the same in every type:** far limbs (darker `far` ramp), torso, near leg, loincloth, head (skull then jaw), dropped jaw when the mouth is open, hair mop and ropes, near arm and fingers, ear, then the face template. Each part after the first gets a 1 px `K` outline where it overlaps an earlier part, so the near arm always separates from the torso and the ear always separates from the hair.
+
+**Body plan:** a hunched biped. Torso: a thick line from the hips to the shoulder hump, radius 0.10 to 0.11 H, hips behind and lower than the hump. Arms are long enough that the hand reaches the floor in the idle (shoulder to wrist about 0.55 H); limbs taper from about 0.05 H to 0.02 H. Deep-bent legs, bare feet, three long fingers per hand (`hand`). 1 px rib strokes in `s` on the flank. The Basher widens torso and shoulders to about 0.11 to 0.12 H radius (about 7 to 8 px at 66) and keeps long arms; the Virtuoso keeps the Pygmy's radii in px (so it reads leaner at 66) and lengthens each limb about 15 %.
+
+**Head (the family read):** large and thrust forward, set at or below the shoulder hump and ahead of it, never above it except in the hurt recoil. Two circles: skull (radius 0.14 H) 4 px (0.1 H) behind and 1 px above the jaw circle (radius 0.13 H). Head width about 0.35 H, about 14 px at 40 and about 22 px at 66. The head size is constant across poses within a type. The open-mouth faces add a dropped jaw (a thick line under the front circle, `jaw`, 0 to 1 drop).
+
+**Face (template, then redraw larger):** placed from the jaw centre (hx, hy). Heavy `K` brow at hx..hx+3; a bulging eye 2 rows by 3 columns (2 x 2 `w` white, 1 or 2 `K` pupil at the front, 2 or 3 `e` red pixels behind and below: bloodshot, never a clean white eye); mouth from the back of the cheek (hx-3) to the front edge (hx+6), at least two thirds of the head length. Idle: clenched `t` teeth row over a dark `o` gash and lower fangs. Roar (tell and attack): a 3-row gaping `o` mouth that breaks the front outline, `q` tongue at the bottom, top and bottom teeth, two drool strands. Pain: the eye squeezed to a `K` slit, no red. Dead: crossed eye, tongue out past the lip. The larger types keep this order and the accents (eye white, red rim, yellow teeth, drool), and add rows (Basher: heavier brow, a 2 to 3 row teeth band; Virtuoso: a narrower mouth that opens taller to release the tongue).
+
+**Hair (dreads, not horns):** a matted crown mop (polygon, `MOP`) sitting on the back two thirds of the skull, about 0.15 H above the skull top, and heavy rope dreads (radius 0.95 px at 40, about 1.5 px at 66) hanging **down and back** from it over the nape and the shoulder hump; the longest ropes reach about 0.45 H behind the jaw centre and end below the jaw line. One short front lock ends above the brow. Rules that keep it from reading as horns at 1x: no rope point ever rises above the crown; every rope ends lower than it starts; the forehead in front of the mop stays skin; the ear (skin) sits on the dark mop and points straight back, below the crown line; every third column of lit hair (`I`) drops to `H` so the mop reads as separate ropes. Motion streams the tips back and up toward the horizontal (`sweep` 0.6 on the walk, 1.0 in the leap); the hurt recoil whips them forward (`sweep` -0.6). Larger types keep the mop-plus-ropes rule with more and longer ropes (the Virtuoso's reach the middle of the back).
+
+**Skin and grime:** one ramp for the family, `d` `#5a2c3f`, `s` `#8c4651`, `m` `#bf6f64`, `l` `#e5a08c` (torch-lit upper-left rim), with the far limbs on `K`/`d`/`d`/`s`. Pale reddish-pink, cooled so it separates from the orange brick. Grime is part of the construction, not decoration: 2 px `d` smudges on lit or mid skin (4 to 6 per key at 40 px, more on the larger types), and the two rows above the contact row (soles, knuckles) are dirt-caked `d`. No clean, evenly lit skin.
+
+**Cloth:** a ragged loincloth with a torn hem, `c` `#3b2f2c` and `C` `#72604d`, hanging from behind the hip. Bare hands and feet in every type.
+
+**Palette allocation:** the 15 core colours (`K d s m l H I c C w e t T o q`) are shared and frozen. The 5 free slots are allocated so that even a single family atlas stays at 20: Basher 2 (forearm wrap grey, mid and light; the necklace and shoulder trash reuse `w`, `t`, `c`, `C`), Virtuoso 3 (purple robe deep, mid, light; the gold bells reuse `t` and `T`, the tongue reuses `q` with `s` and `o` for its shade). The Juicer is a boss with its own atlas: the 15 core colours plus up to 5 of its own.
+
+**Frame and pivot convention:** facing right, pivot on the contact row, about 0.35 H of margin behind the pivot for trailing legs and ropes, and more room ahead than behind for the reach. Airborne tags never touch the contact row; grounded tags always do.
 
 ## 3. Frame, pivot, boxes and atlas
 
 - Frame **80 x 56**, pivot **(30, 55)**, contact row **55** (the lowest opaque row of every grounded frame). The pounce reaches 30 px ahead of the pivot and 29 px behind it; the idle stays inside -14 to +20.
 - Grounded tags: `idle`, `walk`, `attack_tell`, `attack_land`, `hurt`, `down`. Airborne tag (no pixel on row 55): `attack_leap`.
-- Boxes are placeholders in px from the pivot (x forward, y up), measured from the key bounding boxes, not approved mechanics (`BOXES` in `scripts/author_trog01.py`, also in the manifest):
+- Boxes are placeholders in px from the pivot (x forward, y up), re-measured from the edited keys; not approved mechanics (`BOXES` in `scripts/author_trog01.py`, also in the manifest). Hurtboxes cover the trunk and head and leave out the hair mop above the skull, the hanging ropes and the planted hands; the hitbox covers both claws and the open jaw:
 
 | Box | x | y | Frames |
 | --- | --- | --- | --- |
 | Standing (opaque extent) | -14 to 20 | 0 to 39 | idle |
-| Hurtbox idle/walk (trunk and head, not the reaching arm or the dreads) | -14 to 17 | 0 to 36 | 0 to 6 |
-| Hurtbox tell/land | -17 to 14 | 0 to 24 | 7, 8, 11 |
-| Hurtbox leap | -24 to 18 | 5 to 37 | 9, 10 |
-| Hurtbox hurt | -12 to 12 | 0 to 43 | 12 |
-| Hurtbox down | -19 to 14 | 0 to 20 | 13 to 15 |
-| Attack hitbox (impact frame only) | 12 to 30 | 16 to 34 | 10 |
+| Hurtbox idle/walk | -14 to 21 | 0 to 33 | 0 to 6 |
+| Hurtbox tell/land | -16 to 19 | 0 to 22 | 7, 8, 11 |
+| Hurtbox leap | -22 to 21 | 6 to 31 | 9, 10 |
+| Hurtbox hurt | -12 to 12 | 0 to 41 | 12 |
+| Hurtbox down | -19 to 18 | 0 to 14 | 13 to 15 |
+| Attack hitbox (strike frame only) | 14 to 30 | 13 to 33 | 10 |
 
 - Authored facing right; the runtime mirrors around the pivot column.
 - One atlas, frames 0 to 15, one layer: `body`.
@@ -133,12 +157,12 @@ Tick windows are at 60 Hz. The attack is a pounce in three tags so the airborne 
 | idle | `idle` | 3 | loop | 12 + 8 + 12 = 32 | breathing cycle |
 | move | `walk` | 4 | loop | 4 x 6 = 24 | a crouched scuttle, 0.4 s per cycle; the speed comes from the gameplay spec |
 | tell | `attack_tell` | 2 | once | 6 + 18 = 24 | an 18-tick hold of the coil is the read window |
-| attack | `attack_leap` | 2 | once | launch 3 + strike 6 = 9 | the hitbox is active on frame 10 only |
+| attack | `attack_leap` | 2 | once | launch 3 + strike 8 = 11 | the hitbox is active on frame 10 only |
 | (recover) | `attack_land` | 1 | once | 14 | landing, dust, vulnerable recovery |
 | hurt | `hurt` | 1 | once | 12 | |
 | defeat | `down` | 3 | hold | 4 + 8, then a state-driven hold | |
 
-Tell-to-attack read: the attack starts 24 ticks after the tell begins; the leap starts at tick 24, the strike pose and hitbox are active on ticks 27 to 32, and the Pygmy is back in a grounded, hurtable crouch at tick 33 for 14 ticks (to tick 46). Leap range, damage and speed are placeholders. The tell pose (the lowest grounded silhouette, hands planted, mouth wide open) must be readable for at least 18 ticks (300 ms) before the leap.
+Tell-to-attack read: the attack starts 24 ticks after the tell begins; the leap starts at tick 24, the strike pose and hitbox are active on ticks 27 to 34, and the Pygmy is back in a grounded, hurtable crouch at tick 35 for 14 ticks (to tick 48). The design edit lengthened the strike from 6 to 8 ticks: 9 airborne ticks (150 ms) were too short to show a pounce arc and gave the hitbox almost no travel; 11 ticks (183 ms) still reads as fast. The three-tag split stays: `attack_tell` is the 24-tick read window (the 18-tick coil hold is the lowest grounded silhouette with the jaw hanging open), `attack_leap` is the only airborne tag (so the contact rule stays per tag), and `attack_land` is a separate 14-tick grounded punish window that gameplay can address by name. Leap range, damage and speed are placeholders. The tell pose (the lowest grounded silhouette, hands planted, mouth wide open) must be readable for at least 18 ticks (300 ms) before the leap.
 
 Frame table:
 
@@ -154,8 +178,8 @@ Frame table:
 | 7 | `attack_tell` | copy of 8 | 6 | copy |
 | 8 | `attack_tell` | **KEY** coiled: haunches raised and loaded, shoulders and head dropped forward, hands planted, mouth wide | 18 | key |
 | 9 | `attack_leap` | copy of 10 | 3 | copy |
-| 10 | `attack_leap` | **KEY** strike: body stretched flat in the air, arms thrown forward with spread fingers, legs trailing, mouth wide | 6 | key |
-| 11 | `attack_land` | the tell crouch plus 9 dust pixels inside the frame | 14 | generated (tell + dust) |
+| 10 | `attack_leap` | **KEY** strike: body stretched flat in the air, one claw high and one low around the gaping mouth, legs trailing | 8 | key |
+| 11 | `attack_land` | the tell crouch plus 9 dust pixels, before and behind the feet | 14 | generated (tell + dust) |
 | 12 | `hurt` | **KEY** thrown upright and back, head snapped up, near arm flung, eye shut, mouth open | 12 | key |
 | 13 | `down` | copy of 15 | 4 | copy |
 | 14 | `down` | copy of 15 | 8 | copy |
@@ -207,16 +231,16 @@ The 24 packet candidates are mostly background navy (about 15 of them), so the c
 
 ## 7. Key poses
 
-Design units are px right of the pivot column and up from the contact row. Frozen by `pixelart freeze` once the review passes (the fixture currently records the draft).
+Design units are px right of the pivot column and up from the contact row. Frozen by `pixelart freeze`; the fixture records the keys after the design edit.
 
 | Frame | Tag | Silhouette and pose notes | Readability reason |
 | --- | --- | --- | --- |
-| 0 | `idle` | Top 40 px (rows 16 to 55), x -14 to 20. Hips (-10, 15) rise to the shoulder hump (3, 25); head at (12, 26) pushed ahead of the shoulders; near arm hangs from (4, 22) to the hand at (15, 3); four dreads fan up and back. Snarl face. | A hunched, long-armed silhouette that no other Floor 1 enemy has; the head leads. |
-| 3 | `walk` | Top row 20, x -18 to 26. Body drops 4 px and leans forward; near hand reaches to (21, 3); the far leg trails to (-17, 2); dreads stream backward. | Lower and longer than the idle: reads as a scuttle, not a stand. |
-| 8 | `attack_tell` | Top row 25 (31 px), x -17 to 22. Hips up at (-12, 16), shoulders down at (3, 13), head dropped to (12, 15) with the mouth wide, both hands planted at (17 to 19, 1); legs folded. | The lowest, most compact grounded pose with a gaping mouth: "about to spring". |
-| 10 | `attack_leap` | Top row 18, bottom row 50 (3 px off the floor), x -29 to 30. Body flat from (-13, 17) to (4, 23); arms thrown to (25, 22); legs trail to (-25, 6); roar face. | A long horizontal bar, longer than any other pose; arms and mouth forward mark the hitbox. |
-| 12 | `hurt` | Top row 12 (44 px), x -12 to 22. Torso arched back from (-8, 14) to (0, 28), head snapped up at (5, 34), near arm flung forward; eye a shut stroke, no red. | The tallest pose and the only one with the head above the back: it reads as a recoil. |
-| 15 | `down` | Top row 35 (21 px), x -19 to 22. On its back; knee raised at (-9, 10); near arm up; head at (11, 6); tongue out, crossed eye. | Lowest, flat on the floor; the red eye is gone. |
+| 0 | `idle` | Top row 16 (40 px), x -14 to 20. Hips (-10, 15) rise to the shoulder hump (3, 24); head jaw centre (13, 25), skull (9, 26), at hump height and ahead of it; the mop tops out at y 38 and the ropes hang down the back over the hump to about (-5, 23); near arm from (4, 21) to the hand at (15, 3). Snarl face, 6 grime smudges. | A hunched, long-armed silhouette with a big head and a hanging dread mop that no other Floor 1 enemy has; the head leads. |
+| 3 | `walk` | Top row 21 (35 px), x -18 to 26. Body drops 4 px and leans forward; head (16, 20); near hand reaches to (21, 3); far leg trails to (-17, 2); ropes stream back (sweep 0.6). | Lower and longer than the idle: reads as a scuttle. |
+| 8 | `attack_tell` | Top row 26 (30 px), x -17 to 21. Hips up at (-12, 16), shoulders down at (3, 12), head dropped to (13, 15) with the jaw hanging open (roar), both hands planted at x 16 to 20; legs folded. | The lowest, most compact grounded pose with a gaping mouth: "about to spring". |
+| 10 | `attack_leap` | Top row 17, bottom row 50 (5 px off the floor), x -29 to 30. Body flat from (-13, 17) to (4, 22); head (15, 24) roaring; near claw low at (24, 16), far claw high at (25, 29); legs trail to (-28, 11); ropes stream straight back (sweep 1.0). | The longest horizontal bar of the set; two claws and the mouth form the strike front. |
+| 12 | `hurt` | Top row 8 (48 px), x -13 to 21. Torso arched back from (-8, 14) to (0, 27); head snapped up at (6, 33) with the skull tilted 2 px higher; ropes whip forward (sweep -0.6); near arm flung forward-down; eye a shut slit, no red. | The tallest pose and the only one with the head above the back: a recoil. |
+| 15 | `down` | Top row 35 (21 px), x -19 to 18. On its back; knee raised at (-9, 10); near arm up to (9, 17); head (12, 6) with the mop and ropes spilled behind it; crossed eye, tongue out. | Lowest, flat on the floor; the red eye is gone. |
 
 ## 8. In-between list
 
@@ -243,7 +267,7 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/troglodyte
 - V07/V08 contact rows: grounded tags end on row 55; `attack_leap` never touches it (bottom row at most 52).
 - V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/trog-01_keys.json` (6 keys: 0, 3, 8, 10, 12, 15).
 - V12 unique frames: off, because the in-betweens are copies of the keys until the executor draws them. Switch it on when they exist.
-- V13 bounding boxes: idle height 40 (top row 16); walk lower than idle (top at least 18); tell, land lowest and at most 44 wide (top at least 22); leap clear of the floor and top at most 22; hurt tallest (top at most 14); down low (top at least 32, at most 50 wide).
+- V13 bounding boxes: idle height 40 (top row 16); walk lower than idle (top at least 18); tell lowest and at most 44 wide (top at least 22); land low (top at least 22) and at most 56 wide with its dust; leap clear of the floor and top at most 22; hurt tallest (top at most 14); down low (top at least 32, at most 50 wide).
 - V14 key counts: red eye in the idle; the tell and leap mouth (dark `o`, at least 8 pixels); no red eye when hurt or down; the tongue (`q`, at least 3 pixels) in the defeat key.
 - Extra tests: `tests/test_art_trog01.py` (generator parity, ticks, size, airborne contact, tell lowest, landing diff).
 
@@ -256,7 +280,7 @@ python3 -m scripts.pixelart review-pack assets/source/characters/troglodyte/trog
 python3 scripts/author_trog01.py key0-scale      # docs/evidence/trog-01/key0-scale.png
 ```
 
-`docs/evidence/trog-01/key0-scale.png` (960 x 360): key 0 at 1x on lit Floor 1 next to Carl and GOB-01 (left, 640 x 360, no scaling), and a 4x copy of key 0 (right). The full review pack (contact sheet, lit scene, tell-to-attack strip) is not generated at this draft stage.
+`docs/evidence/trog-01/key0-scale.png` (960 x 360): key 0 at 1x on lit Floor 1 next to Carl and GOB-01 (left, 640 x 360, no scaling), and a 4x copy of key 0 (right). `docs/evidence/trog-01/keys-x3.png` (`python3 scripts/author_trog01.py keys-x3`): the six keys left to right (0, 3, 8, 10, 12, 15) on lit Floor 1 brick, enlarged 3x. The full review pack (contact sheet, tell-to-attack strip) is the executor's job after the silhouette gate.
 
 VFX notes (separate work orders, out of scope here): the landing dust is 9 pixels inside the frame; a bigger pounce splash or ground streak and the small "!" alert mark from the sheet are VFX/UX work orders. The Basher's smash debris and the Virtuoso's tongue strike are likewise separate.
 
@@ -267,10 +291,10 @@ VFX notes (separate work orders, out of scope here): the landing dust is 9 pixel
 | `assets/source/characters/troglodyte/trog_01.grid.json` / `.ase` | pixel-grid source and Aseprite master (16 frames) |
 | `assets/manifests/trog-01.json` | manifest (tick rows, boxes, attack ticks) |
 | `assets/source/characters/troglodyte/trog_01.pixelart.json` | the asset config |
-| `scripts/author_trog01.py` | deterministic authoring script (`frames`, `key0-scale`) |
+| `scripts/author_trog01.py` | deterministic authoring script (`frames`, `key0-scale`, `keys-x3`) |
 | `tests/fixtures/trog-01_keys.json` | frozen draft keys |
 | `tests/test_art_trog01.py` | spec tests |
-| `docs/evidence/trog-01/key0-scale.png` | scale evidence |
+| `docs/evidence/trog-01/key0-scale.png`, `keys-x3.png` | scale evidence, six keys at 3x on brick |
 
 ## 12. Rights and provenance
 
@@ -280,12 +304,15 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Draft spec and keys (Pygmy only): Claude Sonnet. Key edit and independent review: pending.
+- Draft spec and keys (Pygmy only): Claude Sonnet.
+- Design edit (size decision, shared construction, head/hair/face redesign, six keys redrawn and re-frozen, boxes and strike ticks): Claude Opus.
+- Independent review: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
 
-## 13. Open questions for the senior designer
+## 13. Design edit: resolved questions and what remains open
 
-- Size 40 px against the packet's 48 px: confirm or change; the frame (80 x 56) and the family sizes follow.
-- The dreads read a little like horns at 1x: thicker, more bent ropes may be needed. The face (eye, fangs) is only about 10 x 10 px: check it at gameplay scale.
-- The in-betweens are copies, so the walk is a slide for now; the pounce range, damage and boxes are placeholders.
-- Whether `attack_land` should be a separate tag (as drawn) or merged into the attack once the airborne rule is settled.
+- Size: 40 px confirmed for the family ladder (section 2); the packet's 48 px is rejected.
+- Dreads read as horns: fixed by the mop-plus-hanging-ropes rule (section 2b, Hair); no rope rises above the crown.
+- Face at about 10 x 10 px: the head is now 14 x 12 px and the face template 11 x 9 px with three separate accents (section 2).
+- `attack_land` stays a separate tag (section 4).
+- Still open: the in-betweens are copies, so the walk is a slide; pounce range, damage and boxes are placeholders; the silhouette gate and the independent review are next.

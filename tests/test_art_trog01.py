@@ -31,15 +31,15 @@ class Trog01PygmyTests(unittest.TestCase):
 
     def test_spec_tick_windows(self):
         ticks = {name: sum(t for _n, t in fr if t is not None) for name, fr in at.TAGS}
-        self.assertEqual(ticks, {"idle": 32, "walk": 24, "attack_tell": 24, "attack_leap": 9, "attack_land": 14,
+        self.assertEqual(ticks, {"idle": 32, "walk": 24, "attack_tell": 24, "attack_leap": 11, "attack_land": 14,
                                  "hurt": 12, "down": 12})
         self.assertEqual(len(self.rows), 16)
         pygmy = self.manifest["pygmy"]
         self.assertEqual(pygmy["key_frames"], list(KEYS))
         self.assertEqual([f["author"] for f in pygmy["frames"] if f["index"] in KEYS], ["key"] * 6)
-        # tell 24 ticks (0-23), launch 3 (24-26), strike with the hitbox active 6 (27-32), land and recover 14 (33-46)
-        self.assertEqual(pygmy["attack_ticks"], {"tell": [0, 23], "leap_launch": [24, 26], "leap_strike_impact": [27, 32],
-                                                 "land_recover": [33, 46]})
+        # tell 24 ticks (0-23), launch 3 (24-26), strike with the hitbox active 8 (27-34), land and recover 14 (35-48)
+        self.assertEqual(pygmy["attack_ticks"], {"tell": [0, 23], "leap_launch": [24, 26], "leap_strike_impact": [27, 34],
+                                                 "land_recover": [35, 48]})
         self.assertEqual(pygmy["boxes_px_from_pivot"]["attack_hitbox_impact_frame_only"]["frame"], 10)
 
     def test_size_frame_pivot_and_palette_budget(self):
