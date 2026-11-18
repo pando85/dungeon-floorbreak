@@ -62,15 +62,16 @@ SKULL = [  # 9 x 8, three-quarter skull: far socket 1 px, near socket 2 x 2, jaw
     ".oqKq.qo.",
     "..oooo...",
 ]
-PLATE = [  # 16 x 7, a riveted pauldron wedged under the gel's skirt: lit top edge, 2 rivets, a corroded notch (left)
-    "..........KKKK..",
-    "......KKKKuuuuK.",
-    "...KKKuuuussusuK",
-    ".KKKuuussssurssK",
-    "KrssusrssssssrrK",
-    "KrrsrrssrrsrrsK.",
-    ".KKKKKKKKKKKKK..",
+PLATE = [  # 16 x 7, a riveted armour plate: straight lit top edge, squared corner, two rivets with glints, a dent
+    ".KKKKKKKKKKKKKKK",
+    "KuuuuuuuuuuuuuuK",
+    "KssussssssusssrK",
+    "KsrrssssssrrsssK",
+    "KssssssrssssssrK",
+    "KrrrrrrrrrrrrrrK",
+    "KKKKKKKKKKKKKKKK",
 ]
+PLATE_BACK = 6  # the back third of the plate (its left 6 columns) lies under the front skirt of the gel
 PLATE_FLAT = [  # 22 x 4, the plate fallen out flat beside the remains: lit top edge, 2 rivets
     "..KKKKKKKKKKKKKKKKKK..",
     ".KuuuuuuuuuuuuuuuuuuK.",
@@ -159,7 +160,7 @@ def shade(cv: Cv, mask, dead=False, lift=False):
             v = 4 if lit else 3  # the rim glows all round: light travelling through the gel skin
             if shadow and not lit:
                 v = 2
-        elif k == 3:
+        elif k == 3 and y < BASE - 8:
             v = 3 if lit else 2
         else:
             v = 3 if dep <= 2 else (2 if dep <= 6 else 1)  # lit upper skin, mid gel, body shade
@@ -221,6 +222,23 @@ def draw_obj(cv: Cv, rows, ox, oy, cover=0, mask=None, stain_from=99):
             if c == "." or (mask is not None and (x, y) not in mask) or j > len(rows) - 1 - cover:
                 continue
             cv.put(x, y, darker.get(c, c) if j >= stain_from else c)
+
+
+def plate_swallowed(cv: Cv, mask, ox, oy):
+    """The plate half buried under the front skirt: its back third is seen through the gel (the top two rows stay
+    gel, the rust below is shaded toward rust_dark and grit), the front two thirds stand clear with a hard edge."""
+    seen = {"u": "r", "s": "r", "r": "n"}
+    for j, line in enumerate(PLATE):
+        for i, c in enumerate(line):
+            x, y = ox + i, oy + j
+            if c == ".":
+                continue
+            if i < PLATE_BACK and (x, y) in mask:
+                if j < 2:
+                    continue  # the skirt runs over the plate here
+                cv.put(x, y, seen.get(c, c))
+            else:
+                cv.put(x, y, c)
 
 
 def sunk_skull(cv: Cv, mask, ox, oy):
@@ -386,7 +404,7 @@ def key_idle():
     streaks(cv, mask, (19, 56), 3)
     bubbles(cv, mask, [(33, 16), (44, 21), (14, 33)])
     sunk_skull(cv, mask, 24, 21)
-    draw_obj(cv, PLATE, 51, 33)
+    plate_swallowed(cv, mask, 51, 33)
     sheen(cv, mask, 22, 38)
     glint(cv, mask, 29)
     glint(cv, mask, 45)
@@ -409,7 +427,7 @@ def key_creep():
     streaks(cv, mask, (20, 60), 3)
     bubbles(cv, mask, [(42, 22), (52, 30)])
     sunk_skull(cv, mask, 30, 25)
-    draw_obj(cv, PLATE, 55, 33)
+    plate_swallowed(cv, mask, 55, 33)
     sheen(cv, mask, 25, 44)
     glint(cv, mask, 32)
     glint(cv, mask, 58)
@@ -482,7 +500,7 @@ def key_hurt():
             cv.put(x, y, RAMP[RAMP.index(cv.get(x, y)) + 1])  # the body pales one step
     debris(cv, mask, 53, 4, [(14, 22, 28, 39), (44, 31, 64, 39)])
     draw_obj(cv, SKULL, 18, 26, mask=mask, stain_from=6)
-    draw_obj(cv, PLATE, 45, 33)
+    plate_swallowed(cv, mask, 45, 33)
     return finish(cv)
 
 
@@ -503,6 +521,11 @@ def key_defeat():
             if q in mask and cv.get(*q) not in ("K", None):
                 cv.put(*q, "K")
                 cv.put(q[0], q[1] - 1, "c")
+    for x in range(34, 42):  # top plane of the tallest lump: volume without a rim glow
+        if cv.get(x, top[x] + 1) in tuple("ab"):
+            cv.put(x, top[x] + 1, "c")
+        if cv.get(x, top[x] + 2) == "a":
+            cv.put(x, top[x] + 2, "b")
     debris(cv, mask, 61, 3, [(52, 30, 79, 39)])
     draw_obj(cv, SKULL, 62, 32, stain_from=6)
     return finish(cv)
@@ -561,7 +584,7 @@ def idle_between(balls, bub, lump_dy):
     streaks(cv, mask, (19, 56), 3)
     bubbles(cv, mask, [bub, (44, 21 + lump_dy), (14, 33)])
     sunk_skull(cv, mask, 24, 21)
-    draw_obj(cv, PLATE, 51, 33)
+    plate_swallowed(cv, mask, 51, 33)
     sheen(cv, mask, 22, 38)
     glint(cv, mask, 29)
     glint(cv, mask, 45)
@@ -591,7 +614,7 @@ def creep_between(balls, film_l, film_r, skull, plate, pockets, bub, grit_dx, sh
     streaks(cv, mask, (20, 60), 3)
     bubbles(cv, mask, bub)
     sunk_skull(cv, mask, *skull)
-    draw_obj(cv, PLATE, *plate)
+    plate_swallowed(cv, mask, *plate)
     sheen(cv, mask, *sheen_rng)
     for gx in glints:
         glint(cv, mask, gx)

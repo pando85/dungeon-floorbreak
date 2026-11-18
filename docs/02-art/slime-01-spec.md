@@ -104,6 +104,10 @@ The silhouette gate passed the outlines, size and six-pose contrast and asked fo
 
 Evidence: `key0-scale.png` now also places key 0 in front of lit brick (left of Carl) as well as dark stone.
 
+### Review fix (2026-11-18)
+
+The blind review passed the six keys and failed tag-wide rules that forced the in-betweens. Changes: the bbox rules are split per frame (section 9) and the redraw targets are in section 8. The plate is redrawn as riveted armour with a straight lit top edge, a squared corner, two rivets with glints and a dent; on idle, creep and hurt the front skirt runs over its back third (the top two rows stay gel, the rust below is shaded toward `r` and `n`); in the tell it stays clear on the floor, where the body has reared off it. The lit rim is one pixel thinner on the lower skirt (the second rim ring stops 8 rows above the floor) so the darker gel shows through. Defeat key 15 gets a `c`/`b` top plane on its tallest lump. Keys 0, 3, 8, 10, 12 and 15 are re-frozen.
+
 ## 3. Frame, pivot, boxes and atlas
 
 - Frame **80 x 40**, pivot **(40, 39)**, contact row **39** (the lowest opaque row of every frame). The body is centred near the pivot column (idle spans x 6 to 69 with film and plate); the lunge reaches x 78 to the right (frame edge 79).
@@ -139,16 +143,16 @@ Readability set: idle, move, tell, attack, hurt, defeat, 16 frames. Tick windows
 | 1 | `idle` | crest pinned at row 10, shoulder lump and body sink 1 px, skirt spreads, a bubble drifts up 1 px | 8 | in-between |
 | 2 | `idle` | shoulder lump and body swell 1 px, skirt draws in, the bubble drifts up another px | 12 | in-between |
 | 3 | `creep` | Stretch: long and low, leading lobe forward, tail film thinning behind | 8 | key |
-| 4 | `creep` | gather: body piled to 25 px, tail film still trailing, skull lags one frame | 8 | in-between |
+| 4 | `creep` | gather: mass piled up to 27 to 30 px, 46 to 56 px wide, tail film anchored, skull lags one frame (to redraw, section 8) | 8 | in-between |
 | 5 | `creep` | second stretch, 21 px, front lobe out to x 74, skull and plate shear forward | 8 | in-between |
-| 6 | `creep` | gather again, dome forward, 25 px, skull rides up with it | 8 | in-between |
+| 6 | `creep` | gather again, dome forward, 27 to 30 px, 46 to 56 px wide, skull rides up with it (to redraw, section 8) | 8 | in-between |
 | 7 | `attack_tell` | half-rise, 33 px, mass climbing, 11 `v` (crest beads, lip drips, plate), skull still low, plate halfway back | 6 | in-between |
 | 8 | `attack_tell` | Reared up and back, 37 px, crest curling forward over a drawn-in front face, acid beads on the crest | 24 | key |
-| 9 | `attack_lunge` | the smear: leaning forward, 17 px, bulb at x 66, a thin floor strand already out to x 76, no `v` past x 70 | 2 | in-between |
+| 9 | `attack_lunge` | the launch: the tell's mass falling forward, 22 to 26 px, bulb at x 66, nothing past x 70 (to redraw, section 8) | 2 | in-between |
 | 10 | `attack_lunge` | Flat reach to x 78, bulb at the leading edge, parts dragged behind | 6 | key |
-| 11 | `attack_lunge` | recover: bulb pulled back, 17 px, strand thinning, plate and skull ride back | 20 | in-between |
+| 11 | `attack_lunge` | recover: mass pulled back and bunched, 20 to 24 px, nothing past x 70 (to redraw, section 8) | 20 | in-between |
 | 12 | `hurt` | Flinch: flat, recoiled back, dented front, whole struck skin flashing | 12 | key |
-| 13 | `down` | slump: 14 px, dark crust, rim glow gone, skull sunk at the rear, plate sliding out | 6 | in-between |
+| 13 | `down` | slump: about 18 px, dark crust, rim glow gone, skull sunk at the rear, plate sliding out (may be redrawn taller, section 8) | 6 | in-between |
 | 14 | `down` | deflate: 11 px, skull rolled out of the front, plate tipped flat | 10 | in-between |
 | 15 | `down` | Dull deflated heap (the remains), skull rolled out onto the plate slid out flat | hold | key |
 
@@ -213,12 +217,20 @@ For the execution tier. All ten in-betweens are drawn (section 4 marks each); th
 
 | # | Pose notes |
 | --- | --- |
-| 1, 2 | idle breathing: crest sinks 1 px at frame 1, rises 1 px at frame 2, one bubble drifts up 2 px; keep the 30 px height rule on frames 0 to 2 |
-| 4, 5, 6 | creep cycle between the stretch (key 3) and a gathered pose (about 40 x 28): gather, stretch, gather; skull and plate follow with a one-frame lag |
-| 7 | half-rise to 32 px, acid beads starting (2 to 4 `v`), skull still low |
-| 9 | the smear: leaning forward at 26 px with the leading lobe at x 66, no reach beyond x 70 so the hitbox is not shown early |
-| 11 | recover: pull back through the creep stretch toward idle, no `v` pixels past x 70 |
-| 13, 14 | defeat collapse: slump to about 18 px with the rim glow gone and no flash, then the heap deflates while the skull rolls out of the front and the plate slides out |
+| 1, 2 | idle breathing: the crest may now sink 1 px at frame 1 and rise 1 px at frame 2 (rows 9 to 11, rule `S1-idle-breath-29-31px`; key 0 stays exactly 30 px), one bubble drifts up 2 px. Optional redraw |
+| 4, 6 | **redraw.** Gather: the mass piles up and draws in, 27 to 30 px high (top row 10 to 13) and 46 to 56 px wide; the tail film's left end stays within 2 px of key 3's so the footprint does not pop; skull rides up 3 to 5 px; the plate stays put on the floor and the gel runs over its back third (`plate_swallowed`). Frame 5 is the second stretch, as long as key 3 |
+| 7 | half-rise to about 32 px, base starting to gather, crest not yet curled; at least 9 `v` (rule R2) |
+| 9 | **redraw.** Launch (2 ticks): the tell's reared mass falling forward, 22 to 26 px high (top row 14 to 17), bulb at about x 66, **no pixel past x 70** and no `v` past x 66, so the full reach appears only on key 10 |
+| 11 | **redraw.** Recover (20 ticks): a visible pull-back toward the creep stretch, 20 to 24 px high (top row 16 to 19), **no pixel past x 70**, plate and skull riding back. Only key 10 is full length |
+| 13, 14 | defeat collapse: frame 13 may slump at about 18 px (top row 20 or lower, rule `R6-defeat-collapse`) with the rim glow gone, then 14 deflates toward key 15 while the skull rolls out of the front and the plate slides out |
+
+**Rules the executor adds to `slime_01.pixelart.json` with the redraw** (they fail on the current frames, so they are not configured yet):
+
+```json
+{"id": "S2-creep-gather", "frames": [4, 6], "min_top": 10, "max_top": 13, "min_width": 46, "max_width": 56, "bottom": 39},
+{"id": "R3-lunge-launch-lean", "frames": [9], "min_top": 14, "max_top": 17, "max_right": 70, "bottom": 39},
+{"id": "R3-lunge-recover-pullback", "frames": [11], "min_top": 16, "max_top": 19, "max_right": 70, "bottom": 39}
+```
 
 ## 8a. Executor notes (in-betweens and pocket fix)
 
@@ -230,7 +242,7 @@ The in-betweens use the key machinery (same shading, lenses, skull and plate, gr
 4. **Lunge 9 and 11:** "26 px, no reach past x 70" contradicts R3 (top row 21 or lower and reach to x 76 or more on frames 9, 10 and 11). Frames 9 and 11 are 17 px high with the bulb at x 66 and x 60 and a thin floor strand reaching x 76; no `v` is past x 70, and the attack hitbox is still frame 10 only. Frame 11 is a little higher than 10 because the mass bunches as it pulls back.
 5. **Down 13 and 14:** "slump to about 18 px" contradicts R6 (top row 26 or lower). Frame 13 is 14 px, frame 14 is 11 px, key 15 is 10 px; the plate steps through three drawings (jutting, tipped, flat) and the skull rolls from the rear to the front.
 6. **Gel pockets:** the lens ellipses came out as small crosses (the 2 by 2 radius made a plus shape). They are now literal rounded 2 to 4 px shapes (`POCKET_SHAPES`) with the same refraction tick. Keys 0, 3, 8 and 10 changed only inside their silhouettes (no silhouette pixel moved) and were re-frozen; keys 12 and 15 have no pockets and are unchanged.
-7. **Open for the designer:** the rules R3 and R6 could be split per frame if frames 9, 11, 13 and 14 should follow the section 8 notes; the executor did not touch the configuration beyond turning `unique_frames` on.
+7. **Resolved by the designer (review fix):** R3, S2, S1 and R6 are now split per frame (section 9); items 1, 2, 4 and 5 above no longer bind, and frames 4, 6, 9 and 11 are to be redrawn to section 8.
 
 ## 9. Validators and readability rules
 
@@ -239,9 +251,9 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/slime/slim
 - V04 palette: at most 20 colours (17 used); V05 isolated pixels: 0; V06 orphan pixels: at most 4 per frame.
 - V07 contact rows: every tag is grounded, the lowest opaque row is 39.
 - V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/slime-01_keys.json` (re-frozen after the senior design edit).
-- V13 bbox: idle exactly 30 px high and 58 to 64 px wide; the creep at most 26 px high and 62 px wide or more; the tell key at least 36 px high (top row 4 or higher) and at most 44 px wide; the lunge reaches x 76 or more and starts at row 21 or lower; the hurt starts at row 18 or lower and stays within x 66; the defeat starts at row 26 or lower and is at most 70 px wide, and key 15 reaches row 31 or higher (remains, not a stain).
+- V13 bbox, per frame: key 0 exactly 30 px high and 58 to 64 px wide, idle 1 and 2 top row 9 to 11; creep key 3 at most 26 px high and 62 px wide or more, frames 4 to 6 top row 9 or lower and at most 70 px wide (the gather targets in section 8 are added with the redraw); the tell key at least 36 px high (top row 4 or higher) and at most 44 px wide; **only lunge key 10** reaches x 76 or more and starts at row 21 or lower, frames 9 and 11 are grounded with top row 12 or lower (launch and recover targets in section 8 are added with the redraw); the hurt starts at row 18 or lower and stays within x 66; defeat key 15 starts at row 26 or lower, is at most 70 px wide and reaches row 31 or higher (remains, not a stain), frames 13 and 14 start at row 20 or lower.
 - V14 key counts: acid `v` at least 4 in the alive frames and at least 9 in the tell; skull bone `q` at least 10 in the alive keys; hurt `w` at least 40 and no `w` in any other frame; no `v`, `H` or `w` in any defeat frame.
-- `tests/test_art_slime01.py` adds: the grid equals the script output, the six keys are distinct, in-between slots copy the nearest key, the tick table and attack windows, tell tallest and lunge longest, one connected body per key (no split-off pieces).
+- `tests/test_art_slime01.py` adds: the grid equals the script output, the six keys are distinct and frozen, every frame is distinct and the in-betweens are drawn (not copies), the gel pockets are rounded, the tick table and attack windows, tell tallest and lunge longest, one connected body per key (no split-off pieces).
 
 Acceptance targets for the review: the tell reads against idle at 1x (37 px tall, 40 px wide, 14 `v`, against 30 by 64 and 5), the lunge impact reads as a floor-level reach (15 px by 73 px), the hurt reads against idle at 1x (18 px, recoiled, 84 `w`), the defeat reads as remains and not a decal, and key 0 reads as a grimy translucent mound and not a mascot blob.
 
