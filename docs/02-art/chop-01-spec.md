@@ -209,9 +209,9 @@ The ten in-betweens are drawn through the same rig as the keys (new pose paramet
 | --- | --- |
 | 1 | Idle: puff 1 px higher, firebox `Y` core out for one frame (flicker), rider head 1 px lower |
 | 2 | Idle: whole machine 1 px lower (engine shudder), scarf droops 1 px |
-| 4 | Walk: spokes advance 30 degrees, tub back up, scarf at its lowest |
-| 5 | Walk: spokes 60 degrees, fork at full extension, puff separated from the stack |
-| 6 | Walk: spokes 90 degrees, machine 1 px lower, scarf lifts |
+| 4 | Walk: spokes advance 15 degrees (one step under half the 30 degree half-period), tub back up, scarf at its lowest |
+| 5 | Walk: spokes 30 degrees from key 3, fork at full extension, puff drifts along the stack |
+| 6 | Walk: spokes 45 degrees from key 3 (the loop 6 to 3 closes at 60), machine 1 px lower, scarf lifts |
 | 7 | Tell anticipation: pitch +3 degrees, driver ducking, club half raised (angle 125), firebox `Y` core at half size |
 | 9 | Smear: lunge 2 px, pitch -1 degree, club at angle 55 with a 1 px iron smear behind the head, no sparks yet |
 | 12 | Hurt recover: pitch +1.5 degrees, club dropping (angle 130), lenses back to yellow |
@@ -305,3 +305,16 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - **Frame 9 smear.** A 1 px `z` streak sits behind the club head in the weapon layer; it adds no new colour.
 - **Foot drift (V16).** The validator set in this repo stops at V15 and has no `rules.foot_drift`, so it could not be opted into. The machine never travels in the move loop (scroll speed is runtime), so both wheel contact points keep the same x and row 63 in every walk frame.
 - Frames 7 and 13 pitch about the sidecar wheel (+3 and -3 degrees), so the tub wheel keeps its contact.
+
+### Review fixes (blind review, execution items)
+
+Keys 0, 3, 8, 10, 11 and 15 were redrawn through the rig and re-frozen (`freeze --force`; fixture `tests/fixtures/chop-01_keys.json`) because the reviewer prescribed changes that touch every key. The design numbers (size, palette, boxes, ticks) are unchanged; the validator passes without any rule edit.
+
+1. **Wheels.** One step everywhere: 15 degrees per walk frame (section 4, section 8 and these notes agree), under half the 30 degree half-period of the three-spoke pattern. `docs/evidence/chop-01/move-loop.gif` loops frames 3 to 6 (slowed 4x); the measured front-wheel spoke phase advances by the same sign each frame, including 6 to 3.
+2. **Wreck.** Burst tyres are now a flattened black ring around a copper rim (`C` ring, `c` core, `D` hub) instead of one dark mass. The rear bike wheel is drawn after the engine and exhaust, so it stays visible. The whole wreck pitches 4 degrees nose-down about the tub (frame 14: 3 degrees), so the hull slopes toward the bike while its tail stays on the floor; the top row is 22 (C5). A bent plate lies beside the tub's tail next to the loose gear (placed on the left because the right edge must stay under the attack's 110).
+3. **Puff.** New lumpy, asymmetric clouds whose first blob sits on the stack cap and trails back and up; no mirrored lobes. Key 0 still reaches row 12 (C1).
+4. **Helmet.** Round crown with a lit top and no brim; a copper-rimmed two-lens goggle band with a divider and a dark strap (8 lens pixels, `e` or `w`).
+5. **Scarf.** Tapered 1.6 to 0.7 px, one-row wave, forked second tail, length 13.5 x scale so it ends well before the rider's head.
+6. **Jacket.** Lit `C` yoke on the front half of the chest, `u` body, `t` hips, plus a lit shoulder cap over the arm.
+
+Not changed (note N1): the tub stays behind the bike.
