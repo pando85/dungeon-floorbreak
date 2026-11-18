@@ -263,6 +263,9 @@ FACES = {
              "...........q..."],
 }
 
+# frame 14 only: the key-15 face without the tooth pixels (a stamp overhangs a hair-covered head with loose yellow dots)
+FACES["dead_quiet"] = [row if i != 9 else "...........qqq.." for i, row in enumerate(FACES["dead"])]
+
 # Mop and rope dreads relative to the jaw centre: the Pygmy's rules at 1.3x, rope radius 1.5 (the Basher's). Ropes 0
 # to 2 hang down the back of the skull; 4 and 5 drape over the trapezius hump and break its back outline; 6 falls in
 # front of the cheek, behind the mouth. A ragged fringe of three 1 px strands hangs over the brow, and two 1 px notches
@@ -626,14 +629,31 @@ def fall(t, hurt_hands):
     return p, lerp(h["hair"].get("sweep", 0), 0, t)
 
 
+def tapered_rag(x0, x1, y0, drop):
+    """The family rag, narrower toward the hem (a hanging cloth, never a rectangle)."""
+    cx = (x0 + x1) / 2
+    return [(cx + (x - cx) * (0.6 + 0.4 * (y - (y0 - drop)) / drop), y) for x, y in ragged_loin(x0, x1, y0, drop)]
+
+
+# 13: the head stays above the shoulders, the near arm is flung back and down (clear of the face), a tapered rag
 p, sw = fall(0.35, True)
+p["head_at"] = lerp(POSES["hurt12"]["head_at"], POSES["down15"]["head_at"], 0.25)
+p["near_arm"] = L([(-12, 56), (-24, 50), (-34, 45)], POSES["hurt12"]["near_arm"]["r"])
+p["arm_blobs"] = {"deltoid": (-12, 57, 11, 10), "bicep": (-18, 53, 8, 8), "forearm": (-29, 47, 8, 7.5)}
+p["hand"] = open_hand(-38, 43, 5.0, 195)
+p["loin"] = tapered_rag(-12, 10, 33, 19)
 p["face"] = "pain"; p["jaw_drop"] = True; p["hair"] = {"turn": 40, "sweep": sw}
 POSES["fall13"] = p
+
+# 14: loose half-closed fists clear of the trunk (near fist in front of the hips, far fist behind the head), no teeth
 p, sw = fall(0.8, False)
 k = list(p["near_legs"][0]["pts"]); k[1] = (k[1][0], k[1][1] + 4)
 p["near_legs"] = [L(k, p["near_legs"][0]["r"])]
 set_calf(p)
-p["face"] = "dead"; p["jaw_drop"] = False; p["hair"] = {"turn": 65}
+p["near_arm"] = L([(-20, 30), (-13, 20), (-4, 15)], POSES["down15"]["near_arm"]["r"])
+p["arm_blobs"] = {"deltoid": (-20, 30, 11, 9), "bicep": (-16, 25, 8, 7), "forearm": (-8, 17, 8, 6)}
+p["fist"] = (2, 13, 9.5, -10)
+p["face"] = "dead_quiet"; p["jaw_drop"] = False; p["hair"] = {"turn": 65}
 POSES["impact14"] = p
 
 # The full atlas, in order: (atlas index, tag, pose, ticks, author)
