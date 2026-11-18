@@ -206,10 +206,10 @@ Done in round 2 (pose dicts and tick table only; keys, rig and design unchanged)
 - Loop-seam foot-drift validator **V16** (`rules.foot_drift` in a config, `{"max_px": 9, "tags": ["walk"]}` here; without `tags` it checks every grounded loop tag). It compares the contact-row foot runs of each frame pair of a loop tag, the last-to-first seam included, and fails when a planted foot moves more than `max_px`. Measured walk drifts: 3 to 4: 7 px, 4 to 5: 6, 5 to 6: 6, 6 to 3 (seam): 2.
 - Review images and `validator_summary.txt` are in `docs/evidence/hoard-01/review-pack/`.
 
-Still open (needs a design decision):
+Deferred polish, not blocking (re-review PASS WITH EXECUTION ITEMS):
 
-- Make the skin-through-hole patches on the shirt and knee irregular, with a 1 px torn dark edge. The patches come from the shared rig (`TEAR_IN`/`TEAR_OUT`, the knee tear), so changing them alters every key and would need a re-freeze; not done in this pose-dict-only pass.
-- Optional: 11a/11b split of the recovery (see above).
+- Make the skin-through-hole patches on the shirt and knee irregular, with a 1 px torn dark edge. They come from the shared rig (`TEAR_IN`/`TEAR_OUT`, the knee tear), so a change alters every key and needs a re-freeze.
+- Optional: 11a/11b split of the recovery (it would renumber the frozen keys 12 and 15).
 
 ### Executor notes
 
@@ -221,6 +221,8 @@ The ten in-betweens are the `INB` pose dicts in `scripts/author_hoard01.py`; no 
 - Frame 7: head dy +3 was added to head-down 6 degrees (the tilt alone raised the hair to row 17; the list requires top >= 20; drawn top is 20). Face stays `idle` (the roar starts at key 8); sleeves `cap` as in key 8.
 - Frame 9: "arms as one arc" is two arm poses on the swing arc, hands rotated about 110 to 130 degrees; the 2-frame smear itself is not drawn as extra pixels (no pixel edits). Face `roar` (as keys 8 and 10).
 - Frame 13: body (20, -6, 18), tops 38 (rule H6). Frame 14: section 8 values (body (60, -18, 26), squash 0.75), top 66; arms are my reading (hands on the floor, one near-hand reach), not listed in section 8. Angle/squash step toward the prone key 15 (20 / 60 / 90, 1.0 / 0.75 / 0.55). Face `shut` from frame 13 on (the whites rule only constrains frames 12 and 15).
+
+- **Rig change after the re-review (reviewer-prescribed, keys re-frozen):** the four back-hair lock groups (`LOCK_GROUPS`) were evenly spaced and equally tapered (a comb or claw read, mainly frames 8-11). They now differ in width (10, 4 and 8 px roots), length (rows 74, 87 and 64 head-local, plus a 4 px straggler to row 80), tips (two, one and a notched one) and gaps (4 and 5 px). Only hair pixels inside the old hair silhouette changed; every key bbox is unchanged (frame 0 x 22-117, y 16-127; 8 y 3; 10 x 9-152; 12 x 24-106; 15 y 83) and the walk drift is still 7 px max (seam 2 px). All six keys were re-frozen (`freeze --force`); the dark-hair and all other V14 counts still pass.
 
 The walk seam question of round 1 is closed by the step-drag redesign and checked by V16 (largest planted-foot drift 7 px, seam 2 px).
 
