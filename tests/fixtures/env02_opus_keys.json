@@ -259,9 +259,9 @@
  },
  "polished": {
   "loose_block_landed": {
-   "reason": "ENV-02 spec Sonnet task 3 (fix round: halves ~44x28 and ~40x26 plus brick spill, >= 2000 px)",
+   "reason": "ENV-02 spec Sonnet task 3 (fix round: halves ~44x28 and ~40x26 plus brick spill, >= 2000 px); re-polished in the review fix round E4 (independent Opus review, 2026-11-18): angular broken stone with flat lit faces, opaque area still >= 2000 px, hash updated",
    "opus_key_sha256": "9a4ffb60b122b1765e5504e57c2d213484238494d94317bb6dd492f63961d2ac",
-   "sha256": "3bb5ef9e6ca8eb625597249ad726648ded2b99408df78e5a281ddfdfe66e4d82",
+   "sha256": "80be09e2e7e15b949b3415386d197373d662b3cc533bad82370d1d08590718ea",
    "rect": [
     400,
     144,

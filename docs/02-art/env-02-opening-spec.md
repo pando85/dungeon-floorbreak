@@ -1,6 +1,6 @@
 # ENV-02: Floor 1 opening route pieces (design spec, phase 1)
 
-**Status:** full set drawn (Sonnet), awaiting independent Opus review. This follows the [AGENTS.md art pipeline](../../AGENTS.md#model-routing-for-art-work): design and keys by Claude Opus (2026-11-17), full-set execution by Claude Sonnet (2026-11-17), **independent review pending (a separate Claude Opus agent); owner review at the end only.** Nothing here is wired into `floor01_scene`; the integrator owns that. The evidence images are Pillow previews; the Bevy captures come when the integrator wires the route in.
+**Status:** full set drawn (Sonnet); independent Opus review (2026-11-18) passed with execution items, fixed in the review fix round (see the execution record). This follows the [AGENTS.md art pipeline](../../AGENTS.md#model-routing-for-art-work): design and keys by Claude Opus (2026-11-17), full-set execution by Claude Sonnet (2026-11-17), **independent review by a separate Claude Opus agent done (PASS WITH EXECUTION ITEMS, fixed); owner review at the end only.** Nothing here is wired into `floor01_scene`; the integrator owns that. The evidence images are Pillow previews; the Bevy captures come when the integrator wires the route in.
 **Builds on:** the owner-approved ENV-01 kit ([kit doc](floor-01-catacomb-kit.md), `env-kit-v2`), [ADR-0007](../05-decisions/ADR-0007-rendering-resolution-lighting.md) (A1 frame: 640×360 pixel layers plus a full-resolution lighting pass, deep floor, walking line at y 308).
 **Drives:** CHASE-01 (the pursuit, segments C and D of the [opening handoff](../07-agents/floor-01-opening-encounter-handoff.md)) and CP-03 (the environmental kill in segment E, [combat probes](../07-agents/floor-01-integrated-combat-probes.md), [Fixture 3](../01-design/combat-feel-hybrid-physics.md)).
 **Evidence:** [`docs/evidence/env-02/`](../evidence/env-02/README.md).
@@ -52,7 +52,7 @@ All sizes are in px; anchor = piece-local px.
 | `wall_cavity` | opening_decal | 80×64 | backwall_decal | block xy − (8, 8) | | the socket, drawn as depth: a lit left inner reveal of broken brick ends, a shadowed top reveal, a dark recessed back with faint bricks, a lit sill, a ragged outline and cracks. With the chunk seated, only uneven slivers show (above and on the left); after the fall it reads as a hole into the wall |
 | `hazard_grit` | opening_props | 96×16 | prop | (2992, 288) | | pale grit and chips on the deck under the block: an in-world "things fall here" tell |
 | `timber_set_intact`, `_smashed` | opening_props | 80×104 | prop | bottom centre on the back line; (1104 / 1424, 184) | 2 | mine-style set: two 8 px posts and a 10 px header about 120 px above the walking line, knee braces. smashed: stubs and two header pieces on the floor |
-| `timber_barricade_intact`, `_smashed` | opening_props | 96×176 | prop | bottom centre on the back line; (2304, 112) | 2 | two 12 px posts, nine nailed planks and a diagonal brace. smashed: a left stub, a leaning right post, planks on the floor, one plank hanging by a nail |
+| `timber_barricade_intact`, `_smashed` (**DEPRECATED, background only**) | opening_props | 96×176 | prop | bottom centre on the back line; (2304, 112) | 2 | two 12 px posts, nine nailed planks and a diagonal brace. smashed: a left stub, a leaning right post, planks on the floor, one plank hanging by a nail |
 | `maint_hatch` | opening_props | 32×32 | prop | top-left (1200, 208) | | riveted iron hatch in a stone frame, strap hinges, a small brass wheel |
 | `alcove_niche` | opening_decal | 96×96 | backwall_decal | bottom centre on the ledge back line; (2064, 176); opening top y 188, so 104 px clear above the ledge walking line (292) | | segmental stone head, jambs, a lit inner reveal, a cold deep interior (`brick_cold`). The ledge deck covers its foot |
 | `guild_portal_closed`, `_open` | guild | 112×136 | prop | bottom centre on the back line; (3368, 152) | 2, one rect | pale dressed-stone arch (68 px opening) with a carved lantern on the keystone. closed: double plank leaves, iron straps, a ring knocker, a glowing grille and leaks at the meeting stile and under the door. open: leaf edges and a warm interior (lamp, bench, far doorway, bright threshold) |
@@ -225,6 +225,18 @@ Done on top of `681cc57`; the shore keys are untouched (17 keys stay frozen; `sh
   - CP-03 GIF: the block holds for 6 ticks (100 ms) and falls on the computed timeline (about 0.52 s under 1050 px/s^2). The loops follow 60 Hz ticks: trickle 117 ms, impact dust 83 ms, burst 67 ms.
 - **Integrator note (not drawn, prove in Bevy):** the alcove hiding darkening (actors in the pocket draw behind the pursuer with a slight darkening) and Donut overlapping the right jamb of the niche need the real lighting and draw order.
 
+### Review fix round (Sonnet, after the independent Opus review of 2026-11-18)
+
+The independent review (a separate Claude Opus, verdict PASS WITH EXECUTION ITEMS) listed five execution items; all are done, and no frozen key changed.
+
+- **E2, barricade posts:** the posts of `timber_barricade_full_intact` show again above the lane boards. Post timber fills the board gaps at the two post columns, and every second board stops 3 px inside its post, so a 3 px edge of upright shows on both sides. Rect, anchor, board rhythm, lane boards, kickers and header are unchanged; R5 and the near-black-row limit stay green.
+- **E3, state strips with no actor:** `env02_cp03_states_no_actor_lit_1x.png` and `..._3x.png` show the four shore states with the five block states (seated, settling, slipped, falling, landed) in the lit frame, without Carl or any actor in front.
+- **E1, key sheet:** `soffit_end_l_c` and `soffit_end_r_c` are in `env02_key_sheet_1x/3x`, so all 10 soffit tiles are shown.
+- **E4, `loose_block_landed`:** the two halves are redrawn as angular broken stone (straight sheared faces, hard corners, flat torch-lit top planes), with the right half's crack kept and the opaque area above 2000 px. The polished hash in `tests/fixtures/env02_opus_keys.json` is updated with a note; the Opus-key hash is kept.
+- **E5, deprecated 96×176 barricade:** `timber_barricade_intact` / `_smashed` carry `deprecated: true` and `background_only: true` in the contract (a `deprecated_note` states why), the `timber_barricade` state group is marked deprecated, and the owner key sheet no longer shows the pair. The pieces are not deleted and stay frozen keys.
+- **Ratified (review note D1):** the 18-board count in task 9 above (instead of 7 to 9 boards) is **ratified by the independent Opus review (2026-11-18)**. Seven to nine boards of 6 to 14 px with gaps of at most 7 px add up to at most 182 px and cannot close the 240 px span; 18 boards read well.
+- **Open for the owner (not acted on, non-blocking design notes):** D2, the frozen shore keys (a long grain check on `shore_post_intact` pre-announces the damaged_2 split; the fallen upper shaft in `shore_post_broken` is shorter than the shaft above the break and the head plate is gone); D3, the seated block's softened corners (the spec asks for an angular broken outline; harden two corners only if the block is ever re-keyed).
+
 ## Acceptance targets (for the independent Opus review)
 
 1. **Readability at 1x (640×360, lit):**
@@ -232,14 +244,14 @@ Done on top of `681cc57`; the shore keys are untouched (17 keys stay frozen; `sh
    - Carl, Donut and goblins stay distinct from the set (measured in `measurements.json`);
    - the alcove reads as a place to hide;
    - the portal reads as the safe, warm goal.
-2. **State legibility:** each of the 4 shore states and the matching block state (seated, settling, slipped, falling) is distinguishable at 1x in `env02_cp03_state_sequence_lit_2x.png`.
+2. **State legibility:** each of the 4 shore states and the matching block state (seated, settling, slipped, falling) is distinguishable at 1x in `env02_cp03_state_sequence_lit_2x.png` and, with no actor in front, in `env02_cp03_states_no_actor_lit_1x.png`.
 3. **Grammar and locks:** a dry, clean brick catacomb; copper only in S3; no factory, sewer or workshop look; no text or logos; antihero tone (scrappy and improvised, not heroic or ornate).
 4. **Data:** both layouts validate; the ids are IP-neutral; state groups share rects; the strike is outside the hazard; the protected exit is clear (all tested).
 5. **Palette:** no new colours; each atlas has at most 63.
 
 ## Known weak spots
 
-- **Barricade:** the full-height variant now crosses the walking lane (96×280, design fix round). Its plank rhythm still reads a little like a ladder until Sonnet task 9 lands. The 96x176 pair is background-only.
+- **Barricade:** the full-height variant crosses the walking lane (96×280, design fix round), has the task 9 plank rhythm, and shows its two posts through the board gaps (review fix round). The 96x176 pair is **deprecated** (background only, see below).
 - **Block (CP-03 load), v2:** redesigned as a 3D chunk with a socket drawn as depth. Its top face is deliberately dim (it faces away from the torch), so the volume relies on the lit right face; the independent review should check it at 1x. `loose_block_landed` now follows the v2 split (Sonnet task 3); it is small at 1x, so the review should check that it reads as the block's remains.
 - **Ceiling transitions in S3:** replaced by the dedicated soffit tiles (Sonnet task 2); the review should judge the steps in `env02_soffit_steps_lit_3x.png` and the S3 frames.
 - **Goblin luminance** against the brick in S5 is low (mean ΔL* about −3 to +3). The silhouette edge contrast is fine (17 to 24). Left alone on purpose: it is judged in Bevy with the real A1 lighting.
@@ -248,4 +260,4 @@ Done on top of `681cc57`; the shore keys are untouched (17 keys stay frozen; `sh
 
 ## Rights and provenance
 
-Original pixel art written by Claude Opus (keys) and Claude Sonnet (full set) as deterministic rules in `scripts/author_floor01_opening.py`, reusing the ENV-01 shading helpers. There is no image-model raster output, and nothing is cropped, traced or resampled from concept images. The guild sign and keystone carry an invented lantern pictogram: no letters, no real-world mark. Actor previews composite the approved Carl 52 and Donut 40 atlases and the GOB-01 h36 candidates under the owner-reported `ART-PUBLICATION-ALL-V1` scope in [rights-and-release.md](../04-production/rights-and-release.md). That scope is not independently verified, is not a public reuse licence and grants no right to distribute a game or an asset pack. The manifests stay `prototype_fixture_unapproved`. Design and keys by Claude Opus; full-set execution by Claude Sonnet; review pending (a separate Claude Opus agent).
+Original pixel art written by Claude Opus (keys) and Claude Sonnet (full set) as deterministic rules in `scripts/author_floor01_opening.py`, reusing the ENV-01 shading helpers. There is no image-model raster output, and nothing is cropped, traced or resampled from concept images. The guild sign and keystone carry an invented lantern pictogram: no letters, no real-world mark. Actor previews composite the approved Carl 52 and Donut 40 atlases and the GOB-01 h36 candidates under the owner-reported `ART-PUBLICATION-ALL-V1` scope in [rights-and-release.md](../04-production/rights-and-release.md). That scope is not independently verified, is not a public reuse licence and grants no right to distribute a game or an asset pack. The manifests stay `prototype_fixture_unapproved`. Design and keys by Claude Opus; full-set execution by Claude Sonnet; review by a separate Claude Opus agent (2026-11-18); review fixes by Claude Sonnet.

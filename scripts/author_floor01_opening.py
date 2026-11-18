@@ -489,11 +489,12 @@ def falling_block() -> "ld.Canvas":
     return c
 
 
-RUBBLE_RIGHT = [(48, 30), (47, 24), (50, 18), (49, 12), (55, 7), (64, 4), (73, 5), (78, 1), (87, 4),
-                (93, 10), (95, 17), (93, 23), (95, 27), (95, 30)]
-RUBBLE_RIGHT_CRACK = [(67, 4), (65, 12), (68, 20), (63, 30)]
-RUBBLE_LEFT_LOW = [(3, 30), (2, 25), (6, 20), (17, 17), (30, 18), (41, 21), (46, 26), (45, 30)]
-RUBBLE_LEFT_UP = [(9, 19), (10, 11), (15, 6), (24, 3), (33, 6), (38, 12), (39, 18), (35, 21), (15, 21)]
+# Review fix E4: broken, angular masonry. Each stone has a flat top plane, straight sheared
+# faces and one or two hard corners, like the dressed seated block it came from.
+RUBBLE_RIGHT = [(47, 30), (49, 15), (58, 12), (65, 1), (79, 1), (82, 6), (95, 9), (95, 30)]
+RUBBLE_RIGHT_CRACK = [(70, 2), (68, 12), (71, 20), (66, 30)]
+RUBBLE_LEFT_LOW = [(2, 30), (2, 20), (14, 15), (40, 15), (46, 22), (45, 30)]
+RUBBLE_LEFT_UP = [(8, 16), (12, 5), (28, 2), (37, 9), (38, 16)]
 
 
 def rubble_stone(c, poly, seed: str, crack=None, base: float = 5.0) -> None:
@@ -539,9 +540,9 @@ def landed_rubble() -> "ld.Canvas":
                 c.put(px, py, "stone", 6.5 if rnd("dc", px) > 0.5 else 5)
     rubble_stone(c, RUBBLE_LEFT_LOW, "rl2")
     rubble_stone(c, RUBBLE_LEFT_UP, "rl1")
-    for px in range(10, 36):             # the bed joint between the two left stones
-        if in_poly(px + 0.5, 21.5, RUBBLE_LEFT_LOW) and in_poly(px + 0.5, 20.5, RUBBLE_LEFT_UP):
-            c.put(px, 21, "mortar", 1)
+    for px in range(8, 40):              # the bed joint between the two left stones
+        if in_poly(px + 0.5, 15.5, RUBBLE_LEFT_LOW) and in_poly(px + 0.5, 15.5, RUBBLE_LEFT_UP):
+            c.put(px, 15, "mortar", 1)
     rubble_stone(c, RUBBLE_RIGHT, "rr", crack=RUBBLE_RIGHT_CRACK, base=5.2)
     for bx, by in ((0, 26), (44, 25), (45, 28), (86, 28), (20, 28)):      # loose bricks, the spill
         for py in range(by, min(by + 4, 30)):
@@ -730,6 +731,19 @@ def barricade_gap_fill(c, x0: int, x1: int, y0: int, y1: int) -> None:
             c.put(px, py, "mortar", 0 if rnd("bgap", px, py) < 0.88 else 1)
 
 
+def barricade_post_wood(c, y0: int, y1: int) -> None:
+    """Review fix E2: the two posts show through the board gaps (post timber where the seam
+    would be mortar), so the boards read as nailed to two uprights and not as floating planks."""
+    for cx, seed, lit in ((12, "bpl", 1), (84, "bpr", 1)):
+        post = canvas(c.w, c.h)
+        plank(post, cx, c.h - 1, cx, 0, 6.0, seed, nails=False, lit_side=lit)
+        for py in range(y0, y1):
+            for px in range(cx - 6, cx + 6):
+                cur, new = c.get(px, py), post.get(px, py)
+                if new is not None and cur is not None and cur[0] == "mortar":
+                    c.px[py][px] = new
+
+
 def barricade_boards(c) -> None:
     """The boards between the posts: mixed thickness (8 to 14 px) with an uneven rhythm of
     2 to 7 px gaps, tone variety, overhang past the posts (2 to 6 px), two wide gaps patched by
@@ -752,13 +766,17 @@ def barricade_boards(c) -> None:
         tilt = (rnd("bfl", k) - 0.5) * 3.0
         o_l, o_r = 2 + int(rnd("bol", k) * 5), 2 + int(rnd("bor", k) * 5)
         bias = (rnd("bft", k) - 0.5) * 1.8 + (-1.0 if k % 5 == 2 else 0.7 if k % 5 == 4 else 0.0)
-        plank(c, 6 - o_l, mid - tilt, 90 + o_r, mid + tilt, thick / 2, f"bf{k}", bias=bias)
+        if k % 2:      # every second board stops 3 px inside the post: the upright shows at its edge
+            plank(c, 9, mid - tilt, 87, mid + tilt, thick / 2, f"bf{k}", bias=bias)
+        else:
+            plank(c, 6 - o_l, mid - tilt, 90 + o_r, mid + tilt, thick / 2, f"bf{k}", bias=bias)
         gaps.append((y, top))
         prev = thick
         y = top + thick
         k += 1
         if y >= z1 - 6:
             break
+    barricade_post_wood(c, z0, z1)
     for idx, x in zip(BARRICADE_PATCHED, (46, 30)):           # short vertical slats patching wide gaps
         g0, g1 = gaps[idx]
         plank(c, x, g0 - 4, x + 1, g1 + 4, 3.2, f"bslat{idx}", bias=0.6 - 0.9 * (idx % 2))
@@ -1403,7 +1421,12 @@ def build_atlases() -> dict:
     for state in ("intact", "smashed"):
         props.add_piece(f"timber_barricade_{state}", barricade(state), anchor=[48, 176],
                         anchor_name="bottom centre on the floor back line (y = 288)", grid_snap=8,
-                        grammar=["A"], breakable={"group": "timber_barricade", "state": state})
+                        grammar=["A"], breakable={"group": "timber_barricade", "state": state},
+                        deprecated=True, background_only=True,
+                        deprecated_note="superseded by timber_barricade_full_* (independent review "
+                                        "E5, 2026-11-18): old ladder rhythm, post-to-post brace, "
+                                        "stands on the back line; never a lane blocker, unused in "
+                                        "both route layouts, kept for compatibility")
     props.add_piece("maint_hatch", hatch(), anchor=[0, 0], anchor_name="top_left (brick-aligned)",
                     grid_snap=8, grammar=["C"])
     for state in ("intact", "smashed"):
@@ -1532,7 +1555,8 @@ def build_contract(tiles: list[dict], pieces: list[dict], grids: dict) -> dict:
                                           "moved by gameplay; landed is placed on the walking line"},
             "timber_set": {"states": ["intact", "smashed"]},
             "timber_barricade": {"states": ["intact", "smashed"],
-                                 "note": "96x176 lower option; the layouts use the full-height pair"},
+                                 "note": "DEPRECATED, background only (review E5): 96x176 on the back line, "
+                                         "never a lane blocker; the layouts use the full-height pair"},
             "timber_barricade_full": {"states": ["intact", "smashed"],
                                       "note": "96x280 from the cornice (y 32) to the deck's front lip "
                                               "(y 312): crosses the walking lane and covers the "

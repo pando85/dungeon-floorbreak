@@ -607,7 +607,7 @@
     "timber_set": {"states": ["intact", "smashed"]},
     "timber_barricade": {
       "states": ["intact", "smashed"],
-      "note": "96x176 lower option; the layouts use the full-height pair"
+      "note": "DEPRECATED, background only (review E5): 96x176 on the back line, never a lane blocker; the layouts use the full-height pair"
     },
     "timber_barricade_full": {
       "states": ["intact", "smashed"],

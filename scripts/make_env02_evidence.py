@@ -129,8 +129,9 @@ def key_sheet(kit: ek.Kit, factor: int) -> Image.Image:
          ["loose_block_seated", "loose_block_settling", "loose_block_slipped", "loose_block_falling",
           "loose_block_landed",
           "wall_cavity", "hazard_grit"]),
-        ("pursuer-smashed timber (presentation + authored event): timber set, 96x176 low barricade",
-         ["timber_set_intact", "timber_set_smashed", "timber_barricade_intact", "timber_barricade_smashed"]),
+        ("pursuer-smashed timber (presentation + authored event): timber set (the old 96x176 low barricade "
+         "is DEPRECATED, background only, and is not shown)",
+         ["timber_set_intact", "timber_set_smashed"]),
         ("full-height barricade 96x280 (cornice to the deck front lip: crosses the lane, covers the blocker): intact / smashed",
          ["timber_barricade_full_intact", "timber_barricade_full_smashed"]),
         ("dodge pocket and maintenance hint: alcove niche (backwall decal), iron hatch",
@@ -142,7 +143,7 @@ def key_sheet(kit: ek.Kit, factor: int) -> Image.Image:
     ]
     anim_frames = {"shore_dust_trickle": 3, "block_impact_dust": 4, "timber_splinter_burst": 4}
     tile_ids = ["soffit_end_l", "soffit_end_l_b", "soffit_end_r", "soffit_end_r_b", "soffit_corner_l",
-                "soffit_corner_r", "soffit_joint_l", "soffit_joint_r"]
+                "soffit_corner_r", "soffit_joint_l", "soffit_joint_r", "soffit_end_l_c", "soffit_end_r_c"]
     pad, gap, label_h = 8, 10, 14
     under = (52, 46, 58, 255)
     rows = []
@@ -160,7 +161,7 @@ def key_sheet(kit: ek.Kit, factor: int) -> Image.Image:
     tiles = [(tid, ek.scale(kit.crop(kit.tiles[tid]["atlas"], kit.tiles[tid]["rect"]), factor * 2))
              for tid in tile_ids]
     rows.append(("soffit tiles (collision tileset, 2x the sheet scale): l = left step (col 61), r = "
-                 "right step (col 104), _b = 2nd quoin phase", tiles))
+                 "right step (col 104), _b = 2nd quoin phase, _c = cut-end face under the blue course", tiles))
     def slot(pid: str, img: Image.Image) -> int:
         return max(img.width, 6 * len(pid) + 4) + gap
 
@@ -435,6 +436,36 @@ def render(out: Path) -> dict:
         strip.paste(t, (x, 0))
         x += t.width + 8
     save(strip, out / "env02_cp03_state_sequence_lit_2x.png", written)
+
+    # --- review fix E3: the four shore states and the block states with NO actor in front, so the
+    # notch, the split and the block tilt can be judged at gameplay scale (1x) and at 3x
+    nv = [2936, 112, 240, 200]
+    nolive = [
+        ("1 intact / block seated", state_layout("shore_post_intact", "loose_block_seated"), 0),
+        ("2 damaged_1 / settling", state_layout("shore_post_damaged_1", "loose_block_settling",
+                                                [("prop", "shore_dust_trickle", *trickle)]), TRICKLE_MS),
+        ("3 damaged_2 / slipped", state_layout("shore_post_damaged_2", "loose_block_slipped",
+                                               [("prop", "shore_dust_trickle", *trickle)]), TRICKLE_MS),
+        ("4 broken / falling", falling, 0),
+        ("5 broken / landed", state_layout("shore_post_broken", None,
+                                           [("prop", "loose_block_landed", centre_x - 48, walk - 30),
+                                            ("prop", "block_impact_dust", centre_x - 56, walk - 36)]), IMPACT_MS),
+    ]
+    for factor in (1, 3):
+        panels = []
+        for name, lay, t_ms in nolive:
+            act0, box0 = actors(kit, lay, [])
+            panels.append(label(el.render_lit(kit, lay, nv, factor, act0, time_ms=t_ms, boxes=box0), name))
+        if factor == 1:
+            cols = len(panels)
+        else:
+            cols = 3
+        rows_n = (len(panels) + cols - 1) // cols
+        pw, ph = panels[0].size
+        sheet = Image.new("RGB", (cols * pw + 8 * (cols - 1), rows_n * ph + 8 * (rows_n - 1)), PAGE)
+        for i, pn in enumerate(panels):
+            sheet.paste(pn, ((i % cols) * (pw + 8), (i // cols) * (ph + 8)))
+        save(sheet, out / f"env02_cp03_states_no_actor_lit_{factor}x.png", written)
 
     gif: list[tuple[Image.Image, int]] = []
     gif.append((label(frame(state_layout("shore_post_intact", "loose_block_seated"), cast5), "intact"), 700))
