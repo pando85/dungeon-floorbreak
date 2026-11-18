@@ -1,0 +1,295 @@
+{
+  "schema_version": 1,
+  "id": "troglodyte_virtuoso_h66_candidate_v0",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/troglodyte/virtuoso/trog_03.ase",
+  "grid_source": "assets/source/characters/troglodyte/virtuoso/trog_03.grid.json",
+  "output_atlas": "generated/art/trog_03.png",
+  "output_metadata": "generated/art/trog_03.json",
+  "palette_id": "trog-family-v0",
+  "frame_size": [
+    128,
+    88
+  ],
+  "pivot": [
+    44,
+    87
+  ],
+  "animation_tags": [
+    "idle",
+    "walk",
+    "attack_tell",
+    "attack_tongue",
+    "attack_recover",
+    "hurt",
+    "down"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 troglodyte Virtuoso; runtime role IP-neutral fast long-reach tongue striker)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "TROG-03 Virtuoso at a 66 px idle height: 7 keys (atlas frames 0, 3, 8, 10, 11, 12, 15) rasterized from pose rules by scripts/author_trog03.py; the other nine slots are in-betweens drawn from the same part rules; tongue slime, spit and whip trail are deferred to the VFX order; layer body only",
+    "generator": "Spec and key 0: Claude Opus. Keys 3/8/10/11/12/15, in-betweens and execution: Claude Sonnet. Independent review: pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "virtuoso": {
+    "status": "seven frozen keys plus nine drawn in-betweens, not yet reviewed by an independent art director; Bevy integration pending; 16 frames, 7 of them keys; not wired into any Bevy binary",
+    "spec": "docs/02-art/trog-03-spec.md",
+    "opaque_height_idle": 66,
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "grounded_tags": [
+      "idle",
+      "walk",
+      "attack_tell",
+      "attack_tongue",
+      "attack_recover",
+      "hurt",
+      "down"
+    ],
+    "airborne_tags": [],
+    "playback": {
+      "idle": "loop",
+      "walk": "loop",
+      "attack_tell": "once",
+      "attack_tongue": "once",
+      "attack_recover": "once",
+      "hurt": "once",
+      "down": "hold"
+    },
+    "key_frames": [
+      0,
+      3,
+      8,
+      10,
+      11,
+      12,
+      15
+    ],
+    "key_fixture": "tests/fixtures/trog-03_keys.json",
+    "attack_ticks": {
+      "feint_onset": [
+        0,
+        5
+      ],
+      "feint_hold": [
+        6,
+        29
+      ],
+      "lash": [
+        30,
+        31
+      ],
+      "strike_hitbox": [
+        32,
+        37
+      ],
+      "retract_punish": [
+        38,
+        55
+      ]
+    },
+    "boxes_px_from_pivot": {
+      "standing": {
+        "x": [
+          -21,
+          32
+        ],
+        "y": [
+          0,
+          65
+        ]
+      },
+      "hurtbox_idle_walk": {
+        "x": [
+          -14,
+          16
+        ],
+        "y": [
+          0,
+          60
+        ]
+      },
+      "hurtbox_feint": {
+        "x": [
+          -12,
+          14
+        ],
+        "y": [
+          0,
+          68
+        ]
+      },
+      "hurtbox_lash_strike": {
+        "x": [
+          -14,
+          26
+        ],
+        "y": [
+          0,
+          56
+        ]
+      },
+      "hurtbox_retract": {
+        "x": [
+          -14,
+          20
+        ],
+        "y": [
+          0,
+          52
+        ]
+      },
+      "hurtbox_hurt": {
+        "x": [
+          -18,
+          6
+        ],
+        "y": [
+          0,
+          70
+        ]
+      },
+      "hurtbox_down": {
+        "x": [
+          -40,
+          22
+        ],
+        "y": [
+          0,
+          22
+        ]
+      },
+      "tongue_hitbox_strike_frame_only": {
+        "x": [
+          56,
+          77
+        ],
+        "y": [
+          36,
+          46
+        ],
+        "frame": 10
+      }
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "idle",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "key"
+      },
+      {
+        "index": 1,
+        "tag": "idle",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "inbetween"
+      },
+      {
+        "index": 2,
+        "tag": "idle",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "inbetween"
+      },
+      {
+        "index": 3,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "key"
+      },
+      {
+        "index": 4,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "inbetween"
+      },
+      {
+        "index": 5,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "inbetween"
+      },
+      {
+        "index": 6,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "inbetween"
+      },
+      {
+        "index": 7,
+        "tag": "attack_tell",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "inbetween"
+      },
+      {
+        "index": 8,
+        "tag": "attack_tell",
+        "ticks": 24,
+        "duration_ms": 400,
+        "author": "key"
+      },
+      {
+        "index": 9,
+        "tag": "attack_tongue",
+        "ticks": 2,
+        "duration_ms": 33,
+        "author": "inbetween"
+      },
+      {
+        "index": 10,
+        "tag": "attack_tongue",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "key"
+      },
+      {
+        "index": 11,
+        "tag": "attack_recover",
+        "ticks": 18,
+        "duration_ms": 300,
+        "author": "key"
+      },
+      {
+        "index": 12,
+        "tag": "hurt",
+        "ticks": 14,
+        "duration_ms": 233,
+        "author": "key"
+      },
+      {
+        "index": 13,
+        "tag": "down",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "inbetween"
+      },
+      {
+        "index": 14,
+        "tag": "down",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "inbetween"
+      },
+      {
+        "index": 15,
+        "tag": "down",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key"
+      }
+    ]
+  }
+}

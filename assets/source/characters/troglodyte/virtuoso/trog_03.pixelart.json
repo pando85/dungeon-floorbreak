@@ -1,0 +1,82 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "trog-03",
+  "title": "TROG-03 Troglodyte Virtuoso readability set: 16 frames (7 frozen keys at 0, 3, 8, 10, 11, 12, 15; 9 drawn in-betweens)",
+  "grid": "assets/source/characters/troglodyte/virtuoso/trog_03.grid.json",
+  "manifest": "assets/manifests/trog-03.json",
+  "frame_size": [128, 88],
+  "pivot": [44, 87],
+  "contact_row": 87,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 12], [1, 10], [2, 12]]},
+    "walk": {"playback": "loop", "contact": "grounded", "frames": [[3, 8], [4, 8], [5, 8], [6, 8]]},
+    "attack_tell": {"playback": "once", "contact": "grounded", "frames": [[7, 6], [8, 24]]},
+    "attack_tongue": {"playback": "once", "contact": "grounded", "frames": [[9, 2], [10, 6]]},
+    "attack_recover": {"playback": "once", "contact": "grounded", "frames": [[11, 18]]},
+    "hurt": {"playback": "once", "contact": "grounded", "frames": [[12, 14]]},
+    "down": {"playback": "hold", "contact": "grounded", "frames": [[13, 5], [14, 10], [15, null]]}
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_tongue",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 12,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "manifest_tick_rows": "virtuoso.frames",
+    "manifest_tick_hz": "virtuoso.tick_hz",
+    "frozen_keys": {"fixture": "tests/fixtures/trog-03_keys.json", "frames": [0, 3, 8, 10, 11, 12, 15], "layers": ["body"]},
+    "bbox": [
+      {"id": "size-idle-66px", "frames": [0, 2], "top": 22, "bottom": 87},
+      {"id": "R-idle-breath-lower", "frames": [1], "min_top": 23},
+      {"id": "R-walk-contacts-low", "frames": [3, 5], "min_top": 24},
+      {"id": "R-walk-passing-not-taller-than-idle", "frames": [4, 6], "min_top": 22},
+      {"id": "R-feint-onset-already-rising", "frames": [7], "max_top": 22},
+      {"id": "R-feint-tallest-and-narrow", "frames": [8], "max_top": 18, "max_width": 50},
+      {"id": "R-lash-not-low", "frames": [9], "min_top": 20},
+      {"id": "R-strike-long-and-level", "frames": [10], "min_top": 26, "max_width": 104},
+      {"id": "R-retract-low-and-spent", "frames": [11], "min_top": 28},
+      {"id": "R-hurt-tall-recoil", "frames": [12], "max_top": 17},
+      {"id": "R-down-fall-beat", "frames": [13], "min_top": 38},
+      {"id": "R-down-stays-low", "frames": [14, 15], "min_top": 62, "max_width": 84}
+    ],
+    "key_counts": [
+      {"id": "R1-awake-eye-red", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "key": "e", "min": 1},
+      {"id": "R1-hurt-and-down-no-red-eye", "frames": [12, 13, 14, 15], "key": "e", "max": 0},
+      {"id": "R7-tongue-tip-only-outside-the-attack", "frames": [0, 1, 2, 3, 4, 5, 6, 7], "key": "q", "min": 6, "max": 20},
+      {"id": "R7-feint-bunched-tongue", "frames": [8], "key": "q", "min": 8},
+      {"id": "R7-feint-and-strike-mouth-open", "frames": [8, 10], "key": "o", "min": 12},
+      {"id": "R7-strike-tongue-extended", "frames": [10], "key": "q", "min": 60},
+      {"id": "R7-retract-tongue-hangs", "frames": [11], "key": "q", "min": 30},
+      {"id": "R7-hurt-tongue-snapped-in", "frames": [12], "key": "q", "max": 4},
+      {"id": "R7-fallen-tongue-spilled", "frames": [15], "key": "q", "min": 16},
+      {"id": "R8-idle-robe-lit", "frames": [0], "key": "V", "min": 20},
+      {"id": "R9-gold-bells-stay-visible", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "key": "t", "min": 8}
+    ],
+    "foot_drift": {"max_px": 7, "tags": ["walk"]}
+  },
+  "review": {
+    "strip_tags": ["attack_tell", "attack_tongue", "attack_recover"]
+  },
+  "scene": {
+    "actors": [
+      {"frame": 0, "x": 510},
+      {"frame": 8, "x": 585},
+      {"frame": 10, "x": 690},
+      {"frame": 12, "x": 790},
+      {"frame": 3, "x": 745},
+      {"frame": 15, "x": 850},
+      {"frame": 10, "x": 945}
+    ]
+  }
+}
