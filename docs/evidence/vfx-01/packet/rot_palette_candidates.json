@@ -1,0 +1,163 @@
+{
+  "format": "pixelart-palette-candidates-v1",
+  "max_colours": 12,
+  "note": "Candidates from median-cut quantization of the concept crops. The designer chooses, ramps and names the real palette; do not trace.",
+  "crops": [
+    {
+      "crop": 1,
+      "colours": [
+        {
+          "hex": "#17202a",
+          "share": 0.1802
+        },
+        {
+          "hex": "#cd1419",
+          "share": 0.1287
+        },
+        {
+          "hex": "#161f2a",
+          "share": 0.1209
+        },
+        {
+          "hex": "#cd9b6f",
+          "share": 0.1079
+        },
+        {
+          "hex": "#181e28",
+          "share": 0.0998
+        },
+        {
+          "hex": "#171f2a",
+          "share": 0.0693
+        },
+        {
+          "hex": "#232029",
+          "share": 0.0622
+        },
+        {
+          "hex": "#271f28",
+          "share": 0.0611
+        },
+        {
+          "hex": "#321922",
+          "share": 0.0504
+        },
+        {
+          "hex": "#181a24",
+          "share": 0.0435
+        },
+        {
+          "hex": "#6d2626",
+          "share": 0.0382
+        },
+        {
+          "hex": "#16202a",
+          "share": 0.0378
+        }
+      ]
+    },
+    {
+      "crop": 2,
+      "colours": [
+        {
+          "hex": "#171f2a",
+          "share": 0.1566
+        },
+        {
+          "hex": "#20222b",
+          "share": 0.1149
+        },
+        {
+          "hex": "#2f242b",
+          "share": 0.1118
+        },
+        {
+          "hex": "#1b1e28",
+          "share": 0.108
+        },
+        {
+          "hex": "#37323a",
+          "share": 0.0968
+        },
+        {
+          "hex": "#714a3f",
+          "share": 0.0802
+        },
+        {
+          "hex": "#161f29",
+          "share": 0.0728
+        },
+        {
+          "hex": "#a36b4a",
+          "share": 0.0637
+        },
+        {
+          "hex": "#5d3937",
+          "share": 0.0546
+        },
+        {
+          "hex": "#131821",
+          "share": 0.0529
+        },
+        {
+          "hex": "#4c2527",
+          "share": 0.0502
+        },
+        {
+          "hex": "#3b1a20",
+          "share": 0.0375
+        }
+      ]
+    }
+  ],
+  "merged": [
+    {
+      "hex": "#1b202a",
+      "share": 0.1344
+    },
+    {
+      "hex": "#17202a",
+      "share": 0.1228
+    },
+    {
+      "hex": "#171f29",
+      "share": 0.12
+    },
+    {
+      "hex": "#312128",
+      "share": 0.1135
+    },
+    {
+      "hex": "#1e1c25",
+      "share": 0.0807
+    },
+    {
+      "hex": "#7c161d",
+      "share": 0.0798
+    },
+    {
+      "hex": "#29262e",
+      "share": 0.0791
+    },
+    {
+      "hex": "#c39267",
+      "share": 0.076
+    },
+    {
+      "hex": "#73463c",
+      "share": 0.0744
+    },
+    {
+      "hex": "#161f2a",
+      "share": 0.0667
+    },
+    {
+      "hex": "#141a24",
+      "share": 0.0354
+    },
+    {
+      "hex": "#6c2a2a",
+      "share": 0.0172
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "vfx-01",
+  "title": "VFX-01 bomb in flight and explosion burst, shared by the Bard and the Rot Sticker (docs/02-art/vfx-01-spec.md)",
+  "grid": "assets/source/vfx/explosion/vfx_01.grid.json",
+  "manifest": "assets/manifests/vfx-01.json",
+  "frame_size": [48, 48],
+  "pivot": [24, 24],
+  "contact_row": 24,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "bomb_flight": {"playback": "loop", "contact": "free", "frames": [[0, 4], [1, 4], [2, 4]]},
+    "burst": {"playback": "once", "contact": "free", "frames": [[3, 2], [4, 3], [5, 4], [6, 4], [7, 5], [8, 6], [9, 8], [10, 6], [11, 4]]}
+  },
+  "roles": {
+    "idle": "bomb_flight",
+    "move": "bomb_flight",
+    "tell": "bomb_flight",
+    "attack": "burst",
+    "hurt": "burst",
+    "defeat": "burst"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "manifest_tick_rows": "vfx.frames",
+    "manifest_tick_hz": "vfx.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/vfx-01_keys.json",
+      "frames": [0, 3, 5, 10],
+      "layers": ["body"]
+    },
+    "bbox": [
+      {"id": "V1-bomb-compact", "frames": [0], "max_width": 28, "max_height": 24},
+      {"id": "V2-flash-small-and-bright", "frames": [3], "max_width": 38, "max_height": 38},
+      {"id": "V3-peak-fits-the-blast-circle", "frames": [5], "min_width": 32, "max_width": 44, "max_height": 44},
+      {"id": "V4-smoke-stays-in-frame", "frames": [10], "max_width": 40, "max_height": 42}
+    ],
+    "key_counts": [
+      {"id": "V5-flash-white-few-pixels", "frames": [3], "key": "w", "min": 1, "max": 12},
+      {"id": "V5-flash-core-small", "frames": [3], "key": "G", "min": 8, "max": 60},
+      {"id": "V5-peak-no-white", "frames": [5], "key": "w", "max": 0},
+      {"id": "V5-peak-core-small", "frames": [5], "key": "G", "min": 6, "max": 60},
+      {"id": "V5-smoke-no-white", "frames": [10], "key": "w", "max": 0},
+      {"id": "V5-smoke-no-core", "frames": [10], "key": "G", "max": 0},
+      {"id": "V6-bomb-lit-fuse", "frames": [0], "key": "Y", "min": 4, "max": 12}
+    ]
+  },
+  "scene": {
+    "shadow": false,
+    "actors": [
+      {"frame": 5, "x": 456, "lift": 8, "flip": false, "behind": true},
+      {"frame": 0, "x": 520, "lift": 24, "flip": false},
+      {"frame": 3, "x": 570, "lift": 8, "flip": false},
+      {"frame": 5, "x": 620, "lift": 8, "flip": false},
+      {"frame": 7, "x": 670, "lift": 8, "flip": false},
+      {"frame": 8, "x": 720, "lift": 8, "flip": false},
+      {"frame": 10, "x": 770, "lift": 8, "flip": false},
+      {"frame": 11, "x": 820, "lift": 8, "flip": false}
+    ]
+  },
+  "review": {
+    "strip_tags": ["bomb_flight", "burst"]
+  }
+}
