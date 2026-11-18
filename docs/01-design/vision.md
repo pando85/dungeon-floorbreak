@@ -38,6 +38,10 @@ No pixel-perfect granular fluid/temperature simulation; no full environmental pr
 - **Dead Cells**: impact frames, visual effect contrast, movement responsiveness.
 - **Noita**: inspiration for material-driven interactions, but *not* the per-pixel simulation scope.
 
+## Living long-term progression horizon
+
+See [character progression horizon](character-progression-horizon.md) for a deliberately non-binding, iteratively reviewed vision of how Carl, Donut and eventually Mongo could grow from Floor 01 through later floors. Consult it when planning major skills, levels or new floor mechanics; concrete unlocks require their own validation and owner approval. The [MVP controller contract](mvp-controller-contract.md) remains authoritative for accepted input semantics.
+
 ## Scope choices still open
 
 - **Approved target (2026-11-16):** hybrid solo switching + AI companion/context commands, with two-player local co-op from the start. Mechanic UX, camera and controller ownership still require real testing; see [Floor 01 design bible](floor-01-gameplay-progression-v0.md). Shoulder Mode and mounted attacks remain unapproved experimental ideas.
