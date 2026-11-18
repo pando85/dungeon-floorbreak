@@ -23,12 +23,115 @@
         [
           0,
           16
+        ],
+        [
+          1,
+          12
+        ],
+        [
+          2,
+          16
+        ]
+      ]
+    },
+    "roll": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          4
+        ]
+      ]
+    },
+    "attack_tell": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          9,
+          8
+        ],
+        [
+          10,
+          28
+        ]
+      ]
+    },
+    "attack_charge": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          11,
+          3
+        ],
+        [
+          12,
+          6
+        ],
+        [
+          13,
+          24
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          14,
+          12
+        ]
+      ]
+    },
+    "down": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          15,
+          8
+        ],
+        [
+          16,
+          12
+        ],
+        [
+          17,
+          null
         ]
       ]
     }
   },
   "roles": {
-    "idle": "idle"
+    "idle": "idle",
+    "move": "roll",
+    "tell": "attack_tell",
+    "attack": "attack_charge",
+    "hurt": "hurt",
+    "defeat": "down"
   },
   "rules": {
     "max_colors": 20,
@@ -40,11 +143,16 @@
       0,
       0
     ],
-    "unique_frames": true,
+    "unique_frames": false,
     "frozen_keys": {
       "fixture": "tests/fixtures/swine-01_keys.json",
       "frames": [
-        0
+        0,
+        3,
+        10,
+        12,
+        14,
+        17
       ],
       "layers": [
         "body"
@@ -56,7 +164,7 @@
         "frames": [
           0
         ],
-        "top": 14,
+        "top": 10,
         "bottom": 143
       },
       {
@@ -66,13 +174,52 @@
         ],
         "min_width": 128,
         "max_width": 148
+      },
+      {
+        "id": "S2-roll-keeps-the-ball",
+        "frames": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "min_top": 7,
+        "max_top": 13,
+        "min_width": 140,
+        "max_width": 150
+      },
+      {
+        "id": "S3-tell-coils-low-and-back",
+        "frames": [
+          10
+        ],
+        "min_top": 20,
+        "max_left": 14
+      },
+      {
+        "id": "S4-impact-reach",
+        "frames": [
+          12
+        ],
+        "min_right": 174
+      },
+      {
+        "id": "S5-defeat-heap",
+        "frames": [
+          17
+        ],
+        "min_top": 80,
+        "max_width": 170
       }
     ],
     "key_counts": [
       {
         "id": "S0-many-eyes",
         "frames": [
-          0
+          0,
+          3
         ],
         "key": "w",
         "min": 24
@@ -88,15 +235,55 @@
       {
         "id": "S0-flower-is-a-detail",
         "frames": [
-          0
+          0,
+          3,
+          10,
+          12,
+          14,
+          17
         ],
         "key": "q",
         "max": 80
+      },
+      {
+        "id": "S0-pearl-string",
+        "frames": [
+          0
+        ],
+        "key": "e",
+        "min": 8
+      },
+      {
+        "id": "S3-tell-eyes-wide",
+        "frames": [
+          10
+        ],
+        "key": "w",
+        "min": 40
+      },
+      {
+        "id": "S4-hurt-eyes-shut",
+        "frames": [
+          14
+        ],
+        "key": "w",
+        "max": 0
+      },
+      {
+        "id": "S5-defeat-eyes-shut",
+        "frames": [
+          17
+        ],
+        "key": "w",
+        "max": 0
       }
     ]
   },
   "review": {
-    "strip_tags": []
+    "strip_tags": [
+      "attack_tell",
+      "attack_charge"
+    ]
   },
   "scene": {
     "actors": [

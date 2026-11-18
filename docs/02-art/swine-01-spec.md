@@ -1,8 +1,8 @@
 # SWINE-01: Ball of Swine boss readability set, design spec
 
-**Status:** phase 1 of the boss route: design spec and idle key 0 drawn and frozen; waiting for the independent silhouette gate on key 0. Keys 3, 10, 12, 14, 17 follow the gate. Execution pending. Review pending.
+**Status:** silhouette gate FIX-KEY0 applied (key 0 redrawn and re-frozen); keys 0, 3, 10, 12, 14, 17 drawn and frozen; roll frames 4-8 follow from the frame-3 rule; in-betweens 1, 2, 9, 11, 13, 15, 16 are placeholders for the execution tier (section 8). Independent review of the full key set pending.
 
-**Decision record:** ball diameter 128 px (idle opaque 130 x 143 px with rim lumps), frame 176 x 144, pivot (88, 143). Proposed by the designer; decided by the silhouette gate reviewer (pending).
+**Decision record:** ball diameter 128 px (idle opaque 145 x 134 px with rim lumps), frame 176 x 144, pivot (88, 143). Proposed by the designer; confirmed by the independent silhouette gate (option B, 2026-11-18).
 
 The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: ...>`; write numbers, not adjectives. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
 
@@ -14,7 +14,7 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: .
   - A grotesque, rolling sphere made of many Tusklings: dense pink flesh, many eyes, snouts, tusks and hair, with ragged aristocratic fragments (top hat, bow tie, red sequins, pearls, a purple flower, feathers) visible in the mass.
   - A violent rotational silhouette that reads as a ball at 1x; the board shows a dust trail and flying rubble while it rolls.
   - It breaks apart into individual Tusklings (tusked, pig-like, short-legged, aristocratic); the Ball and the Tusklings share one visual family.
-- Design reading of the tone: sixteen Tuskling heads jammed into one mass, five of them upside down or sideways, half of them gaping with teeth and a red tongue, small sunk eyes under scowling brows, coarse bristle on every crown and four trotters kicking out of the rim: grotesque and crowded. The absurd note is the scraps of high society on swine (a crushed top hat, a bow tie with a soiled collar, a pearl string, a purple flower, red sequins). The danger is the mass and the ivory: every head carries two tusks, so the ball reads as a 128 px mace of hooks. Never cute: no big eyes, no smiling mouths, and no single central mascot face (the centre face is half buried by its neighbours).
+- Design reading of the tone: seventeen Tuskling heads jammed into one mass, four of them upside down and four sideways, every one snarling: the upper lip arches up to bare the gums and fangs, the corners drag down, lower teeth stand up and the tongue lolls out; small sunk eyes with bags under scowling brows, cheek folds, coarse bristle on every crown and four trotters kicking out of the rim: grotesque and crowded. The absurd note is the scraps of high society on swine (a crushed top hat, a bow tie with a soiled collar, a pearl string, a purple flower, red sequins). The danger is the mass and the ivory: every head carries two tusks, so the ball reads as a 128 px mace of hooks. Never cute: no big eyes, no smiling mouths, and no single central mascot face (the centre face is half buried by its neighbours).
 
 ### Where the canon, size and mechanics are defined (checked 2026-11-18)
 
@@ -106,7 +106,7 @@ Decision: **B, 128 px diameter.** It is the only option where each Tuskling face
 
 - Frame 176 x 144, pivot (88, 143), contact row 143 (the lowest opaque row of every grounded frame). The disc centre is (88, 83), radii 64 x 62, cut flat at the contact row: a 32 px weight patch on the floor.
 - Grounded tags: all (`idle`, `roll`, `attack_tell`, `attack_charge`, `hurt`, `down`). Airborne tags: none.
-- Collision (placeholder): circle radius 60 centred on pivot + (0, -61). Hurtbox (placeholder): circle radius 56, same centre (the rim lumps never take hits). Roll contact hitbox (placeholder): circle radius 54 on every `roll` frame. Charge impact hitbox (placeholder): box pivot-relative x +36..+80, y -112..-10 on frame 12 only. Damage, knockback and stagger are not approved.
+- Collision (placeholder): circle radius 60 centred on pivot + (0, -61). Hurtbox (placeholder): circle radius 56, same centre (the rim lumps never take hits). Roll contact hitbox (placeholder): circle radius 54 on every `roll` frame. Charge impact hitbox (placeholder): box pivot-relative x +42..+86, y -112..-10 on frame 12 only (the flat front sits at x 174). Damage, knockback and stagger are not approved.
 - Authored facing right; the runtime mirrors around the pivot column; a mirrored roll plays the same frames (the mirror turns clockwise into anticlockwise).
 - One atlas, frames 0 to 17, one layer `body`.
 
@@ -117,7 +117,7 @@ Rolling to the right in a side view is a rotation about the screen normal: the v
 Approach: the Ball is a **feature model** in `scripts/author_swine01.py` (heads, trotters, tufts and costume scraps placed by polar position and facing angle on the disc). A roll phase is the same model with every angle advanced by theta and **re-rasterized** at native resolution, then shaded with the fixed screen-space light (upper left). The silhouette therefore stays a lumpy ball of constant size while the surface and the rim lumps travel around it.
 
 - `roll` = 6 frames, theta = 0, 60, 120, 180, 240, 300 degrees (clockwise for a rightward roll), 4 ticks each: one turn per 24 ticks.
-- Why 60 degree steps: 90 degree steps (4 frames) let the eye pair a feature with the wrong neighbour and see the ball turn backwards; 30 degree steps (12 frames) exceed the move budget of the readability set. The landmark layout is deliberately asymmetric (hat at -152 degrees, flower at -46, bow tie at 114, trotters at 26, 96, 150, -108): no 2-, 3- or 6-fold symmetry, so every 60 degree step has one unambiguous direction.
+- Why 60 degree steps: 90 degree steps (4 frames) let the eye pair a feature with the wrong neighbour and see the ball turn backwards; 30 degree steps (12 frames) exceed the move budget of the readability set. The landmark layout is deliberately asymmetric and the landmarks are the largest value masses (hat at -148 degrees, flower at -48, black jacket with shirt and bow tie at 126, red sequin field at 30, pearl string across the front face at 8; trotters at 35, 140, -125, -40). The ten rim heads sit at irregular gaps of 27, 46, 31, 49, 35, 44, 26, 41, 29 and 32 degrees, so no spacing repeats near 60/n and a 60 degree step cannot alias into a backward turn. Checked on `docs/evidence/swine-01/roll-preview.gif` (1x, six frames): hat, jacket and sequins travel clockwise.
 - The turn rate is a fixed cycle and is not matched to travel speed (a 128 px ball travels 402 px per true turn). The over-rotation is the fiction: the Tusklings in the mass run and scramble like a treadmill, which motivates the dust trail (separate VFX). Gameplay never reads the frame index for position.
 - Frames 4 to 8 come from the frame-3 key by the theta rule; the executor only cleans them (orphans, crevices) and may not re-pose them.
 
@@ -143,20 +143,20 @@ Readability set: 18 frames. Tick windows are at 60 Hz.
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | settled ball on its flat weight patch, front head snarling right, hat upper left | 16 | key (drawn, frozen) |
+| 0 | `idle` | settled ball on its flat weight patch, front head snarling right, hat upper left | 16 | key (frozen) |
 | 1 | `idle` | heave in: disc 1 px lower and 1 px wider, three front eyes shut | 12 | Sonnet |
 | 2 | `idle` | heave out: back to key 0 height, the lower-left trotter kicks 2 px | 16 | Sonnet |
-| 3 | `roll` | theta 0, top leans 2 px forward, rim tufts streak back 2 px | 4 | key |
-| 4-8 | `roll` | theta 60, 120, 180, 240, 300 from the frame-3 rule | 4 each | Sonnet (rule, cleanup only) |
+| 3 | `roll` | theta 0, top leans 2 px forward, rim tufts streak back 2 px | 4 | key (frozen) |
+| 4-8 | `roll` | theta 60, 120, 180, 240, 300 from the frame-3 rule | 4 each | rule output (drawn by the script; cleanup only) |
 | 9 | `attack_tell` | rock back: theta -20, 6 px back, 4 px lower | 8 | Sonnet |
-| 10 | `attack_tell` | coil hold: squashed to 136 x 116, rim tufts +3 px, every eye wide, tusks level at the facing side | 28 | key |
+| 10 | `attack_tell` | coil hold: squashed to 136 x 114, rocked 6 px back and 20 degrees, rim tufts +3 px, every eye wide, mouths +1 px | 28 | key (frozen) |
 | 11 | `attack_charge` | launch smear: stretched to 156 x 112, 14 px forward, tufts streaked back | 3 | Sonnet |
-| 12 | `attack_charge` | impact: front flattened into a 40 px vertical face, the front heads squashed, tusks forward | 6 | key |
+| 12 | `attack_charge` | impact: 25 px forward, front flattened into a 40 px vertical face at x 174, eyes wide, mouths +2 px | 6 | key (frozen) |
 | 13 | `attack_charge` | rebound: back to round, 4 px back, mouths open (the punish window) | 24 | Sonnet |
-| 14 | `hurt` | recoil: 4 px back, 2 px squash, eyes squeezed shut, mouths squealing | 12 | key |
+| 14 | `hurt` | recoil: 4 px back, 6 degrees back, 1 px squash, eyes squeezed shut, mouths +2 px squealing | 12 | key (frozen) |
 | 15 | `down` | crack: dark seams split the mass between the heads, 2 px sag | 8 | Sonnet |
 | 16 | `down` | slump: 150 x 90, heads loosening | 12 | Sonnet |
-| 17 | `down` | heap: a limp pile 160 x 64, all eyes shut, the hat on top | hold | key |
+| 17 | `down` | heap: a limp pile 167 x 64, heads lying on their sides, all eyes shut, the hat on top | hold | key (frozen) |
 
 The break-apart into live Tusklings is a separate transition work order; `down` ends on the heap.
 
@@ -181,7 +181,7 @@ Triggers are design placeholders; the gameplay work order owns them.
 
 ## 6. Palette
 
-The Ball and the Tusklings share one family palette, `tuskling-floor01-v1` (flesh, tusk, hair, cloth, sequin and flower ramps). The arena's purple UV and laser light is not in the sprite. 19 colours, at most 20.
+The Ball and the Tusklings share one family palette, `tuskling-floor01-v1` (flesh, tusk, hair, cloth, sequin and flower ramps). The arena's purple UV and laser light is not in the sprite. 20 colours, at most 20 (the gate fix added `e` pearl).
 
 | Key | Name | Hex | Nearest candidate | Role |
 | --- | --- | --- | --- | --- |
@@ -204,59 +204,60 @@ The Ball and the Tusklings share one family palette, `tuskling-floor01-v1` (fles
 | `p` | flower_deep | `#4e1f6e` | none (by eye) | flower shade |
 | `q` | flower_mid | `#9b55c4` | none (by eye) | flower petals |
 | `w` | eye_white | `#f0e2cc` | `#f8e5cc` (19) | eyes (accent) |
+| `e` | pearl | `#fff6e6` | `#f8e5cc` (19) | single-pixel pearl beads on a `t` thread (accent, so 1 px beads pass the orphan rule) |
 
 The navy candidates (6, 13, 17, 18, 20, 22) are background and are not used. The palette separates the Ball from the warm brick (lighter, pinker flesh; ivory hooks; a black outline) and from the cold arch (warm hue) at 1x in the A1 lighting (see `docs/evidence/swine-01/key0-scale.png`).
 
 ## 7. Key poses
 
-| Frame | Tag | Silhouette and pose notes | Readability reason |
-| --- | --- | --- | --- |
-| 0 | `idle` | Disc 128 x 123 on a 32 px weight patch; 16 heads (radius 11 to 24 px) in depth order, the front head at 10 degrees snarls toward the facing side; rim heads, ears, four trotters, the hat and 20 bristle tufts make a lumpy outline (bbox 143 x 130); crevices split every head | reads as one ball made of many tusked pigs at 1x; tusks are the brightest ring |
-| 3 | `roll` | key 0 model at theta 0, top leaning 2 px forward, tufts streaked back; same bbox +-2 px | the constant lumpy outline plus the travelling hat/flower/bow tie landmarks read as rolling |
-| 10 | `attack_tell` | coil: squashed 136 x 116 and rocked 6 px back, tufts +3 px, every eye wide (`w` at least 40), facing-side tusks level | lower, wider and bristling: the "about to launch" read, 28 ticks |
-| 12 | `attack_charge` | impact: 14 px forward, the front 40 px flattened vertical, front faces crushed, tusks forward | the hit lands where the shape is flat; the hitbox matches it |
-| 14 | `hurt` | 4 px back, 2 px squash, every eye shut (`w` = 0), mouths open | the only frame with no eye whites outside `down` |
-| 17 | `down` | a 160 x 64 heap of limp Tusklings, hat on top, eyes shut | defeat reads as a pile of bodies, ready for the break-apart transition |
+Every key is the feature model of `scripts/author_swine01.py` (`PARTS`, `TROTTERS`, `TUFTS`) rasterized with one pose dict (`KEY_POSES`); default pose `POSE0` = theta 0, centre (88, 83), radii 64 x 62, shear 0, no front cut, eyes open.
 
-Keys 3, 10, 12, 14, 17 are drawn by the designer after the silhouette gate passes on key 0.
+| Frame | Tag | Pose dict (changes from `POSE0`) | Measured | Readability reason |
+| --- | --- | --- | --- | --- |
+| 0 | `idle` | none | bbox x 18-162, y 10-143; `w` 42, `h` 140, `e` 23, `q` 58 | 17 snarling tusked heads, hat, tux, sequins, pearls, flower and trotters in one lumpy ball |
+| 3 | `roll` | shear 2, tuft_sweep -2 | y 10-143 | lean and streaked bristle; landmarks carry the turn |
+| 10 | `attack_tell` | theta -20, centre (82, 89), radii 68 x 57, tuft_add 3, eyes wide, gape_add 1 | x 6-156, y 20-143; `w` 60 | lower, wider, rocked back, bristling, every eye wide |
+| 12 | `attack_charge` | centre (113, 85), radii 66 x 60, front_cut 0.94, eyes wide, gape_add 2, tuft_sweep -3 | x 41-174 | the flat front is where the hit lands |
+| 14 | `hurt` | theta -6, centre (84, 84), radii 65 x 61, eyes shut, gape_add 2 | `w` 0 | the only ball-shaped frame with no eye whites |
+| 17 | `down` | theta 60, centre (88, 117), radii 78 x 27, head_k 1.0, head_sb 0.62, eyes shut, limp, tuft_add -1, gape_add 1 | x 5-171, y 80-143; `w` 0 | a heap of limp bodies, the hat on top |
+
+Gate fix applied to key 0 (review points 1-8): snarling maws with fangs, lower teeth and lolling tongues on every head (no round mouths); eyes are a 2 px `K` pupil plus 1-2 px `w` in a `c` socket under an `l`-over-`d` scowl brow, with eye bags and cheek folds; head radii 11-24 px with five buried and eight upside-down or sideways heads; a black jacket with a shirt V and a bow tie, a red sequin field with glints on the lit side, a 23-bead pearl string; a crushed, tilted, outlined top hat with a 2 px red band and a 1 px sheen; four trotters with flesh shanks and black split hooves past the rim; tusks 4-9 px with 7 chipped; irregular rim spacing.
 
 ## 8. In-between list
 
-| # | Pose notes |
-| --- | --- |
-| 1, 2 | idle heave: key 0 with the disc 1 px lower and wider (1), back (2); 3 front eyes shut on 1, one trotter kicks on 2 |
-| 4-8 | the frame-3 rule at theta 60 to 300; cleanup only |
-| 9 | between 0 and 10: half the squash, theta -20 |
-| 11 | between 10 and 12: stretched 156 x 112, tufts streaked |
-| 13 | between 12 and 0: round again, 4 px back, mouths open |
-| 15, 16 | between 0 and 17: dark seams (15), half-collapsed 150 x 90 (16) |
+For the execution tier: render each in-between as a pose dict through `Ball(dict(POSE0, ...)).render()` (add an `INBETWEENS` map beside `KEY_POSES` and remove the frame from `PLACEHOLDERS`), then clean orphans and crevices by hand. No design decisions needed; set `unique_frames` to true in the asset config once all seven are in.
+
+| # | Pose dict (changes from `POSE0`) | Notes |
+| --- | --- | --- |
+| 1 | cy 84, ry 61, rx 65 | heave in: 1 px lower and wider; eyes as key 0 |
+| 2 | theta 2 | heave out: key 0 size, the mass shifts 2 degrees (trotters twitch) |
+| 9 | theta -10, cx 85, cy 86, rx 66, ry 60, tuft_add 1, eyes wide | rock back, half of the coil |
+| 11 | theta 20, cx 104, cy 87, rx 76, ry 56, shear 4, tuft_sweep -5, eyes wide, gape_add 2 | launch smear: stretched 152 x 112, 16 px forward |
+| 13 | theta 10, cx 92, cy 83, rx 63, ry 62, eyes open, gape_add 2 | rebound: round again, 4 px forward of idle, mouths open (punish window) |
+| 15 | theta 20, cx 88, cy 95, rx 70, ry 50, head_sb 0.85, eyes shut, gape_add 1 | crack: sag, crevices widen (add a 1 px `c` seam on every head boundary) |
+| 16 | theta 40, cx 88, cy 105, rx 75, ry 39, head_k 1.0, head_sb 0.72, eyes shut, limp, gape_add 1 | slump, halfway to the heap |
 
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate assets/source/characters/swine/swine-01.pixelart.json`. Phase 1 configures frame 0 only:
+Run by `python3 -m scripts.pixelart validate assets/source/characters/swine/swine-01.pixelart.json` (verdict PASS, 12 pass, 4 skipped; `unique_frames` is off only while the in-betweens are placeholders):
 
-- V04 palette: at most 20 colours (19 used); V05 isolated pixels: 0; V06 orphan pixels: 0 per frame.
-- V07 contact row: every grounded frame ends on row 143.
-- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/swine-01_keys.json` (frame 0 now; 3, 10, 12, 14, 17 later).
-- V13 bbox: S1 idle top 14 / bottom 143, width 128 to 148. Later: roll frames within +-2 px of the idle bbox; tell top at least idle top + 10 and left at most idle left - 4; impact right at least idle right + 12; defeat top at least 80.
-- V14 key counts: idle `w` at least 24 (many faces), `h` at least 140 (lit snouts), `q` at most 80 (the flower is a detail). Later: tell `w` at least 40; hurt and defeat `w` = 0.
-
-### Acceptance targets for the silhouette gate (key 0, 1x)
-
-1. A filled black silhouette reads as a ball with a lumpy, bristly rim (heads, ears, trotters, hat), not a smooth orb; bbox aspect 0.9 to 1.1.
-2. At 1x next to Carl at least 10 snouts and the tusk ring are identifiable; the ball reads as many pigs, not as noise.
-3. It separates from the lit brick and the cold arch without show lighting.
-4. Grotesque and absurd, not cute: no single central mascot face, no big eyes, no smile.
+- V04 palette: at most 20 colours (20 used); V05 isolated pixels: 0; V06 orphan pixels: 0 per frame.
+- V07 contact row: every frame ends on row 143.
+- V09 frozen keys: SHA-256 of frames 0, 3, 10, 12, 14, 17 in `tests/fixtures/swine-01_keys.json`.
+- V13 bbox: S1 idle top 10 / bottom 143, width 128 to 148; S2 roll frames 3-8 top 7 to 13 and width 140 to 150; S3 tell top at least 20 (idle top + 10) and left at most 14 (idle left - 4); S4 impact right at least 174 (idle right + 12); S5 defeat top at least 80, width at most 170.
+- V14 key counts: S0 `w` at least 24 on frames 0 and 3; `h` at least 140 on frame 0 (measured 140 on the gate-fix key 0, frozen by V09); `q` at most 80 on every key; `e` at least 8 (pearl beads); S3 tell `w` at least 40; S4 hurt `w` = 0; S5 defeat `w` = 0.
+- Open for the reviewer: S2 allows the roll top to move 3 px (the spec draft said 2 px) because a rim lump rotating over the top shifts the bbox by 3 px; this needs reviewer sign-off.
 
 ## 10. Evidence
 
 ```text
 python3 scripts/author_swine01.py               # grid + .ase
 python3 scripts/author_swine01.py key0-scale    # docs/evidence/swine-01/key0-scale.png (1x) and key0-scale-4x.png
+python3 scripts/author_swine01.py roll-preview  # docs/evidence/swine-01/roll-preview.gif (1x) and roll-strip-2x.png
 python3 -m scripts.pixelart validate assets/source/characters/swine/swine-01.pixelart.json --out <dir>
 ```
 
-Phase 1 evidence: `docs/evidence/swine-01/key0-scale.png` (key 0 at 1x on lit Floor 1, mirrored to face Carl and Donut, 640 x 360) and `key0-scale-4x.png`. The full review pack follows after all keys.
+Evidence: `key0-scale.png` (key 0 at 1x on lit Floor 1, mirrored to face Carl and Donut, 640 x 360), `key0-scale-4x.png`, `roll-preview.gif` (six roll frames at 1x, 4 ticks each, turning clockwise) and `roll-strip-2x.png`. The full review pack follows after the in-betweens.
 
 ## 11. Files
 
@@ -281,5 +282,5 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Designed by: Claude Opus (spec + keys; phase 1: spec and key 0). Executed by: pending. Independently reviewed by: pending (silhouette gate on key 0 first).
+- Designed by: Claude Opus (spec + keys: key 0 with the gate fix, keys 3, 10, 12, 14, 17, the roll rule). Executed by: pending. Independently reviewed by: pending (silhouette gate on key 0 first).
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
