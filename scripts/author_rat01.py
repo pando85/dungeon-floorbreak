@@ -32,14 +32,16 @@ STUDY = OUT_DIR / "rat_size_study.grid.json"
 CANVAS = (64, 28)
 PIVOT = (30, 27)
 
-# rat-floor01-v0: cold blue-gray fur (so it does not melt into the warm orange brick), warm rim on the torch
-# side, saturated pink bald patches / tail / ears, ember-red eyes, tobacco-yellow teeth.
+# rat-floor01-v1 (top-tier edit): split-temperature fur. The shadow end stays cool blue-gray (separation from
+# the orange brick and floor), the lit end is the concept's warm gray-brown (canon), so the rat reads as a
+# gray-brown animal under torch light and drops into cold shade on the ambient side. Saturated pink bald
+# patches / tail / ears, ember-red eyes, tobacco-yellow teeth.
 PALETTE = [
     ("K", "outline_plum", "#1a1218ff", False),
     ("a", "fur_deep", "#2b2830ff", False),
     ("s", "fur_shade", "#4a4550ff", False),
-    ("m", "fur_mid", "#6e6670ff", False),
-    ("l", "fur_light", "#9a8f86ff", False),
+    ("m", "fur_mid", "#716760ff", False),
+    ("l", "fur_light", "#a39581ff", False),
     ("p", "pink_deep", "#74303fff", False),
     ("q", "pink_mid", "#b8576aff", False),
     ("r", "pink_light", "#e39a96ff", False),
@@ -193,6 +195,12 @@ def build(pose: dict) -> list[str]:
                 rows[y][x] = "s"
             elif rows[y][x] == "m" and ((x // 2) * 5 + y * 3 + pose.get("seed", 0)) % 13 == 0:
                 rows[y][x] = "l"
+    # ribs: short shade strokes (x, y_top, y_bottom in design units) on lit/mid fur only, the wiry flank
+    for rx, ry0, ry1 in pose.get("ribs", []):
+        col = int(c.P(rx, 0)[0])
+        for y in range(int(c.P(0, ry0)[1]), int(c.P(0, ry1)[1]) + 1):
+            if rows[y][col] in "ml":
+                rows[y][col] = "s"
     # tufts: spiky fur on the silhouette at the given columns (x in design units, height in px)
     for tx, th in pose.get("tufts", []):
         col = int(c.P(tx, 0)[0])
@@ -236,9 +244,14 @@ def despeckle(rows: list[list[str]]) -> None:
 
 
 def ear(x, y, w, h_, lean=0.0, notch=False):
-    """Triangle ear with a base centred at (x, y)."""
-    pts = [(x - w / 2, y), (x + lean, y + h_), (x + w / 2, y)]
-    return pts
+    """Triangle ear with a base centred at (x, y); ``notch`` bites a torn V out of the back edge."""
+    left, tip, right = (x - w / 2, y), (x + lean, y + h_), (x + w / 2, y)
+    if not notch:
+        return [left, tip, right]
+    a = (tip[0] + 0.35 * (right[0] - tip[0]), tip[1] + 0.35 * (right[1] - tip[1]))
+    b = (tip[0] + 0.75 * (right[0] - tip[0]), tip[1] + 0.75 * (right[1] - tip[1]))
+    n = (x + lean * 0.4, y + h_ * 0.45)          # the tear reaches almost to the ear's centre
+    return [left, tip, a, n, b, right]
 
 
 def far_ear(x, y, w, h_, lean=0.0):
@@ -250,24 +263,29 @@ POSES: dict[str, dict] = {}
 
 POSES["idle0"] = {
     "seed": 1,
-    "spine": [(-13, 5), (-9, 8.4), (-3, 10.8), (3, 10.2), (9, 7.6), (12, 5.8)],
-    "spine_r": [2.4, 3.4, 3.5, 3.4, 2.8, 2.4],
-    "head": {"pts": [(12, 5.8), (16, 4.6), (20.5, 3.2)], "r": [3.4, 2.7, 1.2]},
+    # editor: a true bridge arch (apex over the ribs, daylight under the belly), thin hips and neck so the
+    # torso reads wiry, a blunt wedge head, a torn near ear and a mangy bald saddle on the hump.
+    "spine": [(-13, 4.5), (-10, 7.8), (-6, 11), (-1, 12), (4, 10.4), (8.5, 7.6), (11.5, 6)],
+    "spine_r": [2.0, 2.8, 3.1, 3.2, 2.9, 2.3, 2.1],
+    "head": {"pts": [(12, 6.2), (16.5, 4.6), (20.5, 3.2)], "r": [3.1, 2.4, 1.2]},
     "noses": [(21.6, 3.2, 1.0, 1.0)],
-    "tail": {"pts": [(-14, 4), (-18, 3), (-22, 4), (-25, 6.5), (-27, 5)], "r": [1.1, 0.9, 0.8, 0.7, 0.6]},
+    "tail": {"pts": [(-14, 3.6), (-18, 2), (-22, 2), (-25, 4), (-27.5, 5.5)], "r": [1.1, 0.9, 0.8, 0.7, 0.6]},
     "far_legs": [
-        {"pts": [(-8, 5), (-7, 2), (-5, 0.5)], "r": [2.2, 1.0, 0.9]},
-        {"pts": [(6, 4), (8, 2), (10, 0.5)], "r": [1.8, 0.9, 0.8]},
+        {"pts": [(-7, 6), (-6, 2.5), (-4.5, 0.5)], "r": [1.6, 0.9, 0.8]},
+        {"pts": [(6, 6), (7.5, 2.5), (9.5, 0.5)], "r": [1.3, 0.8, 0.8]},
     ],
     "legs": [
-        {"pts": [(-11, 5), (-10, 2.5), (-7, 0.5)], "r": [2.8, 1.2, 1.0]},
-        {"pts": [(9, 4.5), (10, 2.2), (12.5, 0.5)], "r": [2.0, 1.0, 0.9]},
+        {"pts": [(-10, 6.5), (-11, 3), (-8, 0.5)], "r": [2.9, 1.3, 1.0]},
+        {"pts": [(9, 5.5), (10, 2.4), (12.5, 0.5)], "r": [1.7, 0.9, 0.9]},
     ],
-    "far_ears": [far_ear(11, 7.8, 3, 3.5, 0.5)],
-    "ears": [ear(13.4, 8.2, 3.4, 4.4, -0.4)],
-    "patches": [(-7, 8.5, 3.6, 2.2), (4, 6, 2.6, 1.8)],
-    "tufts": [(-9, 1), (-4, 1), (2, 1), (7, 1)],
-    "stamps": [(17, 5.6, "e"), (18, 5.6, "e"), (17, 6.6, "K"), (19.5, 1.9, "t"), (19.5, 1.1, "t"), (21.4, 1.6, "t"), (21.4, 0.9, "t")],
+    "far_ears": [far_ear(11, 8.2, 3, 3.2, 0.5)],
+    "ears": [ear(14, 7.6, 5.0, 5.0, -1.0, notch=True)],
+    "patches": [(-4, 13.2, 3.2, 1.6), (3, 6.6, 2.0, 1.5)],
+    "ribs": [(-2, 9.5, 7.5), (0, 9.5, 7.5), (2, 9, 7.5)],
+    "tufts": [(-11, 1), (-8, 2), (-6, 1), (5, 1), (7, 2)],
+    "stamps": [(17, 5.6, "e"), (18, 5.6, "e"), (17, 6.6, "K"), (18, 6.6, "K"),
+               (19.5, 1.5, "t"), (20.5, 1.5, "t"), (19.5, 0.5, "t"), (20.5, 0.5, "T"),
+               (13, 13.5, "."), (13, 12.5, "K"), (14, 10.5, "K"), (15, 10.5, ".")],
 }
 
 POSES["run1"] = {
@@ -286,32 +304,39 @@ POSES["run1"] = {
         {"pts": [(10, 5.5), (14, 2.8), (18, 0.6)], "r": [1.9, 1.0, 0.9]},
     ],
     "far_ears": [],
-    "ears": [ear(13, 8.4, 3, 3.4, -2.2)],
+    "ears": [ear(13, 8.0, 5.0, 4.4, -2.6, notch=True)],
     "patches": [(-6, 7.4, 3.2, 1.8)],
     "tufts": [(-6, 1), (1, 1)],
-    "stamps": [(19, 7, "e"), (20, 7, "e"), (21.5, 3.1, "t"), (21.5, 2.4, "t"), (23.5, 3.1, "t")],
+    "stamps": [(11, 12.5, "."), (11, 11.5, "K"), (19, 7, "e"), (20, 7, "e"), (21.5, 3.1, "t"), (21.5, 2.4, "t"), (23.5, 3.1, "t")],
 }
 
 POSES["tell2"] = {
     "seed": 3,
-    "spine": [(-12, 7), (-8, 7.2), (-2, 6), (4, 5), (9, 4.4)],
-    "spine_r": [3.0, 3.4, 3.2, 3.0, 2.6],
-    "head": {"pts": [(10, 5), (15, 4.5), (20, 3.6)], "r": [3.0, 2.5, 1.2]},
-    "noses": [(21, 3.8, 1.0, 1.0)],
+    # editor: a coiled wedge (rump high, chest and chin on the floor, no daylight under the belly), hackles
+    # bristling on the rump, jaws gaping with a dark maw and four yellow teeth, tail hooked high. Idle is a
+    # symmetric bridge; the tell is a forward-sloping wedge with an open mouth.
+    "spine": [(-12, 6), (-9, 9.4), (-5, 10.4), (0, 8.6), (5, 6), (9, 4.6)],
+    "spine_r": [2.6, 3.0, 3.2, 3.0, 2.7, 2.4],
+    "head": {"pts": [(10, 5.2), (14.5, 5.2), (19.5, 4.6)], "r": [3.0, 2.2, 1.1]},
+    "noses": [(20.6, 4.8, 1.0, 1.0)],
     "tail": {"pts": [(-13, 6), (-17, 8), (-19, 11), (-18, 14), (-15, 15.5)], "r": [1.1, 0.9, 0.8, 0.7, 0.6]},
     "far_legs": [
-        {"pts": [(6, 3.8), (9, 2), (12, 0.6)], "r": [1.8, 0.9, 0.8]},
+        {"pts": [(6, 4), (9, 2), (12, 0.6)], "r": [1.6, 0.9, 0.8]},
     ],
     "legs": [
-        {"pts": [(-11, 5), (-9, 1.5), (-5, 0.6)], "r": [3.2, 1.6, 1.0]},
-        {"pts": [(8, 3.8), (12, 1.8), (16, 0.6)], "r": [2.0, 1.0, 0.9]},
-        {"pts": [(12, 2.8), (16, 1.6), (19.5, 1.0)], "r": [1.4, 1.0, 0.7]},
+        {"pts": [(-9, 6), (-6, 2), (-3.5, 0.6)], "r": [3.2, 1.6, 1.0]},
+        {"pts": [(-11, 4), (-11, 1.5), (-9, 0.6)], "r": [2.4, 1.2, 0.9]},
+        {"pts": [(7, 3.5), (11, 1.6), (15, 0.6)], "r": [1.9, 1.0, 0.9]},
+        {"pts": [(13.5, 2.4), (16.5, 1.6), (19, 1.2)], "r": [1.3, 1.0, 0.8]},
     ],
     "far_ears": [],
-    "ears": [ear(10, 7.2, 3, 3, -2.5)],
-    "patches": [(-8, 7, 3.2, 2.0)],
-    "tufts": [(-10, 1), (-5, 1)],
-    "stamps": [(16, 5.4, "e"), (17, 5.4, "e"), (16, 6.4, "K"), (18, 2.4, "o"), (19, 2.4, "o"), (20, 2.4, "o"), (18.5, 3.2, "t"), (20.5, 3.2, "t"), (19, 1.6, "t"), (20, 1.6, "t")],
+    "ears": [ear(10.5, 7.0, 5.0, 4.4, -2.8, notch=True)],
+    "patches": [(-7, 9.6, 2.8, 1.6), (3, 5.2, 2.0, 1.4)],
+    "ribs": [(-1, 7.5, 5.5), (1, 7, 5)],
+    "tufts": [(-11, 1), (-9, 2), (-7, 3), (-5, 2), (-3, 1)],
+    "stamps": [(8, 11.5, "."), (8, 10.5, "K"), (15, 6.2, "e"), (16, 6.2, "e"), (15, 7.2, "K"), (16, 7.2, "K"),
+               (16.5, 3.4, "o"), (17.5, 3.4, "o"), (18.5, 3.4, "o"), (17.5, 2.6, "o"), (18.5, 2.6, "o"), (19.5, 2.6, "o"),
+               (19.5, 3.6, "t"), (20.5, 3.6, "t"), (19.5, 1.8, "t"), (20.5, 1.8, "t")],
 }
 
 POSES["bite3"] = {
@@ -331,10 +356,10 @@ POSES["bite3"] = {
         {"pts": [(15, 10), (19, 7.6), (22.5, 6.4)], "r": [1.6, 1.3, 0.9]},
     ],
     "far_ears": [],
-    "ears": [ear(13.5, 15, 3, 3.2, -2.4)],
+    "ears": [ear(13.5, 14.6, 5.0, 4.4, -2.8, notch=True)],
     "patches": [(-4, 6, 3.4, 2.0)],
     "tufts": [(-6, 1), (2, 1)],
-    "stamps": [(19, 13.8, "e"), (20, 13.8, "e"), (19, 14.8, "K"),
+    "stamps": [(11, 19.5, "."), (11, 18.5, "K"), (19, 13.8, "e"), (20, 13.8, "e"), (19, 14.8, "K"),
                (18.5, 10.5, "o"), (19.5, 10.5, "o"), (20.5, 10.5, "o"), (21.5, 10.5, "o"), (22.5, 10.5, "o"),
                (19.5, 9.5, "o"), (20.5, 9.5, "o"), (21.5, 9.5, "o"),
                (20, 11.4, "t"), (22, 11.4, "t"), (23, 11.4, "t"), (21, 8.6, "t"), (22.5, 8.6, "t")],
@@ -342,25 +367,30 @@ POSES["bite3"] = {
 
 POSES["hurt4"] = {
     "seed": 5,
-    "spine": [(-13, 4.5), (-8, 6.5), (-3, 9), (2, 12), (5, 14.5)],
-    "spine_r": [2.4, 3.2, 3.4, 3.2, 2.6],
-    "head": {"pts": [(6, 14.6), (9.5, 16.2), (13, 17.2)], "r": [3.2, 2.5, 1.2]},
-    "noses": [(14, 17.6, 1.0, 1.0)],
-    "tail": {"pts": [(-14, 4), (-19, 5), (-22, 8), (-20, 11)], "r": [1.1, 0.9, 0.7, 0.6]},
+    # editor: knocked back onto the haunches. The torso stands almost upright (about 70 degrees, the bite
+    # is about 20), the head snaps back with the nose to the ceiling, the pink underbelly is flashed at the
+    # camera, the front paws splay, the tail kinks up. Compact (about 24 px wide without the tail) where the
+    # bite is long, and the eyes are squeezed shut (no ember).
+    "spine": [(-9, 3.2), (-8.5, 7), (-7.6, 10.5), (-6.4, 13)],
+    "spine_r": [3.4, 3.3, 3.0, 2.6],
+    "belly": ([(-6.2, 4), (-5.4, 7.5), (-4.6, 10.8)], [1.3, 1.6, 1.2]),
+    "head": {"pts": [(-6.2, 13.5), (-5, 16), (-3.8, 18.2)], "r": [2.9, 2.2, 1.1]},
+    "noses": [(-3.4, 19.2, 1.0, 1.0)],
+    "tail": {"pts": [(-12, 2), (-16, 3), (-18, 6.5), (-16.5, 9), (-19, 11)], "r": [1.1, 0.9, 0.8, 0.7, 0.6]},
     "far_legs": [
-        {"pts": [(-8, 5), (-5, 2), (-3, 0.6)], "r": [2.0, 1.0, 0.9]},
-        {"pts": [(3, 10), (6, 12.5), (8, 11.5)], "r": [1.6, 0.9, 0.8]},
+        {"pts": [(-6, 4), (-3, 1.4), (0, 0.6)], "r": [2.0, 1.0, 0.9]},
+        {"pts": [(-5, 12), (-1.5, 14.5), (1, 16.5)], "r": [1.2, 0.9, 0.8]},
     ],
     "legs": [
-        {"pts": [(-11, 4.5), (-9, 2), (-6, 0.6)], "r": [2.8, 1.2, 1.0]},
-        {"pts": [(5, 11), (9, 12.5), (12, 11)], "r": [1.8, 0.9, 0.8]},
+        {"pts": [(-8.5, 4), (-5.5, 1.4), (-2.5, 0.6)], "r": [2.8, 1.2, 1.0]},
+        {"pts": [(-4.5, 10), (-1, 10.5), (2.5, 9)], "r": [1.4, 0.9, 0.8]},
     ],
     "far_ears": [],
-    "ears": [ear(6.5, 16.2, 3, 3.2, -2.4)],
-    "patches": [(-6, 7, 3.2, 2.0)],
-    "tufts": [(-7, 1)],
-    "stamps": [(9.5, 17.8, "K"), (10.5, 17.2, "K"), (11.5, 17.8, "K"), (11.5, 15.0, "o"), (12.5, 15.4, "o"),
-               (12.5, 14.4, "t"), (11.5, 14.0, "T")],
+    "ears": [ear(-8.2, 15.2, 3.4, 3.2, -1.6, notch=True)],
+    "patches": [(-8, 9, 2.0, 1.6)],
+    "ribs": [],
+    "tufts": [(-11, 1)],
+    "stamps": [(-5.5, 16.6, "K"), (-4.5, 17.2, "K"), (-2.5, 17.2, "o"), (-2.5, 16.4, "o"), (-1.5, 17.6, "t"), (-2.5, 18.2, "t")],
 }
 
 POSES["down5"] = {

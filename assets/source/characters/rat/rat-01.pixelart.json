@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "rat-01",
-  "title": "RAT-01 Dungeon Rat, DRAFT KEYS ONLY (6 keys, no in-betweens; indices are key-only and the executor re-indexes to the spec section 4 table)",
+  "title": "RAT-01 Dungeon Rat, FINAL KEYS (top-tier edit; 6 keys, no in-betweens; indices are key-only and the executor re-indexes to the spec section 4 table)",
   "grid": "assets/source/characters/rat/rat_h18.grid.json",
   "frame_size": [64, 28],
   "pivot": [30, 27],
@@ -24,14 +24,21 @@
     "max_orphans_per_frame": 9,
     "canvas_margin": [0, 0, 0, 0],
     "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/rat-01_keys.json",
+      "frames": [0, 1, 2, 3, 4, 5],
+      "layers": ["body"]
+    },
     "bbox": [
       {"id": "size-idle-18px", "frames": [0], "top": 10, "bottom": 27},
       {"id": "R-run-lower-than-idle", "frames": [1], "min_top": 11},
       {"id": "R-tell-body-low", "frames": [2], "min_top": 9, "max_width": 50},
-      {"id": "R-down-stays-low", "frames": [5], "min_top": 13, "max_width": 56}
+      {"id": "R-down-stays-low", "frames": [5], "min_top": 13, "max_width": 56},
+      {"id": "R-hurt-upright-compact", "frames": [4], "max_top": 8, "max_width": 30}
     ],
     "key_counts": [
       {"id": "R2-tell-teeth-visible", "frames": [2], "key": "t", "min": 3},
+      {"id": "R2-tell-maw-open", "frames": [2], "key": "o", "min": 4},
       {"id": "R3-bite-teeth-and-maw", "frames": [3], "key": "t", "min": 4},
       {"id": "R3-bite-maw-dark", "frames": [3], "key": "o", "min": 6},
       {"id": "R5-hurt-no-ember-eyes", "frames": [4], "key": "e", "max": 0},
