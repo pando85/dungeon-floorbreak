@@ -303,7 +303,7 @@ def lean_sack(c: Canvas, neck: tuple[int, int], hip_x: int = 27) -> None:
     ny0, nx0 = neck[1], neck[0]
     for y in range(ny0, 42):
         cx = round(nx0 + (hip_x + 3 - nx0) * (y - ny0) / (42 - ny0))
-        lo, hi = cx - 6, cx + 6
+        lo, hi = cx - 7, cx + 7
         for x in range(lo, hi + 1):
             i = x - lo - 1
             ch = "K" if x in (lo, hi) else "u" if i < 2 else "r" if x >= hi - 2 else "t"
@@ -404,6 +404,10 @@ def f_tell10() -> dict:
     legs(c, near=(3, 0), far=(0, 0), top=-2, hem=46)
     head_pot(c, (-3, -1), (-3, -1))
     c.paint(point_arm())
+    for y in range(30, 34):                              # close 1 to 2 px see-through gaps between chin and pointing arm
+        for x in range(30, 40):
+            if (x, y) not in c.body and (x - 1, y) in c.body and any((x + k, y) in c.body for k in (1, 2)):
+                c.body[(x, y)] = "K"
     return c.close().cels()
 
 
@@ -412,7 +416,7 @@ def f_ram11() -> dict:
     legs(c, near=(5, 0), far=(-3, 0), top=0, far_heel_up=True, hem=46)
     lean_sack(c, (31, 35))
     c.block("WRENCH", 1, 2)
-    c.block("ARM", -8, 1)                                # the key-0 near arm hanging at the side, fist at about (30, 40)
+    c.block("ARM", -4, 1)                                # the key-0 near arm hanging at the side (fist about (34, 40)), cape banding left of it
     head_pot(c, (3, 3), (3, 3))
     return c.close().cels()
 
@@ -422,7 +426,8 @@ def f_ram12() -> dict:
     legs(c, near=(5, 0), far=(-3, 0), top=0, far_heel_up=True, hem=46)
     lean_sack(c, (37, 37))
     c.block("WRENCH", 2, 3)
-    c.paint(shade_skin(thick_line((24, 40), (34, 40)) + [(x, y) for x in range(22, 26) for y in range(40, 43)]))
+    bent = thick_line((35, 38), (31, 42)) + thick_line((31, 43), (27, 41)) + [(x, y) for x in range(25, 28) for y in range(39, 42)]
+    c.paint(shade_skin(bent))                            # arm bent at the elbow, fist at (26, 40), 3 px clear of the wrench
     head_pot(c, (8, 6), (8, 6), mouth_mode="grit")
     return c.close().cels()
 
@@ -445,6 +450,9 @@ def f_recover13() -> dict:
 def f_hurt14() -> dict:
     c = Canvas()
     c.paint(gob_body(16))
+    for x in range(14, 32):                              # close the waist row 43 (the GOB-01 frame has a transparent row there)
+        if (x, 42) in c.body and (x, 44) in c.body and (x, 43) not in c.body:
+            c.body[(x, 43)] = "r"
     for x in range(11, 29):                              # belt row on the hip row: rag mid and a 2 px iron buckle
         if (x, 44) in c.body and c.body[(x, 44)] != "K":
             c.body[(x, 44)] = "5" if x in (23, 24) else "t"
@@ -543,6 +551,7 @@ def manifest() -> dict:
             "walk_speed_px_per_s": 40,
             "attack_ticks": {"tell": [0, 31], "ram": [32, 40], "hitbox_active": [35, 40], "recover": [41, 58]},
             "boxes_px_from_pivot": BOXES,
+            "boxes_status": "spec placeholders, not re-measured from the drawn frames (owner game-feel review sets the final boxes)",
             "frames": frames,
         },
     }

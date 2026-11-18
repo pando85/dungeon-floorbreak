@@ -173,6 +173,7 @@
         ]
       }
     },
+    "boxes_status": "spec placeholders, not re-measured from the drawn frames (owner game-feel review sets the final boxes)",
     "frames": [
       {
         "index": 0,

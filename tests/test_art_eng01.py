@@ -129,6 +129,22 @@ class Eng01SetTests(unittest.TestCase):
             self.assertGreaterEqual(extent, min_len, n)      # a shorter handle would read as a bowler hat
             self.assertGreaterEqual(len(got), min_px, n)
 
+    def test_no_see_through_row_inside_the_body(self):
+        # every row between the top and the floor holds at least 3 body-layer pixels (a hairline of background across the
+        # waist, as frame 14 once had on row 43, leaves 1 or none); frame 15 has the spec's 2 px air gap under the pot (not checked; nor are the lying frames)
+        for n, f in enumerate(self.grid["frames"][:15]):         # the lying frames have 1 to 2 px ear and handle tips
+            body = f["cels"]["body"]
+            rows = [y for y, r in enumerate(body) if r.strip(".")]
+            for y in range(min(rows), max(rows) + 1):
+                self.assertGreaterEqual(sum(ch != "." for ch in body[y]), 3, (n, y))
+
+    def test_ram_arm_is_clear_of_the_wrench(self):
+        f = self.grid["frames"][12]["cels"]
+        prop = [(x, y) for y, r in enumerate(f["prop"]) for x, ch in enumerate(r) if ch != "."]
+        skin = [x for y, r in enumerate(f["body"]) for x, ch in enumerate(r) if ch in "lms" and 38 <= y <= 44 and x <= 30]
+        wx = max(x for x, _ in prop)
+        self.assertGreaterEqual(min(skin) - wx - 1, 2)       # at least 2 px of clear space between arm and wrench
+
     def test_wrench_stays_a_prop_and_leaves_the_down_frames(self):
         for n, f in enumerate(self.grid["frames"]):
             prop = [ch for r in f["cels"]["prop"] for ch in r if ch != "."]
