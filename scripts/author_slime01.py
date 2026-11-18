@@ -9,8 +9,8 @@ inverse-square field (domed crest, sagging skirt), minus optional carve ellipses
 from the 4-neighbour distance to the outline (glowing rim all round, brightest on the torch-lit upper left, lit upper
 skin, dark thick core, caustic band above the floor), then dark lenses, a three-quarter skull, a rusted plate jutting
 from the skirt, grit, drip runs and glints are placed by rule. Integer inputs, deterministic IEEE arithmetic and
-literal pixel rows; no concept pixels are traced or resampled. Six keys are drawn (frames 0, 3, 8, 10, 12, 15); in-between slots are copies of the nearest key until a
-later pass (spec section 8).
+literal pixel rows; no concept pixels are traced or resampled. Six keys are drawn (frames 0, 3, 8, 10, 12, 15); the ten in-betweens (frames 1, 2, 4 to 7, 9, 11, 13, 14) are drawn by the same
+rules with per-frame parameters (spec section 8).
 """
 from __future__ import annotations
 
@@ -177,11 +177,21 @@ def shade(cv: Cv, mask, dead=False, lift=False):
         cv.put(x, y, RAMP[v])
 
 
+POCKET_SHAPES = {  # rounded 2 to 3 px lenses (never a plus sign): (rx, ry) of the old ellipse -> literal cells
+    (3, 2): [".##.", "####", ".##."],
+    (2, 2): [".##", "###", "##."],
+    (2, 1): ["###", "###"],
+    (3, 1): [".##.", "####"],
+}
+
+
 def pocket(cv: Cv, mask, cx, cy, rx, ry):
-    """A dark lens of thick gel with light refracted along its lower-right edge (the concept's dark hollows)."""
+    """A dark rounded lens of thick gel with light refracted along its lower-right edge (the concept's dark hollows)."""
     d = depth(mask)
-    inside = {(x, y) for x in range(cx - rx, cx + rx + 1) for y in range(cy - ry, cy + ry + 1)
-              if ((x - cx) * ry) ** 2 + ((y - cy) * rx) ** 2 <= (rx * ry) ** 2 and d.get((x, y), 0) >= 3}
+    shape = POCKET_SHAPES[(rx, ry)]
+    ox, oy = cx - len(shape[0]) // 2, cy - len(shape) // 2
+    inside = {(ox + i, oy + j) for j, row in enumerate(shape) for i, c in enumerate(row)
+              if c == "#" and d.get((ox + i, oy + j), 0) >= 3}
     for x, y in inside:
         cv.put(x, y, "a")
     tx, ty = max(inside, key=lambda p: (p[0] + p[1], p[0]))
@@ -240,22 +250,36 @@ def lcg(seed):
         yield s >> 8
 
 
-def debris(cv: Cv, mask, seed, count, skip_boxes):
-    """Suspended grit: 2-pixel specks in the body (grime, not sparkle)."""
+def debris_points(mask, seed, count, skip_boxes):
+    """Suspended grit: 2-pixel specks in the body (grime, not sparkle), chosen by a seeded LCG."""
     d = depth(mask)
     g = lcg(seed)
     pts = sorted(mask)
-    placed = tries = 0
-    while placed < count and tries < 600:
+    out: list[tuple[int, int]] = []
+    tries = 0
+    while len(out) < count and tries < 600:
         tries += 1
         x, y = pts[next(g) % len(pts)]
         if any(bx0 <= x <= bx1 and by0 <= y <= by1 for bx0, by0, bx1, by1 in skip_boxes):
             continue
         if min(d.get((x, y), 0), d.get((x + 1, y), 0)) < 4:
             continue
-        for q in ((x, y), (x + 1, y)):
-            cv.put(*q, "n" if placed % 2 == 0 else "r")
-        placed += 1
+        out.append((x, y))
+    return out
+
+
+def put_grit(cv: Cv, mask, pts, dx=0, dy=0):
+    """Draw grit specks (alternating grit green and rust dark) at ``pts`` shifted by (dx, dy) where the gel is deep."""
+    d = depth(mask)
+    for i, (x, y) in enumerate(pts):
+        x, y = x + dx, y + dy
+        if min(d.get((x, y), 0), d.get((x + 1, y), 0)) >= 4:
+            for q in ((x, y), (x + 1, y)):
+                cv.put(*q, "n" if i % 2 == 0 else "r")
+
+
+def debris(cv: Cv, mask, seed, count, skip_boxes):
+    put_grit(cv, mask, debris_points(mask, seed, count, skip_boxes))
 
 
 def streaks(cv: Cv, mask, xs, length):
@@ -485,13 +509,219 @@ def key_defeat():
 
 
 KEYS = {0: key_idle, 3: key_creep, 8: key_tell, 10: key_lunge, 12: key_hurt, 15: key_defeat}
-# In-between slots are copies of the nearest key for now (spec section 8).
-NEAREST = {0: 0, 1: 0, 2: 0, 3: 3, 4: 3, 5: 3, 6: 3, 7: 8, 8: 8, 9: 10, 10: 10, 11: 10, 12: 12, 13: 15, 14: 15, 15: 15}
+
+
+# ---------------------------------------------------------------------------
+# The ten in-betweens (spec section 8). They reuse the key machinery: the same shading, lenses, skull and plate, with
+# the grit specks carried over from the neighbouring key so nothing shimmers between frames.
+# ---------------------------------------------------------------------------
+BITE = [(0, 1), (1, 1), (3, -1), (4, -1), (6, -2)]  # where the gel eats the plate, relative to the plate origin
+
+PLATE_TILT = [  # 19 x 5, the plate half slid out and tipping flat (defeat frame 14)
+    "....KKKKKKKKKK.....",
+    "..KKuuuuuuuuuuKK...",
+    ".KussssrssssssKKKK.",
+    "KrsrrssssrssrrssrK.",
+    ".KKKKKKKKKKKKKKKK..",
+]
+
+
+def acid_in(cv: Cv, mask, pts):
+    """Acid pixels, kept to the gel (and so to the plate's bitten edge)."""
+    for x, y in pts:
+        if (x, y) in mask or cv.get(x, y) is not None:
+            cv.put(x, y, "v")
+
+
+def bite(px, py, n=5):
+    return [(px + dx, py + dy) for dx, dy in BITE[:n]]
+
+
+_IDLE_MASK = blob(IDLE_BALLS)
+_IDLE_GRIT = debris_points(_IDLE_MASK, 11, 6, [(22, 19, 35, 30), (50, 31, 70, 39)])
+_CREEP_MASK = blob(CREEP_BALLS, film_l=6, film_r=2)
+_CREEP_GRIT = debris_points(_CREEP_MASK, 23, 5, [(28, 22, 40, 33), (54, 31, 72, 39)])
+_TELL_MASK = blob(TELL_BALLS, carve=[(44, 22, 6, 9)])
+_TELL_GRIT = debris_points(_TELL_MASK, 31, 4, [(22, 16, 35, 27), (36, 31, 56, 39)])
+_LUNGE_MASK = blob(LUNGE_BALLS, film_l=4, film_r=0)
+_LUNGE_GRIT = debris_points(_LUNGE_MASK, 41, 4, [(22, 26, 34, 39), (30, 31, 50, 39)])
+
+
+def idle_between(balls, bub, lump_dy):
+    """Frames 1 and 2: the breath. The crest is pinned at row 10 (the 30 px height rule), so the sink and the rise
+    are carried by the shoulder lump, the body and the skirt; one bubble drifts up."""
+    mask = blob(balls)
+    cv = Cv()
+    shade(cv, mask, lift=True)
+    pocket(cv, mask, 40, 19 + lump_dy, 3, 2)
+    pocket(cv, mask, 17, 30, 2, 2)
+    pocket(cv, mask, 47, 28 + lump_dy, 3, 2)
+    pocket(cv, mask, 35, 31, 2, 1)
+    put_grit(cv, mask, _IDLE_GRIT)
+    streaks(cv, mask, (19, 56), 3)
+    bubbles(cv, mask, [bub, (44, 21 + lump_dy), (14, 33)])
+    sunk_skull(cv, mask, 24, 21)
+    draw_obj(cv, PLATE, 51, 33)
+    sheen(cv, mask, 22, 38)
+    glint(cv, mask, 29)
+    glint(cv, mask, 45)
+    acid_in(cv, mask, bite(51, 33))
+    return finish(cv)
+
+
+def key_idle_1():
+    """Frame 1: the sink. Shoulder lump and body settle 1 px, the skirt spreads."""
+    return idle_between([(37, 40, 24, 21), (32, 18, 10, 8), (48, 24, 9, 7), (15, 40, 8, 5), (60, 40, 8, 6)],
+                        (33, 15), 1)
+
+
+def key_idle_2():
+    """Frame 2: the rise. Shoulder lump and body swell 1 px, the skirt draws in."""
+    return idle_between([(37, 40, 24, 23), (32, 18, 10, 8), (48, 22, 9, 8), (15, 40, 7, 5), (60, 40, 7, 6)],
+                        (33, 14), -1)
+
+
+def creep_between(balls, film_l, film_r, skull, plate, pockets, bub, grit_dx, sheen_rng, glints):
+    mask = blob(balls, film_l=film_l, film_r=film_r)
+    cv = Cv()
+    shade(cv, mask, lift=True)
+    for q in pockets:
+        pocket(cv, mask, *q)
+    put_grit(cv, mask, _CREEP_GRIT, grit_dx)
+    streaks(cv, mask, (20, 60), 3)
+    bubbles(cv, mask, bub)
+    sunk_skull(cv, mask, *skull)
+    draw_obj(cv, PLATE, *plate)
+    sheen(cv, mask, *sheen_rng)
+    for gx in glints:
+        glint(cv, mask, gx)
+    acid_in(cv, mask, bite(*plate))
+    return finish(cv)
+
+
+def key_creep_4():
+    """Frame 4: gather. The tail is hauled in and the body piles up to 25 px; the film still trails behind and the
+    plate rides at the front, so the footprint stays long; the skull has not caught up yet (one-frame lag)."""
+    return creep_between([(33, 40, 15, 22), (50, 36, 10, 13), (60, 40, 8, 6), (20, 40, 8, 5), (27, 24, 8, 8)],
+                         9, 2, (28, 23), (54, 33), [(42, 26, 3, 2), (22, 33, 2, 1)], [(40, 21), (51, 29)], -2,
+                         (24, 42), (30, 56))
+
+
+def key_creep_5():
+    """Frame 5: second stretch, further forward than key 3: the front lobe is out, the tail thins, skull and plate
+    shear forward a pixel behind the gel."""
+    return creep_between([(37, 40, 17, 17), (57, 38, 10, 10), (66, 40, 7, 5), (22, 40, 8, 5), (31, 25, 8, 6)],
+                         7, 1, (32, 26), (57, 33), [(46, 28, 3, 2), (25, 33, 2, 1)], [(44, 23), (54, 31)], 2,
+                         (26, 46), (34, 60))
+
+
+def key_creep_6():
+    """Frame 6: gather again, the mass arriving at the front: the dome sits forward, the skull rides up with it."""
+    return creep_between([(36, 40, 16, 21), (53, 37, 10, 12), (63, 40, 7, 6), (22, 40, 8, 5), (32, 24, 8, 8)],
+                         8, 2, (31, 24), (56, 33), [(44, 27, 3, 2), (24, 33, 2, 1)], [(41, 22), (52, 30)], 0,
+                         (26, 46), (34, 58))
+
+
+def key_tell_7():
+    """Frame 7: half-rise. The base gathers and the mass climbs to 32 px, the face starts to draw in under the lip,
+    acid beads begin, the skull is still low and the plate has slid halfway back."""
+    mask = blob([(33, 40, 17, 10), (29, 24, 9, 13), (34, 13, 8, 6), (22, 34, 6, 7), (44, 38, 6, 4)],
+                carve=[(45, 25, 3, 5)])
+    cv = Cv()
+    shade(cv, mask, lift=True)
+    pocket(cv, mask, 30, 30, 2, 2)
+    pocket(cv, mask, 33, 15, 2, 2)
+    put_grit(cv, mask, _TELL_GRIT, 0, 1)
+    streaks(cv, mask, (23,), 3)
+    bubbles(cv, mask, [(31, 10), (26, 31)])
+    sunk_skull(cv, mask, 24, 23)
+    draw_obj(cv, PLATE, 44, 33)
+    sheen(cv, mask, 20, 31)
+    glint(cv, mask, 24)
+    acid_crest(cv, mask, (29, 32))
+    cv.put(35, tops(mask)[35] + 1, "v")
+    lip_drips(cv, mask, 2)
+    acid_in(cv, mask, bite(44, 33, 4))
+    return finish(cv)
+
+
+def lunge_between(balls, film_l, film_r, skull, plate, plate_cover, pockets, bub, gx, acid_pts, sheen_rng):
+    mask = blob(balls, film_l=film_l, film_r=film_r)
+    cv = Cv()
+    shade(cv, mask, lift=True)
+    for q in pockets:
+        pocket(cv, mask, *q)
+    put_grit(cv, mask, _LUNGE_GRIT, 0, gx)
+    streaks(cv, mask, (48,), 3)
+    bubbles(cv, mask, bub)
+    sunk_skull(cv, mask, *skull)
+    draw_obj(cv, PLATE, *plate, cover=plate_cover, mask=mask)
+    sheen(cv, mask, *sheen_rng)
+    glint(cv, mask, 30)
+    acid_in(cv, mask, acid_pts)
+    return finish(cv)
+
+
+def key_lunge_9():
+    """Frame 9: the smear. The mass leans forward and drops off the rear, the bulb up front at x 66, and a thin
+    strand of gel is already paying out along the floor ahead of it (the rule asks for the reach from frame 9)."""
+    return lunge_between([(22, 40, 9, 8), (38, 40, 15, 17), (54, 40, 11, 12), (65, 35, 6, 8), (72, 41, 5, 3)],
+                         5, 0, (25, 29), (35, 33), 1, [(60, 33, 2, 1), (44, 31, 3, 1)], [(50, 31), (40, 29)], 0,
+                         [(38, 34), (39, 34), (62, 32), (63, 32), (67, 35)], (28, 64))
+
+
+def key_lunge_11():
+    """Frame 11: recover. The bulb is pulled back through the creep stretch and the front strand thins out behind it,
+    still stuck to the floor; plate and skull ride back toward their idle places."""
+    return lunge_between([(24, 40, 10, 9), (40, 40, 15, 17), (55, 40, 10, 12), (60, 35, 6, 9), (73, 41, 5, 3)],
+                         5, 0, (27, 27), (39, 33), 1, [(58, 33, 2, 1), (45, 30, 3, 1)], [(51, 30), (41, 28)], 1,
+                         [(42, 34), (43, 34), (58, 33), (59, 33), (64, 36)], (28, 60))
+
+
+def crease_rows(cv: Cv, mask, specs):
+    top = tops(mask)
+    for fx, fy in specs:  # diagonal wrinkle folds: a dark crease with a dull lit lip above
+        for i in range(3):
+            q = (fx + i, top[fx + i] + fy + i) if fx + i in top else None
+            if q and q in mask and cv.get(*q) not in ("K", None):
+                cv.put(*q, "K")
+                cv.put(q[0], q[1] - 1, "c")
+
+
+def key_down_13():
+    """Frame 13: the slump. The mass has dropped to 14 px with the rim glow gone, a crust forming, the skull sunk at
+    the rear and the plate sliding out the front."""
+    mask = blob([(26, 42, 11, 15), (38, 42, 11, 15), (49, 42, 8, 12), (36, 43, 23, 7)], carve=[(32, 27, 2, 2)],
+                film_l=3, film_r=0)
+    cv = Cv()
+    draw_obj(cv, PLATE, 49, 33)
+    shade(cv, mask, dead=True)
+    crease_rows(cv, mask, ((21, 2), (44, 2)))
+    put_grit(cv, mask, _CREEP_GRIT, 0, 12)
+    draw_obj(cv, SKULL, 26, 31, mask=mask, stain_from=3)
+    return finish(cv)
+
+
+def key_down_14():
+    """Frame 14: the deflate. The heap settles to 12 px, the skull rolls out of the front and the plate tips flat."""
+    mask = blob([(25, 42, 10, 13), (38, 42, 10, 13), (50, 42, 7, 10), (36, 43, 22, 6)], carve=[(31, 29, 2, 2)],
+                film_l=3, film_r=0)
+    cv = Cv()
+    draw_obj(cv, PLATE_TILT, 51, 35)
+    shade(cv, mask, dead=True)
+    crease_rows(cv, mask, ((21, 2), (35, 2), (47, 2)))
+    put_grit(cv, mask, _CREEP_GRIT, 0, 14)
+    draw_obj(cv, SKULL, 47, 32, stain_from=5)
+    return finish(cv)
+
+
+BETWEENS = {1: key_idle_1, 2: key_idle_2, 4: key_creep_4, 5: key_creep_5, 6: key_creep_6, 7: key_tell_7,
+            9: key_lunge_9, 11: key_lunge_11, 13: key_down_13, 14: key_down_14}
 
 
 def all_frames() -> list[list[str]]:
-    keys = {k: despeckle(fn()) for k, fn in KEYS.items()}
-    return [list(keys[NEAREST[i]]) for i in range(16)]
+    fns = {**KEYS, **BETWEENS}
+    return [despeckle(fns[i]()) for i in range(16)]
 
 
 # Frame table (spec section 4): index -> (tag, ticks). Ticks are 60 Hz.
@@ -543,7 +773,7 @@ def write_manifest() -> None:
             ticks = TICKS[i] or None
             rows.append({"index": i, "tag": name, "ticks": ticks,
                          "duration_ms": max(1, round((ticks or 6) * 1000 / 60)),
-                         "author": "key" if i in KEYS else "copy_of_key_%d" % NEAREST[i]})
+                         "author": "key" if i in KEYS else "in_between"})
     manifest = {
         "schema_version": 1,
         "id": "slime_floor01_v1_candidate",
@@ -561,10 +791,10 @@ def write_manifest() -> None:
                  "creature; runtime role IP-neutral slow contact-hazard blob)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": "SLIME-01 Green Slime readability set, first draft: six keys (frames 0, 3, 8, 10, 12, 15) are "
+            "origin": "SLIME-01 Green Slime readability set: six keys (frames 0, 3, 8, 10, 12, 15) are "
                       "drawn by scripts/author_slime01.py from blended floor-anchored ellipses, rule-based shading and "
-                      "literal skull and plate rows; in-between slots are copies of the nearest key",
-            "generator": "Draft spec and keys: Claude Sonnet. Design edit and freeze: Claude Opus. Review: pending. "
+                      "literal skull and plate rows; the ten in-betweens use the same rules with per-frame parameters",
+            "generator": "Draft spec and keys: Claude Sonnet. Design edit and freeze: Claude Opus. In-betweens and execution: Claude Sonnet. Review: pending. "
                          "No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["floor-01-enemy-concept-scatterers-rot-sticker-slime-v1"],
@@ -573,7 +803,7 @@ def write_manifest() -> None:
                    "no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "slime": {
-            "status": "edited and frozen keys; in-betweens are copies; not wired into any Bevy binary",
+            "status": "edited and frozen keys; in-betweens drawn; not wired into any Bevy binary",
             "spec": "docs/02-art/slime-01-spec.md",
             "opaque_height_idle": 30,
             "tick_hz": 60,

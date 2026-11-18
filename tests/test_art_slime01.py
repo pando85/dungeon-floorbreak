@@ -45,10 +45,22 @@ class SlimeTests(unittest.TestCase):
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertTrue(fixture, "the frozen-key fixture is empty")
 
-    def test_in_between_slots_are_copies_of_the_nearest_key(self) -> None:
-        for i, row in enumerate(self.frames):
-            self.assertEqual(row, self.frames[a.NEAREST[i]], i)
-        self.assertTrue(all(a.NEAREST[k] == k for k in KEYS))
+    def test_every_frame_is_distinct_and_in_betweens_are_drawn(self) -> None:
+        self.assertEqual(len({tuple(f) for f in self.frames}), 16)
+        self.assertEqual(sorted(a.BETWEENS), [1, 2, 4, 5, 6, 7, 9, 11, 13, 14])
+        self.assertEqual(sorted({*a.KEYS, *a.BETWEENS}), list(range(16)))
+        m = json.loads(MANIFEST.read_text(encoding="utf-8"))["slime"]
+        self.assertEqual([r["author"] for r in m["frames"]],
+                         ["key" if i in a.KEYS else "in_between" for i in range(16)])
+
+    def test_gel_pockets_are_rounded_not_crosses(self) -> None:
+        for shape in a.POCKET_SHAPES.values():
+            self.assertLessEqual(max(len(shape), len(shape[0])), 4)  # 2 to 4 px lenses
+            cells = {(x, y) for y, row in enumerate(shape) for x, c in enumerate(row) if c == "#"}
+            # no plus sign: no cell has all four 4-neighbours inside a 3-wide shape while its corners are empty
+            for x, y in cells:
+                if all((x + dx, y + dy) in cells for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    self.assertTrue(any((x + dx, y + dy) in cells for dx, dy in ((1, 1), (-1, 1), (1, -1), (-1, -1))))
 
     def test_tick_table_is_the_spec_table(self) -> None:
         self.assertEqual(a.TICKS, [12, 8, 12, 8, 8, 8, 8, 6, 24, 2, 6, 20, 12, 6, 10, 0])

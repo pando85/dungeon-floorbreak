@@ -1,6 +1,6 @@
 # SLIME-01: Green Slime readability set, design spec
 
-**Status:** design edited; six keys redrawn and frozen; in-between slots are copies of the nearest key; independent review pending.
+**Status:** design edited; six keys frozen; ten in-betweens drawn; all 16 frames unique and validated; independent review pending.
 
 **Decision record:** height 30 px, frame 80 x 40, pivot (40, 39). Proposed by the draft designer; confirmed by the senior design edit (section 2a).
 
@@ -118,7 +118,7 @@ Evidence: `key0-scale.png` now also places key 0 in front of lit brick (left of 
 | Attack hitbox, frame 10 only | 58, 25, 21, 15 | x 18..38, y -14..0 | the leading bulb of the lunge, floor to knee height; active for the 6 impact ticks |
 
 - Authored facing right; the runtime mirrors around the pivot column.
-- One atlas, frames 0 to 15, one layer `body`. The skull and plate are baked into the body (no separate layers) in the draft.
+- One atlas, frames 0 to 15, one layer `body`. The skull and plate are baked into the body (no separate layers).
 
 ## 4. Readability-set animation list
 
@@ -136,20 +136,20 @@ Readability set: idle, move, tell, attack, hurt, defeat, 16 frames. Tick windows
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
 | 0 | `idle` | Sagging lumpy mound, skull mid-body, plate jutting from the front skirt | 12 | key |
-| 1 | `idle` | copy of 0 (to redraw: crest sinks 1 px) | 8 | copy of key 0 |
-| 2 | `idle` | copy of 0 (to redraw: crest rises 1 px) | 12 | copy of key 0 |
+| 1 | `idle` | crest pinned at row 10, shoulder lump and body sink 1 px, skirt spreads, a bubble drifts up 1 px | 8 | in-between |
+| 2 | `idle` | shoulder lump and body swell 1 px, skirt draws in, the bubble drifts up another px | 12 | in-between |
 | 3 | `creep` | Stretch: long and low, leading lobe forward, tail film thinning behind | 8 | key |
-| 4 | `creep` | copy of 3 (to redraw: gather, body shorter, 28 px) | 8 | copy of key 3 |
-| 5 | `creep` | copy of 3 (to redraw: second stretch) | 8 | copy of key 3 |
-| 6 | `creep` | copy of 3 (to redraw: gather again) | 8 | copy of key 3 |
-| 7 | `attack_tell` | copy of 8 (to redraw: half-rise, 32 px, acid beads starting) | 6 | copy of key 8 |
+| 4 | `creep` | gather: body piled to 25 px, tail film still trailing, skull lags one frame | 8 | in-between |
+| 5 | `creep` | second stretch, 21 px, front lobe out to x 74, skull and plate shear forward | 8 | in-between |
+| 6 | `creep` | gather again, dome forward, 25 px, skull rides up with it | 8 | in-between |
+| 7 | `attack_tell` | half-rise, 33 px, mass climbing, 11 `v` (crest beads, lip drips, plate), skull still low, plate halfway back | 6 | in-between |
 | 8 | `attack_tell` | Reared up and back, 37 px, crest curling forward over a drawn-in front face, acid beads on the crest | 24 | key |
-| 9 | `attack_lunge` | copy of 10 (to redraw: the 2-tick smear, leaning forward, 26 px, no reach yet) | 2 | copy of key 10 |
+| 9 | `attack_lunge` | the smear: leaning forward, 17 px, bulb at x 66, a thin floor strand already out to x 76, no `v` past x 70 | 2 | in-between |
 | 10 | `attack_lunge` | Flat reach to x 78, bulb at the leading edge, parts dragged behind | 6 | key |
-| 11 | `attack_lunge` | copy of 10 (to redraw: recover, pulled back toward the creep stretch of key 3) | 20 | copy of key 10 |
+| 11 | `attack_lunge` | recover: bulb pulled back, 17 px, strand thinning, plate and skull ride back | 20 | in-between |
 | 12 | `hurt` | Flinch: flat, recoiled back, dented front, whole struck skin flashing | 12 | key |
-| 13 | `down` | copy of 15 (to redraw: slump at 18 px, flash-free) | 6 | copy of key 15 |
-| 14 | `down` | copy of 15 (to redraw: puddle spreads, skull settles) | 10 | copy of key 15 |
+| 13 | `down` | slump: 14 px, dark crust, rim glow gone, skull sunk at the rear, plate sliding out | 6 | in-between |
+| 14 | `down` | deflate: 11 px, skull rolled out of the front, plate tipped flat | 10 | in-between |
 | 15 | `down` | Dull deflated heap (the remains), skull rolled out onto the plate slid out flat | hold | key |
 
 ## 5. State diagram
@@ -209,7 +209,7 @@ Corrosion steam and acid-drip particles, the puddle and acid decals on the floor
 
 ## 8. In-between list
 
-For the execution tier. All in-between slots are currently copies of the nearest key (section 4 marks each). Redraw targets:
+For the execution tier. All ten in-betweens are drawn (section 4 marks each); the pose notes below are the targets, and section 8a records where the validator rules overrode them:
 
 | # | Pose notes |
 | --- | --- |
@@ -220,9 +220,21 @@ For the execution tier. All in-between slots are currently copies of the nearest
 | 11 | recover: pull back through the creep stretch toward idle, no `v` pixels past x 70 |
 | 13, 14 | defeat collapse: slump to about 18 px with the rim glow gone and no flash, then the heap deflates while the skull rolls out of the front and the plate slides out |
 
+## 8a. Executor notes (in-betweens and pocket fix)
+
+The in-betweens use the key machinery (same shading, lenses, skull and plate, grit carried over from the neighbouring key). Where a section 8 note contradicts a configured validator rule, the rule won and nothing was weakened:
+
+1. **Idle 1 and 2:** "crest sinks or rises 1 px" would break S1 (frames 0 to 2 are exactly 30 px high, top row 10). The crest is pinned at row 10; the breath is the shoulder lump, body and skirt (plus or minus 1 px) and one bubble drifting up 1 px per frame (it restarts when the loop wraps).
+2. **Creep 4 and 6:** the "about 40 x 28" gather contradicts S2 (62 px or wider, at most 26 high). The gathers are 25 px high and 67 to 68 px wide: the body piles up while the thin tail film and the plate keep the footprint long.
+3. **Tell 7:** "2 to 4 `v`" contradicts R2 (at least 9 `v` in frames 7 and 8). Frame 7 has 11 (crest beads, 2 lip drips, plate bite), still fewer than the tell's 19. Height is 33 px (32 asked).
+4. **Lunge 9 and 11:** "26 px, no reach past x 70" contradicts R3 (top row 21 or lower and reach to x 76 or more on frames 9, 10 and 11). Frames 9 and 11 are 17 px high with the bulb at x 66 and x 60 and a thin floor strand reaching x 76; no `v` is past x 70, and the attack hitbox is still frame 10 only. Frame 11 is a little higher than 10 because the mass bunches as it pulls back.
+5. **Down 13 and 14:** "slump to about 18 px" contradicts R6 (top row 26 or lower). Frame 13 is 14 px, frame 14 is 11 px, key 15 is 10 px; the plate steps through three drawings (jutting, tipped, flat) and the skull rolls from the rear to the front.
+6. **Gel pockets:** the lens ellipses came out as small crosses (the 2 by 2 radius made a plus shape). They are now literal rounded 2 to 4 px shapes (`POCKET_SHAPES`) with the same refraction tick. Keys 0, 3, 8 and 10 changed only inside their silhouettes (no silhouette pixel moved) and were re-frozen; keys 12 and 15 have no pockets and are unchanged.
+7. **Open for the designer:** the rules R3 and R6 could be split per frame if frames 9, 11, 13 and 14 should follow the section 8 notes; the executor did not touch the configuration beyond turning `unique_frames` on.
+
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate assets/source/characters/slime/slime_01.pixelart.json`. The draft passes V01 to V15 (V08 and V10 are not configured; V12 is off because the in-between slots are copies):
+Run by `python3 -m scripts.pixelart validate assets/source/characters/slime/slime_01.pixelart.json`. The set passes V01 to V15 (V08 and V10 are not configured; V12 `unique_frames` is on again, all 16 frames are distinct):
 
 - V04 palette: at most 20 colours (17 used); V05 isolated pixels: 0; V06 orphan pixels: at most 4 per frame.
 - V07 contact rows: every tag is grounded, the lowest opaque row is 39.
@@ -242,7 +254,7 @@ python3 -m scripts.pixelart review-pack assets/source/characters/slime/slime_01.
 python3 scripts/make_slime01_scale.py
 ```
 
-`docs/evidence/slime-01/key0-scale.png` shows key 0 on the lit floor beside Carl and the Scatterer at 1x, with a 4x copy; `docs/evidence/slime-01/keys-x3.png` is the six keys at 3x with a 1x row (both from `scripts/make_slime01_scale.py`, which needs `bash scripts/export_assets.sh` first). The review pack (contact sheet x4, lit scene, tell to attack strip) is for the reviewer to generate.
+`docs/evidence/slime-01/key0-scale.png` shows key 0 on the lit floor beside Carl and the Scatterer at 1x, with a 4x copy; `docs/evidence/slime-01/keys-x3.png` is the six keys at 3x with a 1x row (both from `scripts/make_slime01_scale.py`, which needs `bash scripts/export_assets.sh` first). The review pack (contact sheet x4, lit scene in front of torch-lit brick, tell to attack strip, validator summary) is in `docs/evidence/slime-01/review-pack/`.
 
 ## 11. Files
 
@@ -264,5 +276,5 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Draft spec and keys, design edit and freeze: see the PR body. Independent review: pending.
+- Draft spec and keys, design edit and freeze: see the PR body. In-betweens and execution: Claude Sonnet. Independent review: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
