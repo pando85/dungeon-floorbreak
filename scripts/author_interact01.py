@@ -97,32 +97,32 @@ def carl_u1() -> cm.Frame:
 
 def carl_u2() -> cm.Frame:
     """Hand-height use, throw: the handle is hauled down to the belt, he sags back on his heels."""
-    f = cm.upper(cm.Frame(), (0, 2), "v3", (0, 1))
-    cm.standing_legs(f, 41, 16, 25, 14, 27)
-    f.add("near_arm", IDLE0["near_arm"], -1, 2)
-    f.add("watch", IDLE0["watch"], -1, 2)
-    cm.sleeve_arm(f, "far_arm", [(29, 22), (34, 31)], 2.0)
-    f.add("far_arm", cm.FIST_BIG, 33, 31)                    # fist x33-38, rows 31-36 (19-24 above the floor)
+    f = cm.upper(cm.Frame(), (-1, 3), "v3", (0, 1))
+    cm.standing_legs(f, 42, 15, 24, 13, 26)
+    f.add("near_arm", IDLE0["near_arm"], -1, 3)
+    f.add("watch", IDLE0["watch"], -1, 3)
+    cm.sleeve_arm(f, "far_arm", [(28, 23), (36, 32)], 2.0)  # taut diagonal from the shoulder to the handle
+    f.add("far_arm", cm.FIST_BIG, 36, 31)                    # fist x36-41, rows 31-36 (19-24 above the floor)
     return f
 
 
 def carl_p1() -> cm.Frame:
     """Floor pickup, contact: a deep, heels-up squat, near hand braced on the knee, far hand on the floor."""
-    f = cm.upper(cm.Frame(), (1, 13), "v3", (1, 0))
+    f = cm.upper(cm.Frame(), (1, 11), "v3", (1, 0))
     # legs: back shin (behind), front thigh (boxer then skin) and shin
-    f.add("legs", cm.shade_skin(cm.capsule((34, 45), (29, 49), 2.6, 2.0)))
-    thigh = cm.capsule((28, 47), (36, 44), 3.2, 3.0)
+    f.add("legs", cm.shade_skin(cm.capsule((33, 43), (25, 48), 2.6, 2.0)))
+    thigh = cm.capsule((28, 45), (36, 42), 3.2, 3.0)
     f.add("boxers", shade_boxer({p for p in thigh if p[0] <= 31}))
-    f.add("legs", cm.shade_skin(cm.union({p for p in thigh if p[0] > 31}, cm.capsule((37, 44), (35, 49), 2.8, 2.0))))
-    cm.croc_toe_down(f, 25)                                  # back heel up under the seat
+    f.add("legs", cm.shade_skin(cm.union({p for p in thigh if p[0] > 31}, cm.capsule((37, 42), (35, 49), 2.8, 2.0))))
+    cm.croc_toe_down(f, 21)                                  # back Croc on its toe under the seat, heel lifted
     cm.croc_flat(f, 30)                                      # front Croc x30-39
     # far arm: shoulder behind the jacket, straight down-forward past the knee, hand on the item
-    cm.sleeve_arm(f, "far_arm", [(31, 33), (40, 47)], 2.0)
+    cm.sleeve_arm(f, "far_arm", [(31, 31), (40, 47)], 2.0)
     f.add("far_arm", cm.FIST_SMALL, 39, 48)                  # hand x39-44, rows 48-51 (4-7 above the floor)
     # near arm: crosses the chest, hand braced on the front knee
-    cm.sleeve_arm(f, "near_arm", [(21, 32), (31, 40)], 2.0)
-    f.add("near_arm", cm.FIST_SMALL, 31, 40)
-    cm.watch_cuff(f, 30, 40, ((-1, 0),))
+    cm.sleeve_arm(f, "near_arm", [(21, 30), (31, 38)], 2.0)
+    f.add("near_arm", cm.FIST_SMALL, 31, 38)
+    cm.watch_cuff(f, 30, 38, ((-1, 0),))
     return f
 
 
@@ -135,11 +135,11 @@ def carl_s1() -> cm.Frame:
     f.add("legs", cm.leg((36, 44), (37, 49), 3.0, 2.0))      # front leg planted under the hips
     cm.croc_toe_down(f, 12)
     cm.croc_flat(f, 33)
-    cm.sleeve_arm(f, "far_arm", [(37, 21), (41, 22)], 2.0)
-    f.add("far_arm", cm.FIST_BIG, 40, 19)                    # far fist x40-45, rows 19-24
-    cm.sleeve_arm(f, "near_arm", [(27, 22), (38, 29)], 2.0)
-    f.add("near_arm", cm.FIST_BIG, 39, 26)                   # near fist x39-44, rows 26-31
-    cm.watch_cuff(f, 37, 28, ((0, -1),))
+    cm.sleeve_arm(f, "far_arm", [(37, 22), (41, 23)], 2.0)
+    f.add("far_arm", cm.FIST_BIG, 40, 20)                    # far fist x40-45, rows 20-25 (chest)
+    cm.sleeve_arm(f, "near_arm", [(27, 23), (38, 33)], 2.0)
+    f.add("near_arm", cm.FIST_BIG, 39, 31)                   # near fist x39-44, rows 31-36 (belly)
+    cm.watch_cuff(f, 37, 32, ((0, -1),))
     return f
 
 
@@ -202,8 +202,8 @@ def donut_d1() -> DFrame:
     for x in range(53, 62):                                  # close the chest where the front leg lifted
         body[(x, 41)] = "K"
     f.add("body", body)
-    leg = cm.union(cm.capsule((58, 35), (63, 35), 2.6, 2.4), cm.capsule((65, 35), (66, 35), 3.0, 3.0))
-    f.add("legs_near", shade_fur(leg))                       # paw x63-69, rows 32-38: pats the top of a low switch
+    leg = cm.union(cm.capsule((57, 33), (62, 35), 2.4, 2.2), cm.capsule((65, 36), (65, 36), 2.5, 2.5))
+    f.add("legs_near", shade_fur(leg))                       # round paw x63-67, rows 34-38, on the switch top
     f.add("head", D_IDLE["head"], 1, 1)
     f.add("face", D_IDLE["face"], 1, 1)
     f.add("gear", TIARA, 1, 1)
@@ -276,7 +276,7 @@ def evidence() -> None:
     lever_up = prop(6, 32, lambda d: (d.rectangle([2, 4, 4, 31], fill=iron, outline=iron_d),
                                       d.rectangle([0, 0, 5, 5], fill=iron, outline=iron_d)))
     lever_down = prop(9, 32, lambda d: (d.rectangle([5, 4, 7, 31], fill=iron, outline=iron_d),
-                                        d.rectangle([0, 10, 5, 15], fill=iron, outline=iron_d)))
+                                        d.rectangle([0, 7, 5, 12], fill=iron, outline=iron_d)))
     crate = prop(22, 32, lambda d: (d.rectangle([0, 0, 21, 31], fill=wood, outline=wood_d),
                                     d.line([0, 0, 21, 31], fill=wood_d), d.line([0, 31, 21, 0], fill=wood_d)))
     item = prop(6, 5, lambda d: d.rectangle([0, 0, 5, 4], fill=iron, outline=iron_d))
@@ -289,7 +289,7 @@ def evidence() -> None:
     c_idx = {"u1": 1, "u2": 2, "p1": 5, "s1": 9}
     d_idx = {"d1": 1, "n1": 5}
     entries = [(donut_idle, dpiv, DONUT_X, 0), (carl_idle, cpiv, CARL_X, 0)]
-    entries += [fixed(lever_up, xs["u1"], -17), fixed(lever_down, xs["u2"], -10),
+    entries += [fixed(lever_up, xs["u1"], -17), fixed(lever_down, xs["u2"], -11),
                 fixed(item, xs["p1"], -15), fixed(crate, xs["s1"], -20),
                 fixed(low_switch, xs["d1"], -18), fixed(item, xs["n1"], -21)]
     entries += [(carl[c_idx[k]], cpiv, xs[k], 0) for k in c_idx]

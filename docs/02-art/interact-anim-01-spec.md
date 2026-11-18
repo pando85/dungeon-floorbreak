@@ -1,6 +1,6 @@
 # ANIM-INTERACT-01: Carl and Princess Donut interact animations, design spec
 
-**Status:** design phase: spec and key poses drawn and frozen; in-betweens are still copies of their nearest key and are drawn in the execution phase; independent review and owner review pending. Nothing is wired into a Bevy binary. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
+**Status:** design phase: spec and key poses drawn, silhouette gate passed after one key-fix round (section 11), keys frozen; in-betweens are still copies of their nearest key and are drawn in the execution phase; independent review and owner review pending. Nothing is wired into a Bevy binary. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
 
 Read with: [MVP controller contract](../01-design/mvp-controller-contract.md) (Interact row, R1/RB), [asymmetric traversal and gates](../01-design/asymmetric-traversal-and-gates.md), [antihero tone](../01-design/antihero-tone.md), [Carl bible](carl-character-bible.md), [Donut bible](donut-character-bible.md), [ANIM-CARL-02 melee spec](carl-melee-anim-02-spec.md) (structure, helpers and identity rules this spec inherits), [pixel-art pipeline](../07-agents/pixel-art-pipeline.md).
 
@@ -76,12 +76,12 @@ Pivot-relative, x forward, y up from the floor, inclusive, measured from the key
 | --- | --- | --- | --- | --- | --- | --- |
 | **floor** | 0-8 | `interact_floor` (pickups, floor levers) | `interact_nudge` (small item, floor plate) | Carl p1 hand | +14..+19 | 4..7 (hand), sleeve up to 13 |
 | | | | | Donut n1 muzzle and cheek | +19..+24 | 7..25 (head front) |
-| **low** | 4-12 | (uses `interact_floor`) | `interact_paw` (low switch, small item on a step) | Donut d1 paw | +18..+23 | 5..11 |
-| **waist** | 14-26 | `interact_push` (crates and heavy props at least 26 px tall; face at +20) | none | Carl s1 near fist | +14..+19 | 24..29 (far fist 31..36) |
+| **low** | 4-12 | (uses `interact_floor`) | `interact_paw` (low switch, small item on a step) | Donut d1 paw (bottom on the switch top) | +16..+21 | 5..10 |
+| **waist** | 14-26 | `interact_push` (crates and heavy props at least 26 px tall; face at +20) | none | Carl s1 near fist (belly) | +14..+19 | 19..23; far fist (chest) +15..+20, 30..34 |
 | **hand** | 24-34 | `interact_hand` (switch, lever, door handle, chain) | none (a cat cannot use it) | Carl u1 grip | +12..+17 | 26..31 |
-| | | | | Carl u2 fist (lever thrown) | +8..+13 | 19..24 |
+| | | | | Carl u2 fist (lever thrown) | +11..+16 | 19..24 |
 
-**Stand-off distances** (pivot to the prop's near face): `interact_hand` +17 to +18 (the handle at +17..+22), `interact_floor` +15 (item 4-6 px wide), `interact_push` +20, `interact_paw` +18 (switch 5 px wide), `interact_nudge` +21. A prop above Donut's low class has no Donut verb: the prompt is not shown to her.
+**Stand-off distances** (pivot to the prop's near face): `interact_hand` +17 to +18 (the handle at +17..+22), `interact_floor` +15 (item 4-6 px wide), `interact_push` +20, `interact_paw` +18 (switch 5 px wide), `interact_nudge` +21. Tolerance: ±3 px for Carl's verbs, **±2 px for Donut's** (her contact pixels are only 1-2 px deep). A prop above Donut's low class has no Donut verb: the prompt is not shown to her.
 
 **Hand anchor for carried items (Carl p1 onwards):** the far hand centre, (+16, 5) at p1; the execution phase records it per frame for p2 and p3 in the config (`anchors`).
 
@@ -94,10 +94,10 @@ Construction (same rules as ANIM-CARL-02 section 9): Carl's hair, head, torso, j
 | Key | Construction | Executor notes |
 | --- | --- | --- |
 | **u1** reach contact | U(+2, +1), head v0 (dumb "huh" mouth), b3 standing legs, idle near arm hanging, far arm straight forward-down, `FIST_BIG` grip at x37-42, rows 24-29 | Reads as reaching, not a jab: no lunge, no back-swung arm, the fist sits lower than the jab fist (rows 21-26). Keep the near arm slack. |
-| **u2** haul down | U(0, +2), head v3 offset (0, +1), legs 1 px wider and back, far arm pulled to the belt, fist x33-38, rows 31-36 | The everyman beat: he uses his body weight, not his arm. Don't add a cheer or a fist pump on release (u3). |
-| **p1** pickup contact | U(+1, +13), head v3 offset (+1, 0); deep squat with the back heel up (`CROC_TOE`), front `CROC_FLAT` at x30; near arm across the chest, `FIST_SMALL` braced on the front knee, watch on its cuff; far arm down past the knee, `FIST_SMALL` on the item at x39-44, rows 48-51 | The hand on the knee is the joke and the tone. The squat must not read as sitting: at p0 and p2 keep the seat at least 4 px off the floor. |
-| **s1** shove contact | U(+8, +3), head v3 offset (+1, +1); back leg a long diagonal to `CROC_TOE` at x12, front leg planted under the hips (`CROC_FLAT` at x33); both fists stacked on the prop face at x39-45 | The torso cannot rotate (identity lock), so the lean is carried by the U offset and the back leg. s2 strains (head offset +1 more, back heel 1 px lower); s3 steps the back foot in and drops the arms. |
-| **d1** paw tap contact | head, face and tiara (0, +1); front foreleg removed from the body and closed with a `K` belly line; new foreleg reaches forward at chest height, paw x63-69, rows 32-38, resting on a low switch top | One paw only. d0 lifts the same paw 2-3 px higher and tucks it (a cat's wind-up); d2 lifts it off 2 px. The other paws do not move. |
+| **u2** haul down | U(-1, +3) (sagging back on the heels), head v3 offset (0, +1), short bent legs (hems on row 42), far arm a taut diagonal from the shoulder (28, 23) to `FIST_BIG` at x36-41, rows 31-36, on the thrown handle | The everyman beat: he uses his body weight, not his arm. Don't add a cheer or a fist pump on release (u3). |
+| **p1** pickup contact | U(+1, +11), head v3 offset (+1, 0); deep squat, boxer seat bottom on row 49 (5 px of clear floor), back Croc on its toe directly under the seat (`CROC_TOE` at x21, rows 50-55, heel lifted), front `CROC_FLAT` at x30; near arm across the chest, `FIST_SMALL` braced on the front knee (x31-36, rows 38-41), watch on its cuff; far arm down past the knee, `FIST_SMALL` on the item at x39-44, rows 48-51 | The hand on the knee is the joke and the tone. The squat must not read as sitting: in p0, p1 and p2 the seat stays at least 4 px off the floor (tested for p1). |
+| **s1** shove contact | U(+8, +3), head v3 offset (+1, +1); back leg a long diagonal to `CROC_TOE` at x12, front leg planted under the hips (`CROC_FLAT` at x33); **two contact heights** on the prop face: far `FIST_BIG` at chest (x40-45, rows 20-25), near `FIST_BIG` at belly (x39-44, rows 31-36) on its own diagonal forearm | The torso cannot rotate (identity lock), so the lean is carried by the U offset and the back leg. Never re-stack the fists: two heights are what separates it from a punch. s2 strains (head offset +1 more, back heel 1 px lower); s3 steps the back foot in and drops the arms. |
+| **d1** paw tap contact | head, face and tiara (0, +1); front foreleg removed from the body and closed with a `K` belly line; a short new foreleg starts at the shoulder (57, 33) and slopes down to a round paw (disc, x63-67, rows 34-38) whose bottom rests on the switch top | One paw only; the contact is the bottom of the paw on the switch top, never its side, and the paw stays round (no square or stick end). d0 lifts the same paw 2-3 px higher and tucks it (a cat's wind-up); d2 lifts it off 2 px. The other paws do not move. |
 | **n1** nose nudge contact | head, face and tiara (+2, +10); body and tail unchanged; collar hidden under the chin | Rump and tail stay up so the silhouette is "head down, nose in", not lying down. n2 pushes the head +1..+2 px forward, the tail tip flicks. |
 
 ### In-between table (execution phase)
@@ -105,15 +105,15 @@ Construction (same rules as ANIM-CARL-02 section 9): Carl's hair, head, torso, j
 | Frame | From key | Change |
 | --- | --- | --- |
 | u0 | idle → u1 | U(+1, 0), far arm half raised (elbow bent, fist at rows 30-33, x33-37), head v0 |
-| u3 | u2 → idle | U(+1, +1), far arm drops to the idle far-arm position, head v1 glance (checks if it worked) |
-| p0 | idle → p1 | U(+1, +6): half squat (the land frame 14 legs are a good start), far arm hanging forward, near arm going to the knee |
-| p2 | p1 → p3 | U(+1, +7), near hand still on the knee pushing up, far hand at the hip (rows 38-41) |
+| u3 | u2 → idle | U(0, +2), far arm lets go and drops to the idle far-arm position, head v1 glance (checks if it worked) |
+| p0 | idle → p1 | U(+1, +5): half squat (the land frame 14 legs are a good start), far arm hanging forward, near arm going to the knee |
+| p2 | p1 → p3 | U(+1, +6), near hand still on the knee pushing up, far hand at the hip (rows 38-41) |
 | p3 | p2 → idle | U(+1, +1), standing, far hand at the hip (the item rides there), head v3 |
-| s0 | idle → s1 | U(+4, +2), back foot steps back 4 px, both arms bent up in front of the chest |
+| s0 | idle → s1 | U(+4, +2), back foot steps back 4 px, both arms bent forward, fists already at two heights (chest and belly) |
 | s2 | s1 hold | head offset (+1, +2), back heel 1 px lower, fists unchanged (the contact holds) |
 | s3 | s2 → idle | U(+3, +1), back foot steps in, arms drop to idle, head v1 |
-| d0 | idle → d1 | head (0, +1), the front paw lifted and tucked at rows 33-37, x57-61 |
-| d2 | d1 → d3 | paw lifted 2 px off the target, head still lowered |
+| d0 | idle → d1 | head (0, +1), the front paw lifted and tucked, round, at rows 30-34, x58-62 (above the d1 paw, so d1 comes down onto the switch) |
+| d2 | d1 → d3 | paw lifted 2 px straight up off the switch top, head still lowered |
 | d3 | d2 → idle | paw back on the floor (idle front leg), head at idle |
 | n0 | idle → n1 | head, face and tiara (+1, +5) |
 | n2 | n1 hold | head (+3, +10), tail tip 1 px up |
@@ -137,7 +137,7 @@ The verb is chosen by the target's class and the active character (section 4). T
 ## 7. Integration notes and open decisions (gameplay and input owners)
 
 1. **Effect on the contact tick**, not on the press (section 3).
-2. **Stand-off snap:** the actor walks to the stand-off distance or the prompt only shows inside a small tolerance (proposal: ±3 px). The art assumes no slide.
+2. **Stand-off snap:** the actor walks to the stand-off distance or the prompt only shows inside a small tolerance: ±3 px for Carl, ±2 px for Donut (decided at the silhouette gate). The art assumes no slide.
 3. **Push is a single shove** (an impulse at t6), not a sustained push-walk. A held push with a walking loop would need new frames.
 4. **Doors:** doors at hand height use `interact_hand`; no separate door-opening verb is drawn.
 5. **Donut and high props:** no verb. A Donut-only route uses the low class (G1 in the gates doc: a small credible interaction that opens a shared route).
@@ -162,3 +162,16 @@ Per [routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-diffic
 ## 10. Rights and provenance
 
 Derived from the owner-approved Carl 52 px master (via the ANIM-CARL-01 locomotion canvas) and the owner-approved Donut 40 px master (via her locomotion canvas); master parts translated only, new parts hand-placed or rasterised by `scripts/author_interact01.py`. No image-model raster output, no tracing, no third-party assets. The placeholder lever, switch, crate and item rectangles in the evidence are context only, not art. Spec and keys: Claude Opus.
+
+## 11. Silhouette gate (key-fix round)
+
+Independent gate on the six keys: verdict **FIX-KEYS**. Tone and fidelity to the masters passed; u1 and n1 passed. Fixed in one round (sections 4 and 5 now give the measured pixels):
+
+1. **p1** read as sitting: hips raised 2 px (U(+1, +11)), seat bottom 5 px above the floor, back `CROC_TOE` directly under the seat with the heel lifted.
+2. **s1** read as a punch (stacked fists at shoulder height): the near fist dropped 5 px to belly height on its own forearm, the far fist dropped 1 px; two contact heights.
+3. **d1** read as a stick or human arm: foreleg shortened, sloping down from the shoulder, round paw whose bottom rests on the switch top.
+4. **u2** was close to idle: U(-1, +3) sag and a taut diagonal arm to the thrown handle.
+5. n1 left unchanged.
+6. Stand-off tolerance for Donut set to ±2 px; the other section 7 proposals stand.
+
+No further gate before execution; the blind review re-checks the keys.

@@ -135,15 +135,20 @@ class InteractGridTests(unittest.TestCase):
             ys = [py - y for x, y in pts if x >= right - 4]
             return right - px, min(ys), max(ys)
 
+        seat = layer_pix(self.carl["frames"][5], "boxers")
+        self.assertLessEqual(max(y for _, y in seat), py - 4)   # p1 seat clear of the floor (not sitting)
+
         r, lo, hi = reach(self.carl, 1, "far_arm")      # u1 grip at hand height
         self.assertTrue(16 <= r <= 18 and lo >= 24 and hi <= 33, (r, lo, hi))
         r, lo, hi = reach(self.carl, 5, "far_arm")      # p1 hand on a floor item
         self.assertTrue(r >= 18 and lo <= 6, (r, lo, hi))
         r, lo, hi = reach(self.carl, 9, "near_arm")     # s1 fists on the prop face
-        self.assertTrue(r >= 19 and 20 <= lo <= 30, (r, lo, hi))
+        self.assertTrue(r >= 19 and 16 <= lo <= 26, (r, lo, hi))
+        r2, lo2, _ = reach(self.carl, 9, "far_arm")     # s1: the second fist sits higher (two contact heights)
+        self.assertGreaterEqual(lo2 - lo, 4)
         dpx, dpy = self.donut["pivot"]
         paw = layer_pix(self.donut["frames"][1], "legs_near")
-        self.assertGreaterEqual(max(x for x, _ in paw) - dpx, 22)
+        self.assertGreaterEqual(max(x for x, _ in paw) - dpx, 20)
         self.assertLessEqual(dpy - max(y for _, y in paw), 6)
 
     def test_toolkit_validators_pass(self):
