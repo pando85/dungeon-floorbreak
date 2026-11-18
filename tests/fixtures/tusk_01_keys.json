@@ -1,0 +1,13 @@
+{
+  "asset_id": "tusk-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "b99b0727b34d2492a81783efd7bde84dd280a6abb3d82d2fcef4360350ba2b9d"
+    }
+  },
+  "layers": [
+    "body",
+    "costume"
+  ]
+}

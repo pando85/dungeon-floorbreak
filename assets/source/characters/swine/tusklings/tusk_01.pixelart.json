@@ -1,0 +1,45 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "tusk-01",
+  "title": "TUSK-01 Tuskling (Floor 01 arena minion) readability set, design stage: hero key 0 (docs/02-art/tusk-01-spec.md)",
+  "grid": "assets/source/characters/swine/tusklings/tusk_01.grid.json",
+  "frame_size": [56, 40],
+  "pivot": [22, 39],
+  "contact_row": 39,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 18]]}
+  },
+  "roles": {
+    "idle": "idle"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "layers_disjoint": [["body", "costume"]],
+    "frozen_keys": {
+      "fixture": "tests/fixtures/tusk_01_keys.json",
+      "frames": [0],
+      "layers": ["body", "costume"]
+    },
+    "bbox": [
+      {"id": "T1-size-idle-30px", "frames": [0], "top": 10, "bottom": 39},
+      {"id": "T1-idle-width", "frames": [0], "min_width": 32, "max_width": 38}
+    ],
+    "key_counts": [
+      {"id": "T0-snout-lit", "frames": [0], "key": "h", "min": 5},
+      {"id": "T0-small-sunk-eye", "frames": [0], "key": "w", "min": 1, "max": 2},
+      {"id": "T0-flower-is-gown-only", "frames": [0], "key": "q", "max": 0}
+    ]
+  },
+  "scene": {
+    "actors": [
+      {"frame": 0, "x": 500}
+    ]
+  }
+}
