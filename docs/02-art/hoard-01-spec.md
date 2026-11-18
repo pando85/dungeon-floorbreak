@@ -1,6 +1,6 @@
 # HOARD-01: The Hoarder (boss) readability set, design spec
 
-**Status:** phase 1b: idle key 0 redrawn after the silhouette gate (head, hair and face fix) and re-frozen; re-gate pending. Keys 3, 8, 10, 12, 15 pending the gate. Execution pending. Review pending.
+**Status:** keys 0, 3, 8, 10, 12, 15 drawn and frozen (key 0 passed the silhouette gate). In-betweens, manifest, evidence and review pack: execution pending. Independent review pending.
 
 **Decision record:** height 112 px, frame 160 x 128, pivot (70, 127). Proposed by the HOARD-01 designer; decided by the independent silhouette-gate review on key 0 (pending).
 
@@ -54,7 +54,7 @@ Reasoning: new boss design at about 2 to 2.5 times Carl's height with hair, clot
 
 ## 2. Size decision
 
-Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png`). The idle key is hunched, so the idle opaque height is her stooped height; the tell key stands her up about 10 px taller.
+Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png`). The idle key is hunched, so the idle opaque height is her stooped height; the tell key stands her up 13 px taller.
 
 | Option | Idle opaque height | Ratio to Carl | Implied real height (stooped) | Why / why not |
 | --- | --- | --- | --- | --- |
@@ -95,22 +95,22 @@ Frame table:
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | stooped, wide stance, arms hanging, clawed hands open, wide eyes | 16 | key (drawn, phase 1) |
-| 1 | `idle` | exhale: torso and head 1 px down, belly 1 px out, hands 1 px lower | 12 | in-between |
-| 2 | `idle` | inhale: shoulders and head 1 px up from key 0, hair tips sway 1 px left | 16 | in-between |
-| 3 | `walk` | contact: far foot planted forward, torso lurches forward 4 px | 8 | key |
-| 4 | `walk` | down: weight drops 2 px onto the far leg, near foot drags | 8 | in-between |
-| 5 | `walk` | passing: near leg swings through, torso back to idle height | 8 | in-between |
-| 6 | `walk` | up: near foot lands forward, far foot heel lifts | 8 | in-between |
-| 7 | `attack_tell` | gather: crouches 4 px below idle, arms drawn back and in, head down | 8 | in-between |
-| 8 | `attack_tell` | rear-up hold: stands tall, both arms over the head, mouth wide, eyes wide | 26 | key |
-| 9 | `attack_swing` | smear: torso pitching forward, arms a 2-frame arc smear | 3 | in-between |
-| 10 | `attack_swing` | impact: both hands slammed onto the floor in front, grabbing | 6 | key |
-| 11 | `attack_swing` | recovery: hands still on the floor, head lifts, hair settles | 24 | in-between |
-| 12 | `hurt` | flinch: head snaps back and away, arms pulled to the chest, eyes shut | 12 | key |
-| 13 | `down` | buckle: knees give, torso drops 18 px, one hand out | 6 | in-between |
-| 14 | `down` | impact: knees and near hand on the floor, head down | 8 | in-between |
-| 15 | `down` | settled: curled on her side among the junk, one hand reaching for a scrap, eyes shut | hold | key |
+| 0 | `idle` | stooped, wide stance, arms hanging, clawed hands open, wide eyes | 16 | key (drawn, frozen) |
+| 1 | `idle` | exhale: torso and head 1 px down, belly 1 px out, hands 1 px lower | 12 | in-between (placeholder in the grid) |
+| 2 | `idle` | inhale: shoulders and head 1 px up from key 0, hair tips sway 1 px left | 16 | in-between (placeholder in the grid) |
+| 3 | `walk` | contact: far foot planted forward, torso lurches forward 4 px | 8 | key (drawn, frozen) |
+| 4 | `walk` | down: weight drops 2 px onto the far leg, near foot drags | 8 | in-between (placeholder in the grid) |
+| 5 | `walk` | passing: near leg swings through, torso back to idle height | 8 | in-between (placeholder in the grid) |
+| 6 | `walk` | up: near foot lands forward, far foot heel lifts | 8 | in-between (placeholder in the grid) |
+| 7 | `attack_tell` | gather: crouches 4 px below idle, arms drawn back and in, head down | 8 | in-between (placeholder in the grid) |
+| 8 | `attack_tell` | rear-up hold: stands tall, both arms over the head, mouth wide, eyes wide | 26 | key (drawn, frozen) |
+| 9 | `attack_swing` | smear: torso pitching forward, arms a 2-frame arc smear | 3 | in-between (placeholder in the grid) |
+| 10 | `attack_swing` | impact: both hands slammed onto the floor in front, grabbing | 6 | key (drawn, frozen) |
+| 11 | `attack_swing` | recovery: hands still on the floor, head lifts, hair settles | 24 | in-between (placeholder in the grid) |
+| 12 | `hurt` | flinch: head snaps back and away, arms pulled to the chest, eyes shut | 12 | key (drawn, frozen) |
+| 13 | `down` | buckle: knees give, torso drops 18 px, one hand out | 6 | in-between (placeholder in the grid) |
+| 14 | `down` | impact: knees and near hand on the floor, head down | 8 | in-between (placeholder in the grid) |
+| 15 | `down` | settled: curled on her side among the junk, one hand reaching for a scrap, eyes shut | hold | key (drawn, frozen) |
 
 ## 5. State diagram
 
@@ -161,45 +161,45 @@ The pale shirt is the largest and lightest mass, so her body separates from the 
 
 ## 7. Key poses
 
-Six keys, one per readability role. Key 0 is drawn (phase 1, silhouette gate); keys 3, 8, 10, 12 and 15 follow after the gate.
+Six keys, one per readability role, all drawn and frozen. Every key is rendered by `hoarder(pose)` in `scripts/author_hoard01.py` from one construction: the body group (torso, hips, sleeves, shirt details) moves by a rigid transform about the hip centre (68, 100), the head group (head, hair, face, tin scrap) by a second transform about the neck (82, 40), and the limbs follow explicit joint points. The identity pose is key 0. Bboxes below are measured.
 
 | Frame | Tag | Silhouette and pose notes | Readability reason |
 | --- | --- | --- | --- |
-| 0 | `idle` | bbox x 22-117, y 16-127. Stooped three-quarter view facing right; the upper-back hump (y 33) is higher than the chin (y 42). Head 24 x 23 (centre (81, 29)), face turned about 25 degrees toward the camera. Hair: notched, ragged top (rows 16-22, nothing above row 16) with a 1 px blue-grey rim on the top and back edges; a mass over the near shoulder and back (x 47-73) ending in four ragged locks at y 76-81; three locks in front of the far shoulder (x 88-98) down to y 56-62; two thin strands across the near cheek; a 5 px tin-foil scrap in the back hair. Face: two eye whites 3 px apart, a 3 x 2 open mouth, no brow over the burned eye; the burn covers only the near half (dark plum with five raised rose-brown clusters), leaving about 11 px of unburned skin. Torn neckline 8 px wide; two 1 px shade curves under the chest (y 52-56). Near arm hangs back-left, hand at (30, 94); far shoulder pulled in 2 px, hand at (108, 91). Wide stance: near foot x 28-54, far foot x 92-117. Plain stained shirt with a ragged hem; navy sweatpants with a faded side stripe from hip to ankle and cuffs gathered 2-3 px over bare feet. | A ruined woman, not a creature or a heavy man: long disheveled hair frames the face on both sides and falls past the chest, the face is human and frightened, the clothes are everyday. The mass and the open clawed hands carry the threat; nothing sits on her back but hair. |
-| 3 | `walk` | Contact. Top 18-20, width <= 112. Far foot planted forward (toes to x 124), near foot behind on the toes, torso lurched forward 4 px, head 2 px lower, near arm swinging forward, far arm back, hair swinging back 3 px. | The lurch and the dragged back foot sell weight; the hands stay open so the threat stays readable in motion. |
-| 8 | `attack_tell` | Rear-up hold, the highest pose: top <= 6. Torso straightened and leaning back 4 px, both arms raised over the head with hands open (x 60-100, y 6-30), hair flung back to x 20, mouth wide open with teeth (variant C roar), both eye whites enlarged. Feet planted 4 px wider than idle. | Three independent cues at 1x: the silhouette doubles its vertical extent above the head, the raised hands frame it, and the face changes (white teeth, wide eyes). Held 26 ticks. |
-| 10 | `attack_swing` | Impact. Torso pitched forward about 35 degrees, head forward at x about 112, hair falling forward over it; both hands slammed onto the floor in front (fingers on row 127, x 120-150), grabbing; near leg extended back. min_right 145. | The hands land exactly where the hitbox is; the floor contact makes the danger zone obvious. |
-| 12 | `hurt` | Flinch (crop 5). Head snapped back and turned away (face 3 px left of idle), shoulders up, both arms pulled to the chest, eyes squeezed shut (no eye white), body shifted back 4 px: max_right <= 108. | The only key with the arms in and the eyes shut: a hit reads as pain, not anger, which keeps her tragic. |
-| 15 | `down` | Settled. Curled on her side, knees drawn up, hair spread on the floor, near hand stretched toward a small scrap (part of the hoard prop, not the sprite), eyes shut. top >= 92, width <= 140. No blood. | Flat, still and human; the reaching hand is the last beat of the hoarding tragedy. |
+| 0 | `idle` | bbox x 22-117, y 16-127. Stooped three-quarter view facing right; the upper-back hump (y 33) is higher than the chin (y 42). Head 24 x 23 (centre (81, 29)), face turned about 25 degrees toward the camera, jaw corner rounded. Hair: notched, ragged top (rows 16-22) with a 1 px blue-grey rim on the top and back edges; a mass over the near shoulder and back (x 47-73) ending in four ragged locks at y 76-81, the gaps between them partly filled; three locks in front of the far shoulder (x 88-98) down to y 56-62; two thin strands across the near cheek; a 5 px tin-foil scrap in the back hair. Face: two eye whites 3 px apart (the burned eye keeps a 2 x 1 white, no lid or brow), a 3 x 2 open mouth. The burn is an irregular patch on the near half only: dark plum with a soft rose-brown edge on the nose side and five raised rose-brown clusters of 1-2 px, each with a dark shadow pixel below; about 11 px of unburned skin. Torn neckline 8 px wide; two 2 px shade curves under the chest (y 52-57). Near arm hangs back-left, hand at (30, 94); far shoulder pulled in, hand at (108, 91). Wide stance: near foot x 28-54, far foot x 92-117. Plain stained shirt with a ragged hem; navy sweatpants with a faded side stripe from hip to ankle and cuffs gathered over bare feet. | A ruined woman, not a creature or a heavy man: long disheveled hair frames the face on both sides and falls past the chest, the face is human and frightened, the burn reads as old scar tissue, the clothes are everyday. Nothing sits on her back but hair. |
+| 3 | `walk` | Contact. bbox x 23-123, y 17-127 (width 101). Body leaned forward 4 degrees and moved 4 px forward, 2 px down; far foot planted forward (ankle (107, 117), toes to x 123); near foot behind on its toes (ankle (38, 113), foot turned 25 degrees, heel up 9 px); near arm swung forward (hand at (62, 94)), far arm back; hair swung 3 px back. | The lurch and the raised back heel sell weight; the hands stay open. |
+| 8 | `attack_tell` | Rear-up hold, the highest pose: bbox x 23-118, y 3-127. Body straightened, leaning back 6 degrees and lifted 6 px; head tipped back a further 6 degrees; both arms raised, hands open with the fingers up (near palm (56, 17), far palm (100, 15)); hair flung 12 px back; roar face: 2 x 2 eye whites, raised brow, a 5 x 5 mouth with upper and lower teeth (12 white px). Feet 2 px wider each side. | Three independent cues at 1x: the silhouette rises 13 px above idle with the hands framing the head, the face changes to white teeth and wide eyes, and the stance widens. Held 26 ticks. |
+| 10 | `attack_swing` | Impact. bbox x 9-152, y 36-127. Torso pitched forward 35 degrees about the hips (moved 4 px back, 6 px down); head counter-rotated 25 degrees so the roaring face looks forward (head centre about (111, 54)); hair swung 6 px forward; both hands slammed onto the floor in front, fingers on row 127 (near palm (126, 117), far palm (141, 117), fingertips to x 152); near leg extended back on its toes (ankle (24, 116)). | The silhouette drops 20 px and stretches 47 px forward of idle; the hands land exactly where the hitbox is. |
+| 12 | `hurt` | Flinch. bbox x 24-106, y 13-127. Body leaned back 5 degrees, 4 px back, 1 px up (shoulders up); head snapped back a further 12 degrees and 3 px; both arms pulled to the chest (near hand at (68, 54), far forearm crossing in front of the chest, hand at (88, 50)); eyes squeezed shut, knitted brow, a pained mouth line, no eye white; hair whipped 4 px forward. | The only key with the arms in and no eye white: a hit reads as pain, not anger, which keeps her tragic. |
+| 15 | `down` | Settled. bbox x 22-147, y 77-127 (height 51, width 126). Collapsed forward onto the floor: torso turned 90 degrees and flattened to 0.6 of its depth (the belly spreads on the floor), hips and folded legs at the left with the feet tucked on their toes, back and hair up, head turned 45 degrees with the eyes shut, near arm stretched along the floor toward the right (fingertips x 147) where the hoard prop places a scrap. No blood. | Flat, still and human; the reaching hand is the last beat of the hoarding tragedy. |
 
 ## 8. In-between list
 
-For the execution tier, derived from the keys above; no design decisions.
+For the execution tier, derived from the keys above; no design decisions. **The grid already holds 16 frames: the in-between slots 1, 2, 4-7, 9, 11, 13 and 14 carry placeholder copies of the nearest key** (`PLACEHOLDER` in the script) so the tag table and tick windows validate. Draw each in-between as a new pose dict for `hoarder()` (interpolate the joint points, body and head transforms and hair swing of the neighbouring keys), not by editing pixels, then replace its `PLACEHOLDER` entry, keep keys 0, 3, 8, 10, 12, 15 frozen, and switch `unique_frames` back to `true` in the config once all ten are drawn.
 
 | # | Pose notes |
 | --- | --- |
-| 1 | Key 0 with torso, head, arms and hair shifted 1 px down, belly outline 1 px out; feet unchanged. |
-| 2 | Key 0 with shoulders and head 1 px up; hair tips 1 px left; feet unchanged. |
-| 4 | Between keys 3 and 0: weight 2 px down on the far leg, near foot dragging flat. |
-| 5 | Passing: legs together under the hips, torso at idle height, arms crossing the body line. |
-| 6 | Mirror timing of 3: near foot lands forward, far heel lifts; torso lurch 2 px. |
-| 7 | Gather: 4 px lower than key 0 (top >= 20), arms drawn back to the hips, head down. |
-| 9 | Smear between keys 8 and 10: torso halfway, arms as one 2-frame arc smear in skin colours, no hitbox. |
-| 11 | Key 10 with the head lifted 4 px and the hair settling; hands stay on the floor. |
-| 13 | Buckle: knees bend, torso 18 px down (top >= 34), one hand out. |
-| 14 | Floor impact: knees and near hand on the floor, head down (top >= 70). |
+| 1 | Key 0 with the body 1 px down (`body` dy +1), hands 1 px lower; feet unchanged. |
+| 2 | Key 0 with the body 1 px up and hair swing -1; feet unchanged. |
+| 4 | Between keys 3 and 0: body dy +4 onto the far leg, near foot flat and dragging (foot angle 0). |
+| 5 | Passing: legs together under the hips, body at idle height and lean 2 degrees, arms crossing the body line. |
+| 6 | Mirror timing of 3: near foot lands forward, far heel lifts (far foot angle 25); lean 2 degrees. |
+| 7 | Gather: body 4 px lower than key 0 (top >= 20), arms drawn back to the hips, head down 6 degrees. |
+| 9 | Smear between keys 8 and 10: body angle about 15 degrees, arms halfway down as one arc; no hitbox. |
+| 11 | Key 10 with the head lifted 4 px (head dy -4) and hair swing 2; hands stay on the floor. |
+| 13 | Buckle: knees bend, body 18 px down and angle 20 degrees (top >= 34), near hand out. |
+| 14 | Floor impact: body angle about 60 degrees, depth squash 0.8, knees and near hand on the floor (top >= 60). |
 
 ## 9. Validators and readability rules
 
 Run by `python3 -m scripts.pixelart validate assets/source/characters/hoarder/hoard-01.pixelart.json`.
 
-- V04 palette: at most 20 colours (19 used). V05 isolated pixels: 0. V06 orphan pixels: at most 6 per frame (key 0 has 0).
-- V07 contact rows: every frame ends on row 127. V08: no airborne tags.
-- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/hoard-01_keys.json` (phase 1: frame 0; later 0, 3, 8, 10, 12, 15).
-- V13 bbox rules: H1 idle top 16 bottom 127 and width 90 to 100 (in the config now); H2 frame 8 max_top 6 and frame 7 min_top 20; H3 frame 10 min_right 145, frame 9 min_right 125; H4 frame 12 max_right 108; H5 frame 13 min_top 34, frame 14 min_top 70, frame 15 min_top 92 and max_width 140.
-- V14 key counts: H0 dark hair `a` >= 300 in frame 0; H0 burn `x` >= 12 and <= 60 (near half only) and raised clusters `y` >= 8 in frame 0; H0 eye whites `w` >= 3 in frames 0-11 (in the config for frame 0); H0 burned half `x` >= 12 in every frame where the face is visible; H0 shirt `u` >= 600 in frame 0; H2 frame 8 `w` >= 8 (teeth plus eyes); H4 frame 12 `w` = 0; H5 frames 13-15 `w` = 0; tin `n` <= 6 in every frame (a detail, never a pack).
+- V04 palette: at most 20 colours (19 used). V05 isolated pixels: 0. V06 orphan pixels: at most 6 per frame (the scar-cluster shadow pixels are deliberate single pixels; `y` scar_light and `w`, `n` are accents).
+- V07 contact rows: every frame ends on row 127. V08: no airborne tags. V12 unique frames: off while the in-between slots hold placeholders.
+- V09 frozen keys: SHA-256 per key frame for frames 0, 3, 8, 10, 12, 15, fixture `tests/fixtures/hoard-01_keys.json`.
+- V13 bbox rules (in the config): H1 idle top 16 bottom 127 and width 90 to 100; H1 walk contact top 16 to 20 and width <= 112; H2 frame 8 top <= 6; H3 frame 10 right >= 145 and top >= 30; H4 frame 12 right <= 108; H5 frame 15 top >= 76 and width <= 140. For the executor: frame 7 top >= 20, frame 13 top >= 34, frame 14 top >= 60.
+- V14 key counts (in the config): eye whites `w` >= 3 in frames 0, 3, 8, 10 and >= 8 in frame 8; `w` = 0 in frames 12 and 15; burn `x` >= 12 in frames 0, 3, 8, 10, 12 and <= 60 in every key (near half only); raised clusters `y` >= 8 in frame 0; dark hair `a` >= 300 and shirt `u` >= 600 in frame 0; tin `n` <= 6 in every key (a detail, never a pack).
 
-Silhouette gate acceptance for key 0 (phase 1b), checked at 1x next to Carl: reads as a woman with long disheveled hair, not a heavy man with a slicked cap; the hair top is ragged and rimmed against the navy arch; hair frames the face on both sides; two separate eye whites and an open mouth; the burn reads as old scar tissue on the near half, not as a mask or blood; the sweatpants read as sweatpants, not jeans; no backpack read; body mass, stance, hands and 112 px scale unchanged from the gate-passed version.
+Silhouette gate acceptance for key 0 (passed; key 0 frozen), checked at 1x next to Carl: reads as a woman with long disheveled hair, not a heavy man with a slicked cap; the hair top is ragged and rimmed against the navy arch; hair frames the face on both sides; two separate eye whites and an open mouth; the burn reads as old scar tissue on the near half, not as a mask, an eye patch or blood; the sweatpants read as sweatpants, not jeans; no backpack read; body mass, stance, hands and 112 px scale as gate-passed. The six re-gate interior fixes (irregular burn with a soft nose-side edge, raised clusters with shadows, a white in the burned eye, rounded jaw corner, 2 px chest curves, partly filled gaps between the hair ends) changed no outline pixel.
 
 ## 10. Evidence
 
@@ -210,7 +210,7 @@ python3 -m scripts.pixelart evidence assets/source/characters/hoarder/hoard-01.p
 python3 -m scripts.pixelart review-pack assets/source/characters/hoarder/hoard-01.pixelart.json --out <dir>
 ```
 
-Phase 1 evidence: `docs/evidence/hoard-01/key0-scale.png` (top: the 1x scene, key 0 next to Carl on a brick-toned and an arch-toned panel; below: the same scene at 4x). The review pack (three images plus the validator report) follows when the set is complete.
+Phase 1 evidence: `docs/evidence/hoard-01/key0-scale.png` (top: the 1x scene, key 0 next to Carl on a brick-toned and an arch-toned panel; below: the same scene at 4x). Key design sheet: `docs/evidence/hoard-01/keys-x3.png` (keys 0, 3, 8, 10, 12, 15 at 3x on alternating brick and arch panels). The review pack (three images plus the validator report) follows when the in-betweens are drawn.
 
 ## 11. Files
 

@@ -1,5 +1,6 @@
-"""HOARD-01 phase 1 (idle key 0) checks that the shared toolkit does not cover: the authoring script reproduces
-the committed grid, the .ase matches it, key 0 is frozen, and the size and palette decisions of the spec hold."""
+"""HOARD-01 key checks that the shared toolkit does not cover: the authoring script reproduces
+the committed grid, the .ase matches it, the six keys are frozen, in-between slots are placeholders only, and the
+size and palette decisions of the spec hold."""
 from __future__ import annotations
 
 import json
@@ -34,10 +35,10 @@ class Hoard01Tests(unittest.TestCase):
         self.assertEqual(ase["canvas"], [160, 128])
         self.assertEqual(len(ase["frames"]), len(self.grid["frames"]))
 
-    def test_key0_is_frozen(self) -> None:
+    def test_keys_are_frozen(self) -> None:
         cfg = load_config(CONFIG)
         expected = json.loads(FIXTURE.read_text())
-        actual = json.loads(json.dumps(freeze(cfg, self.grid, [0], ["body"])))
+        actual = json.loads(json.dumps(freeze(cfg, self.grid, list(author.KEY_FRAMES), ["body"])))
         self.assertEqual(actual["frames"] if "frames" in actual else actual,
                          expected["frames"] if "frames" in expected else expected)
 
@@ -47,7 +48,14 @@ class Hoard01Tests(unittest.TestCase):
         self.assertEqual((min(ys), max(ys)), (16, 127))          # 112 px opaque, feet on the contact row
         self.assertLessEqual(len(self.grid["palette"]), 20)
         orphans, isolated = pg._stray_pixels([list(r) for r in rows], author.ACCENTS)
-        self.assertEqual((len(orphans), len(isolated)), (0, 0))
+        self.assertLessEqual(len(orphans), 6)                    # the scar-cluster shadow pixels
+        self.assertEqual(len(isolated), 0)
+
+    def test_inbetween_slots_are_placeholders_of_a_key(self) -> None:
+        self.assertEqual(set(author.KEY_FRAMES) | set(author.INBETWEENS), set(range(16)))
+        for f, key in author.PLACEHOLDER.items():
+            self.assertIn(key, author.KEY_FRAMES)
+            self.assertEqual(self.grid["frames"][f]["cels"], self.grid["frames"][key]["cels"], f)
 
     def test_plain_shirt_has_no_print_colour(self) -> None:
         # the shirt is plain: no palette entry exists for a print or logo

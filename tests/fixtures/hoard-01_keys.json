@@ -3,7 +3,22 @@
   "format": "pixelart-keys-v1",
   "keys": {
     "0": {
-      "sha256": "b3a56be4d934bf5a56872e48a1f91f777f51cb2d4dd8eea97e8e094fe07b837e"
+      "sha256": "8377029ea983699ffa2c56664f05b7e98c7f2cec41052ab6f63dcc101ef6c523"
+    },
+    "10": {
+      "sha256": "b5534b83f670432dd5a13532567c55002dd3f4218de238a712c0077c1d4c8847"
+    },
+    "12": {
+      "sha256": "dc2f8752ab193cfd25372d2b1840483ad1bfd071731b0b0752e005bdcff15df9"
+    },
+    "15": {
+      "sha256": "8231bc36217f11a3586003ae99527de879a33d00e7948b8240589f4832416b63"
+    },
+    "3": {
+      "sha256": "cdb297ce0293ca904bfcc49cb2980af23d99b56f409f3b9c9f980f4dd788fd86"
+    },
+    "8": {
+      "sha256": "dd1874e45899bed33fac86622da8f6451679601a8230d8d0b7a6c1511e0712a3"
     }
   },
   "layers": [

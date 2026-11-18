@@ -5,7 +5,8 @@ Design spec: ``docs/02-art/hoard-01-spec.md``. The keys are built from geometric
 capsules, polygons), shaded by one fixed light vector and finished with explicit detail pixels. No raster
 image-model output, no tracing or sampling of concept pixels.
 
-Phase 1 (silhouette gate) authors idle key 0 only. Later phases append the remaining keys to the same grid.
+Keys 0, 3, 8, 10, 12 and 15 are authored here; frames 1, 2, 4-7, 9, 11, 13 and 14 hold placeholder copies of
+the nearest key until the execution tier draws the in-betweens (spec section 8).
 
     python3 scripts/author_hoard01.py               # write grid + .ase
     python3 scripts/author_hoard01.py --check       # exit 1 when the committed grid differs
@@ -40,7 +41,7 @@ PALETTE = [
     ("m", "skin_mid", "#c67c5aff", False),
     ("h", "skin_light", "#e6a982ff", False),
     ("x", "scar_dark", "#5e3442ff", False),
-    ("y", "scar_light", "#8f5a5eff", False),
+    ("y", "scar_light", "#8f5a5eff", True),
     ("a", "hair_deep", "#241e2cff", False),
     ("b", "hair_mid", "#3c3550ff", False),
     ("c", "hair_rim", "#5a6078ff", False),
@@ -61,9 +62,10 @@ DARKER = {"h": "m", "m": "s", "s": "d", "d": "d", "v": "u", "u": "t", "t": "g", 
 _l = (-0.5, -0.62, 0.6)
 LIGHT = tuple(c / math.sqrt(sum(v * v for v in _l)) for c in _l)   # torch key upper left, same for every key
 
-TAGS = [("idle", 0, 0)]
-TICKS = [14]
-KEY_FRAMES = (0,)
+TAGS = [("idle", 0, 2), ("walk", 3, 6), ("attack_tell", 7, 8), ("attack_swing", 9, 11), ("hurt", 12, 12),
+        ("down", 13, 15)]
+TICKS = [16, 12, 16, 8, 8, 8, 8, 8, 26, 3, 6, 24, 12, 6, 8, None]
+KEY_FRAMES = (0, 3, 8, 10, 12, 15)
 
 
 # --------------------------------------------------------------------------- primitives
@@ -226,9 +228,90 @@ def despeckle(rows: list[list[str]], passes: int = 4) -> list[list[str]]:
     return rows
 
 
-# --------------------------------------------------------------------------- the Hoarder, idle key 0
-def hem_y(x: int) -> int:
-    """Ragged shirt hem: a 6 px saw-tooth plus one deep rip at the belly front."""
+# --------------------------------------------------------------------------- rig: affine transforms
+# Every key is the key-0 construction moved by a pose: the body group (torso, hips, sleeves, details) by one
+# rigid transform about the hip centre, the head group (head, hair, face) by a second transform about the neck,
+# limbs by explicit joint points. The identity pose reproduces key 0 exactly.
+BP = (68, 100)   # body pivot: hip centre
+HP = (82, 40)    # head pivot: neck
+
+
+def rig(px, py, ang=0.0, dx=0.0, dy=0.0, sx=1.0):
+    ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+    a, b, d, e = ca * sx, -sa, sa * sx, ca
+    return (a, b, px + dx - (a * px + b * py), d, e, py + dy - (d * px + e * py))
+
+
+def head_rig(body, ang, dx, dy):
+    hx, hy = apply(body, *HP)
+    ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+    return (ca, -sa, hx + dx - (ca * HP[0] - sa * HP[1]), sa, ca, hy + dy - (sa * HP[0] + ca * HP[1]))
+
+
+def apply(m, x, y):
+    return (m[0] * x + m[1] * y + m[2], m[3] * x + m[4] * y + m[5])
+
+
+def inv(m):
+    a, b, c, d, e, f = m
+    det = a * e - b * d
+    ia, ib, id_, ie = e / det, -b / det, -d / det, a / det
+    return (ia, ib, -(ia * c + ib * f), id_, ie, -(id_ * c + ie * f))
+
+
+def rotn(m, nx, ny):
+    return (m[0] * nx + m[1] * ny, m[3] * nx + m[4] * ny)
+
+
+def t_ellipse(m, cx, cy, rx, ry) -> dict:
+    mi = inv(m)
+    pts = [apply(m, cx + sx * rx, cy + sy * ry) for sx in (-1, 1) for sy in (-1, 1)]
+    out = {}
+    for y in range(int(min(p[1] for p in pts)) - 2, int(max(p[1] for p in pts)) + 3):
+        for x in range(int(min(p[0] for p in pts)) - 2, int(max(p[0] for p in pts)) + 3):
+            lx, ly = apply(mi, x, y)
+            nx, ny = (lx - cx) / rx, (ly - cy) / ry
+            if nx * nx + ny * ny <= 1.0:
+                out[(x, y)] = rotn(m, nx, ny)
+    return out
+
+
+def t_capsule(m, x0, y0, r0, x1, y1, r1) -> dict:
+    a, b = apply(m, x0, y0), apply(m, x1, y1)
+    return capsule(a[0], a[1], r0, b[0], b[1], r1)
+
+
+def t_polygon(m, pts, centre, radii) -> dict:
+    return polygon([apply(m, *p) for p in pts], apply(m, *centre), radii)
+
+
+def t_line(m, x0, y0, x1, y1) -> dict:
+    a, b = apply(m, x0, y0), apply(m, x1, y1)
+    return line(round(a[0]), round(a[1]), round(b[0]), round(b[1]))
+
+
+def in_polygon(pts, x, y) -> bool:
+    xs = []
+    for (ax, ay), (bx, by) in zip(pts, pts[1:] + pts[:1]):
+        if (ay <= y < by) or (by <= y < ay):
+            xs.append(ax + (y - ay) * (bx - ax) / (by - ay))
+    xs.sort()
+    return any(a <= x <= b for a, b in zip(xs[::2], xs[1::2]))
+
+
+def rot_about(cx, cy, rx, ry, ang):
+    ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+    return (cx + (rx * ca - ry * sa), cy + (rx * sa + ry * ca))
+
+
+def swung(pts, swing):
+    """Hair points shifted by ``swing`` px, weighted from 0 at the nape (y 34) to 1 at y 80 (head-local)."""
+    return [(x + swing * max(0.0, min(1.0, (y - 34) / 46)), y) for x, y in pts]
+
+
+# --------------------------------------------------------------------------- the Hoarder
+def hem_y(x) -> float:
+    """Ragged shirt hem: a 6 px saw-tooth plus one deep rip at the belly front (body-local)."""
     y = 95 + abs((x % 6) - 3)
     if 83 <= x <= 90:
         y = min(y, 88 + abs(x - 86))
@@ -236,147 +319,278 @@ def hem_y(x: int) -> int:
 
 
 NOTCH = (0, 2, 4, 1, 0, 3, 5, 2, 0, 1, 4, 2, 0, 3)   # ragged top of the hair: no helmet edge
+NEAR_FINGERS = (((-5, 3), (-7, 10)), ((-2, 4), (-3, 12)), ((2, 4), (3, 12)), ((5, 2), (7, 9)))
+NEAR_THUMB = ((5, -3), (9, 2))
+FAR_FINGERS = (((-4, 3), (-6, 9)), ((-1, 4), (-1, 11)), ((2, 4), (4, 10)), ((5, 1), (8, 6)))
+FAR_THUMB = ((-4, -3), (-7, 2))
+NEAR_FOOT = ((-12, 11), (-12, 5), (-6, 2), (6, 1), (12, 4), (14, 11))
+FAR_FOOT = ((-8, 11), (-8, 4), (-2, 1), (8, 2), (15, 6), (17, 11))
+NEAR_TOES = (7, 10, 12)
+FAR_TOES = (9, 12, 14)
+BURN_CLUSTERS = (((77, 25), (78, 25)), ((77, 31),), ((79, 32), (80, 32)), ((77, 35), (78, 35)), ((81, 26),))
+STAINS = ((60, 70, 3, 2), (76, 63, 2, 3), (90, 74, 3, 2), (64, 84, 4, 2), (54, 60, 2, 2), (95, 58, 2, 2),
+          (72, 90, 2, 2))
+TEAR_IN = [(88, 80), (95, 77), (97, 80), (93, 84), (89, 85)]
+TEAR_OUT = [(86, 80), (95, 75), (98, 80), (94, 86), (88, 86)]
+FACES = {
+    # head-local pixels: eyes (two whites 3 px apart; the burned eye keeps a white, no lid or brow), nose, mouth
+    "idle": ((79, 29, "w"), (80, 29, "w"), (81, 29, "K"), (81, 28, "K"), (79, 30, "x"), (80, 30, "x"),
+             (84, 29, "w"), (85, 29, "w"), (86, 29, "K"), (84, 28, "K"), (85, 28, "K"), (86, 28, "K"),
+             (84, 26, "K"), (85, 25, "K"), (86, 25, "K"), (87, 26, "K"),
+             (87, 30, "h"), (87, 31, "h"), (87, 33, "s"), (88, 33, "s"), (86, 33, "s"),
+             (84, 36, "K"), (85, 36, "K"), (86, 36, "K"), (84, 37, "d"), (85, 37, "d"), (86, 37, "d"),
+             (84, 38, "s"), (85, 38, "s"), (86, 38, "s")),
+    # the tell: whites enlarged, brow up, mouth wide with teeth (variant C roar)
+    "roar": ((79, 28, "w"), (80, 28, "w"), (79, 29, "w"), (80, 29, "w"), (81, 29, "K"), (81, 28, "K"),
+             (84, 28, "w"), (85, 28, "w"), (84, 29, "w"), (85, 29, "w"), (86, 29, "K"), (86, 28, "K"),
+             (84, 27, "K"), (85, 27, "K"), (84, 24, "K"), (85, 24, "K"), (86, 24, "K"), (87, 25, "K"),
+             (87, 31, "h"), (87, 33, "s"), (88, 33, "s"),
+             (83, 35, "K"), (84, 35, "w"), (85, 35, "w"), (86, 35, "w"), (87, 35, "K"),
+             (83, 36, "K"), (84, 36, "d"), (85, 36, "d"), (86, 36, "d"), (87, 36, "K"),
+             (83, 37, "K"), (84, 37, "d"), (85, 37, "d"), (86, 37, "d"), (87, 37, "K"),
+             (83, 38, "K"), (84, 38, "w"), (85, 38, "d"), (86, 38, "w"), (87, 38, "K"),
+             (84, 39, "K"), (85, 39, "K"), (86, 39, "K")),
+    # hurt and defeat: eyes squeezed shut, knitted brow, mouth a pained line; no white anywhere
+    "shut": ((78, 29, "K"), (79, 29, "K"), (80, 30, "K"), (81, 29, "K"),
+             (84, 29, "K"), (85, 30, "K"), (86, 29, "K"), (87, 29, "K"),
+             (84, 26, "K"), (85, 27, "K"), (86, 26, "K"),
+             (87, 31, "h"), (87, 33, "s"), (88, 33, "s"),
+             (83, 37, "K"), (84, 36, "K"), (85, 36, "K"), (86, 36, "K"), (87, 37, "K")),
+}
+
+IDLE = {
+    "body": (0, 0, 0, 1.0), "head": (0, 0, 0), "swing": 0,
+    "near_arm": ((36, 70), (31, 88), (30, 94), 0), "far_arm": ((101, 68), (106, 86), (108, 91), 0),
+    "near_leg": ((44, 112), (40, 117), 0), "far_leg": ((96, 111), (100, 117), 0),
+    "face": "idle", "sleeves": "poly", "far_front": False, "stripe": True, "cuffs": True,
+}
+WALK = dict(IDLE, body=(4, 4, 2, 1.0), swing=-3,
+            near_arm=((52, 72), (60, 88), (62, 94), -15), far_arm=((101, 70), (104, 88), (105, 93), 10),
+            near_leg=((46, 111), (38, 113), 25), far_leg=((104, 110), (107, 117), 0), sleeves="cap")
+TELL = dict(IDLE, body=(-6, -2, -6, 1.0), head=(-6, 0, 0), swing=-12,
+            near_arm=((36, 30), (50, 22), (56, 17), 180), far_arm=((100, 28), (100, 19), (100, 15), 160),
+            near_leg=((44, 108), (38, 117), 0), far_leg=((96, 108), (102, 117), 0), face="roar", sleeves="cap")
+ATTACK = dict(IDLE, body=(35, -4, 6, 1.0), head=(-25, 0, 0), swing=6,
+              near_arm=((100, 82), (120, 110), (126, 117), -40), far_arm=((126, 92), (138, 110), (141, 117), -50),
+              near_leg=((36, 108), (24, 116), 25), far_leg=((94, 108), (100, 117), 0), face="roar", sleeves="cap")
+HURT = dict(IDLE, body=(-5, -4, -1, 1.0), head=(-12, -3, 0), swing=4,
+            near_arm=((52, 68), (64, 58), (68, 54), 160), far_arm=((98, 64), (90, 54), (88, 50), 200),
+            near_leg=((42, 110), (36, 117), 0), far_leg=((88, 110), (90, 117), 0), face="shut", sleeves="cap",
+            far_front=True)
+DEFEAT = dict(IDLE, body=(90, -28, 10, 0.6), head=(-45, 0, 0), swing=0,
+              near_arm=((116, 118), (130, 122), (134, 123), -90), far_arm=((108, 124), (118, 125), (121, 124), -90),
+              near_leg=((62, 116), (34, 120), 80), far_leg=((70, 120), (44, 123), 80), face="shut", sleeves="cap",
+              stripe=False, cuffs=False)
 
 
-def lock(*pts) -> dict:
-    """A tapered hair lock through (x, y, r) points."""
-    return union(*(capsule(*a, *b) for a, b in zip(pts, pts[1:])))
+def hand(palm, ang, fingers, thumb, rf, rt) -> dict:
+    px, py = palm
+    shapes = []
+    for (a, b), r in zip(list(fingers) + [thumb], [rf] * len(fingers) + [rt]):
+        p0, p1 = rot_about(px, py, *a, ang), rot_about(px, py, *b, ang)
+        shapes.append(capsule(p0[0], p0[1], r[0], p1[0], p1[1], r[1]))
+    return union(*shapes)
 
 
-def idle0() -> list[str]:
+def hoarder(pose: dict) -> list[str]:
+    ang, dx, dy, sx = pose["body"]
+    B = rig(*BP, ang, dx, dy, sx)
+    H = head_rig(B, ang + pose["head"][0], pose["head"][1], pose["head"][2])
+    Bi, Hi = inv(B), inv(H)
+    sw = pose["swing"]
     c = Canvas()
-    # far side (her left arm and leg, screen right, behind the body); the far shoulder sits 2 px in
-    c.part("far_arm", "skin", union(capsule(88, 46, 9, 101, 68, 8), capsule(101, 68, 8, 106, 86, 5.5),
-                                    ellipse(108, 91, 5, 5),
-                                    capsule(104, 94, 1.7, 102, 100, 1.4), capsule(107, 95, 1.7, 107, 102, 1.4),
-                                    capsule(110, 95, 1.7, 112, 101, 1.4), capsule(113, 92, 1.7, 116, 97, 1.4),
-                                    capsule(104, 88, 1.8, 101, 93, 1.5)))
-    c.part("far_sleeve", "shirt", polygon([(82, 38), (96, 44), (99, 56), (95, 58), (92, 55), (88, 59), (82, 52)],
-                                          (88, 46), (10, 12)))
-    c.part("far_leg", "pants", union(capsule(82, 100, 13, 96, 111, 10), capsule(96, 111, 9.5, 100, 117, 8.5),
-                                     ellipse(100, 116, 10.5, 3)))
-    c.part("far_foot", "skin", polygon([(92, 128), (92, 121), (98, 118), (108, 119), (115, 123), (117, 128)],
-                                       (102, 121), (13, 8)))
-    c.part("hips", "pants", ellipse(68, 100, 30, 9))
-    c.part("near_leg", "pants", union(capsule(54, 100, 14, 44, 112, 11), capsule(44, 112, 10, 40, 117, 9),
-                                      ellipse(40, 116, 11.5, 3)))
-    c.part("near_foot", "skin", polygon([(28, 128), (28, 122), (34, 119), (46, 118), (52, 121), (54, 128)],
-                                        (40, 121), (14, 8)))
-    # torso: upper-back hump, chest, belly; one plain shirt
-    torso = union(ellipse(56, 46, 17, 13), ellipse(72, 52, 22, 16), ellipse(72, 77, 30, 20), ellipse(68, 91, 29, 7))
-    c.part("torso", "shirt", torso, clip=lambda x, y: y <= hem_y(x))
-    c.part("neckline", "skin", polygon([(80, 42), (89, 42), (88, 46), (86, 48), (85, 46), (83, 48), (81, 46)],
-                                       (85, 43), (6, 4)))
-    # long hair down the back, over the hump
+
+    def arm(side):
+        elbow, wrist, palm, hang = pose[side + "_arm"]
+        if side == "near":
+            sh = apply(B, 48, 46)
+            return union(capsule(*sh, 11, *elbow, 9), capsule(*elbow, 9, *wrist, 6), ellipse(*palm, 6, 5),
+                         hand(palm, hang, NEAR_FINGERS, NEAR_THUMB, (1.8, 1.5), (1.9, 1.6)))
+        sh = apply(B, 88, 46)
+        return union(capsule(*sh, 9, *elbow, 8), capsule(*elbow, 8, *wrist, 5.5), ellipse(*palm, 5, 5),
+                     hand(palm, hang, FAR_FINGERS, FAR_THUMB, (1.7, 1.4), (1.8, 1.5)))
+
+    def sleeve(side):
+        if pose["sleeves"] == "poly":
+            if side == "near":
+                return t_polygon(B, [(40, 34), (58, 36), (60, 50), (52, 60), (47, 57), (42, 61), (36, 55), (35, 44)],
+                                 (50, 44), (14, 14))
+            return t_polygon(B, [(82, 38), (96, 44), (99, 56), (95, 58), (92, 55), (88, 59), (82, 52)],
+                             (88, 46), (10, 12))
+        elbow = pose[side + "_arm"][0]
+        sh = apply(B, 48, 46) if side == "near" else apply(B, 88, 46)
+        r = 11 if side == "near" else 9
+        end = (sh[0] + (elbow[0] - sh[0]) * 0.45, sh[1] + (elbow[1] - sh[1]) * 0.45)
+        return capsule(*sh, r + 1.5, *end, r + 0.5)
+
+    def leg(side):
+        knee, ankle, _f = pose[side + "_leg"]
+        if side == "near":
+            hip = apply(B, 54, 100)
+            return union(capsule(*hip, 14, *knee, 11), capsule(*knee, 10, *ankle, 9),
+                         ellipse(ankle[0], ankle[1] - 1, 11.5, 3))
+        hip = apply(B, 82, 100)
+        return union(capsule(*hip, 13, *knee, 10), capsule(*knee, 9.5, *ankle, 8.5),
+                     ellipse(ankle[0], ankle[1] - 1, 10.5, 3))
+
+    def foot(side):
+        _k, (ax, ay), fang = pose[side + "_leg"]
+        rel = NEAR_FOOT if side == "near" else FAR_FOOT
+        pts = [rot_about(ax, ay, rx, ry, fang) for rx, ry in rel]
+        centre = (ax, ay + 4) if side == "near" else (ax + 2, ay + 4)
+        return polygon(pts, rot_about(ax, ay, centre[0] - ax, centre[1] - ay, fang),
+                       (14, 8) if side == "near" else (13, 8))
+
+    if not pose["far_front"]:
+        c.part("far_arm", "skin", arm("far"))
+        c.part("far_sleeve", "shirt", sleeve("far"))
+    c.part("far_leg", "pants", leg("far"))
+    c.part("far_foot", "skin", foot("far"))
+    c.part("hips", "pants", t_ellipse(B, 68, 100, 30, 9))
+    c.part("near_leg", "pants", leg("near"))
+    c.part("near_foot", "skin", foot("near"))
+    torso = union(t_ellipse(B, 56, 46, 17, 13), t_ellipse(B, 72, 52, 22, 16), t_ellipse(B, 72, 77, 30, 20),
+                  t_ellipse(B, 68, 91, 29, 7))
+    c.part("torso", "shirt", torso, clip=lambda x, y: (lambda l: l[1] <= hem_y(l[0]))(apply(Bi, x, y)))
+    c.part("neckline", "skin", t_polygon(B, [(80, 42), (89, 42), (88, 46), (86, 48), (85, 46), (83, 48), (81, 46)],
+                                         (85, 43), (6, 4)))
     c.part("hair_back", "hair", union(
-        polygon([(68, 18), (58, 18), (50, 23), (44, 30), (40, 40), (37, 52), (36, 62), (39, 70), (44, 66),
-                 (48, 58), (54, 48), (62, 40), (70, 34)], (60, 30), (22, 26)),
-        line(60, 19, 53, 16), line(55, 21, 46, 18), line(38, 64, 33, 74), line(42, 66, 40, 77),
-        line(46, 60, 46, 71)))
-    # near arm (her right, closest to the viewer)
-    c.part("near_arm", "skin", union(capsule(48, 46, 11, 36, 70, 9), capsule(36, 70, 9, 31, 88, 6),
-                                     ellipse(30, 94, 6, 5),
-                                     capsule(25, 97, 1.8, 23, 104, 1.5), capsule(28, 98, 1.8, 27, 106, 1.5),
-                                     capsule(32, 98, 1.8, 33, 106, 1.5), capsule(35, 96, 1.8, 37, 103, 1.5),
-                                     capsule(35, 91, 1.9, 39, 96, 1.6)))
-    c.part("near_sleeve", "shirt", polygon([(40, 34), (58, 36), (60, 50), (52, 60), (47, 57), (42, 61), (36, 55),
-                                            (35, 44)], (50, 44), (14, 14)))
-    # front locks over the far shoulder: they start behind the head and frame the far side of the face
-    c.part("locks_far", "hair", union(lock((89, 34, 2.2), (91, 48, 2.0), (90, 62, 1.0)),
-                                      lock((93, 24, 2.0), (96, 42, 2.2), (95, 60, 1.0)),
-                                      lock((96, 32, 1.6), (98, 46, 1.6), (97, 56, 0.8))))
-    # head: 24 x 23, turned about 25 degrees toward the camera, chin below the hump top
-    c.part("head", "skin", union(ellipse(81, 29, 11.75, 11.5), ellipse(84, 39, 7, 3)))
-    cap = ellipse(79, 27.5, 13.5, 11.5)
-    c.part("hair_cap", "hair", union(
-        {p: n for p, n in cap.items()
-         if (p[0] < 74 - max(0, p[1] - 36) or p[1] <= 23) and p[1] >= 16 + (NOTCH[p[0] % 14] if p[1] <= 22 else 0)},
-        line(70, 20, 66, 16), line(76, 18, 79, 16), line(86, 19, 88, 16),
-        line(74, 24, 76, 38), line(77, 23, 78, 26)))
-    # back locks: ragged, 3-5 px wide, over the near shoulder and down the back to y 78-82
-    c.part("locks_back", "hair", polygon(
-        [(50, 34), (64, 34), (72, 40), (73, 52), (71, 64), (69, 72), (67, 80), (65, 70), (63, 74), (61, 79),
-         (59, 68), (56, 73), (54, 80), (52, 66), (49, 76), (48, 81), (47, 64), (47, 50)], (58, 44), (14, 22)))
+        t_polygon(H, swung([(68, 18), (58, 18), (50, 23), (44, 30), (40, 40), (37, 52), (36, 62), (39, 70),
+                            (44, 66), (48, 58), (54, 48), (62, 40), (70, 34)], sw), (60, 30), (22, 26)),
+        *(t_line(H, *swung([a], sw)[0], *swung([b], sw)[0]) for a, b in
+          (((60, 19), (53, 16)), ((55, 21), (46, 18)), ((38, 64), (33, 74)), ((42, 66), (40, 77)),
+           ((46, 60), (46, 71))))))
+    c.part("near_arm", "skin", arm("near"))
+    c.part("near_sleeve", "shirt", sleeve("near"))
+    c.part("locks_far", "hair", union(t_capsule(H, 89, 34, 2.2, 91, 48, 2.0), t_capsule(H, 91, 48, 2.0, 90, 62, 1.0),
+                                      t_capsule(H, 93, 24, 2.0, 96, 42, 2.2), t_capsule(H, 96, 42, 2.2, 95, 60, 1.0),
+                                      t_capsule(H, 96, 32, 1.6, 98, 46, 1.6), t_capsule(H, 98, 46, 1.6, 97, 56, 0.8)))
+    # head: 24 x 23, turned about 25 degrees toward the camera; the jaw corner is rounded
+    c.part("head", "skin", union(t_ellipse(H, 81, 29, 11.75, 11.5), t_ellipse(H, 83.5, 38.5, 6, 3.2)))
+
+    def cap_keep(x, y):
+        lx, ly = apply(Hi, x, y)
+        top = 16 + (NOTCH[int(round(lx)) % 14] if ly <= 22 else 0)
+        return (lx < 74 - max(0, ly - 36) or ly <= 23) and ly >= top
+
+    cap = {p: n for p, n in t_ellipse(H, 79, 27.5, 13.5, 11.5).items() if cap_keep(*p)}
+    c.part("hair_cap", "hair", union(cap, t_line(H, 70, 20, 66, 16), t_line(H, 76, 18, 79, 16),
+                                     t_line(H, 86, 19, 88, 16), t_line(H, 74, 24, 76, 38), t_line(H, 77, 23, 78, 26)))
+    # back hair: a mass over the near shoulder ending in ragged locks; the gaps between the ends are partly filled
+    c.part("locks_back", "hair", t_polygon(H, swung(
+        [(50, 34), (64, 34), (72, 40), (73, 52), (71, 64), (69, 72), (67, 80), (65, 76), (63, 74), (61, 79),
+         (59, 74), (56, 73), (54, 80), (52, 72), (49, 76), (48, 81), (47, 64), (47, 50)], sw), (58, 44), (14, 22)))
+    if pose["far_front"]:
+        c.part("far_arm", "skin", arm("far"))
+        c.part("far_sleeve", "shirt", sleeve("far"))
 
     c.shade(hair_sheen=lambda x, y: (x * 2 + y // 3) % 9 == 0)
 
-    # --- details (explicit pixels after shading)
-    # burn: near half of the face only, dark plum scar tissue with raised rose-brown clusters, no open wound
-    for (x, y) in ellipse(78, 31, 3.6, 5.6):
-        if c.family.get((x, y)) == "skin" and c.key[(x, y)] != "K":
-            c.key[(x, y)] = "x"
-    for cx, cy in ((77, 26), (77, 30), (79, 32), (77, 34), (80, 35)):
-        for x, y in ((cx, cy), (cx + 1, cy), (cx, cy + 1)):
-            if c.key.get((x, y)) == "x":
-                c.key[(x, y)] = "y"
-    # eyes: two separate whites 3 px apart, pupils forward; no brow above the burned eye
-    for x, y, k in ((79, 29, "w"), (80, 29, "w"), (81, 29, "K"), (79, 28, "K"), (80, 28, "K"), (81, 28, "K"),
-                    (84, 29, "w"), (85, 29, "w"), (86, 29, "K"), (84, 28, "K"), (85, 28, "K"), (86, 28, "K"),
-                    (84, 26, "K"), (85, 25, "K"), (86, 25, "K"), (87, 26, "K")):
-        c.put(x, y, k)
-    # nose (frontal: shadow only) and a 3 x 2 open mouth
-    for x, y, k in ((87, 30, "h"), (87, 31, "h"), (87, 33, "s"), (88, 33, "s"), (86, 33, "s"),
-                    (84, 36, "K"), (85, 36, "K"), (86, 36, "K"), (84, 37, "d"), (85, 37, "d"), (86, 37, "d"),
-                    (84, 38, "s"), (85, 38, "s"), (86, 38, "s")):
-        c.put(x, y, k)
-    # two 1 px shade curves under the chest: a heavy woman's body, not a sexualised one
+    def where(family, m, pred, key, keep=("K",)):
+        mi = inv(m)
+        for p in [p for p, f in c.family.items() if f == family]:
+            if c.key[p] not in keep and pred(*apply(mi, *p)):
+                c.key[p] = key
+
+    # burn: an irregular patch on the near half only, dark plum, with a soft rose-brown edge on the nose side
+    def burn_in(lx, ly):
+        e = lambda cx, cy, rx, ry: ((lx - cx) / rx) ** 2 + ((ly - cy) / ry) ** 2 <= 1  # noqa: E731
+        edge = 80.4 + (int(ly) * 5 % 3) * 0.5
+        return (e(77.6, 30.6, 3.3, 5.4) or e(76.8, 25.6, 2.2, 1.5) or e(79.2, 35, 2.1, 1.6)) and lx <= edge
+
+    burned = set()
+    hi_ = Hi
+    for p in [p for p, f in c.family.items() if f == "skin" and c.parts[c.owner[p]] == "head"]:
+        if c.key[p] != "K" and burn_in(*apply(hi_, *p)):
+            c.key[p] = "x"
+            burned.add(p)
+    for (x, y) in burned:
+        nxt = (x + 1, y)
+        if nxt not in burned and c.family.get(nxt) == "skin" and c.key.get(nxt) != "K":
+            c.key[(x, y)] = "y"
+            if c.key[nxt] in ("m", "h"):
+                c.key[nxt] = "s"
+    for lx, ly, k in FACES[pose["face"]]:
+        x, y = apply(H, lx, ly)
+        c.put(round(x), round(y), k)
+    # two 2 px shade curves under the chest: a heavy woman's body, not a sexualised one
     for x0, x1, xc, yb in ((68, 79, 73.5, 56), (82, 91, 86.5, 55)):
-        for x in range(x0, x1 + 1):
-            y = yb - round(((x - xc) / ((x1 - x0) / 2)) ** 2 * 3)
-            if c.key.get((x, y)) in ("u", "v"):
-                c.key[(x, y)] = "t"
+        where("shirt", B, lambda lx, ly, x0=x0, x1=x1, xc=xc, yb=yb: x0 <= round(lx) <= x1 and
+              0 <= round(ly) - (yb - round(((round(lx) - xc) / ((x1 - x0) / 2)) ** 2 * 3)) <= 1, "t",
+              keep=("K", "g", "t"))
     # grime stains on the plain shirt (no print, no logo)
-    for sx, sy, sw, sh in ((60, 70, 3, 2), (76, 63, 2, 3), (90, 74, 3, 2), (64, 84, 4, 2), (54, 60, 2, 2),
-                           (95, 58, 2, 2), (72, 90, 2, 2)):
-        for y in range(sy, sy + sh):
-            for x in range(sx, sx + sw):
-                if c.key.get((x, y)) in ("t", "u", "v"):
-                    c.key[(x, y)] = "g"
+    for sx_, sy_, sw_, sh_ in STAINS:
+        where("shirt", B, lambda lx, ly, a=sx_, b=sy_, w=sw_, h=sh_: a <= round(lx) < a + w and b <= round(ly) < b + h,
+              "g", keep=("K", "s", "m", "h"))
     # side tear in the shirt showing skin
-    tear = polygon([(88, 80), (95, 77), (97, 80), (93, 84), (89, 85)], (92, 81), (5, 4))
-    for (x, y) in tear:
-        if c.family.get((x, y)) == "shirt":
-            c.key[(x, y)] = "s" if y > 81 else "m"
-    for (x, y) in polygon([(86, 80), (95, 75), (98, 80), (94, 86), (88, 86)], (92, 81), (6, 5)):
-        if c.family.get((x, y)) == "shirt" and (x, y) not in tear:
-            c.key[(x, y)] = "K"
+    for p in [p for p, f in c.family.items() if f == "shirt"]:
+        lx, ly = apply(Bi, *p)
+        if in_polygon(TEAR_IN, lx, ly):
+            c.key[p] = "s" if ly > 81 else "m"
+        elif in_polygon(TEAR_OUT, lx, ly):
+            c.key[p] = "K"
     # filth drips from the hem onto the pants
-    for x, y0, n in ((50, 97, 4), (74, 98, 4), (93, 96, 3), (60, 99, 3)):
-        for y in range(y0, y0 + n):
-            if c.family.get((x, y)) == "pants" and c.key.get((x, y)) != "K":
-                c.key[(x, y)] = "g"
+    for x_, y0, n in ((50, 97, 4), (74, 98, 4), (93, 96, 3), (60, 99, 3)):
+        where("pants", B, lambda lx, ly, a=x_, b=y0, n=n: round(lx) == a and b <= round(ly) < b + n, "g")
     # near knee tear
-    for (x, y) in ellipse(43, 111, 3.5, 2.6):
+    kx, ky = pose["near_leg"][0]
+    for (x, y) in ellipse(kx - 1, ky - 1, 3.5, 2.6):
         if c.family.get((x, y)) == "pants":
-            c.key[(x, y)] = "m" if y < 111 else "s"
+            c.key[(x, y)] = "m" if y < ky - 1 else "s"
     # faded sweatpants side stripe, hip to ankle (2 px on the thigh, 1 px below the knee)
-    for y in range(93, 116):
-        xs = [x for x in range(0, 66) if c.family.get((x, y)) == "pants" and c.key.get((x, y)) != "K"]
-        if xs:
-            for dx in ((2, 3) if y < 106 else (2,)):
-                if c.key.get((min(xs) + dx, y)) in ("p", "q", "r"):
-                    c.key[(min(xs) + dx, y)] = "u"
+    if pose["stripe"]:
+        hip_y = round(apply(B, 54, 100)[1])
+        ankle_y = pose["near_leg"][1][1]
+        for y in range(hip_y - 7, ankle_y - 1):
+            xs = [x for x in range(0, kx + 22) if c.family.get((x, y)) == "pants" and c.key.get((x, y)) != "K"]
+            if xs:
+                for d in ((2, 3) if y < ky - 6 else (2,)):
+                    if c.key.get((min(xs) + d, y)) in ("p", "q", "r"):
+                        c.key[(min(xs) + d, y)] = "u"
     # ankle cuffs gathered over the feet: a crease and the cuff edge
-    for x0, x1 in ((31, 49), (92, 109)):
-        for x in range(x0, x1):
-            c.put(x, 118, "K")
-        for x in range(x0 + 3, x1 - 3, 3):
-            c.put(x, 115, "p")
-            c.put(x + 1, 115, "p")
+    if pose["cuffs"]:
+        for side, (o0, o1) in (("near", (-9, 9)), ("far", (-8, 9))):
+            ax, ay = pose[side + "_leg"][1]
+            for x in range(ax + o0, ax + o1):
+                c.put(x, ay + 1, "K")
+            for x in range(ax + o0 + 3, ax + o1 - 3, 3):
+                c.put(x, ay - 2, "p")
+                c.put(x + 1, ay - 2, "p")
     # toes
-    for x in (47, 50, 52):
-        c.put(x, 125, "K")
-        c.put(x, 126, "K")
-    for x in (109, 112, 114):
-        c.put(x, 125, "K")
-        c.put(x, 126, "K")
+    for side, toes in (("near", NEAR_TOES), ("far", FAR_TOES)):
+        _k, (ax, ay), fang = pose[side + "_leg"]
+        for t in toes:
+            for ty in (8, 9):
+                x, y = rot_about(ax, ay, t, ty, fang)
+                c.put(round(x), round(y), "K")
     # a scrap of tin foil snagged in the back hair (the hoard clings to her)
-    for x, y in ((57, 27), (58, 27), (58, 28), (59, 28), (59, 29)):
-        c.put(x, y, "n")
-    return c.finish()
+    for lx, ly in ((57, 27), (58, 27), (58, 28), (59, 28), (59, 29)):
+        x, y = apply(H, lx, ly)
+        c.put(round(x), round(y), "n")
+    rows = c.finish()
+    # raised scar clusters (rose-brown) each with a dark shadow pixel below, after the clean-up pass
+    grid = [list(r) for r in rows]
+    for cluster in BURN_CLUSTERS:
+        pts = [tuple(round(v) for v in apply(H, *p)) for p in cluster]
+        if all(0 <= y + 1 < len(grid) and grid[y][x] in ("x", "y") for x, y in pts):
+            for x, y in pts:
+                grid[y][x] = "y"
+            sx0, sy0 = pts[0]
+            if grid[sy0 + 1][sx0] in ("x", "y"):
+                grid[sy0 + 1][sx0] = "K"
+    return ["".join(r) for r in grid]
 
 
-RENDER = {0: idle0}
+POSES = {0: IDLE, 3: WALK, 8: TELL, 10: ATTACK, 12: HURT, 15: DEFEAT}
+# in-betweens are placeholders (a copy of the named key) until the execution tier draws them (spec section 8)
+PLACEHOLDER = {1: 0, 2: 0, 4: 3, 5: 3, 6: 3, 7: 8, 9: 10, 11: 10, 13: 15, 14: 15}
+INBETWEENS = tuple(sorted(PLACEHOLDER))
+
+
+def render(frame: int) -> list[str]:
+    return hoarder(POSES[PLACEHOLDER.get(frame, frame)])
+
+
 
 
 # --------------------------------------------------------------------------- grid io
@@ -393,7 +607,7 @@ def palette_json() -> list[dict]:
 def build_grid() -> dict:
     frames = []
     for i, ticks in enumerate(TICKS):
-        frames.append({"duration_ms": round((ticks or 6) * 1000 / TICK_HZ), "cels": {"body": RENDER[i]()}})
+        frames.append({"duration_ms": round((ticks or 6) * 1000 / TICK_HZ), "cels": {"body": render(i)}})
     return {
         "format": "pixel-grid-v1", "canvas": list(CANVAS), "pivot": list(PIVOT),
         "palette": palette_json(), "layers": ["body"], "frames": frames,
@@ -456,7 +670,16 @@ def scale_images(grid: dict, out_dir: Path) -> dict:
     combo.alpha_composite(scene.resize((scene.width * 4, scene.height * 4), Image.NEAREST), (0, scene.height + 8))
     combo_path = out_dir / "key0-scale.png"
     combo.save(combo_path)
-    return {"1x": one, "4x": four, "combo": combo_path}
+    sheet = Image.new("RGBA", (CANVAS[0] * 3 * 3, CANVAS[1] * 3 * 2), (0, 0, 0, 255))
+    for n, f in enumerate(KEY_FRAMES):
+        x, y = (n % 3) * CANVAS[0] * 3, (n // 3) * CANVAS[1] * 3
+        sheet.paste(Image.new("RGBA", (CANVAS[0] * 3, CANVAS[1] * 3), (36, 42, 60, 255) if n % 2 else
+                              (112, 58, 40, 255)), (x, y))
+        im = _image(grid["frames"][f]["cels"]["body"], grid["palette"])
+        sheet.alpha_composite(im.resize((CANVAS[0] * 3, CANVAS[1] * 3), Image.NEAREST), (x, y))
+    keys_path = out_dir / "keys-x3.png"
+    sheet.save(keys_path)
+    return {"1x": one, "4x": four, "combo": combo_path, "keys": keys_path}
 
 
 def main(argv=None) -> int:
