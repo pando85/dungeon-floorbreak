@@ -33,6 +33,8 @@
     "max_orphans_per_frame": 9,
     "canvas_margin": [0, 0, 0, 0],
     "unique_frames": true,
+    "manifest_tick_rows": "llama.frames",
+    "manifest_tick_hz": "llama.tick_hz",
     "frozen_keys": {
       "fixture": "tests/fixtures/llama-01_keys.json",
       "frames": [0, 3, 8, 9, 11, 14, 15],

@@ -7,12 +7,14 @@ Usage:
     python3 scripts/author_llama01.py size-study [--check]
 
 ``keys`` (re)writes the key frames of ``assets/source/characters/llama/llama-01.grid.json``
-(frames 0, 3, 8, 9, 11, 14, 15; see ``docs/02-art/llama-01-spec.md`` section 7). Every key is
+(frames 0, 3, 8, 9, 11, 14, 15; see ``docs/02-art/llama-01-spec.md`` section 7) and the ten
+in-betweens (frames 1, 2, 4, 5, 6, 7, 10, 12, 13, 16, section 8), plus ``assets/manifests/llama-01.json``
+with the 60 Hz tick table. Every frame is
 rasterized natively from one parametric rig (capsules and ellipses at pixel centres, volumetric
 ramp shading from an upper-left torch key, shag fringes, mange patches, a 1 px outline outside
-the fill) plus literal face/teeth stamps. Non-key frames that are still empty are written empty;
-frames already drawn by the execution tier are kept untouched, so the in-betweens survive a
-re-run. ``--check`` compares the keys instead of writing (exit 1 on a difference).
+the fill) plus literal face/teeth stamps. The in-betweens (``INBETWEENS``) are derived from the keys through
+``shifted()`` and are not frozen; the keys are guarded by the frozen-key fixture. ``--check``
+compares grid and manifest instead of writing (exit 1 on a difference).
 
 ``size-study`` writes ``llama-01_size_study.grid.json``: the idle key rasterized at 56, 64 and
 72 px opaque height from the same rig (canvas 96 x 80, pivot (44, 79)).
@@ -343,12 +345,20 @@ def llama(c: Canvas, p: dict) -> None:
     c.cleanup()
 
 
-def spit(c: Canvas) -> None:
-    """Lava spit glob: hot core, cooling skin, a dark crust tail and one drip, travelling right."""
+def spit(c: Canvas, phase: int = 0) -> None:
+    """Lava spit glob: hot core, cooling skin, a dark crust tail and one drip, travelling right.
+
+    ``phase`` 1 is the wobble frame (spec section 8, frame 16): the glob is stretched, the tail is
+    1 px longer and the drip hangs 1 px lower.
+    """
+    if phase:
+        tail_end, glob, drip, core, crust = (79.0, 27.5), (89.5, 26.5, 4.4, 3.0), ((83.5, 29.0), (82.5, 32.0)), (89.7, 26.5), ((79, 27), (82, 32))
+    else:
+        tail_end, glob, drip, core, crust = (80.0, 27.5), (89.5, 26.5, 4.2, 3.2), ((84.5, 28.5), (83.5, 31.5)), (90.2, 26.0), ((80, 27), (83, 31))
     parts = [
-        Part("cap", ((88.0, 26.5), (80.0, 27.5), 2.6, 1.0), "fur", group="spit"),
-        Part("ell", (89.5, 26.5, 4.2, 3.2), "fur", group="spit"),
-        Part("cap", ((84.5, 28.5), (83.5, 31.5), 1.0, 0.8), "fur", group="spit"),
+        Part("cap", ((88.0, 26.5), tail_end, 2.6, 1.0), "fur", group="spit"),
+        Part("ell", glob, "fur", group="spit"),
+        Part("cap", (*drip, 1.0, 0.8), "fur", group="spit"),
     ]
     for part in parts:
         for y in range(c.h):
@@ -360,11 +370,11 @@ def spit(c: Canvas) -> None:
         for x in range(c.w):
             if c.group[y][x] != "spit":
                 continue
-            d = math.hypot((x + 0.5 - 90.2) / 3.4, (y + 0.5 - 26.0) / 2.4)
+            d = math.hypot((x + 0.5 - core[0]) / 3.4, (y + 0.5 - core[1]) / 2.4)
             c.px[y][x] = "Y" if d < 0.5 else "O" if d < 0.85 else "R" if d < 1.25 or x > 86 else "r"
     c.outline("spit")
-    c.stamp(80, 27, ["a"])
-    c.stamp(83, 31, ["a"])
+    for x, y in crust:
+        c.stamp(x, y, ["a"])
     c.cleanup()
 
 
@@ -482,13 +492,146 @@ DEAD = shifted(
     mange=((3, -4, 4.0, 2.0), (13, -2, 3.0, 2.0), (21, -4, 2.6, 1.6)),
 )
 
-POSES = {0: IDLE, 3: WALK_CONTACT, 8: TELL, 9: SPIT, 11: HURT, 14: DEAD}
+
+# --------------------------------------------------------------------------- in-between poses
+# Spec section 8 (executor tier). Every pose derives from a frozen key through shifted(); the
+# keys themselves are never touched.
+def mv(pt, dx=0, dy=0):
+    return (pt[0] + dx, pt[1] + dy)
+
+
+def mv2(pair, dx=0, dy=0):
+    return (mv(pair[0], dx, dy), mv(pair[1], dx, dy))
+
+
+def mv_leg(leg, dy=0):
+    """Move only the first (hip/shoulder) point of a leg."""
+    return [(leg[0][0], leg[0][1] + dy, leg[0][2])] + list(leg[1:])
+
+
+def move_body(p: dict, dy: float) -> dict:
+    out = {}
+    for k in ("rump", "chest"):
+        out[k] = mv(p[k], 0, dy)
+    for k in ("belly", "haunch", "shoulder"):
+        out[k] = (p[k][0], p[k][1] + dy, p[k][2], p[k][3])
+    for k in ("near_hind", "far_hind", "near_front", "far_front"):
+        out[k] = mv_leg(p[k], dy)
+    return out
+
+
+def move_head(p: dict, dx=0, dy=0) -> dict:
+    """Shift the neck end and everything on the head (the neck start stays on the shoulder)."""
+    out = {
+        "neck": (p["neck"][0], mv(p["neck"][1], dx, dy)),
+        "skull": (p["skull"][0] + dx, p["skull"][1] + dy, p["skull"][2], p["skull"][3]),
+        "muzzle": mv2(p["muzzle"], dx, dy), "jaw": mv2(p["jaw"], dx, dy),
+        "ear_near": mv2(p["ear_near"], dx, dy), "ear_far": mv2(p["ear_far"], dx, dy),
+        "teeth": [(n, mv(q, dx, dy)) for n, q in p["teeth"]],
+        "eye_at": mv(p["eye_at"], dx, dy),
+    }
+    if p.get("mouth"):
+        out["mouth"] = tuple(mv(q, dx, dy) for q in p["mouth"])
+    if p.get("nostril"):
+        out["nostril"] = mv(p["nostril"], dx, dy)
+    return out
+
+
+def half(a: float, b: float) -> float:
+    return round((a + b) / 2 * 2) / 2
+
+
+def mean_pose(a: dict, b: dict, keys) -> dict:
+    """Per-number mean of two poses for the listed keys, rounded to 0.5."""
+    def avg(x, y):
+        if isinstance(x, (int, float)):
+            return half(x, y)
+        return type(x)(avg(i, j) for i, j in zip(x, y))
+    return {k: avg(a[k], b[k]) for k in keys}
+
+
+INBETWEEN_BODY = ("rump", "chest", "barrel_r", "belly", "haunch", "shoulder", "near_hind", "far_hind", "near_front",
+                  "far_front", "near_hind_hoof", "far_hind_hoof", "near_front_hoof", "far_front_hoof", "tail")
+
+_head_x1 = move_head(IDLE, dx=1)
+
+POSE_1 = shifted(IDLE, **move_body(IDLE, -1), **move_head(IDLE, dy=-1),
+                 tail=(IDLE["tail"][0], (14, 27), IDLE["tail"][2]))
+POSE_2 = shifted(IDLE, **move_head(IDLE, dx=-1), tail=(IDLE["tail"][0], (15, 29), IDLE["tail"][2]))
+# jaw end, mouth third point and lower teeth drop 1 px on top of the 1 px head-back shift
+POSE_2["jaw"] = (POSE_2["jaw"][0], mv(POSE_2["jaw"][1], 0, 1))
+POSE_2["mouth"] = (POSE_2["mouth"][0], POSE_2["mouth"][1], mv(POSE_2["mouth"][2], 0, 1))
+POSE_2["teeth"] = [(n, mv(q, 0, 1)) if n == "lower" else (n, q) for n, q in POSE_2["teeth"]]
+
+POSE_4 = shifted(
+    IDLE, **_head_x1,
+    far_front=[(58, 47, 3.0), (60, 53, 2.2), (62, 58, 1.7), (61, 64, 1.4)], far_front_hoof=(61, 66),
+    near_hind=[(29, 46, 4.5), (30, 53, 3.0), (28, 57, 2.0), (29, 63, 1.5)], near_hind_hoof=(29, 65),
+)
+POSE_5 = shifted(
+    WALK_CONTACT,
+    far_front=[(58, 48, 3.0), (61, 54, 2.2), (63, 60, 1.7), (65, 67, 1.4)], far_front_hoof=(65, 69),
+    near_front=[(54, 48, 3.5), (53, 54, 2.4), (52, 60, 1.8), (52, 67, 1.5)], near_front_hoof=(52, 69),
+    far_hind=[(35, 47, 3.5), (34, 54, 2.5), (29, 59, 1.8), (28, 67, 1.4)], far_hind_hoof=(27, 69),
+    near_hind=[(29, 47, 4.5), (31, 54, 3.0), (29, 59, 2.0), (30, 67, 1.5)], near_hind_hoof=(30, 69),
+)
+POSE_6 = shifted(
+    POSE_4,
+    near_front=[(53, 47, 3.5), (55, 53, 2.4), (57, 58, 1.8), (56, 64, 1.5)], near_front_hoof=(56, 66),
+    far_hind=[(35, 46, 3.5), (37, 53, 2.5), (35, 57, 1.8), (36, 63, 1.4)], far_hind_hoof=(36, 65),
+    far_front=IDLE["far_front"], far_front_hoof=IDLE["far_front_hoof"],
+    near_hind=IDLE["near_hind"], near_hind_hoof=IDLE["near_hind_hoof"],
+)
+
+POSE_7 = shifted(
+    IDLE, **mean_pose(IDLE, TELL, INBETWEEN_BODY),
+    neck=(mean_pose(IDLE, TELL, ("neck",))["neck"][0], (62, 15)), neck_r=(6.1, 4.3), glow=0.4, throat=None,
+    skull=(63, 12, 5.0, 4.3), muzzle=((65, 13), (73, 15.5)), jaw=((65, 18), (72, 20)), mouth=None,
+    teeth=[("clench", (70, 14))], ear_near=((61, 9), (56, 6.5)), ear_far=((63, 9), (58, 7)),
+    eye="tell", eye_at=(61, 10), nostril=(73, 12),
+)
+
+POSE_10 = shifted(
+    SPIT, glow=0.33,
+    neck=(SPIT["neck"][0], (73, 24)), skull=(76, 22, 4.6, 3.8),
+    muzzle=((78, 22.5), (86, 22.5)), jaw=((78, 26), (85, 29.5)),
+    mouth=((78, 25), (87, 24.5), (85, 28)), mouth_glow=0,
+    teeth=[("upper", (84, 24)), ("lower", (82, 27))],
+    ear_near=((74, 19), (68, 17)), ear_far=((76, 19), (70, 17.4)),
+    eye_at=(74, 20), nostril=(86, 19), extra=[],
+)
+
+POSE_12 = shifted(
+    IDLE,
+    chest=(53, 50), belly=(40, 48, 14, 7.5), shoulder=(54, 52, 6, 7),
+    near_front=[(53, 55, 3.5), (50, 61, 2.4), (55, 67, 1.8)], near_front_hoof=(56, 69),
+    far_front=[(57, 55, 3.0), (54, 61, 2.2), (59, 67, 1.6)], far_front_hoof=(60, 69),
+    neck=((55, 47), (66, 30)), skull=(68, 28, 5.4, 4.4),
+    muzzle=((70, 29), (78, 32)), jaw=((70, 34), (77, 36)), mouth=((71, 33), (80, 33), (78, 36)),
+    ear_near=((66, 25), (61, 23)), ear_far=((68, 25), (63, 23.2)),
+    eye="shut", eye_at=(65, 26), teeth=[("upper", (74, 32)), ("lower", (75, 36))], nostril=(78, 29),
+)
+
+POSE_13 = shifted(
+    DEAD,
+    rump=(30, 58), chest=(54, 59), belly=(42, 63, 13, 6.5),
+    neck=(DEAD["neck"][0], (73, 61)), skull=(76, 60.5, 4.4, 3.6),
+    muzzle=((78, 61.5), (86, 63)), jaw=((78, 64.2), (85, 65.2)), mouth=((79, 63), (87, 64), (85, 66)),
+    ear_near=((74, 57.5), (69, 55.5)), ear_far=((76, 57.5), (71, 56)),
+    eye="shut", eye_at=(74, 59), teeth=[("upper", (84, 63))], nostril=(85, 61),
+    near_front=[(56, 63, 2.8), (61, 66, 2.0), (66, 68.5, 1.5)], near_front_hoof=(67, 69),
+    tail=((24, 57), (18, 54), (-1, 0)),
+)
+
+INBETWEENS = (1, 2, 4, 5, 6, 7, 10, 12, 13, 16)
+POSES = {0: IDLE, 1: POSE_1, 2: POSE_2, 3: WALK_CONTACT, 4: POSE_4, 5: POSE_5, 6: POSE_6, 7: POSE_7, 8: TELL, 9: SPIT,
+         10: POSE_10, 11: HURT, 12: POSE_12, 13: POSE_13, 14: DEAD}
 
 
 def render(frame: int) -> list[str]:
     c = Canvas(*CANVAS)
-    if frame == 15:
-        spit(c)
+    if frame in (15, 16):
+        spit(c, frame - 15)
     else:
         llama(c, POSES[frame])
     return c.rows()
@@ -544,16 +687,11 @@ def blank(w: int, h: int) -> list[str]:
     return ["." * w for _ in range(h)]
 
 
-def build_grid(existing: dict | None) -> dict:
+def build_grid() -> dict:
     frames = []
     for i, ticks in enumerate(TICKS):
         ms = round((ticks if ticks else 6) * 1000 / TICK_HZ)
-        if i in KEY_FRAMES:
-            body = render(i)
-        elif existing and i < len(existing["frames"]):
-            body = existing["frames"][i]["cels"]["body"]
-        else:
-            body = blank(*CANVAS)
+        body = render(i)
         frames.append({"duration_ms": ms, "cels": {"body": body}})
     return {
         "format": "pixel-grid-v1", "canvas": list(CANVAS), "pivot": list(PIVOT),
@@ -571,6 +709,62 @@ def build_size_study() -> dict:
     return {"format": "pixel-grid-v1", "canvas": [96, 80], "pivot": [44, 79], "palette": palette_json(),
             "layers": ["body"], "frames": frames,
             "tags": [{"name": f"h{h}", "from": i, "to": i, "direction": "forward"} for i, h in enumerate((56, 64, 72))]}
+
+
+MANIFEST = ROOT / "assets/manifests/llama-01.json"
+GROUNDED_TAGS = ["idle", "walk", "attack_tell", "attack_swing", "hurt", "down"]
+PLAYBACK = {"idle": "loop", "walk": "loop", "attack_tell": "once", "attack_swing": "once", "hurt": "once",
+            "down": "hold", "spit": "loop"}
+
+
+def build_manifest() -> dict:
+    tag_of = {n: name for name, a, b in TAGS for n in range(a, b + 1)}
+    frames = [{"index": n, "tag": tag_of[n], "ticks": t, "duration_ms": round((t if t else 6) * 1000 / TICK_HZ),
+               "author": "key" if n in KEY_FRAMES else "sonnet"} for n, t in enumerate(TICKS)]
+    return {
+        "schema_version": 1,
+        "id": "llama_bad_llama_h64_candidate_v1",
+        "type": "character_animation",
+        "source_path": "assets/source/characters/llama/llama-01.ase",
+        "grid_source": "assets/source/characters/llama/llama-01.grid.json",
+        "output_atlas": "generated/art/llama-01.png",
+        "output_metadata": "generated/art/llama-01.json",
+        "palette_id": "llama-floor01-v0",
+        "frame_size": list(CANVAS),
+        "pivot": list(PIVOT),
+        "animation_tags": [n for n, _a, _b in TAGS],
+        "required_alpha": True,
+        "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 Bad Llama; runtime role IP-neutral ranged spitter)",
+        "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "provenance": {
+            "origin": ("LLAMA-01 Bad Llama at the decided 64 px height: 7 frozen Opus keys (atlas frames 0, 3, 8, 9, 11, 14, 15, "
+                       "fixture tests/fixtures/llama-01_keys.json) plus 10 in-betweens (1, 2, 4, 5, 6, 7, 10, 12, 13, 16) "
+                       "rasterized by scripts/author_llama01.py from the same parametric rig and literal stamps; layer body"),
+            "generator": ("Design, size decision, palette and keys: Claude Opus. In-betweens, manifest, .ase, validators and "
+                          "evidence: Claude Sonnet. Review: a separate Claude Opus agent (pending). No image-model raster "
+                          "output, no tracing, no resampling"),
+            "generated_art": True,
+            "input_reference_ids": ["assets/concept/floor-01/enemies/bad-llama-c-plus-a-approved.png"],
+        },
+        "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+        "review_status": "prototype_fixture_unapproved",
+        "llama": {
+            "status": "Keys frozen, in-betweens drawn, validators pass; independent Opus review pending; Bevy integration pending; 17 frames, 7 of them Opus keys; not wired into any Bevy binary",
+            "spec": "docs/02-art/llama-01-spec.md",
+            "opaque_height_idle": 64,
+            "tick_hz": TICK_HZ,
+            "hold_preview_ms": 100,
+            "grounded_tags": GROUNDED_TAGS,
+            "airborne_tags": [],
+            "free_tags": ["spit"],
+            "playback": PLAYBACK,
+            "key_frames": list(KEY_FRAMES),
+            "inbetween_frames": list(INBETWEENS),
+            "key_fixture": "tests/fixtures/llama-01_keys.json",
+            "attack_ticks": {"tell": [0, 29], "spit_release": [30, 35], "recover": [36, 49]},
+            "frames": frames,
+        },
+    }
 
 
 def dump(data: dict) -> str:
@@ -625,13 +819,13 @@ def main(argv=None) -> int:
     ap.add_argument("--preview", type=Path)
     a = ap.parse_args(argv)
     if a.mode == "keys":
-        existing = json.loads(GRID.read_text()) if GRID.exists() else None
-        data = build_grid(existing)
-        for f in KEY_FRAMES:
+        data = build_grid()
+        for f in range(len(TICKS)):
             report(data["frames"][f]["cels"]["body"], f"frame {f:2d}")
         if a.preview:
             preview(data, build_size_study(), a.preview)
         target, text = GRID, dump(data)
+        manifest_text = json.dumps(build_manifest(), indent=2) + "\n"
     else:
         data = build_size_study()
         for i, fr in enumerate(data["frames"]):
@@ -640,7 +834,9 @@ def main(argv=None) -> int:
     if a.check:
         if a.mode == "keys":
             old = json.loads(GRID.read_text())
-            bad = [f for f in KEY_FRAMES if old["frames"][f]["cels"] != data["frames"][f]["cels"]]
+            bad = [f for f in range(len(TICKS)) if old["frames"][f]["cels"] != data["frames"][f]["cels"]]
+            if not MANIFEST.is_file() or MANIFEST.read_text() != manifest_text:
+                bad.append("manifest")
         else:
             bad = [] if target.read_text() == text else ["size study"]
         if bad:
@@ -651,6 +847,10 @@ def main(argv=None) -> int:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
     print(f"wrote {target.relative_to(ROOT)}")
+    if a.mode == "keys":
+        MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+        MANIFEST.write_text(manifest_text, encoding="utf-8")
+        print(f"wrote {MANIFEST.relative_to(ROOT)}")
     return 0
 
 

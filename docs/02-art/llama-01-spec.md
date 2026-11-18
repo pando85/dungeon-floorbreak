@@ -1,6 +1,6 @@
 # LLAMA-01: Bad Llama readability set, design spec
 
-**Status:** keys frozen; in-betweens, manifest, `.ase`, evidence and independent review pending. Packet prepared by Claude Sonnet (medium tier). Design and keys: Claude Opus (top tier); execution: Claude Sonnet (pending); review: a separate Claude Opus agent (pending).
+**Status:** keys frozen; in-betweens, manifest, `.ase` and evidence done (Claude Sonnet, see section 13); `validate` passes (13 PASS, 2 not applicable); independent review pending. Packet prepared by Claude Sonnet (medium tier). Design and keys: Claude Opus (top tier); execution: Claude Sonnet; review: a separate Claude Opus agent (pending).
 
 **Decision record:** height 64 px, frame 96 x 72, pivot (44, 71). Proposed and keyed by the design agent (Claude Opus); decided by the independent top-tier review, then the owner at the end (see section 2).
 
@@ -166,14 +166,14 @@ Then: write `assets/manifests/llama-01.json` (frame rows and ticks from the conf
 - V09 frozen keys: frames 0, 3, 8, 9, 11, 14, 15, layer `body`, fixture `tests/fixtures/llama-01_keys.json`.
 - V13 bbox rules: L1 idle 64 px (frame 0 rows 8 to 71) and the standing band (frames 1 to 6 top 7 to 10); L2 the tell is the highest pose (frame 8 top at most 4, frame 7 at most 7); L3 the spit thrust reaches x 88 (frame 9) and the recover keeps x 84 (frame 10); L4 the hurt head is thrown back (frame 11 right edge at most 70); L5 defeat goes low (frames 12, 13, 14 tops at least 18, 44, 50; final width at most 82); L6 the spit glob is compact (at most 18 x 12, left edge at least 76).
 - V14 key-count rules: L2 tell glow (frame 8: Y at least 20, O at least 30; frame 7: R at least 8, Y at most 6); no Y or O outside the attack and spit frames; L3 release flash (frame 9: Y at least 10) and cooling (frame 10: Y at most 4); L0 yellow teeth on every llama frame (T at least 6) and a visible eye on frames 0 to 10 (e at least 2); L4/L5 eye shut in hurt and defeat (e = 0); L6 spit core (Y at least 4) and no fur keys in the glob.
-- Until Sonnet draws frames 1, 2, 4 to 7, 10, 12, 13 and 16, V15 (non-empty) and the rules on those frames fail by design.
+- All 17 frames are drawn and every rule above passes (see section 13).
 
 ## 10. Evidence
 
 ```text
 python3 -m scripts.pixelart validate assets/source/characters/llama/llama-01.pixelart.json --out docs/evidence/llama-01/validate
 python3 -m scripts.pixelart evidence assets/source/characters/llama/llama-01.pixelart.json --out docs/evidence/llama-01/evidence
-python3 -m scripts.pixelart review-pack assets/source/characters/llama/llama-01.pixelart.json --out docs/evidence/llama-01/review
+python3 -m scripts.pixelart review-pack assets/source/characters/llama/llama-01.pixelart.json --out docs/evidence/llama-01/review-pack
 ```
 
 The review pack holds exactly three images (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip including `spit`) and the validator report.
@@ -182,13 +182,35 @@ The review pack holds exactly three images (contact sheet x4, lit scene 640 x 36
 
 | File | Role |
 | --- | --- |
-| `assets/source/characters/llama/llama-01.grid.json` / `.ase` | pixel-grid source and Aseprite master (`.ase` pending) |
+| `assets/source/characters/llama/llama-01.grid.json` / `.ase` | pixel-grid source and Aseprite master (`.ase` built by `scripts/pixel_grid_to_ase.py`) |
 | `assets/source/characters/llama/llama-01_size_study.grid.json` | size study, 56/64/72 px (not production) |
 | `scripts/author_llama01.py` | deterministic authoring record (rig, palette, stamps, key poses) |
-| `assets/manifests/llama-01.json` | manifest (pending, Sonnet) |
+| `assets/manifests/llama-01.json` | manifest with the 60 Hz tick table (written by `scripts/author_llama01.py keys`) |
+| `tests/test_art_llama01.py` | reproducibility, `.ase`, timing and strip tests for rules the toolkit does not cover |
+| `docs/evidence/llama-01/` | evidence, `review-pack/` (3 images and the validator report), `SHA256SUMS`, README |
 | `assets/source/characters/llama/llama-01.pixelart.json` | the asset config |
 | `tests/fixtures/llama-01_keys.json` | frozen keys |
 
 ## 12. Rights and provenance
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Packet: Claude Sonnet. Design, size decision, palette and keys: Claude Opus. Execution: Claude Sonnet (pending). Review: a separate Claude Opus agent (pending). The keys are rasterized from a parametric rig plus literal stamps in `scripts/author_llama01.py`; no tracing of the concept, no image-model raster output, no colour sampled from the concept.
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Packet: Claude Sonnet. Design, size decision, palette and keys: Claude Opus. Execution (10 in-betweens, manifest, `.ase`, validators, evidence): Claude Sonnet. Review: a separate Claude Opus agent (pending). The keys are rasterized from a parametric rig plus literal stamps in `scripts/author_llama01.py`; no tracing of the concept, no image-model raster output, no colour sampled from the concept.
+
+## 13. Execution record (Sonnet)
+
+Executor: Claude Sonnet (medium tier). The ten in-betweens (frames 1, 2, 4, 5, 6, 7, 10, 12, 13, 16) are the pose dicts `POSE_1` to `POSE_13` plus `spit(phase=1)` in `scripts/author_llama01.py`, listed in `INBETWEENS` (never in `KEY_FRAMES` or `rules.frozen_keys`) and rasterized by the same rig as the keys. The seven frozen keys are pixel-identical (V09 passes against `tests/fixtures/llama-01_keys.json`). Every numeric value in section 8 was used as written; no pose had to go back to the design tier.
+
+Results: `python3 -m scripts.pixelart validate` gives 13 PASS, 0 FAIL, 2 SKIPPED (V08 airborne and V10 layers are not configured for a one-layer set without airborne tags). `rules.manifest_tick_rows` is on, so V03 also checks the manifest tick rows. Review pack: `docs/evidence/llama-01/review-pack/` (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip with release, recover and both `spit` frames).
+
+### Executor choices for the reviewer
+
+Where section 8 was silent, the smallest reading was taken; none changes a spec number.
+
+1. **Head shifts carry the mouth.** Frame 2's list shifts the head x -1 but does not name `mouth`, and frame 4 says "head x +1" without a list. In both the mouth triangle moves with the head (otherwise it detaches from the muzzle). In frames 1, 2, 4 and 6 the neck start stays on the shoulder; only the neck end moves.
+2. **Frame 1 legs.** Only the first point of each leg moves (as written), so hooves and lower legs stay planted and the upper legs stretch by 1 px.
+3. **Frame 7 mean.** "Body, leg and hoof value" was read to include `barrel_r`, the neck start and `tail`; all are averaged and rounded to 0.5, hooves included. The throat sac is removed and the neck carries glow 0.4, which renders as a red stripe with no core (the only Y is the eye glint of the `tell` stamp).
+4. **Frame 6** takes its head from frame 4 (x +1) and the unlisted legs (far front, near hind) from `IDLE`, as written.
+5. **Frame 10** keeps everything from `SPIT` that the list does not name (neck start, body, tail, `neck_r`); the mouth is dark and the two flash stamps are removed. The frame 9 to 10 change is large (head 1 px back and up, jaw 1.5 px up, no flash); this is the spec's own recover pose.
+6. **Frames 12 and 13 keep unlisted values** (frame 12: rump, haunch, hind legs and tail from `IDLE`; frame 13: everything unlisted from `DEAD`). In frame 12 only the chest, fore legs and neck go down, so it reads as a fore-knee buckle with the hindquarters still standing. If the art director wants the rump to sag, that is a design change for the top tier.
+7. **Frame 16** keeps the core radii (3.4 x 2.4) and moves the core centre to (89.7, 26.5); the glob ellipse centre stays (89.5, 26.5). Frame 15 goes through the same function with `phase` 0 and is unchanged.
+8. **Manifest.** `llama_bad_llama_h64_candidate_v1`; `input_reference_ids` names the approved concept PNG by path (the enemy concept manifest has no id field). `attack_ticks` records tell 0 to 29, spit release and spawn 30 to 35 (frame 9), recover 36 to 49. The `.ase` is built by `scripts/pixel_grid_to_ase.py` and was not opened in an Aseprite GUI.
+9. **Evidence layout.** `evidence` writes into `docs/evidence/llama-01/` and the review pack into `review-pack/`; `SHA256SUMS` covers every file except `packet/` and itself.
