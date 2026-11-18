@@ -86,7 +86,7 @@ Do not make enemies distinguishable only by HP. Each archetype needs a discernib
 
 Do **not** design a full fighting system before testing one reliable contact chain. Reuse the existing separate WORK-021 greybox and only integrate approved production-scale graphics when source, camera and animation contracts are ready.
 
-**Fixture 1 — single basic hit:**
+**Fixture 1 — single basic hit** *(first implementation in review: CP-01 PR, placeholder visuals; starting values in `src/feel.rs`, see [the scene doc](../03-tech/floor01-scene.md#combat-fixtures-combat-int-01-cp-01); the human verdict is still open)*:
 - One Carl, one normal two-hit goblin placeholder, flat safe ground.
 - Tune responsive attack action, readable tell, hit reception, small knockback, death feedback, restart.
 - Compare current greybox baseline with updated hit feel; present real Bevy recording, controller evidence and short written critique.

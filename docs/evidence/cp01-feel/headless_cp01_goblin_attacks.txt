@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=127 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=153 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=153 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=222 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=248 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=248 kind=hero_hurt source=0 health_left=2
+COMBAT_STATE fixture=cp01_goblin_attacks seed=0xc010003 tick=300 elapsed=300 hero_hp=2 deaths=0 enemies=e0=429.801/2 hash=a8aa111180066441

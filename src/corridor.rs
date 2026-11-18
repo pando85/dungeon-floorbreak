@@ -404,6 +404,15 @@ impl SceneSim {
         self.camera = ScrollCamera::new(self.camera_cfg, self.world.hero.x, self.world.hero.facing);
     }
 
+    /// A frozen tick (combat hit-stop): the tick counter and the input edge
+    /// detector advance, nothing else moves. Hero, Donut's trail and the camera
+    /// stand still. Only the combat fixtures call this; the story route never
+    /// does, so its hashes are untouched.
+    pub fn hold_tick(&mut self, raw: RawInput) {
+        self.input.advance(raw);
+        self.world.tick += 1;
+    }
+
     pub fn step(&mut self, raw: RawInput) {
         self.input.advance(raw);
         self.world.step(&self.input);

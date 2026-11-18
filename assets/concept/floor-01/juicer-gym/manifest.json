@@ -1,0 +1,17 @@
+{
+  "schema": "the-crawl-concept-image-manifest-v1",
+  "project": "THE CRAWL — NO PANTS. NO MERCY.",
+  "status": "owner-selected standalone gym panorama art-direction reference; encounter mechanics are proposals",
+  "source": "Original OpenAI-generated PNG in 2026-11-17 gym concept follow-up; exact original bytes uploaded and verified on PR #55.",
+  "assets": [
+    {
+      "path": "assets/concept/floor-01/juicer-gym/floor01-juicer-gym-standalone-panorama-approved.png",
+      "sha256": "f8612bbb5fca7ffd8c01ce8748872fd363e7be4f40eeb45066ce6c0018786594",
+      "bytes": 3077762,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "a_richly_detailed_pixel_art_side_scrolling_game_en.png",
+      "review_status": "owner-selected gym-only panorama; visual-direction reference, not executable geometry"
+    }
+  ]
+}
