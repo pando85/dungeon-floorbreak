@@ -1,0 +1,27 @@
+{
+  "asset_id": "scat-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "f998758c644871d2581d9146ccf967dfddb0797ff621a3f8e040e895dc847e90"
+    },
+    "10": {
+      "sha256": "e0fb7a39b083d7e86a4474e4bf3308e9cf735d501fd955f8d689feb67c2bbc5c"
+    },
+    "12": {
+      "sha256": "bd1b62d0a12b209f761b98bcb89a0c688eb882182ccae9ffd09abe24347bce5d"
+    },
+    "15": {
+      "sha256": "ec41bae0e4a84f55115c3f50d570ed7a77304f5ce22c1a0a802de57ff03aee4a"
+    },
+    "3": {
+      "sha256": "f6abc87787a38a1d415d43ebb174681bc5df985dd34b20417fde25c6c5ca3e3e"
+    },
+    "8": {
+      "sha256": "af01f944a20b9dd86ec4bbff88751fdcdc82a000a8b3122ee2ca71fd3d418fcf"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
