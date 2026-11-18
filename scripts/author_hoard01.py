@@ -39,11 +39,11 @@ PALETTE = [
     ("s", "skin_shade", "#94523fff", False),
     ("m", "skin_mid", "#c67c5aff", False),
     ("h", "skin_light", "#e6a982ff", False),
-    ("x", "scar_dark", "#6e2232ff", False),
-    ("y", "scar_light", "#a8464aff", False),
+    ("x", "scar_dark", "#5e3442ff", False),
+    ("y", "scar_light", "#8f5a5eff", False),
     ("a", "hair_deep", "#241e2cff", False),
     ("b", "hair_mid", "#3c3550ff", False),
-    ("c", "hair_sheen", "#635b78ff", False),
+    ("c", "hair_rim", "#5a6078ff", False),
     ("t", "shirt_shade", "#6e604eff", False),
     ("u", "shirt_mid", "#a39276ff", False),
     ("v", "shirt_light", "#d4c4a2ff", False),
@@ -158,7 +158,7 @@ class Canvas:
             ramp = RAMPS[fam]
             if fam == "hair":
                 k = "a"
-                if v > 0.62:
+                if v > 0.8:
                     k = "b"
                 if hair_sheen and hair_sheen(*p) and v > 0.55:
                     k = "c" if v > 0.78 else "b"
@@ -188,9 +188,15 @@ class Canvas:
             self.key[(x, y)] = k
 
     def finish(self) -> list[str]:
-        for (x, y) in list(self.key):
-            if any(q not in self.owner for q in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))):
-                self.key[(x, y)] = "K"
+        outer = {(x, y) for (x, y) in self.key
+                 if any(q not in self.owner for q in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))}
+        for p in outer:
+            self.key[p] = "K"
+        # 1 px blue-grey rim on the top and back edges of the hair: reads against the dark navy arch
+        for (x, y), fam in self.family.items():
+            if fam == "hair" and (x, y) not in outer and self.key[(x, y)] != "K" and \
+                    ((x, y - 1) in outer or (x - 1, y) in outer):
+                self.key[(x, y)] = "c"
         rows = [["."] * self.w for _ in range(self.h)]
         for (x, y), k in self.key.items():
             rows[y][x] = k
@@ -229,27 +235,38 @@ def hem_y(x: int) -> int:
     return y
 
 
+NOTCH = (0, 2, 4, 1, 0, 3, 5, 2, 0, 1, 4, 2, 0, 3)   # ragged top of the hair: no helmet edge
+
+
+def lock(*pts) -> dict:
+    """A tapered hair lock through (x, y, r) points."""
+    return union(*(capsule(*a, *b) for a, b in zip(pts, pts[1:])))
+
+
 def idle0() -> list[str]:
     c = Canvas()
-    # far side (her left arm and leg, screen right, behind the body)
-    c.part("far_arm", "skin", union(capsule(90, 46, 9, 102, 68, 8), capsule(102, 68, 8, 106, 86, 5.5),
+    # far side (her left arm and leg, screen right, behind the body); the far shoulder sits 2 px in
+    c.part("far_arm", "skin", union(capsule(88, 46, 9, 101, 68, 8), capsule(101, 68, 8, 106, 86, 5.5),
                                     ellipse(108, 91, 5, 5),
                                     capsule(104, 94, 1.7, 102, 100, 1.4), capsule(107, 95, 1.7, 107, 102, 1.4),
                                     capsule(110, 95, 1.7, 112, 101, 1.4), capsule(113, 92, 1.7, 116, 97, 1.4),
                                     capsule(104, 88, 1.8, 101, 93, 1.5)))
-    c.part("far_sleeve", "shirt", polygon([(84, 38), (98, 44), (101, 56), (97, 58), (94, 55), (90, 59), (84, 52)],
-                                          (90, 46), (10, 12)))
-    c.part("far_leg", "pants", union(capsule(82, 100, 13, 96, 111, 10), capsule(96, 111, 9.5, 100, 117, 8.5)))
+    c.part("far_sleeve", "shirt", polygon([(82, 38), (96, 44), (99, 56), (95, 58), (92, 55), (88, 59), (82, 52)],
+                                          (88, 46), (10, 12)))
+    c.part("far_leg", "pants", union(capsule(82, 100, 13, 96, 111, 10), capsule(96, 111, 9.5, 100, 117, 8.5),
+                                     ellipse(100, 116, 10.5, 3)))
     c.part("far_foot", "skin", polygon([(92, 128), (92, 121), (98, 118), (108, 119), (115, 123), (117, 128)],
                                        (102, 121), (13, 8)))
     c.part("hips", "pants", ellipse(68, 100, 30, 9))
-    c.part("near_leg", "pants", union(capsule(54, 100, 14, 44, 112, 11), capsule(44, 112, 10, 40, 117, 9)))
+    c.part("near_leg", "pants", union(capsule(54, 100, 14, 44, 112, 11), capsule(44, 112, 10, 40, 117, 9),
+                                      ellipse(40, 116, 11.5, 3)))
     c.part("near_foot", "skin", polygon([(28, 128), (28, 122), (34, 119), (46, 118), (52, 121), (54, 128)],
                                         (40, 121), (14, 8)))
-    # torso: upper-back hump, chest, belly; one shirt
+    # torso: upper-back hump, chest, belly; one plain shirt
     torso = union(ellipse(56, 46, 17, 13), ellipse(72, 52, 22, 16), ellipse(72, 77, 30, 20), ellipse(68, 91, 29, 7))
     c.part("torso", "shirt", torso, clip=lambda x, y: y <= hem_y(x))
-    c.part("neckline", "skin", ellipse(81, 43, 6, 3))
+    c.part("neckline", "skin", polygon([(80, 42), (89, 42), (88, 46), (86, 48), (85, 46), (83, 48), (81, 46)],
+                                       (85, 43), (6, 4)))
     # long hair down the back, over the hump
     c.part("hair_back", "hair", union(
         polygon([(68, 18), (58, 18), (50, 23), (44, 30), (40, 40), (37, 52), (36, 62), (39, 70), (44, 66),
@@ -264,39 +281,50 @@ def idle0() -> list[str]:
                                      capsule(35, 91, 1.9, 39, 96, 1.6)))
     c.part("near_sleeve", "shirt", polygon([(40, 34), (58, 36), (60, 50), (52, 60), (47, 57), (42, 61), (36, 55),
                                             (35, 44)], (50, 44), (14, 14)))
-    # head, sunk forward between the shoulders
-    c.part("head", "skin", union(ellipse(81, 30.5, 9.5, 10.5), ellipse(84, 39, 6.5, 3.5),
-                                 {(89, 30): (0.9, -0.2), (89, 31): (0.9, 0.0), (90, 31): (1.0, 0.0),
-                                  (89, 32): (0.8, 0.3), (90, 32): (0.9, 0.3)}))
-    cap = ellipse(77, 27, 12, 10.5)
+    # front locks over the far shoulder: they start behind the head and frame the far side of the face
+    c.part("locks_far", "hair", union(lock((89, 34, 2.2), (91, 48, 2.0), (90, 62, 1.0)),
+                                      lock((93, 24, 2.0), (96, 42, 2.2), (95, 60, 1.0)),
+                                      lock((96, 32, 1.6), (98, 46, 1.6), (97, 56, 0.8))))
+    # head: 24 x 23, turned about 25 degrees toward the camera, chin below the hump top
+    c.part("head", "skin", union(ellipse(81, 29, 11.75, 11.5), ellipse(84, 39, 7, 3)))
+    cap = ellipse(79, 27.5, 13.5, 11.5)
     c.part("hair_cap", "hair", union(
-        {p: n for p, n in cap.items() if p[0] < 76 - max(0, p[1] - 33) or p[1] < 24 - max(0, p[0] - 80) // 2},
-        {p: n for p, n in ellipse(81, 30.5, 10.5, 11.5).items() if p[1] <= 24 - (p[0] >= 88)},
-        line(70, 20, 66, 16), line(76, 18, 79, 16), line(84, 21, 88, 28), line(85, 22, 88, 26)))
-    # front locks: over the near shoulder and down the chest behind the chin
-    c.part("lock_near", "hair", union(polygon([(66, 30), (73, 34), (72, 44), (70, 52), (68, 57), (66, 50), (64, 40)],
-                                              (68, 40), (6, 16)), line(69, 52, 71, 60)))
-    c.part("lock_far", "hair", polygon([(86, 38), (91, 43), (93, 54), (90, 62), (87, 52), (85, 44)],
-                                       (89, 48), (5, 12)))
+        {p: n for p, n in cap.items()
+         if (p[0] < 74 - max(0, p[1] - 36) or p[1] <= 23) and p[1] >= 16 + (NOTCH[p[0] % 14] if p[1] <= 22 else 0)},
+        line(70, 20, 66, 16), line(76, 18, 79, 16), line(86, 19, 88, 16),
+        line(74, 24, 76, 38), line(77, 23, 78, 26)))
+    # back locks: ragged, 3-5 px wide, over the near shoulder and down the back to y 78-82
+    c.part("locks_back", "hair", polygon(
+        [(50, 34), (64, 34), (72, 40), (73, 52), (71, 64), (69, 72), (67, 80), (65, 70), (63, 74), (61, 79),
+         (59, 68), (56, 73), (54, 80), (52, 66), (49, 76), (48, 81), (47, 64), (47, 50)], (58, 44), (14, 22)))
 
-    c.shade(hair_sheen=lambda x, y: (x * 2 + y // 3) % 7 == 0)
+    c.shade(hair_sheen=lambda x, y: (x * 2 + y // 3) % 9 == 0)
 
     # --- details (explicit pixels after shading)
-    # burned near cheek, eye ring and temple: mottled scar tissue, no open wound
-    for (x, y) in ellipse(78.5, 30, 4, 6.5):
-        if (x, y) in c.key and c.key[(x, y)] != "K" and c.family[(x, y)] == "skin":
-            c.key[(x, y)] = "y" if (x * 73 + y * 151 + (x * y) % 7) % 11 < 5 else "x"
-    # eyes: wide and frightened; the burned near eye keeps its white, no brow above it
+    # burn: near half of the face only, dark plum scar tissue with raised rose-brown clusters, no open wound
+    for (x, y) in ellipse(78, 31, 3.6, 5.6):
+        if c.family.get((x, y)) == "skin" and c.key[(x, y)] != "K":
+            c.key[(x, y)] = "x"
+    for cx, cy in ((77, 26), (77, 30), (79, 32), (77, 34), (80, 35)):
+        for x, y in ((cx, cy), (cx + 1, cy), (cx, cy + 1)):
+            if c.key.get((x, y)) == "x":
+                c.key[(x, y)] = "y"
+    # eyes: two separate whites 3 px apart, pupils forward; no brow above the burned eye
     for x, y, k in ((79, 29, "w"), (80, 29, "w"), (81, 29, "K"), (79, 28, "K"), (80, 28, "K"), (81, 28, "K"),
-                    (85, 29, "w"), (86, 29, "K"), (85, 28, "K"), (86, 28, "K"),
-                    (84, 25, "K"), (85, 25, "K"), (86, 26, "K")):
+                    (84, 29, "w"), (85, 29, "w"), (86, 29, "K"), (84, 28, "K"), (85, 28, "K"), (86, 28, "K"),
+                    (84, 26, "K"), (85, 25, "K"), (86, 25, "K"), (87, 26, "K")):
         c.put(x, y, k)
-    # nose underside and slack open mouth
-    for x, y, k in ((88, 33, "s"), (89, 33, "s"), (90, 33, "K"),
-                    (84, 36, "K"), (85, 36, "K"), (86, 36, "K"), (87, 36, "K"),
-                    (84, 37, "K"), (85, 37, "d"), (86, 37, "d"), (87, 37, "K"), (85, 38, "K"), (86, 38, "K"),
-                    (80, 40, "s"), (81, 41, "s"), (82, 41, "s")):
+    # nose (frontal: shadow only) and a 3 x 2 open mouth
+    for x, y, k in ((87, 30, "h"), (87, 31, "h"), (87, 33, "s"), (88, 33, "s"), (86, 33, "s"),
+                    (84, 36, "K"), (85, 36, "K"), (86, 36, "K"), (84, 37, "d"), (85, 37, "d"), (86, 37, "d"),
+                    (84, 38, "s"), (85, 38, "s"), (86, 38, "s")):
         c.put(x, y, k)
+    # two 1 px shade curves under the chest: a heavy woman's body, not a sexualised one
+    for x0, x1, xc, yb in ((68, 79, 73.5, 56), (82, 91, 86.5, 55)):
+        for x in range(x0, x1 + 1):
+            y = yb - round(((x - xc) / ((x1 - x0) / 2)) ** 2 * 3)
+            if c.key.get((x, y)) in ("u", "v"):
+                c.key[(x, y)] = "t"
     # grime stains on the plain shirt (no print, no logo)
     for sx, sy, sw, sh in ((60, 70, 3, 2), (76, 63, 2, 3), (90, 74, 3, 2), (64, 84, 4, 2), (54, 60, 2, 2),
                            (95, 58, 2, 2), (72, 90, 2, 2)):
@@ -304,7 +332,7 @@ def idle0() -> list[str]:
             for x in range(sx, sx + sw):
                 if c.key.get((x, y)) in ("t", "u", "v"):
                     c.key[(x, y)] = "g"
-    # belly tear: a hole in the shirt showing skin
+    # side tear in the shirt showing skin
     tear = polygon([(88, 80), (95, 77), (97, 80), (93, 84), (89, 85)], (92, 81), (5, 4))
     for (x, y) in tear:
         if c.family.get((x, y)) == "shirt":
@@ -312,11 +340,6 @@ def idle0() -> list[str]:
     for (x, y) in polygon([(86, 80), (95, 75), (98, 80), (94, 86), (88, 86)], (92, 81), (6, 5)):
         if c.family.get((x, y)) == "shirt" and (x, y) not in tear:
             c.key[(x, y)] = "K"
-    # soft fold under the chest: a heavy body, not a sexualised one
-    for x in range(66, 92):
-        y = 61 + round(((x - 79) / 13) ** 2 * 3)
-        if c.key.get((x, y)) in ("u", "v"):
-            c.key[(x, y)] = "t"
     # filth drips from the hem onto the pants
     for x, y0, n in ((50, 97, 4), (74, 98, 4), (93, 96, 3), (60, 99, 3)):
         for y in range(y0, y0 + n):
@@ -326,16 +349,20 @@ def idle0() -> list[str]:
     for (x, y) in ellipse(43, 111, 3.5, 2.6):
         if c.family.get((x, y)) == "pants":
             c.key[(x, y)] = "m" if y < 111 else "s"
-    # single faded side stripe down the near leg (plain sportswear piping, not a brand mark)
-    for y in range(96, 117):
-        xs = [x for x in range(0, 70) if c.owner.get((x, y)) is not None and c.parts[c.owner[(x, y)]] == "near_leg"]
-        if xs and not (108 <= y <= 113):
-            c.put(min(xs) + 3, y, "u")
-    # ankle cuffs bunched over the feet
-    for x in range(33, 48):
-        c.put(x, 117, "K")
-    for x in range(93, 108):
-        c.put(x, 117, "K")
+    # faded sweatpants side stripe, hip to ankle (2 px on the thigh, 1 px below the knee)
+    for y in range(93, 116):
+        xs = [x for x in range(0, 66) if c.family.get((x, y)) == "pants" and c.key.get((x, y)) != "K"]
+        if xs:
+            for dx in ((2, 3) if y < 106 else (2,)):
+                if c.key.get((min(xs) + dx, y)) in ("p", "q", "r"):
+                    c.key[(min(xs) + dx, y)] = "u"
+    # ankle cuffs gathered over the feet: a crease and the cuff edge
+    for x0, x1 in ((31, 49), (92, 109)):
+        for x in range(x0, x1):
+            c.put(x, 118, "K")
+        for x in range(x0 + 3, x1 - 3, 3):
+            c.put(x, 115, "p")
+            c.put(x + 1, 115, "p")
     # toes
     for x in (47, 50, 52):
         c.put(x, 125, "K")
@@ -343,8 +370,8 @@ def idle0() -> list[str]:
     for x in (109, 112, 114):
         c.put(x, 125, "K")
         c.put(x, 126, "K")
-    # a scrap of tin foil snagged in her hair (the hoard clings to her)
-    for x, y in ((58, 28), (59, 28), (59, 29), (60, 29)):
+    # a scrap of tin foil snagged in the back hair (the hoard clings to her)
+    for x, y in ((57, 27), (58, 27), (58, 28), (59, 28), (59, 29)):
         c.put(x, y, "n")
     return c.finish()
 

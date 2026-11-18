@@ -33,7 +33,9 @@
     "key_counts": [
       {"id": "H0-eye-whites-visible", "frames": [0], "key": "w", "min": 3},
       {"id": "H0-face-scar-visible", "frames": [0], "key": "x", "min": 12},
-      {"id": "H0-long-dark-hair-mass", "frames": [0], "key": "a", "min": 100},
+      {"id": "H0-burn-limited-to-near-half", "frames": [0], "key": "x", "max": 60},
+      {"id": "H0-burn-raised-clusters", "frames": [0], "key": "y", "min": 8},
+      {"id": "H0-long-dark-hair-mass", "frames": [0], "key": "a", "min": 300},
       {"id": "H0-plain-shirt-dominant", "frames": [0], "key": "u", "min": 600}
     ]
   },

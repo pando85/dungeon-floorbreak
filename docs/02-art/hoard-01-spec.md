@@ -1,6 +1,6 @@
 # HOARD-01: The Hoarder (boss) readability set, design spec
 
-**Status:** phase 1: idle key 0 drawn and frozen; silhouette gate pending. Keys 3, 8, 10, 12, 15 pending the gate. Execution pending. Review pending.
+**Status:** phase 1b: idle key 0 redrawn after the silhouette gate (head, hair and face fix) and re-frozen; re-gate pending. Keys 3, 8, 10, 12, 15 pending the gate. Execution pending. Review pending.
 
 **Decision record:** height 112 px, frame 160 x 128, pivot (70, 127). Proposed by the HOARD-01 designer; decided by the independent silhouette-gate review on key 0 (pending).
 
@@ -142,11 +142,11 @@ The 80 px range is an art-side estimate for the tell trigger (the grab reaches 8
 | `s` | skin_shade | `#94523f` | skin core shadow | `#85402f` |
 | `m` | skin_mid | `#c67c5a` | skin midtone | `#d1744f` |
 | `h` | skin_light | `#e6a982` | skin torch light | `#de926c` |
-| `x` | scar_dark | `#6e2232` | burned half of the face, dark | `#6d161d` (desaturated toward plum: scar, not blood) |
-| `y` | scar_light | `#a8464a` | burned half of the face, raised tissue | `#b14231` |
+| `x` | scar_dark | `#5e3442` | burned near half of the face, dark plum | `#6d161d` (pushed to plum: scar, not blood or a mask) |
+| `y` | scar_light | `#8f5a5e` | raised scar clusters, rose-brown | `#b14231` (desaturated) |
 | `a` | hair_deep | `#241e2c` | hair mass | `#292738` |
 | `b` | hair_mid | `#3c3550` | hair lit side | `#443e52` |
-| `c` | hair_sheen | `#635b78` | wet sheen strands (cool, separates hair from the warm brick) | none |
+| `c` | hair_rim | `#5a6078` | 1 px blue-grey rim on the top and back hair edges, sparse sheen strands (reads against the navy arch) | none |
 | `t` | shirt_shade | `#6e604e` | shirt shadow, chest fold | `#63484b` |
 | `u` | shirt_mid | `#a39276` | shirt midtone (largest mass), pants side stripe | `#87645e` |
 | `v` | shirt_light | `#d4c4a2` | shirt torch light | `#dbae8d` |
@@ -165,7 +165,7 @@ Six keys, one per readability role. Key 0 is drawn (phase 1, silhouette gate); k
 
 | Frame | Tag | Silhouette and pose notes | Readability reason |
 | --- | --- | --- | --- |
-| 0 | `idle` | bbox x 22-117, y 16-127. Stooped three-quarter view facing right; the upper-back hump (y 33) is higher than the sunk head's chin. Head centre (81, 30), hair cap from y 16, long hair down the back to y 77. Near (right) arm hangs back-left, hand at (30, 94), four curled fingers to y 106; far arm hangs forward of the belly, hand at (108, 91). Wide stance: near foot x 28-54, far foot x 92-117. Plain shirt with a ragged hem (y 92-98), a side tear, stains; navy sweatpants with one faded side stripe, a torn near knee; bare feet. Face: burned near half (scar_dark/light), two eye whites, slack open mouth, no brow over the burned eye. | A ruined woman, not a creature: long hair, a human face with fear, everyday clothes. The mass and the open clawed hands carry the threat; the hump-and-sunk-head line keeps the goblin-backpack read away because nothing sits on her back but hair. |
+| 0 | `idle` | bbox x 22-117, y 16-127. Stooped three-quarter view facing right; the upper-back hump (y 33) is higher than the chin (y 42). Head 24 x 23 (centre (81, 29)), face turned about 25 degrees toward the camera. Hair: notched, ragged top (rows 16-22, nothing above row 16) with a 1 px blue-grey rim on the top and back edges; a mass over the near shoulder and back (x 47-73) ending in four ragged locks at y 76-81; three locks in front of the far shoulder (x 88-98) down to y 56-62; two thin strands across the near cheek; a 5 px tin-foil scrap in the back hair. Face: two eye whites 3 px apart, a 3 x 2 open mouth, no brow over the burned eye; the burn covers only the near half (dark plum with five raised rose-brown clusters), leaving about 11 px of unburned skin. Torn neckline 8 px wide; two 1 px shade curves under the chest (y 52-56). Near arm hangs back-left, hand at (30, 94); far shoulder pulled in 2 px, hand at (108, 91). Wide stance: near foot x 28-54, far foot x 92-117. Plain stained shirt with a ragged hem; navy sweatpants with a faded side stripe from hip to ankle and cuffs gathered 2-3 px over bare feet. | A ruined woman, not a creature or a heavy man: long disheveled hair frames the face on both sides and falls past the chest, the face is human and frightened, the clothes are everyday. The mass and the open clawed hands carry the threat; nothing sits on her back but hair. |
 | 3 | `walk` | Contact. Top 18-20, width <= 112. Far foot planted forward (toes to x 124), near foot behind on the toes, torso lurched forward 4 px, head 2 px lower, near arm swinging forward, far arm back, hair swinging back 3 px. | The lurch and the dragged back foot sell weight; the hands stay open so the threat stays readable in motion. |
 | 8 | `attack_tell` | Rear-up hold, the highest pose: top <= 6. Torso straightened and leaning back 4 px, both arms raised over the head with hands open (x 60-100, y 6-30), hair flung back to x 20, mouth wide open with teeth (variant C roar), both eye whites enlarged. Feet planted 4 px wider than idle. | Three independent cues at 1x: the silhouette doubles its vertical extent above the head, the raised hands frame it, and the face changes (white teeth, wide eyes). Held 26 ticks. |
 | 10 | `attack_swing` | Impact. Torso pitched forward about 35 degrees, head forward at x about 112, hair falling forward over it; both hands slammed onto the floor in front (fingers on row 127, x 120-150), grabbing; near leg extended back. min_right 145. | The hands land exactly where the hitbox is; the floor contact makes the danger zone obvious. |
@@ -197,7 +197,9 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/hoarder/ho
 - V07 contact rows: every frame ends on row 127. V08: no airborne tags.
 - V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/hoard-01_keys.json` (phase 1: frame 0; later 0, 3, 8, 10, 12, 15).
 - V13 bbox rules: H1 idle top 16 bottom 127 and width 90 to 100 (in the config now); H2 frame 8 max_top 6 and frame 7 min_top 20; H3 frame 10 min_right 145, frame 9 min_right 125; H4 frame 12 max_right 108; H5 frame 13 min_top 34, frame 14 min_top 70, frame 15 min_top 92 and max_width 140.
-- V14 key counts: H0 eye whites `w` >= 3 in frames 0-11 (in the config for frame 0); H0 burned half `x` >= 12 in every frame where the face is visible; H0 shirt `u` >= 600 in frame 0; H2 frame 8 `w` >= 8 (teeth plus eyes); H4 frame 12 `w` = 0; H5 frames 13-15 `w` = 0; tin `n` <= 6 in every frame (a detail, never a pack).
+- V14 key counts: H0 dark hair `a` >= 300 in frame 0; H0 burn `x` >= 12 and <= 60 (near half only) and raised clusters `y` >= 8 in frame 0; H0 eye whites `w` >= 3 in frames 0-11 (in the config for frame 0); H0 burned half `x` >= 12 in every frame where the face is visible; H0 shirt `u` >= 600 in frame 0; H2 frame 8 `w` >= 8 (teeth plus eyes); H4 frame 12 `w` = 0; H5 frames 13-15 `w` = 0; tin `n` <= 6 in every frame (a detail, never a pack).
+
+Silhouette gate acceptance for key 0 (phase 1b), checked at 1x next to Carl: reads as a woman with long disheveled hair, not a heavy man with a slicked cap; the hair top is ragged and rimmed against the navy arch; hair frames the face on both sides; two separate eye whites and an open mouth; the burn reads as old scar tissue on the near half, not as a mask or blood; the sweatpants read as sweatpants, not jeans; no backpack read; body mass, stance, hands and 112 px scale unchanged from the gate-passed version.
 
 ## 10. Evidence
 
