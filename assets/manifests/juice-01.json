@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "troglodyte_juicer_h100_candidate_v0",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/troglodyte/juicer/juice_01.ase",
+  "grid_source": "assets/source/characters/troglodyte/juicer/juice_01.grid.json",
+  "output_atlas": "generated/art/juice_01.png",
+  "output_metadata": "generated/art/juice_01.json",
+  "palette_id": "trog-family-v0+juicer",
+  "frame_size": [
+    160,
+    136
+  ],
+  "pivot": [
+    72,
+    135
+  ],
+  "animation_tags": [
+    "idle"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored boss animation candidate (fan-concept layer: Floor 1 Gym troglodyte boss; runtime role IP-neutral heavy boss)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "JUICE-01 phase 1: idle key 0 at a 100 px idle height, rasterized from pose rules by scripts/author_juice01.py; layer body only",
+    "generator": "Spec and keys: Claude Opus. Independent review: pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "juicer": {
+    "status": "phase 1: idle key 0 only, awaiting the silhouette gate; not wired into any Bevy binary",
+    "spec": "docs/02-art/juice-01-spec.md",
+    "opaque_height_idle": 100,
+    "tick_hz": 60,
+    "playback": {
+      "idle": "loop"
+    },
+    "key_frames": [
+      0
+    ],
+    "key_fixture": "tests/fixtures/juice-01_keys.json",
+    "frames": [
+      {
+        "index": 0,
+        "tag": "idle",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "key"
+      }
+    ]
+  }
+}

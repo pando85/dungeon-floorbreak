@@ -1,0 +1,12 @@
+{
+  "asset_id": "juice-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "55fa911c49e42ac4bb7c472c27644226ebb8e048a805625b9e5cf4cd96c7c903"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

@@ -1,10 +1,10 @@
 # JUICE-01: The Juicer (boss) readability set, design spec
 
-**Status:** packet ready; design pending. Execution pending. Review pending.
+**Status:** phase 1 designed: spec and idle key 0 drawn and frozen, awaiting the silhouette gate. Keys 3, 8, 10, 12, 15 and execution pending. Review pending.
 
-**Decision record:** height <fill> px, frame <fill> x <fill>, pivot (<fill>, <fill>). Proposed by <fill>; decided by <fill>.
+**Decision record:** height 100 px, frame 160 x 136, pivot (72, 135). Proposed by the JUICE-01 designer within the orchestrator default (96 to 112 px); decided by: orchestrator default, pending owner confirmation.
 
-The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: ...>`; write numbers, not adjectives. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
+The sections follow `docs/02-art/gob-01-goblin-spec.md`. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
 
 ## 1. Canon and tone constraints
 
@@ -14,7 +14,7 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: .
   - The same troglodyte species cues as the family (pale reddish-pink skin, long dark hair, pointed ears, wide fanged mouth with drool, ragged loincloth, barefoot), grotesquely enlarged.
   - Immense muscle mass swollen with red boils and swollen purple veins, chain cuffs or shackles at the wrists and a chain at the waist, a roaring open mouth.
   - Boss silhouette: a hunched, wide block with very large fists that reads as heavy at 1x.
-- Design reading of the tone: <fill: how the Juicer reads as a grotesque, pitiful and absurd 1990s-gym bruiser who is still dangerous, never heroic>.
+- Design reading of the tone: a swollen gym bruiser gone wrong, the late-80s action-movie heavy who has been in the weight room too long: the muscle is lumpy and diseased (boils, veins), not sculpted; the head is small and sunk between the shoulders, the mouth hangs open and drools, the wrists still carry the iron he was chained with. He is pitiful and absurd up close and dangerous at range: the two huge fists and the slow, readable overhead pound are the threat. No heroic chest-out stance, no clean definition, no glamour lighting, no steroid or "juice" effect.
 
 ### Where the canon, size and mechanics are defined (checked 2026-11-18)
 
@@ -48,7 +48,7 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: .
 
 ### Dependencies
 
-- The family base design (TROG-01, PR #73: proposed base the Pygmy) fixes the shared skin, hair, ear and fang construction; the Juicer should derive from it rather than be drawn first. Whether TROG-01 lands first is an orchestration decision.
+- The family base design (TROG-01, PR #73, merged into this branch for phase 1) fixes the shared skin, hair, ear and fang construction; the Juicer should derive from it rather than be drawn first. Whether TROG-01 lands first is an orchestration decision.
 
 ### VFX and props to treat as separate work orders
 
@@ -82,161 +82,193 @@ Reasoning: a boss at the largest size in the family with several overlapping par
 
 ## 2. Size decision
 
-Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png`).
+Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png`); the troglodyte ladder (`trog-01-spec.md` 2b) is Pygmy 40, Basher and Virtuoso about 66, Juicer 84 or more and at least 20 % taller than the Basher (79 px or more). The idle opaque height is the top of the trapezius hump to the soles (the hunched head sits below it).
+
+**Scale mismatch, recorded:** the book describes an immensely muscular troglodyte only a little taller than Carl (about 60 to 65 px); the approved sheet draws him about 140 px at Carl's 52 px (2.7x). The concept's proportions are a presentation exaggeration; the runtime height below sits between the two.
 
 | Option | Idle opaque height | Ratio to Carl | Implied real height | Why / why not |
 | --- | --- | --- | --- | --- |
-| A | 72 px | <fill> | <fill> | <fill> |
-| B | 96 px | <fill> | <fill> | <fill> |
-| C | 120 px | <fill> | <fill> | <fill> |
+| A | 72 px | 1.38 | about 8.3 ft hunched | Nearest the book, but below the family rule (79 px or more over a 66 px Basher): the boss would barely out-size his own minions. Rejected. |
+| B | 96 px | 1.85 | about 11 ft hunched | Inside the orchestrator range; clearly the biggest troglodyte (1.45x the Basher); 27 % of the 360 px screen. |
+| C | 120 px | 2.31 | about 13.8 ft hunched | Closest to the sheet, but above the Hoarder boss (112 px), a third of the screen before the tell raises the fists another 30 px, and frames of about 176 x 160. |
 
-Decision: <fill: height and the reason, one paragraph; the proposer and the decider are different agents>.
+Decision: **100 px idle opaque height** (frame 160 x 136, pivot (72, 135)). Orchestrator default, pending owner confirmation. Reasoning: 100 px is 1.92x Carl and 1.52x the Basher, so the family ladder 40 / 66 / 100 has an even jump at each step and the boss out-masses the brutes by 34 px; it follows the approved concept's "several times bigger" read without the sheet's 2.7x; the tell's raised fists reach 128 px, still inside the 360 px screen with headroom for the gym ceiling; and it stays 12 px under the Hoarder's 112. Proposed by the JUICE-01 designer from the orchestrator's 96 to 112 px recommendation; decided by the owner (pending).
 
 ## 3. Frame, pivot, boxes and atlas
 
-- Frame <fill> x <fill>, pivot (<fill>, <fill>), contact row <fill> (the lowest opaque row of every grounded frame).
-- Grounded tags: <fill>. Airborne tags (no pixel on the contact row): <fill or none>.
-- Standing box <fill> x <fill>; hurtbox <fill>; attack hitbox <fill> on the impact frame.
+- Frame **160 x 136**, pivot **(72, 135)**, contact row **135** (the lowest opaque row of every grounded frame). Idle key 0 spans x -31 to +56 from the pivot and rows 36 to 135. Room: 72 px behind the pivot for the backward fall, 87 px ahead for the pound reach; rows 0 to 35 hold the raised fists of the tell.
+- Grounded tags: `idle`, `walk`, `attack_tell`, `attack_pound`, `attack_recover`, `hurt`, `down`. Airborne tags: none (the pound is a standing smash; the lunge study is reserved for the boss-arc charge, a separate boss-state work order).
+- Boxes are placeholders in px from the pivot (x forward, y up), to be re-measured on the drawn keys; not approved mechanics:
+
+| Box | x | y | Frames |
+| --- | --- | --- | --- |
+| Standing (opaque extent, key 0) | -31 to 56 | 0 to 99 | idle |
+| Hurtbox idle/walk (trunk, head, arms; not the hair ropes) | -24 to 44 | 0 to 96 | 0 to 6 |
+| Hurtbox tell (arms up) | -24 to 36 | 0 to 120 | 7, 8 |
+| Hurtbox pound and recover (folded low) | -20 to 60 | 0 to 70 | 9 to 11 |
+| Attack hitbox (impact frame only) | 30 to 72 | 0 to 26 | 10 |
+| Hurtbox hurt | -36 to 30 | 0 to 100 | 12 |
+| Hurtbox down | -70 to 30 | 0 to 34 | 13 to 15 |
+
 - Authored facing right; the runtime mirrors around the pivot column.
-- One atlas, frames 0 to <fill>, layers: <fill: for example body, weapon>.
+- One atlas `juice_01`, frames 0 to 15, one layer: `body` (the iron chains are part of the body layer, like the family's rag).
 
 ## 4. Readability-set animation list
 
-Readability set: idle, move, tell, attack, hurt, defeat (about 12 to 20 frames until the asset has a gameplay work order). Tick windows are at 60 Hz.
+Readability set: idle, move, tell, attack, hurt, defeat; 16 frames, 6 keys. Tick windows are at 60 Hz. A boss is slower and heavier than the family: longer holds, a 36-tick tell and a 24-tick recover (the punish window).
 
-| Role | Tag | Frames | Playback | Tick-window proposal | Reference |
-| --- | --- | --- | --- | --- | --- |
-| idle | `idle` | 2-4 | loop | 8-12 ticks per frame, a 32-40 tick breathing cycle | GOB-01: 12 + 8 + 12 + 8 |
-| move | `walk` | 4-6 | loop | 5 ticks per frame, speed from the gameplay spec | GOB-01: 6 x 5 = 30 ticks |
-| tell | `attack_tell` | 1-2 | once | at least 18 ticks of readable hold, about 24 total | GOB-01: 6 + 18 |
-| attack | `attack_swing` | 2-3 | once | smear 2, impact 3-4 (shown on exactly the hitbox-active ticks) | GOB-01: 2 + 4, then recover 20 |
-| hurt | `hurt` | 1 | once | 8-12 ticks | GOB-01: 4 + 8 |
-| defeat | `down` | 2-3 | hold | floor impact 4, settle 8, then a state-driven hold | GOB-01: 4 + 8 + hold |
+| Role | Tag | Frames | Playback | Ticks |
+| --- | --- | --- | --- | --- |
+| idle | `idle` | 0, 1, 2 | loop | 14 + 10 + 14 = 38 (slow heavy breathing) |
+| move | `walk` | 3, 4, 5, 6 | loop | 4 x 8 = 32 (a heavy stomp, half the Pygmy's cadence) |
+| tell | `attack_tell` | 7, 8 | once | 8 + 28 = 36 |
+| attack | `attack_pound` | 9, 10 | once | smear 3, impact 6 (the hitbox is active on exactly the impact ticks) |
+| attack recover | `attack_recover` | 11 | once | 24 |
+| hurt | `hurt` | 12 | once | 14 |
+| defeat | `down` | 13, 14, 15 | hold | 6 + 10 + hold |
 
-Frame table (`frame_pivot_template.json` carries the same rows):
+Attack timeline (ticks from the tell start): tell 0 to 35, smear 36 to 38, impact and hitbox 39 to 44, recover 45 to 68.
+
+Frame table:
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | <fill: pose> | 12 | <fill: key or Sonnet> |
-| 1 | `idle` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 2 | `idle` | <fill: pose> | 12 | <fill: key or Sonnet> |
-| 3 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 4 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 5 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 6 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 7 | `attack_tell` | <fill: pose> | 6 | <fill: key or Sonnet> |
-| 8 | `attack_tell` | <fill: pose> | 18 | <fill: key or Sonnet> |
-| 9 | `attack_swing` | <fill: pose> | 2 | <fill: key or Sonnet> |
-| 10 | `attack_swing` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 11 | `hurt` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 12 | `hurt` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 13 | `down` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 14 | `down` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 15 | `down` | <fill: pose> | hold | <fill: key or Sonnet> |
+| 0 | `idle` | Settled hunch, fists hanging at knee height ahead of the feet, growl (drawn, frozen) | 14 | key |
+| 1 | `idle` | Breath in: trunk, head and hump 1 px up, fists 1 px back, ropes 1 px down | 10 | in-between |
+| 2 | `idle` | Breath out: as 0 with the gut 1 px lower and the fists swung 1 px forward | 14 | in-between |
+| 3 | `walk` | Contact: near foot planted forward, far foot back, near fist swung back, far fist forward, trunk dropped 2 px | 8 | key |
+| 4 | `walk` | Passing: feet together under the hips, trunk up 2 px, fists level | 8 | in-between |
+| 5 | `walk` | Contact B: mirror of 3 (far foot forward, near fist forward) | 8 | in-between |
+| 6 | `walk` | Passing B: as 4 with the fists crossing the other way | 8 | in-between |
+| 7 | `attack_tell` | Rise: torso straightening, both fists pulled to the chest, mouth opening | 8 | in-between |
+| 8 | `attack_tell` | Roar hold: both fists raised overhead, chest up, head back, 4-row roar | 28 | key |
+| 9 | `attack_pound` | Smear: fists half-way down in front of the face, body folding | 3 | in-between |
+| 10 | `attack_pound` | Impact: both fists on the floor ahead of the feet, trunk folded flat, head low | 6 | key |
+| 11 | `attack_recover` | Spent: fists still on the floor, rump up, head lifted, panting mouth | 24 | in-between |
+| 12 | `hurt` | Recoil back, head above the hump, eye slit | 14 | key |
+| 13 | `down` | Fall beat: knees buckling, arms flung, falling backward | 6 | in-between |
+| 14 | `down` | Floor impact: back on the floor, legs up | 10 | in-between |
+| 15 | `down` | Settled on his back, crossed eye, tongue out | hold | key |
 
 ## 5. State diagram
 
 ```mermaid
 stateDiagram-v2
     [*] --> idle
-    idle --> move: <fill: trigger>
-    move --> idle: <fill: trigger>
-    idle --> tell: <fill: in range>
-    move --> tell: <fill: in range>
-    tell --> attack: tell ticks elapsed
-    attack --> idle: recover elapsed
+    idle --> move: target outside pound range
+    move --> idle: target lost or arena edge
+    idle --> tell: target within pound range (about 30 to 72 px ahead)
+    move --> tell: target within pound range
+    tell --> pound: 36 tell ticks elapsed
+    pound --> recover: 9 pound ticks elapsed
+    recover --> idle: 24 recover ticks elapsed
     idle --> hurt: hit
-    hurt --> idle: hurt ticks elapsed
+    recover --> hurt: hit (the punish window)
+    hurt --> idle: 14 hurt ticks elapsed
     hurt --> defeat: health 0
     defeat --> [*]
 ```
 
+Whether the tell can be interrupted (stagger) is a gameplay decision, not set here (`combat-feel-hybrid-physics.md`: conditional stagger only).
+
 ## 6. Palette
 
-Family palette: skin, hair and loincloth ramps should stay derivable from the troglodyte family palette (TROG-01); the Juicer's extra keys (boil red, vein purple, chain iron) are design decisions (<fill>). The gym's magenta accent light belongs to the environment, not to the sprite.
+`trog-family-v0` core (15 colours, imported from `scripts/author_trog01.py`, never recoloured) plus 4 Juicer keys: **19 of 20**, one slot left free. The packet's 24 candidates are mostly background navy; the warm pinks and reds of the sheet are already covered by the family skin ramp, so no candidate is taken directly. `#c84a39` and `#a54938` informed the boil red (cooled and pushed toward crimson so it separates from the eye-red accent `e` and from the orange brick); the purple veins and grey iron are picked by eye from the hero panel.
 
-At most <fill: 20> colours. Candidates from the concept crop (median cut, by pixel share; see `palette_candidates.json`). These are candidates, not decisions.
-
-| # | Candidate | Share | Decision (key, name, role) |
+| Key | Name | Hex | Role |
 | --- | --- | --- | --- |
-| 1 | `#0f1926` | 7.5 % | <fill: key, name, role> |
-| 2 | `#e59170` | 6.6 % | <fill: key, name, role> |
-| 3 | `#302b3a` | 6.6 % | <fill: key, name, role> |
-| 4 | `#8b4135` | 6.2 % | <fill: key, name, role> |
-| 5 | `#e67456` | 6.2 % | <fill: key, name, role> |
-| 6 | `#0f1a28` | 6.0 % | <fill: key, name, role> |
-| 7 | `#182031` | 5.0 % | <fill: key, name, role> |
-| 8 | `#b26a53` | 4.9 % | <fill: key, name, role> |
-| 9 | `#a54938` | 4.9 % | <fill: key, name, role> |
-| 10 | `#0c1724` | 4.4 % | <fill: key, name, role> |
-| 11 | `#030207` | 4.2 % | <fill: key, name, role> |
-| 12 | `#e9ac86` | 4.0 % | <fill: key, name, role> |
-| 13 | `#612d2a` | 3.8 % | <fill: key, name, role> |
-| 14 | `#101e2e` | 3.8 % | <fill: key, name, role> |
-| 15 | `#c84a39` | 3.7 % | <fill: key, name, role> |
-| 16 | `#2a1b25` | 3.3 % | <fill: key, name, role> |
-| 17 | `#663f3a` | 3.1 % | <fill: key, name, role> |
-| 18 | `#f7dbb8` | 3.0 % | <fill: key, name, role> |
-| 19 | `#18121a` | 2.8 % | <fill: key, name, role> |
-| 20 | `#0a1522` | 2.7 % | <fill: key, name, role> |
-| 21 | `#070c17` | 2.4 % | <fill: key, name, role> |
-| 22 | `#611a1d` | 2.1 % | <fill: key, name, role> |
-| 23 | `#0c1a28` | 2.0 % | <fill: key, name, role> |
-| 24 | `#0f111c` | 0.9 % | <fill: key, name, role> |
+| `K` `d` `s` `m` `l` | family outline and skin ramp | see `trog-01-spec.md` 6 | outline, skin volumes (lit upper left) |
+| `H` `I` | hair | family | mop and rope dreads |
+| `c` `C` | cloth | family | the ragged loincloth |
+| `w` `e` `t` `T` `o` `q` | accents and mouth | family | eye white and drool, red eye rim, teeth, mouth, boil highlight (`q`) |
+| `b` | boil_red | `#b3283a` | swollen boils: 2 to 3 px discs on the shoulders, back, arms and thigh, `q` highlight on the torch side |
+| `v` | vein_purple | `#5d3878` | 1 px swollen vein strands on lit and mid skin (forearm, biceps, chest, thigh) |
+| `i` | iron_deep | `#353a48` | wrist cuffs and chains, shade and dark links |
+| `j` | iron_light | `#8b93a6` | lit chain links (alternating every 2 px so the iron reads as links) |
 
-The chosen palette must separate this asset from the warm brick and the cold arch of Floor 1 at 1x, and fit the A1 lighting.
+No steroid, injection, "juice" or aura colour; the gym's magenta light belongs to the environment.
 
 ## 7. Key poses
 
-One key per readability tag (about 6 to 8 keys): idle 0, move contact, tell hold, attack impact, hurt, defeat. Each key lists silhouette, joint positions, palette use and the readability reason. Keys are frozen once the review passes (`pixelart freeze`).
+Design units are px right of the pivot column and up from the contact row. Construction (2b, redrawn at 100 px): head width about 0.21 H (skull radius 7.5, jaw 7.0; smaller than the Basher's 0.25 H), jaw centre 19 px below the hump top and 26 px ahead of it, sunk between the trapezius and the near deltoid; spine hips (-8, 36) to hump (-1, 82), about 80 degrees but buried under the hump and gut masses, so the silhouette reads as a forward-leaning block; arms reach the knee line, not the floor (the boss hangs his fists, he does not knuckle-walk); six rope dreads, rope radius 1.5; every muscle mass is a disc or thick line shaded from its own surface normal, so the body reads as lumps and creases.
 
 | Frame | Tag | Silhouette and pose notes | Readability reason |
 | --- | --- | --- | --- |
-| <fill> | <fill> | <fill> | <fill> |
+| 0 (drawn) | `idle` | Top row 36 (100 px), x -31 to 56. Short bowed legs planted wide: far foot at (-11, 1), near foot at (21, 1), knees at (-23, 18) and (13, 19). Trunk: glute (-15, 38), gut (8, 45), pec (13, 63), lat (-10, 68), trapezius hump (2, 87) as the top of the silhouette. Head jaw centre (28, 80) with the mop and six ropes down the back, ear swept back. Near arm deltoid (7, 73) to the fist (36, 26), radius 11.5 (as wide as the head); far fist (47, 33) peeks out ahead and above it. Iron cuffs on both wrists, a broken chain hanging from the near cuff to (23, 13), a chain sagging across the hips over the rag. 11 boils, 5 veins, 10 grime smudges. Growl face: bloodshot eye, 2-row open mouth with upper teeth and lower fangs, two drool strands. | A hunched wide block with a small sunk head and two very large fists at the front: the boss reads as heavy at 1x, distinct from the Basher by mass, boils, iron and the hanging fists. |
+| 3 | `walk` | Contact: trunk 2 px lower and 3 px forward; near foot forward at (26, 1), far foot back at (-24, 1); near fist swung back to (24, 30), far fist forward to (52, 30); ropes swing back 2 px. Top row about 38. | A wide stride with alternating fists: a heavy stomp, never a run. |
+| 8 | `attack_tell` | Roar: torso straightened to about 70 degrees, hump (0, 92); both forearms up with the fists overhead at about (8, 118) and (22, 114), radius 11 (top row 7 or higher, 128 px tall); head tipped back, jaw (26, 88) with the 4-row roar (`o` at least 2x the idle count), lower fangs and two drool strands; legs braced wider. | The tallest pose of the set and the only one with the fists above the head: "the hammer is up", a full 36 ticks before anything lands. |
+| 10 | `attack_pound` | Impact: both fists on the floor at about (44, 10) and (56, 10); trunk folded flat forward, hump down to about y 70; head low between the shoulders at about (32, 40); legs bent, rump up; roar mouth. Top row 66 or lower, width at least 100 px. The debris burst is a separate VFX order. | The lowest, widest grounded pose, with the fists at the floor ahead: the hit lands where the fists are. |
+| 12 | `hurt` | Recoil: trunk tilted back from the hips, head above the hump at about (8, 96) with the eye squeezed to a `K` slit (no red), pain mouth; fists flung up and back, opened, nothing pointing at the player; weight on the back foot. | The only pose with the head higher than the hump and the fists open: a recoil. |
+| 15 | `down` | On his back, fallen backward (the hurt direction): hips (10, 8), hump (-30, 12), head (-50, 10) with the mop spilled on the floor; knees up at (20, 26); fists slack on the floor; crossed eye, tongue out. Top row 100 or lower. | Lowest and longest; the red eye is gone; continuous with the hurt recoil. |
 
 ## 8. In-between list
 
-For the execution tier; no design decisions needed. One row per non-key frame, as in section 9 of the GOB-01 spec.
+For the execution of in-betweens after the keys; drawn from the same part rules (blend the pose dicts of the neighbouring keys), no design decisions.
 
 | # | Pose notes |
 | --- | --- |
-| <fill> | <fill> |
+| 1 | Idle breath in: trunk blobs, head and hump +1 px, fists 1 px back, ropes 1 px lower |
+| 2 | Idle breath out: frame 0 with the gut disc 1 px lower and the fists 1 px forward |
+| 4 | Walk passing: feet together under the hips, trunk +2 px, fists level |
+| 5 | Walk contact B: frame 3 with feet and fists swapped |
+| 6 | Walk passing B: frame 4 with the fists crossing the other way |
+| 7 | Tell rise: blend 0 to 8 at 0.4, fists at the chest, the mouth at 3 rows |
+| 9 | Pound smear: blend 8 to 10 at 0.6, fists in front of the face |
+| 11 | Recover: frame 10 with the head lifted 6 px, the rump raised, a closed panting mouth (`o` at most the idle count) |
+| 13 | Fall beat: blend 12 to 15 at 0.35 |
+| 14 | Floor impact: blend 12 to 15 at 0.8, legs up 4 px |
 
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate <asset-config>` (rules V01 to V15 in `scripts/pixelart/validators.py`). Parametrize in the asset config:
+Run by `python3 -m scripts.pixelart validate assets/source/characters/troglodyte/juicer/juice_01.pixelart.json`. Phase 1 configures frame 0 only; phase 2 adds the rest.
 
-- V04 palette: at most <fill> colours; V05 isolated pixels: 0; V06 orphan pixels: at most <fill> per frame.
-- V07/V08 contact rows: grounded tags end on the contact row, airborne tags never touch it.
-- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/juice-01_keys.json`.
-- V13/V14 readability rules (write each as a bbox or key-count rule): <fill: for example the tell is the highest point, the hurt eyes are white>.
+- V04 palette: at most 20 colours (19 used); V05 isolated pixels: 0; V06 orphan pixels: at most 24 per frame (boil highlights and eye pixels are single-pixel accents).
+- V07 contact rows: every frame is grounded and ends on row 135.
+- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/juice-01_keys.json` (frame 0 frozen in phase 1).
+- V13/V14 readability rules: `size-idle-100px` (frame 0 rows 36 to 135); R1 the idle eye has at least 3 `e`; R6 at least 40 `b` boil pixels in every non-defeat frame; R7 at least 20 `j` iron pixels; phase 2: R-tell-tallest (frame 8 top row 16 or less), R-pound-low-wide (frame 10 top row 70 or more, width 100 or more), R2 the tell `o` count at least twice the idle count, R-recover-no-roar (frame 11 `o` at most the idle count), R5 hurt and defeat have no `e`, defeat has at least 4 `q`.
+
+**Acceptance targets (for the independent review):**
+
+1. At 1x on lit Floor 1 brick next to Carl and the Pygmy (`key0-scale.png`), the idle reads as a troglodyte (pink skin, black dreads, fanged open mouth, pointed ear, rag) and as the family's boss: hunched, wide, two huge fists, never a Basher recolour and never a clean bodybuilder.
+2. Boils, veins and the iron cuffs and chains are visible at 1x as texture without turning into noise; no steroid, injection or aura.
+3. The tell (fists overhead, roar) is the tallest frame and the pound impact the lowest and widest: the tell-to-attack read works in silhouette alone.
+4. Grounded, grimy and pitiful-absurd: the swollen mass, small sunk head and drool undercut any heroic read.
 
 ## 10. Evidence
 
-```text
-python3 -m scripts.pixelart validate <asset-config> --out <dir>
-python3 -m scripts.pixelart evidence <asset-config> --out <dir>
-python3 -m scripts.pixelart review-pack <asset-config> --out <dir>
-```
+- Phase 1: `docs/evidence/juice-01/key0-scale.png` (key 0 at 1x on lit Floor 1 with Carl and the Pygmy, plus a 4x copy on the side). Regenerate: `python3 scripts/author_juice01.py key0-scale` (needs `bash scripts/export_assets.sh`).
+- Phase 2: the toolkit review pack (contact sheet x4, lit scene, tell-to-attack strip) and the validator report:
 
-The review pack holds exactly three images (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip) and the validator report.
+```text
+python3 -m scripts.pixelart validate assets/source/characters/troglodyte/juicer/juice_01.pixelart.json --out <dir>
+python3 -m scripts.pixelart review-pack assets/source/characters/troglodyte/juicer/juice_01.pixelart.json --out <dir>
+```
 
 ## 11. Files
 
 | File | Role |
 | --- | --- |
-| `assets/source/<fill>/juice-01.grid.json` / `.ase` | pixel-grid source and Aseprite master |
+| `scripts/author_juice01.py` | deterministic authoring script (`frames [--check]`, `key0-scale`) |
+| `assets/source/characters/troglodyte/juicer/juice_01.grid.json` / `.ase` | pixel-grid source and Aseprite master (`scripts/pixel_grid_to_ase.py build`) |
 | `assets/manifests/juice-01.json` | manifest |
-| `<fill>/juice-01.pixelart.json` | the asset config (from `frame_pivot_template.json`) |
+| `assets/source/characters/troglodyte/juicer/juice_01.pixelart.json` | the asset config |
 | `tests/fixtures/juice-01_keys.json` | frozen keys |
+| `tests/test_art_juice01.py` | generator, size, frame and palette-core tests |
 
 ## 12. Rights and provenance
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Record in the PR's `Rights/Provenance` section which model designed, executed and reviewed the art. No tracing of the concept, no image-model raster output.
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). No tracing of the concept, no image-model raster output.
 
-### Rights/Provenance stub
+### Rights/Provenance
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Designed by: pending. Executed by: pending. Independently reviewed by: pending.
+- Spec and keys: Claude Opus (phase 1: spec and idle key 0). Executed by: pending. Silhouette gate and independent review: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
+
+### Separate work orders (noted, not drawn)
+
+- Pound impact debris burst or shockwave (VFX).
+- AREA-GYM-01 gym prop kit (reception, turnstile, bench, weights, machines, punching bag, mirrors, tires, banner, mural, neon).
+- Prop interaction states (toppled bench, swinging bag, shattering mirror, released weights).
+- Boss-arc states beyond the readability set: the lunge (charge) and the standalone roar.

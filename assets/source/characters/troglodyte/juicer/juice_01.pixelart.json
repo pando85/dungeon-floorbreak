@@ -1,0 +1,35 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "juice-01",
+  "title": "JUICE-01 The Juicer (Floor 1 Gym troglodyte boss): phase 1, idle key 0 only (silhouette gate)",
+  "grid": "assets/source/characters/troglodyte/juicer/juice_01.grid.json",
+  "manifest": "assets/manifests/juice-01.json",
+  "frame_size": [160, 136],
+  "pivot": [72, 135],
+  "contact_row": 135,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 12]]}
+  },
+  "roles": {"idle": "idle"},
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 24,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "manifest_tick_rows": "juicer.frames",
+    "manifest_tick_hz": "juicer.tick_hz",
+    "frozen_keys": {"fixture": "tests/fixtures/juice-01_keys.json", "frames": [0], "layers": ["body"]},
+    "bbox": [
+      {"id": "size-idle-100px", "frames": [0], "top": 36, "bottom": 135}
+    ],
+    "key_counts": [
+      {"id": "R1-idle-eye-red", "frames": [0], "key": "e", "min": 3},
+      {"id": "R6-boils-visible", "frames": [0], "key": "b", "min": 40},
+      {"id": "R7-chain-iron-visible", "frames": [0], "key": "j", "min": 20}
+    ]
+  }
+}
