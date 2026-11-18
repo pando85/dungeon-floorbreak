@@ -1,0 +1,36 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "gob-02-death-parts",
+  "title": "GOB-02-DEATH goblin A death-parts sheet (docs/02-art/gob-02-death-spec.md section 7); 32 x 32 cells; design stage: keys 0 head, 1 torso_upper, 2 club",
+  "grid": "assets/source/characters/goblin/death/goblin_a_death_parts.grid.json",
+  "frame_size": [32, 32],
+  "pivot": [16, 16],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "head": {"playback": "hold", "contact": "free", "frames": [[0, null]]},
+    "torso_upper": {"playback": "hold", "contact": "free", "frames": [[1, null]]},
+    "club": {"playback": "hold", "contact": "free", "frames": [[2, null]]}
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "layers_disjoint": [["body", "weapon"]],
+    "canvas_margin": [1, 1, 1, 1],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/gob-02-death-parts_keys.json",
+      "frames": [0, 1, 2],
+      "layers": ["body", "weapon", "gore"]
+    },
+    "bbox": [
+      {"id": "P1-part-never-larger-than-28px", "frames": [0, 1, 2], "max_width": 28, "max_height": 28}
+    ],
+    "key_counts": [
+      {"id": "P2-head-shocked-eyes", "frames": [0], "key": "w", "min": 4}
+    ]
+  }
+}
