@@ -298,7 +298,7 @@
       }
     ],
     "foot_drift": {
-      "max_px": 10,
+      "max_px": 4,
       "tags": [
         "scramble"
       ]

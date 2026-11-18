@@ -565,15 +565,51 @@ def _trunk_sag(x, y):           # frame 13: key 12 lowered 2 px (the body's lowe
     return (-3, 2) if 14 <= y <= 24 else (-2, 2)
 
 
+class _Shift:
+    """A painter view that moves everything drawn through it (design coordinates equal canvas coordinates)."""
+    def __init__(self, q, dx, dy):
+        self.q, self.dx, self.dy = q, dx, dy
+
+    def put(self, x, y, key, layer="body"):
+        self.q.put(x + self.dx, y + self.dy, key, layer)
+
+
+def hoof_to(q, hx, hy, anchor, far=False):
+    """A trotter pointing up and forward (frame 14): 4 x 2 hoof with a K cleft, a 2 px shin back to the trunk."""
+    for i in range(4):
+        cp(q, hx + i, hy, "K" if i == 1 else "n")
+        cp(q, hx + i, hy + 1, "n")
+    _chain(q, anchor, (hx, hy + 2), far)
+
+
 def _tilt_trunk(q):
+    """Frame 14: the trunk rolled about 45 degrees onto its back; the coat is the dark mass, the shirt a small, darker strip."""
     def fn(x, y, d, u, v):
-        if v > 0.5:
-            return ("o" if v < 2.0 and d > 0.5 else "n", "costume")           # jacket on the back and underside
-        if v < -0.5 and u > -5:
-            return ("v" if d > 0.8 else "u", "costume")                       # shirt on the belly side
+        if y >= 39:
+            return None
+        if v > -2.2 or u < -3:
+            return ("o" if (v < 1.0 or u < -6) and d > 0.55 else "n", "costume")   # jacket and coat keep the colour block
+        if v < -3.6 and u > 0:
+            return ("u" if d < 0.95 else "v", "costume")                          # shirt strip on the belly side
         return (flesh(d), "body")
-    fill_ell(q, 20, 31, 9, 5.5, fn, -0.8)
-    bow_at(q, -1, 2)
+    fill_ell(q, 20, 31, 9.5, 6.0, fn, -0.8)
+    bow_at(q, 4, 0)
+
+
+def _tilt_head(q):
+    head_lying(_Shift(q, -6, -8))                       # the lying head (snout up and back, tusks up), tipped over the fall
+
+
+def tilt_all(q):
+    q.group = "coat"
+    coat_floor(7, 20, 35)(q)
+    q.group = "trunk"
+    _tilt_trunk(q)
+    q.group = "legs"
+    hoof_to(q, 26, 35, (22, 33), far=True)
+    hoof_to(q, 29, 33, (24, 31))
+    q.group = "head"
+    _tilt_head(q)
 
 
 HD8, HD9, HD10, HD12, HD13 = (1, 4), (6, 4), (11, -3), (-4, -2), (-5, 4)
@@ -588,7 +624,7 @@ POSES: dict[int, dict] = {
     5: dict(head=(2, 1), trunk=(2, 1), arm=(4, 1), coat=(2, -1),
             replace={"legs": legs_fn(far=(23, 37, 22, 23, 35), near=(20, 37, 23, 21, 35))}),
     6: dict(head=(2, 0), trunk=(2, 0), arm=(2, 0), coat=(2, 0),
-            replace={"legs": legs_fn(far=(18, 37, 19, 19, 35), near=(23, 36, 23, 23, 34))}),
+            replace={"legs": legs_fn(far=(19, 37, 20, 20, 35), near=(23, 36, 23, 23, 34))}),
     7: dict(head=(1, 2), trunk=(0, 1), arm=(-2, 0)),
     8: dict(head=HD8, trunk=_hump_shear, arm=(-2, 0), coat=(0, -1), jaw=(0, 1), drop={"arm": hand_closed},
             replace={"tusk_far": far_tusk_level(HD8),
@@ -612,15 +648,12 @@ POSES: dict[int, dict] = {
              replace={"ear_near": ear_flat(HD13),
                       "legs": legs_fn(far=(15, 37, 15, 15, 37), near=(23, 37, 23, 23, 37))},
              pre={"jaw": jaw_pre(HD13, 1)}, post={"head": eye_shut(HD13), "jaw": tongue_post(HD13, 1, 2)}),
-    14: dict(head=(5, 6),
-             replace={"coat": coat_floor(8, 18, 36), "trunk": _tilt_trunk, "arm": lambda q: None,
-                      "legs": lambda q: (limb(q, 29, 33, (24, 31)), limb(q, 26, 35, (22, 32), far=True))},
-             post={"head": eye_shut((5, 6))}),
+    14: dict(replace_all=tilt_all),
     15: dict(replace_all=lying_all),
 }
 # ANCHORS[frame] = (throat_dx, throat_dy, ear_dx, ear_dy): offsets of the bow tie / pearl string and of the far ear
 # from key 0, applied by ``variant`` to the gown accessories (spec section 6.1). Other frames use their pose offsets.
-ANCHORS = {14: (-1, 2, 5, 6), 15: (5, 4, 9, 23)}
+ANCHORS = {14: (4, 0, 3, 15), 15: (5, 4, 9, 23)}
 
 
 def anchors(frame: int) -> tuple:
