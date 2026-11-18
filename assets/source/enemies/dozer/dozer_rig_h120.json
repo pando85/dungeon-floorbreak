@@ -166,7 +166,7 @@
         124,
         49
       ],
-      "frame_rule": "phase_0..phase_3 (7.5 degrees each); during the charge the smear replaces the wheel frame on 1 tick in 4 (charge.smear_every)"
+      "frame_rule": "phase_0..phase_3 (7.5 degrees each); during the charge the smear replaces phase_0 and no other phase (charge.smear_replaces), 1 tick in 4 at the charge rate"
     },
     {
       "part": "yoke",
@@ -360,7 +360,7 @@
         "ticks": 90,
         "px_per_tick": 4.0,
         "wheel": 1,
-        "smear_every": 4,
+        "smear_replaces": "phase_0",
         "rattle": {
           "period": 6,
           "up": 3,

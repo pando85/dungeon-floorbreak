@@ -1,16 +1,16 @@
 {
   "decided": "h120 (separate Opus decider; proposed by the designer)",
   "files": {
-    "floor01_chase_h120_1920x1080.png": "60d6aa8044e39a7ca08cea02f78661a83d448939a9728f0e9fb4449d90ceea28",
-    "floor01_chase_h120_640x360.png": "b4be17c9debb9d07a686127d65ee0907f6a8d56ca5c9b25c123ab17bf1fe8bc7",
-    "floor01_chase_h150_1920x1080.png": "639a2c2efd044794ab1edf93a7b6a0f97898e6daff0ef07ecc9039f9c1a4c0a4",
-    "floor01_chase_h150_640x360.png": "91af7c1d6f9fb196d083ddc0c94e1246589e481a4ad25249c7a481c476feae8d",
-    "floor01_chase_h96_1920x1080.png": "ee96a9a4eb5cd92d6181ce324d796fbf004860d57fd046ad1c3b44d2199af332",
-    "floor01_chase_h96_640x360.png": "24aefa0fa9d7a163aba5cd0735732bbecd0b6d91c17c196afdb598d0d047cf6e",
-    "floor01_chase_keys_h120_1920x1080.png": "7d1727066264fef295ffec8694d97f3aaed543e2949c1e9b681c64f0bad0a380",
-    "floor01_chase_keys_h120_640x360.png": "1afea19bd0bcf43687f6c505eb05fdaed7f929e0b4a963d46002dfd41f202270",
-    "part_layout_diagram.png": "d7da07555667316a4ce7c8e69d646d895d00723fc19c3155f8f86601c5c01a8e",
-    "size_study_sheet.png": "56f2ed5e78d8cb25d6c5cfaf90fc4aa3cbcd385ebca3e65599ab2ba54312c47a"
+    "floor01_chase_h120_1920x1080.png": "5bf2f10188e04bb1823228afaab4d09dc5c1fe0df002ec991d846226fa35a327",
+    "floor01_chase_h120_640x360.png": "b746db66bc2121c316ba6dfd652af8f426d5062ab8664779615b719d144fba66",
+    "floor01_chase_h150_1920x1080.png": "08eaf8b28af90f9ea702daa475b25f065bb86d9021144029e118ecca7d313986",
+    "floor01_chase_h150_640x360.png": "f8fb53f02e09c89caee97cd8be0e3ee6d5048664067add91f32d54e4b9dc5201",
+    "floor01_chase_h96_1920x1080.png": "216df4f94013956ecb294c55b85058195b71563b581ac08969bd642275e311ce",
+    "floor01_chase_h96_640x360.png": "e4cd653bbae5b982f4c83695ac26c8cb92a8862c7971f68c69b7af977867217a",
+    "floor01_chase_keys_h120_1920x1080.png": "a29d829484f29d6a8fcdffd307ca365e068cb727c4bceb5687a94d0f41a2b8da",
+    "floor01_chase_keys_h120_640x360.png": "3b622aea4fd866d2f6b0b836a4626c59442d359af500e909c1da5cf2c157abb1",
+    "part_layout_diagram.png": "8d29f7b711710562eafc5992a9f498959b7536d03d58559720ff999333e74e29",
+    "size_study_sheet.png": "321506adcdf7c6f86a8210070101cf20828bb56b1f0e4b6d0a85eeecddaeee93"
   },
   "keys": {
     "dozer_front_cab_h120": {
@@ -18,7 +18,7 @@
         60,
         21
       ],
-      "colours": 11,
+      "colours": 12,
       "isolated": [
         0
       ],

@@ -44,6 +44,11 @@ def tag_index(grid: dict, name: str) -> int:
     return next(t["from"] for t in grid["tags"] if t["name"] == name)
 
 
+def opaque_tips(rows) -> set[tuple[int, int]]:
+    c0 = len(rows) // 2
+    return {(x, y) for y, r in enumerate(rows) for x, c in enumerate(r) if c != "." and math.hypot(x - c0, y - c0) > 36}
+
+
 def lstar(rgba: str) -> float:
     """CIELAB lightness L* / 100 of an sRGB colour (D65)."""
     def lin(c: float) -> float:
@@ -146,11 +151,11 @@ def fixture_px(key: str, stem: str) -> dict[tuple[int, int], str]:
 
 class FrozenKeys(unittest.TestCase):
     """The Opus keys are frozen in tests/fixtures/dozer_doz01_keys.json. The execution may add only the
-    documented deltas (spec section 15)."""
+    documented deltas (spec section 11)."""
 
     def test_unchanged_keys_are_pixel_identical(self) -> None:
         fix = fixture()["keys"]
-        same = [("dozer_hull_h120", "body"), ("dozer_wheel_h120", "phase_0"), ("dozer_tread_h120", "belt_0"),
+        same = [("dozer_hull_h120", "body"), ("dozer_tread_h120", "belt_0"),
                 ("dozer_smoke", "black_0"), ("dozer_smoke", "black_2"), ("dozer_smoke", "steam_0"),
                 ("dozer_smoke", "steam_2")] + [("dozer_riders_h36", tag) for tag in (
                     "engineer_point", "engineer_lever_pull", "engineer_lurch_back", "engineer_lurch_forward",
@@ -162,6 +167,21 @@ class FrozenKeys(unittest.TestCase):
             got = ["".join(r) for r in flat(g, tag_index(g, tag))]
             self.assertEqual(got, fix[f"{stem}:{old_tag.get(tag, tag)}"], f"{stem}:{tag} is a frozen Opus key")
 
+    def test_wheel_phase_0_differs_only_by_the_axis_spoke_cleanup(self) -> None:
+        """Review round 1 (E1): phase 0 is the Opus key with the axis spokes cleaned. The generator's float noise
+        broke the horizontal and vertical spokes into dashes (|lat| = 1.0 flipped either way); the cleanup changes
+        only pixels in the spoke zone (r 10 to 28 from the axle) and only to or from spoke keys, nothing else."""
+        old = fixture()["keys"]["dozer_wheel_h120:spin"]
+        new = ["".join(r) for r in flat(load("dozer_wheel_h120"), tag_index(load("dozer_wheel_h120"), "phase_0"))]
+        self.assertEqual((len(old), len(old[0])), (len(new), len(new[0])))
+        c0 = len(old) // 2
+        diff = [(x, y, old[y][x], new[y][x]) for y in range(len(old)) for x in range(len(old)) if old[y][x] != new[y][x]]
+        self.assertTrue(diff)
+        for x, y, a, b in diff:
+            self.assertTrue(10 <= math.hypot(x - c0, y - c0) <= 28.6, (x, y))
+            self.assertTrue(a in "24EWQ" and b in "24EWQ", (x, y, a, b))
+        self.assertEqual({(x, y) for x, y, _a, _b in diff} & opaque_tips(old), set(), "no spike pixel changed")
+
     def test_fixture_covers_every_key(self) -> None:
         self.assertEqual(len(fixture()["keys"]), 19)
 
@@ -171,8 +191,11 @@ class FrozenKeys(unittest.TestCase):
         diff = {p for p in set(old) | set(new) if old.get(p) != new.get(p)}
         self.assertTrue(diff)
         self.assertTrue(all((-75 <= x <= -73 or -18 <= x <= -16) and 85 <= y <= 101 for x, y in diff), sorted(diff))
-        for x in (-74, -73, -18, -17):          # the 2 px iron-2 posts at the rail ends
-            self.assertTrue(all(new[(x, y)] == "2" for y in range(86, 101)), x)
+        for x in (-74, -73, -18, -17):          # the 2 px iron-4 posts at the rail ends (review round 1: was iron 2)
+            self.assertTrue(all(new[(x, y)] == "4" for y in range(86, 101)), x)
+        # E2: the posts must separate from the plum outline at 1x (L* difference), not just exist
+        self.assertGreater(lstar(PALETTE["4"]) - lstar(PALETTE["K"]), 0.30)
+        self.assertGreater(lstar(PALETTE["4"]) - lstar(PALETTE["2"]), 0.15, "about 3x the contrast of the old iron-2 posts")
 
     def test_trim_keeps_every_front_pixel_in_place(self) -> None:
         full = despeckle_front()
@@ -189,7 +212,7 @@ class FrozenKeys(unittest.TestCase):
         self.assertTrue(set(changed.values()) <= set("17EW"), set(changed.values()))
         counts = {k: list(changed.values()).count(k) for k in "17EW"}
         self.assertGreaterEqual(counts["1"], 40, "2 px iron-1 underside")
-        self.assertGreaterEqual(counts["7"], 3, "second rivet row")
+        self.assertGreaterEqual(counts["7"], 5, "second rivet row")
         self.assertTrue(counts["E"] >= 3 and counts["W"] >= 3, "rust streak E over W")
         x, y = g["pivot"]
         self.assertEqual(flat(g, 0)[y][x], "7")
@@ -200,7 +223,7 @@ class FrozenKeys(unittest.TestCase):
         row1 = [p for p in sevens if p[1] == 18]
         self.assertGreaterEqual(len(row1), 4, "the key's rivet row")
         row2 = [p for p in sevens if p[1] != 18 and p != (54, 30)]
-        self.assertGreaterEqual(len(row2), 3, "the new diagonal rivet row")
+        self.assertGreaterEqual(len(row2), 5, "the second rivet row (review round 1: was 4)")
         col = [rows[y][29] for y in range(14, 34)]
         run = "".join(col)
         self.assertIn("EEEEWWWW", run.replace("3", "").replace("5", "") or run)
@@ -311,13 +334,54 @@ class FramesAndPivots(unittest.TestCase):
             dark = "+" if kind == "black" else ";"
             self.assertIn(dark, rows[max(y for _x, y in px)], f"{name}: 1 px darker underside")
             self.assertTrue(all(any(c == dark for c in r) for r in [rows[max(y for _x, y in px)]]))
-        # fix round D2 (Opus keys): the black puff grows 8, 14, 20, 22 px; black_1 / 3 / 4 / 5 are redrawn by
-        # Sonnet to that plan (spec 5 and 7.3) and get their width and pixel-drop checks then
-        self.assertEqual(widths["black_0"], 8, widths)
-        self.assertEqual(widths["black_2"], 20, widths)
+        # D2: the black puff grows 8, 14, 20, 22, 22, 22 px (the keys, then review round 1's redrawn in-betweens)
+        self.assertEqual([widths[f"black_{i}"] for i in range(6)], [8, 14, 20, 22, 22, 22], widths)
         self.assertLess(widths["steam_2"], widths["black_2"])
         self.assertTrue(widths["steam_0"] < widths["steam_1"] < widths["steam_2"], widths)
         self.assertEqual((comps["steam_3"], comps["steam_4"]), (2, 3))
+
+    def test_black_smoke_never_shrinks_into_specks(self) -> None:
+        """D2 minimum size rule: from black_2 on a puff keeps at least 20 px of width (22 from frame 3), every
+        piece is a clump (at least 15 px, never a speck), and it loses pixels in edge clumps: about 15 %, 30 % and
+        50 % of the full 22 px puff in frames 3, 4 and 5 (frame 5 in 3 or 4 pieces)."""
+        g = load("dozer_smoke")
+        ref = opaque(ad.smoke_rows("black_full"))
+        full = len(ref)
+        self.assertEqual(max(x for x, _ in ref) - min(x for x, _ in ref) + 1, 22, "the reference puff is 22 px wide")
+        drop = {}
+        for i in range(6):
+            px = opaque(flat(g, tag_index(g, f"black_{i}")))
+            if i >= 1:
+                self.assertGreaterEqual(len(px), 90, f"black_{i}: not a speck")
+            if i >= 2:
+                xs = [x for x, _ in px]
+                self.assertGreaterEqual(max(xs) - min(xs) + 1, 20, f"black_{i}: never narrower than 20 px")
+            if i >= 3:
+                drop[i] = 1 - len(px) / full
+                self.assertGreaterEqual(min(self.pieces(px)), 15, f"black_{i}: every piece is a clump")
+        self.assertTrue(0.10 <= drop[3] <= 0.20, drop)
+        self.assertTrue(0.24 <= drop[4] <= 0.35, drop)
+        self.assertTrue(0.45 <= drop[5] <= 0.56, drop)
+        self.assertTrue(drop[3] < drop[4] < drop[5], drop)
+        self.assertIn(len(self.pieces(opaque(flat(g, tag_index(g, "black_5"))))), (3, 4))
+        self.assertEqual(len(self.pieces(opaque(flat(g, tag_index(g, "black_3"))))), 1)
+
+    @staticmethod
+    def pieces(px) -> list[int]:
+        left, sizes = set(px), []
+        while left:
+            stack, n = [left.pop()], 1
+            while stack:
+                x, y = stack.pop()
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        q = (x + dx, y + dy)
+                        if q in left:
+                            left.discard(q)
+                            stack.append(q)
+                            n += 1
+            sizes.append(n)
+        return sizes
 
     def test_black_smoke_keys_read_as_smoke(self) -> None:
         """D2: a light ``:`` cap on the top third of the puff, a ``-`` body, ``+`` only on each column's lowest
@@ -399,13 +463,62 @@ class Timing(unittest.TestCase):
         self.assertEqual(states["charge"]["px_per_tick"] * 60, 240)
         self.assertEqual((states["tell"]["wheel"], states["cruise"]["wheel"], states["strain"]["wheel"]), (1, 2, 3))
         self.assertEqual(states["strain"]["rattle"]["period"], 3, "strain rattles at double rate")
-        self.assertEqual(states["charge"]["smear_every"], 4, "D3: the smear shows on 1 charge tick in 4")
+        self.assertEqual(states["charge"]["smear_replaces"], "phase_0", "D3 as amended 2026-11-18: phase_0 only")
+        self.assertNotIn("smear_every", states["charge"], "the by-tick rule is gone")
         self.assertEqual(states["tell"]["stack_puff_every"], 4)
         self.assertEqual(states["cruise"]["stack_puff_every"], 12)
         self.assertEqual(states["charge"]["stack_puff_every"], 8)
         sm = rig()["timing"]["smoke"]
         self.assertEqual((sm["life_ticks"], sm["max_alive"]), (24, 8))
         self.assertEqual(sm["life_ticks"], 6 * ad.SMOKE_TICKS["black"], "6 frames of 4 ticks")
+
+
+class ChargeSmearSchedule(unittest.TestCase):
+    """D3, amended by the independent Opus review (2026-11-18): the smear replaces ``phase_0`` and no other phase,
+    so the wheel steps 7.5 degrees on every charge tick and the smear still shows on 1 tick in 4. The old rule
+    (every 4th tick, whatever the phase) turned the spin into a 15 Hz oscillation."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        import make_dozer_doz01_set_review as sr  # noqa: PLC0415 (needs Pillow, like the art workflow)
+        cls.chain = sr.simulate(rig())
+        cls.charge = [p for p in cls.chain if p["record"] and p["state"] == "charge"]
+
+    def test_the_smear_only_ever_replaces_phase_0_across_the_whole_charge(self) -> None:
+        self.assertEqual(len(self.charge), 90)
+        for p in self.charge:
+            if p["wheel"] == "smear":
+                self.assertEqual(p["wheel_phase"], 0, f"tick {p['t']}: the smear sits on a phase other than 0")
+            else:
+                self.assertEqual(p["wheel"], f"phase_{p['wheel_phase']}")
+                self.assertNotEqual(p["wheel_phase"], 0, f"tick {p['t']}: a phase 0 tick shows no smear")
+        smears = [p["t"] for p in self.charge if p["wheel"] == "smear"]
+        self.assertTrue(smears)
+        self.assertEqual({b - a for a, b in zip(smears, smears[1:])}, {4}, "exactly 1 charge tick in 4")
+        self.assertEqual(len(smears), sum(1 for p in self.charge if p["wheel_phase"] == 0))
+        self.assertEqual({p["wheel_phase"] for p in self.charge if p["wheel"] != "smear"}, {1, 2, 3})
+
+    def test_the_spin_steps_one_phase_every_tick_in_one_direction(self) -> None:
+        idx = [p["wheel_phase"] for p in self.charge]
+        self.assertTrue(all((b - a) % 4 == 1 for a, b in zip(idx, idx[1:])), idx[:12])
+        shown = [0 if p["wheel"] == "smear" else int(p["wheel"].split("_")[1]) for p in self.charge]
+        self.assertEqual(shown, idx, "the smear stands in for phase 0 in the spin")
+
+    def test_charge_wheel_tag_replaces_phase_0_only(self) -> None:
+        self.assertEqual([ad.charge_wheel_tag(i) for i in range(8)],
+                         ["smear", "phase_1", "phase_2", "phase_3"] * 2)
+        self.assertEqual(ad.SMEAR_REPLACES, "phase_0")
+
+    def test_every_state_gif_is_drawn_on_every_tick(self) -> None:
+        import make_dozer_doz01_set_review as sr  # noqa: PLC0415
+        self.assertEqual(sr.GIF_DELAY_MS, 20, "2 cs per frame: browsers clamp 1 cs to 10 cs")
+        self.assertEqual(sr.FILM_TICKS, 16)
+        from PIL import Image  # noqa: PLC0415
+        for state, n in (("cruise", 120), ("tell", 36), ("charge", 90), ("brake", 24), ("strain", 90)):
+            for k in (1, 3):
+                with Image.open(ROOT / "docs/evidence/doz-01" / f"{state}_x{k}.gif") as im:
+                    self.assertEqual(im.n_frames, n, f"{state}_x{k}.gif has one frame per tick")
+                    self.assertEqual(im.info["duration"], 20)
 
 
 class WheelReadsAsTheHazard(unittest.TestCase):
@@ -481,6 +594,19 @@ class WheelReadsAsTheHazard(unittest.TestCase):
                 a = math.radians(90 - 7.5 * i - 30 * k)
                 hits = [rows[c0 - round(r * math.sin(a))][c0 + round(r * math.cos(a))] in "24" for r in range(12, 28)]
                 self.assertGreaterEqual(sum(hits), 14, f"frame {i} spoke {k}: {hits}")
+
+    def test_axis_spokes_are_solid_not_dashed(self) -> None:
+        """Review round 1 (E1): in phase 0 the horizontal and vertical spokes had broken stair-step pixels (float
+        noise at |lat| = 1.0). Now every row (or column) of an axis spoke between the hub and the inner ring has the
+        same 4 px cross-section, `4222` on the lit side, with no gaps."""
+        rows = self.frames()[0]
+        c0 = len(rows) // 2
+        for r in range(12, 28):
+            for name, line in (("up", [rows[c0 - r][c0 + d] for d in range(-3, 4)]),
+                               ("down", [rows[c0 + r][c0 + d] for d in range(-3, 4)]),
+                               ("left", [rows[c0 + d][c0 - r] for d in range(-3, 4)]),
+                               ("right", [rows[c0 + d][c0 + r] for d in range(-3, 4)])):
+                self.assertEqual(sum(c in "24" for c in line), 4, f"{name} spoke r {r}: {''.join(line)}")
 
     def test_light_is_fixed_between_phases(self) -> None:
         for i, rows in enumerate(self.frames()[:4]):

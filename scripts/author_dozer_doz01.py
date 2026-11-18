@@ -361,9 +361,9 @@ def build_hull(rs: Raster, layer: str) -> dict[str, list[int]]:
         # cab rail plate in front of the engineer's legs, with a tube rail on top
         ids["rail"] = [rs.rect(2, 86, 55, 102, RUST, level=2),
                        rs.rect(0, 101, 57, 105, IRON, mode="cyl_h", outline=True)]
-        # 2 px iron-2 posts at the cab corners (the rail ends), flat colour, no bevel (spec 7.3 item 4)
-        ids["posts"] = [rs.rect(0, 86, 2, 101, IRON, level=2, outline=False, bevel=False),
-                        rs.rect(56, 86, 58, 101, IRON, level=2, outline=False, bevel=False)]
+        # 2 px iron-4 posts (review round 1: lighter, was iron 2) at the cab corners (the rail ends), flat colour, no bevel (spec 7.3 item 4)
+        ids["posts"] = [rs.rect(0, 86, 2, 101, IRON, level=4, outline=False, bevel=False),
+                        rs.rect(56, 86, 58, 101, IRON, level=4, outline=False, bevel=False)]
     return ids
 
 
@@ -526,7 +526,7 @@ def wheel_rows(phase_deg: float, s: float = 1.0, canvas: int | None = None) -> t
             # clockwise rotation: spike k sits at 90 - phase - k*step
             rel = (ang - (90.0 - phase_deg)) % step
             delta = rel if rel <= step / 2 else rel - step
-            lat = d * math.sin(math.radians(delta))
+            lat = round(d * math.sin(math.radians(delta)), 6)   # review E1: no float flicker on the axis spokes
             phi = math.radians(ang - delta)                     # axis of the nearest spike / spoke
             nx, ny = -math.sin(phi), math.cos(phi)              # normal on the +delta side
             side = 1 if lat >= 0 else -1
@@ -709,7 +709,8 @@ def wheel_smear() -> list[list[str]]:
     """Charge smear, fix round D3 (Opus): phase 0 with the spike tips in 6 instead of 7 and, behind every tip,
     a 1 px iron-4 arc at radius 46 trailing 12 degrees against the spin (counter-clockwise, since the wheel
     turns clockwise), with no K frame, so the twelve short streaks never close into a ring. Shown on 1 charge
-    tick in 4 (rig: ``charge.smear_every`` = 4)."""
+    tick in 4, **in place of phase 0 only** (rig: ``charge.smear_replaces`` = ``"phase_0"``; amended by the
+    independent Opus review, 2026-11-18)."""
     rows = wheel_frame(0)
     n = len(rows)
     c0 = n // 2
@@ -733,7 +734,15 @@ def wheel_smear() -> list[list[str]]:
 
 SMEAR_DEG = 12        # arc length behind each tip
 SMEAR_R = 46.0        # arc radius (the spike tips reach 48)
-SMEAR_EVERY = 4       # the smear replaces the wheel frame on 1 charge tick in 4
+SMEAR_REPLACES = "phase_0"   # review 2026-11-18 (Opus): the smear replaces ``phase_0`` only, never another phase
+
+
+def charge_wheel_tag(phase_index: int) -> str:
+    """The wheel frame shown on a charge tick whose wheel phase index is ``phase_index`` (0 to 3, advancing one
+    index per tick at the charge rate of 1 tick per frame): the smear takes the place of ``phase_0`` and of no
+    other phase, so the spin steps 7.5 degrees every tick and the smear shows on 1 charge tick in 4."""
+    i = phase_index % WHEEL_PHASES
+    return "smear" if SMEAR_REPLACES == f"phase_{i}" else f"phase_{i}"
 
 
 def _wheel_smear_phase2() -> list[list[str]]:
@@ -795,11 +804,13 @@ def polish_yoke(rows: list[list[str]], ax: int, ay: int) -> list[list[str]]:
         for by in (lows[bx], lows[bx] - 1):
             if get(bx, by) in set("023"):
                 put(bx, by, "1")
-    for bx in range(13, 44, 5):                          # second rivet row, parallel to the lower edge
-        by = lows[bx] - 5
-        if get(bx, by) == "3" and all(max(abs(bx - x), abs(by - y)) >= 3 for x, y in taken):
-            put(bx, by, "7")
-            taken.append((bx, by))
+    for bx in range(14, 44, 4):                          # second rivet row (review round 1: 7 rivets, step 4)
+        for off in (5, 6, 4):                            # parallel to the lower edge; a nudge if a spot is taken
+            by = lows[bx] - off
+            if get(bx, by) == "3" and all(max(abs(bx - x), abs(by - y)) >= 3 for x, y in taken):
+                put(bx, by, "7")
+                taken.append((bx, by))
+                break
     return out
 
 
@@ -1357,29 +1368,43 @@ SMOKE_PIVOT = (12, 12)
 # puff); 1 is the 10 px growth, 3 breaks up into 2 lumps, 4 is thin (3 small lumps), 5 is the last wisp.
 SMOKE_LUMPS = {
     # fix round D2 (Opus): the black keys are bigger, lighter puffs with broken edges (black_0 8 px, black_2
-    # 20 px). black_1 / 3 / 4 / 5 are still Sonnet's phase-2 shapes and are redrawn by Sonnet to the D2 plan
-    # (spec 5 and 7.3): 14, 22 and 22 px, with pixel drop from 30 % of life.
+    # 20 px). Review round 1 (Sonnet): black_1 / 3 / 4 / 5 are redrawn to the D2 plan: 14, 22, 22 and 22 px wide.
+    # ``black_full`` is the 22 px reference puff (not an atlas frame) that frames 3 to 5 break up with edge clumps.
     "black_0": [(12.0, 12.6, 2.5), (9.9, 12.0, 1.7), (14.0, 11.2, 1.9), (11.6, 10.0, 1.7)],
-    "black_1": [(12.0, 13.0, 4.0), (9.5, 11.5, 2.4), (14.5, 11.0, 2.6)],
+    "black_1": [(12.0, 13.0, 4.4), (8.2, 12.6, 3.0), (16.0, 12.6, 3.2), (11.5, 9.6, 2.6)],
     "black_2": [(12.0, 13.0, 5.6), (7.0, 12.0, 3.8), (16.5, 10.5, 4.4), (18.6, 14.2, 3.2), (4.6, 14.6, 2.6),
                 (11.0, 8.6, 3.6)],
-    "black_3": [(7.0, 14.0, 4.2), (6.0, 11.0, 2.4), (17.0, 10.5, 3.8), (18.0, 13.5, 2.4)],
-    "black_4": [(5.0, 14.5, 2.4), (12.0, 10.5, 2.2), (19.0, 14.0, 2.0)],
-    "black_5": [(12.0, 11.5, 1.3)],
+    "black_full": [(12.0, 13.0, 5.8), (7.0, 12.0, 4.0), (16.5, 10.5, 4.6), (19.4, 14.0, 3.4), (3.8, 14.4, 2.9),
+                   (11.0, 8.4, 3.8)],
     "steam_0": [(12.0, 12.5, 2.2), (13.2, 11.4, 1.5)],
     "steam_1": [(12.0, 13.0, 3.4), (10.0, 11.5, 2.0), (14.0, 11.0, 2.2)],
     "steam_2": [(12.0, 13.0, 4.4), (9.0, 10.5, 3.0), (14.5, 10.0, 3.2), (16.0, 13.5, 2.6)],
     "steam_3": [(7.5, 13.0, 3.4), (16.5, 10.5, 3.0), (17.5, 13.5, 1.8)],
     "steam_4": [(6.0, 13.5, 2.0), (12.5, 10.5, 1.8), (18.0, 13.0, 1.8)],
 }
+for _n in ("black_3", "black_4", "black_5"):          # the breaking-up frames start from the full 22 px puff
+    SMOKE_LUMPS[_n] = SMOKE_LUMPS["black_full"]
 SMOKE_RAMPS = {"black": ("+", "=", "-", ":"), "steam": (";", "/", "*", "*")}
 # broken edges of the black keys: (centre x, centre y, radius) bites taken out of the silhouette
 SMOKE_BITES = {
     "black_0": [(14.9, 13.9, 0.9)],
+    "black_1": [(16.6, 9.2, 1.1), (6.6, 14.6, 1.0)],
+    "black_full": [(2.4, 12.6, 1.4), (22.2, 11.0, 1.2), (14.6, 5.6, 1.4), (9.0, 18.6, 1.4), (21.0, 17.6, 1.2),
+                   (6.0, 9.0, 1.2)],
     "black_2": [(2.4, 12.6, 1.5), (21.6, 11.0, 1.3), (14.6, 5.6, 1.4), (9.0, 18.6, 1.4), (20.4, 17.4, 1.2),
                 (6.0, 9.0, 1.2)],
 }
-BLACK_REDESIGNED = ("black_0", "black_2")
+# frames 3 to 5 take pixels out of the full puff in edge clumps (D2: about 15 %, 30 % and 50 % gone), never as
+# single-pixel dither; every frame keeps the full 22 px width, so the puff breaks up instead of shrinking
+BLACK_DROP_3 = [(7.2, 7.0, 1.5), (20.8, 8.2, 1.6), (21.0, 16.0, 1.5), (5.2, 16.6, 1.4), (12.6, 5.4, 1.3),
+                (15.0, 17.0, 1.4), (17.5, 5.8, 1.3)]
+BLACK_DROP_4 = BLACK_DROP_3 + [(9.6, 17.0, 1.4), (11.5, 16.5, 1.8), (18.0, 6.5, 1.6), (21.0, 11.6, 1.5),
+                               (7.0, 17.0, 1.2), (19.0, 16.8, 1.4), (13.5, 6.2, 1.3), (18.6, 9.0, 1.2)]
+BLACK_DROP_5 = BLACK_DROP_4 + [(8.5, 8.5, 1.8), (8.5, 12.0, 1.8), (8.5, 15.0, 1.8), (16.2, 8.5, 1.8), (16.2, 11.5, 1.8), (16.2, 15.0, 1.6)]
+SMOKE_BITES["black_3"] = SMOKE_BITES["black_full"] + BLACK_DROP_3
+SMOKE_BITES["black_4"] = SMOKE_BITES["black_full"] + BLACK_DROP_4
+SMOKE_BITES["black_5"] = SMOKE_BITES["black_full"] + BLACK_DROP_5
+BLACK_REDESIGNED = ("black_0", "black_1", "black_2", "black_3", "black_4", "black_5")
 
 
 def smoke_rows(name: str) -> list[list[str]]:
@@ -1476,7 +1501,7 @@ def spark_grid() -> dict:
 
 # Preview states for the evidence GIFs and the CHASE-01 animation driver (spec sections 5 and 9, 60 Hz ticks).
 # Every number is the spec's; the rider and engineer frame choices per state are the executor's reading of section 5
-# and are recorded in spec section 15. ``wheel`` is ticks per frame, ``px_per_tick`` the hull speed.
+# and are recorded in spec section 11. ``wheel`` is ticks per frame, ``px_per_tick`` the hull speed.
 RIG_STATES = {
     "cruise": {"ticks": 120, "px_per_tick": round(160 / 60, 4), "wheel": 2, "rattle": {"period": 6, "up": 3, "rider_lag": 2},
                "stack_puff_every": 12, "rear_puff_every": 20, "steam": None, "squat": False,
@@ -1484,7 +1509,7 @@ RIG_STATES = {
     "tell": {"ticks": 36, "px_per_tick": round(160 / 60, 4), "wheel": 1, "rattle": {"period": 6, "up": 3, "rider_lag": 2},
              "stack_puff_every": 4, "rear_puff_every": 20, "steam": {"burst": 3, "every": 6, "start": 0}, "squat": True,
              "engineer": "lever pull, held", "riders": "yell 0/1, 6 ticks each, 3 loops"},
-    "charge": {"ticks": 90, "px_per_tick": 4.0, "wheel": 1, "smear_every": SMEAR_EVERY,
+    "charge": {"ticks": 90, "px_per_tick": 4.0, "wheel": 1, "smear_replaces": SMEAR_REPLACES,
                "rattle": {"period": 6, "up": 3, "rider_lag": 2},
                "stack_puff_every": 8, "rear_puff_every": 20, "steam": None, "squat": "first 4 ticks",
                "engineer": "lurch back for 8 ticks, then point/jab 8 ticks each",
@@ -1537,8 +1562,8 @@ def rig_contract() -> dict:
              "anchor": list(fronts["front_tub"]["anchor"])},
             {"part": "wheel", "z": 6, "atlas": "dozer_wheel_h120", "tag": "spin",
              "frame_size": wheel["canvas"], "pivot": wheel["pivot"], "anchor": anchor(*AXLE),
-             "frame_rule": "phase_0..phase_3 (7.5 degrees each); during the charge the smear replaces the wheel frame "
-                           "on 1 tick in 4 (charge.smear_every)"},
+             "frame_rule": "phase_0..phase_3 (7.5 degrees each); during the charge the smear replaces phase_0 "
+                           "and no other phase (charge.smear_replaces), 1 tick in 4 at the charge rate"},
             {"part": "yoke", "z": 7, "atlas": "dozer_yoke_h120", "tag": "static",
              "frame_size": yoke["canvas"], "pivot": yoke["pivot"], "anchor": anchor(*AXLE)},
             {"part": "hit_spark", "z": 8, "atlas": "vfx_hit_spark_metal", "frame_size": list(SPARK_CANVAS),

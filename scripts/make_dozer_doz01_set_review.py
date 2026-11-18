@@ -13,10 +13,13 @@ emitters and the 60 Hz tick table) and writes deterministically into DIR (defaul
   floor(distance) mod 9, wheel rate, rattle with the riders 2 ticks late, squat, slide, rider and engineer frames,
   and the smoke and steam puffs in world space. The five states run as one chain (cruise, tell, charge, brake,
   strain), so every GIF starts with the smoke of the state before it. GIF delays are whole centiseconds,
-  rounded on the cumulative tick count; one GIF frame is drawn every 2 ticks. Unlit, on a plain floor.
+  one GIF frame is drawn for every tick and lasts 2 cs (0.83x real time: browsers clamp 1 cs to 10 cs). Unlit,
+  on a plain floor.
 - ``floor01_chase_lit_{640x360,1920x1080}.png`` and ``floor01_chase_unlit_*.png``: the machine chasing Carl and Donut
   on the lit Floor 1 corridor (A1 compositor ``scripts/env_kit_light.py``) with the wheel in front of a torch-lit
   stretch of brick and in front of an unlit stretch. The contact shadow uses the tread footprint.
+- ``charge_filmstrip_ticks.png``: the first 16 charge ticks one cell per tick (wheel crop at x2), with the phase
+  index and the frame shown; smear ticks have a yellow border.
 - ``part_contact_sheet.png``: every frame of every part atlas, with pivots and tick counts.
 - ``rig_timing_diagram.png``: frame layout and pivots, the 60 Hz tick bars of the five states and the state flow.
 - ``set_measurements.json``: file hashes, frame counts, colours and lint per atlas.
@@ -99,8 +102,9 @@ def simulate(rig: dict) -> list[dict]:
             wheel_phase += 1.0 / st["wheel"]
             wheel_i = int(wheel_phase) % 4
             wheel = f"phase_{wheel_i}"
-            if st.get("smear_every") and t % st["smear_every"] == st["smear_every"] - 1:
-                wheel = "smear"                     # fix round D3: the smear shows on 1 charge tick in 4
+            if st.get("smear_replaces"):
+                # D3 as amended by the Opus review (2026-11-18): the smear replaces phase_0 and no other phase
+                wheel = ad.charge_wheel_tag(wheel_i)
             # rattle (moving states) with the riders `rider_lag` ticks late; squat overrides it
             body_dy = rider_dy = 0
             r = st["rattle"]
@@ -160,7 +164,7 @@ def simulate(rig: dict) -> list[dict]:
                 if tt % stm["every"] == 0 and tt // stm["every"] < stm["burst"]:
                     spawn("steam", "kettle")
             out.append({"state": name, "t": t, "tick": tick, "record": record, "dist": dist, "slide": slide,
-                        "tread": f"belt_{int(tread_dist) % 9}", "wheel": wheel, "body_dy": body_dy,
+                        "tread": f"belt_{int(tread_dist) % 9}", "wheel": wheel, "wheel_phase": wheel_i, "body_dy": body_dy,
                         "rider_dy": rider_dy, "a": a, "b": b, "eng": eng, "puffs": [dict(p) for p in puffs],
                         "speed": speed})
             puffs = [p for p in puffs if tick - p["t0"] < (smoke_cfg["life_ticks"] if p["kind"] == "black" else 15)]
@@ -203,14 +207,8 @@ def compose(rig: dict, at: Atlases, pose: dict, size=CANVAS, origin=ORIGIN, smok
     return img
 
 
-def delays_ms(ticks: list[int]) -> list[int]:
-    out, cum, prev = [], 0, 0
-    for t in ticks:
-        cum += t
-        cs = round(cum * 100 / 60)
-        out.append((cs - prev) * 10)
-        prev = cs
-    return out
+GIF_DELAY_MS = 20            # 2 cs per frame (browsers clamp 1 cs or less to 10 cs): every tick drawn, played at 0.83x
+GIF_SPEED = 0.83
 
 
 def gif_frame(rig, at, pose, k: int) -> Image.Image:
@@ -227,23 +225,64 @@ def gif_frame(rig, at, pose, k: int) -> Image.Image:
     big = gr.up(base, k)
     d = ImageDraw.Draw(big)
     d.text((6, 4), f"{pose['state']}  tick {pose['t']:3d}  tread {pose['tread']}  wheel {pose['wheel']}", fill=WHITE, font=gr.font())
-    d.text((6, 16), f"hull dy {pose['body_dy']:+d}  riders dy {pose['rider_dy']:+d}  v {pose['speed'] * 60:.0f} px/s", fill=GREY, font=gr.font())
+    d.text((6, 16), f"hull dy {pose['body_dy']:+d}  riders dy {pose['rider_dy']:+d}  v {pose['speed'] * 60:.0f} px/s"
+                    f"  every tick, {GIF_SPEED}x", fill=GREY, font=gr.font())
     return big.convert("RGB")
 
 
 def make_gifs(rig, at, chain, out: Path) -> dict[str, list[int]]:
+    """One GIF frame per 60 Hz tick (review 2026-11-18: sampling every second tick hid the smear and made the
+    1-tick-per-frame wheel strobe), 20 ms per frame, so playback is 0.83x real time."""
     info: dict[str, list[int]] = {}
     for name in STATES:
         poses = [p for p in chain if p["record"] and p["state"] == name]
-        sample = poses[::2]
-        ticks = [min(2, len(poses) - 2 * i) for i in range(len(sample))]
-        delays = delays_ms(ticks)
+        delays = [GIF_DELAY_MS] * len(poses)
         for k in (1, 3):
-            imgs = [gif_frame(rig, at, p, k).convert("P", palette=Image.Palette.ADAPTIVE, colors=64) for p in sample]
+            imgs = [gif_frame(rig, at, p, k).convert("P", palette=Image.Palette.ADAPTIVE, colors=64) for p in poses]
             path = out / f"{name}_x{k}.gif"
             imgs[0].save(path, save_all=True, append_images=imgs[1:], duration=delays, loop=0, disposal=1, optimize=False)
         info[name] = delays
     return info
+
+
+FILM_TICKS = 16                  # charge ticks 0 to 15: four full wheel cycles
+FILM_COLS = 8
+FILM_K = 2
+
+
+def charge_filmstrip(rig, at, chain) -> Image.Image:
+    """Tick-by-tick filmstrip of the first 16 charge ticks: the wheel and the front of the machine at x2, one cell per
+    tick, labelled with the tick, the wheel phase index, the frame shown and its angle. Smear ticks have a yellow
+    border. The checks it makes possible: the smear sits on phase 0 only (1 tick in 4) and the wheel steps +7.5
+    degrees every tick (clockwise)."""
+    poses = [p for p in chain if p["record"] and p["state"] == "charge"][:FILM_TICKS]
+    wi = [q["part"] for q in rig["parts"]].index("wheel")
+    ax, ay = rig["parts"][wi]["anchor"]
+    cx, cy = ORIGIN[0] + ax, ORIGIN[1] - ay
+    half = 58
+    box = (cx - half, cy - half, cx + half, cy + half)
+    cell_w, cell_h = 2 * half * FILM_K, 2 * half * FILM_K + 44
+    rows = (len(poses) + FILM_COLS - 1) // FILM_COLS
+    sheet = Image.new("RGB", (FILM_COLS * (cell_w + 8) + 8, rows * (cell_h + 8) + 34), BG)
+    d = ImageDraw.Draw(sheet)
+    d.text((8, 8), "DOZ-01 charge, tick by tick (60 Hz), wheel crop at x2. Yellow border = smear tick (it replaces phase_0 only: "
+                   "1 tick in 4). The wheel turns clockwise, +7.5 degrees per tick; phase index = floor(wheel_phase) mod 4.",
+           fill=WHITE, font=gr.font())
+    for i, pz in enumerate(poses):
+        base = Image.new("RGBA", CANVAS, BG + (255,))
+        bd = ImageDraw.Draw(base)
+        bd.rectangle([0, ORIGIN[1] + 1, CANVAS[0], CANVAS[1]], fill=FLOOR)
+        base.alpha_composite(compose(rig, at, pz, smoke=False))
+        cell = gr.up(base.crop(box), FILM_K).convert("RGB")
+        gx = 8 + (i % FILM_COLS) * (cell_w + 8)
+        gy = 30 + (i // FILM_COLS) * (cell_h + 8)
+        sheet.paste(cell, (gx, gy))
+        smear = pz["wheel"] == "smear"
+        d.rectangle([gx - 2, gy - 2, gx + cell_w + 1, gy + cell_w + 1], outline=YELLOW if smear else GREY, width=3 if smear else 1)
+        d.text((gx + 4, gy + cell_w + 4), f"tick {pz['t']:2d}  phase index {pz['wheel_phase']}", fill=WHITE, font=gr.font())
+        d.text((gx + 4, gy + cell_w + 18), f"shows {pz['wheel']}  ({7.5 * pz['wheel_phase']:.1f} deg)",
+               fill=YELLOW if smear else GREY, font=gr.font())
+    return sheet
 
 
 # ------------------------------------------------------------------ lit chase
@@ -445,6 +484,7 @@ def main(argv: list[str] | None = None) -> int:
         written += sorted(out.glob("*_x[13].gif"))
     save(contact_sheet(rig, at), "part_contact_sheet.png")
     save(rig_timing_diagram(rig, at, chain), "rig_timing_diagram.png")
+    save(charge_filmstrip(rig, at, chain), "charge_filmstrip_ticks.png")
     floor = gr.Floor()
     carl = rv.tag_frame(rv.CARL, "run", 2)
     donut = rv.tag_frame(rv.DONUT, "run", 4)
