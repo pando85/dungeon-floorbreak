@@ -99,3 +99,11 @@ date,work_order,config,stage,tier,model,agent_label,tool_calls,input,cache_write
 2026-11-18,TROG-03,C,execute,medium,claude-sonnet-5-5,TROG-03 gate fixes + keys + in-betweens,55,108,222579,8390305,96923,2.36,15.6,done
 2026-11-18,TROG-03,C,review,top,claude-opus-5-5,TROG-03 blind review,15,26,82565,686325,11425,0.78,2.1,PASS WITH EXECUTION ITEMS 21/25
 2026-11-18,TROG-03,C,fix-check,medium,claude-sonnet-5-5,TROG-03 fix check,17,28,45073,697977,3937,0.22,0.8,READY
+2026-11-18,ENG-01,C,fix-check,medium,claude-sonnet-5-5,ENG-01 fix check,14,22,45472,548109,4978,0.22,0.9,READY
+2026-11-18,ENG-01,C,silhouette-gate,top,claude-opus-5-5,ENG-01 silhouette gate,7,12,42871,279492,5402,0.38,1.1,PASS (2 non-blocking notes)
+2026-11-18,ENG-01,C,review,top,claude-opus-5-5,ENG-01 blind review,17,26,96875,832704,20989,1.07,3.9,PASS WITH EXECUTION ITEMS 19/25
+2026-11-18,ENG-01,C,design,top,claude-opus-5-5,ENG-01 spec + hero key,44,56,170597,3108734,73988,2.95,14.2,done
+2026-11-18,DEATH-REF (PR #83),-,execute,medium,claude-sonnet-5-5,PR #83 review fixes,41,70,103611,2988546,38919,0.95,8.9,"done (13edcd1, owner preset-4 2f38520)"
+2026-11-18,DEATH-REF (PR #83),-,review,top,claude-opus-5-5,PR #83 independent review,36,68,233434,2900285,36945,2.49,15.1,MERGE AFTER FIXES (3); re-check MERGE
+2026-11-18,ENG-01,C,packet,medium,claude-sonnet-5-5,ENG-01 packet,22,36,79431,1111700,12926,0.44,1.9,PR #86
+2026-11-18,ENG-01,C,execute,medium,claude-sonnet-5-5,ENG-01 keys + in-betweens,48,90,190191,5868093,90382,1.97,17.2,done; keys + in-betweens + review fixes
