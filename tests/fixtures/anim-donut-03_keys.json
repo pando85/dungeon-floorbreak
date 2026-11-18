@@ -1,0 +1,23 @@
+{
+  "asset_id": "anim-donut-03",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "b2d93543828f1b119d9df0f882f847efadd120df9508c7a5547bd51b40eb91e0"
+    },
+    "16": {
+      "sha256": "23850b47ff307c4d123a2fb54cd9431abe35c3e266ced481aed25e29ca1b3755"
+    },
+    "24": {
+      "sha256": "3345c4225d411f7829dd02e1ff5e1cd6d45eb43c7820b2a258117529f812d67f"
+    },
+    "28": {
+      "sha256": "560cc364b7c9039f99ff47146fb0ca5c4dcc4425f7fa2cfb93a2533b27f9b19b"
+    }
+  },
+  "layers": [
+    "head",
+    "face",
+    "gear"
+  ]
+}

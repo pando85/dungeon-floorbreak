@@ -1,0 +1,376 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "anim-donut-03",
+  "title": "ANIM-DONUT-03 Donut Magic Missile cast, head swap phase-synced to locomotion (docs/02-art/donut-magic-missile-anim-03-spec.md)",
+  "grid": "assets/source/characters/donut/donut_h40_missile.grid.json",
+  "manifest": "assets/manifests/donut_h40_missile.json",
+  "frame_size": [
+    72,
+    44
+  ],
+  "pivot": [
+    46,
+    43
+  ],
+  "contact_row": 43,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "cast_gather": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          0,
+          19
+        ],
+        [
+          1,
+          16
+        ],
+        [
+          2,
+          11
+        ],
+        [
+          3,
+          16
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          5
+        ],
+        [
+          9,
+          5
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          11,
+          4
+        ],
+        [
+          12,
+          7
+        ],
+        [
+          13,
+          7
+        ],
+        [
+          14,
+          5
+        ],
+        [
+          15,
+          7
+        ]
+      ]
+    },
+    "cast_release": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          16,
+          19
+        ],
+        [
+          17,
+          16
+        ],
+        [
+          18,
+          11
+        ],
+        [
+          19,
+          16
+        ],
+        [
+          20,
+          5
+        ],
+        [
+          21,
+          5
+        ],
+        [
+          22,
+          5
+        ],
+        [
+          23,
+          5
+        ],
+        [
+          24,
+          5
+        ],
+        [
+          25,
+          5
+        ],
+        [
+          26,
+          5
+        ],
+        [
+          27,
+          4
+        ],
+        [
+          28,
+          7
+        ],
+        [
+          29,
+          7
+        ],
+        [
+          30,
+          5
+        ],
+        [
+          31,
+          7
+        ]
+      ]
+    },
+    "cast_follow": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          32,
+          19
+        ],
+        [
+          33,
+          16
+        ],
+        [
+          34,
+          11
+        ],
+        [
+          35,
+          16
+        ],
+        [
+          36,
+          5
+        ],
+        [
+          37,
+          5
+        ],
+        [
+          38,
+          5
+        ],
+        [
+          39,
+          5
+        ],
+        [
+          40,
+          5
+        ],
+        [
+          41,
+          5
+        ],
+        [
+          42,
+          5
+        ],
+        [
+          43,
+          4
+        ],
+        [
+          44,
+          7
+        ],
+        [
+          45,
+          7
+        ],
+        [
+          46,
+          5
+        ],
+        [
+          47,
+          7
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "cast_gather",
+    "move": "cast_release",
+    "tell": "cast_gather",
+    "attack": "cast_release",
+    "hurt": "cast_follow",
+    "defeat": "cast_follow"
+  },
+  "rules": {
+    "max_colors": 22,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/anim-donut-03_keys.json",
+      "frames": [
+        0,
+        16,
+        24,
+        28
+      ],
+      "layers": [
+        "head",
+        "face",
+        "gear"
+      ]
+    },
+    "key_counts": [
+      {
+        "id": "C1-gather-gem-twinkle",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "key": "w",
+        "min": 6,
+        "max": 6
+      },
+      {
+        "id": "C2-release-fangs-and-catchlights",
+        "frames": [
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "key": "w",
+        "min": 4,
+        "max": 4
+      },
+      {
+        "id": "C3-follow-no-fangs-or-twinkle",
+        "frames": [
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47
+        ],
+        "key": "w",
+        "min": 4,
+        "max": 4
+      }
+    ]
+  },
+  "scene": {
+    "shadow": true,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520,
+        "flip": false
+      },
+      {
+        "frame": 16,
+        "x": 586,
+        "flip": false
+      },
+      {
+        "frame": 32,
+        "x": 652,
+        "flip": false
+      },
+      {
+        "frame": 24,
+        "x": 724,
+        "flip": false
+      },
+      {
+        "frame": 28,
+        "x": 796,
+        "lift": 14,
+        "flip": false
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "cast_gather",
+      "cast_release"
+    ]
+  }
+}
