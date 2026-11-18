@@ -4,8 +4,8 @@
 Writes ``assets/source/characters/rot_sticker/rot_01.grid.json`` (pixel-grid-v1), the matching ``.ase`` via
 ``scripts/pixel_grid_to_ase.py`` and ``assets/manifests/rot-01.json``. Design spec: ``docs/02-art/rot-01-spec.md``.
 
-Draft status: the six keys (frames 0, 3, 8, 10, 11, 14) are drawn by rules (a shaded superellipse dome, radial ribs,
-spikes, a glow core and a seam), parametrised per key in ``KEYS``. The nine in-between slots are copies of the nearest
+Status: the six keys (design-edited) (frames 0, 3, 8, 10, 11, 14) are drawn by rules (an oblique disc: two-band shell, crimped lip, pleated
+face, glow core and spikes; direction-neutral shading), parametrised per key in ``KEYS``. The nine in-between slots are copies of the nearest
 key until the execution tier replaces them (spec section 8). Nothing is traced or resampled from the concept.
 
 Orientation: authored WALL-MOUNTED, attached to a vertical wall on the LEFT, dome bulging to the right (room side),
@@ -47,142 +47,131 @@ PALETTE = [
     ("w", "flash_white", "#efe3d3ff", True),
 ]
 
-SPIKE_ANGLES = (-66, -40, -14, 14, 40, 66)  # degrees from +x, y down; the wall side has none
+def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_ax=4.4, face_ay=7.0, face_dy=0.0,
+           pleat=("r", "m"), core=("g", "o"), rc=0.34, lip="c", lip_hi="v", shell=("a", "b"), spike=2,
+           spike_root="K", spike_tip="r", droop=0.0, halo=None, crack=None, grime=True, drip=0,
+           patch=()) -> list[str]:
+    """Oblique disc on a wall at the left: dark ringed shell on the wall side, pleated red face toward the room.
 
+    Shading is direction-neutral: it depends only on the distance from the wall (the surface normal) and is mirror
+    symmetric along the wall, so a runtime rotation or mirror never puts a baked light on the wrong edge.
+    """
+    def norm(x, y):
+        dy = y + 0.5 - cy
+        return (x + 0.5 - WALL_X) / rx, dy / (ry_up if dy < 0 else ry_dn)
 
-def _sd(x, y, cx, cy, rx, ry, n=2.7):
-    return (abs((x - cx) / rx) ** n + abs((y - cy) / ry) ** n)
-
-
-def render(rx=12.5, ry=9.8, dy=0.0, shear=0.0, spike=2.0, droop=0.0, rib="m", seam="r", core=("g", "o", "r"),
-           rc=2.0, halo=None, crack=None, flash=0, grime=True, drip=0, spike_key="p") -> list[str]:
-    cx, cy = float(WALL_X), 16.0 + dy
-    hx = cx + rx * 0.5  # rib hub (the glow core sits here)
-    g: dict[tuple[int, int], str] = {}
     mask = set()
     for y in range(H):
         for x in range(WALL_X, W):
-            xs = x + 0.5 - shear * (y + 0.5 - cy) / ry
-            if _sd(xs, y + 0.5, cx, cy, rx, ry) <= 1.0:
+            u, v = norm(x, y)
+            if abs(u) ** n + abs(v) ** n <= 1.0:
                 mask.add((x, y))
-
-    def inside(p):
-        return p in mask
 
     def boundary(p):
         x, y = p
-        return any((x + dx, y + dy_) not in mask for dx, dy_ in ((1, 0), (0, 1), (0, -1))) or \
-            (x - 1 >= WALL_X and (x - 1, y) not in mask)
+        return any(q not in mask for q in ((x + 1, y), (x, y + 1), (x, y - 1))) or (x > WALL_X and (x - 1, y) not in mask)
 
-    # fill ramp from a highlight above and ahead of the hub
-    lx, ly = hx + 2.0, cy - 4.5
-    for p in mask:
-        x, y = p
-        t = math.hypot(x + 0.5 - lx, y + 0.5 - ly) / (rx * 1.15)
-        g[p] = "c" if t < 0.42 else ("b" if t < 0.78 else "a")
-    # radial ribs: 8 rays from the hub, 1 px wide
-    for p in mask:
-        x, y = p
-        vx, vy = x + 0.5 - hx, y + 0.5 - cy
-        r_ = math.hypot(vx, vy)
-        if r_ < rc + 0.8:
-            continue
-        for k in range(8):
-            a = math.radians(k * 45 + 22.5)
-            if abs(-vx * math.sin(a) + vy * math.cos(a)) < 0.52 and vx * math.cos(a) + vy * math.sin(a) > 0:
-                g[p] = rib
-    # rot grime: olive stains on the lower shell
-    if grime:
-        for ox, oy in ((2, 6), (3, 6), (2, 7), (8, 5), (9, 5), (9, 6), (4, -7), (5, -7)):
-            p = (int(cx + ox), int(cy + oy))
-            if p in mask and g[p] in "abc":
+    g: dict[tuple[int, int], str] = {}
+    fcx, fcy = WALL_X + face_x * rx, cy + face_dy
+
+    def fe(p):  # normalised face-ellipse coordinates
+        return (p[0] + 0.5 - fcx) / face_ax, (p[1] + 0.5 - fcy) / face_ay
+
+    edge = {p for p in mask if boundary(p)}
+    face = {p for p in mask - edge if sum(c * c for c in fe(p)) <= 1.0}
+    # shell: two values by distance from the wall (normal-based, symmetric along the wall)
+    for p in mask - face:
+        u, _v = norm(*p)
+        g[p] = shell[0] if u < 0.3 else shell[1]
+    # crimped lip: the shell ring that borders the face on the wall side; its two ends catch the cold rim colour
+    lips = sorted(p for p in mask - face - edge if any(q in face for q in ((p[0] + 1, p[1]), (p[0], p[1] - 1),
+                                                                             (p[0], p[1] + 1))))
+    for p in lips:
+        g[p] = lip
+    if lips and lip_hi:
+        ys = [p[1] for p in lips]
+        for p in lips:
+            if p[1] in (min(ys), min(ys) + 1, max(ys), max(ys) - 1) and p[0] >= fcx - 2:
+                g[p] = lip_hi
+    # pleated face: alternating radial pleats around the core
+    for p in face:
+        a, b = fe(p)
+        r_ = math.hypot(a, b)
+        if r_ <= rc:
+            g[p] = core[0] if r_ <= rc * 0.5 else core[1]
+        else:
+            sector = int((math.atan2(b, a) + math.pi) / (2 * math.pi) * 10 + 0.5) % 10
+            g[p] = pleat[sector % 2]
+    for p in edge:
+        g[p] = "K"
+    if grime:  # olive rot stain where the shell meets the wall, low side
+        for p in ((WALL_X, int(cy + 5)), (WALL_X, int(cy + 6)), (WALL_X + 1, int(cy + 6))):
+            if p in mask and p not in edge:
                 g[p] = "x"
-    # outline (not on the wall side) and a cold rim on the upper-right edge
-    for p in sorted(mask):
-        if boundary(p):
-            g[p] = "K"
-    for p in sorted(mask):
-        x, y = p
-        if g[p] in "abc" and x + 0.5 > hx and y + 0.5 < cy and ((x, y - 1) in mask and g[(x, y - 1)] == "K"
-                                                                or (x + 1, y) in mask and g[(x + 1, y)] == "K"):
-            g[p] = "v"
-    # glow core
-    for p in mask:
-        x, y = p
-        d = math.hypot(x + 0.5 - hx, y + 0.5 - cy)
-        if d <= rc:
-            g[p] = core[0] if d <= rc * 0.45 else (core[1] if d <= rc * 0.8 else core[2])
-    # seam on the wall plane
-    for y in range(H):
-        if (WALL_X, y) in mask:
-            near_centre = abs(y + 0.5 - cy) <= ry * 0.42
-            g[(WALL_X, y)] = seam if near_centre else "m"
-    # hurt flash: white pixels on the shell edge
-    if flash:
-        for p in sorted(mask):
-            x, y = p
-            if g[p] in "vb" and x + 0.5 > hx and y + 0.5 < cy + 2:
-                g[p] = "w"
-    # spikes
-    if spike:
-        for ang in SPIKE_ANGLES:
-            a = math.radians(ang)
-            ux, uy = math.cos(a), math.sin(a)
-            # root on the dome edge along the ray from the hub
-            rx0 = hx
-            t = 0.0
-            while t < 40 and (int(rx0 + ux * t), int(cy + uy * t)) in mask:
-                t += 0.25
-            for i in range(int(round(spike))):
-                f = (i + 1) / max(1, int(round(spike)))
-                ux2 = ux * (1 - droop * f)
-                uy2 = uy * (1 - droop * f) + droop * f
-                px = int(round(rx0 + ux * t + ux2 * (i + 0.2)))
-                py = int(round(cy + uy * t + uy2 * (i + 0.2)))
-                if 0 <= px < W and 0 <= py < H and (px, py) not in mask:
-                    g[(px, py)] = spike_key if i == int(round(spike)) - 1 else "r"
-    # halo: a contiguous dim ring just outside the outline
-    if halo:
+    # spikes: rooted on the outline, pointing along the surface normal of the shell
+    for ang in (-64, -36, -12, 12, 36, 64):
+        a = math.radians(ang)
+        dx, dy = math.cos(a) * rx, math.sin(a) * (ry_up if ang < 0 else ry_dn)
+        ln = math.hypot(dx, dy)
+        dx, dy = dx / ln, dy / ln
+        t = 0.0
+        while (int(WALL_X + 0.5 + dx * t), int(cy + dy * t)) in mask:
+            t += 0.25
+        for i in range(spike):
+            f = (i + 1) / spike
+            px = int(math.floor(WALL_X + 0.5 + dx * (t + i)))
+            py = int(math.floor(cy + dy * (t + i) + droop * f * 1.5))
+            if (px, py) not in mask and 0 <= px < W and 1 <= py < H - 1:
+                g[(px, py)] = spike_tip if i == spike - 1 else spike_root
+    if halo:  # a 1 px glow ring around the outline, hotter on the face side
         ring = set()
         for (x, y) in mask:
-            for dx, dy_ in ((1, 0), (0, 1), (0, -1), (1, 1), (1, -1)):
-                q = (x + dx, y + dy_)
-                if q not in mask and q not in g and 0 <= q[0] < W and 0 <= q[1] < H and q[0] > WALL_X:
+            for q in ((x + 1, y), (x, y + 1), (x, y - 1), (x + 1, y + 1), (x + 1, y - 1)):
+                if q not in mask and q not in g and q[0] > WALL_X and 1 <= q[1] < H - 1:
                     ring.add(q)
-        for q in sorted(ring):
-            g[q] = halo[0] if (q[0] + q[1]) % 3 else halo[1]
-    # burst cracks: bright seams from the core to the rim
-    if crack:
-        for k in range(5):
-            a = math.radians(k * 72 - 144 + 20)
-            for i in range(0, 20):
-                px = int(round(hx + math.cos(a) * i * 0.8))
-                py = int(round(cy + math.sin(a) * i * 0.8))
-                if (px, py) in mask and g[(px, py)] != "K":
-                    g[(px, py)] = crack
-    # dud drip down the wall
-    for i in range(drip):
-        y = int(cy + ry) + i
-        if y < H:
-            g[(WALL_X + 1, y)] = "x"
-            g[(WALL_X, y)] = "x" if i % 2 == 0 else "m"
+        for q in ring:
+            g[q] = halo[1] if q[0] + 0.5 >= fcx else halo[0]
+    if crack:  # burst: bright fissures from the core through the shell
+        for ang in (150, 180, 210, 120, 240):
+            a = math.radians(ang)
+            for i in range(30):
+                p = (int(math.floor(fcx + math.cos(a) * i * 0.5)), int(math.floor(fcy + math.sin(a) * i * 0.5)))
+                if p in mask and p not in face:
+                    g[p] = crack
+    ys = [p[1] for p in mask]
+    for i in range(drip):  # dud: olive rot running down the wall below the skin
+        y = max(ys) + 1 + i
+        if y < H - 1:
+            g[(WALL_X, y)] = "x"
+            if i < drip - 1:
+                g[(WALL_X + 1, y)] = "x"
+    for (x, y), c in patch:
+        g[(x, y)] = c
     rows = [["."] * W for _ in range(H)]
     for (x, y), c in g.items():
-        rows[y][x] = c
+        if c != ".":
+            rows[y][x] = c
     return ["".join(r) for r in rows]
 
 
 # Key poses (spec section 7). Index -> render parameters.
 KEYS = {
-    0: dict(),  # idle: relaxed dome, ember core, dark ribs, 2 px spikes
-    3: dict(rx=11.5, ry=10.5, dy=-1.0, shear=-2.5, spike=2.0, core=("o", "r", "m"), rc=1.8),  # creep: top leans up the wall
-    8: dict(rx=14.0, ry=10.5, spike=3.0, rib="o", seam="o", core=("G", "g", "o"), rc=3.4, halo=("m", "r")),  # tell: glow
-    10: dict(rx=15.0, ry=11.5, spike=3.0, rib="g", seam="G", core=("G", "G", "g"), rc=5.0, halo=("g", "o"),
-             crack="G", spike_key="g"),  # attack: first burst frame
-    11: dict(rx=10.5, ry=10.0, dy=0.0, shear=1.5, spike=1.0, rib="m", seam="m", core=("w", "w", "r"), rc=1.9,
-             flash=1),  # hurt
-    14: dict(rx=5.5, ry=9.0, dy=0.5, spike=1.0, droop=0.8, rib="m", seam="m", core=("m", "m", "a"), rc=1.3,
-             drip=3),  # defeat: dud, deflated flat
+    # idle: oblique disc, dark shell, dim maroon pleated face, ember core, short spikes
+    0: dict(pleat=("m", "b")),
+    # creep: the leading (upper) half stretches up the wall, the trailing half drags short, face rides up, core dims
+    3: dict(rx=11.0, ry_up=11.0, ry_dn=8.0, face_ax=4.0, face_dy=-1.5, pleat=("m", "b"), core=("o", "r")),
+    # tell: the face lights up pleat by pleat, hot core, red halo, longer lit spikes; the shell stays dark
+    8: dict(rx=13.0, ry_up=11.0, ry_dn=11.0, face_ax=5.0, face_ay=8.0, pleat=("o", "r"), core=("G", "g"), rc=0.4,
+            lip="r", spike=3, spike_tip="p", spike_root="r", halo=("m", "r")),
+    # first burst frame: blown-out face, fissures through the shell, hot halo
+    10: dict(rx=14.5, ry_up=12.0, ry_dn=12.0, face_ax=6.0, face_ay=9.0, pleat=("G", "g"), core=("G", "G"), rc=0.5,
+             lip="g", lip_hi="G", spike=3, spike_tip="G", spike_root="g", halo=("o", "g"), crack="G"),
+    # hurt: squashed flat, spikes tucked, white flash on the lip and core
+    11: dict(rx=10.0, ry_up=9.5, ry_dn=9.5, face_x=0.62, face_ax=3.6, face_ay=6.0, pleat=("m", "a"), core=("w", "w"), lip="w",
+             lip_hi="w", spike=1, spike_tip="K"),
+    # defeat (dud): a deflated, dead skin, drooping spikes, no glow, olive rot running down the wall
+    14: dict(rx=5.5, ry_up=9.0, ry_dn=9.0, cy=16.5, face_x=0.55, face_ax=2.2, face_ay=5.5, pleat=("m", "a"),
+             core=("a", "m"), lip="b", lip_hi=None, spike=1, spike_tip="K", drip=4),
 }
 # In-between slots are copies of the nearest key until the execution tier draws them.
 SLOT_SOURCE = {0: 0, 1: 0, 2: 0, 3: 3, 4: 3, 5: 3, 6: 3, 7: 8, 8: 8, 9: 10, 10: 10, 11: 11, 12: 14, 13: 14, 14: 14}
@@ -240,9 +229,9 @@ def write_manifest() -> None:
                  "surface-crawling contact bomb)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": "ROT-01 first draft: six keys drawn by rules in scripts/author_rot01.py; nine in-between slots are "
+            "origin": "ROT-01 design-edited keys: six keys drawn by rules in scripts/author_rot01.py; nine in-between slots are "
                       "copies of the nearest key",
-            "generator": "Draft spec and keys: Claude Sonnet. Senior edit and independent review: pending. "
+            "generator": "Draft spec and keys: Claude Sonnet. Design edit: Claude Opus. Independent review: pending. "
                          "No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["floor-01-enemy-concept-scatterers-rot-sticker-slime-v1"],
@@ -251,7 +240,7 @@ def write_manifest() -> None:
                    "no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "rot_sticker": {
-            "status": "first draft; senior edit and review pending; not wired into any Bevy binary",
+            "status": "keys design-edited; review and in-betweens pending; not wired into any Bevy binary",
             "spec": "docs/02-art/rot-01-spec.md",
             "opaque_height_idle": 20,
             "tick_hz": 60,
