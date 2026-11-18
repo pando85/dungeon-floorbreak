@@ -12,6 +12,8 @@
 
 **Source boundaries:** Existing [vision](vision.md), [core gameplay](gameplay.md), [character sheets](characters.md), [antihero identity](antihero-tone.md), [input/camera technical specification](../03-tech/input-camera.md), [Floor 01 concept atlas](../02-art/floor-01-art-atlas-v1.md), [production and rights rules](../04-production/rights-and-release.md). Story chronology and equipment unlocks must be checked against the applicable book chapter before being labelled canon. All mechanics below marked *proposal* are game adaptations, not canon claims.
 
+**Long-term context (living, not an approval of future abilities):** check the [character progression horizon](character-progression-horizon.md) when changing protagonist moves, unlock pacing, encounter capabilities or floor-to-floor assumptions. The Floor 01 decisions documented here remain the local gameplay design authority, subject to explicit review and playtest.
+
 ## North star
 
 **A scrappy, emotionally grounded 1980s–1990s action-film antihero survives alongside an increasingly capable cat.** The two roles are different, valuable, and complementary. Success comes from understanding threats and making smart use of physical impact, magic, selective destruction and the environment. A player should feel more competent by the end of Floor 1 even if stats change little.

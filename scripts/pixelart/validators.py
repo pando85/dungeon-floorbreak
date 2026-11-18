@@ -1,4 +1,4 @@
-"""Parametrized validators for one asset (rules V01..V15), driven by an :class:`AssetConfig`.
+"""Parametrized validators for one asset (rules V01..V16), driven by an :class:`AssetConfig`.
 
 Every rule is a pure function of a :class:`Context` (config, grid, optional manifest, optional frozen-key
 fixture), so it can be unit-tested on tiny synthetic grids, negative cases included. ``run`` returns a
@@ -23,6 +23,7 @@ V12   unique frames           ``rules.unique_frames``
 V13   bounding boxes          ``rules.bbox`` (per-frame top/bottom/left/right/width/height limits)
 V14   key counts              ``rules.key_counts`` (pixels of a palette key per frame)
 V15   non-empty frames        every frame has at least one opaque pixel
+V16   foot drift              ``rules.foot_drift`` (planted feet of loop tags, seam included)
 ====  ======================  ===================================================================
 """
 from __future__ import annotations
@@ -82,6 +83,61 @@ def dig(data: dict, dotted: str):
             raise ToolkitError(f"manifest has no {dotted!r}")
         cur = cur[part]
     return cur
+
+
+def contact_spans(row: list[str]) -> list[tuple[int, int]]:
+    """Runs of opaque pixels on one row, as inclusive (left, right) x pairs."""
+    spans, x = [], 0
+    while x < len(row):
+        if row[x] == ".":
+            x += 1
+            continue
+        start = x
+        while x < len(row) and row[x] != ".":
+            x += 1
+        spans.append((start, x - 1))
+    return spans
+
+
+def foot_drift(row_a: list[str], row_b: list[str]) -> int:
+    """Largest horizontal movement of a planted foot between two frames, judged on the contact row.
+
+    Each foot is a run on the contact row; it is matched to the nearest run (by centre) of the other frame in both
+    directions, and its drift is the smallest of the left-edge, right-edge and centre shifts, so a heel or toe lift
+    that moves one edge is not counted as sliding. Feet that touch down or lift off (no run to match) count 0.
+    """
+    a, b = contact_spans(row_a), contact_spans(row_b)
+    worst = 0
+    for src, dst in ((a, b), (b, a)):
+        for l0, r0 in src:
+            if not dst:
+                continue
+            l1, r1 = min(dst, key=lambda s: abs((s[0] + s[1]) - (l0 + r0)))
+            worst = max(worst, min(abs(l1 - l0), abs(r1 - r0), abs((l1 + r1) - (l0 + r0)) // 2))
+    return worst
+
+
+def v16_foot_drift(c: Context) -> list[str]:
+    """Planted feet must not slide more than ``max_px`` across any step of a looping tag, the loop seam included."""
+    spec = c.cfg.rules["foot_drift"]
+    limit = spec["max_px"] if isinstance(spec, dict) else int(spec)
+    row = c.cfg.contact_row if c.cfg.contact_row is not None else c.cfg.pivot[1]
+    names = spec.get("tags") if isinstance(spec, dict) and spec.get("tags") else [
+        n for n, t in c.cfg.tags.items() if t.get("playback") == "loop" and t.get("contact") == "grounded"]
+    out = []
+    for name in names:
+        if name not in c.cfg.tags:
+            raise ToolkitError(f"foot_drift: unknown tag {name!r}")
+        seq = [f for f, _ in c.cfg.tags[name]["frames"]]
+        for i, f in enumerate(seq):
+            g = seq[(i + 1) % len(seq)]
+            if len(seq) < 2 or f >= len(c.flats) or g >= len(c.flats):
+                continue
+            d = foot_drift(c.flats[f][row], c.flats[g][row])
+            if d > limit:
+                seam = " (loop seam)" if i == len(seq) - 1 else ""
+                out.append(f"{name}: frame {f} -> {g}{seam}: a planted foot moves {d} px (max {limit})")
+    return out
 
 
 # ------------------------------------------------------------------ rules: each returns a list of failures
@@ -332,6 +388,7 @@ RULES = [
     ("V13", "bounding boxes", v13_bbox, "bbox"),
     ("V14", "key counts", v14_key_counts, "key_counts"),
     ("V15", "non-empty frames", v15_nonempty, None),
+    ("V16", "foot drift (loop seam)", v16_foot_drift, "foot_drift"),
 ]
 
 

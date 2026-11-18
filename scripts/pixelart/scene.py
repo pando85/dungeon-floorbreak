@@ -84,6 +84,13 @@ def entries_for(cfg: AssetConfig, imgs: list[Image.Image]) -> list[tuple]:
             img, piv = flip(img, pivot)
         shadow = actor.get("shadow", cfg.get("scene", {}).get("shadow", True))  # False: wall/ceiling creature
         entries.append((img, piv, actor["x"], actor.get("lift", 0), shadow))
+    for ref in cfg.get("scene", {}).get("references", []):
+        # extra approved sprites for direct comparison (e.g. GOB-01 A/B next to a later goblin type)
+        grid = load_grid_file(repo_path(ref["grid"]))
+        img, piv = grid_images(grid)[ref.get("frame", 0)], tuple(grid["pivot"])
+        if ref.get("flip", True):
+            img, piv = flip(img, piv)
+        entries.append((img, piv, ref["x"], ref.get("lift", 0), ref.get("shadow", True)))
     return entries
 
 
