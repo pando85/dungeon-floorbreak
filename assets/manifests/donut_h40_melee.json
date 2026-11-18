@@ -29,7 +29,7 @@
   "owner": "AI-authored pixel animation candidate (fan-concept layer: Princess Donut -> caster)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "ANIM-DONUT-02 melee and damage-reaction keys built from the owner-approved ANIM-DONUT-01 locomotion atlas assets/source/characters/donut/donut_h40_locomotion.grid.json (itself copied from the approved 40 px master): head, face, gear, body and tail pixels are translated only; fore and hind leg poses are hand-placed in pixel-grid-v1",
+    "origin": "ANIM-DONUT-02 melee and damage-reaction keys built from the owner-approved ANIM-DONUT-01 locomotion atlas assets/source/characters/donut/donut_h40_locomotion.grid.json (itself copied from the approved 40 px master): head, face, gear, body and tail pixels are translated only; fore and hind leg poses are hand-placed in pixel-grid-v1; the seven in-betweens follow the spec section-6 executor notes (same rules, plus a plume-tip flick on d1)",
     "generator": "Hand-placed pixel parts and per-key translation data by an AI agent, assembled by scripts/author_donut_melee.py; no image-model raster output, no resampling or rotation",
     "generated_art": true,
     "input_reference_ids": [
@@ -39,7 +39,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "melee": {
-    "status": "phase 1 design: 8 keys frozen, in-betweens are key copies for the execution phase; not wired into any Bevy binary",
+    "status": "15 frames drawn: 8 frozen keys and 7 executed in-betweens; independent review pending; not wired into any Bevy binary",
     "spec": "docs/02-art/donut-melee-anim-02-spec.md",
     "locomotion": "assets/manifests/donut_h40_locomotion.json",
     "tick_hz": 60,
@@ -76,7 +76,7 @@
       "knockdown_impact": 11
     },
     "hit_boxes_px": {
-      "note": "Placeholder art reach in sprite pixels relative to the pivot, facing right: x forward, y up from the pivot row, inclusive [x0, y0, x1, y1]. A guide for gameplay data, not authoritative collision.",
+      "note": "Placeholder art reach in sprite pixels relative to the pivot, facing right: x forward, y up from the pivot row, inclusive [x0, y0, x1, y1]. Measured on the keys (s1, p1, p2); in-between frames carry no active box. A guide for gameplay data, not authoritative collision.",
       "swat_contact": {
         "paw": [
           13,

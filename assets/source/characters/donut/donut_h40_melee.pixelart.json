@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "anim-donut-02",
-  "title": "ANIM-DONUT-02 Princess Donut melee and damage reactions (40 px): 15 frames, 8 frozen keys (phase 1, in-betweens are key copies)",
+  "title": "ANIM-DONUT-02 Princess Donut melee and damage reactions (40 px): 15 frames, 8 frozen keys, 7 in-betweens",
   "grid": "assets/source/characters/donut/donut_h40_melee.grid.json",
   "manifest": "assets/manifests/donut_h40_melee.json",
   "frame_size": [72, 44],
@@ -25,7 +25,7 @@
     "max_isolated_per_frame": 0,
     "max_orphans_per_frame": 6,
     "canvas_margin": [1, 1, 1, 0],
-    "unique_frames": false,
+    "unique_frames": true,
     "manifest_tick_rows": "melee.frames",
     "manifest_tick_hz": "melee.tick_hz",
     "frozen_keys": {

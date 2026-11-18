@@ -15,7 +15,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import sys
 from pathlib import Path
@@ -33,26 +32,26 @@ UPPER = ["head", "face", "gear"]       # the identity block (master pixels): tra
 TICK_HZ = 60
 
 # ---------------------------------------------------------------------------
-# Frame plan: (name, tag, ticks or None for hold, source: key name for copies)
+# Frame plan: (name, tag, ticks or None for hold, is_key)
 # ---------------------------------------------------------------------------
 FRAMES = [
-    ("s0 cock", "swat", 4, None),
-    ("s1 swat contact", "swat", 3, None),
-    ("s2 follow-through", "swat", 4, "s1 swat contact"),
-    ("s3 recover", "swat", 3, "s1 swat contact"),
-    ("p0 crouch", "pounce", 10, None),
-    ("p1 pounce flight", "pounce_air", None, None),
-    ("p2 pin landing", "pounce_land", 8, None),
-    ("p3 recover", "pounce_land", 12, "p2 pin landing"),
-    ("h0 flinch", "hurt", 5, None),
-    ("h1 recoil", "hurt", 11, "h0 flinch"),
-    ("kb thrown", "knockback", None, None),
-    ("d0 sploot impact", "knockdown", 6, None),
-    ("d1 sploot sulk", "knockdown", 30, "d0 sploot impact"),
-    ("g0 chest up", "getup", 10, "d0 sploot impact"),
-    ("g1 chin up", "getup", 10, "d0 sploot impact"),
+    ("s0 cock", "swat", 4, True),
+    ("s1 swat contact", "swat", 3, True),
+    ("s2 follow-through", "swat", 4, False),
+    ("s3 recover", "swat", 3, False),
+    ("p0 crouch", "pounce", 10, True),
+    ("p1 pounce flight", "pounce_air", None, True),
+    ("p2 pin landing", "pounce_land", 8, True),
+    ("p3 recover", "pounce_land", 12, False),
+    ("h0 flinch", "hurt", 5, True),
+    ("h1 recoil", "hurt", 11, False),
+    ("kb thrown", "knockback", None, True),
+    ("d0 sploot impact", "knockdown", 6, True),
+    ("d1 sploot sulk", "knockdown", 30, False),
+    ("g0 chest up", "getup", 10, False),
+    ("g1 chin up", "getup", 10, False),
 ]
-KEY_FRAMES = [i for i, f in enumerate(FRAMES) if f[3] is None]
+KEY_FRAMES = [i for i, f in enumerate(FRAMES) if f[3]]
 HOLD_MS = 100
 
 
@@ -330,6 +329,135 @@ KEYS = {
 
 
 # ---------------------------------------------------------------------------
+# The seven in-betweens (execution phase): same rules as the keys. Identity block, body and tail are
+# translations of locomotion pixels (one documented exception: the d1 plume-tip flick); legs and paws are
+# hand-placed with the master ramps. Each is built from the locomotion frame the spec names.
+# ---------------------------------------------------------------------------
+
+FORE_X = 44                                        # columns from here on are forelegs; hind legs end at x 40
+
+
+def set_upper(f: dict, src: int, dx: int, dy: int) -> None:
+    """Replace head, face and gear with locomotion frame ``src``'s block, moved as one."""
+    g = base(src)
+    shift(g, UPPER, dx, dy)
+    for layer in UPPER:
+        f[layer] = g[layer]
+
+
+def set_fore(f: dict, src: int) -> None:
+    """Restore both forelegs (columns >= FORE_X) to locomotion frame ``src``'s pixels."""
+    g = base(src)
+    for layer in ("legs_near", "legs_far"):
+        for y in range(H):
+            f[layer][y][FORE_X:] = g[layer][y][FORE_X:]
+
+
+def shift_hind(f: dict, dx: int) -> None:
+    """Move both hind legs (columns < FORE_X) sideways by ``dx`` px."""
+    for layer in ("legs_near", "legs_far"):
+        for y in range(H):
+            row = f[layer][y]
+            hind = row[:FORE_X]
+            row[:FORE_X] = ["."] * FORE_X
+            for x, ch in enumerate(hind):
+                if ch != ".":
+                    row[x + dx] = ch
+
+
+def ib_s2() -> dict:
+    """Swat follow-through: the slap carries on down; the paw ends pressed flat on the floor, claws hidden."""
+    f = base(15)
+    shift(f, UPPER + ["body", "tail"], 1, 1)       # leans into the slap: spec U (+1, +1)
+    clear(f, "legs_near", FORE_X, 0)
+    shift_hind(f, 2)                               # hind paws creep forward: hides the capped skate
+    put(f, "paw", 55, 30, """
+KKK..........
+KCCK.........
+KcCCK........
+.KcCCK.......
+.KcCCK.......
+..KcCCK......
+..KcCCK......
+...KcCCK.....
+...KcCCK.....
+....KcCCKKK..
+.....KcCCCCKK
+.....KCCCCCCK
+.....KcCKCCcK
+.....KccKcccK
+""")
+    return f
+
+
+def ib_s3() -> dict:
+    """Swat recover: back in the land-recovery stance (locomotion 15 pixels); hands over to idle or run."""
+    return base(15)
+
+
+def ib_p3() -> dict:
+    """Pounce recover: rump lowers 1 px, head and forepaws back (locomotion 10), plume settling."""
+    f = base(10)
+    shift(f, ["body"], 0, 1)
+    shift(f, ["tail"], -2, 0)                      # halfway between the p2 plume and the standing plume
+    return f
+
+
+def ib_h1() -> dict:
+    """Hurt recoil: eyes open again, head easing forward, the near forepaw back on the floor."""
+    f = base(14)
+    set_upper(f, 10, -1, -1)                       # locomotion 10 has loco 14's head position with open eyes
+    shift(f, ["body"], -1, 0)
+    shift(f, ["tail"], -1, 0)
+    return f
+
+
+def ib_d1() -> dict:
+    """Sploot sulk: the d0 pose with the open indignant stare and a tail-tip flick (plume tip +2 px up)."""
+    f = key_d0()
+    set_upper(f, 10, 0, 4)
+    tail = f["tail"]
+    top = min(y for y in range(H) if any(c != "." for c in tail[y]))
+    out = [["."] * W for _ in range(H)]
+    # shear: the top rows rise by 2 px, the next rows by 1 px; the gap rows repeat the row below to stay solid
+    rise = lambda y: 2 if y < top + 4 else (1 if y < top + 8 else 0)  # noqa: E731
+    for y in range(H):
+        for x, ch in enumerate(tail[y]):
+            if ch != ".":
+                out[y - rise(y)][x] = ch
+        if y + 1 < H and rise(y) > rise(y + 1):
+            for x, ch in enumerate(tail[y]):
+                if ch != "." and out[y - rise(y) + 1][x] == ".":
+                    out[y - rise(y) + 1][x] = ch
+    f["tail"] = out
+    return f
+
+
+def ib_g0() -> dict:
+    """Get-up, chest up: forelegs under the chest, head up 2 px, plume rising; hind legs still flat behind."""
+    f = key_d0()
+    shift(f, ["body"], 0, -1)                      # B (0, 0)
+    set_upper(f, 10, 0, 2)                         # U (0, +2), eyes open
+    shift(f, ["tail"], 0, -4)                      # plume rising from the sploot flop
+    clear(f, "legs_near", FORE_X, 0)
+    set_fore(f, 10)
+    return f
+
+
+def ib_g1() -> dict:
+    """Get-up, chin up: the land-recovery stance with the chin 1 px up (dignity restored); hinds under the hips."""
+    f = base(15)
+    shift(f, UPPER, 0, -1)
+    return f
+
+
+INBETWEENS = {
+    "s2 follow-through": ib_s2, "s3 recover": ib_s3, "p3 recover": ib_p3, "h1 recoil": ib_h1,
+    "d1 sploot sulk": ib_d1, "g0 chest up": ib_g0, "g1 chin up": ib_g1,
+}
+
+
+# ---------------------------------------------------------------------------
 # Grid assembly
 # ---------------------------------------------------------------------------
 
@@ -343,12 +471,12 @@ def cels_of(f: dict) -> dict[str, list[str]]:
 
 
 def build() -> dict:
-    keys = {name: cels_of(fn()) for name, fn in KEYS.items()}
+    builders = KEYS | INBETWEENS
     frames = []
-    for name, _tag, ticks, src in FRAMES:
-        frames.append({"duration_ms": ms(ticks), "cels": copy.deepcopy(keys[src or name])})
+    for name, _tag, ticks, _key in FRAMES:
+        frames.append({"duration_ms": ms(ticks), "cels": cels_of(builders[name]())})
     tags, start = [], 0
-    for i, (_n, tag, _t, _s) in enumerate(FRAMES):
+    for i, (_n, tag, _t, _k) in enumerate(FRAMES):
         if i + 1 == len(FRAMES) or FRAMES[i + 1][1] != tag:
             tags.append({"name": tag, "from": start, "to": i, "direction": "forward"})
             start = i + 1

@@ -1,18 +1,19 @@
 # ANIM-DONUT-02: Princess Donut melee and damage reactions, design spec (phase 1)
 
-**Status:** phase 1 design: eight keys drawn and frozen, silhouette-gate fixes applied (section 13), the seven in-betweens are copies of their nearest key and wait for execution (section 6). Nothing here is reviewed or owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
+**Status:** execution drawn: all 15 frames exist, the eight keys frozen and silhouette-gate fixed (section 13) and the seven in-betweens drawn to section 6 (section 14); toolkit validation passes with `unique_frames: true`; evidence regenerated. Nothing here is reviewed or owner-approved. Nothing is wired into a Bevy binary; runtime integration is a separate work order. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
 
 Read with: [ANIM-DONUT-01 locomotion](donut-locomotion-anim-01.md) (frame, pivot, layers and identity rules this spec inherits), [Donut bible](donut-character-bible.md), [gear timeline](donut-gear-timeline.md), [controller contract](../01-design/mvp-controller-contract.md#character-actions-and-progression), [antihero tone](../01-design/antihero-tone.md), and the structural model [ANIM-CARL-02](carl-melee-anim-02-spec.md).
 
 | File | Role |
 | --- | --- |
-| `assets/source/characters/donut/donut_h40_melee.grid.json` | pixel-grid-v1 source, 15 frames in the section-6 layout (keys at 0, 1, 4, 5, 6, 8, 10, 11) |
+| `assets/source/characters/donut/donut_h40_melee.grid.json` | pixel-grid-v1 source, 15 frames in the section-6 layout (keys at 0, 1, 4, 5, 6, 8, 10, 11; in-betweens 2, 3, 7, 9, 12, 13, 14) |
 | `assets/source/characters/donut/donut_h40_melee.ase` | built from the grid by `scripts/pixel_grid_to_ase.py` (also via `scripts/export_assets.sh`) |
 | `assets/source/characters/donut/donut_h40_melee.pixelart.json` | toolkit config: tags, tick table, lint limits, frozen keys |
-| `scripts/author_donut_melee.py` | deterministic authoring record of the keys (`--check`, `--evidence`) |
+| `scripts/author_donut_melee.py` | deterministic authoring record of the keys and the seven in-betweens (`--check`, `--evidence` for the key-scale files) |
+| `scripts/make_donut_melee_previews.py` | deterministic evidence set below (needs `bash scripts/export_assets.sh` first); `--out DIR` |
 | `assets/manifests/donut_h40_melee.json` | candidate manifest `donut_h40_melee_candidate_v0`. Its `melee.moves` block is the **machine-readable tick contract**; `melee.frames` is the per-frame tick table |
 | `tests/test_art_donut_melee.py`, `tests/fixtures/anim-donut-02_keys.json` | contract tests and the frozen keys (SHA-256 over all eight layers) |
-| `docs/evidence/anim-donut-02/` | `keys-scale.png` (1×, lit Floor 1, next to Carl and a GOB-01 goblin; airborne keys over open floor, s1 at the goblin), `keys-scale-x4.png`, `keys_x6.png`, `p0_vs_jump_start_x1.png` / `_x6.png` (s0, locomotion `jump_start`, p0), `SHA256SUMS` |
+| `docs/evidence/anim-donut-02/` | see the evidence table in section 14. Key files: `keys-scale.png` (1×, lit Floor 1, next to Carl and a GOB-01 goblin; airborne keys over open floor, s1 at the goblin), `keys-scale-x4.png`, `keys_x6.png`, `p0_vs_jump_start_x1.png` / `_x6.png`, `contact_sheet_x1.png` / `_x6.png`, `frame_layout_timing_diagram.png`, five `*_x4.gif`, six `floor01_melee_*` compositions, `measurements.json`, `SHA256SUMS` |
 
 ## 1. Acting brief
 
@@ -87,29 +88,29 @@ Coordinates are canvas pixels (x right, y down; floor row 43). **U(dx, dy)** tra
 
 Key read checks at 1× (see `keys-scale.png`): the swat pair reads as paw up, then paw out at the goblin's shins; the pounce trio reads as low crouch with dropped tail, long flat leap with paws out, two-paw landing with tail up; hurt and knockback both shut the eyes, knockback is separated by height and splayed legs; the sploot is the lowest silhouette in the set.
 
-## 6. Frame plan, tags and in-betweens (execution phase)
+## 6. Frame plan, tags and in-betweens
 
-15 frames, one row of 72 × 44. Ticks are 60 Hz; `hold` frames show 100 ms in previews.
+15 frames, one row of 72 × 44. Ticks are 60 Hz; `hold` frames show 100 ms in previews. "Owner now": **key** = frozen design key, **drawn** = in-between drawn by the execution phase to the executor note (what was actually done, including deviations, is in section 14).
 
-| Frame | Tag | Name | Ticks | Phase | Owner now | Executor note (target pose; copy the named key first, then edit) |
+| Frame | Tag | Name | Ticks | Phase | Owner now | Executor note (target pose) |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0 | `swat` | s0 cock | 4 (t0-3) | startup | **key** | frozen |
 | 1 | `swat` | s1 swat contact | 3 (t4-6) | active, hit t4 | **key** | frozen |
-| 2 | `swat` | s2 follow-through | 4 (t7-10) | recovery | copy of s1 | paw continues down to the floor: paw x60-67 rows 40-43 (pressed flat, claws hidden), U (+1, +1). Near hind shuffles forward 2 px (hides skating) |
-| 3 | `swat` | s3 recover | 3 (t11-13) | recovery | copy of s1 | back to the loco-15 stance: near fore restored to its loco-15 pixels, U (0, 0). Hands over to idle/run with at most a 1 px snap |
+| 2 | `swat` | s2 follow-through | 4 (t7-10) | recovery | drawn | paw continues down to the floor: paw x60-67 rows 40-43 (pressed flat, claws hidden), U (+1, +1). Near hind shuffles forward 2 px (hides skating) |
+| 3 | `swat` | s3 recover | 3 (t11-13) | recovery | drawn | back to the loco-15 stance: near fore restored to its loco-15 pixels, U (0, 0). Hands over to idle/run with at most a 1 px snap |
 | 4 | `pounce` | p0 crouch | 10 (t0-9) | startup | **key** | frozen. Optional later: a 1 px rump wiggle variant (needs a frame and a re-freeze) |
 | 5 | `pounce_air` | p1 pounce flight | hold (nominal t10-23) | active | **key** | frozen |
 | 6 | `pounce_land` | p2 pin landing | 8 (t24-31) | active t24-25, then recovery | **key** | frozen |
-| 7 | `pounce_land` | p3 recover | 12 (t32-43) | recovery | copy of p2 | rump lowers, head back to U (0, 0), forepaws drawn back under the chest (loco-10 forelegs), plume settles halfway between p2 and loco 15 |
+| 7 | `pounce_land` | p3 recover | 12 (t32-43) | recovery | drawn | rump lowers, head back to U (0, 0), forepaws drawn back under the chest (loco-10 forelegs), plume settles halfway between p2 and loco 15 |
 | 8 | `hurt` | h0 flinch | 5 (t0-4) | hitstun | **key** | frozen |
-| 9 | `hurt` | h1 recoil | 11 (t5-15) | hitstun | copy of h0 | eyes open again (open-eye face), U (-1, -1), B (-1, 0); near fore back on the floor at its loco-15 position |
+| 9 | `hurt` | h1 recoil | 11 (t5-15) | hitstun | drawn | eyes open again (open-eye face), U (-1, -1), B (-1, 0); near fore back on the floor at its loco-15 position |
 | 10 | `knockback` | kb thrown | hold | airborne | **key** | frozen |
 | 11 | `knockdown` | d0 sploot impact | 6 (t0-5) | down | **key** | frozen |
-| 12 | `knockdown` | d1 sploot sulk | 30 (t6-35) | down | copy of d0 | open-eye face (indignant stare), plume tip lifts 2 px (tail flick); holds until get-up |
-| 13 | `getup` | g0 chest up | 10 (t0-9) | getup | copy of d0 | forelegs straighten under the chest (loco-10 forelegs), B (0, 0), U (0, +2); hinds still flat behind |
-| 14 | `getup` | g1 chin up | 10 (t10-19) | getup | copy of d0 | the loco-15 pose with U (0, -1) (chin up first, dignity restored); hinds back under the hips. Hands over to idle |
+| 12 | `knockdown` | d1 sploot sulk | 30 (t6-35) | down | drawn | open-eye face (indignant stare), plume tip lifts 2 px (tail flick); holds until get-up |
+| 13 | `getup` | g0 chest up | 10 (t0-9) | getup | drawn | forelegs straighten under the chest (loco-10 forelegs), B (0, 0), U (0, +2); hinds still flat behind |
+| 14 | `getup` | g1 chin up | 10 (t10-19) | getup | drawn | the loco-15 pose with U (0, -1) (chin up first, dignity restored); hinds back under the hips. Hands over to idle |
 
-In-between rules: head, face and gear are translations of a locomotion head block only (the test enforces this for the keys; extend it to every frame); body and tail are translations (p0's re-pixelled plume and raised rump are the one exception; a wiggle variant reuses them); legs and paws are re-pixelled with the master ramps (`K` outline, `C`/`c` cream legs, `W` toe and claw highlights, far legs in the shadow ramp). No isolated pixels, at most 6 orphans per frame. After execution set `unique_frames: true` in the config.
+In-between rules: head, face and gear are translations of a locomotion head block only (the test enforces this for all 15 frames); body and tail are translations (p0's re-pixelled plume and raised rump, and the d1 plume-tip flick, are the exceptions; a wiggle variant reuses p0's); legs and paws are re-pixelled with the master ramps (`K` outline, `C`/`c` cream legs, `W` toe and claw highlights, far legs in the shadow ramp). No isolated pixels, at most 6 orphans per frame. `unique_frames: true` is set in the config.
 
 ## 7. State flow
 
@@ -147,7 +148,7 @@ Any hit cancels an attack (no armour). Airborne swat and pounce from a jump are 
 
 ## 9. Acceptance targets
 
-**Execution phase:** all 15 frames drawn to section 6; the eight keys pixel-identical (`tests/fixtures/anim-donut-02_keys.json`); toolkit validation passes with `unique_frames: true`; GIFs per tag at tick timing, a swat-swat and a pounce sequence GIF, a Floor 1 sequence mock with a GOB-01 goblin; `bash scripts/export_assets.sh` and the tests pass; evidence refreshed with `SHA256SUMS`.
+**Execution phase (done, section 14):** all 15 frames drawn to section 6; the eight keys pixel-identical (`tests/fixtures/anim-donut-02_keys.json`); toolkit validation passes with `unique_frames: true`; GIFs per tag at tick timing, a swat-swat and a pounce sequence GIF, a Floor 1 sequence mock with a GOB-01 goblin; `bash scripts/export_assets.sh` and the tests pass; evidence refreshed with `SHA256SUMS`.
 
 **Independent review checklist:**
 
@@ -168,7 +169,7 @@ Score per [routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-
 
 ## 12. Rights/Provenance
 
-Spec and keys: Claude Opus (design). Built only from the owner-approved Donut master and the owner-approved ANIM-DONUT-01 locomotion pixels; legs and paws hand-placed in pixel-grid-v1 by the authoring script. No generated illustration, concept-board pixel, image-model raster or third-party asset was used.
+Spec and keys: Claude Opus (design). In-betweens, export, evidence and tests: Claude Sonnet (execution). Built only from the owner-approved Donut master and the owner-approved ANIM-DONUT-01 locomotion pixels; legs and paws hand-placed in pixel-grid-v1 by the authoring script. No generated illustration, concept-board pixel, image-model raster or third-party asset was used.
 
 ## 13. Silhouette gate result and fixes
 
@@ -182,3 +183,40 @@ The independent silhouette gate returned **FIX-KEYS** (p0 required, s0 recommend
 | evidence (required) | flight key over open floor, s1 at the goblin, p0 vs `jump_start` side by side | `keys-scale.png` re-staged (p1 at x622, kb at x846, s1 at x904 against the goblin at x937); `p0_vs_jump_start_x1.png` and `_x6.png` added |
 
 Every pixel number in sections 4 and 5 was re-measured on the re-frozen grid.
+
+## 14. Execution result: in-betweens, export and evidence
+
+All seven in-betweens are drawn by `scripts/author_donut_melee.py` from the locomotion frames the section-6 notes name (hand-placed pixel rows for the new paws; whole-pixel translation for everything else; no raster output, no tracing). The eight keys are untouched (the frozen-key fixture and its test pass unchanged). `python3 -m scripts.pixelart validate` passes 13 checks with `unique_frames: true` and no validator limit was changed. The atlas and Aseprite metadata are produced by `bash scripts/export_assets.sh` into the gitignored `generated/art/`; the manifest `melee.moves` and `melee.frames` blocks and the hit boxes did not change (a test now checks each box against the pixels of its paw).
+
+| Frame | What was drawn | Deviation from the executor note |
+| --- | --- | --- |
+| 2 s2 follow-through | loco 15; head, face, gear, body and tail translated (+1, +1); near fore replaced by a forearm running down to a flat paw at x60-67 rows 40-43 (one toe notch, no claws); hind legs creep +2 px | **Both** hind legs shift +2 (the note says the near hind): the far hind lies directly behind the near one, so shifting only the near hind merges the pair into one fat leg |
+| 3 s3 recover | exactly the locomotion 15 pixels (near fore restored, U (0, 0)); `paw` layer empty | none |
+| 7 p3 recover | loco 10; head U (0, 0) and forelegs back to the loco 10 pixels; body (0, +1) (rump lowers); plume = loco 10 plume (-2, 0) (the standing plume's centre lies about 8 px left and 3 px lower than the p2 plume) | "halfway between p2 and loco 15" is realised as the loco 10 plume moved halfway in x, because the two plumes are different shapes |
+| 9 h1 recoil | loco 14 body, hinds and forelegs; face block from loco 10 (open eyes at loco 14's head position) at (-1, -1), body (-1, 0), plume (-1, 0) | near fore uses the loco 14 forelegs, not the loco 15 ones: they are pixel-identical to the loco 10 forelegs and fit the crouched chest, the loco 15 legs are 2 rows taller and leave a gap under it |
+| 12 d1 sploot sulk | d0 with the open-eye face block (loco 10 at (0, +4), the same head position as d0); plume tip flick: the top four plume rows rise 2 px, the next four 1 px, gap rows repeat the row below | the flick is the one tail re-pixel outside p0 (tested: root and lower rows unchanged, top 2 px higher) |
+| 13 g0 chest up | d0 with body (0, 0), open-eye head block at (0, +2), plume 4 px up, forelegs under the chest (loco 10 pixels), hind legs still flat behind (the d0 hind) | the note is silent on the plume: raised 4 px as the half-way state between the d0 flop and the standing plume |
+| 14 g1 chin up | loco 15 with the identity block 1 px up; hinds back under the hips | none |
+
+Hit boxes are unchanged and live on the keys only (s1, p1, p2); in-between frames carry no active box. The swat follows the downward arc: s0 above and in front of the head, s1 at the goblin's shins (5-10 px above the floor), s2 pressed on the floor at the same reach (paw front x67, key reach x69), s3 back in the stance.
+
+### Evidence (`docs/evidence/anim-donut-02/`)
+
+Not Bevy captures: Pillow compositions from the grid, the manifest and the approved Carl, GOB-01 goblin and locomotion grids, lit with the A1 compositor of `scripts/env_kit_light.py` on the ENV-01 Floor 1 sample layout, over open floor between the two wall blocks. `SHA256SUMS` lists every file; `python3 scripts/check_docs.py` verifies it.
+
+| File | What it shows |
+| --- | --- |
+| `contact_sheet_x1.png`, `contact_sheet_x6.png` | all 15 frames at native size and at x6 with tag, tick window, KEY mark, floor row (cyan) and pivot (yellow) |
+| `frame_layout_timing_diagram.png` | frame layout (72 x 44, pivot (46, 43), floor row 43), the manifest hit boxes drawn on s1, p1 and p2, and the tick contract of every move drawn from `melee.moves` with phase colours and the hit ticks |
+| `swat_x4.gif`, `swat_swat_x4.gif`, `pounce_x4.gif`, `hurt_x4.gif`, `knockdown_getup_x4.gif` | one move each at x4, played at the 60 Hz tick durations, followed by 24 ticks of the approved idle. `swat_swat` restarts the swat at t10 (spec section 4). `pounce` is one image per tick with the proposed launch (vx 180 px/s, vy 130 px/s, `GRAVITY` 1050: about 42 px of travel and an 8 px apex) and a goblin placeholder at the pin. `knockdown_getup` shows 12 ticks of the state-driven knockback hold, then sploot (6), sulk (30), get-up (20) |
+| `floor01_melee_swat_640x360.png` / `_1920x1080.png` | 1x gameplay scale and exact 3x: Carl idle, Donut at s1 with the paw on the GOB-01 goblin's shins (manifest reach +23 px), the cock as a faint ghost |
+| `floor01_melee_pounce_pin_640x360.png` / `_1920x1080.png` | the crouch and the flight as faint ghosts, then the p2 pin with the paws at the goblin's feet; Carl idle behind |
+| `floor01_melee_inbetweens_lineup_640x360.png` / `_1920x1080.png` | the seven in-betweens 60 px apart between Carl and a goblin, for scale |
+| `keys-scale.png`, `keys-scale-x4.png`, `keys_x6.png`, `p0_vs_jump_start_x1.png`, `p0_vs_jump_start_x6.png` | the design-phase key renders, unchanged |
+| `measurements.json` | per-frame bounding box, opaque size, lowest row, tick count and duration |
+
+### Open questions for the reviewer
+
+1. **g0 to g1 hind pop.** The note asks for hinds flat behind in g0 and back under the hips in g1: one frame jump (10 ticks each) from the flat hind to the standing one. A third get-up frame (hinds half-tucked) would smooth it but changes the frame count, so it is a design decision.
+2. **Hand-over to idle.** s3 is the locomotion 15 pixels and g1 is the same with the chin 1 px up. The locomotion `land` frames end in the same pose and hand over to idle with the same snap: the idle head sits 3 px higher (head rows 7-8 against 11) and the body 1-2 px lower than loco 15. The "at most 1 px snap" wording of the s3 note does not hold for the head against the approved idle; this is inherited from the approved locomotion, not new.
+3. **p3 against `jump_start`.** p3 is the loco 10 crouch with the rump 1 px lower and a different plume. It differs from locomotion `jump_start` by those two things only, which is deliberate (identity block translated, no new head), but a reviewer should confirm it still reads as a recovery and not as a second crouch.
