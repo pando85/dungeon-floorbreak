@@ -1,0 +1,61 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "gob-02-death-parts",
+  "title": "GOB-02-DEATH goblin A death-parts sheet (docs/02-art/gob-02-death-spec.md section 7); 32 x 32 cells; 26 parts, 3 frozen keys",
+  "grid": "assets/source/characters/goblin/death/goblin_a_death_parts.grid.json",
+  "manifest": "assets/manifests/goblin_a_death_parts.json",
+  "frame_size": [32, 32],
+  "pivot": [16, 16],
+  "contact_row": null,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "head": {"playback": "hold", "contact": "free", "frames": [[0, null]]},
+    "torso_upper": {"playback": "hold", "contact": "free", "frames": [[1, null]]},
+    "club": {"playback": "hold", "contact": "free", "frames": [[2, null]]},
+    "head_dead": {"playback": "hold", "contact": "free", "frames": [[3, null]]},
+    "torso_lower": {"playback": "hold", "contact": "free", "frames": [[4, null]]},
+    "arm_near": {"playback": "hold", "contact": "free", "frames": [[5, null]]},
+    "arm_far": {"playback": "hold", "contact": "free", "frames": [[6, null]]},
+    "leg_near": {"playback": "hold", "contact": "free", "frames": [[7, null]]},
+    "leg_far": {"playback": "hold", "contact": "free", "frames": [[8, null]]},
+    "club_stick": {"playback": "hold", "contact": "free", "frames": [[9, null]]},
+    "pineapple": {"playback": "hold", "contact": "free", "frames": [[10, null]]},
+    "ear": {"playback": "hold", "contact": "free", "frames": [[11, null]]},
+    "gib_flesh_a": {"playback": "hold", "contact": "free", "frames": [[12, null]]},
+    "gib_flesh_b": {"playback": "hold", "contact": "free", "frames": [[13, null]]},
+    "gib_bone": {"playback": "hold", "contact": "free", "frames": [[14, null]]},
+    "gib_rag": {"playback": "hold", "contact": "free", "frames": [[15, null]]},
+    "drop_blood": {"playback": "hold", "contact": "free", "frames": [[16, null]]},
+    "decal_splat_s": {"playback": "hold", "contact": "free", "frames": [[17, null]]},
+    "decal_splat_m": {"playback": "hold", "contact": "free", "frames": [[18, null]]},
+    "decal_pool_1": {"playback": "hold", "contact": "free", "frames": [[19, null]]},
+    "decal_pool_2": {"playback": "hold", "contact": "free", "frames": [[20, null]]},
+    "decal_pool_3": {"playback": "hold", "contact": "free", "frames": [[21, null]]},
+    "decal_wall_spatter": {"playback": "hold", "contact": "free", "frames": [[22, null]]},
+    "decal_smear": {"playback": "hold", "contact": "free", "frames": [[23, null]]},
+    "decal_wall_spatter_b": {"playback": "hold", "contact": "free", "frames": [[24, null]]},
+    "decal_pool_3_r": {"playback": "hold", "contact": "free", "frames": [[25, null]]}
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "layers_disjoint": [["body", "weapon"]],
+    "canvas_margin": [1, 1, 1, 1],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/gob-02-death-parts_keys.json",
+      "frames": [0, 1, 2],
+      "layers": ["body", "weapon", "gore"]
+    },
+    "bbox": [
+      {"id": "P1-part-never-larger-than-28px", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25], "max_width": 28, "max_height": 28}
+    ],
+    "key_counts": [
+      {"id": "P2-head-shocked-eyes", "frames": [0], "key": "w", "min": 4},
+      {"id": "P3-head-dead-x-eyes", "frames": [3], "key": "K", "min": 12}
+    ]
+  }
+}
