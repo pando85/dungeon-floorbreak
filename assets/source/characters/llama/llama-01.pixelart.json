@@ -1,0 +1,85 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "llama-01",
+  "title": "LLAMA-01 Bad Llama readability set plus spit projectile (docs/02-art/llama-01-spec.md)",
+  "grid": "assets/source/characters/llama/llama-01.grid.json",
+  "manifest": "assets/manifests/llama-01.json",
+  "frame_size": [96, 72],
+  "pivot": [44, 71],
+  "contact_row": 71,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 14], [1, 10], [2, 14]]},
+    "walk": {"playback": "loop", "contact": "grounded", "frames": [[3, 6], [4, 6], [5, 6], [6, 6]]},
+    "attack_tell": {"playback": "once", "contact": "grounded", "frames": [[7, 8], [8, 22]]},
+    "attack_swing": {"playback": "once", "contact": "grounded", "frames": [[9, 6], [10, 14]]},
+    "hurt": {"playback": "once", "contact": "grounded", "frames": [[11, 12]]},
+    "down": {"playback": "hold", "contact": "grounded", "frames": [[12, 6], [13, 8], [14, null]]},
+    "spit": {"playback": "loop", "contact": "free", "frames": [[15, 4], [16, 4]]}
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_swing",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/llama-01_keys.json",
+      "frames": [0, 3, 8, 9, 11, 14, 15],
+      "layers": ["body"]
+    },
+    "bbox": [
+      {"id": "L1-size-idle-64px", "frames": [0], "top": 8, "bottom": 71},
+      {"id": "L1-standing-height-band", "frames": [1, 2, 3, 4, 5, 6], "min_top": 7, "max_top": 10, "bottom": 71},
+      {"id": "L2-tell-is-the-highest-pose", "frames": [8], "max_top": 4},
+      {"id": "L2-tell-anticipation-rises", "frames": [7], "max_top": 7},
+      {"id": "L3-spit-thrust-reach", "frames": [9], "min_right": 88, "min_top": 12},
+      {"id": "L3-recover-head-still-forward", "frames": [10], "min_right": 84},
+      {"id": "L4-hurt-head-thrown-back", "frames": [11], "max_right": 70},
+      {"id": "L5-down-buckle-lower", "frames": [12], "min_top": 18},
+      {"id": "L5-down-impact-low", "frames": [13], "min_top": 44},
+      {"id": "L5-down-final-flat", "frames": [14], "min_top": 50, "max_width": 82},
+      {"id": "L6-spit-compact", "frames": [15, 16], "max_width": 18, "max_height": 12, "min_left": 76}
+    ],
+    "key_counts": [
+      {"id": "L2-tell-core-glow", "frames": [8], "key": "Y", "min": 20},
+      {"id": "L2-tell-hot-glow", "frames": [8], "key": "O", "min": 30},
+      {"id": "L2-anticipation-glow-starts", "frames": [7], "key": "R", "min": 8},
+      {"id": "L2-anticipation-no-core-yet", "frames": [7], "key": "Y", "max": 6},
+      {"id": "L2-no-core-glow-outside-attack", "frames": [0, 1, 2, 3, 4, 5, 6, 11, 12, 13, 14], "key": "Y", "max": 0},
+      {"id": "L2-no-hot-glow-outside-attack", "frames": [0, 1, 2, 3, 4, 5, 6, 11, 12, 13, 14], "key": "O", "max": 0},
+      {"id": "L3-release-mouth-flash", "frames": [9], "key": "Y", "min": 10},
+      {"id": "L3-recover-glow-cooling", "frames": [10], "key": "Y", "max": 4},
+      {"id": "L0-yellow-teeth-visible", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "key": "T", "min": 6},
+      {"id": "L0-eye-visible", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "key": "e", "min": 2},
+      {"id": "L4-hurt-eye-shut", "frames": [11], "key": "e", "max": 0},
+      {"id": "L5-defeat-eye-shut", "frames": [12, 13, 14], "key": "e", "max": 0},
+      {"id": "L6-spit-hot-core", "frames": [15, 16], "key": "Y", "min": 4},
+      {"id": "L6-spit-no-fur", "frames": [15, 16], "key": "m", "max": 0}
+    ]
+  },
+  "review": {
+    "strip_tags": ["attack_tell", "attack_swing", "spit"]
+  },
+  "scene": {
+    "actors": [
+      {"frame": 0, "x": 470},
+      {"frame": 8, "x": 560},
+      {"frame": 9, "x": 650},
+      {"frame": 15, "x": 650},
+      {"frame": 11, "x": 760},
+      {"frame": 3, "x": 840},
+      {"frame": 14, "x": 920}
+    ]
+  }
+}
