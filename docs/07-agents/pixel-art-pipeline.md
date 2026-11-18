@@ -30,7 +30,7 @@ Owner-approved plan, 2026-11-18. It refines [agent-orchestration.md](agent-orche
 | G Gate | no model | validators pass + review pack of exactly 3 images | Opus review is not spawned before G passes |
 | R Review | Opus, fresh, one round | verdict file; input = spec + 3 images + validator report | execution findings → Sonnet checks the fix list; only design defects return to Opus |
 | Chores | Haiku | checksums, README rows, CI log triage, PR status | |
-| O Owner | human | one review per batch | |
+| O Owner | human | batch summary after merge | since 2026-11-18 the orchestrator merges pixel-art PRs that passed R and CI (see AGENTS.md, merge delegation); the owner can reopen any asset |
 
 ## 3. Shared toolkit and cost ledger (PIPE-01, PIPE-02)
 

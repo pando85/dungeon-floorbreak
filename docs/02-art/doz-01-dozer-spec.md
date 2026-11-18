@@ -426,6 +426,10 @@ stateDiagram-v2
 - **Escape side passage:** clear height **at most 116 px**, so the Dozer cannot follow; the riders' heads reach about 121 px and the stack 156 px. It also needs **at least 64 px**, so Carl (52 px) fits with headroom for a landing.
 - The side passage opens off the widened segment D passage. Its lip must not be a step Carl has to jump (a step of at most 1 tile, as in the ENV-01 contract).
 
+## Owner decision (2026-11-18)
+
+The owner approved DOZ-01 after the independent Opus re-review passed. The open design notes are accepted as drawn: the hull stays cooler and cleaner than the concept, and the riders stay as they are (they read just at 1×). The wheel spin on displays below 60 Hz is checked during CHASE-01 playtesting, not changed in the art now.
+
 ## 10. Files
 
 | File | Role |
