@@ -3,6 +3,7 @@
   "asset_id": "brood-01",
   "title": "BROOD-01 Scatterer Brood Guardian readability set (docs/02-art/brood-01-spec.md)",
   "grid": "assets/source/characters/scatterer/brood/brood-01.grid.json",
+  "manifest": "assets/manifests/brood-01.json",
   "frame_size": [80, 44],
   "pivot": [37, 43],
   "contact_row": 43,
@@ -31,9 +32,11 @@
     "max_orphans_per_frame": 6,
     "canvas_margin": [0, 0, 0, 0],
     "unique_frames": true,
+    "manifest_tick_rows": "brood.frames",
+    "manifest_tick_hz": "brood.tick_hz",
     "frozen_keys": {
       "fixture": "tests/fixtures/brood-01_keys.json",
-      "frames": [0],
+      "frames": [0, 3, 8, 10, 12, 15],
       "layers": ["body"]
     },
     "bbox": [

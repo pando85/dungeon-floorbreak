@@ -15,6 +15,7 @@ from pixelart.validators import frame_digest  # noqa: E402
 
 GRID = ROOT / "assets/source/characters/scatterer/brood/brood-01.grid.json"
 FIXTURE = ROOT / "tests/fixtures/brood-01_keys.json"
+MANIFEST = ROOT / "assets/manifests/brood-01.json"
 SCAT_PALETTE = ROOT / "assets/source/characters/scatterer/scat-01.grid.json"
 
 
@@ -31,6 +32,49 @@ class BroodGuardianKeyTests(unittest.TestCase):
         self.assertEqual(self.key0, a.frame_idle0())
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(fixture["keys"]["0"]["sha256"], frame_digest(self.grid["frames"][0]["cels"], ["body"]))
+
+    def test_committed_grid_matches_the_authoring_script(self) -> None:
+        frames = [f["cels"]["body"] for f in self.grid["frames"]]
+        self.assertEqual(frames, a.all_frames())
+        self.assertEqual(len(frames), 16)
+
+    def test_default_composition_reproduces_key_0(self) -> None:
+        cv = a.assemble(a.FAR0, (a.ANT_NEAR0, a.ANT_FAR0, a.BEADS0), a.body(), a.head_core(), a.key0_fangs(),
+                        a.NEAR0, plain=True)
+        self.assertEqual(cv.rows(), a.frame_idle0())
+
+    def test_all_six_keys_are_frozen_and_distinct(self) -> None:
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        self.assertEqual(sorted(int(k) for k in fixture["keys"]), [0, 3, 8, 10, 12, 15])
+        for k, rec in fixture["keys"].items():
+            self.assertEqual(rec["sha256"], frame_digest(self.grid["frames"][int(k)]["cels"], ["body"]), k)
+        self.assertEqual(len({tuple(self.grid["frames"][i]["cels"]["body"]) for i in (0, 3, 8, 10, 12, 15)}), 6)
+
+    def test_tick_table_and_manifest_are_the_spec_table(self) -> None:
+        self.assertEqual(a.TICKS, [14, 10, 14, 6, 6, 6, 6, 8, 24, 3, 6, 18, 12, 6, 10, 0])
+        m = json.loads(MANIFEST.read_text(encoding="utf-8"))["brood"]
+        self.assertEqual([r["ticks"] for r in m["frames"]], [t or None for t in a.TICKS])
+        self.assertEqual(m["boxes"]["attack_hitbox"], [66, 30, 14, 12])  # active on frame 10 only
+        self.assertEqual(m["key_frames"], [0, 3, 8, 10, 12, 15])
+
+    def test_fang_reach_only_on_the_impact_frame(self) -> None:
+        frames = [f["cels"]["body"] for f in self.grid["frames"]]
+        reach = [[x for x, _y in pix(f, "H") if x >= 76] for f in frames]
+        self.assertEqual([i for i, r in enumerate(reach) if r], [10])
+        self.assertGreaterEqual(len(reach[10]), 4)
+
+    def test_defeat_has_no_explosion_cue(self) -> None:
+        frames = [f["cels"]["body"] for f in self.grid["frames"]]
+        for i in (13, 14, 15):
+            self.assertEqual(pix(frames[i], "w"), [], i)  # no flash
+            self.assertLessEqual(len(pix(frames[i], "H")), 3 if i == 15 else 4, i)  # fang edges only, no glint or burst
+        for i in (14, 15):
+            self.assertEqual(pix(frames[i], "r"), [], i)  # no glowing eye once settled
+
+    def test_every_frame_stays_on_the_canvas_and_grounded(self) -> None:
+        for i, f in enumerate(f["cels"]["body"] for f in self.grid["frames"]):
+            self.assertEqual((len(f), len(f[0])), (44, 80), i)
+            self.assertTrue(any(c != "." for c in f[43]), f"frame {i} has nothing on the contact row")
 
     def test_hero_key_size_and_canvas(self) -> None:
         self.assertEqual((len(self.key0), len(self.key0[0])), (44, 80))

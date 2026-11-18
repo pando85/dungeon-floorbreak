@@ -1,6 +1,6 @@
 # BROOD-01: Scatterer Brood Guardian readability set, design spec
 
-**Status:** design done (spec and frozen idle hero key 0). Execution pending (keys 3, 8, 10, 12, 15 and the in-betweens). Review pending.
+**Status:** design done (spec and frozen idle hero key 0). Execution done (keys 3, 8, 10, 12, 15 and the 10 in-betweens drawn and frozen; validators V01 to V15 pass; evidence in `docs/evidence/brood-01/`). Independent review pending.
 
 **Decision record:** height 30 px, frame 80 x 44, pivot (37, 43). Proposed by the design step; decided by the independent review.
 
@@ -258,7 +258,7 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/scatterer/
 
 - V04 palette: at most 20 colours (18 used); V05 isolated pixels: 0; V06 orphan pixels: at most 6 per frame (key 0 has 2).
 - V07 contact rows: every tag is grounded on row 43; V08 unused (no airborne tag).
-- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/brood-01_keys.json` (frame 0 now; the executor adds 3, 8, 10, 12, 15 after the review passes).
+- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/brood-01_keys.json` (frames 0, 3, 8, 10, 12 and 15 are frozen; a change to any of them needs a new fixture and a reason in the PR).
 - V13 bbox rules: S1 idle 30 px (rows 14 to 43), idle frames top 13 to 15; S2 walk height at most 31; R1 tell ramp top 9 to 12, tell hold top 5 to 7 and height at least 37; R3 lunge right edge 78 or more; R4 hurt right edge 75 or less; R6 buckle top 18 or lower, settled defeat top 24 or lower and height at most 20.
 - V14 key-count rules: R0 eye `r` at least 4 on idle, walk, tell ramp and swing frames; R0 egg case `o` at least 12 on every frame; R2 tell hold `H` at least 8, `r` at least 6, `u` at least 8; R4 hurt `w` at least 5 and `r` 0; R5 no `w` in 13 to 15, no `r` in 14 to 15, no `e` in 15.
 - `tests/test_art_brood01.py`: key 0 equals the script and the frozen digest; 30 px idle height under 40 px; 4 `r`, at least 12 `o`, no `w` on key 0; the 16 Scatterer palette keys reused unchanged, at most 4 new keys, at most 20 colours. The executor extends it with the fang-reach rule (fang `H` at x 76 or more only on frame 10) and the no-explosion defeat rule, as in `tests/test_art_scat01.py`.
@@ -269,7 +269,7 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/scatterer/
 2. The tell hold (frame 8) is the only pose above 31 px and reads in a single frame at 1x: raised shield, wide fangs, bright eye.
 3. The impact frame 10 is the only frame with fangs at x 76 or more, and the hitbox matches it.
 4. Hurt has a white eye and no red; the defeat has no splat, burst, particles, yellow flash or glow.
-5. Validator: 0 failures once execution is done. Today V12 (unique frames), V13 and V14 fail only because frames 1 to 15 are placeholder copies of key 0.
+5. Validator: 0 failures. After execution, V01 to V15 report PASS (13 pass, 2 not configured).
 
 ## 10. Evidence
 
@@ -285,7 +285,7 @@ The review pack holds exactly three images (contact sheet x4, lit scene 640 x 36
 
 | File | Role |
 | --- | --- |
-| `scripts/author_brood01.py` | deterministic authoring script (key 0 parts; frames 1 to 15 are placeholders until execution) |
+| `scripts/author_brood01.py` | deterministic authoring script (key 0 parts plus the execution-tier frame functions for frames 1 to 15, `write_manifest`) |
 | `assets/source/characters/scatterer/brood/brood-01.grid.json` / `.ase` | pixel-grid source and Aseprite master |
 | `assets/source/characters/scatterer/brood/brood-01.pixelart.json` | the asset config |
 | `assets/manifests/brood-01.json` | manifest (execution step) |
@@ -300,5 +300,24 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Spec + hero key (frame 0): Claude Opus. Executed by: pending. Independently reviewed by: pending.
+- Spec + hero key (frame 0): Claude Opus. Executed by: Claude Sonnet (keys 3/8/10/12/15, in-betweens, manifest, tests and evidence). Independently reviewed by: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
+
+## 13. Executor notes
+
+Readings the execution step took where the spec was ambiguous or impossible. None changes size, palette, silhouette, boxes or ticks.
+
+1. **Frame 11 antennae (impossible as written).** "Frame 0 at dx +3" would put the near antenna tip at x 81, outside the 80 px canvas. Body, head, fangs and legs move +3; the antenna root moves +3 and the tip fades back to about +1 (frame 1's raised apex, kept inside the canvas). Same canvas clamp for frame 3's antenna (tip x 79).
+2. **Walk stride (frames 3 to 6).** The spec fixes only frame 3's feet. Conservative model: tripod B lands 2 px forward of where it hung in frame 3 (frame 4 is the halfway lift on row 40, frame 5 lands), tripod A lifts 2 px behind its contact x (the near rear foot stays at x 1..2 because x -1 is off canvas). Knees are chosen by eye.
+3. **Near rear leg drawn behind the egg case** in frames 3 to 8 and 12 to 15. Drawn in front it cuts through the egg case and the `o` count drops under R0.
+4. **Frames 13 to 15 head and fangs.** A head dy of +3 or +5 puts the key-0 jaw underside and fang tips below row 43. Frame 13 keeps the key-0 fangs cut at the canvas edge. Frames 14 and 15 use the head down to orig row 38 and a 6 px closed fang pair with tips on row 43 (3 `H`).
+5. **Frame 9 fangs.** "Half closed" is drawn as a short V (largest reach x 75) so that fang `H` at x 76 or more stays exclusive to frame 10. Head dx +3, dy 0.
+6. **Frame 10 fangs.** Two short pinched fangs meeting at x 78..79, 7 `H` at x 76 or more; the tip is `H` on the canvas edge (x 79, no outline on the right).
+7. **Frame 15 and 14 antennae and far legs.** The near antenna lies down from the head front (its root cannot lie on the floor from the head top). Only the rear and mid far legs show tips; the far front tip is hidden by the head and the near front tibia. Frame 14 squashes the shell by deleting orig row 25 (row 30 after the drop).
+8. **Frame 12 eye.** `w` on 6 eye pixels, `H` glint kept at (65,32), `K` pupil at (63,33); fangs sheared by row (tip rows 41 and 42), antennae thrown back (apex row 16).
+9. **Frame 8 front leg.** Coxa at (48,30) as written (the raised column would give (50,30)); the leg overlaps the lower back of the head, drawn in front.
+10. **Test bound for defeat `H`.** Spec limits frame 15 to 3 `H`; frames 13 and 14 are bounded at 4 (key-0 fangs kept on 13).
+11. **Cleanup.** A deterministic despeckle pass (as SCAT-01) runs on frames 1 to 15; frame 0 is never touched.
+12. **Hurtbox on the swing.** `hurtbox` dx +3, +6, +3 for frames 9 to 11 is recorded as `swing_hurtbox_dx` in the manifest.
+
+Spec conflicts: none that blocks the validator.
