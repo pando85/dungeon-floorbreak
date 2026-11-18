@@ -11,3 +11,4 @@ pub mod room;
 pub mod sim;
 pub mod script;
 pub mod session;
+pub mod art;

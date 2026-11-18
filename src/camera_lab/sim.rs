@@ -1105,6 +1105,16 @@ impl LabSim {
         self.events.push(event);
     }
 
+    /// Top (y up) of the highest intact solid under `x` that is at or below
+    /// `feet_y`: where a contact shadow lies (presentation helper).
+    pub fn ground_below(&self, x: f32, feet_y: f32) -> f32 {
+        self.blocks
+            .iter()
+            .filter(|b| b.intact && x >= b.rect.left && x < b.rect.right() && b.rect.top() <= feet_y + 1.0)
+            .map(|b| b.rect.top())
+            .fold(self.floor_top(), f32::max)
+    }
+
     pub fn floor_top(&self) -> f32 {
         self.height - self.room.floor_y as f32
     }
@@ -1700,7 +1710,7 @@ impl LabSim {
                     integrate(f, blocks);
                     let rect = f.body();
                     // Struck structures: a closed gate (stun), a wall, breakable props.
-                    let ahead = Rect { left: rect.left + f.vx.signum() * 6.0, ..rect };
+                    let ahead = Rect { left: rect.left + f32::from(f.charge_dir) * 6.0, ..rect };
                     let mut stunned = None;
                     if let Some(gb) = self.gate_block
                         && self.blocks[gb].intact

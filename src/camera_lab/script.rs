@@ -59,7 +59,7 @@ pub fn scripts() -> Vec<Script> {
         Script { room: 1, name: "room02_hunters_from_above", mode: two, seed: 2, ticks: 1500,
             directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(300, DONUT, Climb(1)), d(700, DONUT, Hunt)] },
         Script { room: 2, name: "room03_break_a_breach", mode: two, seed: 3, ticks: 1800,
-            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(360, DONUT, Hunt)] },
+            directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(360, DONUT, Hunt), d(560, CARL, BreakProp(2))] },
         Script { room: 3, name: "room04_hoarder_lair", mode: two, seed: 4, ticks: 1800,
             directives: vec![d(0, CARL, Hunt), d(0, DONUT, Climb(0)), d(500, DONUT, Hunt)] },
         Script { room: 4, name: "room05_gym_separation", mode: two, seed: 5, ticks: 2100,
@@ -200,11 +200,13 @@ pub fn bot_input(sim: &LabSim, actor: usize, behavior: Behavior) -> LabInput {
         input.move_x = dx.signum();
     }
     // Face the target even when standing still next to it.
+    let mut engaged = false;
     if let Some((ax, ay)) = attack_target {
         let ahead = (ax - me.body.x) * f32::from(me.body.facing) > 0.0;
         let dist = (ax - me.body.x).abs();
         let vertical = (ay - me.body.y).abs() < 50.0;
         if dist <= reach + 14.0 && vertical {
+            engaged = true;
             if !ahead {
                 input.move_x = (ax - me.body.x).signum() * 0.3;
             }
@@ -223,7 +225,7 @@ pub fn bot_input(sim: &LabSim, actor: usize, behavior: Behavior) -> LabInput {
         }
     }
     // A wall of an intact breakable prop in the way is struck, not jumped.
-    if input.move_x != 0.0 && attack_target.is_none() {
+    if input.move_x != 0.0 && !engaged {
         let probe = Rect {
             left: me.body.x + input.move_x.signum() * (me.body.hw + 14.0) - 8.0,
             bottom: me.body.y - me.body.hh + 3.0,
