@@ -4,19 +4,119 @@
   "title": "BROOD-01 Scatterer Brood Guardian readability set (docs/02-art/brood-01-spec.md)",
   "grid": "assets/source/characters/scatterer/brood/brood-01.grid.json",
   "manifest": "assets/manifests/brood-01.json",
-  "frame_size": [80, 44],
-  "pivot": [37, 43],
+  "frame_size": [
+    80,
+    44
+  ],
+  "pivot": [
+    37,
+    43
+  ],
   "contact_row": 43,
   "tick_hz": 60,
   "hold_ms": 100,
   "facing": "right",
   "tags": {
-    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 14], [1, 10], [2, 14]]},
-    "walk": {"playback": "loop", "contact": "grounded", "frames": [[3, 6], [4, 6], [5, 6], [6, 6]]},
-    "attack_tell": {"playback": "once", "contact": "grounded", "frames": [[7, 8], [8, 24]]},
-    "attack_swing": {"playback": "once", "contact": "grounded", "frames": [[9, 3], [10, 6], [11, 18]]},
-    "hurt": {"playback": "once", "contact": "grounded", "frames": [[12, 12]]},
-    "down": {"playback": "hold", "contact": "grounded", "frames": [[13, 6], [14, 10], [15, null]]}
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          14
+        ],
+        [
+          1,
+          10
+        ],
+        [
+          2,
+          14
+        ]
+      ]
+    },
+    "walk": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          6
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          6,
+          6
+        ]
+      ]
+    },
+    "attack_tell": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          24
+        ]
+      ]
+    },
+    "attack_swing": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          9,
+          3
+        ],
+        [
+          10,
+          6
+        ],
+        [
+          11,
+          18
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          12,
+          12
+        ]
+      ]
+    },
+    "down": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          13,
+          6
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          15,
+          null
+        ]
+      ]
+    }
   },
   "roles": {
     "idle": "idle",
@@ -30,47 +130,224 @@
     "max_colors": 20,
     "max_isolated_per_frame": 0,
     "max_orphans_per_frame": 6,
-    "canvas_margin": [0, 0, 0, 0],
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
     "unique_frames": true,
     "manifest_tick_rows": "brood.frames",
     "manifest_tick_hz": "brood.tick_hz",
     "frozen_keys": {
       "fixture": "tests/fixtures/brood-01_keys.json",
-      "frames": [0, 3, 8, 10, 12, 15],
-      "layers": ["body"]
+      "frames": [
+        0,
+        3,
+        8,
+        10,
+        12,
+        15
+      ],
+      "layers": [
+        "body"
+      ]
     },
     "bbox": [
-      {"id": "S1-size-idle-30px", "frames": [0], "top": 14, "bottom": 43, "height": 30},
-      {"id": "S1-idle-stays", "frames": [1, 2], "min_top": 13, "max_top": 15, "bottom": 43},
-      {"id": "S2-walk-low", "frames": [3, 4, 5, 6], "min_top": 13, "max_height": 31, "bottom": 43},
-      {"id": "R1-tell-ramp", "frames": [7], "min_top": 9, "max_top": 12, "bottom": 43},
-      {"id": "R1-tell-highest", "frames": [8], "min_top": 5, "max_top": 7, "min_height": 37, "bottom": 43},
-      {"id": "R3-lunge-reach", "frames": [10], "min_top": 16, "min_right": 78, "bottom": 43},
-      {"id": "R4-hurt-recoils", "frames": [12], "max_right": 75, "bottom": 43},
-      {"id": "R6-defeat-buckle", "frames": [13], "min_top": 18, "bottom": 43},
-      {"id": "R6-defeat-flat", "frames": [14, 15], "min_top": 24, "max_height": 20, "bottom": 43}
+      {
+        "id": "S1-size-idle-34px",
+        "frames": [
+          0
+        ],
+        "top": 10,
+        "bottom": 43,
+        "height": 34
+      },
+      {
+        "id": "S1-idle-stays",
+        "frames": [
+          1,
+          2
+        ],
+        "min_top": 9,
+        "max_top": 11,
+        "bottom": 43
+      },
+      {
+        "id": "S2-walk-low",
+        "frames": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "min_top": 9,
+        "max_height": 35,
+        "bottom": 43
+      },
+      {
+        "id": "R1-tell-ramp",
+        "frames": [
+          7
+        ],
+        "min_top": 6,
+        "max_top": 8,
+        "bottom": 43
+      },
+      {
+        "id": "R1-tell-highest",
+        "frames": [
+          8
+        ],
+        "min_top": 4,
+        "max_top": 5,
+        "min_height": 39,
+        "bottom": 43
+      },
+      {
+        "id": "R3-lunge-reach",
+        "frames": [
+          10
+        ],
+        "min_top": 12,
+        "min_right": 78,
+        "bottom": 43
+      },
+      {
+        "id": "R4-hurt-recoils",
+        "frames": [
+          12
+        ],
+        "max_right": 75,
+        "bottom": 43
+      },
+      {
+        "id": "R6-defeat-buckle",
+        "frames": [
+          13
+        ],
+        "min_top": 14,
+        "bottom": 43
+      },
+      {
+        "id": "R6-defeat-flat",
+        "frames": [
+          14,
+          15
+        ],
+        "min_top": 22,
+        "max_height": 22,
+        "bottom": 43
+      }
     ],
     "key_counts": [
-      {"id": "R0-eye-glows-alive", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11], "key": "r", "min": 4},
-      {"id": "R0-ootheca-always", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "key": "o", "min": 12},
-      {"id": "R2-tell-fangs-spread", "frames": [8], "key": "H", "min": 8},
-      {"id": "R2-tell-eye-flare", "frames": [8], "key": "r", "min": 6},
-      {"id": "R2-tell-belly-reveal", "frames": [8], "key": "u", "min": 8},
-      {"id": "R4-hurt-eye-flash", "frames": [12], "key": "w", "min": 5},
-      {"id": "R4-hurt-no-red-eye", "frames": [12], "key": "r", "max": 0},
-      {"id": "R5-defeat-no-flash", "frames": [13, 14, 15], "key": "w", "max": 0},
-      {"id": "R5-defeat-eye-dark-r", "frames": [14, 15], "key": "r", "max": 0},
-      {"id": "R5-defeat-eye-dark-e", "frames": [15], "key": "e", "max": 0}
+      {
+        "id": "R0-eye-glows-alive",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          9,
+          10,
+          11
+        ],
+        "key": "r",
+        "min": 5
+      },
+      {
+        "id": "R2-tell-fangs-spread",
+        "frames": [
+          8
+        ],
+        "key": "H",
+        "min": 8
+      },
+      {
+        "id": "R2-tell-eye-flare",
+        "frames": [
+          8
+        ],
+        "key": "r",
+        "min": 6
+      },
+      {
+        "id": "R2-tell-belly-reveal",
+        "frames": [
+          8
+        ],
+        "key": "u",
+        "min": 8
+      },
+      {
+        "id": "R4-hurt-eye-flash",
+        "frames": [
+          12
+        ],
+        "key": "w",
+        "min": 5
+      },
+      {
+        "id": "R4-hurt-no-red-eye",
+        "frames": [
+          12
+        ],
+        "key": "r",
+        "max": 0
+      },
+      {
+        "id": "R5-defeat-no-flash",
+        "frames": [
+          13,
+          14,
+          15
+        ],
+        "key": "w",
+        "max": 0
+      },
+      {
+        "id": "R5-defeat-eye-dark-r",
+        "frames": [
+          14,
+          15
+        ],
+        "key": "r",
+        "max": 0
+      },
+      {
+        "id": "R5-defeat-eye-dark-e",
+        "frames": [
+          15
+        ],
+        "key": "e",
+        "max": 0
+      }
     ]
   },
   "review": {
-    "strip_tags": ["attack_tell", "attack_swing"]
+    "strip_tags": [
+      "attack_tell",
+      "attack_swing"
+    ]
   },
   "scene": {
     "actors": [
-      {"frame": 0, "x": 470},
-      {"frame": 3, "x": 560},
-      {"frame": 8, "x": 650}
+      {
+        "frame": 0,
+        "x": 470
+      },
+      {
+        "frame": 3,
+        "x": 560
+      },
+      {
+        "frame": 8,
+        "x": 650
+      }
     ]
   }
 }

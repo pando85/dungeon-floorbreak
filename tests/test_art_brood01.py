@@ -41,7 +41,8 @@ class BroodGuardianKeyTests(unittest.TestCase):
     def test_default_composition_reproduces_key_0(self) -> None:
         cv = a.assemble(a.FAR0, (a.ANT_NEAR0, a.ANT_FAR0, a.BEADS0), a.body(), a.head_core(), a.key0_fangs(),
                         a.NEAR0, plain=True)
-        self.assertEqual(cv.rows(), a.frame_idle0())
+        # pre-gate frames 1 to 15 are still composed from the round-1 key 0 (redrawn after the silhouette gate)
+        self.assertEqual(cv.rows(), a.frame_idle0_v1())
 
     def test_all_six_keys_are_frozen_and_distinct(self) -> None:
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -78,13 +79,14 @@ class BroodGuardianKeyTests(unittest.TestCase):
 
     def test_hero_key_size_and_canvas(self) -> None:
         self.assertEqual((len(self.key0), len(self.key0[0])), (44, 80))
-        ys = [y for _x, y in pix(self.key0, set(a.ACCENTS) | set("KabcdfhgjuvoH"))]
-        self.assertEqual((min(ys), max(ys)), (14, 43))  # 30 px idle height, standing on the contact row
+        ys = [y for _x, y in pix(self.key0, set(a.ACCENTS) | set("KabcdfhgjuvH"))]
+        self.assertEqual((min(ys), max(ys)), (10, 43))  # 34 px idle height, standing on the contact row
         self.assertLess(max(ys) - min(ys) + 1, 40)  # stays under the 40 px difficulty threshold
 
     def test_hero_key_canon_features(self) -> None:
-        self.assertEqual(len(pix(self.key0, "r")), 4)  # the red eye
-        self.assertGreaterEqual(len(pix(self.key0, "o")), 12)  # the carried egg case
+        self.assertEqual(len(pix(self.key0, "r")), 5)  # the 3 x 3 red eye (5 r, 1 H glint, 3 e)
+        self.assertEqual(pix(self.key0, "o"), [])  # no egg case (cut in design round 2)
+        self.assertGreaterEqual(len([q for q in pix(self.key0, "H") if q[1] >= 36]), 5)  # mandibles at shin height
         self.assertEqual(pix(self.key0, "w"), [])  # flash eye only on hurt
 
     def test_shared_species_palette(self) -> None:

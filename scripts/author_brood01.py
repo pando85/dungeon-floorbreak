@@ -263,6 +263,199 @@ def near_legs(cv: Cv) -> None:
 
 
 def frame_idle0() -> list[str]:
+    """Key 0, v2 (design round 2, after the FAIL-DESIGN review D1 to D3): the frozen hero key."""
+    return k2_idle0()
+
+
+# ---------------------------------------------------------------------------
+# Key 0 v2 parts (design round 2). Shorter, higher arched body (x 14..63, dome top row 15,
+# belly row 34, 8 px clearance), big lowered head with two thick hooked mandibles, overlapping
+# transverse plates (lifted posterior lips, lit rims, shadow behind), 2 px outlined legs in the
+# chitin ramp, no egg case. Do not edit: frame 0 is frozen; copy these parts for other frames.
+# ---------------------------------------------------------------------------
+K2_TOP = [(14, 31), (15, 28), (17, 25), (20, 22), (24, 20), (29, 18), (34, 17), (39, 16), (46, 15), (50, 16),
+          (54, 16), (58, 17), (61, 19), (63, 22), (64, 25)]
+K2_BOT = [(14, 32), (16, 33), (20, 34), (55, 34), (59, 33), (64, 28)]
+K2_SEAMS = [22, 30, 38, 46]  # abdominal plate seams at the dome top; the pronotum seam is at x 52
+K2_PRONOTUM = 52
+
+
+def _seal(px: dict, fill_keys: str) -> dict:
+    out = dict(px)
+    for (x, y), c in px.items():
+        if c in fill_keys:
+            for q in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                out.setdefault(q, "K")
+    return out
+
+
+def k2_shell() -> dict:
+    px = {}
+    x0, x1 = K2_TOP[0][0], K2_TOP[-1][0]
+    lips = {s + 1 for s in K2_SEAMS} | {s + 2 for s in K2_SEAMS} | {K2_PRONOTUM + 1, K2_PRONOTUM + 2}
+    tops = {}
+    for x in range(x0, x1 + 1):
+        top, bot = _interp(K2_TOP, x), _interp(K2_BOT, x)
+        top -= 1 if x in lips else 0  # each plate's posterior lip stands 1 px proud of the plate behind it
+        tops[x] = top
+        for y in range(top, bot + 1):
+            t = (y - top) / max(1, bot - top)
+            px[(x, y)] = "K" if y in (top, bot) else ("f" if t < 0.16 else "d" if t < 0.36 else
+                                                       "c" if t < 0.66 else "b" if t < 0.86 else "a")
+    for x in range(x0 + 2, x1):  # torch sheen row on the upper dome and the pronotum crown
+        if 22 <= x <= 61:
+            px[(x, tops[x] + 1)] = "h"
+    # transverse plates: a shadow line (`a`, `K` near the top) that curves back as it goes down, a lit rim
+    # in front of it (the posterior edge of the plate in front: `h` high, `f` mid, `d` low)
+    for s in K2_SEAMS + [K2_PRONOTUM]:
+        top = tops[s]
+        bot = _interp(K2_BOT, s)
+        for y in range(top + 1, bot):
+            t = (y - top) / max(1, bot - top)
+            x = s - round(4 * t * t)
+            px[(x, y)] = "K" if (t < 0.3 or s == K2_PRONOTUM) else "a"
+            if t < 0.55:  # lit rim only on the upper half; lower down the seam is shadow only
+                px[(x + 1, y)] = "h" if t < 0.25 else "f"
+            if px.get((x - 1, y)) in ("c", "d", "f"):
+                px[(x - 1, y)] = "b" if t > 0.3 else "c"  # the next plate tucks into shadow
+    for p in [(33, 21), (34, 21), (35, 21), (34, 22), (35, 22), (56, 20), (57, 20), (58, 20)]:  # two crust scars
+        px[p] = "y"
+    for p in [(33, 22), (57, 21)]:
+        px[p] = "a"
+    for x in (17, 18, 19, 20):  # cold rim only at the rear underside
+        px[(x, _interp(K2_BOT, x) - 1)] = "v"
+    for x in list(range(29, 35)) + list(range(41, 47)):  # cold sternites between the leg sockets
+        px[(x, 33)] = "u"
+    return px
+
+
+def k2_head() -> dict:
+    """Big lowered head x 57..72, rows 22..35: rounded, lit from above-front, 3 x 3 eye under a lowered brow."""
+    px = {}
+    cx, cy, rx, ry = 64.5, 28.5, 7.6, 6.8
+    for y in range(21, 37):
+        for x in range(56, 74):
+            nx, ny = (x - cx) / rx, (y - cy) / ry
+            d = nx * nx + ny * ny
+            if d <= 1.0:
+                lit = -0.55 * ny + 0.35 * nx  # light from above and slightly in front
+                px[(x, y)] = "f" if lit > 0.55 else "d" if lit > 0.15 else "c" if lit > -0.3 else "b" if lit > -0.6 else "a"
+    px = _seal(px, "fdcba")
+    for p, c in {(63, 26): "r", (64, 26): "r", (65, 26): "H", (63, 27): "r", (64, 27): "r", (65, 27): "r",
+                 (63, 28): "e", (64, 28): "e", (65, 28): "e"}.items():
+        px[p] = c
+    for p in [(61, 24), (62, 25), (63, 25), (64, 25), (65, 25), (66, 26), (66, 27), (62, 26), (62, 27)]:
+        px[p] = "K"  # heavy brow, lowered toward the front, and the eye socket
+    for p in [(66, 31), (67, 31), (68, 31), (69, 31)]:
+        px[p] = "K"  # mouth line (clypeus)
+    return px
+
+
+def _mandible(spine, widths, lit="h", edge="H") -> dict:
+    """A thick hooked mandible along `spine` (centre points), `widths` px wide (grown downward);
+    body `lit`, front/top edge `edge`, outlined `K`."""
+    px = {}
+    for (x, y), w in zip(spine, widths):
+        for k in range(w):
+            px[(x, y + k)] = lit
+        px[(x, y)] = edge
+    return _seal(px, lit + edge)
+
+
+def _hook(path, lit, edge, thick_to) -> dict:
+    """A hooked mandible: the front edge `edge` along `path`, a `lit` body 1 px behind it (2 px behind for
+    the first `thick_to` points), outlined `K`."""
+    t = Cv()
+    t.poly(path, edge)
+    body = Cv()
+    body.poly([(x - 1, y) for x, y in path], lit)
+    body.poly([(x - 2, y) for x, y in path[:thick_to]], lit)
+    px = {q: c for q, c in body.p.items()}
+    px.update(t.p)
+    return _seal(px, lit + edge)
+
+
+def k2_mandibles() -> tuple[dict, dict]:
+    """Near mandible: thick at the mouth, curving down-forward, the tip hooking back (Carl's shin height).
+    Far mandible: the same hook 4 px behind, darker (`j` body, `h` edge)."""
+    near = _hook([(70, 32), (72, 33), (73, 35), (74, 37), (74, 39), (73, 40), (71, 41)], "h", "H", 4)
+    far = _hook([(66, 34), (67, 36), (68, 38), (67, 40), (65, 41)], "j", "h", 2)
+    return near, far
+
+
+def k2_leg(cv: Cv, coxa, knee, foot, near: bool, spines=()) -> None:
+    """2 px femur and tibia, outlined `K`; near legs in the chitin ramp (`d` lit top, `b` under),
+    far legs `b`/`a`; `K` tarsus on the floor; `s` spine ticks outside the outline."""
+    top, low = ("d", "b") if near else ("b", "a")
+    t = Cv()
+    t.line(coxa, knee, top)
+    t.line((coxa[0], coxa[1] + 1), (knee[0], knee[1] + 1), low)
+    mid = ((knee[0] + foot[0]) // 2, (knee[1] + foot[1]) // 2)
+    t.line(knee, foot, top)
+    t.line((knee[0] + 1, knee[1]), (mid[0] + 1, mid[1]), low)
+    px = _seal(t.p, top + low)
+    px = {p: c for p, c in px.items() if p[1] <= FLOOR}
+    for dx in (-1, 0, 1):
+        px[(foot[0] + dx, FLOOR)] = "K"
+    for p, c in px.items():
+        cv.put(*p, c)
+    for p in spines:
+        cv.put(*p, "s")
+
+
+def k2_idle0() -> list[str]:
+    cv = Cv()
+    # far legs (behind the body)
+    k2_leg(cv, (28, 33), (24, 37), (21, 42), False)
+    k2_leg(cv, (42, 33), (45, 37), (46, 42), False)
+    k2_leg(cv, (54, 33), (60, 37), (65, 42), False)
+    # far antenna, up and back over the pronotum
+    cv.poly([(61, 23), (60, 20), (58, 17), (56, 14), (53, 12), (50, 11), (47, 12)], "d")
+    far_m = k2_mandibles()[1]
+    for p, c in far_m.items():
+        cv.put(*p, c)
+    for p, c in k2_shell().items():
+        cv.put(*p, c)
+    for p, c in k2_head().items():
+        cv.put(*p, c)
+    near_m = k2_mandibles()[0]
+    for p, c in near_m.items():
+        cv.put(*p, c)
+    # near antenna: 2 px root, then up-forward to the apex (row 10) and a drooping tip
+    cv.poly([(68, 23), (69, 20), (70, 17), (71, 14), (72, 12), (74, 10), (76, 10), (78, 12), (78, 14)], "j")
+    cv.poly([(67, 23), (68, 20)], "j")
+    for p in [(69, 19), (72, 12), (77, 11)]:
+        cv.put(*p, "s")
+    # near legs (in front): rear knee raised high and back, mid under the body, front braced under the head
+    k2_leg(cv, (25, 33), (15, 36), (7, 42), True, spines=[(14, 34), (10, 37), (7, 40)])
+    k2_leg(cv, (38, 33), (33, 37), (29, 42), True, spines=[(31, 36), (29, 39)])
+    k2_leg(cv, (50, 33), (55, 37), (58, 42), True, spines=[(56, 35), (60, 39)])
+    return cv.rows()
+
+
+def write_key0_scale(out: Path = ROOT / "docs" / "evidence" / "brood-01" / "key0-scale.png") -> Path:
+    """Silhouette-gate evidence: key 0 at 1x on lit Floor 1 facing Carl and Donut, with the merged Scatterer
+    idle for the species/scale read (640 x 360, no scaling). Run: ``python3 scripts/author_brood01.py key0-scale``."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from pixelart.common import CARL_X, flip, grid_images, load_grid_file  # noqa: E402
+    from pixelart.scene import Floor, reference_idle  # noqa: E402
+
+    carl, carl_piv = reference_idle("carl")
+    donut, donut_piv = reference_idle("donut")
+    brood = grid_images(load_grid_file(GRID))[0]
+    scat_grid = load_grid_file(ROOT / "assets" / "source" / "characters" / "scatterer" / "scat-01.grid.json")
+    scat = grid_images(scat_grid)[0]
+    b_img, b_piv = flip(brood, tuple(PIVOT))
+    s_img, s_piv = flip(scat, tuple(scat_grid["pivot"]))
+    entries = [(donut, donut_piv, CARL_X - 40, 0), (carl, carl_piv, CARL_X, 0),
+               (b_img, b_piv, CARL_X + 110, 0), (s_img, s_piv, CARL_X + 200, 0)]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    Floor().render(entries, 1).save(out)
+    return out
+
+
+def frame_idle0_v1() -> list[str]:
+    """Round-1 key 0 (failed review). Kept only because the pre-gate frames 1 to 15 are composed from its parts."""
     cv = Cv()
     far_legs(cv)
     antennae(cv)
@@ -747,6 +940,9 @@ def write_manifest() -> None:
 
 
 def main() -> int:
+    if sys.argv[1:] == ["key0-scale"]:
+        print(f"wrote {write_key0_scale().relative_to(ROOT)}")
+        return 0
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     grid = build()
     GRID.write_text(json.dumps(grid, indent=1) + "\n", encoding="utf-8")

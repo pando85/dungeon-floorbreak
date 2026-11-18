@@ -1,8 +1,8 @@
 # BROOD-01: Scatterer Brood Guardian readability set, design spec
 
-**Status:** design done (spec and frozen idle hero key 0). Execution done (keys 3, 8, 10, 12, 15 and the 10 in-betweens drawn and frozen; validators V01 to V15 pass; evidence in `docs/evidence/brood-01/`). Independent review pending.
+**Status:** design round 2 (after the FAIL-DESIGN review 14/25): key 0 redrawn and re-frozen, silhouette gate pending. Validator today: V06 fails on key 0 (10 orphan pixels, limit 6: single plate-rim and shadow pixels; open, decide at the gate whether to clean them or raise the limit), V13 and V14 fail only on the stale frames 1 to 15. Frames 1 to 15 are the round-1 execution, composed from the round-1 key 0; they no longer match key 0 and are redrawn after the gate (validator rules derived from key 0 v2 may fail on them until then). Review pending.
 
-**Decision record:** height 30 px, frame 80 x 44, pivot (37, 43). Proposed by the design step; decided by the independent review.
+**Decision record:** height 34 px (round 2; was 30), frame 80 x 44, pivot (37, 43). Proposed by the design step; decided by the independent review.
 
 The sections follow `docs/02-art/gob-01-goblin-spec.md`. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
 
@@ -14,8 +14,8 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. The design step stops a
   - Same species as the merged Scatterer (`assets/source/characters/scatterer/`, `docs/02-art/scat-01-spec.md`): segmented plated back, long curved antennae, spiny legs, red eye, reddish-brown chitin family look.
   - Larger and heavier than the Scatterer; the board also shows a bigger head with prominent mandibles.
   - Reads against the Floor 01 catacomb stone; the printed sizes and the scale ratio on the board are not decisions.
-- Design reading of the tone: a dog-sized roach that drags its own egg case (an ootheca, the purse-shaped capsule real cockroaches carry) and will not leave it. It is not a hero beast: it is a grimy, scarred parent with crusted plates, dorsal thorns and a heavy lowered head, defending a lumpy brown purse of eggs. The danger is real (two big cream fangs at Carl's shin height, a long rear-up tell); the eccentric contrast is the fussy protectiveness over something ridiculous.
-- **Design addition, flagged for the review:** the egg case is not on the board. It is the visual motive for the "Guardian" name and the clearest silhouette difference from the small Scatterer (a rear bump). It is a separate part (`ootheca()` in the authoring script); if the review cuts it, drop that part, drop rule R0-ootheca, and re-freeze key 0.
+- Design reading of the tone: a dog-sized roach parent that plants itself between Carl and its nest and stays there. Grimy, scarred, armoured plates; a big lowered head with two thick hooked mandibles at Carl's shin height; high-shouldered stance on thick spiny legs. The danger sits at the front. The protectiveness comes from pose and silhouette (head low, shield up, body lifted and squared to the threat), not from a carried object. The eccentric note is the fussiness of the tell (it rears and spreads its fangs at anything that comes close).
+- **Round 2:** the carried egg case of round 1 is cut (review D3: it read as a tail knob). A separate egg-clutch prop on the ground that the Guardian idles beside is a note for a future encounter/prop work order; it is not drawn here.
 
 ### Guardrails (copied from the roster and SCAT-01 spec)
 
@@ -40,7 +40,7 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. The design step stops a
 | Point | Met | Note |
 | --- | --- | --- |
 | 1. New design, not a variant | no | Larger form of the merged Scatterer species |
-| 2. Native height above about 40 px | no | 30 px chosen (section 2) |
+| 2. Native height above about 40 px | no | 34 px chosen (section 2) |
 | 3. Complex anatomy | yes | Six spiny legs plus antennae, as the Scatterer |
 | 4. VFX, projectiles, special states | no | Dust puff and speed lines in the concept are illustrations; defeat has no VFX |
 
@@ -52,21 +52,21 @@ Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png
 
 | Option | Idle opaque height | Ratio to Carl | Implied real height | Why / why not |
 | --- | --- | --- | --- | --- |
-| A | 30 px (shell 24, body 56 long, 76 px with legs and antennae) | 0.58 | about 42 in (shell about 34 in, body about 6.5 ft long) | 2.0x the Scatterer's 15 px (shell 24 vs 12, about 3.4x the opaque area): same species, clearly the big one at 1x. Stays below the goblin's 36 px while its 56 px length makes it the heaviest mass on screen after Carl. Leaves room for a 38 px tell. **Chosen.** |
+| A | 34 px (round 2; shell 20 from the dome top to the floor, body 50 long, 73 px with legs, mandibles and antennae) | 0.65 | about 48 in (shell about 28 in, body about 6 ft long) | Round 1 chose 30 px with a 56 px low body and failed review (loaf/woodlouse read). Round 2 shortens and arches the body, lifts it on 8 px of leg clearance and gives the height to the dome and the head; still under 40 px, so the route stays Easy. **Chosen.** |
 | B | 36 px (shell 29, body about 68 long) | 0.69 | about 50 in | Same height as the goblin; frame grows to about 96 x 52 and the tell rises to about 45 px, above Donut, so the tell reads as a boss move. Rejected. |
 | C | 42 px (shell 34, body about 80 long) | 0.81 | about 59 in | Above Donut and above the 40 px threshold: changes the difficulty route and reads as a floor boss, not a nest guard. Rejected. |
 
-Decision: **A, 30 px idle height (rows 14 to 43), shell 24 px (thorn tips row 20 to the floor), body 56 px long (x 11 to 66), plus the egg case.** It doubles every Scatterer feature the player reads at 1x (height, shell, eye from 2 x 2 to a 3 x 2 core, one mandible pair to two big fangs), keeps the creature under the goblin and Donut in height and keeps the route at Easy. The bite moves from Carl's ankles to his shins and knees.
+Decision (round 2): **A, 34 px idle height (rows 10 to 43): dome top row 15, belly line row 34, 8 px leg clearance, body x 14 to 64 (50 px), head x 57 to 72, mandible tips at x 74, rows 39 to 41.** The scale step from the 15 px Scatterer now shows in the head (16 x 15 px against 5 x 5), the mandibles (2 to 3 px thick hooks against 1 px glints) and the stance, not only in length. Still below the goblin's 36 px.
 
 ## 3. Frame, pivot, boxes and atlas
 
 - **Frame 80 x 44, pivot (37, 43), contact row 43** (the lowest opaque row of every frame). Pivot x 37 is the near mid-leg coxa column, between the feet-span midpoint (x 3 to 64, 33.5) and the shell centre (x 11 to 66, 38.5), nearer the shell because the mass is there.
 - Grounded tags: `idle`, `walk`, `attack_tell`, `attack_swing`, `hurt`, `down`. Airborne tags: none (the lunge keeps feet planted; the defeat collapses onto the floor).
-- **Standing (sim) box:** 50 x 20 at frame x 13 to 62, rows 24 to 43 (pivot-relative x -24 to +25, rows -19 to 0). Excludes antennae, egg case, fangs and leg tips.
-- **Hurtbox:** 66 x 18 at frame x 4 to 69, rows 22 to 39 (shell, egg case and head; not legs, antennae or fangs), every frame except the `down` tag. In `attack_tell` frame 8 it follows the raised front: x 2 to 67, rows 14 to 41. In `attack_swing` frames 9 to 11 it moves with the body (dx +3, +6, +3).
+- **Standing (sim) box:** 46 x 29 at frame x 16 to 61, rows 15 to 43 (pivot-relative x -21 to +24, rows -28 to 0). Excludes antennae, mandibles and leg tips.
+- **Hurtbox:** 59 x 21 at frame x 14 to 72, rows 15 to 35 (shell and head; not legs, antennae or mandibles), every frame except the `down` tag. In `attack_tell` frame 8 it follows the raised front; in `attack_swing` frames 9 to 11 it moves with the body. The executor re-measures both after the redraw.
 - **Attack hitbox:** 14 x 12 at frame x 66 to 79, rows 30 to 41 (pivot-relative x +29 to +42, rows -13 to -2: Carl's shins and knees), active **only on frame 10** (6 ticks).
 - Authored facing right; the runtime mirrors around the pivot column.
-- **One atlas, frames 0 to 15**, row-major, single layer `body` (the fangs and the egg case are part of the body).
+- **One atlas, frames 0 to 15**, row-major, single layer `body` (the mandibles are part of the body).
 
 ## 4. Readability-set animation list
 
@@ -110,14 +110,14 @@ Readability set: idle, move, tell, attack, hurt, defeat (16 frames). Tick window
 | impact (hitbox active) | 35-40 | 10 | flat, stretched, fangs pinched shut at x 76 to 79 |
 | recover | 41-58 | 11 | back to idle height, fangs open 1 |
 
-Reaction window: 27 ticks (450 ms) from the first hold tick to the first hitbox tick, 35 ticks from the tell start (the Scatterer has 22 and 28). The tell hold is the only frame taller than 31 px.
+Reaction window: 27 ticks (450 ms) from the first hold tick to the first hitbox tick, 35 ticks from the tell start (the Scatterer has 22 and 28). The tell hold is the only frame taller than 35 px.
 
 ## 5. State diagram
 
 ```mermaid
 stateDiagram-v2
     [*] --> idle
-    idle --> move: target seen and egg case not left behind
+    idle --> move: target seen inside the guard radius
     move --> idle: target lost or leash distance reached
     idle --> tell: target in bite range
     move --> tell: target in bite range
@@ -129,7 +129,7 @@ stateDiagram-v2
     defeat --> [*]
 ```
 
-The leash ("does not leave its egg case") is an art motive, not an approved mechanic; gameplay decides.
+The guard radius is an art motive, not an approved mechanic; gameplay decides.
 
 ## 6. Palette
 
@@ -145,16 +145,16 @@ Palette `scatterer-floor01-v1`, extended for the Brood Guardian: **the 16 Scatte
 | `f` | chitin_4_lit | `#d0693a` | torch band, plate edges in front of each seam, pronotum crown | |
 | `h` | sheen_torch | `#ea9c5c` | sheen row on the dome and pronotum; fang body; cheek | |
 | `H` | glint_cream | `#f7dc9c` | fang edges and tips, eye glint | yes |
-| `g` | leg_dark | `#4a2a28` | femur underside, tibia back edge, tarsi; egg-case ridges | |
+| `g` | leg_dark | `#4a2a28` | unused on key 0 v2 (legs now use the chitin ramp); kept for the shared species palette | |
 | `j` | leg_mid | `#8a5240` | femur top, tibia, near antenna | |
-| `s` | leg_spine | `#b98660` | leg spines, antenna beads, egg-case lit top | yes |
+| `s` | leg_spine | `#b98660` | leg spine ticks outside the leg outline, antenna beads | yes |
 | `u` | belly_cold | `#3e2f3a` | cold belly row; tell belly reveal | |
 | `v` | rim_cold | `#66545e` | cold rim along the rear underside | |
 | `e` | eye_rim | `#b81c1c` | eye lower rim | yes |
 | `r` | eye_glow | `#ff4a32` | eye glow; never on hurt (12) or the settled defeat (14, 15) | yes |
 | `w` | eye_flash | `#efe3d3` | hurt flash eye only | yes |
 | `y` | crust_pale | `#c4a888` | **new.** Pale dried crust and scars on the plates (the board's tan speckle), 2 to 3 px patches | yes |
-| `o` | ootheca_brown | `#74492f` | **new.** Egg-case body; more yellow and less saturated than the chitin, so it reads as a separate object | |
+| `o` | ootheca_brown | `#74492f` | **cut in round 2** (no egg case). Still in the grid palette only because the pre-gate frames 1 to 15 use it; the redraw removes it (palette 17 of 20). | |
 
 Packet candidates, by eye (the navy and near-black candidates are the board background):
 
@@ -179,15 +179,23 @@ Coordinates are frame pixels (x right, row down, 0-based), facing right. To move
 
 ### Frame 0, `idle` (hero key, drawn and frozen by the designer)
 
-Source: `frame_idle0()` in `scripts/author_brood01.py` (parts `shell`, `ootheca`, `head`, `antennae`, `far_legs`, `near_legs`, drawn in that z-order: far legs, antennae, egg case, shell, head, near legs). Measured: bbox x 3 to 78, rows 14 to 43 (76 x 30), 18 colours, 2 orphans, 0 isolated.
+Source: `k2_idle0()` (called by `frame_idle0()`) in `scripts/author_brood01.py`; parts `k2_shell`, `k2_head`, `k2_mandibles`, `k2_leg`, z-order: far legs, far antenna, far mandible, shell, head, near mandible, near antenna, near legs. The round-1 parts (`shell`, `ootheca`, `head`, ...) and `frame_idle0_v1()` stay only because the pre-gate frames 1 to 15 are composed from them. Measured: bbox x 6 to 78, rows 10 to 43 (73 x 34), 0 isolated pixels. 1x evidence: `docs/evidence/brood-01/key0-scale.png` (`python3 scripts/author_brood01.py key0-scale`).
+- **Shell (higher, shorter, arched):** outline from the rear tip (x 14, rows 28 to 32) up to the peak (x 39 to 54, rows 15 to 16) and down the pronotum to (64, 25); belly line `K` row 34 (x 20 to 55), rising to (64, 28). Depth bands `f`/`d`/`c`/`b`/`a` under an `h` sheen row.
+- **Plates, not bricks:** four abdominal seams at x 22, 30, 38, 46 and the pronotum seam at x 52. Each plate's posterior lip stands 1 px proud of the plate behind it (a sawtooth top edge); each seam curves back as it goes down (`x = seam - round(4 t^2)`), is `K` on its top 30 % and `a` below, with a lit rim in front of it (`h`, then `f`) on the upper half only, and the plate behind tucked into shadow (`b`/`c`).
+- **Crust:** two grouped `y` scars only, a 5 px patch at (33..35, 21..22) and a 3 px streak on the pronotum (56..58, 20), each with an `a` pit. Cold `v` rim only at the rear underside (x 17 to 20); `u` sternites only between the leg sockets (x 29 to 34 and 41 to 46, row 33).
+- **Head (big, lowered, forward):** an ellipse of x 57 to 72, rows 22 to 35 (centre (64.5, 28.5)), lit from above-front (`f`/`d` top-front, `c` middle, `b`/`a` lower back), `K` outline. Eye 3 x 3: `r` (63..64, 26), `H` (65, 26); `r` (63..65, 27); `e` (63..65, 28). Heavy `K` brow lowered toward the front: (61, 24), (62..65, 25), (66, 26..27), socket (62, 26..27). Mouth line `K` (66..69, 31).
+- **Mandibles (the threat):** near: front edge `H` along (70,32) → (72,33) → (73,35) → (74,37) → (74,39) → (73,40) → (71,41), `h` body 1 px behind (2 px for the first 4 points), `K` outline: 2 to 3 px thick at the mouth, hooking back at the tip. Far: the same hook 4 px behind, `h` edge and `j` body, (66,34) → (67,36) → (68,38) → (67,40) → (65,41).
+- **Antennae:** near `j` with a 2 px root from (67..68, 23) up-forward to the apex (74..76, 10), drooping to the tip (78, 14), `s` beads at (69,19), (72,12), (77,11); far `d` from (61,23) up and back to the apex (50..52, 11), tip (47,12).
+- **Legs (2 px, outlined, chitin ramp):** femur and upper tibia 2 px (`d` lit top, `b` under for near legs; `b`/`a` for far legs), the whole leg sealed with a `K` outline, a 3 px `K` tarsus on row 43, `s` spine ticks outside the outline. Near rear: coxa (25,33), knee (15,36), foot (7,42), spines (14,34), (10,37), (7,40). Near mid: coxa (38,33), knee (33,37), foot (29,42), spines (31,36), (29,39). Near front: coxa (50,33), knee (55,37), foot (58,42), spines (56,35), (60,39). Far: rear (28,33)→(24,37)→(21,42); mid (42,33)→(45,37)→(46,42); front (54,33)→(60,37)→(65,42).
 
-- **Shell:** dome top row 22 (x 30 to 39), rear tip x 11 (rows 31 to 35), belly line `K` row 37 (x 16 to 60). Four abdominal seams in `a` at x 19, 27, 35, 43 (at the top), slanting back 1 px per 3 rows; the plate edge in front of each seam is `f`. A 2 px `K` thorn leans back on top of each seam (tips rows 20 to 25). Pale `y` crust patches at (23..24, 29..30), (31..32, 27..28), (40..41, 31) and (56..57, 29), with `a` pits beside the first three.
-- **Pronotum shield:** x 51 to 66, `K` seam bowing forward from (50, 24) to (53, 36), `h` crown row 26, `f` rows 27 to 28; its lip ends over the head at (66, 31).
-- **Egg case:** x 4 to 11, rows 31 to 37, hanging from the abdomen tip: `K` outline, `s` lit top row 32, `o` body, three `g` ridges (x 6, 8, 10 on rows 34 to 35).
-- **Head:** x 59 to 69, rows 30 to 39, low under the lip. **Eye:** `r` (63,32), (64,32), `H` glint (65,32); `e` (63,33), `r` (64,33), (65,33); `e` (64,34), (65,34); a `K` brow at (62,32) and row 31. Cheek `h` at (68, 35..36).
-- **Fangs:** near fang (`h` body, `H` edge) from (69,37) down-forward to (71,40), hooking back to the tip (69,42); far fang (behind, shorter) from (65,39) to the tip (65,42). A 2 px gap between them: the mouth is closed but not sealed.
-- **Antennae:** near `j` from the head (65,30) up-forward to the apex (73..75, 14), down to the tip (78,19), `s` beads at (67,24), (69,18), (74,14); far `d` from (56,27) up and back over the shell to the apex (42..45, 16) and the tip (40,17).
-- **Legs**, near (femur `j` over `g`, tibia `j` with a `g` back edge, `s` spines, 2 px `g` tarsus): rear coxa (24,37), knee raised at (13,34), foot (3..4, 43); mid coxa (37,37), knee (32,39), foot (26..27, 43); front coxa (52,37), knee (55,40), foot (58..59, 43). Far legs in `a`: rear foot (16..17, 43), mid (47..48, 43), front (63..64, 43).
+### Round 2: re-deriving keys 3, 8, 10, 12, 15 and the in-betweens
+
+The pose notes below were written against the round-1 key 0. After the silhouette gate the executor redraws frames 1 to 15 from the key-0 v2 parts, keeping each pose's intent, slice offsets (dx/dy), tick windows and readability rules, with these overrides:
+
+- **Every egg-case instruction is void** (no `o`, no egg case to drop over or rest beside). The tell's rear drop becomes a 2 px rear crouch (abdomen x 14 to 30 dy +2); the defeat lies belly-down alone.
+- Coordinates map to the new parts: shell x 14 to 64 / rows 15 to 34 (was 11 to 66 / 22 to 37), head x 57 to 72 / rows 22 to 35 (was 59 to 69 / 30 to 39), mandible tips (71..74, 39..41) (were (65..71, 40..42)). Slice column ranges scale with the body: the pronotum is x 52 to 64, the front abdomen x 38 to 51, the rear abdomen x 14 to 37.
+- Fangs stay within the attack hitbox (x 66 to 79, rows 30 to 41) only on frame 10; in the impact the near mandible's tip must reach x 77 to 79 (closing on the hitbox), with a larger forward thrust (body dx +7, head dx +4 more) than round 1 (review E3).
+- Heights: the tell hold rises to row 4 or 5 (39 to 40 px; the only frame above 35 px). The defeat hold drops the shell by 8 (belly on row 42), top row 22 or lower.
 
 ### Frame 3, `walk` contact A (key)
 
@@ -259,14 +267,14 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/scatterer/
 - V04 palette: at most 20 colours (18 used); V05 isolated pixels: 0; V06 orphan pixels: at most 6 per frame (key 0 has 2).
 - V07 contact rows: every tag is grounded on row 43; V08 unused (no airborne tag).
 - V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/brood-01_keys.json` (frames 0, 3, 8, 10, 12 and 15 are frozen; a change to any of them needs a new fixture and a reason in the PR).
-- V13 bbox rules: S1 idle 30 px (rows 14 to 43), idle frames top 13 to 15; S2 walk height at most 31; R1 tell ramp top 9 to 12, tell hold top 5 to 7 and height at least 37; R3 lunge right edge 78 or more; R4 hurt right edge 75 or less; R6 buckle top 18 or lower, settled defeat top 24 or lower and height at most 20.
-- V14 key-count rules: R0 eye `r` at least 4 on idle, walk, tell ramp and swing frames; R0 egg case `o` at least 12 on every frame; R2 tell hold `H` at least 8, `r` at least 6, `u` at least 8; R4 hurt `w` at least 5 and `r` 0; R5 no `w` in 13 to 15, no `r` in 14 to 15, no `e` in 15.
-- `tests/test_art_brood01.py`: key 0 equals the script and the frozen digest; 30 px idle height under 40 px; 4 `r`, at least 12 `o`, no `w` on key 0; the 16 Scatterer palette keys reused unchanged, at most 4 new keys, at most 20 colours. The executor extends it with the fang-reach rule (fang `H` at x 76 or more only on frame 10) and the no-explosion defeat rule, as in `tests/test_art_scat01.py`.
+- V13 bbox rules (round 2): S1 idle 34 px (rows 10 to 43), idle frames top 9 to 11; S2 walk height at most 35; R1 tell ramp top 6 to 8, tell hold top 4 to 5 and height at least 39; R3 lunge right edge 78 or more; R4 hurt right edge 75 or less; R6 buckle top 14 or lower, settled defeat top 22 or lower and height at most 22.
+- V14 key-count rules: R0 eye `r` at least 5 on idle, walk, tell ramp and swing frames (the egg-case rule is removed in round 2); R2 tell hold `H` at least 8, `r` at least 6, `u` at least 8; R4 hurt `w` at least 5 and `r` 0; R5 no `w` in 13 to 15, no `r` in 14 to 15, no `e` in 15.
+- `tests/test_art_brood01.py`: key 0 equals the script and the frozen digest; 34 px idle height under 40 px; 5 `r`, no `o`, at least 5 mandible `H` at shin height, no `w` on key 0; the 16 Scatterer palette keys reused unchanged, at most 4 new keys, at most 20 colours. The executor extends it with the fang-reach rule (fang `H` at x 76 or more only on frame 10) and the no-explosion defeat rule, as in `tests/test_art_scat01.py`.
 
 ### Acceptance targets
 
-1. At 1x next to Carl, Donut and the Scatterer, the Guardian reads as the same species (plates, antennae, red eye, spiny legs, chitin ramp) and clearly bigger; the egg case reads as a carried object, not a tail.
-2. The tell hold (frame 8) is the only pose above 31 px and reads in a single frame at 1x: raised shield, wide fangs, bright eye.
+1. At 1x next to Carl, Donut and the Scatterer, the Guardian reads as the same species (plates, antennae, red eye, spiny legs, chitin ramp) and clearly bigger; the big head and the two mandibles read as the threat at Carl's shin height, and the legs separate from the floor.
+2. The tell hold (frame 8) is the only pose above 35 px and reads in a single frame at 1x: raised shield, wide fangs, bright eye.
 3. The impact frame 10 is the only frame with fangs at x 76 or more, and the hitbox matches it.
 4. Hurt has a white eye and no red; the defeat has no splat, burst, particles, yellow flash or glow.
 5. Validator: 0 failures. After execution, V01 to V15 report PASS (13 pass, 2 not configured).
@@ -300,7 +308,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Spec + hero key (frame 0): Claude Opus. Executed by: Claude Sonnet (keys 3/8/10/12/15, in-betweens, manifest, tests and evidence). Independently reviewed by: pending.
+- Spec + hero key (frame 0), rounds 1 and 2: Claude Opus. Executed by: Claude Sonnet (keys 3/8/10/12/15, in-betweens, manifest, tests and evidence). Independently reviewed by: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
 
 ## 13. Executor notes
