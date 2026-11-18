@@ -166,5 +166,5 @@ pub const HERO_DEFEAT_HIT_STOP: u8 = 7;
 pub const HERO_KNOCKDOWN_VX: f32 = 120.0;
 pub const HERO_KNOCKDOWN_VY: f32 = 160.0;
 /// Ticks from the defeating hit until the fixture restarts by itself (knockdown
-/// plus a short sprawl; R / North restarts at once). At most 60.
+/// plus a short sprawl; R / Select restarts at once). At most 60.
 pub const RESTART_DELAY_TICKS: u16 = 50;

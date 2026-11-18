@@ -487,6 +487,10 @@ impl StrikeTarget for Goblin {
                 self.vx = (direction * reaction.knock_vx).clamp(-KNOCK_VX_MAX, KNOCK_VX_MAX);
                 self.vy = reaction.knock_vy;
             } else if !committed {
+                // A jab on a goblin in the air or lying: no launch state left.
+                self.launch = None;
+                self.flight_ticks = 0;
+                self.contact_ticks = 0;
                 self.mode = GoblinMode::Hurt;
                 self.attack_tick = 0;
                 self.stagger_left = reaction.stagger_ticks;

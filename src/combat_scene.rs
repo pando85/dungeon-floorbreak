@@ -2384,14 +2384,7 @@ mod tests {
     #[test]
     fn d02_the_kick_launches_a_living_goblin_which_lands_lies_and_gets_up() {
         let mut sim = sim_of(&CP02_KICK_CONTACT);
-        let mut modes = Vec::new();
-        for _ in 0..CP02_KICK_CONTACT.ticks {
-            sim.step_scripted();
-            let mode = sim.combat.enemies[1].mode;
-            if modes.last() != Some(&mode) {
-                modes.push(mode);
-            }
-        }
+        sim.run_scripted(CP02_KICK_CONTACT.ticks);
         // The kicked goblin (index 0) stays alive with one hit point lost.
         let kicked = &sim.combat.enemies[0];
         assert_eq!(kicked.health, ENEMY_HEALTH - 1);
@@ -2515,9 +2508,8 @@ mod tests {
     }
 
     #[test]
-    fn d03_a_second_kick_launch_makes_a_new_contact_once_not_a_repeat() {
-        // Two launches (two instances) of the same goblin into the same one
-        // are two (launch, target) pairs; within one launch it is only one.
+    fn d03_the_contact_is_recorded_against_its_launch_id_and_target() {
+        // The launch id is the kick's move instance; the pair is remembered.
         let mut sim = sim_of(&CP02_KICK_CONTACT);
         sim.run_scripted(CP02_KICK_CONTACT.ticks);
         let first = contacts(&events_of(&sim));
@@ -2618,9 +2610,9 @@ mod tests {
     }
 
     #[test]
-    fn d04_goblins_do_not_damage_the_shore_and_a_hit_goblin_still_counts_once() {
-        // A goblin killed first by ordinary melee, then the shore: the block
-        // lands on a corpse and defeats nobody a second time.
+    fn d04_the_block_landing_on_an_already_defeated_goblin_defeats_nobody_twice() {
+        // A goblin already defeated (crush() stands in for any earlier death):
+        // the block lands on the body and logs no second defeat.
         static ORDER: Fixture = Fixture {
             name: "test_goblin_first",
             summary: "test",
