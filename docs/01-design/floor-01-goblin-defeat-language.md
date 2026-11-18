@@ -1,6 +1,6 @@
 # Floor 01 — Goblin defeat language and finishing reactions (design audit v0.1)
 
-**Status: proposed gameplay/art extension, NOT owner-approved final death catalogue or a playable implementation.** Prepared 2026-11-18 for the first I-03 post-Dozer goblin encounter. The intention is to identify **what can be tested with existing approved production art**, and isolate the **small genuinely missing art** rather than drawing a whole new goblin death spritesheet before the game feel is tested.
+**Status: proposed gameplay/art extension, NOT owner-approved final death catalogue or a playable implementation.** Prepared 2026-11-18 for the first I-03 post-Dozer goblin encounter. The intention is to identify **what can be tested with existing independently reviewed native art (owner gameplay/visual acceptance still pending)**, and isolate the **small genuinely missing art** rather than drawing a whole new goblin death spritesheet before the game feel is tested.
 
 **Design aim:** "Kill, kill, kill" through satisfying, expressive *cause-and-effect*. A simple punch kill must feel good; the surprising deaths result from player-controlled kick/position/terrain chains. Keep the 1980s–1990s scrappy-action / nasty dark-comedy tone; readable, characterful impact, not a wall of particles, noisy gore, automatic fatalities or compulsory gimmicks.
 
