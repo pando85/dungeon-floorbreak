@@ -238,3 +238,23 @@ has been reviewed separately. No recognizable fan character sources or
 concept-image crops are emitted by this pipeline stage; character production art
 is published separately under the `ART-PUBLICATION-ALL-V1` scope in the
 [rights register](../04-production/rights-and-release.md).
+
+### Toolkit (`scripts/pixelart/`, PIPE-01)
+
+New assets use one shared toolkit instead of a bespoke script per asset; the existing per-asset scripts and their outputs stay as they are. The routing, stages and cost rules are in the [pixel-art pipeline plan](../07-agents/pixel-art-pipeline.md); `scripts/agent_cost_report.py` and [the cost ledger](../07-agents/cost-ledger.csv) (PIPE-02) measure what each stage costs.
+
+```text
+python3 -m scripts.pixelart packet <asset-id> --concept <png> [--crop x,y,w,h]... --out <dir>
+python3 -m scripts.pixelart validate <asset-config | grid | manifest> [--out <dir>] [--json]
+python3 -m scripts.pixelart evidence <asset-config> [--out <dir>]
+python3 -m scripts.pixelart review-pack <asset-config> [--out <dir>]
+python3 -m scripts.pixelart freeze <asset-config> [--frames 0,4,7]
+python3 -m scripts.pixelart compare --preset carl|donut|mongo|goblin   # or --concept PNG --source GRID...
+```
+
+- **`packet`** writes the concept crops, palette candidates (median cut, at most 24 colours, JSON and swatch PNG; candidates, not decisions), a scale lineup of the approved Carl 52 px, Donut 40 px and goblin 36 px idle frames at 1x and 4x with three empty candidate slots, a draft asset config for the readability set (idle, move, tell, attack, hurt, defeat) and a pre-filled spec template modelled on [the GOB-01 spec](gob-01-goblin-spec.md). Crop tightly: a flat background otherwise dominates the palette candidates.
+- **The asset config** (`*.pixelart.json`, format `pixelart-asset-v1`, documented in `scripts/pixelart/config.py`) mirrors the spec: grid and manifest paths, frame size, pivot, contact row, the tag table with 60 Hz tick windows, and the parameters of every rule. The parity config is `assets/source/characters/goblin/goblin_a_h36.pixelart.json`.
+- **`validate`** runs rules V01 to V15 (structure, tags, tick table, palette size, isolated and orphan pixels, grounded and airborne contact rows, frozen keys by SHA-256, layer separation, canvas margin, unique frames, bounding boxes, key-pixel counts, non-empty frames) and writes `validator_report.json` plus a short `validator_summary.txt`. A bare grid or manifest gets the structural rules only. Frozen-key fixtures come from `freeze` (one SHA-256 per key frame) or may carry the cels themselves, as `tests/fixtures/goblin_gob01_keys.json` does.
+- **`evidence`** writes per-tag GIFs at tick timing (x1 and x3), contact sheets (x1 and x4), a tell to attack strip, the lit Floor 1 composition at 640x360 and 1920x1080 with Carl and Donut at scale (it calls the existing `env_kit` and `env_kit_light` code; the kit atlases from `scripts/export_assets.sh` must exist) and `SHA256SUMS`.
+- **`review-pack`** refuses to run while a validator fails (use `--allow-failing` only to inspect) and writes exactly three images (contact sheet x4, the lit 640x360 scene shown x3, the tell to attack strip) plus the validator report. That folder is the only input a top-tier reviewer gets.
+- Parity: on goblin variant A the toolkit passes the same contract as `tests/test_art_goblin_gob01.py` (`tests/test_pixelart_goblin.py`). The asset-specific readability rules R1 to R10 that need pixel geometry beyond bounding boxes and key counts stay in the per-asset test.

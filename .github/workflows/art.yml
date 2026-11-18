@@ -44,6 +44,10 @@ jobs:
           fi
       - name: Regression tests (including rejection of bad metadata)
         run: python3 -m unittest discover -s tests -p 'test_art_*.py' -v
+      - name: Pixel-art toolkit and agent cost report tests (PIPE-01, PIPE-02)
+        run: |
+          python3 -m unittest discover -s tests -p 'test_pixelart_*.py' -v
+          python3 -m unittest discover -s tests -p 'test_agent_cost_report.py' -v
       - name: Re-export must be byte-identical (every file under generated/art, recursively)
         run: |
           find generated/art -type f -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/first.sha256"
@@ -58,6 +62,13 @@ jobs:
             git status --short
             exit 1
           fi
+      - name: Toolkit parity run on GOB-01 variant A (validate, evidence, review pack)
+        run: |
+          cfg=assets/source/characters/goblin/goblin_a_h36.pixelart.json
+          out=generated/art/pixelart/gob-01-goblin-a
+          python3 -m scripts.pixelart validate "$cfg" --out "$out/validate"
+          python3 -m scripts.pixelart evidence "$cfg" --out "$out/evidence"
+          python3 -m scripts.pixelart review-pack "$cfg" --out "$out/review_pack"
       - name: Check repo documentation and rights records
         run: python3 scripts/check_docs.py
       - name: Publish native-scale visual review artifacts
