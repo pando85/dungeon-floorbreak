@@ -56,15 +56,42 @@ pub const HAYMAKER_FEEL: MoveFeel = MoveFeel {
 pub const HAYMAKER_STEP_PX: f32 = 4.0;
 pub const HAYMAKER_STEP_TICKS: u16 = 4;
 
-/// Push kick: only its hit-stop (8 ticks, melee spec) is new; the reaction is
-/// the jab's until the CP-02 kick launch.
+/// Push kick (D-02): 8 ticks of hit-stop (melee spec) and a **launch**: a
+/// goblin the kick does not defeat flies away (`KICK_LAUNCH_VX` / `_VY`), lands
+/// and lies down (`Downed`), then gets up. The stagger value is unused by a
+/// launch (the flight replaces it); a goblin in an armoured swing takes
+/// neither stagger nor launch.
 pub const KICK_FEEL: MoveFeel = MoveFeel {
     hit_stop: 8,
     stagger: JAB_FEEL.stagger,
-    knock_vx: JAB_FEEL.knock_vx,
-    knock_vy: JAB_FEEL.knock_vy,
+    knock_vx: KICK_LAUNCH_VX,
+    knock_vy: KICK_LAUNCH_VY,
     camera_kick_px: 2,
 };
+
+/// A living goblin's launch from the kick, px/s: about 17 ticks in the air
+/// with an 11 px apex and 48 px of flight, then a short slide. Below the lethal
+/// launch (160 / 210), so a kill still flies farther than a kick.
+pub const KICK_LAUNCH_VX: f32 = 170.0;
+pub const KICK_LAUNCH_VY: f32 = 150.0;
+/// A launched living goblin lies down this many ticks (`down` frames), then
+/// gets up for `GETUP_TICKS` (`getup` frames, 8 + 8 + 6) and is neutral again.
+pub const DOWNED_TICKS: u16 = 18;
+pub const GETUP_TICKS: u16 = 22;
+
+// ------------------------------------------------- CP-02 goblin contact --
+
+/// CP-02 (first pass: **no collision damage**). When a kicked living goblin
+/// touches a second one, the flier shows `knockback_contact` for this many
+/// ticks and loses most of its speed, the second goblin is interrupted
+/// (stagger, attack cancelled, token back) and pushed a little, and both
+/// freeze for the contact hit-stop. One reaction per (launch, target).
+pub const CONTACT_POSE_TICKS: u8 = 6;
+pub const CONTACT_HIT_STOP: u8 = 4;
+pub const CONTACT_STAGGER: u8 = 24;
+pub const CONTACT_PUSH_VX: f32 = 60.0;
+/// Share of its horizontal speed the flier keeps after the contact.
+pub const CONTACT_SOURCE_KEEP: f32 = 0.25;
 
 /// A confirming (killing) hit freezes this many ticks longer than the move's
 /// own hit-stop, so the last blow lands harder.
