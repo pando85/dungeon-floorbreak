@@ -1,0 +1,27 @@
+{
+  "asset_id": "slime-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "87f850059d34e65ed2d43e5c593198ded58855d43e6b3160db55c418ce02aa73"
+    },
+    "10": {
+      "sha256": "e5bc6ad3e1bca85871eaef20d1c600e0c3638a0ff17542fd7017ceefb2b0e246"
+    },
+    "12": {
+      "sha256": "0d44afcac37b7cafb29279bb2194357b0dfe53356f4124f24a0dc99848ed5337"
+    },
+    "15": {
+      "sha256": "8b5614b46977dfc6ec00d3b49426af7dac40efc83dc033c59ad114e7dc61dea4"
+    },
+    "3": {
+      "sha256": "da6a88b9cbf5bb8eb1a337a7ab4d55d362a9c108996e1e1f7a2a8b9d5da3bce9"
+    },
+    "8": {
+      "sha256": "8b289f8bd25498eb6d7b5422a074df723a8d7532afd8388e98b777193030f88c"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

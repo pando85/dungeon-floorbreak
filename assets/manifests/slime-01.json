@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "id": "slime_floor01_v1_candidate",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/slime/slime_01.ase",
+  "grid_source": "assets/source/characters/slime/slime_01.grid.json",
+  "output_atlas": "generated/art/slime-01.png",
+  "output_metadata": "generated/art/slime-01.json",
+  "palette_id": "slime-floor01-v1",
+  "frame_size": [
+    80,
+    40
+  ],
+  "pivot": [
+    40,
+    39
+  ],
+  "animation_tags": [
+    "idle",
+    "creep",
+    "attack_tell",
+    "attack_lunge",
+    "hurt",
+    "down"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy animation candidate (fan-concept layer: Green Slime, a Floor 1 corrosive hazard creature; runtime role IP-neutral slow contact-hazard blob)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "SLIME-01 Green Slime readability set: six keys (frames 0, 3, 8, 10, 12, 15) are drawn by scripts/author_slime01.py from blended floor-anchored ellipses, rule-based shading and literal skull and plate rows; the ten in-betweens use the same rules with per-frame parameters",
+    "generator": "Draft spec and keys: Claude Sonnet. Design edit and freeze: Claude Opus. In-betweens and execution: Claude Sonnet. Review: pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-enemy-concept-scatterers-rot-sticker-slime-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "slime": {
+    "status": "edited and frozen keys; in-betweens drawn; not wired into any Bevy binary",
+    "spec": "docs/02-art/slime-01-spec.md",
+    "opaque_height_idle": 30,
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "grounded_tags": [
+      "idle",
+      "creep",
+      "attack_tell",
+      "attack_lunge",
+      "hurt",
+      "down"
+    ],
+    "airborne_tags": [],
+    "playback": {
+      "idle": "loop",
+      "creep": "loop",
+      "attack_tell": "once",
+      "attack_lunge": "once",
+      "hurt": "once",
+      "down": "hold"
+    },
+    "key_frames": [
+      0,
+      3,
+      8,
+      10,
+      12,
+      15
+    ],
+    "key_fixture": "tests/fixtures/slime-01_keys.json",
+    "boxes": {
+      "standing": [
+        12,
+        16,
+        51,
+        24
+      ],
+      "hurtbox": [
+        8,
+        10,
+        60,
+        30
+      ],
+      "hurtbox_tell_hold": [
+        15,
+        3,
+        38,
+        37
+      ],
+      "attack_hitbox": [
+        58,
+        25,
+        21,
+        15
+      ]
+    },
+    "attack_ticks": {
+      "tell": [
+        0,
+        29
+      ],
+      "launch": [
+        30,
+        31
+      ],
+      "impact": [
+        32,
+        37
+      ],
+      "recover": [
+        38,
+        57
+      ]
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "idle",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "key"
+      },
+      {
+        "index": 1,
+        "tag": "idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in_between"
+      },
+      {
+        "index": 2,
+        "tag": "idle",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "in_between"
+      },
+      {
+        "index": 3,
+        "tag": "creep",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "key"
+      },
+      {
+        "index": 4,
+        "tag": "creep",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in_between"
+      },
+      {
+        "index": 5,
+        "tag": "creep",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in_between"
+      },
+      {
+        "index": 6,
+        "tag": "creep",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in_between"
+      },
+      {
+        "index": 7,
+        "tag": "attack_tell",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "in_between"
+      },
+      {
+        "index": 8,
+        "tag": "attack_tell",
+        "ticks": 24,
+        "duration_ms": 400,
+        "author": "key"
+      },
+      {
+        "index": 9,
+        "tag": "attack_lunge",
+        "ticks": 2,
+        "duration_ms": 33,
+        "author": "in_between"
+      },
+      {
+        "index": 10,
+        "tag": "attack_lunge",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "key"
+      },
+      {
+        "index": 11,
+        "tag": "attack_lunge",
+        "ticks": 20,
+        "duration_ms": 333,
+        "author": "in_between"
+      },
+      {
+        "index": 12,
+        "tag": "hurt",
+        "ticks": 12,
+        "duration_ms": 200,
+        "author": "key"
+      },
+      {
+        "index": 13,
+        "tag": "down",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "in_between"
+      },
+      {
+        "index": 14,
+        "tag": "down",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "in_between"
+      },
+      {
+        "index": 15,
+        "tag": "down",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key"
+      }
+    ]
+  }
+}

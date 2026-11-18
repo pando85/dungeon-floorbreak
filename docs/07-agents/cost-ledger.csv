@@ -28,3 +28,17 @@ date,work_order,config,stage,tier,model,agent_label,tool_calls,input,cache_write
 2026-11-18,ENV-02,baseline,fix-check,medium,claude-sonnet-5-5,env02-check-1,6,12,40167,227363,2129,0.14,0.4,ready
 2026-11-18,SCAT-01,C,design,top,claude-opus-5-5,scat-design,35,56,115155,2493219,59972,2.27,10.9,done
 2026-11-18,LLAMA-01,A,fix-3,medium,claude-sonnet-5-5,llama-fix3,17,34,46863,935427,6136,0.27,1.7,done
+2026-11-18,HOARD-01,A,silhouette-gate,top,claude-opus-5-5,hoard-gate,9,22,43797,493899,11218,0.54,6.2,FIX-KEY0; re-gate silhouette PASS + 6 interior items
+2026-11-18,HOARD-01,A,review,top,claude-opus-5-5,hoard-review,20,42,148219,1030772,19943,1.35,14.2,FAIL-DESIGN 18/25; re-review PASS WITH EXECUTION ITEMS 21/25
+2026-11-18,HOARD-01,A,design-1,top,claude-opus-5-5,hoard-design,79,146,609061,11354754,165244,8.62,40.8,"design incl. 2 gate fixes, keys, design-fix after review"
+2026-11-18,BARD-01,C,design,top,claude-opus-5-5,bard-design,35,60,139153,3232657,81408,2.97,14.2,done; spec + key0
+2026-11-18,BARD-01,C,keys+execute,medium,claude-sonnet-5-5,bard-exec,35,64,249332,4874765,115728,2.27,15.3,done
+2026-11-18,HOARD-01,A,fix-check,medium,claude-sonnet-5-5,hoard-check,9,16,33059,294315,1778,0.13,0.9,ready
+2026-11-18,BARD-01,C,review,top,claude-opus-5-5,bard-review,14,22,71728,731767,13761,0.78,2.7,PASS WITH EXECUTION ITEMS 19/25
+2026-11-18,BROOD-01,C,review,top,claude-opus-5-5,brood-review,25,38,185591,980766,18296,1.49,18.3,FAIL-DESIGN 14/25; gate PASS; re-review PASS WITH EXECUTION ITEMS 21/25
+2026-11-18,BROOD-01,C,fix-check,medium,claude-sonnet-5-5,brood-check,20,32,46346,866103,5357,0.26,1.7,ready (applied N1 leg shortening)
+2026-11-18,BROOD-01,C,design,top,claude-opus-5-5,brood-design,61,102,364605,7110845,106787,5.38,33.9,spec + key0; then design-fix after FAIL-DESIGN
+2026-11-18,HOARD-01,A,execute,medium,claude-sonnet-5-5,hoard-exec,84,140,249867,7865230,55913,1.97,20.8,done; round 2 + V16 + hair fix
+2026-11-18,BARD-01,C,fix-check,medium,claude-sonnet-5-5,bard-check,11,16,42947,396606,2467,0.17,1.1,ready
+2026-11-18,BARD-01,C,fix,medium,claude-sonnet-5-5,bard-fix,31,54,97469,2344958,20185,0.68,3.8,done
+2026-11-18,BROOD-01,C,keys+execute,medium,claude-sonnet-5-5,brood-exec,70,132,524105,12631430,152824,4.10,32.3,done; round 2 + re-review fixes
