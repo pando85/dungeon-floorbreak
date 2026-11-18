@@ -6,6 +6,8 @@
 
 **Parent gameplay design:** [PR #78 Act I first encounter](https://github.com/pando85/dungeon-floorbreak/pull/78), especially `docs/01-design/floor-01-first-goblin-encounter.md`; **if it is still draft, keep any new choreography experimental**. Current death-art audit is [goblin defeat language](../01-design/floor-01-goblin-defeat-language.md). Continue existing [issue #40](https://github.com/pando85/dungeon-floorbreak/issues/40), [combat probe spec](floor-01-integrated-combat-probes.md), [ENV-02](../02-art/env-02-opening-spec.md), [GOB-01](../02-art/gob-01-goblin-spec.md), and [ART-INT-02](../evidence/art-int-02/README.md). Do not create a parallel permanent combat demo or replace the approved opening route.
 
+> **Implementation status (PR A, 2026-11-18):** D-01 to D-04 and the input split are implemented as deterministic Rust fixtures (`cp01_*`, `cp02_kick_contact`, `cp03_shore_kill`, `cp03_shore_miss`), described in [floor01-scene.md](../03-tech/floor01-scene.md#i-03-pr-a-goblin-defeat-outcomes-d-01-to-d-04-fixtures-only-owner-review-pending). Not done: the shore/block render and the normal-route activation (P2), player damage from the block, 2P/solo proof, GOB-02-CRUSH art, and every game-feel judgement. The text below is the original work order.
+
 ## Existing starting point (verified on main 2026-11-18)
 
 - `src/combat.rs`: common deterministic combat domain used by existing Bevy combat fixtures.

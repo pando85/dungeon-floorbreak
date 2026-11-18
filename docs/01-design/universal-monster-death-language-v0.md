@@ -89,7 +89,8 @@ For ordinary enemy species:
 Deterministic simulation (Rust):
    Attack / Explosion / Terrain / Collision
      -> damage + resistance + state + actor/environment attribution
-     -> MonsterDefeated {target, cause, source, intensity, location, tick}
+     -> EnemyDefeated {tick, target, cause} (the one authoritative defeat event of `src/combat.rs`;
+        cause carries the credit; NO intensity, gore or recipe field: those are presentation-only; owner default: intensity preset 4 = full)
      -> eligible death recipe ID chosen from species data + deterministic event seed
 Presentation (Bevy, read-only):
    original 1x poses + detached-parts sprites + VFX + camera/SFX -> cleanup
