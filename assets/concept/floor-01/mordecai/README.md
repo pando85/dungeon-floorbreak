@@ -1,6 +1,6 @@
 # Mordecai — Floor 01 selected character concept
 
-**Status:** owner selected **C — Reluctant Mentor** on 2026-11-18. The selected artistic character direction, not a production sprite or level implementation. **This draft PR awaits Hermes uploading the original three PNGs listed below.**
+**Status:** owner selected **C — Reluctant Mentor** on 2026-11-18. The selected artistic character direction, not a production sprite or level implementation. **All three original PNGs are committed and integrity-verified.**
 
 | File | Artistic authority | Caveat |
 | --- | --- | --- |
@@ -12,7 +12,7 @@
 
 **Locked continuity:** floor 1 guild environment remains `assets/concept/floor-01/atlas-v1/02-tutorial-guild-old-guide.png`. Carl 52 px and Donut 40 px masters stay unchanged; Mordecai 44 px is **only a proposed target**. His later Bugaboo form is not floor-1 art.
 
-**Source/integrity:** all original PNGs were generated in project conversation, not derived from published book pages or scraped third-party images. Check `manifest.json` for SHA-256, size and source identity, and verify `sha256sum -c SHA256SUMS` after exact upload. No pixel sprite extraction from these concept boards.
+**Source/integrity:** all original PNGs were generated in project conversation, not derived from published book pages or scraped third-party images. Check `manifest.json` for SHA-256, size and source identity, and verify `sha256sum -c SHA256SUMS` on the committed files. No pixel sprite extraction from these concept boards.
 
 - [Mordecai concept specification](../../../../docs/02-art/floor-01-mordecai-concept.md)
 - [Floor 01 area atlas and approved Tutorial Guild](../../../../docs/02-art/floor-01-art-atlas-v1.md)
