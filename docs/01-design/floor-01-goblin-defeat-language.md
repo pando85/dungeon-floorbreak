@@ -1,5 +1,7 @@
 # Floor 01 — Goblin defeat language and finishing reactions (design audit v0.1)
 
+> **Direction update — 2026-11-18, owner feedback:** The original narrow four-finish audit below is an *implementation inventory*, not the intended overall violence level. The owner wants **body explosions, decapitations, dismemberment and outrageous monster-specific deaths**. A [universal monster death language](universal-monster-death-language-v0.md) is now proposed for review. It explicitly permits violent finishes with shared art/physics semantics while preserving each monster's identity. **Do not freeze GOB-02-CRUSH as the complete death-art plan or claim the universal design is already approved.**
+
 **Status: proposed gameplay/art extension, NOT owner-approved final death catalogue or a playable implementation.** Prepared 2026-11-18 for the first I-03 post-Dozer goblin encounter. The intention is to identify **what can be tested with existing independently reviewed native art (owner gameplay/visual acceptance still pending)**, and isolate the **small genuinely missing art** rather than drawing a whole new goblin death spritesheet before the game feel is tested.
 
 **Design aim:** "Kill, kill, kill" through satisfying, expressive *cause-and-effect*. A simple punch kill must feel good; the surprising deaths result from player-controlled kick/position/terrain chains. Keep the 1980s–1990s scrappy-action / nasty dark-comedy tone; readable, characterful impact, not a wall of particles, noisy gore, automatic fatalities or compulsory gimmicks.
