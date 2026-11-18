@@ -1,6 +1,6 @@
 # Floor 01 — Ball of Swine arena: standalone concept
 
-**State (2026-11-18):** The owner prefers the latest wide gameplay-layout concept, and the arena-wide camera pullback is an accepted *direction to explore*. This is concept approval, not approved native art, runtime geometry or camera behavior. Four original PNGs are available in the separate PR-specific Hermes ZIP, but binary upload to this branch remains pending.
+**State (2026-11-18):** The owner prefers the latest wide gameplay-layout concept, and the arena-wide camera pullback is an accepted *direction to explore*. This is concept approval, not approved native art, runtime geometry or camera behavior. All four original PNGs are committed on this PR branch; Git blob identities, byte sizes, image dimensions and SHA-256 hashes were independently checked against the original source images and the Hermes handoff ZIP on 2026-11-18.
 
 ## Design identity
 
@@ -10,16 +10,16 @@ The Ball of Swine is the already-approved tumbling composite of many aristocrati
 
 Preserve 1980s–1990s gritty action and dark absurdist humor. No generic neon wallpaper throughout Floor 01, automatic full-structure collapse, fragile exits or constant untelegraphed hazard spam.
 
-## Four image slots (upload originals unchanged)
+## Four verified original concept images
 
-The artwork shown to the owner is **not a native pixel sprite or an approved collider layout**. The exact binaries are included in the handoff ZIP and must be committed to the same PR branch under assets/concept/floor-01/ball-of-swine-arena/. File identities and SHA-256 appear in the ZIP manifest; do not fabricate a manifest entry in GitHub before the binaries arrive.
+The artwork shown to the owner is **not a native pixel sprite or an approved collider layout**. The original binaries are committed in `assets/concept/floor-01/ball-of-swine-arena/` and their hashes, dimensions, byte lengths and source filenames are recorded in the [verified asset manifest](../../assets/concept/floor-01/ball-of-swine-arena/manifest.json). Preserve all source bytes on subsequent edits.
 
 | Destination filename | Role | Decision scope |
 | --- | --- | --- |
-| 01-arena-overview.png | Empty monument, inlaid circular floor and huge gates | Previous positive arena art direction |
-| 02-first-impact.png | Ball collides with a hanging gate during combat | Impact/action staging exploration; character drawings not canonical |
-| 03-space-usage-exploration.png | Early space-usage infographic with combat and stage states | Historic exploratory draft |
-| 04-gameplay-layout-preferred.png | Updated wide annotated layout, movement and routes, stages and camera | **Owner-preferred layout direction** (not final numbers or physics) |
+| [01-arena-overview.png](../../assets/concept/floor-01/ball-of-swine-arena/01-arena-overview.png) | Empty monument, inlaid circular floor and huge gates | Previous positive arena art direction |
+| [02-first-impact.png](../../assets/concept/floor-01/ball-of-swine-arena/02-first-impact.png) | Ball collides with a hanging gate during combat | Impact/action staging exploration; character drawings not canonical |
+| [03-space-usage-exploration.png](../../assets/concept/floor-01/ball-of-swine-arena/03-space-usage-exploration.png) | Early space-usage infographic with combat and stage states | Historic exploratory draft |
+| [04-gameplay-layout-preferred.png](../../assets/concept/floor-01/ball-of-swine-arena/04-gameplay-layout-preferred.png) | Updated wide annotated layout, movement and routes, stages and camera | **Owner-preferred layout direction** (not final numbers or physics) |
 
 The infographics contain illustrative labels and inconsistent Carl/Donut renderings. For game-scale shots **always use approved original Carl 52 px and Donut 40 px masters**; no superhero Carl, sword or invented feline model. The approved Ball of Swine boss sheet remains in the existing enemies directory.
 
@@ -57,4 +57,4 @@ See [Ball of Swine combat and camera proposal](../01-design/floor-01-ball-of-swi
 
 The four original ChatGPT-generated references come from this project conversation (2026-11-18). No novel excerpts, third-party screenshots or game assets are included. Follow the [rights and release policy](../04-production/rights-and-release.md): the owner's recorded art-publication permission is not independently verified and is not a distribution license for a playable game.
 
-**PR state:** draft and image-dependent until Hermes uploads the originals, updates the manifest/provenance and CI passes. Separate gameplay/Bevy acceptance remains open.
+**PR review (2026-11-18):** original image upload and checksum/provenance verification completed. Final CI and repository merge are tracked on PR #77, separate from the still-open gameplay/Bevy acceptance.
