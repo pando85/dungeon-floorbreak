@@ -256,7 +256,7 @@ Design units are px right of the pivot column and up from the contact row. Froze
 
 ## 8. In-between list
 
-For the execution tier. No design decisions are needed beyond the notes. Drawn by `scripts/author_trog01.py` (`POSES`, `INBETWEEN`): frames 7, 9 and 13 are blends of two keys' part rules, the rest are hand-set limbs on the key's parts. Frame 11 is a key now. Frames 13 and 14 are placeholders after the defeat re-key (13 = a 0.5 blend of 12 and 15, 14 = 15 with the ropes swayed) and must be redrawn to the targets below; frames 5, 6 and 9 also have new targets.
+For the execution tier. No design decisions are needed beyond the notes. Drawn by `scripts/author_trog01.py` (`POSES`, `INBETWEEN`): frames 7, 9 and 13 are blends of two keys' part rules, the rest are hand-set limbs on the key's parts. Frame 11 is a key now. Round 2: frames 5, 6, 9, 13 and 14 were redrawn to the targets below (all in-betweens re-checked against the seven re-frozen keys).
 
 | # | Pose notes |
 | --- | --- |
@@ -318,7 +318,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
 - Draft spec and keys (Pygmy only): Claude Sonnet.
-- In-betweens + execution (ten in-betweens, V16 opt-in, regenerated grid, `.ase`, manifest and evidence, review pack): Claude Sonnet.
+- In-betweens + execution (in-betweens, V16 opt-in, regenerated grid, `.ase`, manifest and evidence, review pack; round 2 redraw of 5, 6, 9, 13, 14): Claude Sonnet.
 - Design edit (size decision, shared construction, head/hair/face redesign, six keys redrawn and re-frozen, boxes and strike ticks): Claude Opus.
 - Silhouette gate: an independent reviewer (FIX-KEYS); the key fixes after it: Claude Opus.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
@@ -335,9 +335,9 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 ## 14. Executor notes (in-betweens)
 
-- **Walk cycle.** 3 contact A, 4 near leg and hand planted and sliding back with the far arm swinging forward and the body up 1 px, 5 passing with both feet under the hips and the body 2 px above the key, 6 contact B (the mirror of 3 with the limbs swapped: far leg and far hand planted ahead, near leg trailing and near hand low behind). V16 matches every planted foot and hand on the contact row to the nearest one in the next frame, so the trailing far foot is kept as a dragging toe on the floor in 4 and 5 (it is the only way a 4-frame cycle stays at 9 px per step). The 6 to 3 seam differs only by the limb shading (dark and light limbs trade places), so it reads as a limb swap, not a position jump. `far_fingers` (claws of a planted far hand, drawn in the far ramp) was added to `build` for frame 6; no key uses it.
-- **Frame 11 (landing).** The in-between list asks for the head to rebound 1 px; the frame table, `tests/test_art_trog01.py` (landing differs from the tell by at most 12 dust pixels) and the V13 rule say tell plus dust. Conservative reading: frame 11 stays tell plus 9 dust pixels, no rebound.
-- **Frame 13 (collapse).** The note asks for the feet to be 1 px off the floor, but `down` is a grounded tag (V07: the contact row is touched) and V13 requires the defeat frames to stay low (top row at least 32). Conservative reading: the body is already folded most of the way to the floor (0.88 of the hurt-to-down blend), the near foot only grazes the floor (a single outline row), and the hurt to down step is therefore the biggest jump in the set (the 12-tick hurt hold, then 4 ticks of collapse); a taller falling pose would need a different V13 rule and a design decision.
-- **Frame 9 (launch).** 0.7 of the way from the coil to the strike; the near arm and the second (far) claw are built from the strike key's claw shape; feet are at least 3 px off the floor (V08).
-- **Idle (1, 2).** The hand and both feet stay planted; only the shoulders, head, face, near arm root, ribs and the dread tips move (no loop pop at the 1 to 2 to 0 seam).
-- **Box note.** Frame 13 is a down frame and 9 a leap frame; the placeholder boxes in section 3 were left as measured on the keys.
+- **Walk cycle (round 2).** 3 contact A (near hand and near foot planted ahead, far foot trailing). 4: near leg and hand sliding back, far arm swinging forward, body up 1 px. 5: passing, feet under the hips, body highest, the near hand lifted (wrist (14, 4.5), fingertips off row 55) while the far hand comes down ahead (tip at about x +20 on the contact row). 6: a true limb swap: the far (dark) leg and far hand are planted ahead with claws at about x +25, the near (lit) arm is mid-swing at wrist (12, 6) with no pixel on row 55, and the near leg trails with its heel lifted. So 6 differs from 3 in the planted arm, not only the leg ramp. V16 (max 9 px, loop seam included) matches every planted foot and hand to the nearest one in the next frame, so the trailing far foot stays a dragging toe in 4 and 5 and the far toe in 5 sits at x -5.2; the 5 to 6 step is exactly 9 px. `far_fingers` (claws of a planted far hand in the far ramp) is a `build` option used by frame 6 only.
+- **Frame 9 (round 2).** A nose-up push-off inside the existing 3 ticks: hips (-11, 10), shoulders (3, 16), hind legs thrown down and back with the near toe at about y 4.2 (the lowest opaque row is at most 52, V08), both claws coming up past the head, ropes streaming back (sweep 0.8). 9 to 10 reads as up and over; the descent stays the runtime arc.
+- **Frames 13 and 14 (round 2).** 13 is a backward fall beat, drawn as parts: hips (2, 9), shoulders (-6, 17), head (-8, 21) with the pain face, toes on the floor at (8, 1), near arm flung up and back to (-14, 28), ropes whipping forward; its top is row 22 (target 21 to 25; the head is 1 px lower than the (-8, 22) in the target note so the mop top lands inside the band). 14 is key 15 with the head and mop 1 px up, the raised knee 3 px higher at the knee point (10, 11), the arms 1 to 2 px wider and the ropes swayed. The direction is continuous 12 to 13 to 14 to 15 (head behind the hips, feet toward the player).
+- **Frame 11.** A key now (landing); no in-between work, no dust (deferred to VFX).
+- **Idle (1, 2).** The hand and both feet stay planted; only the shoulders, head, face, near arm root, ribs and the dread tips move.
+- **Not changed.** Idle, tell onset (7) and the boxes were re-checked against the re-frozen keys and needed no change (the keys 0, 3, 8, 10 are bit-identical to round 1).

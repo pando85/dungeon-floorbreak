@@ -537,23 +537,23 @@ POSES["walk2"] = W3 | {
     "grime": [(-12, 12), (-5, 16), (-2, 6), (-9, 16), (12, 6), (1, 23), (-6, 11)],
 }
 POSES["walk3"] = W3 | {
-    "far_limbs": [L([(-8, 15), (-6, 10), (-6, 5), (-4, 1)], [2.0, 1.6, 1.1, 0.8]),
-                  L([(6, 18), (12, 14), (18, 10), (22, 6)], [1.7, 1.4, 1.1, 0.8])],
+    "far_limbs": [L([(-8, 15), (-6, 10), (-7, 5), (-5.2, 1)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(6, 18), (12, 13), (17, 7), (20, 1.2)], [1.7, 1.4, 1.1, 0.8])],
     "torso": L([(-10, 15), (-3, 18), (5, 21)], [4.0, 4.4, 4.0]),
     "near_legs": [L([(-9, 15), (-5, 10), (-3, 5), (-1, 1)], [2.4, 1.9, 1.3, 0.9])],
     "loin": ragged_loin(-8, 14, 7.5, -0.5),
     "head": head(15, 22), "hair": hair(15, 22, sweep=0.35), "face_at": (15, 22),
-    "near_arms": [L([(5, 19), (9, 13), (12, 8), (14, 3)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": planted_hand(14, 3),
+    "near_arms": [L([(5, 19), (9, 14), (12, 9), (14, 4.5)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": hand(14, 4.5, 0.8, down=True),
     "ribs": [(-3, 14, 19), (0, 15, 20), (3, 16, 21)],
     "grime": [(-12, 13), (-5, 17), (-3, 6), (-9, 17), (9, 6), (1, 24), (-6, 12)],
 }
 POSES["walk4"] = W3 | {
     "far_limbs": [L([(-8, 13), (-1, 9), (2, 3), (7, 1)], [2.0, 1.6, 1.1, 0.8]),
                   L([(6, 16), (12, 12), (18, 7), (21, 3)], [1.7, 1.4, 1.1, 0.8])],
-    "near_legs": [L([(-9, 13), (-14, 8), (-17, 2), (-13, 0.8)], [2.4, 1.9, 1.3, 0.9])],
-    "near_arms": [L([(5, 17), (8, 12), (10, 6), (11, 1.2)], [2.0, 1.6, 1.2, 0.9])],
-    "fingers": [],
+    "near_legs": [L([(-9, 13), (-14, 8.5), (-18, 3), (-14.5, 0.8)], [2.4, 1.9, 1.3, 0.9])],
+    "near_arms": [L([(5, 17), (8, 14), (11, 9), (12, 6)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": hand(12, 6, 0.8, down=True),
     "far_fingers": planted_hand(21, 3),
     "grime": [(-12, 11), (-5, 15), (3, 6), (-9, 15), (10, 6), (1, 22), (-6, 10)],
 }
@@ -561,16 +561,45 @@ POSES["walk4"] = W3 | {
 # 7: tell onset, halfway from the idle to the coil, the mouth still closed
 POSES["tell1"] = blend(I0, POSES["tell2"], 0.5) | {"face": "snarl"}
 POSES["tell1"].pop("jaw", None)
-# 9: launch, 0.7 of the way from the coil to the strike with the feet already off the floor and both claws coming up
-T8, L10 = POSES["tell2"], POSES["leap3"]
-_launch = blend(T8, L10, 0.7)
-_far = _launch["far_limbs"][1]["pts"][-1]
-POSES["leap2"] = _launch | {"fingers": L10["fingers"][:3] + hand(_far[0], _far[1], 1.2, down=True)}
-# 13, 14: collapse (hurt -> down) and floor impact; the arc is mostly done by 13 because the defeat tag must stay low
-H12, D15 = POSES["hurt4"], POSES["down5"]
-_down_jaw = jaw(12, 6, 0.8)
-POSES["down3"] = blend(H12, D15 | {"jaw": jaw(-10, 6, 0.8)}, 0.5) | {"face": "pain"}
-POSES["down4"] = D15 | {"hair": hair(-10, 6, sway=1.5)}
+# 9: launch, a nose-up push-off: body angled about 25 degrees up from the hips (-11, 10) to the shoulders (3, 16), hind legs
+# thrown down and back with the toes off the floor, both claws coming up past the head
+POSES["leap2"] = {
+    "far_limbs": [L([(-10, 11), (-14, 8), (-18, 6), (-21, 4.6)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(6, 18), (12, 22), (18, 25), (22, 26)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-11, 10), (-4, 13), (3, 16)], [4.0, 4.4, 4.0]),
+    "near_legs": [L([(-11, 10), (-15, 7), (-19, 5), (-22, 4.2)], [2.3, 1.8, 1.3, 0.9])],
+    "loin": ragged_loin(-11, 10, 6.0, -3.0),
+    "head": head(14, 21), "jaw": jaw(14, 21, 0.9), "hair": hair(14, 21, sweep=0.8),
+    "near_arms": [L([(4, 15), (10, 16), (16, 18), (21, 20)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": hand(21, 20, 1.2, down=False) + hand(22, 26, 1.2, down=True),
+    "ribs": [(-6, 10, 14), (-3, 11, 15), (0, 12, 16)],
+    "grime": [(-10, 11), (-18, 6), (-2, 14), (-6, 13), (3, 17)],
+    "face": "roar", "face_at": (14, 21),
+}
+# 13, 14: the defeat falls backward the way the hurt throws it. 13 = the fall beat (shoulders and head behind the hips,
+# toes still on the floor, near arm flung up and back, pain face); 14 = floor impact, key 15 bounced 1 px with wider arms
+POSES["down3"] = {
+    "far_limbs": [L([(1, 10), (6, 6), (8, 3), (11, 1)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(-3, 16), (0, 12), (2, 8), (3, 4)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(2, 9), (-2, 13), (-6, 17)], [4.0, 4.3, 3.9]),
+    "near_legs": [L([(2, 9), (7, 7), (9, 4), (8, 1)], [2.4, 1.9, 1.3, 0.9])],
+    "loin": ragged_loin(2, 9, 6.0, 1.0),
+    "head": head(-8, 21, tilt=-2.0), "jaw": jaw(-8, 21, 0.8), "hair": hair(-8, 21, sweep=-0.6),
+    "near_arms": [L([(-5, 16), (-9, 21), (-12, 25), (-14, 28)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": hand(-14, 28, -1.0, down=False),
+    "ribs": [(-2, 10, 14), (1, 9, 13)],
+    "grime": [(-4, 12), (2, 5), (-10, 19), (7, 6)],
+    "face": "pain", "face_at": (-8, 21),
+}
+D15 = POSES["down5"]
+POSES["down4"] = D15 | {
+    "far_limbs": [L([(6, 4), (11, 3), (17, 1.5), (21, 1)], [1.8, 1.5, 1.1, 0.8]),
+                  L([(-4, 4), (0, 2.5), (5, 1.5), (10, 1)], [1.6, 1.3, 1.0, 0.8])],
+    "near_legs": [L([(7, 4), (10, 11), (14, 8), (17, 1.5)], [2.2, 1.8, 1.3, 0.9])],
+    "head": head(-10, 7, tilt=0.0), "hair": hair(-10, 7, sway=1.5), "face_at": (-10, 7),
+    "near_arms": [L([(-3, 7), (-5, 11.5), (-4, 15.5), (-2, 18)], [1.9, 1.5, 1.1, 0.8])],
+    "fingers": hand(-2, 18, 0.7, down=False),
+}
 
 KEY_FRAMES = {0: "idle0", 3: "walk1", 8: "tell2", 10: "leap3", 11: "land1", 12: "hurt4", 15: "down5"}
 # the ten in-between frames, drawn as parts (spec section 8); frame 11 is generated from the tell pose plus dust
