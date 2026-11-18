@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import sys
@@ -95,6 +96,51 @@ class PacketTests(unittest.TestCase):
         text = (self.out / "excerpts.md").read_text(encoding="utf-8")
         self.assertIn("Common goblins are green", text)
         self.assertNotIn("Size study and decision", text)
+
+    def test_excerpt_links_resolve_from_the_excerpt_location(self) -> None:
+        from scripts.check_docs import MD_LINK
+        from urllib.parse import unquote
+
+        def broken(text: str, folder: Path) -> list[str]:
+            bad = []
+            for m in MD_LINK.finditer(text):  # same logic as scripts/check_docs.py
+                dest = m.group(1).strip().split(maxsplit=1)[0].strip("<>")
+                if dest.startswith(("https://", "http://", "mailto:", "#")) or not dest:
+                    continue
+                loc = unquote(dest.split("#", 1)[0].split("?", 1)[0])
+                if loc and not Path(os.path.normpath(folder / loc)).exists():  # folder may not exist yet
+                    bad.append(dest)
+            return bad
+
+        spec = "docs/02-art/gob-01-goblin-spec.md#1. Canon"
+        # Unrewritten, the source doc's `../` links break once the text sits in another folder.
+        self.assertTrue(broken(packet.excerpt(spec), ROOT / "docs/evidence/x/packet"))
+        # The packet's own excerpts.md, and the repo layout `docs/evidence/<id>/packet/`, both resolve.
+        self.assertEqual(broken((self.out / "excerpts.md").read_text(encoding="utf-8"), self.out), [])
+        self.assertEqual(broken(packet.excerpt(spec, dest_dir=ROOT / "docs/evidence/x/packet"),
+                                ROOT / "docs/evidence/x/packet"), [])
+        self.assertIn("(../../../07-agents/floor-01-opening-encounter-handoff.md)",
+                      packet.excerpt(spec, dest_dir=ROOT / "docs/evidence/x/packet"))
+
+    def test_rebase_links_keeps_urls_anchors_fragments_and_titles(self) -> None:
+        src = ROOT / "docs/02-art/a.md"
+        dest = ROOT / "docs/evidence/x/packet"
+        text = ("[w](https://e.org/a) [m](mailto:a@b.c) [h](#here) ![i](img.png) "
+                "[f](../03-tech/floor01-scene.md#combat \"T\")")
+        out = packet.rebase_links(text, src, dest)
+        self.assertEqual(out, "[w](https://e.org/a) [m](mailto:a@b.c) [h](#here) ![i](img.png) "
+                              "[f](../../../03-tech/floor01-scene.md#combat \"T\")")
+
+    def test_uppercase_work_order_id_is_accepted_and_normalised(self) -> None:
+        out = self.tmp / "upper"
+        packet.build_packet("LLAMA-01", CONCEPT, [], out)
+        text = (out / "spec_template.md").read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("# LLAMA-01: design spec (template)"))
+        self.assertIn("assets/manifests/llama-01.json", text)
+        self.assertNotIn("LLAMA-01.json", text)
+        tmpl = json.loads((out / "frame_pivot_template.json").read_text(encoding="utf-8"))
+        self.assertEqual(tmpl["asset_id"], "llama-01")
+        self.assertEqual(cli.main(["packet", "LLAMA-01", "--concept", str(CONCEPT), "--out", str(self.tmp / "upper2")]), 0)
 
     def test_bad_inputs_raise_toolkit_errors(self) -> None:
         for bad in ("1,2,3", "a,b,c,d", "0,0,0,5", "-1,0,5,5"):

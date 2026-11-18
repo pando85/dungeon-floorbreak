@@ -16,8 +16,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
+from urllib.parse import unquote
 
 from PIL import Image, ImageDraw
 
@@ -226,8 +228,9 @@ def frame_template(asset_id: str, frame_size=(64, 56), pivot=(28, 55)) -> dict:
     }
 
 
-def spec_template(asset_id: str, cands: dict | None, tmpl: dict, heights: list[int] | None) -> str:
-    name = asset_id.upper()
+def spec_template(asset_id: str, cands: dict | None, tmpl: dict, heights: list[int] | None,
+                  title: str | None = None) -> str:
+    name = title or asset_id.upper()
     pal_rows = "\n".join(f"| {i + 1} | `{c['hex']}` | {c['share'] * 100:.1f} % | <fill: key, name, role> |"
                          for i, c in enumerate((cands or {}).get("merged", [])[:MAX_COLOURS])) or "| 1 | <fill> | | |"
     h = heights or [None, None, None]
@@ -364,10 +367,42 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 # ------------------------------------------------------------------ excerpts
 
-def excerpt(spec: str, limit: int = 60) -> str:
-    """``path`` or ``path#Heading``: the file's first ``limit`` lines, or the section under a matching heading."""
+# Same shape as ``scripts/check_docs.py``'s link pattern, but captures the parts so the destination can be replaced.
+_MD_LINK = re.compile(r"((?<!!)\[[^]]+\]\()([^)]+)(\))")
+
+
+def rebase_links(text: str, source: Path, dest_dir: Path) -> str:
+    """Rewrite relative Markdown link targets so they resolve from ``dest_dir`` instead of ``source``'s folder.
+
+    URLs, ``mailto:`` and pure ``#anchor`` links stay as they are. A link keeps its fragment and optional title.
+    """
+    def fix(m: re.Match) -> str:
+        inner = m.group(2)
+        parts = inner.strip().split(maxsplit=1)
+        if not parts:
+            return m.group(0)
+        raw = parts[0]
+        dest = raw.strip("<>")
+        if dest.startswith(("https://", "http://", "mailto:", "#")) or not dest:
+            return m.group(0)
+        location, hash_, frag = dest.partition("#")
+        location, q, query = location.partition("?")
+        target = (source.parent / unquote(location)).resolve()
+        new = Path(os.path.relpath(target, dest_dir.resolve())).as_posix().replace(" ", "%20")
+        new += (q + query if q else "") + (hash_ + frag if hash_ else "")
+        title = f" {parts[1]}" if len(parts) > 1 else ""
+        return f"{m.group(1)}{new}{title}{m.group(3)}"
+    return _MD_LINK.sub(fix, text)
+
+
+def excerpt(spec: str, limit: int = 60, dest_dir: Path | None = None) -> str:
+    """``path`` or ``path#Heading``: the file's first ``limit`` lines, or the section under a matching heading.
+
+    With ``dest_dir`` (the folder the excerpt file is written to) relative links are rebased to resolve from there.
+    """
     path_text, _, heading = spec.partition("#")
-    lines = repo_path(path_text).read_text(encoding="utf-8").splitlines()
+    source = repo_path(path_text)
+    lines = source.read_text(encoding="utf-8").splitlines()
     if heading:
         start = next((i for i, ln in enumerate(lines) if ln.startswith("#") and heading.lower() in ln.lower()), None)
         if start is None:
@@ -377,6 +412,8 @@ def excerpt(spec: str, limit: int = 60) -> str:
                     if lines[i].startswith("#") and len(lines[i]) - len(lines[i].lstrip("#")) <= level), len(lines))
         lines = lines[start:end]
     shown = lines[:limit]
+    if dest_dir is not None:
+        shown = rebase_links("\n".join(shown), source, dest_dir).split("\n")
     more = f"\n(truncated: {len(lines) - limit} more lines in {path_text})" if len(lines) > limit else ""
     return f"## {spec}\n\n" + "\n".join(shown) + more + "\n"
 
@@ -386,8 +423,10 @@ def excerpt(spec: str, limit: int = 60) -> str:
 def build_packet(asset_id: str, concept: Path, crops: list[tuple[int, int, int, int]], out: Path,
                  colours: int = MAX_COLOURS, heights: list[int] | None = None,
                  excerpts: list[str] | None = None, frame_size=(64, 56), pivot=(28, 55)) -> list[Path]:
+    title = asset_id.upper()
+    asset_id = asset_id.lower()  # work-order ids such as LLAMA-01 are accepted; files and folders use lowercase
     if not ASSET_ID.match(asset_id):
-        raise ToolkitError(f"asset id must be lowercase letters, digits and dashes: {asset_id!r}")
+        raise ToolkitError(f"asset id must be letters, digits and dashes (case is normalised to lowercase): {title!r}")
     out.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     images = concept_crops(concept, crops)
@@ -410,11 +449,11 @@ def build_packet(asset_id: str, concept: Path, crops: list[tuple[int, int, int, 
     path.write_text(json.dumps(tmpl, indent=2) + "\n", encoding="utf-8")
     written.append(path)
     path = out / "spec_template.md"
-    path.write_text(spec_template(asset_id, cands, tmpl, heights), encoding="utf-8")
+    path.write_text(spec_template(asset_id, cands, tmpl, heights, title=title), encoding="utf-8")
     written.append(path)
     if excerpts:
         path = out / "excerpts.md"
-        path.write_text("# Doc excerpts\n\n" + "\n".join(excerpt(e) for e in excerpts), encoding="utf-8")
+        path.write_text("# Doc excerpts\n\n" + "\n".join(excerpt(e, dest_dir=out) for e in excerpts), encoding="utf-8")
         written.append(path)
     return written
 
