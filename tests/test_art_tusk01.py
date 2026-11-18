@@ -15,6 +15,7 @@ import pixel_grid_to_ase as pg  # noqa: E402
 from pixelart.validators import frame_digest  # noqa: E402
 
 GRID = ROOT / "assets/source/characters/swine/tusklings/tusk_01.grid.json"
+GRID_GOWN = ROOT / "assets/source/characters/swine/tusklings/tusk_01_gown.grid.json"
 FIXTURE = ROOT / "tests/fixtures/tusk_01_keys.json"
 SWINE_GRID = ROOT / "assets/source/characters/swine/swine-01.grid.json"
 
@@ -33,6 +34,35 @@ class TusklingHeroKeyTests(unittest.TestCase):
         self.assertEqual(self.cels, a.render(0))
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(fixture["keys"]["0"]["sha256"], frame_digest(self.cels, ["body", "costume"]))
+
+    def test_all_frames_match_the_script_and_the_frozen_keys(self) -> None:
+        self.assertEqual(len(self.grid["frames"]), 16)
+        for i, frame in enumerate(self.grid["frames"]):
+            self.assertEqual(frame["cels"], a.render(i), f"frame {i} differs from the script")
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        self.assertEqual(sorted(int(k) for k in fixture["keys"]), list(a.KEY_FRAMES))
+        for k in a.KEY_FRAMES:
+            self.assertEqual(fixture["keys"][str(k)]["sha256"],
+                             frame_digest(self.grid["frames"][k]["cels"], ["body", "costume"]))
+
+    def test_every_frame_is_clean_grounded_and_in_the_tux_and_gown_atlases(self) -> None:
+        gown = json.loads(GRID_GOWN.read_text(encoding="utf-8"))
+        for i, (ft, fg) in enumerate(zip(self.grid["frames"], gown["frames"])):
+            self.assertEqual(fg["cels"], a.variant(ft["cels"], "gown", i), f"gown frame {i}")
+            for label, cels in (("tux", ft["cels"]), ("gown", fg["cels"])):
+                flat = a.flatten(cels)
+                orphans, isolated = pg._stray_pixels([list(r) for r in flat], a.ACCENTS)
+                self.assertEqual((len(orphans), len(isolated)), (0, 0), f"{label} frame {i}")
+                self.assertTrue(any(c != "." for c in flat[39]), f"{label} frame {i} misses the contact row")
+            self.assertEqual(pix(ft["cels"]["body"], "pq"), [], f"frame {i}: no flower in the tux body")
+        self.assertEqual([t for _n, _a, t in a.TAGS], [2, 6, 8, 11, 12, 15])
+        self.assertIsNone(a.TICKS[15])  # the down hold is state-driven
+
+    def test_walk_is_a_trotter_cycle_not_a_slide(self) -> None:
+        cfg = json.loads((ROOT / "assets/source/characters/swine/tusklings/tusk_01.pixelart.json").read_text())
+        self.assertEqual(cfg["rules"]["foot_drift"]["tags"], ["scramble"])
+        rows = [a.flatten(self.grid["frames"][i]["cels"])[38] for i in (3, 4, 5, 6)]
+        self.assertEqual(len(set(rows)), 4)  # four distinct foot positions
 
     def test_canvas_pivot_and_layers(self) -> None:
         self.assertEqual(self.grid["canvas"], [56, 40])

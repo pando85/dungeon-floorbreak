@@ -1,6 +1,6 @@
 # TUSK-01: Tusklings readability set, design spec
 
-**Status:** design stage. Spec written; hero key 0 (`idle`, tux costume) drawn, silhouette gate FIX-KEY0 applied (upright biped stance, coat behind the legs, sleeve seam, hand past the belly) and re-frozen; the gown variant is a rule on the same key. Frames 1 to 15 are for the execution tier (sections 4, 7 and 8).
+**Status:** design stage. Spec written; hero key 0 (`idle`, tux costume) drawn, silhouette gate FIX-KEY0 applied (upright biped stance, coat behind the legs, sleeve seam, hand past the belly) and re-frozen; the gown variant is a rule on the same key. Frames 1 to 15 are executed (keys 3, 8, 10, 12, 15 frozen, in-betweens, tux and gown atlases, manifests, review pack); the independent review is pending.
 
 **Decision record:** one base Tuskling, 30 px idle height (rows 10 to 39), frame 56 x 40, pivot (22, 39), contact row 39; two costume variants (`tux`, `gown`) as a costume-layer key remap plus an accessory swap, not separate drawings; the SWINE-01 palette unchanged (19 keys, slot 20 left free).
 
@@ -164,7 +164,7 @@ Gown anchors: `ANCHORS[frame]` is the head offset for the ear flower and the tru
 
 ## 9. Validators and readability rules
 
-`python3 -m scripts.pixelart validate assets/source/characters/swine/tusklings/tusk_01.pixelart.json`: PASS (14 pass, 2 skipped) on the design-stage grid (key 0 only).
+`python3 -m scripts.pixelart validate assets/source/characters/swine/tusklings/tusk_01.pixelart.json`: PASS (15 pass, 1 skipped; V08 airborne is not configured) on all 16 frames (tux grid).
 
 - V04 at most 20 colours (19); V05 isolated 0; V06 orphans 0; V07 contact row 39; V09 frozen key 0 (`tests/fixtures/tusk_01_keys.json`, layers `body` and `costume`); V10 layers disjoint.
 - V13 `T1-size-idle-30px`: frame 0 top 10, bottom 39; `T1-idle-width` 32 to 38.
@@ -190,6 +190,20 @@ python3 scripts/author_tusk01.py key0-scale    # docs/evidence/tusk-01/key0-scal
 
 `key0-scale.png`: Carl, the tux and the gown Tuskling (key 0, mirrored to face Carl) and the Ball of Swine idle key at 1x on lit Floor 1 (640 x 360); `key0-scale-4x.png`: the same scene at 4x. Needs the kit atlases (`scripts/export_assets.sh`).
 
+### Executor notes (conservative readings, no design change)
+
+Frames 1 to 15 are composed by `scripts/author_tusk01.py` (`compose()`): key 0's part groups (`head`, `jaw`, `ear_far`, `ear_near`, `tusk_near`, `tusk_far`, `trunk`, `coat`, `arm`, `legs`) are replayed with per-group offsets, then the redrawn parts, outline and orphan clean-up. Frames 14 and 15 (lying) are redrawn from the same palette and light with `fill_ell()`, never rotated. Where the notes were ambiguous or collided with a rule:
+
+1. **Walk is a trotter cycle with V16 on.** `rules.foot_drift` is on for `scramble`, `max_px` 10. The rule charges a foot that lifts off to the nearest planted foot of the next frame (3 to 4: the rear foot at x 14 to 20 against the planted near foot, 9 px; 6 to 3 seam: 10 px). The design's lifted passing feet (frames 4 and 6) are kept; a limit of 4 would force both feet planted in the passing frames, which the spec rejects. Planted-to-planted steps are 4 px or less. The `hoard-01` config uses 9 for the same reason. Tighten if a later rule change counts lifts as zero.
+2. Frame 3 coat-tails: the spec says "1 px up" and "bottom row 34"; the bottom row 34 reading is used (net 1 px up from key 0 after the body's +1). Frame 3 near shin: row 35 from x 25, row 36 from x 27 (a 2 px slant per row).
+3. Frame 8: the hump and bristle go up 1 px for x up to 19 (not 20) so the tell hold's top stays at row 13 or lower (rule T3, the tuft at x 20 would reach row 12). "Brow 1 px lower" is not drawn: the eye white (`w w K K`) and the head drop carry the read. The hand closes to 4 x 3 by dropping its front column.
+4. Frame 10: the coat lags the sheared body by +6 x (1 px up) instead of +4: at +4 the coat read as a detached block behind a body sheared to +9 or +10. The shear (rows 14 to 24 +2, rows 25 to 30 +1) is added to the +8 body base. The neck needs no fill: key 0's hump and torso pixels under the skull show through.
+5. Frame 13: the body goes down 2 px, not 4: key 0's lowest body row is 36, so 3 or more would put the outline off the 40 px canvas. Knees are bowed by moving the trotters 1 px out; shins are removed.
+6. Frame 12: the near ear is a short strip folded down the back of the skull (tip at row 13 to 14 after the head move). The hand is the shear of the sleeve from the shoulder to x 31 to 34, rows 27 to 29.
+7. Frames 14 and 15: the tilted ellipse of frame 14 is rx 9, ry 5.5 (rx 11 at 45 degrees would pass row 39); its head is key 0's head moved (5, 6), not rotated. Frame 15's trunk is clipped at row 38 so the coat carries the contact row. In frame 15 the outline of the tallest limb is on row 24 (rows 24 to 39 inclusive).
+8. Gown anchors: frames 1 to 13 follow the throat (trunk) and ear (head) offset of their pose; frame 14 `(-1, 2, 5, 6)`, frame 15 `(5, 4, 9, 23)`; the pearls stay visible on frame 15.
+9. Tick and box data: manifests `tusk-01.json` (tux) and `tusk-01-gown.json` carry the 60 Hz ticks, placeholder pivot-relative boxes of section 3 and the tell-to-gore windows (tell 0 to 27, launch 28 to 30, hitbox 31 to 36, recover 37 to 50, counted from frame 7). `down` holds on frame 15 (preview 100 ms).
+
 ## 11. Files
 
 | File | Role |
@@ -198,8 +212,10 @@ python3 scripts/author_tusk01.py key0-scale    # docs/evidence/tusk-01/key0-scal
 | `assets/source/characters/swine/tusklings/tusk_01.grid.json` / `.ase` | pixel-grid source (layers `body`, `costume`) and Aseprite master |
 | `assets/source/characters/swine/tusklings/tusk_01.pixelart.json` | asset config |
 | `tests/fixtures/tusk_01_keys.json` | frozen key 0 |
-| `tests/test_art_tusk01.py` | design-stage checks |
-| `assets/manifests/tusk-01.json` | manifest with ticks and boxes (execution tier) |
+| `tests/test_art_tusk01.py` | frozen keys, all 16 frames vs the script, clean frames in both atlases, gown rules |
+| `assets/source/characters/swine/tusklings/tusk_01_gown.grid.json` / `.ase` | gown atlas grid by `variant()`, frames 0 to 15 |
+| `assets/manifests/tusk-01.json`, `tusk-01-gown.json` | manifests with ticks, boxes and tell-to-gore windows |
+| `docs/evidence/tusk-01/` | key-0 scale scenes, GIFs, contact sheets, lit scenes, `review-pack/` (3 images and `validator_summary.txt`) |
 
 ## 12. Rights and provenance
 
@@ -208,4 +224,4 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (`docs/0
 ### Rights/Provenance
 
 - Concept: owner-approved reference; crops for reference only.
-- Spec and hero key 0 (with the gown rule): Claude Opus. Execution (frames 1 to 15, manifest, review pack): pending. Independent review: pending (silhouette gate on key 0 first).
+- Spec and hero key 0 (with the gown rule): Claude Opus. Keys 3/8/10/12/15 + in-betweens + execution (frames 1 to 15, gown atlas, manifests, validators, review pack): Claude Sonnet. Independent review: pending (silhouette gate on key 0 first).
