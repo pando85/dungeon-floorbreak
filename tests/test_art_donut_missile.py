@@ -101,6 +101,75 @@ class DonutMissileTests(unittest.TestCase):
             self.assertLess(filled, 0.35 * 32 * 32, n)
             self.assertLessEqual(sum(r.count("w") for r in rows), 4, n)
 
+    # --- in-betweens (spec section 9)
+    def test_follow_head_recovers_to_the_master_face_with_lowered_lids(self) -> None:
+        master = self.loco["frames"][0]["cels"]
+        for i in range(16):
+            dx, dy = author.HEAD_OFFSETS[i]
+            tx = author.THRUST["cast_follow"][0]
+            follow = self.cast["frames"][32 + i]["cels"]
+            shifted = author.shift(master["face"], dx + tx, dy)
+            for y in range(19, 28):                    # mouth, muzzle and chin rows: the master face (mouth closed)
+                self.assertEqual(follow["face"][y + dy], shifted[y + dy], (i, y))
+            gather = self.cast["frames"][i]["cels"]["face"]
+            for y in (16, 17):                         # gather lids, one row lowered; no brow pixels at x 43 / 59
+                self.assertEqual(follow["face"][y + dy][43 + dx + tx:61 + dx + tx], gather[y + dy][43 + dx:61 + dx], (i, y))
+            self.assertEqual(sum(r.count("w") for r in follow["face"]), 4, i)   # catchlights only, no fangs
+            tiara_master = author.shift([r if y <= 8 else "." * 72 for y, r in enumerate(master["gear"])], dx + tx, dy)
+            self.assertEqual(follow["gear"][:9 + dy], tiara_master[:9 + dy], i)       # master tiara and gem
+            self.assertTrue(all("w" not in r and "P" not in r for r in follow["gear"][:9 + dy]), i)  # no twinkle, gem normal
+
+    def test_follow_ears_sit_halfway_between_master_and_release(self) -> None:
+        for i in range(16):
+            dx, dy = author.HEAD_OFFSETS[i]
+            gather = self.cast["frames"][i]["cels"]["head"]
+            release = self.cast["frames"][16 + i]["cels"]["head"]
+            follow = self.cast["frames"][32 + i]["cels"]["head"]
+            self.assertEqual(follow[8 + dy][39 + dx:43 + dx], "....")
+            self.assertEqual(follow[9 + dy][41 + dx:43 + dx], "jK")             # tip one row lower than the master (row 8)
+            self.assertNotEqual(gather[8 + dy][40 + dx], ".")
+            self.assertEqual(release[9 + dy][41 + dx], ".")                    # release: tips gone
+            self.assertNotEqual(follow, gather)
+            self.assertNotEqual(follow, release)
+
+    def test_cast_frames_are_unique_and_the_orphan_limit_stays_at_nine(self) -> None:
+        keys = [json.dumps(f["cels"], sort_keys=True) for f in self.cast["frames"]]
+        self.assertEqual(len(set(keys)), 48)
+        for cfg_path in (CAST_CFG, VFX_CFG):
+            rules = json.loads(cfg_path.read_text())["rules"]
+            self.assertEqual(rules["max_orphans_per_frame"], 9)
+            self.assertEqual(rules["max_isolated_per_frame"], 0)
+            self.assertTrue(rules["unique_frames"])
+        rel = {c["id"]: c["frames"] for c in json.loads(CAST_CFG.read_text())["rules"]["key_counts"]}
+        self.assertEqual(rel["C2-release-fangs-and-catchlights"], list(range(16, 32)))
+
+    def test_bolt_flight_loop_cycles_streaks_and_keeps_white_tiny(self) -> None:
+        frames = [self.vfx["frames"][n]["cels"]["body"] for n in range(4)]
+        self.assertEqual(len({tuple(f) for f in frames}), 4)
+        left = lambda rows, y: min(i for i, c in enumerate(rows[y]) if c != ".")      # noqa: E731
+        for n, rows in enumerate(frames):
+            white = sum(r.count("w") for r in rows)
+            self.assertIn(white, (1, 2), n)
+            for y, want0, want in zip((14, 16, 18), author.BOLT_CYCLE[0][0], author.BOLT_CYCLE[n][0]):
+                self.assertEqual(left(frames[0], y) - left(rows, y), want - want0, (n, y))   # streak lengths cycle
+        self.assertEqual(frames[0], author.bolt())
+
+    def test_impact_in_betweens_cool_between_the_keys(self) -> None:
+        def count(rows, ch):
+            return sum(r.count(ch) for r in rows)
+        peak, mid, fade, last = (self.vfx["frames"][n]["cels"]["body"] for n in (5, 6, 7, 8))
+        self.assertEqual((count(mid, "w"), count(mid, "c")), (0, 0))
+        self.assertLess(count(mid, "p") + count(mid, "m"), count(peak, "p") + count(peak, "m") + count(peak, "c"))
+        self.assertGreater(count(mid, "p") + count(mid, "m"), count(fade, "m") + count(fade, "d"))
+        for ch in "wcpm":
+            self.assertEqual(count(last, ch), 0, ch)                          # nothing hot in the last frame
+        self.assertGreater(count(last, "d") + count(last, "v"), 0)
+        self.assertLess(sum(c != "." for r in last for c in r), sum(c != "." for r in fade for c in r))
+        # motes two px further from the hit point than on the peak
+        def far(rows):
+            return max(max(abs(x + 0.5 - 15.5), abs(y - 15.5)) for y, r in enumerate(rows) for x, c in enumerate(r) if c in "lv")
+        self.assertGreater(far(mid), far(peak))
+
 
 if __name__ == "__main__":
     unittest.main()

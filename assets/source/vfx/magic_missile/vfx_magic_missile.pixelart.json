@@ -84,7 +84,7 @@
       0,
       0
     ],
-    "unique_frames": false,
+    "unique_frames": true,
     "manifest_tick_rows": "vfx.frames",
     "manifest_tick_hz": "vfx.tick_hz",
     "frozen_keys": {
