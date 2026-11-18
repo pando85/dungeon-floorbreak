@@ -143,7 +143,7 @@
       0,
       0
     ],
-    "unique_frames": false,
+    "unique_frames": true,
     "manifest_tick_rows": "chopper.frames",
     "manifest_tick_hz": "chopper.tick_hz",
     "frozen_keys": {

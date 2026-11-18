@@ -71,8 +71,7 @@ TAGS = [("idle", 0, 2), ("walk", 3, 6), ("attack_tell", 7, 8), ("attack_swing", 
 TICKS = [12, 8, 12, 5, 5, 5, 5, 8, 22, 3, 9, 4, 8, 6, 10, None]
 PLAYBACK = {"idle": "loop", "walk": "loop", "attack_tell": "once", "attack_swing": "once", "hurt": "once", "down": "hold"}
 KEY_FRAMES = (0, 3, 8, 10, 11, 15)
-COPIES = {1: 0, 2: 0, 4: 3, 5: 3, 6: 3, 7: 8, 9: 10, 12: 11, 13: 15, 14: 15}
-INBETWEENS = tuple(sorted(COPIES))
+INBETWEENS = (1, 2, 4, 5, 6, 7, 9, 12, 13, 14)
 GROUNDED_TAGS = [n for n, _a, _b in TAGS]
 
 
@@ -197,10 +196,13 @@ JACKET = ("u", "u", "C")  # leather lit from above and by the firebox; the belt 
 PANEL = ("p", "R", "R")
 SKULL = ["wwwww", "wwwwwww", "wKKwKKw", "wwwKwww", ".wwwww.", ".wKwKw."]
 
+SPOKE_STEP = math.radians(15)
+
 DEFAULT = dict(
     pitch=0.0, pivot_x=26, dy=0, dx=0, lean=0, head=(0, 0), scarf=1.0, scarf_lift=0, glow=1, smoke=1, spoke=0.0,
     club=(100, 0), rider=(0, 0), rider_head=(0, 0), rider_arm=0, reach=0, shear=0.0, burst=None, puff_back=False, debris=False, mouth="snarl", eyes="e", sparks=(), wreck=False,
     driver_arm=0, fork=0,
+    core=True, lamp=None, smoke_dx=0, smoke_dy=0, smoke_dark=False, burst_front=False, stack_bend=None, smear=False,
 )
 
 
@@ -229,10 +231,10 @@ class Rig:
             if x in cols:
                 self.cv.px[(x, y)] = (key, "machine")
 
-    def wheel(self, c, r, phase):
+    def wheel(self, c, r, phase, burst=None):
         cv = self.cv
         cx, cy = self.P(*c)
-        if self.p["wreck"]:  # burst tyre, hub sunk: an ellipse resting on the contact row
+        if self.p["wreck"] if burst is None else burst:  # burst tyre, hub sunk: an ellipse resting on the contact row
             ry = r - 5
             cy = 63 - ry
             rub = {(x, y) for x in range(int(cx - r) - 1, int(cx + r) + 2) for y in range(int(cy - ry) - 1, 64)
@@ -255,13 +257,14 @@ class Rig:
     def smoke(self, c, size, dark=False):
         cv = self.cv
         cx, cy = self.P(*c)
+        cx, cy = cx + self.p["smoke_dx"], cy + self.p["smoke_dy"]
         if self.p["puff_back"]:
             size = 0
         blobs = {0: [(0, 0, 3.2), (-5, 1, 3), (-10, 2, 2.5), (-14, 2, 2)], 1: [(0, 0, 3)], 2: [(0, 0, 3.5), (-4, -2, 3), (3, -3, 2.5)], 3: [(0, 0, 4), (-5, -3, 3.5), (4, -4, 3), (-9, -4, 2.5)]}[size]
         m = set()
         for dx, dy, r in blobs:
             m |= disc((cx + dx, cy + dy), r)
-        cv.paint(m, "machine", "i" if dark else ("i", "z", "z"), outline=False)
+        cv.paint(m, "machine", "i" if dark or self.p["smoke_dark"] else ("i", "z", "z"), outline=False)
 
     def machine(self):
         p, cv, P = self.p, self.cv, self.P
@@ -282,7 +285,9 @@ class Rig:
         cv.flat(grill, "machine", "f" if p["glow"] >= 1 else "c")
         if p["glow"] >= 2:
             cv.flat(poly(self.Ps([(53, 39), (59, 39), (59, 44), (53, 44)])), "machine", "Y")
-        elif p["glow"] == 1:
+        elif p["glow"] == 1 and p["core"] == "half":
+            cv.flat(poly(self.Ps([(55, 41), (57, 41), (57, 43), (55, 43)])), "machine", "Y")
+        elif p["glow"] == 1 and p["core"]:
             cv.flat(poly(self.Ps([(54, 40), (58, 40), (58, 43), (54, 43)])), "machine", "Y")
         for gxp in (54, 57):  # grille bars
             for yy in range(38, 46):
@@ -290,7 +295,9 @@ class Rig:
                 cv.put(x, y, "c", "machine")
         sx0 = self.P(54, 34)
         stack_top = (20 if p["glow"] < 2 else 18) + (4 if p["wreck"] else 0)
-        bend = -5 if p["wreck"] else 0  # the wreck's stack is knocked crooked, cap pointing back
+        bend = -5 if p["wreck"] else 0
+        if p["stack_bend"] is not None:
+            bend = p["stack_bend"]  # the wreck's stack is knocked crooked, cap pointing back
         cv.paint(poly(self.Ps([(53, 33), (57, 33), (57 + bend, stack_top + 2), (53 + bend, stack_top + 2)])), "machine", COPPER)
         cv.paint(poly(self.Ps([(51 + bend, stack_top + 2), (59 + bend, stack_top + 2), (59 + bend, stack_top), (51 + bend, stack_top)])),
                  "machine", COPPER)
@@ -301,12 +308,13 @@ class Rig:
         cv.paint(poly(self.Ps([(62, 40), (72, 40), (72, 43), (62, 43)])), "machine", ("K", "u", "u"))
         # fork, headlight, bars, front wheel
         fk = p["fork"]
-        self.wheel((90, 52), 11, p["spoke"])
+        self.wheel((90, 52), 11, p["spoke"], burst=p["wreck"] or p["burst_front"])
         cv.paint(chain(self.Ps([(78, 30), (90 + fk, 52)]), 1.2), "machine", "C")
         cv.paint(chain(self.Ps([(86, 41), (93, 38)]), 0.8), "machine", "c", outline=False)
         hx, hy = P(96, 38)
         cv.paint(disc((hx, hy), 4.2), "machine", COPPER)
-        cv.flat(disc((hx + 0.5, hy + 0.5), 2.4), "machine", "Y" if p["glow"] >= 1 else ("i" if p["wreck"] else "f"))
+        lamp = p["lamp"] or ("Y" if p["glow"] >= 1 else ("i" if p["wreck"] else "f"))
+        cv.flat(disc((hx + 0.5, hy + 0.5), 2.4), "machine", lamp)
         cv.put(hx + 0.5, hy - 2, "c", "machine")
         cv.put(hx + 0.5, hy + 3, "c", "machine")
         if p["glow"] >= 2:
@@ -417,6 +425,10 @@ class Rig:
         tip = (hand[0] + 13 * math.cos(a), hand[1] - 13 * math.sin(a))
         head_c = (hand[0] + 17 * math.cos(a), hand[1] - 17 * math.sin(a))
         cv.paint(capsule(hand, tip, 1.2), "weapon", ("K", "c", "u"))
+        if p["smear"]:  # 1 px iron streak where the head has just been (the swing's smear), under the head
+            sa = math.radians(ang + 24)
+            back = (hand[0] + 17 * math.cos(sa), hand[1] - 17 * math.sin(sa))
+            cv.flat(capsule(head_c, back, 0.45), "weapon", "z")
         cv.paint(disc(head_c, 3.6), "weapon", ("i", "i", "z"))
         for n in range(6):
             sa = math.radians(n * 60 + 30 + ang)
@@ -467,8 +479,9 @@ class Rig:
     def sparks(self):
         cv = self.cv
         if self.p["debris"]:
-            cv.paint(disc((106, 61), 1.8), "machine", ("c", "C", "D"))
-            cv.put(106, 61, "K", "machine")
+            gx, gy = self.p["debris"] if isinstance(self.p["debris"], tuple) else (106, 61)
+            cv.paint(disc((gx, gy), 1.8), "machine", ("c", "C", "D"))
+            cv.put(gx, gy, "K", "machine")
         if self.p["burst"]:
             bx, by = self.p["burst"]
             for dx, dy in ((0, 0), (1, -1), (2, -1), (3, -2), (2, -3), (3, -4), (1, 0)):
@@ -513,11 +526,40 @@ POSES = {
     # the driver slumped over the bars and the rider slumped over the rim with the club hanging from his hand
     15: dict(wreck=True, dy=4, shear=-0.06, debris=True, glow=0, smoke=1, spoke=0.7, lean=5, head=(3, 5), driver_arm=5, scarf=0.6, scarf_lift=-3,
              club=(-70, 0), rider=(2, 4), rider_head=(4, 6), rider_arm=4, mouth="O", eyes="w"),
+    # ---- in-betweens (spec section 8); wheel phases step 15 degrees (the 3-line spoke pattern repeats every 60)
+    # idle: puff 1 px higher, firebox Y core out for a frame (flicker), rider head 1 px lower
+    1: dict(glow=1, smoke=1, smoke_dy=-1, core=False, club=(145, 0), mouth="snarl", rider_head=(0, 1), spoke=0.1),
+    # idle: engine shudder, whole machine 1 px lower, scarf droops 1 px
+    2: dict(glow=1, smoke=1, dy=1, scarf_lift=-1, club=(145, 0), mouth="snarl", spoke=0.2),
+    # walk: tub comes back up, fork rebounds, scarf at its lowest
+    4: dict(lean=2, dy=0, scarf=1.3, scarf_lift=0, glow=1, smoke=2, spoke=0.5 + SPOKE_STEP, club=(110, 0), rider=(-1, 0),
+            rider_head=(-1, 0), mouth="open", fork=0),
+    # walk: fork at full extension, puff drifts clear of the stack
+    5: dict(lean=1, dy=0, scarf=1.35, scarf_lift=1, glow=1, smoke=2, smoke_dx=-2, smoke_dy=-2, spoke=0.5 + 2 * SPOKE_STEP,
+            club=(110, 0), rider=(-1, 0), rider_head=(-1, 0), mouth="open", fork=1),
+    # walk: machine 1 px lower again, scarf lifts, fork back to neutral
+    6: dict(lean=2, dy=1, scarf=1.4, scarf_lift=2, glow=1, smoke=2, spoke=0.5 + 3 * SPOKE_STEP, club=(110, 0), rider=(-1, 1),
+            rider_head=(-1, 1), mouth="open", fork=0),
+    # tell anticipation: pitch +3, driver ducking, club half raised, firebox core at half size
+    7: dict(pitch=3.0, pivot_x=26, lean=2, head=(0, 1), scarf=1.1, scarf_lift=1, glow=1, core="half", smoke=2, spoke=0.15,
+            club=(125, 0), rider=(-1, -1), rider_head=(-1, -1), rider_arm=-1, mouth="open", driver_arm=0),
+    # swing smear: lunge 2 px, pitch -1, club at 55 with a 1 px iron streak, no sparks yet
+    9: dict(pitch=-1.0, pivot_x=90, dx=2, lean=3, scarf=1.4, scarf_lift=1, glow=2, smoke=2, spoke=0.7, club=(55, 0), smear=True,
+            rider=(4, -3), rider_head=(3, -2), rider_arm=-4, reach=5, mouth="open", driver_arm=0),
+    # hurt recover: pitch +1.5, club dropping, lenses stay white (V14: no yellow eye pixel in the hurt tag)
+    12: dict(pitch=1.5, dx=-2, lean=-1, scarf=1.0, scarf_lift=2, glow=1, smoke=1, spoke=0.25, club=(130, 0), rider=(-1, 0),
+             rider_head=(-2, 0), mouth="open", eyes="w", head=(-1, 0)),
+    # defeat: front tyre bursts, nose drops 3 degrees, firebox gutters to orange, crew pitched forward
+    13: dict(pitch=-3.0, pivot_x=26, burst_front=True, lean=4, head=(1, 3), driver_arm=2, scarf=1.0, scarf_lift=0, glow=1, core=False,
+             lamp="f", smoke=2, spoke=0.5, club=(35, 0), rider=(1, 2), rider_head=(2, 3), rider_arm=2, mouth="O", eyes="w"),
+    # defeat: both tyres flat, machine bounces 2 px up off them, stack tipping, smoke dark, a gear thrown clear
+    14: dict(wreck=True, dy=2, shear=-0.03, stack_bend=-3, debris=(104, 55), glow=0, smoke=2, spoke=0.6, lean=5, head=(2, 4),
+             driver_arm=3, scarf=0.8, scarf_lift=-1, club=(-30, 0), rider=(2, 3), rider_head=(3, 5), rider_arm=3, mouth="O", eyes="w"),
 }
 
 
 def render(frame: int) -> dict[str, list[str]]:
-    return Rig(POSES[COPIES.get(frame, frame)]).render()
+    return Rig(POSES[frame]).render()
 
 
 # ------------------------------------------------------------------ grid and manifest
@@ -533,10 +575,10 @@ def palette_json():
 
 
 def build_grid() -> dict:
-    cache = {k: render(k) for k in KEY_FRAMES}
+    cache = {k: render(k) for k in range(len(TICKS))}
     frames = []
     for n, t in enumerate(TICKS):
-        cels = cache[COPIES.get(n, n)]
+        cels = cache[n]
         frames.append({"duration_ms": round((t if t else 6) * 1000 / TICK_HZ), "cels": {k: list(v) for k, v in cels.items()}})
     return {
         "format": "pixel-grid-v1",
@@ -552,7 +594,7 @@ def build_grid() -> dict:
 def build_manifest() -> dict:
     tag_of = {n: name for name, a, b in TAGS for n in range(a, b + 1)}
     frames = [{"index": n, "tag": tag_of[n], "ticks": t, "duration_ms": round((t if t else 6) * 1000 / TICK_HZ),
-               "author": "key" if n in KEY_FRAMES else "copy"} for n, t in enumerate(TICKS)]
+               "author": "key" if n in KEY_FRAMES else "inbetween"} for n, t in enumerate(TICKS)]
     return {
         "schema_version": 1,
         "id": "goblin_copper_chopper_candidate_v1",
@@ -570,16 +612,16 @@ def build_manifest() -> dict:
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
             "origin": ("CHOP-01 design-edit keys (atlas frames 0, 3, 8, 10, 11, 15; fixture tests/fixtures/chop-01_keys.json), "
-                       "rasterized by scripts/author_chop01.py from one parametric rig; in-between slots are copies of the nearest key; "
+                       "rasterized by scripts/author_chop01.py from one parametric rig; in-betweens drawn through the same rig; "
                        "layers machine, crew, weapon"),
-            "generator": "Draft spec and keys: Claude Sonnet. Design edit (keys 0, 3, 8, 10, 11, 15 redrawn and frozen): Claude Opus. Review and in-betweens pending. No image-model raster output, no tracing, no resampling",
+            "generator": "Draft spec and keys: Claude Sonnet. Design edit (keys 0, 3, 8, 10, 11, 15 redrawn and frozen): Claude Opus. In-betweens and execution: Claude Sonnet. Review pending. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["assets/concept/floor-01/enemies/floor01-goblin-copper-chopper-concept-approved.png"],
         },
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "chopper": {
-            "status": "Design edit: 6 keys frozen, 10 in-between slots are copies; silhouette gate and review pending; not wired into any Bevy binary",
+            "status": "Design edit: 6 keys frozen, 10 in-betweens drawn through the rig; art review pending; not wired into any Bevy binary",
             "spec": "docs/02-art/chop-01-spec.md",
             "opaque_height_idle": 52,
             "body_height": 47,

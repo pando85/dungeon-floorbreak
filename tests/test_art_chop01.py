@@ -56,12 +56,16 @@ class Chop01Tests(unittest.TestCase):
         self.assertEqual(self.grid["layers"], ["machine", "crew", "weapon"])
         self.assertEqual(json.loads(MANIFEST.read_text())["pivot"], [56, 63])
 
-    def test_keys_are_frozen_and_inbetweens_are_copies(self) -> None:
+    def test_keys_are_frozen_and_inbetweens_are_drawn(self) -> None:
         fixture = json.loads(FIXTURE.read_text())
         self.assertEqual(set(self.cfg["rules"]["frozen_keys"]["frames"]), set(author.KEY_FRAMES))
         self.assertEqual(set(author.KEY_FRAMES) | set(author.INBETWEENS), set(range(16)))
-        for n, src in author.COPIES.items():
-            self.assertEqual(self.grid["frames"][n]["cels"], self.grid["frames"][src]["cels"], n)
+        self.assertTrue(self.cfg["rules"]["unique_frames"])
+        seen = {}
+        for n, f in enumerate(self.grid["frames"]):
+            key = json.dumps(f["cels"], sort_keys=True)
+            self.assertNotIn(key, seen, f"frame {n} duplicates frame {seen.get(key)}")
+            seen[key] = n
         self.assertTrue(fixture)
 
     def test_tick_windows_match_the_spec(self) -> None:

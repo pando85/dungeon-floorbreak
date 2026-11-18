@@ -1,6 +1,6 @@
 # CHOP-01: Goblin Copper Chopper readability set, design spec
 
-**Status:** design edited; six keys (0, 3, 8, 10, 11, 15) redrawn, silhouette gate fixes applied (section 13), keys re-frozen. In-betweens and review pending.
+**Status:** design edited; six keys (0, 3, 8, 10, 11, 15) redrawn, silhouette gate fixes applied (section 13), keys re-frozen. Ten in-betweens drawn through the rig (section 8; Executor notes in section 15). Art review pending.
 
 **Decision record:** body height 47 px (opaque idle 52 px with puff), length 95 px, frame 112 x 64, pivot (56, 63); the bike sits in front of the sidecar tub so both bike wheels read; the ram is the only hit; the crew stays baked into the vehicle frames; tell 30 ticks, attack 12 ticks; the wreck is a grounded settle, not a flip; orphan limit 4 (keys at 0). Decided in the design edit (section 13).
 
@@ -128,20 +128,20 @@ Frame table:
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
 | 0 | `idle` | upright, club resting back over the shoulder, firebox glowing low, small puff | 12 | key |
-| 1 | `idle` | copy of 0 | 8 | copy |
-| 2 | `idle` | copy of 0 | 12 | copy |
+| 1 | `idle` | in-between: puff 1 px higher, firebox core out (flicker), rider head 1 px lower | 8 | in-between |
+| 2 | `idle` | in-between: machine 1 px lower, scarf droops | 12 | in-between |
 | 3 | `walk` | rolling: 1 px lower, driver flat to the bars, scarf streaming, club carried upright | 5 | key |
-| 4 | `walk` | copy of 3 | 5 | copy |
-| 5 | `walk` | copy of 3 | 5 | copy |
-| 6 | `walk` | copy of 3 | 5 | copy |
-| 7 | `attack_tell` | copy of 8 (anticipation) | 8 | copy |
+| 4 | `walk` | in-between: tub back up, fork rebounds, spokes +15 degrees | 5 | in-between |
+| 5 | `walk` | in-between: fork at full extension, puff clear of the stack, spokes +30 degrees | 5 | in-between |
+| 6 | `walk` | in-between: machine 1 px lower, scarf lifts, spokes +45 degrees | 5 | in-between |
+| 7 | `attack_tell` | in-between: pitch +3, driver ducking, club at 125, firebox core half size | 8 | in-between |
 | 8 | `attack_tell` | rears 7 degrees, firebox and lamp flare, club straight up, big puff | 22 | key |
-| 9 | `attack_swing` | copy of 10 (smear) | 3 | copy |
+| 9 | `attack_swing` | in-between: lunge 2 px, pitch -1, club at 55 with a 1 px iron smear, no sparks | 3 | in-between |
 | 10 | `attack_swing` | lunges 6 px, nose slams down, driver prone, rider stands and reaches the club forward over the driver's helmet, spark burst at the front tyre, puff streams back | 9 | key |
 | 11 | `hurt` | jolt back, nose pops up, white lenses, O mouths, club flung back | 4 | key |
-| 12 | `hurt` | copy of 11 | 8 | copy |
-| 13 | `down` | copy of 15 | 6 | copy |
-| 14 | `down` | copy of 15 | 10 | copy |
+| 12 | `hurt` | in-between: pitch +1.5, club dropping to 130, lenses stay white | 8 | in-between |
+| 13 | `down` | in-between: front tyre bursts, nose down 3 degrees, firebox gutters to `f`, crew pitched forward | 6 | in-between |
+| 14 | `down` | in-between: both tyres flat, machine 2 px up off them, stack tipping, dark smoke, gear thrown clear | 10 | in-between |
 | 15 | `down` | wreck settled on the floor, leaning toward the tub: tyres burst flat, hull on the floor, stack knocked crooked, fire and lamp out, dark wisp, crew slumped, a loose gear ahead | hold | key |
 
 ## 5. State diagram
@@ -203,7 +203,7 @@ Spiked club versus the opening goblins' pineapples: the opening goblins carry a 
 
 ## 8. In-between list
 
-Ten slots are copies of the nearest key for now. The execution tier replaces them and then turns `unique_frames` back on.
+The ten in-betweens are drawn through the same rig as the keys (new pose parameters, no pixel painting); `unique_frames` is on again.
 
 | # | Pose notes |
 | --- | --- |
@@ -223,7 +223,7 @@ Ten slots are copies of the nearest key for now. The execution tier replaces the
 Run by `python3 -m scripts.pixelart validate assets/source/characters/goblin/chopper/chop_01.pixelart.json` (rules V01 to V15).
 
 - V04 palette: at most 20 colours; V05 isolated pixels: 0; V06 orphan pixels: at most **4** per frame (the six keys measure 0; the limit leaves in-betweens room for one deliberate single pixel per part, in line with GOB-01).
-- V07 contact rows: every frame is grounded and ends on row 63. V08 is skipped (no airborne tag). V12 is off while in-betweens are copies.
+- V07 contact rows: every frame is grounded and ends on row 63. V08 is skipped (no airborne tag). V12 (unique frames) is on.
 - V09 frozen keys: SHA-256 per key frame over `machine`, `crew`, `weapon`, fixture `tests/fixtures/chop-01_keys.json`.
 - V13 bounding boxes: C1 idle length 90 to 100 px and height rows 12 to 63; C2 the tell is the highest pose (top row at most 6); C3 the attack reaches furthest forward (right edge at least 106); C4 the hurt is knocked back (right edge at most 100); C5 the wreck is low and grounded (top row 18 to 24).
 - V14 key counts: the tell and attack carry at least 38 `Y` pixels while idle and walk carry at most 24; the wreck has none; the driver lens `e` is visible (at least 4) in idle, walk, tell and attack; no `e` in hurt, hurt in-between and wreck.
@@ -270,7 +270,7 @@ Smoke trail, dust kick-up, drift/powerslide streaks, ground sparks, crash debris
 
 1. Wreck: redrawn as a grounded settle (section 7, key 15), not a reflection; no custom rig was needed beyond flat-tyre wheels and a crooked stack.
 2. Club versus ram: the ram is the only hit (section 3). The club is the read: straight up in the tell, flat forward in the attack. No side-facing chop.
-3. Wheels at 4 walk frames: the three-spoke hubs already show rotation; the in-betweens advance them 30 degrees per frame (section 8). No extra hub marker.
+3. Wheels at 4 walk frames: the three-spoke hubs already show rotation; the in-betweens advance them 15 degrees per frame (section 8 and Executor notes). No extra hub marker.
 4. Crew sprites: baked in (section 3), with the reason recorded.
 5. Orphans: 0 per key, limit 4 (section 9).
 
@@ -294,5 +294,14 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Draft spec and keys (frames 0, 3, 8, 10, 11, 15): Claude Sonnet. Design edit (all six keys redrawn and re-frozen, spec decisions): Claude Opus. Review: pending.
+- Draft spec and keys (frames 0, 3, 8, 10, 11, 15): Claude Sonnet. Design edit (all six keys redrawn and re-frozen, spec decisions): Claude Opus. In-betweens and execution: Claude Sonnet. Review: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
+
+## 15. Executor notes
+
+- **Spoke step is 15 degrees, not 30.** The wheel has three diameter spokes, so the pattern repeats every 60 degrees; a 30 degree step flips between two images, and 60 would freeze it (wagon wheel). Frames 3, 4, 5, 6 use phases 28.6, 43.6, 58.6, 73.6 degrees; the loop 6 to 3 continues the step (88.6 = 28.6 mod 60), so the wheels roll forward at a readable rate. The rear and sidecar wheels use the same phase plus their fixed offsets.
+- **Frame 12 keeps white lenses.** Section 8 asked for "lenses back to yellow", but V14 (C4) requires no `e` pixel in frame 12. The rule is unchanged; the recovery reads through the pitch and the dropping club.
+- **Frame 14 bounce.** The machine rises 2 px while both burst tyres stay on row 63, so V07 (grounded) holds; the tub hull floats 2 px for the 10 tick bounce, then settles into key 15.
+- **Frame 9 smear.** A 1 px `z` streak sits behind the club head in the weapon layer; it adds no new colour.
+- **Foot drift (V16).** The validator set in this repo stops at V15 and has no `rules.foot_drift`, so it could not be opted into. The machine never travels in the move loop (scroll speed is runtime), so both wheel contact points keep the same x and row 63 in every walk frame.
+- Frames 7 and 13 pitch about the sidecar wheel (+3 and -3 degrees), so the tub wheel keeps its contact.
