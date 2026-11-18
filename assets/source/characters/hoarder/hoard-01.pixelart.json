@@ -135,7 +135,7 @@
       0,
       0
     ],
-    "unique_frames": false,
+    "unique_frames": true,
     "frozen_keys": {
       "fixture": "tests/fixtures/hoard-01_keys.json",
       "frames": [
@@ -205,6 +205,27 @@
         ],
         "min_top": 76,
         "max_width": 140
+      },
+      {
+        "id": "H6-gather-crouch",
+        "frames": [
+          7
+        ],
+        "min_top": 20
+      },
+      {
+        "id": "H6-buckle-drop",
+        "frames": [
+          13
+        ],
+        "min_top": 34
+      },
+      {
+        "id": "H6-floor-impact",
+        "frames": [
+          14
+        ],
+        "min_top": 60
       }
     ],
     "key_counts": [

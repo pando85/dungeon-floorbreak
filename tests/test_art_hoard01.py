@@ -51,11 +51,13 @@ class Hoard01Tests(unittest.TestCase):
         self.assertLessEqual(len(orphans), 6)                    # the scar-cluster shadow pixels
         self.assertEqual(len(isolated), 0)
 
-    def test_inbetween_slots_are_placeholders_of_a_key(self) -> None:
+    def test_inbetweens_are_drawn_poses_not_key_copies(self) -> None:
         self.assertEqual(set(author.KEY_FRAMES) | set(author.INBETWEENS), set(range(16)))
-        for f, key in author.PLACEHOLDER.items():
-            self.assertIn(key, author.KEY_FRAMES)
-            self.assertEqual(self.grid["frames"][f]["cels"], self.grid["frames"][key]["cels"], f)
+        self.assertFalse(set(author.KEY_FRAMES) & set(author.INBETWEENS))
+        cels = [json.dumps(f["cels"]) for f in self.grid["frames"]]
+        self.assertEqual(len(set(cels)), 16)                      # every frame is unique (V12)
+        for f in author.INBETWEENS:
+            self.assertIn(f, author.INB)                          # a pose dict, not a placeholder copy
 
     def test_plain_shirt_has_no_print_colour(self) -> None:
         # the shirt is plain: no palette entry exists for a print or logo

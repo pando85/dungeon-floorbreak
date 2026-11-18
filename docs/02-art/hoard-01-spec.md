@@ -1,6 +1,6 @@
 # HOARD-01: The Hoarder (boss) readability set, design spec
 
-**Status:** keys 0, 3, 8, 10, 12, 15 drawn and frozen (key 0 passed the silhouette gate). In-betweens, manifest, evidence and review pack: execution pending. Independent review pending.
+**Status:** keys 0, 3, 8, 10, 12, 15 drawn and frozen (key 0 passed the silhouette gate). In-betweens drawn (pose dicts), manifest, evidence and review pack produced; validators pass. Independent review pending.
 
 **Decision record:** height 112 px, frame 160 x 128, pivot (70, 127). Proposed by the HOARD-01 designer; decided by the independent silhouette-gate review on key 0 (pending).
 
@@ -96,20 +96,20 @@ Frame table:
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
 | 0 | `idle` | stooped, wide stance, arms hanging, clawed hands open, wide eyes | 16 | key (drawn, frozen) |
-| 1 | `idle` | exhale: torso and head 1 px down, belly 1 px out, hands 1 px lower | 12 | in-between (placeholder in the grid) |
-| 2 | `idle` | inhale: shoulders and head 1 px up from key 0, hair tips sway 1 px left | 16 | in-between (placeholder in the grid) |
+| 1 | `idle` | exhale: torso and head 1 px down, belly 1 px out, hands 1 px lower | 12 | in-between (drawn, pose dict `INB`) |
+| 2 | `idle` | inhale: shoulders and head 1 px up from key 0, hair tips sway 1 px left | 16 | in-between (drawn, pose dict `INB`) |
 | 3 | `walk` | contact: far foot planted forward, torso lurches forward 4 px | 8 | key (drawn, frozen) |
-| 4 | `walk` | down: weight drops 2 px onto the far leg, near foot drags | 8 | in-between (placeholder in the grid) |
-| 5 | `walk` | passing: near leg swings through, torso back to idle height | 8 | in-between (placeholder in the grid) |
-| 6 | `walk` | up: near foot lands forward, far foot heel lifts | 8 | in-between (placeholder in the grid) |
-| 7 | `attack_tell` | gather: crouches 4 px below idle, arms drawn back and in, head down | 8 | in-between (placeholder in the grid) |
+| 4 | `walk` | down: weight drops 2 px onto the far leg, near foot drags | 8 | in-between (drawn, pose dict `INB`) |
+| 5 | `walk` | passing: near leg swings through, torso back to idle height | 8 | in-between (drawn, pose dict `INB`) |
+| 6 | `walk` | up: near foot lands forward, far foot heel lifts | 8 | in-between (drawn, pose dict `INB`) |
+| 7 | `attack_tell` | gather: crouches 4 px below idle, arms drawn back and in, head down | 8 | in-between (drawn, pose dict `INB`) |
 | 8 | `attack_tell` | rear-up hold: stands tall, both arms over the head, mouth wide, eyes wide | 26 | key (drawn, frozen) |
-| 9 | `attack_swing` | smear: torso pitching forward, arms a 2-frame arc smear | 3 | in-between (placeholder in the grid) |
+| 9 | `attack_swing` | smear: torso pitching forward, arms a 2-frame arc smear | 3 | in-between (drawn, pose dict `INB`) |
 | 10 | `attack_swing` | impact: both hands slammed onto the floor in front, grabbing | 6 | key (drawn, frozen) |
-| 11 | `attack_swing` | recovery: hands still on the floor, head lifts, hair settles | 24 | in-between (placeholder in the grid) |
+| 11 | `attack_swing` | recovery: hands still on the floor, head lifts, hair settles | 24 | in-between (drawn, pose dict `INB`) |
 | 12 | `hurt` | flinch: head snaps back and away, arms pulled to the chest, eyes shut | 12 | key (drawn, frozen) |
-| 13 | `down` | buckle: knees give, torso drops 18 px, one hand out | 6 | in-between (placeholder in the grid) |
-| 14 | `down` | impact: knees and near hand on the floor, head down | 8 | in-between (placeholder in the grid) |
+| 13 | `down` | buckle: knees give, torso drops 18 px, one hand out | 6 | in-between (drawn, pose dict `INB`) |
+| 14 | `down` | impact: knees and near hand on the floor, head down | 8 | in-between (drawn, pose dict `INB`) |
 | 15 | `down` | settled: curled on her side among the junk, one hand reaching for a scrap, eyes shut | hold | key (drawn, frozen) |
 
 ## 5. State diagram
@@ -174,7 +174,7 @@ Six keys, one per readability role, all drawn and frozen. Every key is rendered 
 
 ## 8. In-between list
 
-For the execution tier, derived from the keys above; no design decisions. **The grid already holds 16 frames: the in-between slots 1, 2, 4-7, 9, 11, 13 and 14 carry placeholder copies of the nearest key** (`PLACEHOLDER` in the script) so the tag table and tick windows validate. Draw each in-between as a new pose dict for `hoarder()` (interpolate the joint points, body and head transforms and hair swing of the neighbouring keys), not by editing pixels, then replace its `PLACEHOLDER` entry, keep keys 0, 3, 8, 10, 12, 15 frozen, and switch `unique_frames` back to `true` in the config once all ten are drawn.
+For the execution tier, derived from the keys above; no design decisions. The in-between slots 1, 2, 4-7, 9, 11, 13 and 14 are now drawn as new pose dicts for `hoarder()` (the `INB` table in `scripts/author_hoard01.py`: interpolated joint points, body and head transforms and hair swing of the neighbouring keys), not by editing pixels; keys 0, 3, 8, 10, 12, 15 stay frozen and `unique_frames` is `true` in the config. See "Executor notes" below.
 
 | # | Pose notes |
 | --- | --- |
@@ -189,14 +189,28 @@ For the execution tier, derived from the keys above; no design decisions. **The 
 | 13 | Buckle: knees bend, body 18 px down and angle 20 degrees (top >= 34), near hand out. |
 | 14 | Floor impact: body angle about 60 degrees, depth squash 0.8, knees and near hand on the floor (top >= 60). |
 
+### Executor notes
+
+The ten in-betweens are the `INB` pose dicts in `scripts/author_hoard01.py`; no pixel was edited, and the keys, rig, palette, size, boxes and ticks are unchanged. Readings taken where this section was ambiguous (most conservative first):
+
+- Frame 1: "belly 1 px out" is not drawn (the rig has no belly parameter; body scale `sx` stays 1.0). Body dy +1 and hands 1 px lower only.
+- Frame 2: the frame-table says "head and shoulders up, hair sways left"; the list above says body dy -1 and swing -1, which is what was drawn. The arms keep key 0's joint points (they hang from the raised shoulder).
+- Frame 4: the frame table says "drops 2 px", the list says dy +4; the list was used (body (2 deg, dx 2, dy 4)); lean and dx are the midpoint of keys 0 and 3. Sleeves use the `cap` style of key 3 for frames 4-6 (key 0 uses `poly`).
+- Frames 5 and 6: "legs together under the hips" and "near foot lands forward" were read as moderate stride values (near ankle x 62 then 68, far ankle x 94 then 100) so that no foot moves more than about 25 px between neighbouring frames. A full mirror of key 3 would swap the feet, which would pop at the 6 to 3 loop seam.
+- Frame 7: head dy +3 was added to head-down 6 degrees (the tilt alone raised the hair to row 17; the list requires top >= 20; drawn top is 20). Face stays `idle` (the roar starts at key 8); sleeves `cap` as in key 8.
+- Frame 9: "arms as one arc" is two arm poses on the swing arc, hands rotated about 110 to 130 degrees; the 2-frame smear itself is not drawn as extra pixels (no pixel edits). Face `roar` (as keys 8 and 10).
+- Frames 13 and 14: values chosen so the tops are 38 and 71 (rules H6); body angle/squash/dy interpolate toward key 15 (angle 20 / 60 / 90, squash 1.0 / 0.8 / 0.6). Face `shut` from frame 13 on (the whites rule only constrains frames 12 and 15).
+
+Open design question for the top tier (not changed): the walk loop 3-4-5-6 has the far foot forward in key 3 and the near foot forward in frame 6, so the 6 to 3 loop seam resets the near foot by about 30 px (near ankle x 68 to 38) while the far foot moves 7 px. The per-step stride cannot be made continuous with four frames and a fixed key 3; a 6-8 frame walk or a designer-chosen frame 6 that matches key 3's roles would remove it.
+
 ## 9. Validators and readability rules
 
 Run by `python3 -m scripts.pixelart validate assets/source/characters/hoarder/hoard-01.pixelart.json`.
 
 - V04 palette: at most 20 colours (19 used). V05 isolated pixels: 0. V06 orphan pixels: at most 6 per frame (the scar-cluster shadow pixels are deliberate single pixels; `y` scar_light and `w`, `n` are accents).
-- V07 contact rows: every frame ends on row 127. V08: no airborne tags. V12 unique frames: off while the in-between slots hold placeholders.
+- V07 contact rows: every frame ends on row 127. V08: no airborne tags. V12 unique frames: on (all 16 frames differ).
 - V09 frozen keys: SHA-256 per key frame for frames 0, 3, 8, 10, 12, 15, fixture `tests/fixtures/hoard-01_keys.json`.
-- V13 bbox rules (in the config): H1 idle top 16 bottom 127 and width 90 to 100; H1 walk contact top 16 to 20 and width <= 112; H2 frame 8 top <= 6; H3 frame 10 right >= 145 and top >= 30; H4 frame 12 right <= 108; H5 frame 15 top >= 76 and width <= 140. For the executor: frame 7 top >= 20, frame 13 top >= 34, frame 14 top >= 60.
+- V13 bbox rules (in the config): H1 idle top 16 bottom 127 and width 90 to 100; H1 walk contact top 16 to 20 and width <= 112; H2 frame 8 top <= 6; H3 frame 10 right >= 145 and top >= 30; H4 frame 12 right <= 108; H5 frame 15 top >= 76 and width <= 140. Executor rules H6 (in the config): frame 7 top >= 20, frame 13 top >= 34, frame 14 top >= 60.
 - V14 key counts (in the config): eye whites `w` >= 3 in frames 0, 3, 8, 10 and >= 8 in frame 8; `w` = 0 in frames 12 and 15; burn `x` >= 12 in frames 0, 3, 8, 10, 12 and <= 60 in every key (near half only); raised clusters `y` >= 8 in frame 0; dark hair `a` >= 300 and shirt `u` >= 600 in frame 0; tin `n` <= 6 in every key (a detail, never a pack).
 
 Silhouette gate acceptance for key 0 (passed; key 0 frozen), checked at 1x next to Carl: reads as a woman with long disheveled hair, not a heavy man with a slicked cap; the hair top is ragged and rimmed against the navy arch; hair frames the face on both sides; two separate eye whites and an open mouth; the burn reads as old scar tissue on the near half, not as a mask, an eye patch or blood; the sweatpants read as sweatpants, not jeans; no backpack read; body mass, stance, hands and 112 px scale as gate-passed. The six re-gate interior fixes (irregular burn with a soft nose-side edge, raised clusters with shadows, a white in the burned eye, rounded jaw corner, 2 px chest curves, partly filled gaps between the hair ends) changed no outline pixel.
@@ -210,7 +224,7 @@ python3 -m scripts.pixelart evidence assets/source/characters/hoarder/hoard-01.p
 python3 -m scripts.pixelart review-pack assets/source/characters/hoarder/hoard-01.pixelart.json --out <dir>
 ```
 
-Phase 1 evidence: `docs/evidence/hoard-01/key0-scale.png` (top: the 1x scene, key 0 next to Carl on a brick-toned and an arch-toned panel; below: the same scene at 4x). Key design sheet: `docs/evidence/hoard-01/keys-x3.png` (keys 0, 3, 8, 10, 12, 15 at 3x on alternating brick and arch panels). The review pack (three images plus the validator report) follows when the in-betweens are drawn.
+Phase 1 evidence: `docs/evidence/hoard-01/key0-scale.png` (top: the 1x scene, key 0 next to Carl on a brick-toned and an arch-toned panel; below: the same scene at 4x). Key design sheet: `docs/evidence/hoard-01/keys-x3.png` (keys 0, 3, 8, 10, 12, 15 at 3x on alternating brick and arch panels). Execution evidence (in-betweens drawn): contact sheets, GIFs per tag, `tell_attack_strip.png`, the 1x scene with Carl (`scene_640x360.png`), `SHA256SUMS` and the review pack (`01_contact_sheet_x4.png`, `02_lit_scene_640x360_x3.png`, `03_tell_attack_strip.png`, `validator_report.json`, `validator_summary.txt`) are in `docs/evidence/hoard-01/`.
 
 ## 11. Files
 
@@ -221,7 +235,7 @@ Phase 1 evidence: `docs/evidence/hoard-01/key0-scale.png` (top: the 1x scene, ke
 | `assets/source/characters/hoarder/hoard-01.pixelart.json` | the asset config |
 | `tests/fixtures/hoard-01_keys.json` | frozen keys |
 | `tests/test_art_hoard01.py` | reproducibility, frozen key, size, palette |
-| `assets/manifests/hoard-01.json` | manifest (when the set is complete) |
+| `assets/manifests/hoard-01.json` | manifest (written by `scripts/author_hoard01.py`) |
 
 ## 12. Rights and provenance
 
@@ -231,7 +245,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Spec + keys: Claude Opus. Execution (in-betweens, manifest, evidence): pending. Independent review: silhouette gate on key 0 pending.
+- Spec + keys: Claude Opus. Execution (in-betweens, manifest, evidence): Claude Sonnet. Independent review: silhouette gate on key 0 pending.
 - No third-party assets, no copied designs or dialogue, no brand marks, no image-model raster output.
 
 ## 13. Note for a separate VFX/prop work order: hoard pile and falling trash

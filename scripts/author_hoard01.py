@@ -581,14 +581,46 @@ def hoarder(pose: dict) -> list[str]:
     return ["".join(r) for r in grid]
 
 
-POSES = {0: IDLE, 3: WALK, 8: TELL, 10: ATTACK, 12: HURT, 15: DEFEAT}
-# in-betweens are placeholders (a copy of the named key) until the execution tier draws them (spec section 8)
-PLACEHOLDER = {1: 0, 2: 0, 4: 3, 5: 3, 6: 3, 7: 8, 9: 10, 11: 10, 13: 15, 14: 15}
-INBETWEENS = tuple(sorted(PLACEHOLDER))
+# in-betweens (spec section 8): each is a pose dict for hoarder(), interpolated from the neighbouring keys
+INB = {
+    # idle breath: exhale (body 1 px down, hands 1 px lower), inhale (body 1 px up, hair swing -1); feet unchanged
+    1: dict(IDLE, body=(0, 0, 1, 1.0),
+            near_arm=((36, 71), (31, 89), (30, 95), 0), far_arm=((101, 69), (106, 87), (108, 92), 0)),
+    2: dict(IDLE, body=(0, 0, -1, 1.0), swing=-1),
+    # walk: down (weight onto the far leg, near foot flat and dragging), passing, up (near lands, far heel lifts)
+    4: dict(WALK, body=(2, 2, 4, 1.0), swing=-2,
+            near_arm=((47, 71), (51, 88), (50, 94), -8), far_arm=((101, 69), (105, 87), (106, 92), 5),
+            near_leg=((46, 112), (44, 117), 0), far_leg=((101, 112), (104, 117), 0)),
+    5: dict(WALK, body=(2, 1, 0, 1.0), swing=-1,
+            near_arm=((44, 71), (46, 88), (42, 94), -4), far_arm=((100, 70), (103, 88), (103, 93), 2),
+            near_leg=((56, 111), (62, 117), 0), far_leg=((88, 111), (94, 117), 0)),
+    6: dict(WALK, body=(2, 3, 1, 1.0), swing=-2,
+            near_arm=((50, 72), (56, 88), (54, 94), -10), far_arm=((101, 70), (104, 88), (105, 93), 8),
+            near_leg=((60, 111), (68, 117), 0), far_leg=((98, 109), (100, 113), 25)),
+    # tell: gather (body 4 px down, arms drawn back to the hips, head down 6 degrees)
+    7: dict(TELL, body=(0, 0, 4, 1.0), head=(6, 0, 3), swing=-4, face="idle",
+            near_arm=((36, 76), (41, 92), (46, 100), 0), far_arm=((98, 78), (96, 92), (96, 100), 0),
+            near_leg=((43, 110), (39, 117), 0), far_leg=((97, 110), (101, 117), 0)),
+    # attack: smear (arms as one arc, halfway down), recovery (key 10 with the head lifted 4 px)
+    9: dict(ATTACK, body=(15, -3, 0, 1.0), head=(-16, 0, 0), swing=-3,
+            near_arm=((88, 52), (108, 70), (114, 76), -110), far_arm=((112, 58), (126, 74), (131, 78), -130),
+            near_leg=((40, 108), (30, 116), 12), far_leg=((95, 108), (101, 117), 0)),
+    11: dict(ATTACK, head=(-25, 0, -4), swing=2),
+    # defeat: buckle (knees give, body 18 px down, near hand out), floor impact (body ~60 degrees, squash 0.8)
+    13: dict(DEFEAT, body=(20, -6, 18, 1.0), head=(-10, 0, 0), swing=-2,
+             near_arm=((78, 86), (96, 104), (102, 110), -30), far_arm=((96, 98), (104, 112), (108, 117), -20),
+             near_leg=((66, 114), (42, 117), 0), far_leg=((100, 114), (92, 117), 0),
+             stripe=True, cuffs=True),
+    14: dict(DEFEAT, body=(60, -18, 30, 0.8), head=(-25, 0, 0), swing=0,
+             near_arm=((106, 108), (118, 118), (122, 121), -70), far_arm=((100, 112), (110, 120), (113, 121), -70),
+             near_leg=((64, 118), (38, 119), 40), far_leg=((76, 120), (50, 122), 40)),
+}
+POSES = {0: IDLE, 3: WALK, 8: TELL, 10: ATTACK, 12: HURT, 15: DEFEAT, **INB}
+INBETWEENS = tuple(sorted(INB))
 
 
 def render(frame: int) -> list[str]:
-    return hoarder(POSES[PLACEHOLDER.get(frame, frame)])
+    return hoarder(POSES[frame])
 
 
 
@@ -612,6 +644,59 @@ def build_grid() -> dict:
         "format": "pixel-grid-v1", "canvas": list(CANVAS), "pivot": list(PIVOT),
         "palette": palette_json(), "layers": ["body"], "frames": frames,
         "tags": [{"name": n, "from": a, "to": b, "direction": "forward"} for n, a, b in TAGS],
+    }
+
+
+MANIFEST = ROOT / "assets/manifests/hoard-01.json"
+PLAYBACK = {"idle": "loop", "walk": "loop", "attack_tell": "once", "attack_swing": "once", "hurt": "once", "down": "hold"}
+
+
+def build_manifest() -> dict:
+    tag_of = {n: name for name, a, b in TAGS for n in range(a, b + 1)}
+    frames = [{"index": n, "tag": tag_of[n], "ticks": t, "duration_ms": round((t or 6) * 1000 / TICK_HZ),
+               "author": "key" if n in KEY_FRAMES else "sonnet"} for n, t in enumerate(TICKS)]
+    return {
+        "schema_version": 1,
+        "id": "hoarder_boss_h112_candidate_v1",
+        "type": "character_animation",
+        "source_path": "assets/source/characters/hoarder/hoard-01.ase",
+        "grid_source": "assets/source/characters/hoarder/hoard-01.grid.json",
+        "output_atlas": "generated/art/hoard-01.png",
+        "output_metadata": "generated/art/hoard-01.json",
+        "palette_id": "hoarder-floor01-v1",
+        "frame_size": list(CANVAS),
+        "pivot": list(PIVOT),
+        "animation_tags": [n for n, _a, _b in TAGS],
+        "required_alpha": True,
+        "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 01 boss The Hoarder; runtime role IP-neutral boss)",
+        "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "provenance": {
+            "origin": ("HOARD-01 The Hoarder at the decided 112 px idle height: 6 frozen keys (atlas frames 0, 3, 8, 10, 12, 15, "
+                       "fixture tests/fixtures/hoard-01_keys.json) plus 10 in-betweens (1, 2, 4, 5, 6, 7, 9, 11, 13, 14) "
+                       "rasterized by scripts/author_hoard01.py from the same pose rig hoarder(pose); layer body"),
+            "generator": ("Design, size decision, palette and keys: Claude Opus. In-betweens (pose dicts), manifest, .ase, "
+                          "validators and evidence: Claude Sonnet. Review: a separate Claude Opus agent (pending). No "
+                          "image-model raster output, no tracing, no resampling"),
+            "generated_art": True,
+            "input_reference_ids": [],
+        },
+        "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+        "review_status": "prototype_fixture_unapproved",
+        "hoarder": {
+            "status": "Keys frozen, in-betweens drawn, validators pass; independent Opus review pending; Bevy integration pending; 16 frames, 6 of them Opus keys; not wired into any Bevy binary",
+            "spec": "docs/02-art/hoard-01-spec.md",
+            "opaque_height_idle": 112,
+            "tick_hz": TICK_HZ,
+            "hold_preview_ms": 100,
+            "grounded_tags": [n for n, _a, _b in TAGS],
+            "airborne_tags": [],
+            "playback": PLAYBACK,
+            "key_frames": list(KEY_FRAMES),
+            "inbetween_frames": list(INBETWEENS),
+            "key_fixture": "tests/fixtures/hoard-01_keys.json",
+            "attack_ticks": {"tell": [0, 33], "swing_smear": [0, 2], "swing_impact_hitbox": [3, 8], "swing_recover": [9, 32]},
+            "frames": frames,
+        },
     }
 
 
@@ -701,6 +786,7 @@ def main(argv=None) -> int:
     GRID.parent.mkdir(parents=True, exist_ok=True)
     GRID.write_text(text, encoding="utf-8")
     pg.write_ase(grid, ASE)
+    MANIFEST.write_text(dump(build_manifest()), encoding="utf-8")
     print(f"wrote {GRID.relative_to(ROOT)} and {ASE.relative_to(ROOT)}")
     return 0
 
