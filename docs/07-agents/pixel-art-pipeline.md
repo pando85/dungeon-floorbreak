@@ -2,6 +2,37 @@
 
 Owner-approved plan, 2026-11-18. It refines [agent-orchestration.md](agent-orchestration.md) and the "Model routing for art work" section of [AGENTS.md](../../AGENTS.md) without changing them: Opus designs, Sonnet executes, a separate Opus reviews, the owner reviews at the end. Harness: **Claude Code** (subagents).
 
+## Routing by difficulty
+
+**Owner decision, 2026-11-18 (provisional: based on one pilot per configuration, see section 5; re-check with the cost ledger after three more assets).** Every pixel-art work order is routed by its difficulty. The orchestrator scores the asset before writing any brief and records the score and route in the PR body.
+
+**Difficulty score** (one point each):
+
+1. New design, not a variant of an approved asset.
+2. Native height above about 40 px.
+3. Complex anatomy or construction: long neck, many legs or parts, vehicle, rig with moving parts.
+4. Carries VFX, projectiles or special states beyond the readability set.
+
+| Class | Score | Examples | Route |
+| --- | --- | --- | --- |
+| **Easy** | 0–1 | Brood Guardian, Bomb Bard, Tusklings, Troglodyte variants, props, kit-extension environment pieces | **C**: top tier writes the spec and draws 1 hero key; medium tier draws the rest. A medium-tier-only design with a top-tier review is allowed for pure variants |
+| **Medium** | 2 | Rot Sticker, Green Slime, Troglodyte base | **B**: medium tier drafts size, palette, all keys and the spec; a fresh top-tier editor corrects and freezes them |
+| **Hard** | 3–4 | Bad Llama, Copper Chopper | **B + silhouette gate** |
+| **Boss** | any boss | The Hoarder, The Juicer, Ball of Swine | **A + silhouette gate**: top tier designs and draws every key; budget one extra review round |
+
+**Silhouette gate:** after the idle key exists and before any other key or in-between is drawn, a fresh top-tier agent (about 5 tool calls) compares the idle key at 1× in the lit scene with the concept crop and answers one question: does it read as the approved creature? A "no" goes back to design before more pixels are drawn. Reason: in the pilot the A-route Bad Llama was fully keyed and in-betweened before the review found it read as a goat (section 5).
+
+**Configurations** (as defined in section 4): **A** top tier draws all keys and writes the spec; **B** medium tier drafts, a fresh top-tier editor corrects; **C** top tier writes the spec and one hero key, medium tier draws the rest. Execution (E), gate (G), blind review (R) and the fix loop are the same for all.
+
+**Fix-loop rules learned in the pilot:**
+
+- When the independent review lists execution items that touch a frozen key, the reviewer is the design authority for exactly those changes: the medium tier applies them, re-freezes the key and records the approval in the spec. No extra top-tier design round.
+- A review that finds design defects goes to a fresh top-tier designer, then a narrow top-tier re-review.
+- Agents never edit `docs/04-production/backlog.md` (it caused merge conflicts on every PR); the orchestrator updates it after merge.
+- Agents do not wait for CI; they push and report.
+- Spec status lines and design sections never name models or tiers, so reviews stay blind; provenance lives only in Rights/Provenance.
+- Each agent keeps scratch files in its own subfolder.
+
 ## 1. Production order (Floor 01, by first appearance)
 
 | # | Batch | Characters | Environment |
@@ -25,7 +56,7 @@ Owner-approved plan, 2026-11-18. It refines [agent-orchestration.md](agent-orche
 | Stage | Tier | Output | Rule |
 | --- | --- | --- | --- |
 | P Packet | script (+ Haiku/Sonnet) | `pixelart packet <asset>`: concept crops, quantized palette candidates, scale lineup (Carl 52, Donut 40, goblin 36), frame/pivot template, doc excerpts (≤ 2 pages), pre-filled spec template | Designer starts without exploring the repo |
-| D Design | Opus, fresh | per routing config (section 4) | ≤ 20 tool calls, one push, stop. Families are designed in one session |
+| D Design | Opus, fresh | per [routing by difficulty](#routing-by-difficulty) | ≤ 20 tool calls, one push, stop. Families are designed in one session |
 | E Execute | Sonnet | in-betweens, `.ase`/grid, manifest, tests, evidence via the toolkit | no bespoke per-asset preview/validator scripts |
 | G Gate | no model | validators pass + review pack of exactly 3 images | Opus review is not spawned before G passes |
 | R Review | Opus, fresh, one round | verdict file; input = spec + 3 images + validator report | execution findings → Sonnet checks the fix list; only design defects return to Opus |
@@ -63,10 +94,25 @@ All three then follow E → G → R → O identically. The Bad Llama gets A beca
 
 **Metrics per monster:** Opus tokens and USD, total USD, USD per accepted frame, review loops to PASS, blocker count, rubric total, owner verdict (accept / rework) at the batch review.
 
-**Decision rule:** pick the cheapest configuration whose rubric total is within 2 points of A and that passed in at most one review loop. Then route:
+**Decision rule (superseded by [routing by difficulty](#routing-by-difficulty) on 2026-11-18):** pick the cheapest configuration whose rubric total is within 2 points of A and that passed in at most one review loop. Then route:
 
 - New boss (Hoarder, Juicer, Ball of Swine) → A.
 - New regular enemy → the winner.
 - Derived asset (Brood Guardian, Bomb Bard, Tusklings, Troglodyte variants) and kit-extension environments → C, or Sonnet-only with an Opus review if C wins.
 
 Re-check the routing with the ledger after three more assets.
+
+## 5. Pilot results (interim, 2026-11-18)
+
+USD figures are API list-price estimates from `scripts/agent_cost_report.py`, not billed amounts. The shared packet stage (about 0.55 USD) is split evenly. One monster per configuration, and the monsters differ in difficulty, so these are indications, not proof.
+
+| Monster | Config | Frames | Top-tier USD | Total USD (est.) | USD per frame | First blind review | Top-tier design rounds |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Dungeon Rat (RAT-01) | B | 19 | 2.3 | about 5.8 | 0.30 | PASS WITH EXECUTION ITEMS, 21/25 | 1 |
+| Scatterer (SCAT-01) | C | 16 | 3.0 | about 5.6 | 0.35 | PASS WITH EXECUTION ITEMS, 20/25 | 1 |
+| Bad Llama (LLAMA-01) | A | 17 | about 5.7 | about 7.9 | 0.46 | FAIL-DESIGN, 17/25 (read as a goat or deer) | 2 |
+
+Other measured costs: an independent top-tier review with the fixed 3-image input costs about 0.5–1.2 USD; a medium-tier fix-list check about 0.15 USD. Medium-tier cost is driven by tool-call count (each call re-reads the context), so long CI waits and merge-conflict fixes were the largest avoidable cost.
+
+Final numbers replace this table once all three PRs are merged.
+
