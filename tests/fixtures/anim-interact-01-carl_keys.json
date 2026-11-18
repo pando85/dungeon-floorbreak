@@ -1,0 +1,31 @@
+{
+  "asset_id": "anim-interact-01-carl",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "1": {
+      "sha256": "e8fae4d494161e2724d9fc848daf0e03a17cc19b2c52c16c3594239b7c2d4df2"
+    },
+    "2": {
+      "sha256": "dea346fd0695125dc91f865c4ec71a47fd62020b33d0a8b627d3cc57e93c9c5b"
+    },
+    "5": {
+      "sha256": "1120d79ac2d763d5af152167c8f9f2184ea1e893fd1526d8ddc33f66e8a0dc85"
+    },
+    "9": {
+      "sha256": "1ea0287f827ae688960434f3929cf7447ff4d20537caceb8703f89b7898245cf"
+    }
+  },
+  "layers": [
+    "far_arm",
+    "legs",
+    "shoes",
+    "torso",
+    "boxers",
+    "jacket",
+    "head",
+    "hair",
+    "near_arm",
+    "watch",
+    "pin"
+  ]
+}

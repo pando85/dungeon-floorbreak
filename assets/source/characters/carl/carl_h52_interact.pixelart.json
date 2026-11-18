@@ -1,0 +1,120 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "anim-interact-01-carl",
+  "title": "ANIM-INTERACT-01 Carl 52 px interact keys (design phase; in-betweens are key copies)",
+  "grid": "assets/source/characters/carl/carl_h52_interact.grid.json",
+  "frame_size": [
+    48,
+    56
+  ],
+  "pivot": [
+    25,
+    55
+  ],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "interact_hand": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          3,
+          8
+        ]
+      ]
+    },
+    "interact_floor": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          4,
+          8
+        ],
+        [
+          5,
+          10
+        ],
+        [
+          6,
+          10
+        ],
+        [
+          7,
+          8
+        ]
+      ]
+    },
+    "interact_push": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          8,
+          6
+        ],
+        [
+          9,
+          8
+        ],
+        [
+          10,
+          12
+        ],
+        [
+          11,
+          8
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 23,
+    "max_isolated_per_frame": 0,
+    "unique_frames": false,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/anim-interact-01-carl_keys.json",
+      "frames": [
+        1,
+        2,
+        5,
+        9
+      ],
+      "layers": [
+        "far_arm",
+        "legs",
+        "shoes",
+        "torso",
+        "boxers",
+        "jacket",
+        "head",
+        "hair",
+        "near_arm",
+        "watch",
+        "pin"
+      ]
+    }
+  },
+  "review": {
+    "strip_tags": [
+      "interact_hand",
+      "interact_floor",
+      "interact_push"
+    ]
+  }
+}

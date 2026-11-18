@@ -1,0 +1,21 @@
+{
+  "asset_id": "anim-interact-01-donut",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "1": {
+      "sha256": "ef986877014f32d09cfaa00463c94bfb0931e706c878fa88df125b82b004e102"
+    },
+    "5": {
+      "sha256": "c37062e60df6b05422be8208a7a74ecda1a5f4ab653a7c877c53d71ca2ec59ff"
+    }
+  },
+  "layers": [
+    "tail",
+    "legs_far",
+    "body",
+    "legs_near",
+    "head",
+    "face",
+    "gear"
+  ]
+}
