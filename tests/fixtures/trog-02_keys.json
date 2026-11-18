@@ -1,0 +1,12 @@
+{
+  "asset_id": "trog-02",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "0a9b31092d81a9924a72b2d8859f99032c56753f05c4438365f2e3ae2ae0b335"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

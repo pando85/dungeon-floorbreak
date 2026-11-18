@@ -1,0 +1,31 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "trog-02",
+  "title": "TROG-02 Troglodyte Basher readability set: design stage, hero key 0 (idle) frozen; other keys and in-betweens pending (spec sections 4 and 7)",
+  "grid": "assets/source/characters/troglodyte/basher/trog_02.grid.json",
+  "frame_size": [112, 88],
+  "pivot": [48, 87],
+  "contact_row": 87,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 12]]}
+  },
+  "roles": {"idle": "idle"},
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 12,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "frozen_keys": {"fixture": "tests/fixtures/trog-02_keys.json", "frames": [0], "layers": ["body"]},
+    "bbox": [
+      {"id": "size-idle-66px", "frames": [0], "top": 22, "bottom": 87}
+    ],
+    "key_counts": [
+      {"id": "R1-idle-eye-red", "frames": [0], "key": "e", "min": 1},
+      {"id": "R6-idle-wraps", "frames": [0], "key": "G", "min": 12}
+    ]
+  }
+}
