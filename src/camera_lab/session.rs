@@ -87,6 +87,18 @@ impl Session {
         Self { sim, camera: op, aspect }
     }
 
+    /// Rebuild the operator on the current simulation state (no easing): used
+    /// after a test setup moved the actors.
+    pub fn reframe(&mut self) {
+        let (subjects, threat, impact_hold) = camera_input_of(&self.sim);
+        self.camera = CameraOperator::new(
+            self.camera.mode(),
+            self.aspect,
+            Bounds { w: self.sim.room.render.0, h: self.sim.room.render.1 },
+            &CameraInput { subjects: &subjects, threat, impact_hold },
+        );
+    }
+
     pub fn step(&mut self, inputs: [LabInput; 2]) -> View {
         self.sim.step(inputs);
         let (subjects, threat, impact_hold) = camera_input_of(&self.sim);

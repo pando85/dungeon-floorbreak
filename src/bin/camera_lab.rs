@@ -73,6 +73,8 @@ struct Args {
     start_tick: u64,
     /// Place the actors for the 2P separation probe (see `separate`).
     separate: Option<i32>,
+    /// No scripted or manual input: both actors stand still (separation probes).
+    idle: bool,
 }
 
 fn parse_args(raw: &[String]) -> Result<Args, String> {
@@ -91,6 +93,7 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
         perf_frames: None,
         start_tick: 0,
         separate: None,
+        idle: false,
     };
     let mut it = raw.iter().skip(1);
     while let Some(flag) = it.next() {
@@ -129,6 +132,7 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
             }
             "--seed" => a.seed = value()?.parse().map_err(|_| "--seed N")?,
             "--script" => a.script = true,
+            "--idle" => a.idle = true,
             "--headless" => a.headless = true,
             "--ticks" => a.ticks = Some(value()?.parse().map_err(|_| "--ticks N")?),
             "--exit-after-ticks" => a.exit_after_ticks = Some(value()?.parse().map_err(|_| "--exit-after-ticks N")?),
@@ -164,6 +168,10 @@ fn failure(message: &str) -> ExitCode {
     ExitCode::from(1)
 }
 
+fn inputs_of(sim: &LabSim, script: &Script, idle: bool) -> [LabInput; 2] {
+    if idle { [LabInput::default(); 2] } else { script_inputs(sim, script) }
+}
+
 fn script_for(room: usize, mode: Mode) -> Script {
     if mode == Mode::Solo { solo_script(room) } else { scripts().remove(room) }
 }
@@ -191,6 +199,7 @@ fn main() -> ExitCode {
     let mut session = Session::new(&room, args.mode, if args.script { script.seed } else { args.seed }, args.coverage, aspect);
     if let Some(x) = args.separate {
         separate(&mut session, x);
+        session.reframe();
     }
     if args.headless {
         return headless(&room, &mut session, &script, &args);
@@ -208,9 +217,10 @@ fn main() -> ExitCode {
         }
     };
     // Pre-simulate the script to the requested start tick.
-    if args.script || args.start_tick > 0 {
-        for _ in 0..args.start_tick {
-            let inputs = script_inputs(&session.sim, &script);
+    let start = args.capture_sequence.map_or(args.start_tick, |c| c.0.max(args.start_tick));
+    if args.script || start > 0 {
+        for _ in 0..start {
+            let inputs = inputs_of(&session.sim, &script, args.idle);
             session.step(inputs);
         }
     }
@@ -268,6 +278,7 @@ struct Lab {
     script: Script,
     scripted: bool,
     frozen: bool,
+    idle: bool,
     exit_after: Option<u64>,
     exit_reported: bool,
 }
@@ -303,6 +314,10 @@ struct Perf {
     seen: usize,
     intervals_ms: Vec<f32>,
 }
+
+/// Kit atlas name -> image handle (props pick their piece's atlas each frame).
+#[derive(Resource)]
+struct AtlasHandles(std::collections::BTreeMap<String, Handle<Image>>);
 
 #[derive(Resource, Default)]
 struct Fx {
@@ -385,6 +400,7 @@ fn run_window(
         scripted: args.script || args.capture_sequence.is_some() || args.perf_frames.is_some() || args.exit_after_ticks.is_some(),
         script,
         frozen,
+        idle: args.idle,
         exit_after: args.exit_after_ticks,
         exit_reported: false,
     };
@@ -464,6 +480,7 @@ fn setup(
         handles.push((name.clone(), asset_server.load(asset.clone())));
     }
     let kit_handles = handles.clone();
+    commands.insert_resource(AtlasHandles(kit_handles.iter().cloned().collect()));
     let atlas = |name: &str| -> Handle<Image> {
         kit_handles.iter().find(|(n, _)| n == name).map(|(_, h)| h.clone()).unwrap_or_else(|| panic!("atlas {name}"))
     };
@@ -731,7 +748,9 @@ fn fixed_step(
         lab.session = Session::new(&room, mode, seed, cam, aspect);
         println!("LAB_RESTART");
     }
-    let inputs = if lab.scripted {
+    let inputs = if lab.idle {
+        [LabInput::default(); 2]
+    } else if lab.scripted {
         script_inputs(&lab.session.sim, &lab.script)
     } else {
         let mode = lab.session.sim.mode;
@@ -758,6 +777,7 @@ fn fixed_step(
 fn sync_visuals(
     lab: Res<Lab>,
     setup: Res<Setup>,
+    atlas_handles: Option<Res<AtlasHandles>>,
     mut cameras: Query<(&mut Camera, &mut Projection, &mut Transform), With<SceneCamera>>,
     mut parallax: Query<(&Parallax, &mut Transform, &mut Visibility), (Without<SceneCamera>, Without<ActorSprite>)>,
     mut torches: Query<(&Torch, &mut Sprite), (Without<ActorSprite>, Without<FoeSprite>, Without<PropSprite>, Without<ProjSprite>, Without<FxSprite>)>,
@@ -851,6 +871,9 @@ fn sync_visuals(
             continue;
         };
         let def = piece(id);
+        if let Some(h) = atlas_handles.as_ref().and_then(|a| a.0.get(&def.atlas)) {
+            sprite.image = h.clone();
+        }
         sprite.rect = Some(Rect::new(def.rect[0] as f32, def.rect[1] as f32, (def.rect[0] + def.rect[2]) as f32, (def.rect[1] + def.rect[3]) as f32));
         let (w, h) = (def.rect[2] as f32, def.rect[3] as f32);
         let r = ps.rect;
@@ -1285,7 +1308,7 @@ fn capture_sequence(
                 return;
             }
             for _ in 0..seq.step {
-                let inputs = script_inputs(&lab.session.sim, &lab.script);
+                let inputs = inputs_of(&lab.session.sim, &lab.script, lab.idle);
                 lab.session.step(inputs);
             }
             let events: Vec<String> = lab.session.sim.take_new_events().iter().map(ToString::to_string).collect();

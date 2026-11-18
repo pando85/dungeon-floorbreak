@@ -30,6 +30,12 @@ pub const COVERAGE_CANDIDATES: [f32; 4] = [1.0, 1.25, 1.5, 1.75];
 /// screen: the actor's safety region (world px).
 pub const SAFETY_PAD_X: f32 = 96.0;
 pub const SAFETY_PAD_Y: f32 = 56.0;
+/// Padding below an actor's feet (the floor line): small, the floor is
+/// supposed to sit low in the view.
+pub const SAFETY_PAD_BELOW: f32 = 20.0;
+/// Where the lowest actor's feet sit in the view (share of the view height from
+/// the top): the floor low, the architecture above visible.
+pub const FLOOR_SHARE: f32 = 0.8;
 /// A readable tell is framed once it has this many ticks (or fewer) left.
 pub const TELL_LOOKAHEAD_TICKS: u16 = 54;
 /// Largest horizontal bias towards a threat, as a share of the view width.
@@ -264,7 +270,7 @@ fn framing_box_in(input: &CameraInput, bounds: Option<Bounds>) -> (f32, f32, f32
         x0 = x0.min((s.x - s.half_w - SAFETY_PAD_X).max(0.0));
         x1 = x1.max((s.x + s.half_w + SAFETY_PAD_X).min(bw));
         y0 = y0.min((s.y - s.half_h - SAFETY_PAD_Y).max(0.0));
-        y1 = y1.max((s.y + s.half_h + SAFETY_PAD_Y).min(bh));
+        y1 = y1.max((s.y + s.half_h + SAFETY_PAD_BELOW).min(bh));
     }
     if input.subjects.is_empty() {
         return (0.0, BASE_W as f32, 0.0, 360.0);
@@ -314,6 +320,7 @@ impl CameraOperator {
             },
             zoom_changes: 0,
         };
+        op.cy = op.target_cy(input, y0, y1);
         op.view = op.compose_view();
         op
     }
@@ -431,10 +438,27 @@ impl CameraOperator {
         }
     }
 
+    /// Vertical centre: the lowest actor's feet at [`FLOOR_SHARE`] of the view,
+    /// clamped so every safety region stays inside the view.
+    fn target_cy(&self, input: &CameraInput, y0: f32, y1: f32) -> f32 {
+        let h = self.aspect.height_for(self.cov_w) as f32;
+        let lowest = input
+            .subjects
+            .iter()
+            .map(|s| s.y + s.half_h)
+            .fold(f32::MIN, f32::max);
+        if input.subjects.is_empty() {
+            return (y0 + y1) / 2.0;
+        }
+        let want = lowest - (FLOOR_SHARE - 0.5) * h;
+        let (lo, hi) = (y1 - h / 2.0, y0 + h / 2.0);
+        if lo <= hi { want.clamp(lo, hi) } else { (y0 + y1) / 2.0 }
+    }
+
     fn step_pan(&mut self, input: &CameraInput) {
         let (x0, x1, y0, y1) = framing_box_in(input, Some(self.bounds));
         let mut tx = (x0 + x1) / 2.0;
-        let ty = (y0 + y1) / 2.0 - HEADROOM_SHARE * self.aspect.height_for(self.cov_w) as f32;
+        let ty = self.target_cy(input, y0, y1);
         // Horizontal bias towards a readable imminent threat, bounded so that
         // every safety region stays inside the view.
         let mut emergency = false;
@@ -490,7 +514,7 @@ pub fn safety_inside_in(view: View, s: &Subject, bounds: Bounds) -> bool {
     ((s.x - s.half_w - SAFETY_PAD_X).max(0.0) >= view.left as f32)
         && ((s.x + s.half_w + SAFETY_PAD_X).min(bounds.w as f32) <= view.right() as f32)
         && ((s.y - s.half_h - SAFETY_PAD_Y * 0.5).max(0.0) >= view.top as f32)
-        && ((s.y + s.half_h + SAFETY_PAD_Y * 0.5).min(bounds.h as f32) <= view.bottom() as f32)
+        && ((s.y + s.half_h + SAFETY_PAD_BELOW * 0.5).min(bounds.h as f32) <= view.bottom() as f32)
 }
 
 /// The safety region of a subject (body plus padding) lies inside the view.
@@ -498,7 +522,7 @@ pub fn safety_inside(view: View, s: &Subject) -> bool {
     s.x - s.half_w - SAFETY_PAD_X >= view.left as f32
         && s.x + s.half_w + SAFETY_PAD_X <= view.right() as f32
         && s.y - s.half_h - SAFETY_PAD_Y * 0.5 >= view.top as f32
-        && s.y + s.half_h + SAFETY_PAD_Y * 0.5 <= view.bottom() as f32
+        && s.y + s.half_h + SAFETY_PAD_BELOW * 0.5 <= view.bottom() as f32
 }
 
 /// Share of a subject's body box that is inside the view (0..=1).

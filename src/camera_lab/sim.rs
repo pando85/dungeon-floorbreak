@@ -55,7 +55,7 @@ const JUMP_BUFFER: u8 = 7;
 const DOWN_TICKS: u16 = 90;
 const SWITCH_COOLDOWN: u8 = 20;
 pub const GATE_PERIOD: u64 = 420;
-pub const GATE_OPEN_FROM: u64 = 230;
+pub const GATE_OPEN_FROM: u64 = 160;
 pub const GATE_WARNING: u64 = 50;
 const FOE_DOWN_TICKS: u16 = 40;
 
@@ -1266,7 +1266,7 @@ impl LabSim {
             Hittable::Prop(p) => p.rect,
             _ => return,
         };
-        let occupied = self.actors.iter().any(|a| !a.down() && a.body.rect().overlaps(rect))
+        let occupied = self.actors.iter().any(|a| a.body.rect().overlaps(rect))
             || self.targets.iter().any(|t| match t {
                 Hittable::Goblin(g) => g.alive() && g.body().overlaps(rect),
                 Hittable::Foe(f) => f.alive() && f.spec.kind != EnemyKind::Ball && f.body().overlaps(rect),
@@ -2071,5 +2071,215 @@ pub fn foe_phase_progress(f: &Foe) -> Option<(Phase, u16)> {
         FoeMode::Tell => Some((Phase::Startup, f.spec.tell.saturating_sub(f.mode_tick))),
         FoeMode::Active => Some((Phase::Active, f.spec.active.saturating_sub(f.mode_tick))),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::camera_lab::room::load_rooms;
+    use crate::camera_lab::script::{run, scripts};
+    use crate::input::InputFrame;
+    use crate::prototype::{Hero, step_hero};
+    use std::path::Path;
+
+    fn rooms() -> Vec<Room> {
+        load_rooms(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap()
+    }
+
+    fn idle() -> [LabInput; 2] {
+        [LabInput::default(); 2]
+    }
+
+    #[test]
+    fn carl_body_physics_equals_the_shared_hero_step() {
+        // A floor and a step; the same scripted inputs through both steppers.
+        let floor = Block {
+            rect: Rect { left: 0.0, bottom: 0.0, width: 2000.0, height: 100.0 },
+            material: Material::Stone,
+            intact: true,
+        };
+        let step = Block {
+            rect: Rect { left: 400.0, bottom: 100.0, width: 48.0, height: 40.0 },
+            material: Material::Stone,
+            intact: true,
+        };
+        let blocks = [floor, step];
+        let mut hero = Hero::at(100.0, 100.0 + HERO_HALF_HEIGHT);
+        let mut body = Body::new(100.0, 100.0 + HERO_HALF_HEIGHT, HERO_HALF_WIDTH, HERO_HALF_HEIGHT);
+        let mut frame = InputFrame::default();
+        for t in 0..900u32 {
+            let raw = RawInput {
+                move_x: if (t / 120) % 3 == 2 { -1.0 } else { 1.0 },
+                jump: t % 97 < 3 || t % 211 < 2,
+                ..RawInput::default()
+            };
+            frame.advance(raw);
+            step_hero(&mut hero, &frame, &blocks, 1988.0);
+            step_body(&mut body, frame.jump_pressed, frame.held.move_x, CARL_RUN, CARL_JUMP, &blocks, HERO_HALF_WIDTH, 1988.0);
+            assert_eq!((hero.x, hero.y, hero.vy, hero.grounded), (body.x, body.y, body.vy, body.grounded), "tick {t}");
+        }
+    }
+
+    #[test]
+    fn the_jumps_match_the_no_superhuman_rule() {
+        // Carl's apex stays below 92 px; Donut's high jump is the larger one.
+        let apex = |jump: f32| jump * jump / (2.0 * GRAVITY);
+        assert!(apex(CARL_JUMP) < 93.0);
+        assert!(apex(DONUT_JUMP) > apex(CARL_JUMP) * 1.8 && apex(DONUT_JUMP) < 190.0);
+    }
+
+    #[test]
+    fn two_player_input_ownership_is_strict_and_l1_does_not_steal() {
+        let room = &rooms()[0];
+        let mut sim = LabSim::new(room, Mode::TwoPlayer, 1);
+        let (cx, dx) = (sim.actors[CARL].body.x, sim.actors[DONUT].body.x);
+        let mut p1 = LabInput { move_x: 1.0, ..Default::default() };
+        let p2 = LabInput::default();
+        for _ in 0..30 {
+            sim.step([p1, p2]);
+        }
+        assert!(sim.actors[CARL].body.x > cx + 50.0);
+        assert_eq!(sim.actors[DONUT].body.x, dx, "player 1 never moves Donut");
+        // L1 / LB is not a swap in 2P.
+        p1.switch = true;
+        sim.step([p1, p2]);
+        p1.switch = false;
+        sim.step([p1, p2]);
+        assert!(sim.events.iter().all(|e| !matches!(e, LabEvent::Switched { .. })));
+        // Player 2 moves Donut only.
+        let carl_x = sim.actors[CARL].body.x;
+        for _ in 0..30 {
+            sim.step([LabInput::default(), LabInput { move_x: -1.0, ..Default::default() }]);
+        }
+        assert!(sim.actors[DONUT].body.x < dx - 50.0);
+        assert!((sim.actors[CARL].body.x - carl_x).abs() < 1.0);
+    }
+
+    #[test]
+    fn solo_switch_gives_the_controlled_actor_to_donut_and_the_ai_takes_carl() {
+        let room = &rooms()[0];
+        let mut sim = LabSim::new(room, Mode::Solo, 1);
+        assert_eq!(sim.active, CARL);
+        let sw = LabInput { switch: true, ..Default::default() };
+        sim.step([sw, idle()[1]]);
+        assert_eq!(sim.active, DONUT);
+        // Held L1 does not switch again, a cooldown protects a mash.
+        sim.step([sw, idle()[1]]);
+        assert_eq!(sim.active, DONUT);
+        let carl0 = sim.actors[CARL].body.x;
+        for _ in 0..60 {
+            sim.step([LabInput { move_x: 1.0, ..Default::default() }, idle()[1]]);
+        }
+        // Slot 0 now drives Donut; the companion AI keeps Carl near her.
+        assert!(sim.actors[DONUT].body.x > room.spawn_donut as f32 + 60.0);
+        assert!(sim.actors[CARL].body.x > carl0 + 20.0, "the companion follows");
+    }
+
+    #[test]
+    fn story_gated_specials_do_nothing_and_are_logged_locked() {
+        let room = &rooms()[0];
+        let mut sim = LabSim::new(room, Mode::TwoPlayer, 1);
+        let special = LabInput { special: true, ..Default::default() };
+        let before = sim.state_hash();
+        sim.step([special, special]);
+        let kinds: Vec<_> = sim.events.iter().filter(|e| matches!(e, LabEvent::SpecialLocked { .. })).collect();
+        assert_eq!(kinds.len(), 2);
+        assert!(sim.projectiles.is_empty());
+        assert_ne!(before, sim.state_hash());
+        // No move was started by the special button.
+        assert!(sim.events.iter().all(|e| !matches!(e, LabEvent::Combat(CombatEvent::MoveStarted { .. }))));
+    }
+
+    #[test]
+    fn the_two_player_leash_is_a_fixed_constant_independent_of_the_camera() {
+        let room = &rooms()[0];
+        let mut sim = LabSim::new(room, Mode::TwoPlayer, 1);
+        for _ in 0..900 {
+            sim.step([LabInput { move_x: 1.0, ..Default::default() }, idle()[1]]);
+            assert!((sim.actors[CARL].body.x - sim.actors[DONUT].body.x).abs() <= MAX_SEPARATION_X + 1.0);
+        }
+    }
+
+    #[test]
+    fn destruction_never_removes_the_protected_floor_steps_platforms_or_exit() {
+        let rooms = rooms();
+        for (i, script) in scripts().into_iter().enumerate() {
+            let room = &rooms[i];
+            let mut sim = LabSim::new(room, script.mode, script.seed);
+            let protected = 3 + room.platforms.len() + room.steps.len();
+            for _ in 0..script.ticks {
+                let inputs = crate::camera_lab::script::script_inputs(&sim, &script);
+                sim.step(inputs);
+            }
+            assert!(sim.blocks()[..protected].iter().all(|b| b.intact), "{}", room.id);
+        }
+        // Even with every prop broken the exit stays reachable (room data test).
+    }
+
+    #[test]
+    fn room03_support_break_makes_the_weight_fall_land_and_hurt_in_that_order() {
+        let rooms = rooms();
+        let script = scripts().remove(2);
+        let trace = run(&rooms[2], &script);
+        let at = |needle: &str| trace.events.iter().position(|e| e.contains(needle)).unwrap_or_else(|| panic!("no {needle}"));
+        let broken = at("kind=prop_broken prop=2");
+        let fell = at("kind=weight_fell prop=3");
+        let landed = at("kind=weight_landed prop=3");
+        assert!(broken < fell && fell < landed, "cause to effect order");
+        assert!(trace.events.iter().any(|e| e.contains("kind=impact_damage")), "the falling weight hurt a goblin");
+    }
+
+    #[test]
+    fn the_gate_cycle_opens_often_and_never_closes_on_a_body() {
+        let open_ticks = (0..GATE_PERIOD).filter(|t| gate_open_at(*t) >= 0.5).count() as u64;
+        assert!(open_ticks * 100 / GATE_PERIOD >= 40, "the gate is open {open_ticks} of {GATE_PERIOD} ticks");
+        assert!((0..GATE_PERIOD).any(|t| gate_warning_at(t)), "a visible warning before closing");
+        let rooms = rooms();
+        let room = &rooms[5];
+        let mut sim = LabSim::new(room, Mode::TwoPlayer, 1);
+        // Put Carl under the gate when it is open and run through a closing.
+        let gate = sim.room.props.iter().find(|p| p.kind == PropKind::Gate).unwrap().rect;
+        // Wait until the gate is open, then stand in its lane through a closing.
+        while gate_open_at(sim.tick + 1) < 0.9 {
+            sim.step(idle());
+        }
+        sim.actors[CARL].body.x = (gate.x + gate.w / 2) as f32;
+        for _ in 0..(GATE_PERIOD * 2) {
+            // Nothing moves Carl: he stands in the gate lane the whole time.
+            sim.step(idle());
+            let block = sim.gate_block.unwrap();
+            if sim.blocks[block].intact {
+                assert!(!sim.actors[CARL].body.rect().overlaps(sim.blocks[block].rect), "crushed at tick {}", sim.tick);
+            }
+        }
+    }
+
+    #[test]
+    fn the_boss_charge_is_telegraphed_then_stuns_on_the_closed_gate() {
+        let rooms = rooms();
+        let script = scripts().remove(5);
+        let trace = run(&rooms[5], &script);
+        let tell = trace.events.iter().position(|e| e.contains("kind=boss_tell")).unwrap();
+        let charge = trace.events.iter().position(|e| e.contains("kind=boss_charge")).unwrap();
+        let stun = trace.events.iter().position(|e| e.contains("kind=boss_stunned foe=0 gate=true")).unwrap();
+        assert!(tell < charge && charge < stun);
+    }
+
+    #[test]
+    fn replay_events_do_not_depend_on_call_order_of_presentation() {
+        // Taking events (a presentation read) must not change the hash.
+        let rooms = rooms();
+        let script = scripts().remove(0);
+        let mut a = LabSim::new(&rooms[0], script.mode, script.seed);
+        let mut b = LabSim::new(&rooms[0], script.mode, script.seed);
+        for _ in 0..600 {
+            let ia = crate::camera_lab::script::script_inputs(&a, &script);
+            let ib = crate::camera_lab::script::script_inputs(&b, &script);
+            a.step(ia);
+            b.step(ib);
+            let _ = a.take_new_events().len();
+        }
+        assert_eq!(a.state_hash(), b.state_hash());
     }
 }

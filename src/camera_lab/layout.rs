@@ -22,7 +22,7 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
-use super::room::{Room, Setting, TILE};
+use super::room::{Room, Setting, TILE, WALL_PX};
 use crate::env_kit::{Contract, EnvError, EnvKit, Layout};
 
 pub const CATACOMB_CONTRACT: &str = "assets/source/terrain/floor01/floor01_catacomb_kit.json";
@@ -171,26 +171,61 @@ pub fn compose(room: &Room, base_layout: &Value) -> (Value, Plan) {
     // ------------------------------------------------------------ arch bays
     let tiers = ((fr * TILE - 2 * TILE) / BAY_H).max(1);
     plan.tiers = tiers;
-    let mut x0 = 48;
+    // Ground bays sit in the gaps between platforms and steps (props are drawn
+    // in front of the structure layer, so they do not block a bay).
+    let mut solid_x: Vec<(i32, i32)> = room
+        .platforms
+        .iter()
+        .map(|p| (p.rect.x, p.rect.right()))
+        .chain(room.steps.iter().map(|s| (s.x, s.right())))
+        .collect();
+    solid_x.sort_unstable();
+    let mut gaps: Vec<(i32, i32)> = Vec::new();
+    let mut at = WALL_PX;
+    for (a, b) in solid_x {
+        if a > at {
+            gaps.push((at, a));
+        }
+        at = at.max(b);
+    }
+    gaps.push((at, w - WALL_PX));
     let mut ground_bays: Vec<i32> = Vec::new();
-    while x0 + BAY_W <= w - 48 {
-        let blocked = blocked_x
-            .iter()
-            .any(|&(a, b)| a < x0 + BAY_W + 24 && b > x0 - 24);
+    for (a, b) in gaps {
+        let mut x = a;
+        while x + BAY_W <= b {
+            // Centre the bays of a gap.
+            let n = (b - a + 32) / (BAY_W + 32);
+            let used = n * BAY_W + (n - 1) * 32;
+            let first = a + (b - a - used) / 2;
+            let _ = x;
+            for k in 0..n.max(1) {
+                ground_bays.push((first + k * (BAY_W + 32)) / TILE * TILE);
+            }
+            break;
+        }
+    }
+    // Upper tiers continue over the whole width on the same 368 px pitch plus the
+    // ground columns, so the arcade reads as one structure.
+    let mut upper_x: Vec<i32> = ground_bays.clone();
+    let mut ux = 48;
+    while ux + BAY_W <= w - 48 {
+        if !upper_x.iter().any(|g| (g - ux).abs() < BAY_W + 16) {
+            upper_x.push(ux);
+        }
+        ux += BAY_PITCH;
+    }
+    upper_x.sort_unstable();
+    for &bx in &upper_x {
         for tier in 0..tiers {
-            if tier == 0 && blocked {
+            if tier == 0 && !ground_bays.contains(&bx) {
                 continue;
             }
             plan.bays.push(Bay {
-                x0,
+                x0: bx,
                 tier,
                 y0: fr * TILE - BAY_H * (tier + 1),
             });
         }
-        if !blocked {
-            ground_bays.push(x0);
-        }
-        x0 += BAY_PITCH;
     }
 
     // ------------------------------------------------------------- backwall
@@ -280,22 +315,18 @@ pub fn compose(room: &Room, base_layout: &Value) -> (Value, Plan) {
             });
         }
     }
-    // Free torches between the bays on every tier, and for rooms with a lot of
-    // wall left over a high row of torches under the cornice.
-    let mut bx = 48 + BAY_W + 16;
-    while bx + 16 <= w - 48 {
-        for tier in 0..1 {
-            let bottom = fr * TILE - BAY_H * tier;
-            let tx = bx + (BAY_PITCH - BAY_W - 32) / 2;
-            if tier == 0 && blocked_x.iter().any(|&(a, b)| a < tx + 40 && b > tx - 40) {
-                continue;
-            }
-            plan.torches.push(Torch {
-                x: tx,
-                y: bottom - 144,
-            });
+    // Free torches on the ground tier midway between neighbouring bays and at the
+    // room ends.
+    let mut anchors: Vec<i32> = vec![WALL_PX + 40];
+    for pair in ground_bays.windows(2) {
+        anchors.push((pair[0] + BAY_W + pair[1]) / 2);
+    }
+    anchors.push(w - WALL_PX - 40);
+    for tx in anchors {
+        if blocked_x.iter().any(|&(a, b)| a < tx + 24 && b > tx - 24 && a != b) {
+            continue;
         }
-        bx += BAY_PITCH;
+        plan.torches.push(Torch { x: tx, y: fr * TILE - 144 });
     }
     plan.torches.sort_by_key(|t| (t.x, t.y));
     plan.torches.dedup_by_key(|t| (t.x, t.y));
@@ -393,11 +424,10 @@ pub fn compose(room: &Room, base_layout: &Value) -> (Value, Plan) {
             let kk = ((col + 2) % 4) + 1;
             col_layer.set(col, top_row, format!("deck_front_mid_a_{kk}"));
             for (n, row) in ((top_row + 1)..(fr - 1)).enumerate() {
-                let id = match n {
-                    0 => format!("face_a_mid_a_{kk}"),
-                    1 => format!("face_b_b_{kk}"),
-                    _ if n % 2 == 0 => format!("fill_2_j0_a_{kk}"),
-                    _ => format!("fill_1_j0_a_{kk}"),
+                let id = if n % 2 == 0 {
+                    format!("face_a_mid_a_{kk}")
+                } else {
+                    format!("face_b_b_{kk}")
                 };
                 col_layer.set(col, row, id);
             }
