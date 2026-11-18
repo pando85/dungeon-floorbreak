@@ -1,12 +1,18 @@
 # Input, controller UX, camera and accessibility
 
-## Device-neutral action layer
+## Owner-approved MVP action contract (2026-11-18)
 
-Normalize keyboard/gamepad/Steam Input actions into `PlayerAction { tick, player_slot, movement_axis, aim_axis, jump_pressed, attack_pressed, special_pressed, interact_pressed, swap_pressed }`. Input is a frontend adapter only. Recorded actions must replay headlessly without physical gamepads. Never couple character abilities to hardcoded gamepad device IDs.
+The [MVP controller contract](../01-design/mvp-controller-contract.md) defines the **approved design** for DualSense and Steam Controller / Steam Deck. It supersedes the provisional action layout previously listed in [gameplay](../01-design/gameplay.md). This is **not** an implementation completion claim.
 
-## Melee and the secondary action before the Guild (COMBAT-INT-01)
+Normalize device-specific inputs to player-scoped logical actions such as `Move`, `Jump`, `PrimaryAttack`, `PhysicalAttack`, `EquippedSpecial`, `Interact`, `SwapCharacter`, `Pause` and optional `PrecisionAim` / `CycleSpecial`. Preserve `tick`, player ownership, deterministic edge/held semantics and headless replay. Keep character abilities and narrative unlocks separate from the physical device binding; never hardcode PS5 button identifiers in the gameplay domain.
 
-Binding decision (orchestrator, 2026-11-17), adjustable after playtest: Carl has no bombs or explosives before the Guild, so the secondary/special action that WORK-021 used for bombs (`special_pressed`; K / East in the greybox) drives the **push kick** in the Floor 1 scene fixtures. `attack_pressed` (J / West) is the jab. Both act on press edges only: a held button never repeats a move, and a press made while a move runs is buffered for 6 ticks ([move table and buffering](floor01-scene.md#combat-fixtures-combat-int-01)). Pressing a direction with the attack turns Carl first. Bombs stay WORK-021-only and unreachable in the scene. The kick can move to hold-attack or a jab follow-up if playtest says so; the table in `src/combat.rs` does not change.
+**Approved default mappings:** Cross/A jump; Square/X primary; Triangle/Y physical; Circle/B special; R1/RB interact; L1/LB solo switch. Carl's Triangle/Y is **a kick, not a grab**. Donut's pre-biscuit primary is weak feline contact, changing to Magic Missile only after the story unlock. Optional L2/right-stick precision aim and R2 cycling are not MVP combat dependencies; D-pad locomotion must remain possible.
+
+### Existing fixture migration (pending implementation)
+
+The current COMBAT-INT-01 prototype intentionally reuses `special_pressed` for Carl's push kick (keyboard K / East gamepad action) while `attack_pressed` (keyboard J / West) is his jab; WORK-021 separately uses that special action for bombs. Existing fixtures use press edges, 6-tick buffering and an initial facing correction. **Keep these facts as implementation history, not the approved final default bindings.**
+
+The implementation PR must add an independent physical-attack action and migrate the integrated scene's kick without breaking fixed-step/replay regression tests. Only learned, equipped specials use the dedicated Circle/B action and cannot appear before story acquisition. Auto-repeat for held primary, aerial/down variations and exact timing remain unresolved, requiring real controller playtests.
 
 ## Controller plan
 

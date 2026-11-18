@@ -8,21 +8,26 @@
 
 **Read threat → position / choose hero → strike, cast or alter terrain → cause a satisfying kill or meaningful knockback → chain the advantage → clear the threat → recover briefly → advance.** **Owner-approved rule:** there is **no requirement for two parallel routes or for every individual character to clear a room alone**. Some story-critical gates should explicitly require Donut's superior traversal, Carl's selective destruction, or a sequence of both. Solo switching makes this valid; co-op assigns distinct responsibilities. Additional routes are optional design opportunities, not a room-by-room quota. Later unlocks can recontextualize previously obvious solutions. See [asymmetric traversal and character-gated progression](asymmetric-traversal-and-gates.md).
 
-## Base controls (proposed; remappable)
+## MVP controls — owner-approved design (2026-11-18)
 
-| Action | Gamepad | Notes |
-| --- | --- | --- |
-| Move | Left stick / D-pad | Platformer movement only (2D left/right) |
-| Jump / contextual double-jump | South face button | Jump buffer + coyote time |
-| Primary attack | West face button | Carl physical/weapon; Donut basic magic |
-| Special ability | East face button | Explosion, trap, spell, or later charge |
-| Dodge / mobility | Right shoulder | Optional; consider removal if action overload |
-| Interact / pickup | North face button | Context-sensitive priority rules |
-| Aim | Right stick | Angle constrained/assisted; left/right default is enough initially |
-| Swap character (solo) | Left shoulder | Preserve velocity carefully; avoid off-camera swap |
-| Pause/menu | Start | Fully navigable without keyboard |
+The binding grammar below is **approved for the MVP**, not yet fully implemented or playtested. The authoritative mapping, story unlocks, technical migration, device coverage and acceptance gates are in the [MVP controller contract](mvp-controller-contract.md). That document supersedes earlier provisional mapping proposals.
 
-Prove simultaneous device assignment for two gamepads and hotplug behavior. Avoid essential aim-by-mouse mechanics. Add binding prompts in the HUD and remapping later.
+| Action | DualSense | Xbox / Steam Controller | Meaning |
+| --- | --- | --- | --- |
+| Move / face | Left stick or D-pad | Left stick or D-pad | Basic locomotion and facing |
+| Jump | Cross | A | Responsive variable-height jump |
+| Primary attack | Square | X | Carl punch; pre-biscuit Donut weak swat; post-biscuit Magic Missile |
+| Physical attack | Triangle | Y | **Carl kick, never an enemy grab**; Donut feline physical/pounce action |
+| Equipped special | Circle | B | Earned special only; unavailable before unlock |
+| Interact | R1 | RB | Doors, props, appropriate pickups, mechanisms |
+| Swap controlled hero (solo) | L1 | LB | AI controls inactive hero; no authority stealing in 2P |
+| Pause / inventory | Options | Menu / Start | Full controller support |
+| Optional future precision aim | L2 + right stick | LT + right stick/trackpad | Not essential to complete combat |
+| Optional future special cycle | R2 | RT | Only when more than one special can be equipped |
+
+**Progressive complexity:** reuse these verbs as skills and equipment improve, instead of increasing button count or requiring memorized combo strings. Combat depth comes from physical contacts, enemy knockback and selective destruction. No mandatory sprint, grab, dodge, twin-stick aim, extra combat buttons or prematurely granted bombs/magic. The intended feel references Broforce's immediacy, Guacamelee! 2's physical contact depth **without grappling**, and Cyber Shadow's evolving action vocabulary; these are design inspirations, not source assets.
+
+Input timing (auto-repeat, buffers, press/hold semantics), aerial variants, aim assistance, camera and per-character speed/damage are **playtest hypotheses**, not locked acceptance results.
 
 ## Baseline movement *tuning hypotheses*
 

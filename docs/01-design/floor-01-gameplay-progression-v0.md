@@ -1,6 +1,6 @@
 # Floor 01 — Gameplay and progression bible (design v0.1)
 
-**Status:** approved *control model and co-op availability* + otherwise **unverified design hypotheses**. This document is not a claim of implemented mechanics, character lore, combat balance, or player approval of the integrated scene.
+**Status:** approved *controller grammar* (2026-11-18), solo/co-op target and traversal identity + otherwise **unverified design hypotheses**. The [MVP controller contract](mvp-controller-contract.md) is authoritative for buttons and action semantics; this floor progression document does not reassign inputs. This document is not a claim of implemented mechanics, character lore, combat balance, or player approval of the integrated scene.
 
 **Creative director decisions (2026-11-16):**
 1. **Hybrid solo controls (option C):** one directly controlled character, AI for the other, instant character switching and compact context actions are the intended design. Precisely how the AI, switching and commands work needs playtests.
@@ -112,7 +112,7 @@ Candidate first evaluation enemies: ordinary goblin, Murder Dozer, Bad Llama. Bo
 
 **Approved:** hybrid solo architecture as target, simultaneous playable Carl + Donut from game start, local 2P as core product design, same essential content in solo and 2P, **explicit one-character gates without symmetric routes**, Donut's higher/farther movement vs Carl's physical/destructive access, story-consistent unlocks, cast native scale, shared camera intent.
 
-**Unresolved:** exact action mapping, whether shoulder exists, mounted attack behavior, co-op revival/death system, difficulty adjustment, solo AI autonomy/command UX, fine-grained character acceleration, targeting assist strength, camera split/regroup rules, friendly-fire consequences, and exact progression unlock order.
+**Unresolved:** action timing/feel and advanced binding variants (the base mapping is approved in [MVP controller contract](mvp-controller-contract.md)), whether shoulder exists, mounted attack behavior, co-op revival/death system, difficulty adjustment, solo AI autonomy/command UX, fine-grained character acceleration, targeting assist strength, camera split/regroup rules, friendly-fire consequences, and exact progression unlock order.
 
 The test sequence and experiment evidence requirements live in [Floor 01 integrated-scene playtest plan](../07-agents/floor-01-integrated-scene-playtest.md). **Do not count automatic CI success as human game-feel approval.**
 
