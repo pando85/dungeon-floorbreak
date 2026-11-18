@@ -1,8 +1,8 @@
 # ROT-01: Rot Sticker readability set, design spec
 
-**Status:** packet ready; design pending. Execution pending. Review pending.
+**Status:** packet ready; first-draft design and six keys done; senior edit pending. Independent review pending.
 
-**Decision record:** height <fill> px, frame <fill> x <fill>, pivot (<fill>, <fill>). Proposed by <fill>; decided by <fill>.
+**Decision record:** height 20 px (along the wall), frame 32 x 32, pivot (6, 16), wall-mounted orientation, ceiling and floor by runtime rotation. Proposed by the draft designer; decision pending the senior editor.
 
 The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: ...>`; write numbers, not adjectives. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
 
@@ -14,7 +14,7 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: .
   - Small, dark, rounded, disc/ravioli-like body that clings to walls and ceilings; the board shows a dark ringed shell with red spikes and a glowing red centre or underside.
   - A contact hazard that explodes (atlas line 54); the glow brightening is the board's telegraph.
   - A parasite identity separate from the Green Slime; not a conventional spider and not a large tentacled ooze.
-- Design reading of the tone: <fill: how the Rot Sticker reads as a creepy, slightly absurd and dangerous threat>.
+- Design reading of the tone: a squat black limpet the size of a pizza that pulses like something breathing inside a wall, with a rotten olive stain, red spikes and one ember in the middle. It looks like a bad mushroom you should not touch, which makes the threat unsettling and a little absurd. The danger is the telegraph: it lights up like a fuse before it goes. There is no face, no legs and no heroic styling; the only "attitude" is a dead patient stare from a glowing core.
 
 ### Where the canon, size and mechanics are defined (checked 2026-11-18)
 
@@ -65,155 +65,179 @@ Reasoning: new design with a glow telegraph and an explosion, but a very small b
 
 ## 2. Size decision
 
-Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png`).
+Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px, the Scatterer 15 px (see `scale_lineup.png`). "Height" below is the idle opaque extent **along the surface** (the disc diameter); the dome stands about 14 px off the surface.
 
 | Option | Idle opaque height | Ratio to Carl | Implied real height | Why / why not |
 | --- | --- | --- | --- | --- |
-| A | 16 px | <fill> | <fill> | <fill> |
-| B | 20 px | <fill> | <fill> | <fill> |
-| C | 24 px | <fill> | <fill> | <fill> |
+| A | 16 px | 0.31 | about 22 in (56 cm) disc | Smallest. A 3 px core plus a 1 px rim glow leaves almost no shell to read as dark against brick; spikes collapse into the outline |
+| B | 20 px | 0.38 | about 28 in (70 cm) disc | Dark shell, 8 rib rays, 6 spikes, a 4 px glow core and a 1 px cold rim all fit; still clearly smaller than Donut and about a third of Carl |
+| C | 24 px | 0.46 | about 33 in (84 cm) disc | Reads as a big pizza on the wall, closer to the goblin; loses "small" from the roster and competes with the Scatterer's role as the swarm unit |
 
-Decision: <fill: height and the reason, one paragraph; the proposer and the decider are different agents>.
+Decision: **B, 20 px** along the wall (rows 6 to 25), dome depth 14 px (columns 6 to 19; up to 22 with spikes and the tell halo). Proposed by the draft designer; the senior editor decides. 20 px is the smallest size at which the tell can be a colour change of a dark body (ribs and core light up) instead of a lone pixel blink, and it stays under the 24 to 26 px the board's proportions suggest, which the roster calls "small". It is 5 px above the Scatterer, so a Rot Sticker on a wall next to Scatterers on the floor still reads as its own thing.
 
 ## 3. Frame, pivot, boxes and atlas
 
-- Frame <fill> x <fill>, pivot (<fill>, <fill>), contact row <fill> (the lowest opaque row of every grounded frame).
-- Grounded tags: <fill>. Airborne tags (no pixel on the contact row): <fill or none>.
-- Standing box <fill> x <fill>; hurtbox <fill>; attack hitbox <fill> on the impact frame.
-- Authored facing right; the runtime mirrors around the pivot column.
-- One atlas, frames 0 to <fill>, layers: <fill: for example body, weapon>.
+- **Frame 32 x 32, pivot (6, 16).** Square so that a 90 degree rotation about the pivot is lossless pixel-for-pixel. The pivot is the wall-contact point: column 6 is the wall plane (the glowing seam), row 16 is the disc centre.
+- **Orientation, one set only.** Authored **wall-mounted**: attached to a vertical wall on the left, dome bulging right into the room, creeping toward **-y (up the wall)**. Variants are runtime transforms about the pivot, no extra frames:
+  - ceiling: rotate 90 degrees clockwise (dome hangs down, creep direction becomes +x);
+  - floor: rotate 90 degrees counter-clockwise (dome rises, creep direction becomes +x as well);
+  - right-hand wall, or creeping the other way: mirror horizontally or vertically about the pivot.
+  The baked cold rim and highlight sit on the dome's upper-right edge; after a rotation they sit on a different edge. That is accepted for a 20 px creature whose strongest light is its own glow, and noted for the area kit (AREA-HAZARDS-01). A separate hand-lit ceiling set is a later option if the review finds the rotated lighting wrong.
+- **No grounded contact row.** All tags are `contact: free`; the validators V07 and V08 are not used. Contact is the **column 6** (V13 `left: 6` on key 0 checks it). `contact_row` 16 only satisfies V01 (equal to the pivot y).
+- **Hurtbox:** `[6, 6, 14, 20]` in frame pixels (pivot-relative x 0 to 13, y -10 to +9) on the shell, excluding spikes.
+- **Contact trigger (placeholder):** `[6, 4, 18, 24]` (pivot-relative x 0 to 17, y -12 to +11). The player's body overlapping it starts the tell. Not an approved mechanic.
+- **Blast radius (placeholder):** a circle of **40 px** radius (twice the disc diameter) around the dome centre (12, 16), active from the first burst frame (frame 10). No damage or radius is approved; the full burst is a separate hazard-VFX work order.
+- Authored facing: wall left, creeping up; the runtime rotates or mirrors around the pivot.
+- One atlas, frames 0 to 14, layer: `body` only.
 
 ## 4. Readability-set animation list
 
-Readability set: idle, move, tell, attack, hurt, defeat (about 12 to 20 frames until the asset has a gameplay work order). Tick windows are at 60 Hz.
+Readability set: idle, move, tell, attack, hurt, defeat. Tick windows are at 60 Hz.
 
-| Role | Tag | Frames | Playback | Tick-window proposal | Reference |
+| Role | Tag | Frames | Playback | Ticks | Notes |
 | --- | --- | --- | --- | --- | --- |
-| idle | `idle` | 2-4 | loop | 8-12 ticks per frame, a 32-40 tick breathing cycle | GOB-01: 12 + 8 + 12 + 8 |
-| move | `walk` | 4-6 | loop | 5 ticks per frame, speed from the gameplay spec | GOB-01: 6 x 5 = 30 ticks |
-| tell | `attack_tell` | 1-2 | once | at least 18 ticks of readable hold, about 24 total | GOB-01: 6 + 18 |
-| attack | `attack_swing` | 2-3 | once | smear 2, impact 3-4 (shown on exactly the hitbox-active ticks) | GOB-01: 2 + 4, then recover 20 |
-| hurt | `hurt` | 1 | once | 8-12 ticks | GOB-01: 4 + 8 |
-| defeat | `down` | 2-3 | hold | floor impact 4, settle 8, then a state-driven hold | GOB-01: 4 + 8 + hold |
+| idle | `idle` | 3 | loop | 14 + 12 + 14 = 40 | a slow pulse of the core and the dome |
+| move | `walk` | 4 | loop | 4 x 8 = 32 | slow creep along the surface, one lean-and-drag cycle |
+| tell | `attack_tell` | 2 | once | 6 + 24 = 30 (500 ms) | glow rises, then hold |
+| attack | `attack_swing` | 2 | once | 2 + 4 | detonation up to the first burst frame; the explosion itself is a separate VFX work order |
+| hurt | `hurt` | 1 | once | 10 | white flash, shell clenches |
+| defeat | `down` | 3 | hold | 4 + 8 + hold | a dud: deflates without exploding |
 
-Frame table (`frame_pivot_template.json` carries the same rows):
+Frame table. Keys are drawn by the rule-based script; in-betweens are, for now, copies of the nearest key (`SLOT_SOURCE` in `scripts/author_rot01.py`).
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | <fill: pose> | 12 | <fill: key or Sonnet> |
-| 1 | `idle` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 2 | `idle` | <fill: pose> | 12 | <fill: key or Sonnet> |
-| 3 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 4 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 5 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 6 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 7 | `attack_tell` | <fill: pose> | 6 | <fill: key or Sonnet> |
-| 8 | `attack_tell` | <fill: pose> | 18 | <fill: key or Sonnet> |
-| 9 | `attack_swing` | <fill: pose> | 2 | <fill: key or Sonnet> |
-| 10 | `attack_swing` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 11 | `hurt` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 12 | `hurt` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 13 | `down` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 14 | `down` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 15 | `down` | <fill: pose> | hold | <fill: key or Sonnet> |
+| 0 | `idle` | relaxed dome, ember core, dark ribs, 2 px spikes (KEY) | 14 | key |
+| 1 | `idle` | pulse up: dome 1 px deeper, core one step brighter | 12 | copy of 0 |
+| 2 | `idle` | pulse down: back to 0 with the core one step dimmer | 14 | copy of 0 |
+| 3 | `walk` | lean: top of the dome shears up the wall, core dimmer (KEY) | 8 | key |
+| 4 | `walk` | pull: dome pushes 1 px up, compresses 1 px in depth | 8 | copy of 3 |
+| 5 | `walk` | drag: lower edge catches up, shear the other way | 8 | copy of 3 |
+| 6 | `walk` | settle: close to key 0, 1 px higher on the wall | 8 | copy of 3 |
+| 7 | `attack_tell` | onset: ribs half lit, spikes 3 px, no halo yet | 6 | copy of 8 |
+| 8 | `attack_tell` | hold: ribs ember, core hot, dim red halo, spikes 3 px with lit tips (KEY) | 24 | key |
+| 9 | `attack_swing` | pre-burst: shell swells, first crack, core `G` | 2 | copy of 10 |
+| 10 | `attack_swing` | first burst frame: shell cracked open, hot core blown out, bright spikes (KEY) | 4 | key |
+| 11 | `hurt` | clenched: dome squashed, spikes flat, white core and rim flash (KEY) | 10 | key |
+| 12 | `down` | glow dies, dome sags | 4 | copy of 14 |
+| 13 | `down` | halfway: dome half deflated, spikes drooping | 8 | copy of 14 |
+| 14 | `down` | settled dud: a flat dead skin against the wall, olive drip (KEY) | hold | key |
 
 ## 5. State diagram
 
 ```mermaid
 stateDiagram-v2
     [*] --> idle
-    idle --> move: <fill: trigger>
-    move --> idle: <fill: trigger>
-    idle --> tell: <fill: in range>
-    move --> tell: <fill: in range>
-    tell --> attack: tell ticks elapsed
-    attack --> idle: recover elapsed
+    idle --> move: player in aggro range, not in contact range
+    move --> idle: player out of aggro range
+    idle --> tell: player body overlaps the contact trigger
+    move --> tell: player body overlaps the contact trigger
+    tell --> attack: 30 tell ticks elapsed
+    attack --> [*]: first burst frame, then the burst VFX and despawn
     idle --> hurt: hit
-    hurt --> idle: hurt ticks elapsed
-    hurt --> defeat: health 0
+    move --> hurt: hit
+    hurt --> idle: 10 hurt ticks elapsed
+    hurt --> defeat: health 0 before the burst
+    tell --> defeat: killed during the tell
     defeat --> [*]
 ```
 
-## 6. Palette
+Triggers are placeholders; no aggro range, health or fuse rule is approved. Whether a hit during the tell cancels it or only a kill does is an open question (section 12).
 
-Palette reference: the Scatterer palette `scatterer-floor01-v1` is reddish-brown and does not apply. The packet candidates are the only colour input; the near-black shell, red spikes and glow ramp are design decisions (<fill>).
+## 6. Palette `rot-sticker-floor01-v1`
 
-At most <fill: 20> colours. Candidates from the concept crop (median cut, by pixel share; see `palette_candidates.json`). These are candidates, not decisions.
+13 of 20 colours used, 7 slots reserved. The near-black shell is warm-purple so it separates from the cold navy of the arches and the orange of the brick. Navy candidates (about 15 of the 24) were treated as background and skipped. Candidates reused: `#0b0b11` (as `K`, nudged to `#0d0a10`), `#a51418` (exact, as `r`); `#9f2e23` and `#b57f58` informed the spike tip and the glow ramp; `#1f181e`, `#282933` and `#392d33` informed the shell ramp.
 
-| # | Candidate | Share | Decision (key, name, role) |
+| Key | Name | Colour | Role |
 | --- | --- | --- | --- |
-| 1 | `#161f29` | 9.0 % | <fill: key, name, role> |
-| 2 | `#18202a` | 7.2 % | <fill: key, name, role> |
-| 3 | `#5b4745` | 6.9 % | <fill: key, name, role> |
-| 4 | `#181f29` | 6.6 % | <fill: key, name, role> |
-| 5 | `#89644f` | 5.8 % | <fill: key, name, role> |
-| 6 | `#392d33` | 5.5 % | <fill: key, name, role> |
-| 7 | `#463232` | 5.4 % | <fill: key, name, role> |
-| 8 | `#31191f` | 4.9 % | <fill: key, name, role> |
-| 9 | `#18202b` | 4.5 % | <fill: key, name, role> |
-| 10 | `#b57f58` | 4.1 % | <fill: key, name, role> |
-| 11 | `#1e1f28` | 3.8 % | <fill: key, name, role> |
-| 12 | `#a51418` | 3.8 % | <fill: key, name, role> |
-| 13 | `#141f2a` | 3.7 % | <fill: key, name, role> |
-| 14 | `#0b0b11` | 3.6 % | <fill: key, name, role> |
-| 15 | `#8d533e` | 3.5 % | <fill: key, name, role> |
-| 16 | `#282933` | 3.4 % | <fill: key, name, role> |
-| 17 | `#20222c` | 3.3 % | <fill: key, name, role> |
-| 18 | `#ab6945` | 2.9 % | <fill: key, name, role> |
-| 19 | `#1f181e` | 2.7 % | <fill: key, name, role> |
-| 20 | `#1c212a` | 2.4 % | <fill: key, name, role> |
-| 21 | `#dfaf74` | 2.2 % | <fill: key, name, role> |
-| 22 | `#121a24` | 2.0 % | <fill: key, name, role> |
-| 23 | `#9f2e23` | 1.8 % | <fill: key, name, role> |
-| 24 | `#181b24` | 1.0 % | <fill: key, name, role> |
+| `K` | outline_soot | `#0d0a10` | outline, silhouette |
+| `a` | shell_0_deep | `#1c1722` | shell shadow, dud skin |
+| `b` | shell_1_shade | `#2b2230` | shell mid-dark |
+| `c` | shell_2_mid | `#3f3243` | shell lit top |
+| `v` | rim_cold | `#6a6682` | cold rim on the upper-right edge, the 1x separation from warm brick |
+| `x` | rot_olive | `#4e4a28` | parasite rot stains, the dud's drip |
+| `m` | rib_dead | `#5a1218` | dim ribs, seam, dead glow, tell halo outer |
+| `r` | rib_red | `#a51418` | spike roots, seam centre, halo inner |
+| `p` | spike_tip | `#e2583a` | spike tips |
+| `o` | glow_ember | `#ec3a1c` | live core ring and lit ribs |
+| `g` | glow_hot | `#ff8a3c` | hot core, burst ring |
+| `G` | glow_core | `#ffdc8a` | hottest core (tell and burst only) |
+| `w` | flash_white | `#efe3d3` | hurt flash only |
 
-The chosen palette must separate this asset from the warm brick and the cold arch of Floor 1 at 1x, and fit the A1 lighting.
+Glow keys (`r`, `p`, `o`, `g`, `G`, `w`) are accents. The idle body is deliberately dark; the brightest pixel group in idle is `o`, and `G` appears only in the tell and burst, so the brightening is the telegraph.
 
 ## 7. Key poses
 
-One key per readability tag (about 6 to 8 keys): idle 0, move contact, tell hold, attack impact, hurt, defeat. Each key lists silhouette, joint positions, palette use and the readability reason. Keys are frozen once the review passes (`pixelart freeze`).
+Six keys (V09 frozen in `tests/fixtures/rot-01_keys.json`): 0, 3, 8, 10, 11, 14. Frames 32 x 32, wall on the left.
 
 | Frame | Tag | Silhouette and pose notes | Readability reason |
 | --- | --- | --- | --- |
-| <fill> | <fill> | <fill> | <fill> |
+| 0 | `idle` | A flattened, squarish dome (superellipse, 20 px tall along the wall, 14 deep) with a crimped, ravioli-like outline. 8 thin radial ribs in `m` run from a hub at the dome's centre, where a 4 px ember core (`o` ring, `g` centre) sits. 6 short spikes (2 px, `r` roots, `p` tips) ring the rim. A cold `v` rim on the upper right, olive rot stains low on the shell and a glowing seam (`r`) down the wall edge. | Dark round disc on brick, read by its cold rim and the red core. Not a spider: no legs, no eyes |
+| 3 | `walk` | Dome sheared 2 to 3 px up the wall and lifted 1 px, 1 px shallower, core dimmed to `r`. The top edge leads, the lower edge drags. | The shear is the only motion cue and reads as creeping along the surface rather than rolling |
+| 8 | `attack_tell` | 3 px wider and 2 px taller than idle, a `G` 6 px core with `g` and `o` rings, all 8 ribs `o`, the seam `o`, a dim `m`/`r` halo ring around the dome and 3 px spikes. | The dark disc suddenly carries a red halo and a hot core: the highest glow before the burst (at least 20 `o` pixels and at least 4 `G`) |
+| 10 | `attack_swing` (first burst frame) | The largest pose (about 24 px tall, 18 deep): cracked shell, 5 `G` crack lines from the core, a `G`/`g` blown-out core about 10 px wide, bright `g` spikes and a `g`/`o` halo. Wall seam `G`. | The brightest, widest frame of the set (at least 40 `G` pixels); the VFX work order takes over from here |
+| 11 | `hurt` | Dome squashed to 10 px deep, spikes flat (1 px), core and rim flashed `w`, ribs and seam dim `m`. | White flash, a dimmer body and flattened spikes read as a flinch and never as the tell |
+| 14 | `down` | A dud: a thin flat skin 5 to 6 px deep against the wall, 1 px drooping spikes, `a`/`m` dead ribs, no glow, an olive `x` drip down the wall. | No `o`, `G` or `w` anywhere: dead and dark, clearly the opposite of the tell |
 
 ## 8. In-between list
 
-For the execution tier; no design decisions needed. One row per non-key frame, as in section 9 of the GOB-01 spec.
+For the execution tier; no design decisions needed. Frames 1, 2, 4 to 7, 9, 12 and 13 are copies of the nearest key now (the validators run with `unique_frames` off until they are drawn; switch it on then).
 
 | # | Pose notes |
 | --- | --- |
-| <fill> | <fill> |
+| 1 | Key 0 with the dome 1 px deeper, core `o`/`g` one step brighter. Height stays 20 |
+| 2 | Key 0 with the core's centre dropped from `g` to `o` and the ring to `r`. Dimmer |
+| 4 | Dome 1 px up the wall, 1 px shallower, shear -1.5 |
+| 5 | Shear +1.5 (the other way), dome 1 px low, core `r` |
+| 6 | Close to key 0, the whole dome 1 px higher than 0, so the loop returns to 3 on a rise |
+| 7 | Key 8 at 60 percent glow: ribs alternate `m`/`o`, core `o`/`g` about 5 px, spikes 2 px, no halo |
+| 9 | Key 10 at about 90 percent: dome 1 px smaller, ribs `o`, one crack, core `G` about 8 px, no spike tip highlight |
+| 12 | Key 0 with the core gone to `m`, dome 2 px shallower, spikes 1 px, ribs `m` |
+| 13 | Dome about 7 px deep, spikes drooping 2 px, no glow, a short `x` drip beginning |
 
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate <asset-config>` (rules V01 to V15 in `scripts/pixelart/validators.py`). Parametrize in the asset config:
+Run by `python3 -m scripts.pixelart validate assets/source/characters/rot_sticker/rot_01.pixelart.json` (rules V01 to V15):
 
-- V04 palette: at most <fill> colours; V05 isolated pixels: 0; V06 orphan pixels: at most <fill> per frame.
-- V07/V08 contact rows: grounded tags end on the contact row, airborne tags never touch it.
+- V04 palette: at most 20 colours (13 used); V05 isolated pixels: 0; V06 orphan pixels: at most 12 per frame (a draft allowance; tighten once the keys are edited, since the rib and shading pixels cause most of them).
+- V07/V08 are off: contact is a column, not a row (section 3).
 - V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/rot-01_keys.json`.
-- V13/V14 readability rules (write each as a bbox or key-count rule): <fill: for example the tell is the highest point, the hurt eyes are white>.
+- V13 bounding boxes (size and silhouette): key 0 is 20 px tall, rows 6 to 25, left column 6, dome right edge 17 to 21; the tell reaches column 21 or more and is at most 24 tall; the burst is the largest pose (right edge 22 or more, height 23 to 26); the hurt is compact (right edge at most 18); the dud frames stay flat (right edge at most 12).
+- V14 key counts (glow rules): idle and walk frames have at least 2 `o` and idle has no `G`; the tell has at least 20 `o` and at least 4 `G`; the burst has at least 40 `G`; the hurt has at least 3 `w`; the dud frames have no `G`, `w` or `o`.
 
 ## 10. Evidence
 
 ```text
-python3 -m scripts.pixelart validate <asset-config> --out <dir>
-python3 -m scripts.pixelart evidence <asset-config> --out <dir>
-python3 -m scripts.pixelart review-pack <asset-config> --out <dir>
+python3 -m scripts.pixelart validate assets/source/characters/rot_sticker/rot_01.pixelart.json --out <dir>
+python3 -m scripts.pixelart evidence assets/source/characters/rot_sticker/rot_01.pixelart.json --out <dir>
+python3 -m scripts.pixelart review-pack assets/source/characters/rot_sticker/rot_01.pixelart.json --out <dir>
+python3 scripts/make_rot01_scale.py
 ```
 
-The review pack holds exactly three images (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip) and the validator report.
+The review pack holds exactly three images (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip) and the validator report. `docs/evidence/rot-01/key0-scale.png` shows key 0 at 1x on the lit catacomb wall next to Carl, plus a 4x copy (sprite placed 30 px above the walking line, unrotated). The senior editor should also check the ceiling transform (rotate 90 degrees clockwise) on a brick ceiling tile.
 
 ## 11. Files
 
 | File | Role |
 | --- | --- |
-| `assets/source/<fill>/rot-01.grid.json` / `.ase` | pixel-grid source and Aseprite master |
+| `assets/source/characters/rot_sticker/rot_01.grid.json` / `.ase` | pixel-grid source and Aseprite master |
 | `assets/manifests/rot-01.json` | manifest |
-| `<fill>/rot-01.pixelart.json` | the asset config (from `frame_pivot_template.json`) |
+| `assets/source/characters/rot_sticker/rot_01.pixelart.json` | the asset config |
+| `scripts/author_rot01.py` | deterministic authoring script (keys by rules, slots as key copies) |
+| `scripts/make_rot01_scale.py` | key0-scale evidence |
 | `tests/fixtures/rot-01_keys.json` | frozen keys |
+| `tests/test_art_rot01.py` | asset-specific tests |
 
-## 12. Rights and provenance
+## 12. Draft notes and open questions for the senior editor
+
+- **Not in scope, noted:** the explosion burst (and any rot splash) is a separate hazard-VFX work order; this set stops at the first burst frame. Wall and ceiling tells, drip stains and decals belong to AREA-HAZARDS-01.
+- Open: is the profile-dome view the right "ravioli"? The concept hero is an oblique disc with radial red ribs; this draft reads as a dome attached edge-on. A face-on disc would make the ceiling variant a different sprite.
+- Open: does a hit cancel the tell, or only a kill (section 5)? Does an exploding sticker hurt other enemies?
+- Open: are the rotated bakes (rim light and highlight on a different edge) acceptable, or does the ceiling need its own lit set?
+- The keys are rule-drawn and a little noisy where ribs meet the shading; the editor should hand-clean key 0 first, since every other pose is derived from it.
+- The 1x read depends on the `v` cold rim and the `r` seam. If it fails on a lit brick, strengthen those two before touching the shell.
+
+## 13. Rights and provenance
 
 Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Record in the PR's `Rights/Provenance` section which model designed, executed and reviewed the art. No tracing of the concept, no image-model raster output.
 
@@ -221,5 +245,5 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Designed by: pending. Executed by: pending. Independently reviewed by: pending.
+- Draft spec + keys: Claude Sonnet. Senior edit: pending. Independently reviewed by: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
