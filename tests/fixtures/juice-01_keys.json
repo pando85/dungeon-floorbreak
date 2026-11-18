@@ -1,0 +1,27 @@
+{
+  "asset_id": "juice-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "7374703fc7a51f2cea26c32bfc6347a02d02b38e3e9489acf76b72fa482b29cc"
+    },
+    "3": {
+      "sha256": "c47d973e4403f8c60462498e04de3e2367aa94942f77d41f09fdcfbab4889603"
+    },
+    "8": {
+      "sha256": "96f32393b35b4cb357bc5e9178dacb2925730b2194942ff3fe563a585edd88ae"
+    },
+    "10": {
+      "sha256": "67ddfcd110de7a4d6656f861a8281b5db15e355c5468f9662f5443b8c24b427d"
+    },
+    "12": {
+      "sha256": "2241e7fd683b5451af9b4e189133b671c423b7fa13e312a27badaf4fcb1fc2f1"
+    },
+    "15": {
+      "sha256": "e89e1e68b7726ecb70e0dd27362ab245adfa900258f3d90b64b62e06259b2d99"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
