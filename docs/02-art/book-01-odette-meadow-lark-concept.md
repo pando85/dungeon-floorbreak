@@ -1,7 +1,7 @@
 # Book 1 — Odette and Meadow Lark supporting-cast concept bible
 
 **Game:** THE CRAWL — NO PANTS. NO MERCY.  
-**Status:** **OWNER-SELECTED ARTISTIC CONCEPTS**, 2026-11-18; five original PNGs pending Hermes intake. Not canon-verified production sprites, animation masters, character scales, gameplay contracts or environment redesigns.  
+**Status:** **OWNER-SELECTED ARTISTIC CONCEPTS**, 2026-11-18; all five original PNGs uploaded by Hermes and independently verified against the source handoff ZIP (Git blob SHA-1 / SHA-256, bytes, dimensions) on 2026-11-18. Not canon-verified production sprites, animation masters, character scales, gameplay contracts or environment redesigns.  
 **Scope:** Odette (Book 1 post-Floor-01 interlude), Imani, Elle McGibbons, Brandon Andrews and Chris Andrews (Meadow Lark / Floor 01). Mordecai is already independently approved and versioned in [his separate concept bible](floor-01-mordecai-concept.md).
 
 ## Authoritative in-repository art constraints
@@ -15,7 +15,7 @@
 
 Book 1 text, where available for authorized private review, is the primary authority on physical appearance, introduction, chronology and equipment. Public fan-character indexes are *corroboration only*, not a license to invent or to import fan art. The generated images and their captions may contain mistakes, and **do not** independently establish canon. All unverified wear, accessories, silhouettes, colors, height labels, prop shapes, room floorplans and story captions remain **artistic proposals** even when the owner likes the image.
 
-Original independent concept illustrations, not copied book pages, official artwork or existing fan artwork, are registered in `assets/concept/book-01/supporting-cast/`. Exact byte hashes and dimensions are enumerated in `manifest.json`; PNG upload and verification must be completed before the draft PR can be merged.
+Original independent concept illustrations, not copied book pages, official artwork or existing fan artwork, are registered in `assets/concept/book-01/supporting-cast/`. Exact byte hashes and dimensions are enumerated in `manifest.json`; PNG upload and byte identity verification are complete for all five images; final CI and PR review are separate release gates.
 
 ## Odette — glamorous masked presenter, exhausted older woman in private
 
@@ -64,7 +64,7 @@ All four concepts below are **human Floor 01 identities**. Do not import later-f
 
 ## Shared artistic review and next stages
 
-1. Preserve one original full-resolution selected concept board per character, with SHA-256, dimensions and original filename. Do not crop AI pseudo-sprites from the boards.
+1. **Complete:** one exact full-resolution selected concept board per character, with SHA-256, Git blob SHA-1, dimensions and original filename verified against the original handoff ZIP. Do not crop AI pseudo-sprites from the boards.
 2. **Chronology gate:** distinguish floor 1 Meadow Lark survivors from Odette's post-floor interview. Avoid a shared Tutorial Guild scene that puts them together against the book.
 3. **Canon gate:** verify faces, sibling relationship, shape/sizing and important equipment before exporting any canonical native-pixel master. Treat all text generated into illustrations as non-authoritative.
 4. **Native scale gate:** Carl 52 px and Donut 40 px are **approved**; NPC sizes printed in these five images are *not*. Validate new 1× silhouettes in 640×360 and 640×400 frames with proper pivots.
