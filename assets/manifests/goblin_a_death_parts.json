@@ -39,7 +39,9 @@
     "decal_pool_2",
     "decal_pool_3",
     "decal_wall_spatter",
-    "decal_smear"
+    "decal_smear",
+    "decal_wall_spatter_b",
+    "decal_pool_3_r"
   ],
   "required_alpha": true,
   "owner": "AI-authored enemy death art (fan-concept layer: common Floor 1 goblin; runtime role IP-neutral small melee enemy)",
@@ -726,6 +728,7 @@
         "spin": "none",
         "settle": "static",
         "bounce": 0.0,
+        "floor_decal": true,
         "ttl": "long"
       },
       {
@@ -757,6 +760,7 @@
         "spin": "none",
         "settle": "static",
         "bounce": 0.0,
+        "floor_decal": true,
         "ttl": "long"
       },
       {
@@ -788,6 +792,7 @@
         "spin": "none",
         "settle": "static",
         "bounce": 0.0,
+        "floor_decal": true,
         "ttl": "keep"
       },
       {
@@ -819,6 +824,7 @@
         "spin": "none",
         "settle": "static",
         "bounce": 0.0,
+        "floor_decal": true,
         "ttl": "keep"
       },
       {
@@ -833,8 +839,8 @@
           16
         ],
         "anchors": {
-          "centre_bottom": [
-            15,
+          "seam_right": [
+            30,
             17
           ]
         },
@@ -849,6 +855,16 @@
         "spin": "none",
         "settle": "static",
         "bounce": 0.0,
+        "floor_decal": true,
+        "span": [
+          38,
+          4
+        ],
+        "pair": "decal_pool_3_r",
+        "pair_offset": [
+          30,
+          0
+        ],
         "ttl": "keep"
       },
       {
@@ -909,6 +925,73 @@
         "spin": "none",
         "settle": "static",
         "bounce": 0.0,
+        "floor_decal": true,
+        "ttl": "keep"
+      },
+      {
+        "id": "decal_wall_spatter_b",
+        "frame": 24,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "origin": [
+            16,
+            26
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "ttl": "keep"
+      },
+      {
+        "id": "decal_pool_3_r",
+        "frame": 25,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "seam_left": [
+            1,
+            17
+          ]
+        },
+        "frame0_origin": null,
+        "class": "blood",
+        "material": "blood",
+        "presets": [
+          4
+        ],
+        "gore_layer": true,
+        "mass": "light",
+        "spin": "none",
+        "settle": "static",
+        "bounce": 0.0,
+        "floor_decal": true,
+        "span": [
+          38,
+          4
+        ],
+        "pair": "decal_pool_3",
         "ttl": "keep"
       }
     ]

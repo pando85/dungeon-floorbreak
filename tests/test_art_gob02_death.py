@@ -193,11 +193,12 @@ class Gob02DeathExecutorTests(unittest.TestCase):
         return self.ids.index(pid)
 
     def test_part_list_and_tags_follow_the_spec_order(self):
-        self.assertEqual(len(self.parts["frames"]), 24)
+        self.assertEqual(len(self.parts["frames"]), 26)
         self.assertEqual(self.ids[:12], ["head", "torso_upper", "club", "head_dead", "torso_lower", "arm_near", "arm_far",
                                          "leg_near", "leg_far", "club_stick", "pineapple", "ear"])
         self.assertEqual(self.ids[16:], ["drop_blood", "decal_splat_s", "decal_splat_m", "decal_pool_1", "decal_pool_2",
-                                         "decal_pool_3", "decal_wall_spatter", "decal_smear"])
+                                         "decal_pool_3", "decal_wall_spatter", "decal_smear", "decal_wall_spatter_b",
+                                         "decal_pool_3_r"])         # 24 and 25 are appended: indices 0 to 23 stay stable
         self.assertEqual([t["name"] for t in self.parts["tags"]], self.ids)
         self.assertEqual(self.pm["animation_tags"], self.ids)
 
@@ -236,7 +237,7 @@ class Gob02DeathExecutorTests(unittest.TestCase):
     def test_every_part_has_schema_complete_metadata(self):
         required = {"id", "frame", "cell", "pivot", "anchors", "frame0_origin", "class", "material", "presets",
                     "gore_layer", "mass", "spin", "settle", "bounce", "ttl"}
-        self.assertEqual(len(self.entries), 24)
+        self.assertEqual(len(self.entries), 26)
         for i, pid in enumerate(self.ids):
             e = self.entries[pid]
             self.assertLessEqual(required, e.keys(), pid)
@@ -312,8 +313,6 @@ class Gob02DeathExecutorTests(unittest.TestCase):
         for pid in ("gib_flesh_a", "gib_flesh_b", "gib_bone", "gib_rag", "drop_blood"):
             box = pg._bbox(pg.composite_keys(self.parts, self.idx(pid)))
             self.assertLessEqual(max(box[2] - box[0], box[3] - box[1]) + 1, 6, pid)      # nothing large lands at 1x
-        pool3 = pg._bbox(pg.composite_keys(self.parts, self.idx("decal_pool_3")))
-        self.assertLessEqual(pool3[2] - pool3[0] + 1, 28)                                # the 28 px rule (spec lists 30)
 
     def test_head_dead_is_the_head_outside_the_eyes_and_the_tongue(self):
         head, dead = self.parts["frames"][0]["cels"], self.parts["frames"][3]["cels"]
@@ -359,12 +358,97 @@ class Gob02DeathExecutorTests(unittest.TestCase):
         self.assertGreaterEqual("".join(stick).count("y"), 8)
         self.assertGreater(len(club), len(opaque(stick)))
 
+    def pool_cols(self, pid: str) -> set[tuple[int, int]]:
+        """A pool's pixels in pool-local coordinates: u = x - 16 (the shared centre), y as drawn (bottom row 17)."""
+        flat = pg.composite_keys(self.parts, self.idx(pid))
+        origin = {"decal_pool_3": ad.POOL3_LEFT_X, "decal_pool_3_r": ad.POOL3_RIGHT_X}.get(pid)
+        out = set()
+        for y, r in enumerate(flat):
+            for x, ch in enumerate(r):
+                if ch != ".":
+                    u = x - 16 if origin is None else (x - origin) - ad.POOL3_WIDTH // 2 + (0 if pid == "decal_pool_3" else ad.POOL3_WIDTH // 2)
+                    out.add((u, y))
+        return out
+
     def test_pools_grow_by_frame_swap(self):
-        pools = [pg.composite_keys(self.parts, self.idx(f"decal_pool_{k}")) for k in (1, 2, 3)]
-        sets = [{(x, y) for y, r in enumerate(p) for x, ch in enumerate(r) if ch != "."} for p in pools]
-        self.assertTrue(sets[0] < sets[1] < sets[2])
-        for pid in ("decal_pool_1", "decal_pool_2", "decal_pool_3"):
+        """Stage 3 is 38 x 4 (a floor decal: the 28 px cap is for launched parts) stored as two 19 px halves because a
+        cell is 32 wide; nested over stage 2 on the shared centre and bottom row."""
+        p1, p2 = self.pool_cols("decal_pool_1"), self.pool_cols("decal_pool_2")
+        p3 = self.pool_cols("decal_pool_3") | self.pool_cols("decal_pool_3_r")
+        self.assertTrue(p1 < p2 < p3)
+        us = [u for u, _y in p3]
+        self.assertEqual(max(us) - min(us) + 1, 38)
+        ys = [y for _u, y in p3]
+        self.assertEqual((min(ys), max(ys)), (14, 17))
+        self.assertEqual(max(us) + min(us), -1)                        # same centre as stages 1 and 2
+        self.assertEqual(max(u for u, _ in p2) + min(u for u, _ in p2), -1)
+        self.assertLessEqual(max(us) - min(us) + 1, 40)                # floor decals: 40 x 4 at most
+        for pid in ("decal_pool_1", "decal_pool_2", "decal_pool_3", "decal_pool_3_r"):
             self.assertGreaterEqual("".join(self.parts["frames"][self.idx(pid)]["cels"]["gore"]).count("P"), 1)
+        for pid in ("decal_pool_3", "decal_pool_3_r"):
+            self.assertEqual(self.entries[pid]["span"], [38, 4])
+            self.assertTrue(self.entries[pid]["floor_decal"])
+        self.assertEqual(self.entries["decal_pool_3"]["pair"], "decal_pool_3_r")
+        # the halves abut: left x 30 and right x 1 are neighbours once the right cell sits at the pair offset
+        dx = self.entries["decal_pool_3"]["pair_offset"][0]
+        self.assertEqual(30 + 1, 1 + dx)
+
+    def test_floor_decal_flags_and_launched_part_cap(self):
+        flagged = {pid for pid, e in self.entries.items() if e.get("floor_decal")}
+        self.assertEqual(flagged, {"decal_splat_s", "decal_splat_m", "decal_pool_1", "decal_pool_2", "decal_pool_3",
+                                   "decal_pool_3_r", "decal_smear"})
+        for pid in self.ids:
+            box = pg._bbox(pg.composite_keys(self.parts, self.idx(pid)))
+            w, h = box[2] - box[0] + 1, box[3] - box[1] + 1
+            if pid in flagged:
+                self.assertTrue(w <= 40 and h <= 4, pid)
+            else:
+                self.assertTrue(w <= 28 and h <= 28, pid)
+
+    def test_wall_spatter_variants_follow_the_polish_rules(self):
+        """Mostly clotted ``B`` bodies with ``o`` tips, ``R`` only near the origin, two ``P`` glints, 3 drips (a) or 4 (b)."""
+        for pid, size, drips in (("decal_wall_spatter", (22, 18), 3), ("decal_wall_spatter_b", (20, 22), 4)):
+            i = self.idx(pid)
+            cels = self.parts["frames"][i]["cels"]
+            self.assertFalse("".join(cels["body"] + cels["weapon"]).strip("."))
+            box = pg._bbox(pg.composite_keys(self.parts, i))
+            self.assertLessEqual(abs((box[2] - box[0] + 1) - size[0]), 5, pid)
+            self.assertLessEqual(abs((box[3] - box[1] + 1) - size[1]), 1, pid)
+            flat = "".join(cels["gore"])
+            counts = {k: flat.count(k) for k in "BRoP"}
+            self.assertGreater(counts["B"], counts["R"] * 2, pid)          # mostly B
+            self.assertGreaterEqual(counts["o"], 6, pid)                    # darkened tips
+            self.assertEqual(counts["P"], 2, pid)
+            ox, oy = self.entries[pid]["anchors"]["origin"]
+            for y, row in enumerate(cels["gore"]):
+                for x, ch in enumerate(row):
+                    if ch in "RP":
+                        self.assertLessEqual(((x - ox) ** 2 + (y - oy) ** 2) ** 0.5, 8.5, (pid, x, y))   # R near the origin only
+        box_b = pg._bbox(pg.composite_keys(self.parts, self.idx("decal_wall_spatter_b")))
+        b_o = self.entries["decal_wall_spatter_b"]["anchors"]["origin"]
+        self.assertEqual(b_o[1], box_b[3])                                  # variant b: origin on the bottom row ...
+        self.assertAlmostEqual(b_o[0], 16, delta=0)                         # ... at the bitmap's bottom-centre (cell x 16)
+        a_o = self.entries["decal_wall_spatter"]["anchors"]["origin"]
+        box_a = pg._bbox(pg.composite_keys(self.parts, self.idx("decal_wall_spatter")))
+        self.assertEqual(a_o, [box_a[0], box_a[3]])                         # variant a: lower-left
+        self.assertEqual(self.entries["decal_wall_spatter_b"]["presets"], [4])
+
+    def test_torso_lower_is_lifted_off_the_dark_floor(self):
+        body = self.parts["frames"][self.idx("torso_lower")]["cels"]["body"]
+        rows = [r for r in body if r.strip(".")]
+        lit = [r for r in rows if "u" in r]
+        self.assertTrue(lit, "no light row")
+        r = lit[0]
+        self.assertGreaterEqual(r.count("u"), 8)
+        self.assertEqual(r.count("t"), 2)                                   # broken by t in two places
+
+    def test_spawner_hints_carry_the_section_8_counts(self):
+        hints = self.qm["death_poses"]["spawner_hints"]
+        self.assertEqual(hints["crush"]["drops"], [16, 20])
+        self.assertEqual(hints["crush"]["ticks"]["pool_2"], 20)
+        self.assertEqual(hints["crush"]["ticks"]["pool_3"], 60)
+        self.assertEqual(hints["explosive"]["gibs"], 8)
+        self.assertEqual(hints["explosive"]["drops"], 24)
 
     def test_preset_classes_follow_the_section_5_table(self):
         presets = {pid: set(e["presets"]) for pid, e in self.entries.items()}

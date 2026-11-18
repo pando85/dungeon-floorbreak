@@ -29,10 +29,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from PIL import Image, ImageDraw  # noqa: E402
+from PIL import Image, ImageDraw, ImageOps  # noqa: E402
 
 import author_gob02_death as ad  # noqa: E402
-from scripts.pixelart.common import CARL_X, DONUT_X, grid_images, label  # noqa: E402
+from scripts.pixelart.common import CARL_X, DONUT_X, gif_delays, grid_images, label, save_gif  # noqa: E402
 from scripts.pixelart.scene import Floor, reference_idle  # noqa: E402
 
 OUT = ROOT / "docs/evidence/gob-02-death"
@@ -144,8 +144,9 @@ class Scene:
         self.donut, self.donut_piv = reference_idle("donut")
         self.pieces: list[Piece] = []
         self.decals: list[tuple[str, float, float]] = []     # (part id, world x of anchor, world y of the anchor row)
-        self.walls: list[tuple[str, float, float]] = []
+        self.walls: list[tuple] = []
         self.pending: list[tuple[int, callable]] = []
+        self.extra_pieces: list = []
 
     def rnd(self, lo, hi):
         return self.rng.uniform(lo, hi)
@@ -160,6 +161,12 @@ class Scene:
     def decal(self, pid, x, y=None):
         if self.sp.allowed(pid, self.preset):
             self.decals.append((pid, x, self.ground if y is None else y))
+            if pid == "decal_pool_3":                  # stage 3 is two 19 px halves (a cell is 32 px wide)
+                self.decals.append(("decal_pool_3_r", x + 1, self.ground if y is None else y))
+
+    def wall(self, pid, wx, wy, flip=False):
+        if self.sp.allowed(pid, self.preset):
+            self.walls.append((pid, wx, wy, flip))
 
     def run(self, ticks: int, events: dict[int, list]) -> None:
         """Advance ``ticks`` ticks; ``events[t]`` are callables run before tick t's physics."""
@@ -170,20 +177,24 @@ class Scene:
                 was = len(p.hits)
                 step(self.sp, p, self.ground)
                 if len(p.hits) > was and p.pid in ("drop_blood",):
-                    self.decal("decal_splat_s", p.hits[-1])
+                    if sum(d[0] == "decal_splat_s" for d in self.decals) < 8:          # at most 8 per death
+                        self.decal("decal_splat_s", p.hits[-1])
                     p.dead = True
                 if len(p.hits) > was and p.pid in ("head", "head_dead"):
                     self.decal("decal_splat_s", p.hits[-1])
             self.pieces = [p for p in self.pieces if not getattr(p, "dead", False)]
 
     # ---- drawing
-    def entries(self, goblin: tuple | None, extras_back: list | None = None) -> list:
-        """Draw order: wall decals, floor decals, debris, then the goblin pose and the cast. All unshadowed but the cast."""
-        out = [(self.donut, self.donut_piv, DONUT_X, 0), (self.carl, self.carl_piv, CARL_X, 0)]
-        for pid, wx, wy in self.walls:
+    def entries(self, goblin: tuple | None, extras_back: list | None = None, cast_on_top: bool = False) -> list:
+        """Draw order: wall decals, floor decals, debris, then the goblin pose and the cast (the cast last when
+        ``cast_on_top``: nothing is ever drawn over a player sprite). All unshadowed but the cast."""
+        cast = [(self.donut, self.donut_piv, DONUT_X, 0), (self.carl, self.carl_piv, CARL_X, 0)]
+        out = [] if cast_on_top else list(cast)
+        for pid, wx, wy, flip in self.walls:
             img = self.sp.part(pid, self.preset)
-            anchor = self.sp.entries[pid]["anchors"]
-            ax, ay = list(anchor.values())[0]
+            ax, ay = list(self.sp.entries[pid]["anchors"].values())[0]
+            if flip:
+                img, ax = ImageOps.mirror(img), img.width - 1 - ax
             out.append((img, (ax, ay), int(wx), int(self.ground - wy), False))
         for pid, wx, wy in self.decals:
             img = self.sp.part(pid, self.preset)
@@ -193,8 +204,11 @@ class Scene:
         for p in self.pieces:
             img = sprite_of(self.sp, p, self.preset)
             out.append((img, CP, int(round(p.x)), int(round(self.ground - p.y)), False))
+        out += self.extra_pieces
         if goblin:
             out.append(goblin)
+        if cast_on_top:
+            out += cast
         return out
 
 
@@ -225,16 +239,17 @@ class Stage:
             sc.emit("club", x, y, sc.rnd(90, 150), sc.rnd(120, 180), -sc.rnd(540, 900), 2, 0.3)
 
         def blood():
-            for _ in range(sc.count(12)):
-                for key in ("mouth", "squeeze_back", "squeeze_front"):
-                    pass
-            for i in range(sc.count(12)):
-                key = ("mouth", "squeeze_back", "squeeze_front")[i % 3]
-                x, y = at(a0[key])
-                ang = __import__("math").radians(sc.rnd(10, 35))
-                sp_ = sc.rnd(80, 160)
-                sign = -1 if key == "squeeze_back" else 1
-                sc.emit("drop_blood", x, y, sign * sp_ * __import__("math").cos(ang), sp_ * __import__("math").sin(ang), 0, 0, 0)
+            import math
+            # section 8: 16 to 20 drops, 6 to 8 from the mouth and 5 to 6 from each squeeze point (scaled by preset)
+            plan = [("mouth", sc.rng.randint(6, 8)), ("squeeze_back", sc.rng.randint(5, 6)),
+                    ("squeeze_front", sc.rng.randint(5, 6))]
+            for key, n in plan:
+                for _ in range(sc.count(n)):
+                    x, y = at(a0[key])
+                    ang = math.radians(sc.rnd(10, 35))
+                    sp_ = sc.rnd(80, 160)
+                    sign = -1 if key == "squeeze_back" else 1
+                    sc.emit("drop_blood", x, y, sign * sp_ * math.cos(ang), sp_ * math.sin(ang), 0, 0, 0)
 
         def gibs():
             plan = [("gib_flesh_a", "squeeze_back"), ("gib_flesh_b", "squeeze_front"), ("gib_bone", "squeeze_front")]
@@ -246,20 +261,25 @@ class Stage:
         def stains():
             for key in ("squeeze_back", "squeeze_front"):
                 sc.decal("decal_splat_m" if sc.preset >= 3 else "decal_splat_s", at(a0[key])[0])
-            sc.decal("decal_pool_1", at(self.pa[2]["pool_origin"])[0] - 28 + 28)
+            self._pool(sc, 1, gx)
 
-        events = {0: [club, blood, gibs], 4: [stains]}
-        if t >= 30:
-            events[30] = [lambda: self._pool(sc, 2, gx)]
+        def wall_spatter():
+            variant = sc.rng.choice(["decal_wall_spatter", "decal_wall_spatter_b"])
+            flip = sc.rng.random() < 0.5
+            x = at(a0["squeeze_front"])[0] + (-6 if flip else 6)
+            sc.wall(variant, x, g - 8, flip)
+
+        events = {0: [club, blood, gibs], 4: [stains], 8: [wall_spatter], 20: [lambda: self._pool(sc, 2, gx)],
+                  60: [lambda: self._pool(sc, 3, gx)]}
         sc.run(t, events)
-        if t >= 30 and preset >= 3:
-            sc.decals = [d for d in sc.decals if d[0] != "decal_pool_1"]
         goblin, back = self._crush_actor(sc, t, gx)
         return self.floor.render(sc.entries(goblin, back), 1)
 
-    def _pool(self, sc, stage, gx):
-        sc.decals = [d for d in sc.decals if not d[0].startswith("decal_pool")]
-        sc.decal(f"decal_pool_{stage}", world_of(self.pa[2]["pool_origin"], gx, sc.ground)[0])
+    def _pool(self, sc, stage, gx, origin=None):
+        """Stage ``stage`` replaces the previous pool (a frame swap that grows it in place) when the preset has it."""
+        if sc.sp.allowed(f"decal_pool_{stage}", sc.preset):
+            sc.decals = [d for d in sc.decals if not d[0].startswith("decal_pool")]
+            sc.decal(f"decal_pool_{stage}", world_of(origin or self.pa[2]["pool_origin"], gx, sc.ground)[0])
 
     def _crush_actor(self, sc, t, gx):
         g = sc.ground
@@ -301,10 +321,12 @@ class Stage:
 
         def wall():
             jx, jy = world_of(self.pa[3]["jet_base"], gx, g)
-            sc.walls.append(("decal_wall_spatter", jx - 3, g - 26)) if sc.sp.allowed("decal_wall_spatter", preset) else None
+            variant = sc.rng.choice(["decal_wall_spatter", "decal_wall_spatter_b"])
+            flip = sc.rng.random() < 0.5
+            sc.wall(variant, jx + (3 if flip else -3), g - 26, flip)
 
         def pool(stage):
-            return lambda: self._pool(sc, stage, gx + 0)
+            return lambda: self._pool(sc, stage, gx, self.pa[5]["pool_origin"])
 
         events: dict[int, list] = {0: [head], 4: [wall]}
         for k, tk in enumerate(range(4, 35, 3)):
@@ -324,23 +346,57 @@ class Stage:
         goblin = (self.sp.pose(n, preset), PIV, gx, 0)
         return self.floor.render(sc.entries(goblin), 1)
 
-    # -- headless collapse hold and the scatter
-    def scatter(self, preset: int = 4, gx: int = CARL_X + 150, seed: int = 5) -> Image.Image:
+    # -- explosive breakup: an irregular settle (spec section 8)
+    def explosion(self, preset: int = 4, centre: int = CARL_X + 150, seed: int = 5, carl_inside: bool = False) -> Image.Image:
+        """Every part of the preset at its settled place: seeded scatter around ``centre``, rotations in 90 degree
+        steps, light pieces piled on heavier ones (never higher than 12 px), then 8 gibs, 24 drops (at most 8 splats),
+        both wall-spatter variants (one each side) and pools under the two heaviest pieces. Not an evenly spaced row."""
         sc = Scene(self.sp, self.floor, preset, seed)
         g = sc.ground
-        ids = ["head_dead", "torso_upper", "torso_lower", "arm_near", "arm_far", "leg_near", "leg_far", "club_stick",
-               "pineapple", "ear", "gib_flesh_a", "gib_flesh_b", "gib_bone", "gib_rag", "gib_flesh_a", "gib_rag"]
-        x = gx - 40
-        for pid in ids:
-            if self.sp.allowed(pid, preset) or pid == "head_dead":
-                p = Piece(pid, x, 0, 0, 0, 0, 0, 0)
-                p.y, p.rest = rest_y(self.sp, pid, g), True
-                sc.pieces.append(p)
-            x += sc.rng.randint(8, 15)
-        for pid, off in (("decal_pool_2", 48), ("decal_pool_1", 100), ("decal_splat_m", 80), ("decal_splat_s", 130)):
-            sc.decal(pid, gx - 40 + off)
-        sc.walls.append(("decal_wall_spatter", gx + 10, g - 24))
-        return self.floor.render(sc.entries(None), 1)
+        heavy = ["torso_upper", "torso_lower", "head_dead", "leg_near", "leg_far", "arm_near", "arm_far", "club_stick",
+                 "pineapple", "ear"]
+        light = ["gib_flesh_a"] * 3 + ["gib_flesh_b"] * 2 + ["gib_bone"] * 2 + ["gib_rag"]
+        placed: list[tuple[int, int, str]] = []                       # (x, top lift, id) of settled pieces
+        spots: dict[str, int] = {}
+        for pid in heavy + light:
+            if not (self.sp.allowed(pid, preset) or pid == "head_dead"):
+                continue
+            x = int(centre + max(-80, min(80, sc.rng.gauss(0, 34))))
+            quarter = sc.rng.randint(0, 3)
+            img = self.sp.part(pid, preset).rotate(90 * quarter)
+            x0, y0, x1, y1 = ad_bbox(img)
+            lift = 0
+            for ox, otop, _oid in placed:
+                if abs(ox - x) < 9:                                   # overlaps a settled piece: lies on top of it
+                    lift = max(lift, min(12, otop))
+            top = lift + (y1 - y0 + 1)
+            placed.append((x, top, pid))
+            spots.setdefault(pid, x)
+            sc.extra_pieces.append((img, CP, x, y1 - CP[1] + lift, False))
+        for _ in range(sc.count(24)):                                 # 24 drops land; at most 8 splats are kept
+            if sum(d[0] == "decal_splat_s" for d in sc.decals) < 8:
+                sc.decal("decal_splat_s", int(centre + sc.rng.gauss(0, 44)))
+        for pid in ("decal_splat_m", "decal_splat_m"):
+            sc.decal(pid, int(centre + sc.rng.uniform(-60, 60)))
+        if "torso_upper" in spots:
+            sc.decals.append(("decal_pool_2", spots["torso_upper"], g))
+        if "torso_lower" in spots:
+            sc.decals.append(("decal_pool_1", spots["torso_lower"] + 4, g))
+        sc.wall("decal_wall_spatter", centre - 48, g - 22, False)
+        sc.wall("decal_wall_spatter_b", centre + 40, g - 12, True)
+        return self.floor.render(sc.entries(None, cast_on_top=carl_inside), 1)
+
+
+def crush_sequence_gif(stage: Stage, k: int) -> Path:
+    """Crush at preset 4: pose 0, 1, 2 and pool stages 1 to 3 at the section 8 ticks (L, L+3, L+4, L+6, L+8, L+20, L+60)."""
+    gx = CARL_X + 120
+    ticks = [0, 3, 4, 6, 8, 20, 60]
+    frames = [crop_of(stage.crush(4, t, gx), stage.floor, gx, k, left=110, right=150) for t in ticks]
+    holds = [t2 - t1 for t1, t2 in zip(ticks, ticks[1:])] + [90]
+    delays = gif_delays(holds)
+    path = OUT / f"gif_crush_sequence_x{k}.gif"
+    save_gif(frames, delays, path)
+    return path
 
 
 # --------------------------------------------------------------------------- sheets
@@ -374,11 +430,11 @@ def preset_poses(sp: Sprites) -> Path:
 
 def preset_parts(sp: Sprites) -> Path:
     k = 3
-    cols = 12
+    cols = 13
     cw = 32 * k + 4
     sheet = Image.new("RGB", (cols * cw + 70, 2 * 4 * (32 * k + 4) + 40), (30, 24, 30))
     d = ImageDraw.Draw(sheet)
-    label(d, (6, 4), "parts atlas at presets 4, 3, 2, 1 (crossed out: not spawned at that preset); 24 parts in two bands of 12")
+    label(d, (6, 4), "parts atlas at presets 4, 3, 2, 1 (crossed out: not spawned at that preset); 26 parts in two bands of 13")
     for band in range(2):
         for r, preset in enumerate(PRESETS):
             y0 = 24 + (band * 4 + r) * (32 * k + 4)
@@ -402,7 +458,7 @@ ANCHOR_COLOURS = [(0, 220, 255), (255, 214, 0), (255, 90, 200), (120, 255, 120),
 def parts_anchors(sp: Sprites) -> Path:
     k = 4
     cols, cw = 6, 32 * 4 + 6
-    rows = 4
+    rows = 5
     sheet = Image.new("RGB", (cols * cw + 6, rows * (32 * k + 22) + 6), (30, 24, 30))
     d = ImageDraw.Draw(sheet)
     for i, pid in enumerate(ad.PART_IDS):
@@ -505,13 +561,27 @@ def preset_strip(stage: Stage) -> Path:
 
 
 def scenes_1x(stage: Stage) -> Path:
-    views = [stage.crush(4, 0, CARL_X + 90), stage.decap(4, 0, CARL_X + 170), stage.decap(4, 60, CARL_X + 170),
-             stage.scatter()]
+    views = [stage.crush(4, 0, CARL_X + 90), stage.crush(4, 70, CARL_X + 120), stage.decap(4, 0, CARL_X + 170),
+             stage.decap(4, 60, CARL_X + 170), stage.explosion()]
     w, h = views[0].size
     sheet = Image.new("RGB", (w, h * len(views) + 4 * (len(views) - 1)), (24, 23, 34))
     for i, v in enumerate(views):
         sheet.paste(v, (0, i * (h + 4)))
     path = OUT / "scenes_1x.png"
+    sheet.save(path)
+    return path
+
+
+def carl_in_debris(stage: Stage) -> Path:
+    """Carl standing inside the debris field and the pools: nothing is drawn over him (the cast is drawn last)."""
+    view = stage.explosion(4, CARL_X + 6, seed=9, carl_inside=True)
+    k = 3
+    vx, gv = CARL_X - stage.floor.view[0], stage.floor.ground(CARL_X) - stage.floor.view[1]
+    crop = view.crop((vx - 110, gv - 80, vx + 110, gv + 12)).resize((220 * k, 92 * k), Image.NEAREST)
+    sheet = Image.new("RGB", (view.width, view.height + crop.height + 4), (24, 23, 34))
+    sheet.paste(view, (0, 0))
+    sheet.paste(crop, ((view.width - crop.width) // 2, view.height + 4))
+    path = OUT / "scene_carl_in_debris.png"
     sheet.save(path)
     return path
 
@@ -525,6 +595,9 @@ def main() -> int:
     print("wrote", storyboard(stage, "storyboard_decap.png", "decap", [0, 4, 10, 40], CARL_X + 170).relative_to(ROOT))
     print("wrote", preset_strip(stage).relative_to(ROOT))
     print("wrote", scenes_1x(stage).relative_to(ROOT))
+    print("wrote", carl_in_debris(stage).relative_to(ROOT))
+    for k in (1, 3):
+        print("wrote", crush_sequence_gif(stage, k).relative_to(ROOT))
     return 0
 
 

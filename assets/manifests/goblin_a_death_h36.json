@@ -200,6 +200,72 @@
           ]
         }
       }
-    ]
+    ],
+    "spawner_hints": {
+      "crush": {
+        "drops": [
+          16,
+          20
+        ],
+        "drops_from": {
+          "mouth": [
+            6,
+            8
+          ],
+          "squeeze_back": [
+            5,
+            6
+          ],
+          "squeeze_front": [
+            5,
+            6
+          ]
+        },
+        "splat_s_per_death_max": 8,
+        "club": 1,
+        "gibs": {
+          "gib_flesh_a": 1,
+          "gib_flesh_b": 1,
+          "gib_bone": 1
+        },
+        "ticks": {
+          "pose_1": 3,
+          "pose_2": 6,
+          "splat_m_and_pool_1": 4,
+          "wall_spatter": 8,
+          "pool_2": 20,
+          "pool_3": 60
+        },
+        "wall_spatter": {
+          "variants": [
+            "decal_wall_spatter",
+            "decal_wall_spatter_b"
+          ],
+          "mirrored": "seeded"
+        }
+      },
+      "decapitation": {
+        "ticks": {
+          "pose_4": 4,
+          "pose_5": 10,
+          "pool_1": 14,
+          "pool_2": 40,
+          "pool_3": 100,
+          "wall_spatter": 4
+        },
+        "jet_drops": {
+          "every_ticks": 3,
+          "per_emit": 2,
+          "for_ticks": 30
+        }
+      },
+      "explosive": {
+        "gibs": 8,
+        "drops": 24,
+        "wall_spatter": "both variants, one each side",
+        "pools_under": 2,
+        "settle": "irregular: seeded 90 degree rotations, piled and overlapping, never an even row"
+      }
+    }
   }
 }

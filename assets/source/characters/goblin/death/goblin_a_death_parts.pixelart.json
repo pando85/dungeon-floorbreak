@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "gob-02-death-parts",
-  "title": "GOB-02-DEATH goblin A death-parts sheet (docs/02-art/gob-02-death-spec.md section 7); 32 x 32 cells; 24 parts, 3 frozen keys",
+  "title": "GOB-02-DEATH goblin A death-parts sheet (docs/02-art/gob-02-death-spec.md section 7); 32 x 32 cells; 26 parts, 3 frozen keys",
   "grid": "assets/source/characters/goblin/death/goblin_a_death_parts.grid.json",
   "manifest": "assets/manifests/goblin_a_death_parts.json",
   "frame_size": [32, 32],
@@ -34,7 +34,9 @@
     "decal_pool_2": {"playback": "hold", "contact": "free", "frames": [[20, null]]},
     "decal_pool_3": {"playback": "hold", "contact": "free", "frames": [[21, null]]},
     "decal_wall_spatter": {"playback": "hold", "contact": "free", "frames": [[22, null]]},
-    "decal_smear": {"playback": "hold", "contact": "free", "frames": [[23, null]]}
+    "decal_smear": {"playback": "hold", "contact": "free", "frames": [[23, null]]},
+    "decal_wall_spatter_b": {"playback": "hold", "contact": "free", "frames": [[24, null]]},
+    "decal_pool_3_r": {"playback": "hold", "contact": "free", "frames": [[25, null]]}
   },
   "rules": {
     "max_colors": 20,
@@ -49,7 +51,7 @@
       "layers": ["body", "weapon", "gore"]
     },
     "bbox": [
-      {"id": "P1-part-never-larger-than-28px", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23], "max_width": 28, "max_height": 28}
+      {"id": "P1-part-never-larger-than-28px", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25], "max_width": 28, "max_height": 28}
     ],
     "key_counts": [
       {"id": "P2-head-shocked-eyes", "frames": [0], "key": "w", "min": 4},

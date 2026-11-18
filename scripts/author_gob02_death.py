@@ -560,6 +560,9 @@ def part_torso_lower() -> dict[str, list[str]]:
     CELL_SHIFT_RECORD["torso_lower"] = shift_
     body = drop_dangling_outline(close_outline(shift(src, *shift_), size=CELL))
     top = min(y for _x, y in body)                     # the outline row above the belt
+    lit = sorted(x for (x, y), ch in body.items() if y == top + 2 and ch not in "K")   # first skirt row, under the belt
+    for i, x in enumerate(lit):                        # lift on the dark floor: a broken ``u`` top light, ``t`` twice
+        body[(x, top + 2)] = "t" if i in (3, 9) else "u"
     tear = {21: (8, "BBRRRBRRB"), 22: (8, "BwwRPRRRPBB"), 23: (9, "BRRBB.RRB")}
     gore: Pix = {}
     x_mid = (min(x for x, _y in body) + max(x for x, _y in body)) // 2
@@ -650,13 +653,30 @@ BLOOD = {
 }
 
 
+POOL3_WIDTH = 38          # flat floor decals may exceed the 28 px launched-part cap (40 x 4 at most); a 32 px cell cannot
+                          # hold 38, so stage 3 is a left half (``decal_pool_3``) and a right half (``decal_pool_3_r``)
+POOL3_LEFT_X, POOL3_RIGHT_X = 12, 1       # cell x of local column 0 of each half (left: 12..30, right: 1..19)
+
+
 def decal_pool_rows() -> dict[str, dict[int, str]]:
-    """Three nested pools: 12 x 2, 20 x 3, 28 x 4. Each is the previous one grown by one ring plus a wider run."""
+    """Three nested pools: 12 x 2, 20 x 3 and 38 x 4 (stage 3 is stored as two 19 px halves). Each stage contains the
+    previous one when aligned on the shared centre and bottom row."""
     p1 = {16: "oBBRPRRBBBBo", 17: "oBBBBBBBBBBo"}
     p2 = {15: "..oBBRRRRBBo..".center(20, "."), 16: "oBBBRRRRPRRRRBBBBBBo", 17: "oBBBBBBBBBBBBBBBBBBo"}
-    p3 = {14: "...oBBBRRRRBBBo...".center(28, "."), 15: ".oBBBBRRRRRRRRRRBBBBBBo.".center(28, "."),
-          16: "oBBBBRRRRRRPRRRRRRRRBBBBBBBo", 17: "oBBBBBBBBBBBBBBBBBBBBBBBBBBo"}
+    row16 = list("o" + "BBB" + "R" * 30 + "BBB" + "o")
+    row16[15] = row16[23] = "P"
+    p3 = {14: ("o" + "BB" + "R" * 16 + "BB" + "o").center(POOL3_WIDTH, "."),
+          15: ("o" + "BBBB" + "R" * 20 + "BBBB" + "o").center(POOL3_WIDTH, "."),
+          16: "".join(row16), 17: "o" + "B" * 36 + "o"}
     return {"decal_pool_1": p1, "decal_pool_2": p2, "decal_pool_3": p3}
+
+
+def pool3_halves() -> dict[str, dict]:
+    """``{pid: (rows, cell x of its column 0)}`` for the two halves of stage 3."""
+    full = decal_pool_rows()["decal_pool_3"]
+    half = POOL3_WIDTH // 2
+    return {"decal_pool_3": ({y: r[:half] for y, r in full.items()}, POOL3_LEFT_X),
+            "decal_pool_3_r": ({y: r[half:] for y, r in full.items()}, POOL3_RIGHT_X)}
 
 
 def part_small(name: str):
@@ -669,6 +689,10 @@ def part_small(name: str):
 
 def part_pool(name: str):
     """Pools are placed, not centred: bottom row 17, shared centre, so a frame swap grows the stain in place."""
+    halves = pool3_halves()
+    if name in halves:
+        rows, x0 = halves[name]
+        return finish_part({}, {}, literal(rows, x0)), (x0, 0)
     rows = decal_pool_rows()[name]
     width = max(len(r) for r in rows.values())
     x0 = 16 - width // 2
@@ -676,37 +700,72 @@ def part_pool(name: str):
     return finish_part({}, {}, pix), (x0, 0)
 
 
-SPATTER_RAYS = [(8, 21), (20, 20), (32, 19), (45, 19), (58, 19), (70, 17), (82, 17)]    # (degrees up from the floor, length)
-SPATTER_DRIPS = [(3, 5), (4, 4), (5, 6)]          # (ray index, length): a B tail 1 px wide hanging from that streak's tip
+SPATTER_A = {   # 22 x 18, origin lower-left (0, 17). Rays: (degrees up from the horizontal, length, end blob?)
+    "size": (22, 18), "origin": (0, 17),
+    "rays": [(6, 21, False), (17, 15, True), (29, 19, False), (41, 12, True), (55, 17, False), (68, 10, False),
+             (80, 17, True)],
+    "drips": [(4, 13, 5), (6, 12, 4), (2, 15, 6)],             # (ray, distance along it, length): B tails 1 px wide
+    "glints": [(1, 3), (3, 4)],                               # (ray, distance): the two P near the origin
+}
+SPATTER_B = {   # 20 x 22, origin bottom-centre (10, 21): a steeper fan with one long streak and four drips
+    "size": (20, 22), "origin": (10, 21),
+    "rays": [(50, 17, False), (62, 12, True), (74, 17, False), (86, 21, False), (96, 15, True), (104, 18, False),
+             (110, 14, True)],
+    "drips": [(0, 11, 4), (2, 13, 6), (4, 11, 3), (6, 8, 5)],
+    "glints": [(2, 3), (4, 4)],
+}
+
+
+def spatter(spec: dict) -> Pix:
+    """Back-wall spatter on the gore layer. Streak bodies are ``B`` (``R`` only within 6 px of the origin: red loses
+    contrast on lit brick), the last 1 or 2 px of each streak darken to ``o``, some streaks end in a 1 to 2 px blob,
+    lengths are irregular, drips hang from points along streaks (``B``, 1 px wide), two ``P`` glints sit near the
+    origin."""
+    import math
+    w, h = spec["size"]
+    ox, oy = spec["origin"]
+    pix: Pix = {}
+    rank = {"R": 3, "B": 2, "o": 1}
+
+    def put(x, y, key):
+        if 0 <= x < w and 0 <= y < h and rank.get(pix.get((x, y)), 0) < rank[key]:
+            pix[(x, y)] = key
+
+    def at(deg, t):
+        a = math.radians(deg)
+        return ox + round(t * math.cos(a)), oy - round(t * math.sin(a))
+
+    for deg, length, blob in spec["rays"]:
+        for step in range(length * 2 + 1):
+            t = step / 2
+            put(*at(deg, t), "R" if t <= 6 else ("o" if t >= length - 1.5 else "B"))
+        if blob:
+            tx, ty = at(deg, length)
+            for dx, dy in ((0, 0), (1 if deg < 90 else -1, 0)):
+                put(tx + dx, ty + dy, "B")
+    for dx in (-1, 0, 1):                                    # the origin: a small meat core
+        for dy in (0, -1):
+            put(ox + dx, oy + dy, "R")
+    for ray, dist, n in spec["drips"]:
+        x, y = at(spec["rays"][ray][0], dist)
+        for k in range(1, n + 1):
+            if 0 <= y + k < h and (x, y + k) not in pix:
+                pix[(x, y + k)] = "B"
+    for ray, dist in spec["glints"]:
+        gx, gy = at(spec["rays"][ray][0], dist)
+        if pix.get((gx, gy)) == "R":
+            pix[(gx, gy)] = "P"
+    return pix
 
 
 def part_wall_spatter() -> dict[str, list[str]]:
-    """Back-wall spatter, 22 x 18: seven radial streaks from the lower-left origin (``B`` all along, ``R`` through the
-    middle, two ``P`` glints) and three dripping tails (``B``, 1 px wide, 3 to 6 px long). Gore layer only."""
-    import math
-    w, h = 22, 18
-    pix: Pix = {}
-    for i, (deg, length) in enumerate(SPATTER_RAYS):
-        a = math.radians(deg)
-        for step in range(length * 2 + 1):
-            t = step / 2
-            x, y = round(t * math.cos(a)), h - 1 - round(t * math.sin(a))
-            if 0 <= x < w and 0 <= y < h:
-                pix[(x, y)] = "R" if length * 0.25 <= t <= length * 0.6 else "B"
-    for (x, y), ch in list(pix.items()):
-        if ch == "R" and (x + y) % 5 == 0 and (x + 1, y) in pix:
-            pix[(x + 1, y)] = "R"
-    for ray, n in SPATTER_DRIPS:                       # the tail hangs straight down from the streak tip
-        deg, length = SPATTER_RAYS[ray]
-        a = math.radians(deg)
-        tx, ty = round(length * math.cos(a)), h - 1 - round(length * math.sin(a))
-        for k in range(1, n + 1):
-            if ty + k < h:
-                pix.setdefault((tx, ty + k), "B")
-    for (x, y) in ((6, h - 1 - 3), (13, h - 1 - 6)):
-        pix[(x, y)] = "P"
-    sh = (16 - w // 2, 16 - h // 2)
-    return finish_part({}, {}, shift(pix, *sh))
+    w, h = SPATTER_A["size"]
+    return finish_part({}, {}, shift(spatter(SPATTER_A), 16 - w // 2, 16 - h // 2))
+
+
+def part_wall_spatter_b() -> dict[str, list[str]]:
+    w, h = SPATTER_B["size"]
+    return finish_part({}, {}, shift(spatter(SPATTER_B), 16 - w // 2, 16 - h // 2))
 
 
 def part_smear() -> dict[str, list[str]]:
@@ -721,6 +780,7 @@ PART_BUILDERS = [         # (id, builder); indices are the contract (spec sectio
     ("gib_flesh_a", None), ("gib_flesh_b", None), ("gib_bone", None), ("gib_rag", None), ("drop_blood", None),
     ("decal_splat_s", None), ("decal_splat_m", None), ("decal_pool_1", None), ("decal_pool_2", None),
     ("decal_pool_3", None), ("decal_wall_spatter", None), ("decal_smear", None),
+    ("decal_wall_spatter_b", None), ("decal_pool_3_r", None),
 ]
 PART_IDS = [p[0] for p in PART_BUILDERS]
 PART_TAGS = [(pid, i, i) for i, pid in enumerate(PART_IDS)]
@@ -730,11 +790,11 @@ def build_part(pid: str) -> dict[str, list[str]]:
     fixed = {"head": part_head, "torso_upper": part_torso_upper, "club": part_club, "head_dead": part_head_dead,
              "torso_lower": part_torso_lower, "arm_near": part_arm_near, "arm_far": part_arm_far,
              "leg_near": part_leg_near, "leg_far": part_leg_far, "club_stick": part_club_stick,
-             "pineapple": part_pineapple, "ear": part_ear, "decal_wall_spatter": part_wall_spatter,
+             "pineapple": part_pineapple, "ear": part_ear, "decal_wall_spatter": part_wall_spatter, "decal_wall_spatter_b": part_wall_spatter_b,
              "decal_smear": part_smear}
     if pid in fixed:
         return fixed[pid]()
-    if pid in decal_pool_rows():
+    if pid in decal_pool_rows() or pid == "decal_pool_3_r":
         return part_pool(pid)[0]
     return part_small(pid)[0]
 
@@ -1010,14 +1070,19 @@ PART_META = {
     "decal_pool_3": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [4]),
     "decal_wall_spatter": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [4]),
     "decal_smear": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [4]),
+    "decal_wall_spatter_b": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [4]),
+    "decal_pool_3_r": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [4]),
 }
+FLOOR_DECALS = {"decal_splat_s", "decal_splat_m", "decal_pool_1", "decal_pool_2", "decal_pool_3", "decal_pool_3_r",
+                "decal_smear"}
 FIXED_ANCHORS = {"head": {"neck": [11, 20]}, "head_dead": {"neck": [11, 20]},
                  "torso_upper": {"neck": [17, 10], "waist": [13, 22]}, "club": {"grip": [8, 27], "fruit": [21, 14]}}
 FIXED_ORIGINS = {"head": [33, 27], "torso_upper": [26, 36], "club": [44, 34], "head_dead": [33, 27],
                  "pineapple": list(FRUIT_ON_FRAME0)}
 STATIC_ANCHOR_KIND = {"decal_splat_s": "centre_bottom", "decal_splat_m": "centre_bottom",
-                      "decal_pool_1": "centre_bottom", "decal_pool_2": "centre_bottom", "decal_pool_3": "centre_bottom",
-                      "decal_wall_spatter": "origin", "decal_smear": "start"}
+                      "decal_pool_1": "centre_bottom", "decal_pool_2": "centre_bottom", "decal_pool_3": "seam_right",
+                      "decal_pool_3_r": "seam_left", "decal_wall_spatter": "origin", "decal_wall_spatter_b": "origin_bc",
+                      "decal_smear": "start"}
 
 
 def _px(cel_: dict, layer: str) -> Pix:
@@ -1058,8 +1123,13 @@ def part_anchors(pid: str, cel_: dict) -> dict:
     kind = STATIC_ANCHOR_KIND.get(pid)
     if kind == "centre_bottom":
         return {"centre_bottom": [cx, y1]}
-    if kind == "origin":
-        return {"origin": [x0, y1]}
+    if kind in ("origin", "origin_bc"):             # the drawn origin pixel of the spatter rule, in cell coordinates
+        spec = SPATTER_A if kind == "origin" else SPATTER_B
+        return {"origin": [16 - spec["size"][0] // 2 + spec["origin"][0], 16 - spec["size"][1] // 2 + spec["origin"][1]]}
+    if kind == "seam_right":
+        return {"seam_right": [x1, y1]}
+    if kind == "seam_left":
+        return {"seam_left": [x0, y1]}
     if kind == "start":
         return {"start": [x0, (y0 + y1) // 2]}
     return {"centre": [16, 16]}
@@ -1093,6 +1163,15 @@ def part_entries(grid: dict) -> list[dict]:
             entry["swap_on_first_contact"] = swap
         if pid == "drop_blood":
             entry["on_contact"] = "decal_splat_s"
+        if pid in FLOOR_DECALS:
+            entry["floor_decal"] = True              # drawn under every actor; exempt from the 28 px launched-part cap
+        if pid == "decal_pool_3":
+            entry["span"] = [POOL3_WIDTH, 4]
+            entry["pair"] = "decal_pool_3_r"
+            entry["pair_offset"] = [POOL3_LEFT_X - POOL3_RIGHT_X + (POOL3_WIDTH // 2), 0]   # right cell origin, left cell origin = 0
+        if pid == "decal_pool_3_r":
+            entry["span"] = [POOL3_WIDTH, 4]
+            entry["pair"] = "decal_pool_3"
         if stain:
             entry["stain"] = stain
         if trail:
@@ -1126,6 +1205,18 @@ def manifest_base(mid: str, stem: str, grid: Path, ase: Path, frame, pivot, tags
     }
 
 
+SPAWNER_HINTS = {            # spec section 8, preset 4; presets 3, 2, 1 scale counts by section 5 (0.5, 0.25, 0)
+    "crush": {"drops": [16, 20], "drops_from": {"mouth": [6, 8], "squeeze_back": [5, 6], "squeeze_front": [5, 6]},
+              "splat_s_per_death_max": 8, "club": 1, "gibs": {"gib_flesh_a": 1, "gib_flesh_b": 1, "gib_bone": 1},
+              "ticks": {"pose_1": 3, "pose_2": 6, "splat_m_and_pool_1": 4, "wall_spatter": 8, "pool_2": 20, "pool_3": 60},
+              "wall_spatter": {"variants": ["decal_wall_spatter", "decal_wall_spatter_b"], "mirrored": "seeded"}},
+    "decapitation": {"ticks": {"pose_4": 4, "pose_5": 10, "pool_1": 14, "pool_2": 40, "pool_3": 100, "wall_spatter": 4},
+                     "jet_drops": {"every_ticks": 3, "per_emit": 2, "for_ticks": 30}},
+    "explosive": {"gibs": 8, "drops": 24, "wall_spatter": "both variants, one each side", "pools_under": 2,
+                  "settle": "irregular: seeded 90 degree rotations, piled and overlapping, never an even row"},
+}
+
+
 def pose_manifest() -> dict:
     grid = poses_grid()
     m = manifest_base("goblin_a_death_h36_candidate_v1", "goblin_a_death_h36", POSES, POSES_ASE, CANVAS, PIVOT,
@@ -1144,6 +1235,7 @@ def pose_manifest() -> dict:
         "playback": {"crush_contact": "once", "crushed_remains": "hold", "decap_contact": "once",
                      "headless_collapse": "hold"},
         "frames": frames,
+        "spawner_hints": SPAWNER_HINTS,
     }
     return m
 
