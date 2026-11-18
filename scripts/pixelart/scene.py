@@ -79,6 +79,13 @@ def entries_for(cfg: AssetConfig, imgs: list[Image.Image]) -> list[tuple]:
         if actor.get("flip", cfg.get("facing", "right") == "right"):
             img, piv = flip(img, pivot)
         entries.append((img, piv, actor["x"], actor.get("lift", 0)))
+    for ref in cfg.get("scene", {}).get("references", []):
+        # extra approved sprites for direct comparison (e.g. GOB-01 A/B next to a later goblin type)
+        grid = load_grid_file(repo_path(ref["grid"]))
+        img, piv = grid_images(grid)[ref.get("frame", 0)], tuple(grid["pivot"])
+        if ref.get("flip", True):
+            img, piv = flip(img, piv)
+        entries.append((img, piv, ref["x"], ref.get("lift", 0)))
     return entries
 
 

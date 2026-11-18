@@ -20,7 +20,7 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. The design step stops a
 
 - **No retrofitting of bombs into the opening trio.** The opening goblins use pineapples on wooden sticks; the Engineer is not automatically a mine-layer or turret. The Bard is a separate later Floor 1 variant with its own loadout; do not arm Goblin A/B or the Engineer with it.
 - Exact musical mechanics, explosion timers, area damage, self-detonation, bomb chaining and any specific instrument named in generated captions are **not** approved gameplay requirements. The explosion scene in the board's bottom right is mood only.
-- Fuse sparks, music notes, thrown-bomb arcs and explosions are VFX beyond the readability set.
+- Separate VFX sprites are beyond the readability set: fuse-spark loops, music-note emitters, thrown-bomb arcs, projectile and explosion sprites. The single static spark and the single static note drawn into the toot, lit-hold and throw frames (acceptance target 4) are part of the sprite and stay in scope.
 - Printed scale comparisons are not accepted native sprite dimensions. Convert from original editable pixel grids / `.aseprite`, never by tracing or cropping the board.
 
 ### Packet inputs
@@ -252,7 +252,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Spec and hero key 0: Claude Opus. Key 0 is literal pixel segments in `scripts/author_bard01.py`; the head reuses the GOB-01 variant A idle head (own project art). Keys 3/7/8/10/12/15 + in-betweens + execution: Claude Sonnet. Independently reviewed by: pending.
+- Spec and hero key 0: Claude Opus. Key 0 is literal pixel segments in `scripts/author_bard01.py`; the head reuses the GOB-01 variant A idle head (own project art). Keys 3/7/8/10/12/15 + in-betweens + execution: Claude Sonnet. Independently reviewed by: a separate top-tier agent (pass with execution items, 19/25); review fixes: Claude Sonnet.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
 
 ## 13. Execution notes
@@ -274,9 +274,25 @@ Conservative readings where the spec was ambiguous or its coordinates disagreed 
 - **Frames 9 and 10 draw order.** The raised near arm in 9 is in front of the head side; in 10 the near arm is drawn behind the face (it would otherwise hide the open mouth) and only the open hand (x 44 to 47) is in front. In 9 the bomb sits behind the head and the hand is in front. The optional smear arc of frame 9 is not drawn. The mirrored horn in 9 and 10 uses `BELL_IDLE` reversed row by row; the far hand is a 4 x 4 literal at x 22 to 25 with a short far-arm stub.
 - **Frame 11.** Horn dx 0, dy +2 (keeps the right edge at 53, rule 54); the far hand holds the pipe near the torso (dx -5) so the empty open near hand (x 38 to 41, rows 40 to 43) does not overlap it.
 - **Frame 12.** Goggles pixels are lifted 1 row (over the headwrap) and the vacated row is filled with skin; the nose tip is the key-0 tip moved 1 row up. The near fist (x 36 to 39, rows 28 to 31) is a 4 x 4 literal joined to the torso by 2 skin pixels. No far hand.
-- **Frame 13 (in-between).** The head, torso and pack bomb are a nearest-neighbour rotation of the key-0 parts by 42 degrees counter-clockwise (pivot (31, 44) to (26, 51)); the legs are key 0. Result is rough at 8x but reads as a tumble at 1x; flagged for the reviewer.
+- **Frame 13 (in-between).** The head is a nearest-neighbour rotation of the key-0 head by 42 degrees counter-clockwise (pivot (37, 24) to (14.5, 32.5)); torso, pack and scarf are rule-drawn and the legs are key 0 (reworked after review, see Review fixes).
 - **Frames 14 and 15.** One shared function `lying(lift, bomb)` draws both; frame 14 lifts head, torso, pack, scarf, horn and arm by 2 and puts the bomb at (52, 49), where it overlaps the near boot by 1 column (prop over body). Frame 15 body spans x 4 to 56 and the bomb x 57 to 63. Shapes are rule-drawn (discs, thick lines, scanline rows) with edge shading; the bell is the generic `bell()` helper (rim column `h`, lit half `b`, shaded half `n`).
-- **Rotated bells** (7, 12, 13, 15) use the generic `bell()` helper that follows the spec's colour logic; they are not literal pixel copies of `BELL_IDLE`.
+- **Rotated bells** (7, 12, 13, 14, 15) use the generic `bell()` helper that follows the spec's colour logic; they are not literal pixel copies of `BELL_IDLE`.
+
+### Review fixes (independent review: pass with execution items, 19/25)
+
+Applied by the executor in `scripts/author_bard01.py` and `scripts/pixelart/scene.py`; rules, palette, size cap, ticks, boxes and the spawn point are unchanged.
+
+- **Finding 1, GOB-01 A and B in the scene:** the lit scene (and so the review pack) now shows GOB-01 A and B idle between the Bard's idle and tell poses (`scene.references` in `bard_01.pixelart.json`, new optional key read by `scripts/pixelart/scene.py`). Actors were re-spaced to fit.
+- **Finding 2, bell read as a cup (frames 12 to 15):** frame 12 and the lying frames 14 and 15 tilt the bell forward-up with the pipe visible; frame 13 does the same. No bell is vertical any more.
+- **Finding 3, frame 13 clean-up:** frame 13 is no longer a rotation of the whole upper body. Pack, torso and scarf are rule-drawn with clean outlines; only the head is a rotated key-0 part. The pack bomb is drawn unlit on the pack. Legs are key 0 as before.
+- **Finding 4, frame 8 arm:** the near arm now has an elbow bend (shoulder (27, 31.5), elbow (21, 33.5), hand (15, 30.5)); the spec's elbow at (20, 31) gave a straight rod, so it was dropped about 2 px lower and 1 px inward.
+- **Finding 5, frame 10 back leg:** the leg is 3 px wide inside its outline (`KmmsK`) with a lit `m` pair instead of the dark `maK` strip.
+- **Finding 6, frame 8 to 9 horn flip (check):** checked in the tell strip; the bomb leaves forward-up with the lit spark, the horn counterbalances low behind. Kept as drawn; re-check in motion at integration.
+- **Finding 7, guardrail wording:** reworded in section 1 so the guardrail means separate VFX sprites.
+- **Findings 8 and 9 (advisory design notes: goggles and bomb size, satchel shape, iron bomb contrast):** deferred, not blocking. No change to key 0.
+- **Finding 10:** accepted deviation (upright idle), no action.
+- **Re-frozen keys:** 8 (arm elbow), 10 (back leg), 12 (bell tilt), 15 (bell tilt), all by reviewer-prescribed changes. Keys 0, 3 and 7 are unchanged (same digests). Frames 13 and 14 are in-betweens and are not frozen.
+- **Follow-up caveats from the review, not applied:** a hurt during the tell shows the bomb back on the pack, unlit (frame 12 vs frame 8); a long throw cooldown may want an empty-pack idle or a 1 to 2 frame reload.
 
 ## 14. Follow-ups after this work order
 

@@ -555,7 +555,7 @@ def frame_lit8() -> dict[str, list[str]]:
     put_pm(c, "prop", HORN0, -3, 2)
     c.stamp("prop", 4, 27, BOMB7)
     c.stamp("prop", 6, 24, SPARK)                        # Y at (7, 25)
-    paint(c, "body", line_mask((27, 32), (20, 31), 2.4) | line_mask((20, 31), (15, 31), 2.4), SKIN_NEAR)
+    paint(c, "body", line_mask((27, 31.5), (21, 33.5), 2.4) | line_mask((21, 33.5), (15, 30.5), 2.4), SKIN_NEAR)   # elbow bend (review fix)
     c.segs("body", {29: [(11, "KKKK")], 30: [(11, "KlmK")], 31: [(11, "KmsK")], 32: [(11, "KKKK")]})   # hand on the bomb
     put_pm(c, "body", FAR_HAND0, -3, 2)                  # far hand keeps the horn
     return c.rows()
@@ -590,7 +590,8 @@ def frame_whip9() -> dict[str, list[str]]:
 
 def frame_release10() -> dict[str, list[str]]:
     c = Canvas()
-    leg(c, [(47, 27, 2), (48, 25, 2), (49, 23, 2), (50, 21, 2), (51, 19, 2)], True)
+    for y, x in ((47, 27), (48, 25), (49, 23), (50, 21), (51, 19)):                  # back leg, 3 px inner width, lit 'mm' (review fix)
+        c.segs("body", {y: [(x, "KmmsK")]})
     c.segs("body", {52: [(15, "KtutK")], 53: [(14, "KttuttK")], 54: [(14, "KttttrK")], 55: [(14, "KKKKKKK")]})
     leg(c, [(47, 33, 3), (48, 35, 3), (49, 37, 3), (50, 38, 2)], False)
     boot(c, 37, 51, BOOT_NEAR)                           # lunging boot x 37 to 45
@@ -642,8 +643,8 @@ def frame_hurt12() -> dict[str, list[str]]:
     put_pm(c, "body", head, -4, 0)
     put_pm(c, "prop", PACKBOMB0, -3, -2)
     put_pm(c, "prop", BELT0, -3, 0)
-    pipe_line(c, 40, 28, 43, 28)
-    bell(c, (44.5, 27.5), (44.5, 19.5), 1.5, 5.0)        # bell turned up, rim rows 18 to 20
+    pipe_line(c, 40, 28, 44, 26)
+    bell(c, (44.5, 26.0), (47.0, 19.5), 1.5, 4.2)        # bell flung up and forward, pipe stays visible (review fix)
     c.segs("body", {29: [(35, "m")], 30: [(35, "m")]})
     c.segs("body", {28: [(36, "KKKK")], 29: [(36, "KlmK")], 30: [(36, "KmsK")], 31: [(36, "KKKK")]})   # near fist x 36 to 39
     return c.rows()
@@ -666,14 +667,18 @@ def rotate_pm(p, pivot, dest, deg):
 
 
 def frame_fall13() -> dict[str, list[str]]:
+    """Mid-fall, 45 degrees: legs still planted (key 0), torso, pack and scarf rule-drawn (clean inner outlines), the head the
+    only rotated key-0 part (rotation of the whole upper body made muddy inner outlines; review fix)."""
     c = Canvas()
     legs_idle(c)
-    piv, dest, ang = (31.0, 44.0), (26.0, 51.0), 42.0
-    put_pm(c, "body", rotate_pm({**UPPER_NA, **HEAD0}, piv, dest, ang))
-    put_pm(c, "prop", rotate_pm({**PACKBOMB0, **BELT0}, piv, dest, ang))
-    pipe_line(c, 28, 38, 30, 40)
-    bell(c, (30.5, 37.5), (30.5, 28.5), 1.5, 4.5)        # horn in the air above the chest
-    c.segs("body", {38: [(25, "KKKK")], 39: [(25, "KlmK")], 40: [(25, "KmsK")], 41: [(25, "KKKK")]})
+    paint(c, "body", line_mask((25.5, 49.0), (17.0, 42.0), 6.5), VEST)                     # pack, on the downhill (back) side
+    paint(c, "body", line_mask((29.5, 46.0), (22.5, 38.5), 8.0), VEST)                     # torso
+    paint(c, "body", rect(19, 36, 22, 40), lambda x, y, m: "R" if y < 38 else "B")         # scarf at the neck
+    put_pm(c, "body", rotate_pm(HEAD0, (37.0, 24.0), (14.5, 32.5), 42.0))
+    c.stamp("prop", 11, 41, BOMB7)                                                         # pack bomb, unlit, rides the pack
+    pipe_line(c, 27, 40, 31, 38)
+    bell(c, (31.5, 37.0), (36.0, 28.5), 1.5, 4.5)        # horn flung up and forward, pipe visible
+    c.segs("body", {37: [(24, "KKKK")], 38: [(24, "KlmK")], 39: [(24, "KmsK")], 40: [(24, "KKKK")]})   # near fist on the pipe
     return c.rows()
 
 
@@ -695,7 +700,7 @@ def lying(lift: int, bomb: tuple[int, int]) -> dict[str, list[str]]:
         c.segs("body", {y + dy: [(x, s)]})                                                           # goggles askew on top
     c.segs("body", {y + dy: [(x, s)] for y, x, s in ((49, 14, "KooK"), (50, 14, "owwo"))})           # open mouth, lower teeth
     c.segs("body", {53 + dy: [(6, "KlK")], 54 + dy: [(4, "KlmmK")], 55 + dy: [(4, "KKKKK")]})        # ear flat along the floor
-    bell(c, (38.5, 49.5), (38.5, 41.0 + dy), 1.4, 4.0)                                               # horn across the belly, bell up
+    bell(c, (37.0, 49.5), (43.0, 43.0 + dy), 1.4, 4.0)                                               # horn across the belly, bell tilted up and forward
     c.put("prop", 26, 46 + dy, "h")
     c.put("prop", 26, 47 + dy, "n")
     pipe_line(c, 27, 46 + dy, 37, 49 + dy)
@@ -764,7 +769,7 @@ def manifest() -> dict:
                        "tests/fixtures/bard-01_keys.json) plus 9 in-betweens built by scripts/author_bard01.py from literal pixel "
                        "segments, moved or edited key 0 parts and a few rule-drawn shapes; layers body and prop"),
             "generator": ("Spec and hero key 0: Claude Opus. Keys 3/7/8/10/12/15, in-betweens, atlas, validators and evidence: Claude Sonnet, "
-                          "composed by scripts/author_bard01.py. Independent top-tier review: pending. No image-model raster output, "
+                          "composed by scripts/author_bard01.py. Independent top-tier review: pass with execution items (19/25), items applied by Claude Sonnet. No image-model raster output, "
                           "no tracing, no resampling"),
             "generated_art": True,
             "input_reference_ids": ["assets/concept/floor-01/enemies/floor01-goblin-bomb-bard-concept-approved.png"],
@@ -772,7 +777,7 @@ def manifest() -> dict:
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "bard": {
-            "status": "keys and in-betweens drawn, independent top-tier review pending; Bevy integration pending; 16 frames, 7 of them keys; not wired into any Bevy binary",
+            "status": "keys and in-betweens drawn, independent review passed with execution items (applied); Bevy integration pending; 16 frames, 7 of them keys; not wired into any Bevy binary",
             "spec": "docs/02-art/bard-01-spec.md",
             "opaque_height_idle": 40,
             "height_cap_px": 43,
