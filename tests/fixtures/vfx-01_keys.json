@@ -1,0 +1,21 @@
+{
+  "asset_id": "vfx-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "ba4f7565853c961c806d86f8f77fa41c296657fcd63ca978eaba46e6840ce678"
+    },
+    "10": {
+      "sha256": "7f0885f75249df39efa9ee22228189bc0f4e742b89b7cfcacde5ccc456502e69"
+    },
+    "3": {
+      "sha256": "52ead146a34349d61de39fa67136f639a6f806926d834cd8343a9886dd54f81f"
+    },
+    "5": {
+      "sha256": "bb900621b07b38843324d8f11caa7eb8e7a2646a5fcdcdb24128c0c730ccf88b"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

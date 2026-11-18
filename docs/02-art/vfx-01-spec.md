@@ -1,13 +1,13 @@
 # VFX-01: bomb and explosion burst VFX (spec stub)
 
-**Status:** packet ready; design pending. This file holds only the facts gathered for the designer. Sizes, frame counts, palette, timings and boxes are decided in the design step and are not decided here.
+**Status:** draft design and four key frames authored (frames 0, 3, 5, 10); seven in-between slots are literal copies; keys not yet frozen by an editor review; not wired into any Bevy binary. Sections 2, 3, 5 and 6 are the gathered facts; sections 1, 4 and 8 to 16 are the design decisions of this draft.
 
-## 1. Scope
+## 1. Scope (decided)
 
-- **Bomb in flight (Bard):** the thrown bomb with a lit fuse, proposed 2 to 4 frames, a separate projectile entity.
-- **Explosion burst, Bard-sized:** proposed 6 to 8 frames.
-- **Rot Sticker burst:** a scale or variant of the same burst if feasible; otherwise its own sheet (the designer decides and records why).
-- Out of scope unless the design step adds them: scorch decals, floor residue, smoke columns, music-note emitters, the Bard's body frames (BARD-01) and the Rot Sticker's body frames (ROT-01).
+- **Bomb in flight (Bard):** tag `bomb_flight`, 3 frames, a lit fuse spark loop on the Bard's iron bomb; a separate projectile entity.
+- **Explosion burst:** tag `burst`, 8 frames (flash, fireball, peak, cooling fireball, smoke fade). One burst serves the Bard bomb and the Rot Sticker, unscaled and without a palette variant (section 8).
+- One atlas, one grid: `assets/source/vfx/explosion/vfx_01.grid.json`, 11 frames of 48 x 48, pivot (24, 24).
+- Out of scope: scorch decals, floor residue, smoke columns, music-note emitters, the Bard's body frames (BARD-01), the Rot Sticker's body frames (ROT-01), any sound.
 
 ## 2. Canon citations
 
@@ -42,12 +42,12 @@ Boards (1672 x 941): `assets/concept/floor-01/enemies/floor01-goblin-bomb-bard-c
 
 The palette candidates come from the concept boards and are candidates only. The Bard sprite palette is `bard-floor01-v0` and the Rot Sticker palette `rot-sticker-floor01-v1` (glow keys `g` `#ff8a3c` and `G` `#ffdc8a`); a burst palette should reuse or extend these ramps so the VFX matches its sources.
 
-## 4. Not approved
+## 4. Not approved (unchanged by this draft)
 
-- Damage, blast radius, area shape, fuse and flight timings, bomb speed or arc, chaining, self-detonation and knockback. The 40 px Rot radius and every number in the packet are placeholders.
-- Native sizes of the bomb and the bursts. The 32, 48 and 80 px circles in the lineup are only comparison candidates.
-- Whether the Rot Sticker burst is a scale of the Bard burst or its own sheet.
-- Any frame, palette or hitbox for the effect. The concept boards are mood references, not accepted native art.
+- Damage, blast radius, area shape, fuse and flight timings, bomb speed or arc, chaining, self-detonation and knockback. The 40 px Rot radius, the damage-active ticks in section 8 and every number in the packet are placeholders.
+- That a 48 x 48 burst is the final native size. It is a draft sized from the 32, 48 and 80 px candidate circles.
+- The Rot Sticker blast area; section 8 only records that this art matches a roughly 20 px radius, not 40 px.
+- The concept boards are mood references, not accepted native art; nothing here traces them.
 
 ## 5. A1 lighting constraints (ADR-0007, `docs/03-tech/floor01-scene.md` Lighting section)
 
@@ -70,4 +70,100 @@ The palette candidates come from the concept boards and are candidates only. The
 
 ## 7. Next step
 
-Design step: choose sizes and frame counts for the bomb and burst, decide the Rot Sticker relationship, write palette, pivots, spawn offsets and acceptance targets, and replace sections 1 and 4 with decisions. Execution, gate and review follow the routing doc.
+An editor reviews the keys against section 12, corrects and freezes them (`python3 -m scripts.pixelart freeze ... --force` only with that authority), draws the in-betweens of section 11, then the gate and review follow the routing doc.
+
+## 8. Design decisions
+
+| Topic | Decision | Why |
+| --- | --- | --- |
+| Sheets and tags | One grid, two tags: `bomb_flight` (frames 0 to 2, loop) and `burst` (frames 3 to 10, once). Contact `free` for both. | One atlas keeps one palette and one frame size; the LLAMA-01 spit is the precedent (a `free` tag on the owner's grid, authored at its spawn point). |
+| Frame and pivot | **48 x 48, pivot (24, 24)** (the centre). Bomb: pivot is the bomb body centre. Burst: pivot is the blast centre. Authored facing right; the bomb mirrors x with the thrower. | Burst art peaks at 40 x 38 px, inside the 32 to 48 px candidates; 4 px margin for debris, smoke may rise to y 2. |
+| Bard spawn | Bomb sprite centre at the frame-10 bomb centre (53, 20) = Bard pivot offset (+25, -35), as in `bard-01-spec.md` section 3. The burst spawns at the bomb's impact point (gameplay decides it). | Canon from BARD-01; the bomb body here is the same 7 x 7 iron bomb stamp. |
+| Rot Sticker burst | **Reuses the same `burst` tag unscaled, no palette variant.** Spawn at the dome centre (12, 16), i.e. Rot pivot (6, 16) offset (+6, 0). Its flame colours (`m r o g G w`) are already the burst ramp, so the same pixels read as the Rot's own glow. | Integer-scaling a drawn burst doubles pixel size and breaks the pixel grid; one atlas is feasible because both bursts want the same ember-and-smoke read. |
+| Rot blast size | The art is about 40 px wide, which matches a **20 px radius**, not the 40 px radius placeholder in ROT-01 (80 px wide). If gameplay confirms 40 px, draw a separate `burst_large` sheet (80 x 80, own atlas) as a follow-up; do not scale this one at runtime. | Open question 1. |
+| Palette variant for Rot | None in this draft. Optional follow-up: swap the `q` debris chunks for the Rot's `rot_olive` `#4e4a28` as a data-only variant (a free palette slot holds it). | Open question 2. |
+| Ticks | 60 Hz. `bomb_flight` 3 x 4 = 12 ticks per loop. `burst` 2, 3, 4, 4, 5, 6, 8, 10 = **42 ticks** (0.7 s). | The 2-tick flash is an impact frame; the peak holds 4 + 4 ticks; smoke lingers 10 ticks and ends. |
+| Damage-active (placeholder) | Burst-local ticks **0 to 8** (frames 3, 4 and 5, flash through peak). Nothing after the peak is damaging. The bomb in flight has no area box; its projectile hitbox is a gameplay decision. | Matches the ROT-01 placeholder "active from the first burst frame" and the rule that cooling frames are cosmetic. Not approved. |
+| Playback end | `burst` plays once and the entity despawns after frame 10; the smoke frame is not a hold. | Lingering opaque smoke is capped (art-direction VFX rule). |
+
+## 9. Palette `vfx-floor01-v0` (16 of at most 20 colours)
+
+Shared with the Bard (`bard-floor01-v0`, same hex): `K q Q n b h Y e`. Shared with the Rot Sticker (`rot-sticker-floor01-v1`, same hex): `m r o g G w` and the smoke violets `s c` (its shell ramp `#2b2230`, `#3f3243`).
+
+| Key | Name | Hex | Role |
+| --- | --- | --- | --- |
+| K | outline_soot | `#1b1124` | outline, dark debris |
+| q / Q | iron dark / light | `#3a3245` `#766c86` | bomb body; debris; smoke highlight |
+| n / b / h | brass dark / mid / light | `#6a4a1e` `#b8862e` `#f0cf6a` | fuse cord, fuse cap |
+| e | spark halo (accent) | `#ffd23a` | fuse spark halo |
+| Y | spark core (accent) | `#fff4b8` | fuse spark core, **only** in `bomb_flight` |
+| s / c | smoke deep / mid | `#2b2230` `#3f3243` | smoke shade and body, motion streaks |
+| m | ember dead | `#5a1218` | fireball rim, dying embers |
+| r | ember red (accent) | `#a51418` | fireball edge |
+| o | glow ember (accent) | `#ec3a1c` | fireball body |
+| g | glow hot (accent) | `#ff8a3c` | fireball inner, spikes |
+| G | glow core (accent) | `#ffdc8a` | hot core, frames 3 to 5 only |
+| w | flash white (accent) | `#efe3d3` | flash frame only, at most 12 px |
+
+Four free slots. The emissive keys for the A1 lighting contract would be `r o g G w` (`e` and `Y` are already the Bard's); registering them is a data change against the shared 16-colour emissive budget and is not done in this draft.
+
+## 10. Key frames as authored
+
+| Atlas frame | Tag / index | Key | What is drawn |
+| --- | --- | --- | --- |
+| 0 | `bomb_flight` 0 | key | The Bard's 7 x 7 iron bomb centred on the pivot, a brass cap and a curled `n` fuse cord, a 5 x 5 spark crown (`Y` core, `e` halo) on the tip, three soot-violet motion streaks behind and a short ember trail (`o`, `m`). |
+| 3 | `burst` 0, flash | key | Small lumpy core (radius about 8.5 px; `w` 4 px, `G` 20 px), `g o r m` ramp, eight thin `g/o/r` spikes up to 17 px, six 2 px soot/iron debris chunks. The hottest frame of the effect. |
+| 5 | `burst` 2, peak | key | 40 x 38 px fireball (`G` 31 px core, `g`, `o`, `r`, `m` rim), six dark-violet smoke lobes lit from the upper left, debris and ember chunks. **No `w`.** |
+| 10 | `burst` 7, smoke fade | key | Five ragged, dithered smoke puffs (`Q c s`) rising from the centre, a few dying 2 px embers and settled debris. No `w`, `G` or `g`. |
+
+All four are rasterized by `scripts/author_vfx01.py` from lumpy-disc rules with a fixed-seed integer hash; no random module, no float seeds.
+
+## 11. In-between list for the executor (no design decisions needed)
+
+| Slot | Currently | Target |
+| --- | --- | --- |
+| 1, 2 | copies of frame 0 | Same bomb turned 30 and 60 degrees by hand in 1 px steps; the spark crown alternates `Y`/`e` shapes (3 distinct sparks across 3 frames, clean loop seam). |
+| 4 | copy of frame 3 | Fireball growing from the flash: radius 12, `G` core 30 to 40 px, `w` gone, spikes shorter. |
+| 6 | copy of frame 5 | Fireball cooling: radius 15, `G` under 20 px, more `o`, smoke lobes widen. |
+| 7 | copy of frame 5 | `G` gone, `g` ring only, smoke covers the top half. |
+| 8 | copy of frame 5 | Fireball under 11 px radius in `o r m`, smoke dominant, embers falling. |
+| 9 | copy of frame 5 | A shrinking `r m` ember core inside the smoke; smoke puffs begin to dither. |
+
+The hottest key present in a frame never rises from frame 3 to frame 10, and the smoke area grows until frame 8 and shrinks after frame 9.
+
+## 12. Acceptance targets and validators
+
+- **Readable at 1x beside Carl and the Bard:** the burst reads at 40 px against Carl's 52 px; the bomb (7 px body, spark crown) reads as a thrown, lit object on brick. Evidence: `docs/evidence/vfx-01/key-scale.png`.
+- **No blowout:** `w` at most 12 px in frame 3 and none elsewhere; the `G` core at most 60 px (V5); whole key frames cover under 45 % of the cell (test). The glow is baked and must read with the A1 pass on and off.
+- **Grounded, smoky look, not a cartoon star burst:** an irregular lumpy disc with a dark rim; spikes only on the flash frame, thin and uneven; from the peak on, dark violet smoke is part of the silhouette; the last frame is smoke and debris with no flame.
+- **Player visibility:** the burst must not wash out Carl or the floor line; check on a lit scene before freezing.
+- Toolkit validators pass (`python3 -m scripts.pixelart validate assets/source/vfx/explosion/vfx_01.pixelart.json`). V05 isolated pixels: 0. V06 orphan pixels: **at most 16** (debris chunks, embers and spikes are deliberate scattered shapes; the 9 of the character sets does not fit effects). V12 unique frames: off while in-betweens are copies; the editor turns it on once they are drawn.
+- Config rules: V1 bomb compact, V2 flash small, V3 peak 32 to 44 px wide, V4 smoke within 40 x 42, V5 white and core caps, V6 lit fuse core in the bomb frame.
+
+## 13. Evidence
+
+| File | Shows |
+| --- | --- |
+| `docs/evidence/vfx-01/key-scale.png` | Top: lit Floor 1 at 1x, Carl, the Bard (frame 10) and the four keys in order bomb, flash, peak, smoke. Bottom: the same four keys at 4x. |
+
+Regenerate with `python3 scripts/author_vfx01.py key-scale` (needs `scripts/export_assets.sh` first). The review must also render with `--no-lighting`; not done in this draft.
+
+## 14. Files
+
+| File | Role |
+| --- | --- |
+| `scripts/author_vfx01.py` | authoring record: palette, rules, keys 0, 3, 5, 10, copies, manifest, key-scale |
+| `assets/source/vfx/explosion/vfx_01.grid.json`, `vfx_01.ase`, `vfx_01.pixelart.json` | source, Aseprite file, config |
+| `assets/manifests/vfx-01.json` | 60 Hz tick table and provenance |
+| `tests/fixtures/vfx-01_keys.json`, `tests/test_art_vfx01.py` | frozen keys, spec tests |
+
+## 15. Rights and provenance
+
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Draft spec and keys: Claude Sonnet. Edit, freeze and review: pending. The keys are rasterized from rules in `scripts/author_vfx01.py`; no tracing of the concept, no image-model raster output, no colour sampled from the concept.
+
+## 16. Open questions for the editor
+
+1. Is the Rot Sticker blast 40 px radius (needs `burst_large`) or about 20 px (this sheet)? The gameplay owner decides; art follows.
+2. Should the Rot burst use a data-only olive debris variant?
+3. Does the 7 x 7 bomb read well enough in flight at 1x, or should the flight sprite use a larger bomb? Rotation in-betweens are drawn by hand (section 11); decide whether runtime rotation is acceptable instead.
+4. The peak frame is dense (947 px); check it against the player-visibility target on the lit scene.
