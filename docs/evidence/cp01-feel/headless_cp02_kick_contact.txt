@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=20 kind=move_started move=push_kick instance=1
+COMBAT_EVENT tick=33 kind=hit move=push_kick instance=1 target=0 damage=1 health_left=1 hit_stop=8
+COMBAT_EVENT tick=47 kind=goblin_contact launch=1 source=0 target=1
+COMBAT_STATE fixture=cp02_kick_contact seed=0xc020002 tick=140 elapsed=140 hero_hp=4 deaths=0 enemies=e0=457.917/1,e1=474.000/2 hash=8bd01343f47ed9df
