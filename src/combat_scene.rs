@@ -19,8 +19,8 @@
 
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
-    EnemyAi, ForceTier, HERO_INVULNERABLE_TICKS, MoveId, Phase, RootStep, carl_move, hit_box,
-    resolve_strike, solid_at,
+    EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, Phase, RootStep, carl_move, hit_box, resolve_strike,
+    solid_at,
 };
 use crate::corridor::SceneSim;
 use crate::env_kit::EnvKit;
@@ -350,7 +350,26 @@ pub const CP03_SHORE_MISS: Fixture = Fixture {
     ticks: 200,
 };
 
-pub const FIXTURES: [&Fixture; 11] = [
+/// DEATH-B chain: Carl kicks a stationary goblin (tick 20); the kick also
+/// strikes the rotten shore (hit 1) and launches the living goblin, which
+/// flies into the hazard footprint and lies there. Two more jabs break the
+/// shore; the block lands on the goblin, which is defeated once: cause block,
+/// force catastrophic, and the kicker kept as the instigator. No teleport.
+pub const CP03_KICK_BLOCK: Fixture = Fixture {
+    name: "cp03_kick_block",
+    summary: "a kick launches the goblin under the shore; the block crushes it, the kicker kept",
+    seed: 0x0C03_0003,
+    carl_x: 400,
+    enemies: &[EnemySpawn {
+        x: 432,
+        ai: EnemyAi::Passive,
+    }],
+    shore_dx: Some(19),
+    script: &[kick(20, 21), attack(100, 101), attack(140, 141)],
+    ticks: 260,
+};
+
+pub const FIXTURES: [&Fixture; 12] = [
     &CP01_SINGLE_GOBLIN,
     &CP01_TWO_HITS,
     &CP02_TWO_GOBLINS,
@@ -362,6 +381,7 @@ pub const FIXTURES: [&Fixture; 11] = [
     &CP02_KICK_CONTACT,
     &CP03_SHORE_KILL,
     &CP03_SHORE_MISS,
+    &CP03_KICK_BLOCK,
 ];
 
 // ------------------------------------------------------------------ the sim --
@@ -821,13 +841,13 @@ impl CombatState {
                 && self.enemies[index].body().overlaps(footprint)
                 && self.enemies[index].crush()
             {
-                self.log(CombatEvent::EnemyDefeated {
+                self.log(CombatEvent::enemy_defeated(
                     tick,
-                    target: index as u32,
-                    cause: DefeatCause::ShoreBlock { player },
-                    force: ForceTier::Catastrophic,
-                    instigator: self.enemies[index].hit_by,
-                });
+                    index as u32,
+                    DefeatCause::ShoreBlock { player },
+                    self.enemies[index].hit_by,
+                    None,
+                ));
                 if let Some(slot) = self.flash_tick.get_mut(index) {
                     *slot = Some(tick);
                 }
@@ -1171,7 +1191,7 @@ impl FixtureSim {
 mod tests {
     use super::*;
     use crate::combat::{
-        CARL_HAYMAKER, CARL_JAB, CARL_PUSH_KICK, ENEMY_HEALTH, HERO_HEALTH, StrikeTarget,
+        CARL_HAYMAKER, CARL_JAB, CARL_PUSH_KICK, ENEMY_HEALTH, ForceTier, HERO_HEALTH, StrikeTarget,
     };
     use crate::feel::{
         CONTACT_POSE_TICKS, CONTACT_STAGGER, HERO_HURT_HIT_STOP, JAB_FEEL, TELL_SPACING,
@@ -1183,7 +1203,7 @@ mod tests {
     /// Committed expectations: the final `COMBAT_STATE` hash of each fixture
     /// at its default length. CI compares the headless replay and the real
     /// render run against the same values (`docs/evidence/cp01-feel`).
-    const EXPECTED_HASHES: [(&str, u64); 11] = [
+    const EXPECTED_HASHES: [(&str, u64); 12] = [
         ("cp01_single_goblin", 0xcbb3_07e8_a1a7_420f),
         ("cp01_two_hits", 0x119a_431d_ad6c_7d0b),
         ("cp02_two_goblins", 0x4f3b_150a_c8a0_c633),
@@ -1195,6 +1215,7 @@ mod tests {
         ("cp02_kick_contact", 0x8bd0_1343_f47e_d9df),
         ("cp03_shore_kill", 0x098e_86cd_e2e6_b065),
         ("cp03_shore_miss", 0x317b_ead5_5c8a_6a73),
+        ("cp03_kick_block", 0x73e4_0916_1ce5_434f),
     ];
 
     fn kit() -> EnvKit {
@@ -2769,6 +2790,73 @@ mod tests {
     }
 
     #[test]
+    fn a_second_players_hit_hashes_differently_and_player_one_hashes_as_before() {
+        let words = |hit_by: Option<u32>| {
+            let mut g = Goblin::new(480.0, 100.0, EnemyAi::Passive);
+            g.hit_by = hit_by;
+            let mut out = Vec::new();
+            g.mix_into(&mut |w| out.push(w));
+            out
+        };
+        assert_eq!(words(None), words(Some(0)), "1P hashes are unchanged");
+        assert_ne!(words(Some(1)), words(Some(0)));
+        assert_ne!(words(Some(1)), words(Some(2)));
+    }
+
+    #[test]
+    fn the_defeat_event_constructor_derives_force_and_every_fixture_force_is_allowed() {
+        use crate::combat::{CARL_HAYMAKER, CARL_PUSH_KICK};
+        let force = |cause, lethal| match CombatEvent::enemy_defeated(1, 0, cause, None, lethal) {
+            CombatEvent::EnemyDefeated { force, .. } => force,
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            force(DefeatCause::Melee, Some(&CARL_HAYMAKER)),
+            ForceTier::Routine
+        );
+        assert_eq!(
+            force(DefeatCause::Melee, Some(&CARL_PUSH_KICK)),
+            ForceTier::Heavy
+        );
+        let block = DefeatCause::ShoreBlock { player: 0 };
+        assert_eq!(force(block, None), ForceTier::Catastrophic);
+        // Whatever a fixture logs is in the allowed set of its cause.
+        for fixture in FIXTURES {
+            let mut sim = sim_of(fixture);
+            sim.run_scripted(fixture.ticks);
+            for event in events_of(&sim) {
+                if let CombatEvent::EnemyDefeated { cause, force, .. } = event {
+                    assert!(cause.derived_forces().contains(&force), "{}", fixture.name);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cp03_kick_block_is_the_committed_chain_without_a_teleport() {
+        let mut sim = sim_of(&CP03_KICK_BLOCK);
+        sim.run_scripted(CP03_KICK_BLOCK.ticks);
+        let events = events_of(&sim);
+        let defeated: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+            .collect();
+        assert_eq!(defeated.len(), 1);
+        assert!(matches!(
+            defeated[0],
+            CombatEvent::EnemyDefeated {
+                tick: 179,
+                target: 0,
+                cause: DefeatCause::ShoreBlock { player: 0 },
+                force: ForceTier::Catastrophic,
+                instigator: Some(0),
+            }
+        ));
+        // The kick landed (one hit, not lethal); the block was the killer.
+        assert_eq!(hits(&events), [(33, 0)]);
+    }
+
+    #[test]
     fn the_unhashed_force_is_always_derived_from_hashed_data() {
         use crate::combat::carl_move;
         for fixture in FIXTURES {
@@ -2947,8 +3035,8 @@ mod tests {
         assert_eq!(goblin_a, goblin_b);
         assert_eq!(skeleton, ["skeleton_flat_pile"]);
         assert_eq!((hash_a, hash_a), (hash_b, hash_c));
-        let (kicked, _) = finish_of(&CP01_TWO_HITS, "goblin");
-        assert_eq!(kicked, ["goblin_knockback_down"]);
+        let (jab_kill, _) = finish_of(&CP01_TWO_HITS, "goblin");
+        assert_eq!(jab_kill, ["goblin_knockback_down"]);
         let (slime, _) = finish_of(&CP01_TWO_HITS, "slime_mock");
         assert_eq!(slime, ["slime_puddle"], "no knockback finish: fallback");
     }

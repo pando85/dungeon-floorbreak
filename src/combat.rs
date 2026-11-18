@@ -810,13 +810,13 @@ pub fn resolve_strike<T: StrikeTarget>(
             hit_stop: stop,
         });
         if outcome == HitOutcome::Defeated {
-            events.push(CombatEvent::EnemyDefeated {
-                tick: sim_tick,
-                target: id,
-                cause: DefeatCause::Melee,
-                force: ForceTier::of_move(spec),
-                instigator: Some(attacker.player),
-            });
+            events.push(CombatEvent::enemy_defeated(
+                sim_tick,
+                id,
+                DefeatCause::Melee,
+                Some(attacker.player),
+                Some(spec),
+            ));
         }
     }
     runner.begin_hit_stop(attacker_stop);
@@ -840,6 +840,18 @@ impl DefeatCause {
         match self {
             Self::Melee => ForceTier::Routine,
             Self::ShoreBlock { .. } => ForceTier::Catastrophic,
+        }
+    }
+
+    /// Every force tier a cause may legitimately record. `force` is not mixed
+    /// into the replay hash because it is derived from hashed data, so a force
+    /// outside this list is a bug (checked in [`CombatEvent::mix_into`]); a
+    /// cause whose force is not derivable must mix it, as a documented hash
+    /// migration. The exhaustive match forces a new cause to decide.
+    pub const fn derived_forces(self) -> &'static [ForceTier] {
+        match self {
+            Self::Melee => &[ForceTier::Routine, ForceTier::Heavy],
+            Self::ShoreBlock { .. } => &[ForceTier::Catastrophic],
         }
     }
 
@@ -974,6 +986,29 @@ pub enum CombatEvent {
 }
 
 impl CombatEvent {
+    /// The one constructor of the defeat event: the force tier is derived here
+    /// (never passed in), from the lethal move for a melee defeat and from the
+    /// cause otherwise, so a force source cannot skip the derivation rule.
+    pub fn enemy_defeated(
+        tick: u64,
+        target: u32,
+        cause: DefeatCause,
+        instigator: Option<u32>,
+        lethal_move: Option<&MoveSpec>,
+    ) -> Self {
+        let force = match (cause, lethal_move) {
+            (DefeatCause::Melee, Some(spec)) => ForceTier::of_move(spec),
+            _ => cause.default_force(),
+        };
+        Self::EnemyDefeated {
+            tick,
+            target,
+            cause,
+            force,
+            instigator,
+        }
+    }
+
     /// Stable numeric fingerprint of the event (for the rolling event hash).
     pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
         match *self {
@@ -1009,9 +1044,13 @@ impl CombatEvent {
                 tick,
                 target,
                 cause,
-                force: _,
+                force,
                 instigator,
             } => {
+                debug_assert!(
+                    cause.derived_forces().contains(&force),
+                    "force {force:?} is not derivable from {cause:?}: mix it"
+                );
                 mix(3);
                 mix(tick);
                 mix(u64::from(target));

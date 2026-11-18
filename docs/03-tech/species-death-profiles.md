@@ -17,11 +17,19 @@ There is **no gore, intensity or finish field** and none can reach the simulatio
 
 ### Replay hash and log format
 
-No golden hash changed. The event hash is unchanged for every committed fixture:
+No existing golden hash changed. The event hash is unchanged for every earlier fixture (the headless script diffs all of them):
 
-* `force` is **not mixed**: it is a pure function of already-hashed data (the move id of the `Hit` on the same tick, or the constant block tier). A test checks that derivation over every fixture.
-* `instigator` is mixed only when the cause does not imply it (implied: Carl's slot for melee, nobody for a block), so a kick followed by a block crush hashes differently from a block alone, and every earlier replay is untouched.
-* The `COMBAT_EVENT` line adds ` force=heavy` and ` instigator=N` only when not implied. The one committed log that changed text is `cp01_kick` (its lethal second kick is now `force=heavy`); its `COMBAT_STATE` hash is the same (`docs/evidence/cp01-feel/headless_cp01_kick.txt` and `SHA256SUMS` updated).
+* `force` is **not mixed**: it is a pure function of already-hashed data (the move id of the `Hit` on the same tick, or the constant block tier). Guard: the only constructor is `CombatEvent::enemy_defeated`, which derives the tier (a caller cannot pass one), `DefeatCause::derived_forces` lists, by exhaustive match, the tiers each cause may record, `mix_into` `debug_assert`s it, and a test checks every fixture. **Rule:** a new cause whose force is not derivable from hashed data must mix `force`, as a documented hash migration.
+* `instigator` is mixed only when the cause does not imply it (implied: Carl's slot for melee, nobody for a block), so a kick followed by a block crush hashes differently from a block alone.
+* `Goblin::hit_by` (the source of a block's instigator) is mixed into the goblin state hash only for a player other than slot 0, so a future second player's hit never hashes like Carl's, while every 1P hash is unchanged.
+* The `COMBAT_EVENT` line adds ` force=heavy` and ` instigator=N` only when not implied. The one earlier committed log that changed text is `cp01_kick` (its lethal second kick is now `force=heavy`); its `COMBAT_STATE` hash is the same (`docs/evidence/cp01-feel/headless_cp01_kick.txt` and `SHA256SUMS` updated).
+* New committed fixture `cp03_kick_block`: a real kick launches the goblin into the shore footprint and the block lands on it (event ends `cause=shore_block credit_player=0 instigator=0`), final hash `73e409161ce5434f`. It pins the instigator-mixed branch in CI.
+
+### Rulings (independent review of PR #94, owner sign-off pending)
+
+* **Instigator window.** `hit_by` is kept for the whole attempt (cleared only by a restart). That is accepted only while nothing reads it. **Before any consumer reads it** (score, XP, co-op credit, achievements, DEATH-C callouts) it must be bounded: clear it when the target returns to `Neutral` (end of `Hurt` / `Launched` / `Downed`), which is deterministic and needs no tuning constant. Changing the window changes the hashes of chain events and is then a documented migration. A goblin pushed into the footprint by a D-03 contact gets no instigator (contact is not a `Hit`); whether contact chains carry credit is an owner decision.
+* **Deferred fields.** `species` stays out of the event for good (it is resolved from the target id, which keeps the event IP-neutral and the hash unchanged). There is no `event_id`: (attempt, tick, target) is unique by the once-per-transition rule, and DEATH-C seeds presentation from `hash(run_seed, attempt, tick, target)` outside the domain. `hit_direction` and `impact_position` are deferred to DEATH-C, to be added only if derived from hashed state (attacker facing, the target body at the defeat tick, "down" for the block) and left unmixed under the same rule as `force`.
+* **Rebase.** After #79 merges, rebase this PR onto `main`, retarget the base, keep main's backlog rows and re-insert the DEATH-B row, and rerun CI.
 
 ## Death profile data
 
@@ -55,4 +63,4 @@ Shipped profiles: `goblin` (real, GOB-01), and two mock fixtures with no artwork
 
 ## Tests
 
-`src/death.rs` (selection table over species, cause and force; no heavy finish for a routine hit; fallbacks; validation rejects bad version, duplicate ids, empty fallback, unknown tier and extra fields) and `src/combat_scene.rs` (kick then block credits the block and keeps the kicker; defeat once per target in every fixture; force derivation; hash words; same replay gives the same finish and hash).
+`src/death.rs` (selection table over species, cause and force; no heavy finish for a routine hit; fallbacks; validation rejects bad version, duplicate ids, empty fallback, unknown tier and extra fields) and `src/combat_scene.rs` (kick then block credits the block and keeps the kicker (a unit test and the committed `cp03_kick_block` fixture); a second player's hit hashes differently; the force constructor and allowed set; defeat once per target in every fixture; force derivation; hash words; same replay gives the same finish and hash).

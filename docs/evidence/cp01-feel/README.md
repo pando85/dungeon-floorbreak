@@ -97,4 +97,4 @@ Provenance and rights: code by Claude Sonnet; no new art and no new third-party 
 
 ## DEATH-B note
 
-`headless_cp01_kick.txt` gained ` force=heavy` on its `enemy_defeated` line (the lethal second kick launches, so its force tier is heavy). The `COMBAT_STATE` hash is unchanged; `SHA256SUMS` was updated. See [species death profiles](../../03-tech/species-death-profiles.md).
+`headless_cp01_kick.txt` gained ` force=heavy` on its `enemy_defeated` line (the lethal second kick launches, so its force tier is heavy). The `COMBAT_STATE` hash is unchanged; `SHA256SUMS` was updated. See [species death profiles](../../03-tech/species-death-profiles.md). New fixture `cp03_kick_block` (kick, then the block crushes the launched goblin; the line ends `instigator=0`): `headless_cp03_kick_block.txt`, final hash `73e409161ce5434f`, a new fixture so it is not a migration.
