@@ -74,14 +74,12 @@
     "strip_tags": ["attack_tell", "attack_swing", "spit"]
   },
   "scene": {
+    "mirror_lit_grid": "assets/source/characters/llama/llama-01_mirror_lit.grid.json",
     "actors": [
-      {"frame": 0, "x": 470},
-      {"frame": 8, "x": 560},
-      {"frame": 9, "x": 650},
-      {"frame": 15, "x": 650},
-      {"frame": 11, "x": 760},
-      {"frame": 3, "x": 840},
-      {"frame": 14, "x": 920}
+      {"frame": 16, "x": 592},
+      {"frame": 9, "x": 660},
+      {"frame": 0, "x": 780},
+      {"frame": 8, "x": 890}
     ]
   }
 }

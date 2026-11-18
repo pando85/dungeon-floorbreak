@@ -34,6 +34,7 @@ ROOT = Path(__file__).resolve().parent.parent
 LLAMA_DIR = ROOT / "assets/source/characters/llama"
 GRID = LLAMA_DIR / "llama-01.grid.json"
 SIZE_STUDY = LLAMA_DIR / "llama-01_size_study.grid.json"
+MIRROR_LIT = LLAMA_DIR / "llama-01_mirror_lit.grid.json"   # scene-only: same frames, torch from the upper right
 CANVAS = (96, 72)
 PIVOT = (44, 71)
 TICK_HZ = 60
@@ -612,74 +613,92 @@ def mean_pose(a: dict, b: dict, keys) -> dict:
 INBETWEEN_BODY = ("rump", "chest", "barrel_r", "belly", "haunch", "shoulder", "near_hind", "far_hind", "near_front",
                   "far_front", "near_hind_hoof", "far_hind_hoof", "near_front_hoof", "far_front_hoof", "tail")
 
+def _tips(p: dict, dx=0, dy=0) -> dict:
+    """Move only the tip (third point) of both ears."""
+    return {k: (p[k][0], p[k][1], mv(p[k][2], dx, dy)) for k in ("ear_near", "ear_far")}
+
+
 _head_x1 = move_head(IDLE, dx=1)
 
+# 1 Inhale: body, first leg points and head up 1 px, hooves stay.
 POSE_1 = shifted(IDLE, **move_body(IDLE, -1), **move_head(IDLE, dy=-1),
-                 tail=(IDLE["tail"][0], (14, 27), IDLE["tail"][2]))
-POSE_2 = shifted(IDLE, **move_head(IDLE, dx=-1), tail=(IDLE["tail"][0], (15, 29), IDLE["tail"][2]))
-# jaw end, mouth third point and lower teeth drop 1 px on top of the 1 px head-back shift
-POSE_2["jaw"] = (POSE_2["jaw"][0], mv(POSE_2["jaw"][1], 0, 1))
-POSE_2["mouth"] = (POSE_2["mouth"][0], POSE_2["mouth"][1], mv(POSE_2["mouth"][2], 0, 1))
-POSE_2["teeth"] = [(n, mv(q, 0, 1)) if n == "lower" else (n, q) for n, q in POSE_2["teeth"]]
+                 tail=(IDLE["tail"][0], (13, 27), IDLE["tail"][2]))
 
+# 2 Exhale and chew: head x -1, jaw end / mouth third point / lower teeth y +1, ear tips a further x -1.
+_h2 = move_head(IDLE, dx=-1)
+POSE_2 = shifted(IDLE, **_h2, tail=(IDLE["tail"][0], (14, 30), IDLE["tail"][2]))
+POSE_2["jaw"] = (_h2["jaw"][0], mv(_h2["jaw"][1], 0, 1))
+POSE_2["mouth"] = (_h2["mouth"][0], _h2["mouth"][1], mv(_h2["mouth"][2], 0, 1))
+POSE_2["teeth"] = [(n, mv(q, 0, 1)) if n == "lower" else (n, q) for n, q in _h2["teeth"]]
+POSE_2.update(_tips(_h2, dx=-1))
+
+# 4 Passing A: IDLE body, head x +1, far fore and near hind lifted 4 to 5 px.
 POSE_4 = shifted(
     IDLE, **_head_x1,
-    far_front=[(58, 47, 3.0), (60, 53, 2.2), (62, 58, 1.7), (61, 64, 1.4)], far_front_hoof=(61, 66),
-    near_hind=[(29, 46, 4.5), (30, 53, 3.0), (28, 57, 2.0), (29, 63, 1.5)], near_hind_hoof=(29, 65),
+    far_front=[(56, 46, 3.0), (58, 52, 2.2), (60.5, 57, 1.9), (60, 63, 1.2)], far_front_hoof=(60, 65),
+    near_hind=[(29, 45, 4.5), (31, 51, 3.0), (27, 56, 2.1), (28, 62, 1.3)], near_hind_hoof=(28, 64),
 )
+# 5 Contact B: all four hooves down in the opposite phase of the contact key.
 POSE_5 = shifted(
     WALK_CONTACT,
-    far_front=[(58, 48, 3.0), (61, 54, 2.2), (63, 60, 1.7), (65, 67, 1.4)], far_front_hoof=(65, 69),
-    near_front=[(54, 48, 3.5), (53, 54, 2.4), (52, 60, 1.8), (52, 67, 1.5)], near_front_hoof=(52, 69),
-    far_hind=[(35, 47, 3.5), (34, 54, 2.5), (29, 59, 1.8), (28, 67, 1.4)], far_hind_hoof=(27, 69),
-    near_hind=[(29, 47, 4.5), (31, 54, 3.0), (29, 59, 2.0), (30, 67, 1.5)], near_hind_hoof=(30, 69),
+    far_front=[(56, 47, 3.0), (59, 53, 2.2), (62, 59, 1.9), (64, 67, 1.2)], far_front_hoof=(64, 69),
+    near_front=[(52, 47, 3.6), (51, 53, 2.4), (50, 59, 2.1), (50, 67, 1.3)], near_front_hoof=(50, 69),
+    far_hind=[(34, 46, 3.5), (33, 53, 2.5), (27, 59, 1.9), (26, 67, 1.2)], far_hind_hoof=(26, 69),
+    near_hind=[(29, 46, 4.5), (32, 53, 3.0), (28, 59, 2.1), (29, 67, 1.3)], near_hind_hoof=(29, 69),
 )
+# 6 Passing B: frame 4 with the lifted pair swapped (near fore and far hind up).
 POSE_6 = shifted(
     POSE_4,
-    near_front=[(53, 47, 3.5), (55, 53, 2.4), (57, 58, 1.8), (56, 64, 1.5)], near_front_hoof=(56, 66),
-    far_hind=[(35, 46, 3.5), (37, 53, 2.5), (35, 57, 1.8), (36, 63, 1.4)], far_hind_hoof=(36, 65),
+    near_front=[(52, 46, 3.6), (54, 52, 2.4), (56.5, 57, 2.1), (56, 63, 1.3)], near_front_hoof=(56, 65),
+    far_hind=[(34, 45, 3.5), (36, 51, 2.5), (32.5, 56, 1.9), (33.5, 62, 1.2)], far_hind_hoof=(33, 64),
     far_front=IDLE["far_front"], far_front_hoof=IDLE["far_front_hoof"],
     near_hind=IDLE["near_hind"], near_hind_hoof=IDLE["near_hind_hoof"],
 )
 
+# 7 Anticipation: mean of IDLE and TELL for the body, thin 2-point neck, red stripe, no sac yet, ears going back.
 POSE_7 = shifted(
     IDLE, **mean_pose(IDLE, TELL, INBETWEEN_BODY),
-    neck=(mean_pose(IDLE, TELL, ("neck",))["neck"][0], (62, 15)), neck_r=(6.1, 4.3), glow=0.4, throat=None,
-    skull=(63, 12, 5.0, 4.3), muzzle=((65, 13), (73, 15.5)), jaw=((65, 18), (72, 20)), mouth=None,
-    teeth=[("clench", (70, 14))], ear_near=((61, 9), (56, 6.5)), ear_far=((63, 9), (58, 7)),
-    eye="tell", eye_at=(61, 10), nostril=(73, 12),
+    neck=(mean_pose(IDLE, TELL, ("neck",))["neck"][0], (60, 16)), neck_r=(4.9, 3.6), glow=0.4, throat=None,
+    skull=(61, 13, 5.0, 4.2), muzzle=((63, 14), (71.5, 16.5)), jaw=((63, 18), (70.5, 20)), muzzle_r=(3.7, 2.85),
+    mouth=None, teeth=[("clench", (68, 15))],
+    ear_near=((58.5, 11), (56, 8), (52.5, 7)), ear_far=((60.5, 11), (58, 8.2), (55, 7.5)),
+    eye="tell", eye_at=(59, 12), nostril=(72, 13),
 )
 
-POSE_10 = shifted(
-    SPIT, glow=0.33,
-    neck=(SPIT["neck"][0], (73, 24)), skull=(76, 22, 4.6, 3.8),
-    muzzle=((78, 22.5), (86, 22.5)), jaw=((78, 26), (85, 29.5)),
-    mouth=((78, 25), (87, 24.5), (85, 28)), mouth_glow=0,
-    teeth=[("upper", (84, 24)), ("lower", (82, 27))],
-    ear_near=((74, 19), (68, 17)), ear_far=((76, 19), (70, 17.4)),
-    eye_at=(74, 20), nostril=(86, 19), extra=[],
-)
+# 10 Recover: SPIT shifted back and up, dark mouth, no flash, ear tips start to come up.
+_h10 = move_head(SPIT, dx=-1, dy=-1)
+POSE_10 = shifted(SPIT, **_h10, glow=0.33, mouth_glow=0, extra=[])
+POSE_10.update(_tips(_h10, dy=-1))
+POSE_10["jaw"] = (_h10["jaw"][0], (85, 29.5))
+POSE_10["mouth"] = ((78, 25), (87, 24.5), (85, 28))
+POSE_10["teeth"] = [("upper", (84, 24)), ("lower", (82, 27))]
 
+# 12 Buckle: fore knees on the floor, rump down 3 px, head 12 px lower, ears limp.
 POSE_12 = shifted(
     IDLE,
-    chest=(53, 50), belly=(40, 48, 14, 7.5), shoulder=(54, 52, 6, 7),
-    near_front=[(53, 55, 3.5), (50, 61, 2.4), (55, 67, 1.8)], near_front_hoof=(56, 69),
-    far_front=[(57, 55, 3.0), (54, 61, 2.2), (59, 67, 1.6)], far_front_hoof=(60, 69),
-    neck=((55, 47), (66, 30)), skull=(68, 28, 5.4, 4.4),
-    muzzle=((70, 29), (78, 32)), jaw=((70, 34), (77, 36)), mouth=((71, 33), (80, 33), (78, 36)),
-    ear_near=((66, 25), (61, 23)), ear_far=((68, 25), (63, 23.2)),
-    eye="shut", eye_at=(65, 26), teeth=[("upper", (74, 32)), ("lower", (75, 36))], nostril=(78, 29),
+    rump=(29, 44), haunch=(28, 44, 6.5, 7.0), chest=(51, 49), belly=(44, 51, 8, 4.0), shoulder=(52, 50, 5.5, 6.5),
+    near_front=[(52, 54, 3.4), (55, 60, 2.3), (58, 67, 2.1), (53, 68.5, 1.3)], near_front_hoof=(51, 68),
+    far_front=[(56, 54, 3.0), (60, 60, 2.2), (62, 67, 2.0), (57, 68.5, 1.2)], far_front_hoof=(55, 68),
+    near_hind=[(29, 48, 4.5), (33, 55, 3.0), (26, 61, 2.1), (27, 67, 1.3)], near_hind_hoof=(27, 69),
+    far_hind=[(34, 48, 3.5), (37, 55, 2.5), (31.5, 61, 1.9), (33, 67, 1.2)], far_hind_hoof=(33, 69),
+    neck=((54, 48), (61, 40), (67, 33)), neck_r=(4.8, 3.5, 3.1),
+    skull=(69, 31, 5.2, 4.2), muzzle=((71, 33), (78, 37)), jaw=((70, 38), (76, 40)),
+    mouth=((72, 36), (80, 38), (76, 40)),
+    ear_near=((67, 28), (62, 26), (58, 27)), ear_far=((69, 28), (64, 26.4), (60, 27.5)),
+    eye="shut", eye_at=(66, 29), teeth=[("upper", (75, 35)), ("lower", (74, 39))], nostril=(78, 33),
+    tail=((22, 40), (15, 44), (-1, 0.4)),
 )
 
+# 13 Impact: DEAD with the barrel lifted, ears half up and flopping, tail still up.
 POSE_13 = shifted(
     DEAD,
-    rump=(30, 58), chest=(54, 59), belly=(42, 63, 13, 6.5),
+    rump=(30, 59), chest=(54, 60), belly=(42, 62.5, 11, 5.0),
     neck=(DEAD["neck"][0], (73, 61)), skull=(76, 60.5, 4.4, 3.6),
     muzzle=((78, 61.5), (86, 63)), jaw=((78, 64.2), (85, 65.2)), mouth=((79, 63), (87, 64), (85, 66)),
-    ear_near=((74, 57.5), (69, 55.5)), ear_far=((76, 57.5), (71, 56)),
+    ear_near=((74, 57.5), (70, 55), (66, 55)), ear_far=((76, 57.5), (72, 55.5), (68, 56)),
     eye="shut", eye_at=(74, 59), teeth=[("upper", (84, 63))], nostril=(85, 61),
-    near_front=[(56, 63, 2.8), (61, 66, 2.0), (66, 68.5, 1.5)], near_front_hoof=(67, 69),
-    tail=((24, 57), (18, 54), (-1, 0)),
+    near_front=[(56, 63, 2.8), (61, 66, 2.0), (66, 68.5, 1.3)], near_front_hoof=(67, 69),
+    tail=((24, 58), (19, 53), (-1, 0)),
 )
 
 INBETWEENS = (1, 2, 4, 5, 6, 7, 10, 12, 13, 16)
@@ -872,7 +891,7 @@ def report(rows: list[str], label: str) -> None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("mode", choices=("keys", "size-study"))
+    ap.add_argument("mode", choices=("keys", "size-study", "mirror-lit"))
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--preview", type=Path)
     a = ap.parse_args(argv)
@@ -884,13 +903,23 @@ def main(argv=None) -> int:
             preview(data, build_size_study(), a.preview)
         target, text = GRID, dump(data)
         manifest_text = json.dumps(build_manifest(), indent=2) + "\n"
+    elif a.mode == "mirror-lit":
+        # Lit scenes mirror the right-facing frames for enemies that face Carl on their left, which would put the
+        # torch highlights on the right (wrong) side of the flipped llama. Render the same poses with the torch
+        # vector mirrored in x; flipping that grid puts the highlights back toward the upper-left torch.
+        global LIGHT
+        LIGHT = (-LIGHT[0], LIGHT[1])
+        data = build_grid()
+        target, text = MIRROR_LIT, dump(data)
     else:
         data = build_size_study()
         for i, fr in enumerate(data["frames"]):
             report(fr["cels"]["body"], f"study {i}")
         target, text = SIZE_STUDY, dump(data)
     if a.check:
-        if a.mode == "keys":
+        if a.mode == "mirror-lit":
+            bad = [] if target.read_text() == text else ["mirror-lit grid"]
+        elif a.mode == "keys":
             old = json.loads(GRID.read_text())
             bad = [f for f in range(len(TICKS)) if old["frames"][f]["cels"] != data["frames"][f]["cels"]]
             if not MANIFEST.is_file() or MANIFEST.read_text() != manifest_text:

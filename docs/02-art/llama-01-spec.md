@@ -190,6 +190,7 @@ The review pack holds exactly three images (contact sheet x4, lit scene 640 x 36
 | --- | --- |
 | `assets/source/characters/llama/llama-01.grid.json` / `.ase` | pixel-grid source and Aseprite master (`.ase` built by `scripts/pixel_grid_to_ase.py`) |
 | `assets/source/characters/llama/llama-01_size_study.grid.json` | size study, 56/64/72 px (not production) |
+| `assets/source/characters/llama/llama-01_mirror_lit.grid.json` | scene-only: the same 17 frames rendered with the torch vector mirrored in x (`scripts/author_llama01.py mirror-lit`), used only for mirrored actors in the lit scene; not an atlas source |
 | `scripts/author_llama01.py` | deterministic authoring record (rig, palette, stamps, key poses) |
 | `assets/manifests/llama-01.json` | manifest with the 60 Hz tick table (written by `scripts/author_llama01.py keys`) |
 | `tests/test_art_llama01.py` | reproducibility, `.ase`, timing and strip tests for rules the toolkit does not cover |
@@ -199,11 +200,11 @@ The review pack holds exactly three images (contact sheet x4, lit scene 640 x 36
 
 ## 12. Rights and provenance
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Packet: Claude Sonnet. Design, size decision, palette and keys: Claude Opus. Execution (10 in-betweens, manifest, `.ase`, validators, evidence): Claude Sonnet. Review round 1: a separate Claude Opus agent (FAIL-DESIGN). Design fix round 1 (key redesign, re-freeze, sections 7, 8 and 14): Claude Opus. Re-review: pending. The keys are rasterized from a parametric rig plus literal stamps in `scripts/author_llama01.py`; no tracing of the concept, no image-model raster output, no colour sampled from the concept.
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Packet: Claude Sonnet. Design, size decision, palette and keys: Claude Opus. Execution (10 in-betweens, manifest, `.ase`, validators, evidence): Claude Sonnet, redone after fix round 1 by Claude Sonnet (section 15). Review round 1: a separate Claude Opus agent (FAIL-DESIGN). Design fix round 1 (key redesign, re-freeze, sections 7, 8 and 14): Claude Opus. Re-review: pending. The keys are rasterized from a parametric rig plus literal stamps in `scripts/author_llama01.py`; no tracing of the concept, no image-model raster output, no colour sampled from the concept.
 
 ## 13. Execution record (pre-fix in-betweens)
 
-Executor: medium tier (see section 12). This record describes the pre-fix round; the in-betweens must be redrawn from the new section 8 (see section 14). The ten in-betweens (frames 1, 2, 4, 5, 6, 7, 10, 12, 13, 16) are the pose dicts `POSE_1` to `POSE_13` plus `spit(phase=1)` in `scripts/author_llama01.py`, listed in `INBETWEENS` (never in `KEY_FRAMES` or `rules.frozen_keys`) and rasterized by the same rig as the keys. The seven frozen keys are pixel-identical (V09 passes against `tests/fixtures/llama-01_keys.json`). Every numeric value in section 8 was used as written; no pose had to go back to the design tier.
+Executor: medium tier (see section 12). This record describes the pre-fix round and is superseded by section 15; the in-betweens must be redrawn from the new section 8 (see section 14). The ten in-betweens (frames 1, 2, 4, 5, 6, 7, 10, 12, 13, 16) are the pose dicts `POSE_1` to `POSE_13` plus `spit(phase=1)` in `scripts/author_llama01.py`, listed in `INBETWEENS` (never in `KEY_FRAMES` or `rules.frozen_keys`) and rasterized by the same rig as the keys. The seven frozen keys are pixel-identical (V09 passes against `tests/fixtures/llama-01_keys.json`). Every numeric value in section 8 was used as written; no pose had to go back to the design tier.
 
 Results: `python3 -m scripts.pixelart validate` gives 13 PASS, 0 FAIL, 2 SKIPPED (V08 airborne and V10 layers are not configured for a one-layer set without airborne tags). `rules.manifest_tick_rows` is on, so V03 also checks the manifest tick rows. Review pack: `docs/evidence/llama-01/review-pack/` (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip with release, recover and both `spit` frames).
 
@@ -235,3 +236,25 @@ The independent review of the first key set returned FAIL-DESIGN: at 1x the crea
 **Kept:** palette `llama-floor01-v0` (17 colours, no change), throat-glow tell (sac now puffs 3 to 4 px out of the thinner neck), release flash and spit glob (frame 15 pixel-identical), 1 px outline, size 64 px, frame 96 x 72, pivot (44, 71), contact row 71, tick windows. The back line drops from row 31 to row 34 so that the 64 px height holds with the taller ears and higher head; the size-study file was regenerated with the new rig (A 57, B 64, C 72 px measured), the decision itself is unchanged.
 
 **Execution notes for the next round:** redraw all ten in-betweens from the new section 8 (they are still the pre-fix ones and do not match the new keys); frame 12 must clearly leave idle (fore knees folded on the floor, rump down, head low, ears limp), which also answers review item E4; frame 4 and 6 lift the hooves 4 to 5 px (E3); then E1, E2 and the evidence.
+
+## 15. Execution record, fix round 1
+
+The ten in-betweens (frames 1, 2, 4, 5, 6, 7, 10, 12, 13, 16) were redrawn exactly from section 8 as pose dicts `POSE_1` to `POSE_13` plus `spit(phase=1)` in `scripts/author_llama01.py` (old numbers discarded). The seven frozen keys are pixel-identical (V09 passes). `python3 -m scripts.pixelart validate`: 13 PASS, 0 FAIL, 2 SKIPPED (V08, V10 not configured). `pytest -k "llama or pixelart"`, `scripts/validate_assets.py` and `scripts/check_docs.py` pass. Every section 8 number rendered a frame that meets its bbox and glow rules, so no spec number was changed. Frame 12 now clearly leaves idle (bbox top row 24, folded fore knees on rows 66 to 70), frames 4 and 6 lift hooves 4 to 5 px (the walk loop GIF `gif_walk_x1.gif` / `gif_walk_x3.gif` is in the evidence), and frame 13 is a flopping-ear impact between 12 and 14.
+
+Review execution items:
+
+- **E1 lit scene.** `scene.actors` in `llama-01.pixelart.json` now places, from the left of the 640 x 360 view: Donut and Carl alone (nothing overlaps them), a spit glob (frame 16) in flight at x 592, a llama in the release pose (frame 9, x 660) whose mouth flash is about 65 px behind the glob, an idle llama (frame 0, x 780) and a tell llama (frame 8, x 890). No llama covers Carl or Donut. The first llama stands 140 px from Carl, so the 1.23 scale ratio reads next to the idle llama; the walk, hurt and down poses are in the contact sheet and GIFs.
+- **E2 mirrored lighting.** The authored frames are lit from the upper left. Enemies face Carl on their left, so the scene mirrors them (runtime rule: flip around the pivot column), which put `L` highlights on the right edge against the upper-left torch. Fixed in the scene composition, not in the atlas: `scripts/author_llama01.py mirror-lit` renders the same 17 poses with the light vector mirrored in x into `llama-01_mirror_lit.grid.json`, and the toolkit's scene composer (`scripts/pixelart/scene.py`, optional `scene.mirror_lit_grid`) uses it for mirrored actors only. Flipped, the highlights face the torch and the shade sits on the right. The atlas, manifest and keys are unchanged by this. Convention for the runtime: until a lit-sprite pipeline exists, mirrored enemy sprites carry highlights on the wrong side; this is an accepted limitation outside the scene composition.
+- **E3 walk amplitude.** Frames 4 and 6 lift hooves 4 to 5 px per section 8; the loop GIF is in the evidence. I did not check a slide numerically; the contact row stays at 71 and the hoof of each planted leg is on row 69 in frames 3 and 5.
+- **E4 frame 12.** Addressed by the section 8 buckle.
+
+Far ear check: the far ear is the dark `ear_in` ramp (`s` `#6e4e44`, `a` `#3a2a32`) drawn in the `far` group behind the head and outlined; the compose order is correct. On idle and walk frames it reads as a dark brown-red banana behind the near ear, which is the key's colour choice, not a render bug. Listed for the reviewer: if a reddish far ear is unwanted, that is a key colour change for the design tier.
+
+### Executor choices for the reviewer
+
+1. Section 8 gives the head shift for frame 4 and 6 only as "head x +1"; `move_head()` also carries the mouth, teeth, eye and nostril, which the old round did too.
+2. Frame 2 "ear tips a further x -1" and frame 10 "ear tips a further y -1" were read as the third point of each ear chain.
+3. Frame 7: the neck start is the mean of the `IDLE` and `TELL` neck starts ((53, 38)), as the section lists the neck as two points; `barrel_rr` stays the `IDLE` value.
+4. Frame 1 "tail end (13, 27)" and frame 2 "(14, 30)" were applied to the tail's middle point (the tip of the plume), as in the pre-fix round.
+5. The scene composition reorder (glob, release llama, idle llama, tell llama) drops the previous hurt, walk and down actors; they stay covered by the contact sheet and GIFs.
+6. `llama-01.ase` was rebuilt by `scripts/export_assets.sh` with LibreSprite; it was not opened in a GUI.
