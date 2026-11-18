@@ -16,6 +16,8 @@ Assignment:
 - **Medium tier:** all execution: implementation, tests, evidence, CI work and docs, plus checking a fix list against a review.
 - **Light tier:** searches, lookups and log triage.
 
+Pixel-art work orders are routed by [difficulty](pixel-art-pipeline.md#routing-by-difficulty).
+
 Default to the medium tier. Using the top tier needs a stated reason in the brief. Split a task before routing it: give only its hard core to the top tier and send the surrounding chores (tests, evidence, docs, CI) to the medium tier in a separate brief.
 
 ## Standard brief
