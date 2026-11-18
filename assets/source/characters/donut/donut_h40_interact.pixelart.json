@@ -1,0 +1,98 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "anim-interact-01-donut",
+  "title": "ANIM-INTERACT-01 Princess Donut 40 px interact keys (keys frozen, all in-betweens drawn)",
+  "grid": "assets/source/characters/donut/donut_h40_interact.grid.json",
+  "manifest": "assets/manifests/donut_h40_interact.json",
+  "frame_size": [
+    72,
+    44
+  ],
+  "pivot": [
+    46,
+    43
+  ],
+  "contact_row": 43,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "interact_paw": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          6
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          3,
+          6
+        ]
+      ]
+    },
+    "interact_nudge": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          4,
+          8
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          6,
+          10
+        ],
+        [
+          7,
+          8
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 22,
+    "max_isolated_per_frame": 0,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/anim-interact-01-donut_keys.json",
+      "frames": [
+        1,
+        5
+      ],
+      "layers": [
+        "tail",
+        "legs_far",
+        "body",
+        "legs_near",
+        "head",
+        "face",
+        "gear"
+      ]
+    },
+    "canvas_margin": [
+      1,
+      1,
+      1,
+      0
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "interact_paw",
+      "interact_nudge"
+    ]
+  }
+}
