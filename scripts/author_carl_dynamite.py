@@ -159,6 +159,22 @@ KMMMMSK
 .KMMSK.
 ..KKK..
 """)                       # open, fingers spread (palm out: "whoa"), never a fist above the shoulder
+HAND_PALM = cm.parse("""
+..L.L.L.
+.KLKLKLK
+.KLMMMSK
+MKLMMMSK
+KMKMMSK.
+.KKSSK..
+...KK...
+""")                       # gate fix: open palm, skin finger tips fanned with 1 px gaps, thumb out at lower left
+HAND_CUP = cm.parse("""
+.L.L.
+KLKLK
+KMMMK
+KMMSK
+.KSK.
+""")                       # open hand cupped over the ear (t7_brace, execution phase); never a fist by the head
 HAND_FLAT_R = cm.parse("""
 .KKKKK.
 KLMMMMK
@@ -228,13 +244,15 @@ def key_hold() -> Frame:
     back, head pulled away, the far hand up palm-out between his face and the spark. Brave enough to hold it,
     not happy about it."""
     f = Frame()
-    cm.upper(f, (-1, 2), "v3", (-2, 0))                     # head pulled back from the spark (2 px, the limit)
-    cm.standing_legs(f, 41, 15, 24, 12, 30)
-    # far arm (behind): elbow forward, open hand up beside the face, palm toward the spark
-    cm.sleeve_arm(f, "far_arm", [(28, 23), (33, 24), (34, 17)], 2.0)
-    f.add("far_arm", HAND_SPREAD, 31, 10)                    # x31-37, rows 10-15
+    cm.upper(f, (-2, 2), "v3", (-2, 0))                     # gate fix F3: lean back 2 px, head 2 px further
+    cm.standing_legs(f, 41, 14, 23, 12, 30)
+    # far arm (behind): upper arm forward to a low elbow out front, forearm angled up and back, wrist bent so the
+    # open palm faces the spark, between his face and the spark at chin-to-brow height (gate fix F2)
+    cm.sleeve_arm(f, "far_arm", [(27, 23), (35, 23), (33, 18)], 2.0)
+    f.add("far_arm", HAND_PALM, 30, 11, lock=True)           # x30-37, rows 11-17 (thumb at x30); locked: the
+    #                                                          finger separators survive the orphan merge
     # near arm: nearly straight, forward and a little down, as far from his face as it goes
-    cm.sleeve_arm(f, "near_arm", [(18, 22), (28, 25), (37, 27)], 2.0)
+    cm.sleeve_arm(f, "near_arm", [(17, 22), (28, 25), (37, 27)], 2.0)
     f.add("near_arm", cm.FIST_SMALL, 37, 25)                 # grip x37-42, rows 25-28
     cm.watch_cuff(f, 35, 27, ((0, -1),))
     stick(f, "V", 38, 17, SPARK_A, (40, 11))                 # stick x38-41 rows 17-25, spark x40-43 rows 11-14
@@ -307,13 +325,13 @@ ARM_LAYERS = ("far_arm", "near_arm", "watch", "prop")
 # Upper-block translation of each standing frame (U), used to move its arms onto a run frame's upper block.
 # Keys: as drawn. In-betweens: the spec's planned U (section 6); while an in-between is still a copy of its key
 # (design phase), ``phase_u`` uses the key's U instead, so the copied arms stay on the shoulder.
-STANDING_U = {"t0_draw": (1, 1), "t1_light": (1, 2), "t2_hold": (-1, 2), "t3_hold_b": (-1, 2),
+STANDING_U = {"t0_draw": (1, 1), "t1_light": (1, 2), "t2_hold": (-2, 2), "t3_hold_b": (-2, 2),
               "t4_wind": (-2, 1), "t5_release": (3, 2), "t6_follow": (5, 3), "t7_brace": (1, 3),
               "t8_settle": (1, 1)}
 # The hold and wind-up phases lean back when standing; on the run body (U(+3, +2..3)) their forward hand or spark
-# would reach column 47 (the clipping rule keeps it empty). Their arms sit 1 px further back on the shoulder
-# instead; the arm root is drawn over the jacket, so the 1 px slide does not open a gap.
-MOVE_TRIM = {"t2_hold": (-1, 0), "t3_hold_b": (-1, 0), "t4_wind": (-1, 0)}
+# would reach column 47 (the clipping rule keeps it empty). Their arms sit further back on the shoulder instead
+# (hold 2 px, wind-up 1 px); the arm root is drawn over the jacket, so the slide does not open a gap.
+MOVE_TRIM = {"t2_hold": (-2, 0), "t3_hold_b": (-2, 0), "t4_wind": (-1, 0)}
 
 
 def phase_u(phase: str) -> tuple[int, int]:
@@ -510,6 +528,7 @@ def evidence() -> None:
     entries += [(donut, dpiv, xs[0], 0), (loco[0], cpiv, xs[1], 0)]
     entries += [(carl[k[n]], cpiv, x, 0) for n, x in zip(("t1_light", "t2_hold", "t4_wind", "t5_release"), xs[2:])]
     entries += [(vfx[0], vpiv, 700, 34, False), (vfx[3], vpiv, 716, 46, False), (vfx[4], vpiv, 742, 0, False)]
+    entries += [(vfx[1], vpiv, 470, 66, False), (vfx[2], vpiv, 560, 64, False)]   # flight over the lit brick
     entries += [(gob_flip, gpiv_flip, 786, 0), (gob_flip, gpiv_flip, 842, 0)]
     sheet(entries, "keys-scale", 370, 500, k3=True)
     sheet(entries, "keys-scale-unlit", 370, 500, lit=False)
@@ -559,12 +578,12 @@ def evidence() -> None:
         x += c.width + PAD
     out.save(EVIDENCE / "keys-x4.png")
 
-    # 4. Moving variant: the release phase baked onto the six run frames, at 1x on lit Floor 1 and 4x.
-    mv = [i for i, t in enumerate(carl_g["tags"]) if t["name"] == "dynamite_move_release"][0]
-    t = carl_g["tags"][mv]
-    entries = [(donut, dpiv, 404, 0), (loco[0], cpiv, 452, 0)]
-    entries += [(carl[t["from"] + j], cpiv, 500 + 48 * j, 0) for j in range(6)]
-    sheet(entries, "move-release-scale", 370, 440, k3=True)
+    # 4. Moving variant: each overlay phase baked onto the six run frames, at 1x on lit Floor 1 and 4x.
+    for phase in ("light", "hold", "wind", "release"):
+        t = [t for t in carl_g["tags"] if t["name"] == "dynamite_move_" + phase][0]
+        entries = [(donut, dpiv, 404, 0), (loco[0], cpiv, 452, 0)]
+        entries += [(carl[t["from"] + j], cpiv, 500 + 48 * j, 0) for j in range(6)]
+        sheet(entries, f"move-{phase}-scale", 370, 440, k3=True)
     print(f"wrote evidence in {EVIDENCE.relative_to(ROOT)}")
 
 
@@ -572,7 +591,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--check", action="store_true", help="verify the committed grids equal the build output")
     ap.add_argument("--evidence", action="store_true", help="render the silhouette and scale evidence")
-    ap.add_argument("--ascii", help="print one standing frame id (or 'vfx') as ASCII and exit")
+    ap.add_argument("--ascii", help="print a Carl atlas frame index or standing frame id (t2_hold), or 'vfx', as ASCII")
     a = ap.parse_args(argv)
     if a.ascii:
         if a.ascii == "vfx":
@@ -581,8 +600,13 @@ def main(argv: list[str] | None = None) -> int:
                 print(i)
                 print("\n".join(fr["cels"]["body"]))
             return 0
-        f = KEYS[a.ascii]()
-        flat = f.flat()
+        if a.ascii.isdigit():               # an atlas frame index of the Carl grid
+            fr = carl_grid()["frames"][int(a.ascii)]
+            flat = {}
+            for l in LAYERS:
+                flat.update({(x, y): c for y, r in enumerate(fr["cels"].get(l, [])) for x, c in enumerate(r) if c != "."})
+        else:                               # a standing frame id, e.g. t2_hold
+            flat = KEYS[{n: s or n for n, _, s in STANDING}[a.ascii]]().flat()
         print("    " + "".join(str(i % 10) for i in range(W)))
         for y, r in enumerate(rows(flat, W, H)):
             print(f"{y:3d} {r}")
