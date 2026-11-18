@@ -11,7 +11,7 @@
 - Floor 01 environment concept and location-specific approval: [floor-01-art-atlas-v1.md](floor-01-art-atlas-v1.md), especially Area 02.
 - The actual approved room concept remains `assets/concept/floor-01/atlas-v1/02-tutorial-guild-old-guide.png`. **Do not replace it with any room illustration in Mordecai's character boards.**
 - Carl and Donut: `assets/concept/carl/approved/`, `assets/concept/donut/approved/` and their respective character bibles. Native scale baselines are Carl **52 px** and Donut **40 px**; neither may be redesigned by this PR.
-- Concept PNG intake and integrity records: `assets/concept/floor-01/mordecai/` (pending Hermes upload on this draft PR).
+- Concept PNG intake and integrity records: `assets/concept/floor-01/mordecai/` (uploaded by Hermes and integrity verified).
 
 ## Book 1 / Floor 01 anchors versus art interpretation
 
@@ -52,13 +52,13 @@ The emotional trajectory is a visual-acting proposal, not a mandated scripted se
 2. `02-mordecai-turnaround-acting.png` — supporting turnaround/expression proposal; exact pixels and scale not validated.
 3. `03-mordecai-tutorial-guild-storyboard.png` — supporting performance and room composition; generated text, room changes, props and Carl/Donut likenesses are **non-authoritative**.
 
-Original PNG bytes and SHA-256s are recorded in `assets/concept/floor-01/mordecai/manifest.json` and `SHA256SUMS` after Hermes uploads the assets. **Never extract final production sprites by cropping these images.**
+Original PNG bytes and SHA-256s are recorded in `assets/concept/floor-01/mordecai/manifest.json` and `SHA256SUMS` on the committed original files. **Never extract final production sprites by cropping these images.**
 
 ## Approval and next gates
 
 - [x] Owner selected option C and rat-anatomy refinement.
 - [x] Floor 01 character direction and emotional range reviewed positively by owner, 2026-11-18.
-- [ ] Import three exact concept PNGs with SHA-256 verification through Hermes (draft PR).
+- [x] Three exact concept PNGs uploaded by Hermes, validated against source SHA-256 and Git blob hashes on 2026-11-18.
 - [ ] Verify and merge concept-only PR after files, provenance, docs checks and review.
 - [ ] Later separate work order: design *native* editable Mordecai idle/turnaround/acting keys with silhouette gate, independent art review and actual cast-scale checks.
 - [ ] Later separate storyboarding and scene design: use the existing approved Tutorial Guild rather than generating a replacement environment.
