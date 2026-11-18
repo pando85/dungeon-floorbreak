@@ -653,7 +653,7 @@ set_calf(p)
 p["near_arm"] = L([(-20, 30), (-13, 20), (-4, 15)], POSES["down15"]["near_arm"]["r"])
 p["arm_blobs"] = {"deltoid": (-20, 30, 11, 9), "bicep": (-16, 25, 8, 7), "forearm": (-8, 17, 8, 6)}
 p["fist"] = (2, 13, 9.5, -10)
-p["face"] = "dead_quiet"; p["jaw_drop"] = False; p["hair"] = {"turn": 65}
+p["face"] = "dead_quiet"; p["jaw_drop"] = False; p["hair"] = {"turn": 65}; p["no_beads"] = True
 POSES["impact14"] = p
 
 # The full atlas, in order: (atlas index, tag, pose, ticks, author)
@@ -759,7 +759,7 @@ def build(pose: dict) -> list[str]:
         for x in range(c.w):
             if c.part[y][x] == hair_id and rows[y][x] == "I" and (x % 3 == 0 or (x % 3 == 1 and y % 4 == 0)):
                 rows[y][x] = "H"
-    for i, key in BEADS.items():
+    for i, key in ({} if pose.get("no_beads") else BEADS).items():     # frame 14: beads would read as stray pixels
         bx, by = c.P(*hr["ropes"][i][-2])
         if 0 <= int(by) < c.h and c.part[int(by)][int(bx)] == hair_id:
             rows[int(by)][int(bx)] = key
