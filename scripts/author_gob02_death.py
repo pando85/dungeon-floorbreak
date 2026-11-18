@@ -1126,10 +1126,10 @@ def part_anchors(pid: str, cel_: dict) -> dict:
     if kind in ("origin", "origin_bc"):             # the drawn origin pixel of the spatter rule, in cell coordinates
         spec = SPATTER_A if kind == "origin" else SPATTER_B
         return {"origin": [16 - spec["size"][0] // 2 + spec["origin"][0], 16 - spec["size"][1] // 2 + spec["origin"][1]]}
-    if kind == "seam_right":
-        return {"seam_right": [x1, y1]}
-    if kind == "seam_left":
-        return {"seam_left": [x0, y1]}
+    if kind == "seam_right":      # left half of stage 3: its last column is u = -1, the same pixel as stages 1 and 2
+        return {"seam_right": [x1, y1], "centre_bottom": [x1, y1]}
+    if kind == "seam_left":       # right half: the shared centre-bottom pixel (u = -1) is one column left of its first
+        return {"seam_left": [x0, y1], "centre_bottom": [x0 - 1, y1]}
     if kind == "start":
         return {"start": [x0, (y0 + y1) // 2]}
     return {"centre": [16, 16]}

@@ -842,6 +842,10 @@
           "seam_right": [
             30,
             17
+          ],
+          "centre_bottom": [
+            30,
+            17
           ]
         },
         "frame0_origin": null,
@@ -972,6 +976,10 @@
         "anchors": {
           "seam_left": [
             1,
+            17
+          ],
+          "centre_bottom": [
+            0,
             17
           ]
         },

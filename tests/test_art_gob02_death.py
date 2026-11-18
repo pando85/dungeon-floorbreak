@@ -465,5 +465,21 @@ class Gob02DeathExecutorTests(unittest.TestCase):
         self.assertEqual(presets["drop_blood"], {2, 3, 4})
 
 
+class Gob02DeathEvidenceGifTests(unittest.TestCase):
+    """The evidence GIFs keep the exact sprite palette: no frame loses the goblin skin or blood colours to quantisation."""
+    SKIN_MID, RED_MID = (0x7A, 0x9E, 0x36), (0xB8, 0x32, 0x2E)
+
+    def test_every_gif_frame_keeps_the_sprite_colours(self):
+        from PIL import Image, ImageSequence
+        gifs = sorted((ROOT / "docs/evidence/gob-02-death").rglob("*.gif"))
+        self.assertGreaterEqual(len(gifs), 10)
+        for path in gifs:
+            with Image.open(path) as im:
+                for n, frame in enumerate(ImageSequence.Iterator(im)):
+                    colours = {c for _n, c in frame.convert("RGB").getcolors(1 << 16)}
+                    self.assertIn(self.SKIN_MID, colours, (path.name, n))
+                    self.assertIn(self.RED_MID, colours, (path.name, n))
+
+
 if __name__ == "__main__":
     unittest.main()

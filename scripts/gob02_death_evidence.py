@@ -226,7 +226,7 @@ class Stage:
         self.pa = {f["index"]: f["anchors"] for f in ad.pose_manifest()["death_poses"]["frames"]}
 
     # -- crush at tick L + t
-    def crush(self, preset: int, t: int, gx: int = CARL_X + 120, seed: int = 11) -> Image.Image:
+    def crush(self, preset: int, t: int, gx: int = CARL_X + 120, seed: int = 11, lit: bool = True) -> Image.Image:
         sc = Scene(self.sp, self.floor, preset, seed)
         g = sc.ground
         a0 = self.pa[0]
@@ -273,7 +273,7 @@ class Stage:
                   60: [lambda: self._pool(sc, 3, gx)]}
         sc.run(t, events)
         goblin, back = self._crush_actor(sc, t, gx)
-        return self.floor.render(sc.entries(goblin, back), 1)
+        return self.floor.render(sc.entries(goblin, back), 1, lit)
 
     def _pool(self, sc, stage, gx, origin=None):
         """Stage ``stage`` replaces the previous pool (a frame swap that grows it in place) when the preset has it."""
@@ -387,15 +387,32 @@ class Stage:
         return self.floor.render(sc.entries(None, cast_on_top=carl_inside), 1)
 
 
+def save_exact_gif(images: list[Image.Image], delays: list[int], path: Path) -> None:
+    """GIF with the exact colours of the frames (no quantisation, no dither): one shared palette of every colour used."""
+    rgb = [im.convert("RGB") for im in images]
+    colours = sorted({c for im in rgb for c in im.getdata()})
+    if len(colours) > 256:
+        raise ValueError(f"{len(colours)} colours do not fit a GIF palette exactly")
+    index = {c: i for i, c in enumerate(colours)}
+    frames = []
+    for im in rgb:
+        pal = Image.new("P", im.size)
+        pal.putpalette([v for c in colours for v in c])
+        pal.putdata([index[c] for c in im.getdata()])
+        frames.append(pal)
+    frames[0].save(path, save_all=True, append_images=frames[1:], duration=delays, loop=0, disposal=1, optimize=False)
+
+
 def crush_sequence_gif(stage: Stage, k: int) -> Path:
-    """Crush at preset 4: pose 0, 1, 2 and pool stages 1 to 3 at the section 8 ticks (L, L+3, L+4, L+6, L+8, L+20, L+60)."""
+    """Crush at preset 4: pose 0, 1, 2 and pool stages 1 to 3 at the section 8 ticks (L, L+3, L+4, L+6, L+8, L+20,
+    L+60). Rendered unlit so the sprite palette survives exactly (the lit stills tint every colour)."""
     gx = CARL_X + 120
     ticks = [0, 3, 4, 6, 8, 20, 60]
-    frames = [crop_of(stage.crush(4, t, gx), stage.floor, gx, k, left=110, right=150) for t in ticks]
+    frames = [crop_of(stage.crush(4, t, gx, lit=False), stage.floor, gx, k, left=110, right=150) for t in ticks]
     holds = [t2 - t1 for t1, t2 in zip(ticks, ticks[1:])] + [90]
     delays = gif_delays(holds)
     path = OUT / f"gif_crush_sequence_x{k}.gif"
-    save_gif(frames, delays, path)
+    save_exact_gif(frames, delays, path)
     return path
 
 

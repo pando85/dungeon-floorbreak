@@ -15,7 +15,7 @@ Spec: [gob-02-death-spec.md](../../02-art/gob-02-death-spec.md). The first three
 | `frame_anchor_timing.png` | the six pose frames with anchors, tags, ticks and authors, plus the crush and decapitation tick timelines |
 | `scenes_1x.png` | five 640 x 360 lit Floor 1 views at 1x with Carl and Donut: crush under the ENV-02 stone (tick L), the `crushed_remains` hold in front of the landed stone with pool stage 3 (L+70), decapitation tick (D), headless collapse (D+60), an irregular explosion scatter |
 | `scene_carl_in_debris.png` | Carl standing inside the explosion debris, pools and wall spatter (cast drawn last: nothing over a player sprite), 1x and a 3x crop |
-| `gif_crush_sequence_x1.gif`, `gif_crush_sequence_x3.gif` | crush at preset 4: poses 0, 1, 2 and pool stages 1 to 3 at L, L+3, L+4, L+6, L+8, L+20, L+60 |
+| `gif_crush_sequence_x1.gif`, `gif_crush_sequence_x3.gif` | crush at preset 4: poses 0, 1, 2 and pool stages 1 to 3 at L, L+3, L+4, L+6, L+8, L+20, L+60; rendered unlit with an exact palette (no quantisation) so the sprite colours are untouched |
 | `storyboard_crush.png`, `storyboard_decap.png` | the spec section 8 timelines as stills: L, L+3, L+6, L+30 and D, D+4, D+10, D+40 (seeded placement simulation, 90 degree rotation steps) |
 | `preset_strip.png` | crush L+30, decapitation D+4 and D+40 at presets 4, 3, 2, 1 |
 | `poses/`, `parts/` | toolkit output: contact sheets at x1 and x4 (both), GIFs of the four pose tags at x1 and x3 |
