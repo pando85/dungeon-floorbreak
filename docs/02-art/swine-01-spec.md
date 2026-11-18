@@ -237,9 +237,16 @@ For the execution tier: render each in-between as a pose dict through `Ball(dict
 | 15 | theta 20, cx 88, cy 95, rx 70, ry 50, head_sb 0.85, eyes shut, gape_add 1 | crack: sag, crevices widen (add a 1 px `c` seam on every head boundary) |
 | 16 | theta 40, cx 88, cy 105, rx 75, ry 39, head_k 1.0, head_sb 0.72, eyes shut, limp, gape_add 1 | slump, halfway to the heap |
 
+### Executor notes (in-betweens)
+
+- Frames 1, 2, 9, 11, 13, 15 and 16 are rasterized through the model (`INBETWEENS` in `scripts/author_swine01.py`) with the section 8 values, no pixel edits. `unique_frames` is on and the validator passes unchanged (13 pass, 3 skipped).
+- Frame 11 deviates from the section 8 values: cx 104 and rx 76 put the rim and bristle past the canvas edge (x reached 175, cut off on the last column). Using cx 92 and rx 74 the frame spans x 8-173 (166 px wide, between the coil at x 6-156 and the impact at x 41-174, still left of the impact face at 174). Design intent (stretched forward, shear 4, tufts streaked back, eyes wide, mouths +2) is unchanged; the stretch is 148 px of disc plus rim, not 152 as written.
+- Frame 15: section 8 asks for a hand-added 1 px `c` seam on every head boundary. Not done (no pixel edits): the model already draws `c` crevices between heads and the 0.85 head scale widens them. Reviewer to judge whether the crack reads at 1x; if not, it needs a model-level seam parameter (design decision).
+- Roll direction checked on `roll-strip-2x.png`: hat goes upper left, top, right, lower right, lower left, left across frames 3 to 8 and continues into frame 3 at the seam (300 to 360 degrees): clockwise throughout.
+
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate assets/source/characters/swine/swine-01.pixelart.json` (verdict PASS, 12 pass, 4 skipped; `unique_frames` is off only while the in-betweens are placeholders):
+Run by `python3 -m scripts.pixelart validate assets/source/characters/swine/swine-01.pixelart.json` (verdict PASS, 13 pass, 3 skipped; `unique_frames` is on):
 
 - V04 palette: at most 20 colours (20 used); V05 isolated pixels: 0; V06 orphan pixels: 0 per frame.
 - V07 contact row: every frame ends on row 143.

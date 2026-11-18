@@ -9,8 +9,7 @@ never turns with the ball (spec section 3.1). No raster image-model output, no t
 pixels, no resampling.
 
 Keys 0, 3, 10, 12, 14 and 17 are authored here, and the roll frames 4-8 follow from the frame-3 rule (theta + 60
-per frame). Frames 1, 2, 9, 11, 13, 15 and 16 hold placeholder copies of the nearest key until the execution tier
-draws the in-betweens from the pose values in spec section 8.
+per frame). Frames 1, 2, 9, 11, 13, 15 and 16 are the in-betweens (INBETWEENS, spec section 8, drawn through the same model).
 
     python3 scripts/author_swine01.py               # write grid + .ase
     python3 scripts/author_swine01.py --check       # exit 1 when the committed grid differs
@@ -73,7 +72,6 @@ TAGS = [("idle", 0, 2), ("roll", 3, 8), ("attack_tell", 9, 10), ("attack_charge"
 TICKS = [16, 12, 16, 4, 4, 4, 4, 4, 4, 8, 28, 3, 6, 24, 12, 8, 12, None]
 KEY_FRAMES = (0, 3, 10, 12, 14, 17)
 ROLL_FRAMES = (3, 4, 5, 6, 7, 8)
-PLACEHOLDERS = {1: 0, 2: 0, 9: 10, 11: 12, 13: 12, 15: 17, 16: 17}   # in-between -> nearest key (spec section 8)
 
 # --------------------------------------------------------------------------- poses
 POSE0 = dict(theta=0.0, cx=88.0, cy=83.0, rx=64.0, ry=62.0, shear=0.0, front_cut=None, tuft_add=0, tuft_sweep=0.0,
@@ -89,9 +87,24 @@ KEY_POSES = {
 }
 
 
+# In-betweens: pose values from spec section 8, rasterized through the same model (no pixel edits).
+INBETWEENS = {
+    1: dict(cy=84.0, ry=61.0, rx=65.0),
+    2: dict(theta=2.0),
+    9: dict(theta=-10.0, cx=85.0, cy=86.0, rx=66.0, ry=60.0, tuft_add=1, eyes="wide"),
+    11: dict(theta=20.0, cx=92.0, cy=87.0, rx=74.0, ry=56.0, shear=4.0, tuft_sweep=-5.0, eyes="wide", gape_add=2),
+    13: dict(theta=10.0, cx=92.0, cy=83.0, rx=63.0, ry=62.0, eyes="open", gape_add=2),
+    15: dict(theta=20.0, cx=88.0, cy=95.0, rx=70.0, ry=50.0, head_sb=0.85, eyes="shut", gape_add=1),
+    16: dict(theta=40.0, cx=88.0, cy=105.0, rx=75.0, ry=39.0, head_k=1.0, head_sb=0.72, eyes="shut", limp=True,
+             gape_add=1),
+}
+
+
 def pose_for(frame: int) -> dict:
     if frame in ROLL_FRAMES:
         return dict(POSE0, **KEY_POSES[3], theta=60.0 * (frame - 3))
+    if frame in INBETWEENS:
+        return dict(POSE0, **INBETWEENS[frame])
     return dict(POSE0, **KEY_POSES[frame])
 
 
@@ -590,8 +603,6 @@ def despeckle(rows: list[list[str]], passes: int = 4) -> list[list[str]]:
 
 
 def render(frame: int, _cache: dict = {}) -> list[str]:   # noqa: B006 - deterministic memo
-    if frame in PLACEHOLDERS:
-        return render(PLACEHOLDERS[frame])
     if frame not in _cache:
         _cache[frame] = Ball(pose_for(frame)).render()
     return _cache[frame]
@@ -695,7 +706,7 @@ def main(argv=None) -> int:
         return 0
     grid = build_grid()
     for f in range(len(TICKS)):
-        if f not in PLACEHOLDERS:
+        if True:
             report(grid["frames"][f]["cels"]["body"], f"frame {f:2d}")
     text = dump(grid)
     if a.check:
