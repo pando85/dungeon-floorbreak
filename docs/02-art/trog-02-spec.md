@@ -1,6 +1,6 @@
 # TROG-02: Troglodyte Basher readability set, design spec
 
-**Status:** design stage complete. Hero key 0 (`idle`) passed the silhouette gate after the seven FIX-KEY0 fixes and is re-frozen; the three deviations from TROG-01 2b are accepted and folded into it (section 13). Keys 3, 8, 10, 11, 12, 15 and the nine in-betweens are for the execution stage (sections 4, 7, 8 and 14).
+**Status:** executed, awaiting independent review. Hero key 0 (`idle`) passed the silhouette gate after the seven FIX-KEY0 fixes and is frozen; the three deviations from TROG-01 2b are accepted and folded into it (section 13). Keys 3, 8, 10, 11, 12, 15 and the nine in-betweens are drawn and frozen (7 keys), the validators pass (14 pass, 0 fail, 2 skipped) and the review pack is in `docs/evidence/trog-02/review-pack/`. Executor notes: section 14.
 
 **Decision record:** idle opaque height 66 px (family ladder), frame 112 x 88, pivot (48, 87), palette `trog-family-v0` core (15) plus 2 Basher slots (`g`, `G`) = 17 of 20, 16 frames with 7 keys in the same slots as the Pygmy (0, 3, 8, 10, 11, 12, 15), all tags grounded, smash debris and dust deferred to the VFX work order. Difficulty 1 point: **Easy (C)**.
 
@@ -191,7 +191,7 @@ Run `python3 -m scripts.pixelart validate assets/source/characters/troglodyte/ba
 ## 10. Evidence
 
 ```text
-python3 scripts/author_trog02.py frames          # grid (key 0 only at the design stage)
+python3 scripts/author_trog02.py frames          # grid and manifest (16 frames)
 python3 scripts/pixel_grid_to_ase.py build assets/source/characters/troglodyte/basher/trog_02.grid.json assets/source/characters/troglodyte/basher/trog_02.ase
 python3 -m scripts.pixelart freeze assets/source/characters/troglodyte/basher/trog_02.pixelart.json
 python3 scripts/author_trog02.py key0-scale      # needs bash scripts/export_assets.sh first
@@ -206,7 +206,7 @@ VFX (separate work orders, not in the sprite): the smash debris and dust burst o
 | File | Role |
 | --- | --- |
 | `scripts/author_trog02.py` | deterministic authoring script; imports the family canvas, core palette and despeckle from `scripts/author_trog01.py` |
-| `assets/source/characters/troglodyte/basher/trog_02.grid.json` / `.ase` | pixel-grid source and Aseprite master (1 frame at the design stage) |
+| `assets/source/characters/troglodyte/basher/trog_02.grid.json` / `.ase` | pixel-grid source and Aseprite master (16 frames) |
 | `assets/source/characters/troglodyte/basher/trog_02.pixelart.json` | asset config |
 | `tests/fixtures/trog-02_keys.json` | frozen key 0 |
 | `tests/test_art_trog02.py` | spec tests |
@@ -221,7 +221,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - Concept: the owner-approved family sheet under `ART-PUBLICATION-ALL-V1`; packet crops are reference only.
 - Spec + hero key (key 0): Claude Opus.
 - Silhouette gate (FIX-KEY0, an independent reviewer) and the seven key-0 fixes after it: Claude Opus.
-- Remaining keys, in-betweens and execution: pending (medium tier).
+- Keys 3/8/10/11/12/15 + in-betweens + execution: Claude Sonnet.
 - Silhouette gate and independent review: pending.
 
 ## 13. Gate result and open questions
@@ -241,3 +241,16 @@ Every key and in-between reuses the key-0 construction in `scripts/author_trog02
 - **Grime and creases:** 8 to 10 smudges per key (2 x 2 `d`), at least 2 on lit skin, at least 1 on a forearm gap and 1 on a knee. The pec and elbow creases stay 2 px wide wherever those muscles show. In-betweens copy the nearer key's smudges, shifted with their parts.
 - **Trash and necklace:** the three trash lumps ride with the trapezius masses (same offset). In 15 they tumble off behind the head, 2 to 4 px apart on the floor. The necklace V hangs from the jaw: below it in grounded poses, swung toward the head in 8 and back toward the chin in 10 and 11, and off to the side on the chest in 15.
 - **Checks before reporting:** `python3 -m scripts.pixelart validate` with the section 9 rules, `pytest -k "trog"`, and `key0-scale` plus the review pack regenerated.
+
+### Executor notes (execution stage)
+
+Taken conservatively; none changes a design decision (size, palette, frame, pivot, boxes, ticks, face and wrap rules).
+
+- **Walk top-row rule (section 9, V13):** `walk min_top 24` applies to the key (frame 3) as written. The in-betweens 4 and 5 are specified one pixel and "about 23" high (sections 4 and 8), so a rule of 24 on every walk frame contradicts them. The config therefore carries `min_top 24` for frame 3 and `min_top 23` for frames 4 to 6 (still lower than the idle at 22). Nothing was relaxed below the spec's own in-between targets.
+- **Fall beat 13 versus its bbox target:** the joints in section 8 (head at (-18, 42), top row 40 to 46) cannot both hold: a head with its mop at y 42 reaches row 32, and V13 requires `min_top 40` (top y at most 47). The target wins: shoulders (-10, 28), head (-14, 33) and hips (2, 14) put the top at row 41, a 45-degree backward fall between the hurt (top row 14) and the floor impact (top row 60). Flagged for the reviewer: if the taller head was meant, the V13 value must change in the spec.
+- **Section 7 joints moved by up to 2 px or less than a part's own length:** the elbows of the wind-up (8) sit at (-6, 66) and (4, 66) with the fists at y 75 (top row 7); both arms are foreshortened overhead (about 26 px of arm against 33 at rest), as section 7's elbows at y 68 and wrists at 75 imply. The key 12 near arm is bent (upper arm back, forearm up to the wrist (-28, 56)) so the arm keeps its length; the key 15 and 14 near arm is bent for the same reason and capped so the top row stays at 60 or more.
+- **Downswing (9):** the roar face stamp is drawn over the arm pixels, so the arms swing in front of the chest below the mouth (fists at (25, 39) instead of ahead of the head at head height), with the head 4 px higher at (12, 54). Wrap bands there are widened (about 4 y units) because the forearm is shallow.
+- **Walk and V16:** the far fist trails at wrist (2, 10) in frame 3 and the far foot at toe -9 (section 7 says -11, within 2 px); the far foot lands at toe -3 in frame 4 and the far fist lands at wrist x 20 in frame 5, so that every planted run has a neighbour within 12 px on the next frame (the rule counts fists as contacts). The 6 to 3 seam swaps which fist is planted ahead (far in 6, near in 3). The rule passes with the loop seam included.
+- **Far wraps:** frames 8, 10 and 12 carry a far-forearm wrap overlay (`far_wraps`, the far ramp, one slice of the forearm) in addition to the near forearm bands; the near bands keep `G` at 8 or more in every frame that shows a forearm (min 9).
+- **Frame 1 and 2:** frame 1 moves the torso end, masses, head, trash heap, necklace and deltoid 1 px down with the ropes swayed 1; frame 2 is key 0 with the ropes swayed -1 (hair only).
+- **Boxes in the manifest** are the section 3 table clipped to each frame group's measured opaque extent (hit box from the fist pixels on the floor in frame 10). They remain placeholders.
