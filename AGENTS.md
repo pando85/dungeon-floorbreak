@@ -16,6 +16,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 
 ## Rules
 
+- **No private agent memory.** Never use an agent tool's persistent memory (for example Claude Code memory) for this repository. Owner rules, decisions and process changes are recorded in the repository (AGENTS.md, docs, ADRs, backlog) so every agent and harness sees them.
 - **English only** in source code, comments, documentation, PR descriptions, issues, commit messages, tests and generated prompts.
 - **Creative canon for every contributor:** apply `docs/01-design/antihero-tone.md` across characters, writing, enemies, VFX, animation, level art, UX and audio. Carl is a believable, somewhat plain-looking everyman whose practical strength and charisma grow **gradually through hardship**. Reject superhero anatomy, handsome action-star faces, effortless bravado and gratuitous armor/capes. Use 1980s–1990s action cinema for *attitude and tone*, never copied designs or dialogue.
 - Prefer the smallest vertical change delivering a verifiable behavior; no giant speculative rewrites.
