@@ -108,8 +108,10 @@ These rules are the family contract. The Pygmy implements them in `scripts/autho
 | --- | --- | --- | --- | --- | --- |
 | Pygmy | 40 | 1.00 | 0.77 | 80 x 56 | hunched, knuckles near the floor |
 | Basher | 66 | 1.65 | 1.27 | 112 x 80 | hunched brute, head sunk below the shoulder line |
-| Virtuoso | 66 (hair included) | 1.65 | 1.27 | 112 x 80, wider for the tongue strike | taller, less hunched, lean |
+| Virtuoso | 66 (hair included) | 1.65 | 1.27 | 128 x 88 (see note) | taller, less hunched, lean |
 | Juicer (boss, own work order) | 84 or more | 2.1 or more | 1.6 or more | own decision | must out-mass the Basher by at least 20 % in height |
+
+Note (TROG-03): the Virtuoso's frame is **128 x 88**, not 112 x 80, because of the fixed-reach tongue strike (tip at about x +76 from the pivot); see `trog-03-spec.md` section 3.
 
 **Order of parts (back to front), the same in every type:** far limbs (darker `far` ramp), torso, near leg, loincloth, head (skull then jaw), dropped jaw when the mouth is open, hair mop and ropes, near arm and fingers, ear, then the face template. Each part after the first gets a 1 px `K` outline where it overlaps an earlier part, so the near arm always separates from the torso and the ear always separates from the hair.
 
