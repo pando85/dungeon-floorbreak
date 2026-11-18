@@ -1,8 +1,8 @@
-# ENG-01: Goblin Engineer readability set, design spec (stub)
+# ENG-01: Goblin Engineer readability set, design spec
 
-**Status:** packet only. No design, no keys, no execution, no review yet. This stub fixes the canon, the exclusions, the size candidates and the body-reuse plan so the design step starts from facts. No height, frame size or pivot is decided.
+**Status:** design stage. Spec written and hero key 0 (`idle`) drawn and frozen; awaiting the silhouette gate. Keys 3, 10, 12, 13, 14 and 17 and the in-betweens are for the execution stage (sections 7, 8 and 14). No independent review yet.
 
-The sections follow `docs/02-art/bard-01-spec.md` and `docs/02-art/gob-01-goblin-spec.md`. Pose design, the palette, the animation list and the in-between list come later.
+Sections follow `docs/02-art/bard-01-spec.md` (a goblin variant on the GOB-01 base) and `docs/02-art/trog-02-spec.md` (executor detail). Coordinates are frame pixels (x right, y down, frame 64 x 56) unless a table says "from the pivot" (x forward, y up).
 
 ## 1. Canon and tone constraints
 
@@ -38,66 +38,222 @@ The sections follow `docs/02-art/bard-01-spec.md` and `docs/02-art/gob-01-goblin
 
 - Green goblin skin with the GOB-01 head construction: pointy ears, red eyes, sharp teeth, snarl.
 - An upside-down kitchen saucepan jammed on the head, handle sticking out back (to the left in the concept and in the rider).
-- Tool-focused kit visible on the concept figure: a wrench, a grey-blue pauldron on the near shoulder, a wrist wrap, a belt with a buckle, a rag tunic and trousers. Which of these are canon and which are board flourish is an open question (section 6).
+- Tool-focused kit visible on the concept figure: a wrench, a grey-blue pauldron on the near shoulder, a wrist wrap, a belt with a buckle, a rag tunic and trousers. Which of these are canon and which are board flourish is resolved in section 12.
 - Same family as GOB-01 A/B: no pineapple on a stick, no spiked club, no bombs.
 
 ## 2. NOT approved (do not derive from the boards)
 
-- The captions "ENGINEER / LEVEL 3", "CONCEPT ONLY", "NO GAMEPLAY SPRITE" and any printed class, role or level text. The level-3 fact itself is canon from the handoff, but not a stat.
-- Any printed or implied size, including the "44 px" height cited second-hand in other specs.
-- The wrench as a weapon or an attack. It is "a non-canonical visual shorthand" (`floor-01-opening-catacomb-goblins.md:50`).
-- Any mechanic: ranged attacks, turret or mine-layer roles, bombs, buffs, repairs in combat, class perks, drops, a standalone on-foot encounter.
-- The spiked clubs held by Goblins A and B on the same board.
+- The captions "ENGINEER / LEVEL 3", "CONCEPT ONLY", "NO GAMEPLAY SPRITE" and any printed class, role or level text. The level-3 fact is canon from the handoff, not a stat.
+- Any printed or implied size, including the second-hand "44 px".
+- The wrench as a weapon or an attack (`floor-01-opening-catacomb-goblins.md:50`: "a non-canonical visual shorthand"). In this set it is a stowed prop only.
+- Any mechanic: ranged attacks, turret or mine-layer roles, bombs, buffs, repairs in combat, class perks, drops. The ram in section 4 is a **placeholder** melee for the readability set, not an approved behaviour.
+- The spiked clubs of Goblins A and B on the same board, and the pineapple stick (canon for the A/B goblins, not stated for the Engineer).
 - The board's pose, lighting and rendering. Crops are reference for identity only, never traced or exported.
 
-## 3. Size candidates (estimates, not approved)
+## Difficulty and route
 
-Carl is 52 px (about 6 ft), Donut 40 px, GOB-01 and the DOZ-01 rider 36 px (`scale_lineup.png` in the packet shows 36, 40 and 44 px slots). The rider's opaque height seated is smaller than 36 px; the standalone sprite stands.
+**Score 0 of 4: Easy, route C** (variant: the spec and one hero key, idle key 0, are drawn by the design stage; a silhouette gate checks key 0 at 1x; the execution stage draws the other keys and the in-betweens from sections 7, 8 and 14).
 
-| Option | Idle opaque height | Ratio to Carl | Note |
+| Point | Met | Note |
+| --- | --- | --- |
+| 1. New design, not a variant | no | GOB-01 body below the chin and the DOZ-01 rider's pot and head, pixel for pixel |
+| 2. Native height above about 40 px | no | 40 px exactly (section 3) |
+| 3. Complex construction | no | rigid part blocks (pot, head, torso, legs, wrench); no rotation, no rescale. The hurt and down bodies are GOB-01 frames 16 and 20 to 22 |
+| 4. VFX, projectiles, special states | no | no projectile, no spark; the ram impact flash is left to the VFX order. The pot hop and slide are sprite poses taken from the rider |
+
+## 3. Size decision, frame, pivot and boxes
+
+**Decision: option B, 40 px idle opaque height** (rows 16 to 55), 0.77 of Carl, level with Donut and the Bomb Bard (40 px).
+
+- The rider is the GOB-01 head on a 36 px body; its pot sits 4 rows above the GOB-01 crown (rider pot top row 25 = GOB-01 row 16 after the 9-row seat offset). Standing that same individual up gives exactly 36 + 4 = 40 px with **no** body change. That is the reason for B: the standalone Engineer is the rider pixel for pixel from the rim to the chin, and GOB-01 A pixel for pixel below the chin.
+- A (36 px) would cut the pot or shrink the body: a different, smaller goblin from the one on the Dozer. C (44 px) would need a scaled-up body (a bigger goblin than the rider) and rests on an unverified printed number (question 1).
+- Level 3 reads through the pot, the belt kit and the stowed wrench, not through extra body size. All opening goblins stay "about 4 ft"; the pot is what makes him the tallest of the trio on screen, as on the board.
+
+Frame **64 x 56**, pivot **(28, 55)**, contact row **55** (same as GOB-01 A/B and the Bard, so all three swap in the same slot). Authored facing right; the runtime mirrors around the pivot column, so the pot handle and the wrench always trail. Two disjoint layers: `body` and `prop` (the wrench).
+
+Key 0 extent: x 13 to 44 (handle tip to snout), rows 16 to 55.
+
+Boxes are **placeholders** in px from the pivot (x forward, y up), re-measured by execution from the drawn frames. Hurtboxes include the pot and head, leave out the handle beyond x -9 and the wrench:
+
+| Box | x | y | Frames |
 | --- | --- | --- | --- |
-| A | 36 px | 0.69 | Same as GOB-01 A/B. The pot adds about 6 rows to a 36 px body, so the body would be shorter than A/B or the sprite taller than 36 |
-| B | 40 px | 0.77 | Body at GOB-01 height plus the pot rows. Candidate for "level 3 reads as the most senior goblin" |
-| C | 44 px | 0.85 | The "printed height" quoted by `bard-01-spec.md:33`, `:57` and `swine-01-spec.md:55`. Unverified on the committed crop. Close to the Bard's 43 px cap, so the route would likely score as Medium |
+| Standing (opaque extent) | -15 to 16 | 0 to 39 | 0 (measured) |
+| Hurtbox idle/walk | -9 to 14 | 0 to 37 | 0 to 8 |
+| Hurtbox tell | -11 to 12 | 0 to 38 | 9, 10 (the pointing arm is not a hurtbox) |
+| Hurtbox ram | -6 to 22 | 0 to 33 | 11, 12 |
+| Hurtbox recover | -7 to 16 | 0 to 35 | 13 |
+| Hurtbox hurt | -16 to 10 | 0 to 33 | 14 (the hopping pot is not a hurtbox) |
+| Hurtbox down | -14 to 26 | 0 to 12 | 15 to 17 |
+| Ram hitbox (impact frame only) | 14 to 24 | 14 to 33 | 12: the pot front and the snout |
 
-No decision is taken here. The decision belongs to the design step and an independent decider.
+## 4. Readability-set animation list
 
-## 4. Body-reuse plan
+18 frames, 7 keys. Ticks at 60 Hz. The Engineer is a scrappy foreman, not a brawler: the tell is the rider's own gesture, pointing at Carl (DOZ-01 `engineer_point`), and the attack is a short head-down ram that leads with the saucepan. **Attack choice:** the most conservative reading. The concept shows no attack, only a held wrench that canon calls a non-canonical shorthand, so a wrench strike is not justified. The pot is the one canon object he owns, and a ram uses it with no new weapon, no projectile and nothing from another goblin type (A/B swing pineapples, the Bard throws bombs). Placeholder for the owner (section 13).
 
-- **Base body:** the GOB-01 variant A idle body and head (`assets/source/characters/goblin/goblin_a_h36.*`, palette `goblin-floor01-v0` in `gob-01-goblin-spec.md` section 7). Variant A and B are visual variants, not classes. The Engineer is a third look on the same family.
-- **Rider helmet and gear:** reuse the DOZ-01 rider's saucepan (`pot_px` construction, 14 px wide, 6 rows deep, 1 px lip, handle out back) and its metal ramp from `dozer_riders_h36` (palette keys in `assets/source/enemies/dozer/dozer_riders_h36.grid.json`). The standalone sprite must keep that identity: same pot, same handle side, same green, same head.
-- **New for the standalone:** legs and a standing pose, plus any tool kit that the design step takes from the concept (wrench, pauldron, belt). The rider sprite only shows the seated upper body.
-- **Not reused:** the pineapple stick, rider A/B poses, the Dozer hull, lever and tub parts.
-- **Palette:** the packet's `palette_candidates.json` and `palette_swatches.png` are median-cut candidates (most are background navy). The final palette is chosen by eye and capped at 20 colours.
-- Reference for the match: `docs/evidence/eng-01/packet/rider_reference.png` shows the 7 DOZ-01 engineer rider frames at 3x, rendered from `dozer_riders_h36.grid.json` frames 0 to 6.
+| Role | Tag | Frames | Playback | Ticks | Notes |
+| --- | --- | --- | --- | --- | --- |
+| idle | `idle` | 0 to 2 | loop | 14 + 10 + 14 = 38 | breath and a pot rattle |
+| move | `walk` | 3 to 8 | loop | 6 x 6 = 36 | contact plan in section 8: 4 px per frame, **40 px/s** (placeholder; GOB-01 chases at 62 px/s) |
+| tell | `attack_tell` | 9, 10 | once | 8 + 24 = 32 | the 24-tick point-and-rear hold is the read window |
+| attack | `attack_ram` | 11, 12 | once | 3 + 6 = 9 | hitbox on frame 12 only |
+| (recover) | `attack_recover` | 13 | once | 18 | pot slid over the eyes: the punish window |
+| hurt | `hurt` | 14 | once | 12 | pot hops off the head |
+| defeat | `down` | 15 to 17 | hold | 5 + 10, then a state-driven hold | the pot lands over his face |
 
-## 5. Packet inputs (`docs/evidence/eng-01/packet/`)
+**Tell-to-attack read:** tick 0 starts the tell. The rear (9) runs ticks 0 to 7, the point-and-rear hold (10) ticks 8 to 31. The launch (11) runs 32 to 34, the impact with the hitbox active (12) 35 to 40, the recover (13) 41 to 58. The point pose (a long level arm at shoulder height, head and pot pulled back) must hold for at least 24 ticks (400 ms) and must not resemble any other frame; the ram (12) is the lowest standing frame and the only one with the pot ahead of the snout line. Reach, damage and knockback are placeholders.
 
-Crops of `02-goblin-trio-reference-crop.png` (x, y, w, h in the 1080 x 365 image):
+| # | Tag | Pose | Ticks | Author |
+| --- | --- | --- | --- | --- |
+| 0 | `idle` | **KEY (drawn, frozen)** GOB-01 stance, rider pot and head, near fist closed at the belly, wrench stowed at the back hip | 14 | key |
+| 1 | `idle` | breath: POT, HEAD and TORSO rows down 1 (legs fixed) | 10 | in-between |
+| 2 | `idle` | pot rattle: key 0 with the POT block only up 1 (a 1-row gap of `K` rim stays closed, see 14) | 14 | in-between |
+| 3 | `walk` | **KEY** contact A: near foot planted ahead, far foot at the end of its stance, body low | 6 | key |
+| 4 to 8 | `walk` | section 8 contact plan | 6 each | in-between |
+| 9 | `attack_tell` | rear: halfway from 0 to 10, arm raised to about 45 degrees forward | 8 | in-between |
+| 10 | `attack_tell` | **KEY** point and rear: near arm straight at Carl at shoulder height, head and pot pulled back | 24 | key |
+| 11 | `attack_ram` | launch: halfway from 10 to 12, arm swinging back | 3 | in-between |
+| 12 | `attack_ram` | **KEY** ram impact: pitched forward, pot leading, low | 6 | key |
+| 13 | `attack_recover` | **KEY** dazed: upright, pot slid down over the eyes, arms out for balance | 18 | key |
+| 14 | `hurt` | **KEY** recoil: GOB-01 hurt body, the pot hopping off the head, white eyes | 12 | key |
+| 15 | `down` | fall beat: GOB-01 frame 20 body, the pot in the air above the head | 5 | in-between |
+| 16 | `down` | floor impact: GOB-01 frame 21 body, the pot 1 px above its landing place | 10 | in-between |
+| 17 | `down` | **KEY** on his back (GOB-01 frame 22 body), the pot landed rim-down over his face, ear and feet sticking out | hold | key |
 
-- `concept_crop_1.png` = `735,70,290,160`: the whole Engineer figure
-- `concept_crop_2.png` = `840,80,110,90`: the head, pot and face row
-- `concept_crop_3.png` = `920,100,100,90`: the right arm, hand and wrench
-- `rider_reference.png`: the DOZ-01 engineer rider frames (not a concept crop)
-- `excerpts.md`: GOB-01 section 1, DOZ-01 section 1 and section 7.1
-- `scale_lineup.png`, `palette_candidates.json`, `palette_swatches.png`, `frame_pivot_template.json` (64 x 56 and pivot defaults are placeholders), `spec_template.md`
+## 5. State diagram
 
-The concept has no separate action study or face-detail row. Crop 2 and 3 are detail crops of the single figure.
+```text
+idle <-> walk -> attack_tell (9, 10) -> attack_ram (11, 12) -> attack_recover (13) -> idle
+any grounded state -> hurt (14) -> idle | down (15 -> 16 -> 17 hold)
+```
 
-## 6. Open questions
+## 6. Palette `eng-floor01-v0` (17 of 20)
 
-1. **Printed 44 px.** The Engineer's printed height of 44 px appears only second-hand in other specs. Is it on a board that is not committed, and does it count as an approved size? Default: it does not.
-2. **Standing height.** A 36, 40 or 44 px body with the pot; the pot adds rows and the 43 px cap of the Bard route is only a work-order bound for that asset.
-3. **Wrench.** Keep it as a carried prop and part of the silhouette, or leave it out? It must never become a weapon or an attack with new mechanics.
-4. **Pauldron, wrist wrap and belt buckle.** Canon kit or board flourish? The rider sprite has none of them; they would also break "plain rag" family identity if overdone.
-5. **Behaviour set.** The readability set is idle, move, tell, attack, hurt and defeat, but the Engineer has no approved on-foot combat role. Which attack does it use without inventing a weapon (a shove, a thrown tool, the pineapple stick)? The pineapple is canon for the opening goblins but not stated for the Engineer.
-6. **Where it appears.** Is the standalone Engineer a Dozer survivor on foot after a crash, a separate encounter, or a cutscene figure? The answer decides how many gameplay tags are needed.
-7. **Facing and handle.** The pot handle points left (back) in the rider and the concept. Mirror rule for a left-facing sprite.
-8. **Pot colour.** The concept pot is lilac-grey with warm highlights; the rider ramp is blue-grey. Which one wins under the A1 torch light?
-9. **Contact row and pivot** for a standing sprite, versus the rider's seat pivot (28, 55).
+Every colour is reused with the same key and hex: no new colour. Pot, buckle and wrench share the rider's iron ramp, so the engineer's metal reads as one kit, cooler and lighter than the brick and torch light; the green and rags are the family's.
 
-## 7. Rights and provenance
+| Key | Name | Hex | Source |
+| --- | --- | --- | --- |
+| `K` | outline_plum | `#1b1124` | goblin-floor01-v0 |
+| `a` `s` `m` `l` | skin deep, shade, mid, light | `#263a26` `#46682e` `#7a9e36` `#b2cc56` | goblin-floor01-v0 |
+| `r` `t` `u` | rag dark, mid, light | `#2c1e28` `#4c3436` `#73524a` | goblin-floor01-v0 |
+| `e` | eye_yellow (accent) | `#ffd23a` | goblin-floor01-v0 |
+| `w` | tooth_white (accent) | `#efe4c4` | goblin-floor01-v0 |
+| `o` | mouth_dark | `#5c1426` | goblin-floor01-v0 |
+| `2` `3` `4` `5` `6` | iron ramp | `#2c3046` `#3f445e` `#575e7a` `#78809a` `#a3abbf` | DOZ-01 rider |
+| `7` | iron_glint (accent) | `#dde2ec` | DOZ-01 rider |
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Crops are reference only, never traced or exported. No third-party assets, no copied designs or dialogue, no image-model raster output.
+Dropped from goblin-floor01-v0: wood `x`/`y`, pineapple `F`/`G`/`H`, leaf `V`/`v` (no stick). Three slots stay free; execution adds none without a spec change.
 
-Packet: script plus Claude Sonnet. Design, execution and review: pending.
+## 7. Key poses
+
+Part blocks of key 0 (`scripts/author_eng01.py`, inclusive x0, y0, x1, y1): `POT` (13, 16, 42, 24) saucepan, handle and rim; `HEAD` (16, 25, 44, 33) ear tip to chin; `TORSO` (19, 30, 41, 45) cape, belly, near arm and fist, belt and rag skirt; `LEGS` (19, 46, 38, 55); `WRENCH` (14, 35, 18, 42), layer `prop`. "Offset (dx, dy)" moves a block whole. Blocks are never rotated or rescaled. Each key must meet its section 9 bounding-box targets; joints may move by up to 2 px to meet them, and the target wins (record the change in section 14).
+
+| Frame | Tag | Silhouette and pose | Readability reason |
+| --- | --- | --- | --- |
+| 0 | `idle` | **Drawn, frozen.** Rows 16 to 55, x 13 to 44. Rows 16 to 25: rider `engineer_hold` rows 25 to 34 (pot 14 px wide over a 1 px lip, glint `7` at (28, 19), handle to x 13). Rows 26 to 55: GOB-01 A frame 0 body. Near fist closed at (35 to 41, 37 to 40). Ear tip pushed out under the handle (16 to 22, 24 to 27). Belt on row 42 with a `56` buckle at x 31, 32. Wrench jaw-up at the back hip, shaft into a belt loop at (17, 42). | The pot is the largest light shape on a 40 px goblin; the handle trails, the wrench notches the back. Nothing else on Floor 1 has this head. |
+| 3 | `walk` | Top row 18. POT, HEAD, TORSO, WRENCH offset (+1, +2). Legs redrawn as 2 to 3 px shins from the hip row (47) to the feet; near foot (light ramp, 9 px outline on row 55) planted with its row-55 right end at x 39; far foot (deep ramp, 6 px outline) at its stance end, right end x 27. Near fist offset (-2, 0) (arm swings opposite the near leg). | Longer stance, lower head: a stomping advance. |
+| 10 | `attack_tell` | Top row 15, left edge x 10 or less, right edge x 57 or more. HEAD and POT offset (-3, -1); TORSO offset (-2, 0) with the near arm replaced by the rider's pointing arm: copy `dozer_riders_h36` frame 0 (`engineer_point`) rows 39 to 44, x 39 to 60, to rows 30 to 35 shifted -2 x (hand and finger end at x 58). Legs braced: near foot right end x 40, far foot right end x 25 (both on row 55). Mouth: the key-0 snarl. | One long level arm at Carl: "you!". Same gesture as on the Dozer, so the player learns it once. |
+| 12 | `attack_ram` | Top row 21 to 23, right edge x 51 or more, bottom row 55. HEAD and POT offset (+8, +6): pot top row 22, rim front x 50, snout x 52. TORSO redrawn as a rag sack along a spine from the hips (27, 45) to the neck (37, 37), about 40 degrees forward; copy the cape's `u`/`t`/`r` banding along it. Near arm swung back along the side, fist at about (24, 41). Near leg braced forward, foot right end x 42; far leg kicked back, foot right end x 22, heel lifted 1 (only the toe pixels on row 55). Mouth closed to the `w` tooth row (teeth gritted). WRENCH offset (+2, +3). | The only frame with the pot ahead of the snout line, and the lowest standing head: charge. Contrasts with 10 at once (tall and back to low and forward). |
+| 13 | `attack_recover` | Top row 19 to 21. HEAD offset (+2, +1); POT offset (+3, +4) (the rider's lurch-forward slide: the rim lip now covers the eye row, so no `e` shows). Both arms out for balance: the near fist at about (44, 37), a 2 px far hand showing behind the cape at about (17, 34). Legs: key 0. Mouth slack: the key-0 jaw with the `w` tooth row dropped 1. | Blind and wobbling: "hit him now", never "about to ram again". |
+| 14 | `hurt` | Top row 13 to 15. GOB-01 A frame 16 body (layer `body` only; head offset from key 0 measured (-8, +1) by the eyes). POT offset (-8, -2): hopped 3 px off the crown, which shows under it. If the handle touches the raised hand (rows 21 and 22), hop 1 more (top row 13). Eyes white as in frame 16, no `e`. Belt row and WRENCH follow the GOB-01 frame 16 hips (about (-8, +2)). | Pot in the air over a recoiling body: unmistakably a hit, and the rider's lurch-back gag. |
+| 17 | `down` | Top row 39 to 41 (the ear tip), width 54 or less. GOB-01 A frame 22 body offset (+10, 0). POT offset (-10, +31): rim lip on row 55, pot x 16 to 32 over the face, handle to x 3. The ear (x 25 to 29, rows 40 to 46) sticks up behind the pot; the feet stay up at x 43 to 54. No `e`, no `w` (face covered). WRENCH: none (dropped under him; prop layer empty in 15 to 17). | A flat goblin with a saucepan clanged down over his face: defeated, and still the Engineer. |
+
+## 8. In-between list and walk contact plan
+
+Blend the nearer key's blocks; no design decisions beyond these notes.
+
+| # | Pose notes |
+| --- | --- |
+| 1 | Idle breath: POT, HEAD, TORSO and WRENCH offset (0, +1); legs fixed (the shin rows 46 and 47 compress by 1). |
+| 2 | Pot rattle: key 0 with POT offset (0, -1). Close the 1-row gap at the crown by repeating the rim row 24 `K` run on row 24 (the pot lip sits 1 higher, the head is unchanged). |
+| 4 to 8 | Walk, from the contact plan below. Body offsets from key 0: 4 (+1, 0), 5 (+1, +1), 6 (+1, +2), 7 (+1, 0), 8 (+1, +1). Near fist x offset from key 0: 4 -1, 5 0, 6 +2, 7 +1, 8 0. |
+| 9 | Rear: HEAD and POT (-2, 0); the near arm halfway: upper arm forward, forearm at about 45 degrees up, fist at about (46, 32). |
+| 11 | Launch: HEAD and POT (+3, +3); TORSO leaning about 20 degrees; the near arm at the side, fist at (30, 40); legs as 12. |
+| 15 | Fall beat: GOB-01 A frame 20 body offset (+10, 0); POT 2 px clear above the highest head pixel, handle still pointing back. Top row at least 22. |
+| 16 | Floor impact: GOB-01 A frame 21 body offset (+10, 0); POT at the key-17 place but 1 px higher (bounce). Top row at least 38. |
+
+**Walk contact plan.** The runtime moves the sprite **4 px per 6-tick frame (0.667 px per tick, 40 px/s)**; a planted foot moves back exactly 4 px per frame, seam included, and never forward. Each foot is planted for 4 frames and lifted for 2. Positions are the right end of the foot's outline run on row 55 (planted) or of its lowest row (lifted):
+
+| Frame | 3 | 4 | 5 | 6 | 7 | 8 | seam to 3 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Near foot | **39** planted | **35** planted | **31** planted | **27** planted | 31 lifted 3 | 35 lifted 2 | 35 to 39 (lands) |
+| Far foot | **27** planted | 31 lifted 3 | 35 lifted 2 | **39** planted | **35** planted | **31** planted | 31 to 27 (-4) |
+| Body (top row) | 18 low | 16 high | 17 | 18 low | 16 high | 17 | |
+
+Contact frames 3 and 6 have both feet down and the body 2 px low; passing frames 4 and 7 carry the body at idle height (never taller than the idle). That is the 2 px weight bob. The near leg is always in front (light ramp), the far leg behind (deep ramp), so no limb swaps sides. Lifted feet keep their shape and rise whole.
+
+## 9. Validators and acceptance targets
+
+`python3 -m scripts.pixelart validate assets/source/characters/goblin/engineer/eng_01.pixelart.json`. Design stage: V01 to V15 pass on key 0 (V08, V16 not configured). Execution extends `tags`, `roles` (move `walk`, tell `attack_tell`, attack `attack_ram`, hurt `hurt`, defeat `down`), `frozen_keys.frames` (0, 3, 10, 12, 13, 14, 17) and these rules:
+
+- V04 palette: at most 20 (17 used). V05 isolated: 0. V06 orphans: at most 9.
+- V07 contact: every tag grounded; the lowest opaque row is 55 in every frame.
+- V12 unique frames: on.
+- V13 bounding boxes (every key's section 7 values meet these): idle 0 `top` 16 `bottom` 55; all frames `min_top` 13; idle 1 and 2 `min_top` 15 `max_top` 17; walk 3 and 6 `min_top` 18 `max_top` 18, 4 and 7 `min_top` 16 `max_top` 16, 5 and 8 `min_top` 17 `max_top` 17; tell 10 `max_top` 16 `max_left` 11 `min_right` 57; tell 9 `min_right` 46; ram 12 `min_top` 21 `max_top` 23 `min_right` 51; recover 13 `min_top` 19 `max_top` 21; hurt 14 `min_top` 13 `max_top` 15 `max_right` 40; down 15 `min_top` 22, 16 `min_top` 38, 17 `min_top` 39 `max_top` 41 `max_width` 54.
+- V14 key counts: `e` at least 3 in 0 to 12, 0 in 13 to 17; `w` at least 2 in 14; `7` exactly 1 in 0 to 16 (the pot glint travels with the pot; in 17 it may be 0 or 1); `5` at least 40 in every frame (the pot is never hidden or cut).
+- V16 foot drift: `{"max_px": 5, "tags": ["walk"]}`, loop seam included (the 4 px step plus 1 px of rasterization).
+- Read targets (silhouette gate, by eye at 1x on lit brick): the pot reads as a saucepan with a handle, not a hat or a bucket; the tell (10) and the ram (12) are told apart by arm and head height alone; the recover (13) has no visible eye; the Engineer is told apart from goblins A/B and the Bard by the head alone.
+- Tests (`tests/test_art_eng01.py`): generator parity, key 0 frozen, frame and pivot, 40 px, palette reused with the same hex, the pot rows equal to the rider's, the body below the chin equal to GOB-01, the wrench a stowed prop. Execution adds tick windows (`idle` 38, `walk` 36, `attack_tell` 32, `attack_ram` 9, `attack_recover` 18, `hurt` 12, `down` 15 + hold) and the pot-rows-identical check on every frame where the POT block is only offset.
+
+## 10. Evidence
+
+```text
+python3 scripts/author_eng01.py keys            # grid (design stage: key 0)
+python3 scripts/pixel_grid_to_ase.py build assets/source/characters/goblin/engineer/eng_01.grid.json assets/source/characters/goblin/engineer/eng_01.ase
+python3 -m scripts.pixelart freeze assets/source/characters/goblin/engineer/eng_01.pixelart.json
+python3 scripts/author_eng01.py key0-scale      # needs bash scripts/export_assets.sh first
+```
+
+`docs/evidence/eng-01/key0-scale.png` (896 x 360): key 0 at 1x on lit Floor 1 next to Carl, the GOB-01 goblin A and the Bomb Bard (key 0), 640 x 360 unscaled, plus a 4x copy on the right. Execution adds the review pack, a walk strip and the manifest `assets/manifests/eng_01.json` (tick rows, boxes, attack ticks).
+
+## 11. Files
+
+| File | Role |
+| --- | --- |
+| `scripts/author_eng01.py` | deterministic authoring script: palette, part blocks, literal key 0, key0-scale |
+| `assets/source/characters/goblin/engineer/eng_01.grid.json` / `.ase` | pixel-grid source and Aseprite master |
+| `assets/source/characters/goblin/engineer/eng_01.pixelart.json` | asset config |
+| `tests/fixtures/eng-01_keys.json` | frozen key 0 |
+| `tests/test_art_eng01.py` | spec tests |
+| `docs/evidence/eng-01/key0-scale.png` | scale evidence |
+
+## 12. Resolved questions (from the stub)
+
+1. **Printed 44 px:** not approved and not used.
+2. **Standing height:** 40 px (section 3).
+3. **Wrench:** kept as a stowed prop (jaw up in a belt loop at the back hip, layer `prop`), never in the hand and never swung. It carries the canon "more tool-focused silhouette" without making the shorthand a weapon.
+4. **Kit:** the belt with a small iron buckle is kept (the board shows it; it fills the stick strap's row). The pauldron and the wrist wrap are board flourish: the rider has neither, and they would break the plain-rag family look.
+5. **Behaviour set:** tell = the rider's point, attack = a head-down pot ram (section 4). No pineapple: it is canon for the A/B goblins, not for him.
+6. **Where it appears:** assumed to be the Engineer on foot (for example after the Dozer is wrecked); the same set also serves a cutscene. Owner placeholder (section 13).
+7. **Facing and handle:** authored facing right with the handle back (left); the runtime mirrors the whole sprite, so the handle always trails.
+8. **Pot colour:** the rider's blue-grey iron ramp wins (same individual, already proven in A1 light); the concept's lilac cast is board rendering.
+9. **Contact row and pivot:** 55 and (28, 55), standing, as GOB-01.
+
+## 13. Owner placeholders and open questions
+
+- **Attack:** the pot ram, its reach, damage and knockback are placeholders. Whether the Engineer fights on foot at all is an owner decision; the set is ready either way.
+- **Move speed:** 40 px/s is a placeholder (slower than the common goblin's 62 px/s chase: a foreman, not a runner).
+- **Wrench use:** any later use of the wrench (repairs, a tool strike) needs a gameplay decision and a spec change; the sprite never shows it in a hand.
+- Gate: pending.
+
+## 14. Executor notes (keys 3 to 17 and the in-betweens)
+
+Add each frame to `scripts/author_eng01.py` as literal rows or as block offsets of key 0 plus redrawn parts (same `put`/segment style as `scripts/author_bard01.py`), extend `TAGS`, `TICKS`, `KEY_FRAMES`, the config and the fixture (`pixelart freeze`). Never edit `KEY0` or its frozen hash.
+
+- **Blocks:** move POT, HEAD, TORSO and WRENCH whole by the section 7 and 8 offsets. Where two blocks overlap after an offset, the front block wins in this order: near arm and fist, HEAD, POT, TORSO, LEGS, WRENCH. Re-close any outline broken at a block seam with `K`; never leave a gap row between pot and head (the rim run on the row above the head is always continuous).
+- **Pot:** the POT block stays pixel-identical in every frame where section 7 or 8 says "offset" (0 to 14, 16, 17; 15 too). The glint `7` travels with it. Never redraw, tilt or recolour the pot.
+- **Legs (walk, tell, ram):** 2 px shins with an outline (near: `l m` with `s` shade; far: `m a`), from row 47 to the foot. Near foot: the key-0 near foot rows 52 to 55 shifted whole (9 px outline run on row 55). Far foot: the key-0 far foot rows 52 to 55 shifted whole (6 px run). A lifted foot keeps its rows and rises whole; draw the far leg behind the near leg.
+- **Arms:** only the near arm is drawn (the far arm stays behind the cape, as in GOB-01), except the 2 px far hand in 13. The pointing arm in 9 and 10 is the rider's arm pixels; do not redraw it.
+- **Faces:** snarl (key 0) in 0 to 11; gritted teeth (the `w` row with the `o` rows closed to `K`) in 12; slack jaw in 13; GOB-01 frame 16's face in 14; covered in 17.
+- **Hurt and down:** take the GOB-01 A frame 16 and 20 to 22 `body` layers (never the `weapon` layer), then add the belt row on the hip row and the POT block. Keep the GOB-01 skin and rag pixels as they are.
+- **Checks before reporting:** `python3 -m scripts.pixelart validate` with the section 9 rules, `python3 -m pytest tests -q -k "eng01 or pixelart"`, `key0-scale`, the review pack and the walk strip regenerated. If a section 7 joint and a section 9 target cannot both hold, the target wins; record it here.
+
+## 15. Rights and provenance
+
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Crops are reference only, never traced or exported. No third-party assets, no copied designs or dialogue, no image-model raster output. Key 0 reuses committed project pixels (GOB-01 A frame 0, DOZ-01 rider frame 2) as recorded in `scripts/author_eng01.py`.
+
+### Rights/Provenance
+
+- Concept: the owner-approved trio board under `ART-PUBLICATION-ALL-V1`; packet crops are reference only.
+- Packet: script plus Claude Sonnet.
+- Spec + hero key (key 0): Claude Opus.
+- Silhouette gate, execution and independent review: pending.

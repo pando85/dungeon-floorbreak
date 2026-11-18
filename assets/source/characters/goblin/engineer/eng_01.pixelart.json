@@ -1,0 +1,49 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "eng-01",
+  "title": "ENG-01 Goblin Engineer readability set (docs/02-art/eng-01-spec.md); design stage: hero key 0 only",
+  "grid": "assets/source/characters/goblin/engineer/eng_01.grid.json",
+  "frame_size": [64, 56],
+  "pivot": [28, 55],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 14]]}
+  },
+  "roles": {
+    "idle": "idle"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "layers_disjoint": [["body", "prop"]],
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/eng-01_keys.json",
+      "frames": [0],
+      "layers": ["body", "prop"]
+    },
+    "bbox": [
+      {"id": "E1-size-idle-40px", "frames": [0], "top": 16, "bottom": 55},
+      {"id": "E1-handle-back", "frames": [0], "max_left": 13, "max_right": 44}
+    ],
+    "key_counts": [
+      {"id": "E1-eyes-yellow", "frames": [0], "key": "e", "min": 3},
+      {"id": "E1-pot-glint-one", "frames": [0], "key": "7", "min": 1, "max": 1},
+      {"id": "E1-pot-mass", "frames": [0], "key": "5", "min": 40}
+    ]
+  },
+  "scene": {
+    "actors": [
+      {"frame": 0, "x": 520}
+    ],
+    "references": [
+      {"grid": "assets/source/characters/goblin/goblin_a_h36.grid.json", "frame": 0, "x": 562},
+      {"grid": "assets/source/characters/goblin/bard/bard_01.grid.json", "frame": 0, "x": 604}
+    ]
+  }
+}
