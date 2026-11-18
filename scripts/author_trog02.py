@@ -440,7 +440,7 @@ def mk(*, torso, masses, jaw, face, near_arm, near_fore, near_fist, far_arm, far
 
 
 # ---- KEY 3: walk contact A. Body 2 down and 3 forward, near fist planted far ahead, far fist planted behind it.
-POSES["walk3"] = mk(
+WALK3 = dict(
     torso=[(-17, 29), (-5, 38), (8, 45)], masses=[(-3, 45, 8.5), (2, 49.5, 9.0), (8, 48, 8.0)], jaw=(17, 50),
     face="snarl", sweep=0.5,
     near_arm=[(6, 36), (12, 30), (18, 24)], near_fore=[(18, 24), (23, 17), (28, 10)], near_fist=planted_fist(28, 8),
@@ -451,6 +451,7 @@ POSES["walk3"] = mk(
     creases=[((-9, 32), (-5, 29)), ((11, 42), (15, 39), 2), ((13, 31), (16, 28), 2), ((-2, 38), (2, 35))],
     grime=[(23, 19), (25, 13), (-1, 19), (-8, 15), (-9, 34), (-3, 31), (-9, 5), (3, 20), (-13, 23), (-14, 39)],
 )
+POSES["walk3"] = mk(**WALK3)
 
 # ---- KEY 8: wind-up. Reared up on a wide braced stance, both fists locked overhead, mouth gaping.
 POSES["tell8"] = mk(
@@ -540,40 +541,56 @@ POSES["idle1"] = I0 | {
 }
 POSES["idle2"] = I0 | {"hair": hair(14, 52, sway=-1.0)}
 
-W3 = POSES["walk3"]
-POSES["walk4"] = mk(
-    torso=[(-17, 30), (-5, 39), (8, 46)], masses=[(-3, 46, 8.5), (2, 50.5, 9.0), (8, 49, 8.0)], jaw=(17, 51),
-    face="snarl", sweep=0.5,
-    near_arm=[(6, 37), (11, 31), (16, 25)], near_fore=[(16, 25), (21, 18), (25, 10)], near_fist=planted_fist(25, 8),
-    far_arm=[(3, 40), (7, 33), (10, 26)], far_fore=[(10, 26), (12, 19), (13, 12)], far_fist=closed_fist(13.5, 8.6),
-    near_leg=[(-13, 29), (-8, 19), (-15, 9), (-17, 5), (-14, 2), (-11, 1.5)],
-    far_leg=[(-19, 29), (-12, 19), (-8, 10), (-6, 5), (-3, 1.5)],
-    loin=ragged_loin(-13, 27, 13.0, 7.0, lean=-1.0), deltoid=(6, 38, 5.5),
-    creases=[((-9, 33), (-5, 30)), ((11, 43), (15, 40), 2), ((12, 32), (15, 29), 2), ((-2, 39), (2, 36))],
-    grime=[(21, 19), (23, 13), (7, 21), (-8, 16), (-9, 35), (-3, 32), (-9, 5), (3, 21), (-13, 24), (-14, 40)],
-)
-POSES["walk5"] = mk(
-    torso=[(-17, 30.5), (-6, 39.5), (6, 46.5)], masses=[(-5, 46, 8.5), (0, 50.5, 9.0), (6, 49, 8.0)], jaw=(15, 51),
-    face="snarl", sweep=0.35,
-    near_arm=[(4, 38), (9, 31), (13, 25)], near_fore=[(13, 25), (14, 18), (15, 12)], near_fist=closed_fist(15, 8.2),
-    far_arm=[(2, 40), (9, 33), (15, 27)], far_fore=[(15, 27), (18, 20), (21, 12)], far_fist=planted_fist(20, 8),
-    near_leg=[(-12, 29), (-9, 19), (-17, 12), (-19, 8), (-17, 5), (-14, 4.5)],
-    far_leg=[(-18, 29), (-12, 18), (-8, 8), (-6, 3), (-3, 1.5)],
-    loin=ragged_loin(-13, 28, 13.0, 7.0, lean=-0.5), deltoid=(4, 38, 5.5),
-    creases=[((-9, 33), (-5, 30)), ((9, 43), (13, 40), 2), ((10, 33), (13, 30), 2), ((-3, 39), (1, 36))],
-    grime=[(10, 20), (13, 15), (15, 22), (-9, 17), (-9, 35), (-3, 32), (-5, 6), (2, 21), (-13, 26), (-14, 41)],
-)
-POSES["walk6"] = mk(
-    torso=W3["torso"]["pts"], masses=W3["masses"], jaw=(17, 50),
-    face="snarl", sweep=0.5,
-    near_arm=[(6, 36), (8, 29), (10, 23)], near_fore=[(10, 23), (14, 17), (18, 11)], near_fist=closed_fist(18, 8.4),
-    far_arm=[(3, 39), (12, 30), (20, 24)], far_fore=[(20, 24), (25, 17), (30, 10)], far_fist=planted_fist(30, 8),
-    near_leg=[(-17, 28), (-10, 18), (-8, 9), (-8, 5), (-6, 2), (-3, 1.5)],
-    far_leg=[(-12, 28), (-9, 17), (-16, 6), (-17, 2.6), (-14, 1.5)],
-    loin=ragged_loin(-13, 26, 13.0, 7.0, lean=-1.0), deltoid=(6, 37, 5.5),
-    creases=[((-9, 32), (-5, 29)), ((11, 42), (15, 39), 2), ((13, 31), (16, 28), 2), ((-2, 38), (2, 35))],
-    grime=[(13, 18), (16, 13), (-1, 19), (-8, 15), (-9, 34), (-3, 31), (-9, 5), (3, 20), (-13, 23), (-14, 39)],
-)
+# ---- walk in-betweens: a pacing knuckle-walk built from key 3 (spec section 8). Ground step 4 px per 8-tick frame
+# (the runtime moves the sprite 0.5 px per tick); every planted contact moves back exactly 4 px per frame and never
+# forward. Contact frames 3 and 5 have all four contacts down (body low); the passing frames 4 (far side swinging) and 6
+# (near side swinging) carry the body 2 px higher.
+# frame: (body dy, near fist dx/lift, far fist dx/lift, near foot dx/lift, far foot dx/lift), relative to key 3
+WALK_PLAN = {
+    4: (2.0, (-4, 0), (4, 4), (-4, 0), (4, 3)),
+    5: (0.0, (-8, 0), (8, 0), (-8, 0), (8, 0)),
+    6: (2.0, (-4, 4), (4, 0), (-4, 3), (4, 0)),
+}
+
+
+def _walk_arm(arm, fore, dy, dx, lift):
+    """Shoulder rides with the body; the elbow takes half the hand's move; the wrist and fist take all of it."""
+    w = [(0.0, 1.0, 0.0), (0.5, 0.5, 0.5), (0.6, 0.4, 0.6)]
+    arm = [(x + kx * dx, y + ky * dy + kl * lift) for (x, y), (kx, ky, kl) in zip(arm, w)]
+    wf = [(0.6, 0.4, 0.6), (0.85, 0.15, 0.85), (1.0, 0.0, 1.0)]
+    fore = [(x + kx * dx, y + ky * dy + kl * lift) for (x, y), (kx, ky, kl) in zip(fore, wf)]
+    return arm, fore
+
+
+def _walk_leg(leg, dy, dx, lift):
+    """Hip rides with the body; the knee takes half the foot's move; ankle, heel and toes take all of it."""
+    out = [(leg[0][0], leg[0][1] + dy), (leg[1][0] + 0.5 * dx, leg[1][1] + 0.5 * dy + 0.5 * lift)]
+    return out + [(x + dx, y + lift) for x, y in leg[2:]]
+
+
+def walk_frame(dy, near_fist, far_fist, near_foot, far_foot) -> dict:
+    k = dict(WALK3)
+    up = lambda pts: [(x, y + dy) for x, y in pts]   # noqa: E731
+    k["torso"] = up(k["torso"])
+    k["masses"] = [(x, y + dy, r) for x, y, r in k["masses"]]
+    k["jaw"] = (k["jaw"][0], k["jaw"][1] + dy)
+    k["deltoid"] = (k["deltoid"][0], k["deltoid"][1] + dy, k["deltoid"][2])
+    k["loin"] = up(k["loin"])
+    k["creases"] = [((a[0], a[1] + dy), (b[0], b[1] + dy), *rest) for a, b, *rest in k["creases"]]
+    k["grime"] = up(k["grime"])
+    (ndx, nl), (fdx, fl) = near_fist, far_fist
+    k["near_arm"], k["near_fore"] = _walk_arm(k["near_arm"], k["near_fore"], dy, ndx, nl)
+    k["far_arm"], k["far_fore"] = _walk_arm(k["far_arm"], k["far_fore"], dy, fdx, fl)
+    nx, fx = k["near_fore"][-1][0], k["far_fore"][-1][0]
+    k["near_fist"] = planted_fist(nx, 8) if nl == 0 else closed_fist(nx, 8 + nl)
+    k["far_fist"] = planted_fist(fx, 8) if fl == 0 else closed_fist(fx, 8 + fl)
+    k["near_leg"] = _walk_leg(k["near_leg"], dy, *near_foot)
+    k["far_leg"] = _walk_leg(k["far_leg"], dy, *far_foot)
+    return mk(**k)
+
+
+for _n, _plan in WALK_PLAN.items():
+    POSES[f"walk{_n}"] = walk_frame(*_plan)
 
 # 7: rise, halfway from 0 to 8: hips up 1, shoulders up 6, forearms raised to the chest, mouth still closed
 POSES["tell7"] = mk(
@@ -792,15 +809,52 @@ def write_key0_scale(out: Path = ROOT / "docs/evidence/trog-02/key0-scale.png") 
     return out
 
 
+def write_walk_strip(out_dir: Path = ROOT / "docs/evidence/trog-02") -> list[Path]:
+    """Walk contact check: frames 3, 4, 5, 6 and 3 again (the loop seam) side by side at 3x on a fixed ground, with a
+    pivot tick under each frame (the sprite is in place; the runtime moves it 4 px per frame), plus a 3x looping GIF
+    at the tag's 8-tick frame time. Run: ``python3 scripts/author_trog02.py walk-strip``."""
+    sys.path.insert(0, str(ROOT))
+    from PIL import Image, ImageDraw
+    from scripts.pixelart.common import grid_images, load_grid_file
+
+    imgs = grid_images(load_grid_file(GRID))
+    order = [3, 4, 5, 6, 3]
+    sc, w, h = 3, CANVAS[0], CANVAS[1]
+    strip = Image.new("RGBA", (w * sc * len(order), (h + 4) * sc), (42, 40, 54, 255))
+    draw = ImageDraw.Draw(strip)
+    for i, n in enumerate(order):
+        big = imgs[n].resize((w * sc, h * sc), Image.NEAREST)
+        strip.paste(big, (i * w * sc, 0), big)
+        draw.rectangle([i * w * sc, h * sc, (i + 1) * w * sc - 1, (h + 4) * sc], fill=(92, 70, 58, 255))
+        px = i * w * sc + PIVOT[0] * sc
+        draw.rectangle([px, h * sc, px + sc - 1, (h + 4) * sc], fill=(230, 220, 190, 255))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    strip_path = out_dir / "walk_strip_x3.png"
+    strip.save(strip_path)
+    frames = []
+    for n in order[:-1]:
+        f = Image.new("RGBA", (w * sc, h * sc), (42, 40, 54, 255))
+        big = imgs[n].resize((w * sc, h * sc), Image.NEAREST)
+        f.paste(big, (0, 0), big)
+        frames.append(f.convert("P", palette=Image.ADAPTIVE))
+    gif_path = out_dir / "gif_walk_x3.gif"
+    frames[0].save(gif_path, save_all=True, append_images=frames[1:], duration=round(8 * 1000 / TICK_HZ), loop=0)
+    return [strip_path, gif_path]
+
+
 def dump(grid: dict) -> str:
     return json.dumps(grid, indent=1) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    parser.add_argument("command", choices=["frames", "key0-scale"])
+    parser.add_argument("command", choices=["frames", "key0-scale", "walk-strip"])
     parser.add_argument("--check", action="store_true", help="compare instead of writing")
     args = parser.parse_args(argv)
+    if args.command == "walk-strip":
+        for path in write_walk_strip():
+            print(f"wrote {path.relative_to(ROOT)}")
+        return 0
     if args.command == "key0-scale":
         print(f"wrote {write_key0_scale().relative_to(ROOT)}")
         return 0

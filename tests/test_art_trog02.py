@@ -168,23 +168,35 @@ class Trog02BasherExecutionTests(unittest.TestCase):
         for k in self.KEYS[1:]:
             self.assertTrue(8 <= len(at.pose_for(k)["grime"]) <= 10, k)
 
-    def test_walk_is_a_stomp_cycle_with_a_limb_swap_not_a_slide(self):
-        def planted(n, lo, hi):
-            return any(ch != "." for ch in self.cels[n][87][48 + lo:48 + hi])
-        self.assertTrue(planted(3, 28, 38))                    # near fist planted far ahead in contact A
-        self.assertTrue(planted(6, 30, 38))                    # far fist planted ahead in contact B
-        self.assertFalse(planted(5, 30, 40))                   # passing: no fist far ahead
-        self.assertNotEqual(self.cels[3], self.cels[6])
-        self.assertEqual(at.pose_for(6)["far_fingers"], at.planted_fist(30, 8))
-        self.assertEqual(at.pose_for(3)["far_fingers"], at.planted_fist(2, 8))     # the far fist trails in A
+    def test_walk_contacts_are_planted_with_a_weight_drop(self):
+        """Spec section 8 contact plan: 4 px ground step, each contact planted 3 frames and lifted 1, never forward."""
+        def runs(n):
+            row, out, x = self.cels[n][87], [], 0
+            while x < len(row):
+                if row[x] != ".":
+                    s0 = x
+                    while x < len(row) and row[x] != ".":
+                        x += 1
+                    out.append((s0 - 48, x - 1 - 48))
+                else:
+                    x += 1
+            return out
+        self.assertEqual(runs(3)[-2:], [(2, 9), (28, 35)])          # far fist end of stance, near fist just planted
+        self.assertIn((24, 31), runs(4))                            # near fist 4 px back, far fist lifted
+        self.assertTrue({(10, 17), (20, 27)} <= set(runs(5)))       # far fist lands ahead, near fist end of stance
+        self.assertIn((6, 13), runs(6))                             # far fist 4 px back, near fist lifted
+        self.assertFalse(any(lo >= 20 for lo, _hi in runs(6)))      # nothing of the near fist on the floor in 6
+        self.assertEqual(at.pose_for(3)["far_fingers"], at.planted_fist(2, 8))     # key 3 unchanged
+        tops = [self.top(self.cels[n]) for n in (3, 4, 5, 6)]
+        self.assertEqual(tops, [24, 22, 24, 22])                    # 2 px weight drop on both contact frames
         cfg = json.loads((ROOT / "assets/source/characters/troglodyte/basher/trog_02.pixelart.json").read_text())
-        self.assertEqual(cfg["rules"]["foot_drift"], {"max_px": 12, "tags": ["walk"]})
+        self.assertEqual(cfg["rules"]["foot_drift"], {"max_px": 5, "tags": ["walk"]})
 
     def test_in_betweens_copy_the_nearer_key(self):
         self.assertEqual(at.pose_for(2)["torso"], at.POSES["idle0"]["torso"])      # 2: key 0 with the ropes swayed
         self.assertNotEqual(at.pose_for(1)["hair"], at.POSES["idle0"]["hair"])
         self.assertEqual(self.top(self.cels[1]), self.top(self.cels[0]) + 1)       # breath: head and masses 1 px lower
-        self.assertEqual(self.top(self.cels[4]) + 1, self.top(self.cels[3]))       # walk 4: body up 1 px
+        self.assertEqual(self.top(self.cels[4]) + 2, self.top(self.cels[3]))       # walk 4: body up 2 px
         self.assertLessEqual(self.top(self.cels[7]), 22)                           # rise: already as tall as the idle
         self.assertGreater(self.top(self.cels[7]), self.top(self.cels[8]))
         self.assertGreaterEqual(self.top(self.cels[13]), 40)                       # fall beat is below the hurt head

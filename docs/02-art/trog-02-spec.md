@@ -91,10 +91,10 @@ Frame table:
 | 0 | `idle` | **KEY (drawn, frozen)** hunched brute, both fists knuckle-planted, small head sunk forward between the shoulders | 14 | key |
 | 1 | `idle` | breath: torso, masses and head 1 px lower, ropes swayed 1 px back (`sway` 1) | 10 | in-between |
 | 2 | `idle` | key posture, ropes swayed 1 px forward (`sway` -1) | 14 | in-between |
-| 3 | `walk` | **KEY** knuckle-walk contact A: near fist planted far ahead, far fist planted behind it, near leg pushing back | 8 | key |
-| 4 | `walk` | body up 1 px, near fist sliding back, far fist lifting | 8 | in-between |
-| 5 | `walk` | passing: both fists near the chest line, body highest, near fist 2 px off the floor | 8 | in-between |
-| 6 | `walk` | contact B: far fist planted ahead, near fist off the floor, legs swapped | 8 | in-between |
+| 3 | `walk` | **KEY** contact A (all four down, body low): near fist just planted far ahead, far fist at the end of its stance behind it, both feet down | 8 | key |
+| 4 | `walk` | passing, far side swinging: body 2 px up; far fist and far foot lifted mid-swing; near fist and near foot planted, 4 px further back | 8 | in-between |
+| 5 | `walk` | contact B (all four down, body low): far fist and far foot just planted ahead; near fist and near foot at the end of their stance | 8 | in-between |
+| 6 | `walk` | passing, near side swinging: body 2 px up; near fist and near foot lifted mid-swing; far fist and far foot planted, 4 px further back | 8 | in-between |
 | 7 | `attack_tell` | rise: halfway from 0 to 8, arms coming up past the chest, mouth closed (snarl) | 8 | in-between |
 | 8 | `attack_tell` | **KEY** wind-up: reared up, both fists locked together overhead, mouth gaping | 28 | key |
 | 9 | `attack_smash` | downswing: 0.6 of the way from 8 to 10, fists at head height ahead, ropes lifted | 3 | in-between |
@@ -167,12 +167,13 @@ For the execution stage. No design decisions are needed beyond these notes. Blen
 | --- | --- |
 | 1 | Idle breath: torso end, masses and head 1 px lower; ropes `sway` 1. |
 | 2 | Idle: key 0 with ropes `sway` -1. |
-| 4 | Walk: body up 1 px; the near fist slides 3 px back on the floor; the far fist lifts 2 px and swings forward. |
-| 5 | Walk passing: both fists under the chest line, near fist 2 px off the floor (no pixel of it on row 87 from the near hand), body highest (top row about 23). |
-| 6 | Walk contact B: a true limb swap. The far (`far` ramp) fist is planted ahead at about x 30; the near fist is mid-swing off the floor; legs swapped from 3. It must differ from 3 in which fist is planted. |
+| 4 | Walk passing (far side): from key 3, body (torso, masses, jaw, deltoid, loin) +2 y; near fist wrist and near foot -4 x (planted); far fist +4 x and lifted 4 (`closed_fist`), far foot +4 x and lifted 3. Measured on row 87: near foot -15..-12, near fist 24..31. |
+| | **Walk contact plan (design, after the blind review).** A pacing knuckle-walk at a ground step of **4 px per 8-tick frame**: the runtime moves the sprite **0.5 px per tick (30 px/s)**, and every planted contact moves back exactly 4 px per frame and never forward. Each fist and foot is planted for 3 frames and lifted for 1. Near fist: planted 3, 4, 5 (x 28, 24, 20), lifted 6. Far fist: planted 5, 6, 3 (x 10, 6, 2), lifted 4. Near foot: planted 3, 4, 5, lifted 6. Far foot: planted 5, 6, 3, lifted 4. Contact frames 3 and 5 have all four down and the body low (top row 24); passing frames 4 and 6 carry the body 2 px higher (top row 22, never taller than the 66 px idle). This makes a 2 px weight drop on every contact. The near arm always leads (its fist lands 18 px ahead of the far fist), so the silhouette never swaps front arms. Key 3 is unchanged. `WALK_PLAN` and `walk_frame` in `scripts/author_trog02.py` derive 4 to 6 from key 3's joints: shoulders and hips ride the body; elbows and knees take half the hand or foot move; wrists, fists and feet take all of it. |
+| 5 | Walk contact B: body at key-3 height; near fist and near foot -8 x (planted, end of stance); far fist and far foot +8 x (planted, start of stance). Measured: near foot -19..-16, far foot -4..0, far fist 10..17, near fist 20..27. |
+| 6 | Walk passing (near side): body +2 y; near fist -4 x and lifted 4, near foot -4 x and lifted 3; far fist and far foot +4 x (planted). Measured: far foot -8..-4, far fist 6..13. Seam to 3: far fist 6 to 2, far foot -4 to -8 (both -4, planted). |
 | 7 | Rise: halfway from 0 to 8, hips up 1, shoulders up 6, arms raised to the chest with the fists at about (12, 46), `snarl` face (the mouth opens only on 8). |
 | 9 | Downswing: 0.6 of the way from 8 to 10. Fists locked at about (24, 40) ahead of the head, body pitched about 45 degrees, `roar`, ropes lifted (`sweep` 0.6). |
-| 13 | Fall beat: torso about 45 degrees back from the hips (0, 22) to the shoulders (-14, 36), head (-18, 42), `pain` face, toes on the floor at about (8, 1.4), near arm flung back. Top row 40 to 46. |
+| 13 | Fall beat (accepted lowered pose, joints as drawn): torso from the hips (2, 14) to (-4, 21) to the shoulders (-10, 28), about 45 degrees back; masses (-14, 26), (-10, 29), (-6, 27); jaw (-14, 33), `pain` face with `jaw_b(drop=0.6)`; near arm flung back to (-31, 31) with an open hand; far arm forward-down to a closed fist at (9, 5); toes on the floor at about (14, 1.5). Top row 40 to 46 (measured 41). |
 | 14 | Floor impact on the back: the key-15 layout with the head and belly 1 px up, the raised knee 1 px higher, arms 1 to 2 px wider. `dead` face. |
 
 ## 9. Validators and acceptance targets
@@ -182,9 +183,9 @@ Run `python3 -m scripts.pixelart validate assets/source/characters/troglodyte/ba
 - V04 palette: at most 20 (17 used). V05 isolated: 0. V06 orphans: at most 12 per frame.
 - V07 contact: every tag is grounded; the lowest opaque row is 87 in every frame.
 - V12 unique frames: on.
-- V13 bounding boxes: idle `top` 22 and `bottom` 87 (66 px); walk `min_top` 24; tell (8) `max_top` 12 and `max_width` 50; tell onset (7) `max_top` 22; smash impact (10) `min_top` 38 and `max_width` 84; recover (11) `min_top` 42; hurt `max_top` 16; down (14, 15) `min_top` 60 and `max_width` 76; fall beat (13) `min_top` 40.
+- V13 bounding boxes: idle `top` 22 and `bottom` 87 (66 px); walk `min_top` 24 on the contact frames 3 and 5 and 22 on the passing frames 4 and 6 (a 2 px bob, never taller than the idle); tell (8) `max_top` 12 and `max_width` 50; tell onset (7) `max_top` 22; smash impact (10) `min_top` 38 and `max_width` 84; recover (11) `min_top` 42; hurt `max_top` 16; down (14, 15) `min_top` 60 and `max_width` 76; fall beat (13) `min_top` 40.
 - V14 key counts: `e` at least 1 in 0 to 8; `o` at least 10 in 8 and 10; `o` at most 16 in 11; `e` = 0 in 12 to 15; `q` at least 3 in 15; `G` at least 12 in 0 (wraps visible).
-- V16 foot drift: `{"max_px": 12, "tags": ["walk"]}`, loop seam included.
+- V16 foot drift: `{"max_px": 5, "tags": ["walk"]}`, loop seam included. V16 pairs the row-87 contacts one to one between consecutive frames (a lifted contact is not matched to another planted one), so 5 px is the planted-contact budget: the 4 px ground step plus 1 px of rasterization. A walk that skates or pops fails it.
 - Read targets (checked by eye at 1x on lit brick, the silhouette gate): the wind-up (8) and the impact (10) are told apart by their height alone. The recover (11) has a closed mouth and a lower head than 10. The hurt (12) shows the arms apart and the head up and back. The head never looks larger than a third of the shoulder width.
 - Extra tests (`tests/test_art_trog02.py`): generator parity, key 0 frozen, frame/pivot/66 px, core-plus-2 palette, head width and sink, idle accents, face template widths. Execution adds tick windows (`idle` 38, `walk` 32, `attack_tell` 36, `attack_smash` 11, `attack_recover` 20, `hurt` 14, `down` 15 + hold), all frames grounded, the tell tallest, and the impact lowest of the attack tags.
 
@@ -221,6 +222,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - Concept: the owner-approved family sheet under `ART-PUBLICATION-ALL-V1`; packet crops are reference only.
 - Spec + hero key (key 0): Claude Opus.
 - Silhouette gate (FIX-KEY0, an independent reviewer) and the seven key-0 fixes after it: Claude Opus.
+- Walk contact plan after the blind review (FAIL-DESIGN, walk only): Claude Opus.
 - Keys 3/8/10/11/12/15 + in-betweens + execution: Claude Sonnet.
 - Silhouette gate and independent review: pending.
 
@@ -250,7 +252,7 @@ Taken conservatively; none changes a design decision (size, palette, frame, pivo
 - **Fall beat 13 versus its bbox target:** the joints in section 8 (head at (-18, 42), top row 40 to 46) cannot both hold: a head with its mop at y 42 reaches row 32, and V13 requires `min_top 40` (top y at most 47). The target wins: shoulders (-10, 28), head (-14, 33) and hips (2, 14) put the top at row 41, a 45-degree backward fall between the hurt (top row 14) and the floor impact (top row 60). Flagged for the reviewer: if the taller head was meant, the V13 value must change in the spec.
 - **Section 7 joints moved by up to 2 px or less than a part's own length:** the elbows of the wind-up (8) sit at (-6, 66) and (4, 66) with the fists at y 75 (top row 7); both arms are foreshortened overhead (about 26 px of arm against 33 at rest), as section 7's elbows at y 68 and wrists at 75 imply. The key 12 near arm is bent (upper arm back, forearm up to the wrist (-28, 56)) so the arm keeps its length; the key 15 and 14 near arm is bent for the same reason and capped so the top row stays at 60 or more.
 - **Downswing (9):** the roar face stamp is drawn over the arm pixels, so the arms swing in front of the chest below the mouth (fists at (25, 39) instead of ahead of the head at head height), with the head 4 px higher at (12, 54). Wrap bands there are widened (about 4 y units) because the forearm is shallow.
-- **Walk and V16:** the far fist trails at wrist (2, 10) in frame 3 and the far foot at toe -9 (section 7 says -11, within 2 px); the far foot lands at toe -3 in frame 4 and the far fist lands at wrist x 20 in frame 5, so that every planted run has a neighbour within 12 px on the next frame (the rule counts fists as contacts). The 6 to 3 seam swaps which fist is planted ahead (far in 6, near in 3). The rule passes with the loop seam included.
+- **Walk and V16 (superseded):** the first execution's walk (far fist planted ahead in 6, a 28 px seam pop, a 1 px bob) failed the blind review. Frames 4 to 6 are now derived from key 3 by the contact plan in section 8, and V16 runs at `max_px` 5 with one-to-one contact pairing.
 - **Far wraps:** frames 8, 10 and 12 carry a far-forearm wrap overlay (`far_wraps`, the far ramp, one slice of the forearm) in addition to the near forearm bands; the near bands keep `G` at 8 or more in every frame that shows a forearm (min 9).
 - **Frame 1 and 2:** frame 1 moves the torso end, masses, head, trash heap, necklace and deltoid 1 px down with the ropes swayed 1; frame 2 is key 0 with the ropes swayed -1 (hair only).
 - **Boxes in the manifest** are the section 3 table clipped to each frame group's measured opaque extent (hit box from the fist pixels on the floor in frame 10). They remain placeholders.

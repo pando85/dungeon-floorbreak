@@ -279,6 +279,20 @@ class FootDriftTests(unittest.TestCase):
     def test_lifted_and_landing_feet_are_not_counted(self) -> None:
         self.assertEqual(self._drift([self.FOOT_A, [BLANK] * H], 1)["status"], "pass")
 
+    def test_a_lifted_foot_is_not_matched_to_the_other_planted_foot(self) -> None:
+        # two feet, then one foot lifts off: the remaining foot stays put (0 px); the lifted one is not matched to it
+        two, one = "mm....mm", "mm......"
+        self.assertEqual(v.foot_drift(two, one), 0)
+        self.assertEqual(v.foot_drift(one, two), 0)
+        self.assertEqual(self._drift([rows(two), rows(one)], 0)["status"], "pass")
+
+    def test_equal_foot_counts_are_paired_one_to_one_and_still_detect_sliding(self) -> None:
+        # both feet slide 2 px between the frames: the pairing must still report 2 (not weakened)
+        a, b = "m...m...", "..m...m."
+        self.assertEqual(v.foot_drift(a, b), 2)
+        self.assertEqual(self._drift([rows(a), rows(b)], 1)["status"], "fail")
+        self.assertEqual(self._drift([rows(a), rows(b)], 2)["status"], "pass")
+
     def test_heel_lift_that_keeps_one_edge_planted_passes(self) -> None:
         self.assertEqual(v.foot_drift("..mmmm..", "....mm.."), 0)
 
