@@ -1,0 +1,12 @@
+{
+  "asset_id": "scat-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "51cb69e0f9b1313c7fb2923bd5c3ea6a873c4ae60f187af6bd7cbc10d4624163"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}

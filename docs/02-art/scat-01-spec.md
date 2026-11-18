@@ -1,10 +1,10 @@
 # SCAT-01: Scatterer readability set, design spec
 
-**Status:** packet only; design pending. Packet prepared by Claude Sonnet (medium tier). Design: <fill: model>; execution: <fill: model>; review: <fill: a separate top-tier model>.
+**Status:** design done (spec plus the hero key `idle` frame 0, frozen). The other keys and every in-between are execution work from sections 7 and 8. Packet: Claude Sonnet (medium tier). Design and hero key: Claude Opus (top tier). Execution: pending (medium tier). Review: pending (a separate top-tier agent).
 
-**Decision record:** height <fill> px, frame <fill> x <fill>, pivot (<fill>, <fill>). Proposed by <fill>; decided by <fill>.
+**Decision record:** idle opaque height 15 px (shell top to floor 12 px), frame 48 x 32, pivot (24, 31). Proposed by Claude Opus (design); decided by the independent top-tier review (pending), which may send it back.
 
-The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: ...>`; write numbers, not adjectives. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
+The sections follow `docs/02-art/gob-01-goblin-spec.md`. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
 
 ## 1. Canon and tone constraints
 
@@ -14,11 +14,12 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: .
   - Small cockroach/insectoid creature, side view: segmented plated back, long curved antennae, spiny legs, red eye.
   - Reddish-brown chitin family look; the Brood Guardian will later be a larger form of the same visual species, so the family palette must stay derivable.
   - Reads against the Floor 01 catacomb stone; scale vs the Brood Guardian and printed sizes are not decisions.
+- Design reading of the tone: a grimy, oily dungeon roach that is a nuisance one at a time and a threat in a pack. The eccentric note is the twitchy, "too interested" rear-up tell with the glowing eye and gaping mandibles; the danger is the fast, low ankle-bite. No cartoon face, no cute proportions.
 
 ### Guardrails (copied from the roster and minor-enemy docs)
 
-- A generated label indicating **Scatterers explode on death** is not an approved gameplay feature; the bottom-row death panel (yellow splat) is deliberately left out of the crops and must not be read as an explosion mechanic.
-- The speed-line dash, the flipped-with-"!" panel and the flattened panel are concept illustrations of states, not approved behaviors or stun mechanics.
+- A generated label indicating **Scatterers explode on death** is not an approved gameplay feature; the bottom-row death panel (yellow splat) is deliberately left out of the crops and must not be read as an explosion mechanic. **The defeat frames have no splat, no burst, no particles, no yellow and no glow**: the roach flips onto its back and curls its legs.
+- The speed-line dash, the flipped-with-"!" panel and the flattened panel are concept illustrations of states, not approved behaviors or stun mechanics. The design uses "on its back" only as the defeat pose, not as a stun state.
 - Printed scale comparisons in the generated board are not accepted native sprite dimensions.
 - Brood Guardian, Rot Sticker and Green Slime are out of scope here (no slime splitting, no Rot Sticker anatomy); use the board for mood only.
 - Convert from original editable pixel grids / `.aseprite`, never by tracing or cropping the illustrated board.
@@ -29,158 +30,232 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: .
   - `concept_crop_1.png` = `70,335,275,115`: hero Scatterer (top row)
   - `concept_crop_2.png` = `35,590,345,55`: small-Scatterer state row 1 (idle, idle, speed-lined dash)
   - `concept_crop_3.png` = `30,690,350,75`: small-Scatterer state row 2 (idle, flipped with "!", flattened)
-- Readability set (tags): `idle`, `move` (`walk`), `tell` (`attack_tell`), `attack` (`attack_swing`), `hurt`, `defeat` (`down`). About 12 to 20 frames until the asset has a gameplay work order. Frame counts and tick windows in section 4 are the toolkit's GOB-01 defaults, placeholders and not decisions.
-- Template frame size (64 x 56) and pivot (28, 55) are the toolkit defaults, not decisions; the designer sets both.
-- Everything else (size, palette choice, poses, timing, hitboxes) is left blank for the designer.
+- Readability set (tags): `idle`, `move` (`walk`), `tell` (`attack_tell`), `attack` (`attack_swing`), `hurt`, `defeat` (`down`): 16 frames (section 4).
 
 ## 2. Size decision
 
-Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png`).
+Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png`). The lineup is stylised (Donut is not 4.6 ft), so the "implied real height" column uses Carl's 1 px = about 1.4 in only as a rough guide. Heights are the idle opaque height including the antennae; the shell height is the dome top to the floor.
 
 | Option | Idle opaque height | Ratio to Carl | Implied real height | Why / why not |
 | --- | --- | --- | --- | --- |
-| A | <fill> px | <fill> | <fill> | <fill> |
-| B | <fill> px | <fill> | <fill> | <fill> |
-| C | <fill> px | <fill> | <fill> | <fill> |
+| A | 11 px (shell 8, body 24 long) | 0.21 | about 15 in | Reads as a swarm, but at 1x the eye is 1 px, the legs merge into the mortar lines and the antennae vanish; the tell has only 3 to 4 px to rise. Rejected. |
+| B | 15 px (shell 12, body 33 long, 45 px with legs and antennae) | 0.29 | about 21 in (shell 17 in) | Bites at Carl's ankles and shins; a 2 x 2 red eye, 3 visible near legs with spines and 2 antennae survive at 1x; leaves room for a 20 px tell. Four of them fit in front of Carl without hiding him. **Chosen.** |
+| C | 20 px (shell 16, body 44 long) | 0.38 | about 28 in | Reads as a mid-size beast next to the 36 px goblin, no longer "small", and leaves the Brood Guardian little room to be clearly bigger without reaching Carl's size. Rejected. |
 
-Decision: <fill: height and the reason, one paragraph; the proposer and the decider are different agents>.
+Decision: **B, 15 px idle height (rows 17 to 31), 12 px shell.** It is the smallest size at which the canon features (plated dome, two long antennae, spiny legs, red eye) stay readable at 1x on brick, and it puts the bite at Carl's ankle height, which motivates the crowd-pressure role. The Brood Guardian should be about 2x (shell about 24 px, height about 30 px) so that it reads as the same species, clearly bigger, and still smaller than Carl. Proposed by Claude Opus; the decider is the independent review.
 
 ## 3. Frame, pivot, boxes and atlas
 
-- Frame <fill> x <fill>, pivot (<fill>, <fill>), contact row <fill> (the lowest opaque row of every grounded frame).
-- Grounded tags: <fill>. Airborne tags (no pixel on the contact row): <fill or none>.
-- Standing box <fill> x <fill>; hurtbox <fill>; attack hitbox <fill> on the impact frame.
-- Authored facing right; the runtime mirrors around the pivot column.
-- One atlas, frames 0 to <fill>, layers: <fill: for example body, weapon>.
+- **Frame 48 x 32, pivot (24, 31), contact row 31** (the lowest opaque row of every frame; all tags are grounded). Pivot x 24 is the midpoint of the idle feet span (near rear foot x 2 to near front/far front feet x 43) rounded to the shell centre (shell x 9 to 41).
+- Grounded tags: `idle`, `walk`, `attack_tell`, `attack_swing`, `hurt`, `down`. Airborne tags: none (the lunge stays on its feet; the defeat flip lands in frame 13 with the shell on row 31).
+- **Standing (sim) box:** 28 x 10, frame x 10 to 37, rows 22 to 31 (pivot-relative x -14 to +13). Excludes antennae and the leg tips.
+- **Hurtbox:** 30 x 9, frame x 9 to 38, rows 20 to 28 (shell and head), every frame except the `down` tag (no hurtbox once defeated). In `attack_tell` frame 8 the hurtbox follows the raised front: x 8 to 38, rows 16 to 28.
+- **Attack hitbox:** 8 x 6 at frame x 40 to 47, rows 25 to 30 (pivot-relative x +16 to +23, rows -6 to -1: Carl's ankles and shins), active **only on frame 10** (5 ticks).
+- Authored facing right. The runtime mirrors around the pivot column.
+- **One atlas, frames 0 to 15**, row-major, single layer `body` (no weapon; the mandibles are part of the body).
 
 ## 4. Readability-set animation list
 
-Readability set: idle, move, tell, attack, hurt, defeat (about 12 to 20 frames until the asset has a gameplay work order). Tick windows are at 60 Hz.
+Tick windows are at 60 Hz. Roach timing is fast and twitchy except the tell, which is the one long readable hold.
 
-| Role | Tag | Frames | Playback | Tick-window proposal | Reference |
+| Role | Tag | Frames | Playback | Ticks | Notes |
 | --- | --- | --- | --- | --- | --- |
-| idle | `idle` | 2-4 | loop | 8-12 ticks per frame, a 32-40 tick breathing cycle | GOB-01: 12 + 8 + 12 + 8 |
-| move | `walk` | 4-6 | loop | 5 ticks per frame, speed from the gameplay spec | GOB-01: 6 x 5 = 30 ticks |
-| tell | `attack_tell` | 1-2 | once | at least 18 ticks of readable hold, about 24 total | GOB-01: 6 + 18 |
-| attack | `attack_swing` | 2-3 | once | smear 2, impact 3-4 (shown on exactly the hitbox-active ticks) | GOB-01: 2 + 4, then recover 20 |
-| hurt | `hurt` | 1 | once | 8-12 ticks | GOB-01: 4 + 8 |
-| defeat | `down` | 2-3 | hold | floor impact 4, settle 8, then a state-driven hold | GOB-01: 4 + 8 + hold |
+| idle | `idle` | 0 to 2 | loop | 10 + 6 + 10 = 26 | the runtime starts each Scatterer at a seeded random phase so a pack does not twitch in sync |
+| move | `walk` | 3 to 6 | loop | 4 x 4 = 16 | alternating tripod gait; ground speed about 2 px per tick (design proposal, the gameplay spec decides) so the feet do not slide visibly |
+| tell | `attack_tell` | 7, 8 | once | 6 + 20 = 26 | the 20-tick hold is the readable window (at least 18) |
+| attack | `attack_swing` | 9 to 11 | once | 2 + 5 + 14 = 21 | 9 dash, 10 bite impact (hitbox ticks), 11 recover |
+| hurt | `hurt` | 12 | once | 10 | |
+| defeat | `down` | 13 to 15 | hold | 4 + 8 + hold | flip, settle, curled hold |
 
-Frame table (`frame_pivot_template.json` carries the same rows):
+Frame table (the config `scat-01.pixelart.json` carries the same rows):
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | <fill: pose> | 12 | <fill: key or Sonnet> |
-| 1 | `idle` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 2 | `idle` | <fill: pose> | 12 | <fill: key or Sonnet> |
-| 3 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 4 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 5 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 6 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 7 | `attack_tell` | <fill: pose> | 6 | <fill: key or Sonnet> |
-| 8 | `attack_tell` | <fill: pose> | 18 | <fill: key or Sonnet> |
-| 9 | `attack_swing` | <fill: pose> | 2 | <fill: key or Sonnet> |
-| 10 | `attack_swing` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 11 | `hurt` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 12 | `hurt` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 13 | `down` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 14 | `down` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 15 | `down` | <fill: pose> | hold | <fill: key or Sonnet> |
+| 0 | `idle` | master silhouette (section 7) | 10 | **key, Claude Opus (frozen)** |
+| 1 | `idle` | antennae flick | 6 | Sonnet |
+| 2 | `idle` | dome settles 1 px | 10 | Sonnet |
+| 3 | `walk` | contact A (tripod A down) | 4 | **key, Sonnet from section 7** |
+| 4 | `walk` | passing, body up 1 px | 4 | Sonnet |
+| 5 | `walk` | contact B (tripod B down) | 4 | Sonnet |
+| 6 | `walk` | passing, body up 1 px | 4 | Sonnet |
+| 7 | `attack_tell` | rearing, halfway | 6 | Sonnet |
+| 8 | `attack_tell` | rear-up hold | 20 | **key, Sonnet from section 7** |
+| 9 | `attack_swing` | dash | 2 | Sonnet |
+| 10 | `attack_swing` | bite impact (hitbox) | 5 | **key, Sonnet from section 7** |
+| 11 | `attack_swing` | recover | 14 | Sonnet |
+| 12 | `hurt` | recoil | 10 | **key, Sonnet from section 7** |
+| 13 | `down` | flip impact | 4 | Sonnet |
+| 14 | `down` | settle | 8 | Sonnet |
+| 15 | `down` | on its back, legs curled (hold) | hold | **key, Sonnet from section 7** |
 
 ## 5. State diagram
 
 ```mermaid
 stateDiagram-v2
     [*] --> idle
-    idle --> move: <fill: trigger>
-    move --> idle: <fill: trigger>
-    idle --> tell: <fill: in range>
-    move --> tell: <fill: in range>
-    tell --> attack: tell ticks elapsed
-    attack --> idle: recover elapsed
+    idle --> move: target seen and farther than lunge range (about 40 px)
+    move --> idle: target lost or blocked
+    idle --> tell: target within lunge range and attack cooldown ready
+    move --> tell: target within lunge range and attack cooldown ready
+    tell --> attack: 26 tell ticks elapsed
+    attack --> idle: 21 attack ticks elapsed
     idle --> hurt: hit
-    hurt --> idle: hurt ticks elapsed
+    move --> hurt: hit
+    tell --> hurt: hit (cancels the tell)
+    hurt --> idle: 10 hurt ticks elapsed
     hurt --> defeat: health 0
-    defeat --> [*]
+    defeat --> [*]: hold frame 15 until despawn
 ```
+
+The triggers and ranges are proposals for the gameplay work order; the frame timing is the art contract. A hit during `attack_swing` does not cancel the bite (it is only 21 ticks); the hurt plays after it.
 
 ## 6. Palette
 
-At most <fill: 20> colours. Candidates from the concept crop (median cut, by pixel share; see `palette_candidates.json`). These are candidates, not decisions.
+Palette `scatterer-floor01-v1`: **16 keys used, at most 20.** Four slots are reserved for the Brood Guardian family (same ramps, plus e.g. a deeper `chitin_00`, a pale scar/crust and a brood-sac tone), so a shared species palette never exceeds 20. The packet candidates were used by eye: the chitin ramp comes from `#7e2824`, `#944132`, `#d5713f`, `#4a272d`; the sheen from `#db9861`, `#f0cb90`; the leg browns from `#916955`; the cold belly from `#423a45`. The navy background candidates are not used.
 
-| # | Candidate | Share | Decision (key, name, role) |
-| --- | --- | --- | --- |
-| 1 | `#17293e` | 7.3 % | <fill: key, name, role> |
-| 2 | `#19212b` | 7.0 % | <fill: key, name, role> |
-| 3 | `#09080d` | 6.3 % | <fill: key, name, role> |
-| 4 | `#171f2a` | 5.9 % | <fill: key, name, role> |
-| 5 | `#423a45` | 5.3 % | <fill: key, name, role> |
-| 6 | `#4a272d` | 5.3 % | <fill: key, name, role> |
-| 7 | `#23171c` | 5.2 % | <fill: key, name, role> |
-| 8 | `#7e2824` | 4.7 % | <fill: key, name, role> |
-| 9 | `#18202a` | 4.7 % | <fill: key, name, role> |
-| 10 | `#172432` | 4.7 % | <fill: key, name, role> |
-| 11 | `#944132` | 4.5 % | <fill: key, name, role> |
-| 12 | `#db9861` | 4.5 % | <fill: key, name, role> |
-| 13 | `#10151e` | 3.9 % | <fill: key, name, role> |
-| 14 | `#141e28` | 3.9 % | <fill: key, name, role> |
-| 15 | `#d5713f` | 3.9 % | <fill: key, name, role> |
-| 16 | `#59191b` | 3.6 % | <fill: key, name, role> |
-| 17 | `#182029` | 3.5 % | <fill: key, name, role> |
-| 18 | `#1e293a` | 3.2 % | <fill: key, name, role> |
-| 19 | `#916955` | 3.1 % | <fill: key, name, role> |
-| 20 | `#f0cb90` | 2.6 % | <fill: key, name, role> |
-| 21 | `#161e28` | 2.1 % | <fill: key, name, role> |
-| 22 | `#1f242b` | 2.0 % | <fill: key, name, role> |
-| 23 | `#171f28` | 1.6 % | <fill: key, name, role> |
-| 24 | `#181a22` | 1.4 % | <fill: key, name, role> |
+| Key | Name | Hex | Ramp / role | Accent (orphan-exempt) |
+| --- | --- | --- | --- | --- |
+| `K` | outline_char | `#1c0e12` | warm near-black outline, belly line, pronotum seam | |
+| `a` | chitin_0_deep | `#3d1519` | chitin ramp 0: plate seams, lowest shell band, far legs | |
+| `b` | chitin_1_shade | `#5f1d1d` | chitin ramp 1: lower shell band, far antenna | |
+| `c` | chitin_2_mid | `#84291f` | chitin ramp 2: shell body colour | |
+| `d` | chitin_3_light | `#ab4329` | chitin ramp 3: upper-mid band, pronotum mid | |
+| `f` | chitin_4_lit | `#d0693a` | chitin ramp 4: torch-lit upper band | |
+| `h` | sheen_torch | `#ea9c5c` | specular band on the dome and pronotum top | |
+| `H` | glint_cream | `#f7dc9c` | single glints, eye glint, mandibles | yes |
+| `g` | leg_dark | `#4a2a28` | leg ramp 0: near tibiae | |
+| `j` | leg_mid | `#8a5240` | leg ramp 1: near femurs, near antenna | |
+| `s` | leg_spine | `#b98660` | leg spines (1 px ticks) | yes |
+| `u` | belly_cold | `#3e2f3a` | cold ambient belly; tell belly reveal; defeat belly | |
+| `v` | rim_cold | `#66545e` | cold rim light on the rear underside | |
+| `e` | eye_rim | `#b81c1c` | eye lower half | yes |
+| `r` | eye_glow | `#ff4a32` | eye glow (the red eye); never on the hurt or defeat-hold frames | yes |
+| `w` | eye_flash | `#efe3d3` | hurt flash eye only | yes |
 
-The chosen palette must separate this asset from the warm brick and the cold arch of Floor 1 at 1x, and fit the A1 lighting.
+Lighting: A1 Floor 1 (warm torch from above, cold ambient from below). The dome bands run, from top to bottom, `h`/`f`/`d`/`c`/`c`/`b`/`a`; the cold `v` rim sits only on the rear underside. Contrast against the warm brick comes from the `K` outline, the saturated chitin (more saturated than the brick) and the `h`/`H` sheen; against the cold arch from the warm ramp itself.
 
 ## 7. Key poses
 
-One key per readability tag (about 6 to 8 keys): idle 0, move contact, tell hold, attack impact, hurt, defeat. Each key lists silhouette, joint positions, palette use and the readability reason. Keys are frozen once the review passes (`pixelart freeze`).
+Coordinates are frame pixels (x right, row down, 0-based), facing right. "Shell" is the outlined dome plus pronotum (rows 20 to 28, x 9 to 37); "head" is the 5 x 5 block x 37 to 41, rows 26 to 30. To move a part, translate its pixels whole; never resample or rotate except by 90 degrees or a mirror. After translating parts, close outline gaps with `K` and fill new interior pixels with the band colour of their row (section 6 order).
 
-| Frame | Tag | Silhouette and pose notes | Readability reason |
-| --- | --- | --- | --- |
-| <fill> | <fill> | <fill> | <fill> |
+### Frame 0, `idle` (hero key, drawn and frozen by the designer)
+
+Source: the `IDLE0` literal rows in `scripts/author_scat01.py`. Measured: bbox x 2 to 46, rows 17 to 31 (45 x 15), 0 orphans, 0 isolated.
+
+- Shell outline: top row 20 (x 16 to 25), stepping down to the rear tip (x 9, rows 24 to 26) and forward to the pronotum (row 23 x 31 to 33, row 24 x 34 to 35, x 36 row 25, x 37 row 26). Belly line `K` on row 28, x 11 to 36.
+- Plates: two wing seams in `a` slanting back as they go down (top at x 19 and x 24 on row 21, bottom at x 16 and x 21 on row 27); the pronotum seam in `K` bows forward (30,23) to (32,27). Single `H` glint at (21, 21).
+- Head: tucked low under the pronotum lip. **Eye 2 x 2:** `r` (38,27), `H` (39,27), `e` (38,28), `r` (39,28). Mandibles `H` at (39,29), (40,29).
+- Antennae: near `j` from the head (40,26) up-forward to the apex (44..45, 20) and down to the tip (46,22); far `b` from (37,25) up and back over the pronotum to the apex (28..30, 17).
+- Legs, near side (femur `j`, tibia `g`, spines `s`): rear: coxa (15,28), femur along row 29 back to x 10, knee raised at (7..8, 27) with a spine (7,26), tibia down to the foot (2..3, 31) with a spine (4,29). Mid: coxa (23,28), knee (21,29), foot (18..19, 31), spine (21,30). Front: coxa (32,28), femur (33..34, 29), spine (35,29), foot (37..38, 31). Far side in `a`: rear foot (14..15, 31), mid foot (29..30, 31), front foot (42..43, 31).
+- The exact pixels are the `IDLE0` rows in `scripts/author_scat01.py` (rows 15 to 31, one string per row); use them as the base for every other frame.
+
+### Frame 3, `walk` contact A (key; execution tier draws it)
+
+- Body (shell, head and both antennae, rows 17 to 28): **+1 x** (forward lean), rows unchanged.
+- Antennae swept back by speed: near antenna apex moves from (44..45, 20) to (43..44, 21) and the tip from (46,22) to (45,23); far antenna apex from (28..30, 17) to (26..28, 18).
+- Tripod A on the floor (row 31), extended: near front foot at x 40 to 41 (femur `j` (34..36, 29), tibia `g` (37,30), (38,30), (39,31)); near rear foot at x 2 to 3 (unchanged; the leg stretches 1 px); far mid foot at x 29 to 30 (unchanged).
+- Tripod B lifted (lowest pixel row 30, nothing on row 31): near mid foot forward at (25..26, 30), far front foot at (42..43, 30), far rear foot at (16..17, 30).
+- Palette unchanged. Readability: the body leans forward and the feet are visibly split into two groups.
+
+### Frame 8, `attack_tell` hold (key)
+
+The roach rears its front up, flares the eye and gapes its mandibles: the highest, widest-mouthed pose in the set.
+
+- Body slices, all moved **-1 x** (coiling back) and raised by: x 9 to 16 dy 0; x 17 to 23 dy -1; x 24 to 30 dy -2; pronotum x 30 to 37 dy -4; head x 37 to 41 dy -5 (the head lands at x 36 to 40, rows 21 to 25). Redraw the top outline as a smooth rising line; the rear tip stays on rows 24 to 26.
+- **Belly reveal:** under the raised pronotum and the front shell, a `u` strip 1 px tall along the new belly line from x 26 to 35 (at least 4 `u` pixels; rule R2).
+- **Mandibles open in a V:** upper `H` (41,22), (42,22); lower `H` (41,24), (42,25); `K` at (41,23) between them.
+- **Eye flare:** `r` (37,22), (38,22), (38,23); `H` glint (37,21) stays; `e` (37,23).
+- Antennae up and back, the highest point: near `j` from (39,20) up (39,19), (40,18), (40,17), (40,16), (41,15), (41,14), (40,13) to the apex (38..39, 12); far `b` from (35,20) up and back to the apex (31..33, 13) and the tip (28,14).
+- Front legs lifted and pawing forward-up: near front femur `j` from the raised coxa (31,24) to the knee (35,23), tibia `g` up-forward to the tip (39,20), spine `s` (37,21); far front `a` parallel 2 px lower (tip (40,22)). Mid and rear legs planted wider: near rear foot x 1 to 2, near mid foot x 17 to 18, far feet unchanged.
+- bbox target: top row 12, height 20, bottom 31.
+
+```text
+row 12  ......................................##........
+row 16  ...............................#........#.......
+row 20  ...............#############.##.###.######......
+row 24  .........###########################.####.......
+row 28  ......#..#.#################........##..........
+row 31  .##.............##..##.......##.................
+```
+
+(Block-in only: the pixel positions above are the contract, the ASCII is approximate.)
+
+### Frame 10, `attack_swing` bite impact (key)
+
+A low, flat lunge that bites at ankle height.
+
+- Shell and head **+5 x**, and the dome is **flattened by 1 row**: delete the row-22 band (`f`/`h`) and move rows 20 to 21 down 1, so the shell top is row 21 and the belly line stays on row 28.
+- Head at x 42 to 46, rows 26 to 30, thrust forward. **Mandibles closed and pinching forward:** `H` (45,29), (46,29), (46,28). Eye `r`/`H`/`e`/`r` as idle, +5 x.
+- Antennae streamed back flat: near `j` from the head (45,26) back along row 23 to the tip (35,22); far `b` from (42,24) back along row 22 to the tip (31,21). Nothing above row 21 (rule R3: top at least 20).
+- Legs: rear legs straight back pushing off (near rear foot stays at x 2 to 3, femur and tibia now one long diagonal line of `j` then `g`); mid legs straight back (near mid foot x 20 to 21); near front leg reaching forward, foot at x 44 to 45 on row 31; far front lifted (lowest row 30).
+- Hitbox (section 3) covers the head and mandibles: x 40 to 47, rows 25 to 30. The right edge is at least x 46 (rule R3).
+
+### Frame 12, `hurt` (key)
+
+- Shell, head and antennae **-2 x** (knocked back) and the front tilted up: pronotum and head dy -2, the slice x 24 to 30 dy -1, the rear unchanged.
+- **Eye flash:** the 2 x 2 eye becomes `w` (3 px) with one `K` pupil pixel at its rear-bottom; no `r`, no `e` (rule R4).
+- Mandibles gape: `H` 2 px up and 2 px down from the head front, 2 px apart.
+- Antennae whiplashed: near antenna goes up 3 px from the head and then back horizontally to the tip at x 33; far antenna folded back flat along row 18.
+- Legs splayed stiff: near rear foot x 0 to 1, near mid foot x 15 to 16, both on row 31; both front legs off the floor, pointing forward-down, tips on row 29. Right edge at most x 44 (rule R4).
+
+### Frame 15, `down` hold (key)
+
+On its back, legs curled. No splat, no particles, no glow.
+
+- Shell flipped: copy frame 0 rows 20 to 28, x 9 to 41 (shell and head), mirror it vertically and place it on rows 23 to 31, so the dome rests on the contact row. Relight: the row under the new belly line (row 24) becomes `u` with `v` on every third pixel (segment ticks); the two dome rows nearest the floor (29, 30) become `a`; remove `h` and the `H` glint (the sheen faces the floor; recolour `h` to `c`).
+- **Eye dark:** the eye pixels become `a` with one `K`; no `r`, `e` or `w` (rule R5). Mandibles closed (at most 1 `H`).
+- Legs: from each near coxa (x 15, 23, 32 on the belly line, row 23) up 2 px (rows 22, 21) and then hooked 2 px toward the shell centre on row 20, with the tip 1 px down on row 21 (`j` femur, `g` hook). Far legs the same shape in `a`, 2 px to the right and 1 px lower.
+- Antennae limp on the floor: near `j` row 31 from x 42 to 47; far `b` row 30 from x 43 to 46.
+- bbox target: top row 20 (at least 18), width at most 46, bottom 31 (rule R6).
 
 ## 8. In-between list
 
-For the execution tier; no design decisions needed. One row per non-key frame, as in section 9 of the GOB-01 spec.
+For the execution tier; no design decisions needed. Copy from the neighbouring keys and translate whole parts; keep the palette, the pivot (24, 31) and the single `body` layer; every frame ends on row 31.
 
 | # | Pose notes |
 | --- | --- |
-| <fill> | <fill> |
+| 1 | Frame 0 with the antennae only: every near-antenna pixel above row 24 +1 x and -1 row (forward flick); every far-antenna pixel above row 21 -1 x (back). Top row stays 16 to 18. |
+| 2 | Frame 0 with the dome settled: rows 17 to 21 between x 9 and x 30 (dome top and the far antenna) move down 1 px; the row-21 `h` band overwrites the row-22 `f` band where they overlap; the near antenna moves down 1 px. Legs, head and belly line unchanged. |
+| 4 | Passing: frame 3 body (rows 17 to 28) up 1 px; the belly line moves to row 27 and the femurs stay attached (extend each tibia by 1 px). All six feet on row 30 or 31: tripod A feet slide 2 px back, tripod B feet halfway forward (row 30). |
+| 5 | Contact B: frame 3 with the tripods swapped: near mid foot extended forward to x 27 to 28 and far front and far rear feet planted on row 31 (far front x 43 to 44, far rear x 13 to 14); near front, near rear and far mid lifted to row 30. Antennae and body as frame 3. |
+| 6 | Passing: frame 5 with the same changes as frame 4 (body up 1 px, tripods mid-swing). |
+| 7 | Halfway from 0 to 8: body slices -1 x with half of the frame-8 rise (dy 0, 0, -1, -2, -2 for the five slices); antennae apexes at row 15; front legs lifted to row 30; mandibles half open (`K` 1 px between the `H`); eye `r` 2 px. bbox top 13 to 15 (rule R1). |
+| 9 | Dash: shell and head +3 x, dome at idle height; antennae halfway back (apexes at row 19); legs mid-stride: rear legs stretched back (near rear foot x 2 to 3), front legs reaching forward with the near front foot on row 30 at x 40 to 41. No speed lines, no smear pixels outside the body. |
+| 11 | Recover: frame 0 shifted +3 x with the mandibles 1 px open (`K` between them); near rear foot re-planted at x 5 to 6; antennae as frame 1. |
+| 13 | Flip impact: frame 15 with the shell squashed 1 row (delete the row-27 band; shell on rows 24 to 31) and the legs straight up, flailing: each near leg a vertical line of 4 px (rows 19 to 22) with a `s` spine at the top; the eye still `r` 2 px (it dims in 14); antennae arched up 2 px above the floor. bbox top at least 18. |
+| 14 | Settle: frame 15 with the legs half curled (up 2 px, then 1 px over, no tip) and the eye `e` 2 px (dimming, no `r`). |
 
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate <asset-config>` (rules V01 to V15 in `scripts/pixelart/validators.py`). Parametrize in the asset config:
+Run by `python3 -m scripts.pixelart validate assets/source/characters/scatterer/scat-01.pixelart.json` (rules V01 to V15 in `scripts/pixelart/validators.py`). The config already carries every rule below; until the execution tier replaces the placeholder frames 1 to 15 (copies of frame 0), V12 and most V13/V14 rules fail by design.
 
-- V04 palette: at most <fill> colours; V05 isolated pixels: 0; V06 orphan pixels: at most <fill> per frame.
-- V07/V08 contact rows: grounded tags end on the contact row, airborne tags never touch it.
-- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/scat-01_keys.json`.
-- V13/V14 readability rules (write each as a bbox or key-count rule): <fill: for example the tell is the highest point, the hurt eyes are white>.
+- V04 palette: at most 20 colours (16 used); V05 isolated pixels: 0; V06 orphan pixels: at most 4 per frame (frame 0 has 0). Accent keys (orphan-exempt): `H`, `s`, `e`, `r`, `w`.
+- V07 contact rows: every tag is grounded and ends on row 31. V08: no airborne tags.
+- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/scat-01_keys.json`. Frame 0 is frozen now; after the review passes, the execution tier extends `rules.frozen_keys.frames` to `[0, 3, 8, 10, 12, 15]` and re-freezes with `--force` (frame 0's hash must not change).
+- V13 bbox rules: `S1-size-idle-15px` (frame 0 rows 17 to 31), `S1-idle-stays-low` (1, 2: top 16 to 18), `S2-walk-low` (3 to 6: top at least 16, height at most 16), `R1-tell-ramp` (7: top 13 to 15), `R1-tell-highest` (8: top at most 12, height at least 20), `R3-lunge-flat-reach` (10: top at least 20, right at least 46), `R4-hurt-recoils` (12: right at most 44), `R6-defeat-low-compact` (13 to 15: top at least 18, width at most 46; this also blocks any splat spreading past the body).
+- V14 key-count rules: `R0-eye-glows-alive` (0 to 7 and 9 to 11: at least 2 `r`), `R2-tell-mandibles-open` (8: at least 5 `H`), `R2-tell-eye-flare` (8: at least 3 `r`), `R2-tell-belly-reveal` (8: at least 4 `u`), `R4-hurt-eye-flash` (12: at least 3 `w`, no `r`), `R5-defeat-eye-dark` (15: no `r`, `e` or `w`).
+- Manual acceptance targets for the review: at 1x on the Floor 1 brick next to Carl, (1) the red eye and both antennae read on every alive frame; (2) the tell is readable from silhouette alone (highest point, open V mouth) within its 20-tick hold; (3) the lunge reads as low and forward, not a jump; (4) defeat reads as "flipped and finished" with no explosion cue; (5) four Scatterers in a row in front of Carl do not hide his legs above the knee.
 
 ## 10. Evidence
 
 ```text
-python3 -m scripts.pixelart validate <asset-config> --out <dir>
-python3 -m scripts.pixelart evidence <asset-config> --out <dir>
-python3 -m scripts.pixelart review-pack <asset-config> --out <dir>
+python3 -m scripts.pixelart validate assets/source/characters/scatterer/scat-01.pixelart.json --out <dir>
+python3 -m scripts.pixelart evidence assets/source/characters/scatterer/scat-01.pixelart.json --out <dir>
+python3 -m scripts.pixelart review-pack assets/source/characters/scatterer/scat-01.pixelart.json --out <dir>
 ```
 
-The review pack holds exactly three images (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip) and the validator report.
+The review pack holds exactly three images (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip) and the validator report. Execution tier, not the designer.
 
 ## 11. Files
 
 | File | Role |
 | --- | --- |
-| `assets/source/<fill>/scat-01.grid.json` / `.ase` | pixel-grid source and Aseprite master |
-| `assets/manifests/scat-01.json` | manifest |
-| `<fill>/scat-01.pixelart.json` | the asset config (from `frame_pivot_template.json`) |
+| `scripts/author_scat01.py` | deterministic authoring script (frame 0 literal rows; the execution tier adds frames 1 to 15) |
+| `assets/source/characters/scatterer/scat-01.grid.json` / `.ase` | pixel-grid source and Aseprite master (generated by the script) |
+| `assets/source/characters/scatterer/scat-01.pixelart.json` | the asset config |
+| `assets/manifests/scat-01.json` | manifest (execution tier; add `manifest` and `manifest_tick_rows` to the config then) |
 | `tests/fixtures/scat-01_keys.json` | frozen keys |
 
 ## 12. Rights and provenance
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Record in the PR's `Rights/Provenance` section which model designed, executed and reviewed the art (packet: Claude Sonnet; design, execution, review: pending). No tracing of the concept, no image-model raster output.
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Packet: Claude Sonnet. Design, spec and the hero key (frame 0): Claude Opus. Execution and review: pending. Every pixel is placed by `scripts/author_scat01.py`; no tracing of the concept, no image-model raster output.
