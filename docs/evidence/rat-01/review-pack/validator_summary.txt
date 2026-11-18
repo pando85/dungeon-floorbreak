@@ -1,4 +1,4 @@
-pixelart validate: rat-01 (6 frames)
+pixelart validate: rat-01 (19 frames)
   PASS    V01 structure
   PASS    V02 tags
   PASS    V03 tick table
@@ -7,11 +7,11 @@ pixelart validate: rat-01 (6 frames)
   PASS    V06 orphan pixels
   PASS    V07 grounded contact rows
   SKIPPED V08 airborne frames off the floor (not configured)
-  SKIPPED V09 frozen keys (not configured)
+  PASS    V09 frozen keys
   SKIPPED V10 layers disjoint (not configured)
   PASS    V11 canvas margin
   PASS    V12 unique frames
   PASS    V13 bounding boxes
   PASS    V14 key counts
   PASS    V15 non-empty frames
-verdict: PASS (12 pass, 0 fail, 3 skipped)
+verdict: PASS (13 pass, 0 fail, 2 skipped)

@@ -2,11 +2,11 @@
   "asset_id": "rat-01",
   "counts": {
     "fail": 0,
-    "pass": 12,
-    "skipped": 3
+    "pass": 13,
+    "skipped": 2
   },
   "format": "pixelart-report-v1",
-  "frames": 6,
+  "frames": 19,
   "passed": true,
   "rules": [
     {
@@ -66,11 +66,11 @@
       "status": "skipped"
     },
     {
-      "detail": "not configured",
+      "detail": "ok",
       "failures": [],
       "id": "V09",
       "name": "frozen keys",
-      "status": "skipped"
+      "status": "pass"
     },
     {
       "detail": "not configured",

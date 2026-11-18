@@ -1,6 +1,6 @@
 # RAT-01: Dungeon Rat readability set, design spec
 
-**Status:** keys final (top-tier edit). Packet and draft: Claude Sonnet (medium tier). Design edit and final keys: Claude Opus (top tier). Independent top-tier art review: pending. The six keys are frozen in `tests/fixtures/rat-01_keys.json`; no in-betweens are drawn.
+**Status:** keys final (top-tier edit). Packet and draft: Claude Sonnet (medium tier). Design edit and final keys: Claude Opus (top tier). In-betweens, export and evidence: Claude Sonnet (medium tier, execution record in section 15). Independent top-tier art review: pending. The six keys are frozen in `tests/fixtures/rat-01_keys.json` (pixel-identical after the in-betweens were added); the 13 in-betweens are drawn.
 
 **Decision record (final):** height 18 px, frame 64 x 28, pivot (30, 27), palette `rat-floor01-v1` (15 colours). Proposed by the Sonnet draft, confirmed (size, frame, pivot) and corrected (palette, four keys) by the top-tier editor; see section 13.
 
@@ -71,7 +71,7 @@ Tick windows are at 60 Hz. The rat is a fast nuisance, so cycles are shorter tha
 | hurt | `hurt` | 2 | once | 4 + 8 = 12 | |
 | defeat | `down` | 3 | hold | 4 + 8 + hold | |
 
-Frame table (19 frames; keys are the final keys in `rat_h18.grid.json`, in-betweens are not drawn):
+Frame table (19 frames, all in `rat_h18.grid.json`; keys are the final keys, in-betweens are drawn by the executor):
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
@@ -95,7 +95,7 @@ Frame table (19 frames; keys are the final keys in `rat_h18.grid.json`, in-betwe
 | 17 | `down` | bounce: belly-up, legs half raised | 8 | in-between |
 | 18 | `down` | final: belly-up, legs stiff, head lolled, X eye, tongue out | hold | key (final) |
 
-The key grid and `rat-01.pixelart.json` carry only the six keys with key-only indices 0 to 5 (idle, walk, attack_tell, attack_swing, hurt, down). The executor inserts the in-betweens and re-indexes to the 0 to 18 table above, rewriting the tag table, the bbox/key-count rule frames and `rules.frozen_keys.frames` to `[0, 3, 10, 12, 14, 18]`. Re-freezing is not needed when only indices move: the fixture hashes pixels, so re-run `freeze --force` only after re-indexing and check that the six hashes are unchanged.
+The grid and `rat-01.pixelart.json` now carry the full 0 to 18 table above (tag table, bbox and key-count rule frames, `rules.frozen_keys.frames` = `[0, 3, 10, 12, 14, 18]`). The fixture was re-written with `freeze --force` after the re-index; the six SHA-256 values are unchanged, only the fixture's frame numbers moved (0 to 5 became 0, 3, 10, 12, 14, 18).
 
 ## 5. State diagram
 
@@ -158,7 +158,7 @@ Opaque heights (contact row 27 to the top row): idle 18, walk 16, tell 19 (tail 
 
 ## 8. In-between list
 
-For the execution tier; no design decisions needed. Frame numbers follow the section 4 table. Rules for all in-betweens: keep the face constants from section 7 (2 px eye, chewed-tip ear, 2 x 2 incisors when the mouth is shut), keep the contact row 27 on at least one foot, use only the 13 palette keys the keys use plus `w` on frame 15, and keep orphans at most 9 per frame. Author them in `scripts/author_rat01.py` as new pose dicts built from the neighbouring key by moving the named points; do not redraw the keys.
+Instruction list for the execution tier (done; see section 15 for the executor choices). Frame numbers follow the section 4 table. Rules for all in-betweens: keep the face constants from section 7 (2 px eye, chewed-tip ear, 2 x 2 incisors when the mouth is shut), keep the contact row 27 on at least one foot, use only the 13 palette keys the keys use plus `w` on frame 15, and keep orphans at most 9 per frame. Author them in `scripts/author_rat01.py` as new pose dicts built from the neighbouring key by moving the named points; do not redraw the keys.
 
 | # | Derive from | Pose notes (design units: x right, y up) |
 | --- | --- | --- |
@@ -178,7 +178,7 @@ For the execution tier; no design decisions needed. Frame numbers follow the sec
 
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate assets/source/characters/rat/rat-01.pixelart.json` (rules V01 to V15). Values (key-only indices; the executor remaps them to 0, 3, 10, 12, 14, 18 and adds in-between frames where noted):
+Run by `python3 -m scripts.pixelart validate assets/source/characters/rat/rat-01.pixelart.json` (rules V01 to V15). Values (full frame indices; the toolkit result is PASS, 13 pass, 0 fail, 2 skipped; in addition to the spec the config pins the onset and snap-back jaws shut and the reopened eye on frame 15):
 
 - V04 palette: at most 20 colours (15 defined); V05 isolated pixels: 0; V06 orphan pixels: at most 9 per frame. The authoring script's despeckle stays (deterministic).
 - V07 contact rows: all tags grounded, contact row 27.
@@ -189,17 +189,21 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/rat/rat-01
 ## 10. Evidence
 
 ```text
-python3 -m scripts.pixelart validate assets/source/characters/rat/rat-01.pixelart.json --out docs/evidence/rat-01/draft
-python3 -m scripts.pixelart review-pack assets/source/characters/rat/rat-01.pixelart.json --out docs/evidence/rat-01/draft --allow-failing
-python3 -m scripts.pixelart compare --source assets/source/characters/rat/rat_size_study.grid.json --out docs/evidence/rat-01/draft/size_study.png
+python3 scripts/author_rat01.py frames              # grid + manifest (--check verifies)
+python3 scripts/pixel_grid_to_ase.py build assets/source/characters/rat/rat_h18.grid.json assets/source/characters/rat/rat_h18.ase
+python3 -m scripts.pixelart validate assets/source/characters/rat/rat-01.pixelart.json
+bash scripts/export_assets.sh                          # the Floor 1 kit atlases the lit scene needs
+python3 -m scripts.pixelart evidence assets/source/characters/rat/rat-01.pixelart.json --out docs/evidence/rat-01
+python3 -m scripts.pixelart review-pack assets/source/characters/rat/rat-01.pixelart.json --out docs/evidence/rat-01/review-pack
+python3 -m scripts.pixelart compare --source assets/source/characters/rat/rat_size_study.grid.json --out docs/evidence/rat-01/size_study.png
 ```
 
-Draft pictures, made from the Sonnet draft keys and now stale for idle, tell and hurt (the executor regenerates them from the final keys; the final keys validate 13 pass, 0 fail, 2 skipped). The review pack holds the contact sheet x4, the lit scene 640 x 360 shown x3 with Carl and Donut, and the tell to attack strip; validators currently PASS 12 of 12 applicable):
+The outdated `docs/evidence/rat-01/draft/` pictures (pre-edit keys) were removed. Evidence from the final 19-frame set, all in `docs/evidence/rat-01/` (index and hashes: `README.md`, `SHA256SUMS`). The review pack (`review-pack/`) holds exactly the three images the independent reviewer looks at, plus the validator report (PASS):
 
-- `docs/evidence/rat-01/draft/01_contact_sheet_x4.png`
-- `docs/evidence/rat-01/draft/02_lit_scene_640x360_x3.png`
-- `docs/evidence/rat-01/draft/03_tell_attack_strip.png`
-- `docs/evidence/rat-01/draft/size_study.png`
+- `docs/evidence/rat-01/review-pack/01_contact_sheet_x4.png` (all 19 frames, keys marked)
+- `docs/evidence/rat-01/review-pack/02_lit_scene_640x360_x3.png` (the rat set with Carl and Donut on lit Floor 1, shown x3)
+- `docs/evidence/rat-01/review-pack/03_tell_attack_strip.png` (tell, bite, snap-back in tick order)
+- `docs/evidence/rat-01/size_study.png` (the 14, 18 and 22 px block-ins, regenerated)
 
 Scene note: the scene tool mirrors enemies to face Carl, so the rats there face left.
 
@@ -207,16 +211,17 @@ Scene note: the scene tool mirrors enemies to face Carl, so the rats there face 
 
 | File | Role |
 | --- | --- |
-| `scripts/author_rat01.py` | deterministic authoring script (`keys`, `size-study`; rules and literal stamps, no raster input) |
-| `assets/source/characters/rat/rat_h18.grid.json` / `.ase` | the six final keys (pixel-grid-v1 and Aseprite master) |
+| `scripts/author_rat01.py` | deterministic authoring script (`frames` writes grid and manifest, `size-study`; `--check` verifies; rules and literal stamps, no raster input) |
+| `assets/source/characters/rat/rat_h18.grid.json` / `.ase` | the 19 frames: six final keys plus 13 in-betweens (pixel-grid-v1 and Aseprite master) |
 | `assets/source/characters/rat/rat_size_study.grid.json` / `.ase` | 14, 18 and 22 px block-ins |
-| `assets/source/characters/rat/rat-01.pixelart.json` | the asset config (key-only indices, frozen keys) |
-| `assets/manifests/rat-01.json` | manifest: not written yet (execution tier) |
-| `tests/fixtures/rat-01_keys.json` | frozen keys (SHA-256 of the six final key frames) |
+| `assets/source/characters/rat/rat-01.pixelart.json` | the asset config (19-frame tag table, tick rows, rules, frozen keys) |
+| `assets/manifests/rat-01.json` | candidate manifest: 19 frames with the 60 Hz tick table, boxes and attack ticks (`review_status`: `prototype_fixture_unapproved`) |
+| `tests/fixtures/rat-01_keys.json` | frozen keys (SHA-256 of the six final key frames, numbered 0, 3, 10, 12, 14, 18) |
+| `tests/test_art_rat01.py` | spec rules the toolkit does not cover (generator parity, tick windows, hitbox frame, `w` pixel, walk side swap) |
 
 ## 12. Rights and provenance
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Packet: Claude Sonnet. Draft keys, size study, palette, spec: Claude Sonnet (medium tier, draft designer). Key edit, final palette and final spec: Claude Opus (top tier, design editor). Independent top-tier review: pending (a separate agent). No tracing of the concept, no image-model raster output; the rasterizer is a rule-based polygon/capsule script plus literal stamps.
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Packet and draft keys (size study, palette v0, spec draft): Claude Sonnet (medium tier). Key edit, final palette and final design: Claude Opus (top tier, design editor). In-betweens, export, validators and evidence: Claude Sonnet (medium tier, executor). Independent top-tier review: pending (a separate agent). No tracing of the concept, no image-model raster output; the rasterizer is a rule-based polygon/capsule script plus literal stamps.
 
 ## 13. Editor changes (top-tier edit versus the draft)
 
@@ -234,3 +239,25 @@ Kept: size 18 px, frame 64 x 28, pivot (30, 27), contact row 27, idle/move/attac
 
 - The hurt pose reads as "upright, flinching" at 1x; the reviewer should confirm it does not read as a begging/sniffing rat once the runtime hit flash is on.
 - The torn-ear nick is one pixel; at 1x the chewed tip carries the read. If the reviewer wants a louder tear, enlarge the near ear to 6 px tall in the idle key only.
+
+## 15. Execution record (Sonnet)
+
+Medium-tier executor, from the frozen keys and sections 4, 8 and 9. Nothing was redesigned; the six keys are pixel-identical (checked frame by frame against the committed key grid, and the six fixture hashes are unchanged).
+
+- Drawn: frames 1, 2, 4 to 9, 11, 13, 15, 16, 17 in `scripts/author_rat01.py` as pose dicts derived (deep copies) from the key poses, with the section 8 point moves; the key `POSES` are never mutated. Re-indexed the config and the fixture to 0 to 18; exported grid, `.ase` and `assets/manifests/rat-01.json` (tick table at 60 Hz: idle 28, walk 24, tell 24, attack 12, hurt 12, down 12 plus hold). `python3 -m scripts.pixelart validate` passes every applicable rule (13 pass, 0 fail, 2 skipped: V08 and V10 are not configured for a grounded single-layer asset).
+- Validators I added to the config on top of the spec list: onset (frame 9) and snap-back (frame 13) jaws shut (`o` at most 0), the reopened eye on frame 15 (`w` at least 1), and the awake / no-ember checks now cover every in-between.
+
+### Executor choices for the reviewer
+
+1. **Walk gather and peak (frames 4, 5, 7, 8).** The walk key already sits at the V13 headroom limit (top row 12, rule: top row 11 or lower on frames 3 to 8). "Spine middle +2 / +3" would breach it by 2 to 3 rows, so it is spent as a relative arch: the whole body (head, ears, face) drops 1 (frame 4) or 2 (frame 5) units and the spine middle rises 2 or 3, a net +1 at the apex and lower ends. Tails use the written +1 / +2 above the key.
+2. **Tell onset (frame 9).** Spine: -1 at the rump to +2 at the head end as written. The head, ear and face move only +1 (not +2): +2 puts the head above the idle head, reading as a head-up stalk instead of "the front drops toward the floor". Hackles are all 1 px; tail is the point-wise halfway of the idle and wedge tails.
+3. **Lunge smear (frame 11).** "4 back, 4 lower at the head end" is a linear ramp over the spine span (0 at x = -13 to full at x = +13) applied to every point; the hind claws stay on the contact row (clamped). The three-pixel `l` streak sits 1 px above the haunch rather than on the tail.
+4. **Snap-back (frame 13).** Head and ear 4 back and 1 lower, front claws drawn short against the chest, spine tail end pulled to the head; the two teeth rows are a closed 2 x 2 mouth.
+5. **Hurt settle (frame 15).** One `w` pixel as the reopened near eye with a `K` squint next to it, one `o` and two teeth at the horizontal snout; belly pink stays on the front of the torso.
+6. **Down flop and bounce (frames 16, 17).** Flop is a flat side roll (opaque height 12) with the belly strip on the upper side; bounce is key 18 with the leg ends lowered 2 px and 1.2 units and the tail curled up. The two read close to each other at 1x (the bounce is mainly the leg and tail difference); the reviewer may ask for a stronger difference.
+7. **Walk contact B (frame 6).** The extended legs are the far ramp (`a`) and the gathered legs are the near fur ramp, with a new fur seed.
+8. **Authoring command.** `keys` was renamed `frames` (it now writes the grid and the manifest). The manifest `input_reference_ids` names the approved concept PNG by repository path.
+
+### Evidence status
+
+Evidence images were generated, not hand-checked beyond the contact sheet at x4 (the other review-pack images are for the independent reviewer). No game-feel claim is made: a human reviews timing and feel before any acceptance.
