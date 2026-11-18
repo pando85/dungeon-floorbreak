@@ -43,17 +43,18 @@
       {"id": "S1-size-idle-30px", "frames": [0, 1, 2], "top": 10, "bottom": 39, "height": 30},
       {"id": "S1-idle-width", "frames": [0], "min_width": 58, "max_width": 64},
       {"id": "S2-creep-low-and-long", "frames": [3, 4, 5, 6], "min_top": 14, "max_height": 26, "min_width": 62, "bottom": 39},
-      {"id": "R1-tell-highest", "frames": [7, 8], "max_top": 6, "min_height": 34, "bottom": 39},
-      {"id": "R1-tell-narrower-than-idle", "frames": [8], "max_width": 48},
+      {"id": "R1-tell-highest", "frames": [8], "max_top": 4, "min_height": 36, "bottom": 39},
+      {"id": "R1-tell-narrower-than-idle", "frames": [8], "max_width": 44},
       {"id": "R3-lunge-flat-reach", "frames": [9, 10, 11], "min_top": 21, "min_right": 76, "bottom": 39},
       {"id": "R4-hurt-flat-and-recoiled", "frames": [12], "min_top": 18, "max_right": 66, "bottom": 39},
-      {"id": "R6-defeat-low-compact", "frames": [13, 14, 15], "min_top": 26, "max_width": 70, "bottom": 39}
+      {"id": "R6-defeat-low-compact", "frames": [13, 14, 15], "min_top": 26, "max_width": 70, "bottom": 39},
+      {"id": "R6-defeat-remains-not-a-stain", "frames": [15], "max_top": 31, "bottom": 39}
     ],
     "key_counts": [
       {"id": "R0-corrosion-cue-alive", "frames": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11], "key": "v", "min": 4},
       {"id": "R2-tell-acid-beads", "frames": [7, 8], "key": "v", "min": 9},
       {"id": "R0-skull-inside", "frames": [0, 3, 8, 10, 12], "key": "q", "min": 10},
-      {"id": "R4-hurt-flash", "frames": [12], "key": "w", "min": 8},
+      {"id": "R4-hurt-flash", "frames": [12], "key": "w", "min": 40},
       {"id": "R4-hurt-no-acid", "frames": [12], "key": "v", "max": 0},
       {"id": "R4-flash-only-on-hurt", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15], "key": "w", "max": 0},
       {"id": "R5-defeat-no-acid", "frames": [13, 14, 15], "key": "v", "max": 0},

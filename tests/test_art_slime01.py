@@ -56,7 +56,7 @@ class SlimeTests(unittest.TestCase):
         m = json.loads(MANIFEST.read_text(encoding="utf-8"))["slime"]
         self.assertEqual([r["ticks"] for r in m["frames"]], [t or None for t in a.TICKS])
         self.assertEqual(m["attack_ticks"], {"tell": [0, 29], "launch": [30, 31], "impact": [32, 37], "recover": [38, 57]})
-        self.assertEqual(m["boxes"]["attack_hitbox"], [56, 24, 22, 15])  # active on frame 10 only
+        self.assertEqual(m["boxes"]["attack_hitbox"], [58, 25, 21, 15])  # active on frame 10 only
         self.assertEqual(a.TICKS[7] + a.TICKS[8], 30)  # tell 30 ticks, then launch 2, impact 6, recover 20
 
     def test_tell_is_the_tallest_pose_and_the_lunge_the_longest(self) -> None:

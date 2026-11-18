@@ -27,8 +27,8 @@
   "owner": "AI-authored enemy animation candidate (fan-concept layer: Green Slime, a Floor 1 corrosive hazard creature; runtime role IP-neutral slow contact-hazard blob)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "SLIME-01 Green Slime readability set, first draft: six keys (frames 0, 3, 8, 10, 12, 15) are drawn by scripts/author_slime01.py from integer mound profiles, rule-based shading and literal skull and plate rows; in-between slots are copies of the nearest key",
-    "generator": "Draft spec and keys: Claude Sonnet. Edit, freeze and review: pending. No image-model raster output, no tracing, no resampling",
+    "origin": "SLIME-01 Green Slime readability set, first draft: six keys (frames 0, 3, 8, 10, 12, 15) are drawn by scripts/author_slime01.py from blended floor-anchored ellipses, rule-based shading and literal skull and plate rows; in-between slots are copies of the nearest key",
+    "generator": "Draft spec and keys: Claude Sonnet. Design edit and freeze: Claude Opus. Review: pending. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "floor-01-enemy-concept-scatterers-rot-sticker-slime-v1"
@@ -37,7 +37,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "slime": {
-    "status": "first draft keys; in-betweens are copies; not wired into any Bevy binary",
+    "status": "edited and frozen keys; in-betweens are copies; not wired into any Bevy binary",
     "spec": "docs/02-art/slime-01-spec.md",
     "opaque_height_idle": 30,
     "tick_hz": 60,
@@ -70,27 +70,27 @@
     "key_fixture": "tests/fixtures/slime-01_keys.json",
     "boxes": {
       "standing": [
-        14,
+        12,
         16,
-        53,
+        51,
         24
       ],
       "hurtbox": [
-        12,
-        12,
-        57,
-        28
+        8,
+        10,
+        60,
+        30
       ],
       "hurtbox_tell_hold": [
-        17,
-        4,
-        41,
-        36
+        15,
+        3,
+        38,
+        37
       ],
       "attack_hitbox": [
-        56,
-        24,
-        22,
+        58,
+        25,
+        21,
         15
       ]
     },

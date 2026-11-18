@@ -4,11 +4,12 @@
 Writes ``assets/source/characters/slime/slime_01.grid.json`` (pixel-grid-v1), the matching ``.ase`` via
 ``scripts/pixel_grid_to_ase.py`` and ``assets/manifests/slime-01.json``. Design spec: ``docs/02-art/slime-01-spec.md``.
 
-Method: a body is a lumpy mound described by integers (peak column, two half-widths, height, lump bumps). Its
-mask is shaded with a few value steps from ray distances to the outline (lit rim top-left, dark core, dark right
-edge, bright caustic band along the floor), then an inner skull and rusted plate, suspended debris, gel streaks and
-glints are placed by rule. Everything is integer maths and literal pixel rows; no concept pixels are traced or
-resampled. Six keys are drawn (frames 0, 3, 8, 10, 12, 15); in-between slots are copies of the nearest key until a
+Method (senior design edit): a body is a gel mass made of a few floor-anchored ellipses blended by a summed
+inverse-square field (domed crest, sagging skirt), minus optional carve ellipses. It is shaded with five value steps
+from the 4-neighbour distance to the outline (glowing rim all round, brightest on the torch-lit upper left, lit upper
+skin, dark thick core, caustic band above the floor), then dark lenses, a three-quarter skull, a rusted plate jutting
+from the skirt, grit, drip runs and glints are placed by rule. Integer inputs, deterministic IEEE arithmetic and
+literal pixel rows; no concept pixels are traced or resampled. Six keys are drawn (frames 0, 3, 8, 10, 12, 15); in-between slots are copies of the nearest key until a
 later pass (spec section 8).
 """
 from __future__ import annotations
@@ -16,7 +17,6 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from math import isqrt
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,52 +32,53 @@ BASE = 39  # contact row
 # Palette `slime-floor01-v1`: 17 keys (spec section 6). Accent keys are exempt from the orphan lint.
 PALETTE = [
     # key, name, rgba, accent
-    ("K", "outline_murk", "#0e1a0eff", False),
-    ("a", "gel_0_deep", "#1b3317ff", False),
-    ("b", "gel_1_shade", "#2b4e1fff", False),
-    ("c", "gel_2_mid", "#44801fff", False),
-    ("d", "gel_3_light", "#74ae2aff", False),
-    ("f", "gel_4_lit", "#a6d03aff", False),
-    ("h", "sheen_torch", "#d3e868ff", False),
-    ("H", "glint_pale", "#f3f7bcff", True),
-    ("v", "acid_hot", "#c8dc22ff", True),
-    ("o", "bone_dark", "#6b6842ff", False),
-    ("p", "bone_mid", "#aaa56eff", False),
-    ("q", "bone_lit", "#dcd69eff", False),
+    ("K", "outline_murk", "#121a0bff", False),
+    ("a", "gel_0_deep", "#222f14ff", False),
+    ("b", "gel_1_shade", "#3a5219ff", False),
+    ("c", "gel_2_mid", "#5d861cff", False),
+    ("d", "gel_3_light", "#8eba24ff", False),
+    ("f", "gel_4_lit", "#bddb37ff", False),
+    ("h", "sheen_torch", "#dcef7cff", False),
+    ("H", "glint_pale", "#f6f8c8ff", True),
+    ("v", "acid_hot", "#f0e61eff", True),
+    ("o", "bone_dark", "#6e6a3cff", False),
+    ("p", "bone_mid", "#b0a868ff", False),
+    ("q", "bone_lit", "#e0d898ff", False),
     ("r", "rust_dark", "#4a2818ff", False),
     ("s", "rust_mid", "#7c4526ff", False),
     ("u", "rust_lit", "#a96a3cff", False),
-    ("n", "debris_grit", "#2a3a1eff", False),
+    ("n", "debris_grit", "#2a3418ff", False),
     ("w", "hurt_flash", "#f4f2dcff", True),
 ]
 ACCENTS = {k for k, _n, _c, acc in PALETTE if acc}
 
-SKULL = [  # 10 x 9, facing the viewer, bone seen through gel
-    "..oooooo..",
-    ".oppqqppo.",
-    "oppqqqqppo",
-    "opKKqqKKpo",
-    "opKKqqKKpo",
-    "oppqKKqppo",
-    ".oppqqppo.",
-    "..opqqpo..",
-    "..opoqpo..",
+SKULL = [  # 9 x 8, three-quarter skull turned toward the facing side: far socket 1 px, near socket 2 x 2, teeth
+    "..ooooo..",
+    ".opqqqqo.",
+    "opqqqqqqo",
+    "oqKqqKKqo",
+    "opKqqKKpo",
+    ".oqpKqqpo",
+    "..oqKqKo.",
+    "...oooo..",
 ]
-PLATE = [  # 20 x 7, a rusted armour plate half-sunk in the body, rivets lit, one acid-eaten edge
-    "......KKKKKKKK......",
-    "....KKrssuuussrKK...",
-    "..KKrssusssusssurKK.",
-    ".KrssussrssussssusrK",
-    "KrsussrrsssurssussrK",
-    "KrrsrrsssrrsssrrsrrK",
-    ".KKrrrKKKrrKKKrrKKK.",
+PLATE = [  # 16 x 7, a rusted pauldron wedged under the gel's front skirt, tipped up toward the facing side
+    "..........KKKK..",
+    "......KKKKusuuK.",
+    "...KKKrsusssusuK",
+    ".KKrssussrsssusK",
+    "KrssusrrssussrrK",
+    "KrrsrrssrrsrrsK.",
+    ".KKKKKKKKKKKKK..",
 ]
-PLATE_FLAT = [  # 22 x 4, the plate lying in the defeat puddle
+PLATE_FLAT = [  # 22 x 4, the plate fallen out flat beside the remains
     "..KKKKKKKKKKKKKKKKKK..",
     ".KrssussusssussussurK.",
     "KrsussrrsssurssussrrK.",
     ".KKrrrKKrrrKKrrrrKKK..",
 ]
+N4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
+RAMP = "abcdf"  # gel value steps, murk to lit
 
 
 class Cv:
@@ -92,82 +93,111 @@ class Cv:
         return self.p.get((x, y))
 
 
-def heights(px, rxl, rxr, hh, lumps, film_l=3, film_r=3, gain=9, div=8):
-    """column -> height. Ellipse with a flattened shoulder (gain/div), integer lump bumps and a thin floor film."""
-    cols: dict[int, int] = {}
-    base_h = hh - 3
-    for x in range(px - rxl, px + rxr + 1):
-        dx = x - px
-        r = rxl if dx < 0 else rxr
-        h = isqrt(base_h * base_h * (r * r - dx * dx) // (r * r)) * gain // div
-        for bx, amp, wid in lumps:
-            h += max(0, amp - abs(x - bx) * amp // wid) if amp > 0 else min(0, amp + abs(x - bx) * -amp // wid)
-        cols[x] = max(1, min(hh, h))
+def blob(balls, carve=(), film_l=2, film_r=2):
+    """Gel mass: summed inverse-square ellipse field (sharp blend, sagging skirt where balls meet the floor),
+    clipped at the floor row, minus ``carve`` ellipses, plus a 1 px wet film either side on the floor row."""
+    m = set()
+    for y in range(H):
+        for x in range(W):
+            f = 0.0
+            for cx, cy, rx, ry in balls:
+                q = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
+                f += 1e9 if q == 0 else 1.0 / (q * q)
+            if f >= 1.0 and not any(((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1.0 for cx, cy, rx, ry in carve):
+                m.add((x, y))
+    row = sorted(x for x, y in m if y == BASE)
     for i in range(1, film_l + 1):
-        cols[px - rxl - i] = 1
+        m.add((row[0] - i, BASE))
     for i in range(1, film_r + 1):
-        cols[px + rxr + i] = 1
-    if film_l > 1:
-        del cols[px - rxl - film_l]  # ragged film end, not a straight cut
-    return cols
+        m.add((row[-1] + i, BASE))
+    return m
 
 
-def mask_of(cols):
-    return {(x, y) for x, h in cols.items() for y in range(BASE - h + 1, BASE + 1)}
+def depth(mask):
+    """4-neighbour distance to the outside: 1 on the outline, 2 on the rim, growing inward."""
+    d = {p: 1 for p in mask if any((p[0] + dx, p[1] + dy) not in mask for dx, dy in N4)}
+    front, k = sorted(d), 1
+    while front:
+        nxt = []
+        for x, y in front:
+            for dx, dy in N4:
+                q = (x + dx, y + dy)
+                if q in mask and q not in d:
+                    d[q] = k + 1
+                    nxt.append(q)
+        front, k = sorted(nxt), k + 1
+    return d
 
 
-def ray(mask, x, y, dx, dy):
-    n = 0
-    while (x + dx * (n + 1), y + dy * (n + 1)) in mask:
-        n += 1
-    return n
+def tops(mask):
+    t: dict[int, int] = {}
+    for x, y in mask:
+        t[x] = min(t.get(x, H), y)
+    return t
+
+
+def lit_side(mask, x, y):
+    return any((x + dx, y + dy) not in mask for dx, dy in ((0, -2), (-2, 0), (-1, -2), (-2, -1), (-2, -2)))
 
 
 def shade(cv: Cv, mask, dead=False):
-    """Value steps by ray distance to the outline: lit rim top-left, dark core, dark right edge, caustic floor band."""
-    ramp = "abcdfh"
+    """Translucent gel from five value steps: a glowing rim all round (brightest on the torch-lit upper left), a lit
+    upper skin, a dark thick core, and light caught through the gel in a caustic band just above the floor."""
+    d, top = depth(mask), tops(mask)
     for (x, y) in sorted(mask):
-        du, dl = ray(mask, x, y, 0, -1), ray(mask, x, y, -1, 0)
-        dd, dr = ray(mask, x, y, 0, 1), ray(mask, x, y, 1, 0)
-        if min(du, dd, dl, dr) == 0:
+        k = d[(x, y)]
+        if y == BASE and (x, y - 1) not in mask:
+            cv.put(x, y, "a" if dead else "c")  # wet film on the floor
+            continue
+        if k == 1:
             cv.put(x, y, "K")
             continue
-        v = 1 if (du <= 14 or dd <= 6) else 0  # thick middle of the gel is deepest
-        if du <= 1:
-            v = 4 if dl <= 6 else 3
-        elif du <= 3:
-            v = 3 if dl <= 8 else 2
-        elif du <= 7:
-            v = 2
-        if dl <= 1 and du > 1:
-            v = max(v, 3)
-        if dd <= 1:
-            v = 2 if dr > 1 else 1  # caustic band, light through the gel at the floor
-        elif dd <= 3:
-            v = max(v, 1)
-        if dr <= 1 and du > 3:
-            v = min(v, 0)  # dark right edge
+        lit = lit_side(mask, x, y)
+        shadow = any((x + dx, y) not in mask for dx in (2, 3))
+        dep = y - top[x]
+        if k == 2:
+            v = 4 if lit else 3  # the rim glows all round: light travelling through the gel skin
+            if shadow and not lit:
+                v = 2
+        elif k == 3:
+            v = 3 if lit else 2
+        else:
+            v = 3 if dep <= 2 else (2 if dep <= 6 else 1)  # lit upper skin, mid gel, body shade
+            if k >= 6 and dep >= 9:
+                v = 0  # thick core
+        if y == BASE - 1 and k >= 2:
+            v = max(v, 3)  # caustic band: torchlight through the gel at the floor
+        elif y == BASE - 2 and k >= 3:
+            v = max(v, 2)
         if dead:
-            v = max(0, v - 1)
-        cv.put(x, y, ramp[v])
+            v = 2 if (k == 2 and lit) else min(v, 1) - (1 if k >= 4 else 0)
+            v = max(0, v)
+        cv.put(x, y, RAMP[v])
 
 
-def top_of(cols, x):
-    return BASE - cols[x] + 1
+def pocket(cv: Cv, mask, cx, cy, rx, ry):
+    """A dark lens of thick gel with light refracted along its lower-right edge (the concept's dark hollows)."""
+    d = depth(mask)
+    inside = {(x, y) for x in range(cx - rx, cx + rx + 1) for y in range(cy - ry, cy + ry + 1)
+              if ((x - cx) * ry) ** 2 + ((y - cy) * rx) ** 2 <= (rx * ry) ** 2 and d.get((x, y), 0) >= 3}
+    for x, y in inside:
+        cv.put(x, y, "a")
+    for x, y in inside:
+        for q in ((x + 1, y + 1), (x, y + 1), (x + 1, y)):
+            if q not in inside and d.get(q, 0) >= 3:
+                cv.put(*q, "d")
 
 
-def draw_obj(cv: Cv, rows, ox, oy, cover=0, mask=None, skip=""):
-    """Literal rows at (ox, oy); the bottom ``cover`` rows stay gel (submerged)."""
+def draw_obj(cv: Cv, rows, ox, oy, cover=0, mask=None, stain_from=99):
+    """Literal rows at (ox, oy). The bottom ``cover`` rows stay gel (submerged); rows from ``stain_from`` on are one
+    bone step darker (seen through thicker gel)."""
+    darker = {"q": "p", "p": "o"}
     for j, line in enumerate(rows):
         for i, c in enumerate(line):
-            if c == "." or c in skip:
-                continue
             x, y = ox + i, oy + j
-            if mask is not None and (x, y) not in mask:
+            if c == "." or (mask is not None and (x, y) not in mask) or j > len(rows) - 1 - cover:
                 continue
-            if y > oy + len(rows) - 1 - cover:
-                continue
-            cv.put(x, y, c)
+            cv.put(x, y, darker.get(c, c) if j >= stain_from else c)
 
 
 def lcg(seed):
@@ -178,51 +208,47 @@ def lcg(seed):
 
 
 def debris(cv: Cv, mask, seed, count, skip_boxes):
-    """Suspended grit: 2-pixel specks deep inside the body (grime, not sparkle)."""
+    """Suspended grit: 2-pixel specks in the body (grime, not sparkle)."""
+    d = depth(mask)
     g = lcg(seed)
     pts = sorted(mask)
-    placed = 0
-    tries = 0
-    while placed < count and tries < 400:
+    placed = tries = 0
+    while placed < count and tries < 600:
         tries += 1
         x, y = pts[next(g) % len(pts)]
         if any(bx0 <= x <= bx1 and by0 <= y <= by1 for bx0, by0, bx1, by1 in skip_boxes):
             continue
-        if min(ray(mask, x, y, 0, -1), ray(mask, x, y, 0, 1), ray(mask, x, y, -1, 0), ray(mask, x + 1, y, 1, 0)) < 4:
+        if min(d.get((x, y), 0), d.get((x + 1, y), 0)) < 4:
             continue
-        if ray(mask, x, y, 0, 1) > 9:
-            continue
-        for (qx, qy) in ((x, y), (x + 1, y)):
-            cv.put(qx, qy, "n" if placed % 2 == 0 else "r")
+        for q in ((x, y), (x + 1, y)):
+            cv.put(*q, "n" if placed % 2 == 0 else "r")
         placed += 1
 
 
-def streaks(cv: Cv, mask, cols, xs, length):
+def streaks(cv: Cv, mask, xs, length):
     """Lighter gel runs hanging from the crest toward the floor (attached drips, drawn inside the body)."""
+    top = tops(mask)
     for x in xs:
-        if x not in cols:
-            continue
-        y0 = top_of(cols, x) + 4
-        for j in range(length):
-            y = y0 + j
-            if (x, y) in mask and cv.get(x, y) in "abc":
+        y0 = top[x] + 3
+        for y in range(y0, y0 + length):
+            if (x, y) in mask and cv.get(x, y) in tuple("abc"):
                 cv.put(x, y, "d")
-        if (x, y0 + length) in mask and cv.get(x, y0 + length) in "abcd":
+        if cv.get(x, y0 + length) in tuple("abcd"):
             cv.put(x, y0 + length, "f")
 
 
-def glints(cv: Cv, cols, xs, top_dy=2):
-    for x in xs:
-        y = top_of(cols, x) + top_dy
-        for dx, dy in ((0, 0), (1, 0), (0, 1)):
-            cv.put(x + dx, y + dy, "H")
-
-
-def sheen_arc(cv: Cv, cols, x0, x1, dy=1):
+def sheen(cv: Cv, mask, x0, x1):
+    """Torch sheen on the top-facing rim of the lit side."""
+    top = tops(mask)
     for x in range(x0, x1 + 1):
-        y = top_of(cols, x) + dy
-        if cv.get(x, y) in tuple("bcdf"):
-            cv.put(x, y, "h")
+        if x in top and cv.get(x, top[x] + 1) in tuple("cdf"):
+            cv.put(x, top[x] + 1, "h")
+
+
+def glint(cv: Cv, mask, x, dy=2):
+    y = tops(mask)[x] + dy
+    for q in ((x, y), (x + 1, y), (x, y + 1)):
+        cv.put(*q, "H")
 
 
 def acid(cv: Cv, pts):
@@ -230,21 +256,12 @@ def acid(cv: Cv, pts):
         cv.put(x, y, "v")
 
 
-def acid_crest(cv: Cv, cols, xs):
-    """Hot acid beads two pixels deep just under the crest outline."""
+def acid_crest(cv: Cv, mask, xs):
+    """Hot acid beading two pixels deep under the crest outline: the tell."""
+    top = tops(mask)
     for x in xs:
-        y = top_of(cols, x) + 1
-        while cv.get(x, y) == "K":
-            y += 1
-        cv.put(x, y, "v")
-        cv.put(x, y + 1, "v")
-
-
-def bubble(cv: Cv, x, y):
-    for dx, dy in ((0, 0), (1, 0), (-1, 1), (2, 1), (0, 2), (1, 2)):
-        cv.put(x + dx, y + dy, "d")
-    cv.put(x, y, "f")
-    cv.put(x + 1, y, "f")
+        cv.put(x, top[x] + 1, "v")
+        cv.put(x, top[x] + 2, "v")
 
 
 def finish(cv: Cv):
@@ -278,113 +295,134 @@ def despeckle(rows):
 # ---------------------------------------------------------------------------
 # The six keys. Facing right; the pivot column is 40, the floor is row 39.
 # ---------------------------------------------------------------------------
+IDLE_BALLS = [(37, 40, 24, 22), (32, 18, 10, 8), (48, 23, 9, 7), (15, 40, 7, 5), (60, 40, 7, 6)]
+
+
 def key_idle():
-    """Frame 0: a heavy lumpy mound, skull and plate half-dissolved inside, crest dips and streaks."""
-    cols = heights(38, 25, 30, 30, [(28, 4, 5), (50, 3, 6), (36, -2, 3), (62, -1, 4)])
-    mask = mask_of(cols)
+    """Frame 0: a sagging, lumpy mound (domed crest, flared skirt), skull riding mid-body, plate jutting from the
+    front skirt with acid eating its edge, dark lenses of thick gel, grit, drip runs, a torch sheen."""
+    mask = blob(IDLE_BALLS)
     cv = Cv()
     shade(cv, mask)
-    skull_xy = (22, 27)
-    plate_xy = (45, 32)
-    draw_obj(cv, SKULL, *skull_xy, cover=1, mask=mask)
-    draw_obj(cv, PLATE, *plate_xy, cover=1, mask=mask)
-    debris(cv, mask, 11, 7, [(20, 24, 34, 39), (43, 30, 66, 39)])
-    streaks(cv, mask, cols, (17, 31, 57, 63), 5)
-    bubble(cv, 33, 17)
-    bubble(cv, 52, 23)
-    sheen_arc(cv, cols, 24, 46)
-    glints(cv, cols, (27, 47), 2)
-    acid(cv, [(48, 31), (49, 31), (58, 32), (62, 33), (45, 35)])  # acid eating the plate edge
+    pocket(cv, mask, 40, 19, 3, 2)
+    pocket(cv, mask, 17, 30, 2, 2)
+    pocket(cv, mask, 47, 28, 3, 2)
+    pocket(cv, mask, 35, 31, 2, 1)
+    debris(cv, mask, 11, 6, [(22, 19, 35, 30), (50, 31, 70, 39)])
+    streaks(cv, mask, (19, 36, 56), 5)
+    draw_obj(cv, SKULL, 24, 21, mask=mask, stain_from=6)
+    draw_obj(cv, PLATE, 51, 33)
+    sheen(cv, mask, 22, 38)
+    glint(cv, mask, 29)
+    glint(cv, mask, 45)
+    acid(cv, [(51, 34), (52, 34), (54, 32), (55, 32), (57, 31)])  # gel eating the plate where it enters the body
     return finish(cv)
+
+
+CREEP_BALLS = [(36, 40, 17, 18), (55, 37, 10, 11), (64, 40, 7, 6), (21, 40, 8, 5), (30, 24, 8, 6)]
 
 
 def key_creep():
-    """Frame 3: creep stretch. Long, low, leading lobe forward, tail thinning behind, parts sheared forward."""
-    cols = heights(34, 22, 34, 24, [(22, 3, 4), (56, 3, 5), (44, -2, 3)], film_l=7, film_r=3, gain=10)
-    mask = mask_of(cols)
+    """Frame 3: creep stretch. Lower and longer, the front lobe flowing forward, a thinning film trailing behind,
+    skull and plate sheared toward the front."""
+    mask = blob(CREEP_BALLS, film_l=6, film_r=2)
     cv = Cv()
     shade(cv, mask)
-    draw_obj(cv, SKULL, 27, 30, cover=1, mask=mask)
-    draw_obj(cv, PLATE, 49, 32, cover=1, mask=mask)
-    debris(cv, mask, 23, 6, [(25, 28, 38, 39), (47, 30, 70, 39)])
-    streaks(cv, mask, cols, (14, 44, 62), 4)
-    bubble(cv, 40, 19)
-    sheen_arc(cv, cols, 26, 52)
-    glints(cv, cols, (30, 58), 2)
-    acid(cv, [(52, 32), (53, 32), (63, 33), (66, 34)])
+    pocket(cv, mask, 44, 27, 3, 2)
+    pocket(cv, mask, 24, 33, 2, 1)
+    debris(cv, mask, 23, 5, [(28, 22, 40, 33), (54, 31, 72, 39)])
+    streaks(cv, mask, (20, 40, 60), 4)
+    draw_obj(cv, SKULL, 30, 25, mask=mask, stain_from=6)
+    draw_obj(cv, PLATE, 55, 33)
+    sheen(cv, mask, 25, 44)
+    glint(cv, mask, 32)
+    glint(cv, mask, 58)
+    acid(cv, [(55, 34), (56, 34), (58, 32), (59, 32), (61, 31)])
     return finish(cv)
+
+
+TELL_BALLS = [(32, 40, 16, 9), (29, 23, 9, 15), (35, 8, 8, 5), (22, 33, 6, 8), (43, 38, 6, 4)]
 
 
 def key_tell():
-    """Frame 8: the tell. Rears up and back, tallest pose (36 px), front face drawn in, acid beading on the crest."""
-    cols = heights(31, 12, 24, 36, [(24, 5, 5), (38, 3, 5)], film_l=3, film_r=2, gain=9)
-    mask = mask_of(cols)
+    """Frame 8: the tell. The mass gathers off the floor and rears up and back into a crest that curls toward the
+    target, base narrowed, front face drawn in under the lip, skull hauled up into the crest, acid beading along it."""
+    mask = blob(TELL_BALLS, carve=[(44, 22, 6, 9)])
     cv = Cv()
     shade(cv, mask)
-    draw_obj(cv, SKULL, 29, 20, cover=1, mask=mask)
-    draw_obj(cv, PLATE, 35, 31, cover=1, mask=mask)
-    debris(cv, mask, 31, 6, [(28, 18, 40, 31), (33, 30, 56, 39)])
-    streaks(cv, mask, cols, (24, 41, 47), 7)
-    bubble(cv, 30, 9)
-    sheen_arc(cv, cols, 22, 40)
-    glints(cv, cols, (28,), 2)
-    acid_crest(cv, cols, (29, 32, 35, 38, 41))  # hot acid beads on the crest: the readable tell
-    acid(cv, [(40, 28), (41, 28)])
+    pocket(cv, mask, 30, 30, 2, 2)
+    pocket(cv, mask, 33, 12, 2, 2)
+    debris(cv, mask, 31, 4, [(22, 16, 35, 27), (36, 31, 56, 39)])
+    streaks(cv, mask, (23, 33), 7)
+    draw_obj(cv, SKULL, 24, 18, mask=mask, stain_from=6)
+    draw_obj(cv, PLATE, 37, 33)
+    sheen(cv, mask, 20, 30)
+    glint(cv, mask, 24)
+    acid_crest(cv, mask, (29, 32, 35, 38, 41))  # hot acid beads on the crest: the readable tell
+    acid(cv, [(37, 34), (38, 34), (40, 32), (41, 32)])
     return finish(cv)
+
+
+LUNGE_BALLS = [(20, 40, 10, 9), (38, 40, 15, 15), (55, 40, 11, 10), (66, 34, 8, 9), (74, 39, 4, 5)]
 
 
 def key_lunge():
-    """Frame 10: contact lunge. Flat reach at floor height, a bulb at the leading edge, parts dragged behind."""
-    cols = heights(33, 20, 43, 17, [(26, 2, 4), (66, 3, 6), (74, -2, 3), (48, -1, 4)], film_l=4, film_r=2, gain=11)
-    mask = mask_of(cols)
+    """Frame 10: contact lunge. The crest has thrown itself forward into a flat reach along the floor with a heavy
+    bulb at the leading edge; skull and plate dragged behind, acid at the leading edge."""
+    mask = blob(LUNGE_BALLS, film_l=4, film_r=0)
     cv = Cv()
     shade(cv, mask)
-    draw_obj(cv, SKULL, 20, 29, cover=1, mask=mask)
-    draw_obj(cv, PLATE, 36, 33, cover=1, mask=mask)
-    debris(cv, mask, 41, 5, [(18, 27, 32, 39), (34, 31, 58, 39)])
-    streaks(cv, mask, cols, (46, 60), 3)
-    sheen_arc(cv, cols, 24, 70)
-    glints(cv, cols, (30, 64), 2)
-    acid(cv, [(40, 34), (41, 34), (72, 34), (73, 34), (74, 35)])
-    # the bulb: bright leading edge
-    for x in range(70, 76):
-        y = top_of(cols, x) + 2
-        if cv.get(x, y) in tuple("bcd"):
-            cv.put(x, y, "f")
+    pocket(cv, mask, 62, 33, 2, 1)
+    pocket(cv, mask, 44, 30, 3, 1)
+    debris(cv, mask, 41, 4, [(22, 26, 34, 39), (30, 31, 50, 39)])
+    streaks(cv, mask, (48,), 3)
+    draw_obj(cv, SKULL, 24, 28, mask=mask, stain_from=6)
+    draw_obj(cv, PLATE, 33, 33, cover=1, mask=mask)
+    sheen(cv, mask, 26, 72)
+    glint(cv, mask, 30)
+    glint(cv, mask, 68)
+    acid(cv, [(36, 34), (37, 34), (71, 33), (72, 33), (75, 36), (76, 37)])
     return finish(cv)
+
+
+HURT_BALLS = [(30, 40, 20, 18), (48, 40, 11, 10), (16, 40, 6, 5)]
 
 
 def key_hurt():
-    """Frame 12: flinch. Squashed flat and slumped back (recoil), flash on the crest, skull knocked sideways."""
-    cols = heights(34, 28, 27, 20, [(40, 2, 5), (52, -2, 3)], film_l=3, film_r=3, gain=10)
-    mask = mask_of(cols)
+    """Frame 12: flinch. Knocked flat and back, a dent punched into the front of the crest, the whole lit skin
+    flashing, skull jolted to the rear."""
+    mask = blob(HURT_BALLS, carve=[(43, 23, 5, 4)])
     cv = Cv()
     shade(cv, mask)
-    draw_obj(cv, SKULL, 24, 30, cover=1, mask=mask)
-    draw_obj(cv, PLATE, 42, 33, cover=1, mask=mask)
-    debris(cv, mask, 53, 6, [(22, 28, 36, 39), (40, 31, 64, 39)])
-    streaks(cv, mask, cols, (19, 55), 4)
-    for x in range(26, 33):
-        cv.put(x, top_of(cols, x) + 1, "w")
-    for x in range(38, 43):
-        cv.put(x, top_of(cols, x) + 1, "w")
-    cv.put(44, top_of(cols, 44) + 2, "w")
-    cv.put(30, top_of(cols, 30) + 3, "w")
+    d, top = depth(mask), tops(mask)
+    for (x, y) in sorted(mask):
+        if 1 < d[(x, y)] <= 3 and y - top[x] <= 3 and y < BASE - 3:
+            cv.put(x, y, "w")  # flash: the struck skin, rim and top two rows
+        elif d[(x, y)] >= 4 and cv.get(x, y) in tuple("abc"):
+            cv.put(x, y, RAMP[RAMP.index(cv.get(x, y)) + 1])  # the body pales one step
+    debris(cv, mask, 53, 4, [(14, 22, 28, 39), (44, 31, 64, 39)])
+    draw_obj(cv, SKULL, 18, 26, mask=mask, stain_from=6)
+    draw_obj(cv, PLATE, 45, 33)
     return finish(cv)
 
 
+DEFEAT_BALLS = [(34, 42, 18, 12), (50, 42, 10, 8), (21, 42, 8, 7)]
+
+
 def key_defeat():
-    """Frame 15: collapsed to a flat dull puddle, skull and plate left lying in it; no acid, no flash."""
-    cols = heights(37, 28, 29, 9, [(26, 1, 4), (50, 1, 4), (36, -1, 3)], film_l=4, film_r=3, gain=10, div=8)
-    mask = mask_of(cols)
+    """Frame 15: the remains. The mass has sagged into a dull, deflated heap with a skinned-over crust (still a
+    body, not a floor stain); the skull has rolled out of the front and the plate has slid out flat."""
+    mask = blob(DEFEAT_BALLS, film_l=3, film_r=1)
     cv = Cv()
     shade(cv, mask, dead=True)
-    draw_obj(cv, SKULL, 26, 28, cover=3)
-    draw_obj(cv, PLATE_FLAT, 40, 35, cover=1)
-    for x in range(22, 56):
-        y = top_of(cols, x) + 1
-        if (x, y) in mask and cv.get(x, y) in tuple("abc") and x % 5 == 0:
-            cv.put(x, y, "d")
+    top = tops(mask)
+    for x in range(20, 52, 4):  # crust wrinkles
+        if cv.get(x, top[x] + 2) in tuple("ab"):
+            cv.put(x, top[x] + 2, "c")
+            cv.put(x + 1, top[x] + 2, "c")
+    debris(cv, mask, 61, 3, [(52, 30, 79, 39)])
+    draw_obj(cv, PLATE_FLAT, 49, 36)
+    draw_obj(cv, SKULL, 56, 32, stain_from=6)
     return finish(cv)
 
 
@@ -433,10 +471,10 @@ def bbox(rows):
 
 
 BOXES = {  # frame pixels (x, y, w, h); rationale in spec section 3
-    "standing": [14, 16, 53, 24],
-    "hurtbox": [12, 12, 57, 28],
-    "hurtbox_tell_hold": [17, 4, 41, 36],
-    "attack_hitbox": [56, 24, 22, 15],
+    "standing": [12, 16, 51, 24],
+    "hurtbox": [8, 10, 60, 30],
+    "hurtbox_tell_hold": [15, 3, 38, 37],
+    "attack_hitbox": [58, 25, 21, 15],
 }
 
 
@@ -466,9 +504,9 @@ def write_manifest() -> None:
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
             "origin": "SLIME-01 Green Slime readability set, first draft: six keys (frames 0, 3, 8, 10, 12, 15) are "
-                      "drawn by scripts/author_slime01.py from integer mound profiles, rule-based shading and literal "
-                      "skull and plate rows; in-between slots are copies of the nearest key",
-            "generator": "Draft spec and keys: Claude Sonnet. Edit, freeze and review: pending. "
+                      "drawn by scripts/author_slime01.py from blended floor-anchored ellipses, rule-based shading and "
+                      "literal skull and plate rows; in-between slots are copies of the nearest key",
+            "generator": "Draft spec and keys: Claude Sonnet. Design edit and freeze: Claude Opus. Review: pending. "
                          "No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["floor-01-enemy-concept-scatterers-rot-sticker-slime-v1"],
@@ -477,7 +515,7 @@ def write_manifest() -> None:
                    "no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "slime": {
-            "status": "first draft keys; in-betweens are copies; not wired into any Bevy binary",
+            "status": "edited and frozen keys; in-betweens are copies; not wired into any Bevy binary",
             "spec": "docs/02-art/slime-01-spec.md",
             "opaque_height_idle": 30,
             "tick_hz": 60,
