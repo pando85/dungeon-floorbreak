@@ -37,8 +37,8 @@ H = 66                                   # idle opaque height (family ladder, tr
 # trog-family-v0 core (15, frozen) + the Basher's two slots: forearm wrap mid and light. Necklace and shoulder trash
 # reuse t, w, c, C. 17 of 20.
 PALETTE = t1.PALETTE + [
-    ("g", "wrap_mid", "#77706bff", False),
-    ("G", "wrap_light", "#b3a993ff", False),
+    ("g", "wrap_mid", "#6b604fff", False),
+    ("G", "wrap_light", "#9c8f74ff", False),
 ]
 RAMPS = dict(t1.RAMPS)
 RAMPS.update({
@@ -86,13 +86,13 @@ FACES = {
               "....eewwK.....",
               ".....ewwK.....",
               ".....e....s...",
-              ".......t..t...",
-              ".....tTtTtTt..",
-              "..oooootooto..",
-              "...ooootooto..",
-              "....tTttTtt...",
-              ".....w....w...",
-              ".....w........"],
+              "......t...t...",
+              "....t.t.t.t...",
+              ".ooototototo..",
+              "..ooootoooto..",
+              "..............",
+              "...w..........",
+              "...w.........."],
     # tell and smash: the jaw drops (jaw_b drop 1), 4-row gaping mouth that opens the front outline, tusks low
     "roar": ["....KKKKKK....",
              ".....KKKKK....",
@@ -162,7 +162,8 @@ def jaw_b(hx, hy, drop=1.0):
 
 # Hair: a flatter mop than the Pygmy's (about 0.09 H above the skull top, so the small head stays small) and five rope
 # dreads (radius 1.5) hanging down and back over the nape and the trash heap; longest rope 0.45 H behind the jaw.
-MOP = [(-11, 4), (-11.5, 7.5), (-9.5, 9), (-8, 10.6), (-6, 10.4), (-4, 11.4), (-2, 10.6), (0, 11), (2, 9.6),
+MOP = [(-11, 4), (-11.5, 7.5), (-9.5, 9), (-8, 10.8), (-7, 8.8), (-6, 10.6), (-4, 11.4), (-3, 9.2), (-2, 10.8),
+       (0, 11), (2, 9.6),
        (1, 8), (-2, 7), (-5.5, 5.5), (-8, 4)]
 ROPES = [[(-9, 9), (-14, 8), (-19, 5), (-24, 0), (-26, -5)],
          [(-10, 6), (-14, 2), (-16, -3), (-16, -7)],
@@ -170,7 +171,7 @@ ROPES = [[(-9, 9), (-14, 8), (-19, 5), (-24, 0), (-26, -5)],
          [(-7, 7), (-10, 3), (-11, -2)],
          [(1, 9.6), (3.5, 8.6), (4.5, 7)]]          # the short front lock, ends above the brow
 ROPE_R = 1.5
-BEADS = {0: "t", 1: "w", 2: "t"}
+BEADS = {0: "T", 1: "C", 2: "T"}   # dull knots: a light bead on a rope behind the head reads as a second eye
 EAR = [(-6, 4), (-14.5, 6), (-8.5, 1.5)]          # pointed, straight back, below the crown, skin over the mop
 
 
@@ -193,19 +194,30 @@ def ragged_loin(x0, y0, drop=12.0, half=6.0, lean=0.0):
 
 
 def planted_fist(x, y):
-    """Knuckle-planted hand: three fingers (r 0.8) curling down from the wrist and splaying 7 to 8 px forward along the
-    contact row (claws 0.11 to 0.13 H)."""
-    return [[(x, y), (x + 3.0, y - 2.5), (x + 7.0, 1.3), (x + 9.5, 0.8)],
-            [(x, y), (x + 3.8, y - 1.0), (x + 7.6, y - 3.4), (x + 10.4, y - 4.6)],
-            [(x, y), (x + 2.6, y + 0.8), (x + 6.6, y - 0.6), (x + 9.0, y - 1.6)]]
+    """Knuckle-planted fist: a fist mass under the wrist, a 2 to 3 px knuckle block resting on the contact row and two
+    1 to 2 px claw tips at its front (the third claw is hidden behind the block in profile)."""
+    return [L([(x, y), (x + 2.8, 4.0)], [3.6, 3.6]),
+            L([(x + 0.2, 1.6), (x + 5.6, 1.6)], [1.6, 1.5]),
+            L([(x + 6.0, 1.1), (x + 7.4, 0.8)], [0.55, 0.55]),
+            L([(x + 5.8, 4.4), (x + 7.0, 3.6)], [0.55, 0.55])]
 
 
-def wrap_texture(rows, part, wrap_ids):
-    """Slanted 1 px shade bands every third row across the wraps, so they read as wound strips, not a sleeve."""
-    for y in range(len(rows)):
-        for x in range(len(rows[0])):
-            if part[y][x] in wrap_ids and rows[y][x] in "gG" and (y + x // 4) % 3 == 0:
-                rows[y][x] = "c"
+def wrap_bands(rows, part, ids, bands, P):
+    """Cloth wraps as colour bands on the forearm skin (no silhouette of their own): inside each band (design y range)
+    lit skin goes to G, mid skin to G near the lit edge and g elsewhere, shade to g; the band's lowest row is the c fold.
+    Skin rows stay between the bands."""
+    for y_lo, y_hi in bands:
+        top, bot = int(P(0, y_hi)[1]), int(P(0, y_lo)[1])
+        for y in range(top, bot + 1):
+            for x in range(len(rows[0])):
+                if part[y][x] not in ids or rows[y][x] not in "lmsd":
+                    continue
+                if y == bot:
+                    rows[y][x] = "c"
+                elif rows[y][x] == "l" or (rows[y][x] == "m" and part[y][x - 2] not in ids):
+                    rows[y][x] = "G"
+                else:
+                    rows[y][x] = "g" if rows[y][x] in "ms" else "c"
 
 
 def build(pose: dict) -> list[str]:
@@ -224,7 +236,7 @@ def build(pose: dict) -> list[str]:
     for limb, wid in zip(pose.get("far_wraps", []), far_wrap_ids):
         c.thick(limb["pts"], limb["r"], wid)
     for fin in pose.get("far_fingers", []):
-        c.thick(fin, [0.8] * len(fin), far)
+        c.thick(fin["pts"], fin["r"], far)
     c.thick(pose["torso"]["pts"], pose["torso"]["r"], skin)
     for cx, cy, r in pose.get("masses", []):
         c.disc(cx, cy, r, r, skin)
@@ -239,14 +251,17 @@ def build(pose: dict) -> list[str]:
     c.poly(hd["mop"], hair_id)
     for rope in hd["ropes"]:
         c.thick(rope, [ROPE_R] * len(rope), hair_id)
+    if "deltoid" in pose:                                # near shoulder mass, rimmed where the arm hangs from it
+        dx_, dy_, dr = pose["deltoid"]
+        c.disc(dx_, dy_, dr, dr, c.add("skin"))
     for limb in pose.get("near_arms", []):
         c.thick(limb["pts"], limb["r"], arm)
+    fore_ids = set()
     for limb in pose.get("near_arms_fore", []):
-        c.thick(limb["pts"], limb["r"], c.add("skin"))
-    for limb in pose.get("near_wraps", []):
-        c.thick(limb["pts"], limb["r"], c.add("wrap"))
-    for i, fin in enumerate(pose.get("fingers", [])):
-        c.thick(fin, [0.8] * len(fin), c.add("skin") if i % 3 == 1 else arm)
+        fore_ids.add(c.add("skin"))
+        c.thick(limb["pts"], limb["r"], max(fore_ids))
+    for i, fin in enumerate(pose.get("fingers", [])):     # fist mass, knuckle block, claw tips: each its own part
+        c.thick(fin["pts"], fin["r"], c.add("skin"))
     for e in hd["ears"]:
         c.poly(e, ear)
     rows = c.render()
@@ -258,7 +273,7 @@ def build(pose: dict) -> list[str]:
         bx, by = c.P(*hd["ropes"][i][-2])
         if c.part[int(by)][int(bx)] == hair_id:
             rows[int(by)][int(bx)] = key
-    wrap_texture(rows, c.part, {i for i, r in enumerate(c.ramps) if r in (RAMPS["wrap"], RAMPS["farwrap"])})
+    wrap_bands(rows, c.part, fore_ids, pose.get("wrap_bands", []), c.P)
     for y in range(h):                                   # mottled rim: no clean lit run longer than 5
         run = 0
         for x in range(w + 1):
@@ -268,17 +283,19 @@ def build(pose: dict) -> list[str]:
             if run >= 6:
                 rows[y][x - run + 3] = rows[y][x - run + 4] = "m"
             run = 0
-    for (x0, y0), (x1, y1) in pose.get("creases", []):    # muscle separations: 1 px shade strokes on lit/mid skin
+    for crease in pose.get("creases", []):                # muscle separations: d strokes; bold ones are 2 px wide
+        (x0, y0), (x1, y1), width = crease if len(crease) == 3 else (*crease, 1)
         n = int(max(abs(x1 - x0), abs(y1 - y0))) + 1
         for k in range(n + 1):
             px, py = c.P(x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n)
-            if rows[int(py)][int(px)] in "ml":
-                rows[int(py)][int(px)] = "d" if rows[int(py)][int(px)] == "l" else "s"
-    for gx, gy in pose.get("grime", []):
+            for dx in range(width):
+                if rows[int(py)][int(px) + dx] in "mls":
+                    rows[int(py)][int(px) + dx] = "d"
+    for gx, gy in pose.get("grime", []):                  # 2 x 2 dirt smudges (deep skin) on any lit/mid/shade skin
         px, py = c.P(gx, gy)
-        for dx in (0, 1):
-            if rows[int(py)][int(px) + dx] in "ml":
-                rows[int(py)][int(px) + dx] = "d"
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            if rows[int(py) + dy][int(px) + dx] in "mls":
+                rows[int(py) + dy][int(px) + dx] = "d"
     for y in (PIVOT[1] - 2, PIVOT[1] - 1):               # dirt-caked soles and knuckles
         rows[y] = ["d" if ch in "lms" else ch for ch in rows[y]]
     hx, hy = pose["face_at"]
@@ -310,28 +327,28 @@ POSES: dict[str, dict] = {}
 # head sunk 4.5 px below that peak and 9 px ahead of it; both fists knuckle-planted; wrapped forearms thicker than the
 # upper arms; a junk heap on the upper back under the hanging ropes; a tooth-and-bone necklace across the chest.
 POSES["idle0"] = {
-    "far_limbs": [L([(-20, 29), (-23, 17), (-27, 6), (-24, 1.6), (-19, 1.4)], [5.4, 4.0, 2.8, 1.8, 1.4]),     # far leg
-                  L([(2, 47), (5, 35), (8, 26)], [4.6, 4.0, 4.0])],                                          # far upper arm
-    "far_limbs_fore": [L([(8, 26), (10, 16), (11.5, 9)], [4.4, 4.0, 2.8])],
-    "far_fingers": [[(11.5, 8), (14, 5), (17, 1.3), (19, 0.9)], [(11.5, 8), (15, 6), (18.5, 3.8), (20.5, 3)]],
+    "far_limbs": [L([(-20, 29), (-23, 17), (-27, 6), (-24, 1.6), (-19, 1.4)], [6.4, 4.8, 3.6, 2.2, 1.6]),     # far leg
+                  L([(0, 41), (4, 32), (8, 25)], [4.6, 4.0, 4.0])],                                          # far upper arm
+    "far_limbs_fore": [L([(8, 25), (10, 16), (11.5, 9)], [4.0, 3.6, 2.8])],
+    "far_fingers": planted_fist(11.5, 8),
     "torso": L([(-18, 31), (-7, 40), (5, 47)], [8.0, 10.0, 9.5]),
-    "masses": [(-6, 47, 8.5), (-1, 51.5, 9.0), (5, 50, 8.0)],                                                     # trapezius masses
+    "masses": [(-6, 47, 8.5), (-1, 51.5, 9.0), (5, 50, 8.0)],                                      # trapezius masses
     "trash": [[(-20, 47), (-18, 51.5), (-15, 52.5), (-13, 50), (-15, 46.5)],
               [(-14, 53), (-12, 57.5), (-9, 58.5), (-7.5, 55.5), (-10, 52)],
               [(-24, 42), (-23, 45.5), (-20, 46.5), (-19, 43)]],
-    "near_legs": [L([(-13, 30), (-4, 20), (-7, 8), (-7, 2.5), (0, 1.5), (3, 1.4)], [6.4, 5.0, 3.4, 2.2, 1.5, 1.2])],
+    "near_legs": [L([(-13, 30), (-4, 20), (-7, 8), (-7, 3), (0, 1.8), (3, 1.5)], [7.5, 5.6, 4.5, 2.8, 1.8, 1.3])],
     "loin": ragged_loin(-13, 28, 13.0, 7.0),
     "head": head(14, 52), "hair": hair(14, 52),
-    "near_arms": [L([(10, 47), (15, 36), (18, 28)], [6.4, 5.0, 4.6])],
-    "near_arms_fore": [L([(18, 28), (20.5, 19), (22, 11)], [5.4, 4.8, 3.6])],
-    "near_wraps": [L([(19.3, 24), (20.1, 21)], [5.4, 5.2]), L([(21, 16.5), (21.5, 14)], [4.6, 4.4]),
-                   L([(21.9, 11.4), (22, 10.4)], [3.9, 3.8])],
+    "deltoid": (3, 39, 5.5),
+    "near_arms": [L([(4, 38), (12, 31), (17, 25)], [5.0, 4.6, 4.6])],
+    "near_arms_fore": [L([(17, 25), (20, 17), (22, 11)], [4.8, 4.4, 3.6])],
+    "wrap_bands": [(21.5, 25), (16.5, 19.5), (11, 14.5)],
     "fingers": planted_fist(22, 9),
-    "creases": [((-9, 34), (-5, 31)), ((-2, 40), (2, 37)), ((7, 40), (10, 37)), ((14, 41), (16, 37))],
-    "grime": [(-22, 36), (-11, 45), (-4, 31), (-7, 15), (2, 4), (-16, 38), (12, 38), (-24, 26), (3, 48), (-19, 12)],
-    "stamps": necklace([(8, 42.5), (9, 41.5), (10, 40.5), (11, 39.5), (12, 39), (13, 39), (14, 39.5), (15, 40.5),
-                        (16, 41.5)]) + [(12.5, 38, "w"), (12.5, 37, "w"), (-19, 47, "t"), (-18, 47, "t"), (-19, 46, "T"),
-                                         (-18, 46, "T"), (-12, 55, "w"), (-11, 55.5, "w"), (-10, 56, "w")],
+    "creases": [((-9, 34), (-5, 31)), ((8, 44), (12, 41), 2), ((11, 33), (14, 30), 2), ((-2, 40), (2, 37))],
+    "grime": [(19, 20.5), (21, 15), (-4, 21), (-6, 17), (-9, 36), (-3, 33), (-7, 5), (1, 4), (-13, 25), (-14, 41)],
+    "stamps": necklace([(9, 44), (10, 43), (11, 42), (12, 41), (13, 41), (14, 42), (15, 43)]) + [
+        (12.5, 40, "w"), (12.5, 39, "w"), (-19, 47, "t"), (-18, 47, "t"), (-19, 46, "T"), (-18, 46, "T"),
+        (-12, 55, "w"), (-11, 55.5, "w"), (-10, 56, "w")],
     "face": "snarl", "face_at": (14, 52),
 }
 

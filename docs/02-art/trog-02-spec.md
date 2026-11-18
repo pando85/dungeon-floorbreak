@@ -1,6 +1,6 @@
 # TROG-02: Troglodyte Basher readability set, design spec
 
-**Status:** design stage. Spec written and hero key 0 (`idle`) drawn and frozen; awaiting the silhouette gate at 1x. Keys 3, 8, 10, 11, 12, 15 and the nine in-betweens are for the execution stage (sections 4, 7 and 8).
+**Status:** design stage complete. Hero key 0 (`idle`) passed the silhouette gate after the seven FIX-KEY0 fixes and is re-frozen; the three deviations from TROG-01 2b are accepted and folded into it (section 13). Keys 3, 8, 10, 11, 12, 15 and the nine in-betweens are for the execution stage (sections 4, 7, 8 and 14).
 
 **Decision record:** idle opaque height 66 px (family ladder), frame 112 x 88, pivot (48, 87), palette `trog-family-v0` core (15) plus 2 Basher slots (`g`, `G`) = 17 of 20, 16 frames with 7 keys in the same slots as the Pygmy (0, 3, 8, 10, 11, 12, 15), all tags grounded, smash debris and dust deferred to the VFX work order. Difficulty 1 point: **Easy (C)**.
 
@@ -36,30 +36,30 @@ Construction numbers at H = 66 (design units: px right of the pivot column, up f
 | Head placement (idle) | jaw centre (14, 52); trapezius peak (-1, 60.5) | the jaw centre is 8.5 px (0.13 H) **below** the peak and 15 px ahead of it |
 | Spine | hips (-18, 31) to the shoulder (5, 47): about 35 degrees | 2b |
 | Torso radii | 8.0 hips, 10.0 belly, 9.5 shoulder; trapezius masses r 8.0 to 9.0 | 2b says 7 to 8 px; widened to 9 to 10 so the brute reads at 1x (see below) |
-| Near arm | shoulder (10, 47) r 6.4, elbow (15, 36) r 5.0, forearm (18, 28) r 4.6 to the wrist (22, 11) r 3.6: 36 px (0.55 H) | knuckles on the floor in the idle |
-| Hands | `planted_fist`: three fingers r 0.8 that curl down from the wrist and splay 7 to 8 px forward along the contact row, with 1 px `K` gaps | 2b claws 0.11 to 0.13 H |
-| Legs | short, thick and deep-bent: thigh r 6.4, knee r 5.0, shin r 3.4, foot r 1.5 | bare feet, dirt-caked on the two rows above the contact row |
-| Hair | flat mop about 3 px (0.05 H) above the skull top; 5 ropes r 1.5, the longest 0.45 H behind the jaw; a short front lock; beads on ropes 0 to 2 | 2b hair rule (no rope rises above the crown) |
+| Near arm | deltoid disc (3, 39) r 5.5 (its own part, so a 1 px `K` rim separates it from the chin and the chest); upper arm (4, 38) r 5.0 to the elbow (12, 31) r 4.6 to (17, 25); forearm part (17, 25) r 4.8 to the wrist (22, 11) r 3.6; shoulder to wrist about 31 px (0.47 H) | the shoulder hangs below the jaw (jaw bottom y 46, deltoid top 44.5); knuckles on the floor in the idle |
+| Hands | `planted_fist(x, y)`: a fist mass r 3.6 under the wrist, a knuckle block r 1.6 (2 to 3 rows) on the contact row 5.4 px long, and two 1 to 2 px claw tips at its front (the third claw hidden in profile); each a separate part, so `K` lines show the curled fingers. The far fist is the same in the `far` ramp | a fist on its knuckles, not a rake |
+| Legs | short, thick and deep-bent: near thigh r 7.5, knee r 5.6, shin r 4.5, foot r 1.8; far leg 6.4, 4.8, 3.6, 2.2 | bare feet, dirt-caked on the two rows above the contact row |
+| Hair | flat mop about 3 px (0.05 H) above the skull top with two rope-tip notches on its top edge; 5 ropes r 1.5, the longest 0.45 H behind the jaw; a short front lock; **dull** knots on ropes 0 to 2 (`T`, `C`, `T`), never `w` | 2b hair rule (no rope rises above the crown) |
 | Ear | pointed, straight back, skin over the mop, below the crown | 2b |
 
-Two deviations from 2b, flagged for review (not silent rewrites):
+Two deviations from the first 2b values, **accepted at the silhouette gate** and folded into `trog-01-spec.md` 2b:
 
 1. **Head sink, 0.13 H instead of 0.05 to 0.08 H.** With the jaw centre 3 to 5 px below the trapezius peak, the first two drafts showed the head sitting **on top of** the shoulders at 1x, like a Pygmy head on a big body. With the head 8 to 9 px below the peak and the trapezius masses rising level with the skull, it reads as "sunk between the shoulders" (the concept). The test `test_small_head_on_a_big_body` pins 0.12 to 0.14 H.
 2. **Mop height, 0.05 H instead of about 0.15 H above the skull top.** A tall mop on a 17 px head doubled the head's apparent size and broke the "small head" read. The flatter mop also keeps the idle at exactly 66 px.
 
-Torso radii of 9 to 10 px (2b: 7 to 8) are the same kind of fix: at 7 to 8 px the 66 px figure read as a lanky ape, not a brute.
+Torso radii of 9 to 10 px (first 2b value 7 to 8; also accepted) are the same kind of fix: at 7 to 8 px the 66 px figure read as a lanky ape, not a brute.
 
 ## 3. Frame, pivot, boxes and atlas
 
 - Frame **112 x 88**, pivot **(48, 87)**, contact row **87**. The 88 px height leaves room for the wind-up (key 8, fists overhead, up to 81 px tall). The 48 px behind the pivot hold the backward fall (key 15) and the trailing far leg; the 63 px ahead hold the smash reach.
-- Key 0 extent: x -30 to +34, rows 22 to 87.
+- Key 0 extent: x -31 to +30, rows 22 to 87.
 - All tags are grounded (V07: the lowest opaque row of every frame is 87). There is no airborne tag: the Basher never leaves the floor.
 - Authored facing right; the runtime mirrors around the pivot column. One atlas, one layer `body`.
 - Boxes are **placeholders**, in px from the pivot (x forward, y up). Each box is re-measured from the drawn keys by the execution stage and none is an approved mechanic. Hurtboxes cover the trunk and head and leave out the trash heap, the ropes and the fingers. The hitbox covers both fists on the floor:
 
 | Box | x | y | Frames |
 | --- | --- | --- | --- |
-| Standing (opaque extent) | -30 to 34 | 0 to 65 | 0 (measured) |
+| Standing (opaque extent) | -31 to 30 | 0 to 65 | 0 (measured) |
 | Hurtbox idle/walk | -26 to 24 | 0 to 58 | 0 to 6 |
 | Hurtbox tell (wind-up) | -22 to 18 | 0 to 70 | 7, 8 |
 | Hurtbox smash | -24 to 30 | 0 to 48 | 9, 10 |
@@ -138,10 +138,10 @@ Family palette `trog-family-v0`: the 15 core colours are imported unchanged from
 | `H I` | hair | core | dreads |
 | `c C` | cloth | core | loincloth, wrap shade (`c`), trash heap (`c`/`C`) |
 | `w e t T o q` | accents and mouth | core | eye, drool, teeth, tusks, necklace beads (`t`/`w`), bone on the heap (`w`), can (`t`/`T`) |
-| `g` | wrap_mid | `#77706b` | **Basher slot 1**: forearm wraps, mid |
-| `G` | wrap_light | `#b3a993` | **Basher slot 2**: forearm wraps, torch-lit side (dirty linen, not white) |
+| `g` | wrap_mid | `#6b604f` | **Basher slot 1**: forearm wraps, mid |
+| `G` | wrap_light | `#9c8f74` | **Basher slot 2**: forearm wraps, torch-lit side (dirty linen, not white) |
 
-Wrap ramps: near `c c g G`, far `K c c g`. Every third row is a slanted 1 px `c` band (`(y + x // 4) % 3 == 0`), so the wraps read as wound strips. They are drawn as **separate band parts** on the skin forearm (three bands, each outlined), not as a sleeve, so skin shows between them. No `e` (eye red) anywhere outside the awake eye, because V14 counts it in hurt and defeat.
+Wraps are **colour bands on the forearm skin** (`wrap_bands`), not parts with their own silhouette, so the wrapped forearm is no wider than the bare one (a separate grey cylinder read as an armoured gauntlet at the gate). Inside a band (a design-y range), lit skin and the 2 px lit edge go to `G`, the rest to `g`, deep shade to `c`, and the band's lowest row is a `c` fold. At least one skin row stays between bands. Key 0 bands: y 21.5 to 25, 16.5 to 19.5, 11 to 14.5 (three bands, 2 skin rows between). No `e` (eye red) anywhere outside the awake eye, because V14 counts it in hurt and defeat.
 
 ## 7. Key poses
 
@@ -149,7 +149,7 @@ Coordinates are design units. Key 0 is the reference. For keys 3 to 15, the join
 
 | Frame | Tag | Silhouette and pose (joints) | Readability reason |
 | --- | --- | --- | --- |
-| 0 | `idle` | **Drawn.** Top row 22 (66 px), x -30 to 34. Torso (-18, 31) to (-7, 40) to (5, 47); trapezius masses (-6, 47) r 8.5, (-1, 51.5) r 9, (5, 50) r 8; jaw centre (14, 52). Near arm (10, 47) to (15, 36) to (18, 28), forearm to the wrist (22, 11), three wrap bands, fist planted with claws to x 32. The far arm, darker, is planted at (11.5, 8). Near leg (-13, 30) to the knee (-4, 20) to (-7, 8) to the toes (3, 1.4); far leg back to (-27, 6). Ragged loin at (-12, 28), 13 deep. Three trash lumps on the upper back (x -24 to -7) with a can (`t`/`T`) and a bone (`w`). A necklace of 9 alternating `t`/`w` beads in a V across the chest, with a 2 px `w` pendant. Snarl face, 10 grime smudges, 4 muscle creases. | A shoulder-heavy, low, wide hunch. The head is small and forward and the forearms are banded. Nothing else on Floor 1 has this mass. |
+| 0 | `idle` | **Drawn, gated.** Top row 22 (66 px), x -31 to 30. Torso (-18, 31) to (-7, 40) to (5, 47); trapezius masses (-6, 47) r 8.5, (-1, 51.5) r 9, (5, 50) r 8; jaw centre (14, 52). Deltoid (3, 39) r 5.5; near arm (4, 38) to (12, 31) to (17, 25), forearm to the wrist (22, 11) with three wrap bands; `planted_fist(22, 9)`. Far arm (0, 41) to (8, 25) to the wrist (11.5, 9), `planted_fist(11.5, 8)` in the far ramp. Near leg (-13, 30) to the knee (-4, 20) to (-7, 8) to the toes (3, 1.5); far leg back to (-27, 6). Ragged loin at (-13, 28), 13 deep. Three trash lumps on the upper back (x -24 to -7) with a can (`t`/`T`) and a bone (`w`). A necklace V of 7 alternating `t`/`w` beads under the jaw, with a 2 px `w` pendant. Snarl face. 10 grime smudges (2 x 2 `d`) on the forearm skin, knee, belly, thigh, feet and back; 4 creases in `d`, the pec and elbow ones 2 px wide. | A shoulder-heavy, low, wide hunch. The head is small and forward, the arm hangs from a rimmed shoulder, and the forearms carry cloth bands. Nothing else on Floor 1 has this mass. |
 | 3 | `walk` | Top row at least 24 (64 px or less). Body 2 px lower and 3 px forward: torso (-17, 29) to (-5, 38) to (8, 45); masses +3 x, -2 y; jaw (17, 50). Near arm reaches far ahead to the wrist (28, 10), fist planted with claws to about x 38; far arm trailing, wrist planted at (4, 10). Near leg pushing back: (-12, 28) to (-6, 18) to (-14, 6) to the toes (-9, 1.4). Far leg forward: (-19, 28) to (-14, 17) to (-16, 5) to (-11, 1.4). Ropes `sweep` 0.5. Snarl face. | Longer and lower than the idle, leading with one fist: a lumbering advance. |
 | 8 | `attack_tell` | Top row 7 to 12 (76 to 81 px; the tallest frame). Reared up: hips (-10, 30) to (-6, 42) to the shoulders (-2, 54), spine about 75 degrees; masses (-6, 58) r 8.5 and (0, 57) r 8; jaw (6, 58) with `jaw_b(drop=1)`, `roar` face. Both upper arms rise from the shoulders to the elbows at about (-5, 68) and (4, 68). The forearms meet overhead: wrists at (-1, 75) and the two fists locked into one block about 8 px wide, top at y 79 to 80; wrap bands on both forearms. Wide braced stance: near leg (-6, 28) to (2, 16) to (0, 5) to (6, 1.4), far leg (-14, 28) to (-20, 16) to (-22, 5) to (-17, 1.4). Loin hangs straight. Ropes hang down the back (`sweep` 0). At most 50 wide. | The only tall, narrow pillar in the set, with the fists overhead and a gaping mouth: "the hammer is up". |
 | 10 | `attack_smash` | Top row at least 38 (50 px or less), at most 84 wide. Pitched forward and down: hips (-16, 30), the high point; shoulders (10, 34); jaw (21, 36), down between the shoulders, `roar` face. Both arms straight down and forward; both fists flat on the contact row with the knuckles at x 28 to 42 (near fist in front, far fist 3 px behind and darker); wraps visible. Near leg braced (-12, 28) to (-4, 16) to (-10, 5) to (-4, 1.4); far leg kicked back (-20, 28) to (-28, 14) to (-34, 4) to (-30, 1.4). Ropes flung forward (`sweep` -0.8). **No debris or dust in the sprite** (VFX order). | The longest and lowest frame, with the fists on the floor far ahead: impact. It contrasts with 8 at once (tallest to lowest). |
@@ -157,7 +157,7 @@ Coordinates are design units. Key 0 is the reference. For keys 3 to 15, the join
 | 12 | `hurt` | Top row at most 16 (72 px or more; taller than the idle). Torso tilted back from the hips (-6, 28) to the shoulders (-14, 50); jaw (-8, 58), **above** the trapezius (the only pose where it is), `pain` face (`jaw_b(drop=0.6)`). Near arm flung back and up to the wrist (-28, 58), fingers fanned; far arm limp forward and down to (2, 26), off the floor. Near knee bent forward to (4, 16); the weight on the back foot (-8, 1.4). Ropes whip forward (`sweep` -0.6). No hand points at the player. | An upright recoil with the head thrown back: unmistakably not the wind-up, because the arms are apart and the head is up and back. |
 | 15 | `down` | Top row at least 60 (28 px or less), at most 76 wide. On its back, fallen backward: shoulders (-14, 9), hips (6, 7), the belly mass up to y 18; head (-26, 8) behind, the mop and ropes spilled on the floor; knee raised (10, 16), feet toward the player at x 18 to 24; near arm flung up to (-4, 24) with its wraps; trash lumps tumbled off behind the head. `dead` face (crossed eye, `q` tongue). | Flat and low with the red eye gone, continuous with the backward recoil of 12. |
 
-Faces (`FACES` in the script, 14 columns, top-left at (hx - 5, hy + 5)): `snarl` (idle, walk, rise), `roar` (wind-up, downswing, impact), `pant` (recover), `pain` (hurt, fall beat), `dead` (impact on the back and the fallen key). The Basher's own facial note is the **underbite**: two lower tusks rise through the gash past the upper teeth (from the face row in `concept_crop_7.png`).
+Faces (`FACES` in the script, 14 columns, top-left at (hx - 5, hy + 5); the gated `snarl` has two 1 x 2 upper fangs and two 1 x 4 lower tusks on a 2-row gash, with no yellow pixels joined into a ring, and the other templates follow that rule): `snarl` (idle, walk, rise), `roar` (wind-up, downswing, impact), `pant` (recover), `pain` (hurt, fall beat), `dead` (impact on the back and the fallen key). The Basher's own facial note is the **underbite**: two lower tusks rise through the gash past the upper teeth (from the face row in `concept_crop_7.png`).
 
 ## 8. In-between list
 
@@ -220,11 +220,24 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: the owner-approved family sheet under `ART-PUBLICATION-ALL-V1`; packet crops are reference only.
 - Spec + hero key (key 0): Claude Opus.
+- Silhouette gate (FIX-KEY0, an independent reviewer) and the seven key-0 fixes after it: Claude Opus.
 - Remaining keys, in-betweens and execution: pending (medium tier).
 - Silhouette gate and independent review: pending.
 
-## 13. Open questions
+## 13. Gate result and open questions
 
-- The 2b deviations (head sink 0.13 H, flatter mop, torso r 9 to 10) are for the silhouette gate to accept or reject. If accepted, the TROG-01 spec 2b Basher row should be updated by the orchestrator.
-- Whether the wind-up can be interrupted by a hit (super armour) is a gameplay decision.
-- Smash reach, damage and the debris area are placeholders until the gameplay spec sets them.
+- Silhouette gate on key 0: FIX-KEY0, applied. The 1x silhouette and the size ladder passed. The fixes: (1) fangs plus an underbite instead of a closed yellow ring; (2) dull rope knots, so no light pixel sits in a dark rope at eye height; (3) a rimmed deltoid, so the arm hangs from the shoulder, not from the chin; (4) the wraps as cloth bands on the skin, one value step darker, no wider than the arm; (5) a knuckle fist instead of a rake of long fingers; (6) thicker legs; (7) grime and creases that read at 1x (2 x 2 `d` smudges, 2 px pec and elbow creases). Key 0 is re-frozen and the scale evidence regenerated. There is no further gate before execution.
+- The three deviations (head sink 0.13 H, flatter mop with notches, torso r 9 to 10) are accepted and folded into `trog-01-spec.md` 2b.
+- Open: whether the wind-up can be interrupted by a hit (super armour) is a gameplay decision. The smash reach, damage and debris area are placeholders until the gameplay spec sets them.
+
+## 14. Executor notes (keys 3 to 15 and the in-betweens)
+
+Every key and in-between reuses the key-0 construction in `scripts/author_trog02.py`. Add a pose dict to `POSES`, list it in `KEY_FRAMES` or `INBETWEEN`, and extend `TAGS`, the config and the fixture (`pixelart freeze`). Never edit `idle0` or its frozen hash.
+
+- **Parts, every frame:** `deltoid` placed at the near shoulder joint (r 5.5, top at least 1.5 px below the jaw bottom in grounded poses; in 8 it rides up beside the head, still below the jaw line). `near_arms` (upper arm r 5.0 to 4.6) and `near_arms_fore` (r 4.8 to 3.6). `wrap_bands`: three bands, each 3 to 3.5 design units long, spaced 5 to 5.5 along the forearm. In poses where the forearm is not near vertical (8, 9, 10, 12), give the band ranges in design y over the forearm's own y span so that each band crosses the forearm. If a band shrinks below 2 rows, drop it rather than drawing a sliver. `G` must stay at 12 or more in 0 and at 8 or more wherever the forearm is visible.
+- **Hands:** `planted_fist(x, y)` wherever a fist is on the floor (0, 3, 4, 6, 10, 11, the far fist too). Off the floor, use a closed fist: the fist-mass part only (r 3.6) plus one claw tip. The locked double fist in 8 is two fist masses touching, the near one in front. The hurt hand (12) is the only open hand: three 1 px fingers, r 0.55, fanned up and back, 4 to 5 px long.
+- **Face per frame:** `snarl` 0 to 7; `roar` with `jaw_b(drop=1)` 8 to 10; `pant` 11; `pain` with `jaw_b(drop=0.6)` 12 and 13; `dead` 14 and 15. If a template's yellow pixels join into a ring in a pose, move a fang 1 column; never add yellow.
+- **Hair:** `hair(hx, hy, sweep, sway)` with the `sweep` values in section 7. The knots stay dull. No rope point above the crown, except where the hurt and fall whip the tips forward.
+- **Grime and creases:** 8 to 10 smudges per key (2 x 2 `d`), at least 2 on lit skin, at least 1 on a forearm gap and 1 on a knee. The pec and elbow creases stay 2 px wide wherever those muscles show. In-betweens copy the nearer key's smudges, shifted with their parts.
+- **Trash and necklace:** the three trash lumps ride with the trapezius masses (same offset). In 15 they tumble off behind the head, 2 to 4 px apart on the floor. The necklace V hangs from the jaw: below it in grounded poses, swung toward the head in 8 and back toward the chin in 10 and 11, and off to the side on the chest in 15.
+- **Checks before reporting:** `python3 -m scripts.pixelart validate` with the section 9 rules, `pytest -k "trog"`, and `key0-scale` plus the review pack regenerated.
