@@ -1,4 +1,10 @@
 //! Device-independent gameplay commands used by agents, replay tests and UI.
+//!
+//! The logical actions follow `docs/01-design/mvp-controller-contract.md`:
+//! `attack` is PrimaryAttack (Square/X), `physical` is PhysicalAttack
+//! (Triangle/Y: Carl's kick) and `ability` is EquippedSpecial (Circle/B, only
+//! after its story unlock, so it does nothing in the Floor 1 combat). Physical
+//! button codes live in the device adapters, never here.
 
 pub const STICK_DEADZONE: f32 = 0.18;
 
@@ -7,6 +13,9 @@ pub struct RawInput {
     pub move_x: f32,
     pub jump: bool,
     pub attack: bool,
+    /// PhysicalAttack (Triangle/Y): Carl's kick.
+    pub physical: bool,
+    /// EquippedSpecial (Circle/B): unlock-gated, no effect in Floor 1 combat.
     pub ability: bool,
     pub pause: bool,
 }
@@ -16,6 +25,9 @@ pub struct Actions {
     pub move_x: f32,
     pub jump: bool,
     pub attack: bool,
+    /// PhysicalAttack (Triangle/Y): Carl's kick.
+    pub physical: bool,
+    /// EquippedSpecial (Circle/B): unlock-gated, no effect in Floor 1 combat.
     pub ability: bool,
     pub pause: bool,
 }
@@ -31,6 +43,7 @@ impl From<RawInput> for Actions {
             move_x: if x.abs() <= STICK_DEADZONE { 0.0 } else { x },
             jump: raw.jump,
             attack: raw.attack,
+            physical: raw.physical,
             ability: raw.ability,
             pause: raw.pause,
         }
@@ -42,6 +55,7 @@ pub struct InputFrame {
     pub held: Actions,
     pub jump_pressed: bool,
     pub attack_pressed: bool,
+    pub physical_pressed: bool,
     pub ability_pressed: bool,
     pub pause_pressed: bool,
 }
@@ -51,6 +65,7 @@ impl InputFrame {
         let next = Actions::from(raw);
         self.jump_pressed = next.jump && !self.held.jump;
         self.attack_pressed = next.attack && !self.held.attack;
+        self.physical_pressed = next.physical && !self.held.physical;
         self.ability_pressed = next.ability && !self.held.ability;
         self.pause_pressed = next.pause && !self.held.pause;
         self.held = next;
@@ -92,6 +107,31 @@ mod tests {
         assert!(!frame.held.jump);
         frame.advance(pressed);
         assert!(frame.jump_pressed && frame.attack_pressed);
+    }
+
+    #[test]
+    fn physical_attack_and_equipped_special_are_separate_actions() {
+        let mut frame = InputFrame::default();
+        frame.advance(RawInput {
+            physical: true,
+            ..RawInput::default()
+        });
+        assert!(frame.physical_pressed && !frame.ability_pressed && !frame.attack_pressed);
+        frame.advance(RawInput {
+            physical: true,
+            ..RawInput::default()
+        });
+        assert!(!frame.physical_pressed, "a held button never repeats");
+        frame.advance(RawInput {
+            ability: true,
+            ..RawInput::default()
+        });
+        assert!(frame.ability_pressed && !frame.physical_pressed && !frame.held.physical);
+        let actions = Actions::from(RawInput {
+            physical: true,
+            ..RawInput::default()
+        });
+        assert!(actions.physical && !actions.ability && !actions.attack);
     }
 
     #[test]

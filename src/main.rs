@@ -167,6 +167,7 @@ fn advance_game(
         move_x: keyboard_x,
         jump: keys.pressed(KeyCode::Space),
         attack: keys.pressed(KeyCode::KeyJ),
+        physical: false,
         ability: keys.pressed(KeyCode::KeyK),
         pause: keys.pressed(KeyCode::Escape),
     };
