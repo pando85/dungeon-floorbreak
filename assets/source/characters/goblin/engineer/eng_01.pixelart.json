@@ -1,0 +1,473 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "eng-01",
+  "title": "ENG-01 Goblin Engineer readability set (docs/02-art/eng-01-spec.md); 18 frames, 7 frozen keys",
+  "grid": "assets/source/characters/goblin/engineer/eng_01.grid.json",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    28,
+    55
+  ],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          14
+        ],
+        [
+          1,
+          10
+        ],
+        [
+          2,
+          14
+        ]
+      ]
+    },
+    "walk": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          6
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          8,
+          6
+        ]
+      ]
+    },
+    "attack_tell": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          9,
+          8
+        ],
+        [
+          10,
+          24
+        ]
+      ]
+    },
+    "attack_ram": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          11,
+          3
+        ],
+        [
+          12,
+          6
+        ]
+      ]
+    },
+    "attack_recover": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          13,
+          18
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          14,
+          12
+        ]
+      ]
+    },
+    "down": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          15,
+          5
+        ],
+        [
+          16,
+          10
+        ],
+        [
+          17,
+          null
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_ram",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "layers_disjoint": [
+      [
+        "body",
+        "prop"
+      ]
+    ],
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/eng-01_keys.json",
+      "frames": [
+        0,
+        3,
+        10,
+        12,
+        13,
+        14,
+        17
+      ],
+      "layers": [
+        "body",
+        "prop"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "E1-size-idle-40px",
+        "frames": [
+          0
+        ],
+        "top": 16,
+        "bottom": 55
+      },
+      {
+        "id": "E1-handle-back",
+        "frames": [
+          0
+        ],
+        "max_left": 13,
+        "max_right": 44
+      },
+      {
+        "id": "E1-height-cap",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "min_top": 13
+      },
+      {
+        "id": "E1-idle-breath-rattle",
+        "frames": [
+          1,
+          2
+        ],
+        "min_top": 15,
+        "max_top": 17
+      },
+      {
+        "id": "E1-walk-contact-low",
+        "frames": [
+          3,
+          6
+        ],
+        "min_top": 18,
+        "max_top": 18
+      },
+      {
+        "id": "E1-walk-passing-high",
+        "frames": [
+          4,
+          7
+        ],
+        "min_top": 16,
+        "max_top": 16
+      },
+      {
+        "id": "E1-walk-mid",
+        "frames": [
+          5,
+          8
+        ],
+        "min_top": 17,
+        "max_top": 17
+      },
+      {
+        "id": "E1-tell-point",
+        "frames": [
+          10
+        ],
+        "max_top": 16,
+        "max_left": 11,
+        "min_right": 57
+      },
+      {
+        "id": "E1-tell-rear",
+        "frames": [
+          9
+        ],
+        "min_right": 46
+      },
+      {
+        "id": "E1-ram-low",
+        "frames": [
+          12
+        ],
+        "min_top": 21,
+        "max_top": 23,
+        "min_right": 51
+      },
+      {
+        "id": "E1-recover",
+        "frames": [
+          13
+        ],
+        "min_top": 19,
+        "max_top": 21
+      },
+      {
+        "id": "E1-hurt",
+        "frames": [
+          14
+        ],
+        "min_top": 13,
+        "max_top": 15,
+        "max_right": 40
+      },
+      {
+        "id": "E1-down-fall",
+        "frames": [
+          15
+        ],
+        "min_top": 22
+      },
+      {
+        "id": "E1-down-impact",
+        "frames": [
+          16
+        ],
+        "min_top": 38
+      },
+      {
+        "id": "E1-down-flat",
+        "frames": [
+          17
+        ],
+        "min_top": 39,
+        "max_top": 41,
+        "max_width": 54
+      }
+    ],
+    "key_counts": [
+      {
+        "id": "E1-eyes-yellow",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "key": "e",
+        "min": 3
+      },
+      {
+        "id": "E1-no-eyes-after-ram",
+        "frames": [
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "key": "e",
+        "min": 0,
+        "max": 0
+      },
+      {
+        "id": "E1-teeth-hurt",
+        "frames": [
+          14
+        ],
+        "key": "w",
+        "min": 2
+      },
+      {
+        "id": "E1-pot-glint-one",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "key": "7",
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "E1-glint-down",
+        "frames": [
+          17
+        ],
+        "key": "7",
+        "min": 0,
+        "max": 1
+      },
+      {
+        "id": "E1-pot-mass",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "key": "5",
+        "min": 40
+      }
+    ],
+    "manifest_tick_rows": "eng.frames",
+    "manifest_tick_hz": "eng.tick_hz",
+    "foot_drift": {
+      "max_px": 5,
+      "tags": [
+        "walk"
+      ]
+    }
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520
+      },
+      {
+        "frame": 10,
+        "x": 650
+      },
+      {
+        "frame": 12,
+        "x": 705
+      },
+      {
+        "frame": 3,
+        "x": 760
+      },
+      {
+        "frame": 17,
+        "x": 825
+      }
+    ],
+    "references": [
+      {
+        "grid": "assets/source/characters/goblin/goblin_a_h36.grid.json",
+        "frame": 0,
+        "x": 562
+      },
+      {
+        "grid": "assets/source/characters/goblin/bard/bard_01.grid.json",
+        "frame": 0,
+        "x": 604
+      }
+    ]
+  },
+  "manifest": "assets/manifests/eng_01.json",
+  "review": {
+    "strip_tags": [
+      "attack_tell",
+      "attack_ram",
+      "attack_recover"
+    ]
+  }
+}
