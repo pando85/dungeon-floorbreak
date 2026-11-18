@@ -5,12 +5,14 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 ## Read order and authority
 
 1. `README.md` for status and scope.
-2. `docs/01-design/vision.md`, `gameplay.md`, `characters.md` for player-facing intent.
+2. `docs/01-design/vision.md`, `gameplay.md`, `characters.md` for player-facing intent; **also consult `docs/01-design/character-progression-horizon.md` for a living, non-binding long-term direction** whenever designing character abilities, unlocks, floor mechanics or cooperation. Approved input semantics remain in `docs/01-design/mvp-controller-contract.md`.
 3. `docs/01-design/antihero-tone.md` for the **mandatory, project-wide 1980s–1990s everyman action-antihero creative rule**, followed by `docs/02-art/art-direction.md`, `carl-character-bible.md`, `donut-character-brief.md`, `donut-character-bible.md`, `mongo-character-bible.md`, `animation.md`, `asset-pipeline.md` for art constraints (Carl's visual baseline is **approved**, not a blank brief); see Carl and Donut approved asset directories; Mongo's selected source PNGs are inventoried at `assets/concept/mongo/approved/README.md` and all three originals are committed with a SHA-256 manifest and verified Git blob identities.
 4. `docs/03-tech/architecture.md`, `destruction.md`, `input-camera.md`, `level-data.md`, `testing.md` for implementation.
 5. `docs/04-production/vertical-slice.md`, `roadmap.md`, `backlog.md`, `rights-and-release.md` for sequencing.
 6. `docs/05-decisions/` for decision status; `docs/06-research/sources.md` for checked upstream links.
 7. `docs/07-agents/agent-orchestration.md` for anyone orchestrating agents (model tiers, briefs, reports, CI waiting, reviews, top-tier budget).
+
+**Living-horizon review rule:** For meaningful changes to playable moves, progression, abilities, new floor gameplay, co-op or terrain-combat interactions, compare against `docs/01-design/character-progression-horizon.md`. State in the design PR whether it still fits; update the guide if the direction has materially evolved. A horizon example is never approval to implement it; gameplay signoff still applies.
 
 **Priority on conflict:** legal/rights guardrails and platform safety > accepted ADRs > acceptance criteria > design specifications > implementation convenience. Flag contradictions in a PR, do not silently rewrite design intent.
 
