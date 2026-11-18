@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "trog-01",
-  "title": "TROG-01 Troglodyte Pygmy readability set: 16 frames (6 keys at 0, 3, 8, 10, 12, 15 after the design edit; the other slots are copies)",
+  "title": "TROG-01 Troglodyte Pygmy readability set: 16 frames (6 frozen keys at 0, 3, 8, 10, 12, 15; 10 drawn in-betweens)",
   "grid": "assets/source/characters/troglodyte/trog_01.grid.json",
   "manifest": "assets/manifests/trog-01.json",
   "frame_size": [
@@ -142,7 +142,7 @@
       0,
       0
     ],
-    "unique_frames": false,
+    "unique_frames": true,
     "manifest_tick_rows": "pygmy.frames",
     "manifest_tick_hz": "pygmy.tick_hz",
     "frozen_keys": {
@@ -275,7 +275,13 @@
         "key": "q",
         "min": 3
       }
-    ]
+    ],
+    "foot_drift": {
+      "max_px": 9,
+      "tags": [
+        "walk"
+      ]
+    }
   },
   "review": {
     "strip_tags": [

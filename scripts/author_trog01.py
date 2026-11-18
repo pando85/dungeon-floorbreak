@@ -8,7 +8,7 @@ Usage:
 
 ``frames`` rebuilds ``assets/source/characters/troglodyte/trog_01.grid.json`` (pixel-grid-v1, layer ``body``)
 and ``assets/manifests/trog-01.json``: one key per readability tag (idle, move contact, tell, attack, hurt,
-defeat) and in-between slots that are plain copies of the nearest key for now. Every pose is a *rule*: thick
+defeat) and the ten in-betweens drawn from the same part rules (blends of two keys or hand-set limbs). Every pose is a *rule*: thick
 polylines (torso, limbs, dreadlocks) and polygons (ears, loincloth) rasterized at pixel centres in design units
 (x right from the pivot column, y up from the contact row), a 1 px outline, a simple upper-left rim light and
 literal face stamps. No raster image-model output, no tracing of concept pixels. ``--check`` compares instead
@@ -232,12 +232,14 @@ BEADS = {0: "t", 1: "w", 2: "t"}   # 1 px bead or knot near the tip of ropes 0, 
 EAR = [(-5, 3.5), (-12, 5), (-7, 1.5)]          # pointed, swept straight back below the crown line, skin over the mop
 
 
-def hair(hx, hy, sweep=0.0):
+def hair(hx, hy, sweep=0.0, sway=0.0):
+    """``sway`` shifts the rope tips ``sway`` px back (negative: forward), growing from 0 at the root (idle breathing)."""
     mop = [(hx + x, hy + y) for x, y in MOP]
     ropes = []
     for rope in ROPES:
         n = len(rope) - 1
-        ropes.append([(hx + x - 3.0 * sweep * i / n, hy + y + 2.2 * sweep * i / n) for i, (x, y) in enumerate(rope)])
+        ropes.append([(hx + x - 3.0 * sweep * i / n - sway * i / n, hy + y + 2.2 * sweep * i / n + 0.4 * sway * i / n)
+                      for i, (x, y) in enumerate(rope)])
     return {"mop": mop, "ropes": ropes, "ears": [[(hx + x, hy + y) for x, y in EAR]]}
 
 
@@ -251,6 +253,8 @@ def build(pose: dict) -> list[str]:
     # back to front: far limbs, torso, near leg, loincloth, head and jaw, mop and ropes, near arm, ear
     for limb in pose.get("far_limbs", []):
         c.thick(limb["pts"], limb["r"], far)
+    for fin in pose.get("far_fingers", []):      # claws of a far hand that is planted on the floor (walk contact B)
+        c.thick(fin, [0.55] * len(fin), far)
     c.thick(pose["torso"]["pts"], pose["torso"]["r"], skin)
     for leg in pose.get("near_legs", []):
         c.thick(leg["pts"], leg["r"], skin)
@@ -457,9 +461,98 @@ POSES["down5"] = {
     "face": "dead", "face_at": (12, 6),
 }
 
+# ------------------------------------------------------------------ the ten in-betweens (spec section 8)
+def blend(a, b, t):
+    """Interpolate two pose structures of the same shape; numbers lerp, anything of a different shape or any string
+    snaps to ``a`` before the halfway point and to ``b`` after it."""
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return a + (b - a) * t
+    if isinstance(a, dict) and isinstance(b, dict):
+        return {k: blend(a[k], b[k], t) if k in b else a[k] for k in a} | {k: b[k] for k in b if k not in a and t >= 0.5}
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)) and len(a) == len(b):
+        return [blend(x, y, t) for x, y in zip(a, b)]
+    return a if t < 0.5 else b
+
+
+def shifted(pts, dx=0.0, dy=0.0):
+    return [(x + dx, y + dy) for x, y in pts]
+
+
+I0 = POSES["idle0"]
+# 1: idle breath: head and shoulders 1 px lower, dread tips swayed 1 px back; the hand and the feet stay planted
+POSES["idle1"] = I0 | {
+    "far_limbs": [I0["far_limbs"][0], L([(6, 20), (11, 14), (15, 8), (18, 4)], I0["far_limbs"][1]["r"])],
+    "torso": L([(-10, 15), (-4, 20.2), (3, 23)], I0["torso"]["r"]),
+    "head": head(13, 24), "hair": hair(13, 24, sway=1.0), "face_at": (13, 24),
+    "near_arms": [L([(4, 19), (9, 13.6), (12, 7), (15, 3)], I0["near_arms"][0]["r"])],
+    "ribs": [(-4, 14, 19), (-1, 15, 20), (2, 16, 21)],
+}
+# 2: back to the key posture with the dread tips swayed 1 px the other way (forward)
+POSES["idle2"] = I0 | {"hair": hair(13, 25, sway=-1.0)}
+
+# walk: a crouched scuttle. 3 (key) = contact A; 4 = near leg and hand planted and sliding back under the body, far arm
+# swinging forward, body up 1; 5 = passing, legs gathered under the hips, body highest; 6 = contact B, the mirror of 3
+# with the limbs swapped (far leg and far arm planted ahead, near leg trailing and lifting off).
+W3 = POSES["walk1"]
+POSES["walk2"] = W3 | {
+    "far_limbs": [L([(-8, 14), (-12, 9.5), (-11, 4), (-7, 1)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(6, 17), (10, 14), (15, 12.5), (19, 10)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-10, 14), (-3, 17), (5, 20)], [4.0, 4.4, 4.0]),
+    "near_legs": [L([(-9, 14), (-4, 9.5), (-2, 4), (2, 1)], [2.4, 1.9, 1.3, 0.9])],
+    "loin": ragged_loin(-8, 13, 7.5, -1.0),
+    "head": head(16, 21), "hair": hair(16, 21, sweep=0.5), "face_at": (16, 21),
+    "near_arms": [L([(5, 18), (9, 13), (13, 8), (16, 3)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": planted_hand(16, 3),
+    "ribs": [(-3, 13, 18), (0, 14, 19), (3, 15, 20)],
+    "grime": [(-12, 12), (-5, 16), (-2, 6), (-9, 16), (12, 6), (1, 23), (-6, 11)],
+}
+POSES["walk3"] = W3 | {
+    "far_limbs": [L([(-8, 15), (-6, 10), (-6, 5), (-4, 1)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(6, 18), (12, 14), (18, 10), (22, 6)], [1.7, 1.4, 1.1, 0.8])],
+    "torso": L([(-10, 15), (-3, 18), (5, 21)], [4.0, 4.4, 4.0]),
+    "near_legs": [L([(-9, 15), (-5, 10), (-3, 5), (-1, 1)], [2.4, 1.9, 1.3, 0.9])],
+    "loin": ragged_loin(-8, 14, 7.5, -0.5),
+    "head": head(15, 22), "hair": hair(15, 22, sweep=0.35), "face_at": (15, 22),
+    "near_arms": [L([(5, 19), (9, 13), (12, 8), (14, 3)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": planted_hand(14, 3),
+    "ribs": [(-3, 14, 19), (0, 15, 20), (3, 16, 21)],
+    "grime": [(-12, 13), (-5, 17), (-3, 6), (-9, 17), (9, 6), (1, 24), (-6, 12)],
+}
+POSES["walk4"] = W3 | {
+    "far_limbs": [L([(-8, 13), (-1, 9), (2, 3), (7, 1)], [2.0, 1.6, 1.1, 0.8]),
+                  L([(6, 16), (12, 12), (18, 7), (21, 3)], [1.7, 1.4, 1.1, 0.8])],
+    "near_legs": [L([(-9, 13), (-14, 8), (-17, 2), (-13, 0.8)], [2.4, 1.9, 1.3, 0.9])],
+    "near_arms": [L([(5, 17), (8, 12), (10, 6), (11, 1.2)], [2.0, 1.6, 1.2, 0.9])],
+    "fingers": [],
+    "far_fingers": planted_hand(21, 3),
+    "grime": [(-12, 11), (-5, 15), (3, 6), (-9, 15), (10, 6), (1, 22), (-6, 10)],
+}
+
+# 7: tell onset, halfway from the idle to the coil, the mouth still closed
+POSES["tell1"] = blend(I0, POSES["tell2"], 0.5) | {"face": "snarl"}
+POSES["tell1"].pop("jaw", None)
+# 9: launch, 0.7 of the way from the coil to the strike with the feet already off the floor and both claws coming up
+T8, L10 = POSES["tell2"], POSES["leap3"]
+_launch = blend(T8, L10, 0.7)
+_far = _launch["far_limbs"][1]["pts"][-1]
+POSES["leap2"] = _launch | {"fingers": L10["fingers"][:3] + hand(_far[0], _far[1], 1.2, down=True)}
+# 13, 14: collapse (hurt -> down) and floor impact; the arc is mostly done by 13 because the defeat tag must stay low
+H12, D15 = POSES["hurt4"], POSES["down5"]
+_down_jaw = jaw(12, 6, 0.8)
+POSES["down3"] = blend(H12, D15 | {"jaw": _down_jaw}, 0.88) | {"face": "pain"}
+POSES["down3"]["near_legs"] = [L([(-2, 11), (0, 6.5), (-3, 3), (2, 1)], [2.4, 1.9, 1.3, 0.9])]   # the toes still graze the floor
+POSES["down4"] = D15 | {
+    "far_limbs": [L([(-12, 4), (-15, 9.5), (-11, 13), (-8, 9)], [1.8, 1.5, 1.1, 0.8]),
+                  L([(-1, 5), (-7, 9.5), (-12, 14), (-17, 15.5)], [1.6, 1.3, 1.0, 0.8])],
+    "near_legs": [L([(-14, 4), (-10, 10.5), (-4, 8.5), (-1, 2)], [2.2, 1.8, 1.3, 0.9])],
+    "near_arms": [L([(2, 7), (6, 11), (8, 14.5), (12, 16)], [1.9, 1.5, 1.1, 0.8])],
+    "fingers": hand(12, 16, 0.7, down=False),
+    "head": head(12, 6, tilt=0.0), "hair": hair(12, 6, sway=1.5), "face_at": (12, 6),
+}
+
 KEY_FRAMES = {0: "idle0", 3: "walk1", 8: "tell2", 10: "leap3", 12: "hurt4", 15: "down5"}
-# in-between slots are copies of the nearest key until the executor draws them (spec section 8)
-COPY_OF = {1: 0, 2: 0, 4: 3, 5: 3, 6: 3, 7: 8, 9: 10, 13: 15, 14: 15}
+# the ten in-between frames, drawn as parts (spec section 8); frame 11 is generated from the tell pose plus dust
+INBETWEEN = {1: "idle1", 2: "idle2", 4: "walk2", 5: "walk3", 6: "walk4", 7: "tell1", 9: "leap2", 13: "down3", 14: "down4"}
 LAND_FRAME = 11          # grounded landing: the tell crouch plus a little dust inside the frame
 TAGS = [("idle", [(0, 12), (1, 8), (2, 12)]),
         ("walk", [(3, 6), (4, 6), (5, 6), (6, 6)]),
@@ -492,7 +585,7 @@ def pose_for(n: int) -> dict:
         return POSES[KEY_FRAMES[n]]
     if n == LAND_FRAME:
         return POSES["tell2"] | {"stamps": DUST}
-    return POSES[KEY_FRAMES[COPY_OF[n]]]
+    return POSES[INBETWEEN[n]]
 
 
 def frame_ticks() -> dict[int, int | None]:
@@ -524,7 +617,7 @@ def manifest() -> dict:
     ticks = frame_ticks()
     tag_of = {n: name for name, fr in TAGS for n, _t in fr}
     frames = [{"index": n, "tag": tag_of[n], "ticks": ticks[n], "duration_ms": duration_ms(ticks[n]),
-               "author": "key" if n in KEY_FRAMES else "copy"} for n in range(len(ticks))]
+               "author": "key" if n in KEY_FRAMES else "generated" if n == LAND_FRAME else "inbetween"} for n in range(len(ticks))]
     return {
         "schema_version": 1,
         "id": "troglodyte_pygmy_h40_candidate_v0",
@@ -542,16 +635,16 @@ def manifest() -> dict:
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
             "origin": ("TROG-01 Pygmy at a 40 px idle height: 6 draft keys (atlas frames 0, 3, 8, 10, 12, 15) rasterized from pose rules by "
-                       "scripts/author_trog01.py; the other slots are copies of the nearest key (frame 11 is the tell crouch plus landing dust); "
+                       "scripts/author_trog01.py; the other ten slots are in-betweens drawn from the same part rules (frame 11 is the tell crouch plus landing dust); "
                        "layer body only"),
-            "generator": "Draft spec and keys: Claude Sonnet. Design edit (construction, six keys): Claude Opus. Independent review: pending. No image-model raster output, no tracing, no resampling",
+            "generator": "Draft spec and keys: Claude Sonnet. Design edit (construction, six keys): Claude Opus. In-betweens and execution: Claude Sonnet. Independent review: pending. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"],
         },
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "pygmy": {
-            "status": "draft keys only, in-betweens are copies, not reviewed, not frozen by a review; Bevy integration pending; 16 frames, 6 of them keys; not wired into any Bevy binary",
+            "status": "six frozen keys plus ten drawn in-betweens, not yet reviewed by an independent art director; Bevy integration pending; 16 frames, 6 of them keys; not wired into any Bevy binary",
             "spec": "docs/02-art/trog-01-spec.md",
             "opaque_height_idle": 40,
             "tick_hz": TICK_HZ,

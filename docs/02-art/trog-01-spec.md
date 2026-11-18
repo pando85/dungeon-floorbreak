@@ -1,6 +1,6 @@
 # TROG-01: Troglodyte family (Pygmy, Basher, Virtuoso) readability sets, design spec
 
-**Status:** Pygmy base design edited (size confirmed, construction and six keys redrawn, keys re-frozen); Basher and Virtuoso not started. In-betweens are copies. Silhouette gate passed after the key fixes (section 13); in-betweens next.
+**Status:** Pygmy base design edited (size confirmed, construction and six keys redrawn, keys re-frozen); Basher and Virtuoso not started. Silhouette gate passed after the key fixes (section 13); the ten in-betweens are drawn (section 8) and the review pack is in `docs/evidence/trog-01/review-pack/`; independent art-director review next.
 
 **Decision record (Pygmy base, after the design edit):** height 40 px (confirmed), frame 80 x 56, pivot (30, 55), palette `trog-family-v0` (15 core colours, 5 slots allocated to the variants), family height ladder Pygmy 40 / Virtuoso 66 / Basher 66 / Juicer 84 or more (section 2b).
 
@@ -169,20 +169,20 @@ Frame table:
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
 | 0 | `idle` | **KEY** hunched crouch, knuckles near the floor, head thrust forward, dreads up | 12 | key |
-| 1 | `idle` | copy of 0 | 8 | copy |
-| 2 | `idle` | copy of 0 | 12 | copy |
+| 1 | `idle` | idle breath, head and shoulders 1 px lower, dread tips swayed 1 px back | 8 | in-between |
+| 2 | `idle` | key posture, dread tips swayed 1 px forward | 12 | in-between |
 | 3 | `walk` | **KEY** scuttle contact: body low and forward, near hand planted ahead, far leg trailing | 6 | key |
-| 4 | `walk` | copy of 3 | 6 | copy |
-| 5 | `walk` | copy of 3 | 6 | copy |
-| 6 | `walk` | copy of 3 | 6 | copy |
-| 7 | `attack_tell` | copy of 8 | 6 | copy |
+| 4 | `walk` | walk, near leg and hand planted sliding back, far arm swinging forward, body up 1 px | 6 | in-between |
+| 5 | `walk` | walk passing, legs gathered under the hips, body highest | 6 | in-between |
+| 6 | `walk` | walk contact B, mirror of 3 with the limbs swapped | 6 | in-between |
+| 7 | `attack_tell` | tell onset, halfway from idle to 8, mouth closed | 6 | in-between |
 | 8 | `attack_tell` | **KEY** coiled: haunches raised and loaded, shoulders and head dropped forward, hands planted, mouth wide | 18 | key |
-| 9 | `attack_leap` | copy of 10 | 3 | copy |
+| 9 | `attack_leap` | launch, 0.7 of the way from 8 to 10, feet off the floor | 3 | in-between |
 | 10 | `attack_leap` | **KEY** strike: body stretched flat in the air, one claw high and one low around the gaping mouth, legs trailing | 8 | key |
 | 11 | `attack_land` | the tell crouch plus 9 dust pixels, before and behind the feet | 14 | generated (tell + dust) |
 | 12 | `hurt` | **KEY** thrown upright and back, head snapped up, near arm flung, eye shut, mouth open | 12 | key |
-| 13 | `down` | copy of 15 | 4 | copy |
-| 14 | `down` | copy of 15 | 8 | copy |
+| 13 | `down` | hurt collapsing onto the floor, toes grazing it | 4 | in-between |
+| 14 | `down` | floor impact, flat, limbs flung wide | 8 | in-between |
 | 15 | `down` | **KEY** on its back, limbs splayed, tongue out, crossed eye | hold | key |
 
 ## 5. State diagram
@@ -244,7 +244,7 @@ Design units are px right of the pivot column and up from the contact row. Froze
 
 ## 8. In-between list
 
-For the execution tier. No design decisions are needed beyond the notes. Frames 11 (generated from the tell pose plus dust) is the only non-key frame that is not a straight copy.
+For the execution tier. No design decisions are needed beyond the notes. Drawn by `scripts/author_trog01.py` (`POSES`, `INBETWEEN`): frames 7, 9 and 13 are blends of two keys' part rules, the rest are hand-set limbs on the key's parts; frame 11 is the tell pose plus dust.
 
 | # | Pose notes |
 | --- | --- |
@@ -261,12 +261,13 @@ For the execution tier. No design decisions are needed beyond the notes. Frames 
 
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate assets/source/characters/troglodyte/trog_01.pixelart.json` (rules V01 to V15; currently 13 pass, 3 skipped).
+Run by `python3 -m scripts.pixelart validate assets/source/characters/troglodyte/trog_01.pixelart.json` (rules V01 to V16; all configured rules pass, V10 is not configured).
 
 - V04 palette: at most 20 colours (15 used); V05 isolated pixels: 0; V06 orphan pixels: at most 9 per frame.
 - V07/V08 contact rows: grounded tags end on row 55; `attack_leap` never touches it (bottom row at most 52).
 - V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/trog-01_keys.json` (6 keys: 0, 3, 8, 10, 12, 15).
-- V12 unique frames: off, because the in-betweens are copies of the keys until the executor draws them. Switch it on when they exist.
+- V12 unique frames: on (all 16 frames differ).
+- V16 foot drift: `rules.foot_drift` `{"max_px": 9, "tags": ["walk"]}`, loop seam included (same limit as HOARD-01). Measured with the contact-row foot and hand runs: every step of the walk is at most 9 px.
 - V13 bounding boxes: idle height 40 (top row 16); walk lower than idle (top at least 18); tell lowest and at most 44 wide (top at least 22); land low (top at least 22) and at most 56 wide with its dust; leap clear of the floor and top at most 22; hurt tallest (top at most 14); down low (top at least 32, at most 50 wide).
 - V14 key counts: red eye in the idle; the tell and leap mouth (dark `o`, at least 8 pixels); no red eye when hurt or down; the tongue (`q`, at least 3 pixels) in the defeat key.
 - Extra tests: `tests/test_art_trog01.py` (generator parity, ticks, size, airborne contact, tell lowest, landing diff).
@@ -280,7 +281,7 @@ python3 -m scripts.pixelart review-pack assets/source/characters/troglodyte/trog
 python3 scripts/author_trog01.py key0-scale      # docs/evidence/trog-01/key0-scale.png
 ```
 
-`docs/evidence/trog-01/key0-scale.png` (960 x 360): key 0 at 1x on lit Floor 1 next to Carl and GOB-01 (left, 640 x 360, no scaling), and a 4x copy of key 0 (right). `docs/evidence/trog-01/keys-x3.png` (`python3 scripts/author_trog01.py keys-x3`): the six keys left to right (0, 3, 8, 10, 12, 15) on lit Floor 1 brick, enlarged 3x. The full review pack (contact sheet, tell-to-attack strip) is the executor's job after the silhouette gate.
+`docs/evidence/trog-01/key0-scale.png` (960 x 360): key 0 at 1x on lit Floor 1 next to Carl and GOB-01 (left, 640 x 360, no scaling), and a 4x copy of key 0 (right). `docs/evidence/trog-01/keys-x3.png` (`python3 scripts/author_trog01.py keys-x3`): the six keys left to right (0, 3, 8, 10, 12, 15) on lit Floor 1 brick, enlarged 3x. The review pack (`docs/evidence/trog-01/review-pack/`: x4 contact sheet, lit 640 x 360 scene at 3x with the Pygmy on brick, tell-to-attack strip, `validator_summary.txt`) is committed with the in-betweens.
 
 VFX notes (separate work orders, out of scope here): the landing dust is 9 pixels inside the frame; a bigger pounce splash or ground streak and the small "!" alert mark from the sheet are VFX/UX work orders. The Basher's smash debris and the Virtuoso's tongue strike are likewise separate.
 
@@ -305,6 +306,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
 - Draft spec and keys (Pygmy only): Claude Sonnet.
+- In-betweens + execution (ten in-betweens, V16 opt-in, regenerated grid, `.ase`, manifest and evidence, review pack): Claude Sonnet.
 - Design edit (size decision, shared construction, head/hair/face redesign, six keys redrawn and re-frozen, boxes and strike ticks): Claude Opus.
 - Silhouette gate: an independent reviewer (FIX-KEYS); the key fixes after it: Claude Opus.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
@@ -316,4 +318,13 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 - Face at about 10 x 10 px: the head is now 14 x 12 px and the face template 11 x 9 px with three separate accents (section 2).
 - `attack_land` stays a separate tag (section 4).
 - Silhouette gate (FIX-KEYS) applied: the hurt arm is flung back and up with the torso tilted back and a pain mouth (it no longer reads as a grab); the rag hangs down with torn points; the tell rump is 1.5 px higher and the head 1 px lower; claws are longer and gapped; the mop is notched and beaded; there is more grime, and ribs are visible at 1x. Keys re-frozen.
-- Still open: the in-betweens are copies, so the walk is a slide; pounce range, damage and boxes are placeholders; the silhouette gate and the independent review are next.
+- Still open: pounce range, damage and boxes are placeholders; the independent art-director review of the in-betweens is next.
+
+## 14. Executor notes (in-betweens)
+
+- **Walk cycle.** 3 contact A, 4 near leg and hand planted and sliding back with the far arm swinging forward and the body up 1 px, 5 passing with both feet under the hips and the body 2 px above the key, 6 contact B (the mirror of 3 with the limbs swapped: far leg and far hand planted ahead, near leg trailing and near hand low behind). V16 matches every planted foot and hand on the contact row to the nearest one in the next frame, so the trailing far foot is kept as a dragging toe on the floor in 4 and 5 (it is the only way a 4-frame cycle stays at 9 px per step). The 6 to 3 seam differs only by the limb shading (dark and light limbs trade places), so it reads as a limb swap, not a position jump. `far_fingers` (claws of a planted far hand, drawn in the far ramp) was added to `build` for frame 6; no key uses it.
+- **Frame 11 (landing).** The in-between list asks for the head to rebound 1 px; the frame table, `tests/test_art_trog01.py` (landing differs from the tell by at most 12 dust pixels) and the V13 rule say tell plus dust. Conservative reading: frame 11 stays tell plus 9 dust pixels, no rebound.
+- **Frame 13 (collapse).** The note asks for the feet to be 1 px off the floor, but `down` is a grounded tag (V07: the contact row is touched) and V13 requires the defeat frames to stay low (top row at least 32). Conservative reading: the body is already folded most of the way to the floor (0.88 of the hurt-to-down blend), the near foot only grazes the floor (a single outline row), and the hurt to down step is therefore the biggest jump in the set (the 12-tick hurt hold, then 4 ticks of collapse); a taller falling pose would need a different V13 rule and a design decision.
+- **Frame 9 (launch).** 0.7 of the way from the coil to the strike; the near arm and the second (far) claw are built from the strike key's claw shape; feet are at least 3 px off the floor (V08).
+- **Idle (1, 2).** The hand and both feet stay planted; only the shoulders, head, face, near arm root, ribs and the dread tips move (no loop pop at the 1 to 2 to 0 seam).
+- **Box note.** Frame 13 is a down frame and 9 a leap frame; the placeholder boxes in section 3 were left as measured on the keys.

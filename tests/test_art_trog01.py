@@ -74,6 +74,14 @@ class Trog01PygmyTests(unittest.TestCase):
         self.assertLessEqual(len(diff), 12)
         self.assertGreaterEqual(sum(self.rows[11][y][x] in "cC" for y, x in diff), 5)   # the dust pixels
 
+    def test_in_betweens_are_drawn_and_the_walk_does_not_slide(self):
+        from scripts.pixelart import validators
+        self.assertEqual(len({"".join(r) for r in self.rows}), 16)
+        self.assertEqual([f["author"] for f in self.manifest["pygmy"]["frames"]].count("inbetween"), 9)
+        seq = [3, 4, 5, 6]
+        drifts = [validators.foot_drift(list(self.rows[a][55]), list(self.rows[b][55])) for a, b in zip(seq, seq[1:] + seq[:1])]
+        self.assertLessEqual(max(drifts), 9, drifts)
+
     def test_frozen_keys_match_the_fixture(self):
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(sorted(int(k) for k in fixture["keys"]), list(KEYS))
