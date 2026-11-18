@@ -52,6 +52,8 @@ flowchart LR
 
 ## Beat design, authored behaviors and failure modes
 
+**Detailed first-fight design:** [I-03 — Carl's First Revenge](floor-01-first-goblin-encounter.md) specifies existing S5 coordinates, two-goblin baseline, optional third goblin, enemy AI/telegraphs, Carl kick/contact behavior, the three-hit ENV-02 support and falling-rock opportunity, Donut pre-biscuit contributions, solo/2P constraints and reproducible acceptance tests. **Draft hypothesis only; do not treat it as approved gameplay or as a request for implementation.**
+
 ### I-01 — Entry: a dangerous place, no tutorial corridor
 
 **Player goal:** move forward, learn what is physically controllable, notice the huge architectural scale and suspicious pursuit cues.
