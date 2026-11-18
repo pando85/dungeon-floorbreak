@@ -1,0 +1,156 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "vfx-01",
+  "grid": "assets/source/<kind>/vfx-01/vfx-01.grid.json",
+  "manifest": "assets/manifests/vfx-01.json",
+  "frame_size": [
+    96,
+    96
+  ],
+  "pivot": [
+    48,
+    48
+  ],
+  "contact_row": 48,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          12
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          2,
+          12
+        ]
+      ]
+    },
+    "walk": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          6,
+          5
+        ]
+      ]
+    },
+    "attack_tell": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          7,
+          6
+        ],
+        [
+          8,
+          18
+        ]
+      ]
+    },
+    "attack_swing": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          9,
+          2
+        ],
+        [
+          10,
+          4
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          11,
+          4
+        ],
+        [
+          12,
+          8
+        ]
+      ]
+    },
+    "down": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          13,
+          4
+        ],
+        [
+          14,
+          8
+        ],
+        [
+          15,
+          null
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_swing",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/vfx-01_keys.json",
+      "frames": [],
+      "layers": [
+        "body"
+      ]
+    },
+    "bbox": [],
+    "key_counts": []
+  },
+  "review": {
+    "strip_tags": [
+      "attack_tell",
+      "attack_swing"
+    ]
+  },
+  "_template_note": "Draft. Set sizes, pivot, frame counts, tick windows and key frames from the design spec; remove _template_note and every unused rule before use."
+}

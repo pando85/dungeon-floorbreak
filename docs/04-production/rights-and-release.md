@@ -25,6 +25,12 @@ The Dungeon Crawler Carl books, franchise names, characters and recognizable exp
 
 **Keep permission claims narrowly stated.** A verbal/chat confirmation is a record of the owner's representation, not proof of rightsholder consent. The three per-asset records below (Carl, Mongo, Donut) keep their original wording; `ART-PUBLICATION-ALL-V1` widens the publication scope to production art. Do not publicly upload art of franchises or characters outside that scope, or any asset without provenance, without comparable scope confirmation.
 
+## Audio — owner-supplied Floor 01 pack
+
+| Record | Scope reported by owner | Exclusions / outstanding evidence |
+| --- | --- | --- |
+| `AUDIO-FLOOR01-V2` (publication instructed 2026-11-18) | The owner committed the Floor 01 audio pack (`assets/audio/floor01/`: 38 runtime Ogg Vorbis files, previews and pack docs) to a branch of this public repository and instructed its publication here on 2026-11-18. The pack README states its provenance as original deterministic procedural DSP material, with no third-party recordings, no generative-audio model and no actor voices (the manifest records `third_party_recordings: []` and `external_ai_audio_models: []`). The goblin hit sound is a nonverbal placeholder, not a voice. Integration into the game is AUDIO-01 ([ADR-0008](../05-decisions/ADR-0008-audio.md)). | **Owner-reported, not legal clearance** and not independently verified. The DSP generator source (`source/generate_v2.py` in the manifest) is **not in this repository**, so the files cannot be reproduced or audited from source; adding it is a follow-up. The pack's docs mention a franchise title and fan-concept character names; those names stay in the asset docs and `cue_map.json` data, never in code identifiers. Status is provisional and unapproved until the owner's listening review. No reuse licence, no distribution of a playable game, Steam build, trailer or standalone sound pack is implied. |
+
 ## Technical IP-neutral layer
 
 ```

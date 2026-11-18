@@ -3,6 +3,8 @@
 
 use bevy::{camera::ScalingMode, prelude::*};
 use dungeon_floorbreak::{
+    audio::{AudioSettings, cues_from_wall_break},
+    audio_adapter::{AudioQueue, FloorAudioPlugin, resolve_pack_dir},
     camera::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH},
     input::{InputFrame, RawInput},
     prototype::{Material, STAGE_WIDTH, World},
@@ -30,19 +32,28 @@ fn main() {
         run_combat_smoke();
         return;
     }
+    // AUDIO-01: the greybox only has the bomb wall-break sound (no scene music).
+    let mut audio_settings = AudioSettings::from_env();
+    audio_settings.enabled &= !std::env::args().any(|arg| arg == "--no-audio");
+    let mut plugins = DefaultPlugins.set(ImagePlugin::default_nearest());
+    if !audio_settings.enabled {
+        plugins = plugins.disable::<bevy::audio::AudioPlugin>();
+    }
+    let pack_dir = resolve_pack_dir();
     App::new()
-        .add_plugins(
-            DefaultPlugins
-                .set(ImagePlugin::default_nearest())
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "The Crawl | A/D move, Space jump, J melee, K bomb".into(),
-                        resolution: (WINDOW_WIDTH, WINDOW_HEIGHT).into(),
-                        ..default()
-                    }),
-                    ..default()
-                }),
-        )
+        .add_plugins(plugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "The Crawl | A/D move, Space jump, J melee, K bomb".into(),
+                resolution: (WINDOW_WIDTH, WINDOW_HEIGHT).into(),
+                ..default()
+            }),
+            ..default()
+        }))
+        .add_plugins(FloorAudioPlugin {
+            settings: audio_settings,
+            pack_dir,
+            initial: Vec::new(),
+        })
         .insert_resource(ClearColor(Color::srgb_u8(16, 17, 30)))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .init_resource::<Simulation>()
@@ -147,6 +158,7 @@ fn advance_game(
     pads: Query<&Gamepad>,
     mut input: ResMut<PlayerInput>,
     mut simulation: ResMut<Simulation>,
+    mut audio: ResMut<AudioQueue>,
 ) {
     let left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
     let right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
@@ -174,6 +186,7 @@ fn advance_game(
     }
     input.0.advance(raw);
     simulation.0.step(&input.0);
+    audio.push_cues(cues_from_wall_break(simulation.0.timbers_broken_last_step));
 }
 
 fn sync_scene(

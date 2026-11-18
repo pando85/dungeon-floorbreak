@@ -1,0 +1,222 @@
+{
+  "project": "THE CRAWL",
+  "floor": 1,
+  "version": "0.2.0-sound-study",
+  "date": "2026-11-18",
+  "status": "unapproved_exploratory",
+  "provenance": {
+    "origin": "original deterministic DSP synthesis and remixing v0 original DSP stems",
+    "authoring_tool": "source/generate_v2.py",
+    "seed": 20261118,
+    "third_party_recordings": [],
+    "external_ai_audio_models": [],
+    "human_expert_signoff": false
+  },
+  "format": {
+    "sample_rate_hz": 44100,
+    "channels": 1,
+    "encoding": "OGG Vorbis (runtime); PCM16 WAV (source pack)",
+    "bpm": 128,
+    "music_key": "D minor",
+    "music_loop_s": 15.0
+  },
+  "style_default_candidate": "hybrid",
+  "styles": [
+    "arcade",
+    "cinematic",
+    "hybrid"
+  ],
+  "notes": "Legacy sfx/goblin_hit_vocal_synthetic.ogg now maps to breath-like synthetic placeholder, not final vocal. Music remix uses original v0 stems.",
+  "assets": [
+    {
+      "path": "music/amb_floor01_ventilation.ogg",
+      "duration_s": 8.0,
+      "sha256": "e88558a94d5c71e96b4d374e0e352f8f4a63ff608a7973cc7370251c0296fa9b"
+    },
+    {
+      "path": "music/amb_gym_fluorescent.ogg",
+      "duration_s": 8.0,
+      "sha256": "edc1c3c4c4ecb17bb9a4fcfa6b03d35697131823f21374ca605669729ca5a92a"
+    },
+    {
+      "path": "music/floor01_dozer_chase.ogg",
+      "duration_s": 15.0,
+      "sha256": "fad0decdf48ca7ab1ff4bf80a0bdaffd57c0b55a4ad0957cf42a6d70bb77fc61"
+    },
+    {
+      "path": "music/floor01_goblin_combat.ogg",
+      "duration_s": 15.0,
+      "sha256": "39cd0785c794e647a0a977094246c1958fbcbcc01bf62b96040cfc5c607becca"
+    },
+    {
+      "path": "music/floor01_gym_sketch.ogg",
+      "duration_s": 15.0,
+      "sha256": "e40d346f4ffa12d4dac826a0373baa7cc4ac09335a7924d8977c4f131f2db674"
+    },
+    {
+      "path": "music/floor01_tension.ogg",
+      "duration_s": 15.0,
+      "sha256": "acfe92ee85d91394bbdfcb18d3e4446a8903fed64a23244d818e515f66b9e2e1"
+    },
+    {
+      "path": "sfx/carl_kick_impact.ogg",
+      "duration_s": 0.33,
+      "sha256": "8c5169333c4e3bb1ea3b488692a7d0570d9cd466332cf45b7bedcb433400bba6"
+    },
+    {
+      "path": "sfx/carl_kick_whoosh.ogg",
+      "duration_s": 0.26,
+      "sha256": "8a2d343fe2e991229dc996496d95a7fbb1fc71a28421edf6be7f8d1ab8cc252b"
+    },
+    {
+      "path": "sfx/carl_kick_whoosh_01.ogg",
+      "duration_s": 0.26,
+      "sha256": "0e7ea147d862cc662edafeb01406fc7b5b721e05295c645369b334d9aa3a4db8"
+    },
+    {
+      "path": "sfx/carl_kick_whoosh_02.ogg",
+      "duration_s": 0.26,
+      "sha256": "ea90045cc68351c80adf2954351cc5b973078e81cfa32db2766d34c4cc8a0b76"
+    },
+    {
+      "path": "sfx/carl_kick_whoosh_03.ogg",
+      "duration_s": 0.26,
+      "sha256": "86a0fce7ce8cc74e87ee187a454546307353aa5261312462316d99184e34779d"
+    },
+    {
+      "path": "sfx/concrete_wall_break.ogg",
+      "duration_s": 0.91,
+      "sha256": "d97768c18854872aa6ee2b135c46a935794e2a7e9557efec8b71de97d72488db"
+    },
+    {
+      "path": "sfx/concrete_wall_break_01.ogg",
+      "duration_s": 0.91,
+      "sha256": "d1a7d6c84118b20dbae170f524e5dfb866a562cff7f3d15d8b42b19549c050b4"
+    },
+    {
+      "path": "sfx/concrete_wall_break_02.ogg",
+      "duration_s": 0.91,
+      "sha256": "eaa831627a0168ca9e822191eb08a7ceccb89d4eaf036c719421870a4047e84c"
+    },
+    {
+      "path": "sfx/concrete_wall_break_03.ogg",
+      "duration_s": 0.91,
+      "sha256": "b9779c33ff69dbbc705fb218c5cdbc99a1a0833a616e951e8091fc4cea0a39b0"
+    },
+    {
+      "path": "sfx/donut_warning_hiss_sketch.ogg",
+      "duration_s": 0.65,
+      "sha256": "45fae393f87f89b984b268e8daeef66769d7160dc4b7f1912b3ee0f114ef15c1"
+    },
+    {
+      "path": "sfx/enemy_body_collision.ogg",
+      "duration_s": 0.41,
+      "sha256": "cee1604e36e3432a616aa22bbefbd1c8373b7b9db0e25ee73c58b8bb9e42c0aa"
+    },
+    {
+      "path": "sfx/enemy_body_collision_01.ogg",
+      "duration_s": 0.41,
+      "sha256": "9fa50442227efee2a2aeb5d80b36496d3d11364ea5a47e7bedfb806c24e24b79"
+    },
+    {
+      "path": "sfx/enemy_body_collision_02.ogg",
+      "duration_s": 0.41,
+      "sha256": "5b6f89f475f07b3393833dd9f906a7a64ca0ff81808b206a8493eb4bf3046bec"
+    },
+    {
+      "path": "sfx/enemy_body_collision_03.ogg",
+      "duration_s": 0.41,
+      "sha256": "814f4d76c2d33ec6b9fd632f057d0b4f6d190321acf10a951669da11be91b019"
+    },
+    {
+      "path": "sfx/goblin_hit_breath_01.ogg",
+      "duration_s": 0.29,
+      "sha256": "6d6860bdb2753464616dff3ee77f0c64c8a9724f3dd645411739d5abf8468946"
+    },
+    {
+      "path": "sfx/goblin_hit_breath_02.ogg",
+      "duration_s": 0.29,
+      "sha256": "a1ce629bde75cb0477b256410d70b866d931ad01f5fac694400e1d142d8a5d2d"
+    },
+    {
+      "path": "sfx/goblin_hit_breath_03.ogg",
+      "duration_s": 0.29,
+      "sha256": "4b872c344debe76f0b2e13f00d90001fa63d7589d89856da44ccee31002e44c8"
+    },
+    {
+      "path": "sfx/goblin_hit_vocal_synthetic.ogg",
+      "duration_s": 0.29,
+      "sha256": "efc045cd5d3b850b52e454a88dcb131bcdf051b7d48d563449916197324560e1"
+    },
+    {
+      "path": "sfx/gym_metal_weight_crash.ogg",
+      "duration_s": 0.85,
+      "sha256": "32e48a636c29adf06f423204ce71711f8461c43c52c1a8227f74b362b52f1b57"
+    },
+    {
+      "path": "sfx/mongo_chirp_sketch.ogg",
+      "duration_s": 0.4,
+      "sha256": "fd2b3fd13437866aa3bb8a845f852b3ab5c619e9d77e0b64f0874d7b2e47938b"
+    },
+    {
+      "path": "sfx/murder_dozer_engine_sketch.ogg",
+      "duration_s": 3.2,
+      "sha256": "b9d2a3ce4048dd3ac401f8538e8e7572e7a93dae83afcd66c793dcd4b6c77c1c"
+    },
+    {
+      "path": "sfx/ui_pickup_synth.ogg",
+      "duration_s": 0.4,
+      "sha256": "02c594ca75441d86685bba9c096753c0166f9af4bc1f6994576514ef120d7281"
+    },
+    {
+      "path": "sfx/warning_siren.ogg",
+      "duration_s": 0.5,
+      "sha256": "7c690293c3d0769c1f9cfb47bbf7169c0d48e4b93df487375aec799a00e238d2"
+    },
+    {
+      "path": "variants/arcade/carl_kick_impact_01.ogg",
+      "duration_s": 0.33,
+      "sha256": "423f310d21615d2c6fb4cc44c34fb4a50a23ee2586a31bf2fd33d8b003320da9"
+    },
+    {
+      "path": "variants/arcade/carl_kick_impact_02.ogg",
+      "duration_s": 0.33,
+      "sha256": "9158b1c68c88fd4ea4c0621058260dac7ab4bf250a2a1033c50157c07df76068"
+    },
+    {
+      "path": "variants/arcade/carl_kick_impact_03.ogg",
+      "duration_s": 0.33,
+      "sha256": "3ebbd2a90204ad2a920315cfddb1bc8fad7e90631931b690b814449359a56e7a"
+    },
+    {
+      "path": "variants/cinematic/carl_kick_impact_01.ogg",
+      "duration_s": 0.33,
+      "sha256": "679f9706a45dc688bdfe64fbf24ce10c04e0dc7ffcf201f11270aa74f98b9cce"
+    },
+    {
+      "path": "variants/cinematic/carl_kick_impact_02.ogg",
+      "duration_s": 0.33,
+      "sha256": "e2e1e7bd4272d43346fd78ef75bbaafbff99d976a0ffbc75873cb7006884f388"
+    },
+    {
+      "path": "variants/cinematic/carl_kick_impact_03.ogg",
+      "duration_s": 0.33,
+      "sha256": "398fbcae6dfeb8f2fd0aa8c5adab87916a232820778c776dbf6ebd69ce01e66c"
+    },
+    {
+      "path": "variants/hybrid/carl_kick_impact_01.ogg",
+      "duration_s": 0.33,
+      "sha256": "456658cda31c3ef34ba512d5e97778844d5ae00c9d3ddc27d8d11de8d2b464a3"
+    },
+    {
+      "path": "variants/hybrid/carl_kick_impact_02.ogg",
+      "duration_s": 0.33,
+      "sha256": "007c6433a74c00ef4dbd7f0f92f8498323d4eabae135c7bf1b573c9baf2a016d"
+    },
+    {
+      "path": "variants/hybrid/carl_kick_impact_03.ogg",
+      "duration_s": 0.33,
+      "sha256": "bbdc73581006fdf93f6d5a2ea722af3e56cd96d88852ea87c676f000869769d1"
+    }
+  ]
+}

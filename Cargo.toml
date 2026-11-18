@@ -6,7 +6,7 @@ publish = false
 default-run = "dungeon-floorbreak"
 
 [dependencies]
-bevy = { version = "=0.20.1", default-features = false, features = ["2d"] }
+bevy = { version = "=0.20.1", default-features = false, features = ["2d", "bevy_audio", "vorbis"] }
 serde = { version = "=1.0.229", default-features = false, features = ["std", "derive"] }
 serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
 
