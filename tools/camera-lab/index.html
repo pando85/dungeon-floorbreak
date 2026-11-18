@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>THE CRAWL — Floor 01 camera & encounter laboratory</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0b1018; --pane:#17202a; --line:#384352; --paper:#e6e4da; --muted:#99a5b1; --gold:#e5b35f; --blue:#9abbe7; }
+    * {box-sizing:border-box}
+    body {margin:0;background: radial-gradient(circle at 50% 0%,#223142 0,#0b1018 53%);color:var(--paper);font:14px/1.48 system-ui,-apple-system,Segoe UI,sans-serif}
+    header {max-width:1380px;margin:auto;padding:20px 20px 12px;display:flex;gap:20px;align-items:flex-start;justify-content:space-between}
+    h1 {margin:0;font-size:clamp(22px,3.5vw,35px);letter-spacing:.055em;line-height:1.04;color:#f5d19a;font-weight:900}
+    .supra {font:700 11px ui-monospace,monospace;letter-spacing:.18em;color:#d98961;margin:0 0 6px}
+    .subtitle {color:#aeb8c7;margin:9px 0 0;max-width:720px;font-size:13px}
+    .state-pill {padding:6px 9px;border:1px solid #755436;border-radius:6px;background:#3a2b24;color:#f5c484;font:700 10px ui-monospace,monospace;white-space:nowrap;margin-top:6px}
+    main {max-width:1380px;margin:auto;padding:0 20px 25px;display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:14px}
+    .panel {background:linear-gradient(155deg,#18222c,#121923);border:1px solid #3a4551;border-radius:12px;box-shadow:0 8px 36px #0005;overflow:hidden}
+    .stage-header {display:flex;flex-wrap:wrap;align-items:center;gap:11px;padding:12px 13px;border-bottom:1px solid #394653;background:#202b36}
+    .stage-header b {font-size:14px}.stage-header .sub {font:11px ui-monospace,monospace;color:#aeb8c7}
+    .stage-header select {min-width:180px;flex:1;background:#111b26;color:#ecddcd;padding:9px;border:1px solid #515d69;border-radius:6px;font-weight:600}
+    .canvas-wrap {background:#080b11;padding:8px;position:relative}
+    canvas#game {display:block;width:100%;height:auto;aspect-ratio:16/9;image-rendering:pixelated;background:#171921;border:1px solid #73574c;box-shadow:0 0 0 2px #080a0f}
+    #hud {pointer-events:none;position:absolute;left:16px;top:15px;right:16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;text-shadow:0 1px 3px #000}
+    #hud .tag {display:block;padding:5px 7px;background:#131b24db;border:1px solid #a476475a;color:#f6d3a6;font:700 11px ui-monospace,monospace;border-radius:4px}
+    #hud .tag.right {color:#e7e5d9;text-align:right}
+    #mini {display:block;width:100%;height:auto;background:#0e1720;border-top:1px solid #384451;image-rendering:pixelated}
+    .tools {display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 13px;border-top:1px solid #3b4755;background:#1a2530}
+    .tools label {font-size:12px;color:#c6ccd0;display:flex;align-items:center;gap:7px}
+    select,button,input {font:inherit}
+    .tools select {background:#0e1823;color:#e8e2d5;border:1px solid #586371;border-radius:5px;padding:6px}
+    input[type=range] {accent-color:var(--gold);width:140px}
+    button {color:#e6e9e7;background:#293b4a;border:1px solid #526274;border-radius:6px;padding:7px 10px;cursor:pointer;touch-action:manipulation}
+    button:hover {background:#3b5263}button:active,button.pressed {background:#785a36;color:#fff4d4}
+    .gold {border-color:#9a784b;background:#4c392b;color:#f8d7a6}
+    .stats {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#384451;border-top:1px solid #384451}
+    .stat {background:#17212b;padding:10px 12px}.stat small {display:block;color:var(--muted);font:10px ui-monospace,monospace;letter-spacing:.05em}.stat strong {display:block;font:700 14px ui-monospace,monospace;margin-top:3px;color:#d4e0e5}
+    aside {padding:16px;display:flex;flex-direction:column;gap:14px}
+    .eyebrow {font:700 11px ui-monospace,monospace;letter-spacing:.1em;color:#e6bb84;margin-bottom:4px}
+    aside h2 {font-size:19px;margin:0;line-height:1.18}aside p {color:#c2c9d0;margin:5px 0 0;font-size:13px}aside .answer {color:#d4c2a2}
+    .sep {height:1px;background:#3d4955}
+    .guide {padding:12px;background:#111a24;border-radius:7px;border:1px solid #3c4857}
+    .guide b {color:#ead1a4;font-size:12px}.guide p {font-size:12px;color:#bbc5cd}
+    kbd {font-family:ui-monospace,monospace;font-size:11px;color:#e2e9ef;background:#334452;border:1px solid #5b6e7e;border-radius:3px;padding:1px 5px}
+    .options {display:flex;flex-wrap:wrap;gap:6px}.options label {font-size:12px;color:#b7c0ca}
+    .footer-note {font-size:11px;color:#93a1b0;line-height:1.5}
+    .touch {display:none;gap:10px;justify-content:space-between;padding:10px;background:#141f2b;border-top:1px solid #394652}
+    .touch-group {display:flex;align-items:center;gap:8px}
+    .touch button {min-width:46px;min-height:44px;font-size:15px;font-weight:bold;touch-action:none;user-select:none}
+    .touch button.small {font-size:11px;min-width:52px}
+    .below {grid-column:1/-1;background:#121b25;border:1px solid #324351;padding:14px 16px;border-radius:10px;color:#b8c5d1;font-size:12px}
+    .below strong {color:#efca8d}
+    @media (max-width:900px) {main {display:flex;flex-direction:column;padding:0 10px 14px}header {padding:14px 12px}.state-pill{display:none}aside{padding:13px}.guide{display:none}.stat {padding:7px}.stat strong{font-size:12px}}
+    @media (pointer:coarse) {.touch{display:flex}}
+    @media (max-width:530px) {.tools{gap:7px}.tools label {font-size:11px}input[type=range]{width:100px}.stats{grid-template-columns:repeat(2,1fr)}.canvas-wrap{padding:3px}#hud{left:8px;right:8px;top:7px}#hud .tag{font-size:8px;padding:3px}header{padding-bottom:10px}.subtitle{font-size:12px}.touch button{min-width:40px;padding:5px 7px}.touch{display:flex}}
+  </style>
+</head>
+<body>
+<header>
+  <div><p class="supra">NO PANTS. NO MERCY. / DESIGN PROTOTYPE v0.1</p><h1>THE CRAWL <span style="color:#fdf0d8;font-weight:400">/ CAMERA LAB</span></h1>
+  <p class="subtitle">Seis greyboxes interactivos para comparar amplitud de cámara, techo y galerías superiores, legibilidad del dúo y oportunidades de combate. No representa arte final ni jugabilidad validada de Rust + Bevy.</p></div>
+  <span class="state-pill">EXPERIMENTAL / NOT ENGINE</span>
+</header>
+<main>
+  <section class="panel">
+    <div class="stage-header"><b>SALA</b><select id="scene"></select><span class="sub" id="sceneId"></span></div>
+    <div class="canvas-wrap"><canvas id="game" width="640" height="360" role="img" aria-label="Vista interactiva de la sala y los personajes"></canvas>
+      <div id="hud"><span class="tag" id="badgeLeft">GREYBOX // ACT 1</span><span class="tag right" id="badgeRight">CAM 1.50×</span></div></div>
+    <canvas id="mini" width="640" height="95" aria-label="Vista de planta: sala completa y encuadre de la cámara"></canvas>
+    <div class="tools">
+      <label>ZOOM <input id="zoom" type="range" min="1" max="1.75" step="0.25" value="1.5"><strong id="zoomValue">1.50×</strong></label>
+      <label><input type="checkbox" id="autoZoom"> Auto según separación</label>
+      <label>VISTA <select id="ratio"><option value="360">16:9 (640×360)</option><option value="400">16:10 (640×400)</option></select></label>
+      <label>MODO <select id="mode"><option value="solo">Solo + acompañante</option><option value="duo">2 jugadores (teclado)</option></select></label>
+      <button id="separate" class="gold" title="Separa a Donut a la derecha para observar el encuadre cooperativo">Separar dúo</button>
+      <button id="reset">Reiniciar sala</button>
+    </div>
+    <div class="stats" role="status">
+      <div class="stat"><small>ÁREA VISIBLE</small><strong id="coverage">960×540</strong></div>
+      <div class="stat"><small>CARL EN 1080p</small><strong id="carlPx">104 px</strong></div>
+      <div class="stat"><small>DONUT EN 1080p</small><strong id="donutPx">80 px</strong></div>
+      <div class="stat"><small>SEPARACIÓN DEL DÚO</small><strong id="separation">60 world px</strong></div>
+    </div>
+    <div class="touch" aria-label="Controles táctiles"><div class="touch-group"><button data-key="ArrowLeft">◀</button><button data-key="ArrowRight">▶</button><button data-key="ArrowUp">▲</button></div><div class="touch-group"><button data-key="KeyJ" class="small">GOLPE</button><button data-key="KeyK" class="small">PATADA</button><button id="touchSwitch" class="small">CAMBIO</button></div></div>
+  </section>
+  <aside class="panel">
+    <div><div class="eyebrow">BRIEF DEL ESCENARIO</div><h2 id="roomTitle">La primera revancha</h2><p id="roomSub"></p></div>
+    <div class="sep"></div>
+    <div><div class="eyebrow">HIPÓTESIS</div><p id="purpose"></p></div>
+    <div><div class="eyebrow">QUÉ OBSERVAR</div><p class="answer" id="expected"></p></div>
+    <div><div class="eyebrow">DOS PERSONAJES</div><p id="coop"></p></div>
+    <div class="sep"></div>
+    <div class="guide"><b>CONTROLES DE PRUEBA — SOLO</b><p><kbd>←</kbd> <kbd>→</kbd> mover · <kbd>↑</kbd> salto<br><kbd>J</kbd> golpe · <kbd>K</kbd> patada<br><kbd>TAB</kbd> cambiar entre Carl y Donut</p><b>2P (UN TECLADO)</b><p>Carl: <kbd>A</kbd> <kbd>D</kbd> <kbd>W</kbd> + <kbd>F</kbd> <kbd>G</kbd><br>Donut: <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> + <kbd>M</kbd> <kbd>N</kbd></p></div>
+    <div class="options"><label><input id="architecture" type="checkbox" checked> Galerías superiores</label><label><input id="cameraBox" type="checkbox" checked> Encuadre en minimapa</label></div>
+    <p class="footer-note">Los personajes son siluetas esquemáticas de 52 y 40 world px. El movimiento, combate y render no sustituyen las pruebas con sprites reales, mandos ni Bevy. Los ataques ilustran causalidad, no balances ni capacidades confirmadas.</p>
+  </aside>
+  <div class="below"><strong>Experimento recomendado:</strong> entra en una sala, compara 1×, 1,25×, 1,5× y 1,75×, separa el dúo, desplázate y salta para observar las plataformas superiores. Fíjate en si puedes reconocer amenazas, anticipar ataques y seguir viendo arquitectura detrás de todo el encuadre. Repite en 16:10. El rectángulo del minimapa representa la zona visible (minimapa estirado para ganar legibilidad).</div>
+</main>
+<script id="level-data" type="application/json">{"schema": "the-crawl.floor01.camera-lab.v1", "status": "Design experiment only. Not canonical gameplay, physics, rendered assets, or a Bevy implementation.", "virtual_resolution": [640, 360], "deck_virtual_resolution": [640, 400], "source_actor_heights": {"carl": 52, "donut": 40}, "camera_coverage_candidates": [1.0, 1.25, 1.5, 1.75], "scenarios": [{"id": "ROOM-01", "name": "La primera revancha", "subtitle": "Inicio · Goblins · Combate horizontal", "act": 1, "setting": "dry-catacomb", "width": 1570, "height": 760, "floor": 600, "spawn": {"carl": 125, "donut": 186}, "camera_intro": 380, "platforms": [{"x": 430, "y": 478, "w": 190, "h": 16}, {"x": 1030, "y": 485, "w": 160, "h": 16}], "props": [{"x": 730, "y": 548, "w": 40, "h": 52, "kind": "crate", "breakable": true}, {"x": 880, "y": 492, "w": 22, "h": 108, "kind": "weak-wall", "breakable": true}, {"x": 1260, "y": 552, "w": 40, "h": 48, "kind": "crate", "breakable": true}], "enemies": [{"x": 600, "kind": "goblin"}, {"x": 790, "kind": "goblin"}, {"x": 1080, "kind": "goblin"}], "hazards": [], "goal_x": 1490, "purpose": "Primera eliminación satisfactoria, rebote de un goblin contra otro y alternativa destructible. ¿Alejar la cámara permite anticipar al siguiente enemigo?", "expected": "Ver más enemigos sin perder la lectura del contacto, la anticipación y las reacciones de Carl y Donut.", "coop": "Donut puede alcanzar una plataforma y flanquear antes de obtener magia. No necesitamos obligarla a abrir una segunda salida."}, {"id": "ROOM-02", "name": "Cazadores desde arriba", "subtitle": "Bad Llamas · Emboscada vertical", "act": 1, "setting": "heat-catacomb", "width": 1530, "height": 920, "floor": 740, "spawn": {"carl": 115, "donut": 175}, "camera_intro": 510, "platforms": [{"x": 290, "y": 618, "w": 200, "h": 16}, {"x": 625, "y": 486, "w": 220, "h": 16}, {"x": 1040, "y": 585, "w": 255, "h": 16}], "props": [{"x": 480, "y": 690, "w": 32, "h": 50, "kind": "crate", "breakable": true}, {"x": 945, "y": 650, "w": 30, "h": 90, "kind": "weak-wall", "breakable": true}], "enemies": [{"x": 520, "kind": "llama"}, {"x": 770, "kind": "llama", "on_y": 486}, {"x": 1170, "kind": "llama"}], "hazards": [{"x": 850, "y": 734, "w": 72, "h": 6, "kind": "heat"}], "goal_x": 1465, "purpose": "¿Podemos mostrar los ataques que llegan desde arriba, el combate en el suelo y a ambos personajes sin inundar el encuadre de arquitectura vacía?", "expected": "Diferencias de altura claras y cobertura útil. Evitar variar el zoom durante un impacto cuerpo a cuerpo.", "coop": "Donut llega primero a los puntos altos; Carl aprovecha la cobertura y un tabique débil. No atribuir magia antes del desbloqueo correspondiente."}, {"id": "ROOM-03", "name": "Abre una brecha", "subtitle": "Taller goblin · Escenario como arma", "act": 2, "setting": "workshop", "width": 1810, "height": 870, "floor": 720, "spawn": {"carl": 130, "donut": 190}, "camera_intro": 520, "platforms": [{"x": 360, "y": 612, "w": 220, "h": 18}, {"x": 800, "y": 540, "w": 265, "h": 18}, {"x": 1250, "y": 605, "w": 220, "h": 18}], "props": [{"x": 590, "y": 565, "w": 34, "h": 155, "kind": "weak-wall", "breakable": true}, {"x": 750, "y": 675, "w": 56, "h": 45, "kind": "crate", "breakable": true}, {"x": 1090, "y": 638, "w": 32, "h": 82, "kind": "support", "breakable": true}, {"x": 1130, "y": 558, "w": 88, "h": 22, "kind": "hanging-weight", "breakable": true}, {"x": 1530, "y": 666, "w": 55, "h": 54, "kind": "crate", "breakable": true}], "enemies": [{"x": 705, "kind": "goblin"}, {"x": 940, "kind": "goblin", "on_y": 540}, {"x": 1238, "kind": "goblin"}, {"x": 1610, "kind": "engineer"}], "hazards": [], "goal_x": 1735, "purpose": "La misma pelea de goblins cambia al abrir Carl una pared, destruir un soporte o lanzar enemigos contra maquinaria.", "expected": "Que quepan en el encuadre la causa y su consecuencia: rotura, caída e impacto. Ningún primer plano debe ocultar una muerte.", "coop": "Donut avanza desde arriba mientras Carl cambia el acceso. Ambos deben poder reunirse por una ruta protegida."}, {"id": "ROOM-04", "name": "La guarida del Hoarder", "subtitle": "Scatterers · Presión y densidad", "act": 2, "setting": "hoarder", "width": 1690, "height": 1020, "floor": 820, "spawn": {"carl": 140, "donut": 208}, "camera_intro": 640, "platforms": [{"x": 280, "y": 700, "w": 260, "h": 16}, {"x": 710, "y": 600, "w": 255, "h": 16}, {"x": 1140, "y": 680, "w": 190, "h": 16}], "props": [{"x": 560, "y": 738, "w": 90, "h": 82, "kind": "junk", "breakable": true}, {"x": 990, "y": 740, "w": 50, "h": 80, "kind": "junk", "breakable": true}, {"x": 1390, "y": 752, "w": 95, "h": 68, "kind": "junk", "breakable": true}], "enemies": [{"x": 455, "kind": "scatterer"}, {"x": 610, "kind": "scatterer"}, {"x": 810, "kind": "scatterer", "on_y": 600}, {"x": 1130, "kind": "scatterer"}, {"x": 1350, "kind": "hoarder", "hp": 4}], "hazards": [], "goal_x": 1610, "purpose": "Estrés por densidad de enemigos y decoración: ¿la toma amplia mejora el control de una multitud sin hacer invisibles a los insectos pequeños?", "expected": "Rutas y siluetas reconocibles pese a la densidad. Basura concentrada en la guarida, no en todos los pasillos.", "coop": "Donut rodea al enjambre desde las plataformas. Carl domina el suelo y rompe las barreras que le convienen."}, {"id": "ROOM-05", "name": "El gimnasio del Juicer", "subtitle": "Cooperativo · Separación y reunión", "act": 3, "setting": "gym", "width": 1900, "height": 990, "floor": 790, "spawn": {"carl": 160, "donut": 220}, "camera_intro": 600, "platforms": [{"x": 390, "y": 652, "w": 260, "h": 17}, {"x": 770, "y": 555, "w": 250, "h": 17}, {"x": 1250, "y": 635, "w": 295, "h": 17}], "props": [{"x": 590, "y": 726, "w": 34, "h": 64, "kind": "weight", "breakable": true}, {"x": 1110, "y": 695, "w": 40, "h": 95, "kind": "weight", "breakable": true}, {"x": 1600, "y": 721, "w": 56, "h": 69, "kind": "weight", "breakable": true}], "enemies": [{"x": 970, "kind": "trog"}, {"x": 1430, "kind": "juicer", "hp": 5}], "hazards": [], "goal_x": 1830, "purpose": "Carl y Donut se separan deliberadamente en vertical y horizontal. ¿Puede la cámara acompañarlos sin convertir a uno en un punto diminuto?", "expected": "Pantalla compartida manejable y roles distintos entre plataformas y suelo, sin recurrir todavía a pantalla partida.", "coop": "Carl utiliza pesos y equipamiento pesado. Donut flanquea por arriba; validar que los dos jugadores siguen participando."}, {"id": "ROOM-06", "name": "Ball of Swine", "subtitle": "Jefe · Cargas y puertas móviles", "act": 3, "setting": "arena", "width": 2060, "height": 1080, "floor": 885, "spawn": {"carl": 460, "donut": 530}, "camera_intro": 730, "platforms": [{"x": 225, "y": 700, "w": 265, "h": 18}, {"x": 1505, "y": 705, "w": 265, "h": 18}, {"x": 925, "y": 610, "w": 190, "h": 18}], "props": [{"x": 680, "y": 810, "w": 35, "h": 75, "kind": "weak-wall", "breakable": true}, {"x": 1150, "y": 695, "w": 42, "h": 190, "kind": "gate", "breakable": false}, {"x": 1530, "y": 808, "w": 42, "h": 77, "kind": "weak-wall", "breakable": true}], "enemies": [{"x": 1260, "kind": "ball", "hp": 6}], "hazards": [], "goal_x": 1980, "purpose": "Mantener visibles a ambos protagonistas, el gran jefe, la anticipación de su carga y la puerta mecánica importante, sin sacudidas ni personajes minúsculos.", "expected": "Podemos probar hasta 960×540 world px o más, pero no hace falta meter los 2060 px de ancho en una sola pantalla.", "coop": "Un jugador provoca la carga; el otro se coloca cerca de la puerta. También debe ser posible vencer mediante daño directo."}]}</script>
+<script>
+(()=>{
+'use strict';
+const data=JSON.parse(document.getElementById('level-data').textContent);
+const $=id=>document.getElementById(id);
+const canvas=$('game'), ctx=canvas.getContext('2d',{alpha:false}), mini=$('mini'), mm=mini.getContext('2d');
+const sel=$('scene'),zoomInput=$('zoom'),autoZoom=$('autoZoom'),ratio=$('ratio'),mode=$('mode'),keyDown=new Set();
+const palettes={
+'dry-catacomb':{back:'#252a34',brick:'#50413d',mortar:'#312d32',ledge:'#a17b61',shadow:'#1a222e',light:'#e5a458'},
+'heat-catacomb':{back:'#30272d',brick:'#634238',mortar:'#34262c',ledge:'#ac6f52',shadow:'#211a25',light:'#ed8850'},
+'workshop':{back:'#2a2b31',brick:'#58504a',mortar:'#323036',ledge:'#b09060',shadow:'#1d242b',light:'#e0ab54'},
+'hoarder':{back:'#252a2c',brick:'#4b433a',mortar:'#222c30',ledge:'#81705d',shadow:'#1a2228',light:'#de9354'},
+'gym':{back:'#30333b',brick:'#605b5b',mortar:'#35333b',ledge:'#9c9d95',shadow:'#20252e',light:'#e1cb8a'},
+'arena':{back:'#282b38',brick:'#5b4c58',mortar:'#28293a',ledge:'#c0a17e',shadow:'#1a1c2c',light:'#d1a1e8'}
+};
+let S,actors,enemies,props,particles=[],cam={x:320,y:280,z:1.5},frame=0,last=0,current=0,active='c',holdSeparationFrames=0;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const color=(fill,x,y,w,h)=>{ctx.fillStyle=fill;ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));};
+const actor=(id,x,y)=>({id,x,y,vx:0,vy:0,ground:true,facing:1,cool:0});
+const heights={c:52,d:40};
+for(const [i,sc] of data.scenarios.entries()){let op=document.createElement('option');op.value=i;op.textContent=`${i+1} · ${sc.name}`;sel.append(op);}
+function load(index){current=index;S=data.scenarios[current];active='c';holdSeparationFrames=0;actors={c:actor('c',S.spawn.carl,S.floor),d:actor('d',S.spawn.donut,S.floor)};
+ enemies=S.enemies.map((e,i)=>({...e,id:i,alive:true,x0:e.x,x:e.x,y:e.on_y??S.floor,vx:0,hit:0,hp:e.hp||1,facing:-1}));props=S.props.map((p,i)=>({...p,id:i,alive:true}));particles=[];frame=0;
+ cam.x=clamp((actors.c.x+actors.d.x)/2,320,S.width-320);cam.y=S.floor-170;cam.z=+zoomInput.value;
+ $('roomTitle').textContent=S.name;$('roomSub').textContent=S.subtitle;$('purpose').textContent=S.purpose;$('expected').textContent=S.expected;$('coop').textContent=S.coop;
+ $('sceneId').textContent=`${S.id} · ${S.width}×${S.height} world px`;$('badgeLeft').textContent=`${S.id} / ACT ${S.act} / GREYBOX`;
+}
+sel.onchange=()=>load(+sel.value);$('reset').onclick=()=>load(current);
+$('separate').onclick=()=>{holdSeparationFrames=360;actors.d.x=clamp(actors.c.x+510,60,S.width-70);actors.d.y=S.floor;actors.d.vy=0;actors.d.ground=true;};
+$('touchSwitch').onclick=()=>{if(mode.value==='solo')active=active==='c'?'d':'c';};
+$('ratio').onchange=()=>{canvas.height=+ratio.value;canvas.style.aspectRatio=`640/${canvas.height}`;};
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','Space','Tab'].includes(e.code))e.preventDefault();keyDown.add(e.code);if(e.code==='Tab'&&!e.repeat&&mode.value==='solo')active=active==='c'?'d':'c';});
+window.addEventListener('keyup',e=>keyDown.delete(e.code));
+window.addEventListener('blur',()=>keyDown.clear());
+for(const b of document.querySelectorAll('[data-key]')){const k=b.dataset.key;const down=e=>{e.preventDefault();keyDown.add(k);b.classList.add('pressed');try{b.setPointerCapture(e.pointerId)}catch(_){}};const up=e=>{e.preventDefault();keyDown.delete(k);b.classList.remove('pressed')};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);}
+function splatter(x,y,col,n=10){for(let i=0;i<n;i++){let a=(i*2.399+Math.random()*.5);let s=55+Math.random()*155;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-80,life:.3+Math.random()*.45,c:col,r:2+Math.random()*3})}}
+function attack(a,kick=false){if(a.cool>0)return;a.cool=kick?.32:.22;const reach=kick?70:58;
+ let hit=false;for(const e of enemies){if(!e.alive)continue;const dx=e.x-a.x,dy=e.y-a.y;if(Math.abs(dx)<reach&&Math.abs(dy)<90&&(Math.sign(dx)===a.facing||Math.abs(dx)<24)){
+  hit=true;e.hp-=kick?1:1;e.hit=.3;e.vx=a.facing*(kick?360:160);splatter(e.x,e.y-26,kick?'#e6b269':'#dca0a2',12);if(e.hp<=0){if(kick){e.hp=0;e.falling=true;}else e.alive=false;}break;
+ }}
+ for(const p of props){if(!p.alive||!p.breakable)continue;let dx=p.x+p.w/2-a.x;if(Math.abs(dx)<reach+12&&Math.abs((p.y+p.h/2)-(a.y-25))<110){p.alive=false;hit=true;splatter(p.x+p.w/2,p.y+p.h/2,'#d9a879',19);
+ if(p.kind==='hanging-weight'||p.kind==='support'){for(const e of enemies)if(e.alive&&Math.abs(e.x-p.x)<145){e.alive=false;splatter(e.x,e.y-35,'#e9a375',17)}}
+ break;}}
+ if(!hit)splatter(a.x+a.facing*35,a.y-30,'#e1bd82',3);
+}
+function moveActor(a,left,right,jump,hit,kick,dt){a.cool=Math.max(0,a.cool-dt);let dx=(right?1:0)-(left?1:0),v=a.id==='d'?218:194;a.vx=dx*v;if(dx)a.facing=dx;
+ if(jump&&a.ground){a.vy=a.id==='d'?-550:-430;a.ground=false;}
+ if(hit)attack(a,false);else if(kick)attack(a,true);
+ const prev=a.y;a.vy+=1200*dt;a.x=clamp(a.x+a.vx*dt,20,S.width-20);a.y+=a.vy*dt;a.ground=false;
+ if(a.vy>=0){let landing=S.floor;if(prev<=S.floor&&a.y>=S.floor)landing=S.floor;
+ for(const p of S.platforms){if(a.x>p.x-12&&a.x<p.x+p.w+12&&prev<=p.y+3&&a.y>=p.y&&p.y<landing)landing=p.y;}
+ if(prev<=landing+4&&a.y>=landing){a.y=landing;a.vy=0;a.ground=true;}}
+ if(a.y>S.floor){a.y=S.floor;a.vy=0;a.ground=true;}
+}
+function update(dt){dt=Math.min(dt,.04);frame++;
+ if(mode.value==='solo'){
+  let a=actors[active],b=actors[active==='c'?'d':'c'];
+  moveActor(a,keyDown.has('ArrowLeft')||keyDown.has('KeyA'),keyDown.has('ArrowRight')||keyDown.has('KeyD'),keyDown.has('ArrowUp')||keyDown.has('KeyW')||keyDown.has('Space'),keyDown.has('KeyJ')||keyDown.has('KeyF'),keyDown.has('KeyK')||keyDown.has('KeyG'),dt);
+  let gap=a.x-b.x; let follow=Math.abs(gap)>65;if(holdSeparationFrames>0){holdSeparationFrames--;moveActor(b,false,false,false,false,false,dt);}else moveActor(b,follow&&gap<0,follow&&gap>0,false,false,false,dt);
+  if(Math.abs(gap)>980){b.x=a.x-60;b.y=a.y;b.vy=0;}
+ }else{
+  moveActor(actors.c,keyDown.has('KeyA'),keyDown.has('KeyD'),keyDown.has('KeyW'),keyDown.has('KeyF'),keyDown.has('KeyG'),dt);
+  moveActor(actors.d,keyDown.has('ArrowLeft'),keyDown.has('ArrowRight'),keyDown.has('ArrowUp'),keyDown.has('KeyM')||keyDown.has('KeyJ'),keyDown.has('KeyN')||keyDown.has('KeyK'),dt);
+ }
+ for(const e of enemies){if(!e.alive)continue;e.hit=Math.max(0,e.hit-dt);if(e.vx){const prevX=e.x;e.x+=e.vx*dt;e.vx*=Math.exp(-4*dt);if(Math.abs(e.vx)<1)e.vx=0;
+ if(e.falling&&Math.abs(e.vx)<50){e.alive=false;splatter(e.x,e.y-15,'#ba6568',10)}
+ if(Math.abs(e.x-prevX)>2){for(const f of enemies)if(f!==e&&f.alive&&Math.abs(e.x-f.x)<26&&Math.abs(e.y-f.y)<65){f.alive=false;splatter(f.x,f.y-16,'#d78472',16);e.alive=false;splatter(e.x,e.y-16,'#dfb67b',16);break;}}
+ }else if(e.kind==='ball'){e.x+=Math.sin(frame/50)*1.6;}else{e.x+=Math.sin(frame/47+e.id*2)*.32;}}
+ for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=400*dt;p.life-=dt;}particles=particles.filter(p=>p.life>0);
+ const dz=Math.abs(actors.c.x-actors.d.x),cap=+zoomInput.value;
+ let wanted=cap;if(autoZoom.checked)wanted=clamp(1+Math.max(0,dz-310)/500,1,cap);
+ cam.z+=(wanted-cam.z)*Math.min(1,dt*3);
+ let w=640*cam.z,h=canvas.height*cam.z;
+ let tx=(actors.c.x+actors.d.x)*.5; let ty=Math.min(actors.c.y,actors.d.y)-155;
+ if(S.setting==='arena'){const boss=enemies.find(e=>e.kind==='ball'&&e.alive);if(boss&&Math.abs(boss.x-tx)<540)tx=tx*.77+boss.x*.23;}
+ cam.x+=(clamp(tx,w/2,S.width-w/2)-cam.x)*Math.min(1,dt*4.5);
+ cam.y+=(clamp(ty,h/2,S.height-h/2)-cam.y)*Math.min(1,dt*3.5);
+ $('zoomValue').textContent=`${cam.z.toFixed(2)}×`;$('badgeRight').textContent=`${(640*cam.z).toFixed(0)}×${(canvas.height*cam.z).toFixed(0)} WORLD / ${cam.z.toFixed(2)}×`;
+ $('coverage').textContent=`${Math.round(640*cam.z)}×${Math.round(canvas.height*cam.z)}`;
+ $('carlPx').textContent=`${Math.round(52*3/cam.z)} px`;
+ $('donutPx').textContent=`${Math.round(40*3/cam.z)} px`;$('separation').textContent=`${Math.round(dz)} world px`;
+}
+function drawWorld(){const p=palettes[S.setting],z=cam.z,vw=640*z,vh=canvas.height*z;ctx.save();ctx.scale(1/z,1/z);ctx.translate(-cam.x+vw/2,-cam.y+vh/2);const xmin=cam.x-vw/2-75,xmax=cam.x+vw/2+75, ymin=cam.y-vh/2-80,ymax=cam.y+vh/2+80;
+ color(p.back,0,0,S.width,S.height);
+ // Repeating masonry is authored over full world height; zoom never uncovers a void.
+ for(let y=Math.max(0,Math.floor(ymin/36)*36);y<Math.min(S.height,ymax);y+=36){for(let x=Math.max(0,Math.floor(xmin/76)*76);x<Math.min(S.width,xmax);x+=76){let shift=((y/36)|0)%2?37:0;let bx=x+shift; color(p.brick,bx+1,y+1,72,32);color(p.mortar,bx+1,y+32,72,3);if(((x+y*3)/36|0)%7===0)color('#74675f',bx+7,y+5,14,2);}}
+ // High vault and far arch galleries: complete architectural upper space, not black empty sky.
+ if($('architecture').checked){
+  for(let x=Math.max(0,Math.floor(xmin/270)*270);x<Math.min(S.width,xmax);x+=270){color(p.shadow,x+27,85,207,445);ctx.fillStyle=p.shadow;ctx.beginPath();ctx.ellipse(x+130,145,103,77,0,Math.PI,0,true);ctx.fill();
+   color('#313745',x+58,156,143,279);color('#191f2b',x+75,178,112,222);color(p.ledge,x+30,94,14,400);color(p.ledge,x+221,94,14,400);
+   color('#958271',x+14,80,240,14);color('#c2a482',x+24,72,220,7);
+   if(S.setting==='workshop'){color('#7d6655',x+35,140,190,9);color('#9e815f',x+120,140,11,228);}
+   if(S.setting==='gym'){color('#8c8d9c',x+36,202,195,4);color('#576679',x+72,213,120,77);}
+   if(S.setting==='arena'){ctx.strokeStyle='#8a7188';ctx.lineWidth=7;ctx.beginPath();ctx.arc(x+130,195,123,Math.PI,0);ctx.stroke();}
+  }
+  // Structural ceiling top remains present throughout entire world width.
+  color('#252530',0,0,S.width,46);color('#63574e',0,42,S.width,18);color('#b59a78',0,61,S.width,8);
+  for(let x=0;x<S.width;x+=240){color('#a48b6d',x+10,61,10,100);color('#65564e',x+1,130,28,18);}
+ }
+ // Distant light emitters, positioned across the height of each level.
+ for(let x=170;x<S.width;x+=340){const ty=Math.min(S.floor-250,385);color('#cf9e60',x-3,ty,6,15);color('#ffcb6e',x-6,ty-13,12,16);color('#fff0ab',x-2,ty-9,4,8);}
+ // Physical floor always has thickness and front edge.
+ color('#1b1d27',0,S.floor,S.width,S.height-S.floor);color('#866b5d',0,S.floor-8,S.width,8);color('#b79774',0,S.floor-14,S.width,7);
+ for(let x=Math.max(0,Math.floor(xmin/100)*100);x<xmax;x+=100){color('#4b3935',x,S.floor+24,96,21);color('#615048',x+5,S.floor+46,87,3)}
+ for(const t of S.platforms){color('#1d222c',t.x+6,t.y+8,t.w,t.h+5);color('#ae9072',t.x,t.y,t.w,t.h-3);color('#d6b48c',t.x,t.y,t.w,5);for(let x=t.x+12;x<t.x+t.w;x+=55)color('#56413d',x,t.y+10,20,3);}
+ for(const h of S.hazards){color(h.kind==='heat'?'#bc452d':'#d2d5ba',h.x,h.y,h.w,h.h);for(let i=0;i<h.w;i+=14)color('#f0a64b',h.x+i,h.y-5,5,6);}
+ for(const pr of props){if(!pr.alive)continue;let col=pr.kind==='gate'?'#808491':pr.kind==='weak-wall'?'#bca17a':pr.kind==='weight'?'#838b99':pr.kind==='junk'?'#756b62':pr.kind==='hanging-weight'?'#888c89':'#aa7653';
+  color('#171e2b',pr.x+3,pr.y+5,pr.w,pr.h);color(col,pr.x,pr.y,pr.w,pr.h);color('#e1c69a',pr.x+2,pr.y+2,pr.w-4,4);
+  if(pr.breakable){ctx.strokeStyle='#473f3a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(pr.x+pr.w*.28,pr.y+8);ctx.lineTo(pr.x+pr.w*.62,pr.y+pr.h*.45);ctx.lineTo(pr.x+pr.w*.42,pr.y+pr.h*.8);ctx.stroke();}
+  if(pr.kind==='gate'){color('#4d3b5f',pr.x-7,pr.y-15,pr.w+14,18);color('#d6a8dd',pr.x+10,pr.y,10,pr.h);}
+ }
+ for(const e of enemies){if(!e.alive)continue;const big=e.kind==='ball',wide=e.kind==='juicer'||e.kind==='hoarder';let hh=big?104:wide?94:e.kind==='llama'?61:34;let ww=big?110:wide?61:e.kind==='llama'?41:32;
+  let col=big?'#ae7186':e.kind==='llama'?'#c8ad80':e.kind==='scatterer'?'#60766b':wide?'#988b78':'#81ad70';
+  ctx.fillStyle='#161d23';ctx.fillRect(e.x-ww/2+4,e.y-hh+5,ww,hh);
+  if(big){ctx.fillStyle='#5e4059';ctx.beginPath();ctx.arc(e.x,e.y-hh/2,52,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d3a18e';ctx.lineWidth=5;ctx.stroke();for(let i=0;i<7;i++){let a=i*.93+frame/140;let x=e.x+Math.cos(a)*33,y=e.y-hh/2+Math.sin(a)*33;color('#dbc2a0',x-6,y-7,12,14)}}
+  else{color(col,e.x-ww/2,e.y-hh,ww,hh);color('#30292c',e.x-ww/2+6,e.y-hh+6,ww-12,5);color('#e8cf9f',e.x-ww/2+7,e.y-hh+14,5,5);}
+  if(e.hit>0){ctx.strokeStyle='#f7e2aa';ctx.lineWidth=3;ctx.strokeRect(e.x-ww/2-4,e.y-hh-4,ww+8,hh+8);}
+ }
+ // Characters have exact canonical world-height proxies but are NOT final sprite art.
+ for(const a of [actors.c,actors.d]){const selected=mode.value==='duo'||a.id===active;const H=heights[a.id],f=a.facing;
+  if(a.id==='c'){color('#080e17',a.x-10,a.y-5,21,5);color('#d1ab80',a.x-8,a.y-52,16,16);color('#303848',a.x-12,a.y-36,24,21);color('#ddd2ad',a.x-12,a.y-15,24,6);color('#816c58',a.x-10,a.y-9,8,9);color('#816c58',a.x+2,a.y-9,8,9);color('#d9b58d',a.x+f*10-3,a.y-31,6,12);color('#f7e2b7',a.x+f*6,a.y-47,3,3);}
+  else{color('#0c1319',a.x-14,a.y-4,27,4);color('#b8a4c9',a.x-12,a.y-29,24,19);color('#d6bfd9',a.x-13,a.y-40,26,16);
+   ctx.fillStyle='#b8a4c9';ctx.beginPath();ctx.moveTo(a.x-11,a.y-35);ctx.lineTo(a.x-10,a.y-44);ctx.lineTo(a.x-2,a.y-39);ctx.moveTo(a.x+10,a.y-35);ctx.lineTo(a.x+10,a.y-44);ctx.lineTo(a.x+3,a.y-40);ctx.fill();
+   color('#f7e2b7',a.x+f*7,a.y-31,4,4);color('#bea9c8',a.x-11,a.y-11,6,10);color('#bea9c8',a.x+6,a.y-11,6,10);}
+  if(selected){ctx.strokeStyle='#f3d8a2';ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(a.x-7,a.y-H-14);ctx.lineTo(a.x,a.y-H-7);ctx.lineTo(a.x+7,a.y-H-14);ctx.stroke();}
+  ctx.fillStyle='#f7e2bf';ctx.font='bold 10px monospace';ctx.fillText(a.id==='c'?'C':'D',a.x-4,a.y-H-18);
+ }
+ // Exit and checkpoint are protected visual signposts.
+ color('#8b987a',S.goal_x-7,S.floor-72,14,58);color('#d4d3a1',S.goal_x-25,S.floor-76,50,10);
+ for(const part of particles){ctx.globalAlpha=clamp(part.life*2.5,0,1);color(part.c,part.x,part.y,part.r,part.r);ctx.globalAlpha=1;}
+ ctx.restore();}
+function draw(){ctx.imageSmoothingEnabled=false;drawWorld();
+ // Visible virtual frame border for spatial judgment.
+ ctx.strokeStyle='#b9cdbf5c';ctx.lineWidth=1;ctx.strokeRect(1,1,638,canvas.height-2);
+ if(mode.value==='solo'){ctx.fillStyle='#101c2bc9';ctx.fillRect(12,canvas.height-23,212,17);ctx.fillStyle='#e9c6a0';ctx.font='10px monospace';ctx.fillText(`CONTROL DIRECTO: ${active==='c'?'CARL':'DONUT'}`,18,canvas.height-11);}
+ // Render minimap in world coordinates, including current camera footprint.
+ mm.fillStyle='#121b25';mm.fillRect(0,0,640,95);const sx=620/S.width,sy=72/S.height,ox=9,oy=6;
+ mm.fillStyle='#3f3940';mm.fillRect(ox,oy,S.width*sx,S.height*sy);mm.fillStyle='#705b4d';mm.fillRect(ox,oy+S.floor*sy,S.width*sx,(S.height-S.floor)*sy);
+ for(const p of S.platforms){mm.fillStyle='#c49d76';mm.fillRect(ox+p.x*sx,oy+p.y*sy,Math.max(2,p.w*sx),3);}
+ for(const p of props)if(p.alive){mm.fillStyle=p.breakable?'#ebac66':'#b4b5be';mm.fillRect(ox+p.x*sx,oy+p.y*sy,Math.max(2,p.w*sx),Math.max(2,p.h*sy));}
+ for(const e of enemies)if(e.alive){mm.fillStyle=e.kind==='ball'?'#d8859f':'#8abe8a';mm.fillRect(ox+e.x*sx-2,oy+e.y*sy-3,4,4);}
+ mm.fillStyle='#f1c995';mm.fillRect(ox+actors.c.x*sx-2,oy+actors.c.y*sy-3,4,4);mm.fillStyle='#d4b8e6';mm.fillRect(ox+actors.d.x*sx-2,oy+actors.d.y*sy-3,4,4);
+ if($('cameraBox').checked){mm.strokeStyle='#83d5f2';mm.lineWidth=1.5;mm.strokeRect(ox+(cam.x-320*cam.z)*sx,oy+(cam.y-canvas.height*cam.z*.5)*sy,640*cam.z*sx,canvas.height*cam.z*sy)}
+ mm.font='10px monospace';mm.fillStyle='#a1b6c9';mm.fillText('MAPA ESQUEMÁTICO / RECTÁNGULO AZUL = CÁMARA',12,91);
+}
+function loop(time){if(!last)last=time;const dt=Math.min((time-last)/1000,.04);last=time;update(dt);draw();requestAnimationFrame(loop);}
+load(0);requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+{
+  "schema": "the-crawl.floor01.camera-lab.v1",
+  "status": "Design experiment only. Not canonical gameplay, physics, rendered assets, or a Bevy implementation.",
+  "virtual_resolution": [
+    640,
+    360
+  ],
+  "deck_virtual_resolution": [
+    640,
+    400
+  ],
+  "source_actor_heights": {
+    "carl": 52,
+    "donut": 40
+  },
+  "camera_coverage_candidates": [
+    1.0,
+    1.25,
+    1.5,
+    1.75
+  ],
+  "scenarios": [
+    {
+      "id": "ROOM-01",
+      "name": "La primera revancha",
+      "subtitle": "Inicio · Goblins · Combate horizontal",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1570,
+      "height": 760,
+      "floor": 600,
+      "spawn": {
+        "carl": 125,
+        "donut": 186
+      },
+      "camera_intro": 380,
+      "platforms": [
+        {
+          "x": 430,
+          "y": 478,
+          "w": 190,
+          "h": 16
+        },
+        {
+          "x": 1030,
+          "y": 485,
+          "w": 160,
+          "h": 16
+        }
+      ],
+      "props": [
+        {
+          "x": 730,
+          "y": 548,
+          "w": 40,
+          "h": 52,
+          "kind": "crate",
+          "breakable": true
+        },
+        {
+          "x": 880,
+          "y": 492,
+          "w": 22,
+          "h": 108,
+          "kind": "weak-wall",
+          "breakable": true
+        },
+        {
+          "x": 1260,
+          "y": 552,
+          "w": 40,
+          "h": 48,
+          "kind": "crate",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 600,
+          "kind": "goblin"
+        },
+        {
+          "x": 790,
+          "kind": "goblin"
+        },
+        {
+          "x": 1080,
+          "kind": "goblin"
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1490,
+      "purpose": "Primera eliminación satisfactoria, rebote de un goblin contra otro y alternativa destructible. ¿Alejar la cámara permite anticipar al siguiente enemigo?",
+      "expected": "Ver más enemigos sin perder la lectura del contacto, la anticipación y las reacciones de Carl y Donut.",
+      "coop": "Donut puede alcanzar una plataforma y flanquear antes de obtener magia. No necesitamos obligarla a abrir una segunda salida."
+    },
+    {
+      "id": "ROOM-02",
+      "name": "Cazadores desde arriba",
+      "subtitle": "Bad Llamas · Emboscada vertical",
+      "act": 1,
+      "setting": "heat-catacomb",
+      "width": 1530,
+      "height": 920,
+      "floor": 740,
+      "spawn": {
+        "carl": 115,
+        "donut": 175
+      },
+      "camera_intro": 510,
+      "platforms": [
+        {
+          "x": 290,
+          "y": 618,
+          "w": 200,
+          "h": 16
+        },
+        {
+          "x": 625,
+          "y": 486,
+          "w": 220,
+          "h": 16
+        },
+        {
+          "x": 1040,
+          "y": 585,
+          "w": 255,
+          "h": 16
+        }
+      ],
+      "props": [
+        {
+          "x": 480,
+          "y": 690,
+          "w": 32,
+          "h": 50,
+          "kind": "crate",
+          "breakable": true
+        },
+        {
+          "x": 945,
+          "y": 650,
+          "w": 30,
+          "h": 90,
+          "kind": "weak-wall",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 520,
+          "kind": "llama"
+        },
+        {
+          "x": 770,
+          "kind": "llama",
+          "on_y": 486
+        },
+        {
+          "x": 1170,
+          "kind": "llama"
+        }
+      ],
+      "hazards": [
+        {
+          "x": 850,
+          "y": 734,
+          "w": 72,
+          "h": 6,
+          "kind": "heat"
+        }
+      ],
+      "goal_x": 1465,
+      "purpose": "¿Podemos mostrar los ataques que llegan desde arriba, el combate en el suelo y a ambos personajes sin inundar el encuadre de arquitectura vacía?",
+      "expected": "Diferencias de altura claras y cobertura útil. Evitar variar el zoom durante un impacto cuerpo a cuerpo.",
+      "coop": "Donut llega primero a los puntos altos; Carl aprovecha la cobertura y un tabique débil. No atribuir magia antes del desbloqueo correspondiente."
+    },
+    {
+      "id": "ROOM-03",
+      "name": "Abre una brecha",
+      "subtitle": "Taller goblin · Escenario como arma",
+      "act": 2,
+      "setting": "workshop",
+      "width": 1810,
+      "height": 870,
+      "floor": 720,
+      "spawn": {
+        "carl": 130,
+        "donut": 190
+      },
+      "camera_intro": 520,
+      "platforms": [
+        {
+          "x": 360,
+          "y": 612,
+          "w": 220,
+          "h": 18
+        },
+        {
+          "x": 800,
+          "y": 540,
+          "w": 265,
+          "h": 18
+        },
+        {
+          "x": 1250,
+          "y": 605,
+          "w": 220,
+          "h": 18
+        }
+      ],
+      "props": [
+        {
+          "x": 590,
+          "y": 565,
+          "w": 34,
+          "h": 155,
+          "kind": "weak-wall",
+          "breakable": true
+        },
+        {
+          "x": 750,
+          "y": 675,
+          "w": 56,
+          "h": 45,
+          "kind": "crate",
+          "breakable": true
+        },
+        {
+          "x": 1090,
+          "y": 638,
+          "w": 32,
+          "h": 82,
+          "kind": "support",
+          "breakable": true
+        },
+        {
+          "x": 1130,
+          "y": 558,
+          "w": 88,
+          "h": 22,
+          "kind": "hanging-weight",
+          "breakable": true
+        },
+        {
+          "x": 1530,
+          "y": 666,
+          "w": 55,
+          "h": 54,
+          "kind": "crate",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 705,
+          "kind": "goblin"
+        },
+        {
+          "x": 940,
+          "kind": "goblin",
+          "on_y": 540
+        },
+        {
+          "x": 1238,
+          "kind": "goblin"
+        },
+        {
+          "x": 1610,
+          "kind": "engineer"
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1735,
+      "purpose": "La misma pelea de goblins cambia al abrir Carl una pared, destruir un soporte o lanzar enemigos contra maquinaria.",
+      "expected": "Que quepan en el encuadre la causa y su consecuencia: rotura, caída e impacto. Ningún primer plano debe ocultar una muerte.",
+      "coop": "Donut avanza desde arriba mientras Carl cambia el acceso. Ambos deben poder reunirse por una ruta protegida."
+    },
+    {
+      "id": "ROOM-04",
+      "name": "La guarida del Hoarder",
+      "subtitle": "Scatterers · Presión y densidad",
+      "act": 2,
+      "setting": "hoarder",
+      "width": 1690,
+      "height": 1020,
+      "floor": 820,
+      "spawn": {
+        "carl": 140,
+        "donut": 208
+      },
+      "camera_intro": 640,
+      "platforms": [
+        {
+          "x": 280,
+          "y": 700,
+          "w": 260,
+          "h": 16
+        },
+        {
+          "x": 710,
+          "y": 600,
+          "w": 255,
+          "h": 16
+        },
+        {
+          "x": 1140,
+          "y": 680,
+          "w": 190,
+          "h": 16
+        }
+      ],
+      "props": [
+        {
+          "x": 560,
+          "y": 738,
+          "w": 90,
+          "h": 82,
+          "kind": "junk",
+          "breakable": true
+        },
+        {
+          "x": 990,
+          "y": 740,
+          "w": 50,
+          "h": 80,
+          "kind": "junk",
+          "breakable": true
+        },
+        {
+          "x": 1390,
+          "y": 752,
+          "w": 95,
+          "h": 68,
+          "kind": "junk",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 455,
+          "kind": "scatterer"
+        },
+        {
+          "x": 610,
+          "kind": "scatterer"
+        },
+        {
+          "x": 810,
+          "kind": "scatterer",
+          "on_y": 600
+        },
+        {
+          "x": 1130,
+          "kind": "scatterer"
+        },
+        {
+          "x": 1350,
+          "kind": "hoarder",
+          "hp": 4
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1610,
+      "purpose": "Estrés por densidad de enemigos y decoración: ¿la toma amplia mejora el control de una multitud sin hacer invisibles a los insectos pequeños?",
+      "expected": "Rutas y siluetas reconocibles pese a la densidad. Basura concentrada en la guarida, no en todos los pasillos.",
+      "coop": "Donut rodea al enjambre desde las plataformas. Carl domina el suelo y rompe las barreras que le convienen."
+    },
+    {
+      "id": "ROOM-05",
+      "name": "El gimnasio del Juicer",
+      "subtitle": "Cooperativo · Separación y reunión",
+      "act": 3,
+      "setting": "gym",
+      "width": 1900,
+      "height": 990,
+      "floor": 790,
+      "spawn": {
+        "carl": 160,
+        "donut": 220
+      },
+      "camera_intro": 600,
+      "platforms": [
+        {
+          "x": 390,
+          "y": 652,
+          "w": 260,
+          "h": 17
+        },
+        {
+          "x": 770,
+          "y": 555,
+          "w": 250,
+          "h": 17
+        },
+        {
+          "x": 1250,
+          "y": 635,
+          "w": 295,
+          "h": 17
+        }
+      ],
+      "props": [
+        {
+          "x": 590,
+          "y": 726,
+          "w": 34,
+          "h": 64,
+          "kind": "weight",
+          "breakable": true
+        },
+        {
+          "x": 1110,
+          "y": 695,
+          "w": 40,
+          "h": 95,
+          "kind": "weight",
+          "breakable": true
+        },
+        {
+          "x": 1600,
+          "y": 721,
+          "w": 56,
+          "h": 69,
+          "kind": "weight",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 970,
+          "kind": "trog"
+        },
+        {
+          "x": 1430,
+          "kind": "juicer",
+          "hp": 5
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1830,
+      "purpose": "Carl y Donut se separan deliberadamente en vertical y horizontal. ¿Puede la cámara acompañarlos sin convertir a uno en un punto diminuto?",
+      "expected": "Pantalla compartida manejable y roles distintos entre plataformas y suelo, sin recurrir todavía a pantalla partida.",
+      "coop": "Carl utiliza pesos y equipamiento pesado. Donut flanquea por arriba; validar que los dos jugadores siguen participando."
+    },
+    {
+      "id": "ROOM-06",
+      "name": "Ball of Swine",
+      "subtitle": "Jefe · Cargas y puertas móviles",
+      "act": 3,
+      "setting": "arena",
+      "width": 2060,
+      "height": 1080,
+      "floor": 885,
+      "spawn": {
+        "carl": 460,
+        "donut": 530
+      },
+      "camera_intro": 730,
+      "platforms": [
+        {
+          "x": 225,
+          "y": 700,
+          "w": 265,
+          "h": 18
+        },
+        {
+          "x": 1505,
+          "y": 705,
+          "w": 265,
+          "h": 18
+        },
+        {
+          "x": 925,
+          "y": 610,
+          "w": 190,
+          "h": 18
+        }
+      ],
+      "props": [
+        {
+          "x": 680,
+          "y": 810,
+          "w": 35,
+          "h": 75,
+          "kind": "weak-wall",
+          "breakable": true
+        },
+        {
+          "x": 1150,
+          "y": 695,
+          "w": 42,
+          "h": 190,
+          "kind": "gate",
+          "breakable": false
+        },
+        {
+          "x": 1530,
+          "y": 808,
+          "w": 42,
+          "h": 77,
+          "kind": "weak-wall",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 1260,
+          "kind": "ball",
+          "hp": 6
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1980,
+      "purpose": "Mantener visibles a ambos protagonistas, el gran jefe, la anticipación de su carga y la puerta mecánica importante, sin sacudidas ni personajes minúsculos.",
+      "expected": "Podemos probar hasta 960×540 world px o más, pero no hace falta meter los 2060 px de ancho en una sola pantalla.",
+      "coop": "Un jugador provoca la carga; el otro se coloca cerca de la puerta. También debe ser posible vencer mediante daño directo."
+    }
+  ]
+}
