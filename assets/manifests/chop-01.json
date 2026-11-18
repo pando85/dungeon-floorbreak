@@ -27,8 +27,8 @@
   "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 Goblin Copper Chopper; runtime role IP-neutral fast light vehicle ram)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "CHOP-01 first-draft keys (atlas frames 0, 3, 8, 10, 11, 15; fixture tests/fixtures/chop-01_keys.json), rasterized by scripts/author_chop01.py from one parametric rig; in-between slots are copies of the nearest key; layers machine, crew, weapon",
-    "generator": "Draft spec and keys: Claude Sonnet. Senior design edit, review and in-betweens pending. No image-model raster output, no tracing, no resampling",
+    "origin": "CHOP-01 design-edit keys (atlas frames 0, 3, 8, 10, 11, 15; fixture tests/fixtures/chop-01_keys.json), rasterized by scripts/author_chop01.py from one parametric rig; in-between slots are copies of the nearest key; layers machine, crew, weapon",
+    "generator": "Draft spec and keys: Claude Sonnet. Design edit (keys 0, 3, 8, 10, 11, 15 redrawn and frozen): Claude Opus. Review and in-betweens pending. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "assets/concept/floor-01/enemies/floor01-goblin-copper-chopper-concept-approved.png"
@@ -37,9 +37,12 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "chopper": {
-    "status": "First draft: 6 keys drawn, 10 in-between slots are copies; keys not frozen for review yet; not wired into any Bevy binary",
+    "status": "Design edit: 6 keys frozen, 10 in-between slots are copies; silhouette gate and review pending; not wired into any Bevy binary",
     "spec": "docs/02-art/chop-01-spec.md",
-    "opaque_height_idle": 46,
+    "opaque_height_idle": 52,
+    "body_height": 47,
+    "length": 95,
+    "crew": "baked into the vehicle frames (crew layer); no separate crew sprites",
     "tick_hz": 60,
     "hold_preview_ms": 100,
     "grounded_tags": [
@@ -83,15 +86,19 @@
     "attack_ticks": {
       "tell": [
         0,
-        23
+        29
       ],
       "swing_smear": [
-        24,
-        25
+        30,
+        32
       ],
       "swing_impact": [
-        26,
-        29
+        33,
+        41
+      ],
+      "hitbox_active": [
+        33,
+        38
       ]
     },
     "frames": [
@@ -147,29 +154,29 @@
       {
         "index": 7,
         "tag": "attack_tell",
-        "ticks": 6,
-        "duration_ms": 100,
+        "ticks": 8,
+        "duration_ms": 133,
         "author": "copy"
       },
       {
         "index": 8,
         "tag": "attack_tell",
-        "ticks": 18,
-        "duration_ms": 300,
+        "ticks": 22,
+        "duration_ms": 367,
         "author": "key"
       },
       {
         "index": 9,
         "tag": "attack_swing",
-        "ticks": 2,
-        "duration_ms": 33,
+        "ticks": 3,
+        "duration_ms": 50,
         "author": "copy"
       },
       {
         "index": 10,
         "tag": "attack_swing",
-        "ticks": 4,
-        "duration_ms": 67,
+        "ticks": 9,
+        "duration_ms": 150,
         "author": "key"
       },
       {
@@ -189,15 +196,15 @@
       {
         "index": 13,
         "tag": "down",
-        "ticks": 4,
-        "duration_ms": 67,
+        "ticks": 6,
+        "duration_ms": 100,
         "author": "copy"
       },
       {
         "index": 14,
         "tag": "down",
-        "ticks": 8,
-        "duration_ms": 133,
+        "ticks": 10,
+        "duration_ms": 167,
         "author": "copy"
       },
       {

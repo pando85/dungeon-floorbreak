@@ -1,10 +1,10 @@
 # CHOP-01: Goblin Copper Chopper readability set, design spec
 
-**Status:** first-draft design and six keys done (draft). Senior edit pending. In-betweens, review pending.
+**Status:** design edited; six keys (0, 3, 8, 10, 11, 15) redrawn and frozen. Silhouette gate on key 0 next; in-betweens and review pending.
 
-**Decision record:** body height 47 px (opaque idle 52 px with puff), length 95 px, frame 112 x 64, pivot (56, 63). Proposed by the draft designer; decided by the senior designer (pending).
+**Decision record:** body height 47 px (opaque idle 52 px with puff), length 95 px, frame 112 x 64, pivot (56, 63); the bike sits in front of the sidecar tub so both bike wheels read; the ram is the only hit; the crew stays baked into the vehicle frames; tell 30 ticks, attack 12 ticks; the wreck is a grounded settle, not a flip; orphan limit 4 (keys at 0). Decided in the design edit (section 13).
 
-The sections follow `docs/02-art/gob-01-goblin-spec.md`. This is a first draft: numbers are proposals for the senior designer to edit.
+The sections follow `docs/02-art/gob-01-goblin-spec.md`.
 
 ## 1. Canon and tone constraints
 
@@ -87,13 +87,13 @@ Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png
 | B | 47 px (decided; 46 fill + 1 outline row) | 0.90 | about 5.4 ft | Driver's head clears the stack by 2 rows, the bike stays visibly lower than Carl, so Carl can look over and past it |
 | C | 52 to 60 px | 1.0 to 1.15 | 6.0 to 6.9 ft | Reads as a truck, competes with the Dozer's role and hides Carl at 640 x 360 |
 
-Decision: **body height 47 px, length 95 px (x 8 to 102 in the idle key), idle opaque height 52 px including the exhaust puff** (stack top row 20, puff rows 12 to 17, club head row 21). Option B keeps the Chopper a "light, fast, shaky machine" against the Dozer's 2.3 times Carl, and 95 px is inside the packet's 75 to 100 px estimate. A 64 x 56 frame is too small. The frame is **112 x 64**: 8 px of margin to the left of the tub pipes, 9 px to the right of the front tyre, and headroom above row 4 for the raised club and the tell puff. Proposed by the draft designer; the decider is the senior designer who edits this draft.
+Decision: **body height 47 px, length 95 px (x 8 to 102 in the idle key), idle opaque height 52 px including the exhaust puff** (stack top row 20, puff rows 12 to 17). Option B keeps the Chopper a "light, fast, shaky machine" against the Dozer's 2.3 times Carl, and 95 px is inside the packet's 75 to 100 px estimate. A 64 x 56 frame is too small. The frame is **112 x 64**: 8 px of margin to the left of the tub pipes, 9 px to the right of the front tyre (the attack lunge uses 7 of them), and headroom above row 4 for the raised club and the tell puff. Kept in the design edit after the 1x check in `key0-scale.png`: next to Carl the bike stays clearly lower (Carl looks over the driver's helmet), it is about 1.8 Carl-widths long, which is a vehicle and not a creature, and the goblin crew reads at the same head size as the 36 px goblin on foot. 52 px or more would compete with the Dozer; 44 px shrinks the crew below the goblin's head size.
 
 Identity against DOZ-01 (the three differences that must survive at 1x):
 
 | Axis | DOZ-01 Dozer | CHOP-01 Chopper |
 | --- | --- | --- |
-| Silhouette | Tall boxy mass, h120, tracks and a giant roller | Long and low, two big round wheels plus a small third, a thin vertical stack |
+| Silhouette | Tall boxy mass, h120, tracks and a giant roller | Long and low, two big round bike wheels in front of a deep sidecar tub with a small third wheel, a thin vertical stack |
 | Palette | Cool riveted iron, 39 machine colours | Warm copper and rust red, glowing firebox and lamp, cold rubber only on tyres |
 | Crew and motion | Three riders in a tub, rattles in place | Two crew, one leaning forward over the bars with a streaming red scarf, rears and slams |
 
@@ -101,8 +101,10 @@ Identity against DOZ-01 (the three differences that must survive at 1x):
 
 - Frame **112 x 64**, pivot **(56, 63)**, contact row **63** (the lowest opaque row of every frame; the sidecar wheel, and in the ram the front wheel, sit on it).
 - Grounded tags: idle, walk, attack_tell, attack_swing, hurt, down. Airborne tags: none (a wheelie is a pitch about a wheel on the floor).
-- Hurtbox (relative to the pivot, y up, 60 Hz game space, **provisional**): x -44 to +44, y 0 to 44 (88 x 44); it excludes the stack puff and the club head.
-- Attack hitbox on the impact frame (frame 10): ram box x +24 to +50, y 0 to 26 (26 x 26: front wheel, forks and lamp). A secondary club box x -4 to +12, y 29 to 45 (16 x 16) on the same ticks. One hit per attack. Both are proposals; the board's reach is an illustration.
+- Hurtbox (relative to the pivot, y up, 60 Hz game space, **provisional**): x -44 to +44, y 0 to 40 (88 x 40): tub, bike and the crew's bodies; it excludes the helmet top, the stack puff and the club head, so a jump over the bike clears it. It moves with the entity; the 5 px lunge in the attack key is visual only.
+- Attack hitbox: **one box, the ram** (front wheel, forks and lamp): x +28 to +54, y 0 to 28 (26 x 28), active on attack ticks 33 to 38 (the first 6 of the 9 impact ticks, see section 4). One hit per attack. The club has **no hitbox**: it is the read, not a rule (guardrail: the passenger weapon is a provisional illustration), and it cannot reach in front of the bike anyway.
+- Depth order, far to near: sidecar rider, tub (on the far side of the bike), bike (rear wheel, engine, boiler, stack, fork, front wheel), club, driver. The draft drew the tub over the bike, which hid the rear wheel and made the machine read as a red cart; with the bike in front, two big wheels plus the small tub wheel read at 1x.
+- **Crew stays baked into the vehicle frames** (`crew` layer), not separate reusable sprites. Reason: in every key the crew is clipped by and overlaps the machine (rider inside the tub, driver's leg behind the engine, club over the stack), so separate sprites would need per-frame offsets and depth sorting for no readability gain; no other asset reuses this seated pose, and the crash VFX (ejected crew, section 12) is out of scope. If CHOP-VFX-01 later needs flying goblins, it draws them as VFX frames from the `crew` layer of key 11.
 - Authored facing right; the runtime mirrors around the pivot column.
 - One atlas, frames 0 to 15, layers: `machine` (vehicle, sidecar, smoke, sparks), `crew` (driver, sidecar rider), `weapon` (spiked club). Layers are disjoint per pixel and each key is frozen over all three.
 
@@ -112,33 +114,35 @@ Readability set: idle, move, tell, attack, hurt, defeat (16 frames). Tick window
 
 | Role | Tag | Frames | Playback | Ticks | Notes |
 | --- | --- | --- | --- | --- | --- |
-| idle | `idle` | 3 (0, 1, 2) | loop | 12 + 8 + 12 = 32 | engine ticking over; in the draft all three are key 0 |
+| idle | `idle` | 3 (0, 1, 2) | loop | 12 + 8 + 12 = 32 | engine ticking over |
 | move | `walk` | 4 (3 to 6) | loop | 4 x 5 = 20 | the rolling bike; wheel spokes advance each frame |
-| tell | `attack_tell` | 2 (7, 8) | once | 6 + 18 = 24 | rev and rear; the 18-tick hold is key 8 |
-| attack | `attack_swing` | 2 (9, 10) | once | 2 smear + 4 impact = 6 | ram slam plus club chop; impact ticks 26 to 29 of the attack |
+| tell | `attack_tell` | 2 (7, 8) | once | 8 + 22 = 30 (500 ms) | rev and rear; the 22-tick hold is key 8 |
+| attack | `attack_swing` | 2 (9, 10) | once | 3 smear + 9 impact = 12 | ram slam; hitbox on impact ticks 33 to 38 of the attack |
 | hurt | `hurt` | 2 (11, 12) | once | 4 + 8 = 12 | jolted back |
-| defeat | `down` | 3 (13, 14, 15) | hold | 4 + 8 + hold | key 15 is the wreck hold |
+| defeat | `down` | 3 (13, 14, 15) | hold | 6 + 10 + hold | key 15 is the wreck hold |
+
+Tick edit: the draft's attack was 6 ticks (2 + 4), so the impact pose was on screen for 67 ms, shorter than the hurt flash; a ram from a 95 px machine needs its slam held long enough to read as contact and to place the hitbox. Impact is now 9 ticks (150 ms) with the hitbox on the first 6. The tell grows from 24 to 30 ticks (500 ms): this is a large, fast hit on Floor 01, and the GOB-01 jab gets its tell on a smaller body. The ram lunge distance itself is runtime motion, not decided here.
 
 Frame table:
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | upright, club resting over the shoulder, firebox glowing low, small puff | 12 | key |
+| 0 | `idle` | upright, club resting back over the shoulder, firebox glowing low, small puff | 12 | key |
 | 1 | `idle` | copy of 0 | 8 | copy |
 | 2 | `idle` | copy of 0 | 12 | copy |
-| 3 | `walk` | rolling: nose dips, driver flat to the bars, scarf streaming, tub squats 1 px | 5 | key |
+| 3 | `walk` | rolling: 1 px lower, driver flat to the bars, scarf streaming, club carried upright | 5 | key |
 | 4 | `walk` | copy of 3 | 5 | copy |
 | 5 | `walk` | copy of 3 | 5 | copy |
 | 6 | `walk` | copy of 3 | 5 | copy |
-| 7 | `attack_tell` | copy of 8 (anticipation) | 6 | copy |
-| 8 | `attack_tell` | rears 6 degrees, firebox and lamp flare, club cocked high, big puff | 18 | key |
-| 9 | `attack_swing` | copy of 10 (smear) | 2 | copy |
-| 10 | `attack_swing` | front slams down, driver prone, club chopping forward, sparks at the lamp | 4 | key |
-| 11 | `hurt` | jolt back, nose pops up, white lenses, O mouths, club flung up | 4 | key |
+| 7 | `attack_tell` | copy of 8 (anticipation) | 8 | copy |
+| 8 | `attack_tell` | rears 7 degrees, firebox and lamp flare, club straight up, big puff | 22 | key |
+| 9 | `attack_swing` | copy of 10 (smear) | 3 | copy |
+| 10 | `attack_swing` | lunges 5 px, nose slams down, driver prone, rider half-standing chops the club flat forward over the driver, sparks under the front tyre | 9 | key |
+| 11 | `hurt` | jolt back, nose pops up, white lenses, O mouths, club flung back | 4 | key |
 | 12 | `hurt` | copy of 11 | 8 | copy |
-| 13 | `down` | copy of 15 | 4 | copy |
-| 14 | `down` | copy of 15 | 8 | copy |
-| 15 | `down` | wreck rolled onto its back, fire out, crew sprawled clear | hold | key |
+| 13 | `down` | copy of 15 | 6 | copy |
+| 14 | `down` | copy of 15 | 10 | copy |
+| 15 | `down` | wreck settled on the floor: tyres burst flat, hull on the floor, stack knocked crooked, fire and lamp out, dark wisp, crew slumped | hold | key |
 
 ## 5. State diagram
 
@@ -158,7 +162,7 @@ stateDiagram-v2
     defeat --> [*]
 ```
 
-The lunge distance, speed and cooldown are not decided here (they belong to the gameplay work order). The attack tag only covers the 6 ticks of impact pose; the runtime then plays `walk` while the machine carries on.
+The lunge distance, speed and cooldown are not decided here (they belong to the gameplay work order). The attack tag covers 12 ticks (smear and impact); the runtime then plays `walk` while the machine carries on.
 
 ## 6. Palette `chop-floor01-v0` (19 of 20 colours)
 
@@ -186,12 +190,14 @@ Six keys (frames 0, 3, 8, 10, 11, 15), frozen in `tests/fixtures/chop-01_keys.js
 
 | Frame | Tag | Silhouette and pose notes | Readability reason |
 | --- | --- | --- | --- |
-| 0 | `idle` | Upright, level. Driver seated, helmet top row 17 (outline), goggle lenses yellow, scarf short. Stack with a small puff (rows 12 to 17). Sidecar rider head over the tub rim, club resting back over his shoulder (angle 145), head at row 21. Firebox `f` with a small `Y` core, lamp `Y` | Long, low, wheeled copper machine; two goblins; one thin vertical stack |
-| 3 | `walk` | Rolling: whole machine 1 px lower, fork compressed, driver leaning 2 px forward, scarf 1.4 times longer and lifted, rider head 1 px down, wider puff, spokes advanced | Same bike, clearly moving; the scarf is the speed cue at 1x |
-| 8 | `attack_tell` | Pitch +6 degrees about the sidecar wheel: front wheel lifts about 7 px. Driver hunched forward, firebox grille filled with `Y` (23 `Y` pixels against 16), lamp ringed with `f`, three-blob puff to row 4, club cocked at angle 78 above the rider (highest club pose) | Rev and rear: the highest silhouette (row 4 against 12) and the brightest glow, held 18 ticks |
-| 10 | `attack_swing` | Pitch -3.5 degrees about the front wheel: nose slams down, tail lifts about 4 px, driver prone, scarf streaming flat, rider lunging forward, club chopping forward at angle 35, two spark pixels at the lamp and tyre | Forward-most silhouette (right edge 104), club forward, glow at the front: the ram contact |
-| 11 | `hurt` | Whole machine shifted back 3 px, nose popped up 3 degrees, driver leaning back with an O mouth and white lenses, scarf flung up, rider head thrown back, club flung up and back (angle 140), two sparks at the front | Knocked back: right edge 98 against 102; no yellow lens or eye pixel (`e` count 0) |
-| 15 | `down` | Machine rolled onto its back (reflected vertically): wheels in the air, stack on the floor, fire out (`Y` count 0), small steam puff. Driver sprawled at the front with white eyes and an O mouth, sidecar rider flat at the rear, club on the floor beside him | Flat, dead, wheels up; crew thrown clear. Reference: crash board, reduced to its final state |
+| 0 | `idle` | Upright, level. Bike in front: rear wheel (r 10) and front wheel (r 11) both whole; deep tub behind with a raised rear lip, skull plate, rope and its small wheel. Driver in a brown leather jacket, helmet top row 17, yellow goggle lenses, short scarf. Rider's chest, arm and face above the rim, club resting back over his shoulder (angle 145), face drawn over the handle. Firebox `f` with a small `Y` core, lamp `Y` (22 `Y`) | Long, low, wheeled copper machine; two goblins with faces; one thin vertical stack |
+| 3 | `walk` | Rolling: 1 px lower, fork compressed, driver leaning 2 px forward, scarf 1.4 times longer and lifted, rider ducked 1 px, club carried upright (110), wider puff, spokes advanced | Same bike, clearly moving; the scarf is the speed cue at 1x |
+| 8 | `attack_tell` | Pitch +7 degrees about the sidecar wheel: the front wheel lifts about 9 px. Driver hunched forward, firebox grille filled with `Y`, lamp ringed with `f` (40 `Y`), three-blob puff to row 4, rider rises 2 px with the club straight up (100) | Rev and rear: the highest silhouette (row 4 against 12), nose up, brightest glow, held 22 ticks |
+| 10 | `attack_swing` | Lunge 5 px forward and pitch -3.5 degrees about the front wheel: nose slams down, tail lifts about 4 px, driver prone, scarf flat, rider half-standing chops the club flat forward (angle 8) over the driver's back, two sparks under the front tyre (44 `Y`) | Forward-most silhouette (right edge 109 against 102), nose down after nose up, club from vertical to horizontal: the ram contact |
+| 11 | `hurt` | Whole machine shifted back 3 px, nose popped up 3 degrees, driver leaning back with an O mouth and white lenses, scarf flung up, rider head thrown back, club flung back (150), two sparks at the front | Knocked back: right edge 98 against 102; no yellow lens or eye pixel (`e` count 0) |
+| 15 | `down` | The wreck settles where it stopped, 4 px lower: both bike tyres burst to flat ellipses on the floor, the tub hull rests on the floor (its wheel hidden under it), the stack is knocked crooked backwards, firebox and lamp dark (`Y` 0, lamp `i`), one dark `i` wisp. Driver slumped over the bars, head down, white eyes; rider slumped over the rim with the club hanging from his limp hand down the hull | Low (top row 20 against 12), dead (no glow), still a machine and still grounded: every part rests on something |
+
+Design edit notes. The draft wreck was a vertical reflection of the machine, so the tub floated on the stack and the crew lay apart; the crash board's flip is a mid-air VFX moment, not a resting state. The new key keeps the machine's identity (the player recognises what they destroyed) and reads dead through flat tyres, a dark firebox, the crooked stack and slumped crew. The draft attack chopped the club to mid-machine with no forward motion, so tell and attack differed mostly by pitch; the edit adds the lunge, moves the sparks to the tyre contact and turns the club from straight up (tell) to flat forward (attack), so the step reads in one frame. Every key now has 0 orphan and 0 isolated pixels: thin copper parts (fork, bars, chain stay, tub pipes) are one flat key instead of a 3-tone ramp that broke diagonals into single pixels, club spikes are 2 px clusters, and the rig ends with a deterministic cluster pass (`Canvas.despeckle`: a lone non-accent pixel takes its neighbours' most common key).
 
 Spiked club versus the opening goblins' pineapples: the opening goblins carry a **fruit on a stick** (golden `G`/`F`/`H` body, teal leaf crown `V`/`v`, wooden stick). The Chopper rider's club is a later-type weapon: a **blackened iron ball** (`i`, `z`), six copper spikes (`C`, `D`) and a plank handle with a rope wrap, no gold and no leaves. The weapon layer may never contain a pineapple or leaf key (tested). The board's club stays a provisional illustration, not an approved weapon for the opening goblins.
 
@@ -206,22 +212,22 @@ Ten slots are copies of the nearest key for now. The execution tier replaces the
 | 4 | Walk: spokes advance 30 degrees, tub back up, scarf at its lowest |
 | 5 | Walk: spokes 60 degrees, fork at full extension, puff separated from the stack |
 | 6 | Walk: spokes 90 degrees, machine 1 px lower, scarf lifts |
-| 7 | Tell anticipation: pitch +3 degrees, driver ducking, club half raised (angle 105), firebox `Y` core at half size |
-| 9 | Smear: pitch -2 degrees, club at angle 65, no sparks yet |
-| 12 | Hurt recover: pitch +1.5 degrees, club dropping (angle 120), lenses back to yellow |
-| 13 | Defeat: machine mid-roll (pitch 90 degrees about the tub, wheels vertical), crew in the air |
-| 14 | Defeat: machine lands on its back, bounce 2 px up, crew landing |
+| 7 | Tell anticipation: pitch +3 degrees, driver ducking, club half raised (angle 125), firebox `Y` core at half size |
+| 9 | Smear: lunge 2 px, pitch -1 degree, club at angle 55 with a 1 px iron smear behind the head, no sparks yet |
+| 12 | Hurt recover: pitch +1.5 degrees, club dropping (angle 130), lenses back to yellow |
+| 13 | Defeat: front tyre bursts, nose drops 3 degrees, firebox gutters to `f`, crew pitched forward |
+| 14 | Defeat: machine bounces 2 px up off the burst tyres, stack tipping, smoke turning dark |
 
 ## 9. Validators and readability rules
 
 Run by `python3 -m scripts.pixelart validate assets/source/characters/goblin/chopper/chop_01.pixelart.json` (rules V01 to V15).
 
-- V04 palette: at most 20 colours; V05 isolated pixels: 0; V06 orphan pixels: at most **70** per frame for the draft (the spokes, skull stamp and sparks produce about 60; the execution tier should bring this down and tighten the limit).
+- V04 palette: at most 20 colours; V05 isolated pixels: 0; V06 orphan pixels: at most **4** per frame (the six keys measure 0; the limit leaves in-betweens room for one deliberate single pixel per part, in line with GOB-01).
 - V07 contact rows: every frame is grounded and ends on row 63. V08 is skipped (no airborne tag). V12 is off while in-betweens are copies.
 - V09 frozen keys: SHA-256 per key frame over `machine`, `crew`, `weapon`, fixture `tests/fixtures/chop-01_keys.json`.
-- V13 bounding boxes: C1 idle length 90 to 100 px and height rows 12 to 63; C2 the tell is the highest pose (top row at most 6); C3 the attack reaches furthest forward (right edge at least 102); C4 the hurt is knocked back (right edge at most 100); C5 the wreck is low (top row 8 to 12).
-- V14 key counts: the tell and attack carry at least 20 `Y` pixels while idle and walk carry at most 17; the wreck has none; the driver lens `e` is visible (at least 4) in idle, walk, tell and attack; no `e` in hurt, hurt in-between and wreck.
-- Extra tests (`tests/test_art_chop01.py`): reproducibility, `.ase` match, tick table, GOB-01 key parity, no pineapple key in the weapon layer, size decision numbers.
+- V13 bounding boxes: C1 idle length 90 to 100 px and height rows 12 to 63; C2 the tell is the highest pose (top row at most 6); C3 the attack reaches furthest forward (right edge at least 106); C4 the hurt is knocked back (right edge at most 100); C5 the wreck is low and grounded (top row 18 to 24).
+- V14 key counts: the tell and attack carry at least 38 `Y` pixels while idle and walk carry at most 24; the wreck has none; the driver lens `e` is visible (at least 4) in idle, walk, tell and attack; no `e` in hurt, hurt in-between and wreck.
+- Extra tests (`tests/test_art_chop01.py`): reproducibility, `.ase` match, tick table, GOB-01 key parity, no pineapple key in the weapon layer, size decision numbers, bike rear wheel drawn over the tub, wreck resting on the floor, 0 orphans in every key.
 
 ## 10. Evidence
 
@@ -230,14 +236,15 @@ python3 -m scripts.pixelart validate assets/source/characters/goblin/chopper/cho
 python3 -m scripts.pixelart evidence assets/source/characters/goblin/chopper/chop_01.pixelart.json --out <dir>
 python3 -m scripts.pixelart review-pack assets/source/characters/goblin/chopper/chop_01.pixelart.json --out <dir>
 python3 scripts/author_chop01.py scale
+python3 scripts/author_chop01.py sheet
 ```
 
-Draft evidence: [`docs/evidence/chop-01/key0-scale.png`](../evidence/chop-01/key0-scale.png) shows key 0 at 1x on the lit Floor 1 floor next to Carl and a GOB-01 goblin (both facing, the Chopper mirrored to face them), with a 4x crop below. The review pack (contact sheet, lit scene, tell-to-attack strip) is for the next stage.
+Evidence: [`docs/evidence/chop-01/key0-scale.png`](../evidence/chop-01/key0-scale.png) shows key 0 at 1x on the lit Floor 1 floor next to Carl and a GOB-01 goblin (both facing, the Chopper mirrored to face them), with a 4x crop below (needs `bash scripts/export_assets.sh` for the kit atlas). [`docs/evidence/chop-01/keys-x3.png`](../evidence/chop-01/keys-x3.png) is the six keys at 3x (top: 0, 3, 8; bottom: 10, 11, 15). The review pack (lit scene, tell-to-attack strip) is for the next stage.
 
 Acceptance targets for the review (to be measured, not yet met or checked by a reviewer):
 
 1. At 1x the Chopper reads as a vehicle with two goblin crew, distinct from the Dozer by silhouette and palette alone.
-2. Tell versus idle is told apart at 1x by silhouette (top row 4 against 12 and a lifted front wheel) and by glow, and the 18-tick hold is at least 300 ms.
+2. Tell versus idle is told apart at 1x by silhouette (top row 4 against 12 and a lifted front wheel) and by glow, and the tell lasts 500 ms (22-tick hold).
 3. Tell-to-attack: the change from the tell to the impact pose is visible in one 4-tick step (nose up to nose down, club up to club forward).
 4. Hurt and defeat are told from idle and attack by the white lenses and by the flat wheels-up wreck.
 5. Copper reads against the warm brick by value (red-dark body, bright glow, cold tyre) in the A1 lit scene.
@@ -253,18 +260,21 @@ Acceptance targets for the review (to be measured, not yet met or checked by a r
 | `tests/fixtures/chop-01_keys.json` | frozen keys |
 | `tests/test_art_chop01.py` | contract tests |
 | `docs/evidence/chop-01/key0-scale.png` | key 0 against Carl and GOB-01 |
+| `docs/evidence/chop-01/keys-x3.png` | six keys at 3x |
 
 ## 12. VFX hand-off (not drawn here)
 
-Smoke trail, dust kick-up, drift/powerslide streaks, ground sparks, crash debris (bolts, gear, plate, goggles) and speed streaks are a **separate VFX work order** (suggested id CHOP-VFX-01). Only two things stay inside the vehicle frames: the stack puff (two colours, at most three blobs, always inside rows 4 to 17) and one or two spark pixels at the front in the attack and hurt keys. The crash board's mid-air flip, scattered parts and dust are not drawn; the defeat key is the final resting state.
+Smoke trail, dust kick-up, drift/powerslide streaks, ground sparks, crash debris (bolts, gear, plate, goggles) and speed streaks are a **separate VFX work order** (suggested id CHOP-VFX-01). Only two things stay inside the vehicle frames: the stack puff (two colours, at most three blobs, always inside rows 4 to 17) and one or two spark pixels at the front in the attack and hurt keys. The crash board's mid-air flip, scattered parts, ejected crew and dust are not drawn; the defeat key is the settled wreck.
 
-## 13. Open questions for the senior designer
+## 13. Design edit decisions (the draft's open questions)
 
-1. The wreck (key 15) is a vertical reflection: the tub floats on the stack. A better rest pose (tub rim and bars on the floor) may need a custom rig.
-2. The sidecar rider's club only reaches the middle of the machine in the attack key; decide whether the club or the ram is the real hit and whether the rider needs a side-facing chop.
-3. The hurt jolt and the walk key are single drawings; wheels turning at 4 frames may need a hub marker.
-4. Defeat ejects both crew as part of key 15; decide whether the crew become separate reusable sprites for the later crash VFX.
-5. Orphan count (about 60 per frame) is high for a 95 px sprite; spokes and stamps are the cause.
+1. Wreck: redrawn as a grounded settle (section 7, key 15), not a reflection; no custom rig was needed beyond flat-tyre wheels and a crooked stack.
+2. Club versus ram: the ram is the only hit (section 3). The club is the read: straight up in the tell, flat forward in the attack. No side-facing chop.
+3. Wheels at 4 walk frames: the three-spoke hubs already show rotation; the in-betweens advance them 30 degrees per frame (section 8). No extra hub marker.
+4. Crew sprites: baked in (section 3), with the reason recorded.
+5. Orphans: 0 per key, limit 4 (section 9).
+
+Open for the silhouette gate and review: whether the driver's leather jacket (`u`) separates enough from the boiler at 1x on lit brick, and whether 5 px of lunge in the attack key is enough next to the runtime ram motion.
 
 ## 14. Rights and provenance
 
@@ -274,5 +284,5 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Draft spec and keys (frames 0, 3, 8, 10, 11, 15): Claude Sonnet. Senior design edit: pending. Review: pending.
+- Draft spec and keys (frames 0, 3, 8, 10, 11, 15): Claude Sonnet. Design edit (all six keys redrawn and re-frozen, spec decisions): Claude Opus. Review: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.

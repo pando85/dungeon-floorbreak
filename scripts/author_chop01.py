@@ -5,6 +5,7 @@ Usage:
 
     python3 scripts/author_chop01.py keys [--check] [--preview PNG]
     python3 scripts/author_chop01.py scale [--out PNG]
+    python3 scripts/author_chop01.py sheet
 
 ``keys`` (re)writes ``assets/source/characters/goblin/chopper/chop_01.grid.json`` (frames 0, 3, 8,
 10, 11, 15 are the keys, see ``docs/02-art/chop-01-spec.md`` section 7) and
@@ -32,6 +33,7 @@ CHOP_DIR = ROOT / "assets/source/characters/goblin/chopper"
 GRID = CHOP_DIR / "chop_01.grid.json"
 MANIFEST = ROOT / "assets/manifests/chop-01.json"
 SCALE_PNG = ROOT / "docs/evidence/chop-01/key0-scale.png"
+KEYS_PNG = ROOT / "docs/evidence/chop-01/keys-x3.png"
 CANVAS = (112, 64)
 PIVOT = (56, 63)
 TICK_HZ = 60
@@ -66,7 +68,7 @@ ACCENTS = {"e", "w", "Y"}
 LAYERS = ["machine", "crew", "weapon"]
 
 TAGS = [("idle", 0, 2), ("walk", 3, 6), ("attack_tell", 7, 8), ("attack_swing", 9, 10), ("hurt", 11, 12), ("down", 13, 15)]
-TICKS = [12, 8, 12, 5, 5, 5, 5, 6, 18, 2, 4, 4, 8, 4, 8, None]
+TICKS = [12, 8, 12, 5, 5, 5, 5, 8, 22, 3, 9, 4, 8, 6, 10, None]
 PLAYBACK = {"idle": "loop", "walk": "loop", "attack_tell": "once", "attack_swing": "once", "hurt": "once", "down": "hold"}
 KEY_FRAMES = (0, 3, 8, 10, 11, 15)
 COPIES = {1: 0, 2: 0, 4: 3, 5: 3, 6: 3, 7: 8, 9: 10, 12: 11, 13: 15, 14: 15}
@@ -154,7 +156,27 @@ class Canvas:
         for (x, y) in mask:
             self.put(x, y, ch, layer)
 
+    def despeckle(self):
+        """Cluster rule: a non-accent pixel with no same-key 8-neighbour takes the most common key of its
+        opaque 8-neighbours (ties broken by palette order). Repeats until stable, so V06 stays near zero."""
+        order = {k: n for n, (k, *_r) in enumerate(PALETTE)}
+        for _ in range(4):
+            changed = False
+            for (x, y), (ch, ly) in sorted(self.px.items()):
+                if ch in ACCENTS:
+                    continue
+                around = [self.px[(x + dx, y + dy)][0] for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+                          if (dx or dy) and (x + dx, y + dy) in self.px]
+                if not around or ch in around:
+                    continue
+                pick = max(set(around) - ACCENTS or set(around), key=lambda k: (around.count(k), -order[k]))
+                self.px[(x, y)] = (pick, ly)
+                changed = True
+            if not changed:
+                break
+
     def cels(self) -> dict[str, list[str]]:
+        self.despeckle()
         out = {}
         for layer in LAYERS:
             rows = [["."] * self.w for _ in range(self.h)]
@@ -171,12 +193,13 @@ COPPER = ("c", "C", "D")
 RUBBER = ("k", "k", "i")
 SKIN = ("s", "m", "l")
 RAG = ("t", "t", "u")
+JACKET = ("t", "u", "u")
 PANEL = ("p", "R", "R")
 SKULL = ["wwwww", "wwwwwww", "wKKwKKw", "wwwKwww", ".wwwww.", ".wKwKw."]
 
 DEFAULT = dict(
     pitch=0.0, pivot_x=26, dy=0, dx=0, lean=0, head=(0, 0), scarf=1.0, scarf_lift=0, glow=1, smoke=1, spoke=0.0,
-    club=(100, 0), rider=(0, 0), rider_head=(0, 0), mouth="snarl", eyes="e", sparks=(), flip=False, ejected=False,
+    club=(100, 0), rider=(0, 0), rider_head=(0, 0), rider_arm=0, mouth="snarl", eyes="e", sparks=(), wreck=False,
     driver_arm=0, fork=0,
 )
 
@@ -192,8 +215,6 @@ class Rig:
         dxx, dyy = x - p["pivot_x"], y - 63
         xr = p["pivot_x"] + dxx * math.cos(th) + dyy * math.sin(th)
         yr = 63 - dxx * math.sin(th) + dyy * math.cos(th)
-        if p["flip"]:
-            yr = 83 - yr
         return (xr + p["dx"], yr + p["dy"])
 
     def Ps(self, pts):
@@ -203,6 +224,16 @@ class Rig:
     def wheel(self, c, r, phase):
         cv = self.cv
         cx, cy = self.P(*c)
+        if self.p["wreck"]:  # burst tyre, hub sunk: an ellipse resting on the contact row
+            ry = r - 4
+            cy = 63 - ry
+            cv.paint({(x, y) for (x, y) in disc((cx, cy), r) if ((y - cy) * r / ry) ** 2 + (x - cx) ** 2 <= r * r + 0.25}
+                     | {(x, y) for x in range(int(cx - r), int(cx + r) + 1) for y in range(int(cy - ry), int(cy + ry) + 1)
+                        if ((x - cx) / r) ** 2 + ((y - cy) / ry) ** 2 <= 1.02}, "machine", RUBBER)
+            cv.flat({(x, y) for x in range(int(cx - r + 3), int(cx + r - 2)) for y in range(int(cy - ry + 2), int(cy + ry - 1))
+                     if ((x - cx) / (r - 3)) ** 2 + ((y - cy) / max(ry - 2.5, 1)) ** 2 <= 1.0}, "machine", "c")
+            cv.flat(disc((cx, cy), 1.2), "machine", "C")
+            return
         cv.paint(disc((cx, cy), r), "machine", RUBBER)
         cv.flat(disc((cx, cy), r - 3), "machine", "C")
         cv.flat(disc((cx, cy), r - 4.2), "machine", "c")
@@ -213,21 +244,21 @@ class Rig:
         cv.flat(disc((cx, cy), 1.2), "machine", "D")
         cv.put(cx, cy, "K", "machine")
 
-    def smoke(self, c, size):
+    def smoke(self, c, size, dark=False):
         cv = self.cv
-        cx, cy = self.P(*c) if not self.p["flip"] else c
+        cx, cy = self.P(*c)
         blobs = {1: [(0, 0, 3)], 2: [(0, 0, 3.5), (-4, -2, 3), (3, -3, 2.5)], 3: [(0, 0, 4), (-5, -3, 3.5), (4, -4, 3), (-9, -4, 2.5)]}[size]
         m = set()
         for dx, dy, r in blobs:
             m |= disc((cx + dx, cy + dy), r)
-        cv.paint(m, "machine", ("i", "z", "z"), outline=False)
+        cv.paint(m, "machine", "i" if dark else ("i", "z", "z"), outline=False)
 
     def machine(self):
         p, cv, P = self.p, self.cv, self.P
         # rear wheel (mostly hidden by the tub) and chain
         self.wheel((58, 53), 10, p["spoke"] + 0.4)
         # frame rail, engine block, gear
-        cv.paint(chain(self.Ps([(58, 53), (78, 51), (90, 52)]), 1), "machine", COPPER)
+        cv.paint(chain(self.Ps([(58, 53), (78, 51), (90, 52)]), 1), "machine", "C")
         cv.paint(poly(self.Ps([(64, 46), (82, 46), (83, 55), (64, 56)])), "machine", ("K", "i", "z"))
         gx, gy = P(74, 51)
         cv.paint(disc((gx, gy), 4), "machine", COPPER)
@@ -248,28 +279,30 @@ class Rig:
                 x, y = P(gxp, yy)
                 cv.put(x, y, "c", "machine")
         sx0 = self.P(54, 34)
-        stack_top = 20 if p["glow"] < 2 else 18
-        cv.paint(poly(self.Ps([(53, 33), (57, 33), (57, stack_top + 2), (53, stack_top + 2)])), "machine", COPPER)
-        cv.paint(poly(self.Ps([(51, stack_top + 2), (59, stack_top + 2), (59, stack_top), (51, stack_top)])), "machine", COPPER)
+        stack_top = (20 if p["glow"] < 2 else 18) + (4 if p["wreck"] else 0)
+        bend = -5 if p["wreck"] else 0  # the wreck's stack is knocked crooked, cap pointing back
+        cv.paint(poly(self.Ps([(53, 33), (57, 33), (57 + bend, stack_top + 2), (53 + bend, stack_top + 2)])), "machine", COPPER)
+        cv.paint(poly(self.Ps([(51 + bend, stack_top + 2), (59 + bend, stack_top + 2), (59 + bend, stack_top), (51 + bend, stack_top)])),
+                 "machine", COPPER)
         _ = sx0
         if p["smoke"]:
-            self.smoke((50, stack_top - 5) if not p["flip"] else (56, 14), p["smoke"])
+            self.smoke((50 + bend, stack_top - 5), p["smoke"], dark=p["wreck"])
         # seat
         cv.paint(poly(self.Ps([(62, 40), (72, 40), (72, 43), (62, 43)])), "machine", ("K", "u", "u"))
         # fork, headlight, bars, front wheel
         fk = p["fork"]
         self.wheel((90, 52), 11, p["spoke"])
-        cv.paint(chain(self.Ps([(78, 30), (90 + fk, 52)]), 1.2), "machine", COPPER)
+        cv.paint(chain(self.Ps([(78, 30), (90 + fk, 52)]), 1.2), "machine", "C")
         cv.paint(chain(self.Ps([(86, 41), (93, 38)]), 0.8), "machine", "c", outline=False)
         hx, hy = P(96, 38)
         cv.paint(disc((hx, hy), 4.2), "machine", COPPER)
-        cv.flat(disc((hx + 0.5, hy + 0.5), 2.4), "machine", "Y" if p["glow"] >= 1 else "f")
+        cv.flat(disc((hx + 0.5, hy + 0.5), 2.4), "machine", "Y" if p["glow"] >= 1 else ("i" if p["wreck"] else "f"))
         cv.put(hx + 0.5, hy - 2, "c", "machine")
         cv.put(hx + 0.5, hy + 3, "c", "machine")
         if p["glow"] >= 2:
             for dx, dy in ((5, -1), (5, 1), (6, 0), (4, -3), (4, 3)):
                 cv.put(hx + dx, hy + dy, "f", "machine")
-        cv.paint(chain(self.Ps([(78, 30), (77, 25), (83, 24)]), 0.8), "machine", COPPER)
+        cv.paint(chain(self.Ps([(78, 30), (77, 25), (83, 24)]), 0.8), "machine", "C")
 
     # ---- crew
     def head(self, c, layer, goggles, mouth, eyes, ear_dx=-5):
@@ -335,7 +368,7 @@ class Rig:
         self.limb(knee, foot, 2.0, "crew", RAG)
         cv.paint(poly([(foot[0] - 2, foot[1] + 1), (foot[0] + 4, foot[1] + 1), (foot[0] + 4, foot[1] + 4), (foot[0] - 2, foot[1] + 4)]), "crew", ("K", "t", "u"))
         # torso, belt, harness
-        self.limb(hip, sh, 3.6, "crew", RAG)
+        self.limb(hip, sh, 3.6, "crew", JACKET)
         cv.put(hip[0] + 1, hip[1] - 1, "D", "crew")
         # arm to the grip
         grip = P(83, 25 + p["driver_arm"])
@@ -351,11 +384,18 @@ class Rig:
         p, cv, P = self.p, self.cv, self.P
         rx, ry = p["rider"]
         # rider (behind the tub): torso, arm, head, club
-        base = P(36 + rx, 40 + ry)
-        sh = (base[0], base[1] - 5)
-        hd = P(36 + rx + p["rider_head"][0], 30 + ry + p["rider_head"][1])
-        self.limb(base, sh, 3.4, "crew", RAG)
-        hand = (sh[0] + 4, sh[1] - 1)
+        base = P(36 + rx, 38 + ry)
+        sh = (base[0], base[1] - 6)
+        hd = P(36 + rx + p["rider_head"][0], 27 + ry + p["rider_head"][1])
+        self.limb(base, sh, 3.4, "crew", JACKET)
+        hand = (sh[0] + 4, sh[1] - 1 + p["rider_arm"])
+        self.limb(sh, hand, 1.5, "crew", SKIN)
+        self.hand(hand, "crew")
+        self._hand, self._head = hand, hd
+
+    def club(self):
+        p, cv = self.p, self.cv
+        hand = self._hand
         ang, ext = p["club"]
         a = math.radians(ang)
         tip = (hand[0] + 13 * math.cos(a), hand[1] - 13 * math.sin(a))
@@ -365,16 +405,16 @@ class Rig:
         for n in range(6):
             sa = math.radians(n * 60 + 30 + ang)
             cv.put(head_c[0] + 5 * math.cos(sa), head_c[1] - 5 * math.sin(sa), "D", "weapon")
-            cv.put(head_c[0] + 4 * math.cos(sa), head_c[1] - 4 * math.sin(sa), "C", "weapon")
-        self.limb(sh, hand, 1.5, "crew", SKIN)
+            cv.put(head_c[0] + 4 * math.cos(sa), head_c[1] - 4 * math.sin(sa), "D", "weapon")
         self.hand(hand, "crew")
-        self.head(hd, "crew", False, p["mouth"] if p["mouth"] != "snarl" else "open", p["eyes"], ear_dx=-6)
+        # the rider's face stays in front of the club handle so his snarl reads at 1x
+        self.head(self._head, "crew", False, p["mouth"] if p["mouth"] != "snarl" else "open", p["eyes"], ear_dx=-6)
 
     def tub(self):
         """Tub, skull plate, rope, strut, exhaust stubs and the sidecar wheel."""
         p, cv, P = self.p, self.cv, self.P
-        cv.paint(poly(self.Ps([(12, 41), (56, 40), (59, 47), (53, 56), (19, 57), (12, 50)])), "machine", PANEL)
-        cv.paint(chain(self.Ps([(13, 41), (55, 40)]), 1.2), "machine", COPPER)
+        cv.paint(poly(self.Ps([(13, 37), (20, 40), (56, 40), (59, 47), (54, 56), (22, 57), (14, 51), (12, 43)])), "machine", PANEL)
+        cv.paint(chain(self.Ps([(13, 37), (20, 40), (55, 40)]), 1.2), "machine", "C")
         for yy, row in enumerate(SKULL):
             for xx, ch in enumerate(row):
                 if ch != ".":
@@ -386,8 +426,9 @@ class Rig:
                 cv.put(x, y, "u", "machine")
         cv.paint(chain(self.Ps([(55, 50), (63, 49)]), 1.0), "machine", COPPER)
         for yy in (44, 48):
-            cv.paint(poly(self.Ps([(9, yy), (14, yy), (14, yy + 3), (9, yy + 3)])), "machine", COPPER)
-        self.wheel((26, 56), 7, p["spoke"] + 0.9)
+            cv.paint(poly(self.Ps([(9, yy), (14, yy), (14, yy + 3), (9, yy + 3)])), "machine", "C")
+        if not p["wreck"]:
+            self.wheel((26, 56), 7, p["spoke"] + 0.9)
 
     def sparks(self):
         for (x, y) in self.p["sparks"]:
@@ -395,36 +436,13 @@ class Rig:
             self.cv.put(px, py, "Y", "machine")
             self.cv.put(px + 1, py + 1, "f", "machine")
 
-    def ejected_crew(self):
-        cv = self.cv
-        # driver sprawled on the floor ahead of the wreck, goggles knocked off
-        hd = (106, 58)
-        self.limb((104, 60), (92, 61), 3.4, "crew", RAG)
-        self.limb((92, 61), (84, 62), 2.2, "crew", RAG)
-        self.limb((102, 58), (98, 53), 1.4, "crew", SKIN)
-        self.hand((98, 52), "crew")
-        self.head(hd, "crew", False, "O", "w")
-        cv.put(105, 56, "K", "crew"); cv.put(106, 56, "K", "crew")
-        cv.paint(disc((99, 61), 1.6), "crew", ("c", "C", "D"), outline=False)
-        # sidecar rider flat behind the wreck, club beside him
-        hd2 = (9, 58)
-        self.limb((11, 60), (22, 61), 3.2, "crew", RAG)
-        self.limb((9, 58), (4, 54), 1.4, "crew", SKIN)
-        self.head(hd2, "crew", False, "O", "w", ear_dx=-5)
-        cv.paint(capsule((24, 62), (36, 62), 1.2), "weapon", ("K", "c", "u"))
-        cv.paint(disc((39, 61), 3.4), "weapon", ("i", "i", "z"))
-        for dx, dy in ((0, -5), (4, -3), (-4, -3), (5, 1)):
-            cv.put(39 + dx, 61 + dy, "D", "weapon")
-
     def render(self):
+        # depth order, far to near: sidecar rider, tub (on the far side of the bike), bike, club, driver
+        self.sidecar()
+        self.tub()
         self.machine()
-        if self.p["ejected"]:
-            self.tub()
-            self.ejected_crew()
-        else:
-            self.sidecar()
-            self.tub()
-            self.driver()
+        self.club()
+        self.driver()
         self.sparks()
         return self.cv.cels()
 
@@ -433,19 +451,22 @@ POSES = {
     # idle: engine ticking over, club on the shoulder, firebox glowing low
     0: dict(glow=1, smoke=1, club=(145, 0), mouth="snarl"),
     # move contact: nose lowered, driver flat to the bars, scarf streaming, tub squatting
-    3: dict(lean=2, dy=1, scarf=1.4, scarf_lift=1, glow=1, smoke=2, spoke=0.5, club=(95, 0), rider=(-1, 1), rider_head=(-1, 1),
+    3: dict(lean=2, dy=1, scarf=1.4, scarf_lift=1, glow=1, smoke=2, spoke=0.5, club=(110, 0), rider=(-1, 1), rider_head=(-1, 1),
             mouth="open", fork=-1),
-    # tell hold: rears up, firebox flaring, club raised high behind the head, headlight full
-    8: dict(pitch=6.0, pivot_x=26, lean=3, scarf=1.2, scarf_lift=2, glow=2, smoke=3, spoke=0.3, club=(78, 0), rider=(1, -2),
-            rider_head=(1, -2), mouth="open", driver_arm=-1, head=(0, 0)),
-    # attack impact: front slams down, driver prone, club chopping forward, sparks at the front
-    10: dict(pitch=-3.5, pivot_x=90, lean=4, scarf=1.5, scarf_lift=0, glow=2, smoke=2, spoke=1.1, club=(35, 0), rider=(3, 1),
-             rider_head=(3, 2), mouth="open", driver_arm=1, sparks=((101, 60), (99, 56))),
+    # tell hold: rears up on the back wheels, firebox flaring, club cocked straight up and back
+    8: dict(pitch=7.0, pivot_x=26, lean=3, scarf=1.2, scarf_lift=2, glow=2, smoke=3, spoke=0.3, club=(100, 0), rider=(-1, -2),
+            rider_head=(-1, -2), rider_arm=-2, mouth="open", driver_arm=-1),
+    # attack impact: lunges 5 px, front slams down, driver prone, rider stands and chops the club flat forward
+    # over the driver's back (the ram is the hit; the club is the read), sparks under the front tyre
+    10: dict(pitch=-3.5, pivot_x=90, dx=5, lean=4, scarf=1.5, scarf_lift=0, glow=2, smoke=2, spoke=1.1, club=(8, 0),
+             rider=(5, -2), rider_head=(5, -1), rider_arm=1, mouth="open", driver_arm=1, sparks=((101, 61), (97, 61))),
     # hurt: knocked back, nose popping, white eyes, O mouths, club flung up and back
-    11: dict(pitch=3.0, dx=-3, lean=-2, scarf=0.9, scarf_lift=3, glow=1, smoke=1, spoke=0.2, club=(140, 0), rider=(-2, 0),
+    11: dict(pitch=3.0, dx=-3, lean=-2, scarf=0.9, scarf_lift=3, glow=1, smoke=1, spoke=0.2, club=(150, 0), rider=(-2, 0),
              rider_head=(-3, -1), mouth="O", eyes="w", head=(-2, -1), sparks=((97, 36), (89, 34))),
-    # defeat: wreck rolled onto its back, crew thrown clear
-    15: dict(flip=True, pitch=0.0, dy=0, glow=0, smoke=2, ejected=True, spoke=0.7, fork=0),
+    # defeat: the wreck settles where it stopped: tyres burst flat, hull on the floor, fire out, a dark wisp,
+    # the driver slumped over the bars and the rider slumped over the rim with the club hanging from his hand
+    15: dict(wreck=True, dy=4, glow=0, smoke=1, spoke=0.7, lean=5, head=(3, 5), driver_arm=5, scarf=0.6, scarf_lift=-3,
+             club=(-70, 0), rider=(2, 4), rider_head=(4, 6), rider_arm=4, mouth="O", eyes="w"),
 }
 
 
@@ -502,19 +523,22 @@ def build_manifest() -> dict:
         "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 Goblin Copper Chopper; runtime role IP-neutral fast light vehicle ram)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": ("CHOP-01 first-draft keys (atlas frames 0, 3, 8, 10, 11, 15; fixture tests/fixtures/chop-01_keys.json), "
+            "origin": ("CHOP-01 design-edit keys (atlas frames 0, 3, 8, 10, 11, 15; fixture tests/fixtures/chop-01_keys.json), "
                        "rasterized by scripts/author_chop01.py from one parametric rig; in-between slots are copies of the nearest key; "
                        "layers machine, crew, weapon"),
-            "generator": "Draft spec and keys: Claude Sonnet. Senior design edit, review and in-betweens pending. No image-model raster output, no tracing, no resampling",
+            "generator": "Draft spec and keys: Claude Sonnet. Design edit (keys 0, 3, 8, 10, 11, 15 redrawn and frozen): Claude Opus. Review and in-betweens pending. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["assets/concept/floor-01/enemies/floor01-goblin-copper-chopper-concept-approved.png"],
         },
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "chopper": {
-            "status": "First draft: 6 keys drawn, 10 in-between slots are copies; keys not frozen for review yet; not wired into any Bevy binary",
+            "status": "Design edit: 6 keys frozen, 10 in-between slots are copies; silhouette gate and review pending; not wired into any Bevy binary",
             "spec": "docs/02-art/chop-01-spec.md",
-            "opaque_height_idle": 46,
+            "opaque_height_idle": 52,
+            "body_height": 47,
+            "length": 95,
+            "crew": "baked into the vehicle frames (crew layer); no separate crew sprites",
             "tick_hz": TICK_HZ,
             "hold_preview_ms": 100,
             "grounded_tags": GROUNDED_TAGS,
@@ -523,7 +547,7 @@ def build_manifest() -> dict:
             "key_frames": list(KEY_FRAMES),
             "inbetween_frames": list(INBETWEENS),
             "key_fixture": "tests/fixtures/chop-01_keys.json",
-            "attack_ticks": {"tell": [0, 23], "swing_smear": [24, 25], "swing_impact": [26, 29]},
+            "attack_ticks": {"tell": [0, 29], "swing_smear": [30, 32], "swing_impact": [33, 41], "hitbox_active": [33, 38]},
             "frames": frames,
         },
     }
@@ -551,10 +575,10 @@ def report(cels: dict, label: str) -> None:
           f"orphans {len(orphans)} isolated {len(isolated)} keys {''.join(used)}")
 
 
-def preview(grid: dict, out: Path) -> None:
+def preview(grid: dict, out: Path, k: int = 4) -> None:
+    """Keys 0, 3, 8 (top row) and 10, 11, 15 (bottom row) at k x, alternating plum and brick-brown cells."""
     from PIL import Image
     pal = {e["key"]: tuple(int(e["rgba"][i:i + 2], 16) for i in (1, 3, 5, 7)) for e in grid["palette"]}
-    k = 4
     w, h = CANVAS
     sheet = Image.new("RGBA", (w * k * 3, h * k * 2), (0, 0, 0, 255))
     for n, f in enumerate(KEY_FRAMES):
@@ -599,13 +623,17 @@ def scale_evidence(out: Path) -> None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("mode", choices=("keys", "scale"))
+    ap.add_argument("mode", choices=("keys", "scale", "sheet"))
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--preview", type=Path)
     ap.add_argument("--out", type=Path, default=SCALE_PNG)
     a = ap.parse_args(argv)
     if a.mode == "scale":
         scale_evidence(a.out)
+        return 0
+    if a.mode == "sheet":
+        preview(json.loads(GRID.read_text()), KEYS_PNG, k=3)
+        print(f"wrote {KEYS_PNG.relative_to(ROOT)}")
         return 0
     data = build_grid()
     for f in KEY_FRAMES:

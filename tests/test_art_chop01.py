@@ -21,7 +21,7 @@ ASE = CHOP / "chop_01.ase"
 MANIFEST = ROOT / "assets/manifests/chop-01.json"
 FIXTURE = ROOT / "tests/fixtures/chop-01_keys.json"
 GOB_GRID = ROOT / "assets/source/characters/goblin/goblin_a_h36.grid.json"
-SPEC_TICKS = {"idle": 32, "walk": 20, "attack_tell": 24, "attack_swing": 6, "hurt": 12, "down": 12}
+SPEC_TICKS = {"idle": 32, "walk": 20, "attack_tell": 30, "attack_swing": 12, "hurt": 12, "down": 16}
 PINEAPPLE = set("FGHVv")  # GOB-01 pineapple and leaf keys
 
 
@@ -68,10 +68,10 @@ class Chop01Tests(unittest.TestCase):
         for tag, total in SPEC_TICKS.items():
             ticks = [t for _f, t in self.cfg["tags"][tag]["frames"] if t is not None]
             self.assertEqual(sum(ticks), total, tag)
-        self.assertGreaterEqual(dict(map(tuple, self.cfg["tags"]["attack_tell"]["frames"]))[8], 18)
+        self.assertGreaterEqual(dict(map(tuple, self.cfg["tags"]["attack_tell"]["frames"]))[8], 22)
         self.assertIsNone(dict(map(tuple, self.cfg["tags"]["down"]["frames"]))[15])
         att = json.loads(MANIFEST.read_text())["chopper"]["attack_ticks"]
-        self.assertEqual(att, {"tell": [0, 23], "swing_smear": [24, 25], "swing_impact": [26, 29]})
+        self.assertEqual(att, {"tell": [0, 29], "swing_smear": [30, 32], "swing_impact": [33, 41], "hitbox_active": [33, 38]})
 
     def test_palette_within_budget_and_crew_keys_match_gob01(self) -> None:
         keys = {e["key"]: e["rgba"] for e in self.grid["palette"]}
@@ -103,9 +103,26 @@ class Chop01Tests(unittest.TestCase):
         top = {n: bbox(flat(self.grid, n))[1] for n in author.KEY_FRAMES}
         self.assertEqual(min(top, key=top.get), 8)                 # tell is the highest pose
         right = {n: bbox(flat(self.grid, n))[2] for n in author.KEY_FRAMES}
-        self.assertGreaterEqual(right[10], 102)                    # ram reaches furthest forward of the live poses
+        self.assertEqual(max(right, key=right.get), 10)            # the ram lunge reaches furthest forward
+        self.assertGreaterEqual(right[10] - right[0], 5)           # by at least 5 px over idle
         self.assertLess(right[11], right[0])                       # hurt knocks the machine back
-        self.assertGreaterEqual(top[15], 8)                        # wreck is flat on the floor
+        self.assertGreater(top[15], top[0] + 5)                    # wreck sits low, grounded (no floating parts)
+
+    def test_bike_wheels_sit_in_front_of_the_tub_and_the_wreck_is_grounded(self) -> None:
+        # rear bike wheel hub (x 58) is drawn over the tub, so both bike wheels read at 1x
+        machine = self.grid["frames"][0]["cels"]["machine"]
+        hub = {machine[y][x] for y in range(48, 59) for x in range(53, 64) if (x - 58) ** 2 + (y - 53) ** 2 <= 25}
+        self.assertFalse(hub & set("Rp"), hub)  # no tub red over the rear wheel
+        self.assertTrue(hub & set("cCD"), hub)
+        rows = flat(self.grid, 15)
+        for x in (20, 40, 60, 90):  # tub, engine and burst tyres all rest on the contact row region
+            self.assertTrue(any(rows[y][x] != "." for y in range(60, 64)), x)
+
+    def test_clean_pixels(self) -> None:
+        self.assertLessEqual(self.cfg["rules"]["max_orphans_per_frame"], 4)
+        for n in author.KEY_FRAMES:
+            orphans, isolated = pg._stray_pixels(flat(self.grid, n), author.ACCENTS)
+            self.assertEqual((len(orphans), len(isolated)), (0, 0), n)
 
     def test_glow_escalates_into_the_tell_and_dies_in_the_wreck(self) -> None:
         def count(n, key):
