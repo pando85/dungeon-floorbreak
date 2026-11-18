@@ -7,7 +7,7 @@
 Open [index.html](index.html) locally in a browser. It has **no network requests, build step, external fonts, packages or runtime dependencies**. Controls:
 
 - **Play/pause**, **timeline scrubber**, **reset**.
-- **Intensity 1–4**, defaulting to **4 / MAXIMUM**. Levels 1, 2, 3 and 4 adjust effect density; 4 additionally enables cause-specific aftermath and fragment silhouettes.
+- **Intensity 1–4**, defaulting to **4 / MAXIMUM**. Levels 1, 2, 3 and 4 adjust effect density; 4 (owner-decided default, 2026-11-18) additionally enables more and larger fragments, heavier blood and wall spatter, a spreading pool with lingering floor debris, cause-specific aftermath, an impact ray burst and a short screen shake. Preset 1 draws no blood sprites. Every preset is presentation-only and floor-clamped.
 - Four animated examples: **kinetic punch**, **environmentally justified decapitation**, **explosive body breakup** and **authored falling-stone crush**.
 
 The previously weak difference between 3 and 4 was addressed in this version by scaling intensity **nonlinearly** and adding clearly distinguishable level-4 elements. This is an art reference / tuning comparison, **not a validated final gore preset**.
