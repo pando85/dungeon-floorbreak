@@ -47,22 +47,32 @@ PALETTE = [
     ("w", "flash_white", "#efe3d3ff", True),
 ]
 
-def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_ax=4.4, face_ay=7.0, face_dy=0.0,
-           pleat=("r", "m"), core=("g", "o"), rc=0.34, lip="c", lip_hi="v", shell=("a", "b"), spike=2,
-           spike_root="K", spike_tip="r", droop=0.0, halo=None, crack=None, grime=True, drip=0,
-           patch=()) -> list[str]:
+IDLE_SPIKES = ((-64, 2), (-30, 1), (-12, 3), (14, 2), (36, 1), (64, 2))  # (angle from +x, length), top to bottom
+WALL_ROUND = ((0.6, 1), (0.8, 2))  # (normalised distance along the wall, inset from the wall column)
+
+
+def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_shift=1.0, face_ax=4.4, face_ay=7.0,
+           face_dy=0.0, pleat=("r", "m"), core=("g", "o"), rc=0.34, lip="c", lip_hi="v", shell=("a", "b"),
+           spikes=IDLE_SPIKES, spike_add=0, spike_root="K", spike_tip="r", wall_round=WALL_ROUND, halo=None,
+           crack=None, grime=((0, 2), (0, 3), (0, 4), (0, 5), (1, 3), (1, 4)), drip=0, patch=()) -> list[str]:
     """Oblique disc on a wall at the left: dark ringed shell on the wall side, pleated red face toward the room.
 
-    Shading is direction-neutral: it depends only on the distance from the wall (the surface normal) and is mirror
-    symmetric along the wall, so a runtime rotation or mirror never puts a baked light on the wrong edge.
+    The outline is an oval: only the middle of the wall side touches the wall column (``wall_round``). Shading is
+    direction-neutral: it depends only on the distance from the outline and the wall, and is mirror symmetric along the
+    wall, so a runtime rotation or mirror never puts a baked light on the wrong edge. Spike lengths, spike spacing and
+    the rot stain are deliberately uneven (shape and texture, not light).
     """
     def norm(x, y):
         dy = y + 0.5 - cy
         return (x + 0.5 - WALL_X) / rx, dy / (ry_up if dy < 0 else ry_dn)
 
+    def inset(y):
+        v = abs(norm(WALL_X, y)[1])
+        return max([0] + [i for t, i in wall_round if v >= t])
+
     mask = set()
     for y in range(H):
-        for x in range(WALL_X, W):
+        for x in range(WALL_X + inset(y), W):
             u, v = norm(x, y)
             if abs(u) ** n + abs(v) ** n <= 1.0:
                 mask.add((x, y))
@@ -72,28 +82,33 @@ def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_ax
         return any(q not in mask for q in ((x + 1, y), (x, y + 1), (x, y - 1))) or (x > WALL_X and (x - 1, y) not in mask)
 
     g: dict[tuple[int, int], str] = {}
-    fcx, fcy = WALL_X + face_x * rx, cy + face_dy
+    fcx, fcy = WALL_X + face_x * rx + face_shift, cy + face_dy
 
     def fe(p):  # normalised face-ellipse coordinates
         return (p[0] + 0.5 - fcx) / face_ax, (p[1] + 0.5 - fcy) / face_ay
 
     edge = {p for p in mask if boundary(p)}
     face = {p for p in mask - edge if sum(c * c for c in fe(p)) <= 1.0}
-    # shell: two values by distance from the wall (normal-based, symmetric along the wall)
-    for p in mask - face:
-        u, _v = norm(*p)
-        g[p] = shell[0] if u < 0.3 else shell[1]
-    # crimped lip: the shell ring that borders the face on the wall side; its two ends catch the cold rim colour
     lips = sorted(p for p in mask - face - edge if any(q in face for q in ((p[0] + 1, p[1]), (p[0], p[1] - 1),
                                                                              (p[0], p[1] + 1))))
+    # shell: dark body with one lighter ring 1 px inside the outline (the ringed shell)
+    ring = {p for p in mask - face - edge - set(lips)
+            if any((p[0] + dx, p[1] + dy) in edge for dx in (-1, 0, 1) for dy in (-1, 0, 1))}
+    for p in mask - face:
+        g[p] = shell[1] if p in ring else shell[0]
     for p in lips:
         g[p] = lip
     if lips and lip_hi:
         ys = [p[1] for p in lips]
-        for p in lips:
-            if p[1] in (min(ys), min(ys) + 1, max(ys), max(ys) - 1) and p[0] >= fcx - 2:
+        ends = [p for p in lips if p[1] in (min(ys), min(ys) + 1, max(ys), max(ys) - 1) and p[0] >= fcx - 2]
+        for p in ends:
+            g[p] = lip_hi
+        # cold accent runs on from each lip end along the shell ring: the 3 ring pixels nearest each end
+        for end_y in (min(ys), max(ys)):
+            near = sorted((p for p in ring if (p[1] - cy) * (end_y - cy) > 0),
+                          key=lambda p: (abs(p[0] - fcx) + abs(p[1] - end_y), p[0]))
+            for p in near[:3]:
                 g[p] = lip_hi
-    # pleated face: alternating radial pleats around the core
     for p in face:
         a, b = fe(p)
         r_ = math.hypot(a, b)
@@ -104,12 +119,13 @@ def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_ax
             g[p] = pleat[sector % 2]
     for p in edge:
         g[p] = "K"
-    if grime:  # olive rot stain where the shell meets the wall, low side
-        for p in ((WALL_X, int(cy + 5)), (WALL_X, int(cy + 6)), (WALL_X + 1, int(cy + 6))):
-            if p in mask and p not in edge:
-                g[p] = "x"
-    # spikes: rooted on the outline, pointing along the surface normal of the shell
-    for ang in (-64, -36, -12, 12, 36, 64):
+    for ox, oy in grime or ():  # olive rot stain where the shell meets the wall, off-centre on the low side
+        p = (WALL_X + ox, int(cy) + oy)
+        if p in mask and p not in edge and p not in face:
+            g[p] = "x"
+    # spikes: rooted on the outline, uneven lengths and spacing
+    for ang, length in spikes:
+        length = max(1, length + spike_add)
         a = math.radians(ang)
         dx, dy = math.cos(a) * rx, math.sin(a) * (ry_up if ang < 0 else ry_dn)
         ln = math.hypot(dx, dy)
@@ -117,19 +133,18 @@ def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_ax
         t = 0.0
         while (int(WALL_X + 0.5 + dx * t), int(cy + dy * t)) in mask:
             t += 0.25
-        for i in range(spike):
-            f = (i + 1) / spike
+        for i in range(length):
             px = int(math.floor(WALL_X + 0.5 + dx * (t + i)))
-            py = int(math.floor(cy + dy * (t + i) + droop * f * 1.5))
+            py = int(math.floor(cy + dy * (t + i)))
             if (px, py) not in mask and 0 <= px < W and 1 <= py < H - 1:
-                g[(px, py)] = spike_tip if i == spike - 1 else spike_root
+                g[(px, py)] = spike_tip if i == length - 1 else spike_root
     if halo:  # a 1 px glow ring around the outline, hotter on the face side
-        ring = set()
+        rim = set()
         for (x, y) in mask:
-            for q in ((x + 1, y), (x, y + 1), (x, y - 1), (x + 1, y + 1), (x + 1, y - 1)):
+            for q in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1), (x + 1, y + 1), (x + 1, y - 1)):
                 if q not in mask and q not in g and q[0] > WALL_X and 1 <= q[1] < H - 1:
-                    ring.add(q)
-        for q in ring:
+                    rim.add(q)
+        for q in rim:
             g[q] = halo[1] if q[0] + 0.5 >= fcx else halo[0]
     if crack:  # burst: bright fissures from the core through the shell
         for ang in (150, 180, 210, 120, 240):
@@ -138,12 +153,12 @@ def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_ax
                 p = (int(math.floor(fcx + math.cos(a) * i * 0.5)), int(math.floor(fcy + math.sin(a) * i * 0.5)))
                 if p in mask and p not in face:
                     g[p] = crack
-    ys = [p[1] for p in mask]
+    ys = [p[1] for p in mask if p[0] == WALL_X]
     for i in range(drip):  # dud: olive rot running down the wall below the skin
         y = max(ys) + 1 + i
         if y < H - 1:
             g[(WALL_X, y)] = "x"
-            if i < drip - 1:
+            if 0 < i < drip - 1:
                 g[(WALL_X + 1, y)] = "x"
     for (x, y), c in patch:
         g[(x, y)] = c
@@ -156,22 +171,23 @@ def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_ax
 
 # Key poses (spec section 7). Index -> render parameters.
 KEYS = {
-    # idle: oblique disc, dark shell, dim maroon pleated face, ember core, short spikes
+    # idle: oval disc, dark ringed shell, dim maroon pleated face, ember core, uneven short spikes
     0: dict(pleat=("m", "b")),
     # creep: the leading (upper) half stretches up the wall, the trailing half drags short, face rides up, core dims
     3: dict(rx=11.0, ry_up=11.0, ry_dn=8.0, face_ax=4.0, face_dy=-1.5, pleat=("m", "b"), core=("o", "r")),
     # tell: the face lights up pleat by pleat, hot core, red halo, longer lit spikes; the shell stays dark
     8: dict(rx=13.0, ry_up=11.0, ry_dn=11.0, face_ax=5.0, face_ay=8.0, pleat=("o", "r"), core=("G", "g"), rc=0.4,
-            lip="r", spike=3, spike_tip="p", spike_root="r", halo=("m", "r")),
+            lip="r", spike_add=1, spike_tip="p", spike_root="r", halo=("m", "r")),
     # first burst frame: blown-out face, fissures through the shell, hot halo
     10: dict(rx=14.5, ry_up=12.0, ry_dn=12.0, face_ax=6.0, face_ay=9.0, pleat=("G", "g"), core=("G", "G"), rc=0.5,
-             lip="g", lip_hi="G", spike=3, spike_tip="G", spike_root="g", halo=("o", "g"), crack="G"),
+             lip="g", lip_hi="G", spike_add=1, spike_tip="G", spike_root="g", halo=("o", "g"), crack="G"),
     # hurt: squashed flat, spikes tucked, white flash on the lip and core
-    11: dict(rx=10.0, ry_up=9.5, ry_dn=9.5, face_x=0.62, face_ax=3.6, face_ay=6.0, pleat=("m", "a"), core=("w", "w"), lip="w",
-             lip_hi="w", spike=1, spike_tip="K"),
-    # defeat (dud): a deflated, dead skin, drooping spikes, no glow, olive rot running down the wall
-    14: dict(rx=5.5, ry_up=9.0, ry_dn=9.0, cy=16.5, face_x=0.55, face_ax=2.2, face_ay=5.5, pleat=("m", "a"),
-             core=("a", "m"), lip="b", lip_hi=None, spike=1, spike_tip="K", drip=4),
+    11: dict(rx=10.0, ry_up=9.5, ry_dn=9.5, face_x=0.62, face_ax=3.6, face_ay=6.0, pleat=("m", "a"), core=("w", "w"),
+             lip="w", lip_hi="w", spike_add=-3, spike_tip="K"),
+    # defeat (dud): a deflated, dead skin, spike nubs, no glow, olive rot running down the wall
+    14: dict(rx=5.5, ry_up=9.0, ry_dn=9.0, cy=16.5, face_x=0.55, face_shift=0.0, face_ax=2.2, face_ay=5.5,
+             pleat=("m", "a"), core=("a", "m"), lip="b", lip_hi=None, shell=("a", "a"), spike_add=-3, spike_tip="K",
+             wall_round=((0.85, 1),), grime=None, drip=4),
 }
 # In-between slots are copies of the nearest key until the execution tier draws them.
 SLOT_SOURCE = {0: 0, 1: 0, 2: 0, 3: 3, 4: 3, 5: 3, 6: 3, 7: 8, 8: 8, 9: 10, 10: 10, 11: 11, 12: 14, 13: 14, 14: 14}
