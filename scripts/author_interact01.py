@@ -145,7 +145,26 @@ def carl_s1() -> cm.Frame:
 
 
 # ------------------------------------------------------------------ Carl in-betweens (execution phase)
-# Feet: idle back/front Croc x15/x27. Verbs keep both feet planted; the small shuffles below are the only motion.
+# Feet: idle back/front Croc left edges x15/x26 (flat stamp, 10 px wide). Foot rule for every in-between: a foot either
+# holds its exact x and stance from the previous frame, or is visibly lifted in the frame where it moves (a "raised"
+# Croc: the flat stamp 1 px up, no sole on the pivot row; or the toe stamp, heel up). The other foot stays planted, so
+# every frame is still grounded. The keys carry their own snaps (u1 to u2, and the arrivals at p1 and s1).
+IDLE_BACK, IDLE_FRONT = 15, 26
+
+
+def croc_raised(f: cm.Frame, x: int) -> None:
+    """A lifted flat Croc: the master stamp 1 px up (rows 49-54), so the sole is off the walking line."""
+    f.add("shoes", cm.CROC_FLAT, x, -1)
+
+
+def planted_legs(f: cm.Frame, hem_y: int, back_hem: int, front_hem: int, back: tuple, front: tuple) -> None:
+    """Two legs under boxer hems at ``hem_y``; each foot is ``(x, "flat" | "raised")``."""
+    cm.hem(f, back_hem, hem_y, cm.HEM_BACK)
+    cm.hem(f, front_hem, hem_y, cm.HEM_FRONT)
+    for hem_x, (x, state), top_dx, r0 in ((back_hem, back, 3, 3.0), (front_hem, front, 4, 3.0)):
+        end = 48 if state == "raised" else 49
+        f.add("legs", cm.leg((hem_x + top_dx, hem_y + 1), (x + 4, end), r0, 2.0))
+        (croc_raised if state == "raised" else cm.croc_flat)(f, x)
 
 
 def _finish(f: cm.Frame) -> cm.Frame:
@@ -154,9 +173,10 @@ def _finish(f: cm.Frame) -> cm.Frame:
 
 
 def carl_u0() -> cm.Frame:
-    """idle -> u1: a half-step of weight forward, far arm half raised with the elbow bent, fist low, head v0."""
+    """idle -> u1: weight forward, the back foot holds and the front foot is lifted mid-step (it lands at x29 in u1);
+    far arm half raised with the elbow bent, fist low, head v0."""
     f = cm.upper(cm.Frame(), (1, 0), "v0")
-    cm.standing_legs(f, 39, 17, 26, 15, 28)
+    planted_legs(f, 39, 17, 26, (IDLE_BACK, "flat"), (28, "raised"))
     f.add("near_arm", IDLE0["near_arm"], 1, 0)
     f.add("watch", IDLE0["watch"], 1, 0)
     cm.sleeve_arm(f, "far_arm", [(30, 21), (34, 26), (36, 30)], 2.0)
@@ -165,23 +185,25 @@ def carl_u0() -> cm.Frame:
 
 
 def carl_u3() -> cm.Frame:
-    """u2 -> idle: lets go, the far arm drops to the idle position, a glance back to see if it worked (head v1)."""
+    """u2 -> idle: lets go; the front foot holds at x26 (idle's), the back foot is lifted on its way to idle's x15;
+    the far arm drops to the idle position, a glance back to see if it worked (head v1)."""
     f = cm.upper(cm.Frame(), (0, 2), "v1")
-    cm.standing_legs(f, 41, 16, 26, 15, 27)
+    planted_legs(f, 41, 16, 26, (14, "raised"), (IDLE_FRONT, "flat"))
     cm.idle_arms(f, (0, 2))
     return _finish(f)
 
 
 def carl_p0() -> cm.Frame:
-    """idle -> p1: half squat, back heel still down, far arm hanging forward, near arm going to the knee."""
+    """idle -> p1: half squat. The back foot holds flat at x15 (p1's toe stamp takes over from it) and the front
+    foot is lifted mid-step toward x30; far arm hanging forward, near arm going to the knee."""
     f = cm.upper(cm.Frame(), (1, 5), "v0")
     hem_y = 44
     cm.hem(f, 18, hem_y, cm.HEM_BACK)
     cm.hem(f, 27, hem_y, cm.HEM_FRONT)
-    f.add("legs", cm.leg_bent((21, hem_y + 2), (20, 48), (22, 50), 3.0, 2.8, 2.0))
-    f.add("legs", cm.leg_bent((31, hem_y + 2), (34, 47), (33, 50), 3.0, 2.8, 2.0))
-    cm.croc_flat(f, 17)
-    cm.croc_flat(f, 29)
+    f.add("legs", cm.leg_bent((21, hem_y + 2), (19, 48), (IDLE_BACK + 4, 50), 3.0, 2.8, 2.0))
+    f.add("legs", cm.leg_bent((31, hem_y + 2), (34, 47), (32, 49), 3.0, 2.8, 2.0))
+    cm.croc_flat(f, IDLE_BACK)
+    croc_raised(f, 28)
     cm.sleeve_arm(f, "far_arm", [(31, 26), (35, 34), (38, 40)], 2.0)
     f.add("far_arm", cm.FIST_SMALL, 37, 40)                  # hangs forward, fist x37-42, rows 40-43
     cm.sleeve_arm(f, "near_arm", [(22, 27), (27, 35), (30, 38)], 2.0)
@@ -203,9 +225,10 @@ def _stand_up_legs(f: cm.Frame, hem_y: int, back_foot: int, front_foot: int, toe
 
 
 def carl_p2() -> cm.Frame:
-    """p1 -> p3: pushing up off the knee, the item rides in the far hand at the hip."""
+    """p1 -> p3: pushing up off the knee, the item rides in the far hand at the hip. Both feet hold p1's exact
+    position (back toe at x21, front flat at x30): he pushes up, he does not skate."""
     f = cm.upper(cm.Frame(), (1, 6), "v3", (1, 0))
-    _stand_up_legs(f, 45, 20, 29, True)
+    _stand_up_legs(f, 45, 21, 30, True)
     cm.sleeve_arm(f, "far_arm", [(31, 30), (35, 36), (37, 39)], 2.0)
     f.add("far_arm", cm.FIST_SMALL, 35, 38)                  # far hand at the hip, rows 38-41
     cm.sleeve_arm(f, "near_arm", [(21, 30), (29, 40)], 2.0)
@@ -215,9 +238,10 @@ def carl_p2() -> cm.Frame:
 
 
 def carl_p3() -> cm.Frame:
-    """p2 -> idle: standing, the item at the hip in the far hand, head v3."""
+    """p2 -> idle: standing, the item at the hip in the far hand, head v3. The front foot holds at x30 (p2's); the
+    back foot is lifted off its toe on its way to idle's x15."""
     f = cm.upper(cm.Frame(), (1, 1), "v3")
-    cm.standing_legs(f, 40, 17, 27, 16, 28)
+    planted_legs(f, 40, 17, 28, (17, "raised"), (30, "flat"))
     f.add("near_arm", IDLE0["near_arm"], 1, 1)
     f.add("watch", IDLE0["watch"], 1, 1)
     cm.sleeve_arm(f, "far_arm", [(30, 22), (34, 30), (36, 35)], 2.0)
@@ -226,14 +250,15 @@ def carl_p3() -> cm.Frame:
 
 
 def carl_s0() -> cm.Frame:
-    """idle -> s1: set, lean in; back foot stepped back, both arms bent forward, fists at chest and belly."""
+    """idle -> s1: set, lean in. The back foot holds flat at x15 (s1's toe stamp takes the step back from it), the
+    front foot is lifted mid-step toward x33; both arms bent forward, fists at chest and belly."""
     f = cm.upper(cm.Frame(), (4, 2), "v3")
     cm.hem(f, 19, 41, cm.HEM_BACK)
     cm.hem(f, 29, 41, cm.HEM_FRONT)
-    f.add("legs", cm.leg((22, 43), (15, 49), 3.0, 2.0))
-    f.add("legs", cm.leg((33, 43), (35, 49), 3.0, 2.0))
-    cm.croc_flat(f, 11)
-    cm.croc_flat(f, 31)
+    f.add("legs", cm.leg((22, 43), (IDLE_BACK + 4, 49), 3.0, 2.0))
+    f.add("legs", cm.leg((33, 43), (34, 48), 3.0, 2.0))
+    cm.croc_flat(f, IDLE_BACK)
+    croc_raised(f, 30)
     cm.sleeve_arm(f, "far_arm", [(33, 22), (36, 23)], 2.0)
     f.add("far_arm", cm.FIST_BIG, 35, 20)                    # far fist at chest height
     cm.sleeve_arm(f, "near_arm", [(23, 24), (33, 32)], 2.0)
@@ -260,9 +285,15 @@ def carl_s2() -> cm.Frame:
 
 
 def carl_s3() -> cm.Frame:
-    """s2 -> idle: steps the back foot in, arms drop, glances at the prop (head v1)."""
+    """s2 -> idle: the back foot holds on its toe at x12 (s1's), the front foot is lifted and steps back toward
+    idle's x26; arms drop, glances at the prop (head v1)."""
     f = cm.upper(cm.Frame(), (3, 1), "v1")
-    cm.standing_legs(f, 40, 19, 29, 14, 30)
+    cm.hem(f, 19, 40, cm.HEM_BACK)
+    cm.hem(f, 29, 40, cm.HEM_FRONT)
+    f.add("legs", cm.leg((22, 42), (16, 49), 3.0, 2.0))
+    f.add("legs", cm.leg((33, 42), (34, 48), 3.0, 2.0))
+    cm.croc_toe_down(f, 12)
+    croc_raised(f, 30)
     cm.idle_arms(f, (3, 1))
     return _finish(f)
 
@@ -381,7 +412,8 @@ def donut_d0() -> DFrame:
 
 def donut_d2() -> DFrame:
     """d1 -> d3: the paw lifts 2 px straight up off the switch top, the head stays on the target."""
-    leg = cm.union(cm.capsule((57, 32), (62, 33), 2.4, 2.2), cm.capsule((65, 34), (65, 34), 2.5, 2.5))
+    leg = cm.union(cm.capsule((57, 32), (61, 32), 2.4, 2.2), cm.capsule((61, 32), (65, 34), 2.2, 2.4),
+                   cm.capsule((65, 34), (65, 34), 2.5, 2.5))
     return _paw_frame((1, 1), leg)                           # paw disc x63-67, rows 32-36
 
 

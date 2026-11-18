@@ -212,11 +212,11 @@ class InteractGridTests(unittest.TestCase):
 
     def test_carl_push_in_between_poses(self):
         c = self.carl["frames"]
-        # s0: fists already at two heights (chest and belly), the back foot is behind the s1 back foot
+        # s0: fists already at two heights (chest and belly); the back foot holds idle's, the front foot is lifted
         far, near = stamp(layer_pix(c[8], "far_arm"), 6, 6), stamp(layer_pix(c[8], "near_arm"), 6, 6)
         self.assertGreaterEqual(near[1] - far[1], 4)               # chest fist 4+ px above the belly fist
         self.assertLess(near[0], far[0] + 3)
-        self.assertLess(min(x for x, _ in layer_pix(c[8], "shoes")), min(x for x, _ in layer_pix(c[9], "shoes")))
+        self.assertEqual(self.feet(8), [(15, "flat"), (30, "raised")])
         # s2 holds the contact: arms are s1's pixels, the head is 1 px lower, the back heel 1 px lower
         for layer in ("far_arm", "near_arm", "watch"):
             self.assertEqual(layer_pix(c[10], layer), layer_pix(c[9], layer), layer)
@@ -229,16 +229,52 @@ class InteractGridTests(unittest.TestCase):
         for layer in ("far_arm", "near_arm"):
             self.assertEqual(translation_of(layer_pix(c[11], layer), layer_pix(idle, layer)), (3, 1), layer)
 
-    def test_carl_feet_stay_planted(self):
-        """No root motion: within a verb neither Croc's left edge jumps more than 4 px between frames."""
+    def feet(self, i: int):
+        """(left x, state) of the back and front Croc: state flat (sole on the pivot row), toe (heel up) or raised."""
+        pix = layer_pix(self.carl["frames"][i] if i is not None else self.carl_loco["frames"][0], "shoes")
+        cols = sorted({x for x, _ in pix})
+        groups, cur = [], [cols[0]]
+        for x in cols[1:]:
+            if x == cur[-1] + 1:
+                cur.append(x)
+            else:
+                groups.append(cur)
+                cur = [x]
+        groups.append(cur)
+        self.assertEqual(len(groups), 2, i)
+        out = []
+        for g in groups:
+            pts = [(x, y) for (x, y) in pix if g[0] <= x <= g[-1]]
+            bottom = max(y for _, y in pts)
+            sole = [x for x, y in pts if y == bottom]
+            state = "raised" if bottom < self.carl["pivot"][1] else ("toe" if len(sole) <= 4 else "flat")
+            out.append((g[0], state))
+        return out
+
+    def test_carl_planted_feet_hold_or_visibly_lift(self):
+        """Foot rule (spec section 12): across every pair of neighbouring frames in a verb (the idle pose precedes the
+        first frame), a Croc that changes position is lifted in the in-between (raised) or lands as the key's toe
+        stamp (heel up). Key to key pairs are the keys' own snaps. V16 cannot express this (loop seam, key snaps)."""
+        keys = {1, 2, 5, 9}
+        idle = self.feet(None)
+        self.assertEqual(idle, [(15, "flat"), (26, "flat")])
         for tag in self.carl["tags"]:
-            lefts = []
-            for i in range(tag["from"], tag["to"] + 1):
-                xs = sorted({x for x, _ in layer_pix(self.carl["frames"][i], "shoes")})
-                gap = [b for a, b in zip(xs, xs[1:]) if b - a > 1]
-                lefts.append((xs[0], gap[0] if gap else xs[-1]))
-            for a, b in zip(lefts, lefts[1:]):
-                self.assertLessEqual(max(abs(a[0] - b[0]), abs(a[1] - b[1])), 4, (tag["name"], lefts))
+            seq = list(range(tag["from"], tag["to"] + 1))
+            for prev, cur in zip([None] + seq, seq):
+                if prev in keys and cur in keys:
+                    continue
+                fa, fb = self.feet(prev), self.feet(cur)
+                for k in (0, 1):
+                    if fa[k] == fb[k]:
+                        continue
+                    states = ([fa[k][1]] if prev not in keys else []) + ([fb[k][1]] if cur not in keys else [])
+                    key_state = fb[k][1] if cur in keys else (fa[k][1] if prev in keys else None)
+                    lifted = "raised" in states or key_state == "toe"
+                    self.assertTrue(lifted, (tag["name"], prev, cur, k, fa[k], fb[k]))
+        # the verbs that must not move a foot at all
+        self.assertEqual(self.feet(6), self.feet(5))                    # p2 holds p1's feet exactly
+        self.assertEqual(self.feet(10), self.feet(9))                   # s2 holds s1's feet exactly
+        self.assertEqual(self.feet(3)[1], self.feet(2)[1])              # u3 front Croc holds u2's
 
     def test_donut_cat_actions_only(self):
         """Only the near foreleg, head and tail change: the far legs stay, the body differs from idle only where the

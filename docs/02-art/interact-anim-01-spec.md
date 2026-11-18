@@ -105,19 +105,19 @@ Construction (same rules as ANIM-CARL-02 section 9): Carl's hair, head, torso, j
 
 | Frame | From key | Change |
 | --- | --- | --- |
-| u0 | idle → u1 | U(+1, 0), far arm half raised (elbow bent, fist at rows 30-33, x33-37), head v0 |
-| u3 | u2 → idle | U(0, +2), far arm lets go and drops to the idle far-arm position, head v1 glance (checks if it worked) |
-| p0 | idle → p1 | U(+1, +5): half squat (the land frame 14 legs are a good start), far arm hanging forward, near arm going to the knee |
-| p2 | p1 → p3 | U(+1, +6), near hand still on the knee pushing up, far hand at the hip (rows 38-41) |
-| p3 | p2 → idle | U(+1, +1), standing, far hand at the hip (the item rides there), head v3 |
-| s0 | idle → s1 | U(+4, +2), back foot steps back 4 px, both arms bent forward, fists already at two heights (chest and belly) |
+| u0 | idle → u1 | U(+1, 0), far arm half raised (elbow bent, fist at rows 30-33, x34-39), head v0; back Croc holds x15, front Croc lifted mid-step (lands at x29 in u1) |
+| u3 | u2 → idle | U(0, +2), far arm lets go and drops to the idle far-arm position, head v1 glance (checks if it worked); front Croc holds x26, back Croc lifted toward x15 |
+| p0 | idle → p1 | U(+1, +5): half squat (the land frame 14 legs are a good start), far arm hanging forward, near arm going to the knee; back Croc holds flat at x15, front Croc lifted mid-step toward x30 |
+| p2 | p1 → p3 | U(+1, +6), near hand still on the knee pushing up, far hand at the hip (rows 38-41); both feet hold p1's exact position (back toe x21, front flat x30) |
+| p3 | p2 → idle | U(+1, +1), standing, far hand at the hip (the item rides there), head v3; front Croc holds x30, back Croc lifted off its toe toward x15 |
+| s0 | idle → s1 | U(+4, +2), both arms bent forward, fists already at two heights (chest and belly); back Croc holds flat at x15 (the s1 toe stamp makes the step back), front Croc lifted mid-step toward x33 |
 | s2 | s1 hold | head offset (+1, +2), back heel 1 px lower, fists unchanged (the contact holds) |
-| s3 | s2 → idle | U(+3, +1), back foot steps in, arms drop to idle, head v1 |
+| s3 | s2 → idle | U(+3, +1), arms drop to idle, head v1; back Croc holds on its toe at x12, front Croc lifted and stepping back toward x26 |
 | d0 | idle → d1 | head (0, +1), the front paw lifted and tucked, round, at rows 30-34, x58-62 (above the d1 paw, so d1 comes down onto the switch) |
-| d2 | d1 → d3 | paw lifted 2 px straight up off the switch top, head still lowered |
+| d2 | d1 → d3 | paw lifted 2 px straight up off the switch top, head still lowered; the paw end stays a round disc and the foreleg bends slightly down at the wrist |
 | d3 | d2 → idle | paw back on the floor (idle front leg), head at idle |
 | n0 | idle → n1 | head, face and tiara (+1, +5) |
-| n2 | n1 hold | head (+3, +10), tail tip 1 px up |
+| n2 | n1 hold | head (+2, +11) (ruled: +3 would touch column 71, the canvas stays 72 px), tail tip 1 px up |
 | n3 | n2 → idle | head (+1, +4) |
 
 Done in the execution phase (section 12): `unique_frames` is `true` in both configs, the design-phase "in-betweens are key copies" test is replaced by per-frame checks of this table, GIFs and contact sheets come from `python3 -m scripts.pixelart evidence`, and the evidence folder has a contact sheet and `SHA256SUMS`.
@@ -183,12 +183,16 @@ No further gate before execution; the blind review re-checks the keys.
 
 **Decisions taken while drawing (all inside the frozen keys and the table; none changes a key pixel):**
 
-1. **Donut n2 head is (+2, +11), not the table's (+3, +10).** At +3 the head outline sits on column 71, the frame's right edge, which section 2 and acceptance target 1 require empty. The push through reads as a 1 px lower, firmer press plus the tail flick. If the designer wants the forward 1 px back, the Donut canvas would have to grow by one column in every Donut interact frame (a pivot change versus locomotion), so it was not done. **Open question for the designer.**
+1. **Donut n2 head is (+2, +11), not (+3, +10).** At +3 the head outline sits on column 71, the frame's right edge, which section 2 and acceptance target 1 require empty. Design ruling (review): accept (+2, +11) and do not grow the canvas (72 x 44 with pivot (46, 43) is the shared integration contract with locomotion). The section 5 table now says (+2, +11); the 1 px lower press plus the tail flick reads as pushing in.
 2. **n2 tail flick:** the tail tip is stretched 1 px up (rows 14 and above move up one row, row 14 is repeated). Everything from row 15 down is the master tail.
 3. **s2 back heel 1 px lower:** the back Croc toe stamp loses its top (heel) row and the leg ends 1 px lower; the bottom row stays on the pivot row. s2 skips the orphan cleanup pass so its arm pixels are s1's exactly ("fists unchanged").
-4. **Feet.** No root motion. The small foot shuffles that remain: u0 front Croc x28 (idle 27, u1 29); u3 returns to the idle x15/x27; p0 back Croc flat x17 and front x29, p2 back toe x20, p3 x16/x28; s0 back Croc flat x11 (4 px behind idle), front x31; s3 x14/x30. A test limits any frame-to-frame jump of a Croc's left edge inside a verb to 4 px. p3 and s3 are 1 and 3 px from the idle feet, so the return to idle pops by that much unless gameplay holds the idle foot offset (a gameplay or integration note, not an art defect).
+4. **Feet (review item E1).** No root motion. Foot rule for every in-between: a Croc either holds its exact x and stance from the previous frame, or is visibly lifted in the frame where it moves (the flat stamp raised 1 px with no sole on the pivot row, or the toe stamp with the heel up); the other foot stays planted, so every frame stays grounded. Idle feet are x15 (back) and x26 (front). The plan: u0 back holds 15, front raised at 28 (lands at 29 in u1); u3 front holds 26, back raised at 14; p0 back holds 15, front raised at 28 (p1's toe stamp takes the back foot from 15 to 21, its front lands at 30); p2 holds p1's feet exactly (back toe 21, front 30); p3 front holds 30, back raised at 17; s0 back holds 15, front raised at 30 (s1's toe stamp takes the back foot to 12, its front lands at 33); s2 holds s1's feet; s3 back holds on its toe at 12, front raised at 30. `test_carl_planted_feet_hold_or_visibly_lift` checks the rule on every neighbouring pair. The toolkit's V16 foot-drift rule was not enabled: it treats every tag as a loop (the seam compares the last frame with the first) and the frozen keys snap by 3 to 7 px (u1 to u2, the arrivals at p1 and s1), so it would need a limit that hides sliding. Limits were not loosened. **Spec text changed:** s0 no longer steps the back foot back 4 px (the s1 key's toe stamp makes that step); s0 spends its lift on the front foot instead. **Return-to-idle pops (outside the atlas):** the last frame of a verb is not exactly the idle stance: u 1 px (back foot), p 4 px (front foot), s 3 px (back foot). Gameplay may re-plant the idle feet on the return or accept the small pop.
 5. **Hand anchors for a carried item** (pivot-relative, y up, far hand centre): p1 (+16, 5), p2 (+12, 15), p3 (+11, 19). Recorded in `carl_h52_interact.pixelart.json` (`anchors.carried_item_hand`, keyed by frame index 5, 6, 7) and in the manifest; a test measures them from the grid. p3 stands up, so the item rides at the standing hip, 4 px higher than at p2.
 6. **d3 is the master idle frame 0** exactly (the table: paw on the floor, head at idle); it is unique within the interact atlas, so V12 passes.
 7. **n0, n2, n3 collar:** the collar pixels covered by the lowered head are dropped as in n1.
 
-**Not done / still open:** no review yet; nothing is wired into Bevy; whether an interrupted push still applies its impulse (section 3) stays a gameplay decision. The p0 half squat keeps the near hand mostly behind the jacket edge (the reach to the knee is told by the arm angle); the reviewer may want it more visible.
+**Design rulings (review):** (a) n2 head stays (+2, +11), canvas not grown (item 1). (b) p0's near arm mostly hidden behind the jacket edge is accepted: the watch cuff marks it and p1 lands the hand on the knee.
+
+**Design notes for a key pass (non-blocking, keys left frozen):** D1 u1 to u2 stance snap (front Croc 29 to 26, back 15 to 13) reads as a weight shuffle, a future key pass could keep the front foot at 29; D2 the s1 belly fist sits against the boxer edge and does not read at 1x (1 px of background or a skin wrist would help); D3 the p1 front-thigh boxer hem (x26-31, rows 42-48) is fully outlined and reads as a ring at 4x and above (cosmetic).
+
+**Not done / still open:** no review yet; nothing is wired into Bevy; whether an interrupted push still applies its impulse (section 3) stays a gameplay decision.

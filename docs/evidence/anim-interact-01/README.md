@@ -20,4 +20,6 @@ python3 -m scripts.pixelart evidence assets/source/characters/donut/donut_h40_in
 | `carl/contact_sheet_x1.png`, `carl/contact_sheet_x4.png`, `donut/contact_sheet_x1.png`, `donut/contact_sheet_x4.png` | all frames at native size and at 4x (the enlarged frames): tag, tick count, frozen keys flagged KEY, contact row (cyan), pivot (yellow) |
 | `carl/gif_*_x1.gif`, `carl/gif_*_x3.gif`, `donut/gif_*_x1.gif`, `donut/gif_*_x3.gif` | one GIF per verb tag at 1x and 3x, played at the 60 Hz tick durations on the flat review background with the walking line; the last frame rests before the loop restarts |
 
+`python3 -m scripts.pixelart review-pack <config>` needs the Floor 1 kit atlases first: run `bash scripts/export_assets.sh` once in a fresh checkout (otherwise it stops with "the Floor 1 kit atlases are missing" after writing the contact sheet).
+
 The props, switch, crate and item rectangles are neutral grey and brown placeholders for stand-off distance and contact only, not prop art. The environment kit is the approved, unchanged ENV-01 kit. `SHA256SUMS` lists the hash of every file here.
