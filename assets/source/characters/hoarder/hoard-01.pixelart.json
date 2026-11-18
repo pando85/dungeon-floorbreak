@@ -1,0 +1,43 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "hoard-01",
+  "title": "HOARD-01 The Hoarder (Floor 01 boss) readability set, phase 1: idle key 0 (docs/02-art/hoard-01-spec.md)",
+  "grid": "assets/source/characters/hoarder/hoard-01.grid.json",
+  "frame_size": [160, 128],
+  "pivot": [70, 127],
+  "contact_row": 127,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {"playback": "loop", "contact": "grounded", "frames": [[0, 14]]}
+  },
+  "roles": {
+    "idle": "idle"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 6,
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/hoard-01_keys.json",
+      "frames": [0],
+      "layers": ["body"]
+    },
+    "bbox": [
+      {"id": "H1-size-idle-112px", "frames": [0], "top": 16, "bottom": 127},
+      {"id": "H1-idle-width-band", "frames": [0], "min_width": 90, "max_width": 100}
+    ],
+    "key_counts": [
+      {"id": "H0-eye-whites-visible", "frames": [0], "key": "w", "min": 3},
+      {"id": "H0-face-scar-visible", "frames": [0], "key": "x", "min": 12},
+      {"id": "H0-long-dark-hair-mass", "frames": [0], "key": "a", "min": 100},
+      {"id": "H0-plain-shirt-dominant", "frames": [0], "key": "u", "min": 600}
+    ]
+  },
+  "review": {
+    "strip_tags": ["idle"]
+  }
+}

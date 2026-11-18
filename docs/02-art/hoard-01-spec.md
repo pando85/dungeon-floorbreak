@@ -1,10 +1,10 @@
 # HOARD-01: The Hoarder (boss) readability set, design spec
 
-**Status:** packet ready; design pending. Execution pending. Review pending.
+**Status:** phase 1: idle key 0 drawn and frozen; silhouette gate pending. Keys 3, 8, 10, 12, 15 pending the gate. Execution pending. Review pending.
 
-**Decision record:** height <fill> px, frame <fill> x <fill>, pivot (<fill>, <fill>). Proposed by <fill>; decided by <fill>.
+**Decision record:** height 112 px, frame 160 x 128, pivot (70, 127). Proposed by the HOARD-01 designer; decided by the independent silhouette-gate review on key 0 (pending).
 
-The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: ...>`; write numbers, not adjectives. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
+The sections follow `docs/02-art/gob-01-goblin-spec.md`. The design step stops at the keys and this spec (see the top-tier budget in `docs/07-agents/agent-orchestration.md`).
 
 ## 1. Canon and tone constraints
 
@@ -15,7 +15,7 @@ The sections follow `docs/02-art/gob-01-goblin-spec.md`. Replace every `<fill: .
   - **She is not a goblin with a backpack.** Retain her individuality and tragedy.
   - Horror without gratuitous gore.
   - Massive boss build; the printed `15 ft`, `35 years` and `96 px` are not decisions.
-- Design reading of the tone: <fill: how the Hoarder reads as tragic and frightening yet still slightly absurd, never a heroic or sexualized design>.
+- Design reading of the tone: she reads as a frightened, ruined person first: stooped, head sunk between the shoulders, eyes wide, mouth slack, half the face burned into scar tissue (dark plum and raised rose, never open wounds or blood). The danger comes from her mass and her open, clawed hands; the slight absurdity comes from the junk that clings to her (a tin-foil scrap in the hair, filth dripping from the hem) and from the hoard pile around her, never from mocking her body or face. Her heavy body is draped in a baggy plain shirt and sweatpants: nothing heroic, nothing sexualised.
 
 ### Guardrails (copied from the roster and late-enemy docs)
 
@@ -54,159 +54,189 @@ Reasoning: new boss design at about 2 to 2.5 times Carl's height with hair, clot
 
 ## 2. Size decision
 
-Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png`).
+Carl is 52 px (about 6 ft), Donut 40 px, the goblin 36 px (see `scale_lineup.png`). The idle key is hunched, so the idle opaque height is her stooped height; the tell key stands her up about 10 px taller.
 
-| Option | Idle opaque height | Ratio to Carl | Implied real height | Why / why not |
+| Option | Idle opaque height | Ratio to Carl | Implied real height (stooped) | Why / why not |
 | --- | --- | --- | --- | --- |
-| A | 96 px | <fill> | <fill> | <fill> |
-| B | 112 px | <fill> | <fill> | <fill> |
-| C | 128 px | <fill> | <fill> | <fill> |
+| A | 96 px | 1.85 | 11.1 ft | Cheapest, but only 8 px above the adult Mongo study (88 px) and below the Dozer hull (120 px): she reads as a large brute, not the floor boss. The head shrinks to about 15 px, too small for the burned half face and the eye whites at 1x. |
+| B | 112 px | 2.15 | 12.9 ft | Chosen. 31 % of the 360 px screen when idle, about 34 % in the tell. The head is 21 px tall, enough for two eye whites, an open mouth and a readable burned half. Leaves headroom above her for the hoard pile and Carl's jump arc. |
+| C | 128 px | 2.46 | 14.8 ft | Closest to the printed 15 ft (not a decision). In the tell she would reach about 138 px, 38 % of the screen; with the hoard pile behind her the arena loses its upper third. About 30 % more pixels per key on a 16-frame set, with no readability gain over B at 1x. |
 
-Decision: <fill: height and the reason, one paragraph; the proposer and the decider are different agents>.
+Decision: **112 px idle opaque height (rows 16 to 127)**. B is the smallest height at which the face, which carries her individuality and tragedy, stays readable at 1x, while she still towers clearly above every other Floor 1 actor. Proposed by the HOARD-01 designer; the independent silhouette-gate review confirms or rejects it on key 0.
+
+### Master variant
+
+No A/B/C variant was selected in the concept. This spec takes **variant A as the master** for the body, costume and idle: it is the calmest pose, it shows the whole face (fear, not rage), and its stooped, wide stance converts directly into a looping idle. Variant **C** supplies the tell and attack (roar, one arm flung forward to grab), and the animation studies supply move (crop 6), hurt (crop 5) and the grab (crop 4). **Variant B is rejected as a master**: the refuse heaped on her back produces the backpack silhouette that the guardrail forbids. Refuse stays off her outline, except two tiny clinging details (a tin-foil scrap in the hair, filth drips below the hem); the hoard pile is a separate prop (section 13).
 
 ## 3. Frame, pivot, boxes and atlas
 
-- Frame <fill> x <fill>, pivot (<fill>, <fill>), contact row <fill> (the lowest opaque row of every grounded frame).
-- Grounded tags: <fill>. Airborne tags (no pixel on the contact row): <fill or none>.
-- Standing box <fill> x <fill>; hurtbox <fill>; attack hitbox <fill> on the impact frame.
-- Authored facing right; the runtime mirrors around the pivot column.
-- One atlas, frames 0 to <fill>, layers: <fill: for example body, weapon>.
+- Frame **160 x 128**, pivot **(70, 127)**, contact row **127** (the lowest opaque row of every grounded frame). The pivot is the midpoint of the two feet in idle (x 28 to 117). Room: 70 px behind the pivot (hair flung back in the tell, the defeat sprawl), 89 px in front (the grab reaches x 150).
+- Grounded tags: `idle`, `walk`, `attack_tell`, `attack_swing`, `hurt`, `down`. Airborne tags: none (she never leaves the floor).
+- Standing box 56 x 104 (x 42 to 97, y 24 to 127): torso, hips and legs; hair strands, fingers and the hoard are outside it.
+- Hurtbox: the standing box plus a head box 20 x 22 (x 71 to 90, y 18 to 39). Hair tips and fingers never take hits. In `hurt` and `down` the boxes follow the body core of each frame (execution derives them from the frame bbox minus hair).
+- Attack hitbox (frame 10, impact): x 112 to 150, y 84 to 127 (39 x 44), the two slamming hands and the floor directly under them. Active on exactly the 6 ticks of frame 10; never during the smear or the recovery.
+- Authored facing right; the runtime mirrors around the pivot column x 70.
+- One atlas, 16 frames (0 to 15), one layer `body`. Overlaps (hair over the back, near arm over the torso, front locks over the chest) are resolved by part order in `scripts/author_hoard01.py`, so one flattened layer is enough.
 
 ## 4. Readability-set animation list
 
-Readability set: idle, move, tell, attack, hurt, defeat (about 12 to 20 frames until the asset has a gameplay work order). Tick windows are at 60 Hz.
+Readability set: idle, move, tell, attack, hurt, defeat; 16 frames. Tick windows at 60 Hz. She is heavy: every window is slower than GOB-01's.
 
-| Role | Tag | Frames | Playback | Tick-window proposal | Reference |
+| Role | Tag | Frames | Playback | Ticks | Total |
 | --- | --- | --- | --- | --- | --- |
-| idle | `idle` | 2-4 | loop | 8-12 ticks per frame, a 32-40 tick breathing cycle | GOB-01: 12 + 8 + 12 + 8 |
-| move | `walk` | 4-6 | loop | 5 ticks per frame, speed from the gameplay spec | GOB-01: 6 x 5 = 30 ticks |
-| tell | `attack_tell` | 1-2 | once | at least 18 ticks of readable hold, about 24 total | GOB-01: 6 + 18 |
-| attack | `attack_swing` | 2-3 | once | smear 2, impact 3-4 (shown on exactly the hitbox-active ticks) | GOB-01: 2 + 4, then recover 20 |
-| hurt | `hurt` | 1 | once | 8-12 ticks | GOB-01: 4 + 8 |
-| defeat | `down` | 2-3 | hold | floor impact 4, settle 8, then a state-driven hold | GOB-01: 4 + 8 + hold |
+| idle | `idle` | 0-2 | loop | 16 + 12 + 16 | 44 (laboured breathing) |
+| move | `walk` | 3-6 | loop | 8 + 8 + 8 + 8 | 32 (lumbering shuffle, one step per 16 ticks) |
+| tell | `attack_tell` | 7-8 | once | 8 + 26 | 34 (readable hold 26 >= 18) |
+| attack | `attack_swing` | 9-11 | once | 3 + 6 + 24 | 33 (smear 3, impact 6 = hitbox ticks, recovery 24 = punish window) |
+| hurt | `hurt` | 12 | once | 12 | 12 |
+| defeat | `down` | 13-15 | hold | 6 + 8 + hold | 14, then a state-driven hold |
 
-Frame table (`frame_pivot_template.json` carries the same rows):
+Frame table:
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | <fill: pose> | 12 | <fill: key or Sonnet> |
-| 1 | `idle` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 2 | `idle` | <fill: pose> | 12 | <fill: key or Sonnet> |
-| 3 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 4 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 5 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 6 | `walk` | <fill: pose> | 5 | <fill: key or Sonnet> |
-| 7 | `attack_tell` | <fill: pose> | 6 | <fill: key or Sonnet> |
-| 8 | `attack_tell` | <fill: pose> | 18 | <fill: key or Sonnet> |
-| 9 | `attack_swing` | <fill: pose> | 2 | <fill: key or Sonnet> |
-| 10 | `attack_swing` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 11 | `hurt` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 12 | `hurt` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 13 | `down` | <fill: pose> | 4 | <fill: key or Sonnet> |
-| 14 | `down` | <fill: pose> | 8 | <fill: key or Sonnet> |
-| 15 | `down` | <fill: pose> | hold | <fill: key or Sonnet> |
+| 0 | `idle` | stooped, wide stance, arms hanging, clawed hands open, wide eyes | 16 | key (drawn, phase 1) |
+| 1 | `idle` | exhale: torso and head 1 px down, belly 1 px out, hands 1 px lower | 12 | in-between |
+| 2 | `idle` | inhale: shoulders and head 1 px up from key 0, hair tips sway 1 px left | 16 | in-between |
+| 3 | `walk` | contact: far foot planted forward, torso lurches forward 4 px | 8 | key |
+| 4 | `walk` | down: weight drops 2 px onto the far leg, near foot drags | 8 | in-between |
+| 5 | `walk` | passing: near leg swings through, torso back to idle height | 8 | in-between |
+| 6 | `walk` | up: near foot lands forward, far foot heel lifts | 8 | in-between |
+| 7 | `attack_tell` | gather: crouches 4 px below idle, arms drawn back and in, head down | 8 | in-between |
+| 8 | `attack_tell` | rear-up hold: stands tall, both arms over the head, mouth wide, eyes wide | 26 | key |
+| 9 | `attack_swing` | smear: torso pitching forward, arms a 2-frame arc smear | 3 | in-between |
+| 10 | `attack_swing` | impact: both hands slammed onto the floor in front, grabbing | 6 | key |
+| 11 | `attack_swing` | recovery: hands still on the floor, head lifts, hair settles | 24 | in-between |
+| 12 | `hurt` | flinch: head snaps back and away, arms pulled to the chest, eyes shut | 12 | key |
+| 13 | `down` | buckle: knees give, torso drops 18 px, one hand out | 6 | in-between |
+| 14 | `down` | impact: knees and near hand on the floor, head down | 8 | in-between |
+| 15 | `down` | settled: curled on her side among the junk, one hand reaching for a scrap, eyes shut | hold | key |
 
 ## 5. State diagram
 
 ```mermaid
 stateDiagram-v2
     [*] --> idle
-    idle --> move: <fill: trigger>
-    move --> idle: <fill: trigger>
-    idle --> tell: <fill: in range>
-    move --> tell: <fill: in range>
-    tell --> attack: tell ticks elapsed
-    attack --> idle: recover elapsed
+    idle --> move: player outside grab range
+    move --> idle: player in range or arena edge
+    idle --> tell: player within 80 px in front
+    move --> tell: player within 80 px in front
+    tell --> attack: 34 tell ticks elapsed
+    attack --> idle: 24 recovery ticks elapsed
     idle --> hurt: hit
-    hurt --> idle: hurt ticks elapsed
+    hurt --> idle: 12 hurt ticks elapsed
     hurt --> defeat: health 0
     defeat --> [*]
 ```
 
+The 80 px range is an art-side estimate for the tell trigger (the grab reaches 80 px in front of the pivot). Damage, health, super-armour during the tell and the boss phase structure belong to a gameplay work order.
+
 ## 6. Palette
 
-At most <fill: 20> colours. Candidates from the concept crop (median cut, by pixel share; see `palette_candidates.json`). These are candidates, not decisions.
+19 colours (limit 20). The packet candidates are median-cut shares of the crop, about two thirds background navy; creature colours were picked by eye and pushed for the A1-lit catacomb.
 
-| # | Candidate | Share | Decision (key, name, role) |
-| --- | --- | --- | --- |
-| 1 | `#111925` | 10.1 % | <fill: key, name, role> |
-| 2 | `#de926c` | 8.3 % | <fill: key, name, role> |
-| 3 | `#101823` | 5.8 % | <fill: key, name, role> |
-| 4 | `#111c2e` | 5.7 % | <fill: key, name, role> |
-| 5 | `#d1744f` | 5.1 % | <fill: key, name, role> |
-| 6 | `#292738` | 4.9 % | <fill: key, name, role> |
-| 7 | `#0e1621` | 4.7 % | <fill: key, name, role> |
-| 8 | `#040309` | 4.5 % | <fill: key, name, role> |
-| 9 | `#443e52` | 4.5 % | <fill: key, name, role> |
-| 10 | `#85402f` | 4.3 % | <fill: key, name, role> |
-| 11 | `#b14231` | 4.1 % | <fill: key, name, role> |
-| 12 | `#87645e` | 4.0 % | <fill: key, name, role> |
-| 13 | `#080e19` | 3.8 % | <fill: key, name, role> |
-| 14 | `#62312c` | 3.7 % | <fill: key, name, role> |
-| 15 | `#131c27` | 3.6 % | <fill: key, name, role> |
-| 16 | `#f9c091` | 3.6 % | <fill: key, name, role> |
-| 17 | `#29181f` | 3.6 % | <fill: key, name, role> |
-| 18 | `#2c3249` | 3.0 % | <fill: key, name, role> |
-| 19 | `#63484b` | 3.0 % | <fill: key, name, role> |
-| 20 | `#dbae8d` | 2.6 % | <fill: key, name, role> |
-| 21 | `#11121c` | 2.3 % | <fill: key, name, role> |
-| 22 | `#0e1a2b` | 2.2 % | <fill: key, name, role> |
-| 23 | `#6d161d` | 1.8 % | <fill: key, name, role> |
-| 24 | `#181926` | 1.0 % | <fill: key, name, role> |
+| Key | Name | RGBA | Role | Nearest candidate |
+| --- | --- | --- | --- | --- |
+| `K` | outline | `#1c1218` | outer and part outline, eye pupils, mouth | `#040309` (lifted, warm) |
+| `d` | skin_deep | `#5c2e2a` | mouth interior, cast shadow on skin | `#62312c` |
+| `s` | skin_shade | `#94523f` | skin core shadow | `#85402f` |
+| `m` | skin_mid | `#c67c5a` | skin midtone | `#d1744f` |
+| `h` | skin_light | `#e6a982` | skin torch light | `#de926c` |
+| `x` | scar_dark | `#6e2232` | burned half of the face, dark | `#6d161d` (desaturated toward plum: scar, not blood) |
+| `y` | scar_light | `#a8464a` | burned half of the face, raised tissue | `#b14231` |
+| `a` | hair_deep | `#241e2c` | hair mass | `#292738` |
+| `b` | hair_mid | `#3c3550` | hair lit side | `#443e52` |
+| `c` | hair_sheen | `#635b78` | wet sheen strands (cool, separates hair from the warm brick) | none |
+| `t` | shirt_shade | `#6e604e` | shirt shadow, chest fold | `#63484b` |
+| `u` | shirt_mid | `#a39276` | shirt midtone (largest mass), pants side stripe | `#87645e` |
+| `v` | shirt_light | `#d4c4a2` | shirt torch light | `#dbae8d` |
+| `p` | pants_deep | `#262944` | sweatpants shadow | `#2c3249` |
+| `q` | pants_mid | `#3e4468` | sweatpants midtone | `#443e52` |
+| `r` | pants_light | `#626a94` | sweatpants light | none |
+| `g` | grime | `#5a4a2c` | stains, filth drips | none |
+| `w` | eye_white | `#ece2ca` | eye whites, teeth (accent) | `#f9c091` (neutralised) |
+| `n` | tin_scrap | `#94a4a8` | tin-foil scrap caught in the hair (accent) | none |
 
-The chosen palette must separate this asset from the warm brick and the cold arch of Floor 1 at 1x, and fit the A1 lighting.
+The pale shirt is the largest and lightest mass, so her body separates from the orange brick and the navy arch at 1x; the cool hair sheen and the violet-leaning sweatpants keep her outline readable against the warm wall. No colour exists for a print: **the shirt is plain** and the study's brand-like logo has no pixels.
 
 ## 7. Key poses
 
-One key per readability tag (about 6 to 8 keys): idle 0, move contact, tell hold, attack impact, hurt, defeat. Each key lists silhouette, joint positions, palette use and the readability reason. Keys are frozen once the review passes (`pixelart freeze`).
+Six keys, one per readability role. Key 0 is drawn (phase 1, silhouette gate); keys 3, 8, 10, 12 and 15 follow after the gate.
 
 | Frame | Tag | Silhouette and pose notes | Readability reason |
 | --- | --- | --- | --- |
-| <fill> | <fill> | <fill> | <fill> |
+| 0 | `idle` | bbox x 22-117, y 16-127. Stooped three-quarter view facing right; the upper-back hump (y 33) is higher than the sunk head's chin. Head centre (81, 30), hair cap from y 16, long hair down the back to y 77. Near (right) arm hangs back-left, hand at (30, 94), four curled fingers to y 106; far arm hangs forward of the belly, hand at (108, 91). Wide stance: near foot x 28-54, far foot x 92-117. Plain shirt with a ragged hem (y 92-98), a side tear, stains; navy sweatpants with one faded side stripe, a torn near knee; bare feet. Face: burned near half (scar_dark/light), two eye whites, slack open mouth, no brow over the burned eye. | A ruined woman, not a creature: long hair, a human face with fear, everyday clothes. The mass and the open clawed hands carry the threat; the hump-and-sunk-head line keeps the goblin-backpack read away because nothing sits on her back but hair. |
+| 3 | `walk` | Contact. Top 18-20, width <= 112. Far foot planted forward (toes to x 124), near foot behind on the toes, torso lurched forward 4 px, head 2 px lower, near arm swinging forward, far arm back, hair swinging back 3 px. | The lurch and the dragged back foot sell weight; the hands stay open so the threat stays readable in motion. |
+| 8 | `attack_tell` | Rear-up hold, the highest pose: top <= 6. Torso straightened and leaning back 4 px, both arms raised over the head with hands open (x 60-100, y 6-30), hair flung back to x 20, mouth wide open with teeth (variant C roar), both eye whites enlarged. Feet planted 4 px wider than idle. | Three independent cues at 1x: the silhouette doubles its vertical extent above the head, the raised hands frame it, and the face changes (white teeth, wide eyes). Held 26 ticks. |
+| 10 | `attack_swing` | Impact. Torso pitched forward about 35 degrees, head forward at x about 112, hair falling forward over it; both hands slammed onto the floor in front (fingers on row 127, x 120-150), grabbing; near leg extended back. min_right 145. | The hands land exactly where the hitbox is; the floor contact makes the danger zone obvious. |
+| 12 | `hurt` | Flinch (crop 5). Head snapped back and turned away (face 3 px left of idle), shoulders up, both arms pulled to the chest, eyes squeezed shut (no eye white), body shifted back 4 px: max_right <= 108. | The only key with the arms in and the eyes shut: a hit reads as pain, not anger, which keeps her tragic. |
+| 15 | `down` | Settled. Curled on her side, knees drawn up, hair spread on the floor, near hand stretched toward a small scrap (part of the hoard prop, not the sprite), eyes shut. top >= 92, width <= 140. No blood. | Flat, still and human; the reaching hand is the last beat of the hoarding tragedy. |
 
 ## 8. In-between list
 
-For the execution tier; no design decisions needed. One row per non-key frame, as in section 9 of the GOB-01 spec.
+For the execution tier, derived from the keys above; no design decisions.
 
 | # | Pose notes |
 | --- | --- |
-| <fill> | <fill> |
+| 1 | Key 0 with torso, head, arms and hair shifted 1 px down, belly outline 1 px out; feet unchanged. |
+| 2 | Key 0 with shoulders and head 1 px up; hair tips 1 px left; feet unchanged. |
+| 4 | Between keys 3 and 0: weight 2 px down on the far leg, near foot dragging flat. |
+| 5 | Passing: legs together under the hips, torso at idle height, arms crossing the body line. |
+| 6 | Mirror timing of 3: near foot lands forward, far heel lifts; torso lurch 2 px. |
+| 7 | Gather: 4 px lower than key 0 (top >= 20), arms drawn back to the hips, head down. |
+| 9 | Smear between keys 8 and 10: torso halfway, arms as one 2-frame arc smear in skin colours, no hitbox. |
+| 11 | Key 10 with the head lifted 4 px and the hair settling; hands stay on the floor. |
+| 13 | Buckle: knees bend, torso 18 px down (top >= 34), one hand out. |
+| 14 | Floor impact: knees and near hand on the floor, head down (top >= 70). |
 
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate <asset-config>` (rules V01 to V15 in `scripts/pixelart/validators.py`). Parametrize in the asset config:
+Run by `python3 -m scripts.pixelart validate assets/source/characters/hoarder/hoard-01.pixelart.json`.
 
-- V04 palette: at most <fill> colours; V05 isolated pixels: 0; V06 orphan pixels: at most <fill> per frame.
-- V07/V08 contact rows: grounded tags end on the contact row, airborne tags never touch it.
-- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/hoard-01_keys.json`.
-- V13/V14 readability rules (write each as a bbox or key-count rule): <fill: for example the tell is the highest point, the hurt eyes are white>.
+- V04 palette: at most 20 colours (19 used). V05 isolated pixels: 0. V06 orphan pixels: at most 6 per frame (key 0 has 0).
+- V07 contact rows: every frame ends on row 127. V08: no airborne tags.
+- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/hoard-01_keys.json` (phase 1: frame 0; later 0, 3, 8, 10, 12, 15).
+- V13 bbox rules: H1 idle top 16 bottom 127 and width 90 to 100 (in the config now); H2 frame 8 max_top 6 and frame 7 min_top 20; H3 frame 10 min_right 145, frame 9 min_right 125; H4 frame 12 max_right 108; H5 frame 13 min_top 34, frame 14 min_top 70, frame 15 min_top 92 and max_width 140.
+- V14 key counts: H0 eye whites `w` >= 3 in frames 0-11 (in the config for frame 0); H0 burned half `x` >= 12 in every frame where the face is visible; H0 shirt `u` >= 600 in frame 0; H2 frame 8 `w` >= 8 (teeth plus eyes); H4 frame 12 `w` = 0; H5 frames 13-15 `w` = 0; tin `n` <= 6 in every frame (a detail, never a pack).
 
 ## 10. Evidence
 
 ```text
-python3 -m scripts.pixelart validate <asset-config> --out <dir>
-python3 -m scripts.pixelart evidence <asset-config> --out <dir>
-python3 -m scripts.pixelart review-pack <asset-config> --out <dir>
+python3 scripts/author_hoard01.py --scale <dir>        # key 0 next to Carl at 1x and 4x
+python3 -m scripts.pixelart validate assets/source/characters/hoarder/hoard-01.pixelart.json
+python3 -m scripts.pixelart evidence assets/source/characters/hoarder/hoard-01.pixelart.json --out <dir>
+python3 -m scripts.pixelart review-pack assets/source/characters/hoarder/hoard-01.pixelart.json --out <dir>
 ```
 
-The review pack holds exactly three images (contact sheet x4, lit scene 640 x 360 shown x3, tell to attack strip) and the validator report.
+Phase 1 evidence: `docs/evidence/hoard-01/key0-scale.png` (top: the 1x scene, key 0 next to Carl on a brick-toned and an arch-toned panel; below: the same scene at 4x). The review pack (three images plus the validator report) follows when the set is complete.
 
 ## 11. Files
 
 | File | Role |
 | --- | --- |
-| `assets/source/<fill>/hoard-01.grid.json` / `.ase` | pixel-grid source and Aseprite master |
-| `assets/manifests/hoard-01.json` | manifest |
-| `<fill>/hoard-01.pixelart.json` | the asset config (from `frame_pivot_template.json`) |
+| `scripts/author_hoard01.py` | deterministic authoring script (rules plus explicit detail pixels) |
+| `assets/source/characters/hoarder/hoard-01.grid.json` / `.ase` | pixel-grid source and Aseprite master |
+| `assets/source/characters/hoarder/hoard-01.pixelart.json` | the asset config |
 | `tests/fixtures/hoard-01_keys.json` | frozen keys |
+| `tests/test_art_hoard01.py` | reproducibility, frozen key, size, palette |
+| `assets/manifests/hoard-01.json` | manifest (when the set is complete) |
 
 ## 12. Rights and provenance
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Record in the PR's `Rights/Provenance` section which model designed, executed and reviewed the art. No tracing of the concept, no image-model raster output.
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). No tracing of the concept, no image-model raster output: every pixel comes from `scripts/author_hoard01.py`.
 
-### Rights/Provenance stub
+### Rights/Provenance
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Designed by: pending. Executed by: pending. Independently reviewed by: pending.
-- No third-party assets, no copied designs or dialogue, no image-model raster output.
+- Spec + keys: Claude Opus. Execution (in-betweens, manifest, evidence): pending. Independent review: silhouette gate on key 0 pending.
+- No third-party assets, no copied designs or dialogue, no brand marks, no image-model raster output.
+
+## 13. Note for a separate VFX/prop work order: hoard pile and falling trash
+
+Not drawn here and not part of the character atlas. Proposed work order: hoard pile and refuse props and VFX.
+
+- **Hoard pile (prop):** a static arena backdrop layer behind her, 2 to 3 sizes, up to about 96 px tall so it never hides her head; generic junk (bags, crates, cans, a broken screen, rags). No real brands, logos or readable text. Uses this palette plus at most 4 prop colours.
+- **Shed refuse (VFX):** on each walk contact (frames 3 and 6) and on the attack impact, 2 to 4 chunks of 3 to 5 px fall from her hem and hair; visual only, 20 to 30 tick lifetime, no collision.
+- **Falling trash (hazard, only if a gameplay spec approves it):** a floor shadow telegraph at least 30 ticks before impact, impact puff 8 ticks; spawn positions from the seeded gameplay RNG in the gameplay layer, so rendering never changes outcomes.
+- **Guardrail:** junk must never attach to her back as a pack or sack; it lies on the floor, falls, or clings as single small scraps.

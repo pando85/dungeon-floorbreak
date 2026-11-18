@@ -1,0 +1,12 @@
+{
+  "asset_id": "hoard-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "971052367a82aa86f55fb784171d3ebaa39d43930cda71d021891f07fba87229"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
