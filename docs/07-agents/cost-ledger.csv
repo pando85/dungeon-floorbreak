@@ -1,1 +1,30 @@
 date,work_order,config,stage,tier,model,agent_label,tool_calls,input,cache_write,cache_read,output,est_usd,wall_min,outcome
+2026-11-18,ORCH-2026-11-18,-,orchestration,top,claude-opus-5-5,orchestrator,148,366,318742,37502494,111419,12.28,166.5,
+2026-11-18,RAT-01,B,design-edit,top,claude-opus-5-5,rat-edit,35,54,99577,2333580,40516,1.78,7.3,"done; kept size/boxes, redrew 3 of 6 keys"
+2026-11-18,ENV-02,baseline,fix,medium,claude-sonnet-5-5,env02-fix-1,72,140,237322,7197720,29415,1.61,24.5,done
+2026-11-18,LLAMA-01,A,re-review,top,claude-opus-5-5,llama-review2,16,22,75954,583734,11169,0.72,2.1,PASS WITH EXECUTION ITEMS 20/25
+2026-11-18,RAT-01,B,execute,medium,claude-sonnet-5-5,rat-exec,50,82,152675,5143648,61171,1.51,8.1,done
+2026-11-18,SCAT-01,C,keys+execute,medium,claude-sonnet-5-5,scat-exec,54,92,153779,5793110,79055,1.75,10.7,done
+2026-11-18,RAT-01,B,fix-check,medium,claude-sonnet-5-5,rat-check,8,10,32791,199196,1895,0.12,0.3,ready
+2026-11-18,PIPE-01/02,-,execute,medium,claude-sonnet-5-5,toolkit-ledger,94,172,484679,14403825,124776,3.90,31.0,merged #56
+2026-11-18,SCAT-01,C,review,top,claude-opus-5-5,scat-review,16,24,57488,679454,13805,0.70,2.5,PASS WITH EXECUTION ITEMS 20/25
+2026-11-18,RAT-01,B,review,top,claude-opus-5-5,rat-review,15,20,51256,520459,9123,0.54,1.7,PASS WITH EXECUTION ITEMS 21/25
+2026-11-18,LLAMA-01,A,execute-2,medium,claude-sonnet-5-5,llama-exec2,44,78,111628,3620088,30283,0.94,5.2,done
+2026-11-18,LLAMA-01,A,fix-2,medium,claude-sonnet-5-5,llama-fix2,35,62,104957,2846886,32629,0.87,5.4,done except key 3 tail
+2026-11-18,LLAMA-01,A,fix-check,medium,claude-sonnet-5-5,llama-check,3,6,33086,108770,1544,0.11,0.3,ready
+2026-11-18,SCAT-01,C,fix-check,medium,claude-sonnet-5-5,scat-check,7,12,37412,265569,3430,0.15,0.5,ready
+2026-11-18,LLAMA-01,A,review,top,claude-opus-5-5,llama-review,12,18,54520,468106,9372,0.55,2.3,FAIL-DESIGN 17/25
+2026-11-18,RAT-01,B,draft,medium,claude-sonnet-5-5,rat-draft,50,78,120175,3949160,53284,1.23,6.9,done
+2026-11-18,DOZ-01,baseline,review,top,claude-opus-5-5,doz-review-1,24,40,100211,1392950,19488,1.17,4.1,FAIL-DESIGN
+2026-11-18,LLAMA-01,A,design-fix-1,top,claude-opus-5-5,llama-design-fix,31,50,138133,2483205,62440,2.44,10.0,done; all 7 keys redrawn
+2026-11-18,DOZ-01,baseline,fix,medium,claude-sonnet-5-5,doz-fix-1,102,194,184767,13940022,63275,2.49,35.4,done
+2026-11-18,RAT-01,B,fix,medium,claude-sonnet-5-5,rat-fix,36,52,100475,2253036,29617,0.77,4.5,done
+2026-11-18,DOZ-01,baseline,re-review,top,claude-opus-5-5,doz-review-2,12,26,46656,705694,7061,0.52,1.7,PASS
+2026-11-18,SCAT-01,C,fix,medium,claude-sonnet-5-5,scat-fix,29,44,91225,1718235,24618,0.65,3.8,done
+2026-11-18,ENV-02,baseline,review,top,claude-opus-5-5,env02-review-1,32,54,82706,1890523,19437,1.18,4.3,PASS WITH EXECUTION ITEMS
+2026-11-18,LLAMA-01/RAT-01/SCAT-01,shared,packet,medium,claude-sonnet-5-5,pilot-packets,32,46,73394,1633227,20525,0.55,2.8,done
+2026-11-18,LLAMA-01,A,design,top,claude-opus-5-5,llama-design,28,52,139246,2755023,74726,2.74,12.6,done
+2026-11-18,LLAMA-01,A,execute,medium,claude-sonnet-5-5,llama-exec,45,76,115442,3859436,32094,1.00,4.8,done
+2026-11-18,ENV-02,baseline,fix-check,medium,claude-sonnet-5-5,env02-check-1,6,12,40167,227363,2129,0.14,0.4,ready
+2026-11-18,SCAT-01,C,design,top,claude-opus-5-5,scat-design,35,56,115155,2493219,59972,2.27,10.9,done
+2026-11-18,LLAMA-01,A,fix-3,medium,claude-sonnet-5-5,llama-fix3,17,34,46863,935427,6136,0.27,1.7,done
