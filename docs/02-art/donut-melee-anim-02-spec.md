@@ -97,17 +97,17 @@ Key read checks at 1× (see `keys-scale.png`): the swat pair reads as paw up, th
 | 0 | `swat` | s0 cock | 4 (t0-3) | startup | **key** | frozen |
 | 1 | `swat` | s1 swat contact | 3 (t4-6) | active, hit t4 | **key** | frozen |
 | 2 | `swat` | s2 follow-through | 4 (t7-10) | recovery | drawn | paw continues down to the floor: paw x60-67 rows 40-43 (pressed flat, claws hidden), U (+1, +1). Near hind shuffles forward 2 px (hides skating) |
-| 3 | `swat` | s3 recover | 3 (t11-13) | recovery | drawn | back to the loco-15 stance: near fore restored to its loco-15 pixels, U (0, 0). Hands over to idle/run with at most a 1 px snap |
+| 3 | `swat` | s3 recover | 3 (t11-13) | recovery | drawn | back to the loco-15 stance: near fore restored to its loco-15 pixels, U (0, 0). Hands over to idle with the same snap as the approved `land` to idle hand-over (3 px at the head; accepted at review) |
 | 4 | `pounce` | p0 crouch | 10 (t0-9) | startup | **key** | frozen. Optional later: a 1 px rump wiggle variant (needs a frame and a re-freeze) |
 | 5 | `pounce_air` | p1 pounce flight | hold (nominal t10-23) | active | **key** | frozen |
 | 6 | `pounce_land` | p2 pin landing | 8 (t24-31) | active t24-25, then recovery | **key** | frozen |
-| 7 | `pounce_land` | p3 recover | 12 (t32-43) | recovery | drawn | rump lowers, head back to U (0, 0), forepaws drawn back under the chest (loco-10 forelegs), plume settles halfway between p2 and loco 15 |
+| 7 | `pounce_land` | p3 recover | 12 (t32-43) | recovery | drawn | built on loco 15 (land recovery), not on the loco-10 crouch (review ruling): standing forelegs, head block at U (0, 0), rump at the loco-15 back line, plume halfway between p2 and loco 15. Hands over to idle with the same 3 px snap as the approved `land` |
 | 8 | `hurt` | h0 flinch | 5 (t0-4) | hitstun | **key** | frozen |
 | 9 | `hurt` | h1 recoil | 11 (t5-15) | hitstun | drawn | eyes open again (open-eye face), U (-1, -1), B (-1, 0); near fore back on the floor at its loco-15 position |
 | 10 | `knockback` | kb thrown | hold | airborne | **key** | frozen |
 | 11 | `knockdown` | d0 sploot impact | 6 (t0-5) | down | **key** | frozen |
 | 12 | `knockdown` | d1 sploot sulk | 30 (t6-35) | down | drawn | open-eye face (indignant stare), plume tip lifts 2 px (tail flick); holds until get-up |
-| 13 | `getup` | g0 chest up | 10 (t0-9) | getup | drawn | forelegs straighten under the chest (loco-10 forelegs), B (0, 0), U (0, +2); hinds still flat behind |
+| 13 | `getup` | g0 chest up | 10 (t0-9) | getup | drawn | forelegs straighten under the chest (loco-10 forelegs), B (0, 0), U (0, +1); hind legs half-tucked (the flat hind drawn in 8 px under the hips, paw still behind the body; review ruling, no third frame) |
 | 14 | `getup` | g1 chin up | 10 (t10-19) | getup | drawn | the loco-15 pose with U (0, -1) (chin up first, dignity restored); hinds back under the hips. Hands over to idle |
 
 In-between rules: head, face and gear are translations of a locomotion head block only (the test enforces this for all 15 frames); body and tail are translations (p0's re-pixelled plume and raised rump, and the d1 plume-tip flick, are the exceptions; a wiggle variant reuses p0's); legs and paws are re-pixelled with the master ramps (`K` outline, `C`/`c` cream legs, `W` toe and claw highlights, far legs in the shadow ramp). No isolated pixels, at most 6 orphans per frame. `unique_frames: true` is set in the config.
@@ -192,10 +192,10 @@ All seven in-betweens are drawn by `scripts/author_donut_melee.py` from the loco
 | --- | --- | --- |
 | 2 s2 follow-through | loco 15; head, face, gear, body and tail translated (+1, +1); near fore replaced by a forearm running down to a flat paw at x60-67 rows 40-43 (one toe notch, no claws); hind legs creep +2 px | **Both** hind legs shift +2 (the note says the near hind): the far hind lies directly behind the near one, so shifting only the near hind merges the pair into one fat leg |
 | 3 s3 recover | exactly the locomotion 15 pixels (near fore restored, U (0, 0)); `paw` layer empty | none |
-| 7 p3 recover | loco 10; head U (0, 0) and forelegs back to the loco 10 pixels; body (0, +1) (rump lowers); plume = loco 10 plume (-2, 0) (the standing plume's centre lies about 8 px left and 3 px lower than the p2 plume) | "halfway between p2 and loco 15" is realised as the loco 10 plume moved halfway in x, because the two plumes are different shapes |
+| 7 p3 recover | loco 15 (land recovery) with only the plume moved (+4, -1), halfway between the p2 plume and the standing plume; head block, body, forelegs and hinds are the loco 15 pixels (rebased from loco 10 after review: the loco 10 version re-crouched and popped the head 7 px to idle) | the note's forelegs, head and rump now all come from loco 15; the plume follows the note |
 | 9 h1 recoil | loco 14 body, hinds and forelegs; face block from loco 10 (open eyes at loco 14's head position) at (-1, -1), body (-1, 0), plume (-1, 0) | near fore uses the loco 14 forelegs, not the loco 15 ones: they are pixel-identical to the loco 10 forelegs and fit the crouched chest, the loco 15 legs are 2 rows taller and leave a gap under it |
 | 12 d1 sploot sulk | d0 with the open-eye face block (loco 10 at (0, +4), the same head position as d0); plume tip flick: the top four plume rows rise 2 px, the next four 1 px, gap rows repeat the row below | the flick is the one tail re-pixel outside p0 (tested: root and lower rows unchanged, top 2 px higher) |
-| 13 g0 chest up | d0 with body (0, 0), open-eye head block at (0, +2), plume 4 px up, forelegs under the chest (loco 10 pixels), hind legs still flat behind (the d0 hind) | the note is silent on the plume: raised 4 px as the half-way state between the d0 flop and the standing plume |
+| 13 g0 chest up | d0 with body (0, 0), open-eye head block at (0, +1), plume 4 px up, forelegs under the chest (loco 10 pixels), the flat hind drawn in 8 px under the hips (half-tucked, paw still behind) | the note is silent on the plume: raised 4 px as the half-way state between the d0 flop and the standing plume; hinds half-tucked and U (0, +1) per review, so the change to g1 is spread over two swaps |
 | 14 g1 chin up | loco 15 with the identity block 1 px up; hinds back under the hips | none |
 
 Hit boxes are unchanged and live on the keys only (s1, p1, p2); in-between frames carry no active box. The swat follows the downward arc: s0 above and in front of the head, s1 at the goblin's shins (5-10 px above the floor), s2 pressed on the floor at the same reach (paw front x67, key reach x69), s3 back in the stance.
@@ -215,8 +215,11 @@ Not Bevy captures: Pillow compositions from the grid, the manifest and the appro
 | `keys-scale.png`, `keys-scale-x4.png`, `keys_x6.png`, `p0_vs_jump_start_x1.png`, `p0_vs_jump_start_x6.png` | the design-phase key renders, unchanged |
 | `measurements.json` | per-frame bounding box, opaque size, lowest row, tick count and duration |
 
-### Open questions for the reviewer
+### Reviewer rulings (blind review of this set, 22/25, pass with execution items)
 
-1. **g0 to g1 hind pop.** The note asks for hinds flat behind in g0 and back under the hips in g1: one frame jump (10 ticks each) from the flat hind to the standing one. A third get-up frame (hinds half-tucked) would smooth it but changes the frame count, so it is a design decision.
-2. **Hand-over to idle.** s3 is the locomotion 15 pixels and g1 is the same with the chin 1 px up. The locomotion `land` frames end in the same pose and hand over to idle with the same snap: the idle head sits 3 px higher (head rows 7-8 against 11) and the body 1-2 px lower than loco 15. The "at most 1 px snap" wording of the s3 note does not hold for the head against the approved idle; this is inherited from the approved locomotion, not new.
-3. **p3 against `jump_start`.** p3 is the loco 10 crouch with the rump 1 px lower and a different plume. It differs from locomotion `jump_start` by those two things only, which is deliberate (identity block translated, no new head), but a reviewer should confirm it still reads as a recovery and not as a second crouch.
+1. **No third get-up frame.** The 10 + 10 tick pose-to-pose get-up stands; g0 now has half-tucked hinds and U (0, +1) to soften the g0 to g1 change (hinds, plume and a 6 px head rise remain in the swap).
+2. **3 px idle snap accepted** for s3, g1 and p3: it equals the approved locomotion `land` to idle hand-over, and consistency with the approved set wins over the former "at most 1 px" wording (fixed in section 6).
+3. **p3 rebased on loco 15.** The first version (loco 10 crouch) read as a second jump crouch and snapped the head 7 px to idle. The key set is unchanged.
+4. **p0's 3-row ginger haunch column is fine** (reads as a tortoiseshell patch on a tucked haunch); no action.
+5. **Not done:** the optional outline pixel to separate the cream paw from the cream chest applies to the s0 and s1 keys (frozen); s2's forearm already carries a K outline on both sides. The thin s0 cock and the long s2 forearm are listed as later, optional design notes (a thicker curled paw or the flattened-ears variant needs an owner-approved face edit).
+6. **Review pack:** `python3 -m scripts.pixelart review-pack` needs `bash scripts/export_assets.sh` first (see `docs/evidence/anim-donut-02/README.md`).

@@ -154,16 +154,30 @@ class DonutMeleeKeysTests(unittest.TestCase):
             a, b = pixels(g1[layer]), pixels(loco15[layer])
             self.assertEqual(min(y for _x, y in b) - min(y for _x, y in a), 1, layer)
 
-    def test_p3_and_g0_use_the_locomotion_forelegs(self):
-        """p3 (forepaws back under the chest) and g0 carry the locomotion 10 forelegs; hinds in g0 stay flat."""
-        for k in (7, 13):
-            for layer in ("legs_near", "legs_far"):
-                got = [r[44:] for r in self.grid["frames"][k]["cels"][layer]]
-                want = [r[44:] for r in self.loco["frames"][10]["cels"][layer]]
-                self.assertEqual(got, want, (k, layer))
-        g0 = pixels(self.grid["frames"][13]["cels"]["legs_near"])
-        hind = {p for p in g0 if p[0] < 44}
-        self.assertEqual(max(y for _x, y in hind) - min(y for _x, y in hind), 3)       # flat: 4 rows, as in d0
+    def test_p3_is_the_land_recovery_stance_with_the_plume_settling(self):
+        """Review fix: p3 hands over to idle like the approved `land` (3 px), so it is loco 15 with only the plume
+        moved (halfway back towards the p2 plume); it must not be the jump_start crouch."""
+        p3, loco15 = self.grid["frames"][7]["cels"], self.loco["frames"][15]["cels"]
+        for layer in ("legs_far", "body", "legs_near", "head", "face", "gear"):
+            self.assertEqual(p3[layer], loco15[layer], layer)
+        self.assertTrue(translated(pixels(p3["tail"]), pixels(loco15["tail"])))
+        self.assertNotEqual(p3["tail"], loco15["tail"])
+        top = lambda k: min(y for _x, y in flat(self.grid["frames"][k], ["head"]))  # noqa: E731
+        self.assertEqual(top(7), top(3))                                 # same head row as s3 (the 3 px land snap)
+        self.assertEqual(top(7) - min(y for _x, y in flat(self.loco["frames"][0], ["head"])), 3)
+
+    def test_g0_has_forelegs_under_the_chest_and_half_tucked_hinds(self):
+        """g0: loco 10 forelegs, head U (0, +1), hind legs drawn in 8 px under the hips (half-way between d0 and g1)."""
+        for layer in ("legs_near", "legs_far"):
+            got = [r[44:] for r in self.grid["frames"][13]["cels"][layer]]
+            want = [r[44:] for r in self.loco["frames"][10]["cels"][layer]]
+            self.assertEqual(got, want, layer)
+        hind = lambda k: {p for p in pixels(self.grid["frames"][k]["cels"]["legs_near"]) if p[0] < 44}  # noqa: E731
+        self.assertEqual(min(x for x, _y in hind(13)) - min(x for x, _y in hind(11)), 8)
+        self.assertEqual(max(y for _x, y in hind(13)), 43)
+        head = lambda k: min(y for _x, y in pixels(self.grid["frames"][k]["cels"]["head"]))  # noqa: E731
+        self.assertEqual(head(11) - head(13), 3)                          # d0 U (0, +4) -> g0 U (0, +1)
+        self.assertEqual(head(13) - head(14), 6)                          # was 7 px with U (0, +2)
 
     def test_swat_is_a_downward_slap(self):
         cock = pixels(self.grid["frames"][0]["cels"]["paw"])

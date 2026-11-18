@@ -396,10 +396,10 @@ def ib_s3() -> dict:
 
 
 def ib_p3() -> dict:
-    """Pounce recover: rump lowers 1 px, head and forepaws back (locomotion 10), plume settling."""
-    f = base(10)
-    shift(f, ["body"], 0, 1)
-    shift(f, ["tail"], -2, 0)                      # halfway between the p2 plume and the standing plume
+    """Pounce recover: the pin releases into the land-recovery stance (locomotion 15: standing forelegs, head block
+    at U (0, 0), rump at the loco-15 back line); the plume is still settling, halfway between p2 and loco 15."""
+    f = base(15)
+    shift(f, ["tail"], 4, -1)
     return f
 
 
@@ -434,13 +434,15 @@ def ib_d1() -> dict:
 
 
 def ib_g0() -> dict:
-    """Get-up, chest up: forelegs under the chest, head up 2 px, plume rising; hind legs still flat behind."""
+    """Get-up, chest up: forelegs under the chest, head up 3 px, plume rising; the hind legs half-tucked (the flat
+    d0 hind drawn in under the hips, paw still behind the body) to spread the change into g1."""
     f = key_d0()
     shift(f, ["body"], 0, -1)                      # B (0, 0)
-    set_upper(f, 10, 0, 2)                         # U (0, +2), eyes open
+    set_upper(f, 10, 0, 1)                         # U (0, +1), eyes open
     shift(f, ["tail"], 0, -4)                      # plume rising from the sploot flop
     clear(f, "legs_near", FORE_X, 0)
     set_fore(f, 10)
+    shift_hind(f, 8)                               # haunch under the hips, paw trailing back
     return f
 
 

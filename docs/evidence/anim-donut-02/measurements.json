@@ -265,13 +265,13 @@
       "duration_ms": 167,
       "bbox": [
         12,
-        13,
+        12,
         68,
         43
       ],
       "opaque_size": [
         57,
-        31
+        32
       ],
       "lowest_row": 43
     },
