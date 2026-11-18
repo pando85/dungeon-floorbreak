@@ -1,0 +1,27 @@
+{
+  "asset_id": "swine-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "c8306191eebf014d91490cdeb90152fbb94d90b05058f9374ee1a4535f1d7b2a"
+    },
+    "10": {
+      "sha256": "e45135f38a7ab24bd6e107e101f64059574cf2b2283c0adc22eaf7c1aef47110"
+    },
+    "12": {
+      "sha256": "6e202f9b1266f9dbe69e45a64ee1d89662e66224ae51290395ea7d8540fb2122"
+    },
+    "14": {
+      "sha256": "49e0fcaaf3539e513d4bdf5c191b06d8daf08688a0db70b35a6c248d70556421"
+    },
+    "17": {
+      "sha256": "07ff6802390608a0197a7b1d4e76f684ecacaeab3e9d527eb7d9167187c9c3f8"
+    },
+    "3": {
+      "sha256": "fdf2b949570dd710eda794fe2c9a501d04a60211b67e8af92b44e03e68abe189"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
