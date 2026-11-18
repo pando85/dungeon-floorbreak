@@ -157,7 +157,7 @@ Any hit cancels an attack (no armour). Airborne swat and pounce from a jump are 
 
 ## 10. Difficulty and route
 
-Score per [routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty): new design 0 (a variant of the approved locomotion and master), native height above 40 px 0 (40 px), complex anatomy 1 (quadruped with four independently posed legs and a plume), VFX or special states 0 (none; reactions are part of the move set). **Score 1, Easy.** Route: the hero character's attack set was nevertheless keyed in full (eight keys) because the identity is owner-approved and every key touches the identity lock; the medium tier draws the seven in-betweens and evidence; then an independent review. No silhouette gate (not a new design).
+Score per [routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-difficulty): new design 0 (a variant of the approved locomotion and master), native height above 40 px 0 (40 px), complex anatomy 1 (quadruped with four independently posed legs and a plume), VFX or special states 0 (none; reactions are part of the move set). **Score 1, Easy.** Route: the hero character's attack set was nevertheless keyed in full (eight keys) at the design stage, because the identity is owner-approved and every key touches the identity lock; the execution stage draws the seven in-betweens and evidence; then an independent review. No silhouette gate (not a new design).
 
 ## 11. Self-review of the keys (not approval)
 
