@@ -25,6 +25,7 @@ is wired into the game.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import sys
@@ -475,12 +476,181 @@ POSES["down15"] = {
     "fist": (6, 8, 10.0, -10),
 }
 
-# Phase 2: the six keys in atlas order. The grid holds the keys only (grid frame i = KEYS[i]); the executor inserts
-# the in-betweens and moves each frozen SHA to its final atlas index (the SHA does not change).
-KEYS = [(0, "idle", "idle0", 14), (3, "walk", "walk3", 8), (8, "attack_tell", "tell8", 28),
-        (10, "attack_pound", "pound10", 6), (12, "hurt", "hurt12", 14), (15, "down", "down15", None)]
-TAGS = [(tag, [(i, ticks)]) for i, (_a, tag, _p, ticks) in enumerate(KEYS)]
-PLAYBACK = {"idle": "loop", "walk": "loop", "attack_tell": "once", "attack_pound": "once", "hurt": "once", "down": "hold"}
+# ------------------------------------------------------------------ the pose rig: in-betweens (spec section 8)
+def lerp(a, b, t):
+    """Blend two pose values of the same shape (numbers, tuples, lists, dicts, limb dicts); other values come from ``b``
+    from t 0.5 on."""
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)) and not isinstance(a, bool):
+        return a + (b - a) * t
+    if isinstance(a, dict) and isinstance(b, dict):
+        return {k: lerp(a[k], b[k], t) for k in a if k in b}
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)) and len(a) == len(b):
+        out = [lerp(x, y, t) for x, y in zip(a, b)]
+        return tuple(out) if isinstance(a, tuple) else out
+    return b if t >= 0.5 else a
+
+
+def shift(pose, parts, dx, dy):
+    """Add (dx, dy) to every point of the listed parts (point lists, limb dicts, blob dicts, single points)."""
+    def mv(v):
+        if isinstance(v, dict) and "pts" in v:
+            return {"pts": [(x + dx, y + dy) for x, y in v["pts"]], "r": v["r"]}
+        if isinstance(v, dict):
+            return {k: mv(w) for k, w in v.items()}
+        if isinstance(v, list) and v and isinstance(v[0], dict):
+            return [mv(w) for w in v]
+        if isinstance(v, list):
+            return [(x + dx, y + dy) for x, y in v]
+        return (v[0] + dx, v[1] + dy) + tuple(v[2:])          # blob, fist or head point
+    for part in parts:
+        pose[part] = mv(pose[part])
+    return pose
+
+
+def arms_follow(pose, fist, far_fist, base_fist, base_far_fist):
+    """Move the near and far fists to the given centres and let the arm ends, forearm blob and cuff follow (a swing)."""
+    for key, new, old in (("fist", fist, base_fist), ("far_fist", far_fist, base_far_fist)):
+        pose[key] = (new[0], new[1]) + tuple(pose[key][2:])
+    d = (fist[0] - base_fist[0], fist[1] - base_fist[1])
+    pts = list(pose["near_arm"]["pts"])
+    pts[-1] = (pts[-1][0] + d[0], pts[-1][1] + d[1]); pts[-2] = (pts[-2][0] + 0.4 * d[0], pts[-2][1] + 0.4 * d[1])
+    pose["near_arm"] = L(pts, pose["near_arm"]["r"])
+    fb = list(pose["arm_blobs"]["forearm"]); pose["arm_blobs"]["forearm"] = (fb[0] + 0.8 * d[0], fb[1] + 0.8 * d[1], fb[2], fb[3])
+    bb = list(pose["arm_blobs"]["bicep"]); pose["arm_blobs"]["bicep"] = (bb[0] + 0.3 * d[0], bb[1] + 0.3 * d[1], bb[2], bb[3])
+    e = (far_fist[0] - base_far_fist[0], far_fist[1] - base_far_fist[1])
+    fp = list(pose["far_arms"][0]["pts"])
+    fp[-1] = (fp[-1][0] + e[0], fp[-1][1] + e[1]); fp[-2] = (fp[-2][0] + 0.4 * e[0], fp[-2][1] + 0.4 * e[1])
+    pose["far_arms"] = [L(fp, pose["far_arms"][0]["r"])]
+    return pose
+
+
+def set_calf(pose):
+    """The calf disc sits between the near knee and ankle (as in every key)."""
+    (_k0, (kx, ky), (ax, ay), _f) = pose["near_legs"][0]["pts"]
+    pose["calf"] = ((kx + ax) / 2, (ky + ay) / 2 - 0.5, pose["calf"][2], pose["calf"][3])
+
+
+def fit_arm_blobs(pose):
+    """Deltoid at the shoulder, bicep and forearm between the arm points (the keys' rule)."""
+    p0, p1, p2 = pose["near_arm"]["pts"]
+    pose["arm_blobs"] = {"deltoid": (p0[0] - 1, p0[1] + 2, 12, 11.5),
+                         "bicep": ((p0[0] + p1[0]) / 2 + 0.5, (p0[1] + p1[1]) / 2 - 1, 8, 9),
+                         "forearm": ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2 - 1, 8.5, 9)}
+
+
+TRUNK = ["torso", "blobs", "near_arm", "arm_blobs", "far_arms", "head_at", "loin", "waist_chain"]
+BASE_FIST, BASE_FAR = (32, 24), (54, 33)          # walk3
+HIP_PARTS = ["torso", "blobs", "near_legs", "far_legs", "calf", "loin", "waist_chain"]
+
+
+def walk_pose(near_leg, far_leg, fist, far_fist, sweep, bob=(0, 0)):
+    p = copy.deepcopy(POSES["walk3"])
+    p["near_legs"] = [L(near_leg, p["near_legs"][0]["r"])]
+    p["far_legs"] = [L(far_leg, p["far_legs"][0]["r"])]
+    shift(p, TRUNK, *bob)
+    set_calf(p)
+    p["hair"] = {"sweep": sweep}
+    return arms_follow(p, fist, far_fist, (BASE_FIST[0] + bob[0], BASE_FIST[1] + bob[1]),
+                       (BASE_FAR[0] + bob[0], BASE_FAR[1] + bob[1]))
+
+
+# 1, 2 idle breath
+p = copy.deepcopy(POSES["idle0"])
+shift(p, ["torso", "blobs", "near_arm", "arm_blobs", "far_arms"], 0, 1)
+p["head_at"] = (28, 81)
+p["fist"] = (35, 27, 11.5, -20); p["far_fist"] = (50, 37, 9.0, -20)
+POSES["breath1"] = p
+p = copy.deepcopy(POSES["idle0"])
+g = p["blobs"]["gut"]; p["blobs"] = dict(p["blobs"], gut=(g[0], g[1] - 1, g[2], g[3]))
+p["fist"] = (37, 26, 11.5, -20); p["far_fist"] = (52, 36, 9.0, -20)
+POSES["breath2"] = p
+
+# 4, 5, 6 walk (passing, contact B, passing B)
+POSES["pass4"] = walk_pose([(2, 34), (12, 20), (9, 6), (17, 1.5)], [(-12, 34), (-18, 18), (-15, 6), (-7, 1.5)],
+                           (30, 27), (52, 35), 0.2, bob=(-1, 2))
+POSES["contactb5"] = walk_pose([(3, 32), (-6, 17), (-16, 5), (-8, 1.5)], [(-11, 32), (-2, 18), (4, 5), (14, 1.5)],
+                               (40, 30), (46, 26), 0.4)
+POSES["passb6"] = walk_pose([(2, 34), (12, 20), (9, 6), (17, 1.5)], [(-12, 34), (-18, 18), (-15, 6), (-7, 1.5)],
+                            (35, 26), (49, 33), 0.2, bob=(-1, 2))
+
+# 7 tell rise: torso, blobs and legs at the midpoint of idle0 and tell8; the fists pulled up to the chest
+p = lerp(POSES["idle0"], POSES["tell8"], 0.5)
+# executor note: the section 8 near arm and fist are drawn 6 px further back than listed, so the wrist cuff and the
+# fist clear the mouth (at the listed x the cuff cut across the face for the 8 ticks of this frame)
+p["near_arm"] = L([(2, 76), (10, 74), (12, 84)], [10.5, 9.0, 8.0])
+p["fist"] = (14, 90, 11.2, 60)
+p["far_arms"] = [L([(-2, 80), (-6, 88), (-2, 92)], [8.0, 7.0, 6.5])]
+p["far_fist"] = (2, 96, 9.2, 80)
+fit_arm_blobs(p)
+p["head_at"] = (28, 84); p["tilt"] = -1.0; p["face"] = "growl"; p["jaw_drop"] = True; p["hair"] = {"turn": 6}
+set_calf(p)
+POSES["rise7"] = p
+
+# 9 smear: torso at 0.6 of the way tell8 -> pound10, legs as pound10
+p = copy.deepcopy(POSES["pound10"])
+mix = lerp(POSES["tell8"], POSES["pound10"], 0.6)
+for part in ("torso", "blobs", "loin", "waist_chain"):
+    p[part] = mix[part]
+p["near_arm"] = L([(16, 70), (30, 66), (40, 56)], [10.5, 9.0, 8.0])
+p["fist"] = (44, 48, 11.0, 0)
+p["far_arms"] = [L([(18, 74), (36, 66), (50, 56)], [8.0, 7.0, 6.5])]
+p["far_fist"] = (54, 50, 9.5, -10)
+fit_arm_blobs(p)
+p["head_at"] = (36, 66); p["tilt"] = -0.6; p["hair"] = {"sweep": -0.18, "turn": 5}
+POSES["smear9"] = p
+
+# 11 recover: pound10, head up, panting growl, traps and lat up, rump up; the fists stay planted
+p = copy.deepcopy(POSES["pound10"])
+x, y = p["head_at"]; p["head_at"] = (x, y + 6); p["tilt"] = -2.0; p["face"] = "growl"; p["jaw_drop"] = False
+b = dict(p["blobs"])
+for name, dy in (("traps", 3), ("lat", 3), ("glute", 2)):
+    b[name] = (b[name][0], b[name][1] + dy, b[name][2], b[name][3])
+p["blobs"] = b
+POSES["recover11"] = p
+
+# 13, 14 down: the fall beat (t 0.35, open hands still) and the floor impact (t 0.8, fists)
+def fall(t, hurt_hands):
+    h, d = POSES["hurt12"], POSES["down15"]
+    p = lerp({k: v for k, v in h.items() if k not in ("far_hand", "hand", "face", "hair", "jaw_drop")},
+             {k: v for k, v in d.items() if k not in ("far_fist", "fist", "face", "hair", "jaw_drop")}, t)
+    far_end = lerp(h["far_hand"]["palm"], d["far_fist"], t)
+    near_end = lerp(h["hand"]["palm"], d["fist"], t)
+    if hurt_hands:
+        p["far_hand"] = open_hand(far_end[0], far_end[1], far_end[2], 150 + 50 * t)
+        p["hand"] = open_hand(near_end[0], near_end[1], near_end[2], 165 + 35 * t)
+    else:
+        p["far_fist"] = (far_end[0], far_end[1], far_end[2], lerp(-30, 200, t))
+        p["fist"] = (near_end[0], near_end[1], near_end[2], lerp(-30, -10, t))
+    return p, lerp(h["hair"].get("sweep", 0), 0, t)
+
+
+p, sw = fall(0.35, True)
+p["face"] = "pain"; p["jaw_drop"] = True; p["hair"] = {"turn": 40, "sweep": sw}
+POSES["fall13"] = p
+p, sw = fall(0.8, False)
+k = list(p["near_legs"][0]["pts"]); k[1] = (k[1][0], k[1][1] + 4)
+p["near_legs"] = [L(k, p["near_legs"][0]["r"])]
+set_calf(p)
+p["face"] = "dead"; p["jaw_drop"] = False; p["hair"] = {"turn": 65}
+POSES["impact14"] = p
+
+# The full atlas, in order: (atlas index, tag, pose, ticks, author)
+FRAMES = [(0, "idle", "idle0", 14, "key"), (1, "idle", "breath1", 10, "in-between"), (2, "idle", "breath2", 14, "in-between"),
+          (3, "walk", "walk3", 8, "key"), (4, "walk", "pass4", 8, "in-between"), (5, "walk", "contactb5", 8, "in-between"),
+          (6, "walk", "passb6", 8, "in-between"), (7, "attack_tell", "rise7", 8, "in-between"),
+          (8, "attack_tell", "tell8", 28, "key"), (9, "attack_pound", "smear9", 3, "in-between"),
+          (10, "attack_pound", "pound10", 6, "key"), (11, "attack_recover", "recover11", 24, "in-between"),
+          (12, "hurt", "hurt12", 14, "key"), (13, "down", "fall13", 6, "in-between"),
+          (14, "down", "impact14", 10, "in-between"), (15, "down", "down15", None, "key")]
+KEYS = [f for f in FRAMES if f[4] == "key"]
+TAGS: list[tuple[str, list[tuple[int, int | None]]]] = []
+for _a, _tag, _p, _t, _au in FRAMES:
+    if TAGS and TAGS[-1][0] == _tag:
+        TAGS[-1][1].append((_a, _t))
+    else:
+        TAGS.append((_tag, [(_a, _t)]))
+PLAYBACK = {"idle": "loop", "walk": "loop", "attack_tell": "once", "attack_pound": "once", "attack_recover": "once",
+            "hurt": "once", "down": "hold"}
 TICK_HZ = 60
 HOLD_MS = 100
 
@@ -660,7 +830,7 @@ def duration_ms(ticks: int | None) -> int:
 
 
 def frames_grid() -> dict:
-    frames = [{"rows": build(POSES[p]), "ms": duration_ms(t)} for _a, _tag, p, t in KEYS]
+    frames = [{"rows": build(POSES[p]), "ms": duration_ms(t)} for _a, _tag, p, t, _au in FRAMES]
     used = {ch for f in frames for ch in "".join(f["rows"]) if ch != "."}
     return {
         "format": "pixel-grid-v1",
@@ -690,26 +860,26 @@ def manifest() -> dict:
         "owner": "AI-authored boss animation candidate (fan-concept layer: Floor 1 Gym troglodyte boss; runtime role IP-neutral heavy boss)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": ("JUICE-01 phase 2: the six keys (final atlas frames 0, 3, 8, 10, 12, 15) at a 100 px idle height, "
-                       "rasterized from pose rules by scripts/author_juice01.py; the grid holds the keys only until the "
-                       "in-betweens are drawn; layer body only"),
-            "generator": "Spec and keys: Claude Opus. In-betweens and execution: pending. Silhouette gate on key 0: passed after fixes. Independent review: pending. No image-model raster output, no tracing, no resampling",
+            "origin": ("JUICE-01 phase 2: the six frozen keys (atlas frames 0, 3, 8, 10, 12, 15) and ten in-betweens at a "
+                       "100 px idle height, rasterized from pose rules by scripts/author_juice01.py; 16 frames; layer "
+                       "body only"),
+            "generator": "Spec and keys: Claude Opus. In-betweens and execution: Claude Sonnet. Silhouette gate on key 0: passed after fixes. Independent review: pending. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"],
         },
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "juicer": {
-            "status": "phase 2: six frozen keys, in-betweens pending; not wired into any Bevy binary",
+            "status": "phase 2: 16 frames (six frozen keys, ten in-betweens); not wired into any Bevy binary",
             "spec": "docs/02-art/juice-01-spec.md",
             "opaque_height_idle": H,
             "tick_hz": TICK_HZ,
             "hold_preview_ms": HOLD_MS,
             "playback": PLAYBACK,
-            "key_atlas_index": {str(i): a for i, (a, _t, _p, _k) in enumerate(KEYS)},
+            "key_atlas_index": {str(a): a for a, _t, _p, _k, _au in KEYS},
             "key_fixture": "tests/fixtures/juice-01_keys.json",
-            "frames": [{"index": i, "tag": tag, "ticks": t, "duration_ms": duration_ms(t), "author": "key",
-                        "atlas_index": a} for i, (a, tag, _p, t) in enumerate(KEYS)],
+            "frames": [{"index": i, "tag": tag, "ticks": t, "duration_ms": duration_ms(t), "author": au,
+                        "atlas_index": a} for i, (a, tag, _p, t, au) in enumerate(FRAMES)],
         },
     }
 
@@ -747,7 +917,7 @@ def write_keys_x3(out: Path = ROOT / "docs/evidence/juice-01/keys-x3.png") -> Pa
     from scripts.pixelart.common import CARL_X, grid_images, load_grid_file
     from scripts.pixelart.scene import Floor
 
-    imgs = grid_images(load_grid_file(GRID))
+    imgs = [grid_images(load_grid_file(GRID))[a] for a, *_rest in KEYS]
     strips = []
     for row in (imgs[0:3], imgs[3:6]):
         entries = [(img, tuple(PIVOT), CARL_X - 40 + i * 175, 0) for i, img in enumerate(row)]

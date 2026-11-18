@@ -190,7 +190,7 @@ No steroid, injection, "juice" or aura colour; the gym's magenta light belongs t
 
 ## 7. Key poses
 
-Design units are px right of the pivot column and up from the contact row. All six keys are drawn by `scripts/author_juice01.py` (`POSES`) and frozen (`tests/fixtures/juice-01_keys.json`). Until the in-betweens exist, the grid holds the keys only: grid frame 0 to 5 = atlas frame 0, 3, 8, 10, 12, 15 (`juicer.key_atlas_index` in the manifest). The executor inserts the in-betweens and moves each fixture entry to its atlas index; the SHA-256 values do not change.
+Design units are px right of the pivot column and up from the contact row. All six keys are drawn by `scripts/author_juice01.py` (`POSES`) and frozen (`tests/fixtures/juice-01_keys.json`). The grid now holds the full 16-frame atlas: the keys sit at their atlas indices 0, 3, 8, 10, 12, 15 (`juicer.key_atlas_index` in the manifest) and the fixture entries were moved to those indices; the SHA-256 values did not change.
 
 Construction (2b, redrawn at 100 px): head width about 0.21 H (skull radius 7.5, jaw 7.0; smaller than the Basher's 0.25 H); in the idle the jaw centre sits 19 px below the hump top and 26 px ahead of it, sunk between the trapezius and the near deltoid. Every muscle mass is a disc or thick line shaded from its own surface normal, so the body reads as lumps and creases. Hair: a mop with two 1 px notches in the dome and a ragged 3-strand fringe over the brow, seven rope dreads of radius 1.5 (three down the back of the skull, two draped over the hump that break its back outline, one short front lock, one falling in front of the cheek behind the mouth). Ear: swept back and up, tip 4 to 5 px outside the mop, inner line `s`. Fists: radius 11 to 11.5 (as wide as the head), three `d` knuckle creases (`K` where they cross shadow) on the knuckle face, a thumb wrapped over the index knuckle as its own outlined part; the far fist uses the `farfist` ramp (`K d s m`, one step darker than the near fist) with two `K` creases. Iron: a cuff on each wrist, a broken chain from the back end of the near cuff dropping behind the fist, a chain across the hips. Boils, veins and grime are anchored to the named masses (`BOILS`, `VEINS`, `GRIME`) so every key carries the same body detail; boils of radius 2 or more have a light-skin highlight upper left, a `q` inner rim and a `d` rim under the lower edge.
 
@@ -222,7 +222,7 @@ Values for the executor, in the same `POSES` dict format (design units); no desi
 
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate assets/source/characters/troglodyte/juicer/juice_01.pixelart.json` (grid frames 0 to 5 = the keys; the executor re-indexes the rules to the atlas frames when the in-betweens land).
+Run by `python3 -m scripts.pixelart validate assets/source/characters/troglodyte/juicer/juice_01.pixelart.json` (16 frames; the rules are indexed by atlas frame).
 
 - V04 palette: at most 20 colours (19 used); V05 isolated pixels: 0; V06 orphan pixels: at most 40 per frame (boil highlights, knuckle creases and eye pixels are single-pixel details on a 100 px body).
 - V07 contact rows: every frame is grounded and ends on row 135.
@@ -245,12 +245,22 @@ Mass, 100 px size and tone passed; the head and the fists failed. Applied: (1) r
 
 - `docs/evidence/juice-01/key0-scale.png`: key 0 at 1x on lit Floor 1 with Carl and the Pygmy, plus a 4x copy on the side (`python3 scripts/author_juice01.py key0-scale`, needs `bash scripts/export_assets.sh`).
 - `docs/evidence/juice-01/keys-x3.png`: the six keys in atlas order, three per row at 1x on lit Floor 1, enlarged 3x (`python3 scripts/author_juice01.py keys-x3`).
-- Phase 2: the toolkit review pack (contact sheet x4, lit scene, tell-to-attack strip) and the validator report:
+- Phase 2 (done): `docs/evidence/juice-01/` holds the toolkit evidence (GIFs, contact sheets, strip, lit scenes, SHA256SUMS) and `review-pack/` holds the three review images plus `validator_summary.txt`; commands: (contact sheet x4, lit scene, tell-to-attack strip) and the validator report:
 
 ```text
 python3 -m scripts.pixelart validate assets/source/characters/troglodyte/juicer/juice_01.pixelart.json --out <dir>
 python3 -m scripts.pixelart review-pack assets/source/characters/troglodyte/juicer/juice_01.pixelart.json --out <dir>
 ```
+
+### Executor notes (in-betweens, 16 frames)
+
+- Pose rig in `scripts/author_juice01.py` (`lerp`, `shift`, `arms_follow`, `set_calf`, `fit_arm_blobs`); each in-between is a `POSES` entry built from the section 8 values, no hand pixel edits. Loin and waist chain follow the trunk shift or the hips midpoint; the calf disc is placed between knee and ankle; arm blobs follow the arm points (the keys' rule).
+- Walk (V16 opt-in): `rules.foot_drift` is on for `walk` with `max_px` 12. The section 8 foot values give a measured worst planted-foot step of exactly 12 px (contact 3 to passing 4, and the seam 6 to 3); the family's Pygmy limit is 9 at a 40 px height. 12 px per 8 ticks (90 px/s) is the stride of the listed values for a 100 px body; the limit was set to the measured value rather than moving the feet. Open point for the designer: a shorter contact stride would allow 9.
+- Walk weight: the passing frames rise 2 px over the contacts (bob, as section 8) and the arm ends, forearm blob and far arm follow the fist swing (section 8 lists fists only) so the arm swing is visible; contact B 5 keeps the trunk of key 3 (as listed), so 3 and 5 differ by legs and fists only.
+- Frame 7 (rise): the listed near arm and fist (x 8 to 20) put the wrist cuff across the mouth, since the head is at (28, 84). Both were drawn 6 px further back (arm (2, 76), (10, 74), (12, 84), fist (14, 90)); every other value as listed. Designer may re-set this.
+- Frames 13 and 14: the keys differ in hand form (open hands in 12, fists in 15). Frame 13 keeps the open hands at the t 0.35 position; frame 14 uses the fists at t 0.8 (the hand palm and the fist centre interpolated, radii and angles blended). The `neck` blob of key 12 is dropped (it has no counterpart in key 15). Hair sweep goes from -0.6 to its blend.
+- Frame 11 uses the growl face without `jaw_drop` (35 `o`, the idle count); frame 7 also uses the growl with `jaw_drop` (35 `o`).
+- Validator rules re-indexed to the atlas: the R2 roar minimum applies to frames 8 to 10, the growl maximum to 0 to 7 and 11; R5 to 12 to 15; the tongue rule to 14 and 15; R6 and R7 to 0 to 12. New bbox guards for frames 7, 9, 11, 14 (measured with margin). V08 and V10 are not configured (every tag is grounded; one layer).
 
 ## 11. Files
 
@@ -271,7 +281,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Spec and keys: Claude Opus (spec, all six keys, the FIX-KEY0 fixes). Silhouette gate on key 0: an independent top-tier reviewer (FIX-KEY0, fixes applied). In-betweens and execution: pending. Independent review: pending.
+- Spec and keys: Claude Opus (spec, all six keys, the FIX-KEY0 fixes). Silhouette gate on key 0: an independent top-tier reviewer (FIX-KEY0, fixes applied). In-betweens and execution: Claude Sonnet. Independent review: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
 
 ### Separate work orders (noted, not drawn)

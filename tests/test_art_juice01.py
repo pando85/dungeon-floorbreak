@@ -1,4 +1,4 @@
-"""JUICE-01 The Juicer, the six keys (phase 2): spec rules the shared pixel-art toolkit does not cover (run the toolkit
+"""JUICE-01 The Juicer, the 16-frame atlas (phase 2): spec rules the shared pixel-art toolkit does not cover (run the toolkit
 validators for the rest: ``python3 -m scripts.pixelart validate
 assets/source/characters/troglodyte/juicer/juice_01.pixelart.json``)."""
 from __future__ import annotations
@@ -30,16 +30,30 @@ class Juice01IdleKeyTests(unittest.TestCase):
         self.assertEqual(GRID.read_text(encoding="utf-8"), aj.dump(aj.frames_grid()))
         self.assertEqual(MANIFEST.read_text(encoding="utf-8"), json.dumps(aj.manifest(), indent=2) + "\n")
 
-    def test_six_keys_frozen_in_atlas_order(self):
+    def test_six_keys_frozen_at_their_atlas_indices(self):
         sys.path.insert(0, str(ROOT))
         from scripts.pixelart.validators import frame_digest
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-        self.assertEqual(len(self.grid["frames"]), 6)
-        for i, frame in enumerate(self.grid["frames"]):
-            self.assertEqual(fixture["keys"][str(i)]["sha256"], frame_digest(frame["cels"], ["body"]))
+        self.assertEqual(len(self.grid["frames"]), 16)
+        self.assertEqual(sorted(fixture["keys"], key=int), ["0", "3", "8", "10", "12", "15"])
+        for index, key in fixture["keys"].items():
+            self.assertEqual(key["sha256"], frame_digest(self.grid["frames"][int(index)]["cels"], ["body"]))
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))["juicer"]
-        self.assertEqual(manifest["key_atlas_index"], {"0": 0, "1": 3, "2": 8, "3": 10, "4": 12, "5": 15})
-        self.assertEqual([t for _a, _tag, _p, t in aj.KEYS], [14, 8, 28, 6, 14, None])
+        self.assertEqual(manifest["key_atlas_index"], {"0": 0, "3": 3, "8": 8, "10": 10, "12": 12, "15": 15})
+        self.assertEqual([f["author"] for f in manifest["frames"]].count("in-between"), 10)
+        self.assertEqual([t for _a, _tag, _p, t, _au in aj.FRAMES],
+                         [14, 10, 14, 8, 8, 8, 8, 8, 28, 3, 6, 24, 14, 6, 10, None])
+
+    def test_all_sixteen_frames_are_distinct_and_grounded(self):
+        digests = {"".join(f["cels"]["body"]) for f in self.grid["frames"]}
+        self.assertEqual(len(digests), 16)
+        for f in self.grid["frames"]:
+            self.assertTrue(f["cels"]["body"][135].strip("."))
+
+    def test_walk_has_a_visible_bob(self):
+        def top(i):
+            return next(y for y, r in enumerate(self.grid["frames"][i]["cels"]["body"]) if r.strip("."))
+        self.assertGreaterEqual(top(3) - top(4), 2)          # contact drops, passing rises: weight shift
 
     def test_tell_is_tallest_and_pound_lowest_widest(self):
         def box(rows):
@@ -47,9 +61,9 @@ class Juice01IdleKeyTests(unittest.TestCase):
             xs = [x for r in rows for x, ch in enumerate(r) if ch != "."]
             return min(ys), max(xs) - min(xs) + 1
         tops = [box(f["cels"]["body"])[0] for f in self.grid["frames"]]
-        self.assertEqual(min(tops), tops[2])                  # the tell (fists overhead) is the tallest frame
-        self.assertEqual(max(tops[:5]), tops[3])              # the pound impact is the lowest standing frame
-        self.assertGreaterEqual(box(self.grid["frames"][3]["cels"]["body"])[1], 100)
+        self.assertEqual(min(tops), tops[8])                  # the tell (fists overhead) is the tallest frame
+        self.assertEqual(max(tops[:13]), tops[10])            # the pound impact is the lowest standing frame
+        self.assertGreaterEqual(box(self.grid["frames"][10]["cels"]["body"])[1], 100)
 
     def test_size_frame_pivot(self):
         self.assertEqual(self.grid["canvas"], [160, 136])

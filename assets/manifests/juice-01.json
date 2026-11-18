@@ -20,6 +20,7 @@
     "walk",
     "attack_tell",
     "attack_pound",
+    "attack_recover",
     "hurt",
     "down"
   ],
@@ -27,8 +28,8 @@
   "owner": "AI-authored boss animation candidate (fan-concept layer: Floor 1 Gym troglodyte boss; runtime role IP-neutral heavy boss)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "JUICE-01 phase 2: the six keys (final atlas frames 0, 3, 8, 10, 12, 15) at a 100 px idle height, rasterized from pose rules by scripts/author_juice01.py; the grid holds the keys only until the in-betweens are drawn; layer body only",
-    "generator": "Spec and keys: Claude Opus. In-betweens and execution: pending. Silhouette gate on key 0: passed after fixes. Independent review: pending. No image-model raster output, no tracing, no resampling",
+    "origin": "JUICE-01 phase 2: the six frozen keys (atlas frames 0, 3, 8, 10, 12, 15) and ten in-betweens at a 100 px idle height, rasterized from pose rules by scripts/author_juice01.py; 16 frames; layer body only",
+    "generator": "Spec and keys: Claude Opus. In-betweens and execution: Claude Sonnet. Silhouette gate on key 0: passed after fixes. Independent review: pending. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"
@@ -37,7 +38,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "juicer": {
-    "status": "phase 2: six frozen keys, in-betweens pending; not wired into any Bevy binary",
+    "status": "phase 2: 16 frames (six frozen keys, ten in-betweens); not wired into any Bevy binary",
     "spec": "docs/02-art/juice-01-spec.md",
     "opaque_height_idle": 100,
     "tick_hz": 60,
@@ -47,16 +48,17 @@
       "walk": "loop",
       "attack_tell": "once",
       "attack_pound": "once",
+      "attack_recover": "once",
       "hurt": "once",
       "down": "hold"
     },
     "key_atlas_index": {
       "0": 0,
-      "1": 3,
-      "2": 8,
-      "3": 10,
-      "4": 12,
-      "5": 15
+      "3": 3,
+      "8": 8,
+      "10": 10,
+      "12": 12,
+      "15": 15
     },
     "key_fixture": "tests/fixtures/juice-01_keys.json",
     "frames": [
@@ -70,6 +72,22 @@
       },
       {
         "index": 1,
+        "tag": "idle",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "in-between",
+        "atlas_index": 1
+      },
+      {
+        "index": 2,
+        "tag": "idle",
+        "ticks": 14,
+        "duration_ms": 233,
+        "author": "in-between",
+        "atlas_index": 2
+      },
+      {
+        "index": 3,
         "tag": "walk",
         "ticks": 8,
         "duration_ms": 133,
@@ -77,7 +95,39 @@
         "atlas_index": 3
       },
       {
-        "index": 2,
+        "index": 4,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in-between",
+        "atlas_index": 4
+      },
+      {
+        "index": 5,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in-between",
+        "atlas_index": 5
+      },
+      {
+        "index": 6,
+        "tag": "walk",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in-between",
+        "atlas_index": 6
+      },
+      {
+        "index": 7,
+        "tag": "attack_tell",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "in-between",
+        "atlas_index": 7
+      },
+      {
+        "index": 8,
         "tag": "attack_tell",
         "ticks": 28,
         "duration_ms": 467,
@@ -85,7 +135,15 @@
         "atlas_index": 8
       },
       {
-        "index": 3,
+        "index": 9,
+        "tag": "attack_pound",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "in-between",
+        "atlas_index": 9
+      },
+      {
+        "index": 10,
         "tag": "attack_pound",
         "ticks": 6,
         "duration_ms": 100,
@@ -93,7 +151,15 @@
         "atlas_index": 10
       },
       {
-        "index": 4,
+        "index": 11,
+        "tag": "attack_recover",
+        "ticks": 24,
+        "duration_ms": 400,
+        "author": "in-between",
+        "atlas_index": 11
+      },
+      {
+        "index": 12,
         "tag": "hurt",
         "ticks": 14,
         "duration_ms": 233,
@@ -101,7 +167,23 @@
         "atlas_index": 12
       },
       {
-        "index": 5,
+        "index": 13,
+        "tag": "down",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "in-between",
+        "atlas_index": 13
+      },
+      {
+        "index": 14,
+        "tag": "down",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "in-between",
+        "atlas_index": 14
+      },
+      {
+        "index": 15,
         "tag": "down",
         "ticks": null,
         "duration_ms": 100,
