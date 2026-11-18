@@ -36,7 +36,7 @@
     "manifest_tick_hz": "scatterer.tick_hz",
     "frozen_keys": {
       "fixture": "tests/fixtures/scat-01_keys.json",
-      "frames": [0],
+      "frames": [0, 3, 8, 10, 12, 15],
       "layers": ["body"]
     },
     "bbox": [

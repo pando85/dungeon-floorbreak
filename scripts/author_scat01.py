@@ -57,15 +57,15 @@ IDLE0 = [
     # 012345678901234567890123456789012345678901234567
     "................................................",  # 15
     "................................................",  # 16
-    "............................bbb.................",  # 17
-    "...............................bb...............",  # 18
-    ".................................b..............",  # 19
-    "................KKKKKKKKKK........b.........jj..",  # 20
-    ".............KKKhhhahHhhafKKK......b.......j..j.",  # 21
-    "...........KKfffffahhhhafffffKK.....b.....j...j.",  # 22
-    "..........KdddddddaddddaddddddKKKK..b.....j.....",  # 23
-    ".........KcccccccaccccacccccccKhhhKK.b...j......",  # 24
-    ".........KcccccccaccccaccccccccKhfffKb...j......",  # 25
+    "............................ddd.................",  # 17
+    "...............................dd...............",  # 18
+    ".................................d..............",  # 19
+    "................KKKKKKKKKK........d.........jj..",  # 20
+    ".............KKKhhhahHhhafKKK......d.......j..j.",  # 21
+    "...........KKfffffahhhhafffffKK.....d.....j...j.",  # 22
+    "..........KdddddddaddddaddddddKKKK..d.....j.....",  # 23
+    ".........KcccccccaccccacccccccKhhhKK.d...j......",  # 24
+    ".........KcccccccaccccaccccccccKhfffKd...j......",  # 25
     ".......s.KbbbbbbabbbbabbbbbbbbbKfddddKKKj.......",  # 26
     ".......jj.KvvvvvaaaaaaaaaaaaaaaaKcccKarHcK......",  # 27
     "......g..j.KKKKjKKKKKKKjKKKKKKKKjKKKKaercK......",  # 28
@@ -100,12 +100,17 @@ def _grid(rows: list[str]) -> dict:
     return {(x, y): c for y, r in enumerate(rows) for x, c in enumerate(r) if c != "."}
 
 
+# Far antenna pixels of frame 0 (recoloured `b` -> `d` in the review fix round, spec section 14).
+FAR_ANT_XY = {(28, 17), (29, 17), (30, 17), (31, 18), (32, 18), (33, 19), (34, 20), (35, 21), (36, 22), (36, 23),
+              (37, 24), (37, 25)}
+
+
 def _split0():
     g = _grid(frame_idle0())
     body, near_ant, far_ant, legs = {}, {}, {}, {}
     rear_bits = {(7, 26), (7, 27), (8, 27), (6, 28), (9, 28)}
     for (x, y), c in g.items():
-        if c == "b" and y <= 25 and x >= 28:
+        if (x, y) in FAR_ANT_XY:
             far_ant[(x, y)] = c
         elif c == "j" and x >= 40 and y <= 26:
             near_ant[(x, y)] = c
@@ -222,8 +227,11 @@ def far_set(cv, rear, mid, front):
 
 
 def ant(cv, near=None, far=None):
-    if far:
-        cv.poly(far, "b")
+    if far:  # `d` (lit) so it reads at 1x; `b` only where it crosses the shell
+        t = Cv()
+        t.poly(far, "d")
+        for p, c in t.p.items():
+            cv.put(*p, "b" if p in cv.p else c)
     if near:
         cv.poly(near, "j")
 
@@ -310,7 +318,6 @@ def frame_8():
     # eye flare and open V mandibles (head now x 36..40, rows 21..25)
     for p, c in {(37, 22): "r", (38, 22): "r", (38, 23): "r", (37, 23): "e", (37, 21): "H"}.items():
         cv.put(*p, c)
-    _mand(cv, [(41, 22), (42, 22)], [(41, 24), (42, 25)], (41, 23))
     rear_leg(cv, -1, 0, 1, 31)
     mid_leg(cv, -1, -1, 17, 31)
     # raised, pawing near front leg (drawn forward of the belly, under the head)
@@ -320,6 +327,8 @@ def frame_8():
     cv.poly([(36, 28), (38, 28), (40, 27), (41, 28)], "a")
     ant(cv, near=[(39, 20), (39, 19), (40, 18), (40, 16), (41, 15), (41, 14), (40, 13), (39, 12), (38, 12)],
         far=[(35, 20), (34, 17), (33, 14), (33, 13), (31, 13), (30, 14), (28, 14)])
+    # open V mouth, one connected shape that starts on the head front (each arm is a touching 3 px `H` line)
+    _mand(cv, [(41, 22), (42, 22), (43, 21)], [(41, 24), (42, 25), (43, 26)], (41, 23))
     return cv.rows()
 
 
@@ -375,6 +384,10 @@ def frame_10():
     body = _flat_shell(shift_body(5, lambda x: 0))
     cv = Cv()
     far_set(cv, (14, 31), (26, 31), (46, 30))
+    # antennae first: the shell is drawn over them. Near antenna streams back along row 20, above the dome;
+    # the far antenna is a short stub that hides behind the shell.
+    ant(cv, near=[(45, 26), (44, 24), (43, 22), (42, 21), (41, 20), (35, 20)],
+        far=[(44, 25), (43, 23), (41, 22), (39, 22)])
     cv.putm(body)
     for p in [(45, 29), (46, 29), (46, 28)]:
         cv.put(*p, "H")
@@ -385,8 +398,6 @@ def frame_10():
     cv.put(25, 30, "s")
     cv.put(10, 30, "s")
     cv.put(41, 29, "s")
-    ant(cv, near=[(45, 26), (44, 25), (43, 24), (42, 23), (41, 22), (35, 22)],
-        far=[(42, 25), (42, 24), (42, 21), (31, 21)])
     return cv.rows()
 
 
@@ -417,7 +428,6 @@ def frame_12():
     # eye flash: w, w, w with one K pupil at the rear-bottom (eye at x 36..37, rows 25..26)
     for p, c in {(36, 25): "w", (37, 25): "w", (37, 26): "w", (36, 26): "K"}.items():
         cv.put(*p, c)
-    _mand(cv, [(40, 24), (40, 25)], [(40, 28), (40, 29)])
     rear_leg(cv, -2, 0, 0, 31)
     mid_leg(cv, -2, 0, 15, 31)
     # both front legs off the floor pointing forward-down
@@ -427,6 +437,8 @@ def frame_12():
     cv.poly([(33, 28), (37, 28), (40, 29)], "a")
     ant(cv, near=[(38, 24), (38, 23), (38, 22), (38, 21), (35, 21), (33, 21)],
         far=[(35, 22), (33, 20), (31, 18), (26, 18)])
+    # gaping mandibles: two touching 3 px `H` arms that start on the head front (column x 39, rows 24..28)
+    _mand(cv, [(40, 26), (41, 25), (42, 24)], [(40, 28), (41, 29), (42, 30)])
     return cv.rows()
 
 
@@ -454,16 +466,17 @@ def frame_15():
     body[(40, 22)] = "H"
     body[(39, 22)] = "a"
     cv = Cv()
-    for x in (15, 23, 32):  # far legs, behind the shell
-        cv.poly([(x + 2, 22), (x + 2, 21), (x + 3, 21), (x + 4, 21)], "a")
-    cv.putm(body)
-    for x in (15, 23, 32):  # near legs: up 2 px, hooked 2 px toward the shell centre, tip 1 px down
+    for x in (15, 23, 32):  # far legs, behind the shell: 3 px up, hooked toward the centre, in `a`
         d = 1 if x < 25 else -1
-        cv.line((x, 22), (x, 21), "j")
-        cv.put(x, 20, "j")
-        cv.put(x + d, 20, "g")
+        cv.poly([(x + 3, 22), (x + 3, 21), (x + 3, 20), (x + 3 + d, 19)], "a")
+    cv.putm(body)
+    for x in (15, 23, 32):  # near legs: 4 px up (femur `j`, knee `s`), then hooked toward the shell centre
+        d = 1 if x < 25 else -1
+        cv.line((x, 22), (x, 19), "j")
+        cv.put(x, 18, "s")
+        cv.put(x + d, 18, "j")
+        cv.put(x + 2 * d, 19, "j")
         cv.put(x + 2 * d, 20, "g")
-        cv.put(x + 2 * d, 21, "g")
     ant(cv, near=[(41, 25), (41, 26), (42, 27), (42, 28), (42, 29), (42, 30), (42, 31), (43, 31), (44, 31), (45, 31),
                   (46, 31), (47, 31)],
         far=[(40, 26), (41, 27), (42, 28), (43, 29), (43, 30), (44, 30), (45, 30), (46, 30)])
@@ -483,12 +496,18 @@ def frame_13():
     body[(39, 25)] = "r"
     body[(39, 23)] = "a"  # mandibles closed: one H left
     cv = Cv()
-    for x in (15, 23, 32):
-        cv.line((x + 2, 23), (x + 2, 21), "a")
+    # far legs (`a`): leaning differently, 1 px shorter than the near ones
+    cv.poly([(17, 23), (17, 22), (16, 21), (16, 20)], "a")
+    cv.poly([(26, 23), (26, 22), (27, 21)], "a")
+    cv.poly([(35, 23), (35, 22), (36, 21), (37, 20)], "a")
     cv.putm(body)
-    for x in (15, 23, 32):
-        cv.line((x, 23), (x, 20), "j")
-        cv.put(x, 19, "s")
+    # near legs flail unevenly: rear leans back and is tallest, mid is vertical and shortest, front leans forward
+    cv.poly([(15, 23), (14, 22), (14, 21), (13, 20)], "j")
+    cv.put(12, 19, "s")
+    cv.poly([(23, 23), (23, 22), (23, 21)], "j")
+    cv.put(23, 20, "s")
+    cv.poly([(32, 23), (33, 22), (33, 21), (34, 20), (35, 19)], "j")
+    cv.put(36, 18, "s")
     ant(cv, near=[(41, 26), (42, 27), (43, 28), (44, 29), (45, 29), (46, 30), (47, 31)],
         far=[(40, 27), (41, 28), (42, 29), (43, 30), (44, 30), (45, 31)])
     return cv.rows()
@@ -505,12 +524,13 @@ def frame_14():
     body[(39, 22)] = "a"
     cv = Cv()
     for x in (15, 23, 32):
-        cv.line((x + 2, 22), (x + 2, 21), "a")
+        cv.line((x + 3, 22), (x + 3, 20), "a")
     cv.putm(body)
-    for x in (15, 23, 32):
+    for x in (15, 23, 32):  # half curled: 3 px up (femur `j`, knee `s`) and one hook pixel, no tip
         d = 1 if x < 25 else -1
-        cv.line((x, 22), (x, 21), "j")
-        cv.put(x + d, 21, "j")
+        cv.line((x, 22), (x, 20), "j")
+        cv.put(x, 19, "s")
+        cv.put(x + d, 19, "j")
     ant(cv, near=[(41, 25), (41, 26), (42, 27), (42, 28), (43, 29), (43, 30), (44, 31), (45, 31), (46, 31), (47, 31)],
         far=[(40, 26), (41, 27), (42, 28), (43, 29), (44, 30), (45, 30), (46, 30)])
     return cv.rows()

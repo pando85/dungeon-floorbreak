@@ -117,7 +117,7 @@ Palette `scatterer-floor01-v1`: **16 keys used, at most 20.** Four slots are res
 | --- | --- | --- | --- | --- |
 | `K` | outline_char | `#1c0e12` | warm near-black outline, belly line, pronotum seam | |
 | `a` | chitin_0_deep | `#3d1519` | chitin ramp 0: plate seams, lowest shell band, far legs | |
-| `b` | chitin_1_shade | `#5f1d1d` | chitin ramp 1: lower shell band, far antenna | |
+| `b` | chitin_1_shade | `#5f1d1d` | chitin ramp 1: lower shell band (the far antenna is `d` since the review fix round, `b` only where it crosses the shell) | |
 | `c` | chitin_2_mid | `#84291f` | chitin ramp 2: shell body colour | |
 | `d` | chitin_3_light | `#ab4329` | chitin ramp 3: upper-mid band, pronotum mid | |
 | `f` | chitin_4_lit | `#d0693a` | chitin ramp 4: torch-lit upper band | |
@@ -145,7 +145,7 @@ Source: the `IDLE0` literal rows in `scripts/author_scat01.py`. Measured: bbox x
 - Shell outline: top row 20 (x 16 to 25), stepping down to the rear tip (x 9, rows 24 to 26) and forward to the pronotum (row 23 x 31 to 33, row 24 x 34 to 35, x 36 row 25, x 37 row 26). Belly line `K` on row 28, x 11 to 36.
 - Plates: two wing seams in `a` slanting back as they go down (top at x 19 and x 24 on row 21, bottom at x 16 and x 21 on row 27); the pronotum seam in `K` bows forward (30,23) to (32,27). Single `H` glint at (21, 21).
 - Head: tucked low under the pronotum lip. **Eye 2 x 2:** `r` (38,27), `H` (39,27), `e` (38,28), `r` (39,28). Mandibles `H` at (39,29), (40,29).
-- Antennae: near `j` from the head (40,26) up-forward to the apex (44..45, 20) and down to the tip (46,22); far `b` from (37,25) up and back over the pronotum to the apex (28..30, 17).
+- Antennae: near `j` from the head (40,26) up-forward to the apex (44..45, 20) and down to the tip (46,22); far `d` (was `b`; recoloured in the review fix round, section 14) from (37,25) up and back over the pronotum to the apex (28..30, 17).
 - Legs, near side (femur `j`, tibia `g`, spines `s`): rear: coxa (15,28), femur along row 29 back to x 10, knee raised at (7..8, 27) with a spine (7,26), tibia down to the foot (2..3, 31) with a spine (4,29). Mid: coxa (23,28), knee (21,29), foot (18..19, 31), spine (21,30). Front: coxa (32,28), femur (33..34, 29), spine (35,29), foot (37..38, 31). Far side in `a`: rear foot (14..15, 31), mid foot (29..30, 31), front foot (42..43, 31).
 - The exact pixels are the `IDLE0` rows in `scripts/author_scat01.py` (rows 15 to 31, one string per row); use them as the base for every other frame.
 
@@ -231,7 +231,7 @@ Run by `python3 -m scripts.pixelart validate assets/source/characters/scatterer/
 
 - V04 palette: at most 20 colours (16 used); V05 isolated pixels: 0; V06 orphan pixels: at most 4 per frame (frame 0 has 0). Accent keys (orphan-exempt): `H`, `s`, `e`, `r`, `w`.
 - V07 contact rows: every tag is grounded and ends on row 31. V08: no airborne tags.
-- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/scat-01_keys.json`. Frame 0 is frozen now; after the review passes, the execution tier extends `rules.frozen_keys.frames` to `[0, 3, 8, 10, 12, 15]` and re-freezes with `--force` (frame 0's hash must not change).
+- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/scat-01_keys.json`. Frozen keys: `[0, 3, 8, 10, 12, 15]` (frozen after the review fix round, section 14; frame 0's hash changed once, by the approved far-antenna recolour).
 - V13 bbox rules: `S1-size-idle-15px` (frame 0 rows 17 to 31), `S1-idle-stays-low` (1, 2: top 16 to 18), `S2-walk-low` (3 to 6: top at least 16, height at most 16), `R1-tell-ramp` (7: top 13 to 15), `R1-tell-highest` (8: top at most 12, height at least 20), `R3-lunge-flat-reach` (10: top at least 20, right at least 46), `R4-hurt-recoils` (12: right at most 44), `R6-defeat-low-compact` (13 to 15: top at least 18, width at most 46; this also blocks any splat spreading past the body).
 - V14 key-count rules: `R0-eye-glows-alive` (0 to 7 and 9 to 11: at least 2 `r`), `R2-tell-mandibles-open` (8: at least 5 `H`), `R2-tell-eye-flare` (8: at least 3 `r`), `R2-tell-belly-reveal` (8: at least 4 `u`), `R4-hurt-eye-flash` (12: at least 3 `w`, no `r`), `R5-defeat-eye-dark` (15: no `r`, `e` or `w`).
 - Manual acceptance targets for the review: at 1x on the Floor 1 brick next to Carl, (1) the red eye and both antennae read on every alive frame; (2) the tell is readable from silhouette alone (highest point, open V mouth) within its 20-tick hold; (3) the lunge reads as low and forward, not a jump; (4) defeat reads as "flipped and finished" with no explosion cue; (5) four Scatterers in a row in front of Carl do not hide his legs above the knee.
@@ -264,7 +264,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 ## 13. Execution record (Sonnet)
 
-Executor: Claude Sonnet (medium tier). `scripts/author_scat01.py` separates frame 0 into body (shell and head), near antenna, far antenna and legs, then composes frames 1 to 15: body columns translated whole (spec sections 7 and 8), outline gaps sealed with `K`, legs and antennae drawn as short polylines (femur `j`, tibia `g`, far legs `a`), then a deterministic despeckle pass (a non-accent pixel with no same-key neighbour takes its commonest neighbour key; frame 0 is never touched). Result: `python3 -m scripts.pixelart validate` PASS (13 pass, 2 skipped as not configured), 16 colours, `python3 -m pytest tests -q -k "scat or pixelart"` pass. The keys 3, 8, 10, 12, 15 are **not** added to `rules.frozen_keys` yet: section 9 says to freeze them after the review passes (`--force` re-freeze, frame 0's hash unchanged).
+Executor: Claude Sonnet (medium tier). `scripts/author_scat01.py` separates frame 0 into body (shell and head), near antenna, far antenna and legs, then composes frames 1 to 15: body columns translated whole (spec sections 7 and 8), outline gaps sealed with `K`, legs and antennae drawn as short polylines (femur `j`, tibia `g`, far legs `a`), then a deterministic despeckle pass (a non-accent pixel with no same-key neighbour takes its commonest neighbour key; frame 0 is never touched). Result: `python3 -m scripts.pixelart validate` PASS (13 pass, 2 skipped as not configured), 16 colours, `python3 -m pytest tests -q -k "scat or pixelart"` pass. The keys 3, 8, 10, 12, 15 were frozen after the review fix round (section 14).
 
 Executor choices for the reviewer (the spec was ambiguous or a pose could not be drawn as written):
 
@@ -279,3 +279,15 @@ Executor choices for the reviewer (the spec was ambiguous or a pose could not be
 9. **Despeckle.** The pass recolours a few single stray pixels (shell band edges, leg tips) in frames 2 to 14; it does not touch accents (`H`, `s`, `e`, `r`, `w`).
 
 Open for the reviewer: the legs are thin enough at 1x that the walk reads mainly from the body lean and foot spread; the 15 px size decision (section 2) is still the reviewer's.
+
+## 14. Review fix round (2026-11-18)
+
+The independent review passed the set with execution items E1 to E5 (size 15 px approved, no design defect). Executor: Claude Sonnet (medium tier). Fixes, all in `scripts/author_scat01.py`:
+
+- **E1, far antenna.** Review fix round: frame 0 far antenna recoloured to `d`, approved by the independent review 2026-11-18. The 12 far-antenna pixels of frame 0 (and the far antenna in every other frame) go from `b` to `d`; where the far antenna crosses shell pixels it stays `b`. This is the only change to frame 0 (no other pixel moved). Frame 0 re-frozen: SHA-256 `51cb69e0f9b1...` (hero key as first drawn) to `f998758c6448...` (`tests/fixtures/scat-01_keys.json`).
+- **E2, mandibles (frames 8, 12).** Each mandible is now a connected 3 px `H` arm that starts on the head front, so the mouth reads as an open V, not as loose glints (frame 8: `H` (41,22) (42,22) (43,21) and (41,24) (42,25) (43,26) around the `K` at (41,23); frame 12: arms from (40,26) and (40,28) to (42,24) and (42,30)). Frame 8 keeps 6 mandible `H` (rule R2).
+- **E3, frame 10.** The near antenna streams back along row 20, above the dome, and the far antenna is a short stub drawn behind the shell, so no antenna crosses the dome bands.
+- **E4, frame 13.** Waving legs are uneven: the rear leans back and is the tallest, the mid is vertical and shortest, the front leans forward; the far legs lean differently. Top row 18 (spine tip), no comb.
+- **E5, frames 14, 15.** Curled legs are taller (frame 15: femur `j` 4 px above the belly line, knee `s`, hook `j`/`g` toward the shell centre; frame 14: 3 px, one hook pixel, no tip) and the far legs reach 3 px. Top row 18 (rule R6). No splat, no particles, no glow.
+
+Freeze and evidence: `rules.frozen_keys.frames` is `[0, 3, 8, 10, 12, 15]` and the fixture was re-frozen with `--force`. Evidence and the review pack were regenerated. `python3 -m scripts.pixelart validate`: PASS (13 pass, 0 fail, 2 skipped). A second independent review is not required for these fixes unless the reviewer asks.

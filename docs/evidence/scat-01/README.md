@@ -1,6 +1,6 @@
 # SCAT-01 evidence: Scatterer readability set (16 frames)
 
-Review renders for the [SCAT-01 design spec](../../02-art/scat-01-spec.md). They are composed PNGs and GIFs lit with the A1 compositor, not Bevy captures. The Scatterer is not wired into any binary. Status: candidate, execution done, **independent top-tier review pending**. Design and hero key (frame 0): Claude Opus. Other keys, in-betweens and evidence: Claude Sonnet.
+Review renders for the [SCAT-01 design spec](../../02-art/scat-01-spec.md). They are composed PNGs and GIFs lit with the A1 compositor, not Bevy captures. The Scatterer is not wired into any binary. Status: candidate, review execution items E1 to E5 fixed and keys frozen (spec section 14). Design and hero key (frame 0): Claude Opus. Other keys, in-betweens and evidence: Claude Sonnet.
 
 Regenerate with:
 
