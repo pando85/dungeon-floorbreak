@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""SLIME-01 scale evidence: key 0 on the lit Floor 1 walking line next to Carl and the Scatterer, at 1x and 4x.
+"""SLIME-01 scale evidence: key 0 on the lit Floor 1 walking line, in front of lit brick and of dark stone, next to Carl
+and the Scatterer, at 1x and 4x.
 
 Needs the Floor 1 kit atlases (``bash scripts/export_assets.sh``). Writes ``docs/evidence/slime-01/key0-scale.png`` and the
 keys contact sheet ``docs/evidence/slime-01/keys-x3.png`` (keys 0, 3, 8, 10, 12, 15 at 3x on brick-dark, with 1x row).
@@ -33,17 +34,19 @@ def main() -> int:
         grid = load_grid_file(path)
         img, piv = flip(grid_images(grid)[0], tuple(grid["pivot"]))  # enemies face Carl on their left
         entries.append((img, piv, x, 0))
+    sg = load_grid_file(SLIME)
+    entries.append((grid_images(sg)[0], tuple(sg["pivot"]), 385, 0))  # a second slime in front of the lit brick
     scene = floor.render(entries, 1)
     ground = floor.ground(452)
     # crop a band around the walking line (view coordinates); the view origin is its top-left corner
     ground_in_view = ground - floor.view[1]
-    box = (60, max(0, ground_in_view - 66), 60 + 320, min(scene.height, ground_in_view + 12))
+    box = (0, max(0, ground_in_view - 66), 320, min(scene.height, ground_in_view + 12))
     crop = scene.crop(box)
     big = crop.resize((crop.width * 4, crop.height * 4), Image.NEAREST)
     pad = 6
     sheet = Image.new("RGB", (big.width + 2 * pad, crop.height + big.height + 4 * pad + 30), (20, 18, 28))
     d = ImageDraw.Draw(sheet)
-    label(d, (pad, 2), "SLIME-01 key 0: Carl 52 px, Scatterer 15 px, Green Slime 30 px; lit Floor 1, 1x then 4x")
+    label(d, (pad, 2), "SLIME-01 key 0 on lit brick (left) and dark stone (right) beside Carl 52 px and the Scatterer 15 px; 1x then 4x")
     sheet.paste(crop, (pad, 18))
     sheet.paste(big, (pad, 18 + crop.height + pad))
     OUT.parent.mkdir(parents=True, exist_ok=True)

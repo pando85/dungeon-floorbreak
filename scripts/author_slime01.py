@@ -52,29 +52,29 @@ PALETTE = [
 ]
 ACCENTS = {k for k, _n, _c, acc in PALETTE if acc}
 
-SKULL = [  # 9 x 8, three-quarter skull turned toward the facing side: far socket 1 px, near socket 2 x 2, teeth
+SKULL = [  # 9 x 8, three-quarter skull: far socket 1 px, near socket 2 x 2, jaw set 1 px back, teeth broken by a gap
     "..ooooo..",
     ".opqqqqo.",
     "opqqqqqqo",
     "oqKqqKKqo",
     "opKqqKKpo",
     ".oqpKqqpo",
-    "..oqKqKo.",
-    "...oooo..",
+    ".oqKq.qo.",
+    "..oooo...",
 ]
-PLATE = [  # 16 x 7, a rusted pauldron wedged under the gel's front skirt, tipped up toward the facing side
+PLATE = [  # 16 x 7, a riveted pauldron wedged under the gel's skirt: lit top edge, 2 rivets, a corroded notch (left)
     "..........KKKK..",
-    "......KKKKusuuK.",
-    "...KKKrsusssusuK",
-    ".KKrssussrsssusK",
-    "KrssusrrssussrrK",
+    "......KKKKuuuuK.",
+    "...KKKuuuussusuK",
+    ".KKKuuussssurssK",
+    "KrssusrssssssrrK",
     "KrrsrrssrrsrrsK.",
     ".KKKKKKKKKKKKK..",
 ]
-PLATE_FLAT = [  # 22 x 4, the plate fallen out flat beside the remains
+PLATE_FLAT = [  # 22 x 4, the plate fallen out flat beside the remains: lit top edge, 2 rivets
     "..KKKKKKKKKKKKKKKKKK..",
-    ".KrssussusssussussurK.",
-    "KrsussrrsssurssussrrK.",
+    ".KuuuuuuuuuuuuuuuuuuK.",
+    "KrssrssssssrsssssrrrK.",
     ".KKrrrKKrrrKKrrrrKKK..",
 ]
 N4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -140,7 +140,7 @@ def lit_side(mask, x, y):
     return any((x + dx, y + dy) not in mask for dx, dy in ((0, -2), (-2, 0), (-1, -2), (-2, -1), (-2, -2)))
 
 
-def shade(cv: Cv, mask, dead=False):
+def shade(cv: Cv, mask, dead=False, lift=False):
     """Translucent gel from five value steps: a glowing rim all round (brightest on the torch-lit upper left), a lit
     upper skin, a dark thick core, and light caught through the gel in a caustic band just above the floor."""
     d, top = depth(mask), tops(mask)
@@ -165,6 +165,8 @@ def shade(cv: Cv, mask, dead=False):
             v = 3 if dep <= 2 else (2 if dep <= 6 else 1)  # lit upper skin, mid gel, body shade
             if k >= 6 and dep >= 9:
                 v = 0  # thick core
+        if lift and k >= 3 and y < BASE - 2 and v <= 1:
+            v += 1  # alive keys: mostly light gel; darkness only in the lenses and the skull's shadow
         if y == BASE - 1 and k >= 2:
             v = max(v, 3)  # caustic band: torchlight through the gel at the floor
         elif y == BASE - 2 and k >= 3:
@@ -182,10 +184,21 @@ def pocket(cv: Cv, mask, cx, cy, rx, ry):
               if ((x - cx) * ry) ** 2 + ((y - cy) * rx) ** 2 <= (rx * ry) ** 2 and d.get((x, y), 0) >= 3}
     for x, y in inside:
         cv.put(x, y, "a")
-    for x, y in inside:
-        for q in ((x + 1, y + 1), (x, y + 1), (x + 1, y)):
-            if q not in inside and d.get(q, 0) >= 3:
-                cv.put(*q, "d")
+    tx, ty = max(inside, key=lambda p: (p[0] + p[1], p[0]))
+    for y in (ty - 1, ty, ty + 1):  # a short vertical refraction tick on the lower-right edge
+        if (tx + 1, y) not in inside and d.get((tx + 1, y), 0) >= 3:
+            cv.put(tx + 1, y, "d")
+
+
+def bubbles(cv: Cv, mask, pts):
+    """Trapped air: a 2 px light dot over mid gel."""
+    d = depth(mask)
+    for x, y in pts:
+        if min(d.get(q, 0) for q in ((x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1))) >= 3:
+            cv.put(x, y, "d")
+            cv.put(x + 1, y, "d")
+            cv.put(x, y + 1, "c")
+            cv.put(x + 1, y + 1, "c")
 
 
 def draw_obj(cv: Cv, rows, ox, oy, cover=0, mask=None, stain_from=99):
@@ -198,6 +211,26 @@ def draw_obj(cv: Cv, rows, ox, oy, cover=0, mask=None, stain_from=99):
             if c == "." or (mask is not None and (x, y) not in mask) or j > len(rows) - 1 - cover:
                 continue
             cv.put(x, y, darker.get(c, c) if j >= stain_from else c)
+
+
+def sunk_skull(cv: Cv, mask, ox, oy):
+    """The skull inside the gel: top row and rear column overpainted with gel, lower half stained, a gel highlight
+    crossing the cranium and a small shadow under and behind it."""
+    draw_obj(cv, SKULL, ox, oy, mask=mask, stain_from=4)
+    for j, line in enumerate(SKULL):
+        cols = [i for i, c in enumerate(line) if c != "."]
+        rear = [(ox + i, oy + j) for i in (cols[:1] if j else cols)]
+        for q in rear:
+            if q in mask:
+                cv.put(*q, "c")
+    cv.put(ox + 3, oy + 2, "d")
+    cv.put(ox + 4, oy + 1, "d")
+    for x in range(ox + 2, ox + 6):
+        if (x, oy + 8) in mask and cv.get(x, oy + 8) != "K":
+            cv.put(x, oy + 8, "a")
+    for y in range(oy + 4, oy + 7):
+        if (ox - 1, y) in mask and cv.get(ox - 1, y) != "K":
+            cv.put(ox - 1, y, "b")
 
 
 def lcg(seed):
@@ -264,6 +297,23 @@ def acid_crest(cv: Cv, mask, xs):
         cv.put(x, top[x] + 2, "v")
 
 
+def lip_drips(cv: Cv, mask, count=5):
+    """Acid hanging under the tell's curled lip, over the dark carve: a 1 x 2 drip with a dark pixel behind it, and a
+    wet glint on the lip's leading edge."""
+    under = []
+    for x in range(W):
+        ys = [y for y in range(H) if (x, y) in mask and (x, y + 1) not in mask and y < BASE - 4]
+        if ys:
+            under.append((x, min(ys)))
+    picks = under[-2 * count + 1::2][:count] if len(under) >= 2 * count - 1 else under[-count:]
+    for x, y in picks:
+        cv.put(x, y + 1, "v")
+        cv.put(x, y + 2, "v")
+        cv.put(x - 1, y + 1, "a")
+    fx = max(x for x, _y in under)
+    cv.put(fx - 1, tops(mask)[fx - 1] + 1, "H")
+
+
 def finish(cv: Cv):
     rows = [["."] * W for _ in range(H)]
     for (x, y), c in cv.p.items():
@@ -303,14 +353,15 @@ def key_idle():
     front skirt with acid eating its edge, dark lenses of thick gel, grit, drip runs, a torch sheen."""
     mask = blob(IDLE_BALLS)
     cv = Cv()
-    shade(cv, mask)
+    shade(cv, mask, lift=True)
     pocket(cv, mask, 40, 19, 3, 2)
     pocket(cv, mask, 17, 30, 2, 2)
     pocket(cv, mask, 47, 28, 3, 2)
     pocket(cv, mask, 35, 31, 2, 1)
     debris(cv, mask, 11, 6, [(22, 19, 35, 30), (50, 31, 70, 39)])
-    streaks(cv, mask, (19, 36, 56), 5)
-    draw_obj(cv, SKULL, 24, 21, mask=mask, stain_from=6)
+    streaks(cv, mask, (19, 56), 3)
+    bubbles(cv, mask, [(33, 16), (44, 21), (14, 33)])
+    sunk_skull(cv, mask, 24, 21)
     draw_obj(cv, PLATE, 51, 33)
     sheen(cv, mask, 22, 38)
     glint(cv, mask, 29)
@@ -327,12 +378,13 @@ def key_creep():
     skull and plate sheared toward the front."""
     mask = blob(CREEP_BALLS, film_l=6, film_r=2)
     cv = Cv()
-    shade(cv, mask)
+    shade(cv, mask, lift=True)
     pocket(cv, mask, 44, 27, 3, 2)
     pocket(cv, mask, 24, 33, 2, 1)
     debris(cv, mask, 23, 5, [(28, 22, 40, 33), (54, 31, 72, 39)])
-    streaks(cv, mask, (20, 40, 60), 4)
-    draw_obj(cv, SKULL, 30, 25, mask=mask, stain_from=6)
+    streaks(cv, mask, (20, 60), 3)
+    bubbles(cv, mask, [(42, 22), (52, 30)])
+    sunk_skull(cv, mask, 30, 25)
     draw_obj(cv, PLATE, 55, 33)
     sheen(cv, mask, 25, 44)
     glint(cv, mask, 32)
@@ -349,16 +401,19 @@ def key_tell():
     target, base narrowed, front face drawn in under the lip, skull hauled up into the crest, acid beading along it."""
     mask = blob(TELL_BALLS, carve=[(44, 22, 6, 9)])
     cv = Cv()
-    shade(cv, mask)
+    shade(cv, mask, lift=True)
     pocket(cv, mask, 30, 30, 2, 2)
     pocket(cv, mask, 33, 12, 2, 2)
     debris(cv, mask, 31, 4, [(22, 16, 35, 27), (36, 31, 56, 39)])
-    streaks(cv, mask, (23, 33), 7)
-    draw_obj(cv, SKULL, 24, 18, mask=mask, stain_from=6)
+    streaks(cv, mask, (23,), 3)
+    bubbles(cv, mask, [(31, 7), (26, 30)])
+    sunk_skull(cv, mask, 24, 18)
     draw_obj(cv, PLATE, 37, 33)
     sheen(cv, mask, 20, 30)
     glint(cv, mask, 24)
-    acid_crest(cv, mask, (29, 32, 35, 38, 41))  # hot acid beads on the crest: the readable tell
+    acid_crest(cv, mask, (29, 32))  # hot acid beads on the crest: the readable tell
+    cv.put(35, tops(mask)[35] + 1, "v")
+    lip_drips(cv, mask)
     acid(cv, [(37, 34), (38, 34), (40, 32), (41, 32)])
     return finish(cv)
 
@@ -371,12 +426,13 @@ def key_lunge():
     bulb at the leading edge; skull and plate dragged behind, acid at the leading edge."""
     mask = blob(LUNGE_BALLS, film_l=4, film_r=0)
     cv = Cv()
-    shade(cv, mask)
+    shade(cv, mask, lift=True)
     pocket(cv, mask, 62, 33, 2, 1)
     pocket(cv, mask, 44, 30, 3, 1)
     debris(cv, mask, 41, 4, [(22, 26, 34, 39), (30, 31, 50, 39)])
     streaks(cv, mask, (48,), 3)
-    draw_obj(cv, SKULL, 24, 28, mask=mask, stain_from=6)
+    bubbles(cv, mask, [(52, 31), (40, 29)])
+    sunk_skull(cv, mask, 24, 28)
     draw_obj(cv, PLATE, 33, 33, cover=1, mask=mask)
     sheen(cv, mask, 26, 72)
     glint(cv, mask, 30)
@@ -406,23 +462,25 @@ def key_hurt():
     return finish(cv)
 
 
-DEFEAT_BALLS = [(34, 42, 18, 12), (50, 42, 10, 8), (21, 42, 8, 7)]
+DEFEAT_BALLS = [(24, 42, 10, 11), (38, 42, 10, 12), (50, 42, 7, 10), (36, 43, 22, 6)]
 
 
 def key_defeat():
     """Frame 15: the remains. The mass has sagged into a dull, deflated heap with a skinned-over crust (still a
     body, not a floor stain); the skull has rolled out of the front and the plate has slid out flat."""
-    mask = blob(DEFEAT_BALLS, film_l=3, film_r=1)
+    mask = blob(DEFEAT_BALLS, carve=[(31, 29, 2, 2), (45, 30, 2, 2)], film_l=3, film_r=0)  # dips between 3 lumps
     cv = Cv()
+    draw_obj(cv, PLATE_FLAT, 52, 36)  # under the body: the slumped front lobe overhangs its back edge
     shade(cv, mask, dead=True)
     top = tops(mask)
-    for x in range(20, 52, 4):  # crust wrinkles
-        if cv.get(x, top[x] + 2) in tuple("ab"):
-            cv.put(x, top[x] + 2, "c")
-            cv.put(x + 1, top[x] + 2, "c")
+    for fx, fy in ((21, 2), (35, 2), (47, 2)):  # diagonal wrinkle folds: a dark crease with a dull lit lip above
+        for i in range(3):
+            q = (fx + i, top[fx + i] + fy + i)
+            if q in mask and cv.get(*q) not in ("K", None):
+                cv.put(*q, "K")
+                cv.put(q[0], q[1] - 1, "c")
     debris(cv, mask, 61, 3, [(52, 30, 79, 39)])
-    draw_obj(cv, PLATE_FLAT, 49, 36)
-    draw_obj(cv, SKULL, 56, 32, stain_from=6)
+    draw_obj(cv, SKULL, 62, 32, stain_from=6)
     return finish(cv)
 
 

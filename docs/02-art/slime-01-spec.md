@@ -91,6 +91,19 @@ The draft keys read as flat-topped, vertical-sided green boxes with an emoji-lik
 | Size beside Carl and the Scatterer | Kept 30 px: knee-to-hip on Carl, about twice the Scatterer's height and several times its mass, wider than Carl (`key0-scale.png`) |
 | Palette under A1 light | Kept 17 keys; the gel ramp moved toward olive in the darks and acid yellow-green in the lights (grime, and closer to the concept); `acid_hot` moved to a hotter yellow (`#f0e61e`) so the tell beads separate from the sheen. The green is the only saturated green on the warm brick and stays readable against the cold blue backdrop |
 
+### Silhouette-gate fixes (2026-11-18)
+
+The silhouette gate passed the outlines, size and six-pose contrast and asked for interior fixes only; frame, pivot, boxes, ticks and bbox rules are unchanged.
+
+1. Value structure inverted to read as light gel with dark hollows: on keys 0, 3, 8 and 10 the interior above the floor band is lifted one step (`a` to `b`, `b` to `c`); darkness stays only in the lenses and a small shadow under and behind the skull. Lit share of the gel pixels (`c`, `d`, `f`, `h`): key 0 56 %, creep 80 %, tell 68 %, lunge 95 %.
+2. The curved bright lens edges (read as worms) are replaced by a 2 to 3 px vertical refraction tick on each lens's lower-right edge, plus 2 or 3 bubbles per alive key (a 2 px `d` dot over `c`). Drip runs are capped at 3 px.
+3. The skull is sunk: top row and rear column overpainted with gel `c`, lower half one bone step darker, a 2 px `d` gel highlight across the cranium, the jaw set 1 px back with a gap in the teeth, and a dark shadow under and behind it (`q` stays 10 or more).
+4. The plate is riveted metal: a lit `u` top edge, two `r` rivets in the lit plate and a corroded `K` notch at the acid bite; the flat defeat plate has the same top edge and rivets.
+5. Tell: 5 acid beads stay on the crest; 5 hang under the curled lip as 1 x 2 drips with a dark pixel behind each, over the dark carve; one `H` glint on the lip edge (19 `v` in the key).
+6. Defeat: three lumps with 1 to 2 px height steps (rows 31, 30, 32), three diagonal creases (dark `K` fold with a dull `c` lip, since the dead body is already `a`/`b`), three grit specks, and the slumped front lobe now overhangs the back edge of the plate by about 4 px.
+
+Evidence: `key0-scale.png` now also places key 0 in front of lit brick (left of Carl) as well as dark stone.
+
 ## 3. Frame, pivot, boxes and atlas
 
 - Frame **80 x 40**, pivot **(40, 39)**, contact row **39** (the lowest opaque row of every frame). The body is centred near the pivot column (idle spans x 6 to 69 with film and plate); the lunge reaches x 78 to the right (frame edge 79).
@@ -190,7 +203,7 @@ Reading in the lit catacomb: the green is the only saturated cool hue on a warm 
 | 8 | `attack_tell` | 40 x 37. Base gathered in, mass reared up and back, the crest curling forward over a drawn-in front face, skull hauled up to mid-height, 10 crest `v` beads plus 4 on the plate | The tallest and narrowest pose, with a bright beaded crest leaning over the target: not mistakable for idle or the lunge, held 24 ticks |
 | 10 | `attack_lunge` | 73 x 15. Flat reach to x 78 at floor height with a heavy bulb at the leading edge, skull and plate dragged behind, acid at the leading edge | Longest and flattest live pose: a contact lunge along the floor; the hitbox is the bulb |
 | 12 | `hurt` | 55 x 18. Flattened and recoiled back, a dent in the front of the crest, the struck skin flashing `w` (84 px), body one step paler, skull jolted back, no acid | Differs from idle in height, centre of mass, outline and value; the flash is the only `w` in the set |
-| 15 | `down` | 60 x 10. A dull deflated heap with a crust and wrinkles (no rim glow), the skull rolled out of the front onto the plate, which lies flat | Reads as the creature's remains (a body), not a floor stain; the stain that stays is a hazards-kit decal (section 2a) |
+| 15 | `down` | 63 x 10. A dull deflated heap in three lumps with creases (no rim glow), its front lobe slumped over the plate, which lies flat; the skull rolled out onto the plate | Reads as the creature's remains (a body), not a floor stain; the stain that stays is a hazards-kit decal (section 2a) |
 
 Corrosion steam and acid-drip particles, the puddle and acid decals on the floor, and split-off mini-slimes are not drawn here (see section 1).
 
