@@ -326,5 +326,6 @@ Round 2 (redrawn on the redesigned key 0). Readings the execution step took wher
 9. **Review items.** E1 (grey underside rod) and E2 (crust specks) were already resolved in key 0 v2 (`u` only between leg sockets, two grouped scars). E3 is item 4. D1 to D3 were design items resolved at the gate.
 10. **Boxes.** Re-measured after the redraw and recorded in the manifest: standing `[16, 15, 46, 29]`, hurtbox `[14, 15, 59, 21]`, tell-hold hurtbox `[12, 9, 60, 28]`; the attack hitbox is unchanged.
 11. **Cleanup pass.** A deterministic despeckle pass (folds a stray non-accent pixel into a neighbouring colour, never into `K` when another colour is present) runs on every frame.
+12. **Re-review fixes (reviewer-prescribed, N1 and N2).** The near rear foot is planted at x 8..9 (lifted x 6) in walk 3 to 6 and at x 6 in defeat 14 and 15 so it ends near the key-0 foot column instead of trailing to x 0; the impact antenna (frame 10) is shortened by 3 px so it no longer reads as a handle. Frames 3, 10 and 15 are keys and were re-frozen for this reason.
 
 Spec conflicts: none that blocks the validator. The older per-frame notes in section 7 and in the section 8 table are superseded by the round 2 notes above.

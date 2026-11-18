@@ -390,7 +390,7 @@ def walk(n):
     bx, by = 1, (-1 if n in (4, 6) else 0)
     a_down = n in (3, 4)  # tripod A (near rear, near front, far mid) planted in 3 and 4; tripod B in 5 and 6
     lift = {3: 40, 4: 39, 5: 40, 6: 39}[n]  # foot row of a lifted leg (tarsus one row lower)
-    A = {"nrear": (5, 3), "nfront": (62, 60), "fmid": (43, 41)}  # (planted x, lifted x)
+    A = {"nrear": (8, 6), "nfront": (62, 60), "fmid": (43, 41)}  # (planted x, lifted x)
     B = {"nmid": (35, 33), "frear": (27, 25), "ffront": (71, 69)}
     xa = {k: (v[0] if a_down else v[1] + (1 if n == 6 else 0)) for k, v in A.items()}
     xb = {k: (v[1] + (1 if n == 4 else 0) if a_down else v[0]) for k, v in B.items()}
@@ -470,7 +470,7 @@ def frame_10():
             "front": nl((57, 33), (64, 37), (68, 42))}
     far = {"rear": fl((35, 33), (29, 37), (23, 42)), "mid": fl((49, 33), (52, 37), (53, 42)),
            "front": fl((61, 33), (68, 37), (72, 42))}
-    ants = ([(72, 24), (70, 21), (67, 18), (63, 15), (59, 13), (55, 13), (51, 14), (48, 15), (46, 16)],
+    ants = ([(72, 24), (70, 21), (67, 18), (64, 16), (61, 14), (58, 13), (56, 13), (54, 14), (52, 15)],
             [(70, 24), (68, 21), (66, 19), (64, 18)])
     near_m = mand_pair(4, 1)[0]  # thrust: the near mandible tip reaches x 78
     far_m = _hook([(70, 35), (72, 37), (74, 39), (76, 41), (78, 41)], "j", "h", 2)  # closes on it
@@ -521,7 +521,7 @@ def frame_15(squash=False, near_ant=None, eye_e=()):
         eye[p] = "e"
     if not eye_e:
         eye[(64, 27)] = "K"
-    near = {"rear": nl((25, 41), (13, 42), (2, 42), []), "mid": nl((38, 41), (32, 42), (27, 42), []),
+    near = {"rear": nl((25, 41), (15, 42), (6, 42), []), "mid": nl((38, 41), (32, 42), (27, 42), []),
             "front": nl((50, 41), (56, 42), (62, 42), [])}
     far = {"rear": fl((28, 42), (25, 42), (21, 42)), "mid": fl((42, 42), (45, 42), (47, 42)),
            "front": fl((54, 42), (60, 42), (65, 42))}
