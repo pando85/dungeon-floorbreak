@@ -6,6 +6,8 @@
 
 **Authority:** This document supersedes the *proposed* button tables in [gameplay](gameplay.md) and any *temporary fixture bindings* in [input/camera](../03-tech/input-camera.md); it does **not** retroactively claim the current Bevy scene has these controls. Read with [combat feel](combat-feel-hybrid-physics.md), [Floor 01 progression](floor-01-gameplay-progression-v0.md), [pre-magic Donut experiments](floor-01-pre-magic-donut-experiments.md), and [integrated-scene playtests](../07-agents/floor-01-integrated-scene-playtest.md).
 
+**Long-term progression reference:** [character progression horizon](character-progression-horizon.md) is a living, explicitly non-binding guide for future skill design and floor transitions. Its examples cannot supersede this approved MVP action grammar, and may be revised after playtests or later lore research.
+
 ## Design pillars (approved)
 
 1. **Broforce-immediate start:** movement + jump + two meaningful offensive actions; special actions arrive only at story-appropriate unlocks. No mandatory twin-stick aim, dodge, sprint, grab, long memorized combos, or weapon-selection menu in the initial encounter.
