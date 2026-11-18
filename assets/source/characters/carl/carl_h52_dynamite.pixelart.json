@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "anim-carl-03",
-  "title": "ANIM-CARL-03 Carl 52 px dynamite throw, equipped special (design phase: keys frozen, in-betweens are key copies)",
+  "title": "ANIM-CARL-03 Carl 52 px dynamite throw, equipped special (keys frozen, in-betweens drawn)",
   "grid": "assets/source/characters/carl/carl_h52_dynamite.grid.json",
   "frame_size": [
     48,
@@ -276,11 +276,68 @@
         "watch",
         "pin"
       ]
-    }
+    },
+    "unique_frames": true
   },
   "review": {
     "strip_tags": [
       "dynamite_throw"
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 500,
+        "flip": false
+      },
+      {
+        "frame": 1,
+        "x": 548,
+        "flip": false
+      },
+      {
+        "frame": 2,
+        "x": 596,
+        "flip": false
+      },
+      {
+        "frame": 4,
+        "x": 644,
+        "flip": false
+      },
+      {
+        "frame": 5,
+        "x": 692,
+        "flip": false
+      },
+      {
+        "frame": 6,
+        "x": 740,
+        "flip": false
+      },
+      {
+        "frame": 7,
+        "x": 788,
+        "flip": false
+      },
+      {
+        "frame": 8,
+        "x": 836,
+        "flip": false
+      }
+    ],
+    "references": [
+      {
+        "grid": "assets/source/characters/goblin/goblin_a_h36.grid.json",
+        "x": 900,
+        "frame": 0
+      },
+      {
+        "grid": "assets/source/characters/goblin/goblin_a_h36.grid.json",
+        "x": 924,
+        "frame": 0
+      }
     ]
   }
 }

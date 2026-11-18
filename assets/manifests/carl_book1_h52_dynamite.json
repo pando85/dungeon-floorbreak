@@ -1,0 +1,366 @@
+{
+  "schema_version": 1,
+  "id": "carl_book1_h52_dynamite_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/carl/carl_h52_dynamite.ase",
+  "grid_source": "assets/source/characters/carl/carl_h52_dynamite.grid.json",
+  "output_atlas": "generated/art/carl_book1_h52_dynamite.png",
+  "output_metadata": "generated/art/carl_book1_h52_dynamite.json",
+  "palette_id": "carl-book1-dynamite-v0",
+  "frame_size": [
+    48,
+    56
+  ],
+  "pivot": [
+    25,
+    55
+  ],
+  "animation_tags": [
+    "dynamite_throw",
+    "dynamite_move_light",
+    "dynamite_move_hold",
+    "dynamite_move_hold_b",
+    "dynamite_move_wind",
+    "dynamite_move_release",
+    "dynamite_move_follow"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored pixel animation candidate (fan-concept layer: Carl -> demolitionist)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ANIM-CARL-03 Carl dynamite throw derived from the owner-approved 52 px master assets/source/characters/carl/carl_h52.grid.json (via the approved ANIM-CARL-01 48 x 56 canvas): head, hair, torso, jacket, boxer seat and pin are the master's own pixels, translated only; arms, legs and hands are re-pixelled per pose in pixel-grid-v1; the stick, fuse and sparks are literal pixel rows on a new prop layer (scripts/author_carl_dynamite.py is the deterministic authoring record); the 36 moving frames are baked by rule from the run frames and the standing arms",
+    "generator": "Spec and 4 key poses: Claude Opus (hand-placed pixel rules). 5 standing in-betweens, moving variant, export, tests and evidence: Claude Sonnet, composed by scripts/author_carl_dynamite.py from master pixels, key stamps and rasterised limbs; no image-model raster output, no resampling, no rotation of master pixels",
+    "generated_art": true,
+    "input_reference_ids": [
+      "CARL-CONCEPT-APPROVED-V1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "dynamite": {
+    "status": "keys frozen, 5 standing in-betweens drawn, moving variant baked, independent review pending; 45 frames, 4 of them frozen keys; not wired into any Bevy binary",
+    "spec": "docs/02-art/carl-dynamite-anim-03-spec.md",
+    "master": "assets/manifests/carl_book1_h52.json",
+    "locomotion": "assets/manifests/carl_book1_h52_locomotion.json",
+    "projectile": "assets/manifests/vfx_dynamite.json",
+    "blast": "assets/manifests/vfx-01.json tag burst (reused unchanged)",
+    "tick_hz": 60,
+    "grounded_tags": [
+      "dynamite_throw",
+      "dynamite_move_light",
+      "dynamite_move_hold",
+      "dynamite_move_hold_b",
+      "dynamite_move_wind",
+      "dynamite_move_release",
+      "dynamite_move_follow"
+    ],
+    "airborne_tags": [],
+    "playback": {
+      "dynamite_throw": "once",
+      "dynamite_move_light": "loop",
+      "dynamite_move_hold": "loop",
+      "dynamite_move_hold_b": "loop",
+      "dynamite_move_wind": "loop",
+      "dynamite_move_release": "loop",
+      "dynamite_move_follow": "loop"
+    },
+    "root_motion": "none (the throw is rooted standing; the moving variant follows the locomotion clock)",
+    "key_fixture": "tests/fixtures/anim-carl-03_keys.json",
+    "key_frames": [
+      1,
+      2,
+      4,
+      5
+    ],
+    "inbetween_frames": [
+      0,
+      3,
+      6,
+      7,
+      8
+    ],
+    "total_ticks": 70,
+    "fuse_lit_tick": 6,
+    "spark_visible_in_hand_ticks": [
+      6,
+      41
+    ],
+    "projectile_spawn": {
+      "tick": 41,
+      "note": "last tick of t5_release; the runtime spawns the dynamite_flight entity at the stick centre of the release frame",
+      "standing_offset_px": [
+        16,
+        -46
+      ],
+      "offset_convention": "from Carl's pivot, x forward (mirror when facing left), y down (screen)",
+      "moving_offsets": [
+        {
+          "run_frame": 4,
+          "spawn_offset_px": [
+            16,
+            -46
+          ],
+          "delta_from_standing_px": [
+            0,
+            0
+          ]
+        },
+        {
+          "run_frame": 5,
+          "spawn_offset_px": [
+            16,
+            -45
+          ],
+          "delta_from_standing_px": [
+            0,
+            1
+          ]
+        },
+        {
+          "run_frame": 6,
+          "spawn_offset_px": [
+            16,
+            -46
+          ],
+          "delta_from_standing_px": [
+            0,
+            0
+          ]
+        },
+        {
+          "run_frame": 7,
+          "spawn_offset_px": [
+            16,
+            -46
+          ],
+          "delta_from_standing_px": [
+            0,
+            0
+          ]
+        },
+        {
+          "run_frame": 8,
+          "spawn_offset_px": [
+            16,
+            -45
+          ],
+          "delta_from_standing_px": [
+            0,
+            1
+          ]
+        },
+        {
+          "run_frame": 9,
+          "spawn_offset_px": [
+            16,
+            -46
+          ],
+          "delta_from_standing_px": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    "prop_anchors_px": {
+      "note": "pivot-relative, x forward, y up; stick_centre is the bounding-box centre of the stick body (on t0_draw only the part above the fist is visible); fuse_spark is the spark core centre",
+      "t0_draw": {
+        "stick_centre": [
+          -12,
+          24
+        ]
+      },
+      "t1_light": {
+        "stick_centre": [
+          8,
+          30
+        ],
+        "fuse_spark": [
+          11,
+          39
+        ]
+      },
+      "t2_hold": {
+        "stick_centre": [
+          14,
+          34
+        ],
+        "fuse_spark": [
+          17,
+          43
+        ]
+      },
+      "t3_hold_b": {
+        "stick_centre": [
+          14,
+          34
+        ],
+        "fuse_spark": [
+          17,
+          43
+        ]
+      },
+      "t4_wind": {
+        "stick_centre": [
+          -19,
+          46
+        ],
+        "fuse_spark": [
+          -23,
+          53
+        ]
+      },
+      "t5_release": {
+        "stick_centre": [
+          16,
+          46
+        ],
+        "fuse_spark": [
+          20,
+          52
+        ]
+      }
+    },
+    "moves": {
+      "dynamite_throw": {
+        "role": "Circle/B equipped special: draw, light, hold (the tell), wind-up, lob, flinch, settle",
+        "total_ticks": 70,
+        "spawn_tick": 41,
+        "frames": [
+          {
+            "index": 0,
+            "name": "t0_draw",
+            "ticks": [
+              0,
+              5
+            ],
+            "duration_ticks": 6,
+            "phase": "startup",
+            "key": false
+          },
+          {
+            "index": 1,
+            "name": "t1_light",
+            "ticks": [
+              6,
+              15
+            ],
+            "duration_ticks": 10,
+            "phase": "startup",
+            "key": true
+          },
+          {
+            "index": 2,
+            "name": "t2_hold",
+            "ticks": [
+              16,
+              22
+            ],
+            "duration_ticks": 7,
+            "phase": "startup",
+            "key": true
+          },
+          {
+            "index": 3,
+            "name": "t3_hold_b",
+            "ticks": [
+              23,
+              29
+            ],
+            "duration_ticks": 7,
+            "phase": "startup",
+            "key": false
+          },
+          {
+            "index": 4,
+            "name": "t4_wind",
+            "ticks": [
+              30,
+              37
+            ],
+            "duration_ticks": 8,
+            "phase": "startup",
+            "key": true
+          },
+          {
+            "index": 5,
+            "name": "t5_release",
+            "ticks": [
+              38,
+              41
+            ],
+            "duration_ticks": 4,
+            "phase": "release",
+            "key": true
+          },
+          {
+            "index": 6,
+            "name": "t6_follow",
+            "ticks": [
+              42,
+              49
+            ],
+            "duration_ticks": 8,
+            "phase": "recovery",
+            "key": false
+          },
+          {
+            "index": 7,
+            "name": "t7_brace",
+            "ticks": [
+              50,
+              61
+            ],
+            "duration_ticks": 12,
+            "phase": "recovery",
+            "key": false
+          },
+          {
+            "index": 8,
+            "name": "t8_settle",
+            "ticks": [
+              62,
+              69
+            ],
+            "duration_ticks": 8,
+            "phase": "recovery",
+            "key": false
+          }
+        ]
+      }
+    },
+    "moving_variant": {
+      "note": "the run frame's body with the standing phase's arms and prop baked on; the runtime draws dynamite_move_<phase> frame (run frame - 4) while a throw phase is active and the locomotion state is run; draw, brace and settle show the plain run frame",
+      "run_frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "phases": [
+        "t1_light",
+        "t2_hold",
+        "t3_hold_b",
+        "t4_wind",
+        "t5_release",
+        "t6_follow"
+      ],
+      "trim_px": {
+        "t2_hold": [
+          -2,
+          0
+        ],
+        "t3_hold_b": [
+          -2,
+          0
+        ],
+        "t4_wind": [
+          -1,
+          0
+        ]
+      }
+    }
+  }
+}

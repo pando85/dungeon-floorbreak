@@ -1,6 +1,6 @@
 # ANIM-CARL-03: Carl's dynamite throw (equipped special), design spec
 
-**Status:** design phase; silhouette gate FIX-KEYS on H only, fixed and H re-frozen (section 14). The spec and the frozen keys are delivered: four Carl keys (light, hold, wind-up, release) and three stick keys (two flight frames, one fizzle frame). The in-betweens are copies of their nearest key until the execution phase draws them (section 6). Silhouette gate, execution and independent review are pending. Nothing is wired into a Bevy binary and no gameplay number in this file is approved. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
+**Status:** execution phase done; independent review pending. The four Carl keys (light, hold, wind-up, release) and the three stick keys are frozen (silhouette gate: FIX-KEYS on H only, fixed and re-frozen, section 14). The five standing in-betweens (draw, hold flicker, follow-through, flinch, settle) and the three stick in-betweens (flight down, flight left, fizzle flicker) are drawn, the 36 moving frames follow them by rule, both atlases are exported with manifests (tick contract, hand and prop anchors, spawn tick and offsets), and the evidence is in place (section 12). Nothing is wired into a Bevy binary and no gameplay number in this file is approved. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
 
 Read with: [MVP controller contract](../01-design/mvp-controller-contract.md) (Special, Circle/B; equipable specials), [character progression horizon](../01-design/character-progression-horizon.md) (early encounters / Hoarder), [antihero tone](../01-design/antihero-tone.md), [Carl bible](carl-character-bible.md), [ANIM-CARL-02 melee spec](carl-melee-anim-02-spec.md) (frame, pivot, identity rules and helpers this spec inherits), [ANIM-INTERACT-01](interact-anim-01-spec.md), [VFX-01](vfx-01-spec.md) (the reused blast), [monster death system](../03-tech/monster-death-system-proposal.md) (gore preset 4).
 
@@ -8,9 +8,10 @@ Read with: [MVP controller contract](../01-design/mvp-controller-contract.md) (S
 | --- | --- |
 | `assets/source/characters/carl/carl_h52_dynamite.grid.json`, `.ase`, `.pixelart.json` | pixel-grid-v1 source (45 frames: 9 standing, 36 moving), Aseprite file, toolkit config (the **machine-readable tick contract**, `tags.*.frames` = `[frame, ticks]`) |
 | `assets/source/vfx/dynamite/vfx_dynamite.grid.json`, `.ase`, `.pixelart.json` | the stick in flight and fizzling on the floor (6 frames) |
-| `scripts/author_carl_dynamite.py` | deterministic authoring record: literal prop rows, key poses, the moving-variant rule, evidence (`--check`, `--evidence`, `--ascii <frame>`) |
-| `tests/test_art_carl_dynamite.py`, `tests/fixtures/anim-carl-03_keys.json`, `tests/fixtures/anim-carl-03-vfx_keys.json` | spec tests and the frozen keys |
-| [`docs/evidence/anim-carl-03/`](../evidence/anim-carl-03/README.md) | 1x scale and silhouette sheets on lit Floor 1, 4x keys, moving variant, `SHA256SUMS` |
+| `assets/manifests/carl_book1_h52_dynamite.json`, `assets/manifests/vfx_dynamite.json` | export manifests: tick contract, key and in-between frames, prop and spark anchors, projectile spawn tick and offsets (standing and per run frame), moving-variant rule |
+| `scripts/author_carl_dynamite.py` | deterministic authoring record: literal prop rows, key poses, in-betweens, the moving-variant rule, both grids and both manifests (`--check`), evidence (`--evidence`), ASCII dump (`--ascii <frame id | atlas index | vfx>`) |
+| `tests/test_art_carl_dynamite.py`, `tests/fixtures/anim-carl-03_keys.json`, `tests/fixtures/anim-carl-03-vfx_keys.json` | spec tests (keys, in-betweens, feet, flinch hand, manifests) and the frozen keys |
+| [`docs/evidence/anim-carl-03/`](../evidence/anim-carl-03/README.md) | 1x scale and silhouette sheets on lit Floor 1, throw scenes, GIFs, frame/anchor/timing diagram, contact sheets, `SHA256SUMS` |
 
 ## 1. Canon and acting brief
 
@@ -113,7 +114,7 @@ Carl can throw while running. Options weighed:
 | VFX `f2_left` | f1 -> f3 | `STICK_H` centred with the fuse on the **left** (mirrored horizontally, lit row kept on top), `SPARK_A` at the tip. |
 | VFX `z1` | z0 | z0 with `SPARK_B` instead of `SPARK_A` at the same place (fizzle flicker). |
 
-After drawing a frame, set its source to `None` in `STANDING` and add its function to `KEYS` (or a new in-between map); `STANDING_U` already holds the planned U of each in-between, and `phase_u` then uses it for the moving overlay. When all are drawn: turn on `rules.unique_frames` in both configs, replace `test_design_phase_in_betweens_are_key_copies` with per-frame checks of this table (the moving-variant test then covers the new arms automatically), add GIFs and contact sheets with `python3 -m scripts.pixelart evidence`, a timing diagram, the export manifests (`assets/manifests/carl_book1_h52_dynamite.json`, `assets/manifests/vfx_dynamite.json`) with the tick contract, spawn offset and anchors, and refresh `SHA256SUMS`. Do not edit the frozen keys.
+**Executed** (section 15 lists the pixel-level decisions): all rows above are drawn in `scripts/author_carl_dynamite.py` from literal rules; `rules.unique_frames` is on in both configs; the moving-variant test now covers the drawn follow-through arms; the keys are untouched (toolkit V09).
 
 ## 7. Prop and VFX
 
@@ -189,11 +190,11 @@ Per [routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-diffic
 
 ## 12. Evidence
 
-See [the evidence README](../evidence/anim-carl-03/README.md): `keys-scale.png` (1x lit Floor 1 with Donut, idle Carl, the keys, the stick in flight and fizzling, goblins and the burst), `keys-scale-unlit.png`, `silhouettes.png` (solid shapes at 1x and 4x, with the ANIM-CARL-02 b0 haymaker for comparison), `keys-x4.png`, `move-{light,hold,wind,release}-scale.png`. Regenerate with `bash scripts/export_assets.sh` once, then `python3 scripts/author_carl_dynamite.py --evidence`.
+See [the evidence README](../evidence/anim-carl-03/README.md). Top level: `keys-scale.png` (1x lit Floor 1 with Donut, idle Carl, the keys, the stick in flight and fizzling, goblins and the burst), `keys-scale-unlit.png`, `silhouettes.png`, `keys-x4.png`, `move-{light,hold,wind,release}-scale.png`, `scene-throw-lit-640x360.png` (1x lit Floor 1: Carl at the release key next to Donut with the stick in flight toward two goblins), `scene-phases-lit-640x360.png` (all nine standing frames in a row with Donut and goblins), 3x copies, `throw-standing-scene.gif` and `throw-moving-scene.gif` (full throw on lit Floor 1: stick flight, fizzle, VFX-01 burst), `timing_diagram.png` (frames, pivot, anchors, feet, tick bar), `SHA256SUMS`. `carl/` and `vfx/`: toolkit contact sheets (x1, x4), tell-to-attack strip, per-tag GIFs at tick timing, scenes. Run `bash scripts/export_assets.sh` once, then `python3 scripts/author_carl_dynamite.py --evidence` and `python3 -m scripts.pixelart evidence <config> --out docs/evidence/anim-carl-03/{carl,vfx}`.
 
 ## 13. Rights and provenance
 
-Derived from the owner-approved Carl 52 px master (via the ANIM-CARL-01 locomotion canvas) and the review-passed ANIM-CARL-02 stamps; master parts translated only, limbs rasterised and prop pixels written as literal rows by `scripts/author_carl_dynamite.py`. No image-model raster output, no tracing, no third-party or franchise art; the dynamite stick is a generic object drawn from scratch. The explosion is the existing VFX-01 burst. Spec, keys, silhouette sheet and authoring script: Claude Opus (design). Execution and independent review: pending.
+Derived from the owner-approved Carl 52 px master (via the ANIM-CARL-01 locomotion canvas) and the review-passed ANIM-CARL-02 stamps; master parts translated only, limbs rasterised and prop pixels written as literal rows by `scripts/author_carl_dynamite.py`. No image-model raster output, no tracing, no third-party or franchise art; the dynamite stick is a generic object drawn from scratch. The explosion is the existing VFX-01 burst. Spec, keys, silhouette sheet and authoring script: Claude Opus (design). In-betweens, moving-variant regeneration, export, manifests, tests and evidence: Claude Sonnet (execution). Independent review: pending.
 
 ## 14. Silhouette gate result
 
@@ -206,3 +207,23 @@ Independent gate on the seven keys: **FIX-KEYS for H only**. L, W, R and the thr
 5. **F5.** H fixture re-frozen; section 4 and the orphan counts updated; `t3_hold_b` follows H (design-phase copy); evidence and `SHA256SUMS` regenerated. L, W, R, the spawn tick and offset are unchanged.
 
 Non-blocking items done: flight sticks over the lit brick wall in `keys-scale.png` (N1), moving sheets for light, hold, wind-up and release (N2), `--ascii` accepts an atlas frame index (N3).
+
+## 15. Execution notes (pixel-level decisions and open points)
+
+Decisions, all inside the section 6 table's "about" tolerances:
+
+1. **`t0_draw`:** near fist at x11-16 rows 33-36 and the stick top (5 rows, unlit fuse, no spark) at x12-15 from row 29, three columns left of the table's x14-19 so the stick stays clear of the forearm and shows behind the hip. Feet are the light key's, pixel for pixel.
+2. **`t6_follow`:** the open hand is `HAND_FLAT_R` turned fingers-down at x36-42 rows 30-34. The front Croc holds the release key's x32 exactly. The back foot leaves its toe and steps to x17 **raised 2 rows** (bottom row 53): moving a planted foot while it touched the floor would read as a slide.
+3. **`t7_brace`:** the `HAND_CUP` stamp sits at x18-22 rows 14-18 (the table's about x14-18 rows 11-15): the head is drawn at U(1, 3) + (0, 1), so the ear is at x19-21 and the table's position would leave the hand floating behind the skull. Elbow out and down behind him, one hand up only. The front Croc steps back to x29 **raised 2 rows**; the back foot is down flat at x15.
+4. **`t8_settle`:** the foot positions equal the light key's (back x15, front x27: front within 1 px of the idle stance, back identical).
+5. **Feet rule (tested):** a foot is either planted in both of two consecutive frames with identical pixels or raised at least 2 rows in one of them. Checked for draw to light, hold to hold flicker, release to follow-through to flinch to settle.
+6. **Stick VFX in-betweens:** `f1_down` and `f2_left` mirror the stamp literally as the table says (rows reversed, then columns reversed), so the highlighted cap and the lit row travel with the mirror; if the owner wants the light direction fixed instead, only the two frames change. `z1` swaps in `SPARK_B`; its halo pixel covers the burning fuse tip (the flicker).
+7. **Moving variant:** regenerated by the same rule; draw, brace and settle show the plain run frame, so the standing flinch cup is not drawn while running (a runtime snap from the moving follow-through to the run frame).
+
+Open points for review or design (none changes a frozen key):
+
+- Between the frozen keys, planted feet change position without a lifted frame: light to hold (back x15 to x12, front x27 to x30), hold to wind-up (front flat x30 to toe x31-36) and wind-up to release (the lunge). They are 4 to 10 tick windows; the lunge reads as intended in the GIFs, the light-to-hold shuffle is the weakest. A lifted-foot in-between would need new frames and a tick-table change.
+- The `f3_up` key's spark core sits 2 px (not touching) from the burning fuse tip; the spec rule says it always touches. Frozen, so left as is.
+- The scene GIFs use the section 9 placeholders (the moving throw also lets the stick inherit the run speed so it lands beyond Carl); they are art evidence, not gameplay values.
+- Goblins vanish at the blast in the GIFs; the death art is GOB-02-DEATH.
+
