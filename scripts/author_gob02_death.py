@@ -211,14 +211,37 @@ def crush_contact() -> dict[str, list[str]]:
 
 
 def crushed_remains() -> dict[str, list[str]]:
-    """Hold after the landing: a broken, low heap (14 px, rows 42 to 55) at the foot of the landed stone, not a paper
+    """Hold after the landing, facing right like keys 0 and 1 (review fix D1: authored head-left from the GOB-01 corpse,
+    then mirrored with x' = 59 - x, the furthest a pivot mirror (x' = 56 - x) can go without clipping the snapped
+    shin; the heap sits 3 px forward). A broken, low heap (rows 40 to 55) at the foot of the landed stone, not a paper
     cut-out. Pressed-flat top line on row 47, the long ear still standing up out of the heap (the 1x goblin cue), head
     on its cheek with one bulging eye and the tongue on the floor, near hand open, one shin snapped up with the sole
     showing. The club is not here: it is the ``club`` part, already on the floor somewhere else."""
     corpse = cel_pix(load_goblin()["frames"][25]["cels"]["body"])
     head = {(x, y): ch for (x, y), ch in corpse.items() if x <= (22 if y <= 50 else 18)}
     body = drop_dangling_outline(close_outline(overlay(head, literal(CRUSHED_REMAINS))))
-    return cels(body, {}, segs(CRUSHED_REMAINS_GORE))
+    return mirror_cels(cels(body, {}, segs(CRUSHED_REMAINS_GORE)), REMAINS_MIRROR_X)
+
+
+REMAINS_MIRROR_X = 59        # x' = 59 - x: the heap is drawn head-left, then mirrored to face right like keys 0 and 1
+
+
+def mirror_cels(c: dict[str, list[str]], axis: int) -> dict[str, list[str]]:
+    """Mirror every layer horizontally with x' = axis - x (pixels must stay inside the canvas)."""
+    out = {}
+    for name, rows in c.items():
+        w = len(rows[0])
+        new = []
+        for y, row in enumerate(rows):
+            r = ["."] * w
+            for x, ch in enumerate(row):
+                if ch != ".":
+                    if not 0 <= axis - x < w:
+                        raise ValueError(f"mirror moves ({x}, {y}) off the canvas")
+                    r[axis - x] = ch
+            new.append("".join(r))
+        out[name] = new
+    return out
 
 
 CRUSH_GORE = {               # preset 4 impact: mouth gush and squeeze-out bursts at both squeeze anchors
@@ -953,7 +976,7 @@ POSE_ANCHORS = {
         "squeeze_front": [46, 54]},
     1: {"hit_origin": [28, 36], "hand_near": [55, 48], "mouth": [49, 46], "squeeze_back": [6, 54],
         "squeeze_front": [46, 54]},
-    2: {"pool_origin": [30, 55]},
+    2: {"pool_origin": [29, 55]},
     3: {"neck": [23, 31], "hit_origin": [24, 31], "jet_base": [23, 30], "hand_near": [12, 23]},
     4: {"neck": [21, 35], "hit_origin": [22, 35], "jet_base": [21, 34], "hand_near": [14, 30]},
     5: {"neck": [17, 50], "pool_origin": [12, 55]},

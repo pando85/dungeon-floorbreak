@@ -42,7 +42,7 @@ This split is what makes the presets data-only (section 5).
 | | `hand_near` | (55, 48) | club launch point (the club has left the hand on this tick) |
 | | `mouth` | (49, 43) | blood emitter |
 | | `squeeze_back`, `squeeze_front` | (6, 54), (46, 54) | floor squeeze-out points (splats, pool start) |
-| `crushed_remains` (2) | `pool_origin` | (30, 55) | pool decal centre, on the walking line |
+| `crushed_remains` (2) | `pool_origin` | (29, 55) | pool decal centre, on the walking line (after the facing fix) |
 | `decap_contact` (3) | `neck` | (23, 31) | head part spawn: the head part's `neck` anchor goes here |
 | | `hit_origin` | (24, 31) | the blade line crosses the neck on row 31 |
 | | `jet_base` | (23, 30) | blood emitter for the jet after frame 3 |
@@ -93,19 +93,19 @@ Presets are presentation-only. They never touch the domain, eligibility, collisi
 | --- | --- | --- | --- | --- |
 | `gore` layer on poses and parts | shown | shown | shown, remapped `gore_muted` | **hidden** |
 | `gore_muted` remap (gore layer only) | none | none | `R`→`B`, `P`→`B` | n/a |
-| part classes spawned | all | `wound`, `clean`, `gib`, `blood` | `wound` (gore muted), `clean`, `blood` (drops only) | `clean` only, and `head` in a decapitation |
+| part classes spawned | all (`gib_bone` at 4 only) | `wound`, `clean`, `gib` (no `gib_bone`), `blood` | `wound` (gore muted), `clean`, `blood` (drops only) | `clean` only, and `head` in a decapitation |
 | count scale (gibs, drops) | 1.0 | 0.5 | 0.25 (drops only, no gibs) | 0 |
-| decals | splat s/m, pool 1 to 3, wall spatter, smear | splat s/m, pool 1 to 2 | splat s only (muted) | none |
+| decals | splat s/m, pool 1 to 3, wall spatter a and b, smear | splat s/m, pool 1 to 2 | splat s only (muted) | none |
 | explosive finish | all body parts | head, torso_upper, club, 2 limbs | head, torso_upper, club | fallback: GOB-01 `knockback` → `corpse` + club + `gib_rag` + dust |
 
 - **Preset 1** keeps the equivalent pose, silhouette and feedback: the crush and decapitation poses still play (hidden gore leaves clean caps, see the [preset 4 vs preset 1 sheet](../evidence/gob-02-death/keys_x4_preset4_vs_preset1.png)), the head still flies in a decapitation (the cause stays readable), and the club still clatters. It draws no blood sprite.
 - **Preset 2** is the #79 `reduced`: less blood, darker blood, fewer pieces.
-- **Preset 3 vs 4 must read clearly different** (owner ask). Only 4 has the wall spatter, the third pool stage, the head-roll smear, bone gibs, the full jet emission after frame 3 and the full explosion breakup.
+- **Preset 3 vs 4 must read clearly different** (owner ask). Only 4 has the wall spatters, the third (36 to 40 px) pool stage, the head-roll smear, bone gibs, the full jet emission after frame 3, the doubled crush drops and the full explosion breakup.
 
 ## 6. Key poses (as authored)
 
 - **0 `crush_contact`.** The landing tick of the block. The goblin is rammed down to 23 px (rows 33 to 55; GOB-01 standing is 36). The top is a straight 42 px `K` line on row 33: the stone's underside. Nothing is drawn above it. The head is shoved forward and flattened. The long ear is pressed flat back over the hump, and its tip pokes out behind (the 1x cue). The near eye bulges (3 x 3 `w`, a pinpoint `K` pupil). The jaw is sprung wide (top teeth row, dark mouth) and the tongue lolls out. Both arms are flung out flat, the near hand open with three fingers. The club is **not** in the frame: it leaves as the `club` part on this tick. The knees splay. Gore (preset 4 impact, 55 px, 5 `P`): a solid 2 px gush out of the mouth (`R` body, `P` core, `B` underside) breaking into droplet pairs, and a low squeeze-out burst fanning outward at each squeeze anchor over rows 53 to 55 (`B` floor edge, `R` body, a `P` glint, one detached droplet pair). With the stone composited on row 33 it reads as pressed (see the scale sheet's top view); alone it can read as a lunge, so evidence must always show it under the stone. New literal rows (blocked in with polygon and capsule shapes, then hand-finished as rows).
-- **2 `crushed_remains`.** The hold after the landing. A broken, low heap (rows 40 to 55): **not** a paper cut-out. The head is GOB-01 frame 25's corpse head, pixel for pixel down to row 50 (X eyes, the ear standing up, the tongue). The body is new: a pressed rag mass under a top outline on row 48 that is notched once and bumped once (torn rags, not a plank), a `u` top-light row broken by `t`, two `r` folds, the near hand on the floor, one shin snapped up with the sole showing at the far end. Gore: one continuous pressed-out seep along row 55 under the whole heap (40 px, `B` ends, `R` body, 2 `P`), plus the neck and hem seeping on row 54. It sits at the stone's foot, drawn in the actors layer as usual (in front of `loose_block_landed`). The low height lets the stone dominate.
+- **2 `crushed_remains`.** The hold after the landing. **Faces right, like keys 0 and 1** (review fix D1: the heap is built head-left from the GOB-01 corpse, then mirrored with x' = 59 - x; a pure pivot mirror, x' = 56 - x, would clip the snapped shin, so the heap sits 3 px forward). The face stays right of the pivot through 0 → 1 → 2 (tested), so the hold never flips end to end. A broken, low heap (rows 40 to 55): **not** a paper cut-out. The head is GOB-01 frame 25's corpse head, mirrored, pixel for pixel down to row 50 (X eyes, the ear standing up, the tongue). The body is new: a pressed rag mass under a top outline on row 48 that is notched once and bumped once (torn rags, not a plank), a `u` top-light row broken by `t`, two `r` folds, the near hand on the floor, one shin snapped up with the sole showing at the back end. Gore: one continuous pressed-out seep along row 55 under the whole heap (40 px, `B` ends, `R` body, 2 `P`), plus the neck and hem seeping on row 54. It sits at the stone's foot, drawn in the actors layer as usual (in front of `loose_block_landed`). The low height lets the stone dominate.
 - **3 `decap_contact`.** The blade's tick. This is GOB-01 frame 16 (the `hurt` recoil: torso thrown back, arm flung up, stick trailing low behind), with the head, ear and jaw removed above the collar. The body from row 38 down and the weapon layer are unchanged (tested). A new short neck stump stands on the collar. On `gore`: the cut face on rows 30 and 31 (meat `R`, wet `P`, the spine end `ww` at the back), and **the jet**: a 2 to 6 px column straight up out of the stump (rows 12 to 31). It has a dark `B` edge on the shadow side and a `P` core, leans slightly back the way the head flew, and breaks into gobbets near the top. The jet is the one frame of excess: 4 ticks, then the spawner takes over.
 - **5 `headless_collapse` (hold).** GOB-01 frame 25 (`corpse`: on the back, knees up, the pineapple rolled off the stick) with the head removed (everything right of x 28 unchanged, tested). The new neck stump points to the camera-left. On `gore`: the cut face (a spine dot `w`), a run of blood down to the floor and a 14 px puddle on row 55. The spreading pool is a decal (section 7), not this frame.
 
@@ -140,8 +140,9 @@ Keys 0 to 2 are frozen. The executor appends 3 to 23 in this order (indices are 
 | 16 | `drop_blood` | blood | 2 x 2 | gore only: `R P` / `B R` | centre | dies on contact → `decal_splat_s` (presets 3, 4) |
 | 17 | `decal_splat_s` | blood | 6 x 2 | gore only, floor splat: `B` rim, `R` body, 1 `P` | centre-bottom | static |
 | 18 | `decal_splat_m` | blood | 12 x 3 | gore only, splat with two 2 px satellites | centre-bottom | static |
-| 19 to 21 | `decal_pool_1..3` | blood | 12 x 2, 20 x 3, 28 x 4 (30 listed at design; cut to 28 to keep the 28 px rule) | gore only, flat floor pools: `o` rim, `B` body, `R` centre, 1 or 2 `P`; each stage contains the previous one (growth by frame swap) | centre-bottom | static |
-| 22 | `decal_wall_spatter` | blood | 22 x 18 | gore only, back-wall spatter: 5 to 7 radial `B`/`R` streaks from the lower-left, 3 drips (`B` 1 px wide, 3 to 6 px long), 2 `P` | origin (lower-left) | static |
+| 19 to 21 | `decal_pool_1..3` | blood | 12 x 2, 20 x 3, **38 x 4** (review ruling: flat floor decals are exempt from the width cap; stage 3 widened from the executor's 28) | gore only, flat floor pools: `o` rim, `B` body, `R` centre, 1 or 2 `P`; each stage contains the previous one (growth by frame swap) | centre-bottom | static |
+| 22 | `decal_wall_spatter` | blood | 22 x 18 | gore only, back-wall spatter: 5 to 7 radial streaks from the lower-left, **mostly `B` with `R` only near the origin** (`R`/`P` lose contrast on lit brick), 2 or 3 streaks ending in 1 to 2 px blobs, irregular lengths (not a comb), 3 drips (`B` 1 px wide, 3 to 6 px long), 2 `P` near the origin | origin (lower-left) | static |
+| 24 | `decal_wall_spatter_b` | blood | 20 x 22 | second variant, so repeats do not stamp: same keys and rules as 22, but a steeper fan (rays between 50 and 110° from the origin, which sits bottom-centre), one long streak, 4 drips; appended after 23 so indices 0 to 23 stay stable | origin (bottom-centre) | static |
 | 23 | `decal_smear` | blood | 18 x 2 | gore only, a skid smear, `B` fading to `o` at the tail | start (left) | static |
 
 **Manifest metadata (per part).** The manifest `death_parts` section lists one object per frame:
@@ -168,7 +169,7 @@ Keys 0 to 2 are frozen. The executor appends 3 to 23 in this order (indices are 
 **Never hide Carl (readability rules for the renderer):**
 
 - Draw order: launched parts on a debris layer **behind player actors** (just under actor layer 7, above props 6), floor decals under every actor on the walking line, `decal_wall_spatter` on `backwall_decal` (3) only. Nothing is ever drawn over a player sprite.
-- No part is larger than 28 x 28 (tested). At rest a part lies on the walking line, never stacked higher than 12 px.
+- No launched part is larger than 28 x 28 (tested). **Flat floor decals** (`decal_splat_*`, `decal_pool_*`, `decal_smear`) are exempt from the width cap, up to 40 px wide, but keep a 4 px height cap and always draw under every actor, so they can never hide anyone. At rest a part lies on the walking line, never stacked higher than 12 px.
 - Blood never lands on actors and never on foreground layers. No full-screen flash or red tint is part of this art.
 
 ## 8. Timing hints for the cosmetic spawner (60 Hz, preset 4, scale by section 5)
@@ -180,12 +181,13 @@ These are presentation hints for PR C/D, measured from the authoritative `EnemyD
 | Tick | Event |
 | --- | --- |
 | L | pose 0 (3 ticks), ENV-02 block impact dust; `club` from `hand_near`: away 90 to 150, up 120 to 180, spin 540 to 900 °/s, 1 or 2 bounces (0.3), settle flat |
-| L | 10 to 14 `drop_blood` from `mouth` and the two squeeze points, low angles (10 to 35° above horizontal), 80 to 160 |
+| L | **16 to 20** `drop_blood` from `mouth` (6 to 8) and the two squeeze points (5 to 6 each), low angles (10 to 35° above horizontal), 80 to 160; each drop that lands becomes `decal_splat_s` (at most 8 per death) |
 | L | 2 `gib_flesh_a/b` + 1 `gib_bone` squeezed out sideways from the squeeze points, 60 to 120, low |
 | L+3 | pose 1 (3 ticks) |
 | L+4 | `decal_splat_m` at both squeeze points; `decal_pool_1` at `pool_origin` |
+| L+8 | `decal_wall_spatter` (a or b, seeded, randomly mirrored) on the back wall at block-base height when a wall face is within 48 px: the squeeze blows sideways |
 | L+6 | pose 2, hold |
-| L+30 / L+90 | pool stage 2 / stage 3 |
+| L+20 / L+60 | pool stage 2 / stage 3 (38 px), earlier than the decapitation pool: the crush empties the body at once |
 
 **Decapitation (PR D, the blade tick D):**
 
@@ -193,11 +195,11 @@ These are presentation hints for PR C/D, measured from the authoritative `EnemyD
 | --- | --- |
 | D | pose 3 (4 ticks); `head` at the pose's `neck` (head anchor `neck` on it), start rotation -20° (chin up, matching frame 16's thrown-back head), velocity away 60 to 100 and up 220 to 280, spin 720 °/s backward, 2 bounces (0.35), then rolls 4 to 12 px; on first floor contact swap to `head_dead`; each bounce `decal_splat_s`; the roll leaves `decal_smear` |
 | D+4 | pose 4 (6 ticks); `drop_blood` from `jet_base`, 2 every 3 ticks for 30 ticks, rising 150 to 220, spread ±12° |
-| D+4 | `decal_wall_spatter` on the back wall behind the jet when a wall face is within 48 px |
+| D+4 | `decal_wall_spatter` (a or b, seeded, randomly mirrored; never the same variant and facing twice in a row on screen) on the back wall behind the jet when a wall face is within 48 px |
 | D+10 | pose 5, hold; trickle: 1 `drop_blood` every 8 ticks from `neck` for 40 ticks |
 | D+14 / D+40 / D+100 | pool stages 1 / 2 / 3 at the pose 5 `pool_origin` |
 
-**Explosive breakup (PR D, earned explosives only):** from `impact_position`, every part in the preset's list at its `frame0_origin`. Radial speed 160 to 300 (heavy parts −30 %), up-bias 60 to 120, spin by class. Then 6 gibs, 20 drops, a wall spatter and pools under the two heaviest pieces once they settle. The club splits into `club_stick` + `pineapple` at preset 4 only.
+**Explosive breakup (PR D, earned explosives only):** from `impact_position`, every part in the preset's list at its `frame0_origin`. Radial speed 160 to 300 (heavy parts −30 %), up-bias 60 to 120, spin by class. Then 8 gibs, 24 drops, both wall-spatter variants (one each side of `impact_position`, when walls are in range) and pools under the two heaviest pieces once they settle. Settled pieces lie irregularly (seeded rotations in 90° steps, piled and overlapping), never in an evenly spaced row. The club splits into `club_stick` + `pineapple` at preset 4 only.
 
 Seeded by `hash(run_seed, event_id)` outside the domain, as the proposal requires. No visual element feeds back into combat.
 
@@ -214,6 +216,14 @@ General rules: copy from the keys and from GOB-01 A as each row says. Translate 
 7. **Evidence** (`python3 -m scripts.pixelart evidence` on both configs, plus): GIFs of the four tags at x1 and x3; a preset strip (presets 4, 3, 2 and 1 of the same crush and decapitation moment, using the section 5 switches); a static spawner storyboard (L, L+3, L+6, L+30 and D, D+4, D+10, D+40 as stills on the lit Floor 1 with the section 8 placements; a still sheet, not a Bevy capture); a parts contact sheet at x4 with anchors marked; SHA256SUMS.
 8. **Tests:** extend `tests/test_art_gob02_death.py` to the new frames (gore-only keys, closed body at gore-off, part sizes, `head_dead` = `head` outside the eyes and tongue, `arm_far` = ramp-shifted `arm_near`).
 
+9. **Second executor pass (blind review, 2026-11-19), no design decisions needed:**
+   1. Re-check frame 1 as the bridge into the mirrored key 2 (the face stays right of the pivot in 0, 1 and 2; tested). No redraw is expected; if a seam shows, fix it in frame 1 only.
+   2. Wall spatter polish (part 22): streak bodies mostly `B` (with `o` darkening at the tips), `R` only within about 6 px of the origin, 2 or 3 streaks ending in 1 to 2 px blobs, irregular lengths. Add part 24 `decal_wall_spatter_b` per section 7.
+   3. Widen `decal_pool_3` to 38 x 4 (still nested over stage 2, same centre and bottom row). Update the part-size test: the 28 px cap applies to launched parts only; flat floor decals are capped at 40 x 4.
+   4. Lift `torso_lower`: a broken `u` top-light row under its top outline, broken by `t` in 2 places, as on the `crushed_remains` rag mass.
+   5. Evidence: an irregular, seeded explosion settle scene (piled, overlapping, rotated in 90° steps) instead of the even row; one composite with Carl standing inside the debris field and the pools (proves "never hide Carl"); add the `crushed_remains` hold in front of `loose_block_landed` to `scenes_1x.png`; one GIF of the crush sequence (0 → 1 → 2 → pool stages 1 to 3 at the section 8 ticks) at x1 and x3.
+   6. Manifests: `gib_bone` presets `[4]`; the decal width exemption noted per part (`floor_decal: true`); the new crush drop counts and pool ticks if the manifest carries spawner hints.
+
 Design problems found while executing go back to the design stage. Do not re-decide them.
 
 ### 9a. Executor pass: result and decisions
@@ -224,18 +234,18 @@ Run `python3 scripts/author_gob02_death.py keys` (sources and `.ase`) and `manif
 - **Pose 4 (buckle).** Frame 3 with the torso, neck and arm moved down 4 and left 2, frame 24's kneeling legs (rows 50 and below, moved 5 px left so the thigh meets the lowered skirt; its skirt rows 47 to 49 are not used because the moved skirt covers them), the forearm block (and the stick and fruit it holds) lowered so the fist sits at (14, 30), and the jet bent back into an 8 px column with two gobbets. Anchors `neck` (21, 35), `jet_base` (21, 34), `hit_origin` (22, 35).
 - **Parts 3 to 23.** Rule parts are GOB-01 A rectangles translated whole (`scripts/author_gob02_death.py`: `ARM_RECT`, `LEG_*_RECT`, `EAR_RECT`, `LOWER_RECT`, the frame 25 fruit); every cut surface is the deterministic `cut_face` rule on `gore` (meat `R` over the outline line and the skin line behind it, `B` ends, a bone dot `w`, a wet glint `P`, a short drip); `arm_far` is `arm_near` with the skin ramp one step darker; `head_dead` is part 0 with a 3 x 3 `K` X in an eye box over each eye (far box x 16 to 18, near box x 20 to 22, a gap column between them) and a 2 x 3 `R` tongue out of the mouth corner; gibs, drop, splats and the smear are literal bitmaps; the three pools are nested by construction (shared bottom row and centre, each stage a superset of the last); the wall spatter is seven rays from the lower-left origin plus three tails hanging from ray tips.
 - **Anchors and metadata** are measured from the drawn pixels (`part_anchors`) and written with the spawn metadata into `assets/manifests/goblin_a_death_h36.json` (`death_poses`) and `goblin_a_death_parts.json` (`death_parts`); `frame0_origin` is recorded for parts 3 to 11 (the fruit's centre on frame 0 for `pineapple`, whose pixels come from frame 25). `presets` follows section 5, with the deviations below.
-- **Deviations (no redesign).** `decal_pool_3` is 28 px wide (spec 30) because every part obeys the 28 px rule; `gib_bone` is preset 4 only (section 5 wins over the section 7 note, since 3 and 4 must read differently).
+- **Deviations (no redesign).** `decal_pool_3` is 28 px wide (spec 30) because every part obeys the 28 px rule; `gib_bone` is preset 4 only (section 5 wins over the section 7 note, since 3 and 4 must read differently). *Both settled by the 2026-11-19 review rulings: `gib_bone` preset 4 only is now the section 5 wording; floor decals are exempt from the width cap and `decal_pool_3` goes to 38 px (item 9.3).*
 
 ## 10. Acceptance targets and validators
 
 Automated (`python3 -m scripts.pixelart validate` on both configs, plus `tests/test_art_gob02_death.py`):
 
 - **D1 Crush contact.** Top row 33, flat `K` line of at least 36 px, nothing above it; no weapon pixel (the club has left); at least 8 `w` (the bulging eye and teeth); `gore` at least 40 px with at least 3 `P` (preset 4 clearly bloodier than preset 1).
-- **D2 Remains.** Top row 40 or lower and at least 14 px tall (a heap, not a sheet); GOB-01 corpse head reused pixel for pixel; `gore` at least 40 px with a continuous run of at least 16 px on row 55.
+- **D2 Remains.** Top row 40 or lower and at least 14 px tall (a heap, not a sheet); faces right like keys 0 and 1 (eye whites and teeth right of the pivot in frames 0, 1 and 2); GOB-01 corpse head reused pixel for pixel, mirrored; `gore` at least 40 px with a continuous run of at least 16 px on row 55.
 - **D3 Decap.** At least 40 `R` (the jet); GOB-01 frame 16's body from row 38 and its weapon layer unchanged; no `w`/`o` on `body` (no head).
 - **D5 Headless.** Top row 38 or lower, width at most 60; GOB-01 frame 25 unchanged right of x 28 and its weapon layer unchanged.
 - **Layer rule.** `B`/`P` on `gore` only. With `gore` hidden: 0 isolated pixels, fewer than 10 orphans per frame, every coloured pixel closed.
-- **Parts.** At most 28 x 28, inside the cell with a 1 px margin; the club keeps the GOB-01 fruit and crown; the club has no gore.
+- **Parts.** Launched parts at most 28 x 28 and flat floor decals at most 40 x 4, inside the cell with a 1 px margin; the club keeps the GOB-01 fruit and crown; the club has no gore.
 - **Palette.** At most 20 colours per atlas; only `P` is new; every other key has its goblin-floor01-v0 hex.
 - **Frozen keys.** Poses 0, 2, 3, 5 and parts 0, 1, 2 (`tests/fixtures/gob-02-death_keys.json`, `gob-02-death-parts_keys.json`).
 
@@ -269,13 +279,14 @@ All in [docs/evidence/gob-02-death/](../evidence/gob-02-death/README.md): `prese
 | `tests/test_art_gob02_death.py` | spec rules beyond the toolkit, anchor and metadata schema, gore separation on every part |
 | `docs/evidence/gob-02-death/` | design-stage evidence |
 
-## 13. Rulings (silhouette gate, 2026-11-18) and open notes
+## 13. Rulings (silhouette gate 2026-11-18, blind review 2026-11-19) and open notes
 
 1. **Variant B is a separate follow-up work order**, not this executor pass. Approach: an `accessory` layer on the head-bearing frames (poses 0, 1, 2; parts `head`, `head_dead`) with GOB-01 section 9's B overlay rule; headless frames and parts are shared. Gate it separately after this set is final.
 2. **Remains stay in front of `loose_block_landed`** (actors layer, no exception). A goblin hidden under the 96 px block would lose the payoff; the low heap does not hide the stone (see the composited scale sheet). Revisit only if the Bevy capture reads as "lying next to" rather than "squeezed out from under".
 3. **Preset 1 decapitation: the head still flies with its cut hidden** (default). Optional later data flag, an owner decision and not part of this pass: decapitation falls back to GOB-01 `knockback` → `corpse` + dust at preset 1, mirroring the explosive fallback. No art change either way.
 4. **Remains contrast** is solved by the gate fix (the broken `u` top light, the notched outline and the folds on the rag mass). No palette change.
 5. Non-blocking note: `torso_upper` reads only as a generic chunk at 1x (acceptable for spinning debris). An optional later polish is a 1 px `u` rim on the vest hump's top edge; the key stays frozen for now.
+6. **Blind review rulings (2026-11-19).** (a) D1 design fix: `crushed_remains` re-keyed to face right like keys 0 and 1 (mirrored, x' = 59 - x; `pool_origin` (29, 55)); only key 2 re-frozen. (b) `gib_bone` is preset 4 only. (c) Flat floor decals are exempt from the 28 px width cap (40 x 4 maximum, drawn under every actor); `decal_pool_3` becomes 38 px. (d) Preset 4 is pushed through the spawner and decals, not denser sprites: crush drops 16 to 20, earlier and bigger crush pool, a crush wall spatter, a second wall-spatter variant, a bigger explosion count (section 8). (e) `arm_*` reading as a bent hook is accepted for tumbling debris; a 3 x 3 `K`-outlined fist knob is optional polish.
 
 6. Open notes from the executor pass (no art change made): the section 5 table and the section 7 gib note disagreed on bone gibs (kept at preset 4 only); `arm_near` and `arm_far` read as a bent hook at 1x, which is fine for spinning debris but is the weakest part silhouette; the wall spatter in the 1x scenes lands on the dark alcove wall, so its contrast should be re-checked on brick in the Bevy capture; the 90 degree rotation steps in the storyboards are an evidence simplification, the runtime rotates freely.
 

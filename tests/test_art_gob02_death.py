@@ -128,14 +128,21 @@ class Gob02DeathSourceTests(unittest.TestCase):
         self.assertGreaterEqual(run, 16)                                  # one continuous seep, not specks
 
     def test_crushed_remains_keep_the_corpse_head(self):
-        """Not a paper cut-out: the GOB-01 corpse head (X eyes, ear up, tongue) is reused pixel for pixel."""
+        """Not a paper cut-out: the GOB-01 corpse head (X eyes, ear up, tongue) is reused pixel for pixel, mirrored
+        (x' = 59 - x) so the remains face right like crush_contact."""
         f25 = opaque(self.goblin["frames"][25]["cels"]["body"])
         rem = self.poses["frames"][2]["cels"]["body"]
         src = self.goblin["frames"][25]["cels"]["body"]
         head = [(x, y) for x, y in f25 if x <= 20 and y <= 50]
         self.assertGreater(len(head), 50)
         for x, y in head:
-            self.assertEqual(rem[y][x], src[y][x], (x, y))
+            self.assertEqual(rem[y][ad.REMAINS_MIRROR_X - x], src[y][x], (x, y))
+
+    def test_crush_sequence_keeps_one_facing(self):
+        """Review fix D1: the face (eye whites and teeth) stays right of the pivot through 0 -> 1 -> 2."""
+        for n in (0, 1, 2):
+            xs = [x for row in self.poses["frames"][n]["cels"]["body"] for x, ch in enumerate(row) if ch == "w"]
+            self.assertGreater(min(xs), self.poses["pivot"][0], n)
 
     def test_parts_fit_their_cell_and_stay_small(self):
         for n in range(len(self.parts["frames"])):
