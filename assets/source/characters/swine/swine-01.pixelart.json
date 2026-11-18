@@ -1,0 +1,109 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "swine-01",
+  "title": "SWINE-01 Ball of Swine (Floor 01 arena boss) readability set (docs/02-art/swine-01-spec.md)",
+  "grid": "assets/source/characters/swine/swine-01.grid.json",
+  "frame_size": [
+    176,
+    144
+  ],
+  "pivot": [
+    88,
+    143
+  ],
+  "contact_row": 143,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          16
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "idle"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/swine-01_keys.json",
+      "frames": [
+        0
+      ],
+      "layers": [
+        "body"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "S1-size-idle-128px",
+        "frames": [
+          0
+        ],
+        "top": 14,
+        "bottom": 143
+      },
+      {
+        "id": "S1-idle-reads-round",
+        "frames": [
+          0
+        ],
+        "min_width": 128,
+        "max_width": 148
+      }
+    ],
+    "key_counts": [
+      {
+        "id": "S0-many-eyes",
+        "frames": [
+          0
+        ],
+        "key": "w",
+        "min": 24
+      },
+      {
+        "id": "S0-snouts-lit",
+        "frames": [
+          0
+        ],
+        "key": "h",
+        "min": 140
+      },
+      {
+        "id": "S0-flower-is-a-detail",
+        "frames": [
+          0
+        ],
+        "key": "q",
+        "max": 80
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": []
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 560
+      }
+    ]
+  }
+}

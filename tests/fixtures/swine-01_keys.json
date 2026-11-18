@@ -1,0 +1,12 @@
+{
+  "format": "pixelart-keys-v1",
+  "asset_id": "swine-01",
+  "layers": [
+    "body"
+  ],
+  "keys": {
+    "0": {
+      "sha256": "53578df7f591ec280ecd39347ca18576deb91e77424af213b638d9237419b029"
+    }
+  }
+}
