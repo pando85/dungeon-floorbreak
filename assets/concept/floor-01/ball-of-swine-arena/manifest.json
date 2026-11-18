@@ -1,0 +1,44 @@
+{
+  "schema": "the-crawl-concept-image-manifest-v1",
+  "project": "THE CRAWL — NO PANTS. NO MERCY.",
+  "status": "owner-preferred revised arena layout direction; previous panorama and action/exploration studies retained; not production-ready art or approved gameplay",
+  "source": "Original OpenAI-generated concept PNG files from 2026-11-18 project design conversation; exact original bytes supplied in PR #77 Hermes handoff; commit unchanged and verify before calling manifest uploaded.",
+  "assets": [
+    {
+      "path": "assets/concept/floor-01/ball-of-swine-arena/01-arena-overview.png",
+      "sha256": "e3877c1afeea57567f9618881b5a6293fabbdb7aed6527a046e001c477c453b1",
+      "bytes": 3093574,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "ball_of_swine_catacomb_arena.png",
+      "review_status": "Original panoramic arena architecture and gates; positive environmental concept direction"
+    },
+    {
+      "path": "assets/concept/floor-01/ball-of-swine-arena/02-first-impact.png",
+      "sha256": "67b48302b6430a9e000956c4f1f300f7f6e5786a30f1c455e87f12fa2c2b1866",
+      "bytes": 3055176,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "ball_of_swine_gatecrash_duel.png",
+      "review_status": "First-impact action composition; illustrative Carl/Donut NOT approved production characters"
+    },
+    {
+      "path": "assets/concept/floor-01/ball-of-swine-arena/03-space-usage-exploration.png",
+      "sha256": "18dab811c314c31271fc333515627f5fae9b7ad23e9b566cba64f2221d436865",
+      "bytes": 2751020,
+      "width": 1536,
+      "height": 1024,
+      "source_conversation_file": "a_detailed_multi_panel_concept_art_infographic_for.png",
+      "review_status": "Earlier annotated spatial-use infographic; exploration, superseded by revised layout"
+    },
+    {
+      "path": "assets/concept/floor-01/ball-of-swine-arena/04-gameplay-layout-preferred.png",
+      "sha256": "746e3c0d96b3560a5cbd1fe88c141d3a4872203189b8aeb5cd22250088a74492",
+      "bytes": 2681553,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "a_detailed_cinematic_pixel_art_infographic_level.png",
+      "review_status": "Owner prefers the revised annotated wide-layout camera/movement/design direction; gameplay values still hypotheses"
+    }
+  ]
+}
