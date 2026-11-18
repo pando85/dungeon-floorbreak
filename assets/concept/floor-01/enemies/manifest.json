@@ -1,0 +1,96 @@
+{
+  "schema": "the-crawl-concept-image-manifest-v1",
+  "project": "THE CRAWL — NO PANTS. NO MERCY.",
+  "status": "owner-approved visual concept direction; not production-ready art or canonical lore verification",
+  "source": "Images produced in the project ChatGPT conversations; new approvals are documented in docs/02-art/floor-01-late-enemy-boss-concepts.md. All referenced PNGs must be uploaded and retained byte-for-byte; generated text and sizes are not canonical gameplay contracts.",
+  "assets": [
+    {
+      "path": "assets/concept/floor-01/enemies/bad-llama-abc-exploration.png",
+      "sha256": "b901d73f46971af5f0eb5740da88e02d462a628feb217238e25b5836c1057b3f",
+      "bytes": 2135222,
+      "width": 1774,
+      "height": 887,
+      "source_conversation_file": "a_highly_detailed_pixel_art_game_concept_sheet_in.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/bad-llama-c-plus-a-approved.png",
+      "sha256": "0a66f62a52c4d8d2213498ae0802e6541868688981b67a1fdb7620571d88da93",
+      "bytes": 2200081,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "ficha_de_diseño_del_llama_maligno.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/scatterers-rot-sticker-slime-bestiary.png",
+      "sha256": "bdd2864f1370ccfce1058ea8819f19eb4ca3354601c38ff080aeb89229f4beee",
+      "bytes": 2297662,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "a_detailed_pixel_art_concept_art_poster_bestiary.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-bestiary-exploration-sheet.png",
+      "sha256": "65f2d80397b7808f995c3cd4a20b4351fbde519621639803594ab0c6765bbc34",
+      "bytes": 2469998,
+      "width": 1536,
+      "height": 1024,
+      "source_conversation_file": "a_detailed_concept_art_sheet_a_pixel_art_retro_1.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-enemy-lineup-approved.png",
+      "sha256": "22e44bcb4e336e07b5041c36b802c7a8d56e9ccd921b3519c201f3ec42779378",
+      "bytes": 2163932,
+      "width": 1536,
+      "height": 1024,
+      "source_conversation_file": "a_high_detail_pixel_art_concept_sheet_enemy_desi.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-hoarder-individual-study.png",
+      "sha256": "1747fb017a11f65c8cdeaf9a03196595ed5cb26ce666e1ddc376224c2387ac9f",
+      "bytes": 2806620,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "a_detailed_pixel_art_concept_board_in_a_gritty_ret.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png",
+      "sha256": "9a28007bff4f5bc77aa9fd85a9f5f974eacdbb5ff7f8fd5a1e82a868d668ca65",
+      "bytes": 2876255,
+      "width": 1448,
+      "height": 1086,
+      "source_conversation_file": "troglodyte_family_bestiary_sheet.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-ball-of-swine-approved.png",
+      "sha256": "cf850b90f87bd85cbc5835d24b774a752e69654ae2a6b77b426111df9f06a995",
+      "bytes": 3365214,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "a_highly_detailed_pixel_art_concept_board_for_a_vi.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-dungeon-rat-concept-approved.png",
+      "sha256": "663838dd640e8a9ca9961c0a46d1415406b4221177aa7452defaac0fbf7921e5",
+      "bytes": 2122814,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "concepto_de_enemigo_rata_de_mazmorra.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-goblin-bomb-bard-concept-approved.png",
+      "sha256": "153f1ac072aeca4f9bb94dcea0f89fa6464613127a43a1db28de2ad9b1c6970b",
+      "bytes": 2401167,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "concepto_del_bombardo_goblin.png"
+    },
+    {
+      "path": "assets/concept/floor-01/enemies/floor01-goblin-copper-chopper-concept-approved.png",
+      "sha256": "d8ce0654f728d006b0763947818237cfd327c30c0dc0c48de0442158132a23e5",
+      "bytes": 2458220,
+      "width": 1672,
+      "height": 941,
+      "source_conversation_file": "concepto_del_chopper_goblin_de_the_crawl.png"
+    }
+  ]
+}

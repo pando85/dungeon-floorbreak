@@ -114,9 +114,9 @@ jobs:
           diff docs/evidence/anim-int-01/capture_log.txt artifacts/anim-int-01/evidence/capture_log.txt
           diff docs/evidence/anim-int-01/capture_log_strip_takeoff.txt artifacts/anim-int-01/evidence/capture_log_strip_takeoff.txt
           diff docs/evidence/anim-int-01/capture_log_strip_landing.txt artifacts/anim-int-01/evidence/capture_log_strip_landing.txt
-      - name: Combat fixtures, headless replays (must equal the committed logs and be deterministic)
+      - name: Combat fixtures, headless replays (must equal the committed logs and anim traces and be deterministic)
         run: bash scripts/ci_floor01_combat.sh headless
-      - name: Combat fixtures, real Bevy 1920x1080 loop (must reproduce the headless events and hash) and CP-01 capture
+      - name: Combat fixtures, real Bevy 1920x1080 loop (must reproduce the headless events and hash) and CP-01 and ART-INT-02 captures
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render
       - name: Frame-interval probe, lighting on (software Vulkan, report only)
         continue-on-error: true

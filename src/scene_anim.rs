@@ -22,7 +22,9 @@
 //! horizontal velocity, so they settle into idle instead of running in place.
 
 use crate::anim::{AnimInput, Animator, MOVE_THRESHOLD_PX_S};
-use crate::corridor::CorridorWorld;
+use crate::combat_anim::CombatAnimators;
+use crate::combat_scene::CombatState;
+use crate::corridor::{CorridorWorld, SceneSim};
 use crate::prototype::TICK_SECONDS;
 
 /// A running actor whose measured speed drops to zero keeps its run frame for
@@ -98,6 +100,9 @@ pub struct SceneAnimators {
     carl_prev_x: f32,
     carl_stall: StallFilter,
     donut_stall: StallFilter,
+    /// The melee and goblin frames of a combat fixture (ART-INT-02); `None` on
+    /// the normal route. Stepped with [`Self::step_art`].
+    pub art: Option<CombatAnimators>,
 }
 
 impl SceneAnimators {
@@ -110,6 +115,22 @@ impl SceneAnimators {
             carl_prev_x: world.hero.x,
             carl_stall: StallFilter::default(),
             donut_stall: StallFilter::default(),
+            art: None,
+        }
+    }
+
+    /// Advance the combat art (melee and goblin frames) by one fixed tick of a
+    /// fixture; call after [`Self::step`] of the same tick.
+    pub fn step_art(&mut self, scene: &SceneSim, combat: &CombatState) {
+        if let Some(art) = self.art.as_mut() {
+            art.step(scene, combat);
+        }
+    }
+
+    /// Back to the start of a fixture attempt (the goblins were re-created).
+    pub fn reset_art(&mut self, combat: &CombatState) {
+        if let Some(art) = self.art.as_mut() {
+            art.reset(combat);
         }
     }
 

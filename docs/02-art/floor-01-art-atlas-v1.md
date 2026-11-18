@@ -5,6 +5,16 @@
 **Stack:** Rust + Bevy. First-floor scene: [ENV-01/COMP-01 pipeline](../07-agents/floor-01-opening-encounter-handoff.md).
 **Primary art constraints:** [opening corridor and goblin direction](floor-01-opening-catacomb-goblins.md), [art direction](art-direction.md), [rights and release](../04-production/rights-and-release.md).
 
+## Enemy concept approval update (2026-11-17)
+
+**All Floor 01 enemy visual concepts in the later owner review are approved**, including the C+A Bad Llama, Scatterers/Brood Guardian, Rot Sticker, Green Slime and The Hoarder, in addition to the existing opening goblins and Murder Dozer. The earlier sentence in this atlas saying final enemy designs await approval is superseded **for this specific approved concept batch** by the [enemy concept roster](floor-01-enemy-concept-roster.md). Original production pixels, animation, exact sprite scales, game mechanics and Bevy review still have their own gates. The owner has committed the five newly approved concept PNGs to `assets/concept/floor-01/enemies/`; their checksums and dimensions are recorded in that directory's manifest. The atlas' area layout remains only an art inventory.
+
+**Late concept-boss update (2026-11-17):** The Hoarder individual exploration, Troglodyte family and The Ball of Swine/Tusklings now have [dedicated visual concept approval documentation](floor-01-late-enemy-boss-concepts.md). The **standalone Juicer Gym panorama is now owner-selected as an art-direction reference**; the independent Ball of Swine ring/spiral arena study remains outstanding. Neither atlas crop defines playable geometry.
+
+## Juicer Gym standalone concept follow-up (2026-11-17)
+
+The owner approved the Juicer Gym's **1990s industrial-catacomb visual mood** and selected a [standalone gym-only panorama](floor-01-juicer-gym-standalone-concept.md) for art direction. The original PNG is committed with a verified manifest and depicts reception, turnstile, central combat space and training machines. This art-direction approval **does not** approve game-scale geometry, character/collider measurements, boss behavior or a finished playable layout. The study is independent of both enemy concepts and the Ball of Swine arena.
+
 ## Artistic premise
 
 **One floor; one recognizable architectural language; several memorable places.**
@@ -66,14 +76,14 @@ Area 01 remains the previously committed [opening catacomb concepts](../../asset
 | 06 | [Goblin workshop](../../assets/concept/floor-01/atlas-v1/06-goblin-workshop.png) | Later industrial workshop, not the intro chase |
 | 07 | [Slimes / Rot Stickers](../../assets/concept/floor-01/atlas-v1/07-slimes-rot-stickers.png) | Two separate hazard identities; depicted adjacency not canonical |
 | 08 | [Circular maze and survivor camp](../../assets/concept/floor-01/atlas-v1/08-circular-maze-survivor-camp.png) | Spatial montage, not an actual navigable map |
-| 09 | [Juicer's gym — provisional atlas excerpt](../../assets/concept/floor-01/atlas-v1/09-juicer-gym-atlas-excerpt.png) | **Not a standalone concept**; reception, turnstile and gym gameplay need focused design |
+| 09 | [Juicer's gym — provisional atlas excerpt](../../assets/concept/floor-01/atlas-v1/09-juicer-gym-atlas-excerpt.png) | Historical atlas excerpt only; [separate gym panorama](floor-01-juicer-gym-standalone-concept.md) now selected, gameplay not implemented |
 | 10 | [Ball of Swine arena — provisional atlas excerpt](../../assets/concept/floor-01/atlas-v1/10-ball-of-swine-arena-atlas-excerpt.png) | **Not a standalone concept**; moving-wall and concentric-groove geometry need a dedicated study |
 
 All visuals are generated conceptual references only. **Do not crop them into editable/source sprites, gameplay colliders, enemy designs, or actual level geometry.**
 
 ### Review boundary
 
-The owner approved the **general direction** of this environment batch, not final native-size texturing, palette, geometry, gameplay, hazard readability, camera placement, or engine screenshots. Gym/arena have only overview-panel references, *not* approved full-scene concept art. Specific boss/enemy silhouettes need separate sprite art approval.
+The owner approved the **general direction** of this environment batch, not final native-size texturing, palette, geometry, gameplay, hazard readability, camera placement, or engine screenshots. The gym now has a selected standalone environment panorama; the Ball of Swine arena still needs its own standalone composition. Concept approvals do not constitute production-ready assets or in-engine gameplay.
 
 ## Production architecture: extensions, not ten independent tile sets
 
@@ -95,7 +105,8 @@ For area transitions, ramp the introduced visual novelty in stages:
 - [x] Owner likes broad first-floor art direction and selected one concept treatment per region.
 - [x] Areas/canon distinctions, reuse plan and caveats documented.
 - [x] Commit curated PNGs, provenance README and hashes; verified all 10 Git blobs against the original local reference files.
-- [ ] Review/correct gym and final arena at standalone concept composition scale.
+- [x] Juicer Gym standalone art-direction panorama selected (not gameplay geometry).
+- [ ] Review/correct Ball of Swine arena at standalone concept composition scale.
 - [ ] Approved native editable environmental pixels produced for the relevant area.
 - [ ] Real Bevy screenshots at 640×360 and 640×400 with **approved Carl/Donut** and no blurred/scaled source art.
 - [ ] Deterministic collision/hazard/reachability tests (only where gameplay mechanics are introduced).

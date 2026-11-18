@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Validate what the Floor 1 corridor scene (COMP-01, ANIM-INT-01) loads at runtime.
 
-Checks the pinned actor atlases (the Carl 52 px and Donut 40 px locomotion
-atlases: canvas, pivots, the six animation tags in order over 16 frames, four
+Checks the pinned actor atlases (ART-INT-02 adds the Carl melee atlas and the two
+goblin atlases the combat fixtures draw: one row, pinned tags, airborne tags off
+the pivot row; the Carl 52 px and Donut 40 px locomotion atlases: canvas, pivots, the six animation tags in order over 16 frames, four
 identical-height idle frames, lowest opaque row == pivot row for grounded
 frames, i.e. 0 px foot sink, and never below the pivot row for the rest) and
 the exported environment kit atlases against the contract and the sample layout
@@ -26,6 +27,19 @@ LAYOUT = "assets/levels/floor01/corridor_abc_sample.json"
 ACTORS = (
     ("carl_book1_h52_locomotion", (48, 56), (25, 55), 52),
     ("donut_h40_locomotion", (72, 44), (46, 43), 40),
+)
+# ART-INT-02: the combat atlases the fixtures draw. name, frame size, pivot,
+# frame count, tags in order, airborne tags (no pixel on the pivot row; drawn
+# on the sim body by their lowest row, never on the pivot).
+COMBAT_ACTORS = (
+    ("carl_book1_h52_melee", (48, 56), (25, 55), 24,
+     ("punch_a", "punch_b", "kick", "hurt", "knockback", "knockdown", "getup"), ("knockback",)),
+    ("goblin_a_h36", (64, 56), (28, 55), 27,
+     ("idle", "walk", "attack_tell", "attack_swing", "attack_recover", "hurt", "knockback",
+      "down", "getup", "corpse", "knockback_contact"), ("knockback", "knockback_contact")),
+    ("goblin_b_h36", (64, 56), (28, 55), 27,
+     ("idle", "walk", "attack_tell", "attack_swing", "attack_recover", "hurt", "knockback",
+      "down", "getup", "corpse", "knockback_contact"), ("knockback", "knockback_contact")),
 )
 TAGS = ("idle", "run", "jump_start", "jump_rise", "jump_fall", "land")
 IDLE_FRAMES = 4
@@ -131,6 +145,48 @@ def check_actor(name: str, size, pivot, opaque_height: int, manifest: dict,
             f"{name}: idle frame heights {idle_heights} stray more than 1 px from {opaque_height}")
 
 
+def check_combat_actor(name: str, size, pivot, frame_count: int, tags, airborne_tags,
+                       manifest: dict, metadata: dict, image: Image.Image) -> None:
+    """A melee or goblin atlas: one unpadded row, the pinned tags over every frame,
+    airborne tags off the pivot row (but never below it), every other frame with
+    its lowest opaque row exactly on the pivot row (0 px foot sink)."""
+    require(tuple(manifest["frame_size"]) == tuple(size), f"{name}: canvas changed")
+    require(tuple(manifest["pivot"]) == tuple(pivot), f"{name}: pivot changed")
+    frames = metadata["frames"]
+    require(len(frames) == frame_count, f"{name}: expected {frame_count} frames, got {len(frames)}")
+    require(image.size == (size[0] * frame_count, size[1]),
+            f"{name}: atlas is {image.size}, Bevy expects {frame_count} unpadded frames in one row")
+    listed = metadata.get("meta", {}).get("frameTags", [])
+    require([t["name"] for t in listed] == list(tags),
+            f"{name}: animation tags are {[t['name'] for t in listed]}, expected {list(tags)}")
+    tag_of = {}
+    for tag in listed:
+        require(0 <= tag["from"] <= tag["to"] < frame_count, f"{name}: tag {tag['name']} outside the atlas")
+        for index in range(tag["from"], tag["to"] + 1):
+            tag_of[index] = tag["name"]
+    require(sorted(tag_of) == list(range(frame_count)), f"{name}: tags do not cover every frame once")
+    require_binary_alpha(name, image)
+    alpha = image.convert("RGBA").getchannel("A")
+    for index, frame in enumerate(frames):
+        rect = frame["frame"]
+        require((rect["x"], rect["y"], rect["w"], rect["h"]) == (index * size[0], 0, *size),
+                f"{name}: frame {index} is not at the row-major position")
+        cell = alpha.crop((index * size[0], 0, (index + 1) * size[0], size[1]))
+        bbox = cell.point(lambda a: 255 if a else 0).getbbox()
+        require(bbox is not None, f"{name}: frame {index} is empty")
+        lowest = bbox[3] - 1
+        if tag_of[index] in airborne_tags:
+            require(lowest < pivot[1],
+                    f"{name}: frame {index} ({tag_of[index]}) is airborne but its lowest opaque "
+                    f"row {lowest} is on the pivot row {pivot[1]}")
+        else:
+            require(lowest == pivot[1],
+                    f"{name}: frame {index} ({tag_of[index]}) lowest opaque row {lowest} != "
+                    f"pivot row {pivot[1]}")
+    declared = set(manifest.get("melee", manifest.get("goblin", {})).get("airborne_tags", []))
+    require(declared == set(airborne_tags), f"{name}: manifest airborne_tags are {sorted(declared)}")
+
+
 def check_kit(contract: dict, layout: dict, images: dict[str, Image.Image]) -> dict:
     require(contract.get("format") == "env-kit-v2", "contract is not env-kit-v2")
     require(layout.get("format") == "env-kit-layout-v2", "layout is not env-kit-layout-v2")
@@ -229,6 +285,15 @@ def run(root: Path = ROOT) -> None:
         check_actor(name, size, pivot, height, manifest, metadata, Image.open(image_path))
         print(f"FLOOR1_CONTRACT_OK: actor {name} {height}px, pivot {pivot}, "
               f"{FRAMES} frames, grounded feet on the pivot row")
+    for name, size, pivot, count, tags, airborne in COMBAT_ACTORS:
+        manifest = json.loads((root / "assets/manifests" / f"{name}.json").read_text())
+        metadata = json.loads((root / manifest["output_metadata"]).read_text())
+        image_path = root / manifest["output_atlas"]
+        require(image_path.is_file(), f"{name}: exported atlas missing (run export_assets.sh)")
+        check_combat_actor(name, size, pivot, count, tags, airborne, manifest, metadata,
+                           Image.open(image_path))
+        print(f"FLOOR1_CONTRACT_OK: combat actor {name} {size}, pivot {pivot}, {count} frames, "
+              f"airborne tags {list(airborne)}")
     layout = json.loads((root / LAYOUT).read_text())
     contract = json.loads((root / layout["kit_contract"]).read_text())
     images = {}

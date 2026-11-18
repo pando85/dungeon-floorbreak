@@ -58,6 +58,7 @@ FIXTURES = [
     "cp01_interrupt",
     "cp01_haymaker_chain",
     "cp01_retry",
+    "cp01_kick",
 ]
 TRACED = ["cp01_single_goblin", "cp01_interrupt", "cp01_haymaker_chain", "cp01_goblin_attacks", "cp01_retry"]
 # fixture -> (first tick, frames) of the real capture sequence (scripts/ci_floor01_combat.sh)

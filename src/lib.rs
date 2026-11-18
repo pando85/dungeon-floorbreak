@@ -4,6 +4,7 @@ pub mod actor_sprite;
 pub mod anim;
 pub mod camera;
 pub mod combat;
+pub mod combat_anim;
 pub mod combat_scene;
 pub mod corridor;
 pub mod env_kit;
