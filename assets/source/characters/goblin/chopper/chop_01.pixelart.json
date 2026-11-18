@@ -1,0 +1,288 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "chop-01",
+  "title": "CHOP-01 Goblin Copper Chopper readability set, design edit (docs/02-art/chop-01-spec.md)",
+  "grid": "assets/source/characters/goblin/chopper/chop_01.grid.json",
+  "manifest": "assets/manifests/chop-01.json",
+  "frame_size": [
+    112,
+    64
+  ],
+  "pivot": [
+    56,
+    63
+  ],
+  "contact_row": 63,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          12
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          2,
+          12
+        ]
+      ]
+    },
+    "walk": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          6,
+          5
+        ]
+      ]
+    },
+    "attack_tell": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          22
+        ]
+      ]
+    },
+    "attack_swing": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          9,
+          3
+        ],
+        [
+          10,
+          9
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          11,
+          4
+        ],
+        [
+          12,
+          8
+        ]
+      ]
+    },
+    "down": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          13,
+          6
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          15,
+          null
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_swing",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 4,
+    "layers_disjoint": [
+      [
+        "machine",
+        "crew",
+        "weapon"
+      ]
+    ],
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "manifest_tick_rows": "chopper.frames",
+    "manifest_tick_hz": "chopper.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/chop-01_keys.json",
+      "frames": [
+        0,
+        3,
+        8,
+        10,
+        11,
+        15
+      ],
+      "layers": [
+        "machine",
+        "crew",
+        "weapon"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "C1-size-idle-length",
+        "frames": [
+          0
+        ],
+        "min_width": 90,
+        "max_width": 100
+      },
+      {
+        "id": "C1-idle-height-with-puff",
+        "frames": [
+          0
+        ],
+        "top": 12,
+        "bottom": 63
+      },
+      {
+        "id": "C2-tell-is-the-highest-pose",
+        "frames": [
+          8
+        ],
+        "max_top": 6
+      },
+      {
+        "id": "C3-attack-reaches-furthest-forward",
+        "frames": [
+          10
+        ],
+        "min_right": 106
+      },
+      {
+        "id": "C4-hurt-knocked-back",
+        "frames": [
+          11
+        ],
+        "max_right": 100
+      },
+      {
+        "id": "C5-wreck-is-low",
+        "frames": [
+          15
+        ],
+        "min_top": 18,
+        "max_top": 24
+      }
+    ],
+    "key_counts": [
+      {
+        "id": "C2-tell-firebox-and-lamp-flare",
+        "frames": [
+          8,
+          10
+        ],
+        "key": "Y",
+        "min": 38
+      },
+      {
+        "id": "C2-idle-glow-is-lower",
+        "frames": [
+          0,
+          3
+        ],
+        "key": "Y",
+        "max": 24
+      },
+      {
+        "id": "C5-wreck-fire-out",
+        "frames": [
+          15
+        ],
+        "key": "Y",
+        "max": 0
+      },
+      {
+        "id": "C0-driver-lens-visible",
+        "frames": [
+          0,
+          3,
+          8,
+          10
+        ],
+        "key": "e",
+        "min": 4
+      },
+      {
+        "id": "C4-hurt-no-yellow-eyes",
+        "frames": [
+          11,
+          12,
+          15
+        ],
+        "key": "e",
+        "max": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "attack_tell",
+      "attack_swing"
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520
+      },
+      {
+        "frame": 8,
+        "x": 640
+      },
+      {
+        "frame": 10,
+        "x": 760
+      },
+      {
+        "frame": 11,
+        "x": 880
+      }
+    ]
+  }
+}
