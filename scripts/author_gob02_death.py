@@ -410,11 +410,314 @@ CLUB_SHAFT = {                # cell coordinates; the fruit's bottom outline is 
     28: "........x",
 }
 
-PART_TAGS = [("head", 0, 0), ("torso_upper", 1, 1), ("club", 2, 2)]
+
+# --------------------------------------------------------------------------- parts 3 to 23 (executor pass)
+# Rule parts are GOB-01 A frame 0 rectangles translated whole (no resampling, no rotation); every cut surface is the
+# deterministic ``cut_face`` rule on the gore layer; gibs, drops and decals are small literal bitmaps or rules.
+PARTS_NEW_FIRST = 3
+SKIN_DARKER = {"l": "m", "m": "s", "s": "a"}          # the far limb: the skin ramp one step darker (a stays a)
+
+
+def f0_layer(layer: str) -> Pix:
+    return cel_pix(load_goblin()["frames"][0]["cels"][layer])
+
+
+def rect_pix(pix: Pix, x0: int, y0: int, x1: int, y1: int) -> Pix:
+    return {p: ch for p, ch in pix.items() if x0 <= p[0] <= x1 and y0 <= p[1] <= y1}
+
+
+def bbox_of_pix(pix: Pix) -> tuple[int, int, int, int]:
+    xs = [p[0] for p in pix]
+    ys = [p[1] for p in pix]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def centring_shift(box: tuple[int, int, int, int]) -> tuple[int, int]:
+    """Translation that puts the centre of ``box`` on the cell pivot (16, 16)."""
+    return CELL_PIVOT[0] - (box[0] + box[2]) // 2, CELL_PIVOT[1] - (box[1] + box[3]) // 2
+
+
+_EDGE = {   # edge -> (to (u, d), from (u, d)); d is the depth inward from the outline line, u runs along the edge
+    "top": (lambda x, y, e: (x, y - e), lambda u, d, e: (u, e + d)),
+    "bottom": (lambda x, y, e: (x, e - y), lambda u, d, e: (u, e - d)),
+    "left": (lambda x, y, e: (y, x - e), lambda u, d, e: (e + d, u)),
+    "right": (lambda x, y, e: (y, e - x), lambda u, d, e: (e - d, u)),
+}
+
+
+def cut_face(body: Pix, edge: str) -> Pix:
+    """The cut surface of a wound part on the ``gore`` layer, from the outlined ``body``. The outline line at ``edge``
+    is overdrawn with meat (``R``, clotted ``B`` at the ends), the skin line behind it is meat with a bone dot ``w`` and
+    a wet glint ``P``, and a short ``R``/``B`` drip runs back along the skin. The body underneath stays a plain
+    skin-and-outline cap: hiding the gore layer leaves a closed, bloodless sprite."""
+    to_ud, from_ud = _EDGE[edge]
+    x0, y0, x1, y1 = bbox_of_pix(body)
+    e = {"top": y0, "bottom": y1, "left": x0, "right": x1}[edge]
+    inner = {}
+    for (x, y), ch in body.items():
+        u, d = to_ud(x, y, e)
+        if d == 1 and ch != "K":
+            inner[u] = ch
+    span = sorted(inner)
+    n = len(span)
+    out: Pix = {}
+
+    def put(u: int, d: int, key: str) -> None:
+        out[from_ud(u, d, e)] = key
+
+    for i, u in enumerate(span):
+        end = n >= 4 and i in (0, n - 1)
+        put(u, 0, "B" if end else "R")
+        put(u, 1, "B" if end else "R")
+    if n >= 3:
+        put(span[n // 2], 1, "w")
+        put(span[n - 2 if n >= 4 else n - 1], 1, "P")
+        if from_ud(span[1], 2, e) in body and body[from_ud(span[1], 2, e)] != "K":
+            put(span[1], 2, "R")
+            if from_ud(span[1], 3, e) in body and body[from_ud(span[1], 3, e)] != "K":
+                put(span[1], 3, "B")
+    else:
+        put(span[0], 1, "w")
+        put(span[-1], 0, "P")
+    return out
+
+
+def finish_part(body: Pix, weapon: Pix, gore: Pix) -> dict[str, list[str]]:
+    return cels(body, weapon, gore, CELL)
+
+
+def wound_part(source: Pix, rect: tuple[int, int, int, int], cut_edges: list[str], mutate=None):
+    """(cels, shift) for a frame-0 rectangle turned into a wound part: translated onto the cell, outline-closed, the
+    cut face on every edge named in ``cut_edges``."""
+    x0, y0, x1, y1 = rect
+    shift_ = centring_shift(rect)
+    body = shift(rect_pix(source, x0, y0, x1, y1), *shift_)
+    if mutate:
+        body = mutate(body)
+    body = drop_dangling_outline(close_outline(body, size=CELL))
+    gore: Pix = {}
+    for edge in cut_edges:
+        gore.update(cut_face(body, edge))
+    return finish_part(body, {}, gore), shift_
+
+
+ARM_RECT = (33, 34, 41, 41)
+LEG_NEAR_RECT = (28, 47, 38, 55)
+LEG_FAR_RECT = (19, 47, 26, 55)
+EAR_RECT = (18, 20, 24, 24)
+LOWER_RECT = (19, 42, 35, 46)
+PINEAPPLE_RECT = (50, 47, 62, 55)          # GOB-01 A frame 25, weapon layer
+FRUIT_ON_FRAME0 = (49, 32)                 # the fruit's centre on frame 0 (club part: fruit anchor (21, 14))
+CELL_SHIFT_RECORD: dict[str, tuple[int, int]] = {}   # part id -> frame-0 -> cell translation (for frame0_origin)
+
+
+def part_head_dead() -> dict[str, list[str]]:
+    """Part 0 with GOB-01 frame 25's dead face: a 3 x 3 ``K`` X (white between the strokes) over each eye and a 2 x 3
+    ``R`` tongue out of the mouth corner, outlined. Everything else is part 0, pixel for pixel."""
+    head = part_head()
+    body = cel_pix(head["body"])
+    for x0 in (16, 20):                                # far eye box x 16..18, near eye box x 20..22 (rows 14..16)
+        for dy, row in enumerate(("KwK", "wKw", "KwK")):
+            for dx, ch in enumerate(row):
+                body[(x0 + dx, 14 + dy)] = ch
+    for y in (20, 21, 22):                             # the tongue crosses the jaw line at the mouth corner
+        for x in (20, 21):
+            body[(x, y)] = "R"
+    body = close_outline(body, size=CELL)
+    return finish_part(body, {}, cel_pix(head["gore"]))
+
+
+def part_torso_lower() -> dict[str, list[str]]:
+    """GOB-01 frame 0 rows 42 to 46, x 19 to 35 (rope belt and rag skirt) with the waist tear on top (the torso_upper
+    tear, rows reversed) and two hip stumps under the hem. Part 1's tear is rows 21 to 23 of its cell."""
+    f0 = f0_layer("body")
+    belt = rect_pix(f0_layer("weapon"), 19, 42, 30, 42)
+    src = overlay(rect_pix(f0, 19, 42, 35, 46), belt)
+    shift_ = centring_shift(LOWER_RECT)
+    CELL_SHIFT_RECORD["torso_lower"] = shift_
+    body = drop_dangling_outline(close_outline(shift(src, *shift_), size=CELL))
+    top = min(y for _x, y in body)                     # the outline row above the belt
+    tear = {21: (8, "BBRRRBRRB"), 22: (8, "BwwRPRRRPBB"), 23: (9, "BRRBB.RRB")}
+    gore: Pix = {}
+    x_mid = (min(x for x, _y in body) + max(x for x, _y in body)) // 2
+    for y, (x0, run) in tear.items():
+        for i, ch in enumerate(run):
+            if ch != ".":
+                gore[(x_mid - 13 + x0 + i, top + (21 - y) + 0)] = ch       # row 21 on the outline, 22 and 23 above
+    bottom = max(y for _x, y in body)
+    for hx in HIP_STUMPS:                              # two hip stumps under the hem: 2 x 1, meat and bone
+        gore[(hx[0] + shift_[0], bottom + 1)] = "R"
+        gore[(hx[0] + 1 + shift_[0], bottom + 1)] = "w"
+    return finish_part(body, {}, gore)
+
+
+HIP_STUMPS = [(22, 47), (31, 47)]                  # frame-0 x of each stump's left pixel (far, near), under the hem
+
+
+def part_arm_near() -> dict[str, list[str]]:
+    cel, shift_ = wound_part(f0_layer("body"), ARM_RECT, ["top"])
+    CELL_SHIFT_RECORD["arm_near"] = shift_
+    return cel
+
+
+def part_arm_far() -> dict[str, list[str]]:
+    near = part_arm_near()
+    body = {p: SKIN_DARKER.get(ch, ch) for p, ch in cel_pix(near["body"]).items()}
+    return finish_part(body, {}, cel_pix(near["gore"]))
+
+
+def part_leg_near() -> dict[str, list[str]]:
+    cel, shift_ = wound_part(f0_layer("body"), LEG_NEAR_RECT, ["top"])
+    CELL_SHIFT_RECORD["leg_near"] = shift_
+    return cel
+
+
+def part_leg_far() -> dict[str, list[str]]:
+    cel, shift_ = wound_part(f0_layer("body"), LEG_FAR_RECT, ["top"])
+    CELL_SHIFT_RECORD["leg_far"] = shift_
+    return cel
+
+
+def part_ear() -> dict[str, list[str]]:
+    cel, shift_ = wound_part(f0_layer("body"), EAR_RECT, ["right"])
+    CELL_SHIFT_RECORD["ear"] = shift_
+    return cel
+
+
+def part_club_stick() -> dict[str, list[str]]:
+    """Part 2's shaft alone (rows 18 to 28 of its cell), the top end splintered into two 1 px ``y`` teeth."""
+    club = cel_pix(part_club()["weapon"])
+    shaft = {p: ch for p, ch in club.items() if p[1] >= 18 and ch in "xy"}
+    shaft = overlay(shaft, literal({17: "....................y.y"}))
+    shaft = close_outline(shaft, size=CELL)
+    shaft = drop_dangling_outline(shaft)
+    # re-centre on the cell
+    sh = centring_shift(bbox_of_pix(shaft))
+    shaft = shift(shaft, *sh)
+    CELL_SHIFT_RECORD["club_stick"] = sh
+    return {"body": rows_of({}, CELL), "weapon": rows_of(shaft, CELL), "gore": rows_of({}, CELL)}
+
+
+def part_pineapple() -> dict[str, list[str]]:
+    """GOB-01 A frame 25's rolled fruit, weapon layer rows 47 to 55, x 50 to 62, unchanged."""
+    g = load_goblin()["frames"][25]["cels"]["weapon"]
+    fruit = rect_pix(cel_pix(g), *PINEAPPLE_RECT)
+    sh = centring_shift(PINEAPPLE_RECT)
+    return {"body": rows_of({}, CELL), "weapon": rows_of(shift(fruit, *sh), CELL), "gore": rows_of({}, CELL)}
+
+
+def small(body_rows: dict[int, str], gore_rows: dict[int, str] | None = None, weapon_rows: dict[int, str] | None = None):
+    """A literal gib, drop or decal: rows written from (0, 0); the whole bitmap is centred on the cell pivot."""
+    body, gore, weapon = literal(body_rows), literal(gore_rows or {}), literal(weapon_rows or {})
+    union = {**body, **gore, **weapon}
+    sh = centring_shift(bbox_of_pix(union))
+    return finish_part(shift(body, *sh), shift(weapon, *sh), shift(gore, *sh)), sh
+
+
+GIBS = {
+    "gib_flesh_a": ({0: ".KKK.", 1: "KlmmK", 2: "KmmsK", 3: ".KKK."}, {1: "...P.", 2: "...R."}),
+    "gib_flesh_b": ({0: ".KK.", 1: "KutK", 2: ".KK."}, {1: "..R."}),
+    "gib_bone": ({0: "KKKK.", 1: "KwwwK", 2: ".KKKK"}, {}),
+    "gib_rag": ({0: ".KKKK", 1: "KutrK", 2: ".KKK."}, {}),
+}
+BLOOD = {
+    "drop_blood": ({}, {0: "RP", 1: "BR"}),
+    "decal_splat_s": ({}, {0: ".RRPR.", 1: "BBRRBB"}),
+    "decal_splat_m": ({}, {0: "RR...RPR..RR", 1: ".BRRRRRRRRRB", 2: "..BBBBBBBB.."}),
+}
+
+
+def decal_pool_rows() -> dict[str, dict[int, str]]:
+    """Three nested pools: 12 x 2, 20 x 3, 28 x 4. Each is the previous one grown by one ring plus a wider run."""
+    p1 = {16: "oBBRPRRBBBBo", 17: "oBBBBBBBBBBo"}
+    p2 = {15: "..oBBRRRRBBo..".center(20, "."), 16: "oBBBRRRRPRRRRBBBBBBo", 17: "oBBBBBBBBBBBBBBBBBBo"}
+    p3 = {14: "...oBBBRRRRBBBo...".center(28, "."), 15: ".oBBBBRRRRRRRRRRBBBBBBo.".center(28, "."),
+          16: "oBBBBRRRRRRPRRRRRRRRBBBBBBBo", 17: "oBBBBBBBBBBBBBBBBBBBBBBBBBBo"}
+    return {"decal_pool_1": p1, "decal_pool_2": p2, "decal_pool_3": p3}
+
+
+def part_small(name: str):
+    if name in GIBS:
+        return small(*GIBS[name])
+    if name in BLOOD:
+        return small(*BLOOD[name])
+    raise KeyError(name)
+
+
+def part_pool(name: str):
+    """Pools are placed, not centred: bottom row 17, shared centre, so a frame swap grows the stain in place."""
+    rows = decal_pool_rows()[name]
+    width = max(len(r) for r in rows.values())
+    x0 = 16 - width // 2
+    pix = literal(rows, x0)
+    return finish_part({}, {}, pix), (x0, 0)
+
+
+SPATTER_RAYS = [(8, 21), (20, 20), (32, 19), (45, 19), (58, 19), (70, 17), (82, 17)]    # (degrees up from the floor, length)
+SPATTER_DRIPS = [(3, 5), (4, 4), (5, 6)]          # (ray index, length): a B tail 1 px wide hanging from that streak's tip
+
+
+def part_wall_spatter() -> dict[str, list[str]]:
+    """Back-wall spatter, 22 x 18: seven radial streaks from the lower-left origin (``B`` all along, ``R`` through the
+    middle, two ``P`` glints) and three dripping tails (``B``, 1 px wide, 3 to 6 px long). Gore layer only."""
+    import math
+    w, h = 22, 18
+    pix: Pix = {}
+    for i, (deg, length) in enumerate(SPATTER_RAYS):
+        a = math.radians(deg)
+        for step in range(length * 2 + 1):
+            t = step / 2
+            x, y = round(t * math.cos(a)), h - 1 - round(t * math.sin(a))
+            if 0 <= x < w and 0 <= y < h:
+                pix[(x, y)] = "R" if length * 0.25 <= t <= length * 0.6 else "B"
+    for (x, y), ch in list(pix.items()):
+        if ch == "R" and (x + y) % 5 == 0 and (x + 1, y) in pix:
+            pix[(x + 1, y)] = "R"
+    for ray, n in SPATTER_DRIPS:                       # the tail hangs straight down from the streak tip
+        deg, length = SPATTER_RAYS[ray]
+        a = math.radians(deg)
+        tx, ty = round(length * math.cos(a)), h - 1 - round(length * math.sin(a))
+        for k in range(1, n + 1):
+            if ty + k < h:
+                pix.setdefault((tx, ty + k), "B")
+    for (x, y) in ((6, h - 1 - 3), (13, h - 1 - 6)):
+        pix[(x, y)] = "P"
+    sh = (16 - w // 2, 16 - h // 2)
+    return finish_part({}, {}, shift(pix, *sh))
+
+
+def part_smear() -> dict[str, list[str]]:
+    """A skid smear, 18 x 2: ``B`` fading to ``o`` at the tail; the head's roll leaves it."""
+    rows = {15: "BRRPRRBBBBBBBooo..", 16: "BBBBBBBBBBBBBooooo"}
+    return finish_part({}, {}, literal(rows, 7))
+
+PART_BUILDERS = [         # (id, builder); indices are the contract (spec section 7)
+    ("head", part_head), ("torso_upper", part_torso_upper), ("club", part_club),
+    ("head_dead", None), ("torso_lower", None), ("arm_near", None), ("arm_far", None), ("leg_near", None),
+    ("leg_far", None), ("club_stick", None), ("pineapple", None), ("ear", None),
+    ("gib_flesh_a", None), ("gib_flesh_b", None), ("gib_bone", None), ("gib_rag", None), ("drop_blood", None),
+    ("decal_splat_s", None), ("decal_splat_m", None), ("decal_pool_1", None), ("decal_pool_2", None),
+    ("decal_pool_3", None), ("decal_wall_spatter", None), ("decal_smear", None),
+]
+PART_IDS = [p[0] for p in PART_BUILDERS]
+PART_TAGS = [(pid, i, i) for i, pid in enumerate(PART_IDS)]
+
+
+def build_part(pid: str) -> dict[str, list[str]]:
+    fixed = {"head": part_head, "torso_upper": part_torso_upper, "club": part_club, "head_dead": part_head_dead,
+             "torso_lower": part_torso_lower, "arm_near": part_arm_near, "arm_far": part_arm_far,
+             "leg_near": part_leg_near, "leg_far": part_leg_far, "club_stick": part_club_stick,
+             "pineapple": part_pineapple, "ear": part_ear, "decal_wall_spatter": part_wall_spatter,
+             "decal_smear": part_smear}
+    if pid in fixed:
+        return fixed[pid]()
+    if pid in decal_pool_rows():
+        return part_pool(pid)[0]
+    return part_small(pid)[0]
 
 
 def parts_grid() -> dict:
-    frames = [part_head(), part_torso_upper(), part_club()]
+    frames = [build_part(pid) for pid in PART_IDS]
     return grid_of(frames, [0] * len(frames), CELL, CELL_PIVOT, PART_TAGS)
 
 
@@ -423,10 +726,78 @@ def poses_grid() -> dict:
     k2 = crushed_remains()
     k3 = decap_contact()
     k5 = headless_collapse()
-    frames = [k0, k0, k2, k3, k3, k5]          # 1 and 4 are placeholders (copies) until the executor draws them
+    frames = [k0, crush_flatten(), k2, k3, headless_buckle(), k5]
     ticks = [3, 3, 0, 4, 6, 0]
     return grid_of(frames, ticks, CANVAS, PIVOT, POSE_TAGS)
 
+
+
+# --------------------------------------------------------------------------- pose frame 1: crush_contact (flatten)
+def layer_pix(cels_: dict[str, list[str]], layer: str) -> Pix:
+    return cel_pix(cels_[layer])
+
+
+FLATTEN_GORE = {              # the mouth gush lengthened by 4 px with one more droplet pair; squeeze bursts pushed out
+    44: [(56, "RR")],
+    45: [(49, "RRPPRRRRRR"), (59, "R"), (61, "RR")],
+    46: [(49, "BBRRBBBBRR"), (60, "RR"), (63, "R")],
+    50: [(2, "R")],
+    51: [(0, "RR")],
+    53: [(2, "RRPR"), (45, "RPRR")],
+    54: [(0, "BRRRRRR"), (43, "RRRRRRRRR"), (55, "RR")],
+    55: [(1, "BBBBBB"), (43, "BBBBBBBBBB")],
+    52: [(46, "R"), (49, "R")],
+}
+
+
+def crush_flatten() -> dict[str, list[str]]:
+    """Frame 1 of ``crush_contact``: frame 0 with rows 33 to 45 pushed down 3 rows (onto 36 to 48, replacing the old rows
+    46 to 48; the skirt hem and legs on rows 49 to 55 stay), the seams closed with outline, the near eye popped (the
+    ``K`` pupil becomes ``w``) and the blood bursts pushed further out."""
+    k = crush_contact()
+    body = layer_pix(k, "body")
+    moved = {(x, y): ch for (x, y), ch in body.items() if y >= 49 or (y >= 46 and x >= 50)}   # the open hand stays
+    moved.update({(x, y + 3): ch for (x, y), ch in body.items() if 33 <= y <= 45})
+    moved[(40, 39)] = "w"                                   # the popped eye: pupil (40, 36) moved down 3
+    moved = close_outline(moved)
+    gore = segs(FLATTEN_GORE)
+    return cels(moved, {}, gore)
+
+
+# --------------------------------------------------------------------------- pose frame 4: headless_collapse (buckle)
+BUCKLE_JET = {                # the jet bent back (left) over 8 rows with two gobbets; the cut face is frame 3's, moved
+    33: [(19, "BRPR")],
+    32: [(18, "BRPR")],
+    31: [(18, "BRR")],
+    30: [(17, "BRP")],
+    29: [(16, "BRR")],
+    28: [(15, "BR")],
+    27: [(14, "BR")],
+    26: [(13, "RB")],
+    24: [(10, "BR")],
+    23: [(12, "R")],
+}
+
+
+def headless_buckle() -> dict[str, list[str]]:
+    """Frame 4 of ``headless_collapse``: frame 3 with the legs replaced by GOB-01 A frame 24's kneeling legs, the torso,
+    neck and arm moved down 4 rows and 2 px left, the forearm block (and the stick and fruit it holds) lowered so the
+    fist sits near (14, 30), and the jet reduced to an 8 px column bent back with two gobbets."""
+    k3 = decap_contact()
+    f24 = cel_pix(load_goblin()["frames"][24]["cels"]["body"])
+    body3, weapon3, gore3 = (layer_pix(k3, n) for n in ("body", "weapon", "gore"))
+    legs = {(x - 5, y): ch for (x, y), ch in f24.items() if y >= 50 and x <= 41}
+    upper = {(x - 2, y + 4): ch for (x, y), ch in body3.items() if y <= 46 and not (y <= 31 and x <= 15)}
+    forearm = {(x + 2, y + 7): ch for (x, y), ch in body3.items() if y <= 31 and x <= 15}
+    body = overlay(overlay(legs, upper), forearm)
+    held = {(x + 2, y + 7): ch for (x, y), ch in weapon3.items() if x <= 12}
+    belt = {(x - 2, y + 4): ch for (x, y), ch in weapon3.items() if x > 12}
+    weapon = overlay(belt, held)
+    cut = {(x - 2, y + 4): ch for (x, y), ch in gore3.items() if 30 <= y <= 33 and x >= 19}
+    gore = overlay(cut, segs(BUCKLE_JET))
+    weapon = close_outline(weapon, body)                 # the held fruit is closed by outline too
+    body = drop_dangling_outline(close_outline(body, weapon))
+    return cels(body, weapon, gore)
 
 POSE_TAGS = [("crush_contact", 0, 1), ("crushed_remains", 2, 2), ("decap_contact", 3, 3), ("headless_collapse", 4, 5)]
 
@@ -575,11 +946,220 @@ POSE_KEYS = (0, 2, 3, 5)
 PART_KEYS = (0, 1, 2)
 
 
+
+# --------------------------------------------------------------------------- manifests (spec section 7)
+POSE_ANCHORS = {
+    0: {"hit_origin": [28, 33], "hand_near": [55, 48], "mouth": [49, 43], "squeeze_back": [6, 54],
+        "squeeze_front": [46, 54]},
+    1: {"hit_origin": [28, 36], "hand_near": [55, 48], "mouth": [49, 46], "squeeze_back": [6, 54],
+        "squeeze_front": [46, 54]},
+    2: {"pool_origin": [30, 55]},
+    3: {"neck": [23, 31], "hit_origin": [24, 31], "jet_base": [23, 30], "hand_near": [12, 23]},
+    4: {"neck": [21, 35], "hit_origin": [22, 35], "jet_base": [21, 34], "hand_near": [14, 30]},
+    5: {"neck": [17, 50], "pool_origin": [12, 55]},
+}
+POSE_TICKS = [3, 3, None, 4, 6, None]
+POSE_AUTHOR = ["key", "executor", "key", "key", "executor", "key"]
+
+# id -> (class, material, mass, spin, settle, bounce, swap_on_first_contact, stain, trail, ttl, presets)
+PART_META = {
+    "head": ("wound", "goblin_flesh", "medium", "fast", "roll", 0.35, "head_dead", "decal_splat_s", "decal_smear", "keep", [1, 2, 3, 4]),
+    "torso_upper": ("wound", "goblin_flesh", "heavy", "slow", "flop", 0.2, None, "decal_splat_s", None, "keep", [2, 3, 4]),
+    "club": ("clean", "wood_fruit", "medium", "fast", "clatter", 0.3, None, None, None, "keep", [1, 2, 3, 4]),
+    "head_dead": ("wound", "goblin_flesh", "medium", "fast", "roll", 0.35, None, "decal_splat_s", "decal_smear", "keep", [1, 2, 3, 4]),
+    "torso_lower": ("wound", "goblin_flesh", "heavy", "slow", "flop", 0.2, None, "decal_splat_s", None, "keep", [4]),
+    "arm_near": ("wound", "goblin_flesh", "light", "fast", "flop", 0.3, None, "decal_splat_s", None, "long", [3, 4]),
+    "arm_far": ("wound", "goblin_flesh", "light", "fast", "flop", 0.3, None, "decal_splat_s", None, "long", [3, 4]),
+    "leg_near": ("wound", "goblin_flesh", "medium", "slow", "flop", 0.25, None, "decal_splat_s", None, "long", [3, 4]),
+    "leg_far": ("wound", "goblin_flesh", "medium", "slow", "flop", 0.25, None, "decal_splat_s", None, "long", [3, 4]),
+    "club_stick": ("clean", "wood", "light", "fast", "clatter", 0.3, None, None, None, "long", [4]),
+    "pineapple": ("clean", "fruit", "light", "slow", "roll", 0.4, None, None, None, "long", [4]),
+    "ear": ("wound", "goblin_flesh", "light", "slow", "flutter", 0.2, None, None, None, "short", [4]),
+    "gib_flesh_a": ("gib", "goblin_flesh", "light", "fast", "bounce", 0.45, None, "decal_splat_s", None, "short", [3, 4]),
+    "gib_flesh_b": ("gib", "goblin_flesh", "light", "fast", "bounce", 0.45, None, "decal_splat_s", None, "short", [3, 4]),
+    "gib_bone": ("gib", "bone", "light", "fast", "clatter", 0.4, None, None, None, "short", [4]),
+    "gib_rag": ("clean", "rag", "light", "slow", "flutter", 0.1, None, None, None, "short", [1, 2, 3, 4]),
+    "drop_blood": ("blood", "blood", "light", "none", "static", 0.0, None, "decal_splat_s", None, "short", [2, 3, 4]),
+    "decal_splat_s": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "long", [2, 3, 4]),
+    "decal_splat_m": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "long", [3, 4]),
+    "decal_pool_1": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [3, 4]),
+    "decal_pool_2": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [3, 4]),
+    "decal_pool_3": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [4]),
+    "decal_wall_spatter": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [4]),
+    "decal_smear": ("blood", "blood", "light", "none", "static", 0.0, None, None, None, "keep", [4]),
+}
+FIXED_ANCHORS = {"head": {"neck": [11, 20]}, "head_dead": {"neck": [11, 20]},
+                 "torso_upper": {"neck": [17, 10], "waist": [13, 22]}, "club": {"grip": [8, 27], "fruit": [21, 14]}}
+FIXED_ORIGINS = {"head": [33, 27], "torso_upper": [26, 36], "club": [44, 34], "head_dead": [33, 27],
+                 "pineapple": list(FRUIT_ON_FRAME0)}
+STATIC_ANCHOR_KIND = {"decal_splat_s": "centre_bottom", "decal_splat_m": "centre_bottom",
+                      "decal_pool_1": "centre_bottom", "decal_pool_2": "centre_bottom", "decal_pool_3": "centre_bottom",
+                      "decal_wall_spatter": "origin", "decal_smear": "start"}
+
+
+def _px(cel_: dict, layer: str) -> Pix:
+    return cel_pix(cel_[layer])
+
+
+def part_anchors(pid: str, cel_: dict) -> dict:
+    """Anchors in cell coordinates, measured from the drawn pixels (rule parts) or the spec table (keys)."""
+    if pid in FIXED_ANCHORS:
+        return FIXED_ANCHORS[pid]
+    body, gore, weapon = _px(cel_, "body"), _px(cel_, "gore"), _px(cel_, "weapon")
+    allpix = {**body, **weapon, **gore}
+    x0, y0, x1, y1 = bbox_of_pix(allpix)
+    cx = (x0 + x1) // 2
+    if pid == "torso_lower":
+        hips = sorted(p for p, ch in gore.items() if ch == "R" and p[1] == y1)
+        top = min(y for _x, y in body)
+        return {"waist": [cx, top], "hip_far": list(hips[0]), "hip_near": list(hips[-1])}
+    if pid in ("arm_near", "arm_far"):
+        gy = min(y for _x, y in gore)
+        xs = [x for x, y in gore if y == gy]
+        return {"shoulder": [(min(xs) + max(xs)) // 2, gy]}
+    if pid in ("leg_near", "leg_far"):
+        gy = min(y for _x, y in gore)
+        xs = [x for x, y in gore if y == gy]
+        feet = [x for x, y in body if y == y1]
+        return {"hip": [(min(xs) + max(xs)) // 2, gy], "foot": [(min(feet) + max(feet)) // 2, y1]}
+    if pid == "ear":
+        gx = max(x for x, _y in gore)
+        ys = [y for x, y in gore if x == gx]
+        return {"base": [gx, (min(ys) + max(ys)) // 2]}
+    if pid == "club_stick":
+        butt = max(((x, y) for (x, y), ch in weapon.items() if ch == "x"), key=lambda p: p[1])
+        top_y = min(y for (_x, y), ch in weapon.items() if ch == "y")
+        teeth = [p for p, ch in weapon.items() if ch == "y" and p[1] == top_y]
+        return {"grip": list(butt), "break": [(min(t[0] for t in teeth) + max(t[0] for t in teeth)) // 2,
+                                                min(t[1] for t in teeth)]}
+    kind = STATIC_ANCHOR_KIND.get(pid)
+    if kind == "centre_bottom":
+        return {"centre_bottom": [cx, y1]}
+    if kind == "origin":
+        return {"origin": [x0, y1]}
+    if kind == "start":
+        return {"start": [x0, (y0 + y1) // 2]}
+    return {"centre": [16, 16]}
+
+
+def part_frame0_origin(pid: str):
+    if pid in FIXED_ORIGINS:
+        return FIXED_ORIGINS[pid]
+    if pid == "arm_far":
+        pid = "arm_near"
+    if pid == "club_stick":
+        sh = CELL_SHIFT_RECORD["club_stick"]
+        return [CELL_PIVOT[0] - sh[0] - CLUB_SHIFT[0], CELL_PIVOT[1] - sh[1] - CLUB_SHIFT[1]]
+    if pid in CELL_SHIFT_RECORD:
+        sh = CELL_SHIFT_RECORD[pid]
+        return [CELL_PIVOT[0] - sh[0], CELL_PIVOT[1] - sh[1]]
+    return None          # gibs, drops and decals are not parts of the live pose
+
+
+def part_entries(grid: dict) -> list[dict]:
+    out = []
+    for i, pid in enumerate(PART_IDS):
+        frame = grid["frames"][i]["cels"]
+        cls, material, mass, spin, settle, bounce, swap, stain, trail, ttl, presets = PART_META[pid]
+        has_gore = any(ch != "." for row in frame["gore"] for ch in row)
+        entry = {"id": pid, "frame": i, "cell": list(CELL), "pivot": list(CELL_PIVOT),
+                 "anchors": part_anchors(pid, frame), "frame0_origin": part_frame0_origin(pid),
+                 "class": cls, "material": material, "presets": presets, "gore_layer": has_gore,
+                 "mass": mass, "spin": spin, "settle": settle, "bounce": bounce}
+        if swap:
+            entry["swap_on_first_contact"] = swap
+        if pid == "drop_blood":
+            entry["on_contact"] = "decal_splat_s"
+        if stain:
+            entry["stain"] = stain
+        if trail:
+            entry["trail"] = trail
+        entry["ttl"] = ttl
+        out.append(entry)
+    return out
+
+
+PROVENANCE_ORIGIN = ("GOB-02-DEATH goblin A death art at intensity preset 4 (docs/02-art/gob-02-death-spec.md); "
+                     "pixel-grid-v1 source written by scripts/author_gob02_death.py from GOB-01 A rectangles, shape "
+                     "rules and literal rows; no image-model output, no tracing")
+PROVENANCE_GEN = ("Design, spec and hero keys: Claude Opus. In-betweens, parts, manifests, export, validators and "
+                  "evidence: Claude Sonnet. Review pending (separate top-tier agent)")
+LICENSE = ("Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; "
+           "no game/asset-pack distribution rights")
+
+
+def manifest_base(mid: str, stem: str, grid: Path, ase: Path, frame, pivot, tags: list[str]) -> dict:
+    return {
+        "schema_version": 1, "id": mid, "type": "character_animation",
+        "source_path": str(ase.relative_to(ROOT)), "grid_source": str(grid.relative_to(ROOT)),
+        "output_atlas": f"generated/art/{stem}.png", "output_metadata": f"generated/art/{stem}.json",
+        "palette_id": "goblin-death-floor01-v0", "frame_size": list(frame), "pivot": list(pivot),
+        "animation_tags": tags, "required_alpha": True,
+        "owner": "AI-authored enemy death art (fan-concept layer: common Floor 1 goblin; runtime role IP-neutral small melee enemy)",
+        "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+        "provenance": {"origin": PROVENANCE_ORIGIN, "generator": PROVENANCE_GEN, "generated_art": True,
+                       "input_reference_ids": ["floor-01-opening-concept-references-v1"]},
+        "license": LICENSE, "review_status": "prototype_fixture_unapproved",
+    }
+
+
+def pose_manifest() -> dict:
+    grid = poses_grid()
+    m = manifest_base("goblin_a_death_h36_candidate_v1", "goblin_a_death_h36", POSES, POSES_ASE, CANVAS, PIVOT,
+                      [t[0] for t in POSE_TAGS])
+    frames = []
+    for i, (ticks, author) in enumerate(zip(POSE_TICKS, POSE_AUTHOR)):
+        tag = next(n for n, a, b in POSE_TAGS if a <= i <= b)
+        frames.append({"index": i, "tag": tag, "ticks": ticks, "duration_ms": grid["frames"][i]["duration_ms"],
+                       "author": author, "anchors": POSE_ANCHORS[i]})
+    m["death_poses"] = {
+        "spec": "docs/02-art/gob-02-death-spec.md", "variant": "A", "tick_hz": TICK_HZ, "hold_preview_ms": HOLD_MS,
+        "status": "executor pass complete; independent review pending; awaiting owner review; not wired into any Bevy binary",
+        "facing": "right", "mirror": "x' = 56 - x around the pivot column, anchors included",
+        "key_frames": [0, 2, 3, 5], "key_fixture": "tests/fixtures/gob-02-death_keys.json",
+        "layers": LAYERS, "default_preset": 4,
+        "playback": {"crush_contact": "once", "crushed_remains": "hold", "decap_contact": "once",
+                     "headless_collapse": "hold"},
+        "frames": frames,
+    }
+    return m
+
+
+def parts_manifest() -> dict:
+    grid = parts_grid()
+    m = manifest_base("goblin_a_death_parts_v1", "goblin_a_death_parts", PARTS, PARTS_ASE, CELL, CELL_PIVOT, PART_IDS)
+    m["death_parts"] = {
+        "spec": "docs/02-art/gob-02-death-spec.md", "variant": "A", "cell": list(CELL), "pivot": list(CELL_PIVOT),
+        "layers": LAYERS, "mirror": "x' = 32 - x around the cell pivot",
+        "status": "executor pass complete; independent review pending; not wired into any Bevy binary",
+        "key_frames": [0, 1, 2], "key_fixture": "tests/fixtures/gob-02-death-parts_keys.json",
+        "preset_filter": {"1": "clean parts and head", "2": "wound (gore muted), clean, blood drops and s decals",
+                          "3": "wound, clean, gib, blood (pools 1 and 2)", "4": "all"},
+        "parts": part_entries(grid),
+    }
+    return m
+
+
+def write_manifests() -> list[Path]:
+    paths = []
+    for name, m in (("goblin_a_death_h36.json", pose_manifest()), ("goblin_a_death_parts.json", parts_manifest())):
+        path = ROOT / "assets/manifests" / name
+        path.write_text(json.dumps(m, indent=2) + "\n", encoding="utf-8")
+        paths.append(path)
+    return paths
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    parser.add_argument("command", choices=["keys", "scale"])
+    parser.add_argument("command", choices=["keys", "scale", "manifests"])
     parser.add_argument("--check", action="store_true", help="compare instead of writing")
     args = parser.parse_args(argv)
+    if args.command == "manifests":
+        sys.path.insert(0, str(ROOT))
+        parts_grid()                                   # fills the frame-0 -> cell translations
+        for path in write_manifests():
+            print(f"wrote {path.relative_to(ROOT)}")
+        return 0
     if args.command == "scale":
         print(f"wrote {write_scale_sheet().relative_to(ROOT)}, {write_key_sheet().relative_to(ROOT)}")
         return 0

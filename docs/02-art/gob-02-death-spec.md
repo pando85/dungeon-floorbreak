@@ -1,6 +1,6 @@
 # GOB-02-DEATH: goblin death poses and death-parts sheet, design spec
 
-**Status:** design stage. Spec, hero keys (poses 0, 2, 3, 5; parts 0, 1, 2) frozen, and a 1x silhouette and scale sheet. The in-betweens, the remaining parts, the manifests, the export and the evidence are the executor's (section 9). Independent review pending. Nothing here is wired into Bevy. The owner approved intensity preset 4 as the default (2026-11-18, recorded in the [death-system proposal](../03-tech/monster-death-system-proposal.md#b-suggested-data-contract-illustrative-rust-design-not-compile-ready-abi)). Gameplay acceptance of any finish is still a separate owner decision.
+**Status:** executor pass complete (section 9a). Spec, hero keys (poses 0, 2, 3, 5; parts 0, 1, 2) frozen; the two in-betweens (poses 1 and 4), the 21 remaining parts (3 to 23), the manifests with anchors and spawn metadata, the export, the validators and the evidence are drawn and run. Independent review pending. Nothing here is wired into Bevy. The owner approved intensity preset 4 as the default (2026-11-18, recorded in the [death-system proposal](../03-tech/monster-death-system-proposal.md#b-suggested-data-contract-illustrative-rust-design-not-compile-ready-abi)). Gameplay acceptance of any finish is still a separate owner decision.
 
 Scope: one work order that merges the plan's GOB-02-CRUSH (falling block D-04) with the PR C parts sheet of the [death-system proposal](../03-tech/monster-death-system-proposal.md#f-implementation-pr-sequence):
 
@@ -135,12 +135,12 @@ Keys 0 to 2 are frozen. The executor appends 3 to 23 in this order (indices are 
 | 11 | `ear` | wound | 7 x 5 | GOB-01 frame 0 ear tip (rows 20 to 24, x 18 to 24), torn base on `gore` | `base` | flutter, flop |
 | 12 | `gib_flesh_a` | gib | 5 x 4 | `l`/`m`/`s` skin chunk with `K` outline; 2 px meat side on `gore` | centre | bounce |
 | 13 | `gib_flesh_b` | gib | 4 x 3 | `u`/`t` rag over `m` skin; meat side on `gore` | centre | bounce |
-| 14 | `gib_bone` | gib | 4 x 2 | `w` bone with `K` outline (body layer); class keeps it out of presets 1 and 2 | centre | clatter |
+| 14 | `gib_bone` | gib | 4 x 2 | `w` bone with `K` outline (body layer); spawned at preset 4 only (section 5) | centre | clatter |
 | 15 | `gib_rag` | clean | 5 x 3 | torn `t`/`u`/`r` scrap with `K` | centre | flutter |
 | 16 | `drop_blood` | blood | 2 x 2 | gore only: `R P` / `B R` | centre | dies on contact → `decal_splat_s` (presets 3, 4) |
 | 17 | `decal_splat_s` | blood | 6 x 2 | gore only, floor splat: `B` rim, `R` body, 1 `P` | centre-bottom | static |
 | 18 | `decal_splat_m` | blood | 12 x 3 | gore only, splat with two 2 px satellites | centre-bottom | static |
-| 19 to 21 | `decal_pool_1..3` | blood | 12 x 2, 20 x 3, 30 x 4 | gore only, flat floor pools: `o` rim, `B` body, `R` centre, 1 or 2 `P`; each stage contains the previous one (growth by frame swap) | centre-bottom | static |
+| 19 to 21 | `decal_pool_1..3` | blood | 12 x 2, 20 x 3, 28 x 4 (30 listed at design; cut to 28 to keep the 28 px rule) | gore only, flat floor pools: `o` rim, `B` body, `R` centre, 1 or 2 `P`; each stage contains the previous one (growth by frame swap) | centre-bottom | static |
 | 22 | `decal_wall_spatter` | blood | 22 x 18 | gore only, back-wall spatter: 5 to 7 radial `B`/`R` streaks from the lower-left, 3 drips (`B` 1 px wide, 3 to 6 px long), 2 `P` | origin (lower-left) | static |
 | 23 | `decal_smear` | blood | 18 x 2 | gore only, a skid smear, `B` fading to `o` at the tail | start (left) | static |
 
@@ -216,6 +216,16 @@ General rules: copy from the keys and from GOB-01 A as each row says. Translate 
 
 Design problems found while executing go back to the design stage. Do not re-decide them.
 
+### 9a. Executor pass: result and decisions
+
+Run `python3 scripts/author_gob02_death.py keys` (sources and `.ase`) and `manifests` (both manifests), then `bash scripts/export_assets.sh` (atlases under `generated/art`, git-ignored), then `python3 scripts/gob02_death_evidence.py` for the evidence stills. Validators: both configs PASS (poses 14 pass, parts 13 pass, the rest not configured); the pose config now sets `unique_frames: true`.
+
+- **Pose 1 (flatten).** Frame 0 with rows 33 to 45 moved down 3 rows as specified. Rows 46 to 48 are replaced except for the open hand (x 50 and up), which stays so the three fingers survive. Popped eye, gush lengthened 4 px with a droplet pair, squeeze bursts pushed out (the back burst can only gain 1 px: it already sits at the canvas edge, so it gains droplets instead). Anchors `hit_origin` (28, 36), `mouth` (49, 46); `hand_near` and `squeeze_*` do not move.
+- **Pose 4 (buckle).** Frame 3 with the torso, neck and arm moved down 4 and left 2, frame 24's kneeling legs (rows 50 and below, moved 5 px left so the thigh meets the lowered skirt; its skirt rows 47 to 49 are not used because the moved skirt covers them), the forearm block (and the stick and fruit it holds) lowered so the fist sits at (14, 30), and the jet bent back into an 8 px column with two gobbets. Anchors `neck` (21, 35), `jet_base` (21, 34), `hit_origin` (22, 35).
+- **Parts 3 to 23.** Rule parts are GOB-01 A rectangles translated whole (`scripts/author_gob02_death.py`: `ARM_RECT`, `LEG_*_RECT`, `EAR_RECT`, `LOWER_RECT`, the frame 25 fruit); every cut surface is the deterministic `cut_face` rule on `gore` (meat `R` over the outline line and the skin line behind it, `B` ends, a bone dot `w`, a wet glint `P`, a short drip); `arm_far` is `arm_near` with the skin ramp one step darker; `head_dead` is part 0 with a 3 x 3 `K` X in an eye box over each eye (far box x 16 to 18, near box x 20 to 22, a gap column between them) and a 2 x 3 `R` tongue out of the mouth corner; gibs, drop, splats and the smear are literal bitmaps; the three pools are nested by construction (shared bottom row and centre, each stage a superset of the last); the wall spatter is seven rays from the lower-left origin plus three tails hanging from ray tips.
+- **Anchors and metadata** are measured from the drawn pixels (`part_anchors`) and written with the spawn metadata into `assets/manifests/goblin_a_death_h36.json` (`death_poses`) and `goblin_a_death_parts.json` (`death_parts`); `frame0_origin` is recorded for parts 3 to 11 (the fruit's centre on frame 0 for `pineapple`, whose pixels come from frame 25). `presets` follows section 5, with the deviations below.
+- **Deviations (no redesign).** `decal_pool_3` is 28 px wide (spec 30) because every part obeys the 28 px rule; `gib_bone` is preset 4 only (section 5 wins over the section 7 note, since 3 and 4 must read differently).
+
 ## 10. Acceptance targets and validators
 
 Automated (`python3 -m scripts.pixelart validate` on both configs, plus `tests/test_art_gob02_death.py`):
@@ -241,6 +251,10 @@ Review (human eye, at 1x in the [scale sheet](../evidence/gob-02-death/silhouett
 - [`silhouette_scale_1x.png`](../evidence/gob-02-death/silhouette_scale_1x.png): two lit Floor 1 views at 640 x 360, stacked. Top: Donut, Carl, then `crush_contact` under the ENV-02 `loose_block_falling` (underside on frame row 33), `crushed_remains` in front of the foot of `loose_block_landed`, the two decapitation keys and the three part keys settled on the walking line. Bottom: the uncomposited lineup with GOB-01 A idle for scale. [`silhouette_scale_4x.png`](../evidence/gob-02-death/silhouette_scale_4x.png) holds the walking-line bands of both views at 4x.
 - [`keys_x4_preset4_vs_preset1.png`](../evidence/gob-02-death/keys_x4_preset4_vs_preset1.png): every key at 4x, preset 4 (as authored) above preset 1 (the `gore` layer hidden), and a bottom strip of every key at 1x (preset 4, then preset 1).
 
+### Executor evidence
+
+All in [docs/evidence/gob-02-death/](../evidence/gob-02-death/README.md): `preset_poses_x4.png` and `preset_parts_x3.png` (every pose and part at presets 4, 3, 2, 1), `parts_anchors_x4.png`, `frame_anchor_timing.png`, `scenes_1x.png` (lit Floor 1 at 1x with Carl and Donut: crush under the ENV-02 stone, decapitation tick, headless collapse, a scatter of parts), `storyboard_crush.png` and `storyboard_decap.png` (section 8 timelines as stills), `preset_strip.png`, and per-atlas `poses/` and `parts/` toolkit output (contact sheets at x1 and x4, pose GIFs at x1 and x3, SHA256SUMS).
+
 ## 12. Files
 
 | File | What |
@@ -250,7 +264,9 @@ Review (human eye, at 1x in the [scale sheet](../evidence/gob-02-death/silhouett
 | `assets/source/characters/goblin/death/goblin_a_death_parts.grid.json` / `.ase` | parts source |
 | `assets/source/characters/goblin/death/*.pixelart.json` | toolkit configs (validators, frozen keys) |
 | `tests/fixtures/gob-02-death_keys.json`, `gob-02-death-parts_keys.json` | frozen keys |
-| `tests/test_art_gob02_death.py` | spec rules beyond the toolkit |
+| `assets/manifests/goblin_a_death_h36.json`, `goblin_a_death_parts.json` | manifests with `death_poses` (anchors per frame) and `death_parts` (anchors, `frame0_origin`, spawn metadata) |
+| `scripts/gob02_death_evidence.py` | evidence stills: preset sheets, anchor and timing diagram, storyboards, 1x scenes (seeded placement, not a Bevy capture) |
+| `tests/test_art_gob02_death.py` | spec rules beyond the toolkit, anchor and metadata schema, gore separation on every part |
 | `docs/evidence/gob-02-death/` | design-stage evidence |
 
 ## 13. Rulings (silhouette gate, 2026-11-18) and open notes
@@ -261,6 +277,8 @@ Review (human eye, at 1x in the [scale sheet](../evidence/gob-02-death/silhouett
 4. **Remains contrast** is solved by the gate fix (the broken `u` top light, the notched outline and the folds on the rag mass). No palette change.
 5. Non-blocking note: `torso_upper` reads only as a generic chunk at 1x (acceptable for spinning debris). An optional later polish is a 1 px `u` rim on the vest hump's top edge; the key stays frozen for now.
 
+6. Open notes from the executor pass (no art change made): the section 5 table and the section 7 gib note disagreed on bone gibs (kept at preset 4 only); `arm_near` and `arm_far` read as a bent hook at 1x, which is fine for spinning debris but is the weakest part silhouette; the wall spatter in the 1x scenes lands on the dark alcove wall, so its contrast should be re-checked on brick in the Bevy capture; the 90 degree rotation steps in the storyboards are an evidence simplification, the runtime rotates freely.
+
 ## 14. Rights and provenance
 
 Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope; no public reuse licence; no game or asset-pack distribution right. Every pixel comes from GOB-01 A sources (frames 0, 16 and 25) or from the shape rules and literal rows in `scripts/author_gob02_death.py`. Nothing was traced or sampled from concept boards, the Death Lab or any image-model output.
@@ -269,5 +287,5 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope; no publ
 
 - Design, spec, hero keys and silhouette sheet: Claude Opus (top tier); gate fixes to keys 0 and 2 and the composited sheets: same designer.
 - Silhouette gate: independent Claude Opus (FIX-KEYS, rulings recorded in section 13).
-- Execution (section 9): pending, medium tier.
+- Execution (section 9): in-betweens (poses 1 and 4), parts 3 to 23, anchors and manifests, export, validators, tests and evidence: Claude Sonnet (medium tier).
 - Independent review: pending, separate top-tier agent.

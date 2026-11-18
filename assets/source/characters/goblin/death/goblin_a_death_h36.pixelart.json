@@ -1,8 +1,9 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "gob-02-death",
-  "title": "GOB-02-DEATH goblin A crush and decapitation poses (docs/02-art/gob-02-death-spec.md); 6 frames, 4 frozen keys; frames 1 and 4 are placeholders until the executor draws them",
+  "title": "GOB-02-DEATH goblin A crush and decapitation poses (docs/02-art/gob-02-death-spec.md); 6 frames, 4 frozen keys, 2 in-betweens",
   "grid": "assets/source/characters/goblin/death/goblin_a_death_h36.grid.json",
+  "manifest": "assets/manifests/goblin_a_death_h36.json",
   "frame_size": [64, 56],
   "pivot": [28, 55],
   "contact_row": 55,
@@ -21,7 +22,9 @@
     "max_orphans_per_frame": 9,
     "layers_disjoint": [["body", "weapon"]],
     "canvas_margin": [0, 0, 0, 0],
-    "unique_frames": false,
+    "unique_frames": true,
+    "manifest_tick_rows": "death_poses.frames",
+    "manifest_tick_hz": "death_poses.tick_hz",
     "frozen_keys": {
       "fixture": "tests/fixtures/gob-02-death_keys.json",
       "frames": [0, 2, 3, 5],
