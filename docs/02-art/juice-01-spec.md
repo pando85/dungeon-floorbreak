@@ -1,6 +1,6 @@
 # JUICE-01: The Juicer (boss) readability set, design spec
 
-**Status:** phase 1 designed: spec and idle key 0 drawn and frozen, awaiting the silhouette gate. Keys 3, 8, 10, 12, 15 and execution pending. Review pending.
+**Status:** designed: spec and all six keys (0, 3, 8, 10, 12, 15) drawn and frozen; key 0 passed the silhouette gate after the FIX-KEY0 pixel fixes (section 9). In-betweens (section 8) and execution pending. Independent review pending.
 
 **Decision record:** height 100 px, frame 160 x 136, pivot (72, 135). Proposed by the JUICE-01 designer within the orchestrator default (96 to 112 px); decided by: orchestrator default, pending owner confirmation.
 
@@ -96,19 +96,19 @@ Decision: **100 px idle opaque height** (frame 160 x 136, pivot (72, 135)). Orch
 
 ## 3. Frame, pivot, boxes and atlas
 
-- Frame **160 x 136**, pivot **(72, 135)**, contact row **135** (the lowest opaque row of every grounded frame). Idle key 0 spans x -31 to +56 from the pivot and rows 36 to 135. Room: 72 px behind the pivot for the backward fall, 87 px ahead for the pound reach; rows 0 to 35 hold the raised fists of the tell.
+- Frame **160 x 136**, pivot **(72, 135)**, contact row **135** (the lowest opaque row of every grounded frame). Idle key 0 spans x -31 to +60 from the pivot and rows 36 to 135; the six keys together span x -65 to +67 and rows 5 to 135. Room: 72 px behind the pivot for the backward fall, 87 px ahead for the pound reach; rows 0 to 35 hold the raised fists of the tell.
 - Grounded tags: `idle`, `walk`, `attack_tell`, `attack_pound`, `attack_recover`, `hurt`, `down`. Airborne tags: none (the pound is a standing smash; the lunge study is reserved for the boss-arc charge, a separate boss-state work order).
 - Boxes are placeholders in px from the pivot (x forward, y up), to be re-measured on the drawn keys; not approved mechanics:
 
 | Box | x | y | Frames |
 | --- | --- | --- | --- |
-| Standing (opaque extent, key 0) | -31 to 56 | 0 to 99 | idle |
+| Standing (opaque extent, key 0) | -31 to 60 | 0 to 99 | idle |
 | Hurtbox idle/walk (trunk, head, arms; not the hair ropes) | -24 to 44 | 0 to 96 | 0 to 6 |
-| Hurtbox tell (arms up) | -24 to 36 | 0 to 120 | 7, 8 |
+| Hurtbox tell (arms up) | -24 to 30 | 0 to 120 | 7, 8 |
 | Hurtbox pound and recover (folded low) | -20 to 60 | 0 to 70 | 9 to 11 |
-| Attack hitbox (impact frame only) | 30 to 72 | 0 to 26 | 10 |
-| Hurtbox hurt | -36 to 30 | 0 to 100 | 12 |
-| Hurtbox down | -70 to 30 | 0 to 34 | 13 to 15 |
+| Attack hitbox (impact frame only) | 32 to 67 | 0 to 22 | 10 |
+| Hurtbox hurt | -40 to 26 | 0 to 104 | 12 |
+| Hurtbox down | -60 to 50 | 0 to 30 | 13 to 15 |
 
 - Authored facing right; the runtime mirrors around the pivot column.
 - One atlas `juice_01`, frames 0 to 15, one layer: `body` (the iron chains are part of the body layer, like the family's rag).
@@ -190,53 +190,61 @@ No steroid, injection, "juice" or aura colour; the gym's magenta light belongs t
 
 ## 7. Key poses
 
-Design units are px right of the pivot column and up from the contact row. Construction (2b, redrawn at 100 px): head width about 0.21 H (skull radius 7.5, jaw 7.0; smaller than the Basher's 0.25 H), jaw centre 19 px below the hump top and 26 px ahead of it, sunk between the trapezius and the near deltoid; spine hips (-8, 36) to hump (-1, 82), about 80 degrees but buried under the hump and gut masses, so the silhouette reads as a forward-leaning block; arms reach the knee line, not the floor (the boss hangs his fists, he does not knuckle-walk); six rope dreads, rope radius 1.5; every muscle mass is a disc or thick line shaded from its own surface normal, so the body reads as lumps and creases.
+Design units are px right of the pivot column and up from the contact row. All six keys are drawn by `scripts/author_juice01.py` (`POSES`) and frozen (`tests/fixtures/juice-01_keys.json`). Until the in-betweens exist, the grid holds the keys only: grid frame 0 to 5 = atlas frame 0, 3, 8, 10, 12, 15 (`juicer.key_atlas_index` in the manifest). The executor inserts the in-betweens and moves each fixture entry to its atlas index; the SHA-256 values do not change.
 
-| Frame | Tag | Silhouette and pose notes | Readability reason |
+Construction (2b, redrawn at 100 px): head width about 0.21 H (skull radius 7.5, jaw 7.0; smaller than the Basher's 0.25 H); in the idle the jaw centre sits 19 px below the hump top and 26 px ahead of it, sunk between the trapezius and the near deltoid. Every muscle mass is a disc or thick line shaded from its own surface normal, so the body reads as lumps and creases. Hair: a mop with two 1 px notches in the dome and a ragged 3-strand fringe over the brow, seven rope dreads of radius 1.5 (three down the back of the skull, two draped over the hump that break its back outline, one short front lock, one falling in front of the cheek behind the mouth). Ear: swept back and up, tip 4 to 5 px outside the mop, inner line `s`. Fists: radius 11 to 11.5 (as wide as the head), three `d` knuckle creases (`K` where they cross shadow) on the knuckle face, a thumb wrapped over the index knuckle as its own outlined part; the far fist uses the `farfist` ramp (`K d s m`, one step darker than the near fist) with two `K` creases. Iron: a cuff on each wrist, a broken chain from the back end of the near cuff dropping behind the fist, a chain across the hips. Boils, veins and grime are anchored to the named masses (`BOILS`, `VEINS`, `GRIME`) so every key carries the same body detail; boils of radius 2 or more have a light-skin highlight upper left, a `q` inner rim and a `d` rim under the lower edge.
+
+| Atlas frame (grid) | Tag | Silhouette and pose notes (as drawn) | Readability reason |
 | --- | --- | --- | --- |
-| 0 (drawn) | `idle` | Top row 36 (100 px), x -31 to 56. Short bowed legs planted wide: far foot at (-11, 1), near foot at (21, 1), knees at (-23, 18) and (13, 19). Trunk: glute (-15, 38), gut (8, 45), pec (13, 63), lat (-10, 68), trapezius hump (2, 87) as the top of the silhouette. Head jaw centre (28, 80) with the mop and six ropes down the back, ear swept back. Near arm deltoid (7, 73) to the fist (36, 26), radius 11.5 (as wide as the head); far fist (47, 33) peeks out ahead and above it. Iron cuffs on both wrists, a broken chain hanging from the near cuff to (23, 13), a chain sagging across the hips over the rag. 11 boils, 5 veins, 10 grime smudges. Growl face: bloodshot eye, 2-row open mouth with upper teeth and lower fangs, two drool strands. | A hunched wide block with a small sunk head and two very large fists at the front: the boss reads as heavy at 1x, distinct from the Basher by mass, boils, iron and the hanging fists. |
-| 3 | `walk` | Contact: trunk 2 px lower and 3 px forward; near foot forward at (26, 1), far foot back at (-24, 1); near fist swung back to (24, 30), far fist forward to (52, 30); ropes swing back 2 px. Top row about 38. | A wide stride with alternating fists: a heavy stomp, never a run. |
-| 8 | `attack_tell` | Roar: torso straightened to about 70 degrees, hump (0, 92); both forearms up with the fists overhead at about (8, 118) and (22, 114), radius 11 (top row 7 or higher, 128 px tall); head tipped back, jaw (26, 88) with the 4-row roar (`o` at least 2x the idle count), lower fangs and two drool strands; legs braced wider. | The tallest pose of the set and the only one with the fists above the head: "the hammer is up", a full 36 ticks before anything lands. |
-| 10 | `attack_pound` | Impact: both fists on the floor at about (44, 10) and (56, 10); trunk folded flat forward, hump down to about y 70; head low between the shoulders at about (32, 40); legs bent, rump up; roar mouth. Top row 66 or lower, width at least 100 px. The debris burst is a separate VFX order. | The lowest, widest grounded pose, with the fists at the floor ahead: the hit lands where the fists are. |
-| 12 | `hurt` | Recoil: trunk tilted back from the hips, head above the hump at about (8, 96) with the eye squeezed to a `K` slit (no red), pain mouth; fists flung up and back, opened, nothing pointing at the player; weight on the back foot. | The only pose with the head higher than the hump and the fists open: a recoil. |
-| 15 | `down` | On his back, fallen backward (the hurt direction): hips (10, 8), hump (-30, 12), head (-50, 10) with the mop spilled on the floor; knees up at (20, 26); fists slack on the floor; crossed eye, tongue out. Top row 100 or lower. | Lowest and longest; the red eye is gone; continuous with the hurt recoil. |
+| 0 (0) | `idle` | Rows 36 to 135 (100 px), x -31 to 60. Legs planted wide (feet (-11, 1.5), (21, 1.5); knees (-23, 18), (13, 19)); trunk hips (-8, 36) to (-1, 82); masses glute (-15, 38), lat (-10, 68), gut (8, 45), pec (13, 63), trapezius hump (2, 87) as the top; head jaw (28, 80); near arm (9, 70) to (31, 38), fist (36, 26) r 11.5 knuckles at -20 degrees; far arm (14, 68) to (45, 42), far fist (51, 36) r 9 ahead of and above the near one. Growl: 3-row gape, 2 px lower fangs, two drool strands (35 `o`). | A hunched wide block, a small sunk head with dreads and a pointed ear, two countable fists at the front. |
+| 3 (1) | `walk` | Rows 38 to 135, x -32 to 63. Trunk 2 px lower, 3 px forward; near foot planted forward at (31, 1.5), far foot pushing off at (-19, 1.5) with the ankle back at (-27, 5); near fist (32, 24) at -35 degrees, far fist swung forward to (54, 33); head (31, 78); ropes sweep 0.4. | The stride opens the legs into a wide A under the same block: a heavy stomp, never a run. |
+| 8 (2) | `attack_tell` | Rows 5 to 135 (131 px), x -34 to 36. Torso straightened (hips (-6, 38) to (-1, 84)), hump (0, 90); near arm straight up (6, 82) to (14, 110), fist (16, 118) r 11; far arm (-6, 84) to (-12, 110), far fist (-10, 118) r 9.5: a V of fists over the head; head (28, 86) with the dropped jaw and the 7-row roar (82 `o`, tongue, fangs, drool); hair turned 12 degrees back; legs braced (feet (-16, 1.5), (27, 1.5)). | The tallest frame by 31 px and the only one with both fists above the head: "the hammer is up", held 28 ticks. |
+| 10 (3) | `attack_pound` | Rows 65 to 135 (71 px), x -40 to 67 (108 px wide). Trunk folded flat forward from the raised rump (-14, 40) to the shoulders (14, 56); near arm (22, 52) to (40, 18), fist on the floor (44, 11) r 11, knuckles down; far fist (57, 10) r 9.5 ahead of it; head low at (40, 46) between the arms, still roaring (83 `o`); far leg stretched back to (-35, 6); ropes thrown forward (sweep -0.3). | The lowest standing frame and the widest: the fists are on the floor exactly where the hit lands. |
+| 12 (4) | `hurt` | Rows 23 to 135, x -51 to 32. Trunk tilted back from the hips (-4, 36) to (-14, 80), neck mass (-3, 88); head thrown up and back to (4, 96), above the hump, hair turned 18 degrees with the ropes whipped forward (sweep -0.6); both arms flung back at shoulder height, open fanned hands at (-38, 86) and (-36, 100); eye a `K` slit, no red, pain mouth; weight on the back foot (-13, 1.5), near foot light at (28, 1.5). | Arms and hands go back, the head goes up: the only frame whose silhouette leans away from the player; open hands, nothing points forward. |
+| 15 (5) | `down` | Rows 100 to 135 (36 px), x -65 to 54. On his back, fallen backward: hips (10, 10), hump (-30, 12), trapezius (-34, 12); head (-44, 9) behind with the chin toward the chest and the mop turned 75 degrees and spilled on the floor; near knee up at (24, 25), far leg flat out to (50, 1.5); near arm slack along the floor, fist (6, 8) by the hips; far fist (-56, 8) behind the head; crossed eye, tongue out. | Lowest and longest; the red eye is gone; continuous with the backward recoil. |
 
 ## 8. In-between list
 
-For the execution of in-betweens after the keys; drawn from the same part rules (blend the pose dicts of the neighbouring keys), no design decisions.
+Values for the executor, in the same `POSES` dict format (design units); no design decisions. Every in-between keeps the key's masses, boils, veins, grime, cuffs and chains (they follow the anchors). Shift = add (dx, dy) to every point of the listed parts.
 
-| # | Pose notes |
-| --- | --- |
-| 1 | Idle breath in: trunk blobs, head and hump +1 px, fists 1 px back, ropes 1 px lower |
-| 2 | Idle breath out: frame 0 with the gut disc 1 px lower and the fists 1 px forward |
-| 4 | Walk passing: feet together under the hips, trunk +2 px, fists level |
-| 5 | Walk contact B: frame 3 with feet and fists swapped |
-| 6 | Walk passing B: frame 4 with the fists crossing the other way |
-| 7 | Tell rise: blend 0 to 8 at 0.4, fists at the chest, the mouth at 3 rows |
-| 9 | Pound smear: blend 8 to 10 at 0.6, fists in front of the face |
-| 11 | Recover: frame 10 with the head lifted 6 px, the rump raised, a closed panting mouth (`o` at most the idle count) |
-| 13 | Fall beat: blend 12 to 15 at 0.35 |
-| 14 | Floor impact: blend 12 to 15 at 0.8, legs up 4 px |
+| Atlas # | From | Pose values |
+| --- | --- | --- |
+| 1 | `idle0` | Breath in: torso, blobs, near_arm, arm_blobs, far_arms, head_at +(0, 1); fist and far_fist +(-1, 1); hair `sway`-free (ropes follow the head); legs, loin and feet unchanged. Ticks 10. |
+| 2 | `idle0` | Breath out: blob `gut` +(0, -1); fist and far_fist +(1, 0); everything else as key 0. Ticks 14. |
+| 4 | `walk3` | Passing: near leg [(2, 34), (12, 20), (9, 6), (17, 1.5)], far leg [(-12, 34), (-18, 18), (-15, 6), (-7, 1.5)]; trunk, blobs, arms and head +(-1, 2) from `walk3`; fist (30, 27), far fist (52, 35); hair sweep 0.2. Ticks 8. |
+| 5 | `walk3` | Contact B: far leg [(-11, 32), (-2, 18), (4, 5), (14, 1.5)] forward, near leg [(3, 32), (-6, 17), (-16, 5), (-8, 1.5)] back; fist (40, 30) forward, far fist (46, 26) back; rest as `walk3`. Ticks 8. |
+| 6 | `walk3` | Passing B: as atlas 4 with the fists swapped (fist (35, 26), far fist (49, 33)). Ticks 8. |
+| 7 | `idle0` to `tell8` | Rise: torso, blobs, legs at the midpoint of the two keys; near_arm [(8, 76), (16, 74), (18, 84)], fist (20, 90) at 60 degrees; far_arm [(-2, 80), (-6, 88), (-2, 92)], far fist (2, 96) at 80 degrees; head (28, 84), tilt -1, face `growl` with `jaw_drop`. Ticks 8. |
+| 9 | `tell8` to `pound10` | Smear: torso at 0.6 of the way to `pound10` (hips (-11, 39), shoulders (8, 66)); near_arm [(16, 70), (30, 66), (40, 56)], fist (44, 48) at 0 degrees; far_arm [(18, 74), (36, 66), (50, 56)], far fist (54, 50); head (36, 66), face `roar`, `jaw_drop`; legs as `pound10`. Ticks 3. |
+| 11 | `pound10` | Recover (punish window): as `pound10` with the head +(0, 6), tilt -2, face `growl` without `jaw_drop` (`o` at most the idle count), traps and lat +(0, 3), rump (glute) +(0, 2); fists stay planted. Ticks 24. |
+| 13 | `hurt12` to `down15` | Fall beat: the midpoint (t 0.35) of every listed point of the two keys; face `pain`; hair turn 40. Ticks 6. |
+| 14 | `hurt12` to `down15` | Floor impact: t 0.8 of every point; near knee +(0, 4); face `dead`; hair turn 65. Ticks 10. |
 
 ## 9. Validators and readability rules
 
-Run by `python3 -m scripts.pixelart validate assets/source/characters/troglodyte/juicer/juice_01.pixelart.json`. Phase 1 configures frame 0 only; phase 2 adds the rest.
+Run by `python3 -m scripts.pixelart validate assets/source/characters/troglodyte/juicer/juice_01.pixelart.json` (grid frames 0 to 5 = the keys; the executor re-indexes the rules to the atlas frames when the in-betweens land).
 
-- V04 palette: at most 20 colours (19 used); V05 isolated pixels: 0; V06 orphan pixels: at most 24 per frame (boil highlights and eye pixels are single-pixel accents).
+- V04 palette: at most 20 colours (19 used); V05 isolated pixels: 0; V06 orphan pixels: at most 40 per frame (boil highlights, knuckle creases and eye pixels are single-pixel details on a 100 px body).
 - V07 contact rows: every frame is grounded and ends on row 135.
-- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/juice-01_keys.json` (frame 0 frozen in phase 1).
-- V13/V14 readability rules: `size-idle-100px` (frame 0 rows 36 to 135); R1 the idle eye has at least 3 `e`; R6 at least 40 `b` boil pixels in every non-defeat frame; R7 at least 20 `j` iron pixels; phase 2: R-tell-tallest (frame 8 top row 16 or less), R-pound-low-wide (frame 10 top row 70 or more, width 100 or more), R2 the tell `o` count at least twice the idle count, R-recover-no-roar (frame 11 `o` at most the idle count), R5 hurt and defeat have no `e`, defeat has at least 4 `q`.
+- V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/juice-01_keys.json` (all six keys).
+- V13 bbox: `size-idle-100px` (rows 36 to 135); walk not taller than the idle; the tell top row 16 or less (drawn 5); the pound top row 62 or more and width 100 or more (drawn 65, 108); the hurt top between rows 17 and 30 (drawn 23, so it never matches the tell); the defeat top row 100 or more.
+- V14 key counts: R1 the idle and walk eye has at least 3 `e`; R2 the tell and pound have at least 70 `o`, the idle and walk at most 40 (drawn 82 to 83 against 35); R5 hurt and defeat have no `e`, defeat has at least 4 `q`; R6 at least 40 `b` boil pixels in every frame but the defeat; R7 at least 20 `j` iron pixels in every frame but the defeat.
 
 **Acceptance targets (for the independent review):**
 
 1. At 1x on lit Floor 1 brick next to Carl and the Pygmy (`key0-scale.png`), the idle reads as a troglodyte (pink skin, black dreads, fanged open mouth, pointed ear, rag) and as the family's boss: hunched, wide, two huge fists, never a Basher recolour and never a clean bodybuilder.
 2. Boils, veins and the iron cuffs and chains are visible at 1x as texture without turning into noise; no steroid, injection or aura.
-3. The tell (fists overhead, roar) is the tallest frame and the pound impact the lowest and widest: the tell-to-attack read works in silhouette alone.
+3. The tell (fists overhead, roar) is the tallest frame and the pound impact the lowest and widest: the tell-to-attack read works in silhouette alone (`keys-x3.png`).
 4. Grounded, grimy and pitiful-absurd: the swollen mass, small sunk head and drool undercut any heroic read.
+
+### Silhouette gate on key 0 (FIX-KEY0), applied
+
+Mass, 100 px size and tone passed; the head and the fists failed. Applied: (1) ragged 3-strand fringe and two 1 px notches in the dome; (2) ropes past the head: one in front of the cheek to about y 73, two draped over the hump breaking its back outline; (3) the ear tip 4 to 5 px outside the mop with an inner `s` line; (4) near fist knuckle creases, an outlined thumb over the index knuckle, the fist as its own outlined part; (5) the broken chain re-routed from the back end of the cuff, behind the fist; (6) far fist moved to (51, 36) on a lighter far-fist ramp with two creases; (7) raised boils (highlight, inner rim, lower dark rim); (8) the growl gape is 3 rows with 2 px lower fangs (35 `o`, well under half the roar's 82).
 
 ## 10. Evidence
 
-- Phase 1: `docs/evidence/juice-01/key0-scale.png` (key 0 at 1x on lit Floor 1 with Carl and the Pygmy, plus a 4x copy on the side). Regenerate: `python3 scripts/author_juice01.py key0-scale` (needs `bash scripts/export_assets.sh`).
+- `docs/evidence/juice-01/key0-scale.png`: key 0 at 1x on lit Floor 1 with Carl and the Pygmy, plus a 4x copy on the side (`python3 scripts/author_juice01.py key0-scale`, needs `bash scripts/export_assets.sh`).
+- `docs/evidence/juice-01/keys-x3.png`: the six keys in atlas order, three per row at 1x on lit Floor 1, enlarged 3x (`python3 scripts/author_juice01.py keys-x3`).
 - Phase 2: the toolkit review pack (contact sheet x4, lit scene, tell-to-attack strip) and the validator report:
 
 ```text
@@ -248,12 +256,12 @@ python3 -m scripts.pixelart review-pack assets/source/characters/troglodyte/juic
 
 | File | Role |
 | --- | --- |
-| `scripts/author_juice01.py` | deterministic authoring script (`frames [--check]`, `key0-scale`) |
+| `scripts/author_juice01.py` | deterministic authoring script (`frames [--check]`, `key0-scale`, `keys-x3`) |
 | `assets/source/characters/troglodyte/juicer/juice_01.grid.json` / `.ase` | pixel-grid source and Aseprite master (`scripts/pixel_grid_to_ase.py build`) |
 | `assets/manifests/juice-01.json` | manifest |
 | `assets/source/characters/troglodyte/juicer/juice_01.pixelart.json` | the asset config |
 | `tests/fixtures/juice-01_keys.json` | frozen keys |
-| `tests/test_art_juice01.py` | generator, size, frame and palette-core tests |
+| `tests/test_art_juice01.py` | generator, frozen keys, size, frame, tell/pound silhouette and palette-core tests |
 
 ## 12. Rights and provenance
 
@@ -263,7 +271,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Spec and keys: Claude Opus (phase 1: spec and idle key 0). Executed by: pending. Silhouette gate and independent review: pending.
+- Spec and keys: Claude Opus (spec, all six keys, the FIX-KEY0 fixes). Silhouette gate on key 0: an independent top-tier reviewer (FIX-KEY0, fixes applied). In-betweens and execution: pending. Independent review: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
 
 ### Separate work orders (noted, not drawn)

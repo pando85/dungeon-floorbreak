@@ -1,4 +1,4 @@
-"""JUICE-01 The Juicer, phase 1 (idle key 0): spec rules the shared pixel-art toolkit does not cover (run the toolkit
+"""JUICE-01 The Juicer, the six keys (phase 2): spec rules the shared pixel-art toolkit does not cover (run the toolkit
 validators for the rest: ``python3 -m scripts.pixelart validate
 assets/source/characters/troglodyte/juicer/juice_01.pixelart.json``)."""
 from __future__ import annotations
@@ -30,11 +30,26 @@ class Juice01IdleKeyTests(unittest.TestCase):
         self.assertEqual(GRID.read_text(encoding="utf-8"), aj.dump(aj.frames_grid()))
         self.assertEqual(MANIFEST.read_text(encoding="utf-8"), json.dumps(aj.manifest(), indent=2) + "\n")
 
-    def test_key0_is_frozen(self):
+    def test_six_keys_frozen_in_atlas_order(self):
+        sys.path.insert(0, str(ROOT))
+        from scripts.pixelart.validators import frame_digest
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-        digest = hashlib.sha256("\n".join(self.rows).encode("utf-8")).hexdigest()
-        self.assertIn("0", fixture["keys"])
-        self.assertEqual(len(fixture["keys"]["0"]["sha256"]), len(digest))
+        self.assertEqual(len(self.grid["frames"]), 6)
+        for i, frame in enumerate(self.grid["frames"]):
+            self.assertEqual(fixture["keys"][str(i)]["sha256"], frame_digest(frame["cels"], ["body"]))
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))["juicer"]
+        self.assertEqual(manifest["key_atlas_index"], {"0": 0, "1": 3, "2": 8, "3": 10, "4": 12, "5": 15})
+        self.assertEqual([t for _a, _tag, _p, t in aj.KEYS], [14, 8, 28, 6, 14, None])
+
+    def test_tell_is_tallest_and_pound_lowest_widest(self):
+        def box(rows):
+            ys = [y for y, r in enumerate(rows) if r.strip(".")]
+            xs = [x for r in rows for x, ch in enumerate(r) if ch != "."]
+            return min(ys), max(xs) - min(xs) + 1
+        tops = [box(f["cels"]["body"])[0] for f in self.grid["frames"]]
+        self.assertEqual(min(tops), tops[2])                  # the tell (fists overhead) is the tallest frame
+        self.assertEqual(max(tops[:5]), tops[3])              # the pound impact is the lowest standing frame
+        self.assertGreaterEqual(box(self.grid["frames"][3]["cels"]["body"])[1], 100)
 
     def test_size_frame_pivot(self):
         self.assertEqual(self.grid["canvas"], [160, 136])

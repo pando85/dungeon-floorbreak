@@ -5,10 +5,11 @@ Usage:
 
     python3 scripts/author_juice01.py frames [--check]
     python3 scripts/author_juice01.py key0-scale
+    python3 scripts/author_juice01.py keys-x3
 
 ``frames`` rebuilds ``assets/source/characters/troglodyte/juicer/juice_01.grid.json`` (pixel-grid-v1, layer ``body``)
-and ``assets/manifests/juice-01.json``. Phase 1 holds the idle key 0 only; the other keys follow after the
-silhouette gate (``docs/02-art/juice-01-spec.md`` sections 4 and 7).
+and ``assets/manifests/juice-01.json``: the six keys (idle, walk contact, tell hold, pound impact, hurt, defeat) in atlas
+order, one grid frame each, until the in-betweens are drawn (``docs/02-art/juice-01-spec.md`` sections 4, 7 and 8).
 
 The Juicer is redrawn at its own 100 px size from the troglodyte family construction (``docs/02-art/trog-01-spec.md``
 section 2b, ``scripts/author_trog01.py``): the same 15 core colours, part order, 1 px outline, face order, mop and
@@ -50,6 +51,7 @@ EXTRA = [
 PALETTE = list(trog.PALETTE) + EXTRA
 RAMPS = dict(trog.RAMPS)
 RAMPS["iron"] = ("K", "i", "i", "j")
+RAMPS["farfist"] = ("K", "d", "s", "m")          # the far fist: one step darker than the near fist, still countable
 PROTECTED = {k for k, _n, _c, acc in PALETTE if acc} | {"b", "q", "v", "i", "j"}
 
 
@@ -174,6 +176,11 @@ def L(pts, r):
     return {"pts": pts, "r": r}
 
 
+def rot(x, y, deg):
+    a = math.radians(deg)
+    return (x * math.cos(a) - y * math.sin(a), x * math.sin(a) + y * math.cos(a))
+
+
 # ------------------------------------------------------------------ head, face and hair (family construction, redrawn)
 SKULL_R, JAW_R = 7.5, 7.0          # head width about 0.21 H: smaller than the Basher's 0.25 H (2b: small head, big body)
 
@@ -182,10 +189,16 @@ def head(hx, hy, tilt=-2.0):
     return L([(hx - 6, hy - tilt), (hx, hy)], [SKULL_R, JAW_R])
 
 
-# Face stamp, 15 columns; top-left at (hx - 7, hy + 6). Family order: heavy K brow, bulging bloodshot eye (white,
+def dropped_jaw(hx, hy):
+    """The roar's hanging lower jaw under the front circle (family ``jaw``, redrawn at 100 px)."""
+    return L([(hx - 7, hy - 4), (hx + 5, hy - 8)], [3.5, 3.0])
+
+
+# Face stamps, 15 columns; top-left at (hx - 7, hy + 6). Family order: heavy K brow, bulging bloodshot eye (white,
 # red rim behind and below, pupil at the front), upper teeth, dark mouth that breaks the front outline, lower fangs,
-# drool. The idle mouth is a half-open 2-row growl (canon: a roaring open mouth); the tell opens it to 4 rows.
+# drool. "." leaves the pixel alone; the accents (e, w, t, T) and the tongue q may overhang the silhouette.
 FACES = {
+    # idle and walk: a 3-row half-open growl (canon: a roaring open mouth) with 2 px lower fangs; well under the roar
     "growl": ["...............",
               "....KKKKKKK....",
               "....eewwwwK....",
@@ -193,33 +206,97 @@ FACES = {
               "......ee.......",
               "...........s...",
               "...tTttTttTtt..",
-              "..ooooooooooooo",
-              "..ooooooooooooo",
-              "...tT.tTt..tT..",
+              "...oooooooooooo",
+              "...oooooooooooo",
+              "...ooooooooooo.",
+              "...tT..tT..tT..",
+              "...t...t...t...",
               "...w.......w...",
               "...w.......w...",
               "...........w..."],
+    # tell and pound: the roar, a 7-row gape over the dropped jaw, tongue at the bottom, lower fangs, two drool strands
+    "roar": ["...............",
+             "....KKKKKKK....",
+             "...eeewwwwK....",
+             "....eewwwKK....",
+             "......ee.......",
+             "..tTttTttTttT..",
+             ".oooooooooooooo",
+             ".oooooooooooooo",
+             ".oooooooooooooo",
+             ".oooooooooooooo",
+             ".oooooooooooooo",
+             "..ooooqqqqqoooo",
+             "...oooqqqqoo...",
+             "...tT.tTt.tT...",
+             "...t...t...t...",
+             "...w.......w...",
+             "...w.......w..."],
+    # hurt: eye squeezed to a K slit (no red), a yelping open mouth, one drool strand
+    "pain": ["...............",
+             "....KKKKKKK....",
+             ".....KKKKKs....",
+             "...............",
+             "...............",
+             "...tTttTttT....",
+             "..oooooooooooo.",
+             "..oooooooooooo.",
+             "..ooooooooooo..",
+             "...tT..tT..t...",
+             "...............",
+             "........w......",
+             "........w......"],
+    # defeat: crossed eye, slack mouth, the tongue hanging out of the front corner
+    "dead": ["...............",
+             "...............",
+             ".....K...K.....",
+             "......K.K......",
+             ".......K.......",
+             "......K.K......",
+             ".....K...K.....",
+             "...............",
+             "...ooooooooo...",
+             "...t.tT.t.qqq..",
+             "..........qqq..",
+             "...........qq..",
+             "...........q..."],
 }
 
-# Mop and rope dreads relative to the jaw centre: the Pygmy's rules at 1.3x, rope radius 1.5 (the Basher's), six
-# ropes hanging down the back over the trapezius. No point above the crown; every rope ends lower than it starts.
+# Mop and rope dreads relative to the jaw centre: the Pygmy's rules at 1.3x, rope radius 1.5 (the Basher's). Ropes 0
+# to 2 hang down the back of the skull; 4 and 5 drape over the trapezius hump and break its back outline; 6 falls in
+# front of the cheek, behind the mouth. A ragged fringe of three 1 px strands hangs over the brow, and two 1 px notches
+# split the dome, so the mop reads as clumped ropes, never a helmet. No point above the crown; every rope ends lower.
 MOP = [(-12.5, 4), (-13, 9), (-10.5, 11.5), (-9.5, 14.5), (-7, 15), (-4.5, 17), (-2.5, 15.5), (-0.5, 16.2),
        (1.6, 13), (0.5, 10.5), (-3, 8.6), (-6.5, 6.6), (-9, 5)]
 ROPES = [[(-10, 12), (-15, 10.5), (-20, 6), (-22.5, 0), (-23, -5)],
          [(-11, 8), (-15, 4.5), (-16.5, -1), (-16, -6)],
-         [(-4, 14.5), (-9, 14.5), (-15, 12.5), (-19, 9)],
+         [(-4, 14), (-8, 12.5), (-13, 10), (-17, 6)],
          [(0, 13), (2.6, 11), (3.6, 8.2)],
-         [(-12.5, 6), (-17, 2), (-19, -5), (-18.5, -11)],
-         [(-7, 15), (-13, 15), (-20, 12), (-25, 7), (-27, 2)],
-         [(-9, 12), (-12, 5), (-12, -3), (-13, -14), (-12, -19)]]
+         [(-10, 12), (-17, 9), (-24, 4), (-29, -4), (-31, -12)],
+         [(-7, 15), (-15, 16.5), (-24, 15.5), (-32, 11), (-38, 4), (-40, -3)],
+         [(-4, 9), (-5.5, 3), (-6, -3), (-7, -7)]]
 ROPE_R = 1.5
+FRINGE = [[(-0.5, 10), (0, 7.6)], [(1.5, 12), (2, 8.6)], [(3.5, 11), (4.2, 9.4)]]
+NOTCHES = [(-6, 15.8), (-1.6, 16.4)]
 BEADS = {0: "t", 1: "w", 4: "t"}
-EAR = [(-6.5, 4.5), (-15.5, 6.5), (-9, 2)]
+EAR = [(-5.5, 6.5), (-12, 16), (-9.8, 5.5)]          # swept back and up, the tip 4 to 5 px outside the mop
+EAR_LINE = [(-8, 7.5), (-10.4, 12.6)]
 
 
-def hair(hx, hy):
-    return {"mop": [(hx + x, hy + y) for x, y in MOP], "ropes": [[(hx + x, hy + y) for x, y in r] for r in ROPES],
-            "ears": [[(hx + x, hy + y) for x, y in EAR]]}
+def hair(hx, hy, sweep=0.0, turn=0.0):
+    """``turn`` rotates the whole hair set around the jaw centre (head thrown back, lying down); ``sweep`` streams the
+    rope tips back and up (positive, motion) or throws them forward (negative, recoil), growing from 0 at the root."""
+    def tr(pts, swept=False):
+        n = max(1, len(pts) - 1)
+        out = []
+        for i, (x, y) in enumerate(pts):
+            if swept:
+                x, y = x - 4.0 * sweep * i / n, y + 3.0 * sweep * i / n
+            x, y = rot(x, y, turn)
+            out.append((hx + x, hy + y))
+        return out
+    return {"mop": tr(MOP), "ropes": [tr(r, True) for r in ROPES], "fringe": [tr(f) for f in FRINGE],
+            "notches": tr(NOTCHES), "ear": tr(EAR), "ear_line": tr(EAR_LINE)}
 
 
 def ragged_loin(x0, x1, y0, drop):
@@ -230,99 +307,260 @@ def ragged_loin(x0, x1, y0, drop):
             (x1 - 0.72 * w, y0 - drop * 0.88), (x1 - 0.86 * w, y0 - drop * 0.5), (x0 + 0.02 * w, y0 - drop * 0.7)]
 
 
-# ------------------------------------------------------------------ KEY 0 idle
-# A hunched, wide block: short bowed legs planted wide, a huge trunk tilted forward, the trapezius hump as the top of
-# the silhouette with the small head sunk in front of it, both arms hanging forward so two very large fists rest just
-# off the floor ahead of the feet (the near fist in front, the far fist peeking out ahead of it). Boils crowd the
-# shoulders and back; veins run down the near arm, chest and thigh; iron cuffs on both wrists with a broken chain
-# hanging from the near one; a chain sags across the hips over the rag.
+# ------------------------------------------------------------------ fists, open hands, cuffs
+def knuckle_lines(cx, cy, r, ang, n=3):
+    """Short creases on the knuckle face of a fist whose knuckles point at ``ang`` degrees (0 = forward, 90 = up)."""
+    d = (math.cos(math.radians(ang)), math.sin(math.radians(ang)))
+    p = (-d[1], d[0])
+    ks = (-1, 0, 1) if n == 3 else (-0.5, 0.5)
+    return [[(cx + d[0] * 0.4 * r + p[0] * k * 0.36 * r, cy + d[1] * 0.4 * r + p[1] * k * 0.36 * r),
+             (cx + d[0] * 0.85 * r + p[0] * k * 0.36 * r, cy + d[1] * 0.85 * r + p[1] * k * 0.36 * r)] for k in ks]
+
+
+def thumb_line(cx, cy, ang):
+    """The thumb wrapped over the index knuckle (authored at -20 degrees, rotated with the fist)."""
+    return [(cx + x, cy + y) for x, y in (rot(px, py, ang + 20) for px, py in ((-9, 6), (-2, 7), (3, 5)))]
+
+
+def open_hand(x, y, r, ang):
+    """Open, fanned hand (hurt): a palm disc and four fingers spread around ``ang``, nothing balled."""
+    fingers = []
+    for da in (-42, -14, 14, 42):
+        a = math.radians(ang + da)
+        fingers.append([(x + math.cos(a) * r * 0.6, y + math.sin(a) * r * 0.6),
+                        (x + math.cos(a) * r * 2.2, y + math.sin(a) * r * 2.2)])
+    return {"palm": (x, y, r, r), "fingers": fingers}
+
+
+def cuff_line(elbow, wrist, half):
+    ex, ey = elbow; wx, wy = wrist
+    ln = math.hypot(wx - ex, wy - ey) or 1.0
+    px, py = -(wy - ey) / ln, (wx - ex) / ln
+    cx, cy = wx + (ex - wx) / ln * 1.5, wy + (ey - wy) / ln * 1.5
+    return [(cx - px * half, cy - py * half), (cx + px * half, cy + py * half)]
+
+
+def hanging_chain(cuff):
+    """Broken chain from the back (wrist) end of the cuff, dropping behind the fist."""
+    bx, by = min(cuff, key=lambda p: p[0])
+    return [(bx, by), (bx - 2, by - 7), (bx - 1, by - 14), (bx - 3, by - 21)]
+
+
+# Boils, veins and grime are anchored to named muscle masses (dx, dy from the mass centre), so every key carries the
+# same body detail. A boil or vein only lands on visible skin.
+BOILS = [("traps", -5, 5, 2.6), ("traps", 6, 4, 2.0), ("deltoid", -5, 7, 3.0), ("deltoid", 4, -4, 2.2),
+         ("lat", -4, 7, 2.6), ("lat", -8, -6, 2.0), ("bicep", 2, -3, 2.0), ("traps", -8, 1, 1.6), ("calf", 0, 12, 1.8),
+         ("gut", 5, -1, 1.6), ("glute", -5, 6, 1.8)]
+VEINS = [("forearm", [(0, 6), (2, 1), (0, -3), (3, -7)]), ("bicep", [(-1, 6), (2, 0), (1, -5)]),
+         ("pec", [(-5, -2), (-1, -5), (0, -9)]), ("calf", [(-6, 15), (-3, 11), (-1, 6)]), ("gut", [(-5, 7), (-2, 2)])]
+GRIME = [("glute", -3, 12), ("lat", 6, 2), ("gut", -2, -5), ("forearm", -5, -3), ("lat", -2, -10), ("pec", -7, -5),
+         ("calf", 2, -2), ("traps", -4, 9), ("fist", -6, -6), ("glute", -7, -8)]
+
 POSES: dict[str, dict] = {}
+
+# KEY 0 idle: a hunched, wide block: short bowed legs planted wide, the trapezius hump as the top of the silhouette with
+# the small head sunk in front of it, both arms hanging forward so two very large fists hang at knee height ahead of
+# the feet (the far fist peeks out ahead of and above the near one). Iron cuffs on both wrists, a broken chain from
+# the near cuff dropping behind the fist, a chain sagging across the hips over the rag.
 POSES["idle0"] = {
-    "far_limbs": [
-        L([(-14, 34), (-23, 18), (-21, 5), (-11, 1.5)], [10.0, 7.5, 5.0, 3.2]),             # far leg
-        L([(14, 68), (28, 52), (42, 42)], [8.0, 7.0, 6.5]),                                  # far arm, behind the near one
-    ],
-    "far_blobs": [(47, 33, 9.0, 8.5)],                                                       # far fist, ahead and higher
-    "far_cuff": [(37, 49), (43, 38)],
+    "far_legs": [L([(-14, 34), (-23, 18), (-21, 5), (-11, 1.5)], [10.0, 7.5, 5.0, 3.2])],
+    "far_arms": [L([(14, 68), (28, 52), (45, 42)], [8.0, 7.0, 6.5])],
+    "far_fist": (51, 36, 9.0, -20),
     "torso": L([(-8, 36), (-6, 62), (-1, 82)], [14.0, 15.0, 13.0]),
-    "blobs": [(-15, 38, 12, 11),       # glute
-              (-10, 68, 13, 13),       # lat / upper back
-              (8, 45, 14, 13),         # gut
-              (13, 63, 12, 10),        # pec
-              (2, 87, 14, 11)],        # trapezius hump: the top of the silhouette
+    "blobs": {"glute": (-15, 38, 12, 11), "lat": (-10, 68, 13, 13), "gut": (8, 45, 14, 13), "pec": (13, 63, 12, 10),
+              "traps": (2, 87, 14, 11)},
     "near_legs": [L([(0, 34), (13, 19), (10, 5), (21, 1.5)], [11.0, 8.5, 5.5, 3.4])],
     "calf": (12, 12, 4.5, 6.0),
     "loin": ragged_loin(-15, 13, 35, 21),
     "waist_chain": [(-21, 38), (-8, 33), (4, 32), (17, 35)],
-    "head_at": (28, 80),
-    "deltoid": (7, 73, 12, 11.5),
+    "head_at": (28, 80), "tilt": -2.0, "face": "growl", "hair": {},
     "near_arm": L([(9, 70), (23, 53), (31, 38)], [10.5, 9.0, 8.0]),
-    "bicep": (17, 60, 8, 9),
-    "forearm": (27, 47, 8.5, 9),
-    "fist": (36, 26, 11.5, 11.0),
-    "thumb": [(27, 32), (34, 33), (39, 31)],
-    "knuckles": [(41, 23, 46, 23), (41, 28, 46, 28), (40, 19, 44, 19)],
-    "cuff": [(23.5, 36.5), (39.5, 41.5)],
-    "chain": [(26, 35), (24, 27), (25, 20), (23, 13)],
-    "boils": [(-3, 92, 2.6), (8, 91, 2.0), (2, 80, 3.0), (11, 69, 2.2), (-14, 75, 2.6), (-18, 62, 2.0),
-              (19, 57, 2.0), (-6, 88, 1.6), (12, 24, 1.8), (13, 44, 1.6), (-20, 44, 1.8)],
-    "veins": [[(27, 53), (29, 48), (27, 44), (30, 40)], [(16, 66), (19, 60), (18, 55)],
-              [(8, 61), (12, 58), (13, 54)], [(6, 27), (9, 23), (11, 18)], [(3, 52), (6, 47)]],
-    "grime": [(-18, 50), (-4, 70), (6, 40), (22, 44), (-12, 58), (6, 58), (14, 10), (-2, 96), (30, 20), (-22, 30)],
-    "face": "growl",
+    "arm_blobs": {"deltoid": (7, 73, 12, 11.5), "bicep": (17, 60, 8, 9), "forearm": (27, 47, 8.5, 9)},
+    "fist": (36, 26, 11.5, -20),
 }
 
-KEY_FRAMES = {0: "idle0"}
-TAGS = [("idle", [(0, 12)])]
-PLAYBACK = {"idle": "loop"}
+# KEY 3 walk contact: a heavy stomp. Trunk 2 px lower and 3 px forward, near foot planted forward, far foot pushing
+# off behind, near fist swung back over the thigh, far fist swung forward; ropes streaming back a little.
+POSES["walk3"] = {
+    "far_legs": [L([(-11, 32), (-17, 17), (-27, 5), (-19, 1.5)], [10.0, 7.5, 5.0, 3.2])],
+    "far_arms": [L([(17, 66), (34, 52), (48, 40)], [8.0, 7.0, 6.5])],
+    "far_fist": (54, 33, 9.0, -20),
+    "torso": L([(-5, 34), (-3, 60), (2, 80)], [14.0, 15.0, 13.0]),
+    "blobs": {"glute": (-12, 36, 12, 11), "lat": (-7, 66, 13, 13), "gut": (11, 43, 14, 13), "pec": (16, 61, 12, 10),
+              "traps": (5, 85, 14, 11)},
+    "near_legs": [L([(3, 32), (17, 18), (21, 5), (31, 1.5)], [11.0, 8.5, 5.5, 3.4])],
+    "calf": (19, 11, 4.5, 6.0),
+    "loin": ragged_loin(-12, 16, 33, 20),
+    "waist_chain": [(-18, 36), (-5, 31), (7, 30), (20, 33)],
+    "head_at": (31, 78), "tilt": -2.0, "face": "growl", "hair": {"sweep": 0.4},
+    "near_arm": L([(12, 68), (23, 52), (28, 37)], [10.5, 9.0, 8.0]),
+    "arm_blobs": {"deltoid": (10, 71, 12, 11.5), "bicep": (18, 59, 8, 9), "forearm": (25, 45, 8.5, 9)},
+    "fist": (32, 24, 11.5, -35),
+}
+
+# KEY 8 tell hold (the study's roar): torso straightened, both fists raised overhead in a V, head tipped back with the
+# jaw dropped in the full roar, legs braced wider. The tallest frame of the set: "the hammer is up".
+POSES["tell8"] = {
+    "far_legs": [L([(-14, 34), (-26, 18), (-26, 5), (-16, 1.5)], [10.0, 7.5, 5.0, 3.2])],
+    "far_arms": [L([(-6, 84), (-16, 98), (-12, 110)], [8.0, 7.0, 6.5])],
+    "far_fist": (-10, 118, 9.5, 100),
+    "torso": L([(-6, 38), (-4, 64), (-1, 84)], [14.0, 15.0, 13.0]),
+    "blobs": {"glute": (-14, 38, 12, 11), "lat": (-11, 70, 13, 13), "gut": (8, 48, 13, 13), "pec": (12, 70, 12, 10),
+              "traps": (0, 90, 13, 10)},
+    "near_legs": [L([(2, 34), (16, 20), (16, 5), (27, 1.5)], [11.0, 8.5, 5.5, 3.4])],
+    "calf": (15, 12, 4.5, 6.0),
+    "loin": ragged_loin(-14, 12, 36, 21),
+    "waist_chain": [(-20, 40), (-8, 35), (4, 34), (16, 37)],
+    "head_at": (28, 86), "tilt": 0.0, "face": "roar", "jaw_drop": True, "hair": {"turn": 12},
+    "near_arm": L([(6, 82), (8, 100), (14, 110)], [10.5, 9.0, 8.0]),
+    "arm_blobs": {"deltoid": (6, 84, 12, 11), "bicep": (7, 96, 8, 9), "forearm": (11, 105, 8, 8.5)},
+    "fist": (16, 118, 11.0, 80),
+}
+
+# KEY 10 pound impact: both fists smashed into the floor ahead of the feet, trunk folded flat forward with the rump up,
+# head low between the arms still roaring. The lowest, widest grounded pose. (The debris burst is a VFX order.)
+POSES["pound10"] = {
+    "far_legs": [L([(-18, 38), (-27, 22), (-35, 6), (-27, 1.5)], [10.0, 7.5, 5.0, 3.2])],
+    "far_arms": [L([(26, 56), (42, 38), (53, 20)], [8.0, 7.0, 6.5])],
+    "far_fist": (57, 10, 9.5, -70),
+    "torso": L([(-14, 40), (0, 52), (14, 56)], [13.0, 15.0, 13.0]),
+    "blobs": {"glute": (-17, 43, 11, 10), "lat": (-2, 58, 13, 10), "gut": (4, 42, 13, 11), "pec": (18, 46, 11, 9),
+              "traps": (12, 59, 13, 9)},
+    "near_legs": [L([(-10, 38), (4, 22), (-2, 5), (8, 1.5)], [11.0, 8.5, 5.5, 3.4])],
+    "calf": (1, 13, 4.5, 6.0),
+    "loin": ragged_loin(-20, 4, 40, 20),
+    "waist_chain": [(-24, 44), (-12, 38), (0, 37), (10, 41)],
+    "head_at": (40, 46), "tilt": -1.0, "face": "roar", "jaw_drop": True, "hair": {"sweep": -0.3},
+    "near_arm": L([(22, 52), (30, 32), (40, 18)], [10.5, 9.0, 8.0]),
+    "arm_blobs": {"deltoid": (20, 54, 12, 11), "bicep": (25, 43, 8, 9), "forearm": (35, 26, 8.5, 8.5)},
+    "fist": (44, 11, 11.0, -80),
+}
+
+# KEY 12 hurt: recoil back from the hips, the head thrown up above the hump with the eye squeezed shut, both hands
+# flung up and back and opened (nothing points at the player), weight on the back foot, ropes whipped forward.
+POSES["hurt12"] = {
+    "far_legs": [L([(-12, 34), (-18, 18), (-22, 5), (-13, 1.5)], [10.0, 7.5, 5.0, 3.2])],
+    "far_arms": [L([(-8, 84), (-22, 92), (-32, 97)], [8.0, 7.0, 6.5])],
+    "far_hand": open_hand(-36, 100, 4.0, 150),
+    "torso": L([(-4, 36), (-10, 60), (-14, 80)], [14.0, 15.0, 13.0]),
+    "blobs": {"glute": (-12, 36, 12, 11), "lat": (-20, 64, 12, 12), "gut": (4, 48, 13, 12), "pec": (2, 66, 12, 10),
+              "traps": (-12, 86, 13, 10), "neck": (-3, 88, 7, 7)},
+    "near_legs": [L([(2, 34), (14, 20), (18, 5), (28, 1.5)], [11.0, 8.5, 5.5, 3.4])],
+    "calf": (17, 12, 4.5, 6.0),
+    "loin": ragged_loin(-14, 12, 35, 21),
+    "waist_chain": [(-20, 38), (-8, 33), (4, 32), (16, 35)],
+    "head_at": (4, 96), "tilt": 0.0, "face": "pain", "jaw_drop": True, "hair": {"turn": 18, "sweep": -0.6},
+    "near_arm": L([(-4, 80), (-20, 83), (-33, 84)], [10.5, 9.0, 8.0]),
+    "arm_blobs": {"deltoid": (-3, 80, 11, 10), "bicep": (-12, 82, 8, 8), "forearm": (-26, 84, 8, 7.5)},
+    "hand": open_hand(-38, 86, 5.0, 165),
+}
+
+# KEY 15 defeat: on his back, fallen backward (the hurt direction): hips toward the player, the hump and the head on
+# the floor behind, chin on the chest, the mop spilled on the floor; near knee up, far leg out flat; near arm slack
+# along the floor with the fist by the hips, far fist on the floor behind the head; crossed eye, tongue out.
+POSES["down15"] = {
+    "far_legs": [L([(8, 8), (30, 14), (42, 4), (50, 1.5)], [10.0, 7.5, 5.0, 3.2])],
+    "far_arms": [L([(-28, 18), (-40, 22), (-52, 14)], [8.0, 7.0, 6.5])],
+    "far_fist": (-56, 8, 8.0, 200),
+    "torso": L([(10, 10), (-10, 13), (-30, 12)], [12.0, 14.0, 12.0]),
+    "blobs": {"glute": (14, 9, 10, 8), "lat": (-18, 9, 12, 8), "gut": (-4, 18, 14, 10), "pec": (-20, 19, 11, 8),
+              "traps": (-34, 12, 9, 9)},
+    "near_legs": [L([(12, 10), (24, 25), (32, 10), (40, 1.5)], [11.0, 8.5, 5.5, 3.4])],
+    "calf": (28, 17, 4.5, 6.0),
+    "loin": ragged_loin(4, 20, 18, 12),
+    "waist_chain": [(-4, 24), (4, 25), (12, 22)],
+    "head_at": (-44, 9), "tilt": -1.0, "face": "dead", "hair": {"turn": 75},
+    "near_arm": L([(-24, 18), (-14, 8), (0, 5)], [10.5, 9.0, 8.0]),
+    "arm_blobs": {"deltoid": (-24, 18, 11, 9), "bicep": (-19, 13, 8, 7), "forearm": (-7, 6, 8, 6)},
+    "fist": (6, 8, 10.0, -10),
+}
+
+# Phase 2: the six keys in atlas order. The grid holds the keys only (grid frame i = KEYS[i]); the executor inserts
+# the in-betweens and moves each frozen SHA to its final atlas index (the SHA does not change).
+KEYS = [(0, "idle", "idle0", 14), (3, "walk", "walk3", 8), (8, "attack_tell", "tell8", 28),
+        (10, "attack_pound", "pound10", 6), (12, "hurt", "hurt12", 14), (15, "down", "down15", None)]
+TAGS = [(tag, [(i, ticks)]) for i, (_a, tag, _p, ticks) in enumerate(KEYS)]
+PLAYBACK = {"idle": "loop", "walk": "loop", "attack_tell": "once", "attack_pound": "once", "hurt": "once", "down": "hold"}
 TICK_HZ = 60
+HOLD_MS = 100
 
 
-def stroke(rows, c, pts, key, on):
-    """1 px polyline in design units; only recolours pixels whose current key is in ``on``."""
+def stroke(rows, c, pts, key, on, dark=None):
+    """1 px polyline in design units; recolours pixels whose key is in ``on`` (``dark`` replaces ``key`` on d)."""
     for i in range(len(pts) - 1):
         (ax, ay), (bx, by) = c.P(*pts[i]), c.P(*pts[i + 1])
         n = max(1, int(max(abs(bx - ax), abs(by - ay)) * 2))
         for k in range(n + 1):
             x, y = int(ax + (bx - ax) * k / n), int(ay + (by - ay) * k / n)
-            if rows[y][x] in on:
-                rows[y][x] = key
+            if 0 <= x < c.w and 0 <= y < c.h and rows[y][x] in on:
+                rows[y][x] = dark if (dark and rows[y][x] == "d") else key
 
 
 def build(pose: dict) -> list[str]:
     c = Canvas()
-    far = c.add("far"); far_iron = c.add("iron"); skin = c.add("skin"); leg = c.add("skin"); cloth = c.add("cloth")
-    waist = c.add("iron"); hd = c.add("skin"); hair_id = c.add("hair"); arm = c.add("skin"); thumb = c.add("skin")
-    iron = c.add("iron"); chain = c.add("iron"); ear = c.add("skin")
+    far = c.add("far"); farfist = c.add("farfist"); far2 = c.add("farfist"); far_iron = c.add("iron")
+    skin = c.add("skin"); leg = c.add("skin"); cloth = c.add("cloth"); waist = c.add("iron"); hd = c.add("skin")
+    hair_id = c.add("hair"); arm = c.add("skin"); arm2 = c.add("skin"); chain = c.add("iron"); fist = c.add("skin")
+    thumb = c.add("skin"); iron = c.add("iron"); ear = c.add("skin")
     hx, hy = pose["head_at"]
-    hr = hair(hx, hy)
-    for limb in pose["far_limbs"]:
+    hr = hair(hx, hy, **pose["hair"])
+    anchors = dict(pose["blobs"]); anchors.update(pose["arm_blobs"]); anchors["calf"] = pose["calf"]
+    # back to front: far leg and arm, far fist or hand, far cuff
+    for limb in pose["far_legs"] + pose["far_arms"]:
         c.thick(limb["pts"], limb["r"], far)
-    for b in pose["far_blobs"]:
-        c.disc(*b, far)
-    c.thick(pose["far_cuff"], [2.2, 2.2], far_iron)
+    if "far_fist" in pose:
+        fx, fy, fr, _a = pose["far_fist"]
+        c.disc(fx, fy, fr, fr, farfist)
+    if "far_hand" in pose:
+        c.disc(*pose["far_hand"]["palm"], farfist)
+        for i, f in enumerate(pose["far_hand"]["fingers"]):
+            c.thick(f, [1.4, 1.0], far2 if i % 2 else farfist)
+    fa = pose["far_arms"][0]["pts"]
+    c.thick(cuff_line(fa[-2], fa[-1], 7.0), [2.1, 2.1], far_iron)
+    # trunk, near leg, rag, waist chain
     c.thick(pose["torso"]["pts"], pose["torso"]["r"], skin)
-    for b in pose["blobs"]:
+    for b in pose["blobs"].values():
         c.disc(*b, skin)
     for limb in pose["near_legs"]:
         c.thick(limb["pts"], limb["r"], leg)
     c.disc(*pose["calf"], leg)
     c.poly(pose["loin"], cloth)
     c.thick(pose["waist_chain"], [1.3] * len(pose["waist_chain"]), waist)
-    c.thick(head(hx, hy)["pts"], head(hx, hy)["r"], hd)
+    # head, jaw, hair (mop, ropes, fringe), notches in the dome
+    h = head(hx, hy, pose["tilt"])
+    c.thick(h["pts"], h["r"], hd)
+    if pose.get("jaw_drop"):
+        j = dropped_jaw(hx, hy)
+        c.thick(j["pts"], j["r"], hd)
     c.poly(hr["mop"], hair_id)
     for rope in hr["ropes"]:
         c.thick(rope, [ROPE_R] * len(rope), hair_id)
+    for f in hr["fringe"]:
+        c.thick(f, [0.75, 0.6], hair_id)
+    for nx, ny in hr["notches"]:
+        px, py = c.P(nx, ny)
+        for dy in (0, 1):
+            if 0 <= int(py) + dy < c.h and c.part[int(py) + dy][int(px)] == hair_id:
+                c.part[int(py) + dy][int(px)] = None
+    # near arm, chain behind the fist, fist or open hand, thumb, cuff, ear
     c.thick(pose["near_arm"]["pts"], pose["near_arm"]["r"], arm)
-    for key in ("deltoid", "bicep", "forearm"):
-        c.disc(*pose[key], arm)
-    fist = c.add("skin")                       # its own part: the outline separates the fist from the forearm
-    c.disc(*pose["fist"], fist)
-    c.thick(pose["thumb"], [2.2, 2.0, 1.7], thumb)
-    c.thick(pose["cuff"], [2.3, 2.3], iron)
-    c.thick(pose["chain"], [1.1] * len(pose["chain"]), chain)
-    for e in hr["ears"]:
-        c.poly(e, ear)
+    for b in pose["arm_blobs"].values():
+        c.disc(*b, arm)
+    na = pose["near_arm"]["pts"]
+    cuff = cuff_line(na[-2], na[-1], 8.3)
+    chain_pts = hanging_chain(cuff)
+    c.thick(chain_pts, [1.1] * len(chain_pts), chain)
+    if "fist" in pose:
+        fx, fy, fr, fa_ = pose["fist"]
+        c.disc(fx, fy, fr, fr, fist)
+        anchors["fist"] = (fx, fy, fr, fr)
+        c.thick(thumb_line(fx, fy, fa_), [2.2, 2.0, 1.7], thumb)
+    if "hand" in pose:
+        c.disc(*pose["hand"]["palm"], fist)
+        for i, f in enumerate(pose["hand"]["fingers"]):
+            c.thick(f, [1.7, 1.2], thumb if i % 2 else arm2)
+    c.thick(cuff, [2.3, 2.3], iron)
+    c.poly(hr["ear"], ear)
     rows = c.render()
     # dread texture and beads (family rule)
     for y in range(c.h):
@@ -331,9 +569,9 @@ def build(pose: dict) -> list[str]:
                 rows[y][x] = "H"
     for i, key in BEADS.items():
         bx, by = c.P(*hr["ropes"][i][-2])
-        if c.part[int(by)][int(bx)] == hair_id:
+        if 0 <= int(by) < c.h and c.part[int(by)][int(bx)] == hair_id:
             rows[int(by)][int(bx)] = key
-    # chain links: alternate lit and dark pairs of rows so the iron reads as links, not a rod
+    # chain links: alternate lit and dark pairs so the iron reads as links, not a rod
     for y in range(c.h):
         for x in range(c.w):
             if c.part[y][x] in (chain, waist) and rows[y][x] in "ij":
@@ -348,26 +586,44 @@ def build(pose: dict) -> list[str]:
             if run >= 6:
                 rows[y][x - run + 3] = rows[y][x - run + 4] = "m"
             run = 0
-    # knuckle grooves on the near fist
-    for x0, y0, x1, y1 in pose["knuckles"]:
-        stroke(rows, c, [(x0, y0), (x1, y1)], "d", "sml")
+    despeckle(rows)
+    # inner-ear line, knuckle creases (near fist 3, far fist 2)
+    stroke(rows, c, hr["ear_line"], "s", "ml")
+    if "fist" in pose:
+        for ln in knuckle_lines(*pose["fist"]):
+            stroke(rows, c, ln, "d", "sml", dark="K")
+    if "far_fist" in pose:
+        fx, fy, fr, fa_ = pose["far_fist"]
+        for ln in knuckle_lines(fx, fy, fr, fa_, n=2):
+            stroke(rows, c, ln, "K", "dsm")
     # veins: 1 px purple strands on lit and mid skin
-    for v in pose["veins"]:
-        stroke(rows, c, v, "v", "mls")
-    # boils: red discs on skin with a pink highlight on the torch side
+    for name, pts in VEINS:
+        ax, ay = anchors[name][:2]
+        stroke(rows, c, [(ax + x, ay + y) for x, y in pts], "v", "mls")
+    # boils: raised red domes: a light-skin highlight upper left, a pink inner rim, a dark rim under the lower edge
     skin_parts = {skin, leg, hd, arm, fist}
-    for bx, by, r in pose["boils"]:
-        cx, cy = c.P(bx, by)
-        for y in range(int(cy - r) - 1, int(cy + r) + 2):
-            for x in range(int(cx - r) - 1, int(cx + r) + 2):
+    for name, dx, dy, r in BOILS:
+        ax, ay = anchors[name][:2]
+        cx, cy = c.P(ax + dx, ay + dy)
+        hl = (int(cx - 0.45 * r), int(cy - 0.45 * r))
+        for y in range(int(cy - r) - 2, int(cy + r) + 3):
+            for x in range(int(cx - r) - 2, int(cx + r) + 3):
+                if not (0 <= x < c.w and 0 <= y < c.h) or c.part[y][x] not in skin_parts or rows[y][x] not in "dsml":
+                    continue
                 ox, oy = x + 0.5 - cx, y + 0.5 - cy
-                if ox * ox + oy * oy <= r * r and c.part[y][x] in skin_parts and rows[y][x] in "dsml":
-                    rows[y][x] = "q" if (-ox - oy) / r > 0.75 else "b"
+                d = math.hypot(ox, oy)
+                if d <= r:
+                    rows[y][x] = "l" if (r >= 2.0 and (x, y) == hl) else ("q" if (-ox - oy) / r > 0.75 else "b")
+                elif d <= r + 1.0 and r >= 2.0 and ox + oy > 0.3 * r:
+                    rows[y][x] = "d"
     # grime smudges and dirt-caked soles and knuckles (family rule)
-    for gx, gy in pose["grime"]:
-        px, py = c.P(gx, gy)
+    for name, gx, gy in GRIME:
+        if name not in anchors:
+            continue
+        ax, ay = anchors[name][:2]
+        px, py = c.P(ax + gx, ay + gy)
         for dx in (0, 1):
-            if rows[int(py)][int(px) + dx] in "ml":
+            if 0 <= int(py) < c.h and 0 <= int(px) + dx < c.w and rows[int(py)][int(px) + dx] in "ml":
                 rows[int(py)][int(px) + dx] = "d"
     for y in (PIVOT[1] - 2, PIVOT[1] - 1):
         rows[y] = ["d" if ch in "lms" else ch for ch in rows[y]]
@@ -375,11 +631,9 @@ def build(pose: dict) -> list[str]:
     fx, fy = c.P(hx - 7, hy + 6)
     for ry, line in enumerate(FACES[pose["face"]]):
         for rx, ch in enumerate(line):
-            if ch != ".":
-                x, y = int(fx) + rx, int(fy) + ry
-                if rows[y][x] != "." or ch in "ewtTq":
-                    rows[y][x] = ch
-    despeckle(rows)
+            x, y = int(fx) + rx, int(fy) + ry
+            if ch != "." and 0 <= y < c.h and (rows[y][x] != "." or ch in "ewtTq"):
+                rows[y][x] = ch
     return ["".join(r) for r in rows]
 
 
@@ -401,13 +655,12 @@ def despeckle(rows: list[list[str]]) -> None:
                     rows[y][x] = max(sorted(set(cand)), key=cand.count)
 
 
-def frame_ticks() -> dict[int, int | None]:
-    return {n: t for _tag, fr in TAGS for n, t in fr}
+def duration_ms(ticks: int | None) -> int:
+    return HOLD_MS if ticks is None else round(ticks * 1000 / TICK_HZ)
 
 
 def frames_grid() -> dict:
-    ticks = frame_ticks()
-    frames = [{"rows": build(POSES[KEY_FRAMES[n]]), "ms": round(ticks[n] * 1000 / TICK_HZ)} for n in sorted(ticks)]
+    frames = [{"rows": build(POSES[p]), "ms": duration_ms(t)} for _a, _tag, p, t in KEYS]
     used = {ch for f in frames for ch in "".join(f["rows"]) if ch != "."}
     return {
         "format": "pixel-grid-v1",
@@ -421,8 +674,6 @@ def frames_grid() -> dict:
 
 
 def manifest() -> dict:
-    ticks = frame_ticks()
-    tag_of = {n: name for name, fr in TAGS for n, _t in fr}
     return {
         "schema_version": 1,
         "id": "troglodyte_juicer_h100_candidate_v0",
@@ -439,23 +690,26 @@ def manifest() -> dict:
         "owner": "AI-authored boss animation candidate (fan-concept layer: Floor 1 Gym troglodyte boss; runtime role IP-neutral heavy boss)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": "JUICE-01 phase 1: idle key 0 at a 100 px idle height, rasterized from pose rules by scripts/author_juice01.py; layer body only",
-            "generator": "Spec and keys: Claude Opus. Independent review: pending. No image-model raster output, no tracing, no resampling",
+            "origin": ("JUICE-01 phase 2: the six keys (final atlas frames 0, 3, 8, 10, 12, 15) at a 100 px idle height, "
+                       "rasterized from pose rules by scripts/author_juice01.py; the grid holds the keys only until the "
+                       "in-betweens are drawn; layer body only"),
+            "generator": "Spec and keys: Claude Opus. In-betweens and execution: pending. Silhouette gate on key 0: passed after fixes. Independent review: pending. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"],
         },
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "juicer": {
-            "status": "phase 1: idle key 0 only, awaiting the silhouette gate; not wired into any Bevy binary",
+            "status": "phase 2: six frozen keys, in-betweens pending; not wired into any Bevy binary",
             "spec": "docs/02-art/juice-01-spec.md",
             "opaque_height_idle": H,
             "tick_hz": TICK_HZ,
+            "hold_preview_ms": HOLD_MS,
             "playback": PLAYBACK,
-            "key_frames": sorted(KEY_FRAMES),
+            "key_atlas_index": {str(i): a for i, (a, _t, _p, _k) in enumerate(KEYS)},
             "key_fixture": "tests/fixtures/juice-01_keys.json",
-            "frames": [{"index": n, "tag": tag_of[n], "ticks": ticks[n], "duration_ms": round(ticks[n] * 1000 / TICK_HZ),
-                        "author": "key"} for n in sorted(ticks)],
+            "frames": [{"index": i, "tag": tag, "ticks": t, "duration_ms": duration_ms(t), "author": "key",
+                        "atlas_index": a} for i, (a, tag, _p, t) in enumerate(KEYS)],
         },
     }
 
@@ -475,8 +729,7 @@ def write_key0_scale(out: Path = ROOT / "docs/evidence/juice-01/key0-scale.png")
     j_img, j_piv = flip(juicer, tuple(PIVOT))
     entries = [(carl, carl_piv, CARL_X, 0), (p_img, p_piv, CARL_X + 70, 0), (j_img, j_piv, CARL_X + 190, 0)]
     scene = Floor().render(entries, 1)
-    bbox = juicer.getbbox()
-    crop = juicer.crop(bbox)
+    crop = juicer.crop(juicer.getbbox())
     big = crop.resize((crop.width * 4, crop.height * 4), Image.NEAREST)
     sheet = Image.new("RGB", (scene.width + big.width + 16, max(scene.height, big.height + 16)), (24, 23, 34))
     sheet.paste(scene, (0, 0))
@@ -486,17 +739,46 @@ def write_key0_scale(out: Path = ROOT / "docs/evidence/juice-01/key0-scale.png")
     return out
 
 
+def write_keys_x3(out: Path = ROOT / "docs/evidence/juice-01/keys-x3.png") -> Path:
+    """The six keys in atlas order (0, 3, 8, 10, 12, 15), three per row on lit Floor 1 brick at 1x, cropped around
+    the actors and enlarged 3x (nearest neighbour). Run: ``python3 scripts/author_juice01.py keys-x3``."""
+    sys.path.insert(0, str(ROOT))
+    from PIL import Image
+    from scripts.pixelart.common import CARL_X, grid_images, load_grid_file
+    from scripts.pixelart.scene import Floor
+
+    imgs = grid_images(load_grid_file(GRID))
+    strips = []
+    for row in (imgs[0:3], imgs[3:6]):
+        entries = [(img, tuple(PIVOT), CARL_X - 40 + i * 175, 0) for i, img in enumerate(row)]
+        floor = Floor()
+        lit = floor.render(entries, 1)
+        ground = max(floor.ground(x) for _i, _p, x, _l in entries)
+        strips.append(lit.crop((0, max(0, ground - 150), lit.width, ground + 6)))
+    sheet = Image.new("RGB", (strips[0].width, sum(s.height for s in strips)))
+    y = 0
+    for s in strips:
+        sheet.paste(s, (0, y)); y += s.height
+    big = sheet.resize((sheet.width * 3, sheet.height * 3), Image.NEAREST)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    big.save(out)
+    return out
+
+
 def dump(grid: dict) -> str:
     return json.dumps(grid, indent=1) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    parser.add_argument("command", choices=["frames", "key0-scale"])
+    parser.add_argument("command", choices=["frames", "key0-scale", "keys-x3"])
     parser.add_argument("--check", action="store_true", help="compare instead of writing")
     args = parser.parse_args(argv)
     if args.command == "key0-scale":
         print(f"wrote {write_key0_scale().relative_to(ROOT)}")
+        return 0
+    if args.command == "keys-x3":
+        print(f"wrote {write_keys_x3().relative_to(ROOT)}")
         return 0
     targets = [(GRID, dump(frames_grid())), (MANIFEST, json.dumps(manifest(), indent=2) + "\n")]
     status = 0
