@@ -3,16 +3,16 @@
   "format": "pixelart-keys-v1",
   "keys": {
     "0": {
-      "sha256": "abce9f50101eb4e2d0cfa166529ddf8760261e80f4961cd66ae1504203d0ca3c"
+      "sha256": "a87c6ad64266cbb2169275fab1ff099007d48c9668e6abd2e7ce9c8d36c76f0c"
     },
     "10": {
       "sha256": "9d9345e462e3ce5eca5102f6ce9d150f8fd8364a26af4a845269fb6ae131c51e"
     },
     "3": {
-      "sha256": "83c0109f1e2439cd2a90381f7c50df0cfe707233db83499e0e09c56d969548dc"
+      "sha256": "ba489c3cda7c1415dc792021208e02d4e5a096bc857df40cc0972cd9f3c4d6c7"
     },
     "5": {
-      "sha256": "18d4ee55d4bdb8aad0c72d2ee34026a45d75abe9ad702f2ba227d13740b140c0"
+      "sha256": "41dae3b884a375342a7643dd90621de0c645e62dd8c1c9aa5903928f9e902fee"
     }
   },
   "layers": [

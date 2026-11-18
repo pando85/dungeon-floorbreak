@@ -10,8 +10,8 @@ Usage:
 ``keys`` (re)writes ``assets/source/vfx/explosion/vfx_01.grid.json`` and ``assets/manifests/vfx-01.json``
 (see ``docs/02-art/vfx-01-spec.md`` sections 3 to 8). Frames 0 (bomb flight), 3 (burst flash), 5 (burst peak)
 and 10 (smoke fade) are drawn natively from rules plus a fixed-seed integer hash (no floating-point
-randomness, no external RNG); every other frame is a literal copy of the key it follows
-(``COPIES``) until the executor draws real in-betweens. ``--check`` compares instead of writing
+randomness, no external RNG); the other seven frames are in-betweens drawn from the same rules
+(``bomb_flight(phase)``, ``burst_between(n)``) and are not frozen. ``--check`` compares instead of writing
 (exit 1 on a difference). ``key-scale`` writes ``docs/evidence/vfx-01/key-scale.png``.
 
 No concept pixels are traced or sampled. Presentation-only art tooling; nothing here is wired into the game.
@@ -61,7 +61,7 @@ ACCENT_KEYS = {p[0] for p in PALETTE if p[3]}
 TAGS = [("bomb_flight", 0, 2), ("burst", 3, 10)]
 TICKS = [4, 4, 4, 2, 3, 4, 4, 5, 6, 8, 10]
 KEY_FRAMES = (0, 3, 5, 10)
-COPIES = {1: 0, 2: 0, 4: 3, 6: 5, 7: 5, 8: 5, 9: 5}   # in-between slot -> key it copies for now
+INBETWEENS = (1, 2, 4, 6, 7, 8, 9)                   # drawn from the generator, never frozen
 DAMAGE_ACTIVE_TICKS = (0, 8)                          # placeholder, burst-local ticks 0..8 inclusive (frames 3-5)
 
 
@@ -112,6 +112,38 @@ class Canvas:
                     if k:
                         self.put(x, y, k)
 
+    def cap_lobes(self) -> None:
+        """Silhouette gate: open the shape with a round 5 x 5 kernel (3 px flat cap, 1 px shoulders) so no lobe ends in
+        a 1-2 px tip (every lobe gets a flat cap at least 3 px wide), then break any straight 45 degree edge run of 4 or more px by
+        filling one concave corner with ``o`` (a billow bulge, not a cut star edge)."""
+        def on(x, y):
+            return self.get(x, y) != "."
+        kernel = [(i, j) for i in range(-2, 3) for j in range(-2, 3) if not (abs(i) == 2 and abs(j) == 2)]   # round 5 x 5
+        keep = set()
+        for y in range(self.h):
+            for x in range(self.w):
+                if all(on(x + i, y + j) for i, j in kernel):
+                    keep |= {(x + i, y + j) for i, j in kernel}
+        for y in range(self.h):
+            for x in range(self.w):
+                if self.px[y][x] != "." and (x, y) not in keep:
+                    self.px[y][x] = "."
+        for _ in range(3):
+            changed = False
+            for y in range(self.h):
+                for x in range(self.w):
+                    for sx, sy in ((1, 1), (1, -1)):
+                        run = [(x + i * sx, y + i * sy) for i in range(4)]
+                        if not all(on(*q) for q in run):
+                            continue
+                        side = [(on(qx + sx, qy), on(qx, qy + sy)) for qx, qy in run]
+                        if all(a != b for a, b in side) and len(set(side)) == 1:
+                            qx, qy = run[1]
+                            self.put(*((qx + sx, qy) if not side[1][0] else (qx, qy + sy)), "o")
+                            changed = True
+            if not changed:
+                break
+
     def cleanup(self) -> None:
         """Drop isolated pixels (no 8-neighbour), so debris and embers are drawn as 2 px chunks only."""
         kill = []
@@ -148,10 +180,19 @@ class Canvas:
 
 
 # --------------------------------------------------------------------------- bomb flight key (frame 0)
-BOMB7 = [   # the Bard's iron bomb (docs/02-art/bard-01-spec.md section 6), brass fuse cap top centre
+BODY7 = [   # the Bard's iron bomb body (docs/02-art/bard-01-spec.md section 6), light from the upper left (3 px Q)
+    "..KKK..",
+    ".KQqqK.",
+    "KQQqqqK",
+    "KqqqqqK",
+    "KqqqqqK",
+    ".KqqqK.",
+    "..KKK..",
+]
+BOMB7 = [   # the same body with the brass fuse cap top centre (phase 0)
     "..KbK..",
     ".KQqqK.",
-    "KQqqqqK",
+    "KQQqqqK",
     "KqqqqqK",
     "KqqqqqK",
     ".KqqqK.",
@@ -166,17 +207,51 @@ SPARK = [   # lit fuse spark, 5 x 5: Y core, e halo, R-class ember points
 ]
 
 
-def bomb_flight() -> list[str]:
+SPARK1 = [  # phase 1 crown: a different spark shape (the loop shows three sparks)
+    "..e..",
+    "eeYe.",
+    ".YYYe",
+    "eeYe.",
+    "..e..",
+]
+SPARK2 = [  # phase 2 crown
+    ".ee..",
+    "eYYe.",
+    ".YYYe",
+    "eYYe.",
+    ".ee..",
+]
+# Hand-drawn 120 degree turns of the cap, cord and crown around the fixed body: phase 0 top, 1 lower back, 2 lower front.
+# (cap pixel, cord pixels, crown top-left, crown rows, trail pixels streaming behind to the left)
+BOMB_PHASES = {
+    1: ((22, 26), ((21, 27), (20, 28), (19, 28), (18, 29)), (14, 28), SPARK1,
+        ((13, 31, "o"), (12, 31, "o"), (11, 32, "m"), (10, 32, "m"))),
+    2: ((26, 26), ((27, 27), (28, 27), (29, 28)), (30, 28), SPARK2,
+        ((29, 31, "o"), (28, 31, "o"), (27, 32, "m"), (26, 32, "m"))),
+}
+
+
+def bomb_flight(phase: int = 0) -> list[str]:
     c = Canvas()
     for y, x0, n in ((22, 8, 8), (26, 11, 6), (19, 13, 4)):   # three soot-violet motion streaks behind (left)
         for x in range(x0, x0 + n):
             c.put(x, y, "c" if (x - x0) % 4 != 3 else "s")
-    c.stamp(21, 21, BOMB7)                                    # body centred on the pivot (24, 24)
-    for x, y in ((24, 20), (25, 19), (25, 18), (26, 17)):     # fuse cord curling up and forward
-        c.put(x, y, "n")
-    c.stamp(25, 12, SPARK)                                    # spark crown on the fuse tip (27, 14)
-    for x, y, k in ((24, 14, "o"), (23, 14, "o"), (22, 15, "m"), (21, 15, "m")):   # fuse sparks streaming
-        c.put(x, y, k)                                                              # behind, attached
+    if phase == 0:
+        c.stamp(21, 21, BOMB7)                                    # body centred on the pivot (24, 24)
+        for x, y in ((24, 20), (25, 19), (25, 18), (26, 17)):     # fuse cord curling up and forward
+            c.put(x, y, "n")
+        c.stamp(25, 12, SPARK)                                    # spark crown on the fuse tip (27, 14)
+        for x, y, k in ((24, 14, "o"), (23, 14, "o"), (22, 15, "m"), (21, 15, "m")):   # fuse sparks streaming
+            c.put(x, y, k)                                                              # behind, attached
+    else:
+        cap, cord, crown, rows, trail = BOMB_PHASES[phase]
+        c.stamp(21, 21, BODY7)                                    # same body and fixed highlight
+        c.put(cap[0], cap[1], "b")
+        for x, y in cord:
+            c.put(x, y, "n")
+        c.stamp(crown[0], crown[1], rows)
+        for x, y, k in trail:
+            c.put(x, y, k)
     c.cleanup()
     return c.rows()
 
@@ -204,12 +279,23 @@ def chunk(c: Canvas, x: int, y: int, key: str, horizontal: bool = True) -> None:
     c.put(x + 1, y, key) if horizontal else c.put(x, y + 1, key)
 
 
+def fire(c: Canvas, cx: float, cy: float, rad: float, seed: int, amp: float, pick, lobes: int = 5) -> None:
+    """A fire cloud with the silhouette gate applied (flat lobe caps, no straight 45 degree rim runs)."""
+    f = Canvas()
+    f.blob(cx, cy, rad, seed, amp, pick, lobes)
+    f.cap_lobes()
+    for y in range(f.h):
+        for x in range(f.w):
+            if f.px[y][x] != ".":
+                c.put(x, y, f.px[y][x])
+
+
 def burst_flash() -> list[str]:
     c = Canvas()
     # Design edit: no radial spikes (they read as a cartoon star). Three uneven fire tongues bulge out of a
     # compressed core, and the outward read comes from dark iron and stone debris thrown at different distances.
     for cx, cy, r, sd in ((17.5, 19.5, 4.0, 12), (30.5, 17.5, 3.5, 13), (29.5, 30.0, 3.0, 14)):
-        c.blob(cx, cy, r, sd, 0.20, fire_pick(0.0, 0.0, 0.45, 0.80, white=-1.0))
+        c.blob(cx, cy, r, sd, 0.20, fire_pick(-1.0, -1.0, 0.45, 0.80, white=-1.0))   # core -1: grit never makes a G ring
     c.blob(CX, CY, 8.5, 11, 0.20, fire_pick(0.34, 0.60, 0.84, 0.95, white=0.12), lobes=5)
     for x, y, k, hz in ((9, 13, "K", True), (37, 12, "q", True), (11, 33, "q", False), (36, 33, "K", False),
                         (22, 7, "K", False), (27, 39, "q", True), (6, 22, "q", True)):
@@ -236,7 +322,7 @@ def burst_peak() -> list[str]:
     for cx, cy, r, sd in ((15, 15, 6.0, 21), (30, 11, 6.5, 22), (23, 8, 6.0, 25), (37, 21, 5.0, 23),
                           (11, 26, 4.5, 24)):
         c.blob(cx, cy, r, sd, 0.16, smoke)
-    c.blob(CX, CY + 2, 11.5, 31, 0.18, fire_pick(0.24, 0.50, 0.76, 0.92), lobes=5)
+    fire(c, CX, CY + 2, 11.5, 31, 0.18, fire_pick(0.24, 0.50, 0.76, 0.92))
     for cx, cy, r, sd in ((18, 14, 4.5, 27), (29, 13, 4.0, 28)):         # smoke rolls over the fire's crown
         c.blob(cx, cy, r, sd, 0.18, smoke)
     for x, y, k, hz in ((6, 9, "K", True), (41, 10, "q", False), (4, 24, "q", False), (40, 35, "K", True),
@@ -271,9 +357,87 @@ def smoke_fade() -> list[str]:
     return c.rows()
 
 
+# --------------------------------------------------------------------------- burst in-betweens (frames 4, 6-9)
+PEAK_SMOKE = ((15, 15, 6.0, 21), (30, 11, 6.5, 22), (23, 8, 6.0, 25), (37, 21, 5.0, 23), (11, 26, 4.5, 24))
+
+
+def smoke_pick(t, dx, dy, x, y, dither: float = 0.80):
+    if t > dither and (x + y) % 2:
+        return None
+    v = -dy / 14.0 * 0.6 + -dx / 14.0 * 0.4 + ((h2(x, y, 4) % 100) / 100.0 - 0.5) * 0.5
+    return "Q" if v > 0.48 else "c" if v > 0.0 else "s"
+
+
+def ring_pick(t, dx, dy, x, y):
+    """Frame 7: no G, a g ring around an o centre."""
+    return "o" if t < 0.20 else "g" if t < 0.44 else "o" if t < 0.80 else "r" if t < 0.93 else "m"
+
+
+def burst_between(n: int) -> list[str]:
+    """Frames 4 and 6 to 9 (spec section 11). Same fixed-seed lumps as the keys, so the fire cools in place."""
+    c = Canvas()
+    sm = smoke_pick
+    if n == 4:      # fireball growing from the flash, tongues merged in, G core about 25 px, no w, first smoke above
+        for cx, cy, r, sd in ((23, 10, 4.5, 51), (15, 16, 4.0, 52)):
+            c.blob(cx, cy, r, sd, 0.16, sm)
+        for cx, cy, r, sd in ((18.5, 20.5, 5.0, 12), (30.5, 18.5, 4.5, 13), (29.5, 30.0, 4.0, 14)):
+            c.blob(cx, cy, r, sd, 0.20, fire_pick(-1.0, -1.0, 0.45, 0.80))
+        fire(c, CX, CY + 1, 10.5, 31, 0.18, fire_pick(0.27, 0.54, 0.80, 0.93))
+        chunks = ((7, 11, "K", True), (38, 11, "q", True), (9, 35, "q", False), (38, 34, "K", False),
+                  (22, 4, "K", False), (27, 41, "q", True), (4, 23, "q", True))
+        grit = ((11, 7), (40, 26), (16, 39))
+    elif n == 6:    # cooling: G under 20 px, more o, smoke lobes wider
+        for cx, cy, r, sd in PEAK_SMOKE:
+            c.blob(cx, cy + 1, r * 1.12, sd, 0.16, sm)
+        fire(c, CX, CY + 2, 11.0, 31, 0.18, fire_pick(0.21, 0.42, 0.80, 0.93))
+        for cx, cy, r, sd in ((18, 15, 5.0, 27), (29, 14, 4.5, 28)):
+            c.blob(cx, cy, r, sd, 0.18, sm)
+        chunks = ((5, 8, "K", True), (42, 9, "q", False), (3, 25, "q", False), (41, 36, "K", True), (8, 40, "K", True))
+        grit = ((16, 41), (32, 42), (41, 29))
+    elif n == 7:    # G gone, g ring only, smoke over the top half
+        for cx, cy, r, sd in PEAK_SMOKE:
+            c.blob(cx, cy + 2, r * 1.25, sd, 0.16, sm)
+        fire(c, CX, CY + 3, 10.0, 31, 0.18, ring_pick)
+        for cx, cy, r, sd in ((18, 17, 6.0, 27), (29, 16, 5.5, 28), (24, 14, 6.5, 29)):
+            c.blob(cx, cy, r, sd, 0.18, sm)
+        chunks = ((4, 8, "K", True), (43, 9, "q", False), (2, 26, "q", False), (42, 38, "K", True), (7, 41, "K", True))
+        grit = ((15, 42), (33, 43), (42, 31))
+    elif n == 8:    # smoke dominant, fire under 11 px radius in o r m, embers falling
+        for cx, cy, r, sd in PEAK_SMOKE:
+            c.blob(cx, cy + 3, r * 1.35, sd, 0.16, sm)
+        fire(c, CX, CY + 4, 8.0, 31, 0.18,
+             lambda t, dx, dy, x, y: "o" if t < 0.45 else "r" if t < 0.80 else "m")
+        for cx, cy, r, sd in ((19, 19, 7.0, 27), (29, 19, 6.5, 28), (24, 17, 7.0, 29), (24, 24, 5.0, 30)):
+            c.blob(cx, cy, r, sd, 0.18, sm)
+        chunks = ((5, 12, "K", True), (42, 12, "q", False), (3, 28, "q", False), (42, 40, "K", True), (8, 43, "K", True))
+        grit = ((14, 41), (30, 43), (40, 35), (22, 38))
+    else:           # 9: shrinking r m ember core inside the smoke, puffs begin to dither
+        for cx, cy, r, sd in ((20, 14, 7.6, 41), (29, 10, 6.6, 42), (16, 23, 6.6, 43), (31, 21, 6.1, 44),
+                              (24, 29, 5.6, 45), (22, 6, 4.6, 46)):
+            c.blob(cx, cy, r, sd, 0.16, lambda t, dx, dy, x, y: smoke_pick(t, dx, dy, x, y, 0.86))
+        c.blob(CX, CY + 5, 4.5, 31, 0.15, lambda t, dx, dy, x, y: "r" if t < 0.55 else "m")
+        chunks = ((12, 36, "K", True), (34, 38, "q", False), (6, 30, "q", False), (40, 41, "K", True))
+        grit = ((17, 40), (30, 42))
+    for x, y, k, hz in chunks:
+        chunk(c, x, y, k, hz)
+    for x, y in grit:
+        chunk(c, x, y, "o", True)
+    c.despeckle()
+    c.cleanup()
+    return c.rows()
+
+
 # --------------------------------------------------------------------------- grid, manifest
 def key_rows() -> dict[int, list[str]]:
     return {0: bomb_flight(), 3: burst_flash(), 5: burst_peak(), 10: smoke_fade()}
+
+
+def all_rows() -> dict[int, list[str]]:
+    rows = key_rows()
+    rows[1], rows[2] = bomb_flight(1), bomb_flight(2)
+    for n in (4, 6, 7, 8, 9):
+        rows[n] = burst_between(n)
+    return rows
 
 
 def palette_json() -> list[dict]:
@@ -287,10 +451,10 @@ def palette_json() -> list[dict]:
 
 
 def build_grid() -> dict:
-    keys = key_rows()
+    keys = all_rows()
     frames = []
     for i, t in enumerate(TICKS):
-        rows = keys[i] if i in keys else keys[COPIES[i]]
+        rows = keys[i]
         frames.append({"duration_ms": round(t * 1000 / TICK_HZ), "cels": {"body": rows}})
     return {"format": "pixel-grid-v1", "canvas": list(CANVAS), "pivot": list(PIVOT), "palette": palette_json(),
             "layers": ["body"], "frames": frames,
@@ -300,7 +464,7 @@ def build_grid() -> dict:
 def build_manifest() -> dict:
     tag_of = {n: name for name, a, b in TAGS for n in range(a, b + 1)}
     frames = [{"index": n, "tag": tag_of[n], "ticks": t, "duration_ms": round(t * 1000 / TICK_HZ),
-               "author": "key" if n in KEY_FRAMES else "copy_placeholder"} for n, t in enumerate(TICKS)]
+               "author": "key" if n in KEY_FRAMES else "inbetween"} for n, t in enumerate(TICKS)]
     return {
         "schema_version": 1,
         "id": "vfx_bomb_burst_48_candidate_v1",
@@ -317,10 +481,10 @@ def build_manifest() -> dict:
         "owner": "AI-authored VFX candidate (fan-concept layer: Goblin Bomb Bard bomb and Rot Sticker burst; runtime role IP-neutral thrown explosive and blast burst)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": ("VFX-01 draft: 4 key frames (atlas frames 0, 3, 5, 10, fixture tests/fixtures/vfx-01_keys.json) rasterized "
-                       "natively by scripts/author_vfx01.py from rules and a fixed-seed integer hash; the other 7 frames are "
-                       "literal copies of a key (placeholders); layer body"),
-            "generator": "Draft spec and keys: Claude Sonnet; design edit and key freeze: Claude Opus; review pending. No image-model raster output, no tracing, no resampling",
+            "origin": ("VFX-01: 4 key frames (atlas frames 0, 3, 5, 10, fixture tests/fixtures/vfx-01_keys.json) and 7 in-betweens "
+                       "(1, 2, 4, 6, 7, 8, 9) rasterized natively by scripts/author_vfx01.py from rules and a fixed-seed integer hash; "
+                       "layer body"),
+            "generator": "Draft spec and keys: Claude Sonnet; design edit and key freeze: Claude Opus; silhouette-gate fixes, in-betweens and execution: Claude Sonnet; art review pending. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["assets/concept/floor-01/enemies/floor01-goblin-bomb-bard-concept-approved.png",
                                     "assets/concept/floor-01/enemies/scatterers-rot-sticker-slime-bestiary.png"],
@@ -328,14 +492,14 @@ def build_manifest() -> dict:
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "vfx": {
-            "status": "Draft keys, copies for in-betweens; top-tier edit, freeze and review pending; not wired into any Bevy binary",
+            "status": "Keys and in-betweens drawn; art-director review pending; not wired into any Bevy binary",
             "spec": "docs/02-art/vfx-01-spec.md",
             "tick_hz": TICK_HZ,
             "hold_preview_ms": 100,
             "free_tags": [n for n, _a, _b in TAGS],
             "playback": {"bomb_flight": "loop", "burst": "once"},
             "key_frames": list(KEY_FRAMES),
-            "copy_frames": sorted(COPIES),
+            "inbetween_frames": list(INBETWEENS),
             "key_fixture": "tests/fixtures/vfx-01_keys.json",
             "damage_active_ticks_placeholder": list(DAMAGE_ACTIVE_TICKS),
             "frames": frames,

@@ -42,14 +42,44 @@ class Vfx01Tests(unittest.TestCase):
         self.assertEqual(len(ase["frames"]), 11)
         self.assertEqual([f["duration_ms"] for f in ase["frames"]], [f["duration_ms"] for f in self.grid["frames"]])
 
-    def test_keys_are_frozen_and_inbetweens_are_copies(self) -> None:
+    def test_keys_are_frozen_and_inbetweens_are_drawn(self) -> None:
         frozen = set(self.cfg["rules"]["frozen_keys"]["frames"])
         self.assertEqual(frozen, set(author.KEY_FRAMES))
         self.assertEqual(json.loads(FIXTURE.read_text())["keys"].keys(), {str(k) for k in frozen})
-        self.assertFalse(frozen & set(author.COPIES))
-        self.assertEqual(frozen | set(author.COPIES), set(range(11)))
-        for slot, key in author.COPIES.items():
-            self.assertEqual(self.grid["frames"][slot]["cels"], self.grid["frames"][key]["cels"])
+        self.assertFalse(frozen & set(author.INBETWEENS))
+        self.assertEqual(frozen | set(author.INBETWEENS), set(range(11)))
+        self.assertTrue(self.cfg["rules"]["unique_frames"])
+        bodies = [json.dumps(f["cels"]["body"]) for f in self.grid["frames"]]
+        self.assertEqual(len(set(bodies)), 11)          # no in-between is a copy of another frame
+
+    def test_bomb_rotation_keeps_the_body_and_highlight_fixed(self) -> None:
+        def iron(n: int) -> set:
+            rows = self.grid["frames"][n]["cels"]["body"]
+            return {(x, y, ch) for y in range(21, 28) for x, ch in enumerate(rows[y][21:28], 21) if ch in "qQ"}
+
+        self.assertGreaterEqual(sum(ch == "Q" for *_xy, ch in iron(0)), 3)   # the 3 px upper-left highlight
+        for n in (1, 2):
+            self.assertEqual(iron(n), iron(0))                               # body and highlight fixed
+            self.assertEqual(sum(r.count("b") for r in self.grid["frames"][n]["cels"]["body"]), 1)
+
+    def test_lobe_cap_removes_tips_and_breaks_45_degree_runs(self) -> None:
+        c = author.Canvas()
+        for y in range(10, 22):
+            for x in range(10, 22):
+                c.put(x, y, "o")
+        c.put(15, 9, "o")
+        c.put(16, 9, "o")                      # a 2 px tip on top of a lobe
+        c.cap_lobes()
+        self.assertEqual(c.get(15, 9), ".")
+        self.assertEqual(c.get(16, 9), ".")
+        d = author.Canvas()
+        for y in range(10, 30):
+            for x in range(10, 30):
+                if x + y >= 38 and x - y <= 4:   # a long 45 degree edge
+                    d.put(x, y, "m")
+        n = sum(ch == "o" for r in d.rows() for ch in r)
+        d.cap_lobes()
+        self.assertGreater(sum(ch == "o" for r in d.rows() for ch in r), n)
 
     def test_tick_windows_match_the_spec(self) -> None:
         for tag, total in SPEC_TICKS.items():

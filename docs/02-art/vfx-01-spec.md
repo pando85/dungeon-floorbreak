@@ -1,6 +1,6 @@
 # VFX-01: bomb and explosion burst VFX (spec stub)
 
-**Status:** design edited; four key frames (0, 3, 5, 10) corrected and frozen; seven in-between slots are still literal copies for the executor (section 11); silhouette gate and independent review pending; not wired into any Bevy binary. Sections 2, 3, 5 and 6 are the gathered facts; sections 1, 4 and 8 to 16 are the design decisions.
+**Status:** design edited; four key frames (0, 3, 5, 10) corrected and frozen; silhouette-gate fixes applied and the keys re-frozen (section 17); the seven in-betweens are drawn through the generator; independent re-review pending; not wired into any Bevy binary. Sections 2, 3, 5 and 6 are the gathered facts; sections 1, 4 and 8 to 16 are the design decisions.
 
 ## 1. Scope (decided)
 
@@ -70,7 +70,7 @@ The palette candidates come from the concept boards and are candidates only. The
 
 ## 7. Next step
 
-The keys are edited and frozen (section 16). Next: the silhouette gate on the frozen keys, then the executor draws the in-betweens of section 11 without changing the keys, then the independent review against section 12 (lighting pass on and `--no-lighting`).
+The keys are frozen (section 16) with the silhouette-gate fixes (section 17), and the in-betweens of section 11 are drawn. Next: the independent review against section 12 (lighting pass on and `--no-lighting`).
 
 ## 8. Design decisions
 
@@ -142,7 +142,7 @@ The hottest key present in a frame never rises from frame 3 to frame 10, and the
 - **No blowout:** `w` at most 12 px in frame 3 and none elsewhere; the `G` core at most 60 px (V5); whole key frames cover under 45 % of the cell (test). The glow is baked and must read with the A1 pass on and off.
 - **Grounded, smoky look, not a cartoon star burst:** an irregular lumpy fire cloud with a dark rim; no radial spikes on any frame (outward motion is read from thrown debris); from the peak on, dark violet smoke is part of the silhouette; the last frame is smoke and debris with no flame.
 - **Player visibility:** the burst draws behind the actors (section 8); Carl's silhouette must stay whole over every burst frame. Checked on the lit scene for the peak (`key-scale.png`, right-hand panels).
-- Toolkit validators pass (`python3 -m scripts.pixelart validate assets/source/vfx/explosion/vfx_01.pixelart.json`). V05 isolated pixels: 0. V06 orphan pixels: **at most 9**, the same as the character sets (the keys measure 5, 9, 0 and 0: debris and embers are 2 px chunks and `despeckle` merges smoke noise, so effects need no looser limit). V12 unique frames: off while in-betweens are copies; the editor turns it on once they are drawn.
+- Toolkit validators pass (`python3 -m scripts.pixelart validate assets/source/vfx/explosion/vfx_01.pixelart.json`). V05 isolated pixels: 0. V06 orphan pixels: **at most 9**, the same as the character sets (the keys measure 5, 9, 0 and 0: debris and embers are 2 px chunks and `despeckle` merges smoke noise, so effects need no looser limit). V12 unique frames: on (all 11 frames differ).
 - Config rules: V1 bomb compact, V2 flash small, V3 peak 32 to 44 px wide, V4 smoke within 40 x 42, V5 white and core caps, V6 lit fuse core in the bomb frame.
 
 ## 13. Evidence
@@ -151,6 +151,7 @@ The hottest key present in a frame never rises from frame 3 to frame 10, and the
 | --- | --- |
 | `docs/evidence/vfx-01/key-scale.png` | Top: lit Floor 1 at 1x, Carl, the Bard (frame 10), the four keys in order bomb, flash, peak, smoke, then the peak with Carl overlapping it twice: burst behind Carl (decided) and burst over Carl (rejected, for comparison). Bottom: the four keys at 4x. |
 | `docs/evidence/vfx-01/keys-x3.png` | The four frozen keys at 3x on the dark brick value, unlit. |
+| `docs/evidence/vfx-01/review-pack/` | Toolkit review pack: `01_contact_sheet_x4.png` (all 11 frames), `02_lit_scene_640x360_x3.png`, `03_tell_attack_strip.png`, `validator_summary.txt`. |
 
 Regenerate with `python3 scripts/author_vfx01.py key-scale` (needs `scripts/export_assets.sh` first) and `python3 scripts/author_vfx01.py keys-x3`. The review must also render with `--no-lighting`; not done yet.
 
@@ -158,14 +159,14 @@ Regenerate with `python3 scripts/author_vfx01.py key-scale` (needs `scripts/expo
 
 | File | Role |
 | --- | --- |
-| `scripts/author_vfx01.py` | authoring record: palette, rules, keys 0, 3, 5, 10, copies, manifest, key-scale |
+| `scripts/author_vfx01.py` | authoring record: palette, rules, keys 0, 3, 5, 10, in-betweens 1, 2, 4, 6 to 9, manifest, key-scale |
 | `assets/source/vfx/explosion/vfx_01.grid.json`, `vfx_01.ase`, `vfx_01.pixelart.json` | source, Aseprite file, config |
 | `assets/manifests/vfx-01.json` | 60 Hz tick table and provenance |
 | `tests/fixtures/vfx-01_keys.json`, `tests/test_art_vfx01.py` | frozen keys, spec tests |
 
 ## 15. Rights and provenance
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Draft spec and keys: Claude Sonnet. Design edit and key freeze: Claude Opus. Silhouette gate and review: pending. The keys are rasterized from rules in `scripts/author_vfx01.py`; no tracing of the concept, no image-model raster output, no colour sampled from the concept.
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `docs/04-production/rights-and-release.md`). Draft spec and keys: Claude Sonnet. Design edit and key freeze: Claude Opus. Silhouette gate: independent top-tier review. Gate fixes, in-betweens and execution: Claude Sonnet. Final art review: pending. The keys are rasterized from rules in `scripts/author_vfx01.py`; no tracing of the concept, no image-model raster output, no colour sampled from the concept.
 
 ## 16. Settled questions (design edit)
 
@@ -174,3 +175,16 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 3. **Peak density:** reduced from 947 to 772 px, and the burst draws behind the actors, so Carl stays whole in front of it (checked on the lit scene).
 4. **Orphan limit:** tightened from 16 to the standard 9.
 5. **Olive debris variant for the Rot Sticker:** rejected; no variant.
+
+## 17. Executor notes (gate fixes and in-betweens)
+
+Gate fixes (reviewer-prescribed, so the affected keys 0, 3 and 5 are re-frozen in `tests/fixtures/vfx-01_keys.json`; key 10 is unchanged):
+
+1. **Lobe caps.** `Canvas.cap_lobes` opens each fire cloud with a round 5 x 5 kernel (3 px flat cap, 1 px shoulders), so no lobe ends in a 1 to 2 px tip. It is in the generator, so frames 4 and 6 to 8 inherit it. Peak area stays 772 px; lobe count unchanged.
+2. **Flash grit.** The hollow ring at the upper right was a stray `G` pixel at the centre of the upper-right fire tongue (the grit noise pushed `t` below the core threshold), ringed by `o`. The tongues now use core -1, so no `G` appears in a tongue; the 3 `o` grit chunks are unchanged 2 px chunks (the review located the ring at an `o` chunk, but no such ring exists there). `G` in the flash: 23 to 22 px.
+3. **Rim runs.** `cap_lobes` breaks any straight 1:1 diagonal edge run of 4 px or more by filling one concave corner with `o` (one bulge per run, not per window).
+4. **Bomb highlight.** `BODY7` gains a third `Q` pixel (row 2, column 2), fixed in frames 0 to 2. This differs from the Bard's hand bomb stamp by that one pixel; BARD-01 is not edited here.
+
+In-betweens (all from generator rules, same seeds as the keys, never frozen): 1 and 2 turn the cap (`b`), cord (`n`) and spark crown to the lower back and lower front with the body and highlight fixed and three different crown shapes (`SPARK`, `SPARK1`, `SPARK2`); 4 grows the fire from the flash (radius 10.5, `G` 27 px, no `w`, tongues merged, first smoke above); 6 cools (`G` 16 px); 7 has no `G` and a `g` ring around an `o` centre; 8 is `o r m` only (radius 8) under dominant smoke; 9 is a shrinking `r m` core in dithered puffs of frame 10's layout. Smoke area (`c s Q`): 362, 443, 563, 699, 492, 456 px for frames 5 to 10, so it grows to frame 8 and shrinks after frame 9.
+
+Ambiguities: (a) section 11 asks frame 6 for "radius 15"; read as the whole burst extent (fire plus smoke), not the fire, since a 15 px fire radius would exceed the peak and break the "hottest key never rises" rule; the fire radius is 11 (peak 11.5). (b) Frame 8's smoke rolls cover the fire's upper half, so the fire reads as a dark-red crescent under smoke; this is the intended "smoke dominant" read. (c) Frame 7's `g` ring around an `o` centre reads slightly as a donut at 4x; it is the spec's "g ring only" and is a 5-tick frame. (d) The review pack was rendered with lighting on; the `--no-lighting` render is still open.
