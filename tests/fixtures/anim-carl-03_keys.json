@@ -1,0 +1,32 @@
+{
+  "asset_id": "anim-carl-03",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "1": {
+      "sha256": "ef7bca8fbc2a393f4ce6c8db8e8ee99bca99097f49f35891d003bd0a4e69c999"
+    },
+    "2": {
+      "sha256": "52a9c82e79be56fa1cb977aee4b6876d8b5b8144f16575f5b30aef67717c8314"
+    },
+    "4": {
+      "sha256": "5281cbcfe432ea4c0283b5cb31be5349599e4c2db1d54c5bdc108b949ad51df5"
+    },
+    "5": {
+      "sha256": "dab15c4818271443646ee882e48cc546cfb363c972df906c3b911fdeab3267f0"
+    }
+  },
+  "layers": [
+    "far_arm",
+    "legs",
+    "shoes",
+    "torso",
+    "boxers",
+    "jacket",
+    "head",
+    "hair",
+    "prop",
+    "near_arm",
+    "watch",
+    "pin"
+  ]
+}
