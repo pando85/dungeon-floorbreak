@@ -1,0 +1,429 @@
+{
+  "schema_version": 1,
+  "id": "donut_h40_melee_candidate_v0",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/donut/donut_h40_melee.ase",
+  "grid_source": "assets/source/characters/donut/donut_h40_melee.grid.json",
+  "output_atlas": "generated/art/donut_h40_melee.png",
+  "output_metadata": "generated/art/donut_h40_melee.json",
+  "palette_id": "donut-floor1-v0",
+  "frame_size": [
+    72,
+    44
+  ],
+  "pivot": [
+    46,
+    43
+  ],
+  "animation_tags": [
+    "swat",
+    "pounce",
+    "pounce_air",
+    "pounce_land",
+    "hurt",
+    "knockback",
+    "knockdown",
+    "getup"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored pixel animation candidate (fan-concept layer: Princess Donut -> caster)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ANIM-DONUT-02 melee and damage-reaction keys built from the owner-approved ANIM-DONUT-01 locomotion atlas assets/source/characters/donut/donut_h40_locomotion.grid.json (itself copied from the approved 40 px master): head, face, gear, body and tail pixels are translated only; fore and hind leg poses are hand-placed in pixel-grid-v1",
+    "generator": "Hand-placed pixel parts and per-key translation data by an AI agent, assembled by scripts/author_donut_melee.py; no image-model raster output, no resampling or rotation",
+    "generated_art": true,
+    "input_reference_ids": [
+      "DONUT-CONCEPT-EVOLUTION-V1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "melee": {
+    "status": "phase 1 design: 8 keys frozen, in-betweens are key copies for the execution phase; not wired into any Bevy binary",
+    "spec": "docs/02-art/donut-melee-anim-02-spec.md",
+    "locomotion": "assets/manifests/donut_h40_locomotion.json",
+    "tick_hz": 60,
+    "grounded_tags": [
+      "swat",
+      "pounce",
+      "pounce_land",
+      "hurt",
+      "knockdown",
+      "getup"
+    ],
+    "airborne_tags": [
+      "pounce_air",
+      "knockback"
+    ],
+    "playback": {
+      "swat": "once",
+      "pounce": "once",
+      "pounce_air": "hold",
+      "pounce_land": "once",
+      "hurt": "once",
+      "knockback": "hold",
+      "knockdown": "once",
+      "getup": "once"
+    },
+    "keys": {
+      "swat_cock": 0,
+      "swat_contact": 1,
+      "pounce_crouch": 4,
+      "pounce_flight": 5,
+      "pounce_pin": 6,
+      "hurt_flinch": 8,
+      "knockback": 10,
+      "knockdown_impact": 11
+    },
+    "hit_boxes_px": {
+      "note": "Placeholder art reach in sprite pixels relative to the pivot, facing right: x forward, y up from the pivot row, inclusive [x0, y0, x1, y1]. A guide for gameplay data, not authoritative collision.",
+      "swat_contact": {
+        "paw": [
+          13,
+          5,
+          23,
+          10
+        ]
+      },
+      "pounce_flight": {
+        "near_paw": [
+          18,
+          13,
+          24,
+          16
+        ],
+        "far_paw": [
+          15,
+          6,
+          21,
+          9
+        ]
+      },
+      "pounce_pin": {
+        "paws": [
+          14,
+          0,
+          21,
+          3
+        ]
+      }
+    },
+    "hurtbox_px": {
+      "note": "placeholder: unchanged from the locomotion integration (the sim body); sprites never feed collision"
+    },
+    "moves": {
+      "swat": {
+        "input": "primary (Square / X), pre-biscuit",
+        "role": "low-damage defensive paw swat at ankle height; movement-compatible (spec section 3)",
+        "total_ticks": 14,
+        "startup_ticks": 4,
+        "active_ticks": [
+          4,
+          6
+        ],
+        "hit_tick": 4,
+        "recovery_ticks": 7,
+        "frames": [
+          {
+            "name": "s0 cock",
+            "ticks": [
+              0,
+              3
+            ],
+            "phase": "startup",
+            "key": true
+          },
+          {
+            "name": "s1 swat contact",
+            "ticks": [
+              4,
+              6
+            ],
+            "phase": "active",
+            "key": true
+          },
+          {
+            "name": "s2 follow-through",
+            "ticks": [
+              7,
+              10
+            ],
+            "phase": "recovery",
+            "key": false
+          },
+          {
+            "name": "s3 recover",
+            "ticks": [
+              11,
+              13
+            ],
+            "phase": "recovery",
+            "key": false
+          }
+        ]
+      },
+      "pounce": {
+        "input": "physical (Triangle / Y)",
+        "role": "short feline pounce and pin-swat: low damage, relocates Donut about 45 px",
+        "total_ticks_nominal": 44,
+        "startup_ticks": 10,
+        "launch_tick": 10,
+        "active_ticks_nominal": [
+          10,
+          25
+        ],
+        "active_rule": "from launch (t10) until 2 ticks after touchdown; one hit per move instance",
+        "hit_tick_earliest": 10,
+        "airborne_ticks_nominal": 14,
+        "recovery_ticks_nominal": 18,
+        "launch_proposal": {
+          "vx_px_s": 180,
+          "vy_px_s": 130,
+          "gravity_px_s2": 1050,
+          "note": "placeholder: about 15 ticks airborne, 8 px apex, about 45 px travel"
+        },
+        "frames": [
+          {
+            "name": "p0 crouch",
+            "ticks": [
+              0,
+              9
+            ],
+            "phase": "startup",
+            "key": true
+          },
+          {
+            "name": "p1 pounce flight",
+            "ticks": [
+              10,
+              23
+            ],
+            "phase": "active (airborne hold until touchdown)",
+            "key": true
+          },
+          {
+            "name": "p2 pin landing",
+            "ticks": [
+              24,
+              31
+            ],
+            "phase": "active t24-25, then recovery",
+            "key": true
+          },
+          {
+            "name": "p3 recover",
+            "ticks": [
+              32,
+              43
+            ],
+            "phase": "recovery",
+            "key": false
+          }
+        ]
+      },
+      "hurt": {
+        "total_ticks": 16,
+        "frames": [
+          {
+            "name": "h0 flinch",
+            "ticks": [
+              0,
+              4
+            ],
+            "phase": "hitstun",
+            "key": true
+          },
+          {
+            "name": "h1 recoil",
+            "ticks": [
+              5,
+              15
+            ],
+            "phase": "hitstun",
+            "key": false
+          }
+        ]
+      },
+      "knockback": {
+        "total_ticks": null,
+        "playback": "hold while airborne, then knockdown on touchdown",
+        "frames": [
+          {
+            "name": "kb thrown",
+            "ticks": null,
+            "phase": "airborne hold",
+            "key": true
+          }
+        ]
+      },
+      "knockdown": {
+        "total_ticks": 36,
+        "frames": [
+          {
+            "name": "d0 sploot impact",
+            "ticks": [
+              0,
+              5
+            ],
+            "phase": "down",
+            "key": true
+          },
+          {
+            "name": "d1 sploot sulk",
+            "ticks": [
+              6,
+              35
+            ],
+            "phase": "down",
+            "key": false
+          }
+        ]
+      },
+      "getup": {
+        "total_ticks": 20,
+        "frames": [
+          {
+            "name": "g0 chest up",
+            "ticks": [
+              0,
+              9
+            ],
+            "phase": "getup",
+            "key": false
+          },
+          {
+            "name": "g1 chin up",
+            "ticks": [
+              10,
+              19
+            ],
+            "phase": "getup",
+            "key": false
+          }
+        ]
+      }
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "s0 cock",
+        "tag": "swat",
+        "ticks": 4,
+        "duration_ms": 67,
+        "key": true
+      },
+      {
+        "index": 1,
+        "name": "s1 swat contact",
+        "tag": "swat",
+        "ticks": 3,
+        "duration_ms": 50,
+        "key": true
+      },
+      {
+        "index": 2,
+        "name": "s2 follow-through",
+        "tag": "swat",
+        "ticks": 4,
+        "duration_ms": 67,
+        "key": false
+      },
+      {
+        "index": 3,
+        "name": "s3 recover",
+        "tag": "swat",
+        "ticks": 3,
+        "duration_ms": 50,
+        "key": false
+      },
+      {
+        "index": 4,
+        "name": "p0 crouch",
+        "tag": "pounce",
+        "ticks": 10,
+        "duration_ms": 167,
+        "key": true
+      },
+      {
+        "index": 5,
+        "name": "p1 pounce flight",
+        "tag": "pounce_air",
+        "ticks": null,
+        "duration_ms": 100,
+        "key": true
+      },
+      {
+        "index": 6,
+        "name": "p2 pin landing",
+        "tag": "pounce_land",
+        "ticks": 8,
+        "duration_ms": 133,
+        "key": true
+      },
+      {
+        "index": 7,
+        "name": "p3 recover",
+        "tag": "pounce_land",
+        "ticks": 12,
+        "duration_ms": 200,
+        "key": false
+      },
+      {
+        "index": 8,
+        "name": "h0 flinch",
+        "tag": "hurt",
+        "ticks": 5,
+        "duration_ms": 83,
+        "key": true
+      },
+      {
+        "index": 9,
+        "name": "h1 recoil",
+        "tag": "hurt",
+        "ticks": 11,
+        "duration_ms": 183,
+        "key": false
+      },
+      {
+        "index": 10,
+        "name": "kb thrown",
+        "tag": "knockback",
+        "ticks": null,
+        "duration_ms": 100,
+        "key": true
+      },
+      {
+        "index": 11,
+        "name": "d0 sploot impact",
+        "tag": "knockdown",
+        "ticks": 6,
+        "duration_ms": 100,
+        "key": true
+      },
+      {
+        "index": 12,
+        "name": "d1 sploot sulk",
+        "tag": "knockdown",
+        "ticks": 30,
+        "duration_ms": 500,
+        "key": false
+      },
+      {
+        "index": 13,
+        "name": "g0 chest up",
+        "tag": "getup",
+        "ticks": 10,
+        "duration_ms": 167,
+        "key": false
+      },
+      {
+        "index": 14,
+        "name": "g1 chin up",
+        "tag": "getup",
+        "ticks": 10,
+        "duration_ms": 167,
+        "key": false
+      }
+    ]
+  }
+}

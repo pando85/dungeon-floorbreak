@@ -1,0 +1,40 @@
+{
+  "asset_id": "anim-donut-02",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "ac760105d91b68387f9b538f7aa8934f5497e633765f915a2a375a8287f44341"
+    },
+    "1": {
+      "sha256": "f7bc000be37443762c2ab0a83f7f7f19583e181f73cd358aeeb4f063374c65c0"
+    },
+    "10": {
+      "sha256": "bc3a1d715980cfda93a8aa5b4d5cea6da0d4156804cb5d9b5d0d7df242bf773e"
+    },
+    "11": {
+      "sha256": "5d370473d62d056306387cf7f46dd0d027cb1d0b084e21e01be08244c71ba46f"
+    },
+    "4": {
+      "sha256": "a5b9d2ca897cc7a1e51a64c833ec830e5a2a93d43319485c75f3f0faf6180274"
+    },
+    "5": {
+      "sha256": "2a4f00ff87a666923e9c9c91295047083ec67c85494ad1a90d3abb9cb849d2a1"
+    },
+    "6": {
+      "sha256": "13e86084281fd67e391c2ae9e7a3b26d390000a90c4100ce52ee577d95ac9ab5"
+    },
+    "8": {
+      "sha256": "37ef4b6888da4af0dc3a02b850520ec0ec59751735f6637e254dbeb769607d26"
+    }
+  },
+  "layers": [
+    "tail",
+    "legs_far",
+    "body",
+    "legs_near",
+    "head",
+    "face",
+    "gear",
+    "paw"
+  ]
+}
