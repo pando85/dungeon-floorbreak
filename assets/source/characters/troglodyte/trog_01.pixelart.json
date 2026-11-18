@@ -1,0 +1,309 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "trog-01",
+  "title": "TROG-01 Troglodyte Pygmy readability set: 16 frames (6 draft keys at 0, 3, 8, 10, 12, 15; the other slots are copies)",
+  "grid": "assets/source/characters/troglodyte/trog_01.grid.json",
+  "manifest": "assets/manifests/trog-01.json",
+  "frame_size": [
+    80,
+    56
+  ],
+  "pivot": [
+    30,
+    55
+  ],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          12
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          2,
+          12
+        ]
+      ]
+    },
+    "walk": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          6
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          6,
+          6
+        ]
+      ]
+    },
+    "attack_tell": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          7,
+          6
+        ],
+        [
+          8,
+          18
+        ]
+      ]
+    },
+    "attack_leap": {
+      "playback": "once",
+      "contact": "airborne",
+      "frames": [
+        [
+          9,
+          3
+        ],
+        [
+          10,
+          6
+        ]
+      ]
+    },
+    "attack_land": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          11,
+          14
+        ]
+      ]
+    },
+    "hurt": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          12,
+          12
+        ]
+      ]
+    },
+    "down": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          13,
+          4
+        ],
+        [
+          14,
+          8
+        ],
+        [
+          15,
+          null
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "idle",
+    "move": "walk",
+    "tell": "attack_tell",
+    "attack": "attack_leap",
+    "hurt": "hurt",
+    "defeat": "down"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": false,
+    "manifest_tick_rows": "pygmy.frames",
+    "manifest_tick_hz": "pygmy.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/trog-01_keys.json",
+      "frames": [
+        0,
+        3,
+        8,
+        10,
+        12,
+        15
+      ],
+      "layers": [
+        "body"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "size-idle-40px",
+        "frames": [
+          0
+        ],
+        "top": 16,
+        "bottom": 55
+      },
+      {
+        "id": "R-walk-lower-than-idle",
+        "frames": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "min_top": 18
+      },
+      {
+        "id": "R-tell-lowest-grounded-upright",
+        "frames": [
+          7,
+          8,
+          11
+        ],
+        "min_top": 22,
+        "max_width": 44
+      },
+      {
+        "id": "R-leap-clear-of-floor",
+        "frames": [
+          9,
+          10
+        ],
+        "max_bottom": 52,
+        "max_top": 22
+      },
+      {
+        "id": "R-hurt-tallest",
+        "frames": [
+          12
+        ],
+        "max_top": 14
+      },
+      {
+        "id": "R-down-stays-low",
+        "frames": [
+          13,
+          14,
+          15
+        ],
+        "min_top": 32,
+        "max_width": 50
+      }
+    ],
+    "key_counts": [
+      {
+        "id": "R1-idle-eye-red",
+        "frames": [
+          0,
+          1,
+          2
+        ],
+        "key": "e",
+        "min": 1
+      },
+      {
+        "id": "R2-tell-mouth-open",
+        "frames": [
+          8
+        ],
+        "key": "o",
+        "min": 8
+      },
+      {
+        "id": "R3-leap-mouth-open",
+        "frames": [
+          10
+        ],
+        "key": "o",
+        "min": 8
+      },
+      {
+        "id": "R5-hurt-no-red-eye",
+        "frames": [
+          12
+        ],
+        "key": "e",
+        "max": 0
+      },
+      {
+        "id": "R5-down-no-red-eye",
+        "frames": [
+          13,
+          14,
+          15
+        ],
+        "key": "e",
+        "max": 0
+      },
+      {
+        "id": "R5-down-tongue",
+        "frames": [
+          15
+        ],
+        "key": "q",
+        "min": 3
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "attack_tell",
+      "attack_leap",
+      "attack_land"
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520
+      },
+      {
+        "frame": 8,
+        "x": 580
+      },
+      {
+        "frame": 10,
+        "x": 640,
+        "lift": 8
+      },
+      {
+        "frame": 12,
+        "x": 700
+      },
+      {
+        "frame": 3,
+        "x": 760
+      },
+      {
+        "frame": 15,
+        "x": 820
+      }
+    ]
+  }
+}

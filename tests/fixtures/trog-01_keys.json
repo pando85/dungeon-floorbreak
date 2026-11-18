@@ -1,0 +1,27 @@
+{
+  "asset_id": "trog-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "9e964430dbb593e675a4d80dbc1b9aeb2720e1349bfc03d23b73e3ea0a9a82b8"
+    },
+    "10": {
+      "sha256": "2a27898044359274a3e5dcddfea2aa735587796eaee6046a8cbaaf93d25e72fe"
+    },
+    "12": {
+      "sha256": "9f4962cc564406c1a07965bb2aec37293a464f98cc53191f44558d4b08e021e4"
+    },
+    "15": {
+      "sha256": "90d9cbb831970b67a3d4d354e82b7d4faa5ad56ff515788a510d6ae2ee9eb91f"
+    },
+    "3": {
+      "sha256": "aea98f8c7fefed889a6e3fe2537dcf3eaec7b70562b8d3c780908dd9685d573b"
+    },
+    "8": {
+      "sha256": "fe29b04974eee1b7598b39152f8f6e4090fa0682ca7a6ffdb2f2ac052a9a47ac"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
