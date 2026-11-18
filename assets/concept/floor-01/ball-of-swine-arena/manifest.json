@@ -2,7 +2,7 @@
   "schema": "the-crawl-concept-image-manifest-v1",
   "project": "THE CRAWL — NO PANTS. NO MERCY.",
   "status": "owner-preferred revised arena layout direction; previous panorama and action/exploration studies retained; not production-ready art or approved gameplay",
-  "source": "Original OpenAI-generated concept PNG files from 2026-11-18 project design conversation; exact original bytes supplied in PR #77 Hermes handoff; commit unchanged and verify before calling manifest uploaded.",
+  "source": "Original OpenAI-generated concept PNGs from the 2026-11-18 project design conversation. Uploaded without modification by Hermes to PR #77; Git blob SHA-1, SHA-256, byte lengths and dimensions independently verified against the original files and handoff ZIP on 2026-11-18.",
   "assets": [
     {
       "path": "assets/concept/floor-01/ball-of-swine-arena/01-arena-overview.png",
