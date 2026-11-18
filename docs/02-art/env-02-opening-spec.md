@@ -249,6 +249,15 @@ The independent review (a separate Claude Opus, verdict PASS WITH EXECUTION ITEM
 4. **Data:** both layouts validate; the ids are IP-neutral; state groups share rects; the strike is outside the hazard; the protected exit is clear (all tested).
 5. **Palette:** no new colours; each atlas has at most 63.
 
+## Owner decision (2026-11-18)
+
+The owner accepted ENV-02 as drawn after the review fix round:
+
+- The full-height barricade posts stay as they are (faint at 1x is accepted).
+- The frozen shore keys are accepted unchanged (review note D2: the grain pre-announces the d2 split; the fallen upper shaft is short and has no head plate).
+- The softened corners of the seated block are accepted (review note D3).
+- The chase ceiling uses option **R** (212 px clearance); option T stays as an unused alternative layout.
+
 ## Known weak spots
 
 - **Barricade:** the full-height variant crosses the walking lane (96×280, design fix round), has the task 9 plank rhythm, and shows its two posts through the board gaps (review fix round). The 96x176 pair is **deprecated** (background only, see below).
