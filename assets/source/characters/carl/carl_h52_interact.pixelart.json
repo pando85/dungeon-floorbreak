@@ -1,8 +1,9 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "anim-interact-01-carl",
-  "title": "ANIM-INTERACT-01 Carl 52 px interact keys (design phase; in-betweens are key copies)",
+  "title": "ANIM-INTERACT-01 Carl 52 px interact keys (keys frozen, all in-betweens drawn)",
   "grid": "assets/source/characters/carl/carl_h52_interact.grid.json",
+  "manifest": "assets/manifests/carl_book1_h52_interact.json",
   "frame_size": [
     48,
     56
@@ -86,7 +87,7 @@
   "rules": {
     "max_colors": 23,
     "max_isolated_per_frame": 0,
-    "unique_frames": false,
+    "unique_frames": true,
     "frozen_keys": {
       "fixture": "tests/fixtures/anim-interact-01-carl_keys.json",
       "frames": [
@@ -108,7 +109,13 @@
         "watch",
         "pin"
       ]
-    }
+    },
+    "canvas_margin": [
+      1,
+      1,
+      1,
+      0
+    ]
   },
   "review": {
     "strip_tags": [
@@ -116,5 +123,22 @@
       "interact_floor",
       "interact_push"
     ]
+  },
+  "anchors": {
+    "note": "far hand centre while a picked-up item is carried, pivot-relative (x forward, y up from the floor), frame index -> [x, y]; the runtime attaches the item here from the contact tick on",
+    "carried_item_hand": {
+      "5": [
+        16,
+        5
+      ],
+      "6": [
+        12,
+        15
+      ],
+      "7": [
+        11,
+        19
+      ]
+    }
   }
 }

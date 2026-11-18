@@ -1,18 +1,19 @@
 # ANIM-INTERACT-01: Carl and Princess Donut interact animations, design spec
 
-**Status:** design phase: spec and key poses drawn, silhouette gate passed after one key-fix round (section 11), keys frozen; in-betweens are still copies of their nearest key and are drawn in the execution phase; independent review and owner review pending. Nothing is wired into a Bevy binary. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
+**Status:** execution phase done: all 12 Carl and 8 Donut frames drawn (six frozen keys untouched, in-betweens authored from the table in section 5), grids, `.ase` sources, manifests, atlas export, tests and evidence delivered (section 12); independent review and owner review pending. Nothing is wired into a Bevy binary. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)). No reuse licence, no game or asset-pack distribution right.
 
 Read with: [MVP controller contract](../01-design/mvp-controller-contract.md) (Interact row, R1/RB), [asymmetric traversal and gates](../01-design/asymmetric-traversal-and-gates.md), [antihero tone](../01-design/antihero-tone.md), [Carl bible](carl-character-bible.md), [Donut bible](donut-character-bible.md), [ANIM-CARL-02 melee spec](carl-melee-anim-02-spec.md) (structure, helpers and identity rules this spec inherits), [pixel-art pipeline](../07-agents/pixel-art-pipeline.md).
 
 | File | Role |
 | --- | --- |
-| `assets/source/characters/carl/carl_h52_interact.grid.json` | pixel-grid-v1 source, 12 frames (keys at 1, 2, 5, 9) |
+| `assets/source/characters/carl/carl_h52_interact.grid.json` | pixel-grid-v1 source, 12 frames (keys at 1, 2, 5, 9; the rest drawn) |
 | `assets/source/characters/donut/donut_h40_interact.grid.json` | pixel-grid-v1 source, 8 frames (keys at 1, 5) |
 | `assets/source/characters/{carl/carl_h52,donut/donut_h40}_interact.ase` | built from the grids by `scripts/pixel_grid_to_ase.py` |
 | `assets/source/characters/{carl/carl_h52,donut/donut_h40}_interact.pixelart.json` | toolkit configs: the **machine-readable tick contract** (`tags.*.frames` = `[frame, ticks]`), frozen-key rule |
+| `assets/manifests/{carl_book1_h52,donut_h40}_interact.json` | export manifests: atlas and metadata paths, tick contract (`interact.moves`), stand-off distances, contact boxes, carried-item hand anchors |
 | `scripts/author_interact01.py` | deterministic authoring record (`--check`, `--evidence`) |
 | `tests/test_art_interact01.py`, `tests/fixtures/anim-interact-01-{carl,donut}_keys.json` | contract tests and the frozen keys |
-| `docs/evidence/anim-interact-01/keys-scale.png`, `keys-scale-x4.png` | the keys at 1× on lit Floor 1 with placeholder props, and a 4× copy |
+| `docs/evidence/anim-interact-01/` | contact sheets, GIFs per verb, Floor 1 scene composites at 1× and 3×, timing diagram, keys at 1× (see its `README.md`, `SHA256SUMS`) |
 
 ## 1. Scope and acting brief
 
@@ -119,7 +120,7 @@ Construction (same rules as ANIM-CARL-02 section 9): Carl's hair, head, torso, j
 | n2 | n1 hold | head (+3, +10), tail tip 1 px up |
 | n3 | n2 → idle | head (+1, +4) |
 
-After the in-betweens: set `unique_frames` to `true` in both configs, replace `test_inbetweens_are_key_copies_in_the_design_phase` with per-frame checks of this table, add per-tag GIFs with `python3 -m scripts.pixelart evidence`, and add a contact sheet and `SHA256SUMS` to the evidence folder.
+Done in the execution phase (section 12): `unique_frames` is `true` in both configs, the design-phase "in-betweens are key copies" test is replaced by per-frame checks of this table, GIFs and contact sheets come from `python3 -m scripts.pixelart evidence`, and the evidence folder has a contact sheet and `SHA256SUMS`.
 
 ## 6. State flow
 
@@ -161,7 +162,7 @@ Per [routing by difficulty](../07-agents/pixel-art-pipeline.md#routing-by-diffic
 
 ## 10. Rights and provenance
 
-Derived from the owner-approved Carl 52 px master (via the ANIM-CARL-01 locomotion canvas) and the owner-approved Donut 40 px master (via her locomotion canvas); master parts translated only, new parts hand-placed or rasterised by `scripts/author_interact01.py`. No image-model raster output, no tracing, no third-party assets. The placeholder lever, switch, crate and item rectangles in the evidence are context only, not art. Spec and keys: Claude Opus.
+Derived from the owner-approved Carl 52 px master (via the ANIM-CARL-01 locomotion canvas) and the owner-approved Donut 40 px master (via her locomotion canvas); master parts translated only, new parts hand-placed or rasterised by `scripts/author_interact01.py`. No image-model raster output, no tracing, no third-party assets. The placeholder lever, switch, crate and item rectangles in the evidence are context only, not art. Spec and keys: Claude Opus. In-betweens, export, tests and evidence: Claude Sonnet (executor).
 
 ## 11. Silhouette gate (key-fix round)
 
@@ -175,3 +176,19 @@ Independent gate on the six keys: verdict **FIX-KEYS**. Tone and fidelity to the
 6. Stand-off tolerance for Donut set to ±2 px; the other section 7 proposals stand.
 
 No further gate before execution; the blind review re-checks the keys.
+
+## 12. Execution phase result
+
+**Delivered.** Carl u0, u3, p0, p2, p3, s0, s2, s3 and Donut d0, d2, d3, n0, n2, n3 are authored in `scripts/author_interact01.py` from master pixels (translated), the ANIM-CARL-02 helpers and rasterised tubes; no prop pixels, no image-model output, no tracing. The six keys are pixel-identical to the fixtures (V09). Both toolkit configs pass all configured validators (`unique_frames` true, `canvas_margin` `[1, 1, 1, 0]`, frozen keys, grounded rows, orphan-free); limits were not raised. The atlases export with `scripts/export_assets.sh` (`generated/art/{carl_book1_h52,donut_h40}_interact.{png,json}`) and `scripts/validate_assets.py` accepts both manifests.
+
+**Decisions taken while drawing (all inside the frozen keys and the table; none changes a key pixel):**
+
+1. **Donut n2 head is (+2, +11), not the table's (+3, +10).** At +3 the head outline sits on column 71, the frame's right edge, which section 2 and acceptance target 1 require empty. The push through reads as a 1 px lower, firmer press plus the tail flick. If the designer wants the forward 1 px back, the Donut canvas would have to grow by one column in every Donut interact frame (a pivot change versus locomotion), so it was not done. **Open question for the designer.**
+2. **n2 tail flick:** the tail tip is stretched 1 px up (rows 14 and above move up one row, row 14 is repeated). Everything from row 15 down is the master tail.
+3. **s2 back heel 1 px lower:** the back Croc toe stamp loses its top (heel) row and the leg ends 1 px lower; the bottom row stays on the pivot row. s2 skips the orphan cleanup pass so its arm pixels are s1's exactly ("fists unchanged").
+4. **Feet.** No root motion. The small foot shuffles that remain: u0 front Croc x28 (idle 27, u1 29); u3 returns to the idle x15/x27; p0 back Croc flat x17 and front x29, p2 back toe x20, p3 x16/x28; s0 back Croc flat x11 (4 px behind idle), front x31; s3 x14/x30. A test limits any frame-to-frame jump of a Croc's left edge inside a verb to 4 px. p3 and s3 are 1 and 3 px from the idle feet, so the return to idle pops by that much unless gameplay holds the idle foot offset (a gameplay or integration note, not an art defect).
+5. **Hand anchors for a carried item** (pivot-relative, y up, far hand centre): p1 (+16, 5), p2 (+12, 15), p3 (+11, 19). Recorded in `carl_h52_interact.pixelart.json` (`anchors.carried_item_hand`, keyed by frame index 5, 6, 7) and in the manifest; a test measures them from the grid. p3 stands up, so the item rides at the standing hip, 4 px higher than at p2.
+6. **d3 is the master idle frame 0** exactly (the table: paw on the floor, head at idle); it is unique within the interact atlas, so V12 passes.
+7. **n0, n2, n3 collar:** the collar pixels covered by the lowered head are dropped as in n1.
+
+**Not done / still open:** no review yet; nothing is wired into Bevy; whether an interrupted push still applies its impulse (section 3) stays a gameplay decision. The p0 half squat keeps the near hand mostly behind the jacket edge (the reach to the knee is told by the arm angle); the reviewer may want it more visible.

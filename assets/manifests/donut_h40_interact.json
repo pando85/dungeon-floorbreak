@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "id": "donut_h40_interact_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/donut/donut_h40_interact.ase",
+  "grid_source": "assets/source/characters/donut/donut_h40_interact.grid.json",
+  "output_atlas": "generated/art/donut_h40_interact.png",
+  "output_metadata": "generated/art/donut_h40_interact.json",
+  "palette_id": "donut-floor1-v0",
+  "frame_size": [
+    72,
+    44
+  ],
+  "pivot": [
+    46,
+    43
+  ],
+  "animation_tags": [
+    "interact_paw",
+    "interact_nudge"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored pixel animation candidate (fan-concept layer: Princess Donut -> caster)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ANIM-INTERACT-01 Donut interact set derived from the owner-approved 40 px master assets/source/characters/donut/donut_h40.grid.json (via the approved ANIM-DONUT-01 72 x 44 canvas): tail, body, head, face, tiara and collar pixels are her idle frame's own pixels, translated only (the n2 tail tip is stretched 1 px); the tapping foreleg is rasterised and shaded with her cream ramp by scripts/author_interact01.py; no prop pixels in any frame",
+    "generator": "Spec and 2 key poses: Claude Opus (hand-placed pixel rules). 6 in-betweens, export, tests and evidence: Claude Sonnet, composed by scripts/author_interact01.py; no image-model raster output, no resampling, no rotation of master pixels",
+    "generated_art": true,
+    "input_reference_ids": [
+      "DONUT-CONCEPT-EVOLUTION-V1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "interact": {
+    "status": "keys frozen, 6 in-betweens drawn, independent review pending; 8 frames, 2 of them frozen keys; not wired into any Bevy binary",
+    "spec": "docs/02-art/interact-anim-01-spec.md",
+    "master": "assets/manifests/donut_scale_h40.json",
+    "locomotion": "assets/manifests/donut_h40_locomotion.json",
+    "tick_hz": 60,
+    "grounded_tags": [
+      "interact_paw",
+      "interact_nudge"
+    ],
+    "airborne_tags": [],
+    "playback": {
+      "interact_paw": "once",
+      "interact_nudge": "once"
+    },
+    "root_motion": "none (velocity zero during every verb; gameplay positions the actor at the stand-off distance first)",
+    "keys": {
+      "d1_contact": 1,
+      "n1_contact": 5
+    },
+    "stand_off_px": {
+      "note": "pivot to the prop's near face; tolerance +-2 px (her contact pixels are only 1-2 px deep)",
+      "interact_paw": 18,
+      "interact_nudge": 21
+    },
+    "contact_boxes_px": {
+      "note": "Art contact in sprite pixels relative to the pivot, facing right: x forward, y up from the floor, inclusive; measured from the keys by tests/test_art_interact01.py. A guide for gameplay data, not authoritative collision.",
+      "d1_contact": {
+        "paw": [
+          16,
+          5,
+          21,
+          10
+        ]
+      },
+      "n1_contact": {
+        "muzzle_and_cheek": [
+          19,
+          7,
+          24,
+          25
+        ]
+      }
+    },
+    "moves": {
+      "interact_paw": {
+        "role": "low switch or small item on a step, one front paw; a cat never grips or pulls",
+        "total_ticks": 26,
+        "contact_tick": 6,
+        "effect_on": "contact tick (never on the press)",
+        "frames": [
+          {
+            "name": "d0 paw lifts",
+            "ticks": [
+              0,
+              5
+            ],
+            "phase": "startup",
+            "key": false
+          },
+          {
+            "name": "d1 paw pats",
+            "ticks": [
+              6,
+              11
+            ],
+            "phase": "contact",
+            "key": true
+          },
+          {
+            "name": "d2 paw lifts off",
+            "ticks": [
+              12,
+              19
+            ],
+            "phase": "recovery",
+            "key": false
+          },
+          {
+            "name": "d3 back to idle",
+            "ticks": [
+              20,
+              25
+            ],
+            "phase": "recovery",
+            "key": false
+          }
+        ]
+      },
+      "interact_nudge": {
+        "role": "small item or floor plate, muzzle and forehead",
+        "total_ticks": 34,
+        "contact_tick": 8,
+        "effect_on": "contact tick (never on the press)",
+        "frames": [
+          {
+            "name": "n0 head lowers",
+            "ticks": [
+              0,
+              7
+            ],
+            "phase": "startup",
+            "key": false
+          },
+          {
+            "name": "n1 muzzle on item",
+            "ticks": [
+              8,
+              15
+            ],
+            "phase": "contact",
+            "key": true
+          },
+          {
+            "name": "n2 push through",
+            "ticks": [
+              16,
+              25
+            ],
+            "phase": "active",
+            "key": false
+          },
+          {
+            "name": "n3 head up",
+            "ticks": [
+              26,
+              33
+            ],
+            "phase": "recovery",
+            "key": false
+          }
+        ]
+      }
+    }
+  }
+}

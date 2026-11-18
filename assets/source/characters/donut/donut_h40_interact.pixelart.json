@@ -1,8 +1,9 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "anim-interact-01-donut",
-  "title": "ANIM-INTERACT-01 Princess Donut 40 px interact keys (design phase; in-betweens are key copies)",
+  "title": "ANIM-INTERACT-01 Princess Donut 40 px interact keys (keys frozen, all in-betweens drawn)",
   "grid": "assets/source/characters/donut/donut_h40_interact.grid.json",
+  "manifest": "assets/manifests/donut_h40_interact.json",
   "frame_size": [
     72,
     44
@@ -64,7 +65,7 @@
   "rules": {
     "max_colors": 22,
     "max_isolated_per_frame": 0,
-    "unique_frames": false,
+    "unique_frames": true,
     "frozen_keys": {
       "fixture": "tests/fixtures/anim-interact-01-donut_keys.json",
       "frames": [
@@ -80,7 +81,13 @@
         "face",
         "gear"
       ]
-    }
+    },
+    "canvas_margin": [
+      1,
+      1,
+      1,
+      0
+    ]
   },
   "review": {
     "strip_tags": [
