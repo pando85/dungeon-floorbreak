@@ -1,0 +1,313 @@
+{
+ "note": "Frozen Opus keys of ENV-02 (design phase 1, commits 845cee2..add2ce2). Never edit. sha256 = SHA-256 of the piece rect's RGBA bytes (row-major, transparent = 00000000) decoded from the committed pixel-grid-v1 source of its atlas (cels.main, frame 0). 'polished' lists the two keys the spec's Sonnet task 3 explicitly asks to polish: they keep rect, anchor and layer; their Opus-key hash is kept for the record and the polished hash is frozen as well. Design fix round (Claude Opus, after the independent review): the four shore_post_* keys were re-keyed on a new rotten foot (warm wood, eaten outline, narrowed strike band, pale fibres, crumbling base); shore_post_damaged_1 is now a frozen Opus key (it includes the 1x-readable notch). timber_barricade_full_* was redesigned to cross the walking lane (96x280) and is not frozen: Sonnet polishes its plank rhythm.",
+ "frozen": {
+  "shore_post_intact": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    0,
+    0,
+    136,
+    144
+   ],
+   "anchor": [
+    16,
+    138
+   ],
+   "layer": "prop",
+   "sha256": "260c67f445a0377c27f1e9adecaa8cb91eb971b69cc73b457cf46fb83a2aaba2"
+  },
+  "shore_post_damaged_1": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    136,
+    0,
+    136,
+    144
+   ],
+   "anchor": [
+    16,
+    138
+   ],
+   "layer": "prop",
+   "sha256": "92b3e99ab0152694d24293df240bf2ea803077da9ccb8cf91c3fba4610a3b23c"
+  },
+  "shore_post_damaged_2": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    272,
+    0,
+    136,
+    144
+   ],
+   "anchor": [
+    16,
+    138
+   ],
+   "layer": "prop",
+   "sha256": "f7e0c6a34a448ebca8b50fe8b21acdf2c120d2e1e24a54ee986d34e39e76a845"
+  },
+  "shore_post_broken": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    0,
+    144,
+    136,
+    144
+   ],
+   "anchor": [
+    16,
+    138
+   ],
+   "layer": "prop",
+   "sha256": "b3e09537a60eaeea4ae904b69e284afc92f2c7fbee098bc1a22e8198c8917dea"
+  },
+  "loose_block_seated": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    136,
+    144,
+    64,
+    56
+   ],
+   "anchor": [
+    32,
+    48
+   ],
+   "layer": "prop",
+   "sha256": "51bd93cd59e9b99c1acbe5e0b39b79324debdab3e781b49403cbd1ca52124821"
+  },
+  "loose_block_settling": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    200,
+    144,
+    64,
+    56
+   ],
+   "anchor": [
+    32,
+    48
+   ],
+   "layer": "prop",
+   "sha256": "790751e466012c30467535a38e8011cfa297adf703645f09de935dacf60f133b"
+  },
+  "loose_block_slipped": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    264,
+    144,
+    64,
+    56
+   ],
+   "anchor": [
+    32,
+    48
+   ],
+   "layer": "prop",
+   "sha256": "20cdcb6590a7633585ed14dc07391a65df9ca4b202d4dd2f31e222de4887d81b"
+  },
+  "loose_block_falling": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    328,
+    144,
+    72,
+    64
+   ],
+   "anchor": [
+    36,
+    52
+   ],
+   "layer": "prop",
+   "sha256": "99a50a21f64dbc559107cdbcc955c14d3e35c325884c33d1f5aeacbddf245cab"
+  },
+  "timber_set_intact": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    96,
+    288,
+    80,
+    104
+   ],
+   "anchor": [
+    40,
+    104
+   ],
+   "layer": "prop",
+   "sha256": "dffdf092ee3f31df4fa9e4cb424411c20bf61f2bd990371665097b5d33f33387"
+  },
+  "timber_set_smashed": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    176,
+    288,
+    80,
+    104
+   ],
+   "anchor": [
+    40,
+    104
+   ],
+   "layer": "prop",
+   "sha256": "a02ece4b6adbd44827535427ad53f42ac979acd1a78afa454e9eb787072d6480"
+  },
+  "timber_barricade_intact": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    256,
+    288,
+    96,
+    176
+   ],
+   "anchor": [
+    48,
+    176
+   ],
+   "layer": "prop",
+   "sha256": "be96025cf994321843dc4541956ee6175c03efb56b985598979a56201897cafc"
+  },
+  "timber_barricade_smashed": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    352,
+    288,
+    96,
+    176
+   ],
+   "anchor": [
+    48,
+    176
+   ],
+   "layer": "prop",
+   "sha256": "65bbd0c8ad5a20b0169d43048ab7872c4bdcaa825e7e011e006f69dc29dab25c"
+  },
+  "maint_hatch": {
+   "atlas": "floor01_opening_props",
+   "rect": [
+    448,
+    288,
+    32,
+    32
+   ],
+   "anchor": [
+    0,
+    0
+   ],
+   "layer": "prop",
+   "sha256": "57757435f6465d41b18ec1a4ef46004d97a325508190d72a37b88e6550799cd7"
+  },
+  "alcove_niche": {
+   "atlas": "floor01_opening_decal",
+   "rect": [
+    0,
+    0,
+    96,
+    96
+   ],
+   "anchor": [
+    48,
+    96
+   ],
+   "layer": "backwall_decal",
+   "sha256": "148871237d358e0e31647e69082576fd344a472fa9ee9a683e289f23c291e233"
+  },
+  "wall_cavity": {
+   "atlas": "floor01_opening_decal",
+   "rect": [
+    96,
+    0,
+    80,
+    64
+   ],
+   "anchor": [
+    8,
+    8
+   ],
+   "layer": "backwall_decal",
+   "sha256": "81124511a397c6ee6e866522997e249422fc64bd02393a735e2176b836bfd3b4"
+  },
+  "guild_portal_closed": {
+   "atlas": "floor01_guild",
+   "rect": [
+    0,
+    0,
+    112,
+    136
+   ],
+   "anchor": [
+    56,
+    136
+   ],
+   "layer": "prop",
+   "sha256": "4d6cee1c0c69581d085b629e5c1779ca61e5b0d8438fefa4ce21086610d07bda"
+  },
+  "guild_sign": {
+   "atlas": "floor01_guild",
+   "rect": [
+    224,
+    0,
+    40,
+    44
+   ],
+   "anchor": [
+    0,
+    2
+   ],
+   "layer": "prop",
+   "sha256": "7a7b5dbcb179050737776891ad5e564d85aa47955478069f80e244e8f058f619"
+  }
+ },
+ "polished": {
+  "loose_block_landed": {
+   "reason": "ENV-02 spec Sonnet task 3 (fix round: halves ~44x28 and ~40x26 plus brick spill, >= 2000 px); re-polished in the review fix round E4 (independent Opus review, 2026-11-18): angular broken stone with flat lit faces, opaque area still >= 2000 px, hash updated",
+   "opus_key_sha256": "9a4ffb60b122b1765e5504e57c2d213484238494d94317bb6dd492f63961d2ac",
+   "sha256": "80be09e2e7e15b949b3415386d197373d662b3cc533bad82370d1d08590718ea",
+   "rect": [
+    400,
+    144,
+    96,
+    32
+   ],
+   "anchor": [
+    48,
+    30
+   ],
+   "atlas": "floor01_opening_props",
+   "layer": "prop"
+  },
+  "hazard_grit": {
+   "reason": "ENV-02 fix round (Opus review): 18-22 % coverage, 2x2 pale chips and a scuff line, densest under the block, hard ends at the fall region",
+   "opus_key_sha256": "2f57a3771dc289b9d0e15b59de29cef150c15cbe12e9d063e934399311eab4af",
+   "sha256": "1843c4e8840108367149cbd025438da9c7f34ffcc0ce87e2fc62449ff2f94c96",
+   "rect": [
+    0,
+    288,
+    96,
+    16
+   ],
+   "anchor": [
+    48,
+    8
+   ],
+   "atlas": "floor01_opening_props",
+   "layer": "prop"
+  },
+  "guild_portal_open": {
+   "reason": "ENV-02 fix round (Opus review): no gal_warm furnace; glow only on the lamp and the threshold strip",
+   "opus_key_sha256": "c3e484b8e823ef7bbd7a2b8c837a761777381af32d988a0754bc435b6c1ff899",
+   "sha256": "82d97401da884c94c5e4dc90260cc2cb5ba05fd760bdea59b1d6eb828a96f112",
+   "rect": [
+    112,
+    0,
+    112,
+    136
+   ],
+   "anchor": [
+    56,
+    136
+   ],
+   "atlas": "floor01_guild",
+   "layer": "prop"
+  }
+ }
+}
