@@ -141,7 +141,7 @@ Conclusions:
 
 ## 7. Wave 2 results (2026-11-18)
 
-Same estimate method as section 5 (see [cost-ledger.csv](cost-ledger.csv)); the shared packet stage is not included, except that VFX-01's packet row (0.52 USD) is in its medium-tier total. Eight assets are merged (PRs #68, #69, #70, #73, #75, #76, #81, #82); JUICE-01 (#74) and TROG-03 (#84) were ready and merging on green CI when this was written. AUDIO-01 (3.93 USD, an integration and code-review job, not an art asset) is left out of the table. Every asset had a silhouette gate, and every gate returned FIX-KEY0 or FIX-KEYS, so the Gate column lists what it caught.
+Same estimate method as section 5 (see [cost-ledger.csv](cost-ledger.csv)); the shared packet stage is not included, except that VFX-01's packet row (0.52 USD) is in its medium-tier total. All ten assets are merged (PRs #68, #69, #70, #73, #74, #75, #76, #81, #82, #84). AUDIO-01 (3.93 USD, an integration and code-review job, not an art asset) is left out of the table. Every asset had a silhouette gate, and every gate returned FIX-KEY0 or FIX-KEYS, so the Gate column lists what it caught.
 
 USD per frame divides the total by the frames in the atlas. TUSK-01 delivers two 16-frame atlases (tux and gown) from one set of keys, so it is counted as 16 frames (0.48 USD per frame); counted as 32 delivered frames it is 0.24.
 
