@@ -298,7 +298,7 @@ def burst_flash() -> list[str]:
     # compressed core, and the outward read comes from dark iron and stone debris thrown at different distances.
     for cx, cy, r, sd in ((17.5, 19.5, 4.0, 12), (30.5, 17.5, 3.5, 13), (29.5, 30.0, 3.0, 14)):
         c.blob(cx, cy, r, sd, 0.20, fire_pick(-1.0, -1.0, 0.45, 0.80, white=-1.0))   # core -1: grit never makes a G ring
-    c.blob(CX, CY, 8.5, 11, 0.20, fire_pick(0.34, 0.60, 0.84, 0.95, white=0.12), lobes=5)
+    c.blob(CX, CY, 8.5, 11, 0.20, fire_pick(0.34, 0.60, 0.84, 0.95, white=0.19), lobes=5)
     for x, y, k, hz in ((9, 13, "K", True), (37, 12, "q", True), (11, 33, "q", False), (36, 33, "K", False),
                         (22, 7, "K", False), (27, 39, "q", True), (6, 22, "q", True)):
         chunk(c, x, y, k, hz)
@@ -312,12 +312,12 @@ def burst_peak() -> list[str]:
     c = Canvas()
 
     def smoke(t, dx, dy, x, y):
-        if t > 0.80 and (x + y) % 2:                                   # ragged, see-through smoke edge
+        if t > 0.80 and (x // 2 + y // 2) % 2:                                   # ragged, see-through smoke edge
             return None
         up = -dy / 14.0                                                # lit from the upper left
         side = -dx / 14.0
         v = up * 0.6 + side * 0.4 + ((h2(x, y, 4) % 100) / 100.0 - 0.5) * 0.5
-        return "Q" if v > 0.48 else "c" if v > 0.0 else "s"
+        return "Q" if v > 0.40 else "c" if v > 0.0 else "s"
 
     # Design edit: smoke rises (lobes sit above and beside the fire, none under it), the fireball is smaller
     # and lumpier so it reads as a burning cloud rather than a round ball, and the total mass is lighter.
@@ -342,8 +342,8 @@ def smoke_fade() -> list[str]:
 
     def puff(t, dx, dy, x, y):
         v = (-dy - dx * 0.6) / 8.0 + ((h2(x, y, 6) % 100) / 100.0 - 0.5) * 0.45
-        k = "Q" if v > 0.7 else "c" if v > -0.1 else "s"
-        if t > 0.78 and (x + y) % 2:                                      # ragged edge: dither, never a solid rim
+        k = "Q" if v > 0.6 else "c" if v > -0.1 else "s"
+        if t > 0.78 and (x // 2 + y // 2) % 2:                                      # ragged edge: dither, never a solid rim
             return None
         return k
 
@@ -364,10 +364,10 @@ PEAK_SMOKE = ((15, 15, 6.0, 21), (30, 11, 6.5, 22), (23, 8, 6.0, 25), (37, 21, 5
 
 
 def smoke_pick(t, dx, dy, x, y, dither: float = 0.80):
-    if t > dither and (x + y) % 2:
+    if t > dither and (x // 2 + y // 2) % 2:
         return None
     v = -dy / 14.0 * 0.6 + -dx / 14.0 * 0.4 + ((h2(x, y, 4) % 100) / 100.0 - 0.5) * 0.5
-    return "Q" if v > 0.48 else "c" if v > 0.0 else "s"
+    return "Q" if v > 0.40 else "c" if v > 0.0 else "s"
 
 
 def patch_pick(t, dx, dy, x, y):

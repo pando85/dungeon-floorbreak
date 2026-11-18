@@ -115,7 +115,7 @@ Four free slots. The emissive keys for the A1 lighting contract would be `r o g 
 | Atlas frame | Tag / index | Key | What is drawn |
 | --- | --- | --- | --- |
 | 0 | `bomb_flight` 0 | key | The Bard's 7 x 7 iron bomb centred on the pivot, a brass cap and a curled `n` fuse cord, a 5 x 5 spark crown (`Y` core, `e` halo) on the tip, three soot-violet motion streaks behind and a short ember trail (`o`, `m`). |
-| 3 | `burst` 0, flash | key | Compressed lumpy core (radius about 8.5 px, five lobes; `w` 3 px, `G` 23 px), `g o r m` ramp, three uneven `o r m` fire tongues bulging out of it, seven 2 px soot/iron debris chunks and three `o` grit chunks thrown at different distances. **No radial spikes.** The hottest frame of the effect. 308 px. |
+| 3 | `burst` 0, flash | key | Compressed lumpy core (radius about 8.5 px, five lobes; `w` 9 px in one compact irregular patch, `G` 16 px), `g o r m` ramp, three uneven `o r m` fire tongues bulging out of it, seven 2 px soot/iron debris chunks and three `o` grit chunks thrown at different distances. **No radial spikes.** The hottest frame of the effect. 308 px. |
 | 5 | `burst` 2, peak | key | A lumpy fire cloud about 24 px wide (`G` 21 px core, `g`, `o`, `r`, `m` rim) inside rising dark-violet smoke (five lobes above and beside the fire, none under it, ragged dithered edges, `Q` tops lit from the upper left), with two smoke rolls over the fire's crown; debris and ember chunks. **No `w`.** 772 px, bbox 38 x 39. |
 | 10 | `burst` 7, smoke fade | key | Six ragged, dithered smoke puffs (`Q c s`) rising from the centre, a few dying 2 px embers and falling debris. No `w`, `G` or `g`. 468 px. |
 
@@ -192,7 +192,7 @@ Ambiguities: (a) section 11 asks frame 6 for "radius 15"; read as the whole burs
 
 ## 18. Review fixes (blind review, execution items)
 
-Reviewer-prescribed; the four keys 0, 3, 5 and 10 are not changed, so the freeze fixture is unchanged.
+Reviewer-prescribed. Items 1 to 8 leave the four keys unchanged; items 9 and 10 (fix-check) re-freeze keys 3, 5 and 10.
 
 1. **Bomb:** frames 1 and 2 swap to the order 0, 2, 1 (forward tumble for a right-facing throw), the cord is 2 px shorter with one `b` pixel so the spark stays attached on the warm floor.
 2. **Frame 7:** one solid off-centre `g` patch, no ring; fire seed and amplitude changed for a broken outline (section 11 wording amended).
@@ -202,4 +202,6 @@ Reviewer-prescribed; the four keys 0, 3, 5 and 10 are not changed, so the freeze
 6. **Evidence:** `docs/evidence/vfx-01/scene_no_lighting_1920x1080.png` (`python3 scripts/author_vfx01.py no-lighting`, A1 pass off); the review-pack lit scene now shows the peak behind Carl and the effects 8 px above the walking line with no ground shadows (`scene.shadow: false`; the toolkit scene gained a per-actor `behind` flag and an unlit option).
 7. **Gameplay recommendation (replaces the 18 to 22 px range of section 8):** a damage radius of about 16 px, at most 18, because the drawn fire is about 24 x 22 px and the fire plus side smoke about 30 px wide. For 20 px or more the peak fire would need to grow to about 30 px wide.
 8. **Deferred top-tier palette note, not done here:** the smoke `s c` is darker than the board's dusty mauve and reads as coal on lit floor; the option is one lighter mauve key (about `#5e4c66`, one of the four free slots) for lit tops and puff bodies of frames 8 to 11. It changes the palette, so it needs a top-tier decision.
-9. Open for later (not in this fix): E6 flash `w` weight, E7 clumped smoke dither, D2 uneven peak lobes.
+9. **E6 flash weight (fix-check):** the flash `w` core threshold goes from 0.12 to 0.19 of the radius, so `w` is 9 px (was 3, cap 12) in one compact irregular patch, with no spikes; `G` in the flash is 16 px (was 22). Key 3 re-frozen.
+10. **E7 smoke dither (fix-check):** smoke edge dither is clumped in 2 px pairs (`(x // 2 + y // 2) % 2`) in the peak, frame 10 and the in-between smoke, and the lit-top `Q` threshold is lowered (peak and in-between smoke 0.48 to 0.40, frame 10 puffs 0.70 to 0.60) so the puffs read as volumes. Keys 5 and 10 re-frozen (key 0 unchanged); the `.ase`, manifest, review pack, key-scale and keys-x3 are regenerated.
+11. Open for later: D2 uneven peak lobes, D1 mauve smoke key (both top-tier).
