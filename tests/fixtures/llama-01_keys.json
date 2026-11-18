@@ -1,0 +1,30 @@
+{
+  "asset_id": "llama-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "ecb3cbf8c0558679343b98fa02a606f900fb49ade21290edbf63c16162fc18aa"
+    },
+    "11": {
+      "sha256": "9d1f5fc3f228748306de0014ae83131da1aef416786387512471f86a432bddb1"
+    },
+    "14": {
+      "sha256": "559f88b1d1fb5a9e98bd528da1462c91a809f1331d7d9f7ac4055633183e15d6"
+    },
+    "15": {
+      "sha256": "0c6938b16d31e35e186f7fbcb8c0ced2e4f2e77b1152907db0c235f5513e8e51"
+    },
+    "3": {
+      "sha256": "feea24ba04a49ca132f71a671ce8c6b8bc4686014d3b77d5cbfb3c9b373d563c"
+    },
+    "8": {
+      "sha256": "d87566e731bcd13496e5fe5fa8e66fba627c434371f4b0188f5b330628422aa2"
+    },
+    "9": {
+      "sha256": "12a72f91af12ca7634ef70fd2717e8cbda357271ca7594e600076f92bfcb3a1a"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
