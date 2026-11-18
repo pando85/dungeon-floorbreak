@@ -1,0 +1,268 @@
+{
+  "schema_version": 1,
+  "id": "rat_dungeon_h18_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/rat/rat_h18.ase",
+  "grid_source": "assets/source/characters/rat/rat_h18.grid.json",
+  "output_atlas": "generated/art/rat_h18.png",
+  "output_metadata": "generated/art/rat_h18.json",
+  "palette_id": "rat-floor01-v1",
+  "frame_size": [
+    64,
+    28
+  ],
+  "pivot": [
+    30,
+    27
+  ],
+  "animation_tags": [
+    "idle",
+    "walk",
+    "attack_tell",
+    "attack_swing",
+    "hurt",
+    "down"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy animation candidate (fan-concept layer: Floor 1 Dungeon Rat; runtime role IP-neutral small fast melee nuisance)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "RAT-01 Dungeon Rat at the decided 18 px height: 6 frozen Opus-edited keys (atlas frames 0, 3, 10, 12, 14, 18, fixture tests/fixtures/rat-01_keys.json) plus 13 in-betweens built by scripts/author_rat01.py from the key pose rules (named points moved, a few literal stamps, a deterministic despeckle pass); layer body only",
+    "generator": "Draft keys, size study, palette v0 and packet: Claude Sonnet. Key edit, palette v1 and final design: Claude Opus. In-betweens, atlas, validators and evidence: Claude Sonnet, composed by scripts/author_rat01.py. Independent top-tier review: pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/floor01-dungeon-rat-concept-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "rat": {
+    "status": "keys final, in-betweens drawn, independent top-tier review pending; Bevy integration pending; 19 frames, 6 of them keys; not wired into any Bevy binary",
+    "spec": "docs/02-art/rat-01-spec.md",
+    "opaque_height_idle": 18,
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "grounded_tags": [
+      "idle",
+      "walk",
+      "attack_tell",
+      "attack_swing",
+      "hurt",
+      "down"
+    ],
+    "airborne_tags": [],
+    "playback": {
+      "idle": "loop",
+      "walk": "loop",
+      "attack_tell": "once",
+      "attack_swing": "once",
+      "hurt": "once",
+      "down": "hold"
+    },
+    "key_frames": [
+      0,
+      3,
+      10,
+      12,
+      14,
+      18
+    ],
+    "key_fixture": "tests/fixtures/rat-01_keys.json",
+    "attack_ticks": {
+      "tell": [
+        0,
+        23
+      ],
+      "swing_smear": [
+        24,
+        25
+      ],
+      "swing_impact": [
+        26,
+        29
+      ],
+      "recover": [
+        30,
+        35
+      ]
+    },
+    "boxes_px_from_pivot": {
+      "standing": {
+        "x": [
+          -13,
+          15
+        ],
+        "y": [
+          0,
+          12
+        ]
+      },
+      "hurtbox_idle_move_tell": {
+        "x": [
+          -14,
+          20
+        ],
+        "y": [
+          0,
+          12
+        ]
+      },
+      "hurtbox_hurt": {
+        "x": [
+          -13,
+          5
+        ],
+        "y": [
+          0,
+          21
+        ]
+      },
+      "attack_hitbox_impact_frame_only": {
+        "x": [
+          14,
+          27
+        ],
+        "y": [
+          6,
+          15
+        ],
+        "frame": 12
+      }
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "idle",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "key"
+      },
+      {
+        "index": 1,
+        "tag": "idle",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 2,
+        "tag": "idle",
+        "ticks": 10,
+        "duration_ms": 167,
+        "author": "sonnet"
+      },
+      {
+        "index": 3,
+        "tag": "walk",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key"
+      },
+      {
+        "index": 4,
+        "tag": "walk",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "sonnet"
+      },
+      {
+        "index": 5,
+        "tag": "walk",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "sonnet"
+      },
+      {
+        "index": 6,
+        "tag": "walk",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "sonnet"
+      },
+      {
+        "index": 7,
+        "tag": "walk",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "sonnet"
+      },
+      {
+        "index": 8,
+        "tag": "walk",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "sonnet"
+      },
+      {
+        "index": 9,
+        "tag": "attack_tell",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "sonnet"
+      },
+      {
+        "index": 10,
+        "tag": "attack_tell",
+        "ticks": 18,
+        "duration_ms": 300,
+        "author": "key"
+      },
+      {
+        "index": 11,
+        "tag": "attack_swing",
+        "ticks": 2,
+        "duration_ms": 33,
+        "author": "sonnet"
+      },
+      {
+        "index": 12,
+        "tag": "attack_swing",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key"
+      },
+      {
+        "index": 13,
+        "tag": "attack_swing",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "sonnet"
+      },
+      {
+        "index": 14,
+        "tag": "hurt",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key"
+      },
+      {
+        "index": 15,
+        "tag": "hurt",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 16,
+        "tag": "down",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "sonnet"
+      },
+      {
+        "index": 17,
+        "tag": "down",
+        "ticks": 8,
+        "duration_ms": 133,
+        "author": "sonnet"
+      },
+      {
+        "index": 18,
+        "tag": "down",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key"
+      }
+    ]
+  }
+}
