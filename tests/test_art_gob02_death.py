@@ -116,6 +116,17 @@ class Gob02DeathSourceTests(unittest.TestCase):
         self.assertGreaterEqual(top.count("K"), 36)                       # a long, straight stone-contact line
         self.assertEqual(self.poses["frames"][0]["cels"]["weapon"], ["." * 64] * 56)   # the club has left the hand
 
+    def test_preset4_crush_carries_its_own_blood(self):
+        """Gate fix: the crush impact and the remains show the squeeze-out on the pose itself, not only via the spawner
+        (at least 40 gore pixels with at least 3 wet highlights on frame 0; at least 40 on frame 2)."""
+        for n, lo, wet in ((0, 40, 3), (2, 40, 1)):
+            gore = "".join(self.poses["frames"][n]["cels"]["gore"])
+            self.assertGreaterEqual(sum(ch != "." for ch in gore), lo, n)
+            self.assertGreaterEqual(gore.count("P"), wet, n)
+        floor = self.poses["frames"][2]["cels"]["gore"][55]
+        run = max(len(r) for r in floor.split("."))
+        self.assertGreaterEqual(run, 16)                                  # one continuous seep, not specks
+
     def test_crushed_remains_keep_the_corpse_head(self):
         """Not a paper cut-out: the GOB-01 corpse head (X eyes, ear up, tongue) is reused pixel for pixel."""
         f25 = opaque(self.goblin["frames"][25]["cels"]["body"])

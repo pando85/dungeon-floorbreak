@@ -104,8 +104,8 @@ Presets are presentation-only. They never touch the domain, eligibility, collisi
 
 ## 6. Key poses (as authored)
 
-- **0 `crush_contact`.** The landing tick of the block. The goblin is rammed down to 23 px (rows 33 to 55; GOB-01 standing is 36). The top is a straight 42 px `K` line on row 33: the stone's underside. Nothing is drawn above it. The head is shoved forward and flattened. The long ear is pressed flat back over the hump, and its tip pokes out behind (the 1x cue). The near eye bulges (3 x 3 `w`, a pinpoint `K` pupil). The jaw is sprung wide (top teeth row, dark mouth) and the tongue lolls out. Both arms are flung out flat, the near hand open with three fingers. The club is **not** in the frame: it leaves as the `club` part on this tick. The knees splay. Gore: a short squirt out of the mouth, breaking into two droplet pairs. New literal rows (blocked in with polygon and capsule shapes, then hand-finished as rows).
-- **2 `crushed_remains`.** The hold after the landing. A broken, low heap (rows 40 to 55): **not** a paper cut-out. The head is GOB-01 frame 25's corpse head, pixel for pixel down to row 50 (X eyes, the ear standing up, the tongue). The body is new: a pressed rag mass with a straight top on row 48, a squeezed-out belly, the near hand on the floor, one shin snapped up with the sole showing at the far end. Gore: blood squeezed out under both ends on rows 53 to 55. It sits at the stone's foot, drawn in the actors layer as usual (in front of `loose_block_landed`). The low height lets the stone dominate.
+- **0 `crush_contact`.** The landing tick of the block. The goblin is rammed down to 23 px (rows 33 to 55; GOB-01 standing is 36). The top is a straight 42 px `K` line on row 33: the stone's underside. Nothing is drawn above it. The head is shoved forward and flattened. The long ear is pressed flat back over the hump, and its tip pokes out behind (the 1x cue). The near eye bulges (3 x 3 `w`, a pinpoint `K` pupil). The jaw is sprung wide (top teeth row, dark mouth) and the tongue lolls out. Both arms are flung out flat, the near hand open with three fingers. The club is **not** in the frame: it leaves as the `club` part on this tick. The knees splay. Gore (preset 4 impact, 55 px, 5 `P`): a solid 2 px gush out of the mouth (`R` body, `P` core, `B` underside) breaking into droplet pairs, and a low squeeze-out burst fanning outward at each squeeze anchor over rows 53 to 55 (`B` floor edge, `R` body, a `P` glint, one detached droplet pair). With the stone composited on row 33 it reads as pressed (see the scale sheet's top view); alone it can read as a lunge, so evidence must always show it under the stone. New literal rows (blocked in with polygon and capsule shapes, then hand-finished as rows).
+- **2 `crushed_remains`.** The hold after the landing. A broken, low heap (rows 40 to 55): **not** a paper cut-out. The head is GOB-01 frame 25's corpse head, pixel for pixel down to row 50 (X eyes, the ear standing up, the tongue). The body is new: a pressed rag mass under a top outline on row 48 that is notched once and bumped once (torn rags, not a plank), a `u` top-light row broken by `t`, two `r` folds, the near hand on the floor, one shin snapped up with the sole showing at the far end. Gore: one continuous pressed-out seep along row 55 under the whole heap (40 px, `B` ends, `R` body, 2 `P`), plus the neck and hem seeping on row 54. It sits at the stone's foot, drawn in the actors layer as usual (in front of `loose_block_landed`). The low height lets the stone dominate.
 - **3 `decap_contact`.** The blade's tick. This is GOB-01 frame 16 (the `hurt` recoil: torso thrown back, arm flung up, stick trailing low behind), with the head, ear and jaw removed above the collar. The body from row 38 down and the weapon layer are unchanged (tested). A new short neck stump stands on the collar. On `gore`: the cut face on rows 30 and 31 (meat `R`, wet `P`, the spine end `ww` at the back), and **the jet**: a 2 to 6 px column straight up out of the stump (rows 12 to 31). It has a dark `B` edge on the shadow side and a `P` core, leans slightly back the way the head flew, and breaks into gobbets near the top. The jet is the one frame of excess: 4 ticks, then the spawner takes over.
 - **5 `headless_collapse` (hold).** GOB-01 frame 25 (`corpse`: on the back, knees up, the pineapple rolled off the stick) with the head removed (everything right of x 28 unchanged, tested). The new neck stump points to the camera-left. On `gore`: the cut face (a spine dot `w`), a run of blood down to the floor and a 14 px puddle on row 55. The spreading pool is a decal (section 7), not this frame.
 
@@ -205,7 +205,7 @@ Seeded by `hash(run_seed, event_id)` outside the domain, as the proposal require
 
 General rules: copy from the keys and from GOB-01 A as each row says. Translate whole parts. Do not resample or rotate except by 90°. Keep the palette and the layer rule (blood keys on `gore` only, `body`+`weapon` closed). Add every new frame to `scripts/author_gob02_death.py` as rules or literal rows. Keys must stay byte-identical (the fixtures).
 
-1. **Pose frame 1 (`crush_contact` flatten).** Copy frame 0. Move rows 33 to 45 down 3 rows (onto rows 36 to 48), replacing rows 46 to 48; rows 49 to 55 (skirt hem and legs) stay; close the seams with `K`. The near eye's `K` pupil becomes `w` (popped). Lengthen the mouth squirt by 4 px with one more droplet pair. Add squeeze-out gore on rows 54 and 55 at both feet (4 px `B`/`R` each). Anchors: `hit_origin` (28, 36), `mouth` (49, 46).
+1. **Pose frame 1 (`crush_contact` flatten).** Copy frame 0. Move rows 33 to 45 down 3 rows (onto rows 36 to 48), replacing rows 46 to 48; rows 49 to 55 (skirt hem and legs) stay; close the seams with `K`. The near eye's `K` pupil becomes `w` (popped). Lengthen the mouth gush by 4 px with one more droplet pair. Extend frame 0's two squeeze bursts 2 to 3 px further outward, and add one more droplet to each. Anchors: `hit_origin` (28, 36), `mouth` (49, 46).
 2. **Pose frame 4 (`headless_collapse` buckle).** Copy frame 3. Replace the legs (rows 47 to 55) with GOB-01 A frame 24's kneel legs (rows 47 to 55). Move the torso, neck and arm (rows 22 to 46) down 4 rows and 2 px left. Lower the fist to about (14, 30) by moving the forearm block. Gore: the jet becomes an 8 px column bent back (left) with two gobbets; the stump's cut face is unchanged. Anchors: `neck` (21, 35), `jet_base` (21, 34).
 3. **Parts 3 to 23** per the section 7 table, in that order. The design spec gives every source and rule.
 4. **Manifests** `assets/manifests/goblin_a_death_h36.json` and `goblin_a_death_parts.json` in the GOB-01/ENG-01 shape, plus `death_poses` and `death_parts` (section 7). Measure and record `frame0_origin` for parts 3 to 11.
@@ -220,8 +220,8 @@ Design problems found while executing go back to the design stage. Do not re-dec
 
 Automated (`python3 -m scripts.pixelart validate` on both configs, plus `tests/test_art_gob02_death.py`):
 
-- **D1 Crush contact.** Top row 33, flat `K` line of at least 36 px, nothing above it; no weapon pixel (the club has left); at least 8 `w` (the bulging eye and teeth).
-- **D2 Remains.** Top row 40 or lower and at least 14 px tall (a heap, not a sheet); GOB-01 corpse head reused pixel for pixel.
+- **D1 Crush contact.** Top row 33, flat `K` line of at least 36 px, nothing above it; no weapon pixel (the club has left); at least 8 `w` (the bulging eye and teeth); `gore` at least 40 px with at least 3 `P` (preset 4 clearly bloodier than preset 1).
+- **D2 Remains.** Top row 40 or lower and at least 14 px tall (a heap, not a sheet); GOB-01 corpse head reused pixel for pixel; `gore` at least 40 px with a continuous run of at least 16 px on row 55.
 - **D3 Decap.** At least 40 `R` (the jet); GOB-01 frame 16's body from row 38 and its weapon layer unchanged; no `w`/`o` on `body` (no head).
 - **D5 Headless.** Top row 38 or lower, width at most 60; GOB-01 frame 25 unchanged right of x 28 and its weapon layer unchanged.
 - **Layer rule.** `B`/`P` on `gore` only. With `gore` hidden: 0 isolated pixels, fewer than 10 orphans per frame, every coloured pixel closed.
@@ -238,8 +238,8 @@ Review (human eye, at 1x in the [scale sheet](../evidence/gob-02-death/silhouett
 
 ## 11. Evidence (design stage)
 
-- [`silhouette_scale_1x.png`](../evidence/gob-02-death/silhouette_scale_1x.png): the lit Floor 1 view at 640 x 360. From the left: Donut, Carl, GOB-01 A idle (for scale), then the four pose keys and the three part keys settled on the walking line. [`silhouette_scale_4x.png`](../evidence/gob-02-death/silhouette_scale_4x.png) is the walking-line band of the same image at 4x.
-- [`keys_x4_preset4_vs_preset1.png`](../evidence/gob-02-death/keys_x4_preset4_vs_preset1.png): every key at 4x, preset 4 (as authored) above preset 1 (the `gore` layer hidden).
+- [`silhouette_scale_1x.png`](../evidence/gob-02-death/silhouette_scale_1x.png): two lit Floor 1 views at 640 x 360, stacked. Top: Donut, Carl, then `crush_contact` under the ENV-02 `loose_block_falling` (underside on frame row 33), `crushed_remains` in front of the foot of `loose_block_landed`, the two decapitation keys and the three part keys settled on the walking line. Bottom: the uncomposited lineup with GOB-01 A idle for scale. [`silhouette_scale_4x.png`](../evidence/gob-02-death/silhouette_scale_4x.png) holds the walking-line bands of both views at 4x.
+- [`keys_x4_preset4_vs_preset1.png`](../evidence/gob-02-death/keys_x4_preset4_vs_preset1.png): every key at 4x, preset 4 (as authored) above preset 1 (the `gore` layer hidden), and a bottom strip of every key at 1x (preset 4, then preset 1).
 
 ## 12. Files
 
@@ -253,12 +253,13 @@ Review (human eye, at 1x in the [scale sheet](../evidence/gob-02-death/silhouett
 | `tests/test_art_gob02_death.py` | spec rules beyond the toolkit |
 | `docs/evidence/gob-02-death/` | design-stage evidence |
 
-## 13. Open questions
+## 13. Rulings (silhouette gate, 2026-11-18) and open notes
 
-1. **Variant B.** The death system needs B too (bandana, notched ear, missing tooth). Proposal: a small follow-up that adds an `accessory` layer to the head-bearing frames (poses 0, 1, 2; parts `head`, `head_dead`), using GOB-01 section 9's B overlay rule. All headless frames and parts are shared. Should it be its own work order or join this executor pass?
-2. **Remains draw order.** `crushed_remains` is drawn in front of `loose_block_landed` (actors layer, no exception). The alternative is to draw it just behind the stone, so the stone hides the middle and only ends poke out. That reads more "under the stone", but a goblin centred under the 96 px landed block would vanish. Kept in front unless the owner prefers the alternative.
-3. **Preset 1 decapitation.** The head still flies, with its cut hidden. If the owner wants preset 1 to avoid any detached head, the data switch is "replace `head` by a dust puff at `neck`". No art change.
-4. **Remains contrast.** On the darkest wall base the rag mass of `crushed_remains` is dark; the ear, head and snapped leg carry the read. Review at 1x in the scale sheet.
+1. **Variant B is a separate follow-up work order**, not this executor pass. Approach: an `accessory` layer on the head-bearing frames (poses 0, 1, 2; parts `head`, `head_dead`) with GOB-01 section 9's B overlay rule; headless frames and parts are shared. Gate it separately after this set is final.
+2. **Remains stay in front of `loose_block_landed`** (actors layer, no exception). A goblin hidden under the 96 px block would lose the payoff; the low heap does not hide the stone (see the composited scale sheet). Revisit only if the Bevy capture reads as "lying next to" rather than "squeezed out from under".
+3. **Preset 1 decapitation: the head still flies with its cut hidden** (default). Optional later data flag, an owner decision and not part of this pass: decapitation falls back to GOB-01 `knockback` → `corpse` + dust at preset 1, mirroring the explosive fallback. No art change either way.
+4. **Remains contrast** is solved by the gate fix (the broken `u` top light, the notched outline and the folds on the rag mass). No palette change.
+5. Non-blocking note: `torso_upper` reads only as a generic chunk at 1x (acceptable for spinning debris). An optional later polish is a 1 px `u` rim on the vest hump's top edge; the key stays frozen for now.
 
 ## 14. Rights and provenance
 
@@ -266,6 +267,7 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope; no publ
 
 ### Rights/Provenance
 
-- Design, spec, hero keys and silhouette sheet: Claude Opus (top tier).
+- Design, spec, hero keys and silhouette sheet: Claude Opus (top tier); gate fixes to keys 0 and 2 and the composited sheets: same designer.
+- Silhouette gate: independent Claude Opus (FIX-KEYS, rulings recorded in section 13).
 - Execution (section 9): pending, medium tier.
 - Independent review: pending, separate top-tier agent.

@@ -221,30 +221,32 @@ def crushed_remains() -> dict[str, list[str]]:
     return cels(body, {}, segs(CRUSHED_REMAINS_GORE))
 
 
-CRUSH_GORE = {
+CRUSH_GORE = {               # preset 4 impact: mouth gush and squeeze-out bursts at both squeeze anchors
     41: [(56, "RR")],
-    42: [(50, "BRRP"), (57, "RR")],
-    43: [(49, "BRRRRR"), (59, "RR")],
+    42: [(49, "RRPPRR"), (57, "RR")],
+    43: [(49, "BBRRBB"), (59, "RR")],
+    51: [(1, "RR")],
+    53: [(3, "RRPR"), (44, "RPRR")],
+    54: [(1, "BRRRRR"), (43, "RRRRRRB"), (52, "RR")],
+    55: [(2, "BBBBB"), (43, "BBBBBBB")],
 }
 
-
-CRUSHED_REMAINS_GORE = {
+CRUSHED_REMAINS_GORE = {     # one continuous pressed-out seep under the whole heap (the pool decals spread it later)
     53: [(17, "RP")],
-    54: [(15, "RRRRR"), (42, "RRR")],
-    55: [(9, "BBRRRRRRBB"), (40, "BBRRRRBB")],
+    54: [(15, "RRRRR"), (23, "RRRPRRR"), (42, "RRR")],
+    55: [(9, "BBRRRRRRRBBRRRRPRRRRRRRRRRRRRRPRRRRRRBBB")],
 }
-
 CRUSHED_REMAINS = {   # the new pressed body, right of the reused GOB-01 frame-25 head (x 18 and up)
     42: "....................................................KKK",
     43: "...................................................KlmsK",
     44: "...................................................KlmsK",
     45: "..................................................KlmsK",
     46: "..................................................KlmK",
-    47: ".................................................KlmsK",
-    48: "......................KKKKKKKKKKKKKKKKKKKKKKKKKKKKlmsK",
-    49: "......................KuuuuuuuuuuuuuuuuuuuuuuuuuKlmsKK",
-    50: "......................KuttttttttttttttttttttttttKlmmsllK",
-    51: "......................KuttttttttttttttttttttttKKlmmmmmmKK",
+    47: ".................................KKKK............KlmsK",
+    48: "......................KKKKKKKKKKKuuuuKKKKK..KKKKKlmsK",
+    49: "......................KuuuuuttuuuuuuuuuutuuKKuuuuKlmsKK",
+    50: "......................KutttttrttttttttttrttttuttKlmmsllK",
+    51: "......................KuttttttrtttttttttrrtttKKlmmmmmmKK",
     52: "...................KKKKyyxxyyxxKKKKKKKKyyxxyyKlmsKKKKlmmlK",
     53: "...................KrrrrrrrrrrrKlllmmmKKrrrrKlmsK...KlmmmlK",
     54: "...................KrrrrrrrrrrKlmmmmmsssKrrKKlsK...KlssssllK",
@@ -451,10 +453,25 @@ def dump(grid: dict) -> str:
 
 
 # --------------------------------------------------------------------------- 1x silhouette and scale sheet
+OPENING_KIT = ROOT / "assets/source/terrain/floor01/floor01_opening_kit.json"
+
+
+def block_piece(piece_id: str):
+    """(image, anchor) of an ENV-02 opening-kit piece, cropped from its committed pixel-grid source."""
+    from scripts.pixelart.common import grid_images, load_grid_file
+    kit = json.loads(OPENING_KIT.read_text(encoding="utf-8"))
+    piece = next(p for p in kit["pieces"] if p["id"] == piece_id)
+    atlas = grid_images(load_grid_file(ROOT / kit["atlases"][piece["atlas"]]["grid"]))[0]
+    x, y, w, h = piece["rect"]
+    return atlas.crop((x, y, x + w, y + h)), tuple(piece["anchor"])
+
+
 def write_scale_sheet(out: Path = SCALE_SHEET) -> Path:
-    """Carl (52 px) and Donut (40 px) idle on the lit Floor 1 walking line, then the GOB-01 A idle for scale, the four
-    pose keys and the three key parts (parts dropped to the floor as they would settle), all at 1x; below, the same
-    strip at 4x. All facing as authored except Carl and Donut (facing right, towards the goblins)."""
+    """Two lit Floor 1 views at 1x, stacked. Top: Donut (40 px) and Carl (52 px), then the crush with the ENV-02 stone
+    composited (``loose_block_falling`` with its underside on frame row 33 over ``crush_contact``, and
+    ``crushed_remains`` in front of the foot of ``loose_block_landed``), the two decapitation keys and the three part
+    keys settled on the walking line. Bottom: the uncomposited lineup with the GOB-01 A idle for scale. A second file
+    holds the walking-line bands of both views at 4x."""
     sys.path.insert(0, str(ROOT))
     from PIL import Image
     from scripts.pixelart.common import CARL_X, DONUT_X, grid_images, load_grid_file
@@ -465,22 +482,48 @@ def write_scale_sheet(out: Path = SCALE_SHEET) -> Path:
     gob = grid_images(load_grid_file(GOBLIN_A))[0]
     poses = grid_images(poses_grid())
     parts = grid_images(parts_grid())
-    entries = [(donut, donut_piv, DONUT_X, 0), (carl, carl_piv, CARL_X, 0), (gob, tuple(PIVOT), CARL_X + 60, 0)]
+    falling, falling_anchor = block_piece("loose_block_falling")
+    landed, landed_anchor = block_piece("loose_block_landed")
+    piv = tuple(PIVOT)
+    cast = [(donut, donut_piv, DONUT_X, 0), (carl, carl_piv, CARL_X, 0)]
+
+    def settled_parts(x: int) -> list:
+        out = []
+        for img in parts:                 # settle each part on the walking line: its lowest opaque row on the floor
+            out.append((img, (CELL_PIVOT[0], img.getbbox()[3] - 1), x, 0, False))
+            x += 30
+        return out
+
+    composed = cast + [
+        (falling, falling_anchor, CARL_X + 88, PIVOT[1] - 33, False),     # stone underside on frame row 33
+        (poses[0], piv, CARL_X + 88, 0),
+        (landed, landed_anchor, CARL_X + 208, 0, False),
+        (poses[2], piv, CARL_X + 208, 0),
+        (poses[3], piv, CARL_X + 298, 0),
+        (poses[5], piv, CARL_X + 358, 0),
+    ] + settled_parts(CARL_X + 408)
+    plain = cast + [(gob, piv, CARL_X + 60, 0)]
     x = CARL_X + 124
-    for n in (0, 2, 3, 5):
-        entries.append((poses[n], tuple(PIVOT), x, 0))
+    for n in POSE_KEYS:
+        plain.append((poses[n], piv, x, 0))
         x += 66 if n in (0, 2) else 56
-    for img in parts:                     # settle each part on the walking line: its lowest opaque row on the floor
-        bottom = img.getbbox()[3] - 1
-        entries.append((img, (CELL_PIVOT[0], bottom), x, 0, False))
-        x += 30
+    plain += settled_parts(x)
     floor = Floor()
-    scene = floor.render(entries, 1)
+    scenes = [floor.render(composed, 1), floor.render(plain, 1)]
     ground = floor.ground(CARL_X) - floor.view[1]                 # walking line in view pixels
+    w, h = scenes[0].size
+    sheet = Image.new("RGB", (w, h * 2), (24, 23, 34))
+    bands = []
+    for i, sc in enumerate(scenes):
+        sheet.paste(sc, (0, i * h))
+        bands.append(sc.crop((0, max(0, ground - 74), w, min(h, ground + 14))))
     out.parent.mkdir(parents=True, exist_ok=True)
-    scene.save(out)
-    band = scene.crop((0, max(0, ground - 70), scene.width, min(scene.height, ground + 14)))
-    band.resize((band.width * 4, band.height * 4), Image.NEAREST).save(out.with_name("silhouette_scale_4x.png"))
+    sheet.save(out)
+    bw, bh = bands[0].size
+    big = Image.new("RGB", (bw * 4, bh * 8 + 8), (24, 23, 34))
+    for i, band in enumerate(bands):
+        big.paste(band.resize((bw * 4, bh * 4), Image.NEAREST), (0, i * (bh * 4 + 8)))
+    big.save(out.with_name("silhouette_scale_4x.png"))
     return out
 
 
@@ -493,8 +536,9 @@ def strip_gore(grid: dict) -> dict:
 
 
 def write_key_sheet(out: Path = SCALE_SHEET.with_name("keys_x4_preset4_vs_preset1.png")) -> Path:
-    """Each key at 4x on a flat brick tone: the top row as authored (preset 4, gore layer shown), the bottom row the
-    same pixels with the gore layer hidden (presets 1 and 2)."""
+    """Each key at 4x on a flat brick tone: the top row of each pair as authored (preset 4, gore layer shown), the
+    bottom row the same pixels with the gore layer hidden (preset 1). Bottom strip: every key at 1x, preset 4 then
+    preset 1."""
     sys.path.insert(0, str(ROOT))
     from PIL import Image
     from scripts.pixelart.common import grid_images
@@ -505,7 +549,16 @@ def write_key_sheet(out: Path = SCALE_SHEET.with_name("keys_x4_preset4_vs_preset
         keys = POSE_KEYS if grid["canvas"] == list(CANVAS) else PART_KEYS
         rows.append([(full[n], bare[n]) for n in keys])
     cw, ch = CANVAS[0] * k, CANVAS[1] * k
-    sheet = Image.new("RGB", (cw * 4 + 5 * 8, ch * 4 + 5 * 8), (40, 30, 34))
+    strip_h = CANVAS[1] + 16                 # bottom strip: every key at 1x, preset 4 then preset 1, side by side
+    sheet = Image.new("RGB", (cw * 4 + 5 * 8, ch * 4 + 5 * 8 + strip_h), (40, 30, 34))
+    x = 8
+    for a, b in rows[0] + rows[1]:
+        for j, img in enumerate((a, b)):
+            tile = Image.new("RGB", (img.width, CANVAS[1]), (110, 64, 44) if j == 0 else (96, 58, 42))
+            tile.paste(img, (0, CANVAS[1] - img.height), img)
+            sheet.paste(tile, (x, ch * 4 + 5 * 8 + 8))
+            x += img.width + 2
+        x += 6
     for col, (a, b) in enumerate(rows[0] + rows[1]):
         r, c = divmod(col, 4)
         for j, img in enumerate((a, b)):
