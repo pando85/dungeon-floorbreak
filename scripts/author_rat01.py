@@ -61,6 +61,7 @@ RAMPS = {
     "pink": ("p", "p", "q", "r"),
     "tail": ("p", "p", "q", "r"),
     "claw": ("K", "T", "c", "c"),
+    "leg": ("a", "s", "m", "l"),     # near legs of the walk: same ramp as fur, drawn as its own part so the thigh gets an outline
 }
 
 
@@ -161,7 +162,7 @@ def build(pose: dict) -> list[str]:
     """Rasterize one pose dict (see POSES) into 28 row strings."""
     w, h = CANVAS
     c = Canvas(w, h, PIVOT[1])
-    far = c.add("far"); tail = c.add("tail"); fur = c.add("fur"); pink = c.add("pink"); claw = c.add("claw")
+    far = c.add("far"); tail = c.add("tail"); fur = c.add("fur"); pink = c.add("pink"); claw = c.add("claw"); legp = c.add("leg")
     # back to front: far legs, tail, far ear, torso, belly pink, head, near legs, near ear
     for leg in pose.get("far_legs", []):
         c.thick(leg["pts"], leg["r"], far)
@@ -175,7 +176,7 @@ def build(pose: dict) -> list[str]:
     for nose in pose.get("noses", []):
         c.disc(*nose, pink)
     for leg in pose.get("legs", []):
-        c.thick(leg["pts"], leg["r"], fur)
+        c.thick(leg["pts"], leg["r"], legp if pose.get("leg_part") else fur)
     for cl in pose.get("claws", []):
         c.poly(cl, claw)
     for ear in pose.get("ears", []):
@@ -196,7 +197,7 @@ def build(pose: dict) -> list[str]:
             if rows[y][x] == "m" and ((x // 2) * 3 + y * 5 + pose.get("seed", 0)) % 8 == 0:
                 rows[y][x] = "s"
             elif rows[y][x] == "m" and ((x // 2) * 5 + y * 3 + pose.get("seed", 0)) % 13 == 0:
-                rows[y][x] = "l"
+                rows[y][x] = "a"       # review fix: flecks stay in the dark keys; `l` is only the torch-side rim
     # ribs: short shade strokes (x, y_top, y_bottom in design units) on lit/mid fur only, the wiry flank
     for rx, ry0, ry1 in pose.get("ribs", []):
         col = int(c.P(rx, 0)[0])
@@ -245,19 +246,44 @@ def despeckle(rows: list[list[str]]) -> None:
                     rows[y][x] = max(sorted(set(cand)), key=cand.count)
 
 
-def ear(x, y, w, h_, lean=0.0, notch=False):
-    """Triangle ear with a base centred at (x, y); ``notch`` bites a torn V out of the back edge."""
+def ear(x, y, w, h_, lean=0.0, notch=False, deep=False):
+    """Triangle ear with a base centred at (x, y); ``notch`` bites a torn V out of the back edge
+    (``deep``: review fix, a wider and deeper 2 px bite for the idle ear, readable at 1x)."""
     left, tip, right = (x - w / 2, y), (x + lean, y + h_), (x + w / 2, y)
     if not notch:
         return [left, tip, right]
-    a = (tip[0] + 0.35 * (right[0] - tip[0]), tip[1] + 0.35 * (right[1] - tip[1]))
-    b = (tip[0] + 0.75 * (right[0] - tip[0]), tip[1] + 0.75 * (right[1] - tip[1]))
-    n = (x + lean * 0.4, y + h_ * 0.45)          # the tear reaches almost to the ear's centre
+    ta, tb, th = (0.2, 0.85, 0.3) if deep else (0.35, 0.75, 0.45)
+    a = (tip[0] + ta * (right[0] - tip[0]), tip[1] + ta * (right[1] - tip[1]))
+    b = (tip[0] + tb * (right[0] - tip[0]), tip[1] + tb * (right[1] - tip[1]))
+    n = (x + lean * 0.4, y + h_ * th)          # the tear reaches almost to the ear's centre
     return [left, tip, a, n, b, right]
 
 
 def far_ear(x, y, w, h_, lean=0.0):
     return ear(x, y, w, h_, lean)
+
+
+RUN_TAIL = [(-15, 6.5), (-20, 7.5), (-24, 8.5), (-28, 8.2)]
+RUN_TAIL_R = [1.1, 0.9, 0.7, 0.6]
+
+
+def run_tail(frame: int, lift: float = 0.0, amp: float = 2.0) -> dict:
+    """Walk tail (review fix): a wave that travels down the tail, tip down on the contacts (frames 3, 6), up on the
+    gathers and peaks, one frame of lag from the base to the tip. ``frame`` is the walk phase 0..5 (3 + phase)."""
+    pts, rr = [], []
+    n = 6
+    for i in range(n):
+        s = i / (n - 1)
+        f = s * (len(RUN_TAIL) - 1)
+        j = min(int(f), len(RUN_TAIL) - 2)
+        u = f - j
+        x = RUN_TAIL[j][0] + (RUN_TAIL[j + 1][0] - RUN_TAIL[j][0]) * u
+        y = RUN_TAIL[j][1] + (RUN_TAIL[j + 1][1] - RUN_TAIL[j][1]) * u
+        r = RUN_TAIL_R[j] + (RUN_TAIL_R[j + 1] - RUN_TAIL_R[j]) * u
+        wave = -math.cos(2 * math.pi * frame / 3 + (2 * math.pi / 3) * (1 - s))
+        pts.append((x, y + lift + amp * s * wave))
+        rr.append(r)
+    return {"pts": pts, "r": rr}
 
 
 # Each pose: design units (x right of the pivot column, y up from the contact row).
@@ -281,13 +307,12 @@ POSES["idle0"] = {
         {"pts": [(9, 5.5), (10, 2.4), (12.5, 0.5)], "r": [1.7, 0.9, 0.9]},
     ],
     "far_ears": [far_ear(11, 8.2, 3, 3.2, 0.5)],
-    "ears": [ear(14, 7.6, 5.0, 5.0, -1.0, notch=True)],
+    "ears": [ear(14, 7.6, 5.0, 6.0, -1.0, notch=True, deep=True)],   # review fix: 6 px tall, 2 px bite
     "patches": [(-4, 13.2, 3.2, 1.6), (3, 6.6, 2.0, 1.5)],
     "ribs": [(-2, 9.5, 7.5), (0, 9.5, 7.5), (2, 9, 7.5)],
     "tufts": [(-11, 1), (-8, 2), (-6, 1), (5, 1), (7, 2)],
     "stamps": [(17, 5.6, "e"), (18, 5.6, "e"), (17, 6.6, "K"), (18, 6.6, "K"),
-               (19.5, 1.5, "t"), (20.5, 1.5, "t"), (19.5, 0.5, "t"), (20.5, 0.5, "T"),
-               (13, 13.5, "."), (13, 12.5, "K"), (14, 10.5, "K"), (15, 10.5, ".")],
+               (19.5, 1.5, "t"), (20.5, 1.5, "t"), (19.5, 0.5, "t"), (20.5, 0.5, "T")],   # review fix: the ear shape itself carries the tear
 }
 
 POSES["run1"] = {
@@ -296,14 +321,15 @@ POSES["run1"] = {
     "spine_r": [2.2, 3.0, 3.2, 3.0, 2.4],
     "head": {"pts": [(13, 7), (18, 6.2), (23.5, 5)], "r": [3.2, 2.5, 1.2]},
     "noses": [(24.6, 5.0, 1.0, 1.0)],
-    "tail": {"pts": [(-15, 6.5), (-20, 7.5), (-24, 8.5), (-28, 8.2)], "r": [1.1, 0.9, 0.7, 0.6]},
+    "tail": run_tail(0),
+    "leg_part": True,           # review fix: near legs are their own part, so the thigh gets a K outline
     "far_legs": [
-        {"pts": [(-8, 5), (-5, 2.5), (-3, 0.6)], "r": [2.0, 1.0, 0.9]},
-        {"pts": [(9, 5), (6, 3), (6, 0.6)], "r": [1.8, 0.9, 0.8]},
+        {"pts": [(-8, 5), (-5, 2.5), (-3, 0.6)], "r": [2.0, 1.3, 1.1]},
+        {"pts": [(9, 5), (6, 3), (6, 0.6)], "r": [1.8, 1.2, 1.0]},
     ],
     "legs": [
-        {"pts": [(-12, 5.5), (-16, 2.5), (-19, 0.6)], "r": [2.6, 1.2, 1.0]},
-        {"pts": [(10, 5.5), (14, 2.8), (18, 0.6)], "r": [1.9, 1.0, 0.9]},
+        {"pts": [(-12, 5.5), (-16, 2.8), (-19, 0.6)], "r": [2.8, 1.6, 1.2]},
+        {"pts": [(10, 5.5), (14, 3.0), (18, 0.6)], "r": [2.2, 1.5, 1.1]},
     ],
     "far_ears": [],
     "ears": [ear(13, 8.0, 5.0, 4.4, -2.6, notch=True)],
@@ -337,8 +363,12 @@ POSES["tell2"] = {
     "ribs": [(-1, 7.5, 5.5), (1, 7, 5)],
     "tufts": [(-11, 1), (-9, 2), (-7, 3), (-5, 2), (-3, 1)],
     "stamps": [(8, 11.5, "."), (8, 10.5, "K"), (15, 6.2, "e"), (16, 6.2, "e"), (15, 7.2, "K"), (16, 7.2, "K"),
-               (16.5, 3.4, "o"), (17.5, 3.4, "o"), (18.5, 3.4, "o"), (17.5, 2.6, "o"), (18.5, 2.6, "o"), (19.5, 2.6, "o"),
-               (19.5, 3.6, "t"), (20.5, 3.6, "t"), (19.5, 1.8, "t"), (20.5, 1.8, "t")],
+               # review fix: gape opened by one row (maw 3 rows tall, lower incisors on the floor row), pink gum above it
+               (16.5, 4.5, "q"), (17.5, 4.5, "q"), (18.5, 4.5, "q"),
+               (16.5, 3.4, "o"), (17.5, 3.4, "o"), (18.5, 3.4, "o"),
+               (16.5, 2.6, "o"), (17.5, 2.6, "o"), (18.5, 2.6, "o"), (19.5, 2.6, "o"), (20.5, 2.6, "o"),
+               (17.5, 1.6, "o"), (18.5, 1.6, "o"), (19.5, 1.6, "o"), (20.5, 1.6, "o"),
+               (19.5, 3.6, "t"), (20.5, 3.6, "t"), (19.5, 0.6, "t"), (20.5, 0.6, "t")],
 }
 
 POSES["bite3"] = {
@@ -375,17 +405,17 @@ POSES["hurt4"] = {
     # bite is long, and the eyes are squeezed shut (no ember).
     "spine": [(-9, 3.2), (-8.5, 7), (-7.6, 10.5), (-6.4, 13)],
     "spine_r": [3.4, 3.3, 3.0, 2.6],
-    "belly": ([(-6.2, 4), (-5.4, 7.5), (-4.6, 10.8)], [1.3, 1.6, 1.2]),
+    "belly": ([(-6.0, 4), (-5.0, 7.5), (-4.2, 10.8)], [1.9, 2.2, 1.7]),   # review fix: 2 px+ pink flash column
     "head": {"pts": [(-6.2, 13.5), (-5, 16), (-3.8, 18.2)], "r": [2.9, 2.2, 1.1]},
     "noses": [(-3.4, 19.2, 1.0, 1.0)],
     "tail": {"pts": [(-12, 2), (-16, 3), (-18, 6.5), (-16.5, 9), (-19, 11)], "r": [1.1, 0.9, 0.8, 0.7, 0.6]},
     "far_legs": [
         {"pts": [(-6, 4), (-3, 1.4), (0, 0.6)], "r": [2.0, 1.0, 0.9]},
-        {"pts": [(-5, 12), (-1.5, 14.5), (1, 16.5)], "r": [1.2, 0.9, 0.8]},
+        {"pts": [(-5, 12), (-0.5, 15), (2.2, 17.2)], "r": [1.2, 0.9, 0.8]},
     ],
     "legs": [
         {"pts": [(-8.5, 4), (-5.5, 1.4), (-2.5, 0.6)], "r": [2.8, 1.2, 1.0]},
-        {"pts": [(-4.5, 10), (-1, 10.5), (2.5, 9)], "r": [1.4, 0.9, 0.8]},
+        {"pts": [(-4.5, 10), (-0.5, 10.5), (3.8, 8.6)], "r": [1.4, 0.9, 0.8]},
     ],
     "far_ears": [],
     "ears": [ear(-8.2, 15.2, 3.4, 3.2, -1.6, notch=True)],
@@ -473,7 +503,7 @@ def lerp_pts(a, b, t=0.5):
     return [(ax + (bx - ax) * t, ay + (by - ay) * t) for (ax, ay), (bx, by) in zip(a, b)]
 
 
-def gather(spine_lift, tail_lift, hind_foot_x, front_foot_x, knee):
+def gather(spine_lift, tail_lift, hind_foot_x, front_foot_x, knee, phase):
     """Walk gather/peak pose from the sprint contact key: feet pulled under the body, spine arched."""
     # Executor choice: the walk key already sits at the V13 headroom limit (top row 12 of a minimum of 11), so the
     # spec's "spine middle +2 / +3" is spent as a relative arch: the whole body drops ``drop`` units and the spine
@@ -484,15 +514,15 @@ def gather(spine_lift, tail_lift, hind_foot_x, front_foot_x, knee):
     sp = p["spine"]
     p["spine"] = [sp[0], (sp[1][0], sp[1][1] + spine_lift / 2), (sp[2][0], sp[2][1] + spine_lift),
                   (sp[3][0], sp[3][1] + spine_lift / 2), sp[4]]
-    p["tail"]["pts"] = mv(POSES["run1"]["tail"]["pts"], 0, tail_lift)
+    p["tail"] = run_tail(phase, tail_lift)
     nh, nf, fh, ff = knee
     p["legs"] = [
-        {"pts": [(-12, 5.5), (-11.5, nh), (hind_foot_x, 0.6 if nh < 3 else 3.0)], "r": [2.6, 1.2, 1.0]},
-        {"pts": [(10, 5.5), (11, nf), (front_foot_x, 0.6 if nf < 3 else 3.0)], "r": [1.9, 1.0, 0.9]},
+        {"pts": [(-12, 5.5), (-11.5, nh), (hind_foot_x, 0.6 if nh < 3 else 3.0)], "r": [2.6, 1.5, 1.2]},
+        {"pts": [(10, 5.5), (11, nf), (front_foot_x, 0.6 if nf < 3 else 3.0)], "r": [2.0, 1.4, 1.1]},
     ]
     p["far_legs"] = [
-        {"pts": [(-8, 5), (-6.5, fh), (-5, 0.6 if fh < 3 else 3.0)], "r": [2.0, 1.0, 0.9]},
-        {"pts": [(9, 5), (8.5, ff), (8, 0.6 if ff < 3 else 3.0)], "r": [1.8, 0.9, 0.8]},
+        {"pts": [(-8, 5), (-6.5, fh), (-5, 0.6 if fh < 3 else 3.0)], "r": [2.2, 1.4, 1.1]},
+        {"pts": [(9, 5), (8.5, ff), (8, 0.6 if ff < 3 else 3.0)], "r": [1.9, 1.3, 1.0]},
     ]
     return p
 
@@ -517,29 +547,30 @@ def inbetweens() -> dict[int, dict]:
     p["head"]["pts"] = mv(p["head"]["pts"], 0, -1)
     p["noses"] = [(nx, ny - 1, a, b) for nx, ny, a, b in p["noses"]]
     p["far_ears"] = [mv(e, 0, -1) for e in p["far_ears"]]
-    p["ears"] = [ear(14, 7.6, 5.0, 5.0, -1.8, notch=True)]
+    p["ears"] = [ear(14, 7.6, 5.0, 6.0, -1.8, notch=True, deep=True)]
     p["tail"]["pts"][-1] = (-27.5, 4.5)
     p["stamps"] = [(17, 4.6, "e"), (18, 4.6, "e"), (17, 5.6, "K"), (18, 5.6, "K"),
-                   (19.5, 0.5, "t"), (20.5, 0.5, "t"), (19.5, -0.5, "t"), (20.5, -0.5, "T"),
-                   (12, 13.5, "."), (12, 12.5, "K"), (13, 10.5, "K"), (14, 10.5, ".")]
+                   (19.5, 0.5, "t"), (20.5, 0.5, "t"), (19.5, -0.5, "t"), (20.5, -0.5, "T")]
     out[2] = p
 
     # --- walk: key 3 is contact A; 4 gather A, 5 peak A, 6 contact B, 7 gather B, 8 peak B
-    out[4] = gather(2, 1, -10, 12, (2.5, 2.5, 2.5, 2.5))
-    p5 = gather(3, 2, -9, 14, (2.2, 4.0, 4.2, 4.5))
+    out[4] = gather(2, 1, -10, 12, (2.5, 2.5, 2.5, 2.5), 1)
+    p5 = gather(3, 2, -9, 14, (2.2, 4.0, 4.2, 4.5), 2)
     p5["legs"][0]["pts"] = [(-12, 5.5), (-10.5, 3), (-9, 0.6)]     # the one pixel left on the floor row
     out[5] = p5
 
     p = derive("run1", seed=12)
     p["legs"], p["far_legs"] = (
-        [{"pts": [(-8, 5), (-6.5, 2.5), (-5, 0.6)], "r": [2.0, 1.0, 0.9]},
-         {"pts": [(9, 5), (8, 3), (8, 0.6)], "r": [1.8, 0.9, 0.8]}],
-        [{"pts": [(-12, 5.5), (-16, 2.5), (-19, 0.6)], "r": [2.6, 1.2, 1.0]},
-         {"pts": [(10, 5.5), (14, 2.8), (18, 0.6)], "r": [1.9, 1.0, 0.9]}])
+        [{"pts": [(-8, 5), (-6.5, 2.5), (-5, 0.6)], "r": [2.4, 1.5, 1.2]},
+         {"pts": [(9, 5), (8, 3), (8, 0.6)], "r": [2.0, 1.4, 1.1]}],
+        [{"pts": [(-12, 5.5), (-16, 2.8), (-19, 0.6)], "r": [2.8, 1.6, 1.2]},
+         {"pts": [(10, 5.5), (14, 3.0), (18, 0.6)], "r": [2.2, 1.5, 1.1]}])
+    p["tail"] = run_tail(3)
     out[6] = p
     out[7] = swap_legs(out[4]); out[7]["seed"] = 13
+    out[7]["tail"] = run_tail(4, 1)
     p = swap_legs(out[5]); p["seed"] = 14
-    p["tail"]["pts"] = mv(p["tail"]["pts"], 0, -1)
+    p["tail"] = run_tail(5, 1)
     out[8] = p
 
     # --- attack_tell: 9 onset (halfway toward the wedge, jaws shut, hackles 1 px, tail halfway)
@@ -594,7 +625,7 @@ def inbetweens() -> dict[int, dict]:
     # --- hurt: 15 settle
     p = derive("hurt4")
     p["spine"] = [(-9, 3.2), (-7.8, 6.5), (-6, 9.2), (-4.2, 10.8)]
-    p["belly"] = ([(-6.2, 4), (-4.8, 6.6), (-3.2, 8.8)], [1.3, 1.6, 1.2])
+    p["belly"] = ([(-6.0, 4), (-4.6, 6.6), (-3.0, 8.8)], [1.9, 2.2, 1.7])
     p["head"]["pts"] = [(-3.8, 11.4), (0, 10.8), (3.4, 10.0)]
     p["noses"] = [(4.5, 9.9, 1.0, 1.0)]
     p["tail"]["pts"] = [(-12, 2), (-16, 3), (-18, 5.5), (-16.5, 7.5), (-19, 9)]

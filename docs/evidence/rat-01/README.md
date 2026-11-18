@@ -1,6 +1,6 @@
 # RAT-01 evidence: Dungeon Rat readability set (19 frames)
 
-Review renders for the [RAT-01 design spec](../../02-art/rat-01-spec.md). They are composed PNGs and GIFs lit with the A1 compositor (`scripts/env_kit_light.py`), not Bevy captures; the rat is not wired into any binary. Status: candidate. Keys: Claude Opus edit (frozen in `tests/fixtures/rat-01_keys.json`); in-betweens, export and evidence: Claude Sonnet; independent top-tier review pending; no game-feel acceptance.
+Review renders for the [RAT-01 design spec](../../02-art/rat-01-spec.md). They are composed PNGs and GIFs lit with the A1 compositor (`scripts/env_kit_light.py`), not Bevy captures; the rat is not wired into any binary. Status: candidate. Keys: Claude Opus edit (frozen in `tests/fixtures/rat-01_keys.json`); in-betweens, export and evidence: Claude Sonnet; independent top-tier review passed with execution items, review fixes applied (spec section 16), re-review pending; no game-feel acceptance.
 
 Regenerate with the commands in spec section 10. `SHA256SUMS` lists the hashes of every file here except the `packet/` inputs and the review-pack validator report. The scene tool mirrors enemies to face Carl, so the rats in the scenes face left.
 

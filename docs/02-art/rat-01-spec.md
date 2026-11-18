@@ -261,3 +261,18 @@ Medium-tier executor, from the frozen keys and sections 4, 8 and 9. Nothing was 
 ### Evidence status
 
 Evidence images were generated, not hand-checked beyond the contact sheet at x4 (the other review-pack images are for the independent reviewer). No game-feel claim is made: a human reviews timing and feel before any acceptance.
+
+## 16. Review fix round (approved by the independent review 2026-11-18)
+
+The independent review passed the set with execution items (no design defect, 18 px size confirmed). Six items were fixed in `scripts/author_rat01.py`; the changes below to frozen keys are exactly those the review approved as design authority for this round. The keys were re-frozen with `python3 -m scripts.pixelart freeze assets/source/characters/rat/rat-01.pixelart.json --force` (`tests/fixtures/rat-01_keys.json` now holds the new hashes). All six keys changed pixels (item 1 touches every frame); the geometry, silhouette boxes, tags, ticks and rules are unchanged.
+
+| # | Finding | Change | Frozen keys changed |
+| --- | --- | --- | --- |
+| 1 | `l` used as speckle, not light | The random `l` flecks are gone; the second fleck rule now writes `a` (dark mange). `l` appears only as the torch-side rim the renderer already places on the top and left edges of each part: spine, skull, haunch, thighs. Stamped `l` speed streak on frame 11 kept. | all six (0, 3, 10, 12, 14, 18) and every in-between |
+| 2 | Walk legs read as 1 px strokes | Near legs of the walk are drawn as their own part (`leg_part`), so the thigh gets a K outline against the torso. Radii raised (hind 2.8 / 1.6 / 1.2, front 2.2 / 1.5 / 1.1), shins made more diagonal (hind knee y 2.8, front knee y 3.0). Frames 4 to 8 use the same radii for near and far legs; gathered paws stay bunched under the chest; the x +18 reach and x -19 push are unchanged. | 3 (walk) |
+| 3 | Rigid walk tail | New `run_tail(phase, lift)`: a six-point tail with a wave that travels from base to tip (one frame of lag, amplitude 2 px at the tip): tip down on the contacts (3, 6), up on the gathers and peaks (4, 5, 7, 8). The old straight lift values stay as the `lift` argument. | 3 (walk) |
+| 4 | Tell maw near-invisible | Maw is 3 rows tall (12 `o` px instead of 6): rows 23 to 25, upper incisors on row 23, lower incisors moved down to row 26 (the floor-adjacent row), 3 `q` gum pixels above the maw. V14 (at least 4 `o`, at least 3 `t`) still holds. | 10 (tell) |
+| 5 | Hurt belly flash thin | Belly flash radii 1.3 / 1.6 / 1.2 -> 1.9 / 2.2 / 1.7 (a column of 4 px or more along the torso front); near front paw reaches 1.3 px further and the far paw 1.2 px further (wider splay). Pose, angle and V13 hurt rule unchanged. Frame 15 (settle) follows with the same belly radii. | 14 (hurt) |
+| 6 | Torn ear not readable at 1x | Idle near ear is now 6 px tall (was 5) with a deeper, wider back-edge bite (`ear(..., deep=True)`). The four literal nick stamps on idle (and frame 2) were dropped because the ear shape carries the tear. Other keys keep the 5 / 4.4 px chewed ear. Open question 2 answered. | 0 (idle); in-betweens 1 and 2 |
+
+Evidence regenerated: grid, `.ase`, manifest, size-study grid, contact sheets, GIFs, scenes, tell/attack strip, review pack, `SHA256SUMS`. Validators: toolkit PASS (13 pass, 0 fail, 2 skipped); `pytest tests -q -k "rat or pixelart"`; asset and docs checks as recorded in the PR body. Execution: Claude Sonnet (medium tier). Re-review of the fixes: pending (a separate agent); the pending hurt-pose question (open question 1) still needs the runtime hit flash.
