@@ -3,22 +3,22 @@
   "format": "pixelart-keys-v1",
   "keys": {
     "0": {
-      "sha256": "9de5da31c20cfb957f92bf50d6679125a81a8bf0c0b3d43cd3594cbf413dbcd6"
+      "sha256": "41e9a5b6a7f14bae9efe578f2bbfb3ca878334d6af64d60d938182435af42d2b"
     },
     "10": {
-      "sha256": "a00cd5b5a99794748d739e7c7cc9a2ee080bce703a3fa760e47e3b3258304137"
+      "sha256": "0f890a7addfa2f4aa67639d1f076aa6342e2ecd5d801621e958ff727fd273794"
     },
     "12": {
-      "sha256": "73133c868db2d6b1518e16f0e1616ad9cbc7e9b61a39357e72ba832c82a3498d"
+      "sha256": "94637acf6b843d1bfec26836d4b4fd30ebb5a4473b597b8b234f4c5ca8ca3c9d"
     },
     "15": {
-      "sha256": "d4b6279c58479caa4393e888edd1bde45d84653f7a5702f99a50060956271905"
+      "sha256": "8b5614b46977dfc6ec00d3b49426af7dac40efc83dc033c59ad114e7dc61dea4"
     },
     "3": {
-      "sha256": "03bafda1e55aa34f9f1d11880d64ece9ff2f11b4d5714b27a7ae5c5967ad261d"
+      "sha256": "6fedb6228081762841fc2f9c7319208f9a224616f3e8a6ca7bf100eee3eb953b"
     },
     "8": {
-      "sha256": "a900836da85ab575ee90ea99804e87633e61107ec022b6b6e651ae7dcfe888c9"
+      "sha256": "fb3c6eadfc78490419a4195853e65732cdcf69eccca096867676f4efb9eac32b"
     }
   },
   "layers": [

@@ -49,6 +49,8 @@ PALETTE = [
     ("u", "rust_lit", "#a96a3cff", False),
     ("n", "debris_grit", "#2a3418ff", False),
     ("w", "hurt_flash", "#f4f2dcff", True),
+    ("g", "bone_gel_lit", "#b4be62ff", False),
+    ("j", "bone_gel_dark", "#7d893cff", False),
 ]
 ACCENTS = {k for k, _n, _c, acc in PALETTE if acc}
 
@@ -212,10 +214,10 @@ def bubbles(cv: Cv, mask, pts):
             cv.put(x + 1, y + 1, "c")
 
 
-def draw_obj(cv: Cv, rows, ox, oy, cover=0, mask=None, stain_from=99):
+def draw_obj(cv: Cv, rows, ox, oy, cover=0, mask=None, stain_from=99, tint=True):
     """Literal rows at (ox, oy). The bottom ``cover`` rows stay gel (submerged); rows from ``stain_from`` on are one
     bone step darker (seen through thicker gel)."""
-    darker = {"q": "p", "p": "o"}
+    darker = {"q": "g", "p": "j"} if tint else {"q": "p", "p": "o"}  # bone seen through gel takes the green
     for j, line in enumerate(rows):
         for i, c in enumerate(line):
             x, y = ox + i, oy + j
@@ -289,10 +291,10 @@ def debris_points(mask, seed, count, skip_boxes):
 def put_grit(cv: Cv, mask, pts, dx=0, dy=0):
     """Draw grit specks (alternating grit green and rust dark) at ``pts`` shifted by (dx, dy) where the gel is deep."""
     d = depth(mask)
-    for i, (x, y) in enumerate(pts):
+    for i, (x, y) in enumerate(pts[::2]):  # fewer specks, drawn as diagonal chips so they stop reading as holes
         x, y = x + dx, y + dy
-        if min(d.get((x, y), 0), d.get((x + 1, y), 0)) >= 4:
-            for q in ((x, y), (x + 1, y)):
+        if min(d.get((x, y), 0), d.get((x + 1, y + 1), 0)) >= 4:
+            for q in ((x, y), (x + 1, y + 1)):
                 cv.put(*q, "n" if i % 2 == 0 else "r")
 
 
@@ -527,7 +529,7 @@ def key_defeat():
         if cv.get(x, top[x] + 2) == "a":
             cv.put(x, top[x] + 2, "b")
     debris(cv, mask, 61, 3, [(52, 30, 79, 39)])
-    draw_obj(cv, SKULL, 62, 32, stain_from=6)
+    draw_obj(cv, SKULL, 62, 32, stain_from=6, tint=False)
     return finish(cv)
 
 
@@ -540,11 +542,11 @@ KEYS = {0: key_idle, 3: key_creep, 8: key_tell, 10: key_lunge, 12: key_hurt, 15:
 # ---------------------------------------------------------------------------
 BITE = [(0, 1), (1, 1), (3, -1), (4, -1), (6, -2)]  # where the gel eats the plate, relative to the plate origin
 
-PLATE_TILT = [  # 19 x 5, the plate half slid out and tipping flat (defeat frame 14)
-    "....KKKKKKKKKK.....",
-    "..KKuuuuuuuuuuKK...",
-    ".KussssrssssssKKKK.",
-    "KrsrrssssrssrrssrK.",
+PLATE_TILT = [  # 19 x 5, the plate half slid out and tipping flat (defeat frame 14): same straight edge and rivets
+    "..KKKKKKKKKKKKKKKK.",
+    ".KuuuuuuuuuuuuuuuuK",
+    "KsussssssusssssrrrK",
+    "KrrrsrrrrsrrrrrrrK.",
     ".KKKKKKKKKKKKKKKK..",
 ]
 
@@ -568,6 +570,12 @@ _TELL_MASK = blob(TELL_BALLS, carve=[(44, 22, 6, 9)])
 _TELL_GRIT = debris_points(_TELL_MASK, 31, 4, [(22, 16, 35, 27), (36, 31, 56, 39)])
 _LUNGE_MASK = blob(LUNGE_BALLS, film_l=4, film_r=0)
 _LUNGE_GRIT = debris_points(_LUNGE_MASK, 41, 4, [(22, 26, 34, 39), (30, 31, 50, 39)])
+
+
+CREEP4 = [(30, 40, 14, 29), (45, 38, 9, 15), (23, 40, 8, 6), (55, 40, 4, 4)]
+CREEP6 = [(33, 40, 14, 29), (47, 38, 8, 15), (25, 40, 8, 6), (56, 40, 4, 4)]
+LUNGE9 = [(36, 40, 18, 9), (53, 27, 11, 13), (63, 38, 7, 11), (30, 38, 11, 11)]
+LUNGE11 = [(36, 40, 19, 10), (42, 30, 13, 13), (56, 38, 9, 9), (27, 38, 10, 10)]
 
 
 def idle_between(balls, bub, lump_dy):
@@ -594,14 +602,14 @@ def idle_between(balls, bub, lump_dy):
 
 def key_idle_1():
     """Frame 1: the sink. Shoulder lump and body settle 1 px, the skirt spreads."""
-    return idle_between([(37, 40, 24, 21), (32, 18, 10, 8), (48, 24, 9, 7), (15, 40, 8, 5), (60, 40, 8, 6)],
-                        (33, 15), 1)
+    return idle_between([(37, 40, 24, 21), (32, 19, 10, 8), (48, 24, 9, 7), (15, 40, 8, 5), (60, 40, 8, 6)],
+                        (33, 14), 1)
 
 
 def key_idle_2():
     """Frame 2: the rise. Shoulder lump and body swell 1 px, the skirt draws in."""
-    return idle_between([(37, 40, 24, 23), (32, 18, 10, 8), (48, 22, 9, 8), (15, 40, 7, 5), (60, 40, 7, 6)],
-                        (33, 14), -1)
+    return idle_between([(37, 40, 24, 23), (32, 17, 10, 8), (48, 22, 9, 8), (15, 40, 7, 5), (60, 40, 7, 6)],
+                        (33, 12), -1)
 
 
 def creep_between(balls, film_l, film_r, skull, plate, pockets, bub, grit_dx, sheen_rng, glints):
@@ -623,12 +631,10 @@ def creep_between(balls, film_l, film_r, skull, plate, pockets, bub, grit_dx, sh
 
 
 def key_creep_4():
-    """Frame 4: gather. The tail is hauled in and the body piles up to 25 px; the film still trails behind and the
-    plate rides at the front, so the footprint stays long; the skull has not caught up yet (one-frame lag)."""
-    return creep_between([(33, 40, 15, 22), (50, 36, 10, 13), (60, 40, 8, 6), (20, 40, 8, 5), (27, 24, 8, 8)],
-                         9, 2, (28, 23), (54, 33), [(42, 26, 3, 2), (22, 33, 2, 1)], [(40, 21), (51, 29)], -2,
-                         (24, 42), (30, 56))
-
+    """Frame 4: gather (rear). The tail is hauled up into a dome 28 px high and 55 px wide; the film's left end stays
+    where key 3's is, the plate sits under the front skirt, the skull has risen but lags behind the dome."""
+    return creep_between(CREEP4, 8, 1, (27, 20), (46, 33), [(38, 24, 3, 2), (21, 33, 2, 1)], [(34, 18), (46, 29)], -2,
+                         (22, 42), (30, 50))
 
 def key_creep_5():
     """Frame 5: second stretch, further forward than key 3: the front lobe is out, the tail thins, skull and plate
@@ -639,11 +645,9 @@ def key_creep_5():
 
 
 def key_creep_6():
-    """Frame 6: gather again, the mass arriving at the front: the dome sits forward, the skull rides up with it."""
-    return creep_between([(36, 40, 16, 21), (53, 37, 10, 12), (63, 40, 7, 6), (22, 40, 8, 5), (32, 24, 8, 8)],
-                         8, 2, (31, 24), (56, 33), [(44, 27, 3, 2), (24, 33, 2, 1)], [(41, 22), (52, 30)], 0,
-                         (26, 46), (34, 58))
-
+    """Frame 6: gather (front). The dome has moved forward and the skull rides up with it; same footprint as frame 4."""
+    return creep_between(CREEP6, 9, 1, (31, 20), (46, 33), [(41, 24, 3, 2), (22, 33, 2, 1)], [(37, 18), (48, 29)], 1,
+                         (24, 44), (32, 52))
 
 def key_tell_7():
     """Frame 7: half-rise. The base gathers and the mass climbs to 32 px, the face starts to draw in under the lip,
@@ -686,20 +690,16 @@ def lunge_between(balls, film_l, film_r, skull, plate, plate_cover, pockets, bub
 
 
 def key_lunge_9():
-    """Frame 9: the smear. The mass leans forward and drops off the rear, the bulb up front at x 66, and a thin
-    strand of gel is already paying out along the floor ahead of it (the rule asks for the reach from frame 9)."""
-    return lunge_between([(22, 40, 9, 8), (38, 40, 15, 17), (54, 40, 11, 12), (65, 35, 6, 8), (72, 41, 5, 3)],
-                         5, 0, (25, 29), (35, 33), 1, [(60, 33, 2, 1), (44, 31, 3, 1)], [(50, 31), (40, 29)], 0,
-                         [(38, 34), (39, 34), (62, 32), (63, 32), (67, 35)], (28, 64))
-
+    """Frame 9: launch. The tell's reared mass is falling forward: 24 px high, the bulb out at x 66, nothing past
+    x 70 and no acid past x 66, so the full reach appears only on key 10."""
+    return lunge_between(LUNGE9, 3, 0, (27, 29), (36, 33), 1, [(58, 31, 2, 1), (40, 29, 3, 1)], [(46, 24), (36, 28)], -3,
+                         [(39, 34), (40, 34), (60, 34), (61, 34), (65, 33)], (26, 56))
 
 def key_lunge_11():
-    """Frame 11: recover. The bulb is pulled back through the creep stretch and the front strand thins out behind it,
-    still stuck to the floor; plate and skull ride back toward their idle places."""
-    return lunge_between([(24, 40, 10, 9), (40, 40, 15, 17), (55, 40, 10, 12), (60, 35, 6, 9), (73, 41, 5, 3)],
-                         5, 0, (27, 27), (39, 33), 1, [(58, 33, 2, 1), (45, 30, 3, 1)], [(51, 30), (41, 28)], 1,
-                         [(42, 34), (43, 34), (58, 33), (59, 33), (64, 36)], (28, 60))
-
+    """Frame 11: recover. A visible pull-back toward the creep stretch: 22 px high, the bulb drawn back to x 60,
+    nothing past x 70; plate and skull ride back with the mass."""
+    return lunge_between(LUNGE11, 5, 0, (24, 29), (41, 33), 1, [(56, 31, 2, 1), (42, 28, 3, 1)], [(48, 24), (38, 28)], -2,
+                         [(44, 34), (45, 34), (55, 33), (56, 33), (60, 35)], (26, 54))
 
 def crease_rows(cv: Cv, mask, specs):
     top = tops(mask)
@@ -714,20 +714,20 @@ def crease_rows(cv: Cv, mask, specs):
 def key_down_13():
     """Frame 13: the slump. The mass has dropped to 14 px with the rim glow gone, a crust forming, the skull sunk at
     the rear and the plate sliding out the front."""
-    mask = blob([(26, 42, 11, 15), (38, 42, 11, 15), (49, 42, 8, 12), (36, 43, 23, 7)], carve=[(32, 27, 2, 2)],
+    mask = blob([(28, 42, 14, 19), (42, 42, 12, 17), (52, 42, 8, 11), (36, 43, 24, 8)], carve=[(36, 24, 2, 2)],
                 film_l=3, film_r=0)
     cv = Cv()
     draw_obj(cv, PLATE, 49, 33)
     shade(cv, mask, dead=True)
     crease_rows(cv, mask, ((21, 2), (44, 2)))
     put_grit(cv, mask, _CREEP_GRIT, 0, 12)
-    draw_obj(cv, SKULL, 26, 31, mask=mask, stain_from=3)
+    draw_obj(cv, SKULL, 21, 28, mask=mask, stain_from=3)
     return finish(cv)
 
 
 def key_down_14():
     """Frame 14: the deflate. The heap settles to 12 px, the skull rolls out of the front and the plate tips flat."""
-    mask = blob([(25, 42, 10, 13), (38, 42, 10, 13), (50, 42, 7, 10), (36, 43, 22, 6)], carve=[(31, 29, 2, 2)],
+    mask = blob([(25, 42, 10, 15), (38, 42, 10, 15), (50, 42, 7, 12), (36, 43, 22, 7)], carve=[(31, 29, 2, 2)],
                 film_l=3, film_r=0)
     cv = Cv()
     draw_obj(cv, PLATE_TILT, 51, 35)

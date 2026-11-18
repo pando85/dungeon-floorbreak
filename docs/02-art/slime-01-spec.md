@@ -89,7 +89,7 @@ The draft keys read as flat-topped, vertical-sided green boxes with an emoji-lik
 | 5. Frame height | Kept 80 x 40. The new tell is 37 px with its crest at row 3; no pose needs more, and the in-between half-rise (frame 7) sits below it |
 | Tell-to-lunge read, ticks | Kept: 6 + 24 tell, 2 launch, 6 impact, 20 recover (the hit lands 32 ticks after the tell starts). The tell leans the mass back, the lunge throws it forward along the floor (15 px high, reach to x 78): the anticipation reads as the opposite of the action |
 | Size beside Carl and the Scatterer | Kept 30 px: knee-to-hip on Carl, about twice the Scatterer's height and several times its mass, wider than Carl (`key0-scale.png`) |
-| Palette under A1 light | Kept 17 keys; the gel ramp moved toward olive in the darks and acid yellow-green in the lights (grime, and closer to the concept); `acid_hot` moved to a hotter yellow (`#f0e61e`) so the tell beads separate from the sheen. The green is the only saturated green on the warm brick and stays readable against the cold blue backdrop |
+| Palette under A1 light | Kept 17 keys (19 after the round-2 skull tint); the gel ramp moved toward olive in the darks and acid yellow-green in the lights (grime, and closer to the concept); `acid_hot` moved to a hotter yellow (`#f0e61e`) so the tell beads separate from the sheen. The green is the only saturated green on the warm brick and stays readable against the cold blue backdrop |
 
 ### Silhouette-gate fixes (2026-11-18)
 
@@ -178,7 +178,7 @@ stateDiagram-v2
 
 ## 6. Palette
 
-Palette `slime-floor01-v1`, **17 colours** (budget 20). The packet candidates are median-cut noise over the concept (15 of 24 are background navy), so the greens were re-ramped by eye and not copied (the edit moved the darks toward olive and the lights toward acid yellow-green): a six-step gel ramp from murk to lit, a pale glint and a hot acid yellow-green taken from the board's brightest tones, a three-step bone, a three-step rust (candidate `#965e3a` informed `rust_lit`) and a grit green.
+Palette `slime-floor01-v1`, **19 colours** (budget 20; `g` and `j` are the skull's gel tint, round 2). The packet candidates are median-cut noise over the concept (15 of 24 are background navy), so the greens were re-ramped by eye and not copied (the edit moved the darks toward olive and the lights toward acid yellow-green): a six-step gel ramp from murk to lit, a pale glint and a hot acid yellow-green taken from the board's brightest tones, a three-step bone, a three-step rust (candidate `#965e3a` informed `rust_lit`) and a grit green.
 
 | Key | Name | RGBA | Role |
 | --- | --- | --- | --- |
@@ -195,6 +195,7 @@ Palette `slime-floor01-v1`, **17 colours** (budget 20). The packet candidates ar
 | `r` `s` `u` | rust_dark, rust_mid, rust_lit | `#4a2818` `#7c4526` `#a96a3c` | armour plate; `r` also as grit specks |
 | `n` | debris_grit | `#2a3418` | suspended grit, grime |
 | `w` | hurt_flash | `#f4f2dc` | hurt flash only (accent) |
+| `g` `j` | bone_gel_lit, bone_gel_dark | `#b4be62` `#7d893c` | the skull's lower rows seen through gel |
 
 Reading in the lit catacomb: the green is the only saturated cool hue on a warm brick and orange-lit floor, so the silhouette separates from Carl (pink shoes, dark jacket) and the red-brown Scatterer at 1x (`docs/evidence/slime-01/key0-scale.png`). The cold ambient at the right of the view dims the gel, but the lit rim and the skull still read.
 
@@ -224,7 +225,7 @@ For the execution tier. All ten in-betweens are drawn (section 4 marks each); th
 | 11 | **redraw.** Recover (20 ticks): a visible pull-back toward the creep stretch, 20 to 24 px high (top row 16 to 19), **no pixel past x 70**, plate and skull riding back. Only key 10 is full length |
 | 13, 14 | defeat collapse: frame 13 may slump at about 18 px (top row 20 or lower, rule `R6-defeat-collapse`) with the rim glow gone, then 14 deflates toward key 15 while the skull rolls out of the front and the plate slides out |
 
-**Rules the executor adds to `slime_01.pixelart.json` with the redraw** (they fail on the current frames, so they are not configured yet):
+**Rules the executor added to `slime_01.pixelart.json` with the redraw** (now configured and passing):
 
 ```json
 {"id": "S2-creep-gather", "frames": [4, 6], "min_top": 10, "max_top": 13, "min_width": 46, "max_width": 56, "bottom": 39},
@@ -242,16 +243,25 @@ The in-betweens use the key machinery (same shading, lenses, skull and plate, gr
 4. **Lunge 9 and 11:** "26 px, no reach past x 70" contradicts R3 (top row 21 or lower and reach to x 76 or more on frames 9, 10 and 11). Frames 9 and 11 are 17 px high with the bulb at x 66 and x 60 and a thin floor strand reaching x 76; no `v` is past x 70, and the attack hitbox is still frame 10 only. Frame 11 is a little higher than 10 because the mass bunches as it pulls back.
 5. **Down 13 and 14:** "slump to about 18 px" contradicts R6 (top row 26 or lower). Frame 13 is 14 px, frame 14 is 11 px, key 15 is 10 px; the plate steps through three drawings (jutting, tipped, flat) and the skull rolls from the rear to the front.
 6. **Gel pockets:** the lens ellipses came out as small crosses (the 2 by 2 radius made a plus shape). They are now literal rounded 2 to 4 px shapes (`POCKET_SHAPES`) with the same refraction tick. Keys 0, 3, 8 and 10 changed only inside their silhouettes (no silhouette pixel moved) and were re-frozen; keys 12 and 15 have no pockets and are unchanged.
-7. **Resolved by the designer (review fix):** R3, S2, S1 and R6 are now split per frame (section 9); items 1, 2, 4 and 5 above no longer bind, and frames 4, 6, 9 and 11 are to be redrawn to section 8.
+7. **Resolved by the designer (review fix):** R3, S2, S1 and R6 are now split per frame (section 9); items 1, 2, 4 and 5 above no longer bind and are superseded by the round-2 notes below.
+
+### Round 2 (executor)
+
+8. **Gathers 4 and 6:** redrawn as a pile-up, 29 px high (top row 11) and 55 to 56 px wide, tail film's left end at x 6 and x 7 (key 3 is at 7), skull risen to row 20 (key 3: 25) and lagging. Frame 4 piles toward the rear, frame 6 toward the front. The plate sits under the front skirt at x 46 in both, 9 px behind key 3's x 55: with the tail film held at key 3's left end, the width cap of 56 px leaves no room for the plate at x 55, so it is drawn in with the mass and slides back out on the stretch frames.
+9. **Launch 9 and recover 11:** 9 is the reared mass falling forward, 26 px high (top row 14), peak at x 53, bulb at x 66, right edge x 70 and no `v` past x 66. 11 is a pull-back, 23 px high (top row 17), peak at x 42, bulb at x 57, right edge x 65. Key 10 is now the only frame that reaches x 76 or more.
+10. **Idle 1 and 2** use the loosened breath: crest top row 11 (29 px) and row 9 (31 px), bubble drifting up 2 px. **Down 13 and 14** use the loosened collapse: 17 px (top row 23) and 13 px (top row 27), then key 15 at 10 px; the plate steps through the new riveted plate, a tipped version and the flat one.
+11. **Grit:** the specks are half as many and drawn as diagonal 2 px chips (not flat squares), so they no longer read as holes.
+12. **Skull tint:** two new palette keys, `g` bone_gel_lit (`#b4be62`) and `j` bone_gel_dark (`#7d893c`), replace the plain dim bone steps on the lower rows of a skull seen through gel, so it sits in the gel and not on it. The skull on the defeat heap is outside the gel and keeps plain bone. The palette is 19 colours (budget 20); the `q` count rule is unaffected (the upper rows keep `q`).
+13. All six keys were re-frozen for the grit and skull tint (silhouettes unchanged). The plate in frames 1, 2, 4 to 6 uses `plate_swallowed` like keys 0, 3 and 12; frames 7 to 11 use the floor plate like keys 8 and 10.
 
 ## 9. Validators and readability rules
 
 Run by `python3 -m scripts.pixelart validate assets/source/characters/slime/slime_01.pixelart.json`. The set passes V01 to V15 (V08 and V10 are not configured; V12 `unique_frames` is on again, all 16 frames are distinct):
 
-- V04 palette: at most 20 colours (17 used); V05 isolated pixels: 0; V06 orphan pixels: at most 4 per frame.
+- V04 palette: at most 20 colours (19 used); V05 isolated pixels: 0; V06 orphan pixels: at most 4 per frame.
 - V07 contact rows: every tag is grounded, the lowest opaque row is 39.
 - V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/slime-01_keys.json` (re-frozen after the senior design edit).
-- V13 bbox, per frame: key 0 exactly 30 px high and 58 to 64 px wide, idle 1 and 2 top row 9 to 11; creep key 3 at most 26 px high and 62 px wide or more, frames 4 to 6 top row 9 or lower and at most 70 px wide (the gather targets in section 8 are added with the redraw); the tell key at least 36 px high (top row 4 or higher) and at most 44 px wide; **only lunge key 10** reaches x 76 or more and starts at row 21 or lower, frames 9 and 11 are grounded with top row 12 or lower (launch and recover targets in section 8 are added with the redraw); the hurt starts at row 18 or lower and stays within x 66; defeat key 15 starts at row 26 or lower, is at most 70 px wide and reaches row 31 or higher (remains, not a stain), frames 13 and 14 start at row 20 or lower.
+- V13 bbox, per frame: key 0 exactly 30 px high and 58 to 64 px wide, idle 1 and 2 top row 9 to 11; creep key 3 at most 26 px high and 62 px wide or more, frames 4 to 6 top row 9 or lower and at most 70 px wide (plus `S2-creep-gather`: frames 4 and 6 top row 10 to 13, 46 to 56 px wide); the tell key at least 36 px high (top row 4 or higher) and at most 44 px wide; **only lunge key 10** reaches x 76 or more and starts at row 21 or lower, frames 9 and 11 are grounded with top row 12 or lower (plus `R3-lunge-launch-lean`: frame 9 top row 14 to 17, nothing past x 70; `R3-lunge-recover-pullback`: frame 11 top row 16 to 19, nothing past x 70); the hurt starts at row 18 or lower and stays within x 66; defeat key 15 starts at row 26 or lower, is at most 70 px wide and reaches row 31 or higher (remains, not a stain), frames 13 and 14 start at row 20 or lower.
 - V14 key counts: acid `v` at least 4 in the alive frames and at least 9 in the tell; skull bone `q` at least 10 in the alive keys; hurt `w` at least 40 and no `w` in any other frame; no `v`, `H` or `w` in any defeat frame.
 - `tests/test_art_slime01.py` adds: the grid equals the script output, the six keys are distinct and frozen, every frame is distinct and the in-betweens are drawn (not copies), the gel pockets are rounded, the tick table and attack windows, tell tallest and lunge longest, one connected body per key (no split-off pieces).
 
