@@ -1,0 +1,145 @@
+{
+  "status": "unapproved_integration_proposal",
+  "mixer": {
+    "music": "music",
+    "ambience": "ambience",
+    "sfx": "sfx",
+    "default_variant": "hybrid",
+    "gain_fade_on_big_hit_db": -3.2,
+    "duck_ms": 150,
+    "max_concurrent_major_contacts_initial": 2
+  },
+  "events": [
+    {
+      "id": "floor01.intro",
+      "bus": "music",
+      "assets": [
+        "music/floor01_tension.ogg"
+      ],
+      "trigger": "floor scene begins, preserve intro/cinematic"
+    },
+    {
+      "id": "floor01.dozer.chase_start",
+      "bus": "music",
+      "assets": [
+        "music/floor01_dozer_chase.ogg",
+        "sfx/murder_dozer_engine_sketch.ogg"
+      ],
+      "trigger": "Murder Dozer chase starts"
+    },
+    {
+      "id": "floor01.goblin.combat_start",
+      "bus": "music",
+      "assets": [
+        "music/floor01_goblin_combat.ogg"
+      ],
+      "trigger": "goblin wave start"
+    },
+    {
+      "id": "floor01.gym.enter",
+      "bus": "music",
+      "assets": [
+        "music/floor01_gym_sketch.ogg"
+      ],
+      "trigger": "gym section begins, if scene uses this area"
+    },
+    {
+      "id": "floor01.ventilation",
+      "bus": "ambience",
+      "assets": [
+        "music/amb_floor01_ventilation.ogg"
+      ],
+      "trigger": "indoor mechanical region, loop quietly"
+    },
+    {
+      "id": "floor01.gym.ambience",
+      "bus": "ambience",
+      "assets": [
+        "music/amb_gym_fluorescent.ogg"
+      ],
+      "trigger": "gym area, loop quietly"
+    },
+    {
+      "id": "carl.kick.swing",
+      "bus": "sfx",
+      "assets": [
+        "sfx/carl_kick_whoosh_01.ogg",
+        "sfx/carl_kick_whoosh_02.ogg",
+        "sfx/carl_kick_whoosh_03.ogg"
+      ],
+      "trigger": "kick animation swing, including miss"
+    },
+    {
+      "id": "carl.kick.hit_confirmed",
+      "bus": "sfx",
+      "style_banks": {
+        "arcade": [
+          "variants/arcade/carl_kick_impact_01.ogg",
+          "variants/arcade/carl_kick_impact_02.ogg",
+          "variants/arcade/carl_kick_impact_03.ogg"
+        ],
+        "cinematic": [
+          "variants/cinematic/carl_kick_impact_01.ogg",
+          "variants/cinematic/carl_kick_impact_02.ogg",
+          "variants/cinematic/carl_kick_impact_03.ogg"
+        ],
+        "hybrid": [
+          "variants/hybrid/carl_kick_impact_01.ogg",
+          "variants/hybrid/carl_kick_impact_02.ogg",
+          "variants/hybrid/carl_kick_impact_03.ogg"
+        ]
+      },
+      "trigger": "verified hit event only"
+    },
+    {
+      "id": "goblin.hit",
+      "bus": "sfx",
+      "assets": [
+        "sfx/goblin_hit_breath_01.ogg",
+        "sfx/goblin_hit_breath_02.ogg",
+        "sfx/goblin_hit_breath_03.ogg"
+      ],
+      "trigger": "goblin damage reaction; temporary nonverbal placeholder"
+    },
+    {
+      "id": "enemy.body_collision",
+      "bus": "sfx",
+      "assets": [
+        "sfx/enemy_body_collision_01.ogg",
+        "sfx/enemy_body_collision_02.ogg",
+        "sfx/enemy_body_collision_03.ogg"
+      ],
+      "trigger": "physics collision goblin/goblin/prop"
+    },
+    {
+      "id": "environment.concrete_break",
+      "bus": "sfx",
+      "assets": [
+        "sfx/concrete_wall_break_01.ogg",
+        "sfx/concrete_wall_break_02.ogg",
+        "sfx/concrete_wall_break_03.ogg"
+      ],
+      "trigger": "wall destruct event"
+    },
+    {
+      "id": "gym.metal_weight_crash",
+      "bus": "sfx",
+      "assets": [
+        "sfx/gym_metal_weight_crash.ogg"
+      ],
+      "trigger": "weight prop collision"
+    },
+    {
+      "id": "floor01.warning",
+      "bus": "sfx",
+      "assets": [
+        "sfx/warning_siren.ogg"
+      ],
+      "trigger": "warning cue, attenuated"
+    }
+  ],
+  "compatibility_aliases": {
+    "sfx/carl_kick_impact.ogg": "variants/hybrid/carl_kick_impact_01.ogg",
+    "sfx/goblin_hit_vocal_synthetic.ogg": "sfx/goblin_hit_breath_01.ogg"
+  }
+}

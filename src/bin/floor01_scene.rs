@@ -32,6 +32,10 @@ use dungeon_floorbreak::{
         ActorAssets, ActorSpec, FrameSource, actor_center, load_carl, load_donut, shadow_center_x,
     },
     anim::{Animator, Tag},
+    audio::{
+        AudioCommand, AudioSettings, StyleBank, cues_from_combat_event, scene_ambience, scene_music,
+    },
+    audio_adapter::{AudioQueue, FloorAudioPlugin, resolve_pack_dir},
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
         CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, goblin_variant,
@@ -107,6 +111,10 @@ struct Args {
     anim_trace: bool,
     /// Fixture only, headless: one `COMBAT_TRACE` row per simulated tick.
     combat_trace: bool,
+    /// No audio device and no sound (AUDIO-01); `FLOORBREAK_AUDIO=off` does the same.
+    no_audio: bool,
+    /// Style bank override (`arcade`, `cinematic`, `hybrid`); F9 cycles it live.
+    audio_style: Option<StyleBank>,
 }
 
 /// Parse `first:step:count` of `--capture-sequence`.
@@ -142,6 +150,8 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         capture_dir: None,
         anim_trace: false,
         combat_trace: false,
+        no_audio: false,
+        audio_style: None,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -159,6 +169,13 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
                 })?);
             }
             "--no-lighting" => parsed.no_lighting = true,
+            "--no-audio" => parsed.no_audio = true,
+            "--audio-style" => {
+                let value = iter.next().ok_or("--audio-style needs a name")?;
+                parsed.audio_style = Some(StyleBank::parse(value).ok_or_else(|| {
+                    format!("unknown audio style {value:?} (expected arcade, cinematic, hybrid)")
+                })?);
+            }
             "--reference-frame" => parsed.reference_frame = true,
             "--anim-trace" => parsed.anim_trace = true,
             "--combat-trace" => parsed.combat_trace = true,
@@ -361,10 +378,14 @@ fn elapsed_ticks(sim: &SceneSim, combat: Option<&CombatState>) -> u64 {
     combat.map_or(sim.world.tick, |combat| combat.elapsed)
 }
 
-/// Print the combat events recorded since the last call.
-fn print_combat_events(combat: &mut CombatState) {
+/// Print the combat events recorded since the last call and queue their
+/// sounds (presentation only: the queue is never read back by the simulation).
+fn print_combat_events(combat: &mut CombatState, mut audio: Option<&mut AudioQueue>) {
     for event in combat.take_new_events() {
         println!("{event}");
+        if let Some(audio) = audio.as_deref_mut() {
+            audio.push_cues(cues_from_combat_event(event));
+        }
     }
 }
 
@@ -675,30 +696,49 @@ fn run_window(
         seen: 0,
         intervals_ms: Vec::with_capacity(target),
     });
+    // AUDIO-01: sound is presentation only. Screenshot, reference and perf runs
+    // stay silent and open no device, like `--no-audio` and `FLOORBREAK_AUDIO=off`.
+    let mut audio_settings = AudioSettings::from_env();
+    if let Some(style) = args.audio_style {
+        audio_settings.style = style;
+    }
+    audio_settings.enabled &= !args.no_audio && !freeze && args.perf_frames.is_none();
+    let audio_initial = vec![
+        AudioCommand::Music(scene_music(combat.is_some())),
+        AudioCommand::Ambience(scene_ambience()),
+    ];
+    let mut plugins = DefaultPlugins
+        .set(ImagePlugin::default_nearest())
+        .set(AssetPlugin {
+            file_path: asset_directory,
+            ..default()
+        });
+    if !audio_settings.enabled {
+        plugins = plugins.disable::<bevy::audio::AudioPlugin>();
+    }
     let mut app = App::new();
     app.add_plugins(
-        DefaultPlugins
-            .set(ImagePlugin::default_nearest())
-            .set(AssetPlugin {
-                file_path: asset_directory,
-                ..default()
-            })
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: TITLE.into(),
-                    resolution: WindowResolution::new(window_size.0, window_size.1)
-                        // ADR-0007: window = virtual size x scale in real pixels;
-                        // an OS scale factor must not change the integer ratio.
-                        .with_scale_factor_override(1.0),
-                    // ADR-0007: integer scaling only; the window is exactly
-                    // virtual size x scale (letterboxing is deferred).
-                    resizable: false,
-                    present_mode,
-                    ..default()
-                }),
+        plugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: TITLE.into(),
+                resolution: WindowResolution::new(window_size.0, window_size.1)
+                    // ADR-0007: window = virtual size x scale in real pixels;
+                    // an OS scale factor must not change the integer ratio.
+                    .with_scale_factor_override(1.0),
+                // ADR-0007: integer scaling only; the window is exactly
+                // virtual size x scale (letterboxing is deferred).
+                resizable: false,
+                present_mode,
                 ..default()
             }),
+            ..default()
+        }),
     )
+    .add_plugins(FloorAudioPlugin {
+        settings: audio_settings,
+        pack_dir: resolve_pack_dir(),
+        initial: audio_initial,
+    })
     .insert_resource(ClearColor(Color::srgb_u8(6, 5, 12)))
     .insert_resource(Time::<Fixed>::from_hz(60.0))
     .insert_resource(Sim(sim))
@@ -1146,6 +1186,7 @@ fn fixed_step(
     mut sim: ResMut<Sim>,
     mut anim: ResMut<Anim>,
     mut after_exit: ResMut<AfterExitTicks>,
+    mut audio: ResMut<AudioQueue>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let restart = std::mem::take(&mut controls.restart);
@@ -1208,7 +1249,7 @@ fn fixed_step(
     let was_complete = sim.0.world.complete;
     if let Some(combat) = combat.0.as_mut() {
         step_combat(&mut sim.0, combat, &mut anim.0, raw);
-        print_combat_events(combat);
+        print_combat_events(combat, Some(&mut audio));
     } else {
         sim.0.step(raw);
         anim.0.step(&sim.0.world);
@@ -1828,7 +1869,7 @@ fn watchdog(
             loading.counts
         );
         if let Some(combat) = combat.0.as_mut() {
-            print_combat_events(combat);
+            print_combat_events(combat, None);
         }
         println!("{}", sim.0.state_line());
         println!("{}", anim.0.state_line(sim.0.world.tick));
@@ -1962,7 +2003,7 @@ fn capture_sequence(
                 path.display()
             );
             if let Some(combat) = combat.0.as_mut() {
-                print_combat_events(combat);
+                print_combat_events(combat, None);
             }
             println!("{}", sim.0.state_line());
             println!("{}", anim.0.state_line(sim.0.world.tick));
@@ -2032,7 +2073,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors) -> Result<(), Stri
         args.capture_tick.get_or_insert(fixture.ticks);
         let (sim, anim, combat) = build_scene(kit, &args, actors)?;
         let mut combat = combat.ok_or("fixture without combat state")?;
-        print_combat_events(&mut combat);
+        print_combat_events(&mut combat, None);
         println!("{}", sim.state_line());
         println!("{}", anim.state_line(sim.world.tick));
         print_combat_state(&sim, &anim, &combat);
