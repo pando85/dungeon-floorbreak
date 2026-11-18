@@ -5,8 +5,7 @@ Writes ``assets/source/characters/rot_sticker/rot_01.grid.json`` (pixel-grid-v1)
 ``scripts/pixel_grid_to_ase.py`` and ``assets/manifests/rot-01.json``. Design spec: ``docs/02-art/rot-01-spec.md``.
 
 Status: the six keys (design-edited) (frames 0, 3, 8, 10, 11, 14) are drawn by rules (an oblique disc: two-band shell, crimped lip, pleated
-face, glow core and spikes; direction-neutral shading), parametrised per key in ``KEYS``. The nine in-between slots are copies of the nearest
-key until the execution tier replaces them (spec section 8). Nothing is traced or resampled from the concept.
+face, glow core and spikes; direction-neutral shading), parametrised per key in ``KEYS``. The nine in-betweens are drawn through the same renderer (``INBETWEENS``, spec section 8). Nothing is traced or resampled from the concept.
 
 Orientation: authored WALL-MOUNTED, attached to a vertical wall on the LEFT, dome bulging to the right (room side),
 creeping toward -y (up the wall). The wall plane is column x = 6 (the pivot column); the pivot is (6, 16).
@@ -54,7 +53,7 @@ WALL_ROUND = ((0.6, 1), (0.8, 2))  # (normalised distance along the wall, inset 
 def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_shift=1.0, face_ax=4.4, face_ay=7.0,
            face_dy=0.0, pleat=("r", "m"), core=("g", "o"), rc=0.34, lip="c", lip_hi="v", shell=("a", "b"),
            spikes=IDLE_SPIKES, spike_add=0, spike_root="K", spike_tip="r", wall_round=WALL_ROUND, halo=None,
-           crack=None, grime=((0, 2), (0, 3), (0, 4), (0, 5), (1, 3), (1, 4)), drip=0, patch=()) -> list[str]:
+           crack=None, crack_angles=(150, 180, 210, 120, 240), grime=((0, 2), (0, 3), (0, 4), (0, 5), (1, 3), (1, 4)), drip=0, patch=()) -> list[str]:
     """Oblique disc on a wall at the left: dark ringed shell on the wall side, pleated red face toward the room.
 
     The outline is an oval: only the middle of the wall side touches the wall column (``wall_round``). Shading is
@@ -147,7 +146,7 @@ def render(rx=12.0, ry_up=10.0, ry_dn=10.0, cy=16.0, n=2.3, face_x=0.66, face_sh
         for q in rim:
             g[q] = halo[1] if q[0] + 0.5 >= fcx else halo[0]
     if crack:  # burst: bright fissures from the core through the shell
-        for ang in (150, 180, 210, 120, 240):
+        for ang in crack_angles:
             a = math.radians(ang)
             for i in range(30):
                 p = (int(math.floor(fcx + math.cos(a) * i * 0.5)), int(math.floor(fcy + math.sin(a) * i * 0.5)))
@@ -189,8 +188,35 @@ KEYS = {
              pleat=("m", "a"), core=("a", "m"), lip="b", lip_hi=None, shell=("a", "a"), spike_add=-3, spike_tip="K",
              wall_round=((0.85, 1),), grime=None, drip=4),
 }
-# In-between slots are copies of the nearest key until the execution tier draws them.
-SLOT_SOURCE = {0: 0, 1: 0, 2: 0, 3: 3, 4: 3, 5: 3, 6: 3, 7: 8, 8: 8, 9: 10, 10: 10, 11: 11, 12: 14, 13: 14, 14: 14}
+# In-betweens (spec section 8): same renderer, parameters nudged from the neighbouring key. None of them touches a frozen key.
+INBETWEENS = {
+    # idle pulse up: disc 1 px deeper, core one step brighter (centre and ring both `g`, a little wider; still no `G`)
+    1: dict(pleat=("m", "b"), rx=13.0, core=("g", "o"), rc=0.45),
+    # idle pulse down: core centre `o`, ring `r`: dimmer than key 0
+    2: dict(pleat=("m", "b"), core=("o", "r")),
+    # walk pull: whole disc 1 px up the wall, 1 px shallower, sheared up (face rides up, upper half longer)
+    4: dict(pleat=("m", "b"), rx=11.0, cy=15.0, ry_up=11.0, ry_dn=9.0, face_dy=-1.5, core=("o", "r")),
+    # walk drag: sheared the other way (face rides down, lower half longer), disc 1 px low, core ring `r`
+    5: dict(pleat=("m", "b"), rx=11.0, cy=17.0, ry_up=8.5, ry_dn=10.5, face_dy=1.5, core=("o", "r"), rc=0.34),
+    # walk settle: close to key 0, the whole disc 1 px higher on the wall
+    6: dict(pleat=("m", "b"), cy=15.0),
+    # tell onset: key 8 at ~60 % glow: pleats alternate `m`/`o`, core `o`/`g` about 5 px, spikes 1 to 3 px, no halo
+    7: dict(rx=12.0, ry_up=10.5, ry_dn=10.5, face_ax=4.8, face_ay=7.5, pleat=("o", "m"), core=("g", "o"), rc=0.5,
+            lip="m"),
+    # pre-burst: key 10 at ~90 %: smaller, ribs `o`, one crack, core `G`, no highlighted spike tips
+    9: dict(rx=13.5, ry_up=11.5, ry_dn=11.5, face_ax=5.6, face_ay=8.5, pleat=("o", "g"), core=("G", "G"), rc=0.55,
+            lip="g", lip_hi="G", spike_add=1, spike_tip="p", spike_root="r", halo=("r", "o"), crack="G",
+            crack_angles=(180,)),
+    # dud, glow dies: dome sags to the deepest the dud rule allows (right edge <= 12), core `m`, pleats `m`/`a`, spikes 1 px
+    12: dict(rx=6.2, ry_up=9.5, ry_dn=9.5, cy=16.3, face_x=0.58, face_shift=0.0, face_ax=2.8, face_ay=6.2,
+             pleat=("m", "a"), core=("m", "m"), lip="b", lip_hi=None, shell=("a", "a"), spike_add=-3, spike_tip="K",
+             wall_round=((0.85, 1),), grime=((0, 2), (0, 3), (0, 4)), drip=0),
+    # dud, halfway: dome ~6 px deep, spikes drooped to nubs, no glow, a short olive drip begins
+    13: dict(rx=5.8, ry_up=9.0, ry_dn=9.0, cy=16.4, face_x=0.56, face_shift=0.0, face_ax=2.4, face_ay=5.8,
+             pleat=("m", "a"), core=("a", "m"), lip="b", lip_hi=None, shell=("a", "a"), spike_add=-3, spike_tip="K",
+             wall_round=((0.85, 1),), grime=None, drip=2),
+}
+SLOT_SOURCE = {i: i for i in range(15)}  # every slot is now drawn (key or in-between)
 TAGS = [("idle", 0, 2), ("walk", 3, 6), ("attack_tell", 7, 8), ("attack_swing", 9, 10), ("hurt", 11, 11),
         ("down", 12, 14)]
 TICKS = [14, 12, 14, 8, 8, 8, 8, 6, 24, 2, 4, 10, 4, 8, 0]
@@ -198,8 +224,8 @@ KEY_FRAMES = sorted(KEYS)
 
 
 def all_frames() -> list[list[str]]:
-    drawn = {k: render(**v) for k, v in KEYS.items()}
-    return [drawn[SLOT_SOURCE[i]] for i in range(len(TICKS))]
+    drawn = {k: render(**v) for k, v in {**KEYS, **INBETWEENS}.items()}
+    return [drawn[i] for i in range(len(TICKS))]
 
 
 def build() -> dict:
@@ -227,7 +253,7 @@ def write_manifest() -> None:
         for i in range(a, b + 1):
             ticks = TICKS[i] or None
             rows.append({"index": i, "tag": name, "ticks": ticks, "duration_ms": max(1, round((ticks or 6) * 1000 / 60)),
-                         "author": "key" if i in KEYS else "copy-of-key-%d" % SLOT_SOURCE[i]})
+                         "author": "key" if i in KEYS else "in-between"})
     manifest = {
         "schema_version": 1,
         "id": "rot_sticker_floor01_v1_candidate",
@@ -245,9 +271,9 @@ def write_manifest() -> None:
                  "surface-crawling contact bomb)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
-            "origin": "ROT-01 design-edited keys: six keys drawn by rules in scripts/author_rot01.py; nine in-between slots are "
-                      "copies of the nearest key",
-            "generator": "Draft spec and keys: Claude Sonnet. Design edit: Claude Opus. Independent review: pending. "
+            "origin": "ROT-01 design-edited keys: six keys drawn by rules in scripts/author_rot01.py; nine in-betweens are "
+                      "drawn through the same renderer (see INBETWEENS)",
+            "generator": "Draft spec and keys: Claude Sonnet. Design edit: Claude Opus. In-betweens and execution: Claude Sonnet. Independent review: pending. "
                          "No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["floor-01-enemy-concept-scatterers-rot-sticker-slime-v1"],
@@ -256,7 +282,7 @@ def write_manifest() -> None:
                    "no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "rot_sticker": {
-            "status": "keys design-edited; review and in-betweens pending; not wired into any Bevy binary",
+            "status": "keys design-edited; in-betweens drawn; review pending; not wired into any Bevy binary",
             "spec": "docs/02-art/rot-01-spec.md",
             "opaque_height_idle": 20,
             "tick_hz": 60,

@@ -27,8 +27,8 @@
   "owner": "AI-authored enemy animation draft (fan-concept layer: Floor 1 Rot Sticker; runtime role IP-neutral surface-crawling contact bomb)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "ROT-01 design-edited keys: six keys drawn by rules in scripts/author_rot01.py; nine in-between slots are copies of the nearest key",
-    "generator": "Draft spec and keys: Claude Sonnet. Design edit: Claude Opus. Independent review: pending. No image-model raster output, no tracing, no resampling",
+    "origin": "ROT-01 design-edited keys: six keys drawn by rules in scripts/author_rot01.py; nine in-betweens are drawn through the same renderer (see INBETWEENS)",
+    "generator": "Draft spec and keys: Claude Sonnet. Design edit: Claude Opus. In-betweens and execution: Claude Sonnet. Independent review: pending. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "floor-01-enemy-concept-scatterers-rot-sticker-slime-v1"
@@ -37,7 +37,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "rot_sticker": {
-    "status": "keys design-edited; review and in-betweens pending; not wired into any Bevy binary",
+    "status": "keys design-edited; in-betweens drawn; review pending; not wired into any Bevy binary",
     "spec": "docs/02-art/rot-01-spec.md",
     "opaque_height_idle": 20,
     "tick_hz": 60,
@@ -115,14 +115,14 @@
         "tag": "idle",
         "ticks": 12,
         "duration_ms": 200,
-        "author": "copy-of-key-0"
+        "author": "in-between"
       },
       {
         "index": 2,
         "tag": "idle",
         "ticks": 14,
         "duration_ms": 233,
-        "author": "copy-of-key-0"
+        "author": "in-between"
       },
       {
         "index": 3,
@@ -136,28 +136,28 @@
         "tag": "walk",
         "ticks": 8,
         "duration_ms": 133,
-        "author": "copy-of-key-3"
+        "author": "in-between"
       },
       {
         "index": 5,
         "tag": "walk",
         "ticks": 8,
         "duration_ms": 133,
-        "author": "copy-of-key-3"
+        "author": "in-between"
       },
       {
         "index": 6,
         "tag": "walk",
         "ticks": 8,
         "duration_ms": 133,
-        "author": "copy-of-key-3"
+        "author": "in-between"
       },
       {
         "index": 7,
         "tag": "attack_tell",
         "ticks": 6,
         "duration_ms": 100,
-        "author": "copy-of-key-8"
+        "author": "in-between"
       },
       {
         "index": 8,
@@ -171,7 +171,7 @@
         "tag": "attack_swing",
         "ticks": 2,
         "duration_ms": 33,
-        "author": "copy-of-key-10"
+        "author": "in-between"
       },
       {
         "index": 10,
@@ -192,14 +192,14 @@
         "tag": "down",
         "ticks": 4,
         "duration_ms": 67,
-        "author": "copy-of-key-14"
+        "author": "in-between"
       },
       {
         "index": 13,
         "tag": "down",
         "ticks": 8,
         "duration_ms": 133,
-        "author": "copy-of-key-14"
+        "author": "in-between"
       },
       {
         "index": 14,

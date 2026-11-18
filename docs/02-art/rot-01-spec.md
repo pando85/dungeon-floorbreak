@@ -1,6 +1,6 @@
 # ROT-01: Rot Sticker readability set, design spec
 
-**Status:** packet ready; six keys designed, senior design edit done, keys re-frozen. Independent review pending. In-betweens pending (execution).
+**Status:** packet ready; six keys designed, senior design edit done, keys re-frozen. In-betweens drawn and validated (`unique_frames` on). Independent review pending.
 
 **Decision record:** an **oblique disc** (dark ringed shell on the wall side, pleated red face toward the room), 20 px along the wall, frame 32 x 32, pivot (6, 16), authored wall-mounted; ceiling, floor and right wall by runtime rotation or mirror of the one set; shading is direction-neutral (section 3). Decided in the design edit.
 
@@ -104,24 +104,24 @@ Readability set: idle, move, tell, attack, hurt, defeat. Tick windows are at 60 
 | hurt | `hurt` | 1 | once | 10 | white flash, shell clenches |
 | defeat | `down` | 3 | hold | 4 + 8 + hold | a dud: deflates without exploding |
 
-Frame table. Keys are drawn by the rule-based script; in-betweens are, for now, copies of the nearest key (`SLOT_SOURCE` in `scripts/author_rot01.py`).
+Frame table. Keys and in-betweens are all drawn by the rule-based script (`KEYS` and `INBETWEENS` in `scripts/author_rot01.py`).
 
 | # | Tag | Pose | Ticks | Author |
 | --- | --- | --- | --- | --- |
 | 0 | `idle` | oblique disc, dark shell, dim maroon pleated face, ember core, short spikes (KEY) | 14 | key |
-| 1 | `idle` | pulse up: dome 1 px deeper, core one step brighter | 12 | copy of 0 |
-| 2 | `idle` | pulse down: back to 0 with the core one step dimmer | 14 | copy of 0 |
+| 1 | `idle` | pulse up: dome 1 px deeper, core one step brighter | 12 | in-between |
+| 2 | `idle` | pulse down: back to 0 with the core one step dimmer | 14 | in-between |
 | 3 | `walk` | stretch: leading half reaches up the wall, trailing half drags short, core dimmer (KEY) | 8 | key |
-| 4 | `walk` | pull: dome pushes 1 px up, compresses 1 px in depth | 8 | copy of 3 |
-| 5 | `walk` | drag: lower edge catches up, shear the other way | 8 | copy of 3 |
-| 6 | `walk` | settle: close to key 0, 1 px higher on the wall | 8 | copy of 3 |
-| 7 | `attack_tell` | onset: ribs half lit, spikes 3 px, no halo yet | 6 | copy of 8 |
+| 4 | `walk` | pull: dome pushes 1 px up, compresses 1 px in depth | 8 | in-between |
+| 5 | `walk` | drag: lower edge catches up, shear the other way | 8 | in-between |
+| 6 | `walk` | settle: close to key 0, 1 px higher on the wall | 8 | in-between |
+| 7 | `attack_tell` | onset: ribs half lit, spikes 3 px, no halo yet | 6 | in-between |
 | 8 | `attack_tell` | hold: face pleats ember, core hot, red halo, spikes 3 px with lit tips; the shell stays dark (KEY) | 24 | key |
-| 9 | `attack_swing` | pre-burst: shell swells, first crack, core `G` | 2 | copy of 10 |
+| 9 | `attack_swing` | pre-burst: shell swells, first crack, core `G` | 2 | in-between |
 | 10 | `attack_swing` | first burst frame: shell cracked open, hot core blown out, bright spikes (KEY) | 4 | key |
 | 11 | `hurt` | clenched: dome squashed, spikes flat, white core and rim flash (KEY) | 10 | key |
-| 12 | `down` | glow dies, dome sags | 4 | copy of 14 |
-| 13 | `down` | halfway: dome half deflated, spikes drooping | 8 | copy of 14 |
+| 12 | `down` | glow dies, dome sags | 4 | in-between |
+| 13 | `down` | halfway: dome half deflated, spikes drooping | 8 | in-between |
 | 14 | `down` | settled dud: a deflated dark skin 5 px deep against the wall, olive rot running down the wall (KEY) | hold | key |
 
 ## 5. State diagram
@@ -193,7 +193,7 @@ Six keys (V09 frozen in `tests/fixtures/rot-01_keys.json`): 0, 3, 8, 10, 11, 14.
 
 ## 8. In-between list
 
-For the execution tier; no design decisions needed. Frames 1, 2, 4 to 7, 9, 12 and 13 are copies of the nearest key now (the validators run with `unique_frames` off until they are drawn; switch it on then).
+Drawn (`INBETWEENS` in `scripts/author_rot01.py`); `unique_frames` is on. Deviations from these notes are listed in the executor notes (section 12).
 
 | # | Pose notes |
 | --- | --- |
@@ -211,7 +211,7 @@ For the execution tier; no design decisions needed. Frames 1, 2, 4 to 7, 9, 12 a
 
 Run by `python3 -m scripts.pixelart validate assets/source/characters/rot_sticker/rot_01.pixelart.json` (rules V01 to V15):
 
-- V04 palette: at most 20 colours (13 used); V05 isolated pixels: 0; V06 orphan pixels: at most 8 per frame (the face pleats cause them).
+- V04 palette: at most 20 colours (13 used); V05 isolated pixels: 0; V06 orphan pixels: at most 8 per frame (the face pleats cause them); V12 unique frames: on.
 - V07/V08 are off: contact is a column, not a row (section 3).
 - V09 frozen keys: SHA-256 per key frame, fixture `tests/fixtures/rot-01_keys.json`.
 - V13 bounding boxes (size and silhouette): key 0 is 20 px tall, rows 6 to 25, left column 6, right edge 17 to 21 (19 with spikes); the tell reaches column 21 or more and is at most 24 tall; the burst is the largest pose (right edge 22 or more, height 23 to 26); the hurt is compact (right edge at most 18); the dud frames stay flat (right edge at most 12).
@@ -235,7 +235,7 @@ The review pack holds exactly three images (contact sheet x4, lit scene 640 x 36
 | `assets/source/characters/rot_sticker/rot_01.grid.json` / `.ase` | pixel-grid source and Aseprite master |
 | `assets/manifests/rot-01.json` | manifest |
 | `assets/source/characters/rot_sticker/rot_01.pixelart.json` | the asset config |
-| `scripts/author_rot01.py` | deterministic authoring script (keys by rules, slots as key copies) |
+| `scripts/author_rot01.py` | deterministic authoring script (keys and in-betweens by rules) |
 | `scripts/make_rot01_scale.py` | `key0-scale.png` and `keys-x3.png` evidence |
 | `tests/fixtures/rot-01_keys.json` | frozen keys |
 | `tests/test_art_rot01.py` | asset-specific tests |
@@ -245,7 +245,18 @@ The review pack holds exactly three images (contact sheet x4, lit scene 640 x 36
 - **Not in scope, noted:** the explosion burst (and any rot splash) is a separate hazard-VFX work order; this set stops at the first burst frame. Wall and ceiling tells, drip stains and decals belong to AREA-HAZARDS-01.
 - Settled in the design edit: oblique view, one set plus runtime rotation and mirror, direction-neutral shading (section 3); key 0 cleaned (section 7).
 - Proposal only, for gameplay: a hit does not cancel the tell, a kill does (section 5). Open for gameplay: does an exploding sticker hurt other enemies?
-- For the execution tier: draw the in-betweens from section 8 with the same renderer parameters, then switch `unique_frames` on.
+### Executor notes (in-betweens)
+
+Conservative readings; no key, palette entry, box or validator rule was changed (orphan limit stays 8, `unique_frames` on).
+
+- **Frame 12 depth.** Section 8 says "disc 2 px shallower" than key 0 (right edge about 17), but rule Z6 caps frames 12 to 14 at right edge 12. Z6 wins: frame 12 is drawn about 7 px deep (right edge 12), 13 about 6, key 14 5. The sag therefore reads as a quick collapse over frames 12 to 14. Design may relax Z6 if a slower deflate is wanted.
+- **Frame 13 depth.** Section 8 says about 7 px; drawn 6 so that the depth stays monotonic after 12 (7) and before 14 (5).
+- **Shear (frames 4, 5).** The renderer has no shear parameter, so "shear" is the face offset (`face_dy` +-1.5) plus a longer half on the sheared side (`ry_up` / `ry_dn` 11 and 9); the outline stays an oval and the oval wall-contact rule is untouched.
+- **"One step brighter" (frame 1).** Idle may carry no `G` (Z2), so the step is a larger core (centre and ring `g`/`o`, radius 0.45) and a 1 px deeper disc, not a `G` pixel.
+- **Core `r` (frame 5).** Z0 needs at least 2 `o` in idle and walk frames, so the core keeps `o` in the centre and `r` in the ring.
+- **Frame 7 spikes.** Same lengths as key 0 (1 to 3 px), which is "2 px" on average; no halo, lip `m`.
+- **Frame 9.** `G` core radius 0.55 (about 6 px across, the widest the 5.6 px face allows; "about 8 px" is not reachable without passing key 10's core); one crack on the wall side, halo `r`/`o` (dimmer than key 10's `o`/`g`), spike tips `p` instead of `G`.
+- **Review scene.** The scene tool seats actors on a floor-lift line at the foot of the wall (`lift: 20`), not on the mid-wall brick; frames 0, 3 and 8 sit against brick or pillar base, the others against the pillar. The tool has no wall-mount mode, noted for the toolkit owner.
 
 ## 13. Rights and provenance
 
@@ -255,5 +266,5 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (see `do
 
 - Concept: owner-approved reference under `ART-PUBLICATION-ALL-V1`; crops are for reference only, never traced or exported.
 - Packet: script output plus a medium-tier executor (stage P).
-- Draft spec + keys: Claude Sonnet. Design edit: Claude Opus. Independently reviewed by: pending.
+- Draft spec + keys: Claude Sonnet. Design edit: Claude Opus. In-betweens + execution: Claude Sonnet. Independently reviewed by: pending.
 - No third-party assets, no copied designs or dialogue, no image-model raster output.
