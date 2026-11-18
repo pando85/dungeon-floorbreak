@@ -94,3 +94,7 @@ bash scripts/make_cp01_feel_evidence.sh
 ```
 
 Provenance and rights: code by Claude Sonnet; no new art and no new third-party assets (placeholder rectangles drawn by the code); the characters and their art keep the recorded `ART-PUBLICATION-ALL-V1` scope, which is not a game distribution right.
+
+## DEATH-B note
+
+`headless_cp01_kick.txt` gained ` force=heavy` on its `enemy_defeated` line (the lethal second kick launches, so its force tier is heavy). The `COMBAT_STATE` hash is unchanged; `SHA256SUMS` was updated. See [species death profiles](../../03-tech/species-death-profiles.md).

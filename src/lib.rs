@@ -9,6 +9,7 @@ pub mod combat;
 pub mod combat_anim;
 pub mod combat_scene;
 pub mod corridor;
+pub mod death;
 pub mod env_kit;
 pub mod feel;
 pub mod goblin;

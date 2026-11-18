@@ -1645,6 +1645,7 @@ fn attacker_of(hero: &Hero) -> Attacker {
         y: hero.y,
         half_height: HERO_HALF_HEIGHT,
         facing: hero.facing,
+        player: 0,
     }
 }
 

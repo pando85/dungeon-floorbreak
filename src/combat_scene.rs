@@ -19,8 +19,8 @@
 
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
-    EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, Phase, RootStep, carl_move, hit_box, resolve_strike,
-    solid_at,
+    EnemyAi, ForceTier, HERO_INVULNERABLE_TICKS, MoveId, Phase, RootStep, carl_move, hit_box,
+    resolve_strike, solid_at,
 };
 use crate::corridor::SceneSim;
 use crate::env_kit::EnvKit;
@@ -599,6 +599,7 @@ impl CombatState {
                 y: hero.y,
                 half_height: HERO_HALF_HEIGHT,
                 facing: hero.facing,
+                player: PLAYER_ONE,
             };
             let attacking: Vec<bool> = self.enemies.iter().map(Goblin::token_held).collect();
             let mut hits = Vec::new();
@@ -625,6 +626,7 @@ impl CombatState {
                     if goblin.mode == GoblinMode::Launched && goblin.launch.is_none() {
                         goblin.launch = Some(instance);
                     }
+                    goblin.hit_by = Some(attacker.player);
                     self.note_confirm(tick, move_id, target as usize, health_left == 0, attacker);
                 }
                 self.log(event);
@@ -823,6 +825,8 @@ impl CombatState {
                     tick,
                     target: index as u32,
                     cause: DefeatCause::ShoreBlock { player },
+                    force: ForceTier::Catastrophic,
+                    instigator: self.enemies[index].hit_by,
                 });
                 if let Some(slot) = self.flash_tick.get_mut(index) {
                     *slot = Some(tick);
@@ -1752,6 +1756,8 @@ mod tests {
                 tick: 73,
                 target: 0,
                 cause: DefeatCause::Melee,
+                force: ForceTier::Routine,
+                instigator: Some(0),
             }
         )));
         // The final hit launched it away from Carl, bounded.
@@ -2693,26 +2699,257 @@ mod tests {
         assert_eq!(first, second, "the replayed attempt logs the same events");
     }
 
-    #[test]
-    fn the_defeat_event_line_carries_the_cause_only_when_it_is_not_melee() {
-        let melee = CombatEvent::EnemyDefeated {
+    fn defeat(cause: DefeatCause, force: ForceTier, instigator: Option<u32>) -> CombatEvent {
+        CombatEvent::EnemyDefeated {
             tick: 3,
             target: 1,
-            cause: DefeatCause::Melee,
-        };
+            cause,
+            force,
+            instigator,
+        }
+    }
+
+    fn hash_of(event: &CombatEvent) -> Vec<u64> {
+        let mut words = Vec::new();
+        event.mix_into(&mut |w| words.push(w));
+        words
+    }
+
+    #[test]
+    fn the_defeat_event_line_carries_what_the_cause_does_not_imply() {
+        let melee = defeat(DefeatCause::Melee, ForceTier::Routine, Some(0));
         assert_eq!(
             melee.to_string(),
             "COMBAT_EVENT tick=3 kind=enemy_defeated target=1"
         );
-        let block = CombatEvent::EnemyDefeated {
-            tick: 3,
-            target: 1,
-            cause: DefeatCause::ShoreBlock { player: 0 },
-        };
+        let kick = defeat(DefeatCause::Melee, ForceTier::Heavy, Some(0));
+        assert!(kick.to_string().ends_with("target=1 force=heavy"));
+        let block = defeat(
+            DefeatCause::ShoreBlock { player: 0 },
+            ForceTier::Catastrophic,
+            None,
+        );
         assert!(
             block
                 .to_string()
                 .ends_with("cause=shore_block credit_player=0")
         );
+        let chained = defeat(
+            DefeatCause::ShoreBlock { player: 0 },
+            ForceTier::Catastrophic,
+            Some(0),
+        );
+        assert!(
+            chained
+                .to_string()
+                .ends_with("cause=shore_block credit_player=0 instigator=0")
+        );
+    }
+
+    #[test]
+    fn the_defeat_hash_only_grows_for_an_instigator_the_cause_does_not_imply() {
+        // The pre-DEATH-B words: tag, tick, target (+ the block's credit).
+        let melee = defeat(DefeatCause::Melee, ForceTier::Routine, Some(0));
+        assert_eq!(hash_of(&melee), [3, 3, 1]);
+        let kick = defeat(DefeatCause::Melee, ForceTier::Heavy, Some(0));
+        assert_eq!(hash_of(&kick), [3, 3, 1], "force is derived, not mixed");
+        let block = defeat(
+            DefeatCause::ShoreBlock { player: 0 },
+            ForceTier::Catastrophic,
+            None,
+        );
+        assert_eq!(hash_of(&block), [3, 3, 1, 0x5348_4f52, 0]);
+        let chained = defeat(
+            DefeatCause::ShoreBlock { player: 0 },
+            ForceTier::Catastrophic,
+            Some(0),
+        );
+        assert_ne!(hash_of(&chained), hash_of(&block));
+        // Intensity has no field to differ in: the event has no gore member.
+    }
+
+    #[test]
+    fn the_unhashed_force_is_always_derived_from_hashed_data() {
+        use crate::combat::carl_move;
+        for fixture in FIXTURES {
+            let mut sim = sim_of(fixture);
+            sim.run_scripted(fixture.ticks);
+            let events = events_of(&sim);
+            for (i, event) in events.iter().enumerate() {
+                let CombatEvent::EnemyDefeated {
+                    tick,
+                    target,
+                    cause,
+                    force,
+                    ..
+                } = *event
+                else {
+                    continue;
+                };
+                match cause {
+                    DefeatCause::Melee => {
+                        let killing = events[..i].iter().rev().find_map(|e| match *e {
+                            CombatEvent::Hit {
+                                tick: t,
+                                target: x,
+                                move_id,
+                                ..
+                            } if t == tick && x == target => Some(move_id),
+                            _ => None,
+                        });
+                        let spec = carl_move(killing.expect("a hit on the same tick")).unwrap();
+                        assert_eq!(force, ForceTier::of_move(spec), "{}", fixture.name);
+                    }
+                    DefeatCause::ShoreBlock { .. } => {
+                        assert_eq!(force, ForceTier::Catastrophic, "{}", fixture.name);
+                    }
+                }
+            }
+        }
+    }
+
+    /// The first kick of `CP01_KICK` launches the goblin (it lives with 1 of 2
+    /// health) before a block lands on it: kick -> crush.
+    static KICK_THEN_BLOCK: Fixture = Fixture {
+        name: "test_kick_then_block",
+        summary: "test",
+        seed: 11,
+        carl_x: 400,
+        enemies: &[EnemySpawn {
+            x: 432,
+            ai: EnemyAi::Passive,
+        }],
+        shore_dx: Some(19),
+        script: &[
+            kick(20, 21),
+            attack(120, 121),
+            attack(160, 161),
+            attack(200, 201),
+        ],
+        ticks: 320,
+    };
+
+    #[test]
+    fn d04_a_kick_then_the_block_credits_the_block_and_keeps_the_kicker() {
+        let mut sim = sim_of(&KICK_THEN_BLOCK);
+        sim.run_scripted(100);
+        assert_eq!(sim.combat.enemies[0].hit_by, Some(0));
+        assert!(
+            sim.combat.enemies[0].alive(),
+            "the kick alone does not kill"
+        );
+        assert!(defeats(&events_of(&sim)).is_empty());
+        // Stand the (recovered) goblin in the footprint, as a pushed enemy
+        // would be, then let the shore break and the block land.
+        sim.combat.enemies[0].x = 484.0;
+        sim.run_scripted(KICK_THEN_BLOCK.ticks - 100);
+        let events = events_of(&sim);
+        let lethal: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+            .collect();
+        assert_eq!(lethal.len(), 1, "exactly one defeat event");
+        assert_eq!(
+            *lethal[0],
+            defeat_at(
+                lethal[0],
+                DefeatCause::ShoreBlock { player: 0 },
+                ForceTier::Catastrophic,
+                Some(0)
+            )
+        );
+        // The block, not the kick, is the lethal event: no melee defeat.
+        assert_eq!(hits(&events).len(), 1);
+    }
+
+    fn defeat_at(
+        like: &CombatEvent,
+        cause: DefeatCause,
+        force: ForceTier,
+        instigator: Option<u32>,
+    ) -> CombatEvent {
+        let CombatEvent::EnemyDefeated { tick, target, .. } = *like else {
+            panic!("not a defeat");
+        };
+        CombatEvent::EnemyDefeated {
+            tick,
+            target,
+            cause,
+            force,
+            instigator,
+        }
+    }
+
+    #[test]
+    fn a_defeat_nobody_touched_has_no_instigator_and_a_kick_kill_is_heavy() {
+        let mut sim = sim_of(&CP03_SHORE_KILL);
+        sim.run_scripted(CP03_SHORE_KILL.ticks);
+        assert!(events_of(&sim).iter().any(|e| matches!(
+            e,
+            CombatEvent::EnemyDefeated {
+                cause: DefeatCause::ShoreBlock { player: 0 },
+                force: ForceTier::Catastrophic,
+                instigator: None,
+                ..
+            }
+        )));
+        // The second kick of CP01_KICK is a lethal melee defeat: heavy force.
+        let mut sim = sim_of(&CP01_KICK);
+        sim.run_scripted(CP01_KICK.ticks);
+        assert!(events_of(&sim).iter().any(|e| matches!(
+            e,
+            CombatEvent::EnemyDefeated {
+                cause: DefeatCause::Melee,
+                force: ForceTier::Heavy,
+                instigator: Some(0),
+                ..
+            }
+        )));
+    }
+
+    #[test]
+    fn every_defeat_event_is_once_per_target_in_every_fixture() {
+        for fixture in FIXTURES {
+            let mut sim = sim_of(fixture);
+            sim.run_scripted(fixture.ticks);
+            let mut seen = std::collections::BTreeSet::new();
+            for (target, _) in defeats(&events_of(&sim)) {
+                assert!(
+                    seen.insert(target),
+                    "{}: target {target} twice",
+                    fixture.name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_selected_finish_follows_the_event_and_the_replay_hash_ignores_it() {
+        use crate::death::DeathProfiles;
+        let profiles = DeathProfiles::builtin();
+        let finish_of = |fixture: &'static Fixture, species: &str| {
+            let mut sim = sim_of(fixture);
+            sim.run_scripted(fixture.ticks);
+            let hash = sim.state_hash();
+            let picked: Vec<String> = events_of(&sim)
+                .iter()
+                .filter_map(|e| profiles.select_for_event(species, e))
+                .map(|(_, s)| s.finish.to_string())
+                .collect();
+            (picked, hash)
+        };
+        // The same replay: same events, same finish, same hash; and a second
+        // species reads the same events without touching the hash.
+        let (goblin_a, hash_a) = finish_of(&CP03_SHORE_KILL, "goblin");
+        let (goblin_b, hash_b) = finish_of(&CP03_SHORE_KILL, "goblin");
+        let (skeleton, hash_c) = finish_of(&CP03_SHORE_KILL, "skeleton_mock");
+        assert_eq!(goblin_a, ["goblin_crushed"]);
+        assert_eq!(goblin_a, goblin_b);
+        assert_eq!(skeleton, ["skeleton_flat_pile"]);
+        assert_eq!((hash_a, hash_a), (hash_b, hash_c));
+        let (kicked, _) = finish_of(&CP01_TWO_HITS, "goblin");
+        assert_eq!(kicked, ["goblin_knockback_down"]);
+        let (slime, _) = finish_of(&CP01_TWO_HITS, "slime_mock");
+        assert_eq!(slime, ["slime_puddle"], "no knockback finish: fallback");
     }
 }

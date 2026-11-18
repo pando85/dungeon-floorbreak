@@ -112,6 +112,11 @@ pub struct Goblin {
     pub flight_ticks: u16,
     /// Ticks the `knockback_contact` pose is still held after a contact.
     pub contact_ticks: u8,
+    /// The player whose move last hit this goblin while it lived (a kick that
+    /// launched it, a jab). It credits a later block as the instigator of the
+    /// defeat; it is read for the defeat event only and is not part of the
+    /// state hash (the event hash already covers it).
+    pub hit_by: Option<u32>,
 }
 
 impl Goblin {
@@ -136,6 +141,7 @@ impl Goblin {
             launch: None,
             flight_ticks: 0,
             contact_ticks: 0,
+            hit_by: None,
         }
     }
 
