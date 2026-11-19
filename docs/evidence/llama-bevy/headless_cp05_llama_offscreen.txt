@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=cp05_llama_offscreen seed=0xc050004 tick=400 elapsed=400 hero_hp=4 deaths=0 enemies= hash=9e657acd442f059b llamas=l0=840.662/3

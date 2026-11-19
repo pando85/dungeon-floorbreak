@@ -27,6 +27,7 @@ pub mod hud_settings;
 pub mod input;
 pub mod light_pass;
 pub mod lighting;
+pub mod llama;
 pub mod pad_slots;
 pub mod party;
 pub mod party_scene;

@@ -75,6 +75,9 @@ pub enum BodyMaterial {
 pub enum RecipeKind {
     KnockbackDown,
     Crushed,
+    /// LLAMA-02 (owner decision 2026-11-19): a lethal heavy blunt hit throws the
+    /// body onto its back (`slam_contact`, `broken_heap`).
+    Slammed,
     /// DEATH-D: only `shear` causes (and at least heavy force).
     Decapitated,
     /// DEATH-D: only `blast` causes (and at least heavy force).
@@ -108,6 +111,7 @@ impl Recipe {
         match kind {
             RecipeKind::KnockbackDown => Some(CauseClass::Blunt),
             RecipeKind::Crushed => Some(CauseClass::Crush),
+            RecipeKind::Slammed => Some(CauseClass::Blunt),
             RecipeKind::Decapitated => Some(CauseClass::Shear),
             RecipeKind::Exploded => Some(CauseClass::Blast),
             RecipeKind::Fallback => None,
@@ -309,7 +313,7 @@ mod tests {
     #[test]
     fn selection_table_by_species_cause_and_force() {
         use ForceTier::{Catastrophic, Heavy, Routine};
-        use RecipeKind::{Crushed, Fallback, KnockbackDown};
+        use RecipeKind::{Crushed, Fallback, KnockbackDown, Slammed};
         // (species, cause, force) -> (finish, kind, fallback used)
         let table: &[(&str, DefeatCause, ForceTier, &str, RecipeKind, bool)] = &[
             (
@@ -365,6 +369,20 @@ mod tests {
                 BLOCK,
                 Catastrophic,
                 "slime_spread",
+                Crushed,
+                false,
+            ),
+            // The Bad Llama (DEMO-01 PR B): the slam rule (owner decision
+            // 2026-11-19). A lethal Heavy blunt hit (the push kick) slams; a
+            // Routine one (jab, haymaker) keeps the plain LLAMA-01 down; the
+            // falling block crushes.
+            ("llama", MELEE, Heavy, "llama_slammed", Slammed, false),
+            ("llama", MELEE, Routine, "llama_down", KnockbackDown, false),
+            (
+                "llama",
+                BLOCK,
+                Catastrophic,
+                "llama_crushed",
                 Crushed,
                 false,
             ),
@@ -452,6 +470,50 @@ mod tests {
         assert!(DeathProfiles::from_json(&unknown_tier).is_err());
         let extra = ok.replace("\"id\": \"goblin\",", "\"id\": \"goblin\", \"gore\": 4,");
         assert!(DeathProfiles::from_json(&extra).is_err(), "no gore field");
+    }
+
+    /// The slam rule, from the defeat events themselves: a lethal push kick (a
+    /// launching move: `Heavy`) selects the slam, a lethal jab or haymaker the
+    /// plain down. The goblin is unaffected by the rule.
+    #[test]
+    fn the_slam_rule_follows_the_lethal_moves_force() {
+        use crate::combat::{CARL_HAYMAKER, CARL_JAB, CARL_PUSH_KICK};
+        let profiles = DeathProfiles::builtin();
+        let defeat = |spec: &crate::combat::MoveSpec| {
+            CombatEvent::enemy_defeated(5, 1, DefeatCause::Melee, Some(0), Some(spec))
+        };
+        let pick = |species: &str, spec: &crate::combat::MoveSpec| {
+            profiles
+                .select_for_event(species, &defeat(spec))
+                .map(|(target, selection)| (target, selection.finish.to_string(), selection.kind))
+        };
+        assert_eq!(
+            pick("llama", &CARL_PUSH_KICK),
+            Some((1, "llama_slammed".into(), RecipeKind::Slammed))
+        );
+        for routine in [&CARL_JAB, &CARL_HAYMAKER] {
+            assert_eq!(
+                pick("llama", routine),
+                Some((1, "llama_down".into(), RecipeKind::KnockbackDown))
+            );
+        }
+        // The slam is a llama recipe only: a goblin's kick is still a knockback.
+        assert_eq!(
+            pick("goblin", &CARL_PUSH_KICK).map(|p| p.1),
+            Some("goblin_knockback_down".into())
+        );
+        // The slam recipe is listed ahead of the plain down (first match wins).
+        let llama = profiles.species("llama").unwrap();
+        let slam = llama
+            .recipes
+            .iter()
+            .position(|r| r.kind == RecipeKind::Slammed);
+        let down = llama
+            .recipes
+            .iter()
+            .position(|r| r.kind == RecipeKind::KnockbackDown);
+        assert!(slam < down);
+        assert_eq!(llama.fallback_finish, "llama_down");
     }
 
     #[test]
@@ -546,7 +608,7 @@ mod tests {
     #[test]
     fn selection_table_death_d_every_row() {
         use ForceTier::{Catastrophic, Heavy, Routine};
-        use RecipeKind::{Crushed, Decapitated, Exploded, Fallback, KnockbackDown};
+        use RecipeKind::{Crushed, Decapitated, Exploded, Fallback, KnockbackDown, Slammed};
         #[allow(clippy::type_complexity)]
         let table: &[(&str, DefeatCause, ForceTier, &str, RecipeKind, bool, bool)] = &[
             (
@@ -643,8 +705,9 @@ mod tests {
                 "llama",
                 MELEE,
                 Heavy,
-                "llama_down",
-                KnockbackDown,
+                // DEMO-01 PR B, the slam rule (owner decision 2026-11-19).
+                "llama_slammed",
+                Slammed,
                 false,
                 false,
             ),
@@ -652,8 +715,10 @@ mod tests {
                 "llama",
                 BLAST_RING,
                 Heavy,
-                "llama_down",
-                KnockbackDown,
+                // The ladder degrades a heavy ring blast to the heavy blunt
+                // recipe: the llama is thrown onto its back (the slam).
+                "llama_slammed",
+                Slammed,
                 true,
                 false,
             ),
