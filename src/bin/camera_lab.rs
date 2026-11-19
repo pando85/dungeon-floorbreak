@@ -82,6 +82,9 @@ struct Args {
     idle: bool,
     /// Print the camera metrics table for every room and coverage (headless).
     metrics: bool,
+    /// 2P leash in px: the default 416 (same-screen co-op at 1.0x) or `wide`
+    /// (736). A scenario choice, never derived from the output.
+    leash: f32,
 }
 
 fn parse_args(raw: &[String]) -> Result<Args, String> {
@@ -102,6 +105,7 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
         separate: None,
         idle: false,
         metrics: false,
+        leash: dungeon_floorbreak::camera_lab::sim::DEFAULT_LEASH_PX,
     };
     let mut it = raw.iter().skip(1);
     while let Some(flag) = it.next() {
@@ -149,6 +153,14 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
             "--script" => a.script = true,
             "--idle" => a.idle = true,
             "--metrics" => a.metrics = true,
+            "--leash" => {
+                let v = value()?;
+                a.leash = if v == "wide" {
+                    dungeon_floorbreak::camera_lab::sim::WIDE_LEASH_PX
+                } else {
+                    v.parse().map_err(|_| "--leash wide|PX")?
+                };
+            }
             "--headless" => a.headless = true,
             "--ticks" => a.ticks = Some(value()?.parse().map_err(|_| "--ticks N")?),
             "--exit-after-ticks" => {
@@ -232,6 +244,55 @@ fn print_metrics(rooms: &[Room]) -> ExitCode {
                     m.max_actor_gap_px
                 );
             }
+        }
+    }
+    println!();
+    println!(
+        "ROOM-05 (the separating run) with the documented wide-leash alternative (736 px; the default leash is 416 px, which keeps both actors inside a 1.0x frame on every output):"
+    );
+    println!();
+    println!(
+        "| Coverage | Both actors visible | Actor lost | Attacks on screen | Rest changes | Mean coverage | Max actor gap px |"
+    );
+    println!("|---|---:|---:|---:|---:|---:|---:|");
+    {
+        use dungeon_floorbreak::camera_lab::{session::measure_with_leash, sim::WIDE_LEASH_PX};
+        let script = scripts().remove(4);
+        for cam in [
+            CameraMode::Fixed(1.0),
+            CameraMode::Fixed(1.25),
+            CameraMode::Fixed(1.5),
+            CameraMode::Fixed(1.75),
+            CameraMode::Auto,
+        ] {
+            let m = measure_with_leash(
+                &rooms[4],
+                &script,
+                cam,
+                Aspect::Wide16x9,
+                1920,
+                WIDE_LEASH_PX,
+            );
+            let pct = |a: u64, b: u64| {
+                if b == 0 {
+                    "n/a".to_owned()
+                } else {
+                    format!("{:.0}%", 100.0 * a as f32 / b as f32)
+                }
+            };
+            println!(
+                "| {} | {} | {} | {} | {} | {:.2} | {:.0} |",
+                match cam {
+                    CameraMode::Auto => "auto".to_owned(),
+                    CameraMode::Fixed(c) => format!("{c}"),
+                },
+                pct(m.both_visible, m.ticks),
+                pct(m.actor_lost, m.ticks),
+                pct(m.telegraph_visible, m.telegraph_ticks),
+                m.zoom_changes,
+                m.mean_coverage,
+                m.max_actor_gap_px
+            );
         }
     }
     println!();
@@ -334,7 +395,8 @@ fn main() -> ExitCode {
         args.coverage,
         aspect,
         args.output.0,
-    );
+    )
+    .with_leash(args.leash);
     if let Some(x) = args.separate {
         separate(&mut session, x);
         session.reframe();
@@ -1061,7 +1123,9 @@ fn fixed_step(
         let (mode, seed) = (lab.session.sim.mode, lab.session.sim.seed);
         let (cam, aspect) = (lab.session.camera.mode(), lab.session.aspect);
         let out_w = lab.session.out_w;
-        lab.session = Session::new_for_output(&room, mode, seed, cam, aspect, out_w);
+        let leash = lab.session.sim.leash;
+        lab.session =
+            Session::new_for_output(&room, mode, seed, cam, aspect, out_w).with_leash(leash);
         println!("LAB_RESTART");
     }
     let inputs = if lab.idle {

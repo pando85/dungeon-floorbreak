@@ -47,10 +47,17 @@ pub const DONUT: usize = 1;
 /// Donut's half widths. A leash of `cap - LEASH_MARGIN_PX` keeps both regions
 /// inside a view of width `cap`.
 pub const LEASH_MARGIN_PX: f32 = 220.0;
-/// The 2P leash at the 1.5x (960 px) cap: the largest horizontal distance two
-/// humans may be apart (736 px). A gameplay constant that depends on the output
-/// class (see [`leash_for_cap`]) but **not** on the camera mode or coverage.
-pub const MAX_SEPARATION_X: f32 = 736.0;
+/// The 2P leash (gameplay, **one platform-independent constant**): 416 px keeps
+/// both safety regions inside a 1.0x (640 px) frame, so same-screen co-op needs
+/// no widening on any output. It never depends on the output resolution, the
+/// camera mode or the coverage: the same inputs give the same authoritative
+/// state on a Deck, a 1080p and a 4K machine, and docking or resizing mid-run
+/// changes no rule.
+pub const DEFAULT_LEASH_PX: f32 = 416.0;
+/// The documented alternative (736 px, both regions inside the 1.5x cap). Only
+/// an explicit scenario or config choice (`LabSim::leash`, `--leash wide`) may
+/// select it, never the output.
+pub const WIDE_LEASH_PX: f32 = 736.0;
 /// Ticks of a blocked leash before an idle partner starts catching up.
 pub const CATCHUP_AFTER_TICKS: u16 = 45;
 
@@ -1166,7 +1173,8 @@ pub struct LabSim {
     switch_cooldown: u8,
     switch_prev: [bool; 2],
     special_prev: [bool; 2],
-    /// 2P leash in px (see [`leash_for_cap`]) and its catch-up bookkeeping.
+    /// 2P leash in px ([`DEFAULT_LEASH_PX`] unless a scenario sets another) and
+    /// its catch-up bookkeeping. Part of the authoritative state.
     pub leash: f32,
     leash_hold: u16,
     catchup: Option<usize>,
@@ -1315,7 +1323,7 @@ impl LabSim {
             switch_cooldown: 0,
             switch_prev: [false; 2],
             special_prev: [false; 2],
-            leash: MAX_SEPARATION_X,
+            leash: DEFAULT_LEASH_PX,
             leash_hold: 0,
             catchup: None,
             prev_bodies: [
@@ -2540,7 +2548,8 @@ impl LabSim {
     // --------------------------------------------------------------------- hash
 
     /// FNV-1a style hash of every authoritative value. The camera, coverage,
-    /// presentation caches and the output resolution are not in it.
+    /// presentation caches and the output resolution are not in it. The 2P leash
+    /// is (a scenario setting), and it never derives from the output.
     pub fn state_hash(&self) -> u64 {
         let mut h = 0xcbf2_9ce4_8422_2325_u64;
         let mut m = |v: u64| h = mix(h, v);
@@ -3012,9 +3021,10 @@ mod leash_tests {
             );
             assert!(cap <= AUTO_CAP_W);
         }
-        assert_eq!(leash_for_cap(960), 736.0);
-        assert_eq!(MAX_SEPARATION_X, 736.0);
-        assert_eq!(leash_for_cap(640), 416.0, "Deck, 1440p and 720p");
+        assert_eq!(leash_for_cap(960), WIDE_LEASH_PX);
+        assert_eq!(leash_for_cap(640), DEFAULT_LEASH_PX, "Deck, 1440p and 720p");
+        // The default fits a 1.0x frame: the same-screen rule needs no widening.
+        const { assert!(DEFAULT_LEASH_PX + LEASH_MARGIN_PX <= 640.0) };
     }
 
     #[test]

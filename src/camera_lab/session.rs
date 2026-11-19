@@ -7,13 +7,10 @@
 //! every coverage and aspect (proved by a test).
 
 use super::camera_op::{
-    AUTO_CAP_W, Aspect, Bounds, CameraInput, CameraMode, CameraOperator, Subject, Threat, View,
-    rest_widths,
+    Aspect, Bounds, CameraInput, CameraMode, CameraOperator, Subject, Threat, View,
 };
 use super::room::{EnemyKind, Room};
-use super::sim::{
-    CARL, FoeMode, Hittable, LabInput, LabSim, Mode, foe_phase_progress, leash_for_cap,
-};
+use super::sim::{CARL, FoeMode, Hittable, LabInput, LabSim, Mode, foe_phase_progress};
 
 pub struct Session {
     pub sim: LabSim,
@@ -144,26 +141,15 @@ pub fn camera_input_of(sim: &LabSim) -> (Vec<Subject>, Vec<Threat>, bool) {
     (subjects, threats, impact)
 }
 
-/// The widest width the automatic camera may use for this room and output.
-fn auto_cap_of(room: &Room, aspect: Aspect, out_w: u32) -> i32 {
-    let limit = room.render.0.min(room.render.1 * 640 / aspect.base_h());
-    rest_widths(out_w)
-        .into_iter()
-        .filter(|w| *w <= limit && *w <= AUTO_CAP_W)
-        .max()
-        .unwrap_or(640)
-}
-
 impl Session {
     /// A session for a 1920 px wide output.
     pub fn new(room: &Room, mode: Mode, seed: u64, camera: CameraMode, aspect: Aspect) -> Self {
         Self::new_for_output(room, mode, seed, camera, aspect, 1920)
     }
 
-    /// A session for an output `out_w` pixels wide: the output decides the
-    /// automatic camera's rest widths and the 2P leash (736 px at the 960 cap,
-    /// 416 px where only 640 is an integer scale). The leash depends on the
-    /// output class, never on the camera mode or the coverage in use.
+    /// A session for an output `out_w` pixels wide: the output decides only the
+    /// automatic camera's rest widths (presentation). The simulation, including
+    /// the 2P leash, does not depend on it.
     pub fn new_for_output(
         room: &Room,
         mode: Mode,
@@ -172,8 +158,7 @@ impl Session {
         aspect: Aspect,
         out_w: u32,
     ) -> Self {
-        let mut sim = LabSim::new(room, mode, seed);
-        sim.leash = leash_for_cap(auto_cap_of(room, aspect, out_w));
+        let sim = LabSim::new(room, mode, seed);
         let (subjects, threats, impact_hold) = camera_input_of(&sim);
         let op = CameraOperator::new_for_output(
             camera,
@@ -195,6 +180,13 @@ impl Session {
             aspect,
             out_w,
         }
+    }
+
+    /// Select the 2P leash explicitly (a scenario or config choice, never the
+    /// output): [`super::sim::WIDE_LEASH_PX`] is the documented alternative.
+    pub fn with_leash(mut self, px: f32) -> Self {
+        self.sim.leash = px;
+        self
     }
 
     /// Rebuild the operator on the current simulation state (no easing): used
@@ -309,12 +301,32 @@ pub fn measure_for_output(
     aspect: Aspect,
     out_w: u32,
 ) -> Metrics {
+    measure_with_leash(
+        room,
+        script,
+        camera,
+        aspect,
+        out_w,
+        super::sim::DEFAULT_LEASH_PX,
+    )
+}
+
+/// [`measure_for_output`] with an explicit 2P leash.
+pub fn measure_with_leash(
+    room: &Room,
+    script: &super::script::Script,
+    camera: CameraMode,
+    aspect: Aspect,
+    out_w: u32,
+    leash: f32,
+) -> Metrics {
     use super::camera_op::{rest_widths, visible_share};
     use crate::combat::CombatEvent;
     let rest = rest_widths(out_w);
     let mut transit = 0u32;
     let mut session =
-        Session::new_for_output(room, script.mode, script.seed, camera, aspect, out_w);
+        Session::new_for_output(room, script.mode, script.seed, camera, aspect, out_w)
+            .with_leash(leash);
     let mut m = Metrics::default();
     let mut prev = session.view();
     let mut cov_sum = 0.0f32;
@@ -472,6 +484,43 @@ mod tests {
         }
     }
 
+    /// The authoritative state does not depend on the output: the same 2P
+    /// scripted run on a Deck (1280x800), a 1080p and a 4K machine, with the
+    /// automatic camera and with fixed coverages, ends on one hash and one event
+    /// log (the leash is a platform-independent constant).
+    #[test]
+    fn authoritative_hash_is_identical_at_every_output_resolution() {
+        let rooms = rooms();
+        for script in scripts() {
+            let room = &rooms[script.room];
+            let baseline = run(room, &script);
+            for (aspect, out_w) in [
+                (Aspect::Deck16x10, 1280u32),
+                (Aspect::Wide16x9, 1920),
+                (Aspect::Wide16x9, 3840),
+                (Aspect::Wide16x9, 2560),
+            ] {
+                for cam in [CameraMode::Auto, CameraMode::Fixed(1.5)] {
+                    let mut s =
+                        Session::new_for_output(room, script.mode, script.seed, cam, aspect, out_w);
+                    for _ in 0..script.ticks {
+                        let inputs = script_inputs(&s.sim, &script);
+                        s.step(inputs);
+                    }
+                    assert_eq!(
+                        s.sim.state_hash(),
+                        baseline.final_hash,
+                        "{} {out_w} {cam:?}",
+                        script.name
+                    );
+                    assert_eq!(s.sim.leash, crate::camera_lab::sim::DEFAULT_LEASH_PX);
+                    let events: Vec<String> = s.sim.events.iter().map(|e| e.to_string()).collect();
+                    assert_eq!(events, baseline.events, "{} {out_w}", script.name);
+                }
+            }
+        }
+    }
+
     #[test]
     fn scripted_runs_are_reproducible_and_make_progress() {
         let rooms = rooms();
@@ -507,7 +556,18 @@ mod tests {
         let rooms = rooms();
         // ROOM-05: the separation room.
         let script = scripts().remove(4);
-        let m = |cam| measure(&rooms[4], &script, cam, Aspect::Wide16x9);
+        // The wide-leash alternative (736 px) is what separates the actors far
+        // enough to need widening; at the default 416 px both fit a 1.0x frame.
+        let m = |cam| {
+            measure_with_leash(
+                &rooms[4],
+                &script,
+                cam,
+                Aspect::Wide16x9,
+                1920,
+                crate::camera_lab::sim::WIDE_LEASH_PX,
+            )
+        };
         let w1 = m(CameraMode::Fixed(1.0));
         let w15 = m(CameraMode::Fixed(1.5));
         let auto = m(CameraMode::Auto);
@@ -600,8 +660,16 @@ mod tests {
             r2.telegraph_visible * 100 >= r2.telegraph_ticks * 85,
             "{r2:?}"
         );
-        // ROOM-05: the separating run never loses an actor.
-        let r5 = m(4);
+        // ROOM-05 with the wide-leash alternative: the separating run never
+        // loses an actor (with the default 416 px leash both fit 1.0x).
+        let r5 = measure_with_leash(
+            &rooms[4],
+            &scripts[4],
+            CameraMode::Auto,
+            Aspect::Wide16x9,
+            1920,
+            crate::camera_lab::sim::WIDE_LEASH_PX,
+        );
         assert_eq!(r5.actor_lost, 0, "{r5:?}");
         assert_eq!(r5.both_visible, r5.ticks, "{r5:?}");
         // ROOM-06: the boss, tell and charge, is mostly in view.

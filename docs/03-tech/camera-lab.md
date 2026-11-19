@@ -63,7 +63,7 @@ Isolated: a new Bevy-free module tree `src/camera_lab/` and one binary `src/bin/
 
 ### New in the lab (and plainly a probe)
 
-- **2P input ownership.** No 2P system existed. The lab adds the minimum: player 1 owns Carl, player 2 owns Donut, L1/LB does nothing in 2P, a fixed horizontal leash (736 px at the 960 cap, 416 px where only 640 is an integer scale; see the camera section), and a downed actor stands up beside the partner after 90 ticks. Hot-join, disconnect and AI hand-off are **not** implemented or tested.
+- **2P input ownership.** No 2P system existed. The lab adds the minimum: player 1 owns Carl, player 2 owns Donut, L1/LB does nothing in 2P, a fixed horizontal leash of 416 px (one platform-independent constant, see the camera section), and a downed actor stands up beside the partner after 90 ticks. Hot-join, disconnect and AI hand-off are **not** implemented or tested.
 - **Solo companion.** A deterministic follower that hops obstacles and swings at an enemy in front of it. Crude; it exists so solo switching has something to switch to.
 - **Donut** (pre-biscuit): swat and pounce as `MoveSpec` data with weak reactions, a 171 px high jump, 3 health. Proposals, not approved balance.
 - **Foes** other than the goblin share one generic state machine (neutral, tell, active, recover, hurt, down) driven by per-kind data: llama (ranged spit, aimed when fired, seeded jitter), engineer, scatterer, hoarder, troglodyte, juicer and the Ball of Swine (a committed charge in the direction shown by the tell, smashes weak walls, stuns on a closed gate or a wall). All timings are lab hypotheses; the atlases are the approved readability sets, none of which is integrated elsewhere.
@@ -113,11 +113,13 @@ These are computed by `camera_op::effective_px` (unit-tested against the table) 
 - **No hard snap.** The pan is speed limited; the largest per-tick move is one 32 px zoom step plus the urgent pan.
 - **Presentation only.** The camera input is derived from the simulation after the tick; nothing flows back. `Threat.readable` is always true from the session (it only gates the framing of enemies the player could see); the camera's information is limited by what the session passes, not by a visibility check. The test `authoritative_hash_is_identical_at_every_coverage` runs each scripted room at 1.0, 1.25, 1.5, 1.75, the automatic camera at 16:9 and 16:10, and a fixed 1.5 at 16:10 on one output, and requires the **same authoritative final hash and the same event log** each time.
 
-### The 2P leash follows the cap
+### The 2P leash is one platform-independent constant
 
-Both safety regions need `separation + 220` px (2 x 96 plus Carl's and Donut's half widths), so the leash is `cap - 220` rounded down: **736 px at the 960 cap** (1080p, 4K) and **416 px where only 640 is an integer scale** (Deck, 720p, 1440p). The leash is a gameplay constant chosen **per output class**, not per camera mode or coverage, and is therefore platform dependent gameplay: a design question for the owner, not a camera detail. It is collision safe: a tick that would widen the gap past the leash puts the actor whose move widened it back on its body of the start of the tick (a state that was legal), so nobody is ever placed inside geometry. A partner that stays held for 45 ticks and gives no input **catches up by walking** (the companion follower, with hops) until its player moves. Tests: `the_leash_is_consistent_with_the_camera_cap` (`leash + 220 <= cap` for every output) and `the_leash_holds_without_snapping_through_geometry_and_the_partner_catches_up` (no tick ends inside a solid, no position jump, the idle partner catches up, at 736 and 416).
+The leash is gameplay and feeds the authoritative state, so it must not depend on the output: a Deck, a 1080p and a 4K machine must give the same state for the same inputs, and docking or resizing mid-run must change no rule. It is therefore **one constant, 416 px** (`DEFAULT_LEASH_PX`): both safety regions need `separation + 220` px (2 x 96 plus Carl's and Donut's half widths), and 416 + 220 fits a 640 px (1.0x) frame, so same-screen co-op needs no widening on any output. The documented alternative, **736 px** (`WIDE_LEASH_PX`, both regions inside the 1.5x cap), can only be selected by an explicit scenario or config choice (`--leash wide`, `Session::with_leash`), never by the output. Test `authoritative_hash_is_identical_at_every_output_resolution`: every scripted 2P run at 1280x800, 1920x1080, 2560 wide and 3840x2160, with the automatic camera and a fixed 1.5x, ends on the same authoritative hash and event log. `leash_for_cap` remains only as the arithmetic that relates a cap to a leash (`leash + 220 <= cap`, tested).
 
-Separation arithmetic (both safety regions on screen): 640 px of view holds up to about 420 px between the actors, 768 up to 548, 960 up to 740 (1.5x), 1120 up to 900. With the leash at 736 the cap always keeps both regions in view, so 1.75x has no framing job left.
+The leash is collision safe: a tick that would widen the gap past it puts the actor whose move widened it back on its body of the start of the tick (a state that was legal), so nobody is ever placed inside geometry. A partner that stays held for 45 ticks and gives no input **catches up by walking** (the companion follower, with hops) until its player moves. **Owner decision:** the idle-partner auto-walk is a gameplay choice (it moves a human's character without input); it is kept in the probe so the leash never strands anyone, but it needs the owner's explicit approval or removal. Tests: `the_leash_is_consistent_with_the_camera_cap` and `the_leash_holds_without_snapping_through_geometry_and_the_partner_catches_up` (no tick ends inside a solid, no position jump, the idle partner catches up, at 416 and 736).
+
+Separation arithmetic (both safety regions on screen): 640 px of view holds up to about 420 px between the actors, 768 up to 548, 960 up to 740 (1.5x), 1120 up to 900. With the 416 px default leash a 640 view always holds both safety regions; with the 736 px alternative the 960 cap does, so 1.75x has no framing job left either way.
 
 ## Forward compatibility with the open combat branches
 
@@ -159,8 +161,8 @@ Framing numbers are headless and reproducible (`camera_lab --metrics`, the six s
 | 1 goblins | 1.5 | 100% | 0% | 100% | 100% | - |
 | 1 goblins | 1.75 | 100% | 0% | 100% | 100% | - |
 | 1 goblins | auto | 100% | 0% | 100% | 100% | 0 / 1.00 |
-| 2 llamas | 1 | 100% | 0% | 21% | 100% | - |
-| 2 llamas | 1.25 | 100% | 0% | 74% | 100% | - |
+| 2 llamas | 1 | 100% | 0% | 19% | 100% | - |
+| 2 llamas | 1.25 | 100% | 0% | 73% | 100% | - |
 | 2 llamas | 1.5 | 100% | 0% | 94% | 100% | - |
 | 2 llamas | 1.75 | 100% | 0% | 98% | 100% | - |
 | 2 llamas | auto | 100% | 0% | 93% | 100% | 2 / 1.23 |
@@ -174,16 +176,26 @@ Framing numbers are headless and reproducible (`camera_lab --metrics`, the six s
 | 4 hoarder | 1.5 | 100% | 0% | 100% | 100% | - |
 | 4 hoarder | 1.75 | 100% | 0% | 100% | 100% | - |
 | 4 hoarder | auto | 100% | 0% | 100% | 100% | 0 / 1.00 |
-| 5 gym (2P split) | 1 | 85% | 14% | 38% | 100% | - |
+| 5 gym (2P split) | 1 | 100% | 0% | 90% | 100% | - |
 | 5 gym (2P split) | 1.25 | 100% | 0% | 100% | 100% | - |
 | 5 gym (2P split) | 1.5 | 100% | 0% | 100% | 100% | - |
 | 5 gym (2P split) | 1.75 | 100% | 0% | 100% | 100% | - |
-| 5 gym (2P split) | auto | 100% | 0% | 100% | 100% | 2 / 1.16 |
+| 5 gym (2P split) | auto | 100% | 0% | 100% | 100% | 2 / 1.15 |
 | 6 swine boss | 1 | 100% | 0% | 81% | 100% | - |
 | 6 swine boss | 1.25 | 100% | 0% | 83% | 100% | - |
 | 6 swine boss | 1.5 | 100% | 0% | 90% | 100% | - |
 | 6 swine boss | 1.75 | 100% | 0% | 93% | 100% | - |
 | 6 swine boss | auto | 100% | 0% | 89% | 100% | 2 / 1.03 |
+
+ROOM-05 (the separating run) with the documented wide-leash alternative (736 px; the default leash is 416 px, which keeps both actors inside a 1.0x frame on every output):
+
+| Coverage | Both actors visible | Actor lost | Attacks on screen | Rest changes | Mean coverage | Max actor gap px |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 85% | 14% | 38% | 0 | 1.00 | 734 |
+| 1.25 | 100% | 0% | 100% | 0 | 1.25 | 734 |
+| 1.5 | 100% | 0% | 100% | 0 | 1.50 | 734 |
+| 1.75 | 100% | 0% | 100% | 0 | 1.75 | 734 |
+| auto | 100% | 0% | 100% | 2 | 1.16 | 734 |
 
 **Automatic camera: rest widths.** Ticks per view width, with the exact-integer-scale rest widths of each output (the table is generated by `camera_lab --metrics`; at least 95 percent of the ticks sit on a rest width in every room and output, tested):
 
@@ -193,7 +205,7 @@ Framing numbers are headless and reproducible (`camera_lab --metrics`, the six s
 | ROOM-01 | 4K | 640/768/960 | 640:1500 | 100.0% | 0 | 640 |
 | ROOM-01 | 1280x800 | 640 | 640:1500 | 100.0% | 0 | 640 |
 | ROOM-02 | 1080p | 640/960 | 640:782 672:3 704:3 736:3 768:3 800:3 832:3 864:3 896:3 928:3 960:691 | 98.2% | 18 | 960 |
-| ROOM-02 | 4K | 640/768/960 | 640:794 672:3 704:3 736:3 768:363 800:3 832:3 864:3 896:3 928:3 960:319 | 98.4% | 10 | 960 |
+| ROOM-02 | 4K | 640/768/960 | 640:794 672:3 704:3 736:3 768:358 800:3 832:3 864:3 896:3 928:3 960:324 | 98.4% | 10 | 960 |
 | ROOM-02 | 1280x800 | 640 | 640:1500 | 100.0% | 0 | 640 |
 | ROOM-03 | 1080p | 640/960 | 640:1800 | 100.0% | 0 | 640 |
 | ROOM-03 | 4K | 640/768/960 | 640:1800 | 100.0% | 0 | 640 |
@@ -201,15 +213,14 @@ Framing numbers are headless and reproducible (`camera_lab --metrics`, the six s
 | ROOM-04 | 1080p | 640/960 | 640:1800 | 100.0% | 0 | 640 |
 | ROOM-04 | 4K | 640/768/960 | 640:1800 | 100.0% | 0 | 640 |
 | ROOM-04 | 1280x800 | 640 | 640:1800 | 100.0% | 0 | 640 |
-| ROOM-05 | 1080p | 640/960 | 640:1407 672:4 704:4 736:4 768:4 800:4 832:4 864:4 896:4 928:4 960:657 | 98.3% | 18 | 960 |
-| ROOM-05 | 4K | 640/768/960 | 640:1445 672:4 704:4 736:4 768:39 800:4 832:4 864:4 896:4 928:4 960:584 | 98.5% | 10 | 960 |
+| ROOM-05 | 1080p | 640/960 | 640:1468 672:4 704:4 736:4 768:4 800:4 832:4 864:4 896:4 928:4 960:596 | 98.3% | 18 | 960 |
+| ROOM-05 | 4K | 640/768/960 | 640:1480 672:4 704:4 736:4 768:608 | 99.4% | 6 | 768 |
 | ROOM-05 | 1280x800 | 640 | 640:2100 | 100.0% | 0 | 640 |
 | ROOM-06 | 1080p | 640/960 | 640:2249 672:3 704:3 736:3 768:3 800:3 832:3 864:3 896:3 928:3 960:124 | 98.9% | 18 | 960 |
 | ROOM-06 | 4K | 640/768/960 | 640:2249 672:3 704:3 736:3 768:3 800:3 832:3 864:3 896:3 928:3 960:124 | 99.0% | 10 | 960 |
 | ROOM-06 | 1280x800 | 640 | 640:2400 | 100.0% | 0 | 640 |
 
-
-Summary: ROOM-01, 03 and 04 stay at 640 for the whole run. ROOM-02, 05 and 06 widen once to 960 (768 at 4K for part of ROOM-02 and ROOM-05) and return, 98 to 99 percent of the ticks on a rest width, the longest transit 18 ticks (10 at 4K), nothing above 960. On the Deck (1280x800) the automatic camera never leaves 640 because no wider width is an integer scale there.
+Summary: ROOM-01, 03 and 04 stay at 640 for the whole run. ROOM-02, 05 and 06 widen to 960 (768 at 4K) and return, 98 to 99 percent of the ticks on a rest width, the longest transit 18 ticks (10 at 4K), nothing above 960. On the Deck (1280x800) the automatic camera never leaves 640 because no wider width is an integer scale there.
 
 Reading the table (agent observations from the captures and the traces, **not an owner verdict**):
 
@@ -217,7 +228,7 @@ Reading the table (agent observations from the captures and the traces, **not an
 - **ROOM-02 (llamas, vertical).** The clearest framing result: with the spit tell on the upper gallery or across the lane, only 21 percent of attack ticks have the llama fully in view at 1.0x, 74 percent at 1.25x, 94 percent at 1.5x and 98 percent at 1.75x. A vertical ambush is not readable at 1.0x. The reworked automatic camera reaches **93 percent** (it was 71 percent): it starts widening when a llama acquires an actor, keeps the shooter in the framing set through the tell, the shot and the start of the recovery, frames the spit in flight, and pans at the urgent speed when a threat is outside. It rests at 960 for about 45 percent of the run and at 640 otherwise. On the Deck, where it cannot widen, only 19 percent of llama attacks are on screen.
 - **ROOM-03 (workshop).** Cause and effect (support, falling weight, crushed goblin, landing dust) fit in a 640x360 view because the whole sequence is about 300 px wide; 1.5x adds context (the platform, the pipes) without hiding it. The automatic camera stays at 1.0x.
 - **ROOM-04 (hoarder lair).** The scatterers (a 48x32 frame, 15 px of opaque insect) are the smallest threats: 45 px high on screen at 1080p and 1.0x, 30 px at 1.5x, 26 px at 1.75x, and 20 px at 1.5x on the Deck. They stay visible against the floor in the captures but at 1.75x and on the Deck they are a few pixels of contrast; the lair's rubble adds low-contrast clutter. The automatic camera stays at 1.0x.
-- **ROOM-05 (gym, separation).** In the separating run (Donut on the 240 px platform, Carl on the floor, up to the 736 px leash) both actors are fully in view for 85 percent of the ticks at 1.0x (an actor is less than half visible for 14 percent) and for 100 percent at 1.25x and above. The automatic camera keeps both in view for 100 percent of the ticks with two rest-width transitions (widen to 960, return) and a mean coverage of 1.16x. On the Deck the 416 px leash keeps both in a 640 view (the partner is held, not lost).
+- **ROOM-05 (gym, separation).** With the default 416 px leash both actors fit a 640 frame (a fixed 1.0x shows both for 100 percent of the ticks; the actors are held, not lost, and the trailing partner catches up). The leash itself is the separation control. With the documented 736 px alternative (Donut on the 240 px platform, Carl on the floor), both actors are fully in view for only 85 percent of the ticks at 1.0x (an actor is less than half visible for 14 percent) and for 100 percent at 1.25x and above; the automatic camera keeps both in view for 100 percent with two rest-width transitions and a mean coverage of 1.16x (table above). The wide leash trades screen coverage for freedom to split up.
 - **ROOM-06 (swine boss).** The charge lane is long, so 81 to 93 percent of attack ticks have the boss fully in view in the fixed modes; the automatic camera reaches **89 percent** (it was 81 percent) by framing the charge lane and keeping a large foe next to an actor in the set. The impact on an actor is always in view (the actors are). In the separated capture (the duo 680 px apart, the boss beside Donut) the 960 cap cannot hold both safety regions and the boss: the actors win and the boss's outer edge is cropped by a few pixels. A smaller safety pad for the far actor when a threat needs the room would fix it; not built.
 
 ### Frame time and memory
@@ -240,11 +251,17 @@ Measured on the real GPU **before this revision's camera rework** (the render pa
 **Proposal only. It records what the evidence supports and what it cannot; the owner's hands-on verdict on a 1080p display and a Steam Deck decides.**
 
 1. **Rest state: 1.0x.** It is the only coverage that is an exact integer scale on every supported output (3x at 1080p, 6x at 4K, 2x on the Deck), it keeps the sprites biggest (Carl 156 px, Donut 120 px at 1080p) and the smallest threat (a scatterer) at 45 px. Short brawls, kicks and hit frames stay at 1.0x: in the three brawl rooms the automatic camera never leaves 640. This is a reasoned default, not a measured preference for the feel.
-2. **Adaptive camera that rests only on integer scales, capped at 1.5x (960x540).** The automatic operator now does this and the tests pin it: rest widths per output (1080p 640 and 960; 4K 640, 768 and 960; Deck, 720p and 1440p only 640), 95 percent or more of every run on a rest width, transits of about 20 ticks (10 when urgent) through the in-between widths, nothing above 960. It widens only when it has to: the duo is more than about 420 px apart, a ranged or boss threat does not fit or a llama has acquired an actor, a large foe stands next to an actor; never during hit-stop or a fresh hit; it returns after about 1.6 s calm. In the evidence this removes the real failures: at 1.0x an actor is lost 14 percent of the separation run and only 21 percent of llama attack ticks are on screen; with the automatic camera the actor is never lost and 93 percent of the llama ticks (fixed 1.5x: 94 percent) and 89 percent of the boss ticks are on screen. 1.5x is the only widened coverage that is an **exact** integer scale at 1080p (2x) and 4K (4x); Carl is 104 px and Donut 80 px at 1080p, 208 and 160 at 4K. At 4K the exact 768 (1.2x, 5x) is an extra rest width.
-3. **2P leash 736 px at 1080p and 4K, 416 px on the Deck, 720p and 1440p.** It is `cap - 220` so both safety regions always fit the cap (tested). It is **platform-dependent gameplay**, which is why it needs the owner's decision: the alternative on the Deck is to accept a 1.333x opt-in view (uneven 1 or 2 px texels) and keep 736. A held partner catches up by walking, never by a jump.
+2. **Adaptive camera that rests only on integer scales, capped at 1.5x (960x540).** The automatic operator now does this and the tests pin it: rest widths per output (1080p 640 and 960; 4K 640, 768 and 960; Deck, 720p and 1440p only 640), 95 percent or more of every run on a rest width, transits of about 20 ticks (10 when urgent) through the in-between widths, nothing above 960. It widens only when it has to: the duo is more than about 420 px apart, a ranged or boss threat does not fit or a llama has acquired an actor, a large foe stands next to an actor; never during hit-stop or a fresh hit; it returns after about 1.6 s calm. In the evidence this removes the real failures: at 1.0x with the wide leash an actor is lost 14 percent of the separation run, and only 21 percent of llama attack ticks are on screen; with the automatic camera (wide leash) the actor is never lost and 93 percent of the llama ticks (fixed 1.5x: 94 percent) and 89 percent of the boss ticks are on screen. 1.5x is the only widened coverage that is an **exact** integer scale at 1080p (2x) and 4K (4x); Carl is 104 px and Donut 80 px at 1080p, 208 and 160 at 4K. At 4K the exact 768 (1.2x, 5x) is an extra rest width.
+3. **2P leash: one platform-independent constant, 416 px by default** (same-screen co-op at 1.0x on every output, so a Deck, a 1080p and a 4K machine play the same rules and docking changes nothing). **736 px** (both regions inside the 1.5x cap) stays a documented alternative that an explicit scenario or config flag may select, never the output. The leash is gameplay: the owner decides the value. A held partner catches up by walking, never by a jump; that **idle-partner auto-walk is an owner decision** (it moves a human's character without input) and is kept only so nobody is stranded.
 4. **1.25x only as a transit step, not a fixed setting.** It is 2.4x at 1080p (and 4.8x at 4K, 1.6x on the Deck): texels alternate between two widths. It is acceptable for the fraction of a second the camera passes through it, but it is not a default.
 5. **1.75x stays exploratory.** It is 1.71x at 1080p (1 or 2 px texels), Carl 89 px, Donut 69 px, a scatterer 26 px; with the leash tied to the 960 cap it has no framing job left. Keep it as a debug and screenshot mode, or for one short authored reveal; do not ship it as gameplay without a high-confidence 1080p and Deck playtest.
-6. **Steam Deck 1280x800 (and 720p, 1440p).** Only 1.0x is an integer scale (2x on the Deck, 4x at 1440p). Every wider coverage gives uneven texels (50 percent width jitter at 1.333x on the Deck) and a Carl of 69 px at 1.5x. The proposal is therefore 1.0x only with the 416 px leash, with 1.5x as an **opt-in** accessibility or preference setting if handheld legibility passes. The cost, measured: on the Deck ROOM-02's llama attacks are only 19 percent on screen at 1.0x. The probe cannot say whether that is acceptable; it needs a Deck.
+6. **Steam Deck 1280x800 (and 720p, 1440p): the trade-off.** Only 1.0x is an integer scale there (2x on the Deck, 4x at 1440p); every wider coverage gives uneven texels (50 percent width jitter at 1.333x on the Deck) and a 69 px Carl at 1.5x. The cost of staying at 1.0x, measured: ROOM-02's llama attacks are only **19 percent** on screen. The options, for the owner:
+   - **A.** 1.0x only on those outputs (the current default). 19 percent of llama attacks on screen.
+   - **B.** The automatic camera uses 960 on the Deck and 1440p (86 percent of llama attacks on screen, from the review's run), with non-integer pixels (1.333x on the Deck). **Needs an ADR-0007 change.**
+   - **C.** B as an opt-in accessibility or preference setting, off by default (no ADR change for the default; the setting itself needs approval).
+   - **D.** A gameplay rule: ranged foes only fire at a target that is inside a 1.0x frame of the camera's player view (so the threat is always readable at 1.0x). **Unmeasured here and needs gameplay signoff.**
+
+   The reviewer recommends **D + C**: a fair-fire rule so that nothing unreadable ever attacks at 1.0x, plus an opt-in wider view. The probe cannot decide it; it needs a Deck and the owner's call.
 7. **Preserve the tall architecture regardless of the policy.** The rooms draw 400 to 700 px of masonry, arch tiers and torches above the action; the void test passes for every position and coverage, and the A1 light budget holds in the widest view at the sampled positions.
 
 **What to look at when playing** (record each as a note, not a pass/fail): does a widened view hurt the weight of the jab, haymaker and kick (ROOM-01, 1.0x against the auto camera); can you read the llama spit and the boss tell in time (ROOM-02, ROOM-06 at 1.5x against 1.0x); are the scatterers findable (ROOM-04 at 1.5x); do zoom steps feel like pumping (ROOM-05 auto, watch the transits and, deliberately, the 1-pixel texel shimmer at 1.25x and 1.75x); does the separation feel recoverable with the leash (ROOM-05, 2P with two pads).
