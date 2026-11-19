@@ -103,7 +103,7 @@ High-priority follow-ups that retire the HUD states currently faked by preview f
 | HUD-DEBT-01 | P0 | Gameplay / partly done in PR #103 (authoritative Donut HP value, max `HERO_HEALTH`, always full; the HUD shows it as a real bar) | Donut damage rules (data-driven, deterministic, gameplay signoff; no change to Carl combat rules) | Retires the fixture Donut HP values below max (`depleted`, `coop`); unit tests plus replay |
 | HUD-DEBT-02 | P0 | Gameplay / not started | Biscuit magic unlock progression flag plus Donut mana resource (cost and regen designed, gameplay signoff; no Carl mana) | Retires the pre-unlock / post-unlock and depleted-mana previews; flag and resource tests, real capture of both states |
 | HUD-DEBT-03 | P0 | Gameplay / not started | Floor 01 boss encounter (authored boss, health source and warning bar events) | Retires the boss strip preview and the placeholder boss name; encounter scenario plus capture |
-| HUD-DEBT-04 | P0 | Prototype / not started | Local 2P and solo-swap ownership: see WORK-005 (second hero, device ownership) and WORK-006 (solo swap vs follower AI) above | Retires the co-op (P1/P2) preview; the HUD reads real ownership, never faked |
+| HUD-DEBT-04 | P0 | Prototype / not started | Local 2P and solo-swap ownership: see WORK-005 (second hero, device ownership) and WORK-006 (solo swap vs follower AI) above. Also: glyphs must follow only the pad that owns a hero (today any pad's last press switches them, and connecting a pad switches them before use; found in the #103 review) | Retires the co-op (P1/P2) preview; the HUD reads real ownership, never faked |
 | HUD-DEBT-05 | P0 | Input / **delivered in PR #103**; **owner hardware check pending: real DualSense and Xbox pad** | Gamepad device detection (DualSense vs Xbox glyph set) | The glyph set follows the last gamepad with input via `Gamepad::vendor_id()` (Sony `0x054C` gives DualSense, everything else Xbox); `--glyphs=xbox\|dualsense` stays as an explicit override; Xbox stays the fallback; unit tests with fake vendor ids ([HUD section](../03-tech/floor01-scene.md#hud-hud-hybrid-a-01)). Keyboard glyphs remain a separate TODO |
 | HUD-DEBT-06 | P1 | UX / not started unless delivered in PR #103 | HUD accessibility settings: reduced UI motion, text size, contrast | Settings persisted, controller-reachable; captures at default and adjusted values |
 | HUD-DEBT-07 | P2 | Design-dependent / not started | Real System-event / achievement source beyond combat events, only if the design calls for it | Retires the System-message preview; skip if design does not need it |
@@ -125,7 +125,7 @@ High-priority follow-ups that retire the HUD states currently faked by preview f
 
 - Owner tone check of the System notice copy (`LAUNCHED!`, `FLATTENED!`, `BOSS INCOMING`, `SYSTEM NOTICE` are placeholder copy).
 - Area names for the location strip (layout data has none, so only `FLOOR 01` is shown).
-- Keyboard glyphs (keyboard players currently see gamepad glyphs; closes with HUD-DEBT-05 or a follow-up).
+- Keyboard glyphs (keyboard players currently see gamepad glyphs; a separate follow-up, not part of HUD-DEBT-05).
 
 ## Opening-scene combat integration handoff (owner direction, 2026-11-17)
 
