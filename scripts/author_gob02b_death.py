@@ -23,7 +23,8 @@ Where each accessory overlay comes from (``docs/02-art/gob-02b-death-spec.md`` s
 * pose 1: pose 0's overlay moved by the A flatten rule (rows 33 to 45 down 3);
 * pose 2 ``crushed_remains``: GOB-01 B frame 25's head overlay (bandana, tails, tooth), mirrored like the A heap
   (x' = 59 - x), plus the patch on the rag mass;
-* poses 3 and 5 (headless): only the vest patch of GOB-01 B frames 16 and 25 (the bandana leaves with the head);
+* pose 3 (headless): only the vest patch of GOB-01 B frame 16 (the bandana leaves with the head); pose 5: the same
+  patch as literal rows on the corpse's rag mass (x 32 to 34, rows 51 to 53), inside A's silhouette;
 * pose 4: pose 3's patch moved by the A buckle rule (down 4, left 2);
 * parts ``head`` and ``head_dead``: GOB-01 B frame 0's head overlay through the A head mask and shift; ``torso_upper``:
   frame 0's vest patch; ``ear``: frame 0's ear notch. Every other part has an empty accessory layer.
@@ -120,14 +121,16 @@ def flatten_acc() -> Pix:
 
 
 REMAINS_PATCH = {49: [(26, "uuu")], 50: [(26, "uKu")], 51: [(26, "uKu")]}     # on the rag mass, final coordinates
+REMAINS_BAND_END = 52                   # the band stops here; below it the pressed-out seep starts (review fix E1)
+REMAINS_CAP = {REMAINS_BAND_END + 1: [(48, "KK")]}   # dark outline cap under the band (x 48 and 49), body pixels beneath
 
 
 def remains_acc() -> Pix:
     """Pose 2: GOB-01 B frame 25's head overlay (the A heap reuses frame 25's head left of x 18/22), mirrored with
     the A heap rule x' = 59 - x, plus the patch on the pressed rag mass."""
     head = {(x, y): ch for (x, y), ch in b_acc(25).items() if x <= (22 if y <= 50 else 18)}
-    mirrored = {(ad.REMAINS_MIRROR_X - x, y): ch for (x, y), ch in head.items()}
-    return ad.overlay(mirrored, ad.segs(REMAINS_PATCH))
+    mirrored = {(ad.REMAINS_MIRROR_X - x, y): ch for (x, y), ch in head.items() if y <= REMAINS_BAND_END}
+    return ad.overlay(ad.overlay(mirrored, ad.segs(REMAINS_PATCH)), ad.segs(REMAINS_CAP))
 
 
 def decap_acc() -> Pix:
@@ -140,9 +143,13 @@ def buckle_acc() -> Pix:
     return {(x - 2, y + 4): ch for (x, y), ch in decap_acc().items()}
 
 
+HEADLESS_PATCH = {51: [(32, "uuu")], 52: [(32, "uKu")], 53: [(32, "uKu")]}   # on the dark rag mass, inside A (review fix E2)
+
+
 def headless_acc() -> Pix:
-    """Pose 5: GOB-01 B frame 25's overlay on the columns the A headless pose keeps (the vest patch)."""
-    return {(x, y): ch for (x, y), ch in b_acc(25).items() if x >= (22 if y <= 50 else 19)}
+    """Pose 5: the vest patch moved up onto the corpse's rag mass (x 32 to 34, rows 51 to 53), every pixel inside A's
+    body silhouette. GOB-01 B frame 25 puts it on the dark rag flap on the floor row, which turned into a light peg."""
+    return ad.segs(HEADLESS_PATCH)
 
 
 POSE_ACC = [crush_acc, flatten_acc, remains_acc, decap_acc, buckle_acc, headless_acc]
@@ -210,7 +217,8 @@ PROVENANCE_ORIGIN = ("GOB-02B-DEATH goblin variant B death art at intensity pres
                      "body, weapon and gore cels unchanged plus an accessory layer (GOB-01 B bandana, ear notch, "
                      "missing tooth, vest patch) written by scripts/author_gob02b_death.py from GOB-01 B overlays and "
                      "literal rows; no image-model output, no tracing")
-PROVENANCE_GEN = "Design, overlays and evidence: Claude Opus. Review pending (separate top-tier agent)"
+PROVENANCE_GEN = ("Design, overlays and evidence: Claude Opus; review fixes: Claude Sonnet. "
+                  "Review pending (separate top-tier agent)")
 
 
 def b_manifest(a_manifest: dict, mid: str, stem: str, grid: Path, ase: Path, section: str) -> dict:

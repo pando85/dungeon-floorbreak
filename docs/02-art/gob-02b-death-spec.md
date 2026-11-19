@@ -14,21 +14,23 @@ Sources: [`goblin_b_death_h36.grid.json`](../../assets/source/characters/goblin/
 
 **Refinement of A ruling 13.1 (flagged, not silently changed).** Ruling 13.1 put the B overlay on the head-bearing frames only ("headless frames and parts are shared"). The bandana, notch and tooth do leave with the head. However, the vest patch sits on the torso, so dropping it on the headless frames would make the goblin change vests at the moment of the cut. B therefore keeps the patch on poses 3, 4 and 5 and on `torso_upper`, and the ear notch on the `ear` part. Every other part (limbs, club, gibs, blood, decals) has an empty `accessory` layer.
 
+**Ruling 13.1a (accepted by review).** Variant B keeps the vest patch on the headless poses (3, 4 and 5) and on `torso_upper`, and the ear notch on the `ear` part. The bandana, notch and tooth leave with the head, but the vest does not, so dropping the patch at the cut would be a costume swap. To be recorded in the A spec's rulings when B merges.
+
 ## 2. Accessory overlays per frame
 
 | Frame | Overlay | Rule |
 | --- | --- | --- |
 | pose 0 `crush_contact` (key) | bandana, knot, both tails, notch, tooth, patch | **new literal rows** (`CRUSH_ACC`). The band is pressed flat under the stone line: `R` on row 34, `B` on row 35, x 23 to 34, ending at the bulging eye. The knot is at the back of the skull (x 19 to 23, rows 35 and 36). The `R` tail is squeezed flat back along the ear's underside (row 37, x 14 to 18), and the `B` tail hangs over the vest's top edge (x 21, rows 37 to 39). The notch is a 2 px `K` break in the ear's lit rim at x 7 (rows 34 and 35), 4 px from the tip. The front upper tooth at (45, 41) becomes `o`. The patch is at x 14 to 16, rows 41 to 43, on the squashed vest |
 | pose 1 (in-between) | as 0 | pose 0's overlay moved by the A flatten rule (rows 33 to 45 down 3) |
-| pose 2 `crushed_remains` (key) | bandana, tails, tooth, patch | GOB-01 B frame 25's head overlay (the A heap reuses frame 25's head), mirrored with the A heap rule x' = 59 - x; the patch at x 26 to 28, rows 49 to 51, on the pressed rag mass. No ear notch, as on GOB-01 B frame 25 |
+| pose 2 `crushed_remains` (key) | bandana, tooth, patch | GOB-01 B frame 25's head overlay (the A heap reuses frame 25's head), mirrored with the A heap rule x' = 59 - x, **cut at row 52** (review fix E1: the tails below it are dropped), with a 2 px `K` cap at x 48 and 49, row 53; the patch at x 26 to 28, rows 49 to 51, on the pressed rag mass. No ear notch, as on GOB-01 B frame 25 |
 | pose 3 `decap_contact` (key) | patch | GOB-01 B frame 16's patch (rows 37 to 39); the A pose keeps frame 16's body there |
 | pose 4 (in-between) | patch | pose 3's patch moved by the A buckle rule (down 4, left 2) |
-| pose 5 `headless_collapse` (key) | patch | GOB-01 B frame 25's patch on the columns the A pose keeps (x 21 to 24, rows 53 to 55) |
+| pose 5 `headless_collapse` (key) | patch | literal rows (`HEADLESS_PATCH`, review fix E2): the 3 x 3 patch at x 32 to 34, rows 51 to 53, on the corpse's dark `r` rag mass, every pixel inside A's body silhouette and off the floor row. GOB-01 B frame 25 puts it on a dark rag flap on the floor row, where it read as a light peg under the corpse |
 | part 0 `head`, 3 `head_dead` | bandana, knot, tails, tooth | GOB-01 B frame 0's overlay through the A head mask and shift (`HEAD_ROWS`, `HEAD_SHIFT`); `head_dead` is identical |
 | part 1 `torso_upper` | patch | GOB-01 B frame 0's patch through the A torso mask and shift |
 | part 11 `ear` | notch | GOB-01 B frame 0's two notch pixels through the A ear rectangle and shift |
 
-**Outline closure:** where a derived overlay hangs past the A sprite, the generator adds `K` on `accessory` only (`close_acc`). This affects the remains' tail ends under the gore seep, the corner of the corpse patch on the floor row, and the gap between the two tails on the loose head (that gap is open in GOB-01 B frame 0). With gore hidden (preset 1), body + weapon + accessory stays a closed sprite (tested).
+**Outline closure:** where a derived overlay hangs past the A sprite, the generator adds `K` on `accessory` only (`close_acc`). This now affects only the gap between the two tails on the loose head (that gap is open in GOB-01 B frame 0). With gore hidden (preset 1), body + weapon + accessory stays a closed sprite (tested).
 
 Frozen keys: poses 0, 2, 3 and 5 and parts 0, 1 and 2, all four layers (`tests/fixtures/gob-02b-death_keys.json`, `gob-02b-death-parts_keys.json`).
 
@@ -44,7 +46,9 @@ Automated (`python3 -m scripts.pixelart validate` on both B configs, PASS; `test
 - B `body`/`weapon`/`gore` equal to A on every frame. Same canvas, pivot, palette, tags and durations. The B manifests' `death_poses.frames`, `spawner_hints` and `death_parts.parts` equal A's.
 - Poses 0, 1 and 2 carry at least 6 `R` and 2 `B` of bandana and the missing tooth. Poses 3, 4 and 5 carry no `R`, `B` or `o` on `accessory` (the bandana left with the head). `head` and `head_dead` carry the bandana (at least 10 `R`) and the tooth.
 - The vest patch is on all six poses and on `torso_upper`. The notch is in pose 0 and on `ear`. Only `head`, `head_dead`, `torso_upper` and `ear` have an accessory.
-- The derived overlays equal the GOB-01 B overlays moved by the A rules. With gore hidden, B pose 5 equals GOB-01 B frame 25 on every accessory pixel.
+- The derived overlays equal the GOB-01 B overlays moved by the A rules, except the two review fixes: the remains' band stops at row 52 (the tails are dropped) and pose 5's patch is a literal 3 x 3 on the rag mass (it intentionally no longer equals GOB-01 B frame 25).
+- On the headless poses (3, 4, 5) the accessory adds no pixel outside A's body and weapon silhouette. Pose 5's patch lies inside A's body, off the floor row.
+- Composited at preset 4, no visible bandana `R`/`B` pixel is 4-adjacent to a gore `R`/`B`/`P` pixel on any frame (the cloth and the blood share the `R`/`B` keys, so only shape separates them).
 - `accessory` uses only `K R B u o` and body tidy keys, never `P`. At most 20 colours per atlas. Preset 1 stays closed.
 - Export: both atlases export with LibreSprite and are pixel-identical to the grid composites; `validate_assets.py` reports VALID.
 - Every frame of every evidence GIF keeps the exact goblin skin `#7a9e36` and blood red `#b8322e`. The GIFs use an exact palette (the sequences) or the toolkit's adaptive palette with fewer than 64 colours, so nothing is quantised.
@@ -73,11 +77,19 @@ All in [docs/evidence/gob-02b-death/](../evidence/gob-02b-death/README.md): `a_v
 
 ## 7. Open questions for review
 
-1. **Bandana next to blood on the remains.** On `crushed_remains` the GOB-01 B corpse tails touch the pressed-out seep, so at 1x the bandana and the blood are adjacent reds. It still reads as a vertical cloth stripe on the head in the 4x sheet. The reviewer should check the 1x scene.
+1. **Bandana next to blood on the remains.** Resolved by review fix E1: the band stops at row 52 with a dark cap and the tails are dropped, so no cloth pixel touches the seep (tested).
 2. **No loose bandana part.** In a decapitation or explosion the bandana stays on the head. A separate `gib_bandana` cloth part would read well in an explosion, but appending it is a part-index contract change. Proposed as a later option, not added here.
-3. **Ruling 13.1 refinement** (section 1): the patch on the headless frames and `torso_upper`, and the notch on `ear`. Confirm or revert to head frames only.
+3. **Ruling 13.1 refinement** (section 1): accepted by review, recorded as ruling 13.1a below.
 
 **Living horizon:** art variant only. It adds no move, unlock or ability, so it does not change the [character progression horizon](../01-design/character-progression-horizon.md).
+
+## 7a. Review fix round
+
+The independent review passed with two execution items; both are fixed in `scripts/author_gob02b_death.py` and the sources, exports, manifests, frozen key 2 and 5, and evidence were regenerated.
+
+- **E1, `crushed_remains`:** the bandana band stopped at row 52 with a 2 px dark `K` cap (x 48 and 49, row 53), and the tails at rows 53 to 55 (and the `K` under the gore seep) were dropped. The band keeps 6 `R` and 4 `B`. New test: no visible bandana `R`/`B` is 4-adjacent to a gore `R`/`B`/`P` pixel on any frame.
+- **E2, `headless_collapse`:** the vest patch moved off the dark rag flap on the floor row onto the rag mass at x 32 to 34, rows 51 to 53, inside A's silhouette. New tests: the patch pixels lie inside the A body, off the floor row, and no headless accessory pixel is outside A's silhouette.
+- Non-blocking notes N1 (pose 0 and 1 red seam length) and N2 (shared `R`/`B` keys) stay open for the Bevy capture review.
 
 ## 8. Rights and provenance
 
@@ -85,5 +97,5 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope; no publ
 
 ### Rights/Provenance
 
-- Design (overlay rules, pose 0 literal rows, spec), sources, manifests, export and evidence: Claude Opus.
+- Design (overlay rules, pose 0 literal rows, spec), sources, manifests, export and evidence: Claude Opus; review fixes: Claude Sonnet.
 - Independent review: pending, separate top-tier agent.

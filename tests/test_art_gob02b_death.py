@@ -121,22 +121,52 @@ class Gob02bDeathSourceTests(unittest.TestCase):
         f25 = pix(b["frames"][25]["cels"]["accessory"])
         remains = pix(self.poses["frames"][2]["cels"]["accessory"])
         for (x, y), ch in f25.items():
-            if x <= (22 if y <= 50 else 18):
+            if x <= (22 if y <= 50 else 18) and y <= bd.REMAINS_BAND_END:       # the tails below it were cut (E1)
                 self.assertEqual(remains.get((ad.REMAINS_MIRROR_X - x, y)), ch, (x, y))
         p0, p1 = (pix(self.poses["frames"][n]["cels"]["accessory"]) for n in (0, 1))
         self.assertEqual(p1, {(x, y + 3): ch for (x, y), ch in p0.items()})
         p3, p4 = (pix(self.poses["frames"][n]["cels"]["accessory"]) for n in (3, 4))
         self.assertEqual(p4, {(x - 2, y + 4): ch for (x, y), ch in p3.items()})
 
-    def test_headless_patch_matches_gob01_b_corpse(self):
-        """Pose 5 keeps the GOB-01 A corpse right of the cut, so with gore hidden B pose 5 equals GOB-01 B frame 25
-        on every accessory pixel."""
-        b = load(GOBLIN_B)
-        corpse = pg.composite_keys(b, 25)
-        stripped = ad.strip_gore(self.poses)
-        pose5 = pg.composite_keys(stripped, 5)
-        for (x, y) in pix(self.poses["frames"][5]["cels"]["accessory"]):
-            self.assertEqual(pose5[y][x], corpse[y][x], (x, y))
+    def test_headless_patch_sits_on_the_vest_inside_a(self):
+        """Review fix E2: pose 5's patch lies on A's rag mass, off the floor row, every pixel inside A's body."""
+        a = self.a_poses["frames"][5]["cels"]
+        body = pix(a["body"])
+        patch = pix(self.poses["frames"][5]["cels"]["accessory"])
+        self.assertTrue(has_patch(patch))
+        self.assertEqual(len(patch), 9)                                     # uuu / uKu / uKu: no extra pixel
+        for (x, y) in patch:
+            self.assertIn((x, y), body, (x, y))
+            self.assertLess(y, 55, (x, y))                                  # not on the floor row
+        self.assertGreaterEqual(sum(body[p] == "r" for p in patch), 6)      # on the dark rag mass, not on skin
+
+    def test_headless_accessory_adds_no_silhouette_pixel(self):
+        """The headless frames' accessory (the patch) stays inside A's body and weapon silhouette."""
+        for n in (3, 4, 5):
+            a = self.a_poses["frames"][n]["cels"]
+            sil = set(pix(a["body"])) | set(pix(a["weapon"]))
+            for p in pix(self.poses["frames"][n]["cels"]["accessory"]):
+                self.assertIn(p, sil, (n, p))
+
+    def test_bandana_never_touches_blood(self):
+        """Review fix E1: composited at preset 4, no visible bandana R/B pixel is 4-adjacent to a gore R/B/P pixel, so
+        cloth and blood stay separate shapes (they share the R/B keys)."""
+        for grid in (self.poses, self.parts):
+            w, h = grid["canvas"]
+            for n, f in enumerate(grid["frames"]):
+                acc, gore = pix(f["cels"]["accessory"]), pix(f["cels"]["gore"])
+                comp = pg.composite_keys(grid, n)
+                red = {"R", "B", "P"}
+                cloth = [p for p, ch in acc.items() if ch in ("R", "B") and p not in gore and comp[p[1]][p[0]] == ch]
+                for (x, y) in cloth:
+                    for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                        self.assertNotIn(gore.get((nx, ny)), red, (n, x, y, nx, ny))
+
+    def test_remains_band_ends_on_a_dark_cap(self):
+        """The remains' band stops at row 52 and a dark K cap closes it (x 48 and 49, row 53)."""
+        acc = pix(self.poses["frames"][2]["cels"]["accessory"])
+        self.assertEqual(max(y for (x, y), ch in acc.items() if ch in ("R", "B")), bd.REMAINS_BAND_END)
+        self.assertEqual((acc.get((48, 53)), acc.get((49, 53))), ("K", "K"))
 
     def test_accessory_closed_with_gore_hidden(self):
         """Preset 1: body + weapon + accessory is a closed, outlined sprite (no coloured pixel next to transparency)."""
