@@ -207,6 +207,50 @@ Consulted the [character progression horizon](../01-design/character-progression
 
 The guide needs no update.
 
+## Implementation status
+
+**Phase A (domain), in progress** on `feat/donut-q10-mana`. Bevy-free, unit-tested, **not wired into any scene**: the legacy goldens are untouched, and `donut_moves` does not exist yet.
+
+| Piece | Where | Status |
+| --- | --- | --- |
+| Swat and pounce state machines, frame and tick tables, boxes, buffer, hit-stop, dry press, latched guard | `src/donut_moves.rs` | Implemented, unit-tested |
+| Primary routing (`route_primary`), the 0-mana dry press as an output event | `src/donut_moves.rs` | Implemented, unit-tested |
+| Chip and `ManaView` mapping | `src/donut_hud.rs` | Implemented, unit-tested |
+| `PartyTuning` knobs (Q10-01, 08, 09, 10, 12, 13, 15), `MoveId::Swat`/`Pounce`, `SWAT_FEEL`/`POUNCE_FEEL`, scene hookup, fixtures, evidence, animation wiring | integration phase | Not started |
+
+Decisions the domain took where this spec is silent are listed in the phase A report and the TODO below; none changes a spec number.
+
+**Phase B (integration) TODO.** It starts after the boss PR (#115 implementation) merges, because it edits the same files.
+
+1. `src/combat.rs`: append `MoveId::Swat` and `MoveId::Pounce` and the two `MoveSpec`s (Q10-02, 03, 11, 13); add a swat `Chain`. The `MoveSpec` for the pounce stays the flat-floor nominal 10 / 16 / 18; the scene ends the flight on touchdown.
+2. `src/feel.rs`: add `SWAT_FEEL` and `POUNCE_FEEL` (Q10-05, 06, 14) next to `HURT_COOLDOWN`; `LIGHT_GUARD_MIN_TICKS` already lives in `donut_moves.rs` and moves here if the owner wants one tuning file.
+3. **Hit-stop split (review note b).** `Goblin::take_hit` in `src/goblin.rs` stores `stop + 1` in `self.hit_stop` and returns `stop`. Change it to take a `HitStopSplit` (`donut_moves::HitStopSplit`): store `split.target` directly and return `split.attacker`. Carl's moves pass `HitStopSplit::legacy(stop)`, so their numbers do not change. The swat passes `{ attacker: 2, target: 0 }`, so a Carl jab on the next tick still connects.
+4. `src/goblin.rs`: add `guard: Option<LightGuard>`. Set it when a `TellInterrupted` or `Staggered` event arrives (`effect.sets_guard`); call `guard.observe(state)` once per goblin tick and drop it when it returns true; map the goblin to `TargetState` (`Tell`, `Smear`, `Impact` and `Recover` from `attack_phase`, `Hurt` to `Staggered`, `Launched`, `Downed`, `Airborne`, `Corpse` and a defeated `Down` to `Defeated`). Mix it with `hash_guard`, so an unset guard hashes nothing. An interrupt must cancel the attack, return the token and start `HURT_COOLDOWN` (`effect.return_token`, `effect.hurt_cooldown`). A launch, a down or a defeat clears it (`TargetState::ends_guard`).
+5. **Latch the Impact (review note a).** It is done in the domain (`LightGuard::impact_seen`, plus one resolution per target per move instance). The scene must feed `Impact` from the goblin's real attack phase and must not re-derive it.
+6. `src/party.rs`: add `donut_moves` (Q10-01) and `DonutMoveTuning` (Q10-08, 09, 10, 12, 13, 15), derive `donut_ability_chips` from `donut_moves`, and pin the two equal in a test. Add `empty_press` validation through `ManaTuning::from_json`.
+7. `src/combat_scene.rs` and `src/corridor.rs`: own one `DonutMoves` and per-goblin `LightGuard`; build `StepInput` from Donut's `RawInput`, grounded flag, wall collision and the goblin list; apply `StepOutput` (launch, `set_vx`, `vx_cap`, locks, `frozen`); resolve `PounceHit` through `take_hit` as `DefeatCause::Melee` for hero index `DONUT_HERO` (force Routine). Step order on a tick: Carl, Donut, goblins. A swap calls `clear_buffer`; the AI passes `may_start: false`.
+8. `src/bin/floor01_scene.rs` and `src/hud.rs`: feed `HudRuntime` from `donut_hud::donut_magic` and `donut_ability_row`; drop the private chip logic. The `--debug-combat` overlay draws `StepOutput::hitbox`.
+9. **State hash gating.** Mix `DonutMoves::hash_into` and `hash_guard` only from a scene that runs with `donut_moves` on. They mix nothing while idle or unset, so legacy goldens stay identical with Q10-01 on or off. A legacy fixture that presses Donut's Primary or Physical pins `donut_moves: false`.
+10. **Stale "Q10 deferred" comments to remove:**
+    - `src/party.rs:201` (field doc of `donut_ability_chips`) and `src/party.rs:959` (the default-tuning test comment);
+    - `src/combat_scene.rs:951` ("Donut has no attacks (Q10 is deferred)");
+    - `src/pad_slots.rs:689` (assert message "Q10: no Donut chips yet");
+    - `src/hud.rs:479`, `src/hud.rs:617` and `src/hud.rs:937` ("provisional: Q10").
+11. Add the seven `q10_*` fixtures, the evidence captures and the animation wiring of spec sections 6 to 8, and set the backlog row to "merged, game-feel review pending".
+
+**Phase A readings of points this spec leaves open** (flagged, not resolved; the owner or the integration review may overrule any of them):
+
+- A swat on a **tell** staggers 10 like the neutral case (the goblin takes the existing `Hurt` path and returns to neutral with `HURT_COOLDOWN`), and both outcomes set the guard.
+- A swat resolves **each target once per instance**; two goblins inside the box are both resolved. Only the pounce is limited to one target.
+- The pounce may hit any **living** goblin (also `Launched` and `Downed`), never a corpse or a goblin killed in the air. Its effect on the boss is the adapter's decision; the domain reports the hit with `TargetKind::Boss` on the target view.
+- Body contact stops the pounce at a centre distance of **24 px or less**.
+- "A move or a jump cancels the rest" after touchdown + 8 is read as walking input, a jump, or any new attack press.
+- The crouch (t0-9) locks input and facing and does not force `vx` to 0; friction does that.
+- A second swat is a new instance: it resets the hit list, and its hit tick is 4 ticks after tick 10.
+- If Primary and Physical are pressed on the same tick, Primary is handled first; the other press is buffered.
+- The AI reserve is read as "at least `ai_mana_reserve` charges remain after the cast" (identical to "mana above the reserve" while the cost is 1).
+- The tuning file is pinned with FNV-1a 64 (the repository's existing hash), not SHA-256, because no hashing crate is a dependency.
+
 ## Rights/Provenance
 
 Moves, frame data, rules, this spec, the fix round and the diagram script: Claude Opus (design step). No new pixels were drawn. The diagram composites the frozen ANIM-DONUT-02 keys and the GOB-01 tell frame under the owner-reported `ART-PUBLICATION-ALL-V1` scope ([rights register](../04-production/rights-and-release.md)). No generated or third-party asset was used, and no game-distribution right is implied.

@@ -88,3 +88,22 @@ Whether 8 bolts feel generous or stingy. Whether the delay and period feel like 
 ## Living-horizon fit
 
 This fits [the horizon](character-progression-horizon.md). Magic Missile becomes Donut's primary after the biscuit on the same button. She has no magic before it. Her feline contact stays. No new input. Carl gets no counterpart resource. Later "core action mastery" upgrades such as faster regen can be data changes to these knobs. Cheaper bolts cannot: `missile_cost` is already at its validated minimum of 1 and `mana_max` is locked to 8, so that would need a cost model or HUD change. The horizon text does not need an update.
+
+## Implementation status
+
+**Phase A (domain), in progress** on `feat/donut-q10-mana`. The resource is Bevy-free and unit-tested but **not wired into any scene**; no legacy golden changes.
+
+| Piece | Where | Status |
+| --- | --- | --- |
+| Charge pool, cost, regen rule, unlock, restart kinds, `hash_into` (nothing mixed while locked), unlock trigger | `src/donut_mana.rs` | Implemented, unit-tested |
+| Hash-pinned tuning file and loader (`ManaTuning::pinned`, `TUNING_HASH`, FNV-1a 64) | `assets/data/gameplay/companion_magic_v0.json`, `src/donut_mana.rs` | Implemented; a test fails when the hash drifts |
+| Whole-segment `fill_px`, `DonutMagic`, chip row, depleted flash age | `src/donut_hud.rs` | Implemented, unit-tested |
+| Cast timeline (release on cast tick 4), `UnlockTrigger` placement in Floor 01 data, event log, fixtures `donut_unlock` and `donut_mana_drain`, real captures | integration phase | Not started |
+
+The integration TODO list is in [the Q10 spec](../02-art/donut-moveset-q10.md#implementation-status). Mana specific points:
+
+1. The adapter calls `DonutMana::step` on every tick **before** `release`, calls `release` on cast tick 4 and `reject_dry` on a dry press, and maps the returned `ManaEvent`s into the capped event log.
+2. Mix `DonutMana::hash_into` into the scene hash. It mixes nothing while locked.
+3. Place the `UnlockTrigger` from level data (a placeholder x range until the Guild room exists) and call `UnlockTrigger::step` with Donut's pivot and the party-defeat state.
+4. Restart paths call `DonutMana::restart` with `DefeatRetry`, `CheckpointRestart` or `Fixture(StartState)`.
+5. Replays and fixtures record `TUNING_HASH` and load with `ManaTuning::from_json_pinned`.

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "mana_max": 8,
+  "missile_cost": 1,
+  "missile_damage": 1,
+  "regen_delay_ticks": 30,
+  "regen_period_ticks": 40,
+  "ai_mana_reserve": 2,
+  "empty_press": "dry",
+  "projectile_speed_px_per_tick": 6,
+  "projectile_range_px": 240,
+  "refire_ticks": 16
+}
