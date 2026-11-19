@@ -723,7 +723,10 @@ mod tests {
             CombatEvent::GoblinTell { tick: 1, goblin: 0 },
             CombatEvent::GoblinSwing { tick: 1, goblin: 0 },
             CombatEvent::GoblinInterrupted { tick: 1, goblin: 0 },
-            CombatEvent::HeroDefeated { tick: 1 },
+            CombatEvent::HeroDefeated {
+                tick: 1,
+                hero: crate::party::HeroId::Carl,
+            },
             CombatEvent::Restart { tick: 1, deaths: 1 },
         ] {
             assert!(cues_from_combat_event(&quiet).is_empty(), "{quiet:?}");

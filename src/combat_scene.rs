@@ -22,17 +22,19 @@ use crate::combat::{
     EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, Phase, RootStep, carl_move, hit_box, resolve_strike,
     solid_at,
 };
-use crate::corridor::SceneSim;
+use crate::corridor::{PartyStepCtx, SceneSim};
 use crate::env_kit::EnvKit;
 use crate::feel::{
     CAMERA_KICK_TICKS, GROUND_FRICTION, HERO_DEFEAT_HIT_STOP, HERO_HURT_HIT_STOP,
-    HERO_KNOCKDOWN_VX, HERO_KNOCKDOWN_VY, IMPACT_FLASH_TICKS, LETHAL_CAMERA_KICK_BONUS,
+    HERO_KNOCKDOWN_VX, HERO_KNOCKDOWN_VY, IMPACT_END, IMPACT_FLASH_TICKS, LETHAL_CAMERA_KICK_BONUS,
     MAX_ATTACKERS, TELL_SPACING,
 };
 pub use crate::feel::{HERO_HURT_TICKS, RESTART_DELAY_TICKS};
+use crate::follower::Threat;
 use crate::goblin::{Goblin, GoblinMode};
 use crate::input::{InputFrame, RawInput};
-use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect, TICK_SECONDS};
+use crate::party::{EnemyTargetRule, HeroId};
+use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, TICK_SECONDS};
 use crate::shore::{PLAYER_ONE, Shore};
 
 /// Centre-to-centre distance at which Carl's body touches a goblin's (the two
@@ -67,6 +69,7 @@ const fn kick(from: u64, to: u64) -> Hold {
             physical: true,
             ability: false,
             pause: false,
+            swap: false,
         },
     }
 }
@@ -83,6 +86,7 @@ const fn attack(from: u64, to: u64) -> Hold {
             physical: false,
             ability: false,
             pause: false,
+            swap: false,
         },
     }
 }
@@ -100,6 +104,7 @@ const fn strike_towards(from: u64, to: u64, dir: f32, kick: bool) -> Hold {
             physical: kick,
             ability: false,
             pause: false,
+            swap: false,
         },
     }
 }
@@ -498,6 +503,18 @@ struct Confirm {
     direction: i8,
 }
 
+/// One hero's hit-reaction state (Donut's; Carl keeps the original fields of
+/// [`CombatState`] so every legacy hash and test is unchanged).
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct HeroCombat {
+    /// Ticks of hurt flinch left; the hero cannot act or move.
+    pub hurt_ticks: u8,
+    /// Ticks the hero stays frozen after a goblin's blow landed (hit-stop).
+    pub hit_stop: u8,
+    /// Knockdown drift in px/s after the defeating blow.
+    pub vx: f32,
+}
+
 /// Combat layered on a [`SceneSim`]: goblins, Carl's hurt/defeat/restart state
 /// and the event log. The hero's move clock, health and invulnerability live
 /// on the scene's own `Hero` (shared with the greybox).
@@ -519,9 +536,21 @@ pub struct CombatState {
     pub hero_defeated: bool,
     /// Carl's knockdown drift in px/s (after the defeating blow).
     pub hero_vx: f32,
-    /// Ticks since Carl was defeated.
+    /// Donut's hit state while the party is live (idle otherwise). Carl's
+    /// state stays in the fields above; see [`Self::hurt_ticks_of`].
+    pub donut: HeroCombat,
+    /// Which hero's defeat ended the attempt (D1: either one is the party's
+    /// defeat). Meaningful while `hero_defeated`.
+    pub defeated_hero: HeroId,
+    /// Q3: the hero each goblin is chasing (live party only; `None` until its
+    /// first target is chosen).
+    targets: Vec<Option<HeroId>>,
+    /// Ticks since the party was defeated.
     pub defeated_ticks: u16,
     pub deaths: u32,
+    /// Restarts so far (a defeat's automatic one and manual ones). Not hashed:
+    /// the party layer watches it to return the swap to Carl.
+    pub restarts: u32,
     /// The tick the last goblin tell started in this attempt (tell spacing).
     pub last_tell_start: Option<u64>,
     /// Ticks stepped over every attempt, restarts included (attempt-local ticks
@@ -569,8 +598,12 @@ impl CombatState {
             hero_hit_stop: 0,
             hero_defeated: false,
             hero_vx: 0.0,
+            donut: HeroCombat::default(),
+            defeated_hero: HeroId::Carl,
+            targets: Vec::new(),
             defeated_ticks: 0,
             deaths: 0,
+            restarts: 0,
             last_tell_start: None,
             elapsed: 0,
             events: Vec::new(),
@@ -640,6 +673,9 @@ impl CombatState {
         self.hero_hit_stop = 0;
         self.hero_defeated = false;
         self.hero_vx = 0.0;
+        self.donut = HeroCombat::default();
+        self.defeated_hero = HeroId::Carl;
+        self.targets = vec![None; self.enemies.len()];
         self.defeated_ticks = 0;
         self.last_tell_start = None;
         self.confirm = None;
@@ -673,6 +709,9 @@ impl CombatState {
         self.hero_hit_stop = 0;
         self.hero_defeated = false;
         self.hero_vx = 0.0;
+        self.donut = HeroCombat::default();
+        self.defeated_hero = HeroId::Carl;
+        self.targets = vec![None; self.enemies.len()];
         self.defeated_ticks = 0;
         self.last_tell_start = None;
         self.event_hash = EVENT_HASH_SEED;
@@ -714,6 +753,7 @@ impl CombatState {
         });
         scene.reset();
         self.reset_attempt();
+        self.restarts += 1;
     }
 
     fn push_event(&mut self, event: CombatEvent) {
@@ -740,17 +780,28 @@ impl CombatState {
         &self.events[from..]
     }
 
-    /// One fixed tick. `raw` is the player's (or the script's) input.
+    /// One fixed tick of the single-hero fixtures: `raw` is Carl's (or the
+    /// script's) input and Donut's slot is idle. Identical to
+    /// [`Self::step_party`] with the legacy drive.
+    pub fn step(&mut self, scene: &mut SceneSim, raw: RawInput) {
+        self.step_party(scene, [raw, RawInput::default()]);
+    }
+
+    /// One fixed tick for the party. `inputs` is indexed by hero (`[Carl,
+    /// Donut]`, see [`crate::party::PartyState::hero_inputs`]). With the legacy
+    /// scene drive only `inputs[0]` is read and nothing about Donut changes.
     ///
     /// Order within a tick (the same every tick): Carl's move clock and strike
-    /// on the goblins (Carl wins a same-tick trade), the scene step (Carl's
-    /// physics, Donut, the camera), then every goblin in index order (attack
-    /// tokens, tell, swing, and the blow on Carl).
-    pub fn step(&mut self, scene: &mut SceneSim, raw: RawInput) {
+    /// on the goblins (Carl wins a same-tick trade), the scene step (the
+    /// heroes' physics, the camera), then every goblin in index order (attack
+    /// tokens, tell, swing, and the blow on its target). Donut has no attacks.
+    pub fn step_party(&mut self, scene: &mut SceneSim, inputs: [RawInput; 2]) {
+        let raw = inputs[0];
+        let live = scene.party_live();
         let tick = scene.world.tick + 1;
         self.elapsed += 1;
         self.input.advance(raw);
-        // Hit-stop freezes Carl's timers: his flinch, his invulnerability and
+        // Hit-stop freezes a hero's timers: his flinch, his invulnerability and
         // (through the move clock) his move.
         let hero_frozen = self.hero_hit_stop > 0;
         if hero_frozen {
@@ -759,6 +810,16 @@ impl CombatState {
             self.hurt_ticks = self.hurt_ticks.saturating_sub(1);
             scene.world.hero.invulnerable_ticks =
                 scene.world.hero.invulnerable_ticks.saturating_sub(1);
+        }
+        let donut_frozen = live && self.donut.hit_stop > 0;
+        if live {
+            if donut_frozen {
+                self.donut.hit_stop -= 1;
+            } else {
+                self.donut.hurt_ticks = self.donut.hurt_ticks.saturating_sub(1);
+                scene.world.donut_body.invulnerable_ticks =
+                    scene.world.donut_body.invulnerable_ticks.saturating_sub(1);
+            }
         }
         let melee_frozen =
             scene.world.hero.melee.busy() && scene.world.hero.melee.hit_stop_left() > 0;
@@ -883,7 +944,38 @@ impl CombatState {
         if self.hero_defeated && !hero_frozen {
             self.drift_hero(scene);
         }
-        if hero_frozen || melee_frozen {
+        if live {
+            if self.hero_defeated && !donut_frozen {
+                self.drift_donut(scene);
+            }
+            // Donut has no attacks (Q10 is deferred): only her movement and
+            // jump are read, and only while she can act.
+            let donut_can_act = !self.hero_defeated && self.donut.hurt_ticks == 0 && !donut_frozen;
+            let donut_raw = if donut_can_act {
+                RawInput {
+                    move_x: inputs[1].move_x,
+                    jump: inputs[1].jump,
+                    ..RawInput::default()
+                }
+            } else {
+                RawInput::default()
+            };
+            let threats: Vec<Threat> = self
+                .enemies
+                .iter()
+                .filter(|g| g.mode == GoblinMode::Attack && g.attack_tick < IMPACT_END)
+                .map(|g| Threat {
+                    x: g.x,
+                    attack_tick: g.attack_tick,
+                })
+                .collect();
+            let ctx = PartyStepCtx {
+                can_move: [can_act && !committed, donut_can_act],
+                frozen: [hero_frozen || melee_frozen, donut_frozen],
+                threats: &threats,
+            };
+            scene.step_party_ctx([gated, donut_raw], &ctx);
+        } else if hero_frozen || melee_frozen {
             // Frozen in hit-stop: only the tick counter advances. Carl, the
             // camera and Donut's trail stand still (no motion to restore).
             scene.hold_tick(gated);
@@ -924,13 +1016,81 @@ impl CombatState {
         }
     }
 
+    /// Q3: choose the hero each goblin chases (live party only). A goblin in an
+    /// attack keeps its target through the tell, the swing and the recovery, so
+    /// the tell always points at the hero who will be hit. Otherwise it takes
+    /// the nearest hero, switching only when the other one is
+    /// `target_switch_px` closer; in solo the uncontrolled hero counts
+    /// `target_ai_bias_px` farther away. Ties go to Carl.
+    fn update_targets(&mut self, scene: &SceneSim) {
+        let drive = *scene.drive();
+        let tuning = drive.tuning;
+        let effective = |goblin_x: f32, hero: HeroId| {
+            let bias = if drive.is_guarded(hero) {
+                f32::from(tuning.target_ai_bias_px)
+            } else {
+                0.0
+            };
+            (goblin_x - scene.world.body(hero).x).abs() + bias
+        };
+        for (index, goblin) in self.enemies.iter().enumerate() {
+            let current = self.targets[index];
+            if goblin.mode == GoblinMode::Attack && current.is_some() {
+                continue;
+            }
+            let (carl, donut) = (
+                effective(goblin.x, HeroId::Carl),
+                effective(goblin.x, HeroId::Donut),
+            );
+            let nearest = if donut < carl {
+                HeroId::Donut
+            } else {
+                HeroId::Carl
+            };
+            self.targets[index] = Some(match (tuning.enemy_target, current) {
+                (EnemyTargetRule::HysteresisControlledBias, Some(held)) => {
+                    let (kept, other) =
+                        (effective(goblin.x, held), effective(goblin.x, held.other()));
+                    if other + f32::from(tuning.target_switch_px) <= kept {
+                        held.other()
+                    } else {
+                        held
+                    }
+                }
+                _ => nearest,
+            });
+        }
+    }
+
+    /// The hero goblin `index` chases: Carl unless the party is live.
+    pub fn target_of(&self, index: usize) -> HeroId {
+        self.targets
+            .get(index)
+            .copied()
+            .flatten()
+            .unwrap_or(HeroId::Carl)
+    }
+
     /// Every goblin in index order: the attack token, the tell and swing, and
-    /// the blow on Carl.
+    /// the blow on its target.
     fn step_goblins(&mut self, scene: &mut SceneSim, tick: u64) {
-        let hero_x = scene.world.hero.x;
+        let live = scene.party_live();
+        if live {
+            self.update_targets(scene);
+        }
+        // The x each goblin chases: Carl for every goblin unless live.
+        let target_x: Vec<f32> = (0..self.enemies.len())
+            .map(|index| {
+                if live {
+                    scene.world.body(self.target_of(index)).x
+                } else {
+                    scene.world.hero.x
+                }
+            })
+            .collect();
         // Attack token: at most MAX_ATTACKERS goblins in a tell or a swing; the
-        // free slots go to the goblins that could attack, nearest to Carl
-        // first, ties to the lower index.
+        // free slots go to the goblins that could attack, nearest to their
+        // target first, ties to the lower index.
         let active = self.enemies.iter().filter(|g| g.token_held()).count();
         let slots = MAX_ATTACKERS.saturating_sub(active);
         let mut ranked: Vec<(f32, usize)> = self
@@ -938,7 +1098,7 @@ impl CombatState {
             .iter()
             .enumerate()
             .filter(|(_, g)| g.wants_attack())
-            .map(|(index, g)| ((g.x - hero_x).abs(), index))
+            .map(|(index, g)| ((g.x - target_x[index]).abs(), index))
             .collect();
         ranked.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         // Starvation note: an approved goblin that cannot get within the trigger
@@ -951,7 +1111,7 @@ impl CombatState {
                 .last_tell_start
                 .is_none_or(|start| tick - start >= TELL_SPACING);
             let step = self.enemies[index].step(
-                hero_x,
+                target_x[index],
                 !self.hero_defeated,
                 &scene.world.solids,
                 self.x_max - ENEMY_HALF_WIDTH,
@@ -1062,52 +1222,146 @@ impl CombatState {
         }
     }
 
-    /// An active swing: it hurts Carl only if its box (in front of the goblin)
-    /// overlaps his body, he is not invulnerable and this attack has not hit.
+    /// An active swing: it hurts a hero only if its box (in front of the
+    /// goblin) overlaps the hero's hurtbox, the hero is not invulnerable and
+    /// this attack has not hit. With a live party the goblin's target is tried
+    /// first, then the other hero; one hit per attack.
     fn swing_on_hero(&mut self, scene: &mut SceneSim, index: usize, tick: u64) {
-        let goblin = &mut self.enemies[index];
-        let hero = &mut scene.world.hero;
-        let body = Rect {
-            left: hero.x - HERO_HALF_WIDTH,
-            bottom: hero.y - HERO_HALF_HEIGHT,
-            width: HERO_HALF_WIDTH * 2.0,
-            height: HERO_HALF_HEIGHT * 2.0,
+        if !scene.party_live() {
+            self.swing_on(scene, index, HeroId::Carl, tick);
+            return;
+        }
+        let target = self.target_of(index);
+        if !self.swing_on(scene, index, target, tick) {
+            self.swing_on(scene, index, target.other(), tick);
+        }
+    }
+
+    /// The hurtbox of `hero`: Carl's 24x52 body, or Donut's own box (Q4),
+    /// centred on the pivot and measured from the feet.
+    pub fn hurtbox(scene: &SceneSim, hero: HeroId) -> Rect {
+        let body = scene.world.body(hero);
+        let (width, height) = match hero {
+            HeroId::Carl => (HERO_HALF_WIDTH * 2.0, HERO_HALF_HEIGHT * 2.0),
+            HeroId::Donut => scene.drive().tuning.donut_hurtbox.size(),
         };
+        Rect {
+            left: body.x - width * 0.5,
+            bottom: body.y - HERO_HALF_HEIGHT,
+            width,
+            height,
+        }
+    }
+
+    /// Try goblin `index`'s swing on `id`. Returns true when the blow landed
+    /// (whether or not the solo last-HP guard kept the health up).
+    fn swing_on(&mut self, scene: &mut SceneSim, index: usize, id: HeroId, tick: u64) -> bool {
+        let drive = *scene.drive();
+        let tuning = drive.tuning;
+        let body = Self::hurtbox(scene, id);
+        let hero_x = scene.world.body(id).x;
+        let goblin = &self.enemies[index];
+        // D1 M4 (solo only): a guarded hero outside the view cannot be hurt.
+        let unseen = drive.is_guarded(id)
+            && tuning.solo_offscreen_immunity
+            && scene.is_offscreen(hero_x, f32::from(tuning.offscreen_margin_px));
+        let hero = scene.world.body_mut(id);
         if self.hero_defeated
             || hero.invulnerable_ticks > 0
             || goblin.swing_hit
+            || unseen
             || !goblin.swing_box().overlaps(body)
         {
-            return;
+            return false;
         }
+        let (damage, invulnerable, hurt_for) = match id {
+            HeroId::Carl => (1, HERO_INVULNERABLE_TICKS, HERO_HURT_TICKS),
+            HeroId::Donut => (
+                tuning.donut_damage_per_hit,
+                tuning.donut_invulnerable_ticks,
+                tuning.donut_hurt_ticks,
+            ),
+        };
+        let goblin = &mut self.enemies[index];
         goblin.swing_hit = true;
-        hero.health = hero.health.saturating_sub(1);
-        hero.invulnerable_ticks = HERO_INVULNERABLE_TICKS;
+        // D1 M1 (solo only): a hero the player does not drive takes the hit
+        // (flinch, i-frames, HUD) but never drops below 1 HP.
+        let floor = u8::from(drive.is_guarded(id) && tuning.solo_last_hp_guard);
+        hero.health = hero
+            .health
+            .saturating_sub(damage)
+            .max(floor.min(hero.health));
+        hero.invulnerable_ticks = invulnerable;
         hero.melee.cancel();
         // The hurt and knockdown art assume the blow came from the front.
         hero.facing = if goblin.x >= hero.x { 1 } else { -1 };
         let away = if hero.x >= goblin.x { 1.0 } else { -1.0 };
         let health_left = hero.health;
-        self.hurt_ticks = HERO_HURT_TICKS;
-        self.hero_hit_stop = self.hero_hit_stop.max(HERO_HURT_HIT_STOP);
         goblin.hit_stop = goblin.hit_stop.max(HERO_HURT_HIT_STOP);
+        let mut state = self.hero_state(id);
+        state.hurt_ticks = hurt_for;
+        state.hit_stop = state.hit_stop.max(HERO_HURT_HIT_STOP);
         self.log(CombatEvent::HeroHurt {
             tick,
             source: index as u32,
             health_left,
+            hero: id,
         });
+        if id == HeroId::Donut {
+            // The HUD reads the companion's mirror at once, not next tick.
+            scene.world.donut.health = health_left;
+        }
         if health_left == 0 {
             self.hero_defeated = true;
+            self.defeated_hero = id;
             self.deaths += 1;
             // The heavier knockdown: longer freeze, then launched away.
-            self.hero_hit_stop = self.hero_hit_stop.max(HERO_DEFEAT_HIT_STOP);
+            state.hit_stop = state.hit_stop.max(HERO_DEFEAT_HIT_STOP);
             self.enemies[index].hit_stop = self.enemies[index].hit_stop.max(HERO_DEFEAT_HIT_STOP);
-            self.hero_vx = away * HERO_KNOCKDOWN_VX;
-            let hero = &mut scene.world.hero;
+            state.vx = away * HERO_KNOCKDOWN_VX;
+            let hero = scene.world.body_mut(id);
             hero.vy = HERO_KNOCKDOWN_VY;
             hero.grounded = false;
-            self.log(CombatEvent::HeroDefeated { tick });
+            self.set_hero_state(id, state);
+            self.log(CombatEvent::HeroDefeated { tick, hero: id });
+        } else {
+            self.set_hero_state(id, state);
         }
+        true
+    }
+
+    /// `id`'s hit-reaction state (Carl's lives in the original fields).
+    fn hero_state(&self, id: HeroId) -> HeroCombat {
+        match id {
+            HeroId::Carl => HeroCombat {
+                hurt_ticks: self.hurt_ticks,
+                hit_stop: self.hero_hit_stop,
+                vx: self.hero_vx,
+            },
+            HeroId::Donut => self.donut,
+        }
+    }
+
+    fn set_hero_state(&mut self, id: HeroId, state: HeroCombat) {
+        match id {
+            HeroId::Carl => {
+                self.hurt_ticks = state.hurt_ticks;
+                self.hero_hit_stop = state.hit_stop;
+                self.hero_vx = state.vx;
+            }
+            HeroId::Donut => self.donut = state,
+        }
+    }
+
+    /// Ticks of hurt flinch `id` has left.
+    pub fn hurt_ticks_of(&self, id: HeroId) -> u8 {
+        self.hero_state(id).hurt_ticks
+    }
+
+    /// Carl is the defeated hero (his knockdown art plays). False when Donut's
+    /// defeat ended the attempt.
+    pub fn carl_defeated(&self) -> bool {
+        self.hero_defeated && self.defeated_hero == HeroId::Carl
     }
 
     /// One tick of a move's forward step: stopped by walls, the layout edge and
@@ -1138,32 +1392,26 @@ impl CombatState {
     /// Carl's knockdown drift after the defeating blow: stopped by walls and
     /// the layout edge, slowed by friction once he lies on the floor.
     fn drift_hero(&mut self, scene: &mut SceneSim) {
-        if self.hero_vx == 0.0 {
-            return;
-        }
-        let hero = &mut scene.world.hero;
-        let wanted = hero.x + self.hero_vx * TICK_SECONDS;
-        let candidate = wanted.clamp(HERO_HALF_WIDTH, self.x_max - HERO_HALF_WIDTH);
-        let body = Rect {
-            left: candidate - HERO_HALF_WIDTH,
-            bottom: hero.y - HERO_HALF_HEIGHT,
-            width: HERO_HALF_WIDTH * 2.0,
-            height: HERO_HALF_HEIGHT * 2.0,
-        };
-        let blocked = solid_at(&scene.world.solids, body);
-        if !blocked {
-            hero.x = candidate;
-        }
-        if blocked || candidate != wanted {
-            self.hero_vx = 0.0;
-        } else if hero.grounded {
-            let drag = GROUND_FRICTION * TICK_SECONDS;
-            self.hero_vx = if self.hero_vx.abs() <= drag {
-                0.0
-            } else {
-                self.hero_vx - drag * self.hero_vx.signum()
-            };
-        }
+        let mut vx = self.hero_vx;
+        drift_body(
+            &mut scene.world.hero,
+            &mut vx,
+            &scene.world.solids,
+            self.x_max,
+        );
+        self.hero_vx = vx;
+    }
+
+    /// Donut's knockdown drift (the same rule, her own body).
+    fn drift_donut(&mut self, scene: &mut SceneSim) {
+        let mut vx = self.donut.vx;
+        drift_body(
+            &mut scene.world.donut_body,
+            &mut vx,
+            &scene.world.solids,
+            self.x_max,
+        );
+        self.donut.vx = vx;
     }
 
     /// Remember a confirmed hit for the presentation (flash and camera kick).
@@ -1249,6 +1497,19 @@ impl CombatState {
         }
         if let Some(shore) = &self.shore {
             shore.mix_into(&mut put);
+        }
+        // Live-party combat state (B1): Donut's hit state, each goblin's
+        // target and the defeated hero. Mixed only while the party is live,
+        // behind a marker word, so every legacy hash is unchanged.
+        if scene.party_live() {
+            put(0x5041_5254_5943_4d42);
+            put(u64::from(self.donut.hurt_ticks));
+            put(u64::from(self.donut.hit_stop));
+            put(u64::from(self.donut.vx.to_bits()));
+            put(self.defeated_hero.index() as u64);
+            for target in &self.targets {
+                put(target.map_or(0, |hero| hero.index() as u64 + 1));
+            }
         }
         put(self.event_hash);
         // DEMO-01 only: no fixture mixes anything here.
@@ -1360,6 +1621,36 @@ fn mix(mut hash: u64, value: u64) -> u64 {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     hash
+}
+
+/// One tick of a defeated hero's knockdown drift in px/s: stopped by walls and
+/// the layout edge, slowed by friction once the hero lies on the floor.
+fn drift_body(hero: &mut Hero, vx: &mut f32, solids: &[Block], x_max: f32) {
+    if *vx == 0.0 {
+        return;
+    }
+    let wanted = hero.x + *vx * TICK_SECONDS;
+    let candidate = wanted.clamp(HERO_HALF_WIDTH, x_max - HERO_HALF_WIDTH);
+    let body = Rect {
+        left: candidate - HERO_HALF_WIDTH,
+        bottom: hero.y - HERO_HALF_HEIGHT,
+        width: HERO_HALF_WIDTH * 2.0,
+        height: HERO_HALF_HEIGHT * 2.0,
+    };
+    let blocked = solid_at(solids, body);
+    if !blocked {
+        hero.x = candidate;
+    }
+    if blocked || candidate != wanted {
+        *vx = 0.0;
+    } else if hero.grounded {
+        let drag = GROUND_FRICTION * TICK_SECONDS;
+        *vx = if vx.abs() <= drag {
+            0.0
+        } else {
+            *vx - drag * vx.signum()
+        };
+    }
 }
 
 /// A fixture's scene and combat state together: what the headless replay and
@@ -1589,6 +1880,7 @@ mod tests {
                 physical: false,
                 ability: false,
                 pause: false,
+                swap: false,
             },
         }],
         ticks: 150,
@@ -2071,7 +2363,7 @@ mod tests {
         let defeated = events
             .iter()
             .find_map(|e| match e {
-                CombatEvent::HeroDefeated { tick } => Some(*tick),
+                CombatEvent::HeroDefeated { tick, .. } => Some(*tick),
                 _ => None,
             })
             .expect("Carl is defeated");
@@ -2167,7 +2459,7 @@ mod tests {
         let defeated = first
             .iter()
             .find_map(|e| match e {
-                CombatEvent::HeroDefeated { tick } => Some(*tick),
+                CombatEvent::HeroDefeated { tick, .. } => Some(*tick),
                 _ => None,
             })
             .unwrap();
@@ -3324,6 +3616,91 @@ mod tests {
                 overall.1,
                 overall.0
             );
+        }
+    }
+
+    /// B1: the live-party hash covers each goblin's target, Donut's hit state
+    /// and the defeated hero, and the legacy hash ignores all three.
+    #[test]
+    fn the_party_hash_covers_targets_donut_hit_state_and_the_defeated_hero() {
+        use crate::party_scene::{PartyFixtureSim, SOLO_FOLLOWER_DODGE};
+        let mut sim = PartyFixtureSim::new(&kit(), 360, &SOLO_FOLLOWER_DODGE).unwrap();
+        sim.run_scripted(40);
+        assert!(sim.scene.party_live());
+        let base = sim.state_hash();
+        let mut changed = sim.clone();
+        changed.combat.targets[0] = Some(changed.combat.target_of(0).other());
+        assert_ne!(
+            changed.state_hash(),
+            base,
+            "a target change alters the hash"
+        );
+        let mut changed = sim.clone();
+        changed.combat.donut.hit_stop += 1;
+        assert_ne!(changed.state_hash(), base, "Donut hit-stop alters the hash");
+        let mut changed = sim.clone();
+        changed.combat.donut.hurt_ticks += 1;
+        assert_ne!(changed.state_hash(), base, "Donut flinch alters the hash");
+        let mut changed = sim.clone();
+        changed.combat.donut.vx += 1.0;
+        assert_ne!(changed.state_hash(), base, "Donut drift alters the hash");
+        let mut changed = sim.clone();
+        changed.combat.defeated_hero = HeroId::Donut;
+        assert_ne!(
+            changed.state_hash(),
+            base,
+            "the defeated hero alters the hash"
+        );
+
+        // Legacy: the same fields do not reach the hash while the party is not live.
+        let mut legacy = sim_of(FIXTURES[0]);
+        legacy.step(RawInput::default());
+        let before = legacy.state_hash();
+        legacy.combat.targets = vec![Some(HeroId::Donut); legacy.combat.targets.len()];
+        legacy.combat.donut.hit_stop = 3;
+        legacy.combat.defeated_hero = HeroId::Donut;
+        assert_eq!(legacy.state_hash(), before);
+    }
+
+    /// S5 / Q4: a goblin swing reaches Donut's forgiving box (20 px wide) at 40
+    /// px between centres and Carl's 24 px box at 42, on either side, and the
+    /// box is centred on the pivot (mirrored with the goblin's facing).
+    #[test]
+    fn q4_a_swing_reaches_donut_at_40_px_and_carl_at_42_on_both_sides() {
+        use crate::party_scene::{PartyFixtureSim, SOLO_FOLLOWER_DODGE};
+        let mut sim = PartyFixtureSim::new(&kit(), 360, &SOLO_FOLLOWER_DODGE).unwrap();
+        sim.run_scripted(1);
+        assert!(sim.scene.party_live());
+        assert_eq!(
+            sim.scene.drive().tuning.donut_hurtbox,
+            crate::party::DonutHurtbox::Forgiving
+        );
+        let cases = [
+            // (hero, distance, reached)
+            (HeroId::Donut, 39.0, true),
+            (HeroId::Donut, 41.0, false),
+            (HeroId::Donut, 45.0, false),
+            (HeroId::Donut, 47.0, false),
+            (HeroId::Carl, 39.0, true),
+            (HeroId::Carl, 41.0, true),
+            (HeroId::Carl, 43.0, false),
+            (HeroId::Carl, 45.0, false),
+            (HeroId::Carl, 47.0, false),
+        ];
+        for (hero, distance, reached) in cases {
+            for side in [1.0_f32, -1.0] {
+                let body = sim.scene.world.body(hero);
+                let (x, feet) = (body.x, body.y - HERO_HALF_HEIGHT);
+                let goblin = &mut sim.combat.enemies[0];
+                goblin.x = x + side * distance;
+                goblin.y = feet + crate::combat::ENEMY_HALF_HEIGHT;
+                // The goblin faces the hero.
+                goblin.facing = if side > 0.0 { -1 } else { 1 };
+                let hit = goblin
+                    .swing_box()
+                    .overlaps(CombatState::hurtbox(&sim.scene, hero));
+                assert_eq!(hit, reached, "{hero:?} at {distance} px, side {side}");
+            }
         }
     }
 }

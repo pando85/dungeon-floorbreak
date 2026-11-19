@@ -9,11 +9,15 @@
 use std::collections::VecDeque;
 use std::str::FromStr;
 
-use crate::combat::HERO_HEALTH;
+use crate::combat::{HERO_HEALTH, solid_at};
 use crate::env_kit::{EnvKit, IRect, to_world_y};
-use crate::input::{InputFrame, RawInput};
-use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, step_hero};
-use crate::scroll_camera::{CameraConfig, ScrollCamera};
+use crate::follower::{Threat, follower_input};
+use crate::input::{Actions, InputFrame, RawInput};
+use crate::party::{HeroId, PartyDrive};
+use crate::prototype::{
+    Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, RUN_SPEED, Rect, TICK_SECONDS, step_hero,
+};
+use crate::scroll_camera::{CameraConfig, DEADZONE_PX, MAX_SPEED_PX, ScrollCamera};
 
 /// How far behind Carl (path length, virtual px) Donut trails.
 pub const DONUT_FOLLOW_PX: f32 = 32.0;
@@ -38,8 +42,11 @@ struct TrailSample {
 /// (HUD-DEBT-01 adds the damage rules), so she stays at full health.
 pub const DONUT_HEALTH: u8 = HERO_HEALTH;
 
-/// Donut: a visual companion that replays Carl's foot path. She has no
-/// collision, physics, combat or influence on Carl.
+/// Donut as drawn and read by the HUD. In the legacy single-hero paths she is
+/// a visual companion that replays Carl's foot path (no collision, physics or
+/// combat). When the party is live ([`PartyDrive::live`]) her position comes
+/// from her own hero body ([`CorridorWorld::donut_body`]) and `health` is the
+/// authoritative value the combat damages.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Companion {
     pub x: f32,
@@ -53,6 +60,12 @@ pub struct Companion {
 pub struct CorridorWorld {
     pub hero: Hero,
     pub donut: Companion,
+    /// Donut's own hero body (the party's second hero): used only while
+    /// [`Self::donut_live`]. Its `y` is the centre of the shared 24x52
+    /// terrain collider; her hurtbox is separate (`PartyTuning::donut_hurtbox`).
+    pub donut_body: Hero,
+    /// The party is live: `donut` follows `donut_body`, not Carl's trail.
+    pub donut_live: bool,
     pub solids: Vec<Block>,
     pub tick: u64,
     pub complete: bool,
@@ -89,6 +102,8 @@ impl CorridorWorld {
                 facing: 1,
                 health: DONUT_HEALTH,
             },
+            donut_body: Hero::at(spawn.0 - DONUT_FOLLOW_PX, spawn.1),
+            donut_live: false,
             solids: kit.blocks(),
             tick: 0,
             complete: false,
@@ -129,6 +144,10 @@ impl CorridorWorld {
             facing: 1,
         });
         self.update_donut();
+        self.donut_body = Hero::at(self.spawn.0 - DONUT_FOLLOW_PX, self.spawn.1);
+        if self.donut_live {
+            self.sync_donut_from_body();
+        }
     }
 
     /// DEMO-01 checkpoint respawn: a full-health Carl standing at column `x` on
@@ -143,6 +162,7 @@ impl CorridorWorld {
         self.hero.melee = melee;
         self.complete = false;
         let foot_y = self.hero.y - HERO_HALF_HEIGHT;
+        self.donut.health = DONUT_HEALTH;
         self.trail.clear();
         self.trail.push_back(TrailSample {
             x: x - DONUT_FOLLOW_PX,
@@ -157,6 +177,11 @@ impl CorridorWorld {
             facing: 1,
         });
         self.update_donut();
+        // A live party: Donut's own body stands up beside Carl, whole again.
+        self.donut_body = Hero::at(x - DONUT_FOLLOW_PX, self.spawn.1);
+        if self.donut_live {
+            self.sync_donut_from_body();
+        }
     }
 
     pub fn layout_height(&self) -> i32 {
@@ -176,17 +201,80 @@ impl CorridorWorld {
         step_hero(&mut self.hero, input, &self.solids, self.max_x);
         self.record_trail();
         self.update_donut();
-        if let Some(exit) = self.exit {
-            let hero_box = Rect {
-                left: self.hero.x - HERO_HALF_WIDTH,
-                bottom: self.hero.y - HERO_HALF_HEIGHT,
-                width: HERO_HALF_WIDTH * 2.0,
-                height: HERO_HALF_HEIGHT * 2.0,
-            };
-            if overlaps(hero_box, exit) {
-                self.complete = true;
-            }
+        self.check_exit(false);
+    }
+
+    /// The exit is reached by Carl's box (and, with a live party, Donut's).
+    fn check_exit(&mut self, include_donut: bool) {
+        let Some(exit) = self.exit else {
+            return;
+        };
+        let box_of = |hero: &Hero| Rect {
+            left: hero.x - HERO_HALF_WIDTH,
+            bottom: hero.y - HERO_HALF_HEIGHT,
+            width: HERO_HALF_WIDTH * 2.0,
+            height: HERO_HALF_HEIGHT * 2.0,
+        };
+        if overlaps(box_of(&self.hero), exit)
+            || (include_donut && overlaps(box_of(&self.donut_body), exit))
+        {
+            self.complete = true;
         }
+    }
+
+    /// One tick of the live party's bodies: the tick counter advances, every
+    /// hero that is not frozen (hit-stop) runs the shared `step_hero`, and
+    /// Donut's drawn position follows her body. No trail is recorded.
+    pub fn step_bodies(&mut self, frames: [&InputFrame; 2], frozen: [bool; 2]) {
+        if self.complete {
+            return;
+        }
+        self.tick += 1;
+        if !frozen[0] {
+            step_hero(&mut self.hero, frames[0], &self.solids, self.max_x);
+        }
+        if !frozen[1] {
+            step_hero(&mut self.donut_body, frames[1], &self.solids, self.max_x);
+        }
+        self.sync_donut_from_body();
+        self.check_exit(true);
+    }
+
+    /// Test hook: re-derive Donut's drawn position after a test moved her body.
+    #[doc(hidden)]
+    pub fn sync_donut_for_tests(&mut self) {
+        self.sync_donut_from_body();
+    }
+
+    fn sync_donut_from_body(&mut self) {
+        // Live: the body is authoritative for health (the combat damages it);
+        // the companion mirrors it for the HUD and the hash.
+        self.donut = Companion {
+            x: self.donut_body.x,
+            foot_y: self.donut_body.y - HERO_HALF_HEIGHT,
+            facing: self.donut_body.facing,
+            health: self.donut_body.health,
+        };
+    }
+
+    /// The hero body of `id` (Carl's is `hero`, Donut's `donut_body`).
+    pub fn body(&self, id: HeroId) -> &Hero {
+        match id {
+            HeroId::Carl => &self.hero,
+            HeroId::Donut => &self.donut_body,
+        }
+    }
+
+    pub fn body_mut(&mut self, id: HeroId) -> &mut Hero {
+        match id {
+            HeroId::Carl => &mut self.hero,
+            HeroId::Donut => &mut self.donut_body,
+        }
+    }
+
+    /// y-up world height of `id`'s foot line.
+    pub fn foot_y_of(&self, id: HeroId) -> f32 {
+        self.body(id).y - HERO_HALF_HEIGHT
     }
 
     fn record_trail(&mut self) {
@@ -279,6 +367,17 @@ impl CorridorWorld {
         // mix the health unconditionally and regenerate the goldens).
         if self.donut.health != DONUT_HEALTH {
             mix(u64::from(self.donut.health));
+        }
+        // A live party mixes Donut's own body once, behind its own marker, so
+        // no legacy hash (the story route, the fixtures) can ever change.
+        if self.donut_live {
+            mix(0x444f_4e55_5442_4f44);
+            for value in [self.donut_body.vx, self.donut_body.vy] {
+                mix(u64::from(value.to_bits()));
+            }
+            mix(u64::from(self.donut_body.grounded));
+            mix(u64::from(self.donut.health));
+            mix(u64::from(self.donut_body.invulnerable_ticks));
         }
         hash
     }
@@ -408,8 +507,40 @@ impl Scenario {
 pub struct SceneSim {
     pub world: CorridorWorld,
     pub camera: ScrollCamera,
+    /// Carl's input frame (the legacy single hero).
     pub input: InputFrame,
+    /// Donut's input frame (live party only).
+    pub donut_input: InputFrame,
     camera_cfg: CameraConfig,
+    /// What the party layer says this tick ([`PartyDrive::LEGACY`] until set).
+    drive: PartyDrive,
+    /// Q7: the temporary solo-swap pan cap is still active.
+    pan_boost: bool,
+    /// Q9: ticks each hero (`HeroId::index`) has been a bot and off-screen.
+    bot_offscreen: [u16; 2],
+}
+
+/// What the combat layer tells a live party step about each hero.
+#[derive(Debug, Clone, Copy)]
+pub struct PartyStepCtx<'a> {
+    /// The hero may move and jump this tick (false while hurt, defeated, or
+    /// planted by a committed move). Human inputs arrive already gated; this
+    /// also gates a bot.
+    pub can_move: [bool; 2],
+    /// The hero is frozen by hit-stop: its body does not step.
+    pub frozen: [bool; 2],
+    /// Goblin attacks in progress, for the bot's dodge.
+    pub threats: &'a [Threat],
+}
+
+impl Default for PartyStepCtx<'_> {
+    fn default() -> Self {
+        Self {
+            can_move: [true, true],
+            frozen: [false, false],
+            threats: &[],
+        }
+    }
 }
 
 impl SceneSim {
@@ -445,13 +576,20 @@ impl SceneSim {
             world,
             camera,
             input: InputFrame::default(),
+            donut_input: InputFrame::default(),
             camera_cfg,
+            drive: PartyDrive::LEGACY,
+            pan_boost: false,
+            bot_offscreen: [0, 0],
         })
     }
 
     pub fn reset(&mut self) {
         self.world.reset();
         self.input = InputFrame::default();
+        self.donut_input = InputFrame::default();
+        self.pan_boost = false;
+        self.bot_offscreen = [0, 0];
         self.camera = ScrollCamera::new(self.camera_cfg, self.world.hero.x, self.world.hero.facing);
     }
 
@@ -460,7 +598,104 @@ impl SceneSim {
     pub fn respawn_at(&mut self, x: f32) {
         self.world.respawn_at(x);
         self.input = InputFrame::default();
+        self.donut_input = InputFrame::default();
+        self.pan_boost = false;
+        self.bot_offscreen = [0, 0];
         self.camera = ScrollCamera::new(self.camera_cfg, x, self.world.hero.facing);
+    }
+
+    /// The party layer's view of this tick (`crate::party::PartyState::drive`).
+    /// The first live drive hands Donut's drawn position to her own body; a
+    /// change of the controlled hero in solo starts the swap pan (Q7). The
+    /// legacy drive never goes live again once it was (a fixture is either one
+    /// or the other).
+    pub fn set_drive(&mut self, drive: PartyDrive) {
+        if drive.live && !self.world.donut_live {
+            self.world.donut_live = true;
+            self.world.donut_body = Hero::at(
+                self.world.donut.x,
+                self.world.donut.foot_y + HERO_HALF_HEIGHT,
+            );
+            self.world.donut_body.facing = self.world.donut.facing;
+            self.world.donut_body.health = self.world.donut.health;
+        }
+        if drive.live && !drive.two_player && drive.controlled != self.drive.controlled {
+            self.pan_boost = self.drive.live;
+        }
+        let joins = drive.live && drive.two_player && !self.drive.two_player;
+        self.drive = drive;
+        if joins {
+            self.pull_second_player_into_view();
+        }
+    }
+
+    /// S4: when a second player joins while the bot is farther away than the
+    /// separation wall allows (it can wait at a gap for up to `regroup_ticks`),
+    /// place Donut beside Carl at once, on the same free-spot rule as the bot
+    /// regroup, so the first 2P view has both heroes on screen. A join inside
+    /// the limit leaves her where she is.
+    fn pull_second_player_into_view(&mut self) {
+        let max = self.drive.tuning.max_separation_px(self.camera_cfg.view_w) as f32;
+        let (carl_x, carl_y, carl_facing) = {
+            let carl = &self.world.hero;
+            (carl.x, carl.y, carl.facing)
+        };
+        if (self.world.donut_body.x - carl_x).abs() <= max {
+            return;
+        }
+        let behind = if carl_facing >= 0 { -1.0 } else { 1.0 };
+        let beside = carl_x + behind * f32::from(self.drive.tuning.follow_distance_px);
+        let x = self
+            .free_spot_x(beside, carl_y)
+            .or_else(|| {
+                self.free_spot_x(
+                    carl_x - behind * f32::from(self.drive.tuning.follow_distance_px),
+                    carl_y,
+                )
+            })
+            .unwrap_or(carl_x);
+        let body = &mut self.world.donut_body;
+        body.x = x;
+        body.y = carl_y;
+        body.vx = 0.0;
+        body.vy = 0.0;
+        body.grounded = false;
+        self.world.sync_donut_from_body();
+        self.bot_offscreen = [0, 0];
+    }
+
+    /// `x` clamped to the level when a hero body centred at height `y` fits
+    /// there without touching a solid.
+    fn free_spot_x(&self, x: f32, y: f32) -> Option<f32> {
+        let x = x.clamp(HERO_HALF_WIDTH, self.world.max_x);
+        let body = Rect {
+            left: x - HERO_HALF_WIDTH,
+            bottom: y - HERO_HALF_HEIGHT,
+            width: HERO_HALF_WIDTH * 2.0,
+            height: HERO_HALF_HEIGHT * 2.0,
+        };
+        (!solid_at(&self.world.solids, body)).then_some(x)
+    }
+
+    pub fn drive(&self) -> &PartyDrive {
+        &self.drive
+    }
+
+    /// True while the solo-swap pan still runs at the raised speed cap.
+    pub fn pan_boosted(&self) -> bool {
+        self.pan_boost
+    }
+
+    /// True while the party is live (Donut is a real hero).
+    pub fn party_live(&self) -> bool {
+        self.drive.live
+    }
+
+    /// Q7 / D1 M4: `x` is more than `margin` pixels outside the view.
+    pub fn is_offscreen(&self, x: f32, margin: f32) -> bool {
+        let left = self.camera.left() as f32;
+        let right = left + self.camera_cfg.view_w as f32;
+        x < left - margin || x > right + margin
     }
 
     /// A frozen tick (combat hit-stop): the tick counter and the input edge
@@ -472,10 +707,167 @@ impl SceneSim {
         self.world.tick += 1;
     }
 
+    /// The legacy single-hero step: Carl's slot gets `raw`, Donut's slot is
+    /// idle. Delegates to [`Self::step_party`], so every golden and replay hash
+    /// is unchanged.
     pub fn step(&mut self, raw: RawInput) {
-        self.input.advance(raw);
-        self.world.step(&self.input);
-        self.camera.step(self.world.hero.x, self.world.hero.facing);
+        self.step_party([raw, RawInput::default()]);
+    }
+
+    /// One fixed tick for the party. `inputs` is indexed by hero, not by pad:
+    /// `inputs[0]` drives Carl and `inputs[1]` drives Donut. `crate::party`
+    /// maps pads and the solo swap onto this order and clears `swap`. A hero the
+    /// drive marks as a bot ignores its slot. With the legacy drive only
+    /// `inputs[0]` is read and the behaviour is the old single-hero step.
+    pub fn step_party(&mut self, inputs: [RawInput; 2]) {
+        self.step_party_ctx(inputs, &PartyStepCtx::default());
+    }
+
+    /// [`Self::step_party`] with the combat layer's per-hero context.
+    pub fn step_party_ctx(&mut self, inputs: [RawInput; 2], ctx: &PartyStepCtx) {
+        if !self.drive.live {
+            let raw = inputs[0];
+            self.input.advance(raw);
+            self.world.step(&self.input);
+            self.camera.step(self.world.hero.x, self.world.hero.facing);
+            return;
+        }
+        self.step_live(inputs, ctx);
+    }
+
+    fn step_live(&mut self, humans: [RawInput; 2], ctx: &PartyStepCtx) {
+        let drive = self.drive;
+        let tuning = drive.tuning;
+        self.regroup_bots();
+        // Bots decide from the state before this tick; humans arrive gated.
+        let mut raws = humans;
+        for id in HeroId::ALL {
+            let i = id.index();
+            if !drive.is_bot(id) {
+                continue;
+            }
+            raws[i] = if ctx.can_move[i] {
+                let frame = if i == 0 {
+                    &self.input
+                } else {
+                    &self.donut_input
+                };
+                follower_input(
+                    self.world.body(id),
+                    frame,
+                    self.world.body(id.other()),
+                    &self.world.solids,
+                    ctx.threats,
+                    &tuning,
+                )
+            } else {
+                RawInput::default()
+            };
+        }
+        if drive.two_player {
+            self.apply_separation_wall(&mut raws);
+        }
+        self.input.advance(raws[0]);
+        self.donut_input.advance(raws[1]);
+        self.world
+            .step_bodies([&self.input, &self.donut_input], ctx.frozen);
+        self.step_camera();
+    }
+
+    /// Q9: a bot that has been off-screen for `regroup_ticks` is placed just
+    /// outside the view on the side behind the leader (so it walks back in),
+    /// on the leader's foot line, or beside the leader when that spot is solid.
+    fn regroup_bots(&mut self) {
+        let drive = self.drive;
+        for id in HeroId::ALL {
+            let i = id.index();
+            let body = self.world.body(id);
+            let outside = drive.is_bot(id)
+                && self.is_offscreen(body.x, HERO_HALF_WIDTH)
+                && !self.world.complete;
+            if !outside {
+                self.bot_offscreen[i] = 0;
+                continue;
+            }
+            self.bot_offscreen[i] = self.bot_offscreen[i].saturating_add(1);
+            if self.bot_offscreen[i] < drive.tuning.regroup_ticks {
+                continue;
+            }
+            self.bot_offscreen[i] = 0;
+            let leader = self.world.body(id.other());
+            let (leader_x, leader_y, leader_facing) = (leader.x, leader.y, leader.facing);
+            let behind = if leader_facing >= 0 { -1.0 } else { 1.0 };
+            let view_left = self.camera.left() as f32;
+            let view_right = view_left + self.camera_cfg.view_w as f32;
+            let edge = if behind < 0.0 {
+                view_left - HERO_HALF_WIDTH - 2.0
+            } else {
+                view_right + HERO_HALF_WIDTH + 2.0
+            };
+            let beside = leader_x + behind * f32::from(drive.tuning.follow_distance_px);
+            let x = self
+                .free_spot_x(edge, leader_y)
+                .or_else(|| self.free_spot_x(beside, leader_y))
+                .unwrap_or(leader_x);
+            let body = self.world.body_mut(id);
+            body.x = x;
+            body.y = leader_y;
+            body.vx = 0.0;
+            body.vy = 0.0;
+            body.grounded = false;
+        }
+    }
+
+    /// Q7 option A (two-player): the heroes may not drift farther apart than
+    /// `view_w - 2 * camera_edge_margin_px`. A hero whose move this tick would
+    /// take it past the limit, farther from the other, stands still instead:
+    /// an invisible wall at the frame edge. A hero already beyond the limit
+    /// (a swap, a join) may only move closer.
+    fn apply_separation_wall(&self, raws: &mut [RawInput; 2]) {
+        let max = self.drive.tuning.max_separation_px(self.camera_cfg.view_w) as f32;
+        let step = |raw: &RawInput| Actions::from(*raw).move_x * RUN_SPEED * TICK_SECONDS;
+        let mut next = [self.world.hero.x, self.world.donut_body.x];
+        let before = next;
+        for i in 0..2 {
+            let planned = before[i] + step(&raws[i]);
+            let other = next[1 - i];
+            let (now, then) = ((before[i] - other).abs(), (planned - other).abs());
+            if then > max && then > now {
+                raws[i].move_x = 0.0;
+                next[i] = before[i];
+            } else {
+                next[i] = planned;
+            }
+        }
+    }
+
+    /// Q7: solo follows the controlled hero (lead and deadzone as before); two
+    /// players follow the midpoint (no look-ahead). A solo swap raises the speed
+    /// cap to `swap_pan_px_per_tick` until the pan has caught up.
+    fn step_camera(&mut self) {
+        let world = &self.world;
+        let (x, facing) = if self.drive.two_player {
+            ((world.hero.x + world.donut_body.x) * 0.5, 0)
+        } else {
+            let target = world.body(self.drive.controlled);
+            (target.x, target.facing)
+        };
+        let cap = if self.pan_boost {
+            i32::from(self.drive.tuning.swap_pan_px_per_tick)
+        } else {
+            MAX_SPEED_PX
+        };
+        // Two players: no deadzone, so the midpoint stays centred and the
+        // leader at the wall keeps the full `camera_edge_margin_px` (Q7).
+        let deadzone = if self.drive.two_player {
+            0
+        } else {
+            DEADZONE_PX
+        };
+        let remaining = self.camera.step_capped_deadzone(x, facing, cap, deadzone);
+        if remaining <= MAX_SPEED_PX {
+            self.pan_boost = false;
+        }
     }
 
     /// Pre-simulate `ticks` fixed ticks of a scripted scenario.
@@ -504,6 +896,23 @@ impl SceneSim {
         for value in [self.camera.left(), self.camera.top()] {
             hash ^= u64::from(value as u32);
             hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        // Live-party state, mixed only once the party is live so every legacy
+        // hash is unchanged.
+        if self.world.donut_live {
+            for value in [
+                0x5041_5254_5953_494d,
+                u64::from(self.donut_input.held.move_x.to_bits()),
+                u64::from(self.donut_input.held.jump),
+                u64::from(self.pan_boost),
+                u64::from(self.bot_offscreen[0]),
+                u64::from(self.bot_offscreen[1]),
+                self.drive.controlled.index() as u64,
+                u64::from(self.drive.two_player),
+            ] {
+                hash ^= value;
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
         }
         hash
     }
@@ -540,6 +949,22 @@ mod tests {
     /// Layout-space (y down) walking line under the hero's feet.
     fn feet_line(world: &CorridorWorld) -> f32 {
         world.layout_height() as f32 - world.hero_foot_y()
+    }
+
+    #[test]
+    fn step_party_with_an_idle_second_slot_matches_the_legacy_step() {
+        let mut legacy = sim(360);
+        let mut party = sim(360);
+        for tick in 0..120u32 {
+            let raw = RawInput {
+                move_x: 1.0,
+                jump: tick % 40 == 5,
+                ..RawInput::default()
+            };
+            legacy.step(raw);
+            party.step_party([raw, RawInput::default()]);
+            assert_eq!(legacy.state_hash(), party.state_hash());
+        }
     }
 
     #[test]

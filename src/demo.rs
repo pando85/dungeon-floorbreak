@@ -714,6 +714,38 @@ mod tests {
         assert!(!run.combat.take_respawned());
     }
 
+    /// The interactive demo runs the live party (Donut is a real companion
+    /// hero): a respawn stands her up beside Carl with full health too.
+    #[test]
+    fn a_respawn_restores_the_live_party_companion() {
+        use crate::party::PartyState;
+        let kit = load_hall(root()).unwrap();
+        let mut run = sim(&kit, 2);
+        let party = PartyState::default();
+        run.scene.set_drive(party.drive(true));
+        for _ in 0..120 {
+            let inputs = party.hero_inputs([
+                RawInput {
+                    move_x: 1.0,
+                    ..RawInput::default()
+                },
+                RawInput::default(),
+            ]);
+            run.combat.step_party(&mut run.scene, inputs);
+        }
+        assert!(run.scene.party_live());
+        run.scene.world.donut_body.health = 0;
+        run.combat.respawn(&mut run.scene);
+        let carl = run.scene.world.hero.x;
+        assert_eq!(carl, CHECKPOINTS[2] as f32);
+        assert!(run.scene.world.donut_body.x < carl);
+        assert_eq!(
+            run.scene.world.donut_body.health,
+            crate::combat::HERO_HEALTH
+        );
+        assert_eq!(run.scene.world.donut.x, run.scene.world.donut_body.x);
+    }
+
     /// A full restart (the held Select) is the fixture `Restart`: beat 0 again,
     /// everyone back.
     #[test]
