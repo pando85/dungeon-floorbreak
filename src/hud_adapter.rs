@@ -163,6 +163,7 @@ pub struct HudPlugin {
     msaa: Msaa,
     atlas: Option<HudAtlasData>,
     fonts: std::sync::Mutex<Option<FontBytes>>,
+    hidden: bool,
 }
 
 impl HudPlugin {
@@ -188,7 +189,15 @@ impl HudPlugin {
                 silk_regular: read(FONT_SILK_REGULAR)?,
                 silk_bold: read(FONT_SILK_BOLD)?,
             })),
+            hidden: false,
         })
+    }
+
+    /// Draw nothing (the lighting reference frame is compared against a model
+    /// that has no HUD). Presentation only; the simulation is unaffected.
+    pub fn hidden(mut self, hidden: bool) -> Self {
+        self.hidden = hidden;
+        self
     }
 
     /// Asset path of the atlas image when the art is present (so the scene's
@@ -216,6 +225,7 @@ struct HudRender {
     used_sprites: usize,
     used_texts: [usize; 3],
     overflow_reported: bool,
+    hidden: bool,
 }
 
 #[derive(Component)]
@@ -270,6 +280,7 @@ impl Plugin for HudPlugin {
                 used_sprites: 0,
                 used_texts: [0; 3],
                 overflow_reported: false,
+                hidden: self.hidden,
             })
             .add_systems(Startup, spawn_hud)
             .add_systems(Update, sync_hud);
@@ -411,6 +422,9 @@ fn sync_hud(
     mut texts: TextQuery,
 ) {
     let Some(art) = art else { return };
+    if render.hidden {
+        return;
+    }
     let revision = state.0.revision();
     if render.last_revision == Some(revision) {
         return;

@@ -24,7 +24,7 @@ Run from the repository root. A missing atlas is a setup failure: the binary pri
 | `--glyphs <xbox\|dualsense>` (also `=`) | HUD controller glyph set (default `xbox`) |
 | `--hud-reduced-motion` | HUD: no notice or boss slides, blinks or flashes |
 | `--no-lighting` | draw the COMP-01 look (pixel layers only, no pass); for regression and comparison |
-| `--reference-frame` | review capture: camera pinned to layout view `abc_640x360` (`abc_640x400` with `--deck`), Carl and Donut standing at the ENV-01 preview positions (`preview.actor_check`), first idle frames, presentation tick 0, simulation untouched. Matches `docs/evidence/floor01-catacomb-kit/lit_abc_*.png` |
+| `--reference-frame` | review capture: camera pinned to layout view `abc_640x360` (`abc_640x400` with `--deck`), Carl and Donut standing at the ENV-01 preview positions (`preview.actor_check`), first idle frames, presentation tick 0, simulation untouched. Matches `docs/evidence/floor01-catacomb-kit/lit_abc_*.png` The HUD is not drawn in this mode (the lighting comparison model has no HUD). |
 | `--exit-after-ticks <N>` | needs `--scenario`, live run: step the scenario for N fixed ticks in the real render loop, print `FLOOR1_SCENE_STATE` and exit (CI compares the lit and `--no-lighting` runs) |
 | `--perf-frames <N>` | measure N frame intervals after 120 warm-up frames with vsync off, print `FLOOR1_PERF ...` and exit |
 | `--scenario <name>` | scripted input: `idle`, `walk_right` (holds right, jumps at steps, reaches the exit in 613 ticks), `turn_around` (right for 150 ticks, then left), `run_jump` (stand 30 ticks, run right over the two low steps, a running jump at tick 170, stop at 260, a standing jump at 290; 382 ticks cover it all) |

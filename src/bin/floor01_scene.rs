@@ -929,7 +929,7 @@ fn run_window(
     let view_top = kit.view(view_key).map_or(0, |v| v.y);
     let hud_layout = HudLayout::new(view_h, kit.base_walk_line_y - view_top);
     let hud_plugin = match HudPlugin::load(root, hud, hud_layout, hud_order, hud_msaa) {
-        Ok(plugin) => plugin,
+        Ok(plugin) => plugin.hidden(args.reference_frame),
         Err(message) => {
             println!("FLOOR1_ASSET_FAILURE: {message}");
             eprintln!("FLOOR1_ASSET_FAILURE: {message}");
