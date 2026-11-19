@@ -50,6 +50,8 @@ use dungeon_floorbreak::{
     boss_art::{self, BossArt, FxCtx, Gait, Layer, SheetId},
     boss_scene,
     camera_lab::camera_op::{Aspect, Bounds, View},
+    cine::{ENV_CINEMATIC_FINISHES, FrameContext, PlannerState, PresentationSettings},
+    cine_adapter::CineAdapter,
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
         CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, goblin_variant,
@@ -189,6 +191,14 @@ struct Args {
     /// (`FLOORBREAK_HUD_*`), then `--hud-reduced-motion[=on|off]` and
     /// `--hud-high-contrast[=on|off]`. Presentation only.
     hud_settings: HudSettings,
+    /// CINE-01: `cinematic_finishes` on or off. Environment first
+    /// (`FLOORBREAK_CINEMATIC_FINISHES`), then `--cinematic-finishes[=on|off]`.
+    /// `cinematic_set` records that either one spoke: when neither did, the
+    /// effective setting is on for live play and off for scripted fixtures,
+    /// scenarios and captures ([`Args::cinematic_settings`]). Presentation
+    /// only.
+    cinematic: PresentationSettings,
+    cinematic_set: bool,
     /// DEMO-01 PR C: the presentation camera (`auto`, `scroll`, `1.0`, `1.25`,
     /// `1.5`). `None` is the default of the run (`scroll` outside `--demo`).
     camera: Option<CameraChoice>,
@@ -215,6 +225,30 @@ struct Args {
 }
 
 impl Args {
+    /// The CINE-01 setting this run uses. An explicit environment variable or
+    /// flag wins. Otherwise it is on for live play (no scripted scenario,
+    /// fixture script, autopilot, capture, perf probe or scripted exit) and
+    /// off for every automated run, so fixtures and goldens never slow down
+    /// unless a CINE-01 visual probe asks for it.
+    fn cinematic_settings(&self) -> PresentationSettings {
+        let live = self.scenario.is_none()
+            && (self.fixture.is_none() || self.manual)
+            && !self.autopilot
+            && !self.freeze
+            && !self.reference_frame
+            && self.capture_tick.is_none()
+            && self.capture_sequence.is_none()
+            && self.perf_frames.is_none()
+            && self.exit_after_ticks.is_none();
+        if self.cinematic_set {
+            self.cinematic
+        } else if live {
+            PresentationSettings::DEFAULT
+        } else {
+            PresentationSettings::OFF
+        }
+    }
+
     fn hud_config(&self) -> HudConfig {
         HudConfig {
             preview: self.hud_preview,
@@ -262,12 +296,30 @@ fn parse_sequence(value: &str) -> Result<(u64, u64, u64), String> {
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
-    parse_args_with(args, HudSettings::from_env())
+    parse_args_full(
+        args,
+        HudSettings::from_env(),
+        (
+            PresentationSettings::from_env(),
+            std::env::var_os(ENV_CINEMATIC_FINISHES).is_some(),
+        ),
+    )
 }
 
 /// `parse_args` with the HUD settings the environment supplied (a parameter so
 /// tests do not depend on the process environment).
+#[cfg(test)]
 fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, String> {
+    parse_args_full(args, hud_settings, (PresentationSettings::DEFAULT, false))
+}
+
+/// [`parse_args_with`] plus the CINE-01 setting the environment supplied and
+/// whether the environment set it at all.
+fn parse_args_full(
+    args: &[String],
+    hud_settings: HudSettings,
+    (cinematic, cinematic_set): (PresentationSettings, bool),
+) -> Result<Args, String> {
     let mut parsed = Args {
         deck: false,
         headless: false,
@@ -297,6 +349,8 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
         hud_preview: None,
         glyphs: None,
         hud_settings,
+        cinematic,
+        cinematic_set,
         camera: None,
         camera_test_room: None,
         camera_test_threat: None,
@@ -355,6 +409,7 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
                 parsed.glyphs = Some(parse_glyphs(&other["--glyphs=".len()..])?);
             }
             other if parsed.hud_settings.apply_flag(other)? => {}
+            other if parsed.cinematic.apply_flag(other)? => parsed.cinematic_set = true,
             "--no-lighting" => parsed.no_lighting = true,
             "--demo" => parsed.demo = true,
             "--scene" => {
@@ -865,15 +920,58 @@ fn elapsed_ticks(sim: &SceneSim, combat: Option<&CombatState>) -> u64 {
     combat.map_or(sim.world.tick, |combat| combat.elapsed)
 }
 
-/// Print the combat events recorded since the last call and queue their
-/// sounds (presentation only: the queue is never read back by the simulation).
-fn print_combat_events(combat: &mut CombatState, mut audio: Option<&mut AudioQueue>) {
+/// Print the combat events recorded since the last call, queue their sounds
+/// and hand them to CINE-01. This is the **single fan-out** of the combat log
+/// (spec section 2): the log cursor is advanced here and nowhere else, so no
+/// second cursor has to follow the 512-event drain. Everything it feeds is
+/// presentation only: the audio queue and the cinematic observer are never
+/// read back by the simulation.
+///
+/// Call sites: `fixed_step` (the respawn and the step, both pass the audio
+/// queue and the observer), the `watchdog` (the events of the load, before any
+/// tick) and `capture_sequence` (scripted review captures, which the spec
+/// excludes from CINE) pass `None`.
+fn print_combat_events(
+    combat: &mut CombatState,
+    mut audio: Option<&mut AudioQueue>,
+    mut cine: Option<&mut CineAdapter>,
+) {
     for event in combat.take_new_events() {
         println!("{event}");
         if let Some(audio) = audio.as_deref_mut() {
             audio.push_cues(cues_from_combat_event(event));
         }
+        if let Some(cine) = cine.as_deref_mut() {
+            cine.push(event);
+        }
     }
+    if let Some(cine) = cine {
+        for emission in cine.flush() {
+            // Deterministic: a function of the events only, printed with CINE
+            // on or off (the planner outcome is not part of the line).
+            println!("{}", cine_moment_line(&emission.moment));
+        }
+    }
+}
+
+/// The `CINE01_MOMENT` line of an emitted moment.
+fn cine_moment_line(m: &dungeon_floorbreak::cine::CinematicMoment) -> String {
+    format!(
+        "CINE01_MOMENT tick={} tier={} score={} credited={} target={} precision_edge={} mixed_chain={} contact_setup={} extra_kills={}{}",
+        m.tick,
+        match m.tier {
+            dungeon_floorbreak::cine::CineTier::Ordinary => "ordinary",
+            dungeon_floorbreak::cine::CineTier::Legendary => "legendary",
+        },
+        m.score,
+        m.credited,
+        m.target,
+        u8::from(m.feats.precision_edge),
+        u8::from(m.feats.mixed_chain),
+        u8::from(m.feats.contact_setup),
+        m.feats.extra_kills,
+        if m.upgrade { " upgrade=1" } else { "" },
+    )
 }
 
 /// One `--anim-trace` row: simulation values the timeline needs, and what each
@@ -1110,6 +1208,38 @@ struct Setup {
 #[derive(Resource)]
 struct Frozen(bool);
 
+/// CINE-01: the cinematic observer and presentation clock (presentation only,
+/// never read by the simulation). The planner is the sole owner of the
+/// temporary `Time<Virtual>` speed override.
+#[derive(Resource)]
+struct Cine {
+    adapter: CineAdapter,
+    /// The relative speed last applied to the virtual clock.
+    speed: f32,
+    /// Measurements of the running moment, printed when it ends (evidence for
+    /// CINE-T11 to T13: real length, fixed ticks run, the worst frame and the
+    /// most fixed ticks any one frame ran).
+    run: Option<MomentRun>,
+    last_elapsed: u64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct MomentRun {
+    started_s: f64,
+    ticks: u64,
+    frames: u32,
+    max_frame_ms: f64,
+    max_ticks_in_frame: u64,
+}
+
+/// The two presentation sinks of the combat log (the 16-parameter system limit
+/// of `fixed_step` is why they travel together).
+#[derive(bevy::ecs::system::SystemParam)]
+struct Sinks<'w> {
+    audio: ResMut<'w, AudioQueue>,
+    cine: ResMut<'w, Cine>,
+}
+
 /// Fixed tick after which a live scripted run prints its state and exits.
 #[derive(Resource)]
 struct ExitAfter(Option<u64>);
@@ -1189,6 +1319,11 @@ struct SceneCam {
     slot: (i32, i32),
     /// The rest width last printed as `FLOOR1_CAMERA_REST`.
     reported_rest: Option<i32>,
+    /// CINE-01 camera emphasis in virtual pixels (signed, 0 outside a moment).
+    /// It is added to the scene camera's **kick** input only (spec, review
+    /// R7): never to its zoom or its pan, and `presented` still clamps the
+    /// view to the room.
+    emphasis: i32,
 }
 
 /// The read-only threat list gameplay feeds the camera (a llama that has taken
@@ -1439,6 +1574,7 @@ fn scene_camera_of(
         rig,
         slot,
         reported_rest: None,
+        emphasis: 0,
     }
 }
 
@@ -1478,7 +1614,7 @@ fn presentation_view(
     combat: &Combat,
     cam: &SceneCam,
 ) -> View {
-    let kick = camera_kick(state, combat);
+    let kick = camera_kick(state, combat) + cam.emphasis;
     match cam.rig.as_ref() {
         Some(rig) => rig.presented(kick),
         None => {
@@ -1538,6 +1674,7 @@ fn run_window(
         args.fixture
     };
     let exit_after = args.exit_after_ticks;
+    let cine_settings = args.cinematic_settings();
     let camera = scene_camera_of(&kit, &args, &sim, combat.as_ref(), window_size);
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
     let reference = args.reference_frame.then_some(RefPose {
@@ -1648,6 +1785,12 @@ fn run_window(
     .insert_resource(Anim(anim))
     .insert_resource(actors)
     .insert_resource(Frozen(freeze))
+    .insert_resource(Cine {
+        adapter: CineAdapter::new(cine_settings),
+        speed: 1.0,
+        run: None,
+        last_elapsed: 0,
+    })
     .insert_resource(ExitAfter(exit_after))
     .insert_resource(LightingOn(lighting_on))
     .insert_resource(ReferencePose(reference))
@@ -1669,6 +1812,7 @@ fn run_window(
         (
             pad_connections,
             capture_input,
+            cine_frame,
             sync_party_hud,
             perf_step,
             sync_visuals,
@@ -2552,6 +2696,101 @@ fn controlled_hero_hurt(party: &PartyState, combat: Option<&CombatState>) -> boo
     combat.is_some_and(|c| c.hurt_ticks_of(party.controlled_hero()) > 0)
 }
 
+/// Ticks of hit-stop still to run on the attackers and targets of the fight
+/// (Carl's move clock, goblins, llamas). CINE-01 waits for them before it
+/// starts, counted in simulation ticks, so the moment never stacks a second
+/// freeze on the lethal contact's own hit-stop.
+fn hit_stop_left(sim: &SceneSim, combat: &CombatState) -> u8 {
+    let goblins = combat.enemies.iter().map(|g| g.hit_stop);
+    let llamas = combat.llamas.iter().map(|l| l.hit_stop);
+    goblins
+        .chain(llamas)
+        .fold(sim.world.hero.melee.hit_stop_left(), u8::max)
+}
+
+/// CINE-01: one frame of the presentation clock. Runs in `Update` after the
+/// fixed ticks of the frame: it steps the planner with the real (unscaled)
+/// delta, applies the planned speed to `Time<Virtual>` for the next frame and
+/// the camera emphasis to the scene camera's kick. The fixed timestep itself is
+/// untouched (`Time<Fixed>` stays at 60 Hz), so a slowed frame simply runs
+/// fewer ticks; the tick delta, the step order and every outcome are the same.
+///
+/// The moment is cancelled and 1.0x restored at once on the D6 disconnect
+/// pause and on a `Frozen` capture (the fixed step returns early there while
+/// the virtual clock keeps running, so a real-time duration would expire
+/// unseen), on a restart, respawn or party defeat (the adapter flags those)
+/// and on app exit.
+#[allow(clippy::too_many_arguments)]
+fn cine_frame(
+    real: Res<Time<Real>>,
+    mut virtual_time: ResMut<Time<Virtual>>,
+    mut cine: ResMut<Cine>,
+    mut cam: ResMut<SceneCam>,
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    death: Res<Death>,
+    pads: Res<Pads>,
+    frozen: Res<Frozen>,
+    mut exit: MessageReader<AppExit>,
+) {
+    let exiting = exit.read().count() > 0;
+    let moment = cine.adapter.moment_target();
+    let finish_active = match (moment, death.0.as_ref()) {
+        (Some(target), Some(death)) => death.finish_active(target),
+        _ => false,
+    };
+    let ctx = FrameContext {
+        real_dt: real.delta_secs_f64(),
+        hit_stop_left: combat
+            .0
+            .as_ref()
+            .map_or(0, |combat| hit_stop_left(&sim.0, combat)),
+        finish_active,
+        paused: pads.0.is_paused(),
+        locked: frozen.0 || exiting,
+    };
+    let plan = cine.adapter.frame(ctx);
+    let elapsed = combat.0.as_ref().map_or(sim.0.world.tick, |c| c.elapsed);
+    let ticks_this_frame = elapsed.saturating_sub(cine.last_elapsed);
+    cine.last_elapsed = elapsed;
+    if plan.state == PlannerState::Active && cine.run.is_none() {
+        cine.run = Some(MomentRun {
+            started_s: real.elapsed_secs_f64(),
+            ticks: 0,
+            frames: 0,
+            max_frame_ms: 0.0,
+            max_ticks_in_frame: 0,
+        });
+        println!("CINE01_SLOWMO start tick_elapsed={elapsed}");
+    }
+    if let Some(run) = cine.run.as_mut() {
+        run.ticks += ticks_this_frame;
+        run.frames += 1;
+        run.max_frame_ms = run.max_frame_ms.max(ctx.real_dt * 1000.0);
+        run.max_ticks_in_frame = run.max_ticks_in_frame.max(ticks_this_frame);
+    }
+    if let Some(reason) = plan.ended {
+        if let Some(run) = cine.run.take() {
+            println!(
+                "CINE01_SLOWMO end={reason:?} real_ms={:.0} ticks={} frames={} max_frame_ms={:.1} max_ticks_in_frame={}",
+                (real.elapsed_secs_f64() - run.started_s) * 1000.0,
+                run.ticks,
+                run.frames,
+                run.max_frame_ms,
+                run.max_ticks_in_frame,
+            );
+        } else {
+            println!("CINE01_SLOWMO end={reason:?}");
+        }
+    }
+    if (plan.relative_speed - cine.speed).abs() > f32::EPSILON {
+        virtual_time.set_relative_speed(plan.relative_speed);
+        cine.speed = plan.relative_speed;
+    }
+    let facing = i32::from(sim.0.world.hero.facing.signum());
+    cam.emphasis = i32::from(plan.camera_emphasis_px) * if facing == 0 { 1 } else { facing };
+}
+
 #[allow(clippy::too_many_arguments)]
 fn fixed_step(
     keys: Res<ButtonInput<KeyCode>>,
@@ -2567,7 +2806,7 @@ fn fixed_step(
     mut sim: ResMut<Sim>,
     mut anim: ResMut<Anim>,
     mut after_exit: ResMut<AfterExitTicks>,
-    mut audio: ResMut<AudioQueue>,
+    mut sinks: Sinks,
     mut hud: ResMut<HudState>,
     mut exit: MessageWriter<AppExit>,
 ) {
@@ -2624,7 +2863,11 @@ fn fixed_step(
         pads.0.party_mut().restart();
         anim.0.reset(&sim.0.world);
         anim.0.reset_art(combat);
-        print_combat_events(combat, Some(&mut audio));
+        print_combat_events(
+            combat,
+            Some(&mut sinks.audio),
+            Some(&mut sinks.cine.adapter),
+        );
         println!("DEMO01_RESPAWN checkpoint={}", combat.checkpoint);
     }
     if restart {
@@ -2692,7 +2935,11 @@ fn fixed_step(
             pads.0.party_mut().restart();
             controls.camera_cut = true;
         }
-        print_combat_events(combat, Some(&mut audio));
+        print_combat_events(
+            combat,
+            Some(&mut sinks.audio),
+            Some(&mut sinks.cine.adapter),
+        );
         if respawned {
             println!("DEMO01_RESPAWN checkpoint={}", combat.checkpoint);
         }
@@ -4655,7 +4902,7 @@ fn watchdog(
             loading.counts
         );
         if let Some(combat) = combat.0.as_mut() {
-            print_combat_events(combat, None);
+            print_combat_events(combat, None, None);
         }
         println!("{}", sim.0.state_line());
         println!("{}", anim.0.state_line(sim.0.world.tick));
@@ -4792,7 +5039,7 @@ fn capture_sequence(
                 path.display()
             );
             if let Some(combat) = combat.0.as_mut() {
-                print_combat_events(combat, None);
+                print_combat_events(combat, None, None);
             }
             println!("{}", sim.0.state_line());
             println!("{}", anim.0.state_line(sim.0.world.tick));
@@ -4915,7 +5162,7 @@ fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> 
         let mut hud = new_hud(&args, kit, actors);
         let (sim, anim, combat, death, party) = build_scene(kit, &args, actors, root, &mut hud)?;
         let mut combat = combat.ok_or("fixture without combat state")?;
-        print_combat_events(&mut combat, None);
+        print_combat_events(&mut combat, None, None);
         println!("{}", sim.state_line());
         println!("{}", anim.state_line(sim.world.tick));
         print_combat_state(&sim, &anim, &combat);
@@ -5257,6 +5504,39 @@ mod tests {
         assert!(args(&["--perf-frames", "3"]).is_err());
         assert!(args(&["--perf-frames"]).is_err());
         assert!(args(&["--reference-frame", "--scenario", "idle"]).is_err());
+    }
+
+    #[test]
+    fn cinematic_finishes_is_on_for_live_play_and_off_for_automated_runs() {
+        // Live play (and a live manual fixture): on by default.
+        assert!(args(&[]).unwrap().cinematic_settings().cinematic_finishes);
+        assert!(
+            args(&["--fixture", "cp03_goblin_pileup", "--manual"])
+                .unwrap()
+                .cinematic_settings()
+                .cinematic_finishes
+        );
+        // Scripted fixtures, scenarios, autopilot runs and captures: off, so
+        // no committed golden slows down unless the run asks for it.
+        for list in [
+            &["--fixture", "cp03_goblin_pileup"][..],
+            &["--scenario", "walk_right"],
+            &["--scenario", "walk_right", "--exit-after-ticks", "250"],
+            &["--demo", "--autopilot"],
+            &["--perf-frames", "40"],
+        ] {
+            let a = args(list).unwrap();
+            assert!(!a.cinematic_settings().cinematic_finishes, "{list:?}");
+        }
+        // The flag wins in either direction and `=value` parses.
+        let on = args(&["--fixture", "cp03_goblin_pileup", "--cinematic-finishes"]).unwrap();
+        assert!(on.cinematic_settings().cinematic_finishes);
+        let off = args(&["--cinematic-finishes=off"]).unwrap();
+        assert!(!off.cinematic_settings().cinematic_finishes);
+        assert!(args(&["--cinematic-finishes=sometimes"]).is_err());
+        // The HUD flag is a different setting (review F5).
+        let hud = args(&["--hud-reduced-motion"]).unwrap();
+        assert!(hud.cinematic_settings().cinematic_finishes);
     }
 
     #[test]

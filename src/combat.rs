@@ -1004,9 +1004,26 @@ impl DefeatCause {
         }
     }
 
+    /// The player credited with a **player-activated drop hazard** defeat: the
+    /// falling shore block, its DEATH-D edge shear and the boss arena's plate
+    /// rack. `None` for every other cause. Cause-class matchers (CINE-01 F7)
+    /// use this one helper rather than naming a variant, so a future drop
+    /// hazard gets credit by being added here.
+    pub const fn drop_credit(self) -> Option<u32> {
+        match self {
+            Self::ShoreBlock { player }
+            | Self::ShoreBlockEdge { player }
+            | Self::DropHazard { player, .. } => Some(player),
+            Self::Melee | Self::Explosion { .. } => None,
+        }
+    }
+
     /// The instigator a cause implies when nothing else is recorded: Carl's
     /// slot for a melee defeat, nobody for the block (its breaker is part of
-    /// the cause).
+    /// the cause) and the dropping player for a rack. The asymmetry is kept
+    /// on purpose: this value decides whether `instigator` is mixed into the
+    /// replay hash, so changing it for the blocks would be a hash migration.
+    /// Use [`Self::drop_credit`] to ask who a drop hazard is credited to.
     pub const fn implied_instigator(self) -> Option<u32> {
         match self {
             Self::Melee => Some(0),

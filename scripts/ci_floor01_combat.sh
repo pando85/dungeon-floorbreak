@@ -13,6 +13,17 @@
 #                                   the real Bevy loop (scale 3, lighting on) must
 #                                   reproduce the committed events and hash of the
 #                                   whole-route probe.
+#   ci_floor01_combat.sh cine       inside xvfb-run -s '-screen 0 1920x1200x24':
+#                                   CINE-01 (T09, T11, T12). The real Bevy loop
+#                                   on the two qualifying fixtures (the DEMO-01
+#                                   B3 probe and cp03_goblin_pileup) with
+#                                   --cinematic-finishes on and off at gore
+#                                   presets 1 and 4: COMBAT_EVENT, COMBAT_STATE
+#                                   and CINE01_MOMENT lines must be identical
+#                                   to each other and to the committed headless
+#                                   replays; on, the moment must start and end
+#                                   (Completed) at 640x360 and 640x400, 1x and
+#                                   3x; off, no slow motion line may appear.
 #   ci_floor01_combat.sh render     inside xvfb-run -s '-screen 0 1920x1080x24':
 #                                   the real Bevy render loop (scale 3, lighting
 #                                   on) must reproduce the headless events and
@@ -24,7 +35,7 @@
 #                                   The frames drawn (COMBAT_ANIM_STATE) must
 #                                   match the headless replay as well.
 set -euo pipefail
-mode="${1:?usage: ci_floor01_combat.sh headless|render|demo|demo-render}"
+mode="${1:?usage: ci_floor01_combat.sh headless|render|demo|demo-render|cine}"
 bin=./target/debug/floor01_scene
 fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup cp03_block_edge_decap qa_blast_breakup cp05_llama_slam cp05_llama_down cp05_llama_spit cp05_llama_offscreen cp05_llama_crush)
 # fixture:first tick:step:count of the real-frame capture sequences. The windows
@@ -382,6 +393,58 @@ case "$mode" in
     fi
     grep -q '^DEMO01_COMPLETE' "$log"
     echo "DEMO_LIVE_MATCH: $(last_state < "$log")"
+    ;;
+  cine)
+    # name:committed replay:expected CINE01_MOMENT prefix:ticks:flags
+    cine_probes=(
+      "b3|$demo_committed/headless_demo01_b3.txt|CINE01_MOMENT tick=159 tier=ordinary score=6 credited=0 target=4 precision_edge=1|300|--demo --demo-beat 3 --autopilot"
+      "pileup|$committed/headless_cp03_goblin_pileup.txt|CINE01_MOMENT tick=139 tier=ordinary score=7 credited=0 target=6 precision_edge=0 mixed_chain=1|260|--fixture cp03_goblin_pileup"
+    )
+    cine_run() { # log, then the flags
+      local log="$1"; shift
+      timeout 300 "$bin" "$@" > "$log" 2>&1
+      if grep -qE 'FLOOR1_ASSET_FAILURE|FLOOR1_CAPTURE_FAILURE|FLOOR1_LIGHTING_WARNING' "$log"; then
+        tail -n 20 "$log"; echo "cine run $log reported a failure" >&2; exit 1
+      fi
+    }
+    cine_lines() { grep -E '^(COMBAT_EVENT|CINE01_MOMENT)' "$1" || true; grep '^COMBAT_STATE' "$1" | tail -n 1 || true; }
+    for spec in "${cine_probes[@]}"; do
+      IFS='|' read -r name committed_log want ticks flags <<<"$spec"
+      for preset in 1 4; do
+        for setting in on off; do
+          log="$out/cine_${name}_p${preset}_${setting}.log"
+          # shellcheck disable=SC2086
+          cine_run "$log" --scale 3 $flags --gore-preset "$preset" --exit-after-ticks "$ticks" --cinematic-finishes="$setting"
+          cine_lines "$log" > "$log.lines"
+          if ! diff "$out/cine_${name}_p1_off.log.lines" "$log.lines" > /dev/null 2>&1 && [ -f "$out/cine_${name}_p1_off.log.lines" ]; then
+            diff "$out/cine_${name}_p1_off.log.lines" "$log.lines" >&2 || true
+            echo "CINE-T09: $name differs between presets/settings (preset $preset, cinematic $setting)" >&2
+            exit 1
+          fi
+        done
+      done
+      # The authoritative part equals the committed headless replay.
+      if ! diff <(grep -E '^(COMBAT_EVENT)' "$out/cine_${name}_p1_off.log.lines"; grep '^COMBAT_STATE' "$out/cine_${name}_p1_off.log.lines") "$committed_log"; then
+        echo "CINE-T09: $name differs from the committed headless replay ($committed_log)" >&2
+        exit 1
+      fi
+      grep -q "^$want" "$out/cine_${name}_p1_on.log.lines" || { echo "CINE-T03/T05: $name lacks '$want'" >&2; exit 1; }
+      grep -q '^CINE01_SLOWMO start' "$out/cine_${name}_p1_on.log" || { echo "CINE: $name never started the slow motion" >&2; exit 1; }
+      grep -q '^CINE01_SLOWMO end=Completed' "$out/cine_${name}_p1_on.log" || { echo "CINE: $name did not return to full speed (Completed)" >&2; exit 1; }
+      if grep -q '^CINE01_SLOWMO' "$out/cine_${name}_p1_off.log"; then
+        echo "CINE: $name slowed down with --cinematic-finishes=off" >&2; exit 1
+      fi
+      echo "CINE_T09_OK: $name $(grep '^CINE01_MOMENT' "$out/cine_${name}_p1_on.log" | head -n 1)"
+      grep '^CINE01_SLOWMO end' "$out/cine_${name}_p4_on.log" | head -n 1
+    done
+    # T12: the B3 moment at both framings and both integer scales.
+    for framing in "--scale 1" "--scale 3" "--deck --scale 1" "--deck --scale 2"; do
+      log="$out/cine_b3_framing_${framing// /_}.log"
+      # shellcheck disable=SC2086
+      cine_run "$log" $framing --demo --demo-beat 3 --autopilot --exit-after-ticks 300 --cinematic-finishes=on
+      grep -q '^CINE01_SLOWMO end=Completed' "$log" || { echo "CINE-T12: $framing did not complete the moment" >&2; exit 1; }
+      echo "CINE_T12_OK: $framing $(grep '^CINE01_SLOWMO end' "$log" | head -n 1)"
+    done
     ;;
   *)
     echo "unknown mode: $mode" >&2
