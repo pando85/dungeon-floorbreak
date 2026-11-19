@@ -107,7 +107,7 @@ Frame pacing: no unbounded fixed-update catch-up, stutter-inducing CPU spikes, o
 
 Suggested footprint (adjust against the actual branch before editing):
 
-1. `src/cinematic.rs` — pure bounded evidence collector, eligible-feat scoring, deterministic tie-breaks and tuneable `CinematicTuning`; exported from `src/lib.rs`.
+1. `src/cine.rs` — pure bounded evidence collector, eligible-feat scoring, deterministic tie-breaks and tuneable `CinematicTuning`; exported from `src/lib.rs`.
 2. `src/bin/floor01_scene.rs` — feed observed combat events once per resolved tick, run `Pending/Active/Cooldown` and apply/remove the temporary Bevy world time multiplier; ensure input buffering, pause/respawn and old replay modes work.
 3. `src/audio_adapter.rs` or the existing presentational audio pathway **only if** an existing accent can be reused without schema changes. Otherwise omit this from v0.
 4. Unit tests in the pure module; one headless fixture or probe with negative, positive and multi-kill cases; one real Bevy rendered capture with feature on/off. Document precise commands and hashes in an evidence README.
@@ -160,3 +160,9 @@ Applied under the owner's design-defaults directive (AGENTS.md, 2026-11-19) from
 | F11 events | Single fan-out in `print_combat_events`, covering all four call sites | Avoids touching the event-log cursor | Yes |
 | F12 tests | T09 uses the windowed binary plus the pure parity test; T10 is pure plus manual live check | Headless replays do not run Bevy time | Yes |
 | F13 backlog | Table row beside DEATH-D, top section removed; T01/T02 reworded | Backlog format | Yes |
+| Phase 1 (a) cooldown | Cooldown starts when the moment is emitted and is counted in sim ticks (adopted default) | Deterministic and independent of presentation timing | Yes |
+| Phase 1 (b) upgrade window | The tier upgrade window for a pending moment is 8 ticks (adopted default) | Short fixed window keeps the upgrade deterministic | Yes |
+| Phase 1 (c) window bound | "Within 90 ticks" is inclusive (adopted default) | Unambiguous boundary for history and clean windows | Yes |
+| Phase 1 (d) input presses | Two presses inside one slowed tick collapse into one, matching the existing input latch (adopted default) | Keeps one edge per fixed tick, no new input semantics | Yes |
+| Phase 1 (e) Cooldown state | The Cooldown state lives in the evaluator, not in the planner (adopted default) | Keeps cooldown in the pure, replayable layer | Yes |
+| Phase 1 (f) module name | The module is `src/cine.rs` (adopted default) | Implementation naming; all mentions of `cinematic.rs` updated | Yes |
