@@ -34,7 +34,7 @@ magick "$shots/R3_solo_1.5_3840x2160.png" -gravity center -crop 1920x1080+0+0 +r
 # Pixel-sampling crops: Carl and Donut at the spawn, 1080p, every coverage, 3x nearest.
 for c in 1 1.25 1.5 1.75; do
   k=$(python3 -c "print(1920/{1:640,1.25:800,1.5:960,1.75:1120}[$c])")
-  x=$(python3 -c "print(max(0,int(125*$k-60)))"); y=$(python3 -c "print(max(0,int(0.8*1080-110)))")
+  x=$(python3 -c "print(max(0,int(125*$k-60)))"); y=$(python3 -c "fs=0.8+0.06*min(1,max(0,({1:640,1.25:800,1.5:960,1.75:1120}[$c]-640)/320)); print(max(0,int(fs*1080-110)))")
   magick "$crops/crop_$c.png" -crop 300x130+${x}+${y} +repage -filter point -resize 300% "$out/crops/spawn_${c}x_1080p_crop_x3.png"
 done
 montage -label "1.00x: 3 px texels (exact)" "$out/crops/spawn_1x_1080p_crop_x3.png" \
@@ -43,6 +43,9 @@ montage -label "1.00x: 3 px texels (exact)" "$out/crops/spawn_1x_1080p_crop_x3.p
   -label "1.75x: 1.71 px texels (1 or 2)" "$out/crops/spawn_1.75x_1080p_crop_x3.png" \
   -tile 2x2 -geometry +2+2 -background '#15121c' -fill white -pointsize 14 "$out/crops/spawn_crops_1080p.png"
 rm -f "$out"/crops/spawn_*_crop_x3.png
-# Videos (re-encoded small) and the frame-time table.
+# Videos. (Frame times and metrics are written by their own commands.)
 cp "$videos"/*.mp4 "$out/videos/"
+# The automatic camera never leaves 1.0x in the destruction scene: its capture is
+# the 1.0x one.
+rm -f "$out/videos/destruction_room03_auto.mp4"
 echo CURATE_OK

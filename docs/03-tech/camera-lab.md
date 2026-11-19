@@ -83,7 +83,7 @@ A coverage of `c` shows `640c x 360c` (16:9) or `640c x 400c` (16:10) world pixe
 
 1. The pixel layers are drawn **one texel per world pixel** with nearest sampling into the top-left region of the existing lighting slot targets. Those targets are allocated at the largest coverage (1120x630 or 1120x700); each frame the slot cameras use a viewport and a fixed projection of exactly the current coverage, so there is no resampling inside the pixel layers.
 2. The existing A1 composite pass reads the slots with integer `textureLoad` (nearest, no filtering, no seams) at **output** resolution and does the light maths, haze, shadows and bloom there. Torch pools and glow radii are in world pixels, so they scale with the coverage like the scenery.
-3. The camera origin is a whole world pixel and the **coverage width is a multiple of 32 px**, so the view, half of it, and the height at both aspects are whole numbers (the four candidates are exactly 640 / 800 / 960 / 1120). The automatic mode zooms in whole 32 px steps (2.5 percent each), smoothed in time. A step is a hard 2.5 percent scale change of the picture, not a continuous zoom.
+3. The camera origin is a whole world pixel and the **coverage width is a multiple of 32 px**, so the view, half of it, and the height at both aspects are whole numbers (the four candidates are exactly 640 / 800 / 960 / 1120). The automatic mode rests only on widths that are an exact integer scale of the output and passes through the in-between 32 px widths in a short transit (see the camera section); a transit step is a hard 2.5 percent scale change of the picture, not a continuous zoom.
 4. The output size must be a window of that aspect (1920x1080 and 3840x2160 for 16:9, 1280x800 for 16:10); no letterboxing is added.
 
 **Trade-off, measured.** When the output is an integer multiple of the coverage width every texel is exactly `k` pixels wide: no shimmer. Otherwise a column of texels is `floor(k)` or `ceil(k)` pixels wide, so some columns are one pixel wider; the pattern moves when the camera pans by a whole world pixel, which is a 1 px width shimmer on 1-pixel detail (brick joints, outlines). Nothing is blurred and nothing is resampled. The alternatives (sharp bilinear after an integer pre-scale, or letterboxing to an integer scale) either soften edges, which departs from ADR-0007's exact-sampling statement, or give up screen area; they were not built.
@@ -150,54 +150,79 @@ All captures are real Bevy frames (xvfb, the repository's render approach; the V
 
 ## Results
 
-Framing numbers are headless and reproducible (`camera_lab --metrics`, the six scripted 2P runs). "Attacks on screen" is the share of ticks in which a foe in its tell or active frames within 700 px of an actor had its whole body in view. These numbers measure **framing**, not readability: whether a tell or a hit reads is a human verdict from the captures and the videos, and was not given.
+Framing numbers are headless and reproducible (`camera_lab --metrics`, the six scripted 2P runs at 1920x1080 for the 16:9 rows; the 1280x800 rows are in [framing_metrics.md](../evidence/camera-lab/framing_metrics.md)). "Attacks on screen" is the share of ticks in which a foe in its tell or active frames within 700 px of an actor had its whole body in view. These numbers measure **framing**, not readability: whether a tell or a hit reads is a human verdict from the captures and the videos, and was not given.
 
-| Room | Coverage | Both actors in view | Actor lost | Attacks on screen | Hits on screen | Auto: steps / mean | Median ms (1080p) |
-|---|---|---:|---:|---:|---:|---:|---:|
-| 1 goblins | 1 | 100% | 0% | 100% | 100% | - | 1.43 |
-| 1 goblins | 1.25 | 100% | 0% | 100% | 100% | - | 1.75 |
-| 1 goblins | 1.5 | 100% | 0% | 100% | 100% | - | 1.84 |
-| 1 goblins | 1.75 | 100% | 0% | 100% | 100% | - | 1.85 |
-| 1 goblins | auto | 100% | 0% | 100% | 100% | 0 / 1.00 | 1.44 |
-| 2 llamas | 1 | 99% | 0% | 21% | 100% | - | 1.31 |
-| 2 llamas | 1.25 | 100% | 0% | 65% | 100% | - | 1.77 |
-| 2 llamas | 1.5 | 100% | 0% | 85% | 100% | - | 1.61 |
-| 2 llamas | 1.75 | 100% | 0% | 95% | 100% | - | 1.61 |
-| 2 llamas | auto | 100% | 0% | 71% | 100% | 17 / 1.14 | 1.79 |
-| 3 workshop | 1 | 100% | 0% | 100% | 100% | - | 1.59 |
-| 3 workshop | 1.25 | 100% | 0% | 100% | 100% | - | 1.37 |
-| 3 workshop | 1.5 | 100% | 0% | 100% | 100% | - | 1.39 |
-| 3 workshop | 1.75 | 100% | 0% | 100% | 100% | - | 1.82 |
-| 3 workshop | auto | 100% | 0% | 100% | 100% | 0 / 1.00 | 1.73 |
-| 4 hoarder | 1 | 100% | 0% | 100% | 100% | - | 1.76 |
-| 4 hoarder | 1.25 | 100% | 0% | 100% | 100% | - | 1.74 |
-| 4 hoarder | 1.5 | 100% | 0% | 100% | 100% | - | 1.89 |
-| 4 hoarder | 1.75 | 100% | 0% | 100% | 100% | - | 1.90 |
-| 4 hoarder | auto | 100% | 0% | 100% | 100% | 0 / 1.00 | 1.63 |
-| 5 gym (2P split) | 1 | 85% | 15% | 38% | 100% | - | 1.43 |
-| 5 gym (2P split) | 1.25 | 99% | 0% | 100% | 100% | - | 1.79 |
-| 5 gym (2P split) | 1.5 | 100% | 0% | 100% | 100% | - | 1.88 |
-| 5 gym (2P split) | 1.75 | 100% | 0% | 100% | 100% | - | 1.70 |
-| 5 gym (2P split) | auto | 100% | 0% | 100% | 100% | 23 / 1.15 | 1.39 |
-| 6 swine boss | 1 | 100% | 0% | 79% | 100% | - | 1.63 |
-| 6 swine boss | 1.25 | 100% | 0% | 83% | 100% | - | 1.41 |
-| 6 swine boss | 1.5 | 100% | 0% | 83% | 100% | - | 1.81 |
-| 6 swine boss | 1.75 | 100% | 0% | 84% | 100% | - | 1.91 |
-| 6 swine boss | auto | 100% | 0% | 81% | 100% | 13 / 1.07 | 1.85 |
+| Room | Coverage | Both actors in view | Actor lost | Attacks on screen | Hits on screen | Auto: rest changes / mean coverage |
+|---|---|---:|---:|---:|---:|---:|
+| 1 goblins | 1 | 100% | 0% | 100% | 100% | - |
+| 1 goblins | 1.25 | 100% | 0% | 100% | 100% | - |
+| 1 goblins | 1.5 | 100% | 0% | 100% | 100% | - |
+| 1 goblins | 1.75 | 100% | 0% | 100% | 100% | - |
+| 1 goblins | auto | 100% | 0% | 100% | 100% | 0 / 1.00 |
+| 2 llamas | 1 | 100% | 0% | 21% | 100% | - |
+| 2 llamas | 1.25 | 100% | 0% | 74% | 100% | - |
+| 2 llamas | 1.5 | 100% | 0% | 94% | 100% | - |
+| 2 llamas | 1.75 | 100% | 0% | 98% | 100% | - |
+| 2 llamas | auto | 100% | 0% | 93% | 100% | 2 / 1.23 |
+| 3 workshop | 1 | 100% | 0% | 100% | 100% | - |
+| 3 workshop | 1.25 | 100% | 0% | 100% | 100% | - |
+| 3 workshop | 1.5 | 100% | 0% | 100% | 100% | - |
+| 3 workshop | 1.75 | 100% | 0% | 100% | 100% | - |
+| 3 workshop | auto | 100% | 0% | 100% | 100% | 0 / 1.00 |
+| 4 hoarder | 1 | 100% | 0% | 100% | 100% | - |
+| 4 hoarder | 1.25 | 100% | 0% | 100% | 100% | - |
+| 4 hoarder | 1.5 | 100% | 0% | 100% | 100% | - |
+| 4 hoarder | 1.75 | 100% | 0% | 100% | 100% | - |
+| 4 hoarder | auto | 100% | 0% | 100% | 100% | 0 / 1.00 |
+| 5 gym (2P split) | 1 | 85% | 14% | 38% | 100% | - |
+| 5 gym (2P split) | 1.25 | 100% | 0% | 100% | 100% | - |
+| 5 gym (2P split) | 1.5 | 100% | 0% | 100% | 100% | - |
+| 5 gym (2P split) | 1.75 | 100% | 0% | 100% | 100% | - |
+| 5 gym (2P split) | auto | 100% | 0% | 100% | 100% | 2 / 1.16 |
+| 6 swine boss | 1 | 100% | 0% | 81% | 100% | - |
+| 6 swine boss | 1.25 | 100% | 0% | 83% | 100% | - |
+| 6 swine boss | 1.5 | 100% | 0% | 90% | 100% | - |
+| 6 swine boss | 1.75 | 100% | 0% | 93% | 100% | - |
+| 6 swine boss | auto | 100% | 0% | 89% | 100% | 2 / 1.03 |
+
+**Automatic camera: rest widths.** Ticks per view width, with the exact-integer-scale rest widths of each output (the table is generated by `camera_lab --metrics`; at least 95 percent of the ticks sit on a rest width in every room and output, tested):
+
+| Room | Output | Rest widths | Ticks per width (w:ticks) | On rest | Longest transit (ticks) | Max width |
+|---|---|---|---|---:|---:|---:|
+| ROOM-01 | 1080p | 640/960 | 640:1500 | 100.0% | 0 | 640 |
+| ROOM-01 | 4K | 640/768/960 | 640:1500 | 100.0% | 0 | 640 |
+| ROOM-01 | 1280x800 | 640 | 640:1500 | 100.0% | 0 | 640 |
+| ROOM-02 | 1080p | 640/960 | 640:782 672:3 704:3 736:3 768:3 800:3 832:3 864:3 896:3 928:3 960:691 | 98.2% | 18 | 960 |
+| ROOM-02 | 4K | 640/768/960 | 640:794 672:3 704:3 736:3 768:363 800:3 832:3 864:3 896:3 928:3 960:319 | 98.4% | 10 | 960 |
+| ROOM-02 | 1280x800 | 640 | 640:1500 | 100.0% | 0 | 640 |
+| ROOM-03 | 1080p | 640/960 | 640:1800 | 100.0% | 0 | 640 |
+| ROOM-03 | 4K | 640/768/960 | 640:1800 | 100.0% | 0 | 640 |
+| ROOM-03 | 1280x800 | 640 | 640:1800 | 100.0% | 0 | 640 |
+| ROOM-04 | 1080p | 640/960 | 640:1800 | 100.0% | 0 | 640 |
+| ROOM-04 | 4K | 640/768/960 | 640:1800 | 100.0% | 0 | 640 |
+| ROOM-04 | 1280x800 | 640 | 640:1800 | 100.0% | 0 | 640 |
+| ROOM-05 | 1080p | 640/960 | 640:1407 672:4 704:4 736:4 768:4 800:4 832:4 864:4 896:4 928:4 960:657 | 98.3% | 18 | 960 |
+| ROOM-05 | 4K | 640/768/960 | 640:1445 672:4 704:4 736:4 768:39 800:4 832:4 864:4 896:4 928:4 960:584 | 98.5% | 10 | 960 |
+| ROOM-05 | 1280x800 | 640 | 640:2100 | 100.0% | 0 | 640 |
+| ROOM-06 | 1080p | 640/960 | 640:2249 672:3 704:3 736:3 768:3 800:3 832:3 864:3 896:3 928:3 960:124 | 98.9% | 18 | 960 |
+| ROOM-06 | 4K | 640/768/960 | 640:2249 672:3 704:3 736:3 768:3 800:3 832:3 864:3 896:3 928:3 960:124 | 99.0% | 10 | 960 |
+| ROOM-06 | 1280x800 | 640 | 640:2400 | 100.0% | 0 | 640 |
+
+
+Summary: ROOM-01, 03 and 04 stay at 640 for the whole run. ROOM-02, 05 and 06 widen once to 960 (768 at 4K for part of ROOM-02 and ROOM-05) and return, 98 to 99 percent of the ticks on a rest width, the longest transit 18 ticks (10 at 4K), nothing above 960. On the Deck (1280x800) the automatic camera never leaves 640 because no wider width is an integer scale there.
 
 Reading the table (agent observations from the captures and the traces, **not an owner verdict**):
 
-- **ROOM-01 (goblins).** All three goblins and both actors stay in view at every coverage (the bots never separate far), so framing does not discriminate. In the captures the fight reads at 1.0x and 1.5x; at 1.5x the next goblin is visible earlier and the whole arch behind the fight is drawn. Whether a wider view hurts the *feel* of the jab, haymaker and kick is the open question only a hand-held playtest answers.
-- **ROOM-02 (llamas, vertical).** The one clear framing result: with the spit tell on the upper gallery or across the lane, only 21 percent of attack ticks have the llama fully in view at 1.0x, 65 percent at 1.25x, 85 percent at 1.5x and 95 percent at 1.75x. A vertical ambush is not readable at 1.0x. The automatic camera as built reaches 71 percent: it frames a tell only once it is readable (a 42-tick tell, a 54-tick lookahead) and then needs time to widen; ranged foes would need earlier awareness (see the proposal).
-- **ROOM-03 (workshop).** Cause and effect (support, falling weight, crushed goblin, landing dust) fit in a 640x360 view because the whole sequence is about 300 px wide; 1.5x adds context (the platform, the pipes) without hiding it. The falling weight and the dust are visible in the captures.
-- **ROOM-04 (hoarder lair).** The scatterers (a 48x32 frame, 15 px of opaque insect) are the smallest threats: 45 px high on screen at 1080p and 1.0x, 30 px at 1.5x, 26 px at 1.75x, and 20 px at 1.5x on the Deck. They stay visible against the floor in the captures but at 1.75x and on the Deck they are a few pixels of contrast; the lair's rubble adds low-contrast clutter.
-- **ROOM-05 (gym, separation).** In the separating run (Donut on the 240 px platform, Carl on the floor, up to the 760 px leash) both actors are fully in view for 85 percent of the ticks at 1.0x (an actor is less than half visible for 15 percent), 99 percent at 1.25x and 100 percent at 1.5x and above. The automatic camera keeps both in view for 100 percent of the ticks with 23 whole 32 px steps (roughly eight zoom transitions) and a mean coverage of 1.15x.
-- **ROOM-06 (swine boss).** The charge lane is long, so only 79 to 84 percent of attack ticks have the boss fully in view at any coverage and 81 percent with the automatic camera: with both actors at the far end of a 2060 px room the boss cannot always fit together with the two safety regions. The impact on an actor is always in view (the actors are). In the separated capture the boss is cut by the right edge at 1.0x and 1.25x, mostly in view at 1.5x and fully in view at 1.75x.
-
+- **ROOM-01 (goblins).** All three goblins and both actors stay in view at every coverage (the bots never separate far), so framing does not discriminate; the automatic camera stays at 1.0x. In the captures the fight reads at 1.0x and 1.5x; at 1.5x the next goblin is visible earlier and the whole arch behind the fight is drawn. Whether a wider view hurts the *feel* of the jab, haymaker and kick is the open question only a hand-held playtest answers.
+- **ROOM-02 (llamas, vertical).** The clearest framing result: with the spit tell on the upper gallery or across the lane, only 21 percent of attack ticks have the llama fully in view at 1.0x, 74 percent at 1.25x, 94 percent at 1.5x and 98 percent at 1.75x. A vertical ambush is not readable at 1.0x. The reworked automatic camera reaches **93 percent** (it was 71 percent): it starts widening when a llama acquires an actor, keeps the shooter in the framing set through the tell, the shot and the start of the recovery, frames the spit in flight, and pans at the urgent speed when a threat is outside. It rests at 960 for about 45 percent of the run and at 640 otherwise. On the Deck, where it cannot widen, only 19 percent of llama attacks are on screen.
+- **ROOM-03 (workshop).** Cause and effect (support, falling weight, crushed goblin, landing dust) fit in a 640x360 view because the whole sequence is about 300 px wide; 1.5x adds context (the platform, the pipes) without hiding it. The automatic camera stays at 1.0x.
+- **ROOM-04 (hoarder lair).** The scatterers (a 48x32 frame, 15 px of opaque insect) are the smallest threats: 45 px high on screen at 1080p and 1.0x, 30 px at 1.5x, 26 px at 1.75x, and 20 px at 1.5x on the Deck. They stay visible against the floor in the captures but at 1.75x and on the Deck they are a few pixels of contrast; the lair's rubble adds low-contrast clutter. The automatic camera stays at 1.0x.
+- **ROOM-05 (gym, separation).** In the separating run (Donut on the 240 px platform, Carl on the floor, up to the 736 px leash) both actors are fully in view for 85 percent of the ticks at 1.0x (an actor is less than half visible for 14 percent) and for 100 percent at 1.25x and above. The automatic camera keeps both in view for 100 percent of the ticks with two rest-width transitions (widen to 960, return) and a mean coverage of 1.16x. On the Deck the 416 px leash keeps both in a 640 view (the partner is held, not lost).
+- **ROOM-06 (swine boss).** The charge lane is long, so 81 to 93 percent of attack ticks have the boss fully in view in the fixed modes; the automatic camera reaches **89 percent** (it was 81 percent) by framing the charge lane and keeping a large foe next to an actor in the set. The impact on an actor is always in view (the actors are). In the separated capture (the duo 680 px apart, the boss beside Donut) the 960 cap cannot hold both safety regions and the boss: the actors win and the boss's outer edge is cropped by a few pixels. A smaller safety pad for the far actor when a threat needs the room would fix it; not built.
 
 ### Frame time and memory
 
-Measured on the real GPU (an NVIDIA RTX 4060 Ti on the development workstation, Vulkan), vsync off, `--release`, 300 frames after warm-up, scripted 2P runs ([full tables](../evidence/camera-lab/perf_frame_times.md)): the median frame is **1.3 to 1.9 ms at 1920x1080**, **1.7 to 2.2 ms at 3840x2160** and **1.4 to 2.0 ms at 1280x800**, p95 at most 3.0 ms and p99 at most 4.6 ms (isolated spikes up to 11.6 ms at 4K and 15.8 ms once at 1280x800, a single frame). The wider coverage costs little: for the same room the median grows by roughly 0.1 to 0.4 ms from 1.0x to 1.75x, and the automatic camera sits between 1.0x and 1.5x. The dev profile (`cargo build`, opt-level 1) is about 6 ms. Resident memory is 350 to 430 MB. The existing `floor01_scene` corridor (2864 tiles) measures 1.3 to 1.6 ms (1080p) and 1.6 ms (4K) the same way, so the lab rooms (4400 to 8900 sprites) cost about the same on this GPU. **Not a Steam Deck measurement.** Under xvfb, which presents the whole window in software, the same runs read 55 to 65 ms at 1080p independent of the coverage; that is the present path, not the scene, and is not used.
+Measured on the real GPU **before this revision's camera rework** (the render path did not change; not re-measured, see the limitations) (an NVIDIA RTX 4060 Ti on the development workstation, Vulkan), vsync off, `--release`, 300 frames after warm-up, scripted 2P runs ([full tables](../evidence/camera-lab/perf_frame_times.md)): the median frame is **1.3 to 1.9 ms at 1920x1080**, **1.7 to 2.2 ms at 3840x2160** and **1.4 to 2.0 ms at 1280x800**, p95 at most 3.0 ms and p99 at most 4.6 ms (isolated spikes up to 11.6 ms at 4K and 15.8 ms once at 1280x800, a single frame). The wider coverage costs little: for the same room the median grows by roughly 0.1 to 0.4 ms from 1.0x to 1.75x, and the automatic camera sits between 1.0x and 1.5x. The dev profile (`cargo build`, opt-level 1) is about 6 ms. Resident memory is 350 to 430 MB. The existing `floor01_scene` corridor (2864 tiles) measures 1.3 to 1.6 ms (1080p) and 1.6 ms (4K) the same way, so the lab rooms (4400 to 8900 sprites) cost about the same on this GPU. **Not a Steam Deck measurement.** Under xvfb, which presents the whole window in software, the same runs read 55 to 65 ms at 1080p independent of the coverage; that is the present path, not the scene, and is not used.
 
 ## Limitations
 
@@ -214,13 +239,13 @@ Measured on the real GPU (an NVIDIA RTX 4060 Ti on the development workstation, 
 
 **Proposal only. It records what the evidence supports and what it cannot; the owner's hands-on verdict on a 1080p display and a Steam Deck decides.**
 
-1. **Rest state: 1.0x.** It is the only coverage that is an exact integer scale on every supported output (3x at 1080p, 6x at 4K, 2x on the Deck), it keeps the sprites biggest (Carl 156 px, Donut 120 px at 1080p) and the smallest threat (a scatterer) at 45 px. Short brawls, kicks and hit frames stay at 1.0x. This is a reasoned default, not a measured preference for the feel.
-2. **Adaptive camera, capped at 1.5x (960x540).** Let the automatic operator widen in whole 32 px steps only when it has to: the duo is more than about 424 px apart, a readable ranged or boss tell is outside the frame, never during hit-stop or a fresh hit, and zoom back in only after the situation has been calm for about 1.6 s. In the evidence this is what removes the real failures: at 1.0x an actor is lost 15 percent of a separation run and 79 percent of llama attacks are off screen, at 1.5x neither happens. It also leaves ROOM-03-style cause and effect at 1.0x. 1.5x is also the only widened coverage that is an **exact** integer scale at 1080p (2x) and 4K (4x), so it has no uneven texel columns; Carl is 104 px and Donut 80 px at 1080p, 208 and 160 at 4K.
-3. **1.25x only as a transit step, not a fixed setting.** It is 2.4x at 1080p (and 4.8x at 4K, 1.6x on the Deck): texels alternate between two widths. It is acceptable for the seconds the camera spends passing through it, but it is not a default.
-4. **1.75x stays exploratory.** It is 1.71x at 1080p (1 or 2 px texels), Carl 89 px, Donut 69 px, a scatterer 26 px; its only unique gain was the boss fully in view in a 2060 px room, which the room geometry, a shorter charge lane or a boss-aware framing can provide without it. Keep it as a debug and screenshot mode, or for one short authored reveal; do not ship it as gameplay without a high-confidence 1080p and Deck playtest.
-5. **Steam Deck 1280x800.** Only 1.0x is an integer scale (2x). Every wider coverage gives uneven 1 or 2 px texels (50 percent width jitter) and a Carl of 83 px (1.25x) or 69 px (1.5x). Proposal: keep 1.0x as the rest state, allow the automatic widening only for separation and the boss, and **prefer reducing the 2P leash on the Deck** (about 424 px at 1.0x) over widening; or accept 1.5x there only if handheld legibility passes. The probe cannot say; it needs a Deck.
-6. **Two things the probe suggests building before any policy ships:** earlier awareness of ranged foes (the automatic camera as built reaches 71 percent of llama attacks on screen against 85 percent for a fixed 1.5x, because it only reacts once the tell is readable), and a boss-aware lane framing for very long arenas. Both are camera-only work.
-7. **Preserve the tall architecture regardless of the policy.** The rooms draw 400 to 700 px of masonry, arch tiers and torches above the action; the void test passes for every position and coverage, and the A1 light budget holds for the widest view.
+1. **Rest state: 1.0x.** It is the only coverage that is an exact integer scale on every supported output (3x at 1080p, 6x at 4K, 2x on the Deck), it keeps the sprites biggest (Carl 156 px, Donut 120 px at 1080p) and the smallest threat (a scatterer) at 45 px. Short brawls, kicks and hit frames stay at 1.0x: in the three brawl rooms the automatic camera never leaves 640. This is a reasoned default, not a measured preference for the feel.
+2. **Adaptive camera that rests only on integer scales, capped at 1.5x (960x540).** The automatic operator now does this and the tests pin it: rest widths per output (1080p 640 and 960; 4K 640, 768 and 960; Deck, 720p and 1440p only 640), 95 percent or more of every run on a rest width, transits of about 20 ticks (10 when urgent) through the in-between widths, nothing above 960. It widens only when it has to: the duo is more than about 420 px apart, a ranged or boss threat does not fit or a llama has acquired an actor, a large foe stands next to an actor; never during hit-stop or a fresh hit; it returns after about 1.6 s calm. In the evidence this removes the real failures: at 1.0x an actor is lost 14 percent of the separation run and only 21 percent of llama attack ticks are on screen; with the automatic camera the actor is never lost and 93 percent of the llama ticks (fixed 1.5x: 94 percent) and 89 percent of the boss ticks are on screen. 1.5x is the only widened coverage that is an **exact** integer scale at 1080p (2x) and 4K (4x); Carl is 104 px and Donut 80 px at 1080p, 208 and 160 at 4K. At 4K the exact 768 (1.2x, 5x) is an extra rest width.
+3. **2P leash 736 px at 1080p and 4K, 416 px on the Deck, 720p and 1440p.** It is `cap - 220` so both safety regions always fit the cap (tested). It is **platform-dependent gameplay**, which is why it needs the owner's decision: the alternative on the Deck is to accept a 1.333x opt-in view (uneven 1 or 2 px texels) and keep 736. A held partner catches up by walking, never by a jump.
+4. **1.25x only as a transit step, not a fixed setting.** It is 2.4x at 1080p (and 4.8x at 4K, 1.6x on the Deck): texels alternate between two widths. It is acceptable for the fraction of a second the camera passes through it, but it is not a default.
+5. **1.75x stays exploratory.** It is 1.71x at 1080p (1 or 2 px texels), Carl 89 px, Donut 69 px, a scatterer 26 px; with the leash tied to the 960 cap it has no framing job left. Keep it as a debug and screenshot mode, or for one short authored reveal; do not ship it as gameplay without a high-confidence 1080p and Deck playtest.
+6. **Steam Deck 1280x800 (and 720p, 1440p).** Only 1.0x is an integer scale (2x on the Deck, 4x at 1440p). Every wider coverage gives uneven texels (50 percent width jitter at 1.333x on the Deck) and a Carl of 69 px at 1.5x. The proposal is therefore 1.0x only with the 416 px leash, with 1.5x as an **opt-in** accessibility or preference setting if handheld legibility passes. The cost, measured: on the Deck ROOM-02's llama attacks are only 19 percent on screen at 1.0x. The probe cannot say whether that is acceptable; it needs a Deck.
+7. **Preserve the tall architecture regardless of the policy.** The rooms draw 400 to 700 px of masonry, arch tiers and torches above the action; the void test passes for every position and coverage, and the A1 light budget holds in the widest view at the sampled positions.
 
-**What to look at when playing** (record each as a note, not a pass/fail): does a widened view hurt the weight of the jab, haymaker and kick (ROOM-01, 1.0x against the auto camera); can you read the llama spit and the boss tell in time (ROOM-02, ROOM-06 at 1.5x against 1.0x); are the scatterers findable (ROOM-04 at 1.5x); do zoom steps feel like pumping (ROOM-05 auto, watch the 2.5 percent steps and the 1-pixel texel shimmer at 1.25x and 1.75x); does the separation feel recoverable with the leash (ROOM-05, 2P with two pads).
+**What to look at when playing** (record each as a note, not a pass/fail): does a widened view hurt the weight of the jab, haymaker and kick (ROOM-01, 1.0x against the auto camera); can you read the llama spit and the boss tell in time (ROOM-02, ROOM-06 at 1.5x against 1.0x); are the scatterers findable (ROOM-04 at 1.5x); do zoom steps feel like pumping (ROOM-05 auto, watch the transits and, deliberately, the 1-pixel texel shimmer at 1.25x and 1.75x); does the separation feel recoverable with the leash (ROOM-05, 2P with two pads).
 

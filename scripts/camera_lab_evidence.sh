@@ -84,6 +84,7 @@ case "$mode" in
       "combat_hit_room01_1.5 1 1.5 490 1 100 --mode 2p --script"
       "destruction_room03_1.0 3 1 520 1 120 --mode 2p --script"
       "destruction_room03_auto 3 auto 520 1 120 --mode 2p --script"
+      "destruction_room03_1.5 3 1.5 520 1 120 --mode 2p --script"
       "separation_room05_auto 5 auto 420 6 120 --mode 2p --script"
       "separation_room05_1.0 5 1 420 6 120 --mode 2p --script"
       "boss_charge_room06_auto 6 auto 10 1 150 --mode 2p --script"
