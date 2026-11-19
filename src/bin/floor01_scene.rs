@@ -16,14 +16,21 @@
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use bevy::{
     app::AppExit,
     asset::AssetPlugin,
     asset::LoadState,
+    asset::RenderAssetUsages,
     camera::{ScalingMode, visibility::RenderLayers},
+    diagnostic::DiagnosticsStore,
     prelude::*,
-    render::view::screenshot::{Screenshot, save_to_disk},
+    render::{
+        diagnostic::RenderDiagnosticsPlugin,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        view::screenshot::{Screenshot, save_to_disk},
+    },
     sprite::Anchor,
     window::{PresentMode, PrimaryWindow, WindowResolution},
 };
@@ -42,10 +49,16 @@ use dungeon_floorbreak::{
     },
     combat_scene::{CombatState, Fixture},
     corridor::{CorridorWorld, Scenario, SceneSim},
+    death_present::{
+        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS, Finish,
+        PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
+        draw_z,
+    },
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
     goblin::{AttackPhase, GoblinMode},
+    gore::{DEATH_VARIANTS, DeathArt, GorePreset, Sheet},
     input::RawInput,
     light_pass::{
         LAYER_DEBUG, LightPassPlugin, LightRig, LightingMaterial, PassFrame, SceneCamera,
@@ -54,6 +67,7 @@ use dungeon_floorbreak::{
     lighting::{MAX_SHADOWS, ShadowEllipse, ViewRect, contact_shadow},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero},
     scene_anim::SceneAnimators,
+    shore_art::{ShoreArt, ShoreSlot, landed_age},
 };
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
@@ -98,6 +112,11 @@ struct Args {
     reference_frame: bool,
     /// Measure this many frame intervals after warm-up, print them and exit.
     perf_frames: Option<usize>,
+    /// DEATH-E1, fixture only (with `--perf-frames`): pre-simulate this many
+    /// ticks, then step exactly one tick per measured frame (instead of the
+    /// real-time fixed step), so every frame covers the same tick on every run
+    /// and the probe sees the same deaths whatever the frame time.
+    perf_from_tick: Option<u64>,
     /// Live run: step the scripted scenario for this many fixed ticks in the
     /// real render loop, print `FLOOR1_SCENE_STATE` and exit.
     exit_after_ticks: Option<u64>,
@@ -115,6 +134,18 @@ struct Args {
     no_audio: bool,
     /// Style bank override (`arcade`, `cinematic`, `hybrid`); F9 cycles it live.
     audio_style: Option<StyleBank>,
+    /// DEATH-C: the gore preset 1 to 4 (presentation only; default 4, full).
+    /// It never reaches the simulation: every replay hash is the same at any
+    /// preset.
+    gore_preset: GorePreset,
+    /// Fixture only, lab: keep the death presenter's pools loaded with
+    /// synthetic defeats (frame-time measurement at max load).
+    death_stress: bool,
+    /// Fixture only, lab: play this finish for ordinary melee defeats (the
+    /// decapitation has no authoritative cause before PR D).
+    death_lab_finish: Option<Finish>,
+    /// Headless fixture only: print the presenter's `DEATH_PRESENT` summary.
+    death_trace: bool,
 }
 
 /// Parse `first:step:count` of `--capture-sequence`.
@@ -145,6 +176,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         no_lighting: false,
         reference_frame: false,
         perf_frames: None,
+        perf_from_tick: None,
         exit_after_ticks: None,
         capture_sequence: None,
         capture_dir: None,
@@ -152,6 +184,10 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         combat_trace: false,
         no_audio: false,
         audio_style: None,
+        gore_preset: GorePreset::default(),
+        death_stress: false,
+        death_lab_finish: None,
+        death_trace: false,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -175,6 +211,25 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
                 parsed.audio_style = Some(StyleBank::parse(value).ok_or_else(|| {
                     format!("unknown audio style {value:?} (expected arcade, cinematic, hybrid)")
                 })?);
+            }
+            "--gore-preset" => {
+                let value = iter.next().ok_or("--gore-preset needs 1, 2, 3 or 4")?;
+                parsed.gore_preset = GorePreset::parse(value).ok_or_else(|| {
+                    format!(
+                        "bad gore preset {value:?} (expected 1 to 4, or off, reduced, medium, full)"
+                    )
+                })?;
+            }
+            "--death-stress" => parsed.death_stress = true,
+            "--death-trace" => parsed.death_trace = true,
+            "--death-lab-finish" => {
+                let value = iter.next().ok_or("--death-lab-finish needs a finish")?;
+                parsed.death_lab_finish = Some(match value.as_str() {
+                    "decapitated" | "decap" => Finish::Decapitated,
+                    other => {
+                        return Err(format!("bad lab finish {other:?} (expected decapitated)"));
+                    }
+                });
             }
             "--reference-frame" => parsed.reference_frame = true,
             "--anim-trace" => parsed.anim_trace = true,
@@ -209,6 +264,11 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
                         .ok_or_else(|| format!("bad frame count {value:?} (30..=100000)"))?,
                 );
             }
+            "--perf-from-tick" => {
+                let value = iter.next().ok_or("--perf-from-tick needs a tick")?;
+                parsed.perf_from_tick =
+                    Some(value.parse().map_err(|_| format!("bad tick {value:?}"))?);
+            }
             "--scenario" => {
                 let value = iter.next().ok_or("--scenario needs a name")?;
                 parsed.scenario = Some(value.parse()?);
@@ -239,6 +299,19 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
     if (parsed.manual || parsed.debug_combat) && parsed.fixture.is_none() {
         return Err("--manual and --debug-combat need --fixture".into());
     }
+    if (parsed.death_stress || parsed.death_lab_finish.is_some() || parsed.death_trace)
+        && parsed.fixture.is_none()
+    {
+        return Err("--death-stress, --death-lab-finish and --death-trace need --fixture".into());
+    }
+    if parsed.death_stress && (parsed.headless || parsed.capture_tick.is_some()) {
+        return Err(
+            "--death-stress is a live run: drop --headless-floor01-smoke and --capture-tick".into(),
+        );
+    }
+    if parsed.death_trace && !parsed.headless {
+        return Err("--death-trace needs --headless-floor01-smoke".into());
+    }
     if parsed.manual
         && (parsed.headless
             || parsed.capture_tick.is_some()
@@ -257,6 +330,21 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         return Err(
             "--exit-after-ticks needs --scenario or --fixture and a live run (no --capture-tick, --freeze or --reference-frame)"
                 .into(),
+        );
+    }
+    if parsed.perf_from_tick.is_some()
+        && (parsed.fixture.is_none()
+            || parsed.perf_frames.is_none()
+            || parsed.headless
+            || parsed.manual
+            || parsed.capture_tick.is_some()
+            || parsed.capture_sequence.is_some()
+            || parsed.exit_after_ticks.is_some()
+            || parsed.freeze
+            || parsed.reference_frame)
+    {
+        return Err(
+            "--perf-from-tick needs --fixture and --perf-frames, and no other run mode".into(),
         );
     }
     if parsed.capture_sequence.is_some() != parsed.capture_dir.is_some() {
@@ -300,16 +388,30 @@ fn view_height(deck: bool) -> i32 {
 fn presim_ticks(args: &Args) -> Option<u64> {
     args.capture_tick
         .or(args.capture_sequence.map(|(first, _, _)| first))
+        .or(args.perf_from_tick)
 }
 
 /// Build the simulation and its animators in the requested state (scenario
 /// pre-simulated). The animators are stepped from the finished state of every
 /// tick and never feed back into the simulation.
-fn build_scene(
-    kit: &EnvKit,
-    args: &Args,
-    actors: &Actors,
-) -> Result<(SceneSim, SceneAnimators, Option<CombatState>), String> {
+type Scene = (
+    SceneSim,
+    SceneAnimators,
+    Option<CombatState>,
+    Option<DeathPresenter>,
+);
+
+/// The cosmetic death presenter of a fixture run: the goblin death art at the
+/// requested preset. Presentation only.
+fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
+    let art = Arc::new(DeathArt::load(root)?);
+    let variant_b = DeathArt::load_variant(root, 1)?;
+    let mut presenter = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?;
+    presenter.set_lab_finish(args.death_lab_finish);
+    Ok(presenter)
+}
+
+fn build_scene(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<Scene, String> {
     if let Some(fixture) = args.fixture {
         // A combat fixture: Carl starts at the fixture column; the script is
         // pre-simulated for a capture, otherwise left for the live loop.
@@ -317,9 +419,14 @@ fn build_scene(
         let mut combat = CombatState::new(fixture, kit, &sim)?;
         let mut anim = actors.animators(&sim.world);
         anim.art = actors.combat_art(&combat);
+        let mut death = death_presenter(root, args)?;
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let raw = fixture.input(sim.world.tick + 1);
-            step_combat(&mut sim, &mut combat, &mut anim, raw);
+            step_combat(&mut sim, &mut combat, &mut anim, Some(&mut death), raw);
+            if args.death_stress && args.perf_from_tick.is_some() {
+                // Lab: load the pools before the probe starts measuring.
+                death.stress_tick(sim.world.hero.x, sim.world.hero.y - HERO_HALF_HEIGHT);
+            }
             if args.combat_trace {
                 println!("{}", combat.trace_line(&sim));
             }
@@ -329,7 +436,7 @@ fn build_scene(
                 println!("{}", art.trace_line(&sim, &combat));
             }
         }
-        return Ok((sim, anim, Some(combat)));
+        return Ok((sim, anim, Some(combat), Some(death)));
     }
     let mut sim = SceneSim::new(kit, view_height(args.deck))?;
     let mut anim = actors.animators(&sim.world);
@@ -342,7 +449,7 @@ fn build_scene(
             }
         });
     }
-    Ok((sim, anim, None))
+    Ok((sim, anim, None, None))
 }
 
 /// One fixed tick of a combat fixture, and the animation that follows it. A
@@ -351,6 +458,7 @@ fn step_combat(
     sim: &mut SceneSim,
     combat: &mut CombatState,
     anim: &mut SceneAnimators,
+    death: Option<&mut DeathPresenter>,
     raw: RawInput,
 ) {
     let expected = sim.world.tick + 1;
@@ -361,6 +469,10 @@ fn step_combat(
     } else {
         anim.reset(&sim.world);
         anim.reset_art(combat);
+    }
+    // Cosmetics follow the finished tick; nothing flows back.
+    if let Some(death) = death {
+        death.observe(combat, sim);
     }
 }
 
@@ -448,7 +560,7 @@ fn main() -> ExitCode {
         }
     };
     if args.headless {
-        return match headless_smoke(&kit, &args, &actors) {
+        return match headless_smoke(&kit, &args, &actors, &root) {
             Ok(()) => ExitCode::SUCCESS,
             Err(message) => {
                 println!("FLOOR1_HEADLESS_FAILURE: {message}");
@@ -456,11 +568,11 @@ fn main() -> ExitCode {
             }
         };
     }
-    let (sim, anim, combat) = match build_scene(&kit, &args, &actors) {
+    let (sim, anim, combat, death) = match build_scene(&kit, &args, &actors, &root) {
         Ok(scene) => scene,
         Err(message) => return failure(&message),
     };
-    run_window(kit, sim, anim, combat, actors, args, &root);
+    run_window(kit, sim, anim, combat, death, actors, args, &root);
     ExitCode::SUCCESS
 }
 
@@ -481,6 +593,8 @@ struct Actors {
     carl: ActorAssets,
     donut: ActorAssets,
     art: Option<CombatArt>,
+    /// The ENV-02 shore and block art of a combat fixture (DEATH-C).
+    shore: Option<ShoreArt>,
 }
 
 #[derive(Clone)]
@@ -491,6 +605,11 @@ struct CombatArt {
 
 impl Actors {
     fn load(root: &Path, source: FrameSource, combat: bool) -> Result<Self, String> {
+        let shore = if combat {
+            Some(ShoreArt::load(root)?)
+        } else {
+            None
+        };
         let art = if combat {
             Some(CombatArt {
                 carl: SpriteClips::load_carl_melee(root, source)?,
@@ -506,6 +625,7 @@ impl Actors {
             carl: load_carl(root, source)?,
             donut: load_donut(root, source)?,
             art,
+            shore,
         })
     }
 
@@ -570,6 +690,17 @@ struct Perf {
     warmup: usize,
     seen: usize,
     intervals_ms: Vec<f32>,
+    /// `--perf-from-tick`: one fixture tick per measured frame.
+    step_ticks: bool,
+    /// Per measured frame: (tick, ms, live parts, live floor decals, live wall
+    /// decals, visible death sprites); printed with the stats.
+    series: Vec<(u64, f32, usize, usize, usize, usize)>,
+    peak_visible_death_sprites: usize,
+    /// Per measured frame: summed GPU pass time (ms) and CPU time of the death
+    /// presentation (the fixed tick of the fixture and the sprite sync, in us).
+    gpu_ms: Vec<f32>,
+    tick_us: Vec<f32>,
+    death_sync_us: Vec<f32>,
 }
 
 /// Presentation ticks since the simulation stopped at the exit. The sim tick
@@ -586,6 +717,11 @@ struct LiveScenario(Option<Scenario>);
 #[derive(Resource)]
 struct Combat(Option<CombatState>);
 
+/// DEATH-C: the cosmetic death presenter of a combat fixture (presentation
+/// only: nothing in it is read by the simulation).
+#[derive(Resource)]
+struct Death(Option<DeathPresenter>);
+
 /// The fixture whose script drives the live run (not set for `--manual`).
 #[derive(Resource)]
 struct LiveFixture(Option<&'static Fixture>);
@@ -594,7 +730,7 @@ struct LiveFixture(Option<&'static Fixture>);
 struct Controls {
     jump_tap: bool,
     attack_tap: bool,
-    special_tap: bool,
+    physical_tap: bool,
     restart: bool,
 }
 
@@ -637,6 +773,38 @@ struct GoblinSprite {
 #[derive(Component)]
 struct CarlMelee;
 
+/// One pooled sprite of the death presenter (DEATH-C).
+#[derive(Component, Clone, Copy)]
+enum DeathPiece {
+    /// The death pose of goblin `index` (replaces its GOB-01 sprite).
+    Pose(usize),
+    /// A launched part or blood drop (pool slot).
+    Part(usize),
+    /// A floor decal; `second` is the right cell of a two-cell pool.
+    Floor { slot: usize, second: bool },
+    /// A back-wall spatter.
+    Wall(usize),
+}
+
+/// One sprite of the ENV-02 shore (post, block, cavity, crumbs, impact dust).
+#[derive(Component, Clone, Copy)]
+struct ShorePiece(ShoreSlot);
+
+/// The loaded ENV-02 images, in the order of `ShoreArt::images`.
+#[derive(Resource)]
+struct ShoreImages(Vec<Handle<Image>>);
+
+/// Geometry the death sprites need (set at startup).
+#[derive(Resource)]
+struct DeathLook {
+    /// The composed sheets of goblin variants A and B: death poses and parts.
+    poses_images: [Handle<Image>; DEATH_VARIANTS],
+    parts_images: [Handle<Image>; DEATH_VARIANTS],
+    pose_spec: ActorSpec,
+    /// z of the `backwall_decal` layer.
+    wall_z: f32,
+}
+
 /// `--debug-combat` overlay boxes (hit and hurt boxes; nothing else is drawn
 /// outside the art).
 #[derive(Component)]
@@ -651,11 +819,13 @@ enum CombatDebugBox {
     CarlHurt,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_window(
     kit: EnvKit,
     sim: SceneSim,
     anim: SceneAnimators,
     combat: Option<CombatState>,
+    death: Option<DeathPresenter>,
     actors: Actors,
     args: Args,
     root: &Path,
@@ -671,8 +841,11 @@ fn run_window(
         .capture_sequence
         .zip(args.capture_dir.clone())
         .map(|((first, step, count), dir)| CaptureSequence::new(first, step, count, dir));
-    let freeze =
-        args.freeze || args.capture_tick.is_some() || args.reference_frame || capture.is_some();
+    let freeze = args.freeze
+        || args.capture_tick.is_some()
+        || args.reference_frame
+        || capture.is_some()
+        || args.perf_from_tick.is_some();
     let scenario = if freeze { None } else { args.scenario };
     let live_fixture = if freeze || args.manual {
         None
@@ -695,6 +868,12 @@ fn run_window(
         warmup: 120,
         seen: 0,
         intervals_ms: Vec::with_capacity(target),
+        step_ticks: args.perf_from_tick.is_some(),
+        series: Vec::with_capacity(target),
+        peak_visible_death_sprites: 0,
+        gpu_ms: Vec::with_capacity(target),
+        tick_us: Vec::with_capacity(target),
+        death_sync_us: Vec::with_capacity(target),
     });
     // AUDIO-01: sound is presentation only. Screenshot, reference and perf runs
     // stay silent and open no device, like `--no-audio` and `FLOORBREAK_AUDIO=off`.
@@ -750,6 +929,7 @@ fn run_window(
     .insert_resource(ReferencePose(reference))
     .insert_resource(LiveScenario(scenario))
     .insert_resource(Combat(combat))
+    .insert_resource(Death(death))
     .insert_resource(LiveFixture(live_fixture))
     .insert_resource(Setup { kit, args })
     .init_resource::<Controls>()
@@ -759,8 +939,11 @@ fn run_window(
         Update,
         (
             capture_input,
+            perf_step,
             sync_visuals,
             sync_combat_visuals,
+            sync_shore_visuals,
+            sync_death_visuals,
             update_lighting,
             watchdog,
             perf_probe,
@@ -773,6 +956,8 @@ fn run_window(
         app.add_plugins(LightPassPlugin);
     }
     if let Some(perf) = perf {
+        // GPU pass timings (Vulkan timestamp queries) for the probe's report.
+        app.add_plugins(RenderDiagnosticsPlugin);
         app.insert_resource(perf);
     }
     if let Some(capture) = capture {
@@ -812,6 +997,7 @@ fn setup(
     setup: Res<Setup>,
     actors: Res<Actors>,
     combat: Res<Combat>,
+    death: Res<Death>,
 ) {
     let kit = &setup.kit;
     let args = &setup.args;
@@ -1048,6 +1234,148 @@ fn setup(
         }
     }
 
+    // DEATH-C: the ENV-02 shore, block and impact dust of a fixture with a
+    // shore (presentation only, non-collidable, driven by the simulated state).
+    if let (Some(shore_art), Some(_)) = (
+        actors.shore.as_ref(),
+        combat.0.as_ref().and_then(|c| c.shore.as_ref()),
+    ) {
+        let images: Vec<Handle<Image>> = shore_art
+            .images
+            .iter()
+            .map(|name| {
+                let handle: Handle<Image> = asset_server.load(name.clone());
+                combat_handles.push((name.clone(), handle.clone()));
+                handle
+            })
+            .collect();
+        for slot in ShoreSlot::ALL {
+            let layer = if slot == ShoreSlot::Cavity {
+                layers_of("backwall_decal")
+            } else {
+                layers_of("prop")
+            };
+            commands.spawn((
+                ShorePiece(slot),
+                Sprite {
+                    image: images[0].clone(),
+                    rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                    ..default()
+                },
+                Transform::from_xyz(0.0, 0.0, kit.actor_z - 1.0),
+                Visibility::Hidden,
+                layer,
+            ));
+            combat_entities += 1;
+        }
+        commands.insert_resource(ShoreImages(images));
+    }
+
+    // DEATH-C: the death presenter's sprites, pre-spawned hidden and recycled
+    // one to one with its fixed pools (nothing is spawned at runtime).
+    if let Some(presenter) = death.0.as_ref() {
+        let sheets = presenter.sheets();
+        // One image per goblin variant (A, B): the layout is shared (the same
+        // frame and cell sizes, checked when the presenter is built).
+        let mut image_of = |sheet: &Sheet| -> Handle<Image> {
+            images.add(Image::new(
+                Extent3d {
+                    width: sheet.width() as u32,
+                    height: sheet.cell_h as u32,
+                    depth_or_array_layers: 1,
+                },
+                TextureDimension::D2,
+                sheet.rgba.clone(),
+                TextureFormat::Rgba8UnormSrgb,
+                RenderAssetUsages::default(),
+            ))
+        };
+        let poses_images: [Handle<Image>; DEATH_VARIANTS] =
+            std::array::from_fn(|v| image_of(&presenter.sheets_of(v).poses));
+        let parts_images: [Handle<Image>; DEATH_VARIANTS] =
+            std::array::from_fn(|v| image_of(&presenter.sheets_of(v).parts));
+        let (poses_image, parts_image) = (poses_images[0].clone(), parts_images[0].clone());
+        let mut layout_of = |sheet: &Sheet| {
+            layouts.add(TextureAtlasLayout::from_grid(
+                UVec2::new(sheet.cell_w as u32, sheet.cell_h as u32),
+                sheet.frames as u32,
+                1,
+                None,
+                None,
+            ))
+        };
+        let poses_layout = layout_of(&sheets.poses);
+        let parts_layout = layout_of(&sheets.parts);
+        let sprite_of = |image: &Handle<Image>, layout: &Handle<TextureAtlasLayout>| {
+            Sprite::from_atlas_image(
+                image.clone(),
+                TextureAtlas {
+                    layout: layout.clone(),
+                    index: 0,
+                },
+            )
+        };
+        let mut piece = |kind: DeathPiece, sprite: Sprite, layer: RenderLayers| {
+            commands.spawn((
+                kind,
+                sprite,
+                Transform::from_xyz(0.0, 0.0, kit.actor_z - 1.0),
+                Visibility::Hidden,
+                layer,
+            ));
+            combat_entities += 1;
+        };
+        for index in 0..combat.0.as_ref().map_or(0, |c| c.enemies.len()) {
+            piece(
+                DeathPiece::Pose(index),
+                sprite_of(&poses_image, &poses_layout),
+                layers_of("actors"),
+            );
+        }
+        for slot in 0..PART_POOL_SLOTS {
+            piece(
+                DeathPiece::Part(slot),
+                sprite_of(&parts_image, &parts_layout),
+                layers_of("actors"),
+            );
+        }
+        for slot in 0..FLOOR_DECAL_POOL_SLOTS {
+            for second in [false, true] {
+                piece(
+                    DeathPiece::Floor { slot, second },
+                    sprite_of(&parts_image, &parts_layout),
+                    layers_of("actors"),
+                );
+            }
+        }
+        for slot in 0..WALL_DECAL_POOL_SLOTS {
+            piece(
+                DeathPiece::Wall(slot),
+                sprite_of(&parts_image, &parts_layout),
+                layers_of("backwall_decal"),
+            );
+        }
+        let wall_z = kit
+            .pieces
+            .iter()
+            .find(|p| p.layer == "backwall_decal")
+            .map_or(3.0, |p| p.z.floor());
+        commands.insert_resource(DeathLook {
+            poses_images,
+            parts_images,
+            pose_spec: ActorSpec {
+                name: "goblin_death",
+                width: presenter.art().pose_frame_size.0,
+                height: presenter.art().pose_frame_size.1,
+                pivot_x: presenter.art().pose_pivot.0,
+                pivot_y: presenter.art().pose_pivot.1,
+                shadow_width: 0,
+                shadow_pivot_x: 0,
+            },
+            wall_z,
+        });
+    }
+
     // Optional collision overlay: merged solids and walking lines.
     let mut debug_entities = 0usize;
     if args.debug_collision {
@@ -1155,7 +1483,7 @@ fn capture_input(
 ) {
     controls.jump_tap |= keys.just_pressed(KeyCode::Space);
     controls.attack_tap |= keys.just_pressed(KeyCode::KeyJ);
-    controls.special_tap |= keys.just_pressed(KeyCode::KeyK);
+    controls.physical_tap |= keys.just_pressed(KeyCode::KeyK);
     controls.restart |= keys.just_pressed(KeyCode::KeyR);
     if keys.just_pressed(KeyCode::Escape) {
         exit.write(AppExit::Success);
@@ -1165,8 +1493,9 @@ fn capture_input(
     if let Some(pad) = pads.iter().next() {
         controls.jump_tap |= pad.just_pressed(GamepadButton::South);
         controls.attack_tap |= pad.just_pressed(GamepadButton::West);
-        controls.special_tap |= pad.just_pressed(GamepadButton::East);
-        controls.restart |= pad.just_pressed(GamepadButton::North);
+        // PhysicalAttack is Triangle/Y (North); North no longer restarts.
+        controls.physical_tap |= pad.just_pressed(GamepadButton::North);
+        controls.restart |= pad.just_pressed(GamepadButton::Select);
         if pad.just_pressed(GamepadButton::Start) {
             exit.write(AppExit::Success);
         }
@@ -1182,6 +1511,8 @@ fn fixed_step(
     scenario: Res<LiveScenario>,
     fixture: Res<LiveFixture>,
     mut combat: ResMut<Combat>,
+    mut death: ResMut<Death>,
+    setup: Res<Setup>,
     mut controls: ResMut<Controls>,
     mut sim: ResMut<Sim>,
     mut anim: ResMut<Anim>,
@@ -1192,7 +1523,7 @@ fn fixed_step(
     let restart = std::mem::take(&mut controls.restart);
     let jump_tap = std::mem::take(&mut controls.jump_tap);
     let attack_tap = std::mem::take(&mut controls.attack_tap);
-    let special_tap = std::mem::take(&mut controls.special_tap);
+    let physical_tap = std::mem::take(&mut controls.physical_tap);
     if frozen.0 {
         return;
     }
@@ -1211,6 +1542,9 @@ fn fixed_step(
         if let Some(combat) = combat.0.as_ref() {
             anim.0.reset_art(combat);
         }
+        if let Some(death) = death.0.as_mut() {
+            death.clear();
+        }
         after_exit.0 = 0;
         println!("FLOOR1_RESTART");
     }
@@ -1226,7 +1560,7 @@ fn fixed_step(
             jump: keys.pressed(KeyCode::Space) || jump_tap,
             // Melee exists only in a combat fixture (`--fixture ... --manual`).
             attack: combat.0.is_some() && (keys.pressed(KeyCode::KeyJ) || attack_tap),
-            ability: combat.0.is_some() && (keys.pressed(KeyCode::KeyK) || special_tap),
+            physical: combat.0.is_some() && (keys.pressed(KeyCode::KeyK) || physical_tap),
             ..RawInput::default()
         };
         if let Some(pad) = pads.iter().next() {
@@ -1241,15 +1575,22 @@ fn fixed_step(
             raw.jump |= pad.pressed(GamepadButton::South);
             if combat.0.is_some() {
                 raw.attack |= pad.pressed(GamepadButton::West);
-                raw.ability |= pad.pressed(GamepadButton::East);
+                raw.physical |= pad.pressed(GamepadButton::North);
             }
         }
         raw
     };
     let was_complete = sim.0.world.complete;
     if let Some(combat) = combat.0.as_mut() {
-        step_combat(&mut sim.0, combat, &mut anim.0, raw);
+        step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
         print_combat_events(combat, Some(&mut audio));
+        if setup.args.death_stress
+            && let Some(death) = death.0.as_mut()
+        {
+            // Lab: keep the pools loaded (presentation only).
+            let hero = &sim.0.world.hero;
+            death.stress_tick(hero.x, hero.y - HERO_HALF_HEIGHT);
+        }
     } else {
         sim.0.step(raw);
         anim.0.step(&sim.0.world);
@@ -1267,6 +1608,9 @@ fn fixed_step(
         println!("{}", anim.0.state_line(sim.0.world.tick));
         if let Some(combat) = combat.0.as_ref() {
             print_combat_state(&sim.0, &anim.0, combat);
+        }
+        if let Some(death) = death.0.as_ref() {
+            println!("{}", death.state_line());
         }
         exit.write(AppExit::Success);
     }
@@ -1638,12 +1982,203 @@ fn sync_combat_visuals(
     }
 }
 
+/// DEATH-C: the ENV-02 shore and block as the simulation has them (hits, block
+/// state, block height, landing). Reads the simulation only.
+#[allow(clippy::type_complexity)]
+fn sync_shore_visuals(
+    combat: Res<Combat>,
+    sim: Res<Sim>,
+    actors: Res<Actors>,
+    setup: Res<Setup>,
+    images: Option<Res<ShoreImages>>,
+    mut pieces: Query<(&ShorePiece, &mut Transform, &mut Sprite, &mut Visibility)>,
+) {
+    let (Some(state), Some(art), Some(images)) = (combat.0.as_ref(), actors.shore.as_ref(), images)
+    else {
+        return;
+    };
+    let Some(shore) = state.shore.as_ref() else {
+        return;
+    };
+    let tick = sim.0.world.tick;
+    let list = art.draw_list(shore, landed_age(&state.events, tick), tick);
+    let prop_z = setup.kit.actor_z - 1.0;
+    let wall_z = setup
+        .kit
+        .pieces
+        .iter()
+        .find(|p| p.layer == "backwall_decal")
+        .map_or(3.0, |p| p.z.floor());
+    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+        match list.iter().find(|d| d.slot == piece.0) {
+            Some(draw) => {
+                let z = if draw.slot == ShoreSlot::Cavity {
+                    wall_z + 0.3
+                } else {
+                    prop_z + draw.slot.z_bias()
+                };
+                transform.translation = Vec3::new(draw.centre.0, draw.centre.1, z);
+                sprite.image = images.0[draw.image].clone();
+                sprite.rect = Some(Rect::new(
+                    draw.rect[0] as f32,
+                    draw.rect[1] as f32,
+                    (draw.rect[0] + draw.rect[2]) as f32,
+                    (draw.rect[1] + draw.rect[3]) as f32,
+                ));
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
+/// DEATH-C: draw the presenter's state. Reads the presenter only; the death
+/// pose replaces the goblin's GOB-01 sprite, and every piece sits under the
+/// actors (`draw_z`), so nothing is ever drawn over Carl or Donut.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn sync_death_visuals(
+    mut perf: Option<ResMut<Perf>>,
+    death: Res<Death>,
+    look: Option<Res<DeathLook>>,
+    combat: Res<Combat>,
+    sim: Res<Sim>,
+    setup: Res<Setup>,
+    mut goblins: Query<(&GoblinSprite, &mut Visibility, &mut Sprite), Without<DeathPiece>>,
+    mut pieces: Query<(&DeathPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
+) {
+    let (Some(presenter), Some(look), Some(state)) = (death.0.as_ref(), look, combat.0.as_ref())
+    else {
+        return;
+    };
+    let started = std::time::Instant::now();
+    let actor_z = setup.kit.actor_z;
+    let tick = sim.0.world.tick;
+    let art = presenter.art();
+    // A death pose replaces the goblin sprite; a retired corpse is drawn no
+    // more and a retiring one fades out (the GOB-01 corpse sprite included).
+    let hide_goblin = |index: usize| {
+        presenter.pose_of(index as u32).is_some() || presenter.is_retired(index as u32)
+    };
+    for (goblin, mut visibility, mut sprite) in &mut goblins {
+        *visibility = if hide_goblin(goblin.index) {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+        sprite.color = sprite
+            .color
+            .with_alpha(presenter.corpse_alpha(goblin.index as u32));
+    }
+    // Variant B draws from its own composed sheet (same layout, same frames).
+    let use_image = |sprite: &mut Sprite, image: &Handle<Image>| {
+        if sprite.image != *image {
+            sprite.image = image.clone();
+        }
+    };
+    let set_atlas = |sprite: &mut Sprite, frame: usize| {
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = frame;
+        }
+    };
+    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+        match *piece {
+            DeathPiece::Pose(index) => match presenter.pose_of(index as u32) {
+                Some(pose) => {
+                    let (cx, cy) =
+                        actor_center(look.pose_spec, pose.foot_x, pose.ground_y, pose.flip);
+                    transform.translation = Vec3::new(
+                        cx,
+                        cy,
+                        actor_z + GOBLIN_LYING_Z_OFFSET - index as f32 * GOBLIN_Z_STEP,
+                    );
+                    sprite.flip_x = pose.flip;
+                    use_image(&mut sprite, &look.poses_images[pose.variant]);
+                    sprite.color = if state.flash(index, tick) {
+                        FLASH_TINT
+                    } else {
+                        Color::WHITE
+                    }
+                    .with_alpha(pose.alpha);
+                    set_atlas(&mut sprite, pose.frame);
+                    *visibility = Visibility::Inherited;
+                }
+                None => *visibility = Visibility::Hidden,
+            },
+            DeathPiece::Part(slot) => match presenter.part_at(slot) {
+                Some(part) => {
+                    transform.translation = Vec3::new(
+                        part.x.round(),
+                        part.y.round(),
+                        draw_z(DrawLayer::Debris, slot, actor_z, look.wall_z),
+                    );
+                    transform.rotation = Quat::from_rotation_z(part.angle_deg.to_radians());
+                    sprite.flip_x = part.flip;
+                    use_image(&mut sprite, &look.parts_images[part.variant]);
+                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.part_alpha(slot, part));
+                    set_atlas(&mut sprite, part.frame);
+                    *visibility = Visibility::Inherited;
+                }
+                None => *visibility = Visibility::Hidden,
+            },
+            DeathPiece::Floor { slot, second } => {
+                let decal = presenter.floor_decal_at(slot);
+                let shown = decal.and_then(|d| {
+                    let meta = if second { d.pair_meta? } else { d.meta };
+                    let offset = if second {
+                        art.parts[d.meta].pair_offset.map_or(0.0, |o| o[0] as f32)
+                    } else {
+                        0.0
+                    };
+                    Some((d, art.parts[meta].frame, offset))
+                });
+                match shown {
+                    Some((d, frame, offset)) => {
+                        transform.translation = Vec3::new(
+                            (d.x + offset).round(),
+                            d.y.round(),
+                            draw_z(DrawLayer::FloorDecal, slot, actor_z, look.wall_z),
+                        );
+                        sprite.flip_x = d.flip;
+                        sprite.color =
+                            Color::srgba(1.0, 1.0, 1.0, presenter.floor_decal_alpha(slot, d));
+                        set_atlas(&mut sprite, frame);
+                        *visibility = Visibility::Inherited;
+                    }
+                    None => *visibility = Visibility::Hidden,
+                }
+            }
+            DeathPiece::Wall(slot) => match presenter.wall_decal_at(slot) {
+                Some(d) => {
+                    transform.translation = Vec3::new(
+                        d.x.round(),
+                        d.y.round(),
+                        draw_z(DrawLayer::WallDecal, slot, actor_z, look.wall_z),
+                    );
+                    sprite.flip_x = d.flip;
+                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.wall_decal_alpha(slot, d));
+                    set_atlas(&mut sprite, art.parts[d.meta].frame);
+                    *visibility = Visibility::Inherited;
+                }
+                None => *visibility = Visibility::Hidden,
+            },
+        }
+    }
+    if let Some(perf) = perf.as_mut()
+        && perf.step_ticks
+        && perf.seen >= perf.warmup
+    {
+        perf.death_sync_us
+            .push(started.elapsed().as_secs_f32() * 1e6);
+    }
+}
+
 fn attacker_of(hero: &Hero) -> Attacker {
     Attacker {
         x: hero.x,
         y: hero.y,
         half_height: HERO_HALF_HEIGHT,
         facing: hero.facing,
+        player: 0,
     }
 }
 
@@ -1795,12 +2330,81 @@ fn frame_stats(intervals_ms: &[f32]) -> Option<FrameStats> {
     })
 }
 
+/// GPU time (ms) of the last finished frame: for every timed pass, the sum of
+/// all the measurements that share the newest timestamp. Several cameras (the
+/// slot cameras, the post-stage quads) record the same pass names in one frame
+/// and `Diagnostic::value` keeps only the last of them, so it is summed here.
+fn gpu_ms_of_last_frame(diagnostics: &DiagnosticsStore) -> f64 {
+    diagnostics
+        .iter()
+        .filter(|d| d.path().as_str().ends_with("elapsed_gpu"))
+        .filter_map(|d| {
+            let newest = d.measurement()?.time;
+            Some(
+                d.measurements()
+                    .filter(|m| m.time == newest)
+                    .map(|m| m.value)
+                    .sum::<f64>(),
+            )
+        })
+        .sum()
+}
+
+/// `--perf-from-tick`: after the warm-up, advance the fixture exactly one tick
+/// per frame, before the frame is drawn (the frame time then covers the tick's
+/// own presentation). Runs ahead of the visuals in the chain.
+#[allow(clippy::too_many_arguments)]
+fn perf_step(
+    perf: Option<ResMut<Perf>>,
+    loading: Option<Res<Loading>>,
+    setup: Res<Setup>,
+    mut sim: ResMut<Sim>,
+    mut anim: ResMut<Anim>,
+    mut combat: ResMut<Combat>,
+    mut death: ResMut<Death>,
+) {
+    let Some(mut perf) = perf else { return };
+    if !perf.step_ticks || loading.is_some_and(|l| !l.reported) || perf.seen < perf.warmup {
+        return;
+    }
+    let (Some(fixture), Some(combat)) = (setup.args.fixture, combat.0.as_mut()) else {
+        return;
+    };
+    let started = std::time::Instant::now();
+    let raw = fixture.input(sim.0.world.tick + 1);
+    step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
+    if setup.args.death_stress
+        && let Some(death) = death.0.as_mut()
+    {
+        let hero = &sim.0.world.hero;
+        death.stress_tick(hero.x, hero.y - HERO_HALF_HEIGHT);
+    }
+    perf.tick_us.push(started.elapsed().as_secs_f32() * 1e6);
+}
+
+/// Resident and peak resident memory of this process in MiB (Linux
+/// `/proc/self/status`; `None` elsewhere).
+fn resident_memory_mib() -> Option<(f32, f32)> {
+    let text = std::fs::read_to_string("/proc/self/status").ok()?;
+    let kib = |key: &str| -> Option<f32> {
+        let line = text.lines().find(|l| l.starts_with(key))?;
+        line.split_whitespace().nth(1)?.parse::<f32>().ok()
+    };
+    Some((kib("VmRSS:")? / 1024.0, kib("VmHWM:")? / 1024.0))
+}
+
+#[allow(clippy::too_many_arguments)]
 fn perf_probe(
     perf: Option<ResMut<Perf>>,
     time: Res<Time<Real>>,
     loading: Option<Res<Loading>>,
     window: Query<&Window, With<PrimaryWindow>>,
     lighting_on: Res<LightingOn>,
+    death: Res<Death>,
+    sim: Res<Sim>,
+    entities: Query<Entity>,
+    death_sprites: Query<&Visibility, With<DeathPiece>>,
+    diagnostics: Res<DiagnosticsStore>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut perf) = perf else { return };
@@ -1814,7 +2418,56 @@ fn perf_probe(
     }
     let ms = time.delta_secs() * 1000.0;
     perf.intervals_ms.push(ms);
+    perf.gpu_ms.push(gpu_ms_of_last_frame(&diagnostics) as f32);
+    if perf.step_ticks {
+        let visible = death_sprites
+            .iter()
+            .filter(|v| **v != Visibility::Hidden)
+            .count();
+        perf.peak_visible_death_sprites = perf.peak_visible_death_sprites.max(visible);
+        let (parts, floor, wall) = death.0.as_ref().map_or((0, 0, 0), |d| {
+            (d.live_parts(), d.live_floor_decals(), d.live_wall_decals())
+        });
+        let tick = sim.0.world.tick;
+        perf.series.push((tick, ms, parts, floor, wall, visible));
+    }
     if perf.intervals_ms.len() >= perf.target {
+        if let Some((rss, peak)) = resident_memory_mib() {
+            println!(
+                "FLOOR1_PERF_MEM rss_mib={rss:.1} peak_rss_mib={peak:.1} entities={} death_sprites_spawned={} peak_visible_death_sprites={}",
+                entities.iter().count(),
+                death_sprites.iter().count(),
+                perf.peak_visible_death_sprites,
+            );
+        }
+        let mean = |v: &[f32]| (!v.is_empty()).then(|| v.iter().sum::<f32>() / v.len() as f32);
+        let gpu = frame_stats(&perf.gpu_ms);
+        let tick = frame_stats(&perf.tick_us);
+        let sync = frame_stats(&perf.death_sync_us);
+        let gpu_paths: Vec<String> = diagnostics
+            .iter()
+            .filter(|d| d.path().as_str().ends_with("elapsed_gpu"))
+            .map(|d| d.path().as_str().to_string())
+            .collect();
+        println!(
+            "FLOOR1_PERF_CPU_GPU gpu_ms_mean={:.3} gpu_ms_p95={:.3} gpu_ms_max={:.3} tick_us_mean={:.1} tick_us_p95={:.1} tick_us_max={:.1} death_sync_us_mean={:.1} death_sync_us_p95={:.1} death_sync_us_max={:.1} gpu_passes={}",
+            mean(&perf.gpu_ms).unwrap_or(0.0),
+            gpu.map_or(0.0, |s| s.p95_ms),
+            gpu.map_or(0.0, |s| s.max_ms),
+            mean(&perf.tick_us).unwrap_or(0.0),
+            tick.map_or(0.0, |s| s.p95_ms),
+            tick.map_or(0.0, |s| s.max_ms),
+            mean(&perf.death_sync_us).unwrap_or(0.0),
+            sync.map_or(0.0, |s| s.p95_ms),
+            sync.map_or(0.0, |s| s.max_ms),
+            gpu_paths.len(),
+        );
+        println!("FLOOR1_PERF_GPU_PASSES {}", gpu_paths.join(" "));
+        for (tick, ms, parts, floor, wall, visible) in &perf.series {
+            println!(
+                "FLOOR1_PERF_TICK tick={tick} ms={ms:.2} parts={parts} floor_decals={floor} wall_decals={wall} visible_death_sprites={visible}"
+            );
+        }
         if let Some(stats) = frame_stats(&perf.intervals_ms) {
             let size = window
                 .single()
@@ -1830,6 +2483,17 @@ fn perf_probe(
                 if lighting_on.0 { "on" } else { "off" },
                 perf.warmup,
             );
+            if let Some(death) = death.0.as_ref() {
+                // The pools at the end of the run (loaded by `--death-stress`).
+                println!(
+                    "{} part_capacity={} floor_decal_capacity={} wall_decal_capacity={} recycled={:?}",
+                    death.state_line(),
+                    PART_POOL_CAPACITY,
+                    FLOOR_DECAL_POOL_CAPACITY,
+                    WALL_DECAL_POOL_CAPACITY,
+                    death.recycled(),
+                );
+            }
         }
         exit.write(AppExit::Success);
     }
@@ -1942,6 +2606,7 @@ fn capture_sequence(
     mut sim: ResMut<Sim>,
     mut anim: ResMut<Anim>,
     mut combat: ResMut<Combat>,
+    mut death: ResMut<Death>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut seq) = seq else { return };
@@ -2019,7 +2684,7 @@ fn capture_sequence(
             for _ in 0..seq.step {
                 if let (Some(fixture), Some(combat)) = (fixture, combat.0.as_mut()) {
                     let raw = fixture.input(sim.0.world.tick + 1);
-                    step_combat(&mut sim.0, combat, &mut anim.0, raw);
+                    step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
                 } else if let Some(scenario) = scenario {
                     let raw = scenario.input(&sim.0.world);
                     sim.0.step(raw);
@@ -2033,7 +2698,7 @@ fn capture_sequence(
 
 // ------------------------------------------------------------ headless smoke
 
-fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors) -> Result<(), String> {
+fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<(), String> {
     if kit.solid_rects.is_empty() || kit.tiles.is_empty() {
         return Err("layout produced no tiles or no solids".into());
     }
@@ -2071,15 +2736,20 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors) -> Result<(), Stri
         // the fixture's own length), every event, then the state lines.
         let mut args = args.clone();
         args.capture_tick.get_or_insert(fixture.ticks);
-        let (sim, anim, combat) = build_scene(kit, &args, actors)?;
+        let (sim, anim, combat, death) = build_scene(kit, &args, actors, root)?;
         let mut combat = combat.ok_or("fixture without combat state")?;
         print_combat_events(&mut combat, None);
         println!("{}", sim.state_line());
         println!("{}", anim.state_line(sim.world.tick));
         print_combat_state(&sim, &anim, &combat);
+        if args.death_trace
+            && let Some(death) = death
+        {
+            println!("{}", death.state_line());
+        }
         return Ok(());
     }
-    let (sim, anim, _) = build_scene(kit, args, actors)?;
+    let (sim, anim, _, _) = build_scene(kit, args, actors, root)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
     Ok(())
@@ -2093,6 +2763,62 @@ mod tests {
         let mut full = vec!["floor01_scene".to_owned()];
         full.extend(list.iter().map(|s| (*s).to_owned()));
         parse_args(&full)
+    }
+
+    #[test]
+    fn the_gore_preset_flag_defaults_to_full_and_is_strict() {
+        assert_eq!(args(&[]).unwrap().gore_preset, GorePreset::Full);
+        for (value, preset) in [
+            ("1", GorePreset::Off),
+            ("2", GorePreset::Reduced),
+            ("3", GorePreset::Medium),
+            ("4", GorePreset::Full),
+        ] {
+            let parsed = args(&["--fixture", "cp03_shore_kill", "--gore-preset", value]).unwrap();
+            assert_eq!(parsed.gore_preset, preset);
+        }
+        for bad in ["0", "5", "gory", ""] {
+            assert!(args(&["--gore-preset", bad]).is_err(), "{bad:?}");
+        }
+        assert!(args(&["--gore-preset"]).is_err());
+        // The lab flags need a fixture; stress is live only; the trace is headless only.
+        assert!(args(&["--death-stress"]).is_err());
+        assert!(args(&["--death-lab-finish", "decapitated"]).is_err());
+        assert!(args(&["--fixture", "cp03_shore_kill", "--death-trace"]).is_err());
+        assert!(
+            args(&[
+                "--fixture",
+                "cp03_shore_kill",
+                "--headless-floor01-smoke",
+                "--death-trace"
+            ])
+            .is_ok()
+        );
+        assert!(
+            args(&[
+                "--fixture",
+                "cp03_shore_kill",
+                "--headless-floor01-smoke",
+                "--death-stress"
+            ])
+            .is_err()
+        );
+        assert!(args(&["--fixture", "cp03_shore_kill", "--death-lab-finish", "bomb"]).is_err());
+    }
+
+    #[test]
+    fn the_death_layers_draw_under_every_scene_actor() {
+        // The scene's own actor offsets: Carl +0.1, Donut 0, a goblin
+        // +0.05 / +0.15 (swinging), a lying goblin -0.01 minus 0.001 per index
+        // (64 goblins is far more than any fixture).
+        let lowest_actor = 7.0 + GOBLIN_LYING_Z_OFFSET - GOBLIN_Z_STEP * 64.0;
+        let slots = PART_POOL_SLOTS.max(FLOOR_DECAL_POOL_SLOTS);
+        for slot in [0, slots - 1] {
+            for layer in [DrawLayer::Debris, DrawLayer::FloorDecal] {
+                assert!(draw_z(layer, slot, 7.0, 3.0) < lowest_actor, "{layer:?}");
+            }
+        }
+        assert!(draw_z(DrawLayer::WallDecal, WALL_DECAL_POOL_SLOTS, 7.0, 3.0) < 4.0);
     }
 
     #[test]

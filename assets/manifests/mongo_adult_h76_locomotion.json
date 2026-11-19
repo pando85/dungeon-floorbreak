@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "id": "mongo_adult_h76_locomotion_candidate_v0",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/mongo/mongo_adult_h76_locomotion.ase",
+  "grid_source": "assets/source/characters/mongo/mongo_adult_h76_locomotion.grid.json",
+  "output_atlas": "generated/art/mongo_adult_h76_locomotion.png",
+  "output_metadata": "generated/art/mongo_adult_h76_locomotion.json",
+  "palette_id": "mongo-adult-v0",
+  "frame_size": [
+    128,
+    88
+  ],
+  "pivot": [
+    76,
+    87
+  ],
+  "animation_tags": [
+    "idle",
+    "run",
+    "jump_start",
+    "jump_rise",
+    "jump_fall",
+    "land"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored pixel animation candidate (fan-concept layer: Mongo -> charger)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ANIM-MONGO-01 locomotion candidate built from the owner-approved 76 px master assets/source/characters/mongo/mongo_adult_h76.grid.json: head, crest, torso, tail, wing, thigh and foot pixels are copied from master frame 0 and only translated or edited with whole-pixel row/column shifts; shins and metatarsi are rule-drawn capsules in the master leg ramp; the swing feet are hand-typed; the four idle frames are the master idle pixels unchanged, re-padded to the wider canvas",
+    "generator": "Keys, rig and parts by an AI agent (Claude Opus), in-between frames and exports by an AI agent (Claude Sonnet), assembled by scripts/author_mongo_locomotion.py; no image-model raster output, no resampling or rotation, no concept-board pixels",
+    "generated_art": true,
+    "input_reference_ids": [
+      "MONGO-CONCEPT-V1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "locomotion": {
+    "status": "all 16 frames authored (keys 4, 5, 6, 10, 12, 13, 14 frozen; in-betweens 7, 8, 9, 11, 15 finished by the executor); independent review pending, not integrated",
+    "tick_hz": 60,
+    "tick_windows": {
+      "idle": [27, 18, 33, 10],
+      "run": [5, 5, 5, 5, 5, 5],
+      "jump_start": [6, 4],
+      "jump_rise": null,
+      "jump_fall": null,
+      "land": [5, 7]
+    },
+    "tick_note": "run: 5 ticks per frame at RUN_SPEED 185 px/s (speed-linked ticks = clamp(round(60 * 16 / |vx|), 4, 8), see the spec); idle frame 3 is 10 ticks (167 ms), the canonical runtime value; jump_rise and jump_fall hold until the state changes (100 ms preview)",
+    "master": "assets/manifests/mongo_adult_h76.json",
+    "master_frame_size": [
+      108,
+      80
+    ],
+    "master_pivot": [
+      68,
+      79
+    ],
+    "grounded_tags": [
+      "idle",
+      "jump_start",
+      "land"
+    ],
+    "airborne_tags": [
+      "jump_rise",
+      "jump_fall"
+    ],
+    "mixed_tags": [
+      "run"
+    ],
+    "airborne_frames": [
+      6,
+      9
+    ],
+    "playback": {
+      "idle": "loop",
+      "run": "loop",
+      "jump_start": "once",
+      "jump_rise": "hold",
+      "jump_fall": "hold",
+      "land": "once"
+    }
+  }
+}

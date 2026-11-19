@@ -1,0 +1,21 @@
+{
+  "asset_id": "gob-02b-death-parts",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "a11d101744078c7a34c0730a8eafb60588349e7f6b2557a23af416cc01b1598f"
+    },
+    "1": {
+      "sha256": "677a7d86433e7e936ba7bfd409bc0f8b49e5e2db681895221c25b00f93725b20"
+    },
+    "2": {
+      "sha256": "5981fab3e9ddc05eccd34532b05cd0ad2ff855f2912b78076aaaebcaf5e4a5a5"
+    }
+  },
+  "layers": [
+    "body",
+    "weapon",
+    "accessory",
+    "gore"
+  ]
+}

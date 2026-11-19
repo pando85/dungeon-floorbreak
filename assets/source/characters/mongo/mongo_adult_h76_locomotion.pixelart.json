@@ -1,0 +1,233 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "anim-mongo-01",
+  "title": "ANIM-MONGO-01 adult Mongo 76 px locomotion (docs/02-art/mongo-locomotion-anim-01-spec.md)",
+  "grid": "assets/source/characters/mongo/mongo_adult_h76_locomotion.grid.json",
+  "manifest": "assets/manifests/mongo_adult_h76_locomotion.json",
+  "frame_size": [
+    128,
+    88
+  ],
+  "pivot": [
+    76,
+    87
+  ],
+  "contact_row": 87,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          27
+        ],
+        [
+          1,
+          18
+        ],
+        [
+          2,
+          33
+        ],
+        [
+          3,
+          10
+        ]
+      ]
+    },
+    "run": {
+      "playback": "loop",
+      "contact": "free",
+      "frames": [
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          5
+        ],
+        [
+          9,
+          5
+        ]
+      ]
+    },
+    "jump_start": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          10,
+          6
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "jump_rise": {
+      "playback": "hold",
+      "contact": "airborne",
+      "frames": [
+        [
+          12,
+          null
+        ]
+      ]
+    },
+    "jump_fall": {
+      "playback": "hold",
+      "contact": "airborne",
+      "frames": [
+        [
+          13,
+          null
+        ]
+      ]
+    },
+    "land": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          14,
+          5
+        ],
+        [
+          15,
+          7
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 24,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 2,
+    "canvas_margin": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/anim-mongo-01_keys.json",
+      "frames": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "layers": [
+        "tail",
+        "far_leg",
+        "far_arm",
+        "body",
+        "near_leg",
+        "head",
+        "crest",
+        "near_arm"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "size-idle-76px",
+        "frames": [
+          0
+        ],
+        "top": 12,
+        "bottom": 87
+      },
+      {
+        "id": "run-airborne-off-floor",
+        "frames": [
+          6
+        ],
+        "max_bottom": 86
+      },
+      {
+        "id": "run-lower-than-idle",
+        "frames": [
+          4,
+          5,
+          6
+        ],
+        "min_top": 14
+      },
+      {
+        "id": "impact-lowest",
+        "frames": [
+          14
+        ],
+        "min_top": 22
+      }
+    ]
+  },
+  "review": {
+    "strip_name": "03_jump_land_strip.png",
+    "strip_tags": [
+      "run",
+      "jump_start",
+      "jump_rise",
+      "jump_fall",
+      "land"
+    ]
+  },
+  "scene": {
+    "shadow": true,
+    "actors": [
+      {
+        "frame": 0,
+        "x": 548,
+        "flip": false
+      },
+      {
+        "frame": 4,
+        "x": 662,
+        "flip": false
+      },
+      {
+        "frame": 12,
+        "x": 774,
+        "lift": 20,
+        "flip": false
+      },
+      {
+        "frame": 14,
+        "x": 892,
+        "flip": false
+      }
+    ]
+  }
+}

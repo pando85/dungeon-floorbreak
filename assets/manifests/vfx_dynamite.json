@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "id": "vfx_dynamite_24_candidate_v1",
+  "type": "vfx_animation",
+  "source_path": "assets/source/vfx/dynamite/vfx_dynamite.ase",
+  "grid_source": "assets/source/vfx/dynamite/vfx_dynamite.grid.json",
+  "output_atlas": "generated/art/vfx_dynamite.png",
+  "output_metadata": "generated/art/vfx_dynamite.json",
+  "palette_id": "vfx-dynamite-v0",
+  "frame_size": [
+    24,
+    24
+  ],
+  "pivot": [
+    12,
+    12
+  ],
+  "animation_tags": [
+    "dynamite_flight",
+    "dynamite_fizzle"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored VFX candidate (fan-concept layer: Carl's dynamite; runtime role IP-neutral thrown explosive)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ANIM-CARL-03 stick frames rasterized natively from literal pixel rows in scripts/author_carl_dynamite.py (the same stamps as the Carl prop layer)",
+    "generator": "spec + keys: Claude Opus; in-betweens + export: Claude Sonnet; review pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": []
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "vfx": {
+    "status": "Keys frozen; in-betweens drawn; independent review pending; not wired into any Bevy binary",
+    "spec": "docs/02-art/carl-dynamite-anim-03-spec.md",
+    "tick_hz": 60,
+    "free_tags": [
+      "dynamite_flight",
+      "dynamite_fizzle"
+    ],
+    "playback": {
+      "dynamite_flight": "loop",
+      "dynamite_fizzle": "loop"
+    },
+    "facing": "right",
+    "spawn": {
+      "tick": 41,
+      "source": "assets/manifests/carl_book1_h52_dynamite.json dynamite.projectile_spawn",
+      "pivot_on_stick_centre": true
+    },
+    "flight": {
+      "order": [
+        "f0_right",
+        "f1_down",
+        "f2_left",
+        "f3_up"
+      ],
+      "ticks_per_frame": 3,
+      "ticks_per_turn": 12,
+      "spin": "clockwise (forward tumble)",
+      "streaks": false
+    },
+    "fizzle": {
+      "note": "the stick lying on the floor, lowest row on the pivot row (the walking line), fuse burning",
+      "pivot_row_is_walking_line": true
+    },
+    "blast": {
+      "reuse": "assets/manifests/vfx-01.json",
+      "tag": "burst",
+      "centre_above_walking_line_px": 8,
+      "note": "reused unchanged; a bigger blast is a separate natively drawn burst_large (VFX-01 section 8)"
+    },
+    "placeholders_for_evidence_only": {
+      "vx_px_s": 150,
+      "vy_px_s": -260,
+      "gravity_px_s2": 1050,
+      "blast_ticks_after_light": 90
+    },
+    "key_fixture": "tests/fixtures/anim-carl-03-vfx_keys.json",
+    "key_frames": [
+      0,
+      3,
+      4
+    ],
+    "inbetween_frames": [
+      1,
+      2,
+      5
+    ],
+    "frames": [
+      {
+        "index": 0,
+        "name": "f0_right",
+        "tag": "dynamite_flight",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "key"
+      },
+      {
+        "index": 1,
+        "name": "f1_down",
+        "tag": "dynamite_flight",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "inbetween"
+      },
+      {
+        "index": 2,
+        "name": "f2_left",
+        "tag": "dynamite_flight",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "inbetween"
+      },
+      {
+        "index": 3,
+        "name": "f3_up",
+        "tag": "dynamite_flight",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "key"
+      },
+      {
+        "index": 4,
+        "name": "z0",
+        "tag": "dynamite_fizzle",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key"
+      },
+      {
+        "index": 5,
+        "name": "z1",
+        "tag": "dynamite_fizzle",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "inbetween"
+      }
+    ]
+  }
+}

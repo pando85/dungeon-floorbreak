@@ -17,13 +17,13 @@
 set -euo pipefail
 mode="${1:?usage: ci_floor01_combat.sh headless|render}"
 bin=./target/debug/floor01_scene
-fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick)
+fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup)
 # fixture:first tick:step:count of the real-frame capture sequences. The windows
 # hold the hit and the hit-stop of each fixture (see the evidence README).
-sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interrupt:122:1:61 cp01_goblin_attacks:128:1:61 cp02_two_goblins:60:1:61 cp01_retry:398:1:52 cp01_kick:128:1:61)
+sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interrupt:122:1:61 cp01_goblin_attacks:128:1:61 cp02_two_goblins:60:1:61 cp01_retry:398:1:52 cp01_kick:128:1:61 cp02_kick_contact:20:1:61 cp03_shore_kill:98:1:61)
 # Fixtures whose per-tick animation trace (the frame drawn for Carl and every
 # goblin next to the sim state it follows) is committed and diffed (ART-INT-02).
-traced=(cp01_haymaker_chain cp01_goblin_attacks cp02_two_goblins cp01_kick)
+traced=(cp01_haymaker_chain cp01_goblin_attacks cp02_two_goblins cp01_kick cp02_kick_contact)
 committed=docs/evidence/cp01-feel
 committed_anim=docs/evidence/art-int-02
 out=artifacts/cp01-feel
@@ -51,6 +51,31 @@ case "$mode" in
         exit 1
       fi
       echo "COMBAT_HEADLESS_OK: $(last_state < "$out/headless_${f}.txt")"
+    done
+    # DEATH-C: the gore preset is presentation only. Every fixture at preset 1
+    # and at preset 4 (the default) replays the committed events and hash, and
+    # the cosmetic presenter's own summary is deterministic between two runs.
+    death_line() { grep '^DEATH_PRESENT' || true; }
+    for f in "${fixtures[@]}"; do
+      for preset in 1 2 3 4; do
+        "$bin" --headless-floor01-smoke --fixture "$f" --gore-preset "$preset" --death-trace > "$out/gore_${f}_p${preset}.txt"
+        combat_lines < "$out/gore_${f}_p${preset}.txt" > "$out/gore_${f}_p${preset}_combat.txt"
+        if ! diff "$committed/headless_${f}.txt" "$out/gore_${f}_p${preset}_combat.txt"; then
+          echo "fixture $f at gore preset $preset differs from the committed replay" >&2
+          exit 1
+        fi
+      done
+      "$bin" --headless-floor01-smoke --fixture "$f" --gore-preset 4 --death-trace | death_line > "$out/gore_${f}_p4_again.txt"
+      if ! cmp -s <(death_line < "$out/gore_${f}_p4.txt") "$out/gore_${f}_p4_again.txt"; then
+        echo "the death presenter of $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if grep -q 'kind=enemy_defeated' "$committed/headless_${f}.txt" \
+        && cmp -s <(death_line < "$out/gore_${f}_p1.txt") <(death_line < "$out/gore_${f}_p4.txt"); then
+        echo "preset 1 and 4 drew the same cosmetics for $f (the preset has no effect)" >&2
+        exit 1
+      fi
+      echo "GORE_PRESET_OK: $f (hash identical at presets 1 to 4)"
     done
     # The frames drawn are deterministic and reproduce the committed trace.
     for f in "${traced[@]}"; do

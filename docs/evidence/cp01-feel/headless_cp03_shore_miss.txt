@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=20 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=23 kind=shore_hit instance=1 hits=1
+COMBAT_EVENT tick=60 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=63 kind=shore_hit instance=2 hits=2
+COMBAT_EVENT tick=100 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=103 kind=shore_hit instance=3 hits=3
+COMBAT_EVENT tick=103 kind=shore_broken player=0
+COMBAT_EVENT tick=139 kind=shore_landed
+COMBAT_STATE fixture=cp03_shore_miss seed=0xc030002 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=560.000/2 hash=317bead55c8a6a73 shore=3/Broken/Landed block_bottom=0.00

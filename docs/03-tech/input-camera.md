@@ -10,7 +10,7 @@ Normalize device-specific inputs to player-scoped logical actions such as `Move`
 
 ### Existing fixture migration (pending implementation)
 
-The current COMBAT-INT-01 prototype intentionally reuses `special_pressed` for Carl's push kick (keyboard K / East gamepad action) while `attack_pressed` (keyboard J / West) is his jab; WORK-021 separately uses that special action for bombs. Existing fixtures use press edges, 6-tick buffering and an initial facing correction. **Keep these facts as implementation history, not the approved final default bindings.**
+The current COMBAT-INT-01 prototype intentionally reuses `special_pressed` for Carl's push kick (keyboard K / East gamepad action; **superseded in `floor01_scene` by PR A: the kick is `physical`, K / North = Triangle/Y, and the WORK-021 greybox in `main.rs` keeps K / East as its bomb `ability`**) while `attack_pressed` (keyboard J / West) is his jab; WORK-021 separately uses that special action for bombs. Existing fixtures use press edges, 6-tick buffering and an initial facing correction. **Keep these facts as implementation history, not the approved final default bindings.**
 
 The implementation PR must add an independent physical-attack action and migrate the integrated scene's kick without breaking fixed-step/replay regression tests. Only learned, equipped specials use the dedicated Circle/B action and cannot appear before story acquisition. Auto-repeat for held primary, aerial/down variations and exact timing remain unresolved, requiring real controller playtests.
 

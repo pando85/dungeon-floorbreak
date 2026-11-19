@@ -1,0 +1,51 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "llama-02-death",
+  "title": "LLAMA-02-DEATH Bad Llama crush, decapitation and heavy-impact death poses (docs/02-art/llama-02-death-spec.md); 8 frames, 6 frozen keys, 2 executor in-betweens",
+  "grid": "assets/source/characters/llama/death/llama_death_h64.grid.json",
+  "manifest": "assets/manifests/llama_death_h64.json",
+  "frame_size": [96, 72],
+  "pivot": [44, 71],
+  "contact_row": 71,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "review": {"hook": "scripts.llama02_death_review", "strip_tags": ["crush_contact", "crushed_remains"]},
+  "scene": {"actors": [{"frame": 0, "x": 536}, {"frame": 2, "x": 632}, {"frame": 3, "x": 728}, {"frame": 5, "x": 824}, {"frame": 7, "x": 920}]},
+  "tags": {
+    "crush_contact": {"playback": "once", "contact": "grounded", "frames": [[0, 3], [1, 3]]},
+    "crushed_remains": {"playback": "hold", "contact": "grounded", "frames": [[2, null]]},
+    "decap_contact": {"playback": "once", "contact": "grounded", "frames": [[3, 4]]},
+    "headless_collapse": {"playback": "hold", "contact": "grounded", "frames": [[4, 6], [5, null]]},
+    "slam_contact": {"playback": "once", "contact": "grounded", "frames": [[6, 6]]},
+    "broken_heap": {"playback": "hold", "contact": "grounded", "frames": [[7, null]]}
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "layers_disjoint": [],
+    "canvas_margin": [0, 0, 0, 0],
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/llama-02-death_keys.json",
+      "frames": [0, 2, 3, 5, 6, 7],
+      "layers": ["body", "gore", "molten"]
+    },
+    "bbox": [
+      {"id": "D1-crush-geyser-above-the-stone", "frames": [0], "max_top": 40, "bottom": 71},
+      {"id": "D2-remains-low-not-flat", "frames": [2], "min_top": 44, "min_height": 14},
+      {"id": "D3-decap-jet-reaches-high", "frames": [3], "max_top": 4},
+      {"id": "D5-headless-stump-propped-body-low", "frames": [5], "max_top": 48, "min_top": 38, "max_width": 88},
+      {"id": "D6-slam-legs-in-the-air", "frames": [6, 7], "max_top": 36, "min_top": 28}
+    ],
+    "key_counts": [
+      {"id": "D1-crush-bulging-eye", "frames": [0], "key": "e", "min": 5},
+      {"id": "D1-crush-gland-burst", "frames": [0], "key": "Y", "min": 8},
+      {"id": "D3-decap-jet", "frames": [3], "key": "b", "min": 40},
+      {"id": "L0-yellow-teeth-on-head-frames", "frames": [0, 2, 6, 7], "key": "T", "min": 4},
+      {"id": "D1-flatten-geyser-taller", "frames": [1], "key": "Y", "min": 10},
+      {"id": "D3-buckle-jet", "frames": [4], "key": "b", "min": 20}
+    ]
+  }
+}

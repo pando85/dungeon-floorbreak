@@ -1,0 +1,20 @@
+{
+  "asset_id": "llama-02-death-parts",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "46414613c793302c0b3e83a4e0efe999535b17bd2a7fd948ba8c7e95a6c81aee"
+    },
+    "1": {
+      "sha256": "09f29d16e6919b3f8fd10e55f6094ea721d7d388e76bcb85d757daaa836719cf"
+    },
+    "2": {
+      "sha256": "8e41ce9acf9f6dfb9fc51d59ec91c53e5bcde3b94f50253eeb47ea6a47cbe4ab"
+    }
+  },
+  "layers": [
+    "body",
+    "gore",
+    "molten"
+  ]
+}

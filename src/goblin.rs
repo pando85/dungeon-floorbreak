@@ -21,10 +21,11 @@ use crate::combat::{
     body_rect, solid_at,
 };
 use crate::feel::{
-    ATTACK_COOLDOWN, ATTACK_TICKS, DOWN_TICKS, GOBLIN_SIGHT, GOBLIN_STANDOFF, GOBLIN_TRIGGER,
-    GOBLIN_WALK_SPEED, GROUND_FRICTION, HURT_COOLDOWN, IMPACT_END, KNOCK_GRAVITY, KNOCK_VX_MAX,
-    LETHAL_HIT_STOP_BONUS, LETHAL_KNOCK_VX, LETHAL_KNOCK_VY, SMEAR_END, SWING_X_MAX, SWING_X_MIN,
-    SWING_Y_MAX, SWING_Y_MIN, TELL_TICKS,
+    ATTACK_COOLDOWN, ATTACK_TICKS, CONTACT_HIT_STOP, CONTACT_POSE_TICKS, CONTACT_PUSH_VX,
+    CONTACT_SOURCE_KEEP, CONTACT_STAGGER, DOWN_TICKS, DOWNED_TICKS, GETUP_TICKS, GOBLIN_SIGHT,
+    GOBLIN_STANDOFF, GOBLIN_TRIGGER, GOBLIN_WALK_SPEED, GROUND_FRICTION, HURT_COOLDOWN, IMPACT_END,
+    KNOCK_GRAVITY, KNOCK_VX_MAX, LETHAL_HIT_STOP_BONUS, LETHAL_KNOCK_VX, LETHAL_KNOCK_VY,
+    SMEAR_END, SWING_X_MAX, SWING_X_MIN, SWING_Y_MAX, SWING_Y_MIN, TELL_TICKS,
 };
 use crate::prototype::{Block, Rect, TICK_SECONDS};
 
@@ -42,6 +43,12 @@ pub enum GoblinMode {
     Down,
     /// Defeated for good: no hurtbox, no swing, no collision, never hurts.
     Corpse,
+    // Appended after `Corpse` so the state hashes of the older modes stay put.
+    /// A **living** goblin launched by the push kick (D-02); it can contact a
+    /// second goblin once per launch (D-03).
+    Launched,
+    /// A living goblin that landed from a launch: lies down, then gets up.
+    Downed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,6 +106,19 @@ pub struct Goblin {
     pub hurt_cooldown: u8,
     /// The running attack already hurt Carl (one hit per attack).
     pub swing_hit: bool,
+    /// The move instance whose kick carries this goblin (`Launched` only).
+    pub launch: Option<u32>,
+    /// Ticks since the launch was released (the animation's flight age).
+    pub flight_ticks: u16,
+    /// Ticks the `knockback_contact` pose is still held after a contact.
+    pub contact_ticks: u8,
+    /// The player whose move last hit this goblin while it lived (a kick that
+    /// launched it, a jab). It credits a later block as the instigator of the
+    /// defeat; it is read for the defeat event only. Player 0 (the only one in
+    /// play) is not mixed into the state hash, because with one player
+    /// `Some(0)` is already implied by a hashed `Hit`; any other player is
+    /// mixed, so a second player's hit never hashes like Carl's.
+    pub hit_by: Option<u32>,
 }
 
 impl Goblin {
@@ -120,6 +140,10 @@ impl Goblin {
             attack_cooldown: 0,
             hurt_cooldown: 0,
             swing_hit: false,
+            launch: None,
+            flight_ticks: 0,
+            contact_ticks: 0,
+            hit_by: None,
         }
     }
 
@@ -211,6 +235,26 @@ impl Goblin {
                 if self.integrate(solids, max_x) {
                     self.mode = GoblinMode::Down;
                     self.down_ticks = 0;
+                }
+            }
+            GoblinMode::Launched => {
+                self.flight_ticks = self.flight_ticks.saturating_add(1);
+                self.contact_ticks = self.contact_ticks.saturating_sub(1);
+                if self.integrate(solids, max_x) {
+                    self.mode = GoblinMode::Downed;
+                    self.down_ticks = 0;
+                    self.launch = None;
+                    self.contact_ticks = 0;
+                }
+            }
+            GoblinMode::Downed => {
+                self.integrate(solids, max_x);
+                self.down_ticks += 1;
+                if self.down_ticks >= DOWNED_TICKS + GETUP_TICKS {
+                    self.mode = GoblinMode::Neutral;
+                    self.down_ticks = 0;
+                    self.vx = 0.0;
+                    self.hurt_cooldown = HURT_COOLDOWN;
                 }
             }
             GoblinMode::Hurt => {
@@ -333,6 +377,74 @@ impl Goblin {
         mix(u64::from(self.attack_cooldown));
         mix(u64::from(self.hurt_cooldown));
         mix(u64::from(self.swing_hit));
+        // CP-02 state: mixed only while it exists, so goblins that were never
+        // launched keep the hashes they had before the kick launch.
+        if self.launch.is_some() || self.flight_ticks != 0 || self.contact_ticks != 0 {
+            mix(self.launch.map_or(0, |id| u64::from(id) + 1));
+            mix(u64::from(self.flight_ticks));
+            mix(u64::from(self.contact_ticks));
+        }
+        // DEATH-B: a hit by a player other than slot 0 (2P). Absent for every
+        // single-player replay, so their hashes stay put.
+        if let Some(player) = self.hit_by
+            && player != 0
+        {
+            mix(0x4849_5442);
+            mix(u64::from(player));
+        }
+    }
+
+    /// CP-02, the flier's side of a contact: `knockback_contact` for a few
+    /// ticks, most of its speed gone and a short freeze. No damage.
+    pub fn contact_as_flier(&mut self) {
+        self.contact_ticks = CONTACT_POSE_TICKS;
+        self.vx *= CONTACT_SOURCE_KEEP;
+        self.hit_stop = self.hit_stop.max(CONTACT_HIT_STOP);
+    }
+
+    /// Can a launched goblin interrupt this one: a living goblin on its feet
+    /// or already staggered (not flying, lying down or defeated).
+    pub fn can_be_contacted(&self) -> bool {
+        self.alive()
+            && matches!(
+                self.mode,
+                GoblinMode::Neutral | GoblinMode::Attack | GoblinMode::Hurt
+            )
+    }
+
+    /// CP-02, the second goblin's side: interrupted (the attack is cancelled,
+    /// the token goes back), staggered and pushed `push` (+1 / -1). No damage.
+    pub fn contact_as_target(&mut self, push: i8) {
+        self.mode = GoblinMode::Hurt;
+        self.attack_tick = 0;
+        self.swing_hit = false;
+        self.stagger_left = CONTACT_STAGGER;
+        self.vx = f32::from(push) * CONTACT_PUSH_VX;
+        self.vy = 0.0;
+        self.facing = -push;
+        self.hit_stop = self.hit_stop.max(CONTACT_HIT_STOP);
+    }
+
+    /// CP-03: a falling block lands on this goblin. It is defeated on the spot
+    /// and lies as a `Down` / `Corpse` body (temporary stand-in art until
+    /// GOB-02-CRUSH). Returns false for a goblin that is not alive.
+    pub fn crush(&mut self) -> bool {
+        if !self.alive() {
+            return false;
+        }
+        self.health = 0;
+        self.mode = GoblinMode::Down;
+        self.down_ticks = 0;
+        self.attack_tick = 0;
+        self.stagger_left = 0;
+        self.swing_hit = false;
+        self.launch = None;
+        self.contact_ticks = 0;
+        self.vx = 0.0;
+        self.vy = 0.0;
+        self.y = self.floor_y;
+        self.hit_stop = 0;
+        true
     }
 }
 
@@ -369,6 +481,8 @@ impl StrikeTarget for Goblin {
             self.swing_hit = false;
             self.vx = direction * LETHAL_KNOCK_VX;
             self.vy = LETHAL_KNOCK_VY;
+            self.launch = None;
+            self.contact_ticks = 0;
             stop += LETHAL_HIT_STOP_BONUS;
             HitOutcome::Defeated
         } else {
@@ -377,7 +491,22 @@ impl StrikeTarget for Goblin {
                     attack_phase(self.attack_tick),
                     AttackPhase::Smear | AttackPhase::Impact
                 );
-            if !committed {
+            if !committed && reaction.launch {
+                // The kick: a living launch (D-02), no stagger.
+                self.mode = GoblinMode::Launched;
+                self.attack_tick = 0;
+                self.stagger_left = 0;
+                self.swing_hit = false;
+                self.launch = None; // the scene stamps the move instance
+                self.flight_ticks = 0;
+                self.contact_ticks = 0;
+                self.vx = (direction * reaction.knock_vx).clamp(-KNOCK_VX_MAX, KNOCK_VX_MAX);
+                self.vy = reaction.knock_vy;
+            } else if !committed {
+                // A jab on a goblin in the air or lying: no launch state left.
+                self.launch = None;
+                self.flight_ticks = 0;
+                self.contact_ticks = 0;
                 self.mode = GoblinMode::Hurt;
                 self.attack_tick = 0;
                 self.stagger_left = reaction.stagger_ticks;

@@ -1,0 +1,33 @@
+# DEATH-E1 probe tables before the budget change (160 / 96 / 12, oldest-first recycling)
+
+The GPU column here is the uncorrected last-camera value (it does not respond to the sprites); ignore it. See the evidence README.
+
+Frame interval ms by phase of the pileup (mean / max, median of runs):
+
+| Resolution | Scenario | impact 71-160 | peak 161-260 | settle 261+ |
+| --- | --- | --- | --- | --- |
+| 640x360 | baseline (nobody dies) | 16.67 / 20.87 | 16.67 / 21.95 | 16.67 / 23.62 |
+| 640x360 | pileup, preset 1 | 16.67 / 21.82 | 16.66 / 21.59 | 16.66 / 42.50 |
+| 640x360 | pileup, preset 4 | 16.68 / 20.60 | 16.66 / 20.09 | 16.67 / 21.65 |
+| 640x360 | pileup + stress, preset 1 | 16.66 / 20.93 | 16.67 / 30.83 | 16.67 / 28.76 |
+| 640x360 | pileup + stress, preset 4 | 16.67 / 24.30 | 16.66 / 21.08 | 16.67 / 21.36 |
+| 1920x1080 | baseline (nobody dies) | 64.49 / 85.75 | 70.34 / 173.93 | 65.37 / 126.33 |
+| 1920x1080 | pileup, preset 1 | 63.48 / 162.84 | 63.19 / 91.73 | 67.08 / 128.00 |
+| 1920x1080 | pileup, preset 4 | 67.31 / 131.76 | 71.58 / 128.08 | 65.10 / 135.56 |
+| 1920x1080 | pileup + stress, preset 1 | 62.60 / 142.15 | 64.04 / 82.21 | 67.34 / 164.89 |
+| 1920x1080 | pileup + stress, preset 4 | 65.88 / 87.84 | 65.03 / 88.63 | 65.59 / 98.20 |
+
+All probes:
+
+| Resolution | Scenario | frame ms mean / p95 / max | GPU ms mean / p95 / max | tick us mean / max | sprite sync us mean / max | RSS MiB (peak) | entities | peak parts / floor / wall / visible sprites | final recycled (parts, floor, wall) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 640x360 | baseline (nobody dies) | 16.67 / 19.38 / 23.62 | 0.016 / 0.019 / 0.059 | 10.4 / 62 | 35.3 / 1184 | 407 (408) | 3616 | 0 / 0 / 0 / 0 | 0, 0, 0 |
+| 640x360 | pileup, preset 1 | 16.67 / 18.71 / 42.50 | 0.017 / 0.019 / 0.069 | 11.7 / 143 | 30.1 / 87 | 404 (408) | 3634 | 4 / 0 / 0 / 8 | 0, 0, 0 |
+| 640x360 | pileup, preset 4 | 16.67 / 18.33 / 21.65 | 0.017 / 0.019 / 0.496 | 12.6 / 587 | 31.4 / 69 | 409 (410) | 3634 | 128 / 96 / 12 / 232 | 0, 34, 6 |
+| 640x360 | pileup + stress, preset 1 | 16.67 / 18.27 / 30.83 | 0.017 / 0.019 / 1.246 | 18.4 / 104 | 26.9 / 112 | 409 (409) | 3634 | 160 / 0 / 0 / 164 | 67, 0, 0 |
+| 640x360 | pileup + stress, preset 4 | 16.67 / 18.37 / 24.30 | 0.017 / 0.019 / 1.681 | 26.7 / 161 | 28.5 / 92 | 409 (411) | 3634 | 160 / 96 / 12 / 281 | 1073, 2665, 462 |
+| 1920x1080 | baseline (nobody dies) | 64.87 / 76.34 / 173.93 | 0.051 / 0.061 / 1.402 | 10.7 / 56 | 31.5 / 359 | 421 (421) | 3616 | 0 / 0 / 0 / 0 | 0, 0, 0 |
+| 1920x1080 | pileup, preset 1 | 66.36 / 74.88 / 162.84 | 0.051 / 0.058 / 0.798 | 16.2 / 136 | 36.0 / 1867 | 421 (422) | 3634 | 4 / 0 / 0 / 8 | 0, 0, 0 |
+| 1920x1080 | pileup, preset 4 | 66.57 / 79.35 / 135.56 | 0.051 / 0.057 / 1.855 | 17.6 / 175 | 36.4 / 94 | 424 (424) | 3634 | 128 / 96 / 12 / 232 | 0, 34, 6 |
+| 1920x1080 | pileup + stress, preset 1 | 67.55 / 76.76 / 164.89 | 0.049 / 0.058 / 0.867 | 25.1 / 144 | 31.6 / 101 | 420 (423) | 3634 | 160 / 0 / 0 / 164 | 67, 0, 0 |
+| 1920x1080 | pileup + stress, preset 4 | 65.54 / 72.39 / 98.20 | 0.047 / 0.057 / 0.837 | 32.1 / 186 | 30.7 / 117 | 422 (424) | 3634 | 160 / 96 / 12 / 281 | 1073, 2665, 462 |

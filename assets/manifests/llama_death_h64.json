@@ -1,0 +1,482 @@
+{
+  "schema_version": 1,
+  "id": "llama_death_h64_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/llama/death/llama_death_h64.ase",
+  "grid_source": "assets/source/characters/llama/death/llama_death_h64.grid.json",
+  "output_atlas": "generated/art/llama_death_h64.png",
+  "output_metadata": "generated/art/llama_death_h64.json",
+  "palette_id": "llama-death-floor01-v0",
+  "frame_size": [
+    96,
+    72
+  ],
+  "pivot": [
+    44,
+    71
+  ],
+  "animation_tags": [
+    "crush_contact",
+    "crushed_remains",
+    "decap_contact",
+    "headless_collapse",
+    "slam_contact",
+    "broken_heap"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy death art (fan-concept layer: Floor 1 Bad Llama; runtime role IP-neutral ranged spitter)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "LLAMA-02-DEATH Bad Llama death art at intensity preset 4 (docs/02-art/llama-02-death-spec.md); pixel-grid-v1 source written by scripts/author_llama02_death.py with the LLAMA-01 parametric rig, new pose dicts, shape rules and literal stamps; no image-model output, no tracing",
+    "generator": "Design, spec and hero keys: Claude Opus. In-betweens, parts, manifests, export, validators and evidence: Claude Sonnet. Independent review pending (separate top-tier agent)",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/bad-llama-c-plus-a-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "death_poses": {
+    "spec": "docs/02-art/llama-02-death-spec.md",
+    "variant": "A",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "status": "executor pass complete; independent review pending; not wired into any Bevy binary",
+    "facing": "right",
+    "mirror": "x' = 88 - x around the pivot column, anchors included",
+    "key_frames": [
+      0,
+      2,
+      3,
+      5,
+      6,
+      7
+    ],
+    "key_fixture": "tests/fixtures/llama-02-death_keys.json",
+    "layers": [
+      "body",
+      "gore",
+      "molten"
+    ],
+    "preset_layer": "gore",
+    "always_shown_layers": [
+      "body",
+      "molten"
+    ],
+    "default_preset": 4,
+    "playback": {
+      "crush_contact": "once",
+      "crushed_remains": "hold",
+      "decap_contact": "once",
+      "headless_collapse": "hold",
+      "slam_contact": "once",
+      "broken_heap": "hold"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "crush_contact",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "key",
+        "anchors": {
+          "hit_origin": [
+            42,
+            52
+          ],
+          "mouth": [
+            90,
+            60
+          ],
+          "gland": [
+            91,
+            58
+          ],
+          "squeeze_back": [
+            4,
+            70
+          ],
+          "squeeze_front": [
+            76,
+            70
+          ]
+        },
+        "hazard_draw": "over"
+      },
+      {
+        "index": 1,
+        "tag": "crush_contact",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "executor",
+        "anchors": {
+          "hit_origin": [
+            42,
+            55
+          ],
+          "mouth": [
+            90,
+            60
+          ],
+          "gland": [
+            91,
+            58
+          ],
+          "squeeze_back": [
+            4,
+            70
+          ],
+          "squeeze_front": [
+            76,
+            70
+          ]
+        },
+        "hazard_draw": "over"
+      },
+      {
+        "index": 2,
+        "tag": "crushed_remains",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key",
+        "anchors": {
+          "pool_origin": [
+            40,
+            71
+          ],
+          "mouth": [
+            90,
+            69
+          ],
+          "split": [
+            41,
+            58
+          ]
+        }
+      },
+      {
+        "index": 3,
+        "tag": "decap_contact",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key",
+        "anchors": {
+          "neck": [
+            54,
+            22
+          ],
+          "hit_origin": [
+            54,
+            22
+          ],
+          "jet_base": [
+            54,
+            21
+          ],
+          "gland": [
+            56,
+            22
+          ]
+        }
+      },
+      {
+        "index": 4,
+        "tag": "headless_collapse",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "executor",
+        "anchors": {
+          "neck": [
+            64,
+            36
+          ],
+          "jet_base": [
+            64,
+            35
+          ],
+          "gland": [
+            66,
+            36
+          ]
+        }
+      },
+      {
+        "index": 5,
+        "tag": "headless_collapse",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key",
+        "anchors": {
+          "neck": [
+            66,
+            44
+          ],
+          "gland": [
+            69,
+            46
+          ],
+          "pool_origin": [
+            76,
+            71
+          ]
+        }
+      },
+      {
+        "index": 6,
+        "tag": "slam_contact",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "key",
+        "anchors": {
+          "hit_origin": [
+            42,
+            68
+          ],
+          "mouth": [
+            89,
+            66
+          ],
+          "kink": [
+            69,
+            53
+          ],
+          "gland": [
+            87,
+            58
+          ]
+        }
+      },
+      {
+        "index": 7,
+        "tag": "broken_heap",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key",
+        "anchors": {
+          "pool_origin": [
+            82,
+            71
+          ],
+          "mouth": [
+            90,
+            69
+          ],
+          "kink": [
+            69,
+            52
+          ]
+        }
+      }
+    ],
+    "hazard_draw": {
+      "draw": "over",
+      "frames": [
+        0,
+        1
+      ],
+      "default_when_absent": "behind",
+      "layer_order": "directly above the crushed enemy, below every player actor",
+      "anchor": "hit_origin of the playing frame, mirrored with the pose (x' = 88 - x)",
+      "sink": "frame 1 moves hit_origin to (42, 55): the 3 px sink is a render-only offset, never in the domain block position or the replay hash",
+      "from_tag": "crushed_remains: back to the goblin order (remains in front of the foot of loose_block_landed)"
+    },
+    "spawner_hints": {
+      "crush": {
+        "drop_molten": {
+          "count": [
+            10,
+            14
+          ],
+          "from": "gland",
+          "up": [
+            220,
+            320
+          ],
+          "spread_deg": 15,
+          "decal_molten_max": 6,
+          "decal_molten_crust_after_ticks": 240
+        },
+        "tooth": {
+          "from": "mouth",
+          "away": [
+            60,
+            120
+          ],
+          "up": [
+            180,
+            240
+          ],
+          "spin_deg_s": 900
+        },
+        "drop_blood": {
+          "count": [
+            18,
+            24
+          ],
+          "from": {
+            "squeeze_back": [
+              8,
+              10
+            ],
+            "squeeze_front": [
+              8,
+              10
+            ],
+            "mouth": [
+              2,
+              4
+            ]
+          },
+          "angle_deg": [
+            10,
+            35
+          ],
+          "speed": [
+            80,
+            160
+          ],
+          "splat_s_per_death_max": 8
+        },
+        "squeezed_out": {
+          "wool_tuft": 2,
+          "gib_flesh": 2,
+          "gib_bone": 1,
+          "speed": [
+            60,
+            120
+          ]
+        },
+        "ticks": {
+          "pose_1": 3,
+          "pose_2": 6,
+          "splat_m_and_pool_1": 4,
+          "wall_spatter": 8,
+          "pool_2": 20,
+          "pool_3": 60,
+          "decal_molten_to_crust": 240
+        },
+        "wall_spatter": {
+          "variants": [
+            "decal_wall_spatter",
+            "decal_wall_spatter_b"
+          ],
+          "mirrored": "seeded",
+          "when": "a wall face is within 48 px"
+        }
+      },
+      "decapitation": {
+        "head": {
+          "anchor": "neck",
+          "rotation_deg": -25,
+          "away": [
+            50,
+            90
+          ],
+          "up": [
+            240,
+            300
+          ],
+          "spin_deg_s": 600,
+          "bounces": 2,
+          "bounce": 0.3,
+          "roll_px": [
+            4,
+            10
+          ],
+          "swap": "head_dead",
+          "trail": "decal_smear"
+        },
+        "ticks": {
+          "pose_4": 4,
+          "pose_5": 10,
+          "pool_1": 14,
+          "pool_2": 40,
+          "pool_3": 100,
+          "wall_spatter": 4
+        },
+        "jet_drops": {
+          "from": "jet_base",
+          "every_ticks": 3,
+          "per_emit": 3,
+          "for_ticks": 36,
+          "up": [
+            170,
+            240
+          ],
+          "spread_deg": 12
+        },
+        "molten_drops": {
+          "from": "gland",
+          "every_ticks": 6,
+          "for_ticks": 24
+        },
+        "trickle": {
+          "from": "neck",
+          "every_ticks": 8,
+          "for_ticks": 40
+        }
+      },
+      "slam": {
+        "ticks": {
+          "pose_7": 6,
+          "pool_1": 8,
+          "pool_2": 30
+        },
+        "tooth": {
+          "from": "mouth",
+          "up": [
+            200,
+            260
+          ],
+          "away": [
+            60,
+            100
+          ],
+          "spin_deg_s": 900
+        },
+        "drop_blood": {
+          "count": [
+            8,
+            12
+          ],
+          "from": "mouth",
+          "up": [
+            120,
+            200
+          ]
+        },
+        "drop_molten": {
+          "count": 1,
+          "from": "gland"
+        },
+        "wool_tuft": {
+          "count": 3,
+          "from": "hit_origin"
+        },
+        "no_pool_3": true
+      },
+      "explosive": {
+        "from": "impact_position",
+        "radial": [
+          160,
+          300
+        ],
+        "heavy_parts_factor": 0.7,
+        "up_bias": [
+          60,
+          120
+        ],
+        "gibs": 10,
+        "gib_rib": 2,
+        "drop_blood": 28,
+        "drop_molten": 8,
+        "wall_spatter": "both variants, one each side",
+        "pools_under": 2,
+        "gland": "leaves decal_molten where it settles",
+        "settle": "irregular: seeded rotations, piled and overlapping, never an even row"
+      }
+    },
+    "molten_preset_1": "shown (data switch: set always_shown_layers to [\"body\"] and hide molten at preset 1 for a later accessibility review)",
+    "slam_selection": "unused art until force_tier Heavy is approved; routine lethal hits keep LLAMA-01 down"
+  }
+}
