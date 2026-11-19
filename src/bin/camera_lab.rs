@@ -80,6 +80,8 @@ struct Args {
     separate: Option<i32>,
     /// No scripted or manual input: both actors stand still (separation probes).
     idle: bool,
+    /// Print the camera metrics table for every room and coverage (headless).
+    metrics: bool,
 }
 
 fn parse_args(raw: &[String]) -> Result<Args, String> {
@@ -99,6 +101,7 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
         start_tick: 0,
         separate: None,
         idle: false,
+        metrics: false,
     };
     let mut it = raw.iter().skip(1);
     while let Some(flag) = it.next() {
@@ -145,6 +148,7 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
             "--seed" => a.seed = value()?.parse().map_err(|_| "--seed N")?,
             "--script" => a.script = true,
             "--idle" => a.idle = true,
+            "--metrics" => a.metrics = true,
             "--headless" => a.headless = true,
             "--ticks" => a.ticks = Some(value()?.parse().map_err(|_| "--ticks N")?),
             "--exit-after-ticks" => {
@@ -180,6 +184,57 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
         }
     }
     Ok(a)
+}
+
+/// Markdown table of what each coverage showed over the scripted 2P runs.
+fn print_metrics(rooms: &[Room]) -> ExitCode {
+    use dungeon_floorbreak::camera_lab::session::measure;
+    println!(
+        "| Room | View | Coverage | Both actors visible | Actor lost | Attacks on screen | Hits on screen | Zoom changes | Mean coverage | Max actor gap px |"
+    );
+    println!("|---|---|---|---:|---:|---:|---:|---:|---:|---:|");
+    for (i, room) in rooms.iter().enumerate() {
+        let script = scripts().remove(i);
+        for aspect in [Aspect::Wide16x9, Aspect::Deck16x10] {
+            for cam in [
+                CameraMode::Fixed(1.0),
+                CameraMode::Fixed(1.25),
+                CameraMode::Fixed(1.5),
+                CameraMode::Fixed(1.75),
+                CameraMode::Auto,
+            ] {
+                let m = measure(room, &script, cam, aspect);
+                let pct = |a: u64, b: u64| {
+                    if b == 0 {
+                        "n/a".to_owned()
+                    } else {
+                        format!("{:.0}%", 100.0 * a as f32 / b as f32)
+                    }
+                };
+                println!(
+                    "| {} | {} | {} | {} | {} | {} | {} | {} | {:.2} | {:.0} |",
+                    room.id,
+                    if aspect == Aspect::Wide16x9 {
+                        "16:9"
+                    } else {
+                        "16:10"
+                    },
+                    match cam {
+                        CameraMode::Auto => "auto".to_owned(),
+                        CameraMode::Fixed(c) => format!("{c}"),
+                    },
+                    pct(m.both_visible, m.ticks),
+                    pct(m.actor_lost, m.ticks),
+                    pct(m.telegraph_visible, m.telegraph_ticks),
+                    pct(m.hits_visible, m.hits),
+                    m.zoom_changes,
+                    m.mean_coverage,
+                    m.max_actor_gap_px
+                );
+            }
+        }
+    }
+    ExitCode::SUCCESS
 }
 
 fn failure(message: &str) -> ExitCode {
@@ -220,6 +275,9 @@ fn main() -> ExitCode {
         Ok(r) => r,
         Err(e) => return failure(&format!("{e} (run from the repository root)")),
     };
+    if args.metrics {
+        return print_metrics(&rooms);
+    }
     let room = rooms[args.room].clone();
     let aspect = Aspect::from_output(args.output.0, args.output.1);
     let script = script_for(args.room, args.mode);

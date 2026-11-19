@@ -147,6 +147,118 @@ impl Session {
     }
 }
 
+/// What the camera showed over one scripted run (headless, deterministic).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Metrics {
+    pub ticks: u64,
+    /// Ticks where both actors were at least 95 percent inside the view.
+    pub both_visible: u64,
+    /// Ticks where at least one actor was less than half inside the view.
+    pub actor_lost: u64,
+    /// Attack ticks (a foe in its tell or active frames within 700 px of an
+    /// actor) and how many of them had the foe fully on screen.
+    pub telegraph_ticks: u64,
+    pub telegraph_visible: u64,
+    /// Confirmed hits and how many had attacker and target both on screen.
+    pub hits: u64,
+    pub hits_visible: u64,
+    pub zoom_changes: u32,
+    pub mean_coverage: f32,
+    pub max_pan_px: i32,
+    pub max_actor_gap_px: f32,
+}
+
+pub fn measure(
+    room: &Room,
+    script: &super::script::Script,
+    camera: CameraMode,
+    aspect: Aspect,
+) -> Metrics {
+    use super::camera_op::visible_share;
+    use crate::combat::CombatEvent;
+    let mut session = Session::new(room, script.mode, script.seed, camera, aspect);
+    let mut m = Metrics::default();
+    let mut prev = session.view();
+    let mut cov_sum = 0.0f32;
+    let mut seen_events = 0usize;
+    for _ in 0..script.ticks {
+        let inputs = super::script::script_inputs(&session.sim, script);
+        let view = session.step(inputs);
+        m.ticks += 1;
+        cov_sum += session.camera.coverage();
+        m.max_pan_px = m.max_pan_px.max(
+            (view.left - prev.left)
+                .abs()
+                .max((view.top - prev.top).abs()),
+        );
+        prev = view;
+        let (subjects, _, _) = camera_input_of(&session.sim);
+        let shares: Vec<f32> = subjects.iter().map(|s| visible_share(view, s)).collect();
+        if shares.iter().all(|s| *s >= 0.95) {
+            m.both_visible += 1;
+        }
+        if shares.iter().any(|s| *s < 0.5) {
+            m.actor_lost += 1;
+        }
+        m.max_actor_gap_px = m
+            .max_actor_gap_px
+            .max((subjects[0].x - subjects[1].x).abs());
+        let h = session.sim.height;
+        for t in &session.sim.targets {
+            if let Hittable::Foe(f) = t
+                && matches!(f.mode, FoeMode::Tell | FoeMode::Active)
+                && f.alive()
+                && subjects.iter().any(|s| (s.x - f.x).abs() < 700.0)
+            {
+                m.telegraph_ticks += 1;
+                let body = Subject {
+                    x: f.x,
+                    y: h - f.y,
+                    half_w: f.spec.hw,
+                    half_h: f.spec.hh,
+                };
+                if visible_share(view, &body) >= 0.95 {
+                    m.telegraph_visible += 1;
+                }
+            }
+            if let Hittable::Goblin(g) = t
+                && g.mode == crate::goblin::GoblinMode::Attack
+                && g.attack_tick < crate::feel::IMPACT_END
+                && subjects.iter().any(|s| (s.x - g.x).abs() < 700.0)
+            {
+                m.telegraph_ticks += 1;
+                let body = Subject {
+                    x: g.x,
+                    y: h - g.y,
+                    half_w: 12.0,
+                    half_h: 19.0,
+                };
+                if visible_share(view, &body) >= 0.95 {
+                    m.telegraph_visible += 1;
+                }
+            }
+        }
+        let events = session.sim.events.len();
+        for e in &session.sim.events[seen_events..events] {
+            if let super::sim::LabEvent::Combat(CombatEvent::Hit { target, .. }) = e {
+                m.hits += 1;
+                let (tx, ty) = {
+                    use crate::combat::StrikeTarget;
+                    session.sim.targets[*target as usize].centre()
+                };
+                let target_in = view.contains_point(tx, h - ty);
+                if target_in && shares.iter().any(|s| *s >= 0.95) {
+                    m.hits_visible += 1;
+                }
+            }
+        }
+        seen_events = events;
+    }
+    m.zoom_changes = session.camera.zoom_changes;
+    m.mean_coverage = cov_sum / m.ticks.max(1) as f32;
+    m
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -242,6 +354,39 @@ mod tests {
         other.seed = 99;
         let b = run(&rooms[script.room], &other);
         assert_ne!(a.final_hash, b.final_hash);
+    }
+
+    #[test]
+    fn metrics_show_that_a_wider_fixed_coverage_keeps_more_of_the_duo_in_view() {
+        let rooms = rooms();
+        // ROOM-05: the separation room.
+        let script = scripts().remove(4);
+        let m = |cam| measure(&rooms[4], &script, cam, Aspect::Wide16x9);
+        let w1 = m(CameraMode::Fixed(1.0));
+        let w15 = m(CameraMode::Fixed(1.5));
+        let auto = m(CameraMode::Auto);
+        assert!(w15.both_visible > w1.both_visible, "{w1:?} {w15:?}");
+        assert!(auto.both_visible >= w15.both_visible.saturating_sub(script.ticks / 10));
+        assert!(auto.actor_lost <= w1.actor_lost);
+        assert!(
+            auto.zoom_changes < 40,
+            "no zoom pumping: {}",
+            auto.zoom_changes
+        );
+        // A pan never snaps; the largest single-tick move of the auto camera is one
+        // whole 32 px zoom step against a clamped room edge.
+        assert!(
+            w15.max_pan_px <= 12,
+            "fixed pan snapped: {}",
+            w15.max_pan_px
+        );
+        assert!(
+            auto.max_pan_px <= 32,
+            "auto moved {} px in a tick",
+            auto.max_pan_px
+        );
+        // The metrics are reproducible.
+        assert_eq!(auto, m(CameraMode::Auto));
     }
 
     #[test]

@@ -1,0 +1,1 @@
+2026-11-19T00:06:43.982365Z  INFO bevy_render::renderer: AdapterInfo { name: "NVIDIA GeForce RTX 4060 Ti", vendor: 4318, device: 10245, device_type: DiscreteGpu, device_pci_bus_id: "0000:09:00.0", driver: "NVIDIA", driver_info: "615.71.09", backend: Vulkan, subgroup_min_size: 32, subgroup_max_size: 32, transient_saves_memory: Some(false), limit_bucket: None }

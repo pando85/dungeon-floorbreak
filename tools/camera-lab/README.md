@@ -2,6 +2,8 @@
 
 **Status:** Creative design and browser greybox, **not** a production-ready level or Rust/Bevy playtest.
 
+**Update:** a Rust + Bevy probe of these six rooms now exists on this branch: see [the doc](../../docs/03-tech/camera-lab.md) and [REVIEW.md](REVIEW.md). The browser package below remains the original creative hypothesis (translated to English).
+
 ## What this package contains
 
 - `index.html`: a self-contained, offline interactive browser prototype with six test rooms, a variable zoom camera, 16:9 / 16:10 layouts, schematic actor movement, basic contact attacks, destructible stand-ins, player switching, 2-keyboard-player controls and a mini map showing the current viewport.
