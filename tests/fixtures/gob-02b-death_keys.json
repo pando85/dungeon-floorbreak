@@ -1,0 +1,24 @@
+{
+  "asset_id": "gob-02b-death",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "2109545b8dc69235fe5c11a8c660338c5df2c6e3c5892eaa0a05208cb735e324"
+    },
+    "2": {
+      "sha256": "87c8c3615b14b2d637f0dda19e2e453d8766dca91e788a5b71bdec0eeda9ea2c"
+    },
+    "3": {
+      "sha256": "4bccd1c54a755c0a6cd3e87e70ac9b1f08f74b7f0941ea60d0154392a5852f2f"
+    },
+    "5": {
+      "sha256": "49198f39f75b189c6b21d181fbdb7c1b4e54b3ba77d915b27d495decc2aba56d"
+    }
+  },
+  "layers": [
+    "body",
+    "weapon",
+    "accessory",
+    "gore"
+  ]
+}
