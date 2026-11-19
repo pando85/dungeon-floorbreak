@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=solo_swap_continuity seed=0xd020003 tick=320 elapsed=320 hero_hp=4 deaths=0 enemies= hash=20120659874dbfae
+PARTY_STATE fixture=solo_swap_continuity mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=2232e8425b3ca7d4

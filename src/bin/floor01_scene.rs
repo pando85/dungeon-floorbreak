@@ -58,7 +58,10 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
+    feel::{
+        HERO_HURT_TICKS, IMPACT_FLASH_TICKS, LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY,
+        LLAMA_GLOB_SPEED,
+    },
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
     hud::{GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
@@ -71,6 +74,9 @@ use dungeon_floorbreak::{
     },
     lighting::{MAX_SHADOWS, ShadowEllipse, ViewRect, contact_shadow},
     llama::LlamaMode,
+    pad_slots::{PadButtons, PadEvent, PadFrame, PadSlots},
+    party::{HeroId, PadId, PartyState},
+    party_scene::{self, PartyFixture},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, TICK_SECONDS},
     scene_anim::SceneAnimators,
     shore_art::{ShoreArt, ShoreSlot, landed_age},
@@ -114,6 +120,9 @@ struct Args {
     scenario: Option<Scenario>,
     /// COMBAT-INT-01 combat fixture (mutually exclusive with `--scenario`).
     fixture: Option<&'static Fixture>,
+    /// WORK-005/006 party fixture (headless replay or a `--capture-tick`
+    /// capture): its base combat fixture is also stored in `fixture`.
+    party_fixture: Option<&'static PartyFixture>,
     /// Fixture only: the keyboard or pad drives Carl instead of the script.
     manual: bool,
     /// Fixture only: draw hit and hurt boxes (debug overlay).
@@ -223,6 +232,7 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
         debug_collision: false,
         scenario: None,
         fixture: None,
+        party_fixture: None,
         manual: false,
         debug_combat: false,
         capture_tick: None,
@@ -257,9 +267,26 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             "--debug-combat" => parsed.debug_combat = true,
             "--fixture" => {
                 let value = iter.next().ok_or("--fixture needs a name")?;
+                if parsed.party_fixture.is_some() {
+                    return Err("--fixture and --party-fixture are mutually exclusive".into());
+                }
                 parsed.fixture = Some(Fixture::by_name(value).ok_or_else(|| {
                     format!("unknown fixture {value:?} (expected {})", Fixture::names())
                 })?);
+            }
+            "--party-fixture" => {
+                let value = iter.next().ok_or("--party-fixture needs a name")?;
+                if parsed.fixture.is_some() {
+                    return Err("--fixture and --party-fixture are mutually exclusive".into());
+                }
+                let party = PartyFixture::by_name(value).ok_or_else(|| {
+                    format!(
+                        "unknown party fixture {value:?} (expected {})",
+                        PartyFixture::names()
+                    )
+                })?;
+                parsed.party_fixture = Some(party);
+                parsed.fixture = Some(party.base);
             }
             "--hud-preview" => {
                 let value = iter.next().ok_or("--hud-preview needs a name")?;
@@ -363,6 +390,21 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             }
             other => return Err(format!("unknown argument {other:?}")),
         }
+    }
+    if parsed.party_fixture.is_some() && !(parsed.headless || parsed.capture_tick.is_some())
+        || parsed.party_fixture.is_some()
+            && (parsed.manual
+                || parsed.capture_sequence.is_some()
+                || parsed.exit_after_ticks.is_some()
+                || parsed.perf_frames.is_some()
+                || parsed.death_stress
+                || parsed.combat_trace
+                || parsed.anim_trace)
+    {
+        return Err(
+            "--party-fixture is a headless replay or a --capture-tick capture only (no --manual, --capture-sequence, --exit-after-ticks, --perf-frames, --death-stress, --combat-trace or --anim-trace)"
+                .into(),
+        );
     }
     let driven = parsed.scenario.is_some() || parsed.fixture.is_some();
     if parsed.scenario.is_some() && parsed.fixture.is_some() {
@@ -471,6 +513,7 @@ type Scene = (
     SceneAnimators,
     Option<CombatState>,
     Option<DeathPresenter>,
+    PartyState,
 );
 
 /// The cosmetic death presenter of a fixture run: the goblin death art at the
@@ -528,9 +571,34 @@ fn build_scene(
         anim.art = actors.combat_art(&combat);
         let mut death = death_presenter(root, args)?;
         hud.set_melee_live(true);
+        // A party fixture runs the live party exactly like the interactive
+        // scene (slot inputs, solo swap, drive); a plain fixture stays legacy.
+        let mut party = args.party_fixture.map_or_else(PartyState::default, |pf| {
+            let mut party = PartyState::new(pf.tuning);
+            if pf.two_player {
+                party.pad_connected(PadId(1));
+                party.pad_start_pressed(PadId(2));
+            }
+            party
+        });
+        if args.party_fixture.is_some() {
+            sim.set_drive(party.drive(true));
+        }
         for _ in 0..presim_ticks(args).unwrap_or(0) {
-            let raw = fixture.input(sim.world.tick + 1);
-            step_combat(&mut sim, &mut combat, &mut anim, Some(&mut death), raw);
+            let inputs = if let Some(pf) = args.party_fixture {
+                let slots = pf.slot_inputs(sim.world.tick + 1);
+                let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+                party.request_swap(slots[0].swap, hurt);
+                sim.set_drive(party.drive(true));
+                party.hero_inputs(slots)
+            } else {
+                [fixture.input(sim.world.tick + 1), RawInput::default()]
+            };
+            let restarts = combat.restarts;
+            step_combat(&mut sim, &mut combat, &mut anim, Some(&mut death), inputs);
+            if combat.restarts != restarts {
+                party.restart();
+            }
             step_hud(hud, &sim, Some(&combat));
             if args.death_stress && args.perf_from_tick.is_some() {
                 // Lab: load the pools before the probe starts measuring.
@@ -545,7 +613,7 @@ fn build_scene(
                 println!("{}", art.trace_line(&sim, &combat));
             }
         }
-        return Ok((sim, anim, Some(combat), Some(death)));
+        return Ok((sim, anim, Some(combat), Some(death), party));
     }
     let mut sim = SceneSim::new(kit, view_height(args.deck))?;
     let mut anim = actors.animators(&sim.world);
@@ -559,7 +627,7 @@ fn build_scene(
             }
         });
     }
-    Ok((sim, anim, None, None))
+    Ok((sim, anim, None, None, PartyState::default()))
 }
 
 /// One fixed tick of a combat fixture, and the animation that follows it. A
@@ -569,10 +637,10 @@ fn step_combat(
     combat: &mut CombatState,
     anim: &mut SceneAnimators,
     death: Option<&mut DeathPresenter>,
-    raw: RawInput,
+    inputs: [RawInput; 2],
 ) {
     let expected = sim.world.tick + 1;
-    combat.step(sim, raw);
+    combat.step_party(sim, inputs);
     if sim.world.tick == expected {
         anim.step(&sim.world);
         anim.step_art(sim, combat);
@@ -679,11 +747,14 @@ fn main() -> ExitCode {
         };
     }
     let mut hud = new_hud(&args, &kit, &actors);
-    let (sim, anim, combat, death) = match build_scene(&kit, &args, &actors, &root, &mut hud) {
+    let (sim, anim, combat, death, party) = match build_scene(&kit, &args, &actors, &root, &mut hud)
+    {
         Ok(scene) => scene,
         Err(message) => return failure(&message),
     };
-    run_window(kit, sim, anim, combat, death, actors, hud, args, &root);
+    run_window(
+        kit, sim, anim, combat, death, party, actors, hud, args, &root,
+    );
     ExitCode::SUCCESS
 }
 
@@ -846,13 +917,20 @@ struct Death(Option<DeathPresenter>);
 #[derive(Resource)]
 struct LiveFixture(Option<&'static Fixture>);
 
+/// Keyboard taps latched between fixed steps (pad edges live in [`Pads`]).
 #[derive(Resource, Default)]
 struct Controls {
     jump_tap: bool,
     attack_tap: bool,
     physical_tap: bool,
+    swap_tap: bool,
     restart: bool,
 }
+
+/// Local-player slot ownership (`pad_slots`): which pad drives P1 and P2, the
+/// solo swap, the disconnect pause and the per-plate glyph families.
+#[derive(Resource, Default)]
+struct Pads(PadSlots);
 
 #[derive(Resource)]
 struct Loading {
@@ -985,6 +1063,8 @@ enum CombatDebugBox {
     Swing(usize),
     /// Carl's 24 x 52 hurt box.
     CarlHurt,
+    /// Donut's own hurtbox (Q4), shown while the party is live.
+    DonutHurt,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -994,6 +1074,7 @@ fn run_window(
     anim: SceneAnimators,
     combat: Option<CombatState>,
     death: Option<DeathPresenter>,
+    party: PartyState,
     actors: Actors,
     hud: HudRuntime,
     args: Args,
@@ -1140,13 +1221,15 @@ fn run_window(
     .insert_resource(HudAtlas(hud_atlas))
     .insert_resource(Setup { kit, args })
     .init_resource::<Controls>()
+    .insert_resource(Pads(PadSlots::new(party)))
     .init_resource::<AfterExitTicks>()
     .add_systems(Startup, setup)
     .add_systems(
         Update,
         (
+            pad_connections,
             capture_input,
-            detect_glyphs,
+            sync_party_hud,
             perf_step,
             sync_visuals,
             sync_combat_visuals,
@@ -1476,6 +1559,11 @@ fn setup(
                 Color::srgba(0.3, 0.5, 1.0, 0.3),
                 Vec2::new(HERO_HALF_WIDTH * 2.0, HERO_HALF_HEIGHT * 2.0),
             );
+            overlay(
+                CombatDebugBox::DonutHurt,
+                Color::srgba(1.0, 0.5, 0.9, 0.35),
+                Vec2::ONE,
+            );
             for index in 0..state.enemies.len() {
                 overlay(
                     CombatDebugBox::Goblin(index),
@@ -1791,79 +1879,115 @@ fn torch_component(piece: &PieceDraw) -> Torch {
 
 // -------------------------------------------------------------------- systems
 
+/// The opaque pad identity `pad_slots` keys on: the Bevy gamepad entity.
+fn pad_id(entity: Entity) -> PadId {
+    PadId(entity.to_bits())
+}
+
+/// Route gamepad connection messages to the slot owner table (D5/D6): the
+/// first pad is P1, a later pad waits for Start, an owning pad that goes away
+/// pauses the fixed step until a pad reclaims its slot. Presentation and input
+/// routing only; the vendor id comes from `GamepadConnection::Connected`
+/// (bevy_input 0.20.1, filled from the OS by bevy_gilrs).
+fn pad_connections(mut events: MessageReader<GamepadEvent>, mut pads: ResMut<Pads>) {
+    for event in events.read() {
+        if let GamepadEvent::Connection(connection) = event {
+            let pad = pad_id(connection.gamepad);
+            match &connection.connection {
+                GamepadConnection::Connected { vendor_id, .. } => {
+                    pads.0.apply(PadEvent::Connected {
+                        pad,
+                        vendor_id: *vendor_id,
+                    });
+                }
+                GamepadConnection::Disconnected => {
+                    pads.0.apply(PadEvent::Disconnected { pad });
+                }
+            }
+        }
+    }
+}
+
+/// One pad's state for this frame, by logical action.
+fn pad_frame(entity: Entity, pad: &Gamepad) -> PadFrame {
+    let stick = pad.left_stick().x;
+    PadFrame {
+        pad: pad_id(entity),
+        vendor_id: pad.vendor_id(),
+        move_x: if stick.abs() > 0.18 {
+            stick
+        } else {
+            pad.dpad().x
+        },
+        held: PadButtons {
+            jump: pad.pressed(GamepadButton::South),
+            attack: pad.pressed(GamepadButton::West),
+            // PhysicalAttack is Triangle/Y (North); North no longer restarts.
+            physical: pad.pressed(GamepadButton::North),
+            swap: pad.pressed(GamepadButton::LeftTrigger),
+            restart: pad.pressed(GamepadButton::Select),
+            start: pad.pressed(GamepadButton::Start),
+        },
+        pressed: PadButtons {
+            jump: pad.just_pressed(GamepadButton::South),
+            attack: pad.just_pressed(GamepadButton::West),
+            physical: pad.just_pressed(GamepadButton::North),
+            swap: pad.just_pressed(GamepadButton::LeftTrigger),
+            restart: pad.just_pressed(GamepadButton::Select),
+            start: pad.just_pressed(GamepadButton::Start),
+        },
+    }
+}
+
 fn capture_input(
     keys: Res<ButtonInput<KeyCode>>,
-    pads: Query<&Gamepad>,
+    gamepads: Query<(Entity, &Gamepad)>,
     mut controls: ResMut<Controls>,
+    mut pads: ResMut<Pads>,
     mut exit: MessageWriter<AppExit>,
 ) {
     controls.jump_tap |= keys.just_pressed(KeyCode::Space);
     controls.attack_tap |= keys.just_pressed(KeyCode::KeyJ);
     controls.physical_tap |= keys.just_pressed(KeyCode::KeyK);
+    // Temporary keyboard default for the solo swap (the contract only fixes
+    // L1/LB); the keyboard stays P1.
+    controls.swap_tap |= keys.just_pressed(KeyCode::KeyQ);
     controls.restart |= keys.just_pressed(KeyCode::KeyR);
     if keys.just_pressed(KeyCode::Escape) {
         exit.write(AppExit::Success);
     }
-    // The first connected gamepad drives the hero; no pad (hot-unplug) simply
-    // means no pad input on the next tick, so nothing sticks.
-    if let Some(pad) = pads.iter().next() {
-        controls.jump_tap |= pad.just_pressed(GamepadButton::South);
-        controls.attack_tap |= pad.just_pressed(GamepadButton::West);
-        // PhysicalAttack is Triangle/Y (North); North no longer restarts.
-        controls.physical_tap |= pad.just_pressed(GamepadButton::North);
-        controls.restart |= pad.just_pressed(GamepadButton::Select);
-        if pad.just_pressed(GamepadButton::Start) {
+    // Each pad is polled on its own and routed by `pad_slots`: the owner of
+    // P1 or P2 drives its hero, any other pad is ignored except for Start
+    // (which joins P2). A pad that vanishes (hot-unplug) leaves the query, so
+    // nothing sticks.
+    for (entity, pad) in &gamepads {
+        let commands = pads.0.sample(pad_frame(entity, pad));
+        controls.restart |= commands.restart;
+        if commands.exit {
             exit.write(AppExit::Success);
         }
     }
 }
 
-/// HUD-DEBT-05: the glyph family follows the last gamepad with input. The
-/// identity is `Gamepad::vendor_id()` (bevy_input 0.20.1, filled from the OS by
-/// bevy_gilrs); the mapping lives in `GlyphSet::for_vendor_id`. Only
-/// connection and button messages count, so stick drift on an idle pad never
-/// flips the set. Presentation only: no simulation state is touched, and the
-/// loop reads at most a handful of messages per frame without allocating.
-fn detect_glyphs(
-    mut events: MessageReader<GamepadEvent>,
-    pads: Query<&Gamepad>,
-    mut hud: ResMut<HudState>,
-    mut active: Local<Option<Entity>>,
-) {
-    for event in events.read() {
-        match event {
-            GamepadEvent::Connection(connection) => match &connection.connection {
-                GamepadConnection::Connected { vendor_id, .. } => {
-                    *active = Some(connection.gamepad);
-                    hud.0
-                        .set_detected_glyphs(GlyphSet::for_vendor_id(*vendor_id));
-                }
-                GamepadConnection::Disconnected if *active == Some(connection.gamepad) => {
-                    // Fall back to another connected pad, else Xbox.
-                    let other = pads.iter().next();
-                    *active = None;
-                    hud.0.set_detected_glyphs(GlyphSet::for_vendor_id(
-                        other.and_then(Gamepad::vendor_id),
-                    ));
-                }
-                GamepadConnection::Disconnected => {}
-            },
-            GamepadEvent::Button(button) if *active != Some(button.entity) => {
-                if let Ok(pad) = pads.get(button.entity) {
-                    *active = Some(button.entity);
-                    hud.0
-                        .set_detected_glyphs(GlyphSet::for_vendor_id(pad.vendor_id()));
-                }
-            }
-            GamepadEvent::Button(_) | GamepadEvent::Axis(_) => {}
-        }
-    }
+/// Push the real party state to the HUD every frame: who drives each plate,
+/// each plate's own pad glyph family (HUD-DEBT-05 per slot, provisional Q11)
+/// and the reconnect request of a disconnect pause. `set_party` bumps the HUD
+/// revision only on a change, and this runs in `Update` so the message shows
+/// while the fixed step is paused. Presentation only.
+fn sync_party_hud(pads: Res<Pads>, mut hud: ResMut<HudState>) {
+    hud.0.set_party(pads.0.hud_view());
+}
+
+/// The controlled hero is in a hit reaction (blocks the solo swap, Q8): Carl's
+/// or Donut's own hurt state.
+fn controlled_hero_hurt(party: &PartyState, combat: Option<&CombatState>) -> bool {
+    combat.is_some_and(|c| c.hurt_ticks_of(party.controlled_hero()) > 0)
 }
 
 #[allow(clippy::too_many_arguments)]
 fn fixed_step(
     keys: Res<ButtonInput<KeyCode>>,
-    pads: Query<&Gamepad>,
+    mut pads: ResMut<Pads>,
     frozen: Res<Frozen>,
     exit_after: Res<ExitAfter>,
     scenario: Res<LiveScenario>,
@@ -1883,7 +2007,27 @@ fn fixed_step(
     let jump_tap = std::mem::take(&mut controls.jump_tap);
     let attack_tap = std::mem::take(&mut controls.attack_tap);
     let physical_tap = std::mem::take(&mut controls.physical_tap);
+    let swap_tap = std::mem::take(&mut controls.swap_tap);
+    // Keyboard is P1. Pad edges are consumed here too, so a tap made during a
+    // pause is dropped and nothing fires on resume.
+    let keyboard = {
+        let left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
+        let right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
+        RawInput {
+            move_x: f32::from(i8::from(right) - i8::from(left)),
+            jump: keys.pressed(KeyCode::Space) || jump_tap,
+            attack: keys.pressed(KeyCode::KeyJ) || attack_tap,
+            physical: keys.pressed(KeyCode::KeyK) || physical_tap,
+            swap: swap_tap,
+            ..RawInput::default()
+        }
+    };
+    let mut live_slots = pads.0.take_inputs(keyboard);
     if frozen.0 {
+        return;
+    }
+    // D6: an owning pad is gone; the sim waits for it (the HUD says so).
+    if pads.0.is_paused() {
         return;
     }
     if let Some(limit) = exit_after.0
@@ -1905,44 +2049,49 @@ fn fixed_step(
             death.clear();
         }
         hud.0.restart();
+        pads.0.party_mut().restart();
         after_exit.0 = 0;
         println!("FLOOR1_RESTART");
     }
-    let raw = if let Some(scenario) = scenario.0 {
-        scenario.input(&sim.0.world)
-    } else if let Some(fixture) = fixture.0 {
-        fixture.input(sim.0.world.tick + 1)
-    } else {
-        let left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
-        let right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
-        let mut raw = RawInput {
-            move_x: f32::from(i8::from(right) - i8::from(left)),
-            jump: keys.pressed(KeyCode::Space) || jump_tap,
-            // Melee exists only in a combat fixture (`--fixture ... --manual`).
-            attack: combat.0.is_some() && (keys.pressed(KeyCode::KeyJ) || attack_tap),
-            physical: combat.0.is_some() && (keys.pressed(KeyCode::KeyK) || physical_tap),
-            ..RawInput::default()
-        };
-        if let Some(pad) = pads.iter().next() {
-            if raw.move_x == 0.0 {
-                let stick = pad.left_stick().x;
-                raw.move_x = if stick.abs() > 0.18 {
-                    stick
-                } else {
-                    pad.dpad().x
-                };
-            }
-            raw.jump |= pad.pressed(GamepadButton::South);
-            if combat.0.is_some() {
-                raw.attack |= pad.pressed(GamepadButton::West);
-                raw.physical |= pad.pressed(GamepadButton::North);
-            }
+    // Melee exists only in a combat fixture (`--fixture ... --manual`).
+    if combat.0.is_none() {
+        for slot in &mut live_slots {
+            slot.attack = false;
+            slot.physical = false;
         }
-        raw
+    }
+    let slot_inputs = if let Some(scenario) = scenario.0 {
+        [scenario.input(&sim.0.world), RawInput::default()]
+    } else if let Some(fixture) = fixture.0 {
+        [fixture.input(sim.0.world.tick + 1), RawInput::default()]
+    } else {
+        live_slots
     };
+    // Solo swap (L1/LB, Q on the keyboard), then slot -> hero routing. With no
+    // pad and no swap this is the identity on Carl, so scripted runs and
+    // replays are unchanged.
+    let hurt = controlled_hero_hurt(pads.0.party(), combat.0.as_ref());
+    pads.0.party_mut().request_swap(slot_inputs[0].swap, hurt);
+    let hero_inputs = pads.0.party().hero_inputs(slot_inputs);
+    // A live party (Donut is a real hero, a bot or P2) exists only in
+    // interactive play; scripted scenario and fixture runs keep the legacy
+    // single-hero simulation, so every recorded hash is unchanged.
+    let live_party = scenario.0.is_none() && fixture.0.is_none();
+    sim.0.set_drive(pads.0.party().drive(live_party));
     let was_complete = sim.0.world.complete;
     if let Some(combat) = combat.0.as_mut() {
-        step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
+        let restarts = combat.restarts;
+        step_combat(
+            &mut sim.0,
+            combat,
+            &mut anim.0,
+            death.0.as_mut(),
+            hero_inputs,
+        );
+        if combat.restarts != restarts {
+            // A party defeat restarted the attempt: Carl is controlled again.
+            pads.0.party_mut().restart();
+        }
         print_combat_events(combat, Some(&mut audio));
         if setup.args.death_stress
             && let Some(death) = death.0.as_mut()
@@ -1952,7 +2101,7 @@ fn fixed_step(
             death.stress_tick(hero.x, hero.y - HERO_HALF_HEIGHT);
         }
     } else {
-        sim.0.step(raw);
+        sim.0.step_party(hero_inputs);
         anim.0.step(&sim.0.world);
     }
     step_hud(&mut hud.0, &sim.0, combat.0.as_ref());
@@ -2089,6 +2238,24 @@ fn presentation_tick(
     }
 }
 
+/// Donut's hit reaction as a tint (presentation only, live party only): the
+/// impact flash for the first ticks of her flinch, then a blink through her
+/// invulnerability. She has no hurt art yet; Carl has his own.
+fn donut_tint(sim: &SceneSim, combat: Option<&CombatState>) -> Color {
+    let Some(combat) = combat.filter(|_| sim.party_live()) else {
+        return Color::WHITE;
+    };
+    let hurt = combat.hurt_ticks_of(HeroId::Donut);
+    let invulnerable = sim.world.donut_body.invulnerable_ticks;
+    if hurt > HERO_HURT_TICKS.saturating_sub(IMPACT_FLASH_TICKS) {
+        FLASH_TINT
+    } else if invulnerable > 0 && (invulnerable / 4).is_multiple_of(2) {
+        Color::srgba(1.0, 1.0, 1.0, 0.5)
+    } else {
+        Color::WHITE
+    }
+}
+
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_visuals(
     sim: Res<Sim>,
@@ -2163,6 +2330,9 @@ fn sync_visuals(
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = pose.frame;
         }
+        if !actor.is_hero {
+            sprite.color = donut_tint(state, combat.0.as_ref());
+        }
     }
 
     let hero = &state.world.hero;
@@ -2175,8 +2345,8 @@ fn sync_visuals(
 /// Combat fixture presentation (reads the simulation and the animators only):
 /// the goblin sprites with their frame, flip, depth and impact flash, Carl's
 /// melee sprite (shown instead of the locomotion sprite while a melee, hurt or
-/// knockdown pose is drawn) and the `--debug-combat` boxes. Donut is shown as
-/// the passive follower.
+/// knockdown pose is drawn) and the `--debug-combat` boxes (Donut's hurtbox
+/// while the party is live).
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_combat_visuals(
     sim: Res<Sim>,
@@ -2319,6 +2489,14 @@ fn sync_combat_visuals(
                 transform.translation.x = hero.x.round();
                 transform.translation.y = hero.y.round();
                 *visibility = Visibility::Inherited;
+            }
+            CombatDebugBox::DonutHurt => {
+                if sim.0.party_live() {
+                    rect(&mut transform, CombatState::hurtbox(&sim.0, HeroId::Donut));
+                    *visibility = Visibility::Inherited;
+                } else {
+                    *visibility = Visibility::Hidden;
+                }
             }
             CombatDebugBox::Goblin(index) => {
                 let enemy = &state.enemies[*index];
@@ -2957,7 +3135,13 @@ fn perf_step(
     };
     let started = std::time::Instant::now();
     let raw = fixture.input(sim.0.world.tick + 1);
-    step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
+    step_combat(
+        &mut sim.0,
+        combat,
+        &mut anim.0,
+        death.0.as_mut(),
+        [raw, RawInput::default()],
+    );
     if setup.args.death_stress
         && let Some(death) = death.0.as_mut()
     {
@@ -3269,7 +3453,13 @@ fn capture_sequence(
             for _ in 0..seq.step {
                 if let (Some(fixture), Some(combat)) = (fixture, combat.0.as_mut()) {
                     let raw = fixture.input(sim.0.world.tick + 1);
-                    step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
+                    step_combat(
+                        &mut sim.0,
+                        combat,
+                        &mut anim.0,
+                        death.0.as_mut(),
+                        [raw, RawInput::default()],
+                    );
                 } else if let Some(scenario) = scenario {
                     let raw = scenario.input(&sim.0.world);
                     sim.0.step(raw);
@@ -3322,12 +3512,18 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         let mut args = args.clone();
         args.capture_tick.get_or_insert(fixture.ticks);
         let mut hud = new_hud(&args, kit, actors);
-        let (sim, anim, combat, death) = build_scene(kit, &args, actors, root, &mut hud)?;
+        let (sim, anim, combat, death, party) = build_scene(kit, &args, actors, root, &mut hud)?;
         let mut combat = combat.ok_or("fixture without combat state")?;
         print_combat_events(&mut combat, None);
         println!("{}", sim.state_line());
         println!("{}", anim.state_line(sim.world.tick));
         print_combat_state(&sim, &anim, &combat);
+        if let Some(party_fixture) = args.party_fixture {
+            println!(
+                "{}",
+                party_scene::party_state_line(party_fixture, &combat, &sim, &party)
+            );
+        }
         if args.death_trace
             && let Some(death) = death
         {
@@ -3336,7 +3532,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         return Ok(());
     }
     let mut hud = new_hud(args, kit, actors);
-    let (sim, anim, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
+    let (sim, anim, _, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
     Ok(())
@@ -3370,6 +3566,65 @@ mod tests {
         let mut full = vec!["floor01_scene".to_owned()];
         full.extend(list.iter().map(|s| (*s).to_owned()));
         parse_args_with(&full, HudSettings::default())
+    }
+
+    #[test]
+    fn a_party_fixture_is_a_headless_or_capture_run_and_excludes_a_plain_fixture() {
+        let a = args(&[
+            "--headless-floor01-smoke",
+            "--party-fixture",
+            "donut_defeat_party",
+        ])
+        .unwrap();
+        assert_eq!(
+            a.party_fixture.map(|f| f.name()),
+            Some("donut_defeat_party")
+        );
+        assert_eq!(a.fixture.map(|f| f.name), Some("donut_defeat_party"));
+        assert!(
+            args(&[
+                "--party-fixture",
+                "duo_independent_moves",
+                "--capture-tick",
+                "60"
+            ])
+            .is_ok()
+        );
+        assert!(args(&["--party-fixture", "nope", "--capture-tick", "60"]).is_err());
+        // A live party fixture run, or one mixed with other modes, is refused.
+        assert!(args(&["--party-fixture", "duo_independent_moves"]).is_err());
+        assert!(
+            args(&[
+                "--party-fixture",
+                "duo_independent_moves",
+                "--fixture",
+                "cp01_kick",
+                "--capture-tick",
+                "60"
+            ])
+            .is_err()
+        );
+        assert!(
+            args(&[
+                "--fixture",
+                "cp01_kick",
+                "--party-fixture",
+                "duo_independent_moves",
+                "--capture-tick",
+                "60"
+            ])
+            .is_err()
+        );
+        assert!(
+            args(&[
+                "--party-fixture",
+                "duo_independent_moves",
+                "--capture-tick",
+                "60",
+                "--manual"
+            ])
+            .is_err()
+        );
     }
 
     #[test]

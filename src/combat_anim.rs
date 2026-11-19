@@ -1178,7 +1178,7 @@ impl CombatAnimators {
     /// Call once after every simulation step of the fixture.
     pub fn step(&mut self, scene: &SceneSim, combat: &CombatState) {
         let hero = &scene.world.hero;
-        let landed_age = if combat.hero_defeated && hero.grounded {
+        let landed_age = if combat.carl_defeated() && hero.grounded {
             Some(self.carl_input.landed_age.map_or(0, |a| a + 1))
         } else {
             None
@@ -1187,7 +1187,7 @@ impl CombatAnimators {
             melee: hero.melee.current().map(|m| (m.spec.id, m.tick)),
             hurt_ticks: combat.hurt_ticks,
             frozen: combat.hero_hit_stop > 0 || self.prev_hero_stop > 0,
-            defeated: combat.hero_defeated,
+            defeated: combat.carl_defeated(),
             grounded: hero.grounded,
             vy: hero.vy,
             landed_age,

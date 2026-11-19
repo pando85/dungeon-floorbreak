@@ -18,7 +18,14 @@ pub struct RawInput {
     /// EquippedSpecial (Circle/B): unlock-gated, no effect in Floor 1 combat.
     pub ability: bool,
     pub pause: bool,
+    /// SwapCharacter (L1/LB): solo only. The party layer (`crate::party`) consumes
+    /// it and strips it before the per-hero inputs reach the simulation.
+    pub swap: bool,
 }
+
+/// One raw input per local player slot: index 0 is P1 (keyboard plus the first
+/// pad), index 1 is P2 (the second pad, joined with Start). See `crate::party`.
+pub type SlotInputs = [RawInput; 2];
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct Actions {
@@ -30,6 +37,7 @@ pub struct Actions {
     /// EquippedSpecial (Circle/B): unlock-gated, no effect in Floor 1 combat.
     pub ability: bool,
     pub pause: bool,
+    pub swap: bool,
 }
 
 impl From<RawInput> for Actions {
@@ -46,6 +54,7 @@ impl From<RawInput> for Actions {
             physical: raw.physical,
             ability: raw.ability,
             pause: raw.pause,
+            swap: raw.swap,
         }
     }
 }
@@ -58,6 +67,7 @@ pub struct InputFrame {
     pub physical_pressed: bool,
     pub ability_pressed: bool,
     pub pause_pressed: bool,
+    pub swap_pressed: bool,
 }
 
 impl InputFrame {
@@ -68,6 +78,7 @@ impl InputFrame {
         self.physical_pressed = next.physical && !self.held.physical;
         self.ability_pressed = next.ability && !self.held.ability;
         self.pause_pressed = next.pause && !self.held.pause;
+        self.swap_pressed = next.swap && !self.held.swap;
         self.held = next;
     }
 }
@@ -132,6 +143,20 @@ mod tests {
             ..RawInput::default()
         });
         assert!(actions.physical && !actions.ability && !actions.attack);
+    }
+
+    #[test]
+    fn swap_is_its_own_action_with_a_press_edge() {
+        let mut frame = InputFrame::default();
+        let swap = RawInput {
+            swap: true,
+            ..RawInput::default()
+        };
+        frame.advance(swap);
+        assert!(frame.swap_pressed && !frame.attack_pressed && !frame.jump_pressed);
+        frame.advance(swap);
+        assert!(!frame.swap_pressed, "a held button never repeats");
+        assert!(Actions::from(swap).swap);
     }
 
     #[test]
