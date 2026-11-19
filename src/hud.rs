@@ -13,6 +13,7 @@
 use crate::combat::{CombatEvent, ForceTier, HERO_HEALTH};
 use crate::corridor::DONUT_HEALTH;
 use crate::env_kit::IRect;
+use crate::hud_settings::HudSettings;
 
 // ------------------------------------------------------------------- numbers
 
@@ -433,6 +434,9 @@ pub struct HudSnapshot {
     /// `Some` draws the PREVIEW tag.
     pub preview: Option<HudPreview>,
     pub reduced_motion: bool,
+    /// HUD-DEBT-06: all HUD text at 7:1 or better, empty-state outlines 13:1,
+    /// fills and track outlines at least 4.4:1 (floor01-scene.md, HUD accessibility settings).
+    pub high_contrast: bool,
     /// The System face frame (idle, blink, or notice while a panel is up).
     pub face: FaceFrame,
 }
@@ -475,6 +479,7 @@ pub struct RealHudInputs {
     /// provisional: Q10. Chips for a human-driven Donut.
     pub donut_chips: bool,
     pub reduced_motion: bool,
+    pub high_contrast: bool,
 }
 
 impl RealHudInputs {
@@ -501,6 +506,7 @@ impl RealHudInputs {
             reconnect: None,
             donut_chips: false,
             reduced_motion: false,
+            high_contrast: false,
         }
     }
 }
@@ -628,6 +634,7 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
         reconnect: real.reconnect,
         preview: None,
         reduced_motion: real.reduced_motion,
+        high_contrast: real.high_contrast,
         face: FaceFrame::Idle,
     };
     if let Some(preview) = preview {
@@ -885,7 +892,8 @@ pub struct HudConfig {
     /// `Some` is the explicit `--glyphs=` override; `None` follows the
     /// last-used gamepad ([`HudRuntime::set_detected_glyphs`]).
     pub glyphs: Option<GlyphSet>,
-    pub reduced_motion: bool,
+    /// HUD-DEBT-06: reduced UI motion and high contrast.
+    pub settings: HudSettings,
 }
 
 /// Reads a capped event log with a cursor, so each event is seen once.
@@ -979,7 +987,7 @@ impl HudRuntime {
             carl_health: HERO_HEALTH,
             donut_health: DONUT_HEALTH,
             flash: [None, None],
-            notices: NoticeQueue::new(config.reduced_motion),
+            notices: NoticeQueue::new(config.settings.reduced_motion),
             cursor: EventCursor::default(),
             melee_live: false,
             carl_name: FALLBACK_NAME_LEFT.to_string(),
@@ -1023,9 +1031,9 @@ impl HudRuntime {
 
     /// Everything a step can change on screen.
     fn visual_key(&self) -> VisualKey {
-        let blink = !self.config.reduced_motion
+        let blink = !self.config.settings.reduced_motion
             && self.tick % BLINK_PERIOD_TICKS >= BLINK_PERIOD_TICKS - BLINK_TICKS;
-        let warning_bright = self.config.reduced_motion
+        let warning_bright = self.config.settings.reduced_motion
             || (self.tick / WARNING_BLINK_TICKS).is_multiple_of(2)
             || self.config.preview != Some(HudPreview::Boss);
         (
@@ -1157,7 +1165,8 @@ impl HudRuntime {
         real.donut_glyphs = view.donut_glyphs;
         real.reconnect = view.reconnect;
         real.donut_chips = view.donut_chips;
-        real.reduced_motion = self.config.reduced_motion;
+        real.reduced_motion = self.config.settings.reduced_motion;
+        real.high_contrast = self.config.settings.high_contrast;
         real
     }
 
@@ -1915,7 +1924,10 @@ mod tests {
         // Only the blink edges (start and end of each 6-tick blink) change it.
         assert_eq!(hud.revision() - start, 8);
         let mut reduced = HudRuntime::new(HudConfig {
-            reduced_motion: true,
+            settings: HudSettings {
+                reduced_motion: true,
+                ..HudSettings::default()
+            },
             ..HudConfig::default()
         });
         for _ in 0..1000 {

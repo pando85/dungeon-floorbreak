@@ -49,7 +49,7 @@ esac
 if [[ "$mode" == hud || "$mode" == hud-deck ]]; then
   # HUD-HYBRID-A-01 recipe: normal play, each preview fixture, real combat
   # states (a real HeroHurt flash, Carl at 1 HP with the cracked heart, two
-  # real System notices) and the option flags, each a frozen capture of a deterministic state. Run inside
+  # real System notices) and the accessibility flags (HUD-DEBT-06), each a frozen capture of a deterministic state. Run inside
   # xvfb-run at the target resolution (1280x720 or 1280x800, scale 2).
   deck_flag=0
   deck_args=()
@@ -66,6 +66,10 @@ if [[ "$mode" == hud || "$mode" == hud-deck ]]; then
     "coop|coop|--scenario walk_right --capture-tick $advanced_ticks|"
     "post-unlock-dualsense|post-unlock|--scenario walk_right --capture-tick $advanced_ticks|--glyphs=dualsense"
     "depleted-reduced-motion|depleted|--scenario walk_right --capture-tick $advanced_ticks|--hud-reduced-motion"
+    "depleted-high-contrast|depleted|--scenario walk_right --capture-tick $advanced_ticks|--hud-high-contrast"
+    "depleted-high-contrast-reduced-motion|depleted|--scenario walk_right --capture-tick $advanced_ticks|--hud-high-contrast --hud-reduced-motion"
+    "real-hurt-reduced-motion|-|--fixture cp01_goblin_attacks --capture-tick 250|--hud-reduced-motion"
+    "real-low-hp-high-contrast|-|--fixture cp01_retry --capture-tick 340|--hud-high-contrast"
     "real-hurt|-|--fixture cp01_goblin_attacks --capture-tick 250|"
     "real-low-hp|-|--fixture cp01_retry --capture-tick 340|"
     "real-notice-launched|-|--fixture cp01_kick --capture-tick 300|"
