@@ -55,7 +55,7 @@ use dungeon_floorbreak::{
     death_present::{
         DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS,
         PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
-        blast_vfx_frame, charge_frame, draw_z, explosion_table,
+        blast_vfx_frame, charge_draw_frame, draw_z, explosion_table,
     },
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
@@ -2540,7 +2540,12 @@ fn sync_blast_visuals(
             let (cx, cy) = actor_center(dynamite_spec, charge.x, charge.foot_y, false);
             transform.translation = Vec3::new(cx, cy, z);
             sprite.image = images.dynamite.clone();
-            sprite.rect = Some(to_rect(art.dynamite_rect(charge_frame(tick))));
+            // A Carl-armed charge lies still until he passes; its fizzle loop
+            // counts from the arming.
+            let lit_for = tick.saturating_sub(charge.armed_tick.unwrap_or(0));
+            sprite.rect = Some(to_rect(
+                art.dynamite_rect(charge_draw_frame(charge.lit(), lit_for)),
+            ));
             *visibility = Visibility::Inherited;
         }
     }

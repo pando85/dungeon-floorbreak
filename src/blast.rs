@@ -24,6 +24,18 @@ pub const BLAST_RADIUS: f32 = 20.0;
 /// centre for a floor blast).
 pub const BLAST_CENTRE_DY: f32 = 8.0;
 
+/// What sets a charge off.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Arm {
+    /// The QA fixture rule: it burns from the first tick and detonates on its
+    /// fixed tick (`detonate_tick`).
+    Tick,
+    /// DEMO-01: it lies unlit until Carl passes column `x` (his x greater than
+    /// it), then burns and detonates `fuse_ticks` ticks later. A labelled test
+    /// prop, never Carl's ability.
+    CarlPast { x: f32, fuse_ticks: u64 },
+}
+
 /// How a blast reaches a body.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlastReach {
@@ -44,6 +56,10 @@ pub struct BlastCharge {
     /// The player credited with the blast (`None`: an authored charge).
     pub owner: Option<u32>,
     pub detonated: bool,
+    /// What sets it off; `Arm::Tick` for every older fixture.
+    pub arm: Arm,
+    /// The tick a `CarlPast` charge was armed on (`None` until then).
+    pub armed_tick: Option<u64>,
 }
 
 impl BlastCharge {
@@ -54,6 +70,50 @@ impl BlastCharge {
             detonate_tick,
             owner,
             detonated: false,
+            arm: Arm::Tick,
+            armed_tick: None,
+        }
+    }
+
+    /// The same charge with another arming rule (the detonation tick is then
+    /// decided by the rule, not by the constructor).
+    #[must_use]
+    pub fn with_arm(mut self, arm: Arm) -> Self {
+        self.arm = arm;
+        if matches!(arm, Arm::CarlPast { .. }) {
+            self.detonate_tick = 0;
+        }
+        self
+    }
+
+    /// Whether the fuse is lit: always for `Arm::Tick`, from the arming for
+    /// `Arm::CarlPast` (before it the charge is drawn as a still stick).
+    pub fn lit(&self) -> bool {
+        match self.arm {
+            Arm::Tick => true,
+            Arm::CarlPast { .. } => self.armed_tick.is_some(),
+        }
+    }
+
+    /// One tick of the charge: true on the tick it detonates. `carl_x` is
+    /// Carl's column (read only by `Arm::CarlPast`).
+    pub fn step(&mut self, tick: u64, carl_x: f32) -> bool {
+        match self.arm {
+            Arm::Tick => self.detonate(tick),
+            Arm::CarlPast { x, fuse_ticks } => {
+                if self.detonated {
+                    return false;
+                }
+                if self.armed_tick.is_none() && carl_x > x {
+                    self.armed_tick = Some(tick);
+                    self.detonate_tick = tick + fuse_ticks;
+                }
+                if self.armed_tick.is_some() && tick == self.detonate_tick {
+                    self.detonated = true;
+                    return true;
+                }
+                false
+            }
         }
     }
 
@@ -95,6 +155,14 @@ impl BlastCharge {
         mix(self.detonate_tick);
         mix(self.owner.map_or(0, |p| u64::from(p) + 1));
         mix(u64::from(self.detonated));
+        // An armed-by-Carl charge adds its rule and state; a `Tick` charge
+        // mixes nothing more, so every older hash is unchanged.
+        if let Arm::CarlPast { x, fuse_ticks } = self.arm {
+            mix(0x4152_4d44); // "ARMD"
+            mix(u64::from(x.to_bits()));
+            mix(fuse_ticks);
+            mix(self.armed_tick.map_or(0, |t| t + 1));
+        }
     }
 }
 
@@ -135,6 +203,60 @@ mod tests {
         // A tick-0 charge never fires (ticks count from 1).
         let mut zero = BlastCharge::new(500.0, 100.0, 0, None);
         assert!((1..100).all(|t| !zero.detonate(t)));
+    }
+
+    #[test]
+    fn a_carl_past_charge_is_unlit_until_he_passes_then_blows_after_the_fuse() {
+        let mut c = BlastCharge::new(500.0, 100.0, 0, None).with_arm(Arm::CarlPast {
+            x: 480.0,
+            fuse_ticks: 75,
+        });
+        assert!(!c.lit());
+        // Carl at or behind the column: nothing happens, however long.
+        for tick in 1..50 {
+            assert!(!c.step(tick, 480.0));
+        }
+        assert!(!c.lit() && c.armed_tick.is_none());
+        // He passes on tick 50: armed, and it blows exactly 75 ticks later.
+        assert!(!c.step(50, 480.5));
+        assert!(c.lit());
+        assert_eq!((c.armed_tick, c.detonate_tick), (Some(50), 125));
+        for tick in 51..125 {
+            assert!(!c.step(tick, 700.0), "tick {tick}");
+        }
+        assert!(c.step(125, 700.0));
+        assert!(c.detonated);
+        for tick in 126..300 {
+            assert!(!c.step(tick, 700.0), "never again");
+        }
+        // Walking back out and in again re-arms nothing.
+        let mut once = BlastCharge::new(500.0, 100.0, 0, None).with_arm(Arm::CarlPast {
+            x: 480.0,
+            fuse_ticks: 3,
+        });
+        once.step(1, 490.0);
+        once.step(2, 400.0);
+        assert_eq!(once.armed_tick, Some(1));
+    }
+
+    #[test]
+    fn the_arming_state_is_hashed_and_a_tick_charge_hashes_as_before() {
+        let words = |c: &BlastCharge| {
+            let mut out = Vec::new();
+            c.mix_into(&mut |w| out.push(w));
+            out
+        };
+        // The pre-arming words of a Tick charge: exactly six.
+        assert_eq!(words(&charge()).len(), 6);
+        let rule = Arm::CarlPast {
+            x: 480.0,
+            fuse_ticks: 75,
+        };
+        let a = BlastCharge::new(500.0, 100.0, 0, None).with_arm(rule);
+        let mut b = a;
+        b.step(7, 600.0);
+        assert_eq!(words(&a).len(), 10);
+        assert_ne!(words(&a), words(&b));
     }
 
     #[test]

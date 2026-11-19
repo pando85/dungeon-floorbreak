@@ -17,7 +17,7 @@
 //! it yet (combat is fully deterministic without it); it is part of the state
 //! hash so later knockback variance can use it without changing the contract.
 
-use crate::blast::{BlastCharge, BlastReach};
+use crate::blast::{Arm, BlastCharge, BlastReach};
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
     EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, Phase, RootStep, carl_move, hit_box, resolve_strike,
@@ -60,6 +60,9 @@ pub struct ChargeSpawn {
     pub tick: u64,
     /// The player credited with the blast (`None`: authored, no credit).
     pub owner: Option<u32>,
+    /// What sets it off: `Arm::Tick` (the fixed tick above) for every QA
+    /// fixture, or DEMO-01's `Arm::CarlPast` (the tick is then unused).
+    pub arm: Arm,
 }
 
 /// Scripted input for the ticks `from..to` (half-open, 1-based ticks).
@@ -534,6 +537,7 @@ pub const QA_BLAST_BREAKUP: Fixture = Fixture {
         dx: 120,
         tick: 60,
         owner: None,
+        arm: Arm::Tick,
     }],
     script: &[],
     ticks: 240,
@@ -650,7 +654,7 @@ impl CombatState {
             .walking_line_at(fixture.carl_x)
             .ok_or_else(|| format!("{}: no walking line under Carl", fixture.name))?;
         for charge in fixture.charges {
-            if charge.tick == 0 {
+            if charge.tick == 0 && charge.arm == Arm::Tick {
                 return Err(format!(
                     "{}: a charge on tick 0 never fires (ticks count from 1)",
                     fixture.name
@@ -725,6 +729,7 @@ impl CombatState {
                     spawn.tick,
                     spawn.owner,
                 )
+                .with_arm(spawn.arm)
             })
             .collect();
         self.contacts.clear();
@@ -990,7 +995,7 @@ impl CombatState {
         self.step_goblins(scene, tick);
         self.resolve_contacts(tick);
         self.step_shore(tick);
-        self.step_charges(tick);
+        self.step_charges(tick, scene.world.hero.x);
 
         if self.hero_defeated {
             self.defeated_ticks = self.defeated_ticks.saturating_add(1);
@@ -1224,9 +1229,9 @@ impl CombatState {
     /// living goblins in index order (a goblin already defeated this tick, by
     /// the block or by a lower charge, is skipped). The QA charge does not hurt
     /// Carl or Donut, ignores solids and damages no terrain.
-    fn step_charges(&mut self, tick: u64) {
+    fn step_charges(&mut self, tick: u64, carl_x: f32) {
         for charge_index in 0..self.charges.len() {
-            if !self.charges[charge_index].detonate(tick) {
+            if !self.charges[charge_index].step(tick, carl_x) {
                 continue;
             }
             let charge = self.charges[charge_index];
@@ -3809,6 +3814,7 @@ mod tests {
             dx: 84,
             tick: 139,
             owner: None,
+            arm: Arm::Tick,
         }],
         script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
         ticks: 200,
@@ -3866,11 +3872,13 @@ mod tests {
                 dx: 120,
                 tick: 60,
                 owner: None,
+                arm: Arm::Tick,
             },
             ChargeSpawn {
                 dx: 135,
                 tick: 60,
                 owner: Some(0),
+                arm: Arm::Tick,
             },
         ],
         script: &[],
@@ -3932,6 +3940,7 @@ mod tests {
             dx: 0,
             tick: 30,
             owner: Some(0),
+            arm: Arm::Tick,
         }],
         script: &[],
         ticks: 80,
@@ -3987,6 +3996,7 @@ mod tests {
             dx: 120,
             tick: 30,
             owner: None,
+            arm: Arm::Tick,
         }],
         script: &[],
         ticks: 60,
@@ -4003,6 +4013,7 @@ mod tests {
             dx: 120,
             tick: 30,
             owner: Some(0),
+            arm: Arm::Tick,
         }],
         script: &[],
         ticks: 60,
@@ -4050,6 +4061,7 @@ mod tests {
                 dx: 10,
                 tick: 0,
                 owner: None,
+                arm: Arm::Tick,
             }],
             script: &[],
             ticks: 10,

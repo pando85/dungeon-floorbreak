@@ -424,6 +424,21 @@ pub const fn charge_frame(tick: u64) -> usize {
     CHARGE_FRAMES[((tick / CHARGE_FRAME_TICKS) % 2) as usize]
 }
 
+/// The still stick drawn while a `CarlPast` charge is not armed yet
+/// (`vfx_dynamite` frame 0, the unlit stick).
+pub const CHARGE_UNLIT_FRAME: usize = 0;
+
+/// The frame of a charge: the still stick before its fuse is lit, then the
+/// fizzle loop from the tick it was lit (`ticks_lit` = ticks since then, 0 on
+/// the first). Pure.
+pub const fn charge_draw_frame(lit: bool, ticks_lit: u64) -> usize {
+    if lit {
+        charge_frame(ticks_lit)
+    } else {
+        CHARGE_UNLIT_FRAME
+    }
+}
+
 /// The VFX-01 `burst` tag: (atlas frame, ticks held), from the manifest tick
 /// table (a test compares it with `assets/manifests/vfx-01.json`).
 pub const BURST_FRAMES: [(usize, u64); 9] = [
@@ -4828,5 +4843,16 @@ mod tests {
             .map(|(_, part)| part.spin_dps.abs().to_bits())
             .collect();
         assert!(spins.len() > 1);
+    }
+
+    #[test]
+    fn an_unarmed_charge_is_a_still_stick_and_the_fizzle_counts_from_the_arming() {
+        for ticks in 0..40 {
+            assert_eq!(charge_draw_frame(false, ticks), CHARGE_UNLIT_FRAME);
+            assert_eq!(charge_draw_frame(true, ticks), charge_frame(ticks));
+        }
+        assert!(!CHARGE_FRAMES.contains(&CHARGE_UNLIT_FRAME));
+        // The first lit tick starts the loop on its first frame.
+        assert_eq!(charge_draw_frame(true, 0), CHARGE_FRAMES[0]);
     }
 }
