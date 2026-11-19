@@ -1,6 +1,6 @@
 # ANIM-MONGO-01: adult Mongo 76 px locomotion, design spec
 
-**Status:** design stage. The keys (frames 4, 5, 6, 10, 12, 13, 14) are authored and frozen; keys 6, 10 and 14 were revised after the silhouette gate (toe-off in 6, toes-only floor contact in 14, deeper crouch in 10). Frames 7, 8, 9, 11 and 15 are rig drafts that the executor finishes (section 9). Nothing is reviewed or accepted. This is art only: Mongo's gameplay (`charger`, WORK-017) comes after the slice, and no runtime, physics or Bevy file changes here.
+**Status:** all 16 frames are authored. The keys (frames 4, 5, 6, 10, 12, 13, 14) are frozen (6, 10 and 14 were revised after the silhouette gate); the in-betweens 7, 8, 9, 11 and 15 are finished (see the [execution record](#execution-record)) and wait for the independent review before they are frozen. Nothing is accepted. This is art only: Mongo's gameplay (`charger`, WORK-017) comes after the slice, and no runtime, physics or Bevy file changes here.
 
 **Scope:** the tags `idle` (the approved 76 px idle, pixels unchanged), `run` (6), `jump_start` (2), `jump_rise` (1), `jump_fall` (1) and `land` (2). The structure mirrors [ANIM-CARL-01](carl-locomotion-anim-01-run-spec.md) and [ANIM-DONUT-01](donut-locomotion-anim-01-run-spec.md): one locomotion grid per character, the idle re-padded unchanged, keys pinned by a recipe check.
 
@@ -41,7 +41,7 @@ Mongo runs like a big ground bird, not like a mammal. The design reads in four r
 
 ```
 run frame     F0 (4)    F1 (5)    F2 (6)     F3 (7)    F4 (8)    F5 (9)
-              KEY       KEY       KEY        draft     draft     draft
+              KEY       KEY       KEY        rig       rig       rig
 near leg      CONTACT   PASSING   push-off   trail     tuck      reach
 far leg       trail     tuck      reach      CONTACT   PASSING   push-off
 row 87        near      near      none       far       far       none
@@ -119,7 +119,8 @@ Pose intent:
 - **Far legs are small.** The far trailing and tucked legs are mostly behind the near thigh and the wing; they read at 3x, barely at 1x.
 - **Crouch versus impact:** both are low, flexed poses; they differ by height (top row 21 against 24), stance (14 against 32 px between ball points), the braced front leg and the head height.
 - **Crouch far hock:** the far (back) hock of the crouch sits low behind the near foot; it is mostly covered and was not flagged at 1x.
-- No Donut-mounted check, no Floor 1 lit scene (needs the exported kit atlases), no Bevy check, no human game-feel review.
+- No Donut-mounted check, no Bevy check, no human game-feel review. The lit Floor 1 scene is a Pillow composition with the A1 model, not a Bevy capture.
+- **Frame 14 hock** (gate note, left as is): the braced near leg is almost straight; a 1-2 px backward hock kink would show the digitigrade joint better. Optional polish for the designer; it would change a frozen key.
 
 ## 9. Executor checklist
 
@@ -149,6 +150,21 @@ Still open: Mongo's actual run speed once `charger` gameplay exists (re-derive t
 
 Living horizon: this order adds no playable move, ability or co-op behaviour; it fits [character-progression-horizon.md](../01-design/character-progression-horizon.md) as art groundwork for the later `charger` companion.
 
+## Execution record
+
+Executor pass (medium tier) over the checklist in section 9. The keys, the idle, the head, the palette, the canvas, the pivot and the layer order are untouched: `python3 scripts/author_mongo_locomotion.py --check-keys` passes and the fixture hashes of the keys and the idle still match.
+
+- **Frames 7, 8, 9 (run F3-F5):** checked against the checklist and kept as the rig output (`DRAFTS` swap of 4, 5, 6); no `PATCHES` needed. Row 87: frame 7 far 84-103, frame 8 far 68-87, frame 9 empty; frame 9 lowest row 84 for both legs; the far shin is visible on at least 3 rows below the drumstick in 7 and 8; the near leg does not touch the planted far foot; body, tail, wing, head and crest equal frames 4, 5, 6 (tested).
+- **Frame 11 (J1 push-off):** both feet changed from the flat `plant` stamp to the `toe` stamp, so the heels are lifted and only the claws touch row 87 (near 56-57, far 68-69, inside x 54-81); balls (58, 80) and (70, 80). Body (2, 0), head top-left (93, 21), tail tip halfway between 10 and 12 (x 9 against 11 and 7), wing shear 0.30.
+- **Frame 15 (L1 recover):** the near drumstick moved from thigh (1, 0) to (1, -3) so the near hock rises from y 82.3 to 79.4 (rule: at most 80, three px above the ball row); the far hock is at 74.9. Row 87 near 74-93, far 60-79, foot stamp pixels only on rows 86-87, body (2, 3), head (90, 24), tail column shear 0.06.
+- **Recipes:** the only script change is the two `DRAFTS` entries (11 and 15), renamed without "draft". Orphans: at most 2 per frame in all 16 frames (now tested for every frame), 0 isolated pixels.
+- **Timing:** full tick windows are in the toolkit config and the manifest (`locomotion.tick_windows`): idle 27, 18, 33, 10 (frame 3 = 10 ticks canonical), run 5 each, jump_start 6, 4, land 5, 7, jump_rise and jump_fall hold. At 185 px/s the planted foot slides 0.6 px per frame (tested, together with the exact 16 px stride and the loop seam 8 -> 9 -> 4).
+- **Export:** `bash scripts/export_assets.sh` writes the atlas and metadata under `generated/art/mongo_adult_h76_locomotion.*` (not committed, like the Carl and Donut atlases); `tests/test_art_assets.py` passes once the export has run. A test compares every atlas pixel with the grid (24 colours, 16 frames of 128 x 88).
+- **Scene config:** the toolkit scene shows Mongo unmirrored (a companion faces right like Carl) at idle, run F0, rise (lifted 20 px) and impact.
+- **Not done:** frames 7, 8, 9, 11 and 15 are not yet in `rules.frozen_keys` (after the independent review: add them and run `python3 -m scripts.pixelart freeze --force`); no Bevy integration; no human game-feel review; the backlog is left to the orchestrator.
+
+Evidence: [`docs/evidence/anim-mongo-01/`](../evidence/anim-mongo-01/README.md) (contact sheets, keys at 6x, 1x and 3x lineup with Carl 52 and Donut 40, footfall diagram, run onion skin, run and jump/land GIFs at x1 and x3 with an exact palette, lit Floor 1 scene at 640 x 360 and 1920 x 1080, review pack).
+
 ## Rights/Provenance
 
-Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (not verified consent, no reuse licence, no distribution rights), see [rights-and-release.md](../04-production/rights-and-release.md). All pixels come from the owner-approved 76 px master or from rules and hand-typed stamps in `scripts/author_mongo_locomotion.py`; no image-model raster, no resampling, no concept-board pixels. Design and keys: Claude Opus. Execution and independent review: pending.
+Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (not verified consent, no reuse licence, no distribution rights), see [rights-and-release.md](../04-production/rights-and-release.md). All pixels come from the owner-approved 76 px master or from rules and hand-typed stamps in `scripts/author_mongo_locomotion.py`; no image-model raster, no resampling, no concept-board pixels. Design and keys: Claude Opus. Execution: Claude Sonnet (in-betweens 7, 8, 9, 11, 15, export, tests, evidence). Independent review: pending.

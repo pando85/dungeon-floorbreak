@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoring record for ANIM-MONGO-01: adult Mongo 76 px locomotion (design stage).
+"""Authoring record for ANIM-MONGO-01: adult Mongo 76 px locomotion.
 
 Writes ``assets/source/characters/mongo/mongo_adult_h76_locomotion.grid.json`` (pixel-grid-v1),
 the editable source for the tags ``idle`` (the approved 76 px idle, unchanged), ``run``,
@@ -36,7 +36,7 @@ Usage::
     python3 scripts/author_mongo_locomotion.py --preview DIR   # scratch renders for review
 
 Since the design stage the keys (frames 4, 5, 6, 10, 12, 13, 14) are frozen: ``--check-keys``
-must keep passing. The executor finishes frames 7, 8, 9, 11 and 15 (see the spec, section 9).
+must keep passing. The executor frames 7, 8, 9, 11 and 15 are finished in DRAFTS (spec, section 9 and the execution record).
 """
 from __future__ import annotations
 
@@ -429,13 +429,13 @@ DRAFTS = {
     7: swap_legs(POSES[4], "run F3 contact (far) draft"),
     8: swap_legs(POSES[5], "run F4 passing (far) draft"),
     9: swap_legs(POSES[6], "run F5 airborne draft"),
-    11: dict(name="jump_start J1 push-off draft", body=(2, 0), lean=6, drop=2, head=(0, 0),
+    11: dict(name="jump_start J1 push-off", body=(2, 0), lean=6, drop=2, head=(0, 0),
              tail_kx=0.35, tail_ky=0.0, wing_k=0.30,
-             near=dict(thigh=(-2, 0), ball=(60, 83), foot="plant"),
-             far=dict(thigh=(-1, -1), ball=(68, 83), foot="plant")),
-    15: dict(name="land L1 recover draft", body=(2, 3), lean=3, drop=2, head=(0, 0),
+             near=dict(thigh=(-2, 0), ball=(58, 80), foot="toe"),
+             far=dict(thigh=(-1, -1), ball=(70, 80), foot="toe")),
+    15: dict(name="land L1 recover", body=(2, 3), lean=3, drop=2, head=(0, 0),
              tail_kx=0.12, tail_ky=0.06, wing_k=0.05,
-             near=dict(thigh=(1, 0), ball=(80, 83), foot="plant"),
+             near=dict(thigh=(1, -3), ball=(80, 83), foot="plant"),
              far=dict(thigh=(0, -1), ball=(66, 83), foot="plant")),
 }
 

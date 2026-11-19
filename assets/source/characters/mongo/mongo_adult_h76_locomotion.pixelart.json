@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "anim-mongo-01",
-  "title": "ANIM-MONGO-01 adult Mongo 76 px locomotion, design stage (docs/02-art/mongo-locomotion-anim-01-spec.md)",
+  "title": "ANIM-MONGO-01 adult Mongo 76 px locomotion (docs/02-art/mongo-locomotion-anim-01-spec.md)",
   "grid": "assets/source/characters/mongo/mongo_adult_h76_locomotion.grid.json",
   "manifest": "assets/manifests/mongo_adult_h76_locomotion.json",
   "frame_size": [
@@ -201,24 +201,24 @@
     "actors": [
       {
         "frame": 0,
-        "x": 470
+        "x": 548,
+        "flip": false
       },
       {
         "frame": 4,
-        "x": 600
-      },
-      {
-        "frame": 10,
-        "x": 730
+        "x": 662,
+        "flip": false
       },
       {
         "frame": 12,
-        "x": 860,
-        "lift": 18
+        "x": 774,
+        "lift": 20,
+        "flip": false
       },
       {
         "frame": 14,
-        "x": 990
+        "x": 892,
+        "flip": false
       }
     ]
   }
