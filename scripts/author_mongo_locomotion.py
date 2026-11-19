@@ -21,7 +21,7 @@ How the frames are made (no resampling, no rotation, no image model, no concept 
   master leg ramp (lit back edge ``S``, base ``s``, shade ``z``, outline ``Z``; the far leg
   uses the darker master far-leg ramp ``s``/``z``/``Z``). The hock is placed by two-bone
   inverse kinematics with the hock always behind the knee-ball line (bird leg).
-* **Hand-typed parts** in this file: the curled swing foot and the reaching foot.
+* **Hand-typed parts** in this file: the curled swing foot, the reaching foot and the toe-off foot.
 * **Cleanup** (``PATCHES``): per-pixel fixes after the lint report, each with its expected
   old value so a regenerated pose cannot silently move under a patch.
 
@@ -174,10 +174,29 @@ SsssszZsssszZgG
 """, 3, 3)
 FOOT_REACH_FAR = recolor(FOOT_REACH, {"S": "s", "s": "z"})
 
+# Toe-off foot (run push-off, gate fix 2): heel lifted, toes hooked down and back under the
+# ball with the claw leading, sickle claw raised on the inner side. The metatarsus meets it
+# steeply from above. Anchor = ball. Lowest pixel = ball + 7. Hand-typed.
+FOOT_TOE = stamp("""
+....GG..
+...GggG.
+...g..g.
+.SsszZ..
+SssszZ..
+.SsszZ..
+.SsszZ..
+SsszZ...
+SszZ....
+GgZ.....
+gG......
+""", 2, 3)
+FOOT_TOE_FAR = recolor(FOOT_TOE, {"S": "s", "s": "z"})
+
 FEET = {
     ("plant", "near"): FOOT_PLANT, ("plant", "far"): FOOT_PLANT_FAR,
     ("curl", "near"): FOOT_CURL, ("curl", "far"): FOOT_CURL_FAR,
     ("reach", "near"): FOOT_REACH, ("reach", "far"): FOOT_REACH_FAR,
+    ("toe", "near"): FOOT_TOE, ("toe", "far"): FOOT_TOE_FAR,
 }
 
 
@@ -365,14 +384,15 @@ POSES = {
             tail_kx=0.40, tail_ky=-0.02, wing_k=0.25,
             near=dict(thigh=(0, 0), ball=(74, 83), foot="plant"),
             far=dict(thigh=(1, -2), ball=(78, 70), foot="curl")),
-    # F2 airborne: near foot just pushed off behind, far leg reaching forward
+    # F2 airborne: near foot toes off behind (heel up, metatarsus ~65 deg, toes hooked
+    # down-back, lowest row 84), far leg reaching forward well clear of the floor
     6: dict(name="run F2 airborne", body=(RUN_BODY_DX, 0), lean=7, drop=3, head=(0, 0),
             tail_kx=0.50, tail_ky=-0.06, wing_k=0.35,
-            near=dict(thigh=(-3, 0), ball=(52, 82), foot="plant"),
-            far=dict(thigh=(3, -1), ball=(89, 79), foot="reach")),
+            near=dict(thigh=(-3, 0), ball=(50, 77), foot="toe"),
+            far=dict(thigh=(3, -1), ball=(89, 78), foot="reach")),
     # J0 crouch: feet together under the hips, deep knee flex, head pulled in, tail held up
-    10: dict(name="jump_start J0 crouch", body=(1, 4), lean=2, drop=4, head=(0, 0),
-             tail_kx=0.15, tail_ky=0.10, wing_k=0.10,
+    10: dict(name="jump_start J0 crouch", body=(1, 5), lean=2, drop=4, head=(0, 0),
+             tail_kx=0.15, tail_ky=0.13, wing_k=0.10,
              near=dict(thigh=(1, 0), ball=(67, 83), foot="plant"),
              far=dict(thigh=(2, -1), ball=(81, 83), foot="plant")),
     # J2 rise: legs trail extended down and back, body stretched forward, tail streams low
@@ -385,10 +405,11 @@ POSES = {
              tail_kx=0.20, tail_ky=0.14, wing_k=-0.05,
              near=dict(thigh=(3, 0), ball=(87, 81), foot="reach"),
              far=dict(thigh=(2, -1), ball=(80, 78), foot="reach")),
-    # L0 impact: lowest pose, wide planted stance, head dropped, tail whips up
-    14: dict(name="land L0 impact", body=(2, 7), lean=4, drop=6, head=(0, 0),
+    # L0 impact: lowest pose, near leg braced straight forward (hock ~5 px above the
+    # ball, only toes on the floor), far leg folded under, head dropped, tail whips up
+    14: dict(name="land L0 impact", body=(2, 6), lean=4, drop=6, head=(0, 0),
              tail_kx=0.05, tail_ky=0.18, wing_k=-0.15,
-             near=dict(thigh=(2, 0), ball=(88, 83), foot="plant"),
+             near=dict(thigh=(-1, 0), ball=(92, 83), foot="plant"),
              far=dict(thigh=(-1, -1), ball=(60, 83), foot="plant")),
 }
 

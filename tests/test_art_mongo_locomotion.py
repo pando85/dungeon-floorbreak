@@ -137,6 +137,31 @@ class MongoLocomotionTests(unittest.TestCase):
         top = [f["bbox"][1] for f in report["frames"]]
         self.assertGreaterEqual(top[14] - top[10], 3, "impact must sit lower than the crouch")
 
+    def test_impact_only_toes_touch_the_floor(self) -> None:
+        # gate fix 1: frame 14 near leg on rows 86-87 is the foot stamp only (no hock on the floor)
+        import author_mongo_locomotion as rig
+        spec = rig.POSES[14]["near"]
+        bx, by = spec["ball"]
+        foot = {(x + bx, y + by) for (x, y) in rig.FEET[(spec["foot"], "near")]}
+        rows = self.cels(14, "near_leg")
+        low = {(x, y) for y in (86, 87) for x, c in enumerate(rows[y]) if c != "."}
+        self.assertTrue(low, "frame 14 near foot must be planted")
+        self.assertLessEqual(low, foot, sorted(low - foot))
+        self.assertEqual(self.contact(14)["near_leg"], (86, 105))
+        bdx, bdy = rig.POSES[14]["body"]
+        tx, ty = spec["thigh"]
+        hock = rig.solve_hock((rig.KNEE[0] + bdx + tx, rig.KNEE[1] + bdy + ty), spec["ball"])
+        self.assertLessEqual(hock[1], 80, f"hock {hock} must sit at least 3 px above the ball row")
+
+    def test_run_push_off_is_a_toe_off(self) -> None:
+        # gate fix 2: in the airborne run frames both feet are clearly off the floor (lowest row <= 84)
+        for i in (6, 9):
+            for layer in ("near_leg", "far_leg"):
+                rows = self.cels(i, layer)
+                lowest = max(y for y, r in enumerate(rows) if r.strip("."))
+                self.assertLessEqual(lowest, 84, f"frame {i} {layer}")
+        self.assertEqual(__import__("author_mongo_locomotion").POSES[6]["near"]["foot"], "toe")
+
     def test_clean_clusters(self) -> None:
         report = pg.lint_grid(self.grid)
         self.assertEqual(report["isolated_count_per_frame"], [0] * 16)

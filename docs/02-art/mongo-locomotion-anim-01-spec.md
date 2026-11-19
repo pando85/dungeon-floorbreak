@@ -1,6 +1,6 @@
 # ANIM-MONGO-01: adult Mongo 76 px locomotion, design spec
 
-**Status:** design stage. The keys (frames 4, 5, 6, 10, 12, 13, 14) are authored and frozen. Frames 7, 8, 9, 11 and 15 are rig drafts that the executor finishes (section 9). Nothing is reviewed or accepted. This is art only: Mongo's gameplay (`charger`, WORK-017) comes after the slice, and no runtime, physics or Bevy file changes here.
+**Status:** design stage. The keys (frames 4, 5, 6, 10, 12, 13, 14) are authored and frozen; keys 6, 10 and 14 were revised after the silhouette gate (toe-off in 6, toes-only floor contact in 14, deeper crouch in 10). Frames 7, 8, 9, 11 and 15 are rig drafts that the executor finishes (section 9). Nothing is reviewed or accepted. This is art only: Mongo's gameplay (`charger`, WORK-017) comes after the slice, and no runtime, physics or Bevy file changes here.
 
 **Scope:** the tags `idle` (the approved 76 px idle, pixels unchanged), `run` (6), `jump_start` (2), `jump_rise` (1), `jump_fall` (1) and `land` (2). The structure mirrors [ANIM-CARL-01](carl-locomotion-anim-01-run-spec.md) and [ANIM-DONUT-01](donut-locomotion-anim-01-run-spec.md): one locomotion grid per character, the idle re-padded unchanged, keys pinned by a recipe check.
 
@@ -49,7 +49,7 @@ row 87        near      near      none       far       far       none
 body dy       +1        +3        0          +1        +3        0
 ```
 
-Each foot is planted for two frames and moves back exactly **D = 16 px** between them (84 -> 68). The swing foot path, as ball positions: push-off (52, 82) -> trail (60, 72) -> tuck (78, 70) -> reach (89, 79) -> contact (90, 83). F3-F5 are F0-F2 with the leg parameters swapped (same body, tail, wing and head).
+Each foot is planted for two frames and moves back exactly **D = 16 px** between them (84 -> 68). The swing foot path, as ball positions: toe-off (50, 77) -> trail (60, 72) -> tuck (78, 70) -> reach (89, 78) -> contact (90, 83). F3-F5 are F0-F2 with the leg parameters swapped (same body, tail, wing and head).
 
 ## 4. Per-frame targets (keys as authored)
 
@@ -59,29 +59,30 @@ Canvas coordinates. "Body" is the master torso translation; "lean / drop" is the
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 4 | run F0 contact | (3, 1) | 7 / 3 | (95, 23) | 46 | 87 | near 84-103 | (74.5, 66.5) / (79.6, 79.6) / (90, 83) plant | (68.5, 65.5) / (54.9, 62.3) / (60, 72) curl |
 | 5 | run F1 passing | (3, 3) | 7 / 1 | (95, 23) | 48 | 87 | near 68-87 | (71.5, 68.5) / (63.4, 79.9) / (74, 83) plant | (72.5, 66.5) / (74.4, 80.4) / (78, 70) curl |
-| 6 | run F2 airborne | (3, 0) | 7 / 3 | (95, 22) | 45 | 86 | none | (68.5, 65.5) / (56.0, 71.7) / (52, 82) plant | (74.5, 64.5) / (78.0, 78.0) / (89, 79) reach |
-| 10 | J0 crouch | (1, 4) | 2 / 4 | (88, 27) | 49 | 87 | near 61-80, far 75-94 | (70.5, 69.5) / (58.3, 76.3) / (67, 83) plant | (71.5, 68.5) / (70.0, 82.4) / (81, 83) plant |
+| 6 | run F2 airborne | (3, 0) | 7 / 3 | (95, 22) | 45 | 84 | none | (68.5, 65.5) / (54.6, 67.0) / (50, 77) toe | (74.5, 64.5) / (78.0, 78.1) / (89, 78) reach |
+| 10 | J0 crouch | (1, 5) | 2 / 4 | (88, 28) | 50 | 87 | near 61-80, far 75-94 | (70.5, 70.5) / (58.0, 76.7) / (67, 83) plant | (71.5, 69.5) / (70.0, 83.4) / (81, 83) plant |
 | 12 | jump_rise | (3, -6) | 9 / 0 | (97, 13) | 39 | 84 | none | (68.5, 59.5) / (58.9, 69.7) / (50, 80) plant | (73.5, 57.5) / (61.5, 64.7) / (72, 68) curl |
 | 13 | jump_fall | (3, -2) | 5 / 1 | (93, 18) | 43 | 85 | none | (74.5, 63.5) / (76.6, 77.3) / (87, 81) reach | (73.5, 62.5) / (69.2, 75.8) / (80, 78) reach |
-| 14 | L0 impact | (2, 7) | 4 / 6 | (91, 32) | 52 | 87 | near 76-101, far 54-73 | (72.5, 72.5) / (77.3, 85.6) / (88, 83) plant | (69.5, 71.5) / (55.6, 72.9) / (60, 83) plant |
+| 14 | L0 impact | (2, 6) | 4 / 6 | (91, 31) | 51 | 87 | near 86-105, far 54-73 | (69.5, 71.5) / (81.8, 78.2) / (92, 83) plant | (69.5, 70.5) / (55.7, 72.9) / (60, 83) plant |
 
-Tail (row shear k, column shear k) and wing shear per key: 4 (0.45, -0.04, 0.30); 5 (0.40, -0.02, 0.25); 6 (0.50, -0.06, 0.35); 10 (0.15, 0.10, 0.10); 12 (0.55, -0.10, 0.45); 13 (0.20, 0.14, -0.05); 14 (0.05, 0.18, -0.15). Negative wing shear lifts the fan forward (fall and impact: the wing flares as he brakes).
+Tail (row shear k, column shear k) and wing shear per key: 4 (0.45, -0.04, 0.30); 5 (0.40, -0.02, 0.25); 6 (0.50, -0.06, 0.35); 10 (0.15, 0.13, 0.10); 12 (0.55, -0.10, 0.45); 13 (0.20, 0.14, -0.05); 14 (0.05, 0.18, -0.15). Negative wing shear lifts the fan forward (fall and impact: the wing flares as he brakes).
 
 Pose intent:
 
 - **4 contact:** near leg reaches forward, almost straight, toes strike 8-27 px ahead of the pivot; far leg folded high behind with the foot curled (toes hooked down and back).
 - **5 passing:** weight on the near leg, knee deeply flexed, hock low behind; body at its lowest. The far leg swings through with the knee forward and the curled foot tucked under the wing.
-- **6 airborne:** the near foot has just pushed off and trails behind, 1 px above the floor; the far leg reaches forward with the toes spread for the next contact. Body at its highest, tail and wing streamed most.
-- **10 crouch:** feet together under the hips (14 px apart), deep knee flex, head pulled in (lean 2) and low, tail lifted as a counterweight. The wind-up before the jump.
+- **6 airborne (toe-off):** the near foot has just left the floor: heel up, metatarsus about 65 degrees from horizontal, toes hooked down and back with the claw leading (`toe` stamp), lowest pixel row 84. The far leg reaches forward with the toes spread, lowest row 82. Body at its highest, tail and wing streamed most. Both feet are clearly in the air, so the planted foot shows in exactly two frames per step (no third sliding frame).
+- **10 crouch:** body 5 px below the idle (deeper than the idle-close first pass), feet together under the hips (14 px apart), deep knee flex, head pulled in (lean 2) and low, tail lifted as a counterweight. The wind-up before the jump.
 - **12 rise:** body 6 px above the idle, neck stretched forward (lean 9), the near leg trailing extended down-back, the far leg tucked high under the belly. Tail and wing streamed back and down.
 - **13 fall:** both legs reach forward and down, toes spread for landing; tail and wing float up.
-- **14 impact:** the lowest pose: wide planted stance (front toes at 76-101, back toes at 54-73), head dropped 13 px below the idle (drop 6), tail whipped up. Reads lower and wider than the crouch (top row 25 against 20).
+- **14 impact:** the lowest pose, digitigrade: the near leg is braced straight forward (hock 4.8 px above the ball row, behind the knee-ball line) and only its toes touch the floor (row 87 run 86-105 = the foot stamp); the far leg is folded under the hips (back toes 54-73). Head dropped 12 px below the idle (drop 6), tail whipped up. Reads lower and wider than the crouch (top row 24 against 21; ball points 32 px apart against 14).
 
 ## 5. Rig rules (for anyone adding frames)
 
 - Master parts are only translated or edited per whole row or column. No resampling, no rotation, no concept pixels. The head layer is a pixel-exact translation of the master head in every frame (tested).
 - Shins and metatarsi are tapered capsules (radius 3.1 -> 2.6 and 2.6 -> 2.1) shaded with the master ramp by the side facing the upper-left light: lit edge `S`, base `s`, shade `z`, outline `Z` (far leg `s`/`z`/`Z`/`Z`).
-- Feet: `plant` is the master idle foot (ball pad, toes, claw, raised sickle claw), `curl` and `reach` are hand-typed stamps in the script. All three hang from the ball point.
+- Feet: `plant` is the master idle foot (ball pad, toes, claw, raised sickle claw); `curl` (swing), `reach` (before contact) and `toe` (toe-off: toes hooked down-back, sickle claw raised) are hand-typed stamps in the script. All hang from the ball point.
+- Digitigrade floor rule: in grounded frames only foot-stamp pixels may touch rows 86-87; the hock stays at least 3 px above the ball row. In airborne frames every foot's lowest row is 84 or higher.
 - After assembly a deterministic `tidy` rule recolours seam orphans (a non-accent pixel with no same-key 8-neighbour takes the most common neighbour key, on its own layer). Eye, catchlight, teeth and claw rims (`x Y O y w G`) are never changed. Further hand fixes go in `PATCHES` with the expected old key.
 
 ## 6. Timing (60 Hz ticks)
@@ -95,8 +96,8 @@ Pose intent:
 | jump_fall | 13 | hold | (100 preview) | hold while falling | airborne |
 | land | 14-15 | 5, 7 | 83, 117 | once | grounded |
 
-- **Idle frame 3:** the master's 160 ms is not a whole number of 60 Hz ticks. The locomotion grid stores 167 ms (10 ticks); the idle pixels are unchanged. Open question 2.
-- **Speed-linked run (for a later integration):** `ticks = clamp(round(60 * 16 / |vx|), 4, 8)`, advanced from simulation ticks, keeping the phase when the speed changes. At 185 px/s (`RUN_SPEED`): 5 ticks, ground 15.4 px per frame against the 16 px design, a 0.6 px backward drift per planted frame. At 145 px/s: 7 ticks, 0.9 px. Below 120 px/s the 8-tick cap applies and the planted foot visibly drifts back (2.7 px per frame at 100 px/s); a walk cycle is out of scope.
+- **Idle frame 3 (ruling):** 10 ticks (167 ms) is the canonical runtime value; the master's 160 ms cannot be represented at 60 Hz. The master grid's pixels and metadata stay untouched in this order.
+- **Speed-linked run (for a later integration):** `ticks = clamp(round(60 * 16 / |vx|), 4, 8)`, advanced from simulation ticks, keeping the phase when the speed changes. At 185 px/s (`RUN_SPEED`): 5 ticks, ground 15.4 px per frame against the 16 px design, a 0.6 px backward drift per planted frame. At 145 px/s: 7 ticks, 0.9 px. Below 120 px/s the 8-tick cap applies and the planted foot visibly drifts back (2.7 px per frame at 100 px/s). **Ruling:** no walk cycle in this order. WORK-017 note: until a walk exists, companion-follow must use idle/run hysteresis and never play the run below about 120 px/s; if the charger's speed differs from 185 px/s, re-derive the ticks and stride.
 - Animation never feeds back into physics: contact rows, the airborne frames and the hold frames are presentation only. Collision and charge windows belong to WORK-017 data.
 
 ## 7. Acceptance targets
@@ -104,7 +105,8 @@ Pose intent:
 1. `python3 scripts/author_mongo_locomotion.py --check-keys` passes; `python3 -m scripts.pixelart validate assets/source/characters/mongo/mongo_adult_h76_locomotion.pixelart.json` passes (V09 frozen keys included).
 2. Idle frames 0-3 are the master idle pixel for pixel; the head layer is a rigid master copy in every frame; palette, layer names and order equal the master.
 3. Grounded frames (0-5, 7, 8, 10, 11, 14, 15) end on row 87; frames 6, 9, 12 and 13 have no pixel on row 87.
-4. Run row 87: frame 4 near 84-103, 5 near 68-87, 7 far 84-103, 8 far 68-87, 6 and 9 empty. No foot is planted in two frames at different x except by exactly 16 px.
+4. Run row 87: frame 4 near 84-103, 5 near 68-87, 7 far 84-103, 8 far 68-87, 6 and 9 empty. No foot is planted in two frames at different x except by exactly 16 px. In frames 6 and 9 the lowest pixel of each leg layer is row 84 or higher (toe-off, tested).
+4b. Frame 14: near-leg pixels on rows 86-87 are the foot stamp only (run 86-105) and the near hock sits at y ≤ 80 (tested).
 5. Run head bob ≤ 1 px; body bob 3 px; back top within ±1 px of section 4 in the keys and drafts.
 6. 0 isolated pixels in every frame; ≤ 2 orphans per frame (keys: 0-2 now).
 7. At 1x, beside Carl 52 and Donut 40 ([lineup](../evidence/anim-mongo-01/scale_lineup_x1.png)): the run reads as a forward-leaning bird run (head forward, tail back), the two legs separate, and the crouch and the impact read as different poses.
@@ -112,11 +114,11 @@ Pose intent:
 
 ## 8. Known weaknesses (design, for the reviewer)
 
-- **Tail is still the rooster fan.** The run tail is the idle plume sheared back, not the long horizontal plume of the board's "Correr". A true streamed plume needs a redrawn tail and a wider canvas (open question 1).
+- **Tail is the idle fan swept back** (accepted by the silhouette gate for this order): on-model and reads as a counterbalance at 1x. Revisit only for a future charge or sprint tag if a game-feel review asks for it.
 - **Thigh is rigid.** The drumstick only translates; in the push-off and rise frames a slight back-swing of the feather mass would help.
 - **Far legs are small.** The far trailing and tucked legs are mostly behind the near thigh and the wing; they read at 3x, barely at 1x.
-- **Crouch versus impact:** both are low, flexed poses; they differ by 5 px of height, stance width (ball points 14 px apart against 28 px) and head height. Review at 1x.
-- **Hock near the floor in the impact:** the near hock is 1-2 px above the toes. It reads as a hard squash; a reviewer may prefer it 2 px higher.
+- **Crouch versus impact:** both are low, flexed poses; they differ by height (top row 21 against 24), stance (14 against 32 px between ball points), the braced front leg and the head height.
+- **Crouch far hock:** the far (back) hock of the crouch sits low behind the near foot; it is mostly covered and was not flagged at 1x.
 - No Donut-mounted check, no Floor 1 lit scene (needs the exported kit atlases), no Bevy check, no human game-feel review.
 
 ## 9. Executor checklist
@@ -124,23 +126,26 @@ Pose intent:
 Execution work only; any design question goes back to the designer. Do not change the keys (4, 5, 6, 10, 12, 13, 14), the idle, the head pixels, the palette, the canvas, the pivot or the layer order.
 
 1. **Frames 7, 8, 9 (run F3-F5):** the rig drafts are F0-F2 with the leg parameters swapped (`DRAFTS` in the script). Finish them by hand so the far leg is the planted leg:
-   - row 87: frame 7 far 84-103, frame 8 far 68-87, frame 9 empty (lowest row 86);
+   - row 87: frame 7 far 84-103, frame 8 far 68-87, frame 9 empty (every leg layer's lowest row 84 or higher; the far leg toes off with the `toe` stamp, as in key 6);
    - the planted far leg must read in front of the tail and behind the near thigh; where the near drumstick covers the far knee, keep at least 3 px of the far shin visible below the drumstick;
    - the near leg (trailing, tucked, reaching) keeps the near ramp and must not overlap the planted far foot;
    - body, tail, wing, head and crest identical to frames 4, 5, 6.
 2. **Frame 11 (J1 push-off):** between crouch 10 and rise 12. Targets: body (2, 0) ±1, head top-left (93, 21) ±1, both feet on their toes behind the hips (row 87 within x 54-81), heels lifted, tail tip halfway between 10 and 12, wing shear about 0.30. The current draft is close; clean the legs by hand.
-3. **Frame 15 (L1 recover):** between impact 14 and the idle. Targets: body (2, 3) ±1, head top-left (90, 24) ±1, feet planted (row 87 near 74-93, far 60-79 ±2), tail settling (column shear ≤ 0.08). It must blend into idle frame 0 without a pop: head within 6 px of (85, 19).
+3. **Frame 15 (L1 recover):** between impact 14 and the idle. Targets: body (2, 3) ±1, head top-left (90, 24) ±1, feet planted (row 87 near 74-93, far 60-79 ±2; only foot-stamp pixels on rows 86-87, hocks at least 3 px above the ball row), tail settling (column shear ≤ 0.08). It must blend into idle frame 0 without a pop: head within 6 px of (85, 19).
 4. Record every hand change as a `DRAFTS` recipe or a `PATCHES` entry (with the expected old key). Keep `--check-keys` passing; do not route the executor frames through it.
 5. **Validators and tests:** keep `max_orphans_per_frame` 2 and 0 isolated pixels in all 16 frames. After review, add 7, 8, 9, 11, 15 to `rules.frozen_keys` and re-run `python3 -m scripts.pixelart freeze --force ...`.
 6. **Rebuild and evidence:** `python3 scripts/author_mongo_locomotion.py --write` only if a recipe changed (it overwrites hand edits not recorded in the script), `python3 scripts/pixel_grid_to_ase.py build` for the `.ase`, then `python3 scripts/make_mongo_locomotion_evidence.py`. With the Floor 1 kit atlases exported (`bash scripts/export_assets.sh`), also run `python3 -m scripts.pixelart evidence` for the lit scene, and add a footfall diagram and a run onion skin (frames 4-9, back line and feet) like ANIM-DONUT-01.
 7. **Docs:** add an ANIM-MONGO-01 line to `docs/02-art/animation.md`, update "Run readiness" in [mongo-scale-study.md](mongo-scale-study.md) to point here, fill the evidence README file table. Leave `docs/04-production/backlog.md` to the orchestrator.
 
-## 10. Open questions
+## 10. Rulings and open questions
 
-1. **Run tail:** keep the sheared idle plume, or approve a redrawn long streamed plume for locomotion (canvas grows to about 140 px wide)? This is the scale study's "rooster tail" weakness.
-2. **Idle frame 3 timing:** 160 ms (master) against 167 ms (10 ticks) in the locomotion grid. Should the master be re-timed too?
-3. **Mongo's run speed:** the rule assumes the party's 185 px/s. A faster charger speed would need the 4-tick floor or a longer stride.
-4. **Walk:** a slow follow or a stop-start companion needs a walk cycle; not in this order.
+Rulings from the silhouette gate (independent top-tier check of the keys):
+
+1. **Run tail:** the swept idle fan is accepted for run, jump and land.
+2. **Idle frame 3:** 10 ticks (167 ms) is canonical; the master stays untouched.
+3. **Walk:** not in this order; the foot drift below about 120 px/s is a known limitation logged for WORK-017 (idle/run hysteresis until a walk exists).
+
+Still open: Mongo's actual run speed once `charger` gameplay exists (re-derive ticks and stride if it is not 185 px/s).
 
 Living horizon: this order adds no playable move, ability or co-op behaviour; it fits [character-progression-horizon.md](../01-design/character-progression-horizon.md) as art groundwork for the later `charger` companion.
 
