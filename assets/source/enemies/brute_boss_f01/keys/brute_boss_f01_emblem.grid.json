@@ -76,11 +76,6 @@
    "key": "q",
    "name": "tongue_pink",
    "rgba": "#c8566aff"
-  },
-  {
-   "key": "b",
-   "name": "boil_red",
-   "rgba": "#b3283aff"
   }
  ],
  "layers": [
@@ -91,24 +86,24 @@
    "duration_ms": 100,
    "cels": {
     "key": [
-     ".....KKKKKKK......",
-     "...KKHHIHHIHKK....",
-     "..KHIHHIHHIHHHK...",
-     ".KHIHlHIHHIHHIHHK.",
-     ".KHHIlmHmmllllmHK.",
-     "KHIHsmsmmlbqlmmmK.",
-     "KHHKssKKKKKKKKmmK.",
-     "KIHKsmmewwwKmmmmK.",
-     "KHIKdsmmeeKmmmllmK",
-     "KHHKdsmmmmmmmmmmmK",
-     "KIH.KdtTttTttTttTK",
-     "KHH.Kdoooooooooooo",
-     "KIH.Kdooqqqqqooooo",
-     "KHH.KdtTotTotTotK.",
-     ".KH..KdsmmmmmmmK..",
-     ".KH...KdsssssdK...",
-     "..K....KKddddK....",
-     "........KKKK......"
+     "...KKKKKKK........",
+     "..KHHIHHIHKK......",
+     ".KHIHHIHHIHHK.....",
+     ".KHHIKlHIHlmmKK...",
+     "KHIHKlsHHlmmmmmK..",
+     "KHHIKsmsHmmmmmmmK.",
+     "KHIHKssmmmKKKKKKKK",
+     "KHHHKdsmmmmewwKmK.",
+     "KIHHKdsmmmmmmmmmlK",
+     "KHHHKdssmmmmmmmmmK",
+     "KIH.KdstTttTttTtK.",
+     "KHH.Kdsoooooooooo.",
+     "KIH.Kdsoooqqqqooo.",
+     "KHH..KdtTotTotTtK.",
+     ".KH..KdssmmmmmmmK.",
+     ".KH...KddsssssK...",
+     "..K...KdsK........",
+     "......KddK........"
     ]
    }
   }

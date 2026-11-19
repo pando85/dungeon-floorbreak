@@ -10,7 +10,7 @@ Usage:
 ``body``, one frame per key) and ``brute_boss_f01_emblem.grid.json`` (the 18 x 18 boss-strip emblem). ``previews``
 writes the review PNGs to ``docs/evidence/floor01-boss/`` (needs ``bash scripts/export_assets.sh`` for the lit floor).
 
-The five body keys reuse the JUICE-01 construction unchanged (``scripts/author_juice01.py``: canvas 160 x 136, pivot
+The six body keys reuse the JUICE-01 construction unchanged (``scripts/author_juice01.py``: canvas 160 x 136, pivot
 (72, 135), the 19-colour ``trog-family-v0+juicer`` palette, part order, boils, veins, grime, hair and faces); only the
 pose rules below are new. Design spec: ``docs/02-art/floor-01-boss-design.md`` section 8. Presentation-only art
 tooling; nothing here is wired into the game.
@@ -48,7 +48,7 @@ jc.FACES["dazed"] = ["...............",
                      ".....w....q....",
                      ".....w........."]
 
-# ------------------------------------------------------------------ the five new keys (design units: x forward
+# ------------------------------------------------------------------ the six new keys (design units: x forward
 # from the pivot column, y up from the contact row; authored facing right like JUICE-01)
 NEW: dict[str, dict] = {}
 
@@ -56,7 +56,7 @@ NEW: dict[str, dict] = {}
 # knuckles on the floor ahead, the near fist pulled back past the hip, the head dropped below the hump and pushed
 # forward. Lower and longer than every JUICE-01 key: "he is about to run", never "the hammer is up".
 NEW["charge_tell"] = {
-    "far_legs": [L([(-12, 30), (-26, 18), (-40, 7), (-48, 2.5)], [10.0, 7.5, 5.0, 3.2])],
+    "far_legs": [L([(-12, 30), (-23, 16), (-34, 6), (-25, 1.5)], [10.0, 7.5, 5.0, 3.2])],
     "far_arms": [L([(22, 58), (40, 38), (52, 18)], [8.0, 7.0, 6.5])],
     "far_fist": (56, 9, 9.0, -80),
     "torso": L([(-8, 32), (4, 50), (16, 62)], [14.0, 15.0, 13.0]),
@@ -76,14 +76,14 @@ NEW["charge_tell"] = {
 # tucked under it, the far fist punched ahead like a battering ram, the near fist pumping back; the far knee driven up
 # (airborne), the near leg straight behind pushing off the contact row. Hair streams back.
 NEW["charge_run"] = {
-    "far_legs": [L([(-2, 38), (16, 32), (12, 16), (22, 11)], [10.0, 7.5, 5.0, 3.2])],
+    "far_legs": [L([(-2, 38), (16, 30), (13, 16), (23, 13)], [10.0, 7.5, 5.0, 3.2])],
     "far_arms": [L([(30, 66), (48, 56), (62, 50)], [8.0, 7.0, 6.5])],
     "far_fist": (70, 49, 9.5, -5),
     "torso": L([(-8, 40), (10, 58), (26, 70)], [14.0, 15.0, 13.0]),
     "blobs": {"glute": (-16, 42, 12, 11), "lat": (4, 64, 13, 12), "gut": (10, 46, 13, 12), "pec": (30, 60, 12, 10),
               "traps": (22, 78, 13, 10)},
-    "near_legs": [L([(-6, 38), (-18, 24), (-32, 9), (-40, 1.5)], [11.0, 8.5, 5.5, 3.4])],
-    "calf": (-25, 16, 4.5, 6.0),
+    "near_legs": [L([(-6, 38), (-15, 22), (-28, 8), (-19, 1.5)], [11.0, 8.5, 5.5, 3.4])],
+    "calf": (-21, 15, 4.5, 6.0),
     "loin": ragged_loin(-18, 8, 41, 17),
     "waist_chain": [(-24, 44), (-12, 38), (0, 37), (10, 41)],
     "head_at": (46, 64), "tilt": -3.0, "face": "growl", "hair": {"sweep": 1.0},
@@ -92,18 +92,38 @@ NEW["charge_run"] = {
     "fist": (-8, 38, 11.0, 220),
 }
 
+# K-B2 charge_run_b: the opposite contact of the run cycle. The near knee drives up and forward, the far leg pushes
+# off behind with its foot on the ball; the trunk rides 2 px higher; the near fist pumps forward low under the head,
+# the far fist pulls back to the chest. Frames 2 and 4 of the 4-frame run are passing in-betweens (execution).
+NEW["charge_run_b"] = {
+    "far_legs": [L([(-4, 40), (-14, 24), (-28, 10), (-20, 3.5)], [10.0, 7.5, 5.0, 3.2])],
+    "far_arms": [L([(30, 68), (44, 60), (50, 50)], [8.0, 7.0, 6.5])],
+    "far_fist": (56, 47, 9.5, 10),
+    "torso": L([(-8, 42), (10, 60), (26, 72)], [14.0, 15.0, 13.0]),
+    "blobs": {"glute": (-16, 44, 12, 11), "lat": (4, 66, 13, 12), "gut": (10, 48, 13, 12), "pec": (30, 62, 12, 10),
+              "traps": (22, 80, 13, 10)},
+    "near_legs": [L([(-2, 40), (18, 30), (16, 14), (26, 10)], [11.0, 8.5, 5.5, 3.4])],
+    "calf": (17, 22, 4.5, 6.0),
+    "loin": ragged_loin(-18, 8, 43, 17),
+    "waist_chain": [(-24, 46), (-12, 40), (0, 39), (10, 43)],
+    "head_at": (46, 66), "tilt": -3.0, "face": "growl", "hair": {"sweep": 0.8},
+    "near_arm": L([(22, 72), (34, 56), (44, 44)], [10.5, 9.0, 8.0]),
+    "arm_blobs": {"deltoid": (22, 74, 12, 11), "bicep": (28, 64, 8, 9), "forearm": (39, 50, 8.5, 8.5)},
+    "fist": (50, 40, 11.0, -20),
+}
+
 # K-C crash_stun: rebounded off the wall and sat down hard. Rump on the floor, the near leg straight out, the far knee
 # up, the trunk slumped back, the head lolled forward and down with the dazed face, both fists dropped on the floor.
 # About 62 px tall: the lowest standing-up-able pose, the punish window reads at a glance.
 NEW["crash_stun"] = {
-    "far_legs": [L([(-2, 12), (16, 26), (26, 8), (34, 1.5)], [10.0, 7.5, 5.0, 3.2])],
+    "far_legs": [L([(-2, 12), (15, 25), (23, 6), (32, 1.5)], [10.0, 7.5, 5.0, 3.2])],
     "far_arms": [L([(-12, 46), (-24, 30), (-30, 14)], [8.0, 7.0, 6.5])],
     "far_fist": (-32, 8, 8.5, 250),
     "torso": L([(-8, 12), (-14, 30), (-16, 46)], [14.0, 15.0, 13.0]),
     "blobs": {"glute": (-14, 11, 12, 10), "lat": (-20, 32, 12, 12), "gut": (2, 22, 13, 12), "pec": (-2, 38, 12, 10),
               "traps": (-14, 52, 13, 10)},
-    "near_legs": [L([(0, 9), (22, 9), (40, 5), (50, 1.5)], [11.0, 8.5, 5.5, 3.4])],
-    "calf": (31, 8, 4.5, 5.0),
+    "near_legs": [L([(0, 9), (19, 9), (33, 6), (37, 15)], [11.0, 8.5, 5.5, 3.6])],
+    "calf": (26, 8, 4.5, 5.0),
     "loin": ragged_loin(-14, 10, 19, 10),
     "waist_chain": [(-20, 20), (-8, 16), (4, 15), (14, 18)],
     "head_at": (14, 47), "tilt": 2.0, "face": "dazed", "hair": {"turn": -18, "sweep": -0.3},
@@ -137,14 +157,14 @@ NEW["phase_roar"] = {
 # at the front with the pain face (the lethal crush swaps in the "dead" face), the near arm splayed forward along the
 # floor with an open hand, the far hand clawing up behind, the far leg kicking up behind the rump.
 NEW["pinned"] = {
-    "far_legs": [L([(-28, 14), (-42, 20), (-52, 32), (-50, 40)], [10.0, 7.5, 5.0, 3.2])],
+    "far_legs": [L([(-28, 14), (-41, 21), (-47, 32), (-40, 36)], [10.0, 7.5, 5.0, 3.2])],
     "far_arms": [L([(8, 18), (0, 30), (-6, 40)], [8.0, 7.0, 6.5])],
     "far_hand": open_hand(-8, 44, 4.0, 100),
     "torso": L([(-30, 12), (-8, 13), (14, 12)], [12.0, 13.0, 12.0]),
     "blobs": {"glute": (-30, 15, 11, 10), "lat": (-10, 16, 13, 8), "gut": (-6, 7, 13, 7), "pec": (12, 9, 11, 8),
               "traps": (16, 18, 10, 7)},
-    "near_legs": [L([(-28, 10), (-44, 9), (-56, 4), (-63, 1.5)], [11.0, 8.5, 5.5, 3.4])],
-    "calf": (-50, 6, 4.0, 5.0),
+    "near_legs": [L([(-28, 10), (-42, 9), (-52, 6), (-59, 1.5)], [11.0, 8.5, 5.5, 3.4])],
+    "calf": (-47, 7, 4.0, 5.0),
     "loin": ragged_loin(-40, -20, 24, 8),
     "waist_chain": [(-38, 22), (-30, 24), (-22, 22)],
     "head_at": (36, 9), "tilt": 1.0, "face": "pain", "jaw_drop": True, "hair": {"turn": 40, "sweep": -0.4},
@@ -153,30 +173,30 @@ NEW["pinned"] = {
     "hand": open_hand(58, 5, 5.0, -5),
 }
 
-ORDER = ["charge_tell", "charge_run", "crash_stun", "phase_roar", "pinned"]
+ORDER = ["charge_tell", "charge_run", "charge_run_b", "crash_stun", "phase_roar", "pinned"]
 
 # ------------------------------------------------------------------ the boss-strip emblem (18 x 18 inside the
 # 20 x 20 well of docs/02-art/hybrid-hud-a-native-spec.md 2.3): the Juicer's head in profile facing right, mop and
 # ropes, the swept-back pointed ear, the red-rimmed eye, the roaring mouth with fangs, one boil on the brow.
 # Hand-placed pixels in the same 19-colour palette; no scaling of sprite pixels.
-EMBLEM = [".....KKKKKKK......",
-          "...KKHHIHHIHKK....",
-          "..KHIHHIHHIHHHK...",
-          ".KHIHlHIHHIHHIHHK.",
-          ".KHHIlmHmmllllmHK.",
-          "KHIHsmsmmlbqlmmmK.",
-          "KHHKssKKKKKKKKmmK.",
-          "KIHKsmmewwwKmmmmK.",
-          "KHIKdsmmeeKmmmllmK",
-          "KHHKdsmmmmmmmmmmmK",
-          "KIH.KdtTttTttTttTK",
-          "KHH.Kdoooooooooooo",
-          "KIH.Kdooqqqqqooooo",
-          "KHH.KdtTotTotTotK.",
-          ".KH..KdsmmmmmmmK..",
-          ".KH...KdsssssdK...",
-          "..K....KKddddK....",
-          "........KKKK......"]
+EMBLEM = ["...KKKKKKK........",
+          "..KHHIHHIHKK......",
+          ".KHIHHIHHIHHK.....",
+          ".KHHIKlHIHlmmKK...",
+          "KHIHKlsHHlmmmmmK..",
+          "KHHIKsmsHmmmmmmmK.",
+          "KHIHKssmmmKKKKKKKK",
+          "KHHHKdsmmmmewwKmK.",
+          "KIHHKdsmmmmmmmmmlK",
+          "KHHHKdssmmmmmmmmmK",
+          "KIH.KdstTttTttTtK.",
+          "KHH.Kdsoooooooooo.",
+          "KIH.Kdsoooqqqqooo.",
+          "KHH..KdtTotTotTtK.",
+          ".KH..KdssmmmmmmmK.",
+          ".KH...KddsssssK...",
+          "..K...KdsK........",
+          "......KddK........"]
 
 
 def grid_for(names: list[str]) -> dict:
@@ -206,8 +226,8 @@ def dump(grid: dict) -> str:
 
 
 def write_previews() -> list[Path]:
-    """keys-x3.png: the five new keys at 1x on lit Floor 1 brick, enlarged 3x. silhouettes.png: all eleven keys
-    (six frozen JUICE-01 keys, then the five new ones) as flat silhouettes, 2x, to check that every state reads apart.
+    """keys-x3.png: the six new keys at 1x on lit Floor 1 brick, enlarged 3x. silhouettes.png: all twelve keys
+    (six frozen JUICE-01 keys, then the six new ones) as flat silhouettes, 2x, to check that every state reads apart.
     scale-1x.png: Carl, Donut, crash_stun and charge_run at 1x on the lit floor (640 x 360). emblem-x6.png: the
     emblem in its 20 x 20 well, 6x."""
     sys.path.insert(0, str(ROOT))
@@ -224,7 +244,7 @@ def write_previews() -> list[Path]:
 
     # 1. new keys on the lit floor, 3x (two rows)
     strips = []
-    for row in (new[0:3], new[3:5]):
+    for row in (new[0:3], new[3:6]):
         entries = [(img, piv, CARL_X - 40 + i * 175, 0) for i, img in enumerate(row)]
         floor = Floor()
         lit = floor.render(entries, 1)
@@ -237,7 +257,7 @@ def write_previews() -> list[Path]:
     p = EVIDENCE / "keys-x3.png"
     sheet.resize((sheet.width * 3, sheet.height * 3), Image.NEAREST).save(p); out.append(p)
 
-    # 2. silhouettes of all eleven keys, 2x
+    # 2. silhouettes of all twelve keys, 2x
     w, h = jc.CANVAS
     names = ["idle", "walk", "tell", "pound", "hurt", "down"] + ORDER
     sil = Image.new("RGB", (w * 6, (h + 14) * 2), (232, 228, 216))
@@ -255,7 +275,7 @@ def write_previews() -> list[Path]:
     donut, donut_piv = reference_idle("donut")
     run_img, run_piv = flip(new[1], piv)
     entries = [(carl, carl_piv, CARL_X, 0), (donut, donut_piv, CARL_X - 34, 0),
-               (new[2], piv, CARL_X + 120, 0), (run_img, run_piv, CARL_X + 300, 0)]
+               (new[3], piv, CARL_X + 120, 0), (run_img, run_piv, CARL_X + 300, 0)]
     p = EVIDENCE / "scale-1x.png"
     Floor().render(entries, 1).save(p); out.append(p)
 
