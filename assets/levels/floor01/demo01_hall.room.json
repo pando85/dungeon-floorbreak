@@ -1,0 +1,30 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "DEMO-01 greybox hall: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level).",
+  "scenarios": [
+    {
+      "id": "DEMO-HALL",
+      "name": "Demo hall",
+      "subtitle": "DEMO-01 route: B0 to B6 on one walking line",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 3200,
+      "height": 660,
+      "floor": 580,
+      "spawn": { "carl": 160, "donut": 128 },
+      "camera_intro": 160,
+      "platforms": [
+        { "x": 304, "y": 548, "w": 112, "h": 16 },
+        { "x": 1360, "y": 548, "w": 112, "h": 16 }
+      ],
+      "solid_backwall": [[1584, 1808]],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 3120,
+      "purpose": "A taller hall than the 400 px corridor so a wider camera view never shows void; flat except two 2-tile ledges.",
+      "expected": "Beats are placed by src/demo.rs; this file holds geometry only.",
+      "coop": "Single player in DEMO-01; Donut trails passively."
+    }
+  ]
+}

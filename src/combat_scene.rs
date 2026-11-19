@@ -210,6 +210,18 @@ impl Fixture {
     }
 }
 
+/// Where a retired demo goblin is parked: left of the layout.
+pub const RETIRED_X: f32 = -256.0;
+
+/// DEMO-01 rules of a continuous run (see `crate::demo`). `None` on every
+/// fixture, so nothing of it is mixed into a fixture hash.
+#[derive(Debug, PartialEq, Eq)]
+pub struct DemoRules {
+    /// Respawn columns, one per beat, ascending: the checkpoint is the start
+    /// column of the furthest beat Carl has entered.
+    pub checkpoints: &'static [i32],
+}
+
 /// CP-01: Carl and one chasing goblin on clean ground. The same inputs as the
 /// COMBAT-INT-01 baseline: a jab pressed on 122, the second jab pressed on 136
 /// (hit-stop, stagger, knockback, a launched defeat and a corpse now).
@@ -720,9 +732,13 @@ pub struct CombatState {
     cursor: usize,
     enemy_foot_y: f32,
     x_max: f32,
+    /// DEMO-01 rules (`None` for every fixture) and the furthest beat entered.
+    demo: Option<&'static DemoRules>,
+    pub checkpoint: usize,
     // Presentation cache (not hashed, never read by the sim).
     confirm: Option<Confirm>,
     flash_tick: Vec<Option<u64>>,
+    respawned: bool,
 }
 
 impl CombatState {
@@ -774,11 +790,78 @@ impl CombatState {
             cursor: 0,
             enemy_foot_y: scene.world.hero_foot_y(),
             x_max: kit.width as f32,
+            demo: None,
+            checkpoint: 0,
             confirm: None,
             flash_tick: Vec::new(),
+            respawned: false,
         };
         state.reset_attempt();
         Ok(state)
+    }
+
+    /// DEMO-01: run this state under the demo rules (checkpoint respawn).
+    #[must_use]
+    pub fn with_demo(mut self, rules: &'static DemoRules) -> Self {
+        self.demo = Some(rules);
+        self.reset_attempt();
+        self
+    }
+
+    /// The beat whose checkpoint is the fixture's start column (0 without
+    /// demo rules).
+    fn start_checkpoint(&self) -> usize {
+        self.demo.map_or(0, |demo| {
+            demo.checkpoints
+                .iter()
+                .rposition(|&column| column <= self.fixture.carl_x)
+                .unwrap_or(0)
+        })
+    }
+
+    /// DEMO-01: true once after a respawn (the presentation resets Carl's
+    /// animation). Presentation only, never hashed.
+    pub fn take_respawned(&mut self) -> bool {
+        std::mem::take(&mut self.respawned)
+    }
+
+    /// DEMO-01: Carl stands up at the last checkpoint with full health. Defeated
+    /// enemies stay defeated (their corpse and gore stay); every living goblin
+    /// goes back to its spawn. The
+    /// tick counter and the event log keep running. Does nothing without
+    /// demo rules.
+    pub fn respawn(&mut self, scene: &mut SceneSim) {
+        let Some(demo) = self.demo else {
+            return;
+        };
+        let checkpoint = self.checkpoint.min(demo.checkpoints.len() - 1);
+        scene.respawn_at(demo.checkpoints[checkpoint] as f32);
+        for (index, spawn) in self.fixture.enemies.iter().enumerate() {
+            if self.enemies[index].health > 0 {
+                self.enemies[index] = Goblin::new(
+                    spawn.x as f32,
+                    self.enemy_foot_y + ENEMY_HALF_HEIGHT,
+                    spawn.ai,
+                );
+                self.flash_tick[index] = None;
+            }
+        }
+        self.input = InputFrame::default();
+        self.hurt_ticks = 0;
+        self.hero_hit_stop = 0;
+        self.hero_defeated = false;
+        self.hero_vx = 0.0;
+        self.donut = HeroCombat::default();
+        self.defeated_hero = HeroId::Carl;
+        self.targets = vec![None; self.enemies.len()];
+        self.defeated_ticks = 0;
+        self.last_tell_start = None;
+        self.confirm = None;
+        self.respawned = true;
+        self.log(CombatEvent::Respawn {
+            tick: scene.world.tick,
+            checkpoint: checkpoint as u32,
+        });
     }
 
     fn reset_attempt(&mut self) {
@@ -824,7 +907,37 @@ impl CombatState {
         self.last_tell_start = None;
         self.event_hash = EVENT_HASH_SEED;
         self.confirm = None;
+        self.checkpoint = self.start_checkpoint();
         self.flash_tick = vec![None; self.enemies.len() + self.llamas.len()];
+        self.retire_goblins_behind_start();
+    }
+
+    /// DEMO-01, a run that starts at a later beat: the goblins of the beats
+    /// behind it are not part of the run. They are retired (health 0, corpse,
+    /// parked outside the layout, never drawn), so they neither chase Carl nor
+    /// keep the run from completing. Nothing happens on a fixture or at beat 0.
+    fn retire_goblins_behind_start(&mut self) {
+        let Some(demo) = self.demo else {
+            return;
+        };
+        let start = demo.checkpoints[self.checkpoint];
+        for (goblin, spawn) in self.enemies.iter_mut().zip(self.fixture.enemies) {
+            if spawn.x < start {
+                goblin.health = 0;
+                goblin.mode = GoblinMode::Corpse;
+                goblin.ai = EnemyAi::Passive;
+                goblin.x = RETIRED_X;
+            }
+        }
+        // The llamas of the beats behind the start are retired the same way.
+        for (llama, spawn) in self.llamas.iter_mut().zip(self.fixture.llamas) {
+            if spawn.x < start {
+                llama.health = 0;
+                llama.mode = LlamaMode::Corpse;
+                llama.ai = EnemyAi::Passive;
+                llama.x = RETIRED_X;
+            }
+        }
     }
 
     /// Fast restart of the fixture: Carl, the goblins and the tick counter go
@@ -1102,6 +1215,7 @@ impl CombatState {
             scene.step(gated);
         }
 
+        self.step_demo(scene);
         self.step_goblins(scene, tick);
         self.step_llamas(scene, tick);
         self.step_globs(scene, tick);
@@ -1111,7 +1225,27 @@ impl CombatState {
         if self.hero_defeated {
             self.defeated_ticks = self.defeated_ticks.saturating_add(1);
             if self.defeated_ticks >= RESTART_DELAY_TICKS {
-                self.restart(scene);
+                if self.demo.is_some() {
+                    self.respawn(scene);
+                } else {
+                    self.restart(scene);
+                }
+            }
+        }
+    }
+
+    /// DEMO-01 (no-op without demo rules): advance the checkpoint to the
+    /// furthest beat Carl has entered.
+    fn step_demo(&mut self, scene: &SceneSim) {
+        let Some(demo) = self.demo else {
+            return;
+        };
+        let hero_x = scene.world.hero.x;
+        if !self.hero_defeated {
+            while self.checkpoint + 1 < demo.checkpoints.len()
+                && hero_x >= demo.checkpoints[self.checkpoint + 1] as f32
+            {
+                self.checkpoint += 1;
             }
         }
     }
@@ -1771,6 +1905,11 @@ impl CombatState {
             }
         }
         put(self.event_hash);
+        // DEMO-01 only: no fixture mixes anything here.
+        if self.demo.is_some() {
+            put(0x4445_4d4f);
+            put(self.checkpoint as u64);
+        }
         hash
     }
 
@@ -1888,6 +2027,13 @@ impl CombatState {
             self.state_hash(scene)
         ) + &self.shore_token()
             + &self.llama_state()
+            + &self.demo_token()
+    }
+
+    /// ` demo_cp=<furthest beat entered>` in a demo run, else empty.
+    fn demo_token(&self) -> String {
+        self.demo
+            .map_or_else(String::new, |_| format!(" demo_cp={}", self.checkpoint))
     }
 }
 

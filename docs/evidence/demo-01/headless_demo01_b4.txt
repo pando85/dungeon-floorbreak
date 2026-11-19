@@ -1,0 +1,21 @@
+COMBAT_EVENT tick=20 kind=llama_tell llama=0
+COMBAT_EVENT tick=56 kind=llama_spit llama=0
+COMBAT_EVENT tick=66 kind=goblin_tell goblin=7
+COMBAT_EVENT tick=68 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=71 kind=hit move=jab instance=1 target=7 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=71 kind=goblin_interrupted goblin=7
+COMBAT_EVENT tick=78 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=82 kind=hero_hurt source=14 health_left=3
+COMBAT_EVENT tick=104 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=105 kind=goblin_tell goblin=7
+COMBAT_EVENT tick=107 kind=hit move=jab instance=3 target=7 damage=1 health_left=0 hit_stop=6
+COMBAT_EVENT tick=107 kind=enemy_defeated target=7
+COMBAT_EVENT tick=107 kind=goblin_interrupted goblin=7
+COMBAT_EVENT tick=156 kind=move_started move=push_kick instance=4
+COMBAT_EVENT tick=169 kind=hit move=push_kick instance=4 target=14 damage=1 health_left=2 hit_stop=8
+COMBAT_EVENT tick=208 kind=move_started move=push_kick instance=5
+COMBAT_EVENT tick=221 kind=hit move=push_kick instance=5 target=14 damage=1 health_left=1 hit_stop=8
+COMBAT_EVENT tick=264 kind=move_started move=push_kick instance=6
+COMBAT_EVENT tick=277 kind=hit move=push_kick instance=6 target=14 damage=1 health_left=0 hit_stop=11
+COMBAT_EVENT tick=277 kind=enemy_defeated target=14 force=heavy
+COMBAT_STATE fixture=demo01_b4 seed=0xde300004 tick=400 elapsed=400 hero_hp=3 deaths=0 enemies=e0=-256.000/0,e1=-256.000/0,e2=-256.000/0,e3=-256.000/0,e4=-256.000/0,e5=-256.000/0,e6=-256.000/0,e7=2378.797/0,e8=3010.000/2,e9=3030.000/2,e10=3050.000/2,e11=3110.000/2,e12=3130.000/2,e13=3150.000/2 hash=9b1415b2fc6ba898 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=2501.832/0 demo_cp=5

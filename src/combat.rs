@@ -1028,6 +1028,12 @@ pub enum CombatEvent {
         tick: u64,
         llama: u32,
     },
+    /// DEMO-01: Carl stood up again at checkpoint `checkpoint` (the demo's
+    /// respawn: defeated enemies stay defeated). Emitted only in the demo.
+    Respawn {
+        tick: u64,
+        checkpoint: u32,
+    },
 }
 
 impl CombatEvent {
@@ -1205,6 +1211,12 @@ impl CombatEvent {
                 mix(tick);
                 mix(u64::from(llama));
             }
+            Self::Respawn { tick, checkpoint } => {
+                // A tag far from the combat tags: DEMO-01 only.
+                mix(0x4445_4d4f);
+                mix(tick);
+                mix(u64::from(checkpoint));
+            }
         }
     }
 }
@@ -1338,6 +1350,12 @@ impl fmt::Display for CombatEvent {
                 f,
                 "COMBAT_EVENT tick={tick} kind=llama_interrupted llama={llama}"
             ),
+            Self::Respawn { tick, checkpoint } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=respawn checkpoint={checkpoint}"
+                )
+            }
         }
     }
 }
