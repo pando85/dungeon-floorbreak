@@ -67,6 +67,7 @@ const fn kick(from: u64, to: u64) -> Hold {
             physical: true,
             ability: false,
             pause: false,
+            swap: false,
         },
     }
 }
@@ -83,6 +84,7 @@ const fn attack(from: u64, to: u64) -> Hold {
             physical: false,
             ability: false,
             pause: false,
+            swap: false,
         },
     }
 }
@@ -100,6 +102,7 @@ const fn strike_towards(from: u64, to: u64, dir: f32, kick: bool) -> Hold {
             physical: kick,
             ability: false,
             pause: false,
+            swap: false,
         },
     }
 }
@@ -1455,6 +1458,7 @@ mod tests {
                 physical: false,
                 ability: false,
                 pause: false,
+                swap: false,
             },
         }],
         ticks: 150,

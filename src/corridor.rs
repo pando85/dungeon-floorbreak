@@ -436,7 +436,23 @@ impl SceneSim {
         self.world.tick += 1;
     }
 
+    /// The legacy single-hero step: Carl's slot gets `raw`, Donut's slot is
+    /// idle. Delegates to [`Self::step_party`], so every golden and replay hash
+    /// is unchanged.
     pub fn step(&mut self, raw: RawInput) {
+        self.step_party([raw, RawInput::default()]);
+    }
+
+    /// One fixed tick for the party. `inputs` is indexed by hero, not by pad:
+    /// `inputs[0]` drives Carl and `inputs[1]` drives Donut. `crate::party`
+    /// maps pads and the solo swap onto this order and clears `swap`. The
+    /// uncontrolled hero receives `RawInput::default()`.
+    ///
+    /// Contract stub (WORK-005/WORK-006): only `inputs[0]` is read until the
+    /// sim lane gives Donut physics, so behaviour is identical to the old
+    /// `step`.
+    pub fn step_party(&mut self, inputs: [RawInput; 2]) {
+        let raw = inputs[0];
         self.input.advance(raw);
         self.world.step(&self.input);
         self.camera.step(self.world.hero.x, self.world.hero.facing);
@@ -504,6 +520,22 @@ mod tests {
     /// Layout-space (y down) walking line under the hero's feet.
     fn feet_line(world: &CorridorWorld) -> f32 {
         world.layout_height() as f32 - world.hero_foot_y()
+    }
+
+    #[test]
+    fn step_party_with_an_idle_second_slot_matches_the_legacy_step() {
+        let mut legacy = sim(360);
+        let mut party = sim(360);
+        for tick in 0..120u32 {
+            let raw = RawInput {
+                move_x: 1.0,
+                jump: tick % 40 == 5,
+                ..RawInput::default()
+            };
+            legacy.step(raw);
+            party.step_party([raw, RawInput::default()]);
+            assert_eq!(legacy.state_hash(), party.state_hash());
+        }
     }
 
     #[test]
