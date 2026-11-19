@@ -1,0 +1,359 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "boss-f01",
+  "title": "BOSS-F01 brute_boss_f01 (THE JUICER) Floor 01 boss encounter set: six frozen keys, nine in-betweens, one face swap",
+  "grid": "assets/source/enemies/brute_boss_f01/brute_boss_f01.grid.json",
+  "manifest": "assets/manifests/boss-f01.json",
+  "frame_size": [
+    160,
+    136
+  ],
+  "pivot": [
+    72,
+    135
+  ],
+  "contact_row": 135,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "charge_tell": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          6
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          2,
+          null
+        ]
+      ]
+    },
+    "charge_run": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          6,
+          4
+        ]
+      ]
+    },
+    "crash_stun": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          7,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          9,
+          null
+        ]
+      ]
+    },
+    "phase_roar": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          10,
+          6
+        ],
+        [
+          11,
+          24
+        ],
+        [
+          12,
+          30
+        ]
+      ]
+    },
+    "pinned": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          13,
+          6
+        ],
+        [
+          14,
+          null
+        ]
+      ]
+    },
+    "pinned_dead": {
+      "playback": "hold",
+      "contact": "grounded",
+      "frames": [
+        [
+          15,
+          null
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 40,
+    "canvas_margin": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "unique_frames": true,
+    "manifest_tick_rows": "boss.frames",
+    "manifest_tick_hz": "boss.tick_hz",
+    "foot_drift": {
+      "max_px": 30,
+      "tags": [
+        "charge_run"
+      ]
+    },
+    "frozen_keys": {
+      "fixture": "tests/fixtures/boss-f01_keys.json",
+      "frames": [
+        2,
+        3,
+        5,
+        9,
+        11,
+        14
+      ],
+      "layers": [
+        "body"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "size-charge_tell_hold-80px",
+        "frames": [
+          2
+        ],
+        "min_top": 52,
+        "max_top": 60,
+        "bottom": 135
+      },
+      {
+        "id": "size-charge_run_contact_a-90px",
+        "frames": [
+          3
+        ],
+        "min_top": 42,
+        "max_top": 50,
+        "bottom": 135
+      },
+      {
+        "id": "size-charge_run_contact_b-92px",
+        "frames": [
+          5
+        ],
+        "min_top": 40,
+        "max_top": 48,
+        "bottom": 135
+      },
+      {
+        "id": "size-crash_stun_hold-72px",
+        "frames": [
+          9
+        ],
+        "min_top": 60,
+        "max_top": 68,
+        "bottom": 135
+      },
+      {
+        "id": "size-phase_roar_hold-105px",
+        "frames": [
+          11
+        ],
+        "min_top": 27,
+        "max_top": 35,
+        "bottom": 135
+      },
+      {
+        "id": "size-pinned_hold-56px",
+        "frames": [
+          14
+        ],
+        "min_top": 76,
+        "max_top": 84,
+        "bottom": 135
+      },
+      {
+        "id": "R-roar-widest-key-fists-low",
+        "frames": [
+          11
+        ],
+        "min_width": 70
+      },
+      {
+        "id": "R-run-lower-than-roar",
+        "frames": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "min_top": 32
+      },
+      {
+        "id": "R-pinned-stays-flat",
+        "frames": [
+          14,
+          15
+        ],
+        "min_top": 76
+      },
+      {
+        "id": "B-04-crash-hit-squash-82-86px",
+        "frames": [
+          7
+        ],
+        "min_top": 50,
+        "max_top": 54
+      },
+      {
+        "id": "B-05-pin-squash-flatter-than-key",
+        "frames": [
+          13
+        ],
+        "min_top": 88
+      },
+      {
+        "id": "R-crash-stun-lower-than-idle",
+        "frames": [
+          8,
+          9
+        ],
+        "min_top": 36
+      }
+    ],
+    "key_counts": [
+      {
+        "id": "R1-boils-visible",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "key": "b",
+        "min": 15
+      },
+      {
+        "id": "R2-iron-visible",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "key": "j",
+        "min": 10
+      },
+      {
+        "id": "R3-roar-mouth-open",
+        "frames": [
+          11,
+          12
+        ],
+        "key": "o",
+        "min": 60
+      },
+      {
+        "id": "R4-dead-face-tongue",
+        "frames": [
+          15
+        ],
+        "key": "q",
+        "min": 3
+      },
+      {
+        "id": "R5-dazed-and-dead-no-red-pupil-ring",
+        "frames": [
+          15
+        ],
+        "key": "e",
+        "max": 0
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "charge_tell",
+      "charge_run",
+      "crash_stun"
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 2,
+        "x": 560
+      },
+      {
+        "frame": 3,
+        "x": 685
+      },
+      {
+        "frame": 9,
+        "x": 790
+      },
+      {
+        "frame": 11,
+        "x": 905
+      }
+    ]
+  }
+}
