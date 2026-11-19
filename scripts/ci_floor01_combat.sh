@@ -52,6 +52,31 @@ case "$mode" in
       fi
       echo "COMBAT_HEADLESS_OK: $(last_state < "$out/headless_${f}.txt")"
     done
+    # DEATH-C: the gore preset is presentation only. Every fixture at preset 1
+    # and at preset 4 (the default) replays the committed events and hash, and
+    # the cosmetic presenter's own summary is deterministic between two runs.
+    death_line() { grep '^DEATH_PRESENT' || true; }
+    for f in "${fixtures[@]}"; do
+      for preset in 1 2 3 4; do
+        "$bin" --headless-floor01-smoke --fixture "$f" --gore-preset "$preset" --death-trace > "$out/gore_${f}_p${preset}.txt"
+        combat_lines < "$out/gore_${f}_p${preset}.txt" > "$out/gore_${f}_p${preset}_combat.txt"
+        if ! diff "$committed/headless_${f}.txt" "$out/gore_${f}_p${preset}_combat.txt"; then
+          echo "fixture $f at gore preset $preset differs from the committed replay" >&2
+          exit 1
+        fi
+      done
+      "$bin" --headless-floor01-smoke --fixture "$f" --gore-preset 4 --death-trace | death_line > "$out/gore_${f}_p4_again.txt"
+      if ! cmp -s <(death_line < "$out/gore_${f}_p4.txt") "$out/gore_${f}_p4_again.txt"; then
+        echo "the death presenter of $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if grep -q 'kind=enemy_defeated' "$committed/headless_${f}.txt" \
+        && cmp -s <(death_line < "$out/gore_${f}_p1.txt") <(death_line < "$out/gore_${f}_p4.txt"); then
+        echo "preset 1 and 4 drew the same cosmetics for $f (the preset has no effect)" >&2
+        exit 1
+      fi
+      echo "GORE_PRESET_OK: $f (hash identical at presets 1 to 4)"
+    done
     # The frames drawn are deterministic and reproduce the committed trace.
     for f in "${traced[@]}"; do
       "$bin" --headless-floor01-smoke --fixture "$f" --anim-trace | grep '^COMBAT_ANIM_TRACE' > "$out/anim_trace_${f}.txt"

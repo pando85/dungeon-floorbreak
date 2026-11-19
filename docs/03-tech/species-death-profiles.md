@@ -1,6 +1,6 @@
 # Species death profiles and the defeat event (DEATH-B)
 
-**Status:** implemented as headless domain code and data, **not** wired into the Bevy renderer (DEATH-C draws the finishes). Not game-feel reviewed. Design source: the monster death-system proposal (`monster-death-system-proposal.md`, merged to `main` with PR #83), sections A to E and "PR B".
+**Status:** implemented as headless domain code and data. The Bevy renderer draws the finishes through the DEATH-C cosmetic presenter (draft PR stacked on this one; see [DEATH-C in the floor 01 scene doc](floor01-scene.md#death-c-cosmetic-death-presenter-and-gore-pool)), which only reads the selected finish id. Not game-feel reviewed. Design source: the monster death-system proposal (`monster-death-system-proposal.md`, merged to `main` with PR #83), sections A to E and "PR B".
 
 ## The authoritative defeat event
 
