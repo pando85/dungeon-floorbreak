@@ -556,11 +556,11 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
         part_stain_cap: 10,
         pools: 2,
         // The owner wants more intensity at preset 4: thicker pools, two
-        // more wall spatters at the larger size, a 1.5x burst over the debris
+        // more wall spatters at the larger size, a 2x burst over the debris
         // and a 3 tick flash at detonation. Presentation only.
-        pool_scale: 1.5,
+        pool_scale: 2.0,
         extra_wall_spatters: 2,
-        burst_scale: 1.5,
+        burst_scale: 2.0,
         flash_ticks: 3,
     },
 ];
@@ -4720,9 +4720,12 @@ mod tests {
     fn only_preset_four_is_punched_up() {
         for preset in GorePreset::ALL {
             let t = explosion_table(preset);
+            // Pixel art: only whole-number sprite scales, never a fraction.
+            assert_eq!(t.burst_scale.fract(), 0.0, "{preset:?}");
+            assert_eq!(t.pool_scale.fract(), 0.0, "{preset:?}");
             if preset == GorePreset::Full {
-                assert_eq!(t.burst_scale, 1.5);
-                assert_eq!(t.pool_scale, 1.5);
+                assert_eq!(t.burst_scale, 2.0);
+                assert_eq!(t.pool_scale, 2.0);
                 assert_eq!(t.extra_wall_spatters, 2);
                 assert_eq!(t.flash_ticks, 3);
             } else {
@@ -4758,17 +4761,17 @@ mod tests {
             .collect();
         assert_eq!(pools.len(), 2);
         for (_, d) in pools {
-            assert_eq!(d.scale, 1.5);
+            assert_eq!(d.scale, 2.0);
             // The scaled sprite's lowest opaque row is still on the floor.
             let meta = &p.art().parts[d.meta];
             let bbox = p.sheets().parts.bbox[meta.frame].unwrap();
-            let bottom = d.y - 1.5 * (bbox.bottom - p.art().part_cell.1 / 2) as f32;
+            let bottom = d.y - 2.0 * (bbox.bottom - p.art().part_cell.1 / 2) as f32;
             assert!((bottom - 100.0).abs() < 1e-3, "bottom {bottom}");
         }
         // Four spatters, the two extra at the larger size.
         let scales: Vec<f32> = p.wall_decals().map(|(_, d)| d.scale).collect();
         assert_eq!(scales.len(), 4);
-        assert_eq!(scales.iter().filter(|s| **s == 1.5).count(), 2);
+        assert_eq!(scales.iter().filter(|s| **s == 2.0).count(), 2);
         // The ordinary decals stay at 1.0, and so does every decal at preset 3.
         assert!(p.floor_decals().any(|(_, d)| d.scale == 1.0));
         let mut p3 = run_blast(GorePreset::Medium, 1);
