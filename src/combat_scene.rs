@@ -87,6 +87,23 @@ const fn attack(from: u64, to: u64) -> Hold {
     }
 }
 
+/// A held attack (`kick`: the push kick) over `from..to` pressed together with
+/// a direction, which turns Carl first (`dir` is +1 or -1).
+const fn strike_towards(from: u64, to: u64, dir: f32, kick: bool) -> Hold {
+    Hold {
+        from,
+        to,
+        input: RawInput {
+            move_x: dir,
+            jump: false,
+            attack: !kick,
+            physical: kick,
+            ability: false,
+            pause: false,
+        },
+    }
+}
+
 /// A named, deterministic combat setup.
 #[derive(Debug, PartialEq)]
 pub struct Fixture {
@@ -369,7 +386,74 @@ pub const CP03_KICK_BLOCK: Fixture = Fixture {
     ticks: 260,
 };
 
-pub const FIXTURES: [&Fixture; 12] = [
+/// DEATH-E1 worst case: ten stationary goblins defeated by mixed causes within
+/// about 65 ticks, so the cosmetic pools fill. Three stand just ahead of Carl
+/// and die to two jabs (ticks 20 and 80, defeated on 83), which also hit the
+/// rotten shore (hits 1 and 2); a third jab (tick 100) breaks it. Carl then
+/// turns, jabs three goblins behind him (tick 118) and kills them with a kick
+/// (tick 132, lethal on 148), while the block lands on four goblins standing in
+/// the footprint (tick 139). Not a gameplay design: a stress scenario for the
+/// presenter, with stationary goblins so the timing does not depend on chase
+/// behaviour.
+pub const CP03_GOBLIN_PILEUP: Fixture = Fixture {
+    name: "cp03_goblin_pileup",
+    summary: "ten goblins: jab kills, a lethal kick behind Carl and the shore block, all within ~65 ticks",
+    seed: 0x0C03_0004,
+    carl_x: 400,
+    enemies: &[
+        EnemySpawn {
+            x: 428,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 429,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 430,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 372,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 371,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 370,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 470,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 488,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 500,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 514,
+            ai: EnemyAi::Passive,
+        },
+    ],
+    shore_dx: Some(19),
+    script: &[
+        attack(20, 21),
+        attack(80, 81),
+        attack(100, 101),
+        strike_towards(118, 119, -1.0, false),
+        strike_towards(132, 133, -1.0, true),
+    ],
+    ticks: 260,
+};
+
+pub const FIXTURES: [&Fixture; 13] = [
     &CP01_SINGLE_GOBLIN,
     &CP01_TWO_HITS,
     &CP02_TWO_GOBLINS,
@@ -382,6 +466,7 @@ pub const FIXTURES: [&Fixture; 12] = [
     &CP03_SHORE_KILL,
     &CP03_SHORE_MISS,
     &CP03_KICK_BLOCK,
+    &CP03_GOBLIN_PILEUP,
 ];
 
 // ------------------------------------------------------------------ the sim --
@@ -1203,7 +1288,7 @@ mod tests {
     /// Committed expectations: the final `COMBAT_STATE` hash of each fixture
     /// at its default length. CI compares the headless replay and the real
     /// render run against the same values (`docs/evidence/cp01-feel`).
-    const EXPECTED_HASHES: [(&str, u64); 12] = [
+    const EXPECTED_HASHES: [(&str, u64); 13] = [
         ("cp01_single_goblin", 0xcbb3_07e8_a1a7_420f),
         ("cp01_two_hits", 0x119a_431d_ad6c_7d0b),
         ("cp02_two_goblins", 0x4f3b_150a_c8a0_c633),
@@ -1216,6 +1301,7 @@ mod tests {
         ("cp03_shore_kill", 0x098e_86cd_e2e6_b065),
         ("cp03_shore_miss", 0x317b_ead5_5c8a_6a73),
         ("cp03_kick_block", 0x73e4_0916_1ce5_434f),
+        ("cp03_goblin_pileup", 0x6a82_811d_8f31_c475),
     ];
 
     fn kit() -> EnvKit {

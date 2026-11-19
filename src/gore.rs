@@ -528,6 +528,8 @@ impl GridFile {
 /// pixel-grid sources the sheets are composed from.
 #[derive(Debug)]
 pub struct DeathArt {
+    /// 0 = goblin variant A, 1 = variant B.
+    pub variant: usize,
     pub pose_frame_size: (i32, i32),
     pub pose_pivot: (i32, i32),
     pub poses: Vec<PoseMeta>,
@@ -537,24 +539,49 @@ pub struct DeathArt {
     parts_grid: GridFile,
 }
 
-pub const POSES_MANIFEST: &str = "assets/manifests/goblin_a_death_h36.json";
-pub const PARTS_MANIFEST: &str = "assets/manifests/goblin_a_death_parts.json";
+/// Goblin variants that have death art (A and B, index parity as the GOB-01
+/// atlases in `combat_anim::goblin_variant`).
+pub const DEATH_VARIANTS: usize = 2;
+/// The poses and parts manifests of each variant (A, B). B shares A's contract
+/// (frames, pivots, anchors, part ids) and adds an `accessory` layer.
+pub const POSES_MANIFESTS: [&str; DEATH_VARIANTS] = [
+    "assets/manifests/goblin_a_death_h36.json",
+    "assets/manifests/goblin_b_death_h36.json",
+];
+pub const PARTS_MANIFESTS: [&str; DEATH_VARIANTS] = [
+    "assets/manifests/goblin_a_death_parts.json",
+    "assets/manifests/goblin_b_death_parts.json",
+];
+pub const POSES_MANIFEST: &str = POSES_MANIFESTS[0];
+pub const PARTS_MANIFEST: &str = PARTS_MANIFESTS[0];
 
 impl DeathArt {
     /// Read both manifests and the grid sources they name, below `root` (the
     /// repository root).
+    /// The variant A art (the GOB-02-DEATH set).
     pub fn load(root: &Path) -> Result<Self, String> {
+        Self::load_variant(root, 0)
+    }
+
+    /// The death art of goblin `variant` (0 = A, 1 = B).
+    pub fn load_variant(root: &Path, variant: usize) -> Result<Self, String> {
+        let (Some(poses_path), Some(parts_path)) =
+            (POSES_MANIFESTS.get(variant), PARTS_MANIFESTS.get(variant))
+        else {
+            return Err(format!("no goblin death variant {variant}"));
+        };
         let read = |path: &str| {
             std::fs::read_to_string(root.join(path)).map_err(|e| format!("{path}: {e}"))
         };
-        let poses: Manifest<PosesSection> = serde_json::from_str(&read(POSES_MANIFEST)?)
-            .map_err(|e| format!("{POSES_MANIFEST}: {e}"))?;
-        let parts: Manifest<PartsSection> = serde_json::from_str(&read(PARTS_MANIFEST)?)
-            .map_err(|e| format!("{PARTS_MANIFEST}: {e}"))?;
+        let poses: Manifest<PosesSection> =
+            serde_json::from_str(&read(poses_path)?).map_err(|e| format!("{poses_path}: {e}"))?;
+        let parts: Manifest<PartsSection> =
+            serde_json::from_str(&read(parts_path)?).map_err(|e| format!("{parts_path}: {e}"))?;
         let grid = |path: &str| -> Result<GridFile, String> {
             serde_json::from_str(&read(path)?).map_err(|e| format!("{path}: {e}"))
         };
         let art = Self {
+            variant,
             pose_frame_size: (poses.frame_size[0], poses.frame_size[1]),
             pose_pivot: (poses.pivot[0], poses.pivot[1]),
             poses: poses.section.frames,
@@ -587,6 +614,26 @@ impl DeathArt {
             if pose.index != index {
                 return Err(format!("pose {} is not at its frame index", pose.tag));
             }
+        }
+        Ok(())
+    }
+
+    /// Whether `other` has the same contract as this art: frame and cell sizes,
+    /// pivots, pose tags and anchors, part ids, indices, anchors, classes and
+    /// preset filters. The presenter reads the metadata of variant A for every
+    /// variant, so a variant that differs would be drawn wrongly.
+    pub fn same_contract(&self, other: &Self) -> Result<(), String> {
+        if self.pose_frame_size != other.pose_frame_size
+            || self.pose_pivot != other.pose_pivot
+            || self.part_cell != other.part_cell
+        {
+            return Err("frame size, pivot or part cell differs".into());
+        }
+        if self.poses != other.poses {
+            return Err("pose tags, ticks or anchors differ".into());
+        }
+        if self.parts != other.parts {
+            return Err("part ids, anchors, classes or preset filters differ".into());
         }
         Ok(())
     }
@@ -868,6 +915,59 @@ mod tests {
         for part in art.parts.iter().filter(|p| p.class == PartClass::Blood) {
             assert_eq!(off.parts.opaque[part.frame], 0, "{} has pixels", part.id);
             assert!(!part.allowed_at(GorePreset::Off), "{}", part.id);
+        }
+    }
+
+    #[test]
+    fn variant_b_loads_with_the_contract_of_variant_a_and_composes_at_every_preset() {
+        let a = art();
+        let b = DeathArt::load_variant(root(), 1).expect("variant B death art");
+        assert_eq!(b.variant, 1);
+        assert_eq!(a.variant, 0);
+        a.same_contract(&b).expect("one contract");
+        assert_eq!((b.poses.len(), b.parts.len()), (6, 26));
+        assert!(DeathArt::load_variant(root(), DEATH_VARIANTS).is_err());
+        let full = b.compose(GorePreset::Full).unwrap();
+        let three = b.compose(GorePreset::Medium).unwrap();
+        assert_eq!(
+            (&full.poses, &full.parts),
+            (&three.poses, &three.parts),
+            "3 and 4 share"
+        );
+        let head = b.part_index("head").unwrap();
+        for preset in GorePreset::ALL {
+            // The accessory layer is no gore: the head is drawn at every preset.
+            let sheets = b.compose(preset).unwrap();
+            assert!(sheets.parts.opaque[head] > 0, "{preset:?}");
+        }
+        // Preset 1 of B is B without its gore layer, pixel for pixel: the
+        // accessory (the bandana's red, N2 of the art review, shares a palette
+        // key with the blood) stays, no gore-layer pixel does.
+        let off = b.compose(GorePreset::Off).unwrap();
+        for (grid, ours) in [(&b.poses_grid, &off.poses), (&b.parts_grid, &off.parts)] {
+            let stripped = GridFile {
+                canvas: grid.canvas,
+                layers: grid.layers.clone(),
+                palette: grid
+                    .palette
+                    .iter()
+                    .map(|p| PaletteEntry {
+                        key: p.key.clone(),
+                        rgba: p.rgba.clone(),
+                    })
+                    .collect(),
+                frames: grid
+                    .frames
+                    .iter()
+                    .map(|frame| {
+                        let mut cels = frame.cels.clone();
+                        cels.remove(GORE_LAYER);
+                        GridFrame { cels }
+                    })
+                    .collect(),
+            };
+            let sheet = stripped.compose(GorePreset::Full).unwrap();
+            assert_eq!(sheet.rgba, ours.rgba, "preset 1 differs from B minus gore");
         }
     }
 

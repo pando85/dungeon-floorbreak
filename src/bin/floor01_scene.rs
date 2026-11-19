@@ -24,8 +24,10 @@ use bevy::{
     asset::LoadState,
     asset::RenderAssetUsages,
     camera::{ScalingMode, visibility::RenderLayers},
+    diagnostic::DiagnosticsStore,
     prelude::*,
     render::{
+        diagnostic::RenderDiagnosticsPlugin,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         view::screenshot::{Screenshot, save_to_disk},
     },
@@ -48,14 +50,15 @@ use dungeon_floorbreak::{
     combat_scene::{CombatState, Fixture},
     corridor::{CorridorWorld, Scenario, SceneSim},
     death_present::{
-        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, Finish, PART_POOL_CAPACITY,
-        WALL_DECAL_POOL_CAPACITY, draw_z,
+        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS, Finish,
+        PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
+        draw_z,
     },
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
     goblin::{AttackPhase, GoblinMode},
-    gore::{DeathArt, GorePreset, Sheet},
+    gore::{DEATH_VARIANTS, DeathArt, GorePreset, Sheet},
     input::RawInput,
     light_pass::{
         LAYER_DEBUG, LightPassPlugin, LightRig, LightingMaterial, PassFrame, SceneCamera,
@@ -109,6 +112,11 @@ struct Args {
     reference_frame: bool,
     /// Measure this many frame intervals after warm-up, print them and exit.
     perf_frames: Option<usize>,
+    /// DEATH-E1, fixture only (with `--perf-frames`): pre-simulate this many
+    /// ticks, then step exactly one tick per measured frame (instead of the
+    /// real-time fixed step), so every frame covers the same tick on every run
+    /// and the probe sees the same deaths whatever the frame time.
+    perf_from_tick: Option<u64>,
     /// Live run: step the scripted scenario for this many fixed ticks in the
     /// real render loop, print `FLOOR1_SCENE_STATE` and exit.
     exit_after_ticks: Option<u64>,
@@ -168,6 +176,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         no_lighting: false,
         reference_frame: false,
         perf_frames: None,
+        perf_from_tick: None,
         exit_after_ticks: None,
         capture_sequence: None,
         capture_dir: None,
@@ -255,6 +264,11 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
                         .ok_or_else(|| format!("bad frame count {value:?} (30..=100000)"))?,
                 );
             }
+            "--perf-from-tick" => {
+                let value = iter.next().ok_or("--perf-from-tick needs a tick")?;
+                parsed.perf_from_tick =
+                    Some(value.parse().map_err(|_| format!("bad tick {value:?}"))?);
+            }
             "--scenario" => {
                 let value = iter.next().ok_or("--scenario needs a name")?;
                 parsed.scenario = Some(value.parse()?);
@@ -318,6 +332,21 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
                 .into(),
         );
     }
+    if parsed.perf_from_tick.is_some()
+        && (parsed.fixture.is_none()
+            || parsed.perf_frames.is_none()
+            || parsed.headless
+            || parsed.manual
+            || parsed.capture_tick.is_some()
+            || parsed.capture_sequence.is_some()
+            || parsed.exit_after_ticks.is_some()
+            || parsed.freeze
+            || parsed.reference_frame)
+    {
+        return Err(
+            "--perf-from-tick needs --fixture and --perf-frames, and no other run mode".into(),
+        );
+    }
     if parsed.capture_sequence.is_some() != parsed.capture_dir.is_some() {
         return Err("--capture-sequence and --capture-dir go together".into());
     }
@@ -359,6 +388,7 @@ fn view_height(deck: bool) -> i32 {
 fn presim_ticks(args: &Args) -> Option<u64> {
     args.capture_tick
         .or(args.capture_sequence.map(|(first, _, _)| first))
+        .or(args.perf_from_tick)
 }
 
 /// Build the simulation and its animators in the requested state (scenario
@@ -375,7 +405,8 @@ type Scene = (
 /// requested preset. Presentation only.
 fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     let art = Arc::new(DeathArt::load(root)?);
-    let mut presenter = DeathPresenter::new(art, args.gore_preset)?;
+    let variant_b = DeathArt::load_variant(root, 1)?;
+    let mut presenter = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?;
     presenter.set_lab_finish(args.death_lab_finish);
     Ok(presenter)
 }
@@ -392,6 +423,10 @@ fn build_scene(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Resul
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let raw = fixture.input(sim.world.tick + 1);
             step_combat(&mut sim, &mut combat, &mut anim, Some(&mut death), raw);
+            if args.death_stress && args.perf_from_tick.is_some() {
+                // Lab: load the pools before the probe starts measuring.
+                death.stress_tick(sim.world.hero.x, sim.world.hero.y - HERO_HALF_HEIGHT);
+            }
             if args.combat_trace {
                 println!("{}", combat.trace_line(&sim));
             }
@@ -655,6 +690,17 @@ struct Perf {
     warmup: usize,
     seen: usize,
     intervals_ms: Vec<f32>,
+    /// `--perf-from-tick`: one fixture tick per measured frame.
+    step_ticks: bool,
+    /// Per measured frame: (tick, ms, live parts, live floor decals, live wall
+    /// decals, visible death sprites); printed with the stats.
+    series: Vec<(u64, f32, usize, usize, usize, usize)>,
+    peak_visible_death_sprites: usize,
+    /// Per measured frame: summed GPU pass time (ms) and CPU time of the death
+    /// presentation (the fixed tick of the fixture and the sprite sync, in us).
+    gpu_ms: Vec<f32>,
+    tick_us: Vec<f32>,
+    death_sync_us: Vec<f32>,
 }
 
 /// Presentation ticks since the simulation stopped at the exit. The sim tick
@@ -751,6 +797,9 @@ struct ShoreImages(Vec<Handle<Image>>);
 /// Geometry the death sprites need (set at startup).
 #[derive(Resource)]
 struct DeathLook {
+    /// The composed sheets of goblin variants A and B: death poses and parts.
+    poses_images: [Handle<Image>; DEATH_VARIANTS],
+    parts_images: [Handle<Image>; DEATH_VARIANTS],
     pose_spec: ActorSpec,
     /// z of the `backwall_decal` layer.
     wall_z: f32,
@@ -792,8 +841,11 @@ fn run_window(
         .capture_sequence
         .zip(args.capture_dir.clone())
         .map(|((first, step, count), dir)| CaptureSequence::new(first, step, count, dir));
-    let freeze =
-        args.freeze || args.capture_tick.is_some() || args.reference_frame || capture.is_some();
+    let freeze = args.freeze
+        || args.capture_tick.is_some()
+        || args.reference_frame
+        || capture.is_some()
+        || args.perf_from_tick.is_some();
     let scenario = if freeze { None } else { args.scenario };
     let live_fixture = if freeze || args.manual {
         None
@@ -816,6 +868,12 @@ fn run_window(
         warmup: 120,
         seen: 0,
         intervals_ms: Vec::with_capacity(target),
+        step_ticks: args.perf_from_tick.is_some(),
+        series: Vec::with_capacity(target),
+        peak_visible_death_sprites: 0,
+        gpu_ms: Vec::with_capacity(target),
+        tick_us: Vec::with_capacity(target),
+        death_sync_us: Vec::with_capacity(target),
     });
     // AUDIO-01: sound is presentation only. Screenshot, reference and perf runs
     // stay silent and open no device, like `--no-audio` and `FLOORBREAK_AUDIO=off`.
@@ -881,6 +939,7 @@ fn run_window(
         Update,
         (
             capture_input,
+            perf_step,
             sync_visuals,
             sync_combat_visuals,
             sync_shore_visuals,
@@ -897,6 +956,8 @@ fn run_window(
         app.add_plugins(LightPassPlugin);
     }
     if let Some(perf) = perf {
+        // GPU pass timings (Vulkan timestamp queries) for the probe's report.
+        app.add_plugins(RenderDiagnosticsPlugin);
         app.insert_resource(perf);
     }
     if let Some(capture) = capture {
@@ -1214,6 +1275,8 @@ fn setup(
     // one to one with its fixed pools (nothing is spawned at runtime).
     if let Some(presenter) = death.0.as_ref() {
         let sheets = presenter.sheets();
+        // One image per goblin variant (A, B): the layout is shared (the same
+        // frame and cell sizes, checked when the presenter is built).
         let mut image_of = |sheet: &Sheet| -> Handle<Image> {
             images.add(Image::new(
                 Extent3d {
@@ -1227,8 +1290,11 @@ fn setup(
                 RenderAssetUsages::default(),
             ))
         };
-        let poses_image = image_of(&sheets.poses);
-        let parts_image = image_of(&sheets.parts);
+        let poses_images: [Handle<Image>; DEATH_VARIANTS] =
+            std::array::from_fn(|v| image_of(&presenter.sheets_of(v).poses));
+        let parts_images: [Handle<Image>; DEATH_VARIANTS] =
+            std::array::from_fn(|v| image_of(&presenter.sheets_of(v).parts));
+        let (poses_image, parts_image) = (poses_images[0].clone(), parts_images[0].clone());
         let mut layout_of = |sheet: &Sheet| {
             layouts.add(TextureAtlasLayout::from_grid(
                 UVec2::new(sheet.cell_w as u32, sheet.cell_h as u32),
@@ -1266,14 +1332,14 @@ fn setup(
                 layers_of("actors"),
             );
         }
-        for slot in 0..PART_POOL_CAPACITY {
+        for slot in 0..PART_POOL_SLOTS {
             piece(
                 DeathPiece::Part(slot),
                 sprite_of(&parts_image, &parts_layout),
                 layers_of("actors"),
             );
         }
-        for slot in 0..FLOOR_DECAL_POOL_CAPACITY {
+        for slot in 0..FLOOR_DECAL_POOL_SLOTS {
             for second in [false, true] {
                 piece(
                     DeathPiece::Floor { slot, second },
@@ -1282,7 +1348,7 @@ fn setup(
                 );
             }
         }
-        for slot in 0..WALL_DECAL_POOL_CAPACITY {
+        for slot in 0..WALL_DECAL_POOL_SLOTS {
             piece(
                 DeathPiece::Wall(slot),
                 sprite_of(&parts_image, &parts_layout),
@@ -1295,6 +1361,8 @@ fn setup(
             .find(|p| p.layer == "backwall_decal")
             .map_or(3.0, |p| p.z.floor());
         commands.insert_resource(DeathLook {
+            poses_images,
+            parts_images,
             pose_spec: ActorSpec {
                 name: "goblin_death",
                 width: presenter.art().pose_frame_size.0,
@@ -1967,31 +2035,46 @@ fn sync_shore_visuals(
 /// DEATH-C: draw the presenter's state. Reads the presenter only; the death
 /// pose replaces the goblin's GOB-01 sprite, and every piece sits under the
 /// actors (`draw_z`), so nothing is ever drawn over Carl or Donut.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_death_visuals(
+    mut perf: Option<ResMut<Perf>>,
     death: Res<Death>,
     look: Option<Res<DeathLook>>,
     combat: Res<Combat>,
     sim: Res<Sim>,
     setup: Res<Setup>,
-    mut goblins: Query<(&GoblinSprite, &mut Visibility), Without<DeathPiece>>,
+    mut goblins: Query<(&GoblinSprite, &mut Visibility, &mut Sprite), Without<DeathPiece>>,
     mut pieces: Query<(&DeathPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
 ) {
     let (Some(presenter), Some(look), Some(state)) = (death.0.as_ref(), look, combat.0.as_ref())
     else {
         return;
     };
+    let started = std::time::Instant::now();
     let actor_z = setup.kit.actor_z;
     let tick = sim.0.world.tick;
     let art = presenter.art();
-    let hide_goblin = |index: usize| presenter.pose_of(index as u32).is_some();
-    for (goblin, mut visibility) in &mut goblins {
+    // A death pose replaces the goblin sprite; a retired corpse is drawn no
+    // more and a retiring one fades out (the GOB-01 corpse sprite included).
+    let hide_goblin = |index: usize| {
+        presenter.pose_of(index as u32).is_some() || presenter.is_retired(index as u32)
+    };
+    for (goblin, mut visibility, mut sprite) in &mut goblins {
         *visibility = if hide_goblin(goblin.index) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
         };
+        sprite.color = sprite
+            .color
+            .with_alpha(presenter.corpse_alpha(goblin.index as u32));
     }
+    // Variant B draws from its own composed sheet (same layout, same frames).
+    let use_image = |sprite: &mut Sprite, image: &Handle<Image>| {
+        if sprite.image != *image {
+            sprite.image = image.clone();
+        }
+    };
     let set_atlas = |sprite: &mut Sprite, frame: usize| {
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = frame;
@@ -2009,18 +2092,20 @@ fn sync_death_visuals(
                         actor_z + GOBLIN_LYING_Z_OFFSET - index as f32 * GOBLIN_Z_STEP,
                     );
                     sprite.flip_x = pose.flip;
+                    use_image(&mut sprite, &look.poses_images[pose.variant]);
                     sprite.color = if state.flash(index, tick) {
                         FLASH_TINT
                     } else {
                         Color::WHITE
-                    };
+                    }
+                    .with_alpha(pose.alpha);
                     set_atlas(&mut sprite, pose.frame);
                     *visibility = Visibility::Inherited;
                 }
                 None => *visibility = Visibility::Hidden,
             },
-            DeathPiece::Part(slot) => match presenter.parts().find(|(s, _)| *s == slot) {
-                Some((_, part)) => {
+            DeathPiece::Part(slot) => match presenter.part_at(slot) {
+                Some(part) => {
                     transform.translation = Vec3::new(
                         part.x.round(),
                         part.y.round(),
@@ -2028,15 +2113,16 @@ fn sync_death_visuals(
                     );
                     transform.rotation = Quat::from_rotation_z(part.angle_deg.to_radians());
                     sprite.flip_x = part.flip;
-                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.part_alpha(part));
+                    use_image(&mut sprite, &look.parts_images[part.variant]);
+                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.part_alpha(slot, part));
                     set_atlas(&mut sprite, part.frame);
                     *visibility = Visibility::Inherited;
                 }
                 None => *visibility = Visibility::Hidden,
             },
             DeathPiece::Floor { slot, second } => {
-                let decal = presenter.floor_decals().find(|(s, _)| *s == slot);
-                let shown = decal.and_then(|(_, d)| {
+                let decal = presenter.floor_decal_at(slot);
+                let shown = decal.and_then(|d| {
                     let meta = if second { d.pair_meta? } else { d.meta };
                     let offset = if second {
                         art.parts[d.meta].pair_offset.map_or(0.0, |o| o[0] as f32)
@@ -2053,28 +2139,36 @@ fn sync_death_visuals(
                             draw_z(DrawLayer::FloorDecal, slot, actor_z, look.wall_z),
                         );
                         sprite.flip_x = d.flip;
-                        sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.decal_alpha(d));
+                        sprite.color =
+                            Color::srgba(1.0, 1.0, 1.0, presenter.floor_decal_alpha(slot, d));
                         set_atlas(&mut sprite, frame);
                         *visibility = Visibility::Inherited;
                     }
                     None => *visibility = Visibility::Hidden,
                 }
             }
-            DeathPiece::Wall(slot) => match presenter.wall_decals().find(|(s, _)| *s == slot) {
-                Some((_, d)) => {
+            DeathPiece::Wall(slot) => match presenter.wall_decal_at(slot) {
+                Some(d) => {
                     transform.translation = Vec3::new(
                         d.x.round(),
                         d.y.round(),
                         draw_z(DrawLayer::WallDecal, slot, actor_z, look.wall_z),
                     );
                     sprite.flip_x = d.flip;
-                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.decal_alpha(d));
+                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.wall_decal_alpha(slot, d));
                     set_atlas(&mut sprite, art.parts[d.meta].frame);
                     *visibility = Visibility::Inherited;
                 }
                 None => *visibility = Visibility::Hidden,
             },
         }
+    }
+    if let Some(perf) = perf.as_mut()
+        && perf.step_ticks
+        && perf.seen >= perf.warmup
+    {
+        perf.death_sync_us
+            .push(started.elapsed().as_secs_f32() * 1e6);
     }
 }
 
@@ -2236,6 +2330,70 @@ fn frame_stats(intervals_ms: &[f32]) -> Option<FrameStats> {
     })
 }
 
+/// GPU time (ms) of the last finished frame: for every timed pass, the sum of
+/// all the measurements that share the newest timestamp. Several cameras (the
+/// slot cameras, the post-stage quads) record the same pass names in one frame
+/// and `Diagnostic::value` keeps only the last of them, so it is summed here.
+fn gpu_ms_of_last_frame(diagnostics: &DiagnosticsStore) -> f64 {
+    diagnostics
+        .iter()
+        .filter(|d| d.path().as_str().ends_with("elapsed_gpu"))
+        .filter_map(|d| {
+            let newest = d.measurement()?.time;
+            Some(
+                d.measurements()
+                    .filter(|m| m.time == newest)
+                    .map(|m| m.value)
+                    .sum::<f64>(),
+            )
+        })
+        .sum()
+}
+
+/// `--perf-from-tick`: after the warm-up, advance the fixture exactly one tick
+/// per frame, before the frame is drawn (the frame time then covers the tick's
+/// own presentation). Runs ahead of the visuals in the chain.
+#[allow(clippy::too_many_arguments)]
+fn perf_step(
+    perf: Option<ResMut<Perf>>,
+    loading: Option<Res<Loading>>,
+    setup: Res<Setup>,
+    mut sim: ResMut<Sim>,
+    mut anim: ResMut<Anim>,
+    mut combat: ResMut<Combat>,
+    mut death: ResMut<Death>,
+) {
+    let Some(mut perf) = perf else { return };
+    if !perf.step_ticks || loading.is_some_and(|l| !l.reported) || perf.seen < perf.warmup {
+        return;
+    }
+    let (Some(fixture), Some(combat)) = (setup.args.fixture, combat.0.as_mut()) else {
+        return;
+    };
+    let started = std::time::Instant::now();
+    let raw = fixture.input(sim.0.world.tick + 1);
+    step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
+    if setup.args.death_stress
+        && let Some(death) = death.0.as_mut()
+    {
+        let hero = &sim.0.world.hero;
+        death.stress_tick(hero.x, hero.y - HERO_HALF_HEIGHT);
+    }
+    perf.tick_us.push(started.elapsed().as_secs_f32() * 1e6);
+}
+
+/// Resident and peak resident memory of this process in MiB (Linux
+/// `/proc/self/status`; `None` elsewhere).
+fn resident_memory_mib() -> Option<(f32, f32)> {
+    let text = std::fs::read_to_string("/proc/self/status").ok()?;
+    let kib = |key: &str| -> Option<f32> {
+        let line = text.lines().find(|l| l.starts_with(key))?;
+        line.split_whitespace().nth(1)?.parse::<f32>().ok()
+    };
+    Some((kib("VmRSS:")? / 1024.0, kib("VmHWM:")? / 1024.0))
+}
+
+#[allow(clippy::too_many_arguments)]
 fn perf_probe(
     perf: Option<ResMut<Perf>>,
     time: Res<Time<Real>>,
@@ -2243,6 +2401,10 @@ fn perf_probe(
     window: Query<&Window, With<PrimaryWindow>>,
     lighting_on: Res<LightingOn>,
     death: Res<Death>,
+    sim: Res<Sim>,
+    entities: Query<Entity>,
+    death_sprites: Query<&Visibility, With<DeathPiece>>,
+    diagnostics: Res<DiagnosticsStore>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut perf) = perf else { return };
@@ -2256,7 +2418,56 @@ fn perf_probe(
     }
     let ms = time.delta_secs() * 1000.0;
     perf.intervals_ms.push(ms);
+    perf.gpu_ms.push(gpu_ms_of_last_frame(&diagnostics) as f32);
+    if perf.step_ticks {
+        let visible = death_sprites
+            .iter()
+            .filter(|v| **v != Visibility::Hidden)
+            .count();
+        perf.peak_visible_death_sprites = perf.peak_visible_death_sprites.max(visible);
+        let (parts, floor, wall) = death.0.as_ref().map_or((0, 0, 0), |d| {
+            (d.live_parts(), d.live_floor_decals(), d.live_wall_decals())
+        });
+        let tick = sim.0.world.tick;
+        perf.series.push((tick, ms, parts, floor, wall, visible));
+    }
     if perf.intervals_ms.len() >= perf.target {
+        if let Some((rss, peak)) = resident_memory_mib() {
+            println!(
+                "FLOOR1_PERF_MEM rss_mib={rss:.1} peak_rss_mib={peak:.1} entities={} death_sprites_spawned={} peak_visible_death_sprites={}",
+                entities.iter().count(),
+                death_sprites.iter().count(),
+                perf.peak_visible_death_sprites,
+            );
+        }
+        let mean = |v: &[f32]| (!v.is_empty()).then(|| v.iter().sum::<f32>() / v.len() as f32);
+        let gpu = frame_stats(&perf.gpu_ms);
+        let tick = frame_stats(&perf.tick_us);
+        let sync = frame_stats(&perf.death_sync_us);
+        let gpu_paths: Vec<String> = diagnostics
+            .iter()
+            .filter(|d| d.path().as_str().ends_with("elapsed_gpu"))
+            .map(|d| d.path().as_str().to_string())
+            .collect();
+        println!(
+            "FLOOR1_PERF_CPU_GPU gpu_ms_mean={:.3} gpu_ms_p95={:.3} gpu_ms_max={:.3} tick_us_mean={:.1} tick_us_p95={:.1} tick_us_max={:.1} death_sync_us_mean={:.1} death_sync_us_p95={:.1} death_sync_us_max={:.1} gpu_passes={}",
+            mean(&perf.gpu_ms).unwrap_or(0.0),
+            gpu.map_or(0.0, |s| s.p95_ms),
+            gpu.map_or(0.0, |s| s.max_ms),
+            mean(&perf.tick_us).unwrap_or(0.0),
+            tick.map_or(0.0, |s| s.p95_ms),
+            tick.map_or(0.0, |s| s.max_ms),
+            mean(&perf.death_sync_us).unwrap_or(0.0),
+            sync.map_or(0.0, |s| s.p95_ms),
+            sync.map_or(0.0, |s| s.max_ms),
+            gpu_paths.len(),
+        );
+        println!("FLOOR1_PERF_GPU_PASSES {}", gpu_paths.join(" "));
+        for (tick, ms, parts, floor, wall, visible) in &perf.series {
+            println!(
+                "FLOOR1_PERF_TICK tick={tick} ms={ms:.2} parts={parts} floor_decals={floor} wall_decals={wall} visible_death_sprites={visible}"
+            );
+        }
         if let Some(stats) = frame_stats(&perf.intervals_ms) {
             let size = window
                 .single()
@@ -2601,13 +2812,13 @@ mod tests {
         // +0.05 / +0.15 (swinging), a lying goblin -0.01 minus 0.001 per index
         // (64 goblins is far more than any fixture).
         let lowest_actor = 7.0 + GOBLIN_LYING_Z_OFFSET - GOBLIN_Z_STEP * 64.0;
-        let slots = PART_POOL_CAPACITY.max(FLOOR_DECAL_POOL_CAPACITY);
+        let slots = PART_POOL_SLOTS.max(FLOOR_DECAL_POOL_SLOTS);
         for slot in [0, slots - 1] {
             for layer in [DrawLayer::Debris, DrawLayer::FloorDecal] {
                 assert!(draw_z(layer, slot, 7.0, 3.0) < lowest_actor, "{layer:?}");
             }
         }
-        assert!(draw_z(DrawLayer::WallDecal, WALL_DECAL_POOL_CAPACITY, 7.0, 3.0) < 4.0);
+        assert!(draw_z(DrawLayer::WallDecal, WALL_DECAL_POOL_SLOTS, 7.0, 3.0) < 4.0);
     }
 
     #[test]

@@ -20,6 +20,8 @@ Fixed `tick_rate_hz`, explicit RNG seed, stable iteration of damage events, no p
 
 Measure on development Linux and a Steam Deck-class machine (device name and build profile in report); capture mean, p95/p99 frame time, spikes during terrain rebuild, memory and number of colliders. Frame-rate target 60, not evidence. Always compare the previous known-good build using the same fixture/map/seed.
 
+The floor 01 scene has a tick-locked probe (`floor01_scene --fixture <name> --perf-from-tick <tick> --perf-frames <n>`, driven by `scripts/measure_death_e1.py`) that prints GPU pass time, CPU time of the fixture tick, resident memory and entity counts, so a run covers the same ticks whatever the frame time. Under Xvfb the wall-clock frame interval is bound by the virtual display and only shows missed frames; see [DEATH-E1](../evidence/death-e/README.md) for what it does and does not show.
+
 ## Visual CI
 
 Run CLI export, asset contracts, spritesheet contact sheets, optional xvfb/virtual-display gameplay capture and screenshot analysis. Upload CI artifacts for PR review. If no renderer available in CI, run headless tests and mark the render job skipped with an explicit reason. Human review is required for any player-visible quality-of-feel change.

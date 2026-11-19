@@ -37,7 +37,7 @@ Every capture run prints its final `COMBAT_STATE`; the script fails unless it eq
 | 1920x1080 | 76.7 ms (p95 91.6) | 78.0 ms (p95 91.6) | 83.2 ms (p95 115.9, noisy) |
 | 640x360 | 16.6 ms (p95 23.5) | 17.1 ms (p95 25.7) | 18.3 ms (p95 34.5, noisy) |
 
-A separate quiet run during development measured 56.8 ms baseline against 57.2 ms at stress, preset 4, at 1920x1080. The presenter's own CPU cost with every pool full is about 6 microseconds per tick at preset 4 and 2 microseconds at preset 1 (ignored test `presenter_step_cost_at_max_load`). The budgets (160 / 96 / 12) are first guesses; no Steam Deck or lower-spec Linux measurement exists yet, and none is claimed.
+A separate quiet run during development measured 56.8 ms baseline against 57.2 ms at stress, preset 4, at 1920x1080. The presenter's own CPU cost with every pool full is about 6 microseconds per tick at preset 4 and 2 microseconds at preset 1 (ignored test `presenter_step_cost_at_max_load`). The budgets (160 / 96 / 12) were first guesses; [DEATH-E1](../death-e/README.md) measured them and raised them (256 / 192 / 32). No Steam Deck or lower-spec Linux measurement exists yet, and none is claimed.
 
 ## Rights/Provenance
 

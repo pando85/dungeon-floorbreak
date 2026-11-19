@@ -1,6 +1,6 @@
 # GOB-02B-DEATH: goblin variant B death poses and death-parts sheet, design spec
 
-**Status:** design stage complete: sources, manifests, validated export and evidence produced. Independent review pending. Nothing here is wired into Bevy. Intensity preset 4 is the default, as for A. Gameplay acceptance of any finish is still a separate owner decision.
+**Status:** design stage complete: sources, manifests, validated export and evidence produced. Independent review pending. Wired into Bevy by DEATH-E1 (PR #106): odd-index goblins use these poses and parts. Intensity preset 4 is the default, as for A. Gameplay acceptance of any finish is still a separate owner decision.
 
 This is a **variant spec**. Everything not listed here is the [GOB-02-DEATH A spec](gob-02-death-spec.md): canon and tone (section 1), frame, pivot and anchors (2), palette (3), pose list and ticks (4), presets (5), parts and metadata (7), spawner timing (8), and the "never hide Carl" rules. Variant B relates to the A death set the way [GOB-01](gob-01-goblin-spec.md) variant B relates to A (GOB-01 section 9, last row): **A's cels unchanged plus an `accessory` layer**.
 
