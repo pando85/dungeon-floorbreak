@@ -31,6 +31,7 @@ pub mod party;
 pub mod party_scene;
 pub mod prototype;
 pub mod scene_anim;
+pub mod scene_camera;
 pub mod scroll_camera;
 pub mod shore;
 pub mod shore_art;
