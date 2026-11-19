@@ -31,8 +31,8 @@ EVIDENCE = ROOT / "docs/evidence/boss-f01"
 # manifest id -> (grid file, frame count, canvas, default pivot)
 ATLASES = {
     "boss-f01": (SRC / "brute_boss_f01.grid.json", 16, [160, 136], [72, 135]),
-    "boss-f01-vfx": (SRC / "brute_boss_f01_vfx.grid.json", 35, [152, 72], [76, 71]),
-    "boss-f01-rack": (SRC / "brute_boss_f01_rack.grid.json", 6, [136, 72], [48, 71]),
+    "boss-f01-vfx": (SRC / "brute_boss_f01_vfx.grid.json", 38, [152, 72], [76, 71]),
+    "boss-f01-rack": (SRC / "brute_boss_f01_rack.grid.json", 7, [136, 72], [48, 71]),
     "boss-f01-strut": (SRC / "brute_boss_f01_strut.grid.json", 3, [40, 196], [20, 195]),
     "boss-f01-ledge": (SRC / "brute_boss_f01_ledge.grid.json", 2, [64, 40], [32, 12]),
     "boss-f01-emblem": (SRC / "keys/brute_boss_f01_emblem.grid.json", 1, [18, 18], [0, 0]),
@@ -103,7 +103,11 @@ class AtlasContractTests(unittest.TestCase):
         for mid in ("boss-f01-rack", "boss-f01-strut"):
             grid = load(ATLASES[mid][0])
             for i, f in enumerate(grid["frames"]):
-                want = grid["pivot"][1] - (26 if (mid == "boss-f01-rack" and i == 5) else 0)   # rack_landed_boss: 26 px up
+                want = grid["pivot"][1]
+                if mid == "boss-f01-rack" and i == 5:
+                    want -= 26                                            # rack_landed_boss: 26 px up
+                if mid == "boss-f01-rack" and i == 6:
+                    want = 41                                             # rack_pulley: the disc ends on row 41
                 self.assertEqual(content_box(cel(f))[3], want, f"{mid} frame {i}")
         ledge = load(ATLASES["boss-f01-ledge"][0])
         for f in ledge["frames"]:
@@ -184,9 +188,9 @@ class AtlasContractTests(unittest.TestCase):
         for f in vfx:
             counts[f["tag"]] = counts.get(f["tag"], 0) + 1
         self.assertEqual(counts, {"pound_debris": 5, "shockwave_ripple": 4, "crash_dust": 6, "roar_ring": 4, "mirror_crack": 3,
-                                  "floor_dust": 5, "boil_spatter": 4, "blood_pool": 4})
+                                  "floor_dust": 5, "boil_spatter": 4, "blood_pool": 4, "rack_shadow": 3})
         rack = [f["name"] for f in load(MAN / "boss-f01-rack.json")["boss"]["frames"]]
-        self.assertEqual(rack, ["rack_hang", "rack_shudder_a", "rack_shudder_b", "rack_fall", "rack_landed", "rack_landed_boss"])
+        self.assertEqual(rack, ["rack_hang", "rack_shudder_a", "rack_shudder_b", "rack_fall", "rack_landed", "rack_landed_boss", "rack_pulley"])
         self.assertEqual([f["name"] for f in load(MAN / "boss-f01-strut.json")["boss"]["frames"]],
                          ["strut_sound", "strut_cracked", "strut_splintered"])
 
@@ -216,10 +220,33 @@ class AtlasContractTests(unittest.TestCase):
             x0, y0, x1, y1 = content_box(cel(vfx[i]))
             self.assertLessEqual((x1 - x0 + 1, y1 - y0 + 1), (30, 40), "mirror crack within 30 x 40")
         rack = load(SRC / "brute_boss_f01_rack.grid.json")["frames"]
-        for i, dy in enumerate((0, 0, 0)):                                          # R-02: beam underside on row 65 in every held frame
+        for i in (0, 1, 2):                                                         # R-05: nothing above the ceiling row 36
+            self.assertEqual(sum(1 for y in range(36) for c in cel(rack[i])[y] if c != "."), 0, f"rack frame {i}")
+        fall_above = {x for y in range(36) for x, c in enumerate(cel(rack[3])[y]) if c != "."}
+        self.assertTrue(fall_above and max(fall_above) - min(fall_above) <= 8, "only the loose cable end rises above row 36")
+        for i in (0, 1, 2):                                                         # R-05: the cleat on the strut cap, one down-run
             rows = cel(rack[i])
-            self.assertTrue(set(rows[65 + dy][100:122]) - {"."}, "timber on the strut-cap row")
-            self.assertEqual(set(rows[66 + dy][100:122]), {"K"}, "soot underside directly below")
+            self.assertEqual(set(rows[61][122:128]), {"K"}, "cleat rim")
+            self.assertTrue(all(rows[r][122] == "K" for r in range(61, 65)))
+            self.assertEqual(rows[60][124], "K", "the down-run ends on the cleat")
+            self.assertEqual(sum(1 for r in rows for c in r[86:121] if c in "uyzx"), 0, "no timber beam any more")
+        hang = cel(rack[0])
+        for n in range(4):                                                          # R-01b: selector hole 2 x 3, weight tags
+            y0 = 47 + 6 * n
+            self.assertEqual([hang[y][47:49] for y in (y0 + 2, y0 + 3, y0 + 4)], ["KK"] * 3, f"plate {n} selector hole")
+            self.assertNotEqual(hang[y0 + 1][47], "K", "the bevel runs across the hole")
+            self.assertEqual(set(hang[y0 + 2][26:31]), {"d"}, f"plate {n} weight tag")
+            self.assertEqual((hang[y0 + 3][27], hang[y0 + 3][29]), ("K", "K"), "digit pixels")
+        self.assertEqual(hang[62][49:54], "kkkkk", "selector pin")
+        self.assertEqual([hang[60][53:58], hang[62][54:57], hang[64][53:58]], ["KKKKK", "ddd", "KKKKK"], "selector knob")
+        pulley = cel(rack[6])
+        self.assertEqual((pulley[34][47:50], pulley[35][47:50], pulley[38][48]), ("KKK", "KKK", "K"), "bracket and axle")
+        self.assertEqual(sum(1 for y in range(34) for c in pulley[y] if c != "."), 0)
+        shadow = load(SRC / "brute_boss_f01_vfx.grid.json")["frames"]
+        for i, (w, hh) in zip(range(35, 38), ((48, 4), (64, 5), (80, 6))):          # V-07
+            x0, y0, x1, y1 = content_box(cel(shadow[i]))
+            self.assertEqual((x1 - x0 + 1, y1 - y0 + 1, y1), (w, hh, 71), f"rack_shadow_{i - 35}")
+            self.assertEqual((x0 + x1 + 1) // 2, 76)
         strut = load(SRC / "brute_boss_f01_strut.grid.json")["frames"]
         for i, f in enumerate(strut[1:], 1):                                        # S-01: damage in the 10..35 px band
             rows = cel(f)
@@ -263,7 +290,7 @@ class EvidenceTests(unittest.TestCase):
             digest, name = line.split("  ", 1)
             self.assertEqual(hashlib.sha256((EVIDENCE / name).read_bytes()).hexdigest(), digest, name)
         for name in ("contact_sheet_x1.png", "contact_sheet_x4.png", "scene_640x360.png", "arena_640x360.png",
-                     "arena_pinned_640x360.png", "silhouette-gate/silhouettes_2x.png", "silhouette-gate/keys_lit_1x.png", "silhouette-gate/gate_pack.md"):
+                     "arena_pinned_640x360.png", "compare/arena_before_after_1x.png", "compare/rack_shadow_1x.png", "silhouette-gate/silhouettes_2x.png", "silhouette-gate/keys_lit_1x.png", "silhouette-gate/gate_pack.md"):
             self.assertTrue((EVIDENCE / name).is_file(), name)
         for tag in ("charge_tell", "charge_run", "crash_stun", "phase_roar", "pinned", "pinned_dead"):
             self.assertTrue((EVIDENCE / f"gif_{tag}_x1.gif").is_file(), tag)

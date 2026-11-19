@@ -20,13 +20,14 @@
     "rack_shudder",
     "rack_fall",
     "rack_landed",
-    "rack_landed_boss"
+    "rack_landed_boss",
+    "rack_pulley"
   ],
   "required_alpha": true,
   "owner": "AI-authored Floor 1 boss encounter art (fan-concept layer: THE JUICER encounter; runtime ids IP-neutral brute_boss_f01)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "plate rack prop in four states plus the on-boss landing (six frames), left-rack facing; mirror for the disabled right rack",
+    "origin": "plate rack prop in four states, the on-boss landing and the ceiling pulley (seven frames), left-rack facing; mirror for the disabled right rack",
     "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Route B draft: drawn from the written spec; the top-tier narrow re-gate is pending. Review fix round 1 applied by Claude Sonnet. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
@@ -37,7 +38,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "boss": {
-    "status": "6 frames drawn; top-tier editor pass and independent review pending; not wired into any Bevy binary",
+    "status": "7 frames drawn; top-tier editor pass and independent review pending; not wired into any Bevy binary",
     "spec": "docs/02-art/floor-01-boss-design.md",
     "data_id": "brute_boss_f01",
     "tick_hz": 60,
@@ -47,14 +48,16 @@
       "rack_shudder": "loop",
       "rack_fall": "hold",
       "rack_landed": "hold",
-      "rack_landed_boss": "hold"
+      "rack_landed_boss": "hold",
+      "rack_pulley": "hold"
     },
     "roles": {
-      "rack_hang": "left plate rack held by the strut at floor x 200, underside 189 px up",
+      "rack_hang": "left plate rack on one cable over the ceiling pulley, tied off on the strut head at floor x 200, underside 189 px up",
       "rack_shudder": "pre-fall shudder loop with dust, 36 tick fall window",
-      "rack_fall": "falling stack with snapped chains and speed streaks (the game translates it)",
+      "rack_fall": "falling stack, the cable end running free, speed streaks (the game translates it)",
       "rack_landed": "landed stack on the floor, plates staggered (the rack missed: nobody in the footprint)",
-      "rack_landed_boss": "landed stack lying on the pinned boss's back, underside 26 px above the pivot row (landed_on_boss_offset_px 26); draw it over pinned_hold or pinned_dead"
+      "rack_landed_boss": "landed stack lying on the pinned boss's back, underside 26 px above the pivot row (landed_on_boss_offset_px 26); draw it over pinned_hold or pinned_dead",
+      "rack_pulley": "static ceiling pulley and bracket, drawn at the hang position for the whole fight and never translated (rack.cable_mechanism single_cable_pulley_strut_tieoff)"
     },
     "frames": [
       {
@@ -75,11 +78,11 @@
         },
         "content": [
           16,
-          0,
-          125,
+          37,
+          127,
           71
         ],
-        "sha256": "72ade5071aaa9667c9676f831c4ceb4de92f510725a227cbc35cafa8c41f796f"
+        "sha256": "540b544a1b684208def187b84b1184a111a3711f8d7ee29504aae7356745118e"
       },
       {
         "index": 1,
@@ -99,11 +102,11 @@
         },
         "content": [
           15,
-          0,
-          125,
+          37,
+          127,
           71
         ],
-        "sha256": "9c8468adb7ec1bbf915dea50ad062988217c3fbf242f54fdc8bb4760a581850c"
+        "sha256": "16eadd4769ad050dbd83906bf9615eb35befa7a620b9c0912a6961ac358a2341"
       },
       {
         "index": 2,
@@ -123,11 +126,11 @@
         },
         "content": [
           17,
-          0,
-          125,
+          37,
+          127,
           71
         ],
-        "sha256": "7cc2a3827b1c5b7a320866131b93b081c34e7267dbbd70c5d87fa0fca7208aa1"
+        "sha256": "35bb5ffac15128465fa81a0533672a96344a17c3e9a01a7db259f8878de9517e"
       },
       {
         "index": 3,
@@ -147,11 +150,11 @@
         },
         "content": [
           16,
-          11,
-          124,
+          28,
+          79,
           71
         ],
-        "sha256": "3dddc87698c87db47723624c1513719879be6ec57e6b2afab5cf2c4229809e76"
+        "sha256": "73fe9aaa37c9e230a45423bf238c48a0a9b9f40f871490d054db1749fee0367f"
       },
       {
         "index": 4,
@@ -171,11 +174,11 @@
         },
         "content": [
           15,
-          43,
-          127,
+          44,
+          113,
           71
         ],
-        "sha256": "ca8716bc366451c7fa65d1137fb549e84e06bc28f3dafac15ff1a12e392005dd"
+        "sha256": "3881167adbb1bf2e57feb5aa472d86fda1c76e74587778ccb7c6043d1498c8ad"
       },
       {
         "index": 5,
@@ -195,11 +198,35 @@
         },
         "content": [
           15,
-          17,
-          127,
+          18,
+          86,
           45
         ],
-        "sha256": "7d143587db83effc391074795ba8591d42e4da80bb847d88c4b9d171146effca"
+        "sha256": "a8113dbedbc5f14f5bbb9afdeef74a9c21f153bbf906f11011688c3f381ed254"
+      },
+      {
+        "index": 6,
+        "name": "rack_pulley",
+        "tag": "rack_pulley",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          48,
+          71
+        ],
+        "rect": {
+          "x": 816,
+          "y": 0,
+          "w": 136,
+          "h": 72
+        },
+        "content": [
+          45,
+          34,
+          51,
+          41
+        ],
+        "sha256": "f6641eab3e594331291d9f5af604baa525bf4d6e705bdaea020c77f44c9ff22d"
       }
     ]
   }

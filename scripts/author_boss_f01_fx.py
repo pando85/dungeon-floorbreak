@@ -325,6 +325,30 @@ def blood_pool(i: int) -> Img:
     return img
 
 
+def rack_shadow(i: int) -> Img:
+    """The rack-crush floor-shadow tell over the 36-tick fall: a flat ellipse 48 x 4, 64 x 5 and 80 x 6 px (the last is the
+    80 px footprint), a solid soot core inset 2 px and a 2 px rim of 2-on 2-off soot dashes. Pivot: bottom centre."""
+    w, h = [(48, 4), (64, 5), (80, 6)][i]
+    img = Img(VW, VH)
+
+    def half(width: int, height: int, r: int) -> int:
+        """Pixel width of row ``r`` of a ``width`` x ``height`` ellipse (a rounded outline that reaches the full width)."""
+        f = math.sqrt(max(0.0, 1.0 - ((r + 0.5 - height / 2.0) / (height / 2.0 + 0.5)) ** 2))
+        return min(width, int(round(width * f + 1)))
+
+    for r in range(h):
+        y = 72 - h + r
+        rw = half(w, h, r)
+        x0 = VPIV[0] - rw // 2
+        cr = r - 1
+        core_w = half(w - 4, h - 2, cr) if 0 <= cr < h - 2 else 0
+        cx0 = VPIV[0] - core_w // 2
+        for x in range(x0, x0 + rw):
+            if (cx0 <= x < cx0 + core_w) or ((x - x0) // 2) % 2 == 0 or x >= x0 + rw - 2:
+                img.put(x, y, "K")
+    return img
+
+
 VFX = [  # (tag, name, ticks, fn, i, playback)
     *[("pound_debris", f"pound_debris_{n}", tk, pound_debris, n, "once") for n, tk in enumerate([3, 4, 5, 6, 12])],
     *[("shockwave_ripple", f"shockwave_ripple_{n}", 4, shockwave_ripple, n, "loop") for n in range(4)],
@@ -334,6 +358,7 @@ VFX = [  # (tag, name, ticks, fn, i, playback)
     *[("floor_dust", f"floor_dust_{n}", tk, floor_dust, n, "once") for n, tk in enumerate([3, 4, 6, 8, 14])],
     *[("boil_spatter", f"boil_spatter_{n}", tk, boil_spatter, n, "once") for n, tk in enumerate([3, 3, 6, 10])],
     *[("blood_pool", f"blood_pool_{n}", None if n == 3 else tk, blood_pool, n, "hold") for n, tk in enumerate([8, 10, 14, 0])],
+    *[("rack_shadow", f"rack_shadow_{n}", 12, rack_shadow, n, "once") for n in range(3)],
 ]
 
 
@@ -343,23 +368,27 @@ PLATE_PITCH = 6                                                    # four plates
 
 
 def slab(img: Img, x0: int, y0: int, seed: int, tilt: int = 0) -> None:
-    """One iron weight plate 64 x 7: soot outline, a 1 px iron_light top bevel, an iron_dark body, a 1 px iron_mid bottom
-    edge, a 2 x 5 soot selector slot at the centre and at most six rust pixels."""
+    """One iron weight plate 64 x 7: soot outline, a 1 px iron_light top bevel, an iron_dark body, a 1 px iron_mid bottom edge
+    that run across a 2 x 3 selector hole at x +31..+32 (middle three rows), a 5 x 3 dust_hi weight tag with two soot digit
+    pixels at x +10..+14, and at most six rust pixels."""
+    def at(dx: int) -> int:
+        return (dx * tilt) // (PLATE_W - 1) if tilt else 0
     for dx in range(PLATE_W):
-        x = x0 + dx
-        off = (dx * tilt) // (PLATE_W - 1) if tilt else 0
-        rows = ["K", "k", "i", "i", "i", "j", "K"]
-        for dy, k in enumerate(rows):
-            img.put(x, y0 + dy + off, k)
-    for dy in range(1, 6):
-        img.put(x0 + 31, y0 + dy + (31 * tilt) // (PLATE_W - 1 or 1), "K")
-        img.put(x0 + 32, y0 + dy + (32 * tilt) // (PLATE_W - 1 or 1), "K")
+        for dy, k in enumerate(["K", "k", "i", "i", "i", "j", "K"]):
+            img.put(x0 + dx, y0 + dy + at(dx), k)
     for dy in range(7):
         img.put(x0, y0 + dy, "K"); img.put(x0 + PLATE_W - 1, y0 + dy + tilt, "K")
+    for dx in (31, 32):                                              # the selector hole, middle three rows only
+        for dy in (2, 3, 4):
+            img.put(x0 + dx, y0 + dy + at(dx), "K")
     for n in range(6):                                              # rust: six pixels, no more
         x, y = 4 + (h2(n, seed, 3) % 56), 2 + (h2(n, seed, 4) % 3)
-        if x not in (31, 32):
-            img.put(x0 + x, y0 + y + (x * tilt) // (PLATE_W - 1), "f")
+        if not (9 <= x <= 15) and x not in (31, 32):
+            img.put(x0 + x, y0 + y + at(x), "f")
+    for dx in range(10, 15):                                        # the weight tag: bright, two dark digit pixels
+        for dy in (2, 3, 4):
+            img.put(x0 + dx, y0 + dy + at(dx), "d")
+    img.put(x0 + 11, y0 + 3 + at(11), "K"); img.put(x0 + 13, y0 + 3 + at(13), "K")
 
 
 def chain(img: Img, pts: list[tuple[float, float]]) -> None:
@@ -397,7 +426,7 @@ STACK_X = 16                                                       # stack left 
 BEAM_UNDER = 65                                                    # the outrigger's underside row = the strut cap (195 px up)
 
 
-def stack(img: Img, base: int, dx: int = 0, dy: int = 0, offs=(0, 0, 0, 0), tilts=(0, 0, 0, 0)) -> int:
+def stack(img: Img, base: int, dx: int = 0, dy: int = 0, offs=(0, 0, 0, 0), tilts=(0, 0, 0, 0), with_pin: bool = True) -> int:
     """Four plates, flush unless ``offs``/``tilts`` stagger them (landed), two iron_mid guide rods 2 px wide at plate x +6 and
     +58 through the whole stack and a 10 x 4 headplate with the cable eye on top. ``base`` is the underside row. Returns the top."""
     top = base - (PLATE_PITCH * 4)
@@ -411,6 +440,12 @@ def stack(img: Img, base: int, dx: int = 0, dy: int = 0, offs=(0, 0, 0, 0), tilt
             for y in range(top + dy + 1, base + dy):
                 if y % PLATE_PITCH != (top + dy) % PLATE_PITCH:
                     img.put(rx, y, "j"); img.put(rx + 1, y, "j")
+    if with_pin:                                                    # selector pin in plate 3 with a bright knob
+        py = top + dy + 2 * PLATE_PITCH + 3
+        kx = STACK_X + dx + 37
+        img.rect(kx, py - 2, kx + 4, py + 2, "K"); img.rect(kx + 1, py - 1, kx + 3, py + 1, "d")
+        for x in range(STACK_X + dx + 33, STACK_X + dx + 38):          # the pin runs into the knob's rim
+            img.put(x, py, "k")
     hx = STACK_X + dx + 27
     img.rect(hx, top + dy - 4, hx + 9, top + dy - 1, "i"); img.rect(hx, top + dy - 4, hx + 9, top + dy - 4, "k")
     for x in range(hx - 1, hx + 11):
@@ -419,63 +454,78 @@ def stack(img: Img, base: int, dx: int = 0, dy: int = 0, offs=(0, 0, 0, 0), tilt
     return top
 
 
+PULLEY = (48, 38)                                                  # pulley centre in the rack frame (row 36 = the 224 px ceiling)
+TIE = (124, 60)                                                    # down-run end: the cleat on the strut head (strut x 200 = frame x 125)
+
+
+def cable_down(img: Img) -> None:
+    """The cable's down-run: a 1 px soot line from the pulley's right tangent to the tie-off, iron_light on the pixel above
+    each step, ending in a 6 x 4 iron_mid cleat (soot rim, two diagonal wrap pixels) on the strut cap (row 65)."""
+    x0, y0 = 51, 38
+    x1, y1 = TIE
+    for x in range(x0, x1 + 1):
+        y = y0 + int(round((y1 - y0) * (x - x0) / (x1 - x0)))
+        img.put(x, y, "K")
+        if img.get(x, y - 1) == ".":
+            img.put(x, y - 1, "k")
+    img.rect(122, 61, 127, 64, "K"); img.rect(123, 62, 126, 63, "j")
+    img.put(123, 62, "i"); img.put(124, 63, "i")
+
+
+def cable_up(img: Img, dx: int = 0, dy: int = 0) -> None:
+    """The 2 px cable from the headplate eye up into the pulley (iron_light / soot, the chain pattern)."""
+    for y in range(39, 42):
+        img.put(47 + dx, y + dy, "k" if (y // 2) % 2 == 0 else "i"); img.put(48 + dx, y + dy, "K")
+
+
 def rack(state: str) -> Img:
-    """The left plate rack: a selectorised stack of four iron plates (64 x 25) with guide rods and a headplate, two chains
-    that meet at the cable eye, and a rotten timber outrigger resting on the strut cap (its underside on row 65, the strut's
-    195 px line). Pivot: the underside centre of the stack. ``landed`` is the floor version (plates staggered),
-    ``landed_boss`` the stack lying on the pinned boss's back, its underside 26 px up."""
+    """The left plate rack: a selectorised stack of four iron plates (64 x 25) with guide rods, a selector pin, weight tags and
+    a headplate, hung from ONE cable that runs up over a ceiling pulley (the ``pulley`` frame) and down to a cleat on the strut
+    head, so breaking the strut lets the cable run free. Pivot: the underside centre of the stack. ``landed`` is the floor
+    version (plates staggered), ``landed_boss`` the stack lying on the pinned boss's back, its underside 26 px up."""
     img = Img(RW, RH)
     base = 71
+    if state == "pulley":
+        cx, cy = PULLEY
+        img.rect(cx - 1, cy - 4, cx + 1, cy - 3, "K")               # the 3 x 2 ceiling bracket, rows 34..35
+        for y in range(cy - 3, cy + 4):
+            for x in range(cx - 3, cx + 4):
+                d = math.hypot(x - cx, y - cy)
+                if d <= 3.6:
+                    img.put(x, y, "K" if d > 2.6 else "j")
+        img.put(cx - 1, cy - 1, "k"); img.put(cx, cy, "K")          # the highlight and the axle
+        return img
     if state in ("landed", "landed_boss"):
         up = 26 if state == "landed_boss" else 0
         offs, tilts = (0, 4, -3, 5), (0, 2, 0, -3)
         top = base - up - PLATE_PITCH * 4
         for n in range(4):
             slab(img, STACK_X + 2 + offs[n], top + n * PLATE_PITCH, 90 + n, tilts[n])
-        chain(img, [(30, top - 3), (36, top - 1), (44, top - 4), (52, top - 1)])             # slack chains heaped on top
-        chain(img, [(58, top - 2), (64, top - 4), (72, top - 1)])
-        timber(img, 82, top + 2, 118, top + 7, 7)                                           # the snapped outrigger across the stack
-        img.line(118, top + 8, 126, top + 15, "K", 2)
+        chain(img, [(30, top - 2), (36, top), (42, top - 3), (48, top - 1)])                # one slack cable coil on the top plate
         for s in range(5 if up == 0 else 0):                         # dust settling around the floor version only
             dust(img, 20 + s * 22, 66, 4 + s % 2, 300 + s, fade=0.45, flat=0.55)
         return img
     dx = {"hang": 0, "shudder_a": -1, "shudder_b": 1, "fall": 0}[state]
     dy = {"hang": 0, "shudder_a": 1, "shudder_b": 0, "fall": 0}[state]
     top = stack(img, base, dx, dy)
-    beam_top = BEAM_UNDER - 6 + dy                                  # 7 timber rows, underside on row 65
-    # the iron strap that clamps the outrigger to the stack, level with the beam
-    sx = STACK_X + dx + PLATE_W
-    img.rect(sx, beam_top - 1, sx + 6, BEAM_UNDER + dy + 2, "i"); img.rect(sx, beam_top - 1, sx + 6, beam_top - 1, "k")
-    for yy in (beam_top + 1, BEAM_UNDER + dy - 1):
-        img.put(sx + 3, yy, "w")
-    if state == "fall":                                             # the beam end drops when the strut gives
-        for x in range(sx + 7, 125):
-            drop = int((x - (sx + 7)) * 0.2)
-            for y in range(beam_top + drop, BEAM_UNDER + 1 + drop):
-                u = (y - beam_top - drop) / 6.0
-                img.put(x, y, "u" if u < 0.3 else ("z" if u < 0.7 else "y"))
-            img.put(x, beam_top - 1 + drop, "K"); img.put(x, BEAM_UNDER + 1 + drop, "K")
+    if state == "fall":                                             # the cable end runs free: a loose S rising from the headplate
+        for (x0, y0), (x1, y1) in zip([(48, 41), (47, 36), (50, 32)], [(47, 36), (50, 32), (48, 28)]):
+            n = max(abs(x1 - x0), abs(y1 - y0)) + 1
+            for t in range(n + 1):
+                x, y = x0 + (x1 - x0) * t / n, y0 + (y1 - y0) * t / n
+                img.put(int(round(x)), int(round(y)), "k" if (t // 2) % 2 == 0 else "i")
+                img.put(int(round(x)) + 1, int(round(y)), "K")
     else:
-        timber(img, sx + 7, beam_top, 124, BEAM_UNDER, 5)
-    # two chains from the ceiling meeting at the headplate eye (whipping loose when falling)
-    eye = (STACK_X + dx + 32, top + dy - 6)
-    for cx0 in (28, 68):
-        if state == "fall":
-            chain(img, [(eye[0], eye[1]), (cx0 + 3, top - 11), (cx0 - 3, top - 19), (cx0 + 4, top - 27), (cx0, top - 36)])
-        else:
-            chain(img, [eye, (cx0 + dx, 0)])
-    if state in ("shudder_a", "shudder_b"):                         # dust sifting off the outrigger and the chain mounts
+        cable_up(img, dx, dy)
+        cable_down(img)
+    if state in ("shudder_a", "shudder_b"):                         # dust sifting off the cleat and the stack
         for s in range(6):
-            x, y = 96 + s * 5 + (h2(s, 1, 2) % 3), BEAM_UNDER + 3 + (s * 5) % 6
+            x, y = 100 + s * 4 + (h2(s, 1, 2) % 3), 66 + (s * 5) % 6
             img.put(x, y, "c" if s % 2 else "d"); img.put(x + 1, y, "c")
-        for s in range(4):
-            img.put(30 + s * 14, 3 + (s * 7) % 11, "c"); img.put(31 + s * 14, 3 + (s * 7) % 11, "c")
     if state == "fall":                                             # four broken speed streaks above the plate ends
         for s, x in enumerate((STACK_X + 2, STACK_X + 20, STACK_X + 43, STACK_X + 61)):
-            y0 = top - 20 - (s % 2) * 4
-            img.line(x, y0, x, y0 + 4, "d", 1); img.line(x, y0 + 7, x, y0 + 10, "d", 1)
-            if s % 2:
-                img.line(x, y0 + 13, x, y0 + 15, "d", 1)
+            y0 = 37 + (s % 2)                                        # between the ceiling row and the plate tops
+            img.line(x, y0, x, y0 + 3, "d", 1); img.line(x, y0 + 6, x, y0 + 8, "d", 1)
     return img
 
 
@@ -603,7 +653,7 @@ ROUTE_C = "Route C, extends the CP-03 shore kit; the top-tier editor pass is pen
 
 # ------------------------------------------------------------------ atlases
 ANCHOR = {"pound_debris": (76, 71), "shockwave_ripple": (76, 71), "crash_dust": (76, 71), "mirror_crack": CRACK_C,
-          "floor_dust": (76, 71), "roar_ring": (76, RING_Y), "boil_spatter": (76, 52), "blood_pool": (76, 62)}
+          "floor_dust": (76, 71), "roar_ring": (76, RING_Y), "boil_spatter": (76, 52), "blood_pool": (76, 62), "rack_shadow": (76, 71)}
 FX_ROLE = {
     "pound_debris": "brute pound impact: debris and dust at the strike point, 50 px ahead of the pivot (the pound box centre)",
     "shockwave_ripple": "P2+ shockwave ripple: 10 px tall, travels 120 px each way at 150 px/s (mirror for the left)",
@@ -613,6 +663,7 @@ FX_ROLE = {
     "roar_ring": "phase roar push wave: a flat floor ring at radius 18, 36, 54, 72 px (push_radius 72)",
     "boil_spatter": "preset 4 finish: boils burst in red spatters from the body; the origin (pivot) is 19 px above the floor contact row (floor_offset_px 19)",
     "blood_pool": "preset 4 finish: spreading pool, the last frame stays",
+    "rack_shadow": "rack-crush tell (V-07): floor shadow 48, 64 and 80 px wide, ticks 0..11, 12..23, 24..35 after RackDropped, removed on RackLanded; place at the footprint centre; draw over the floor, under heroes, boss and rack; cosmetic, not hashed",
 }
 
 
@@ -644,23 +695,25 @@ def atlas_vfx() -> dict:
                 frames=rows, pivots=[ANCHOR[t] for t, *_r in VFX],
                 playback={t: p for t, _n, _tk, _f, _i, p in VFX}, role=FX_ROLE,
                 origin="boss encounter VFX and finishes: pound debris, shockwave ripple, crash dust, mirror crack, floor-impact dust, "
-                       "roar push ring, boil spatter and blood pool (35 frames), rasterized from rules by scripts/author_boss_f01_fx.py")
+                       "roar push ring, boil spatter and blood pool (38 frames), rasterized from rules by scripts/author_boss_f01_fx.py")
 
 
 def atlas_rack() -> dict:
     states = [("rack_hang", "hang", None), ("rack_shudder", "shudder_a", 3), ("rack_shudder", "shudder_b", 3),
-              ("rack_fall", "fall", None), ("rack_landed", "landed", None), ("rack_landed_boss", "landed_boss", None)]
+              ("rack_fall", "fall", None), ("rack_landed", "landed", None), ("rack_landed_boss", "landed_boss", None),
+              ("rack_pulley", "pulley", None)]
     return dict(route=ROUTE_B, id="boss-f01-rack", base="brute_boss_f01_rack", size=(RW, RH), pivot=RPIV, type="prop_animation",
-                names=["rack_hang", "rack_shudder_a", "rack_shudder_b", "rack_fall", "rack_landed", "rack_landed_boss"],
+                names=["rack_hang", "rack_shudder_a", "rack_shudder_b", "rack_fall", "rack_landed", "rack_landed_boss", "rack_pulley"],
                 tag_seq=[t for t, _s, _k in states], ticks=[k for _t, _s, k in states],
-                frames=[(rack(s).rows(), k) for _t, s, k in states], pivots=[RPIV] * 6,
-                playback={"rack_hang": "hold", "rack_shudder": "loop", "rack_fall": "hold", "rack_landed": "hold", "rack_landed_boss": "hold"},
-                role={"rack_hang": "left plate rack held by the strut at floor x 200, underside 189 px up",
+                frames=[(rack(s).rows(), k) for _t, s, k in states], pivots=[RPIV] * 7,
+                playback={"rack_hang": "hold", "rack_shudder": "loop", "rack_fall": "hold", "rack_landed": "hold", "rack_landed_boss": "hold", "rack_pulley": "hold"},
+                role={"rack_hang": "left plate rack on one cable over the ceiling pulley, tied off on the strut head at floor x 200, underside 189 px up",
                       "rack_shudder": "pre-fall shudder loop with dust, 36 tick fall window",
-                      "rack_fall": "falling stack with snapped chains and speed streaks (the game translates it)",
+                      "rack_fall": "falling stack, the cable end running free, speed streaks (the game translates it)",
                       "rack_landed": "landed stack on the floor, plates staggered (the rack missed: nobody in the footprint)",
-                      "rack_landed_boss": "landed stack lying on the pinned boss's back, underside 26 px above the pivot row (landed_on_boss_offset_px 26); draw it over pinned_hold or pinned_dead"},
-                origin="plate rack prop in four states plus the on-boss landing (six frames), left-rack facing; mirror for the disabled right rack")
+                      "rack_landed_boss": "landed stack lying on the pinned boss's back, underside 26 px above the pivot row (landed_on_boss_offset_px 26); draw it over pinned_hold or pinned_dead",
+                      "rack_pulley": "static ceiling pulley and bracket, drawn at the hang position for the whole fight and never translated (rack.cable_mechanism single_cable_pulley_strut_tieoff)"},
+                origin="plate rack prop in four states, the on-boss landing and the ceiling pulley (seven frames), left-rack facing; mirror for the disabled right rack")
 
 
 def atlas_strut() -> dict:

@@ -23,13 +23,14 @@
     "mirror_crack",
     "floor_dust",
     "boil_spatter",
-    "blood_pool"
+    "blood_pool",
+    "rack_shadow"
   ],
   "required_alpha": true,
   "owner": "AI-authored Floor 1 boss encounter art (fan-concept layer: THE JUICER encounter; runtime ids IP-neutral brute_boss_f01)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "boss encounter VFX and finishes: pound debris, shockwave ripple, crash dust, mirror crack, floor-impact dust, roar push ring, boil spatter and blood pool (35 frames), rasterized from rules by scripts/author_boss_f01_fx.py",
+    "origin": "boss encounter VFX and finishes: pound debris, shockwave ripple, crash dust, mirror crack, floor-impact dust, roar push ring, boil spatter and blood pool (38 frames), rasterized from rules by scripts/author_boss_f01_fx.py",
     "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Route B draft: drawn from the written spec; the top-tier narrow re-gate is pending. Review fix round 1 applied by Claude Sonnet. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
@@ -40,7 +41,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "boss": {
-    "status": "35 frames drawn; top-tier editor pass and independent review pending; not wired into any Bevy binary",
+    "status": "38 frames drawn; top-tier editor pass and independent review pending; not wired into any Bevy binary",
     "spec": "docs/02-art/floor-01-boss-design.md",
     "data_id": "brute_boss_f01",
     "tick_hz": 60,
@@ -53,7 +54,8 @@
       "mirror_crack": "hold",
       "floor_dust": "once",
       "boil_spatter": "once",
-      "blood_pool": "hold"
+      "blood_pool": "hold",
+      "rack_shadow": "once"
     },
     "roles": {
       "pound_debris": "brute pound impact: debris and dust at the strike point, 50 px ahead of the pivot (the pound box centre)",
@@ -63,7 +65,8 @@
       "floor_dust": "brute_ko_timber floor impact: 120 px dust burst along the floor both ways",
       "roar_ring": "phase roar push wave: a flat floor ring at radius 18, 36, 54, 72 px (push_radius 72)",
       "boil_spatter": "preset 4 finish: boils burst in red spatters from the body; the origin (pivot) is 19 px above the floor contact row (floor_offset_px 19)",
-      "blood_pool": "preset 4 finish: spreading pool, the last frame stays"
+      "blood_pool": "preset 4 finish: spreading pool, the last frame stays",
+      "rack_shadow": "rack-crush tell (V-07): floor shadow 48, 64 and 80 px wide, ticks 0..11, 12..23, 24..35 after RackDropped, removed on RackLanded; place at the footprint centre; draw over the floor, under heroes, boss and rack; cosmetic, not hashed"
     },
     "frames": [
       {
@@ -905,6 +908,78 @@
           70
         ],
         "sha256": "97254c9f3586728c3acb00111275fedb1ebf98824ed65ea9f5dfdc7e22a4215b"
+      },
+      {
+        "index": 35,
+        "name": "rack_shadow_0",
+        "tag": "rack_shadow",
+        "ticks": 12,
+        "duration_ms": 200,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 5320,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          52,
+          68,
+          99,
+          71
+        ],
+        "sha256": "adc9edb703b0d7c376c82dc2855c71dfd2be7e7a55e703d92afe8c4e8658f16b"
+      },
+      {
+        "index": 36,
+        "name": "rack_shadow_1",
+        "tag": "rack_shadow",
+        "ticks": 12,
+        "duration_ms": 200,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 5472,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          44,
+          67,
+          107,
+          71
+        ],
+        "sha256": "53e0c84cd9f390d353c36a70723311f6371f72fd233c91272016d8a0fabdefaa"
+      },
+      {
+        "index": 37,
+        "name": "rack_shadow_2",
+        "tag": "rack_shadow",
+        "ticks": 12,
+        "duration_ms": 200,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 5624,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          36,
+          66,
+          115,
+          71
+        ],
+        "sha256": "721c6d868fd764df63eb17db6859642499d4569295b4f6a8b4b67c5a48530c5c"
       }
     ]
   }

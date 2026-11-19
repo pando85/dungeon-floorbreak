@@ -147,7 +147,8 @@ def arena_composite(imgs: list[Image.Image], out: Path) -> list[Path]:
     gob_l, gob_lp = flip(gob, gob_piv)
     rip, rip_piv = flip(vfx[5], (76, 71))                                  # ripple travelling toward the left wall
     crack, crack_piv = vfx[21], (76, 24)
-    panel1 = [(rack[0], rack_piv, X(123), 189, False), (strut[0], strut_piv, X(200), 0, False),
+    shadow = vfx[37]
+    panel1 = [(shadow, (76, 71), X(123), 0, False), (rack[0], rack_piv, X(123), 189, False), (rack[6], rack_piv, X(123), 189, False), (strut[0], strut_piv, X(200), 0, False),
               (stun, stun_piv, X(130), 0), (carl_l, carl_lp, X(180), 0), (donut, donut_piv, X(215), 0), (gob_l, gob_lp, X(260), 0),
               (rip, rip_piv, X(420), 0, False)]
     pinned, pinned_piv = flip(imgs[14], bp)
@@ -165,6 +166,23 @@ def arena_composite(imgs: list[Image.Image], out: Path) -> list[Path]:
             img.paste(crack.crop((46, 4, 106, 44)), (-14, ground - 82), crack.crop((46, 4, 106, 44)))
         img.save(path)
         paths.append(path)
+    cmp = out / "compare"
+    cmp.mkdir(exist_ok=True)
+    before = Image.open(cmp / "arena_before_953a2d6.png").convert("RGB")
+    after = Image.open(out / "arena_640x360.png").convert("RGB")
+    both = Image.new("RGB", (640, 720))
+    both.paste(before, (0, 0)); both.paste(after, (0, 360))
+    ImageDraw.Draw(both).text((6, 4), "before (953a2d6)", fill=(255, 255, 255))
+    ImageDraw.Draw(both).text((6, 364), "after (round 2)", fill=(255, 255, 255))
+    p = cmp / "arena_before_after_1x.png"
+    both.save(p)
+    strip = Image.new("RGB", (3 * 90, 30), (96, 78, 70))
+    for n in range(3):
+        crop = vfx[35 + n].crop((26, 60, 126, 72))
+        strip.paste(crop, (n * 90 - 5, 9), crop)
+    p2 = cmp / "rack_shadow_1x.png"
+    strip.save(p2)
+    paths += [p, p2, cmp / "arena_before_953a2d6.png"]
     return paths
 
 
