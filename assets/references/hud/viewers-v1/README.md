@@ -1,10 +1,10 @@
 # AUDIENCE-01 viewer HUD reference image intake
 
-**State: awaiting original PNG upload to the PR branch; no image binaries claimed as committed yet.** This is a reference-only directory for the compact **Option A** individual-counter overlay on the owner-approved HUD-HYBRID-A-01.
+**State: ✅ Image binaries received and committed to PR branch.** This is a reference-only directory for the compact **Option A** individual-counter overlay on the owner-approved HUD-HYBRID-A-01.
 
 **Source of truth:** `docs/02-art/individual-viewers-hud-v1.md`, `docs/07-agents/individual-viewers-hud-workorder.md`, and the real integrated Bevy capture `docs/evidence/hud-hybrid-a/hud-REAL-normal-640x360-1x.png`.
 
-The current PR's mobile Hermes ZIP is the transfer medium. For the moment these paths are **reserved slots**, not verified repo files:
+The assets are **640x360 transparent overlay references only**, not full scene captures, game screens, export atlases or production sprites. Their pixels must be composited over the existing Bevy screenshot for review; the background is deliberately transparent. Source art must be authored/validated in the `assets/source/hud/` grid+atlas pipeline before runtime use. SHA-256, byte sizes, PNG resolution, generation/provenance and rights recorded in `manifest.json` and `SHA256SUMS`.
 
 | Slot | Expected destination | Purpose |
 | --- | --- | --- |
