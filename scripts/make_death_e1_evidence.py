@@ -3,16 +3,18 @@
 
 Captures (xvfb, the real render loop, lighting on, one frame per tick) the
 `cp03_goblin_pileup` fixture at gore preset 4 (the default), 640x360 and
-1920x1080, from tick 70 to tick 269, then builds:
+1920x1080, from tick 70 to tick 329, then builds:
 
   pileup_p4_<WxH>_60fps.mp4            every tick, 60 fps = real time
-  sheet_pileup_p4_640x360.png          the four moments at native 640x360
-  still_pileup_<moment>_1920x1080.png  the four moments, full 1920x1080
+  sheet_pileup_p4_640x360.png          the six moments at native 640x360
+  still_pileup_<moment>_1920x1080.png  the six moments, full 1920x1080
   sheet_pileup_p4_actors_1920x1080.png crops of the moments around Carl and Donut
   SHA256SUMS                           checksums of every file (README excluded)
 
 Moments: impact (the three jab defeats), crush (the block lands on four
-goblins), peak (the kick defeats on top of the crush: the most gore), settle.
+goblins), peak (the kick defeats on top of the crush: the most gore), settle
+(ten settled corpses), retiring (the two oldest fade out: at most eight
+settled corpses stay) and retired (they are gone, their stains stay).
 
 Needs the release binary (`cargo build --locked --release --bin floor01_scene`),
 `bash scripts/export_assets.sh` run once, xvfb-run, ffmpeg and Pillow. The
@@ -39,7 +41,7 @@ OUT = ROOT / "docs" / "evidence" / "death-e"
 XVFB = ["xvfb-run", "-a", "-s", "-screen 0 1920x1080x24"]
 
 FIXTURE = "cp03_goblin_pileup"
-FIRST, COUNT = 70, 200
+FIRST, COUNT = 70, 260
 RESOLUTIONS = {"640x360": 1, "1920x1080": 3}
 # moment -> tick (jab defeats on 83, block lands and crushes on 139, kick
 # defeats on 148; the pose and the first pieces appear the tick after).
@@ -48,6 +50,8 @@ MOMENTS = {
     "crush": 141,
     "peak": 158,
     "settle": 265,
+    "retiring": 283,
+    "retired": 325,
 }
 # Crop of the 1920x1080 frame around the actors and the gore at their feet.
 ACTOR_CROP = (480, 380, 1760, 1000)

@@ -19,11 +19,13 @@ and prints a Markdown table plus the raw probe lines. Needs a release build
 
 The wall-clock frame interval under Xvfb is bound by the X11 present path (a
 copy of the frame, about 60 ms at 1920x1080) and by a 60 Hz pacing at 640x360,
-so it only shows whether frames were missed. The cost of the presentation is
-read from the in-process timers: GPU pass time (Vulkan timestamp queries of the
-render passes Bevy times: the 2D passes and the upscaling) and CPU time of the
-fixture tick (simulation, animation and presenter) and of the death sprite sync.
-The custom lighting pass has no timer.
+so it only shows whether frames were missed. The in-process timers are the CPU
+time of the fixture tick (simulation, animation and presenter) and of the death
+sprite sync, resident memory, entity counts and the pool peaks. The GPU column
+sums every measurement of the newest frame per timed render pass (several
+cameras record the same pass names); on a shared machine it is dominated by
+contention and does NOT establish the GPU cost of the deaths (the custom
+lighting pass has no timer either): see docs/evidence/death-e/README.md.
 """
 
 from __future__ import annotations
@@ -118,7 +120,7 @@ def main() -> None:
         "",
     ]
     table = [
-        "| Resolution | Scenario | frame ms mean / p95 / max | GPU ms mean / p95 / max | "
+        "| Resolution | Scenario | frame ms mean / p95 / max | GPU ms mean / p95 / max (not usable, see README) | "
         "tick us mean / max | sprite sync us mean / max | RSS MiB (peak) | entities | "
         "peak parts / floor / wall / visible sprites | final recycled (parts, floor, wall) |",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",

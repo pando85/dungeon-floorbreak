@@ -30,4 +30,4 @@ COMBAT_EVENT tick=148 kind=hit move=push_kick instance=5 target=4 damage=1 healt
 COMBAT_EVENT tick=148 kind=enemy_defeated target=4 force=heavy
 COMBAT_EVENT tick=148 kind=hit move=push_kick instance=5 target=5 damage=1 health_left=0 hit_stop=11
 COMBAT_EVENT tick=148 kind=enemy_defeated target=5 force=heavy
-COMBAT_STATE fixture=cp03_goblin_pileup seed=0xc030004 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies=e0=497.333/0,e1=501.333/0,e2=505.333/0,e3=302.667/0,e4=298.667/0,e5=294.667/0,e6=470.000/0,e7=488.000/0,e8=500.000/0,e9=514.000/0 hash=43d9d35a23344531 shore=3/Broken/Landed block_bottom=0.00
+COMBAT_STATE fixture=cp03_goblin_pileup seed=0xc030004 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies=e0=504.333/0,e1=505.333/0,e2=506.333/0,e3=295.667/0,e4=294.667/0,e5=293.667/0,e6=470.000/0,e7=488.000/0,e8=500.000/0,e9=514.000/0 hash=6a82811d8f31c475 shore=3/Broken/Landed block_bottom=0.00

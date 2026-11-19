@@ -848,17 +848,26 @@ fn the_striking_limb_touches_the_goblin_on_every_hit_stop_tick() {
     // counted independently from the drawn placement.
     let mut seen = BTreeMap::<&str, (usize, usize, usize)>::new();
     for fixture in FIXTURES {
-        // DEATH-E1: the pileup stacks goblins on purpose (a presenter stress
-        // scenario); stacked goblins are drawn apart (see the stacking tests),
-        // so the fist of the one behind does not reach its drawn body.
-        if fixture.name == "cp03_goblin_pileup" {
-            continue;
-        }
         let (rows, _) = scripted(fixture);
         for row in &rows {
             let Some(carl) = row.carl else { continue };
             for (i, ovl) in row.drawn_overlap.iter().enumerate() {
                 let Some(n) = ovl else { continue };
+                // KNOWN BUG GOB-STACK-01 (found by DEATH-E1 `cp03_goblin_pileup`,
+                // backlog). Two exact cases are skipped, everything else of the
+                // fixture stays asserted: (a) one blow hits several stacked
+                // goblins and a goblin the stack nudge moved away from Carl is
+                // drawn with the fist not touching it (0 px, ticks 23 to 26);
+                // (b) Carl's left-facing blows, the only left-facing contacts of
+                // any fixture, land 40 to 60 px deep in the goblins (the jab on
+                // ticks 121 to 124, the kick on ticks 148 to 160, goblins 3 to
+                // 5) where the same distance on the right gives 2 px.
+                let stacked_miss = row.stack_dx[i] != 0 && *n == 0;
+                let left_blow = (121..=124).contains(&row.tick) || (148..=160).contains(&row.tick);
+                let left_blow = left_blow && (3..=5).contains(&i);
+                if fixture.name == "cp03_goblin_pileup" && (stacked_miss || left_blow) {
+                    continue;
+                }
                 assert!(
                     (1..=6).contains(n),
                     "{} tick {} goblin {i} {}: {n} px",
@@ -965,11 +974,6 @@ fn stacked_goblins_are_drawn_apart_and_the_nudge_is_continuous() {
     }
     // No pop: the nudge never jumps by more than 2 px in one tick, anywhere.
     for fixture in FIXTURES {
-        // DEATH-E1: the pileup launches several stacked goblins on one tick (a
-        // presenter stress scenario), which re-sorts the stack at once.
-        if fixture.name == "cp03_goblin_pileup" {
-            continue;
-        }
         let (rows, _) = scripted(fixture);
         for pair in rows.windows(2) {
             if pair[1].tick != pair[0].tick + 1 {
@@ -977,6 +981,14 @@ fn stacked_goblins_are_drawn_apart_and_the_nudge_is_continuous() {
             }
             for i in 1..pair[0].stack_dx.len() {
                 let step = (pair[1].stack_dx[i] - pair[0].stack_dx[i]).abs();
+                // KNOWN BUG GOB-STACK-01 (backlog): the blows that launch the
+                // stacked goblins of `cp03_goblin_pileup` (the jab defeats on
+                // tick 83, the kick defeats on tick 148) re-sort the stack at
+                // once and the nudge jumps by up to 6 px. Only those two ticks
+                // of that fixture are skipped.
+                if fixture.name == "cp03_goblin_pileup" && matches!(pair[1].tick, 83 | 148) {
+                    continue;
+                }
                 assert!(
                     step <= 2,
                     "{} tick {} goblin {i}: {step}",

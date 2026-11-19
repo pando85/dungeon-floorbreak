@@ -50,8 +50,9 @@ use dungeon_floorbreak::{
     combat_scene::{CombatState, Fixture},
     corridor::{CorridorWorld, Scenario, SceneSim},
     death_present::{
-        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, Finish, PART_POOL_CAPACITY,
-        WALL_DECAL_POOL_CAPACITY, draw_z,
+        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS, Finish,
+        PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
+        draw_z,
     },
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
@@ -1331,14 +1332,14 @@ fn setup(
                 layers_of("actors"),
             );
         }
-        for slot in 0..PART_POOL_CAPACITY {
+        for slot in 0..PART_POOL_SLOTS {
             piece(
                 DeathPiece::Part(slot),
                 sprite_of(&parts_image, &parts_layout),
                 layers_of("actors"),
             );
         }
-        for slot in 0..FLOOR_DECAL_POOL_CAPACITY {
+        for slot in 0..FLOOR_DECAL_POOL_SLOTS {
             for second in [false, true] {
                 piece(
                     DeathPiece::Floor { slot, second },
@@ -1347,7 +1348,7 @@ fn setup(
                 );
             }
         }
-        for slot in 0..WALL_DECAL_POOL_CAPACITY {
+        for slot in 0..WALL_DECAL_POOL_SLOTS {
             piece(
                 DeathPiece::Wall(slot),
                 sprite_of(&parts_image, &parts_layout),
@@ -2042,7 +2043,7 @@ fn sync_death_visuals(
     combat: Res<Combat>,
     sim: Res<Sim>,
     setup: Res<Setup>,
-    mut goblins: Query<(&GoblinSprite, &mut Visibility), Without<DeathPiece>>,
+    mut goblins: Query<(&GoblinSprite, &mut Visibility, &mut Sprite), Without<DeathPiece>>,
     mut pieces: Query<(&DeathPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
 ) {
     let (Some(presenter), Some(look), Some(state)) = (death.0.as_ref(), look, combat.0.as_ref())
@@ -2053,13 +2054,20 @@ fn sync_death_visuals(
     let actor_z = setup.kit.actor_z;
     let tick = sim.0.world.tick;
     let art = presenter.art();
-    let hide_goblin = |index: usize| presenter.pose_of(index as u32).is_some();
-    for (goblin, mut visibility) in &mut goblins {
+    // A death pose replaces the goblin sprite; a retired corpse is drawn no
+    // more and a retiring one fades out (the GOB-01 corpse sprite included).
+    let hide_goblin = |index: usize| {
+        presenter.pose_of(index as u32).is_some() || presenter.is_retired(index as u32)
+    };
+    for (goblin, mut visibility, mut sprite) in &mut goblins {
         *visibility = if hide_goblin(goblin.index) {
             Visibility::Hidden
         } else {
             Visibility::Inherited
         };
+        sprite.color = sprite
+            .color
+            .with_alpha(presenter.corpse_alpha(goblin.index as u32));
     }
     // Variant B draws from its own composed sheet (same layout, same frames).
     let use_image = |sprite: &mut Sprite, image: &Handle<Image>| {
@@ -2089,7 +2097,8 @@ fn sync_death_visuals(
                         FLASH_TINT
                     } else {
                         Color::WHITE
-                    };
+                    }
+                    .with_alpha(pose.alpha);
                     set_atlas(&mut sprite, pose.frame);
                     *visibility = Visibility::Inherited;
                 }
@@ -2105,7 +2114,7 @@ fn sync_death_visuals(
                     transform.rotation = Quat::from_rotation_z(part.angle_deg.to_radians());
                     sprite.flip_x = part.flip;
                     use_image(&mut sprite, &look.parts_images[part.variant]);
-                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.part_alpha(part));
+                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.part_alpha(slot, part));
                     set_atlas(&mut sprite, part.frame);
                     *visibility = Visibility::Inherited;
                 }
@@ -2130,7 +2139,8 @@ fn sync_death_visuals(
                             draw_z(DrawLayer::FloorDecal, slot, actor_z, look.wall_z),
                         );
                         sprite.flip_x = d.flip;
-                        sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.decal_alpha(d));
+                        sprite.color =
+                            Color::srgba(1.0, 1.0, 1.0, presenter.floor_decal_alpha(slot, d));
                         set_atlas(&mut sprite, frame);
                         *visibility = Visibility::Inherited;
                     }
@@ -2145,7 +2155,7 @@ fn sync_death_visuals(
                         draw_z(DrawLayer::WallDecal, slot, actor_z, look.wall_z),
                     );
                     sprite.flip_x = d.flip;
-                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.decal_alpha(d));
+                    sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.wall_decal_alpha(slot, d));
                     set_atlas(&mut sprite, art.parts[d.meta].frame);
                     *visibility = Visibility::Inherited;
                 }
@@ -2320,6 +2330,26 @@ fn frame_stats(intervals_ms: &[f32]) -> Option<FrameStats> {
     })
 }
 
+/// GPU time (ms) of the last finished frame: for every timed pass, the sum of
+/// all the measurements that share the newest timestamp. Several cameras (the
+/// slot cameras, the post-stage quads) record the same pass names in one frame
+/// and `Diagnostic::value` keeps only the last of them, so it is summed here.
+fn gpu_ms_of_last_frame(diagnostics: &DiagnosticsStore) -> f64 {
+    diagnostics
+        .iter()
+        .filter(|d| d.path().as_str().ends_with("elapsed_gpu"))
+        .filter_map(|d| {
+            let newest = d.measurement()?.time;
+            Some(
+                d.measurements()
+                    .filter(|m| m.time == newest)
+                    .map(|m| m.value)
+                    .sum::<f64>(),
+            )
+        })
+        .sum()
+}
+
 /// `--perf-from-tick`: after the warm-up, advance the fixture exactly one tick
 /// per frame, before the frame is drawn (the frame time then covers the tick's
 /// own presentation). Runs ahead of the visuals in the chain.
@@ -2388,13 +2418,7 @@ fn perf_probe(
     }
     let ms = time.delta_secs() * 1000.0;
     perf.intervals_ms.push(ms);
-    // GPU time of every timed render pass, as of the last finished frame.
-    let gpu_ms: f64 = diagnostics
-        .iter()
-        .filter(|d| d.path().as_str().ends_with("elapsed_gpu"))
-        .filter_map(|d| d.value())
-        .sum();
-    perf.gpu_ms.push(gpu_ms as f32);
+    perf.gpu_ms.push(gpu_ms_of_last_frame(&diagnostics) as f32);
     if perf.step_ticks {
         let visible = death_sprites
             .iter()
@@ -2788,13 +2812,13 @@ mod tests {
         // +0.05 / +0.15 (swinging), a lying goblin -0.01 minus 0.001 per index
         // (64 goblins is far more than any fixture).
         let lowest_actor = 7.0 + GOBLIN_LYING_Z_OFFSET - GOBLIN_Z_STEP * 64.0;
-        let slots = PART_POOL_CAPACITY.max(FLOOR_DECAL_POOL_CAPACITY);
+        let slots = PART_POOL_SLOTS.max(FLOOR_DECAL_POOL_SLOTS);
         for slot in [0, slots - 1] {
             for layer in [DrawLayer::Debris, DrawLayer::FloorDecal] {
                 assert!(draw_z(layer, slot, 7.0, 3.0) < lowest_actor, "{layer:?}");
             }
         }
-        assert!(draw_z(DrawLayer::WallDecal, WALL_DECAL_POOL_CAPACITY, 7.0, 3.0) < 4.0);
+        assert!(draw_z(DrawLayer::WallDecal, WALL_DECAL_POOL_SLOTS, 7.0, 3.0) < 4.0);
     }
 
     #[test]

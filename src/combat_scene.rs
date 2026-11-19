@@ -397,16 +397,12 @@ pub const CP03_KICK_BLOCK: Fixture = Fixture {
 /// behaviour.
 pub const CP03_GOBLIN_PILEUP: Fixture = Fixture {
     name: "cp03_goblin_pileup",
-    summary: "ten goblins: jab kills, a lethal kick behind Carl and the shore block, all within ~80 ticks",
+    summary: "ten goblins: jab kills, a lethal kick behind Carl and the shore block, all within ~65 ticks",
     seed: 0x0C03_0004,
     carl_x: 400,
     enemies: &[
         EnemySpawn {
-            x: 421,
-            ai: EnemyAi::Passive,
-        },
-        EnemySpawn {
-            x: 425,
+            x: 428,
             ai: EnemyAi::Passive,
         },
         EnemySpawn {
@@ -414,15 +410,19 @@ pub const CP03_GOBLIN_PILEUP: Fixture = Fixture {
             ai: EnemyAi::Passive,
         },
         EnemySpawn {
-            x: 379,
+            x: 430,
             ai: EnemyAi::Passive,
         },
         EnemySpawn {
-            x: 375,
+            x: 372,
             ai: EnemyAi::Passive,
         },
         EnemySpawn {
             x: 371,
+            ai: EnemyAi::Passive,
+        },
+        EnemySpawn {
+            x: 370,
             ai: EnemyAi::Passive,
         },
         EnemySpawn {
@@ -1301,7 +1301,7 @@ mod tests {
         ("cp03_shore_kill", 0x098e_86cd_e2e6_b065),
         ("cp03_shore_miss", 0x317b_ead5_5c8a_6a73),
         ("cp03_kick_block", 0x73e4_0916_1ce5_434f),
-        ("cp03_goblin_pileup", 0x43d9_d35a_2334_4531),
+        ("cp03_goblin_pileup", 0x6a82_811d_8f31_c475),
     ];
 
     fn kit() -> EnvKit {

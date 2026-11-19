@@ -1,5 +1,7 @@
 # DEATH-E1 probe tables before the budget change (160 / 96 / 12, oldest-first recycling)
 
+The GPU column here is the uncorrected last-camera value (it does not respond to the sprites); ignore it. See the evidence README.
+
 Frame interval ms by phase of the pileup (mean / max, median of runs):
 
 | Resolution | Scenario | impact 71-160 | peak 161-260 | settle 261+ |

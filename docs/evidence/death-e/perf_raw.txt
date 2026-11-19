@@ -1,215 +1,215 @@
 DEATH-E1 probe: 3 runs of 600 measured frames per row, tick-locked from tick 70 (one fixture tick per frame).
-load average before: (4.7607421875, 6.169921875, 7.033203125)
+load average before: (8.23876953125, 15.41943359375, 15.13037109375)
 
 == 640x360 baseline (nobody dies) run 1
-FLOOR1_PERF frames=600 median_ms=16.68 p95_ms=18.10 mean_ms=16.67 max_ms=20.61 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=418.4 peak_rss_mib=418.4 entities=3924 death_sprites_spawned=673 peak_visible_death_sprites=0
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.055 tick_us_mean=7.0 tick_us_p95=11.1 tick_us_max=25.8 death_sync_us_mean=6.5 death_sync_us_p95=10.4 death_sync_us_max=28.1 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=16.63 p95_ms=18.70 mean_ms=16.65 max_ms=28.48 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=419.7 peak_rss_mib=419.7 entities=4092 death_sprites_spawned=841 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.178 gpu_ms_p95=0.187 gpu_ms_max=0.314 tick_us_mean=9.1 tick_us_p95=14.4 tick_us_max=37.8 death_sync_us_mean=8.8 death_sync_us_p95=12.6 death_sync_us_max=44.3 gpu_passes=4
 DEATH_PRESENT preset=4 clock=670 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 peak_parts=0 peak_floor_decals=0 peak_wall_decals=0 digest=af62534c85ff50c1 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 baseline (nobody dies) run 2
-FLOOR1_PERF frames=600 median_ms=16.66 p95_ms=18.03 mean_ms=16.67 max_ms=20.17 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=419.4 peak_rss_mib=419.4 entities=3924 death_sprites_spawned=673 peak_visible_death_sprites=0
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.080 tick_us_mean=8.2 tick_us_p95=13.3 tick_us_max=25.2 death_sync_us_mean=6.4 death_sync_us_p95=9.8 death_sync_us_max=28.2 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=16.66 p95_ms=18.77 mean_ms=16.67 max_ms=33.77 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=414.4 peak_rss_mib=414.4 entities=4092 death_sprites_spawned=841 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.180 gpu_ms_p95=0.187 gpu_ms_max=0.286 tick_us_mean=10.2 tick_us_p95=18.1 tick_us_max=54.0 death_sync_us_mean=8.8 death_sync_us_p95=13.4 death_sync_us_max=52.7 gpu_passes=4
 DEATH_PRESENT preset=4 clock=670 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 peak_parts=0 peak_floor_decals=0 peak_wall_decals=0 digest=af62534c85ff50c1 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 baseline (nobody dies) run 3
-FLOOR1_PERF frames=600 median_ms=16.67 p95_ms=18.31 mean_ms=16.67 max_ms=20.67 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=418.5 peak_rss_mib=418.5 entities=3924 death_sprites_spawned=673 peak_visible_death_sprites=0
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.015 gpu_ms_p95=0.018 gpu_ms_max=0.053 tick_us_mean=8.0 tick_us_p95=13.1 tick_us_max=21.2 death_sync_us_mean=6.9 death_sync_us_p95=10.5 death_sync_us_max=59.6 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=16.65 p95_ms=18.62 mean_ms=16.66 max_ms=32.50 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=421.0 peak_rss_mib=421.0 entities=4092 death_sprites_spawned=841 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.265 gpu_ms_p95=0.468 gpu_ms_max=0.751 tick_us_mean=9.6 tick_us_p95=19.1 tick_us_max=58.1 death_sync_us_mean=9.4 death_sync_us_p95=15.6 death_sync_us_max=67.4 gpu_passes=4
 DEATH_PRESENT preset=4 clock=670 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 peak_parts=0 peak_floor_decals=0 peak_wall_decals=0 digest=af62534c85ff50c1 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup, preset 1 run 1
-FLOOR1_PERF frames=600 median_ms=16.63 p95_ms=18.57 mean_ms=16.66 max_ms=22.19 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=419.6 peak_rss_mib=419.6 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=8
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.054 tick_us_mean=12.7 tick_us_p95=22.5 tick_us_max=89.4 death_sync_us_mean=9.1 death_sync_us_p95=14.5 death_sync_us_max=31.5 gpu_passes=4
-DEATH_PRESENT preset=1 clock=670 deaths=10 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=16.63 p95_ms=19.29 mean_ms=16.67 max_ms=44.62 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=388.3 peak_rss_mib=388.3 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=8
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.257 gpu_ms_p95=0.487 gpu_ms_max=0.546 tick_us_mean=17.7 tick_us_p95=36.3 tick_us_max=107.2 death_sync_us_mean=13.4 death_sync_us_p95=25.6 death_sync_us_max=62.3 gpu_passes=4
+DEATH_PRESENT preset=1 clock=670 deaths=8 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup, preset 1 run 2
-FLOOR1_PERF frames=600 median_ms=16.65 p95_ms=18.45 mean_ms=16.67 max_ms=50.90 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=406.7 peak_rss_mib=406.7 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=8
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.073 tick_us_mean=12.4 tick_us_p95=23.7 tick_us_max=99.1 death_sync_us_mean=8.8 death_sync_us_p95=13.7 death_sync_us_max=76.6 gpu_passes=4
-DEATH_PRESENT preset=1 clock=670 deaths=10 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=16.66 p95_ms=19.32 mean_ms=16.67 max_ms=24.80 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=371.8 peak_rss_mib=371.8 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=8
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.745 gpu_ms_p95=1.393 gpu_ms_max=2.730 tick_us_mean=12.4 tick_us_p95=25.3 tick_us_max=97.6 death_sync_us_mean=10.6 death_sync_us_p95=14.8 death_sync_us_max=78.3 gpu_passes=4
+DEATH_PRESENT preset=1 clock=670 deaths=8 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup, preset 1 run 3
-FLOOR1_PERF frames=600 median_ms=16.71 p95_ms=18.69 mean_ms=16.66 max_ms=36.83 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=416.5 peak_rss_mib=416.5 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=8
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.055 tick_us_mean=13.4 tick_us_p95=24.7 tick_us_max=111.8 death_sync_us_mean=9.0 death_sync_us_p95=14.8 death_sync_us_max=42.7 gpu_passes=4
-DEATH_PRESENT preset=1 clock=670 deaths=10 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=16.67 p95_ms=19.47 mean_ms=16.67 max_ms=26.23 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=382.9 peak_rss_mib=382.9 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=8
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.642 gpu_ms_p95=1.040 gpu_ms_max=3.775 tick_us_mean=14.0 tick_us_p95=30.6 tick_us_max=87.3 death_sync_us_mean=12.0 death_sync_us_p95=20.5 death_sync_us_max=77.0 gpu_passes=4
+DEATH_PRESENT preset=1 clock=670 deaths=8 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup, preset 4 run 1
-FLOOR1_PERF frames=600 median_ms=16.69 p95_ms=18.69 mean_ms=16.67 max_ms=26.82 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=413.6 peak_rss_mib=413.6 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=238
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.053 tick_us_mean=15.9 tick_us_p95=29.8 tick_us_max=129.4 death_sync_us_mean=15.7 death_sync_us_p95=28.1 death_sync_us_max=61.2 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=10 parts=4 floor_decals=13 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=640345f2b15b8132 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=16.65 p95_ms=18.20 mean_ms=16.67 max_ms=29.21 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=388.5 peak_rss_mib=388.5 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=238
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.707 gpu_ms_p95=1.177 gpu_ms_max=2.878 tick_us_mean=14.5 tick_us_p95=25.3 tick_us_max=122.6 death_sync_us_mean=16.5 death_sync_us_p95=24.6 death_sync_us_max=41.6 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=8 parts=4 floor_decals=130 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=7b854aa86a720f63 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup, preset 4 run 2
-FLOOR1_PERF frames=600 median_ms=16.74 p95_ms=19.02 mean_ms=16.67 max_ms=43.52 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=419.8 peak_rss_mib=419.8 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=238
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.053 tick_us_mean=16.1 tick_us_p95=33.5 tick_us_max=100.9 death_sync_us_mean=15.2 death_sync_us_p95=27.5 death_sync_us_max=68.1 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=10 parts=4 floor_decals=13 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=640345f2b15b8132 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=16.62 p95_ms=19.80 mean_ms=16.69 max_ms=55.22 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=382.7 peak_rss_mib=382.7 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=238
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.702 gpu_ms_p95=1.388 gpu_ms_max=4.508 tick_us_mean=21.9 tick_us_p95=36.0 tick_us_max=2161.9 death_sync_us_mean=20.3 death_sync_us_p95=31.2 death_sync_us_max=767.5 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=8 parts=4 floor_decals=130 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=7b854aa86a720f63 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup, preset 4 run 3
-FLOOR1_PERF frames=600 median_ms=16.75 p95_ms=18.54 mean_ms=16.67 max_ms=39.16 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=420.8 peak_rss_mib=420.8 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=238
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.019 gpu_ms_p95=0.019 gpu_ms_max=1.436 tick_us_mean=13.7 tick_us_p95=32.4 tick_us_max=127.9 death_sync_us_mean=14.1 death_sync_us_p95=23.9 death_sync_us_max=74.3 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=10 parts=4 floor_decals=13 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=640345f2b15b8132 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=16.67 p95_ms=20.71 mean_ms=16.79 max_ms=39.46 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=384.6 peak_rss_mib=384.6 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=238
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.850 gpu_ms_p95=1.478 gpu_ms_max=2.931 tick_us_mean=23.1 tick_us_p95=42.3 tick_us_max=266.4 death_sync_us_mean=21.7 death_sync_us_p95=39.8 death_sync_us_max=86.8 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=8 parts=4 floor_decals=130 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=7b854aa86a720f63 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup + stress, preset 1 run 1
-FLOOR1_PERF frames=600 median_ms=16.69 p95_ms=18.48 mean_ms=16.68 max_ms=48.31 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=416.9 peak_rss_mib=416.9 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=231
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.053 tick_us_mean=24.9 tick_us_p95=40.8 tick_us_max=132.2 death_sync_us_mean=13.9 death_sync_us_p95=27.1 death_sync_us_max=117.3 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=16.50 p95_ms=20.71 mean_ms=16.61 max_ms=42.97 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=387.7 peak_rss_mib=387.7 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=231
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.424 gpu_ms_p95=0.827 gpu_ms_max=1.293 tick_us_mean=33.0 tick_us_p95=54.3 tick_us_max=209.1 death_sync_us_mean=19.0 death_sync_us_p95=29.4 death_sync_us_max=410.0 gpu_passes=4
 DEATH_PRESENT preset=1 clock=670 deaths=48 parts=227 floor_decals=0 wall_decals=0 spawned_parts=227 peak_parts=227 peak_floor_decals=0 peak_wall_decals=0 digest=2aa51c67d184b435 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup + stress, preset 1 run 2
-FLOOR1_PERF frames=600 median_ms=16.62 p95_ms=18.98 mean_ms=16.66 max_ms=33.17 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=415.7 peak_rss_mib=415.7 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=231
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.074 tick_us_mean=25.1 tick_us_p95=42.3 tick_us_max=192.4 death_sync_us_mean=13.8 death_sync_us_p95=24.1 death_sync_us_max=104.0 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=16.75 p95_ms=21.82 mean_ms=17.10 max_ms=61.03 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=385.5 peak_rss_mib=385.5 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=231
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.378 gpu_ms_p95=0.652 gpu_ms_max=2.159 tick_us_mean=39.2 tick_us_p95=68.9 tick_us_max=540.4 death_sync_us_mean=21.2 death_sync_us_p95=41.5 death_sync_us_max=67.1 gpu_passes=4
 DEATH_PRESENT preset=1 clock=670 deaths=48 parts=227 floor_decals=0 wall_decals=0 spawned_parts=227 peak_parts=227 peak_floor_decals=0 peak_wall_decals=0 digest=2aa51c67d184b435 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup + stress, preset 1 run 3
-FLOOR1_PERF frames=600 median_ms=16.66 p95_ms=18.24 mean_ms=16.67 max_ms=20.63 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=419.0 peak_rss_mib=419.0 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=231
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.054 tick_us_mean=20.9 tick_us_p95=32.4 tick_us_max=119.2 death_sync_us_mean=12.4 death_sync_us_p95=20.3 death_sync_us_max=74.7 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=16.51 p95_ms=21.77 mean_ms=16.98 max_ms=54.17 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=385.2 peak_rss_mib=385.2 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=231
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.672 gpu_ms_p95=0.991 gpu_ms_max=1.973 tick_us_mean=36.7 tick_us_p95=63.2 tick_us_max=229.0 death_sync_us_mean=20.6 death_sync_us_p95=33.5 death_sync_us_max=482.8 gpu_passes=4
 DEATH_PRESENT preset=1 clock=670 deaths=48 parts=227 floor_decals=0 wall_decals=0 spawned_parts=227 peak_parts=227 peak_floor_decals=0 peak_wall_decals=0 digest=2aa51c67d184b435 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup + stress, preset 4 run 1
-FLOOR1_PERF frames=600 median_ms=16.62 p95_ms=18.91 mean_ms=16.66 max_ms=23.07 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=419.1 peak_rss_mib=419.1 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=606
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.060 tick_us_mean=50.4 tick_us_p95=91.5 tick_us_max=297.5 death_sync_us_mean=25.1 death_sync_us_p95=50.7 death_sync_us_max=94.6 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=fe59c72f528126c3 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2495, 442)
+FLOOR1_PERF frames=600 median_ms=16.70 p95_ms=20.97 mean_ms=16.93 max_ms=48.34 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=378.1 peak_rss_mib=378.1 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=730
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.457 gpu_ms_p95=1.016 gpu_ms_max=1.847 tick_us_mean=99.7 tick_us_p95=188.5 tick_us_max=2554.7 death_sync_us_mean=38.1 death_sync_us_p95=68.0 death_sync_us_max=208.8 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=46da1a133993f5b8 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2661, 442)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup + stress, preset 4 run 2
-FLOOR1_PERF frames=600 median_ms=16.66 p95_ms=18.55 mean_ms=16.67 max_ms=44.47 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=413.3 peak_rss_mib=413.3 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=606
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.070 tick_us_mean=47.5 tick_us_p95=94.5 tick_us_max=341.9 death_sync_us_mean=24.0 death_sync_us_p95=38.3 death_sync_us_max=163.4 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=fe59c72f528126c3 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2495, 442)
+FLOOR1_PERF frames=600 median_ms=16.97 p95_ms=24.17 mean_ms=17.46 max_ms=43.16 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=390.6 peak_rss_mib=390.6 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=730
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.603 gpu_ms_p95=1.024 gpu_ms_max=1.988 tick_us_mean=94.1 tick_us_p95=180.2 tick_us_max=727.9 death_sync_us_mean=38.1 death_sync_us_p95=75.3 death_sync_us_max=206.3 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=46da1a133993f5b8 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2661, 442)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 640x360 pileup + stress, preset 4 run 3
-FLOOR1_PERF frames=600 median_ms=16.64 p95_ms=18.53 mean_ms=16.67 max_ms=21.80 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=407.3 peak_rss_mib=407.3 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=606
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.016 gpu_ms_p95=0.019 gpu_ms_max=0.055 tick_us_mean=48.2 tick_us_p95=88.4 tick_us_max=1040.0 death_sync_us_mean=24.6 death_sync_us_p95=44.6 death_sync_us_max=121.5 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=fe59c72f528126c3 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2495, 442)
+FLOOR1_PERF frames=600 median_ms=16.63 p95_ms=20.46 mean_ms=16.90 max_ms=82.84 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=386.6 peak_rss_mib=386.6 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=730
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.466 gpu_ms_p95=0.744 gpu_ms_max=2.229 tick_us_mean=95.4 tick_us_p95=189.8 tick_us_max=720.0 death_sync_us_mean=39.3 death_sync_us_p95=80.9 death_sync_us_max=169.5 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=46da1a133993f5b8 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2661, 442)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 baseline (nobody dies) run 1
-FLOOR1_PERF frames=600 median_ms=63.22 p95_ms=70.31 mean_ms=63.59 max_ms=81.27 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=431.7 peak_rss_mib=431.7 entities=3924 death_sprites_spawned=673 peak_visible_death_sprites=0
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.045 gpu_ms_p95=0.058 gpu_ms_max=0.208 tick_us_mean=11.0 tick_us_p95=17.8 tick_us_max=33.1 death_sync_us_mean=8.5 death_sync_us_p95=18.0 death_sync_us_max=49.6 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=67.19 p95_ms=88.43 mean_ms=69.69 max_ms=131.47 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=393.9 peak_rss_mib=393.9 entities=4092 death_sprites_spawned=841 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.478 gpu_ms_p95=5.125 gpu_ms_max=6.181 tick_us_mean=14.6 tick_us_p95=24.1 tick_us_max=34.0 death_sync_us_mean=11.0 death_sync_us_p95=17.9 death_sync_us_max=62.1 gpu_passes=4
 DEATH_PRESENT preset=4 clock=670 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 peak_parts=0 peak_floor_decals=0 peak_wall_decals=0 digest=af62534c85ff50c1 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 baseline (nobody dies) run 2
-FLOOR1_PERF frames=600 median_ms=63.35 p95_ms=71.28 mean_ms=64.28 max_ms=99.24 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=426.6 peak_rss_mib=426.6 entities=3924 death_sprites_spawned=673 peak_visible_death_sprites=0
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.051 gpu_ms_p95=0.065 gpu_ms_max=1.815 tick_us_mean=11.4 tick_us_p95=18.7 tick_us_max=45.6 death_sync_us_mean=8.1 death_sync_us_p95=16.0 death_sync_us_max=39.0 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=70.05 p95_ms=103.57 mean_ms=74.35 max_ms=148.99 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=392.8 peak_rss_mib=392.8 entities=4092 death_sprites_spawned=841 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.537 gpu_ms_p95=4.523 gpu_ms_max=8.245 tick_us_mean=15.5 tick_us_p95=25.0 tick_us_max=70.7 death_sync_us_mean=11.4 death_sync_us_p95=19.2 death_sync_us_max=63.6 gpu_passes=4
 DEATH_PRESENT preset=4 clock=670 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 peak_parts=0 peak_floor_decals=0 peak_wall_decals=0 digest=af62534c85ff50c1 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 baseline (nobody dies) run 3
-FLOOR1_PERF frames=600 median_ms=60.46 p95_ms=66.72 mean_ms=61.26 max_ms=80.49 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=431.2 peak_rss_mib=431.2 entities=3924 death_sprites_spawned=673 peak_visible_death_sprites=0
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.050 gpu_ms_p95=0.065 gpu_ms_max=0.233 tick_us_mean=9.8 tick_us_p95=15.9 tick_us_max=26.6 death_sync_us_mean=7.4 death_sync_us_p95=11.5 death_sync_us_max=74.2 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=75.82 p95_ms=115.92 mean_ms=81.07 max_ms=353.47 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=395.7 peak_rss_mib=395.7 entities=4092 death_sprites_spawned=841 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.710 gpu_ms_p95=2.927 gpu_ms_max=4.618 tick_us_mean=17.5 tick_us_p95=30.1 tick_us_max=77.5 death_sync_us_mean=13.2 death_sync_us_p95=29.3 death_sync_us_max=67.9 gpu_passes=4
 DEATH_PRESENT preset=4 clock=670 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 peak_parts=0 peak_floor_decals=0 peak_wall_decals=0 digest=af62534c85ff50c1 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup, preset 1 run 1
-FLOOR1_PERF frames=600 median_ms=61.23 p95_ms=65.76 mean_ms=61.41 max_ms=70.45 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=432.4 peak_rss_mib=432.4 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=8
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.049 gpu_ms_p95=0.053 gpu_ms_max=1.237 tick_us_mean=15.0 tick_us_p95=26.0 tick_us_max=100.8 death_sync_us_mean=9.8 death_sync_us_p95=16.1 death_sync_us_max=38.6 gpu_passes=4
-DEATH_PRESENT preset=1 clock=670 deaths=10 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=61.79 p95_ms=77.20 mean_ms=63.93 max_ms=150.94 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=397.6 peak_rss_mib=397.6 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=8
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.961 gpu_ms_p95=2.452 gpu_ms_max=2.852 tick_us_mean=19.2 tick_us_p95=36.5 tick_us_max=158.8 death_sync_us_mean=14.0 death_sync_us_p95=23.0 death_sync_us_max=55.9 gpu_passes=4
+DEATH_PRESENT preset=1 clock=670 deaths=8 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup, preset 1 run 2
-FLOOR1_PERF frames=600 median_ms=61.21 p95_ms=66.12 mean_ms=61.39 max_ms=70.57 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=426.6 peak_rss_mib=426.6 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=8
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.060 gpu_ms_p95=0.163 gpu_ms_max=1.452 tick_us_mean=14.8 tick_us_p95=24.4 tick_us_max=132.4 death_sync_us_mean=9.6 death_sync_us_p95=14.6 death_sync_us_max=63.1 gpu_passes=4
-DEATH_PRESENT preset=1 clock=670 deaths=10 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=61.14 p95_ms=73.89 mean_ms=62.82 max_ms=98.34 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=398.1 peak_rss_mib=398.1 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=8
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.169 gpu_ms_p95=2.141 gpu_ms_max=3.879 tick_us_mean=18.6 tick_us_p95=33.1 tick_us_max=125.8 death_sync_us_mean=13.3 death_sync_us_p95=20.3 death_sync_us_max=77.3 gpu_passes=4
+DEATH_PRESENT preset=1 clock=670 deaths=8 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup, preset 1 run 3
-FLOOR1_PERF frames=600 median_ms=61.51 p95_ms=67.09 mean_ms=61.80 max_ms=74.24 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=432.0 peak_rss_mib=432.0 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=8
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.049 gpu_ms_p95=0.053 gpu_ms_max=0.201 tick_us_mean=15.0 tick_us_p95=25.0 tick_us_max=121.0 death_sync_us_mean=10.0 death_sync_us_p95=15.8 death_sync_us_max=52.6 gpu_passes=4
-DEATH_PRESENT preset=1 clock=670 deaths=10 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=66.82 p95_ms=81.88 mean_ms=68.15 max_ms=116.70 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=435.0 peak_rss_mib=435.0 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=8
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.472 gpu_ms_p95=3.144 gpu_ms_max=4.317 tick_us_mean=20.8 tick_us_p95=38.6 tick_us_max=139.0 death_sync_us_mean=14.6 death_sync_us_p95=23.7 death_sync_us_max=63.8 gpu_passes=4
+DEATH_PRESENT preset=1 clock=670 deaths=8 parts=4 floor_decals=0 wall_decals=0 spawned_parts=4 peak_parts=4 peak_floor_decals=0 peak_wall_decals=0 digest=d5147d354a5870fb part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup, preset 4 run 1
-FLOOR1_PERF frames=600 median_ms=74.53 p95_ms=89.02 mean_ms=73.37 max_ms=137.46 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=433.4 peak_rss_mib=433.4 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=238
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.059 gpu_ms_p95=0.069 gpu_ms_max=0.219 tick_us_mean=20.5 tick_us_p95=38.1 tick_us_max=146.2 death_sync_us_mean=21.4 death_sync_us_p95=50.3 death_sync_us_max=102.1 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=10 parts=4 floor_decals=13 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=640345f2b15b8132 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=68.08 p95_ms=88.18 mean_ms=70.79 max_ms=201.81 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=401.1 peak_rss_mib=401.1 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=238
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.676 gpu_ms_p95=5.299 gpu_ms_max=7.906 tick_us_mean=21.8 tick_us_p95=41.7 tick_us_max=141.6 death_sync_us_mean=22.2 death_sync_us_p95=42.2 death_sync_us_max=386.2 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=8 parts=4 floor_decals=130 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=7b854aa86a720f63 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup, preset 4 run 2
-FLOOR1_PERF frames=600 median_ms=57.36 p95_ms=66.27 mean_ms=58.52 max_ms=81.03 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=433.8 peak_rss_mib=433.8 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=238
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.114 gpu_ms_p95=0.205 gpu_ms_max=0.731 tick_us_mean=11.6 tick_us_p95=27.6 tick_us_max=142.6 death_sync_us_mean=11.7 death_sync_us_p95=18.3 death_sync_us_max=44.6 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=10 parts=4 floor_decals=13 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=640345f2b15b8132 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=73.22 p95_ms=93.56 mean_ms=75.91 max_ms=143.75 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=401.1 peak_rss_mib=401.1 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=238
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.674 gpu_ms_p95=1.032 gpu_ms_max=3.133 tick_us_mean=25.2 tick_us_p95=47.1 tick_us_max=152.0 death_sync_us_mean=26.8 death_sync_us_p95=54.9 death_sync_us_max=118.1 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=8 parts=4 floor_decals=130 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=7b854aa86a720f63 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup, preset 4 run 3
-FLOOR1_PERF frames=600 median_ms=56.80 p95_ms=64.14 mean_ms=57.37 max_ms=83.98 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=429.6 peak_rss_mib=429.6 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=238
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.156 gpu_ms_p95=0.261 gpu_ms_max=1.271 tick_us_mean=9.4 tick_us_p95=19.9 tick_us_max=100.8 death_sync_us_mean=10.9 death_sync_us_p95=18.1 death_sync_us_max=34.3 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=10 parts=4 floor_decals=13 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=640345f2b15b8132 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+FLOOR1_PERF frames=600 median_ms=73.76 p95_ms=93.84 mean_ms=75.76 max_ms=180.51 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=434.7 peak_rss_mib=434.7 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=238
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.068 gpu_ms_p95=5.935 gpu_ms_max=7.555 tick_us_mean=24.0 tick_us_p95=43.7 tick_us_max=146.3 death_sync_us_mean=24.2 death_sync_us_p95=47.0 death_sync_us_max=90.8 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=8 parts=4 floor_decals=130 wall_decals=18 spawned_parts=208 peak_parts=128 peak_floor_decals=130 peak_wall_decals=18 digest=7b854aa86a720f63 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup + stress, preset 1 run 1
-FLOOR1_PERF frames=600 median_ms=56.60 p95_ms=62.24 mean_ms=57.23 max_ms=80.21 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=431.5 peak_rss_mib=431.5 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=231
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.129 gpu_ms_p95=0.204 gpu_ms_max=7.224 tick_us_mean=15.7 tick_us_p95=24.5 tick_us_max=92.2 death_sync_us_mean=11.5 death_sync_us_p95=19.0 death_sync_us_max=35.0 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=71.36 p95_ms=88.62 mean_ms=73.28 max_ms=152.40 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=388.2 peak_rss_mib=388.2 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=231
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.007 gpu_ms_p95=3.660 gpu_ms_max=5.278 tick_us_mean=34.2 tick_us_p95=63.6 tick_us_max=165.2 death_sync_us_mean=20.0 death_sync_us_p95=41.3 death_sync_us_max=130.6 gpu_passes=4
 DEATH_PRESENT preset=1 clock=670 deaths=48 parts=227 floor_decals=0 wall_decals=0 spawned_parts=227 peak_parts=227 peak_floor_decals=0 peak_wall_decals=0 digest=2aa51c67d184b435 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup + stress, preset 1 run 2
-FLOOR1_PERF frames=600 median_ms=54.81 p95_ms=63.08 mean_ms=56.01 max_ms=86.73 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=430.4 peak_rss_mib=430.4 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=231
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.065 gpu_ms_p95=0.162 gpu_ms_max=0.204 tick_us_mean=18.4 tick_us_p95=27.6 tick_us_max=103.0 death_sync_us_mean=12.0 death_sync_us_p95=19.6 death_sync_us_max=53.0 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=63.17 p95_ms=78.29 mean_ms=65.00 max_ms=138.63 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=399.5 peak_rss_mib=399.5 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=231
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.357 gpu_ms_p95=4.689 gpu_ms_max=6.727 tick_us_mean=28.5 tick_us_p95=48.8 tick_us_max=115.8 death_sync_us_mean=16.4 death_sync_us_p95=24.9 death_sync_us_max=57.3 gpu_passes=4
 DEATH_PRESENT preset=1 clock=670 deaths=48 parts=227 floor_decals=0 wall_decals=0 spawned_parts=227 peak_parts=227 peak_floor_decals=0 peak_wall_decals=0 digest=2aa51c67d184b435 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup + stress, preset 1 run 3
-FLOOR1_PERF frames=600 median_ms=56.49 p95_ms=63.20 mean_ms=57.18 max_ms=78.81 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=432.2 peak_rss_mib=432.2 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=231
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.089 gpu_ms_p95=0.173 gpu_ms_max=0.257 tick_us_mean=16.0 tick_us_p95=28.3 tick_us_max=91.8 death_sync_us_mean=11.9 death_sync_us_p95=19.8 death_sync_us_max=66.8 gpu_passes=4
+FLOOR1_PERF frames=600 median_ms=65.32 p95_ms=88.59 mean_ms=68.43 max_ms=120.28 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=399.4 peak_rss_mib=399.4 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=231
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.846 gpu_ms_p95=3.553 gpu_ms_max=6.729 tick_us_mean=30.1 tick_us_p95=53.4 tick_us_max=130.7 death_sync_us_mean=18.2 death_sync_us_p95=31.5 death_sync_us_max=76.4 gpu_passes=4
 DEATH_PRESENT preset=1 clock=670 deaths=48 parts=227 floor_decals=0 wall_decals=0 spawned_parts=227 peak_parts=227 peak_floor_decals=0 peak_wall_decals=0 digest=2aa51c67d184b435 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup + stress, preset 4 run 1
-FLOOR1_PERF frames=600 median_ms=54.89 p95_ms=62.40 mean_ms=55.63 max_ms=78.26 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=436.7 peak_rss_mib=436.7 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=606
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.105 gpu_ms_p95=0.227 gpu_ms_max=0.282 tick_us_mean=40.0 tick_us_p95=81.3 tick_us_max=320.4 death_sync_us_mean=20.9 death_sync_us_p95=39.3 death_sync_us_max=59.1 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=fe59c72f528126c3 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2495, 442)
+FLOOR1_PERF frames=600 median_ms=64.55 p95_ms=95.18 mean_ms=68.56 max_ms=142.72 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=398.3 peak_rss_mib=398.3 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=730
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.097 gpu_ms_p95=3.540 gpu_ms_max=5.895 tick_us_mean=87.3 tick_us_p95=166.2 tick_us_max=1811.7 death_sync_us_mean=32.7 death_sync_us_p95=62.1 death_sync_us_max=131.1 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=46da1a133993f5b8 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2661, 442)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup + stress, preset 4 run 2
-FLOOR1_PERF frames=600 median_ms=56.48 p95_ms=63.48 mean_ms=57.08 max_ms=78.33 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=436.8 peak_rss_mib=436.8 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=606
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.092 gpu_ms_p95=0.183 gpu_ms_max=0.364 tick_us_mean=44.0 tick_us_p95=83.2 tick_us_max=318.8 death_sync_us_mean=21.1 death_sync_us_p95=32.7 death_sync_us_max=61.1 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=fe59c72f528126c3 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2495, 442)
+FLOOR1_PERF frames=600 median_ms=67.45 p95_ms=101.22 mean_ms=71.24 max_ms=170.70 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=397.4 peak_rss_mib=397.4 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=730
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=1.972 gpu_ms_p95=3.143 gpu_ms_max=4.194 tick_us_mean=88.6 tick_us_p95=169.7 tick_us_max=1108.8 death_sync_us_mean=33.8 death_sync_us_p95=65.1 death_sync_us_max=213.2 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=46da1a133993f5b8 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2661, 442)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
 == 1920x1080 pileup + stress, preset 4 run 3
-FLOOR1_PERF frames=600 median_ms=57.10 p95_ms=66.81 mean_ms=58.09 max_ms=76.52 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
-FLOOR1_PERF_MEM rss_mib=434.2 peak_rss_mib=434.2 entities=3942 death_sprites_spawned=682 peak_visible_death_sprites=606
-FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.131 gpu_ms_p95=0.258 gpu_ms_max=0.797 tick_us_mean=40.6 tick_us_p95=79.9 tick_us_max=320.8 death_sync_us_mean=21.9 death_sync_us_p95=35.9 death_sync_us_max=149.3 gpu_passes=4
-DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=fe59c72f528126c3 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2495, 442)
+FLOOR1_PERF frames=600 median_ms=59.87 p95_ms=75.88 mean_ms=61.95 max_ms=161.60 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+FLOOR1_PERF_MEM rss_mib=397.4 peak_rss_mib=397.4 entities=4110 death_sprites_spawned=850 peak_visible_death_sprites=730
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.494 gpu_ms_p95=4.995 gpu_ms_max=7.848 tick_us_mean=79.2 tick_us_p95=156.2 tick_us_max=752.7 death_sync_us_mean=30.2 death_sync_us_p95=53.9 death_sync_us_max=133.5 gpu_passes=4
+DEATH_PRESENT preset=4 clock=670 deaths=48 parts=254 floor_decals=192 wall_decals=32 spawned_parts=5431 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=46da1a133993f5b8 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(1814, 2661, 442)
 FLOOR1_PERF_GPU_PASSES render/auxiliary_views/elapsed_gpu render/upscaling/elapsed_gpu render/main_opaque_pass_2d/elapsed_gpu render/main_transparent_pass_2d/elapsed_gpu
 
-load average after: (3.8701171875, 4.984375, 6.06005859375)
+load average after: (19.5556640625, 21.36767578125, 18.791015625)
 
