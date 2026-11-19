@@ -53,7 +53,7 @@ impl Rect {
             && self.top() > other.bottom
     }
 
-    fn squared_distance_to(self, x: f32, y: f32) -> f32 {
+    pub(crate) fn squared_distance_to(self, x: f32, y: f32) -> f32 {
         let dx = (self.left - x).max(0.0).max(x - self.right());
         let dy = (self.bottom - y).max(0.0).max(y - self.top());
         dx * dx + dy * dy

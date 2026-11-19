@@ -1,6 +1,6 @@
 # DEATH-D: decapitation and explosion finishes, design spec
 
-**Status:** DESIGN SPEC, not implemented. Independent gate review: PASS WITH EDITS; all 15 edits applied. Written for the medium-tier executor; a separate top-tier reviewer checks the implementation against section 7. Gameplay acceptance (game feel) stays an owner decision after the merge. Design: Claude Opus. Execution: medium tier. Review: a separate top-tier agent.
+**Status:** DESIGN SPEC, implemented by the DEATH-D executor PR (draft; deviations in its "Design questions" and the notes at the end of this page). Independent gate review: PASS WITH EDITS; all 15 edits applied. Written for the medium-tier executor; a separate top-tier reviewer checks the implementation against section 7. Gameplay acceptance (game feel) stays an owner decision after the merge. Design: Claude Opus. Execution: medium tier. Review: a separate top-tier agent.
 
 **Builds on (merged):** DEATH-A (#79, defeat modes and the universal death language draft), DEATH-B (#94, [species death profiles](species-death-profiles.md), `CombatEvent::EnemyDefeated` with `cause`, `force`, `instigator`), DEATH-C (#97, the cosmetic presenter and gore pool, [floor 01 scene doc](floor01-scene.md#death-c-cosmetic-death-presenter-and-gore-pool)), the [death-system proposal](monster-death-system-proposal.md) (section F, "PR D"), the art specs [GOB-02-DEATH](../02-art/gob-02-death-spec.md) (sections 2, 5, 7, 8), [GOB-02B-DEATH](../02-art/gob-02b-death-spec.md) and [LLAMA-02-DEATH](../02-art/llama-02-death-spec.md), and [ANIM-CARL-03](../02-art/carl-dynamite-anim-03-spec.md) (the dynamite throw, art only).
 
@@ -348,3 +348,13 @@ This adds no move, input, unlock or ability. The decapitation is a new outcome o
 3. **Decapitation window.** Default: 8 px per edge, upright goblins facing into the stone (about 8 % of block kills).
 4. **A goblin lying under the edge.** Default: crush; a headless-crush pose would be a later art work order.
 5. **Audio.** No audio and no assets in this PR; the proposal's "accurate audio" for PR D is deferred to an audio work order.
+
+## 11. Implementation notes (executor)
+
+Choices made where the spec met the code that DEATH-E1 (#106) had changed, or where it was silent; none redesigns the spec.
+
+1. **Fixture count.** DEATH-E1 added `cp03_goblin_pileup`, so there are 13 existing fixtures (not 12) and 15 after this PR (not 14). All 13 hashes and logs are byte-identical.
+2. **Pool budgets.** Section 4.2 says the pool capacities are unchanged (160 / 96 / 12 / 24); #106 raised them (`DEATH_BUDGET`: 256 / 192 / 32 / 48). The explosion uses the current budget; one explosion plus one ring kill peaks at 81 pieces and recycles nothing at either budget.
+3. **Seeds.** `cp03_block_edge_decap` uses the spec's seed `0x0C03_0004`, which `cp03_goblin_pileup` (#106) also uses. The fixtures differ in every other input, so their hashes differ; nothing requires unique seeds.
+4. **Rest position.** The first-rest record also keeps the piece's x (the pool is placed under it); the spec named only the tick.
+5. **Blast layer.** The charge and the burst sprites are pre-spawned per charge of the fixture (one pair each) and use the `actors` render layer like the debris; the atlas rects come from the exported atlas JSON (`src/blast_art.rs`).

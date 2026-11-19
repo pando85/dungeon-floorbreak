@@ -43,6 +43,8 @@ use dungeon_floorbreak::{
         AudioCommand, AudioSettings, StyleBank, cues_from_combat_event, scene_ambience, scene_music,
     },
     audio_adapter::{AudioQueue, FloorAudioPlugin, resolve_pack_dir},
+    blast::BLAST_CENTRE_DY,
+    blast_art::{BURST_IMAGE, BlastArt, DYNAMITE_IMAGE},
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
         CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, goblin_variant,
@@ -50,9 +52,9 @@ use dungeon_floorbreak::{
     combat_scene::{CombatState, Fixture},
     corridor::{CorridorWorld, Scenario, SceneSim},
     death_present::{
-        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS, Finish,
+        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS,
         PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
-        draw_z,
+        blast_vfx_frame, charge_frame, draw_z,
     },
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
@@ -141,9 +143,6 @@ struct Args {
     /// Fixture only, lab: keep the death presenter's pools loaded with
     /// synthetic defeats (frame-time measurement at max load).
     death_stress: bool,
-    /// Fixture only, lab: play this finish for ordinary melee defeats (the
-    /// decapitation has no authoritative cause before PR D).
-    death_lab_finish: Option<Finish>,
     /// Headless fixture only: print the presenter's `DEATH_PRESENT` summary.
     death_trace: bool,
 }
@@ -186,7 +185,6 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         audio_style: None,
         gore_preset: GorePreset::default(),
         death_stress: false,
-        death_lab_finish: None,
         death_trace: false,
     };
     let mut iter = args.iter().skip(1);
@@ -222,15 +220,6 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             }
             "--death-stress" => parsed.death_stress = true,
             "--death-trace" => parsed.death_trace = true,
-            "--death-lab-finish" => {
-                let value = iter.next().ok_or("--death-lab-finish needs a finish")?;
-                parsed.death_lab_finish = Some(match value.as_str() {
-                    "decapitated" | "decap" => Finish::Decapitated,
-                    other => {
-                        return Err(format!("bad lab finish {other:?} (expected decapitated)"));
-                    }
-                });
-            }
             "--reference-frame" => parsed.reference_frame = true,
             "--anim-trace" => parsed.anim_trace = true,
             "--combat-trace" => parsed.combat_trace = true,
@@ -299,10 +288,8 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
     if (parsed.manual || parsed.debug_combat) && parsed.fixture.is_none() {
         return Err("--manual and --debug-combat need --fixture".into());
     }
-    if (parsed.death_stress || parsed.death_lab_finish.is_some() || parsed.death_trace)
-        && parsed.fixture.is_none()
-    {
-        return Err("--death-stress, --death-lab-finish and --death-trace need --fixture".into());
+    if (parsed.death_stress || parsed.death_trace) && parsed.fixture.is_none() {
+        return Err("--death-stress and --death-trace need --fixture".into());
     }
     if parsed.death_stress && (parsed.headless || parsed.capture_tick.is_some()) {
         return Err(
@@ -406,9 +393,7 @@ type Scene = (
 fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     let art = Arc::new(DeathArt::load(root)?);
     let variant_b = DeathArt::load_variant(root, 1)?;
-    let mut presenter = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?;
-    presenter.set_lab_finish(args.death_lab_finish);
-    Ok(presenter)
+    DeathPresenter::with_variants(art, &variant_b, args.gore_preset)
 }
 
 fn build_scene(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<Scene, String> {
@@ -551,7 +536,10 @@ fn main() -> ExitCode {
     } else {
         FrameSource::ExportedAtlas
     };
-    let actors = match Actors::load(&root, source, args.fixture.is_some()) {
+    // The blast atlases are exported art: only a rendered fixture with charges
+    // needs them (the headless replay draws nothing).
+    let draws_blast = !args.headless && args.fixture.is_some_and(|f| !f.charges.is_empty());
+    let actors = match Actors::load(&root, source, args.fixture.is_some(), draws_blast) {
         Ok(actors) => actors,
         Err(error) => {
             return failure(&format!(
@@ -595,6 +583,9 @@ struct Actors {
     art: Option<CombatArt>,
     /// The ENV-02 shore and block art of a combat fixture (DEATH-C).
     shore: Option<ShoreArt>,
+    /// DEATH-D: the QA charge and blast frames of a fixture with charges
+    /// (unreviewed prototype art, drawn in the QA fixtures only).
+    blast: Option<BlastArt>,
 }
 
 #[derive(Clone)]
@@ -604,7 +595,12 @@ struct CombatArt {
 }
 
 impl Actors {
-    fn load(root: &Path, source: FrameSource, combat: bool) -> Result<Self, String> {
+    fn load(root: &Path, source: FrameSource, combat: bool, blast: bool) -> Result<Self, String> {
+        let blast = if blast {
+            Some(BlastArt::load(root)?)
+        } else {
+            None
+        };
         let shore = if combat {
             Some(ShoreArt::load(root)?)
         } else {
@@ -626,6 +622,7 @@ impl Actors {
             donut: load_donut(root, source)?,
             art,
             shore,
+            blast,
         })
     }
 
@@ -786,6 +783,21 @@ enum DeathPiece {
     Wall(usize),
 }
 
+/// DEATH-D: a sprite of the QA charge `n` of the fixture: the fizzling charge
+/// until it detonates, then its blast burst. Presentation only.
+#[derive(Component, Clone, Copy)]
+enum BlastPiece {
+    Charge(usize),
+    Burst(usize),
+}
+
+/// The loaded `vfx_dynamite` and `vfx-01` atlas images.
+#[derive(Resource)]
+struct BlastImages {
+    dynamite: Handle<Image>,
+    burst: Handle<Image>,
+}
+
 /// One sprite of the ENV-02 shore (post, block, cavity, crumbs, impact dust).
 #[derive(Component, Clone, Copy)]
 struct ShorePiece(ShoreSlot);
@@ -943,6 +955,7 @@ fn run_window(
             sync_visuals,
             sync_combat_visuals,
             sync_shore_visuals,
+            sync_blast_visuals,
             sync_death_visuals,
             update_lighting,
             watchdog,
@@ -1269,6 +1282,36 @@ fn setup(
             combat_entities += 1;
         }
         commands.insert_resource(ShoreImages(images));
+    }
+
+    // DEATH-D: the QA charge (the fizzle loop) and its blast burst, one pair of
+    // pre-spawned sprites per charge of the fixture.
+    if let (Some(blast_art), Some(state)) = (actors.blast.as_ref(), combat.0.as_ref()) {
+        let _ = blast_art;
+        let dynamite: Handle<Image> = asset_server.load(DYNAMITE_IMAGE);
+        let burst: Handle<Image> = asset_server.load(BURST_IMAGE);
+        combat_handles.push((DYNAMITE_IMAGE.to_owned(), dynamite.clone()));
+        combat_handles.push((BURST_IMAGE.to_owned(), burst.clone()));
+        for index in 0..state.charges.len() {
+            for (kind, image) in [
+                (BlastPiece::Charge(index), &dynamite),
+                (BlastPiece::Burst(index), &burst),
+            ] {
+                commands.spawn((
+                    kind,
+                    Sprite {
+                        image: image.clone(),
+                        rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                        ..default()
+                    },
+                    Transform::from_xyz(0.0, 0.0, kit.actor_z - 1.0),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            }
+        }
+        commands.insert_resource(BlastImages { dynamite, burst });
     }
 
     // DEATH-C: the death presenter's sprites, pre-spawned hidden and recycled
@@ -2032,6 +2075,86 @@ fn sync_shore_visuals(
     }
 }
 
+/// DEATH-D: the QA charge as the `dynamite_fizzle` loop from the first tick of
+/// the attempt until it detonates, then the VFX-01 `burst` once, centred on the
+/// blast centre. Both sit on the blast layer (`actor_z - 0.45`: over the floor
+/// decals and the props, under the debris and every actor). Reads the
+/// simulation only.
+#[allow(clippy::type_complexity)]
+fn sync_blast_visuals(
+    combat: Res<Combat>,
+    sim: Res<Sim>,
+    actors: Res<Actors>,
+    setup: Res<Setup>,
+    images: Option<Res<BlastImages>>,
+    mut pieces: Query<(&BlastPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
+) {
+    let (Some(state), Some(art), Some(images)) = (combat.0.as_ref(), actors.blast.as_ref(), images)
+    else {
+        return;
+    };
+    let tick = sim.0.world.tick;
+    let actor_z = setup.kit.actor_z;
+    let wall_z = setup
+        .kit
+        .pieces
+        .iter()
+        .find(|p| p.layer == "backwall_decal")
+        .map_or(3.0, |p| p.z.floor());
+    let dynamite_spec = ActorSpec {
+        name: "qa_charge",
+        width: 24,
+        height: 24,
+        pivot_x: 12,
+        pivot_y: 12,
+        shadow_width: 0,
+        shadow_pivot_x: 0,
+    };
+    let to_rect = |r: [i32; 4]| {
+        Rect::new(
+            r[0] as f32,
+            r[1] as f32,
+            (r[0] + r[2]) as f32,
+            (r[1] + r[3]) as f32,
+        )
+    };
+    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+        let (index, burst) = match *piece {
+            BlastPiece::Charge(i) => (i, false),
+            BlastPiece::Burst(i) => (i, true),
+        };
+        let Some(charge) = state.charges.get(index) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let z = draw_z(DrawLayer::Blast, index, actor_z, wall_z);
+        if burst {
+            let frame = charge
+                .detonated
+                .then(|| blast_vfx_frame(tick, charge.detonate_tick))
+                .flatten();
+            match frame {
+                Some(frame) => {
+                    let (cx, cy) = (charge.x, charge.foot_y + BLAST_CENTRE_DY);
+                    transform.translation = Vec3::new(cx.round(), cy.round(), z);
+                    sprite.image = images.burst.clone();
+                    sprite.rect = Some(to_rect(art.burst_rect(frame)));
+                    *visibility = Visibility::Inherited;
+                }
+                None => *visibility = Visibility::Hidden,
+            }
+        } else if charge.detonated {
+            *visibility = Visibility::Hidden;
+        } else {
+            let (cx, cy) = actor_center(dynamite_spec, charge.x, charge.foot_y, false);
+            transform.translation = Vec3::new(cx, cy, z);
+            sprite.image = images.dynamite.clone();
+            sprite.rect = Some(to_rect(art.dynamite_rect(charge_frame(tick))));
+            *visibility = Visibility::Inherited;
+        }
+    }
+}
+
 /// DEATH-C: draw the presenter's state. Reads the presenter only; the death
 /// pose replaces the goblin's GOB-01 sprite, and every piece sits under the
 /// actors (`draw_z`), so nothing is ever drawn over Carl or Donut.
@@ -2056,8 +2179,11 @@ fn sync_death_visuals(
     let art = presenter.art();
     // A death pose replaces the goblin sprite; a retired corpse is drawn no
     // more and a retiring one fades out (the GOB-01 corpse sprite included).
+    // DEATH-D: an exploded goblin (presets 2 to 4) is replaced by its pieces.
     let hide_goblin = |index: usize| {
-        presenter.pose_of(index as u32).is_some() || presenter.is_retired(index as u32)
+        presenter.pose_of(index as u32).is_some()
+            || presenter.is_retired(index as u32)
+            || presenter.hides(index as u32)
     };
     for (goblin, mut visibility, mut sprite) in &mut goblins {
         *visibility = if hide_goblin(goblin.index) {
@@ -2783,7 +2909,17 @@ mod tests {
         assert!(args(&["--gore-preset"]).is_err());
         // The lab flags need a fixture; stress is live only; the trace is headless only.
         assert!(args(&["--death-stress"]).is_err());
+        // DEATH-D: the decapitation lab flag is gone (it is an unknown argument).
         assert!(args(&["--death-lab-finish", "decapitated"]).is_err());
+        assert!(
+            args(&[
+                "--fixture",
+                "cp03_shore_kill",
+                "--death-lab-finish",
+                "decapitated"
+            ])
+            .is_err()
+        );
         assert!(args(&["--fixture", "cp03_shore_kill", "--death-trace"]).is_err());
         assert!(
             args(&[
@@ -2803,7 +2939,6 @@ mod tests {
             ])
             .is_err()
         );
-        assert!(args(&["--fixture", "cp03_shore_kill", "--death-lab-finish", "bomb"]).is_err());
     }
 
     #[test]
@@ -2814,9 +2949,16 @@ mod tests {
         let lowest_actor = 7.0 + GOBLIN_LYING_Z_OFFSET - GOBLIN_Z_STEP * 64.0;
         let slots = PART_POOL_SLOTS.max(FLOOR_DECAL_POOL_SLOTS);
         for slot in [0, slots - 1] {
-            for layer in [DrawLayer::Debris, DrawLayer::FloorDecal] {
+            for layer in [DrawLayer::Debris, DrawLayer::FloorDecal, DrawLayer::Blast] {
                 assert!(draw_z(layer, slot, 7.0, 3.0) < lowest_actor, "{layer:?}");
             }
+        }
+        // DEATH-D: the charge and the burst sit between the floor decals and
+        // the debris (every charge slot is below the first debris piece).
+        for slot in 0..8 {
+            let blast = draw_z(DrawLayer::Blast, slot, 7.0, 3.0);
+            assert!(blast > draw_z(DrawLayer::FloorDecal, slots - 1, 7.0, 3.0));
+            assert!(blast < draw_z(DrawLayer::Debris, 0, 7.0, 3.0));
         }
         assert!(draw_z(DrawLayer::WallDecal, WALL_DECAL_POOL_SLOTS, 7.0, 3.0) < 4.0);
     }

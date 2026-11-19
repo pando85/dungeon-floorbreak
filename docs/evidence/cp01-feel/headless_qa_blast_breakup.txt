@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=60 kind=blast charge=0
+COMBAT_EVENT tick=60 kind=enemy_defeated target=0 cause=explosion charge=0 point_blank
+COMBAT_EVENT tick=60 kind=enemy_defeated target=1 cause=explosion charge=0
+COMBAT_STATE fixture=qa_blast_breakup seed=0xd0d0001 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies=e0=674.001/0,e1=650.000/0,e2=580.000/2 hash=c3d2b3703f495284
