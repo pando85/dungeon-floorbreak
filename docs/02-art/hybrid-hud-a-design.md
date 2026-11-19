@@ -54,13 +54,16 @@ Use mapped controller glyphs only for actual supported actions and current input
 - No regressions in movement/combat, camera, replay snapshots, or existing Floor 01 normal story route.
 - CI / local checks: `cargo fmt --all -- --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked --all-targets`, `python3 scripts/check_docs.py`; art validation if sources were added. Run Bevy captures for 640×360 and 640×400, show evidence at 1×, 2×, 3×.
 - Human/controller review: legibility under busy combat, no obscured boss telegraphs, co-op identity understandable, depleted mana identifiable without relying on hue, brief notices never steal focus. Document performance measurements rather than assert 60 fps.
-- Update `docs/04-production/backlog.md` and scene docs with actual status; submit implementation to this PR. No automatic merge from this handoff; independent review and owner verdict on the in-engine look.
+- Update `docs/04-production/backlog.md` and scene docs with actual status; submit implementation to this PR. Merge follows the owner directive of 2026-11-19: the `AGENTS.md` merge delegation applies (merge after an independent top-tier review, a fix check and green CI; the backlog records "merged, game-feel review pending"). The owner can still reopen the in-engine look in follow-up PRs.
 
 ## Owner decisions 2026-11-19
-- **Donut plate:** in normal play Donut's plate shows her portrait plus an "AI companion"-style tag and **no HP bar**, because Donut has no authoritative HP in the game today. A Donut HP bar appears only in an explicitly labeled preview fixture until Donut gains authoritative HP.
+- **Donut plate (updated 2026-11-19, supersedes the earlier "no HP bar" decision):** Donut's plate shows a real HP bar in normal play, backed by an authoritative, deterministic Donut HP value in the domain (max = `HERO_HEALTH`, full until HUD-DEBT-01 adds Donut damage). This matters for 2P and for the 1P swap. In normal play she keeps the `COMPANION` label (AI-controlled, no ability chips). Fixture HP values below max are preview data only. See [hybrid-hud-a-native-spec.md](hybrid-hud-a-native-spec.md).
 - **HUD font:** HUD text uses an OFL-licensed pixel font. The choice is made in the design step; its licence text and file checksum are recorded in the repository with the font.
 - **Glyph labels:** Xbox glyph labels are the default. A `--glyphs=dualsense` presentation option exists until real gamepad device detection exists.
 - **Preview-only fixtures are tracked debt:** every HUD state faked by a preview fixture must be retired by a real feature and is scheduled in the backlog group "HUD fixture debt" in `docs/04-production/backlog.md`.
+
+## Merge policy
+Owner directive 2026-11-19: the `AGENTS.md` merge delegation applies to this PR. It may be marked ready and squash-merged by the orchestrator after an independent top-tier review, a fix check and green CI on the final head; the backlog records "merged, game-feel review pending". Native-scale spec: [hybrid-hud-a-native-spec.md](hybrid-hud-a-native-spec.md).
 
 ## References
 The four **concept-only** PNGs are committed bit-exact under `assets/references/hud/hybrid-a-v1/` as **reference assets**, with `manifest.json` and a README whose SHA-256 table matches the files. See `docs/07-agents/hybrid-hud-a-single-agent-workorder.md` and `assets/references/hud/hybrid-a-v1/README.md`.
