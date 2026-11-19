@@ -909,9 +909,13 @@ impl DonutMoves {
                 out.hitbox = Some(rect);
                 let in_flight = r.touchdown.is_none();
                 if in_flight {
+                    // Q10-A04: only a goblin up to 24 px ahead of her stops the
+                    // pounce; one behind her and the boss never do.
                     let contact = input.targets.iter().any(|t| {
-                        t.state.living()
-                            && (centre_x(t.body) - input.pivot_x).abs() <= POUNCE_CONTACT_PX
+                        let ahead = (centre_x(t.body) - input.pivot_x) * f32::from(input.facing);
+                        t.kind == TargetKind::Goblin
+                            && t.state.living()
+                            && (0.0..=POUNCE_CONTACT_PX).contains(&ahead)
                     });
                     if input.wall_blocked || contact {
                         out.set_vx = Some(0.0);
@@ -1170,6 +1174,14 @@ mod tests {
     /// Run a pounce pressed on tick 0 with `targets` fixed; returns per-tick
     /// outputs and the body. `until` is the number of ticks to run.
     fn run_pounce(targets: &[TargetView], until: u16) -> (Vec<StepOutput>, Body, DonutMoves) {
+        run_pounce_facing(targets, until, 1)
+    }
+
+    fn run_pounce_facing(
+        targets: &[TargetView],
+        until: u16,
+        facing: i8,
+    ) -> (Vec<StepOutput>, Body, DonutMoves) {
         let mut m = DonutMoves::default();
         let mut body = Body::new();
         let mut outs = Vec::new();
@@ -1179,6 +1191,7 @@ mod tests {
                 grounded: body.grounded,
                 pivot_x: body.x,
                 pivot_y: body.y,
+                facing,
                 ..base(targets)
             };
             let out = m.step(&input);
@@ -1912,6 +1925,85 @@ mod tests {
         g.state = TargetState::Defeated;
         let (_, body, _) = run_pounce(&[g], 40);
         assert!(body.x > 40.0);
+    }
+
+    /// A goblin whose centre is `centre_distance` from x = 0 but whose body
+    /// sits above the pounce box, so only the contact rule can see it.
+    fn goblin_above_box(centre_distance: f32, kind: TargetKind) -> TargetView {
+        let mut g = goblin_at(0, centre_distance, TargetState::Neutral);
+        g.body.bottom = 30.0;
+        g.kind = kind;
+        g
+    }
+
+    fn pounce_hits(outs: &[StepOutput]) -> Vec<(u32, TargetEffect)> {
+        outs.iter()
+            .flat_map(|o| o.events.iter())
+            .filter_map(|e| match e {
+                MoveEvent::PounceHit { target, effect } => Some((*target, *effect)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn q10_a04_a_goblin_behind_does_not_stop_the_pounce() {
+        let (_, free, _) = run_pounce(&[], 60);
+        assert!(free.x > 40.0 && free.x < 44.0, "free travel: {}", free.x);
+        // Facing right, goblin 10 px behind.
+        let (outs, body, _) = run_pounce(&[goblin_above_box(-10.0, TargetKind::Goblin)], 60);
+        assert!(outs.iter().all(|o| o.set_vx != Some(0.0)));
+        assert!((body.x - free.x).abs() < 1e-3, "travel {}", body.x);
+        // Facing left, goblin 10 px behind (at +10).
+        let (outs, body, _) =
+            run_pounce_facing(&[goblin_above_box(10.0, TargetKind::Goblin)], 60, -1);
+        assert!(outs.iter().all(|o| o.set_vx != Some(0.0)));
+        assert!((body.x + free.x).abs() < 1e-3, "travel {}", body.x);
+    }
+
+    #[test]
+    fn q10_a04_a_goblin_at_zero_and_ahead_still_stops_the_pounce() {
+        for (d, facing) in [(0.0, 1), (10.0, 1), (-10.0, -1), (24.0, 1)] {
+            let (outs, body, _) =
+                run_pounce_facing(&[goblin_above_box(d, TargetKind::Goblin)], 40, facing);
+            assert_eq!(outs[10].set_vx, Some(0.0), "goblin at {d}, facing {facing}");
+            assert!(body.x.abs() < 1.0, "goblin at {d}: {}", body.x);
+        }
+    }
+
+    #[test]
+    fn q10_a04_the_boss_is_never_a_contact_target() {
+        let (_, free, _) = run_pounce(&[], 60);
+        let (outs, body, _) = run_pounce(&[goblin_above_box(20.0, TargetKind::Boss)], 60);
+        assert!(outs.iter().all(|o| o.set_vx != Some(0.0)));
+        assert!((body.x - free.x).abs() < 1e-3, "travel {}", body.x);
+    }
+
+    #[test]
+    fn q10_a03_a_pounce_hits_launched_and_downed_goblins() {
+        for state in [TargetState::Launched, TargetState::Downed] {
+            let targets = [goblin_at(3, 30.0, state)];
+            let (outs, _, _) = run_pounce(&targets, 50);
+            let hits = pounce_hits(&outs);
+            assert_eq!(hits.len(), 1, "{state:?}");
+            assert_eq!(hits[0].0, 3);
+            assert_eq!(hits[0].1.damage, 1);
+            assert_eq!(hits[0].1.hit_stop.attacker, 4);
+        }
+    }
+
+    #[test]
+    fn q10_a03_a_pounce_hits_the_boss_with_the_same_effect() {
+        let mut boss = goblin_at(7, 30.0, TargetState::Neutral);
+        boss.kind = TargetKind::Boss;
+        let (outs, _, _) = run_pounce(&[boss], 50);
+        let hits = pounce_hits(&outs);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, 7);
+        assert_eq!(hits[0].1.damage, 1);
+        assert_eq!(hits[0].1.hit_stop.attacker, 4);
+        // Phase B: the boss adapter applies this through the boss hero-hit
+        // rule (#115) and ignores `stagger_ticks`; not wired in this module.
     }
 
     #[test]
