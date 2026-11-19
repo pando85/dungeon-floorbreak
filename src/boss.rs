@@ -867,6 +867,7 @@ impl Boss {
                 target: self.target,
             }),
             BossMode::ChargeTell | BossMode::Charge => Some(BossThreat::Charge {
+                tell_left: self.ticks_to_active().unwrap_or(0),
                 x: self.x,
                 dir: if self.mode == BossMode::Charge {
                     self.charge_dir
@@ -954,7 +955,14 @@ impl Boss {
         let RackState::Idle { hits } = rack.state else {
             return;
         };
-        if !rack.enabled || rack.last_instance == instance || !melee.overlaps(strut) {
+        // Racks arm on engage: a strut hit before the gate closes (or after
+        // the boss is down) does nothing, so a dropped stack never waits for
+        // the fight to start.
+        if !matches!(self.gate, Gate::Closed)
+            || !rack.enabled
+            || rack.last_instance == instance
+            || !melee.overlaps(strut)
+        {
             return;
         }
         rack.last_instance = instance;
@@ -1163,7 +1171,12 @@ impl Boss {
             crushed,
         });
         for hero in ctx.heroes.iter().filter(|h| h.present && h.vulnerable) {
-            if hero.hurt.overlaps(footprint) {
+            // The footprint test uses the hero's pivot (design section 2), not
+            // the 24 px hurtbox, and feet under the stack's top.
+            if hero.x >= footprint.left
+                && hero.x < footprint.right()
+                && hero.foot_y < footprint.top()
+            {
                 out.blows.push(HeroBlow {
                     hero: hero.id,
                     source: RACK_SOURCE_ID,
@@ -1570,6 +1583,7 @@ impl Boss {
         mix(self.facing as i64 as u64);
         mix(u64::from(self.hit_stop));
         mix(self.target.map_or(0, |t| t.index() as u64 + 1));
+        mix(self.poise.len() as u64);
         for (at, amount) in &self.poise {
             mix(*at);
             mix(u64::from(*amount));
@@ -1582,8 +1596,10 @@ impl Boss {
         }
         mix(u64::from(self.second_pending));
         mix(u64::from(self.pin_credit));
+        mix(self.ripples.len() as u64);
         for ripple in &self.ripples {
             mix(u64::from(ripple.x.to_bits()));
+            mix(u64::from(ripple.travelled.to_bits()));
             mix(ripple.dir as i64 as u64);
             mix(u64::from(ripple.hit[0]) | u64::from(ripple.hit[1]) << 1);
         }
@@ -1625,8 +1641,10 @@ pub enum BossThreat {
         target: Option<HeroId>,
     },
     /// A charge tell or run in direction `dir`: `front` is the near edge of the
-    /// ram box, `speed` px per tick while running.
+    /// ram box, `speed` px per tick while running. `tell_left` is the ticks the
+    /// tell still has before the run starts (0 while running).
     Charge {
+        tell_left: u16,
         x: f32,
         dir: i8,
         running: bool,
@@ -2464,5 +2482,147 @@ mod tests {
         a.mix_into(&mut |v| ha = ha.rotate_left(5) ^ v);
         b.mix_into(&mut |v| hb = hb.rotate_left(5) ^ v);
         assert_ne!(ha, hb);
+    }
+
+    #[test]
+    fn the_rack_crush_tests_the_hero_pivot_not_the_hurtbox() {
+        // The footprint is x 83..163: Carl baiting at 165 is outside it (his
+        // hurtbox reaches 153), at 160 he is inside.
+        for (x, hurt) in [
+            (165.0f32, false),
+            (160.0, true),
+            (163.0, false),
+            (83.0, true),
+        ] {
+            let mut boss = engaged(400.0, -1);
+            boss.racks[0].state = RackState::Falling {
+                ticks: data().rack.fall_ticks,
+                player: 0,
+            };
+            let out = boss.step(&ctx(x, 560.0));
+            assert_eq!(!out.blows.is_empty(), hurt, "hero pivot at {x}");
+        }
+        // Feet above the stack's top are not under it either.
+        let mut boss = engaged(400.0, -1);
+        boss.racks[0].state = RackState::Falling {
+            ticks: data().rack.fall_ticks,
+            player: 0,
+        };
+        let mut c = ctx(120.0, 560.0);
+        c.heroes[0].foot_y = FLOOR + 40.0;
+        assert!(boss.step(&c).blows.is_empty());
+    }
+
+    #[test]
+    fn strut_hits_before_the_gate_closes_do_nothing() {
+        let fist = Rect {
+            left: 194.0,
+            bottom: FLOOR + 29.0,
+            width: 6.0,
+            height: 6.0,
+        };
+        let mut boss = Boss::new(data(), FLOOR);
+        assert!(!boss.gate_closed());
+        let mut events = Vec::new();
+        for instance in 1..=4 {
+            boss.strike_strut(instance, fist, 0, 5, &mut events);
+        }
+        assert!(events.is_empty(), "no hit logged: {events:?}");
+        assert_eq!(boss.racks[0].state, RackState::Idle { hits: 0 });
+        boss.gate = Gate::Closed;
+        boss.strike_strut(5, fist, 0, 6, &mut events);
+        assert_eq!(boss.racks[0].state, RackState::Idle { hits: 1 });
+    }
+
+    #[test]
+    fn the_charge_threat_carries_the_rest_of_the_tell() {
+        let mut boss = engaged(300.0, 1);
+        boss.enter(BossMode::ChargeTell);
+        boss.mode_tick = 10;
+        let Some(BossThreat::Charge {
+            tell_left, running, ..
+        }) = boss.threat()
+        else {
+            panic!("a charge tell is a charge threat");
+        };
+        assert!(!running);
+        assert_eq!(tell_left, data().charge.tell_by_phase[0] - 10);
+        boss.enter(BossMode::Charge);
+        let Some(BossThreat::Charge {
+            tell_left, running, ..
+        }) = boss.threat()
+        else {
+            panic!("a charge run is a charge threat");
+        };
+        assert!(running);
+        assert_eq!(tell_left, 0);
+    }
+
+    fn hash_of(boss: &Boss) -> u64 {
+        let mut h = 0u64;
+        boss.mix_into(&mut |v| h = h.rotate_left(5) ^ v.wrapping_mul(0x9e37_79b9_7f4a_7c15));
+        h
+    }
+
+    #[test]
+    fn every_field_of_the_boss_reaches_the_hash() {
+        let base = || {
+            let mut boss = engaged(300.0, 1);
+            boss.ripples.push(Ripple {
+                x: 340.0,
+                dir: 1,
+                travelled: 10.0,
+                hit: [false; 2],
+            });
+            boss.poise.push((5, 1));
+            boss
+        };
+        let reference = hash_of(&base());
+        type Mutation = (&'static str, fn(&mut Boss));
+        let mutations: &[Mutation] = &[
+            ("clock", |b| b.clock += 1),
+            ("hp", |b| b.hp -= 1),
+            ("phase", |b| b.phase += 1),
+            ("mode", |b| b.mode = BossMode::Stun),
+            ("mode_tick", |b| b.mode_tick += 1),
+            ("x", |b| b.x += 1.0),
+            ("facing", |b| b.facing = -1),
+            ("hit_stop", |b| b.hit_stop = 3),
+            ("target", |b| b.target = Some(HeroId::Donut)),
+            ("poise at", |b| b.poise[0].0 += 1),
+            ("poise amount", |b| b.poise[0].1 += 1),
+            ("poise length", |b| b.poise.push((6, 1))),
+            ("cooldown", |b| b.cooldown += 1),
+            ("roars_done", |b| b.roars_done += 1),
+            ("charge_dir", |b| b.charge_dir = -1),
+            ("charge_hit", |b| b.charge_hit[1] = true),
+            ("strike_hit", |b| b.strike_hit[0] = true),
+            ("second_pending", |b| b.second_pending = true),
+            ("pin_credit", |b| b.pin_credit = 1),
+            ("ripple x", |b| b.ripples[0].x += 1.0),
+            ("ripple dir", |b| b.ripples[0].dir = -1),
+            ("ripple travelled", |b| b.ripples[0].travelled += 1.0),
+            ("ripple hit", |b| b.ripples[0].hit[0] = true),
+            ("ripple length", |b| b.ripples.clear()),
+            ("rack enabled", |b| b.racks[1].enabled = true),
+            ("rack instance", |b| b.racks[0].last_instance = 9),
+            ("rack hits", |b| {
+                b.racks[0].state = RackState::Idle { hits: 1 }
+            }),
+            ("rack falling", |b| {
+                b.racks[0].state = RackState::Falling {
+                    ticks: 2,
+                    player: 0,
+                }
+            }),
+            ("rack landed", |b| b.racks[0].state = RackState::Landed),
+            ("gate", |b| b.gate = Gate::Released),
+            ("cause", |b| b.defeated_cause_rack = true),
+        ];
+        for (name, mutate) in mutations {
+            let mut boss = base();
+            mutate(&mut boss);
+            assert_ne!(hash_of(&boss), reference, "{name} is not hashed");
+        }
     }
 }

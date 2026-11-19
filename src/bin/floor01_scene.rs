@@ -3327,6 +3327,7 @@ fn sync_boss_visuals(
             gait: Gait {
                 clock: tick,
                 walking: walk.walking,
+                ..Gait::default()
             },
             gore_full,
         },

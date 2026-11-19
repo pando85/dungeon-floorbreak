@@ -177,6 +177,23 @@ pub struct Pose {
 pub struct Gait {
     pub clock: u64,
     pub walking: bool,
+    /// Ticks since the boss was defeated. `Boss::step` stops advancing
+    /// `mode_tick` once he is down, so [`draws`] takes the age from the
+    /// `EnemyDefeated` event instead ([`defeat_age`]).
+    pub defeat_age: Option<u32>,
+}
+
+/// Ticks since the boss' `EnemyDefeated` event at `now` (`None` while he has
+/// not fallen in this log).
+pub fn defeat_age(events: &[CombatEvent], now: u64) -> Option<u32> {
+    events.iter().rev().find_map(|event| match *event {
+        CombatEvent::EnemyDefeated { tick, target, .. }
+            if target == crate::boss::BOSS_ENEMY_ID && tick <= now =>
+        {
+            Some((now - tick).min(u64::from(u32::MAX)) as u32)
+        }
+        _ => None,
+    })
 }
 
 /// Which pose the boss shows. Section 8's table, state by state.
@@ -226,7 +243,7 @@ pub fn pose_of(boss: &Boss, gait: Gait) -> Pose {
             if boss.defeated_cause_rack {
                 enc("pinned_dead", At::Frame(0))
             } else {
-                base("down", once(tick))
+                base("down", once(gait.defeat_age.unwrap_or(tick)))
             }
         }
     }
@@ -543,8 +560,14 @@ pub fn draws(art: &BossArt, boss: &Boss, ctx: FxCtx) -> Vec<Draw> {
     let floor = boss.floor_y();
     let flip_of = |facing: i8| facing < 0;
 
+    // The age of the defeat comes from the event log: the boss' own clock
+    // stops at the defeat.
+    let gait = Gait {
+        defeat_age: defeat_age(ctx.events, ctx.now).or(ctx.gait.defeat_age),
+        ..ctx.gait
+    };
     // The body.
-    if let Some((sheet, frame)) = art.body_frame(boss, ctx.gait) {
+    if let Some((sheet, frame)) = art.body_frame(boss, gait) {
         out.push(Draw {
             sheet,
             frame,
@@ -768,7 +791,7 @@ pub fn draws(art: &BossArt, boss: &Boss, ctx: FxCtx) -> Vec<Draw> {
             }
         }
         if boss.mode == BossMode::Defeated {
-            let since = i64::from(boss.mode_tick);
+            let since = i64::from(gait.defeat_age.unwrap_or(u32::from(boss.mode_tick)));
             let start = if boss.defeated_cause_rack {
                 0
             } else {
@@ -918,7 +941,11 @@ mod tests {
         ] {
             boss.mode = mode;
             for walking in [false, true] {
-                let gait = Gait { clock: 7, walking };
+                let gait = Gait {
+                    clock: 7,
+                    walking,
+                    ..Gait::default()
+                };
                 let pose = pose_of(&boss, gait);
                 assert!(
                     art.sheet(pose.sheet).unwrap().tags.contains_key(pose.tag),
@@ -947,6 +974,7 @@ mod tests {
         let gait = Gait {
             clock: 0,
             walking: true,
+            ..Gait::default()
         };
         let mut frames = Vec::new();
         for step in 0..5 {
@@ -1089,7 +1117,11 @@ mod tests {
             for tick in [0u16, 1, 5, 9, 20, 40, 100, 400] {
                 boss.mode_tick = tick;
                 for walking in [false, true] {
-                    let gait = Gait { clock: 99, walking };
+                    let gait = Gait {
+                        clock: 99,
+                        walking,
+                        ..Gait::default()
+                    };
                     assert!(art.body_frame(&boss, gait).is_some(), "{mode:?} @{tick}");
                 }
             }
@@ -1127,5 +1159,62 @@ mod tests {
         );
         assert!(list.iter().any(|d| d.layer == Layer::Body));
         assert!(list.iter().any(|d| d.sheet == SheetId::Rack));
+    }
+
+    /// F1 of the PR #120 review: `Boss::step` stops advancing `mode_tick`
+    /// after the defeat, so the fall, the floor dust and the boils take their
+    /// age from the `EnemyDefeated` event.
+    #[test]
+    fn the_defeat_plays_from_the_event_age_not_the_frozen_mode_tick() {
+        use crate::combat::{DefeatCause, ForceTier};
+        let art = fake();
+        let mut boss = Boss::new(builtin(), 0.0);
+        boss.mode = BossMode::Defeated;
+        boss.mode_tick = 0;
+        let died = CombatEvent::EnemyDefeated {
+            tick: 100,
+            target: crate::boss::BOSS_ENEMY_ID,
+            cause: DefeatCause::Melee,
+            force: ForceTier::Heavy,
+            instigator: Some(0),
+        };
+        assert_eq!(defeat_age(&[], 130), None);
+        assert_eq!(defeat_age(std::slice::from_ref(&died), 130), Some(30));
+        let ctx = |now| FxCtx {
+            events: std::slice::from_ref(&died),
+            now,
+            gait: Gait::default(),
+            gore_full: true,
+        };
+        let vfx = art.sheet(SheetId::Vfx).unwrap();
+        let count = |list: &[Draw], tag: &str| {
+            let frame = vfx.tag_frame(tag, 0).unwrap();
+            list.iter()
+                .filter(|d| d.sheet == SheetId::Vfx && d.frame == frame)
+                .count()
+        };
+        // Before the floor impact (tick 16): the body falls, no dust yet.
+        let early = draws(&art, &boss, ctx(110));
+        assert_eq!(count(&early, "floor_dust"), 0);
+        assert_eq!(count(&early, "boil_spatter"), 0);
+        // After it: dust and spatter play.
+        let late = draws(&art, &boss, ctx(100 + u64::from(FLOOR_IMPACT_TICKS) + 2));
+        assert_eq!(count(&late, "floor_dust"), 1);
+        assert_eq!(count(&late, "boil_spatter"), 1);
+        // And the body pose follows the age.
+        let gait = Gait {
+            defeat_age: Some(30),
+            ..Gait::default()
+        };
+        assert_eq!(pose_of(&boss, gait).at, At::Tick(30, Play::Once));
+        // A rack kill shows its spatter from the defeat on.
+        boss.defeated_cause_rack = true;
+        let rack_kill = draws(&art, &boss, ctx(102));
+        assert_eq!(count(&rack_kill, "boil_spatter"), 1);
+        assert_eq!(
+            count(&rack_kill, "floor_dust"),
+            0,
+            "no floor dust under the stack"
+        );
     }
 }

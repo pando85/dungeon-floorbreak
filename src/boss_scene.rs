@@ -815,19 +815,19 @@ mod tests {
     /// Committed goldens: the final `PARTY_STATE` hash of each boss fixture at
     /// its default length (the same headless and in the render loop).
     const GOLDENS: [(&str, u64); 13] = [
-        ("boss01_pound_punish", 0xaa85_3840_deed_6663),
-        ("boss01_charge_jump", 0x8217_796a_7556_3ac8),
-        ("boss01_charge_hit", 0x8df0_6839_8c70_90ee),
-        ("boss01_hug_guard", 0x2f97_31fb_daef_775f),
-        ("boss01_rack_carl", 0x7196_8014_9988_6356),
-        ("boss01_phase_roar", 0x9e95_4f72_daf8_328e),
-        ("boss01_roar_queued", 0x9b13_541a_803d_edc0),
-        ("boss01_2p_gate", 0xcddd_ffd4_c4be_5896),
-        ("boss01_solo_ai_guard", 0x7ebc_1695_45ee_ec3b),
-        ("boss01_party_defeat_retry", 0xdb40_7eee_32cb_4566),
-        ("boss01_crush_kill", 0x2f80_bf98_e418_accd),
-        ("boss01_full_clear_solo", 0x23d4_5d18_63f5_c6a5),
-        ("boss01_full_clear_2p", 0xf38c_a295_58ef_c482),
+        ("boss01_pound_punish", 0xb845_e482_48e3_cde3),
+        ("boss01_charge_jump", 0x83e8_f320_f157_fec8),
+        ("boss01_charge_hit", 0x4e44_0a03_da30_d8ce),
+        ("boss01_hug_guard", 0xd664_75aa_b961_147f),
+        ("boss01_rack_carl", 0xe4f1_28fe_1e63_1a96),
+        ("boss01_phase_roar", 0x33ff_cc00_6166_108c),
+        ("boss01_roar_queued", 0xaf91_6aed_4194_6f0b),
+        ("boss01_2p_gate", 0xffbd_ef1f_02ef_6776),
+        ("boss01_solo_ai_guard", 0x7b6e_73ef_9cb4_2862),
+        ("boss01_party_defeat_retry", 0xce08_73f7_26ce_2d06),
+        ("boss01_crush_kill", 0x2055_0962_2292_3d4d),
+        ("boss01_full_clear_solo", 0xc908_a59c_0c07_ec85),
+        ("boss01_full_clear_2p", 0x4c38_f39a_9060_42e2),
     ];
 
     #[test]
@@ -976,9 +976,26 @@ mod tests {
         }
         assert!(min >= 1, "the guard floors the AI hero at 1 HP");
         assert!(ticks_of(&sim, "hero=donut kind=hero_defeated").is_empty());
+        // M3: the AI jumps the first charge (takeoff 14..22 ticks before the
+        // ram), so Donut is not hit between that tell and the wall crash.
+        let tell = ticks_of(&sim, "kind=boss_tell move=charge")[0];
+        let crash = ticks_of(&sim, "kind=boss_crash")[0];
+        let donut_hurt: Vec<u64> = sim
+            .combat
+            .events
+            .iter()
+            .filter(|e| {
+                e.to_string().contains("kind=hero_hurt") && e.to_string().contains("hero=donut")
+            })
+            .map(|e| {
+                let line = e.to_string();
+                let from = line.find("tick=").unwrap() + 5;
+                line[from..].split(' ').next().unwrap().parse().unwrap()
+            })
+            .collect();
         assert!(
-            !ticks_of(&sim, "kind=rack_dropped").iter().any(|_| false),
-            "racks are Carl's in solo"
+            donut_hurt.iter().all(|t| *t < tell || *t > crash),
+            "Donut was hit during the first charge: {donut_hurt:?} (tell {tell}, crash {crash})"
         );
         let dropped = sim
             .combat
@@ -1055,7 +1072,7 @@ mod tests {
     }
 
     #[test]
-    fn the_ceiling_keeps_every_jump_below_the_hud_band_and_the_floor_is_576_wide() {
+    fn a_jump_stays_below_the_hud_band_and_a_ceiling_collider_sits_224_px_up() {
         let fixture = &BOSS01_HUG_GUARD;
         let mut sim = sim_of(fixture);
         let floor = sim.combat.boss.as_ref().unwrap().floor_y();
@@ -1078,6 +1095,16 @@ mod tests {
         // top): it stays at or below the HUD band y >= 60.
         assert!(288.0 - apex >= 60.0, "apex {apex}");
         assert!(apex <= 224.0);
+        // The apex of today's jump is far under the ceiling, so the collider
+        // itself is checked: a solid whose underside is 224 px over the floor.
+        assert!(
+            sim.scene
+                .world
+                .solids
+                .iter()
+                .any(|b| (b.rect.bottom - (floor + 224.0)).abs() < 0.01 && b.rect.width >= 576.0),
+            "the ceiling collider is missing"
+        );
     }
 
     #[test]

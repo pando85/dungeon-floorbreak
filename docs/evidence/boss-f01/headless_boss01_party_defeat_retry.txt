@@ -22,5 +22,5 @@ COMBAT_EVENT tick=289 kind=boss_tell move=pound target=carl
 COMBAT_EVENT tick=325 kind=boss_strike move=pound
 COMBAT_EVENT tick=328 kind=hero_hurt source=16981 health_left=1
 COMBAT_EVENT tick=398 kind=boss_tell move=pound target=carl
-COMBAT_STATE fixture=boss01_party_defeat_retry seed=0xb05000a tick=414 elapsed=900 hero_hp=1 deaths=1 enemies= hash=d34aa5c7e54d77c0 boss=36/36/pound_tell/p1 boss_x=242.80
-PARTY_STATE fixture=boss01_party_defeat_retry mode=solo controlled=Carl carl_hp=1 donut_hp=4 deaths=1 hash=db407eee32cb4566
+COMBAT_STATE fixture=boss01_party_defeat_retry seed=0xb05000a tick=414 elapsed=900 hero_hp=1 deaths=1 enemies= hash=e7016022a26b1e60 boss=36/36/pound_tell/p1 boss_x=242.80
+PARTY_STATE fixture=boss01_party_defeat_retry mode=solo controlled=Carl carl_hp=1 donut_hp=4 deaths=1 hash=ce0873f726ce2d06

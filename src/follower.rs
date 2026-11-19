@@ -137,19 +137,24 @@ pub fn follower_input_boss(
             }
         }
         BossThreat::Charge {
+            tell_left,
             x,
             dir,
-            running,
+            running: _,
             front,
             depth,
             speed,
             lead_ticks,
         } => {
-            if running && me.grounded && !frame.held.jump {
+            // The tell counts too (M3: the ram reaches the bot within
+            // `lead_ticks`, takeoff included): the arrival is the rest of the
+            // tell plus the run to the bot, so the jump comes 14..22 ticks
+            // before the ram, never after it has started.
+            if me.grounded && !frame.held.jump {
                 let lead = x + f32::from(dir) * front;
                 let gap = (me.x - lead) * f32::from(dir) - HERO_HALF_WIDTH;
                 let in_path = gap > -(depth + 2.0 * HERO_HALF_WIDTH);
-                let arrival = gap.max(0.0) / speed;
+                let arrival = f32::from(tell_left) + gap.max(0.0) / speed;
                 if in_path && arrival <= f32::from(lead_ticks) {
                     raw.jump = true;
                 }
@@ -308,5 +313,43 @@ mod tests {
         let mut air = hero(300.0);
         air.grounded = false;
         assert!(!input(&air, &leader, &solids, &[near]).jump);
+    }
+
+    /// M3: the bot jumps for a charge during the tell, so the takeoff comes
+    /// 14..22 ticks before the ram (not at the first running tick).
+    #[test]
+    fn it_jumps_a_charge_when_the_ram_is_within_the_lead_even_during_the_tell() {
+        use crate::boss::BossThreat;
+        let solids = [floor()];
+        let me = hero(200.0);
+        let leader = hero(400.0);
+        let charge = |tell_left: u16, running: bool| BossThreat::Charge {
+            tell_left,
+            x: 100.0,
+            dir: 1,
+            running,
+            front: 82.0,
+            depth: 46.0,
+            speed: 5.0,
+            lead_ticks: 18,
+        };
+        let jump = |threat: BossThreat| {
+            follower_input_boss(
+                (HeroId::Donut, &me),
+                &InputFrame::default(),
+                &leader,
+                &solids,
+                &[],
+                Some(&threat),
+                &PROVISIONAL_TUNING,
+            )
+            .jump
+        };
+        assert!(!jump(charge(40, false)), "40 ticks of tell left: too early");
+        assert!(
+            jump(charge(12, false)),
+            "12 ticks left plus the run: inside the lead"
+        );
+        assert!(jump(charge(0, true)), "running and close: still jumps");
     }
 }

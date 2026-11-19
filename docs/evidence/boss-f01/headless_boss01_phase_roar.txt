@@ -27,5 +27,5 @@ COMBAT_EVENT tick=306 kind=boss_tell move=pound target=carl
 COMBAT_EVENT tick=342 kind=boss_strike move=pound
 COMBAT_EVENT tick=360 kind=move_started move=jab instance=10
 COMBAT_EVENT tick=360 kind=hero_hurt source=16981 health_left=1 hero=donut
-COMBAT_STATE fixture=boss01_phase_roar seed=0xb050006 tick=360 elapsed=360 hero_hp=4 deaths=0 enemies= hash=467219cb2e16c2d8 boss=20/36/pound_recover/p2 boss_x=472.80
-PARTY_STATE fixture=boss01_phase_roar mode=solo controlled=Carl carl_hp=4 donut_hp=1 deaths=0 hash=9e954f72daf8328e
+COMBAT_STATE fixture=boss01_phase_roar seed=0xb050006 tick=360 elapsed=360 hero_hp=4 deaths=0 enemies= hash=0dce68510ad61fd6 boss=20/36/pound_recover/p2 boss_x=472.80
+PARTY_STATE fixture=boss01_phase_roar mode=solo controlled=Carl carl_hp=4 donut_hp=1 deaths=0 hash=33ffcc006166108c

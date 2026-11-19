@@ -1102,7 +1102,7 @@ impl HudRuntime {
         Some(BossView {
             name: boss.name.clone(),
             fill_px: boss.fill,
-            chip_px: boss.chip,
+            chip_px: if reduced { 0 } else { boss.chip },
             warning: state.warning(),
             warning_bright: reduced || (self.tick / WARNING_BLINK_TICKS).is_multiple_of(2),
             slide_tick: if reduced {
@@ -2401,6 +2401,29 @@ mod tests {
             hud.tick(boss_state(35, BossMode::Neutral), &[]);
         }
         assert_eq!(hud.snapshot().boss.unwrap().chip_px, 0);
+    }
+
+    #[test]
+    fn reduced_motion_removes_the_damage_chip_at_once() {
+        let mut hud = Rig {
+            hud: HudRuntime::new(HudConfig {
+                settings: HudSettings {
+                    reduced_motion: true,
+                    ..HudSettings::default()
+                },
+                ..HudConfig::default()
+            }),
+            log: Vec::new(),
+        };
+        hud.tick(
+            boss_state(36, BossMode::Neutral),
+            &[CombatEvent::BossEngaged { tick: 1 }],
+        );
+        hud.tick(boss_state(35, BossMode::Neutral), &[]);
+        let view = hud.snapshot().boss.unwrap();
+        assert_eq!(view.fill_px, 228, "the bar still drops");
+        assert_eq!(view.chip_px, 0, "HUD spec section 5: no chip");
+        assert_eq!(view.slide_tick, BOSS_SLIDE_TICKS, "and no slide");
     }
 
     #[test]
