@@ -230,15 +230,25 @@ class AtlasContractTests(unittest.TestCase):
             self.assertTrue(all(rows[r][122] == "K" for r in range(61, 65)))
             self.assertEqual(rows[60][124], "K", "the down-run ends on the cleat")
             self.assertEqual(sum(1 for r in rows for c in r[86:121] if c in "uyzx"), 0, "no timber beam any more")
-        hang = cel(rack[0])
-        for n in range(4):                                                          # R-01b: selector hole 2 x 3, weight tags
-            y0 = 47 + 6 * n
-            self.assertEqual([hang[y][47:49] for y in (y0 + 2, y0 + 3, y0 + 4)], ["KK"] * 3, f"plate {n} selector hole")
-            self.assertNotEqual(hang[y0 + 1][47], "K", "the bevel runs across the hole")
-            self.assertEqual(set(hang[y0 + 2][26:31]), {"d"}, f"plate {n} weight tag")
-            self.assertEqual((hang[y0 + 3][27], hang[y0 + 3][29]), ("K", "K"), "digit pixels")
-        self.assertEqual(hang[62][49:54], "kkkkk", "selector pin")
-        self.assertEqual([hang[60][53:58], hang[62][54:57], hang[64][53:58]], ["KKKKK", "ddd", "KKKKK"], "selector knob")
+        hang = cel(rack[0])                                                         # key redesign: a loaded barbell
+        self.assertEqual(content_box([r[:81] for r in hang[50:]])[0:3:2], (16, 79), "64 px wide, x 16..79")
+        self.assertEqual([hang[y][46] for y in (57, 58, 59, 60, 61)], ["K", "k", "j", "i", "K"], "bar shaft, lit top")
+        self.assertEqual(hang[59][16], "K", "sleeve end cap")
+        heights = []
+        for x in (19, 23, 28, 32):                                                  # small, medium, big, big plate (left)
+            ys = [y for y in range(42, 72) if hang[y][x] != "."]
+            heights.append(max(ys) - min(ys) + 1)
+            self.assertEqual(hang[min(ys)][x], "K")
+            self.assertEqual(hang[min(ys) + 1][x], "k", "lit rim")
+        self.assertEqual(heights, [13, 19, 25, 25], "plates stepped big to small towards the sleeve")
+        for x in range(16, 80):                                                     # mirror-symmetric silhouette
+            for y in range(47, 72):
+                self.assertEqual(hang[y][x] == ".", hang[y][95 - x] == ".", f"symmetry at {x},{y}")
+        self.assertEqual([hang[y][x] for y in (50, 59, 66) for x in (27,)], ["i", "j", "i"], "dark web, lit hub band")
+        self.assertTrue(all(hang[y][38:58].count(".") == 0 for y in (57, 58, 59, 60, 61)), "bare centre shaft")
+        self.assertTrue(all(hang[y][38:46] == "." * 8 for y in range(47, 55)), "daylight over the shaft")
+        self.assertTrue(all(hang[y][47:49] in ("kK", "iK") for y in range(39, 55)), "one cable from the clamp to the pulley")
+        self.assertNotIn("d", "".join(r[:90] for r in hang[42:72]), "no weight tags or slats: plain iron plates")
         pulley = cel(rack[6])
         self.assertEqual((pulley[34][47:50], pulley[35][47:50], pulley[38][48]), ("KKK", "KKK", "K"), "bracket and axle")
         self.assertEqual(sum(1 for y in range(34) for c in pulley[y] if c != "."), 0)

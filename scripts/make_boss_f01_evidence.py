@@ -168,12 +168,12 @@ def arena_composite(imgs: list[Image.Image], out: Path) -> list[Path]:
         paths.append(path)
     cmp = out / "compare"
     cmp.mkdir(exist_ok=True)
-    before = Image.open(cmp / "arena_before_953a2d6.png").convert("RGB")
+    before = Image.open(cmp / "arena_before_cba129b.png").convert("RGB")
     after = Image.open(out / "arena_640x360.png").convert("RGB")
     both = Image.new("RGB", (640, 720))
     both.paste(before, (0, 0)); both.paste(after, (0, 360))
-    ImageDraw.Draw(both).text((6, 4), "before (953a2d6)", fill=(255, 255, 255))
-    ImageDraw.Draw(both).text((6, 364), "after (round 2)", fill=(255, 255, 255))
+    ImageDraw.Draw(both).text((6, 4), "before (round 2, cba129b)", fill=(255, 255, 255))
+    ImageDraw.Draw(both).text((6, 364), "after (key redesign)", fill=(255, 255, 255))
     p = cmp / "arena_before_after_1x.png"
     both.save(p)
     strip = Image.new("RGB", (3 * 90, 30), (96, 78, 70))
@@ -182,7 +182,7 @@ def arena_composite(imgs: list[Image.Image], out: Path) -> list[Path]:
         strip.paste(crop, (n * 90 - 5, 9), crop)
     p2 = cmp / "rack_shadow_1x.png"
     strip.save(p2)
-    paths += [p, p2, cmp / "arena_before_953a2d6.png"]
+    paths += [p, p2, cmp / "arena_before_cba129b.png"]
     return paths
 
 

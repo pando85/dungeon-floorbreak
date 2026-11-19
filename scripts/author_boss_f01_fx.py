@@ -363,41 +363,59 @@ VFX = [  # (tag, name, ticks, fn, i, playback)
 
 
 # ------------------------------------------------------------------ props
-PLATE_W = 64                                                       # one weight plate: 64 x 7 with shared outline rows
-PLATE_PITCH = 6                                                    # four plates, 25 rows tall in all
+RW, RH = 136, 72
+RPIV = (48, 71)
+STACK_X = 16                                                       # plate block left edge (64 wide, centred on the pivot column)
+# Key redesign (top tier, 2026-11-19): the hung load is a loaded barbell seen side-on, not a slab stack. Round iron plates
+# stand edge-on on the bar, stepped big to small towards each sleeve (the stepped silhouette is the gym read at 1x); each
+# plate has a lit rim and a lit raised hub with a dark web between them; a clamp collar closes each side and the bare centre
+# shaft carries the single cable's clamp. Footprint unchanged: 64 x 25, x 16..79, centred on the pivot column, underside on
+# the pivot row; the bar centre is 12 px above the underside.
+BAR_W, BAR_H = 64, 25
+SIDE = ((2, 5, 13), (5, 9, 19), (9, 14, 25), (14, 19, 25))        # left plates outside in: first col, last col, height
+COLLAR = (19, 22, 9)                                               # the clamp collar; the right side mirrors (col -> 63 - col)
 
 
-def slab(img: Img, x0: int, y0: int, seed: int, tilt: int = 0) -> None:
-    """One iron weight plate 64 x 7: soot outline, a 1 px iron_light top bevel, an iron_dark body, a 1 px iron_mid bottom edge
-    that run across a 2 x 3 selector hole at x +31..+32 (middle three rows), a 5 x 3 dust_hi weight tag with two soot digit
-    pixels at x +10..+14, and at most six rust pixels."""
-    def at(dx: int) -> int:
-        return (dx * tilt) // (PLATE_W - 1) if tilt else 0
-    for dx in range(PLATE_W):
-        for dy, k in enumerate(["K", "k", "i", "i", "i", "j", "K"]):
-            img.put(x0 + dx, y0 + dy + at(dx), k)
-    for dy in range(7):
-        img.put(x0, y0 + dy, "K"); img.put(x0 + PLATE_W - 1, y0 + dy + tilt, "K")
-    for dx in (31, 32):                                              # the selector hole, middle three rows only
-        for dy in (2, 3, 4):
-            img.put(x0 + dx, y0 + dy + at(dx), "K")
-    for n in range(6):                                              # rust: six pixels, no more
-        x, y = 4 + (h2(n, seed, 3) % 56), 2 + (h2(n, seed, 4) % 3)
-        if not (9 <= x <= 15) and x not in (31, 32):
-            img.put(x0 + x, y0 + y + at(x), "f")
-    for dx in range(10, 15):                                        # the weight tag: bright, two dark digit pixels
-        for dy in (2, 3, 4):
-            img.put(x0 + dx, y0 + dy + at(dx), "d")
-    img.put(x0 + 11, y0 + 3 + at(11), "K"); img.put(x0 + 13, y0 + 3 + at(13), "K")
+def plate(img: Img, x0: int, c0: int, c1: int, height: int, cy: int) -> None:
+    """One plate edge-on, outline columns ``c0`` and ``c1`` (shared with the neighbour), rounded corners. Interior rows: a
+    lit rim (2 rows, the top one iron_light), a dark web, a lit hub band (5 rows) round the bar, the web and the rim again.
+    Interior columns are lit on the left (iron_light) and shaded on the right (iron_dark)."""
+    top, bot = cy - height // 2, cy + height // 2
+    for x in range(c0 + 1, c1):
+        img.put(x0 + x, top, "K"); img.put(x0 + x, bot, "K")
+    for y in range(top + 1, bot):
+        img.put(x0 + c0, y, "K"); img.put(x0 + c1, y, "K")
+        rim = y <= top + 2 or y >= bot - 2 or height <= 13              # the small plate is all rim and hub
+        hub = abs(y - cy) <= 2
+        for x in range(c0 + 1, c1):
+            first, last = x == c0 + 1, x == c1 - 1
+            if y == top + 1:
+                k = "j" if last and c1 - c0 > 3 else "k"
+            elif rim or hub:
+                k = "k" if first else ("i" if last and c1 - c0 > 3 else "j")
+            else:
+                k = "j" if first else "i"
+            img.put(x0 + x, y, k)
 
 
-def chain(img: Img, pts: list[tuple[float, float]]) -> None:
-    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-        n = int(max(abs(x1 - x0), abs(y1 - y0))) + 1
-        for s in range(n + 1):
-            x, y = x0 + (x1 - x0) * s / n, y0 + (y1 - y0) * s / n
-            img.put(int(round(x)), int(round(y)), "k" if (s // 2) % 2 == 0 else "i")
-            img.put(int(round(x)) + 1, int(round(y)), "K")
+def barbell(img: Img, base: int, dx: int = 0, dy: int = 0, clamp: bool = True) -> int:
+    """The loaded bar, underside on row ``base``: bar and sleeves (5 rows, lit top), four plates and a collar a side, and the
+    cable clamp on the bare centre shaft. Returns the bar centre row."""
+    x0, cy = STACK_X + dx, base - BAR_H // 2 + dy
+    for x in range(BAR_W):
+        for n, k in enumerate(("K", "k", "j", "i", "K")):
+            img.put(x0 + x, cy - 2 + n, k)
+    for y in range(cy - 1, cy + 2):
+        img.put(x0, y, "K"); img.put(x0 + BAR_W - 1, y, "K")
+        img.put(x0 + 1, y, "j"); img.put(x0 + BAR_W - 2, y, "j")       # the 1 px sleeve ends: one flat tone
+    for x in (25, 28, 35, 38):                                         # a little knurl on the shaft
+        img.put(x0 + x, cy, "i")
+    for c0, c1, height in (*SIDE, COLLAR):
+        plate(img, x0, c0, c1, height, cy)
+        plate(img, x0, BAR_W - 1 - c1, BAR_W - 1 - c0, height, cy)
+    if clamp:                                                          # the cable clamp on the shaft (cols 30..33)
+        img.put(x0 + 30, cy - 3, "K"); img.put(x0 + 31, cy - 3, "k"); img.put(x0 + 32, cy - 3, "k"); img.put(x0 + 33, cy - 3, "K")
+    return cy
 
 
 def timber(img: Img, x0: int, y0: int, x1: int, y1: int, seed: int) -> None:
@@ -420,38 +438,6 @@ def timber(img: Img, x0: int, y0: int, x1: int, y1: int, seed: int) -> None:
         img.put(x0 - 1, y, "K"); img.put(x1 + 1, y, "K")
 
 
-RW, RH = 136, 72
-RPIV = (48, 71)
-STACK_X = 16                                                       # stack left edge (64 wide, centred on the pivot column)
-BEAM_UNDER = 65                                                    # the outrigger's underside row = the strut cap (195 px up)
-
-
-def stack(img: Img, base: int, dx: int = 0, dy: int = 0, offs=(0, 0, 0, 0), tilts=(0, 0, 0, 0), with_pin: bool = True) -> int:
-    """Four plates, flush unless ``offs``/``tilts`` stagger them (landed), two iron_mid guide rods 2 px wide at plate x +6 and
-    +58 through the whole stack and a 10 x 4 headplate with the cable eye on top. ``base`` is the underside row. Returns the top."""
-    top = base - (PLATE_PITCH * 4)
-    for n in range(4):
-        slab(img, STACK_X + dx + offs[n], top + dy + n * PLATE_PITCH, 90 + n, tilts[n])
-    if not any(offs):
-        for rx in (STACK_X + dx + 6, STACK_X + dx + 58):
-            for y in range(top + dy - 2, base + dy):
-                if img.get(rx, y) in "ijk":
-                    continue
-            for y in range(top + dy + 1, base + dy):
-                if y % PLATE_PITCH != (top + dy) % PLATE_PITCH:
-                    img.put(rx, y, "j"); img.put(rx + 1, y, "j")
-    if with_pin:                                                    # selector pin in plate 3 with a bright knob
-        py = top + dy + 2 * PLATE_PITCH + 3
-        kx = STACK_X + dx + 37
-        img.rect(kx, py - 2, kx + 4, py + 2, "K"); img.rect(kx + 1, py - 1, kx + 3, py + 1, "d")
-        for x in range(STACK_X + dx + 33, STACK_X + dx + 38):          # the pin runs into the knob's rim
-            img.put(x, py, "k")
-    hx = STACK_X + dx + 27
-    img.rect(hx, top + dy - 4, hx + 9, top + dy - 1, "i"); img.rect(hx, top + dy - 4, hx + 9, top + dy - 4, "k")
-    for x in range(hx - 1, hx + 11):
-        img.put(x, top + dy - 5, "K")
-    img.put(hx + 4, top + dy - 3, "K"); img.put(hx + 5, top + dy - 3, "K")                  # the cable eye
-    return top
 
 
 PULLEY = (48, 38)                                                  # pulley centre in the rack frame (row 36 = the 224 px ceiling)
@@ -472,17 +458,23 @@ def cable_down(img: Img) -> None:
     img.put(123, 62, "i"); img.put(124, 63, "i")
 
 
-def cable_up(img: Img, dx: int = 0, dy: int = 0) -> None:
-    """The 2 px cable from the headplate eye up into the pulley (iron_light / soot, the chain pattern)."""
-    for y in range(39, 42):
-        img.put(47 + dx, y + dy, "k" if (y // 2) % 2 == 0 else "i"); img.put(48 + dx, y + dy, "K")
+def cable_up(img: Img, dx: int = 0, dy: int = 0, low: int = 55) -> None:
+    """The 2 px cable from the bar clamp up into the pulley (iron_light / soot, the chain pattern), rows 39..``low``."""
+    for y in range(39, low + 1):
+        img.put(47 + dx, y + dy, "k" if ((y + 1) // 2) % 2 == 0 else "i"); img.put(48 + dx, y + dy, "K")
+
+
+COIL = ("..KK.......KK.....",                                       # the slack cable: two loops laid on the bar
+        ".KkkK.....KkkK....",
+        "Kk..kK...Kk..kK...",
+        "k....kKKKk....kKKK")
 
 
 def rack(state: str) -> Img:
-    """The left plate rack: a selectorised stack of four iron plates (64 x 25) with guide rods, a selector pin, weight tags and
-    a headplate, hung from ONE cable that runs up over a ceiling pulley (the ``pulley`` frame) and down to a cleat on the strut
-    head, so breaking the strut lets the cable run free. Pivot: the underside centre of the stack. ``landed`` is the floor
-    version (plates staggered), ``landed_boss`` the stack lying on the pinned boss's back, its underside 26 px up."""
+    """The left plate rack: a loaded barbell (64 x 25, plates edge-on, stepped big to small towards the sleeves) hung by its
+    centre from ONE cable that runs up over a ceiling pulley (the ``pulley`` frame) and down to a cleat on the strut head, so
+    breaking the strut lets the cable run free. Pivot: the underside centre of the plates. ``landed`` is the floor version
+    (the rack missed), ``landed_boss`` the bar lying on the pinned boss's back on its big plates, underside 26 px up."""
     img = Img(RW, RH)
     base = 71
     if state == "pulley":
@@ -497,34 +489,31 @@ def rack(state: str) -> Img:
         return img
     if state in ("landed", "landed_boss"):
         up = 26 if state == "landed_boss" else 0
-        offs, tilts = (0, 4, -3, 5), (0, 2, 0, -3)
-        top = base - up - PLATE_PITCH * 4
-        for n in range(4):
-            slab(img, STACK_X + 2 + offs[n], top + n * PLATE_PITCH, 90 + n, tilts[n])
-        chain(img, [(30, top - 2), (36, top), (42, top - 3), (48, top - 1)])                # one slack cable coil on the top plate
+        cy = barbell(img, base - up)
+        for n, row in enumerate(COIL):                                # the slack cable lying over the shaft
+            for x, k in enumerate(row):
+                if k != ".":
+                    img.put(39 + x, cy - 6 + n, k)
         for s in range(5 if up == 0 else 0):                         # dust settling around the floor version only
             dust(img, 20 + s * 22, 66, 4 + s % 2, 300 + s, fade=0.45, flat=0.55)
         return img
     dx = {"hang": 0, "shudder_a": -1, "shudder_b": 1, "fall": 0}[state]
     dy = {"hang": 0, "shudder_a": 1, "shudder_b": 0, "fall": 0}[state]
-    top = stack(img, base, dx, dy)
-    if state == "fall":                                             # the cable end runs free: a loose S rising from the headplate
-        for (x0, y0), (x1, y1) in zip([(48, 41), (47, 36), (50, 32)], [(47, 36), (50, 32), (48, 28)]):
-            n = max(abs(x1 - x0), abs(y1 - y0)) + 1
-            for t in range(n + 1):
-                x, y = x0 + (x1 - x0) * t / n, y0 + (y1 - y0) * t / n
-                img.put(int(round(x)), int(round(y)), "k" if (t // 2) % 2 == 0 else "i")
-                img.put(int(round(x)) + 1, int(round(y)), "K")
+    cy = barbell(img, base, dx, dy)
+    if state == "fall":                                             # the cable end runs free: a loose S rising from the clamp
+        for y in range(29, cy - 3):
+            x = 47 + (1 if 29 <= y <= 32 or 37 <= y <= 40 else 2 if 33 <= y <= 36 else 0)
+            img.put(x, y, "k" if ((y + 1) // 2) % 2 == 0 else "i"); img.put(x + 1, y, "K")
     else:
-        cable_up(img, dx, dy)
+        cable_up(img, dx, 0, cy - 4)
         cable_down(img)
-    if state in ("shudder_a", "shudder_b"):                         # dust sifting off the cleat and the stack
+    if state in ("shudder_a", "shudder_b"):                         # dust sifting off the cleat and the plates
         for s in range(6):
             x, y = 100 + s * 4 + (h2(s, 1, 2) % 3), 66 + (s * 5) % 6
             img.put(x, y, "c" if s % 2 else "d"); img.put(x + 1, y, "c")
-    if state == "fall":                                             # four broken speed streaks above the plate ends
-        for s, x in enumerate((STACK_X + 2, STACK_X + 20, STACK_X + 43, STACK_X + 61)):
-            y0 = 37 + (s % 2)                                        # between the ceiling row and the plate tops
+    if state == "fall":                                             # four broken speed streaks above the big plates
+        for s, x in enumerate((STACK_X + 11, STACK_X + 17, STACK_X + 46, STACK_X + 52)):
+            y0 = 37 + (s % 2)                                        # between the ceiling row and the plate tops (row 47)
             img.line(x, y0, x, y0 + 3, "d", 1); img.line(x, y0 + 6, x, y0 + 8, "d", 1)
     return img
 
