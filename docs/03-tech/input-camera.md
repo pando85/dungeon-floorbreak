@@ -30,6 +30,8 @@ Store simulation world transforms independently from screen pixel snapping. At r
 
 ## Same-screen camera
 
+DEMO-01 PR C puts the camera-lab automatic camera into `floor01_scene` as a presentation-only layer (`--camera auto`, to become the `--demo` default with DEMO-01 PR A): eased zoom and pan, rest widths only at exact integer scales of the output (never a fractional scale at rest), cap 960 px wide, the scroll camera and every hash untouched. See [Floor 01 scene > Camera](floor01-scene.md#camera-demo-01-pr-c).
+
 Keep both active characters within a safe framing region. Use biased tracking toward the midpoint with a speed cap and optional modest zoom-out; large split-distance triggers regroup hints or a teleport safeguard only after warning. Camera shake must be toggleable and applied in presentation; it cannot affect aiming or collision tests. Strong FX should not occlude critical threats.
 
 ## Accessibility and usability acceptance

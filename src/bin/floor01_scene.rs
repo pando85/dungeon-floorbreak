@@ -23,7 +23,7 @@ use bevy::{
     asset::AssetPlugin,
     asset::LoadState,
     asset::RenderAssetUsages,
-    camera::{ScalingMode, visibility::RenderLayers},
+    camera::{RenderTarget, ScalingMode, Viewport, visibility::RenderLayers},
     diagnostic::DiagnosticsStore,
     input::gamepad::{GamepadConnection, GamepadEvent},
     prelude::*,
@@ -44,9 +44,12 @@ use dungeon_floorbreak::{
         AudioCommand, AudioSettings, StyleBank, cues_from_combat_event, scene_ambience, scene_music,
     },
     audio_adapter::{AudioQueue, FloorAudioPlugin, resolve_pack_dir},
+    blast::BLAST_CENTRE_DY,
+    blast_art::{BURST_IMAGE, BlastArt, DYNAMITE_IMAGE},
     boss::{BossMode, RackState},
     boss_art::BossArt,
     boss_scene,
+    camera_lab::camera_op::{Aspect, Bounds, View},
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
         CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, goblin_variant,
@@ -54,9 +57,9 @@ use dungeon_floorbreak::{
     combat_scene::{CombatState, Fixture},
     corridor::{CorridorWorld, Scenario, SceneSim},
     death_present::{
-        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS, Finish,
+        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS,
         PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
-        draw_z,
+        blast_vfx_frame, charge_draw_frame, draw_z, explosion_table,
     },
     demo::{self, SelectAction, SelectControl},
     env_kit::{
@@ -79,6 +82,9 @@ use dungeon_floorbreak::{
     party_scene::{self, PartyFixture},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero},
     scene_anim::SceneAnimators,
+    scene_camera::{
+        CameraChoice, CameraInterest, RigConfig, SceneCameraRig, synthetic_interest, test_room_kit,
+    },
     shore_art::{ShoreArt, ShoreSlot, landed_age},
 };
 
@@ -156,9 +162,6 @@ struct Args {
     /// Fixture only, lab: keep the death presenter's pools loaded with
     /// synthetic defeats (frame-time measurement at max load).
     death_stress: bool,
-    /// Fixture only, lab: play this finish for ordinary melee defeats (the
-    /// decapitation has no authoritative cause before PR D).
-    death_lab_finish: Option<Finish>,
     /// Headless fixture only: print the presenter's `DEATH_PRESENT` summary.
     death_trace: bool,
     /// HUD-HYBRID-A-01: draw a labelled HUD preview fixture. Presentation
@@ -171,6 +174,17 @@ struct Args {
     /// (`FLOORBREAK_HUD_*`), then `--hud-reduced-motion[=on|off]` and
     /// `--hud-high-contrast[=on|off]`. Presentation only.
     hud_settings: HudSettings,
+    /// DEMO-01 PR C: the presentation camera (`auto`, `scroll`, `1.0`, `1.25`,
+    /// `1.5`). `None` is the default of the run (`scroll` outside `--demo`).
+    camera: Option<CameraChoice>,
+    /// Evidence: run on room 1 to 6 of the camera lab (a tall greybox
+    /// composition from the approved kit) instead of the 400 px corridor.
+    camera_test_room: Option<usize>,
+    /// Evidence: a synthetic foe that has taken aim, `X:FIRST:LAST` (world
+    /// column, first and last elapsed tick). It only feeds the camera.
+    camera_test_threat: Option<(f32, u64, u64)>,
+    /// Headless: print one `FLOOR1_VIEW` line per tick of the presentation view.
+    view_trace: bool,
     /// DEMO-01: the continuous demo route on the demo hall (`--demo`).
     demo: bool,
     /// DEMO-01: start at this beat's checkpoint (`--demo-beat N`, 0 to 6).
@@ -189,6 +203,16 @@ impl Args {
             glyphs: self.glyphs,
             settings: self.hud_settings,
         }
+    }
+
+    /// The camera of this run: `--camera`, else `auto` for `--demo` and the
+    /// scroll camera for everything else (every fixture, scenario and capture).
+    fn camera_choice(&self) -> CameraChoice {
+        if self.reference_frame {
+            return CameraChoice::Scroll;
+        }
+        self.camera
+            .unwrap_or_else(|| CameraChoice::default_for(self.demo))
     }
 }
 
@@ -251,11 +275,14 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
         audio_style: None,
         gore_preset: GorePreset::default(),
         death_stress: false,
-        death_lab_finish: None,
         death_trace: false,
         hud_preview: None,
         glyphs: None,
         hud_settings,
+        camera: None,
+        camera_test_room: None,
+        camera_test_threat: None,
+        view_trace: false,
         demo: false,
         demo_beat: 0,
         autopilot: false,
@@ -347,15 +374,35 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             }
             "--death-stress" => parsed.death_stress = true,
             "--death-trace" => parsed.death_trace = true,
-            "--death-lab-finish" => {
-                let value = iter.next().ok_or("--death-lab-finish needs a finish")?;
-                parsed.death_lab_finish = Some(match value.as_str() {
-                    "decapitated" | "decap" => Finish::Decapitated,
-                    other => {
-                        return Err(format!("bad lab finish {other:?} (expected decapitated)"));
-                    }
-                });
+            "--camera" => {
+                let value = iter.next().ok_or("--camera needs a mode")?;
+                parsed.camera = Some(CameraChoice::parse(value)?);
             }
+            "--camera-test-room" => {
+                let value = iter.next().ok_or("--camera-test-room needs 1 to 6")?;
+                parsed.camera_test_room = Some(
+                    value
+                        .parse()
+                        .ok()
+                        .filter(|n| (1..=6).contains(n))
+                        .ok_or_else(|| format!("bad camera test room {value:?} (1 to 6)"))?,
+                );
+            }
+            "--camera-test-threat" => {
+                let value = iter
+                    .next()
+                    .ok_or("--camera-test-threat needs X:FIRST:LAST")?;
+                let bad = || format!("bad camera test threat {value:?} (expected X:FIRST:LAST)");
+                let mut parts = value.split(':');
+                let x: f32 = parts.next().and_then(|v| v.parse().ok()).ok_or_else(bad)?;
+                let first: u64 = parts.next().and_then(|v| v.parse().ok()).ok_or_else(bad)?;
+                let last: u64 = parts.next().and_then(|v| v.parse().ok()).ok_or_else(bad)?;
+                if parts.next().is_some() || last <= first {
+                    return Err(bad());
+                }
+                parsed.camera_test_threat = Some((x, first, last));
+            }
+            "--view-trace" => parsed.view_trace = true,
             "--reference-frame" => parsed.reference_frame = true,
             "--anim-trace" => parsed.anim_trace = true,
             "--combat-trace" => parsed.combat_trace = true,
@@ -446,6 +493,12 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
     } else if parsed.autopilot || parsed.demo_beat != 0 {
         return Err("--autopilot and --demo-beat need --demo".into());
     }
+    if parsed.demo && parsed.camera_test_room.is_some() {
+        return Err(
+            "--camera-test-room and --demo are mutually exclusive (the demo has its own hall)"
+                .into(),
+        );
+    }
     if parsed.party_fixture.is_some() && !(parsed.headless || parsed.capture_tick.is_some())
         || parsed.party_fixture.is_some()
             && (parsed.manual
@@ -468,10 +521,8 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
     if (parsed.manual || parsed.debug_combat) && parsed.fixture.is_none() {
         return Err("--manual and --debug-combat need --fixture".into());
     }
-    if (parsed.death_stress || parsed.death_lab_finish.is_some() || parsed.death_trace)
-        && parsed.fixture.is_none()
-    {
-        return Err("--death-stress, --death-lab-finish and --death-trace need --fixture".into());
+    if (parsed.death_stress || parsed.death_trace) && parsed.fixture.is_none() {
+        return Err("--death-stress and --death-trace need --fixture".into());
     }
     if parsed.death_stress && (parsed.headless || parsed.capture_tick.is_some()) {
         return Err(
@@ -540,6 +591,15 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             "--anim-trace needs --headless-floor01-smoke and --scenario or --fixture".into(),
         );
     }
+    if parsed.view_trace && !parsed.headless {
+        return Err("--view-trace needs --headless-floor01-smoke".into());
+    }
+    if parsed.camera_test_threat.is_some() && parsed.camera_test_room.is_none() && !parsed.demo {
+        return Err("--camera-test-threat needs --camera-test-room or --demo (a tall room)".into());
+    }
+    if parsed.reference_frame && parsed.camera.is_some_and(|c| c != CameraChoice::Scroll) {
+        return Err("--reference-frame pins the scroll camera; drop --camera".into());
+    }
     if parsed.reference_frame && (driven || parsed.capture_tick.is_some()) {
         return Err(
             "--reference-frame pins its own state; drop --scenario/--fixture/--capture-tick".into(),
@@ -576,9 +636,7 @@ type Scene = (
 fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     let art = Arc::new(DeathArt::load(root)?);
     let variant_b = DeathArt::load_variant(root, 1)?;
-    let mut presenter = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?;
-    presenter.set_lab_finish(args.death_lab_finish);
-    Ok(presenter)
+    DeathPresenter::with_variants(art, &variant_b, args.gore_preset)
 }
 
 /// The HUD runtime with its real identity: the actor manifests' display names
@@ -815,6 +873,8 @@ fn main() -> ExitCode {
         demo::load_hall(&root)
     } else if args.boss {
         boss_scene::load_arena(&root)
+    } else if let Some(room) = args.camera_test_room {
+        test_room_kit(&root, room)
     } else {
         EnvKit::load(&root, LAYOUT_PATH).map_err(|error| error.to_string())
     };
@@ -829,7 +889,10 @@ fn main() -> ExitCode {
     } else {
         FrameSource::ExportedAtlas
     };
-    let actors = match Actors::load(&root, source, args.fixture.is_some()) {
+    // The blast atlases are exported art: only a rendered fixture with charges
+    // needs them (the headless replay draws nothing).
+    let draws_blast = !args.headless && args.fixture.is_some_and(|f| !f.charges.is_empty());
+    let actors = match Actors::load(&root, source, args.fixture.is_some(), draws_blast) {
         Ok(actors) => actors,
         Err(error) => {
             return failure(&format!(
@@ -904,6 +967,9 @@ struct Actors {
     art: Option<CombatArt>,
     /// The ENV-02 shore and block art of a combat fixture (DEATH-C).
     shore: Option<ShoreArt>,
+    /// DEATH-D: the QA charge and blast frames of a fixture with charges
+    /// (unreviewed prototype art, drawn in the QA fixtures only).
+    blast: Option<BlastArt>,
 }
 
 #[derive(Clone)]
@@ -913,7 +979,12 @@ struct CombatArt {
 }
 
 impl Actors {
-    fn load(root: &Path, source: FrameSource, combat: bool) -> Result<Self, String> {
+    fn load(root: &Path, source: FrameSource, combat: bool, blast: bool) -> Result<Self, String> {
+        let blast = if blast {
+            Some(BlastArt::load(root)?)
+        } else {
+            None
+        };
         let shore = if combat {
             Some(ShoreArt::load(root)?)
         } else {
@@ -935,6 +1006,7 @@ impl Actors {
             donut: load_donut(root, source)?,
             art,
             shore,
+            blast,
         })
     }
 
@@ -1031,6 +1103,25 @@ struct Combat(Option<CombatState>);
 #[derive(Resource)]
 struct Death(Option<DeathPresenter>);
 
+/// DEMO-01 PR C: the presentation camera of the run, `None` for the scroll
+/// camera (every existing capture). Presentation only: it reads the simulation
+/// after the tick and nothing reads it back.
+#[derive(Resource)]
+struct SceneCam {
+    rig: Option<SceneCameraRig>,
+    /// Size in world pixels of the lighting slot targets: the widest view of
+    /// the chosen camera (640 x 360 or 640 x 400 for the scroll camera).
+    slot: (i32, i32),
+    /// The rest width last printed as `FLOOR1_CAMERA_REST`.
+    reported_rest: Option<i32>,
+}
+
+/// The read-only threat list gameplay feeds the camera (a llama that has taken
+/// aim, its tell, a spit in flight). Empty in this PR unless `--camera-test-threat`
+/// is given.
+#[derive(Resource, Default)]
+struct Interest(CameraInterest);
+
 /// The fixture whose script drives the live run (not set for `--manual`).
 #[derive(Resource)]
 struct LiveFixture(Option<&'static Fixture>);
@@ -1043,6 +1134,9 @@ struct Controls {
     physical_tap: bool,
     swap_tap: bool,
     restart: bool,
+    /// DEMO-01 PR C: Carl was moved on purpose (a respawn, a restart): the
+    /// presentation camera cuts to the new framing instead of panning.
+    camera_cut: bool,
     /// DEMO-01: Select (R or the pad's Select) went down since the last tick.
     select_tap: bool,
     /// DEMO-01: a pad's Select is held (polled every frame).
@@ -1110,6 +1204,21 @@ enum DeathPiece {
     Wall(usize),
 }
 
+/// DEATH-D: a sprite of the QA charge `n` of the fixture: the fizzling charge
+/// until it detonates, then its blast burst. Presentation only.
+#[derive(Component, Clone, Copy)]
+enum BlastPiece {
+    Charge(usize),
+    Burst(usize),
+}
+
+/// The loaded `vfx_dynamite` and `vfx-01` atlas images.
+#[derive(Resource)]
+struct BlastImages {
+    dynamite: Handle<Image>,
+    burst: Handle<Image>,
+}
+
 /// One sprite of the ENV-02 shore (post, block, cavity, crumbs, impact dust).
 #[derive(Component, Clone, Copy)]
 struct ShorePiece(ShoreSlot);
@@ -1143,6 +1252,86 @@ enum CombatDebugBox {
     CarlHurt,
     /// Donut's own hurtbox (Q4), shown while the party is live.
     DonutHurt,
+}
+
+/// The presentation camera of a run: the rig (none for the scroll camera) and
+/// the lighting slot target size. The output width decides the automatic
+/// camera's integer-scale rest widths.
+fn scene_camera_of(
+    kit: &EnvKit,
+    args: &Args,
+    sim: &SceneSim,
+    combat: Option<&CombatState>,
+    window: (u32, u32),
+) -> SceneCam {
+    let choice = args.camera_choice();
+    let aspect = Aspect::from_output(window.0, window.1);
+    let rig = SceneCameraRig::new(
+        RigConfig {
+            choice,
+            aspect,
+            out_w: window.0,
+            bounds: Bounds {
+                w: kit.width,
+                h: kit.height,
+            },
+        },
+        sim,
+        combat,
+        &test_interest(kit, args, elapsed_ticks(sim, combat)),
+        elapsed_ticks(sim, combat),
+    );
+    // The slot targets cover the widest view this rig can show in this room at
+    // this output (the scroll camera: 640, as always).
+    let slot = rig
+        .as_ref()
+        .map_or_else(|| choice.slot_target(aspect, window.0), |r| r.slot_target());
+    SceneCam {
+        rig,
+        slot,
+        reported_rest: None,
+    }
+}
+
+/// The threats of this tick: the synthetic one of `--camera-test-threat`, if
+/// any. Gameplay (the Bad Llama of DEMO-01 PR B) feeds the same
+/// [`CameraInterest`] from its own state.
+fn test_interest(kit: &EnvKit, args: &Args, elapsed: u64) -> CameraInterest {
+    match args.camera_test_threat {
+        Some((x, first, last)) => synthetic_interest(
+            x,
+            to_world_y(kit.height, kit.base_walk_line_y),
+            first,
+            last,
+            elapsed,
+        ),
+        None => CameraInterest::default(),
+    }
+}
+
+/// The view as drawn this frame (layout px, y down): the presentation camera
+/// with the CP-01 kick scaled for its width, or the scroll camera with the kick
+/// at 640 wide.
+fn presentation_view(
+    state: &SceneSim,
+    setup: &Setup,
+    reference: &ReferencePose,
+    combat: &Combat,
+    cam: &SceneCam,
+) -> View {
+    let kick = camera_kick(state, combat);
+    match cam.rig.as_ref() {
+        Some(rig) => rig.presented(kick),
+        None => {
+            let (left, top) = view_origin(state, setup, reference, kick);
+            View {
+                left,
+                top,
+                w: VIRTUAL_WIDTH,
+                h: view_height(setup.args.deck),
+            }
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1190,6 +1379,7 @@ fn run_window(
         args.fixture
     };
     let exit_after = args.exit_after_ticks;
+    let camera = scene_camera_of(&kit, &args, &sim, combat.as_ref(), window_size);
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
     let reference = args.reference_frame.then_some(RefPose {
         carl_x: REFERENCE_CARL_X,
@@ -1305,6 +1495,8 @@ fn run_window(
     .insert_resource(Combat(combat))
     .insert_resource(BossArtRes(boss_art))
     .insert_resource(Death(death))
+    .insert_resource(camera)
+    .init_resource::<Interest>()
     .insert_resource(LiveFixture(live_fixture))
     .insert_resource(HudAtlas(hud_atlas))
     .insert_resource(Setup { kit, args })
@@ -1323,6 +1515,7 @@ fn run_window(
             sync_combat_visuals,
             sync_boss_visuals,
             sync_shore_visuals,
+            sync_blast_visuals,
             sync_death_visuals,
             update_lighting,
             watchdog,
@@ -1331,7 +1524,7 @@ fn run_window(
         )
             .chain(),
     )
-    .add_systems(FixedUpdate, fixed_step);
+    .add_systems(FixedUpdate, (fixed_step, update_scene_camera).chain());
     if lighting_on {
         app.add_plugins(LightPassPlugin);
     }
@@ -1380,11 +1573,15 @@ fn setup(
     death: Res<Death>,
     hud_atlas: Res<HudAtlas>,
     boss_art: Res<BossArtRes>,
+    cam: Res<SceneCam>,
 ) {
     let kit = &setup.kit;
     let args = &setup.args;
     let height = kit.height;
     let view_h = view_height(args.deck);
+    // The lighting slot targets and the parallax copies cover the widest view
+    // of the chosen camera (the scroll camera: 640 wide, as always).
+    let (slot_w, slot_h) = cam.slot;
     let lighting = kit.lighting.as_ref().filter(|_| lighting_on.0);
     // Render layer of a contract layer: its lighting slot, or the default
     // layer when the pass is off.
@@ -1420,7 +1617,7 @@ fn setup(
             &mut meshes,
             &mut materials,
             lighting,
-            UVec2::new(VIRTUAL_WIDTH as u32, view_h as u32),
+            UVec2::new(slot_w as u32, slot_h as u32),
         );
         commands.insert_resource(rig);
     } else {
@@ -1470,7 +1667,7 @@ fn setup(
     // Parallax strips: enough copies to cover the view at any camera offset.
     let mut strip_copies = 0usize;
     for (strip_index, strip) in kit.strips.iter().enumerate() {
-        let copies = (VIRTUAL_WIDTH / strip.rect.w + 2) as usize;
+        let copies = (slot_w / strip.rect.w + 2) as usize;
         for copy in 0..copies {
             commands.spawn((
                 atlas_sprite(&atlas(&strip.atlas), strip.rect),
@@ -1705,6 +1902,36 @@ fn setup(
             combat_entities += 1;
         }
         commands.insert_resource(ShoreImages(images));
+    }
+
+    // DEATH-D: the QA charge (the fizzle loop) and its blast burst, one pair of
+    // pre-spawned sprites per charge of the fixture.
+    if let (Some(blast_art), Some(state)) = (actors.blast.as_ref(), combat.0.as_ref()) {
+        let _ = blast_art;
+        let dynamite: Handle<Image> = asset_server.load(DYNAMITE_IMAGE);
+        let burst: Handle<Image> = asset_server.load(BURST_IMAGE);
+        combat_handles.push((DYNAMITE_IMAGE.to_owned(), dynamite.clone()));
+        combat_handles.push((BURST_IMAGE.to_owned(), burst.clone()));
+        for index in 0..state.charges.len() {
+            for (kind, image) in [
+                (BlastPiece::Charge(index), &dynamite),
+                (BlastPiece::Burst(index), &burst),
+            ] {
+                commands.spawn((
+                    kind,
+                    Sprite {
+                        image: image.clone(),
+                        rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                        ..default()
+                    },
+                    Transform::from_xyz(0.0, 0.0, kit.actor_z - 1.0),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            }
+        }
+        commands.insert_resource(BlastImages { dynamite, burst });
     }
 
     // DEATH-C: the death presenter's sprites, pre-spawned hidden and recycled
@@ -2088,6 +2315,7 @@ fn fixed_step(
     if respawn && let Some(combat) = combat.0.as_mut() {
         combat.respawn(&mut sim.0);
         let _ = combat.take_respawned();
+        controls.camera_cut = true;
         pads.0.party_mut().restart();
         anim.0.reset(&sim.0.world);
         anim.0.reset_art(combat);
@@ -2110,6 +2338,7 @@ fn fixed_step(
         }
         hud.0.restart();
         pads.0.party_mut().restart();
+        controls.camera_cut = true;
         after_exit.0 = 0;
         println!("FLOOR1_RESTART");
     }
@@ -2156,6 +2385,7 @@ fn fixed_step(
             // A party defeat restarted the attempt (or the demo respawned
             // Carl): Carl is controlled again.
             pads.0.party_mut().restart();
+            controls.camera_cut = true;
         }
         print_combat_events(combat, Some(&mut audio));
         if respawned {
@@ -2208,6 +2438,64 @@ fn fixed_step(
     }
 }
 
+/// DEMO-01 PR C: one presentation camera step for the tick the simulation just
+/// finished. Reads the simulation and the interest list through shared
+/// references only; nothing flows back. Called after every simulated tick: by
+/// the fixed schedule (right after `fixed_step`), and inside the loops that step
+/// the simulation by hand (`--capture-sequence`, the `--perf-from-tick` probe),
+/// so the drawn camera is the per-tick camera of `--view-trace` at any frame rate.
+fn camera_tick(
+    cam: &mut SceneCam,
+    interest: &mut Interest,
+    setup: &Setup,
+    sim: &SceneSim,
+    combat: Option<&CombatState>,
+    cut: bool,
+) {
+    let Some(rig) = cam.rig.as_mut() else {
+        return;
+    };
+    if cut {
+        // The explicit signal; the distance check inside `sync` is the fallback.
+        rig.request_cut();
+    }
+    let elapsed = elapsed_ticks(sim, combat);
+    if setup.args.camera_test_threat.is_some() {
+        interest.0 = test_interest(&setup.kit, &setup.args, elapsed);
+    }
+    let view = rig.sync(sim, combat, &interest.0, elapsed);
+    if cam.reported_rest != Some(rig.operator().rest_target()) {
+        cam.reported_rest = Some(rig.operator().rest_target());
+        println!(
+            "FLOOR1_CAMERA_REST tick={elapsed} rest={} view={}x{}",
+            rig.operator().rest_target(),
+            view.w,
+            view.h
+        );
+    }
+}
+
+/// The fixed-schedule camera step: chained after `fixed_step`, it runs once per
+/// simulated tick, with that tick's threat list.
+fn update_scene_camera(
+    mut cam: ResMut<SceneCam>,
+    mut interest: ResMut<Interest>,
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    setup: Res<Setup>,
+    mut controls: ResMut<Controls>,
+) {
+    let cut = std::mem::take(&mut controls.camera_cut);
+    camera_tick(
+        &mut cam,
+        &mut interest,
+        &setup,
+        &sim.0,
+        combat.0.as_ref(),
+        cut,
+    );
+}
+
 /// Where one actor stands this frame, as drawn (y-up world feet height).
 #[derive(Clone, Copy)]
 struct ActorPose {
@@ -2237,7 +2525,12 @@ fn view_origin(
             return (view.x, view.y);
         }
     }
-    let widest = (setup.kit.width - VIRTUAL_WIDTH).max(0);
+    scroll_origin(state, setup.kit.width, kick)
+}
+
+/// The scroll camera's view top-left plus the kick, kept inside the layout.
+fn scroll_origin(state: &SceneSim, layout_width: i32, kick: i32) -> (i32, i32) {
+    let widest = (layout_width - VIRTUAL_WIDTH).max(0);
     (
         (state.camera.left() + kick).clamp(0, widest),
         state.camera.top(),
@@ -2347,7 +2640,16 @@ fn sync_visuals(
     after_exit: Res<AfterExitTicks>,
     setup: Res<Setup>,
     reference: Res<ReferencePose>,
-    mut cameras: Query<&mut Transform, With<SceneCamera>>,
+    cam: Res<SceneCam>,
+    mut cameras: Query<
+        (
+            &mut Transform,
+            Option<&mut Camera>,
+            Option<&mut Projection>,
+            Option<&RenderTarget>,
+        ),
+        With<SceneCamera>,
+    >,
     mut parallax: Query<
         (&Parallax, &mut Transform, &mut Visibility),
         (Without<SceneCamera>, Without<ActorVisual>, Without<HeroBox>),
@@ -2370,21 +2672,43 @@ fn sync_visuals(
     let kit = &setup.kit;
     let state = &sim.0;
     let height = kit.height;
-    let view_h = view_height(setup.args.deck);
-    let (left, top) = view_origin(state, &setup, &reference, camera_kick(state, &combat));
+    let view = presentation_view(state, &setup, &reference, &combat, &cam);
+    let (left, top) = (view.left, view.top);
     let anim_tick = presentation_tick(state, &after_exit, &reference);
 
     // Every scene camera (the plain one, or the lighting slot cameras and the
     // debug overlay camera) sits on the same whole-pixel position.
-    for mut transform in &mut cameras {
-        transform.translation.x = (left + VIRTUAL_WIDTH / 2) as f32;
-        transform.translation.y = to_world_y(height, top + view_h / 2);
+    for (mut transform, camera, projection, target) in &mut cameras {
+        transform.translation.x = (left + view.w / 2) as f32;
+        transform.translation.y = to_world_y(height, top + view.h / 2);
+        if cam.rig.is_none() {
+            continue;
+        }
+        // The presentation camera changes how much world the view shows: the
+        // projection covers exactly the current view, and a lighting slot
+        // camera draws it 1:1 into the top-left region of its (largest-view)
+        // target. The composite pass lights that region at output resolution.
+        if let Some(mut projection) = projection
+            && let Projection::Orthographic(ortho) = projection.as_mut()
+        {
+            ortho.scaling_mode = ScalingMode::Fixed {
+                width: view.w as f32,
+                height: view.h as f32,
+            };
+        }
+        if let (Some(mut camera), Some(RenderTarget::Image(_))) = (camera, target) {
+            camera.viewport = Some(Viewport {
+                physical_position: UVec2::ZERO,
+                physical_size: UVec2::new(view.w as u32, view.h as u32),
+                ..default()
+            });
+        }
     }
 
     for (strip_marker, mut transform, mut visibility) in &mut parallax {
         let strip = &kit.strips[strip_marker.strip];
         let start = parallax_start(strip.x_origin, left, strip.factor);
-        let copies = parallax_copies(start, strip.rect.w, left, VIRTUAL_WIDTH);
+        let copies = parallax_copies(start, strip.rect.w, left, view.w);
         match copies.get(strip_marker.copy) {
             Some(x) => {
                 transform.translation.x = *x as f32;
@@ -2826,6 +3150,112 @@ fn sync_shore_visuals(
     }
 }
 
+/// DEATH-D: the QA charge as the `dynamite_fizzle` loop from the first tick of
+/// the attempt until it detonates, then the VFX-01 `burst` once, centred on the
+/// blast centre. Both sit on the blast layer (`actor_z - 0.45`: over the floor
+/// decals and the props, under the debris and every actor). Reads the
+/// simulation only.
+#[allow(clippy::type_complexity)]
+fn sync_blast_visuals(
+    combat: Res<Combat>,
+    death: Res<Death>,
+    sim: Res<Sim>,
+    actors: Res<Actors>,
+    setup: Res<Setup>,
+    images: Option<Res<BlastImages>>,
+    mut pieces: Query<(&BlastPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
+) {
+    let (Some(state), Some(art), Some(images)) = (combat.0.as_ref(), actors.blast.as_ref(), images)
+    else {
+        return;
+    };
+    let tick = sim.0.world.tick;
+    let actor_z = setup.kit.actor_z;
+    let wall_z = setup
+        .kit
+        .pieces
+        .iter()
+        .find(|p| p.layer == "backwall_decal")
+        .map_or(3.0, |p| p.z.floor());
+    // Preset 4 punch-up (presentation only): the burst is bigger, drawn over
+    // the debris and flashes bright for its first ticks.
+    let table = explosion_table(death.0.as_ref().map_or(GorePreset::Full, |p| p.preset()));
+    let punched = table.burst_scale > 1.0;
+    let dynamite_spec = ActorSpec {
+        name: "qa_charge",
+        width: 24,
+        height: 24,
+        pivot_x: 12,
+        pivot_y: 12,
+        shadow_width: 0,
+        shadow_pivot_x: 0,
+    };
+    let to_rect = |r: [i32; 4]| {
+        Rect::new(
+            r[0] as f32,
+            r[1] as f32,
+            (r[0] + r[2]) as f32,
+            (r[1] + r[3]) as f32,
+        )
+    };
+    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+        let (index, burst) = match *piece {
+            BlastPiece::Charge(i) => (i, false),
+            BlastPiece::Burst(i) => (i, true),
+        };
+        let Some(charge) = state.charges.get(index) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        if burst {
+            let layer = if punched {
+                DrawLayer::BlastFront
+            } else {
+                DrawLayer::Blast
+            };
+            let z = draw_z(layer, index, actor_z, wall_z);
+            let frame = charge
+                .detonated
+                .then(|| blast_vfx_frame(tick, charge.detonate_tick))
+                .flatten();
+            match frame {
+                Some(frame) => {
+                    let (cx, cy) = (charge.x, charge.foot_y + BLAST_CENTRE_DY);
+                    transform.translation = Vec3::new(cx.round(), cy.round(), z);
+                    transform.scale = Vec3::new(table.burst_scale, table.burst_scale, 1.0);
+                    sprite.image = images.burst.clone();
+                    sprite.rect = Some(to_rect(art.burst_rect(frame)));
+                    // The flash: the existing impact tint for the first ticks.
+                    let age = tick.saturating_sub(charge.detonate_tick);
+                    sprite.color = if age < table.flash_ticks {
+                        FLASH_TINT
+                    } else {
+                        Color::WHITE
+                    };
+                    *visibility = Visibility::Inherited;
+                }
+                None => *visibility = Visibility::Hidden,
+            }
+        } else if charge.detonated {
+            *visibility = Visibility::Hidden;
+        } else {
+            // The lit charge: above the goblins, below Carl (it was under every
+            // actor and hidden by the goblin standing on it).
+            let z = draw_z(DrawLayer::ChargeLit, index, actor_z, wall_z);
+            let (cx, cy) = actor_center(dynamite_spec, charge.x, charge.foot_y, false);
+            transform.translation = Vec3::new(cx, cy, z);
+            sprite.image = images.dynamite.clone();
+            // A Carl-armed charge lies still until he passes; its fizzle loop
+            // counts from the arming.
+            let lit_for = tick.saturating_sub(charge.armed_tick.unwrap_or(0));
+            sprite.rect = Some(to_rect(
+                art.dynamite_rect(charge_draw_frame(charge.lit(), lit_for)),
+            ));
+            *visibility = Visibility::Inherited;
+        }
+    }
+}
+
 /// DEATH-C: draw the presenter's state. Reads the presenter only; the death
 /// pose replaces the goblin's GOB-01 sprite, and every piece sits under the
 /// actors (`draw_z`), so nothing is ever drawn over Carl or Donut.
@@ -2850,8 +3280,9 @@ fn sync_death_visuals(
     let art = presenter.art();
     // A death pose replaces the goblin sprite; a retired corpse is drawn no
     // more and a retiring one fades out (the GOB-01 corpse sprite included).
+    // DEATH-D: an exploded goblin (presets 2 to 4) is replaced by its pieces.
     let hide_goblin = |index: usize| {
-        presenter.pose_of(index as u32).is_some() || presenter.is_retired(index as u32)
+        presenter.pose_of(index as u32).is_some() || !presenter.draws_goblin(index as u32)
     };
     for (goblin, mut visibility, mut sprite) in &mut goblins {
         *visibility = if hide_goblin(goblin.index) {
@@ -2919,7 +3350,9 @@ fn sync_death_visuals(
                 let shown = decal.and_then(|d| {
                     let meta = if second { d.pair_meta? } else { d.meta };
                     let offset = if second {
-                        art.parts[d.meta].pair_offset.map_or(0.0, |o| o[0] as f32)
+                        art.parts[d.meta]
+                            .pair_offset
+                            .map_or(0.0, |o| o[0] as f32 * d.scale)
                     } else {
                         0.0
                     };
@@ -2932,6 +3365,7 @@ fn sync_death_visuals(
                             d.y.round(),
                             draw_z(DrawLayer::FloorDecal, slot, actor_z, look.wall_z),
                         );
+                        transform.scale = Vec3::new(d.scale, d.scale, 1.0);
                         sprite.flip_x = d.flip;
                         sprite.color =
                             Color::srgba(1.0, 1.0, 1.0, presenter.floor_decal_alpha(slot, d));
@@ -2948,6 +3382,7 @@ fn sync_death_visuals(
                         d.y.round(),
                         draw_z(DrawLayer::WallDecal, slot, actor_z, look.wall_z),
                     );
+                    transform.scale = Vec3::new(d.scale, d.scale, 1.0);
                     sprite.flip_x = d.flip;
                     sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.wall_decal_alpha(slot, d));
                     set_atlas(&mut sprite, art.parts[d.meta].frame);
@@ -2989,6 +3424,8 @@ fn update_lighting(
     setup: Res<Setup>,
     reference: Res<ReferencePose>,
     combat: Res<Combat>,
+    death: Res<Death>,
+    cam: Res<SceneCam>,
     windows: Query<&Window, With<PrimaryWindow>>,
     materials: Option<ResMut<Assets<LightingMaterial>>>,
     mut dropped_reported: Local<bool>,
@@ -3001,14 +3438,13 @@ fn update_lighting(
         return;
     };
     let state = &sim.0;
-    let view_h = view_height(setup.args.deck);
-    let (left, top) = view_origin(state, &setup, &reference, camera_kick(state, &combat));
+    let drawn = presentation_view(state, &setup, &reference, &combat, &cam);
     let tick = presentation_tick(state, &after_exit, &reference);
     let view = ViewRect {
-        left,
-        top,
-        w: VIRTUAL_WIDTH,
-        h: view_h,
+        left: drawn.left,
+        top: drawn.top,
+        w: drawn.w,
+        h: drawn.h,
     };
     let (gathered, dropped) = scene.gather(kit, view, tick);
     if dropped > 0 && !*dropped_reported {
@@ -3072,6 +3508,15 @@ fn update_lighting(
                 ));
             };
             for (index, goblin) in combat.enemies.iter().enumerate() {
+                // No shadow under a goblin whose body is hidden (an explosion)
+                // or retired: nothing is drawn above it.
+                if death
+                    .0
+                    .as_ref()
+                    .is_some_and(|presenter| !presenter.draws_goblin(index as u32))
+                {
+                    continue;
+                }
                 put(
                     art.goblin_clips(index),
                     &art.goblin_pose(index),
@@ -3085,9 +3530,9 @@ fn update_lighting(
         scene,
         gathered: &gathered,
         shadows: &shadows,
-        view_w: VIRTUAL_WIDTH as u32,
-        view_h: view_h as u32,
-        view_top: top,
+        view_w: drawn.w as u32,
+        view_h: drawn.h as u32,
+        view_top: drawn.top,
     };
     let window_px = Vec2::new(
         window.physical_width() as f32,
@@ -3156,6 +3601,8 @@ fn perf_step(
     mut anim: ResMut<Anim>,
     mut combat: ResMut<Combat>,
     mut death: ResMut<Death>,
+    mut cam: ResMut<SceneCam>,
+    mut interest: ResMut<Interest>,
 ) {
     let Some(mut perf) = perf else { return };
     if !perf.step_ticks || loading.is_some_and(|l| !l.reported) || perf.seen < perf.warmup {
@@ -3180,6 +3627,15 @@ fn perf_step(
         death.stress_tick(hero.x, hero.y - HERO_HALF_HEIGHT);
     }
     perf.tick_us.push(started.elapsed().as_secs_f32() * 1e6);
+    // This probe steps the simulation outside the fixed schedule.
+    camera_tick(
+        &mut cam,
+        &mut interest,
+        &setup,
+        &sim.0,
+        Some(&*combat),
+        false,
+    );
 }
 
 /// Resident and peak resident memory of this process in MiB (Linux
@@ -3407,6 +3863,8 @@ fn capture_sequence(
     mut anim: ResMut<Anim>,
     mut combat: ResMut<Combat>,
     mut death: ResMut<Death>,
+    mut cam: ResMut<SceneCam>,
+    mut interest: ResMut<Interest>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut seq) = seq else { return };
@@ -3496,6 +3954,15 @@ fn capture_sequence(
                     sim.0.step(raw);
                     anim.0.step(&sim.0.world);
                 }
+                // One camera step per simulated tick, as in the live loop.
+                camera_tick(
+                    &mut cam,
+                    &mut interest,
+                    &setup,
+                    &sim.0,
+                    combat.0.as_ref(),
+                    false,
+                );
             }
             CapturePhase::Settle(CAPTURE_SETTLE_FRAMES)
         }
@@ -3507,6 +3974,11 @@ fn capture_sequence(
 fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<(), String> {
     if kit.solid_rects.is_empty() || kit.tiles.is_empty() {
         return Err("layout produced no tiles or no solids".into());
+    }
+    if args.view_trace {
+        // The view trace runs on any layout (the corridor checks below assume
+        // the sample corridor, not a camera test room).
+        return view_trace(kit, args, actors, root);
     }
     if args.boss {
         println!(
@@ -3598,6 +4070,92 @@ fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> 
     let (sim, anim, _, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
+    Ok(())
+}
+
+/// `--view-trace`: one `FLOOR1_VIEW` line per simulated tick with the view the
+/// presentation would draw (the CP-01 kick included), for the fixture's script
+/// or the scenario (default: walk right for 600 ticks), then the final state
+/// hash. The trace is the same for any lighting, audio or gore setting, and the
+/// hash is the same for any `--camera`.
+fn view_trace(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<(), String> {
+    let mut start = args.clone();
+    start.capture_tick = Some(0);
+    start.capture_sequence = None;
+    start.perf_from_tick = None;
+    let mut hud = new_hud(&start, kit, actors);
+    let (mut sim, mut anim, mut combat, mut death, _party) =
+        build_scene(kit, &start, actors, root, &mut hud)?;
+    let ticks = args
+        .capture_tick
+        .or(args.fixture.map(|f| f.ticks))
+        .unwrap_or(600);
+    let window = (
+        VIRTUAL_WIDTH as u32 * args.scale,
+        view_height(args.deck) as u32 * args.scale,
+    );
+    let scene_camera = scene_camera_of(kit, args, &sim, combat.as_ref(), window);
+    let mut rig = scene_camera.rig;
+    println!(
+        "FLOOR1_VIEW_TRACE camera={} output={}x{} slot={}x{}",
+        args.camera_choice().label(),
+        window.0,
+        window.1,
+        scene_camera.slot.0,
+        scene_camera.slot.1
+    );
+    let scenario = args.scenario.unwrap_or(Scenario::WalkRight);
+    for _ in 0..ticks {
+        let mut cut = false;
+        match (args.fixture, combat.as_mut()) {
+            (Some(fixture), Some(combat)) => {
+                // The demo trace is the autopilot's recorded run of the route.
+                let raw = if args.demo {
+                    demo::autopilot(combat, &sim)
+                } else {
+                    fixture.input(sim.world.tick + 1)
+                };
+                cut = step_combat(
+                    &mut sim,
+                    combat,
+                    &mut anim,
+                    death.as_mut(),
+                    [raw, RawInput::default()],
+                );
+            }
+            _ => {
+                let raw = scenario.input(&sim.world);
+                sim.step(raw);
+                anim.step(&sim.world);
+            }
+        }
+        let elapsed = elapsed_ticks(&sim, combat.as_ref());
+        let kick = combat.as_ref().map_or(0, |c| c.camera_kick(sim.world.tick));
+        match rig.as_mut() {
+            Some(rig) => {
+                let interest = test_interest(kit, args, elapsed);
+                if cut {
+                    rig.request_cut();
+                }
+                rig.sync(&sim, combat.as_ref(), &interest, elapsed);
+                println!("{}", rig.trace_line(elapsed, kick));
+            }
+            None => {
+                let (left, top) = scroll_origin(&sim, kit.width, kick);
+                println!(
+                    "FLOOR1_VIEW tick={elapsed} left={left} top={top} w={VIRTUAL_WIDTH} h={} rest=0 kick={kick} kick_px={kick}",
+                    view_height(args.deck)
+                );
+            }
+        }
+    }
+    println!("{}", sim.state_line());
+    if let Some(combat) = combat.as_ref() {
+        println!(
+            "FLOOR1_VIEW_TRACE_HASH combat={:016x}",
+            combat.state_hash(&sim)
+        );
+    }
     Ok(())
 }
 
@@ -3740,7 +4298,17 @@ mod tests {
         assert!(args(&["--gore-preset"]).is_err());
         // The lab flags need a fixture; stress is live only; the trace is headless only.
         assert!(args(&["--death-stress"]).is_err());
+        // DEATH-D: the decapitation lab flag is gone (it is an unknown argument).
         assert!(args(&["--death-lab-finish", "decapitated"]).is_err());
+        assert!(
+            args(&[
+                "--fixture",
+                "cp03_shore_kill",
+                "--death-lab-finish",
+                "decapitated"
+            ])
+            .is_err()
+        );
         assert!(args(&["--fixture", "cp03_shore_kill", "--death-trace"]).is_err());
         assert!(
             args(&[
@@ -3760,7 +4328,6 @@ mod tests {
             ])
             .is_err()
         );
-        assert!(args(&["--fixture", "cp03_shore_kill", "--death-lab-finish", "bomb"]).is_err());
     }
 
     #[test]
@@ -3771,9 +4338,25 @@ mod tests {
         let lowest_actor = 7.0 + GOBLIN_LYING_Z_OFFSET - GOBLIN_Z_STEP * 64.0;
         let slots = PART_POOL_SLOTS.max(FLOOR_DECAL_POOL_SLOTS);
         for slot in [0, slots - 1] {
-            for layer in [DrawLayer::Debris, DrawLayer::FloorDecal] {
+            for layer in [DrawLayer::Debris, DrawLayer::FloorDecal, DrawLayer::Blast] {
                 assert!(draw_z(layer, slot, 7.0, 3.0) < lowest_actor, "{layer:?}");
             }
+        }
+        // DEATH-D: the charge and the burst sit between the floor decals and
+        // the debris (every charge slot is below the first debris piece).
+        for slot in 0..8 {
+            let blast = draw_z(DrawLayer::Blast, slot, 7.0, 3.0);
+            assert!(blast > draw_z(DrawLayer::FloorDecal, slots - 1, 7.0, 3.0));
+            assert!(blast < draw_z(DrawLayer::Debris, 0, 7.0, 3.0));
+        }
+        // The preset 4 burst is over the debris and under every actor; the lit
+        // charge is over a standing goblin (+0.05) and under Carl (+0.1).
+        let debris_top = draw_z(DrawLayer::Debris, PART_POOL_SLOTS, 7.0, 3.0);
+        for slot in 0..8 {
+            let front = draw_z(DrawLayer::BlastFront, slot, 7.0, 3.0);
+            assert!(front > debris_top && front < lowest_actor);
+            let lit = draw_z(DrawLayer::ChargeLit, slot, 7.0, 3.0);
+            assert!(lit > 7.0 + 0.05 && lit < 7.0 + CARL_Z_OFFSET);
         }
         assert!(draw_z(DrawLayer::WallDecal, WALL_DECAL_POOL_SLOTS, 7.0, 3.0) < 4.0);
     }
@@ -3998,6 +4581,25 @@ mod tests {
         assert!(args(&["--scenario", "fly"]).is_err());
         assert!(args(&["--bogus"]).is_err());
         assert_eq!(args(&[]).unwrap().scale, 2);
+    }
+
+    #[test]
+    fn the_automatic_camera_is_the_demo_default_and_nothing_else_changes() {
+        let demo = args(&["--demo", "--scale", "3"]).unwrap();
+        assert_eq!(demo.camera_choice(), CameraChoice::Auto);
+        let scroll = args(&["--demo", "--camera", "scroll", "--scale", "3"]).unwrap();
+        assert_eq!(scroll.camera_choice(), CameraChoice::Scroll);
+        // Every fixture, scenario and capture keeps the scroll camera.
+        for list in [
+            vec!["--fixture", "cp01_kick"],
+            vec!["--scenario", "walk_right"],
+            vec![],
+        ] {
+            assert_eq!(args(&list).unwrap().camera_choice(), CameraChoice::Scroll);
+        }
+        // The test room and the demo hall are two different rooms.
+        assert!(args(&["--demo", "--camera-test-room", "1"]).is_err());
+        assert!(args(&["--camera-test-room", "1"]).is_ok());
     }
 
     #[test]

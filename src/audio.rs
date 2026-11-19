@@ -871,6 +871,7 @@ mod tests {
                 }],
                 shore_dx: None,
                 boss: None,
+                charges: &[],
                 script: &[],
                 ticks: 100,
             };

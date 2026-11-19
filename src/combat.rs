@@ -841,15 +841,39 @@ pub enum DefeatCause {
     /// to the player who dropped it. A new variant beside `ShoreBlock`, so the
     /// CP-03 hashes and goldens stay byte-identical (no hash migration).
     DropHazard { player: u32, rack: u8 },
+    /// DEATH-D: the block's vertical edge came down across an upright
+    /// target's neck (head under the stone, torso outside it). The same
+    /// landing and the same state change as [`Self::ShoreBlock`]; only the
+    /// cause differs, so a shear finish can be selected.
+    ShoreBlockEdge { player: u32 },
+    /// DEATH-D: a blast charge reached the target. `point_blank` is the
+    /// charge centre inside the target's body box (the burst); otherwise the
+    /// target was within the blast radius (thrown). `player` is the charge's
+    /// owner, if any (a QA fixture charge has none).
+    Explosion {
+        charge: u32,
+        player: Option<u32>,
+        point_blank: bool,
+    },
 }
 
 impl DefeatCause {
     /// The force tier a cause implies when nothing stronger is recorded: a
-    /// melee hit is routine, a falling block is catastrophic.
+    /// melee hit is routine, a falling block (or its edge) is catastrophic, a
+    /// point blank blast is catastrophic and a blast ring heavy.
     pub const fn default_force(self) -> ForceTier {
         match self {
             Self::Melee => ForceTier::Routine,
-            Self::ShoreBlock { .. } | Self::DropHazard { .. } => ForceTier::Catastrophic,
+            Self::ShoreBlock { .. } | Self::ShoreBlockEdge { .. } | Self::DropHazard { .. } => {
+                ForceTier::Catastrophic
+            }
+            Self::Explosion { point_blank, .. } => {
+                if point_blank {
+                    ForceTier::Catastrophic
+                } else {
+                    ForceTier::Heavy
+                }
+            }
         }
     }
 
@@ -861,7 +885,16 @@ impl DefeatCause {
     pub const fn derived_forces(self) -> &'static [ForceTier] {
         match self {
             Self::Melee => &[ForceTier::Routine, ForceTier::Heavy],
-            Self::ShoreBlock { .. } | Self::DropHazard { .. } => &[ForceTier::Catastrophic],
+            Self::ShoreBlock { .. } | Self::ShoreBlockEdge { .. } | Self::DropHazard { .. } => {
+                &[ForceTier::Catastrophic]
+            }
+            Self::Explosion { point_blank, .. } => {
+                if point_blank {
+                    &[ForceTier::Catastrophic]
+                } else {
+                    &[ForceTier::Heavy]
+                }
+            }
         }
     }
 
@@ -871,7 +904,7 @@ impl DefeatCause {
     pub const fn implied_instigator(self) -> Option<u32> {
         match self {
             Self::Melee => Some(0),
-            Self::ShoreBlock { .. } => None,
+            Self::ShoreBlock { .. } | Self::ShoreBlockEdge { .. } | Self::Explosion { .. } => None,
             Self::DropHazard { player, .. } => Some(player),
         }
     }
@@ -998,6 +1031,12 @@ pub enum CombatEvent {
     /// CP-03: the block landed; the hazard footprint was evaluated once.
     ShoreLanded {
         tick: u64,
+    },
+    /// DEATH-D: a blast charge detonated (once, on its fixture tick); the
+    /// defeats it caused follow as `EnemyDefeated` events.
+    Blast {
+        tick: u64,
+        charge: u32,
     },
     /// DEMO-01: Carl stood up again at checkpoint `checkpoint` (the demo's
     /// respawn: defeated enemies stay defeated). Emitted only in the demo.
@@ -1132,9 +1171,27 @@ impl CombatEvent {
                 mix(tick);
                 mix(u64::from(target));
                 // Mixed only for a non-melee cause: melee replays keep their hash.
-                if let DefeatCause::ShoreBlock { player } = cause {
-                    mix(0x5348_4f52);
-                    mix(u64::from(player));
+                match cause {
+                    DefeatCause::Melee | DefeatCause::DropHazard { .. } => {}
+                    DefeatCause::ShoreBlock { player } => {
+                        mix(0x5348_4f52);
+                        mix(u64::from(player));
+                    }
+                    // DEATH-D tags ("EDGE", "BLST"): new words only for new causes.
+                    DefeatCause::ShoreBlockEdge { player } => {
+                        mix(0x4544_4745);
+                        mix(u64::from(player));
+                    }
+                    DefeatCause::Explosion {
+                        charge,
+                        player,
+                        point_blank,
+                    } => {
+                        mix(0x424c_5354);
+                        mix(u64::from(charge));
+                        mix(player.map_or(0, |p| u64::from(p) + 1));
+                        mix(u64::from(point_blank));
+                    }
                 }
                 if let DefeatCause::DropHazard { player, rack } = cause {
                     mix(0x4452_4f50);
@@ -1224,6 +1281,11 @@ impl CombatEvent {
             Self::ShoreLanded { tick } => {
                 mix(13);
                 mix(tick);
+            }
+            Self::Blast { tick, charge } => {
+                mix(14);
+                mix(tick);
+                mix(u64::from(charge));
             }
             Self::Respawn { tick, checkpoint } => {
                 // A tag far from the combat tags: DEMO-01 only.
@@ -1337,8 +1399,27 @@ impl fmt::Display for CombatEvent {
                     f,
                     "COMBAT_EVENT tick={tick} kind=enemy_defeated target={target}"
                 )?;
-                if let DefeatCause::ShoreBlock { player } = cause {
-                    write!(f, " cause=shore_block credit_player={player}")?;
+                match cause {
+                    DefeatCause::Melee | DefeatCause::DropHazard { .. } => {}
+                    DefeatCause::ShoreBlock { player } => {
+                        write!(f, " cause=shore_block credit_player={player}")?;
+                    }
+                    DefeatCause::ShoreBlockEdge { player } => {
+                        write!(f, " cause=shore_block_edge credit_player={player}")?;
+                    }
+                    DefeatCause::Explosion {
+                        charge,
+                        player,
+                        point_blank,
+                    } => {
+                        write!(f, " cause=explosion charge={charge}")?;
+                        if let Some(player) = player {
+                            write!(f, " credit_player={player}")?;
+                        }
+                        if point_blank {
+                            write!(f, " point_blank")?;
+                        }
+                    }
                 }
                 if let DefeatCause::DropHazard { player, rack } = cause {
                     write!(f, " cause=drop_hazard credit_player={player} rack={rack}")?;
@@ -1422,6 +1503,9 @@ impl fmt::Display for CombatEvent {
             }
             Self::ShoreLanded { tick } => {
                 write!(f, "COMBAT_EVENT tick={tick} kind=shore_landed")
+            }
+            Self::Blast { tick, charge } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=blast charge={charge}")
             }
             Self::Respawn { tick, checkpoint } => {
                 write!(
@@ -1920,5 +2004,243 @@ mod tests {
         );
         // Invulnerable: no second hit.
         assert!(!enemy.contact(enemy.x, enemy.y, &mut health, &mut invulnerable));
+    }
+
+    // ---- DEATH-D: the new causes, the blast event and the pinned words ----
+
+    const EDGE_CAUSE: DefeatCause = DefeatCause::ShoreBlockEdge { player: 0 };
+    const BLAST_PB: DefeatCause = DefeatCause::Explosion {
+        charge: 2,
+        player: Some(1),
+        point_blank: true,
+    };
+    const BLAST_RING: DefeatCause = DefeatCause::Explosion {
+        charge: 2,
+        player: None,
+        point_blank: false,
+    };
+
+    fn defeated(cause: DefeatCause, instigator: Option<u32>) -> CombatEvent {
+        CombatEvent::enemy_defeated(9, 3, cause, instigator, None)
+    }
+
+    fn words(event: &CombatEvent) -> Vec<u64> {
+        let mut out = Vec::new();
+        event.mix_into(&mut |w| out.push(w));
+        out
+    }
+
+    #[test]
+    fn the_new_causes_derive_force_forces_and_instigator() {
+        assert_eq!(EDGE_CAUSE.default_force(), ForceTier::Catastrophic);
+        assert_eq!(EDGE_CAUSE.derived_forces(), [ForceTier::Catastrophic]);
+        assert_eq!(EDGE_CAUSE.implied_instigator(), None);
+        assert_eq!(BLAST_PB.default_force(), ForceTier::Catastrophic);
+        assert_eq!(BLAST_PB.derived_forces(), [ForceTier::Catastrophic]);
+        assert_eq!(BLAST_RING.default_force(), ForceTier::Heavy);
+        assert_eq!(BLAST_RING.derived_forces(), [ForceTier::Heavy]);
+        assert_eq!(BLAST_PB.implied_instigator(), None);
+        assert_eq!(BLAST_RING.implied_instigator(), None);
+        // The one constructor derives every tier (never passed in).
+        for (cause, want) in [
+            (EDGE_CAUSE, ForceTier::Catastrophic),
+            (BLAST_PB, ForceTier::Catastrophic),
+            (BLAST_RING, ForceTier::Heavy),
+        ] {
+            let CombatEvent::EnemyDefeated { force, .. } = defeated(cause, None) else {
+                unreachable!();
+            };
+            assert_eq!(force, want, "{cause:?}");
+            assert!(cause.derived_forces().contains(&force));
+        }
+    }
+
+    #[test]
+    fn the_hash_words_of_every_existing_variant_are_pinned_literally() {
+        // Proof that DEATH-D changed no earlier word.
+        let jab = MoveId::Jab as u64;
+        assert_eq!(
+            words(&CombatEvent::MoveStarted {
+                tick: 5,
+                move_id: MoveId::Jab,
+                instance: 2
+            }),
+            [1, 5, jab, 2]
+        );
+        assert_eq!(
+            words(&CombatEvent::Hit {
+                tick: 5,
+                move_id: MoveId::Jab,
+                instance: 2,
+                target: 1,
+                damage: 1,
+                health_left: 0,
+                hit_stop: 4
+            }),
+            [2, 5, jab, 2, 1, 1, 0, 4]
+        );
+        assert_eq!(words(&defeated(DefeatCause::Melee, Some(0))), [3, 9, 3]);
+        assert_eq!(
+            words(&defeated(DefeatCause::ShoreBlock { player: 0 }, None)),
+            [3, 9, 3, 0x5348_4f52, 0]
+        );
+        assert_eq!(
+            words(&defeated(DefeatCause::ShoreBlock { player: 0 }, Some(0))),
+            [3, 9, 3, 0x5348_4f52, 0, 0x494e_5354, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::HeroHurt {
+                tick: 5,
+                source: 1,
+                health_left: 3,
+                hero: HeroId::Carl
+            }),
+            [4, 5, 1, 3]
+        );
+        assert_eq!(
+            words(&CombatEvent::HeroDefeated {
+                tick: 5,
+                hero: HeroId::Carl
+            }),
+            [5, 5]
+        );
+        assert_eq!(
+            words(&CombatEvent::Restart { tick: 5, deaths: 2 }),
+            [6, 5, 2]
+        );
+        assert_eq!(
+            words(&CombatEvent::GoblinTell { tick: 5, goblin: 1 }),
+            [7, 5, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::GoblinSwing { tick: 5, goblin: 1 }),
+            [8, 5, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::GoblinInterrupted { tick: 5, goblin: 1 }),
+            [9, 5, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::GoblinContact {
+                tick: 5,
+                launch: 4,
+                source: 1,
+                target: 2
+            }),
+            [10, 5, 4, 1, 2]
+        );
+        assert_eq!(
+            words(&CombatEvent::ShoreHit {
+                tick: 5,
+                instance: 2,
+                hits: 3
+            }),
+            [11, 5, 2, 3]
+        );
+        assert_eq!(
+            words(&CombatEvent::ShoreBroken { tick: 5, player: 0 }),
+            [12, 5, 0]
+        );
+        assert_eq!(words(&CombatEvent::ShoreLanded { tick: 5 }), [13, 5]);
+    }
+
+    #[test]
+    fn the_hash_words_of_the_new_causes_and_the_blast_event() {
+        assert_eq!(
+            words(&defeated(EDGE_CAUSE, None)),
+            [3, 9, 3, 0x4544_4745, 0]
+        );
+        assert_eq!(
+            words(&defeated(EDGE_CAUSE, Some(0))),
+            [3, 9, 3, 0x4544_4745, 0, 0x494e_5354, 1],
+            "a kicked goblin keeps its instigator"
+        );
+        // charge 2, owner 1 (mixed as 2), point blank.
+        assert_eq!(
+            words(&defeated(BLAST_PB, None)),
+            [3, 9, 3, 0x424c_5354, 2, 2, 1]
+        );
+        // charge 2, no owner (0), ring.
+        assert_eq!(
+            words(&defeated(BLAST_RING, None)),
+            [3, 9, 3, 0x424c_5354, 2, 0, 0]
+        );
+        assert_eq!(
+            words(&defeated(BLAST_RING, Some(0))),
+            [3, 9, 3, 0x424c_5354, 2, 0, 0, 0x494e_5354, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::Blast {
+                tick: 60,
+                charge: 1
+            }),
+            [14, 60, 1]
+        );
+        // The force is derived, not mixed: point blank and ring differ by the
+        // point_blank word only.
+        assert_ne!(
+            words(&defeated(BLAST_PB, None)),
+            words(&defeated(BLAST_RING, None))
+        );
+    }
+
+    #[test]
+    fn the_log_lines_of_the_new_events() {
+        let line = |e: CombatEvent| e.to_string();
+        assert_eq!(
+            line(CombatEvent::EnemyDefeated {
+                tick: 139,
+                target: 0,
+                cause: EDGE_CAUSE,
+                force: ForceTier::Catastrophic,
+                instigator: None,
+            }),
+            "COMBAT_EVENT tick=139 kind=enemy_defeated target=0 cause=shore_block_edge credit_player=0"
+        );
+        assert_eq!(
+            line(CombatEvent::Blast {
+                tick: 60,
+                charge: 0
+            }),
+            "COMBAT_EVENT tick=60 kind=blast charge=0"
+        );
+        let pb = DefeatCause::Explosion {
+            charge: 0,
+            player: None,
+            point_blank: true,
+        };
+        let ring = DefeatCause::Explosion {
+            charge: 0,
+            player: None,
+            point_blank: false,
+        };
+        assert_eq!(
+            line(defeated_at(60, 0, pb, None)),
+            "COMBAT_EVENT tick=60 kind=enemy_defeated target=0 cause=explosion charge=0 point_blank"
+        );
+        assert_eq!(
+            line(defeated_at(60, 1, ring, None)),
+            "COMBAT_EVENT tick=60 kind=enemy_defeated target=1 cause=explosion charge=0"
+        );
+        // An owned charge adds the credit before point_blank; a goblin Carl had
+        // hit keeps its instigator at the end.
+        let owned = DefeatCause::Explosion {
+            charge: 1,
+            player: Some(0),
+            point_blank: true,
+        };
+        assert_eq!(
+            line(defeated_at(60, 2, owned, Some(0))),
+            "COMBAT_EVENT tick=60 kind=enemy_defeated target=2 cause=explosion charge=1 credit_player=0 point_blank instigator=0"
+        );
+    }
+
+    fn defeated_at(
+        tick: u64,
+        target: u32,
+        cause: DefeatCause,
+        instigator: Option<u32>,
+    ) -> CombatEvent {
+        CombatEvent::enemy_defeated(tick, target, cause, instigator, None)
     }
 }
