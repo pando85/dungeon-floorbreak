@@ -82,6 +82,10 @@ struct Args {
     idle: bool,
     /// Print the camera metrics table for every room and coverage (headless).
     metrics: bool,
+    /// Headless: one `LAB_VIEW` line per tick (the camera's presentation trace).
+    view_trace: bool,
+    /// Windowed: append one `LAB_FRAME` line per rendered frame to this file.
+    frame_trace: Option<PathBuf>,
     /// 2P leash in px: the default 416 (same-screen co-op at 1.0x) or `wide`
     /// (736). A scenario choice, never derived from the output.
     leash: f32,
@@ -105,6 +109,8 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
         separate: None,
         idle: false,
         metrics: false,
+        view_trace: false,
+        frame_trace: None,
         leash: dungeon_floorbreak::camera_lab::sim::DEFAULT_LEASH_PX,
     };
     let mut it = raw.iter().skip(1);
@@ -153,6 +159,8 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
             "--script" => a.script = true,
             "--idle" => a.idle = true,
             "--metrics" => a.metrics = true,
+            "--view-trace" => a.view_trace = true,
+            "--frame-trace" => a.frame_trace = Some(PathBuf::from(value()?)),
             "--leash" => {
                 let v = value()?;
                 a.leash = if v == "wide" {
@@ -468,6 +476,9 @@ fn headless(room: &Room, session: &mut Session, script: &Script, args: &Args) ->
         for e in session.sim.take_new_events() {
             println!("{e}");
         }
+        if args.view_trace {
+            println!("{}", session.trace_row().line());
+        }
         if session.sim.tick.is_multiple_of(60) {
             println!("{}", session.sim.state_line());
             println!(
@@ -682,6 +693,7 @@ fn run_window(
             assign_pads,
             capture_input,
             sync_visuals,
+            frame_trace,
             spawn_fx,
             update_lighting,
             watchdog,
@@ -692,6 +704,13 @@ fn run_window(
     )
     .add_systems(FixedUpdate, fixed_step)
     .add_plugins(LightPassPlugin);
+    if let Some(path) = args.frame_trace.clone() {
+        let file = std::fs::File::create(&path).expect("frame trace file");
+        app.insert_resource(FrameTrace {
+            out: std::io::BufWriter::new(file),
+            frame: 0,
+        });
+    }
     if let Some(target) = args.perf_frames {
         app.insert_resource(Perf {
             target,
@@ -1152,6 +1171,37 @@ fn fixed_step(
 }
 
 // -------------------------------------------------------------- presentation
+
+/// `--frame-trace`: the camera as drawn on every rendered frame (not every
+/// tick), so a refresh-rate dependent stutter would show as repeated or uneven
+/// rows.
+#[derive(Resource)]
+struct FrameTrace {
+    out: std::io::BufWriter<std::fs::File>,
+    frame: u64,
+}
+
+fn frame_trace(
+    lab: Res<Lab>,
+    time: Res<Time<Real>>,
+    trace: Option<ResMut<FrameTrace>>,
+    loading: Option<Res<Loading>>,
+) {
+    use std::io::Write;
+    let Some(mut trace) = trace else { return };
+    if loading.is_some_and(|l| !l.reported) {
+        return;
+    }
+    trace.frame += 1;
+    let row = lab.session.trace_row();
+    let line = format!(
+        "LAB_FRAME frame={} dt_ms={:.2} {}",
+        trace.frame,
+        time.delta_secs() * 1000.0,
+        &row.line()["LAB_VIEW ".len()..]
+    );
+    let _ = writeln!(trace.out, "{line}");
+}
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_visuals(

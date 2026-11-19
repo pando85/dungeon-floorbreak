@@ -56,7 +56,7 @@ pub const ZOOM_OUT_SLACK_PX: i32 = 24;
 /// while an actor is outside its safety region.
 pub const MAX_PAN: f32 = 5.0;
 pub const MAX_PAN_IMPACT: f32 = 1.5;
-pub const MAX_PAN_EMERGENCY: f32 = 12.0;
+pub const MAX_PAN_EMERGENCY: f32 = 10.0;
 /// Fraction of the remaining pan distance closed per tick.
 pub const PAN_RATE: f32 = 0.11;
 
@@ -78,7 +78,10 @@ impl Aspect {
     /// View height for a coverage width: `w x base_h / 640`, an integer for every
     /// multiple of [`STEP_PX`].
     pub const fn height_for(self, w: i32) -> i32 {
-        w * self.base_h() / BASE_W
+        // Exact for every multiple of 32; for the 2 px intermediate widths of a
+        // transit the height is rounded down to an even number (a whole-pixel
+        // centre), so the aspect is off by at most one pixel in 360.
+        (w * self.base_h() / BASE_W) / 2 * 2
     }
 
     /// The aspect of an output window: 16:10 or wider-than-16:10 chooses the
@@ -221,11 +224,22 @@ pub struct Bounds {
 /// Widest coverage the automatic camera may use (1.5x, 960x540): the proposal's
 /// cap. Fixed modes are not limited by it.
 pub const AUTO_CAP_W: i32 = 960;
-/// Ticks per 32 px step while the automatic camera passes between rest widths
-/// (a 640 to 960 transit takes 10 steps, 20 ticks), and the faster pace used
-/// when something that must be framed is outside the view.
+/// Legacy stepped-transit pace (kept for the fixed-mode docs): the automatic
+/// camera now eases between rest widths, see [`TRANSIT_BASE_TICKS`].
 pub const ZOOM_STEP_TICKS: u32 = 2;
 pub const ZOOM_STEP_TICKS_URGENT: u32 = 1;
+/// Eased transit between rest widths (cubic Hermite, zero velocity at the end,
+/// the starting velocity carried over so a retarget never kicks): duration in
+/// ticks is `base + distance / per_px`. 640 to 960: 70 ticks (1.2 s); urgent:
+/// 35 ticks (0.6 s). Intermediate widths are whole even pixels.
+pub const TRANSIT_BASE_TICKS: f32 = 30.0;
+pub const TRANSIT_TICKS_PER_PX: f32 = 8.0;
+pub const TRANSIT_URGENT_BASE_TICKS: f32 = 12.0;
+pub const TRANSIT_URGENT_TICKS_PER_PX: f32 = 14.0;
+/// Pan acceleration limits, px per tick squared: the pan velocity changes by at
+/// most this per tick, so a start, a stop or a change of urgency never kicks.
+pub const PAN_ACCEL: f32 = 0.5;
+pub const PAN_ACCEL_URGENT: f32 = 1.5;
 
 /// Widths the automatic camera may **rest** on for an output of `out_w` pixels:
 /// 640 plus every 32 px width up to [`AUTO_CAP_W`] that is an exact integer
@@ -243,6 +257,34 @@ pub fn rest_widths(out_w: u32) -> Vec<i32> {
     v
 }
 
+/// A cubic Hermite width transit.
+#[derive(Debug, Clone, Copy)]
+struct Transit {
+    p0: f32,
+    v0: f32,
+    p1: f32,
+    t: f32,
+    dur: f32,
+    urgent: bool,
+}
+
+impl Transit {
+    /// Width and velocity (px per tick) at `t` ticks.
+    fn at(&self, t: f32) -> (f32, f32) {
+        let u = (t / self.dur).clamp(0.0, 1.0);
+        let (u2, u3) = (u * u, u * u * u);
+        let h00 = 2.0 * u3 - 3.0 * u2 + 1.0;
+        let h10 = u3 - 2.0 * u2 + u;
+        let h01 = -2.0 * u3 + 3.0 * u2;
+        let p = h00 * self.p0 + h10 * self.dur * self.v0 + h01 * self.p1;
+        let dh00 = 6.0 * u2 - 6.0 * u;
+        let dh10 = 3.0 * u2 - 4.0 * u + 1.0;
+        let dh01 = -6.0 * u2 + 6.0 * u;
+        let v = (dh00 * self.p0 + dh10 * self.dur * self.v0 + dh01 * self.p1) / self.dur;
+        (p, v)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct CameraOperator {
     mode: CameraMode,
@@ -256,7 +298,12 @@ pub struct CameraOperator {
     /// The width the automatic camera rests on (or is heading to).
     rest_w: i32,
     cov_w: i32,
-    step_timer: u32,
+    /// Smooth width (px) and its velocity (px per tick); `cov_w` is this
+    /// rounded to an even whole number.
+    w_f: f32,
+    w_v: f32,
+    transit: Option<Transit>,
+    pan_v: (f32, f32),
     want_in_ticks: u32,
     dwell: u32,
     view: View,
@@ -265,6 +312,7 @@ pub struct CameraOperator {
     pub zoom_changes: u32,
     /// Whole 32 px steps taken so far.
     pub zoom_steps: u32,
+    last_urgent: bool,
 }
 
 /// The tightest coverage width that fits every actor's safety region and the
@@ -384,7 +432,13 @@ fn threats_in_view(view: View, input: &CameraInput, aspect: Aspect, cap_w: f32) 
 /// top): 0.8 at 1.0x, 0.86 from 1.5x, so a wider view shows architecture, not
 /// foundation.
 pub fn floor_share(cov_w: i32) -> f32 {
-    let t = ((cov_w - MIN_W) as f32 / 320.0).clamp(0.0, 1.0);
+    floor_share_f(cov_w as f32)
+}
+
+/// [`floor_share`] for a smooth (fractional) width, so the floor anchor moves on
+/// the same curve as the zoom.
+pub fn floor_share_f(w: f32) -> f32 {
+    let t = ((w - MIN_W as f32) / 320.0).clamp(0.0, 1.0);
     FLOOR_SHARE + (FLOOR_SHARE_WIDE - FLOOR_SHARE) * t
 }
 
@@ -440,7 +494,10 @@ impl CameraOperator {
             rest,
             rest_w,
             cov_w,
-            step_timer: 0,
+            w_f: cov_w as f32,
+            w_v: 0.0,
+            transit: None,
+            pan_v: (0.0, 0.0),
             want_in_ticks: 0,
             dwell: MIN_DWELL_TICKS,
             view: View {
@@ -451,6 +508,7 @@ impl CameraOperator {
             },
             zoom_changes: 0,
             zoom_steps: 0,
+            last_urgent: false,
         };
         op.cy = op.target_cy(input, y0, y1);
         op.view = op.compose_view();
@@ -471,6 +529,17 @@ impl CameraOperator {
 
     pub fn mode(&self) -> CameraMode {
         self.mode
+    }
+
+    /// Whether the last step ran at the urgent pace (something to frame was
+    /// outside the view).
+    pub fn urgent(&self) -> bool {
+        self.last_urgent
+    }
+
+    /// The width the automatic camera is resting on or heading to.
+    pub fn rest_target(&self) -> i32 {
+        self.rest_w
     }
 
     pub fn output_width(&self) -> u32 {
@@ -520,6 +589,7 @@ impl CameraOperator {
     pub fn step(&mut self, input: &CameraInput) -> View {
         self.dwell = self.dwell.saturating_add(1);
         let urgent = self.something_outside(input);
+        self.last_urgent = urgent;
         self.step_zoom(input, urgent);
         self.step_pan(input, urgent);
         self.view = self.compose_view();
@@ -573,22 +643,62 @@ impl CameraOperator {
                 self.want_in_ticks = 0;
             }
         }
-        // Transit: a fixed pace of whole 32 px steps towards the rest width. A
-        // return is held during an impact.
-        if self.cov_w != self.rest_w && !(input.impact_hold && self.cov_w > self.rest_w) {
-            self.step_timer += 1;
-            let pace = if urgent && self.cov_w < self.rest_w {
-                ZOOM_STEP_TICKS_URGENT
-            } else {
-                ZOOM_STEP_TICKS
-            };
-            if self.step_timer >= pace {
-                self.step_timer = 0;
-                let dir = (self.rest_w - self.cov_w).signum();
-                self.cov_w += dir * STEP_PX.min((self.rest_w - self.cov_w).abs());
-                self.zoom_steps += 1;
+        // Transit: an eased Hermite curve to the rest width. A return is held
+        // during an impact; an urgent widening restarts a slower one faster,
+        // keeping the velocity.
+        let target = self.rest_w as f32;
+        let moving = self.transit.is_some();
+        if !moving && (self.w_f - target).abs() > 0.01 {
+            self.start_transit(target, urgent && target > self.w_f);
+        } else if let Some(tr) = self.transit {
+            let retarget = (tr.p1 - target).abs() > 0.01;
+            let hurry = urgent && target > self.w_f && !tr.urgent;
+            if retarget || hurry {
+                self.start_transit(target, urgent && target > self.w_f);
             }
         }
+        if let Some(mut tr) = self.transit {
+            let inward = tr.p1 < tr.p0;
+            if !(input.impact_hold && inward) {
+                tr.t += 1.0;
+                let (p, v) = tr.at(tr.t);
+                self.w_f = p.clamp(MIN_W as f32, self.auto_cap() as f32);
+                self.w_v = v;
+                if tr.t >= tr.dur {
+                    self.w_f = tr.p1;
+                    self.w_v = 0.0;
+                    self.transit = None;
+                } else {
+                    self.transit = Some(tr);
+                }
+            } else {
+                self.w_v = 0.0;
+            }
+        }
+        let rounded = ((self.w_f / 2.0).round() as i32) * 2;
+        let rounded = rounded.clamp(MIN_W.min(self.auto_cap()), self.auto_cap());
+        if rounded != self.cov_w {
+            self.zoom_steps += 1;
+        }
+        self.cov_w = rounded;
+    }
+
+    fn start_transit(&mut self, target: f32, urgent: bool) {
+        let dist = (target - self.w_f).abs();
+        let dur = if urgent {
+            TRANSIT_URGENT_BASE_TICKS + dist / TRANSIT_URGENT_TICKS_PER_PX * 1.0
+        } else {
+            TRANSIT_BASE_TICKS + dist / TRANSIT_TICKS_PER_PX
+        }
+        .max(2.0);
+        self.transit = Some(Transit {
+            p0: self.w_f,
+            v0: self.w_v,
+            p1: target,
+            t: 0.0,
+            dur,
+            urgent,
+        });
     }
 
     /// Vertical centre: the lowest actor's feet at [`floor_share`] of the view,
@@ -603,7 +713,7 @@ impl CameraOperator {
         if input.subjects.is_empty() {
             return (y0 + y1) / 2.0;
         }
-        let want = lowest - (floor_share(self.cov_w) - 0.5) * h;
+        let want = lowest - (floor_share_f(self.w_f) - 0.5) * h;
         let (lo, hi) = (y1 - h / 2.0, y0 + h / 2.0);
         if lo <= hi {
             want.clamp(lo, hi)
@@ -643,18 +753,39 @@ impl CameraOperator {
             };
             tx += b;
         }
-        // Urgent: an actor or a framed threat is outside the view, pan faster.
-        let pan_cap = if urgent {
-            MAX_PAN_EMERGENCY
-        } else if input.impact_hold {
-            MAX_PAN_IMPACT
+        // Aim only at centres the view can actually reach, so the follower slows
+        // down towards a room edge instead of the clamp stopping it dead.
+        let (hw, hh) = (
+            self.cov_w as f32 / 2.0,
+            self.aspect.height_for(self.cov_w) as f32 / 2.0,
+        );
+        if self.bounds.w as f32 > 2.0 * hw {
+            tx = tx.clamp(hw, self.bounds.w as f32 - hw);
+        }
+        let ty = if self.bounds.h as f32 > 2.0 * hh {
+            ty.clamp(hh, self.bounds.h as f32 - hh)
         } else {
-            MAX_PAN
+            ty
         };
-        let dx = ((tx - self.cx) * PAN_RATE).clamp(-pan_cap, pan_cap);
-        let dy = ((ty - self.cy) * PAN_RATE).clamp(-pan_cap, pan_cap);
-        self.cx += dx;
-        self.cy += dy;
+        // Urgent: an actor or a framed threat is outside the view, pan faster.
+        // The pan is a bounded-acceleration follower: the velocity chases a
+        // capped, proportional speed and may change by at most `accel` per tick,
+        // so starting, stopping and a change of urgency never kick.
+        let (v_cap, accel) = if urgent {
+            (MAX_PAN_EMERGENCY, PAN_ACCEL_URGENT)
+        } else if input.impact_hold {
+            (MAX_PAN_IMPACT, PAN_ACCEL)
+        } else {
+            (MAX_PAN, PAN_ACCEL)
+        };
+        let follow = |target: f32, c: f32, v: f32| -> f32 {
+            let want = ((target - c) * PAN_RATE).clamp(-v_cap, v_cap);
+            v + (want - v).clamp(-accel, accel)
+        };
+        self.pan_v.0 = follow(tx, self.cx, self.pan_v.0);
+        self.pan_v.1 = follow(ty, self.cy, self.pan_v.1);
+        self.cx += self.pan_v.0;
+        self.cy += self.pan_v.1;
     }
 }
 
@@ -866,7 +997,7 @@ mod tests {
                 }
             }
             assert!(
-                longest_transit <= 2 * 10 + 4,
+                longest_transit <= 72,
                 "{out}: a transit lasted {longest_transit} ticks"
             );
             assert!(seen_rest.iter().all(|w| rest.contains(w)));
@@ -1014,10 +1145,10 @@ mod tests {
             lane: 0.0,
             ..charge(1500.0, true, 0)
         }];
-        for _ in 0..14 {
+        for _ in 0..50 {
             cam.step(&input(&subs, &t, false));
         }
-        // 10 urgent steps reach 960 within about a dozen ticks.
+        // The urgent eased transit (about 32 ticks) has reached 960.
         assert_eq!(cam.view().w, 960);
     }
 

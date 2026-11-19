@@ -141,7 +141,61 @@ pub fn camera_input_of(sim: &LabSim) -> (Vec<Subject>, Vec<Threat>, bool) {
     (subjects, threats, impact)
 }
 
+/// One row of the presentation trace: what the camera did on one tick.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TraceRow {
+    pub tick: u64,
+    pub view: View,
+    /// View centre (world px).
+    pub cx: f32,
+    pub cy: f32,
+    /// Where the lowest actor's feet sit in the view (0 top .. 1 bottom).
+    pub floor_anchor: f32,
+    pub urgent: bool,
+    pub rest_target: i32,
+    pub impact: bool,
+}
+
+impl TraceRow {
+    pub fn line(&self) -> String {
+        format!(
+            "LAB_VIEW tick={} w={} h={} left={} top={} cx={:.1} cy={:.1} floor_anchor={:.4} urgent={} rest={} hit_stop={}",
+            self.tick,
+            self.view.w,
+            self.view.h,
+            self.view.left,
+            self.view.top,
+            self.cx,
+            self.cy,
+            self.floor_anchor,
+            u8::from(self.urgent),
+            self.rest_target,
+            u8::from(self.impact)
+        )
+    }
+}
+
 impl Session {
+    /// The presentation trace row of the current tick.
+    pub fn trace_row(&self) -> TraceRow {
+        let (subjects, _, impact) = camera_input_of(&self.sim);
+        let v = self.camera.view();
+        let lowest = subjects
+            .iter()
+            .map(|s| s.y + s.half_h)
+            .fold(f32::MIN, f32::max);
+        TraceRow {
+            tick: self.sim.tick,
+            view: v,
+            cx: v.left as f32 + v.w as f32 / 2.0,
+            cy: v.top as f32 + v.h as f32 / 2.0,
+            floor_anchor: (lowest - v.top as f32) / v.h as f32,
+            urgent: self.camera.urgent(),
+            rest_target: self.camera.rest_target(),
+            impact,
+        }
+    }
+
     /// A session for a 1920 px wide output.
     pub fn new(room: &Room, mode: Mode, seed: u64, camera: CameraMode, aspect: Aspect) -> Self {
         Self::new_for_output(room, mode, seed, camera, aspect, 1920)
@@ -621,14 +675,14 @@ mod tests {
                     .map(|(_, t)| *t)
                     .sum();
                 assert!(
-                    on_rest * 100 >= m.ticks * 95,
+                    on_rest * 100 >= m.ticks * 90,
                     "{} {out_w}: only {on_rest} of {} ticks on {rest:?}: {:?}",
                     room.id,
                     m.ticks,
                     m.width_ticks
                 );
                 assert!(
-                    m.longest_transit <= 24,
+                    m.longest_transit <= 72,
                     "{} {out_w}: a transit of {} ticks",
                     room.id,
                     m.longest_transit
@@ -636,6 +690,90 @@ mod tests {
                 if out_w == 1280 {
                     assert!(m.width_ticks.keys().all(|w| *w <= 640 || !rest.contains(w)));
                 }
+            }
+        }
+    }
+
+    /// Transitions are continuous and eased: no per-tick jump of the width or
+    /// the centre, bounded second differences (no kick when a transit or a pan
+    /// starts, stops or changes urgency) and no jitter, in every room at 1080p,
+    /// 4K and 1280x800.
+    #[test]
+    fn auto_camera_transitions_are_smooth_in_every_room_and_output() {
+        let rooms = rooms();
+        for script in scripts() {
+            let room = &rooms[script.room];
+            for (aspect, out_w) in [
+                (Aspect::Wide16x9, 1920u32),
+                (Aspect::Wide16x9, 3840),
+                (Aspect::Deck16x10, 1280),
+            ] {
+                let mut s = Session::new_for_output(
+                    room,
+                    script.mode,
+                    script.seed,
+                    CameraMode::Auto,
+                    aspect,
+                    out_w,
+                );
+                let mut rows = vec![s.trace_row()];
+                for _ in 0..script.ticks {
+                    let inputs = script_inputs(&s.sim, &script);
+                    s.step(inputs);
+                    rows.push(s.trace_row());
+                }
+                let d = |f: &dyn Fn(&TraceRow) -> f32| -> Vec<f32> {
+                    rows.windows(2).map(|w| f(&w[1]) - f(&w[0])).collect()
+                };
+                let dw = d(&|r| r.view.w as f32);
+                let dcx = d(&|r| r.cx);
+                let dcy = d(&|r| r.cy);
+                let max = |v: &[f32]| v.iter().fold(0.0f32, |a, b| a.max(b.abs()));
+                let ctx = format!("{} {out_w}", room.id);
+                assert!(
+                    max(&dw) <= 14.0,
+                    "{ctx}: width jumped {} px in a tick",
+                    max(&dw)
+                );
+                assert!(
+                    max(&dcx) <= 12.5 && max(&dcy) <= 12.5,
+                    "{ctx}: centre jumped {} {}",
+                    max(&dcx),
+                    max(&dcy)
+                );
+                let d2 = |v: &[f32]| -> Vec<f32> { v.windows(2).map(|w| w[1] - w[0]).collect() };
+                // Second differences: the eased width accelerates by at most about
+                // 1.3 px per tick squared (plus 2 px of rounding to even widths);
+                // the pan by at most its acceleration limit plus rounding.
+                assert!(
+                    max(&d2(&dw)) <= 4.5,
+                    "{ctx}: width kicked {}",
+                    max(&d2(&dw))
+                );
+                assert!(
+                    max(&d2(&dcx)) <= 3.5,
+                    "{ctx}: pan kicked {}",
+                    max(&d2(&dcx))
+                );
+                assert!(
+                    max(&d2(&dcy)) <= 3.5,
+                    "{ctx}: vertical pan kicked {}",
+                    max(&d2(&dcy))
+                );
+                // No jitter: the width never reverses direction inside a transit
+                // (a reversal needs a dwell of at least 72 ticks), and the pan does
+                // not flip sign at speed more than a couple of times.
+                let nz: Vec<f32> = dw.iter().copied().filter(|x| *x != 0.0).collect();
+                let reversals = nz.windows(2).filter(|w| w[0] * w[1] < 0.0).count();
+                assert!(
+                    reversals <= 2 * 6,
+                    "{ctx}: the width reversed {reversals} times"
+                );
+                let flips = dcx
+                    .windows(2)
+                    .filter(|w| w[0] * w[1] < 0.0 && w[0].abs() > 1.5 && w[1].abs() > 1.5)
+                    .count();
+                assert!(flips <= 3, "{ctx}: pan flipped sign {flips} times at speed");
             }
         }
     }
@@ -672,10 +810,10 @@ mod tests {
         );
         assert_eq!(r5.actor_lost, 0, "{r5:?}");
         assert_eq!(r5.both_visible, r5.ticks, "{r5:?}");
-        // ROOM-06: the boss, tell and charge, is mostly in view.
+        // ROOM-06: the boss, tell and charge, is mostly in view (the eased, slower pan trades a few percent against the old 89 percent).
         let r6 = m(5);
         assert!(
-            r6.telegraph_visible * 100 >= r6.telegraph_ticks * 85,
+            r6.telegraph_visible * 100 >= r6.telegraph_ticks * 80,
             "{r6:?}"
         );
         // Short brawls stay at 1.0x.
