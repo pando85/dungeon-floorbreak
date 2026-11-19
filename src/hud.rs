@@ -10,6 +10,7 @@
 //! Spec: `docs/02-art/hybrid-hud-a-native-spec.md` (sections 2 to 6). Debt
 //! that retires each fixture: `docs/04-production/backlog.md`, HUD-DEBT-01..07.
 
+use crate::boss::{BOSS_ENEMY_ID, BossState};
 use crate::combat::{CombatEvent, ForceTier, HERO_HEALTH};
 use crate::corridor::DONUT_HEALTH;
 use crate::env_kit::IRect;
@@ -141,8 +142,18 @@ pub enum LabelId {
     Companion,
     Launched,
     Flattened,
-    /// Fixture-only copy (the boss encounter does not exist yet: HUD-DEBT-03).
+    /// Fixture-only copy: the `boss` preview. The real encounter raises the
+    /// notices below (HUD-DEBT-03; copy pending the owner's tone check).
     BossIncoming,
+    /// The boss gate closed.
+    MainEvent,
+    /// The boss entered phase 2 / 3.
+    RoundTwo,
+    FinalRound,
+    /// A rack landed on the boss.
+    NoSpotter,
+    /// The boss was defeated.
+    Knockout,
 }
 
 impl LabelId {
@@ -157,6 +168,11 @@ impl LabelId {
             Self::Launched => "LAUNCHED!",
             Self::Flattened => "FLATTENED!",
             Self::BossIncoming => "BOSS INCOMING",
+            Self::MainEvent => "MAIN EVENT!",
+            Self::RoundTwo => "ROUND TWO",
+            Self::FinalRound => "FINAL ROUND",
+            Self::NoSpotter => "NO SPOTTER!",
+            Self::Knockout => "KNOCKOUT!",
         }
     }
 }
@@ -173,6 +189,15 @@ pub const NOTICE_TRIGGERS: [(ForceTier, LabelId); 2] = [
 /// telegraph), `HeroHurt`, `HeroDefeated` and routine kills never do.
 pub fn notice_for_event(event: &CombatEvent) -> Option<LabelId> {
     match event {
+        // The boss encounter (HUD-DEBT-03). Its defeat is a knockout whatever
+        // the force; every other defeat keeps the table below.
+        CombatEvent::EnemyDefeated { target, .. } if *target == BOSS_ENEMY_ID => {
+            Some(LabelId::Knockout)
+        }
+        CombatEvent::BossEngaged { .. } => Some(LabelId::MainEvent),
+        CombatEvent::BossPhase { phase: 2, .. } => Some(LabelId::RoundTwo),
+        CombatEvent::BossPhase { phase: 3, .. } => Some(LabelId::FinalRound),
+        CombatEvent::RackLanded { crushed: true, .. } => Some(LabelId::NoSpotter),
         CombatEvent::EnemyDefeated { force, .. } => NOTICE_TRIGGERS
             .iter()
             .find(|(tier, _)| tier == force)
@@ -353,7 +378,14 @@ pub struct BossView {
     pub warning_bright: bool,
     /// Ticks since the strip started sliding in (`>= BOSS_SLIDE_TICKS` = in).
     pub slide_tick: u8,
+    /// The boss' own 18x18 emblem key; `None` draws the generic skull plate
+    /// (HUD-DEBT-03, `docs/02-art/floor-01-boss-design.md` section 4).
+    pub emblem: Option<EmblemId>,
 }
+
+/// The key of a boss emblem (`brute_boss_f01_emblem`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EmblemId(pub String);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NoticeView {
@@ -480,6 +512,9 @@ pub struct RealHudInputs {
     pub donut_chips: bool,
     pub reduced_motion: bool,
     pub high_contrast: bool,
+    /// The boss strip, built from the simulation's boss state by
+    /// [`HudRuntime`] (`None` outside an encounter).
+    pub boss: Option<BossView>,
 }
 
 impl RealHudInputs {
@@ -507,6 +542,7 @@ impl RealHudInputs {
             donut_chips: false,
             reduced_motion: false,
             high_contrast: false,
+            boss: None,
         }
     }
 }
@@ -628,8 +664,13 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
     donut.hp_flash = real.donut_hp_flash;
     let mut snapshot = HudSnapshot {
         plates: [carl, donut],
-        location: real.location.clone(),
-        boss: None,
+        // The location strip gives way to the boss strip.
+        location: if real.boss.is_some() {
+            None
+        } else {
+            real.location.clone()
+        },
+        boss: real.boss.clone(),
         notice: real.notice,
         reconnect: real.reconnect,
         preview: None,
@@ -753,6 +794,7 @@ fn apply_preview(snapshot: &mut HudSnapshot, preview: HudPreview, tick: u64) {
                 warning_bright: snapshot.reduced_motion
                     || (tick / WARNING_BLINK_TICKS).is_multiple_of(2),
                 slide_tick: BOSS_SLIDE_TICKS,
+                emblem: None,
             });
             snapshot.notice = Some(NoticeView {
                 headline: LabelId::BossIncoming,
@@ -919,6 +961,7 @@ type VisualKey = (
     bool,
     bool,
     PartyView,
+    Option<BossView>,
 );
 
 /// The party facts the HUD draws (real ownership, never a fixture): who drives
@@ -975,7 +1018,31 @@ pub struct HudRuntime {
     carl_name: String,
     donut_name: String,
     location: Option<String>,
+    /// The real boss encounter (HUD-DEBT-03), `None` outside one.
+    boss: Option<BossHud>,
 }
+
+/// The cosmetic state of the boss strip: the slide, the damage chip and the
+/// exit delay. Presentation only, never read by the simulation.
+#[derive(Debug, Clone)]
+struct BossHud {
+    name: String,
+    emblem: String,
+    exit_delay: u16,
+    state: Option<BossState>,
+    /// The gate closed: the strip slides in.
+    shown: bool,
+    slide: u8,
+    fill: u8,
+    chip: u8,
+    chip_hold: u8,
+    /// Ticks since the boss was defeated.
+    defeated: Option<u16>,
+}
+
+/// Ticks the damage chip holds before it drains, and its drain per tick.
+pub const BOSS_CHIP_HOLD_TICKS: u8 = 30;
+pub const BOSS_CHIP_DRAIN_PX: u8 = 2;
 
 impl HudRuntime {
     pub fn new(config: HudConfig) -> Self {
@@ -993,6 +1060,106 @@ impl HudRuntime {
             carl_name: FALLBACK_NAME_LEFT.to_string(),
             donut_name: FALLBACK_NAME_RIGHT.to_string(),
             location: None,
+            boss: None,
+        }
+    }
+
+    /// HUD-DEBT-03: tell the HUD about the encounter (name and emblem key from
+    /// the boss data, the exit delay, the state read from the simulation).
+    /// Call once per tick before [`Self::step`]; `None` outside an encounter.
+    pub fn set_boss(
+        &mut self,
+        state: Option<BossState>,
+        name: &str,
+        emblem: &str,
+        exit_delay: u16,
+    ) {
+        let Some(state) = state else {
+            self.boss = None;
+            return;
+        };
+        let boss = self.boss.get_or_insert_with(|| BossHud {
+            name: name.to_owned(),
+            emblem: emblem.to_owned(),
+            exit_delay,
+            state: None,
+            shown: false,
+            slide: 0,
+            fill: state.fill_px(),
+            chip: 0,
+            chip_hold: 0,
+            defeated: None,
+        });
+        boss.state = Some(state);
+    }
+
+    /// The boss strip as drawn now (`None` before the gate closes and after
+    /// the exit slide).
+    fn boss_view(&self) -> Option<BossView> {
+        let boss = self.boss.as_ref().filter(|b| b.shown)?;
+        let state = boss.state.as_ref()?;
+        let reduced = self.config.settings.reduced_motion;
+        Some(BossView {
+            name: boss.name.clone(),
+            fill_px: boss.fill,
+            chip_px: boss.chip,
+            warning: state.warning(),
+            warning_bright: reduced || (self.tick / WARNING_BLINK_TICKS).is_multiple_of(2),
+            slide_tick: if reduced {
+                BOSS_SLIDE_TICKS
+            } else {
+                boss.slide
+            },
+            emblem: Some(EmblemId(boss.emblem.clone())),
+        })
+    }
+
+    /// One tick of the boss strip's own timers, after the events were read.
+    fn step_boss_hud(&mut self, engaged: bool, defeated: bool, restart: bool) {
+        let reduced = self.config.settings.reduced_motion;
+        if restart {
+            self.boss = None;
+            return;
+        }
+        let Some(boss) = self.boss.as_mut() else {
+            return;
+        };
+        if engaged {
+            boss.shown = true;
+            boss.slide = 0;
+            boss.defeated = None;
+        }
+        if defeated && boss.defeated.is_none() {
+            boss.defeated = Some(0);
+        }
+        let fill = boss.state.as_ref().map_or(boss.fill, BossState::fill_px);
+        if fill < boss.fill {
+            boss.chip = boss.chip.saturating_add(boss.fill - fill).min(234 - fill);
+            boss.chip_hold = BOSS_CHIP_HOLD_TICKS;
+        }
+        boss.fill = fill;
+        if boss.chip_hold > 0 {
+            boss.chip_hold -= 1;
+        } else {
+            boss.chip = boss.chip.saturating_sub(BOSS_CHIP_DRAIN_PX);
+        }
+        if !boss.shown {
+            return;
+        }
+        match boss.defeated {
+            Some(ticks) if ticks >= boss.exit_delay => {
+                // Slide out (12 ticks); gone at once under reduced motion.
+                boss.slide = boss.slide.saturating_sub(1);
+                if boss.slide == 0 || reduced {
+                    boss.shown = false;
+                }
+            }
+            Some(ticks) => boss.defeated = Some(ticks + 1),
+            None => {
+                if boss.slide < BOSS_SLIDE_TICKS {
+                    boss.slide += 1;
+                }
+            }
         }
     }
 
@@ -1044,6 +1211,7 @@ impl HudRuntime {
             blink,
             warning_bright,
             self.drawn_party(),
+            self.boss_view(),
         )
     }
 
@@ -1077,6 +1245,7 @@ impl HudRuntime {
 
     /// Clear the notice, the queue and the flash (a restart).
     pub fn restart(&mut self) {
+        self.boss = None;
         self.notices.clear();
         self.flash = [None, None];
         self.carl_health = HERO_HEALTH;
@@ -1106,7 +1275,16 @@ impl HudRuntime {
             }
         }
         let mut previous = [self.carl_health, self.donut_health];
+        let (mut engaged, mut boss_down, mut restarted) = (false, false, false);
         for event in self.cursor.next(events, dropped) {
+            match *event {
+                CombatEvent::BossEngaged { .. } => engaged = true,
+                CombatEvent::EnemyDefeated { target, .. } if target == BOSS_ENEMY_ID => {
+                    boss_down = true;
+                }
+                CombatEvent::Restart { .. } => restarted = true,
+                _ => {}
+            }
             match *event {
                 CombatEvent::HeroHurt {
                     health_left, hero, ..
@@ -1143,6 +1321,7 @@ impl HudRuntime {
         }
         self.carl_health = carl_health;
         self.donut_health = donut_health;
+        self.step_boss_hud(engaged, boss_down, restarted);
         if self.visual_key() != before {
             self.revision += 1;
         }
@@ -1167,6 +1346,7 @@ impl HudRuntime {
         real.donut_chips = view.donut_chips;
         real.reduced_motion = self.config.settings.reduced_motion;
         real.high_contrast = self.config.settings.high_contrast;
+        real.boss = self.boss_view();
         real
     }
 
@@ -2132,5 +2312,220 @@ mod tests {
         });
         fixture.set_identity("NAME A", "NAME B", "floor03_x");
         assert_eq!(fixture.snapshot().plates[1].name, "NAME B");
+    }
+    // ------------------------------------------------ boss strip (HUD-DEBT-03)
+
+    use crate::boss::{BossMode, BossState};
+
+    fn boss_state(hp: u16, mode: BossMode) -> BossState {
+        BossState {
+            hp,
+            hp_max: 36,
+            mode,
+            phase: 1,
+        }
+    }
+
+    /// A HUD runtime and the cumulative event log it reads (its cursor wants
+    /// the whole log, like the scene's).
+    struct Rig {
+        hud: HudRuntime,
+        log: Vec<CombatEvent>,
+    }
+
+    impl Rig {
+        fn new() -> Self {
+            Self {
+                hud: HudRuntime::new(HudConfig::default()),
+                log: Vec::new(),
+            }
+        }
+
+        fn tick(&mut self, state: BossState, events: &[CombatEvent]) {
+            self.log.extend_from_slice(events);
+            self.hud
+                .set_boss(Some(state), "THE JUICER", "brute_boss_f01_emblem", 90);
+            self.hud.step(4, 4, &self.log, 0);
+        }
+
+        fn snapshot(&self) -> HudSnapshot {
+            self.hud.snapshot()
+        }
+    }
+
+    #[test]
+    fn the_boss_strip_slides_in_on_engage_and_reads_name_fill_and_emblem() {
+        let mut hud = Rig::new();
+        let state = boss_state(36, BossMode::Neutral);
+        hud.tick(state.clone(), &[]);
+        assert!(hud.snapshot().boss.is_none(), "no strip before the gate");
+        assert!(hud.snapshot().location.is_none() || hud.snapshot().boss.is_none());
+        let engaged = [CombatEvent::BossEngaged { tick: 1 }];
+        hud.tick(state.clone(), &engaged);
+        let view = hud.snapshot().boss.expect("the strip is up");
+        assert_eq!(
+            (view.name.as_str(), view.fill_px, view.chip_px),
+            ("THE JUICER", 234, 0)
+        );
+        assert_eq!(view.emblem, Some(EmblemId("brute_boss_f01_emblem".into())));
+        assert!(view.slide_tick < BOSS_SLIDE_TICKS);
+        assert_eq!(
+            hud.snapshot().location,
+            None,
+            "the strip replaces the location"
+        );
+        for _ in 0..BOSS_SLIDE_TICKS {
+            hud.tick(state.clone(), &[]);
+        }
+        assert_eq!(hud.snapshot().boss.unwrap().slide_tick, BOSS_SLIDE_TICKS);
+    }
+
+    #[test]
+    fn the_damage_chip_holds_30_ticks_then_drains_2_px_a_tick() {
+        let mut hud = Rig::new();
+        hud.tick(
+            boss_state(36, BossMode::Neutral),
+            &[CombatEvent::BossEngaged { tick: 1 }],
+        );
+        // 36 -> 35 HP: 234 -> 228 px, a 6 px chip.
+        hud.tick(boss_state(35, BossMode::Neutral), &[]);
+        let view = hud.snapshot().boss.unwrap();
+        assert_eq!((view.fill_px, view.chip_px), (228, 6));
+        for _ in 0..29 {
+            hud.tick(boss_state(35, BossMode::Neutral), &[]);
+        }
+        assert_eq!(hud.snapshot().boss.unwrap().chip_px, 6, "held for 30 ticks");
+        hud.tick(boss_state(35, BossMode::Neutral), &[]);
+        assert_eq!(hud.snapshot().boss.unwrap().chip_px, 4);
+        for _ in 0..3 {
+            hud.tick(boss_state(35, BossMode::Neutral), &[]);
+        }
+        assert_eq!(hud.snapshot().boss.unwrap().chip_px, 0);
+    }
+
+    #[test]
+    fn the_warning_icon_is_up_on_exactly_the_tell_modes() {
+        let mut hud = Rig::new();
+        hud.tick(
+            boss_state(36, BossMode::Neutral),
+            &[CombatEvent::BossEngaged { tick: 1 }],
+        );
+        for (mode, expected) in [
+            (BossMode::PoundTell, true),
+            (BossMode::SecondTell, true),
+            (BossMode::ChargeTell, true),
+            (BossMode::Roar, false),
+            (BossMode::PoundStrike, false),
+            (BossMode::Charge, false),
+            (BossMode::Pinned, false),
+        ] {
+            hud.tick(boss_state(30, mode), &[]);
+            assert_eq!(hud.snapshot().boss.unwrap().warning, expected, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn the_strip_leaves_90_ticks_after_defeat_and_a_restart_removes_it_at_once() {
+        let mut hud = Rig::new();
+        hud.tick(
+            boss_state(36, BossMode::Neutral),
+            &[CombatEvent::BossEngaged { tick: 1 }],
+        );
+        for _ in 0..20 {
+            hud.tick(boss_state(36, BossMode::Neutral), &[]);
+        }
+        let down = [CombatEvent::EnemyDefeated {
+            tick: 9,
+            target: BOSS_ENEMY_ID,
+            cause: crate::combat::DefeatCause::Melee,
+            force: ForceTier::Routine,
+            instigator: Some(0),
+        }];
+        hud.tick(boss_state(0, BossMode::Defeated), &down);
+        for _ in 0..80 {
+            hud.tick(boss_state(0, BossMode::Defeated), &[]);
+        }
+        let view = hud.snapshot().boss.expect("still up inside the 90 ticks");
+        assert_eq!(view.fill_px, 0);
+        for _ in 0..30 {
+            hud.tick(boss_state(0, BossMode::Defeated), &[]);
+        }
+        assert!(hud.snapshot().boss.is_none(), "gone after the slide out");
+        // A restart removes a live strip at once, and it slides in again.
+        let mut hud = Rig::new();
+        hud.tick(
+            boss_state(20, BossMode::Neutral),
+            &[CombatEvent::BossEngaged { tick: 1 }],
+        );
+        hud.tick(
+            boss_state(20, BossMode::Neutral),
+            &[CombatEvent::Restart { tick: 3, deaths: 1 }],
+        );
+        assert!(hud.snapshot().boss.is_none());
+        hud.tick(
+            boss_state(36, BossMode::Neutral),
+            &[CombatEvent::BossEngaged { tick: 1 }],
+        );
+        assert!(hud.snapshot().boss.unwrap().slide_tick < BOSS_SLIDE_TICKS);
+    }
+
+    #[test]
+    fn the_boss_notices_come_from_real_events_and_fit_13_characters() {
+        let phase = |n| CombatEvent::BossPhase { tick: 1, phase: n };
+        assert_eq!(
+            notice_for_event(&CombatEvent::BossEngaged { tick: 1 }),
+            Some(LabelId::MainEvent)
+        );
+        assert_eq!(notice_for_event(&phase(2)), Some(LabelId::RoundTwo));
+        assert_eq!(notice_for_event(&phase(3)), Some(LabelId::FinalRound));
+        let landed = |crushed| CombatEvent::RackLanded {
+            tick: 1,
+            rack: 0,
+            crushed,
+        };
+        assert_eq!(notice_for_event(&landed(true)), Some(LabelId::NoSpotter));
+        assert_eq!(notice_for_event(&landed(false)), None);
+        let down = |force| CombatEvent::EnemyDefeated {
+            tick: 1,
+            target: BOSS_ENEMY_ID,
+            cause: crate::combat::DefeatCause::Melee,
+            force,
+            instigator: Some(0),
+        };
+        for force in [
+            ForceTier::Routine,
+            ForceTier::Heavy,
+            ForceTier::Catastrophic,
+        ] {
+            assert_eq!(notice_for_event(&down(force)), Some(LabelId::Knockout));
+        }
+        for label in [
+            LabelId::MainEvent,
+            LabelId::RoundTwo,
+            LabelId::FinalRound,
+            LabelId::NoSpotter,
+            LabelId::Knockout,
+        ] {
+            assert!(label.text().len() <= 13, "{}", label.text());
+        }
+        // A tell, a hurt and a strike never raise a notice.
+        assert_eq!(
+            notice_for_event(&CombatEvent::BossTell {
+                tick: 1,
+                mv: crate::boss::BossMove::Pound,
+                target: crate::party::HeroId::Carl
+            }),
+            None
+        );
+    }
+
+    #[test]
+    fn the_boss_preview_fixture_stays_available_and_unchanged() {
+        let s = snap(HudPreview::Boss);
+        let boss = s.boss.unwrap();
+        assert_eq!(boss.name, "TEST BRUTE");
+        assert_eq!((boss.fill_px, boss.chip_px, boss.warning), (164, 14, true));
+        assert_eq!(boss.emblem, None, "the generic skull plate");
+        assert_eq!(s.notice.unwrap().headline, LabelId::BossIncoming);
     }
 }

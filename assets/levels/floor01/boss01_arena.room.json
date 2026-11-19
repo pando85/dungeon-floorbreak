@@ -1,0 +1,27 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "HUD-DEBT-03 greybox boss arena: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The ceiling, the right wall and the entrance gate are added by src/boss_scene.rs.",
+  "scenarios": [
+    {
+      "id": "BOSS-ARENA-F01",
+      "name": "Boss arena",
+      "subtitle": "Floor 01 boss arena: one locked 640 px screen, a flat 576 px floor",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 640,
+      "height": 500,
+      "floor": 416,
+      "spawn": { "carl": 56, "donut": 24 },
+      "camera_intro": 0,
+      "platforms": [],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 600,
+      "purpose": "One locked screen for the Floor 01 boss encounter: no pits, no platforms; the ceiling collider 224 px above the walking line keeps every jump below the HUD band.",
+      "expected": "Gate, racks, boss and ceiling are simulation data in src/boss.rs and assets/data/bosses/brute_boss_f01.json.",
+      "coop": "One locked camera for solo and 2P; every living hero must be inside before the gate closes."
+    }
+  ]
+}

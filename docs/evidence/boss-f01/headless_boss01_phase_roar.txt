@@ -1,0 +1,31 @@
+COMBAT_EVENT tick=9 kind=boss_engaged
+COMBAT_EVENT tick=9 kind=rack_armed rack=0
+COMBAT_EVENT tick=16 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=52 kind=boss_strike move=pound
+COMBAT_EVENT tick=72 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=75 kind=boss_hurt source=0 damage=1 hp_left=24
+COMBAT_EVENT tick=84 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=89 kind=boss_phase phase=2
+COMBAT_EVENT tick=120 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=123 kind=boss_hurt source=0 damage=1 hp_left=23
+COMBAT_EVENT tick=132 kind=move_started move=haymaker instance=4
+COMBAT_EVENT tick=137 kind=boss_hurt source=0 damage=1 hp_left=22
+COMBAT_EVENT tick=158 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=159 kind=move_started move=jab instance=5
+COMBAT_EVENT tick=162 kind=boss_hurt source=0 damage=1 hp_left=21
+COMBAT_EVENT tick=197 kind=boss_strike move=pound
+COMBAT_EVENT tick=215 kind=hero_hurt source=16981 health_left=3 hero=donut
+COMBAT_EVENT tick=216 kind=move_started move=jab instance=6
+COMBAT_EVENT tick=228 kind=move_started move=haymaker instance=7
+COMBAT_EVENT tick=231 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=234 kind=boss_hurt source=0 damage=1 hp_left=20
+COMBAT_EVENT tick=272 kind=boss_strike move=pound
+COMBAT_EVENT tick=288 kind=move_started move=jab instance=8
+COMBAT_EVENT tick=290 kind=hero_hurt source=16981 health_left=2 hero=donut
+COMBAT_EVENT tick=300 kind=move_started move=haymaker instance=9
+COMBAT_EVENT tick=306 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=342 kind=boss_strike move=pound
+COMBAT_EVENT tick=360 kind=move_started move=jab instance=10
+COMBAT_EVENT tick=360 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_STATE fixture=boss01_phase_roar seed=0xb050006 tick=360 elapsed=360 hero_hp=4 deaths=0 enemies= hash=467219cb2e16c2d8 boss=20/36/pound_recover/p2 boss_x=472.80
+PARTY_STATE fixture=boss01_phase_roar mode=solo controlled=Carl carl_hp=4 donut_hp=1 deaths=0 hash=9e954f72daf8328e

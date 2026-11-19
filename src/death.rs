@@ -43,7 +43,7 @@ impl CauseClass {
     pub const fn of(cause: DefeatCause) -> Self {
         match cause {
             DefeatCause::Melee => Self::Blunt,
-            DefeatCause::ShoreBlock { .. } => Self::Crush,
+            DefeatCause::ShoreBlock { .. } | DefeatCause::DropHazard { .. } => Self::Crush,
         }
     }
 }
@@ -234,7 +234,7 @@ mod tests {
         let profiles = DeathProfiles::builtin();
         assert_eq!(profiles.schema_version, SCHEMA_VERSION);
         let ids: Vec<&str> = profiles.species.iter().map(|s| s.id.as_str()).collect();
-        assert_eq!(ids, ["goblin", "skeleton_mock", "slime_mock"]);
+        assert_eq!(ids, ["goblin", "skeleton_mock", "slime_mock", "brute_boss"]);
         assert!(
             profiles
                 .species
@@ -393,5 +393,25 @@ mod tests {
     fn force_tiers_are_ordered() {
         assert!(ForceTier::Routine < ForceTier::Heavy);
         assert!(ForceTier::Heavy < ForceTier::Catastrophic);
+    }
+
+    #[test]
+    fn the_brute_boss_falls_like_a_felled_tree_or_is_crushed_under_the_rack() {
+        let profiles = DeathProfiles::builtin();
+        let rack = DefeatCause::DropHazard { player: 0, rack: 0 };
+        let pick = |cause, force| profiles.select("brute_boss", cause, force);
+        for force in [ForceTier::Routine, ForceTier::Heavy] {
+            assert_eq!(pick(MELEE, force).finish, "brute_ko_timber");
+        }
+        let crushed = pick(rack, ForceTier::Catastrophic);
+        assert_eq!(
+            (crushed.finish, crushed.kind),
+            ("brute_crushed", RecipeKind::Crushed)
+        );
+        // A later explosive finish has no recipe yet: it falls back to the
+        // timber knockout (design section 5).
+        let blown = pick(MELEE, ForceTier::Catastrophic);
+        assert_eq!(blown.finish, "brute_ko_timber");
+        assert_eq!(CauseClass::of(rack), CauseClass::Crush);
     }
 }

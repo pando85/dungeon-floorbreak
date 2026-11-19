@@ -577,7 +577,10 @@ fn boss_strip(o: &mut Out, s: &HudSnapshot, boss: &crate::hud::BossView, layout:
         FrameId::BossMid,
         FrameId::BossCapRight,
     );
-    o.frame(Z_ICON, FrameId::IconBossEmblem, r.x + 3, r.y + 3);
+    match boss.emblem.as_ref() {
+        None => o.frame(Z_ICON, FrameId::IconBossEmblem, r.x + 3, r.y + 3),
+        Some(_) => boss_emblem_placeholder(o, r.x + 3, r.y + 3),
+    }
     o.text(
         Z_TEXT,
         HudFont::Jersey,
@@ -609,6 +612,21 @@ fn boss_strip(o: &mut Out, s: &HudSnapshot, boss: &crate::hud::BossView, layout:
         let tint = (!boss.warning_bright).then_some(AMBER_TO_DIM);
         o.frame_sized(Z_ICON, FrameId::IconWarning, r.x + 266, r.y + 5, w, h, tint);
     }
+}
+
+/// A boss' own 18x18 emblem inside the 20x20 well. Until the emblem art is
+/// exported (`brute_boss_f01_emblem`, HUD-DEBT-03) this is a placeholder of
+/// the spec size built from palette rects: a head in profile (mop, red-rimmed
+/// eye, open mouth).
+fn boss_emblem_placeholder(o: &mut Out, x: i32, y: i32) {
+    o.rect(Z_ICON, x, y, 20, 20, p::HUD_INK);
+    o.rect(Z_ICON, x + 1, y + 1, 18, 18, p::MAGENTA_DK);
+    // Mop and ear behind, snout and jaw in front.
+    o.rect(Z_ICON, x + 3, y + 3, 9, 5, p::TEXT_WHITE);
+    o.rect(Z_ICON, x + 4, y + 8, 11, 7, p::TEXT_WHITE);
+    o.rect(Z_ICON, x + 13, y + 6, 3, 7, p::TEXT_WHITE);
+    o.rect(Z_ICON, x + 11, y + 7, 2, 2, p::HP_RED);
+    o.rect(Z_ICON, x + 8, y + 12, 7, 2, p::HUD_INK);
 }
 
 fn system(o: &mut Out, s: &HudSnapshot, layout: &HudLayout) {
@@ -1558,5 +1576,41 @@ mod tests {
         assert!(!full.iter().any(|i| matches!(i.kind, DrawKind::Rect { color, .. } if color == p::HP_RED && i.z < Z_ICON && i.y == 25)));
         assert!(contrast(p::HP_RED_HI, p::PLATE_FILL) >= 5.0);
         assert!(contrast(p::TEXT_WHITE, p::PLATE_FILL) >= 13.0);
+    }
+
+    #[test]
+    fn a_real_boss_strip_draws_its_own_emblem_placeholder_instead_of_the_skull_plate() {
+        use crate::hud::{BossView, EmblemId};
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.boss = Some(BossView {
+            name: "THE JUICER".to_owned(),
+            fill_px: 234,
+            chip_px: 0,
+            warning: false,
+            warning_bright: true,
+            slide_tick: crate::hud::BOSS_SLIDE_TICKS,
+            emblem: Some(EmblemId("brute_boss_f01_emblem".to_owned())),
+        });
+        let mut out = Vec::new();
+        build_draw_list(
+            &build_snapshot(&real, None, 0),
+            &HudLayout::new(360, 288),
+            &mut out,
+        );
+        let frames = |f: FrameId| {
+            out.iter()
+                .any(|i| matches!(&i.kind, DrawKind::Frame { frame, .. } if *frame == f))
+        };
+        assert!(!frames(FrameId::IconBossEmblem), "no generic skull plate");
+        assert!(!frames(FrameId::IconWarning), "no warning outside a tell");
+        // The 20x20 well and the 18x18 emblem inside it, at the strip's +3, +3.
+        let rest = HudLayout::new(360, 288).boss();
+        let well = out
+            .iter()
+            .any(|i| i.x == rest.x + 3 && matches!(i.kind, DrawKind::Rect { w: 20, h: 20, .. }));
+        let emblem = out
+            .iter()
+            .any(|i| i.x == rest.x + 4 && matches!(i.kind, DrawKind::Rect { w: 18, h: 18, .. }));
+        assert!(well && emblem);
     }
 }

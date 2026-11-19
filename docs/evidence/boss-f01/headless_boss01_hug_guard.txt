@@ -1,0 +1,21 @@
+COMBAT_EVENT tick=9 kind=boss_engaged
+COMBAT_EVENT tick=9 kind=rack_armed rack=0
+COMBAT_EVENT tick=10 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=46 kind=boss_strike move=pound
+COMBAT_EVENT tick=49 kind=hero_hurt source=16981 health_left=2
+COMBAT_EVENT tick=84 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=120 kind=boss_strike move=pound
+COMBAT_EVENT tick=123 kind=hero_hurt source=16981 health_left=0
+COMBAT_EVENT tick=123 kind=hero_defeated
+COMBAT_EVENT tick=172 kind=restart deaths=1
+COMBAT_EVENT tick=9 kind=boss_engaged
+COMBAT_EVENT tick=9 kind=rack_armed rack=0
+COMBAT_EVENT tick=10 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=46 kind=boss_strike move=pound
+COMBAT_EVENT tick=49 kind=hero_hurt source=16981 health_left=2
+COMBAT_EVENT tick=84 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=120 kind=boss_strike move=pound
+COMBAT_EVENT tick=123 kind=hero_hurt source=16981 health_left=0
+COMBAT_EVENT tick=123 kind=hero_defeated
+COMBAT_STATE fixture=boss01_hug_guard seed=0xb050004 tick=128 elapsed=300 hero_hp=0 deaths=2 enemies= hash=1800d1e48d1402d9 boss=36/36/pound_strike/p1 boss_x=475.20
+PARTY_STATE fixture=boss01_hug_guard mode=solo controlled=Carl carl_hp=0 donut_hp=4 deaths=2 hash=2f9731fbdaef775f

@@ -22,6 +22,7 @@
 
 use std::fmt;
 
+use crate::boss::BossMove;
 use crate::feel::{
     HAYMAKER_FEEL, HAYMAKER_STEP_PX, HAYMAKER_STEP_TICKS, JAB_FEEL, KICK_FEEL, MoveFeel,
 };
@@ -487,7 +488,7 @@ impl MoveRunner {
     }
 
     /// True the first time `target` is recorded for the running move instance.
-    fn record_hit(&mut self, target: u32) -> bool {
+    pub(crate) fn record_hit(&mut self, target: u32) -> bool {
         match self.current.as_mut() {
             Some(running) if !running.hit.contains(&target) => {
                 running.hit.push(target);
@@ -836,6 +837,10 @@ pub enum DefeatCause {
     Melee,
     /// CP-03: the falling block, credited to the player who broke the shore.
     ShoreBlock { player: u32 },
+    /// HUD-DEBT-03: a falling plate rack (the Floor 01 boss arena), credited
+    /// to the player who dropped it. A new variant beside `ShoreBlock`, so the
+    /// CP-03 hashes and goldens stay byte-identical (no hash migration).
+    DropHazard { player: u32, rack: u8 },
 }
 
 impl DefeatCause {
@@ -844,7 +849,7 @@ impl DefeatCause {
     pub const fn default_force(self) -> ForceTier {
         match self {
             Self::Melee => ForceTier::Routine,
-            Self::ShoreBlock { .. } => ForceTier::Catastrophic,
+            Self::ShoreBlock { .. } | Self::DropHazard { .. } => ForceTier::Catastrophic,
         }
     }
 
@@ -856,7 +861,7 @@ impl DefeatCause {
     pub const fn derived_forces(self) -> &'static [ForceTier] {
         match self {
             Self::Melee => &[ForceTier::Routine, ForceTier::Heavy],
-            Self::ShoreBlock { .. } => &[ForceTier::Catastrophic],
+            Self::ShoreBlock { .. } | Self::DropHazard { .. } => &[ForceTier::Catastrophic],
         }
     }
 
@@ -867,6 +872,7 @@ impl DefeatCause {
         match self {
             Self::Melee => Some(0),
             Self::ShoreBlock { .. } => None,
+            Self::DropHazard { player, .. } => Some(player),
         }
     }
 }
@@ -999,6 +1005,61 @@ pub enum CombatEvent {
         tick: u64,
         checkpoint: u32,
     },
+    /// HUD-DEBT-03: the boss gate closed (every living hero inside).
+    BossEngaged {
+        tick: u64,
+    },
+    /// The boss started a tell on `target` (the telegraph flag is up).
+    BossTell {
+        tick: u64,
+        mv: BossMove,
+        target: HeroId,
+    },
+    /// The tell ended and the move became active.
+    BossStrike {
+        tick: u64,
+        mv: BossMove,
+    },
+    /// The charge hit the wall on side `wall` (-1 left, +1 right).
+    BossCrash {
+        tick: u64,
+        wall: i8,
+    },
+    /// A threshold roar began: the boss is now in `phase`.
+    BossPhase {
+        tick: u64,
+        phase: u8,
+    },
+    /// The boss took `damage` from player `source`; `hp_left` remains.
+    BossHurt {
+        tick: u64,
+        source: u32,
+        damage: u8,
+        hp_left: u8,
+    },
+    /// A rack was armed when the gate closed.
+    RackArmed {
+        tick: u64,
+        rack: u8,
+    },
+    /// A melee hit on a rack's strut (`hits` so far).
+    RackHit {
+        tick: u64,
+        rack: u8,
+        hits: u8,
+    },
+    /// A rack started to fall; `player` dropped it.
+    RackDropped {
+        tick: u64,
+        rack: u8,
+        player: u32,
+    },
+    /// A rack landed; `crushed` when the boss was under it.
+    RackLanded {
+        tick: u64,
+        rack: u8,
+        crushed: bool,
+    },
 }
 
 impl CombatEvent {
@@ -1074,6 +1135,11 @@ impl CombatEvent {
                 if let DefeatCause::ShoreBlock { player } = cause {
                     mix(0x5348_4f52);
                     mix(u64::from(player));
+                }
+                if let DefeatCause::DropHazard { player, rack } = cause {
+                    mix(0x4452_4f50);
+                    mix(u64::from(player));
+                    mix(u64::from(rack));
                 }
                 // DEATH-B: `force` is not mixed because it is derived from
                 // hashed data: a melee defeat's tier is `ForceTier::of_move` of
@@ -1165,6 +1231,72 @@ impl CombatEvent {
                 mix(tick);
                 mix(u64::from(checkpoint));
             }
+            // The boss encounter (HUD-DEBT-03): tags in their own range, so no
+            // earlier replay hashes any of them.
+            Self::BossEngaged { tick } => {
+                mix(0x4255_0001);
+                mix(tick);
+            }
+            Self::BossTell { tick, mv, target } => {
+                mix(0x4255_0002);
+                mix(tick);
+                mix(mv as u64);
+                mix(target.index() as u64);
+            }
+            Self::BossStrike { tick, mv } => {
+                mix(0x4255_0003);
+                mix(tick);
+                mix(mv as u64);
+            }
+            Self::BossCrash { tick, wall } => {
+                mix(0x4255_0004);
+                mix(tick);
+                mix(wall as i64 as u64);
+            }
+            Self::BossPhase { tick, phase } => {
+                mix(0x4255_0005);
+                mix(tick);
+                mix(u64::from(phase));
+            }
+            Self::BossHurt {
+                tick,
+                source,
+                damage,
+                hp_left,
+            } => {
+                mix(0x4255_0006);
+                mix(tick);
+                mix(u64::from(source));
+                mix(u64::from(damage));
+                mix(u64::from(hp_left));
+            }
+            Self::RackArmed { tick, rack } => {
+                mix(0x4255_0007);
+                mix(tick);
+                mix(u64::from(rack));
+            }
+            Self::RackHit { tick, rack, hits } => {
+                mix(0x4255_0008);
+                mix(tick);
+                mix(u64::from(rack));
+                mix(u64::from(hits));
+            }
+            Self::RackDropped { tick, rack, player } => {
+                mix(0x4255_0009);
+                mix(tick);
+                mix(u64::from(rack));
+                mix(u64::from(player));
+            }
+            Self::RackLanded {
+                tick,
+                rack,
+                crushed,
+            } => {
+                mix(0x4255_000a);
+                mix(tick);
+                mix(u64::from(rack));
+                mix(u64::from(crushed));
+            }
         }
     }
 }
@@ -1207,6 +1339,9 @@ impl fmt::Display for CombatEvent {
                 )?;
                 if let DefeatCause::ShoreBlock { player } = cause {
                     write!(f, " cause=shore_block credit_player={player}")?;
+                }
+                if let DefeatCause::DropHazard { player, rack } = cause {
+                    write!(f, " cause=drop_hazard credit_player={player} rack={rack}")?;
                 }
                 // Fields that are implied by the cause stay out of the line.
                 if force != cause.default_force() {
@@ -1294,6 +1429,59 @@ impl fmt::Display for CombatEvent {
                     "COMBAT_EVENT tick={tick} kind=respawn checkpoint={checkpoint}"
                 )
             }
+            Self::BossEngaged { tick } => write!(f, "COMBAT_EVENT tick={tick} kind=boss_engaged"),
+            Self::BossTell { tick, mv, target } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=boss_tell move={} target={}",
+                mv.name(),
+                if target == HeroId::Carl {
+                    "carl"
+                } else {
+                    "donut"
+                }
+            ),
+            Self::BossStrike { tick, mv } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=boss_strike move={}",
+                mv.name()
+            ),
+            Self::BossCrash { tick, wall } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=boss_crash wall={}",
+                if wall < 0 { "left" } else { "right" }
+            ),
+            Self::BossPhase { tick, phase } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=boss_phase phase={phase}")
+            }
+            Self::BossHurt {
+                tick,
+                source,
+                damage,
+                hp_left,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=boss_hurt source={source} damage={damage} hp_left={hp_left}"
+            ),
+            Self::RackArmed { tick, rack } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=rack_armed rack={rack}")
+            }
+            Self::RackHit { tick, rack, hits } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=rack_hit rack={rack} hits={hits}"
+            ),
+            Self::RackDropped { tick, rack, player } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=rack_dropped rack={rack} player={player}"
+            ),
+            Self::RackLanded {
+                tick,
+                rack,
+                crushed,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=rack_landed rack={rack} crushed={}",
+                u8::from(crushed)
+            ),
         }
     }
 }

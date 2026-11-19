@@ -7,8 +7,22 @@
       "body_material": "organic",
       "fallback_finish": "goblin_knockback_down",
       "recipes": [
-        { "kind": "crushed", "finish": "goblin_crushed", "causes": ["crush"], "min_force": "routine" },
-        { "kind": "knockback_down", "finish": "goblin_knockback_down", "causes": ["blunt"], "min_force": "routine" }
+        {
+          "kind": "crushed",
+          "finish": "goblin_crushed",
+          "causes": [
+            "crush"
+          ],
+          "min_force": "routine"
+        },
+        {
+          "kind": "knockback_down",
+          "finish": "goblin_knockback_down",
+          "causes": [
+            "blunt"
+          ],
+          "min_force": "routine"
+        }
       ]
     },
     {
@@ -16,9 +30,30 @@
       "body_material": "skeletal",
       "fallback_finish": "skeleton_collapse",
       "recipes": [
-        { "kind": "crushed", "finish": "skeleton_flat_pile", "causes": ["crush"], "min_force": "routine" },
-        { "kind": "knockback_down", "finish": "skeleton_scatter", "causes": ["blunt"], "min_force": "heavy" },
-        { "kind": "knockback_down", "finish": "skeleton_knockback_down", "causes": ["blunt"], "min_force": "routine" }
+        {
+          "kind": "crushed",
+          "finish": "skeleton_flat_pile",
+          "causes": [
+            "crush"
+          ],
+          "min_force": "routine"
+        },
+        {
+          "kind": "knockback_down",
+          "finish": "skeleton_scatter",
+          "causes": [
+            "blunt"
+          ],
+          "min_force": "heavy"
+        },
+        {
+          "kind": "knockback_down",
+          "finish": "skeleton_knockback_down",
+          "causes": [
+            "blunt"
+          ],
+          "min_force": "routine"
+        }
       ]
     },
     {
@@ -26,7 +61,37 @@
       "body_material": "gelatinous",
       "fallback_finish": "slime_puddle",
       "recipes": [
-        { "kind": "crushed", "finish": "slime_spread", "causes": ["crush"], "min_force": "routine" }
+        {
+          "kind": "crushed",
+          "finish": "slime_spread",
+          "causes": [
+            "crush"
+          ],
+          "min_force": "routine"
+        }
+      ]
+    },
+    {
+      "id": "brute_boss",
+      "body_material": "organic",
+      "fallback_finish": "brute_ko_timber",
+      "recipes": [
+        {
+          "kind": "crushed",
+          "finish": "brute_crushed",
+          "causes": [
+            "crush"
+          ],
+          "min_force": "catastrophic"
+        },
+        {
+          "kind": "knockback_down",
+          "finish": "brute_ko_timber",
+          "causes": [
+            "blunt"
+          ],
+          "min_force": "routine"
+        }
       ]
     }
   ]

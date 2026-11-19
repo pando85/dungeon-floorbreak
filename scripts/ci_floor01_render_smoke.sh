@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run inside xvfb-run with the target display resolution.
-# Usage: ci_floor01_render_smoke.sh desktop|desktop-720|deck|advanced|advanced-deck|nolight|nolight-advanced|reference|collision|live-lit|live-unlit|perf-lit|perf-unlit|anim-sequence|hud|hud-deck
+# Usage: ci_floor01_render_smoke.sh desktop|desktop-720|deck|advanced|advanced-deck|nolight|nolight-advanced|reference|collision|live-lit|live-unlit|perf-lit|perf-unlit|anim-sequence|hud|hud-deck|boss|boss-deck
 # desktop is the primary 1920x1080 (x3) capture; desktop-720 is 1280x720 (x2).
 set -euo pipefail
 mode="${1:-desktop}"
@@ -44,17 +44,20 @@ case "$mode" in
       --capture-dir "${anim_dir}/frames"); frozen=0 ;;
   hud) suffix="hud-640x360"; expected="1280x720"; args=(); frozen=0 ;;
   hud-deck) suffix="hud-640x400"; expected="1280x800"; args=(--deck); frozen=0 ;;
+  boss) suffix="boss-640x360"; expected="1280x720"; args=(); frozen=0 ;;
+  boss-deck) suffix="boss-640x400"; expected="1280x800"; args=(--deck); frozen=0 ;;
   *) echo "Unknown capture mode: $mode" >&2; exit 2 ;;
 esac
-if [[ "$mode" == hud || "$mode" == hud-deck ]]; then
+if [[ "$mode" == hud || "$mode" == hud-deck || "$mode" == boss || "$mode" == boss-deck ]]; then
   # HUD-HYBRID-A-01 recipe: normal play, each preview fixture, real combat
   # states (a real HeroHurt flash, Carl at 1 HP with the cracked heart, two
   # real System notices) and the accessibility flags (HUD-DEBT-06), each a frozen capture of a deterministic state. Run inside
   # xvfb-run at the target resolution (1280x720 or 1280x800, scale 2).
   deck_flag=0
   deck_args=()
-  if [[ "$mode" == hud-deck ]]; then deck_flag=1; deck_args=(--deck); fi
-  hud_dir="artifacts/hud"
+  if [[ "$mode" == hud-deck || "$mode" == boss-deck ]]; then deck_flag=1; deck_args=(--deck); fi
+  prefix="hud"; [[ "$mode" == boss* ]] && prefix="boss"
+  hud_dir="artifacts/${prefix}"
   mkdir -p "$hud_dir"
   # name|preview (or '-')|driver args|extra HUD args
   hud_states=(
@@ -79,12 +82,40 @@ if [[ "$mode" == hud || "$mode" == hud-deck ]]; then
     "party-swap|-|--party-fixture solo_swap_continuity --capture-tick 120|"
     "party-donut-hurt|-|--party-fixture donut_hurt_iframes --capture-tick 68|"
   )
+  # HUD-DEBT-03: the real Floor 01 boss encounter in the boss arena, each a
+  # frozen capture of a deterministic fixture state (the tick is a move of the
+  # committed replay in docs/evidence/boss-f01): the pound tell with the
+  # warning icon, the charge tell and run, the wall crash and stun, the rack
+  # fall and crush, the phase roar, the gate waiting for P2, the lethal crush
+  # with its notice, and the arena at the entrance (the strip not yet up).
+  if [[ "$prefix" == boss ]]; then
+    hud_states=(
+      "entrance|-|--party-fixture boss01_pound_punish --capture-tick 4|"
+      "gate-2p-waiting|-|--party-fixture boss01_2p_gate --capture-tick 150|"
+      "gate-2p-closed|-|--party-fixture boss01_2p_gate --capture-tick 230|"
+      "pound-tell|-|--party-fixture boss01_pound_punish --capture-tick 40|"
+      "pound-strike|-|--party-fixture boss01_pound_punish --capture-tick 56|"
+      "pound-punish|-|--party-fixture boss01_pound_punish --capture-tick 100|"
+      "charge-tell|-|--party-fixture boss01_charge_jump --capture-tick 30|"
+      "charge-run|-|--party-fixture boss01_charge_jump --capture-tick 80|"
+      "charge-hit|-|--party-fixture boss01_charge_hit --capture-tick 70|"
+      "crash-stun|-|--party-fixture boss01_charge_jump --capture-tick 150|"
+      "rack-fall|-|--party-fixture boss01_rack_carl --capture-tick 185|"
+      "rack-crush|-|--party-fixture boss01_rack_carl --capture-tick 203|"
+      "phase-roar|-|--party-fixture boss01_phase_roar --capture-tick 100|"
+      "crush-kill|-|--party-fixture boss01_crush_kill --capture-tick 330|"
+      "party-defeat|-|--party-fixture boss01_party_defeat_retry --capture-tick 445|"
+      "full-clear-solo|-|--party-fixture boss01_full_clear_solo --capture-tick 3200|"
+      "pound-tell-reduced-motion|-|--party-fixture boss01_pound_punish --capture-tick 40|--hud-reduced-motion"
+      "pound-tell-high-contrast|-|--party-fixture boss01_pound_punish --capture-tick 40|--hud-high-contrast"
+    )
+  fi
   for entry in "${hud_states[@]}"; do
     IFS='|' read -r name preview driver extra <<<"$entry"
     hud_flag=()
     [[ "$preview" != "-" ]] && hud_flag=(--hud-preview "$preview")
     state_args=(${driver} ${extra} "${hud_flag[@]}")
-    out="${hud_dir}/hud-${name}-${suffix#hud-}"
+    out="${hud_dir}/${prefix}-${name}-${suffix#${prefix}-}"
     ./target/debug/floor01_scene "${deck_args[@]}" "${state_args[@]}" > "${out}.log" 2>&1 &
     pid=$!
     for _ in $(seq 1 40); do
@@ -124,9 +155,9 @@ if [[ "$mode" == hud || "$mode" == hud-deck ]]; then
     fi
     shown_preview=""; [[ "$preview" != "-" ]] && shown_preview="$preview"
     python3 -I scripts/check_hud_capture.py "${out}.png" 2 "$deck_flag" $shown_preview
-    echo "HUD_STATE_OK: $name"
+    echo "${prefix^^}_STATE_OK: $name"
   done
-  echo "FLOOR1_RENDER_OK: $mode (${#hud_states[@]} HUD captures at $expected in $hud_dir)"
+  echo "FLOOR1_RENDER_OK: $mode (${#hud_states[@]} ${prefix} captures at $expected in $hud_dir)"
   exit 0
 fi
 base="artifacts/floor01-scene-${suffix}"

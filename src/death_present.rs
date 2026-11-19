@@ -404,8 +404,8 @@ pub enum Finish {
 impl Finish {
     pub fn from_id(id: &str) -> Self {
         match id {
-            "goblin_crushed" => Self::Crushed,
-            "goblin_knockback_down" => Self::Knockback,
+            "goblin_crushed" | "brute_crushed" => Self::Crushed,
+            "goblin_knockback_down" | "brute_ko_timber" => Self::Knockback,
             "goblin_decapitated" => Self::Decapitated,
             _ => Self::NoArt,
         }
@@ -646,6 +646,8 @@ pub struct DeathPresenter {
     species: &'static str,
     preset: GorePreset,
     lab_finish: Option<Finish>,
+    /// The finish id chosen for the boss' defeat (HUD-DEBT-03).
+    boss_finish: Option<String>,
     clock: u64,
     attempt: u32,
     seen_events: usize,
@@ -696,6 +698,7 @@ impl DeathPresenter {
             species: "goblin",
             preset,
             lab_finish: None,
+            boss_finish: None,
             clock: 0,
             attempt: 0,
             seen_events: 0,
@@ -753,6 +756,7 @@ impl DeathPresenter {
 
     /// Forget every piece and death (a restart). The attempt counter is kept.
     pub fn clear(&mut self) {
+        self.boss_finish = None;
         self.deaths.clear();
         self.retired.clear();
         self.parts.clear();
@@ -926,6 +930,11 @@ impl DeathPresenter {
             .min(combat.events.len());
         self.seen_events = total;
         let events = &combat.events[combat.events.len() - fresh..];
+        if let Some(boss) = combat.boss.as_ref() {
+            for event in events {
+                self.begin_boss_death(event, boss.x, boss.floor_y(), boss.facing < 0);
+            }
+        }
         self.step(
             events,
             Observation {
@@ -1009,6 +1018,38 @@ impl DeathPresenter {
                 self.parts.start_fade(slot, clock);
             }
         }
+    }
+
+    /// HUD-DEBT-03: the boss' defeat through the same death language. The
+    /// finish comes from the `brute_boss` profile (`brute_ko_timber` for a
+    /// melee knockout, `brute_crushed` under the rack). Until the boss death
+    /// art exists the cosmetics are the goblin crush or knockback burst (dust
+    /// and, at preset 4, blood and a pool) at the boss' feet; nothing here
+    /// reaches the simulation. The finish chosen is kept for the trace.
+    fn begin_boss_death(&mut self, event: &CombatEvent, x: f32, ground_y: f32, flip: bool) {
+        let CombatEvent::EnemyDefeated {
+            tick,
+            target,
+            cause,
+            force,
+            ..
+        } = *event
+        else {
+            return;
+        };
+        if target != crate::boss::BOSS_ENEMY_ID {
+            return;
+        }
+        let selection = self.profiles.select("brute_boss", cause, force);
+        let finish_id = selection.finish.to_owned();
+        let finish = Finish::from_id(&finish_id);
+        self.boss_finish = Some(finish_id);
+        self.spawn_synthetic(finish, x, ground_y, flip, tick);
+    }
+
+    /// The finish id chosen for the boss' defeat, if it fell.
+    pub fn boss_finish(&self) -> Option<&str> {
+        self.boss_finish.as_deref()
     }
 
     fn begin_death(

@@ -42,6 +42,11 @@ committed_anim=docs/evidence/art-int-02
 # Donut damage) with their committed replays.
 party_fixtures=(duo_independent_moves duo_separation_wall solo_swap_continuity donut_hurt_iframes donut_defeat_party solo_guard_floors_at_one solo_follower_dodge)
 committed_party=docs/evidence/party-2p
+# HUD-DEBT-03: the Floor 01 boss encounter fixtures (the Juicer, the boss arena)
+# with their committed replays. boss01_rack_donut is pending (the right rack
+# waits for Q10's higher cat jump).
+boss_fixtures=(boss01_pound_punish boss01_charge_jump boss01_charge_hit boss01_hug_guard boss01_rack_carl boss01_phase_roar boss01_roar_queued boss01_2p_gate boss01_solo_ai_guard boss01_party_defeat_retry boss01_crush_kill boss01_full_clear_solo boss01_full_clear_2p)
+committed_boss=docs/evidence/boss-f01
 out=artifacts/cp01-feel
 mkdir -p "$out"
 
@@ -118,6 +123,35 @@ case "$mode" in
         exit 1
       fi
       echo "PARTY_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/party_${f}.txt")"
+    done
+    # HUD-DEBT-03: every boss fixture replays identically twice, reproduces the
+    # committed events and hash, and gives the same replay at gore presets 1 and
+    # 4 and with the boss HUD preview flag (presentation never reaches the
+    # simulation).
+    for f in "${boss_fixtures[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/boss_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/boss_${f}_again.txt"
+      if ! cmp -s "$out/boss_${f}.txt" "$out/boss_${f}_again.txt"; then
+        echo "boss fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_boss/headless_${f}.txt" "$out/boss_${f}.txt"; then
+        echo "boss fixture $f differs from the committed replay ($committed_boss)" >&2
+        exit 1
+      fi
+      for preset in 1 4; do
+        "$bin" --headless-floor01-smoke --party-fixture "$f" --gore-preset "$preset" | party_lines > "$out/boss_${f}_p${preset}.txt"
+        if ! cmp -s "$out/boss_${f}.txt" "$out/boss_${f}_p${preset}.txt"; then
+          echo "boss fixture $f at gore preset $preset differs from the default replay" >&2
+          exit 1
+        fi
+      done
+      "$bin" --headless-floor01-smoke --party-fixture "$f" --hud-preview boss | party_lines > "$out/boss_${f}_hud.txt"
+      if ! cmp -s "$out/boss_${f}.txt" "$out/boss_${f}_hud.txt"; then
+        echo "boss fixture $f differs with --hud-preview boss" >&2
+        exit 1
+      fi
+      echo "BOSS_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/boss_${f}.txt")"
     done
     ;;
   render)

@@ -163,6 +163,7 @@ const fn beat_fixture(
         carl_x: CHECKPOINTS[beat],
         enemies: &DEMO_ENEMIES,
         shore_dx: Some(SHORE_STRIKE_X - CHECKPOINTS[beat]),
+        boss: None,
         script: &[],
         ticks,
     }
