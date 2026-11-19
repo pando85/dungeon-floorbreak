@@ -112,6 +112,13 @@ pub struct Goblin {
     pub flight_ticks: u16,
     /// Ticks the `knockback_contact` pose is still held after a contact.
     pub contact_ticks: u8,
+    /// The player whose move last hit this goblin while it lived (a kick that
+    /// launched it, a jab). It credits a later block as the instigator of the
+    /// defeat; it is read for the defeat event only. Player 0 (the only one in
+    /// play) is not mixed into the state hash, because with one player
+    /// `Some(0)` is already implied by a hashed `Hit`; any other player is
+    /// mixed, so a second player's hit never hashes like Carl's.
+    pub hit_by: Option<u32>,
 }
 
 impl Goblin {
@@ -136,6 +143,7 @@ impl Goblin {
             launch: None,
             flight_ticks: 0,
             contact_ticks: 0,
+            hit_by: None,
         }
     }
 
@@ -375,6 +383,14 @@ impl Goblin {
             mix(self.launch.map_or(0, |id| u64::from(id) + 1));
             mix(u64::from(self.flight_ticks));
             mix(u64::from(self.contact_ticks));
+        }
+        // DEATH-B: a hit by a player other than slot 0 (2P). Absent for every
+        // single-player replay, so their hashes stay put.
+        if let Some(player) = self.hit_by
+            && player != 0
+        {
+            mix(0x4849_5442);
+            mix(u64::from(player));
         }
     }
 

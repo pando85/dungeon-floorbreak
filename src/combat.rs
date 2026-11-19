@@ -687,6 +687,8 @@ pub struct Attacker {
     /// Half the attacker's box height, to find the feet from the centre.
     pub half_height: f32,
     pub facing: i8,
+    /// The player slot credited for what this attacker defeats (0 is Carl).
+    pub player: u32,
 }
 
 /// The world-space hit box of a [`HitShape::Box`] move, if the shape is one.
@@ -808,11 +810,13 @@ pub fn resolve_strike<T: StrikeTarget>(
             hit_stop: stop,
         });
         if outcome == HitOutcome::Defeated {
-            events.push(CombatEvent::EnemyDefeated {
-                tick: sim_tick,
-                target: id,
-                cause: DefeatCause::Melee,
-            });
+            events.push(CombatEvent::enemy_defeated(
+                sim_tick,
+                id,
+                DefeatCause::Melee,
+                Some(attacker.player),
+                Some(spec),
+            ));
         }
     }
     runner.begin_hit_stop(attacker_stop);
@@ -827,6 +831,69 @@ pub enum DefeatCause {
     Melee,
     /// CP-03: the falling block, credited to the player who broke the shore.
     ShoreBlock { player: u32 },
+}
+
+impl DefeatCause {
+    /// The force tier a cause implies when nothing stronger is recorded: a
+    /// melee hit is routine, a falling block is catastrophic.
+    pub const fn default_force(self) -> ForceTier {
+        match self {
+            Self::Melee => ForceTier::Routine,
+            Self::ShoreBlock { .. } => ForceTier::Catastrophic,
+        }
+    }
+
+    /// Every force tier a cause may legitimately record. `force` is not mixed
+    /// into the replay hash because it is derived from hashed data, so a force
+    /// outside this list is a bug (checked in [`CombatEvent::mix_into`]); a
+    /// cause whose force is not derivable must mix it, as a documented hash
+    /// migration. The exhaustive match forces a new cause to decide.
+    pub const fn derived_forces(self) -> &'static [ForceTier] {
+        match self {
+            Self::Melee => &[ForceTier::Routine, ForceTier::Heavy],
+            Self::ShoreBlock { .. } => &[ForceTier::Catastrophic],
+        }
+    }
+
+    /// The instigator a cause implies when nothing else is recorded: Carl's
+    /// slot for a melee defeat, nobody for the block (its breaker is part of
+    /// the cause).
+    pub const fn implied_instigator(self) -> Option<u32> {
+        match self {
+            Self::Melee => Some(0),
+            Self::ShoreBlock { .. } => None,
+        }
+    }
+}
+
+/// The authoritative strength of a defeat (never a gore or intensity setting:
+/// the presentation preset is not part of simulation state).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForceTier {
+    Routine,
+    Heavy,
+    Catastrophic,
+}
+
+impl ForceTier {
+    /// The tier of a lethal melee move: a launching move (the push kick) is
+    /// heavy, every other strike routine.
+    pub const fn of_move(spec: &MoveSpec) -> Self {
+        if spec.reaction.launch {
+            Self::Heavy
+        } else {
+            Self::Routine
+        }
+    }
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Routine => "routine",
+            Self::Heavy => "heavy",
+            Self::Catastrophic => "catastrophic",
+        }
+    }
 }
 
 /// Something that happened on a fixed tick, for deterministic replay logs.
@@ -852,13 +919,19 @@ pub enum CombatEvent {
         /// Ticks the attacker and the target freeze (0 for the greybox).
         hit_stop: u8,
     },
-    /// The one authoritative defeat event. `cause` says how (melee by default;
-    /// the falling block of CP-03 credits the player who broke the shore).
-    /// Presentation data (gore, intensity) never belongs in it.
+    /// The one authoritative defeat event, emitted once per alive -> dead
+    /// transition. `cause` says how (melee by default; the falling block of
+    /// CP-03 credits the player who broke the shore), `force` how hard
+    /// ([`ForceTier`]) and `instigator` which player's action is behind it: the
+    /// attacker for a melee defeat, and for a block the player who last hit
+    /// the target while it lived (a kick that put it under the block), if any.
+    /// Presentation data (gore, intensity, finish) never belongs in it.
     EnemyDefeated {
         tick: u64,
         target: u32,
         cause: DefeatCause,
+        force: ForceTier,
+        instigator: Option<u32>,
     },
     /// A goblin took an attack token and started its tell (attack tick 0).
     GoblinTell {
@@ -913,6 +986,29 @@ pub enum CombatEvent {
 }
 
 impl CombatEvent {
+    /// The one constructor of the defeat event: the force tier is derived here
+    /// (never passed in), from the lethal move for a melee defeat and from the
+    /// cause otherwise, so a force source cannot skip the derivation rule.
+    pub fn enemy_defeated(
+        tick: u64,
+        target: u32,
+        cause: DefeatCause,
+        instigator: Option<u32>,
+        lethal_move: Option<&MoveSpec>,
+    ) -> Self {
+        let force = match (cause, lethal_move) {
+            (DefeatCause::Melee, Some(spec)) => ForceTier::of_move(spec),
+            _ => cause.default_force(),
+        };
+        Self::EnemyDefeated {
+            tick,
+            target,
+            cause,
+            force,
+            instigator,
+        }
+    }
+
     /// Stable numeric fingerprint of the event (for the rolling event hash).
     pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
         match *self {
@@ -948,7 +1044,13 @@ impl CombatEvent {
                 tick,
                 target,
                 cause,
+                force,
+                instigator,
             } => {
+                debug_assert!(
+                    cause.derived_forces().contains(&force),
+                    "force {force:?} is not derivable from {cause:?}: mix it"
+                );
                 mix(3);
                 mix(tick);
                 mix(u64::from(target));
@@ -956,6 +1058,16 @@ impl CombatEvent {
                 if let DefeatCause::ShoreBlock { player } = cause {
                     mix(0x5348_4f52);
                     mix(u64::from(player));
+                }
+                // DEATH-B: `force` is not mixed because it is derived from
+                // hashed data: a melee defeat's tier is `ForceTier::of_move` of
+                // the move id of the `Hit` mixed on the same tick, a block's is
+                // constant (a test pins both). `instigator` is mixed only where
+                // the cause does not imply it (a block that crushed a target a
+                // player had hit), so every earlier replay keeps its hash.
+                if instigator != cause.implied_instigator() {
+                    mix(0x494e_5354);
+                    mix(instigator.map_or(0, |p| u64::from(p) + 1));
                 }
             }
             Self::HeroHurt {
@@ -1056,17 +1168,26 @@ impl fmt::Display for CombatEvent {
                 tick,
                 target,
                 cause,
+                force,
+                instigator,
             } => {
                 write!(
                     f,
                     "COMBAT_EVENT tick={tick} kind=enemy_defeated target={target}"
                 )?;
-                match cause {
-                    DefeatCause::Melee => Ok(()),
-                    DefeatCause::ShoreBlock { player } => {
-                        write!(f, " cause=shore_block credit_player={player}")
-                    }
+                if let DefeatCause::ShoreBlock { player } = cause {
+                    write!(f, " cause=shore_block credit_player={player}")?;
                 }
+                // Fields that are implied by the cause stay out of the line.
+                if force != cause.default_force() {
+                    write!(f, " force={}", force.name())?;
+                }
+                if instigator != cause.implied_instigator()
+                    && let Some(player) = instigator
+                {
+                    write!(f, " instigator={player}")?;
+                }
+                Ok(())
             }
             Self::GoblinTell { tick, goblin } => {
                 write!(
@@ -1421,6 +1542,7 @@ mod tests {
             y: 126.0,
             half_height: 26.0,
             facing: 1,
+            player: 0,
         }
     }
 

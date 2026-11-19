@@ -277,6 +277,7 @@ impl World {
                 y: self.hero.y,
                 half_height: HERO_HALF_HEIGHT,
                 facing: self.hero.facing,
+                player: 0,
             };
             let mut events: Vec<CombatEvent> = Vec::new();
             resolve_strike(
