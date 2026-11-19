@@ -23,8 +23,8 @@
 pub struct HudSettings {
     /// No notice or boss slides, blinks or flashes (spec section 5).
     pub reduced_motion: bool,
-    /// Text and shape cues rise to at least 7:1 against their plate and the
-    /// hatch/outline cues become white (spec section 3, "high contrast").
+    /// All HUD text reaches 7:1, empty-state outlines 13:1, fills and track
+    /// outlines at least 4.4:1 (floor01-scene.md, HUD accessibility settings).
     pub high_contrast: bool,
 }
 

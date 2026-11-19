@@ -515,15 +515,14 @@ fn chip(o: &mut Out, s: &HudSnapshot, chip: Chip, x0: i32, y: i32) {
     let glyph = FrameId::of_glyph(s.glyphs.glyph(chip.action));
     let (w, h) = glyph.size();
     // A muted chip is dimmed (`amber_dim`, 4.2:1) with a zig-zag underline.
-    // High contrast keeps the zig-zag (the non-hue cue) and drops the dimming:
-    // an untinted glyph and `text_white` text and underline (13.7:1).
-    let dim = chip.muted && !s.high_contrast;
-    let tint = dim.then_some(p::AMBER_DIM);
+    // High contrast keeps the zig-zag (the non-hue cue) and the dimmed glyph
+    // (a graphical object only needs 3:1) but raises the label and the
+    // underline to `amber` (10.4:1), so muted never reads brighter than live.
+    let tint = chip.muted.then_some(p::AMBER_DIM);
     o.frame_sized(Z_ICON, glyph, x0, y + 34, w, h, tint);
     let color = match (chip.muted, s.high_contrast) {
-        (false, _) => p::AMBER,
         (true, false) => p::AMBER_DIM,
-        (true, true) => p::TEXT_WHITE,
+        _ => p::AMBER,
     };
     o.text(
         Z_TEXT,
@@ -1366,24 +1365,56 @@ mod tests {
     }
 
     #[test]
-    fn high_contrast_drops_the_dim_tint_and_keeps_the_zigzag_and_outlines_white() {
+    fn high_contrast_muted_chip_is_never_more_emphatic_than_a_live_chip() {
         let high = hc_list(Some(HudPreview::Depleted), 1, true);
-        assert!(
-            !high
-                .iter()
-                .any(|i| matches!(i.kind, DrawKind::Frame { tint: Some(_), .. }))
-        );
+        // No dim text in high contrast (4.2:1 is below 7:1).
         assert!(
             !high
                 .iter()
                 .any(|i| matches!(&i.kind, DrawKind::Text { color, .. } if *color == p::AMBER_DIM))
         );
-        // Muted chip underline stays (not hue alone), now white.
-        let zigzag = high
+        // The muted chip (MISSILE) has the dimmed glyph (luminance, not hue)
+        // and exactly one tinted frame; the live chip (POUNCE) is untinted.
+        let tinted = high
             .iter()
-            .filter(|i| i.z >= Z_FLASH && matches!(i.kind, DrawKind::Rect { w: 2, h: 1, color, .. } if color == p::TEXT_WHITE))
+            .filter(
+                |i| matches!(i.kind, DrawKind::Frame { tint: Some(t), .. } if t == p::AMBER_DIM),
+            )
             .count();
-        assert_eq!(zigzag, 25);
+        assert_eq!(tinted, 1);
+        // Its label and the zig-zag underline are `amber`, never `text_white`
+        // (13.7:1, brighter than the live chip's 10.4:1) and still >= 7:1.
+        assert!(
+            !high.iter().any(|i| i.z >= Z_FLASH
+                && matches!(i.kind, DrawKind::Rect { w: 2, h: 1, color, .. } if color == p::TEXT_WHITE))
+        );
+        let strokes = |list: &[DrawItem], c: Rgb| {
+            list.iter()
+                .filter(|i| {
+                    i.z >= Z_FLASH
+                        && matches!(i.kind, DrawKind::Rect { w: 2, h: 1, color, .. } if color == c)
+                })
+                .count()
+        };
+        let normal = hc_list(Some(HudPreview::Depleted), 1, false);
+        // 25 dim strokes in normal become 25 more `amber` strokes in high contrast.
+        assert_eq!(strokes(&normal, p::AMBER_DIM), 25);
+        assert_eq!(strokes(&high, p::AMBER), strokes(&normal, p::AMBER) + 25);
+        assert_eq!(strokes(&high, p::AMBER_DIM), 0);
+        assert!(contrast(p::AMBER, p::PLATE_FILL) >= 7.0);
+        assert!(contrast(p::AMBER_DIM, p::PLATE_FILL) >= 3.0);
+        // The zig-zag is the only extra mark: a live-only list has none.
+        let live = hc_list(None, 4, true);
+        assert!(
+            !live
+                .iter()
+                .any(|i| i.z >= Z_FLASH && matches!(i.kind, DrawKind::Rect { w: 2, h: 1, .. }))
+        );
+    }
+
+    #[test]
+    fn high_contrast_keeps_outlines_white_and_fills_lighter() {
+        let high = hc_list(Some(HudPreview::Depleted), 1, true);
         // Empty HP segments (hp 1 of 4) use white outlines. The empty mana
         // track does too once the (normal-motion) magenta flash is not shown.
         assert!(high.iter().any(|i| matches!(i.kind, DrawKind::Rect { w: 22, h: 6, color, .. } if color == p::TEXT_WHITE)));

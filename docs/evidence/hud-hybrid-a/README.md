@@ -18,7 +18,7 @@ All `hud-*` images are real window captures of `floor01_scene` with the **real e
 | `hud-PREVIEW-depleted-reduced-motion-<size>-1x.png` | `--hud-reduced-motion` on the depleted fixture (hatched flash, no blink or slide) |
 | `hud-contact-sheet-<size>-2x.png` | normal plus the five fixtures, 2x captures tiled, REAL / PREVIEW label above each |
 | `hud-contact-sheet-real-and-options-<size>-2x.png` | the four real combat states, DualSense and reduced motion, 2x captures tiled |
-| `hud-PREVIEW-depleted-high-contrast-<size>-1x.png` | HUD-DEBT-06: `--hud-high-contrast` on the depleted fixture (white empty-bar outlines, no dim text, muted chip untinted with a white zig-zag) |
+| `hud-PREVIEW-depleted-high-contrast-<size>-1x.png` | HUD-DEBT-06: `--hud-high-contrast` on the depleted fixture (white empty-bar outlines, no dim text, muted chip with a dimmed glyph, `amber` label and zig-zag) |
 | `hud-PREVIEW-depleted-high-contrast-reduced-motion-<size>-1x.png` | both settings together (the empty mana track outline is white because no magenta flash runs) |
 | `hud-REAL-hurt-reduced-motion-<size>-1x.png` | HUD-DEBT-06: `--hud-reduced-motion` on the real hurt (`cp01_goblin_attacks` tick 250): hatched lost segment instead of the white flash. **REAL** state |
 | `hud-REAL-low-hp-high-contrast-<size>-1x.png` | HUD-DEBT-06: `--hud-high-contrast` on Carl at 1 HP (`cp01_retry` tick 340): white outlines on the three empty segments, lighter HP fill. **REAL** state |
@@ -33,7 +33,7 @@ All `hud-*` images are real window captures of `floor01_scene` with the **real e
 The four `hud-*-high-contrast*` and `hud-REAL-hurt-reduced-motion` files above and the accessibility contact sheets are **real Bevy window captures** of `floor01_scene` (real atlas, lit, Xvfb on a local machine, not a Deck) made by `scripts/ci_floor01_render_smoke.sh hud` and `hud-deck`; they passed `scripts/check_hud_capture.py` (flat 2x2 blocks, HUD palette only in the text rows, 10 px and 5 px caps) like every other state. `scripts/make_hud_a11y_evidence.py` reduces them to 1x by integer nearest-neighbour, tiles the sheets and extends `SHA256SUMS`. The default-state counterparts are the existing `hud-REAL-hurt`, `hud-REAL-low-hp` and `hud-PREVIEW-depleted` files (**not** regenerated, same scenes).
 
 * **Real settings:** reduced UI motion (`--hud-reduced-motion`, `FLOORBREAK_HUD_REDUCED_MOTION`) and high contrast (`--hud-high-contrast`, `FLOORBREAK_HUD_HIGH_CONTRAST`).
-* **Not available, no capture exists for them:** text size (a 2x step does not fit the spec plate rows), persistence (no settings file in the repo), a controller-reachable settings screen (no menu in the game). See [floor01-scene.md](../../03-tech/floor01-scene.md#hud-accessibility-settings-hud-debt-06).
+* **Not available, no capture exists for them:** text size (a 2x step does not fit the spec plate rows), persistence (no settings file in the repo), a controller-reachable settings screen (no menu in the game). See [floor01-scene.md](../../03-tech/floor01-scene.md#hud-hud-hybrid-a-01).
 * **High contrast does not recolour** atlas art (frames, portraits, glyphs, CRT face) or the transient dim phase of the boss warning blink; it changes no position or size.
 
 ## Gameplay clearance (spec 8.2)

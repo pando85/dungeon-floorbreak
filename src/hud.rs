@@ -429,7 +429,8 @@ pub struct HudSnapshot {
     /// `Some` draws the PREVIEW tag.
     pub preview: Option<HudPreview>,
     pub reduced_motion: bool,
-    /// HUD-DEBT-06: text and shape cues at 7:1 or better (spec section 3).
+    /// HUD-DEBT-06: all HUD text at 7:1 or better, empty-state outlines 13:1,
+    /// fills and track outlines at least 4.4:1 (floor01-scene.md, HUD accessibility settings).
     pub high_contrast: bool,
     /// The System face frame (idle, blink, or notice while a panel is up).
     pub face: FaceFrame,
