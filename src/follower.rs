@@ -13,7 +13,9 @@
 //! The off-screen regroup rule lives with the camera in
 //! [`crate::corridor::SceneSim`].
 
+use crate::boss::BossThreat;
 use crate::input::{InputFrame, RawInput};
+use crate::party::HeroId;
 use crate::party::PartyTuning;
 use crate::prototype::{Block, GRAVITY, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, JUMP_SPEED, Rect};
 
@@ -34,6 +36,8 @@ const DODGE_LATEST_TELL_TICK: u16 = 20;
 const LEDGE_STEP_PX: f32 = 8.0;
 /// Horizontal reach of the "leader is on a ledge above me" hop.
 const LEDGE_NEAR_PX: f32 = 64.0;
+/// The bot steps out of a pound tell aimed at it within this many px.
+const POUND_STEP_OUT_PX: f32 = 84.0;
 
 /// A goblin attack in progress, as the bot sees it (a tell or swing).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -106,6 +110,60 @@ pub fn follower_input(
 /// The top (y-up) of the highest intact solid directly ahead of the hero's
 /// leading edge, probed like the scripted walk bot: a 6 px wide, 8 px tall
 /// window one pixel above the feet.
+/// [`follower_input`] plus the boss dodges (HUD-DEBT-03, D1 safeguard M3): the
+/// bot steps out of a pound tell aimed at it within 72 px, and jumps when a
+/// running charge's ram box will reach it within `lead_ticks`. It never
+/// attacks and never triggers a rack. `me_id` is the hero the bot drives.
+pub fn follower_input_boss(
+    (me_id, me): (HeroId, &Hero),
+    frame: &InputFrame,
+    leader: &Hero,
+    solids: &[Block],
+    threats: &[Threat],
+    boss: Option<&BossThreat>,
+    tuning: &PartyTuning,
+) -> RawInput {
+    let mut raw = follower_input(me, frame, leader, solids, threats, tuning);
+    let Some(boss) = boss else {
+        return raw;
+    };
+    match *boss {
+        BossThreat::Pound { x, facing, target } => {
+            let gap = me.x - x;
+            let ahead = gap * f32::from(facing);
+            if target.is_none_or(|t| t == me_id) && ahead > 0.0 && gap.abs() <= POUND_STEP_OUT_PX {
+                raw.move_x = if gap >= 0.0 { 1.0 } else { -1.0 };
+                raw.jump = false;
+            }
+        }
+        BossThreat::Charge {
+            tell_left,
+            x,
+            dir,
+            running: _,
+            front,
+            depth,
+            speed,
+            lead_ticks,
+        } => {
+            // The tell counts too (M3: the ram reaches the bot within
+            // `lead_ticks`, takeoff included): the arrival is the rest of the
+            // tell plus the run to the bot, so the jump comes 14..22 ticks
+            // before the ram, never after it has started.
+            if me.grounded && !frame.held.jump {
+                let lead = x + f32::from(dir) * front;
+                let gap = (me.x - lead) * f32::from(dir) - HERO_HALF_WIDTH;
+                let in_path = gap > -(depth + 2.0 * HERO_HALF_WIDTH);
+                let arrival = f32::from(tell_left) + gap.max(0.0) / speed;
+                if in_path && arrival <= f32::from(lead_ticks) {
+                    raw.jump = true;
+                }
+            }
+        }
+    }
+    raw
+}
+
 fn obstacle_top(me: &Hero, dir: f32, solids: &[Block]) -> Option<f32> {
     let foot_y = me.y - HERO_HALF_HEIGHT;
     let left = if dir > 0.0 {
@@ -255,5 +313,43 @@ mod tests {
         let mut air = hero(300.0);
         air.grounded = false;
         assert!(!input(&air, &leader, &solids, &[near]).jump);
+    }
+
+    /// M3: the bot jumps for a charge during the tell, so the takeoff comes
+    /// 14..22 ticks before the ram (not at the first running tick).
+    #[test]
+    fn it_jumps_a_charge_when_the_ram_is_within_the_lead_even_during_the_tell() {
+        use crate::boss::BossThreat;
+        let solids = [floor()];
+        let me = hero(200.0);
+        let leader = hero(400.0);
+        let charge = |tell_left: u16, running: bool| BossThreat::Charge {
+            tell_left,
+            x: 100.0,
+            dir: 1,
+            running,
+            front: 82.0,
+            depth: 46.0,
+            speed: 5.0,
+            lead_ticks: 18,
+        };
+        let jump = |threat: BossThreat| {
+            follower_input_boss(
+                (HeroId::Donut, &me),
+                &InputFrame::default(),
+                &leader,
+                &solids,
+                &[],
+                Some(&threat),
+                &PROVISIONAL_TUNING,
+            )
+            .jump
+        };
+        assert!(!jump(charge(40, false)), "40 ticks of tell left: too early");
+        assert!(
+            jump(charge(12, false)),
+            "12 ticks left plus the run: inside the lead"
+        );
+        assert!(jump(charge(0, true)), "running and close: still jumps");
     }
 }

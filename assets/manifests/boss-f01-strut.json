@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "id": "brute_boss_f01_strut_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/enemies/brute_boss_f01/brute_boss_f01_strut.ase",
+  "grid_source": "assets/source/enemies/brute_boss_f01/brute_boss_f01_strut.grid.json",
+  "output_atlas": "generated/art/brute_boss_f01_strut.png",
+  "output_metadata": "generated/art/brute_boss_f01_strut.json",
+  "palette_id": "boss-f01-fx-v0",
+  "frame_size": [
+    40,
+    196
+  ],
+  "pivot": [
+    20,
+    195
+  ],
+  "animation_tags": [
+    "strut_sound",
+    "strut_cracked",
+    "strut_splintered"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 boss encounter art (fan-concept layer: THE JUICER encounter; runtime ids IP-neutral brute_boss_f01)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "rotten timber strut in three damage states, floor contact at the pivot, extends the CP-03 shore kit",
+    "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Route C, extends the CP-03 shore kit; the top-tier editor pass is pending. Review fix round 1 applied by Claude Sonnet. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/floor-01-boss-design.md",
+      "tools/art-references/death-lab/README.md"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "boss": {
+    "status": "3 frames drawn; top-tier editor pass and independent review pending; not wired into any Bevy binary",
+    "spec": "docs/02-art/floor-01-boss-design.md",
+    "data_id": "brute_boss_f01",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "strut_sound": "hold",
+      "strut_cracked": "hold",
+      "strut_splintered": "hold"
+    },
+    "roles": {
+      "strut_sound": "no hits",
+      "strut_cracked": "after the first strut hit",
+      "strut_splintered": "after the second hit; the third breaks it"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "strut_sound",
+        "tag": "strut_sound",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          20,
+          195
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 40,
+          "h": 196
+        },
+        "content": [
+          5,
+          1,
+          34,
+          195
+        ],
+        "sha256": "55493e9796fc66282392baf44c8cd4ec2de07cd111dd1db3ecca65e8fbb06611"
+      },
+      {
+        "index": 1,
+        "name": "strut_cracked",
+        "tag": "strut_cracked",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          20,
+          195
+        ],
+        "rect": {
+          "x": 40,
+          "y": 0,
+          "w": 40,
+          "h": 196
+        },
+        "content": [
+          5,
+          1,
+          34,
+          195
+        ],
+        "sha256": "09ea8f8df2f69c6f8599d365aa8115ea8621f4b7eb0747aaf16c84d3da6eaf95"
+      },
+      {
+        "index": 2,
+        "name": "strut_splintered",
+        "tag": "strut_splintered",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          20,
+          195
+        ],
+        "rect": {
+          "x": 80,
+          "y": 0,
+          "w": 40,
+          "h": 196
+        },
+        "content": [
+          6,
+          1,
+          35,
+          195
+        ],
+        "sha256": "dcab25b8d7be50e9379f45dfaa688f27a0c0e618c88dd66731d262c7f7f6895d"
+      }
+    ]
+  }
+}

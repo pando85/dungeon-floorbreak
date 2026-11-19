@@ -23,7 +23,9 @@ use bevy::{
 
 use crate::env_kit::IRect;
 use crate::hud::{HudFont, HudLayout, HudRuntime, Rgb, VIEW_WIDTH};
-use crate::hud_draw::{DrawItem, DrawKind, FrameId, build_draw_list, placeholder_rects};
+use crate::hud_draw::{
+    DrawItem, DrawKind, FrameId, build_draw_list, emblem_placeholder_rects, placeholder_rects,
+};
 
 /// The HUD's render layer (the lighting pass uses 10 to 14).
 pub const LAYER_HUD: usize = 15;
@@ -31,6 +33,10 @@ pub const LAYER_HUD: usize = 15;
 const ATLAS_MANIFEST: &str = "assets/manifests/hud_hybrid_a_v1.json";
 /// Asset path (below `generated/art`) of the atlas the manifest names.
 const ATLAS_ASSET: &str = "hud_hybrid_a.png";
+/// The boss strip's emblem (HUD-DEBT-03): its own 18 x 18 atlas, not merged
+/// into the HUD atlas. Drawn when the manifest and the exported image exist.
+const EMBLEM_MANIFEST: &str = "assets/manifests/boss-f01-emblem.json";
+const EMBLEM_ASSET: &str = "brute_boss_f01_emblem.png";
 const FONT_JERSEY: &str = "assets/fonts/jersey10/Jersey10-Regular.ttf";
 const FONT_SILK_REGULAR: &str = "assets/fonts/silkscreen/Silkscreen-Regular.ttf";
 const FONT_SILK_BOLD: &str = "assets/fonts/silkscreen/Silkscreen-Bold.ttf";
@@ -141,6 +147,8 @@ impl HudAtlasData {
 #[derive(Resource)]
 pub struct HudArt {
     texture: Option<Handle<Image>>,
+    /// The boss emblem image, when exported.
+    emblem: Option<Handle<Image>>,
     rects: HashMap<FrameId, IRect>,
 }
 
@@ -173,6 +181,7 @@ pub struct HudPlugin {
     camera_order: isize,
     msaa: Msaa,
     atlas: Option<HudAtlasData>,
+    emblem: bool,
     fonts: std::sync::Mutex<Option<FontBytes>>,
     hidden: bool,
 }
@@ -195,6 +204,8 @@ impl HudPlugin {
             camera_order,
             msaa,
             atlas: HudAtlasData::load(root)?,
+            emblem: root.join(EMBLEM_MANIFEST).is_file()
+                && root.join("generated/art").join(EMBLEM_ASSET).is_file(),
             fonts: std::sync::Mutex::new(Some(FontBytes {
                 jersey: read(FONT_JERSEY)?,
                 silk_regular: read(FONT_SILK_REGULAR)?,
@@ -216,6 +227,11 @@ impl HudPlugin {
     pub fn atlas_asset(&self) -> Option<&'static str> {
         self.atlas.as_ref().map(|_| ATLAS_ASSET)
     }
+
+    /// Asset path of the boss emblem image when it is exported.
+    pub fn emblem_asset(&self) -> Option<&'static str> {
+        self.emblem.then_some(EMBLEM_ASSET)
+    }
 }
 
 /// The runtime the scene steps once per fixed tick.
@@ -228,6 +244,7 @@ struct HudRender {
     camera_order: isize,
     msaa: Msaa,
     atlas: Option<HudAtlasData>,
+    emblem: bool,
     fonts: Option<FontBytes>,
     last_revision: Option<u64>,
     items: Vec<DrawItem>,
@@ -283,6 +300,7 @@ impl Plugin for HudPlugin {
                 camera_order: self.camera_order,
                 msaa: self.msaa,
                 atlas: self.atlas.clone(),
+                emblem: self.emblem,
                 fonts: self.fonts.lock().ok().and_then(|mut f| f.take()),
                 last_revision: None,
                 items: Vec::with_capacity(512),
@@ -356,8 +374,12 @@ fn spawn_hud(
         .atlas
         .as_ref()
         .map(|_| asset_server.load::<Image>(ATLAS_ASSET));
+    let emblem = render
+        .emblem
+        .then(|| asset_server.load::<Image>(EMBLEM_ASSET));
     commands.insert_resource(HudArt {
         texture,
+        emblem,
         rects: render
             .atlas
             .as_ref()
@@ -419,6 +441,13 @@ pub fn sprite_cost(items: &[DrawItem], atlas: bool) -> usize {
                     placeholder_rects(*frame, *w, *h).len()
                 }
             }
+            DrawKind::Emblem { .. } => {
+                if atlas {
+                    1
+                } else {
+                    emblem_placeholder_rects().len()
+                }
+            }
             DrawKind::Text { .. } => 0,
         })
         .sum()
@@ -466,6 +495,7 @@ fn sync_hud(
                         h: *h,
                         color: *color,
                         frame: None,
+                        emblem: false,
                     },
                     &art,
                     view_h,
@@ -486,6 +516,7 @@ fn sync_hud(
                             h: *h,
                             color: tint.unwrap_or(Rgb(255, 255, 255)),
                             frame: Some(rect),
+                            emblem: false,
                         },
                         &art,
                         view_h,
@@ -508,6 +539,52 @@ fn sync_hud(
                                 h: rh,
                                 color,
                                 frame: None,
+                                emblem: false,
+                            },
+                            &art,
+                            view_h,
+                        );
+                    }
+                }
+            }
+            DrawKind::Emblem { w, h } => {
+                if art.emblem.is_some() {
+                    place_sprite(
+                        &mut sprites,
+                        &render.sprites,
+                        &mut si,
+                        &mut overflow,
+                        Placement {
+                            x: item.x,
+                            y: item.y,
+                            z: item.z,
+                            w: *w,
+                            h: *h,
+                            color: Rgb(255, 255, 255),
+                            frame: None,
+                            emblem: true,
+                        },
+                        &art,
+                        view_h,
+                    );
+                } else {
+                    for (k, (rx, ry, rw, rh, color)) in
+                        emblem_placeholder_rects().into_iter().enumerate()
+                    {
+                        place_sprite(
+                            &mut sprites,
+                            &render.sprites,
+                            &mut si,
+                            &mut overflow,
+                            Placement {
+                                x: item.x + rx,
+                                y: item.y + ry,
+                                z: item.z + k as f32 * 0.00001,
+                                w: rw,
+                                h: rh,
+                                color,
+                                frame: None,
+                                emblem: false,
                             },
                             &art,
                             view_h,
@@ -563,6 +640,8 @@ struct Placement {
     h: i32,
     color: Rgb,
     frame: Option<IRect>,
+    /// Draw the whole boss emblem image instead of an atlas region.
+    emblem: bool,
 }
 
 fn place_sprite(
@@ -583,6 +662,14 @@ fn place_sprite(
         return;
     };
     sprite.custom_size = Some(Vec2::new(p.w as f32, p.h as f32));
+    if let (true, Some(emblem)) = (p.emblem, art.emblem.as_ref()) {
+        sprite.image = emblem.clone();
+        sprite.rect = None;
+        sprite.color = Color::WHITE;
+        transform.translation = to_world(p.x, p.y, view_h, p.z);
+        vis.set_if_neq(Visibility::Inherited);
+        return;
+    }
     match (p.frame, art.texture.as_ref()) {
         (Some(rect), Some(texture)) => {
             sprite.image = texture.clone();

@@ -13,6 +13,7 @@
 //! reports after the step, so a hold over `from..to` covers the steps that
 //! produce `tick = from .. to - 1`.
 
+use crate::boss_scene::{BOSS_FIXTURES, Pilot, pilot_inputs};
 use crate::combat::EnemyAi;
 use crate::combat_scene::{CombatState, EnemySpawn, Fixture};
 use crate::corridor::SceneSim;
@@ -31,7 +32,7 @@ pub struct SlotHold {
 }
 
 /// A held direction on `slot`.
-const fn run(from: u64, to: u64, slot: usize, move_x: f32) -> SlotHold {
+pub(crate) const fn run(from: u64, to: u64, slot: usize, move_x: f32) -> SlotHold {
     SlotHold {
         from,
         to,
@@ -49,7 +50,7 @@ const fn run(from: u64, to: u64, slot: usize, move_x: f32) -> SlotHold {
 }
 
 /// A held jump on `slot` (one press edge at `from`).
-const fn jump(from: u64, to: u64, slot: usize) -> SlotHold {
+pub(crate) const fn jump(from: u64, to: u64, slot: usize) -> SlotHold {
     SlotHold {
         from,
         to,
@@ -67,7 +68,7 @@ const fn jump(from: u64, to: u64, slot: usize) -> SlotHold {
 }
 
 /// A held swap button (L1/LB) on P1: one press edge at `from`.
-const fn swap(from: u64, to: u64) -> SlotHold {
+pub(crate) const fn swap(from: u64, to: u64) -> SlotHold {
     SlotHold {
         from,
         to,
@@ -94,6 +95,10 @@ pub struct PartyFixture {
     pub two_player: bool,
     pub tuning: PartyTuning,
     pub script: &'static [SlotHold],
+    /// HUD-DEBT-03: a deterministic autopilot that plays the fixture (a pure
+    /// function of the finished state) on top of the script. `Pilot::None` on
+    /// every earlier fixture.
+    pub pilot: Pilot,
 }
 
 impl PartyFixture {
@@ -112,6 +117,8 @@ impl PartyFixture {
             let raw = &mut out[hold.slot];
             raw.jump |= hold.input.jump;
             raw.swap |= hold.input.swap;
+            raw.attack |= hold.input.attack;
+            raw.physical |= hold.input.physical;
             if hold.input.move_x != 0.0 {
                 raw.move_x = hold.input.move_x;
             }
@@ -119,16 +126,23 @@ impl PartyFixture {
         out
     }
 
+    /// The slot inputs of `tick`: the script, then (for a piloted fixture) the
+    /// autopilot's choice from the finished state.
+    pub fn inputs(&self, tick: u64, combat: &CombatState, scene: &SceneSim) -> SlotInputs {
+        pilot_inputs(self.pilot, self.slot_inputs(tick), tick, combat, scene)
+    }
+
+    /// Every named party fixture: the seven party fixtures, then the boss ones.
+    pub fn all() -> impl Iterator<Item = &'static PartyFixture> {
+        PARTY_FIXTURES.iter().chain(BOSS_FIXTURES.iter()).copied()
+    }
+
     pub fn by_name(name: &str) -> Option<&'static PartyFixture> {
-        PARTY_FIXTURES.iter().copied().find(|f| f.name() == name)
+        Self::all().find(|f| f.name() == name)
     }
 
     pub fn names() -> String {
-        PARTY_FIXTURES
-            .iter()
-            .map(|f| f.name())
-            .collect::<Vec<_>>()
-            .join(", ")
+        Self::all().map(|f| f.name()).collect::<Vec<_>>().join(", ")
     }
 }
 
@@ -146,6 +160,9 @@ const fn base(
         carl_x: 400,
         enemies,
         shore_dx: None,
+        boss: None,
+        llamas: &[],
+        charges: &[],
         script: &[],
         ticks,
     }
@@ -170,6 +187,7 @@ pub const DUO_INDEPENDENT_MOVES: PartyFixture = PartyFixture {
         jump(60, 61, 1),
         run(70, 130, 1, -1.0),
     ],
+    pilot: Pilot::None,
 };
 
 const DUO_WALL_BASE: Fixture = base(
@@ -186,6 +204,7 @@ pub const DUO_SEPARATION_WALL: PartyFixture = PartyFixture {
     two_player: true,
     tuning: PROVISIONAL_TUNING,
     script: &[run(10, 420, 0, 1.0)],
+    pilot: Pilot::None,
 };
 
 const SOLO_SWAP_BASE: Fixture = base(
@@ -208,6 +227,7 @@ pub const SOLO_SWAP_CONTINUITY: PartyFixture = PartyFixture {
         swap(200, 201),
         run(210, 260, 0, 1.0),
     ],
+    pilot: Pilot::None,
 };
 
 const DONUT_HURT_BASE: Fixture = base(
@@ -233,6 +253,7 @@ pub const DONUT_HURT_IFRAMES: PartyFixture = PartyFixture {
     two_player: true,
     tuning: PROVISIONAL_TUNING,
     script: &[],
+    pilot: Pilot::None,
 };
 
 const DONUT_DEFEAT_BASE: Fixture = base(
@@ -252,6 +273,7 @@ pub const DONUT_DEFEAT_PARTY: PartyFixture = PartyFixture {
     two_player: true,
     tuning: PROVISIONAL_TUNING,
     script: &[],
+    pilot: Pilot::None,
 };
 
 const SOLO_GUARD_BASE: Fixture = base(
@@ -279,6 +301,7 @@ pub const SOLO_GUARD_FLOORS_AT_ONE: PartyFixture = PartyFixture {
     two_player: false,
     tuning: NO_DODGE_TUNING,
     script: &[],
+    pilot: Pilot::None,
 };
 
 const SOLO_DODGE_BASE: Fixture = base(
@@ -303,6 +326,7 @@ pub const SOLO_FOLLOWER_DODGE: PartyFixture = PartyFixture {
         ..PROVISIONAL_TUNING
     },
     script: &[],
+    pilot: Pilot::None,
 };
 
 pub const PARTY_FIXTURES: [&PartyFixture; 7] = [
@@ -360,7 +384,9 @@ impl PartyFixtureSim {
 
     /// One tick of the fixture's own script.
     pub fn step_scripted(&mut self) {
-        let slots = self.fixture.slot_inputs(self.scene.world.tick + 1);
+        let slots = self
+            .fixture
+            .inputs(self.scene.world.tick + 1, &self.combat, &self.scene);
         self.step_slots(slots);
     }
 
@@ -1119,6 +1145,7 @@ mod tests {
         two_player: false,
         tuning: PROVISIONAL_TUNING,
         script: &[],
+        pilot: Pilot::None,
     };
     const DUO_TARGET_BASE: Fixture = base(
         "duo_targeting",
@@ -1135,5 +1162,6 @@ mod tests {
         two_player: true,
         tuning: PROVISIONAL_TUNING,
         script: &[],
+        pilot: Pilot::None,
     };
 }

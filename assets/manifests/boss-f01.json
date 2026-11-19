@@ -1,0 +1,370 @@
+{
+  "schema_version": 1,
+  "id": "brute_boss_f01_encounter_h100_candidate_v0",
+  "type": "character_animation",
+  "source_path": "assets/source/enemies/brute_boss_f01/brute_boss_f01.ase",
+  "grid_source": "assets/source/enemies/brute_boss_f01/brute_boss_f01.grid.json",
+  "output_atlas": "generated/art/brute_boss_f01.png",
+  "output_metadata": "generated/art/brute_boss_f01.json",
+  "palette_id": "trog-family-v0+juicer",
+  "frame_size": [
+    160,
+    136
+  ],
+  "pivot": [
+    72,
+    135
+  ],
+  "animation_tags": [
+    "charge_tell",
+    "charge_run",
+    "crash_stun",
+    "phase_roar",
+    "pinned",
+    "pinned_dead"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored boss animation candidate (fan-concept layer: Floor 1 boss THE JUICER; runtime role IP-neutral heavy boss brute_boss_f01)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "BOSS-F01 encounter set: the six top-tier keys K-A..K-E (scripts/author_boss_f01_keys.py, frozen in tests/fixtures/boss-f01_keys.json), nine in-betweens and the K-E dead-face swap, rasterized from pose rules on the JUICE-01 rig by scripts/author_boss_f01_set.py; 16 frames, layer body only. The JUICE-01 base set (idle, walk, pound, hurt, down) stays in juice-01",
+    "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Silhouette gate pack: written, no verdict. Independent review: pending. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/floor01-troglodyte-family-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "boss": {
+    "status": "16 frames drawn; art-director review pending; not wired into any Bevy binary",
+    "spec": "docs/02-art/floor-01-boss-design.md",
+    "base_set": "assets/manifests/juice-01.json",
+    "data_id": "brute_boss_f01",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "charge_tell": "hold",
+      "charge_run": "loop",
+      "crash_stun": "hold",
+      "phase_roar": "once",
+      "pinned": "hold",
+      "pinned_dead": "hold"
+    },
+    "key_atlas_index": {
+      "charge_tell_hold": 2,
+      "charge_run_contact_a": 3,
+      "charge_run_contact_b": 5,
+      "crash_stun_hold": 9,
+      "phase_roar_hold": 11,
+      "pinned_hold": 14
+    },
+    "key_fixture": "tests/fixtures/boss-f01_keys.json",
+    "frames": [
+      {
+        "index": 0,
+        "name": "charge_tell_a",
+        "tag": "charge_tell",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "in-between",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "2da7e1e5665821717306c978e2b333ebffb67e624d60841e054363520afc533c"
+      },
+      {
+        "index": 1,
+        "name": "charge_tell_b",
+        "tag": "charge_tell",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "in-between",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 160,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "1aa9b23d4e4677d1425a4b8a0ca6e8df2f366937baba4111471c716533633704"
+      },
+      {
+        "index": 2,
+        "name": "charge_tell_hold",
+        "tag": "charge_tell",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key K-A",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 320,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "8b263004f77a933dbe00e2527aad4f387b5337f6e55bb2c8d63b1c8db671dbe3"
+      },
+      {
+        "index": 3,
+        "name": "charge_run_contact_a",
+        "tag": "charge_run",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "key K-B",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 480,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "bb946822499800775af37ca4ae16b7ef88cf48e07f7a0215075576238ec2be94"
+      },
+      {
+        "index": 4,
+        "name": "charge_run_pass_a",
+        "tag": "charge_run",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "in-between",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 640,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "2b9845a72b3fe72da10cff31ba5844ef6f83792a75e7273a06cba520a3e8a580"
+      },
+      {
+        "index": 5,
+        "name": "charge_run_contact_b",
+        "tag": "charge_run",
+        "ticks": 5,
+        "duration_ms": 83,
+        "author": "key K-B2",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 800,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "5861e4bba00365638504f05984a5b74dc9a59906b2e67c899379bd2e9b839a58"
+      },
+      {
+        "index": 6,
+        "name": "charge_run_pass_b",
+        "tag": "charge_run",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "in-between",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 960,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "0cf6d28738790b61577571e6d2a7b73791e1ca89b439a12f62a647995bfd1d98"
+      },
+      {
+        "index": 7,
+        "name": "crash_hit",
+        "tag": "crash_stun",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "in-between",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 1120,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "91cdb4afb84751e45f47b6139c2ad18f20b6da6e487b54df65a88de3e117a693"
+      },
+      {
+        "index": 8,
+        "name": "crash_slump",
+        "tag": "crash_stun",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "in-between",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 1280,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "3457e75eaa7ac983a2efb6eb21b24a12b38f8be51303db76e2126ba290909006"
+      },
+      {
+        "index": 9,
+        "name": "crash_stun_hold",
+        "tag": "crash_stun",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key K-C",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 1440,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "2f9833ac1c8ae5c13972c4e76e0f431475061699c82420778ceebd56498586ec"
+      },
+      {
+        "index": 10,
+        "name": "phase_roar_in",
+        "tag": "phase_roar",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "in-between",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 1600,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "93fc1365f4891c0e961636b117a8f7d23c4d9580ae7f780a0d7606b443381340"
+      },
+      {
+        "index": 11,
+        "name": "phase_roar_hold",
+        "tag": "phase_roar",
+        "ticks": 24,
+        "duration_ms": 400,
+        "author": "key K-D",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 1760,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "23190bccebeba6d6c658cc95b6d823e647b89ee25520d767c479692dfc03c84d"
+      },
+      {
+        "index": 12,
+        "name": "phase_roar_flex",
+        "tag": "phase_roar",
+        "ticks": 30,
+        "duration_ms": 500,
+        "author": "in-between",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 1920,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "ccb7d7e66c86b82a6dcd006cd298a1dce413b77b08c3589556e9acc34dddad9b"
+      },
+      {
+        "index": 13,
+        "name": "pinned_squash",
+        "tag": "pinned",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "in-between",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 2080,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "c144024fbbee4d04a41ef7781d068f345403ee78f2141f835c91f0aa46636895"
+      },
+      {
+        "index": 14,
+        "name": "pinned_hold",
+        "tag": "pinned",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key K-E",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 2240,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "7837bf47a03b632abb378d7db6ba504a9d82d5cb8555fcad6938852b871cd2a3"
+      },
+      {
+        "index": 15,
+        "name": "pinned_dead",
+        "tag": "pinned_dead",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "face swap of K-E",
+        "pivot": [
+          72,
+          135
+        ],
+        "rect": {
+          "x": 2400,
+          "y": 0,
+          "w": 160,
+          "h": 136
+        },
+        "sha256": "275f31d3b761c30b94a8de238d7aabbbe7095835d7c4855c81ff8f93d18c3106"
+      }
+    ]
+  }
+}

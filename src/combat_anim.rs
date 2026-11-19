@@ -62,16 +62,24 @@ use crate::actor_sprite::{ActorSpec, CARL_SHADOW_FOOTPRINT, actor_center};
 use crate::combat::{ENEMY_HALF_HEIGHT, MoveId};
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
+use crate::feel::LLAMA_TELL_TICKS;
 use crate::feel::{
     ATTACK_TICKS, DOWNED_TICKS, HERO_HURT_TICKS, HERO_KNOCKDOWN_VY, IMPACT_END, KNOCK_GRAVITY,
     LETHAL_KNOCK_VY, SMEAR_END, TELL_TICKS,
 };
 use crate::goblin::{AttackPhase, GoblinMode};
+use crate::llama::{LLAMA_HALF_HEIGHT, LlamaMode};
 use crate::prototype::HERO_HALF_HEIGHT;
 use crate::prototype::TICK_SECONDS;
 
 pub const CARL_MELEE_MANIFEST: &str = "carl_book1_h52_melee.json";
 pub const GOBLIN_MANIFESTS: [&str; 2] = ["goblin_a_h36.json", "goblin_b_h36.json"];
+/// The Bad Llama atlas (LLAMA-01, 96 x 72 frames, pivot (44, 71)).
+pub const LLAMA_MANIFEST: &str = "llama-01.json";
+/// Contact shadow of the llama: the 46 px standing box, pivot column 26 of it.
+pub const LLAMA_SHADOW_FOOTPRINT: (i32, i32) = (46, 26);
+/// Ground covered per `walk` frame: 4 px (the 40 px/s walk at 6 ticks a frame).
+pub const LLAMA_WALK_STRIDE_MILLI_PX: u32 = 4000;
 
 /// Ground covered per goblin walk frame in thousandths of a pixel: the planted
 /// foot travels 5 px back per frame (GOB-01 spec section 5), so one 6-frame
@@ -216,13 +224,15 @@ fn analyse(
     width: i32,
     height: i32,
 ) -> Result<Option<(FrameBox, FrameMasks)>, String> {
-    if width > 64 {
-        return Err("frames wider than 64 px are not supported".into());
-    }
+    // The contact masks are one `u64` per row, so only frames up to 64 px wide
+    // get them (Carl and the goblins); a wider frame (the 96 px llama) gets its
+    // box and an empty mask, and has no strike-contact shift.
+    let narrow = width <= 64;
     let mut masks = FrameMasks {
         all: vec![0; height as usize],
         layers: BTreeMap::new(),
     };
+    let (mut left, mut right, mut top, mut lowest) = (i32::MAX, -1, i32::MAX, -1);
     for (layer, rows) in &frame.cels {
         if rows.len() as i32 != height || rows.iter().any(|r| r.chars().count() as i32 != width) {
             return Err("cel is not the canvas size".into());
@@ -231,25 +241,31 @@ fn analyse(
         for (y, row) in rows.iter().enumerate() {
             for (x, ch) in row.chars().enumerate() {
                 if ch != '.' {
-                    layer_rows[y] |= 1 << x;
+                    if narrow {
+                        layer_rows[y] |= 1 << x;
+                    }
+                    left = left.min(x as i32);
+                    right = right.max(x as i32);
+                    top = top.min(y as i32);
+                    lowest = lowest.max(y as i32);
                 }
             }
         }
-        for (all, row) in masks.all.iter_mut().zip(&layer_rows) {
-            *all |= row;
+        if narrow {
+            for (all, row) in masks.all.iter_mut().zip(&layer_rows) {
+                *all |= row;
+            }
+            masks.layers.insert(layer.clone(), layer_rows);
         }
-        masks.layers.insert(layer.clone(), layer_rows);
     }
-    let Some(top) = masks.all.iter().position(|r| *r != 0) else {
+    if right < 0 {
         return Ok(None);
-    };
-    let lowest = masks.all.iter().rposition(|r| *r != 0).unwrap_or(top);
-    let columns = masks.all.iter().fold(0u64, |a, r| a | r);
+    }
     let b = FrameBox {
-        left: columns.trailing_zeros() as i32,
-        right: 63 - columns.leading_zeros() as i32,
-        top: top as i32,
-        lowest: lowest as i32,
+        left,
+        right,
+        top,
+        lowest,
     };
     Ok(Some((b, masks)))
 }
@@ -330,6 +346,7 @@ impl SpriteClips {
         let (ticks, airborne_list) = match kind {
             Kind::CarlMelee => carl_ticks(&manifest, &tags, frame_count).map_err(err)?,
             Kind::Goblin => goblin_ticks(&manifest, frame_count).map_err(err)?,
+            Kind::Llama => llama_ticks(&manifest, frame_count).map_err(err)?,
         };
         let atlas_asset = str_field(&manifest, "output_atlas", &path)?
             .strip_prefix(crate::actor_sprite::ATLAS_ASSET_PREFIX)
@@ -378,6 +395,18 @@ impl SpriteClips {
             GOBLIN_SHADOW_FOOTPRINT,
             source,
             Kind::Goblin,
+        )
+    }
+
+    /// The Bad Llama atlas (LLAMA-01).
+    pub fn load_llama(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Self::load(
+            root,
+            "LLAMA",
+            LLAMA_MANIFEST,
+            LLAMA_SHADOW_FOOTPRINT,
+            source,
+            Kind::Llama,
         )
     }
 
@@ -534,6 +563,7 @@ impl SpriteClips {
 enum Kind {
     CarlMelee,
     Goblin,
+    Llama,
 }
 
 /// Per-frame ticks of the melee atlas from `melee.moves`, and its airborne tags.
@@ -610,6 +640,41 @@ fn goblin_ticks(
         });
     }
     Ok((ticks, string_list(&goblin["airborne_tags"])?))
+}
+
+/// Per-frame ticks of the llama atlas from `llama.frames` (a `ticks` of null
+/// holds the frame). The llama has no airborne tag.
+fn llama_ticks(
+    manifest: &serde_json::Value,
+    frame_count: usize,
+) -> Result<(Vec<Option<u32>>, Vec<String>), String> {
+    let frames = manifest["llama"]["frames"]
+        .as_array()
+        .ok_or("llama.frames missing")?;
+    if frames.len() != frame_count {
+        return Err(format!(
+            "llama.frames lists {} frames, the atlas has {frame_count}",
+            frames.len()
+        ));
+    }
+    let mut ticks = Vec::with_capacity(frame_count);
+    for (i, frame) in frames.iter().enumerate() {
+        if frame["index"].as_u64() != Some(i as u64) {
+            return Err(format!("llama.frames[{i}] has the wrong index"));
+        }
+        ticks.push(if frame["ticks"].is_null() {
+            None
+        } else {
+            Some(
+                frame["ticks"]
+                    .as_u64()
+                    .filter(|t| *t > 0)
+                    .ok_or_else(|| format!("llama.frames[{i}] has bad ticks"))?
+                    as u32,
+            )
+        });
+    }
+    Ok((ticks, Vec::new()))
 }
 
 fn string_list(value: &serde_json::Value) -> Result<Vec<String>, String> {
@@ -832,6 +897,62 @@ pub fn goblin_pose(clips: &SpriteClips, input: &GoblinInput) -> ArtPose {
     }
 }
 
+/// What a llama's frame depends on, from one finished tick.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LlamaInput {
+    pub mode: LlamaMode,
+    pub attack_tick: u16,
+    pub down_ticks: u16,
+    /// Walking this tick (neutral, x changed).
+    pub walking: bool,
+    /// Ground covered since the walk began, in thousandths of a pixel.
+    pub walk_milli_px: u32,
+    /// Idle clock (scene tick plus the llama's offset).
+    pub idle_tick: u64,
+}
+
+/// A llama's frame (LLAMA-01 tags): `idle` (looping), `walk` (by ground
+/// covered), `attack_tell` through the 36 tick tell (its last frame, the glow
+/// peak, holds past the art's 30 ticks), `attack_swing` from the release (the
+/// first tick of frame 9) with its recover frame held to the end of the attack,
+/// `hurt`, and the three `down` frames by `down_ticks` (the last held; a corpse
+/// keeps it). The slam and crush poses are the presenter's, not this function's.
+pub fn llama_pose(clips: &SpriteClips, input: &LlamaInput) -> ArtPose {
+    let at = |tag: &'static str, age: u32| ArtPose {
+        tag,
+        frame: clips.frame_at(tag, age),
+    };
+    match input.mode {
+        LlamaMode::Corpse => at("down", u32::MAX / 2),
+        LlamaMode::Down => at("down", u32::from(input.down_ticks)),
+        LlamaMode::Hurt => ArtPose {
+            tag: "hurt",
+            frame: clips.frame_in("hurt", 0),
+        },
+        LlamaMode::Attack => {
+            let tick = input.attack_tick;
+            if tick < LLAMA_TELL_TICKS {
+                at("attack_tell", u32::from(tick))
+            } else {
+                at("attack_swing", u32::from(tick - LLAMA_TELL_TICKS))
+            }
+        }
+        LlamaMode::Neutral => {
+            if input.walking {
+                let (_, len) = clips.tag("walk");
+                let step = (input.walk_milli_px / LLAMA_WALK_STRIDE_MILLI_PX) as usize;
+                ArtPose {
+                    tag: "walk",
+                    frame: clips.frame_in("walk", step % len),
+                }
+            } else {
+                let cycle = u64::from(clips.tag_ticks("idle").expect("idle frames are timed"));
+                at("idle", (input.idle_tick % cycle) as u32)
+            }
+        }
+    }
+}
+
 // -------------------------------------------------------- strike contact -----
 
 /// The striking limb of a Carl move and the index, inside the tag, of its
@@ -957,6 +1078,13 @@ struct GoblinTrack {
     stack_dx: i32,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct LlamaTrack {
+    prev_x: f32,
+    walk_milli_px: u32,
+    input: LlamaInput,
+}
+
 /// Steps the presentation state of Carl's melee and every goblin once per fixed
 /// tick, from the finished simulation state. Nothing flows back to the sim.
 #[derive(Debug, Clone)]
@@ -968,6 +1096,9 @@ pub struct CombatAnimators {
     /// Carl's hit-stop counter at the end of the previous tick.
     prev_hero_stop: u8,
     tracks: Vec<GoblinTrack>,
+    /// The Bad Llama atlas and per-llama tracks (a fixture with llamas only).
+    llama: Option<SpriteClips>,
+    llama_tracks: Vec<LlamaTrack>,
 }
 
 impl CombatAnimators {
@@ -982,9 +1113,18 @@ impl CombatAnimators {
             carl_input: CarlInput::default(),
             prev_hero_stop: 0,
             tracks: Vec::new(),
+            llama: None,
+            llama_tracks: Vec::new(),
         };
         this.reset(combat);
         this
+    }
+
+    /// Draw the fixture's Bad Llamas from `clips` (LLAMA-01).
+    pub fn with_llama(mut self, clips: SpriteClips, combat: &CombatState) -> Self {
+        self.llama = Some(clips);
+        self.reset(combat);
+        self
     }
 
     /// Back to the start of an attempt (the goblins were re-created).
@@ -1011,6 +1151,22 @@ impl CombatAnimators {
                     vy: g.vy,
                     flight_ticks: g.flight_ticks,
                     contact: g.contact_ticks > 0,
+                    walking: false,
+                    walk_milli_px: 0,
+                    idle_tick: 0,
+                },
+            })
+            .collect();
+        self.llama_tracks = combat
+            .llamas
+            .iter()
+            .map(|l| LlamaTrack {
+                prev_x: l.x,
+                walk_milli_px: 0,
+                input: LlamaInput {
+                    mode: l.mode,
+                    attack_tick: l.attack_tick,
+                    down_ticks: l.down_ticks,
                     walking: false,
                     walk_milli_px: 0,
                     idle_tick: 0,
@@ -1104,6 +1260,27 @@ impl CombatAnimators {
                 }
             }
         }
+        for (index, llama) in combat.llamas.iter().enumerate() {
+            let track = &mut self.llama_tracks[index];
+            let moved = (llama.x - track.prev_x).abs();
+            track.prev_x = llama.x;
+            let walking = llama.mode == LlamaMode::Neutral && llama.vx == 0.0 && moved > 1e-3;
+            if walking {
+                track.walk_milli_px = track
+                    .walk_milli_px
+                    .saturating_add((moved * 1000.0).round() as u32);
+            } else {
+                track.walk_milli_px = 0;
+            }
+            track.input = LlamaInput {
+                mode: llama.mode,
+                attack_tick: llama.attack_tick,
+                down_ticks: llama.down_ticks,
+                walking,
+                walk_milli_px: track.walk_milli_px,
+                idle_tick: tick + index as u64 * IDLE_INDEX_OFFSET_TICKS,
+            };
+        }
         // Stacked upright goblins: the later one is drawn away from Carl.
         let upright = |g: &crate::goblin::Goblin| {
             g.alive()
@@ -1171,6 +1348,27 @@ impl CombatAnimators {
         self.tracks.len()
     }
 
+    pub fn llama_count(&self) -> usize {
+        self.llama_tracks.len()
+    }
+
+    pub fn llama_clips(&self) -> Option<&SpriteClips> {
+        self.llama.as_ref()
+    }
+
+    /// The frame drawn for llama `index` (`None` without the llama atlas).
+    pub fn llama_pose(&self, index: usize) -> Option<ArtPose> {
+        Some(llama_pose(
+            self.llama.as_ref()?,
+            &self.llama_tracks.get(index)?.input,
+        ))
+    }
+
+    /// Foot height of a llama's sim body (its floor line), y-up.
+    pub fn llama_foot_y(llama: &crate::llama::Llama) -> f32 {
+        llama.y - LLAMA_HALF_HEIGHT
+    }
+
     pub fn goblin_input(&self, index: usize) -> &GoblinInput {
         &self.tracks[index].input
     }
@@ -1207,8 +1405,11 @@ impl CombatAnimators {
                 )
             })
             .collect();
+        let llamas: String = (0..self.llama_tracks.len())
+            .filter_map(|i| self.llama_pose(i).map(|p| format!(" l{i}={}", p.label())))
+            .collect();
         format!(
-            "COMBAT_ANIM_STATE tick={tick} carl={carl} {}",
+            "COMBAT_ANIM_STATE tick={tick} carl={carl} {}{llamas}",
             goblins.join(" ")
         )
     }

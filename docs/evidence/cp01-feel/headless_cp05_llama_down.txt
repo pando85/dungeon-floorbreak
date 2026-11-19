@@ -1,0 +1,10 @@
+COMBAT_EVENT tick=1 kind=llama_tell llama=0
+COMBAT_EVENT tick=20 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=23 kind=hit move=jab instance=1 target=0 damage=1 health_left=2 hit_stop=3
+COMBAT_EVENT tick=23 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=30 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=35 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=1 hit_stop=5
+COMBAT_EVENT tick=60 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=63 kind=hit move=jab instance=3 target=0 damage=1 health_left=0 hit_stop=6
+COMBAT_EVENT tick=63 kind=enemy_defeated target=0
+COMBAT_STATE fixture=cp05_llama_down seed=0xc050002 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies= hash=02297301d16b2b03 llamas=l0=475.833/0

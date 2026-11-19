@@ -1,0 +1,14 @@
+COMBAT_EVENT tick=1 kind=llama_tell llama=0
+COMBAT_EVENT tick=20 kind=move_started move=push_kick instance=1
+COMBAT_EVENT tick=33 kind=hit move=push_kick instance=1 target=0 damage=1 health_left=2 hit_stop=8
+COMBAT_EVENT tick=33 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=89 kind=llama_tell llama=0
+COMBAT_EVENT tick=90 kind=move_started move=push_kick instance=2
+COMBAT_EVENT tick=103 kind=hit move=push_kick instance=2 target=0 damage=1 health_left=1 hit_stop=8
+COMBAT_EVENT tick=103 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=150 kind=move_started move=push_kick instance=3
+COMBAT_EVENT tick=159 kind=llama_tell llama=0
+COMBAT_EVENT tick=163 kind=hit move=push_kick instance=3 target=0 damage=1 health_left=0 hit_stop=11
+COMBAT_EVENT tick=163 kind=enemy_defeated target=0 force=heavy
+COMBAT_EVENT tick=163 kind=llama_interrupted llama=0
+COMBAT_STATE fixture=cp05_llama_slam seed=0xc050001 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies= hash=73e15034a5222827 llamas=l0=534.500/0
