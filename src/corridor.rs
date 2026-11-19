@@ -150,6 +150,40 @@ impl CorridorWorld {
         }
     }
 
+    /// DEMO-01 checkpoint respawn: a full-health Carl standing at column `x` on
+    /// the spawn walking line, Donut one leash behind him. Unlike
+    /// [`Self::reset`] the tick counter and Carl's move-instance counter keep
+    /// counting, so move instances (shore hits, launch ids) stay unique over a
+    /// whole demo run. Only the demo calls this.
+    pub fn respawn_at(&mut self, x: f32) {
+        let mut melee = std::mem::take(&mut self.hero.melee);
+        melee.cancel();
+        self.hero = Hero::at(x, self.spawn.1);
+        self.hero.melee = melee;
+        self.complete = false;
+        let foot_y = self.hero.y - HERO_HALF_HEIGHT;
+        self.donut.health = DONUT_HEALTH;
+        self.trail.clear();
+        self.trail.push_back(TrailSample {
+            x: x - DONUT_FOLLOW_PX,
+            foot_y,
+            arc: 0.0,
+            facing: 1,
+        });
+        self.trail.push_back(TrailSample {
+            x,
+            foot_y,
+            arc: DONUT_FOLLOW_PX,
+            facing: 1,
+        });
+        self.update_donut();
+        // A live party: Donut's own body stands up beside Carl, whole again.
+        self.donut_body = Hero::at(x - DONUT_FOLLOW_PX, self.spawn.1);
+        if self.donut_live {
+            self.sync_donut_from_body();
+        }
+    }
+
     pub fn layout_height(&self) -> i32 {
         self.layout_height
     }
@@ -557,6 +591,17 @@ impl SceneSim {
         self.pan_boost = false;
         self.bot_offscreen = [0, 0];
         self.camera = ScrollCamera::new(self.camera_cfg, self.world.hero.x, self.world.hero.facing);
+    }
+
+    /// DEMO-01: [`CorridorWorld::respawn_at`] plus a fresh input edge detector
+    /// and a camera centred on the new column.
+    pub fn respawn_at(&mut self, x: f32) {
+        self.world.respawn_at(x);
+        self.input = InputFrame::default();
+        self.donut_input = InputFrame::default();
+        self.pan_boost = false;
+        self.bot_offscreen = [0, 0];
+        self.camera = ScrollCamera::new(self.camera_cfg, x, self.world.hero.facing);
     }
 
     /// The party layer's view of this tick (`crate::party::PartyState::drive`).

@@ -178,6 +178,7 @@ pub fn compose(room: &Room, base_layout: &Value) -> (Value, Plan) {
         .iter()
         .map(|p| (p.rect.x, p.rect.right()))
         .chain(room.steps.iter().map(|s| (s.x, s.right())))
+        .chain(room.solid_backwall.iter().copied())
         .collect();
     solid_x.sort_unstable();
     let mut gaps: Vec<(i32, i32)> = Vec::new();
