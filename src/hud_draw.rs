@@ -348,7 +348,7 @@ fn plate(o: &mut Out, s: &HudSnapshot, slot: usize, rect: IRect) {
     if let Some(mana) = view.mana {
         mana_row(o, s, mana, x, y);
     }
-    abilities_row(o, s, view, x, y);
+    abilities_row(o, view, x, y);
 }
 
 fn hp_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32) {
@@ -458,7 +458,7 @@ fn mana_row(o: &mut Out, s: &HudSnapshot, mana: ManaView, x: i32, y: i32) {
     }
 }
 
-fn abilities_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32) {
+fn abilities_row(o: &mut Out, view: &PlateView, x: i32, y: i32) {
     match view.abilities {
         AbilityRow::AiCompanion => {
             o.text(
@@ -471,8 +471,8 @@ fn abilities_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32)
             );
         }
         AbilityRow::Chips { a, b, special } => {
-            chip(o, s, a, x + 40, y);
-            chip(o, s, b, x + 93, y);
+            chip(o, view.glyphs, a, x + 40, y);
+            chip(o, view.glyphs, b, x + 93, y);
             special_socket(o, special, x, y);
         }
         AbilityRow::NoActions { special } => special_socket(o, special, x, y),
@@ -485,8 +485,8 @@ fn special_socket(o: &mut Out, special: SpecialSlot, x: i32, y: i32) {
     }
 }
 
-fn chip(o: &mut Out, s: &HudSnapshot, chip: Chip, x0: i32, y: i32) {
-    let glyph = FrameId::of_glyph(s.glyphs.glyph(chip.action));
+fn chip(o: &mut Out, glyphs: crate::hud::GlyphSet, chip: Chip, x0: i32, y: i32) {
+    let glyph = FrameId::of_glyph(glyphs.glyph(chip.action));
     let (w, h) = glyph.size();
     let tint = chip.muted.then_some(p::AMBER_DIM);
     o.frame_sized(Z_ICON, glyph, x0, y + 34, w, h, tint);
@@ -585,7 +585,27 @@ fn system(o: &mut Out, s: &HudSnapshot, layout: &HudLayout) {
         FaceFrame::Notice => FrameId::CrtNotice,
     };
     o.frame(Z_ICON, face, layout.face.x, layout.face.y);
-    if let Some(notice) = s.notice {
+    if let Some(slot) = s.reconnect {
+        // D6: a persistent pause message in the notice frame, no slide.
+        let (x, y) = (layout.notice.x, layout.notice.y);
+        o.frame(Z_FRAME, FrameId::NoticeFrame, x, y);
+        o.text(
+            Z_TEXT,
+            HudFont::SilkBold,
+            "GAME PAUSED",
+            x + 7,
+            y + 6,
+            p::MAGENTA_HI,
+        );
+        o.text(
+            Z_TEXT,
+            HudFont::Jersey,
+            &reconnect_text(slot),
+            x + 7,
+            y + 15,
+            p::AMBER,
+        );
+    } else if let Some(notice) = s.notice {
         let dx = notice_dx(notice.age_ticks, s.reduced_motion);
         let (x, y) = (layout.notice.x + dx, layout.notice.y);
         o.frame(Z_FRAME, FrameId::NoticeFrame, x, y);
@@ -606,6 +626,11 @@ fn system(o: &mut Out, s: &HudSnapshot, layout: &HudLayout) {
             p::AMBER,
         );
     }
+}
+
+/// The pause message headline for player `slot` (1 or 2).
+pub fn reconnect_text(slot: u8) -> String {
+    format!("RECONNECT P{slot} CONTROLLER")
 }
 
 fn preview_tag(o: &mut Out, tag_name: &str, layout: &HudLayout) {
@@ -931,7 +956,8 @@ mod tests {
         for glyphs in [GlyphSet::Xbox, GlyphSet::DualSense] {
             for preview in std::iter::once(None).chain(HudPreview::ALL.into_iter().map(Some)) {
                 let mut real = crate::hud::test_inputs(4, 4);
-                real.glyphs = glyphs;
+                real.carl_glyphs = glyphs;
+                real.donut_glyphs = glyphs;
                 let snapshot = build_snapshot(&real, preview, 0);
                 let mut list = Vec::new();
                 build_draw_list(&snapshot, &HudLayout::new(360, 288), &mut list);
@@ -962,7 +988,8 @@ mod tests {
     #[test]
     fn dualsense_draws_square_and_triangle() {
         let mut real = crate::hud::test_inputs(4, 4);
-        real.glyphs = GlyphSet::DualSense;
+        real.carl_glyphs = GlyphSet::DualSense;
+        real.donut_glyphs = GlyphSet::DualSense;
         let mut list = Vec::new();
         build_draw_list(
             &build_snapshot(&real, None, 0),
@@ -1112,6 +1139,104 @@ mod tests {
         zs.sort_unstable();
         zs.dedup();
         assert_eq!(zs.len(), list.len());
+    }
+
+    #[test]
+    fn the_reconnect_message_is_a_static_notice_frame_that_fits() {
+        for slot in [1u8, 2] {
+            let mut real = crate::hud::test_inputs(4, 4);
+            real.reconnect = Some(slot);
+            let snapshot = build_snapshot(&real, None, 0);
+            let layout = HudLayout::new(360, 288);
+            let mut list = Vec::new();
+            build_draw_list(&snapshot, &layout, &mut list);
+            let t = texts(&list);
+            let wanted = format!("RECONNECT P{slot} CONTROLLER");
+            assert!(t.contains(&wanted.as_str()) && t.contains(&"GAME PAUSED"));
+            assert!(frames(&list).contains(&FrameId::NoticeFrame));
+            assert!(frames(&list).contains(&FrameId::CrtNotice));
+            // Inside the 204 px notice frame, with the 7 px inset on both sides.
+            assert!(text_width_px(HudFont::Jersey, &wanted) <= layout.notice.w - 14);
+            // The panel never slides and stays below the action lane.
+            let panel = list
+                .iter()
+                .find(|i| {
+                    matches!(
+                        i.kind,
+                        DrawKind::Frame {
+                            frame: FrameId::NoticeFrame,
+                            ..
+                        }
+                    )
+                })
+                .unwrap();
+            assert_eq!(panel.x, layout.notice.x);
+            assert!(panel.y >= crate::hud::ACTION_LANE_TOP);
+        }
+        // A reconnect request replaces a queued notice rather than stacking.
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.reconnect = Some(1);
+        real.notice = Some(crate::hud::NoticeView {
+            headline: crate::hud::LabelId::Launched,
+            age_ticks: 20,
+        });
+        let mut list = Vec::new();
+        build_draw_list(
+            &build_snapshot(&real, None, 0),
+            &HudLayout::new(360, 288),
+            &mut list,
+        );
+        assert!(!texts(&list).contains(&"LAUNCHED!"));
+    }
+
+    #[test]
+    fn each_plate_draws_its_own_pads_glyphs() {
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.carl_control = Control::Player(1);
+        real.donut_control = Control::Player(2);
+        real.donut_chips = true;
+        real.carl_glyphs = GlyphSet::Xbox;
+        real.donut_glyphs = GlyphSet::DualSense;
+        let snapshot = build_snapshot(&real, None, 0);
+        let layout = HudLayout::new(360, 288);
+        let mut list = Vec::new();
+        build_draw_list(&snapshot, &layout, &mut list);
+        let mid_x = crate::hud::VIEW_WIDTH / 2;
+        let glyph_at = |left: bool| -> Vec<FrameId> {
+            list.iter()
+                .filter_map(|i| match i.kind {
+                    DrawKind::Frame { frame, .. } if frame.is_glyph() && (i.x < mid_x) == left => {
+                        Some(frame)
+                    }
+                    _ => None,
+                })
+                .collect()
+        };
+        assert_eq!(glyph_at(true), [FrameId::GlyphX, FrameId::GlyphY]);
+        assert_eq!(
+            glyph_at(false),
+            [FrameId::GlyphSquare, FrameId::GlyphTriangle]
+        );
+        // The tags are real, not fixture.
+        let t = texts(&list);
+        assert!(t.contains(&"P1") && t.contains(&"P2") && !t.contains(&"AI"));
+    }
+
+    #[test]
+    fn a_human_donut_with_no_chips_shows_only_her_socket() {
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.carl_control = Control::Player(1);
+        real.donut_control = Control::Player(2);
+        let snapshot = build_snapshot(&real, None, 0);
+        let mut list = Vec::new();
+        build_draw_list(&snapshot, &HudLayout::new(360, 288), &mut list);
+        let glyphs = frames(&list).iter().filter(|f| f.is_glyph()).count();
+        assert_eq!(glyphs, 2, "Carl's two chips only");
+        let sockets = frames(&list)
+            .iter()
+            .filter(|f| **f == FrameId::SocketLocked)
+            .count();
+        assert_eq!(sockets, 2);
     }
 
     #[test]

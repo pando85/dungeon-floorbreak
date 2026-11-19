@@ -22,6 +22,7 @@ pub mod hud_draw;
 pub mod input;
 pub mod light_pass;
 pub mod lighting;
+pub mod pad_slots;
 pub mod party;
 pub mod prototype;
 pub mod scene_anim;

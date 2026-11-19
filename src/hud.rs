@@ -329,6 +329,9 @@ pub struct PlateView {
     pub portrait: PortraitId,
     pub name: String,
     pub control: Control,
+    /// The glyph family of the pad that owns this plate (provisional Q11);
+    /// the `--glyphs=` override forces it on both plates.
+    pub glyphs: GlyphSet,
     pub hp: Meter,
     pub hp_flash: Option<HpFlash>,
     /// `None` = no mana resource (Carl always; Donut before the biscuit).
@@ -424,7 +427,9 @@ pub struct HudSnapshot {
     pub boss: Option<BossView>,
     /// Real, from the notice queue fed by [`CombatEvent`]s; or a fixture.
     pub notice: Option<NoticeView>,
-    pub glyphs: GlyphSet,
+    /// `Some(n)`: the game is paused until player `n`'s controller is back
+    /// (owner decision D6). Drawn as a persistent notice-frame message.
+    pub reconnect: Option<u8>,
     /// `Some` draws the PREVIEW tag.
     pub preview: Option<HudPreview>,
     pub reduced_motion: bool,
@@ -460,7 +465,13 @@ pub struct RealHudInputs {
     pub hp_flash: Option<HpFlash>,
     pub notice: Option<NoticeView>,
     pub location: Option<String>,
-    pub glyphs: GlyphSet,
+    /// Per-plate glyph families (the pad that owns each hero's plate).
+    pub carl_glyphs: GlyphSet,
+    pub donut_glyphs: GlyphSet,
+    /// The player slot (1 or 2) whose controller is missing, if any.
+    pub reconnect: Option<u8>,
+    /// provisional: Q10. Chips for a human-driven Donut.
+    pub donut_chips: bool,
     pub reduced_motion: bool,
 }
 
@@ -482,7 +493,10 @@ impl RealHudInputs {
             hp_flash: None,
             notice: None,
             location: None,
-            glyphs: GlyphSet::default(),
+            carl_glyphs: GlyphSet::default(),
+            donut_glyphs: GlyphSet::default(),
+            reconnect: None,
+            donut_chips: false,
             reduced_motion: false,
         }
     }
@@ -541,6 +555,7 @@ fn plate(
     portrait: PortraitId,
     name: &str,
     control: Control,
+    glyphs: GlyphSet,
     hp: Meter,
     abilities: AbilityRow,
 ) -> PlateView {
@@ -548,6 +563,7 @@ fn plate(
         portrait,
         name: name.to_string(),
         control,
+        glyphs,
         hp,
         hp_flash: None,
         mana: None,
@@ -555,8 +571,8 @@ fn plate(
     }
 }
 
-fn face_for(notice: Option<NoticeView>, tick: u64, reduced_motion: bool) -> FaceFrame {
-    if notice.is_some() {
+fn face_for(panel_up: bool, tick: u64, reduced_motion: bool) -> FaceFrame {
+    if panel_up {
         FaceFrame::Notice
     } else if !reduced_motion && tick % BLINK_PERIOD_TICKS >= BLINK_PERIOD_TICKS - BLINK_TICKS {
         FaceFrame::Blink
@@ -571,6 +587,7 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
         PORTRAIT_CARL,
         &real.carl_name,
         real.carl_control,
+        real.carl_glyphs,
         Meter {
             cur: real.carl_health.min(HERO_HEALTH),
             max: HERO_HEALTH,
@@ -582,11 +599,18 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
         PORTRAIT_DONUT,
         &real.donut_name,
         real.donut_control,
+        real.donut_glyphs,
         Meter {
             cur: real.donut_health.min(DONUT_HEALTH),
             max: DONUT_HEALTH,
         },
-        donut_abilities(real.donut_control, real.donut_magic),
+        match real.donut_control {
+            // provisional: Q10. A human-driven Donut shows no chips yet.
+            Control::Player(_) if !real.donut_chips => AbilityRow::NoActions {
+                special: SpecialSlot::Locked,
+            },
+            control => donut_abilities(control, real.donut_magic),
+        },
     );
     // Mana exists only for Donut, and only once her magic is unlocked.
     if let DonutMagic::Unlocked(mana) = real.donut_magic {
@@ -597,7 +621,7 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
         location: real.location.clone(),
         boss: None,
         notice: real.notice,
-        glyphs: real.glyphs,
+        reconnect: real.reconnect,
         preview: None,
         reduced_motion: real.reduced_motion,
         face: FaceFrame::Idle,
@@ -605,7 +629,11 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
     if let Some(preview) = preview {
         apply_preview(&mut snapshot, preview, tick);
     }
-    snapshot.face = face_for(snapshot.notice, tick, snapshot.reduced_motion);
+    snapshot.face = face_for(
+        snapshot.notice.is_some() || snapshot.reconnect.is_some(),
+        tick,
+        snapshot.reduced_motion,
+    );
     snapshot
 }
 
@@ -625,6 +653,7 @@ fn set_donut(
         PORTRAIT_DONUT,
         &snapshot.plates[1].name,
         control,
+        snapshot.plates[1].glyphs,
         Meter {
             cur: hp,
             max: DONUT_HEALTH,
@@ -645,6 +674,7 @@ fn set_carl(snapshot: &mut HudSnapshot, hp: u8, flash: Option<HpFlash>) {
         PORTRAIT_CARL,
         &snapshot.plates[0].name,
         Control::Player(1),
+        snapshot.plates[0].glyphs,
         Meter {
             cur: hp,
             max: HERO_HEALTH,
@@ -876,8 +906,41 @@ type VisualKey = (
     Option<NoticeView>,
     bool,
     bool,
-    GlyphSet,
+    PartyView,
 );
+
+/// The party facts the HUD draws (real ownership, never a fixture): who drives
+/// each plate, the glyph family of each plate's own pad, and the controller a
+/// disconnect pause is waiting for. Fed by the scene adapter from
+/// `crate::pad_slots`; presentation only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PartyView {
+    pub carl: Control,
+    pub donut: Control,
+    /// Glyph family of the pad owning each plate (Xbox when none).
+    pub carl_glyphs: GlyphSet,
+    pub donut_glyphs: GlyphSet,
+    /// The slot number (1 or 2) whose controller is missing.
+    pub reconnect: Option<u8>,
+    /// provisional: Q10 (`PartyTuning::donut_ability_chips`). When false a
+    /// human-driven Donut shows no PUNCH/KICK-style chips, only the locked
+    /// special socket.
+    pub donut_chips: bool,
+}
+
+impl Default for PartyView {
+    /// Solo, Carl controlled by P1, Donut the AI companion, Xbox glyphs.
+    fn default() -> Self {
+        Self {
+            carl: Control::Player(1),
+            donut: Control::Ai,
+            carl_glyphs: GlyphSet::default(),
+            donut_glyphs: GlyphSet::default(),
+            reconnect: None,
+            donut_chips: false,
+        }
+    }
+}
 
 /// The HUD's own clock and cosmetic state: the notice queue, the HP flash and
 /// the last health seen. Stepped once per fixed tick by the scene, after the
@@ -887,8 +950,8 @@ pub struct HudRuntime {
     config: HudConfig,
     tick: u64,
     revision: u64,
-    /// The family of the last-used gamepad; Xbox until one is seen.
-    detected_glyphs: GlyphSet,
+    /// Real party ownership, glyph families and the reconnect request.
+    party: PartyView,
     carl_health: u8,
     donut_health: u8,
     flash: Option<HpFlash>,
@@ -907,7 +970,7 @@ impl HudRuntime {
             config,
             tick: 0,
             revision: 0,
-            detected_glyphs: GlyphSet::default(),
+            party: PartyView::default(),
             carl_health: HERO_HEALTH,
             donut_health: DONUT_HEALTH,
             flash: None,
@@ -967,22 +1030,34 @@ impl HudRuntime {
             self.notices.active(),
             blink,
             warning_bright,
-            self.glyphs(),
+            self.drawn_party(),
         )
     }
 
-    /// The glyph set drawn now: the explicit override, else the detected one.
-    pub fn glyphs(&self) -> GlyphSet {
-        self.config.glyphs.unwrap_or(self.detected_glyphs)
+    /// The party as drawn now: the explicit `--glyphs=` override wins over the
+    /// owning pads' families on both plates.
+    fn drawn_party(&self) -> PartyView {
+        let mut view = self.party;
+        if let Some(forced) = self.config.glyphs {
+            view.carl_glyphs = forced;
+            view.donut_glyphs = forced;
+        }
+        view
     }
 
-    /// Record the family of the last-used gamepad (presentation only; the
-    /// simulation never reads it). An explicit `--glyphs=` still wins. Bumps
-    /// the revision only when the drawn set changes.
-    pub fn set_detected_glyphs(&mut self, glyphs: GlyphSet) {
-        let before = self.glyphs();
-        self.detected_glyphs = glyphs;
-        if self.glyphs() != before {
+    /// The glyph family drawn on each plate, `[Carl, Donut]`.
+    pub fn plate_glyphs(&self) -> [GlyphSet; 2] {
+        let view = self.drawn_party();
+        [view.carl_glyphs, view.donut_glyphs]
+    }
+
+    /// Record the real party state (presentation only; the simulation never
+    /// reads it). Bumps the revision only when something drawn changes, so a
+    /// steady party costs nothing per frame.
+    pub fn set_party(&mut self, party: PartyView) {
+        let before = self.drawn_party();
+        self.party = party;
+        if self.drawn_party() != before {
             self.revision += 1;
         }
     }
@@ -1057,7 +1132,13 @@ impl HudRuntime {
         real.location.clone_from(&self.location);
         real.hp_flash = self.flash;
         real.notice = self.notices.active();
-        real.glyphs = self.glyphs();
+        let view = self.drawn_party();
+        real.carl_control = view.carl;
+        real.donut_control = view.donut;
+        real.carl_glyphs = view.carl_glyphs;
+        real.donut_glyphs = view.donut_glyphs;
+        real.reconnect = view.reconnect;
+        real.donut_chips = view.donut_chips;
         real.reduced_motion = self.config.reduced_motion;
         real
     }
@@ -1449,31 +1530,121 @@ mod tests {
     }
 
     #[test]
-    fn detected_glyphs_follow_the_pad_unless_overridden() {
+    fn plate_glyphs_follow_each_plates_own_pad_unless_overridden() {
         let mut hud = HudRuntime::new(HudConfig::default());
-        assert_eq!(hud.glyphs(), GlyphSet::Xbox);
-        assert_eq!(hud.real_inputs().glyphs, GlyphSet::Xbox);
+        assert_eq!(hud.plate_glyphs(), [GlyphSet::Xbox; 2]);
         let start = hud.revision();
-        hud.set_detected_glyphs(GlyphSet::DualSense);
-        assert_eq!(hud.real_inputs().glyphs, GlyphSet::DualSense);
-        assert_eq!(hud.snapshot().glyphs, GlyphSet::DualSense);
+        let mut party = PartyView {
+            donut_glyphs: GlyphSet::DualSense,
+            ..PartyView::default()
+        };
+        hud.set_party(party);
+        let snapshot = hud.snapshot();
+        assert_eq!(snapshot.plates[0].glyphs, GlyphSet::Xbox);
+        assert_eq!(snapshot.plates[1].glyphs, GlyphSet::DualSense);
+        assert_eq!(hud.plate_glyphs(), [GlyphSet::Xbox, GlyphSet::DualSense]);
         assert_eq!(hud.revision(), start + 1);
-        // Same set again: nothing to redraw.
-        hud.set_detected_glyphs(GlyphSet::DualSense);
+        // The same party again: nothing to redraw.
+        hud.set_party(party);
         assert_eq!(hud.revision(), start + 1);
-        hud.set_detected_glyphs(GlyphSet::Xbox);
-        assert_eq!(hud.glyphs(), GlyphSet::Xbox);
+        party.carl_glyphs = GlyphSet::DualSense;
+        hud.set_party(party);
         assert_eq!(hud.revision(), start + 2);
 
-        // An explicit override wins over detection and never redraws for it.
+        // An explicit override wins on both plates and never redraws for it.
         let mut forced = HudRuntime::new(HudConfig {
             glyphs: Some(GlyphSet::Xbox),
             ..HudConfig::default()
         });
         let start = forced.revision();
-        forced.set_detected_glyphs(GlyphSet::DualSense);
-        assert_eq!(forced.glyphs(), GlyphSet::Xbox);
+        forced.set_party(party);
+        assert_eq!(forced.plate_glyphs(), [GlyphSet::Xbox; 2]);
         assert_eq!(forced.revision(), start);
+    }
+
+    #[test]
+    fn real_ownership_is_drawn_not_faked() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let s = hud.snapshot();
+        assert_eq!(s.plates[0].control, Control::Player(1));
+        assert_eq!(s.plates[1].control, Control::Ai);
+        // Solo swap: the P1 tag moves to Donut, Carl becomes the AI.
+        hud.set_party(PartyView {
+            carl: Control::Ai,
+            donut: Control::Player(1),
+            ..PartyView::default()
+        });
+        let s = hud.snapshot();
+        assert_eq!(s.plates[0].control, Control::Ai);
+        assert_eq!(s.plates[1].control, Control::Player(1));
+        assert_eq!(s.plates[0].abilities, AbilityRow::AiCompanion);
+        // Two players.
+        hud.set_party(PartyView {
+            carl: Control::Player(1),
+            donut: Control::Player(2),
+            ..PartyView::default()
+        });
+        let s = hud.snapshot();
+        assert_eq!(s.plates[0].control, Control::Player(1));
+        assert_eq!(s.plates[1].control, Control::Player(2));
+    }
+
+    #[test]
+    fn a_human_donut_shows_no_chips_until_q10_is_answered() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_melee_live(true);
+        let two = PartyView {
+            carl: Control::Player(1),
+            donut: Control::Player(2),
+            ..PartyView::default()
+        };
+        hud.set_party(two);
+        let s = hud.snapshot();
+        assert!(matches!(s.plates[0].abilities, AbilityRow::Chips { .. }));
+        assert!(matches!(
+            s.plates[1].abilities,
+            AbilityRow::NoActions { .. }
+        ));
+        hud.set_party(PartyView {
+            donut_chips: true,
+            ..two
+        });
+        assert!(matches!(
+            hud.snapshot().plates[1].abilities,
+            AbilityRow::Chips { .. }
+        ));
+    }
+
+    #[test]
+    fn a_reconnect_request_is_real_and_lights_the_system_face() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        assert_eq!(hud.snapshot().reconnect, None);
+        let start = hud.revision();
+        hud.set_party(PartyView {
+            reconnect: Some(2),
+            ..PartyView::default()
+        });
+        let s = hud.snapshot();
+        assert_eq!(s.reconnect, Some(2));
+        assert_eq!(s.face, FaceFrame::Notice);
+        assert_eq!(hud.revision(), start + 1);
+        hud.set_party(PartyView::default());
+        assert_eq!(hud.snapshot().reconnect, None);
+    }
+
+    #[test]
+    fn a_fixture_keeps_the_real_plate_glyphs() {
+        let mut hud = HudRuntime::new(HudConfig {
+            preview: Some(HudPreview::Coop),
+            ..HudConfig::default()
+        });
+        hud.set_party(PartyView {
+            donut_glyphs: GlyphSet::DualSense,
+            ..PartyView::default()
+        });
+        let s = hud.snapshot();
+        assert_eq!(s.plates[1].control, Control::Player(2));
+        assert_eq!(s.plates[1].glyphs, GlyphSet::DualSense);
     }
 
     #[test]

@@ -68,6 +68,8 @@ use dungeon_floorbreak::{
         slot_layer, spawn_rig, update_rig,
     },
     lighting::{MAX_SHADOWS, ShadowEllipse, ViewRect, contact_shadow},
+    pad_slots::{PadButtons, PadEvent, PadFrame, PadSlots},
+    party::{HeroId, PadId, PartyState},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero},
     scene_anim::SceneAnimators,
     shore_art::{ShoreArt, ShoreSlot, landed_age},
@@ -822,13 +824,20 @@ struct Death(Option<DeathPresenter>);
 #[derive(Resource)]
 struct LiveFixture(Option<&'static Fixture>);
 
+/// Keyboard taps latched between fixed steps (pad edges live in [`Pads`]).
 #[derive(Resource, Default)]
 struct Controls {
     jump_tap: bool,
     attack_tap: bool,
     physical_tap: bool,
+    swap_tap: bool,
     restart: bool,
 }
+
+/// Local-player slot ownership (`pad_slots`): which pad drives P1 and P2, the
+/// solo swap, the disconnect pause and the per-plate glyph families.
+#[derive(Resource, Default)]
+struct Pads(PadSlots);
 
 #[derive(Resource)]
 struct Loading {
@@ -1068,13 +1077,15 @@ fn run_window(
     .insert_resource(HudAtlas(hud_atlas))
     .insert_resource(Setup { kit, args })
     .init_resource::<Controls>()
+    .init_resource::<Pads>()
     .init_resource::<AfterExitTicks>()
     .add_systems(Startup, setup)
     .add_systems(
         Update,
         (
+            pad_connections,
             capture_input,
-            detect_glyphs,
+            sync_party_hud,
             perf_step,
             sync_visuals,
             sync_combat_visuals,
@@ -1615,79 +1626,115 @@ fn torch_component(piece: &PieceDraw) -> Torch {
 
 // -------------------------------------------------------------------- systems
 
+/// The opaque pad identity `pad_slots` keys on: the Bevy gamepad entity.
+fn pad_id(entity: Entity) -> PadId {
+    PadId(entity.to_bits())
+}
+
+/// Route gamepad connection messages to the slot owner table (D5/D6): the
+/// first pad is P1, a later pad waits for Start, an owning pad that goes away
+/// pauses the fixed step until a pad reclaims its slot. Presentation and input
+/// routing only; the vendor id comes from `GamepadConnection::Connected`
+/// (bevy_input 0.20.1, filled from the OS by bevy_gilrs).
+fn pad_connections(mut events: MessageReader<GamepadEvent>, mut pads: ResMut<Pads>) {
+    for event in events.read() {
+        if let GamepadEvent::Connection(connection) = event {
+            let pad = pad_id(connection.gamepad);
+            match &connection.connection {
+                GamepadConnection::Connected { vendor_id, .. } => {
+                    pads.0.apply(PadEvent::Connected {
+                        pad,
+                        vendor_id: *vendor_id,
+                    });
+                }
+                GamepadConnection::Disconnected => {
+                    pads.0.apply(PadEvent::Disconnected { pad });
+                }
+            }
+        }
+    }
+}
+
+/// One pad's state for this frame, by logical action.
+fn pad_frame(entity: Entity, pad: &Gamepad) -> PadFrame {
+    let stick = pad.left_stick().x;
+    PadFrame {
+        pad: pad_id(entity),
+        vendor_id: pad.vendor_id(),
+        move_x: if stick.abs() > 0.18 {
+            stick
+        } else {
+            pad.dpad().x
+        },
+        held: PadButtons {
+            jump: pad.pressed(GamepadButton::South),
+            attack: pad.pressed(GamepadButton::West),
+            // PhysicalAttack is Triangle/Y (North); North no longer restarts.
+            physical: pad.pressed(GamepadButton::North),
+            swap: pad.pressed(GamepadButton::LeftTrigger),
+            restart: pad.pressed(GamepadButton::Select),
+            start: pad.pressed(GamepadButton::Start),
+        },
+        pressed: PadButtons {
+            jump: pad.just_pressed(GamepadButton::South),
+            attack: pad.just_pressed(GamepadButton::West),
+            physical: pad.just_pressed(GamepadButton::North),
+            swap: pad.just_pressed(GamepadButton::LeftTrigger),
+            restart: pad.just_pressed(GamepadButton::Select),
+            start: pad.just_pressed(GamepadButton::Start),
+        },
+    }
+}
+
 fn capture_input(
     keys: Res<ButtonInput<KeyCode>>,
-    pads: Query<&Gamepad>,
+    gamepads: Query<(Entity, &Gamepad)>,
     mut controls: ResMut<Controls>,
+    mut pads: ResMut<Pads>,
     mut exit: MessageWriter<AppExit>,
 ) {
     controls.jump_tap |= keys.just_pressed(KeyCode::Space);
     controls.attack_tap |= keys.just_pressed(KeyCode::KeyJ);
     controls.physical_tap |= keys.just_pressed(KeyCode::KeyK);
+    // Temporary keyboard default for the solo swap (the contract only fixes
+    // L1/LB); the keyboard stays P1.
+    controls.swap_tap |= keys.just_pressed(KeyCode::KeyQ);
     controls.restart |= keys.just_pressed(KeyCode::KeyR);
     if keys.just_pressed(KeyCode::Escape) {
         exit.write(AppExit::Success);
     }
-    // The first connected gamepad drives the hero; no pad (hot-unplug) simply
-    // means no pad input on the next tick, so nothing sticks.
-    if let Some(pad) = pads.iter().next() {
-        controls.jump_tap |= pad.just_pressed(GamepadButton::South);
-        controls.attack_tap |= pad.just_pressed(GamepadButton::West);
-        // PhysicalAttack is Triangle/Y (North); North no longer restarts.
-        controls.physical_tap |= pad.just_pressed(GamepadButton::North);
-        controls.restart |= pad.just_pressed(GamepadButton::Select);
-        if pad.just_pressed(GamepadButton::Start) {
+    // Each pad is polled on its own and routed by `pad_slots`: the owner of
+    // P1 or P2 drives its hero, any other pad is ignored except for Start
+    // (which joins P2). A pad that vanishes (hot-unplug) leaves the query, so
+    // nothing sticks.
+    for (entity, pad) in &gamepads {
+        let commands = pads.0.sample(pad_frame(entity, pad));
+        controls.restart |= commands.restart;
+        if commands.exit {
             exit.write(AppExit::Success);
         }
     }
 }
 
-/// HUD-DEBT-05: the glyph family follows the last gamepad with input. The
-/// identity is `Gamepad::vendor_id()` (bevy_input 0.20.1, filled from the OS by
-/// bevy_gilrs); the mapping lives in `GlyphSet::for_vendor_id`. Only
-/// connection and button messages count, so stick drift on an idle pad never
-/// flips the set. Presentation only: no simulation state is touched, and the
-/// loop reads at most a handful of messages per frame without allocating.
-fn detect_glyphs(
-    mut events: MessageReader<GamepadEvent>,
-    pads: Query<&Gamepad>,
-    mut hud: ResMut<HudState>,
-    mut active: Local<Option<Entity>>,
-) {
-    for event in events.read() {
-        match event {
-            GamepadEvent::Connection(connection) => match &connection.connection {
-                GamepadConnection::Connected { vendor_id, .. } => {
-                    *active = Some(connection.gamepad);
-                    hud.0
-                        .set_detected_glyphs(GlyphSet::for_vendor_id(*vendor_id));
-                }
-                GamepadConnection::Disconnected if *active == Some(connection.gamepad) => {
-                    // Fall back to another connected pad, else Xbox.
-                    let other = pads.iter().next();
-                    *active = None;
-                    hud.0.set_detected_glyphs(GlyphSet::for_vendor_id(
-                        other.and_then(Gamepad::vendor_id),
-                    ));
-                }
-                GamepadConnection::Disconnected => {}
-            },
-            GamepadEvent::Button(button) if *active != Some(button.entity) => {
-                if let Ok(pad) = pads.get(button.entity) {
-                    *active = Some(button.entity);
-                    hud.0
-                        .set_detected_glyphs(GlyphSet::for_vendor_id(pad.vendor_id()));
-                }
-            }
-            GamepadEvent::Button(_) | GamepadEvent::Axis(_) => {}
-        }
-    }
+/// Push the real party state to the HUD every frame: who drives each plate,
+/// each plate's own pad glyph family (HUD-DEBT-05 per slot, provisional Q11)
+/// and the reconnect request of a disconnect pause. `set_party` bumps the HUD
+/// revision only on a change, and this runs in `Update` so the message shows
+/// while the fixed step is paused. Presentation only.
+fn sync_party_hud(pads: Res<Pads>, mut hud: ResMut<HudState>) {
+    hud.0.set_party(pads.0.hud_view());
+}
+
+/// The controlled hero is in a hit reaction (blocks the solo swap, provisional
+/// Q8). Only Carl has a hurt state today; the sim lane provides Donut's.
+fn controlled_hero_hurt(party: &PartyState, combat: Option<&CombatState>) -> bool {
+    party.controlled_hero() == HeroId::Carl && combat.is_some_and(|c| c.hurt_ticks > 0)
 }
 
 #[allow(clippy::too_many_arguments)]
 fn fixed_step(
     keys: Res<ButtonInput<KeyCode>>,
-    pads: Query<&Gamepad>,
+    mut pads: ResMut<Pads>,
     frozen: Res<Frozen>,
     exit_after: Res<ExitAfter>,
     scenario: Res<LiveScenario>,
@@ -1707,7 +1754,27 @@ fn fixed_step(
     let jump_tap = std::mem::take(&mut controls.jump_tap);
     let attack_tap = std::mem::take(&mut controls.attack_tap);
     let physical_tap = std::mem::take(&mut controls.physical_tap);
+    let swap_tap = std::mem::take(&mut controls.swap_tap);
+    // Keyboard is P1. Pad edges are consumed here too, so a tap made during a
+    // pause is dropped and nothing fires on resume.
+    let keyboard = {
+        let left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
+        let right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
+        RawInput {
+            move_x: f32::from(i8::from(right) - i8::from(left)),
+            jump: keys.pressed(KeyCode::Space) || jump_tap,
+            attack: keys.pressed(KeyCode::KeyJ) || attack_tap,
+            physical: keys.pressed(KeyCode::KeyK) || physical_tap,
+            swap: swap_tap,
+            ..RawInput::default()
+        }
+    };
+    let mut live_slots = pads.0.take_inputs(keyboard);
     if frozen.0 {
+        return;
+    }
+    // D6: an owning pad is gone; the sim waits for it (the HUD says so).
+    if pads.0.is_paused() {
         return;
     }
     if let Some(limit) = exit_after.0
@@ -1729,44 +1796,41 @@ fn fixed_step(
             death.clear();
         }
         hud.0.restart();
+        pads.0.party_mut().restart();
         after_exit.0 = 0;
         println!("FLOOR1_RESTART");
     }
-    let raw = if let Some(scenario) = scenario.0 {
-        scenario.input(&sim.0.world)
-    } else if let Some(fixture) = fixture.0 {
-        fixture.input(sim.0.world.tick + 1)
-    } else {
-        let left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
-        let right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
-        let mut raw = RawInput {
-            move_x: f32::from(i8::from(right) - i8::from(left)),
-            jump: keys.pressed(KeyCode::Space) || jump_tap,
-            // Melee exists only in a combat fixture (`--fixture ... --manual`).
-            attack: combat.0.is_some() && (keys.pressed(KeyCode::KeyJ) || attack_tap),
-            physical: combat.0.is_some() && (keys.pressed(KeyCode::KeyK) || physical_tap),
-            ..RawInput::default()
-        };
-        if let Some(pad) = pads.iter().next() {
-            if raw.move_x == 0.0 {
-                let stick = pad.left_stick().x;
-                raw.move_x = if stick.abs() > 0.18 {
-                    stick
-                } else {
-                    pad.dpad().x
-                };
-            }
-            raw.jump |= pad.pressed(GamepadButton::South);
-            if combat.0.is_some() {
-                raw.attack |= pad.pressed(GamepadButton::West);
-                raw.physical |= pad.pressed(GamepadButton::North);
-            }
+    // Melee exists only in a combat fixture (`--fixture ... --manual`).
+    if combat.0.is_none() {
+        for slot in &mut live_slots {
+            slot.attack = false;
+            slot.physical = false;
         }
-        raw
+    }
+    let slot_inputs = if let Some(scenario) = scenario.0 {
+        [scenario.input(&sim.0.world), RawInput::default()]
+    } else if let Some(fixture) = fixture.0 {
+        [fixture.input(sim.0.world.tick + 1), RawInput::default()]
+    } else {
+        live_slots
     };
+    // Solo swap (L1/LB, Q on the keyboard), then slot -> hero routing. With no
+    // pad and no swap this is the identity on Carl, so scripted runs and
+    // replays are unchanged.
+    let hurt = controlled_hero_hurt(pads.0.party(), combat.0.as_ref());
+    pads.0.party_mut().request_swap(slot_inputs[0].swap, hurt);
+    let hero_inputs = pads.0.party().hero_inputs(slot_inputs);
     let was_complete = sim.0.world.complete;
     if let Some(combat) = combat.0.as_mut() {
-        step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
+        // The combat step still takes Carl's input alone (`hero_inputs[0]`)
+        // until the sim lane gives it Donut's.
+        step_combat(
+            &mut sim.0,
+            combat,
+            &mut anim.0,
+            death.0.as_mut(),
+            hero_inputs[0],
+        );
         print_combat_events(combat, Some(&mut audio));
         if setup.args.death_stress
             && let Some(death) = death.0.as_mut()
@@ -1776,7 +1840,7 @@ fn fixed_step(
             death.stress_tick(hero.x, hero.y - HERO_HALF_HEIGHT);
         }
     } else {
-        sim.0.step(raw);
+        sim.0.step_party(hero_inputs);
         anim.0.step(&sim.0.world);
     }
     step_hud(&mut hud.0, &sim.0, combat.0.as_ref());
