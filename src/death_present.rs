@@ -25,33 +25,78 @@
 use std::sync::Arc;
 
 use crate::combat::{CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ForceTier};
+use crate::combat_anim::goblin_variant;
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::death::DeathProfiles;
 use crate::feel::{GROUND_FRICTION, KNOCK_GRAVITY};
 use crate::goblin::GoblinMode;
 use crate::gore::{
-    DeathArt, GorePreset, PartClass, PresentationRng, PresetSheets, Settle, Ttl, keeps_stream_item,
-    lowest_below_centre, part_center_for_anchor, pose_anchor_world, rest_angle, scale_count,
+    DEATH_VARIANTS, DeathArt, GorePreset, PartClass, PresentationRng, PresetSheets, Settle, Ttl,
+    keeps_stream_item, lowest_below_centre, part_center_for_anchor, pose_anchor_world, rest_angle,
+    scale_count,
 };
 use crate::prototype::TICK_SECONDS;
 
-/// Launched parts and drops (settled pieces stay in the pool until their ttl
-/// or until the pool recycles them, oldest first). Budgets are first guesses:
-/// they are set after profiling on the target machine (see the PR evidence).
-pub const PART_POOL_CAPACITY: usize = 160;
+/// The cosmetic budget of the death presenter (DEATH-E1): every cap the
+/// presenter honours, in one place. Capacities are fixed pool sizes (sprites
+/// are pre-spawned, nothing is allocated at runtime); a full pool recycles by
+/// [`ttl_rank`] and then oldest first, so a budget never lowers what one death
+/// draws, it only decides what is recycled first when many deaths overlap.
+/// Set from the measurements in `docs/evidence/death-e/README.md`: measured on
+/// a development machine, not on the Steam Deck.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeathBudget {
+    /// Launched parts, gibs and blood drops (settled pieces stay until their
+    /// time to live or until the pool recycles them).
+    pub parts: usize,
+    /// Floor decals: splats, pools (a two-cell pool is one entry), smears.
+    pub floor_decals: usize,
+    /// Back-wall spatters.
+    pub wall_decals: usize,
+    /// Death scripts alive at once (real defeats plus synthetic stress ones).
+    pub deaths: usize,
+    /// Splat decals one death may leave from landing drops (spec section 8).
+    pub drop_splats_per_death: u8,
+    /// Splat decals one death may leave from landing pieces (the head's
+    /// bounces, gibs): kept apart so the drops cannot starve them.
+    pub part_stains_per_death: u8,
+    /// Ticks a `Long` piece stays at full opacity, then fades over `long_fade`.
+    pub long_ttl_ticks: u64,
+    pub long_fade_ticks: u64,
+    /// Ticks a `Short` piece stays at full opacity, then fades over `short_fade`.
+    pub short_ttl_ticks: u64,
+    pub short_fade_ticks: u64,
+}
+
+/// The budget in force. Preset 4 is the default and the one measured (a preset
+/// below 4 only draws less, so it fits in the same budget).
+pub const DEATH_BUDGET: DeathBudget = DeathBudget {
+    parts: 256,
+    floor_decals: 192,
+    wall_decals: 32,
+    deaths: 48,
+    drop_splats_per_death: 8,
+    part_stains_per_death: 6,
+    long_ttl_ticks: 360,
+    long_fade_ticks: 30,
+    short_ttl_ticks: 120,
+    short_fade_ticks: 12,
+};
+
+/// Launched parts and drops.
+pub const PART_POOL_CAPACITY: usize = DEATH_BUDGET.parts;
 /// Floor decals: splats, pools (a two-cell pool is one entry), smears.
-pub const FLOOR_DECAL_POOL_CAPACITY: usize = 96;
+pub const FLOOR_DECAL_POOL_CAPACITY: usize = DEATH_BUDGET.floor_decals;
 /// Back-wall spatters.
-pub const WALL_DECAL_POOL_CAPACITY: usize = 12;
+pub const WALL_DECAL_POOL_CAPACITY: usize = DEATH_BUDGET.wall_decals;
 /// Death scripts alive at once (real defeats plus synthetic stress ones).
-pub const MAX_DEATHS: usize = 24;
+pub const MAX_DEATHS: usize = DEATH_BUDGET.deaths;
 
 /// Splat decals one death may leave from landing drops (spec section 8).
-pub const MAX_DROP_SPLATS: u8 = 8;
-/// Splat decals one death may leave from landing pieces (the head's bounces,
-/// gibs): kept apart so the drops cannot starve them.
-pub const MAX_PART_STAINS: u8 = 6;
+pub const MAX_DROP_SPLATS: u8 = DEATH_BUDGET.drop_splats_per_death;
+/// Splat decals one death may leave from landing pieces.
+pub const MAX_PART_STAINS: u8 = DEATH_BUDGET.part_stains_per_death;
 
 /// Crush pool stages (1, 2, 3) after the landing, spec section 8.
 const CRUSH_POOL_TICKS: (u64, u64, u64) = (4, 20, 60);
@@ -59,11 +104,23 @@ const CRUSH_POOL_TICKS: (u64, u64, u64) = (4, 20, 60);
 const CRUSH_POOL_TICKS_FULL: (u64, u64, u64) = (2, 10, 24);
 
 /// Ticks a `Long` piece stays, then fades.
-pub const LONG_TTL_TICKS: u64 = 360;
-pub const LONG_FADE_TICKS: u64 = 30;
+pub const LONG_TTL_TICKS: u64 = DEATH_BUDGET.long_ttl_ticks;
+pub const LONG_FADE_TICKS: u64 = DEATH_BUDGET.long_fade_ticks;
 /// Ticks a `Short` piece stays, then fades.
-pub const SHORT_TTL_TICKS: u64 = 120;
-pub const SHORT_FADE_TICKS: u64 = 12;
+pub const SHORT_TTL_TICKS: u64 = DEATH_BUDGET.short_ttl_ticks;
+pub const SHORT_FADE_TICKS: u64 = DEATH_BUDGET.short_fade_ticks;
+
+/// The recycling order of a full pool: a `Short` piece (drops, gibs, scraps)
+/// goes before a `Long` one (limbs, splats), which goes before a `Keep` piece
+/// (the head, the torso, the club, pools, smears, wall spatters); the oldest
+/// first within a class. A fresh drop never evicts a corpse's pool.
+pub const fn ttl_rank(ttl: Ttl) -> u8 {
+    match ttl {
+        Ttl::Short => 0,
+        Ttl::Long => 1,
+        Ttl::Keep => 2,
+    }
+}
 
 /// Slower than this on landing, a part stops bouncing and settles (px/s).
 const BOUNCE_MIN_SPEED: f32 = 40.0;
@@ -147,6 +204,12 @@ impl<T> Pool<T> {
     /// Put `item` in a free slot, or recycle the oldest. Returns the slot and
     /// the spawn sequence number (to recognise the entry later).
     pub fn spawn(&mut self, item: T) -> (usize, u64) {
+        self.spawn_ranked(item, |_| 0)
+    }
+
+    /// Put `item` in a free slot, or recycle the entry with the lowest `rank`
+    /// (the oldest among equals).
+    pub fn spawn_ranked(&mut self, item: T, rank: impl Fn(&T) -> u8) -> (usize, u64) {
         let seq = self.next_seq;
         self.next_seq += 1;
         let slot = match self.slots.iter().position(Option::is_none) {
@@ -156,7 +219,10 @@ impl<T> Pool<T> {
                 self.slots
                     .iter()
                     .enumerate()
-                    .min_by_key(|(_, s)| s.as_ref().map_or(u64::MAX, |(seq, _)| *seq))
+                    .min_by_key(|(_, s)| {
+                        s.as_ref()
+                            .map_or((u8::MAX, u64::MAX), |(q, t)| (rank(t), *q))
+                    })
                     .map(|(i, _)| i)
                     .expect("a pool has at least one slot")
             }
@@ -270,6 +336,8 @@ pub struct PoseView {
     pub foot_x: f32,
     pub ground_y: f32,
     pub flip: bool,
+    /// The goblin variant whose poses sheet is drawn (0 = A, 1 = B).
+    pub variant: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -304,6 +372,10 @@ pub struct Part {
     roll_dir: f32,
     roll_distance: f32,
     death: u32,
+    /// The goblin variant whose parts sheet is drawn (0 = A, 1 = B): the head,
+    /// torso and ear of B carry the accessory layer. Blood, gibs and decals
+    /// are identical in both.
+    pub variant: usize,
 }
 
 impl Part {
@@ -357,6 +429,8 @@ struct Death {
     id: u32,
     /// Real goblin index, or [`SYNTHETIC_TARGET`].
     target: u32,
+    /// The goblin variant (A or B) whose art plays.
+    variant: usize,
     finish: Finish,
     force: ForceTier,
     start: u64,
@@ -398,6 +472,7 @@ pub struct PresenterStats {
     pub wall_decals_spawned: u64,
     pub peak_parts: usize,
     pub peak_floor_decals: usize,
+    pub peak_wall_decals: usize,
 }
 
 /// Something a piece did on the floor, handled once the pool is no longer
@@ -428,7 +503,7 @@ const RAD_TO_DEG: f32 = 57.295_78;
 /// The cosmetic presenter: one per run, reset on a restart.
 pub struct DeathPresenter {
     art: Arc<DeathArt>,
-    sheets: PresetSheets,
+    sheets: [PresetSheets; DEATH_VARIANTS],
     profiles: &'static DeathProfiles,
     species: &'static str,
     preset: GorePreset,
@@ -448,8 +523,32 @@ pub struct DeathPresenter {
 }
 
 impl DeathPresenter {
+    /// A presenter with one art set for every goblin (variant B is drawn with
+    /// variant A's sheets). The game uses [`Self::with_variants`].
     pub fn new(art: Arc<DeathArt>, preset: GorePreset) -> Result<Self, String> {
         let sheets = art.compose(preset)?;
+        Self::build(art, [sheets.clone(), sheets], preset)
+    }
+
+    /// A presenter with the death art of both goblin variants. `b` must share
+    /// `a`'s contract ([`DeathArt::same_contract`]): the presenter reads the
+    /// metadata of `a` for both and only swaps the sheets.
+    pub fn with_variants(
+        a: Arc<DeathArt>,
+        b: &DeathArt,
+        preset: GorePreset,
+    ) -> Result<Self, String> {
+        a.same_contract(b)
+            .map_err(|e| format!("goblin variant B death art: {e}"))?;
+        let sheets = [a.compose(preset)?, b.compose(preset)?];
+        Self::build(a, sheets, preset)
+    }
+
+    fn build(
+        art: Arc<DeathArt>,
+        sheets: [PresetSheets; DEATH_VARIANTS],
+        preset: GorePreset,
+    ) -> Result<Self, String> {
         Ok(Self {
             art,
             sheets,
@@ -482,7 +581,12 @@ impl DeathPresenter {
 
     /// The composed sheets of the active preset (what the adapter uploads).
     pub fn sheets(&self) -> &PresetSheets {
-        &self.sheets
+        &self.sheets[0]
+    }
+
+    /// The composed sheets of goblin `variant` (0 = A, 1 = B).
+    pub fn sheets_of(&self, variant: usize) -> &PresetSheets {
+        &self.sheets[variant.min(DEATH_VARIANTS - 1)]
     }
 
     pub fn stats(&self) -> PresenterStats {
@@ -545,6 +649,7 @@ impl DeathPresenter {
                 foot_x: d.foot_x,
                 ground_y: d.ground_y,
                 flip: d.flip,
+                variant: d.variant,
             })
         })
     }
@@ -556,6 +661,21 @@ impl DeathPresenter {
 
     pub fn parts(&self) -> impl Iterator<Item = (usize, &Part)> {
         self.parts.iter()
+    }
+
+    /// The part in pool slot `slot` (the adapter draws one sprite per slot).
+    pub fn part_at(&self, slot: usize) -> Option<&Part> {
+        self.parts.get(slot)
+    }
+
+    /// The floor decal in pool slot `slot`.
+    pub fn floor_decal_at(&self, slot: usize) -> Option<&Decal> {
+        self.floor_decals.get(slot)
+    }
+
+    /// The wall decal in pool slot `slot`.
+    pub fn wall_decal_at(&self, slot: usize) -> Option<&Decal> {
+        self.wall_decals.get(slot)
     }
 
     pub fn floor_decals(&self) -> impl Iterator<Item = (usize, &Decal)> {
@@ -671,6 +791,7 @@ impl DeathPresenter {
         self.start_death(Death {
             id: self.next_death_id,
             target,
+            variant: goblin_variant(target as usize),
             finish,
             force,
             start: self.clock + 1,
@@ -719,6 +840,8 @@ impl DeathPresenter {
         self.start_death(Death {
             id: self.next_death_id,
             target: SYNTHETIC_TARGET,
+            // Both variants in the stress, so both sheets are exercised.
+            variant: (salt as usize / 3) % DEATH_VARIANTS,
             finish,
             force: ForceTier::Catastrophic,
             start: self.clock + 1,
@@ -771,7 +894,7 @@ impl DeathPresenter {
                 }
                 continue;
             }
-            let hull = &self.sheets.parts.hull[part.frame];
+            let hull = &self.sheets[part.variant].parts.hull[part.frame];
             if hull.is_empty() {
                 self.parts.free(slot);
                 continue;
@@ -995,8 +1118,11 @@ impl DeathPresenter {
                 0.0
             },
             death: death.id,
+            variant: death.variant,
         };
-        self.parts.spawn(part);
+        let art = &self.art;
+        self.parts
+            .spawn_ranked(part, |p| ttl_rank(art.parts[p.meta].ttl));
         self.stats.parts_spawned += 1;
         self.stats.peak_parts = self.stats.peak_parts.max(self.parts.live());
         true
@@ -1032,7 +1158,9 @@ impl DeathPresenter {
             return false;
         };
         let _ = meta;
-        self.floor_decals.spawn(decal);
+        let art = &self.art;
+        self.floor_decals
+            .spawn_ranked(decal, |d| ttl_rank(art.parts[d.meta].ttl));
         self.stats.floor_decals_spawned += 1;
         self.stats.peak_floor_decals = self.stats.peak_floor_decals.max(self.floor_decals.live());
         true
@@ -1051,7 +1179,7 @@ impl DeathPresenter {
             return None;
         }
         let cell = self.art.part_cell;
-        let bbox = self.sheets.parts.bbox[meta.frame]?;
+        let bbox = self.sheets[0].parts.bbox[meta.frame]?;
         // Horizontal: the named anchor pixel on `x`; vertical: the lowest
         // opaque row on the floor line.
         let anchor = meta
@@ -1094,7 +1222,10 @@ impl DeathPresenter {
             decal.y = fresh.y;
             return;
         }
-        let (slot, seq) = self.floor_decals.spawn(fresh);
+        let art = &self.art;
+        let (slot, seq) = self
+            .floor_decals
+            .spawn_ranked(fresh, |d| ttl_rank(art.parts[d.meta].ttl));
         death.pool = Some((slot, seq));
         self.stats.floor_decals_spawned += 1;
         self.stats.peak_floor_decals = self.stats.peak_floor_decals.max(self.floor_decals.live());
@@ -1145,6 +1276,7 @@ impl DeathPresenter {
             born: self.clock,
         });
         self.stats.wall_decals_spawned += 1;
+        self.stats.peak_wall_decals = self.stats.peak_wall_decals.max(self.wall_decals.live());
     }
 
     // ---------------------------------------------------------- scripts ----
@@ -1484,6 +1616,9 @@ impl DeathPresenter {
                 mix(u64::from(v.to_bits()));
             }
             mix((slot as u64) << 8 | p.frame as u64);
+            if p.variant != 0 {
+                mix(0x5641_5231 + p.variant as u64);
+            }
         }
         for pool in [&self.floor_decals, &self.wall_decals] {
             for (slot, d) in pool.iter() {
@@ -1495,6 +1630,9 @@ impl DeathPresenter {
         }
         for pose in self.poses() {
             mix(u64::from(pose.target) << 8 | pose.frame as u64);
+            if pose.variant != 0 {
+                mix(0x5641_5231 + pose.variant as u64);
+            }
         }
         hash
     }
@@ -1502,7 +1640,7 @@ impl DeathPresenter {
     /// One summary line for the headless trace.
     pub fn state_line(&self) -> String {
         format!(
-            "DEATH_PRESENT preset={} clock={} deaths={} parts={} floor_decals={} wall_decals={} spawned_parts={} digest={:016x}",
+            "DEATH_PRESENT preset={} clock={} deaths={} parts={} floor_decals={} wall_decals={} spawned_parts={} peak_parts={} peak_floor_decals={} peak_wall_decals={} digest={:016x}",
             self.preset.level(),
             self.clock,
             self.deaths.len(),
@@ -1510,6 +1648,9 @@ impl DeathPresenter {
             self.floor_decals.live(),
             self.wall_decals.live(),
             self.stats.parts_spawned,
+            self.stats.peak_parts,
+            self.stats.peak_floor_decals,
+            self.stats.peak_wall_decals,
             self.digest(),
         )
     }
@@ -1539,6 +1680,7 @@ mod tests {
     const SHORE_KILL_HASH: u64 = 0x098e_86cd_e2e6_b065;
     const KICK_BLOCK_HASH: u64 = 0x73e4_0916_1ce5_434f;
     const KICK_HASH: u64 = 0x9e13_d646_1914_9b71;
+    const PILEUP_HASH: u64 = 0x43d9_d35a_2334_4531;
 
     fn root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1548,8 +1690,13 @@ mod tests {
         Arc::new(DeathArt::load(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap())
     }
 
+    fn art_b() -> DeathArt {
+        DeathArt::load_variant(Path::new(env!("CARGO_MANIFEST_DIR")), 1).unwrap()
+    }
+
+    /// The presenter the game builds: variant A and variant B death art.
     fn presenter(preset: GorePreset) -> DeathPresenter {
-        DeathPresenter::new(art(), preset).unwrap()
+        DeathPresenter::with_variants(art(), &art_b(), preset).unwrap()
     }
 
     /// A goblin standing at `x` facing left, on a floor at y 100.
@@ -1688,9 +1835,10 @@ mod tests {
         assert_eq!(p.live_floor_decals(), 1, "the pair is a single entry");
         let (_, decal) = p.floor_decals().next().unwrap();
         assert_eq!((decal.meta, decal.pair_meta), (left, Some(right)));
-        // Fill the pool: the pair goes as one entry when it is the oldest.
+        // Fill the pool with pools of the same class (kept): the pair goes as
+        // one entry when it is the oldest.
         for i in 0..FLOOR_DECAL_POOL_CAPACITY {
-            p.spawn_floor_decal("decal_splat_s", i as f32, 100.0, false);
+            p.spawn_floor_decal("decal_pool_1", i as f32, 100.0, false);
         }
         assert_eq!(p.live_floor_decals(), FLOOR_DECAL_POOL_CAPACITY);
         assert!(
@@ -1708,6 +1856,7 @@ mod tests {
             Death {
                 id: 99,
                 target: SYNTHETIC_TARGET,
+                variant: 0,
                 finish: Finish::Crushed,
                 force: ForceTier::Catastrophic,
                 start: 0,
@@ -2106,6 +2255,7 @@ mod tests {
             (&crate::combat_scene::CP03_SHORE_KILL, SHORE_KILL_HASH),
             (&crate::combat_scene::CP03_KICK_BLOCK, KICK_BLOCK_HASH),
             (&crate::combat_scene::CP01_KICK, KICK_HASH),
+            (&crate::combat_scene::CP03_GOBLIN_PILEUP, PILEUP_HASH),
         ] {
             let mut results = Vec::new();
             for preset in GorePreset::ALL {
@@ -2375,6 +2525,314 @@ mod tests {
         // Preset 1 stays bloodless: nothing but nothing.
         let (off_parts, off_walls, off_floor) = run(GorePreset::Off, ForceTier::Heavy);
         assert!(off_parts.is_empty() && off_walls == 0 && off_floor.is_empty());
+    }
+
+    // ------------------------------------------------- DEATH-E1: budgets ----
+
+    #[test]
+    fn the_budget_is_the_single_source_of_every_cap() {
+        let b = DEATH_BUDGET;
+        assert_eq!(
+            (
+                PART_POOL_CAPACITY,
+                FLOOR_DECAL_POOL_CAPACITY,
+                WALL_DECAL_POOL_CAPACITY
+            ),
+            (b.parts, b.floor_decals, b.wall_decals)
+        );
+        assert_eq!(MAX_DEATHS, b.deaths);
+        assert_eq!(
+            (MAX_DROP_SPLATS, MAX_PART_STAINS),
+            (b.drop_splats_per_death, b.part_stains_per_death)
+        );
+        assert_eq!(
+            (
+                LONG_TTL_TICKS,
+                LONG_FADE_TICKS,
+                SHORT_TTL_TICKS,
+                SHORT_FADE_TICKS
+            ),
+            (
+                b.long_ttl_ticks,
+                b.long_fade_ticks,
+                b.short_ttl_ticks,
+                b.short_fade_ticks
+            )
+        );
+        // The pools of the first measured run were 160 / 96 / 12: a budget
+        // change may only raise them (the owner asked for more, not less).
+        assert!(b.parts >= 160 && b.floor_decals >= 96 && b.wall_decals >= 12);
+        // A fade must exist and a short piece must go before a long one.
+        assert!(b.short_fade_ticks > 0 && b.long_fade_ticks > 0);
+        assert!(b.short_ttl_ticks < b.long_ttl_ticks);
+        // Every real defeat of the largest fixture keeps its script.
+        let most = crate::combat_scene::FIXTURES
+            .iter()
+            .map(|f| f.enemies.len())
+            .max()
+            .unwrap();
+        assert!(b.deaths >= most, "{} deaths for {most} goblins", b.deaths);
+        // The z bias of the last slot of any pool stays far under the gap
+        // between two draw layers (a piece never crosses a layer, so never
+        // draws over Carl or Donut).
+        let last = b.parts.max(b.floor_decals).max(b.wall_decals) as f32 * SLOT_Z_STEP;
+        assert!(
+            last < (FLOOR_DECAL_BELOW_ACTORS - DEBRIS_BELOW_ACTORS) / 2.0,
+            "{last}"
+        );
+    }
+
+    #[test]
+    fn the_pools_never_pass_their_caps_and_recycle_short_pieces_first() {
+        let mut p = presenter(GorePreset::Full);
+        let mut d = p.deaths_for_test();
+        // One kept piece (the club), then far more blood drops than the pool
+        // holds: the club is never the one recycled.
+        p.launch(
+            &mut d,
+            "club",
+            None,
+            (10.0, 200.0),
+            (0.0, 0.0),
+            0.0,
+            0.0,
+            false,
+        );
+        for i in 0..PART_POOL_CAPACITY * 3 {
+            p.launch(
+                &mut d,
+                "drop_blood",
+                None,
+                (i as f32, 200.0),
+                (0.0, 0.0),
+                0.0,
+                0.0,
+                false,
+            );
+            assert!(p.live_parts() <= PART_POOL_CAPACITY);
+        }
+        assert_eq!(p.live_parts(), PART_POOL_CAPACITY);
+        assert!(p.recycled().0 >= (PART_POOL_CAPACITY * 2) as u64);
+        assert_eq!(count(&part_ids(&p), "club"), 1, "the kept club survives");
+        // Floor decals: a pool stage (kept) survives any number of splats.
+        let mut d = p.deaths_for_test();
+        p.pool_stage(&mut d, "decal_pool_3", 200.0);
+        for i in 0..FLOOR_DECAL_POOL_CAPACITY * 3 {
+            p.spawn_floor_decal("decal_splat_s", i as f32, 100.0, false);
+            assert!(p.live_floor_decals() <= FLOOR_DECAL_POOL_CAPACITY);
+        }
+        assert_eq!(p.live_floor_decals(), FLOOR_DECAL_POOL_CAPACITY);
+        assert_eq!(count(&floor_ids(&p), "decal_pool_3"), 1);
+        assert!(p.recycled().1 >= (FLOOR_DECAL_POOL_CAPACITY * 2) as u64);
+        // Wall spatters are all kept: the oldest goes first, the cap holds.
+        for i in 0..WALL_DECAL_POOL_CAPACITY * 3 {
+            p.wall_spatter_variant("decal_wall_spatter", false, (i as f32, 120.0));
+            assert!(p.live_wall_decals() <= WALL_DECAL_POOL_CAPACITY);
+        }
+        assert_eq!(p.live_wall_decals(), WALL_DECAL_POOL_CAPACITY);
+        assert_eq!(p.recycled().2, (WALL_DECAL_POOL_CAPACITY * 2) as u64);
+    }
+
+    #[test]
+    fn a_full_pool_recycles_the_lowest_rank_then_the_oldest() {
+        let mut pool: Pool<(u8, u32)> = Pool::new(3);
+        let rank = |t: &(u8, u32)| t.0;
+        let (keep, _) = pool.spawn_ranked((2, 0), rank);
+        let (short_old, _) = pool.spawn_ranked((0, 1), rank);
+        let (short_new, _) = pool.spawn_ranked((0, 2), rank);
+        // Full: the oldest of the lowest rank goes, whatever the free order.
+        assert_eq!(pool.spawn_ranked((1, 3), rank).0, short_old);
+        assert_eq!(pool.spawn_ranked((1, 4), rank).0, short_new);
+        // Now ranks are 2, 1, 1: the older rank-1 entry goes, then the next.
+        assert_eq!(pool.spawn_ranked((1, 5), rank).0, short_old);
+        assert_eq!(pool.get(keep), Some(&(2, 0)));
+        assert_eq!(pool.evicted(), 3);
+        assert!(ttl_rank(Ttl::Short) < ttl_rank(Ttl::Long));
+        assert!(ttl_rank(Ttl::Long) < ttl_rank(Ttl::Keep));
+    }
+
+    #[test]
+    fn the_pileup_stays_inside_the_budget_at_every_preset() {
+        for preset in GorePreset::ALL {
+            let (_, events, p) = replay(&crate::combat_scene::CP03_GOBLIN_PILEUP, preset, None);
+            let defeats = events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+                .count();
+            assert_eq!(defeats, 10, "ten goblins fall in the pileup");
+            let stats = p.stats();
+            assert!(stats.peak_parts <= PART_POOL_CAPACITY);
+            assert!(stats.peak_floor_decals <= FLOOR_DECAL_POOL_CAPACITY);
+            assert!(stats.peak_wall_decals <= WALL_DECAL_POOL_CAPACITY);
+            assert!(p.deaths.len() <= MAX_DEATHS);
+            // Every goblin that died has its pose: none is refused.
+            for target in 0..10 {
+                assert_eq!(
+                    p.pose_of(target).is_some(),
+                    target >= 6,
+                    "goblin {target} at preset {}: {:?}",
+                    preset.level(),
+                    p.pose_of(target)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_pileup_at_preset_four_is_not_starved_by_the_budget() {
+        // The recycling counts say how much of what the deaths drew the budget
+        // had to take back while it was still wanted; a budget that is too
+        // small shows here as pieces recycled before their time to live.
+        let (_, _, p) = replay(
+            &crate::combat_scene::CP03_GOBLIN_PILEUP,
+            GorePreset::Full,
+            None,
+        );
+        let (parts, floor, wall) = p.recycled();
+        assert_eq!(parts, 0, "no part recycled early");
+        assert_eq!(
+            (floor, wall),
+            (0, 0),
+            "no decal recycled early; stats {:?}",
+            p.stats()
+        );
+    }
+
+    // ------------------------------------------- DEATH-E1: goblin variant B ----
+
+    #[test]
+    fn the_variants_share_the_contract_and_a_mismatch_is_refused() {
+        let a = art();
+        let b = art_b();
+        assert_eq!((a.variant, b.variant), (0, 1));
+        a.same_contract(&b).expect("B keeps A's contract");
+        let mut bad = art_b();
+        bad.parts[3].id = "head_dead_renamed".into();
+        assert!(a.same_contract(&bad).is_err());
+        assert!(DeathPresenter::with_variants(art(), &bad, GorePreset::Full).is_err());
+        let mut moved = art_b();
+        moved.poses[0].anchors.insert("mouth".into(), [0, 0]);
+        assert!(a.same_contract(&moved).is_err());
+        assert!(DeathArt::load_variant(&root(), DEATH_VARIANTS).is_err());
+    }
+
+    #[test]
+    fn the_death_variant_of_a_goblin_is_its_gob01_variant() {
+        assert_eq!(DEATH_VARIANTS, crate::combat_anim::GOBLIN_VARIANTS);
+        let mut p = presenter(GorePreset::Full);
+        let goblins: Vec<GoblinView> = (0..4).map(|i| goblin_at(400.0 + 30.0 * i as f32)).collect();
+        let events: Vec<CombatEvent> = (0..4)
+            .map(|t| defeat(50, t, DefeatCause::Melee, ForceTier::Routine))
+            .collect();
+        p.step(&events, obs(&goblins));
+        for t in 0..4u32 {
+            let want = crate::combat_anim::goblin_variant(t as usize);
+            assert_eq!(want, (t % 2) as usize, "even goblins are A, odd are B");
+            assert_eq!(
+                p.deaths.iter().find(|d| d.target == t).unwrap().variant,
+                want
+            );
+        }
+        // A crush plays the pose of the goblin's own variant.
+        let mut p = presenter(GorePreset::Full);
+        let goblins = [goblin_at(420.0), goblin_at(484.0)];
+        p.step(
+            &[
+                defeat(139, 0, BLOCK, ForceTier::Catastrophic),
+                defeat(139, 1, BLOCK, ForceTier::Catastrophic),
+            ],
+            obs(&goblins),
+        );
+        assert_eq!(p.pose_of(0).unwrap().variant, 0);
+        assert_eq!(p.pose_of(1).unwrap().variant, 1);
+        for _ in 0..30 {
+            p.step(&[], obs(&goblins));
+        }
+        // Every piece launched by goblin 1's death carries variant B, goblin
+        // 0's carries A, and both sets exist.
+        let dead_variant = |id: u32| p.deaths.iter().find(|d| d.target == id).unwrap().variant;
+        let mut seen = [0usize; 2];
+        for (_, part) in p.parts() {
+            let owner = p.deaths.iter().find(|d| d.id == part.death).unwrap();
+            assert_eq!(part.variant, owner.variant);
+            seen[part.variant] += 1;
+        }
+        assert_eq!((dead_variant(0), dead_variant(1)), (0, 1));
+        assert!(
+            seen[0] > 0 && seen[1] > 0,
+            "both variants launch pieces: {seen:?}"
+        );
+    }
+
+    #[test]
+    fn variant_b_sheets_add_the_accessory_and_keep_everything_else() {
+        let p = presenter(GorePreset::Full);
+        let (a, b) = (p.sheets_of(0), p.sheets_of(1));
+        assert_eq!(
+            (a.poses.frames, a.parts.frames),
+            (b.poses.frames, b.parts.frames)
+        );
+        // The accessory frames differ (head, upper torso, dead head, ear and
+        // every pose), the rest of the parts sheet is identical pixel for pixel.
+        let differs = |sheet_a: &crate::gore::Sheet, sheet_b: &crate::gore::Sheet, frame: usize| {
+            (0..sheet_a.cell_h)
+                .flat_map(|y| (0..sheet_a.cell_w).map(move |x| (x, y)))
+                .any(|(x, y)| sheet_a.pixel(frame, x, y) != sheet_b.pixel(frame, x, y))
+        };
+        for frame in 0..a.poses.frames {
+            assert!(
+                differs(&a.poses, &b.poses, frame),
+                "pose {frame} has no accessory"
+            );
+        }
+        let accessory_parts = ["head", "torso_upper", "head_dead", "ear"];
+        for (index, meta) in p.art().parts.iter().enumerate() {
+            let changed = differs(&a.parts, &b.parts, index);
+            assert_eq!(
+                changed,
+                accessory_parts.contains(&meta.id.as_str()),
+                "{} (frame {index})",
+                meta.id
+            );
+        }
+        // The accessory is not gore: it is drawn at preset 1 too (ruling
+        // 13.1a), while no blood colour is.
+        let off = presenter(GorePreset::Off);
+        let (a1, b1) = (off.sheets_of(0), off.sheets_of(1));
+        let head = off.art().part_index("head").unwrap();
+        assert!(
+            differs(&a1.parts, &b1.parts, head),
+            "preset 1 keeps the accessory"
+        );
+        // The silhouettes the floor clamp uses come from the variant's sheet.
+        for (index, meta) in p.art().parts.iter().enumerate() {
+            assert!(
+                !b.parts.hull[index].is_empty() || b.parts.opaque[index] == 0,
+                "{}",
+                meta.id
+            );
+        }
+    }
+
+    #[test]
+    fn variant_b_pieces_rest_on_the_floor_like_variant_a() {
+        let mut p = presenter(GorePreset::Full);
+        let goblins = [goblin_at(420.0), goblin_at(484.0)];
+        p.step(
+            &[
+                defeat(50, 0, DefeatCause::Melee, ForceTier::Heavy),
+                defeat(50, 1, DefeatCause::Melee, ForceTier::Heavy),
+            ],
+            obs(&goblins),
+        );
+        for _ in 0..420 {
+            p.step(&[], obs(&goblins));
+        }
+        for (_, part) in p.parts() {
+            let hull = &p.sheets_of(part.variant).parts.hull[part.frame];
+            let low = part.y - lowest_below_centre(hull, part.flip, part.angle_deg);
+            assert!(low >= 100.0 - 0.01, "{low} below the floor line");
+        }
     }
 
     /// Cost of one presenter step with every pool full (stress load). Run with
