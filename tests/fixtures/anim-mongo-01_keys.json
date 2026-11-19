@@ -1,0 +1,49 @@
+{
+  "asset_id": "anim-mongo-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "d0dbbe2c2deb53ab6fb1e7735dd46d9fe295ed32adadbb7c95f2f56f7aa68ee0"
+    },
+    "1": {
+      "sha256": "aa0492f98719c468b5133b7146a64ae5f157a463b6faf30e6182cb7196058094"
+    },
+    "10": {
+      "sha256": "5b47364ffc80f2e805fefc21aca80a3516fb3ddf2d087e3c624132bf6efe0c4f"
+    },
+    "12": {
+      "sha256": "8bcffa2e6d296c06f4e3d2eeb1935bab07eb760abfe99923712813e33364af41"
+    },
+    "13": {
+      "sha256": "27b722f83c2ba4d536b7fe5cf2e8b8b8a05be3ac826d6ab4641ae86c2ae47a4f"
+    },
+    "14": {
+      "sha256": "70ab157bd032d6ea2cb9c39d6481d683dbd3112538b8e7be6da09daef7c46533"
+    },
+    "2": {
+      "sha256": "06099075c4958e92019bdaf22d8159a8cebe97059ffb71d2b7898e94e9795262"
+    },
+    "3": {
+      "sha256": "b7f090314fe6c6c5340c53fcc6b5e6eada71b2e74a85d19c2472c619a66cb3eb"
+    },
+    "4": {
+      "sha256": "577392c4a9f2c22050b80196ab8239be7564c64d5d0f908f3b97c7ca0c73ade4"
+    },
+    "5": {
+      "sha256": "b08254efc5e3515008d731a9f21ccd76dbad8229c185f317914182e58c6bc945"
+    },
+    "6": {
+      "sha256": "37e82a24fc165b6bb79cbdac47841acfe81fb33803ffa070c72b061eaeeb1af9"
+    }
+  },
+  "layers": [
+    "tail",
+    "far_leg",
+    "far_arm",
+    "body",
+    "near_leg",
+    "head",
+    "crest",
+    "near_arm"
+  ]
+}

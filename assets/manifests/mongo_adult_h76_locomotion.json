@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "id": "mongo_adult_h76_locomotion_candidate_v0",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/mongo/mongo_adult_h76_locomotion.ase",
+  "grid_source": "assets/source/characters/mongo/mongo_adult_h76_locomotion.grid.json",
+  "output_atlas": "generated/art/mongo_adult_h76_locomotion.png",
+  "output_metadata": "generated/art/mongo_adult_h76_locomotion.json",
+  "palette_id": "mongo-adult-v0",
+  "frame_size": [
+    128,
+    88
+  ],
+  "pivot": [
+    76,
+    87
+  ],
+  "animation_tags": [
+    "idle",
+    "run",
+    "jump_start",
+    "jump_rise",
+    "jump_fall",
+    "land"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored pixel animation candidate (fan-concept layer: Mongo -> charger)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "ANIM-MONGO-01 locomotion candidate (design stage) built from the owner-approved 76 px master assets/source/characters/mongo/mongo_adult_h76.grid.json: head, crest, torso, tail, wing, thigh and foot pixels are copied from master frame 0 and only translated or edited with whole-pixel row/column shifts; shins and metatarsi are rule-drawn capsules in the master leg ramp; the swing feet are hand-typed; the four idle frames are the master idle pixels unchanged, re-padded to the wider canvas",
+    "generator": "Per-frame pose data and parts by an AI agent (Claude Opus), assembled by scripts/author_mongo_locomotion.py; no image-model raster output, no resampling or rotation, no concept-board pixels",
+    "generated_art": true,
+    "input_reference_ids": [
+      "MONGO-CONCEPT-V1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "locomotion": {
+    "status": "design stage: keys 4, 5, 6, 10, 12, 13, 14 authored; frames 7, 8, 9, 11, 15 are rig drafts for the executor; not reviewed, not integrated",
+    "master": "assets/manifests/mongo_adult_h76.json",
+    "master_frame_size": [
+      108,
+      80
+    ],
+    "master_pivot": [
+      68,
+      79
+    ],
+    "grounded_tags": [
+      "idle",
+      "jump_start",
+      "land"
+    ],
+    "airborne_tags": [
+      "jump_rise",
+      "jump_fall"
+    ],
+    "mixed_tags": [
+      "run"
+    ],
+    "airborne_frames": [
+      6,
+      9
+    ],
+    "playback": {
+      "idle": "loop",
+      "run": "loop",
+      "jump_start": "once",
+      "jump_rise": "hold",
+      "jump_fall": "hold",
+      "land": "once"
+    }
+  }
+}
