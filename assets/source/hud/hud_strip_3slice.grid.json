@@ -1,0 +1,82 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  40,
+  26
+ ],
+ "pivot": [
+  0,
+  25
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "hud_ink",
+   "rgba": "#120c18ff"
+  },
+  {
+   "key": "F",
+   "name": "plate_fill",
+   "rgba": "#211b27ff"
+  },
+  {
+   "key": "M",
+   "name": "metal_mid",
+   "rgba": "#3d3542ff"
+  },
+  {
+   "key": "H",
+   "name": "metal_hi",
+   "rgba": "#8a7e8cff"
+  },
+  {
+   "key": "e",
+   "name": "magenta_dk",
+   "rgba": "#6e1a4cff"
+  },
+  {
+   "key": "n",
+   "name": "magenta_hi",
+   "rgba": "#ff6fc0ff"
+  }
+ ],
+ "layers": [
+  "art"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "KKKKKKKKKKKKKKKKK...KKKKKKKKKKKKKKKKK...",
+     "KHHHHHHHHHHHHHHMK...KHHHHHHHHHHHHHHMK...",
+     "KHKKKKKKKKKKKKKMK...KHKKKKKKKKKKKKKMK...",
+     "KHKFFFFFFFFFFFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKFFFFFFFFFFFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKFeeeeFeeeeFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKFenneFenneFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKFenneFenneFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKFenneFenneFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKFenneFenneFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKFeeeeFeeeeFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKFFFFFFFFFFFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKFFFFFFFFFFFKMK...KHKFFFFFFFFFFFKMK...",
+     "KHKKKKKKKKKKKKKMK...KHKFFFFFFFFFFFKMK...",
+     "KMMMMMMMMMMMMMMMK...KHKFFFFFFFFFFFKMK...",
+     "KKKKKKKKKKKKKKKKK...KHKFFFFFFFFFFFKMK...",
+     "....................KHKFFFFFFFFFFFKMK...",
+     "....................KHKFFFFFFFFFFFKMK...",
+     "....................KHKFFFFFFFFFFFKMK...",
+     "....................KHKFFFFFFFFFFFKMK...",
+     "....................KHKFFFFFFFFFFFKMK...",
+     "....................KHKFFFFFFFFFFFKMK...",
+     "....................KHKFFFFFFFFFFFKMK...",
+     "....................KHKKKKKKKKKKKKKMK...",
+     "....................KMMMMMMMMMMMMMMMK...",
+     "....................KKKKKKKKKKKKKKKKK..."
+    ]
+   }
+  }
+ ],
+ "tags": []
+}

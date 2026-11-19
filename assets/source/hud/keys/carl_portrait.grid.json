@@ -1,0 +1,140 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  28,
+  28
+ ],
+ "pivot": [
+  0,
+  0
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_plum",
+   "rgba": "#1b1124ff"
+  },
+  {
+   "key": "D",
+   "name": "skin_deep",
+   "rgba": "#7c3846ff"
+  },
+  {
+   "key": "S",
+   "name": "skin_shade",
+   "rgba": "#c0624fff"
+  },
+  {
+   "key": "M",
+   "name": "skin_mid",
+   "rgba": "#eb9a6cff"
+  },
+  {
+   "key": "L",
+   "name": "skin_light",
+   "rgba": "#fcc596ff"
+  },
+  {
+   "key": "A",
+   "name": "hair_dark",
+   "rgba": "#28131cff"
+  },
+  {
+   "key": "H",
+   "name": "hair_mid",
+   "rgba": "#42231dff"
+  },
+  {
+   "key": "h",
+   "name": "hair_light",
+   "rgba": "#70412dff"
+  },
+  {
+   "key": "J",
+   "name": "jacket_shadow",
+   "rgba": "#251a2eff"
+  },
+  {
+   "key": "j",
+   "name": "jacket_base",
+   "rgba": "#352540ff"
+  },
+  {
+   "key": "T",
+   "name": "jacket_sheen",
+   "rgba": "#5a4068ff"
+  },
+  {
+   "key": "Y",
+   "name": "jacket_glint",
+   "rgba": "#9478a8ff",
+   "accent": true
+  },
+  {
+   "key": "E",
+   "name": "eye_white",
+   "rgba": "#f6ececff",
+   "accent": true
+  },
+  {
+   "key": "p",
+   "name": "pupil",
+   "rgba": "#140b1aff",
+   "accent": true
+  },
+  {
+   "key": "G",
+   "name": "pin_yellow",
+   "rgba": "#ffcf3aff",
+   "accent": true
+  }
+ ],
+ "layers": [
+  "key"
+ ],
+ "frames": [
+  {
+   "duration_ms": 200,
+   "cels": {
+    "key": [
+     "............................",
+     "..........KK.KKK.KK.........",
+     "........KKHHKHhHKHhKK.......",
+     ".......KAHHHHhhHHHhhHHK.....",
+     "......KAHHHHHhhHHHHhhHHhK...",
+     "......KAHHhHHHHHhhHHHHhHHK..",
+     ".....KAAHHHhHHHHHHhhHHHHhK..",
+     ".....KAAHHHHhhHHHHHhHHHAhK..",
+     ".....KAAHHAHHHhhHHAHHhHAK...",
+     ".....KAAAHAAHLhHHAAHLhHAK...",
+     ".....KAAAAMhLLLhLLLAAAMK....",
+     ".....KAAASMAAAAMMMMMMMMK....",
+     "....KDKASSMEEpMLMMMEpMMK....",
+     "....KDSKSSMSSMMLLMMSMMSK....",
+     "....KSDKSSMMMMMMLLMMMMMK....",
+     ".....KDKDSMMMMMSSDMMMMMK....",
+     "......KKDSMMMMMMMMMMMMSK....",
+     ".......KDSMMMMMpppMMMSK.....",
+     "........KDSMMMMSDSMMSK......",
+     "........KDSSMMMMMMMSSK......",
+     ".........KDDSSSSSSDDK.......",
+     "..........KKDDDDDDKK........",
+     ".......TTTJKDSSSSDKJTTT.....",
+     "....TTTTjjJKSMMMMSKJjTTTT...",
+     "..TTTYTjjjjJKLMMMSKJjjjTYTT.",
+     ".TTYTjjjjjjJKMMMSDKJjjjjTTT.",
+     ".TTTjjjjGGjJKLMMSDKJjjjjjTT.",
+     "TTTjjjjjGGjJKMMMSDKJjjjjjjTT"
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "key",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}
