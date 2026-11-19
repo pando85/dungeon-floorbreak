@@ -505,22 +505,27 @@ def decap_contact() -> dict[str, list[str]]:
 
 
 # --------------------------------------------------------------------------- pose key 5: headless_collapse
-HEADLESS_AT, HEADLESS_N = (74.0, 56.5), (0.72, -0.69)
-HEADLESS = L.shifted(L.DEAD, neck=((57, 61), (67, 60), (77, 53.5)), neck_r=(4.6, 3.8, 3.4))
+HEADLESS_AT, HEADLESS_N = (66.5, 44.5), (0.4, -0.92)
+# Design follow-up (gate note N1): the neck stump is propped clearly above the back line (top row 48 or higher on screen)
+# so the hold keeps the long-neck cue at 1x on lit brick; the chain rises off the chest at about 60 degrees.
+HEADLESS = L.shifted(L.DEAD, neck=((57, 61), (62, 52.5), (67.5, 42.5)), neck_r=(4.5, 3.7, 3.4))
 
 
 def headless_collapse() -> dict[str, list[str]]:
     body = beast(HEADLESS, include=ALL - {"head"}, clips=[("plane", HEADLESS_AT, HEADLESS_N)])
-    gore = cut_face(body, HEADLESS_AT, HEADLESS_N, 3.6, back=(0, -1))
-    for y in range(59, 70):                  # the stump drains down the throat side onto the floor
-        xs = [x for (x, yy) in body if yy == y and x >= 70]
+    gore = cut_face(body, HEADLESS_AT, HEADLESS_N, 3.6, back=(-0.89, -0.45))
+    top = min(y for (x, y) in body if x >= 60)
+    for y in range(top + 3, 70):             # the stump drains down the throat (front) side onto the floor
+        xs = [x for (x, yy) in body if yy == y and x >= 60]
         if xs:
             gore[(max(xs) + 1, y)] = "b" if y % 4 else "B"
-            gore[(max(xs) + 2, y)] = "b"
-    splat_row(gore, 73, 70, "BbbbbbbPbbbbbbbB")
-    splat_row(gore, 64, 71, "oBbbbbbbbbbbbPbbbbbbbbbbbbbbbBo")
-    molten: Pix = {(76, 55): "Y", (77, 55): "O", (76, 56): "O", (82, 69): "O", (83, 69): "R", (84, 69): "r",
-                   (85, 69): "a"}
+            if y > top + 5:
+                gore[(max(xs) + 2, y)] = "b"
+    splat_row(gore, 70, 70, "BbbbbbbPbbbbbB")
+    splat_row(gore, 62, 71, "oBbbbbbbbbbbbPbbbbbbbbbbbbbbBo")
+    front = max((p_ for p_, k in gore.items() if p_[1] <= top + 3 and k in "bP"), key=lambda q: (q[0], -q[1]))
+    molten: Pix = {(front[0] - 1, front[1] + 1): "Y", (front[0] - 1, front[1] + 2): "O", (front[0] - 2, front[1] + 1): "O",
+                   (80, 69): "O", (81, 69): "R", (82, 69): "r", (83, 69): "a"}
     return cels(body, gore, molten)
 
 
@@ -682,7 +687,7 @@ def rig_part(pid: str, pose: dict, include, clips, cuts, centre=None, molten: Pi
     return c
 
 
-WAIST_X = 36.0       # spec section 7 says 41; moved 5 px so the rump (tail to the cut) fits the 28 px launched-part cap
+WAIST_X = 36.0       # spec section 7 (design ruling 2026-11-19): the rump with its plume tail is 28 px, the front torso about 24 px
 TORSO_X_CUT = (WAIST_X, 42.0)
 NECK_BASE = ((54.0, 37.0), (0.5, -0.87))
 
@@ -1085,7 +1090,7 @@ POSE_ANCHORS = {   # frame coordinates, facing right
     0: {"hit_origin": [42, 52], "mouth": [90, 60], "gland": [91, 58], "squeeze_back": [4, 70], "squeeze_front": [76, 70]},
     2: {"pool_origin": [40, 71], "mouth": [90, 69], "split": [41, 58]},
     3: {"neck": [54, 22], "hit_origin": [54, 22], "jet_base": [54, 21], "gland": [56, 22]},
-    5: {"neck": [76, 55], "gland": [76, 55], "pool_origin": [80, 71]},
+    5: {"neck": [66, 44], "gland": [69, 46], "pool_origin": [76, 71]},
     6: {"hit_origin": [42, 68], "mouth": [89, 66], "kink": [69, 53], "gland": [87, 58]},
     7: {"pool_origin": [82, 71], "mouth": [90, 69], "kink": [69, 52]},
 }

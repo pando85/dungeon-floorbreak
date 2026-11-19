@@ -34,7 +34,7 @@
       {"id": "D1-crush-geyser-above-the-stone", "frames": [0], "max_top": 40, "bottom": 71},
       {"id": "D2-remains-low-not-flat", "frames": [2], "min_top": 44, "min_height": 14},
       {"id": "D3-decap-jet-reaches-high", "frames": [3], "max_top": 4},
-      {"id": "D5-headless-stays-low", "frames": [5], "min_top": 48, "max_width": 88},
+      {"id": "D5-headless-stump-propped-body-low", "frames": [5], "max_top": 48, "min_top": 38, "max_width": 88},
       {"id": "D6-slam-legs-in-the-air", "frames": [6, 7], "max_top": 36, "min_top": 28}
     ],
     "key_counts": [
