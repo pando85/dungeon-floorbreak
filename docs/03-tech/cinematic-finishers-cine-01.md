@@ -133,3 +133,65 @@ T05 may be marked **blocked on DEATH-D** while that work is unmerged, but the fi
 ## 6. Explicit non-goals and status
 
 This document **approves the design intent and adopts a concrete v0 for an agent to build**. It does **not** claim cinematic slow motion is running, that the numbers feel right, or that DEATH-D, real 2P testing, or later counter/duo evidence is merged. The planned audience/viewership HUD system will later be free to observe these moments, but **cannot cause them**. The game should be fun without a scoreboard, and ordinary combat must not be slowed down to manufacture spectacle.
+
+## 7. Implementation status
+
+**Phase 1 (evaluator): in progress, unit-tested, not wired.** `src/cine.rs` is Bevy-free and touches no simulation file; nothing runs in the game yet and no game-feel claim exists. Phase 2 (the adapter) waits for the boss code that edits `combat.rs`, `combat_scene.rs`, `corridor.rs` and `floor01_scene.rs`. The module is `src/cine.rs` (the work order's suggested `src/cinematic.rs` is not used).
+
+### What exists
+
+| Piece | Role |
+| --- | --- |
+| `CineTuning` (`CineTuning::DEFAULT`) | The **one** tuning table: every spec number of sections 2 and 3, plus three marked assumptions (`max_history_entries` 64, `upgrade_window_ticks` 8, `edge_buffer_cap` 1) and `contact_setup_enabled` |
+| `CineEvent`, `CineCause` | Plain-data mirror of the combat facts the evaluator reads; `CineEvent::from_combat` is the whole mapping for events `CombatEvent` already carries |
+| `CinematicEvaluator::observe_tick(tick, events, locked)` | One batch per resolved tick; fail-closed credit, rolling bounded history, scoring, tie-breaks, cooldown, upgrade; returns `Option<CinematicMoment>`; `set_scripted_scene`, `reset` |
+| `CineTuning::request_for(&moment)` -> `SlowMoRequest` | Tier, scale, duration, blends, camera emphasis, cooldown. Presentation only |
+| `SlowMoPlanner` (`request`, `step(FrameContext) -> FramePlan`) | `Idle -> Pending -> Active -> Idle`, real-time driven, non-stacking, pause/lock/setting cancellation. The spec's `Cooldown` state lives in the evaluator (simulation ticks) |
+| `EdgeLatch` | Press-edge buffer with the same semantics as the current `Controls`/`PadSlots` latch |
+| `PresentationSettings` | `cinematic_finishes` and a **separate** cinematic `reduced_motion`; env `FLOORBREAK_CINEMATIC_FINISHES`, `FLOORBREAK_CINEMATIC_REDUCED_MOTION`, flags `--cinematic-finishes[=on|off]`, `--cinematic-reduced-motion[=on|off]` |
+
+### Decisions applied from the independent spec review (F1 to F10)
+
+- **Credit is the hero index** (Carl 0, Donut 1), carried by the event; "same player" means same hero, so a Donut kill and a block broken as Carl never chain, even under a solo swap. The owning slot at the event tick is carried next to it (`CineEvent::Defeated.slot`, `CinematicMoment.credited_slot`) for naming only. The clean window checks `HeroHurt` of the credited hero only.
+- **Block credit fails closed:** a `ShoreBlock`/`ShoreBlockEdge` defeat counts only if a `ShoreBroken` by the very player the cause names was seen in the same attempt (held outside the 90-tick window, one per breaking hero). The sim's own "no breaker means P1" default is therefore never credited.
+- **Restart** clears history, deduplication, the shore breaker and the cooldown (the attempt-local tick restarts at 1 and target ids are reused). **Respawn** clears history and the lock but keeps the cooldown.
+- **Legendary is unreachable by default.** "A linked target" is undefined, and `CINE-CONTACT-SETUP` is the only way to 8 (5 + capped 2 = 7). `contact_setup_enabled` is `false`; the linkage implemented behind it is the reviewer's proposal (a launched goblin's contact `source` or `target` defeated by the credited hero within the history window of the contact), tested with the flag on.
+- **Separate cinematic settings**, not the HUD reduced-motion flag. Reduced motion and `cinematic_finishes: off` suppress the request entirely (no downgrade); the evaluator ignores both.
+- **Scripted scenes:** `set_scripted_scene(true)` records but never emits (DEMO-01 B3 would otherwise qualify on every run). The adapter sets it for the demo route.
+- **Pause** means the D6 disconnect pause and `Frozen` captures (there is no pause menu): the planner cancels to 1.0x and never resumes. **Hit-stop** during `Active` is accepted, dilated with the world, and does not cancel.
+- Boss defeats: the boss arena has one target, so no chain can form; boss design section 5 ("no slow motion") stays authoritative, and the evaluator has no boss special case.
+
+### Test coverage of CINE-T01 to T13 (`cargo test --lib cine::`)
+
+| Test | Phase 1 (pure) | Needs the adapter phase |
+| --- | --- | --- |
+| T01, T02 | covered: no primary feat, force never reaches the evaluator, unattributed/other causes | forced visual flag and preset 4 run (windowed), "virtual time stays 1.0x" on a real clock |
+| T03, T04 | covered: chain, window boundary, clean window, both kill orders | positive fixture on B3/pileup (windowed) |
+| T05 | evaluator side covered with a prepared `ShoreBlockEdge` cause | blocked on DEATH-D: no such cause exists in `CombatEvent` |
+| T06 | covered **only with** `contact_setup_enabled`; default proves legendary unreachable | needs the F4 definition and the `LaunchCredited` bridge |
+| T07 | covered: cooldown, boundaries, restart/respawn | continuous run across a real restart |
+| T08 | covered: same-tick batch, tie-break, rotations/reversal, repeated events | none |
+| T09 | evaluator parity covered by construction (no force/gore input) | windowed run on/off and hash diff |
+| T10 | covered: one shared moment, P2 hurt does not veto P1, independent edge latches | manual two-controller check; no scripted 2P fixture exists |
+| T11 | planner cancellation (pause, lock, settings, skip with no finish), hit-stop wait, edge latch | real `Time<Virtual>` restore, scene exit, restart in the Bevy app |
+| T12 | none | real Bevy capture at both resolutions and scales |
+| T13 | evaluator memory bound (stress of 40 defeats per tick), no catch-up burst in the simulated loop | measured frame times on the real runtime |
+
+### Adapter phase TODO (after the boss code merges; not done here)
+
+1. Fan events out once in `print_combat_events` (a `&mut` cinematic sink next to audio), covering `fixed_step` (twice), `watchdog` and `capture_sequence`; do not add a second cursor inside `combat_scene.rs` (the 512-event drain adjusts the single cursor). Map with `CineEvent::from_combat`, attach `with_slot` from `PartyState`, and call `observe_tick` once per resolved tick with the batch.
+2. Add the missing evidence: a `LaunchCredited` event derived from `Hit { PushKick, instance == GoblinContact.launch, target == source }` (only once F4 is defined and `contact_setup_enabled` is switched on), `ShoreBlockEdge` when DEATH-D merges, and the boss design's `DropHazard { player, rack }` credit in `cine_cause`.
+3. Own the clock: apply `FramePlan.relative_speed` to `Time<Virtual>` (confirm the Bevy 0.20.1 API), keep `Time<Fixed>` at 60 Hz, and feed `FrameContext` each frame: real delta, the lethal hit's hit-stop ticks left, whether the death presenter has an active finish, `paused` from D6, `locked` for `Frozen`, defeat, restart, respawn, exit and `--capture-tick`. Restore 1.0x on every cancel and on scene exit.
+4. Mark DEMO-01 as a scripted scene (`set_scripted_scene(true)`); keep headless fixtures at `PresentationSettings::OFF` by default.
+5. Replace the three `Controls` latches that matter with `EdgeLatch` only if the owner picks a cap above 1; the current latch already keeps a press across a frame with zero ticks.
+6. Apply `camera_emphasis_px` through the existing camera kick only; no change to `ScrollCamera`. Note that `audio_adapter` reads virtual time, so its fades stretch during slow motion.
+7. Evidence: windowed on/off run with identical printed hash and event log (T09), Bevy captures (T12), frame-time numbers (T13), and a manual solo and two-controller playtest.
+
+### Spec ambiguities recorded while implementing
+
+- **Cooldown start and unit.** Counted in simulation ticks from the tick a moment is emitted (not from its end); the spec does not say.
+- **Upgrade window.** "One candidate can upgrade a pending moment" has no number; the 8-tick `upgrade_window_ticks` is an assumption.
+- **Boundaries.** "Within 90 ticks" is read as at most 90 ticks apart (inclusive).
+- **Double-press inside one slowed tick.** At 0.25x a tick lasts about 67 ms of real time, so two presses closer than that collapse into one with the current latch (counted in `EdgeLatch::coalesced`); `edge_buffer_cap` 2 would keep both. This is a game-feel decision.
+- **Verified break and cause player.** A `ShoreBlock` already names its player; requiring a matching `ShoreBroken` as well is the conservative reading.
+
