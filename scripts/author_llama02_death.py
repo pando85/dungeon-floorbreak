@@ -11,10 +11,13 @@ Usage:
 
 * ``assets/source/characters/llama/death/llama_death_h64.grid.json``: 8 frames of 96 x 72, pivot (44, 71), the LLAMA-01
   frame contract. Keys 0 ``crush_contact``, 2 ``crushed_remains``, 3 ``decap_contact``, 5 ``headless_collapse`` (hold),
-  6 ``slam_contact`` and 7 ``broken_heap`` (hold). Frames 1 and 4 are **placeholders** (copies of keys 0 and 3) that the
-  executor replaces with the in-betweens of spec section 9.
-* ``assets/source/characters/llama/death/llama_death_parts.grid.json``: 32 x 32 cells, one part per frame. Keys 0
-  ``head``, 1 ``neck`` and 2 ``leg_fore``. The executor appends frames 3 onward (spec section 7) and the manifests.
+  6 ``slam_contact`` and 7 ``broken_heap`` (hold) are frozen; frames 1 (crush flatten) and 4 (headless buckle) are the
+  executor in-betweens of spec section 9.
+* ``assets/source/characters/llama/death/llama_death_parts.grid.json``: 32 x 32 cells, one part per frame, 32 parts
+  (spec section 7; keys 0 ``head``, 1 ``neck`` and 2 ``leg_fore`` are frozen), plus both manifests (anchors, tick
+  windows, presets, ``hazard_draw``, spawner hints).
+
+The extra evidence (preset sheets, storyboards, scenes, GIFs) is written by ``scripts/llama02_death_evidence.py``.
 
 ``scale`` writes the design-stage evidence into ``docs/evidence/llama-02-death/`` (key sheet at 4x with presets 4, 2
 and 1, the 1x scale lineup next to Carl 52 / Donut 40 / goblin 36 on lit Floor 1 brick with a 4x band, and the in-scene
@@ -365,11 +368,25 @@ CRUSH = L.shifted(
 )
 CRUSH_CLIPS = [("rect", (STONE[0], 0, STONE[1], STONE_ROW))]
 
+# Frame 1 (flatten, spec section 9 item 1): the pressed body 2 px lower and wider, the stone clip and its K underside on
+# row 55, the popped eye's pupil is bone white, the geyser 4 px taller and 0.6 px wider with its globs 4 px higher.
+FLAT_ROW = 55
+FLAT = L.shifted(
+    CRUSH,
+    rump=(25, 64), chest=(59, 64), barrel_rr=(8.5, 9.0), belly=(42, 69, 16, 4.0),
+    haunch=(24, 63, 9.0, 7.5), shoulder=(60, 63, 7.5, 7.5),
+)
+FLAT_CLIPS = [("rect", (STONE[0], 0, STONE[1], FLAT_ROW))]
+POPPED_EYE = [".KKK.", "KeeeK", "KeeeK", ".KKK."]
 
-def crush_contact() -> dict[str, list[str]]:
-    body = beast(CRUSH, clips=CRUSH_CLIPS)
-    body.update({(x, STONE_ROW): "K" for x in range(STONE[0], STONE[1] + 1)
-                 if (x, STONE_ROW + 1) in body and body[(x, STONE_ROW + 1)] != "K"})
+
+def crush_contact(flat: bool = False) -> dict[str, list[str]]:
+    row = FLAT_ROW if flat else STONE_ROW
+    body = beast(FLAT if flat else CRUSH, clips=FLAT_CLIPS if flat else CRUSH_CLIPS)
+    if flat:      # the near eye's pupil becomes bone white (the ``bulge`` stamp redrawn with ``e``)
+        body.update(literal(81, 58, POPPED_EYE))
+    body.update({(x, row): "K" for x in range(STONE[0], STONE[1] + 1)
+                 if (x, row + 1) in body and body[(x, row + 1)] != "K"})
     gore: Pix = {}
     # squeeze-out bursts at both ends of the stone: low fans on the floor and one droplet pair each
     splat_row(gore, 0, 71, "BbbbbbPbbbbbbbBB")
@@ -384,20 +401,33 @@ def crush_contact() -> dict[str, list[str]]:
     splat_row(gore, 82, 69, "bbb")
     splat_row(gore, 86, 68, "Pb")
     splat_row(gore, 89, 69, "bB")
+    if flat:      # each fan 2 px further out, with one more droplet pair
+        splat_row(gore, 86, 71, "bbBB")
+        splat_row(gore, 85, 70, "bB")
+        splat_row(gore, 0, 58, "bB")
+        splat_row(gore, 3, 56, "bb")
+        splat_row(gore, 93, 66, "bB")
     # the hide bursts under the stone edge: a seam of meat on the front flank and a gush between the fore legs
+    seam = 57 if flat else 54
     for x in range(52, 64):
-        if (x, 54) in body:
-            gore[(x, 54)] = "b" if x % 5 else "P"
-    gore.update({(64, 54): "B", (65, 55): "b", (66, 55): "b", (67, 56): "B"})
+        if (x, seam) in body:
+            gore[(x, seam)] = "b" if x % 5 else "P"
+    dy = 3 if flat else 0
+    gore.update({(64, 54 + dy): "B", (65, 55 + dy): "b", (66, 55 + dy): "b", (67, 56 + dy): "B"})
     # blood out of the gaping mouth, running down the jaw onto the floor
     splat_row(gore, 85, 64, "bP")
     splat_row(gore, 85, 65, "Bb")
     splat_row(gore, 83, 70, "obbbo")
     molten: Pix = {}
     # the spit-gland burst: the squeezed throat blows a molten geyser out of the open mouth, breaking into globs
-    stroke([(91.5, 60.5), (92, 52), (90.5, 44), (91.5, 39)], (4.6, 2.2), molten_keys, molten)
-    stroke([(87.5, 34.5), (88.5, 33.5)], (2.2, 2.0), lambda t, q: "O" if t < 0.6 else "R", molten)
-    stroke([(94, 35.5), (94.5, 34.5)], (2.0, 2.0), lambda t, q: "R", molten)
+    if flat:
+        stroke([(91.5, 60.5), (92, 52), (90.5, 44), (91.5, 35)], (5.2, 2.2), molten_keys, molten)
+        stroke([(87.5, 30.5), (88.5, 29.5)], (2.2, 2.0), lambda t, q: "O" if t < 0.6 else "R", molten)
+        stroke([(94, 31.5), (94.5, 30.5)], (2.0, 2.0), lambda t, q: "R", molten)
+    else:
+        stroke([(91.5, 60.5), (92, 52), (90.5, 44), (91.5, 39)], (4.6, 2.2), molten_keys, molten)
+        stroke([(87.5, 34.5), (88.5, 33.5)], (2.2, 2.0), lambda t, q: "O" if t < 0.6 else "R", molten)
+        stroke([(94, 35.5), (94.5, 34.5)], (2.0, 2.0), lambda t, q: "R", molten)
     molten = {p_: k for p_, k in molten.items()      # the geyser leaves the teeth and the eye visible
               if p_ not in body or (p_[1] < 58 and body[p_] not in "TteK")}
     molten = outline_molten(molten, body)
@@ -492,6 +522,22 @@ def headless_collapse() -> dict[str, list[str]]:
     molten: Pix = {(76, 55): "Y", (77, 55): "O", (76, 56): "O", (82, 69): "O", (83, 69): "R", (84, 69): "r",
                    (85, 69): "a"}
     return cels(body, gore, molten)
+
+
+# --------------------------------------------------------------------------- pose frame 4: headless_collapse (buckle)
+BUCKLE_AT, BUCKLE_N = (64.5, 36.5), (0.6, -0.8)
+BUCKLE = L.shifted(L.POSE_12)           # the LLAMA-01 in-between: fore knees folded, body dropping
+
+
+def headless_buckle() -> dict[str, list[str]]:
+    """Frame 4 (spec section 9 item 2): the LLAMA-01 buckle without the head, cut by a plane through the neck, the jet
+    bent back over 10 px with two gobbets, the duct dot at the front of the cut."""
+    body = beast(BUCKLE, include=ALL - {"head"}, clips=[("plane", BUCKLE_AT, BUCKLE_N)])
+    gore = cut_face(body, BUCKLE_AT, BUCKLE_N, 3.4, back=(-0.8, -0.6))
+    stroke([(64, 35), (58, 27)], (4.5, 2.0), jet_keys, gore)
+    gore.update({(56, 24): "b", (55, 24): "B", (60, 22): "b", (60, 23): "B"})
+    molten: Pix = {(66, 36): "Y", (66, 37): "O", (65, 36): "O"}
+    return cels(body, gore, outline_molten(molten, body))
 
 
 # --------------------------------------------------------------------------- pose keys 6 and 7: slam (heavy impact)
@@ -605,7 +651,218 @@ def part_leg_fore():
     return c
 
 
-PART_BUILDERS = [("head", part_head), ("neck", part_neck), ("leg_fore", part_leg_fore)]
+def part_head_dead():
+    """Part 3: the head with the LLAMA-01 X eye and the tongue lolled out of the mouth corner; same cut, same cell shift
+    as ``head`` (it is the swap target on the first floor contact)."""
+    pose = L.shifted(HEAD_POSE, eye="dead", eye_at=(60, 16), extra=[HEAD_TONGUE_AT + (["gK", "ggK"],)])
+    body = beast(pose, include={"head", "ear_far", "neck"}, clips=[("plane", HEAD_AT, HEAD_N)])
+    gore = cut_face(body, HEAD_AT, HEAD_N, 3.4, back=(-1, 0))
+    molten = {(62, 27): "O", (62, 26): "Y"}
+    dx, dy = CELL_SHIFT["head"]
+    c, sh = to_cell(body, gore, molten, centre=(CELL_PIVOT[0] - dx, CELL_PIVOT[1] - dy))
+    CELL_SHIFT["head_dead"] = sh
+    return c
+
+
+HEAD_TONGUE_AT = (72, 27)
+
+
+def _centre_of(pix: Pix) -> tuple[int, int]:
+    x0, y0, x1, y1 = bbox(pix)
+    return (x0 + x1) // 2, (y0 + y1) // 2
+
+
+def rig_part(pid: str, pose: dict, include, clips, cuts, centre=None, molten: Pix | None = None):
+    body = beast(pose, include=include, clips=clips)
+    gore: Pix = {}
+    for at, n, radius, back in cuts:
+        gore.update(cut_face(body, at, n, radius, back))
+    c, sh = to_cell(body, gore, molten or {}, centre)
+    CELL_SHIFT[pid] = sh
+    return c
+
+
+WAIST_X = 36.0       # spec section 7 says 41; moved 5 px so the rump (tail to the cut) fits the 28 px launched-part cap
+TORSO_X_CUT = (WAIST_X, 42.0)
+NECK_BASE = ((54.0, 37.0), (0.5, -0.87))
+
+
+def part_torso_front():
+    clips = [("plane", (WAIST_X, 0.0), (-1.0, 0.0)), ("plane", *NECK_BASE)]
+    cuts = [(TORSO_X_CUT, (-1.0, 0.0), 8.5, (0, -1)), (NECK_BASE[0], NECK_BASE[1], 4.6, (-1, -0.3))]
+    return rig_part("torso_front", L.IDLE, {"barrel"}, clips, cuts)
+
+
+def part_torso_rump():
+    clips = [("plane", (WAIST_X, 0.0), (1.0, 0.0))]
+    return rig_part("torso_rump", L.IDLE, {"barrel", "tail"}, clips, [(TORSO_X_CUT, (1.0, 0.0), 8.5, (0, -1))])
+
+
+HIND_AT, HIND_N = (29.0, 47.5), (0.0, -1.0)
+
+
+def part_leg_hind():
+    return rig_part("leg_hind", L.IDLE, {"near_hind"}, [("plane", HIND_AT, HIND_N)], [(HIND_AT, HIND_N, 4.6, (-1, 0))])
+
+
+FAR_RAMP = {"L": "l", "l": "m", "m": "s", "s": "a"}      # the far limb: the fur ramp one step darker (a stays a)
+
+
+def far_of(cels_: dict[str, list[str]]) -> dict[str, list[str]]:
+    out = {k: list(v) for k, v in cels_.items()}
+    out["body"] = ["".join(FAR_RAMP.get(ch, ch) for ch in row) for row in cels_["body"]]
+    return out
+
+
+def part_leg_fore_far():
+    CELL_SHIFT["leg_fore_far"] = CELL_SHIFT["leg_fore"]
+    return far_of(part_leg_fore())
+
+
+def part_leg_hind_far():
+    CELL_SHIFT["leg_hind_far"] = CELL_SHIFT["leg_hind"]
+    return far_of(part_leg_hind())
+
+
+def simple_piece(parts, stamps=(), size=CANVAS):
+    """Rig parts drawn alone on a canvas, outlined, then closed (no strands, no mange)."""
+    c = L.Canvas(*size)
+    for part in parts:
+        c.draw(part)
+    c.outline("main")
+    for x, y, rows in stamps:
+        c.stamp(x, y, rows)
+    c.cleanup()
+    return close_outline(to_pix(c.rows()), size)
+
+
+EAR_BASE = (60.0, 16.0)
+
+
+def part_ear():
+    """Part 9: the IDLE near ear (a banana of fur) alone; the torn base is 2 px of meat with a clotted end."""
+    body = simple_piece(L.poly(L.IDLE["ear_near"], L.IDLE["ear_r"], "fur"))
+    ys = [y for (_x, y) in body]
+    base_y = max(ys)
+    xs = sorted(x for (x, y) in body if y == base_y - 1 and body[(x, y)] != "K")
+    gore: Pix = {}
+    for x in xs[:2]:
+        gore[(x, base_y - 1)] = "b"                      # the torn base: 2 px of meat ...
+        gore[(x, base_y - 2)] = "B"                      # ... with a clotted end above it
+    c, sh = to_cell(body, gore, {})
+    CELL_SHIFT["ear"] = sh
+    return c
+
+
+def part_jaw():
+    """Part 10: the IDLE lower jaw capsule with the lower buck-teeth row; the hinge end is cut on ``gore``."""
+    ja, jb = L.IDLE["jaw"]
+    parts = [L.Part("cap", (ja, jb, 2.6, 2.0), "muzzle")]
+    body = simple_piece(parts, stamps=[(69, 27, TEETH["lower"])])
+    x0 = min(x for (x, _y) in body)
+    gore: Pix = {}
+    for (x, y), ch in body.items():
+        if x in (x0, x0 + 1) and ch != "K" and y > 25:
+            gore[(x, y)] = "B" if x == x0 else "b"
+    c, sh = to_cell(body, gore, {})
+    CELL_SHIFT["jaw"] = sh
+    return c
+
+
+# ---- literal parts: tooth, wool tufts, gibs, drops (the whole bitmap is centred on the cell pivot)
+def _pack(body: Pix, gore: Pix, molten: Pix) -> dict[str, list[str]]:
+    if any(ch in GORE_ONLY for ch in body.values()):
+        raise ValueError("gore-only key on the body layer")
+    if set(gore.values()) - GORE_KEYS or set(molten.values()) - MOLTEN_KEYS:
+        raise ValueError("wrong key on the gore or molten layer")
+    return {"body": rows_of(body, CELL), "gore": rows_of(gore, CELL), "molten": rows_of(molten, CELL)}
+
+
+def small(body_rows=(), gore_rows=(), molten_rows=()):
+    body, gore, molten = literal(0, 0, list(body_rows)), literal(0, 0, list(gore_rows)), literal(0, 0, list(molten_rows))
+    union = {**body, **gore, **molten}
+    x0, y0, x1, y1 = bbox(union)
+    dx, dy = CELL_PIVOT[0] - (x0 + x1) // 2, CELL_PIVOT[1] - (y0 + y1) // 2
+    return _pack(shift(body, dx, dy), shift(gore, dx, dy), shift(molten, dx, dy))
+
+
+LITERALS = {
+    "tooth": ([".KK.", "KTTK", "KTtK", "KTtK", ".KK."], [], []),
+    "wool_tuft_a": (["..KKK.", ".KlmmK", "KlmpsK", "KsKsKK", ".K.K.."], [], []),
+    "wool_tuft_b": ([".KKK.", "KsspK", "KpsaK", "KsppK", ".KKK."], [], []),
+    "gib_flesh_a": ([".KKK.", "KlmmK", "KmmsK", ".KKK."], ["...b.", "...b."], []),
+    "gib_flesh_b": ([".KK.", "KspK", ".KK."], ["..b."], []),
+    "gib_bone": (["KKKK.", "KeeeK", ".KKKK"], [], []),
+    "gib_rib": (["..KKK..", ".KeeeK.", "KeKKKeK", ".KK.KK."], ["b......."], []),
+    "drop_blood": ([], ["bP", "Bb"], []),
+    "drop_molten": ([], [], ["YO", "Rr"]),
+}
+
+
+def part_literal(pid: str):
+    body, gore, molten = LITERALS[pid]
+    return small(body, gore, molten)
+
+
+def part_gland():
+    """Part 12: the ruptured throat sac: a ragged fur rim around a molten ellipse (Y core, O, R), two torn meat tears."""
+    cx, cy, rx, ry = 16.0, 16.0, 3.4, 4.6
+    body: Pix = {}
+    molten: Pix = {}
+    rim: list[tuple[int, int]] = []
+    for y in range(32):
+        for x in range(32):
+            d = math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry)
+            wob = 0.18 * math.sin(x * 2.1 + y * 1.3) + 0.12 * math.sin(x * 0.7 - y * 2.9)
+            if d <= 1.0:
+                molten[(x, y)] = "Y" if d < 0.32 else "O" if d < 0.62 else "R"
+                body[(x, y)] = "s"
+            elif d <= 1.3 + wob:
+                body[(x, y)] = "m" if (x + 2 * y) % 3 else "s"
+                rim.append((x, y))
+    body = close_outline(body, CELL)
+    tears = {}
+    for q in (min(rim, key=lambda q: (q[1], q[0])), max(rim, key=lambda q: (q[1], q[0]))):
+        tears[q] = "b"
+    return _pack(body, tears, molten)
+
+
+def part_decal_molten():
+    """Part 30: a flat lava puddle (10 x 2): ``r`` rim, ``R`` body, two ``O``, one ``Y``; bottom row 17, centred."""
+    return _pack({}, {}, literal(11, 16, [".rRRORRr..", "rRROYRRRRr"]))
+
+
+def part_decal_molten_crust():
+    """Part 31: the cooled puddle: a crust with two cracks."""
+    return _pack({}, {}, literal(11, 16, [".aaaaaaa..", "aaraaaraaa"]))
+
+
+# ---- blood decals: the GOB-02 bitmaps, key R -> b (same hex), laid on the gore layer
+def part_blood(gob_id: str):
+    import author_gob02_death as G
+    gore = G.build_part(gob_id)["gore"]
+    mapped = ["".join("b" if ch == "R" else ch for ch in row) for row in gore]
+    blank = ["." * CELL[0]] * CELL[1]
+    return {"body": list(blank), "gore": mapped, "molten": list(blank)}
+
+
+PART_BUILDERS = [         # (id, builder); the indices are the contract (spec section 7)
+    ("head", part_head), ("neck", part_neck), ("leg_fore", part_leg_fore), ("head_dead", part_head_dead),
+    ("torso_front", part_torso_front), ("torso_rump", part_torso_rump), ("leg_hind", part_leg_hind),
+    ("leg_fore_far", part_leg_fore_far), ("leg_hind_far", part_leg_hind_far), ("ear", part_ear), ("jaw", part_jaw),
+    ("tooth", lambda: part_literal("tooth")), ("gland", part_gland),
+    ("wool_tuft_a", lambda: part_literal("wool_tuft_a")), ("wool_tuft_b", lambda: part_literal("wool_tuft_b")),
+    ("gib_flesh_a", lambda: part_literal("gib_flesh_a")), ("gib_flesh_b", lambda: part_literal("gib_flesh_b")),
+    ("gib_bone", lambda: part_literal("gib_bone")), ("gib_rib", lambda: part_literal("gib_rib")),
+    ("drop_blood", lambda: part_literal("drop_blood")), ("drop_molten", lambda: part_literal("drop_molten")),
+    ("decal_splat_s", lambda: part_blood("decal_splat_s")), ("decal_splat_m", lambda: part_blood("decal_splat_m")),
+    ("decal_pool_1", lambda: part_blood("decal_pool_1")), ("decal_pool_2", lambda: part_blood("decal_pool_2")),
+    ("decal_pool_3", lambda: part_blood("decal_pool_3")), ("decal_pool_3_r", lambda: part_blood("decal_pool_3_r")),
+    ("decal_wall_spatter", lambda: part_blood("decal_wall_spatter")),
+    ("decal_wall_spatter_b", lambda: part_blood("decal_wall_spatter_b")),
+    ("decal_smear", lambda: part_blood("decal_smear")),
+    ("decal_molten", part_decal_molten), ("decal_molten_crust", part_decal_molten_crust),
+]
 PART_IDS = [p[0] for p in PART_BUILDERS]
 POSE_TAGS = [("crush_contact", 0, 1), ("crushed_remains", 2, 2), ("decap_contact", 3, 3), ("headless_collapse", 4, 5),
              ("slam_contact", 6, 6), ("broken_heap", 7, 7)]
@@ -633,7 +890,7 @@ def grid_of(frames, ticks, canvas, pivot, tags) -> dict:
 
 def poses_grid() -> dict:
     k0, k2, k3, k5 = crush_contact(), crushed_remains(), decap_contact(), headless_collapse()
-    frames = [k0, k0, k2, k3, k3, k5, slam_contact(), broken_heap()]      # 1 and 4: placeholders for the executor
+    frames = [k0, crush_contact(flat=True), k2, k3, headless_buckle(), k5, slam_contact(), broken_heap()]
     return grid_of(frames, POSE_TICKS, CANVAS, PIVOT, POSE_TAGS)
 
 
@@ -764,7 +1021,7 @@ def write_scale_sheet(out: Path = EVIDENCE / "silhouette_scale_1x.png") -> Path:
         (poses[5], piv, CARL_X + 70, 0),
         (poses[6], piv, CARL_X + 170, 0),
         (poses[7], piv, CARL_X + 270, 0),
-    ] + _scene_parts(parts, CARL_X + 350)
+    ] + _scene_parts([parts[i] for i in (0, 4, 5, 2, 6, 12)], CARL_X + 350)
     floor = Floor()
     scenes = [floor.render(top, 1), floor.render(bottom, 1)]
     ground = floor.ground(CARL_X) - floor.view[1]
@@ -787,7 +1044,7 @@ def write_scale_sheet(out: Path = EVIDENCE / "silhouette_scale_1x.png") -> Path:
 def write_scene(out: Path = EVIDENCE / "scene_640x360.png") -> Path:
     """The in-scene composition as the runtime draws it: enemies mirrored to face Carl (the flip around the pivot
     column), Carl and Donut unobstructed on the left, then the crush under the falling block, the remains in front of
-    the landed block, the decapitation tick and the broken heap, at 1x and at 3x (1920 x 1080)."""
+    the landed block, the decapitation tick, the headless collapse and the broken heap, at 1x and at 3x (1920 x 1080)."""
     from PIL import Image
     from scripts.pixelart.common import CARL_X, DONUT_X, flip
     from scripts.pixelart.scene import Floor, reference_idle
@@ -801,15 +1058,20 @@ def write_scene(out: Path = EVIDENCE / "scene_640x360.png") -> Path:
     def m(n):
         return flip(poses[n], PIVOT)
 
-    entries = [(donut, donut_piv, DONUT_X, 0), (carl, carl_piv, CARL_X, 0)]
-    x = CARL_X + 120
-    entries += [(*m(0), x, 0), (falling, fa, x - (BLOCK_X - PIVOT[0]), PIVOT[1] - STONE_ROW, False)]
-    x += 120
-    entries += [(landed, la, x, 0, False), (*m(2), x, 0)]
-    x += 110
+    cast = [(donut, donut_piv, DONUT_X, 0), (carl, carl_piv, CARL_X, 0)]
+    entries = []
+    x = CARL_X + 92
+    # crush tick: the stone draws over the crushed llama (hazard_draw "over") on the mirrored hit_origin
+    entries += [(*m(0), x, 0), (falling, fa, x + (PIVOT[0] - BLOCK_X), PIVOT[1] - STONE_ROW, False)]
+    x += 96
+    entries += [(landed, la, x + (PIVOT[0] - BLOCK_X), 0, False), (*m(2), x, 0)]       # remains: goblin order
+    x += 96
     entries += [(*m(3), x, 0)]
-    x += 105
+    x += 96
+    entries += [(*m(5), x, 0)]
+    x += 96
     entries += [(*m(7), x, 0)]
+    entries += cast                                                                     # the cast is drawn last
     floor = Floor()
     img1 = floor.render(entries, 1)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -819,7 +1081,7 @@ def write_scene(out: Path = EVIDENCE / "scene_640x360.png") -> Path:
 
 
 # --------------------------------------------------------------------------- manifests (spec sections 2 and 7)
-POSE_ANCHORS = {   # frame coordinates, facing right; frames 1 and 4 carry their key's anchors until the executor moves them
+POSE_ANCHORS = {   # frame coordinates, facing right
     0: {"hit_origin": [42, 52], "mouth": [90, 60], "gland": [91, 58], "squeeze_back": [4, 70], "squeeze_front": [76, 70]},
     2: {"pool_origin": [40, 71], "mouth": [90, 69], "split": [41, 58]},
     3: {"neck": [54, 22], "hit_origin": [54, 22], "jet_base": [54, 21], "gland": [56, 22]},
@@ -827,18 +1089,60 @@ POSE_ANCHORS = {   # frame coordinates, facing right; frames 1 and 4 carry their
     6: {"hit_origin": [42, 68], "mouth": [89, 66], "kink": [69, 53], "gland": [87, 58]},
     7: {"pool_origin": [82, 71], "mouth": [90, 69], "kink": [69, 52]},
 }
-POSE_ANCHORS[1] = POSE_ANCHORS[0]
-POSE_ANCHORS[4] = POSE_ANCHORS[3]
+POSE_ANCHORS[1] = {"hit_origin": [42, 55], "mouth": [90, 60], "gland": [91, 58], "squeeze_back": [4, 70],
+                   "squeeze_front": [76, 70]}
+POSE_ANCHORS[4] = {"neck": [64, 36], "jet_base": [64, 35], "gland": [66, 36]}
 POSE_AUTHOR = ["key", "executor", "key", "key", "executor", "key", "key", "key"]
 PLAYBACK = {"crush_contact": "once", "crushed_remains": "hold", "decap_contact": "once", "headless_collapse": "hold",
             "slam_contact": "once", "broken_heap": "hold"}
 # id -> (class, material, mass, spin, settle, bounce, swap_on_first_contact, stain, trail, ttl, presets)
+# Presets follow spec section 5: 3 explodes into head, torso_front, torso_rump, leg_fore, leg_hind and gland (so neck,
+# ear, jaw, the far legs and bone are 4 only); 2 into head, torso_front and gland; 1 keeps clean, molten and the head.
+_BLOOD = ("blood", "blood", "light", "none", "static", 0.0, None)
 PART_META = {
     "head": ("wound", "llama_flesh", "medium", "fast", "roll", 0.3, "head_dead", "decal_splat_s", "decal_smear", "keep",
              [1, 2, 3, 4]),
-    "neck": ("wound", "llama_flesh", "medium", "slow", "flop", 0.2, None, "decal_splat_s", None, "keep", [3, 4]),
+    "neck": ("wound", "llama_flesh", "medium", "slow", "flop", 0.2, None, "decal_splat_s", None, "keep", [4]),
     "leg_fore": ("wound", "llama_flesh", "medium", "fast", "clatter", 0.3, None, "decal_splat_s", None, "long", [3, 4]),
+    "head_dead": ("wound", "llama_flesh", "medium", "fast", "roll", 0.3, None, "decal_splat_s", "decal_smear", "keep",
+                  [1, 2, 3, 4]),
+    "torso_front": ("wound", "llama_flesh", "heavy", "slow", "flop", 0.2, None, "decal_splat_s", None, "keep", [2, 3, 4]),
+    "torso_rump": ("wound", "llama_flesh", "heavy", "slow", "flop", 0.2, None, "decal_splat_s", None, "keep", [3, 4]),
+    "leg_hind": ("wound", "llama_flesh", "medium", "fast", "clatter", 0.3, None, "decal_splat_s", None, "long", [3, 4]),
+    "leg_fore_far": ("wound", "llama_flesh", "medium", "fast", "clatter", 0.3, None, "decal_splat_s", None, "long", [4]),
+    "leg_hind_far": ("wound", "llama_flesh", "medium", "fast", "clatter", 0.3, None, "decal_splat_s", None, "long", [4]),
+    "ear": ("wound", "llama_flesh", "light", "slow", "flutter", 0.2, None, None, None, "short", [4]),
+    "jaw": ("wound", "llama_flesh", "light", "fast", "clatter", 0.35, None, "decal_splat_s", None, "long", [4]),
+    "tooth": ("clean", "tooth", "light", "fast", "clatter", 0.4, None, None, None, "long", [1, 2, 3, 4]),
+    "gland": ("molten", "molten", "light", "slow", "bounce", 0.4, None, "decal_molten", None, "long", [1, 2, 3, 4]),
+    "wool_tuft_a": ("clean", "wool", "light", "slow", "flutter", 0.1, None, None, None, "short", [1, 2, 3, 4]),
+    "wool_tuft_b": ("clean", "wool", "light", "slow", "flutter", 0.1, None, None, None, "short", [1, 2, 3, 4]),
+    "gib_flesh_a": ("gib", "llama_flesh", "light", "fast", "bounce", 0.45, None, "decal_splat_s", None, "short", [3, 4]),
+    "gib_flesh_b": ("gib", "llama_flesh", "light", "fast", "bounce", 0.45, None, "decal_splat_s", None, "short", [3, 4]),
+    "gib_bone": ("gib", "bone", "light", "fast", "clatter", 0.4, None, None, None, "short", [4]),
+    "gib_rib": ("gib", "bone", "light", "fast", "clatter", 0.4, None, None, None, "short", [4]),
+    "drop_blood": (*_BLOOD, "decal_splat_s", None, "short", [2, 3, 4]),
+    "drop_molten": ("molten", "molten", "light", "none", "static", 0.0, None, "decal_molten", None, "short",
+                    [1, 2, 3, 4]),
+    "decal_splat_s": (*_BLOOD, None, None, "long", [2, 3, 4]),
+    "decal_splat_m": (*_BLOOD, None, None, "long", [3, 4]),
+    "decal_pool_1": (*_BLOOD, None, None, "keep", [3, 4]),
+    "decal_pool_2": (*_BLOOD, None, None, "keep", [3, 4]),
+    "decal_pool_3": (*_BLOOD, None, None, "keep", [4]),
+    "decal_pool_3_r": (*_BLOOD, None, None, "keep", [4]),
+    "decal_wall_spatter": (*_BLOOD, None, None, "keep", [4]),
+    "decal_wall_spatter_b": (*_BLOOD, None, None, "keep", [4]),
+    "decal_smear": (*_BLOOD, None, None, "keep", [4]),
+    "decal_molten": ("molten", "molten", "light", "none", "static", 0.0, None, None, None, "long", [1, 2, 3, 4]),
+    "decal_molten_crust": ("molten", "molten", "light", "none", "static", 0.0, None, None, None, "keep", [1, 2, 3, 4]),
 }
+FLOOR_DECALS = {"decal_splat_s", "decal_splat_m", "decal_pool_1", "decal_pool_2", "decal_pool_3", "decal_pool_3_r",
+                "decal_smear", "decal_molten", "decal_molten_crust"}
+CENTRE_PARTS = {"tooth", "gland", "wool_tuft_a", "wool_tuft_b", "gib_flesh_a", "gib_flesh_b", "gib_bone", "gib_rib",
+                "drop_blood", "drop_molten"}
+NO_FRAME0 = CENTRE_PARTS | {"decal_splat_s", "decal_splat_m", "decal_pool_1", "decal_pool_2", "decal_pool_3",
+                            "decal_pool_3_r", "decal_wall_spatter", "decal_wall_spatter_b", "decal_smear",
+                            "decal_molten", "decal_molten_crust"}
 
 
 def _cell(pt, pid):
@@ -846,25 +1150,81 @@ def _cell(pt, pid):
     return [int(math.floor(pt[0])) + dx, int(math.floor(pt[1])) + dy]
 
 
-def part_entries(grid: dict) -> list[dict]:
-    hoof = L.IDLE["near_front_hoof"]
-    anchors = {
+def _layer(frame: dict, name: str) -> Pix:
+    return to_pix(frame[name])
+
+
+def part_anchors(pid: str, frame: dict) -> dict:
+    """Anchors in cell coordinates: rig parts from their cut and joint points, the rest measured from drawn pixels."""
+    hoof_f, hoof_h = L.IDLE["near_front_hoof"], L.IDLE["near_hind_hoof"]
+    fixed = {
         "head": {"neck": _cell(HEAD_AT, "head")},
+        "head_dead": {"neck": _cell(HEAD_AT, "head")},
         "neck": {"top": _cell(NECK_TOP[0], "neck"), "bottom": _cell(NECK_BOTTOM[0], "neck")},
-        "leg_fore": {"shoulder": _cell(LEG_AT, "leg_fore"), "hoof": _cell((hoof[0] + 0.5, hoof[1] + 1), "leg_fore")},
+        "leg_fore": {"shoulder": _cell(LEG_AT, "leg_fore"), "hoof": _cell((hoof_f[0] + 0.5, hoof_f[1] + 1), "leg_fore")},
+        "leg_fore_far": {"shoulder": _cell(LEG_AT, "leg_fore_far"),
+                         "hoof": _cell((hoof_f[0] + 0.5, hoof_f[1] + 1), "leg_fore_far")},
+        "torso_front": {"waist": _cell(TORSO_X_CUT, "torso_front"), "neck": _cell(NECK_BASE[0], "torso_front")},
+        "torso_rump": {"waist": _cell(TORSO_X_CUT, "torso_rump"), "tail": _cell(L.IDLE["tail"][0], "torso_rump")},
+        "leg_hind": {"hip": _cell(HIND_AT, "leg_hind"), "hoof": _cell((hoof_h[0] + 0.5, hoof_h[1] + 1), "leg_hind")},
+        "leg_hind_far": {"hip": _cell(HIND_AT, "leg_hind_far"),
+                         "hoof": _cell((hoof_h[0] + 0.5, hoof_h[1] + 1), "leg_hind_far")},
     }
+    if pid in fixed:
+        return fixed[pid]
+    gore, molten = _layer(frame, "gore"), _layer(frame, "molten")
+    allpix = {**_layer(frame, "body"), **molten, **gore}
+    x0, y0, x1, y1 = bbox(allpix)
+    cx = (x0 + x1) // 2
+    if pid == "ear":
+        gx, gy = _centre_of(gore)
+        return {"base": [gx, gy]}
+    if pid == "jaw":
+        gx, gy = _centre_of(gore)
+        return {"hinge": [gx, gy]}
+    if pid in CENTRE_PARTS:
+        return {"centre": [CELL_PIVOT[0], CELL_PIVOT[1]]}
+    if pid in ("decal_splat_s", "decal_splat_m", "decal_pool_1", "decal_pool_2", "decal_molten", "decal_molten_crust"):
+        return {"centre_bottom": [cx, y1]}
+    if pid == "decal_pool_3":
+        return {"seam_right": [x1, y1], "centre_bottom": [x1, y1]}
+    if pid == "decal_pool_3_r":
+        return {"seam_left": [x0, y1], "centre_bottom": [x0 - 1, y1]}
+    if pid in ("decal_wall_spatter", "decal_wall_spatter_b"):
+        import author_gob02_death as G
+        spec = G.SPATTER_A if pid == "decal_wall_spatter" else G.SPATTER_B
+        return {"origin": [16 - spec["size"][0] // 2 + spec["origin"][0], 16 - spec["size"][1] // 2 + spec["origin"][1]]}
+    if pid == "decal_smear":
+        return {"start": [x0, (y0 + y1) // 2]}
+    raise KeyError(pid)
+
+
+def part_entries(grid: dict) -> list[dict]:
+    import author_gob02_death as G
     out = []
     for i, pid in enumerate(PART_IDS):
         frame = grid["frames"][i]["cels"]
         cls, material, mass, spin, settle, bounce, swap, stain, trail, ttl, presets = PART_META[pid]
-        entry = {"id": pid, "frame": i, "cell": list(CELL), "pivot": list(CELL_PIVOT), "anchors": anchors[pid],
-                 "frame0_origin": [CELL_PIVOT[0] - CELL_SHIFT[pid][0], CELL_PIVOT[1] - CELL_SHIFT[pid][1]],
+        origin = None if pid in NO_FRAME0 else [CELL_PIVOT[0] - CELL_SHIFT[pid][0], CELL_PIVOT[1] - CELL_SHIFT[pid][1]]
+        entry = {"id": pid, "frame": i, "cell": list(CELL), "pivot": list(CELL_PIVOT),
+                 "anchors": part_anchors(pid, frame), "frame0_origin": origin,
                  "class": cls, "material": material, "presets": presets,
                  "gore_layer": any(ch != "." for row in frame["gore"] for ch in row),
                  "molten_layer": any(ch != "." for row in frame["molten"] for ch in row),
                  "mass": mass, "spin": spin, "settle": settle, "bounce": bounce}
         if swap:
             entry["swap_on_first_contact"] = swap
+        if pid in ("drop_blood", "drop_molten"):
+            entry["on_contact"] = "decal_splat_s" if pid == "drop_blood" else "decal_molten"
+        if pid == "decal_molten":
+            entry["swap_on_ttl"] = "decal_molten_crust"      # after 240 ticks (spawner hints)
+        if pid in FLOOR_DECALS:
+            entry["floor_decal"] = True          # drawn under every actor; exempt from the 28 px launched-part cap
+        if pid in ("decal_pool_3", "decal_pool_3_r"):
+            entry["span"] = [G.POOL3_WIDTH, 4]
+            entry["pair"] = "decal_pool_3_r" if pid == "decal_pool_3" else "decal_pool_3"
+        if pid == "decal_pool_3":
+            entry["pair_offset"] = [G.POOL3_LEFT_X - G.POOL3_RIGHT_X + (G.POOL3_WIDTH // 2), 0]
         if stain:
             entry["stain"] = stain
         if trail:
@@ -877,10 +1237,11 @@ def part_entries(grid: dict) -> list[dict]:
 PROVENANCE_ORIGIN = ("LLAMA-02-DEATH Bad Llama death art at intensity preset 4 (docs/02-art/llama-02-death-spec.md); "
                      "pixel-grid-v1 source written by scripts/author_llama02_death.py with the LLAMA-01 parametric rig, "
                      "new pose dicts, shape rules and literal stamps; no image-model output, no tracing")
-PROVENANCE_GEN = "Design, spec and hero keys: Claude Opus. Execution and independent review pending"
+PROVENANCE_GEN = ("Design, spec and hero keys: Claude Opus. In-betweens, parts, manifests, export, validators and "
+                  "evidence: Claude Sonnet. Independent review pending (separate top-tier agent)")
 LICENSE = ("Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; "
            "no game/asset-pack distribution rights")
-STATUS = "design stage: keys frozen, in-betweens and parts 3 onward pending (executor); not wired into any Bevy binary"
+STATUS = "executor pass complete; independent review pending; not wired into any Bevy binary"
 
 
 def manifest_base(mid: str, stem: str, grid: Path, ase: Path, frame, pivot, tags: list[str]) -> dict:
@@ -898,6 +1259,55 @@ def manifest_base(mid: str, stem: str, grid: Path, ase: Path, frame, pivot, tags
     }
 
 
+SPAWNER_HINTS = {            # spec section 8, preset 4; presets 3, 2, 1 scale counts by section 5 (molten drops: 1, 1, .5, .5)
+    "crush": {
+        "drop_molten": {"count": [10, 14], "from": "gland", "up": [220, 320], "spread_deg": 15,
+                        "decal_molten_max": 6, "decal_molten_crust_after_ticks": 240},
+        "tooth": {"from": "mouth", "away": [60, 120], "up": [180, 240], "spin_deg_s": 900},
+        "drop_blood": {"count": [18, 24], "from": {"squeeze_back": [8, 10], "squeeze_front": [8, 10], "mouth": [2, 4]},
+                       "angle_deg": [10, 35], "speed": [80, 160], "splat_s_per_death_max": 8},
+        "squeezed_out": {"wool_tuft": 2, "gib_flesh": 2, "gib_bone": 1, "speed": [60, 120]},
+        "ticks": {"pose_1": 3, "pose_2": 6, "splat_m_and_pool_1": 4, "wall_spatter": 8, "pool_2": 20, "pool_3": 60,
+                  "decal_molten_to_crust": 240},
+        "wall_spatter": {"variants": ["decal_wall_spatter", "decal_wall_spatter_b"], "mirrored": "seeded",
+                         "when": "a wall face is within 48 px"},
+    },
+    "decapitation": {
+        "head": {"anchor": "neck", "rotation_deg": -25, "away": [50, 90], "up": [240, 300], "spin_deg_s": 600,
+                 "bounces": 2, "bounce": 0.3, "roll_px": [4, 10], "swap": "head_dead", "trail": "decal_smear"},
+        "ticks": {"pose_4": 4, "pose_5": 10, "pool_1": 14, "pool_2": 40, "pool_3": 100, "wall_spatter": 4},
+        "jet_drops": {"from": "jet_base", "every_ticks": 3, "per_emit": 3, "for_ticks": 36, "up": [170, 240],
+                      "spread_deg": 12},
+        "molten_drops": {"from": "gland", "every_ticks": 6, "for_ticks": 24},
+        "trickle": {"from": "neck", "every_ticks": 8, "for_ticks": 40},
+    },
+    "slam": {                    # unused art until the owner approves force_tier Heavy (spec section 13.3)
+        "ticks": {"pose_7": 6, "pool_1": 8, "pool_2": 30},
+        "tooth": {"from": "mouth", "up": [200, 260], "away": [60, 100], "spin_deg_s": 900},
+        "drop_blood": {"count": [8, 12], "from": "mouth", "up": [120, 200]},
+        "drop_molten": {"count": 1, "from": "gland"},
+        "wool_tuft": {"count": 3, "from": "hit_origin"},
+        "no_pool_3": True,
+    },
+    "explosive": {
+        "from": "impact_position", "radial": [160, 300], "heavy_parts_factor": 0.7, "up_bias": [60, 120],
+        "gibs": 10, "gib_rib": 2, "drop_blood": 28, "drop_molten": 8,
+        "wall_spatter": "both variants, one each side", "pools_under": 2,
+        "gland": "leaves decal_molten where it settles",
+        "settle": "irregular: seeded rotations, piled and overlapping, never an even row",
+    },
+}
+# The stone draws over the crushed llama on the contact ticks (gate ruling, spec section 13.1). Data, not species code.
+HAZARD_DRAW = {
+    "draw": "over", "frames": [0, 1], "default_when_absent": "behind",
+    "layer_order": "directly above the crushed enemy, below every player actor",
+    "anchor": "hit_origin of the playing frame, mirrored with the pose (x' = 88 - x)",
+    "sink": "frame 1 moves hit_origin to (42, 55): the 3 px sink is a render-only offset, never in the domain block "
+            "position or the replay hash",
+    "from_tag": "crushed_remains: back to the goblin order (remains in front of the foot of loose_block_landed)",
+}
+
+
 def pose_manifest() -> dict:
     grid = poses_grid()
     m = manifest_base("llama_death_h64_candidate_v1", "llama_death_h64", POSES, POSES_ASE, CANVAS, PIVOT,
@@ -907,12 +1317,17 @@ def pose_manifest() -> dict:
         tag = next(n for n, a, b in POSE_TAGS if a <= i <= b)
         frames.append({"index": i, "tag": tag, "ticks": POSE_TICKS[i] or None,
                        "duration_ms": grid["frames"][i]["duration_ms"], "author": author, "anchors": POSE_ANCHORS[i]})
+        if i in HAZARD_DRAW["frames"]:
+            frames[-1]["hazard_draw"] = HAZARD_DRAW["draw"]
     m["death_poses"] = {
         "spec": "docs/02-art/llama-02-death-spec.md", "variant": "A", "tick_hz": TICK_HZ, "hold_preview_ms": HOLD_MS,
         "status": STATUS, "facing": "right", "mirror": "x' = 88 - x around the pivot column, anchors included",
         "key_frames": list(POSE_KEYS), "key_fixture": "tests/fixtures/llama-02-death_keys.json",
         "layers": LAYERS, "preset_layer": "gore", "always_shown_layers": ["body", "molten"], "default_preset": 4,
-        "playback": PLAYBACK, "frames": frames,
+        "playback": PLAYBACK, "frames": frames, "hazard_draw": HAZARD_DRAW, "spawner_hints": SPAWNER_HINTS,
+        "molten_preset_1": "shown (data switch: set always_shown_layers to [\"body\"] and hide molten at preset 1 for "
+                           "a later accessibility review)",
+        "slam_selection": "unused art until force_tier Heavy is approved; routine lethal hits keep LLAMA-01 down",
     }
     return m
 
@@ -922,11 +1337,13 @@ def parts_manifest() -> dict:
     m = manifest_base("llama_death_parts_v1", "llama_death_parts", PARTS, PARTS_ASE, CELL, CELL_PIVOT, PART_IDS)
     m["death_parts"] = {
         "spec": "docs/02-art/llama-02-death-spec.md", "variant": "A", "cell": list(CELL), "pivot": list(CELL_PIVOT),
-        "layers": LAYERS, "mirror": "x' = 32 - x around the cell pivot", "status": STATUS,
+        "layers": LAYERS, "preset_layer": "gore", "always_shown_layers": ["body", "molten"],
+        "mirror": "x' = 32 - x around the cell pivot", "status": STATUS,
         "key_frames": list(PART_KEYS), "key_fixture": "tests/fixtures/llama-02-death-parts_keys.json",
         "preset_filter": {"1": "clean and molten parts, and head",
                           "2": "wound (gore muted), clean, molten, blood drops and s decals",
                           "3": "wound, clean, molten, gib (no bone), blood (pools 1 and 2)", "4": "all"},
+        "filter_by": "the per-part presets list, never the class name",
         "parts": part_entries(grid),
     }
     return m

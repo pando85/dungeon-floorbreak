@@ -1,6 +1,6 @@
 # LLAMA-02-DEATH: Bad Llama death poses and death-parts sheet, design spec
 
-**Status:** design stage. Spec and hero keys frozen (poses 0, 2, 3, 5, 6, 7; parts 0, 1, 2). Frames 1 and 4 are placeholders (copies of keys 0 and 3), and parts 3 to 31, the full manifest metadata, the extra evidence and the tests beyond the keys are for the executor (section 9). Independent review pending. Nothing here is wired into Bevy. The owner approved intensity preset 4 as the default (2026-11-18, recorded in the [death-system proposal](../03-tech/monster-death-system-proposal.md#b-suggested-data-contract-illustrative-rust-design-not-compile-ready-abi)). Gameplay acceptance of any finish, and which causes select which finish, are separate owner decisions.
+**Status:** executor pass complete (see the [execution record](#execution-record)). Spec and hero keys frozen (poses 0, 2, 3, 5, 6, 7; parts 0, 1, 2); in-between frames 1 and 4, parts 3 to 31, the full manifest metadata, the extra evidence and the tests are built. The silhouette gate passed and its rulings are recorded in section 13. Independent review pending. Nothing here is wired into Bevy. The owner approved intensity preset 4 as the default (2026-11-18, recorded in the [death-system proposal](../03-tech/monster-death-system-proposal.md#b-suggested-data-contract-illustrative-rust-design-not-compile-ready-abi)). Gameplay acceptance of any finish, and which causes select which finish, are separate owner decisions.
 
 Scope: the first non-goblin death set (death-system step "extend to other monsters"). It mirrors [GOB-02-DEATH](gob-02-death-spec.md) for the Floor 1 spitting llama ([LLAMA-01](llama-01-spec.md)):
 
@@ -49,7 +49,9 @@ This is the GOB-02 preset contract with one extra always-visible layer. The mani
 | `slam_contact` (6) | `hit_origin`, `mouth`, `kink`, `gland` | (42, 68), (89, 66), (69, 53), (87, 58) | impact point on the back; tooth and blood emitter; snapped neck; coughed glob |
 | `broken_heap` (7) | `pool_origin`, `mouth`, `kink` | (82, 71), (90, 69), (69, 52) | pool under the head |
 
-Frames 1 and 4 carry their key's anchors until the executor moves them (section 9).
+Frame 1 (`crush_contact` flatten): `hit_origin` (42, 55) (the stone sinks 3 px, render-only), the other anchors as frame 0. Frame 4 (`headless_collapse` buckle): `neck` (64, 36), `jet_base` (64, 35), `gland` (66, 36).
+
+**Hazard draw order (data, gate ruling):** `hazard_draw: "over"` on the `crush_contact` frames 0 and 1 in `llama_death_h64.json` (and the `death_poses.hazard_draw` block). See section 13.1.
 
 ## 3. Palette `llama-death-floor01-v0` (20 of 20 per atlas)
 
@@ -77,10 +79,10 @@ Blood ramp, dark to light: `o` `B` `b` `P`. Molten ramp, cold to hot: `a` `r` `R
 | # | Tag | Frame | Ticks (60 Hz) | Playback | Author |
 | --- | --- | --- | --- | --- | --- |
 | 0 | `crush_contact` | stone landing: pressed flat, geyser out of the mouth | 3 | once | **key** |
-| 1 | `crush_contact` | flatten (placeholder = copy of 0) | 3 | once | executor |
+| 1 | `crush_contact` | flatten: pressed 2 px lower and wider, taller geyser | 3 | once | executor |
 | 2 | `crushed_remains` | burst mat at the stone's foot, one leg snapped up | hold | hold | **key** |
 | 3 | `decap_contact` | blade tick: headless recoil, jet, glowing duct | 4 | once | **key** |
-| 4 | `headless_collapse` | buckle (placeholder = copy of 3) | 6 | once | executor |
+| 4 | `headless_collapse` | buckle: knees folded, jet bent back | 6 | once | executor |
 | 5 | `headless_collapse` | lying headless, neck stump propped, pool | hold | hold | **key** |
 | 6 | `slam_contact` | heavy impact: thrown on its back, legs flung, tooth out | 6 | once | **key** |
 | 7 | `broken_heap` | on its back, legs stiff in the air, neck snapped | hold | hold | **key** |
@@ -102,7 +104,7 @@ Presets are presentation-only. They never touch the domain, eligibility, collisi
 | count scale (gibs, blood drops) | 1.0 | 0.5 | 0.25 (drops only, no gibs) | 0 |
 | count scale (molten drops) | 1.0 | 1.0 | 0.5 | 0.5 |
 | decals | splat s/m, pool 1 to 3, wall spatter a and b, smear, molten + crust | splat s/m, pool 1 to 2, molten + crust | splat s only (muted), molten | molten only |
-| explosive finish | all body parts | head, torso_front, torso_rump, 2 legs, gland | head, torso_front, gland | fallback: LLAMA-01 `down` + `wool_tuft_*` + `tooth` + molten drops + dust |
+| explosive finish | all body parts | head, torso_front, torso_rump, leg_fore, leg_hind, gland (no neck, ear, jaw or far legs) | head, torso_front, gland | fallback: LLAMA-01 `down` + `wool_tuft_*` + `tooth` + molten drops + dust |
 
 - **Preset 1** keeps every silhouette and the species feedback: the crush still flattens under the stone with the geyser, the decapitation still loses the head (cut hidden) with the glowing duct, the slam still flips the llama with the coughed glob. No blood sprite is drawn. See the [preset sheet](../evidence/llama-02-death/keys_x4_presets.png).
 - **Preset 3 vs 4 must read clearly different** (owner ask). Only 4 has the wall spatters, the third pool stage, the head-roll smear, bone and rib gibs, the full jet emission and the full explosion breakup.
@@ -131,11 +133,11 @@ Keys 0 to 2 are frozen. The executor appends 3 to 31 in this order (indices are 
 | # | id | Class | Size (about) | Source and drawing rule | Anchors (cell) | Settle |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0 | `head` | wound | 23 x 23 | key | `neck` | roll |
-| 1 | `neck` | wound | 14 x 16 | key | `top`, `bottom` | flop |
+| 1 | `neck` | wound | 14 x 16 | key (presets `[4]` only: gate ruling N2) | `top`, `bottom` | flop |
 | 2 | `leg_fore` | wound | 10 x 25 | key | `shoulder`, `hoof` | clatter |
 | 3 | `head_dead` | wound | as 0 | part 0 with the eye stamp `dead` (LLAMA-01 X eye) and the tongue stamp of key 2 (`gK` / `ggK`) out of the mouth corner | as 0 | (swap target) |
-| 4 | `torso_front` | wound | 24 x 20 | rig, LLAMA-01 `IDLE` with `include={"barrel"}`, clipped by a plane at x 41 (normal (-1, 0)) and by a plane through the neck base (54, 37), normal (0.5, -0.87); keeps chest, shoulder, belly front and withers mane | `waist` (back cut centre), `neck` | flop |
-| 5 | `torso_rump` | wound | 24 x 20 | rig, `IDLE` with `{"barrel", "tail"}` clipped by a plane at x 41 (normal (1, 0)); keeps rump, haunch, mange streaks and the plume tail | `waist`, `tail` | flop |
+| 4 | `torso_front` | wound | 24 x 20 | rig, LLAMA-01 `IDLE` with `include={"barrel"}`, clipped by a plane at x 36 (normal (-1, 0); the execution record explains the move from 41) and by a plane through the neck base (54, 37), normal (0.5, -0.87); keeps chest, shoulder, belly front and withers mane | `waist` (back cut centre), `neck` | flop |
+| 5 | `torso_rump` | wound | 24 x 20 | rig, `IDLE` with `{"barrel", "tail"}` clipped by a plane at x 36 (normal (1, 0)); keeps rump, haunch, mange streaks and the plume tail | `waist`, `tail` | flop |
 | 6 | `leg_hind` | wound | 10 x 26 | rig, `IDLE` near hind leg (`{"near_hind"}`), clipped flat at y 47.5 (normal (0, -1)) | `hip`, `hoof` | clatter |
 | 7 | `leg_fore_far` | wound | as 2 | part 2 with the fur ramp one step darker (`L`→`l`, `l`→`m`, `m`→`s`, `s`→`a`) | as 2 | clatter |
 | 8 | `leg_hind_far` | wound | as 6 | part 6, same ramp shift | as 6 | clatter |
@@ -155,7 +157,7 @@ Keys 0 to 2 are frozen. The executor appends 3 to 31 in this order (indices are 
 | 30 | `decal_molten` | molten | 10 x 2 | flat lava puddle: `r` rim, `R` body, 2 `O`, 1 `Y`; floor decal (4 px height cap) | centre-bottom | static; swaps to 31 after its ttl |
 | 31 | `decal_molten_crust` | molten | 10 x 2 | 30 cooled: `a` crust with 2 `r` cracks | centre-bottom | static |
 
-**Manifest metadata (per part).** Same schema as `assets/manifests/goblin_a_death_parts.json` (`death_parts.parts[]`: `id`, `frame`, `cell`, `pivot`, `anchors`, `frame0_origin`, `class`, `material`, `presets`, `gore_layer`, `mass`, `spin`, `settle`, `bounce`, optional `swap_on_first_contact`, `on_contact`, `floor_decal`, `span`, `pair`, `pair_offset`, `stain`, `trail`, `ttl`). One additive field: `molten_layer` (bool). Materials: `llama_flesh`, `wool`, `bone`, `tooth`, `molten`, `blood`. `frame0_origin` is the cell pivot's position on LLAMA-01 frame 0 (the keys: head (64, 19), neck (56, 30), leg_fore (52, 59)). The design stage writes the three key entries (`scripts/author_llama02_death.py keys`); the executor appends the rest.
+**Manifest metadata (per part).** Same schema as `assets/manifests/goblin_a_death_parts.json` (`death_parts.parts[]`: `id`, `frame`, `cell`, `pivot`, `anchors`, `frame0_origin`, `class`, `material`, `presets`, `gore_layer`, `mass`, `spin`, `settle`, `bounce`, optional `swap_on_first_contact`, `on_contact`, `floor_decal`, `span`, `pair`, `pair_offset`, `stain`, `trail`, `ttl`). Additive fields: `molten_layer` (bool) and, on `decal_molten`, `swap_on_ttl` (`decal_molten_crust`, after 240 ticks). The manifests also carry `preset_layer: "gore"`, `always_shown_layers: ["body", "molten"]` (both manifests) and, on the parts manifest, `filter_by` (the spawner filters by each part's `presets` list, never by class name). Materials: `llama_flesh`, `wool`, `bone`, `tooth`, `molten`, `blood`. `frame0_origin` is the cell pivot's position on LLAMA-01 frame 0 (the keys: head (64, 19), neck (56, 30), leg_fore (52, 59)). The design stage writes the three key entries (`scripts/author_llama02_death.py keys`); the executor appends the rest.
 
 **Never hide Carl (renderer rules, unchanged from GOB-02):** launched parts on the debris layer behind player actors; floor decals under every actor; wall spatter on `backwall_decal` only; no launched part larger than 28 x 28 (tested on the keys); floor decals up to 40 x 4; at rest a part lies on the walking line, never stacked higher than 12 px; blood and molten never land on actors. The slam and broken-heap legs (up to 40 px tall) are the pose itself, not debris; they never overlap a player because a defeated enemy keeps its own position.
 
@@ -244,27 +246,56 @@ All in [docs/evidence/llama-02-death/](../evidence/llama-02-death/README.md), wr
 - `keys_x4_presets.png`: every key at 4x at presets 4, 2 and 1 (rows), plus a 1x strip at presets 4 and 1.
 - `silhouette_scale_1x.png` / `silhouette_scale_4x.png`: two lit Floor 1 views at 1x (and their walking-line bands at 4x): Donut, Carl, GOB-01 A idle, LLAMA-01 idle, the crush under the stone, the remains at the landed stone, the decapitation; then the headless hold, slam, broken heap and the three part keys.
 - `scene_640x360.png` / `scene_1920x1080.png`: the in-scene composition as the runtime draws it (enemies mirrored to face Carl), Carl and Donut unobstructed, at 1x and at 3x (1080p).
-- `poses/`, `parts/`: toolkit contact sheets at x1 and x4, pose GIFs at x1 and x3 (the in-between placeholders are copies until the executor pass).
+- `poses/`, `parts/`: toolkit contact sheets at x1 and x4; the per-tag pose GIFs at x1 and x3 are rewritten with an exact palette.
+- Executor pass (written by [`scripts/llama02_death_evidence.py`](../../scripts/llama02_death_evidence.py), see the evidence README): `preset_poses_x4.png`, `preset_parts_x3.png`, `parts_anchors_x4.png`, `frame_anchor_timing.png`, the crush, decapitation and slam storyboards, `preset_strip.png`, `scenes_1x.png`, `scene_carl_in_debris.png`, `scene_headless_x3.png`, three full-sequence GIFs at x1 and x3, `review-pack/`.
 
 ## 12. Files
 
 | File | What |
 | --- | --- |
-| `scripts/author_llama02_death.py` | authoring record: palette, pose dicts on the LLAMA-01 rig, cut and gore rules, manifests, `keys [--check]`, `scale` |
+| `scripts/author_llama02_death.py` | authoring record: palette, pose dicts on the LLAMA-01 rig, cut and gore rules, the 32 parts, manifests, `keys [--check]`, `scale` |
+| `scripts/llama02_death_evidence.py` | executor evidence: preset sheets, anchor and timing sheets, storyboards, scenes, exact-palette GIFs |
 | `assets/source/characters/llama/death/llama_death_h64.grid.json` / `.ase` | poses source |
 | `assets/source/characters/llama/death/llama_death_parts.grid.json` / `.ase` | parts source |
 | `assets/source/characters/llama/death/*.pixelart.json` | toolkit configs (validators, frozen keys) |
 | `tests/fixtures/llama-02-death_keys.json`, `llama-02-death-parts_keys.json` | frozen keys |
 | `assets/manifests/llama_death_h64.json`, `llama_death_parts.json` | manifests: `death_poses` (anchors per frame), `death_parts` (key parts, GOB-02 schema) |
 | `tests/test_art_llama02_death.py` | spec rules beyond the toolkit |
-| `docs/evidence/llama-02-death/` | design-stage evidence |
+| `docs/evidence/llama-02-death/` | evidence (design stage and executor pass) |
 
-## 13. Open questions for review
+## 13. Gate rulings (resolved) and remaining open items
 
-1. **Stone draw order on the crush contact ticks.** The keys assume the falling stone draws over the crushed llama for poses 0 and 1 (the 96 px llama is longer than the boulder is wide, so behind it the llama reads as lying next to a floating rock). The goblin set draws the stone behind. This needs one renderer rule (hazard over the crushed actor while `crush_contact` plays), or a ruling to keep the goblin order.
-2. **Molten at preset 1.** The spec keeps the gland burst visible at every preset as the species feedback (it is lava, not blood). If accessibility review wants preset 1 free of any wound-coloured spray, the switch is data-only: hide `molten` at preset 1 too and spawn only dust.
-3. **Slam selection.** Mapping `force_tier: Heavy` lethal hits to `slam_contact` → `broken_heap` is a gameplay proposal; until it is approved, the slam pair is unused art and routine defeats keep LLAMA-01 `down`.
-4. **`o` hex.** The deepest blood uses the llama `o` (`#4a1020`), not the goblin `o` (`#5c1426`), to stay at 20 colours. Copied goblin decals therefore come out one step darker at the rim. Acceptable unless the review wants identical decals across species (that would need dropping one llama key).
+The silhouette gate (an independent top-tier check of the frozen keys) passed. Its rulings, recorded here and applied in the data:
+
+1. **Stone over the crushed llama on the contact ticks: accepted, driven by data.** The llama is 96 px long and the stone's footprint 64 px; behind the llama the stone floats, over it the stone reads as a crush. DEATH-C must:
+   - (a) read `hazard_draw: "over"` from the `crush_contact` frames 0 and 1 (`llama_death_h64.json`, also the `death_poses.hazard_draw` block), never species code; when the flag is absent keep the goblin order (stone behind);
+   - (b) draw the stone directly above the crushed enemy and still below every player actor, never over Carl or Donut;
+   - (c) place the block's anchor on the mirrored `hit_origin` of each contact frame; frame 1 moves it to (42, 55), a 3 px sink that is a **render-only offset, never in the domain block position or the replay hash**;
+   - (d) from `crushed_remains` on, return to the goblin order (the remains in front of the foot of `loose_block_landed` on the actors layer);
+   - (e) mirror the footprint with the pose (x' = 88 - x).
+2. **Molten at preset 1: stays visible** (it is lava, the species and cause feedback, the same class of pixel as the visible spit projectile). The data-only switch to hide it stays available for a later accessibility review (`always_shown_layers`), never species code.
+3. **Slam pair: kept as art pending owner gameplay signoff.** It is not wired by default: routine lethal hits keep LLAMA-01 `down`, and no spawner path selects the slam until the owner approves the `force_tier: Heavy` rule. The spawner hints include a `slam` block.
+4. **Darker blood accepted.** The deepest blood reuses the llama mouth `o` (`#4a1020`), one step darker than the goblin's `#5c1426`; the decals share bitmaps and keys and take the hex from each species' palette. Identical hex across species is not required.
+
+Non-blocking gate notes, resolved or carried:
+
+- **N1 (headless hold identity)** carried to the full review: see the execution record.
+- **N2** fixed: `neck` presets are `[4]`, and the section 5 preset-3 explosion list matches the data (head, torso_front, torso_rump, leg_fore, leg_hind, gland).
+- **N3** fixed: `preset_layer` and `always_shown_layers` are in both manifests.
+- **N4 (geyser brightness)** checked in the crush storyboard on lit brick: the 10 to 14 `drop_molten` keep the burst brightest for the contact ticks.
+- **N5** the spawner filters parts by the per-part `presets` list (`filter_by` in the parts manifest); blood stains and the head trail are absent from preset 1 (`head` stain and trail are blood decals, which the preset 1 class filter drops).
+- **N6** the slam and broken-heap GIFs show the change from flung to stiff legs reads over the 6-tick contact.
+
+## Execution record
+
+Executed by the medium tier per section 9 (no design decision was changed; the keys are byte-identical, `python3 -m scripts.pixelart validate` V09 passes on both configs).
+
+- **Poses.** Frame 1 (`crush_flatten`, `crush_contact(flat=True)`): barrel, haunch, shoulder and belly 2 px lower, `barrel_rr` (8.5, 9.0), stone clip and `K` underside on row 55, the popped eye with a bone-white pupil, the geyser 4 px taller and 0.6 px wider with its globs 4 px higher, each squeeze fan pushed out with one more droplet pair (the back fan already touches the canvas edge, so its extra pair goes higher). Frame 4 (`headless_buckle`): LLAMA-01 `POSE_12` without the head, cut by the plane (64.5, 36.5), a 10 px jet bent back with two gobbets, the duct dot on `molten`. Both frames stay on row 71.
+- **Parts 3 to 31** are built in the section 7 order: rig parts through `beast()` with clips and `cut_face`, the far legs as the ramp-shifted near legs, literal bitmaps for tooth, tufts, gibs and drops, the sac as a ragged fur rim around a molten ellipse, the blood decals as the GOB-02 bitmaps with `R` mapped to `b`, and the two molten decals. Frame-0 origins come from the cell shifts; anchors are measured from drawn pixels or cut points; every anchor lands on a drawn pixel (tested, except the cell-pivot `centre` anchors, which lie inside the bitmap).
+- **Data.** `PART_META` presets follow the section 5 table (neck `[4]`, far legs `[4]`, ear and jaw `[4]`, bone and rib gibs `[4]`); `hazard_draw`, `spawner_hints` (crush, decapitation, slam, explosive), tick windows and anchors for every frame are in the manifests.
+- **One data adjustment to a section 7 number.** The waist cut plane is at x 36, not x 41. With the plane at 41 the rump (plume tail to the cut) is 33 px wide, which cannot fit a 32 px cell, let alone the 28 px launched-part cap; at 36 the rump is 28 px and `torso_front` is about 24 px (the section 7 size). It is one constant (`WAIST_X`); the review may prefer a different split.
+- **Open design observation (gate note N1).** `headless_collapse` on lit brick at 1x ([`scene_headless_x3.png`](../evidence/llama-02-death/scene_headless_x3.png), [`silhouette_scale_1x.png`](../evidence/llama-02-death/silhouette_scale_1x.png)) still reads as a headless carcass with a stump and a pool, but the long-neck cue is weak because the stump lies nearly level with the back. The decapitation sequence gives it context. If the review judges it "generic carcass", the design-stage remedy is to prop the stump higher (top row 48 or lower) before frame 5 is redrawn; it was not changed here because frame 5 is a frozen key.
+- **Evidence** is regenerated (see the evidence README), the full-sequence GIFs use an exact palette (no quantisation), and a test checks that every GIF frame keeps the wool colour and the blood red.
 
 ## 14. Rights and provenance
 
@@ -273,5 +304,5 @@ Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope; no publ
 ### Rights/Provenance
 
 - Design, spec and hero keys (poses 0, 2, 3, 5, 6, 7; parts 0, 1, 2), manifests for the keys and the design-stage evidence: Claude Opus.
-- Execution (section 9): pending, medium tier.
+- Execution (section 9): in-between frames 1 and 4, parts 3 to 31, full manifest metadata and spawner hints, configs, tests, export and evidence: Claude Sonnet.
 - Independent review: pending, separate top-tier agent.

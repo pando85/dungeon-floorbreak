@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "llama-02-death",
-  "title": "LLAMA-02-DEATH Bad Llama crush, decapitation and heavy-impact death poses (docs/02-art/llama-02-death-spec.md); 8 frames, 6 frozen keys, 2 in-between placeholders",
+  "title": "LLAMA-02-DEATH Bad Llama crush, decapitation and heavy-impact death poses (docs/02-art/llama-02-death-spec.md); 8 frames, 6 frozen keys, 2 executor in-betweens",
   "grid": "assets/source/characters/llama/death/llama_death_h64.grid.json",
   "manifest": "assets/manifests/llama_death_h64.json",
   "frame_size": [96, 72],
@@ -24,7 +24,7 @@
     "max_orphans_per_frame": 9,
     "layers_disjoint": [],
     "canvas_margin": [0, 0, 0, 0],
-    "unique_frames": false,
+    "unique_frames": true,
     "frozen_keys": {
       "fixture": "tests/fixtures/llama-02-death_keys.json",
       "frames": [0, 2, 3, 5, 6, 7],
@@ -41,7 +41,9 @@
       {"id": "D1-crush-bulging-eye", "frames": [0], "key": "e", "min": 5},
       {"id": "D1-crush-gland-burst", "frames": [0], "key": "Y", "min": 8},
       {"id": "D3-decap-jet", "frames": [3], "key": "b", "min": 40},
-      {"id": "L0-yellow-teeth-on-head-frames", "frames": [0, 2, 6, 7], "key": "T", "min": 4}
+      {"id": "L0-yellow-teeth-on-head-frames", "frames": [0, 2, 6, 7], "key": "T", "min": 4},
+      {"id": "D1-flatten-geyser-taller", "frames": [1], "key": "Y", "min": 10},
+      {"id": "D3-buckle-jet", "frames": [4], "key": "b", "min": 20}
     ]
   }
 }
