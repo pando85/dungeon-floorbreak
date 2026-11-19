@@ -1,6 +1,6 @@
 # Hybrid-A HUD concept references
 
-**Status:** four approved *concept-composition* images with a Donut mana bar. The binary files are **not included in the first docs-only PR commit**: the user-provided ZIP installer stages and the local agent commits them here on the same branch.
+**Status:** four approved *concept-composition* images with a Donut mana bar. The four PNGs are committed here bit-exact; `sha256sum` of each file matches the table below.
 
 | File | Preview state | SHA-256 (original PNG bytes) |
 | --- | --- | --- |
@@ -15,4 +15,4 @@ All are 1672×941 RGB/RGBA concept renders, *not* native 640×360 game art or ed
 
 **Provenance:** OpenAI image generation in the project conversation on 2026-11-19, owner-selected hybrid-A visual direction and subsequent Donut-only mana design. Owner-reported public concept-art publication permission `ART-PUBLICATION-ALL-V1` (not independently verified) does not grant unrestricted reuse or game distribution. See `docs/04-production/rights-and-release.md`.
 
-`SHA256SUMS` and the four files are supplied in the ZIP. Maintain bit-exact files; don't resave/recompress before verification.
+Maintain bit-exact files; do not resave or recompress them. Verify with `sha256sum *.png` in this directory against the table above (also recorded in `manifest.json`).

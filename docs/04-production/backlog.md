@@ -90,6 +90,21 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-018 | P2 | After slice | Authored small structural collapse | Weak-support graph, VFX and invariant tests |
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
+| HUD-HYBRID-A-01 | P0 | Integration and art / **in progress, draft PR #103**; **game-feel and in-engine look review pending once merged** (not auto-merged; owner gives the look verdict) | Owner-approved hybrid-A in-game HUD in `floor01_scene`: Carl plate, Donut plate (portrait + companion tag, no HP bar, no mana before the biscuit), location strip, finite-lifetime combat notices, optional boss strip and P1/P2 states, OFL pixel font; [design](../02-art/hybrid-hud-a-design.md), [workorder](../07-agents/hybrid-hud-a-single-agent-workorder.md), [references](../../assets/references/hud/hybrid-a-v1/README.md). Several states are **preview fixtures**, retired by the HUD fixture debt group below | Real Bevy captures at 640x360 / 640x400, tests, independent top-tier review, CI green |
+
+## HUD fixture debt (owner: work on soon)
+
+High-priority follow-ups that retire the HUD states currently faked by preview fixtures in HUD-HYBRID-A-01 (owner decision 2026-11-19: tracked debt, schedule right after the current top-priority work). Until each lands, its HUD state stays labeled preview and must not be reported as implemented.
+
+| ID | Priority | Stage | Deliverable | Retires HUD fixture / acceptance evidence |
+| --- | --- | --- | --- | --- |
+| HUD-DEBT-01 | P0 | Gameplay / not started | Donut authoritative HP and damage (data-driven, deterministic, gameplay signoff; no change to Carl combat rules) | Retires the Donut HP preview; Donut plate gains a real HP bar only after this; unit tests plus replay |
+| HUD-DEBT-02 | P0 | Gameplay / not started | Biscuit magic unlock progression flag plus Donut mana resource (cost and regen designed, gameplay signoff; no Carl mana) | Retires the pre-unlock / post-unlock and depleted-mana previews; flag and resource tests, real capture of both states |
+| HUD-DEBT-03 | P0 | Gameplay / not started | Floor 01 boss encounter (authored boss, health source and warning bar events) | Retires the boss strip preview and the placeholder boss name; encounter scenario plus capture |
+| HUD-DEBT-04 | P0 | Prototype / not started | Local 2P and solo-swap ownership: see WORK-005 (second hero, device ownership) and WORK-006 (solo swap vs follower AI) above | Retires the co-op (P1/P2) preview; the HUD reads real ownership, never faked |
+| HUD-DEBT-05 | P0 | Input / not started | Gamepad device detection (DualSense vs Xbox glyph set) | Retires the `--glyphs=dualsense` presentation flag; Xbox stays the fallback; detection test with fake device ids |
+| HUD-DEBT-06 | P1 | UX / not started unless delivered in PR #103 | HUD accessibility settings: reduced UI motion, text size, contrast | Settings persisted, controller-reachable; captures at default and adjusted values |
+| HUD-DEBT-07 | P2 | Design-dependent / not started | Real System-event / achievement source beyond combat events, only if the design calls for it | Retires the System-message preview; skip if design does not need it |
 
 ## Opening-scene combat integration handoff (owner direction, 2026-11-17)
 

@@ -56,7 +56,13 @@ Use mapped controller glyphs only for actual supported actions and current input
 - Human/controller review: legibility under busy combat, no obscured boss telegraphs, co-op identity understandable, depleted mana identifiable without relying on hue, brief notices never steal focus. Document performance measurements rather than assert 60 fps.
 - Update `docs/04-production/backlog.md` and scene docs with actual status; submit implementation to this PR. No automatic merge from this handoff; independent review and owner verdict on the in-engine look.
 
-## References and upload workflow
-The ZIP `the-crawl-hud-hybrid-a-implementation-kit.zip` contains four **concept-only** PNGs, a SHA-256 manifest, an installer that stages them as **reference assets**, and an English single-agent prompt. The PR initially commits **this spec and the agent workorder only**; images are to be installed from the ZIP and added to the SAME branch by the local agent. See `docs/07-agents/hybrid-hud-a-single-agent-workorder.md` and `assets/references/hud/hybrid-a-v1/README.md`.
+## Owner decisions 2026-11-19
+- **Donut plate:** in normal play Donut's plate shows her portrait plus an "AI companion"-style tag and **no HP bar**, because Donut has no authoritative HP in the game today. A Donut HP bar appears only in an explicitly labeled preview fixture until Donut gains authoritative HP.
+- **HUD font:** HUD text uses an OFL-licensed pixel font. The choice is made in the design step; its licence text and file checksum are recorded in the repository with the font.
+- **Glyph labels:** Xbox glyph labels are the default. A `--glyphs=dualsense` presentation option exists until real gamepad device detection exists.
+- **Preview-only fixtures are tracked debt:** every HUD state faked by a preview fixture must be retired by a real feature and is scheduled in the backlog group "HUD fixture debt" in `docs/04-production/backlog.md`.
+
+## References
+The four **concept-only** PNGs are committed bit-exact under `assets/references/hud/hybrid-a-v1/` as **reference assets**, with `manifest.json` and a README whose SHA-256 table matches the files. See `docs/07-agents/hybrid-hud-a-single-agent-workorder.md` and `assets/references/hud/hybrid-a-v1/README.md`.
 
 **Provenance:** generated in the project conversation with OpenAI image generation, 2026-11-19; human approved visual direction/layout. `ART-PUBLICATION-ALL-V1` is owner-reported permission to publish fan-concept images, not independently verified, not a commercial game distribution license. Keep generated mockup labels non-canonical and preserve hashes.
