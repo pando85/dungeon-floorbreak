@@ -64,8 +64,11 @@ SCENARIOS = {
     },
     "blast": {
         "fixture": "qa_blast_breakup",
-        "first": 50,
-        "count": 191,
+        # Starts at tick 40: the first frame of a run is taken before the
+        # lighting and the assets are up (a black frame), so the X-10 still is
+        # the eleventh frame of the run.
+        "first": 40,
+        "count": 201,
         "event": 60,
         "tag": "X",
         "offsets": (-10, 0, 3, 12, 40, 180),
@@ -95,8 +98,20 @@ def tick_label(name: str, offset: int) -> str:
     return f"{SCENARIOS[name]['tag']}{offset:+d}"
 
 
-def capture() -> None:
+MIN_LUMA = 100  # a real lit frame of this scene peaks far above this
+
+
+def check_lit(path: Path) -> None:
+    """Exit when a still is a black or unlit frame (max luma below MIN_LUMA)."""
+    peak = Image.open(path).convert("L").getextrema()[1]
+    if peak < MIN_LUMA:
+        sys.exit(f"{path} is not a lit frame (max luma {peak} < {MIN_LUMA})")
+
+
+def capture(only: tuple[str, ...] = ()) -> None:
     for name, spec in SCENARIOS.items():
+        if only and name not in only:
+            continue
         fixture, first, count = spec["fixture"], spec["first"], spec["count"]
         last = first + count - 1
         headless = subprocess.run(
@@ -124,6 +139,8 @@ def capture() -> None:
                 # state is the headless one, at any preset and resolution.
                 if combat_state(log) != expected:
                     sys.exit(f"{target}: replay differs from headless\n{combat_state(log)}\n{expected}")
+                for offset in spec["offsets"]:
+                    check_lit(frame_at(name, preset, res, spec["event"] + offset))
                 print(f"captured {target.name}: {count} frames, replay identical ({expected.split('hash=')[1][:16]})")
 
 
@@ -142,6 +159,7 @@ def stills() -> None:
             for preset in PRESETS:
                 for offset in spec["offsets"]:
                     tick = spec["event"] + offset
+                    check_lit(frame_at(name, preset, res, tick))
                     out = OUT / f"still_{name}_p{preset}_{tick_label(name, offset)}_{res}.png"
                     Image.open(frame_at(name, preset, res, tick)).convert("RGB").save(out, optimize=True)
 
@@ -238,7 +256,12 @@ def write_sums() -> None:
 
 
 def main() -> None:
-    steps = sys.argv[1:] or ["capture", "build", "perf"]
+    # `capture [decap|blast ...]` captures only the named scenarios.
+    args = sys.argv[1:]
+    if args and args[0] == "capture":
+        capture(tuple(args[1:]))
+        return
+    steps = args or ["capture", "build", "perf"]
     for step in steps:
         {"capture": capture, "build": build, "perf": perf}[step]()
 

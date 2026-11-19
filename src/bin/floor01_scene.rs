@@ -54,7 +54,7 @@ use dungeon_floorbreak::{
     death_present::{
         DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS,
         PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
-        blast_vfx_frame, charge_frame, draw_z,
+        blast_vfx_frame, charge_frame, draw_z, explosion_table,
     },
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
@@ -2083,6 +2083,7 @@ fn sync_shore_visuals(
 #[allow(clippy::type_complexity)]
 fn sync_blast_visuals(
     combat: Res<Combat>,
+    death: Res<Death>,
     sim: Res<Sim>,
     actors: Res<Actors>,
     setup: Res<Setup>,
@@ -2101,6 +2102,10 @@ fn sync_blast_visuals(
         .iter()
         .find(|p| p.layer == "backwall_decal")
         .map_or(3.0, |p| p.z.floor());
+    // Preset 4 punch-up (presentation only): the burst is bigger, drawn over
+    // the debris and flashes bright for its first ticks.
+    let table = explosion_table(death.0.as_ref().map_or(GorePreset::Full, |p| p.preset()));
+    let punched = table.burst_scale > 1.0;
     let dynamite_spec = ActorSpec {
         name: "qa_charge",
         width: 24,
@@ -2127,8 +2132,13 @@ fn sync_blast_visuals(
             *visibility = Visibility::Hidden;
             continue;
         };
-        let z = draw_z(DrawLayer::Blast, index, actor_z, wall_z);
         if burst {
+            let layer = if punched {
+                DrawLayer::BlastFront
+            } else {
+                DrawLayer::Blast
+            };
+            let z = draw_z(layer, index, actor_z, wall_z);
             let frame = charge
                 .detonated
                 .then(|| blast_vfx_frame(tick, charge.detonate_tick))
@@ -2137,8 +2147,16 @@ fn sync_blast_visuals(
                 Some(frame) => {
                     let (cx, cy) = (charge.x, charge.foot_y + BLAST_CENTRE_DY);
                     transform.translation = Vec3::new(cx.round(), cy.round(), z);
+                    transform.scale = Vec3::new(table.burst_scale, table.burst_scale, 1.0);
                     sprite.image = images.burst.clone();
                     sprite.rect = Some(to_rect(art.burst_rect(frame)));
+                    // The flash: the existing impact tint for the first ticks.
+                    let age = tick.saturating_sub(charge.detonate_tick);
+                    sprite.color = if age < table.flash_ticks {
+                        FLASH_TINT
+                    } else {
+                        Color::WHITE
+                    };
                     *visibility = Visibility::Inherited;
                 }
                 None => *visibility = Visibility::Hidden,
@@ -2146,6 +2164,9 @@ fn sync_blast_visuals(
         } else if charge.detonated {
             *visibility = Visibility::Hidden;
         } else {
+            // The lit charge: above the goblins, below Carl (it was under every
+            // actor and hidden by the goblin standing on it).
+            let z = draw_z(DrawLayer::ChargeLit, index, actor_z, wall_z);
             let (cx, cy) = actor_center(dynamite_spec, charge.x, charge.foot_y, false);
             transform.translation = Vec3::new(cx, cy, z);
             sprite.image = images.dynamite.clone();
@@ -2181,9 +2202,7 @@ fn sync_death_visuals(
     // more and a retiring one fades out (the GOB-01 corpse sprite included).
     // DEATH-D: an exploded goblin (presets 2 to 4) is replaced by its pieces.
     let hide_goblin = |index: usize| {
-        presenter.pose_of(index as u32).is_some()
-            || presenter.is_retired(index as u32)
-            || presenter.hides(index as u32)
+        presenter.pose_of(index as u32).is_some() || !presenter.draws_goblin(index as u32)
     };
     for (goblin, mut visibility, mut sprite) in &mut goblins {
         *visibility = if hide_goblin(goblin.index) {
@@ -2251,7 +2270,9 @@ fn sync_death_visuals(
                 let shown = decal.and_then(|d| {
                     let meta = if second { d.pair_meta? } else { d.meta };
                     let offset = if second {
-                        art.parts[d.meta].pair_offset.map_or(0.0, |o| o[0] as f32)
+                        art.parts[d.meta]
+                            .pair_offset
+                            .map_or(0.0, |o| o[0] as f32 * d.scale)
                     } else {
                         0.0
                     };
@@ -2264,6 +2285,7 @@ fn sync_death_visuals(
                             d.y.round(),
                             draw_z(DrawLayer::FloorDecal, slot, actor_z, look.wall_z),
                         );
+                        transform.scale = Vec3::new(d.scale, d.scale, 1.0);
                         sprite.flip_x = d.flip;
                         sprite.color =
                             Color::srgba(1.0, 1.0, 1.0, presenter.floor_decal_alpha(slot, d));
@@ -2280,6 +2302,7 @@ fn sync_death_visuals(
                         d.y.round(),
                         draw_z(DrawLayer::WallDecal, slot, actor_z, look.wall_z),
                     );
+                    transform.scale = Vec3::new(d.scale, d.scale, 1.0);
                     sprite.flip_x = d.flip;
                     sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.wall_decal_alpha(slot, d));
                     set_atlas(&mut sprite, art.parts[d.meta].frame);
@@ -2321,6 +2344,7 @@ fn update_lighting(
     setup: Res<Setup>,
     reference: Res<ReferencePose>,
     combat: Res<Combat>,
+    death: Res<Death>,
     windows: Query<&Window, With<PrimaryWindow>>,
     materials: Option<ResMut<Assets<LightingMaterial>>>,
     mut dropped_reported: Local<bool>,
@@ -2404,6 +2428,15 @@ fn update_lighting(
                 ));
             };
             for (index, goblin) in combat.enemies.iter().enumerate() {
+                // No shadow under a goblin whose body is hidden (an explosion)
+                // or retired: nothing is drawn above it.
+                if death
+                    .0
+                    .as_ref()
+                    .is_some_and(|presenter| !presenter.draws_goblin(index as u32))
+                {
+                    continue;
+                }
                 put(
                     art.goblin_clips(index),
                     &art.goblin_pose(index),
@@ -2959,6 +2992,15 @@ mod tests {
             let blast = draw_z(DrawLayer::Blast, slot, 7.0, 3.0);
             assert!(blast > draw_z(DrawLayer::FloorDecal, slots - 1, 7.0, 3.0));
             assert!(blast < draw_z(DrawLayer::Debris, 0, 7.0, 3.0));
+        }
+        // The preset 4 burst is over the debris and under every actor; the lit
+        // charge is over a standing goblin (+0.05) and under Carl (+0.1).
+        let debris_top = draw_z(DrawLayer::Debris, PART_POOL_SLOTS, 7.0, 3.0);
+        for slot in 0..8 {
+            let front = draw_z(DrawLayer::BlastFront, slot, 7.0, 3.0);
+            assert!(front > debris_top && front < lowest_actor);
+            let lit = draw_z(DrawLayer::ChargeLit, slot, 7.0, 3.0);
+            assert!(lit > 7.0 + 0.05 && lit < 7.0 + CARL_Z_OFFSET);
         }
         assert!(draw_z(DrawLayer::WallDecal, WALL_DECAL_POOL_SLOTS, 7.0, 3.0) < 4.0);
     }

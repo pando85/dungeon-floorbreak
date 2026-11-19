@@ -181,6 +181,11 @@ pub enum DrawLayer {
     /// DEATH-D: the QA charge and its blast burst (VFX), between the floor
     /// decals and the debris, under every actor.
     Blast,
+    /// DEATH-D, preset 4: the bigger burst, over the debris and still under
+    /// every actor.
+    BlastFront,
+    /// DEATH-D: the lit (fuse) charge: above the goblins, below Carl.
+    ChargeLit,
 }
 
 /// z of the debris layer below `actor_z`.
@@ -190,6 +195,12 @@ pub const FLOOR_DECAL_BELOW_ACTORS: f32 = 0.5;
 /// z of the charge and the blast burst below `actor_z`: over the floor decals
 /// (0.5) and the props, under the debris (0.4) and every actor.
 pub const BLAST_BELOW_ACTORS: f32 = 0.45;
+/// z of the preset 4 burst below `actor_z`: over the debris (0.4 plus the slot
+/// bias, at most 0.032 below it), under every actor.
+pub const BLAST_FRONT_BELOW_ACTORS: f32 = 0.30;
+/// z of the lit charge above `actor_z`: over a standing goblin (+0.05), under
+/// Carl (+0.1) and a swinging goblin (+0.15).
+pub const CHARGE_LIT_ABOVE_ACTORS: f32 = 0.08;
 /// z of the wall spatters above the `backwall_decal` layer (it must stay below
 /// the collision layer, one step up).
 pub const WALL_DECAL_ABOVE_LAYER: f32 = 0.5;
@@ -204,6 +215,8 @@ pub fn draw_z(layer: DrawLayer, slot: usize, actor_z: f32, wall_decal_z: f32) ->
         DrawLayer::Debris => actor_z - DEBRIS_BELOW_ACTORS + bias,
         DrawLayer::FloorDecal => actor_z - FLOOR_DECAL_BELOW_ACTORS + bias,
         DrawLayer::Blast => actor_z - BLAST_BELOW_ACTORS + bias,
+        DrawLayer::BlastFront => actor_z - BLAST_FRONT_BELOW_ACTORS + bias,
+        DrawLayer::ChargeLit => actor_z + CHARGE_LIT_ABOVE_ACTORS + bias,
         DrawLayer::WallDecal => wall_decal_z + WALL_DECAL_ABOVE_LAYER + bias,
     }
 }
@@ -453,7 +466,7 @@ pub fn blast_vfx_frame(tick: u64, blast_tick: u64) -> Option<usize> {
 
 /// DEATH-D: what one explosive breakup spawns at a preset, as explicit
 /// constants (spec section 4.2), not derived from the preset's quarters.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ExplosionTable {
     /// Body part ids, each launched from its `frame0_origin`.
     pub parts: &'static [&'static str],
@@ -468,6 +481,14 @@ pub struct ExplosionTable {
     pub part_stain_cap: u8,
     /// Pools grown from the first rest of `torso_upper` and `torso_lower`.
     pub pools: u8,
+    /// Preset 4 punch-up (presentation only): the decals of the pools and the
+    /// extra wall spatters are drawn at this scale (1.0 = the art's size), the
+    /// burst sprite is scaled by `burst_scale` and drawn over the debris, and
+    /// shows a bright flash (the existing impact tint) for `flash_ticks`.
+    pub pool_scale: f32,
+    pub extra_wall_spatters: u8,
+    pub burst_scale: f32,
+    pub flash_ticks: u64,
 }
 
 /// Indexed by `preset.level() - 1`.
@@ -481,6 +502,10 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
         drop_splat_cap: 0,
         part_stain_cap: 0,
         pools: 0,
+        pool_scale: 1.0,
+        extra_wall_spatters: 0,
+        burst_scale: 1.0,
+        flash_ticks: 0,
     },
     // 2: head, torso_upper and the club; gore muted.
     ExplosionTable {
@@ -491,6 +516,10 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
         drop_splat_cap: 4,
         part_stain_cap: 4,
         pools: 0,
+        pool_scale: 1.0,
+        extra_wall_spatters: 0,
+        burst_scale: 1.0,
+        flash_ticks: 0,
     },
     // 3: five parts, four gibs, one pool to stage 2.
     ExplosionTable {
@@ -501,6 +530,10 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
         drop_splat_cap: 8,
         part_stain_cap: 6,
         pools: 1,
+        pool_scale: 1.0,
+        extra_wall_spatters: 0,
+        burst_scale: 1.0,
+        flash_ticks: 0,
     },
     // 4: ten parts (the club splits), ten gibs, two pools to stage 3.
     ExplosionTable {
@@ -522,6 +555,13 @@ pub static EXPLOSION_TABLES: [ExplosionTable; 4] = [
         drop_splat_cap: 14,
         part_stain_cap: 10,
         pools: 2,
+        // The owner wants more intensity at preset 4: thicker pools, two
+        // more wall spatters at the larger size, a 1.5x burst over the debris
+        // and a 3 tick flash at detonation. Presentation only.
+        pool_scale: 1.5,
+        extra_wall_spatters: 2,
+        burst_scale: 1.5,
+        flash_ticks: 3,
     },
 ];
 
@@ -685,6 +725,9 @@ pub struct Decal {
     pub y: f32,
     pub flip: bool,
     pub kind: DecalKind,
+    /// Draw scale about the centre (1.0 except the preset 4 explosion's
+    /// pools and extra wall spatters); the position already accounts for it.
+    pub scale: f32,
     born: u64,
 }
 
@@ -751,6 +794,8 @@ struct Death {
     /// entered `Resting`, and where; recorded once, never again.
     rest_ticks: [Option<u64>; 2],
     rest_x: [f32; 2],
+    /// Scale of this death's pool decals (1.0 unless the preset 4 explosion).
+    pool_scale: f32,
     /// The impact point `I` of an explosion (the charge centre), or of a
     /// synthetic one.
     impact: Option<(f32, f32)>,
@@ -799,6 +844,7 @@ impl Death {
             pools: [None, None],
             rest_ticks: [None, None],
             rest_x: [0.0, 0.0],
+            pool_scale: 1.0,
             impact: None,
             edge_splat_x: None,
             landed: None,
@@ -973,6 +1019,13 @@ impl DeathPresenter {
 
     pub fn clock(&self) -> u64 {
         self.clock
+    }
+
+    /// Whether the GOB-01 body of goblin `target` is still in the scene: not
+    /// replaced by an explosion's pieces (`hides`) and not retired. The sprite
+    /// and its cast shadow share this one rule.
+    pub fn draws_goblin(&self, target: u32) -> bool {
+        !self.hides(target) && !self.is_retired(target)
     }
 
     /// DEATH-D: whether the GOB-01 sprite of goblin `target` is skipped: its
@@ -1295,6 +1348,7 @@ impl DeathPresenter {
             let table = explosion_table(self.preset);
             death.drop_cap = table.drop_splat_cap;
             death.stain_cap = table.part_stain_cap;
+            death.pool_scale = table.pool_scale;
             death.impact = Some(
                 charge.map_or((goblin.x, goblin.ground_y + BLAST_CENTRE_DY), |c| {
                     c.centre()
@@ -1359,6 +1413,7 @@ impl DeathPresenter {
             let table = explosion_table(self.preset);
             death.drop_cap = table.drop_splat_cap;
             death.stain_cap = table.part_stain_cap;
+            death.pool_scale = table.pool_scale;
             death.impact = Some((x, ground_y + BLAST_CENTRE_DY));
         }
         self.start_death(death);
@@ -1688,7 +1743,7 @@ impl DeathPresenter {
     /// Spawn a floor decal (a splat, a pool stage, a smear) on the floor line
     /// at world x `x`. Returns false when the preset does not draw it.
     fn spawn_floor_decal(&mut self, id: &str, x: f32, ground_y: f32, flip: bool) -> bool {
-        let Some((meta, decal)) = self.floor_decal_for(id, x, ground_y, flip) else {
+        let Some((meta, decal)) = self.floor_decal_for(id, x, ground_y, flip, 1.0) else {
             return false;
         };
         let _ = meta;
@@ -1706,6 +1761,7 @@ impl DeathPresenter {
         x: f32,
         ground_y: f32,
         flip: bool,
+        scale: f32,
     ) -> Option<(usize, Decal)> {
         let index = self.art.part_index(id)?;
         let meta = &self.art.parts[index];
@@ -1721,6 +1777,8 @@ impl DeathPresenter {
             .or_else(|| meta.anchor("start"))
             .unwrap_or((cell.0 / 2, cell.1 / 2));
         let centre = part_center_for_anchor(cell, anchor, (x, 0.0), flip);
+        // Scaled about the centre: the anchor offset and the bottom row scale.
+        let centre = (x + scale * (centre.0 - x), centre.1);
         let pair_meta = meta
             .pair
             .as_deref()
@@ -1732,9 +1790,10 @@ impl DeathPresenter {
                 meta: index,
                 pair_meta,
                 x: centre.0,
-                y: ground_y + (bbox.bottom - cell.1 / 2) as f32,
+                y: ground_y + scale * (bbox.bottom - cell.1 / 2) as f32,
                 flip,
                 kind: DecalKind::Floor,
+                scale,
                 born: self.clock,
             },
         ))
@@ -1743,7 +1802,9 @@ impl DeathPresenter {
     /// Grow the death's pool decal to `id` (one decal that swaps its frame, so
     /// each stage contains the previous one); spawn it when none lives.
     fn pool_stage(&mut self, death: &mut Death, which: usize, id: &str, x: f32) {
-        let Some((index, fresh)) = self.floor_decal_for(id, x, death.ground_y, false) else {
+        let Some((index, fresh)) =
+            self.floor_decal_for(id, x, death.ground_y, false, death.pool_scale)
+        else {
             return;
         };
         let pair = fresh.pair_meta;
@@ -1754,6 +1815,7 @@ impl DeathPresenter {
             decal.pair_meta = pair;
             decal.x = fresh.x;
             decal.y = fresh.y;
+            decal.scale = fresh.scale;
             return;
         }
         let (art, now) = (&self.art, self.clock);
@@ -1787,6 +1849,12 @@ impl DeathPresenter {
 
     /// One named back-wall spatter whose origin pixel is on `at`.
     fn wall_spatter_variant(&mut self, id: &str, flip: bool, at: (f32, f32)) {
+        self.wall_spatter_scaled(id, flip, at, 1.0);
+    }
+
+    /// A back-wall spatter drawn `scale` times the art's size about its
+    /// centre, its origin pixel still on `at`.
+    fn wall_spatter_scaled(&mut self, id: &str, flip: bool, at: (f32, f32), scale: f32) {
         if !self.back_wall {
             return;
         }
@@ -1800,6 +1868,10 @@ impl DeathPresenter {
         let cell = self.art.part_cell;
         let anchor = meta.anchor("origin").unwrap_or((cell.0 / 2, cell.1 / 2));
         let centre = part_center_for_anchor(cell, anchor, at, flip);
+        let centre = (
+            at.0 + scale * (centre.0 - at.0),
+            at.1 + scale * (centre.1 - at.1),
+        );
         let now = self.clock;
         self.wall_decals.spawn(
             Decal {
@@ -1809,6 +1881,7 @@ impl DeathPresenter {
                 y: centre.1,
                 flip,
                 kind: DecalKind::Wall,
+                scale,
                 born: now,
             },
             now,
@@ -2049,6 +2122,16 @@ impl DeathPresenter {
         }
     }
 
+    /// A spin in degrees per second from a manifest spin class, sign seeded.
+    fn class_spin(rng: &mut PresentationRng, class: SpinClass) -> f32 {
+        let spin = match class {
+            SpinClass::Fast => rng.range(720.0, 1080.0),
+            SpinClass::Slow => rng.range(180.0, 360.0),
+            SpinClass::None => 0.0,
+        };
+        if rng.coin() { spin } else { -spin }
+    }
+
     /// Explosive breakup (DEATH-D, spec section 4.2): every piece of the
     /// preset's table leaves the live pose radially from the impact point `I`
     /// (the charge centre); the goblin sprite is hidden by the adapter at
@@ -2088,19 +2171,19 @@ impl DeathPresenter {
                     let speed =
                         d.rng.range(160.0, 300.0) * if mass == Mass::Heavy { 0.7 } else { 1.0 };
                     let vel = (unit.0 * speed, unit.1 * speed + d.rng.range(60.0, 120.0));
-                    let spin = match spin_class {
-                        SpinClass::Fast => d.rng.range(720.0, 1080.0),
-                        SpinClass::Slow => d.rng.range(180.0, 360.0),
-                        SpinClass::None => 0.0,
-                    };
-                    let spin = if d.rng.coin() { spin } else { -spin };
+                    let spin = Self::class_spin(&mut d.rng, spin_class);
                     self.launch(d, id, None, start, vel, 0.0, spin, d.flip);
                 }
                 for &(id, n) in table.gibs {
+                    // The manifest's spin class drives the gib, as for a part.
+                    let gib_class = self
+                        .art
+                        .part_index(id)
+                        .map_or(SpinClass::Fast, |i| self.art.parts[i].spin);
                     for _ in 0..n {
                         let (sin, cos) = d.rng.range(20.0, 160.0).to_radians().sin_cos();
                         let speed = d.rng.range(140.0, 260.0);
-                        let spin = if d.rng.coin() { 720.0 } else { -720.0 };
+                        let spin = Self::class_spin(&mut d.rng, gib_class);
                         self.launch(
                             d,
                             id,
@@ -2116,8 +2199,11 @@ impl DeathPresenter {
                 for _ in 0..table.rags {
                     let (sin, cos) = d.rng.range(40.0, 140.0).to_radians().sin_cos();
                     let speed = d.rng.range(80.0, 160.0);
-                    let spin = d.rng.range(180.0, 360.0);
-                    let spin = if d.rng.coin() { spin } else { -spin };
+                    let rag_class = self
+                        .art
+                        .part_index("gib_rag")
+                        .map_or(SpinClass::Slow, |i| self.art.parts[i].spin);
+                    let spin = Self::class_spin(&mut d.rng, rag_class);
                     self.launch(
                         d,
                         "gib_rag",
@@ -2144,6 +2230,16 @@ impl DeathPresenter {
                 let y = d.ground_y + 14.0;
                 self.wall_spatter_variant("decal_wall_spatter", true, (ix - 12.0, y));
                 self.wall_spatter_variant("decal_wall_spatter_b", false, (ix + 12.0, y));
+                // Preset 4 punch-up: two more at the larger size, higher and
+                // wider, so the splash reads as one big mark.
+                if table.extra_wall_spatters >= 1 {
+                    let s = table.pool_scale;
+                    self.wall_spatter_scaled("decal_wall_spatter_b", true, (ix - 26.0, y + 8.0), s);
+                }
+                if table.extra_wall_spatters >= 2 {
+                    let s = table.pool_scale;
+                    self.wall_spatter_scaled("decal_wall_spatter", false, (ix + 26.0, y + 8.0), s);
+                }
             }
             _ => {}
         }
@@ -2294,6 +2390,9 @@ impl DeathPresenter {
                 mix(u64::from(d.y.to_bits()));
                 mix((slot as u64) << 8 | d.meta as u64 | u64::from(d.flip) << 40);
                 mix(d.pair_meta.map_or(0, |p| p as u64 + 1));
+                if d.scale != 1.0 {
+                    mix(u64::from(d.scale.to_bits()));
+                }
             }
         }
         for pose in self.poses() {
@@ -2342,6 +2441,7 @@ mod tests {
     use crate::combat_scene::{Fixture, FixtureSim};
     use crate::env_kit::EnvKit;
     use crate::gore::{PartClass, lowest_below_centre};
+    use crate::shore_art::ShoreSlot;
     use std::path::{Path, PathBuf};
 
     const LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
@@ -3903,7 +4003,27 @@ mod tests {
             p.parts()
                 .any(|(_, part)| p.art().parts[part.meta].id == "head")
         );
-        assert!(draw_z(DrawLayer::Debris, 0, 7.0, 3.0) > 7.0 - 1.0);
+        // Above every prop the shore draws (the props layer is actor_z - 1.0,
+        // the topmost shore piece is biased up by `ShoreSlot::Impact`).
+        let props_top = 7.0 - 1.0
+            + [
+                ShoreSlot::Cavity,
+                ShoreSlot::Post,
+                ShoreSlot::Block,
+                ShoreSlot::Trickle,
+                ShoreSlot::Impact,
+            ]
+            .into_iter()
+            .map(ShoreSlot::z_bias)
+            .fold(0.0, f32::max);
+        assert!(draw_z(DrawLayer::Debris, 0, 7.0, 3.0) > props_top);
+        // The head is the part drawn: on the debris layer, not a decal layer.
+        let head = p
+            .parts()
+            .find(|(_, part)| p.art().parts[part.meta].id == "head")
+            .unwrap()
+            .0;
+        assert!(draw_z(DrawLayer::Debris, head, 7.0, 3.0) > props_top);
     }
 
     // ---- the explosion tables ----
@@ -4050,7 +4170,7 @@ mod tests {
             p.step(&[], ob);
             assert_eq!(
                 p.live_wall_decals(),
-                if preset == GorePreset::Full { 2 } else { 0 },
+                if preset == GorePreset::Full { 4 } else { 0 },
                 "{preset:?}"
             );
             if preset == GorePreset::Full {
@@ -4559,8 +4679,151 @@ mod tests {
             assert_eq!(p.stats().peak_floor_decals, peak, "{preset:?}");
             assert_eq!(
                 p.stats().peak_wall_decals,
-                if preset == GorePreset::Full { 2 } else { 0 }
+                if preset == GorePreset::Full { 4 } else { 0 }
             );
         }
+    }
+
+    // ---- review fixes: shadow rule, punch-up, layers, spin class ----
+
+    #[test]
+    fn a_hidden_or_retired_goblin_has_no_body_and_so_no_shadow() {
+        for preset in GorePreset::ALL {
+            let mut p = presenter(preset);
+            let goblins = [
+                GoblinView {
+                    mode: GoblinMode::Airborne,
+                    ..goblin_at(484.0)
+                },
+                goblin_at(560.0),
+            ];
+            let charges = charge_484();
+            let ob = Observation {
+                charges: &charges,
+                ..obs(&goblins)
+            };
+            assert!(p.draws_goblin(0) && p.draws_goblin(1));
+            p.step(&[defeat(60, 0, BLAST_PB, ForceTier::Catastrophic)], ob);
+            // The exploded goblin loses its body (and so its sprite and its
+            // shadow) at presets 2 to 4; at preset 1 it keeps both.
+            assert_eq!(p.draws_goblin(0), preset == GorePreset::Off, "{preset:?}");
+            assert!(p.draws_goblin(1), "an untouched goblin keeps its body");
+            assert_eq!(p.hides(0), !p.draws_goblin(0));
+        }
+        // A retired corpse has no body either.
+        let mut p = presenter(GorePreset::Full);
+        p.retired.push(3);
+        assert!(!p.draws_goblin(3));
+    }
+
+    #[test]
+    fn only_preset_four_is_punched_up() {
+        for preset in GorePreset::ALL {
+            let t = explosion_table(preset);
+            if preset == GorePreset::Full {
+                assert_eq!(t.burst_scale, 1.5);
+                assert_eq!(t.pool_scale, 1.5);
+                assert_eq!(t.extra_wall_spatters, 2);
+                assert_eq!(t.flash_ticks, 3);
+            } else {
+                assert_eq!(
+                    (
+                        t.burst_scale,
+                        t.pool_scale,
+                        t.extra_wall_spatters,
+                        t.flash_ticks
+                    ),
+                    (1.0, 1.0, 0, 0),
+                    "{preset:?} is as before"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_preset_four_pools_and_extra_spatters_are_bigger_and_stay_on_the_floor() {
+        let mut p = run_blast(GorePreset::Full, 1);
+        let goblins = [goblin_at(484.0)];
+        let charges = charge_484();
+        let ob = Observation {
+            charges: &charges,
+            ..obs(&goblins)
+        };
+        for _ in 0..420 {
+            p.step(&[], ob);
+        }
+        let pools: Vec<_> = p
+            .floor_decals()
+            .filter(|(_, d)| p.art().parts[d.meta].id.starts_with("decal_pool"))
+            .collect();
+        assert_eq!(pools.len(), 2);
+        for (_, d) in pools {
+            assert_eq!(d.scale, 1.5);
+            // The scaled sprite's lowest opaque row is still on the floor.
+            let meta = &p.art().parts[d.meta];
+            let bbox = p.sheets().parts.bbox[meta.frame].unwrap();
+            let bottom = d.y - 1.5 * (bbox.bottom - p.art().part_cell.1 / 2) as f32;
+            assert!((bottom - 100.0).abs() < 1e-3, "bottom {bottom}");
+        }
+        // Four spatters, the two extra at the larger size.
+        let scales: Vec<f32> = p.wall_decals().map(|(_, d)| d.scale).collect();
+        assert_eq!(scales.len(), 4);
+        assert_eq!(scales.iter().filter(|s| **s == 1.5).count(), 2);
+        // The ordinary decals stay at 1.0, and so does every decal at preset 3.
+        assert!(p.floor_decals().any(|(_, d)| d.scale == 1.0));
+        let mut p3 = run_blast(GorePreset::Medium, 1);
+        for _ in 0..420 {
+            p3.step(&[], ob);
+        }
+        assert!(p3.floor_decals().all(|(_, d)| d.scale == 1.0));
+        assert!(p3.wall_decals().all(|(_, d)| d.scale == 1.0));
+        // Still inside the budget.
+        assert!(p.live_floor_decals() <= FLOOR_DECAL_POOL_CAPACITY);
+        assert!(p.live_wall_decals() <= WALL_DECAL_POOL_CAPACITY);
+    }
+
+    #[test]
+    fn the_burst_and_the_lit_charge_layers_sit_where_the_review_asked() {
+        let (actor_z, wall_z) = (7.0f32, 3.0f32);
+        let debris_top = draw_z(DrawLayer::Debris, PART_POOL_SLOTS, actor_z, wall_z);
+        let lowest_actor = actor_z - 0.01 - 0.001 * 64.0;
+        for slot in [0, 7] {
+            // The preset 4 burst is over every piece of debris, under every actor.
+            let front = draw_z(DrawLayer::BlastFront, slot, actor_z, wall_z);
+            assert!(front > debris_top && front < lowest_actor);
+            // The lit charge is over a standing goblin (+0.05, at most 64
+            // indices stepping down), under Carl (+0.1) and Donut-level actors
+            // keep their own z.
+            let lit = draw_z(DrawLayer::ChargeLit, slot, actor_z, wall_z);
+            assert!(lit > actor_z + 0.05, "over a standing goblin");
+            assert!(lit < actor_z + 0.1, "under Carl");
+        }
+    }
+
+    #[test]
+    fn explosion_gibs_spin_by_their_manifest_class() {
+        let p = run_blast(GorePreset::Full, 1);
+        let mut gibs = 0;
+        for (_, part) in p.parts() {
+            let meta = &p.art().parts[part.meta];
+            if meta.class != PartClass::Gib {
+                continue;
+            }
+            gibs += 1;
+            let spin = part.spin_dps.abs();
+            match meta.spin {
+                SpinClass::Fast => assert!((720.0..=1080.0).contains(&spin), "{}", meta.id),
+                SpinClass::Slow => assert!((180.0..=360.0).contains(&spin), "{}", meta.id),
+                SpinClass::None => assert_eq!(spin, 0.0),
+            }
+        }
+        assert_eq!(gibs, 10);
+        // A gib is not a fixed 720: the class gives a range.
+        let spins: std::collections::BTreeSet<u32> = p
+            .parts()
+            .filter(|(_, part)| p.art().parts[part.meta].class == PartClass::Gib)
+            .map(|(_, part)| part.spin_dps.abs().to_bits())
+            .collect();
+        assert!(spins.len() > 1);
     }
 }

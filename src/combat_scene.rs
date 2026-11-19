@@ -620,6 +620,14 @@ impl CombatState {
         let line = kit
             .walking_line_at(fixture.carl_x)
             .ok_or_else(|| format!("{}: no walking line under Carl", fixture.name))?;
+        for charge in fixture.charges {
+            if charge.tick == 0 {
+                return Err(format!(
+                    "{}: a charge on tick 0 never fires (ticks count from 1)",
+                    fixture.name
+                ));
+            }
+        }
         for spawn in fixture.enemies {
             if kit.walking_line_at(spawn.x) != Some(line) {
                 return Err(format!(
@@ -3678,18 +3686,87 @@ mod tests {
         assert_eq!(all[first.len() + 1..], first[..], "the same blast, again");
     }
 
+    /// A charge and nobody to hit: only the charge itself can move the hash.
+    static LONE_CHARGE: Fixture = Fixture {
+        name: "test_lone_charge",
+        summary: "test",
+        seed: 27,
+        carl_x: 400,
+        enemies: &[],
+        shore_dx: None,
+        charges: &[ChargeSpawn {
+            dx: 120,
+            tick: 30,
+            owner: None,
+        }],
+        script: &[],
+        ticks: 60,
+    };
+
+    static LONE_CHARGE_OWNED: Fixture = Fixture {
+        name: "test_lone_charge_owned",
+        summary: "test",
+        seed: 27,
+        carl_x: 400,
+        enemies: &[],
+        shore_dx: None,
+        charges: &[ChargeSpawn {
+            dx: 120,
+            tick: 30,
+            owner: Some(0),
+        }],
+        script: &[],
+        ticks: 60,
+    };
+
     #[test]
-    fn the_charge_state_is_hashed_only_when_a_fixture_has_charges() {
-        // A fixture without charges mixes nothing for them (older hashes hold,
-        // pinned by `fixtures_match_the_committed_expected_hashes`); with one,
-        // the detonation changes the hash.
-        let mut sim = sim_of(&QA_BLAST_BREAKUP);
-        sim.run_scripted(59);
-        let before = sim.state_hash();
-        sim.run_scripted(1);
-        assert_ne!(sim.state_hash(), before);
-        let plain = sim_of(&CP03_SHORE_KILL);
-        assert!(plain.combat.charges.is_empty());
+    fn the_charge_state_is_mixed_into_the_hash_and_only_for_fixtures_with_charges() {
+        // With nobody to kill, the charge is the only thing that differs.
+        let mut a = sim_of(&LONE_CHARGE);
+        a.run_scripted(10);
+        let with_charge = a.state_hash();
+        // Taking the charge away changes the hash: it is mixed.
+        let mut b = a.clone();
+        b.combat.charges.clear();
+        assert_ne!(b.state_hash(), with_charge);
+        // Its owner and its detonated flag are part of the mix.
+        let mut owned = sim_of(&LONE_CHARGE_OWNED);
+        owned.run_scripted(10);
+        assert_ne!(owned.state_hash(), with_charge, "the owner is mixed");
+        a.run_scripted(30);
+        let fired = a.state_hash();
+        let mut rearmed = a.clone();
+        rearmed.combat.charges[0].detonated = false;
+        assert_ne!(rearmed.state_hash(), fired, "the detonated flag is mixed");
+        assert!(a.combat.charges[0].detonated);
+        // A fixture without charges mixes nothing for them: clearing the
+        // (empty) list leaves the hash alone, and the committed hashes pin it.
+        let mut plain = sim_of(&CP03_SHORE_KILL);
+        plain.run_scripted(50);
+        let before = plain.state_hash();
+        plain.combat.charges.clear();
+        assert_eq!(plain.state_hash(), before);
+    }
+
+    #[test]
+    fn a_charge_on_tick_zero_is_refused_when_the_fixture_loads() {
+        static ZERO: Fixture = Fixture {
+            name: "test_zero_charge",
+            summary: "test",
+            seed: 29,
+            carl_x: 400,
+            enemies: &[],
+            shore_dx: None,
+            charges: &[ChargeSpawn {
+                dx: 10,
+                tick: 0,
+                owner: None,
+            }],
+            script: &[],
+            ticks: 10,
+        };
+        let err = FixtureSim::new(&kit(), 360, &ZERO).unwrap_err();
+        assert!(err.contains("tick 0"), "{err}");
     }
 
     #[test]

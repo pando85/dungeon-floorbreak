@@ -62,10 +62,12 @@ impl BlastCharge {
         (self.x, self.foot_y + BLAST_CENTRE_DY)
     }
 
-    /// Detonate on `tick`: true exactly once, on the charge's tick (never
-    /// before it, never again).
+    /// Detonate on `tick`: true exactly once, on exactly the charge's tick
+    /// (never before it, never again). Attempt-local ticks count 1, 2, 3 and
+    /// are never skipped, so the tick always comes; a charge with tick 0 would
+    /// never fire and is rejected when a fixture loads.
     pub fn detonate(&mut self, tick: u64) -> bool {
-        if self.detonated || tick < self.detonate_tick {
+        if self.detonated || tick != self.detonate_tick {
             return false;
         }
         self.detonated = true;
@@ -126,6 +128,13 @@ mod tests {
         for tick in 60..200 {
             assert!(!c.detonate(tick), "never again (tick {tick})");
         }
+        // Exact: a charge whose tick was never offered never fires late.
+        let mut late = charge();
+        assert!(!late.detonate(61));
+        assert!(!late.detonated);
+        // A tick-0 charge never fires (ticks count from 1).
+        let mut zero = BlastCharge::new(500.0, 100.0, 0, None);
+        assert!((1..100).all(|t| !zero.detonate(t)));
     }
 
     #[test]
