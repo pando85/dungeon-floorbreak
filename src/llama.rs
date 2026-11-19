@@ -25,19 +25,21 @@
 
 use crate::combat::{EnemyAi, HitOutcome, MoveSpec, StrikeTarget, solid_at};
 use crate::feel::{
-    GROUND_FRICTION, LETHAL_HIT_STOP_BONUS, LLAMA_ATTACK_TICKS, LLAMA_COOLDOWN, LLAMA_DOWN_TICKS,
-    LLAMA_FIRE_RANGE, LLAMA_GLOB_HALF_H, LLAMA_GLOB_HALF_W, LLAMA_GLOB_MOUTH_DX,
-    LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_RANGE, LLAMA_GLOB_SPEED, LLAMA_HEALTH, LLAMA_HURT_COOLDOWN,
-    LLAMA_HURT_TICKS, LLAMA_KICK_PUSH_VX, LLAMA_LEASH, LLAMA_STAND_OFF, LLAMA_TELL_TICKS,
-    LLAMA_WALK_SPEED,
+    GROUND_FRICTION, LETHAL_HIT_STOP_BONUS, LLAMA_ATTACK_TICKS, LLAMA_COOLDOWN,
+    LLAMA_DEATH_SLIDE_VX, LLAMA_DOWN_TICKS, LLAMA_FIRE_RANGE, LLAMA_GLOB_HALF_H, LLAMA_GLOB_HALF_W,
+    LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_RANGE, LLAMA_GLOB_SPEED, LLAMA_HEALTH,
+    LLAMA_HURT_COOLDOWN, LLAMA_HURT_TICKS, LLAMA_KICK_PUSH_VX, LLAMA_LEASH, LLAMA_STAND_OFF,
+    LLAMA_TELL_TICKS, LLAMA_WALK_SPEED,
 };
 use crate::prototype::{Block, Rect, TICK_SECONDS};
 
 /// The llama's body box: the LLAMA-01 standing box (46 x 39, barrel and legs;
-/// neck and head excluded so the llama does not body-block with its face),
-/// centred on the pivot column.
+/// neck and head excluded so the llama does not body-block with its face).
+/// The art's box (frame x 18 to 63) sits 3 px behind the pivot column, so the
+/// box is centred 3 px behind `x` (away from the way it faces).
 pub const LLAMA_HALF_WIDTH: f32 = 23.0;
 pub const LLAMA_HALF_HEIGHT: f32 = 19.5;
+pub const LLAMA_BODY_BACK_SHIFT: f32 = 3.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LlamaMode {
@@ -123,7 +125,7 @@ impl Llama {
 
     /// The 46 x 39 standing box.
     pub fn body(&self) -> Rect {
-        llama_rect(self.x, self.y)
+        llama_rect(self.x, self.y, self.facing)
     }
 
     /// In the tell: a hit cancels the spit.
@@ -212,7 +214,7 @@ impl Llama {
         if dx.abs() > LLAMA_STAND_OFF {
             let candidate = self.x + f32::from(toward) * LLAMA_WALK_SPEED * TICK_SECONDS;
             if (candidate - self.home_x).abs() <= LLAMA_LEASH
-                && !solid_at(solids, llama_rect(candidate, self.y))
+                && !solid_at(solids, llama_rect(candidate, self.y, self.facing))
             {
                 self.x = candidate;
             }
@@ -228,7 +230,7 @@ impl Llama {
         }
         let wanted = self.x + self.vx * TICK_SECONDS;
         let candidate = wanted.clamp(LLAMA_HALF_WIDTH, max_x);
-        let blocked = solid_at(solids, llama_rect(candidate, self.y));
+        let blocked = solid_at(solids, llama_rect(candidate, self.y, self.facing));
         if !blocked {
             self.x = candidate;
         }
@@ -285,9 +287,9 @@ impl Llama {
     }
 }
 
-fn llama_rect(x: f32, y: f32) -> Rect {
+fn llama_rect(x: f32, y: f32, facing: i8) -> Rect {
     Rect {
-        left: x - LLAMA_HALF_WIDTH,
+        left: x - LLAMA_HALF_WIDTH - LLAMA_BODY_BACK_SHIFT * f32::from(facing),
         bottom: y - LLAMA_HALF_HEIGHT,
         width: LLAMA_HALF_WIDTH * 2.0,
         height: LLAMA_HALF_HEIGHT * 2.0,
@@ -311,9 +313,11 @@ impl StrikeTarget for Llama {
         (self.x, self.y)
     }
 
-    /// Damage, then the reaction: the killing hit leaves it lying where it
-    /// stands (the death art is the presenter's business); any other hit
-    /// staggers it and cancels a tell, and the push kick also pushes it back.
+    /// Damage, then the reaction: the killing hit slides the body briefly
+    /// away from the attacker ([`LLAMA_DEATH_SLIDE_VX`], about 30 px, so the
+    /// head of the death pose does not lie under Carl's feet; the death art is
+    /// the presenter's business); any other hit staggers it and cancels a tell,
+    /// and the push kick also pushes it back.
     fn take_hit(&mut self, spec: &MoveSpec, attacker_facing: i8) -> (HitOutcome, u8) {
         let reaction = spec.reaction;
         let direction = f32::from(attacker_facing);
@@ -324,7 +328,7 @@ impl StrikeTarget for Llama {
             self.attack_tick = 0;
             self.stagger_left = 0;
             self.down_ticks = 0;
-            self.vx = 0.0;
+            self.vx = direction * LLAMA_DEATH_SLIDE_VX;
             stop += LETHAL_HIT_STOP_BONUS;
             HitOutcome::Defeated
         } else {
@@ -589,7 +593,12 @@ mod tests {
         }
         // The wall's right face is at 580: the body (23 px half width) stops
         // just right of it and never enters it.
-        assert!(l.x >= 580.0 + LLAMA_HALF_WIDTH, "x {}", l.x);
+        // (Facing left, the box is centred 3 px right of x.)
+        assert!(
+            l.x >= 580.0 + LLAMA_HALF_WIDTH - LLAMA_BODY_BACK_SHIFT,
+            "x {}",
+            l.x
+        );
         assert!(l.x < 640.0, "it walked toward Carl until the wall");
     }
 
@@ -604,16 +613,22 @@ mod tests {
         assert_eq!(outcome, HitOutcome::Hurt { health_left: 2 });
         assert_eq!(stop, CARL_JAB.reaction.hit_stop);
         assert_eq!(l.mode, LlamaMode::Hurt);
-        let mut spat = false;
-        for _ in 0..120 {
-            spat |= tick(&mut l, 100.0).spit.is_some();
+        // The cancelled tell never spits: for the stagger, the pause and the
+        // next full tell there is no glob.
+        let mut first_spit = None;
+        for t in 1..=200u32 {
+            if tick(&mut l, 100.0).spit.is_some() && first_spit.is_none() {
+                first_spit = Some(t);
+            }
         }
-        // The cooldown after the stagger lets it tell again, but the cancelled
-        // tell never spat: the first glob can only come a full tell later.
+        let earliest = u32::from(LLAMA_HURT_TICKS)
+            + u32::from(LLAMA_HURT_COOLDOWN)
+            + u32::from(LLAMA_TELL_TICKS);
         assert!(
-            l.attack_tick > 0 || l.cooldown > 0 || spat,
-            "it recovers and goes around again"
+            first_spit.is_none_or(|t| t >= earliest),
+            "first glob at {first_spit:?}, not before {earliest}"
         );
+        assert!(first_spit.is_some(), "it goes around again");
     }
 
     #[test]
@@ -643,13 +658,16 @@ mod tests {
             let (outcome, stop) = last.unwrap();
             assert_eq!(outcome, HitOutcome::Defeated);
             assert_eq!(stop, spec.reaction.hit_stop + LETHAL_HIT_STOP_BONUS);
-            assert_eq!((l.mode, l.x, l.vx), (LlamaMode::Down, 300.0, 0.0));
+            assert_eq!((l.mode, l.x), (LlamaMode::Down, 300.0));
             assert!(!l.alive() && !l.can_be_hit() && !l.hurtbox_active());
+            // The body slides about 30 px away from the attacker (facing +1
+            // pushes it right) and then lies; a corpse stays put.
             for _ in 0..(u32::from(LLAMA_DOWN_TICKS) + 20) {
                 tick(&mut l, 100.0);
             }
             assert_eq!(l.mode, LlamaMode::Corpse);
-            assert_eq!(l.x, 300.0);
+            assert!((326.0..=336.0).contains(&l.x), "slid to {}", l.x);
+            assert_eq!(l.vx, 0.0);
         }
     }
 
@@ -710,6 +728,16 @@ mod tests {
             assert!(!passive.step(100.0, true, &[], EDGE, VIEW).started_tell);
             assert!(!chase.step(100.0, false, &[], EDGE, VIEW).started_tell);
         }
+    }
+
+    #[test]
+    fn the_body_box_sits_three_pixels_behind_the_pivot() {
+        let mut l = llama_at(300.0);
+        l.facing = 1;
+        assert_eq!(l.body().left, 300.0 - 23.0 - 3.0);
+        l.facing = -1;
+        assert_eq!(l.body().left, 300.0 - 23.0 + 3.0);
+        assert_eq!(l.body().width, 46.0);
     }
 
     #[test]

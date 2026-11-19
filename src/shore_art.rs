@@ -220,6 +220,17 @@ impl ShoreArt {
         }
     }
 
+    /// One frame of the block impact dust `age` ticks after it began (anchor on
+    /// the floor under `at`), or `None` once its four frames have played. Used
+    /// for the slam of a llama (LLAMA-02 spec section 8: impact dust at the
+    /// `hit_origin`).
+    pub fn impact_dust_draw(&self, age: u64, at: (f32, f32)) -> Option<ShoreDraw> {
+        let frames = self.pieces["block_impact_dust"].frames.len() as u64;
+        let frame = age / DUST_TICKS_PER_FRAME;
+        (frame < frames)
+            .then(|| self.draw(ShoreSlot::Impact, "block_impact_dust", frame as usize, at))
+    }
+
     /// The sprites to draw for `shore`. `landed_age` is the number of ticks
     /// since the block landed (`None` before). Pure: a function of the
     /// simulated shore state.

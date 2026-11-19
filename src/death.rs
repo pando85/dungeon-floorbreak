@@ -237,7 +237,7 @@ mod tests {
         let profiles = DeathProfiles::builtin();
         assert_eq!(profiles.schema_version, SCHEMA_VERSION);
         let ids: Vec<&str> = profiles.species.iter().map(|s| s.id.as_str()).collect();
-        assert_eq!(ids, ["goblin", "skeleton_mock", "slime_mock", "llama"]);
+        assert_eq!(ids, ["goblin", "llama", "skeleton_mock", "slime_mock"]);
         assert!(
             profiles
                 .species

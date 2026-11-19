@@ -925,6 +925,35 @@ enum DeathPiece {
 #[derive(Component, Clone, Copy)]
 struct ShorePiece(ShoreSlot);
 
+/// One pooled impact-dust sprite of a llama slam (the ENV-02 block impact dust).
+#[derive(Component, Clone, Copy)]
+struct DustSprite {
+    slot: usize,
+}
+
+/// Dust sprites per run: slams that overlap in time (four frames of 5 ticks).
+const DUST_SLOTS: usize = 4;
+
+/// The render layers the landed block switches between: `prop` normally, and
+/// `actors` while a crushed enemy's contact frames say `hazard_draw: "over"`
+/// (the prop slot is composed below the actors slot, so a z above the llama is
+/// not enough: the stone has to join the actors layer).
+#[derive(Resource)]
+struct ShoreLayers {
+    prop: RenderLayers,
+    actors: RenderLayers,
+}
+
+/// The render layers of the falling block: the actors layer while the stone is
+/// drawn over a crushed enemy, else the prop layer.
+fn block_layers<'a>(
+    over: bool,
+    prop: &'a RenderLayers,
+    actors: &'a RenderLayers,
+) -> &'a RenderLayers {
+    if over { actors } else { prop }
+}
+
 /// The loaded ENV-02 images, in the order of `ShoreArt::images`.
 #[derive(Resource)]
 struct ShoreImages(Vec<Handle<Image>>);
@@ -1122,6 +1151,7 @@ fn run_window(
             sync_visuals,
             sync_combat_visuals,
             sync_llama_visuals,
+            sync_dust_visuals,
             sync_shore_visuals,
             sync_death_visuals,
             update_lighting,
@@ -1463,10 +1493,11 @@ fn setup(
 
     // DEATH-C: the ENV-02 shore, block and impact dust of a fixture with a
     // shore (presentation only, non-collidable, driven by the simulated state).
-    if let (Some(shore_art), Some(_)) = (
-        actors.shore.as_ref(),
-        combat.0.as_ref().and_then(|c| c.shore.as_ref()),
-    ) {
+    // The slam of a llama reuses the same impact dust, so a fixture with
+    // llamas loads the shore images too.
+    let has_shore = combat.0.as_ref().is_some_and(|c| c.shore.is_some());
+    let has_llamas = combat.0.as_ref().is_some_and(|c| !c.llamas.is_empty());
+    if let (Some(shore_art), true) = (actors.shore.as_ref(), has_shore || has_llamas) {
         let images: Vec<Handle<Image>> = shore_art
             .images
             .iter()
@@ -1476,7 +1507,7 @@ fn setup(
                 handle
             })
             .collect();
-        for slot in ShoreSlot::ALL {
+        for slot in ShoreSlot::ALL.into_iter().filter(|_| has_shore) {
             let layer = if slot == ShoreSlot::Cavity {
                 layers_of("backwall_decal")
             } else {
@@ -1494,6 +1525,28 @@ fn setup(
                 layer,
             ));
             combat_entities += 1;
+        }
+        // The block is drawn on the actors layer (over a crushed llama) or on
+        // the prop layer: both render layers are kept to switch between.
+        commands.insert_resource(ShoreLayers {
+            prop: layers_of("prop"),
+            actors: layers_of("actors"),
+        });
+        if has_llamas {
+            for slot in 0..DUST_SLOTS {
+                commands.spawn((
+                    DustSprite { slot },
+                    Sprite {
+                        image: images[0].clone(),
+                        rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                        ..default()
+                    },
+                    Transform::from_xyz(0.0, 0.0, kit.actor_z - 1.0),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            }
         }
         commands.insert_resource(ShoreImages(images));
     }
@@ -2370,9 +2423,50 @@ fn sync_llama_visuals(
     }
 }
 
+/// The impact dust of a llama slam, at the floor under the slam's `hit_origin`
+/// (the ENV-02 block impact dust, four frames). Reads the presenter only.
+fn sync_dust_visuals(
+    death: Res<Death>,
+    actors: Res<Actors>,
+    setup: Res<Setup>,
+    images: Option<Res<ShoreImages>>,
+    mut dust: Query<(&DustSprite, &mut Transform, &mut Sprite, &mut Visibility)>,
+) {
+    let (Some(presenter), Some(art), Some(images)) =
+        (death.0.as_ref(), actors.shore.as_ref(), images)
+    else {
+        return;
+    };
+    let list = presenter.impact_dusts();
+    for (sprite_slot, mut transform, mut sprite, mut visibility) in &mut dust {
+        let draw = list
+            .get(sprite_slot.slot)
+            .and_then(|d| art.impact_dust_draw(d.age, (d.x, d.ground_y)));
+        match draw {
+            Some(draw) => {
+                transform.translation = Vec3::new(
+                    draw.centre.0,
+                    draw.centre.1,
+                    setup.kit.actor_z + HAZARD_OVER_Z_OFFSET,
+                );
+                sprite.image = images.0[draw.image].clone();
+                sprite.rect = Some(Rect::new(
+                    draw.rect[0] as f32,
+                    draw.rect[1] as f32,
+                    (draw.rect[0] + draw.rect[2]) as f32,
+                    (draw.rect[1] + draw.rect[3]) as f32,
+                ));
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
 /// DEATH-C: the ENV-02 shore and block as the simulation has them (hits, block
 /// state, block height, landing). Reads the simulation only.
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 fn sync_shore_visuals(
     combat: Res<Combat>,
     death: Res<Death>,
@@ -2380,7 +2474,14 @@ fn sync_shore_visuals(
     actors: Res<Actors>,
     setup: Res<Setup>,
     images: Option<Res<ShoreImages>>,
-    mut pieces: Query<(&ShorePiece, &mut Transform, &mut Sprite, &mut Visibility)>,
+    layers: Option<Res<ShoreLayers>>,
+    mut pieces: Query<(
+        &ShorePiece,
+        &mut Transform,
+        &mut Sprite,
+        &mut Visibility,
+        &mut RenderLayers,
+    )>,
 ) {
     let (Some(state), Some(art), Some(images)) = (combat.0.as_ref(), actors.shore.as_ref(), images)
     else {
@@ -2403,7 +2504,15 @@ fn sync_shore_visuals(
         .iter()
         .find(|p| p.layer == "backwall_decal")
         .map_or(3.0, |p| p.z.floor());
-    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+    for (piece, mut transform, mut sprite, mut visibility, mut render_layers) in &mut pieces {
+        if piece.0 == ShoreSlot::Block
+            && let Some(layers) = layers.as_ref()
+        {
+            let want = block_layers(over.is_some(), &layers.prop, &layers.actors);
+            if *render_layers != *want {
+                *render_layers = want.clone();
+            }
+        }
         match list.iter().find(|d| d.slot == piece.0) {
             Some(draw) => {
                 let z = if draw.slot == ShoreSlot::Cavity {
@@ -3236,6 +3345,26 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// LLAMA-02 gate ruling 13.1, the blocker of the PR B review: the stone is
+    /// drawn over the crushed llama only if it is on the actors render layer
+    /// (the prop slot is composed below the actors slot, so a higher z alone
+    /// would leave the llama in front). Over: the actors layer; otherwise the
+    /// prop layer. Also the z order inside the actors layer: above every
+    /// lying body, below Donut (0) and Carl.
+    #[test]
+    fn the_block_joins_the_actors_layer_while_it_is_drawn_over_a_crushed_enemy() {
+        let (prop, actors) = (RenderLayers::layer(3), RenderLayers::layer(4));
+        assert_eq!(block_layers(true, &prop, &actors), &actors);
+        assert_eq!(block_layers(false, &prop, &actors), &prop);
+        assert_ne!(prop, actors);
+        // Lying bodies sit at GOBLIN_LYING_Z_OFFSET minus a step per target; the
+        // block above all of them (even 64 targets) and below Donut and Carl.
+        const {
+            assert!(HAZARD_OVER_Z_OFFSET > GOBLIN_LYING_Z_OFFSET);
+            assert!(HAZARD_OVER_Z_OFFSET < 0.0 && HAZARD_OVER_Z_OFFSET < CARL_Z_OFFSET);
+        }
+    }
 
     fn args(list: &[&str]) -> Result<Args, String> {
         let mut full = vec!["floor01_scene".to_owned()];

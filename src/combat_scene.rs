@@ -1108,6 +1108,20 @@ impl CombatState {
             }
             if let Some(mut glob) = step.spit {
                 glob.owner = index as u32;
+                // Point blank: when Carl stands between the llama and its mouth
+                // the glob would spawn behind him and never hit. The segment
+                // from the llama's centre to the mouth is tested against his
+                // body; on a hit the glob starts on his near face.
+                let hero = &scene.world.hero;
+                let near = hero.x - f32::from(glob.dir) * HERO_HALF_WIDTH;
+                let llama_x = self.llamas[index].x;
+                let (lo, hi) = (llama_x.min(glob.x), llama_x.max(glob.x));
+                let reaches = hero.x + HERO_HALF_WIDTH > lo && hero.x - HERO_HALF_WIDTH < hi;
+                let low = hero.y - HERO_HALF_HEIGHT;
+                let high = hero.y + HERO_HALF_HEIGHT;
+                if reaches && (low..high).contains(&glob.y) {
+                    glob.x = near;
+                }
                 self.globs.push(glob);
                 self.log(CombatEvent::LlamaSpit {
                     tick,
@@ -1119,8 +1133,9 @@ impl CombatState {
 
     /// The spit globs in flight (oldest first): each flies straight, stops on a
     /// solid or at its range, and hurts Carl once through the ordinary hurt
-    /// path when it overlaps him while he is not invulnerable (a glob that
-    /// meets his invulnerability flies on). A jump clears it.
+    /// path when it overlaps him while he is not invulnerable. A glob that
+    /// meets his invulnerability **splats** on him (it is gone, no damage, no
+    /// event; owner decision 2026-11-19). A jump clears it.
     fn step_globs(&mut self, scene: &mut SceneSim, tick: u64) {
         let mut index = 0;
         while index < self.globs.len() {
@@ -1135,12 +1150,13 @@ impl CombatState {
                     width: HERO_HALF_WIDTH * 2.0,
                     height: HERO_HALF_HEIGHT * 2.0,
                 };
-                if !self.hero_defeated && hero.invulnerable_ticks == 0 && glob.rect().overlaps(body)
-                {
-                    let owner = glob.owner as usize;
-                    let source_x = self.llamas.get(owner).map_or(glob.x, |l| l.x);
-                    let source = (self.enemies.len() + owner) as u32;
-                    self.hurt_hero(scene, source, source_x, tick);
+                if !self.hero_defeated && glob.rect().overlaps(body) {
+                    if hero.invulnerable_ticks == 0 {
+                        let owner = glob.owner as usize;
+                        let source_x = self.llamas.get(owner).map_or(glob.x, |l| l.x);
+                        let source = (self.enemies.len() + owner) as u32;
+                        self.hurt_hero(scene, source, source_x, tick);
+                    }
                     done = true;
                 }
             }
@@ -1679,8 +1695,8 @@ mod tests {
         ("cp03_kick_block", 0x73e4_0916_1ce5_434f),
         ("cp03_goblin_pileup", 0x6a82_811d_8f31_c475),
         // DEMO-01 PR B: the Bad Llama fixtures (new; nothing above changed).
-        ("cp05_llama_slam", 0x611c_0e44_dbce_f788),
-        ("cp05_llama_down", 0x502b_e52b_0c0c_e4a4),
+        ("cp05_llama_slam", 0x73e1_5034_a522_2827),
+        ("cp05_llama_down", 0x0229_7301_d16b_2b03),
         ("cp05_llama_spit", 0x5984_ba11_b72b_53dc),
         ("cp05_llama_offscreen", 0x9e65_7acd_442f_059b),
         ("cp05_llama_crush", 0xe151_c497_b2dd_7506),
@@ -3774,6 +3790,41 @@ mod tests {
             "the window is contiguous: {cleared:?}"
         );
         assert!(hurt_when(Some(200)), "a jump after the glob does not");
+    }
+
+    #[test]
+    fn a_glob_splats_on_an_invulnerable_carl_without_damage_or_an_event() {
+        let mut sim = sim_of(&CP05_LLAMA_SPIT);
+        // The glob leaves on tick 37 and would reach Carl on 76.
+        sim.run_scripted(60);
+        assert_eq!(sim.combat.globs.len(), 1);
+        sim.scene.world.hero.invulnerable_ticks = 55;
+        sim.run_scripted(40);
+        assert!(sim.combat.globs.is_empty(), "the glob splatted on him");
+        assert!(hurts(&events_of(&sim)).is_empty(), "no hurt event");
+        assert_eq!(sim.scene.world.hero.health, HERO_HEALTH, "no damage");
+    }
+
+    #[test]
+    fn a_glob_spawning_behind_a_close_carl_still_hits_him() {
+        // Carl 20 px in front of the llama: its mouth (46 px ahead) is behind
+        // him, so the glob starts on his near face and hits on the spit tick.
+        static POINT_BLANK: Fixture = Fixture {
+            name: "test_llama_point_blank",
+            summary: "test",
+            seed: 27,
+            carl_x: 420,
+            enemies: &[],
+            shore_dx: None,
+            llamas: &[LlamaSpawn {
+                x: 440,
+                ai: EnemyAi::Chase,
+            }],
+            script: &[],
+            ticks: 60,
+        };
+        let (_, events) = llama_events(&POINT_BLANK);
+        assert_eq!(hurts(&events), [37], "hit on the tick the glob leaves");
     }
 
     #[test]

@@ -517,6 +517,15 @@ pub struct LlamaView {
     pub mode: LlamaMode,
 }
 
+/// The impact dust of a llama slam (LLAMA-02 spec section 8, tick S): where it
+/// is on the floor and how many ticks it has played.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DustView {
+    pub x: f32,
+    pub ground_y: f32,
+    pub age: u64,
+}
+
 /// The pose a dead goblin is drawn with instead of its GOB-01 sprite.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PoseView {
@@ -926,6 +935,24 @@ impl DeathPresenter {
         self.poses().find_map(|p| p.hazard_anchor)
     }
 
+    /// The impact dusts of the slams in progress (at most 20 ticks old: four
+    /// frames of 5 ticks), at the floor under each slam's `hit_origin`.
+    /// Presentation only.
+    pub fn impact_dusts(&self) -> Vec<DustView> {
+        self.deaths
+            .iter()
+            .filter(|d| d.finish == Finish::Slammed && d.target != SYNTHETIC_TARGET)
+            .filter_map(|d| {
+                let age = self.clock.saturating_sub(d.start);
+                (age < 20).then(|| DustView {
+                    x: self.pose_point(d, 6, "hit_origin").0,
+                    ground_y: d.ground_y,
+                    age,
+                })
+            })
+            .collect()
+    }
+
     /// Opacity of a corpse: 1, fading to 0 once it retires.
     fn death_alpha(&self, d: &Death) -> f32 {
         match d.retire_since {
@@ -1190,6 +1217,19 @@ impl DeathPresenter {
             finish = lab;
         }
         let flip = facing < 0;
+        let mut x = x;
+        // A crushed llama's pose is drawn with its mirrored `hit_origin` under
+        // the block's centre (`hazard_draw: "over"`): the stone never moves
+        // sideways on a partial overlap, the llama's drawn pose does (render
+        // only, the simulated body does not move).
+        if variant == LLAMA_VARIANT
+            && let (DefeatCause::ShoreBlock { .. }, Some(block)) = (cause, obs.block_x)
+            && let Some(art) = self.llama.as_ref().map(|l| &l.art)
+            && let Some((hx, _)) = art.pose(0).anchor("hit_origin")
+        {
+            let dx = hx as f32 + 0.5 - art.pose_pivot.0 as f32;
+            x = if flip { block + dx } else { block - dx };
+        }
         let from_x = match (cause, obs.block_x) {
             (DefeatCause::ShoreBlock { .. }, Some(block)) => block,
             _ => obs.hero_x,
@@ -1748,6 +1788,13 @@ impl DeathPresenter {
     fn step_deaths(&mut self, obs: &Observation<'_>) {
         for i in 0..self.deaths.len() {
             let mut death = self.deaths[i].clone();
+            // A slammed llama slides clear of its attacker for a few ticks (the
+            // simulated body moves); its pose follows the body.
+            if death.finish == Finish::Slammed
+                && let Some(x) = Self::lying_x(obs, death.target)
+            {
+                death.foot_x = x;
+            }
             let age = self.clock.saturating_sub(death.start);
             if self.clock >= death.start {
                 match death.finish {
@@ -3833,11 +3880,11 @@ mod tests {
                 &[defeat(139, 0, BLOCK, ForceTier::Catastrophic)],
                 lobs(&[], &llamas),
             );
-            let x = |dx: f32| if flip { 484.0 + dx } else { 484.0 - dx };
             // Frame 0: the block's anchor on the (mirrored) hit_origin (42, 52):
-            // pivot column 44, pivot row 71, pixel centres.
+            // pivot column 44, pivot row 71, pixel centres. The pose is placed
+            // so that this point is the block's centre column (484).
             let (ax, ay) = p.hazard_over_anchor().expect("over on frame 0");
-            assert_eq!((ax, ay), (x(1.5), 100.0 + 19.5), "flip {flip}");
+            assert_eq!((ax, ay), (484.0, 100.0 + 19.5), "flip {flip}");
             assert_eq!(p.pose_of(0).unwrap().frame, 0);
             for _ in 1..3 {
                 p.step(&[], lobs(&[], &llamas));
@@ -3865,6 +3912,59 @@ mod tests {
             lobs(&goblins, &[]),
         );
         assert!(g.hazard_over_anchor().is_none());
+    }
+
+    #[test]
+    fn a_partly_overlapping_llama_is_drawn_under_the_stone_so_the_stone_never_moves() {
+        // The llama stands 20 px off the block's centre (partial overlap): the
+        // stone's anchor is the block centre on every contact frame (no
+        // sideways jump and no snap back), and the pose is shifted to it.
+        for (x, flip) in [(504.0, false), (464.0, true), (504.0, true)] {
+            let mut p = llama_presenter(GorePreset::Full);
+            let mut llama = llama_at(x);
+            llama.facing = if flip { -1 } else { 1 };
+            let llamas = [llama];
+            p.step(
+                &[defeat(139, 0, BLOCK, ForceTier::Catastrophic)],
+                lobs(&[], &llamas),
+            );
+            for age in 0..6 {
+                let (ax, _) = p.hazard_over_anchor().expect("over");
+                assert_eq!(ax, 484.0, "age {age} at x {x} flip {flip}");
+                p.step(&[], lobs(&[], &llamas));
+            }
+            assert!(p.hazard_over_anchor().is_none());
+        }
+    }
+
+    #[test]
+    fn the_slam_pose_follows_the_sliding_body_and_leaves_impact_dust() {
+        let mut p = llama_presenter(GorePreset::Full);
+        let mut llamas = [llama_at(484.0)];
+        p.step(
+            &[defeat(10, 0, DefeatCause::Melee, ForceTier::Heavy)],
+            lobs(&[], &llamas),
+        );
+        assert_eq!(p.pose_of(0).unwrap().foot_x, 484.0);
+        // The body slides 30 px; the pose and the dust follow it.
+        llamas[0].x = 514.0;
+        p.step(&[], lobs(&[], &llamas));
+        assert_eq!(p.pose_of(0).unwrap().foot_x, 514.0);
+        let dust = p.impact_dusts();
+        assert_eq!(dust.len(), 1);
+        assert_eq!((dust[0].ground_y, dust[0].age), (100.0, 1));
+        // hit_origin (42, 68) of pose 6: 1.5 px behind the pivot column when
+        // the llama faces left (mirrored).
+        assert_eq!(dust[0].x, 514.0 + 1.5);
+        // The dust ends after four frames of five ticks; the pose stays.
+        for _ in 0..25 {
+            p.step(&[], lobs(&[], &llamas));
+        }
+        assert!(p.impact_dusts().is_empty());
+        assert_eq!(p.pose_of(0).unwrap().frame, 7);
+        // A routine kill and a crush leave no slam dust.
+        let down = llama_death(GorePreset::Full, DefeatCause::Melee, ForceTier::Routine, 3);
+        assert!(down.impact_dusts().is_empty());
     }
 
     #[test]

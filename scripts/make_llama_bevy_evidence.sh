@@ -11,7 +11,7 @@
 # development machines): no game-feel claim, no frame-time claim.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-bin=./target/debug/floor01_scene
+bin="${LLAMA_BIN:-./target/debug/floor01_scene}"
 tmp=artifacts/llama-bevy
 dest=docs/evidence/llama-bevy
 rm -rf "$tmp"
@@ -53,6 +53,21 @@ still down_p1 100 still_down_p1_tick100_1920x1080.png
 still crush_p4 139 still_crush_p4_stone_over_llama_tick139_1920x1080.png
 still crush_p4 142 still_crush_p4_flatten_tick142_1920x1080.png
 still crush_p4 150 still_crush_p4_remains_tick150_1920x1080.png
+
+# Native 640x360 captures (--scale 1, the virtual resolution itself).
+cap1x() {
+  local name="$1" fixture="$2" preset="$3" tick="$4" out="$5"
+  xvfb-run -a -s '-screen 0 1920x1080x24' "$bin" --scale 1 --fixture "$fixture" \
+    --gore-preset "$preset" --capture-sequence "${tick}:1:1" \
+    --capture-dir "$tmp/$name" > "$tmp/$name.log" 2>&1
+  grep -q "FLOOR1_CAPTURE_SEQUENCE_DONE count=1" "$tmp/$name.log"
+  cp "$(frame "$name" "$tick")" "$dest/$out"
+  [[ "$(identify -format '%wx%h' "$dest/$out")" == "640x360" ]]
+}
+cap1x n_spit cp05_llama_spit 4 55 still_spit_glob_tick055_640x360.png
+cap1x n_slam cp05_llama_slam 4 190 still_slam_p4_broken_heap_tick190_640x360.png
+cap1x n_down cp05_llama_down 4 100 still_down_p4_tick100_640x360.png
+cap1x n_crush cp05_llama_crush 4 139 still_crush_p4_stone_over_llama_tick139_640x360.png
 
 # Contact sheets of the same frames, 640x360 per cell (3x down), labelled.
 sheet() {

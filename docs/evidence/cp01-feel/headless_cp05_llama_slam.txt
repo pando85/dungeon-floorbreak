@@ -11,4 +11,4 @@ COMBAT_EVENT tick=159 kind=llama_tell llama=0
 COMBAT_EVENT tick=163 kind=hit move=push_kick instance=3 target=0 damage=1 health_left=0 hit_stop=11
 COMBAT_EVENT tick=163 kind=enemy_defeated target=0 force=heavy
 COMBAT_EVENT tick=163 kind=llama_interrupted llama=0
-COMBAT_STATE fixture=cp05_llama_slam seed=0xc050001 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies= hash=611c0e44dbcef788 llamas=l0=503.000/0
+COMBAT_STATE fixture=cp05_llama_slam seed=0xc050001 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies= hash=73e15034a5222827 llamas=l0=534.500/0

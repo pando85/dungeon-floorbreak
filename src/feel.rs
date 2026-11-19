@@ -212,3 +212,8 @@ pub const LLAMA_GLOB_HALF_H: f32 = 3.0;
 /// Pause after a hit staggers it (the tell it was in is cancelled): the llama
 /// does not start another tell for this many ticks.
 pub const LLAMA_HURT_COOLDOWN: u16 = 30;
+/// A lethal hit slides the llama body this fast away from the attacker (px/s,
+/// about 30 px with ground friction): the LLAMA-01 and LLAMA-02 poses put the
+/// head about 46 px toward the attacker, so without the slide it would lie
+/// under Carl's feet.
+pub const LLAMA_DEATH_SLIDE_VX: f32 = 265.0;
