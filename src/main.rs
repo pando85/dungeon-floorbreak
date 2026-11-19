@@ -170,6 +170,7 @@ fn advance_game(
         physical: false,
         ability: keys.pressed(KeyCode::KeyK),
         pause: keys.pressed(KeyCode::Escape),
+        swap: false,
     };
     if let Some(pad) = pads.iter().next() {
         let stick_x = pad.left_stick().x;

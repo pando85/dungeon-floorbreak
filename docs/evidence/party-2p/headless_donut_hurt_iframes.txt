@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=38 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=50 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=64 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=64 kind=hero_hurt source=0 health_left=3 hero=donut
+COMBAT_EVENT tick=76 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=133 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=donut_hurt_iframes seed=0xd020004 tick=140 elapsed=140 hero_hp=4 deaths=0 enemies=e0=338.233/2,e1=338.566/2 hash=4acc997fa0520f36
+PARTY_STATE fixture=donut_hurt_iframes mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=6b13a15ae7fc186c

@@ -1,0 +1,6 @@
+COMBAT_EVENT tick=38 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=64 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=129 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=155 kind=goblin_swing goblin=0
+COMBAT_STATE fixture=solo_follower_dodge seed=0xd020007 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=338.233/2 hash=4a7690eebe6c92fa
+PARTY_STATE fixture=solo_follower_dodge mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=8f8b7dcc2cc5dc20

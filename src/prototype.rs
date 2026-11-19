@@ -13,9 +13,9 @@ pub const FLOOR_TOP: f32 = -120.0;
 pub const HERO_HALF_WIDTH: f32 = 12.0;
 pub const HERO_HALF_HEIGHT: f32 = 26.0;
 
-const RUN_SPEED: f32 = 185.0;
-const JUMP_SPEED: f32 = 440.0;
-const GRAVITY: f32 = 1050.0;
+pub const RUN_SPEED: f32 = 185.0;
+pub const JUMP_SPEED: f32 = 440.0;
+pub const GRAVITY: f32 = 1050.0;
 const JUMP_BUFFER_TICKS: u8 = 7;
 const COYOTE_TICKS: u8 = 6;
 const BOMB_COOLDOWN: u16 = 135;

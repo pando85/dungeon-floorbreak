@@ -626,7 +626,8 @@ mod tests {
                     {
                         for (hp, age) in [(4u8, None), (1, Some(0u8)), (2, Some(8))] {
                             let mut real = crate::hud::test_inputs(hp, 4);
-                            real.glyphs = glyphs;
+                            real.carl_glyphs = glyphs;
+                            real.donut_glyphs = glyphs;
                             real.reduced_motion = reduced;
                             real.hp_flash = age.map(|a| crate::hud::HpFlash {
                                 lost_from: hp + 1,

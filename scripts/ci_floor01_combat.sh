@@ -26,6 +26,10 @@ sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interru
 traced=(cp01_haymaker_chain cp01_goblin_attacks cp02_two_goblins cp01_kick cp02_kick_contact)
 committed=docs/evidence/cp01-feel
 committed_anim=docs/evidence/art-int-02
+# WORK-005/006, HUD-DEBT-01/04: the live-party fixtures (two players, solo swap,
+# Donut damage) with their committed replays.
+party_fixtures=(duo_independent_moves duo_separation_wall solo_swap_continuity donut_hurt_iframes donut_defeat_party solo_guard_floors_at_one solo_follower_dodge)
+committed_party=docs/evidence/party-2p
 out=artifacts/cp01-feel
 mkdir -p "$out"
 
@@ -85,6 +89,23 @@ case "$mode" in
         exit 1
       fi
       echo "COMBAT_ANIM_TRACE_OK: $f $(wc -l < "$out/anim_trace_${f}.txt") ticks"
+    done
+    # The live party replays identically twice and reproduces the committed
+    # events and hashes (the rust goldens in src/party_scene.rs pin the same
+    # PARTY_STATE hashes).
+    party_lines() { grep -E '^(COMBAT_EVENT|COMBAT_STATE|PARTY_STATE)' || true; }
+    for f in "${party_fixtures[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/party_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/party_${f}_again.txt"
+      if ! cmp -s "$out/party_${f}.txt" "$out/party_${f}_again.txt"; then
+        echo "party fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_party/headless_${f}.txt" "$out/party_${f}.txt"; then
+        echo "party fixture $f differs from the committed replay ($committed_party)" >&2
+        exit 1
+      fi
+      echo "PARTY_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/party_${f}.txt")"
     done
     ;;
   render)
