@@ -25,6 +25,7 @@ use std::fmt;
 use crate::feel::{
     HAYMAKER_FEEL, HAYMAKER_STEP_PX, HAYMAKER_STEP_TICKS, JAB_FEEL, KICK_FEEL, MoveFeel,
 };
+use crate::party::HeroId;
 use crate::prototype::{Block, Rect, TICK_SECONDS};
 
 pub const ENEMY_HALF_WIDTH: f32 = 12.0;
@@ -680,7 +681,11 @@ pub(crate) fn solid_at(solids: &[Block], candidate: Rect) -> bool {
 // ------------------------------------------------------------------ strikes --
 
 /// Where an attacker stands: AABB centre and which way it faces.
-#[derive(Debug, Clone, Copy, PartialEq)]
+///
+/// `Default` is a camera-lab hook: callers write `Attacker { x, y, half_height,
+/// facing, ..Default::default() }` so they keep compiling when another branch
+/// adds a field.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Attacker {
     pub x: f32,
     pub y: f32,
@@ -977,13 +982,18 @@ pub enum CombatEvent {
         tick: u64,
         goblin: u32,
     },
+    /// A goblin's swing hurt a hero. `hero` is Carl unless the party is live
+    /// and Donut was hit; Carl's hits hash and print exactly as before.
     HeroHurt {
         tick: u64,
         source: u32,
         health_left: u8,
+        hero: HeroId,
     },
+    /// A hero reached 0 health: a party defeat (D1), whichever hero it was.
     HeroDefeated {
         tick: u64,
+        hero: HeroId,
     },
     Restart {
         tick: u64,
@@ -1127,15 +1137,23 @@ impl CombatEvent {
                 tick,
                 source,
                 health_left,
+                hero,
             } => {
                 mix(4);
                 mix(tick);
                 mix(u64::from(source));
                 mix(u64::from(health_left));
+                // Only Donut's hits carry the hero, so every Carl hash is unchanged.
+                if hero != HeroId::Carl {
+                    mix(0x4452_4854 + hero.index() as u64);
+                }
             }
-            Self::HeroDefeated { tick } => {
+            Self::HeroDefeated { tick, hero } => {
                 mix(5);
                 mix(tick);
+                if hero != HeroId::Carl {
+                    mix(0x4452_4854 + hero.index() as u64);
+                }
             }
             Self::Restart { tick, deaths } => {
                 mix(6);
@@ -1288,12 +1306,23 @@ impl fmt::Display for CombatEvent {
                 tick,
                 source,
                 health_left,
-            } => write!(
-                f,
-                "COMBAT_EVENT tick={tick} kind=hero_hurt source={source} health_left={health_left}"
-            ),
-            Self::HeroDefeated { tick } => {
-                write!(f, "COMBAT_EVENT tick={tick} kind=hero_defeated")
+                hero,
+            } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=hero_hurt source={source} health_left={health_left}"
+                )?;
+                if hero != HeroId::Carl {
+                    write!(f, " hero=donut")?;
+                }
+                Ok(())
+            }
+            Self::HeroDefeated { tick, hero } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=hero_defeated")?;
+                if hero != HeroId::Carl {
+                    write!(f, " hero=donut")?;
+                }
+                Ok(())
             }
             Self::Restart { tick, deaths } => {
                 write!(f, "COMBAT_EVENT tick={tick} kind=restart deaths={deaths}")
@@ -1336,6 +1365,56 @@ impl fmt::Display for CombatEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn event_hash(event: &CombatEvent) -> u64 {
+        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+        event.mix_into(&mut |value| {
+            for byte in value.to_le_bytes() {
+                hash ^= u64::from(byte);
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        });
+        hash
+    }
+
+    #[test]
+    fn carls_hurt_and_defeat_events_print_and_hash_as_before_and_donuts_differ() {
+        let carl = CombatEvent::HeroHurt {
+            tick: 9,
+            source: 1,
+            health_left: 3,
+            hero: HeroId::Carl,
+        };
+        let donut = CombatEvent::HeroHurt {
+            tick: 9,
+            source: 1,
+            health_left: 3,
+            hero: HeroId::Donut,
+        };
+        assert_eq!(
+            carl.to_string(),
+            "COMBAT_EVENT tick=9 kind=hero_hurt source=1 health_left=3"
+        );
+        assert_eq!(
+            donut.to_string(),
+            "COMBAT_EVENT tick=9 kind=hero_hurt source=1 health_left=3 hero=donut"
+        );
+        assert_ne!(event_hash(&carl), event_hash(&donut));
+        let carl = CombatEvent::HeroDefeated {
+            tick: 9,
+            hero: HeroId::Carl,
+        };
+        let donut = CombatEvent::HeroDefeated {
+            tick: 9,
+            hero: HeroId::Donut,
+        };
+        assert_eq!(carl.to_string(), "COMBAT_EVENT tick=9 kind=hero_defeated");
+        assert_eq!(
+            donut.to_string(),
+            "COMBAT_EVENT tick=9 kind=hero_defeated hero=donut"
+        );
+        assert_ne!(event_hash(&carl), event_hash(&donut));
+    }
 
     fn runner_ticks(
         runner: &mut MoveRunner,
@@ -1803,11 +1882,18 @@ mod tests {
             words(&CombatEvent::HeroHurt {
                 tick: 5,
                 source: 1,
-                health_left: 3
+                health_left: 3,
+                hero: HeroId::Carl
             }),
             [4, 5, 1, 3]
         );
-        assert_eq!(words(&CombatEvent::HeroDefeated { tick: 5 }), [5, 5]);
+        assert_eq!(
+            words(&CombatEvent::HeroDefeated {
+                tick: 5,
+                hero: HeroId::Carl
+            }),
+            [5, 5]
+        );
         assert_eq!(
             words(&CombatEvent::Restart { tick: 5, deaths: 2 }),
             [6, 5, 2]

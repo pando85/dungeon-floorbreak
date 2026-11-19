@@ -1,0 +1,51 @@
+{
+  "name": "the-crawl-hud-hybrid-a",
+  "source": "OpenAI image-generation project conversation, 2026-11-19",
+  "status": "owner-approved visual direction; concept references only; not native gameplay art",
+  "repository": "pando85/dungeon-floorbreak",
+  "pr_url": "https://github.com/pando85/dungeon-floorbreak/pull/103",
+  "pr_branch": "feat/hybrid-hud-a-floor01",
+  "target": "assets/references/hud/hybrid-a-v1",
+  "entries": [
+    {
+      "path": "art/01-exploration-mana.png",
+      "repo_path": "assets/references/hud/hybrid-a-v1/01-exploration-mana.png",
+      "sha256": "1324d6f6fa0a30d0c3f5c910a9057c24d2ff3346b6ee5aa19f10899438b1ccb4",
+      "resolution": [
+        1672,
+        941
+      ],
+      "original_generator_filename": "a_highly_detailed_pixel_art_screenshot_identical_t_1_batch_1.png"
+    },
+    {
+      "path": "art/02-combat-mana.png",
+      "repo_path": "assets/references/hud/hybrid-a-v1/02-combat-mana.png",
+      "sha256": "b47e4beabadd7c9ab13d3da118cf765f4dbf2c50c60c2ca78ac4786b5261d0c1",
+      "resolution": [
+        1672,
+        941
+      ],
+      "original_generator_filename": "a_highly_detailed_crisp_pixel_art_game_hud_combat_2_batch_2.png"
+    },
+    {
+      "path": "art/03-boss-mana.png",
+      "repo_path": "assets/references/hud/hybrid-a-v1/03-boss-mana.png",
+      "sha256": "eeb51c486ce2c226eccb404ca0f730e7adc6932b60eddb34dddef192d635b492",
+      "resolution": [
+        1672,
+        941
+      ],
+      "original_generator_filename": "a_highly_detailed_identical_scene_to_the_given_ap_3_batch_3.png"
+    },
+    {
+      "path": "art/04-coop-low-mana.png",
+      "repo_path": "assets/references/hud/hybrid-a-v1/04-coop-low-mana.png",
+      "sha256": "0aa351866a47f90108695368c04dd62eb99cce6b702b8f90cfad344bf024749c",
+      "resolution": [
+        1672,
+        941
+      ],
+      "original_generator_filename": "a_highly_detailed_identical_composition_and_pixel_4_batch_4.png"
+    }
+  ]
+}

@@ -160,7 +160,14 @@ impl SceneAnimators {
         // The stall hold bridges trail stalls while Carl still pushes (a step
         // jumped in place, a wall). When Carl really stops (stick released, no
         // commanded speed) her trail stops on the same tick: no hold, idle at once.
-        let donut_speed = if world.complete || hero.vx.abs() <= MOVE_THRESHOLD_PX_S {
+        // A live party: her own body decides whether she is moving (P2, or the
+        // bot), not Carl's.
+        let donut_pushing = if world.donut_live {
+            world.donut_body.vx.abs() > MOVE_THRESHOLD_PX_S
+        } else {
+            hero.vx.abs() > MOVE_THRESHOLD_PX_S
+        };
+        let donut_speed = if world.complete || !donut_pushing {
             self.donut_stall.release()
         } else {
             self.donut_stall
@@ -228,6 +235,36 @@ mod tests {
             Animator::new(donut.clips, donut.pacing),
             world,
         )
+    }
+
+    #[test]
+    fn a_live_donut_runs_on_her_own_input_while_carl_stands_and_stops_with_it() {
+        use crate::input::RawInput;
+        use crate::party::{PadId, PartyState};
+        let kit = kit();
+        let mut sim = SceneSim::new_at(&kit, 360, 400).unwrap();
+        let mut party = PartyState::default();
+        party.pad_connected(PadId(1));
+        party.pad_start_pressed(PadId(2));
+        sim.set_drive(party.drive(true));
+        let mut anim = animators(&sim.world);
+        let run = RawInput {
+            move_x: 1.0,
+            ..RawInput::default()
+        };
+        let mut seen = Vec::new();
+        for _ in 0..40 {
+            sim.step_party([RawInput::default(), run]);
+            anim.step(&sim.world);
+            seen.push(anim.donut.tag());
+        }
+        assert_eq!(anim.carl.tag(), Tag::Idle, "Carl stands");
+        assert_eq!(anim.donut.tag(), Tag::Run, "Donut runs by herself");
+        for _ in 0..30 {
+            sim.step_party([RawInput::default(), RawInput::default()]);
+            anim.step(&sim.world);
+        }
+        assert_eq!(anim.donut.tag(), Tag::Idle);
     }
 
     /// One row per tick: (hero grounded, hero vy, carl tag, carl atlas index,

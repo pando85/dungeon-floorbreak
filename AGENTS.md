@@ -55,6 +55,7 @@ Every art work order (characters, animation, environments, props, enemies, vehic
 4. **Owner review at the end only.** The owner sees the finished result as images (contact sheets, enlarged frames, GIFs, in-scene compositions at gameplay scale) plus schemas/diagrams (frame layout, pivots, timing and state flow). Agents do not ask the owner for interim approvals.
    **Merge delegation (owner, 2026-11-18):** a pixel-art PR (sprites, environment kits, VFX and their evidence/docs) may be marked ready and squash-merged by the orchestrator, without waiting for owner approval, once its independent top-tier review has passed (plus the medium-tier fix check, or a top-tier re-review after a design defect) and CI is green on the final head. The owner still receives a batch summary with images and any open non-blocking design notes, and can reopen any asset. Gameplay, Bevy integration, game-feel and non-art PRs still need owner approval.
    **Extended (owner, 2026-11-19):** gameplay, Bevy integration and other non-art PRs may also be marked ready and squash-merged by the orchestrator once an independent top-tier review has passed (plus a fix check, or a narrow re-review after design or logic fixes) and CI is green on the final head. Game feel stays the owner's call: a mechanic merged this way is recorded in the backlog as "merged, game-feel review pending" and is not marked accepted until the owner plays it; the owner can request changes in follow-up PRs. A PR the owner explicitly marked "do not merge" (for example a probe) stays unmerged.
+   **Design defaults (owner, 2026-11-19):** the orchestrator does not wait for owner sign-off on gameplay design choices. It adopts the recommended options of a top-tier design analysis, records each adopted value as data with its question ID, documents genuinely open questions in the repo, and merges under the delegation above after an independent top-tier review. The owner reviews game feel after merge and may change any adopted value in a follow-up PR.
 
 - Bevy/gameplay integration of art stays on the medium tier unless the PR records a reason.
 - Record which model designed, executed and reviewed the art in the PR's `Rights/Provenance` section.
@@ -79,3 +80,8 @@ Every art work order (characters, animation, environments, props, enemies, vehic
 ## First work order
 
 Continue from the right-scrolling combat WORK-021 greybox and the current top-priority work in `docs/04-production/backlog.md`. Do not begin with character illustrations, online networking, Steam integration or a complete loot system.
+
+## ChatGPT → Hermes mobile concept-image handoffs
+
+When the owner requests a PR containing ChatGPT-generated concept images, follow [the mobile PR handoff protocol](docs/07-agents/chatgpt-hermes-image-pr.md). Prepare a draft PR with documented pending image slots and produce a **PR-specific ZIP** (Spanish instructions, Hermes task and JSON mapping) in the same response. Hermes receives original PNGs separately and commits them to **that PR branch**, updating provenance, manifests and validation. Never claim missing images or hashes exist, mark an incomplete image PR ready, or auto-merge.
+
