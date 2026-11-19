@@ -5,7 +5,7 @@
 #                                   committed ones (docs/evidence/cp01-feel) and
 #                                   run each twice.
 #   ci_floor01_combat.sh demo       no GPU: DEMO-01. The demo hall's autopilot
-#                                   probes (demo01_b1, _b2, _b3, _b6 and the whole
+#                                   probes (demo01_b1, _b2, _b3, _b5, _b6 and the whole
 #                                   route demo01) replay twice, at gore presets 1
 #                                   to 4, and must equal the committed logs in
 #                                   docs/evidence/demo-01.
@@ -26,7 +26,7 @@
 set -euo pipefail
 mode="${1:?usage: ci_floor01_combat.sh headless|render|demo|demo-render}"
 bin=./target/debug/floor01_scene
-fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup)
+fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup cp03_block_edge_decap qa_blast_breakup)
 # fixture:first tick:step:count of the real-frame capture sequences. The windows
 # hold the hit and the hit-stop of each fixture (see the evidence README).
 sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interrupt:122:1:61 cp01_goblin_attacks:128:1:61 cp02_two_goblins:60:1:61 cp01_retry:398:1:52 cp01_kick:128:1:61 cp02_kick_contact:20:1:61 cp03_shore_kill:98:1:61)
@@ -35,7 +35,7 @@ sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interru
 traced=(cp01_haymaker_chain cp01_goblin_attacks cp02_two_goblins cp01_kick cp02_kick_contact)
 committed=docs/evidence/cp01-feel
 # DEMO-01 probes: name:beat (the autopilot starts at the beat's checkpoint).
-demo_probes=(demo01_b1:1 demo01_b2:2 demo01_b3:3 demo01_b6:6 demo01:0)
+demo_probes=(demo01_b1:1 demo01_b2:2 demo01_b3:3 demo01_b5:5 demo01_b6:6 demo01:0)
 demo_committed=docs/evidence/demo-01
 committed_anim=docs/evidence/art-int-02
 # WORK-005/006, HUD-DEBT-01/04: the live-party fixtures (two players, solo swap,

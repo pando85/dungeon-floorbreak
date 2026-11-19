@@ -1,0 +1,32 @@
+Frame-interval probe of the death presenter with explosions in the stress mix, DEATH-D
+(debug binary, opt-level 1). Software rendering under xvfb (llvmpipe): the absolute
+numbers are CPU raster time, not a GPU or Steam Deck figure; the machine was shared.
+The comparison is between rows of the same run. `stress` keeps every pool loaded with
+synthetic crushes, decapitations and explosions in thirds (a presentation-only lab flag).
+The DEATH-C probe of the same kind is in docs/evidence/death-c/perf_frame_times.txt
+(1920x1080: baseline 76.74 ms median, stress p4 78.04, stress p1 83.15).
+
+== 1920x1080 baseline (no death on screen)
+FLOOR1_PERF frames=600 median_ms=190.55 p95_ms=246.42 mean_ms=193.30 max_ms=331.20 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=4 clock=8224 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 peak_parts=0 peak_floor_decals=0 peak_wall_decals=0 digest=af439d4c85cb217f part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+
+== 1920x1080 stress, preset 4
+FLOOR1_PERF frames=600 median_ms=269.09 p95_ms=421.90 mean_ms=274.25 max_ms=918.55 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=4 clock=9678 deaths=48 parts=256 floor_decals=192 wall_decals=32 spawned_parts=109633 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=bb00a100e97a7993 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(108789, 30532, 6415)
+
+== 1920x1080 stress, preset 1
+FLOOR1_PERF frames=600 median_ms=214.95 p95_ms=300.93 mean_ms=217.98 max_ms=417.13 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=1 clock=8853 deaths=48 parts=256 floor_decals=0 wall_decals=0 spawned_parts=3933 peak_parts=256 peak_floor_decals=0 peak_wall_decals=0 digest=8ba05cbb288ac96c part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(3501, 0, 0)
+
+== 640x360 baseline (no death on screen)
+FLOOR1_PERF frames=600 median_ms=47.46 p95_ms=72.08 mean_ms=47.60 max_ms=99.55 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=4 clock=2039 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 peak_parts=0 peak_floor_decals=0 peak_wall_decals=0 digest=af656a4c860490d6 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(0, 0, 0)
+
+== 640x360 stress, preset 4
+FLOOR1_PERF frames=600 median_ms=57.80 p95_ms=83.16 mean_ms=55.43 max_ms=135.66 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=4 clock=2483 deaths=48 parts=256 floor_decals=192 wall_decals=32 spawned_parts=28096 peak_parts=256 peak_floor_decals=192 peak_wall_decals=32 digest=bbe0ab43fa397478 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(27252, 7971, 1616)
+
+== 640x360 stress, preset 1
+FLOOR1_PERF frames=600 median_ms=53.39 p95_ms=77.40 mean_ms=53.18 max_ms=97.29 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=1 clock=2293 deaths=48 parts=256 floor_decals=0 wall_decals=0 spawned_parts=1019 peak_parts=256 peak_floor_decals=0 peak_wall_decals=0 digest=00736509759e6594 part_capacity=256 floor_decal_capacity=192 wall_decal_capacity=32 recycled=(587, 0, 0)
+
