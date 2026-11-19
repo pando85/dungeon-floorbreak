@@ -818,6 +818,7 @@ mod tests {
                     ai: EnemyAi::Passive,
                 }],
                 shore_dx: None,
+                llamas: &[],
                 script: &[],
                 ticks: 100,
             };

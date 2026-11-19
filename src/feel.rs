@@ -168,3 +168,47 @@ pub const HERO_KNOCKDOWN_VY: f32 = 160.0;
 /// Ticks from the defeating hit until the fixture restarts by itself (knockdown
 /// plus a short sprawl; R / Select restarts at once). At most 60.
 pub const RESTART_DELAY_TICKS: u16 = 50;
+
+// -------------------------------------------------------------- Bad Llama --
+
+/// DEMO-01 PR B: the Floor 1 Bad Llama (LLAMA-01 art, `docs/02-art/llama-01-spec.md`).
+/// Every number is a **playtest proposal** (not approved balance), kept here
+/// like the goblin values. The attack timeline counts ticks from the tick the
+/// tell starts: tell 0..36 (the glow; the art's 30 tick tell holds its peak
+/// frame for the last 6), the spit releases on tick 36 (the first tick of the
+/// art's `attack_swing` frame), recover 36..60.
+pub const LLAMA_HEALTH: u8 = 3;
+/// Walk speed toward Carl (px/s) while he is farther than `LLAMA_STAND_OFF`.
+pub const LLAMA_WALK_SPEED: f32 = 40.0;
+/// The llama walks toward Carl until it is this close (px, centre to centre)
+/// and never walks away from him.
+pub const LLAMA_STAND_OFF: f32 = 200.0;
+/// It never strays farther than this from its home column (px).
+pub const LLAMA_LEASH: f32 = 160.0;
+pub const LLAMA_TELL_TICKS: u16 = 36;
+pub const LLAMA_ATTACK_TICKS: u16 = 60;
+/// Ticks after an attack (or a stagger) before the next tell.
+pub const LLAMA_COOLDOWN: u16 = 90;
+/// Stagger of a jab or haymaker hit; a kick staggers it the same and pushes it
+/// back `LLAMA_KICK_PUSH_VX` (about 30 px with ground friction).
+pub const LLAMA_HURT_TICKS: u8 = 18;
+pub const LLAMA_KICK_PUSH_VX: f32 = 265.0;
+/// A defeated llama lies this many ticks, then it is a corpse that neither
+/// collides nor damages.
+pub const LLAMA_DOWN_TICKS: u16 = 30;
+/// Fair fire (owner option D): a tell starts only while the llama's whole body
+/// is inside the simulation's scroll-camera view and Carl is at most this far
+/// away (px, centre to centre) in the direction it faces.
+pub const LLAMA_FIRE_RANGE: f32 = 320.0;
+/// The spit glob: speed (px/s), furthest travel (px), mouth offset ahead of
+/// the llama's centre and height above its feet (LLAMA-01 spawn contract:
+/// pivot offset (+46, -45)), and the 8 x 6 px hit box.
+pub const LLAMA_GLOB_SPEED: f32 = 150.0;
+pub const LLAMA_GLOB_RANGE: f32 = 320.0;
+pub const LLAMA_GLOB_MOUTH_DX: f32 = 46.0;
+pub const LLAMA_GLOB_MOUTH_DY: f32 = 45.0;
+pub const LLAMA_GLOB_HALF_W: f32 = 4.0;
+pub const LLAMA_GLOB_HALF_H: f32 = 3.0;
+/// Pause after a hit staggers it (the tell it was in is cancelled): the llama
+/// does not start another tell for this many ticks.
+pub const LLAMA_HURT_COOLDOWN: u16 = 30;

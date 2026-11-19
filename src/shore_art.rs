@@ -224,6 +224,20 @@ impl ShoreArt {
     /// since the block landed (`None` before). Pure: a function of the
     /// simulated shore state.
     pub fn draw_list(&self, shore: &Shore, landed_age: Option<u64>, clock: u64) -> Vec<ShoreDraw> {
+        self.draw_list_with(shore, landed_age, clock, None)
+    }
+
+    /// [`Self::draw_list`] with an optional world point for the **landed** block's
+    /// bottom-centre anchor: a crushed enemy whose contact frames say
+    /// `hazard_draw: "over"` (the llama) puts the stone on its mirrored
+    /// `hit_origin`. Presentation only: the simulated block never moves.
+    pub fn draw_list_with(
+        &self,
+        shore: &Shore,
+        landed_age: Option<u64>,
+        clock: u64,
+        landed_anchor: Option<(f32, f32)>,
+    ) -> Vec<ShoreDraw> {
         let centre_x = shore.strike_x + BLOCK_DX;
         let foot = shore.foot_y;
         let mut out = Vec::new();
@@ -247,7 +261,11 @@ impl ShoreArt {
             BlockState::Falling => ("loose_block_falling", foot + shore.block_bottom),
             BlockState::Landed => ("loose_block_landed", foot),
         };
-        out.push(self.draw(ShoreSlot::Block, block, 0, (centre_x, anchor_y)));
+        let block_anchor = match (shore.block_state(), landed_anchor) {
+            (BlockState::Landed, Some(at)) => at,
+            _ => (centre_x, anchor_y),
+        };
+        out.push(self.draw(ShoreSlot::Block, block, 0, block_anchor));
         // The socket: its anchor (8, 8) sits on the seated block's top-left corner.
         let corner = (centre_x - SEATED_ANCHOR.0, seated_bottom + SEATED_ANCHOR.1);
         out.push(self.draw(ShoreSlot::Cavity, "wall_cavity", 0, corner));

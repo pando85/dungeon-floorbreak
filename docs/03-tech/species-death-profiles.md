@@ -57,7 +57,7 @@ No existing golden hash changed. The event hash is unchanged for every earlier f
 * `recipes`: tried **in file order, first match wins**, so a species lists rarer, harder finishes first. A recipe matches when its `causes` contain the event's cause class (`blunt` for melee, `crush` for the block) and the event's `force` is at least `min_force`. `kind` is `knockback_down` or `crushed`; `finish` is the id the presentation layer draws.
 * `fallback_finish`: played when no recipe matches. An unknown species plays `generic_collapse`. Selection is total: it never fails and never invents a head or other part a species lacks.
 
-Shipped profiles: `goblin` (real, GOB-01), and two mock fixtures with no artwork, `skeleton_mock` (heavy blunt scatters, crush is a flat pile) and `slime_mock` (crush spreads; no knockback recipe, so a blunt defeat uses its fallback `slime_puddle`).
+Shipped profiles: `goblin` (real, GOB-01), `llama` (real, LLAMA-01 and LLAMA-02-DEATH: `llama_crushed` for the falling block, `llama_slammed` for a lethal `heavy` blunt hit (recipe kind `slammed`, owner decision 2026-11-19: the slam rule) and `llama_down` for any other blunt hit and as the fallback, listed in that order so the first match wins), and two mock fixtures with no artwork, `skeleton_mock` (heavy blunt scatters, crush is a flat pile) and `slime_mock` (crush spreads; no knockback recipe, so a blunt defeat uses its fallback `slime_puddle`).
 
 `DeathProfiles::select(species, cause, force)` and `select_for_event(species, &event)` return a `FinishSelection { finish, kind, fallback }`. They are pure: derived from the event, stored nowhere, hashed nowhere. Finish ids are not asserted to have art yet; DEATH-C maps them to poses and parts.
 

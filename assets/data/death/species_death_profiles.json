@@ -28,6 +28,16 @@
       "recipes": [
         { "kind": "crushed", "finish": "slime_spread", "causes": ["crush"], "min_force": "routine" }
       ]
+    },
+    {
+      "id": "llama",
+      "body_material": "organic",
+      "fallback_finish": "llama_down",
+      "recipes": [
+        { "kind": "crushed", "finish": "llama_crushed", "causes": ["crush"], "min_force": "routine" },
+        { "kind": "slammed", "finish": "llama_slammed", "causes": ["blunt"], "min_force": "heavy" },
+        { "kind": "knockback_down", "finish": "llama_down", "causes": ["blunt"], "min_force": "routine" }
+      ]
     }
   ]
 }

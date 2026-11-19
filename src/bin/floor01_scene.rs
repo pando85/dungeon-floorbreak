@@ -58,8 +58,9 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
+    feel::{LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY, LLAMA_GLOB_SPEED},
     goblin::{AttackPhase, GoblinMode},
-    gore::{DEATH_VARIANTS, DeathArt, GorePreset, Sheet},
+    gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
     hud::{GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
     hud_adapter::{HudPlugin, HudState},
     hud_settings::HudSettings,
@@ -69,7 +70,8 @@ use dungeon_floorbreak::{
         slot_layer, spawn_rig, update_rig,
     },
     lighting::{MAX_SHADOWS, ShadowEllipse, ViewRect, contact_shadow},
-    prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero},
+    llama::LlamaMode,
+    prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, TICK_SECONDS},
     scene_anim::SceneAnimators,
     shore_art::{ShoreArt, ShoreSlot, landed_age},
 };
@@ -83,6 +85,14 @@ const CARL_Z_OFFSET: f32 = 0.1;
 const GOBLIN_Z_OFFSET: f32 = 0.05;
 const GOBLIN_SWING_Z_OFFSET: f32 = 0.15;
 const GOBLIN_LYING_Z_OFFSET: f32 = -0.01;
+/// The falling block over a crushed llama (LLAMA-02 gate ruling, data
+/// `hazard_draw: "over"`): above every lying body (-0.01 and below), below
+/// every player actor (Donut at 0, Carl at +0.1).
+const HAZARD_OVER_Z_OFFSET: f32 = -0.005;
+/// The spit glob is drawn above the actors (it hits Carl).
+const GLOB_Z_OFFSET: f32 = 0.2;
+/// Pre-spawned glob sprites per llama (one glob flies at a time).
+const GLOB_SLOTS_PER_LLAMA: usize = 2;
 /// Per-goblin z step so two goblins never share a depth: the earlier goblin is
 /// in front (a stacked later one is drawn behind it).
 const GOBLIN_Z_STEP: f32 = 0.001;
@@ -468,7 +478,8 @@ type Scene = (
 fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     let art = Arc::new(DeathArt::load(root)?);
     let variant_b = DeathArt::load_variant(root, 1)?;
-    let mut presenter = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?;
+    let mut presenter = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?
+        .with_llama(Arc::new(DeathArt::load_llama(root)?))?;
     presenter.set_lab_finish(args.death_lab_finish);
     Ok(presenter)
 }
@@ -706,6 +717,8 @@ struct Actors {
 struct CombatArt {
     carl: SpriteClips,
     goblins: [SpriteClips; GOBLIN_VARIANTS],
+    /// The Bad Llama atlas (LLAMA-01).
+    llama: SpriteClips,
 }
 
 impl Actors {
@@ -722,6 +735,7 @@ impl Actors {
                     SpriteClips::load_goblin(root, 0, source)?,
                     SpriteClips::load_goblin(root, 1, source)?,
                 ],
+                llama: SpriteClips::load_llama(root, source)?,
             })
         } else {
             None
@@ -736,9 +750,10 @@ impl Actors {
 
     /// The melee and goblin animators of a combat fixture.
     fn combat_art(&self, combat: &CombatState) -> Option<CombatAnimators> {
-        self.art
-            .as_ref()
-            .map(|art| CombatAnimators::new(art.carl.clone(), art.goblins.clone(), combat))
+        self.art.as_ref().map(|art| {
+            CombatAnimators::new(art.carl.clone(), art.goblins.clone(), combat)
+                .with_llama(art.llama.clone(), combat)
+        })
     }
 
     fn animators(&self, world: &CorridorWorld) -> SceneAnimators {
@@ -873,6 +888,19 @@ struct GoblinSprite {
     index: usize,
 }
 
+/// One Bad Llama (DEMO-01 PR B), drawn from the LLAMA-01 atlas.
+#[derive(Component)]
+struct LlamaSprite {
+    index: usize,
+}
+
+/// One pooled spit glob sprite (the `spit` frames of the llama atlas), drawn
+/// for the glob in slot `slot` of the simulation's list.
+#[derive(Component)]
+struct GlobSprite {
+    slot: usize,
+}
+
 /// Carl's second sprite: the melee atlas (punches, kick, hurt, knockdown). It
 /// replaces the locomotion sprite while a melee pose is drawn.
 #[derive(Component)]
@@ -883,6 +911,8 @@ struct CarlMelee;
 enum DeathPiece {
     /// The death pose of goblin `index` (replaces its GOB-01 sprite).
     Pose(usize),
+    /// The death pose of llama `index` (replaces its LLAMA-01 sprite).
+    LlamaPose(usize),
     /// A launched part or blood drop (pool slot).
     Part(usize),
     /// A floor decal; `second` is the right cell of a two-cell pool.
@@ -902,10 +932,14 @@ struct ShoreImages(Vec<Handle<Image>>);
 /// Geometry the death sprites need (set at startup).
 #[derive(Resource)]
 struct DeathLook {
-    /// The composed sheets of goblin variants A and B: death poses and parts.
-    poses_images: [Handle<Image>; DEATH_VARIANTS],
-    parts_images: [Handle<Image>; DEATH_VARIANTS],
+    /// The composed sheets by death variant (goblin A and B, then the llama):
+    /// death poses and parts. The parts layout differs per set.
+    poses_images: Vec<Handle<Image>>,
+    parts_images: Vec<Handle<Image>>,
+    parts_layouts: Vec<Handle<TextureAtlasLayout>>,
     pose_spec: ActorSpec,
+    /// The llama's death-pose frame (96 x 72, pivot (44, 71)).
+    llama_pose_spec: ActorSpec,
     /// z of the `backwall_decal` layer.
     wall_z: f32,
 }
@@ -1087,6 +1121,7 @@ fn run_window(
             perf_step,
             sync_visuals,
             sync_combat_visuals,
+            sync_llama_visuals,
             sync_shore_visuals,
             sync_death_visuals,
             update_lighting,
@@ -1341,6 +1376,49 @@ fn setup(
             ));
             combat_entities += 1;
         }
+        // The Bad Llamas (DEMO-01 PR B) and their pooled glob sprites.
+        if !state.llamas.is_empty() {
+            let clips = &art.llama;
+            let texture: Handle<Image> = asset_server.load(clips.atlas_asset.clone());
+            combat_handles.push((clips.atlas_asset.clone(), texture.clone()));
+            let layout = layout_of(clips);
+            for index in 0..state.llamas.len() {
+                commands.spawn((
+                    LlamaSprite { index },
+                    Sprite::from_atlas_image(
+                        texture.clone(),
+                        TextureAtlas {
+                            layout: layout.clone(),
+                            index: clips.tag("idle").0,
+                        },
+                    ),
+                    Transform::from_xyz(
+                        0.0,
+                        0.0,
+                        kit.actor_z + GOBLIN_Z_OFFSET
+                            - (state.enemies.len() + index) as f32 * GOBLIN_Z_STEP,
+                    ),
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            }
+            for slot in 0..state.llamas.len() * GLOB_SLOTS_PER_LLAMA {
+                commands.spawn((
+                    GlobSprite { slot },
+                    Sprite::from_atlas_image(
+                        texture.clone(),
+                        TextureAtlas {
+                            layout: layout.clone(),
+                            index: clips.tag("spit").0,
+                        },
+                    ),
+                    Transform::from_xyz(0.0, 0.0, kit.actor_z + GLOB_Z_OFFSET),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            }
+        }
         if args.debug_combat {
             let debug_layers = if lighting.is_some() {
                 RenderLayers::layer(LAYER_DEBUG)
@@ -1439,10 +1517,18 @@ fn setup(
                 RenderAssetUsages::default(),
             ))
         };
-        let poses_images: [Handle<Image>; DEATH_VARIANTS] =
-            std::array::from_fn(|v| image_of(&presenter.sheets_of(v).poses));
-        let parts_images: [Handle<Image>; DEATH_VARIANTS] =
-            std::array::from_fn(|v| image_of(&presenter.sheets_of(v).parts));
+        // Goblin A, goblin B and (with the llama art) the llama: one sheet each.
+        let variants = if presenter.has_llama() {
+            DEATH_VARIANTS + 1
+        } else {
+            DEATH_VARIANTS
+        };
+        let poses_images: Vec<Handle<Image>> = (0..variants)
+            .map(|v| image_of(&presenter.sheets_of(v).poses))
+            .collect();
+        let parts_images: Vec<Handle<Image>> = (0..variants)
+            .map(|v| image_of(&presenter.sheets_of(v).parts))
+            .collect();
         let (poses_image, parts_image) = (poses_images[0].clone(), parts_images[0].clone());
         let mut layout_of = |sheet: &Sheet| {
             layouts.add(TextureAtlasLayout::from_grid(
@@ -1455,6 +1541,10 @@ fn setup(
         };
         let poses_layout = layout_of(&sheets.poses);
         let parts_layout = layout_of(&sheets.parts);
+        // The parts layout of each set (the llama has more parts than a goblin).
+        let parts_layouts: Vec<Handle<TextureAtlasLayout>> = (0..variants)
+            .map(|v| layout_of(&presenter.sheets_of(v).parts))
+            .collect();
         let sprite_of = |image: &Handle<Image>, layout: &Handle<TextureAtlasLayout>| {
             Sprite::from_atlas_image(
                 image.clone(),
@@ -1480,6 +1570,17 @@ fn setup(
                 sprite_of(&poses_image, &poses_layout),
                 layers_of("actors"),
             );
+        }
+        if presenter.has_llama() {
+            let llama_poses = &presenter.sheets_of(LLAMA_VARIANT).poses;
+            let llama_layout = layout_of(llama_poses);
+            for index in 0..combat.0.as_ref().map_or(0, |c| c.llamas.len()) {
+                piece(
+                    DeathPiece::LlamaPose(index),
+                    sprite_of(&poses_images[LLAMA_VARIANT], &llama_layout),
+                    layers_of("actors"),
+                );
+            }
         }
         for slot in 0..PART_POOL_SLOTS {
             piece(
@@ -1512,6 +1613,7 @@ fn setup(
         commands.insert_resource(DeathLook {
             poses_images,
             parts_images,
+            parts_layouts,
             pose_spec: ActorSpec {
                 name: "goblin_death",
                 width: presenter.art().pose_frame_size.0,
@@ -1520,6 +1622,18 @@ fn setup(
                 pivot_y: presenter.art().pose_pivot.1,
                 shadow_width: 0,
                 shadow_pivot_x: 0,
+            },
+            llama_pose_spec: {
+                let art = presenter.art_of(LLAMA_VARIANT);
+                ActorSpec {
+                    name: "llama_death",
+                    width: art.pose_frame_size.0,
+                    height: art.pose_frame_size.1,
+                    pivot_x: art.pose_pivot.0,
+                    pivot_y: art.pose_pivot.1,
+                    shadow_width: 0,
+                    shadow_pivot_x: 0,
+                }
             },
             wall_z,
         });
@@ -2176,11 +2290,92 @@ fn sync_combat_visuals(
     }
 }
 
+/// DEMO-01 PR B: the Bad Llamas and their spit globs as the simulation has them
+/// (frame by the finished tick, whole-pixel placement like every actor). Reads
+/// the simulation and the animators only.
+#[allow(clippy::type_complexity)]
+fn sync_llama_visuals(
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    anim: Res<Anim>,
+    setup: Res<Setup>,
+    mut llamas: Query<(&LlamaSprite, &mut Transform, &mut Sprite), Without<GlobSprite>>,
+    mut globs: Query<
+        (&GlobSprite, &mut Transform, &mut Sprite, &mut Visibility),
+        Without<LlamaSprite>,
+    >,
+) {
+    let (Some(state), Some(art)) = (combat.0.as_ref(), anim.0.art.as_ref()) else {
+        return;
+    };
+    let Some(clips) = art.llama_clips() else {
+        return;
+    };
+    let tick = sim.0.world.tick;
+    let actor_z = setup.kit.actor_z;
+    let goblins = state.enemies.len();
+    for (llama_sprite, mut transform, mut sprite) in &mut llamas {
+        let index = llama_sprite.index;
+        let (Some(llama), Some(pose)) = (state.llamas.get(index), art.llama_pose(index)) else {
+            continue;
+        };
+        let flip = llama.facing < 0;
+        let (cx, cy) = actor_center(
+            clips.spec,
+            llama.x,
+            CombatAnimators::llama_foot_y(llama),
+            flip,
+        );
+        let lying = matches!(llama.mode, LlamaMode::Down | LlamaMode::Corpse);
+        let z_offset = if lying {
+            GOBLIN_LYING_Z_OFFSET
+        } else {
+            GOBLIN_Z_OFFSET
+        };
+        transform.translation = Vec3::new(
+            cx,
+            cy,
+            actor_z + z_offset - (goblins + index) as f32 * GOBLIN_Z_STEP,
+        );
+        sprite.flip_x = flip;
+        sprite.color = if state.flash(goblins + index, tick) {
+            FLASH_TINT
+        } else {
+            Color::WHITE
+        };
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = pose.frame;
+        }
+    }
+    // The glob is drawn with the llama's pivot, as the spawn contract says: the
+    // sprite sits so that its core (pivot offset +46, -45) is on the glob.
+    let loop_ticks = clips.tag_ticks("spit").unwrap_or(8).max(1);
+    for (glob_sprite, mut transform, mut sprite, mut visibility) in &mut globs {
+        match state.globs.get(glob_sprite.slot) {
+            Some(glob) => {
+                let flip = glob.dir < 0;
+                let foot_x = glob.x - f32::from(glob.dir) * LLAMA_GLOB_MOUTH_DX;
+                let foot_y = glob.y - LLAMA_GLOB_MOUTH_DY;
+                let (cx, cy) = actor_center(clips.spec, foot_x, foot_y, flip);
+                transform.translation = Vec3::new(cx, cy, actor_z + GLOB_Z_OFFSET);
+                sprite.flip_x = flip;
+                let age = (glob.travelled / (LLAMA_GLOB_SPEED * TICK_SECONDS)).round() as u32;
+                if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                    atlas.index = clips.frame_at("spit", age % loop_ticks);
+                }
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
 /// DEATH-C: the ENV-02 shore and block as the simulation has them (hits, block
 /// state, block height, landing). Reads the simulation only.
 #[allow(clippy::type_complexity)]
 fn sync_shore_visuals(
     combat: Res<Combat>,
+    death: Res<Death>,
     sim: Res<Sim>,
     actors: Res<Actors>,
     setup: Res<Setup>,
@@ -2195,7 +2390,12 @@ fn sync_shore_visuals(
         return;
     };
     let tick = sim.0.world.tick;
-    let list = art.draw_list(shore, landed_age(&state.events, tick), tick);
+    // A crushed enemy whose contact frames carry `hazard_draw: "over"` (the
+    // llama): the block's anchor goes on the mirrored `hit_origin` and the
+    // stone is drawn over that body, still below the players (presentation
+    // only; the block's simulated position never moves).
+    let over = death.0.as_ref().and_then(|p| p.hazard_over_anchor());
+    let list = art.draw_list_with(shore, landed_age(&state.events, tick), tick, over);
     let prop_z = setup.kit.actor_z - 1.0;
     let wall_z = setup
         .kit
@@ -2208,6 +2408,8 @@ fn sync_shore_visuals(
             Some(draw) => {
                 let z = if draw.slot == ShoreSlot::Cavity {
                     wall_z + 0.3
+                } else if draw.slot == ShoreSlot::Block && over.is_some() {
+                    setup.kit.actor_z + HAZARD_OVER_Z_OFFSET
                 } else {
                     prop_z + draw.slot.z_bias()
                 };
@@ -2237,7 +2439,14 @@ fn sync_death_visuals(
     combat: Res<Combat>,
     sim: Res<Sim>,
     setup: Res<Setup>,
-    mut goblins: Query<(&GoblinSprite, &mut Visibility, &mut Sprite), Without<DeathPiece>>,
+    mut goblins: Query<
+        (&GoblinSprite, &mut Visibility, &mut Sprite),
+        (Without<DeathPiece>, Without<LlamaSprite>),
+    >,
+    mut llamas: Query<
+        (&LlamaSprite, &mut Visibility, &mut Sprite),
+        (Without<DeathPiece>, Without<GoblinSprite>),
+    >,
     mut pieces: Query<(&DeathPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
 ) {
     let (Some(presenter), Some(look), Some(state)) = (death.0.as_ref(), look, combat.0.as_ref())
@@ -2247,7 +2456,7 @@ fn sync_death_visuals(
     let started = std::time::Instant::now();
     let actor_z = setup.kit.actor_z;
     let tick = sim.0.world.tick;
-    let art = presenter.art();
+
     // A death pose replaces the goblin sprite; a retired corpse is drawn no
     // more and a retiring one fades out (the GOB-01 corpse sprite included).
     let hide_goblin = |index: usize| {
@@ -2263,12 +2472,35 @@ fn sync_death_visuals(
             .color
             .with_alpha(presenter.corpse_alpha(goblin.index as u32));
     }
-    // Variant B draws from its own composed sheet (same layout, same frames).
+    // A llama's death pose replaces its sprite; a retired corpse is not drawn.
+    let goblin_count = state.enemies.len();
+    for (llama, mut visibility, mut sprite) in &mut llamas {
+        let target = (goblin_count + llama.index) as u32;
+        *visibility = if presenter.pose_of(target).is_some() || presenter.is_retired(target) {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+        sprite.color = sprite.color.with_alpha(presenter.corpse_alpha(target));
+    }
+    // Variant B draws from its own composed sheet (same layout, same frames);
+    // the llama's parts have their own sheet and layout.
     let use_image = |sprite: &mut Sprite, image: &Handle<Image>| {
         if sprite.image != *image {
             sprite.image = image.clone();
         }
     };
+    let use_sheet =
+        |sprite: &mut Sprite, image: &Handle<Image>, layout: &Handle<TextureAtlasLayout>| {
+            if sprite.image != *image {
+                sprite.image = image.clone();
+            }
+            if let Some(atlas) = sprite.texture_atlas.as_mut()
+                && atlas.layout != *layout
+            {
+                atlas.layout = layout.clone();
+            }
+        };
     let set_atlas = |sprite: &mut Sprite, frame: usize| {
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = frame;
@@ -2298,6 +2530,34 @@ fn sync_death_visuals(
                 }
                 None => *visibility = Visibility::Hidden,
             },
+            DeathPiece::LlamaPose(index) => {
+                let target = (goblin_count + index) as u32;
+                match presenter.pose_of(target) {
+                    Some(pose) => {
+                        let (cx, cy) = actor_center(
+                            look.llama_pose_spec,
+                            pose.foot_x,
+                            pose.ground_y,
+                            pose.flip,
+                        );
+                        transform.translation = Vec3::new(
+                            cx,
+                            cy,
+                            actor_z + GOBLIN_LYING_Z_OFFSET - target as f32 * GOBLIN_Z_STEP,
+                        );
+                        sprite.flip_x = pose.flip;
+                        sprite.color = if state.flash(target as usize, tick) {
+                            FLASH_TINT
+                        } else {
+                            Color::WHITE
+                        }
+                        .with_alpha(pose.alpha);
+                        set_atlas(&mut sprite, pose.frame);
+                        *visibility = Visibility::Inherited;
+                    }
+                    None => *visibility = Visibility::Hidden,
+                }
+            }
             DeathPiece::Part(slot) => match presenter.part_at(slot) {
                 Some(part) => {
                     transform.translation = Vec3::new(
@@ -2307,7 +2567,11 @@ fn sync_death_visuals(
                     );
                     transform.rotation = Quat::from_rotation_z(part.angle_deg.to_radians());
                     sprite.flip_x = part.flip;
-                    use_image(&mut sprite, &look.parts_images[part.variant]);
+                    use_sheet(
+                        &mut sprite,
+                        &look.parts_images[part.variant],
+                        &look.parts_layouts[part.variant],
+                    );
                     sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.part_alpha(slot, part));
                     set_atlas(&mut sprite, part.frame);
                     *visibility = Visibility::Inherited;
@@ -2317,6 +2581,7 @@ fn sync_death_visuals(
             DeathPiece::Floor { slot, second } => {
                 let decal = presenter.floor_decal_at(slot);
                 let shown = decal.and_then(|d| {
+                    let art = presenter.art_of(d.variant);
                     let meta = if second { d.pair_meta? } else { d.meta };
                     let offset = if second {
                         art.parts[d.meta].pair_offset.map_or(0.0, |o| o[0] as f32)
@@ -2333,6 +2598,11 @@ fn sync_death_visuals(
                             draw_z(DrawLayer::FloorDecal, slot, actor_z, look.wall_z),
                         );
                         sprite.flip_x = d.flip;
+                        use_sheet(
+                            &mut sprite,
+                            &look.parts_images[d.variant],
+                            &look.parts_layouts[d.variant],
+                        );
                         sprite.color =
                             Color::srgba(1.0, 1.0, 1.0, presenter.floor_decal_alpha(slot, d));
                         set_atlas(&mut sprite, frame);
@@ -2349,8 +2619,13 @@ fn sync_death_visuals(
                         draw_z(DrawLayer::WallDecal, slot, actor_z, look.wall_z),
                     );
                     sprite.flip_x = d.flip;
+                    use_sheet(
+                        &mut sprite,
+                        &look.parts_images[d.variant],
+                        &look.parts_layouts[d.variant],
+                    );
                     sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.wall_decal_alpha(slot, d));
-                    set_atlas(&mut sprite, art.parts[d.meta].frame);
+                    set_atlas(&mut sprite, presenter.art_of(d.variant).parts[d.meta].frame);
                     *visibility = Visibility::Inherited;
                 }
                 None => *visibility = Visibility::Hidden,
@@ -2478,6 +2753,13 @@ fn update_lighting(
                     goblin.x + art.goblin_draw_dx(index) as f32,
                     goblin.facing < 0,
                 );
+            }
+            if let Some(clips) = art.llama_clips() {
+                for (index, llama) in combat.llamas.iter().enumerate() {
+                    if let Some(pose) = art.llama_pose(index) {
+                        put(clips, &pose, llama.x, llama.facing < 0);
+                    }
+                }
             }
         }
     }

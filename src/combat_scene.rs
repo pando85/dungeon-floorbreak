@@ -19,8 +19,8 @@
 
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
-    EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, Phase, RootStep, carl_move, hit_box, resolve_strike,
-    solid_at,
+    EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, Phase, RootStep, carl_move, hit_box, solid_at,
+    strike_group,
 };
 use crate::corridor::SceneSim;
 use crate::env_kit::EnvKit;
@@ -32,6 +32,9 @@ use crate::feel::{
 pub use crate::feel::{HERO_HURT_TICKS, RESTART_DELAY_TICKS};
 use crate::goblin::{Goblin, GoblinMode};
 use crate::input::{InputFrame, RawInput};
+use crate::llama::{
+    FireView, Glob, GlobFate, LLAMA_HALF_HEIGHT, LLAMA_HALF_WIDTH, Llama, LlamaMode,
+};
 use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect, TICK_SECONDS};
 use crate::shore::{PLAYER_ONE, Shore};
 
@@ -43,6 +46,14 @@ const BODY_CONTACT: f32 = HERO_HALF_WIDTH + crate::combat::ENEMY_HALF_WIDTH;
 /// walking line as Carl (checked on load).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EnemySpawn {
+    pub x: i32,
+    pub ai: EnemyAi,
+}
+
+/// One Bad Llama spawn (DEMO-01 PR B): its centre column and behaviour. It
+/// stands on Carl's walking line (checked on load). `home` is the spawn column.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LlamaSpawn {
     pub x: i32,
     pub ai: EnemyAi,
 }
@@ -104,6 +115,39 @@ const fn strike_towards(from: u64, to: u64, dir: f32, kick: bool) -> Hold {
     }
 }
 
+/// Carl walks (`dir` is +1 or -1) over `from..to`.
+const fn walk(from: u64, to: u64, dir: f32) -> Hold {
+    Hold {
+        from,
+        to,
+        input: RawInput {
+            move_x: dir,
+            jump: false,
+            attack: false,
+            physical: false,
+            ability: false,
+            pause: false,
+        },
+    }
+}
+
+/// A held jump button over `from..to` (tests).
+#[cfg(test)]
+const fn jump(from: u64, to: u64) -> Hold {
+    Hold {
+        from,
+        to,
+        input: RawInput {
+            move_x: 0.0,
+            jump: true,
+            attack: false,
+            physical: false,
+            ability: false,
+            pause: false,
+        },
+    }
+}
+
 /// A named, deterministic combat setup.
 #[derive(Debug, PartialEq)]
 pub struct Fixture {
@@ -117,6 +161,10 @@ pub struct Fixture {
     /// Carl's start column (`None`: no shore). The shore rules are authored
     /// relative to the strike column ([`crate::shore`]).
     pub shore_dx: Option<i32>,
+    /// DEMO-01 PR B: Bad Llamas. Their target ids follow the goblins'
+    /// (`enemies.len() + index`). Empty on every earlier fixture: nothing of a
+    /// llama is mixed into the state hash then.
+    pub llamas: &'static [LlamaSpawn],
     pub script: &'static [Hold],
     /// Default run length of the headless replay and the CI hash.
     pub ticks: u64,
@@ -168,6 +216,7 @@ pub const CP01_SINGLE_GOBLIN: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    llamas: &[],
     script: &[attack(122, 123), attack(136, 137)],
     ticks: 200,
 };
@@ -185,6 +234,7 @@ pub const CP01_TWO_HITS: Fixture = Fixture {
         ai: EnemyAi::Passive,
     }],
     shore_dx: None,
+    llamas: &[],
     script: &[attack(10, 60), attack(70, 71)],
     ticks: 140,
 };
@@ -208,6 +258,7 @@ pub const CP02_TWO_GOBLINS: Fixture = Fixture {
         },
     ],
     shore_dx: None,
+    llamas: &[],
     script: &[
         attack(83, 84),
         attack(97, 98),
@@ -229,6 +280,7 @@ pub const CP01_GOBLIN_ATTACKS: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    llamas: &[],
     script: &[],
     ticks: 300,
 };
@@ -244,6 +296,7 @@ pub const CP01_INTERRUPT: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    llamas: &[],
     script: &[attack(137, 138)],
     ticks: 200,
 };
@@ -260,6 +313,7 @@ pub const CP01_HAYMAKER_CHAIN: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    llamas: &[],
     script: &[attack(137, 138), attack(141, 142)],
     ticks: 230,
 };
@@ -283,6 +337,7 @@ pub const CP01_RETRY: Fixture = Fixture {
         },
     ],
     shore_dx: None,
+    llamas: &[],
     script: &[],
     ticks: 850,
 };
@@ -304,6 +359,7 @@ pub const CP01_KICK: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    llamas: &[],
     script: &[kick(122, 123), kick(247, 248)],
     ticks: 340,
 };
@@ -328,6 +384,7 @@ pub const CP02_KICK_CONTACT: Fixture = Fixture {
         },
     ],
     shore_dx: None,
+    llamas: &[],
     script: &[kick(20, 21)],
     ticks: 140,
 };
@@ -347,6 +404,7 @@ pub const CP03_SHORE_KILL: Fixture = Fixture {
         ai: EnemyAi::Passive,
     }],
     shore_dx: Some(19),
+    llamas: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
     ticks: 200,
 };
@@ -363,6 +421,7 @@ pub const CP03_SHORE_MISS: Fixture = Fixture {
         ai: EnemyAi::Passive,
     }],
     shore_dx: Some(19),
+    llamas: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
     ticks: 200,
 };
@@ -382,6 +441,7 @@ pub const CP03_KICK_BLOCK: Fixture = Fixture {
         ai: EnemyAi::Passive,
     }],
     shore_dx: Some(19),
+    llamas: &[],
     script: &[kick(20, 21), attack(100, 101), attack(140, 141)],
     ticks: 260,
 };
@@ -443,6 +503,7 @@ pub const CP03_GOBLIN_PILEUP: Fixture = Fixture {
         },
     ],
     shore_dx: Some(19),
+    llamas: &[],
     script: &[
         attack(20, 21),
         attack(80, 81),
@@ -453,7 +514,103 @@ pub const CP03_GOBLIN_PILEUP: Fixture = Fixture {
     ticks: 260,
 };
 
-pub const FIXTURES: [&Fixture; 13] = [
+/// DEMO-01 PR B: Carl kicks a Bad Llama to death. The llama (health 3) starts
+/// its tell at once; the first kick lands in the tell and cancels the spit,
+/// Carl follows the pushed-back llama and kicks twice more. The lethal blow is
+/// a push kick: `force=heavy`, so the presenter plays the LLAMA-02 slam pair
+/// (`slam_contact`, `broken_heap`) (slam rule, owner decision 2026-11-19).
+pub const CP05_LLAMA_SLAM: Fixture = Fixture {
+    name: "cp05_llama_slam",
+    summary: "three push kicks defeat the Bad Llama: the lethal kick is heavy (slam finish)",
+    seed: 0x0C05_0001,
+    carl_x: 400,
+    enemies: &[],
+    shore_dx: None,
+    llamas: &[LlamaSpawn {
+        x: 440,
+        ai: EnemyAi::Chase,
+    }],
+    script: &[
+        kick(20, 21),
+        walk(60, 80, 1.0),
+        kick(90, 91),
+        walk(125, 140, 1.0),
+        kick(150, 151),
+    ],
+    ticks: 260,
+};
+
+/// DEMO-01 PR B: jab, haymaker, jab defeat a Bad Llama. No lethal hit is a
+/// kick, so the force is routine and the presenter keeps the LLAMA-01 `down`.
+pub const CP05_LLAMA_DOWN: Fixture = Fixture {
+    name: "cp05_llama_down",
+    summary: "jab, haymaker, jab defeat the Bad Llama: a routine lethal hit (plain down)",
+    seed: 0x0C05_0002,
+    carl_x: 400,
+    enemies: &[],
+    shore_dx: None,
+    llamas: &[LlamaSpawn {
+        x: 438,
+        ai: EnemyAi::Chase,
+    }],
+    script: &[attack(20, 21), attack(24, 25), attack(60, 61)],
+    ticks: 200,
+};
+
+/// DEMO-01 PR B: Carl idles inside the frame, 160 px from the llama. It tells
+/// (36 ticks of glow), spits, and the glob hits him; the second spit comes
+/// after the cooldown and after his invulnerability, and hits again.
+pub const CP05_LLAMA_SPIT: Fixture = Fixture {
+    name: "cp05_llama_spit",
+    summary: "Carl idles in view: two spit hits, the second after invulnerability",
+    seed: 0x0C05_0003,
+    carl_x: 400,
+    enemies: &[],
+    shore_dx: None,
+    llamas: &[LlamaSpawn {
+        x: 560,
+        ai: EnemyAi::Chase,
+    }],
+    script: &[],
+    ticks: 300,
+};
+
+/// DEMO-01 PR B: the llama stands outside the simulation's scroll-camera view
+/// (fair fire): it walks toward Carl up to its leash but never starts a tell.
+pub const CP05_LLAMA_OFFSCREEN: Fixture = Fixture {
+    name: "cp05_llama_offscreen",
+    summary: "the llama is outside the scroll view: it walks, never tells, never spits",
+    seed: 0x0C05_0004,
+    carl_x: 400,
+    enemies: &[],
+    shore_dx: None,
+    llamas: &[LlamaSpawn {
+        x: 1000,
+        ai: EnemyAi::Chase,
+    }],
+    script: &[],
+    ticks: 400,
+};
+
+/// DEMO-01 PR B: three jabs break the rotten shore and the block lands on a
+/// stationary llama standing in the footprint (a crush: the stone is drawn
+/// over the llama on the first two contact frames, below the players).
+pub const CP05_LLAMA_CRUSH: Fixture = Fixture {
+    name: "cp05_llama_crush",
+    summary: "three jabs break the shore; the block crushes the llama under it",
+    seed: 0x0C05_0005,
+    carl_x: 400,
+    enemies: &[],
+    shore_dx: Some(19),
+    llamas: &[LlamaSpawn {
+        x: 484,
+        ai: EnemyAi::Passive,
+    }],
+    script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
+    ticks: 200,
+};
+
+pub const FIXTURES: [&Fixture; 18] = [
     &CP01_SINGLE_GOBLIN,
     &CP01_TWO_HITS,
     &CP02_TWO_GOBLINS,
@@ -467,6 +624,11 @@ pub const FIXTURES: [&Fixture; 13] = [
     &CP03_SHORE_MISS,
     &CP03_KICK_BLOCK,
     &CP03_GOBLIN_PILEUP,
+    &CP05_LLAMA_SLAM,
+    &CP05_LLAMA_DOWN,
+    &CP05_LLAMA_SPIT,
+    &CP05_LLAMA_OFFSCREEN,
+    &CP05_LLAMA_CRUSH,
 ];
 
 // ------------------------------------------------------------------ the sim --
@@ -493,6 +655,10 @@ struct Confirm {
 pub struct CombatState {
     pub fixture: &'static Fixture,
     pub enemies: Vec<Goblin>,
+    /// DEMO-01 PR B: the Bad Llamas (target ids follow the goblins') and the
+    /// spit globs in flight.
+    pub llamas: Vec<Llama>,
+    pub globs: Vec<Glob>,
     /// CP-03: the rotten shore and its block (fixtures with `shore_dx`).
     pub shore: Option<Shore>,
     /// CP-02: (launch id, target) pairs that already had their contact.
@@ -543,9 +709,19 @@ impl CombatState {
                 ));
             }
         }
+        for spawn in fixture.llamas {
+            if kit.walking_line_at(spawn.x) != Some(line) {
+                return Err(format!(
+                    "{}: llama column {} is not on Carl's walking line",
+                    fixture.name, spawn.x
+                ));
+            }
+        }
         let mut state = Self {
             fixture,
             enemies: Vec::new(),
+            llamas: Vec::new(),
+            globs: Vec::new(),
             shore: None,
             contacts: Vec::new(),
             input: InputFrame::default(),
@@ -583,6 +759,19 @@ impl CombatState {
                 )
             })
             .collect();
+        self.llamas = self
+            .fixture
+            .llamas
+            .iter()
+            .map(|spawn| {
+                Llama::new(
+                    spawn.x as f32,
+                    self.enemy_foot_y + LLAMA_HALF_HEIGHT,
+                    spawn.ai,
+                )
+            })
+            .collect();
+        self.globs.clear();
         self.shore = self
             .fixture
             .shore_dx
@@ -597,7 +786,7 @@ impl CombatState {
         self.last_tell_start = None;
         self.event_hash = EVENT_HASH_SEED;
         self.confirm = None;
-        self.flash_tick = vec![None; self.enemies.len()];
+        self.flash_tick = vec![None; self.enemies.len() + self.llamas.len()];
     }
 
     /// Fast restart of the fixture: Carl, the goblins and the tick counter go
@@ -707,15 +896,32 @@ impl CombatState {
                 player: PLAYER_ONE,
             };
             let attacking: Vec<bool> = self.enemies.iter().map(Goblin::token_held).collect();
+            let telling: Vec<bool> = self.llamas.iter().map(Llama::telling).collect();
             let mut hits = Vec::new();
-            resolve_strike(
+            // One move over every kind of target: the goblins (ids from 0),
+            // then the llamas (ids after them). The attacker's hit-stop is the
+            // longest of the hits, started once.
+            let mut stop = strike_group(
                 &mut scene.world.hero.melee,
                 &move_tick,
                 attacker,
                 &mut self.enemies,
+                0,
                 tick,
                 &mut hits,
             );
+            if !self.llamas.is_empty() {
+                stop = stop.max(strike_group(
+                    &mut scene.world.hero.melee,
+                    &move_tick,
+                    attacker,
+                    &mut self.llamas,
+                    self.enemies.len() as u32,
+                    tick,
+                    &mut hits,
+                ));
+            }
+            scene.world.hero.melee.begin_hit_stop(stop);
             for event in hits {
                 if let CombatEvent::Hit {
                     move_id,
@@ -725,13 +931,20 @@ impl CombatState {
                     ..
                 } = event
                 {
-                    // A kick that launched a living goblin: stamp the move
-                    // instance as the launch id (one contact per launch).
-                    let goblin = &mut self.enemies[target as usize];
-                    if goblin.mode == GoblinMode::Launched && goblin.launch.is_none() {
-                        goblin.launch = Some(instance);
+                    if let Some(llama) = self
+                        .llamas
+                        .get_mut((target as usize).wrapping_sub(self.enemies.len()))
+                    {
+                        llama.hit_by = Some(attacker.player);
+                    } else {
+                        // A kick that launched a living goblin: stamp the move
+                        // instance as the launch id (one contact per launch).
+                        let goblin = &mut self.enemies[target as usize];
+                        if goblin.mode == GoblinMode::Launched && goblin.launch.is_none() {
+                            goblin.launch = Some(instance);
+                        }
+                        goblin.hit_by = Some(attacker.player);
                     }
-                    goblin.hit_by = Some(attacker.player);
                     self.note_confirm(tick, move_id, target as usize, health_left == 0, attacker);
                 }
                 self.log(event);
@@ -741,6 +954,14 @@ impl CombatState {
                     self.log(CombatEvent::GoblinInterrupted {
                         tick,
                         goblin: index as u32,
+                    });
+                }
+            }
+            for (index, was_telling) in telling.into_iter().enumerate() {
+                if was_telling && self.llamas[index].mode != LlamaMode::Attack {
+                    self.log(CombatEvent::LlamaInterrupted {
+                        tick,
+                        llama: index as u32,
                     });
                 }
             }
@@ -791,6 +1012,8 @@ impl CombatState {
         }
 
         self.step_goblins(scene, tick);
+        self.step_llamas(scene, tick);
+        self.step_globs(scene, tick);
         self.resolve_contacts(tick);
         self.step_shore(tick);
 
@@ -851,6 +1074,80 @@ impl CombatState {
             }
             if step.impact {
                 self.swing_on_hero(scene, index, tick);
+            }
+        }
+    }
+
+    /// DEMO-01 PR B: every llama in index order, after the goblins: the walk,
+    /// the fair-fire tell and the release of the glob. The fair-fire view is
+    /// the simulation's scroll camera (simulation state), never the
+    /// presentation view.
+    fn step_llamas(&mut self, scene: &SceneSim, tick: u64) {
+        if self.llamas.is_empty() {
+            return;
+        }
+        let hero_x = scene.world.hero.x;
+        let left = scene.camera.left();
+        let view = FireView {
+            left: left as f32,
+            right: (left + scene.camera.config().view_w) as f32,
+        };
+        for index in 0..self.llamas.len() {
+            let step = self.llamas[index].step(
+                hero_x,
+                !self.hero_defeated,
+                &scene.world.solids,
+                self.x_max - LLAMA_HALF_WIDTH,
+                view,
+            );
+            if step.started_tell {
+                self.log(CombatEvent::LlamaTell {
+                    tick,
+                    llama: index as u32,
+                });
+            }
+            if let Some(mut glob) = step.spit {
+                glob.owner = index as u32;
+                self.globs.push(glob);
+                self.log(CombatEvent::LlamaSpit {
+                    tick,
+                    llama: index as u32,
+                });
+            }
+        }
+    }
+
+    /// The spit globs in flight (oldest first): each flies straight, stops on a
+    /// solid or at its range, and hurts Carl once through the ordinary hurt
+    /// path when it overlaps him while he is not invulnerable (a glob that
+    /// meets his invulnerability flies on). A jump clears it.
+    fn step_globs(&mut self, scene: &mut SceneSim, tick: u64) {
+        let mut index = 0;
+        while index < self.globs.len() {
+            let fate = self.globs[index].step(&scene.world.solids);
+            let mut done = fate != GlobFate::Flying;
+            if !done {
+                let glob = self.globs[index];
+                let hero = &scene.world.hero;
+                let body = Rect {
+                    left: hero.x - HERO_HALF_WIDTH,
+                    bottom: hero.y - HERO_HALF_HEIGHT,
+                    width: HERO_HALF_WIDTH * 2.0,
+                    height: HERO_HALF_HEIGHT * 2.0,
+                };
+                if !self.hero_defeated && hero.invulnerable_ticks == 0 && glob.rect().overlaps(body)
+                {
+                    let owner = glob.owner as usize;
+                    let source_x = self.llamas.get(owner).map_or(glob.x, |l| l.x);
+                    let source = (self.enemies.len() + owner) as u32;
+                    self.hurt_hero(scene, source, source_x, tick);
+                    done = true;
+                }
+            }
+            if done {
+                self.globs.remove(index);
+            } else {
+                index += 1;
             }
         }
     }
@@ -938,6 +1235,24 @@ impl CombatState {
                 }
             }
         }
+        for index in 0..self.llamas.len() {
+            if self.llamas[index].alive()
+                && self.llamas[index].body().overlaps(footprint)
+                && self.llamas[index].crush()
+            {
+                let target = (self.enemies.len() + index) as u32;
+                self.log(CombatEvent::enemy_defeated(
+                    tick,
+                    target,
+                    DefeatCause::ShoreBlock { player },
+                    self.llamas[index].hit_by,
+                    None,
+                ));
+                if let Some(slot) = self.flash_tick.get_mut(target as usize) {
+                    *slot = Some(tick);
+                }
+            }
+        }
     }
 
     /// An active swing: it hurts Carl only if its box (in front of the goblin)
@@ -959,19 +1274,33 @@ impl CombatState {
             return;
         }
         goblin.swing_hit = true;
+        goblin.hit_stop = goblin.hit_stop.max(HERO_HURT_HIT_STOP);
+        let goblin_x = goblin.x;
+        if self.hurt_hero(scene, index as u32, goblin_x, tick) {
+            self.enemies[index].hit_stop = self.enemies[index].hit_stop.max(HERO_DEFEAT_HIT_STOP);
+        }
+    }
+
+    /// The one way anything hurts Carl: one health, the invulnerability, the
+    /// flinch and hit-stop, and the knockdown when it was the last health.
+    /// `source` is the target id of the attacker (a goblin index, or the goblin
+    /// count plus the llama index) and `source_x` its column (the blow comes
+    /// from that side). Returns true when Carl was defeated. The caller
+    /// freezes the attacker if it has a body that freezes.
+    fn hurt_hero(&mut self, scene: &mut SceneSim, source: u32, source_x: f32, tick: u64) -> bool {
+        let hero = &mut scene.world.hero;
         hero.health = hero.health.saturating_sub(1);
         hero.invulnerable_ticks = HERO_INVULNERABLE_TICKS;
         hero.melee.cancel();
         // The hurt and knockdown art assume the blow came from the front.
-        hero.facing = if goblin.x >= hero.x { 1 } else { -1 };
-        let away = if hero.x >= goblin.x { 1.0 } else { -1.0 };
+        hero.facing = if source_x >= hero.x { 1 } else { -1 };
+        let away = if hero.x >= source_x { 1.0 } else { -1.0 };
         let health_left = hero.health;
         self.hurt_ticks = HERO_HURT_TICKS;
         self.hero_hit_stop = self.hero_hit_stop.max(HERO_HURT_HIT_STOP);
-        goblin.hit_stop = goblin.hit_stop.max(HERO_HURT_HIT_STOP);
         self.log(CombatEvent::HeroHurt {
             tick,
-            source: index as u32,
+            source,
             health_left,
         });
         if health_left == 0 {
@@ -979,13 +1308,14 @@ impl CombatState {
             self.deaths += 1;
             // The heavier knockdown: longer freeze, then launched away.
             self.hero_hit_stop = self.hero_hit_stop.max(HERO_DEFEAT_HIT_STOP);
-            self.enemies[index].hit_stop = self.enemies[index].hit_stop.max(HERO_DEFEAT_HIT_STOP);
             self.hero_vx = away * HERO_KNOCKDOWN_VX;
             let hero = &mut scene.world.hero;
             hero.vy = HERO_KNOCKDOWN_VY;
             hero.grounded = false;
             self.log(CombatEvent::HeroDefeated { tick });
+            return true;
         }
+        false
     }
 
     /// One tick of a move's forward step: stopped by walls, the layout edge and
@@ -1001,6 +1331,9 @@ impl CombatState {
         let touching = self.enemies.iter().filter(|g| g.alive()).any(|g| {
             let after = (g.x - candidate).abs();
             after < BODY_CONTACT && after < (g.x - hero.x).abs()
+        }) || self.llamas.iter().filter(|l| l.alive()).any(|l| {
+            let after = (l.x - candidate).abs();
+            after < HERO_HALF_WIDTH + LLAMA_HALF_WIDTH && after < (l.x - hero.x).abs()
         });
         let body = Rect {
             left: candidate - HERO_HALF_WIDTH,
@@ -1125,6 +1458,18 @@ impl CombatState {
         for goblin in &self.enemies {
             goblin.mix_into(&mut put);
         }
+        // DEMO-01 PR B: mixed only for a fixture with llamas (or a glob in
+        // flight), so every earlier fixture keeps its hash.
+        if !self.llamas.is_empty() || !self.globs.is_empty() {
+            put(0x4c4c_414d);
+            for llama in &self.llamas {
+                llama.mix_into(&mut put);
+            }
+            put(self.globs.len() as u64);
+            for glob in &self.globs {
+                glob.mix_into(&mut put);
+            }
+        }
         if let Some(shore) = &self.shore {
             shore.mix_into(&mut put);
         }
@@ -1179,7 +1524,23 @@ impl CombatState {
             self.camera_kick(scene.world.tick),
             scene.camera.left(),
             goblins.join(" ")
-        ) + &self.shore_token()
+        ) + &self.llama_trace()
+            + &self.shore_token()
+    }
+
+    /// ` l<i>=<mode> ...` per llama and the globs in flight, else empty.
+    fn llama_trace(&self) -> String {
+        let mut out = String::new();
+        for (i, l) in self.llamas.iter().enumerate() {
+            out += &format!(
+                " l{i}={:?} l{i}_t={} l{i}_x={:.2} l{i}_hs={} l{i}_hp={}",
+                l.mode, l.attack_tick, l.x, l.hit_stop, l.health
+            );
+        }
+        if !self.llamas.is_empty() {
+            out += &format!(" globs={}", self.globs.len());
+        }
+        out
     }
 
     /// ` shore=<hits>/<prop>/<block>` while the fixture has a shore, else empty.
@@ -1193,6 +1554,20 @@ impl CombatState {
                 shore.block_bottom
             )
         })
+    }
+
+    /// ` llamas=l0=<x>/<hp>,...` while the fixture has llamas, else empty.
+    fn llama_state(&self) -> String {
+        if self.llamas.is_empty() {
+            return String::new();
+        }
+        let llamas: Vec<String> = self
+            .llamas
+            .iter()
+            .enumerate()
+            .map(|(i, l)| format!("l{i}={:.3}/{}", l.x, l.health))
+            .collect();
+        format!(" llamas={}", llamas.join(","))
     }
 
     /// The line CI compares between the headless replay, the render run and
@@ -1215,6 +1590,7 @@ impl CombatState {
             enemies.join(","),
             self.state_hash(scene)
         ) + &self.shore_token()
+            + &self.llama_state()
     }
 }
 
@@ -1288,7 +1664,7 @@ mod tests {
     /// Committed expectations: the final `COMBAT_STATE` hash of each fixture
     /// at its default length. CI compares the headless replay and the real
     /// render run against the same values (`docs/evidence/cp01-feel`).
-    const EXPECTED_HASHES: [(&str, u64); 13] = [
+    const EXPECTED_HASHES: [(&str, u64); 18] = [
         ("cp01_single_goblin", 0xcbb3_07e8_a1a7_420f),
         ("cp01_two_hits", 0x119a_431d_ad6c_7d0b),
         ("cp02_two_goblins", 0x4f3b_150a_c8a0_c633),
@@ -1302,6 +1678,12 @@ mod tests {
         ("cp03_shore_miss", 0x317b_ead5_5c8a_6a73),
         ("cp03_kick_block", 0x73e4_0916_1ce5_434f),
         ("cp03_goblin_pileup", 0x6a82_811d_8f31_c475),
+        // DEMO-01 PR B: the Bad Llama fixtures (new; nothing above changed).
+        ("cp05_llama_slam", 0x611c_0e44_dbce_f788),
+        ("cp05_llama_down", 0x502b_e52b_0c0c_e4a4),
+        ("cp05_llama_spit", 0x5984_ba11_b72b_53dc),
+        ("cp05_llama_offscreen", 0x9e65_7acd_442f_059b),
+        ("cp05_llama_crush", 0xe151_c497_b2dd_7506),
     ];
 
     fn kit() -> EnvKit {
@@ -1385,6 +1767,7 @@ mod tests {
                     ai: EnemyAi::Passive,
                 }],
                 shore_dx: None,
+                llamas: &[],
                 script: &[],
                 ticks: 100,
             };
@@ -1405,6 +1788,7 @@ mod tests {
             ai: EnemyAi::Chase,
         }],
         shore_dx: None,
+        llamas: &[],
         script: &[],
         ticks: 400,
     };
@@ -1430,6 +1814,7 @@ mod tests {
             },
         ],
         shore_dx: None,
+        llamas: &[],
         script: &[],
         ticks: 120,
     };
@@ -1445,6 +1830,7 @@ mod tests {
             ai: EnemyAi::Chase,
         }],
         shore_dx: None,
+        llamas: &[],
         script: &[Hold {
             from: 1,
             to: 40,
@@ -1471,6 +1857,7 @@ mod tests {
             ai: EnemyAi::Chase,
         }],
         shore_dx: None,
+        llamas: &[],
         script: &[attack(149, 150)],
         ticks: 200,
     };
@@ -1483,6 +1870,7 @@ mod tests {
         carl_x: 400,
         enemies: &[],
         shore_dx: None,
+        llamas: &[],
         script: &[],
         ticks: 100,
     };
@@ -1758,6 +2146,7 @@ mod tests {
                 },
             ],
             shore_dx: None,
+            llamas: &[],
             script: &[],
             ticks: 60,
         };
@@ -2710,6 +3099,7 @@ mod tests {
                 ai: EnemyAi::Passive,
             }],
             shore_dx: Some(19),
+            llamas: &[],
             script: &[attack(20, 400)],
             ticks: 300,
         };
@@ -2736,6 +3126,7 @@ mod tests {
                 ai: EnemyAi::Passive,
             }],
             shore_dx: Some(19),
+            llamas: &[],
             script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
             ticks: 220,
         };
@@ -2994,6 +3385,7 @@ mod tests {
             ai: EnemyAi::Passive,
         }],
         shore_dx: Some(19),
+        llamas: &[],
         script: &[
             kick(20, 21),
             attack(120, 121),
@@ -3191,5 +3583,291 @@ mod tests {
                 overall.0
             );
         }
+    }
+
+    // ------------------------------------------------------------ Bad Llama ----
+
+    fn llama_events(fixture: &'static Fixture) -> (FixtureSim, Vec<CombatEvent>) {
+        let mut sim = sim_of(fixture);
+        sim.run_scripted(fixture.ticks);
+        let events = events_of(&sim);
+        (sim, events)
+    }
+
+    fn defeat_rows(events: &[CombatEvent]) -> Vec<(u64, u32, DefeatCause, ForceTier)> {
+        events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::EnemyDefeated {
+                    tick,
+                    target,
+                    cause,
+                    force,
+                    ..
+                } => Some((tick, target, cause, force)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn event_ticks(events: &[CombatEvent], pick: fn(&CombatEvent) -> Option<u64>) -> Vec<u64> {
+        events.iter().filter_map(pick).collect()
+    }
+
+    #[test]
+    fn three_kicks_defeat_the_llama_once_and_the_lethal_kick_is_heavy() {
+        let (sim, events) = llama_events(&CP05_LLAMA_SLAM);
+        assert_eq!(
+            defeat_rows(&events),
+            [(163, 0, DefeatCause::Melee, ForceTier::Heavy)]
+        );
+        // Three push kicks hit it (health 3 -> 2 -> 1 -> 0), each once.
+        let healths: Vec<u8> = events
+            .iter()
+            .filter_map(|e| match e {
+                CombatEvent::Hit { health_left, .. } => Some(*health_left),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(healths, [2, 1, 0]);
+        // The first kick lands inside the tell (tick 33, the spit would leave on
+        // 37): the tell is cancelled and no glob ever flew.
+        assert!(
+            events
+                .iter()
+                .all(|e| !matches!(e, CombatEvent::LlamaSpit { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::LlamaInterrupted { tick: 33, .. }))
+        );
+        assert_eq!(sim.combat.llamas[0].mode, crate::llama::LlamaMode::Corpse);
+        assert_eq!(sim.scene.world.hero.health, HERO_HEALTH);
+    }
+
+    #[test]
+    fn jab_haymaker_jab_defeat_the_llama_with_a_routine_force() {
+        let (_, events) = llama_events(&CP05_LLAMA_DOWN);
+        assert_eq!(
+            defeat_rows(&events),
+            [(63, 0, DefeatCause::Melee, ForceTier::Routine)]
+        );
+        let moves: Vec<MoveId> = starts(&events).into_iter().map(|(_, m)| m).collect();
+        assert_eq!(moves, [MoveId::Jab, MoveId::Haymaker, MoveId::Jab]);
+    }
+
+    #[test]
+    fn the_llama_spits_after_a_36_tick_tell_and_hurts_carl_twice() {
+        let (sim, events) = llama_events(&CP05_LLAMA_SPIT);
+        let tells = event_ticks(&events, |e| match e {
+            CombatEvent::LlamaTell { tick, .. } => Some(*tick),
+            _ => None,
+        });
+        let spits = event_ticks(&events, |e| match e {
+            CombatEvent::LlamaSpit { tick, .. } => Some(*tick),
+            _ => None,
+        });
+        assert_eq!(tells, [1, 151]);
+        // The glob leaves 36 ticks after each tell (attack tick 36).
+        assert_eq!(spits, [37, 187]);
+        let hurt = hurts(&events);
+        assert_eq!(hurt, [76, 226], "one hit per glob, 150 ticks apart");
+        // The second hit comes after the first one's invulnerability ended.
+        assert!(hurt[1] - hurt[0] > u64::from(HERO_INVULNERABLE_TICKS));
+        assert_eq!(sim.scene.world.hero.health, HERO_HEALTH - 2);
+        // Each glob is gone once it hit (none in flight at the end).
+        assert!(sim.combat.globs.is_empty());
+    }
+
+    #[test]
+    fn a_llama_outside_the_view_walks_but_never_tells_or_spits() {
+        let (sim, events) = llama_events(&CP05_LLAMA_OFFSCREEN);
+        assert!(events.iter().all(|e| !matches!(
+            e,
+            CombatEvent::LlamaTell { .. } | CombatEvent::LlamaSpit { .. }
+        )));
+        assert!(hurts(&events).is_empty());
+        // It walked toward Carl up to its 160 px leash and no farther.
+        let x = sim.combat.llamas[0].x;
+        assert!((x - 840.0).abs() < 1.5, "x {x}");
+        // The scroll view stayed on Carl: the llama was out of it the whole run.
+        let left = sim.scene.camera.left() as f32;
+        assert!(x - 23.0 > left + 640.0);
+    }
+
+    #[test]
+    fn a_llama_that_comes_into_view_starts_its_tell() {
+        // Carl walks right: the scroll view follows him, the llama at 1000
+        // enters it (its body must be fully inside) and the tell starts.
+        static APPROACH: Fixture = Fixture {
+            name: "test_llama_approach",
+            summary: "test",
+            seed: 21,
+            carl_x: 400,
+            enemies: &[],
+            shore_dx: None,
+            llamas: &[LlamaSpawn {
+                x: 1000,
+                ai: EnemyAi::Chase,
+            }],
+            script: &[walk(1, 200, 1.0)],
+            ticks: 400,
+        };
+        let mut sim = sim_of(&APPROACH);
+        let mut first_tell = None;
+        for _ in 0..APPROACH.ticks {
+            sim.step_scripted();
+            if first_tell.is_none()
+                && sim
+                    .combat
+                    .events
+                    .iter()
+                    .any(|e| matches!(e, CombatEvent::LlamaTell { .. }))
+            {
+                first_tell = Some(sim.scene.world.tick);
+                let body = sim.combat.llamas[0].body();
+                let left = sim.scene.camera.left() as f32;
+                assert!(body.left >= left && body.right() <= left + 640.0);
+                let dx = sim.scene.world.hero.x - sim.combat.llamas[0].x;
+                assert!(dx.abs() <= 320.0);
+            }
+        }
+        assert!(first_tell.is_some(), "it tells once it is in view");
+    }
+
+    #[test]
+    fn a_jump_clears_the_glob_and_standing_still_does_not() {
+        let hurt_when = |press: Option<u64>| {
+            let script: &'static [Hold] = match press {
+                Some(tick) => Box::leak(Box::new([jump(tick, tick + 1)])),
+                None => &[],
+            };
+            let fixture: &'static Fixture = Box::leak(Box::new(Fixture {
+                name: "test_llama_jump",
+                summary: "test",
+                seed: 23,
+                carl_x: 400,
+                enemies: &[],
+                shore_dx: None,
+                llamas: &[LlamaSpawn {
+                    x: 560,
+                    ai: EnemyAi::Chase,
+                }],
+                script,
+                ticks: 120,
+            }));
+            let mut sim = sim_of(fixture);
+            sim.run_scripted(fixture.ticks);
+            !hurts(&events_of(&sim)).is_empty()
+        };
+        assert!(hurt_when(None), "standing still, the first glob hits");
+        // Some jump timings clear it (the glob is 6 px tall at mouth height, 45
+        // px up); a jump that is far too early or too late does not.
+        let cleared: Vec<u64> = (40..90).filter(|t| !hurt_when(Some(*t))).collect();
+        assert!(
+            cleared.len() >= 8,
+            "a window of at least 8 ticks clears it: {cleared:?}"
+        );
+        assert!(
+            cleared.windows(2).filter(|w| w[1] == w[0] + 1).count() >= 6,
+            "the window is contiguous: {cleared:?}"
+        );
+        assert!(hurt_when(Some(200)), "a jump after the glob does not");
+    }
+
+    #[test]
+    fn a_glob_flying_into_a_wall_is_stopped_by_it() {
+        let mut sim = sim_of(&CP05_LLAMA_SPIT);
+        // A solid between the llama and Carl, at mouth height, stops the glob.
+        sim.scene.world.solids.push(crate::prototype::Block {
+            rect: Rect {
+                left: 470.0,
+                bottom: 0.0,
+                width: 10.0,
+                height: 1000.0,
+            },
+            material: crate::prototype::Material::Stone,
+            intact: true,
+        });
+        sim.run_scripted(120);
+        assert!(hurts(&events_of(&sim)).is_empty(), "the wall took the glob");
+        assert!(sim.combat.globs.is_empty());
+    }
+
+    #[test]
+    fn the_shore_block_crushes_a_llama_under_it_once() {
+        let (sim, events) = llama_events(&CP05_LLAMA_CRUSH);
+        assert_eq!(
+            defeat_rows(&events),
+            [(
+                139,
+                0,
+                DefeatCause::ShoreBlock { player: 0 },
+                ForceTier::Catastrophic
+            )]
+        );
+        // It lies where the block fell, then it is a corpse.
+        assert!(!sim.combat.llamas[0].alive());
+        assert_eq!(sim.combat.llamas[0].x, 484.0);
+    }
+
+    #[test]
+    fn llama_target_ids_follow_the_goblins_and_the_state_hash_sees_the_llama() {
+        // One goblin and one llama in reach: the goblin is target 0, the llama
+        // target 1; one move can hit both and the events say which.
+        static MIXED: Fixture = Fixture {
+            name: "test_mixed",
+            summary: "test",
+            seed: 25,
+            carl_x: 400,
+            enemies: &[EnemySpawn {
+                x: 428,
+                ai: EnemyAi::Passive,
+            }],
+            shore_dx: None,
+            llamas: &[LlamaSpawn {
+                x: 440,
+                ai: EnemyAi::Passive,
+            }],
+            script: &[attack(10, 11)],
+            ticks: 40,
+        };
+        let (sim, events) = llama_events(&MIXED);
+        let mut targets: Vec<u32> = hits(&events).into_iter().map(|(_, t)| t).collect();
+        targets.sort_unstable();
+        assert_eq!(targets, [0, 1]);
+        assert_eq!(sim.combat.enemies[0].health, ENEMY_HEALTH - 1);
+        assert_eq!(sim.combat.llamas[0].health, crate::feel::LLAMA_HEALTH - 1);
+        // The llama is part of the state hash: a different llama column differs.
+        static OTHER: Fixture = Fixture {
+            llamas: &[LlamaSpawn {
+                x: 441,
+                ai: EnemyAi::Passive,
+            }],
+            ..MIXED
+        };
+        let mut other = sim_of(&OTHER);
+        other.run_scripted(OTHER.ticks);
+        assert_ne!(sim.state_hash(), other.state_hash());
+    }
+
+    #[test]
+    fn a_restart_brings_the_llama_back_and_clears_the_globs() {
+        let mut sim = sim_of(&CP05_LLAMA_SPIT);
+        sim.run_scripted(60);
+        assert!(!sim.combat.globs.is_empty(), "a glob is flying");
+        sim.restart();
+        assert!(sim.combat.globs.is_empty());
+        assert_eq!(sim.combat.llamas[0].x, 560.0);
+        assert_eq!(sim.combat.llamas[0].health, crate::feel::LLAMA_HEALTH);
+        // The attempt after a restart is the attempt of a fresh run: the same
+        // llama and glob state tick for tick.
+        let mut fresh = sim_of(&CP05_LLAMA_SPIT);
+        sim.run_scripted(CP05_LLAMA_SPIT.ticks);
+        fresh.run_scripted(CP05_LLAMA_SPIT.ticks);
+        assert_eq!(sim.combat.llamas, fresh.combat.llamas);
+        assert_eq!(sim.combat.globs, fresh.combat.globs);
+        assert_eq!(sim.scene.world.hero.health, fresh.scene.world.hero.health);
     }
 }

@@ -23,6 +23,7 @@ pub mod hud_settings;
 pub mod input;
 pub mod light_pass;
 pub mod lighting;
+pub mod llama;
 pub mod prototype;
 pub mod scene_anim;
 pub mod scroll_camera;
