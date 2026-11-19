@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run inside xvfb-run with the target display resolution.
-# Usage: ci_floor01_render_smoke.sh desktop|desktop-720|deck|advanced|advanced-deck|nolight|nolight-advanced|reference|collision|live-lit|live-unlit|perf-lit|perf-unlit|anim-sequence
+# Usage: ci_floor01_render_smoke.sh desktop|desktop-720|deck|advanced|advanced-deck|nolight|nolight-advanced|reference|collision|live-lit|live-unlit|perf-lit|perf-unlit|anim-sequence|hud|hud-deck
 # desktop is the primary 1920x1080 (x3) capture; desktop-720 is 1280x720 (x2).
 set -euo pipefail
 mode="${1:-desktop}"
@@ -42,8 +42,85 @@ case "$mode" in
   anim-sequence) suffix="anim-sequence-1920x1080"; expected="1920x1080"
     args=(--scale 3 --scenario run_jump --capture-sequence "${anim_first}:${anim_step}:${anim_count}"
       --capture-dir "${anim_dir}/frames"); frozen=0 ;;
+  hud) suffix="hud-640x360"; expected="1280x720"; args=(); frozen=0 ;;
+  hud-deck) suffix="hud-640x400"; expected="1280x800"; args=(--deck); frozen=0 ;;
   *) echo "Unknown capture mode: $mode" >&2; exit 2 ;;
 esac
+if [[ "$mode" == hud || "$mode" == hud-deck ]]; then
+  # HUD-HYBRID-A-01 recipe: normal play, each preview fixture, real combat
+  # states (a real HeroHurt flash, Carl at 1 HP with the cracked heart, two
+  # real System notices) and the option flags, each a frozen capture of a deterministic state. Run inside
+  # xvfb-run at the target resolution (1280x720 or 1280x800, scale 2).
+  deck_flag=0
+  deck_args=()
+  if [[ "$mode" == hud-deck ]]; then deck_flag=1; deck_args=(--deck); fi
+  hud_dir="artifacts/hud"
+  mkdir -p "$hud_dir"
+  # name|preview (or '-')|driver args|extra HUD args
+  hud_states=(
+    "normal|-|--scenario walk_right --capture-tick $advanced_ticks|"
+    "pre-unlock|pre-unlock|--scenario walk_right --capture-tick $advanced_ticks|"
+    "post-unlock|post-unlock|--scenario walk_right --capture-tick $advanced_ticks|"
+    "depleted|depleted|--scenario walk_right --capture-tick $advanced_ticks|"
+    "boss|boss|--scenario walk_right --capture-tick $advanced_ticks|"
+    "coop|coop|--scenario walk_right --capture-tick $advanced_ticks|"
+    "post-unlock-dualsense|post-unlock|--scenario walk_right --capture-tick $advanced_ticks|--glyphs=dualsense"
+    "depleted-reduced-motion|depleted|--scenario walk_right --capture-tick $advanced_ticks|--hud-reduced-motion"
+    "real-hurt|-|--fixture cp01_goblin_attacks --capture-tick 250|"
+    "real-low-hp|-|--fixture cp01_retry --capture-tick 340|"
+    "real-notice-launched|-|--fixture cp01_kick --capture-tick 300|"
+    "real-notice-flattened|-|--fixture cp03_shore_kill --capture-tick 170|"
+  )
+  for entry in "${hud_states[@]}"; do
+    IFS='|' read -r name preview driver extra <<<"$entry"
+    hud_flag=()
+    [[ "$preview" != "-" ]] && hud_flag=(--hud-preview "$preview")
+    state_args=(${driver} ${extra} "${hud_flag[@]}")
+    out="${hud_dir}/hud-${name}-${suffix#hud-}"
+    ./target/debug/floor01_scene "${deck_args[@]}" "${state_args[@]}" > "${out}.log" 2>&1 &
+    pid=$!
+    for _ in $(seq 1 40); do
+      grep -qE 'FLOOR1_TEXTURES_READY|FLOOR1_ASSET_FAILURE' "${out}.log" && break
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 1
+    done
+    if ! grep -q FLOOR1_TEXTURES_READY "${out}.log"; then
+      cat "${out}.log"; kill "$pid" 2>/dev/null || true
+      echo "HUD capture $name: textures did not load" >&2; exit 1
+    fi
+    sleep 2
+    if ! kill -0 "$pid" 2>/dev/null; then
+      cat "${out}.log"; echo "HUD capture $name: scene exited" >&2; exit 1
+    fi
+    import -window root "${out}.png"
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    if grep -qE 'FLOOR1_LIGHTING_WARNING|FLOOR1_HUD_WARNING|FLOOR1_ASSET_FAILURE' "${out}.log"; then
+      cat "${out}.log"; echo "HUD capture $name: warning in the log" >&2; exit 1
+    fi
+    actual="$(identify -format '%wx%h' "${out}.png")"
+    if [[ "$actual" != "$expected" ]]; then
+      echo "HUD capture $name is $actual, expected $expected" >&2; exit 1
+    fi
+    # The rendered simulation state equals the headless one, with or without
+    # the fixture flag (a fixture never touches a replay).
+    rendered_state="$(grep '^FLOOR1_SCENE_STATE' "${out}.log" | tail -n 1)"
+    plain_headless="$(./target/debug/floor01_scene --headless-floor01-smoke "${deck_args[@]}" ${driver} | grep -v '^FLOOR1_HEADLESS_OK')"
+    flag_headless="$(./target/debug/floor01_scene --headless-floor01-smoke "${deck_args[@]}" ${driver} ${extra} "${hud_flag[@]}" | grep -v '^FLOOR1_HEADLESS_OK')"
+    if [[ "$plain_headless" != "$flag_headless" ]]; then
+      echo "HUD flags changed the headless replay of $name" >&2; exit 1
+    fi
+    if [[ -z "$rendered_state" ]] || ! grep -qxF "$rendered_state" <<<"$plain_headless"; then
+      echo "HUD capture $name: rendered state differs from the headless replay" >&2
+      echo "  rendered: $rendered_state" >&2; exit 1
+    fi
+    shown_preview=""; [[ "$preview" != "-" ]] && shown_preview="$preview"
+    python3 -I scripts/check_hud_capture.py "${out}.png" 2 "$deck_flag" $shown_preview
+    echo "HUD_STATE_OK: $name"
+  done
+  echo "FLOOR1_RENDER_OK: $mode (${#hud_states[@]} HUD captures at $expected in $hud_dir)"
+  exit 0
+fi
 base="artifacts/floor01-scene-${suffix}"
 ./target/debug/floor01_scene "${args[@]}" > "${base}.log" 2>&1 &
 pid=$!

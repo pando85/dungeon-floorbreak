@@ -1,0 +1,170 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  28,
+  28
+ ],
+ "pivot": [
+  0,
+  27
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "carl_outline_plum",
+   "rgba": "#1b1124ff"
+  },
+  {
+   "key": "D",
+   "name": "carl_skin_deep",
+   "rgba": "#7c3846ff"
+  },
+  {
+   "key": "S",
+   "name": "carl_skin_shade",
+   "rgba": "#c0624fff"
+  },
+  {
+   "key": "M",
+   "name": "carl_skin_mid",
+   "rgba": "#eb9a6cff"
+  },
+  {
+   "key": "L",
+   "name": "carl_skin_light",
+   "rgba": "#fcc596ff"
+  },
+  {
+   "key": "A",
+   "name": "carl_hair_dark",
+   "rgba": "#28131cff"
+  },
+  {
+   "key": "H",
+   "name": "carl_hair_mid",
+   "rgba": "#42231dff"
+  },
+  {
+   "key": "h",
+   "name": "carl_hair_light",
+   "rgba": "#70412dff"
+  },
+  {
+   "key": "J",
+   "name": "carl_jacket_shadow",
+   "rgba": "#251a2eff"
+  },
+  {
+   "key": "j",
+   "name": "carl_jacket_base",
+   "rgba": "#352540ff"
+  },
+  {
+   "key": "T",
+   "name": "carl_jacket_sheen",
+   "rgba": "#5a4068ff"
+  },
+  {
+   "key": "Y",
+   "name": "carl_jacket_glint",
+   "rgba": "#9478a8ff",
+   "accent": true
+  },
+  {
+   "key": "E",
+   "name": "carl_eye_white",
+   "rgba": "#f6ececff",
+   "accent": true
+  },
+  {
+   "key": "p",
+   "name": "carl_pupil",
+   "rgba": "#140b1aff",
+   "accent": true
+  },
+  {
+   "key": "G",
+   "name": "carl_pin_yellow",
+   "rgba": "#ffcf3aff",
+   "accent": true
+  },
+  {
+   "key": "!",
+   "name": "carl_outline_plum_detail",
+   "rgba": "#1b1124ff",
+   "accent": true
+  },
+  {
+   "key": "#",
+   "name": "carl_skin_light_detail",
+   "rgba": "#fcc596ff",
+   "accent": true
+  },
+  {
+   "key": "$",
+   "name": "carl_hair_light_detail",
+   "rgba": "#70412dff",
+   "accent": true
+  },
+  {
+   "key": "%",
+   "name": "carl_skin_shade_detail",
+   "rgba": "#c0624fff",
+   "accent": true
+  },
+  {
+   "key": "&",
+   "name": "carl_skin_deep_detail",
+   "rgba": "#7c3846ff",
+   "accent": true
+  }
+ ],
+ "layers": [
+  "portrait"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "portrait": [
+     "............................",
+     "..........KK.KKK.KK.........",
+     "........KKHHKHhHKHhKK.......",
+     ".......KAHHHHhhHHHhhHH!.....",
+     "......KAHHHHHhhHHHHhhHHhK...",
+     "......KAHHhHHHHHhhHHHHhHHK..",
+     ".....KAAHHHhHHHHHHhhHHHHhK..",
+     ".....KAAHHHHhhHHHHHhHHHAhK..",
+     ".....KAAHHAHHHhhHHAHHhHAK...",
+     ".....KAAAHAAHLhHHAAH#hHAK...",
+     ".....KAAAAM$LLLhLLLAAAMK....",
+     ".....KAAASMAAAAMMMMMMMMK....",
+     "....KDKASSMEEpMLMMMEpMMK....",
+     "....KDSKSSMSSMMLLMM%MM%K....",
+     "....KSDKSSMMMMMMLLMMMMMK....",
+     ".....KDKDSMMMMMSS&MMMMMK....",
+     "......KKDSMMMMMMMMMMMMSK....",
+     ".......KDSMMMMMpppMMMSK.....",
+     "........KDSMMMM%&%MMSK......",
+     "........KDSSMMMMMMMSSK......",
+     ".........KDDSSSSSSDDK.......",
+     "..........KKDDDDDDKK........",
+     ".......TTTJKDSSSSDKJTTT.....",
+     "....TTTTjjJKSMMMMSKJjTTTT...",
+     "..TTTYTjjjjJK#MMMSKJjjjTYTT.",
+     ".TTYTjjjjjjJKMMMSDKJjjjjTTT.",
+     ".TTTjjjjGGjJK#MMSDKJjjjjjTT.",
+     "TTTjjjjjGGjJKMMMSDKJjjjjjjTT"
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "portrait",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}

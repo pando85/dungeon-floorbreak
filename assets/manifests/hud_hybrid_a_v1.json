@@ -1,0 +1,476 @@
+{
+  "schema_version": 1,
+  "id": "hud_hybrid_a_v1",
+  "type": "decor_atlas",
+  "source_path": "assets/source/hud/hud_hybrid_a.ase",
+  "grid_source": "assets/source/hud/hud_hybrid_a.grid.json",
+  "output_atlas": "generated/art/hud_hybrid_a.png",
+  "output_metadata": "generated/art/hud_hybrid_a.json",
+  "palette_id": "hud-hybrid-a-v1",
+  "frame_size": [
+    208,
+    156
+  ],
+  "pivot": [
+    0,
+    155
+  ],
+  "animation_tags": [],
+  "required_alpha": true,
+  "owner": "AI-authored HUD art (HUD-HYBRID-A-01, hybrid A HUD: plates, strips, notice frame, glyphs, icons, tags, hero portraits, System CRT face)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "provenance": {
+    "origin": "Derived from approved sprite masters and top-tier keys; no AI concept pixels copied. Carl portrait and System CRT face are the frozen top-tier keys (assets/source/hud/keys/), pixels unchanged, lone 1 px details re-keyed to same-colour accent aliases for the strict lint. Donut portrait is a 28x28 1:1 crop of assets/source/characters/donut/donut_h40.grid.json frame 0 (x 14..41, y 4..31) with four edge pixels repainted. Frames, strips, notice frame, glyphs, icons and tags are original pixel-grid-v1 art written by scripts/author_hud_hybrid_a.py from the design spec (sections 2, 3, 7). The HUD concept PNGs were never sampled, traced or cropped.",
+    "generator": "Design and keys: Claude Opus. Execution (portrait crop, frames, glyphs, icons, tags, atlas, validators, evidence): Claude Sonnet via scripts/author_hud_hybrid_a.py. Independent review: pending, a separate top-tier agent. No image-model raster output.",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/source/characters/donut/donut_h40.grid.json",
+      "assets/source/characters/carl/carl_h52.grid.json (palette of the Carl key)"
+    ],
+    "key_sha256": {
+      "carl_portrait": "7d13f3d2a5b4ef4e604a3bcea2be4b558eb41b7da51e9769cd4d32361ecaf306",
+      "system_crt_face": "b5ec5a51332bcb3dc6641a0dd95f08e7d2817bb812f16f4a63a9387cc8dc71a3"
+    }
+  },
+  "hud": {
+    "atlas_size": [
+      208,
+      156
+    ],
+    "regions": [
+      {
+        "name": "plate_frame",
+        "source": "hud_plate_frame",
+        "source_frame": 0,
+        "rect": [
+          0,
+          0,
+          164,
+          48
+        ],
+        "sha256": "85a2589231db8c895960b87189bc595d1dbeb1e2b9de94e505e50414ce2e37fe"
+      },
+      {
+        "name": "portrait_carl",
+        "source": "hud_portrait_carl",
+        "source_frame": 0,
+        "rect": [
+          172,
+          0,
+          28,
+          28
+        ],
+        "sha256": "03c482abdd4968ec5183d6a311dfab9a56cf2d951c0a83c6f03437d195f38a0a"
+      },
+      {
+        "name": "portrait_donut",
+        "source": "hud_portrait_donut",
+        "source_frame": 0,
+        "rect": [
+          172,
+          30,
+          28,
+          28
+        ],
+        "sha256": "9e0cc2dc479f7d238ce432089932a6f4c9c2fbd076a0a0531483323793ab9320"
+      },
+      {
+        "name": "notice_frame",
+        "source": "hud_notice_frame",
+        "source_frame": 0,
+        "rect": [
+          0,
+          60,
+          204,
+          32
+        ],
+        "sha256": "a7242d3047d3ccba15bc44196f389249e025ea7da583e61528405c1cb2ce14c2"
+      },
+      {
+        "name": "crt_idle",
+        "source": "hud_system_crt",
+        "source_frame": 0,
+        "rect": [
+          0,
+          94,
+          20,
+          18
+        ],
+        "sha256": "0156fb18df14be89e0e7425fa2a9550803b1642b05f29c73b554234790e22a50"
+      },
+      {
+        "name": "crt_blink",
+        "source": "hud_system_crt",
+        "source_frame": 1,
+        "rect": [
+          22,
+          94,
+          20,
+          18
+        ],
+        "sha256": "306feed49074d19fac87248ca43f17f1690daf8543b79389734a866f8505d644"
+      },
+      {
+        "name": "crt_notice",
+        "source": "hud_system_crt",
+        "source_frame": 2,
+        "rect": [
+          44,
+          94,
+          20,
+          18
+        ],
+        "sha256": "7b015c815ee3d2eebc60cf183609bad19481549cd6a35b4e1ac9d179eb9c593f"
+      },
+      {
+        "name": "tag_p1",
+        "source": "hud_tags",
+        "source_frame": 0,
+        "rect": [
+          70,
+          94,
+          32,
+          9
+        ],
+        "sha256": "9f75a1cefcf5e0d46fa041f38a5754537f19e0da3d8572bc7469667b731fe90a"
+      },
+      {
+        "name": "tag_p2",
+        "source": "hud_tags",
+        "source_frame": 1,
+        "rect": [
+          104,
+          94,
+          32,
+          9
+        ],
+        "sha256": "c43d8575edf114ddb380fc987b9e3e7645b1f6b50f864e927cb39fb79b6fd1bf"
+      },
+      {
+        "name": "tag_ai",
+        "source": "hud_tags",
+        "source_frame": 2,
+        "rect": [
+          138,
+          94,
+          32,
+          9
+        ],
+        "sha256": "e7fa89ac40ab4cb1c0478e7ef3ce714da49d5eb5353420abc7d3eb2d3c4c9dda"
+      },
+      {
+        "name": "boss_emblem",
+        "source": "hud_icons",
+        "source_frame": 5,
+        "rect": [
+          174,
+          94,
+          20,
+          20
+        ],
+        "sha256": "cf71c4eb908dc92e6e88329caebb937607592f264c29bffb8678040976023caa"
+      },
+      {
+        "name": "warning",
+        "source": "hud_icons",
+        "source_frame": 4,
+        "rect": [
+          196,
+          94,
+          11,
+          10
+        ],
+        "sha256": "852a6e4980d972575957bed44cc193e7794054ff4357ba152385fc236c6feae6"
+      },
+      {
+        "name": "glyph_a",
+        "source": "hud_glyphs",
+        "source_frame": 0,
+        "rect": [
+          0,
+          116,
+          11,
+          11
+        ],
+        "sha256": "19c81506b0a3664b4c8d141ba01d0ed8fd3461465f53662cb1e5186285e9320b"
+      },
+      {
+        "name": "glyph_b",
+        "source": "hud_glyphs",
+        "source_frame": 1,
+        "rect": [
+          13,
+          116,
+          11,
+          11
+        ],
+        "sha256": "371d7f4282079103ea5c2a959825fd78de9ea98df6bd273c635c3c5c1a0642a0"
+      },
+      {
+        "name": "glyph_x",
+        "source": "hud_glyphs",
+        "source_frame": 2,
+        "rect": [
+          26,
+          116,
+          11,
+          11
+        ],
+        "sha256": "b2462c5cd5db0a4b6f907e8e14ff2ac02fc0b55ba8dc5ee325581f10cddbca4d"
+      },
+      {
+        "name": "glyph_y",
+        "source": "hud_glyphs",
+        "source_frame": 3,
+        "rect": [
+          39,
+          116,
+          11,
+          11
+        ],
+        "sha256": "ac8ce6d96184127540fe5a54ead0e95b3ce91a29eb4f0bd2dc760780b3b24ab7"
+      },
+      {
+        "name": "glyph_cross",
+        "source": "hud_glyphs",
+        "source_frame": 4,
+        "rect": [
+          52,
+          116,
+          11,
+          11
+        ],
+        "sha256": "08ed0c51c4fcccba09bf05e1c10b9bec0b95335cbe09306541a8f7addba9f868"
+      },
+      {
+        "name": "glyph_circle",
+        "source": "hud_glyphs",
+        "source_frame": 5,
+        "rect": [
+          65,
+          116,
+          11,
+          11
+        ],
+        "sha256": "f119f86725836703d9e7689dbecdd9a45501b306812548a842e8c900f282cd35"
+      },
+      {
+        "name": "glyph_square",
+        "source": "hud_glyphs",
+        "source_frame": 6,
+        "rect": [
+          78,
+          116,
+          11,
+          11
+        ],
+        "sha256": "81b9f83a23c00dabc73dac31f0940d3bca37830e302c004127722969da9a20b0"
+      },
+      {
+        "name": "glyph_triangle",
+        "source": "hud_glyphs",
+        "source_frame": 7,
+        "rect": [
+          91,
+          116,
+          11,
+          11
+        ],
+        "sha256": "656913eb6ece9e29292b571e98074c22755da027d44c14971ab507bda97206cf"
+      },
+      {
+        "name": "socket_locked",
+        "source": "hud_glyphs",
+        "source_frame": 8,
+        "rect": [
+          104,
+          116,
+          11,
+          11
+        ],
+        "sha256": "5d7773f0ab7c26a9e222b653ac4d359824f838fa96a449d54592cfd94d1886ff"
+      },
+      {
+        "name": "heart",
+        "source": "hud_icons",
+        "source_frame": 0,
+        "rect": [
+          120,
+          116,
+          7,
+          7
+        ],
+        "sha256": "cb5126bb6f453879be05c66baa9e767acbdc11d16c9d4e503f8c7434323798d2"
+      },
+      {
+        "name": "heart_cracked",
+        "source": "hud_icons",
+        "source_frame": 1,
+        "rect": [
+          129,
+          116,
+          7,
+          7
+        ],
+        "sha256": "cf395dfa9747c39909ac87ccd21df2fd3e17a6b716b10ca40adae80ff0dfacb2"
+      },
+      {
+        "name": "spark",
+        "source": "hud_icons",
+        "source_frame": 2,
+        "rect": [
+          138,
+          116,
+          5,
+          5
+        ],
+        "sha256": "f1d37c204f7fd7097acdcd8112bc8189bc4a39fc222768eb1f5d0f08b4433fc8"
+      },
+      {
+        "name": "spark_depleted",
+        "source": "hud_icons",
+        "source_frame": 3,
+        "rect": [
+          145,
+          116,
+          5,
+          5
+        ],
+        "sha256": "9af578bfe980815c844864b86f0b592101fbf201d219aa2a2080e9187104570d"
+      },
+      {
+        "name": "strip_loc_left",
+        "source": "hud_strip_3slice",
+        "source_frame": 0,
+        "rect": [
+          0,
+          130,
+          8,
+          16
+        ],
+        "sha256": "835a44c5e3aa4a9944784c8b915d35bdd70fbcdaad2b799c7025f50d21f07ed6"
+      },
+      {
+        "name": "strip_loc_mid",
+        "source": "hud_strip_3slice",
+        "source_frame": 0,
+        "rect": [
+          8,
+          130,
+          1,
+          16
+        ],
+        "sha256": "c435d7dfed73f30746bf19bc96ec9806e00d2d6a434da38e83e4eb32664dc16c"
+      },
+      {
+        "name": "strip_loc_right",
+        "source": "hud_strip_3slice",
+        "source_frame": 0,
+        "rect": [
+          9,
+          130,
+          8,
+          16
+        ],
+        "sha256": "b7f6d6f1d3ca8bd582ab36a6f3f3688aefccdbb9ad3cee8a11c8c5e7cee58479"
+      },
+      {
+        "name": "strip_boss_left",
+        "source": "hud_strip_3slice",
+        "source_frame": 0,
+        "rect": [
+          24,
+          130,
+          8,
+          26
+        ],
+        "sha256": "478d00b012d36a66ab91adbe39ae8f5ac5dec9671917835017f4f76eaa0afaa2"
+      },
+      {
+        "name": "strip_boss_mid",
+        "source": "hud_strip_3slice",
+        "source_frame": 0,
+        "rect": [
+          32,
+          130,
+          1,
+          26
+        ],
+        "sha256": "9c95547163f46433d34b0645e20e59980006c0ceeba4b1807c058e27b665002a"
+      },
+      {
+        "name": "strip_boss_right",
+        "source": "hud_strip_3slice",
+        "source_frame": 0,
+        "rect": [
+          33,
+          130,
+          8,
+          26
+        ],
+        "sha256": "c3fee18d408619a574377b9fa3d3a564788a7ad2f73054efb240a640412eb3d2"
+      }
+    ],
+    "frame_counts": {
+      "hud_portrait_carl": 1,
+      "hud_portrait_donut": 1,
+      "hud_system_crt": 3,
+      "hud_glyphs": 9,
+      "hud_tags": 3,
+      "hud_icons": 6
+    },
+    "portrait_palettes": {
+      "portrait_carl": "carl_h52 subset (names carl_*)",
+      "portrait_donut": "donut_h40 subset (names donut_*)"
+    },
+    "hud_tokens": {
+      "amber": "#ffc24a",
+      "amber_dim": "#a8742a",
+      "brass": "#b58a3a",
+      "brass_dark": "#6a4a1c",
+      "brass_hi": "#e8c063",
+      "crt_face_hi": "#ffb3dc",
+      "cyan": "#5fe0e8",
+      "hp_red": "#d8283c",
+      "hp_red_hi": "#ff5a5f",
+      "hp_red_lo": "#9a1a2c",
+      "hud_ink": "#120c18",
+      "magenta": "#e0338f",
+      "magenta_dk": "#6e1a4c",
+      "magenta_hi": "#ff6fc0",
+      "mana_v0": "#7a3cf0",
+      "metal_dark": "#2a2430",
+      "metal_hi": "#8a7e8c",
+      "metal_light": "#5c5262",
+      "metal_mid": "#3d3542",
+      "notice_bg": "#1e0f22",
+      "plate_fill": "#211b27",
+      "rust": "#7a3f2a",
+      "screen_bg": "#2a0d24",
+      "text_white": "#f4e6d2"
+    },
+    "code_drawn_tokens": {
+      "hp_empty": "#3a1620",
+      "hp_flash": "#fff1e0",
+      "mana_v0": "#7a3cf0",
+      "mana_v1": "#6a4ff0",
+      "mana_v2": "#5a63f2",
+      "mana_v3": "#4a7af4",
+      "mana_v4": "#3d92f4",
+      "mana_v5": "#33aaf0",
+      "mana_v6": "#33c2ec",
+      "mana_v7": "#45d8ea",
+      "mana_empty": "#1c1a33",
+      "well_carl": "#2b2038",
+      "well_donut": "#301a2e"
+    },
+    "notes": [
+      "portrait wells: plate_frame leaves the 28x28 interior at atlas (rect.x+6, rect.y+6) transparent; the renderer fills it with code_drawn_tokens.well_carl / well_donut under the portrait",
+      "tag area (+4,+36,32,9) of plate_frame is transparent; draw tag_p1 / tag_p2 / tag_ai there",
+      "strip_*: draw left cap, repeat the 1 px mid column to the wanted width, draw right cap",
+      "glyph names a, b, x, y are the Xbox set, cross/circle/square/triangle the DualSense set"
+    ]
+  }
+}

@@ -95,6 +95,40 @@ The repository includes design docs, a Bevy WORK-001 runtime spike, approved moo
 | WORK-018 | P2 | After slice | Authored small structural collapse | Weak-support graph, VFX and invariant tests |
 | WORK-019 | P2 | After slice | Steamworks and Windows portability study | Rights prerequisite acknowledged; build/smoke test |
 | WORK-020 | P2 | Gate | Legal/IP release decision and third-party asset inventory | Permission or original-IP alternative documented |
+| HUD-HYBRID-A-01 | P0 | Integration and art / **in progress, draft PR #103**; code side done (state model, draw list, HUD plugin, fonts, captures) and the real `hud_hybrid_a` atlas integrated (hud and hud-deck captures pass the pixel-integrity check with the real atlas; evidence in [docs/evidence/hud-hybrid-a](../evidence/hud-hybrid-a/README.md)); independent top-tier review and CI on the final head pending. When it merges under the owner directive of 2026-11-19 (AGENTS.md merge delegation) it is recorded as **merged, game-feel review pending** | Owner-approved hybrid-A in-game HUD in `floor01_scene`: Carl plate, Donut plate (portrait, `COMPANION` label and a real authoritative HP bar, no mana before the biscuit), location strip (`FLOOR 01` only), finite-lifetime combat notices, optional boss strip and P1/P2 states, OFL pixel fonts; [design](../02-art/hybrid-hud-a-design.md), [native spec](../02-art/hybrid-hud-a-native-spec.md), [workorder](../07-agents/hybrid-hud-a-single-agent-workorder.md), [references](../../assets/references/hud/hybrid-a-v1/README.md), [HUD section](../03-tech/floor01-scene.md#hud-hud-hybrid-a-01). Several states are **preview fixtures**, retired by the HUD fixture debt group below. TODOs: keyboard players see gamepad glyphs (HUD-DEBT-05), area names missing so only `FLOOR 01`, notice copy is a placeholder pending an owner tone check | Real Bevy captures at 640x360 / 640x400 (`ci_floor01_render_smoke.sh hud`, `hud-deck`; 1x, 2x contact sheet and 3x frames committed, each labeled REAL or PREVIEW), unit tests, independent top-tier review, CI green |
+
+## HUD fixture debt (owner: work on soon)
+
+High-priority follow-ups that retire the HUD states currently faked by preview fixtures in HUD-HYBRID-A-01 (owner decision 2026-11-19: tracked debt, schedule right after the current top-priority work). Until each lands, its HUD state stays labeled preview and must not be reported as implemented.
+
+| ID | Priority | Stage | Deliverable | Retires HUD fixture / acceptance evidence |
+| --- | --- | --- | --- | --- |
+| HUD-DEBT-01 | P0 | Gameplay / partly done in PR #103 (authoritative Donut HP value, max `HERO_HEALTH`, always full; the HUD shows it as a real bar) | Donut damage rules (data-driven, deterministic, gameplay signoff; no change to Carl combat rules) | Retires the fixture Donut HP values below max (`depleted`, `coop`); unit tests plus replay |
+| HUD-DEBT-02 | P0 | Gameplay / not started | Biscuit magic unlock progression flag plus Donut mana resource (cost and regen designed, gameplay signoff; no Carl mana) | Retires the pre-unlock / post-unlock and depleted-mana previews; flag and resource tests, real capture of both states |
+| HUD-DEBT-03 | P0 | Gameplay / not started | Floor 01 boss encounter (authored boss, health source and warning bar events) | Retires the boss strip preview and the placeholder boss name; encounter scenario plus capture |
+| HUD-DEBT-04 | P0 | Prototype / not started | Local 2P and solo-swap ownership: see WORK-005 (second hero, device ownership) and WORK-006 (solo swap vs follower AI) above. Also: glyphs must follow only the pad that owns a hero (today any pad's last press switches them, and connecting a pad switches them before use; found in the #103 review) | Retires the co-op (P1/P2) preview; the HUD reads real ownership, never faked |
+| HUD-DEBT-05 | P0 | Input / **delivered in PR #103**; **owner hardware check pending: real DualSense and Xbox pad** | Gamepad device detection (DualSense vs Xbox glyph set) | The glyph set follows the last gamepad with input via `Gamepad::vendor_id()` (Sony `0x054C` gives DualSense, everything else Xbox); `--glyphs=xbox\|dualsense` stays as an explicit override; Xbox stays the fallback; unit tests with fake vendor ids ([HUD section](../03-tech/floor01-scene.md#hud-hud-hybrid-a-01)). Keyboard glyphs remain a separate TODO |
+| HUD-DEBT-06 | P1 | UX / not started unless delivered in PR #103 | HUD accessibility settings: reduced UI motion, text size, contrast | Settings persisted, controller-reachable; captures at default and adjusted values |
+| HUD-DEBT-07 | P2 | Design-dependent / not started | Real System-event / achievement source beyond combat events, only if the design calls for it | Retires the System-message preview; skip if design does not need it |
+
+**Owner-approved order (2026-11-19).** One PR per item; a later item may start only when it does not depend on an earlier one that has not merged.
+
+1. HUD-DEBT-05 device detection.
+2. HUD-DEBT-04 2P / solo swap (WORK-005, WORK-006).
+3. HUD-DEBT-01 Donut damage (after HUD-DEBT-04).
+4. HUD-DEBT-02 biscuit unlock and mana (needs owner design signoff on cost and regen before implementation).
+5. HUD-DEBT-03 boss encounter.
+6. HUD-DEBT-06 accessibility settings and HUD-DEBT-07 System events.
+
+**Owner-approved PR grouping (2026-11-19).** PR #103 includes HUD-DEBT-05. HUD-DEBT-04 and HUD-DEBT-01 go in one PR after #103 merges. HUD-DEBT-02 design and implementation go in PR #107 after owner signoff. HUD-DEBT-06 and HUD-DEBT-07 go in one PR. HUD-DEBT-03 is a separate PR. This grouping supersedes "one PR per item" above.
+
+**Parallelism rule:** run 2 to 3 independent items in parallel, chosen by difficulty (for example a small input item beside a gameplay item, never two items that edit the same gameplay state or the same files); one PR per item; serialize items that share a dependency in the order above.
+
+**Other HUD TODOs (not debt IDs):**
+
+- Owner tone check of the System notice copy (`LAUNCHED!`, `FLATTENED!`, `BOSS INCOMING`, `SYSTEM NOTICE` are placeholder copy).
+- Area names for the location strip (layout data has none, so only `FLOOR 01` is shown).
+- Keyboard glyphs (keyboard players currently see gamepad glyphs; a separate follow-up, not part of HUD-DEBT-05).
 
 ## Opening-scene combat integration handoff (owner direction, 2026-11-17)
 

@@ -9,6 +9,7 @@
 use std::collections::VecDeque;
 use std::str::FromStr;
 
+use crate::combat::HERO_HEALTH;
 use crate::env_kit::{EnvKit, IRect, to_world_y};
 use crate::input::{InputFrame, RawInput};
 use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, step_hero};
@@ -32,6 +33,11 @@ struct TrailSample {
     facing: i8,
 }
 
+/// Donut's maximum health: the same as Carl's. HUD-HYBRID-A-01 gave her an
+/// authoritative value so the HUD reads a real number; nothing damages her yet
+/// (HUD-DEBT-01 adds the damage rules), so she stays at full health.
+pub const DONUT_HEALTH: u8 = HERO_HEALTH;
+
 /// Donut: a visual companion that replays Carl's foot path. She has no
 /// collision, physics, combat or influence on Carl.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -39,6 +45,8 @@ pub struct Companion {
     pub x: f32,
     pub foot_y: f32,
     pub facing: i8,
+    /// Authoritative health, `0..=DONUT_HEALTH`. Full after every (re)start.
+    pub health: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -79,6 +87,7 @@ impl CorridorWorld {
                 x: 0.0,
                 foot_y: 0.0,
                 facing: 1,
+                health: DONUT_HEALTH,
             },
             solids: kit.blocks(),
             tick: 0,
@@ -105,6 +114,7 @@ impl CorridorWorld {
         self.complete = false;
         let foot_y = self.hero.y - HERO_HALF_HEIGHT;
         // Donut starts one leash length behind the spawn point.
+        self.donut.health = DONUT_HEALTH;
         self.trail.clear();
         self.trail.push_back(TrailSample {
             x: self.hero.x - DONUT_FOLLOW_PX,
@@ -202,7 +212,12 @@ impl CorridorWorld {
                 _ => (a.x, a.foot_y, a.facing),
             }
         };
-        self.donut = Companion { x, foot_y, facing };
+        self.donut = Companion {
+            x,
+            foot_y,
+            facing,
+            health: self.donut.health,
+        };
     }
 
     /// FNV-1a hash of every simulated value (stable across machines).
@@ -229,6 +244,14 @@ impl CorridorWorld {
         mix(u64::from(self.hero.grounded));
         mix(self.hero.facing as u64);
         mix(self.donut.facing as u64);
+        // Donut's health joins the hash only once it deviates from full, so
+        // every hash recorded before she could be damaged stays valid. It never
+        // deviates today (no damage source: HUD-DEBT-01).
+        // No field may be appended after this conditional (HUD-DEBT-01 should
+        // mix the health unconditionally and regenerate the goldens).
+        if self.donut.health != DONUT_HEALTH {
+            mix(u64::from(self.donut.health));
+        }
         hash
     }
 }
@@ -636,6 +659,25 @@ mod tests {
         }
         assert!(sim.world.hero.grounded);
         assert_eq!(feet_line(&sim.world), 308.0);
+    }
+
+    #[test]
+    fn donut_has_authoritative_full_health_that_never_moves_and_resets() {
+        let mut sim = sim(360);
+        assert_eq!(sim.world.donut.health, DONUT_HEALTH);
+        assert_eq!(DONUT_HEALTH, HERO_HEALTH);
+        sim.run_scenario(Scenario::WalkRight, 300);
+        assert_eq!(sim.world.donut.health, DONUT_HEALTH);
+        // Full health leaves the hash exactly as it was before the field
+        // existed; a damaged Donut would change it (future-proofing).
+        let full = sim.world.state_hash();
+        sim.world.donut.health = DONUT_HEALTH - 1;
+        assert_ne!(sim.world.state_hash(), full);
+        sim.world.donut.health = DONUT_HEALTH;
+        assert_eq!(sim.world.state_hash(), full);
+        sim.world.donut.health = 1;
+        sim.reset();
+        assert_eq!(sim.world.donut.health, DONUT_HEALTH);
     }
 
     #[test]
