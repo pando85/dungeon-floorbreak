@@ -82,7 +82,8 @@ use dungeon_floorbreak::{
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, TICK_SECONDS},
     scene_anim::SceneAnimators,
     scene_camera::{
-        CameraChoice, CameraInterest, RigConfig, SceneCameraRig, synthetic_interest, test_room_kit,
+        CameraChoice, CameraInterest, RigConfig, SceneCameraRig, llama_interest,
+        synthetic_interest, test_room_kit,
     },
     shore_art::{ShoreArt, ShoreSlot, landed_age},
 };
@@ -1263,7 +1264,7 @@ fn scene_camera_of(
         },
         sim,
         combat,
-        &test_interest(kit, args, elapsed_ticks(sim, combat)),
+        &test_interest(kit, args, sim, combat, elapsed_ticks(sim, combat)),
         elapsed_ticks(sim, combat),
     );
     // The slot targets cover the widest view this rig can show in this room at
@@ -1279,10 +1280,16 @@ fn scene_camera_of(
 }
 
 /// The threats of this tick: the synthetic one of `--camera-test-threat`, if
-/// any. Gameplay (the Bad Llama of DEMO-01 PR B) feeds the same
-/// [`CameraInterest`] from its own state.
-fn test_interest(kit: &EnvKit, args: &Args, elapsed: u64) -> CameraInterest {
-    match args.camera_test_threat {
+/// any, and the Bad Llamas and their globs from the finished simulation tick
+/// (DEMO-01 PR B, [`llama_interest`]).
+fn test_interest(
+    kit: &EnvKit,
+    args: &Args,
+    sim: &SceneSim,
+    combat: Option<&CombatState>,
+    elapsed: u64,
+) -> CameraInterest {
+    let mut interest = match args.camera_test_threat {
         Some((x, first, last)) => synthetic_interest(
             x,
             to_world_y(kit.height, kit.base_walk_line_y),
@@ -1291,7 +1298,11 @@ fn test_interest(kit: &EnvKit, args: &Args, elapsed: u64) -> CameraInterest {
             elapsed,
         ),
         None => CameraInterest::default(),
+    };
+    if let Some(combat) = combat {
+        llama_interest(sim, combat, &mut interest);
     }
+    interest
 }
 
 /// The view as drawn this frame (layout px, y down): the presentation camera
@@ -2460,9 +2471,7 @@ fn camera_tick(
         rig.request_cut();
     }
     let elapsed = elapsed_ticks(sim, combat);
-    if setup.args.camera_test_threat.is_some() {
-        interest.0 = test_interest(&setup.kit, &setup.args, elapsed);
-    }
+    interest.0 = test_interest(&setup.kit, &setup.args, sim, combat, elapsed);
     let view = rig.sync(sim, combat, &interest.0, elapsed);
     if cam.reported_rest != Some(rig.operator().rest_target()) {
         cam.reported_rest = Some(rig.operator().rest_target());
@@ -4054,7 +4063,7 @@ fn view_trace(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result
         let kick = combat.as_ref().map_or(0, |c| c.camera_kick(sim.world.tick));
         match rig.as_mut() {
             Some(rig) => {
-                let interest = test_interest(kit, args, elapsed);
+                let interest = test_interest(kit, args, &sim, combat.as_ref(), elapsed);
                 if cut {
                     rig.request_cut();
                 }
