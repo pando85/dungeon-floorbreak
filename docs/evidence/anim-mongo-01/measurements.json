@@ -1,0 +1,360 @@
+{
+ "canvas": [
+  128,
+  88
+ ],
+ "pivot": [
+  76,
+  87
+ ],
+ "frames": [
+  {
+   "frame": 0,
+   "duration_ms": 450,
+   "bbox": [
+    12,
+    12,
+    111,
+    87
+   ],
+   "height": 76,
+   "head_top_left": [
+    85,
+    19
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     59,
+     78
+    ],
+    "far_leg": [
+     76,
+     92
+    ]
+   }
+  },
+  {
+   "frame": 1,
+   "duration_ms": 300,
+   "bbox": [
+    11,
+    14,
+    111,
+    87
+   ],
+   "height": 74,
+   "head_top_left": [
+    85,
+    20
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     59,
+     78
+    ],
+    "far_leg": [
+     76,
+     92
+    ]
+   }
+  },
+  {
+   "frame": 2,
+   "duration_ms": 550,
+   "bbox": [
+    11,
+    12,
+    111,
+    87
+   ],
+   "height": 76,
+   "head_top_left": [
+    85,
+    20
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     59,
+     78
+    ],
+    "far_leg": [
+     76,
+     92
+    ]
+   }
+  },
+  {
+   "frame": 3,
+   "duration_ms": 167,
+   "bbox": [
+    12,
+    12,
+    111,
+    87
+   ],
+   "height": 76,
+   "head_top_left": [
+    85,
+    19
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     59,
+     78
+    ],
+    "far_leg": [
+     76,
+     92
+    ]
+   }
+  },
+  {
+   "frame": 4,
+   "duration_ms": 83,
+   "bbox": [
+    9,
+    16,
+    121,
+    87
+   ],
+   "height": 72,
+   "head_top_left": [
+    95,
+    23
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     84,
+     103
+    ]
+   }
+  },
+  {
+   "frame": 5,
+   "duration_ms": 83,
+   "bbox": [
+    10,
+    16,
+    121,
+    87
+   ],
+   "height": 72,
+   "head_top_left": [
+    95,
+    23
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     68,
+     87
+    ]
+   }
+  },
+  {
+   "frame": 6,
+   "duration_ms": 83,
+   "bbox": [
+    8,
+    15,
+    121,
+    84
+   ],
+   "height": 70,
+   "head_top_left": [
+    95,
+    22
+   ],
+   "contact_row_runs": {}
+  },
+  {
+   "frame": 7,
+   "duration_ms": 83,
+   "bbox": [
+    9,
+    16,
+    121,
+    87
+   ],
+   "height": 72,
+   "head_top_left": [
+    95,
+    23
+   ],
+   "contact_row_runs": {
+    "far_leg": [
+     84,
+     103
+    ]
+   }
+  },
+  {
+   "frame": 8,
+   "duration_ms": 83,
+   "bbox": [
+    10,
+    16,
+    121,
+    87
+   ],
+   "height": 72,
+   "head_top_left": [
+    95,
+    23
+   ],
+   "contact_row_runs": {
+    "far_leg": [
+     68,
+     87
+    ]
+   }
+  },
+  {
+   "frame": 9,
+   "duration_ms": 83,
+   "bbox": [
+    8,
+    15,
+    121,
+    84
+   ],
+   "height": 70,
+   "head_top_left": [
+    95,
+    22
+   ],
+   "contact_row_runs": {}
+  },
+  {
+   "frame": 10,
+   "duration_ms": 100,
+   "bbox": [
+    11,
+    21,
+    114,
+    87
+   ],
+   "height": 67,
+   "head_top_left": [
+    88,
+    28
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     61,
+     80
+    ],
+    "far_leg": [
+     75,
+     94
+    ]
+   }
+  },
+  {
+   "frame": 11,
+   "duration_ms": 67,
+   "bbox": [
+    9,
+    14,
+    119,
+    87
+   ],
+   "height": 74,
+   "head_top_left": [
+    93,
+    21
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     56,
+     57
+    ],
+    "far_leg": [
+     68,
+     69
+    ]
+   }
+  },
+  {
+   "frame": 12,
+   "duration_ms": 100,
+   "bbox": [
+    7,
+    6,
+    123,
+    84
+   ],
+   "height": 79,
+   "head_top_left": [
+    97,
+    13
+   ],
+   "contact_row_runs": {}
+  },
+  {
+   "frame": 13,
+   "duration_ms": 100,
+   "bbox": [
+    12,
+    11,
+    119,
+    85
+   ],
+   "height": 75,
+   "head_top_left": [
+    93,
+    18
+   ],
+   "contact_row_runs": {}
+  },
+  {
+   "frame": 14,
+   "duration_ms": 83,
+   "bbox": [
+    13,
+    24,
+    117,
+    87
+   ],
+   "height": 64,
+   "head_top_left": [
+    91,
+    31
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     86,
+     105
+    ],
+    "far_leg": [
+     54,
+     73
+    ]
+   }
+  },
+  {
+   "frame": 15,
+   "duration_ms": 117,
+   "bbox": [
+    12,
+    17,
+    116,
+    87
+   ],
+   "height": 71,
+   "head_top_left": [
+    90,
+    24
+   ],
+   "contact_row_runs": {
+    "near_leg": [
+     74,
+     93
+    ],
+    "far_leg": [
+     60,
+     79
+    ]
+   }
+  }
+ ]
+}

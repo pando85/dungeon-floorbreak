@@ -137,7 +137,9 @@ Scratch review renders (not produced by a committed script): the four frames at 
 
 ## Run readiness
 
-**A 6-frame run is not done and is not started.** The 76 px master is an upright idle pose, not a locomotion pose. From `STYLE_NOTES.md`, a 6-frame run would need:
+**Update (ANIM-MONGO-01):** a 6-frame run, the jump set and the land pair now exist as a candidate on a 128 x 88 canvas (the swept idle fan is accepted as the run tail, the far leg is drawn, the head stays a rigid master copy); see the [locomotion spec](mongo-locomotion-anim-01-spec.md). It is not reviewed by a human and not integrated. The notes below are the original run requirements, kept for history; a redrawn long plume remains a future option for a charge or sprint tag.
+
+**Original requirements.** The 76 px master is an upright idle pose, not a locomotion pose. From `STYLE_NOTES.md`, a 6-frame run would need:
 
 - **Pose:** a lower, more horizontal body and a forward-thrust neck and head. The tail must sweep out flat behind. This is the natural place to fix the rooster-like plume, as new key poses and not a rotated idle tail.
 - **Tail sweep:** lengthening the plume toward the board's horizontal sweep means redrawing the three main tail feathers, the two filler feathers and the covert band at every size and widening the canvas (pivot, manifests and scene spacing change with it). It is a redesign, so it was deliberately not attempted in the idle.
