@@ -52,9 +52,18 @@ pub const WARNING_BLINK_TICKS: u64 = 8;
 pub const BOSS_SLIDE_PX_PER_TICK: i32 = 3;
 pub const BOSS_SLIDE_TICKS: u8 = 12;
 
-/// The only location text today: the floor number is real, no area name exists
-/// in the layout data (spec 2.2, open question 2).
-pub const LOCATION_TEXT: &str = "FLOOR 01";
+/// The location text is the real floor number read from the layout id
+/// (`floor01_...` -> `FLOOR 01`); no area name exists in the layout data
+/// (spec 2.2, open question 2).
+pub fn location_text(layout_id: &str) -> Option<String> {
+    let digits = layout_id.strip_prefix("floor")?;
+    let end = digits
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(digits.len());
+    let number = &digits[..end];
+    (!number.is_empty() && (end == digits.len() || digits[end..].starts_with('_')))
+        .then(|| format!("FLOOR {number}"))
+}
 
 // ------------------------------------------------------------------- palette
 
@@ -255,9 +264,11 @@ pub struct PortraitId(pub &'static str);
 pub const PORTRAIT_CARL: PortraitId = PortraitId("carl");
 pub const PORTRAIT_DONUT: PortraitId = PortraitId("donut");
 
-/// Character data (fan-concept layer): the name drawn on each plate.
-pub const NAME_CARL: &str = "CARL";
-pub const NAME_DONUT: &str = "DONUT";
+/// IP-neutral fallback names, drawn only when no character data supplied a
+/// display name. The real names come from the actor manifests (fan-concept
+/// layer) through [`RealHudInputs`].
+pub const FALLBACK_NAME_LEFT: &str = "HERO";
+pub const FALLBACK_NAME_RIGHT: &str = "ALLY";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Meter {
@@ -307,6 +318,10 @@ pub enum AbilityRow {
     /// An AI-controlled plate: no button glyphs (pressing them would act on
     /// the other hero); the label `COMPANION` instead.
     AiCompanion,
+    /// A player-controlled plate with no live Primary/Physical action right
+    /// now (the story corridor ignores melee): no chips, the layout and the
+    /// locked special socket stay (controller contract, spec 2.4).
+    NoActions { special: SpecialSlot },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -432,8 +447,15 @@ pub enum DonutMagic {
 pub struct RealHudInputs {
     pub carl_health: u8,
     pub donut_health: u8,
+    /// Display names from the actor manifests (the fan-concept layer).
+    pub carl_name: String,
+    pub donut_name: String,
     pub carl_control: Control,
     pub donut_control: Control,
+    /// Whether the scene currently acts on Primary/Physical (melee): true in
+    /// a combat section, false in the story corridor. Chips show only for
+    /// live actions.
+    pub melee_live: bool,
     pub donut_magic: DonutMagic,
     pub hp_flash: Option<HpFlash>,
     pub notice: Option<NoticeView>,
@@ -443,18 +465,23 @@ pub struct RealHudInputs {
 }
 
 impl RealHudInputs {
-    /// Normal play today: Carl is player 1, Donut is the AI companion, her
-    /// magic is locked, the location is `FLOOR 01`.
+    /// The name and location fields hold neutral fallbacks; the runtime
+    /// fills the real values ([`HudRuntime::set_identity`]). Carl is player 1, Donut is the AI companion, her magic is locked, the
+    /// location is `FLOOR 01`, melee is live (a combat section). The runtime
+    /// overrides `melee_live` from the scene's real capability.
     pub fn normal(carl_health: u8, donut_health: u8) -> Self {
         Self {
             carl_health,
             donut_health,
+            carl_name: FALLBACK_NAME_LEFT.to_string(),
+            donut_name: FALLBACK_NAME_RIGHT.to_string(),
             carl_control: Control::Player(1),
             donut_control: Control::Ai,
+            melee_live: true,
             donut_magic: DonutMagic::PreBiscuit,
             hp_flash: None,
             notice: None,
-            location: Some(LOCATION_TEXT.to_string()),
+            location: None,
             glyphs: GlyphSet::default(),
             reduced_motion: false,
         }
@@ -462,9 +489,13 @@ impl RealHudInputs {
 }
 
 /// The chip rows of spec 2.4. `muted` is only ever set by a fixture today.
-fn carl_abilities(control: Control) -> AbilityRow {
+/// Chips show only while Primary/Physical are live (`melee_live`).
+fn carl_abilities(control: Control, melee_live: bool) -> AbilityRow {
     match control {
         Control::Ai => AbilityRow::AiCompanion,
+        Control::Player(_) if !melee_live => AbilityRow::NoActions {
+            special: SpecialSlot::Locked,
+        },
         Control::Player(_) => AbilityRow::Chips {
             a: Chip {
                 action: LogicalAction::Primary,
@@ -538,18 +569,18 @@ fn face_for(notice: Option<NoticeView>, tick: u64, reduced_motion: bool) -> Face
 pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u64) -> HudSnapshot {
     let mut carl = plate(
         PORTRAIT_CARL,
-        NAME_CARL,
+        &real.carl_name,
         real.carl_control,
         Meter {
             cur: real.carl_health.min(HERO_HEALTH),
             max: HERO_HEALTH,
         },
-        carl_abilities(real.carl_control),
+        carl_abilities(real.carl_control, real.melee_live),
     );
     carl.hp_flash = real.hp_flash;
     let mut donut = plate(
         PORTRAIT_DONUT,
-        NAME_DONUT,
+        &real.donut_name,
         real.donut_control,
         Meter {
             cur: real.donut_health.min(DONUT_HEALTH),
@@ -592,7 +623,7 @@ fn set_donut(
 ) {
     let mut donut = plate(
         PORTRAIT_DONUT,
-        NAME_DONUT,
+        &snapshot.plates[1].name,
         control,
         Meter {
             cur: hp,
@@ -612,13 +643,13 @@ fn set_donut(
 fn set_carl(snapshot: &mut HudSnapshot, hp: u8, flash: Option<HpFlash>) {
     let mut carl = plate(
         PORTRAIT_CARL,
-        NAME_CARL,
+        &snapshot.plates[0].name,
         Control::Player(1),
         Meter {
             cur: hp,
             max: HERO_HEALTH,
         },
-        carl_abilities(Control::Player(1)),
+        carl_abilities(Control::Player(1), true),
     );
     carl.hp_flash = flash;
     snapshot.plates[0] = carl;
@@ -635,7 +666,6 @@ fn mana(fill_px: u8) -> DonutMagic {
 /// deterministic whatever the tick. Only HUD fields are written.
 fn apply_preview(snapshot: &mut HudSnapshot, preview: HudPreview, tick: u64) {
     snapshot.preview = Some(preview);
-    snapshot.location = Some(LOCATION_TEXT.to_string());
     snapshot.boss = None;
     snapshot.notice = None;
     match preview {
@@ -864,6 +894,11 @@ pub struct HudRuntime {
     flash: Option<HpFlash>,
     notices: NoticeQueue,
     cursor: EventCursor,
+    /// Primary/Physical are acted on by the scene (a combat section).
+    melee_live: bool,
+    carl_name: String,
+    donut_name: String,
+    location: Option<String>,
 }
 
 impl HudRuntime {
@@ -878,6 +913,28 @@ impl HudRuntime {
             flash: None,
             notices: NoticeQueue::new(config.reduced_motion),
             cursor: EventCursor::default(),
+            melee_live: false,
+            carl_name: FALLBACK_NAME_LEFT.to_string(),
+            donut_name: FALLBACK_NAME_RIGHT.to_string(),
+            location: None,
+        }
+    }
+
+    /// Set what the plates and the location strip say, from real data: the
+    /// actor manifests' display names and the layout id's floor number.
+    pub fn set_identity(&mut self, carl_name: &str, donut_name: &str, layout_id: &str) {
+        self.carl_name = carl_name.to_string();
+        self.donut_name = donut_name.to_string();
+        self.location = location_text(layout_id);
+        self.revision += 1;
+    }
+
+    /// Record whether the scene acts on Primary/Physical right now (the
+    /// story corridor does not). Bumps the revision only on a change.
+    pub fn set_melee_live(&mut self, live: bool) {
+        if self.melee_live != live {
+            self.melee_live = live;
+            self.revision += 1;
         }
     }
 
@@ -994,6 +1051,10 @@ impl HudRuntime {
     /// The real inputs for this tick.
     pub fn real_inputs(&self) -> RealHudInputs {
         let mut real = RealHudInputs::normal(self.carl_health, self.donut_health);
+        real.melee_live = self.melee_live;
+        real.carl_name.clone_from(&self.carl_name);
+        real.donut_name.clone_from(&self.donut_name);
+        real.location.clone_from(&self.location);
         real.hp_flash = self.flash;
         real.notice = self.notices.active();
         real.glyphs = self.glyphs();
@@ -1177,6 +1238,17 @@ pub fn text_width_px(font: HudFont, text: &str) -> i32 {
 
 // --------------------------------------------------------------------- tests
 
+/// Test inputs with the fan-layer names and location filled in, as the
+/// scene supplies them from the manifests and the layout id.
+#[cfg(test)]
+pub(crate) fn test_inputs(carl_health: u8, donut_health: u8) -> RealHudInputs {
+    let mut real = RealHudInputs::normal(carl_health, donut_health);
+    real.carl_name = "CARL".to_string();
+    real.donut_name = "DONUT".to_string();
+    real.location = location_text("floor01_test");
+    real
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1201,12 +1273,12 @@ mod tests {
     }
 
     fn snap(preview: HudPreview) -> HudSnapshot {
-        build_snapshot(&RealHudInputs::normal(4, 4), Some(preview), 0)
+        build_snapshot(&test_inputs(4, 4), Some(preview), 0)
     }
 
     #[test]
     fn normal_play_is_carl_p1_donut_ai_full_health_no_mana() {
-        let s = build_snapshot(&RealHudInputs::normal(4, 4), None, 0);
+        let s = build_snapshot(&test_inputs(4, 4), None, 0);
         assert_eq!(s.preview, None);
         assert_eq!(s.plates[0].control, Control::Player(1));
         assert_eq!(s.plates[1].control, Control::Ai);
@@ -1217,7 +1289,7 @@ mod tests {
         assert_eq!(s.location.as_deref(), Some("FLOOR 01"));
         assert!(s.boss.is_none() && s.notice.is_none());
         // Live Carl HP flows through.
-        let s = build_snapshot(&RealHudInputs::normal(1, 4), None, 0);
+        let s = build_snapshot(&test_inputs(1, 4), None, 0);
         assert_eq!(s.plates[0].hp.cur, 1);
     }
 
@@ -1302,10 +1374,7 @@ mod tests {
             assert_eq!(HudPreview::parse(preview.name()), Some(preview));
         }
         assert_eq!(HudPreview::parse("nope"), None);
-        assert_eq!(
-            build_snapshot(&RealHudInputs::normal(4, 4), None, 0).preview,
-            None
-        );
+        assert_eq!(build_snapshot(&test_inputs(4, 4), None, 0).preview, None);
     }
 
     #[test]
@@ -1313,14 +1382,14 @@ mod tests {
         assert!(snap(HudPreview::PreUnlock).plates[1].mana.is_none());
         // Real, un-flagged play: no mana, whatever the tick.
         for tick in [0, 100, 239, 5000] {
-            let s = build_snapshot(&RealHudInputs::normal(4, 4), None, tick);
+            let s = build_snapshot(&test_inputs(4, 4), None, tick);
             assert!(s.plates[1].mana.is_none());
         }
         for preview in HudPreview::ALL {
             assert!(snap(preview).plates[0].mana.is_none(), "{preview:?}");
         }
         // Even a fully unlocked Donut gives Carl none.
-        let mut real = RealHudInputs::normal(4, 4);
+        let mut real = test_inputs(4, 4);
         real.donut_magic = mana(94);
         let s = build_snapshot(&real, None, 0);
         assert!(s.plates[0].mana.is_none());
@@ -1342,7 +1411,7 @@ mod tests {
                 }
             }
         }
-        let s = build_snapshot(&RealHudInputs::normal(4, 4), None, 0);
+        let s = build_snapshot(&test_inputs(4, 4), None, 0);
         let AbilityRow::Chips { special, .. } = s.plates[0].abilities else {
             panic!("Carl is player controlled");
         };
@@ -1584,7 +1653,7 @@ mod tests {
 
     #[test]
     fn the_face_blinks_for_six_ticks_every_240_unless_reduced() {
-        let real = RealHudInputs::normal(4, 4);
+        let real = test_inputs(4, 4);
         let blinks = (0..480)
             .filter(|t| build_snapshot(&real, None, *t).face == FaceFrame::Blink)
             .count();
@@ -1645,7 +1714,7 @@ mod tests {
             let walk_y = kit.base_walk_line_y - view.y;
             assert_eq!(walk_y, expected_walk);
             let layout = HudLayout::new(view_h, walk_y);
-            let location = layout.location(text_width_px(HudFont::Jersey, LOCATION_TEXT));
+            let location = layout.location(text_width_px(HudFont::Jersey, "FLOOR 01"));
             let wide = layout.location(1000);
             let boss = layout.boss();
             let widest_preview = layout.preview_tag(
@@ -1750,5 +1819,66 @@ mod tests {
     fn segments_per_hp_point_fit_the_bar_exactly() {
         let n = i32::from(HERO_HEALTH);
         assert_eq!((HP_BAR_INNER_W - (n - 1) * 2) % n, 0);
+    }
+
+    #[test]
+    fn chips_show_only_for_live_actions_story_corridor_vs_combat() {
+        // The runtime defaults to the story corridor: melee is ignored there.
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let AbilityRow::NoActions { special } = hud.snapshot().plates[0].abilities else {
+            panic!("story corridor must show no PUNCH/KICK chips");
+        };
+        assert_eq!(special, SpecialSlot::Locked);
+        // A combat section acts on Primary/Physical: the chips appear.
+        let before = hud.revision();
+        hud.set_melee_live(true);
+        assert!(hud.revision() > before);
+        let AbilityRow::Chips { a, b, .. } = hud.snapshot().plates[0].abilities else {
+            panic!("combat must show the chips");
+        };
+        assert_eq!((a.label, b.label), (LabelId::Punch, LabelId::Kick));
+        // Back to the corridor (a restart into the story run) removes them.
+        hud.set_melee_live(false);
+        assert!(matches!(
+            hud.snapshot().plates[0].abilities,
+            AbilityRow::NoActions { .. }
+        ));
+        // An AI plate never has chips either way.
+        assert_eq!(hud.snapshot().plates[1].abilities, AbilityRow::AiCompanion);
+    }
+
+    #[test]
+    fn fixtures_keep_their_chips_whatever_the_capability() {
+        let mut real = RealHudInputs::normal(4, 4);
+        real.melee_live = false;
+        let s = build_snapshot(&real, Some(HudPreview::PostUnlock), 0);
+        assert!(matches!(s.plates[0].abilities, AbilityRow::Chips { .. }));
+    }
+
+    #[test]
+    fn names_and_location_come_from_real_data() {
+        assert_eq!(
+            location_text("floor01_corridor_abc_sample").as_deref(),
+            Some("FLOOR 01")
+        );
+        assert_eq!(location_text("floor12_x").as_deref(), Some("FLOOR 12"));
+        assert_eq!(location_text("floor").as_deref(), None);
+        assert_eq!(location_text("floorplan_a").as_deref(), None);
+        assert_eq!(location_text("sample").as_deref(), None);
+        let mut hud = HudRuntime::new(HudConfig::default());
+        assert_eq!(hud.snapshot().location, None);
+        assert_eq!(hud.snapshot().plates[0].name, FALLBACK_NAME_LEFT);
+        hud.set_identity("NAME A", "NAME B", "floor03_x");
+        let s = hud.snapshot();
+        assert_eq!(s.plates[0].name, "NAME A");
+        assert_eq!(s.plates[1].name, "NAME B");
+        assert_eq!(s.location.as_deref(), Some("FLOOR 03"));
+        // A fixture keeps the real names.
+        let mut fixture = HudRuntime::new(HudConfig {
+            preview: Some(HudPreview::Coop),
+            ..HudConfig::default()
+        });
+        fixture.set_identity("NAME A", "NAME B", "floor03_x");
+        assert_eq!(fixture.snapshot().plates[1].name, "NAME B");
     }
 }

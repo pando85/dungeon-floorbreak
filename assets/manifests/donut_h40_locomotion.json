@@ -2,6 +2,7 @@
   "schema_version": 1,
   "id": "donut_h40_locomotion_candidate_v0",
   "type": "character_animation",
+  "display_name": "DONUT",
   "source_path": "assets/source/characters/donut/donut_h40_locomotion.ase",
   "grid_source": "assets/source/characters/donut/donut_h40_locomotion.grid.json",
   "output_atlas": "generated/art/donut_h40_locomotion.png",

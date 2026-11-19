@@ -81,6 +81,9 @@ pub struct ActorAssets {
     pub pacing: RunPacing,
     /// Atlas image path relative to the Bevy asset root (`generated/art/`).
     pub atlas_asset: String,
+    /// The name the HUD draws, from the manifest's `display_name` (the
+    /// fan-concept layer; engine code stays IP-neutral).
+    pub display_name: String,
 }
 
 fn read(root: &Path, relative: &str) -> Result<String, String> {
@@ -118,7 +121,9 @@ pub fn load_actor(
         .strip_prefix(ATLAS_ASSET_PREFIX)
         .ok_or_else(|| format!("{manifest_path}: atlas is not below {ATLAS_ASSET_PREFIX}"))?
         .to_owned();
+    let display_name = field("display_name")?.to_owned();
     Ok(ActorAssets {
+        display_name,
         spec: ActorSpec::from_clips(name, &clips, footprint),
         clips,
         pacing,

@@ -74,12 +74,23 @@ pub struct HudAtlasData {
 
 impl HudAtlasData {
     /// Read `assets/manifests/hud_hybrid_a_v1.json`. `Ok(None)` when the
-    /// manifest or the exported atlas is missing (placeholders are used);
+    /// manifest is absent, or present with the exported atlas missing (that
+    /// case warns with `FLOOR1_HUD_WARNING`); placeholders are used then;
     /// `Err` when a manifest is present but does not match the spec.
     pub fn load(root: &Path) -> Result<Option<Self>, String> {
         let manifest = root.join(ATLAS_MANIFEST);
         let atlas = root.join("generated/art").join(ATLAS_ASSET);
-        if !manifest.is_file() || !atlas.is_file() {
+        if !manifest.is_file() {
+            return Ok(None);
+        }
+        if !atlas.is_file() {
+            // A forgotten export must not produce placeholder "evidence":
+            // the CI capture loop fails on this marker.
+            eprintln!(
+                "FLOOR1_HUD_WARNING: {} exists but {} is missing; drawing placeholder rects (run the HUD export)",
+                manifest.display(),
+                atlas.display()
+            );
             return Ok(None);
         }
         let text = std::fs::read_to_string(&manifest)
@@ -598,7 +609,7 @@ fn place_sprite(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hud::{FaceFrame, GlyphSet, HudConfig, HudPreview, RealHudInputs, build_snapshot};
+    use crate::hud::{FaceFrame, GlyphSet, HudConfig, HudPreview, build_snapshot};
 
     fn lists() -> Vec<Vec<DrawItem>> {
         let mut all = Vec::new();
@@ -614,7 +625,7 @@ mod tests {
                         std::iter::once(None).chain(HudPreview::ALL.into_iter().map(Some))
                     {
                         for (hp, age) in [(4u8, None), (1, Some(0u8)), (2, Some(8))] {
-                            let mut real = RealHudInputs::normal(hp, 4);
+                            let mut real = crate::hud::test_inputs(hp, 4);
                             real.glyphs = glyphs;
                             real.reduced_motion = reduced;
                             real.hp_flash = age.map(|a| crate::hud::HpFlash {

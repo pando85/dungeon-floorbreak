@@ -247,6 +247,8 @@ impl CorridorWorld {
         // Donut's health joins the hash only once it deviates from full, so
         // every hash recorded before she could be damaged stays valid. It never
         // deviates today (no damage source: HUD-DEBT-01).
+        // No field may be appended after this conditional (HUD-DEBT-01 should
+        // mix the health unconditionally and regenerate the goldens).
         if self.donut.health != DONUT_HEALTH {
             mix(u64::from(self.donut.health));
         }

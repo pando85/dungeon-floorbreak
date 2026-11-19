@@ -473,10 +473,15 @@ fn abilities_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32)
         AbilityRow::Chips { a, b, special } => {
             chip(o, s, a, x + 40, y);
             chip(o, s, b, x + 93, y);
-            match special {
-                SpecialSlot::Locked => o.frame(Z_ICON, FrameId::SocketLocked, x + 147, y + 34),
-            }
+            special_socket(o, special, x, y);
         }
+        AbilityRow::NoActions { special } => special_socket(o, special, x, y),
+    }
+}
+
+fn special_socket(o: &mut Out, special: SpecialSlot, x: i32, y: i32) {
+    match special {
+        SpecialSlot::Locked => o.frame(Z_ICON, FrameId::SocketLocked, x + 147, y + 34),
     }
 }
 
@@ -823,7 +828,7 @@ pub fn placeholder_rects(frame: FrameId, w: i32, h: i32) -> Vec<PlaceholderRect>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hud::{GlyphSet, HudPreview, RealHudInputs, build_snapshot};
+    use crate::hud::{GlyphSet, HudPreview, build_snapshot};
 
     fn items(preview: Option<HudPreview>, deck: bool) -> Vec<DrawItem> {
         let layout = if deck {
@@ -833,7 +838,7 @@ mod tests {
         };
         let mut out = Vec::new();
         build_draw_list(
-            &build_snapshot(&RealHudInputs::normal(4, 4), preview, 0),
+            &build_snapshot(&crate::hud::test_inputs(4, 4), preview, 0),
             &layout,
             &mut out,
         );
@@ -904,10 +909,28 @@ mod tests {
     }
 
     #[test]
+    fn story_corridor_draws_no_chips_but_keeps_the_locked_socket() {
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.melee_live = false;
+        let mut list = Vec::new();
+        build_draw_list(
+            &build_snapshot(&real, None, 0),
+            &HudLayout::new(360, 288),
+            &mut list,
+        );
+        let f = frames(&list);
+        assert!(!f.iter().any(|f| f.is_glyph()));
+        assert_eq!(f.iter().filter(|f| **f == FrameId::SocketLocked).count(), 1);
+        let t = texts(&list);
+        assert!(!t.contains(&"PUNCH") && !t.contains(&"KICK"));
+        assert!(t.contains(&"COMPANION") && t.contains(&"CARL"));
+    }
+
+    #[test]
     fn control_truth_no_b_circle_jump_or_ai_glyphs() {
         for glyphs in [GlyphSet::Xbox, GlyphSet::DualSense] {
             for preview in std::iter::once(None).chain(HudPreview::ALL.into_iter().map(Some)) {
-                let mut real = RealHudInputs::normal(4, 4);
+                let mut real = crate::hud::test_inputs(4, 4);
                 real.glyphs = glyphs;
                 let snapshot = build_snapshot(&real, preview, 0);
                 let mut list = Vec::new();
@@ -938,7 +961,7 @@ mod tests {
 
     #[test]
     fn dualsense_draws_square_and_triangle() {
-        let mut real = RealHudInputs::normal(4, 4);
+        let mut real = crate::hud::test_inputs(4, 4);
         real.glyphs = GlyphSet::DualSense;
         let mut list = Vec::new();
         build_draw_list(
@@ -994,7 +1017,7 @@ mod tests {
     fn low_hp_swaps_to_the_cracked_heart() {
         let mut list = Vec::new();
         build_draw_list(
-            &build_snapshot(&RealHudInputs::normal(1, 4), None, 0),
+            &build_snapshot(&crate::hud::test_inputs(1, 4), None, 0),
             &HudLayout::new(360, 288),
             &mut list,
         );
@@ -1013,7 +1036,7 @@ mod tests {
         let count_color = |hp, color: Rgb| {
             let mut list = Vec::new();
             build_draw_list(
-                &build_snapshot(&RealHudInputs::normal(hp, 4), None, 0),
+                &build_snapshot(&crate::hud::test_inputs(hp, 4), None, 0),
                 &HudLayout::new(360, 288),
                 &mut list,
             );
@@ -1094,7 +1117,7 @@ mod tests {
     #[test]
     fn the_notice_slides_in_integer_pixels_and_never_overlaps_the_lane() {
         for age in 0..140 {
-            let mut real = RealHudInputs::normal(4, 4);
+            let mut real = crate::hud::test_inputs(4, 4);
             real.notice = Some(crate::hud::NoticeView {
                 headline: crate::hud::LabelId::Launched,
                 age_ticks: age,
@@ -1123,7 +1146,7 @@ mod tests {
 
     #[test]
     fn reduced_motion_hatches_the_flash_and_never_blinks() {
-        let mut real = RealHudInputs::normal(3, 4);
+        let mut real = crate::hud::test_inputs(3, 4);
         real.reduced_motion = true;
         real.hp_flash = Some(HpFlash {
             lost_from: 4,

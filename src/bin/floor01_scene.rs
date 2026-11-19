@@ -464,11 +464,26 @@ fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     Ok(presenter)
 }
 
+/// The HUD runtime with its real identity: the actor manifests' display names
+/// and the floor number of the layout.
+fn new_hud(args: &Args, kit: &EnvKit, actors: &Actors) -> HudRuntime {
+    let mut hud = HudRuntime::new(args.hud_config());
+    hud.set_identity(
+        &actors.carl.display_name,
+        &actors.donut.display_name,
+        &kit.layout_id,
+    );
+    hud
+}
+
 /// One HUD step after a finished simulation tick: the real health values and
 /// the newest combat events. Read-only on the simulation.
 fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) {
     let (events, dropped) =
         combat.map_or((&[][..], 0), |c| (c.events.as_slice(), c.dropped_events));
+    // Melee input is live exactly when the combat state exists (see the
+    // manual input gate in `fixed_step`).
+    hud.set_melee_live(combat.is_some());
     hud.step(
         sim.world.hero.health,
         sim.world.donut.health,
@@ -492,6 +507,7 @@ fn build_scene(
         let mut anim = actors.animators(&sim.world);
         anim.art = actors.combat_art(&combat);
         let mut death = death_presenter(root, args)?;
+        hud.set_melee_live(true);
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let raw = fixture.input(sim.world.tick + 1);
             step_combat(&mut sim, &mut combat, &mut anim, Some(&mut death), raw);
@@ -642,7 +658,7 @@ fn main() -> ExitCode {
             }
         };
     }
-    let mut hud = HudRuntime::new(args.hud_config());
+    let mut hud = new_hud(&args, &kit, &actors);
     let (sim, anim, combat, death) = match build_scene(&kit, &args, &actors, &root, &mut hud) {
         Ok(scene) => scene,
         Err(message) => return failure(&message),
@@ -986,7 +1002,13 @@ fn run_window(
     } else {
         REFERENCE_VIEW
     };
-    let view_top = kit.view(view_key).map_or(0, |v| v.y);
+    let Some(view) = kit.view(view_key) else {
+        let message = format!("layout has no view {view_key} for the HUD");
+        println!("FLOOR1_ASSET_FAILURE: {message}");
+        eprintln!("FLOOR1_ASSET_FAILURE: {message}");
+        std::process::exit(1);
+    };
+    let view_top = view.y;
     let hud_layout = HudLayout::new(view_h, kit.base_walk_line_y - view_top);
     let hud_plugin = match HudPlugin::load(root, hud, hud_layout, hud_order, hud_msaa) {
         Ok(plugin) => plugin.hidden(args.reference_frame),
@@ -2899,7 +2921,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         // the fixture's own length), every event, then the state lines.
         let mut args = args.clone();
         args.capture_tick.get_or_insert(fixture.ticks);
-        let mut hud = HudRuntime::new(args.hud_config());
+        let mut hud = new_hud(&args, kit, actors);
         let (sim, anim, combat, death) = build_scene(kit, &args, actors, root, &mut hud)?;
         let mut combat = combat.ok_or("fixture without combat state")?;
         print_combat_events(&mut combat, None);
@@ -2913,7 +2935,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         }
         return Ok(());
     }
-    let mut hud = HudRuntime::new(args.hud_config());
+    let mut hud = new_hud(args, kit, actors);
     let (sim, anim, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));

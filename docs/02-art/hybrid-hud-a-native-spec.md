@@ -1,6 +1,6 @@
 # HUD-HYBRID-A-01: native 640x360 / 640x400 HUD design spec
 
-**Status (2026-11-19):** design spec and keys for PR #103. Code side implemented in the same PR (HUD-HYBRID-A-01); the art atlas is integrated in a later step. Not owner-accepted. It turns the contract in [hybrid-hud-a-design.md](hybrid-hud-a-design.md) into exact virtual-pixel rects, components, palette, type, timing, a state model and an asset list. Contract rules (control truth, resource policy, preview labelling) still apply. Where this spec and the contract disagree, the contract wins, except for the owner update below.
+**Status (2026-11-19):** design spec and keys for PR #103. Code side implemented in the same PR (HUD-HYBRID-A-01); the exported art atlas is integrated and drawn in the real captures. Not owner-accepted, game feel pending. It turns the contract in [hybrid-hud-a-design.md](hybrid-hud-a-design.md) into exact virtual-pixel rects, components, palette, type, timing, a state model and an asset list. Contract rules (control truth, resource policy, preview labelling) still apply. Where this spec and the contract disagree, the contract wins, except for the owner update below.
 
 **Owner update (2026-11-19, replaces the "Donut plate: no HP bar" bullet in the contract):** Donut's plate **shows an HP bar in normal play**. The implementation adds a real, authoritative Donut HP value to the domain, with the same max as Carl (`HERO_HEALTH = 4`). It stays full until the Donut damage rules land (HUD-DEBT-01). This is real data, not a fixture. The contract's "Owner decisions" bullet was edited to match when this spec was committed.
 
@@ -96,12 +96,14 @@ Glyphs are 11x11 monochrome disks: a `hud_ink` rim, the top half `metal_light`, 
 
 | Plate state | Slot A | Slot B | Special socket |
 | --- | --- | --- | --- |
-| Carl, player-controlled (normal play now) | X/Square `PUNCH` | Y/Triangle `KICK` | locked |
+| Carl, player-controlled, Primary/Physical live (a combat section) | X/Square `PUNCH` | Y/Triangle `KICK` | locked |
+| Carl, player-controlled, no live Primary/Physical (the story corridor ignores melee) | no chips (layout kept) | no chips | locked |
 | Donut, AI-controlled (normal play now) | no chips. Instead the label `COMPANION` in `amber_dim` at (+40, caps +37) | (none) | (none) |
 | Donut, player-controlled, pre-biscuit (fixture) | X/Square `SWAT` | Y/Triangle `POUNCE` | locked |
 | Donut, player-controlled, post-biscuit (fixture) | X/Square `MISSILE` | Y/Triangle `POUNCE` | locked |
 | Donut, post-biscuit, mana 0 (fixture) | `MISSILE` **muted** | `POUNCE` | locked |
 
+- **Chips follow live actions (orchestrator ruling 2026-11-19, review item R1 of PR #103; the controller contract decides it):** a chip shows only for an action the scene acts on right now. The HUD reads this from `RealHudInputs::melee_live`, which the scene sets from the real melee gate (`combat.is_some()`, the same condition that gates melee input), never per mode in the HUD. Fixtures keep their table values.
 - **Locked special socket:** an 11x11 `hud_ink` / `metal_dark` socket holding a 7x7 `metal_light` padlock. **No glyph and no label.** The empty socket tells the player a slot exists without showing B/Circle as a usable button (control contract: "disabled/grayed out with a clear cue"; HUD contract: "never show a locked capability as usable").
 - **Muted chip:** the glyph symbol and label change to `amber_dim`, plus a 1 px `amber_dim` zig-zag hatch along the chip's bottom row. Whether Magic Missile is actually blocked at 0 mana is HUD-DEBT-02. The muted chip appears only in the fixture.
 - **Never shown:** A/Cross Jump (universal, taught by prompts). RB/R1 Interact and LB/L1 Swap until those actions exist. Once they exist, Interact is a contextual prompt and `LB SWAP` replaces `COMPANION` on the AI plate in solo. Pause, LT/RT, any dodge, Whisker Lash, Cat Step or Dash.
@@ -295,7 +297,7 @@ Difficulty routing (pixel-art-pipeline "routing by difficulty"):
 ## 8. Acceptance targets for the independent art review
 
 1. **Rects:** an automated test asserts that every element rect in section 1 at 360 and 400 lies inside the 8 px safe margin and that no two top rects or bottom rects intersect. It also asserts that no HUD rect intersects the action lane `[60, walk_y + 12]`, using `walk_y` from layout data, and that `notice_top >= walk_y + 24`.
-2. **Gameplay clearance:** over every existing CP or combat fixture's capture run, the highest screen-space top of any hero or enemy hitbox, launch arc or telegraph box is at y >= 60. It must never intersect a HUD rect. Report the measured minimum.
+2. **Gameplay clearance:** over every existing CP or combat fixture's capture run, the highest screen-space top of any hero or enemy hitbox, launch arc or telegraph box is at y >= 60. It must never intersect a HUD rect. Report the measured minimum. (Measured 2026-11-19 by `combat_scene::tests::gameplay_stays_below_the_hud_plates`: minimum 147.5 at 360 and 167.5 at 400, see the [evidence README](../evidence/hud-hybrid-a/README.md).)
 3. **Pixel integrity:** 1x captures at 640x360 and 640x400 contain no HUD pixel with partial alpha against the HUD layer, and text cap heights are exactly 10 and 5 px. A 3x capture equals the nearest-neighbour 3x upscale of the 1x capture for the HUD region (no shimmer, no fractional offsets). Check this across a camera scroll.
 4. **Legibility at 1x:**
    - Every label is readable in the 1x capture viewed 1:1, and in the 2x (1280x800) capture at Steam Deck viewing distance.

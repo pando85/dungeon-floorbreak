@@ -2,6 +2,7 @@
   "schema_version": 1,
   "id": "carl_book1_h52_locomotion_candidate_v1",
   "type": "character_animation",
+  "display_name": "CARL",
   "source_path": "assets/source/characters/carl/carl_h52_locomotion.ase",
   "grid_source": "assets/source/characters/carl/carl_h52_locomotion.grid.json",
   "output_atlas": "generated/art/carl_book1_h52_locomotion.png",

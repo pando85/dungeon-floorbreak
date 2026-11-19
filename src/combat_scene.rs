@@ -3126,4 +3126,70 @@ mod tests {
         let (slime, _) = finish_of(&CP01_TWO_HITS, "slime_mock");
         assert_eq!(slime, ["slime_puddle"], "no knockback finish: fallback");
     }
+
+    /// Spec 8.2 (HUD-HYBRID-A-01): over every combat fixture and corridor
+    /// scenario, the highest screen-space top of any hero or enemy body,
+    /// launched goblin (the launch arc) or swing/telegraph box stays at
+    /// y >= 60 on the 360 and 400 canvases, so nothing reaches the HUD plates
+    /// (bottom at y = 56). Screen y = layout y minus the view top. Cosmetic
+    /// death parts and the vertical camera shake are not simulation state and
+    /// are not measured. Run with `--nocapture` to see the numbers.
+    #[test]
+    fn gameplay_stays_below_the_hud_plates() {
+        use crate::corridor::{RUN_JUMP_TOTAL_TICKS, Scenario};
+        use crate::prototype::HERO_HALF_HEIGHT;
+        const CLEARANCE: f32 = 60.0;
+        let kit = kit();
+        for (view_h, view_name) in [(360, "abc_640x360"), (400, "abc_640x400")] {
+            let view_top = kit.view(view_name).unwrap().y as f32;
+            let screen_y = |world_top: f32| kit.height as f32 - world_top - view_top;
+            let mut overall = (f32::MAX, String::new());
+            let mut note = |top: f32, what: &str| {
+                if top < overall.0 {
+                    overall = (top, what.to_owned());
+                }
+            };
+            for fixture in FIXTURES {
+                let mut sim = FixtureSim::new(&kit, view_h, fixture).unwrap();
+                let mut min = f32::MAX;
+                for _ in 0..fixture.ticks {
+                    sim.step_scripted();
+                    let hero = &sim.scene.world.hero;
+                    min = min.min(screen_y(hero.y + HERO_HALF_HEIGHT));
+                    for goblin in &sim.combat.enemies {
+                        let body = goblin.body();
+                        min = min.min(screen_y(body.bottom + body.height));
+                        let swing = goblin.swing_box();
+                        if goblin.attack_phase().is_some() {
+                            min = min.min(screen_y(swing.bottom + swing.height));
+                        }
+                    }
+                }
+                println!(
+                    "HUD_CLEARANCE {view_h} fixture {}: min top y = {min:.1}",
+                    fixture.name
+                );
+                note(min, fixture.name);
+            }
+            for scenario in [Scenario::WalkRight, Scenario::TurnAround, Scenario::RunJump] {
+                let mut sim = SceneSim::new(&kit, view_h).unwrap();
+                let mut min = f32::MAX;
+                sim.run_scenario_observed(scenario, RUN_JUMP_TOTAL_TICKS, |state| {
+                    min = min.min(screen_y(state.world.hero.y + HERO_HALF_HEIGHT));
+                });
+                println!("HUD_CLEARANCE {view_h} scenario {scenario:?}: min top y = {min:.1}");
+                note(min, "scenario");
+            }
+            println!(
+                "HUD_CLEARANCE {view_h} MIN = {:.1} ({})",
+                overall.0, overall.1
+            );
+            assert!(
+                overall.0 >= CLEARANCE,
+                "{view_h}: {} reaches y = {:.1} < {CLEARANCE}",
+                overall.1,
+                overall.0
+            );
+        }
+    }
 }
