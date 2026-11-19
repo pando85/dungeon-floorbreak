@@ -1,0 +1,124 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  18,
+  18
+ ],
+ "pivot": [
+  0,
+  0
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_plum",
+   "rgba": "#1a1017ff"
+  },
+  {
+   "key": "d",
+   "name": "skin_deep",
+   "rgba": "#5a2c3fff"
+  },
+  {
+   "key": "s",
+   "name": "skin_shade",
+   "rgba": "#8c4651ff"
+  },
+  {
+   "key": "m",
+   "name": "skin_mid",
+   "rgba": "#bf6f64ff"
+  },
+  {
+   "key": "l",
+   "name": "skin_light",
+   "rgba": "#e5a08cff"
+  },
+  {
+   "key": "H",
+   "name": "hair_deep",
+   "rgba": "#1d1721ff"
+  },
+  {
+   "key": "I",
+   "name": "hair_mid",
+   "rgba": "#403442ff"
+  },
+  {
+   "key": "w",
+   "name": "eye_white_drool",
+   "rgba": "#efe4c4ff",
+   "accent": true
+  },
+  {
+   "key": "e",
+   "name": "eye_red",
+   "rgba": "#d83a22ff",
+   "accent": true
+  },
+  {
+   "key": "t",
+   "name": "fang_yellow",
+   "rgba": "#e6bd3aff",
+   "accent": true
+  },
+  {
+   "key": "T",
+   "name": "fang_shade",
+   "rgba": "#967022ff"
+  },
+  {
+   "key": "o",
+   "name": "mouth_dark",
+   "rgba": "#4a1020ff"
+  },
+  {
+   "key": "q",
+   "name": "tongue_pink",
+   "rgba": "#c8566aff"
+  },
+  {
+   "key": "b",
+   "name": "boil_red",
+   "rgba": "#b3283aff"
+  }
+ ],
+ "layers": [
+  "key"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "key": [
+     ".....KKKKKKK......",
+     "...KKHHIHHIHKK....",
+     "..KHIHHIHHIHHHK...",
+     ".KHIHlHIHHIHHIHHK.",
+     ".KHHIlmHmmllllmHK.",
+     "KHIHsmsmmlbqlmmmK.",
+     "KHHKssKKKKKKKKmmK.",
+     "KIHKsmmewwwKmmmmK.",
+     "KHIKdsmmeeKmmmllmK",
+     "KHHKdsmmmmmmmmmmmK",
+     "KIH.KdtTttTttTttTK",
+     "KHH.Kdoooooooooooo",
+     "KIH.Kdooqqqqqooooo",
+     "KHH.KdtTotTotTotK.",
+     ".KH..KdsmmmmmmmK..",
+     ".KH...KdsssssdK...",
+     "..K....KKddddK....",
+     "........KKKK......"
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "emblem",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  }
+ ]
+}

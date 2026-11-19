@@ -1,0 +1,151 @@
+# Floor 01 boss encounter: the Juicer (HUD-DEBT-03), design spec
+
+**Status:** design adopted by recommendation under the owner's design-defaults directive (2026-11-19). Not implemented. Game feel needs the owner's playtest. The keys in section 8 are drawn and frozen pending the independent review. All numbers are data knobs (section 6), not approved balance.
+
+**Scope:** the boss, arena, moveset, HUD wiring, death, data, tests and asset routing for one encounter. The production pixels, Bevy code, validators and evidence go to execution work orders. Sources: [late enemy and boss concepts](floor-01-late-enemy-boss-concepts.md), [JUICE-01](juice-01-spec.md), [Juicer gym concept](floor-01-juicer-gym-standalone-concept.md), [HUD native spec](hybrid-hud-a-native-spec.md) 2.3 and 6, [progression bible](../01-design/floor-01-gameplay-progression-v0.md), [controller contract](../01-design/mvp-controller-contract.md), [death proposal](../03-tech/monster-death-system-proposal.md), [Death Lab](../../tools/art-references/death-lab/README.md), and the party design (`docs/01-design/party-2p-open-questions.md` on `feat/party-2p-full`).
+
+## 1. The boss
+
+**Choice: the Juicer.** The owner approved three Floor 01 boss concepts. The Hoarder needs the Scatterer swarm, and her tragedy as a transformed woman sits badly with a level-4 gore finish. The Ball of Swine needs rolling physics and moving ring walls, and the horizon calls it the mastery test, not the first boss. The Juicer is one heavy melee body. It fits the current per-hero melee model, and its readability set (JUICE-01: six frozen keys, 16 frames) already exists. The horizon calls it the cooperative climax.
+
+| Item | Decision |
+| --- | --- |
+| Data id (IP-neutral) | `brute_boss_f01`. Species profile `brute_boss`. Engine code never names the Juicer. |
+| Display name (fan layer) | `THE JUICER`, from data. It is replaceable. Never "Warlord Grizzog". |
+| Originality | The pixels are original rule-drawn art from the owner-approved concept, not traced. The moves (pound, wall-crash charge, trap racks) are generic action grammar and a game adaptation, not book events. No boss design, dialogue or signage is taken from another game, film or franchise. |
+| Size | 100 px idle height (JUICE-01, about 1.9 times Carl). Frame 160 x 136, pivot (72, 135). The book says "a little taller than Carl"; the mismatch is recorded in JUICE-01. |
+| Silhouette | A hunched, wide block with a small sunk head, rope dreads, a pointed ear, two huge fists, wrist chains and a waist chain. |
+| Palette | The 19 JUICE-01 colours (`trog-family-v0+juicer`). No new colour. No steroid, "juice" or aura effect. |
+| Tone | The late-80s action heavy who stayed in the weight room too long: lumpy, diseased, drooling and absurd up close, deadly at range. The heroes win scrappily, with bait, timing and a dropped weight stack, not by out-muscling him. |
+
+## 2. The arena
+
+- **Route:** the Juicer's gym, beat 8 of the progression table and horizon step 6, before the Ball of Swine. The beats from the Guild to the labyrinth do not exist yet, so it ships as its own entry (`floor01_scene --scene boss_f01` and the fixtures in section 7). The route links it later through the gym door.
+- **Layout:** one locked screen, 640 px wide. In the 640 x 400 view the extra 40 px are ceiling. The walls are at x 0..32 and 608..640, and the floor between them is 576 px, flat, with no pits. The ceiling is at least 150 px above the floor, because the tell fists reach 128 px. The walls are faced with cracked mirrors (cosmetic) and are the crash surfaces. The entrance gate on the left closes 8 ticks after the engage line (x 96) and opens on defeat; the exit on the right unlocks on defeat. The checkpoint is at the entrance.
+- **Two plate racks**, one per hero (asymmetric gates, [traversal rule](../01-design/asymmetric-traversal-and-gates.md)):
+  - **Left rack (Carl):** a loaded plate stack under the ceiling, held by a rotten timber strut at floor x 200. It falls after 3 hits from separate melee moves, the CP-03 shore rule. Hits persist through the attempt, so Carl can pre-weaken it and then bait the boss.
+  - **Right rack (Donut):** a release plate on a ledge 104 px up at x 432..480. Carl's apex is 92 px, so only Donut's higher jump reaches it (12 px margin each way). Standing on the plate for 12 ticks drops the stack.
+  - **Footprint:** 80 px wide, centred where a wall-crashed boss sits (left x 56..136, right x 504..584). Each rack works once per attempt and resets on restart.
+- **Camera:** locked to the arena centre in solo and 2P, so every actor is always on screen (safeguard M4 is moot). No zoom.
+- **HUD clearance:** the tell's peak sits at walk_y - 128, inside the action lane (y 60 or lower). The boss strip is at y 8..34.
+
+## 3. Moveset and phases
+
+Ticks are at 60 Hz. The boss has **36 HP**. Hero hits deal 1 each: jab, haymaker and kick (the kick never launches the boss). The design is beatable with Carl's base kit and an AI Donut that never attacks (Q10 deferred). Later kit plugs in through data: Magic Missile 1, dynamite 4 (explosive cause), and Donut's swat counts 1 toward poise but deals 0 HP.
+
+| Move | Tell | Active | Damage to a 4-HP hero | Recovery / punish | Notes |
+| --- | --- | --- | --- | --- | --- |
+| **Pound** (JUICE-01 frames 7..11) | 36 (rise 8 + roar hold 28) | smear 3, impact 6 (ticks 39..44) | **2**, launch 160 / 200 px/s | recover **24**: free hits | Box +32..67 px ahead, 0..22 px up. Triggers on a target 30..72 px ahead. |
+| **Shockwave** (P2+, from the pound) | the pound's tell | 2 ripples, 150 px/s, 120 px each way, 10 px tall | **1**, small hop | jump it | VFX order. No body key. |
+| **Charge** | 40 / 36 / 30 by phase (K-A `charge_tell`) | runs at 300 px/s in the direction locked at tell start, until a wall | **1**, launch 220 / 180 px/s | **crash stun 90 / 75 / 60** (K-C) | Ram box +36..82, 24..72 px up. The body behind it never hurts. Needs the target 128 px or more away and 160 px or more of run room. Cooldown 240 / 180 / 150. |
+| **Double pound** (P3) | 36, then a 12-tick step and a 24-tick second tell | as the pound | 2 | 24 after each | The first recover is still a punish window. Leave before the second impact. |
+| **Phase roar** (K-D `phase_roar`) | none (60 ticks, no damage) | push wave at tick 0: heroes within 72 px are pushed 48 px back | 0 | none | Super armour, but he takes full damage: no invulnerability gate. |
+| **Flinch** | none | none | 0 | 14 (JUICE-01 `hurt`), then a 24 px backstep | Poise: 4 damage in neutral within 120 ticks. |
+| **Rack crush** | 24-tick fall: shudder, dust and a floor shadow | landing tick | heroes in the footprint take 1 | boss: **4 HP + pinned 90** (K-E) | Catastrophic force. Credited to the player who dropped it. |
+
+**Jump-over check (charge):** the ram box crosses Carl in 68 px / 300 px/s, about 14 ticks. Carl's feet stay above 72 px for about 23 ticks (jump 440 px/s, gravity 1050), which leaves about 9 ticks of slack. Donut clears it easily.
+
+**Super armour:** in tells, strikes, the charge and the roar, hits deal damage and hit-stop but never interrupt. Neutral hits add to poise. Recovers, stuns and pins take free damage.
+
+**Phases (by HP, knobs):** P1 *warm-up*, 36..25: pound and charge. Roar at 24 or less. P2 *use the room*, 24..13: the pound adds shockwaves, charges come faster and stuns shorten. Roar at 12 or less. P3 *no rest*, 12..0: the double pound and a 60-tick stun. Racks persist across phases. Fairness floors: **no tell under 24 ticks** (the goblin baseline) and **no punish window under 24 ticks**.
+
+**Action choice:** rule-based, with no RNG: a target 30..72 px ahead means pound, a charge-eligible target means charge, otherwise walk at 72 px/s. The walk tag plays at 16 ticks per frame, so the feet keep JUICE-01's 19..20 px per step. He turns toward a target behind him in 12 ticks.
+
+**Targeting (party design Q3 B):** he targets the nearest *reachable* hero, with 24 px hysteresis. The target is locked from tell start to the end of recovery, and the tell faces it. In solo the AI hero counts 40 px farther. A hero whose feet are 64 px or more above the floor (Donut on the ledge) is not reachable. With no reachable target he walks to the centre and growls.
+
+**Solo fairness (AI companion):** M1 applies: the AI hero takes hits but never drops below 1 HP. The bias (M2) applies. The follower adds boss dodges to M3: it steps out of a pound tell aimed at it within 72 px, and it jumps when the ram box will reach it within 14 ticks. The AI never drops the right rack; the player swaps to Donut to use it. **2P:** no guards (M5). Donut at 0 HP is party defeat (D1). **Restart:** after the 50-tick delay both heroes are back at full HP at the checkpoint, the boss is at 36 HP, and the racks and strut reset.
+
+## 4. HUD integration (`BossView`, spec 2.3 and 6)
+
+- **Source:** the simulation's `BossState { hp, hp_max, mode, phase }` is read through `RealHudInputs.boss`. `fill_px = ceil(234 * hp / hp_max)`, so it is at least 1 px while he is alive and 0 at defeat. The chip comes from `BossHurt` (30 ticks hold, then a 2 px/tick drain; HUD-only). The bar ticks at 25/50/75 % stay reading aids. The phases are at 2/3 and 1/3 on purpose.
+- **Name:** `display_name` from the boss data. **Emblem:** the 18 x 18 key `brute_boss_f01_emblem` replaces the generic skull plate (`BossView.emblem: Option<EmblemId>`).
+- **Warning icon:** `warning = mode is PoundTell, SecondPoundTell or ChargeTell`. That is true on exactly the tell ticks: never during the roar, the strikes or the rack fall.
+- **Slide:** in on `BossEngaged` (12 ticks). Out 90 ticks after the boss is defeated. Removed at once on `Restart`, then slides in again on re-engage.
+- **Notices** (System panel, at most 13 chars, existing queue rules; copy pending the owner's tone check): engage `MAIN EVENT!`, P2 `ROUND TWO`, P3 `FINAL ROUND`, rack crush `NO SPOTTER!`, defeat `KNOCKOUT!`. `BOSS INCOMING` stays fixture-only.
+
+## 5. Death and finish (death language, Death Lab intensity 4)
+
+The defeat is the existing `EnemyDefeated` event with a cause and a force tier. Presentation is chosen from the `brute_boss` profile, never stored in the simulation:
+
+| Lethal cause | Force | Finish id | Staging |
+| --- | --- | --- | --- |
+| Melee | routine / heavy | `brute_ko_timber` (fallback) | JUICE-01 `hurt`, then `down` 13..15 (falls back like a felled tree). On the floor-impact frame: camera kick x2, a 120 px dust burst, the racks rattle, and at preset 4 the boils burst in red spatters with a spreading pool. No slow motion or cinematic pause. Play continues. |
+| Rack crush | catastrophic | `brute_crushed` | K-E `pinned` with the `dead` face under the landed stack. At preset 4: a pool from under the plates, boil spatter, and one fist twitch at +20 ticks. |
+| Explosive (later dynamite) | catastrophic | `brute_blown` | Needs a body-parts sheet, which is a separate order. Until then it falls back to `brute_ko_timber`. |
+
+Presets 1 to 3 reduce the presentation only. The replay hash is identical at presets 1 and 4. The corpse stays, without collision or damage.
+
+## 6. Data and tuning (`assets/data/bosses/brute_boss_f01.json`, embedded like the death profiles)
+
+| Knob | Value | Knob | Value |
+| --- | --- | --- | --- |
+| `hp_max` | 36 | `phase_thresholds` | [24, 12] |
+| `walk_px_s` / `turn_ticks` | 72 / 12 | `poise_damage` / `poise_window` | 4 / 120 |
+| `pound.tell` / `smear` / `impact` / `recover` | 36 / 3 / 6 / 24 | `pound.damage` / `range_px` | 2 / [30, 72] |
+| `pound.box` | x 32..67, y 0..22 | `pound.launch_px_s` | [160, 200] |
+| `shockwave.{speed, reach, height, damage}` | 150, 120, 10, 1 | `shockwave.from_phase` | 2 |
+| `charge.tell_by_phase` | [40, 36, 30] | `charge.speed_px_s` | 300 |
+| `charge.box` | x 36..82, y 24..72 | `charge.damage` / `launch` | 1 / [220, 180] |
+| `charge.min_target_px` / `min_room_px` | 128 / 160 | `charge.cooldown_by_phase` | [240, 180, 150] |
+| `crash.stun_by_phase` | [90, 75, 60] | `crash.rebound_px` / `ticks` | 16 / 6 |
+| `double_pound.step_ticks` / `second_tell` | 12 / 24 | `roar.ticks` / `push_radius` / `push_px` | 60 / 72 / 48 |
+| `rack.fall_ticks` / `boss_damage` / `pin_ticks` | 24 / 4 / 90 | `rack.hero_damage` | 1 |
+| `rack.strut_hits` / `ledge_height_px` / `dwell_ticks` | 3 / 104 / 12 | `rack.footprint_px` | 80 |
+| `target.switch_px` / `ai_bias_px` / `reach_max_px` | 24 / 40 / 64 | `fairness.min_tell` / `min_punish` | 24 / 24 (validated on load) |
+| `hud.display_name` / `emblem` | `THE JUICER` / `brute_boss_f01_emblem` | `exit_slide_delay` | 90 |
+
+Load-time validation rejects a tell or punish under the fairness floors, thresholds out of order, or unknown fields.
+
+## 7. Determinism and test plan
+
+- **Domain:** a Bevy-free `src/boss.rs`. Rule-based, with no RNG draw. The boss state (mode, tick, hp, target, poise, rack and strut state) is mixed into `COMBAT_STATE`. VFX, gore, the HUD and notices are never mixed in. Boss steps run after the hero strikes in the scene tick order, so Carl wins a same-tick trade, as with the goblins.
+- **New events (hashed):** `BossEngaged`, `BossTell{move, target}`, `BossStrike{move}`, `BossCrash{wall}`, `BossPhase{phase}`, `BossHurt{source, damage, hp_left}`, `RackArmed`/`RackDropped{rack, player}`, `RackLanded{rack}`. `HeroHurt` carries the boss id. `DefeatCause::DropHazard{player, rack}` generalises `ShoreBlock`, as a documented hash migration.
+- **Unit tests:** every tell is at least 24 ticks and every punish at least 24; the target stays locked through an attack and the 24 px hysteresis works; an unreachable hero is ignored; each threshold gives exactly one roar; poise triggers on the 4th neutral damage; super armour never interrupts; the wall crash happens on both sides; the footprint covers the crash pivot; `fill_px` maps 36 to 234 px, is 7 px or more at 1 HP and 0 at defeat; the warning flag is set on exactly the tell ticks; data validation.
+- **Fixtures (`--fixture`, headless and in the render loop, final hash committed):** `boss01_pound_punish`, `boss01_charge_jump`, `boss01_charge_hit`, `boss01_rack_carl` (pre-hit twice, bait, third hit), `boss01_rack_donut` (P2 script), `boss01_phase_roar`, `boss01_solo_ai_guard`, `boss01_party_defeat_retry`, `boss01_crush_kill`, `boss01_full_clear`.
+- **Goldens:** `COMBAT_EVENT` logs and `COMBAT_STATE` hashes per fixture. The hash is the same headless and rendered, the same at presets 1 and 4, and the same with and without `--hud-preview`.
+- **Evidence:** real Bevy at 640 x 360 and 640 x 400, 1x and 3x. A GIF per move (tell, strike, recover), HUD strip captures (fill, chip, warning, emblem), one solo clear and one 2P clear recording, and a frame-time report with gore preset 4.
+
+## 8. Assets and difficulty routes
+
+**Keys produced in this design step** (`assets/source/enemies/brute_boss_f01/keys/`, generated by `scripts/author_boss_f01_keys.py` on the JUICE-01 rig; previews in [`docs/evidence/floor01-boss/`](../evidence/floor01-boss/)):
+
+| Key | Tag | Opaque h | Pose (facing right) |
+| --- | --- | --- | --- |
+| K-A | `charge_tell` | 80 | Lineman crouch: far knuckles on the floor ahead, near fist cocked behind the back line, far foot scraping back, head dropped forward. |
+| K-B | `charge_run` | 90 | Ram: trunk pitched about 40 degrees, hump and shoulder leading, far fist driven ahead, far knee up, near leg pushing off, hair streaming. |
+| K-C | `crash_stun` | 69 | Sat down hard: near leg straight, far knee up, trunk slumped back, head lolled with the new `dazed` face, fists on the floor. |
+| K-D | `phase_roar` | 105 | "Most muscular" crab flex: elbows out front and back, fists together at the gut, full roar. The fists stay low, never the pound tell. |
+| K-E | `pinned` | 56 | Face-down under the stack, with a level back for the plates; near arm splayed forward with an open hand, far hand clawing up, far leg kicking. The lethal crush swaps in the `dead` face. |
+| Emblem | `emblem` | 18 x 18 | Head in profile: mop, ear, red-rimmed eye, roaring mouth, a brow boil. |
+
+| Asset | Score (1 new, 2 >40 px, 3 complex, 4 VFX) | Route |
+| --- | --- | --- |
+| Boss encounter set: in-betweens for K-A..K-E (tell 2, run cycle 4, crash 2, roar 2, pin 1; about 11 frames) plus the face swap | boss | **A + silhouette gate** on K-A..K-E (keys done). The medium tier does the in-betweens, atlas, manifest and validators |
+| HUD emblem | 1 | **C**: keyed. The medium tier wires it into the HUD atlas |
+| Pound debris + shockwave ripple VFX | 2 (1, 4) | **B + gate** |
+| Crash dust + mirror crack VFX, roar push ring | 2 | **B + gate** (one order) |
+| Plate rack prop (hanging, shudder, falling, landed) | 2 (1, 3) | **B + gate** |
+| Rotten strut (3 damage states), ledge and release plate | 1 | **C** (extends the CP-03 shore kit) |
+| Gym arena kit (AREA-GYM-01) | env | Its own environment order. A greybox catacomb kit with mirrors is enough for the first playable |
+| Finishes `brute_ko_timber`, `brute_crushed` (boil spatter, pool) | 2 | **B**, from the Death Lab grammar |
+
+## 9. Art acceptance targets (independent review)
+
+1. At 1x in the lit Floor 1 scene, each new key reads as the same JUICE-01 creature: head, mop and ropes, ear, boils, veins, cuffs and chains, two countable fists.
+2. In the silhouette sheet, no new key can be mistaken for the pound tell or impact. K-A shows the cocked arm behind and the knuckles ahead. K-D keeps both fists below the chest line.
+3. Opaque heights are within 4 px of the table in section 8. Every key sits on contact row 135. At least 1 px of margin to the canvas edge.
+4. Only the 19 palette colours, no orphan pixels, closed outline.
+5. Tone: lumpy, pitiful and grotesque, never a sculpted heroic physique. K-D reads as a parody flex.
+6. The emblem reads as the Juicer at 1x in the 20 x 20 well against `magenta_dk`.
+
+## 10. Open questions (decided by default, owner may override)
+
+1. JUICE-01's 100 px height is still pending owner confirmation. This design assumes it.
+2. Heroes hit by a rack take 1 damage (CP-03 left it off). Default: 1.
+3. Notice copy and the boxing framing need a tone check.
+4. The gauntlet and Puddle Jumper are awarded after the fight. That is a separate design, out of scope.
+5. Book chronology check of the heroes' kit at the gym (dynamite, missile). The fight is kit-tolerant, so it is not blocking.
+
+**Horizon fit:** fits [horizon](../01-design/character-progression-horizon.md) step 6. There are no new buttons or verbs: jump, primary and physical only. It uses Donut's higher reach and Carl's breaking as optional, asymmetric options. Direct combat stays a complete route. Rewards stay after the encounter. No guide update needed.
+
+**Depends on:** #114 (per-hero combat: boss damage to either hero, `HeroHurt` per hero), HUD-DEBT-04/01 (party, Donut HP, swap, the follower bot with M1 to M3), Donut's higher jump, the CP-03 hazard generalisation, DEATH-B/C finish selection, and JUICE-01 passing review.
