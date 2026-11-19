@@ -1,0 +1,32 @@
+## scale=3 camera=scroll rep=1
+FLOOR1_PERF_MEM rss_mib=409.9 peak_rss_mib=409.9 entities=9918 death_sprites_spawned=854 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.618 gpu_ms_p95=0.633 gpu_ms_max=0.647 tick_us_mean=6.4 tick_us_p95=9.5 tick_us_max=25.7 death_sync_us_mean=8.5 death_sync_us_p95=12.8 death_sync_us_max=16.9 gpu_passes=4
+FLOOR1_PERF frames=300 median_ms=2.05 p95_ms=2.39 mean_ms=2.08 max_ms=4.84 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+## scale=3 camera=scroll rep=2
+FLOOR1_PERF_MEM rss_mib=412.1 peak_rss_mib=412.1 entities=9918 death_sprites_spawned=854 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.617 gpu_ms_p95=0.634 gpu_ms_max=0.650 tick_us_mean=5.1 tick_us_p95=7.1 tick_us_max=13.7 death_sync_us_mean=6.4 death_sync_us_p95=10.0 death_sync_us_max=14.9 gpu_passes=4
+FLOOR1_PERF frames=300 median_ms=1.60 p95_ms=2.30 mean_ms=1.74 max_ms=4.17 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+## scale=3 camera=auto rep=1
+FLOOR1_PERF_MEM rss_mib=400.2 peak_rss_mib=400.2 entities=9920 death_sprites_spawned=854 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.682 gpu_ms_p95=0.694 gpu_ms_max=0.706 tick_us_mean=7.5 tick_us_p95=13.0 tick_us_max=20.6 death_sync_us_mean=8.8 death_sync_us_p95=13.6 death_sync_us_max=31.3 gpu_passes=4
+FLOOR1_PERF frames=300 median_ms=2.30 p95_ms=2.97 mean_ms=2.37 max_ms=5.26 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+## scale=3 camera=auto rep=2
+FLOOR1_PERF_MEM rss_mib=424.5 peak_rss_mib=424.5 entities=9920 death_sprites_spawned=854 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=0.682 gpu_ms_p95=0.693 gpu_ms_max=0.701 tick_us_mean=6.4 tick_us_p95=12.0 tick_us_max=35.1 death_sync_us_mean=7.8 death_sync_us_p95=12.8 death_sync_us_max=20.7 gpu_passes=4
+FLOOR1_PERF frames=300 median_ms=2.03 p95_ms=2.75 mean_ms=2.05 max_ms=4.50 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+## scale=6 camera=scroll rep=1
+FLOOR1_PERF_MEM rss_mib=477.1 peak_rss_mib=477.1 entities=9918 death_sprites_spawned=854 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.149 gpu_ms_p95=2.259 gpu_ms_max=2.275 tick_us_mean=7.3 tick_us_p95=12.2 tick_us_max=20.0 death_sync_us_mean=8.5 death_sync_us_p95=12.3 death_sync_us_max=85.2 gpu_passes=4
+FLOOR1_PERF frames=300 median_ms=2.69 p95_ms=3.18 mean_ms=2.75 max_ms=7.67 lighting=on window=3840x2160 present=AutoNoVsync warmup_frames=120
+## scale=6 camera=scroll rep=2
+FLOOR1_PERF_MEM rss_mib=449.9 peak_rss_mib=449.9 entities=9918 death_sprites_spawned=854 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.072 gpu_ms_p95=2.204 gpu_ms_max=2.224 tick_us_mean=10.3 tick_us_p95=26.6 tick_us_max=50.9 death_sync_us_mean=10.5 death_sync_us_p95=25.0 death_sync_us_max=101.2 gpu_passes=4
+FLOOR1_PERF frames=300 median_ms=2.75 p95_ms=5.70 mean_ms=3.15 max_ms=9.80 lighting=on window=3840x2160 present=AutoNoVsync warmup_frames=120
+## scale=6 camera=auto rep=1
+FLOOR1_PERF_MEM rss_mib=494.6 peak_rss_mib=494.6 entities=9920 death_sprites_spawned=854 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.324 gpu_ms_p95=2.392 gpu_ms_max=2.415 tick_us_mean=8.3 tick_us_p95=13.5 tick_us_max=43.4 death_sync_us_mean=9.0 death_sync_us_p95=14.0 death_sync_us_max=32.5 gpu_passes=4
+FLOOR1_PERF frames=300 median_ms=2.86 p95_ms=3.75 mean_ms=2.93 max_ms=8.37 lighting=on window=3840x2160 present=AutoNoVsync warmup_frames=120
+## scale=6 camera=auto rep=2
+FLOOR1_PERF_MEM rss_mib=480.7 peak_rss_mib=480.7 entities=9920 death_sprites_spawned=854 peak_visible_death_sprites=0
+FLOOR1_PERF_CPU_GPU gpu_ms_mean=2.285 gpu_ms_p95=2.360 gpu_ms_max=2.370 tick_us_mean=10.8 tick_us_p95=18.0 tick_us_max=84.3 death_sync_us_mean=9.5 death_sync_us_p95=14.4 death_sync_us_max=40.1 gpu_passes=4
+FLOOR1_PERF frames=300 median_ms=2.92 p95_ms=4.65 mean_ms=3.11 max_ms=9.29 lighting=on window=3840x2160 present=AutoNoVsync warmup_frames=120
