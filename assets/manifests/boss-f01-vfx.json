@@ -1,0 +1,911 @@
+{
+  "schema_version": 1,
+  "id": "brute_boss_f01_vfx_candidate_v0",
+  "type": "vfx_animation",
+  "source_path": "assets/source/enemies/brute_boss_f01/brute_boss_f01_vfx.ase",
+  "grid_source": "assets/source/enemies/brute_boss_f01/brute_boss_f01_vfx.grid.json",
+  "output_atlas": "generated/art/brute_boss_f01_vfx.png",
+  "output_metadata": "generated/art/brute_boss_f01_vfx.json",
+  "palette_id": "boss-f01-fx-v0",
+  "frame_size": [
+    152,
+    72
+  ],
+  "pivot": [
+    76,
+    71
+  ],
+  "animation_tags": [
+    "pound_debris",
+    "shockwave_ripple",
+    "crash_dust",
+    "roar_ring",
+    "mirror_crack",
+    "floor_dust",
+    "boil_spatter",
+    "blood_pool"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 boss encounter art (fan-concept layer: THE JUICER encounter; runtime ids IP-neutral brute_boss_f01)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "boss encounter VFX and finishes: pound debris, shockwave ripple, crash dust, mirror crack, floor-impact dust, roar push ring, boil spatter and blood pool (35 frames), rasterized from rules by scripts/author_boss_f01_fx.py",
+    "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Drawn by Claude Sonnet from the written spec (route B: the top-tier editor pass and silhouette gate are still pending). No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/floor-01-boss-design.md",
+      "tools/art-references/death-lab/README.md"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "boss": {
+    "status": "35 frames drawn; top-tier editor pass and independent review pending; not wired into any Bevy binary",
+    "spec": "docs/02-art/floor-01-boss-design.md",
+    "data_id": "brute_boss_f01",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "pound_debris": "once",
+      "shockwave_ripple": "loop",
+      "crash_dust": "once",
+      "roar_ring": "once",
+      "mirror_crack": "hold",
+      "floor_dust": "once",
+      "boil_spatter": "once",
+      "blood_pool": "hold"
+    },
+    "roles": {
+      "pound_debris": "brute pound impact: debris and dust at the strike point, 50 px ahead of the pivot (the pound box centre)",
+      "shockwave_ripple": "P2+ shockwave ripple: 10 px tall, travels 120 px each way at 150 px/s (mirror for the left)",
+      "crash_dust": "wall crash: dust and chips at the ram contact point, billowing into the room (mirror for the left wall)",
+      "mirror_crack": "cosmetic crack on the wall mirror at the crash height: three states, held",
+      "floor_dust": "brute_ko_timber floor impact: 120 px dust burst along the floor both ways",
+      "roar_ring": "phase roar push wave: a flat floor ring at radius 18, 36, 54, 72 px (push_radius 72)",
+      "boil_spatter": "preset 4 finish: boils burst in red spatters from the body",
+      "blood_pool": "preset 4 finish: spreading pool, the last frame stays"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "pound_debris_0",
+        "tag": "pound_debris",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          49,
+          47,
+          108,
+          69
+        ],
+        "sha256": "b6f4413fd9bb558db1ac157e099ab5928c35e47dc84bf87d4561f157486d571a"
+      },
+      {
+        "index": 1,
+        "name": "pound_debris_1",
+        "tag": "pound_debris",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 152,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          43,
+          40,
+          115,
+          69
+        ],
+        "sha256": "46f6c226bad8a45b809f1fc6bf912ae4e1e2bffae26a47f04038680ac3aab9ac"
+      },
+      {
+        "index": 2,
+        "name": "pound_debris_2",
+        "tag": "pound_debris",
+        "ticks": 5,
+        "duration_ms": 83,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 304,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          32,
+          23,
+          123,
+          70
+        ],
+        "sha256": "76039cc90fb606e33dc84bc4669f40439d2a1f5a895793b690ef5ef5e8d0a6b1"
+      },
+      {
+        "index": 3,
+        "name": "pound_debris_3",
+        "tag": "pound_debris",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 456,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          8,
+          7,
+          139,
+          71
+        ],
+        "sha256": "1bde9a23d94b740cea4d5de2b725727756ed8f3fb3a2a246359b8522c71118b6"
+      },
+      {
+        "index": 4,
+        "name": "pound_debris_4",
+        "tag": "pound_debris",
+        "ticks": 12,
+        "duration_ms": 200,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 608,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          19,
+          19,
+          140,
+          71
+        ],
+        "sha256": "c7e4429163bde226da1b849a2a700208a62083ca17dd396e3cc93587e66b7521"
+      },
+      {
+        "index": 5,
+        "name": "shockwave_ripple_0",
+        "tag": "shockwave_ripple",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 760,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          42,
+          55,
+          95,
+          70
+        ],
+        "sha256": "180a57b648da6be3ff9572b368b7573122e98230404be8c6f28a990d8beacac5"
+      },
+      {
+        "index": 6,
+        "name": "shockwave_ripple_1",
+        "tag": "shockwave_ripple",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 912,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          42,
+          53,
+          95,
+          70
+        ],
+        "sha256": "c9ad1d62dbe527ce2fe4221cd2bf2a937fce8e3fb6312484945cf77cf76574e3"
+      },
+      {
+        "index": 7,
+        "name": "shockwave_ripple_2",
+        "tag": "shockwave_ripple",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 1064,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          42,
+          55,
+          95,
+          70
+        ],
+        "sha256": "2dc1938cc991e4b9c680fe6f6f72ff82893ffd590a946fc90499a525c2c44828"
+      },
+      {
+        "index": 8,
+        "name": "shockwave_ripple_3",
+        "tag": "shockwave_ripple",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 1216,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          42,
+          53,
+          95,
+          70
+        ],
+        "sha256": "9aa221af12998f2cf52f7ddda837d239be66727eedd3de20a410c101dd64bfb4"
+      },
+      {
+        "index": 9,
+        "name": "crash_dust_0",
+        "tag": "crash_dust",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 1368,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          45,
+          36,
+          85,
+          71
+        ],
+        "sha256": "bf33844979c9b2ceb2b5b0603230571494cf567174e6c5f8ab22a2b2ced78990"
+      },
+      {
+        "index": 10,
+        "name": "crash_dust_1",
+        "tag": "crash_dust",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 1520,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          41,
+          35,
+          83,
+          71
+        ],
+        "sha256": "f745ba351d88eae4db00e091530ba8f6175c9c9528d979ff0030c9ec533b27e9"
+      },
+      {
+        "index": 11,
+        "name": "crash_dust_2",
+        "tag": "crash_dust",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 1672,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          36,
+          32,
+          82,
+          71
+        ],
+        "sha256": "0ba8774492e818b3661d638709f08b03cb7fa7a457c5c3ab4a2bb6f5f86e34f2"
+      },
+      {
+        "index": 12,
+        "name": "crash_dust_3",
+        "tag": "crash_dust",
+        "ticks": 5,
+        "duration_ms": 83,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 1824,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          29,
+          28,
+          80,
+          71
+        ],
+        "sha256": "6107d633c161e878f239e3d01022ab9df4ef71fccefdec2dc1c319f196a6d1c1"
+      },
+      {
+        "index": 13,
+        "name": "crash_dust_4",
+        "tag": "crash_dust",
+        "ticks": 7,
+        "duration_ms": 117,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 1976,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          17,
+          21,
+          82,
+          71
+        ],
+        "sha256": "ae44b643922b1f5a71be507e7f194a3b22d57589b4e86f9ded13cf0577eddcaf"
+      },
+      {
+        "index": 14,
+        "name": "crash_dust_5",
+        "tag": "crash_dust",
+        "ticks": 12,
+        "duration_ms": 200,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 2128,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          18,
+          19,
+          87,
+          71
+        ],
+        "sha256": "aaab29dd5acc211e25eb427e31308275b8cf0bf957448cd7adf0746d86bd7ccd"
+      },
+      {
+        "index": 15,
+        "name": "roar_ring_0",
+        "tag": "roar_ring",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          57
+        ],
+        "rect": {
+          "x": 2280,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          58,
+          53,
+          94,
+          61
+        ],
+        "sha256": "bc37c080a28e86f6658013bc9a80efae31e92244571a2740840a6981b1d46caf"
+      },
+      {
+        "index": 16,
+        "name": "roar_ring_1",
+        "tag": "roar_ring",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          57
+        ],
+        "rect": {
+          "x": 2432,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          40,
+          50,
+          112,
+          64
+        ],
+        "sha256": "b3f42d87b92e51941675ecb4f6430cce1eb8218f0d0000968579814aa959fd3c"
+      },
+      {
+        "index": 17,
+        "name": "roar_ring_2",
+        "tag": "roar_ring",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          57
+        ],
+        "rect": {
+          "x": 2584,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          22,
+          46,
+          130,
+          68
+        ],
+        "sha256": "4e906f56c95e425221eb3a2500e183fa108dfcc869918624b53e219ea848298d"
+      },
+      {
+        "index": 18,
+        "name": "roar_ring_3",
+        "tag": "roar_ring",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          57
+        ],
+        "rect": {
+          "x": 2736,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          4,
+          43,
+          148,
+          71
+        ],
+        "sha256": "970fd02b03d53550e6893d5b531376b4af74b3ae0b6dcb74385d077318339b1c"
+      },
+      {
+        "index": 19,
+        "name": "mirror_crack_0",
+        "tag": "mirror_crack",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          76,
+          36
+        ],
+        "rect": {
+          "x": 2888,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          67,
+          23,
+          85,
+          46
+        ],
+        "sha256": "6d612ab82e7192386ed74372c006fbbfc85a47e572875fbf88d2239e84ede6d2"
+      },
+      {
+        "index": 20,
+        "name": "mirror_crack_1",
+        "tag": "mirror_crack",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          76,
+          36
+        ],
+        "rect": {
+          "x": 3040,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          54,
+          23,
+          92,
+          54
+        ],
+        "sha256": "09c9cdd696df2f16a06add4d5d407dd467a57b79a9aeb8581aaa00728e7658a6"
+      },
+      {
+        "index": 21,
+        "name": "mirror_crack_2",
+        "tag": "mirror_crack",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          76,
+          36
+        ],
+        "rect": {
+          "x": 3192,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          54,
+          2,
+          106,
+          56
+        ],
+        "sha256": "c472f0f87a6a4a5ed6b64aea21208ce45be8fec05685448428c36bb1b6b2d40a"
+      },
+      {
+        "index": 22,
+        "name": "floor_dust_0",
+        "tag": "floor_dust",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 3344,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          52,
+          41,
+          98,
+          71
+        ],
+        "sha256": "f78e203706f560b49ba245f184bd3198d60d529150ded2ce66f81e071dd58bca"
+      },
+      {
+        "index": 23,
+        "name": "floor_dust_1",
+        "tag": "floor_dust",
+        "ticks": 4,
+        "duration_ms": 67,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 3496,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          45,
+          39,
+          104,
+          71
+        ],
+        "sha256": "e9780037ed4b11426d495f9c2bac68ef29ca8dcbe721f3649db2ddde1e810f3c"
+      },
+      {
+        "index": 24,
+        "name": "floor_dust_2",
+        "tag": "floor_dust",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 3648,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          36,
+          36,
+          112,
+          71
+        ],
+        "sha256": "9756a46bf87910be8dcc35eb555d829392d05a1a07f051221ef980e22fc68e5b"
+      },
+      {
+        "index": 25,
+        "name": "floor_dust_3",
+        "tag": "floor_dust",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 3800,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          23,
+          32,
+          124,
+          71
+        ],
+        "sha256": "4ab60abbf372151d80aebf0bfbbd3e719eb10f0c11312f7b22d074081d57d4f5"
+      },
+      {
+        "index": 26,
+        "name": "floor_dust_4",
+        "tag": "floor_dust",
+        "ticks": 14,
+        "duration_ms": 233,
+        "pivot": [
+          76,
+          71
+        ],
+        "rect": {
+          "x": 3952,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          11,
+          26,
+          134,
+          71
+        ],
+        "sha256": "d12cade145383d1492a538a82748587db9a4d87a0ad18a4ece3019fbef7cf088"
+      },
+      {
+        "index": 27,
+        "name": "boil_spatter_0",
+        "tag": "boil_spatter",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          52
+        ],
+        "rect": {
+          "x": 4104,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          65,
+          43,
+          88,
+          62
+        ],
+        "sha256": "da708ed0ff7e8ebfbed176836117d283ee9e1687b492c13d8ac11440a69201c6"
+      },
+      {
+        "index": 28,
+        "name": "boil_spatter_1",
+        "tag": "boil_spatter",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          76,
+          52
+        ],
+        "rect": {
+          "x": 4256,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          55,
+          36,
+          102,
+          68
+        ],
+        "sha256": "82181973a75c11229ec11595aa14dfd92226c8ba0b98ac5604f6f851fb1deba5"
+      },
+      {
+        "index": 29,
+        "name": "boil_spatter_2",
+        "tag": "boil_spatter",
+        "ticks": 6,
+        "duration_ms": 100,
+        "pivot": [
+          76,
+          52
+        ],
+        "rect": {
+          "x": 4408,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          40,
+          30,
+          122,
+          68
+        ],
+        "sha256": "5632dc02447b52472f9b3b4e210ff6d1fea0e7fe3ef2f301f93207432984c629"
+      },
+      {
+        "index": 30,
+        "name": "boil_spatter_3",
+        "tag": "boil_spatter",
+        "ticks": 10,
+        "duration_ms": 167,
+        "pivot": [
+          76,
+          52
+        ],
+        "rect": {
+          "x": 4560,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          32,
+          42,
+          131,
+          68
+        ],
+        "sha256": "cc7448688ba92eec6c71bb340524761f8da015958dd6bc61429954b94a8dfbbd"
+      },
+      {
+        "index": 31,
+        "name": "blood_pool_0",
+        "tag": "blood_pool",
+        "ticks": 8,
+        "duration_ms": 133,
+        "pivot": [
+          76,
+          62
+        ],
+        "rect": {
+          "x": 4712,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          61,
+          58,
+          89,
+          65
+        ],
+        "sha256": "add7e7aaf9e7ee7b2d9c7099fcb7c40c580956c532e2a25900c391930cbb8fa9"
+      },
+      {
+        "index": 32,
+        "name": "blood_pool_1",
+        "tag": "blood_pool",
+        "ticks": 10,
+        "duration_ms": 167,
+        "pivot": [
+          76,
+          62
+        ],
+        "rect": {
+          "x": 4864,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          43,
+          57,
+          109,
+          66
+        ],
+        "sha256": "ccc26f489aa655b372f0853a104466572289e1a1bcf1eb682050827c4db82625"
+      },
+      {
+        "index": 33,
+        "name": "blood_pool_2",
+        "tag": "blood_pool",
+        "ticks": 14,
+        "duration_ms": 233,
+        "pivot": [
+          76,
+          62
+        ],
+        "rect": {
+          "x": 5016,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          25,
+          54,
+          129,
+          68
+        ],
+        "sha256": "7d478f3292f5bed970d769b7408f12fc79d5ee47cd6606207c403c9f5b1c2a79"
+      },
+      {
+        "index": 34,
+        "name": "blood_pool_3",
+        "tag": "blood_pool",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          76,
+          62
+        ],
+        "rect": {
+          "x": 5168,
+          "y": 0,
+          "w": 152,
+          "h": 72
+        },
+        "content": [
+          12,
+          53,
+          142,
+          70
+        ],
+        "sha256": "97254c9f3586728c3acb00111275fedb1ebf98824ed65ea9f5dfdc7e22a4215b"
+      }
+    ]
+  }
+}

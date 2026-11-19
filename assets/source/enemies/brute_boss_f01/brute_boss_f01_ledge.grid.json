@@ -1,0 +1,181 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  64,
+  40
+ ],
+ "pivot": [
+  32,
+  12
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "outline_soot",
+   "rgba": "#1b1124ff"
+  },
+  {
+   "key": "a",
+   "name": "dust_deep",
+   "rgba": "#5d4045ff"
+  },
+  {
+   "key": "c",
+   "name": "dust_light",
+   "rgba": "#9a684fff"
+  },
+  {
+   "key": "e",
+   "name": "chip_dark",
+   "rgba": "#57352cff"
+  },
+  {
+   "key": "f",
+   "name": "chip_mid",
+   "rgba": "#74472fff"
+  },
+  {
+   "key": "g",
+   "name": "chip_light",
+   "rgba": "#d0965cff"
+  },
+  {
+   "key": "h",
+   "name": "chip_hi",
+   "rgba": "#f2c486ff"
+  },
+  {
+   "key": "i",
+   "name": "iron_dark",
+   "rgba": "#3a3245ff"
+  },
+  {
+   "key": "j",
+   "name": "iron_mid",
+   "rgba": "#766c86ff"
+  },
+  {
+   "key": "k",
+   "name": "iron_light",
+   "rgba": "#8b93a6ff"
+  },
+  {
+   "key": "w",
+   "name": "flash_white",
+   "rgba": "#efe3d3ff"
+  }
+ ],
+ "layers": [
+  "body"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "body": [
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     ".................KKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.................",
+     ".................KkkkkkkkkkkkkkkkkkkkkkkkkkkkkK.................",
+     ".................KjjijjjijjjijjjijjjijjjijjjijK.................",
+     ".................KjjjijjjijjjijjjijjjijjjijjjiK.................",
+     ".......KKKKKKKKKKKjijjjijjjijjjijjjijjjijjjijjKKKKKKKKKKK.......",
+     ".......KghchgghgghgghggggghgcgggggghghhgggggghggghggghggK.......",
+     ".......KffffffffffffffffffffffffffffffffffffffffffffffffK.......",
+     ".......KfffffffffffcccfffffcffffffffffcffffffcffffffffffK.......",
+     ".......KcffffffcffffffffcfffffffffffffffffcffffffffffcffK.......",
+     ".......KffffffcfffffffffffccffffffffffffffcffffcffffffffK.......",
+     ".......KffffffffffffffffffffffffffffffffffffffffffffffcfK.......",
+     ".......KeeeeeeeeeeaeeeeeaeeeeeeeeeeeeaeeeeeeeeeeeaeeeeaeK.......",
+     ".......KeaeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeaeeeeeeeeeeK.......",
+     ".......KeeeeeaeeeeeeaeeeeeeeeeeeeeeeeeeeeeaeeeeeaeeeeeeeK.......",
+     ".......KaeeeeeeeeeeeeeeaeeaaeaaeeeeeeeeeeeeeeeeeeeeeeeeeK.......",
+     ".......KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.......",
+     "..........KkkkkkkkkK.......................KkkkkkkkkK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiwiiiiK.......................KiiiwiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiwiiiiK.......................KiiiwiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KKKKKKKKKK.......................KKKKKKKKKK...........",
+     "................................................................"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "body": [
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     "................................................................",
+     ".................KKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.................",
+     ".................KkkkkkkkkkkkkkkkkkkkkkkkkkkkkK.................",
+     ".......KKKKKKKKKKKjjijjjijjjijjjijjjijjjijjjijKKKKKKKKKKK.......",
+     ".......KghchgghgghgiiiiiiiiiiiiiiiiiiiiiiiiiihggghggghggK.......",
+     ".......KffffffffffffffffffffffffffffffffffffffffffffffffK.......",
+     ".......KfffffffffffcccfffffcffffffffffcffffffcffffffffffK.......",
+     ".......KcffffffcffffffffcfffffffffffffffffcffffffffffcffK.......",
+     ".......KffffffcfffffffffffccffffffffffffffcffffcffffffffK.......",
+     ".......KffffffffffffffffffffffffffffffffffffffffffffffcfK.......",
+     ".......KeeeeeeeeeeaeeeeeaeeeeeeeeeeeeaeeeeeeeeeeeaeeeeaeK.......",
+     ".......KeaeeeeeeeeeeeeeeeeeeeeeaeeeeeeeeeeeeeaeeeeeeeeeeK.......",
+     ".......KeeeeeaeeeeeeaeeeeeeeeeeeeeeeeeeeeeaeeeeeaeeeeeeeK.......",
+     ".......KaeeeeeeeeeeeeeeaeeaaeaaeeeeeeeeeeeeeeeeeeeeeeeeeK.......",
+     ".......KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK.......",
+     "..........KkkkkkkkkK.......................KkkkkkkkkK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiwiiiiK.......................KiiiwiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiwiiiiK.......................KiiiwiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KiiiiiiiiK.......................KiiiiiiiiK...........",
+     "..........KKKKKKKKKK.......................KKKKKKKKKK...........",
+     "................................................................"
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "plate_raised",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  },
+  {
+   "name": "plate_pressed",
+   "from": 1,
+   "to": 1,
+   "direction": "forward"
+  }
+ ]
+}
