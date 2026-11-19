@@ -137,6 +137,23 @@ Load-time validation rejects a tell or punish under the fairness floors, thresho
 | Gym arena kit (AREA-GYM-01) | env | Its own environment order. A greybox catacomb kit with mirrors is enough for the first playable |
 | Finishes `brute_ko_timber`, `brute_crushed` (boil spatter, pool) | 2 | **B**, from the Death Lab grammar |
 
+**Production atlases (execution status, route and frame names for the code):** manifests in `assets/manifests/boss-f01*.json` list every frame name, pivot, atlas rect, tick count and SHA-256; sources in `assets/source/enemies/brute_boss_f01/`; evidence in `docs/evidence/boss-f01/`. The JUICE-01 base set (idle, walk, pound tell, pound, recover, hurt, down) stays in the `juice-01` atlas.
+
+| Atlas (manifest) | Frames | Tags (frame names) |
+| --- | --- | --- |
+| `brute_boss_f01` (`boss-f01`, 160 x 136, pivot 72,135; keys frozen, route A) | 16 | `charge_tell` (`charge_tell_a` 6t, `charge_tell_b` 6t, `charge_tell_hold` hold), `charge_run` loop (`charge_run_contact_a` 5t, `charge_run_pass_a` 4t, `charge_run_contact_b` 5t, `charge_run_pass_b` 4t), `crash_stun` (`crash_hit` 3t, `crash_slump` 3t, `crash_stun_hold` hold), `phase_roar` (`phase_roar_in` 6t, `phase_roar_hold` 24t, `phase_roar_flex` 30t = 60), `pinned` (`pinned_squash` 6t, `pinned_hold` hold), `pinned_dead` (`pinned_dead` hold) |
+| `brute_boss_f01_emblem` (`boss-f01-emblem`, 18 x 18, route C) | 1 | `emblem`. Standalone atlas: not merged into the HUD atlas |
+| `brute_boss_f01_vfx` (`boss-f01-vfx`, 152 x 72, per-frame pivots (ring centre, crack and wall-contact point, spatter origin 19 px above the floor), route B draft) | 38 | `pound_debris` 5, `shockwave_ripple` 4 (loop), `crash_dust` 6, `roar_ring` 4, `mirror_crack` 3 (held states), `floor_dust` 5, `boil_spatter` 4, `blood_pool` 4 (last frame stays), `rack_shadow` 3 (`rack_shadow_0..2`: 48 x 4, 64 x 5, 80 x 6 px, pivot bottom centre at the footprint centre, 12 ticks each from `RackDropped`, removed on `RackLanded`; over the floor, under heroes, boss and rack; cosmetic, not hashed) |
+| `brute_boss_f01_rack` (`boss-f01-rack`, 136 x 72, pivot 48,71, route B draft) | 7 | `rack_hang`, `rack_shudder` (`rack_shudder_a`, `rack_shudder_b`, loop), `rack_fall`, `rack_landed` (floor version, the rack missed), `rack_landed_boss` (stack on the pinned boss's back, underside 26 px above the pivot row: `landed_on_boss_offset_px` 26), `rack_pulley` (static ceiling pulley at frame (48,38), drawn at the hang position for the whole fight, never translated). Data: `rack.cable_mechanism = "single_cable_pulley_strut_tieoff"` |
+| `brute_boss_f01_strut` (`boss-f01-strut`, 40 x 196, pivot 20,195, route C) | 3 | `strut_sound`, `strut_cracked`, `strut_splintered` |
+| `brute_boss_f01_ledge` (`boss-f01-ledge`, 64 x 40, pivot 32,12, route C) | 2 | `plate_raised`, `plate_pressed` |
+
+**Adopted editor-level decisions (review 2026-11-19, design defaults rule):** R-05, the rack hangs from ONE cable that runs from the bar clamp up over a ceiling pulley (the static `rack_pulley` frame) and down to a cleat on the strut head, so breaking the strut lets the cable run free and the stack falls (data `rack.cable_mechanism = "single_cable_pulley_strut_tieoff"`; the right rack mirrors it with the tie-off on the release-plate mechanism when Q10 enables it). V-07, `rack_shadow` is the section 3 floor-shadow tell of the 36-tick fall: 48, 64 and 80 px frames for ticks 0..11, 12..23 and 24..35. R-04, `landed_on_boss_offset_px` 26 for `rack_landed_boss`. Key redesign (top tier, after the round 2 1x check still read the selectorised stack as a vent grille or crate): the hung load is a loaded barbell seen side-on, round iron plates edge-on stepped 25, 25, 19 and 13 px from the collar out to each sleeve, each with a lit rim and a lit hub band, on a bar with a bare centre shaft where the single cable clamps on. Same 64 x 25 footprint, pivot, frame names and `landed_on_boss_offset_px` 26: no gameplay data changes.
+
+**Binding (execution status):** the atlases above are bound in `src/boss_art.rs` and drawn by `floor01_scene`; the code-side table and the deviations are in [floor01-scene.md](../03-tech/floor01-scene.md) (Boss encounter, Art binding), the captures in [`docs/evidence/boss-f01/scene/`](../evidence/boss-f01/scene/).
+
+Open art items: the independent re-review of the round 2 rack frames and the gym arena kit (own order). The fist twitch at +20 ticks of the `brute_crushed` finish: deferred, needs a hand layer or a dedicated frame (spec gap, review 2026-11-19). The atlas has a single `body` layer, so an offset would move the whole corpse.
+
 ## 9. Art acceptance targets (independent review)
 
 1. At 1x in the lit Floor 1 scene, each new key reads as the same JUICE-01 creature: head, mop and ropes, ear, boils, veins, cuffs and chains, two countable fists.
@@ -155,6 +172,8 @@ Load-time validation rejects a tell or punish under the fairness floors, thresho
 4. The gauntlet and Puddle Jumper are awarded after the fight. That is a separate design, out of scope.
 5. Book chronology check of the heroes' kit at the gym (dynamite, missile). The fight is kit-tolerant, so it is not blocking.
 6. The right rack ships disabled until Q10's higher cat jump is adopted and tuned. Default: enable it in the same PR that lands the jump, with `boss01_rack_donut` un-pended. Until then Donut's role is to survive and draw aggro.
+7. The fist twitch of the crush finish (section 5): deferred, needs a hand layer or a dedicated frame (spec gap, review 2026-11-19).
+8. The rack hangs from one cable over a ceiling pulley, tied off on the strut head (`rack.cable_mechanism`), and the crush tell has a `rack_shadow` floor shadow (48, 64, 80 px over 36 ticks): adopted by default, review 2026-11-19.
 
 **Horizon fit:** fits [horizon](../01-design/character-progression-horizon.md) step 6. There are no new buttons or verbs: jump, primary and physical only. It uses Donut's higher reach and Carl's breaking as optional, asymmetric options. Direct combat stays a complete route. Rewards stay after the encounter. No guide update needed.
 

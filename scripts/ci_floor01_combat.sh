@@ -5,7 +5,7 @@
 #                                   committed ones (docs/evidence/cp01-feel) and
 #                                   run each twice.
 #   ci_floor01_combat.sh demo       no GPU: DEMO-01. The demo hall's autopilot
-#                                   probes (demo01_b1, _b2, _b3, _b6 and the whole
+#                                   probes (demo01_b1, _b2, _b3, _b4, _b5, _b6 and the whole
 #                                   route demo01) replay twice, at gore presets 1
 #                                   to 4, and must equal the committed logs in
 #                                   docs/evidence/demo-01.
@@ -26,22 +26,27 @@
 set -euo pipefail
 mode="${1:?usage: ci_floor01_combat.sh headless|render|demo|demo-render}"
 bin=./target/debug/floor01_scene
-fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup)
+fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup cp03_block_edge_decap qa_blast_breakup cp05_llama_slam cp05_llama_down cp05_llama_spit cp05_llama_offscreen cp05_llama_crush)
 # fixture:first tick:step:count of the real-frame capture sequences. The windows
 # hold the hit and the hit-stop of each fixture (see the evidence README).
-sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interrupt:122:1:61 cp01_goblin_attacks:128:1:61 cp02_two_goblins:60:1:61 cp01_retry:398:1:52 cp01_kick:128:1:61 cp02_kick_contact:20:1:61 cp03_shore_kill:98:1:61)
+sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interrupt:122:1:61 cp01_goblin_attacks:128:1:61 cp02_two_goblins:60:1:61 cp01_retry:398:1:52 cp01_kick:128:1:61 cp02_kick_contact:20:1:61 cp03_shore_kill:98:1:61 cp05_llama_spit:30:1:61 cp05_llama_slam:140:1:61 cp05_llama_crush:120:1:61)
 # Fixtures whose per-tick animation trace (the frame drawn for Carl and every
 # goblin next to the sim state it follows) is committed and diffed (ART-INT-02).
 traced=(cp01_haymaker_chain cp01_goblin_attacks cp02_two_goblins cp01_kick cp02_kick_contact)
 committed=docs/evidence/cp01-feel
 # DEMO-01 probes: name:beat (the autopilot starts at the beat's checkpoint).
-demo_probes=(demo01_b1:1 demo01_b2:2 demo01_b3:3 demo01_b6:6 demo01:0)
+demo_probes=(demo01_b1:1 demo01_b2:2 demo01_b3:3 demo01_b4:4 demo01_b5:5 demo01_b6:6 demo01:0)
 demo_committed=docs/evidence/demo-01
 committed_anim=docs/evidence/art-int-02
 # WORK-005/006, HUD-DEBT-01/04: the live-party fixtures (two players, solo swap,
 # Donut damage) with their committed replays.
 party_fixtures=(duo_independent_moves duo_separation_wall solo_swap_continuity donut_hurt_iframes donut_defeat_party solo_guard_floors_at_one solo_follower_dodge)
 committed_party=docs/evidence/party-2p
+# HUD-DEBT-03: the Floor 01 boss encounter fixtures (the Juicer, the boss arena)
+# with their committed replays. boss01_rack_donut is pending (the right rack
+# waits for Q10's higher cat jump).
+boss_fixtures=(boss01_pound_punish boss01_charge_jump boss01_charge_hit boss01_hug_guard boss01_rack_carl boss01_phase_roar boss01_roar_queued boss01_2p_gate boss01_solo_ai_guard boss01_party_defeat_retry boss01_crush_kill boss01_full_clear_solo boss01_full_clear_2p)
+committed_boss=docs/evidence/boss-f01
 out=artifacts/cp01-feel
 mkdir -p "$out"
 
@@ -119,6 +124,79 @@ case "$mode" in
       fi
       echo "PARTY_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/party_${f}.txt")"
     done
+    # HUD-DEBT-03: every boss fixture replays identically twice, reproduces the
+    # committed events and hash, and gives the same replay at gore presets 1 and
+    # 4 and with the boss HUD preview flag (presentation never reaches the
+    # simulation).
+    for f in "${boss_fixtures[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/boss_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/boss_${f}_again.txt"
+      if ! cmp -s "$out/boss_${f}.txt" "$out/boss_${f}_again.txt"; then
+        echo "boss fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_boss/headless_${f}.txt" "$out/boss_${f}.txt"; then
+        echo "boss fixture $f differs from the committed replay ($committed_boss)" >&2
+        exit 1
+      fi
+      for preset in 1 4; do
+        "$bin" --headless-floor01-smoke --party-fixture "$f" --gore-preset "$preset" | party_lines > "$out/boss_${f}_p${preset}.txt"
+        if ! cmp -s "$out/boss_${f}.txt" "$out/boss_${f}_p${preset}.txt"; then
+          echo "boss fixture $f at gore preset $preset differs from the default replay" >&2
+          exit 1
+        fi
+      done
+      "$bin" --headless-floor01-smoke --party-fixture "$f" --hud-preview boss | party_lines > "$out/boss_${f}_hud.txt"
+      if ! cmp -s "$out/boss_${f}.txt" "$out/boss_${f}_hud.txt"; then
+        echo "boss fixture $f differs with --hud-preview boss" >&2
+        exit 1
+      fi
+      echo "BOSS_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/boss_${f}.txt")"
+    done
+    # DEMO-01 PR C: the presentation camera never feeds the simulation. On the
+    # tall camera test room, every --camera (the scroll camera, the automatic one
+    # with a synthetic foe that takes aim, and the fixed coverages) replays the
+    # same scene state and combat hash for the same fixture.
+    for f in cp01_haymaker_chain cp03_goblin_pileup; do
+      reference=""
+      for cam in scroll auto 1.0 1.25 1.5; do
+        got="$("$bin" --headless-floor01-smoke --fixture "$f" --camera-test-room 1 --camera "$cam" --camera-test-threat 880:30:150 --view-trace | grep -E '^(FLOOR1_SCENE_STATE|FLOOR1_VIEW_TRACE_HASH)')"
+        if [[ -z "$reference" ]]; then
+          reference="$got"
+        elif [[ "$got" != "$reference" ]]; then
+          diff <(echo "$reference") <(echo "$got") || true
+          echo "fixture $f replays differently with --camera $cam (the camera must be presentation only)" >&2
+          exit 1
+        fi
+      done
+      echo "CAMERA_HASH_OK: $f (identical for scroll, auto, 1.0, 1.25 and 1.5)"
+    done
+    # The same on the sample corridor (no test room): its 400 px height keeps
+    # every camera at 640, and the replay is still identical.
+    reference=""
+    for cam in scroll auto 1.5; do
+      got="$("$bin" --headless-floor01-smoke --fixture cp01_haymaker_chain --camera "$cam" --view-trace | grep -E '^(FLOOR1_SCENE_STATE|FLOOR1_VIEW_TRACE_HASH)')"
+      if [[ -z "$reference" ]]; then
+        reference="$got"
+      elif [[ "$got" != "$reference" ]]; then
+        echo "corridor replay differs with --camera $cam" >&2
+        exit 1
+      fi
+    done
+    echo "CAMERA_HASH_OK: cp01_haymaker_chain on the corridor (scroll, auto, 1.5)"
+    # And on the real demo hall (DEMO-01 PR A), where `auto` is the default and
+    # the autopilot's route respawns Carl: the same replay for every camera.
+    reference=""
+    for cam in scroll auto 1.5; do
+      got="$("$bin" --headless-floor01-smoke --demo --demo-beat 4 --camera "$cam" --camera-test-threat 2560:30:150 --capture-tick 420 --view-trace | grep -E '^(FLOOR1_SCENE_STATE|FLOOR1_VIEW_TRACE_HASH)')"
+      if [[ -z "$reference" ]]; then
+        reference="$got"
+      elif [[ "$got" != "$reference" ]]; then
+        echo "demo replay differs with --camera $cam" >&2
+        exit 1
+      fi
+    done
+    echo "CAMERA_HASH_OK: demo beat 4 on the hall (scroll, auto, 1.5)"
     ;;
   render)
     run_log_wait() {
@@ -162,6 +240,24 @@ case "$mode" in
       fi
       echo "COMBAT_LIVE_MATCH: $(last_state <<<"$rendered")"
     done
+    # DEMO-01 PR C: the real render loop with the automatic camera (zoom to 960
+    # on the tall test room, the A1 lighting pass retargeted every frame) ends in
+    # the same scene state as the headless replay, and really widened.
+    log="$out/render_camera_auto.log"
+    "$bin" --scale 3 --fixture cp01_haymaker_chain --camera-test-room 1 --camera auto \
+      --camera-test-threat 880:30:150 --exit-after-ticks 230 > "$log" 2>&1 &
+    run_log_wait "$!" "$log" 180
+    expected="$("$bin" --headless-floor01-smoke --fixture cp01_haymaker_chain --camera-test-room 1 --camera auto \
+      --camera-test-threat 880:30:150 --view-trace | grep '^FLOOR1_SCENE_STATE' | tail -n 1)"
+    if [[ "$(grep '^FLOOR1_SCENE_STATE' "$log" | tail -n 1)" != "$expected" ]]; then
+      echo "Render run with --camera auto differs from the headless replay" >&2
+      exit 1
+    fi
+    if ! grep -q 'FLOOR1_CAMERA_REST .* rest=960' "$log"; then
+      echo "The automatic camera never widened to 960 in the render run" >&2
+      exit 1
+    fi
+    echo "CAMERA_RENDER_OK: $expected"
     # Real 1920x1080 captures, every tick of each window.
     for spec in "${sequences[@]}"; do
       IFS=: read -r f first step count <<<"$spec"

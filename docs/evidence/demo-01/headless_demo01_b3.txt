@@ -7,7 +7,7 @@ COMBAT_EVENT tick=123 kind=shore_hit instance=3 hits=3
 COMBAT_EVENT tick=123 kind=shore_broken player=0
 COMBAT_EVENT tick=159 kind=shore_landed
 COMBAT_EVENT tick=159 kind=enemy_defeated target=4 cause=shore_block credit_player=0
-COMBAT_EVENT tick=159 kind=enemy_defeated target=5 cause=shore_block credit_player=0
+COMBAT_EVENT tick=159 kind=enemy_defeated target=5 cause=shore_block_edge credit_player=0
 COMBAT_EVENT tick=226 kind=goblin_tell goblin=6
 COMBAT_EVENT tick=228 kind=move_started move=jab instance=4
 COMBAT_EVENT tick=231 kind=hit move=jab instance=4 target=6 damage=1 health_left=1 hit_stop=3
@@ -15,4 +15,4 @@ COMBAT_EVENT tick=231 kind=goblin_interrupted goblin=6
 COMBAT_EVENT tick=238 kind=move_started move=haymaker instance=5
 COMBAT_EVENT tick=243 kind=hit move=haymaker instance=5 target=6 damage=1 health_left=0 hit_stop=8
 COMBAT_EVENT tick=243 kind=enemy_defeated target=6
-COMBAT_STATE fixture=demo01_b3 seed=0xde300003 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=-256.000/0,e1=-256.000/0,e2=-256.000/0,e3=-256.000/0,e4=1705.000/0,e5=1735.000/0,e6=1927.766/0,e7=2350.000/2,e8=3010.000/2,e9=3030.000/2,e10=3050.000/2,e11=3110.000/2,e12=3130.000/2,e13=3150.000/2 hash=8b9c501c3ab18ddd shore=3/Broken/Landed block_bottom=0.00 demo_cp=3
+COMBAT_STATE fixture=demo01_b3 seed=0xde300003 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=-256.000/0,e1=-256.000/0,e2=-256.000/0,e3=-256.000/0,e4=1705.000/0,e5=1745.000/0,e6=1927.766/0,e7=2350.000/2,e8=3010.000/2,e9=3030.000/2,e10=3050.000/2,e11=3110.000/2,e12=3130.000/2,e13=3150.000/2,e14=2735.000/2,e15=2763.000/2,e16=2778.000/2 hash=4ad61165435a00d9 shore=3/Broken/Landed block_bottom=0.00 llamas=l0=2260.647/3 demo_cp=3

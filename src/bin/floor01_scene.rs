@@ -23,7 +23,7 @@ use bevy::{
     asset::AssetPlugin,
     asset::LoadState,
     asset::RenderAssetUsages,
-    camera::{ScalingMode, visibility::RenderLayers},
+    camera::{RenderTarget, ScalingMode, Viewport, visibility::RenderLayers},
     diagnostic::DiagnosticsStore,
     input::gamepad::{GamepadConnection, GamepadEvent},
     prelude::*,
@@ -44,6 +44,12 @@ use dungeon_floorbreak::{
         AudioCommand, AudioSettings, StyleBank, cues_from_combat_event, scene_ambience, scene_music,
     },
     audio_adapter::{AudioQueue, FloorAudioPlugin, resolve_pack_dir},
+    blast::BLAST_CENTRE_DY,
+    blast_art::{BURST_IMAGE, BlastArt, DYNAMITE_IMAGE},
+    boss::{BossMode, RackState},
+    boss_art::{self, BossArt, FxCtx, Gait, Layer, SheetId},
+    boss_scene,
+    camera_lab::camera_op::{Aspect, Bounds, View},
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
         CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, goblin_variant,
@@ -51,17 +57,20 @@ use dungeon_floorbreak::{
     combat_scene::{CombatState, Fixture},
     corridor::{CorridorWorld, Scenario, SceneSim},
     death_present::{
-        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS, Finish,
+        DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS,
         PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
-        draw_z,
+        blast_vfx_frame, charge_draw_frame, draw_z, explosion_table,
     },
     demo::{self, SelectAction, SelectControl},
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
-    feel::{HERO_HURT_TICKS, IMPACT_FLASH_TICKS},
+    feel::{
+        HERO_HURT_TICKS, IMPACT_FLASH_TICKS, LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY,
+        LLAMA_GLOB_SPEED,
+    },
     goblin::{AttackPhase, GoblinMode},
-    gore::{DEATH_VARIANTS, DeathArt, GorePreset, Sheet},
+    gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
     hud::{GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
     hud_adapter::{HudPlugin, HudState},
     hud_settings::HudSettings,
@@ -71,11 +80,16 @@ use dungeon_floorbreak::{
         slot_layer, spawn_rig, update_rig,
     },
     lighting::{MAX_SHADOWS, ShadowEllipse, ViewRect, contact_shadow},
+    llama::LlamaMode,
     pad_slots::{PadButtons, PadEvent, PadFrame, PadSlots},
     party::{HeroId, PadId, PartyState},
     party_scene::{self, PartyFixture},
-    prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero},
+    prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, TICK_SECONDS},
     scene_anim::SceneAnimators,
+    scene_camera::{
+        CameraChoice, CameraInterest, RigConfig, SceneCameraRig, llama_interest,
+        synthetic_interest, test_room_kit,
+    },
     shore_art::{ShoreArt, ShoreSlot, landed_age},
 };
 
@@ -88,6 +102,14 @@ const CARL_Z_OFFSET: f32 = 0.1;
 const GOBLIN_Z_OFFSET: f32 = 0.05;
 const GOBLIN_SWING_Z_OFFSET: f32 = 0.15;
 const GOBLIN_LYING_Z_OFFSET: f32 = -0.01;
+/// The falling block over a crushed llama (LLAMA-02 gate ruling, data
+/// `hazard_draw: "over"`): above every lying body (-0.01 and below), below
+/// every player actor (Donut at 0, Carl at +0.1).
+const HAZARD_OVER_Z_OFFSET: f32 = -0.005;
+/// The spit glob is drawn above the actors (it hits Carl).
+const GLOB_Z_OFFSET: f32 = 0.2;
+/// Pre-spawned glob sprites per llama (one glob flies at a time).
+const GLOB_SLOTS_PER_LLAMA: usize = 2;
 /// Per-goblin z step so two goblins never share a depth: the earlier goblin is
 /// in front (a stacked later one is drawn behind it).
 const GOBLIN_Z_STEP: f32 = 0.001;
@@ -153,9 +175,6 @@ struct Args {
     /// Fixture only, lab: keep the death presenter's pools loaded with
     /// synthetic defeats (frame-time measurement at max load).
     death_stress: bool,
-    /// Fixture only, lab: play this finish for ordinary melee defeats (the
-    /// decapitation has no authoritative cause before PR D).
-    death_lab_finish: Option<Finish>,
     /// Headless fixture only: print the presenter's `DEATH_PRESENT` summary.
     death_trace: bool,
     /// HUD-HYBRID-A-01: draw a labelled HUD preview fixture. Presentation
@@ -168,12 +187,26 @@ struct Args {
     /// (`FLOORBREAK_HUD_*`), then `--hud-reduced-motion[=on|off]` and
     /// `--hud-high-contrast[=on|off]`. Presentation only.
     hud_settings: HudSettings,
+    /// DEMO-01 PR C: the presentation camera (`auto`, `scroll`, `1.0`, `1.25`,
+    /// `1.5`). `None` is the default of the run (`scroll` outside `--demo`).
+    camera: Option<CameraChoice>,
+    /// Evidence: run on room 1 to 6 of the camera lab (a tall greybox
+    /// composition from the approved kit) instead of the 400 px corridor.
+    camera_test_room: Option<usize>,
+    /// Evidence: a synthetic foe that has taken aim, `X:FIRST:LAST` (world
+    /// column, first and last elapsed tick). It only feeds the camera.
+    camera_test_threat: Option<(f32, u64, u64)>,
+    /// Headless: print one `FLOOR1_VIEW` line per tick of the presentation view.
+    view_trace: bool,
     /// DEMO-01: the continuous demo route on the demo hall (`--demo`).
     demo: bool,
     /// DEMO-01: start at this beat's checkpoint (`--demo-beat N`, 0 to 6).
     demo_beat: usize,
     /// DEMO-01: the deterministic autopilot drives Carl (probes, evidence).
     autopilot: bool,
+    /// HUD-DEBT-03: the Floor 01 boss arena (`--scene boss_f01`, or a boss
+    /// fixture): the arena kit replaces the corridor.
+    boss: bool,
 }
 
 impl Args {
@@ -183,6 +216,16 @@ impl Args {
             glyphs: self.glyphs,
             settings: self.hud_settings,
         }
+    }
+
+    /// The camera of this run: `--camera`, else `auto` for `--demo` and the
+    /// scroll camera for everything else (every fixture, scenario and capture).
+    fn camera_choice(&self) -> CameraChoice {
+        if self.reference_frame {
+            return CameraChoice::Scroll;
+        }
+        self.camera
+            .unwrap_or_else(|| CameraChoice::default_for(self.demo))
     }
 }
 
@@ -245,14 +288,18 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
         audio_style: None,
         gore_preset: GorePreset::default(),
         death_stress: false,
-        death_lab_finish: None,
         death_trace: false,
         hud_preview: None,
         glyphs: None,
         hud_settings,
+        camera: None,
+        camera_test_room: None,
+        camera_test_threat: None,
+        view_trace: false,
         demo: false,
         demo_beat: 0,
         autopilot: false,
+        boss: false,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -303,6 +350,17 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             other if parsed.hud_settings.apply_flag(other)? => {}
             "--no-lighting" => parsed.no_lighting = true,
             "--demo" => parsed.demo = true,
+            "--scene" => {
+                let value = iter.next().ok_or("--scene needs a name (boss_f01)")?;
+                if value != "boss_f01" {
+                    return Err(format!("unknown scene {value:?} (expected boss_f01)"));
+                }
+                if parsed.fixture.is_some() || parsed.party_fixture.is_some() {
+                    return Err("--scene boss_f01 replaces --fixture and --party-fixture".into());
+                }
+                parsed.boss = true;
+                parsed.fixture = Some(boss_scene::BOSS01_SCENE);
+            }
             "--autopilot" => parsed.autopilot = true,
             "--demo-beat" => {
                 let value = iter.next().ok_or("--demo-beat needs a beat 0 to 6")?;
@@ -329,15 +387,35 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             }
             "--death-stress" => parsed.death_stress = true,
             "--death-trace" => parsed.death_trace = true,
-            "--death-lab-finish" => {
-                let value = iter.next().ok_or("--death-lab-finish needs a finish")?;
-                parsed.death_lab_finish = Some(match value.as_str() {
-                    "decapitated" | "decap" => Finish::Decapitated,
-                    other => {
-                        return Err(format!("bad lab finish {other:?} (expected decapitated)"));
-                    }
-                });
+            "--camera" => {
+                let value = iter.next().ok_or("--camera needs a mode")?;
+                parsed.camera = Some(CameraChoice::parse(value)?);
             }
+            "--camera-test-room" => {
+                let value = iter.next().ok_or("--camera-test-room needs 1 to 6")?;
+                parsed.camera_test_room = Some(
+                    value
+                        .parse()
+                        .ok()
+                        .filter(|n| (1..=6).contains(n))
+                        .ok_or_else(|| format!("bad camera test room {value:?} (1 to 6)"))?,
+                );
+            }
+            "--camera-test-threat" => {
+                let value = iter
+                    .next()
+                    .ok_or("--camera-test-threat needs X:FIRST:LAST")?;
+                let bad = || format!("bad camera test threat {value:?} (expected X:FIRST:LAST)");
+                let mut parts = value.split(':');
+                let x: f32 = parts.next().and_then(|v| v.parse().ok()).ok_or_else(bad)?;
+                let first: u64 = parts.next().and_then(|v| v.parse().ok()).ok_or_else(bad)?;
+                let last: u64 = parts.next().and_then(|v| v.parse().ok()).ok_or_else(bad)?;
+                if parts.next().is_some() || last <= first {
+                    return Err(bad());
+                }
+                parsed.camera_test_threat = Some((x, first, last));
+            }
+            "--view-trace" => parsed.view_trace = true,
             "--reference-frame" => parsed.reference_frame = true,
             "--anim-trace" => parsed.anim_trace = true,
             "--combat-trace" => parsed.combat_trace = true,
@@ -399,6 +477,19 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             other => return Err(format!("unknown argument {other:?}")),
         }
     }
+    parsed.boss |= parsed.fixture.is_some_and(|f| f.boss.is_some());
+    if parsed.boss && (parsed.demo || parsed.scenario.is_some() || parsed.reference_frame) {
+        return Err("the boss arena replaces --demo, --scenario and --reference-frame".into());
+    }
+    if parsed.boss && parsed.fixture == Some(boss_scene::BOSS01_SCENE) {
+        // A live run without a script is the player's.
+        parsed.manual = !(parsed.headless
+            || parsed.capture_tick.is_some()
+            || parsed.capture_sequence.is_some()
+            || parsed.exit_after_ticks.is_some()
+            || parsed.freeze
+            || parsed.perf_frames.is_some());
+    }
     if parsed.demo {
         if parsed.fixture.is_some() || parsed.scenario.is_some() || parsed.reference_frame {
             return Err("--demo replaces --fixture, --scenario and --reference-frame".into());
@@ -414,6 +505,12 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
                 || parsed.perf_frames.is_some());
     } else if parsed.autopilot || parsed.demo_beat != 0 {
         return Err("--autopilot and --demo-beat need --demo".into());
+    }
+    if parsed.demo && parsed.camera_test_room.is_some() {
+        return Err(
+            "--camera-test-room and --demo are mutually exclusive (the demo has its own hall)"
+                .into(),
+        );
     }
     if parsed.party_fixture.is_some() && !(parsed.headless || parsed.capture_tick.is_some())
         || parsed.party_fixture.is_some()
@@ -437,10 +534,8 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
     if (parsed.manual || parsed.debug_combat) && parsed.fixture.is_none() {
         return Err("--manual and --debug-combat need --fixture".into());
     }
-    if (parsed.death_stress || parsed.death_lab_finish.is_some() || parsed.death_trace)
-        && parsed.fixture.is_none()
-    {
-        return Err("--death-stress, --death-lab-finish and --death-trace need --fixture".into());
+    if (parsed.death_stress || parsed.death_trace) && parsed.fixture.is_none() {
+        return Err("--death-stress and --death-trace need --fixture".into());
     }
     if parsed.death_stress && (parsed.headless || parsed.capture_tick.is_some()) {
         return Err(
@@ -509,6 +604,15 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             "--anim-trace needs --headless-floor01-smoke and --scenario or --fixture".into(),
         );
     }
+    if parsed.view_trace && !parsed.headless {
+        return Err("--view-trace needs --headless-floor01-smoke".into());
+    }
+    if parsed.camera_test_threat.is_some() && parsed.camera_test_room.is_none() && !parsed.demo {
+        return Err("--camera-test-threat needs --camera-test-room or --demo (a tall room)".into());
+    }
+    if parsed.reference_frame && parsed.camera.is_some_and(|c| c != CameraChoice::Scroll) {
+        return Err("--reference-frame pins the scroll camera; drop --camera".into());
+    }
     if parsed.reference_frame && (driven || parsed.capture_tick.is_some()) {
         return Err(
             "--reference-frame pins its own state; drop --scenario/--fixture/--capture-tick".into(),
@@ -545,9 +649,8 @@ type Scene = (
 fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     let art = Arc::new(DeathArt::load(root)?);
     let variant_b = DeathArt::load_variant(root, 1)?;
-    let mut presenter = DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?;
-    presenter.set_lab_finish(args.death_lab_finish);
-    Ok(presenter)
+    DeathPresenter::with_variants(art, &variant_b, args.gore_preset)?
+        .with_llama(Arc::new(DeathArt::load_llama(root)?))
 }
 
 /// The HUD runtime with its real identity: the actor manifests' display names
@@ -570,6 +673,19 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     // Melee input is live exactly when the combat state exists (see the
     // manual input gate in `fixed_step`).
     hud.set_melee_live(combat.is_some());
+    // HUD-DEBT-03: the boss strip reads the simulation's boss state.
+    match combat.and_then(|c| c.boss.as_ref()) {
+        Some(boss) => {
+            let data = boss.data();
+            hud.set_boss(
+                Some(boss.state()),
+                &data.hud.display_name,
+                &data.hud.emblem,
+                data.exit_slide_delay,
+            );
+        }
+        None => hud.set_boss(None, "", "", 0),
+    }
     hud.step(
         sim.world.hero.health,
         sim.world.donut.health,
@@ -612,7 +728,7 @@ fn build_scene(
         }
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let inputs = if let Some(pf) = args.party_fixture {
-                let slots = pf.slot_inputs(sim.world.tick + 1);
+                let slots = pf.inputs(sim.world.tick + 1, &combat, &sim);
                 let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
                 party.request_swap(slots[0].swap, hurt);
                 sim.set_drive(party.drive(true));
@@ -769,6 +885,10 @@ fn main() -> ExitCode {
     };
     let kit = if args.demo {
         demo::load_hall(&root)
+    } else if args.boss {
+        boss_scene::load_arena(&root)
+    } else if let Some(room) = args.camera_test_room {
+        test_room_kit(&root, room)
     } else {
         EnvKit::load(&root, LAYOUT_PATH).map_err(|error| error.to_string())
     };
@@ -783,7 +903,10 @@ fn main() -> ExitCode {
     } else {
         FrameSource::ExportedAtlas
     };
-    let actors = match Actors::load(&root, source, args.fixture.is_some()) {
+    // The blast atlases are exported art: only a rendered fixture with charges
+    // needs them (the headless replay draws nothing).
+    let draws_blast = !args.headless && args.fixture.is_some_and(|f| !f.charges.is_empty());
+    let actors = match Actors::load(&root, source, args.fixture.is_some(), draws_blast) {
         Ok(actors) => actors,
         Err(error) => {
             return failure(&format!(
@@ -817,10 +940,57 @@ fn main() -> ExitCode {
 #[derive(Resource)]
 struct Sim(SceneSim);
 
+/// The boss atlas, when it is exported (HUD-DEBT-03); `None` draws placeholders.
+#[derive(Resource)]
+struct BossArtRes(Option<BossArt>);
+
+/// One placeholder rect of the boss encounter (spec sizes, from the sim).
+#[derive(Component, Clone, Copy)]
+enum BossPiece {
+    Body,
+    Eye,
+    Rack(usize),
+    Strut,
+    Gate,
+    Ripple(usize),
+}
+
+/// One pooled sprite of the boss' art (the body, the racks, the effects): the
+/// system assigns each tick's [`boss_art::draws`] to the pool in order.
+#[derive(Component)]
+struct BossFxSprite;
+
+/// The texture and the atlas layout of each boss sheet, by [`SheetId`].
+#[derive(Resource, Default)]
+struct BossTextures([Option<(Handle<Image>, Handle<TextureAtlasLayout>)>; 6]);
+
+/// Sprites in the boss art pool (the body, two racks with pulleys, the strut,
+/// the ledge, shadows, up to four ripples, dust, crack and finish effects).
+const BOSS_FX_POOL: usize = 40;
+
+/// Presentation-only gait memory: whether the boss moved since the previous
+/// simulated tick, observed once per tick (never per render frame).
+#[derive(Default)]
+struct WalkTrack {
+    tick: u64,
+    x: f32,
+    walking: bool,
+}
+
+/// The boss sits just above Donut and below Carl.
+const BOSS_Z_OFFSET: f32 = 0.06;
+/// Boss art depth bands (relative to the actors' plane): the floor shadow and
+/// pool over the floor, the pulley, strut, ledge, wall crack and roar ring
+/// behind the actors, and the racks and effects of the body over the boss and
+/// under Carl.
+const BOSS_Z_FLOOR: f32 = -0.4;
+const BOSS_Z_BACK: f32 = -0.2;
+const BOSS_Z_FRONT: f32 = 0.075;
+
 /// Asset path of the HUD atlas when its art is exported (the loading
 /// watchdog waits for it like for every other atlas).
 #[derive(Resource)]
-struct HudAtlas(Option<&'static str>);
+struct HudAtlas(Option<&'static str>, Option<&'static str>);
 
 /// Presentation-only animation state, stepped once per fixed tick from the
 /// finished simulation state.
@@ -836,16 +1006,26 @@ struct Actors {
     art: Option<CombatArt>,
     /// The ENV-02 shore and block art of a combat fixture (DEATH-C).
     shore: Option<ShoreArt>,
+    /// DEATH-D: the QA charge and blast frames of a fixture with charges
+    /// (unreviewed prototype art, drawn in the QA fixtures only).
+    blast: Option<BlastArt>,
 }
 
 #[derive(Clone)]
 struct CombatArt {
     carl: SpriteClips,
     goblins: [SpriteClips; GOBLIN_VARIANTS],
+    /// The Bad Llama atlas (LLAMA-01).
+    llama: SpriteClips,
 }
 
 impl Actors {
-    fn load(root: &Path, source: FrameSource, combat: bool) -> Result<Self, String> {
+    fn load(root: &Path, source: FrameSource, combat: bool, blast: bool) -> Result<Self, String> {
+        let blast = if blast {
+            Some(BlastArt::load(root)?)
+        } else {
+            None
+        };
         let shore = if combat {
             Some(ShoreArt::load(root)?)
         } else {
@@ -858,6 +1038,7 @@ impl Actors {
                     SpriteClips::load_goblin(root, 0, source)?,
                     SpriteClips::load_goblin(root, 1, source)?,
                 ],
+                llama: SpriteClips::load_llama(root, source)?,
             })
         } else {
             None
@@ -867,14 +1048,16 @@ impl Actors {
             donut: load_donut(root, source)?,
             art,
             shore,
+            blast,
         })
     }
 
     /// The melee and goblin animators of a combat fixture.
     fn combat_art(&self, combat: &CombatState) -> Option<CombatAnimators> {
-        self.art
-            .as_ref()
-            .map(|art| CombatAnimators::new(art.carl.clone(), art.goblins.clone(), combat))
+        self.art.as_ref().map(|art| {
+            CombatAnimators::new(art.carl.clone(), art.goblins.clone(), combat)
+                .with_llama(art.llama.clone(), combat)
+        })
     }
 
     fn animators(&self, world: &CorridorWorld) -> SceneAnimators {
@@ -963,6 +1146,25 @@ struct Combat(Option<CombatState>);
 #[derive(Resource)]
 struct Death(Option<DeathPresenter>);
 
+/// DEMO-01 PR C: the presentation camera of the run, `None` for the scroll
+/// camera (every existing capture). Presentation only: it reads the simulation
+/// after the tick and nothing reads it back.
+#[derive(Resource)]
+struct SceneCam {
+    rig: Option<SceneCameraRig>,
+    /// Size in world pixels of the lighting slot targets: the widest view of
+    /// the chosen camera (640 x 360 or 640 x 400 for the scroll camera).
+    slot: (i32, i32),
+    /// The rest width last printed as `FLOOR1_CAMERA_REST`.
+    reported_rest: Option<i32>,
+}
+
+/// The read-only threat list gameplay feeds the camera (a llama that has taken
+/// aim, its tell, a spit in flight). Empty in this PR unless `--camera-test-threat`
+/// is given.
+#[derive(Resource, Default)]
+struct Interest(CameraInterest);
+
 /// The fixture whose script drives the live run (not set for `--manual`).
 #[derive(Resource)]
 struct LiveFixture(Option<&'static Fixture>);
@@ -975,6 +1177,9 @@ struct Controls {
     physical_tap: bool,
     swap_tap: bool,
     restart: bool,
+    /// DEMO-01 PR C: Carl was moved on purpose (a respawn, a restart): the
+    /// presentation camera cuts to the new framing instead of panning.
+    camera_cut: bool,
     /// DEMO-01: Select (R or the pad's Select) went down since the last tick.
     select_tap: bool,
     /// DEMO-01: a pad's Select is held (polled every frame).
@@ -1024,6 +1229,19 @@ struct GoblinSprite {
     index: usize,
 }
 
+/// One Bad Llama (DEMO-01 PR B), drawn from the LLAMA-01 atlas.
+#[derive(Component)]
+struct LlamaSprite {
+    index: usize,
+}
+
+/// One pooled spit glob sprite (the `spit` frames of the llama atlas), drawn
+/// for the glob in slot `slot` of the simulation's list.
+#[derive(Component)]
+struct GlobSprite {
+    slot: usize,
+}
+
 /// Carl's second sprite: the melee atlas (punches, kick, hurt, knockdown). It
 /// replaces the locomotion sprite while a melee pose is drawn.
 #[derive(Component)]
@@ -1034,6 +1252,8 @@ struct CarlMelee;
 enum DeathPiece {
     /// The death pose of goblin `index` (replaces its GOB-01 sprite).
     Pose(usize),
+    /// The death pose of llama `index` (replaces its LLAMA-01 sprite).
+    LlamaPose(usize),
     /// A launched part or blood drop (pool slot).
     Part(usize),
     /// A floor decal; `second` is the right cell of a two-cell pool.
@@ -1042,9 +1262,53 @@ enum DeathPiece {
     Wall(usize),
 }
 
+/// DEATH-D: a sprite of the QA charge `n` of the fixture: the fizzling charge
+/// until it detonates, then its blast burst. Presentation only.
+#[derive(Component, Clone, Copy)]
+enum BlastPiece {
+    Charge(usize),
+    Burst(usize),
+}
+
+/// The loaded `vfx_dynamite` and `vfx-01` atlas images.
+#[derive(Resource)]
+struct BlastImages {
+    dynamite: Handle<Image>,
+    burst: Handle<Image>,
+}
+
 /// One sprite of the ENV-02 shore (post, block, cavity, crumbs, impact dust).
 #[derive(Component, Clone, Copy)]
 struct ShorePiece(ShoreSlot);
+
+/// One pooled impact-dust sprite of a llama slam (the ENV-02 block impact dust).
+#[derive(Component, Clone, Copy)]
+struct DustSprite {
+    slot: usize,
+}
+
+/// Dust sprites per run: slams that overlap in time (four frames of 5 ticks).
+const DUST_SLOTS: usize = 4;
+
+/// The render layers the landed block switches between: `prop` normally, and
+/// `actors` while a crushed enemy's contact frames say `hazard_draw: "over"`
+/// (the prop slot is composed below the actors slot, so a z above the llama is
+/// not enough: the stone has to join the actors layer).
+#[derive(Resource)]
+struct ShoreLayers {
+    prop: RenderLayers,
+    actors: RenderLayers,
+}
+
+/// The render layers of the falling block: the actors layer while the stone is
+/// drawn over a crushed enemy, else the prop layer.
+fn block_layers<'a>(
+    over: bool,
+    prop: &'a RenderLayers,
+    actors: &'a RenderLayers,
+) -> &'a RenderLayers {
+    if over { actors } else { prop }
+}
 
 /// The loaded ENV-02 images, in the order of `ShoreArt::images`.
 #[derive(Resource)]
@@ -1053,10 +1317,14 @@ struct ShoreImages(Vec<Handle<Image>>);
 /// Geometry the death sprites need (set at startup).
 #[derive(Resource)]
 struct DeathLook {
-    /// The composed sheets of goblin variants A and B: death poses and parts.
-    poses_images: [Handle<Image>; DEATH_VARIANTS],
-    parts_images: [Handle<Image>; DEATH_VARIANTS],
+    /// The composed sheets by death variant (goblin A and B, then the llama):
+    /// death poses and parts. The parts layout differs per set.
+    poses_images: Vec<Handle<Image>>,
+    parts_images: Vec<Handle<Image>>,
+    parts_layouts: Vec<Handle<TextureAtlasLayout>>,
     pose_spec: ActorSpec,
+    /// The llama's death-pose frame (96 x 72, pivot (44, 71)).
+    llama_pose_spec: ActorSpec,
     /// z of the `backwall_decal` layer.
     wall_z: f32,
 }
@@ -1077,6 +1345,96 @@ enum CombatDebugBox {
     DonutHurt,
 }
 
+/// The presentation camera of a run: the rig (none for the scroll camera) and
+/// the lighting slot target size. The output width decides the automatic
+/// camera's integer-scale rest widths.
+fn scene_camera_of(
+    kit: &EnvKit,
+    args: &Args,
+    sim: &SceneSim,
+    combat: Option<&CombatState>,
+    window: (u32, u32),
+) -> SceneCam {
+    let choice = args.camera_choice();
+    let aspect = Aspect::from_output(window.0, window.1);
+    let rig = SceneCameraRig::new(
+        RigConfig {
+            choice,
+            aspect,
+            out_w: window.0,
+            bounds: Bounds {
+                w: kit.width,
+                h: kit.height,
+            },
+        },
+        sim,
+        combat,
+        &test_interest(kit, args, sim, combat, elapsed_ticks(sim, combat)),
+        elapsed_ticks(sim, combat),
+    );
+    // The slot targets cover the widest view this rig can show in this room at
+    // this output (the scroll camera: 640, as always).
+    let slot = rig
+        .as_ref()
+        .map_or_else(|| choice.slot_target(aspect, window.0), |r| r.slot_target());
+    SceneCam {
+        rig,
+        slot,
+        reported_rest: None,
+    }
+}
+
+/// The threats of this tick: the synthetic one of `--camera-test-threat`, if
+/// any, and the Bad Llamas and their globs from the finished simulation tick
+/// (DEMO-01 PR B, [`llama_interest`]).
+fn test_interest(
+    kit: &EnvKit,
+    args: &Args,
+    sim: &SceneSim,
+    combat: Option<&CombatState>,
+    elapsed: u64,
+) -> CameraInterest {
+    let mut interest = match args.camera_test_threat {
+        Some((x, first, last)) => synthetic_interest(
+            x,
+            to_world_y(kit.height, kit.base_walk_line_y),
+            first,
+            last,
+            elapsed,
+        ),
+        None => CameraInterest::default(),
+    };
+    if let Some(combat) = combat {
+        llama_interest(sim, combat, &mut interest);
+    }
+    interest
+}
+
+/// The view as drawn this frame (layout px, y down): the presentation camera
+/// with the CP-01 kick scaled for its width, or the scroll camera with the kick
+/// at 640 wide.
+fn presentation_view(
+    state: &SceneSim,
+    setup: &Setup,
+    reference: &ReferencePose,
+    combat: &Combat,
+    cam: &SceneCam,
+) -> View {
+    let kick = camera_kick(state, combat);
+    match cam.rig.as_ref() {
+        Some(rig) => rig.presented(kick),
+        None => {
+            let (left, top) = view_origin(state, setup, reference, kick);
+            View {
+                left,
+                top,
+                w: VIRTUAL_WIDTH,
+                h: view_height(setup.args.deck),
+            }
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_window(
     kit: EnvKit,
@@ -1090,6 +1448,15 @@ fn run_window(
     args: Args,
     root: &Path,
 ) {
+    // HUD-DEBT-03: the boss atlas when its manifest and export exist; the
+    // scene draws spec-size placeholder rects otherwise. Wrong art is fatal.
+    let boss_art = match BossArt::load(root) {
+        Ok(art) => art,
+        Err(error) => {
+            println!("FLOOR1_ASSET_FAILURE: {error}");
+            std::process::exit(1);
+        }
+    };
     // Bevy 0.20 resolves a relative AssetPlugin path from the binary directory,
     // so give it an absolute directory below the repository root.
     let asset_directory = root.join("generated/art").to_string_lossy().into_owned();
@@ -1113,6 +1480,7 @@ fn run_window(
         args.fixture
     };
     let exit_after = args.exit_after_ticks;
+    let camera = scene_camera_of(&kit, &args, &sim, combat.as_ref(), window_size);
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
     let reference = args.reference_frame.then_some(RefPose {
         carl_x: REFERENCE_CARL_X,
@@ -1182,6 +1550,7 @@ fn run_window(
         }
     };
     let hud_atlas = hud_plugin.atlas_asset();
+    let hud_emblem = hud_plugin.emblem_asset();
     let mut plugins = DefaultPlugins
         .set(ImagePlugin::default_nearest())
         .set(AssetPlugin {
@@ -1226,9 +1595,12 @@ fn run_window(
     .insert_resource(ReferencePose(reference))
     .insert_resource(LiveScenario(scenario))
     .insert_resource(Combat(combat))
+    .insert_resource(BossArtRes(boss_art))
     .insert_resource(Death(death))
+    .insert_resource(camera)
+    .init_resource::<Interest>()
     .insert_resource(LiveFixture(live_fixture))
-    .insert_resource(HudAtlas(hud_atlas))
+    .insert_resource(HudAtlas(hud_atlas, hud_emblem))
     .insert_resource(Setup { kit, args })
     .init_resource::<Controls>()
     .insert_resource(Pads(PadSlots::new(party)))
@@ -1243,7 +1615,11 @@ fn run_window(
             perf_step,
             sync_visuals,
             sync_combat_visuals,
+            sync_boss_visuals,
+            sync_llama_visuals,
+            sync_dust_visuals,
             sync_shore_visuals,
+            sync_blast_visuals,
             sync_death_visuals,
             update_lighting,
             watchdog,
@@ -1252,7 +1628,7 @@ fn run_window(
         )
             .chain(),
     )
-    .add_systems(FixedUpdate, fixed_step);
+    .add_systems(FixedUpdate, (fixed_step, update_scene_camera).chain());
     if lighting_on {
         app.add_plugins(LightPassPlugin);
     }
@@ -1300,11 +1676,16 @@ fn setup(
     combat: Res<Combat>,
     death: Res<Death>,
     hud_atlas: Res<HudAtlas>,
+    boss_art: Res<BossArtRes>,
+    cam: Res<SceneCam>,
 ) {
     let kit = &setup.kit;
     let args = &setup.args;
     let height = kit.height;
     let view_h = view_height(args.deck);
+    // The lighting slot targets and the parallax copies cover the widest view
+    // of the chosen camera (the scroll camera: 640 wide, as always).
+    let (slot_w, slot_h) = cam.slot;
     let lighting = kit.lighting.as_ref().filter(|_| lighting_on.0);
     // Render layer of a contract layer: its lighting slot, or the default
     // layer when the pass is off.
@@ -1319,6 +1700,9 @@ fn setup(
         handles.push((name.clone(), asset_server.load(asset.clone())));
     }
     if let Some(asset) = hud_atlas.0 {
+        handles.push((asset.to_owned(), asset_server.load(asset)));
+    }
+    if let Some(asset) = hud_atlas.1 {
         handles.push((asset.to_owned(), asset_server.load(asset)));
     }
     let atlas = |name: &str| -> Handle<Image> {
@@ -1340,7 +1724,7 @@ fn setup(
             &mut meshes,
             &mut materials,
             lighting,
-            UVec2::new(VIRTUAL_WIDTH as u32, view_h as u32),
+            UVec2::new(slot_w as u32, slot_h as u32),
         );
         commands.insert_resource(rig);
     } else {
@@ -1390,7 +1774,7 @@ fn setup(
     // Parallax strips: enough copies to cover the view at any camera offset.
     let mut strip_copies = 0usize;
     for (strip_index, strip) in kit.strips.iter().enumerate() {
-        let copies = (VIRTUAL_WIDTH / strip.rect.w + 2) as usize;
+        let copies = (slot_w / strip.rect.w + 2) as usize;
         for copy in 0..copies {
             commands.spawn((
                 atlas_sprite(&atlas(&strip.atlas), strip.rect),
@@ -1497,6 +1881,49 @@ fn setup(
             ));
             combat_entities += 1;
         }
+        // The Bad Llamas (DEMO-01 PR B) and their pooled glob sprites.
+        if !state.llamas.is_empty() {
+            let clips = &art.llama;
+            let texture: Handle<Image> = asset_server.load(clips.atlas_asset.clone());
+            combat_handles.push((clips.atlas_asset.clone(), texture.clone()));
+            let layout = layout_of(clips);
+            for index in 0..state.llamas.len() {
+                commands.spawn((
+                    LlamaSprite { index },
+                    Sprite::from_atlas_image(
+                        texture.clone(),
+                        TextureAtlas {
+                            layout: layout.clone(),
+                            index: clips.tag("idle").0,
+                        },
+                    ),
+                    Transform::from_xyz(
+                        0.0,
+                        0.0,
+                        kit.actor_z + GOBLIN_Z_OFFSET
+                            - (state.enemies.len() + index) as f32 * GOBLIN_Z_STEP,
+                    ),
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            }
+            for slot in 0..state.llamas.len() * GLOB_SLOTS_PER_LLAMA {
+                commands.spawn((
+                    GlobSprite { slot },
+                    Sprite::from_atlas_image(
+                        texture.clone(),
+                        TextureAtlas {
+                            layout: layout.clone(),
+                            index: clips.tag("spit").0,
+                        },
+                    ),
+                    Transform::from_xyz(0.0, 0.0, kit.actor_z + GLOB_Z_OFFSET),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            }
+        }
         if args.debug_combat {
             let debug_layers = if lighting.is_some() {
                 RenderLayers::layer(LAYER_DEBUG)
@@ -1544,12 +1971,74 @@ fn setup(
         }
     }
 
+    // HUD-DEBT-03: the boss, its racks, strut, gate and ripples. Placeholder
+    // rects at the spec sizes; the atlas sprite replaces the body when the boss
+    // art exists (`boss_art`).
+    if combat.0.as_ref().is_some_and(|c| c.boss.is_some()) {
+        let z = kit.actor_z + BOSS_Z_OFFSET;
+        let mut piece = |kind: BossPiece, colour: Color| {
+            commands.spawn((
+                kind,
+                Sprite::from_color(colour, Vec2::ONE),
+                Transform::from_xyz(0.0, 0.0, z),
+                Visibility::Hidden,
+                layers_of("actors"),
+            ));
+            combat_entities += 1;
+        };
+        piece(BossPiece::Body, Color::srgb(0.42, 0.1, 0.34));
+        piece(BossPiece::Eye, Color::srgb(0.95, 0.9, 0.8));
+        for index in 0..2 {
+            piece(BossPiece::Rack(index), Color::srgb(0.3, 0.3, 0.34));
+        }
+        piece(BossPiece::Strut, Color::srgb(0.42, 0.28, 0.14));
+        piece(BossPiece::Gate, Color::srgb(0.2, 0.17, 0.2));
+        for slot in 0..4 {
+            piece(BossPiece::Ripple(slot), Color::srgb(0.95, 0.7, 0.2));
+        }
+        if let Some(art) = boss_art.0.as_ref() {
+            let mut textures = BossTextures::default();
+            for sheet in art.sheets() {
+                let texture: Handle<Image> = asset_server.load(sheet.asset.clone());
+                let layout = layouts.add(TextureAtlasLayout::from_grid(
+                    UVec2::new(sheet.frame_size.0 as u32, sheet.frame_size.1 as u32),
+                    sheet.count as u32,
+                    1,
+                    None,
+                    None,
+                ));
+                combat_handles.push((sheet.asset.clone(), texture.clone()));
+                textures.0[sheet.id as usize] = Some((texture, layout));
+            }
+            if let Some((texture, layout)) = textures.0[SheetId::Base as usize].clone() {
+                for _ in 0..BOSS_FX_POOL {
+                    commands.spawn((
+                        BossFxSprite,
+                        Sprite::from_atlas_image(
+                            texture.clone(),
+                            TextureAtlas {
+                                layout: layout.clone(),
+                                index: 0,
+                            },
+                        ),
+                        Transform::from_xyz(0.0, 0.0, z + 0.01),
+                        Visibility::Hidden,
+                        layers_of("actors"),
+                    ));
+                    combat_entities += 1;
+                }
+            }
+            commands.insert_resource(textures);
+        }
+    }
+
     // DEATH-C: the ENV-02 shore, block and impact dust of a fixture with a
     // shore (presentation only, non-collidable, driven by the simulated state).
-    if let (Some(shore_art), Some(_)) = (
-        actors.shore.as_ref(),
-        combat.0.as_ref().and_then(|c| c.shore.as_ref()),
-    ) {
+    // The slam of a llama reuses the same impact dust, so a fixture with
+    // llamas loads the shore images too.
+    let has_shore = combat.0.as_ref().is_some_and(|c| c.shore.is_some());
+    let has_llamas = combat.0.as_ref().is_some_and(|c| !c.llamas.is_empty());
+    if let (Some(shore_art), true) = (actors.shore.as_ref(), has_shore || has_llamas) {
         let images: Vec<Handle<Image>> = shore_art
             .images
             .iter()
@@ -1559,7 +2048,7 @@ fn setup(
                 handle
             })
             .collect();
-        for slot in ShoreSlot::ALL {
+        for slot in ShoreSlot::ALL.into_iter().filter(|_| has_shore) {
             let layer = if slot == ShoreSlot::Cavity {
                 layers_of("backwall_decal")
             } else {
@@ -1578,7 +2067,59 @@ fn setup(
             ));
             combat_entities += 1;
         }
+        // The block is drawn on the actors layer (over a crushed llama) or on
+        // the prop layer: both render layers are kept to switch between.
+        commands.insert_resource(ShoreLayers {
+            prop: layers_of("prop"),
+            actors: layers_of("actors"),
+        });
+        if has_llamas {
+            for slot in 0..DUST_SLOTS {
+                commands.spawn((
+                    DustSprite { slot },
+                    Sprite {
+                        image: images[0].clone(),
+                        rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                        ..default()
+                    },
+                    Transform::from_xyz(0.0, 0.0, kit.actor_z - 1.0),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            }
+        }
         commands.insert_resource(ShoreImages(images));
+    }
+
+    // DEATH-D: the QA charge (the fizzle loop) and its blast burst, one pair of
+    // pre-spawned sprites per charge of the fixture.
+    if let (Some(blast_art), Some(state)) = (actors.blast.as_ref(), combat.0.as_ref()) {
+        let _ = blast_art;
+        let dynamite: Handle<Image> = asset_server.load(DYNAMITE_IMAGE);
+        let burst: Handle<Image> = asset_server.load(BURST_IMAGE);
+        combat_handles.push((DYNAMITE_IMAGE.to_owned(), dynamite.clone()));
+        combat_handles.push((BURST_IMAGE.to_owned(), burst.clone()));
+        for index in 0..state.charges.len() {
+            for (kind, image) in [
+                (BlastPiece::Charge(index), &dynamite),
+                (BlastPiece::Burst(index), &burst),
+            ] {
+                commands.spawn((
+                    kind,
+                    Sprite {
+                        image: image.clone(),
+                        rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                        ..default()
+                    },
+                    Transform::from_xyz(0.0, 0.0, kit.actor_z - 1.0),
+                    Visibility::Hidden,
+                    layers_of("actors"),
+                ));
+                combat_entities += 1;
+            }
+        }
+        commands.insert_resource(BlastImages { dynamite, burst });
     }
 
     // DEATH-C: the death presenter's sprites, pre-spawned hidden and recycled
@@ -1600,10 +2141,18 @@ fn setup(
                 RenderAssetUsages::default(),
             ))
         };
-        let poses_images: [Handle<Image>; DEATH_VARIANTS] =
-            std::array::from_fn(|v| image_of(&presenter.sheets_of(v).poses));
-        let parts_images: [Handle<Image>; DEATH_VARIANTS] =
-            std::array::from_fn(|v| image_of(&presenter.sheets_of(v).parts));
+        // Goblin A, goblin B and (with the llama art) the llama: one sheet each.
+        let variants = if presenter.has_llama() {
+            DEATH_VARIANTS + 1
+        } else {
+            DEATH_VARIANTS
+        };
+        let poses_images: Vec<Handle<Image>> = (0..variants)
+            .map(|v| image_of(&presenter.sheets_of(v).poses))
+            .collect();
+        let parts_images: Vec<Handle<Image>> = (0..variants)
+            .map(|v| image_of(&presenter.sheets_of(v).parts))
+            .collect();
         let (poses_image, parts_image) = (poses_images[0].clone(), parts_images[0].clone());
         let mut layout_of = |sheet: &Sheet| {
             layouts.add(TextureAtlasLayout::from_grid(
@@ -1616,6 +2165,10 @@ fn setup(
         };
         let poses_layout = layout_of(&sheets.poses);
         let parts_layout = layout_of(&sheets.parts);
+        // The parts layout of each set (the llama has more parts than a goblin).
+        let parts_layouts: Vec<Handle<TextureAtlasLayout>> = (0..variants)
+            .map(|v| layout_of(&presenter.sheets_of(v).parts))
+            .collect();
         let sprite_of = |image: &Handle<Image>, layout: &Handle<TextureAtlasLayout>| {
             Sprite::from_atlas_image(
                 image.clone(),
@@ -1641,6 +2194,17 @@ fn setup(
                 sprite_of(&poses_image, &poses_layout),
                 layers_of("actors"),
             );
+        }
+        if presenter.has_llama() {
+            let llama_poses = &presenter.sheets_of(LLAMA_VARIANT).poses;
+            let llama_layout = layout_of(llama_poses);
+            for index in 0..combat.0.as_ref().map_or(0, |c| c.llamas.len()) {
+                piece(
+                    DeathPiece::LlamaPose(index),
+                    sprite_of(&poses_images[LLAMA_VARIANT], &llama_layout),
+                    layers_of("actors"),
+                );
+            }
         }
         for slot in 0..PART_POOL_SLOTS {
             piece(
@@ -1673,6 +2237,7 @@ fn setup(
         commands.insert_resource(DeathLook {
             poses_images,
             parts_images,
+            parts_layouts,
             pose_spec: ActorSpec {
                 name: "goblin_death",
                 width: presenter.art().pose_frame_size.0,
@@ -1681,6 +2246,18 @@ fn setup(
                 pivot_y: presenter.art().pose_pivot.1,
                 shadow_width: 0,
                 shadow_pivot_x: 0,
+            },
+            llama_pose_spec: {
+                let art = presenter.art_of(LLAMA_VARIANT);
+                ActorSpec {
+                    name: "llama_death",
+                    width: art.pose_frame_size.0,
+                    height: art.pose_frame_size.1,
+                    pivot_x: art.pose_pivot.0,
+                    pivot_y: art.pose_pivot.1,
+                    shadow_width: 0,
+                    shadow_pivot_x: 0,
+                }
             },
             wall_z,
         });
@@ -1962,6 +2539,7 @@ fn fixed_step(
     if respawn && let Some(combat) = combat.0.as_mut() {
         combat.respawn(&mut sim.0);
         let _ = combat.take_respawned();
+        controls.camera_cut = true;
         pads.0.party_mut().restart();
         anim.0.reset(&sim.0.world);
         anim.0.reset_art(combat);
@@ -1984,6 +2562,7 @@ fn fixed_step(
         }
         hud.0.restart();
         pads.0.party_mut().restart();
+        controls.camera_cut = true;
         after_exit.0 = 0;
         println!("FLOOR1_RESTART");
     }
@@ -2030,6 +2609,7 @@ fn fixed_step(
             // A party defeat restarted the attempt (or the demo respawned
             // Carl): Carl is controlled again.
             pads.0.party_mut().restart();
+            controls.camera_cut = true;
         }
         print_combat_events(combat, Some(&mut audio));
         if respawned {
@@ -2082,6 +2662,62 @@ fn fixed_step(
     }
 }
 
+/// DEMO-01 PR C: one presentation camera step for the tick the simulation just
+/// finished. Reads the simulation and the interest list through shared
+/// references only; nothing flows back. Called after every simulated tick: by
+/// the fixed schedule (right after `fixed_step`), and inside the loops that step
+/// the simulation by hand (`--capture-sequence`, the `--perf-from-tick` probe),
+/// so the drawn camera is the per-tick camera of `--view-trace` at any frame rate.
+fn camera_tick(
+    cam: &mut SceneCam,
+    interest: &mut Interest,
+    setup: &Setup,
+    sim: &SceneSim,
+    combat: Option<&CombatState>,
+    cut: bool,
+) {
+    let Some(rig) = cam.rig.as_mut() else {
+        return;
+    };
+    if cut {
+        // The explicit signal; the distance check inside `sync` is the fallback.
+        rig.request_cut();
+    }
+    let elapsed = elapsed_ticks(sim, combat);
+    interest.0 = test_interest(&setup.kit, &setup.args, sim, combat, elapsed);
+    let view = rig.sync(sim, combat, &interest.0, elapsed);
+    if cam.reported_rest != Some(rig.operator().rest_target()) {
+        cam.reported_rest = Some(rig.operator().rest_target());
+        println!(
+            "FLOOR1_CAMERA_REST tick={elapsed} rest={} view={}x{}",
+            rig.operator().rest_target(),
+            view.w,
+            view.h
+        );
+    }
+}
+
+/// The fixed-schedule camera step: chained after `fixed_step`, it runs once per
+/// simulated tick, with that tick's threat list.
+fn update_scene_camera(
+    mut cam: ResMut<SceneCam>,
+    mut interest: ResMut<Interest>,
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    setup: Res<Setup>,
+    mut controls: ResMut<Controls>,
+) {
+    let cut = std::mem::take(&mut controls.camera_cut);
+    camera_tick(
+        &mut cam,
+        &mut interest,
+        &setup,
+        &sim.0,
+        combat.0.as_ref(),
+        cut,
+    );
+}
+
 /// Where one actor stands this frame, as drawn (y-up world feet height).
 #[derive(Clone, Copy)]
 struct ActorPose {
@@ -2111,7 +2747,12 @@ fn view_origin(
             return (view.x, view.y);
         }
     }
-    let widest = (setup.kit.width - VIRTUAL_WIDTH).max(0);
+    scroll_origin(state, setup.kit.width, kick)
+}
+
+/// The scroll camera's view top-left plus the kick, kept inside the layout.
+fn scroll_origin(state: &SceneSim, layout_width: i32, kick: i32) -> (i32, i32) {
+    let widest = (layout_width - VIRTUAL_WIDTH).max(0);
     (
         (state.camera.left() + kick).clamp(0, widest),
         state.camera.top(),
@@ -2221,7 +2862,16 @@ fn sync_visuals(
     after_exit: Res<AfterExitTicks>,
     setup: Res<Setup>,
     reference: Res<ReferencePose>,
-    mut cameras: Query<&mut Transform, With<SceneCamera>>,
+    cam: Res<SceneCam>,
+    mut cameras: Query<
+        (
+            &mut Transform,
+            Option<&mut Camera>,
+            Option<&mut Projection>,
+            Option<&RenderTarget>,
+        ),
+        With<SceneCamera>,
+    >,
     mut parallax: Query<
         (&Parallax, &mut Transform, &mut Visibility),
         (Without<SceneCamera>, Without<ActorVisual>, Without<HeroBox>),
@@ -2244,21 +2894,43 @@ fn sync_visuals(
     let kit = &setup.kit;
     let state = &sim.0;
     let height = kit.height;
-    let view_h = view_height(setup.args.deck);
-    let (left, top) = view_origin(state, &setup, &reference, camera_kick(state, &combat));
+    let view = presentation_view(state, &setup, &reference, &combat, &cam);
+    let (left, top) = (view.left, view.top);
     let anim_tick = presentation_tick(state, &after_exit, &reference);
 
     // Every scene camera (the plain one, or the lighting slot cameras and the
     // debug overlay camera) sits on the same whole-pixel position.
-    for mut transform in &mut cameras {
-        transform.translation.x = (left + VIRTUAL_WIDTH / 2) as f32;
-        transform.translation.y = to_world_y(height, top + view_h / 2);
+    for (mut transform, camera, projection, target) in &mut cameras {
+        transform.translation.x = (left + view.w / 2) as f32;
+        transform.translation.y = to_world_y(height, top + view.h / 2);
+        if cam.rig.is_none() {
+            continue;
+        }
+        // The presentation camera changes how much world the view shows: the
+        // projection covers exactly the current view, and a lighting slot
+        // camera draws it 1:1 into the top-left region of its (largest-view)
+        // target. The composite pass lights that region at output resolution.
+        if let Some(mut projection) = projection
+            && let Projection::Orthographic(ortho) = projection.as_mut()
+        {
+            ortho.scaling_mode = ScalingMode::Fixed {
+                width: view.w as f32,
+                height: view.h as f32,
+            };
+        }
+        if let (Some(mut camera), Some(RenderTarget::Image(_))) = (camera, target) {
+            camera.viewport = Some(Viewport {
+                physical_position: UVec2::ZERO,
+                physical_size: UVec2::new(view.w as u32, view.h as u32),
+                ..default()
+            });
+        }
     }
 
     for (strip_marker, mut transform, mut visibility) in &mut parallax {
         let strip = &kit.strips[strip_marker.strip];
         let start = parallax_start(strip.x_origin, left, strip.factor);
-        let copies = parallax_copies(start, strip.rect.w, left, VIRTUAL_WIDTH);
+        let copies = parallax_copies(start, strip.rect.w, left, view.w);
         match copies.get(strip_marker.copy) {
             Some(x) => {
                 transform.translation.x = *x as f32;
@@ -2477,16 +3149,374 @@ fn sync_combat_visuals(
     }
 }
 
+/// HUD-DEBT-03: the boss encounter as the simulation has it. Placeholder rects
+/// at the spec sizes (the hurtbox, the racks, the strut, the gate, the
+/// ripples); with the boss atlas the body is the atlas frame of
+/// [`boss_art::pose_of`]. Reads the simulation only.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn sync_boss_visuals(
+    combat: Res<Combat>,
+    sim: Res<Sim>,
+    death: Res<Death>,
+    setup: Res<Setup>,
+    art: Res<BossArtRes>,
+    textures: Option<Res<BossTextures>>,
+    mut walk: Local<WalkTrack>,
+    mut pieces: Query<
+        (&BossPiece, &mut Transform, &mut Sprite, &mut Visibility),
+        Without<BossFxSprite>,
+    >,
+    mut fx: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (With<BossFxSprite>, Without<BossPiece>),
+    >,
+) {
+    let Some(state) = combat.0.as_ref() else {
+        return;
+    };
+    let Some(boss) = state.boss.as_ref() else {
+        return;
+    };
+    let data = boss.data();
+    let floor = boss.floor_y();
+    let set = |transform: &mut Transform, rect: dungeon_floorbreak::prototype::Rect| {
+        let (cx, cy) = rect.center();
+        transform.translation.x = cx.round();
+        transform.translation.y = cy.round();
+        transform.scale = Vec3::new(rect.width, rect.height, 1.0);
+    };
+    let ripples: Vec<(f32, i8)> = boss.ripples().collect();
+    // What the atlases cover is drawn from them (`boss_art::draws`); what a
+    // missing atlas leaves out falls back to its placeholder rect.
+    let has = |id: SheetId| art.0.as_ref().is_some_and(|a| a.sheet(id).is_some());
+    let has_art = has(SheetId::Base) && has(SheetId::Enc);
+    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+        let shown = match *piece {
+            BossPiece::Body => match boss.hurtbox() {
+                Some(rect) if !has_art => {
+                    set(&mut transform, rect);
+                    sprite.color = match boss.mode {
+                        BossMode::PoundTell | BossMode::SecondTell | BossMode::ChargeTell => {
+                            Color::srgb(0.95, 0.6, 0.12)
+                        }
+                        BossMode::Stun | BossMode::Rebound => Color::srgb(0.3, 0.3, 0.7),
+                        BossMode::Pinned => Color::srgb(0.35, 0.35, 0.35),
+                        _ => Color::srgb(0.42, 0.1, 0.34),
+                    };
+                    true
+                }
+                None if boss.mode == BossMode::Defeated && !has_art => {
+                    // The corpse: the pinned box, flat on the floor.
+                    set(
+                        &mut transform,
+                        dungeon_floorbreak::prototype::Rect {
+                            left: boss.x - 50.0,
+                            bottom: floor,
+                            width: 100.0,
+                            height: 14.0,
+                        },
+                    );
+                    sprite.color = Color::srgb(0.25, 0.08, 0.1);
+                    true
+                }
+                _ => false,
+            },
+            BossPiece::Eye => match boss.hurtbox() {
+                Some(rect) if !has_art => {
+                    let front = if boss.facing >= 0 {
+                        rect.right() - 12.0
+                    } else {
+                        rect.left + 4.0
+                    };
+                    set(
+                        &mut transform,
+                        dungeon_floorbreak::prototype::Rect {
+                            left: front,
+                            bottom: rect.top() - 22.0,
+                            width: 8.0,
+                            height: 8.0,
+                        },
+                    );
+                    true
+                }
+                _ => false,
+            },
+            BossPiece::Rack(_) if has(SheetId::Rack) => false,
+            BossPiece::Strut if has(SheetId::Strut) => false,
+            BossPiece::Ripple(_) if has(SheetId::Vfx) => false,
+            BossPiece::Rack(index) => {
+                let rack = &boss.racks[index];
+                let hanging = 189.0;
+                let bottom = match rack.state {
+                    RackState::Idle { .. } => hanging,
+                    RackState::Falling { ticks, .. } => {
+                        let t = f32::from(ticks) / f32::from(data.rack.fall_ticks);
+                        hanging * (1.0 - t * t)
+                    }
+                    RackState::Landed => 0.0,
+                };
+                set(
+                    &mut transform,
+                    dungeon_floorbreak::prototype::Rect {
+                        left: data.footprint_centre(rack.facing) - data.rack.footprint_px * 0.5,
+                        bottom: floor + bottom,
+                        width: data.rack.footprint_px,
+                        height: data.rack.footprint_height,
+                    },
+                );
+                rack.enabled
+            }
+            BossPiece::Strut => {
+                set(&mut transform, boss.strut_rect());
+                data.rack.left.enabled && matches!(boss.racks[0].state, RackState::Idle { .. })
+            }
+            BossPiece::Gate => {
+                set(
+                    &mut transform,
+                    dungeon_floorbreak::prototype::Rect {
+                        left: 0.0,
+                        bottom: floor,
+                        width: data.gate.solid_x,
+                        height: 224.0,
+                    },
+                );
+                boss.gate_closed()
+            }
+            BossPiece::Ripple(slot) => match ripples.get(slot) {
+                Some(&(x, _)) => {
+                    set(
+                        &mut transform,
+                        dungeon_floorbreak::prototype::Rect {
+                            left: x - data.shockwave.width * 0.5,
+                            bottom: floor,
+                            width: data.shockwave.width,
+                            height: data.shockwave.height,
+                        },
+                    );
+                    true
+                }
+                None => false,
+            },
+        };
+        *visibility = if shown {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+    }
+    let (Some(art), Some(textures)) = (art.0.as_ref(), textures) else {
+        return;
+    };
+    // The gait: observed once per simulated tick, not per render frame.
+    let tick = sim.0.world.tick;
+    if walk.tick != tick {
+        walk.walking = boss.mode == BossMode::Neutral && (boss.x - walk.x).abs() > 1e-3;
+        walk.tick = tick;
+        walk.x = boss.x;
+    }
+    let gore_full = death
+        .0
+        .as_ref()
+        .is_none_or(|presenter| presenter.preset() == GorePreset::Full);
+    let list = boss_art::draws(
+        art,
+        boss,
+        FxCtx {
+            events: &state.events,
+            now: tick,
+            gait: Gait {
+                clock: tick,
+                walking: walk.walking,
+                ..Gait::default()
+            },
+            gore_full,
+        },
+    );
+    let actor_z = setup.kit.actor_z;
+    let mut drawn = list.iter();
+    for (index, (mut transform, mut sprite, mut visibility)) in fx.iter_mut().enumerate() {
+        let Some(draw) = drawn.next() else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let (Some(sheet), Some((texture, layout))) = (
+            art.sheet(draw.sheet),
+            textures.0[draw.sheet as usize].as_ref(),
+        ) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let pivot = sheet.pivot(draw.frame);
+        let spec = ActorSpec {
+            name: "brute_boss_f01",
+            width: sheet.frame_size.0,
+            height: sheet.frame_size.1,
+            pivot_x: pivot.0,
+            pivot_y: pivot.1,
+            shadow_width: 0,
+            shadow_pivot_x: 0,
+        };
+        let (cx, cy) = actor_center(spec, draw.x, draw.y, draw.flip);
+        let z = actor_z
+            + match draw.layer {
+                Layer::Floor => BOSS_Z_FLOOR,
+                Layer::Back => BOSS_Z_BACK,
+                Layer::Body => BOSS_Z_OFFSET,
+                Layer::Front => BOSS_Z_FRONT,
+            }
+            + index as f32 * 0.0001;
+        transform.translation = Vec3::new(cx, cy, z);
+        sprite.flip_x = draw.flip;
+        if sprite.image != *texture {
+            sprite.image = texture.clone();
+        }
+        sprite.texture_atlas = Some(TextureAtlas {
+            layout: layout.clone(),
+            index: draw.frame,
+        });
+        *visibility = Visibility::Inherited;
+    }
+}
+
+/// DEMO-01 PR B: the Bad Llamas and their spit globs as the simulation has them
+/// (frame by the finished tick, whole-pixel placement like every actor). Reads
+/// the simulation and the animators only.
+#[allow(clippy::type_complexity)]
+fn sync_llama_visuals(
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    anim: Res<Anim>,
+    setup: Res<Setup>,
+    mut llamas: Query<(&LlamaSprite, &mut Transform, &mut Sprite), Without<GlobSprite>>,
+    mut globs: Query<
+        (&GlobSprite, &mut Transform, &mut Sprite, &mut Visibility),
+        Without<LlamaSprite>,
+    >,
+) {
+    let (Some(state), Some(art)) = (combat.0.as_ref(), anim.0.art.as_ref()) else {
+        return;
+    };
+    let Some(clips) = art.llama_clips() else {
+        return;
+    };
+    let tick = sim.0.world.tick;
+    let actor_z = setup.kit.actor_z;
+    let goblins = state.enemies.len();
+    for (llama_sprite, mut transform, mut sprite) in &mut llamas {
+        let index = llama_sprite.index;
+        let (Some(llama), Some(pose)) = (state.llamas.get(index), art.llama_pose(index)) else {
+            continue;
+        };
+        let flip = llama.facing < 0;
+        let (cx, cy) = actor_center(
+            clips.spec,
+            llama.x,
+            CombatAnimators::llama_foot_y(llama),
+            flip,
+        );
+        let lying = matches!(llama.mode, LlamaMode::Down | LlamaMode::Corpse);
+        let z_offset = if lying {
+            GOBLIN_LYING_Z_OFFSET
+        } else {
+            GOBLIN_Z_OFFSET
+        };
+        transform.translation = Vec3::new(
+            cx,
+            cy,
+            actor_z + z_offset - (goblins + index) as f32 * GOBLIN_Z_STEP,
+        );
+        sprite.flip_x = flip;
+        sprite.color = if state.flash(goblins + index, tick) {
+            FLASH_TINT
+        } else {
+            Color::WHITE
+        };
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = pose.frame;
+        }
+    }
+    // The glob is drawn with the llama's pivot, as the spawn contract says: the
+    // sprite sits so that its core (pivot offset +46, -45) is on the glob.
+    let loop_ticks = clips.tag_ticks("spit").unwrap_or(8).max(1);
+    for (glob_sprite, mut transform, mut sprite, mut visibility) in &mut globs {
+        match state.globs.get(glob_sprite.slot) {
+            Some(glob) => {
+                let flip = glob.dir < 0;
+                let foot_x = glob.x - f32::from(glob.dir) * LLAMA_GLOB_MOUTH_DX;
+                let foot_y = glob.y - LLAMA_GLOB_MOUTH_DY;
+                let (cx, cy) = actor_center(clips.spec, foot_x, foot_y, flip);
+                transform.translation = Vec3::new(cx, cy, actor_z + GLOB_Z_OFFSET);
+                sprite.flip_x = flip;
+                let age = (glob.travelled / (LLAMA_GLOB_SPEED * TICK_SECONDS)).round() as u32;
+                if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                    atlas.index = clips.frame_at("spit", age % loop_ticks);
+                }
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
+/// The impact dust of a llama slam, at the floor under the slam's `hit_origin`
+/// (the ENV-02 block impact dust, four frames). Reads the presenter only.
+fn sync_dust_visuals(
+    death: Res<Death>,
+    actors: Res<Actors>,
+    setup: Res<Setup>,
+    images: Option<Res<ShoreImages>>,
+    mut dust: Query<(&DustSprite, &mut Transform, &mut Sprite, &mut Visibility)>,
+) {
+    let (Some(presenter), Some(art), Some(images)) =
+        (death.0.as_ref(), actors.shore.as_ref(), images)
+    else {
+        return;
+    };
+    let list = presenter.impact_dusts();
+    for (sprite_slot, mut transform, mut sprite, mut visibility) in &mut dust {
+        let draw = list
+            .get(sprite_slot.slot)
+            .and_then(|d| art.impact_dust_draw(d.age, (d.x, d.ground_y)));
+        match draw {
+            Some(draw) => {
+                transform.translation = Vec3::new(
+                    draw.centre.0,
+                    draw.centre.1,
+                    setup.kit.actor_z + HAZARD_OVER_Z_OFFSET,
+                );
+                sprite.image = images.0[draw.image].clone();
+                sprite.rect = Some(Rect::new(
+                    draw.rect[0] as f32,
+                    draw.rect[1] as f32,
+                    (draw.rect[0] + draw.rect[2]) as f32,
+                    (draw.rect[1] + draw.rect[3]) as f32,
+                ));
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
+        }
+    }
+}
+
 /// DEATH-C: the ENV-02 shore and block as the simulation has them (hits, block
 /// state, block height, landing). Reads the simulation only.
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 fn sync_shore_visuals(
     combat: Res<Combat>,
+    death: Res<Death>,
     sim: Res<Sim>,
     actors: Res<Actors>,
     setup: Res<Setup>,
     images: Option<Res<ShoreImages>>,
-    mut pieces: Query<(&ShorePiece, &mut Transform, &mut Sprite, &mut Visibility)>,
+    layers: Option<Res<ShoreLayers>>,
+    mut pieces: Query<(
+        &ShorePiece,
+        &mut Transform,
+        &mut Sprite,
+        &mut Visibility,
+        &mut RenderLayers,
+    )>,
 ) {
     let (Some(state), Some(art), Some(images)) = (combat.0.as_ref(), actors.shore.as_ref(), images)
     else {
@@ -2496,7 +3526,12 @@ fn sync_shore_visuals(
         return;
     };
     let tick = sim.0.world.tick;
-    let list = art.draw_list(shore, landed_age(&state.events, tick), tick);
+    // A crushed enemy whose contact frames carry `hazard_draw: "over"` (the
+    // llama): the block's anchor goes on the mirrored `hit_origin` and the
+    // stone is drawn over that body, still below the players (presentation
+    // only; the block's simulated position never moves).
+    let over = death.0.as_ref().and_then(|p| p.hazard_over_anchor());
+    let list = art.draw_list_with(shore, landed_age(&state.events, tick), tick, over);
     let prop_z = setup.kit.actor_z - 1.0;
     let wall_z = setup
         .kit
@@ -2504,11 +3539,21 @@ fn sync_shore_visuals(
         .iter()
         .find(|p| p.layer == "backwall_decal")
         .map_or(3.0, |p| p.z.floor());
-    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+    for (piece, mut transform, mut sprite, mut visibility, mut render_layers) in &mut pieces {
+        if piece.0 == ShoreSlot::Block
+            && let Some(layers) = layers.as_ref()
+        {
+            let want = block_layers(over.is_some(), &layers.prop, &layers.actors);
+            if *render_layers != *want {
+                *render_layers = want.clone();
+            }
+        }
         match list.iter().find(|d| d.slot == piece.0) {
             Some(draw) => {
                 let z = if draw.slot == ShoreSlot::Cavity {
                     wall_z + 0.3
+                } else if draw.slot == ShoreSlot::Block && over.is_some() {
+                    setup.kit.actor_z + HAZARD_OVER_Z_OFFSET
                 } else {
                     prop_z + draw.slot.z_bias()
                 };
@@ -2527,6 +3572,112 @@ fn sync_shore_visuals(
     }
 }
 
+/// DEATH-D: the QA charge as the `dynamite_fizzle` loop from the first tick of
+/// the attempt until it detonates, then the VFX-01 `burst` once, centred on the
+/// blast centre. Both sit on the blast layer (`actor_z - 0.45`: over the floor
+/// decals and the props, under the debris and every actor). Reads the
+/// simulation only.
+#[allow(clippy::type_complexity)]
+fn sync_blast_visuals(
+    combat: Res<Combat>,
+    death: Res<Death>,
+    sim: Res<Sim>,
+    actors: Res<Actors>,
+    setup: Res<Setup>,
+    images: Option<Res<BlastImages>>,
+    mut pieces: Query<(&BlastPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
+) {
+    let (Some(state), Some(art), Some(images)) = (combat.0.as_ref(), actors.blast.as_ref(), images)
+    else {
+        return;
+    };
+    let tick = sim.0.world.tick;
+    let actor_z = setup.kit.actor_z;
+    let wall_z = setup
+        .kit
+        .pieces
+        .iter()
+        .find(|p| p.layer == "backwall_decal")
+        .map_or(3.0, |p| p.z.floor());
+    // Preset 4 punch-up (presentation only): the burst is bigger, drawn over
+    // the debris and flashes bright for its first ticks.
+    let table = explosion_table(death.0.as_ref().map_or(GorePreset::Full, |p| p.preset()));
+    let punched = table.burst_scale > 1.0;
+    let dynamite_spec = ActorSpec {
+        name: "qa_charge",
+        width: 24,
+        height: 24,
+        pivot_x: 12,
+        pivot_y: 12,
+        shadow_width: 0,
+        shadow_pivot_x: 0,
+    };
+    let to_rect = |r: [i32; 4]| {
+        Rect::new(
+            r[0] as f32,
+            r[1] as f32,
+            (r[0] + r[2]) as f32,
+            (r[1] + r[3]) as f32,
+        )
+    };
+    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+        let (index, burst) = match *piece {
+            BlastPiece::Charge(i) => (i, false),
+            BlastPiece::Burst(i) => (i, true),
+        };
+        let Some(charge) = state.charges.get(index) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        if burst {
+            let layer = if punched {
+                DrawLayer::BlastFront
+            } else {
+                DrawLayer::Blast
+            };
+            let z = draw_z(layer, index, actor_z, wall_z);
+            let frame = charge
+                .detonated
+                .then(|| blast_vfx_frame(tick, charge.detonate_tick))
+                .flatten();
+            match frame {
+                Some(frame) => {
+                    let (cx, cy) = (charge.x, charge.foot_y + BLAST_CENTRE_DY);
+                    transform.translation = Vec3::new(cx.round(), cy.round(), z);
+                    transform.scale = Vec3::new(table.burst_scale, table.burst_scale, 1.0);
+                    sprite.image = images.burst.clone();
+                    sprite.rect = Some(to_rect(art.burst_rect(frame)));
+                    // The flash: the existing impact tint for the first ticks.
+                    let age = tick.saturating_sub(charge.detonate_tick);
+                    sprite.color = if age < table.flash_ticks {
+                        FLASH_TINT
+                    } else {
+                        Color::WHITE
+                    };
+                    *visibility = Visibility::Inherited;
+                }
+                None => *visibility = Visibility::Hidden,
+            }
+        } else if charge.detonated {
+            *visibility = Visibility::Hidden;
+        } else {
+            // The lit charge: above the goblins, below Carl (it was under every
+            // actor and hidden by the goblin standing on it).
+            let z = draw_z(DrawLayer::ChargeLit, index, actor_z, wall_z);
+            let (cx, cy) = actor_center(dynamite_spec, charge.x, charge.foot_y, false);
+            transform.translation = Vec3::new(cx, cy, z);
+            sprite.image = images.dynamite.clone();
+            // A Carl-armed charge lies still until he passes; its fizzle loop
+            // counts from the arming.
+            let lit_for = tick.saturating_sub(charge.armed_tick.unwrap_or(0));
+            sprite.rect = Some(to_rect(
+                art.dynamite_rect(charge_draw_frame(charge.lit(), lit_for)),
+            ));
+            *visibility = Visibility::Inherited;
+        }
+    }
+}
+
 /// DEATH-C: draw the presenter's state. Reads the presenter only; the death
 /// pose replaces the goblin's GOB-01 sprite, and every piece sits under the
 /// actors (`draw_z`), so nothing is ever drawn over Carl or Donut.
@@ -2538,7 +3689,14 @@ fn sync_death_visuals(
     combat: Res<Combat>,
     sim: Res<Sim>,
     setup: Res<Setup>,
-    mut goblins: Query<(&GoblinSprite, &mut Visibility, &mut Sprite), Without<DeathPiece>>,
+    mut goblins: Query<
+        (&GoblinSprite, &mut Visibility, &mut Sprite),
+        (Without<DeathPiece>, Without<LlamaSprite>),
+    >,
+    mut llamas: Query<
+        (&LlamaSprite, &mut Visibility, &mut Sprite),
+        (Without<DeathPiece>, Without<GoblinSprite>),
+    >,
     mut pieces: Query<(&DeathPiece, &mut Transform, &mut Sprite, &mut Visibility)>,
 ) {
     let (Some(presenter), Some(look), Some(state)) = (death.0.as_ref(), look, combat.0.as_ref())
@@ -2548,11 +3706,12 @@ fn sync_death_visuals(
     let started = std::time::Instant::now();
     let actor_z = setup.kit.actor_z;
     let tick = sim.0.world.tick;
-    let art = presenter.art();
+
     // A death pose replaces the goblin sprite; a retired corpse is drawn no
     // more and a retiring one fades out (the GOB-01 corpse sprite included).
+    // DEATH-D: an exploded goblin (presets 2 to 4) is replaced by its pieces.
     let hide_goblin = |index: usize| {
-        presenter.pose_of(index as u32).is_some() || presenter.is_retired(index as u32)
+        presenter.pose_of(index as u32).is_some() || !presenter.draws_goblin(index as u32)
     };
     for (goblin, mut visibility, mut sprite) in &mut goblins {
         *visibility = if hide_goblin(goblin.index) {
@@ -2564,12 +3723,35 @@ fn sync_death_visuals(
             .color
             .with_alpha(presenter.corpse_alpha(goblin.index as u32));
     }
-    // Variant B draws from its own composed sheet (same layout, same frames).
+    // A llama's death pose replaces its sprite; a retired corpse is not drawn.
+    let goblin_count = state.enemies.len();
+    for (llama, mut visibility, mut sprite) in &mut llamas {
+        let target = (goblin_count + llama.index) as u32;
+        *visibility = if presenter.pose_of(target).is_some() || presenter.is_retired(target) {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+        sprite.color = sprite.color.with_alpha(presenter.corpse_alpha(target));
+    }
+    // Variant B draws from its own composed sheet (same layout, same frames);
+    // the llama's parts have their own sheet and layout.
     let use_image = |sprite: &mut Sprite, image: &Handle<Image>| {
         if sprite.image != *image {
             sprite.image = image.clone();
         }
     };
+    let use_sheet =
+        |sprite: &mut Sprite, image: &Handle<Image>, layout: &Handle<TextureAtlasLayout>| {
+            if sprite.image != *image {
+                sprite.image = image.clone();
+            }
+            if let Some(atlas) = sprite.texture_atlas.as_mut()
+                && atlas.layout != *layout
+            {
+                atlas.layout = layout.clone();
+            }
+        };
     let set_atlas = |sprite: &mut Sprite, frame: usize| {
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = frame;
@@ -2599,6 +3781,34 @@ fn sync_death_visuals(
                 }
                 None => *visibility = Visibility::Hidden,
             },
+            DeathPiece::LlamaPose(index) => {
+                let target = (goblin_count + index) as u32;
+                match presenter.pose_of(target) {
+                    Some(pose) => {
+                        let (cx, cy) = actor_center(
+                            look.llama_pose_spec,
+                            pose.foot_x,
+                            pose.ground_y,
+                            pose.flip,
+                        );
+                        transform.translation = Vec3::new(
+                            cx,
+                            cy,
+                            actor_z + GOBLIN_LYING_Z_OFFSET - target as f32 * GOBLIN_Z_STEP,
+                        );
+                        sprite.flip_x = pose.flip;
+                        sprite.color = if state.flash(target as usize, tick) {
+                            FLASH_TINT
+                        } else {
+                            Color::WHITE
+                        }
+                        .with_alpha(pose.alpha);
+                        set_atlas(&mut sprite, pose.frame);
+                        *visibility = Visibility::Inherited;
+                    }
+                    None => *visibility = Visibility::Hidden,
+                }
+            }
             DeathPiece::Part(slot) => match presenter.part_at(slot) {
                 Some(part) => {
                     transform.translation = Vec3::new(
@@ -2608,7 +3818,11 @@ fn sync_death_visuals(
                     );
                     transform.rotation = Quat::from_rotation_z(part.angle_deg.to_radians());
                     sprite.flip_x = part.flip;
-                    use_image(&mut sprite, &look.parts_images[part.variant]);
+                    use_sheet(
+                        &mut sprite,
+                        &look.parts_images[part.variant],
+                        &look.parts_layouts[part.variant],
+                    );
                     sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.part_alpha(slot, part));
                     set_atlas(&mut sprite, part.frame);
                     *visibility = Visibility::Inherited;
@@ -2618,9 +3832,12 @@ fn sync_death_visuals(
             DeathPiece::Floor { slot, second } => {
                 let decal = presenter.floor_decal_at(slot);
                 let shown = decal.and_then(|d| {
+                    let art = presenter.art_of(d.variant);
                     let meta = if second { d.pair_meta? } else { d.meta };
                     let offset = if second {
-                        art.parts[d.meta].pair_offset.map_or(0.0, |o| o[0] as f32)
+                        art.parts[d.meta]
+                            .pair_offset
+                            .map_or(0.0, |o| o[0] as f32 * d.scale)
                     } else {
                         0.0
                     };
@@ -2633,7 +3850,13 @@ fn sync_death_visuals(
                             d.y.round(),
                             draw_z(DrawLayer::FloorDecal, slot, actor_z, look.wall_z),
                         );
+                        transform.scale = Vec3::new(d.scale, d.scale, 1.0);
                         sprite.flip_x = d.flip;
+                        use_sheet(
+                            &mut sprite,
+                            &look.parts_images[d.variant],
+                            &look.parts_layouts[d.variant],
+                        );
                         sprite.color =
                             Color::srgba(1.0, 1.0, 1.0, presenter.floor_decal_alpha(slot, d));
                         set_atlas(&mut sprite, frame);
@@ -2649,9 +3872,15 @@ fn sync_death_visuals(
                         d.y.round(),
                         draw_z(DrawLayer::WallDecal, slot, actor_z, look.wall_z),
                     );
+                    transform.scale = Vec3::new(d.scale, d.scale, 1.0);
                     sprite.flip_x = d.flip;
+                    use_sheet(
+                        &mut sprite,
+                        &look.parts_images[d.variant],
+                        &look.parts_layouts[d.variant],
+                    );
                     sprite.color = Color::srgba(1.0, 1.0, 1.0, presenter.wall_decal_alpha(slot, d));
-                    set_atlas(&mut sprite, art.parts[d.meta].frame);
+                    set_atlas(&mut sprite, presenter.art_of(d.variant).parts[d.meta].frame);
                     *visibility = Visibility::Inherited;
                 }
                 None => *visibility = Visibility::Hidden,
@@ -2690,6 +3919,8 @@ fn update_lighting(
     setup: Res<Setup>,
     reference: Res<ReferencePose>,
     combat: Res<Combat>,
+    death: Res<Death>,
+    cam: Res<SceneCam>,
     windows: Query<&Window, With<PrimaryWindow>>,
     materials: Option<ResMut<Assets<LightingMaterial>>>,
     mut dropped_reported: Local<bool>,
@@ -2702,14 +3933,13 @@ fn update_lighting(
         return;
     };
     let state = &sim.0;
-    let view_h = view_height(setup.args.deck);
-    let (left, top) = view_origin(state, &setup, &reference, camera_kick(state, &combat));
+    let drawn = presentation_view(state, &setup, &reference, &combat, &cam);
     let tick = presentation_tick(state, &after_exit, &reference);
     let view = ViewRect {
-        left,
-        top,
-        w: VIRTUAL_WIDTH,
-        h: view_h,
+        left: drawn.left,
+        top: drawn.top,
+        w: drawn.w,
+        h: drawn.h,
     };
     let (gathered, dropped) = scene.gather(kit, view, tick);
     if dropped > 0 && !*dropped_reported {
@@ -2773,6 +4003,15 @@ fn update_lighting(
                 ));
             };
             for (index, goblin) in combat.enemies.iter().enumerate() {
+                // No shadow under a goblin whose body is hidden (an explosion)
+                // or retired: nothing is drawn above it.
+                if death
+                    .0
+                    .as_ref()
+                    .is_some_and(|presenter| !presenter.draws_goblin(index as u32))
+                {
+                    continue;
+                }
                 put(
                     art.goblin_clips(index),
                     &art.goblin_pose(index),
@@ -2780,15 +4019,22 @@ fn update_lighting(
                     goblin.facing < 0,
                 );
             }
+            if let Some(clips) = art.llama_clips() {
+                for (index, llama) in combat.llamas.iter().enumerate() {
+                    if let Some(pose) = art.llama_pose(index) {
+                        put(clips, &pose, llama.x, llama.facing < 0);
+                    }
+                }
+            }
         }
     }
     let frame = PassFrame {
         scene,
         gathered: &gathered,
         shadows: &shadows,
-        view_w: VIRTUAL_WIDTH as u32,
-        view_h: view_h as u32,
-        view_top: top,
+        view_w: drawn.w as u32,
+        view_h: drawn.h as u32,
+        view_top: drawn.top,
     };
     let window_px = Vec2::new(
         window.physical_width() as f32,
@@ -2857,6 +4103,8 @@ fn perf_step(
     mut anim: ResMut<Anim>,
     mut combat: ResMut<Combat>,
     mut death: ResMut<Death>,
+    mut cam: ResMut<SceneCam>,
+    mut interest: ResMut<Interest>,
 ) {
     let Some(mut perf) = perf else { return };
     if !perf.step_ticks || loading.is_some_and(|l| !l.reported) || perf.seen < perf.warmup {
@@ -2881,6 +4129,15 @@ fn perf_step(
         death.stress_tick(hero.x, hero.y - HERO_HALF_HEIGHT);
     }
     perf.tick_us.push(started.elapsed().as_secs_f32() * 1e6);
+    // This probe steps the simulation outside the fixed schedule.
+    camera_tick(
+        &mut cam,
+        &mut interest,
+        &setup,
+        &sim.0,
+        Some(&*combat),
+        false,
+    );
 }
 
 /// Resident and peak resident memory of this process in MiB (Linux
@@ -3108,6 +4365,8 @@ fn capture_sequence(
     mut anim: ResMut<Anim>,
     mut combat: ResMut<Combat>,
     mut death: ResMut<Death>,
+    mut cam: ResMut<SceneCam>,
+    mut interest: ResMut<Interest>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut seq) = seq else { return };
@@ -3197,6 +4456,15 @@ fn capture_sequence(
                     sim.0.step(raw);
                     anim.0.step(&sim.0.world);
                 }
+                // One camera step per simulated tick, as in the live loop.
+                camera_tick(
+                    &mut cam,
+                    &mut interest,
+                    &setup,
+                    &sim.0,
+                    combat.0.as_ref(),
+                    false,
+                );
             }
             CapturePhase::Settle(CAPTURE_SETTLE_FRAMES)
         }
@@ -3208,6 +4476,20 @@ fn capture_sequence(
 fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<(), String> {
     if kit.solid_rects.is_empty() || kit.tiles.is_empty() {
         return Err("layout produced no tiles or no solids".into());
+    }
+    if args.view_trace {
+        // The view trace runs on any layout (the corridor checks below assume
+        // the sample corridor, not a camera test room).
+        return view_trace(kit, args, actors, root);
+    }
+    if args.boss {
+        println!(
+            "FLOOR1_HEADLESS_OK: boss arena {} tiles, {} pieces, {} merged solids",
+            kit.tiles.len(),
+            kit.pieces.len(),
+            kit.solid_rects.len()
+        );
+        return headless_fixture(kit, args, actors, root);
     }
     if args.demo {
         // The demo hall has no exit and a different spawn: the story-run checks
@@ -3293,9 +4575,115 @@ fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> 
     Ok(())
 }
 
+/// `--view-trace`: one `FLOOR1_VIEW` line per simulated tick with the view the
+/// presentation would draw (the CP-01 kick included), for the fixture's script
+/// or the scenario (default: walk right for 600 ticks), then the final state
+/// hash. The trace is the same for any lighting, audio or gore setting, and the
+/// hash is the same for any `--camera`.
+fn view_trace(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<(), String> {
+    let mut start = args.clone();
+    start.capture_tick = Some(0);
+    start.capture_sequence = None;
+    start.perf_from_tick = None;
+    let mut hud = new_hud(&start, kit, actors);
+    let (mut sim, mut anim, mut combat, mut death, _party) =
+        build_scene(kit, &start, actors, root, &mut hud)?;
+    let ticks = args
+        .capture_tick
+        .or(args.fixture.map(|f| f.ticks))
+        .unwrap_or(600);
+    let window = (
+        VIRTUAL_WIDTH as u32 * args.scale,
+        view_height(args.deck) as u32 * args.scale,
+    );
+    let scene_camera = scene_camera_of(kit, args, &sim, combat.as_ref(), window);
+    let mut rig = scene_camera.rig;
+    println!(
+        "FLOOR1_VIEW_TRACE camera={} output={}x{} slot={}x{}",
+        args.camera_choice().label(),
+        window.0,
+        window.1,
+        scene_camera.slot.0,
+        scene_camera.slot.1
+    );
+    let scenario = args.scenario.unwrap_or(Scenario::WalkRight);
+    for _ in 0..ticks {
+        let mut cut = false;
+        match (args.fixture, combat.as_mut()) {
+            (Some(fixture), Some(combat)) => {
+                // The demo trace is the autopilot's recorded run of the route.
+                let raw = if args.demo {
+                    demo::autopilot(combat, &sim)
+                } else {
+                    fixture.input(sim.world.tick + 1)
+                };
+                cut = step_combat(
+                    &mut sim,
+                    combat,
+                    &mut anim,
+                    death.as_mut(),
+                    [raw, RawInput::default()],
+                );
+            }
+            _ => {
+                let raw = scenario.input(&sim.world);
+                sim.step(raw);
+                anim.step(&sim.world);
+            }
+        }
+        let elapsed = elapsed_ticks(&sim, combat.as_ref());
+        let kick = combat.as_ref().map_or(0, |c| c.camera_kick(sim.world.tick));
+        match rig.as_mut() {
+            Some(rig) => {
+                let interest = test_interest(kit, args, &sim, combat.as_ref(), elapsed);
+                if cut {
+                    rig.request_cut();
+                }
+                rig.sync(&sim, combat.as_ref(), &interest, elapsed);
+                println!("{}", rig.trace_line(elapsed, kick));
+            }
+            None => {
+                let (left, top) = scroll_origin(&sim, kit.width, kick);
+                println!(
+                    "FLOOR1_VIEW tick={elapsed} left={left} top={top} w={VIRTUAL_WIDTH} h={} rest=0 kick={kick} kick_px={kick}",
+                    view_height(args.deck)
+                );
+            }
+        }
+    }
+    println!("{}", sim.state_line());
+    if let Some(combat) = combat.as_ref() {
+        println!(
+            "FLOOR1_VIEW_TRACE_HASH combat={:016x}",
+            combat.state_hash(&sim)
+        );
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// LLAMA-02 gate ruling 13.1, the blocker of the PR B review: the stone is
+    /// drawn over the crushed llama only if it is on the actors render layer
+    /// (the prop slot is composed below the actors slot, so a higher z alone
+    /// would leave the llama in front). Over: the actors layer; otherwise the
+    /// prop layer. Also the z order inside the actors layer: above every
+    /// lying body, below Donut (0) and Carl.
+    #[test]
+    fn the_block_joins_the_actors_layer_while_it_is_drawn_over_a_crushed_enemy() {
+        let (prop, actors) = (RenderLayers::layer(3), RenderLayers::layer(4));
+        assert_eq!(block_layers(true, &prop, &actors), &actors);
+        assert_eq!(block_layers(false, &prop, &actors), &prop);
+        assert_ne!(prop, actors);
+        // Lying bodies sit at GOBLIN_LYING_Z_OFFSET minus a step per target; the
+        // block above all of them (even 64 targets) and below Donut and Carl.
+        const {
+            assert!(HAZARD_OVER_Z_OFFSET > GOBLIN_LYING_Z_OFFSET);
+            assert!(HAZARD_OVER_Z_OFFSET < 0.0 && HAZARD_OVER_Z_OFFSET < CARL_Z_OFFSET);
+        }
+    }
 
     fn args(list: &[&str]) -> Result<Args, String> {
         let mut full = vec!["floor01_scene".to_owned()];
@@ -3432,7 +4820,17 @@ mod tests {
         assert!(args(&["--gore-preset"]).is_err());
         // The lab flags need a fixture; stress is live only; the trace is headless only.
         assert!(args(&["--death-stress"]).is_err());
+        // DEATH-D: the decapitation lab flag is gone (it is an unknown argument).
         assert!(args(&["--death-lab-finish", "decapitated"]).is_err());
+        assert!(
+            args(&[
+                "--fixture",
+                "cp03_shore_kill",
+                "--death-lab-finish",
+                "decapitated"
+            ])
+            .is_err()
+        );
         assert!(args(&["--fixture", "cp03_shore_kill", "--death-trace"]).is_err());
         assert!(
             args(&[
@@ -3452,7 +4850,6 @@ mod tests {
             ])
             .is_err()
         );
-        assert!(args(&["--fixture", "cp03_shore_kill", "--death-lab-finish", "bomb"]).is_err());
     }
 
     #[test]
@@ -3463,9 +4860,25 @@ mod tests {
         let lowest_actor = 7.0 + GOBLIN_LYING_Z_OFFSET - GOBLIN_Z_STEP * 64.0;
         let slots = PART_POOL_SLOTS.max(FLOOR_DECAL_POOL_SLOTS);
         for slot in [0, slots - 1] {
-            for layer in [DrawLayer::Debris, DrawLayer::FloorDecal] {
+            for layer in [DrawLayer::Debris, DrawLayer::FloorDecal, DrawLayer::Blast] {
                 assert!(draw_z(layer, slot, 7.0, 3.0) < lowest_actor, "{layer:?}");
             }
+        }
+        // DEATH-D: the charge and the burst sit between the floor decals and
+        // the debris (every charge slot is below the first debris piece).
+        for slot in 0..8 {
+            let blast = draw_z(DrawLayer::Blast, slot, 7.0, 3.0);
+            assert!(blast > draw_z(DrawLayer::FloorDecal, slots - 1, 7.0, 3.0));
+            assert!(blast < draw_z(DrawLayer::Debris, 0, 7.0, 3.0));
+        }
+        // The preset 4 burst is over the debris and under every actor; the lit
+        // charge is over a standing goblin (+0.05) and under Carl (+0.1).
+        let debris_top = draw_z(DrawLayer::Debris, PART_POOL_SLOTS, 7.0, 3.0);
+        for slot in 0..8 {
+            let front = draw_z(DrawLayer::BlastFront, slot, 7.0, 3.0);
+            assert!(front > debris_top && front < lowest_actor);
+            let lit = draw_z(DrawLayer::ChargeLit, slot, 7.0, 3.0);
+            assert!(lit > 7.0 + 0.05 && lit < 7.0 + CARL_Z_OFFSET);
         }
         assert!(draw_z(DrawLayer::WallDecal, WALL_DECAL_POOL_SLOTS, 7.0, 3.0) < 4.0);
     }
@@ -3690,6 +5103,25 @@ mod tests {
         assert!(args(&["--scenario", "fly"]).is_err());
         assert!(args(&["--bogus"]).is_err());
         assert_eq!(args(&[]).unwrap().scale, 2);
+    }
+
+    #[test]
+    fn the_automatic_camera_is_the_demo_default_and_nothing_else_changes() {
+        let demo = args(&["--demo", "--scale", "3"]).unwrap();
+        assert_eq!(demo.camera_choice(), CameraChoice::Auto);
+        let scroll = args(&["--demo", "--camera", "scroll", "--scale", "3"]).unwrap();
+        assert_eq!(scroll.camera_choice(), CameraChoice::Scroll);
+        // Every fixture, scenario and capture keeps the scroll camera.
+        for list in [
+            vec!["--fixture", "cp01_kick"],
+            vec!["--scenario", "walk_right"],
+            vec![],
+        ] {
+            assert_eq!(args(&list).unwrap().camera_choice(), CameraChoice::Scroll);
+        }
+        // The test room and the demo hall are two different rooms.
+        assert!(args(&["--demo", "--camera-test-room", "1"]).is_err());
+        assert!(args(&["--camera-test-room", "1"]).is_ok());
     }
 
     #[test]

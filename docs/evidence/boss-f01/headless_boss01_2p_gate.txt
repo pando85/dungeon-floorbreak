@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=206 kind=boss_engaged
+COMBAT_EVENT tick=206 kind=rack_armed rack=0
+COMBAT_EVENT tick=207 kind=boss_tell move=charge target=carl
+COMBAT_EVENT tick=247 kind=boss_strike move=charge
+COMBAT_EVENT tick=259 kind=hero_hurt source=16981 health_left=3
+COMBAT_EVENT tick=284 kind=hero_hurt source=16981 health_left=3 hero=donut
+COMBAT_STATE fixture=boss01_2p_gate seed=0xb050008 tick=320 elapsed=320 hero_hp=3 deaths=0 enemies= hash=c82321b469d11510 boss=36/36/charge/p1 boss_x=115.00
+PARTY_STATE fixture=boss01_2p_gate mode=2p controlled=Carl carl_hp=3 donut_hp=3 deaths=0 hash=ffbdef1f02ef6776

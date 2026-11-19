@@ -1,0 +1,247 @@
+COMBAT_EVENT tick=21 kind=boss_engaged
+COMBAT_EVENT tick=22 kind=boss_tell move=charge target=carl
+COMBAT_EVENT tick=62 kind=boss_strike move=charge
+COMBAT_EVENT tick=108 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=112 kind=boss_hurt source=0 damage=1 hp_left=35
+COMBAT_EVENT tick=139 kind=boss_crash wall=left
+COMBAT_EVENT tick=156 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=159 kind=boss_hurt source=0 damage=1 hp_left=34
+COMBAT_EVENT tick=168 kind=move_started move=haymaker instance=3
+COMBAT_EVENT tick=173 kind=boss_hurt source=0 damage=1 hp_left=33
+COMBAT_EVENT tick=195 kind=move_started move=jab instance=4
+COMBAT_EVENT tick=198 kind=boss_hurt source=0 damage=1 hp_left=32
+COMBAT_EVENT tick=205 kind=move_started move=haymaker instance=5
+COMBAT_EVENT tick=210 kind=boss_hurt source=0 damage=1 hp_left=31
+COMBAT_EVENT tick=232 kind=move_started move=jab instance=6
+COMBAT_EVENT tick=235 kind=boss_hurt source=0 damage=1 hp_left=30
+COMBAT_EVENT tick=242 kind=move_started move=haymaker instance=7
+COMBAT_EVENT tick=247 kind=boss_hurt source=0 damage=1 hp_left=29
+COMBAT_EVENT tick=273 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=276 kind=move_started move=jab instance=8
+COMBAT_EVENT tick=279 kind=boss_hurt source=0 damage=1 hp_left=28
+COMBAT_EVENT tick=312 kind=boss_strike move=pound
+COMBAT_EVENT tick=336 kind=move_started move=jab instance=9
+COMBAT_EVENT tick=339 kind=boss_hurt source=0 damage=1 hp_left=27
+COMBAT_EVENT tick=348 kind=move_started move=haymaker instance=10
+COMBAT_EVENT tick=351 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=387 kind=boss_strike move=pound
+COMBAT_EVENT tick=408 kind=move_started move=jab instance=11
+COMBAT_EVENT tick=411 kind=boss_hurt source=0 damage=1 hp_left=26
+COMBAT_EVENT tick=420 kind=move_started move=haymaker instance=12
+COMBAT_EVENT tick=424 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=460 kind=boss_strike move=pound
+COMBAT_EVENT tick=480 kind=move_started move=jab instance=13
+COMBAT_EVENT tick=483 kind=boss_hurt source=0 damage=1 hp_left=25
+COMBAT_EVENT tick=492 kind=move_started move=haymaker instance=14
+COMBAT_EVENT tick=499 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=535 kind=boss_strike move=pound
+COMBAT_EVENT tick=552 kind=move_started move=jab instance=15
+COMBAT_EVENT tick=555 kind=boss_hurt source=0 damage=1 hp_left=24
+COMBAT_EVENT tick=564 kind=move_started move=haymaker instance=16
+COMBAT_EVENT tick=569 kind=boss_hurt source=0 damage=1 hp_left=23
+COMBAT_EVENT tick=577 kind=boss_phase phase=2
+COMBAT_EVENT tick=600 kind=move_started move=jab instance=17
+COMBAT_EVENT tick=603 kind=boss_hurt source=0 damage=1 hp_left=22
+COMBAT_EVENT tick=612 kind=move_started move=haymaker instance=18
+COMBAT_EVENT tick=617 kind=boss_hurt source=0 damage=1 hp_left=21
+COMBAT_EVENT tick=639 kind=move_started move=jab instance=19
+COMBAT_EVENT tick=642 kind=boss_hurt source=0 damage=1 hp_left=20
+COMBAT_EVENT tick=649 kind=move_started move=haymaker instance=20
+COMBAT_EVENT tick=649 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=654 kind=boss_hurt source=0 damage=1 hp_left=19
+COMBAT_EVENT tick=690 kind=boss_strike move=pound
+COMBAT_EVENT tick=700 kind=hero_hurt source=16981 health_left=3 hero=donut
+COMBAT_EVENT tick=708 kind=move_started move=jab instance=21
+COMBAT_EVENT tick=720 kind=move_started move=haymaker instance=22
+COMBAT_EVENT tick=724 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=727 kind=boss_hurt source=0 damage=1 hp_left=18
+COMBAT_EVENT tick=765 kind=boss_strike move=pound
+COMBAT_EVENT tick=775 kind=hero_hurt source=16981 health_left=2 hero=donut
+COMBAT_EVENT tick=780 kind=move_started move=jab instance=23
+COMBAT_EVENT tick=792 kind=move_started move=haymaker instance=24
+COMBAT_EVENT tick=799 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=835 kind=boss_strike move=pound
+COMBAT_EVENT tick=845 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=852 kind=move_started move=jab instance=25
+COMBAT_EVENT tick=864 kind=move_started move=haymaker instance=26
+COMBAT_EVENT tick=869 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=905 kind=boss_strike move=pound
+COMBAT_EVENT tick=915 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=924 kind=move_started move=jab instance=27
+COMBAT_EVENT tick=936 kind=move_started move=haymaker instance=28
+COMBAT_EVENT tick=939 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=942 kind=boss_hurt source=0 damage=1 hp_left=17
+COMBAT_EVENT tick=980 kind=boss_strike move=pound
+COMBAT_EVENT tick=990 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=996 kind=move_started move=jab instance=29
+COMBAT_EVENT tick=1008 kind=move_started move=haymaker instance=30
+COMBAT_EVENT tick=1014 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1050 kind=boss_strike move=pound
+COMBAT_EVENT tick=1060 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1068 kind=move_started move=jab instance=31
+COMBAT_EVENT tick=1080 kind=move_started move=haymaker instance=32
+COMBAT_EVENT tick=1084 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1087 kind=boss_hurt source=0 damage=1 hp_left=16
+COMBAT_EVENT tick=1125 kind=boss_strike move=pound
+COMBAT_EVENT tick=1135 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1140 kind=move_started move=jab instance=33
+COMBAT_EVENT tick=1152 kind=move_started move=haymaker instance=34
+COMBAT_EVENT tick=1159 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1195 kind=boss_strike move=pound
+COMBAT_EVENT tick=1205 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1212 kind=move_started move=jab instance=35
+COMBAT_EVENT tick=1224 kind=move_started move=haymaker instance=36
+COMBAT_EVENT tick=1229 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1265 kind=boss_strike move=pound
+COMBAT_EVENT tick=1275 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1284 kind=move_started move=jab instance=37
+COMBAT_EVENT tick=1296 kind=move_started move=haymaker instance=38
+COMBAT_EVENT tick=1299 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1302 kind=boss_hurt source=0 damage=1 hp_left=15
+COMBAT_EVENT tick=1340 kind=boss_strike move=pound
+COMBAT_EVENT tick=1350 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1356 kind=move_started move=jab instance=39
+COMBAT_EVENT tick=1368 kind=move_started move=haymaker instance=40
+COMBAT_EVENT tick=1374 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1410 kind=boss_strike move=pound
+COMBAT_EVENT tick=1420 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1428 kind=move_started move=jab instance=41
+COMBAT_EVENT tick=1440 kind=move_started move=haymaker instance=42
+COMBAT_EVENT tick=1444 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1447 kind=boss_hurt source=0 damage=1 hp_left=14
+COMBAT_EVENT tick=1485 kind=boss_strike move=pound
+COMBAT_EVENT tick=1495 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1500 kind=move_started move=jab instance=43
+COMBAT_EVENT tick=1512 kind=move_started move=haymaker instance=44
+COMBAT_EVENT tick=1519 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1555 kind=boss_strike move=pound
+COMBAT_EVENT tick=1565 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1572 kind=move_started move=jab instance=45
+COMBAT_EVENT tick=1584 kind=move_started move=haymaker instance=46
+COMBAT_EVENT tick=1589 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1625 kind=boss_strike move=pound
+COMBAT_EVENT tick=1635 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1644 kind=move_started move=jab instance=47
+COMBAT_EVENT tick=1656 kind=move_started move=haymaker instance=48
+COMBAT_EVENT tick=1659 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1662 kind=boss_hurt source=0 damage=1 hp_left=13
+COMBAT_EVENT tick=1700 kind=boss_strike move=pound
+COMBAT_EVENT tick=1710 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1716 kind=move_started move=jab instance=49
+COMBAT_EVENT tick=1728 kind=move_started move=haymaker instance=50
+COMBAT_EVENT tick=1734 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1770 kind=boss_strike move=pound
+COMBAT_EVENT tick=1780 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1788 kind=move_started move=jab instance=51
+COMBAT_EVENT tick=1800 kind=move_started move=haymaker instance=52
+COMBAT_EVENT tick=1804 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1807 kind=boss_hurt source=0 damage=1 hp_left=12
+COMBAT_EVENT tick=1845 kind=boss_strike move=pound
+COMBAT_EVENT tick=1855 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=1860 kind=move_started move=jab instance=53
+COMBAT_EVENT tick=1872 kind=move_started move=haymaker instance=54
+COMBAT_EVENT tick=1879 kind=boss_phase phase=3
+COMBAT_EVENT tick=1908 kind=move_started move=jab instance=55
+COMBAT_EVENT tick=1911 kind=boss_hurt source=0 damage=1 hp_left=11
+COMBAT_EVENT tick=1920 kind=move_started move=haymaker instance=56
+COMBAT_EVENT tick=1925 kind=boss_hurt source=0 damage=1 hp_left=10
+COMBAT_EVENT tick=1947 kind=move_started move=jab instance=57
+COMBAT_EVENT tick=1948 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=1950 kind=boss_hurt source=0 damage=1 hp_left=9
+COMBAT_EVENT tick=1957 kind=move_started move=haymaker instance=58
+COMBAT_EVENT tick=1962 kind=boss_hurt source=0 damage=1 hp_left=8
+COMBAT_EVENT tick=1992 kind=boss_strike move=pound
+COMBAT_EVENT tick=2002 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2004 kind=move_started move=jab instance=59
+COMBAT_EVENT tick=2016 kind=move_started move=haymaker instance=60
+COMBAT_EVENT tick=2037 kind=boss_tell move=second_pound target=carl
+COMBAT_EVENT tick=2061 kind=boss_strike move=second_pound
+COMBAT_EVENT tick=2064 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2076 kind=move_started move=jab instance=61
+COMBAT_EVENT tick=2088 kind=move_started move=haymaker instance=62
+COMBAT_EVENT tick=2095 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=2131 kind=boss_strike move=pound
+COMBAT_EVENT tick=2148 kind=move_started move=jab instance=63
+COMBAT_EVENT tick=2149 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2160 kind=move_started move=haymaker instance=64
+COMBAT_EVENT tick=2167 kind=boss_hurt source=0 damage=1 hp_left=7
+COMBAT_EVENT tick=2181 kind=boss_tell move=second_pound target=carl
+COMBAT_EVENT tick=2205 kind=boss_strike move=second_pound
+COMBAT_EVENT tick=2214 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2220 kind=move_started move=jab instance=65
+COMBAT_EVENT tick=2232 kind=move_started move=haymaker instance=66
+COMBAT_EVENT tick=2239 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=2275 kind=boss_strike move=pound
+COMBAT_EVENT tick=2284 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2292 kind=move_started move=jab instance=67
+COMBAT_EVENT tick=2304 kind=move_started move=haymaker instance=68
+COMBAT_EVENT tick=2311 kind=boss_hurt source=0 damage=1 hp_left=6
+COMBAT_EVENT tick=2325 kind=boss_tell move=second_pound target=carl
+COMBAT_EVENT tick=2349 kind=boss_strike move=second_pound
+COMBAT_EVENT tick=2352 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2364 kind=move_started move=jab instance=69
+COMBAT_EVENT tick=2376 kind=move_started move=haymaker instance=70
+COMBAT_EVENT tick=2383 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=2419 kind=boss_strike move=pound
+COMBAT_EVENT tick=2436 kind=move_started move=jab instance=71
+COMBAT_EVENT tick=2437 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2448 kind=move_started move=haymaker instance=72
+COMBAT_EVENT tick=2455 kind=boss_hurt source=0 damage=1 hp_left=5
+COMBAT_EVENT tick=2469 kind=boss_tell move=second_pound target=carl
+COMBAT_EVENT tick=2493 kind=boss_strike move=second_pound
+COMBAT_EVENT tick=2502 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2508 kind=move_started move=jab instance=73
+COMBAT_EVENT tick=2520 kind=move_started move=haymaker instance=74
+COMBAT_EVENT tick=2527 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=2563 kind=boss_strike move=pound
+COMBAT_EVENT tick=2572 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2580 kind=move_started move=jab instance=75
+COMBAT_EVENT tick=2592 kind=move_started move=haymaker instance=76
+COMBAT_EVENT tick=2599 kind=boss_hurt source=0 damage=1 hp_left=4
+COMBAT_EVENT tick=2613 kind=boss_tell move=second_pound target=carl
+COMBAT_EVENT tick=2637 kind=boss_strike move=second_pound
+COMBAT_EVENT tick=2640 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2652 kind=move_started move=jab instance=77
+COMBAT_EVENT tick=2664 kind=move_started move=haymaker instance=78
+COMBAT_EVENT tick=2671 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=2707 kind=boss_strike move=pound
+COMBAT_EVENT tick=2724 kind=move_started move=jab instance=79
+COMBAT_EVENT tick=2725 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2736 kind=move_started move=haymaker instance=80
+COMBAT_EVENT tick=2743 kind=boss_hurt source=0 damage=1 hp_left=3
+COMBAT_EVENT tick=2757 kind=boss_tell move=second_pound target=carl
+COMBAT_EVENT tick=2781 kind=boss_strike move=second_pound
+COMBAT_EVENT tick=2790 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2796 kind=move_started move=jab instance=81
+COMBAT_EVENT tick=2808 kind=move_started move=haymaker instance=82
+COMBAT_EVENT tick=2815 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=2851 kind=boss_strike move=pound
+COMBAT_EVENT tick=2860 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2868 kind=move_started move=jab instance=83
+COMBAT_EVENT tick=2880 kind=move_started move=haymaker instance=84
+COMBAT_EVENT tick=2887 kind=boss_hurt source=0 damage=1 hp_left=2
+COMBAT_EVENT tick=2901 kind=boss_tell move=second_pound target=carl
+COMBAT_EVENT tick=2925 kind=boss_strike move=second_pound
+COMBAT_EVENT tick=2928 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=2940 kind=move_started move=jab instance=85
+COMBAT_EVENT tick=2952 kind=move_started move=haymaker instance=86
+COMBAT_EVENT tick=2959 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=2995 kind=boss_strike move=pound
+COMBAT_EVENT tick=3012 kind=move_started move=jab instance=87
+COMBAT_EVENT tick=3013 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=3024 kind=move_started move=haymaker instance=88
+COMBAT_EVENT tick=3031 kind=boss_hurt source=0 damage=1 hp_left=1
+COMBAT_EVENT tick=3045 kind=boss_tell move=second_pound target=carl
+COMBAT_EVENT tick=3069 kind=boss_strike move=second_pound
+COMBAT_EVENT tick=3078 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=3084 kind=move_started move=jab instance=89
+COMBAT_EVENT tick=3096 kind=move_started move=haymaker instance=90
+COMBAT_EVENT tick=3103 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=3139 kind=boss_strike move=pound
+COMBAT_EVENT tick=3148 kind=hero_hurt source=16981 health_left=1 hero=donut
+COMBAT_EVENT tick=3156 kind=move_started move=jab instance=91
+COMBAT_EVENT tick=3168 kind=move_started move=haymaker instance=92
+COMBAT_EVENT tick=3175 kind=boss_hurt source=0 damage=1 hp_left=0
+COMBAT_EVENT tick=3175 kind=enemy_defeated target=16981
+COMBAT_STATE fixture=boss01_full_clear_solo seed=0xb05000c tick=3255 elapsed=7200 hero_hp=4 deaths=0 enemies= hash=1fd76d541f533d5f boss=0/36/defeated/p3 boss_x=330.80
+PARTY_STATE fixture=boss01_full_clear_solo mode=solo controlled=Carl carl_hp=4 donut_hp=1 deaths=0 hash=c908a59c0c07ec85

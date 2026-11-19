@@ -12,4 +12,4 @@ COMBAT_EVENT tick=135 kind=goblin_interrupted goblin=1
 COMBAT_EVENT tick=142 kind=move_started move=haymaker instance=4
 COMBAT_EVENT tick=147 kind=hit move=haymaker instance=4 target=1 damage=1 health_left=0 hit_stop=8
 COMBAT_EVENT tick=147 kind=enemy_defeated target=1
-COMBAT_STATE fixture=demo01_b1 seed=0xde300001 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=847.768/0,e1=896.768/0,e2=1280.000/2,e3=1310.000/2,e4=1705.000/2,e5=1735.000/2,e6=1900.000/2,e7=2350.000/2,e8=3010.000/2,e9=3030.000/2,e10=3050.000/2,e11=3110.000/2,e12=3130.000/2,e13=3150.000/2 hash=63af644653f2a74e shore=0/Intact/Seated block_bottom=140.00 demo_cp=1
+COMBAT_STATE fixture=demo01_b1 seed=0xde300001 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=847.768/0,e1=896.768/0,e2=1280.000/2,e3=1310.000/2,e4=1705.000/2,e5=1745.000/2,e6=1900.000/2,e7=2350.000/2,e8=3010.000/2,e9=3030.000/2,e10=3050.000/2,e11=3110.000/2,e12=3130.000/2,e13=3150.000/2,e14=2735.000/2,e15=2763.000/2,e16=2778.000/2 hash=deb3c89b639097d5 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=2286.650/3 demo_cp=1

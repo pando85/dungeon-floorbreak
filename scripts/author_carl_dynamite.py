@@ -775,7 +775,7 @@ def vfx_manifest() -> dict:
         "license": LICENSE,
         "review_status": "prototype_fixture_unapproved",
         "vfx": {
-            "status": "Keys frozen; in-betweens drawn; independent review pending; not wired into any Bevy binary",
+            "status": "Keys frozen; in-betweens drawn; independent review pending; drawn in the floor01_scene QA fixtures only (DEATH-D); review pending",
             "spec": "docs/02-art/carl-dynamite-anim-03-spec.md",
             "tick_hz": TICK_HZ,
             "free_tags": ["dynamite_flight", "dynamite_fizzle"],
