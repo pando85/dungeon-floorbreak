@@ -32,7 +32,7 @@
 11. **Tone.** Black humour and 1980s to 1990s action-movie attitude (a battered everyman, dirty impacts, the mess as the joke): 1 absent, 5 nailed. Then one line: what is missing or wrong?
 12. **Donut and the party.**
     a. Solo swap to Donut and back (L1/LB, Q on the keyboard): 1 clunky or confusing, 5 instant and useful. `skip` if you never swapped.
-    b. Donut as companion (she follows, dodges, can be hurt, and her defeat ends the attempt; she has no attacks yet): 1 a liability, 5 a partner worth protecting.
+    b. Donut as companion (she follows, dodges and can be hurt; in solo the bot Donut never drops below 1 HP, but a Donut you control, or either hero in 2P, ends the attempt at 0 HP; she has no attacks yet): 1 a liability, 5 a partner worth protecting.
     c. Two players (a second pad joins with Start): 1 broken or no fun, 5 fun. `skip` if you played solo.
 13. **Priorities.** One line each:
     a. Cut or tone down first:
