@@ -19,6 +19,7 @@ use crate::camera_lab::layout::build_kit;
 use crate::camera_lab::room::parse_rooms;
 use crate::combat_scene::{CombatState, Fixture};
 use crate::corridor::SceneSim;
+use crate::donut_mana::DonutSetup;
 use crate::env_kit::{EnvKit, IRect, ViewDef};
 use crate::input::{RawInput, SlotInputs};
 use crate::party::{PROVISIONAL_TUNING, PartyTuning};
@@ -170,7 +171,7 @@ pub enum Pilot {
     Duo,
 }
 
-const fn boss_base(
+pub(crate) const fn boss_base(
     name: &'static str,
     summary: &'static str,
     seed: u64,
@@ -194,7 +195,7 @@ const fn boss_base(
 }
 
 /// Full boss HP and the racks on.
-const FULL: BossSetup = BossSetup {
+pub(crate) const FULL: BossSetup = BossSetup {
     hp: u16::MAX,
     left_rack: true,
 };
@@ -203,7 +204,7 @@ const FULL_NO_RACKS: BossSetup = BossSetup {
     hp: u16::MAX,
     left_rack: false,
 };
-const fn hp(hp: u16) -> BossSetup {
+pub(crate) const fn hp(hp: u16) -> BossSetup {
     BossSetup {
         hp,
         left_rack: true,
@@ -237,6 +238,7 @@ pub const BOSS01_POUND_PUNISH: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::Carl,
+    donut: DonutSetup::NONE,
 };
 
 const CHARGE_JUMP_BASE: Fixture = boss_base(
@@ -254,6 +256,7 @@ pub const BOSS01_CHARGE_JUMP: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::Carl,
+    donut: DonutSetup::NONE,
 };
 
 const CHARGE_HIT_BASE: Fixture = boss_base(
@@ -271,6 +274,7 @@ pub const BOSS01_CHARGE_HIT: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const HUG_BASE: Fixture = boss_base(
@@ -288,6 +292,7 @@ pub const BOSS01_HUG_GUARD: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[run(1, 300, 0, 1.0)],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const RACK_CARL_BASE: Fixture = boss_base(
@@ -305,6 +310,7 @@ pub const BOSS01_RACK_CARL: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::CarlRack,
+    donut: DonutSetup::NONE,
 };
 
 const PHASE_ROAR_BASE: Fixture = boss_base(
@@ -322,6 +328,7 @@ pub const BOSS01_PHASE_ROAR: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::Carl,
+    donut: DonutSetup::NONE,
 };
 
 const ROAR_QUEUED_BASE: Fixture = boss_base(
@@ -339,6 +346,7 @@ pub const BOSS01_ROAR_QUEUED: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::CarlRack,
+    donut: DonutSetup::NONE,
 };
 
 const GATE_2P_BASE: Fixture = boss_base(
@@ -356,6 +364,7 @@ pub const BOSS01_2P_GATE: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[run(1, 90, 0, 1.0), run(200, 260, 1, 1.0)],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const SOLO_AI_BASE: Fixture = boss_base(
@@ -373,6 +382,7 @@ pub const BOSS01_SOLO_AI_GUARD: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::Carl,
+    donut: DonutSetup::NONE,
 };
 
 const DEFEAT_BASE: Fixture = boss_base(
@@ -394,6 +404,7 @@ pub const BOSS01_PARTY_DEFEAT_RETRY: PartyFixture = PartyFixture {
     },
     script: &[],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const CRUSH_BASE: Fixture = boss_base(
@@ -411,6 +422,7 @@ pub const BOSS01_CRUSH_KILL: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::CarlRack,
+    donut: DonutSetup::NONE,
 };
 
 const CLEAR_SOLO_BASE: Fixture = boss_base(
@@ -428,6 +440,7 @@ pub const BOSS01_FULL_CLEAR_SOLO: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::Carl,
+    donut: DonutSetup::NONE,
 };
 
 const CLEAR_2P_BASE: Fixture = boss_base(
@@ -445,6 +458,7 @@ pub const BOSS01_FULL_CLEAR_2P: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::Duo,
+    donut: DonutSetup::NONE,
 };
 
 /// Every boss fixture, in committed order. `boss01_rack_donut` is pending

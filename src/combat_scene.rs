@@ -27,6 +27,7 @@ use crate::combat::{
     hit_box, solid_at, strike_group,
 };
 use crate::corridor::{PartyStepCtx, SceneSim};
+use crate::donut_mana::{DonutSetup, RestartKind};
 use crate::env_kit::EnvKit;
 use crate::feel::{
     CAMERA_KICK_TICKS, GROUND_FRICTION, HERO_DEFEAT_HIT_STOP, HERO_HURT_HIT_STOP,
@@ -43,6 +44,9 @@ use crate::llama::{
 use crate::party::{EnemyTargetRule, HeroId};
 use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, TICK_SECONDS};
 use crate::shore::{PLAYER_ONE, Shore};
+
+mod donut;
+pub use donut::{Bolt, Cast, DonutKit};
 
 /// Centre-to-centre distance at which Carl's body touches a goblin's (the two
 /// half widths): the haymaker's step stops here.
@@ -833,6 +837,10 @@ pub struct CombatState {
     /// Donut's hit state while the party is live (idle otherwise). Carl's
     /// state stays in the fields above; see [`Self::hurt_ticks_of`].
     pub donut: HeroCombat,
+    /// WORK-023, HUD-DEBT-02: Donut's swat, pounce, Magic Missile and mana. It
+    /// runs only while the party is live and `PartyTuning::donut_moves` is on,
+    /// and mixes nothing into the hash while she never used an ability.
+    donut_kit: DonutKit,
     /// Which hero's defeat ended the attempt (D1: either one is the party's
     /// defeat). Meaningful while `hero_defeated`.
     pub defeated_hero: HeroId,
@@ -913,6 +921,7 @@ impl CombatState {
             hero_defeated: false,
             hero_vx: 0.0,
             donut: HeroCombat::default(),
+            donut_kit: DonutKit::new(DonutSetup::NONE),
             defeated_hero: HeroId::Carl,
             targets: Vec::new(),
             defeated_ticks: 0,
@@ -1000,6 +1009,7 @@ impl CombatState {
         self.defeated_ticks = 0;
         self.last_tell_start = None;
         self.confirm = None;
+        self.restart_donut(RestartKind::CheckpointRestart);
         self.respawned = true;
         self.log(CombatEvent::Respawn {
             tick: scene.world.tick,
@@ -1106,6 +1116,14 @@ impl CombatState {
     /// event carries the tick the finished attempt ended on (the triggering
     /// tick); the attempt that follows counts its ticks from 1 again.
     pub fn restart(&mut self, scene: &mut SceneSim) {
+        let start = self.donut_start();
+        self.restart_with(scene, RestartKind::Fixture(start));
+    }
+
+    /// [`Self::restart`] of a given kind: the party's defeat retry keeps
+    /// Donut's unlock and refills her mana, a fixture restart restores the
+    /// declared state (mana v0 section 3).
+    fn restart_with(&mut self, scene: &mut SceneSim, kind: RestartKind) {
         // Logged but not folded into the attempt's event hash, so a replayed
         // attempt after a restart hashes like a fresh one.
         self.push_event(CombatEvent::Restart {
@@ -1114,6 +1132,7 @@ impl CombatState {
         });
         scene.reset();
         self.reset_attempt();
+        self.restart_donut(kind);
         self.sync_arena(scene);
         self.restarts += 1;
     }
@@ -1157,7 +1176,9 @@ impl CombatState {
     /// on the goblins (Carl wins a same-tick trade), the scene step (the
     /// heroes' physics, the camera), then every goblin in index order (attack
     /// tokens, tell, swing, and the blow on its target), the contacts, the
-    /// shore, then the blast charges in index order. Donut has no attacks.
+    /// shore, then the blast charges in index order. Donut's swat, pounce and
+    /// Magic Missile run after Carl's strike and before the scene step (Carl,
+    /// Donut, goblins).
     pub fn step_party(&mut self, scene: &mut SceneSim, inputs: [RawInput; 2]) {
         let raw = inputs[0];
         let live = scene.party_live();
@@ -1357,18 +1378,12 @@ impl CombatState {
             if (self.hero_defeated || self.donut.vx != 0.0) && !donut_frozen {
                 self.drift_donut(scene);
             }
-            // Donut has no attacks (Q10 is deferred): only her movement and
-            // jump are read, and only while she can act.
+            // Donut's swat, pounce, Magic Missile and mana (Q10, WORK-023) run
+            // here, after Carl's strike and before the physics. Without
+            // `donut_moves` only her movement and jump are read, and only while
+            // she can act.
             let donut_can_act = !self.hero_defeated && self.donut.hurt_ticks == 0 && !donut_frozen;
-            let donut_raw = if donut_can_act {
-                RawInput {
-                    move_x: inputs[1].move_x,
-                    jump: inputs[1].jump,
-                    ..RawInput::default()
-                }
-            } else {
-                RawInput::default()
-            };
+            let donut_tick = self.step_donut(scene, inputs[1], donut_can_act, tick);
             let threats: Vec<Threat> = self
                 .enemies
                 .iter()
@@ -1378,13 +1393,15 @@ impl CombatState {
                     attack_tick: g.attack_tick,
                 })
                 .collect();
-            let ctx = PartyStepCtx {
-                can_move: [can_act && !committed, donut_can_act],
+            let mut ctx = PartyStepCtx {
+                can_move: [can_act && !committed, donut_tick.can_move],
                 frozen: [hero_frozen || melee_frozen, donut_frozen],
                 threats: &threats,
                 boss: self.boss.as_ref().and_then(Boss::threat),
+                drives: Default::default(),
             };
-            scene.step_party_ctx([gated, donut_raw], &ctx);
+            Self::apply_donut_tick(&mut ctx, &donut_tick);
+            scene.step_party_ctx([gated, donut_tick.raw], &ctx);
         } else if hero_frozen || melee_frozen {
             // Frozen in hit-stop: only the tick counter advances. Carl, the
             // camera and Donut's trail stand still (no motion to restore).
@@ -1408,7 +1425,7 @@ impl CombatState {
                 if self.demo.is_some() {
                     self.respawn(scene);
                 } else {
-                    self.restart(scene);
+                    self.restart_with(scene, RestartKind::DefeatRetry);
                 }
             }
         }
@@ -1734,6 +1751,8 @@ impl CombatState {
                 approved.contains(&index),
                 may_start,
             );
+            // WORK-023: one tick of the light guard (nothing while unset).
+            self.enemies[index].observe_guard();
             if step.started_tell {
                 self.last_tell_start = Some(tick);
                 self.log(CombatEvent::GoblinTell {
@@ -2359,6 +2378,8 @@ impl CombatState {
             for target in &self.targets {
                 put(target.map_or(0, |hero| hero.index() as u64 + 1));
             }
+            // WORK-023: nothing is mixed while Donut never used an ability.
+            self.donut_kit.hash_into(&mut put);
         }
         put(self.event_hash);
         // DEMO-01 only: no fixture mixes anything here.

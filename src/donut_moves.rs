@@ -1,4 +1,4 @@
-//! Donut's swat and pounce (Q10, WORK-023 phase A).
+//! Donut's swat and pounce (Q10, WORK-023).
 //!
 //! Bevy-free, deterministic at the 60 Hz fixed tick, and built on plain data:
 //! the adapter maps the scene into a [`StepInput`] (press edges, grounded flag,
@@ -352,6 +352,19 @@ pub enum GlanceReason {
     Boss,
 }
 
+impl GlanceReason {
+    /// The word the event line prints.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Swing => "swing",
+            Self::Staggered => "staggered",
+            Self::Down => "down",
+            Self::Guarded => "guarded",
+            Self::Boss => "boss",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CancelCause {
     Hurt,
@@ -568,6 +581,12 @@ impl DonutMoves {
 
     pub fn hit_stop_left(&self) -> u8 {
         self.hold
+    }
+
+    /// Lengthen the attacker's freeze (a lethal pounce adds the lethal
+    /// hit-stop bonus the target also took). Never shortens it.
+    pub fn extend_hit_stop(&mut self, ticks: u8) {
+        self.hold = self.hold.max(ticks);
     }
 
     /// A swap clears the buffered press; it never cancels a running move.
@@ -2002,8 +2021,8 @@ mod tests {
         assert_eq!(hits[0].0, 7);
         assert_eq!(hits[0].1.damage, 1);
         assert_eq!(hits[0].1.hit_stop.attacker, 4);
-        // Phase B: the boss adapter applies this through the boss hero-hit
-        // rule (#115) and ignores `stagger_ticks`; not wired in this module.
+        // The boss adapter (`combat_scene::donut`) applies this through the
+        // boss hero-hit rule (#115) and ignores `stagger_ticks`.
     }
 
     #[test]

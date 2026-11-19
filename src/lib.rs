@@ -18,6 +18,8 @@ pub mod corridor;
 pub mod death;
 pub mod death_present;
 pub mod demo;
+pub mod donut_art;
+pub mod donut_fixtures;
 pub mod donut_hud;
 pub mod donut_mana;
 pub mod donut_moves;

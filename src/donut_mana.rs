@@ -1,4 +1,4 @@
-//! Donut's biscuit unlock and mana pool (HUD-DEBT-02, WORK-023 phase A).
+//! Donut's biscuit unlock and mana pool (HUD-DEBT-02, WORK-023).
 //!
 //! Bevy-free and deterministic at the 60 Hz fixed tick. The rules are the
 //! adopted ones of `docs/01-design/donut-mana-v0-proposal.md`: 8 charges, a
@@ -239,6 +239,35 @@ impl StartState {
         unlocked: false,
         mana: 0,
     };
+}
+
+/// What a scene declares about Donut's biscuit: the state it starts in and the
+/// authored unlock zone (a placeholder x range until the Guild room exists,
+/// proposal section 1). `NONE` is a scene that never grants the unlock.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DonutSetup {
+    pub start: StartState,
+    /// The Tutorial Guild entry as a half-open `min_x..max_x` range in layout
+    /// pixels (Donut's pivot), or `None` for no trigger.
+    pub guild_zone: Option<(f32, f32)>,
+}
+
+impl DonutSetup {
+    pub const NONE: Self = Self {
+        start: StartState::LOCKED,
+        guild_zone: None,
+    };
+
+    /// A fixture that starts with the biscuit and `mana` charges.
+    pub const fn unlocked(mana: u8) -> Self {
+        Self {
+            start: StartState {
+                unlocked: true,
+                mana,
+            },
+            guild_zone: None,
+        }
+    }
 }
 
 /// Which restart is happening.

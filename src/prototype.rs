@@ -378,7 +378,34 @@ impl World {
 /// One fixed tick of hero movement against static solids: jump buffer, coyote
 /// time, horizontal sweep and gravity/landing. `max_x` is the largest centre x.
 /// Shared by the combat greybox and the Floor 1 corridor scene.
+/// Overrides a combat move applies to one hero step (Donut's pounce and swat,
+/// WORK-023). [`BodyDrive::default`] changes nothing, so the legacy step is
+/// byte for byte the one it always was.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct BodyDrive {
+    /// A launch impulse `(vx, vy)` in px/s applied this step: the hero leaves
+    /// the ground (the jump buffer and coyote time are spent).
+    pub launch: Option<(f32, f32)>,
+    /// Replaces the horizontal speed the walking input would give.
+    pub vx: Option<f32>,
+    /// Caps `|vx|` (a swat in progress).
+    pub vx_cap: Option<f32>,
+    /// The facing does not follow the horizontal speed this step.
+    pub facing_locked: bool,
+}
+
 pub fn step_hero(hero: &mut Hero, input: &InputFrame, blocks: &[Block], max_x: f32) {
+    step_hero_driven(hero, input, blocks, max_x, &BodyDrive::default());
+}
+
+/// [`step_hero`] with the overrides of a running combat move.
+pub fn step_hero_driven(
+    hero: &mut Hero,
+    input: &InputFrame,
+    blocks: &[Block],
+    max_x: f32,
+    drive: &BodyDrive,
+) {
     if input.jump_pressed {
         hero.jump_buffer_ticks = JUMP_BUFFER_TICKS;
     } else {
@@ -396,8 +423,20 @@ pub fn step_hero(hero: &mut Hero, input: &InputFrame, blocks: &[Block], max_x: f
         hero.coyote_ticks = 0;
     }
 
+    if let Some((_, vy)) = drive.launch {
+        hero.vy = vy;
+        hero.grounded = false;
+        hero.jump_buffer_ticks = 0;
+        hero.coyote_ticks = 0;
+    }
     hero.vx = input.held.move_x * RUN_SPEED;
-    if hero.vx.abs() > 0.1 {
+    if let Some(vx) = drive.vx {
+        hero.vx = vx;
+    }
+    if let Some(cap) = drive.vx_cap {
+        hero.vx = hero.vx.clamp(-cap, cap);
+    }
+    if hero.vx.abs() > 0.1 && !drive.facing_locked {
         hero.facing = if hero.vx > 0.0 { 1 } else { -1 };
     }
     let mut next_x = (hero.x + hero.vx * TICK_SECONDS).clamp(HERO_HALF_WIDTH, max_x);
@@ -939,5 +978,60 @@ mod tests {
         assert_eq!(world.deaths, 1);
         assert_eq!(world.hero.health, 4);
         assert_eq!(world.tick, 0);
+    }
+
+    /// WORK-023: the default drive is the legacy step, and a launch, a speed
+    /// override and a cap do what the pounce and the swat need.
+    #[test]
+    fn the_body_drive_defaults_to_the_legacy_step_and_overrides_only_what_it_names() {
+        let floor = vec![Block {
+            rect: Rect {
+                left: 0.0,
+                bottom: 0.0,
+                width: 2000.0,
+                height: 100.0,
+            },
+            material: Material::Stone,
+            intact: true,
+        }];
+        let at = || Hero::at(200.0, 100.0 + HERO_HALF_HEIGHT);
+        let mut input = InputFrame::default();
+        input.advance(RawInput {
+            move_x: 1.0,
+            jump: true,
+            ..RawInput::default()
+        });
+        let (mut a, mut b) = (at(), at());
+        step_hero(&mut a, &input, &floor, 2000.0);
+        step_hero_driven(&mut b, &input, &floor, 2000.0, &BodyDrive::default());
+        assert_eq!((a.x, a.y, a.vx, a.vy), (b.x, b.y, b.vx, b.vy));
+        // A launch leaves the ground with the given vertical speed and holds
+        // the overridden horizontal speed, whatever the walking input says.
+        let idle = InputFrame::default();
+        let mut hero = at();
+        let drive = BodyDrive {
+            launch: Some((180.0, 130.0)),
+            vx: Some(180.0),
+            ..BodyDrive::default()
+        };
+        step_hero_driven(&mut hero, &idle, &floor, 2000.0, &drive);
+        assert!(!hero.grounded && hero.vy > 100.0);
+        assert!((hero.x - 203.0).abs() < 1e-3, "180 px/s is 3 px a tick");
+        // A cap limits the walking speed (the swat) and a locked facing keeps it.
+        let mut walker = at();
+        walker.facing = -1;
+        let mut right = InputFrame::default();
+        right.advance(RawInput {
+            move_x: 1.0,
+            ..RawInput::default()
+        });
+        let capped = BodyDrive {
+            vx_cap: Some(60.0),
+            facing_locked: true,
+            ..BodyDrive::default()
+        };
+        step_hero_driven(&mut walker, &right, &floor, 2000.0, &capped);
+        assert_eq!(walker.vx, 60.0);
+        assert_eq!(walker.facing, -1, "the facing stays");
     }
 }

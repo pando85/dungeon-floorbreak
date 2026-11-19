@@ -712,7 +712,7 @@ pub fn melee_tag(id: MoveId) -> Option<&'static str> {
         MoveId::Jab => Some("punch_a"),
         MoveId::Haymaker => Some("punch_b"),
         MoveId::PushKick => Some("kick"),
-        MoveId::GreyboxStrike => None,
+        MoveId::GreyboxStrike | MoveId::Swat | MoveId::Pounce | MoveId::MagicMissile => None,
     }
 }
 

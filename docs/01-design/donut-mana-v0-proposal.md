@@ -1,6 +1,6 @@
 # Donut biscuit unlock and mana — v0 design (HUD-DEBT-02)
 
-**Status:** adopted (orchestrator, owner directive 2026-11-19); implementation pending HUD-DEBT-04/01 and Q10; game-feel review pending. Design only: nothing here is implemented, and the numbers are first tuning values for a playtest, not balance.
+**Status:** adopted (orchestrator, owner directive 2026-11-19); implemented with WORK-023 and in review (see [Implementation status](#implementation-status)); game-feel review pending. The numbers are first tuning values for a playtest, not balance.
 
 **Adopted options:**
 
@@ -91,22 +91,25 @@ This fits [the horizon](character-progression-horizon.md). Magic Missile becomes
 
 ## Implementation status
 
-**Phase A (domain), in progress** on `feat/donut-q10-mana`. The resource is Bevy-free and unit-tested but **not wired into any scene**; no legacy golden changes.
+**Implemented and in review** on `feat/donut-q10-mana` (HUD-DEBT-02, with WORK-023). The numbers are the adopted ones above and are data: nothing is balance, and game feel is pending the owner's playtest.
 
 | Piece | Where | Status |
 | --- | --- | --- |
 | Charge pool, cost, regen rule, unlock, restart kinds, `hash_into` (nothing mixed while locked), unlock trigger | `src/donut_mana.rs` | Implemented, unit-tested |
 | Hash-pinned tuning file and loader (`ManaTuning::pinned`, `TUNING_HASH`, FNV-1a 64) | `assets/data/gameplay/companion_magic_v0.json`, `src/donut_mana.rs` | Implemented; a test fails when the hash drifts |
-| Whole-segment `fill_px`, `DonutMagic`, chip row, depleted flash age | `src/donut_hud.rs` | Implemented, unit-tested |
-| Cast timeline (release on cast tick 4), `UnlockTrigger` placement in Floor 01 data, event log, fixtures `donut_unlock` and `donut_mana_drain`, real captures | integration phase | Not started |
+| Whole-segment `fill_px`, `DonutMagic`, chip row, depleted flash age | `src/donut_hud.rs` | Implemented; the real HUD plate reads them |
+| The real HUD plate from the real pool (no fixture) | `src/hud.rs` (`HudRuntime::set_donut_mana`), `src/bin/floor01_scene.rs` (`step_hud`) | Implemented; `--hud-preview` fixtures stay available |
+| Cast timeline (gather 0 to 3, release on cast tick 4), the bolt, the event log, the Guild trigger and the restart kinds | `src/combat_scene/donut.rs` | Implemented, unit-tested |
+| Fixtures `q10_dry_press` (the dry press and the regen), `q10_mana_regen` (the drain, the dry press and the 350 tick refill), `q10_unlock_persists` (the unlock, a bolt, a defeat retry) | `src/donut_fixtures.rs`, [evidence](../evidence/donut-q10-mana/README.md) | Implemented |
 
-The integration TODO list is in [the Q10 spec](../02-art/donut-moveset-q10.md#implementation-status). Mana specific points:
+How the adapter follows the points of the mana list: `DonutMana::step` runs on every tick **before** `release` (a charge due on a release tick is credited first); `release` runs on cast tick 4 and the returned `ManaEvent` goes to the capped log as `CombatEvent::Mana`; `reject_dry` runs on a dry press and on a buffered press whose mana check fails at its cast start; the pool is mixed into the hash only while unlocked; the `UnlockTrigger` is evaluated each tick with Donut's pivot and the party-defeat state; the defeat retry calls `RestartKind::DefeatRetry`, a demo respawn `CheckpointRestart` and `R` / Select `Fixture(start)`.
 
-1. The adapter calls `DonutMana::step` on every tick **before** `release`, calls `release` on cast tick 4 and `reject_dry` on a dry press, and maps the returned `ManaEvent`s into the capped event log.
-2. Mix `DonutMana::hash_into` into the scene hash. It mixes nothing while locked.
-3. Place the `UnlockTrigger` from level data (a placeholder x range until the Guild room exists) and call `UnlockTrigger::step` with Donut's pivot and the party-defeat state.
-4. Restart paths call `DonutMana::restart` with `DefeatRetry`, `CheckpointRestart` or `Fixture(StartState)`.
-5. Replays and fixtures record `TUNING_HASH` and load with `ManaTuning::from_json_pinned`.
+**Deviations:**
+
+- The Guild room does not exist, so the zone is a **placeholder x range** of the layout: `donut_fixtures::GUILD_PLACEHOLDER_ZONE` (520 to 560) in the corridor and `demo::GUILD_PLACEHOLDER_ZONE` (1040 to 1080) in the demo hall. The boss arena and `--donut-biscuit` start unlocked with a full pool.
+- The 24 tick HUD reveal at unlock is not drawn (presentation only; follow-up).
+- The replay header does not carry `TUNING_HASH` yet: the fixtures load the pinned file (`ManaTuning::pinned`), so a tuning edit fails the load.
+- The regen-progress row and Alternative B (`empty_press: "swat"`) stay deferred, as adopted.
 
 ### Adopted defaults (2026-11-19)
 

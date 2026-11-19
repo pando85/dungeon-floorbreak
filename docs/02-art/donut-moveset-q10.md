@@ -1,6 +1,6 @@
 # Q10: Donut's swat and pounce, gameplay and animation design
 
-**Status:** design proposed under the owner's design-defaults directive (AGENTS.md, 2026-11-19). Every value is a recommended default stored as data with a `Q10-##` ID. It is adopted after an independent review. Nothing is implemented yet, and game feel is pending the owner's 2P and solo play. Backlog: WORK-023. This unblocks HUD-DEBT-02 (mana) and Donut's HUD chips. Donut's scamper and cat-jump rows of Q10 remain open.
+**Status:** design adopted under the owner's design-defaults directive (AGENTS.md, 2026-11-19); implemented and in review (see [Implementation status](#implementation-status)). Every value is a recommended default stored as data with a `Q10-##` ID. Game feel is pending the owner's 2P and solo play. Backlog: WORK-023. This unblocks HUD-DEBT-02 (mana) and Donut's HUD chips. Donut's scamper and cat-jump rows of Q10 remain open.
 
 **Read with:**
 
@@ -209,34 +209,35 @@ The guide needs no update.
 
 ## Implementation status
 
-**Phase A (domain), in progress** on `feat/donut-q10-mana`. Bevy-free, unit-tested, **not wired into any scene**: the legacy goldens are untouched, and `donut_moves` does not exist yet.
+**Phase A (domain) and phase B (integration) are in review** on `feat/donut-q10-mana` (WORK-023, with the Donut mana of HUD-DEBT-02). Game feel is pending the owner's 2P and solo play: nothing here is accepted until a human has played it.
 
 | Piece | Where | Status |
 | --- | --- | --- |
 | Swat and pounce state machines, frame and tick tables, boxes, buffer, hit-stop, dry press, latched guard | `src/donut_moves.rs` | Implemented, unit-tested |
-| Primary routing (`route_primary`), the 0-mana dry press as an output event | `src/donut_moves.rs` | Implemented, unit-tested |
-| Chip and `ManaView` mapping | `src/donut_hud.rs` | Implemented, unit-tested |
-| `PartyTuning` knobs (Q10-01, 08, 09, 10, 12, 13, 15), `MoveId::Swat`/`Pounce`, `SWAT_FEEL`/`POUNCE_FEEL`, scene hookup, fixtures, evidence, animation wiring | integration phase | Not started |
+| Primary routing (`route_primary`), the 0-mana dry press as an output event | `src/donut_moves.rs` | Implemented, unit-tested; wired in the scene |
+| Chip and `ManaView` mapping | `src/donut_hud.rs` | Implemented; the real HUD plate reads it (`hud.rs`, `HudRuntime::set_donut_mana`) |
+| `MoveId::Swat` / `Pounce` / `MagicMissile`, the three `MoveSpec`s and `SWAT_FEEL` / `POUNCE_FEEL` / `MISSILE_FEEL` | `src/combat.rs`, `src/feel.rs` | Implemented; a test pins them to the domain's numbers |
+| Hit-stop split in `Goblin::take_hit` (`take_hit_split`), `LightGuard` on goblins, the target-state mapping | `src/goblin.rs` | Implemented, unit-tested; `take_hit` is `take_hit_split` with `HitStopSplit::legacy` |
+| The adapter: Donut's press edges, the step before her physics, hits on goblins and the boss, the cast and the bolt, mana and the Guild trigger | `src/combat_scene/donut.rs` | Implemented, unit-tested |
+| Body overrides for the launch, the held speed, the swat cap and the facing lock | `src/prototype.rs` (`BodyDrive`), `src/corridor.rs` (`PartyStepCtx::drives`) | Implemented; the default drive is the legacy step |
+| `PartyTuning::donut_moves` (Q10-01); chips derived from it | `src/party.rs` | Implemented |
+| The eight `q10_*` fixtures with committed replays and goldens | `src/donut_fixtures.rs`, [evidence](../evidence/donut-q10-mana/README.md) | Implemented |
 
-The points this spec left open are resolved in [Adopted defaults (2026-11-19)](#adopted-defaults-2026-11-19) at the end of this section; none changes a spec number.
+**Hash gating.** Donut's state is mixed into the hash only while it is non-default (a move, a cast, a bolt, a held Primary or Physical, an unlocked pool, a set guard). Every earlier golden stays byte-identical: the 13 combat `EXPECTED_HASHES`, `GOLDEN_WALK_RIGHT_400`, the story hash `931868d6afa56498`, the party goldens and the boss goldens. A test replays every party and boss fixture with `donut_moves` on and off and asserts the same hash and the same events.
 
-**Phase B (integration) TODO.** It starts after the boss PR (#115 implementation) merges, because it edits the same files.
+**Deviations from the integration TODO** (all deliberate, none changes a spec number):
 
-1. `src/combat.rs`: append `MoveId::Swat` and `MoveId::Pounce` and the two `MoveSpec`s (Q10-02, 03, 11, 13); add a swat `Chain`. The `MoveSpec` for the pounce stays the flat-floor nominal 10 / 16 / 18; the scene ends the flight on touchdown.
-2. `src/feel.rs`: add `SWAT_FEEL` and `POUNCE_FEEL` (Q10-05, 06, 14) next to `HURT_COOLDOWN`; `LIGHT_GUARD_MIN_TICKS` already lives in `donut_moves.rs` and moves here if the owner wants one tuning file.
-3. **Hit-stop split (review note b).** `Goblin::take_hit` in `src/goblin.rs` stores `stop + 1` in `self.hit_stop` and returns `stop`. Change it to take a `HitStopSplit` (`donut_moves::HitStopSplit`): store `split.target` directly and return `split.attacker`. Carl's moves pass `HitStopSplit::legacy(stop)`, so their numbers do not change. The swat passes `{ attacker: 2, target: 0 }`, so a Carl jab on the next tick still connects.
-4. `src/goblin.rs`: add `guard: Option<LightGuard>`. Set it when a `TellInterrupted` or `Staggered` event arrives (`effect.sets_guard`); call `guard.observe(state)` once per goblin tick and drop it when it returns true; map the goblin to `TargetState` (`Tell`, `Smear`, `Impact` and `Recover` from `attack_phase`, `Hurt` to `Staggered`, `Launched`, `Downed`, `Airborne`, `Corpse` and a defeated `Down` to `Defeated`). Mix it with `hash_guard`, so an unset guard hashes nothing. An interrupt must cancel the attack, return the token and start `HURT_COOLDOWN` (`effect.return_token`, `effect.hurt_cooldown`). A launch, a down or a defeat clears it (`TargetState::ends_guard`).
-5. **Latch the Impact (review note a).** It is done in the domain (`LightGuard::impact_seen`, plus one resolution per target per move instance). The scene must feed `Impact` from the goblin's real attack phase and must not re-derive it.
-6. `src/party.rs`: add `donut_moves` (Q10-01) and `DonutMoveTuning` (Q10-08, 09, 10, 12, 13, 15), derive `donut_ability_chips` from `donut_moves`, and pin the two equal in a test. Add `empty_press` validation through `ManaTuning::from_json`.
-7. `src/combat_scene.rs` and `src/corridor.rs`: own one `DonutMoves` and per-goblin `LightGuard`; build `StepInput` from Donut's `RawInput`, grounded flag, wall collision and the goblin list; apply `StepOutput` (launch, `set_vx`, `vx_cap`, locks, `frozen`); resolve `PounceHit` through `take_hit` as `DefeatCause::Melee` for hero index `DONUT_HERO` (force Routine); on the boss, apply it through the boss's hero-hit rule (Q10-A03). Step order on a tick: Carl, Donut, goblins. A swap calls `clear_buffer`; the AI passes `may_start: false`.
-8. `src/bin/floor01_scene.rs` and `src/hud.rs`: feed `HudRuntime` from `donut_hud::donut_magic` and `donut_ability_row`; drop the private chip logic. The `--debug-combat` overlay draws `StepOutput::hitbox`.
-9. **State hash gating.** Mix `DonutMoves::hash_into` and `hash_guard` only from a scene that runs with `donut_moves` on. They mix nothing while idle or unset, so legacy goldens stay identical with Q10-01 on or off. A legacy fixture that presses Donut's Primary or Physical pins `donut_moves: false`.
-10. **Stale "Q10 deferred" comments to remove:**
-    - `src/party.rs:201` (field doc of `donut_ability_chips`) and `src/party.rs:959` (the default-tuning test comment);
-    - `src/combat_scene.rs:951` ("Donut has no attacks (Q10 is deferred)");
-    - `src/pad_slots.rs:689` (assert message "Q10: no Donut chips yet");
-    - `src/hud.rs:479`, `src/hud.rs:617` and `src/hud.rs:937` ("provisional: Q10").
-11. Add the seven `q10_*` fixtures, the evidence captures and the animation wiring of spec sections 6 to 8, and set the backlog row to "merged, game-feel review pending".
+- The knobs Q10-08, 09, 10, 12, 13 and 15 stay in `DonutMoveTuning::SPEC` (`src/donut_moves.rs`), not in `PartyTuning`: `PartyTuning` derives `Eq` and these are `f32`. Only Q10-01 (`donut_moves`) lives in `PartyTuning`.
+- `LIGHT_GUARD_MIN_TICKS` stays in `donut_moves.rs` (the TODO allowed it).
+- Llamas are not targets of the swat or the pounce (Q10 names goblins and the boss only). Follow-up when DEMO-01 wants it.
+- The Magic Missile **is** in scope (the mana spec spends the charge on its release tick): the cast, a 6 px per tick bolt with a 240 px range, a hit as an ordinary 1 damage hero hit. Its cast animation and bolt art follow the ANIM-DONUT-03 spec; their art review is still pending.
+- A swat glance does not flash the goblin (the event `glance` is logged and the `--debug-combat` box shows the swat). The one-tick glance flash is a follow-up.
+- The dry cue is presentation only and the empty-click sound is not added (no cue exists in the audio bank yet).
+- Hurt, knockback, knockdown and getup frames for Donut (melee 8 to 14) are not wired: her hurt reaction stays the existing tint.
+- Fixtures: `q10_pounce_finish` and `q10_pounce_whiff` of the table above shipped as `q10_pounce_hit` and `q10_pounce_miss`; `q10_dry_press` ships with the mana fixtures `q10_mana_regen` and `q10_unlock_persists`, and `q10_pounce_boss` is new. `q10_pounce_ledge` (the 20 tick lapse off a drop) and `q10_solo_swap_donut` (a swap mid-pounce) are covered by domain and adapter unit tests (`donut_moves`, `donut_fixtures::tests::the_follower_finishes_a_move_after_a_swap_and_starts_none`), not by a replay fixture.
+- Scamper and the cat jump stay open (the boss right rack stays data-gated off).
+
+**Follow-ups:** the AI follower still never attacks (Q9 B); llama targets; the glance flash; the empty click; Donut hurt art; `empty_press: "swat"` playtest variant has validation but no fixture.
 
 ### Adopted defaults (2026-11-19)
 

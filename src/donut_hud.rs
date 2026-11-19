@@ -1,12 +1,13 @@
 //! Pure mapping from Donut's mana and moves to the hybrid-HUD views
-//! (HUD-DEBT-02, WORK-023 phase A).
+//! (HUD-DEBT-02, WORK-023).
 //!
 //! Bevy-free and stateless except for [`DepletedFlash`], which is presentation
 //! only. It builds the existing [`crate::hud`] types ([`ManaView`],
-//! [`AbilityRow`], [`DonutMagic`]) without editing `hud.rs`; the integration
-//! phase calls [`donut_magic`] to fill `RealHudInputs::donut_magic` and either
-//! calls [`donut_ability_row`] or folds it into `hud.rs`'s private
-//! `donut_abilities`.
+//! [`AbilityRow`], [`DonutMagic`]) without owning any of the HUD: the real HUD
+//! plate calls [`donut_ability_row`] for Donut's chips and
+//! [`magic_of`] / [`donut_magic`] for her mana, from the real pool
+//! (`HudRuntime::set_donut_mana`). The private `donut_abilities` row of
+//! `hud.rs` is only the `--hud-preview` fixture row.
 //!
 //! Rules (`docs/02-art/donut-moveset-q10.md` section 4 and
 //! `docs/01-design/donut-mana-v0-proposal.md` section 4):
@@ -67,10 +68,19 @@ impl DepletedFlash {
 /// `RealHudInputs::donut_magic`: `PreBiscuit` while locked, the whole-segment
 /// view once unlocked.
 pub fn donut_magic(mana: &DonutMana, tuning: &ManaTuning, depleted_age: Option<u8>) -> DonutMagic {
-    if !mana.unlocked() {
+    magic_of(
+        mana.unlocked().then_some((mana.mana(), tuning.mana_max)),
+        depleted_age,
+    )
+}
+
+/// [`donut_magic`] from the plain numbers the HUD runtime holds: `(mana,
+/// mana_max)` while unlocked, `None` while locked.
+pub fn magic_of(mana: Option<(u8, u8)>, depleted_age: Option<u8>) -> DonutMagic {
+    let Some((mana, mana_max)) = mana else {
         return DonutMagic::PreBiscuit;
-    }
-    let fill_px = mana_fill_px(mana.mana(), tuning.mana_max);
+    };
+    let fill_px = mana_fill_px(mana, mana_max);
     DonutMagic::Unlocked(ManaView {
         fill_px,
         depleted_age: if fill_px == 0 { depleted_age } else { None },

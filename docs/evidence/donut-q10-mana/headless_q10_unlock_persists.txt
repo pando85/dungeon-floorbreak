@@ -1,0 +1,15 @@
+COMBAT_EVENT tick=55 kind=unlock_granted hero=1 unlock=primary_ranged
+COMBAT_EVENT tick=70 kind=move_started move=magic_missile instance=1
+COMBAT_EVENT tick=74 kind=mana_spent hero=1 left=7
+COMBAT_EVENT tick=75 kind=hit move=magic_missile instance=1 target=0 damage=1 health_left=1 hit_stop=2
+COMBAT_EVENT tick=129 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=144 kind=mana_regained hero=1 now=8
+COMBAT_EVENT tick=155 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=155 kind=hero_hurt source=0 health_left=0 hero=donut
+COMBAT_EVENT tick=155 kind=hero_defeated hero=donut
+COMBAT_EVENT tick=204 kind=restart deaths=1
+COMBAT_EVENT tick=70 kind=move_started move=magic_missile instance=2
+COMBAT_EVENT tick=74 kind=mana_spent hero=1 left=7
+COMBAT_EVENT tick=75 kind=hit move=magic_missile instance=2 target=0 damage=1 health_left=1 hit_stop=2
+COMBAT_STATE fixture=q10_unlock_persists seed=0xd100007 tick=86 elapsed=290 hero_hp=4 deaths=1 enemies=e0=588.267/1 hash=5cf4d6b627e6b99c
+PARTY_STATE fixture=q10_unlock_persists mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=1 hash=a25d6e62ef316f92

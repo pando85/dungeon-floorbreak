@@ -23,8 +23,11 @@
 use std::fmt;
 
 use crate::boss::BossMove;
+use crate::donut_mana::{ManaEvent, RejectReason, Unlock};
+use crate::donut_moves::GlanceReason;
 use crate::feel::{
-    HAYMAKER_FEEL, HAYMAKER_STEP_PX, HAYMAKER_STEP_TICKS, JAB_FEEL, KICK_FEEL, MoveFeel,
+    HAYMAKER_FEEL, HAYMAKER_STEP_PX, HAYMAKER_STEP_TICKS, JAB_FEEL, KICK_FEEL, MISSILE_FEEL,
+    MoveFeel, POUNCE_FEEL, SWAT_FEEL,
 };
 use crate::party::HeroId;
 use crate::prototype::{Block, Rect, TICK_SECONDS};
@@ -116,6 +119,12 @@ pub enum MoveId {
     Jab,
     Haymaker,
     PushKick,
+    // Appended after `PushKick` so every Carl hash keeps its value. Donut's
+    // moves (WORK-023): their timing lives in `crate::donut_moves`, the specs
+    // below only carry the hit data `take_hit` needs.
+    Swat,
+    Pounce,
+    MagicMissile,
 }
 
 impl MoveId {
@@ -125,6 +134,9 @@ impl MoveId {
             Self::Jab => "jab",
             Self::Haymaker => "haymaker",
             Self::PushKick => "push_kick",
+            Self::Swat => "swat",
+            Self::Pounce => "pounce",
+            Self::MagicMissile => "magic_missile",
         }
     }
 }
@@ -270,6 +282,81 @@ pub const CARL_PUSH_KICK: MoveSpec = MoveSpec {
     chain: None,
     root_step: None,
 };
+
+/// Donut's swat (Q10-02..05): startup 4, active 3, recovery 7; the box
+/// `[13, 24) x [5, 11)` at shin height; damage 0. A swat on a tell cancels it
+/// like a jab does (stagger 10, token back), see [`SWAT_FEEL`]. A second press
+/// at ticks 4..=13 chains a swat at tick 10 (Q10-07). The timing and the box
+/// are owned by `crate::donut_moves` (a test pins the two equal).
+pub const DONUT_SWAT: MoveSpec = MoveSpec {
+    id: MoveId::Swat,
+    startup: 4,
+    active: 3,
+    recovery: 7,
+    shape: HitShape::Box {
+        x_min: 13.0,
+        x_max: 24.0,
+        y_min: 5.0,
+        y_max: 11.0,
+    },
+    damage: 0,
+    reaction: Reaction::from_feel(SWAT_FEEL),
+    chain: Some(Chain {
+        on: MoveId::Swat,
+        into: MoveId::Swat,
+        press_from: 4,
+        press_to: 13,
+        earliest: 10,
+    }),
+    root_step: None,
+};
+
+/// Donut's pounce (Q10-10, 11, 13, 14): crouch 10, flight, a pin and a recovery
+/// of 18. The `MoveSpec` is the flat-floor nominal (10 / 16 / 18); the scene
+/// ends the flight on touchdown. Box `[11, 25) x [0, 17)`, damage 1.
+pub const DONUT_POUNCE: MoveSpec = MoveSpec {
+    id: MoveId::Pounce,
+    startup: 10,
+    active: 16,
+    recovery: 18,
+    shape: HitShape::Box {
+        x_min: 11.0,
+        x_max: 25.0,
+        y_min: 0.0,
+        y_max: 17.0,
+    },
+    damage: 1,
+    reaction: Reaction::from_feel(POUNCE_FEEL),
+    chain: None,
+    root_step: None,
+};
+
+/// Donut's Magic Missile (mana v0): release on cast tick 4 (the bolt spawns),
+/// 16 ticks per cast. The bolt box is 8 x 6; damage 1.
+pub const MAGIC_MISSILE: MoveSpec = MoveSpec {
+    id: MoveId::MagicMissile,
+    startup: 4,
+    active: 1,
+    recovery: 11,
+    shape: HitShape::Box {
+        x_min: 0.0,
+        x_max: 8.0,
+        y_min: 0.0,
+        y_max: 6.0,
+    },
+    damage: 1,
+    reaction: Reaction::from_feel(MISSILE_FEEL),
+    chain: None,
+    root_step: None,
+};
+
+/// Donut's move table (the hit data of the swat, the pounce and the missile).
+pub const DONUT_MOVES: [&MoveSpec; 3] = [&DONUT_SWAT, &DONUT_POUNCE, &MAGIC_MISSILE];
+
+/// The Donut move with this id (`None` for every Carl move).
+pub fn donut_move(id: MoveId) -> Option<&'static MoveSpec> {
+    DONUT_MOVES.iter().copied().find(|spec| spec.id == id)
+}
 
 /// Carl's move table, the one lookup of the Floor 1 scene (strings and the
 /// event log resolve moves through [`carl_move`]).
@@ -1134,6 +1221,17 @@ pub enum CombatEvent {
         rack: u8,
         crushed: bool,
     },
+    /// WORK-023: a Donut swat that did nothing but flash (a glance): no
+    /// stagger, no hit-stop, no state change (Q10 section 1).
+    DonutGlance {
+        tick: u64,
+        instance: u32,
+        target: u32,
+        reason: GlanceReason,
+    },
+    /// HUD-DEBT-02: Donut's biscuit unlock and mana pool (the capped log
+    /// events of the mana v0 proposal, section 5).
+    Mana(ManaEvent),
 }
 
 impl CombatEvent {
@@ -1411,6 +1509,44 @@ impl CombatEvent {
                 mix(u64::from(rack));
                 mix(u64::from(crushed));
             }
+            // WORK-023: the Donut moves and the mana events, each with a tag in
+            // its own range ("DONG", "DONM"), so no earlier replay hashes any.
+            Self::DonutGlance {
+                tick,
+                instance,
+                target,
+                reason,
+            } => {
+                mix(0x444f_4e47_0001);
+                mix(tick);
+                mix(u64::from(instance));
+                mix(u64::from(target));
+                mix(reason as u64);
+            }
+            Self::Mana(event) => match event {
+                ManaEvent::UnlockGranted { tick, hero, .. } => {
+                    mix(0x444f_4e4d_0001);
+                    mix(tick);
+                    mix(u64::from(hero));
+                }
+                ManaEvent::ManaSpent { tick, hero, left } => {
+                    mix(0x444f_4e4d_0002);
+                    mix(tick);
+                    mix(u64::from(hero));
+                    mix(u64::from(left));
+                }
+                ManaEvent::ManaRegained { tick, hero, now } => {
+                    mix(0x444f_4e4d_0003);
+                    mix(tick);
+                    mix(u64::from(hero));
+                    mix(u64::from(now));
+                }
+                ManaEvent::CastRejected { tick, hero, .. } => {
+                    mix(0x444f_4e4d_0004);
+                    mix(tick);
+                    mix(u64::from(hero));
+                }
+            },
         }
     }
 }
@@ -1627,6 +1763,38 @@ impl fmt::Display for CombatEvent {
                 f,
                 "COMBAT_EVENT tick={tick} kind=rack_landed rack={rack} crushed={}",
                 u8::from(crushed)
+            ),
+            Self::DonutGlance {
+                tick,
+                instance,
+                target,
+                reason,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=glance instance={instance} target={target} reason={}",
+                reason.name()
+            ),
+            Self::Mana(ManaEvent::UnlockGranted { tick, hero, unlock }) => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=unlock_granted hero={hero} unlock={}",
+                match unlock {
+                    Unlock::PrimaryRanged => "primary_ranged",
+                }
+            ),
+            Self::Mana(ManaEvent::ManaSpent { tick, hero, left }) => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=mana_spent hero={hero} left={left}"
+            ),
+            Self::Mana(ManaEvent::ManaRegained { tick, hero, now }) => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=mana_regained hero={hero} now={now}"
+            ),
+            Self::Mana(ManaEvent::CastRejected { tick, hero, reason }) => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=cast_rejected hero={hero} reason={}",
+                match reason {
+                    RejectReason::Dry => "dry",
+                }
             ),
         }
     }

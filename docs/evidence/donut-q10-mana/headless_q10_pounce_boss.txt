@@ -1,0 +1,10 @@
+COMBAT_EVENT tick=9 kind=boss_engaged
+COMBAT_EVENT tick=9 kind=rack_armed rack=0
+COMBAT_EVENT tick=12 kind=move_started move=pounce instance=1
+COMBAT_EVENT tick=34 kind=boss_hurt source=1 damage=1 hp_left=35
+COMBAT_EVENT tick=38 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=74 kind=boss_strike move=pound
+COMBAT_EVENT tick=77 kind=hero_hurt source=16981 health_left=2
+COMBAT_EVENT tick=77 kind=hero_hurt source=16981 health_left=2 hero=donut
+COMBAT_STATE fixture=q10_pounce_boss seed=0xd100008 tick=90 elapsed=90 hero_hp=2 deaths=0 enemies= hash=ca26831ce6f5af7e boss=35/36/pound_recover/p1 boss_x=451.20
+PARTY_STATE fixture=q10_pounce_boss mode=2p controlled=Carl carl_hp=2 donut_hp=2 deaths=0 hash=e2de0452dc5dede4

@@ -47,6 +47,12 @@ committed_party=docs/evidence/party-2p
 # waits for Q10's higher cat jump).
 boss_fixtures=(boss01_pound_punish boss01_charge_jump boss01_charge_hit boss01_hug_guard boss01_rack_carl boss01_phase_roar boss01_roar_queued boss01_2p_gate boss01_solo_ai_guard boss01_party_defeat_retry boss01_crush_kill boss01_full_clear_solo boss01_full_clear_2p)
 committed_boss=docs/evidence/boss-f01
+# WORK-023 / HUD-DEBT-02: Donut's Q10 swat and pounce, the Magic Missile and her
+# mana (the swat that breaks a tell and the light guard, the pounce that finishes
+# a goblin or whiffs, the pounce on the boss, the dry press, the 350 tick regen
+# and the unlock that survives a retry) with their committed replays.
+donut_fixtures=(q10_swat_interrupt q10_swat_guard q10_pounce_hit q10_pounce_miss q10_dry_press q10_mana_regen q10_unlock_persists q10_pounce_boss)
+committed_donut=docs/evidence/donut-q10-mana
 out=artifacts/cp01-feel
 mkdir -p "$out"
 
@@ -152,6 +158,34 @@ case "$mode" in
         exit 1
       fi
       echo "BOSS_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/boss_${f}.txt")"
+    done
+    # WORK-023: every Donut fixture replays identically twice, reproduces the
+    # committed events and hash, and gives the same replay at gore presets 1 and
+    # 4 and with the HUD preview flag (presentation never reaches the sim).
+    for f in "${donut_fixtures[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_${f}_again.txt"
+      if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_again.txt"; then
+        echo "Donut fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_donut/headless_${f}.txt" "$out/donut_${f}.txt"; then
+        echo "Donut fixture $f differs from the committed replay ($committed_donut)" >&2
+        exit 1
+      fi
+      for preset in 1 4; do
+        "$bin" --headless-floor01-smoke --party-fixture "$f" --gore-preset "$preset" | party_lines > "$out/donut_${f}_p${preset}.txt"
+        if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_p${preset}.txt"; then
+          echo "Donut fixture $f at gore preset $preset differs from the default replay" >&2
+          exit 1
+        fi
+      done
+      "$bin" --headless-floor01-smoke --party-fixture "$f" --hud-preview post-unlock | party_lines > "$out/donut_${f}_hud.txt"
+      if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_hud.txt"; then
+        echo "Donut fixture $f differs with --hud-preview post-unlock" >&2
+        exit 1
+      fi
+      echo "DONUT_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/donut_${f}.txt")"
     done
     # DEMO-01 PR C: the presentation camera never feeds the simulation. On the
     # tall camera test room, every --camera (the scroll camera, the automatic one
