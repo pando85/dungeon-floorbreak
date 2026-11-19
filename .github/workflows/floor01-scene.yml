@@ -122,6 +122,10 @@ jobs:
         run: bash scripts/ci_floor01_combat.sh headless
       - name: Combat fixtures, real Bevy 1920x1080 loop (must reproduce the headless events and hash) and CP-01 and ART-INT-02 captures
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render
+      - name: DEMO-01 autopilot probes, headless (must equal the committed logs, be deterministic and identical at gore presets 1 to 4)
+        run: bash scripts/ci_floor01_combat.sh demo
+      - name: DEMO-01 whole route, real Bevy 1920x1080 loop (must reproduce the committed events and hash)
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh demo-render
       - name: Frame-interval probe, lighting on (software Vulkan, report only)
         continue-on-error: true
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh perf-lit

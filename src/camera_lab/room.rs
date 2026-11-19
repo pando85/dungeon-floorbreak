@@ -191,6 +191,10 @@ pub struct Room {
     pub props: Vec<Prop>,
     pub enemies: Vec<EnemyDef>,
     pub hazards: Vec<Hazard>,
+    /// x ranges (`[x0, x1]`) of plain masonry backwall: the composer places no
+    /// ground arch bay over them (DEMO-01: behind the rotten shore). Empty for
+    /// every lab room.
+    pub solid_backwall: Vec<(i32, i32)>,
     pub goal_x: i32,
     /// The protected exit: a walk-in region at the end of the floor.
     pub exit: IRect,
@@ -352,6 +356,18 @@ fn parse_room(s: &serde_json::Value) -> Result<Room, String> {
         });
     }
 
+    let mut solid_backwall = Vec::new();
+    for range in s["solid_backwall"].as_array().into_iter().flatten() {
+        let pair = range.as_array().filter(|a| a.len() == 2);
+        let (Some(x0), Some(x1)) = (
+            pair.and_then(|a| a[0].as_i64()),
+            pair.and_then(|a| a[1].as_i64()),
+        ) else {
+            return Err(ctx("solid_backwall needs [x0, x1] pairs".into()));
+        };
+        solid_backwall.push((x0 as i32, x1 as i32));
+    }
+
     let goal_x = int(s, "goal_x").map_err(ctx)?;
     let mut room = Room {
         id: id.clone(),
@@ -369,6 +385,7 @@ fn parse_room(s: &serde_json::Value) -> Result<Room, String> {
         props,
         enemies,
         hazards,
+        solid_backwall,
         goal_x,
         exit: IRect::new(goal_x - 24, floor_y - 96, 64, 96),
         snap_dy: dy,

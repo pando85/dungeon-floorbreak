@@ -1,0 +1,89 @@
+COMBAT_EVENT tick=191 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=192 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=195 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=195 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=202 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=207 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=207 kind=enemy_defeated target=0
+COMBAT_EVENT tick=246 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=248 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=251 kind=hit move=jab instance=3 target=1 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=251 kind=goblin_interrupted goblin=1
+COMBAT_EVENT tick=258 kind=move_started move=haymaker instance=4
+COMBAT_EVENT tick=263 kind=hit move=haymaker instance=4 target=1 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=263 kind=enemy_defeated target=1
+COMBAT_EVENT tick=418 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=420 kind=move_started move=push_kick instance=5
+COMBAT_EVENT tick=433 kind=hit move=push_kick instance=5 target=2 damage=1 health_left=1 hit_stop=8
+COMBAT_EVENT tick=433 kind=goblin_interrupted goblin=2
+COMBAT_EVENT tick=433 kind=goblin_contact launch=5 source=2 target=3
+COMBAT_EVENT tick=468 kind=move_started move=push_kick instance=6
+COMBAT_EVENT tick=481 kind=hit move=push_kick instance=6 target=2 damage=1 health_left=0 hit_stop=11
+COMBAT_EVENT tick=481 kind=enemy_defeated target=2 force=heavy
+COMBAT_EVENT tick=492 kind=goblin_tell goblin=3
+COMBAT_EVENT tick=493 kind=hit move=push_kick instance=6 target=3 damage=1 health_left=1 hit_stop=8
+COMBAT_EVENT tick=493 kind=goblin_interrupted goblin=3
+COMBAT_EVENT tick=544 kind=move_started move=push_kick instance=7
+COMBAT_EVENT tick=557 kind=hit move=push_kick instance=7 target=3 damage=1 health_left=0 hit_stop=11
+COMBAT_EVENT tick=557 kind=enemy_defeated target=3 force=heavy
+COMBAT_EVENT tick=720 kind=move_started move=jab instance=8
+COMBAT_EVENT tick=723 kind=shore_hit instance=8 hits=1
+COMBAT_EVENT tick=760 kind=move_started move=jab instance=9
+COMBAT_EVENT tick=763 kind=shore_hit instance=9 hits=2
+COMBAT_EVENT tick=800 kind=move_started move=jab instance=10
+COMBAT_EVENT tick=803 kind=shore_hit instance=10 hits=3
+COMBAT_EVENT tick=803 kind=shore_broken player=0
+COMBAT_EVENT tick=839 kind=shore_landed
+COMBAT_EVENT tick=839 kind=enemy_defeated target=4 cause=shore_block credit_player=0
+COMBAT_EVENT tick=839 kind=enemy_defeated target=5 cause=shore_block credit_player=0
+COMBAT_EVENT tick=906 kind=goblin_tell goblin=6
+COMBAT_EVENT tick=908 kind=move_started move=jab instance=11
+COMBAT_EVENT tick=911 kind=hit move=jab instance=11 target=6 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=911 kind=goblin_interrupted goblin=6
+COMBAT_EVENT tick=918 kind=move_started move=haymaker instance=12
+COMBAT_EVENT tick=923 kind=hit move=haymaker instance=12 target=6 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=923 kind=enemy_defeated target=6
+COMBAT_EVENT tick=1091 kind=goblin_tell goblin=7
+COMBAT_EVENT tick=1092 kind=move_started move=jab instance=13
+COMBAT_EVENT tick=1095 kind=hit move=jab instance=13 target=7 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=1095 kind=goblin_interrupted goblin=7
+COMBAT_EVENT tick=1102 kind=move_started move=haymaker instance=14
+COMBAT_EVENT tick=1107 kind=hit move=haymaker instance=14 target=7 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=1107 kind=enemy_defeated target=7
+COMBAT_EVENT tick=1344 kind=goblin_tell goblin=8
+COMBAT_EVENT tick=1348 kind=move_started move=jab instance=15
+COMBAT_EVENT tick=1351 kind=hit move=jab instance=15 target=8 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=1351 kind=goblin_interrupted goblin=8
+COMBAT_EVENT tick=1355 kind=hit move=jab instance=15 target=9 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=1361 kind=move_started move=haymaker instance=16
+COMBAT_EVENT tick=1366 kind=hit move=haymaker instance=16 target=8 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=1366 kind=enemy_defeated target=8
+COMBAT_EVENT tick=1385 kind=goblin_tell goblin=10
+COMBAT_EVENT tick=1391 kind=move_started move=jab instance=17
+COMBAT_EVENT tick=1394 kind=hit move=jab instance=17 target=9 damage=1 health_left=0 hit_stop=6
+COMBAT_EVENT tick=1394 kind=enemy_defeated target=9
+COMBAT_EVENT tick=1394 kind=hit move=jab instance=17 target=10 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=1394 kind=goblin_interrupted goblin=10
+COMBAT_EVENT tick=1404 kind=move_started move=haymaker instance=18
+COMBAT_EVENT tick=1409 kind=hit move=haymaker instance=18 target=10 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=1409 kind=enemy_defeated target=10
+COMBAT_EVENT tick=1440 kind=move_started move=jab instance=19
+COMBAT_EVENT tick=1440 kind=goblin_tell goblin=11
+COMBAT_EVENT tick=1443 kind=hit move=jab instance=19 target=11 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=1443 kind=goblin_interrupted goblin=11
+COMBAT_EVENT tick=1450 kind=move_started move=haymaker instance=20
+COMBAT_EVENT tick=1455 kind=hit move=haymaker instance=20 target=11 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=1455 kind=enemy_defeated target=11
+COMBAT_EVENT tick=1463 kind=goblin_tell goblin=12
+COMBAT_EVENT tick=1464 kind=hit move=haymaker instance=20 target=12 damage=1 health_left=1 hit_stop=5
+COMBAT_EVENT tick=1464 kind=goblin_interrupted goblin=12
+COMBAT_EVENT tick=1485 kind=goblin_tell goblin=13
+COMBAT_EVENT tick=1488 kind=move_started move=jab instance=21
+COMBAT_EVENT tick=1491 kind=hit move=jab instance=21 target=12 damage=1 health_left=0 hit_stop=6
+COMBAT_EVENT tick=1491 kind=enemy_defeated target=12
+COMBAT_EVENT tick=1491 kind=hit move=jab instance=21 target=13 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=1491 kind=goblin_interrupted goblin=13
+COMBAT_EVENT tick=1501 kind=move_started move=haymaker instance=22
+COMBAT_EVENT tick=1506 kind=hit move=haymaker instance=22 target=13 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=1506 kind=enemy_defeated target=13
+COMBAT_STATE fixture=demo01 seed=0xde300000 tick=2000 elapsed=2000 hero_hp=4 deaths=0 enemies=e0=847.768/0,e1=897.801/0,e2=1318.967/0,e3=1346.934/0,e4=1705.000/0,e5=1735.000/0,e6=1928.799/0,e7=2378.797/0,e8=3038.797/0,e9=3048.462/0,e10=3049.860/0,e11=3072.656/0,e12=3084.454/0,e13=3079.586/0 hash=590f12e6bfec62f5 shore=3/Broken/Landed block_bottom=0.00 demo_cp=6
