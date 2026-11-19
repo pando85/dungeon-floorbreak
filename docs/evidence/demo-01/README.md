@@ -30,8 +30,8 @@ xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/demo01_evidence.sh
 | `b0_wakeup_1920x1080.png` | B0, tick 110 of the whole-route run's first beat: Carl running past the first ledge, Donut trailing, the left iron gate |
 | `b1_first_rematch_1920x1080.png` | B1, tick 91: the jab-haymaker string kills the first goblin, the second one walks in |
 | `b2_kick_contact_1920x1080.png` | B2, tick 76: a kicked goblin has just knocked into the other one (`goblin_contact`), the ledge face behind them |
-| `b3_block_falling_1920x1080.png` | B3, tick 140: the shore is broken and the block falls over the two passive goblins |
-| `b3_block_landed_1920x1080.png` | B3, tick 160: the block landed, both goblins crushed (two crushes until DEATH-D's edge decapitation lands), the chaser arrives |
+| `b3_block_falling_1920x1080.png` | B3, tick 140: the shore is broken and the block falls over the two passive goblins; the cavity is cut into plain brick (`solid_backwall` keeps the ground arch away from the shore) |
+| `b3_block_landed_1920x1080.png` | B3, tick 160: the block landed (`FLATTENED!` notice), both goblins crushed (two crushes until DEATH-D's edge decapitation lands), the chaser arrives |
 | `b4_llama_hook_1920x1080.png` | B4, tick 120: the stretch where PR B puts the llama; only its chasing goblin is there yet |
 | `b6_pileup_1920x1080.png` | B6, tick 110: the pileup cluster at the right end of the hall, the portal scenery behind |
 | `state_<shot>.txt` | the `COMBAT_STATE` line of each frame (tick, hit points, goblin positions and health, hash, shore state, `demo_cp`) |
@@ -42,15 +42,15 @@ xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/demo01_evidence.sh
 ## What the probes assert
 
 * **B1:** two melee defeats, no death.
-* **B2:** at least one `goblin_contact` and one lethal kick (`force=heavy`).
+* **B2:** at least one `goblin_contact`, one lethal kick (`force=heavy`), one goblin hit twice by kicks (relaunched or downed) and one goblin stopped against the ledge face (x 1360).
 * **B3:** three `shore_hit`, one `shore_broken`, one `shore_landed` and at least one `shore_block` defeat from that landing.
-* **B6:** six defeats, no death. The corpse cap of 8 and the stains kept belong to the presenter (the DEATH-E1 pileup replay covers them); the whole-route run defeats 14 goblins, more than the cap, so it is the run that exercises them, but this folder asserts no retirement.
+* **B6:** six defeats, no death; the checkpoint (2780) is 230 px before the nearest chaser, outside its 220 px sight. The corpse cap of 8 and the stains kept are asserted by `demo::tests::the_route_keeps_eight_corpses_and_every_stain`: the whole route with the death presenter defeats 14 goblins, exactly 8 corpses stay and the floor decals equal their peak (none dropped).
 * **Route:** every goblin of the hall defeated, checkpoint 6, no death, one pinned final hash. Every probe gives the same events and hash at gore presets 1 to 4.
 * **Respawn** (no probe: the autopilot never dies here): unit tests in `demo::tests` stand Carl still until he is knocked down, check the restart delay, full health, the checkpoint column, defeated goblins staying defeated, living ones back at their spawn and the presenter keeping its stains and corpses.
 
 ## Not shown, on purpose
 
-No on-screen HUD (PR #103), no llama (PR B), no decapitation or explosion (PR #108), no automatic camera (PR C). Frame time and memory figures for B5 and B6 (plan acceptance 6) wait for B5; no performance claim is made. No Steam Deck claim.
+The hybrid-A HUD (#103) is on `main` and draws in `--demo` automatically (the captures show it). No llama (PR B), no decapitation or explosion (PR #108), no automatic camera (PR C). Frame time and memory figures for B5 and B6 (plan acceptance 6) wait for B5; no performance claim is made. No Steam Deck claim.
 
 ## Rights and provenance
 

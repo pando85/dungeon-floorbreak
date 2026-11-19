@@ -583,13 +583,14 @@ fn build_scene(
 
 /// One fixed tick of a combat fixture, and the animation that follows it. A
 /// restart inside the step (Carl was defeated) restarts the animation too.
+/// Returns true when a DEMO-01 respawn happened inside the step.
 fn step_combat(
     sim: &mut SceneSim,
     combat: &mut CombatState,
     anim: &mut SceneAnimators,
     death: Option<&mut DeathPresenter>,
     raw: RawInput,
-) {
+) -> bool {
     let expected = sim.world.tick + 1;
     combat.step(sim, raw);
     // A demo respawn keeps the tick counter but moves Carl: restart his
@@ -606,6 +607,7 @@ fn step_combat(
     if let Some(death) = death {
         death.observe(combat, sim);
     }
+    respawned
 }
 
 /// The input of the scripted run of a fixture at the next tick: the fixture's
@@ -1866,8 +1868,11 @@ fn fixed_step(
     };
     let was_complete = sim.0.world.complete;
     if let Some(combat) = combat.0.as_mut() {
-        step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
+        let respawned = step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
         print_combat_events(combat, Some(&mut audio));
+        if respawned {
+            println!("DEMO01_RESPAWN checkpoint={}", combat.checkpoint);
+        }
         if setup.args.demo {
             // Console progress of the demo (presentation only).
             // The first tick only records the beat the run started at.
@@ -3044,7 +3049,8 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
     if args.fixture.is_some() {
         return headless_fixture(kit, args, actors, root);
     }
-    let (sim, anim, _, _) = build_scene(kit, args, actors, root)?;
+    let mut hud = new_hud(args, kit, actors);
+    let (sim, anim, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
     Ok(())

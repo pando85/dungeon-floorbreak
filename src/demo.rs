@@ -4,7 +4,7 @@
 //! This module holds the demo as data and pure functions: the hall (a room
 //! description composed from the approved Floor 01 kit by
 //! [`crate::camera_lab::layout`]), the beat table, the checkpoints, the goblin
-//! spawns and wake windows, the Select tap / hold rule, an autopilot for the
+//! spawns, the Select tap / hold rule, an autopilot for the
 //! headless probes and the evidence captures, and the completion test. The
 //! mechanics live in [`crate::combat_scene`] (`DemoRules`, `respawn`); nothing
 //! here changes a fixture or a hash outside the demo.
@@ -80,18 +80,18 @@ pub const BEATS: [Beat; 7] = [
         id: "B5",
         name: "Lit charge",
         from_x: 2620,
-        to_x: 2970,
+        to_x: 2780,
     },
     Beat {
         id: "B6",
         name: "Pileup",
-        from_x: 2970,
+        from_x: 2780,
         to_x: 3200,
     },
 ];
 
 /// Respawn columns: the start column of each beat (B0 is the spawn).
-pub const CHECKPOINTS: [i32; 7] = [160, 520, 1020, 1520, 2070, 2620, 2970];
+pub const CHECKPOINTS: [i32; 7] = [160, 520, 1020, 1520, 2070, 2620, 2780];
 
 /// The rotten shore's strike column (CP-03), in the B3 stretch. The block's
 /// footprint is `strike + 25 .. strike + 105`.
@@ -383,7 +383,9 @@ fn blocked_ahead(scene: &SceneSim, dir: f32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::combat::{CombatEvent, DefeatCause, ForceTier};
+    use crate::camera_lab::layout::build_kit;
+    use crate::camera_lab::room::parse_rooms;
+    use crate::combat::{CombatEvent, DefeatCause, EnemyAi, ForceTier};
     use crate::combat_scene::FixtureSim;
     use crate::death_present::DeathPresenter;
     use crate::feel::RESTART_DELAY_TICKS;
@@ -426,6 +428,73 @@ mod tests {
 
     fn count(run: &FixtureSim, pick: fn(&CombatEvent) -> bool) -> usize {
         run.combat.events.iter().filter(|e| pick(e)).count()
+    }
+
+    /// Every checkpoint respawns Carl outside the sight of the goblins ahead,
+    /// so a defeat cannot chain into the next one.
+    #[test]
+    fn no_checkpoint_respawns_carl_inside_a_goblin_s_sight() {
+        for checkpoint in CHECKPOINTS {
+            for (index, spawn) in DEMO_ENEMIES.iter().enumerate() {
+                if spawn.ai == EnemyAi::Chase && spawn.x >= checkpoint {
+                    let gap = spawn.x - checkpoint;
+                    assert!(
+                        gap as f32 >= crate::feel::GOBLIN_SIGHT,
+                        "goblin {index} is {gap} px from checkpoint {checkpoint}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// The shore block and its cavity sit on masonry: no ground arch opening
+    /// of the hall overlaps the strike column or the footprint.
+    #[test]
+    fn no_arch_opening_sits_behind_the_shore() {
+        let text = std::fs::read_to_string(root().join(HALL_PATH)).unwrap();
+        let room = parse_rooms(&text).unwrap().remove(0);
+        let (_, _, plan) = build_kit(root(), &room).unwrap();
+        let from = SHORE_STRIKE_X - 8;
+        let to = SHORE_STRIKE_X + (FOOTPRINT_X_MIN + FOOTPRINT_WIDTH) as i32;
+        assert!(!plan.openings.is_empty());
+        for (x, _, w, _) in plan.openings {
+            assert!(
+                x + w <= from || x >= to,
+                "opening {x}..{} behind the shore",
+                x + w
+            );
+        }
+    }
+
+    /// Plan acceptance 3 (B6): the whole route defeats 14 goblins; at most 8
+    /// settled corpses stay drawn and no stain is ever dropped.
+    #[test]
+    fn the_route_keeps_eight_corpses_and_every_stain() {
+        let kit = load_hall(root()).unwrap();
+        let art = Arc::new(DeathArt::load(root()).unwrap());
+        let art_b = DeathArt::load_variant(root(), 1).unwrap();
+        let mut presenter = DeathPresenter::with_variants(art, &art_b, GorePreset::Full).unwrap();
+        let mut run = sim(&kit, 0);
+        for _ in 0..BEAT_FIXTURES[0].ticks {
+            let raw = autopilot(&run.combat, &run.scene);
+            run.step(raw);
+            presenter.observe(&run.combat, &run.scene);
+        }
+        assert_eq!(defeats(&run).len(), 14);
+        let line = presenter.state_line();
+        let field = |key: &str| -> usize {
+            line.split_whitespace()
+                .find_map(|t| t.strip_prefix(key))
+                .and_then(|v| v.parse().ok())
+                .unwrap_or_else(|| panic!("{key} in {line}"))
+        };
+        assert_eq!(field("deaths="), 8, "{line}");
+        assert!(field("peak_floor_decals=") > 0, "{line}");
+        assert_eq!(
+            field("floor_decals="),
+            field("peak_floor_decals="),
+            "{line}"
+        );
     }
 
     #[test]
@@ -741,6 +810,29 @@ mod tests {
             })
             .count();
         assert!(heavy >= 1, "a lethal kick");
+        // A goblin that was kicked is hit again (relaunched or downed): two
+        // kick hits on one target.
+        let mut kicked = [0u8; 14];
+        for event in &run.combat.events {
+            if let CombatEvent::Hit {
+                move_id: crate::combat::MoveId::PushKick,
+                target,
+                ..
+            } = event
+            {
+                kicked[*target as usize] += 1;
+            }
+        }
+        assert!(
+            kicked.iter().any(|n| *n >= 2),
+            "no goblin was hit twice by kicks: {kicked:?}"
+        );
+        // The ledge face stops a launched goblin: one B2 goblin ends against it.
+        let face = 1360.0;
+        let stopped = run.combat.enemies[2..4]
+            .iter()
+            .any(|g| face - g.x <= crate::combat::ENEMY_HALF_WIDTH + 2.0 && g.x < face);
+        assert!(stopped, "no goblin stopped at the ledge face");
     }
 
     /// Acceptance 3 (B3): three hits break the shore, one landing crushes
