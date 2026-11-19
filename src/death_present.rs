@@ -35,10 +35,11 @@ use crate::death::DeathProfiles;
 use crate::feel::{GROUND_FRICTION, KNOCK_GRAVITY};
 use crate::goblin::GoblinMode;
 use crate::gore::{
-    DEATH_VARIANTS, DeathArt, GorePreset, Mass, PartClass, PresentationRng, PresetSheets, Settle,
-    SpinClass, Ttl, keeps_stream_item, lowest_below_centre, part_center_for_anchor,
-    pose_anchor_world, rest_angle, scale_count,
+    DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Mass, PartClass, PresentationRng,
+    PresetSheets, Settle, SpinClass, Ttl, keeps_stream_item, lowest_below_centre,
+    part_center_for_anchor, pose_anchor_world, rest_angle, scale_count,
 };
+use crate::llama::{LLAMA_HALF_HEIGHT, LlamaMode};
 use crate::prototype::TICK_SECONDS;
 use crate::shore::FOOTPRINT_WIDTH;
 
@@ -126,6 +127,8 @@ pub const MAX_DEATHS: usize = DEATH_BUDGET.deaths;
 pub const MAX_DROP_SPLATS: u8 = DEATH_BUDGET.drop_splats_per_death;
 /// Splat decals one death may leave from landing pieces.
 pub const MAX_PART_STAINS: u8 = DEATH_BUDGET.part_stains_per_death;
+/// Most molten decals one llama death leaves (LLAMA-02 spec section 8).
+pub const MAX_MOLTEN_DECALS: u8 = 6;
 /// Settled corpses kept visible (owner decision: a limit keeps the room from
 /// getting too noisy and confused).
 pub const MAX_SETTLED_CORPSES: usize = DEATH_BUDGET.settled_corpses;
@@ -410,6 +413,51 @@ impl<T> Pool<T> {
     }
 }
 
+// --------------------------------------------------------------- species ----
+
+/// The species keys of the death profiles the presenter draws.
+const GOBLIN_SPECIES: &str = "goblin";
+const LLAMA_SPECIES: &str = "llama";
+
+/// The Bad Llama's death art and its composed sheets for the active preset
+/// (LLAMA-02-DEATH). It is a separate set with its own frame sizes and part
+/// indices; every piece, decal and pose carries the `variant` that says whose
+/// set it belongs to ([`LLAMA_VARIANT`] for the llama, 0 and 1 for the goblins).
+struct LlamaDeath {
+    art: Arc<DeathArt>,
+    sheets: PresetSheets,
+}
+
+/// The art a `variant` is drawn from (field-wise, so a pool can stay borrowed).
+fn art_for<'a>(
+    goblin: &'a DeathArt,
+    llama: &'a Option<LlamaDeath>,
+    variant: usize,
+) -> &'a DeathArt {
+    match llama {
+        Some(l) if variant == LLAMA_VARIANT => &l.art,
+        _ => goblin,
+    }
+}
+
+/// The set a decal of a death of `variant` is drawn from: blood, stains and
+/// pools are identical in both goblin sets (variant 0); the llama has its own.
+const fn decal_set(variant: usize) -> usize {
+    if variant == LLAMA_VARIANT { variant } else { 0 }
+}
+
+/// The composed sheets a `variant` is drawn from.
+fn sheets_for<'a>(
+    goblins: &'a [PresetSheets; DEATH_VARIANTS],
+    llama: &'a Option<LlamaDeath>,
+    variant: usize,
+) -> &'a PresetSheets {
+    match llama {
+        Some(l) if variant == LLAMA_VARIANT => &l.sheets,
+        _ => &goblins[variant.min(DEATH_VARIANTS - 1)],
+    }
+}
+
 // ------------------------------------------------------ blast frames ------
 
 /// The `vfx_dynamite` atlas frames of the fizzling charge (`dynamite_fizzle`:
@@ -608,6 +656,9 @@ pub enum Finish {
     /// DEATH-D (the block's edge across the neck): `decap_contact`,
     /// `headless_collapse`, the head.
     Decapitated,
+    /// LLAMA-02 slam (owner decision 2026-11-19: a lethal heavy hit):
+    /// `slam_contact` for 6 ticks, then `broken_heap` held.
+    Slammed,
     /// DEATH-D (a point blank blast): the sprite is hidden (presets 2 to 4)
     /// and the pieces fly from the charge.
     Exploded,
@@ -621,6 +672,12 @@ impl Finish {
             "goblin_crushed" | "brute_crushed" => Self::Crushed,
             "goblin_knockback_down" | "brute_ko_timber" => Self::Knockback,
             "goblin_decapitated" => Self::Decapitated,
+            // The llama: the crush plays the same pose sequence, the slam its
+            // own, and `llama_down` keeps the LLAMA-01 `down` frames like the
+            // goblin's knockback (blood is added, the sprite stays).
+            "llama_crushed" => Self::Crushed,
+            "llama_slammed" => Self::Slammed,
+            "llama_down" => Self::Knockback,
             "goblin_exploded" => Self::Exploded,
             _ => Self::NoArt,
         }
@@ -628,7 +685,7 @@ impl Finish {
 
     /// Whether the finish replaces the goblin sprite with a death pose.
     pub const fn has_pose(self) -> bool {
-        matches!(self, Self::Crushed | Self::Decapitated)
+        matches!(self, Self::Crushed | Self::Decapitated | Self::Slammed)
     }
 
     /// The pose frame (index into the poses atlas) `age` ticks after the defeat.
@@ -646,6 +703,8 @@ impl Finish {
                 4..=9 => 4,
                 _ => 5,
             }),
+            // S: pose 6 (6 ticks), S+6: pose 7, hold.
+            Self::Slammed => Some(if age < 6 { 6 } else { 7 }),
             Self::Knockback | Self::Exploded | Self::NoArt => None,
         }
     }
@@ -663,6 +722,25 @@ pub struct GoblinView {
     pub mode: GoblinMode,
 }
 
+/// A llama as the presenter sees it (read from the simulation, never written).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LlamaView {
+    pub x: f32,
+    /// y-up world height of its feet on the floor.
+    pub ground_y: f32,
+    pub facing: i8,
+    pub mode: LlamaMode,
+}
+
+/// The impact dust of a llama slam (LLAMA-02 spec section 8, tick S): where it
+/// is on the floor and how many ticks it has played.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DustView {
+    pub x: f32,
+    pub ground_y: f32,
+    pub age: u64,
+}
+
 /// The pose a dead goblin is drawn with instead of its GOB-01 sprite.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PoseView {
@@ -672,10 +750,16 @@ pub struct PoseView {
     pub foot_x: f32,
     pub ground_y: f32,
     pub flip: bool,
-    /// The goblin variant whose poses sheet is drawn (0 = A, 1 = B).
+    /// The variant whose poses sheet is drawn (0 = goblin A, 1 = B,
+    /// [`LLAMA_VARIANT`] = the Bad Llama).
     pub variant: usize,
     /// 1 until the corpse starts to retire, then fading to 0.
     pub alpha: f32,
+    /// `hazard_draw: "over"` on this frame (LLAMA-02 gate ruling): the world
+    /// point of the pose's mirrored `hit_origin`, where the falling block's
+    /// bottom-centre anchor is drawn, directly above this enemy and below every
+    /// player actor. `None`: the goblin order (the block behind).
+    pub hazard_anchor: Option<(f32, f32)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -744,6 +828,8 @@ pub struct Decal {
     /// pools and extra wall spatters); the position already accounts for it.
     pub scale: f32,
     born: u64,
+    /// Whose set the decal belongs to (see [`PoseView::variant`]).
+    pub variant: usize,
 }
 
 /// What a finished tick of the presenter draws for one decal or part.
@@ -780,7 +866,7 @@ fn expired(ttl: Ttl, since: u64, clock: u64) -> bool {
 #[derive(Debug, Clone)]
 struct Death {
     id: u32,
-    /// Real goblin index, or [`SYNTHETIC_TARGET`].
+    /// Real target id (goblins first, then llamas), or [`SYNTHETIC_TARGET`].
     target: u32,
     /// The goblin variant (A or B) whose art plays.
     variant: usize,
@@ -796,6 +882,8 @@ struct Death {
     rng: PresentationRng,
     drop_splats: u8,
     part_stains: u8,
+    /// Molten decals this death left (LLAMA-02: at most 6).
+    molten_decals: u8,
     /// Splat decals the landing drops and pieces may leave (the explosion
     /// uses the caps of its table).
     drop_cap: u8,
@@ -853,6 +941,7 @@ impl Death {
             rng,
             drop_splats: 0,
             part_stains: 0,
+            molten_decals: 0,
             drop_cap: MAX_DROP_SPLATS,
             stain_cap: MAX_PART_STAINS,
             drops_emitted: 0,
@@ -873,6 +962,8 @@ impl Death {
 #[derive(Debug, Clone, Copy)]
 pub struct Observation<'a> {
     pub goblins: &'a [GoblinView],
+    /// The llamas; their target ids follow the goblins'.
+    pub llamas: &'a [LlamaView],
     pub hero_x: f32,
     /// x of the middle of the shore's hazard footprint, if the fixture has one.
     pub block_x: Option<f32>,
@@ -932,7 +1023,11 @@ const RAD_TO_DEG: f32 = 57.295_78;
 pub struct DeathPresenter {
     art: Arc<DeathArt>,
     sheets: [PresetSheets; DEATH_VARIANTS],
+    /// The Bad Llama's art and sheets, when the run has llamas.
+    llama: Option<LlamaDeath>,
     profiles: &'static DeathProfiles,
+    /// The species key of the goblin targets (tests swap it to check a species
+    /// without art); the llama's is [`LLAMA_SPECIES`].
     species: &'static str,
     preset: GorePreset,
     /// The finish id chosen for the boss' defeat (HUD-DEBT-03).
@@ -986,8 +1081,9 @@ impl DeathPresenter {
         Ok(Self {
             art,
             sheets,
+            llama: None,
             profiles: DeathProfiles::builtin(),
-            species: "goblin",
+            species: GOBLIN_SPECIES,
             preset,
             boss_finish: None,
             clock: 0,
@@ -1013,8 +1109,30 @@ impl DeathPresenter {
         })
     }
 
+    /// Add the Bad Llama's death art (LLAMA-02-DEATH): its poses and parts are
+    /// composed for the active preset like the goblins' (the `molten` layer is
+    /// shown at every preset). Without it a llama defeat draws nothing.
+    pub fn with_llama(mut self, art: Arc<DeathArt>) -> Result<Self, String> {
+        if art.variant != LLAMA_VARIANT {
+            return Err("the llama death art has the wrong variant".into());
+        }
+        let sheets = art.compose(self.preset)?;
+        self.llama = Some(LlamaDeath { art, sheets });
+        Ok(self)
+    }
+
     pub fn preset(&self) -> GorePreset {
         self.preset
+    }
+
+    /// The art of `variant` (goblin A or B, or the llama).
+    pub fn art_of(&self, variant: usize) -> &DeathArt {
+        art_for(&self.art, &self.llama, variant)
+    }
+
+    /// Whether the run has the llama death art.
+    pub fn has_llama(&self) -> bool {
+        self.llama.is_some()
     }
 
     pub fn art(&self) -> &DeathArt {
@@ -1028,7 +1146,7 @@ impl DeathPresenter {
 
     /// The composed sheets of goblin `variant` (0 = A, 1 = B).
     pub fn sheets_of(&self, variant: usize) -> &PresetSheets {
-        &self.sheets[variant.min(DEATH_VARIANTS - 1)]
+        sheets_for(&self.sheets, &self.llama, variant)
     }
 
     pub fn stats(&self) -> PresenterStats {
@@ -1099,6 +1217,13 @@ impl DeathPresenter {
                 return None;
             }
             let frame = d.finish.pose_frame(self.clock.saturating_sub(d.start))?;
+            let art = art_for(&self.art, &self.llama, d.variant);
+            let meta = art.poses.get(frame)?;
+            let hazard_anchor = meta
+                .hazard_over()
+                .then(|| meta.anchor("hit_origin"))
+                .flatten()
+                .map(|hit| pose_anchor_world(art.pose_pivot, hit, d.foot_x, d.ground_y, d.flip));
             Some(PoseView {
                 target: d.target,
                 frame,
@@ -1107,8 +1232,34 @@ impl DeathPresenter {
                 flip: d.flip,
                 variant: d.variant,
                 alpha: self.death_alpha(d),
+                hazard_anchor,
             })
         })
+    }
+
+    /// Where the falling block's anchor is drawn this tick when a pose with
+    /// `hazard_draw: "over"` is playing (a crushed llama's contact frames), else
+    /// `None`. Presentation only; the block's simulated position never moves.
+    pub fn hazard_over_anchor(&self) -> Option<(f32, f32)> {
+        self.poses().find_map(|p| p.hazard_anchor)
+    }
+
+    /// The impact dusts of the slams in progress (at most 20 ticks old: four
+    /// frames of 5 ticks), at the floor under each slam's `hit_origin`.
+    /// Presentation only.
+    pub fn impact_dusts(&self) -> Vec<DustView> {
+        self.deaths
+            .iter()
+            .filter(|d| d.finish == Finish::Slammed && d.target != SYNTHETIC_TARGET)
+            .filter_map(|d| {
+                let age = self.clock.saturating_sub(d.start);
+                (age < 20).then(|| DustView {
+                    x: self.pose_point(d, 6, "hit_origin").0,
+                    ground_y: d.ground_y,
+                    age,
+                })
+            })
+            .collect()
     }
 
     /// Opacity of a corpse: 1, fading to 0 once it retires.
@@ -1189,9 +1340,11 @@ impl DeathPresenter {
     /// pieces only) times the fade of a recycle or a retiring corpse.
     pub fn part_alpha(&self, slot: usize, part: &Part) -> f32 {
         let base = match part.state {
-            PartState::Resting { since } => {
-                fade_alpha(self.art.parts[part.meta].ttl, since, self.clock)
-            }
+            PartState::Resting { since } => fade_alpha(
+                self.art_of(part.variant).parts[part.meta].ttl,
+                since,
+                self.clock,
+            ),
             _ => 1.0,
         };
         base * recycle_alpha(self.parts.fade_since(slot), self.clock)
@@ -1199,14 +1352,20 @@ impl DeathPresenter {
 
     /// Opacity of the floor decal in slot `slot`.
     pub fn floor_decal_alpha(&self, slot: usize, decal: &Decal) -> f32 {
-        fade_alpha(self.art.parts[decal.meta].ttl, decal.born, self.clock)
-            * recycle_alpha(self.floor_decals.fade_since(slot), self.clock)
+        fade_alpha(
+            self.art_of(decal.variant).parts[decal.meta].ttl,
+            decal.born,
+            self.clock,
+        ) * recycle_alpha(self.floor_decals.fade_since(slot), self.clock)
     }
 
     /// Opacity of the wall decal in slot `slot`.
     pub fn wall_decal_alpha(&self, slot: usize, decal: &Decal) -> f32 {
-        fade_alpha(self.art.parts[decal.meta].ttl, decal.born, self.clock)
-            * recycle_alpha(self.wall_decals.fade_since(slot), self.clock)
+        fade_alpha(
+            self.art_of(decal.variant).parts[decal.meta].ttl,
+            decal.born,
+            self.clock,
+        ) * recycle_alpha(self.wall_decals.fade_since(slot), self.clock)
     }
 
     // ---------------------------------------------------------- stepping ----
@@ -1222,6 +1381,16 @@ impl DeathPresenter {
                 ground_y: g.floor_y - ENEMY_HALF_HEIGHT,
                 facing: g.facing,
                 mode: g.mode,
+            })
+            .collect();
+        let llamas: Vec<LlamaView> = combat
+            .llamas
+            .iter()
+            .map(|l| LlamaView {
+                x: l.x,
+                ground_y: l.floor_y - LLAMA_HALF_HEIGHT,
+                facing: l.facing,
+                mode: l.mode,
             })
             .collect();
         let block_x = combat.shore.as_ref().map(|s| {
@@ -1243,6 +1412,7 @@ impl DeathPresenter {
             events,
             Observation {
                 goblins: &goblins,
+                llamas: &llamas,
                 hero_x: scene.world.hero.x,
                 block_x,
                 back_wall: true,
@@ -1365,12 +1535,40 @@ impl DeathPresenter {
         force: ForceTier,
         obs: &Observation<'_>,
     ) {
-        let Some(goblin) = obs.goblins.get(target as usize) else {
+        // Goblins first, then llamas (the same target ids as the simulation).
+        let goblins = obs.goblins.len();
+        let (x, ground_y, facing, variant, species) = if (target as usize) < goblins {
+            let g = &obs.goblins[target as usize];
+            (
+                g.x,
+                g.ground_y,
+                g.facing,
+                goblin_variant(target as usize),
+                self.species,
+            )
+        } else if self.llama.is_some()
+            && let Some(l) = obs.llamas.get(target as usize - goblins)
+        {
+            (l.x, l.ground_y, l.facing, LLAMA_VARIANT, LLAMA_SPECIES)
+        } else {
             return;
         };
-        let selection = self.profiles.select(self.species, cause, force);
+        let selection = self.profiles.select(species, cause, force);
         let finish = Finish::from_id(selection.finish);
-        let flip = goblin.facing < 0;
+        let flip = facing < 0;
+        let mut x = x;
+        // A crushed llama's pose is drawn with its mirrored `hit_origin` under
+        // the block's centre (`hazard_draw: "over"`): the stone never moves
+        // sideways on a partial overlap, the llama's drawn pose does (render
+        // only, the simulated body does not move).
+        if variant == LLAMA_VARIANT
+            && let (DefeatCause::ShoreBlock { .. }, Some(block)) = (cause, obs.block_x)
+            && let Some(art) = self.llama.as_ref().map(|l| &l.art)
+            && let Some((hx, _)) = art.pose(0).anchor("hit_origin")
+        {
+            let dx = hx as f32 + 0.5 - art.pose_pivot.0 as f32;
+            x = if flip { block + dx } else { block - dx };
+        }
         // The point the blow came from: the block's centre for the block and
         // its edge, the charge for an explosion, Carl for a melee hit.
         let charge = match cause {
@@ -1383,19 +1581,19 @@ impl DeathPresenter {
             }
             _ => charge.map_or(obs.hero_x, |c| c.x),
         };
-        let away = if (goblin.x - from_x).abs() < 0.5 {
-            -f32::from(goblin.facing)
+        let away = if (x - from_x).abs() < 0.5 {
+            -f32::from(facing)
         } else {
-            (goblin.x - from_x).signum()
+            (x - from_x).signum()
         };
         let mut death = Death::new(
             self.next_death_id,
             target,
-            goblin_variant(target as usize),
+            variant,
             finish,
             force,
             self.clock + 1,
-            (goblin.x, goblin.ground_y),
+            (x, ground_y),
             flip,
             away,
             PresentationRng::for_event(self.attempt, tick, target),
@@ -1405,16 +1603,12 @@ impl DeathPresenter {
             death.drop_cap = table.drop_splat_cap;
             death.stain_cap = table.part_stain_cap;
             death.pool_scale = table.pool_scale;
-            death.impact = Some(
-                charge.map_or((goblin.x, goblin.ground_y + BLAST_CENTRE_DY), |c| {
-                    c.centre()
-                }),
-            );
+            death.impact = Some(charge.map_or((x, ground_y + BLAST_CENTRE_DY), |c| c.centre()));
         }
         if let (DefeatCause::ShoreBlockEdge { .. }, Some(block)) = (cause, obs.block_x) {
             // The edge that cut the neck: the footprint edge on the goblin's
             // side of the block.
-            let side = if goblin.x >= block { 1.0 } else { -1.0 };
+            let side = if x >= block { 1.0 } else { -1.0 };
             death.edge_splat_x = Some(block + side * FOOTPRINT_WIDTH / 2.0);
         }
         if finish == Finish::Exploded && self.preset >= GorePreset::Reduced {
@@ -1505,14 +1699,17 @@ impl DeathPresenter {
             let Some(part) = self.parts.get_mut(slot) else {
                 continue;
             };
-            let meta = &self.art.parts[part.meta];
+            let art = art_for(&self.art, &self.llama, part.variant);
+            let meta = &art.parts[part.meta];
             if let PartState::Resting { since } = part.state {
                 if expired(meta.ttl, since, clock) {
                     self.parts.free(slot);
                 }
                 continue;
             }
-            let hull = &self.sheets[part.variant].parts.hull[part.frame];
+            let hull = &sheets_for(&self.sheets, &self.llama, part.variant)
+                .parts
+                .hull[part.frame];
             if hull.is_empty() {
                 self.parts.free(slot);
                 continue;
@@ -1562,7 +1759,11 @@ impl DeathPresenter {
             part.contacts += 1;
             let first = part.contacts == 1;
             let (death, x) = (part.death, part.x);
-            if meta.class == PartClass::Blood {
+            // A blood drop, or a lava drop that leaves a molten decal, dies on
+            // contact and leaves its decal.
+            if meta.class == PartClass::Blood
+                || (meta.class == PartClass::Molten && meta.on_contact.is_some())
+            {
                 contacts.push(Contact::DropLanded {
                     death,
                     meta: part.meta,
@@ -1574,14 +1775,14 @@ impl DeathPresenter {
             // First contact swap (head -> head_dead).
             if first
                 && let Some(swap) = meta.swap_on_first_contact.as_deref()
-                && let Some(index) = self.art.part_index(swap)
+                && let Some(index) = art.part_index(swap)
             {
                 part.meta = index;
-                part.frame = self.art.parts[index].frame;
+                part.frame = art.parts[index].frame;
             }
             let meta_index = part.meta;
-            let bounce = self.art.parts[meta_index].bounce;
-            let rolls = self.art.parts[meta_index].settle == Settle::Roll;
+            let bounce = art.parts[meta_index].bounce;
+            let rolls = art.parts[meta_index].settle == Settle::Roll;
             contacts.push(Contact::Touched {
                 death,
                 meta: meta_index,
@@ -1626,7 +1827,13 @@ impl DeathPresenter {
         for pool in [&mut self.floor_decals, &mut self.wall_decals] {
             let gone: Vec<usize> = pool
                 .iter()
-                .filter(|(_, d)| expired(self.art.parts[d.meta].ttl, d.born, clock))
+                .filter(|(_, d)| {
+                    expired(
+                        art_for(&self.art, &self.llama, d.variant).parts[d.meta].ttl,
+                        d.born,
+                        clock,
+                    )
+                })
                 .map(|(i, _)| i)
                 .collect();
             for slot in gone {
@@ -1644,25 +1851,36 @@ impl DeathPresenter {
             | Contact::RollStarted { death, meta, .. }
             | Contact::Rested { death, meta, .. } => (death, meta),
         };
-        let part = &self.art.parts[meta_index];
         let Some(slot) = self.deaths.iter().position(|d| d.id == death) else {
             return;
         };
+        let variant = self.deaths[slot].variant;
+        let part = &art_for(&self.art, &self.llama, variant).parts[meta_index];
         let ground_y = self.deaths[slot].ground_y;
         match contact {
             Contact::DropLanded { x, .. } => {
-                if self.deaths[slot].drop_splats >= self.deaths[slot].drop_cap {
+                // Lava drops have their own cap (at most 6 molten decals).
+                let molten = part.class == PartClass::Molten;
+                if molten {
+                    if self.deaths[slot].molten_decals >= MAX_MOLTEN_DECALS {
+                        return;
+                    }
+                } else if self.deaths[slot].drop_splats >= self.deaths[slot].drop_cap {
                     return;
                 }
                 if let Some(id) = part.on_contact.clone()
-                    && self.spawn_floor_decal(&id, x, ground_y, false)
+                    && self.spawn_floor_decal(variant, &id, x, ground_y, false)
                 {
-                    self.deaths[slot].drop_splats += 1;
+                    if molten {
+                        self.deaths[slot].molten_decals += 1;
+                    } else {
+                        self.deaths[slot].drop_splats += 1;
+                    }
                 }
             }
             Contact::RollStarted { x, dir, .. } => {
                 if let Some(trail) = part.trail.clone() {
-                    self.spawn_floor_decal(&trail, x, ground_y, dir < 0.0);
+                    self.spawn_floor_decal(variant, &trail, x, ground_y, dir < 0.0);
                 }
             }
             Contact::Rested { x, .. } => {
@@ -1686,7 +1904,7 @@ impl DeathPresenter {
                 if let Some(stain) = part.stain.clone()
                     && (first || part.trail.is_some())
                     && self.deaths[slot].part_stains < self.deaths[slot].stain_cap
-                    && self.spawn_floor_decal(&stain, x, ground_y, false)
+                    && self.spawn_floor_decal(variant, &stain, x, ground_y, false)
                 {
                     self.deaths[slot].part_stains += 1;
                 }
@@ -1710,14 +1928,15 @@ impl DeathPresenter {
         spin_dps: f32,
         flip: bool,
     ) -> bool {
-        let Some(index) = self.art.part_index(id) else {
+        let art = art_for(&self.art, &self.llama, death.variant);
+        let Some(index) = art.part_index(id) else {
             return false;
         };
-        let meta = &self.art.parts[index];
+        let meta = &art.parts[index];
         if !meta.allowed_at(self.preset) {
             return false;
         }
-        let cell = self.art.part_cell;
+        let cell = art.part_cell;
         let anchor_px = anchor
             .and_then(|a| meta.anchor(a))
             .unwrap_or((cell.0 / 2, cell.1 / 2));
@@ -1765,9 +1984,10 @@ impl DeathPresenter {
             death: death.id,
             variant: death.variant,
         };
-        let (art, now) = (&self.art, self.clock);
-        self.parts
-            .spawn_ranked(part, now, |p| ttl_rank(art.parts[p.meta].ttl));
+        let (goblin_art, llama_art, now) = (&self.art, &self.llama, self.clock);
+        self.parts.spawn_ranked(part, now, |p| {
+            ttl_rank(art_for(goblin_art, llama_art, p.variant).parts[p.meta].ttl)
+        });
         self.stats.parts_spawned += 1;
         self.stats.peak_parts = self.stats.peak_parts.max(self.parts.live());
         true
@@ -1798,14 +2018,22 @@ impl DeathPresenter {
 
     /// Spawn a floor decal (a splat, a pool stage, a smear) on the floor line
     /// at world x `x`. Returns false when the preset does not draw it.
-    fn spawn_floor_decal(&mut self, id: &str, x: f32, ground_y: f32, flip: bool) -> bool {
-        let Some((meta, decal)) = self.floor_decal_for(id, x, ground_y, flip, 1.0) else {
+    fn spawn_floor_decal(
+        &mut self,
+        variant: usize,
+        id: &str,
+        x: f32,
+        ground_y: f32,
+        flip: bool,
+    ) -> bool {
+        let Some((meta, decal)) = self.floor_decal_for(variant, id, x, ground_y, flip, 1.0) else {
             return false;
         };
         let _ = meta;
-        let (art, now) = (&self.art, self.clock);
-        self.floor_decals
-            .spawn_ranked(decal, now, |d| ttl_rank(art.parts[d.meta].ttl));
+        let (goblin_art, llama_art, now) = (&self.art, &self.llama, self.clock);
+        self.floor_decals.spawn_ranked(decal, now, |d| {
+            ttl_rank(art_for(goblin_art, llama_art, d.variant).parts[d.meta].ttl)
+        });
         self.stats.floor_decals_spawned += 1;
         self.stats.peak_floor_decals = self.stats.peak_floor_decals.max(self.floor_decals.live());
         true
@@ -1813,19 +2041,24 @@ impl DeathPresenter {
 
     fn floor_decal_for(
         &self,
+        variant: usize,
         id: &str,
         x: f32,
         ground_y: f32,
         flip: bool,
         scale: f32,
     ) -> Option<(usize, Decal)> {
-        let index = self.art.part_index(id)?;
-        let meta = &self.art.parts[index];
+        // Decals are the same in both goblin sets: they stay variant 0 (the
+        // sheet and digest they always had); only the llama has its own.
+        let variant = decal_set(variant);
+        let art = art_for(&self.art, &self.llama, variant);
+        let index = art.part_index(id)?;
+        let meta = &art.parts[index];
         if !meta.allowed_at(self.preset) {
             return None;
         }
-        let cell = self.art.part_cell;
-        let bbox = self.sheets[0].parts.bbox[meta.frame]?;
+        let cell = art.part_cell;
+        let bbox = sheets_for(&self.sheets, &self.llama, variant).parts.bbox[meta.frame]?;
         // Horizontal: the named anchor pixel on `x`; vertical: the lowest
         // opaque row on the floor line.
         let anchor = meta
@@ -1839,7 +2072,7 @@ impl DeathPresenter {
             .pair
             .as_deref()
             .filter(|_| meta.pair_offset.is_some())
-            .and_then(|p| self.art.part_index(p));
+            .and_then(|p| art.part_index(p));
         Some((
             index,
             Decal {
@@ -1851,6 +2084,7 @@ impl DeathPresenter {
                 kind: DecalKind::Floor,
                 scale,
                 born: self.clock,
+                variant,
             },
         ))
     }
@@ -1858,9 +2092,14 @@ impl DeathPresenter {
     /// Grow the death's pool decal to `id` (one decal that swaps its frame, so
     /// each stage contains the previous one); spawn it when none lives.
     fn pool_stage(&mut self, death: &mut Death, which: usize, id: &str, x: f32) {
-        let Some((index, fresh)) =
-            self.floor_decal_for(id, x, death.ground_y, false, death.pool_scale)
-        else {
+        let Some((index, fresh)) = self.floor_decal_for(
+            death.variant,
+            id,
+            x,
+            death.ground_y,
+            false,
+            death.pool_scale,
+        ) else {
             return;
         };
         let pair = fresh.pair_meta;
@@ -1874,10 +2113,10 @@ impl DeathPresenter {
             decal.scale = fresh.scale;
             return;
         }
-        let (art, now) = (&self.art, self.clock);
-        let (slot, seq) = self
-            .floor_decals
-            .spawn_ranked(fresh, now, |d| ttl_rank(art.parts[d.meta].ttl));
+        let (goblin_art, llama_art, now) = (&self.art, &self.llama, self.clock);
+        let (slot, seq) = self.floor_decals.spawn_ranked(fresh, now, |d| {
+            ttl_rank(art_for(goblin_art, llama_art, d.variant).parts[d.meta].ttl)
+        });
         death.pools[which] = Some((slot, seq));
         self.stats.floor_decals_spawned += 1;
         self.stats.peak_floor_decals = self.stats.peak_floor_decals.max(self.floor_decals.live());
@@ -1900,28 +2139,37 @@ impl DeathPresenter {
         }
         self.last_wall = Some((variant, flip));
         let id = ["decal_wall_spatter", "decal_wall_spatter_b"][variant];
-        self.wall_spatter_variant(id, flip, at);
+        self.wall_spatter_variant(death.variant, id, flip, at);
     }
 
     /// One named back-wall spatter whose origin pixel is on `at`.
-    fn wall_spatter_variant(&mut self, id: &str, flip: bool, at: (f32, f32)) {
-        self.wall_spatter_scaled(id, flip, at, 1.0);
+    fn wall_spatter_variant(&mut self, variant: usize, id: &str, flip: bool, at: (f32, f32)) {
+        self.wall_spatter_scaled(variant, id, flip, at, 1.0);
     }
 
     /// A back-wall spatter drawn `scale` times the art's size about its
     /// centre, its origin pixel still on `at`.
-    fn wall_spatter_scaled(&mut self, id: &str, flip: bool, at: (f32, f32), scale: f32) {
+    fn wall_spatter_scaled(
+        &mut self,
+        variant: usize,
+        id: &str,
+        flip: bool,
+        at: (f32, f32),
+        scale: f32,
+    ) {
         if !self.back_wall {
             return;
         }
-        let Some(index) = self.art.part_index(id) else {
+        let variant = decal_set(variant);
+        let art = art_for(&self.art, &self.llama, variant);
+        let Some(index) = art.part_index(id) else {
             return;
         };
-        let meta = &self.art.parts[index];
+        let meta = &art.parts[index];
         if !meta.allowed_at(self.preset) {
             return;
         }
-        let cell = self.art.part_cell;
+        let cell = art.part_cell;
         let anchor = meta.anchor("origin").unwrap_or((cell.0 / 2, cell.1 / 2));
         let centre = part_center_for_anchor(cell, anchor, at, flip);
         let centre = (
@@ -1939,6 +2187,7 @@ impl DeathPresenter {
                 kind: DecalKind::Wall,
                 scale,
                 born: now,
+                variant,
             },
             now,
         );
@@ -1951,12 +2200,20 @@ impl DeathPresenter {
     fn step_deaths(&mut self, obs: &Observation<'_>) {
         for i in 0..self.deaths.len() {
             let mut death = self.deaths[i].clone();
+            // A slammed llama slides clear of its attacker for a few ticks (the
+            // simulated body moves); its pose follows the body.
+            if death.finish == Finish::Slammed
+                && let Some(x) = Self::lying_x(obs, death.target)
+            {
+                death.foot_x = x;
+            }
             let age = self.clock.saturating_sub(death.start);
             if self.clock >= death.start {
                 match death.finish {
                     Finish::Crushed => self.script_crush(&mut death, age),
                     Finish::Decapitated => self.script_decap(&mut death, age),
                     Finish::Knockback => self.script_knockback(&mut death, age, obs),
+                    Finish::Slammed => self.script_slam(&mut death, age),
                     Finish::Exploded => self.script_explode(&mut death, age),
                     Finish::NoArt => {}
                 }
@@ -1969,15 +2226,19 @@ impl DeathPresenter {
             .retain(|d| d.target != SYNTHETIC_TARGET || clock <= d.start + d.done_after.max(150));
     }
 
+    /// Whether part `id` of `variant`'s set exists and the preset draws it.
+    fn part_allowed(&self, variant: usize, id: &str) -> bool {
+        let art = self.art_of(variant);
+        art.part_index(id)
+            .is_some_and(|i| art.parts[i].allowed_at(self.preset))
+    }
+
     /// World position of anchor `name` of pose frame `frame` of `death`.
     fn pose_point(&self, death: &Death, frame: usize, name: &str) -> (f32, f32) {
-        let anchor = self
-            .art
-            .pose(frame)
-            .anchor(name)
-            .unwrap_or(self.art.pose_pivot);
+        let art = self.art_of(death.variant);
+        let anchor = art.pose(frame).anchor(name).unwrap_or(art.pose_pivot);
         pose_anchor_world(
-            self.art.pose_pivot,
+            art.pose_pivot,
             anchor,
             death.foot_x,
             death.ground_y,
@@ -1993,6 +2254,9 @@ impl DeathPresenter {
     /// Crush, spec section 8: the landing tick L.
     fn script_crush(&mut self, d: &mut Death, age: u64) {
         d.done_after = 70;
+        if age == 0 && d.variant == LLAMA_VARIANT {
+            self.llama_crush_burst(d);
+        }
         if age == 0 {
             // The club leaves the hand.
             let hand = self.pose_point(d, 0, "hand_near");
@@ -2022,11 +2286,7 @@ impl DeathPresenter {
                 ("gib_bone", "squeeze_front"),
             ]
             .into_iter()
-            .filter(|(id, _)| {
-                self.art
-                    .part_index(id)
-                    .is_some_and(|i| self.art.parts[i].allowed_at(self.preset))
-            })
+            .filter(|(id, _)| self.part_allowed(d.variant, id))
             .collect();
             let keep = scale_count(gibs.len() as u32, self.preset.gib_quarters()) as usize;
             for (id, anchor) in gibs.into_iter().take(keep) {
@@ -2060,7 +2320,7 @@ impl DeathPresenter {
         if age == first {
             for anchor in ["squeeze_front", "squeeze_back"] {
                 let from = self.pose_point(d, 0, anchor);
-                self.spawn_floor_decal("decal_splat_m", from.0, d.ground_y, false);
+                self.spawn_floor_decal(d.variant, "decal_splat_m", from.0, d.ground_y, false);
             }
         }
         let pool = self.pose_point(d, 2, "pool_origin");
@@ -2080,10 +2340,15 @@ impl DeathPresenter {
         if age == 8 {
             let at = (d.foot_x, d.ground_y + 8.0);
             let left = d.rng.coin();
-            self.wall_spatter_variant("decal_wall_spatter", left, (at.0 - 4.0, at.1));
-            self.wall_spatter_variant("decal_wall_spatter", !left, (at.0 + 4.0, at.1));
+            self.wall_spatter_variant(d.variant, "decal_wall_spatter", left, (at.0 - 4.0, at.1));
+            self.wall_spatter_variant(d.variant, "decal_wall_spatter", !left, (at.0 + 4.0, at.1));
             let centre = d.rng.coin();
-            self.wall_spatter_variant("decal_wall_spatter_b", centre, (at.0, at.1 + 2.0));
+            self.wall_spatter_variant(
+                d.variant,
+                "decal_wall_spatter_b",
+                centre,
+                (at.0, at.1 + 2.0),
+            );
         }
     }
 
@@ -2105,7 +2370,7 @@ impl DeathPresenter {
                 }
             }
             if age == 2 {
-                self.spawn_floor_decal("decal_splat_m", edge_x, d.ground_y, false);
+                self.spawn_floor_decal(d.variant, "decal_splat_m", edge_x, d.ground_y, false);
             }
         }
         match age {
@@ -2278,23 +2543,35 @@ impl DeathPresenter {
                 }
             }
             1 => {
-                self.spawn_floor_decal("decal_splat_m", ix, d.ground_y, false);
+                self.spawn_floor_decal(d.variant, "decal_splat_m", ix, d.ground_y, false);
             }
             2 => {
                 // Both wall spatters, one fanning each way from I (preset 4,
                 // back wall in reach).
                 let y = d.ground_y + 14.0;
-                self.wall_spatter_variant("decal_wall_spatter", true, (ix - 12.0, y));
-                self.wall_spatter_variant("decal_wall_spatter_b", false, (ix + 12.0, y));
+                self.wall_spatter_variant(d.variant, "decal_wall_spatter", true, (ix - 12.0, y));
+                self.wall_spatter_variant(d.variant, "decal_wall_spatter_b", false, (ix + 12.0, y));
                 // Preset 4 punch-up: two more at the larger size, higher and
                 // wider, so the splash reads as one big mark.
                 if table.extra_wall_spatters >= 1 {
                     let s = table.pool_scale;
-                    self.wall_spatter_scaled("decal_wall_spatter_b", true, (ix - 26.0, y + 8.0), s);
+                    self.wall_spatter_scaled(
+                        d.variant,
+                        "decal_wall_spatter_b",
+                        true,
+                        (ix - 26.0, y + 8.0),
+                        s,
+                    );
                 }
                 if table.extra_wall_spatters >= 2 {
                     let s = table.pool_scale;
-                    self.wall_spatter_scaled("decal_wall_spatter", false, (ix + 26.0, y + 8.0), s);
+                    self.wall_spatter_scaled(
+                        d.variant,
+                        "decal_wall_spatter",
+                        false,
+                        (ix + 26.0, y + 8.0),
+                        s,
+                    );
                 }
             }
             _ => {}
@@ -2325,7 +2602,12 @@ impl DeathPresenter {
                 (12, 70.0, 150.0)
             };
             let n = scale_count(count, self.preset.drop_quarters());
-            let head = (d.foot_x, d.ground_y + 26.0);
+            let head_height = if d.variant == LLAMA_VARIANT {
+                36.0
+            } else {
+                26.0
+            };
+            let head = (d.foot_x, d.ground_y + head_height);
             for _ in 0..n {
                 let elevation = d.rng.range(20.0, 70.0);
                 let speed = d.rng.range(lo, hi);
@@ -2341,11 +2623,7 @@ impl DeathPresenter {
             let allowed: Vec<&str> = gibs
                 .iter()
                 .copied()
-                .filter(|id| {
-                    self.art
-                        .part_index(id)
-                        .is_some_and(|i| self.art.parts[i].allowed_at(self.preset))
-                })
+                .filter(|id| self.part_allowed(d.variant, id))
                 .collect();
             let keep = scale_count(allowed.len() as u32, self.preset.gib_quarters()) as usize;
             for id in allowed.into_iter().take(keep) {
@@ -2367,11 +2645,13 @@ impl DeathPresenter {
             if heavy {
                 let flip = d.away < 0.0;
                 self.wall_spatter_variant(
+                    d.variant,
                     "decal_wall_spatter",
                     flip,
                     (d.foot_x, d.ground_y + 14.0),
                 );
                 self.wall_spatter_variant(
+                    d.variant,
                     "decal_wall_spatter_b",
                     d.rng.coin(),
                     (d.foot_x + d.away * 10.0, d.ground_y + 16.0),
@@ -2381,15 +2661,10 @@ impl DeathPresenter {
         // The goblin has landed (lying down): stain the floor under it.
         if d.landed.is_none()
             && age > 0
-            && obs
-                .goblins
-                .get(d.target as usize)
-                .is_some_and(|g| matches!(g.mode, GoblinMode::Down | GoblinMode::Corpse))
+            && let Some(x) = Self::lying_x(obs, d.target)
         {
             d.landed = Some(age);
-            if let Some(g) = obs.goblins.get(d.target as usize) {
-                d.foot_x = g.x;
-            }
+            d.foot_x = x;
         }
         if let Some(landed) = d.landed {
             let since = age - landed;
@@ -2400,14 +2675,14 @@ impl DeathPresenter {
                 (4, 24, u64::MAX)
             };
             if since == 0 {
-                if self.spawn_floor_decal("decal_splat_s", x, d.ground_y, false) {
+                if self.spawn_floor_decal(d.variant, "decal_splat_s", x, d.ground_y, false) {
                     d.part_stains += 1;
                 }
-                self.spawn_floor_decal("decal_splat_m", x, d.ground_y, false);
+                self.spawn_floor_decal(d.variant, "decal_splat_m", x, d.ground_y, false);
                 if heavy {
                     // The slide leaves a smear (full only), toward the way
                     // the body travelled.
-                    self.spawn_floor_decal("decal_smear", x, d.ground_y, d.away < 0.0);
+                    self.spawn_floor_decal(d.variant, "decal_smear", x, d.ground_y, d.away < 0.0);
                 }
             }
             for (tick, id) in [
@@ -2418,6 +2693,87 @@ impl DeathPresenter {
                 if since == tick {
                     self.pool_stage(d, 0, id, x);
                 }
+            }
+        }
+    }
+
+    /// The column of target `target` once it lies down (a goblin or a llama in
+    /// `Down` or `Corpse`), else `None`.
+    fn lying_x(obs: &Observation<'_>, target: u32) -> Option<f32> {
+        let goblins = obs.goblins.len();
+        if (target as usize) < goblins {
+            let g = &obs.goblins[target as usize];
+            matches!(g.mode, GoblinMode::Down | GoblinMode::Corpse).then_some(g.x)
+        } else {
+            let l = obs.llamas.get(target as usize - goblins)?;
+            matches!(l.mode, LlamaMode::Down | LlamaMode::Corpse).then_some(l.x)
+        }
+    }
+
+    /// LLAMA-02 section 8, the crush burst on the landing tick: 10 to 14 molten
+    /// drops from the gland (lava is shown at every preset; half as many at
+    /// presets 1 and 2) and a tooth from the mouth.
+    fn llama_crush_burst(&mut self, d: &mut Death) {
+        let gland = self.pose_point(d, 0, "gland");
+        let quarters = if self.preset >= GorePreset::Medium {
+            4
+        } else {
+            2
+        };
+        let n = scale_count(d.rng.int(10, 14), quarters);
+        for _ in 0..n {
+            let spread = d.rng.range(-15.0, 15.0).to_radians();
+            let up = d.rng.range(220.0, 320.0);
+            self.launch(
+                d,
+                "drop_molten",
+                None,
+                gland,
+                (spread.tan() * up, up),
+                0.0,
+                0.0,
+                false,
+            );
+        }
+        let mouth = self.pose_point(d, 0, "mouth");
+        let (vx, vy) = (d.away * d.rng.range(60.0, 120.0), d.rng.range(180.0, 240.0));
+        let spin = -d.away * 900.0;
+        self.launch(d, "tooth", None, mouth, (vx, vy), 0.0, spin, false);
+    }
+
+    /// Slam (LLAMA-02 spec section 8): a lethal heavy hit at tick S. Pose 6 for
+    /// 6 ticks, then pose 7 held. On S: a tooth from the mouth, 8 to 12 blood
+    /// drops rising from the mouth, one molten drop from the gland, three wool
+    /// tufts from the hit point; pool stages 1 and 2 at S+8 and S+30 (no stage
+    /// 3: the slam is less bloody than the crush, by design). Counts scale with
+    /// the preset; the lava and the tufts stay at every preset.
+    fn script_slam(&mut self, d: &mut Death, age: u64) {
+        d.done_after = 70;
+        if age == 0 {
+            let mouth = self.pose_point(d, 6, "mouth");
+            let (vx, vy) = (d.away * d.rng.range(60.0, 100.0), d.rng.range(200.0, 260.0));
+            let spin = if d.rng.coin() { 900.0 } else { -900.0 };
+            self.launch(d, "tooth", None, mouth, (vx, vy), 0.0, spin, false);
+            let n = scale_count(d.rng.int(8, 12), self.preset.drop_quarters());
+            for _ in 0..n {
+                let elevation = d.rng.range(55.0, 85.0);
+                let speed = d.rng.range(120.0, 200.0);
+                self.drop_blood(d, mouth, d.away, elevation, speed);
+            }
+            let gland = self.pose_point(d, 6, "gland");
+            let (vx, vy) = (d.away * d.rng.range(20.0, 60.0), d.rng.range(180.0, 240.0));
+            self.launch(d, "drop_molten", None, gland, (vx, vy), 0.0, 0.0, false);
+            let hit = self.pose_point(d, 6, "hit_origin");
+            for id in ["wool_tuft_a", "wool_tuft_b", "wool_tuft_a"] {
+                let (vx, vy) = (d.away * d.rng.range(-30.0, 90.0), d.rng.range(90.0, 170.0));
+                let spin = d.rng.range(-300.0, 300.0);
+                self.launch(d, id, None, hit, (vx, vy), 0.0, spin, false);
+            }
+        }
+        let pool = self.pose_point(d, 7, "pool_origin");
+        for (tick, id) in [(8, "decal_pool_1"), (30, "decal_pool_2")] {
+            if age == tick {
+                self.pool_stage(d, 0, id, pool.0);
             }
         }
     }
@@ -2446,6 +2802,9 @@ impl DeathPresenter {
                 mix(u64::from(d.y.to_bits()));
                 mix((slot as u64) << 8 | d.meta as u64 | u64::from(d.flip) << 40);
                 mix(d.pair_meta.map_or(0, |p| p as u64 + 1));
+                if d.variant != 0 {
+                    mix(0x5641_5231 + d.variant as u64);
+                }
                 if d.scale != 1.0 {
                     mix(u64::from(d.scale.to_bits()));
                 }
@@ -2552,6 +2911,7 @@ mod tests {
     fn obs(goblins: &[GoblinView]) -> Observation<'_> {
         Observation {
             goblins,
+            llamas: &[],
             hero_x: 400.0,
             block_x: Some(484.0),
             back_wall: true,
@@ -2666,7 +3026,7 @@ mod tests {
         // Fill the pool with pools of the same class (kept): the pair goes as
         // one entry when it is the oldest.
         for i in 0..FLOOR_DECAL_POOL_CAPACITY {
-            p.spawn_floor_decal("decal_pool_1", i as f32, 100.0, false);
+            p.spawn_floor_decal(0, "decal_pool_1", i as f32, 100.0, false);
         }
         assert_eq!(p.live_floor_decals(), FLOOR_DECAL_POOL_CAPACITY);
         // The pair is recycled whole: both cells fade together as one entry
@@ -3320,6 +3680,7 @@ mod tests {
         fn open(goblins: &[GoblinView]) -> Observation<'_> {
             Observation {
                 goblins,
+                llamas: &[],
                 hero_x: 400.0,
                 block_x: Some(484.0),
                 back_wall: false,
@@ -3485,7 +3846,7 @@ mod tests {
         let mut d = p.deaths_for_test();
         p.pool_stage(&mut d, 0, "decal_pool_3", 200.0);
         for i in 0..FLOOR_DECAL_POOL_CAPACITY * 3 {
-            p.spawn_floor_decal("decal_splat_s", i as f32, 100.0, false);
+            p.spawn_floor_decal(0, "decal_splat_s", i as f32, 100.0, false);
             assert!(p.live_floor_decals() <= FLOOR_DECAL_POOL_CAPACITY);
         }
         assert_eq!(p.live_floor_decals(), FLOOR_DECAL_POOL_CAPACITY);
@@ -3493,7 +3854,7 @@ mod tests {
         assert!(p.recycled().1 >= (FLOOR_DECAL_POOL_CAPACITY * 2) as u64);
         // Wall spatters are all kept: the oldest goes first, the cap holds.
         for i in 0..WALL_DECAL_POOL_CAPACITY * 3 {
-            p.wall_spatter_variant("decal_wall_spatter", false, (i as f32, 120.0));
+            p.wall_spatter_variant(0, "decal_wall_spatter", false, (i as f32, 120.0));
             assert!(p.live_wall_decals() <= WALL_DECAL_POOL_CAPACITY);
         }
         assert_eq!(p.live_wall_decals(), WALL_DECAL_POOL_CAPACITY);
@@ -3611,10 +3972,10 @@ mod tests {
     fn recycled_stains_fade_out_over_about_thirty_ticks_instead_of_popping() {
         let mut p = presenter(GorePreset::Full);
         for i in 0..FLOOR_DECAL_POOL_CAPACITY {
-            p.spawn_floor_decal("decal_splat_s", i as f32, 100.0, false);
+            p.spawn_floor_decal(0, "decal_splat_s", i as f32, 100.0, false);
         }
         assert_eq!(p.recycled().1, 0);
-        p.spawn_floor_decal("decal_splat_s", 999.0, 100.0, false);
+        p.spawn_floor_decal(0, "decal_splat_s", 999.0, 100.0, false);
         assert_eq!(p.recycled().1, 1);
         let (slot, _) = p
             .floor_decals()
@@ -3891,6 +4252,454 @@ mod tests {
             let low = part.y - lowest_below_centre(hull, part.flip, part.angle_deg);
             assert!(low >= 100.0 - 0.01, "{low} below the floor line");
         }
+    }
+
+    // ------------------------------------------------------------ LLAMA-02 ----
+
+    fn llama_art() -> Arc<DeathArt> {
+        Arc::new(DeathArt::load_llama(&root()).unwrap())
+    }
+
+    /// The presenter the game builds for a run with llamas.
+    fn llama_presenter(preset: GorePreset) -> DeathPresenter {
+        presenter(preset).with_llama(llama_art()).unwrap()
+    }
+
+    /// A llama standing at `x` facing left on the floor at y 100.
+    fn llama_at(x: f32) -> LlamaView {
+        LlamaView {
+            x,
+            ground_y: 100.0,
+            facing: -1,
+            mode: LlamaMode::Down,
+        }
+    }
+
+    fn lobs<'a>(goblins: &'a [GoblinView], llamas: &'a [LlamaView]) -> Observation<'a> {
+        Observation {
+            goblins,
+            llamas,
+            hero_x: 400.0,
+            block_x: Some(484.0),
+            back_wall: true,
+            charges: &[],
+        }
+    }
+
+    fn llama_part_ids(p: &DeathPresenter) -> Vec<String> {
+        p.parts()
+            .map(|(_, part)| p.art_of(part.variant).parts[part.meta].id.clone())
+            .collect()
+    }
+
+    fn llama_floor_ids(p: &DeathPresenter) -> Vec<String> {
+        p.floor_decals()
+            .map(|(_, d)| p.art_of(d.variant).parts[d.meta].id.clone())
+            .collect()
+    }
+
+    /// One llama (target 0, no goblins) defeated by `cause` with `force`.
+    fn llama_death(
+        preset: GorePreset,
+        cause: DefeatCause,
+        force: ForceTier,
+        ticks: u64,
+    ) -> DeathPresenter {
+        let mut p = llama_presenter(preset);
+        let llamas = [llama_at(484.0)];
+        p.step(&[defeat(10, 0, cause, force)], lobs(&[], &llamas));
+        for _ in 1..ticks {
+            p.step(&[], lobs(&[], &llamas));
+        }
+        p
+    }
+
+    #[test]
+    fn a_heavy_lethal_hit_plays_the_slam_pair_and_holds_the_broken_heap() {
+        let mut p = llama_presenter(GorePreset::Full);
+        let llamas = [llama_at(484.0)];
+        p.step(
+            &[defeat(10, 0, DefeatCause::Melee, ForceTier::Heavy)],
+            lobs(&[], &llamas),
+        );
+        let first = p.pose_of(0).expect("the slam pose");
+        assert_eq!((first.frame, first.variant), (6, LLAMA_VARIANT));
+        // Pose 6 (`slam_contact`) for 6 ticks, then pose 7 (`broken_heap`).
+        for age in 1..40u64 {
+            p.step(&[], lobs(&[], &llamas));
+            let frame = p.pose_of(0).unwrap().frame;
+            assert_eq!(frame, if age < 6 { 6 } else { 7 }, "age {age}");
+        }
+        let art = p.art_of(LLAMA_VARIANT);
+        assert_eq!(art.pose(6).tag, "slam_contact");
+        assert_eq!(art.pose(7).tag, "broken_heap");
+        // No hazard: the stone is not drawn over a slam.
+        assert!(p.hazard_over_anchor().is_none());
+    }
+
+    #[test]
+    fn a_routine_lethal_hit_keeps_the_llama_01_down_and_only_adds_blood() {
+        let p = llama_death(GorePreset::Full, DefeatCause::Melee, ForceTier::Routine, 30);
+        assert!(p.pose_of(0).is_none(), "no pose override: the down frames");
+        assert!(p.live_parts() > 0, "blood and a gib fly at preset 4");
+        let ids = llama_part_ids(&p);
+        assert!(ids.iter().all(|id| id != "tooth" && id != "wool_tuft_a"));
+        // The same lethal blow with a kick (Heavy) is the slam.
+        let slam = llama_death(GorePreset::Full, DefeatCause::Melee, ForceTier::Heavy, 30);
+        assert!(slam.pose_of(0).is_some());
+    }
+
+    #[test]
+    fn the_slam_throws_its_pieces_by_the_spec_and_scales_with_the_preset() {
+        let ids_at = |preset| {
+            let p = llama_death(preset, DefeatCause::Melee, ForceTier::Heavy, 4);
+            llama_part_ids(&p)
+        };
+        let full = ids_at(GorePreset::Full);
+        let count = |ids: &[String], id: &str| ids.iter().filter(|i| *i == id).count();
+        assert_eq!(count(&full, "tooth"), 1);
+        assert_eq!(count(&full, "drop_molten"), 1);
+        let tufts = count(&full, "wool_tuft_a") + count(&full, "wool_tuft_b");
+        assert_eq!(tufts, 3);
+        assert!(
+            (8..=12).contains(&count(&full, "drop_blood")),
+            "8 to 12 blood drops at preset 4"
+        );
+        // Preset 1: no blood sprite, but the tooth, the lava and the wool stay.
+        let off = ids_at(GorePreset::Off);
+        assert_eq!(count(&off, "drop_blood"), 0);
+        assert_eq!(count(&off, "tooth"), 1);
+        assert_eq!(count(&off, "drop_molten"), 1);
+        assert_eq!(count(&off, "wool_tuft_a") + count(&off, "wool_tuft_b"), 3);
+        // Preset 3 halves the blood drops (ceil(n / 2)).
+        let medium = ids_at(GorePreset::Medium);
+        assert!((4..=6).contains(&count(&medium, "drop_blood")));
+    }
+
+    #[test]
+    fn the_slam_pool_grows_to_stage_two_and_never_to_stage_three() {
+        let p = llama_death(GorePreset::Full, DefeatCause::Melee, ForceTier::Heavy, 200);
+        let ids = llama_floor_ids(&p);
+        // One pool decal that grew in place: stage 2 stands, no stage 3.
+        assert!(ids.iter().any(|id| id == "decal_pool_2"), "{ids:?}");
+        assert!(ids.iter().all(|id| id != "decal_pool_3"), "{ids:?}");
+        // Preset 1 draws no blood decal at all, only lava.
+        let off = llama_death(GorePreset::Off, DefeatCause::Melee, ForceTier::Heavy, 200);
+        let off_ids = llama_floor_ids(&off);
+        assert!(
+            off_ids.iter().all(|id| id.starts_with("decal_molten")),
+            "{off_ids:?}"
+        );
+    }
+
+    #[test]
+    fn the_gland_layer_is_visible_at_every_preset_and_no_gore_pixel_at_preset_one() {
+        use crate::gore::Sheet;
+        const MOLTEN: [[u8; 4]; 2] = [[0xff, 0xe6, 0x80, 0xff], [0xff, 0x9d, 0x2e, 0xff]];
+        const BLOOD: [[u8; 4]; 3] = [
+            [0x6e, 0x1a, 0x22, 0xff],
+            [0xb8, 0x32, 0x2e, 0xff],
+            [0xe2, 0x43, 0x4b, 0xff],
+        ];
+        let count = |sheet: &Sheet, frame: usize, colours: &[[u8; 4]]| {
+            let mut n = 0;
+            for y in 0..sheet.cell_h {
+                for x in 0..sheet.cell_w {
+                    if colours.contains(&sheet.pixel(frame, x, y)) {
+                        n += 1;
+                    }
+                }
+            }
+            n
+        };
+        let art = llama_art();
+        // Poses: the crush geyser (0), the cut duct (3), the coughed glob (6).
+        for frame in [0, 3, 6] {
+            let mut lava = Vec::new();
+            for preset in GorePreset::ALL {
+                let sheets = art.compose(preset).unwrap();
+                let n = count(&sheets.poses, frame, &MOLTEN);
+                assert!(n > 0, "lava on pose {frame} at preset {}", preset.level());
+                lava.push(n);
+                if preset == GorePreset::Off {
+                    assert_eq!(
+                        count(&sheets.poses, frame, &BLOOD),
+                        0,
+                        "no gore-layer pixel on pose {frame} at preset 1"
+                    );
+                }
+            }
+            assert!(
+                lava.iter().all(|n| *n == lava[0]),
+                "the lava is the same at every preset: {lava:?}"
+            );
+            let full = art.compose(GorePreset::Full).unwrap();
+            assert!(count(&full.poses, frame, &BLOOD) > 0, "blood at preset 4");
+        }
+        // Parts: the gland piece itself keeps its lava at preset 1.
+        let gland = art.part_index("gland").unwrap();
+        let off = art.compose(GorePreset::Off).unwrap();
+        assert!(count(&off.parts, art.parts[gland].frame, &MOLTEN) > 0);
+        assert_eq!(count(&off.parts, art.parts[gland].frame, &BLOOD), 0);
+        // The presenter composes the same sheets for the llama variant.
+        let p = llama_presenter(GorePreset::Off);
+        assert!(count(&p.sheets_of(LLAMA_VARIANT).poses, 6, &MOLTEN) > 0);
+    }
+
+    #[test]
+    fn the_llama_art_reads_the_hazard_draw_flag_from_the_manifest() {
+        let art = llama_art();
+        let over: Vec<usize> = art
+            .poses
+            .iter()
+            .filter(|p| p.hazard_over())
+            .map(|p| p.index)
+            .collect();
+        assert_eq!(over, [0, 1], "crush_contact frames 0 and 1 only");
+        // The goblin art has no flag: the stone stays behind.
+        assert!(art_variant_a().poses.iter().all(|p| !p.hazard_over()));
+    }
+
+    fn art_variant_a() -> Arc<DeathArt> {
+        art()
+    }
+
+    #[test]
+    fn the_stone_is_drawn_over_the_crushed_llama_on_the_two_contact_frames_only() {
+        for flip in [false, true] {
+            let mut p = llama_presenter(GorePreset::Full);
+            let mut llama = llama_at(484.0);
+            llama.facing = if flip { -1 } else { 1 };
+            let llamas = [llama];
+            p.step(
+                &[defeat(139, 0, BLOCK, ForceTier::Catastrophic)],
+                lobs(&[], &llamas),
+            );
+            // Frame 0: the block's anchor on the (mirrored) hit_origin (42, 52):
+            // pivot column 44, pivot row 71, pixel centres. The pose is placed
+            // so that this point is the block's centre column (484).
+            let (ax, ay) = p.hazard_over_anchor().expect("over on frame 0");
+            assert_eq!((ax, ay), (484.0, 100.0 + 19.5), "flip {flip}");
+            assert_eq!(p.pose_of(0).unwrap().frame, 0);
+            for _ in 1..3 {
+                p.step(&[], lobs(&[], &llamas));
+            }
+            assert!(p.hazard_over_anchor().is_some(), "still frame 0 at age 2");
+            // Frame 1: the 3 px sink (hit_origin (42, 55)), a render-only offset.
+            p.step(&[], lobs(&[], &llamas));
+            let (_, ay) = p.hazard_over_anchor().expect("over on frame 1");
+            assert_eq!(p.pose_of(0).unwrap().frame, 1);
+            assert_eq!(ay, 100.0 + 16.5);
+            for _ in 0..2 {
+                p.step(&[], lobs(&[], &llamas));
+            }
+            assert!(p.hazard_over_anchor().is_some(), "frame 1 at age 5");
+            // From `crushed_remains` on the goblin order is back.
+            p.step(&[], lobs(&[], &llamas));
+            assert_eq!(p.pose_of(0).unwrap().frame, 2);
+            assert!(p.hazard_over_anchor().is_none());
+        }
+        // A crushed goblin never asks for it.
+        let mut g = presenter(GorePreset::Full);
+        let goblins = [goblin_at(484.0)];
+        g.step(
+            &[defeat(139, 0, BLOCK, ForceTier::Catastrophic)],
+            lobs(&goblins, &[]),
+        );
+        assert!(g.hazard_over_anchor().is_none());
+    }
+
+    #[test]
+    fn a_partly_overlapping_llama_is_drawn_under_the_stone_so_the_stone_never_moves() {
+        // The llama stands 20 px off the block's centre (partial overlap): the
+        // stone's anchor is the block centre on every contact frame (no
+        // sideways jump and no snap back), and the pose is shifted to it.
+        for (x, flip) in [(504.0, false), (464.0, true), (504.0, true)] {
+            let mut p = llama_presenter(GorePreset::Full);
+            let mut llama = llama_at(x);
+            llama.facing = if flip { -1 } else { 1 };
+            let llamas = [llama];
+            p.step(
+                &[defeat(139, 0, BLOCK, ForceTier::Catastrophic)],
+                lobs(&[], &llamas),
+            );
+            for age in 0..6 {
+                let (ax, _) = p.hazard_over_anchor().expect("over");
+                assert_eq!(ax, 484.0, "age {age} at x {x} flip {flip}");
+                p.step(&[], lobs(&[], &llamas));
+            }
+            assert!(p.hazard_over_anchor().is_none());
+        }
+    }
+
+    #[test]
+    fn the_slam_pose_follows_the_sliding_body_and_leaves_impact_dust() {
+        let mut p = llama_presenter(GorePreset::Full);
+        let mut llamas = [llama_at(484.0)];
+        p.step(
+            &[defeat(10, 0, DefeatCause::Melee, ForceTier::Heavy)],
+            lobs(&[], &llamas),
+        );
+        assert_eq!(p.pose_of(0).unwrap().foot_x, 484.0);
+        // The body slides 30 px; the pose and the dust follow it.
+        llamas[0].x = 514.0;
+        p.step(&[], lobs(&[], &llamas));
+        assert_eq!(p.pose_of(0).unwrap().foot_x, 514.0);
+        let dust = p.impact_dusts();
+        assert_eq!(dust.len(), 1);
+        assert_eq!((dust[0].ground_y, dust[0].age), (100.0, 1));
+        // hit_origin (42, 68) of pose 6: 1.5 px behind the pivot column when
+        // the llama faces left (mirrored).
+        assert_eq!(dust[0].x, 514.0 + 1.5);
+        // The dust ends after four frames of five ticks; the pose stays.
+        for _ in 0..25 {
+            p.step(&[], lobs(&[], &llamas));
+        }
+        assert!(p.impact_dusts().is_empty());
+        assert_eq!(p.pose_of(0).unwrap().frame, 7);
+        // A routine kill and a crush leave no slam dust.
+        let down = llama_death(GorePreset::Full, DefeatCause::Melee, ForceTier::Routine, 3);
+        assert!(down.impact_dusts().is_empty());
+    }
+
+    #[test]
+    fn the_llama_crush_bursts_lava_at_every_preset_and_keeps_the_lava_cap() {
+        for preset in GorePreset::ALL {
+            let p = llama_death(
+                preset,
+                DefeatCause::ShoreBlock { player: 0 },
+                ForceTier::Catastrophic,
+                4,
+            );
+            let ids = llama_part_ids(&p);
+            let lava = ids.iter().filter(|i| *i == "drop_molten").count();
+            // 10 to 14 drops, half as many at presets 1 and 2.
+            let (lo, hi) = if preset >= GorePreset::Medium {
+                (10, 14)
+            } else {
+                (5, 7)
+            };
+            assert!(
+                (lo..=hi).contains(&lava),
+                "{lava} molten drops at preset {}",
+                preset.level()
+            );
+            assert!(ids.iter().any(|i| i == "tooth"));
+        }
+        // The drops land and each becomes a molten decal, at most 6 per death.
+        let p = llama_death(
+            GorePreset::Full,
+            DefeatCause::ShoreBlock { player: 0 },
+            ForceTier::Catastrophic,
+            200,
+        );
+        let molten = llama_floor_ids(&p)
+            .iter()
+            .filter(|id| id.starts_with("decal_molten"))
+            .count();
+        assert!(
+            (1..=usize::from(MAX_MOLTEN_DECALS)).contains(&molten),
+            "{molten}"
+        );
+    }
+
+    #[test]
+    fn a_llama_defeat_draws_nothing_without_the_llama_art() {
+        let mut p = presenter(GorePreset::Full);
+        let llamas = [llama_at(484.0)];
+        p.step(
+            &[defeat(10, 0, DefeatCause::Melee, ForceTier::Heavy)],
+            lobs(&[], &llamas),
+        );
+        for _ in 0..30 {
+            p.step(&[], lobs(&[], &llamas));
+        }
+        assert!(p.pose_of(0).is_none());
+        assert_eq!(p.live_parts() + p.live_floor_decals(), 0);
+    }
+
+    #[test]
+    fn llama_corpses_count_toward_the_corpse_cap_with_the_goblins() {
+        // Six goblins and six llamas defeated within a few ticks: at most
+        // `MAX_SETTLED_CORPSES` settled corpses stay visible, the oldest first.
+        let mut p = llama_presenter(GorePreset::Full);
+        let goblins: Vec<GoblinView> = (0..6).map(|i| goblin_at(200.0 + 20.0 * i as f32)).collect();
+        let llamas: Vec<LlamaView> = (0..6).map(|i| llama_at(500.0 + 40.0 * i as f32)).collect();
+        for t in 0..12u32 {
+            let (cause, force) = if t % 2 == 0 {
+                (DefeatCause::Melee, ForceTier::Heavy)
+            } else {
+                (DefeatCause::Melee, ForceTier::Routine)
+            };
+            p.step(
+                &[defeat(10 + u64::from(t), t, cause, force)],
+                lobs(&goblins, &llamas),
+            );
+        }
+        let mut most = 0;
+        for _ in 0..400 {
+            p.step(&[], lobs(&goblins, &llamas));
+            most = most.max(p.visible_settled_corpses());
+        }
+        assert!(most <= MAX_SETTLED_CORPSES, "{most} settled corpses");
+        // The oldest (a goblin) retired first; the newest llama is still drawn.
+        assert!(p.is_retired(0));
+        assert!(!p.is_retired(11));
+        assert_eq!(p.visible_settled_corpses(), MAX_SETTLED_CORPSES);
+    }
+
+    #[test]
+    fn the_llama_fixtures_replay_the_same_hash_at_presets_one_and_four() {
+        use crate::combat_scene::{
+            CP05_LLAMA_CRUSH, CP05_LLAMA_DOWN, CP05_LLAMA_OFFSCREEN, CP05_LLAMA_SLAM,
+            CP05_LLAMA_SPIT,
+        };
+        let run = |fixture: &'static Fixture, preset: GorePreset| {
+            let kit = EnvKit::load(&root(), LAYOUT).unwrap();
+            let mut sim = FixtureSim::new(&kit, 360, fixture).unwrap();
+            let mut p = llama_presenter(preset);
+            for _ in 0..fixture.ticks {
+                sim.step_scripted();
+                p.observe(&sim.combat, &sim.scene);
+            }
+            (sim.state_hash(), sim.combat.events.clone(), p.digest(), p)
+        };
+        for fixture in [
+            &CP05_LLAMA_SLAM,
+            &CP05_LLAMA_DOWN,
+            &CP05_LLAMA_SPIT,
+            &CP05_LLAMA_OFFSCREEN,
+            &CP05_LLAMA_CRUSH,
+        ] {
+            let mut hashes = Vec::new();
+            for preset in GorePreset::ALL {
+                let (hash, events, digest, _) = run(fixture, preset);
+                hashes.push((hash, events, digest));
+            }
+            for h in &hashes[1..] {
+                assert_eq!(h.0, hashes[0].0, "{}: hash at every preset", fixture.name);
+                assert_eq!(h.1, hashes[0].1, "{}: events at every preset", fixture.name);
+            }
+            // A death changes what is drawn between presets; no death, no change.
+            let dies = hashes[0]
+                .1
+                .iter()
+                .any(|e| matches!(e, CombatEvent::EnemyDefeated { .. }));
+            assert_eq!(hashes[0].2 != hashes[3].2, dies, "{}", fixture.name);
+            // The same replay twice draws the same pieces.
+            let (_, _, a, _) = run(fixture, GorePreset::Full);
+            let (_, _, b, _) = run(fixture, GorePreset::Full);
+            assert_eq!(a, b, "{}", fixture.name);
+        }
+        // The slam fixture really plays the slam pair, the down fixture the
+        // plain down (the slam rule, end to end through the simulation).
+        let (_, _, _, slam) = run(&CP05_LLAMA_SLAM, GorePreset::Full);
+        assert_eq!(slam.pose_of(0).map(|p| p.frame), Some(7));
+        let (_, _, _, down) = run(&CP05_LLAMA_DOWN, GorePreset::Full);
+        assert!(down.pose_of(0).is_none());
+        assert!(down.stats().parts_spawned > 0);
+        let (_, _, _, crush) = run(&CP05_LLAMA_CRUSH, GorePreset::Full);
+        assert_eq!(crush.pose_of(0).map(|p| p.frame), Some(2));
     }
 
     /// Cost of one presenter step with every pool full (stress load). Run with
@@ -4606,15 +5415,18 @@ mod tests {
         // The finishes the profile can pick are the four with art.
         assert_eq!(Finish::from_id("goblin_decapitated"), Finish::Decapitated);
         assert_eq!(Finish::from_id("goblin_exploded"), Finish::Exploded);
-        // The llama is data only until a LLAMA-02 integration item: no art.
+        // The llama (DEMO-01 PR B): the crush, the slam and the plain down have
+        // art; its decapitation and explosion do not (no cause selects them for
+        // the demo, and an artless finish draws nothing).
         let llama = profiles.species("llama").unwrap();
         for recipe in &llama.recipes {
-            assert_eq!(
-                Finish::from_id(&recipe.finish),
-                Finish::NoArt,
-                "{}",
-                recipe.finish
-            );
+            let want = match recipe.finish.as_str() {
+                "llama_crushed" => Finish::Crushed,
+                "llama_slammed" => Finish::Slammed,
+                "llama_down" => Finish::Knockback,
+                _ => Finish::NoArt,
+            };
+            assert_eq!(Finish::from_id(&recipe.finish), want, "{}", recipe.finish);
         }
     }
 

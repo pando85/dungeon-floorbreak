@@ -1178,6 +1178,7 @@ fn exported_atlas_json_matches_the_grid_source_when_present() {
         ("carl_book1_h52_melee.json", Kind::CarlMelee),
         ("goblin_a_h36.json", Kind::Goblin),
         ("goblin_b_h36.json", Kind::Goblin),
+        ("llama-01.json", Kind::Llama),
     ];
     for (manifest_file, kind) in atlases {
         let manifest: serde_json::Value = serde_json::from_str(
@@ -1208,6 +1209,129 @@ fn exported_atlas_json_matches_the_grid_source_when_present() {
                 let ms = (f64::from(ticks) * 1000.0 / 60.0).round() as u32;
                 assert_eq!(frame.duration, ms, "{manifest_file} frame {index}");
             }
+        }
+    }
+}
+
+// ------------------------------------------------------------- Bad Llama ----
+
+fn llama_clips() -> SpriteClips {
+    SpriteClips::load_llama(root(), FrameSource::GridSource).unwrap()
+}
+
+#[test]
+fn the_llama_atlas_loads_wide_frames_with_the_llama_01_tags_and_ticks() {
+    let clips = llama_clips();
+    assert_eq!((clips.spec.width, clips.spec.height), (96, 72));
+    assert_eq!((clips.spec.pivot_x, clips.spec.pivot_y), (44, 71));
+    assert_eq!(clips.frame_count, 17);
+    for (tag, first, len) in [
+        ("idle", 0, 3),
+        ("walk", 3, 4),
+        ("attack_tell", 7, 2),
+        ("attack_swing", 9, 2),
+        ("hurt", 11, 1),
+        ("down", 12, 3),
+        ("spit", 15, 2),
+    ] {
+        assert_eq!(clips.tag(tag), (first, len), "{tag}");
+        assert!(!clips.is_airborne_tag(tag), "{tag}");
+    }
+    // The art: tell 8 + 22 ticks, release 6, recover 14, idle 38, a held down.
+    assert_eq!(clips.tag_ticks("attack_tell"), Some(30));
+    assert_eq!(clips.tag_ticks("attack_swing"), Some(20));
+    assert_eq!(clips.tag_ticks("idle"), Some(38));
+    assert_eq!(clips.tag_ticks("down"), None, "the last down frame holds");
+    // A frame wider than 64 px has its box but no contact mask.
+    assert!(clips.frame_box(0).right > 63);
+    assert_eq!(clips.frame_box(0).lowest, 71);
+}
+
+#[test]
+fn the_llama_pose_follows_the_attack_tick_the_release_frame_on_tick_36() {
+    let clips = llama_clips();
+    let pose = |mode, attack_tick, down_ticks| {
+        llama_pose(
+            &clips,
+            &LlamaInput {
+                mode,
+                attack_tick,
+                down_ticks,
+                walking: false,
+                walk_milli_px: 0,
+                idle_tick: 0,
+            },
+        )
+    };
+    // Tell: frame 7 for 8 ticks, then the glow peak (frame 8), held to tick 35.
+    assert_eq!(pose(LlamaMode::Attack, 0, 0).frame, 7);
+    assert_eq!(pose(LlamaMode::Attack, 7, 0).frame, 7);
+    assert_eq!(pose(LlamaMode::Attack, 8, 0).frame, 8);
+    assert_eq!(pose(LlamaMode::Attack, 35, 0).frame, 8);
+    // The release (frame 9, 6 ticks) starts on the tick the glob spawns, then
+    // the recover frame (10) is held to the end of the 60 tick attack.
+    assert_eq!(pose(LlamaMode::Attack, 36, 0).frame, 9);
+    assert_eq!(pose(LlamaMode::Attack, 41, 0).frame, 9);
+    assert_eq!(pose(LlamaMode::Attack, 42, 0).frame, 10);
+    assert_eq!(pose(LlamaMode::Attack, 59, 0).frame, 10);
+    assert_eq!(pose(LlamaMode::Hurt, 0, 0).frame, 11);
+    // Down: knees fold (12, 6 ticks), impact (13, 8 ticks), then the final
+    // frame (14) held; a corpse keeps it.
+    assert_eq!(pose(LlamaMode::Down, 0, 0).frame, 12);
+    assert_eq!(pose(LlamaMode::Down, 0, 6).frame, 13);
+    assert_eq!(pose(LlamaMode::Down, 0, 14).frame, 14);
+    assert_eq!(pose(LlamaMode::Corpse, 0, 0).frame, 14);
+}
+
+#[test]
+fn every_llama_fixture_draws_valid_frames_and_the_animation_never_changes_the_sim() {
+    use crate::combat_scene::{
+        CP05_LLAMA_CRUSH, CP05_LLAMA_DOWN, CP05_LLAMA_OFFSCREEN, CP05_LLAMA_SLAM, CP05_LLAMA_SPIT,
+    };
+    for fixture in [
+        &CP05_LLAMA_SLAM,
+        &CP05_LLAMA_DOWN,
+        &CP05_LLAMA_SPIT,
+        &CP05_LLAMA_OFFSCREEN,
+        &CP05_LLAMA_CRUSH,
+    ] {
+        let run = |animate: bool| {
+            let mut sim = FixtureSim::new(&kit(), 360, fixture).unwrap();
+            let mut anim = animators(&sim).with_llama(llama_clips(), &sim.combat);
+            let mut tags = BTreeSet::new();
+            for _ in 0..fixture.ticks {
+                sim.step_scripted();
+                if animate {
+                    anim.step(&sim.scene, &sim.combat);
+                    let pose = anim.llama_pose(0).expect("a llama pose");
+                    let clips = anim.llama_clips().unwrap();
+                    let (first, len) = clips.tag(pose.tag);
+                    assert!((first..first + len).contains(&pose.frame));
+                    tags.insert(pose.tag);
+                }
+            }
+            (
+                sim.state_hash(),
+                tags,
+                anim.state_line(sim.scene.world.tick),
+            )
+        };
+        let (with, tags, line) = run(true);
+        let (without, _, _) = run(false);
+        assert_eq!(with, without, "{}", fixture.name);
+        assert!(line.contains(" l0="), "{line}");
+        match fixture.name {
+            "cp05_llama_slam" | "cp05_llama_down" => {
+                assert!(tags.contains("attack_tell") && tags.contains("hurt"));
+                assert!(tags.contains("down"), "{}: {tags:?}", fixture.name);
+            }
+            "cp05_llama_spit" => {
+                assert!(tags.contains("attack_tell") && tags.contains("attack_swing"));
+            }
+            "cp05_llama_offscreen" => {
+                assert!(tags.contains("walk") && !tags.contains("attack_tell"));
+            }
+            _ => {}
         }
     }
 }

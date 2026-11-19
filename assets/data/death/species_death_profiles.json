@@ -21,6 +21,7 @@
         { "kind": "exploded", "finish": "llama_exploded", "causes": ["blast"], "min_force": "catastrophic" },
         { "kind": "decapitated", "finish": "llama_decapitated", "causes": ["shear"], "min_force": "heavy" },
         { "kind": "crushed", "finish": "llama_crushed", "causes": ["crush"], "min_force": "routine" },
+        { "kind": "slammed", "finish": "llama_slammed", "causes": ["blunt"], "min_force": "heavy" },
         { "kind": "knockback_down", "finish": "llama_down", "causes": ["blunt"], "min_force": "routine" }
       ]
     },

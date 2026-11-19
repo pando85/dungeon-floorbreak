@@ -871,6 +871,7 @@ mod tests {
                 }],
                 shore_dx: None,
                 boss: None,
+                llamas: &[],
                 charges: &[],
                 script: &[],
                 ticks: 100,

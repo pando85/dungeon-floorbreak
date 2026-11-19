@@ -161,6 +161,7 @@ const fn base(
         enemies,
         shore_dx: None,
         boss: None,
+        llamas: &[],
         charges: &[],
         script: &[],
         ticks,

@@ -187,6 +187,7 @@ const fn boss_base(
         shore_dx: None,
         boss: Some(boss),
         charges: &[],
+        llamas: &[],
         script: &[],
         ticks,
     }

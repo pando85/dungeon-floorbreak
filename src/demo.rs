@@ -18,7 +18,7 @@ use crate::blast::Arm;
 use crate::camera_lab::layout::build_kit;
 use crate::camera_lab::room::parse_rooms;
 use crate::combat::EnemyAi;
-use crate::combat_scene::{ChargeSpawn, CombatState, DemoRules, EnemySpawn, Fixture};
+use crate::combat_scene::{ChargeSpawn, CombatState, DemoRules, EnemySpawn, Fixture, LlamaSpawn};
 use crate::corridor::SceneSim;
 use crate::env_kit::{EnvKit, ViewDef};
 use crate::input::RawInput;
@@ -138,11 +138,19 @@ pub const DEMO_ENEMIES: [EnemySpawn; 17] = [
     goblin(B5_CHASER_X, EnemyAi::Chase),
 ];
 
-/// B4 HOOK (PR B, the minimal Bad Llama): the llama's home column. PR B adds
-/// `DEMO01_LLAMAS` (its spawn data) here, hands it to the fixtures of
-/// [`BEAT_FIXTURES`] and adds the `demo01_b4` probe (one slam from a lethal
-/// kick). Until then beat B4 holds only its chaser (goblin 7).
+/// B4 (DEMO-01 PR B, the minimal Bad Llama): the llama's home column. The
+/// llama stands behind the beat's chaser (goblin 7); the `demo01_b4` probe
+/// kills it with push kicks (the lethal kick is heavy: the slam). Every beat
+/// fixture carries it; a run that starts after its column retires it (like
+/// the goblins behind the start).
 pub const B4_LLAMA_HOME_X: i32 = 2420;
+
+/// The demo's Bad Llama (beat B4). Its stand-off, leash and the fair-fire rule
+/// keep it silent until Carl walks into its frame.
+pub static DEMO01_LLAMAS: [LlamaSpawn; 1] = [LlamaSpawn {
+    x: B4_LLAMA_HOME_X,
+    ai: EnemyAi::Chase,
+}];
 
 /// B5 (DEATH-D, PR #108): the QA test charge lies at [`B5_CHARGE_X`] with two
 /// passive goblins huddled on it and one chaser coming from the right. It is
@@ -198,6 +206,7 @@ const fn beat_fixture(
         enemies: &DEMO_ENEMIES,
         shore_dx: Some(SHORE_STRIKE_X - CHECKPOINTS[beat]),
         boss: None,
+        llamas: &DEMO01_LLAMAS,
         charges,
         script: &[],
         ticks,
@@ -221,9 +230,9 @@ pub static BEAT_FIXTURES: [Fixture; 7] = [
     beat_fixture("demo01_b3", "B3 rotten shore", 3, 300, &CHARGES_B3),
     beat_fixture(
         "demo01_b4",
-        "B4 bad llama (hook, no llama yet)",
+        "B4 bad llama: a chaser, then push kicks and the slam",
         4,
-        300,
+        400,
         &CHARGES_B4,
     ),
     beat_fixture(
@@ -285,9 +294,12 @@ pub fn beat_at(x: f32) -> usize {
         .unwrap_or(0)
 }
 
-/// `DEMO01_COMPLETE` condition: every goblin of the hall is defeated.
+/// `DEMO01_COMPLETE` condition: every goblin and the llama of the hall are
+/// defeated.
 pub fn complete(combat: &CombatState) -> bool {
-    !combat.enemies.is_empty() && combat.enemies.iter().all(|g| !g.alive())
+    !combat.enemies.is_empty()
+        && combat.enemies.iter().all(|g| !g.alive())
+        && combat.llamas.iter().all(|l| !l.alive())
 }
 
 /// What the Select button asks for this tick.
@@ -333,9 +345,11 @@ impl SelectControl {
 // ----------------------------------------------------------------- autopilot --
 
 /// Carl's reach, in px of centre distance, for a jab and for the push kick
-/// (hit box plus the goblin's half width, with a margin).
+/// (hit box plus the goblin's half width, with a margin), and for a kick on
+/// the llama (its 46 px body reaches 42 px from its column).
 const JAB_REACH: f32 = 30.0;
 const KICK_REACH: f32 = 30.0;
+const LLAMA_KICK_REACH: f32 = 36.0;
 /// Ticks between two button presses of the autopilot (a human mashes slower).
 const PRESS_CADENCE: u64 = 4;
 /// Column Carl stands at to strike the shore.
@@ -365,6 +379,19 @@ pub fn autopilot(combat: &CombatState, scene: &SceneSim) -> RawInput {
         .filter(|g| g.alive() && g.ai == EnemyAi::Chase)
         .min_by(|a, b| (a.x - hero.x).abs().total_cmp(&(b.x - hero.x).abs()));
     let mut raw = RawInput::default();
+    // The Bad Llama (B4): once no goblin is awake, close in and push-kick it
+    // (the lethal kick is the slam).
+    if let Some(l) = combat.llamas.iter().find(|l| l.alive())
+        && threat.is_none_or(|g| (g.x - hero.x).abs() >= 220.0)
+        && (l.x - hero.x).abs() < 300.0
+    {
+        let dx = l.x - hero.x;
+        raw.move_x = dx.signum();
+        if dx.abs() <= LLAMA_KICK_REACH && press(tick) {
+            raw.physical = true;
+        }
+        return raw;
+    }
     // B5: walk just past the arming column, then let the fuse burn (the
     // probe stands still and does not fight until the test charge has blown,
     // so the blast, not Carl's jabs, takes the huddled goblins).
@@ -455,7 +482,7 @@ mod tests {
     use std::sync::Arc;
 
     /// Final state hash of the whole-route autopilot run (`demo01`, 2000 ticks).
-    const ROUTE_HASH: u64 = 0xd772_d582_93f0_9385;
+    const ROUTE_HASH: u64 = 0x0363_078d_5855_8e95;
 
     fn root() -> &'static Path {
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -547,7 +574,8 @@ mod tests {
             run.step(raw);
             presenter.observe(&run.combat, &run.scene);
         }
-        assert_eq!(defeats(&run).len(), DEMO_ENEMIES.len());
+        // Fourteen goblins and the llama.
+        assert_eq!(defeats(&run).len(), DEMO_ENEMIES.len() + 1);
         let line = presenter.state_line();
         let field = |key: &str| -> usize {
             line.split_whitespace()
@@ -1110,6 +1138,41 @@ mod tests {
         assert_eq!(run.combat.deaths, 0);
     }
 
+    /// B4: the chaser falls to jabs, the autopilot closes in on the llama and
+    /// push-kicks it: three hits, the lethal kick is heavy (the slam), and the
+    /// llama's glob may hurt Carl but never defeats him.
+    #[test]
+    fn b4_the_llama_dies_to_a_lethal_kick_and_the_presenter_slams_it() {
+        let kit = load_hall(root()).unwrap();
+        let art = Arc::new(DeathArt::load(root()).unwrap());
+        let art_b = DeathArt::load_variant(root(), 1).unwrap();
+        let mut presenter = DeathPresenter::with_variants(art, &art_b, GorePreset::Full)
+            .unwrap()
+            .with_llama(Arc::new(DeathArt::load_llama(root()).unwrap()))
+            .unwrap();
+        let mut run = sim(&kit, 4);
+        for _ in 0..BEAT_FIXTURES[4].ticks {
+            let raw = autopilot(&run.combat, &run.scene);
+            run.step(raw);
+            presenter.observe(&run.combat, &run.scene);
+        }
+        let llama_target = DEMO_ENEMIES.len() as u32;
+        let slam: Vec<_> = defeats(&run)
+            .into_iter()
+            .filter(|e| {
+                matches!(e, CombatEvent::EnemyDefeated { target, force: ForceTier::Heavy, .. }
+                    if *target == llama_target)
+            })
+            .collect();
+        assert_eq!(slam.len(), 1, "one slam from a lethal kick");
+        assert!(!run.combat.llamas[0].alive());
+        assert_eq!(run.combat.deaths, 0);
+        assert_eq!(presenter.pose_of(llama_target).map(|p| p.frame), Some(7));
+        // A run that starts after the llama's column has no llama to fight.
+        let later = sim(&kit, 5);
+        assert!(!later.combat.llamas[0].alive());
+    }
+
     /// The headless demo smoke: the autopilot walks the whole route from B0 to
     /// the last goblin without a death; the final state is pinned.
     #[test]
@@ -1120,7 +1183,7 @@ mod tests {
         assert!(complete(&run.combat));
         assert_eq!(run.combat.checkpoint, BEATS.len() - 1);
         assert_eq!(run.combat.deaths, 0);
-        assert_eq!(defeats(&run).len(), DEMO_ENEMIES.len());
+        assert_eq!(defeats(&run).len(), DEMO_ENEMIES.len() + 1);
         let line = run.state_line();
         assert!(line.contains("demo_cp=6"), "{line}");
         assert_eq!(run.state_hash(), ROUTE_HASH, "{line}");

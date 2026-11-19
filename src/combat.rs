@@ -788,8 +788,27 @@ pub fn resolve_strike<T: StrikeTarget>(
     sim_tick: u64,
     events: &mut Vec<CombatEvent>,
 ) {
+    let stop = strike_group(runner, move_tick, attacker, targets, 0, sim_tick, events);
+    runner.begin_hit_stop(stop);
+}
+
+/// One group of targets of [`resolve_strike`]: the target ids are
+/// `first_id + index`, so a scene with several kinds of target (goblins first,
+/// then llamas) resolves one move over all of them with stable ids. Returns the
+/// hit-stop the attacker must freeze for (the longest of the hits in this
+/// group); the caller starts it once, after every group
+/// ([`MoveRunner::begin_hit_stop`] keeps the longest).
+pub fn strike_group<T: StrikeTarget>(
+    runner: &mut MoveRunner,
+    move_tick: &MoveTick,
+    attacker: Attacker,
+    targets: &mut [T],
+    first_id: u32,
+    sim_tick: u64,
+    events: &mut Vec<CombatEvent>,
+) -> u8 {
     if move_tick.phase != Phase::Active || move_tick.frozen {
-        return;
+        return 0;
     }
     let spec = move_tick.spec;
     let mut attacker_stop = 0u8;
@@ -797,7 +816,7 @@ pub fn resolve_strike<T: StrikeTarget>(
         if !target.can_be_hit() || !reaches(&spec.shape, &attacker, target) {
             continue;
         }
-        let id = index as u32;
+        let id = first_id + index as u32;
         if !runner.record_hit(id) {
             continue;
         }
@@ -825,7 +844,7 @@ pub fn resolve_strike<T: StrikeTarget>(
             ));
         }
     }
-    runner.begin_hit_stop(attacker_stop);
+    attacker_stop
 }
 
 // ------------------------------------------------------------------- events --
@@ -1031,6 +1050,22 @@ pub enum CombatEvent {
     /// CP-03: the block landed; the hazard footprint was evaluated once.
     ShoreLanded {
         tick: u64,
+    },
+    /// DEMO-01 PR B: a Bad Llama started its tell (attack tick 0). `llama` is
+    /// the index among the llamas (its target id is the goblin count plus it).
+    LlamaTell {
+        tick: u64,
+        llama: u32,
+    },
+    /// A llama released its spit glob (attack tick 36).
+    LlamaSpit {
+        tick: u64,
+        llama: u32,
+    },
+    /// A hit cancelled a llama's tell.
+    LlamaInterrupted {
+        tick: u64,
+        llama: u32,
     },
     /// DEATH-D: a blast charge detonated (once, on its fixture tick); the
     /// defeats it caused follow as `EnemyDefeated` events.
@@ -1282,6 +1317,23 @@ impl CombatEvent {
                 mix(13);
                 mix(tick);
             }
+            // Tags 40 and up: the llama events (PR B), apart from the tags
+            // other in-flight work orders append after 13.
+            Self::LlamaTell { tick, llama } => {
+                mix(40);
+                mix(tick);
+                mix(u64::from(llama));
+            }
+            Self::LlamaSpit { tick, llama } => {
+                mix(41);
+                mix(tick);
+                mix(u64::from(llama));
+            }
+            Self::LlamaInterrupted { tick, llama } => {
+                mix(42);
+                mix(tick);
+                mix(u64::from(llama));
+            }
             Self::Blast { tick, charge } => {
                 mix(14);
                 mix(tick);
@@ -1504,6 +1556,16 @@ impl fmt::Display for CombatEvent {
             Self::ShoreLanded { tick } => {
                 write!(f, "COMBAT_EVENT tick={tick} kind=shore_landed")
             }
+            Self::LlamaTell { tick, llama } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=llama_tell llama={llama}")
+            }
+            Self::LlamaSpit { tick, llama } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=llama_spit llama={llama}")
+            }
+            Self::LlamaInterrupted { tick, llama } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=llama_interrupted llama={llama}"
+            ),
             Self::Blast { tick, charge } => {
                 write!(f, "COMBAT_EVENT tick={tick} kind=blast charge={charge}")
             }

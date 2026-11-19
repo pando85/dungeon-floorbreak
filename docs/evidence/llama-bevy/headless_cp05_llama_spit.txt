@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=1 kind=llama_tell llama=0
+COMBAT_EVENT tick=37 kind=llama_spit llama=0
+COMBAT_EVENT tick=76 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=151 kind=llama_tell llama=0
+COMBAT_EVENT tick=187 kind=llama_spit llama=0
+COMBAT_EVENT tick=226 kind=hero_hurt source=0 health_left=2
+COMBAT_STATE fixture=cp05_llama_spit seed=0xc050003 tick=300 elapsed=300 hero_hp=2 deaths=0 enemies= hash=5984ba11b72b53dc llamas=l0=560.000/3
