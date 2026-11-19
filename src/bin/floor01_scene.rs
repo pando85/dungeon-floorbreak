@@ -62,6 +62,7 @@ use dungeon_floorbreak::{
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, Sheet},
     hud::{GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
     hud_adapter::{HudPlugin, HudState},
+    hud_settings::HudSettings,
     input::RawInput,
     light_pass::{
         LAYER_DEBUG, LightPassPlugin, LightRig, LightingMaterial, PassFrame, SceneCamera,
@@ -155,8 +156,10 @@ struct Args {
     /// HUD glyph set override (`--glyphs=xbox|dualsense`). `None` follows the
     /// last-used gamepad (Xbox until one is seen).
     glyphs: Option<GlyphSet>,
-    /// HUD: no slides, blinks or flashes.
-    hud_reduced_motion: bool,
+    /// HUD-DEBT-06: reduced UI motion and high contrast. Environment first
+    /// (`FLOORBREAK_HUD_*`), then `--hud-reduced-motion[=on|off]` and
+    /// `--hud-high-contrast[=on|off]`. Presentation only.
+    hud_settings: HudSettings,
 }
 
 impl Args {
@@ -164,7 +167,7 @@ impl Args {
         HudConfig {
             preview: self.hud_preview,
             glyphs: self.glyphs,
-            reduced_motion: self.hud_reduced_motion,
+            settings: self.hud_settings,
         }
     }
 }
@@ -197,6 +200,12 @@ fn parse_sequence(value: &str) -> Result<(u64, u64, u64), String> {
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
+    parse_args_with(args, HudSettings::from_env())
+}
+
+/// `parse_args` with the HUD settings the environment supplied (a parameter so
+/// tests do not depend on the process environment).
+fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, String> {
     let mut parsed = Args {
         deck: false,
         headless: false,
@@ -225,7 +234,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         death_trace: false,
         hud_preview: None,
         glyphs: None,
-        hud_reduced_motion: false,
+        hud_settings,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -256,7 +265,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             other if other.starts_with("--glyphs=") => {
                 parsed.glyphs = Some(parse_glyphs(&other["--glyphs=".len()..])?);
             }
-            "--hud-reduced-motion" => parsed.hud_reduced_motion = true,
+            other if parsed.hud_settings.apply_flag(other)? => {}
             "--no-lighting" => parsed.no_lighting = true,
             "--no-audio" => parsed.no_audio = true,
             "--audio-style" => {
@@ -2949,7 +2958,7 @@ mod tests {
     fn args(list: &[&str]) -> Result<Args, String> {
         let mut full = vec!["floor01_scene".to_owned()];
         full.extend(list.iter().map(|s| (*s).to_owned()));
-        parse_args(&full)
+        parse_args_with(&full, HudSettings::default())
     }
 
     #[test]
@@ -2960,7 +2969,7 @@ mod tests {
             args(&["--glyphs=xbox"]).unwrap().glyphs,
             Some(GlyphSet::Xbox)
         );
-        assert!(!args(&[]).unwrap().hud_reduced_motion);
+        assert_eq!(args(&[]).unwrap().hud_settings, HudSettings::default());
         for preview in HudPreview::ALL {
             let spaced = args(&["--hud-preview", preview.name()]).unwrap();
             let equals = args(&[&format!("--hud-preview={}", preview.name())]).unwrap();
@@ -2983,7 +2992,25 @@ mod tests {
             Some(GlyphSet::DualSense)
         );
         assert!(args(&["--glyphs=ps5"]).is_err());
-        assert!(args(&["--hud-reduced-motion"]).unwrap().hud_reduced_motion);
+        assert!(
+            args(&["--hud-reduced-motion"])
+                .unwrap()
+                .hud_settings
+                .reduced_motion
+        );
+        let both = args(&["--hud-reduced-motion=on", "--hud-high-contrast"]).unwrap();
+        assert!(both.hud_settings.reduced_motion && both.hud_settings.high_contrast);
+        let env = HudSettings {
+            reduced_motion: true,
+            high_contrast: true,
+        };
+        let full: Vec<String> = ["floor01_scene", "--hud-high-contrast=off"]
+            .iter()
+            .map(|a| a.to_string())
+            .collect();
+        let overridden = parse_args_with(&full, env).unwrap().hud_settings;
+        assert!(overridden.reduced_motion && !overridden.high_contrast);
+        assert!(args(&["--hud-high-contrast=maybe"]).is_err());
     }
 
     #[test]

@@ -19,6 +19,7 @@ pub mod gore;
 pub mod hud;
 pub mod hud_adapter;
 pub mod hud_draw;
+pub mod hud_settings;
 pub mod input;
 pub mod light_pass;
 pub mod lighting;
