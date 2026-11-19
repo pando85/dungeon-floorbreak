@@ -13,10 +13,14 @@
 //! * D6: any owning pad disconnect pauses the game until a pad reclaims the
 //!   slot; there is no AI handoff ([`PartyState::pad_disconnected`]).
 //!
-//! Everything under [`PartyTuning`] is a provisional data knob, labelled with
-//! its open owner question (`Qn`), never a hardcoded design decision.
+//! Everything under [`PartyTuning`] is a data knob labelled with its owner
+//! question (`Qn`), never a hardcoded design decision. Status of every value:
+//! adopted (orchestrator, owner directive 2026-11-19), game-feel pending. The
+//! analysis and its recommendations are in
+//! `docs/01-design/party-2p-open-questions.md`.
 
 use crate::combat::{HERO_HEALTH, HERO_INVULNERABLE_TICKS};
+use crate::feel::HERO_HURT_TICKS;
 use crate::input::{RawInput, SlotInputs};
 
 /// An opaque pad identity supplied by the adapter (for example the Bevy
@@ -84,74 +88,154 @@ pub enum HeroControl {
     Uncontrolled,
 }
 
-/// provisional: Q3. Which hero a goblin chases.
+/// Q3 (adopted, game-feel pending). Which hero a goblin chases.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EnemyTargetRule {
-    /// Nearest living hero; a tie goes to slot 0 (Carl).
+    /// Nearest living hero (ties to Carl). Recomputed every tick.
     NearestLivingTieSlot0,
+    /// Nearest, but a goblin keeps its target through an attack and switches
+    /// only when the other hero is `target_switch_px` closer. In solo the
+    /// uncontrolled hero counts `target_ai_bias_px` farther away.
+    HysteresisControlledBias,
 }
 
-/// provisional: Q4. Donut's damage hurtbox.
+/// Q4 (adopted, game-feel pending). Donut's damage hurtbox, measured from her
+/// feet and centred on her pivot. Separate from her terrain collider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DonutHurtbox {
+    /// Carl's 24x52 box.
     SameAsCarl,
+    /// 32x24: fitted to the visible body.
+    FitBody,
+    /// 20x24: smaller than the silhouette, a swing that only clips her tail misses.
+    Forgiving,
 }
 
-/// provisional: Q7. What the scene camera follows.
+impl DonutHurtbox {
+    /// `(width, height)` in pixels.
+    pub const fn size(self) -> (f32, f32) {
+        match self {
+            DonutHurtbox::SameAsCarl => (24.0, 52.0),
+            DonutHurtbox::FitBody => (32.0, 24.0),
+            DonutHurtbox::Forgiving => (20.0, 24.0),
+        }
+    }
+}
+
+/// Q7 (adopted, game-feel pending). What the scene camera follows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CameraFollow {
-    /// The controlled hero in solo, the midpoint of both in two-player.
+    /// The controlled hero in solo, the midpoint of both in two-player, with a
+    /// separation wall. No zoom.
     ControlledSoloMidpointTwoPlayer,
 }
 
-/// provisional: Q9. The uncontrolled hero's behaviour.
+/// Q9 (adopted, game-feel pending). The uncontrolled hero's behaviour.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UncontrolledHero {
-    /// Today's trail-follow; never attacks.
+    /// Legacy trail replay (never attacks). Only the scripted story and
+    /// fixture paths use it; a live party never does.
     TrailFollowNeverAttacks,
+    /// Follow-and-jump bot: steers behind the leader with its own run and
+    /// jump, dodges a goblin tell with a jump, never attacks.
+    FollowAndJumpBot,
 }
 
-/// provisional: Q11. Which glyph set a HUD plate shows.
+/// Q11 (adopted, game-feel pending). Which glyph set a HUD plate shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlateGlyphs {
     /// Each plate shows the glyphs of the pad that owns its hero.
     OwnPad,
 }
 
-/// The provisional party knobs. Every field names the unresolved owner
-/// question it stands in for; change the value here, not at a call site.
+/// The party knobs. Every field names the owner question (`Qn`) it answers;
+/// change the value here, not at a call site. Status of every value: adopted
+/// (orchestrator, owner directive 2026-11-19), game-feel pending.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PartyTuning {
-    /// provisional: Q2. Health Donut loses per hit (Carl's rule: 1).
+    /// Q2. Health Donut loses per hit (Carl's rule: 1).
     pub donut_damage_per_hit: u8,
-    /// provisional: Q2. Donut's invulnerability ticks after a hit (Carl's).
+    /// Q2. Donut's invulnerability ticks after a hit.
     pub donut_invulnerable_ticks: u8,
-    /// provisional: Q3.
+    /// Q2. Donut's hit-reaction (flinch) ticks.
+    pub donut_hurt_ticks: u8,
+    /// Q3.
     pub enemy_target: EnemyTargetRule,
-    /// provisional: Q4.
+    /// Q3. A goblin switches target when the other hero is this much closer.
+    pub target_switch_px: u16,
+    /// Q3. In solo the uncontrolled hero counts this much farther away.
+    pub target_ai_bias_px: u16,
+    /// Q4.
     pub donut_hurtbox: DonutHurtbox,
-    /// provisional: Q7.
+    /// Q7.
     pub camera_follow: CameraFollow,
-    /// provisional: Q8. When true the solo swap is refused while the
-    /// controlled hero is hurt (in hit reaction); otherwise it is always allowed.
+    /// Q7. Gap between each hero and the frame edge at maximum separation; the
+    /// maximum separation is `view_w - 2 * this`.
+    pub camera_edge_margin_px: u16,
+    /// Q7. The edge arrow appears from this separation (HUD hint).
+    pub camera_arrow_px: u16,
+    /// Q7. Temporary camera speed cap after a solo swap (normal cap: 4).
+    pub swap_pan_px_per_tick: u8,
+    /// Q8. The solo swap is refused while the controlled hero is hurt.
     pub swap_blocked_while_hurt: bool,
-    /// provisional: Q9.
+    /// Q8. Ticks after a swap before the next one.
+    pub swap_cooldown_ticks: u8,
+    /// Q8. A swap press refused by hurt or cooldown stays buffered this long.
+    pub swap_buffer_ticks: u8,
+    /// Q9.
     pub uncontrolled_hero: UncontrolledHero,
-    /// provisional: Q10. Show ability chips for Donut (none for now).
+    /// Q9. The bot waits this far behind the leader.
+    pub follow_distance_px: u16,
+    /// Q9. The bot jumps when a goblin tell starts this close.
+    pub dodge_radius_px: u16,
+    /// Q9. Ticks off-screen before the bot is placed back behind the leader.
+    pub regroup_ticks: u16,
+    /// D1 safeguard M1 (solo only). An uncontrolled hero takes hits (flinch,
+    /// HUD loss) but cannot drop below 1 HP.
+    pub solo_last_hp_guard: bool,
+    /// D1 safeguard M4 (solo only). A hero this far outside the view cannot
+    /// be hurt.
+    pub solo_offscreen_immunity: bool,
+    /// D1 safeguard M4. Margin outside the view, in pixels.
+    pub offscreen_margin_px: u16,
+    /// Q10 (deferred). Show ability chips for Donut (none: she has no attacks).
     pub donut_ability_chips: bool,
-    /// provisional: Q11.
+    /// Q11.
     pub plate_glyphs: PlateGlyphs,
 }
 
-/// The tuning table used until the owner answers Q2, Q3, Q4, Q7-Q11.
+impl PartyTuning {
+    /// The largest horizontal distance between the heroes in two-player.
+    pub const fn max_separation_px(&self, view_w: i32) -> i32 {
+        view_w - 2 * self.camera_edge_margin_px as i32
+    }
+}
+
+/// The tuning table the party ships with: the recommendations of
+/// `docs/01-design/party-2p-open-questions.md` adopted by the orchestrator on
+/// the owner's directive (2026-11-19). Game feel is pending the owner's play.
 pub const PROVISIONAL_TUNING: PartyTuning = PartyTuning {
     donut_damage_per_hit: 1,
     donut_invulnerable_ticks: HERO_INVULNERABLE_TICKS,
-    enemy_target: EnemyTargetRule::NearestLivingTieSlot0,
-    donut_hurtbox: DonutHurtbox::SameAsCarl,
+    donut_hurt_ticks: HERO_HURT_TICKS,
+    enemy_target: EnemyTargetRule::HysteresisControlledBias,
+    target_switch_px: 24,
+    target_ai_bias_px: 40,
+    donut_hurtbox: DonutHurtbox::Forgiving,
     camera_follow: CameraFollow::ControlledSoloMidpointTwoPlayer,
+    camera_edge_margin_px: 96,
+    camera_arrow_px: 384,
+    swap_pan_px_per_tick: 8,
     swap_blocked_while_hurt: true,
-    uncontrolled_hero: UncontrolledHero::TrailFollowNeverAttacks,
+    swap_cooldown_ticks: 20,
+    swap_buffer_ticks: 6,
+    uncontrolled_hero: UncontrolledHero::FollowAndJumpBot,
+    follow_distance_px: 40,
+    dodge_radius_px: 40,
+    regroup_ticks: 120,
+    solo_last_hp_guard: true,
+    solo_offscreen_immunity: true,
+    offscreen_margin_px: 16,
     donut_ability_chips: false,
     plate_glyphs: PlateGlyphs::OwnPad,
 };
@@ -159,6 +243,51 @@ pub const PROVISIONAL_TUNING: PartyTuning = PartyTuning {
 impl Default for PartyTuning {
     fn default() -> Self {
         PROVISIONAL_TUNING
+    }
+}
+
+/// What the scene needs to know about the party each tick: whether the party
+/// simulation is live at all, who is human-driven, and the tuning. Built by
+/// [`PartyState::drive`]. [`PartyDrive::LEGACY`] (the default) keeps the
+/// single-hero behaviour byte-for-byte: Donut replays Carl's trail, goblins
+/// chase Carl and nothing new is hashed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PartyDrive {
+    /// Donut is a real hero (own physics, hurtbox and health rules).
+    pub live: bool,
+    pub two_player: bool,
+    /// The hero P1 controls in solo (Carl in two-player).
+    pub controlled: HeroId,
+    /// Heroes driven by the follower bot, indexed by [`HeroId::index`].
+    pub bots: [bool; 2],
+    pub tuning: PartyTuning,
+}
+
+impl PartyDrive {
+    /// The scripted story and fixture paths: no live party.
+    pub const LEGACY: PartyDrive = PartyDrive {
+        live: false,
+        two_player: false,
+        controlled: HeroId::Carl,
+        bots: [false, false],
+        tuning: PROVISIONAL_TUNING,
+    };
+
+    /// True while `hero` is driven by the follower bot.
+    pub fn is_bot(&self, hero: HeroId) -> bool {
+        self.live && self.bots[hero.index()]
+    }
+
+    /// D1 safeguards M1 and M4 apply to a hero that a human does not drive
+    /// while the party is solo.
+    pub fn is_guarded(&self, hero: HeroId) -> bool {
+        self.live && !self.two_player && self.bots[hero.index()]
+    }
+}
+
+impl Default for PartyDrive {
+    fn default() -> Self {
+        Self::LEGACY
     }
 }
 
@@ -190,6 +319,10 @@ pub struct PartyState {
     pads: [Option<PadId>; 2],
     /// A slot whose owning pad disconnected and has not been reclaimed.
     vacated: [bool; 2],
+    /// Q8: ticks until the next swap is allowed.
+    swap_cooldown: u8,
+    /// Q8: ticks a refused swap press stays buffered.
+    swap_buffer: u8,
 }
 
 impl Default for PartyState {
@@ -207,6 +340,8 @@ impl PartyState {
             controlled: HeroId::Carl,
             pads: [None, None],
             vacated: [false, false],
+            swap_cooldown: 0,
+            swap_buffer: 0,
         }
     }
 
@@ -323,19 +458,56 @@ impl PartyState {
         StartOutcome::Ignored
     }
 
-    /// The solo swap (L1/LB). `swap_pressed` is the press edge and
+    /// The solo swap (L1/LB), called once per simulated tick (it advances the
+    /// Q8 cooldown and buffer). `swap_pressed` is the press edge and
     /// `controlled_hurt` says the controlled hero is in hit reaction. Never
-    /// swaps in two-player (L1 must not steal the other human's hero), while
-    /// paused, or while hurt when the Q8 knob says so. Returns true on a swap.
+    /// swaps in two-player (L1 must not steal the other human's hero) or while
+    /// paused. Q8: a press refused by hurt or by the cooldown stays buffered for
+    /// `swap_buffer_ticks` and fires the first tick it is allowed; a swap never
+    /// cancels the outgoing hero's move (the party only changes who drives).
+    /// Returns true on a swap.
     pub fn request_swap(&mut self, swap_pressed: bool, controlled_hurt: bool) -> bool {
-        if !swap_pressed || self.mode != PartyMode::Solo || self.is_paused() {
+        if self.mode != PartyMode::Solo || self.is_paused() {
+            self.swap_buffer = 0;
             return false;
         }
-        if controlled_hurt && self.tuning.swap_blocked_while_hurt {
+        self.swap_cooldown = self.swap_cooldown.saturating_sub(1);
+        self.swap_buffer = self.swap_buffer.saturating_sub(1);
+        if swap_pressed {
+            self.swap_buffer = self.tuning.swap_buffer_ticks.max(1);
+        }
+        if self.swap_buffer == 0 {
             return false;
         }
+        let hurt_blocks = controlled_hurt && self.tuning.swap_blocked_while_hurt;
+        if hurt_blocks || self.swap_cooldown > 0 {
+            return false;
+        }
+        self.swap_buffer = 0;
+        self.swap_cooldown = self.tuning.swap_cooldown_ticks;
         self.controlled = self.controlled.other();
         true
+    }
+
+    /// The Q8 swap timers `(cooldown, buffer)`, for hashes and traces.
+    pub fn swap_timers(&self) -> (u8, u8) {
+        (self.swap_cooldown, self.swap_buffer)
+    }
+
+    /// The scene's view of the party this tick (`live`: Donut is a real hero).
+    /// Scripted scenario and fixture runs pass `live = false` and keep the
+    /// legacy single-hero behaviour.
+    pub fn drive(&self, live: bool) -> PartyDrive {
+        PartyDrive {
+            live,
+            two_player: self.mode == PartyMode::TwoPlayer,
+            controlled: self.controlled_hero(),
+            bots: [
+                self.hero_control(HeroId::Carl) == HeroControl::Uncontrolled,
+                self.hero_control(HeroId::Donut) == HeroControl::Uncontrolled,
+            ],
+            tuning: self.tuning,
+        }
     }
 
     /// Map the per-slot raw inputs to the per-hero inputs for
@@ -367,6 +539,8 @@ impl PartyState {
     /// ownership stay (same restart flow as Carl's defeat).
     pub fn restart(&mut self) {
         self.controlled = HeroId::Carl;
+        self.swap_cooldown = 0;
+        self.swap_buffer = 0;
     }
 }
 
@@ -470,8 +644,62 @@ mod tests {
             !inputs[HeroId::Donut.index()].swap,
             "the party consumes swap"
         );
+        for _ in 0..PROVISIONAL_TUNING.swap_cooldown_ticks {
+            assert!(!party.request_swap(false, false));
+        }
         assert!(party.request_swap(true, false));
         assert_eq!(party.controlled_hero(), HeroId::Carl);
+    }
+
+    #[test]
+    fn q8_cooldown_refuses_a_second_swap_and_a_press_in_it_is_buffered() {
+        let mut party = PartyState::default();
+        assert!(party.request_swap(true, false));
+        // Tick 1..19 after the swap: a press on tick 15 is buffered for 6
+        // ticks and fires the tick the cooldown ends (tick 20).
+        for _ in 0..14 {
+            assert!(!party.request_swap(false, false));
+        }
+        assert!(!party.request_swap(true, false), "inside the cooldown");
+        let mut fired_at = None;
+        for tick in 16..=30 {
+            if party.request_swap(false, false) {
+                fired_at = Some(tick);
+                break;
+            }
+        }
+        assert_eq!(fired_at, Some(20), "buffered press fires when allowed");
+        assert_eq!(party.controlled_hero(), HeroId::Carl);
+    }
+
+    #[test]
+    fn q8_a_press_older_than_the_buffer_is_forgotten() {
+        let mut party = PartyState::default();
+        assert!(party.request_swap(true, false));
+        assert!(!party.request_swap(true, false), "press on cooldown tick 1");
+        for _ in 0..40 {
+            assert!(!party.request_swap(false, false), "expired, never fires");
+        }
+        assert_eq!(party.controlled_hero(), HeroId::Donut);
+    }
+
+    #[test]
+    fn q8_a_press_during_hurt_is_buffered_and_fires_when_the_hurt_ends() {
+        let mut party = PartyState::default();
+        // Hurt ticks 1..=18; the press lands on tick 14 (buffer 6 -> alive to 19).
+        for _ in 0..13 {
+            assert!(!party.request_swap(false, true));
+        }
+        assert!(!party.request_swap(true, true));
+        let mut fired_at = None;
+        for tick in 15..=25 {
+            let still_hurt = tick <= 18;
+            if party.request_swap(false, still_hurt) {
+                fired_at = Some(tick);
+                break;
+            }
+        }
+        assert_eq!(fired_at, Some(19), "fires on the first tick after the hurt");
     }
 
     #[test]
@@ -610,22 +838,58 @@ mod tests {
     }
 
     #[test]
-    fn provisional_tuning_matches_the_owner_provisional_values() {
+    fn adopted_tuning_matches_the_recommendations_of_the_analysis() {
         let t = PROVISIONAL_TUNING;
+        // Q2
         assert_eq!(t.donut_damage_per_hit, 1);
         assert_eq!(t.donut_invulnerable_ticks, HERO_INVULNERABLE_TICKS);
-        assert_eq!(t.enemy_target, EnemyTargetRule::NearestLivingTieSlot0);
-        assert_eq!(t.donut_hurtbox, DonutHurtbox::SameAsCarl);
+        assert_eq!(t.donut_hurt_ticks, HERO_HURT_TICKS);
+        // Q3
+        assert_eq!(t.enemy_target, EnemyTargetRule::HysteresisControlledBias);
+        assert_eq!((t.target_switch_px, t.target_ai_bias_px), (24, 40));
+        // Q4
+        assert_eq!(t.donut_hurtbox, DonutHurtbox::Forgiving);
+        assert_eq!(t.donut_hurtbox.size(), (20.0, 24.0));
+        // Q7
         assert_eq!(
             t.camera_follow,
             CameraFollow::ControlledSoloMidpointTwoPlayer
         );
+        assert_eq!(t.max_separation_px(640), 448);
+        assert_eq!((t.camera_arrow_px, t.swap_pan_px_per_tick), (384, 8));
+        // Q8
         assert!(t.swap_blocked_while_hurt);
+        assert_eq!((t.swap_cooldown_ticks, t.swap_buffer_ticks), (20, 6));
+        // Q9
+        assert_eq!(t.uncontrolled_hero, UncontrolledHero::FollowAndJumpBot);
         assert_eq!(
-            t.uncontrolled_hero,
-            UncontrolledHero::TrailFollowNeverAttacks
+            (t.follow_distance_px, t.dodge_radius_px, t.regroup_ticks),
+            (40, 40, 120)
         );
+        // D1 safeguards
+        assert!(t.solo_last_hp_guard && t.solo_offscreen_immunity);
+        assert_eq!(t.offscreen_margin_px, 16);
+        // Q10 is deferred: no Donut chips.
         assert!(!t.donut_ability_chips);
+        // Q11
         assert_eq!(t.plate_glyphs, PlateGlyphs::OwnPad);
+    }
+
+    #[test]
+    fn the_drive_reports_who_is_a_bot_and_when_the_guards_apply() {
+        let mut party = PartyState::default();
+        assert!(!party.drive(false).live, "scripted runs stay legacy");
+        let solo = party.drive(true);
+        assert!(solo.live && !solo.is_bot(HeroId::Carl) && solo.is_bot(HeroId::Donut));
+        assert!(solo.is_guarded(HeroId::Donut) && !solo.is_guarded(HeroId::Carl));
+        party.request_swap(true, false);
+        let swapped = party.drive(true);
+        assert!(swapped.is_guarded(HeroId::Carl), "the guard follows the AI");
+        assert_eq!(swapped.controlled, HeroId::Donut);
+        party.pad_connected(A);
+        party.pad_start_pressed(B);
+        let duo = party.drive(true);
+        assert!(duo.two_player && duo.bots == [false, false]);
+        assert!(!duo.is_guarded(HeroId::Donut), "2P applies no safeguard");
     }
 }

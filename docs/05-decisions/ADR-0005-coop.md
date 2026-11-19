@@ -1,6 +1,6 @@
 # ADR-0005: Local cooperative play before online multiplayer
 
-- **Status:** Proposed target
+- **Status:** Proposed target. **Implementation note (2026-11-19, PR for WORK-005, WORK-006, HUD-DEBT-01, HUD-DEBT-04):** local two-player (P1 Carl, P2 Donut, Start joins P2, any pad disconnect pauses), the solo swap with the follower bot, Donut's damage with party defeat and the shared camera are implemented as a deterministic, replay-tested prototype. The ADR itself stays a proposed target: the values are adopted without a playtest (game feel pending, see [party-2p-open-questions](../01-design/party-2p-open-questions.md)), real pads are not CI-verified, and drop-in/out, a third player and netcode are still not promised.
 - **Date:** 2026-11-15
 
 ## Context

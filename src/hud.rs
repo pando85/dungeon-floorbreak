@@ -463,6 +463,8 @@ pub struct RealHudInputs {
     pub melee_live: bool,
     pub donut_magic: DonutMagic,
     pub hp_flash: Option<HpFlash>,
+    /// Donut's HP flash, from her real hurt events (HUD-DEBT-01).
+    pub donut_hp_flash: Option<HpFlash>,
     pub notice: Option<NoticeView>,
     pub location: Option<String>,
     /// Per-plate glyph families (the pad that owns each hero's plate).
@@ -491,6 +493,7 @@ impl RealHudInputs {
             melee_live: true,
             donut_magic: DonutMagic::PreBiscuit,
             hp_flash: None,
+            donut_hp_flash: None,
             notice: None,
             location: None,
             carl_glyphs: GlyphSet::default(),
@@ -616,6 +619,7 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
     if let DonutMagic::Unlocked(mana) = real.donut_magic {
         donut.mana = Some(mana);
     }
+    donut.hp_flash = real.donut_hp_flash;
     let mut snapshot = HudSnapshot {
         plates: [carl, donut],
         location: real.location.clone(),
@@ -902,7 +906,7 @@ impl EventCursor {
 type VisualKey = (
     u8,
     u8,
-    Option<HpFlash>,
+    [Option<HpFlash>; 2],
     Option<NoticeView>,
     bool,
     bool,
@@ -954,7 +958,8 @@ pub struct HudRuntime {
     party: PartyView,
     carl_health: u8,
     donut_health: u8,
-    flash: Option<HpFlash>,
+    /// The HP flash of each hero's plate, `[Carl, Donut]`.
+    flash: [Option<HpFlash>; 2],
     notices: NoticeQueue,
     cursor: EventCursor,
     /// Primary/Physical are acted on by the scene (a combat section).
@@ -973,7 +978,7 @@ impl HudRuntime {
             party: PartyView::default(),
             carl_health: HERO_HEALTH,
             donut_health: DONUT_HEALTH,
-            flash: None,
+            flash: [None, None],
             notices: NoticeQueue::new(config.reduced_motion),
             cursor: EventCursor::default(),
             melee_live: false,
@@ -1065,7 +1070,7 @@ impl HudRuntime {
     /// Clear the notice, the queue and the flash (a restart).
     pub fn restart(&mut self) {
         self.notices.clear();
-        self.flash = None;
+        self.flash = [None, None];
         self.carl_health = HERO_HEALTH;
         self.donut_health = DONUT_HEALTH;
         self.revision += 1;
@@ -1084,26 +1089,35 @@ impl HudRuntime {
         let before = self.visual_key();
         self.tick += 1;
         self.notices.advance();
-        if let Some(flash) = self.flash.as_mut() {
-            flash.age_ticks += 1;
+        for slot in &mut self.flash {
+            if let Some(flash) = slot.as_mut() {
+                flash.age_ticks += 1;
+            }
+            if slot.is_some_and(|f| f.age_ticks >= HP_FLASH_TICKS) {
+                *slot = None;
+            }
         }
-        if self.flash.is_some_and(|f| f.age_ticks >= HP_FLASH_TICKS) {
-            self.flash = None;
-        }
-        let mut previous = self.carl_health;
+        let mut previous = [self.carl_health, self.donut_health];
         for event in self.cursor.next(events, dropped) {
             match *event {
-                CombatEvent::HeroHurt { health_left, .. } => {
-                    self.flash = Some(HpFlash {
-                        lost_from: previous.max(health_left.saturating_add(1)),
-                        lost_to: health_left,
-                        age_ticks: 0,
-                    });
-                    previous = health_left;
+                CombatEvent::HeroHurt {
+                    health_left, hero, ..
+                } => {
+                    let index = hero.index();
+                    // A guarded hit that took nothing (the solo last-HP guard)
+                    // shows no loss.
+                    if health_left < previous[index] {
+                        self.flash[index] = Some(HpFlash {
+                            lost_from: previous[index].max(health_left.saturating_add(1)),
+                            lost_to: health_left,
+                            age_ticks: 0,
+                        });
+                        previous[index] = health_left;
+                    }
                 }
                 CombatEvent::Restart { .. } => {
                     self.notices.clear();
-                    self.flash = None;
+                    self.flash = [None, None];
                 }
                 other => {
                     if let Some(headline) = notice_for_event(&other) {
@@ -1114,7 +1128,10 @@ impl HudRuntime {
         }
         if carl_health > self.carl_health {
             // Healed or restarted without an event: no stale flash.
-            self.flash = None;
+            self.flash[0] = None;
+        }
+        if donut_health > self.donut_health {
+            self.flash[1] = None;
         }
         self.carl_health = carl_health;
         self.donut_health = donut_health;
@@ -1130,7 +1147,8 @@ impl HudRuntime {
         real.carl_name.clone_from(&self.carl_name);
         real.donut_name.clone_from(&self.donut_name);
         real.location.clone_from(&self.location);
-        real.hp_flash = self.flash;
+        real.hp_flash = self.flash[0];
+        real.donut_hp_flash = self.flash[1];
         real.notice = self.notices.active();
         let view = self.drawn_party();
         real.carl_control = view.carl;
@@ -1350,6 +1368,7 @@ mod tests {
             tick: 1,
             source: 0,
             health_left,
+            hero: crate::party::HeroId::Carl,
         }
     }
 
@@ -1663,7 +1682,10 @@ mod tests {
             CombatEvent::GoblinSwing { tick: 1, goblin: 0 },
             CombatEvent::GoblinInterrupted { tick: 1, goblin: 0 },
             hurt(2),
-            CombatEvent::HeroDefeated { tick: 1 },
+            CombatEvent::HeroDefeated {
+                tick: 1,
+                hero: crate::party::HeroId::Carl,
+            },
         ] {
             assert_eq!(notice_for_event(&event), None, "{event:?}");
         }
@@ -1791,6 +1813,53 @@ mod tests {
         }
         assert!(hud.snapshot().notice.is_none());
         assert_eq!(hud.snapshot().face, FaceFrame::Idle);
+    }
+
+    #[test]
+    fn donuts_real_hurt_event_flashes_her_plate_and_never_carls() {
+        use crate::party::HeroId;
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let donut_hurt = |health_left| CombatEvent::HeroHurt {
+            tick: 3,
+            source: 0,
+            health_left,
+            hero: HeroId::Donut,
+        };
+        let log = vec![donut_hurt(3)];
+        hud.step(4, 3, &log, 0);
+        let s = hud.snapshot();
+        assert_eq!(s.plates[1].hp.cur, 3);
+        assert_eq!(
+            s.plates[1].hp_flash,
+            Some(HpFlash {
+                lost_from: 4,
+                lost_to: 3,
+                age_ticks: 0
+            })
+        );
+        assert_eq!(s.plates[0].hp_flash, None, "Carl's plate stays calm");
+        for _ in 0..HP_FLASH_TICKS {
+            hud.step(4, 3, &log, 0);
+        }
+        assert_eq!(hud.snapshot().plates[1].hp_flash, None);
+        // A hit the solo guard absorbed (health stays at 1) shows no new loss.
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let log = vec![donut_hurt(1)];
+        hud.step(4, 1, &log, 0);
+        assert!(
+            hud.snapshot().plates[1].hp_flash.is_some(),
+            "4 -> 1 is a loss"
+        );
+        let mut log = log;
+        log.push(donut_hurt(1));
+        for _ in 0..HP_FLASH_TICKS {
+            hud.step(4, 1, &log, 0);
+        }
+        assert_eq!(
+            hud.snapshot().plates[1].hp_flash,
+            None,
+            "1 -> 1: nothing lost"
+        );
     }
 
     #[test]

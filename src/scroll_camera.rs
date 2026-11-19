@@ -48,6 +48,15 @@ impl ScrollCamera {
     }
 
     pub fn step(&mut self, hero_x: f32, facing: i8) {
+        self.step_capped(hero_x, facing, MAX_SPEED_PX);
+    }
+
+    /// [`Self::step`] with an explicit speed cap (the party layer raises it
+    /// briefly after a solo swap). Returns how many pixels the camera still
+    /// wants to move after this step, so the caller can drop the raised cap
+    /// once the pan has caught up. `facing` 0 means no look-ahead (the
+    /// midpoint of two heroes).
+    pub fn step_capped(&mut self, hero_x: f32, facing: i8, max_speed: i32) -> i32 {
         let desired = Self::lead_point(hero_x, facing);
         let offset = desired - self.centre_x;
         let target = if offset > DEADZONE_PX {
@@ -57,8 +66,14 @@ impl ScrollCamera {
         } else {
             self.centre_x
         };
-        let delta = (target - self.centre_x).clamp(-MAX_SPEED_PX, MAX_SPEED_PX);
+        let delta = (target - self.centre_x).clamp(-max_speed, max_speed);
         self.centre_x = self.clamp_centre(self.centre_x + delta);
+        (self.clamp_centre(target) - self.centre_x).abs()
+    }
+
+    /// Where the view's centre column is, in layout pixels.
+    pub fn centre_x(&self) -> i32 {
+        self.centre_x
     }
 
     /// Left edge of the view in layout pixels, always inside the layout.
@@ -132,6 +147,38 @@ mod tests {
             previous = now;
         }
         assert!(previous > 200);
+    }
+
+    #[test]
+    fn a_raised_cap_pans_faster_and_reports_the_distance_left() {
+        let mut slow = ScrollCamera::new(config(360, 20), 700.0, 1);
+        let mut fast = slow;
+        let (mut remaining_slow, mut remaining_fast) = (0, 0);
+        for _ in 0..10 {
+            remaining_slow = slow.step_capped(1400.0, 1, MAX_SPEED_PX);
+            remaining_fast = fast.step_capped(1400.0, 1, 8);
+        }
+        assert_eq!(
+            slow.left() - ScrollCamera::new(config(360, 20), 700.0, 1).left(),
+            40
+        );
+        assert_eq!(
+            fast.left() - ScrollCamera::new(config(360, 20), 700.0, 1).left(),
+            80
+        );
+        assert_eq!(remaining_slow - remaining_fast, 40);
+        // `step` is `step_capped` at the normal cap, and a still target leaves 0.
+        let mut a = ScrollCamera::new(config(360, 20), 700.0, 1);
+        let mut b = a;
+        a.step(900.0, 1);
+        b.step_capped(900.0, 1, MAX_SPEED_PX);
+        assert_eq!(a, b);
+        assert_eq!(a.step_capped(a.centre_x() as f32 - 24.0, 1, 4), 0);
+        // No look-ahead for facing 0 (the two-player midpoint).
+        assert_eq!(
+            ScrollCamera::new(config(360, 20), 900.0, 0).left(),
+            900 - 320
+        );
     }
 
     #[test]

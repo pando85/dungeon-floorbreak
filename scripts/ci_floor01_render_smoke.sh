@@ -70,6 +70,10 @@ if [[ "$mode" == hud || "$mode" == hud-deck ]]; then
     "real-low-hp|-|--fixture cp01_retry --capture-tick 340|"
     "real-notice-launched|-|--fixture cp01_kick --capture-tick 300|"
     "real-notice-flattened|-|--fixture cp03_shore_kill --capture-tick 170|"
+    "party-duo|-|--party-fixture duo_independent_moves --capture-tick 70|"
+    "party-duo-wall|-|--party-fixture duo_separation_wall --capture-tick 240|"
+    "party-swap|-|--party-fixture solo_swap_continuity --capture-tick 120|"
+    "party-donut-hurt|-|--party-fixture donut_hurt_iframes --capture-tick 68|"
   )
   for entry in "${hud_states[@]}"; do
     IFS='|' read -r name preview driver extra <<<"$entry"
