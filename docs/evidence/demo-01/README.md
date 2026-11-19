@@ -31,11 +31,12 @@ xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/demo01_evidence.sh
 | `b1_first_rematch_1920x1080.png` | B1, tick 91: the jab-haymaker string kills the first goblin, the second one walks in |
 | `b2_kick_contact_1920x1080.png` | B2, tick 76: a kicked goblin has just knocked into the other one (`goblin_contact`), the ledge face behind them |
 | `b3_block_falling_1920x1080.png` | B3, tick 140: the shore is broken and the block falls over the two passive goblins; the cavity is cut into plain brick (`solid_backwall` keeps the ground arch away from the shore) |
-| `b3_block_landed_1920x1080.png` | B3, tick 160: the block landed (`FLATTENED!` notice), both goblins crushed (two crushes until DEATH-D's edge decapitation lands), the chaser arrives |
+| `b3_block_landed_1920x1080.png` | B3, tick 160: the block landed (`FLATTENED!` notice), one goblin crushed and one decapitated by the block's edge (DEATH-D: goblin 5 stands on the footprint's right edge), the chaser arrives |
+| `b5_lit_charge_fuse_1920x1080.png`, `b5_burst_1920x1080.png` | B5 (a **QA test prop**, never Carl's ability), ticks 60 and 86 from the B5 checkpoint: the lit charge between the huddled goblins, and the burst 4 ticks after it blew (arming when Carl passes column 2640, blast 75 ticks later: one point blank burst, one ring kill thrown intact, the chaser survives and is jabbed afterwards) |
 | `b4_llama_hook_1920x1080.png` | B4, tick 120: the stretch where PR B puts the llama; only its chasing goblin is there yet |
 | `b6_pileup_1920x1080.png` | B6, tick 110: the pileup cluster at the right end of the hall, the portal scenery behind |
 | `state_<shot>.txt` | the `COMBAT_STATE` line of each frame (tick, hit points, goblin positions and health, hash, shore state, `demo_cp`) |
-| `headless_demo01_b1.txt`, `_b2`, `_b3`, `_b6` | every `COMBAT_EVENT` and the final `COMBAT_STATE` of each beat probe (200, 260, 300, 300 ticks, started at the beat's checkpoint) |
+| `headless_demo01_b1.txt`, `_b2`, `_b3`, `_b5`, `_b6` | every `COMBAT_EVENT` and the final `COMBAT_STATE` of each beat probe (200, 260, 300, 300, 300 ticks, started at the beat's checkpoint) |
 | `headless_demo01.txt` | the whole route from B0, 2000 ticks: 14 defeats, no death, `DEMO01_COMPLETE` by tick 1506 |
 | `SHA256SUMS` | SHA-256 checksums of every file in this folder except this README (`sha256sum -c SHA256SUMS`) |
 
@@ -50,7 +51,7 @@ xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/demo01_evidence.sh
 
 ## Not shown, on purpose
 
-The hybrid-A HUD (#103) is on `main` and draws in `--demo` automatically (the captures show it). No llama (PR B), no decapitation or explosion (PR #108), no automatic camera (PR C). Frame time and memory figures for B5 and B6 (plan acceptance 6) wait for B5; no performance claim is made. No Steam Deck claim.
+The hybrid-A HUD (#103) is on `main` and draws in `--demo` automatically (the captures show it). No llama (PR B), no automatic camera (PR C). The B3 decapitation and the B5 explosion are DEATH-D (PR #108); both depend on art that is not yet reviewed (the charge fizzle and the burst). **Log re-pin after #108:** every probe's final `COMBAT_STATE` line changed (the hall gained three B5 goblins and a charge, and B3's goblin 5 moved from 1735 to the footprint edge at 1745); the events of `_b1`, `_b2` and `_b6` are unchanged, `_b3` now ends in one crush and one `shore_block_edge` decapitation on the same landing, `_b5` is new and the whole-route log changed because B5 now runs. Frame time and memory figures for B5 and B6 (plan acceptance 6) are not measured here; no performance claim is made. No Steam Deck claim.
 
 ## Rights and provenance
 

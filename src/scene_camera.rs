@@ -194,12 +194,67 @@ impl CameraInterest {
     }
 }
 
+/// DEMO-01 PR B: the Bad Llamas' contribution to the interest list, from the
+/// finished tick of the simulation (simulation state only; nothing flows back).
+/// A llama that has acquired Carl (alive, facing him, within its fire range) is
+/// [`InterestKind::Aiming`], so the camera starts widening before the tell; in
+/// its tell it is a [`InterestKind::Tell`] with the ticks left before the
+/// release; from the release to the end of the attack it is
+/// [`InterestKind::InFlight`], like every glob in flight (a one-tick threat is
+/// safe: the camera steps per fixed tick).
+pub fn llama_interest(sim: &SceneSim, combat: &CombatState, interest: &mut CameraInterest) {
+    use crate::feel::{LLAMA_ATTACK_TICKS, LLAMA_FIRE_RANGE, LLAMA_TELL_TICKS};
+    use crate::llama::{LLAMA_HALF_HEIGHT, LLAMA_HALF_WIDTH, LlamaMode};
+    let carl_x = sim.world.hero.x;
+    for llama in combat.llamas.iter().filter(|l| l.alive()) {
+        let kind = match llama.mode {
+            LlamaMode::Attack if llama.attack_tick < LLAMA_TELL_TICKS => Some(InterestKind::Tell {
+                ticks_left: LLAMA_TELL_TICKS - llama.attack_tick,
+            }),
+            LlamaMode::Attack if llama.attack_tick < LLAMA_ATTACK_TICKS => {
+                Some(InterestKind::InFlight)
+            }
+            LlamaMode::Neutral => {
+                let dx = carl_x - llama.x;
+                (llama.ai == crate::combat::EnemyAi::Chase
+                    && dx.abs() <= LLAMA_FIRE_RANGE
+                    && dx * f32::from(llama.facing) > 0.0)
+                    .then_some(InterestKind::Aiming)
+            }
+            _ => None,
+        };
+        if let Some(kind) = kind {
+            interest.push(InterestThreat {
+                kind,
+                x: llama.x,
+                // The whole animal, head and neck included.
+                y: llama.y - LLAMA_HALF_HEIGHT + 34.0,
+                half_w: LLAMA_HALF_WIDTH + 24.0,
+                half_h: 34.0,
+                dir: llama.facing,
+                lane: 0.0,
+            });
+        }
+    }
+    for glob in &combat.globs {
+        interest.push(InterestThreat {
+            kind: InterestKind::InFlight,
+            x: glob.x,
+            y: glob.y,
+            half_w: 4.0,
+            half_h: 3.0,
+            dir: glob.dir,
+            lane: 0.0,
+        });
+    }
+}
+
 /// Evidence helper behind `--camera-test-threat X:FIRST:LAST`: a synthetic
 /// foe that has acquired Carl (an [`InterestKind::Aiming`] threat, the state a
 /// Bad Llama takes before its tell) standing at world column `x` on the line
 /// `floor_y` (y up) from tick `first` up to `last`, facing left. It stands in
-/// for the real llama until DEMO-01 PR B feeds [`CameraInterest`]; it is never a
-/// simulated enemy and nothing in the simulation sees it.
+/// for a llama in camera evidence; it is never a simulated enemy and nothing in
+/// the simulation sees it. The real llama feeds [`llama_interest`].
 pub fn synthetic_interest(
     x: f32,
     floor_y: f32,
@@ -506,6 +561,43 @@ mod tests {
             dir: -1,
             lane: 0.0,
         }
+    }
+
+    /// DEMO-01 PR B: the real llama feeds the interest list from simulation
+    /// state: aiming once it has acquired Carl, a tell with the ticks left, then
+    /// in flight with its glob; a dead llama feeds nothing.
+    #[test]
+    fn the_bad_llama_feeds_aiming_tell_and_in_flight_threats() {
+        use crate::combat_scene::{CP05_LLAMA_SLAM, CP05_LLAMA_SPIT, FixtureSim};
+        let kit = EnvKit::load(root(), "assets/levels/floor01/corridor_abc_sample.json").unwrap();
+        let interest_of = |run: &FixtureSim| {
+            let mut interest = CameraInterest::default();
+            llama_interest(&run.scene, &run.combat, &mut interest);
+            interest.threats
+        };
+        let mut run = FixtureSim::new(&kit, 360, &CP05_LLAMA_SPIT).unwrap();
+        // Before its first tick: it faces Carl within range, so it is aiming.
+        let before = interest_of(&run);
+        assert_eq!(before.len(), 1);
+        assert_eq!(before[0].kind, InterestKind::Aiming);
+        // In the tell (started on tick 1, attack tick 0): 36 ticks left.
+        run.step_scripted();
+        let tell = interest_of(&run);
+        assert!(matches!(
+            tell[0].kind,
+            InterestKind::Tell { ticks_left: 36 }
+        ));
+        // From the release (tick 37): the llama in the shot's first ticks and
+        // the glob in flight.
+        run.run_scripted(36);
+        let shot = interest_of(&run);
+        assert_eq!(shot.len(), 2, "the llama and its glob");
+        assert!(shot.iter().all(|t| t.kind == InterestKind::InFlight));
+        assert_eq!(shot[1].dir, -1);
+        // A defeated llama feeds nothing.
+        let mut slam = FixtureSim::new(&kit, 360, &CP05_LLAMA_SLAM).unwrap();
+        slam.run_scripted(CP05_LLAMA_SLAM.ticks);
+        assert!(interest_of(&slam).is_empty());
     }
 
     #[test]
