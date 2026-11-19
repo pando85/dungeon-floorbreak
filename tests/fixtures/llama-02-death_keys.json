@@ -1,0 +1,29 @@
+{
+  "asset_id": "llama-02-death",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "6e4befdf5ca964a049e351373b2b1f666e6fe01f08ef719a715dd67e12f55176"
+    },
+    "2": {
+      "sha256": "dcc27c325a442d1ce89e46753ee22fd707519ae6fd45b65f9c8cc1740f9b1db0"
+    },
+    "3": {
+      "sha256": "1c87841c3d2e908a93c2b8fe7a9239aab5aec7ca0f830a4706c94d3cd5b5dade"
+    },
+    "5": {
+      "sha256": "912c95d97ec21ce8eb88956d7662f6750cdaa2c62e0e2762604523a6581fe3e2"
+    },
+    "6": {
+      "sha256": "fa35d4366ac86dc269c028a5f84ca8a2d84bc085e743e5717c440593f7b3b9d2"
+    },
+    "7": {
+      "sha256": "602502265c259f3a3fd0907745c63e2ac7438e35cc2589477c8e3c72ed00668f"
+    }
+  },
+  "layers": [
+    "body",
+    "gore",
+    "molten"
+  ]
+}

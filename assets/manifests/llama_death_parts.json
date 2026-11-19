@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "id": "llama_death_parts_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/llama/death/llama_death_parts.ase",
+  "grid_source": "assets/source/characters/llama/death/llama_death_parts.grid.json",
+  "output_atlas": "generated/art/llama_death_parts.png",
+  "output_metadata": "generated/art/llama_death_parts.json",
+  "palette_id": "llama-death-floor01-v0",
+  "frame_size": [
+    32,
+    32
+  ],
+  "pivot": [
+    16,
+    16
+  ],
+  "animation_tags": [
+    "head",
+    "neck",
+    "leg_fore"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy death art (fan-concept layer: Floor 1 Bad Llama; runtime role IP-neutral ranged spitter)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "LLAMA-02-DEATH Bad Llama death art at intensity preset 4 (docs/02-art/llama-02-death-spec.md); pixel-grid-v1 source written by scripts/author_llama02_death.py with the LLAMA-01 parametric rig, new pose dicts, shape rules and literal stamps; no image-model output, no tracing",
+    "generator": "Design, spec and hero keys: Claude Opus. Execution and independent review pending",
+    "generated_art": true,
+    "input_reference_ids": [
+      "assets/concept/floor-01/enemies/bad-llama-c-plus-a-approved.png"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "death_parts": {
+    "spec": "docs/02-art/llama-02-death-spec.md",
+    "variant": "A",
+    "cell": [
+      32,
+      32
+    ],
+    "pivot": [
+      16,
+      16
+    ],
+    "layers": [
+      "body",
+      "gore",
+      "molten"
+    ],
+    "mirror": "x' = 32 - x around the cell pivot",
+    "status": "design stage: keys frozen, in-betweens and parts 3 onward pending (executor); not wired into any Bevy binary",
+    "key_frames": [
+      0,
+      1,
+      2
+    ],
+    "key_fixture": "tests/fixtures/llama-02-death-parts_keys.json",
+    "preset_filter": {
+      "1": "clean and molten parts, and head",
+      "2": "wound (gore muted), clean, molten, blood drops and s decals",
+      "3": "wound, clean, molten, gib (no bone), blood (pools 1 and 2)",
+      "4": "all"
+    },
+    "parts": [
+      {
+        "id": "head",
+        "frame": 0,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "neck": [
+            11,
+            24
+          ]
+        },
+        "frame0_origin": [
+          64,
+          19
+        ],
+        "class": "wound",
+        "material": "llama_flesh",
+        "presets": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "molten_layer": true,
+        "mass": "medium",
+        "spin": "fast",
+        "settle": "roll",
+        "bounce": 0.3,
+        "swap_on_first_contact": "head_dead",
+        "stain": "decal_splat_s",
+        "trail": "decal_smear",
+        "ttl": "keep"
+      },
+      {
+        "id": "neck",
+        "frame": 1,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "top": [
+            20,
+            10
+          ],
+          "bottom": [
+            16,
+            23
+          ]
+        },
+        "frame0_origin": [
+          56,
+          30
+        ],
+        "class": "wound",
+        "material": "llama_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "molten_layer": true,
+        "mass": "medium",
+        "spin": "slow",
+        "settle": "flop",
+        "bounce": 0.2,
+        "stain": "decal_splat_s",
+        "ttl": "keep"
+      },
+      {
+        "id": "leg_fore",
+        "frame": 2,
+        "cell": [
+          32,
+          32
+        ],
+        "pivot": [
+          16,
+          16
+        ],
+        "anchors": {
+          "shoulder": [
+            16,
+            5
+          ],
+          "hoof": [
+            19,
+            27
+          ]
+        },
+        "frame0_origin": [
+          52,
+          59
+        ],
+        "class": "wound",
+        "material": "llama_flesh",
+        "presets": [
+          3,
+          4
+        ],
+        "gore_layer": true,
+        "molten_layer": false,
+        "mass": "medium",
+        "spin": "fast",
+        "settle": "clatter",
+        "bounce": 0.3,
+        "stain": "decal_splat_s",
+        "ttl": "long"
+      }
+    ]
+  }
+}
