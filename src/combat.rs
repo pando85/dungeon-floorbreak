@@ -987,6 +987,12 @@ pub enum CombatEvent {
     ShoreLanded {
         tick: u64,
     },
+    /// DEMO-01: Carl stood up again at checkpoint `checkpoint` (the demo's
+    /// respawn: defeated enemies stay defeated). Emitted only in the demo.
+    Respawn {
+        tick: u64,
+        checkpoint: u32,
+    },
 }
 
 impl CombatEvent {
@@ -1139,6 +1145,12 @@ impl CombatEvent {
                 mix(13);
                 mix(tick);
             }
+            Self::Respawn { tick, checkpoint } => {
+                // A tag far from the combat tags: DEMO-01 only.
+                mix(0x4445_4d4f);
+                mix(tick);
+                mix(u64::from(checkpoint));
+            }
         }
     }
 }
@@ -1250,6 +1262,12 @@ impl fmt::Display for CombatEvent {
             }
             Self::ShoreLanded { tick } => {
                 write!(f, "COMBAT_EVENT tick={tick} kind=shore_landed")
+            }
+            Self::Respawn { tick, checkpoint } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=respawn checkpoint={checkpoint}"
+                )
             }
         }
     }

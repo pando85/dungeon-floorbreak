@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=demo01_b6 seed=0xde300006 tick=110 elapsed=110 hero_hp=4 deaths=0 enemies=e0=-256.000/0,e1=-256.000/0,e2=-256.000/0,e3=-256.000/0,e4=-256.000/0,e5=-256.000/0,e6=-256.000/0,e7=-256.000/0,e8=3084.268/0,e9=3091.932/0,e10=3089.131/0,e11=3019.990/0,e12=3020.455/1,e13=3036.321/2 hash=72bb61eed7caf2af shore=0/Intact/Seated block_bottom=140.00 demo_cp=6

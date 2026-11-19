@@ -191,6 +191,11 @@ pub fn cues_from_combat_event(event: &CombatEvent) -> Vec<CueId> {
     match event {
         CombatEvent::MoveStarted { .. } => vec![CueId::PlayerKickSwing],
         CombatEvent::Hit { .. } => vec![CueId::PlayerKickHitConfirmed, CueId::EnemyHitReaction],
+        // DEMO-01: existing cues only, so the shore, the block and the
+        // goblin-on-goblin contact are not silent.
+        CombatEvent::GoblinContact { .. } => vec![CueId::EnemyBodyCollision],
+        CombatEvent::ShoreBroken { .. } => vec![CueId::WallBreak],
+        CombatEvent::ShoreLanded { .. } => vec![CueId::HeavyPropCrash],
         _ => Vec::new(),
     }
 }
@@ -723,6 +728,44 @@ mod tests {
         ] {
             assert!(cues_from_combat_event(&quiet).is_empty(), "{quiet:?}");
         }
+    }
+
+    /// DEMO-01: the shore, the falling block and a goblin knocked into another
+    /// reuse the existing crash cues (no new sound, no new file).
+    #[test]
+    fn demo_events_reuse_the_existing_crash_cues() {
+        assert_eq!(
+            cues_from_combat_event(&CombatEvent::GoblinContact {
+                tick: 1,
+                launch: 1,
+                source: 0,
+                target: 1,
+            }),
+            vec![CueId::EnemyBodyCollision]
+        );
+        assert_eq!(
+            cues_from_combat_event(&CombatEvent::ShoreBroken { tick: 1, player: 0 }),
+            vec![CueId::WallBreak]
+        );
+        assert_eq!(
+            cues_from_combat_event(&CombatEvent::ShoreLanded { tick: 1 }),
+            vec![CueId::HeavyPropCrash]
+        );
+        assert!(
+            cues_from_combat_event(&CombatEvent::ShoreHit {
+                tick: 1,
+                instance: 1,
+                hits: 1
+            })
+            .is_empty()
+        );
+        assert!(
+            cues_from_combat_event(&CombatEvent::Respawn {
+                tick: 1,
+                checkpoint: 1
+            })
+            .is_empty()
+        );
     }
 
     #[test]

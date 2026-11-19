@@ -4,6 +4,15 @@
 #                                   COMBAT_EVENT / COMBAT_STATE lines with the
 #                                   committed ones (docs/evidence/cp01-feel) and
 #                                   run each twice.
+#   ci_floor01_combat.sh demo       no GPU: DEMO-01. The demo hall's autopilot
+#                                   probes (demo01_b1, _b2, _b3, _b6 and the whole
+#                                   route demo01) replay twice, at gore presets 1
+#                                   to 4, and must equal the committed logs in
+#                                   docs/evidence/demo-01.
+#   ci_floor01_combat.sh demo-render inside xvfb-run -s '-screen 0 1920x1080x24':
+#                                   the real Bevy loop (scale 3, lighting on) must
+#                                   reproduce the committed events and hash of the
+#                                   whole-route probe.
 #   ci_floor01_combat.sh render     inside xvfb-run -s '-screen 0 1920x1080x24':
 #                                   the real Bevy render loop (scale 3, lighting
 #                                   on) must reproduce the headless events and
@@ -15,7 +24,7 @@
 #                                   The frames drawn (COMBAT_ANIM_STATE) must
 #                                   match the headless replay as well.
 set -euo pipefail
-mode="${1:?usage: ci_floor01_combat.sh headless|render}"
+mode="${1:?usage: ci_floor01_combat.sh headless|render|demo|demo-render}"
 bin=./target/debug/floor01_scene
 fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup)
 # fixture:first tick:step:count of the real-frame capture sequences. The windows
@@ -25,6 +34,9 @@ sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interru
 # goblin next to the sim state it follows) is committed and diffed (ART-INT-02).
 traced=(cp01_haymaker_chain cp01_goblin_attacks cp02_two_goblins cp01_kick cp02_kick_contact)
 committed=docs/evidence/cp01-feel
+# DEMO-01 probes: name:beat (the autopilot starts at the beat's checkpoint).
+demo_probes=(demo01_b1:1 demo01_b2:2 demo01_b3:3 demo01_b6:6 demo01:0)
+demo_committed=docs/evidence/demo-01
 committed_anim=docs/evidence/art-int-02
 out=artifacts/cp01-feel
 mkdir -p "$out"
@@ -166,6 +178,59 @@ case "$mode" in
       echo "COMBAT_SEQUENCE_MATCH: $(last_state < "$log")"
       echo "COMBAT_RENDER_OK: $f ${count} frames of 1920x1080, ticks ${first}..${last}"
     done
+    ;;
+  demo)
+    for spec in "${demo_probes[@]}"; do
+      IFS=: read -r f beat <<<"$spec"
+      run() { "$bin" --headless-floor01-smoke --demo --demo-beat "$beat" --autopilot "$@"; }
+      run | combat_lines > "$out/headless_${f}.txt"
+      run | combat_lines > "$out/headless_${f}_again.txt"
+      if ! cmp -s "$out/headless_${f}.txt" "$out/headless_${f}_again.txt"; then
+        echo "demo probe $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$demo_committed/headless_${f}.txt" "$out/headless_${f}.txt"; then
+        echo "demo probe $f differs from the committed replay ($demo_committed)" >&2
+        exit 1
+      fi
+      # The gore preset is presentation only: same events and hash at 1 to 4.
+      for preset in 1 2 3 4; do
+        run --gore-preset "$preset" | combat_lines > "$out/headless_${f}_p${preset}.txt"
+        if ! diff "$demo_committed/headless_${f}.txt" "$out/headless_${f}_p${preset}.txt"; then
+          echo "demo probe $f at gore preset $preset differs from the committed replay" >&2
+          exit 1
+        fi
+      done
+      echo "DEMO_HEADLESS_OK: $(last_state < "$out/headless_${f}.txt")"
+    done
+    ;;
+  demo-render)
+    log="$out/render_live_demo01.log"
+    committed_log="$demo_committed/headless_demo01.txt"
+    ticks="$(last_state < "$committed_log" | sed -n 's/.* elapsed=\([0-9]*\) .*/\1/p')"
+    "$bin" --scale 3 --demo --autopilot --exit-after-ticks "$ticks" > "$log" 2>&1 &
+    pid="$!"
+    for _ in $(seq 1 240); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 1
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      tail -n 20 "$log"
+      echo "Demo render run did not finish" >&2
+      exit 1
+    fi
+    if grep -qE 'FLOOR1_ASSET_FAILURE|FLOOR1_CAPTURE_FAILURE|FLOOR1_LIGHTING_WARNING' "$log"; then
+      tail -n 20 "$log"
+      echo "Demo render run reported a failure" >&2
+      exit 1
+    fi
+    if ! diff <(replay < "$log") "$committed_log"; then
+      echo "The demo render run differs from the committed headless replay" >&2
+      exit 1
+    fi
+    grep -q '^DEMO01_COMPLETE' "$log"
+    echo "DEMO_LIVE_MATCH: $(last_state < "$log")"
     ;;
   *)
     echo "unknown mode: $mode" >&2

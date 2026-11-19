@@ -629,6 +629,61 @@ Value changes of the same review: jab knockback 75 px/s, killing-hit launch 160 
 - **Performance (measured, inconclusive on a loaded machine):** method: `--perf-frames 600` (120 warm-up frames, vsync off), lit, `--scale 3` (1920x1080), debug (`dev` profile) build, local RTX 4060 Ti on real X11, one process per run, alternating runs. "Without HUD" is the same scene built from commit `44a286f` (the last commit before any HUD code; there is no `--no-hud` switch because the HUD state is part of the simulation adapter), "with HUD" is the PR head with the real atlas, normal play, no fixture. The host was heavily loaded by unrelated jobs (load average about 20 on 16 cores), and frame intervals were **bimodal** from run to run (about 7 to 9 ms in a fast mode, about 16 ms in a slow mode, in either build), so the medians over six interleaved pairs do not separate the builds. Pairs where both builds ran in the fast mode (median ms, base vs HUD): 6.78 vs 8.57, 7.72 vs 8.36; the best run of each build was 6.78 ms without and 8.36 ms with the HUD. Reading: the HUD costs roughly 0.6 to 1.8 ms of frame interval in the debug build on this machine (cause not profiled; the HUD adds one `Camera2d` pass and a pooled set of sprites and `Text2d` entities); this is an estimate from two clean pairs, not a variance study. Release build, 640x400, Xvfb and software Vulkan were not measured for the HUD. Steam Deck: **not measured**; no 60 fps claim is made. Repeat on an idle machine before using the number.
 - **Known TODOs:** keyboard players see gamepad glyphs (no keyboard set); only `FLOOR 01` is shown because layout data has no area names; the notice headlines are placeholder copy pending an owner tone check; the muted chip is tinted, not redrawn (the atlas has no muted glyph frames); the optional CRT screen flash is not drawn; text width uses a per-character advance table, not a font parse.
 
+## Demo (DEMO-01, PR A: hall, route and respawn)
+
+**Status:** functional integration for the owner's game-feel playtest, not accepted. Plan: [demo-01-plan.md](../04-production/demo-01-plan.md); questionnaire: [demo-01-questionnaire.md](../04-production/demo-01-questionnaire.md). PR A delivers the hall, beats B0 to B3 and B6, the respawn and the probes; the llama beat (B4, PR B), the test charge (B5, after DEATH-D #108) and the automatic camera (PR C) are not in this PR.
+
+```sh
+bash scripts/export_assets.sh                                                  # once, as for any fixture
+cargo run --release --locked --bin floor01_scene -- --demo --scale 3          # 1920x1080
+cargo run --release --locked --bin floor01_scene -- --demo --deck             # 1280x800
+cargo run --release --locked --bin floor01_scene -- --demo --scale 3 --demo-beat 3   # start at a beat (0 to 6)
+```
+
+`--demo` is interactive (keyboard or pad, like `--manual`), lit, with audio and gore preset 4 (`--gore-preset 1..4`, `--no-lighting`, `--no-audio` work as usual). Controls are the fixture controls: **A/D**, arrows or left stick/D-pad move, **Space** or Cross/A jumps, **J** or Square/X jabs (again inside the window: haymaker), **K** or Triangle/Y push kick, **Esc** or Start quits. **R or the pad's Select: tap = respawn at the last checkpoint (on release), hold for 1 s = restart the whole demo** (it restarts at the beat the demo was started at, beat 0 by default). Console lines: `DEMO01_BEAT <id> <name>` when Carl enters a beat, `DEMO01_RESPAWN`, `DEMO01_COMPLETE tick=...` when every goblin of the hall is defeated.
+
+| Flag | Effect |
+| --- | --- |
+| `--demo` | the demo hall and route (replaces `--fixture`, `--scenario`, `--reference-frame`) |
+| `--demo-beat <0..6>` | start at that beat's checkpoint; the goblins of the beats behind it are retired (health 0, parked outside the layout, never drawn) |
+| `--autopilot` | with `--demo`: a deterministic stand-in for the player (`demo::autopilot`) drives Carl: for probes, captures and CI. Works with `--headless-floor01-smoke`, `--capture-tick`, `--capture-sequence`, `--exit-after-ticks` |
+
+### The hall
+
+`assets/levels/floor01/demo01_hall.room.json` (camera-lab room schema, geometry only: 3200 x 660, walking line 580, two 2-tile ledges at 304 to 416 and 1360 to 1472) is composed at load time by `camera_lab::layout::build_kit` into an `EnvKit` (rendered 3200 x 672: 580 px of drawn wall above the walking line, 92 below), from approved Floor 01 kit pieces only (brick bands, stacked arch bays, torches, deep floor). It is a greybox composition, not new art and not an authored level. `demo::load_hall` adds the two scroll-camera views the scene asks for (the walking line 288 px below the top of the 640x360 view, 308 below the 640x400 one, as in the corridor) and removes the exit trigger (the portal at the right end is scenery). The A1 lighting pass runs unchanged; a test keeps every 960 x 540 window inside the 64-light budget.
+
+### Route and checkpoints
+
+Checkpoints are the beat start columns: 160, 520, 1020, 1520, 2070, 2620, 2970. The checkpoint is the furthest beat Carl has entered. Goblins notice Carl within `GOBLIN_SIGHT` (220 px), so each beat's goblins wake as he walks in; no extra wake rule exists. Goblin columns and counts are in `demo::DEMO_ENEMIES`.
+
+| Beat | What this PR has |
+| --- | --- |
+| B0 Wake-up (160 to 520) | spawn, a ledge to jump, Donut trailing; nothing attacks |
+| B1 First rematch (520 to 1020) | two chasing goblins (820, 900) |
+| B2 Kick alley (1020 to 1520) | two chasing goblins (1280, 1310) 60 px in front of a ledge face (1360) |
+| B3 Rotten shore (1520 to 2070) | the CP-03 shore (strike column 1640, footprint 1665 to 1745), two passive goblins in the footprint (1705, 1735), one chaser from the right (1900). Two crushes until DEATH-D's edge decapitation lands |
+| B4 Bad Llama (2070 to 2620) | **hook only**: one chasing goblin (2350); `B4_LLAMA_HOME_X` marks where PR B puts the llama |
+| B5 Lit charge (2620 to 2970) | **hook only**: empty until PR #108 is on `main` (`B5_CHARGE_ARM_X`) |
+| B6 Pileup (2970 to 3200) | six chasing goblins in two clusters (3010 to 3150) |
+
+### Respawn
+
+A defeated Carl lies down, then after `RESTART_DELAY_TICKS` (50) stands up at the last checkpoint with full health: `CombatState::respawn` logs `CombatEvent::Respawn { tick, checkpoint }` (printed `kind=respawn`), moves Carl and Donut (`SceneSim::respawn_at`), keeps the tick counter, Carl's move-instance counter and the event log running, and puts every **living** goblin back at its spawn. **Defeated goblins stay defeated and the death presenter keeps their corpses and stains** (a `Respawn` event never clears it; only `Restart` does). The shore keeps its state. A full restart is the existing `Restart` (everything back, gore cleared). The mechanics are in `combat_scene.rs` behind `Option<&DemoRules>`: `None` for every fixture, nothing extra is mixed into any fixture hash (tested by the unchanged committed replays). Only a demo run mixes the checkpoint index and the `Respawn` event.
+
+Select (`demo::SelectControl`, pure and ticked once per fixed tick): released before 60 ticks it is a respawn; reaching 60 ticks while held is a restart, once.
+
+### Audio
+
+`audio::cues_from_combat_event` now maps `GoblinContact` to `EnemyBodyCollision`, `ShoreBroken` to `WallBreak` and `ShoreLanded` to `HeavyPropCrash`, with the existing cue files; the fixtures use the same mapping (audio is presentation and never reaches a hash).
+
+### Probes and tests
+
+The autopilot (a pure function of the finished state: it walks the route, fights the nearest awake goblin, kicks in B2, strikes the shore three times from its left in B3, jumps ledge faces) drives the probes `demo01_b1`, `_b2`, `_b3`, `_b6` and the whole route `demo01`, each with a committed log in [docs/evidence/demo-01](../evidence/demo-01/README.md). `bash scripts/ci_floor01_combat.sh demo` replays each twice and at gore presets 1 to 4 against them; `xvfb-run ... ci_floor01_combat.sh demo-render` makes the real Bevy loop at 1920x1080 reproduce the whole-route events and hash. Unit tests in `demo::tests` cover the hall (composition, lighting budget, a clean flat walking line under every spawn, checkpoint and the shore, the end walls), the Select rule, the respawn (restart delay, full health, the dead stay dead, the living go back, the furthest checkpoint, the presenter keeps its gore), the full restart, starting at a later beat, the four probes' assertions (B1 two melee defeats; B2 a goblin contact and a lethal kick; B3 three shore hits, one break, one landing, at least one crush; B6 six defeats) and the whole-route smoke with a pinned hash.
+
+### Known limits of PR A
+
+No on-screen HUD (PR #103), no llama (PR B), no test charge or decapitation (PR #108), no automatic camera (PR C): the camera is the deterministic scroll camera at 640 px. A goblin pressed against a ledge face while Carl stands on the ledge keeps its attack token (the starvation note in `step_goblins`); the demo does not hit it. The autopilot never takes damage on this route, so the respawn is exercised by a test that makes Carl stand still. Select taps are read on release, so the respawn is about 4 frames later than a press-time respawn would be at 60 fps.
+
 ## Known limits
 
 1. Lighting is functional but unreviewed: no human has judged the look, the flicker, or the readability of actors. The reference comparison covers one pose and one camera window.
@@ -643,6 +698,6 @@ Value changes of the same review: jab knockback 75 px/s, killing-hit launch 160 
 
 ## CI
 
-`.github/workflows/floor01-scene.yml` also replays the combat fixtures: `scripts/ci_floor01_combat.sh headless` (every fixture twice, compared with the committed logs in `docs/evidence/cp01-feel`) and `scripts/ci_floor01_combat.sh render` (the real render loop at 1920x1080 must reproduce the headless events and hash of all eight fixtures, then real frames (one per tick) of `cp01_single_goblin`, `cp01_haymaker_chain`, `cp01_interrupt`, `cp01_goblin_attacks`, `cp02_two_goblins`, `cp01_retry` (the knockdown) and `cp01_kick`; the frames drawn, `COMBAT_ANIM_STATE`, must match the headless replay too, and the headless mode diffs the committed `docs/evidence/art-int-02/anim_trace_*.txt`). The scene CI, in short: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model and **fails** the job on divergence (whole-frame mean dE76 <= 1.5, p95 <= 3, |mean delta L*| <= 1, every region mean dE76 <= 2.5; measured 0.55 / 0.90 / 0.23 / <= 0.55, so the gates leave margin for a software rasteriser); the `live-lit` / `live-unlit` steps step the scenario live and compare final states; any `FLOOR1_LIGHTING_WARNING` fails a render step. the `anim-sequence` step captures 81 real frames of the `run_jump` scenario and builds the ANIM-INT-01 evidence (see [Animation](#animation-anim-int-01)); `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
+`.github/workflows/floor01-scene.yml` also replays the DEMO-01 probes (`scripts/ci_floor01_combat.sh demo` and `demo-render`, see [Demo](#demo-demo-01-pr-a-hall-route-and-respawn)) and the combat fixtures: `scripts/ci_floor01_combat.sh headless` (every fixture twice, compared with the committed logs in `docs/evidence/cp01-feel`) and `scripts/ci_floor01_combat.sh render` (the real render loop at 1920x1080 must reproduce the headless events and hash of all eight fixtures, then real frames (one per tick) of `cp01_single_goblin`, `cp01_haymaker_chain`, `cp01_interrupt`, `cp01_goblin_attacks`, `cp02_two_goblins`, `cp01_retry` (the knockdown) and `cp01_kick`; the frames drawn, `COMBAT_ANIM_STATE`, must match the headless replay too, and the headless mode diffs the committed `docs/evidence/art-int-02/anim_trace_*.txt`). The scene CI, in short: export, contract check, negative tests (`tests/test_floor01_scene_*.py`), build, headless smoke, then Xvfb renders (desktop 1920x1080, desktop-720, deck, advanced, advanced-deck, nolight, nolight-advanced, reference, collision, plus two frame-interval probes) through `scripts/ci_floor01_render_smoke.sh`, which also checks the real window geometry with `xwininfo` (1920x1080 / 1280x720 / 1280x800), that the lit and unlit captures differ, and that the unlit run reports the same `FLOOR1_SCENE_STATE` as the lit run; `scripts/compare_floor01_lighting.py` compares the reference frame with the Pillow model and **fails** the job on divergence (whole-frame mean dE76 <= 1.5, p95 <= 3, |mean delta L*| <= 1, every region mean dE76 <= 2.5; measured 0.55 / 0.90 / 0.23 / <= 0.55, so the gates leave margin for a software rasteriser); the `live-lit` / `live-unlit` steps step the scenario live and compare final states; any `FLOOR1_LIGHTING_WARNING` fails a render step. the `anim-sequence` step captures 81 real frames of the `run_jump` scenario and builds the ANIM-INT-01 evidence (see [Animation](#animation-anim-int-01)); `cargo fmt`, `clippy` and the Rust tests (including all floor01 tests) run in `game.yml`; the three Bevy workflows share one rust-cache key. Evidence artifact: `the-crawl-floor01-scene`.
 
 **Rights:** the character art is public fan-concept art under the recorded scope in [the rights register](../04-production/rights-and-release.md); it does not establish rights to distribute a playable game.

@@ -55,6 +55,7 @@ use dungeon_floorbreak::{
         PART_POOL_CAPACITY, PART_POOL_SLOTS, WALL_DECAL_POOL_CAPACITY, WALL_DECAL_POOL_SLOTS,
         draw_z,
     },
+    demo::{self, SelectAction, SelectControl},
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
@@ -157,6 +158,12 @@ struct Args {
     glyphs: Option<GlyphSet>,
     /// HUD: no slides, blinks or flashes.
     hud_reduced_motion: bool,
+    /// DEMO-01: the continuous demo route on the demo hall (`--demo`).
+    demo: bool,
+    /// DEMO-01: start at this beat's checkpoint (`--demo-beat N`, 0 to 6).
+    demo_beat: usize,
+    /// DEMO-01: the deterministic autopilot drives Carl (probes, evidence).
+    autopilot: bool,
 }
 
 impl Args {
@@ -226,6 +233,9 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         hud_preview: None,
         glyphs: None,
         hud_reduced_motion: false,
+        demo: false,
+        demo_beat: 0,
+        autopilot: false,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -258,6 +268,16 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             }
             "--hud-reduced-motion" => parsed.hud_reduced_motion = true,
             "--no-lighting" => parsed.no_lighting = true,
+            "--demo" => parsed.demo = true,
+            "--autopilot" => parsed.autopilot = true,
+            "--demo-beat" => {
+                let value = iter.next().ok_or("--demo-beat needs a beat 0 to 6")?;
+                parsed.demo_beat = value
+                    .parse()
+                    .ok()
+                    .filter(|beat| *beat < demo::BEATS.len())
+                    .ok_or_else(|| format!("bad beat {value:?} (0 to 6)"))?;
+            }
             "--no-audio" => parsed.no_audio = true,
             "--audio-style" => {
                 let value = iter.next().ok_or("--audio-style needs a name")?;
@@ -344,6 +364,22 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             }
             other => return Err(format!("unknown argument {other:?}")),
         }
+    }
+    if parsed.demo {
+        if parsed.fixture.is_some() || parsed.scenario.is_some() || parsed.reference_frame {
+            return Err("--demo replaces --fixture, --scenario and --reference-frame".into());
+        }
+        parsed.fixture = Some(demo::fixture_for_beat(parsed.demo_beat));
+        // A live run without a script or autopilot is the player's.
+        parsed.manual = !parsed.autopilot
+            && !(parsed.headless
+                || parsed.capture_tick.is_some()
+                || parsed.capture_sequence.is_some()
+                || parsed.exit_after_ticks.is_some()
+                || parsed.freeze
+                || parsed.perf_frames.is_some());
+    } else if parsed.autopilot || parsed.demo_beat != 0 {
+        return Err("--autopilot and --demo-beat need --demo".into());
     }
     let driven = parsed.scenario.is_some() || parsed.fixture.is_some();
     if parsed.scenario.is_some() && parsed.fixture.is_some() {
@@ -504,12 +540,15 @@ fn build_scene(
         // pre-simulated for a capture, otherwise left for the live loop.
         let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
         let mut combat = CombatState::new(fixture, kit, &sim)?;
+        if args.demo {
+            combat = combat.with_demo(&demo::DEMO_RULES);
+        }
         let mut anim = actors.animators(&sim.world);
         anim.art = actors.combat_art(&combat);
         let mut death = death_presenter(root, args)?;
         hud.set_melee_live(true);
         for _ in 0..presim_ticks(args).unwrap_or(0) {
-            let raw = fixture.input(sim.world.tick + 1);
+            let raw = scripted_input(args, fixture, &sim, &combat);
             step_combat(&mut sim, &mut combat, &mut anim, Some(&mut death), raw);
             step_hud(hud, &sim, Some(&combat));
             if args.death_stress && args.perf_from_tick.is_some() {
@@ -553,7 +592,10 @@ fn step_combat(
 ) {
     let expected = sim.world.tick + 1;
     combat.step(sim, raw);
-    if sim.world.tick == expected {
+    // A demo respawn keeps the tick counter but moves Carl: restart his
+    // animation like a fixture restart does.
+    let respawned = combat.take_respawned();
+    if sim.world.tick == expected && !respawned {
         anim.step(&sim.world);
         anim.step_art(sim, combat);
     } else {
@@ -563,6 +605,21 @@ fn step_combat(
     // Cosmetics follow the finished tick; nothing flows back.
     if let Some(death) = death {
         death.observe(combat, sim);
+    }
+}
+
+/// The input of the scripted run of a fixture at the next tick: the fixture's
+/// script, or the DEMO-01 autopilot (a pure function of the finished state).
+fn scripted_input(
+    args: &Args,
+    fixture: &Fixture,
+    sim: &SceneSim,
+    combat: &CombatState,
+) -> RawInput {
+    if args.autopilot {
+        demo::autopilot(combat, sim)
+    } else {
+        fixture.input(sim.world.tick + 1)
     }
 }
 
@@ -630,7 +687,12 @@ fn main() -> ExitCode {
         Ok(dir) => dir,
         Err(error) => return failure(&format!("no working directory: {error}")),
     };
-    let kit = match EnvKit::load(&root, LAYOUT_PATH) {
+    let kit = if args.demo {
+        demo::load_hall(&root)
+    } else {
+        EnvKit::load(&root, LAYOUT_PATH).map_err(|error| error.to_string())
+    };
+    let kit = match kit {
         Ok(kit) => kit,
         Err(error) => return failure(&format!("{error} (run from the repository root)")),
     };
@@ -828,6 +890,12 @@ struct Controls {
     attack_tap: bool,
     physical_tap: bool,
     restart: bool,
+    /// DEMO-01: Select (R or the pad's Select) went down since the last tick.
+    select_tap: bool,
+    select: SelectControl,
+    /// DEMO-01: the furthest beat announced and whether the end was.
+    beat_printed: Option<usize>,
+    complete_printed: bool,
 }
 
 #[derive(Resource)]
@@ -1625,6 +1693,7 @@ fn capture_input(
     controls.attack_tap |= keys.just_pressed(KeyCode::KeyJ);
     controls.physical_tap |= keys.just_pressed(KeyCode::KeyK);
     controls.restart |= keys.just_pressed(KeyCode::KeyR);
+    controls.select_tap |= keys.just_pressed(KeyCode::KeyR);
     if keys.just_pressed(KeyCode::Escape) {
         exit.write(AppExit::Success);
     }
@@ -1636,6 +1705,7 @@ fn capture_input(
         // PhysicalAttack is Triangle/Y (North); North no longer restarts.
         controls.physical_tap |= pad.just_pressed(GamepadButton::North);
         controls.restart |= pad.just_pressed(GamepadButton::Select);
+        controls.select_tap |= pad.just_pressed(GamepadButton::Select);
         if pad.just_pressed(GamepadButton::Start) {
             exit.write(AppExit::Success);
         }
@@ -1703,7 +1773,8 @@ fn fixed_step(
     mut hud: ResMut<HudState>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    let restart = std::mem::take(&mut controls.restart);
+    let mut restart = std::mem::take(&mut controls.restart);
+    let select_tap = std::mem::take(&mut controls.select_tap);
     let jump_tap = std::mem::take(&mut controls.jump_tap);
     let attack_tap = std::mem::take(&mut controls.attack_tap);
     let physical_tap = std::mem::take(&mut controls.physical_tap);
@@ -1716,11 +1787,37 @@ fn fixed_step(
         // Already reported; further fixed steps of this frame do nothing.
         return;
     }
+    // DEMO-01 live run: Select tap respawns, Select held for a second restarts
+    // the demo (R on the keyboard is the same button).
+    let mut respawn = false;
+    if setup.args.demo && setup.args.manual {
+        restart = false;
+        let pad_select = pads
+            .iter()
+            .next()
+            .is_some_and(|pad| pad.pressed(GamepadButton::Select));
+        let down = keys.pressed(KeyCode::KeyR) || pad_select || select_tap;
+        match controls.select.tick(down) {
+            SelectAction::Respawn => respawn = true,
+            SelectAction::Restart => restart = true,
+            SelectAction::None => {}
+        }
+    }
+    if respawn && let Some(combat) = combat.0.as_mut() {
+        combat.respawn(&mut sim.0);
+        let _ = combat.take_respawned();
+        anim.0.reset(&sim.0.world);
+        anim.0.reset_art(combat);
+        print_combat_events(combat, Some(&mut audio));
+        println!("DEMO01_RESPAWN checkpoint={}", combat.checkpoint);
+    }
     if restart {
         match combat.0.as_mut() {
             Some(combat) => combat.restart(&mut sim.0),
             None => sim.0.reset(),
         }
+        controls.beat_printed = None;
+        controls.complete_printed = false;
         anim.0.reset(&sim.0.world);
         if let Some(combat) = combat.0.as_ref() {
             anim.0.reset_art(combat);
@@ -1735,7 +1832,10 @@ fn fixed_step(
     let raw = if let Some(scenario) = scenario.0 {
         scenario.input(&sim.0.world)
     } else if let Some(fixture) = fixture.0 {
-        fixture.input(sim.0.world.tick + 1)
+        match combat.0.as_ref() {
+            Some(combat) => scripted_input(&setup.args, fixture, &sim.0, combat),
+            None => fixture.input(sim.0.world.tick + 1),
+        }
     } else {
         let left = keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft);
         let right = keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight);
@@ -1768,6 +1868,20 @@ fn fixed_step(
     if let Some(combat) = combat.0.as_mut() {
         step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
         print_combat_events(combat, Some(&mut audio));
+        if setup.args.demo {
+            // Console progress of the demo (presentation only).
+            // The first tick only records the beat the run started at.
+            let printed = controls.beat_printed.get_or_insert(combat.checkpoint);
+            while *printed < combat.checkpoint {
+                *printed += 1;
+                let beat = demo::BEATS[*printed];
+                println!("DEMO01_BEAT {} {}", beat.id, beat.name);
+            }
+            if demo::complete(combat) && !controls.complete_printed {
+                controls.complete_printed = true;
+                println!("DEMO01_COMPLETE tick={}", sim.0.world.tick);
+            }
+        }
         if setup.args.death_stress
             && let Some(death) = death.0.as_mut()
         {
@@ -2556,7 +2670,7 @@ fn perf_step(
         return;
     };
     let started = std::time::Instant::now();
-    let raw = fixture.input(sim.0.world.tick + 1);
+    let raw = scripted_input(&setup.args, fixture, &sim.0, combat);
     step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
     if setup.args.death_stress
         && let Some(death) = death.0.as_mut()
@@ -2868,7 +2982,7 @@ fn capture_sequence(
             }
             for _ in 0..seq.step {
                 if let (Some(fixture), Some(combat)) = (fixture, combat.0.as_mut()) {
-                    let raw = fixture.input(sim.0.world.tick + 1);
+                    let raw = scripted_input(&setup.args, fixture, &sim.0, combat);
                     step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), raw);
                 } else if let Some(scenario) = scenario {
                     let raw = scenario.input(&sim.0.world);
@@ -2886,6 +3000,17 @@ fn capture_sequence(
 fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<(), String> {
     if kit.solid_rects.is_empty() || kit.tiles.is_empty() {
         return Err("layout produced no tiles or no solids".into());
+    }
+    if args.demo {
+        // The demo hall has no exit and a different spawn: the story-run checks
+        // below do not apply. Replay the fixture.
+        println!(
+            "FLOOR1_HEADLESS_OK: demo hall {} tiles, {} pieces, {} merged solids",
+            kit.tiles.len(),
+            kit.pieces.len(),
+            kit.solid_rects.len()
+        );
+        return headless_fixture(kit, args, actors, root);
     }
     // Idle: Carl stays grounded on the walking line.
     let mut idle = SceneSim::new(kit, 360)?;
@@ -2916,9 +3041,20 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         kit.pieces.len(),
         kit.solid_rects.len()
     );
+    if args.fixture.is_some() {
+        return headless_fixture(kit, args, actors, root);
+    }
+    let (sim, anim, _, _) = build_scene(kit, args, actors, root)?;
+    println!("{}", sim.state_line());
+    println!("{}", anim.state_line(sim.world.tick));
+    Ok(())
+}
+
+/// Headless fixture replay (and the demo): the scripted run for
+/// `--capture-tick` ticks (default the fixture's own length), every event,
+/// then the state lines.
+fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<(), String> {
     if let Some(fixture) = args.fixture {
-        // Fixture replay: the scripted run for `--capture-tick` ticks (default
-        // the fixture's own length), every event, then the state lines.
         let mut args = args.clone();
         args.capture_tick.get_or_insert(fixture.ticks);
         let mut hud = new_hud(&args, kit, actors);
@@ -3262,5 +3398,46 @@ mod tests {
         assert!(args(&["--scenario", "fly"]).is_err());
         assert!(args(&["--bogus"]).is_err());
         assert_eq!(args(&[]).unwrap().scale, 2);
+    }
+
+    #[test]
+    fn the_demo_flags_parse_and_validate() {
+        let a = args(&["--demo", "--scale", "3"]).unwrap();
+        assert!(a.demo && a.manual && !a.autopilot);
+        assert_eq!(a.fixture.map(|f| f.name), Some("demo01"));
+        assert_eq!(a.gore_preset, GorePreset::Full, "preset 4 by default");
+        let a = args(&["--demo", "--demo-beat", "3", "--scale", "3"]).unwrap();
+        assert_eq!(a.fixture.map(|f| f.name), Some("demo01_b3"));
+        // A scripted run is never manual.
+        let a = args(&[
+            "--demo",
+            "--demo-beat",
+            "1",
+            "--autopilot",
+            "--headless-floor01-smoke",
+        ])
+        .unwrap();
+        assert!(!a.manual && a.autopilot && a.headless);
+        let a = args(&["--demo", "--autopilot", "--exit-after-ticks", "9"]).unwrap();
+        assert!(!a.manual);
+        assert!(
+            args(&[
+                "--demo",
+                "--autopilot",
+                "--capture-sequence",
+                "5:1:1",
+                "--capture-dir",
+                "d"
+            ])
+            .is_ok()
+        );
+        // Beat and autopilot need --demo; the beat is 0 to 6; --demo replaces the others.
+        assert!(args(&["--demo-beat", "3"]).is_err());
+        assert!(args(&["--autopilot"]).is_err());
+        assert!(args(&["--demo", "--demo-beat", "7"]).is_err());
+        assert!(args(&["--demo", "--demo-beat"]).is_err());
+        assert!(args(&["--demo", "--fixture", "cp01_kick"]).is_err());
+        assert!(args(&["--demo", "--scenario", "idle"]).is_err());
+        assert!(args(&["--demo", "--reference-frame"]).is_err());
     }
 }
