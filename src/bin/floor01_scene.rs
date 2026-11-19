@@ -47,7 +47,7 @@ use dungeon_floorbreak::{
     blast::BLAST_CENTRE_DY,
     blast_art::{BURST_IMAGE, BlastArt, DYNAMITE_IMAGE},
     boss::{BossMode, RackState},
-    boss_art::BossArt,
+    boss_art::{self, BossArt, FxCtx, Gait, Layer, SheetId},
     boss_scene,
     camera_lab::camera_op::{Aspect, Bounds, View},
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
@@ -941,17 +941,42 @@ enum BossPiece {
     Ripple(usize),
 }
 
-/// The boss' atlas sprite (only with art).
+/// One pooled sprite of the boss' art (the body, the racks, the effects): the
+/// system assigns each tick's [`boss_art::draws`] to the pool in order.
 #[derive(Component)]
-struct BossSprite;
+struct BossFxSprite;
+
+/// The texture and the atlas layout of each boss sheet, by [`SheetId`].
+#[derive(Resource, Default)]
+struct BossTextures([Option<(Handle<Image>, Handle<TextureAtlasLayout>)>; 6]);
+
+/// Sprites in the boss art pool (the body, two racks with pulleys, the strut,
+/// the ledge, shadows, up to four ripples, dust, crack and finish effects).
+const BOSS_FX_POOL: usize = 40;
+
+/// Presentation-only gait memory: whether the boss moved since the previous
+/// simulated tick, observed once per tick (never per render frame).
+#[derive(Default)]
+struct WalkTrack {
+    tick: u64,
+    x: f32,
+    walking: bool,
+}
 
 /// The boss sits just above Donut and below Carl.
 const BOSS_Z_OFFSET: f32 = 0.06;
+/// Boss art depth bands (relative to the actors' plane): the floor shadow and
+/// pool over the floor, the pulley, strut, ledge, wall crack and roar ring
+/// behind the actors, and the racks and effects of the body over the boss and
+/// under Carl.
+const BOSS_Z_FLOOR: f32 = -0.4;
+const BOSS_Z_BACK: f32 = -0.2;
+const BOSS_Z_FRONT: f32 = 0.075;
 
 /// Asset path of the HUD atlas when its art is exported (the loading
 /// watchdog waits for it like for every other atlas).
 #[derive(Resource)]
-struct HudAtlas(Option<&'static str>);
+struct HudAtlas(Option<&'static str>, Option<&'static str>);
 
 /// Presentation-only animation state, stepped once per fixed tick from the
 /// finished simulation state.
@@ -1449,6 +1474,7 @@ fn run_window(
         }
     };
     let hud_atlas = hud_plugin.atlas_asset();
+    let hud_emblem = hud_plugin.emblem_asset();
     let mut plugins = DefaultPlugins
         .set(ImagePlugin::default_nearest())
         .set(AssetPlugin {
@@ -1498,7 +1524,7 @@ fn run_window(
     .insert_resource(camera)
     .init_resource::<Interest>()
     .insert_resource(LiveFixture(live_fixture))
-    .insert_resource(HudAtlas(hud_atlas))
+    .insert_resource(HudAtlas(hud_atlas, hud_emblem))
     .insert_resource(Setup { kit, args })
     .init_resource::<Controls>()
     .insert_resource(Pads(PadSlots::new(party)))
@@ -1596,6 +1622,9 @@ fn setup(
         handles.push((name.clone(), asset_server.load(asset.clone())));
     }
     if let Some(asset) = hud_atlas.0 {
+        handles.push((asset.to_owned(), asset_server.load(asset)));
+    }
+    if let Some(asset) = hud_atlas.1 {
         handles.push((asset.to_owned(), asset_server.load(asset)));
     }
     let atlas = |name: &str| -> Handle<Image> {
@@ -1847,23 +1876,38 @@ fn setup(
             piece(BossPiece::Ripple(slot), Color::srgb(0.95, 0.7, 0.2));
         }
         if let Some(art) = boss_art.0.as_ref() {
-            let texture: Handle<Image> = asset_server.load(art.atlas_asset.clone());
-            let layout = layouts.add(TextureAtlasLayout::from_grid(
-                UVec2::new(art.frame_size.0 as u32, art.frame_size.1 as u32),
-                art.frame_count as u32,
-                1,
-                None,
-                None,
-            ));
-            combat_handles.push((art.atlas_asset.clone(), texture.clone()));
-            commands.spawn((
-                BossSprite,
-                Sprite::from_atlas_image(texture, TextureAtlas { layout, index: 0 }),
-                Transform::from_xyz(0.0, 0.0, z + 0.01),
-                Visibility::Hidden,
-                layers_of("actors"),
-            ));
-            combat_entities += 1;
+            let mut textures = BossTextures::default();
+            for sheet in art.sheets() {
+                let texture: Handle<Image> = asset_server.load(sheet.asset.clone());
+                let layout = layouts.add(TextureAtlasLayout::from_grid(
+                    UVec2::new(sheet.frame_size.0 as u32, sheet.frame_size.1 as u32),
+                    sheet.count as u32,
+                    1,
+                    None,
+                    None,
+                ));
+                combat_handles.push((sheet.asset.clone(), texture.clone()));
+                textures.0[sheet.id as usize] = Some((texture, layout));
+            }
+            if let Some((texture, layout)) = textures.0[SheetId::Base as usize].clone() {
+                for _ in 0..BOSS_FX_POOL {
+                    commands.spawn((
+                        BossFxSprite,
+                        Sprite::from_atlas_image(
+                            texture.clone(),
+                            TextureAtlas {
+                                layout: layout.clone(),
+                                index: 0,
+                            },
+                        ),
+                        Transform::from_xyz(0.0, 0.0, z + 0.01),
+                        Visibility::Hidden,
+                        layers_of("actors"),
+                    ));
+                    combat_entities += 1;
+                }
+            }
+            commands.insert_resource(textures);
         }
     }
 
@@ -2931,20 +2975,28 @@ fn sync_combat_visuals(
 /// at the spec sizes (the hurtbox, the racks, the strut, the gate, the
 /// ripples); with the boss atlas the body is the atlas frame of
 /// [`boss_art::pose_of`]. Reads the simulation only.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn sync_boss_visuals(
     combat: Res<Combat>,
+    sim: Res<Sim>,
+    death: Res<Death>,
+    setup: Res<Setup>,
     art: Res<BossArtRes>,
+    textures: Option<Res<BossTextures>>,
+    mut walk: Local<WalkTrack>,
     mut pieces: Query<
         (&BossPiece, &mut Transform, &mut Sprite, &mut Visibility),
-        Without<BossSprite>,
+        Without<BossFxSprite>,
     >,
-    mut body: Query<
+    mut fx: Query<
         (&mut Transform, &mut Sprite, &mut Visibility),
-        (With<BossSprite>, Without<BossPiece>),
+        (With<BossFxSprite>, Without<BossPiece>),
     >,
 ) {
-    let Some(boss) = combat.0.as_ref().and_then(|c| c.boss.as_ref()) else {
+    let Some(state) = combat.0.as_ref() else {
+        return;
+    };
+    let Some(boss) = state.boss.as_ref() else {
         return;
     };
     let data = boss.data();
@@ -2956,7 +3008,10 @@ fn sync_boss_visuals(
         transform.scale = Vec3::new(rect.width, rect.height, 1.0);
     };
     let ripples: Vec<(f32, i8)> = boss.ripples().collect();
-    let has_art = art.0.is_some();
+    // What the atlases cover is drawn from them (`boss_art::draws`); what a
+    // missing atlas leaves out falls back to its placeholder rect.
+    let has = |id: SheetId| art.0.as_ref().is_some_and(|a| a.sheet(id).is_some());
+    let has_art = has(SheetId::Base) && has(SheetId::Enc);
     for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
         let shown = match *piece {
             BossPiece::Body => match boss.hurtbox() {
@@ -3008,6 +3063,9 @@ fn sync_boss_visuals(
                 }
                 _ => false,
             },
+            BossPiece::Rack(_) if has(SheetId::Rack) => false,
+            BossPiece::Strut if has(SheetId::Strut) => false,
+            BossPiece::Ripple(_) if has(SheetId::Vfx) => false,
             BossPiece::Rack(index) => {
                 let rack = &boss.racks[index];
                 let hanging = 189.0;
@@ -3068,35 +3126,76 @@ fn sync_boss_visuals(
             Visibility::Hidden
         };
     }
-    if let (Some(art), Ok((mut transform, mut sprite, mut visibility))) =
-        (art.0.as_ref(), body.single_mut())
-    {
-        let drawn = art
-            .frame_of(boss)
-            .filter(|_| boss.mode != BossMode::Dormant || true);
-        match drawn {
-            Some(frame) => {
-                let spec = ActorSpec {
-                    name: "brute_boss_f01",
-                    width: art.frame_size.0,
-                    height: art.frame_size.1,
-                    pivot_x: art.pivot.0,
-                    pivot_y: art.pivot.1,
-                    shadow_width: 0,
-                    shadow_pivot_x: 0,
-                };
-                let flip = boss.facing < 0;
-                let (cx, cy) = actor_center(spec, boss.x, floor, flip);
-                transform.translation.x = cx;
-                transform.translation.y = cy;
-                sprite.flip_x = flip;
-                if let Some(atlas) = sprite.texture_atlas.as_mut() {
-                    atlas.index = frame;
-                }
-                *visibility = Visibility::Inherited;
+    let (Some(art), Some(textures)) = (art.0.as_ref(), textures) else {
+        return;
+    };
+    // The gait: observed once per simulated tick, not per render frame.
+    let tick = sim.0.world.tick;
+    if walk.tick != tick {
+        walk.walking = boss.mode == BossMode::Neutral && (boss.x - walk.x).abs() > 1e-3;
+        walk.tick = tick;
+        walk.x = boss.x;
+    }
+    let gore_full = death
+        .0
+        .as_ref()
+        .is_none_or(|presenter| presenter.preset() == GorePreset::Full);
+    let list = boss_art::draws(
+        art,
+        boss,
+        FxCtx {
+            events: &state.events,
+            now: tick,
+            gait: Gait {
+                clock: tick,
+                walking: walk.walking,
+            },
+            gore_full,
+        },
+    );
+    let actor_z = setup.kit.actor_z;
+    let mut drawn = list.iter();
+    for (index, (mut transform, mut sprite, mut visibility)) in fx.iter_mut().enumerate() {
+        let Some(draw) = drawn.next() else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let (Some(sheet), Some((texture, layout))) = (
+            art.sheet(draw.sheet),
+            textures.0[draw.sheet as usize].as_ref(),
+        ) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let pivot = sheet.pivot(draw.frame);
+        let spec = ActorSpec {
+            name: "brute_boss_f01",
+            width: sheet.frame_size.0,
+            height: sheet.frame_size.1,
+            pivot_x: pivot.0,
+            pivot_y: pivot.1,
+            shadow_width: 0,
+            shadow_pivot_x: 0,
+        };
+        let (cx, cy) = actor_center(spec, draw.x, draw.y, draw.flip);
+        let z = actor_z
+            + match draw.layer {
+                Layer::Floor => BOSS_Z_FLOOR,
+                Layer::Back => BOSS_Z_BACK,
+                Layer::Body => BOSS_Z_OFFSET,
+                Layer::Front => BOSS_Z_FRONT,
             }
-            None => *visibility = Visibility::Hidden,
+            + index as f32 * 0.0001;
+        transform.translation = Vec3::new(cx, cy, z);
+        sprite.flip_x = draw.flip;
+        if sprite.image != *texture {
+            sprite.image = texture.clone();
         }
+        sprite.texture_atlas = Some(TextureAtlas {
+            layout: layout.clone(),
+            index: draw.frame,
+        });
+        *visibility = Visibility::Inherited;
     }
 }
 

@@ -105,6 +105,8 @@ if [[ "$mode" == hud || "$mode" == hud-deck || "$mode" == boss || "$mode" == bos
       "phase-roar|-|--party-fixture boss01_phase_roar --capture-tick 100|"
       "crush-kill|-|--party-fixture boss01_crush_kill --capture-tick 330|"
       "party-defeat|-|--party-fixture boss01_party_defeat_retry --capture-tick 445|"
+      "knockout-fall|-|--party-fixture boss01_full_clear_solo --capture-tick 3184|"
+      "knockout-impact|-|--party-fixture boss01_full_clear_solo --capture-tick 3196|"
       "full-clear-solo|-|--party-fixture boss01_full_clear_solo --capture-tick 3200|"
       "pound-tell-reduced-motion|-|--party-fixture boss01_pound_punish --capture-tick 40|--hud-reduced-motion"
       "pound-tell-high-contrast|-|--party-fixture boss01_pound_punish --capture-tick 40|--hud-high-contrast"

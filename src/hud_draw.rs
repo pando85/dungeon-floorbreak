@@ -208,6 +208,9 @@ pub enum DrawKind {
         h: i32,
         tint: Option<Rgb>,
     },
+    /// The boss strip's own 18 x 18 emblem (`boss-f01-emblem`): the adapter
+    /// draws the exported art, or [`emblem_placeholder_rects`] without it.
+    Emblem { w: i32, h: i32 },
     /// One line of text; `y` is the **caps top** and `x` the left edge.
     Text {
         font: HudFont,
@@ -241,6 +244,16 @@ impl Out<'_> {
                 kind: DrawKind::Rect { w, h, color },
             });
         }
+    }
+
+    fn emblem(&mut self, band: f32, x: i32, y: i32) {
+        let z = self.z(band);
+        self.0.push(DrawItem {
+            x,
+            y,
+            z,
+            kind: DrawKind::Emblem { w: 18, h: 18 },
+        });
     }
 
     fn frame(&mut self, band: f32, frame: FrameId, x: i32, y: i32) {
@@ -579,7 +592,13 @@ fn boss_strip(o: &mut Out, s: &HudSnapshot, boss: &crate::hud::BossView, layout:
     );
     match boss.emblem.as_ref() {
         None => o.frame(Z_ICON, FrameId::IconBossEmblem, r.x + 3, r.y + 3),
-        Some(_) => boss_emblem_placeholder(o, r.x + 3, r.y + 3),
+        Some(_) => {
+            // The 20x20 well; the 18x18 emblem (art or placeholder) sits in
+            // it at offset (1, 1).
+            o.rect(Z_ICON, r.x + 3, r.y + 3, 20, 20, p::HUD_INK);
+            o.rect(Z_ICON, r.x + 4, r.y + 4, 18, 18, p::MAGENTA_DK);
+            o.emblem(Z_ICON, r.x + 4, r.y + 4);
+        }
     }
     o.text(
         Z_TEXT,
@@ -614,19 +633,17 @@ fn boss_strip(o: &mut Out, s: &HudSnapshot, boss: &crate::hud::BossView, layout:
     }
 }
 
-/// A boss' own 18x18 emblem inside the 20x20 well. Until the emblem art is
-/// exported (`brute_boss_f01_emblem`, HUD-DEBT-03) this is a placeholder of
-/// the spec size built from palette rects: a head in profile (mop, red-rimmed
-/// eye, open mouth).
-fn boss_emblem_placeholder(o: &mut Out, x: i32, y: i32) {
-    o.rect(Z_ICON, x, y, 20, 20, p::HUD_INK);
-    o.rect(Z_ICON, x + 1, y + 1, 18, 18, p::MAGENTA_DK);
-    // Mop and ear behind, snout and jaw in front.
-    o.rect(Z_ICON, x + 3, y + 3, 9, 5, p::TEXT_WHITE);
-    o.rect(Z_ICON, x + 4, y + 8, 11, 7, p::TEXT_WHITE);
-    o.rect(Z_ICON, x + 13, y + 6, 3, 7, p::TEXT_WHITE);
-    o.rect(Z_ICON, x + 11, y + 7, 2, 2, p::HP_RED);
-    o.rect(Z_ICON, x + 8, y + 12, 7, 2, p::HUD_INK);
+/// Stand-ins of the 18x18 emblem, relative to its top-left corner, used while
+/// `boss-f01-emblem` is not exported: a head in profile (mop, red-rimmed eye,
+/// open mouth) on the well's magenta, from palette colours.
+pub fn emblem_placeholder_rects() -> Vec<PlaceholderRect> {
+    vec![
+        (2, 2, 9, 5, p::TEXT_WHITE),
+        (3, 7, 11, 7, p::TEXT_WHITE),
+        (12, 5, 3, 7, p::TEXT_WHITE),
+        (10, 6, 2, 2, p::HP_RED),
+        (7, 11, 7, 2, p::HUD_INK),
+    ]
 }
 
 fn system(o: &mut Out, s: &HudSnapshot, layout: &HudLayout) {
@@ -1143,7 +1160,9 @@ mod tests {
             for preview in std::iter::once(None).chain(HudPreview::ALL.into_iter().map(Some)) {
                 for item in items(preview, deck) {
                     let (w, h) = match &item.kind {
-                        DrawKind::Rect { w, h, .. } | DrawKind::Frame { w, h, .. } => (*w, *h),
+                        DrawKind::Rect { w, h, .. }
+                        | DrawKind::Frame { w, h, .. }
+                        | DrawKind::Emblem { w, h } => (*w, *h),
                         DrawKind::Text { font, text, .. } => (
                             text_width_px(*font, text),
                             if *font == HudFont::Jersey { 10 } else { 5 },
@@ -1436,7 +1455,9 @@ mod tests {
                 for (a, b) in normal.iter().zip(&high) {
                     assert_eq!((a.x, a.y, a.z), (b.x, b.y, b.z), "{preview:?}");
                     let size = |k: &DrawKind| match k {
-                        DrawKind::Rect { w, h, .. } | DrawKind::Frame { w, h, .. } => (*w, *h),
+                        DrawKind::Rect { w, h, .. }
+                        | DrawKind::Frame { w, h, .. }
+                        | DrawKind::Emblem { w, h } => (*w, *h),
                         DrawKind::Text { text, font, .. } => (text_width_px(*font, text), 0),
                     };
                     assert_eq!(size(&a.kind), size(&b.kind), "{preview:?}");
@@ -1612,5 +1633,10 @@ mod tests {
             .iter()
             .any(|i| i.x == rest.x + 4 && matches!(i.kind, DrawKind::Rect { w: 18, h: 18, .. }));
         assert!(well && emblem);
+        // The 18x18 emblem item itself, over the magenta, at +4, +4.
+        assert!(
+            out.iter()
+                .any(|i| i.x == rest.x + 4 && matches!(i.kind, DrawKind::Emblem { w: 18, h: 18 }))
+        );
     }
 }

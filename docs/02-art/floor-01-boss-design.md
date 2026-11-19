@@ -150,6 +150,8 @@ Load-time validation rejects a tell or punish under the fairness floors, thresho
 
 **Adopted editor-level decisions (review 2026-11-19, design defaults rule):** R-05, the rack hangs from ONE cable that runs from the headplate up over a ceiling pulley (the static `rack_pulley` frame) and down to a cleat on the strut head, so breaking the strut lets the cable run free and the stack falls (data `rack.cable_mechanism = "single_cable_pulley_strut_tieoff"`; the right rack mirrors it with the tie-off on the release-plate mechanism when Q10 enables it). V-07, `rack_shadow` is the section 3 floor-shadow tell of the 36-tick fall: 48, 64 and 80 px frames for ticks 0..11, 12..23 and 24..35. R-04, `landed_on_boss_offset_px` 26 for `rack_landed_boss`. The plates are drawn as a selectorised weight stack (selector holes, pin and knob, weight tags) so that the hung stack reads as gym weights at 1x.
 
+**Binding (execution status):** the atlases above are bound in `src/boss_art.rs` and drawn by `floor01_scene`; the code-side table and the deviations are in [floor01-scene.md](../03-tech/floor01-scene.md) (Boss encounter, Art binding), the captures in [`docs/evidence/boss-f01/scene/`](../evidence/boss-f01/scene/).
+
 Open art items: the independent re-review of the round 2 rack frames and the gym arena kit (own order). The fist twitch at +20 ticks of the `brute_crushed` finish: deferred, needs a hand layer or a dedicated frame (spec gap, review 2026-11-19). The atlas has a single `body` layer, so an offset would move the whole corpse.
 
 ## 9. Art acceptance targets (independent review)

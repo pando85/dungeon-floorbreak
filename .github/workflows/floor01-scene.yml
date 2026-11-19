@@ -62,6 +62,10 @@ jobs:
         env:
           REQUIRE_EXPORTED_ATLAS: '1'
         run: cargo test --locked --lib exported_atlas_json_matches_the_grid_source_when_present
+      - name: The boss atlases must bind every boss state and effect (fails instead of skipping)
+        env:
+          REQUIRE_EXPORTED_ATLAS: '1'
+        run: cargo test --locked --lib the_exported_boss_atlases_bind_every_state_when_present
       - name: Negative tests for the scene contract checker
         run: python3 -m unittest discover -s tests -p 'test_floor01_scene_*.py' -v
       - name: Compile the Floor 1 scene
