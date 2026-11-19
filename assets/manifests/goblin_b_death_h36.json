@@ -1,0 +1,274 @@
+{
+  "schema_version": 1,
+  "id": "goblin_b_death_h36_candidate_v1",
+  "type": "character_animation",
+  "source_path": "assets/source/characters/goblin/death/goblin_b_death_h36.ase",
+  "grid_source": "assets/source/characters/goblin/death/goblin_b_death_h36.grid.json",
+  "output_atlas": "generated/art/goblin_b_death_h36.png",
+  "output_metadata": "generated/art/goblin_b_death_h36.json",
+  "palette_id": "goblin-death-floor01-v0",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    28,
+    55
+  ],
+  "animation_tags": [
+    "crush_contact",
+    "crushed_remains",
+    "decap_contact",
+    "headless_collapse"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored enemy death art (fan-concept layer: common Floor 1 goblin; runtime role IP-neutral small melee enemy)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "GOB-02B-DEATH goblin variant B death art at intensity preset 4 (docs/02-art/gob-02b-death-spec.md): the GOB-02-DEATH A body, weapon and gore cels unchanged plus an accessory layer (GOB-01 B bandana, ear notch, missing tooth, vest patch) written by scripts/author_gob02b_death.py from GOB-01 B overlays and literal rows; no image-model output, no tracing",
+    "generator": "Design, overlays and evidence: Claude Opus. Review pending (separate top-tier agent)",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor-01-opening-concept-references-v1"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "death_poses": {
+    "spec": "docs/02-art/gob-02b-death-spec.md",
+    "variant": "B",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "status": "design stage; independent review pending; not wired into any Bevy binary",
+    "facing": "right",
+    "mirror": "x' = 56 - x around the pivot column, anchors included",
+    "key_frames": [
+      0,
+      2,
+      3,
+      5
+    ],
+    "key_fixture": "tests/fixtures/gob-02b-death_keys.json",
+    "layers": [
+      "body",
+      "weapon",
+      "accessory",
+      "gore"
+    ],
+    "default_preset": 4,
+    "playback": {
+      "crush_contact": "once",
+      "crushed_remains": "hold",
+      "decap_contact": "once",
+      "headless_collapse": "hold"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "tag": "crush_contact",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "key",
+        "anchors": {
+          "hit_origin": [
+            28,
+            33
+          ],
+          "hand_near": [
+            55,
+            48
+          ],
+          "mouth": [
+            49,
+            43
+          ],
+          "squeeze_back": [
+            6,
+            54
+          ],
+          "squeeze_front": [
+            46,
+            54
+          ]
+        }
+      },
+      {
+        "index": 1,
+        "tag": "crush_contact",
+        "ticks": 3,
+        "duration_ms": 50,
+        "author": "executor",
+        "anchors": {
+          "hit_origin": [
+            28,
+            36
+          ],
+          "hand_near": [
+            55,
+            48
+          ],
+          "mouth": [
+            49,
+            46
+          ],
+          "squeeze_back": [
+            6,
+            54
+          ],
+          "squeeze_front": [
+            46,
+            54
+          ]
+        }
+      },
+      {
+        "index": 2,
+        "tag": "crushed_remains",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key",
+        "anchors": {
+          "pool_origin": [
+            29,
+            55
+          ]
+        }
+      },
+      {
+        "index": 3,
+        "tag": "decap_contact",
+        "ticks": 4,
+        "duration_ms": 67,
+        "author": "key",
+        "anchors": {
+          "neck": [
+            23,
+            31
+          ],
+          "hit_origin": [
+            24,
+            31
+          ],
+          "jet_base": [
+            23,
+            30
+          ],
+          "hand_near": [
+            12,
+            23
+          ]
+        }
+      },
+      {
+        "index": 4,
+        "tag": "headless_collapse",
+        "ticks": 6,
+        "duration_ms": 100,
+        "author": "executor",
+        "anchors": {
+          "neck": [
+            21,
+            35
+          ],
+          "hit_origin": [
+            22,
+            35
+          ],
+          "jet_base": [
+            21,
+            34
+          ],
+          "hand_near": [
+            14,
+            30
+          ]
+        }
+      },
+      {
+        "index": 5,
+        "tag": "headless_collapse",
+        "ticks": null,
+        "duration_ms": 100,
+        "author": "key",
+        "anchors": {
+          "neck": [
+            17,
+            50
+          ],
+          "pool_origin": [
+            12,
+            55
+          ]
+        }
+      }
+    ],
+    "spawner_hints": {
+      "crush": {
+        "drops": [
+          16,
+          20
+        ],
+        "drops_from": {
+          "mouth": [
+            6,
+            8
+          ],
+          "squeeze_back": [
+            5,
+            6
+          ],
+          "squeeze_front": [
+            5,
+            6
+          ]
+        },
+        "splat_s_per_death_max": 8,
+        "club": 1,
+        "gibs": {
+          "gib_flesh_a": 1,
+          "gib_flesh_b": 1,
+          "gib_bone": 1
+        },
+        "ticks": {
+          "pose_1": 3,
+          "pose_2": 6,
+          "splat_m_and_pool_1": 4,
+          "wall_spatter": 8,
+          "pool_2": 20,
+          "pool_3": 60
+        },
+        "wall_spatter": {
+          "variants": [
+            "decal_wall_spatter",
+            "decal_wall_spatter_b"
+          ],
+          "mirrored": "seeded"
+        }
+      },
+      "decapitation": {
+        "ticks": {
+          "pose_4": 4,
+          "pose_5": 10,
+          "pool_1": 14,
+          "pool_2": 40,
+          "pool_3": 100,
+          "wall_spatter": 4
+        },
+        "jet_drops": {
+          "every_ticks": 3,
+          "per_emit": 2,
+          "for_ticks": 30
+        }
+      },
+      "explosive": {
+        "gibs": 8,
+        "drops": 24,
+        "wall_spatter": "both variants, one each side",
+        "pools_under": 2,
+        "settle": "irregular: seeded 90 degree rotations, piled and overlapping, never an even row"
+      }
+    },
+    "base_spec": "docs/02-art/gob-02-death-spec.md",
+    "variant_of": "assets/source/characters/goblin/death/goblin_a_death_h36.grid.json"
+  }
+}
