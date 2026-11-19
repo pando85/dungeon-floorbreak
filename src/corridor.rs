@@ -17,7 +17,7 @@ use crate::party::{HeroId, PartyDrive};
 use crate::prototype::{
     Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, RUN_SPEED, Rect, TICK_SECONDS, step_hero,
 };
-use crate::scroll_camera::{CameraConfig, MAX_SPEED_PX, ScrollCamera};
+use crate::scroll_camera::{CameraConfig, DEADZONE_PX, MAX_SPEED_PX, ScrollCamera};
 
 /// How far behind Carl (path length, virtual px) Donut trails.
 pub const DONUT_FOLLOW_PX: f32 = 32.0;
@@ -577,7 +577,59 @@ impl SceneSim {
         if drive.live && !drive.two_player && drive.controlled != self.drive.controlled {
             self.pan_boost = self.drive.live;
         }
+        let joins = drive.live && drive.two_player && !self.drive.two_player;
         self.drive = drive;
+        if joins {
+            self.pull_second_player_into_view();
+        }
+    }
+
+    /// S4: when a second player joins while the bot is farther away than the
+    /// separation wall allows (it can wait at a gap for up to `regroup_ticks`),
+    /// place Donut beside Carl at once, on the same free-spot rule as the bot
+    /// regroup, so the first 2P view has both heroes on screen. A join inside
+    /// the limit leaves her where she is.
+    fn pull_second_player_into_view(&mut self) {
+        let max = self.drive.tuning.max_separation_px(self.camera_cfg.view_w) as f32;
+        let (carl_x, carl_y, carl_facing) = {
+            let carl = &self.world.hero;
+            (carl.x, carl.y, carl.facing)
+        };
+        if (self.world.donut_body.x - carl_x).abs() <= max {
+            return;
+        }
+        let behind = if carl_facing >= 0 { -1.0 } else { 1.0 };
+        let beside = carl_x + behind * f32::from(self.drive.tuning.follow_distance_px);
+        let x = self
+            .free_spot_x(beside, carl_y)
+            .or_else(|| {
+                self.free_spot_x(
+                    carl_x - behind * f32::from(self.drive.tuning.follow_distance_px),
+                    carl_y,
+                )
+            })
+            .unwrap_or(carl_x);
+        let body = &mut self.world.donut_body;
+        body.x = x;
+        body.y = carl_y;
+        body.vx = 0.0;
+        body.vy = 0.0;
+        body.grounded = false;
+        self.world.sync_donut_from_body();
+        self.bot_offscreen = [0, 0];
+    }
+
+    /// `x` clamped to the level when a hero body centred at height `y` fits
+    /// there without touching a solid.
+    fn free_spot_x(&self, x: f32, y: f32) -> Option<f32> {
+        let x = x.clamp(HERO_HALF_WIDTH, self.world.max_x);
+        let body = Rect {
+            left: x - HERO_HALF_WIDTH,
+            bottom: y - HERO_HALF_HEIGHT,
+            width: HERO_HALF_WIDTH * 2.0,
+            height: HERO_HALF_HEIGHT * 2.0,
+        };
+        (!solid_at(&self.world.solids, body)).then_some(x)
     }
 
     pub fn drive(&self) -> &PartyDrive {
@@ -708,18 +760,10 @@ impl SceneSim {
                 view_right + HERO_HALF_WIDTH + 2.0
             };
             let beside = leader_x + behind * f32::from(drive.tuning.follow_distance_px);
-            let max_x = self.world.max_x;
-            let free = |x: f32| {
-                let x = x.clamp(HERO_HALF_WIDTH, max_x);
-                let body = Rect {
-                    left: x - HERO_HALF_WIDTH,
-                    bottom: leader_y - HERO_HALF_HEIGHT,
-                    width: HERO_HALF_WIDTH * 2.0,
-                    height: HERO_HALF_HEIGHT * 2.0,
-                };
-                (!solid_at(&self.world.solids, body)).then_some(x)
-            };
-            let x = free(edge).or_else(|| free(beside)).unwrap_or(leader_x);
+            let x = self
+                .free_spot_x(edge, leader_y)
+                .or_else(|| self.free_spot_x(beside, leader_y))
+                .unwrap_or(leader_x);
             let body = self.world.body_mut(id);
             body.x = x;
             body.y = leader_y;
@@ -768,7 +812,14 @@ impl SceneSim {
         } else {
             MAX_SPEED_PX
         };
-        let remaining = self.camera.step_capped(x, facing, cap);
+        // Two players: no deadzone, so the midpoint stays centred and the
+        // leader at the wall keeps the full `camera_edge_margin_px` (Q7).
+        let deadzone = if self.drive.two_player {
+            0
+        } else {
+            DEADZONE_PX
+        };
+        let remaining = self.camera.step_capped_deadzone(x, facing, cap, deadzone);
         if remaining <= MAX_SPEED_PX {
             self.pan_boost = false;
         }

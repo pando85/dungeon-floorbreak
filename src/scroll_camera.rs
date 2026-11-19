@@ -57,12 +57,26 @@ impl ScrollCamera {
     /// once the pan has caught up. `facing` 0 means no look-ahead (the
     /// midpoint of two heroes).
     pub fn step_capped(&mut self, hero_x: f32, facing: i8, max_speed: i32) -> i32 {
+        self.step_capped_deadzone(hero_x, facing, max_speed, DEADZONE_PX)
+    }
+
+    /// [`Self::step_capped`] with an explicit deadzone half width. Two players
+    /// follow their midpoint with `0` so the leader at the separation wall
+    /// keeps the full frame margin (Q7); with the 40 px deadzone the centre
+    /// could lag the midpoint by that much and eat into the margin.
+    pub fn step_capped_deadzone(
+        &mut self,
+        hero_x: f32,
+        facing: i8,
+        max_speed: i32,
+        deadzone: i32,
+    ) -> i32 {
         let desired = Self::lead_point(hero_x, facing);
         let offset = desired - self.centre_x;
-        let target = if offset > DEADZONE_PX {
-            desired - DEADZONE_PX
-        } else if offset < -DEADZONE_PX {
-            desired + DEADZONE_PX
+        let target = if offset > deadzone {
+            desired - deadzone
+        } else if offset < -deadzone {
+            desired + deadzone
         } else {
             self.centre_x
         };

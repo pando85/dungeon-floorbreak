@@ -319,6 +319,12 @@ pub struct PartyState {
     pads: [Option<PadId>; 2],
     /// A slot whose owning pad disconnected and has not been reclaimed.
     vacated: [bool; 2],
+    /// The pad that last owned each slot, kept across a disconnect so a
+    /// reconnecting pad returns to its own slot (S1).
+    last_pads: [Option<PadId>; 2],
+    /// The keyboard has driven P1 (S2): a pad that connects afterwards does
+    /// not take P1 implicitly, so its Start joins instead of quitting.
+    keyboard_p1: bool,
     /// Q8: ticks until the next swap is allowed.
     swap_cooldown: u8,
     /// Q8: ticks a refused swap press stays buffered.
@@ -340,6 +346,8 @@ impl PartyState {
             controlled: HeroId::Carl,
             pads: [None, None],
             vacated: [false, false],
+            last_pads: [None, None],
+            keyboard_p1: false,
             swap_cooldown: 0,
             swap_buffer: 0,
         }
@@ -398,10 +406,17 @@ impl PartyState {
             .collect()
     }
 
-    /// Claim the lowest vacated slot for `pad`, if there is one.
+    /// Claim a vacated slot for `pad`: the slot this same pad owned before
+    /// when it is waiting (S1), otherwise the lowest vacated slot.
     fn reclaim(&mut self, pad: PadId) -> Option<PlayerSlot> {
-        let slot = self.vacated_slots().first().copied()?;
+        let waiting = self.vacated_slots();
+        let slot = waiting
+            .iter()
+            .copied()
+            .find(|slot| self.last_pads[slot.index()] == Some(pad))
+            .or_else(|| waiting.first().copied())?;
         self.pads[slot.index()] = Some(pad);
+        self.last_pads[slot.index()] = Some(pad);
         self.vacated[slot.index()] = false;
         Some(slot)
     }
@@ -416,11 +431,19 @@ impl PartyState {
         if let Some(slot) = self.reclaim(pad) {
             return Some(slot);
         }
-        if self.pads[0].is_none() {
+        if self.pads[0].is_none() && !self.keyboard_p1 {
             self.pads[0] = Some(pad);
+            self.last_pads[0] = Some(pad);
             return Some(PlayerSlot::P1);
         }
         None
+    }
+
+    /// S2: the keyboard drove P1. From now on a pad that connects does not
+    /// take P1 implicitly (it joins with Start, as P2 while the keyboard
+    /// plays P1), so a friend's Start never quits the keyboard player's run.
+    pub fn note_keyboard_p1(&mut self) {
+        self.keyboard_p1 = true;
     }
 
     /// A pad disconnected. D6: an owning pad pauses the game and its slot waits
@@ -446,12 +469,14 @@ impl PartyState {
         if let Some(slot) = self.reclaim(pad) {
             return StartOutcome::Joined(slot);
         }
-        if self.pads[0].is_none() {
+        if self.pads[0].is_none() && !self.keyboard_p1 {
             self.pads[0] = Some(pad);
+            self.last_pads[0] = Some(pad);
             return StartOutcome::Joined(PlayerSlot::P1);
         }
         if self.mode == PartyMode::Solo && self.pads[1].is_none() {
             self.pads[1] = Some(pad);
+            self.last_pads[1] = Some(pad);
             self.mode = PartyMode::TwoPlayer;
             return StartOutcome::Joined(PlayerSlot::P2);
         }
@@ -813,6 +838,68 @@ mod tests {
         assert!(party.is_paused());
         party.pad_connected(PadId(4));
         assert!(!party.is_paused());
+    }
+
+    #[test]
+    fn a_reconnecting_pad_returns_to_its_own_slot_whatever_the_order() {
+        // S1: both pads drop, P2's pad comes back first and keeps P2.
+        let mut party = PartyState::default();
+        party.pad_connected(A);
+        party.pad_start_pressed(B);
+        party.pad_disconnected(A);
+        party.pad_disconnected(B);
+        assert_eq!(party.pad_connected(B), Some(PlayerSlot::P2));
+        assert_eq!(party.slot_of(B), Some(PlayerSlot::P2));
+        assert!(party.is_paused(), "P1 still waits");
+        assert_eq!(party.pad_connected(A), Some(PlayerSlot::P1));
+        assert_eq!(party.slot_of(A), Some(PlayerSlot::P1));
+        assert!(!party.is_paused());
+        assert_eq!(
+            party.hero_control(HeroId::Carl),
+            HeroControl::Player(PlayerSlot::P1)
+        );
+
+        // The same holds for a Start press, and for A coming back first.
+        let mut party = PartyState::default();
+        party.pad_connected(A);
+        party.pad_start_pressed(B);
+        party.pad_disconnected(A);
+        party.pad_disconnected(B);
+        assert_eq!(
+            party.pad_start_pressed(B),
+            StartOutcome::Joined(PlayerSlot::P2)
+        );
+        assert_eq!(party.slot_of(A), None);
+        assert_eq!(party.pad_connected(A), Some(PlayerSlot::P1));
+        assert_eq!(party.slot_of(B), Some(PlayerSlot::P2));
+
+        // A stranger (never owned a slot) takes the lowest waiting slot.
+        let mut party = PartyState::default();
+        party.pad_connected(A);
+        party.pad_start_pressed(B);
+        party.pad_disconnected(A);
+        party.pad_disconnected(B);
+        assert_eq!(party.pad_connected(C), Some(PlayerSlot::P1));
+    }
+
+    #[test]
+    fn a_pad_connecting_after_keyboard_play_does_not_take_p1() {
+        // S2: the keyboard drives P1, a friend's pad connects.
+        let mut party = PartyState::default();
+        party.note_keyboard_p1();
+        assert_eq!(party.pad_connected(A), None);
+        assert_eq!(party.slot_of(A), None);
+        // Its Start joins as P2 and never reads as the P1 owner's press.
+        assert_eq!(
+            party.pad_start_pressed(A),
+            StartOutcome::Joined(PlayerSlot::P2)
+        );
+        assert_eq!(party.mode(), PartyMode::TwoPlayer);
+        // Now it owns P2: its Start is P2's (not a quit).
+        assert_eq!(
+            party.pad_start_pressed(A),
+            StartOutcome::OwnerPause(PlayerSlot::P2)
+        );
     }
 
     #[test]

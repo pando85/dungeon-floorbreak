@@ -15,5 +15,5 @@ COMBAT_EVENT tick=398 kind=restart deaths=1
 COMBAT_EVENT tick=38 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=64 kind=goblin_swing goblin=0
 COMBAT_EVENT tick=64 kind=hero_hurt source=0 health_left=3 hero=donut
-COMBAT_STATE fixture=donut_defeat_party seed=0xd020005 tick=122 elapsed=520 hero_hp=4 deaths=1 enemies=e0=338.233/2 hash=403505ffaab9edb9
-PARTY_STATE fixture=donut_defeat_party mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=1 hash=1a0fb7da62e3a9bf
+COMBAT_STATE fixture=donut_defeat_party seed=0xd020005 tick=122 elapsed=520 hero_hp=4 deaths=1 enemies=e0=338.233/2 hash=ea1171f49caf9ef9
+PARTY_STATE fixture=donut_defeat_party mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=1 hash=d4815dd69ec48fff

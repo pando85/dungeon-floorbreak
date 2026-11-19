@@ -1373,6 +1373,19 @@ impl CombatState {
         if let Some(shore) = &self.shore {
             shore.mix_into(&mut put);
         }
+        // Live-party combat state (B1): Donut's hit state, each goblin's
+        // target and the defeated hero. Mixed only while the party is live,
+        // behind a marker word, so every legacy hash is unchanged.
+        if scene.party_live() {
+            put(0x5041_5254_5943_4d42);
+            put(u64::from(self.donut.hurt_ticks));
+            put(u64::from(self.donut.hit_stop));
+            put(u64::from(self.donut.vx.to_bits()));
+            put(self.defeated_hero.index() as u64);
+            for target in &self.targets {
+                put(target.map_or(0, |hero| hero.index() as u64 + 1));
+            }
+        }
         put(self.event_hash);
         hash
     }
@@ -3466,6 +3479,91 @@ mod tests {
                 overall.1,
                 overall.0
             );
+        }
+    }
+
+    /// B1: the live-party hash covers each goblin's target, Donut's hit state
+    /// and the defeated hero, and the legacy hash ignores all three.
+    #[test]
+    fn the_party_hash_covers_targets_donut_hit_state_and_the_defeated_hero() {
+        use crate::party_scene::{PartyFixtureSim, SOLO_FOLLOWER_DODGE};
+        let mut sim = PartyFixtureSim::new(&kit(), 360, &SOLO_FOLLOWER_DODGE).unwrap();
+        sim.run_scripted(40);
+        assert!(sim.scene.party_live());
+        let base = sim.state_hash();
+        let mut changed = sim.clone();
+        changed.combat.targets[0] = Some(changed.combat.target_of(0).other());
+        assert_ne!(
+            changed.state_hash(),
+            base,
+            "a target change alters the hash"
+        );
+        let mut changed = sim.clone();
+        changed.combat.donut.hit_stop += 1;
+        assert_ne!(changed.state_hash(), base, "Donut hit-stop alters the hash");
+        let mut changed = sim.clone();
+        changed.combat.donut.hurt_ticks += 1;
+        assert_ne!(changed.state_hash(), base, "Donut flinch alters the hash");
+        let mut changed = sim.clone();
+        changed.combat.donut.vx += 1.0;
+        assert_ne!(changed.state_hash(), base, "Donut drift alters the hash");
+        let mut changed = sim.clone();
+        changed.combat.defeated_hero = HeroId::Donut;
+        assert_ne!(
+            changed.state_hash(),
+            base,
+            "the defeated hero alters the hash"
+        );
+
+        // Legacy: the same fields do not reach the hash while the party is not live.
+        let mut legacy = sim_of(FIXTURES[0]);
+        legacy.step(RawInput::default());
+        let before = legacy.state_hash();
+        legacy.combat.targets = vec![Some(HeroId::Donut); legacy.combat.targets.len()];
+        legacy.combat.donut.hit_stop = 3;
+        legacy.combat.defeated_hero = HeroId::Donut;
+        assert_eq!(legacy.state_hash(), before);
+    }
+
+    /// S5 / Q4: a goblin swing reaches Donut's forgiving box (20 px wide) at 40
+    /// px between centres and Carl's 24 px box at 42, on either side, and the
+    /// box is centred on the pivot (mirrored with the goblin's facing).
+    #[test]
+    fn q4_a_swing_reaches_donut_at_40_px_and_carl_at_42_on_both_sides() {
+        use crate::party_scene::{PartyFixtureSim, SOLO_FOLLOWER_DODGE};
+        let mut sim = PartyFixtureSim::new(&kit(), 360, &SOLO_FOLLOWER_DODGE).unwrap();
+        sim.run_scripted(1);
+        assert!(sim.scene.party_live());
+        assert_eq!(
+            sim.scene.drive().tuning.donut_hurtbox,
+            crate::party::DonutHurtbox::Forgiving
+        );
+        let cases = [
+            // (hero, distance, reached)
+            (HeroId::Donut, 39.0, true),
+            (HeroId::Donut, 41.0, false),
+            (HeroId::Donut, 45.0, false),
+            (HeroId::Donut, 47.0, false),
+            (HeroId::Carl, 39.0, true),
+            (HeroId::Carl, 41.0, true),
+            (HeroId::Carl, 43.0, false),
+            (HeroId::Carl, 45.0, false),
+            (HeroId::Carl, 47.0, false),
+        ];
+        for (hero, distance, reached) in cases {
+            for side in [1.0_f32, -1.0] {
+                let body = sim.scene.world.body(hero);
+                let (x, feet) = (body.x, body.y - HERO_HALF_HEIGHT);
+                let goblin = &mut sim.combat.enemies[0];
+                goblin.x = x + side * distance;
+                goblin.y = feet + crate::combat::ENEMY_HALF_HEIGHT;
+                // The goblin faces the hero.
+                goblin.facing = if side > 0.0 { -1 } else { 1 };
+                let hit = goblin
+                    .swing_box()
+                    .overlaps(CombatState::hurtbox(&sim.scene, hero));
+                assert_eq!(hit, reached, "{hero:?} at {distance} px, side {side}");
+            }
         }
     }
 }

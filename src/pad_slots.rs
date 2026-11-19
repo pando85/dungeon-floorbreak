@@ -9,7 +9,9 @@
 //!
 //! Rules (owner decisions 2026-11-19, see `party`):
 //! * the keyboard is always P1 and merges with P1's pad;
-//! * the first pad owns P1; a second pad joins as P2 by pressing Start;
+//! * the first pad owns P1 unless the keyboard already drove P1 (S2); a second
+//!   pad joins as P2 by pressing Start, and a Start on a pad that owns no slot
+//!   only ever joins: only the device that owns P1 quits on Start;
 //! * a third pad, or a pad that owns no slot, is ignored (except Start);
 //! * an owning pad that disconnects pauses the game ([`PadSlots::is_paused`])
 //!   until a pad reclaims its slot;
@@ -268,6 +270,14 @@ impl PadSlots {
     /// (nothing sticks across the pause).
     pub fn take_inputs(&mut self, keyboard: RawInput) -> SlotInputs {
         let paused = self.party.is_paused();
+        if keyboard.move_x != 0.0
+            || keyboard.jump
+            || keyboard.attack
+            || keyboard.physical
+            || keyboard.swap
+        {
+            self.party.note_keyboard_p1();
+        }
         let mut out = [RawInput::default(); 2];
         for slot in PlayerSlot::ALL {
             let i = slot.index();
@@ -481,6 +491,74 @@ mod tests {
         let mut slots = two_player();
         assert!(press_start(&mut slots, A).exit);
         assert!(!press_start(&mut slots, B).exit, "P2's Start never quits");
+    }
+
+    #[test]
+    fn start_on_a_pad_that_owns_nothing_never_quits() {
+        // S2: a keyboard P1 and a friend's pad.
+        let mut slots = PadSlots::default();
+        let keys = RawInput {
+            move_x: 1.0,
+            ..RawInput::default()
+        };
+        slots.take_inputs(keys);
+        connect(&mut slots, B, SONY);
+        assert_eq!(slots.party().slot_of(B), None, "no implicit P1");
+        let cmd = press_start(&mut slots, B);
+        assert!(!cmd.exit, "joining is not quitting");
+        assert_eq!(cmd.joined, Some(PlayerSlot::P2));
+        assert_eq!(slots.party().mode(), PartyMode::TwoPlayer);
+        // Both devices now play: the keyboard is P1, the pad is P2, and the
+        // pad's Start still never quits.
+        assert!(!press_start(&mut slots, B).exit);
+        let mut f = frame(B);
+        f.move_x = -1.0;
+        slots.sample(f);
+        let [p1, p2] = slots.take_inputs(keys);
+        assert_eq!((p1.move_x, p2.move_x), (1.0, -1.0));
+
+        // With a stranger pad beside the owner of P1, Start joins, not quits.
+        let mut slots = PadSlots::default();
+        connect(&mut slots, A, MS);
+        connect(&mut slots, B, SONY);
+        assert!(!press_start(&mut slots, B).exit);
+        assert!(press_start(&mut slots, A).exit, "P1's own pad quits");
+    }
+
+    #[test]
+    fn a_pad_that_connected_before_the_keyboard_keeps_p1() {
+        let mut slots = PadSlots::default();
+        connect(&mut slots, A, MS);
+        slots.take_inputs(RawInput {
+            jump: true,
+            ..RawInput::default()
+        });
+        assert_eq!(slots.party().slot_of(A), Some(PlayerSlot::P1));
+        assert!(press_start(&mut slots, A).exit);
+    }
+
+    #[test]
+    fn a_reconnecting_pad_returns_to_its_own_slot() {
+        // S1 through the adapter: both pads drop, P2's pad comes back first.
+        let mut slots = two_player();
+        slots.apply(PadEvent::Disconnected { pad: A });
+        slots.apply(PadEvent::Disconnected { pad: B });
+        assert_eq!(slots.waiting_slot(), Some(PlayerSlot::P1));
+        connect(&mut slots, B, SONY);
+        assert_eq!(slots.party().slot_of(B), Some(PlayerSlot::P2));
+        assert_eq!(slots.waiting_slot(), Some(PlayerSlot::P1));
+        assert!(slots.is_paused());
+        connect(&mut slots, A, MS);
+        assert_eq!(slots.party().slot_of(A), Some(PlayerSlot::P1));
+        assert!(!slots.is_paused());
+        // P2's pad still drives Donut and A drives Carl, with the right glyphs.
+        let mut fb = frame(B);
+        fb.move_x = 0.9;
+        slots.sample(fb);
+        let [p1, p2] = slots.take_inputs(RawInput::default());
+        assert_eq!((p1.move_x, p2.move_x), (0.0, 0.9));
+        assert_eq!(slots.glyphs(PlayerSlot::P1), GlyphSet::Xbox);
+        assert_eq!(slots.glyphs(PlayerSlot::P2), GlyphSet::DualSense);
     }
 
     #[test]

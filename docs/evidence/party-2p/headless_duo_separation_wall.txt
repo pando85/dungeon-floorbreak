@@ -1,2 +1,2 @@
-COMBAT_STATE fixture=duo_separation_wall seed=0xd020002 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=8eef194459100d02
-PARTY_STATE fixture=duo_separation_wall mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=16f9d2f7791cb2d8
+COMBAT_STATE fixture=duo_separation_wall seed=0xd020002 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=6d3c0fa7c39fc553
+PARTY_STATE fixture=duo_separation_wall mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=1f40a48b874e1dc9

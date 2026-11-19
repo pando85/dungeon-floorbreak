@@ -452,13 +452,13 @@ mod tests {
     /// Committed goldens: the final state hash of each party fixture at its
     /// default length.
     const GOLDENS: [(&str, u64); 7] = [
-        ("duo_independent_moves", 0x0a9b_648d_a2dc_9c11),
-        ("duo_separation_wall", 0x16f9_d2f7_791c_b2d8),
-        ("solo_swap_continuity", 0x7ec9_63b3_0a14_2796),
-        ("donut_hurt_iframes", 0xe35b_50b5_62c6_0d84),
-        ("donut_defeat_party", 0x1a0f_b7da_62e3_a9bf),
-        ("solo_guard_floors_at_one", 0xa89d_2850_70af_74b1),
-        ("solo_follower_dodge", 0xce04_86b9_2b81_935c),
+        ("duo_independent_moves", 0x2c58_af88_61d7_63ec),
+        ("duo_separation_wall", 0x1f40_a48b_874e_1dc9),
+        ("solo_swap_continuity", 0x2232_e842_5b3c_a7d4),
+        ("donut_hurt_iframes", 0x6b13_a15a_e7fc_186c),
+        ("donut_defeat_party", 0xd481_5dd6_9ec4_8fff),
+        ("solo_guard_floors_at_one", 0x78d4_244f_d621_6569),
+        ("solo_follower_dodge", 0x8f8b_7dcc_2cc5_dc20),
     ];
 
     fn run(fixture: &'static PartyFixture) -> PartyFixtureSim {
@@ -546,16 +546,53 @@ mod tests {
         assert!(steps.iter().all(|s| s.0 - s.1 <= max), "never beyond 448");
         let (carl, donut, left) = *steps.last().unwrap();
         assert!(carl - donut > max - 4.0, "Carl reached the wall: {carl}");
-        // Both heroes stay on screen with a margin at the wall.
+        // Both heroes keep the 96 px edge margin the Decisions table states
+        // (rounding allows one pixel): the 2P camera has no deadzone.
+        let margin = PROVISIONAL_TUNING.camera_edge_margin_px as f32;
         let screen = |x: f32| x - left as f32;
-        assert!(screen(donut) >= 40.0 && screen(carl) <= 600.0);
-        // The camera centres the midpoint, within the deadzone.
+        assert!(screen(donut) >= margin - 1.0, "{}", screen(donut));
+        assert!(640.0 - screen(carl) >= margin - 1.0, "{}", screen(carl));
+        // The camera centres the midpoint exactly (within a pixel).
         let mid = (carl + donut) * 0.5;
-        assert!((left as f32 + 320.0 - mid).abs() <= 41.0, "{left} {mid}");
+        assert!((left as f32 + 320.0 - mid).abs() <= 1.0, "{left} {mid}");
         // Donut did not move: the wall belongs to the leader.
         assert_eq!(donut, 368.0);
         // The camera never outruns its speed cap, and never zooms (cfg fixed).
         assert!(steps.windows(2).all(|w| (w[1].2 - w[0].2).abs() <= 4));
+    }
+
+    #[test]
+    fn s4_a_join_with_the_bot_far_behind_puts_both_heroes_on_screen() {
+        let mut sim = sim_of(&SOLO_SWAP_CONTINUITY);
+        // Solo: the bot waits far behind Carl (past the 448 px limit).
+        sim.scene.world.hero.x = 900.0;
+        sim.scene.world.donut_body.x = 300.0;
+        sim.scene.world.sync_donut_for_tests();
+        // The solo camera already follows Carl there.
+        let cfg = sim.scene.camera.config();
+        sim.scene.camera = crate::scroll_camera::ScrollCamera::new(cfg, 900.0, 1);
+        sim.step_slots([idle(), idle()]);
+        let gap = sim.scene.world.hero.x - sim.scene.world.donut_body.x;
+        assert!(gap > 448.0, "still solo: {gap}");
+        // P2 joins: Donut is placed beside Carl on the first 2P tick.
+        sim.party.pad_connected(PadId(1));
+        sim.party.pad_start_pressed(PadId(2));
+        sim.step_slots([idle(), idle()]);
+        let (carl, donut) = (sim.scene.world.hero.x, sim.scene.world.donut_body.x);
+        let max = PROVISIONAL_TUNING.max_separation_px(640) as f32;
+        assert!((carl - donut).abs() <= max, "{carl} {donut}");
+        let left = sim.scene.camera.left() as f32;
+        assert!(donut >= left && donut <= left + 640.0, "on screen {donut}");
+        assert!(carl >= left && carl <= left + 640.0, "on screen {carl}");
+        // A join inside the limit leaves her where she is.
+        let mut sim = sim_of(&SOLO_SWAP_CONTINUITY);
+        sim.scene.world.donut_body.x = sim.scene.world.hero.x - 200.0;
+        sim.scene.world.sync_donut_for_tests();
+        let before = sim.scene.world.donut_body.x;
+        sim.party.pad_connected(PadId(1));
+        sim.party.pad_start_pressed(PadId(2));
+        sim.step_slots([idle(), idle()]);
+        assert!((sim.scene.world.donut_body.x - before).abs() < 1.0);
     }
 
     #[test]

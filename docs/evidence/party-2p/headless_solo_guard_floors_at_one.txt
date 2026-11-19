@@ -14,5 +14,5 @@ COMBAT_EVENT tick=418 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=444 kind=goblin_swing goblin=0
 COMBAT_EVENT tick=444 kind=hero_hurt source=0 health_left=1 hero=donut
 COMBAT_EVENT tick=513 kind=goblin_tell goblin=0
-COMBAT_STATE fixture=solo_guard_floors_at_one seed=0xd020006 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies=e0=338.233/2 hash=24834ba086ea76cb
-PARTY_STATE fixture=solo_guard_floors_at_one mode=solo controlled=Carl carl_hp=4 donut_hp=1 deaths=0 hash=a89d285070af74b1
+COMBAT_STATE fixture=solo_guard_floors_at_one seed=0xd020006 tick=520 elapsed=520 hero_hp=4 deaths=0 enemies=e0=338.233/2 hash=a37f23088a868973
+PARTY_STATE fixture=solo_guard_floors_at_one mode=solo controlled=Carl carl_hp=4 donut_hp=1 deaths=0 hash=78d4244fd6216569
