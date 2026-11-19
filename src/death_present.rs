@@ -1300,6 +1300,15 @@ impl DeathPresenter {
             .count()
     }
 
+    /// CINE-01: whether goblin or llama `target` still has a defeat sequence
+    /// playing (a death entry that has not settled). The cinematic planner
+    /// skips a moment rather than slow empty scenery. Presentation only.
+    pub fn finish_active(&self, target: u32) -> bool {
+        self.deaths
+            .iter()
+            .any(|d| d.target == target && !self.is_settled(d))
+    }
+
     fn is_settled(&self, d: &Death) -> bool {
         d.target != SYNTHETIC_TARGET && d.done_after > 0 && self.clock >= d.start + d.done_after
     }

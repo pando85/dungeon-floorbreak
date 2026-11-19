@@ -1,6 +1,6 @@
 # CINE-01 — Skill-gated cinematic slow motion for exceptional defeats
 
-**Status:** owner-approved *creative intent* (2026-11-19); implementation pending. This document is the implementation work order for a local coding agent. The numerical defaults below are **adopted starting hypotheses**, not owner-approved game feel. No gameplay or Bevy behavior is implemented by this documentation PR.
+**Status:** owner-approved *creative intent* (2026-11-19); implemented in the CINE-01 PR (see section 8), **game feel pending**. This document is the implementation work order for a local coding agent. The numerical defaults below are **adopted starting hypotheses**, not owner-approved game feel.
 
 **Goal:** In THE CRAWL, an unusually well-executed defeat briefly makes the action feel cinematic. The player earns that moment by timing, setting up an environmental kill, or constructing a meaningful chain—not by killing an ordinary enemy or selecting a violent death recipe. The effect must be **rare**, unmistakable, and over before it interrupts the pace.
 
@@ -37,7 +37,7 @@ Every moment must:
 
 **Attempt boundaries and clocks.** Ticks are attempt-local: `Restart` resets the tick counter and is not hashed, and target IDs are reused after a restart. The evaluator therefore clears its history, per-target deduplication and last-`ShoreBroken` records on `Restart` and on `Respawn` (DEMO-01), and the adapter cancels any `Pending` or `Active` moment at the same time. The cooldown is measured on a monotonic counter (`CombatState::elapsed` or the evaluator's own count of observed ticks), not on attempt-local ticks, and it **survives** `Restart` and `Respawn`.
 
-Match the "player-activated drop hazard" cause class through one helper (for example `DefeatCause::drop_credit() -> Option<u32>`) rather than hard-coding `ShoreBlock`. The merged boss design replaces `ShoreBlock` with `DefeatCause::DropHazard { player, rack }` as a hash migration, and rack credit must keep working when that lands.
+Match the "player-activated drop hazard" cause class through one helper (for example `DefeatCause::drop_credit() -> Option<u32>`) rather than hard-coding `ShoreBlock`. The merged boss design adds `DefeatCause::DropHazard { player, rack }` as a **sibling variant of `ShoreBlock` with no hash migration** (CP-03 hashes stay byte-identical), and the helper must cover `ShoreBlock`, `ShoreBlockEdge` and `DropHazard`.
 
 Process multiple events on the same tick as one batch, ordered deterministically by (tick, target ID), independent of iteration/renderer order. Use stable feature IDs and fixed integer scoring: no floating-point score thresholds.
 
@@ -154,7 +154,7 @@ Applied under the owner's design-defaults directive (AGENTS.md, 2026-11-19) from
 | F4 linked target | Linked means the contact's `source` or `target` defeated by the credited hero within the history window, proved by the PushKick `Hit` instance; otherwise legendary is unreachable | Reviewer's stated fix | Yes |
 | F5 settings | New `--cinematic-finishes[=on\|off]` / `FLOORBREAK_CINEMATIC_FINISHES`; no reuse of `--hud-reduced-motion`; world reduced motion via HUD-DEBT-08, which also disables CINE | Reviewer's recommended option; keeps the HUD-only flag scope | Yes |
 | F6 B3 / pileup | Accept: the authored DEMO-01 B3 beat pays out as `CINE-PRECISION-EDGE` at tick 159 (the tick 243 melee is in cooldown) and is the expected first cinematic; the pileup is the T03 mixed-chain fixture, either order | Reviewer's first option, and the owner's linked melee-plus-shore intent; no new layout needed | Yes: tighten to require the melee kill before the landing if it feels too common |
-| F7 drop credit | Match drop-hazard credit through one helper and name `DropHazard` | Boss hash migration | Yes |
+| F7 drop credit | Match drop-hazard credit through one helper (`DefeatCause::drop_credit()`) covering `ShoreBlock`, `ShoreBlockEdge` and `DropHazard`, a sibling variant with no hash migration | Boss design as merged (#120) | Yes |
 | F8 boss | Boss defeats never trigger CINE in v0 | Matches boss design section 5 | Yes |
 | F9 pause | Cancel on D6 pause and `Frozen`; no pause-menu wording | No pause menu on main | Yes |
 | F10 hit-stop | Pending counts hit-stop in ticks; hit-stop during Active is accepted as dilated | Hit-stop is tick-based | Yes |
@@ -169,3 +169,27 @@ Applied under the owner's design-defaults directive (AGENTS.md, 2026-11-19) from
 | Phase 1 (d) input presses | Two presses inside one slowed tick collapse into one, matching the existing input latch (adopted default) | Keeps one edge per fixed tick, no new input semantics | Yes |
 | Phase 1 (e) Cooldown state | The Cooldown state lives in the evaluator, not in the planner (adopted default) | Keeps cooldown in the pure, replayable layer | Yes |
 | Phase 1 (f) module name | The module is `src/cine.rs` (adopted default) | Implementation naming; all mentions of `cinematic.rs` updated | Yes |
+
+## 8. Implementation status
+
+Implemented behind `--cinematic-finishes[=on|off]` / `FLOORBREAK_CINEMATIC_FINISHES`. It is on for live play and off for scripted fixtures, scenarios, autopilot runs and captures unless set explicitly, so every committed golden is unchanged. Evidence and the T01 to T13 coverage table: [docs/evidence/cine-01](../evidence/cine-01/README.md).
+
+| Piece | Where |
+| --- | --- |
+| Evaluator, planner, edge latch, tuning table | `src/cine.rs` (Bevy-free) |
+| Combat-log adapter: launch proof, per-tick batching, cancel flag | `src/cine_adapter.rs` (Bevy-free) |
+| Single fan-out | `print_combat_events` in `src/bin/floor01_scene.rs`; `fixed_step` (the respawn and the step) feeds the observer, the `watchdog` (load, before any tick) and `capture_sequence` (scripted captures, excluded by the spec) pass none |
+| Clock and camera | `cine_frame` (`Update`): the planner is the sole owner of the `Time<Virtual>` relative speed; `Time<Fixed>` stays at 60 Hz. Emphasis is added to the scene camera's **kick** only (`SceneCam::emphasis`), never to its zoom or pan |
+| Cancel | D6 disconnect pause and `Frozen` (frame context), `Restart`, `Respawn` and `HeroDefeated` (adapter flag), setting switched off, app exit |
+| Hit-stop | Pending waits for the fight's hit-stop in ticks; hit-stop starting during Active is accepted (dilated) and never cancels |
+| Drop credit | `DefeatCause::drop_credit()` (`ShoreBlock`, `ShoreBlockEdge`, `DropHazard`) |
+
+Choices made while implementing, each changeable in a follow-up:
+
+- The cooldown clock is `epoch + attempt tick`, where a `Restart` adds the tick the finished attempt ended on, so it survives `Restart` and `Respawn` (T07).
+- The launch proof credits the launch to hero 0 (`MELEE_ATTACKER`): `Hit` names no attacker and only Carl attacks on main. Replace it when a second attacker exists.
+- A `DropHazard` defeat is credited to the player it names and counts as a falling block for `CINE-MIXED-CHAIN`; the boss itself is never mapped (F8), so no v0 chain reaches it.
+- The camera emphasis is the planner's constant 2 px for the moment, signed by Carl's facing.
+- The planner skips a moment when the death presenter has no unsettled defeat sequence for the moment's target (`DeathPresenter::finish_active`), and when there is no presenter.
+- There is no cinematic reduced-motion flag: HUD-DEBT-08 owns world reduced motion and must disable CINE.
+
