@@ -1,5 +1,10 @@
 # Agent-ready prioritized backlog
 
+## CINE-01 — Skill-gated cinematic finishers (2026-11-19)
+
+**P1 / design specified, implementation NOT started in this PR; owner-approved intent, numeric game-feel pending.** Implement brief [CINE-01](../03-tech/cinematic-finishers-cine-01.md): exceptional, verified *player-authored* kills can trigger a rare 0.48 s / 0.35× (ordinary) or 0.65 s / 0.25× (legendary) cinematic slowdown. Primary eligibility is a verified precision edge shear (DEATH-D dependency) or a linked, clean melee-plus-shore kill chain; ordinary lethal hits, gore intensity and catastrophic force alone do not qualify. A pure deterministic event evaluator drives a Bevy-only presentation clock override, with a 15 s simulated-time cooldown, preserved input and shared-screen co-op behavior. No new HUD, score/views/subscribers, art, moves or kill mechanics. **Agent handoff:** one small implementation PR with the CINE-T01..T13 tests, on/off replay hash parity, Bevy recording, independent review, and owner solo/2P feel review after merge. The DEATH-D edge-shear test remains a declared dependency until its underlying feature exists.
+
+
 ## MVP controller grammar — approved design (2026-11-18)
 
 **Owner-approved for MVP:** the four face-button verbs are Cross/A jump, Square/X primary attack, Triangle/Y physical attack (**Carl kicks; never enemy grabs**), and Circle/B story-unlocked special. R1/RB interacts; L1/LB swaps heroes in solo. Donut is an agile low-damage cat before the biscuit and gains Magic Missile as her primary after it; Carl remains physically focused and later uses story-earned explosives. The control grammar is future-floor-extensible, controller-independent and explicitly excludes mandatory twin-stick aim, dodge or sprint inputs. See [the authoritative controller contract](../01-design/mvp-controller-contract.md).
