@@ -374,19 +374,26 @@ fn hp_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32) {
         let flash = view.hp_flash.filter(|f| segment_flashing(f, i));
         if let Some(f) = flash {
             if s.reduced_motion {
-                empty_segment(o, sx, iy, w);
+                empty_segment(o, s, sx, iy, w);
                 hatch(o, sx + 1, iy + 1, w - 2, 4);
             } else if (f.age_ticks / HP_FLASH_STEP_TICKS).is_multiple_of(2) {
                 o.rect(Z_BAR, sx, iy, w, 6, p::HP_FLASH);
             } else {
-                empty_segment(o, sx, iy, w);
+                empty_segment(o, s, sx, iy, w);
             }
         } else if i < i32::from(view.hp.cur) {
-            o.rect(Z_BAR, sx, iy, w, 6, p::HP_RED);
-            o.rect(Z_BAR, sx, iy, w, 1, p::HP_RED_HI);
-            o.rect(Z_BAR, sx, iy + 5, w, 1, p::HP_RED_LO);
+            // High contrast lifts the fill from 3.4:1 to 5.5:1 (and the top
+            // row to 15:1); the ink border and segment gaps stay.
+            let (body, top, bottom) = if s.high_contrast {
+                (p::HP_RED_HI, p::HP_FLASH, p::HP_RED)
+            } else {
+                (p::HP_RED, p::HP_RED_HI, p::HP_RED_LO)
+            };
+            o.rect(Z_BAR, sx, iy, w, 6, body);
+            o.rect(Z_BAR, sx, iy, w, 1, top);
+            o.rect(Z_BAR, sx, iy + 5, w, 1, bottom);
         } else {
-            empty_segment(o, sx, iy, w);
+            empty_segment(o, s, sx, iy, w);
         }
     }
 }
@@ -398,9 +405,15 @@ fn segment_flashing(flash: &HpFlash, index: i32) -> bool {
 }
 
 /// An empty HP segment: `hp_empty` with a 1 px `metal_light` outline (the
-/// outline keeps max HP readable by shape).
-fn empty_segment(o: &mut Out, sx: i32, iy: i32, w: i32) {
-    o.rect(Z_BAR, sx, iy, w, 6, p::METAL_LIGHT);
+/// outline keeps max HP readable by shape). High contrast draws the outline
+/// `text_white` (2.3:1 becomes 13.7:1).
+fn empty_segment(o: &mut Out, s: &HudSnapshot, sx: i32, iy: i32, w: i32) {
+    let outline = if s.high_contrast {
+        p::TEXT_WHITE
+    } else {
+        p::METAL_LIGHT
+    };
+    o.rect(Z_BAR, sx, iy, w, 6, outline);
     o.rect(Z_BAR, sx + 1, iy + 1, w - 2, 4, p::HP_EMPTY);
 }
 
@@ -430,10 +443,18 @@ fn mana_row(o: &mut Out, s: &HudSnapshot, mana: ManaView, x: i32, y: i32) {
     // The track outline: ink normally; a visible metal outline when empty, and
     // `magenta_hi` for the first 6 ticks after reaching 0.
     let flashing = !s.reduced_motion && mana.depleted_age.is_some_and(|age| age < MANA_FLASH_TICKS);
+    // High contrast: a `metal_hi` outline always (4.4:1) and `text_white` when
+    // empty, so the track reads by shape.
     let outline = if !depleted {
-        p::HUD_INK
+        if s.high_contrast {
+            p::METAL_HI
+        } else {
+            p::HUD_INK
+        }
     } else if flashing {
         p::MAGENTA_HI
+    } else if s.high_contrast {
+        p::TEXT_WHITE
     } else {
         p::METAL_LIGHT
     };
@@ -467,7 +488,12 @@ fn abilities_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32)
                 crate::hud::LabelId::Companion.text(),
                 x + 40,
                 y + 37,
-                p::AMBER_DIM,
+                // `amber_dim` is 4.2:1; high contrast uses `amber` (10.4:1).
+                if s.high_contrast {
+                    p::AMBER
+                } else {
+                    p::AMBER_DIM
+                },
             );
         }
         AbilityRow::Chips { a, b, special } => {
@@ -488,9 +514,16 @@ fn special_socket(o: &mut Out, special: SpecialSlot, x: i32, y: i32) {
 fn chip(o: &mut Out, s: &HudSnapshot, chip: Chip, x0: i32, y: i32) {
     let glyph = FrameId::of_glyph(s.glyphs.glyph(chip.action));
     let (w, h) = glyph.size();
+    // A muted chip is dimmed (`amber_dim`, 4.2:1) with a zig-zag underline.
+    // High contrast keeps the zig-zag (the non-hue cue) and the dimmed glyph
+    // (a graphical object only needs 3:1) but raises the label and the
+    // underline to `amber` (10.4:1), so muted never reads brighter than live.
     let tint = chip.muted.then_some(p::AMBER_DIM);
     o.frame_sized(Z_ICON, glyph, x0, y + 34, w, h, tint);
-    let color = if chip.muted { p::AMBER_DIM } else { p::AMBER };
+    let color = match (chip.muted, s.high_contrast) {
+        (true, false) => p::AMBER_DIM,
+        _ => p::AMBER,
+    };
     o.text(
         Z_TEXT,
         HudFont::SilkRegular,
@@ -502,7 +535,7 @@ fn chip(o: &mut Out, s: &HudSnapshot, chip: Chip, x0: i32, y: i32) {
     if chip.muted {
         // A 1 px zig-zag along the chip's bottom row: not hue alone.
         for i in 0..25 {
-            o.rect(Z_FLASH, x0 + i * 2, y + 44 - (i % 2), 2, 1, p::AMBER_DIM);
+            o.rect(Z_FLASH, x0 + i * 2, y + 44 - (i % 2), 2, 1, color);
         }
     }
 }
@@ -1209,5 +1242,196 @@ mod tests {
                 .iter()
                 .any(|i| matches!(i.kind, DrawKind::Frame { tint: Some(_), .. }))
         );
+    }
+
+    fn hc_list(preview: Option<HudPreview>, hp: u8, high_contrast: bool) -> Vec<DrawItem> {
+        hc_list_motion(preview, hp, high_contrast, false)
+    }
+
+    fn hc_list_motion(
+        preview: Option<HudPreview>,
+        hp: u8,
+        high_contrast: bool,
+        reduced_motion: bool,
+    ) -> Vec<DrawItem> {
+        let mut real = crate::hud::test_inputs(hp, 4);
+        real.high_contrast = high_contrast;
+        real.reduced_motion = reduced_motion;
+        real.hp_flash = None;
+        let mut list = Vec::new();
+        build_draw_list(
+            &build_snapshot(&real, preview, 0),
+            &HudLayout::new(360, 288),
+            &mut list,
+        );
+        list
+    }
+
+    /// Contrast ratio of two colours (WCAG relative luminance).
+    fn contrast(a: Rgb, b: Rgb) -> f64 {
+        let lum = |c: Rgb| {
+            let f = |v: u8| {
+                let v = f64::from(v) / 255.0;
+                if v <= 0.03928 {
+                    v / 12.92
+                } else {
+                    ((v + 0.055) / 1.055).powf(2.4)
+                }
+            };
+            0.2126 * f(c.0) + 0.7152 * f(c.1) + 0.0722 * f(c.2)
+        };
+        let (hi, lo) = (lum(a).max(lum(b)), lum(a).min(lum(b)));
+        (hi + 0.05) / (lo + 0.05)
+    }
+
+    #[test]
+    fn high_contrast_only_recolours_and_never_moves_anything() {
+        for preview in std::iter::once(None).chain(HudPreview::ALL.into_iter().map(Some)) {
+            for hp in [1u8, 2, 4] {
+                let (normal, high) = (hc_list(preview, hp, false), hc_list(preview, hp, true));
+                assert_eq!(normal.len(), high.len(), "{preview:?} hp {hp}");
+                for (a, b) in normal.iter().zip(&high) {
+                    assert_eq!((a.x, a.y, a.z), (b.x, b.y, b.z), "{preview:?}");
+                    let size = |k: &DrawKind| match k {
+                        DrawKind::Rect { w, h, .. } | DrawKind::Frame { w, h, .. } => (*w, *h),
+                        DrawKind::Text { text, font, .. } => (text_width_px(*font, text), 0),
+                    };
+                    assert_eq!(size(&a.kind), size(&b.kind), "{preview:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn high_contrast_off_is_the_unchanged_default() {
+        // The default list still carries the dim colours the spec defines.
+        let normal = hc_list(Some(HudPreview::Depleted), 4, false);
+        assert!(
+            normal
+                .iter()
+                .any(|i| matches!(i.kind, DrawKind::Frame { tint: Some(_), .. }))
+        );
+        assert!(
+            normal
+                .iter()
+                .any(|i| matches!(i.kind, DrawKind::Rect { color, .. } if color == p::METAL_LIGHT))
+        );
+    }
+
+    #[test]
+    fn high_contrast_text_is_at_least_seven_to_one_on_its_fill() {
+        for preview in [
+            None,
+            Some(HudPreview::PreUnlock),
+            Some(HudPreview::Depleted),
+        ] {
+            for hp in [1u8, 4] {
+                for i in hc_list(preview, hp, true) {
+                    let DrawKind::Text {
+                        font,
+                        ref text,
+                        color,
+                    } = i.kind
+                    else {
+                        continue;
+                    };
+                    // Tag texts sit on their own solid tag, PREVIEW on ink,
+                    // and the notice label on the notice fill; the rest is
+                    // on the plate.
+                    if matches!(text.as_str(), "P1" | "P2" | "AI") || text.starts_with("PREVIEW") {
+                        continue;
+                    }
+                    let _ = font;
+                    // The notice panel (y >= 320) has its own fill.
+                    let fill = if i.y >= 320 {
+                        p::NOTICE_BG
+                    } else {
+                        p::PLATE_FILL
+                    };
+                    assert!(
+                        contrast(color, fill) >= 7.0,
+                        "{preview:?}: {text:?} is {:.1}:1",
+                        contrast(color, fill)
+                    );
+                }
+            }
+        }
+        // And the normal list still has the 4.2:1 dim text high contrast removes.
+        assert!(
+            hc_list(None, 4, false)
+                .iter()
+                .any(|i| matches!(&i.kind, DrawKind::Text { color, .. } if *color == p::AMBER_DIM))
+        );
+    }
+
+    #[test]
+    fn high_contrast_muted_chip_is_never_more_emphatic_than_a_live_chip() {
+        let high = hc_list(Some(HudPreview::Depleted), 1, true);
+        // No dim text in high contrast (4.2:1 is below 7:1).
+        assert!(
+            !high
+                .iter()
+                .any(|i| matches!(&i.kind, DrawKind::Text { color, .. } if *color == p::AMBER_DIM))
+        );
+        // The muted chip (MISSILE) has the dimmed glyph (luminance, not hue)
+        // and exactly one tinted frame; the live chip (POUNCE) is untinted.
+        let tinted = high
+            .iter()
+            .filter(
+                |i| matches!(i.kind, DrawKind::Frame { tint: Some(t), .. } if t == p::AMBER_DIM),
+            )
+            .count();
+        assert_eq!(tinted, 1);
+        // Its label and the zig-zag underline are `amber`, never `text_white`
+        // (13.7:1, brighter than the live chip's 10.4:1) and still >= 7:1.
+        assert!(
+            !high.iter().any(|i| i.z >= Z_FLASH
+                && matches!(i.kind, DrawKind::Rect { w: 2, h: 1, color, .. } if color == p::TEXT_WHITE))
+        );
+        let strokes = |list: &[DrawItem], c: Rgb| {
+            list.iter()
+                .filter(|i| {
+                    i.z >= Z_FLASH
+                        && matches!(i.kind, DrawKind::Rect { w: 2, h: 1, color, .. } if color == c)
+                })
+                .count()
+        };
+        let normal = hc_list(Some(HudPreview::Depleted), 1, false);
+        // 25 dim strokes in normal become 25 more `amber` strokes in high contrast.
+        assert_eq!(strokes(&normal, p::AMBER_DIM), 25);
+        assert_eq!(strokes(&high, p::AMBER), strokes(&normal, p::AMBER) + 25);
+        assert_eq!(strokes(&high, p::AMBER_DIM), 0);
+        assert!(contrast(p::AMBER, p::PLATE_FILL) >= 7.0);
+        assert!(contrast(p::AMBER_DIM, p::PLATE_FILL) >= 3.0);
+        // The zig-zag is the only extra mark: a live-only list has none.
+        let live = hc_list(None, 4, true);
+        assert!(
+            !live
+                .iter()
+                .any(|i| i.z >= Z_FLASH && matches!(i.kind, DrawKind::Rect { w: 2, h: 1, .. }))
+        );
+    }
+
+    #[test]
+    fn high_contrast_keeps_outlines_white_and_fills_lighter() {
+        let high = hc_list(Some(HudPreview::Depleted), 1, true);
+        // Empty HP segments (hp 1 of 4) use white outlines. The empty mana
+        // track does too once the (normal-motion) magenta flash is not shown.
+        assert!(high.iter().any(|i| matches!(i.kind, DrawKind::Rect { w: 22, h: 6, color, .. } if color == p::TEXT_WHITE)));
+        let calm = hc_list_motion(Some(HudPreview::Depleted), 1, true, true);
+        assert!(calm.iter().any(|i| matches!(i.kind, DrawKind::Rect { w: 96, h: 5, color, .. } if color == p::TEXT_WHITE)));
+        // A track that is not empty gets a metal_hi outline instead of ink.
+        let post = hc_list(Some(HudPreview::PostUnlock), 4, true);
+        assert!(post.iter().any(
+            |i| matches!(i.kind, DrawKind::Rect { w: 96, h: 5, color, .. } if color == p::METAL_HI)
+        ));
+        // Full HP fill is the lighter red.
+        let full = hc_list(None, 4, true);
+        assert!(full.iter().any(
+            |i| matches!(i.kind, DrawKind::Rect { w: 22, h: 6, color, .. } if color == p::HP_RED_HI)
+        ));
+        assert!(!full.iter().any(|i| matches!(i.kind, DrawKind::Rect { color, .. } if color == p::HP_RED && i.z < Z_ICON && i.y == 25)));
+        assert!(contrast(p::HP_RED_HI, p::PLATE_FILL) >= 5.0);
+        assert!(contrast(p::TEXT_WHITE, p::PLATE_FILL) >= 13.0);
     }
 }
