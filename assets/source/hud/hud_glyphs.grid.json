@@ -1,0 +1,261 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  11,
+  11
+ ],
+ "pivot": [
+  0,
+  10
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "hud_ink",
+   "rgba": "#120c18ff"
+  },
+  {
+   "key": "r",
+   "name": "metal_dark",
+   "rgba": "#2a2430ff"
+  },
+  {
+   "key": "M",
+   "name": "metal_mid",
+   "rgba": "#3d3542ff"
+  },
+  {
+   "key": "L",
+   "name": "metal_light",
+   "rgba": "#5c5262ff"
+  },
+  {
+   "key": "W",
+   "name": "text_white",
+   "rgba": "#f4e6d2ff"
+  }
+ ],
+ "layers": [
+  "art"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "...KKKKK...",
+     "..KLLLLLK..",
+     ".KLLLLLLLK.",
+     "KLLLWWWLLLK",
+     "KLLWLLLWLLK",
+     "KLLWWWWWLLK",
+     "KMMWMMMWMMK",
+     "KMMWMMMWMMK",
+     ".KMMMMMMMK.",
+     "..KMMMMMK..",
+     "...KKKKK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "...KKKKK...",
+     "..KLLLLLK..",
+     ".KLLLLLLLK.",
+     "KLLWWWWLLLK",
+     "KLLWLLLWLLK",
+     "KLLWWWWLLLK",
+     "KMMWMMMWMMK",
+     "KMMWWWWMMMK",
+     ".KMMMMMMMK.",
+     "..KMMMMMK..",
+     "...KKKKK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "...KKKKK...",
+     "..KLLLLLK..",
+     ".KLLLLLLLK.",
+     "KLLWLLLWLLK",
+     "KLLLWLWLLLK",
+     "KLLLLWLLLLK",
+     "KMMMWMWMMMK",
+     "KMMWMMMWMMK",
+     ".KMMMMMMMK.",
+     "..KMMMMMK..",
+     "...KKKKK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "...KKKKK...",
+     "..KLLLLLK..",
+     ".KLLLLLLLK.",
+     "KLLWLLLWLLK",
+     "KLLLWLWLLLK",
+     "KLLLLWLLLLK",
+     "KMMMMWMMMMK",
+     "KMMMMWMMMMK",
+     ".KMMMMMMMK.",
+     "..KMMMMMK..",
+     "...KKKKK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "...KKKKK...",
+     "..KLLLLLK..",
+     ".KLLLLLLLK.",
+     "KLLWLLLWLLK",
+     "KLLWWLWWLLK",
+     "KLLLWWWLLLK",
+     "KMMWWMWWMMK",
+     "KMMWMMMWMMK",
+     ".KMMMMMMMK.",
+     "..KMMMMMK..",
+     "...KKKKK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "...KKKKK...",
+     "..KLLLLLK..",
+     ".KLLLLLLLK.",
+     "KLLLWWWLLLK",
+     "KLLWLLLWLLK",
+     "KLLWLLLWLLK",
+     "KMMWMMMWMMK",
+     "KMMMWWWMMMK",
+     ".KMMMMMMMK.",
+     "..KMMMMMK..",
+     "...KKKKK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "...KKKKK...",
+     "..KLLLLLK..",
+     ".KLLLLLLLK.",
+     "KLLWWWWWLLK",
+     "KLLWLLLWLLK",
+     "KLLWLLLWLLK",
+     "KMMWMMMWMMK",
+     "KMMWWWWWMMK",
+     ".KMMMMMMMK.",
+     "..KMMMMMK..",
+     "...KKKKK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "...KKKKK...",
+     "..KLLLLLK..",
+     ".KLLLLLLLK.",
+     "KLLLLWLLLLK",
+     "KLLLWLWLLLK",
+     "KLLLWLWLLLK",
+     "KMMWMMMWMMK",
+     "KMMWWWWWMMK",
+     ".KMMMMMMMK.",
+     "..KMMMMMK..",
+     "...KKKKK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "KKKKKKKKKKK",
+     "KrrrrrrrrrK",
+     "KrrrLLLrrrK",
+     "KrrLrrrLrrK",
+     "KrrLrrrLrrK",
+     "KrLLLLLLLrK",
+     "KrLLLKLLLrK",
+     "KrLLLKLLLrK",
+     "KrLLLLLLLrK",
+     "KrrrrrrrrrK",
+     "KKKKKKKKKKK"
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "glyph_a",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  },
+  {
+   "name": "glyph_b",
+   "from": 1,
+   "to": 1,
+   "direction": "forward"
+  },
+  {
+   "name": "glyph_x",
+   "from": 2,
+   "to": 2,
+   "direction": "forward"
+  },
+  {
+   "name": "glyph_y",
+   "from": 3,
+   "to": 3,
+   "direction": "forward"
+  },
+  {
+   "name": "glyph_cross",
+   "from": 4,
+   "to": 4,
+   "direction": "forward"
+  },
+  {
+   "name": "glyph_circle",
+   "from": 5,
+   "to": 5,
+   "direction": "forward"
+  },
+  {
+   "name": "glyph_square",
+   "from": 6,
+   "to": 6,
+   "direction": "forward"
+  },
+  {
+   "name": "glyph_triangle",
+   "from": 7,
+   "to": 7,
+   "direction": "forward"
+  },
+  {
+   "name": "socket_locked",
+   "from": 8,
+   "to": 8,
+   "direction": "forward"
+  }
+ ]
+}
