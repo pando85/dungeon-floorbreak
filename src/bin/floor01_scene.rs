@@ -46,6 +46,9 @@ use dungeon_floorbreak::{
     audio_adapter::{AudioQueue, FloorAudioPlugin, resolve_pack_dir},
     blast::BLAST_CENTRE_DY,
     blast_art::{BURST_IMAGE, BlastArt, DYNAMITE_IMAGE},
+    boss::{BossMode, RackState},
+    boss_art::{self, BossArt, FxCtx, Gait, Layer, SheetId},
+    boss_scene,
     camera_lab::camera_op::{Aspect, Bounds, View},
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
     combat_anim::{
@@ -201,6 +204,9 @@ struct Args {
     demo_beat: usize,
     /// DEMO-01: the deterministic autopilot drives Carl (probes, evidence).
     autopilot: bool,
+    /// HUD-DEBT-03: the Floor 01 boss arena (`--scene boss_f01`, or a boss
+    /// fixture): the arena kit replaces the corridor.
+    boss: bool,
 }
 
 impl Args {
@@ -293,6 +299,7 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
         demo: false,
         demo_beat: 0,
         autopilot: false,
+        boss: false,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -343,6 +350,17 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             other if parsed.hud_settings.apply_flag(other)? => {}
             "--no-lighting" => parsed.no_lighting = true,
             "--demo" => parsed.demo = true,
+            "--scene" => {
+                let value = iter.next().ok_or("--scene needs a name (boss_f01)")?;
+                if value != "boss_f01" {
+                    return Err(format!("unknown scene {value:?} (expected boss_f01)"));
+                }
+                if parsed.fixture.is_some() || parsed.party_fixture.is_some() {
+                    return Err("--scene boss_f01 replaces --fixture and --party-fixture".into());
+                }
+                parsed.boss = true;
+                parsed.fixture = Some(boss_scene::BOSS01_SCENE);
+            }
             "--autopilot" => parsed.autopilot = true,
             "--demo-beat" => {
                 let value = iter.next().ok_or("--demo-beat needs a beat 0 to 6")?;
@@ -458,6 +476,19 @@ fn parse_args_with(args: &[String], hud_settings: HudSettings) -> Result<Args, S
             }
             other => return Err(format!("unknown argument {other:?}")),
         }
+    }
+    parsed.boss |= parsed.fixture.is_some_and(|f| f.boss.is_some());
+    if parsed.boss && (parsed.demo || parsed.scenario.is_some() || parsed.reference_frame) {
+        return Err("the boss arena replaces --demo, --scenario and --reference-frame".into());
+    }
+    if parsed.boss && parsed.fixture == Some(boss_scene::BOSS01_SCENE) {
+        // A live run without a script is the player's.
+        parsed.manual = !(parsed.headless
+            || parsed.capture_tick.is_some()
+            || parsed.capture_sequence.is_some()
+            || parsed.exit_after_ticks.is_some()
+            || parsed.freeze
+            || parsed.perf_frames.is_some());
     }
     if parsed.demo {
         if parsed.fixture.is_some() || parsed.scenario.is_some() || parsed.reference_frame {
@@ -642,6 +673,19 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     // Melee input is live exactly when the combat state exists (see the
     // manual input gate in `fixed_step`).
     hud.set_melee_live(combat.is_some());
+    // HUD-DEBT-03: the boss strip reads the simulation's boss state.
+    match combat.and_then(|c| c.boss.as_ref()) {
+        Some(boss) => {
+            let data = boss.data();
+            hud.set_boss(
+                Some(boss.state()),
+                &data.hud.display_name,
+                &data.hud.emblem,
+                data.exit_slide_delay,
+            );
+        }
+        None => hud.set_boss(None, "", "", 0),
+    }
     hud.step(
         sim.world.hero.health,
         sim.world.donut.health,
@@ -684,7 +728,7 @@ fn build_scene(
         }
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let inputs = if let Some(pf) = args.party_fixture {
-                let slots = pf.slot_inputs(sim.world.tick + 1);
+                let slots = pf.inputs(sim.world.tick + 1, &combat, &sim);
                 let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
                 party.request_swap(slots[0].swap, hurt);
                 sim.set_drive(party.drive(true));
@@ -841,6 +885,8 @@ fn main() -> ExitCode {
     };
     let kit = if args.demo {
         demo::load_hall(&root)
+    } else if args.boss {
+        boss_scene::load_arena(&root)
     } else if let Some(room) = args.camera_test_room {
         test_room_kit(&root, room)
     } else {
@@ -894,10 +940,57 @@ fn main() -> ExitCode {
 #[derive(Resource)]
 struct Sim(SceneSim);
 
+/// The boss atlas, when it is exported (HUD-DEBT-03); `None` draws placeholders.
+#[derive(Resource)]
+struct BossArtRes(Option<BossArt>);
+
+/// One placeholder rect of the boss encounter (spec sizes, from the sim).
+#[derive(Component, Clone, Copy)]
+enum BossPiece {
+    Body,
+    Eye,
+    Rack(usize),
+    Strut,
+    Gate,
+    Ripple(usize),
+}
+
+/// One pooled sprite of the boss' art (the body, the racks, the effects): the
+/// system assigns each tick's [`boss_art::draws`] to the pool in order.
+#[derive(Component)]
+struct BossFxSprite;
+
+/// The texture and the atlas layout of each boss sheet, by [`SheetId`].
+#[derive(Resource, Default)]
+struct BossTextures([Option<(Handle<Image>, Handle<TextureAtlasLayout>)>; 6]);
+
+/// Sprites in the boss art pool (the body, two racks with pulleys, the strut,
+/// the ledge, shadows, up to four ripples, dust, crack and finish effects).
+const BOSS_FX_POOL: usize = 40;
+
+/// Presentation-only gait memory: whether the boss moved since the previous
+/// simulated tick, observed once per tick (never per render frame).
+#[derive(Default)]
+struct WalkTrack {
+    tick: u64,
+    x: f32,
+    walking: bool,
+}
+
+/// The boss sits just above Donut and below Carl.
+const BOSS_Z_OFFSET: f32 = 0.06;
+/// Boss art depth bands (relative to the actors' plane): the floor shadow and
+/// pool over the floor, the pulley, strut, ledge, wall crack and roar ring
+/// behind the actors, and the racks and effects of the body over the boss and
+/// under Carl.
+const BOSS_Z_FLOOR: f32 = -0.4;
+const BOSS_Z_BACK: f32 = -0.2;
+const BOSS_Z_FRONT: f32 = 0.075;
+
 /// Asset path of the HUD atlas when its art is exported (the loading
 /// watchdog waits for it like for every other atlas).
 #[derive(Resource)]
-struct HudAtlas(Option<&'static str>);
+struct HudAtlas(Option<&'static str>, Option<&'static str>);
 
 /// Presentation-only animation state, stepped once per fixed tick from the
 /// finished simulation state.
@@ -1355,6 +1448,15 @@ fn run_window(
     args: Args,
     root: &Path,
 ) {
+    // HUD-DEBT-03: the boss atlas when its manifest and export exist; the
+    // scene draws spec-size placeholder rects otherwise. Wrong art is fatal.
+    let boss_art = match BossArt::load(root) {
+        Ok(art) => art,
+        Err(error) => {
+            println!("FLOOR1_ASSET_FAILURE: {error}");
+            std::process::exit(1);
+        }
+    };
     // Bevy 0.20 resolves a relative AssetPlugin path from the binary directory,
     // so give it an absolute directory below the repository root.
     let asset_directory = root.join("generated/art").to_string_lossy().into_owned();
@@ -1448,6 +1550,7 @@ fn run_window(
         }
     };
     let hud_atlas = hud_plugin.atlas_asset();
+    let hud_emblem = hud_plugin.emblem_asset();
     let mut plugins = DefaultPlugins
         .set(ImagePlugin::default_nearest())
         .set(AssetPlugin {
@@ -1492,11 +1595,12 @@ fn run_window(
     .insert_resource(ReferencePose(reference))
     .insert_resource(LiveScenario(scenario))
     .insert_resource(Combat(combat))
+    .insert_resource(BossArtRes(boss_art))
     .insert_resource(Death(death))
     .insert_resource(camera)
     .init_resource::<Interest>()
     .insert_resource(LiveFixture(live_fixture))
-    .insert_resource(HudAtlas(hud_atlas))
+    .insert_resource(HudAtlas(hud_atlas, hud_emblem))
     .insert_resource(Setup { kit, args })
     .init_resource::<Controls>()
     .insert_resource(Pads(PadSlots::new(party)))
@@ -1511,6 +1615,7 @@ fn run_window(
             perf_step,
             sync_visuals,
             sync_combat_visuals,
+            sync_boss_visuals,
             sync_llama_visuals,
             sync_dust_visuals,
             sync_shore_visuals,
@@ -1571,6 +1676,7 @@ fn setup(
     combat: Res<Combat>,
     death: Res<Death>,
     hud_atlas: Res<HudAtlas>,
+    boss_art: Res<BossArtRes>,
     cam: Res<SceneCam>,
 ) {
     let kit = &setup.kit;
@@ -1594,6 +1700,9 @@ fn setup(
         handles.push((name.clone(), asset_server.load(asset.clone())));
     }
     if let Some(asset) = hud_atlas.0 {
+        handles.push((asset.to_owned(), asset_server.load(asset)));
+    }
+    if let Some(asset) = hud_atlas.1 {
         handles.push((asset.to_owned(), asset_server.load(asset)));
     }
     let atlas = |name: &str| -> Handle<Image> {
@@ -1859,6 +1968,67 @@ fn setup(
                     Vec2::ONE,
                 );
             }
+        }
+    }
+
+    // HUD-DEBT-03: the boss, its racks, strut, gate and ripples. Placeholder
+    // rects at the spec sizes; the atlas sprite replaces the body when the boss
+    // art exists (`boss_art`).
+    if combat.0.as_ref().is_some_and(|c| c.boss.is_some()) {
+        let z = kit.actor_z + BOSS_Z_OFFSET;
+        let mut piece = |kind: BossPiece, colour: Color| {
+            commands.spawn((
+                kind,
+                Sprite::from_color(colour, Vec2::ONE),
+                Transform::from_xyz(0.0, 0.0, z),
+                Visibility::Hidden,
+                layers_of("actors"),
+            ));
+            combat_entities += 1;
+        };
+        piece(BossPiece::Body, Color::srgb(0.42, 0.1, 0.34));
+        piece(BossPiece::Eye, Color::srgb(0.95, 0.9, 0.8));
+        for index in 0..2 {
+            piece(BossPiece::Rack(index), Color::srgb(0.3, 0.3, 0.34));
+        }
+        piece(BossPiece::Strut, Color::srgb(0.42, 0.28, 0.14));
+        piece(BossPiece::Gate, Color::srgb(0.2, 0.17, 0.2));
+        for slot in 0..4 {
+            piece(BossPiece::Ripple(slot), Color::srgb(0.95, 0.7, 0.2));
+        }
+        if let Some(art) = boss_art.0.as_ref() {
+            let mut textures = BossTextures::default();
+            for sheet in art.sheets() {
+                let texture: Handle<Image> = asset_server.load(sheet.asset.clone());
+                let layout = layouts.add(TextureAtlasLayout::from_grid(
+                    UVec2::new(sheet.frame_size.0 as u32, sheet.frame_size.1 as u32),
+                    sheet.count as u32,
+                    1,
+                    None,
+                    None,
+                ));
+                combat_handles.push((sheet.asset.clone(), texture.clone()));
+                textures.0[sheet.id as usize] = Some((texture, layout));
+            }
+            if let Some((texture, layout)) = textures.0[SheetId::Base as usize].clone() {
+                for _ in 0..BOSS_FX_POOL {
+                    commands.spawn((
+                        BossFxSprite,
+                        Sprite::from_atlas_image(
+                            texture.clone(),
+                            TextureAtlas {
+                                layout: layout.clone(),
+                                index: 0,
+                            },
+                        ),
+                        Transform::from_xyz(0.0, 0.0, z + 0.01),
+                        Visibility::Hidden,
+                        layers_of("actors"),
+                    ));
+                    combat_entities += 1;
+                }
+            }
+            commands.insert_resource(textures);
         }
     }
 
@@ -2979,6 +3149,235 @@ fn sync_combat_visuals(
     }
 }
 
+/// HUD-DEBT-03: the boss encounter as the simulation has it. Placeholder rects
+/// at the spec sizes (the hurtbox, the racks, the strut, the gate, the
+/// ripples); with the boss atlas the body is the atlas frame of
+/// [`boss_art::pose_of`]. Reads the simulation only.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn sync_boss_visuals(
+    combat: Res<Combat>,
+    sim: Res<Sim>,
+    death: Res<Death>,
+    setup: Res<Setup>,
+    art: Res<BossArtRes>,
+    textures: Option<Res<BossTextures>>,
+    mut walk: Local<WalkTrack>,
+    mut pieces: Query<
+        (&BossPiece, &mut Transform, &mut Sprite, &mut Visibility),
+        Without<BossFxSprite>,
+    >,
+    mut fx: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (With<BossFxSprite>, Without<BossPiece>),
+    >,
+) {
+    let Some(state) = combat.0.as_ref() else {
+        return;
+    };
+    let Some(boss) = state.boss.as_ref() else {
+        return;
+    };
+    let data = boss.data();
+    let floor = boss.floor_y();
+    let set = |transform: &mut Transform, rect: dungeon_floorbreak::prototype::Rect| {
+        let (cx, cy) = rect.center();
+        transform.translation.x = cx.round();
+        transform.translation.y = cy.round();
+        transform.scale = Vec3::new(rect.width, rect.height, 1.0);
+    };
+    let ripples: Vec<(f32, i8)> = boss.ripples().collect();
+    // What the atlases cover is drawn from them (`boss_art::draws`); what a
+    // missing atlas leaves out falls back to its placeholder rect.
+    let has = |id: SheetId| art.0.as_ref().is_some_and(|a| a.sheet(id).is_some());
+    let has_art = has(SheetId::Base) && has(SheetId::Enc);
+    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+        let shown = match *piece {
+            BossPiece::Body => match boss.hurtbox() {
+                Some(rect) if !has_art => {
+                    set(&mut transform, rect);
+                    sprite.color = match boss.mode {
+                        BossMode::PoundTell | BossMode::SecondTell | BossMode::ChargeTell => {
+                            Color::srgb(0.95, 0.6, 0.12)
+                        }
+                        BossMode::Stun | BossMode::Rebound => Color::srgb(0.3, 0.3, 0.7),
+                        BossMode::Pinned => Color::srgb(0.35, 0.35, 0.35),
+                        _ => Color::srgb(0.42, 0.1, 0.34),
+                    };
+                    true
+                }
+                None if boss.mode == BossMode::Defeated && !has_art => {
+                    // The corpse: the pinned box, flat on the floor.
+                    set(
+                        &mut transform,
+                        dungeon_floorbreak::prototype::Rect {
+                            left: boss.x - 50.0,
+                            bottom: floor,
+                            width: 100.0,
+                            height: 14.0,
+                        },
+                    );
+                    sprite.color = Color::srgb(0.25, 0.08, 0.1);
+                    true
+                }
+                _ => false,
+            },
+            BossPiece::Eye => match boss.hurtbox() {
+                Some(rect) if !has_art => {
+                    let front = if boss.facing >= 0 {
+                        rect.right() - 12.0
+                    } else {
+                        rect.left + 4.0
+                    };
+                    set(
+                        &mut transform,
+                        dungeon_floorbreak::prototype::Rect {
+                            left: front,
+                            bottom: rect.top() - 22.0,
+                            width: 8.0,
+                            height: 8.0,
+                        },
+                    );
+                    true
+                }
+                _ => false,
+            },
+            BossPiece::Rack(_) if has(SheetId::Rack) => false,
+            BossPiece::Strut if has(SheetId::Strut) => false,
+            BossPiece::Ripple(_) if has(SheetId::Vfx) => false,
+            BossPiece::Rack(index) => {
+                let rack = &boss.racks[index];
+                let hanging = 189.0;
+                let bottom = match rack.state {
+                    RackState::Idle { .. } => hanging,
+                    RackState::Falling { ticks, .. } => {
+                        let t = f32::from(ticks) / f32::from(data.rack.fall_ticks);
+                        hanging * (1.0 - t * t)
+                    }
+                    RackState::Landed => 0.0,
+                };
+                set(
+                    &mut transform,
+                    dungeon_floorbreak::prototype::Rect {
+                        left: data.footprint_centre(rack.facing) - data.rack.footprint_px * 0.5,
+                        bottom: floor + bottom,
+                        width: data.rack.footprint_px,
+                        height: data.rack.footprint_height,
+                    },
+                );
+                rack.enabled
+            }
+            BossPiece::Strut => {
+                set(&mut transform, boss.strut_rect());
+                data.rack.left.enabled && matches!(boss.racks[0].state, RackState::Idle { .. })
+            }
+            BossPiece::Gate => {
+                set(
+                    &mut transform,
+                    dungeon_floorbreak::prototype::Rect {
+                        left: 0.0,
+                        bottom: floor,
+                        width: data.gate.solid_x,
+                        height: 224.0,
+                    },
+                );
+                boss.gate_closed()
+            }
+            BossPiece::Ripple(slot) => match ripples.get(slot) {
+                Some(&(x, _)) => {
+                    set(
+                        &mut transform,
+                        dungeon_floorbreak::prototype::Rect {
+                            left: x - data.shockwave.width * 0.5,
+                            bottom: floor,
+                            width: data.shockwave.width,
+                            height: data.shockwave.height,
+                        },
+                    );
+                    true
+                }
+                None => false,
+            },
+        };
+        *visibility = if shown {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+    }
+    let (Some(art), Some(textures)) = (art.0.as_ref(), textures) else {
+        return;
+    };
+    // The gait: observed once per simulated tick, not per render frame.
+    let tick = sim.0.world.tick;
+    if walk.tick != tick {
+        walk.walking = boss.mode == BossMode::Neutral && (boss.x - walk.x).abs() > 1e-3;
+        walk.tick = tick;
+        walk.x = boss.x;
+    }
+    let gore_full = death
+        .0
+        .as_ref()
+        .is_none_or(|presenter| presenter.preset() == GorePreset::Full);
+    let list = boss_art::draws(
+        art,
+        boss,
+        FxCtx {
+            events: &state.events,
+            now: tick,
+            gait: Gait {
+                clock: tick,
+                walking: walk.walking,
+                ..Gait::default()
+            },
+            gore_full,
+        },
+    );
+    let actor_z = setup.kit.actor_z;
+    let mut drawn = list.iter();
+    for (index, (mut transform, mut sprite, mut visibility)) in fx.iter_mut().enumerate() {
+        let Some(draw) = drawn.next() else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let (Some(sheet), Some((texture, layout))) = (
+            art.sheet(draw.sheet),
+            textures.0[draw.sheet as usize].as_ref(),
+        ) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let pivot = sheet.pivot(draw.frame);
+        let spec = ActorSpec {
+            name: "brute_boss_f01",
+            width: sheet.frame_size.0,
+            height: sheet.frame_size.1,
+            pivot_x: pivot.0,
+            pivot_y: pivot.1,
+            shadow_width: 0,
+            shadow_pivot_x: 0,
+        };
+        let (cx, cy) = actor_center(spec, draw.x, draw.y, draw.flip);
+        let z = actor_z
+            + match draw.layer {
+                Layer::Floor => BOSS_Z_FLOOR,
+                Layer::Back => BOSS_Z_BACK,
+                Layer::Body => BOSS_Z_OFFSET,
+                Layer::Front => BOSS_Z_FRONT,
+            }
+            + index as f32 * 0.0001;
+        transform.translation = Vec3::new(cx, cy, z);
+        sprite.flip_x = draw.flip;
+        if sprite.image != *texture {
+            sprite.image = texture.clone();
+        }
+        sprite.texture_atlas = Some(TextureAtlas {
+            layout: layout.clone(),
+            index: draw.frame,
+        });
+        *visibility = Visibility::Inherited;
+    }
+}
+
 /// DEMO-01 PR B: the Bad Llamas and their spit globs as the simulation has them
 /// (frame by the finished tick, whole-pixel placement like every actor). Reads
 /// the simulation and the animators only.
@@ -4082,6 +4481,15 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         // The view trace runs on any layout (the corridor checks below assume
         // the sample corridor, not a camera test room).
         return view_trace(kit, args, actors, root);
+    }
+    if args.boss {
+        println!(
+            "FLOOR1_HEADLESS_OK: boss arena {} tiles, {} pieces, {} merged solids",
+            kit.tiles.len(),
+            kit.pieces.len(),
+            kit.solid_rects.len()
+        );
+        return headless_fixture(kit, args, actors, root);
     }
     if args.demo {
         // The demo hall has no exit and a different spawn: the story-run checks

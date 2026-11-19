@@ -196,6 +196,12 @@ pub fn cues_from_combat_event(event: &CombatEvent) -> Vec<CueId> {
         CombatEvent::GoblinContact { .. } => vec![CueId::EnemyBodyCollision],
         CombatEvent::ShoreBroken { .. } => vec![CueId::WallBreak],
         CombatEvent::ShoreLanded { .. } => vec![CueId::HeavyPropCrash],
+        // HUD-DEBT-03: the boss arena reuses the same cues (the siren for a
+        // tell, the wall break for the crash, the heavy prop for a rack).
+        CombatEvent::BossTell { .. } => vec![CueId::Warning],
+        CombatEvent::BossCrash { .. } => vec![CueId::WallBreak],
+        CombatEvent::RackLanded { .. } => vec![CueId::HeavyPropCrash],
+        CombatEvent::BossHurt { .. } => vec![CueId::EnemyHitReaction],
         _ => Vec::new(),
     }
 }
@@ -864,6 +870,7 @@ mod tests {
                     ai: EnemyAi::Passive,
                 }],
                 shore_dx: None,
+                boss: None,
                 llamas: &[],
                 charges: &[],
                 script: &[],

@@ -18,10 +18,13 @@
 //! hash so later knockback variance can use it without changing the contract.
 
 use crate::blast::{Arm, BlastCharge, BlastReach};
+use crate::boss::{
+    BOSS_ENEMY_ID, Boss, BossCtx, BossHit, BossOut, BossSetup, BossState, HeroBlow, HeroView,
+};
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
-    EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, Phase, RootStep, carl_move, hit_box, solid_at,
-    strike_group,
+    EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, MoveRunner, MoveTick, Phase, RootStep, carl_move,
+    hit_box, solid_at, strike_group,
 };
 use crate::corridor::{PartyStepCtx, SceneSim};
 use crate::env_kit::EnvKit;
@@ -184,6 +187,10 @@ pub struct Fixture {
     /// Carl's start column (`None`: no shore). The shore rules are authored
     /// relative to the strike column ([`crate::shore`]).
     pub shore_dx: Option<i32>,
+    /// HUD-DEBT-03: the Floor 01 boss encounter runs on this fixture (the boss
+    /// arena kit, `crate::boss`) with this setup. `None` on every earlier
+    /// fixture: no boss.
+    pub boss: Option<BossSetup>,
     /// DEMO-01 PR B: Bad Llamas. Their target ids follow the goblins'
     /// (`enemies.len() + index`). Empty on every earlier fixture: nothing of a
     /// llama is mixed into the state hash then.
@@ -253,6 +260,7 @@ pub const CP01_SINGLE_GOBLIN: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[attack(122, 123), attack(136, 137)],
@@ -272,6 +280,7 @@ pub const CP01_TWO_HITS: Fixture = Fixture {
         ai: EnemyAi::Passive,
     }],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[attack(10, 60), attack(70, 71)],
@@ -297,6 +306,7 @@ pub const CP02_TWO_GOBLINS: Fixture = Fixture {
         },
     ],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[
@@ -320,6 +330,7 @@ pub const CP01_GOBLIN_ATTACKS: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[],
@@ -337,6 +348,7 @@ pub const CP01_INTERRUPT: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[attack(137, 138)],
@@ -355,6 +367,7 @@ pub const CP01_HAYMAKER_CHAIN: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[attack(137, 138), attack(141, 142)],
@@ -380,6 +393,7 @@ pub const CP01_RETRY: Fixture = Fixture {
         },
     ],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[],
@@ -403,6 +417,7 @@ pub const CP01_KICK: Fixture = Fixture {
         ai: EnemyAi::Chase,
     }],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[kick(122, 123), kick(247, 248)],
@@ -429,6 +444,7 @@ pub const CP02_KICK_CONTACT: Fixture = Fixture {
         },
     ],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[kick(20, 21)],
@@ -450,6 +466,7 @@ pub const CP03_SHORE_KILL: Fixture = Fixture {
         ai: EnemyAi::Passive,
     }],
     shore_dx: Some(19),
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
@@ -468,6 +485,7 @@ pub const CP03_SHORE_MISS: Fixture = Fixture {
         ai: EnemyAi::Passive,
     }],
     shore_dx: Some(19),
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
@@ -489,6 +507,7 @@ pub const CP03_KICK_BLOCK: Fixture = Fixture {
         ai: EnemyAi::Passive,
     }],
     shore_dx: Some(19),
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[kick(20, 21), attack(100, 101), attack(140, 141)],
@@ -552,6 +571,7 @@ pub const CP03_GOBLIN_PILEUP: Fixture = Fixture {
         },
     ],
     shore_dx: Some(19),
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[
@@ -576,6 +596,7 @@ pub const CP05_LLAMA_SLAM: Fixture = Fixture {
     carl_x: 400,
     enemies: &[],
     shore_dx: None,
+    boss: None,
     llamas: &[LlamaSpawn {
         x: 440,
         ai: EnemyAi::Chase,
@@ -600,6 +621,7 @@ pub const CP05_LLAMA_DOWN: Fixture = Fixture {
     carl_x: 400,
     enemies: &[],
     shore_dx: None,
+    boss: None,
     llamas: &[LlamaSpawn {
         x: 438,
         ai: EnemyAi::Chase,
@@ -619,6 +641,7 @@ pub const CP05_LLAMA_SPIT: Fixture = Fixture {
     carl_x: 400,
     enemies: &[],
     shore_dx: None,
+    boss: None,
     llamas: &[LlamaSpawn {
         x: 560,
         ai: EnemyAi::Chase,
@@ -637,6 +660,7 @@ pub const CP05_LLAMA_OFFSCREEN: Fixture = Fixture {
     carl_x: 400,
     enemies: &[],
     shore_dx: None,
+    boss: None,
     llamas: &[LlamaSpawn {
         x: 1000,
         ai: EnemyAi::Chase,
@@ -656,6 +680,7 @@ pub const CP05_LLAMA_CRUSH: Fixture = Fixture {
     carl_x: 400,
     enemies: &[],
     shore_dx: Some(19),
+    boss: None,
     llamas: &[LlamaSpawn {
         x: 484,
         ai: EnemyAi::Passive,
@@ -680,6 +705,7 @@ pub const CP03_BLOCK_EDGE_DECAP: Fixture = Fixture {
         ai: EnemyAi::Passive,
     }],
     shore_dx: Some(19),
+    boss: None,
     llamas: &[],
     charges: &[],
     script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
@@ -710,6 +736,7 @@ pub const QA_BLAST_BREAKUP: Fixture = Fixture {
         },
     ],
     shore_dx: None,
+    boss: None,
     llamas: &[],
     charges: &[ChargeSpawn {
         dx: 120,
@@ -786,6 +813,9 @@ pub struct CombatState {
     pub globs: Vec<Glob>,
     /// CP-03: the rotten shore and its block (fixtures with `shore_dx`).
     pub shore: Option<Shore>,
+    /// HUD-DEBT-03: the Floor 01 boss encounter (boss fixtures only; `None`
+    /// everywhere else, so no earlier route, fixture or hash changes).
+    pub boss: Option<Boss>,
     /// DEATH-D: the fixture's authored blast charges (QA only).
     pub charges: Vec<BlastCharge>,
     /// CP-02: (launch id, target) pairs that already had their contact.
@@ -874,6 +904,7 @@ impl CombatState {
             llamas: Vec::new(),
             globs: Vec::new(),
             shore: None,
+            boss: None,
             charges: Vec::new(),
             contacts: Vec::new(),
             input: InputFrame::default(),
@@ -1017,6 +1048,7 @@ impl CombatState {
             .fixture
             .shore_dx
             .map(|dx| Shore::new((self.fixture.carl_x + dx) as f32, self.enemy_foot_y));
+        self.boss = self.fixture.boss.map(|setup| setup.boss(self.enemy_foot_y));
         self.charges = self
             .fixture
             .charges
@@ -1082,6 +1114,7 @@ impl CombatState {
         });
         scene.reset();
         self.reset_attempt();
+        self.sync_arena(scene);
         self.restarts += 1;
     }
 
@@ -1138,6 +1171,9 @@ impl CombatState {
             self.hero_hit_stop -= 1;
         } else {
             self.hurt_ticks = self.hurt_ticks.saturating_sub(1);
+            if self.hurt_ticks == 0 && !self.hero_defeated {
+                self.hero_vx = 0.0;
+            }
             scene.world.hero.invulnerable_ticks =
                 scene.world.hero.invulnerable_ticks.saturating_sub(1);
         }
@@ -1147,6 +1183,9 @@ impl CombatState {
                 self.donut.hit_stop -= 1;
             } else {
                 self.donut.hurt_ticks = self.donut.hurt_ticks.saturating_sub(1);
+                if self.donut.hurt_ticks == 0 && !self.hero_defeated {
+                    self.donut.vx = 0.0;
+                }
                 scene.world.donut_body.invulnerable_ticks =
                     scene.world.donut_body.invulnerable_ticks.saturating_sub(1);
             }
@@ -1288,6 +1327,12 @@ impl CombatState {
                     });
                 }
             }
+            if self.boss.is_some() {
+                // Hero move on the boss (the runner is on the scene's hero).
+                let mut runner = std::mem::take(&mut scene.world.hero.melee);
+                self.strike_boss(&mut runner, &move_tick, attacker, tick);
+                scene.world.hero.melee = runner;
+            }
         }
 
         // Committed on the ground: the feet stay planted and jumping is off.
@@ -1303,11 +1348,13 @@ impl CombatState {
         } else {
             raw
         };
-        if self.hero_defeated && !hero_frozen {
+        // A boss blow launches a hero (`hero_vx`); in every earlier fixture the
+        // drift runs only after the defeating blow, as before.
+        if (self.hero_defeated || self.hero_vx != 0.0) && !hero_frozen {
             self.drift_hero(scene);
         }
         if live {
-            if self.hero_defeated && !donut_frozen {
+            if (self.hero_defeated || self.donut.vx != 0.0) && !donut_frozen {
                 self.drift_donut(scene);
             }
             // Donut has no attacks (Q10 is deferred): only her movement and
@@ -1335,6 +1382,7 @@ impl CombatState {
                 can_move: [can_act && !committed, donut_can_act],
                 frozen: [hero_frozen || melee_frozen, donut_frozen],
                 threats: &threats,
+                boss: self.boss.as_ref().and_then(Boss::threat),
             };
             scene.step_party_ctx([gated, donut_raw], &ctx);
         } else if hero_frozen || melee_frozen {
@@ -1351,6 +1399,7 @@ impl CombatState {
         self.step_globs(scene, tick);
         self.resolve_contacts(tick);
         self.step_shore(tick);
+        self.step_boss(scene, tick);
         self.step_charges(tick, scene.world.hero.x);
 
         if self.hero_defeated {
@@ -1363,6 +1412,208 @@ impl CombatState {
                 }
             }
         }
+    }
+
+    /// The boss as the HUD reads it (`None` outside a boss fixture).
+    pub fn boss_state(&self) -> Option<BossState> {
+        self.boss.as_ref().map(Boss::state)
+    }
+
+    /// A hero's melee against the boss: the active box on its hurtbox (one hit
+    /// per move instance) and on the rack strut. Carl's move runs first, so he
+    /// wins a same-tick trade. The kick never launches the boss.
+    fn strike_boss(
+        &mut self,
+        runner: &mut MoveRunner,
+        move_tick: &MoveTick,
+        attacker: Attacker,
+        tick: u64,
+    ) {
+        let Some(mut boss) = self.boss.take() else {
+            return;
+        };
+        if move_tick.phase == Phase::Active
+            && !move_tick.frozen
+            && let Some(boxed) = hit_box(&move_tick.spec.shape, &attacker)
+        {
+            let mut events = Vec::new();
+            boss.strike_strut(
+                move_tick.instance,
+                boxed,
+                attacker.player,
+                tick,
+                &mut events,
+            );
+            let reaches = boss.hurtbox().is_some_and(|b| b.overlaps(boxed));
+            if reaches
+                && runner.record_hit(BOSS_ENEMY_ID)
+                && let Some(result) = boss.apply_hit(
+                    BossHit {
+                        damage: u16::from(move_tick.spec.damage),
+                        poise: u16::from(move_tick.spec.damage),
+                        player: attacker.player,
+                        hit_stop: move_tick.spec.reaction.hit_stop,
+                    },
+                    &mut events,
+                    tick,
+                )
+            {
+                runner.begin_hit_stop(move_tick.spec.reaction.hit_stop);
+                let bonus = if result.defeated {
+                    LETHAL_CAMERA_KICK_BONUS
+                } else {
+                    0
+                };
+                self.confirm = Some(Confirm {
+                    tick,
+                    kick_px: move_tick.spec.reaction.camera_kick_px + bonus,
+                    direction: attacker.facing,
+                });
+                if result.defeated {
+                    events.push(CombatEvent::enemy_defeated(
+                        tick,
+                        BOSS_ENEMY_ID,
+                        DefeatCause::Melee,
+                        Some(attacker.player),
+                        Some(move_tick.spec),
+                    ));
+                }
+            }
+            for event in events {
+                self.log(event);
+            }
+        }
+        self.boss = Some(boss);
+    }
+
+    /// One boss tick after the heroes and the goblins: build the boss' view of
+    /// the heroes, step it, and apply what it asks for (events, blows, pushes).
+    fn step_boss(&mut self, scene: &mut SceneSim, tick: u64) {
+        let Some(mut boss) = self.boss.take() else {
+            return;
+        };
+        let drive = *scene.drive();
+        let live = scene.party_live();
+        let heroes = HeroId::ALL.map(|id| {
+            let body = scene.world.body(id);
+            let present = !self.hero_defeated && (live || id == HeroId::Carl);
+            HeroView {
+                id,
+                present,
+                x: body.x,
+                foot_y: body.y - HERO_HALF_HEIGHT,
+                grounded: body.grounded,
+                hurt: Self::hurtbox(scene, id),
+                vulnerable: present && body.invulnerable_ticks == 0,
+                bot: drive.is_bot(id),
+            }
+        });
+        let out = boss.step(&BossCtx {
+            heroes,
+            solids: &scene.world.solids,
+            solo: live && !drive.two_player,
+            tick,
+        });
+        self.apply_boss_out(scene, &boss, out, tick);
+        crate::boss_scene::sync_arena_solids(&mut scene.world.solids, Some(&boss));
+        self.boss = Some(boss);
+    }
+
+    fn apply_boss_out(&mut self, scene: &mut SceneSim, boss: &Boss, out: BossOut, tick: u64) {
+        for event in out.events {
+            self.log(event);
+        }
+        for (id, x) in out.shifts {
+            scene.world.body_mut(id).x = x;
+        }
+        if let Some(id) = out.regroup {
+            let regroup_x = boss.data().gate.regroup_x;
+            let leader_y = scene.world.body(id.other()).y;
+            let body = scene.world.body_mut(id);
+            body.x = regroup_x;
+            body.y = leader_y;
+            body.vx = 0.0;
+            body.vy = 0.0;
+            body.grounded = false;
+        }
+        for blow in out.blows {
+            self.hurt_hero(scene, blow, tick);
+        }
+        if let Some((player, rack)) = out.crushed_by {
+            self.log(CombatEvent::enemy_defeated(
+                tick,
+                BOSS_ENEMY_ID,
+                DefeatCause::DropHazard { player, rack },
+                Some(player),
+                None,
+            ));
+        }
+    }
+
+    /// Put the arena's gate and exit wall where the boss says they are (after
+    /// a restart the gate is open and the wall back).
+    fn sync_arena(&self, scene: &mut SceneSim) {
+        if self.fixture.boss.is_some() {
+            crate::boss_scene::sync_arena_solids(&mut scene.world.solids, self.boss.as_ref());
+        }
+    }
+
+    /// A blow of the boss or its rack on `blow.hero`: the same damage path as
+    /// a goblin's swing (invulnerability, the solo last-HP guard, the hurt and
+    /// knockdown states, party defeat), plus the launch.
+    fn hurt_hero(&mut self, scene: &mut SceneSim, blow: HeroBlow, tick: u64) -> bool {
+        let id = blow.hero;
+        let drive = *scene.drive();
+        let tuning = drive.tuning;
+        let guarded = drive.is_guarded(id);
+        let hero = scene.world.body_mut(id);
+        if self.hero_defeated || hero.invulnerable_ticks > 0 {
+            return false;
+        }
+        let (invulnerable, hurt_for) = match id {
+            HeroId::Carl => (HERO_INVULNERABLE_TICKS, HERO_HURT_TICKS),
+            HeroId::Donut => (tuning.donut_invulnerable_ticks, tuning.donut_hurt_ticks),
+        };
+        let floor = u8::from(guarded && tuning.solo_last_hp_guard);
+        hero.health = hero
+            .health
+            .saturating_sub(blow.damage)
+            .max(floor.min(hero.health));
+        hero.invulnerable_ticks = invulnerable;
+        hero.melee.cancel();
+        hero.facing = if blow.from_x >= hero.x { 1 } else { -1 };
+        let away = if hero.x >= blow.from_x { 1.0 } else { -1.0 };
+        let health_left = hero.health;
+        let mut state = self.hero_state(id);
+        state.hurt_ticks = hurt_for;
+        state.hit_stop = state.hit_stop.max(HERO_HURT_HIT_STOP);
+        self.log(CombatEvent::HeroHurt {
+            tick,
+            source: blow.source,
+            health_left,
+            hero: id,
+        });
+        if id == HeroId::Donut {
+            scene.world.donut.health = health_left;
+        }
+        let hero = scene.world.body_mut(id);
+        if health_left == 0 {
+            self.hero_defeated = true;
+            self.defeated_hero = id;
+            self.deaths += 1;
+            state.hit_stop = state.hit_stop.max(HERO_DEFEAT_HIT_STOP);
+            state.vx = away * HERO_KNOCKDOWN_VX;
+            hero.vy = HERO_KNOCKDOWN_VY;
+            hero.grounded = false;
+            self.log(CombatEvent::HeroDefeated { tick, hero: id });
+        } else if blow.knock_vy > 0.0 {
+            // The launch: lifted off the ground, drifting away from the blow.
+            hero.vy = blow.knock_vy;
+            hero.grounded = false;
+            state.vx = blow.knock_vx;
+        }
+        self.set_hero_state(id, state);
+        true
     }
 
     /// DEMO-01 (no-op without demo rules): advance the checkpoint to the
@@ -2087,6 +2338,11 @@ impl CombatState {
         if let Some(shore) = &self.shore {
             shore.mix_into(&mut put);
         }
+        // HUD-DEBT-03: the boss encounter, mixed only in a boss fixture.
+        if let Some(boss) = &self.boss {
+            put(0x4255_4953_4552_0001);
+            boss.mix_into(&mut put);
+        }
         // DEATH-D: nothing is mixed for a fixture without charges.
         for charge in &self.charges {
             charge.mix_into(&mut put);
@@ -2162,6 +2418,7 @@ impl CombatState {
             goblins.join(" ")
         ) + &self.llama_trace()
             + &self.shore_token()
+            + &self.boss_token()
     }
 
     /// ` l<i>=<mode> ...` per llama and the globs in flight, else empty.
@@ -2228,6 +2485,21 @@ impl CombatState {
         ) + &self.shore_token()
             + &self.llama_state()
             + &self.demo_token()
+            + &self.boss_token()
+    }
+
+    /// ` boss=<hp>/<max>/<mode>/p<phase>` in a boss fixture, else empty.
+    fn boss_token(&self) -> String {
+        self.boss.as_ref().map_or_else(String::new, |boss| {
+            format!(
+                " boss={}/{}/{}/p{} boss_x={:.2}",
+                boss.hp,
+                boss.data().hp_max,
+                boss.mode.name(),
+                boss.phase,
+                boss.x
+            )
+        })
     }
 
     /// ` demo_cp=<furthest beat entered>` in a demo run, else empty.
@@ -2443,6 +2715,7 @@ mod tests {
                     ai: EnemyAi::Passive,
                 }],
                 shore_dx: None,
+                boss: None,
                 llamas: &[],
                 charges: &[],
                 script: &[],
@@ -2465,6 +2738,7 @@ mod tests {
             ai: EnemyAi::Chase,
         }],
         shore_dx: None,
+        boss: None,
         llamas: &[],
         charges: &[],
         script: &[],
@@ -2492,6 +2766,7 @@ mod tests {
             },
         ],
         shore_dx: None,
+        boss: None,
         llamas: &[],
         charges: &[],
         script: &[],
@@ -2509,6 +2784,7 @@ mod tests {
             ai: EnemyAi::Chase,
         }],
         shore_dx: None,
+        boss: None,
         llamas: &[],
         charges: &[],
         script: &[Hold {
@@ -2538,6 +2814,7 @@ mod tests {
             ai: EnemyAi::Chase,
         }],
         shore_dx: None,
+        boss: None,
         llamas: &[],
         charges: &[],
         script: &[attack(149, 150)],
@@ -2552,6 +2829,7 @@ mod tests {
         carl_x: 400,
         enemies: &[],
         shore_dx: None,
+        boss: None,
         llamas: &[],
         charges: &[],
         script: &[],
@@ -2829,6 +3107,7 @@ mod tests {
                 },
             ],
             shore_dx: None,
+            boss: None,
             llamas: &[],
             charges: &[],
             script: &[],
@@ -3783,6 +4062,7 @@ mod tests {
                 ai: EnemyAi::Passive,
             }],
             shore_dx: Some(19),
+            boss: None,
             llamas: &[],
             charges: &[],
             script: &[attack(20, 400)],
@@ -3811,6 +4091,7 @@ mod tests {
                 ai: EnemyAi::Passive,
             }],
             shore_dx: Some(19),
+            boss: None,
             llamas: &[],
             charges: &[],
             script: &[attack(20, 21), attack(60, 61), attack(100, 101)],
@@ -4051,7 +4332,9 @@ mod tests {
                         let spec = carl_move(killing.expect("a hit on the same tick")).unwrap();
                         assert_eq!(force, ForceTier::of_move(spec), "{}", fixture.name);
                     }
-                    DefeatCause::ShoreBlock { .. } | DefeatCause::ShoreBlockEdge { .. } => {
+                    DefeatCause::ShoreBlock { .. }
+                    | DefeatCause::ShoreBlockEdge { .. }
+                    | DefeatCause::DropHazard { .. } => {
                         assert_eq!(force, ForceTier::Catastrophic, "{}", fixture.name);
                     }
                     DefeatCause::Explosion { point_blank, .. } => {
@@ -4079,6 +4362,7 @@ mod tests {
             ai: EnemyAi::Passive,
         }],
         shore_dx: Some(19),
+        boss: None,
         llamas: &[],
         charges: &[],
         script: &[
@@ -4404,6 +4688,7 @@ mod tests {
             ai: EnemyAi::Passive,
         }],
         shore_dx: Some(19),
+        boss: None,
         llamas: &[],
         charges: &[ChargeSpawn {
             dx: 84,
@@ -4462,6 +4747,7 @@ mod tests {
             },
         ],
         shore_dx: None,
+        boss: None,
         llamas: &[],
         charges: &[
             ChargeSpawn {
@@ -4532,6 +4818,7 @@ mod tests {
         carl_x: 400,
         enemies: &[],
         shore_dx: None,
+        boss: None,
         llamas: &[],
         charges: &[ChargeSpawn {
             dx: 0,
@@ -4589,6 +4876,7 @@ mod tests {
         carl_x: 400,
         enemies: &[],
         shore_dx: None,
+        boss: None,
         llamas: &[],
         charges: &[ChargeSpawn {
             dx: 120,
@@ -4607,6 +4895,7 @@ mod tests {
         carl_x: 400,
         enemies: &[],
         shore_dx: None,
+        boss: None,
         llamas: &[],
         charges: &[ChargeSpawn {
             dx: 120,
@@ -4656,6 +4945,7 @@ mod tests {
             carl_x: 400,
             enemies: &[],
             shore_dx: None,
+            boss: None,
             llamas: &[],
             charges: &[ChargeSpawn {
                 dx: 10,
@@ -4903,6 +5193,7 @@ mod tests {
             carl_x: 400,
             enemies: &[],
             shore_dx: None,
+            boss: None,
             llamas: &[LlamaSpawn {
                 x: 1000,
                 ai: EnemyAi::Chase,
@@ -4947,6 +5238,7 @@ mod tests {
                 carl_x: 400,
                 enemies: &[],
                 shore_dx: None,
+                boss: None,
                 llamas: &[LlamaSpawn {
                     x: 560,
                     ai: EnemyAi::Chase,
@@ -4998,6 +5290,7 @@ mod tests {
             carl_x: 420,
             enemies: &[],
             shore_dx: None,
+            boss: None,
             llamas: &[LlamaSpawn {
                 x: 440,
                 ai: EnemyAi::Chase,
@@ -5060,6 +5353,7 @@ mod tests {
                 ai: EnemyAi::Passive,
             }],
             shore_dx: None,
+            boss: None,
             llamas: &[LlamaSpawn {
                 x: 440,
                 ai: EnemyAi::Passive,

@@ -1,0 +1,27 @@
+{
+  "asset_id": "boss-f01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "11": {
+      "sha256": "23190bccebeba6d6c658cc95b6d823e647b89ee25520d767c479692dfc03c84d"
+    },
+    "14": {
+      "sha256": "7837bf47a03b632abb378d7db6ba504a9d82d5cb8555fcad6938852b871cd2a3"
+    },
+    "2": {
+      "sha256": "8b263004f77a933dbe00e2527aad4f387b5337f6e55bb2c8d63b1c8db671dbe3"
+    },
+    "3": {
+      "sha256": "bb946822499800775af37ca4ae16b7ef88cf48e07f7a0215075576238ec2be94"
+    },
+    "5": {
+      "sha256": "5861e4bba00365638504f05984a5b74dc9a59906b2e67c899379bd2e9b839a58"
+    },
+    "9": {
+      "sha256": "2f9833ac1c8ae5c13972c4e76e0f431475061699c82420778ceebd56498586ec"
+    }
+  },
+  "layers": [
+    "body"
+  ]
+}
