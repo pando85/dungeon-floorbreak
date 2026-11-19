@@ -283,8 +283,14 @@ Non-blocking gate notes, resolved or carried:
 - **N2** fixed: `neck` presets are `[4]`, and the section 5 preset-3 explosion list matches the data (head, torso_front, torso_rump, leg_fore, leg_hind, gland).
 - **N3** fixed: `preset_layer` and `always_shown_layers` are in both manifests.
 - **N4 (geyser brightness)** checked in the crush storyboard on lit brick: the 10 to 14 `drop_molten` keep the burst brightest for the contact ticks.
-- **N5** the spawner filters parts by the per-part `presets` list (`filter_by` in the parts manifest); blood stains and the head trail are absent from preset 1 (`head` stain and trail are blood decals, which the preset 1 class filter drops).
+- **N5** the spawner filters parts by the per-part `presets` list (`filter_by` in the parts manifest); blood stains and the head trail are absent from preset 1 because the decals they spawn (`decal_splat_s`, `decal_smear`) do not list preset 1 in their own `presets` (`[2, 3, 4]` and `[4]`). Blood is filtered at preset 1 by each part's preset list in the manifest, not by a class filter.
 - **N6** the slam and broken-heap GIFs show the change from flung to stiff legs reads over the 6-tick contact.
+
+Open notes from the blind review (frozen keys, deliberately not changed; the top tier may re-freeze them, none blocks):
+
+- **Stump blood run (key 5).** The run of blood down the front of the stump is a steady 1 px `b` line from the cap to the pool, so at 4x it reads partly as a red outline rather than a dribble. Gaps or a `B`/`P` rhythm would make it a run.
+- **Preset-1 gobbet (key 3).** With the jet hidden at preset 1, the single molten gobbet inside the spray floats alone about 15 px above the stump and reads as a stray ember. It is correctly on the `molten` layer (a lava fleck, shown at every preset by gate ruling 2), not a misplaced gore pixel, so no layer fix applies; the options are to move it into the duct dribble or accept it as a spit fleck.
+- **Ear tip on `crushed_remains` (key 2).** The identity of the remains rests on the teeth and the stone context. An ear tip on the flattened head would add a second cue if the owner wants a stronger read.
 
 ## Execution record
 
@@ -295,6 +301,7 @@ Executed by the medium tier per section 9 (no design decision was changed; the k
 - **Data.** `PART_META` presets follow the section 5 table (neck `[4]`, far legs `[4]`, ear and jaw `[4]`, bone and rib gibs `[4]`); `hazard_draw`, `spawner_hints` (crush, decapitation, slam, explosive), tick windows and anchors for every frame are in the manifests.
 - **One data adjustment to a section 7 number.** The waist cut plane is at x 36, not x 41. With the plane at 41 the rump (plume tail to the cut) is 33 px wide, which cannot fit a 32 px cell, let alone the 28 px launched-part cap; at 36 the rump is 28 px and `torso_front` is about 24 px (the section 7 size). It is one constant (`WAIST_X`). *Ratified in the design follow-up (decision D-W1).*
 - **Design observation (gate note N1), resolved by the design follow-up.** `headless_collapse` on lit brick at 1x ([`scene_headless_x3.png`](../evidence/llama-02-death/scene_headless_x3.png), [`silhouette_scale_1x.png`](../evidence/llama-02-death/silhouette_scale_1x.png)) still reads as a headless carcass with a stump and a pool, but the long-neck cue is weak because the stump lies nearly level with the back. The decapitation sequence gives it context. If the review judges it "generic carcass", the design-stage remedy is to prop the stump higher (top row 48 or lower) before frame 5 is redrawn; it was not changed here because frame 5 is a frozen key.
+- **Review pack.** The review images draw the stone over the crush frames through an opt-in, asset-local hook (`review.hook` in `llama_death_h64.pixelart.json` names `scripts/llama02_death_review.py`; the toolkit only calls it when the config names it): the falling stone over frames 0 and 1 on `hit_origin` (the scene and the tell/attack strip), the landed stone behind the remains.
 - **Evidence** is regenerated (see the evidence README), the full-sequence GIFs use an exact palette (no quantisation), and a test checks that every GIF frame keeps the wool colour and the blood red.
 
 ### Design follow-up (2026-11-19)

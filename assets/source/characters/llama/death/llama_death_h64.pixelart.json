@@ -10,6 +10,8 @@
   "tick_hz": 60,
   "hold_ms": 100,
   "facing": "right",
+  "review": {"hook": "scripts.llama02_death_review", "strip_tags": ["crush_contact", "crushed_remains"]},
+  "scene": {"actors": [{"frame": 0, "x": 536}, {"frame": 2, "x": 632}, {"frame": 3, "x": 728}, {"frame": 5, "x": 824}, {"frame": 7, "x": 920}]},
   "tags": {
     "crush_contact": {"playback": "once", "contact": "grounded", "frames": [[0, 3], [1, 3]]},
     "crushed_remains": {"playback": "hold", "contact": "grounded", "frames": [[2, null]]},
