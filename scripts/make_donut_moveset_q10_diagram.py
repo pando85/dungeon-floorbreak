@@ -28,8 +28,8 @@ DEFAULT_OUT = ROOT / "docs/evidence/donut-moveset-q10"
 GREEN, RED, MAGENTA, ORANGE, CYAN = (90, 220, 120), (240, 70, 70), (230, 90, 230), (255, 160, 50), (80, 210, 230)
 
 # Spec numbers (pivot-relative, x forward, y up from the feet, half-open [min, max)).
-SWAT_BOX = (13, 24, 5, 11)          # Q10-04
-POUNCE_BOX = (11, 25, 0, 17)        # Q10-12
+SWAT_BOX = (13, 24, 5, 11)          # Q10-03
+POUNCE_BOX = (11, 25, 0, 17)        # Q10-11
 HURTBOX = (-10, 10, 0, 24)          # Q4 Option C, 20 x 24
 GOB_BODY = (-12, 12, 0, 38)         # ENEMY_HALF_WIDTH 12, ENEMY_HALF_HEIGHT 19
 GOB_SWING = (8, 30, 0, 30)          # SWING_X_MIN..MAX, SWING_Y_MIN..MAX
@@ -138,7 +138,7 @@ TIMELINES = [  # (name, [(ticks, colour, text)])
     ("Carl kick 36", [(13, GREY, "13"), (4, RED, "4"), (19, (90, 90, 120), "19")]),
     ("goblin attack 50", [(24, ORANGE, "tell 24 (interruptible)"), (2, (200, 120, 40), ""),
                           (4, RED, "4"), (20, (90, 90, 120), "recover 20 (interruptible)")]),
-    ("light guard 60", [(60, (70, 120, 90), "after a swat stagger: swats glance, other hits interrupt")]),
+    ("light guard", [(60, (70, 120, 90), ">= 60 ticks and until the next swing Impact: swats glance, others interrupt")]),
 ]
 
 
