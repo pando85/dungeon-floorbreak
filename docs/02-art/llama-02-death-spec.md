@@ -89,7 +89,9 @@ Blood ramp, dark to light: `o` `B` `b` `P`. Molten ramp, cold to hot: `a` `r` `R
 
 Sequences played by the renderer: `crush_contact` → `crushed_remains`; `decap_contact` → `headless_collapse`; `slam_contact` → `broken_heap`. Holds are state-driven (preview duration 100 ms).
 
-**Which finish when (proposal for the gameplay spec, not approved):** D-04 falling stone → crush; environmental blade (PR D) → decapitation; a lethal hit with `force_tier: Heavy` (a heavy kick, a slam into a wall, a lethal fall) → slam; a `Routine` lethal hit keeps the LLAMA-01 `down` (frames 12 to 14). The slam pair gives a llama-specific heavy finish without blood jackpots on routine kills.
+**Which finish when (the slam row is an owner decision 2026-11-19, below; the other rows stay proposals):** D-04 falling stone → crush; environmental blade (PR D) → decapitation; a lethal hit with `force_tier: Heavy` (a heavy kick, a slam into a wall, a lethal fall) → slam; a `Routine` lethal hit keeps the LLAMA-01 `down` (frames 12 to 14). The slam pair gives a llama-specific heavy finish without blood jackpots on routine kills.
+
+**Owner decision 2026-11-19: slam rule approved.** A lethal hit with `force_tier: Heavy` (today Carl's lethal push kick) plays the slam pair (`slam_contact`, then `broken_heap`); a routine, non-heavy lethal hit (jab, haymaker) keeps the LLAMA-01 `down`. Wiring and a minimal llama enemy are [DEMO-01](../04-production/demo-01-plan.md) PR B. Crush, decapitation and explosion of the llama remain unwired proposals.
 
 ## 5. Intensity presets 1 to 4: derivation by data only
 
@@ -274,7 +276,7 @@ The silhouette gate (an independent top-tier check of the frozen keys) passed. I
    - (d) from `crushed_remains` on, return to the goblin order (the remains in front of the foot of `loose_block_landed` on the actors layer);
    - (e) mirror the footprint with the pose (x' = 88 - x).
 2. **Molten at preset 1: stays visible** (it is lava, the species and cause feedback, the same class of pixel as the visible spit projectile). The data-only switch to hide it stays available for a later accessibility review (`always_shown_layers`), never species code.
-3. **Slam pair: kept as art pending owner gameplay signoff.** It is not wired by default: routine lethal hits keep LLAMA-01 `down`, and no spawner path selects the slam until the owner approves the `force_tier: Heavy` rule. The spawner hints include a `slam` block.
+3. **Slam pair: owner decision 2026-11-19, the `force_tier: Heavy` rule is approved** (section 4); wiring is DEMO-01 PR B. The original gate ruling, kept for the record: **Slam pair: kept as art pending owner gameplay signoff.** It is not wired by default: routine lethal hits keep LLAMA-01 `down`, and no spawner path selects the slam until the owner approves the `force_tier: Heavy` rule. The spawner hints include a `slam` block.
 4. **Darker blood accepted.** The deepest blood reuses the llama mouth `o` (`#4a1020`), one step darker than the goblin's `#5c1426`; the decals share bitmaps and keys and take the hex from each species' palette. Identical hex across species is not required.
 
 Non-blocking gate notes, resolved or carried:
