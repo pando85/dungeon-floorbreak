@@ -350,6 +350,16 @@ impl ArtSet {
             GoblinMode::Airborne => c.frame_at("knockback", g.down_ticks as u32),
             GoblinMode::Down => c.frame_at("down", u32::from(g.down_ticks)),
             GoblinMode::Corpse => c.frame_at("corpse", 0),
+            // Modes other branches add (a kick launch, getting up): drawn with the
+            // airborne or lying frames by whether the goblin is moving.
+            #[allow(unreachable_patterns)]
+            _ => {
+                if g.vx.abs() > 1.0 || g.vy.abs() > 1.0 {
+                    c.frame_at("knockback", u32::from(g.down_ticks))
+                } else {
+                    c.frame_at("down", u32::from(g.down_ticks))
+                }
+            }
         };
         Pose {
             atlas: id,

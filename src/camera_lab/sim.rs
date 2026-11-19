@@ -24,15 +24,15 @@ use std::fmt;
 
 use super::room::{EnemyKind, IRect, Prop, PropKind, Room};
 use crate::combat::{
-    Attacker, CARL_BUFFER_TICKS, CombatEvent, HERO_INVULNERABLE_TICKS, HitOutcome, HitShape,
-    MoveId, MoveRunner, MoveSpec, Phase, Reaction, RootStep, StrikeTarget, carl_move,
+    Attacker, CARL_BUFFER_TICKS, CARL_JAB, CombatEvent, HERO_INVULNERABLE_TICKS, HitOutcome,
+    HitShape, MoveId, MoveRunner, MoveSpec, Phase, Reaction, RootStep, StrikeTarget, carl_move,
     resolve_strike,
 };
 use crate::feel::{
     HERO_HURT_TICKS, KNOCK_GRAVITY, LETHAL_HIT_STOP_BONUS, MAX_ATTACKERS, TELL_SPACING,
 };
 use crate::goblin::{Goblin, GoblinMode};
-use crate::input::{InputFrame, RawInput};
+use crate::input::STICK_DEADZONE;
 use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Material, Rect, TICK_SECONDS};
 
 pub const CARL: usize = 0;
@@ -78,12 +78,12 @@ pub const DONUT_SWAT: MoveSpec = MoveSpec {
     reaction: Reaction {
         stagger_ticks: 8,
         knock_vx: 40.0,
-        knock_vy: 0.0,
         hit_stop: 2,
-        camera_kick_px: 0,
+        ..Reaction::NONE
     },
     chain: None,
     root_step: None,
+    ..CARL_JAB
 };
 
 /// Donut's pounce (`pounce` of the art): a short forward leap with a paw strike.
@@ -102,9 +102,8 @@ pub const DONUT_POUNCE: MoveSpec = MoveSpec {
     reaction: Reaction {
         stagger_ticks: 14,
         knock_vx: 90.0,
-        knock_vy: 0.0,
         hit_stop: 4,
-        camera_kick_px: 0,
+        ..Reaction::NONE
     },
     chain: None,
     root_step: Some(RootStep {
@@ -112,6 +111,7 @@ pub const DONUT_POUNCE: MoveSpec = MoveSpec {
         to_tick: 8,
         px_per_tick: 2.0,
     }),
+    ..CARL_JAB
 };
 
 // ---------------------------------------------------------------------- input
@@ -129,15 +129,34 @@ pub struct LabInput {
     pub switch: bool,
 }
 
-impl LabInput {
-    fn raw(self) -> RawInput {
-        RawInput {
-            move_x: self.move_x,
-            jump: self.jump,
-            attack: self.primary,
-            ability: self.physical,
-            pause: false,
-        }
+/// Press edges and the dead-zoned axis of one actor's input. The lab keeps its
+/// own edge detection (instead of the shared `InputFrame`) so it does not depend
+/// on how the shared input struct names its buttons.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Edges {
+    pub move_x: f32,
+    jump_held: bool,
+    primary_held: bool,
+    physical_held: bool,
+    pub jump_pressed: bool,
+    pub primary_pressed: bool,
+    pub physical_pressed: bool,
+}
+
+impl Edges {
+    pub fn advance(&mut self, input: LabInput) {
+        let x = if input.move_x.is_finite() {
+            input.move_x.clamp(-1.0, 1.0)
+        } else {
+            0.0
+        };
+        self.move_x = if x.abs() <= STICK_DEADZONE { 0.0 } else { x };
+        self.jump_pressed = input.jump && !self.jump_held;
+        self.primary_pressed = input.primary && !self.primary_held;
+        self.physical_pressed = input.physical && !self.physical_held;
+        self.jump_held = input.jump;
+        self.primary_held = input.primary;
+        self.physical_held = input.physical;
     }
 }
 
@@ -292,7 +311,7 @@ pub struct Actor {
     pub down_ticks: u16,
     pub downs: u32,
     pub runner: MoveRunner,
-    input: InputFrame,
+    input: Edges,
     pub exit_reached: bool,
     pub heat_cooldown: u8,
 }
@@ -309,7 +328,7 @@ impl Actor {
             down_ticks: 0,
             downs: 0,
             runner: MoveRunner::default(),
-            input: InputFrame::default(),
+            input: Edges::default(),
             exit_reached: false,
             heat_cooldown: 0,
         }
@@ -780,6 +799,28 @@ pub struct Projectile {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabEvent {
     Combat(CombatEvent),
+    MoveStarted {
+        tick: u64,
+        actor: u8,
+        move_name: &'static str,
+        instance: u32,
+    },
+    GoblinTell {
+        tick: u64,
+        goblin: u32,
+    },
+    GoblinSwing {
+        tick: u64,
+        goblin: u32,
+    },
+    GoblinInterrupted {
+        tick: u64,
+        goblin: u32,
+    },
+    Crushed {
+        tick: u64,
+        target: u32,
+    },
     PropHit {
         tick: u64,
         prop: u32,
@@ -853,6 +894,38 @@ impl LabEvent {
     fn mix_into(&self, mix: &mut impl FnMut(u64)) {
         match *self {
             Self::Combat(e) => e.mix_into(mix),
+            Self::MoveStarted {
+                tick,
+                actor,
+                move_name,
+                instance,
+            } => {
+                mix(120);
+                mix(tick);
+                mix(u64::from(actor));
+                mix(move_name.len() as u64);
+                mix(u64::from(instance));
+            }
+            Self::GoblinTell { tick, goblin } => {
+                mix(121);
+                mix(tick);
+                mix(u64::from(goblin));
+            }
+            Self::GoblinSwing { tick, goblin } => {
+                mix(122);
+                mix(tick);
+                mix(u64::from(goblin));
+            }
+            Self::GoblinInterrupted { tick, goblin } => {
+                mix(123);
+                mix(tick);
+                mix(u64::from(goblin));
+            }
+            Self::Crushed { tick, target } => {
+                mix(124);
+                mix(tick);
+                mix(u64::from(target));
+            }
             Self::PropHit { tick, prop, hp } => {
                 mix(101);
                 mix(tick);
@@ -951,6 +1024,28 @@ impl fmt::Display for LabEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Self::Combat(e) => write!(f, "{e}"),
+            Self::MoveStarted {
+                tick,
+                actor,
+                move_name,
+                instance,
+            } => write!(
+                f,
+                "LAB_EVENT tick={tick} kind=move_started actor={actor} move={move_name} instance={instance}"
+            ),
+            Self::GoblinTell { tick, goblin } => {
+                write!(f, "LAB_EVENT tick={tick} kind=goblin_tell goblin={goblin}")
+            }
+            Self::GoblinSwing { tick, goblin } => {
+                write!(f, "LAB_EVENT tick={tick} kind=goblin_swing goblin={goblin}")
+            }
+            Self::GoblinInterrupted { tick, goblin } => write!(
+                f,
+                "LAB_EVENT tick={tick} kind=goblin_interrupted goblin={goblin}"
+            ),
+            Self::Crushed { tick, target } => {
+                write!(f, "LAB_EVENT tick={tick} kind=crushed target={target}")
+            }
             Self::PropHit { tick, prop, hp } => {
                 write!(f, "LAB_EVENT tick={tick} kind=prop_hit prop={prop} hp={hp}")
             }
@@ -1447,7 +1542,7 @@ impl LabSim {
         let _ = half_h;
         {
             let a = &mut self.actors[i];
-            a.input.advance(input.raw());
+            a.input.advance(input);
             a.invuln = a.invuln.saturating_sub(1);
             a.heat_cooldown = a.heat_cooldown.saturating_sub(1);
             if a.hit_stop > 0 {
@@ -1470,16 +1565,16 @@ impl LabSim {
         let melee_frozen =
             self.actors[i].runner.busy() && self.actors[i].runner.hit_stop_left() > 0;
         let request: Option<&'static MoveSpec> = if i == CARL {
-            if self.actors[i].input.attack_pressed {
+            if self.actors[i].input.primary_pressed {
                 carl_move(MoveId::Jab)
-            } else if self.actors[i].input.ability_pressed {
+            } else if self.actors[i].input.physical_pressed {
                 carl_move(MoveId::PushKick)
             } else {
                 None
             }
-        } else if self.actors[i].input.attack_pressed {
+        } else if self.actors[i].input.primary_pressed {
             Some(&DONUT_SWAT)
-        } else if self.actors[i].input.ability_pressed {
+        } else if self.actors[i].input.physical_pressed {
             Some(&DONUT_POUNCE)
         } else {
             None
@@ -1492,11 +1587,12 @@ impl LabSim {
             .step(request, CARL_BUFFER_TICKS, can_act);
         if let Some(mt) = move_tick {
             if mt.started {
-                self.log(LabEvent::Combat(CombatEvent::MoveStarted {
+                self.log(LabEvent::MoveStarted {
                     tick,
-                    move_id: mt.spec.id,
+                    actor: i as u8,
+                    move_name: mt.spec.id.name(),
                     instance: mt.instance,
-                }));
+                });
             }
             if !mt.frozen
                 && let Some(step) = mt.spec.root_step
@@ -1505,11 +1601,14 @@ impl LabSim {
                 self.root_step(i, step);
             }
             let a = &self.actors[i];
+            // `..Default::default()`: other branches add fields (the credited
+            // player slot); the lab leaves them at their default.
             let attacker = Attacker {
                 x: a.body.x,
                 y: a.body.y,
                 half_height: a.body.hh,
                 facing: a.body.facing,
+                ..Default::default()
             };
             let mut hits = Vec::new();
             let mut runner = std::mem::take(&mut self.actors[i].runner);
@@ -1545,7 +1644,7 @@ impl LabSim {
                 self.actors[i].input.jump_pressed,
             )
         };
-        let move_x = if self.actors[i].input.held.move_x == 0.0 {
+        let move_x = if self.actors[i].input.move_x == 0.0 {
             0.0
         } else {
             move_x
@@ -1693,26 +1792,26 @@ impl LabSim {
                     }
                     if step.started_tell {
                         self.last_tell_start = Some(tick);
-                        self.log(LabEvent::Combat(CombatEvent::GoblinTell {
+                        self.log(LabEvent::GoblinTell {
                             tick,
                             goblin: index as u32,
-                        }));
+                        });
                     }
                     if step.swing_began {
-                        self.log(LabEvent::Combat(CombatEvent::GoblinSwing {
+                        self.log(LabEvent::GoblinSwing {
                             tick,
                             goblin: index as u32,
-                        }));
+                        });
                     }
                     if was_attacking
                         && g.mode != GoblinMode::Attack
                         && g.attack_tick == 0
                         && g.hit_stop > 0
                     {
-                        self.log(LabEvent::Combat(CombatEvent::GoblinInterrupted {
+                        self.log(LabEvent::GoblinInterrupted {
                             tick,
                             goblin: index as u32,
-                        }));
+                        });
                     }
                     let swing = (step.impact).then(|| g.swing_box());
                     let (gx, source) = (g.x, index as u32);
@@ -1748,8 +1847,16 @@ impl LabSim {
         // Launched enemies bump destructible props: one damage per flight.
         for index in 0..enemies {
             let (body, speed) = match &self.targets[index] {
+                // Any goblin that is flying or staggered (modes added by other
+                // branches, such as a kick launch, count too).
                 Hittable::Goblin(g)
-                    if matches!(g.mode, GoblinMode::Hurt | GoblinMode::Airborne) =>
+                    if !matches!(
+                        g.mode,
+                        GoblinMode::Neutral
+                            | GoblinMode::Attack
+                            | GoblinMode::Down
+                            | GoblinMode::Corpse
+                    ) =>
                 {
                     (g.body(), g.vx.abs())
                 }
@@ -2227,18 +2334,17 @@ impl LabSim {
             reaction: Reaction {
                 stagger_ticks: 20,
                 knock_vx: 100.0,
-                knock_vy: 0.0,
                 hit_stop: 6,
-                camera_kick_px: 0,
+                ..Reaction::NONE
             },
             ..DONUT_SWAT
         };
         let (outcome, _) = self.targets[e].take_hit(&spec, dir);
         if outcome == HitOutcome::Defeated {
-            self.log(LabEvent::Combat(CombatEvent::EnemyDefeated {
+            self.log(LabEvent::Crushed {
                 tick,
                 target: e as u32,
-            }));
+            });
         }
     }
 
@@ -2452,7 +2558,7 @@ mod tests {
     use super::*;
     use crate::camera_lab::room::load_rooms;
     use crate::camera_lab::script::{run, scripts};
-    use crate::input::InputFrame;
+    use crate::input::{InputFrame, RawInput};
     use crate::prototype::{Hero, step_hero};
     use std::path::Path;
 
@@ -2624,7 +2730,7 @@ mod tests {
         assert!(
             sim.events
                 .iter()
-                .all(|e| !matches!(e, LabEvent::Combat(CombatEvent::MoveStarted { .. })))
+                .all(|e| !matches!(e, LabEvent::MoveStarted { .. }))
         );
     }
 
