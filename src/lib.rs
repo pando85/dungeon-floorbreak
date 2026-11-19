@@ -14,6 +14,7 @@ pub mod combat_scene;
 pub mod corridor;
 pub mod death;
 pub mod death_present;
+pub mod demo;
 pub mod env_kit;
 pub mod feel;
 pub mod follower;

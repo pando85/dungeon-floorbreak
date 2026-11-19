@@ -1,0 +1,13 @@
+COMBAT_EVENT tick=60 kind=move_started move=push_kick instance=1
+COMBAT_EVENT tick=60 kind=goblin_tell goblin=2
+COMBAT_EVENT tick=73 kind=hit move=push_kick instance=1 target=2 damage=1 health_left=1 hit_stop=8
+COMBAT_EVENT tick=73 kind=goblin_interrupted goblin=2
+COMBAT_EVENT tick=75 kind=goblin_contact launch=1 source=2 target=3
+COMBAT_EVENT tick=112 kind=move_started move=push_kick instance=2
+COMBAT_EVENT tick=125 kind=hit move=push_kick instance=2 target=2 damage=1 health_left=0 hit_stop=11
+COMBAT_EVENT tick=125 kind=enemy_defeated target=2 force=heavy
+COMBAT_EVENT tick=125 kind=hit move=push_kick instance=2 target=3 damage=1 health_left=1 hit_stop=8
+COMBAT_EVENT tick=180 kind=move_started move=push_kick instance=3
+COMBAT_EVENT tick=193 kind=hit move=push_kick instance=3 target=3 damage=1 health_left=0 hit_stop=11
+COMBAT_EVENT tick=193 kind=enemy_defeated target=3 force=heavy
+COMBAT_STATE fixture=demo01_b2 seed=0xde300002 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies=e0=-256.000/0,e1=-256.000/0,e2=1317.933/0,e3=1347.201/0,e4=1705.000/2,e5=1745.000/2,e6=1900.000/2,e7=2350.000/2,e8=3010.000/2,e9=3030.000/2,e10=3050.000/2,e11=3110.000/2,e12=3130.000/2,e13=3150.000/2,e14=2735.000/2,e15=2763.000/2,e16=2778.000/2 hash=132e5f1dbdc2c90b shore=0/Intact/Seated block_bottom=140.00 demo_cp=2

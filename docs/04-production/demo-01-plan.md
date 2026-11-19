@@ -26,7 +26,7 @@ Columns: **normal run** = `cargo run --bin floor01_scene` with no flags (the sto
 | CP-03 rotten shore and falling block, ENV-02 shore / block / dust art | fixture only | the three `cp03_*` fixtures (one shore per fixture) |
 | DEATH-B cause, force and species profiles (#94) | fixture only | data path, invisible except through the finish chosen |
 | DEATH-C presenter and gore pool, preset 4 default (#97), GOB-02 and GOB-02B death art | fixture only | crush poses, knockback blood, stains; `--gore-preset 1..4` |
-| DEATH-D decapitation (block edge) and explosion (QA charge) | lab flag only / in PR | on `main` only `--death-lab-finish decapitated`; real causes in draft PR #108 (`cp03_block_edge_decap`, `qa_blast_breakup`) |
+| DEATH-D decapitation (block edge) and explosion (QA charge) | in PR #108 | real causes `ShoreBlockEdge` and `Explosion` (`cp03_block_edge_decap`, `qa_blast_breakup`); the demo wires B3's decapitation and B5's `Arm::CarlPast` test charge in that PR |
 | DEATH-E1 budgets, corpse cap 8, stains persist (#106) | fixture only | `cp03_goblin_pileup` (ten stationary goblins) |
 | Hybrid-A HUD (plates, HP, System notices) | not on `main` | draft PR #103 (`floor01_scene`, normal run and fixtures) |
 | Camera: deterministic scroll camera | yes | normal run and fixtures; its position is simulation state (in `FLOOR1_SCENE_STATE`) |
@@ -177,6 +177,8 @@ Expected run: 3 to 5 minutes, about 18 goblins and one llama. Every beat maps on
 
 - **Donut is a passive trail follower**: no control, no AI, no combat, cannot be hurt, passes through Carl. No 2P, no solo swap, no leash (the lab's 416 px leash is approved but not integrated). No Magic Missile, biscuit or mana.
 - **No Carl explosives.** The B5 charge is a QA test prop that does not hurt Carl or terrain; the dynamite special stays story-gated.
+- **QA charge on the route (orchestrator decision 2026-11-19, DEMO-01 only).** The [DEATH-D spec](../03-tech/death-d-finishes-spec.md) says the QA charge has no route. For the demo only, B5 may place it on the route, clearly labelled as a test prop; the rule stays in force everywhere else (no route, ability or input creates a charge outside DEMO-01).
+- **PR A as built differs from the plan in four small ways** ([Demo](../03-tech/floor01-scene.md#demo-demo-01-pr-a-hall-route-and-respawn)): goblins need no wake rule, because `GOBLIN_SIGHT` (220 px) already keeps each beat's goblins asleep until Carl walks in; the beat probes run on `--demo --demo-beat N --autopilot` with a pure autopilot function instead of scripted `Hold` lists (hold lists would break at every tuning change); a Select tap respawns on release (so a hold can still restart); a full restart returns to the beat the demo was started at. B4 and B5 are marked hooks until PR B and PR #108 land; the probes are `demo01_b1`, `_b2`, `_b3`, `_b6` and the whole route `demo01` (`demo01_b4` and `demo01_b5` come with their beats).
 - **Not the Act I route**: no Murder Dozer chase, no Guild, no ENV-02 opening route (barricades, portal, hatch, soffit ceiling). The hall is a greybox recomposition of approved kit pieces.
 - **Two enemy types only** (goblins A/B and one llama). Rat, slime, rot sticker, bard, chopper, engineer, scatterer, brood guardian, hoarder, troglodytes, juicer, swine, tusklings and the Dozer remain art-only or lab-only. No Mongo.
 - **Llama is minimal**: no crush, decapitation or explosion finishes for it, no contact with goblins, no spit or llama sounds, numbers unreviewed.

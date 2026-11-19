@@ -351,7 +351,7 @@ This adds no move, input, unlock or ability. The decapitation is a new outcome o
 
 ## 11. Implementation notes (executor)
 
-Choices made where the spec met the code that DEATH-E1 (#106) had changed, or where it was silent; none redesigns the spec.
+Choices made where the spec met the code that DEATH-E1 (#106) had changed, or where it was silent; none redesigns the spec. **Demo wiring (after #110 merged):** `blast::Arm` adds `Arm::CarlPast { x, fuse_ticks }` next to the fixed-tick rule (`ChargeSpawn.arm`, `Arm::Tick` for every QA fixture, whose mixed words and hashes are unchanged): the charge lies unlit (a still stick) until Carl's x passes the column, then burns and blows `fuse_ticks` later, exactly; a respawn rebuilds a charge that has not blown. Used by DEMO-01 beat B5 only.
 
 1. **Fixture count.** DEATH-E1 added `cp03_goblin_pileup`, so there are 13 existing fixtures (not 12) and 15 after this PR (not 14). All 13 hashes and logs are byte-identical.
 2. **Pool budgets.** Section 4.2 says the pool capacities are unchanged (160 / 96 / 12 / 24); #106 raised them (`DEATH_BUDGET`: 256 / 192 / 32 / 48). The explosion uses the current budget; one explosion plus one ring kill peaks at 81 pieces and recycles nothing at either budget.
