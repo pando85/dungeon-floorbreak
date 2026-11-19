@@ -1,0 +1,28 @@
+# Real Bevy loop (xvfb, one RTX GPU, debug profile): the B3 moment at each framing and scale.
+# Command: floor01_scene <framing> --demo --demo-beat 3 --autopilot --exit-after-ticks 300 --cinematic-finishes=on
+
+## --deck --scale 1
+CINE01_SLOWMO start tick_elapsed=159
+CINE01_SLOWMO end=Completed real_ms=486 ticks=14 frames=30 max_frame_ms=19.5 max_ticks_in_frame=1
+
+## --deck --scale 2
+CINE01_SLOWMO start tick_elapsed=160
+CINE01_SLOWMO end=Completed real_ms=494 ticks=15 frames=17 max_frame_ms=46.3 max_ticks_in_frame=2
+
+## --scale 1
+CINE01_SLOWMO start tick_elapsed=160
+CINE01_SLOWMO end=Completed real_ms=482 ticks=14 frames=30 max_frame_ms=22.3 max_ticks_in_frame=2
+
+## --scale 3
+CINE01_SLOWMO start tick_elapsed=161
+CINE01_SLOWMO end=Completed real_ms=511 ticks=18 frames=10 max_frame_ms=59.4 max_ticks_in_frame=4
+
+## b3 (--scale 3, gore preset 4)
+CINE01_MOMENT tick=159 tier=ordinary score=6 credited=0 target=4 precision_edge=1 mixed_chain=0 contact_setup=0 extra_kills=1
+CINE01_SLOWMO start tick_elapsed=159
+CINE01_SLOWMO end=Completed real_ms=560 ticks=21 frames=10 max_frame_ms=91.8 max_ticks_in_frame=5
+
+## pileup (--scale 3, gore preset 4)
+CINE01_MOMENT tick=139 tier=ordinary score=7 credited=0 target=6 precision_edge=0 mixed_chain=1 contact_setup=0 extra_kills=5
+CINE01_SLOWMO start tick_elapsed=139
+CINE01_SLOWMO end=Completed real_ms=532 ticks=20 frames=9 max_frame_ms=103.7 max_ticks_in_frame=4

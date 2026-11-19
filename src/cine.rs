@@ -25,6 +25,7 @@
 
 use std::collections::VecDeque;
 
+use crate::boss::BOSS_ENEMY_ID;
 use crate::combat::{CombatEvent, DefeatCause};
 use crate::hud_settings::parse_switch;
 
@@ -53,13 +54,13 @@ pub struct CineTuning {
     pub mixed_chain_score: u8,
     /// Bonus of `CINE-CONTACT-SETUP`.
     pub contact_setup_bonus: u8,
-    /// Review F4: "a linked target" is undefined in the spec and
-    /// `CINE-CONTACT-SETUP` is the only road to the legendary tier (5 + the
-    /// capped 2 extra kills = 7 < 8). Until the owner defines it the bonus is
-    /// off and legendary is unreachable. The linkage implemented behind this
-    /// flag is the reviewer's proposal: the contact's `source` or `target` is
-    /// defeated by the credited hero within `history_window_ticks` of the
-    /// contact, with a launch proved to be that hero's.
+    /// Review F4: `CINE-CONTACT-SETUP` is the only road to the legendary tier
+    /// (5 + the capped 2 extra kills = 7 < 8). The linkage is the spec's: the
+    /// contact's `source` or `target` is defeated by the credited hero within
+    /// `history_window_ticks` of the contact, with the launch proved to be
+    /// that hero's by a `LaunchCredited` fact (a `PushKick` `Hit` whose
+    /// `instance` equals `GoblinContact.launch`). Without that proof the bonus
+    /// is never awarded; set `false` to switch the bonus off entirely.
     pub contact_setup_enabled: bool,
     /// Bonus per extra credited distinct defeat (`CINE-EXTRA-KILL`).
     pub extra_kill_bonus: u8,
@@ -104,7 +105,7 @@ impl CineTuning {
         precision_edge_score: 5,
         mixed_chain_score: 5,
         contact_setup_bonus: 2,
-        contact_setup_enabled: false,
+        contact_setup_enabled: true,
         extra_kill_bonus: 1,
         extra_kill_bonus_cap: 2,
         ordinary_scale_permille: 350,
@@ -158,9 +159,13 @@ pub enum CineCause {
     /// The falling CP-03 block, credited to `player` (not to `instigator`).
     ShoreBlock { player: u32 },
     /// DEATH-D's upright neck-edge shear of the block (`CINE-PRECISION-EDGE`).
-    /// `CombatEvent` has no such cause yet: [`CineEvent::from_combat`] never
-    /// produces it, the DEATH-D adapter will.
     ShoreBlockEdge { player: u32 },
+    /// A player-dropped plate rack (`DefeatCause::DropHazard`, the boss
+    /// arena). The cause names the player who dropped it, which is the proof
+    /// of ownership; it counts as a falling-block kill for the mixed chain.
+    /// The boss itself is never mapped here (boss defeats never trigger CINE
+    /// in v0), so in practice no v0 chain reaches it.
+    DropHazard { player: u32 },
     /// Any cause this evaluator does not know. Never qualifies, never credited.
     Other,
 }
@@ -238,7 +243,12 @@ impl CineEvent {
             } => Self::Defeated {
                 tick,
                 target,
-                cause: cine_cause(cause),
+                // Review F8: a boss defeat never triggers CINE in v0.
+                cause: if target == BOSS_ENEMY_ID {
+                    CineCause::Other
+                } else {
+                    cine_cause(cause)
+                },
                 instigator,
                 slot: None,
             },
@@ -309,7 +319,8 @@ impl CineEvent {
                     CineCause::Melee => 0,
                     CineCause::ShoreBlock { player } => 1 + player * 4,
                     CineCause::ShoreBlockEdge { player } => 2 + player * 4,
-                    CineCause::Other => 3,
+                    CineCause::DropHazard { player } => 3 + player * 4,
+                    CineCause::Other => 8,
                 },
                 instigator.map_or(0, |p| p + 1),
             ),
@@ -318,14 +329,26 @@ impl CineEvent {
 }
 
 /// The one place a combat `DefeatCause` becomes a [`CineCause`] (review F7).
-/// The boss design replaces `ShoreBlock` with `DropHazard { player, rack }`:
-/// after that merge, map every player-activated drop hazard here and nowhere
-/// else. The match is exhaustive on purpose so a new cause cannot silently
-/// be credited or silently dropped.
+/// Every player-activated drop hazard is recognised through
+/// [`DefeatCause::drop_credit`] (`ShoreBlock`, `ShoreBlockEdge` and the boss
+/// arena's `DropHazard`), never by naming one variant. The match is exhaustive
+/// on purpose so a new cause cannot silently be credited or silently dropped.
 fn cine_cause(cause: DefeatCause) -> CineCause {
     match cause {
         DefeatCause::Melee => CineCause::Melee,
-        DefeatCause::ShoreBlock { player } => CineCause::ShoreBlock { player },
+        DefeatCause::ShoreBlockEdge { .. } => cause
+            .drop_credit()
+            .map_or(CineCause::Other, |player| CineCause::ShoreBlockEdge {
+                player,
+            }),
+        DefeatCause::ShoreBlock { .. } => cause
+            .drop_credit()
+            .map_or(CineCause::Other, |player| CineCause::ShoreBlock { player }),
+        DefeatCause::DropHazard { .. } => cause
+            .drop_credit()
+            .map_or(CineCause::Other, |player| CineCause::DropHazard { player }),
+        // A blast is never a primary feat (spec T02).
+        DefeatCause::Explosion { .. } => CineCause::Other,
     }
 }
 
@@ -405,7 +428,9 @@ struct Contact {
 
 #[derive(Debug, Clone, Copy)]
 struct Emitted {
-    tick: u64,
+    /// The monotonic clock (`epoch + attempt-local tick`) the moment was
+    /// emitted at, so the cooldown survives `Restart` and `Respawn`.
+    clock: u64,
     tier: CineTier,
 }
 
@@ -424,8 +449,6 @@ pub enum Rejection {
     Locked,
     /// The batch arrived with a tick before the last evaluated one.
     OutOfOrder,
-    /// The scene is flagged scripted ("never cinematic").
-    ScriptedScene,
 }
 
 /// The pure, deterministic feat evaluator. Feed it one batch per resolved
@@ -439,11 +462,14 @@ pub struct CinematicEvaluator {
     contacts: VecDeque<Contact>,
     shore_breakers: Vec<u32>,
     last_tick: Option<u64>,
+    /// Ticks of the attempts finished before this one (a `Restart` carries the
+    /// tick the finished attempt ended on). `epoch + tick` is the monotonic
+    /// clock the cooldown is measured on (spec section 2, attempt boundaries).
+    epoch: u64,
     emitted: Option<Emitted>,
     /// Defeats at or before this tick belong to a rewarded chain.
     rewarded_through: Option<u64>,
     defeated_latch: bool,
-    scripted_scene: bool,
     last_rejection: Option<Rejection>,
 }
 
@@ -457,20 +483,12 @@ impl CinematicEvaluator {
             contacts: VecDeque::new(),
             shore_breakers: Vec::new(),
             last_tick: None,
+            epoch: 0,
             emitted: None,
             rewarded_through: None,
             defeated_latch: false,
-            scripted_scene: false,
             last_rejection: None,
         }
-    }
-
-    /// Review F6: mark the running scene as authored/scripted ("never
-    /// cinematic", for example the DEMO-01 B3 beat, which would otherwise
-    /// qualify on every competent run). History is still recorded, but no
-    /// moment is ever emitted and no cooldown starts. Survives `reset`.
-    pub fn set_scripted_scene(&mut self, scripted: bool) {
-        self.scripted_scene = scripted;
     }
 
     pub fn tuning(&self) -> &CineTuning {
@@ -487,11 +505,20 @@ impl CinematicEvaluator {
         self.defeats.len() + self.hurts.len() + self.launches.len() + self.contacts.len()
     }
 
-    /// Back to a fresh attempt (also done by a `Restart` event).
+    /// Back to a completely fresh evaluator (cooldown included).
     pub fn reset(&mut self) {
-        let scripted = self.scripted_scene;
         *self = Self::new(self.tuning);
-        self.scripted_scene = scripted;
+    }
+
+    /// A new attempt after a `Restart` that ended the previous one on
+    /// `ended_at`: history, deduplication and the shore breakers are dropped
+    /// (the attempt-local tick restarts at 1 and target ids are reused), but
+    /// the cooldown **survives** on the monotonic clock.
+    fn restart_attempt(&mut self, ended_at: u64) {
+        let (epoch, emitted) = (self.epoch + ended_at, self.emitted);
+        self.reset();
+        self.epoch = epoch;
+        self.emitted = emitted;
     }
 
     /// Observe everything that resolved on `tick` and decide whether it
@@ -518,7 +545,7 @@ impl CinematicEvaluator {
         batch.dedup();
 
         if batch.iter().any(|e| matches!(e, CineEvent::Restart { .. })) {
-            self.reset();
+            self.restart_attempt(tick);
             return None;
         }
         if self.last_tick.is_some_and(|last| tick < last) {
@@ -536,6 +563,10 @@ impl CinematicEvaluator {
             self.defeated_latch = false;
         }
 
+        // Entries older than the window are gone before this batch is
+        // recorded, so a target id reused after a long quiet spell is not
+        // mistaken for a duplicate of its stale namesake.
+        self.prune(tick);
         let mut batch_credited: Vec<(u32, u32)> = Vec::new();
         for event in &batch {
             match *event {
@@ -595,10 +626,6 @@ impl CinematicEvaluator {
             self.last_rejection = Some(Rejection::NoCreditedDefeat);
             return None;
         }
-        if self.scripted_scene {
-            self.last_rejection = Some(Rejection::ScriptedScene);
-            return None;
-        }
         if locked || self.defeated_latch {
             self.last_rejection = Some(Rejection::Locked);
             return None;
@@ -606,9 +633,10 @@ impl CinematicEvaluator {
 
         // Inside the upgrade window the earlier (rewarded) kills are the same
         // chain still growing; after it they are spent.
+        let now = self.epoch + tick;
         let growing = self
             .emitted
-            .is_some_and(|e| tick.saturating_sub(e.tick) <= self.tuning.upgrade_window_ticks);
+            .is_some_and(|e| now.saturating_sub(e.clock) <= self.tuning.upgrade_window_ticks);
         let mut best: Option<CinematicMoment> = None;
         let mut saw_unclean = false;
         let mut players: Vec<u32> = batch_credited.iter().map(|&(p, _)| p).collect();
@@ -648,7 +676,7 @@ impl CinematicEvaluator {
         };
 
         if let Some(prev) = self.emitted {
-            let age = tick.saturating_sub(prev.tick);
+            let age = now.saturating_sub(prev.clock);
             let upgrade_ok = moment.tier > prev.tier && age <= self.tuning.upgrade_window_ticks;
             if age < self.tuning.cooldown_ticks && !upgrade_ok {
                 self.last_rejection = Some(Rejection::Cooldown);
@@ -659,14 +687,14 @@ impl CinematicEvaluator {
                 // same chain growing, not a new one.
                 moment.upgrade = true;
                 self.emitted = Some(Emitted {
-                    tick: prev.tick,
+                    clock: prev.clock,
                     tier: moment.tier,
                 });
                 return Some(moment);
             }
         }
         self.emitted = Some(Emitted {
-            tick,
+            clock: now,
             tier: moment.tier,
         });
         self.rewarded_through = Some(tick);
@@ -687,6 +715,8 @@ impl CinematicEvaluator {
                 self.shore_breakers.contains(&player).then_some(player),
                 DefeatKind::Edge,
             ),
+            // The cause names the player who dropped it: no `ShoreBroken`.
+            CineCause::DropHazard { player } => (Some(player), DefeatKind::Shore),
             CineCause::Other => (None, DefeatKind::Melee),
         }
     }
@@ -837,46 +867,40 @@ pub struct SlowMoRequest {
     pub cooldown_ticks: u64,
 }
 
-/// The comfort settings that gate the presentation (never the evaluator).
+/// The comfort setting that gates the presentation (never the evaluator).
 ///
-/// Review F5: these are **not** the HUD-only [`crate::hud_settings`]
-/// reduced-motion flag (documented HUD scope; world motion is deferred to
-/// HUD-DEBT-08). `reduced_motion` here is a separate cinematic switch until
-/// the owner decides on an umbrella setting.
+/// Review F5: `cinematic_finishes: on/off` has its own flag and environment
+/// variable. It does **not** reuse the HUD-only [`crate::hud_settings`]
+/// reduced-motion flag (HUD scope; world motion is deferred to HUD-DEBT-08,
+/// which must also disable CINE once it exists).
 ///
-/// Environment (`1`/`true`/`on`/`yes`, `0`/`false`/`off`/`no`):
-/// * `FLOORBREAK_CINEMATIC_FINISHES`
-/// * `FLOORBREAK_CINEMATIC_REDUCED_MOTION`
-///
-/// Flags: `--cinematic-finishes[=on|off]`, `--cinematic-reduced-motion[=on|off]`
-/// (the bare form means `on`). Layering: defaults, then environment, then flags.
+/// Environment: `FLOORBREAK_CINEMATIC_FINISHES` (`1`/`true`/`on`/`yes`,
+/// `0`/`false`/`off`/`no`). Flag: `--cinematic-finishes[=on|off]` (the bare
+/// form means `on`). Layering: default, then environment, then flag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PresentationSettings {
-    /// `cinematic_finishes: on/off`.
+    /// `cinematic_finishes: on/off`. Off removes time dilation and camera
+    /// emphasis only: hit confirmation, death VFX and outcomes are unchanged.
     pub cinematic_finishes: bool,
-    /// Reduced motion removes time dilation and camera emphasis entirely
-    /// (suppression, not a downgrade), as the spec says.
-    pub reduced_motion: bool,
 }
 
 pub const ENV_CINEMATIC_FINISHES: &str = "FLOORBREAK_CINEMATIC_FINISHES";
-pub const ENV_CINEMATIC_REDUCED_MOTION: &str = "FLOORBREAK_CINEMATIC_REDUCED_MOTION";
+/// The command line flag of [`PresentationSettings`].
+pub const FLAG_CINEMATIC_FINISHES: &str = "--cinematic-finishes";
 
 impl PresentationSettings {
     /// What headless fixtures use unless they run a CINE-01 visual probe.
     pub const OFF: PresentationSettings = PresentationSettings {
         cinematic_finishes: false,
-        reduced_motion: false,
     };
 
-    /// Interactive default: on, motion allowed.
+    /// Interactive default: on.
     pub const DEFAULT: PresentationSettings = PresentationSettings {
         cinematic_finishes: true,
-        reduced_motion: false,
     };
 
     pub const fn allows_slow_motion(&self) -> bool {
-        self.cinematic_finishes && !self.reduced_motion
+        self.cinematic_finishes
     }
 
     /// Defaults overridden by whatever `get` returns (an env lookup in the
@@ -886,9 +910,6 @@ impl PresentationSettings {
         if let Some(v) = get(ENV_CINEMATIC_FINISHES).and_then(|v| parse_switch(&v)) {
             s.cinematic_finishes = v;
         }
-        if let Some(v) = get(ENV_CINEMATIC_REDUCED_MOTION).and_then(|v| parse_switch(&v)) {
-            s.reduced_motion = v;
-        }
         s
     }
 
@@ -896,26 +917,21 @@ impl PresentationSettings {
         Self::from_lookup(|key| std::env::var(key).ok())
     }
 
-    /// Apply one CLI argument. `Ok(true)` when it was one of ours, `Ok(false)`
-    /// when not, `Err` on a bad `=value`.
+    /// Apply one CLI argument. `Ok(true)` when it was ours, `Ok(false)` when
+    /// not, `Err` on a bad `=value`.
     pub fn apply_flag(&mut self, arg: &str) -> Result<bool, String> {
-        for (name, slot) in [
-            ("--cinematic-finishes", &mut self.cinematic_finishes),
-            ("--cinematic-reduced-motion", &mut self.reduced_motion),
-        ] {
-            if arg == name {
-                *slot = true;
-                return Ok(true);
-            }
-            if let Some(value) = arg
-                .strip_prefix(name)
-                .and_then(|rest| rest.strip_prefix('='))
-            {
-                *slot = parse_switch(value).ok_or_else(|| {
-                    format!("bad value {value:?} for {name} (expected on or off)")
-                })?;
-                return Ok(true);
-            }
+        if arg == FLAG_CINEMATIC_FINISHES {
+            self.cinematic_finishes = true;
+            return Ok(true);
+        }
+        if let Some(value) = arg
+            .strip_prefix(FLAG_CINEMATIC_FINISHES)
+            .and_then(|rest| rest.strip_prefix('='))
+        {
+            self.cinematic_finishes = parse_switch(value).ok_or_else(|| {
+                format!("bad value {value:?} for {FLAG_CINEMATIC_FINISHES} (expected on or off)")
+            })?;
+            return Ok(true);
         }
         Ok(false)
     }
@@ -937,7 +953,7 @@ pub enum RequestOutcome {
     /// A request is already pending (same or lower tier) or active:
     /// non-stacking, no extension, no reset.
     IgnoredBusy,
-    /// Disabled or reduced motion: nothing will slow down.
+    /// Disabled: nothing will slow down.
     Suppressed,
 }
 
@@ -959,7 +975,7 @@ pub enum PlanEnd {
     CancelledPause,
     /// Restart, defeat, respawn, capture or scene exit.
     CancelledLocked,
-    /// The setting was switched off (or reduced motion on) meanwhile.
+    /// The setting was switched off meanwhile.
     CancelledSettings,
     /// No defeat sequence was visible when it would have started: skipped
     /// rather than slowing empty scenery.
@@ -1436,6 +1452,62 @@ mod tests {
         assert!(run(&mut ev, &[broken(10, 0), block(40, 3, 0)]).is_empty());
     }
 
+    #[test]
+    fn r3_primaries_do_not_stack_one_primary_plus_bonuses() {
+        // A melee kill, then a landing that shears one goblin and crushes
+        // another: it satisfies both primaries, and still scores one primary
+        // (5) plus the extra-kill bonuses, never 10 and never legendary.
+        let mut ev = fresh();
+        let m = run(
+            &mut ev,
+            &[
+                melee(10, 1, Some(0)),
+                broken(20, 0),
+                edge(40, 2, 0),
+                block(40, 3, 0),
+            ],
+        )
+        .pop()
+        .unwrap();
+        assert!(m.feats.precision_edge && m.feats.mixed_chain);
+        assert_eq!((m.tier, m.score), (CineTier::Ordinary, 6));
+        // Even with every extra-kill slot used it stays under legendary.
+        let mut ev = fresh();
+        let m = run(
+            &mut ev,
+            &[
+                melee(10, 1, Some(0)),
+                broken(20, 0),
+                edge(40, 2, 0),
+                block(40, 3, 0),
+                block(40, 4, 0),
+                block(40, 5, 0),
+            ],
+        )
+        .pop()
+        .unwrap();
+        assert_eq!(m.score, 5 + T.extra_kill_bonus_cap);
+        assert!(m.score < T.legendary_threshold);
+    }
+
+    #[test]
+    fn r6_the_cooldown_starts_at_emission_whatever_presentation_does() {
+        // The evaluator emits and starts the cooldown; nothing the planner does
+        // (queue, skip, cancel, suppress) is an input.
+        let mut ev = fresh();
+        let first = run(
+            &mut ev,
+            &[melee(1, 1, Some(0)), broken(2, 0), block(3, 2, 0)],
+        );
+        assert_eq!(first.len(), 1);
+        let again = run(
+            &mut ev,
+            &[melee(300, 3, Some(0)), broken(301, 0), block(302, 4, 0)],
+        );
+        assert!(again.is_empty());
+        assert_eq!(ev.last_rejection(), Some(Rejection::Cooldown));
+    }
+
     // ---- CINE-T06: legendary -------------------------------------------
 
     fn legendary_chain() -> Vec<CineEvent> {
@@ -1457,21 +1529,21 @@ mod tests {
         ]
     }
 
-    /// The F4 linkage is off by default; these tests turn it on.
-    const LINKED: CineTuning = CineTuning {
-        contact_setup_enabled: true,
+    /// The contact bonus switched off (the pre-launch-proof behaviour).
+    const UNLINKED: CineTuning = CineTuning {
+        contact_setup_enabled: false,
         ..CineTuning::DEFAULT
     };
 
     fn linked() -> CinematicEvaluator {
-        CinematicEvaluator::new(LINKED)
+        CinematicEvaluator::new(CineTuning::DEFAULT)
     }
 
     #[test]
-    fn f4_legendary_is_unreachable_until_the_linkage_is_defined() {
-        // Default tuning: even a fully proven launch + contact + kills chain
+    fn f4_legendary_is_unreachable_without_the_contact_setup_bonus() {
+        // Bonus off: even a fully proven launch + contact + kills chain
         // scores at most 5 + 2 extra-kill bonus = 7: ordinary.
-        let mut ev = fresh();
+        let mut ev = CinematicEvaluator::new(UNLINKED);
         let mut chain = legendary_chain();
         chain.extend([
             melee(150, 4, Some(0)),
@@ -1505,7 +1577,7 @@ mod tests {
 
     #[test]
     fn t06_the_contact_bonus_needs_a_proven_launch_by_the_same_player() {
-        // No LaunchCredited event (the combat schema cannot prove it today).
+        // No LaunchCredited event (the launch is not proven).
         let mut chain = legendary_chain();
         chain.remove(0);
         let mut ev = linked();
@@ -1889,7 +1961,7 @@ mod tests {
     }
 
     #[test]
-    fn restart_also_clears_a_running_cooldown_and_respawn_keeps_it() {
+    fn restart_and_respawn_both_keep_the_cooldown_on_the_monotonic_clock() {
         let mut ev = fresh();
         let first = run(
             &mut ev,
@@ -1908,16 +1980,29 @@ mod tests {
         );
         assert!(blocked.is_empty());
         assert_eq!(ev.last_rejection(), Some(Rejection::Cooldown));
-        // Restart wipes the cooldown with the attempt.
+        // Restart clears the history but the cooldown survives: the finished
+        // attempt ended on tick 9, so the new attempt's tick 1 is clock 10.
         assert!(
             ev.observe_tick(9, &[CineEvent::Restart { tick: 9 }], false)
                 .is_none()
         );
-        let fresh_attempt = run(
+        let again = run(
             &mut ev,
             &[melee(1, 1, Some(0)), broken(2, 0), block(3, 2, 0)],
         );
-        assert_eq!(fresh_attempt.len(), 1);
+        assert!(again.is_empty());
+        assert_eq!(ev.last_rejection(), Some(Rejection::Cooldown));
+        // Emitted at clock 3; eligible again at clock 903 = epoch 9 + tick 894.
+        let early = run(
+            &mut ev,
+            &[melee(893, 1, Some(0)), broken(893, 0), block(893, 2, 0)],
+        );
+        assert!(early.is_empty(), "clock 902 is still inside the cooldown");
+        let late = run(
+            &mut ev,
+            &[melee(894, 3, Some(0)), broken(894, 0), block(894, 4, 0)],
+        );
+        assert_eq!(late.len(), 1, "clock 903: the 900 ticks have passed");
     }
 
     // ---- tier thresholds and upgrade -----------------------------------
@@ -1962,7 +2047,7 @@ mod tests {
         // Same tier never re-emits (no extra-kill bonus: still ordinary).
         let mut ev = CinematicEvaluator::new(CineTuning {
             extra_kill_bonus: 0,
-            ..LINKED
+            ..CineTuning::DEFAULT
         });
         run(&mut ev, &base);
         assert!(
@@ -2142,14 +2227,8 @@ mod tests {
     // ---- reduced motion / settings / pause ------------------------------
 
     #[test]
-    fn t11_off_and_reduced_motion_suppress_every_request_and_camera_emphasis() {
-        for settings in [
-            PresentationSettings::OFF,
-            PresentationSettings {
-                cinematic_finishes: true,
-                reduced_motion: true,
-            },
-        ] {
+    fn t11_off_suppresses_every_request_and_camera_emphasis() {
+        for settings in [PresentationSettings::OFF] {
             let mut p = SlowMoPlanner::new(settings);
             let req = T.request_for(&moment(CineTier::Legendary));
             assert_eq!(p.request(req), RequestOutcome::Suppressed);
@@ -2179,10 +2258,7 @@ mod tests {
         p.step(ctx(0.0));
         let f = p.step(ctx(0.1));
         assert!(f.relative_speed < 1.0 && f.camera_emphasis_px == 2);
-        p.set_settings(PresentationSettings {
-            cinematic_finishes: true,
-            reduced_motion: true,
-        });
+        p.set_settings(PresentationSettings::OFF);
         let f = p.step(ctx(0.016));
         assert_eq!(
             (f.relative_speed, f.camera_emphasis_px, f.ended),
@@ -2312,7 +2388,7 @@ mod tests {
     }
 
     #[test]
-    fn f3_restart_resets_history_dedup_and_cooldown_so_reused_ids_count_again() {
+    fn f3_restart_resets_history_and_dedup_so_reused_ids_count_again() {
         let mut ev = fresh();
         let first = run(
             &mut ev,
@@ -2320,14 +2396,23 @@ mod tests {
         );
         assert_eq!(first.len(), 1);
         ev.observe_tick(31, &[CineEvent::Restart { tick: 31 }], false);
-        // Ticks begin at 1 again and target ids 1 and 2 are reused; a stale
-        // tick-keyed history would reject them as duplicates or cooldown.
+        // Ticks begin at 1 again and target ids 1 and 2 are reused: the same
+        // chain at the same attempt-local ticks is a fresh one (it qualifies,
+        // so it is rejected only by the surviving cooldown, never as a
+        // duplicate or as a stale-history underflow).
         let second = run(
             &mut ev,
             &[melee(1, 1, Some(0)), broken(2, 0), block(3, 2, 0)],
         );
-        assert_eq!(second.len(), 1);
-        assert_eq!(second[0].tick, 3);
+        assert!(second.is_empty());
+        assert_eq!(ev.last_rejection(), Some(Rejection::Cooldown));
+        // Once the cooldown has passed the reused ids score again.
+        let third = run(
+            &mut ev,
+            &[melee(900, 1, Some(0)), broken(901, 0), block(902, 2, 0)],
+        );
+        assert_eq!(third.len(), 1, "{:?}", ev.last_rejection());
+        assert_eq!(third[0].tick, 902);
     }
 
     #[test]
@@ -2346,52 +2431,20 @@ mod tests {
             "1",
         )]));
         assert_eq!(hud_only, PresentationSettings::DEFAULT);
-        let mut s = PresentationSettings::from_lookup(env(&[
-            (ENV_CINEMATIC_FINISHES, "off"),
-            (ENV_CINEMATIC_REDUCED_MOTION, "maybe"),
-        ]));
-        assert_eq!(
-            s,
-            PresentationSettings {
-                cinematic_finishes: false,
-                reduced_motion: false
-            }
-        );
+        let mut s = PresentationSettings::from_lookup(env(&[(ENV_CINEMATIC_FINISHES, "off")]));
+        assert_eq!(s, PresentationSettings::OFF);
+        // An unparsable value keeps the default.
+        let kept = PresentationSettings::from_lookup(env(&[(ENV_CINEMATIC_FINISHES, "maybe")]));
+        assert_eq!(kept, PresentationSettings::DEFAULT);
         // Flags layer over the environment.
         assert_eq!(s.apply_flag("--cinematic-finishes"), Ok(true));
-        assert_eq!(s.apply_flag("--cinematic-reduced-motion=on"), Ok(true));
-        assert_eq!(
-            s,
-            PresentationSettings {
-                cinematic_finishes: true,
-                reduced_motion: true
-            }
-        );
+        assert_eq!(s, PresentationSettings::DEFAULT);
+        assert_eq!(s.apply_flag("--cinematic-finishes=off"), Ok(true));
+        assert!(!s.allows_slow_motion());
+        // There is no cinematic reduced-motion flag (review F5): HUD-DEBT-08.
+        assert_eq!(s.apply_flag("--cinematic-reduced-motion=on"), Ok(false));
         assert_eq!(s.apply_flag("--hud-reduced-motion"), Ok(false));
         assert!(s.apply_flag("--cinematic-finishes=bogus").is_err());
-        assert!(!s.allows_slow_motion());
-    }
-
-    #[test]
-    fn f6_a_scripted_scene_never_emits_a_moment_and_starts_no_cooldown() {
-        let mut ev = fresh();
-        ev.set_scripted_scene(true);
-        let chain = [melee(10, 1, Some(0)), broken(20, 0), block(30, 2, 0)];
-        assert!(run(&mut ev, &chain).is_empty());
-        assert_eq!(ev.last_rejection(), Some(Rejection::ScriptedScene));
-        // The flag survives a restart (it is per scene, not per attempt).
-        ev.observe_tick(31, &[CineEvent::Restart { tick: 31 }], false);
-        assert!(run(&mut ev, &chain).is_empty());
-        // Leaving the scene mode makes the same chain eligible at once.
-        ev.set_scripted_scene(false);
-        assert!(
-            run(
-                &mut ev,
-                &[melee(40, 3, Some(0)), broken(41, 0), block(42, 4, 0)]
-            )
-            .len()
-                == 1
-        );
     }
 
     #[test]
