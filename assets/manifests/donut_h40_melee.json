@@ -39,7 +39,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "melee": {
-    "status": "15 frames drawn: 8 frozen keys and 7 executed in-betweens; independent review pending; not wired into any Bevy binary",
+    "status": "15 frames drawn: 8 frozen keys and 7 executed in-betweens; silhouette gate FIX-KEYS fixed and re-frozen; blind review 22/25 pass with execution items; not owner-approved; not wired into the Floor 1 binary (gameplay: docs/02-art/donut-moveset-q10.md, WORK-023)",
     "spec": "docs/02-art/donut-melee-anim-02-spec.md",
     "locomotion": "assets/manifests/donut_h40_locomotion.json",
     "tick_hz": 60,
