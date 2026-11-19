@@ -107,3 +107,12 @@ The integration TODO list is in [the Q10 spec](../02-art/donut-moveset-q10.md#im
 3. Place the `UnlockTrigger` from level data (a placeholder x range until the Guild room exists) and call `UnlockTrigger::step` with Donut's pivot and the party-defeat state.
 4. Restart paths call `DonutMana::restart` with `DefeatRetry`, `CheckpointRestart` or `Fixture(StartState)`.
 5. Replays and fixtures record `TUNING_HASH` and load with `ManaTuning::from_json_pinned`.
+
+### Adopted defaults (2026-11-19)
+
+The two mana points that phase A flagged are **resolved** under the owner's design-defaults directive. The full table, with the other eight Q10 points, is in [the Q10 spec](../02-art/donut-moveset-q10.md#adopted-defaults-2026-11-19). The owner may change either in a follow-up PR.
+
+| ID | Question | Choice | Reason | Code impact |
+| --- | --- | --- | --- | --- |
+| Q10-A09 | How is `ai_mana_reserve` read? | The AI casts only if at least `ai_mana_reserve` charges are left **after** the cast: `mana - missile_cost >= ai_mana_reserve`. | It is the literal reading of "never spends below 2 charges", the same as "mana above the reserve" at cost 1, and it stays correct if the cost rises. It is unused until the AI attacks (Q9 B). | Match (`DonutMana::ai_can_cast`). |
+| Q10-A10 | Hash for the tuning pin: FNV-1a 64 or SHA-256? | FNV-1a 64 over the raw file bytes (`TUNING_HASH`). | The pin detects drift. It is not a trust boundary, so a cryptographic hash adds nothing. FNV-1a 64 is the repository's existing hash and needs no new crate. | Match (`TUNING_HASH`, `ManaTuning::from_json_pinned`). |
