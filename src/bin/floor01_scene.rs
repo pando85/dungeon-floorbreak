@@ -594,7 +594,7 @@ struct LiveFixture(Option<&'static Fixture>);
 struct Controls {
     jump_tap: bool,
     attack_tap: bool,
-    special_tap: bool,
+    physical_tap: bool,
     restart: bool,
 }
 
@@ -1155,7 +1155,7 @@ fn capture_input(
 ) {
     controls.jump_tap |= keys.just_pressed(KeyCode::Space);
     controls.attack_tap |= keys.just_pressed(KeyCode::KeyJ);
-    controls.special_tap |= keys.just_pressed(KeyCode::KeyK);
+    controls.physical_tap |= keys.just_pressed(KeyCode::KeyK);
     controls.restart |= keys.just_pressed(KeyCode::KeyR);
     if keys.just_pressed(KeyCode::Escape) {
         exit.write(AppExit::Success);
@@ -1165,8 +1165,9 @@ fn capture_input(
     if let Some(pad) = pads.iter().next() {
         controls.jump_tap |= pad.just_pressed(GamepadButton::South);
         controls.attack_tap |= pad.just_pressed(GamepadButton::West);
-        controls.special_tap |= pad.just_pressed(GamepadButton::East);
-        controls.restart |= pad.just_pressed(GamepadButton::North);
+        // PhysicalAttack is Triangle/Y (North); North no longer restarts.
+        controls.physical_tap |= pad.just_pressed(GamepadButton::North);
+        controls.restart |= pad.just_pressed(GamepadButton::Select);
         if pad.just_pressed(GamepadButton::Start) {
             exit.write(AppExit::Success);
         }
@@ -1192,7 +1193,7 @@ fn fixed_step(
     let restart = std::mem::take(&mut controls.restart);
     let jump_tap = std::mem::take(&mut controls.jump_tap);
     let attack_tap = std::mem::take(&mut controls.attack_tap);
-    let special_tap = std::mem::take(&mut controls.special_tap);
+    let physical_tap = std::mem::take(&mut controls.physical_tap);
     if frozen.0 {
         return;
     }
@@ -1226,7 +1227,7 @@ fn fixed_step(
             jump: keys.pressed(KeyCode::Space) || jump_tap,
             // Melee exists only in a combat fixture (`--fixture ... --manual`).
             attack: combat.0.is_some() && (keys.pressed(KeyCode::KeyJ) || attack_tap),
-            ability: combat.0.is_some() && (keys.pressed(KeyCode::KeyK) || special_tap),
+            physical: combat.0.is_some() && (keys.pressed(KeyCode::KeyK) || physical_tap),
             ..RawInput::default()
         };
         if let Some(pad) = pads.iter().next() {
@@ -1241,7 +1242,7 @@ fn fixed_step(
             raw.jump |= pad.pressed(GamepadButton::South);
             if combat.0.is_some() {
                 raw.attack |= pad.pressed(GamepadButton::West);
-                raw.ability |= pad.pressed(GamepadButton::East);
+                raw.physical |= pad.pressed(GamepadButton::North);
             }
         }
         raw

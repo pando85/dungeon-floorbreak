@@ -81,6 +81,9 @@ pub struct Reaction {
     pub hit_stop: u8,
     /// Camera kick on the confirming hit, virtual pixels (presentation only).
     pub camera_kick_px: u8,
+    /// A hit that does not defeat the target launches it (the push kick, D-02)
+    /// with `knock_vx` / `knock_vy` instead of staggering it.
+    pub launch: bool,
 }
 
 impl Reaction {
@@ -90,6 +93,7 @@ impl Reaction {
         knock_vy: 0.0,
         hit_stop: 0,
         camera_kick_px: 0,
+        launch: false,
     };
 
     pub const fn from_feel(feel: MoveFeel) -> Self {
@@ -99,6 +103,7 @@ impl Reaction {
             knock_vy: feel.knock_vy,
             hit_stop: feel.hit_stop,
             camera_kick_px: feel.camera_kick_px,
+            launch: false,
         }
     }
 }
@@ -242,8 +247,8 @@ pub const CARL_HAYMAKER: MoveSpec = MoveSpec {
 
 /// Carl's push kick (`kick` of the melee art): startup 13, active 4,
 /// recovery 19. The sole box is +15..21 px ahead at 18..27 px above the feet.
-/// Its knockback behaviour (launch, CP-02) is NOT defined yet: it deals the
-/// jab's reaction with the kick's 8-tick hit-stop ([`KICK_FEEL`]).
+/// A goblin it does not defeat is launched (D-02, [`KICK_FEEL`]); a launched
+/// living goblin can interrupt a second one (CP-02, `combat_scene`).
 pub const CARL_PUSH_KICK: MoveSpec = MoveSpec {
     id: MoveId::PushKick,
     startup: 13,
@@ -256,7 +261,10 @@ pub const CARL_PUSH_KICK: MoveSpec = MoveSpec {
         y_max: 28.0,
     },
     damage: 1,
-    reaction: Reaction::from_feel(KICK_FEEL),
+    reaction: Reaction {
+        launch: true,
+        ..Reaction::from_feel(KICK_FEEL)
+    },
     chain: None,
     root_step: None,
 };
@@ -803,6 +811,7 @@ pub fn resolve_strike<T: StrikeTarget>(
             events.push(CombatEvent::EnemyDefeated {
                 tick: sim_tick,
                 target: id,
+                cause: DefeatCause::Melee,
             });
         }
     }
@@ -810,6 +819,15 @@ pub fn resolve_strike<T: StrikeTarget>(
 }
 
 // ------------------------------------------------------------------- events --
+
+/// How a target was defeated, with the credit (`player` 0 is Carl's slot).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DefeatCause {
+    /// A melee hit of the attacker (the CP-01 default).
+    Melee,
+    /// CP-03: the falling block, credited to the player who broke the shore.
+    ShoreBlock { player: u32 },
+}
 
 /// Something that happened on a fixed tick, for deterministic replay logs.
 ///
@@ -834,9 +852,13 @@ pub enum CombatEvent {
         /// Ticks the attacker and the target freeze (0 for the greybox).
         hit_stop: u8,
     },
+    /// The one authoritative defeat event. `cause` says how (melee by default;
+    /// the falling block of CP-03 credits the player who broke the shore).
+    /// Presentation data (gore, intensity) never belongs in it.
     EnemyDefeated {
         tick: u64,
         target: u32,
+        cause: DefeatCause,
     },
     /// A goblin took an attack token and started its tell (attack tick 0).
     GoblinTell {
@@ -864,6 +886,29 @@ pub enum CombatEvent {
     Restart {
         tick: u64,
         deaths: u32,
+    },
+    /// CP-02: a launched living goblin (`source`) touched another (`target`).
+    /// At most one per (`launch`, `target`); no damage.
+    GoblinContact {
+        tick: u64,
+        launch: u32,
+        source: u32,
+        target: u32,
+    },
+    /// CP-03: a melee hit advanced the rotten shore (`hits` of 3 so far).
+    ShoreHit {
+        tick: u64,
+        instance: u32,
+        hits: u8,
+    },
+    /// CP-03: the third hit broke the shore; the block will fall.
+    ShoreBroken {
+        tick: u64,
+        player: u32,
+    },
+    /// CP-03: the block landed; the hazard footprint was evaluated once.
+    ShoreLanded {
+        tick: u64,
     },
 }
 
@@ -899,10 +944,19 @@ impl CombatEvent {
                 mix(u64::from(health_left));
                 mix(u64::from(hit_stop));
             }
-            Self::EnemyDefeated { tick, target } => {
+            Self::EnemyDefeated {
+                tick,
+                target,
+                cause,
+            } => {
                 mix(3);
                 mix(tick);
                 mix(u64::from(target));
+                // Mixed only for a non-melee cause: melee replays keep their hash.
+                if let DefeatCause::ShoreBlock { player } = cause {
+                    mix(0x5348_4f52);
+                    mix(u64::from(player));
+                }
             }
             Self::HeroHurt {
                 tick,
@@ -938,6 +992,37 @@ impl CombatEvent {
                 mix(tick);
                 mix(u64::from(goblin));
             }
+            Self::GoblinContact {
+                tick,
+                launch,
+                source,
+                target,
+            } => {
+                mix(10);
+                mix(tick);
+                mix(u64::from(launch));
+                mix(u64::from(source));
+                mix(u64::from(target));
+            }
+            Self::ShoreHit {
+                tick,
+                instance,
+                hits,
+            } => {
+                mix(11);
+                mix(tick);
+                mix(u64::from(instance));
+                mix(u64::from(hits));
+            }
+            Self::ShoreBroken { tick, player } => {
+                mix(12);
+                mix(tick);
+                mix(u64::from(player));
+            }
+            Self::ShoreLanded { tick } => {
+                mix(13);
+                mix(tick);
+            }
         }
     }
 }
@@ -967,11 +1052,21 @@ impl fmt::Display for CombatEvent {
                 "COMBAT_EVENT tick={tick} kind=hit move={} instance={instance} target={target} damage={damage} health_left={health_left} hit_stop={hit_stop}",
                 move_id.name()
             ),
-            Self::EnemyDefeated { tick, target } => {
+            Self::EnemyDefeated {
+                tick,
+                target,
+                cause,
+            } => {
                 write!(
                     f,
                     "COMBAT_EVENT tick={tick} kind=enemy_defeated target={target}"
-                )
+                )?;
+                match cause {
+                    DefeatCause::Melee => Ok(()),
+                    DefeatCause::ShoreBlock { player } => {
+                        write!(f, " cause=shore_block credit_player={player}")
+                    }
+                }
             }
             Self::GoblinTell { tick, goblin } => {
                 write!(
@@ -1004,6 +1099,32 @@ impl fmt::Display for CombatEvent {
             }
             Self::Restart { tick, deaths } => {
                 write!(f, "COMBAT_EVENT tick={tick} kind=restart deaths={deaths}")
+            }
+            Self::GoblinContact {
+                tick,
+                launch,
+                source,
+                target,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=goblin_contact launch={launch} source={source} target={target}"
+            ),
+            Self::ShoreHit {
+                tick,
+                instance,
+                hits,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=shore_hit instance={instance} hits={hits}"
+            ),
+            Self::ShoreBroken { tick, player } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=shore_broken player={player}"
+                )
+            }
+            Self::ShoreLanded { tick } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=shore_landed")
             }
         }
     }

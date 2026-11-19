@@ -817,6 +817,7 @@ mod tests {
                     x: $x,
                     ai: EnemyAi::Passive,
                 }],
+                shore_dx: None,
                 script: &[],
                 ticks: 100,
             };
@@ -835,7 +836,7 @@ mod tests {
         let mut sim = FixtureSim::new(&kit, 360, fixture).unwrap();
         let total = carl_move(MoveId::PushKick).unwrap().total();
         sim.step(RawInput {
-            ability: true,
+            physical: true,
             ..Default::default()
         });
         for _ in 0..total {

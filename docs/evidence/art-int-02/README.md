@@ -1,6 +1,6 @@
 # ART-INT-02 evidence: Carl melee and goblin art in the Floor 1 combat fixtures
 
-The approved Carl melee ([ANIM-CARL-02](../../02-art/carl-melee-anim-02-spec.md)) and goblin ([GOB-01](../../02-art/gob-01-goblin-spec.md), variants A and B) atlases replace the disclosed CP-01 placeholder rectangles in `floor01_scene`. Presentation only: the sim, every fixture `COMBAT_STATE` hash and the story-route hashes (`walk_right` t250 `931868d6afa56498`, t613 `82b8f87fa644de48`) are unchanged; the one new hash is the new `cp01_kick` fixture (`13a31642299f0768`, input data only). Design and mapping: [Combat animation](../../03-tech/floor01-scene.md#combat-animation-art-int-02). **Nobody has judged the look or the feel yet; the owner review is pending.**
+The approved Carl melee ([ANIM-CARL-02](../../02-art/carl-melee-anim-02-spec.md)) and goblin ([GOB-01](../../02-art/gob-01-goblin-spec.md), variants A and B) atlases replace the disclosed CP-01 placeholder rectangles in `floor01_scene`. Presentation only: the sim, every fixture `COMBAT_STATE` hash and the story-route hashes (`walk_right` t250 `931868d6afa56498`, t613 `82b8f87fa644de48`) are unchanged; the one new hash was the `cp01_kick` fixture (`13a31642299f0768`, input data only). **Updated by I-03 PR A:** the kick now launches, `cp01_kick` is retimed (second kick on tick 247, 340 ticks) and its hash is `9e13d64619149b71`; the kick GIF and strip below were regenerated from a real xvfb render of the new fixture. Design and mapping: [Combat animation](../../03-tech/floor01-scene.md#combat-animation-art-int-02). **Nobody has judged the look or the feel yet; the owner review is pending.**
 
 Everything below comes from the real Bevy render (software Vulkan under Xvfb, 1920x1080, scale 3, lighting on), one capture per tick, produced by `xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render`; the render run's final sim state and the frames it drew (`COMBAT_ANIM_STATE`) are compared with the headless replay by that script. `python3 scripts/make_art_int02_evidence.py` builds the images from the captures.
 
@@ -12,7 +12,7 @@ Everything below comes from the real Bevy render (software Vulkan under Xvfb, 19
 * **F-a, stacked goblins:** `still_retry_goblins_drawn_apart_x2.png` (cp01_retry ticks 399, 416, 430): the second goblin is drawn 6 px away from Carl and behind the first one.
 * **F-b:** goblins A and B walk three frames out of phase (`cp02_two_goblins` GIF).
 * **F-c:** `strip_carl_knockdown_ticks399-448.png`: the blow (h0 held through the freeze), launch, flight, landing (d0) and sprawl (d1) without a head drop or a pop.
-* **F-d:** `strip_kick_ticks133-148.png` and `cp01_kick_ticks128-188_960x540.gif`: the new `cp01_kick` fixture, k3 on the hit tick 135 (recoil for the 9 frozen ticks, then the stagger frame) and the killing kick on 183.
+* **F-d:** `strip_kick_ticks133-148.png` and `cp01_kick_ticks128-188_960x540.gif`: the new `cp01_kick` fixture, k3 on the hit tick 135 (recoil for the 9 frozen ticks, then the stagger frame) and the killing kick on 183. Since I-03 PR A the kick launches the goblin (recoil frame 16 for the hit-stop, then `knockback` 18, 19, `down` and `getup` by tick 188) and the killing kick lands on tick 260, outside the 61-tick window. The GIF and strip show this (regenerated with `make_art_int02_evidence.py` from a `--scale 3` capture of ticks 128 to 188).
 * **F-e:** lying goblins are drawn below Donut.
 
 ## GIFs
@@ -25,7 +25,7 @@ Native-pixel 960x540 crops of the 1920x1080 captures (no scaling), one frame per
 | `cp01_goblin_attacks_ticks128-188_960x540.gif` | the goblin's tell, smear, impact on Carl (tick 153), Carl's flinch and the goblin's recovery |
 | `cp01_interrupt_ticks122-182_960x540.gif` | a jab landing inside the tell: the swing never happens, recoil for 4 ticks then the stagger frame held |
 | `cp02_two_goblins_ticks60-120_960x540.gif` | variants A and B walking in (out of phase), jab, haymaker kill of the first goblin and the second one caught (non-lethal haymaker: recoil for 6 frozen ticks, then the stagger frame) |
-| `cp01_kick_ticks128-188_960x540.gif` | the push kick: k3 on the hit tick 135 inside the tell, stagger, then the killing kick |
+| `cp01_kick_ticks128-188_960x540.gif` | the push kick: k3 on the hit tick 135 inside the tell, then the launch, flight, lying and get-up of the kicked goblin (ticks 128 to 188; the killing kick on 260 is outside the window) |
 | `cp01_retry_ticks398-449_960x540.gif` | Carl's defeat, launch, flight, landing and sprawl until the restart, the two goblins drawn apart |
 
 ## Per-tick strips

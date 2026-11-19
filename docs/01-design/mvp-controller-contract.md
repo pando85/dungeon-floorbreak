@@ -89,13 +89,13 @@ No Floor 2+ ability is approved here. New floors should define capabilities for 
 
 ## Bevy implementation contract and migration
 
-**Current state (2026-11-18):** the integrated scene/greybox have *temporary* input bindings. In the post-chase CP-01 fixture, `attack_pressed` is the punch and `special_pressed` is temporarily the kick because pre-Guild Carl has no explosive. This is **implemented probe behavior, not the approved MVP control contract**. Do not misreport a docs-only PR as gameplay implementation.
+**Current state (I-03 PR A, 2026-11-18):** in `floor01_scene` `RawInput` has separate `attack` (PrimaryAttack), `physical` (PhysicalAttack, Triangle/Y = North, keyboard K: Carl's kick) and `ability` (EquippedSpecial, Circle/B: inert before its unlock). The old special-as-kick wiring is migrated there; the pad restart of that binary moved from North to Select (Select is unassigned in this contract; **owner sign-off pending**). The WORK-021 greybox (`main.rs`) still uses `ability` for bombs. This is **implemented probe behavior, not the approved MVP control contract** (no 2P, swap or interact yet). Do not misreport a docs-only PR as gameplay implementation.
 
 **Target logical actions** (names can be adapted to Rust style): `Move`, `AimOptional`, `Jump`, `PrimaryAttack`, `PhysicalAttack`, `EquippedSpecial`, `Interact`, `SwapCharacter`, `CycleSpecialOptional`, `PrecisionAimOptional`, `Pause`. Keep physical bindings in device adapters; emit ticked per-player input states/events to deterministic game-domain logic. Unlock state resolves the action in a generic capability/ability layer; game-domain logic must not depend on physical button codes or narrative character names.
 
 **Migration order:**
-1. Add a distinct physical-attack action without breaking WORK-021/CP fixtures; migrate old `special_pressed`-as-kick wiring in the integrated scene, with regression coverage for both punch and kick.
-2. Bind Square/X -> primary, Triangle/Y -> physical, Circle/B -> equipped special (only post-unlock), R1/RB -> interact, L1/LB -> solo swap; preserve keyboard adapters and clearly document temporary defaults.
+1. **Done in `floor01_scene` (PR A):** a distinct physical-attack action exists without breaking WORK-021/CP fixtures; the old `special_pressed`-as-kick wiring is migrated, with regression coverage for punch and kick.
+2. Bind Square/X -> primary, Triangle/Y -> physical, Circle/B -> equipped special (only post-unlock), R1/RB -> interact, L1/LB -> solo swap (**primary, physical and special are done in `floor01_scene`; interact and swap are not**); preserve keyboard adapters and clearly document temporary defaults.
 3. Test deterministic command recording/replay, one press causing one kick, action buffering during recovery, button-hold semantics, and no phantom action at startup/reconnect.
 4. Verify the same encounters with Carl and Donut, independent controllers, safe camera, Steam Controller mappings, and both 640x360 and 640x400 presentation.
 5. Only then experiment with repeat/hold attacks, aerial/down variants, optional precision aim and special cycling. Keep failed experiments reversible.

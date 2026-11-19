@@ -63,8 +63,8 @@ use crate::combat::{ENEMY_HALF_HEIGHT, MoveId};
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::feel::{
-    ATTACK_TICKS, HERO_HURT_TICKS, HERO_KNOCKDOWN_VY, IMPACT_END, KNOCK_GRAVITY, LETHAL_KNOCK_VY,
-    SMEAR_END, TELL_TICKS,
+    ATTACK_TICKS, DOWNED_TICKS, HERO_HURT_TICKS, HERO_KNOCKDOWN_VY, IMPACT_END, KNOCK_GRAVITY,
+    LETHAL_KNOCK_VY, SMEAR_END, TELL_TICKS,
 };
 use crate::goblin::{AttackPhase, GoblinMode};
 use crate::prototype::HERO_HALF_HEIGHT;
@@ -722,6 +722,10 @@ pub struct GoblinInput {
     pub frozen: bool,
     pub down_ticks: u16,
     pub vy: f32,
+    /// Ticks since a living launch (the kick) was released.
+    pub flight_ticks: u16,
+    /// The `knockback_contact` pose is held (CP-02 contact, first ticks).
+    pub contact: bool,
     /// Walking this tick (neutral, not sliding, x changed).
     pub walking: bool,
     /// Ground covered since the walk began, in thousandths of a pixel.
@@ -772,6 +776,30 @@ pub fn goblin_pose(clips: &SpriteClips, input: &GoblinInput) -> ArtPose {
                 }
             } else {
                 at("knockback", launch_age(input.vy).saturating_sub(1))
+            }
+        }
+        // A living kick launch (D-02): recoil through the hit-stop, then the
+        // launch and airborne frames by flight age; on a goblin-to-goblin
+        // contact (D-03, CP-02) the crumpled `knockback_contact` frame.
+        GoblinMode::Launched => {
+            if input.contact {
+                at("knockback_contact", 0)
+            } else if input.frozen {
+                ArtPose {
+                    tag: "hurt",
+                    frame: clips.frame_in("hurt", 0),
+                }
+            } else {
+                at("knockback", u32::from(input.flight_ticks).saturating_sub(1))
+            }
+        }
+        // Landed alive: the lying frames, then the get-up frames.
+        GoblinMode::Downed => {
+            let lying = DOWNED_TICKS;
+            if input.down_ticks < lying {
+                at("down", u32::from(input.down_ticks))
+            } else {
+                at("getup", u32::from(input.down_ticks - lying))
             }
         }
         GoblinMode::Hurt => ArtPose {
@@ -981,6 +1009,8 @@ impl CombatAnimators {
                     frozen: false,
                     down_ticks: g.down_ticks,
                     vy: g.vy,
+                    flight_ticks: g.flight_ticks,
+                    contact: g.contact_ticks > 0,
                     walking: false,
                     walk_milli_px: 0,
                     idle_tick: 0,
@@ -1031,13 +1061,18 @@ impl CombatAnimators {
                 frozen: goblin.hit_stop > 0 || prev_hit_stop > 0,
                 down_ticks: goblin.down_ticks,
                 vy: goblin.vy,
+                flight_ticks: goblin.flight_ticks,
+                contact: goblin.contact_ticks > 0,
                 walking,
                 walk_milli_px: track.walk_milli_px + index as u32 * WALK_INDEX_OFFSET_MILLI_PX,
                 idle_tick: tick + index as u64 * IDLE_INDEX_OFFSET_TICKS,
             };
             // Hit-stop contact: Carl's striking limb on a goblin frozen by it.
             let striking = track.input.frozen
-                && matches!(goblin.mode, GoblinMode::Hurt | GoblinMode::Airborne)
+                && matches!(
+                    goblin.mode,
+                    GoblinMode::Hurt | GoblinMode::Airborne | GoblinMode::Launched
+                )
                 && carl_pose.is_some_and(|p| is_contact_pose(&self.carl, &p));
             if let (true, Some(carl_pose)) = (striking, carl_pose) {
                 let geometry = StrikeGeometry {
