@@ -2,6 +2,7 @@
 
 pub mod actor_sprite;
 pub mod anim;
+pub mod audience;
 pub mod audio;
 pub mod audio_adapter;
 pub mod blast;
