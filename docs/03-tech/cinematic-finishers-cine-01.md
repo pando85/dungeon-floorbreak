@@ -8,7 +8,7 @@ Read first: `AGENTS.md`; [combat feel](../01-design/combat-feel-hybrid-physics.m
 
 ## 1. Non-negotiable behavior
 
-1. **Exceptional execution is required.** A death is necessary but not sufficient. Neither `ForceTier::Catastrophic`, gore preset 4, a dismemberment recipe, an explosion, high damage, nor a boss death automatically triggers slow motion.
+1. **Exceptional execution is required.** A death is necessary but not sufficient. Neither `ForceTier::Catastrophic`, gore preset 4, a dismemberment recipe, an explosion, high damage, nor a boss death automatically triggers slow motion. In v0 a boss defeat never triggers CINE, per the boss design's "no slow motion or cinematic pause" rule (see [Floor 1 boss design](../02-art/floor-01-boss-design.md) section 5); any change is an owner decision.
 2. **Causality over chance.** Use observed, authoritative combat events and verified player attribution. No random chance, visual-debris collisions, VFX counts, estimated audience/viewership, or opaque “coolness” heuristics.
 3. **One shared world, one shared camera.** In solo and local 2P, both heroes, all enemies and hazards undergo the same brief time dilation. Do not single out, take control of, teleport, freeze, or reposition one player for a close-up. Ordinary hit-stop remains a separate, stronger contact beat.
 4. **Preserve simulation semantics.** The fixed-tick game domain must still advance with the existing 60 Hz `TICK_SECONDS` and step order. Time dilation only changes *when* fixed ticks execute relative to real time, not their simulated delta or outcomes for the same tick-indexed input sequence. The evaluator never writes `CombatEvent`, collision, damage, RNG, death selection, score, or replay-hash inputs.
@@ -26,11 +26,18 @@ Use a pure, Bevy-free `CinematicEvaluator` that **observes** the ordered event s
 Every moment must:
 
 - Resolve from at least one actual `CombatEvent::EnemyDefeated` (once per living target; do not count extra corpses or synthetic stress/lab deaths).
-- Be credited to a **known player** by the defeating action or the verified action chain. When the cause has a `player` field (for example `ShoreBlock { player }`), use that source; do not confuse `instigator` (which may identify an earlier hit) with the current prop operator. For direct melee, use its authoritative attacker; the current legacy Carl-only path may use its documented player-zero default, but **do not generalize that default to Donut or 2P**.
+- Be credited to a **known hero** by the defeating action or the verified action chain (see "Credit identity" below). When the cause has a `player` field (for example `ShoreBlock { player }`), use that source; do not confuse `instigator` (which may identify an earlier hit) with the current prop operator. For direct melee, use its authoritative attacker; the current legacy Carl-only path may use its documented player-zero default, but **do not generalize that default to Donut or 2P**.
 - Have a verified **primary skill feat** in the table below; bonus points alone can never qualify.
-- Have no `HeroHurt` of the *credited hero* in the preceding `clean_window_ticks` (including this tick). An unrelated P2 hit does not disqualify P1.
-- Not occur during defeat/restart, scripted camera captures, app pause, or other externally locked time flow.
+- Have no `HeroHurt { hero }` with `hero == credited hero` in the preceding `clean_window_ticks` (including this tick). A hurt to a different hero (for example Donut while Carl is credited) does not disqualify the credited hero.
+- Not occur during defeat/restart, scripted camera captures, a `Frozen` capture, the D6 disconnect pause, or other externally locked time flow.
 - Pass the global cooldown, and not be part of a previously rewarded chain.
+- For any `ShoreBlock` or `ShoreBlockEdge` credit: have a `ShoreBroken { player }` observed in the **same attempt** with the same player as the defeat cause. `step_shore` credits `ShoreBlock { player: shore.breaker.unwrap_or(PLAYER_ONE) }` when a block has no breaker, so a block defeat without a matching `ShoreBroken` is treated as unattributed and gives no credit. Track the last `ShoreBroken` per attempt **outside** the rolling window, because the block's fall time can exceed it.
+
+**Credit identity (v0).** Credit is the **hero index** carried by the event (0 is Carl, 1 is Donut), which matches main (`Attacker.player`, `ShoreBroken.player`) and the Q10 pounce credit. "Same player" in this document means the same hero. The clean-window veto checks `HeroHurt { hero == credited hero }`. Under solo swap this means no chain across heroes: for example, a pounce kill as Donut (credit 1) followed by a block Carl broke (credit 0) is two separate credits, not one chain. Mapping human controller slots to heroes is left to `CINE-DUO`. Main (`goblin.rs` DEATH-B comment, `Attacker.player`) calls this value a player slot while Q10 calls it a hero index; the owner may want to unify the naming.
+
+**Attempt boundaries and clocks.** Ticks are attempt-local: `Restart` resets the tick counter and is not hashed, and target IDs are reused after a restart. The evaluator therefore clears its history, per-target deduplication and last-`ShoreBroken` records on `Restart` and on `Respawn` (DEMO-01), and the adapter cancels any `Pending` or `Active` moment at the same time. The cooldown is measured on a monotonic counter (`CombatState::elapsed` or the evaluator's own count of observed ticks), not on attempt-local ticks, and it **survives** `Restart` and `Respawn`.
+
+Match the "player-activated drop hazard" cause class through one helper (for example `DefeatCause::drop_credit() -> Option<u32>`) rather than hard-coding `ShoreBlock`. The merged boss design replaces `ShoreBlock` with `DefeatCause::DropHazard { player, rack }` as a hash migration, and rack credit must keep working when that lands.
 
 Process multiple events on the same tick as one batch, ordered deterministically by (tick, target ID), independent of iteration/renderer order. Use stable feature IDs and fixed integer scoring: no floating-point score thresholds.
 
@@ -39,20 +46,20 @@ Process multiple events on the same tick as one batch, ordered deterministically
 | Evidence ID | Required observable action | Score | Ready now? |
 | --- | --- | ---: | --- |
 | `CINE-PRECISION-EDGE` | A player-authored `ShoreBlockEdge` defeat after that player's verified shore break; the upright neck-edge check is what made it a *shear*, not an ordinary crush | **5** | **Depends on DEATH-D**, which is still specified but not implemented on `main` at this snapshot |
-| `CINE-MIXED-CHAIN` | Same player, **two different living targets** defeated within 90 ticks, one by direct melee and one by that player's activated falling shore block; no player hurt in the interval | **5** | **Yes** with `Melee`, `ShoreBlock`, `ShoreBroken` and `EnemyDefeated` |
-| `CINE-CONTACT-SETUP` | A previously player-launched *living* goblin made a recorded `GoblinContact`, and a linked target is defeated in the same causal window. The launch-to-player association must be proved by the hit event, never inferred from screen proximity | +2 | Conditionally; omit bonus if attribution is ambiguous |
+| `CINE-MIXED-CHAIN` | Same hero, **two different living targets** defeated within 90 ticks, one by direct melee and one by that hero's activated falling shore block (any order); the credited hero is not hurt in the interval | **5** | **Yes** with `Melee`, `ShoreBlock`, `ShoreBroken` and `EnemyDefeated` |
+| `CINE-CONTACT-SETUP` | A previously player-launched *living* goblin made a recorded `GoblinContact`, and a **linked** target is defeated by the credited hero. *Linked* means the contact's `source` or `target` is defeated by the credited hero within `history_window_ticks` of the contact. The launch-to-player association is proved by `GoblinContact.launch` equalling the `instance` of a `Hit { move_id: PushKick, target == source }` in history, never inferred from screen proximity | +2 | Conditionally; omit bonus if attribution is ambiguous |
 | `CINE-EXTRA-KILL` | An additional distinct, credited enemy defeat within the same valid chain/window | +1 each, **max +2** | Yes |
 | `CINE-COUNTER` (future) | A dedicated authoritative dodge/interrupt-to-counter evidence event with explicit player credit; cannot be inferred solely from a generic `GoblinInterrupted` | TBD | **Not implementable yet; do not synthesize it** |
 | `CINE-DUO` (future) | Verified complementary actions by both human players in a causally linked kill | TBD | **Not implementable yet; do not pretend that a solo companion action is P2** |
 
-**Thresholds:** ordinary cinematic at score **5–7**; legendary at score **8+**. Legendary is not a second execution: it is a slightly stronger variant of the **one** selected moment. Every qualifying score must include either `CINE-PRECISION-EDGE` or `CINE-MIXED-CHAIN`. Bonuses cannot activate slow motion on their own, even if an explosion kills five enemies. If several candidates qualify in the same batch, choose the highest score, then the lowest credited player ID and lowest target ID as deterministic tie-breakers. One candidate can upgrade a *pending* moment before it starts, but cannot retrigger/extend an active moment.
+**Thresholds:** ordinary cinematic at score **5–7**; legendary at score **8+**. Legendary is not a second execution: it is a slightly stronger variant of the **one** selected moment. Without `CINE-CONTACT-SETUP`, the maximum is 5 + 2 extra kills = 7, so **legendary is unreachable unless that linked contact proof exists**. Every qualifying score must include either `CINE-PRECISION-EDGE` or `CINE-MIXED-CHAIN`. Bonuses cannot activate slow motion on their own, even if an explosion kills five enemies. If several candidates qualify in the same batch, choose the highest score, then the lowest credited hero index and lowest target ID as deterministic tie-breakers. One candidate can upgrade a *pending* moment before it starts, but cannot retrigger/extend an active moment.
 
 **Examples (binding expectations):**
 
 - One jab, haymaker, push-kick or lethal blow with dramatic gibs: **no slow motion**.
 - Three ordinary enemies killed simultaneously by an environmental blast: **no slow motion**; multiple corpses and catastrophic force do not prove exceptional execution.
 - One player times CP-03 so the block shears an upright goblin's head (once DEATH-D exists): **ordinary cinematic**.
-- A player's melee kill followed rapidly by their falling-block kill on a second target: **ordinary cinematic**.
+- A player's melee kill and their falling-block kill on a second target within the window, **in either order**: **ordinary cinematic**. The 90-tick window is measured between the two defeats. The authored DEMO-01 B3 beat (two `shore_block` kills at tick 159, then a haymaker kill at tick 243, 84 ticks later, no hurt, score 6) and `cp03_goblin_pileup` (melee at tick 83, block at tick 139, score 7) qualify under this rule, so a competent demo run is expected to earn its **first cinematic at B3**. This is accepted as intended; rarity is kept by the cooldown and the clean-window requirement and is a playtest tuning question.
 - That mixed-cause chain also meaningfully includes a verified launch/contact setup and an additional defeat: **legendary** (5 + 2 + 1 = 8).
 - The block falls without player attribution or a valid primary feat: **no slow motion**.
 - A normal kill with a `goblin_decapitated` visual forcibly selected by a QA/lab override: **no slow motion**.
@@ -60,7 +67,7 @@ Process multiple events on the same tick as one batch, ordered deterministically
 
 ### Event handling and future compatibility
 
-- Take events **after** their authoritative tick has resolved and **before** the existing log-consumer cursor advances; inspect `CombatState::take_new_events` and the `print_combat_events` path to avoid double-consuming it. An independent read-only cursor or an explicit single fan-out to audio, HUD and cinema is acceptable.
+- Take events **after** their authoritative tick has resolved and **before** the existing log-consumer cursor advances; inspect `CombatState::take_new_events` and the `print_combat_events` path to avoid double-consuming it. Prefer a single fan-out inside `print_combat_events` (a `&mut` cinematic sink passed alongside audio), because `push_event` drains at `EVENT_LOG_CAP` and adjusts the single cursor, so a second cursor would need the same adjustment inside `combat_scene.rs`. Events are consumed at four sites (`fixed_step` twice, `watchdog`, `capture_sequence`): cover all of them or document why the watchdog and capture paths skip it.
 - Build feat history from semantic events (`MoveStarted`, `Hit`, `GoblinContact`, `ShoreBroken`, `EnemyDefeated`, `HeroHurt`), but **do not require every event to have a new schema field**. Add a narrowly scoped player-credit bridge only if needed for correctness; a schema/hash migration is forbidden without its own explicit explanation and golden updates.
 - Death recipe selection in `src/death.rs` and the `DeathPresenter` in `src/death_present.rs` are **outputs, not inputs** to this evaluator. Preset 1 vs 4 and disabled blood must produce the same eligibility decision.
 - Keep the evaluator generic as new environment kills, species, player attacks, and viewership are added. Future feat categories require new authoritative evidence and tests, not hidden changes to the current scoring table.
@@ -84,15 +91,15 @@ The constants below are **initial playtest defaults**, kept together in a `Cinem
 | `blend_out_ms` | 90 | Fast return to 1.0× |
 | `camera_emphasis_px` | 2 | **Maximum** optional virtual-pixel emphasis; never forces another zoom/reframe |
 
-Durations include their entrance and exit blends. When a candidate qualifies, **queue** the moment until its lethal contact's normal hit-stop has completed; do not add a second freeze or stack hit-stop values. If the death presenter no longer has an active finish when the pending moment would start, skip it rather than slowing empty scenery. The outcome must be a visible *defeat sequence*, not a slow-motion lull.
+Durations include their entrance and exit blends. When a candidate qualifies, **queue** the moment until its lethal contact's normal hit-stop has completed; do not add a second freeze or stack hit-stop values. `Pending` counts the lethal hit's hit-stop in **simulation ticks**. Hit-stop is also in ticks, so a hit-stop that starts during `Active` is accepted as dilated by 1/scale (8 ticks at 0.35 is about 381 ms real); it is not a cancel condition. T11 pins this choice. If the death presenter no longer has an active finish when the pending moment would start, skip it rather than slowing empty scenery. The outcome must be a visible *defeat sequence*, not a slow-motion lull.
 
-Implement as an explicit state machine: `Idle -> Pending -> Active -> Cooldown -> Idle`. The presentation adapter is the sole owner of the temporary world-scale override. Use the appropriate Bevy 0.20.1 virtual/fixed-time mechanism after confirming its current API, preserving constant **simulation tick delta**; use **unscaled real elapsed time** for cinematic duration. Recover the existing time scale (normally 1.0×) on completion, pause, retry, checkpoint respawn, app exit, and any exceptional path. Do not permanently alter the shared clock.
+Implement as an explicit state machine: `Idle -> Pending -> Active -> Cooldown -> Idle`. The presentation adapter is the sole owner of the temporary world-scale override. Use the appropriate Bevy 0.20.1 virtual/fixed-time mechanism after confirming its current API, preserving constant **simulation tick delta**; use **unscaled real elapsed time** for cinematic duration. Recover the existing time scale (normally 1.0×) on completion, the D6 disconnect pause, a `Frozen` capture, retry, checkpoint respawn, app exit, and any exceptional path. Do not permanently alter the shared clock.
 
-Frame pacing: no unbounded fixed-update catch-up, stutter-inducing CPU spikes, or duplicate input-edge consumption at the transition. Controller and keyboard press edges sampled in `Update` must remain buffered and consumed **once** in a fixed tick; verify the current `Controls`/`PadSlots` buffering logic before adjusting time flow. A pause stops cinematic real-time progression until resumed (or cancels cleanly); choose and test **cancel on pause**, restoring 1.0× before showing a pause menu.
+Frame pacing: no unbounded fixed-update catch-up, stutter-inducing CPU spikes, or duplicate input-edge consumption at the transition. Controller and keyboard press edges sampled in `Update` must remain buffered and consumed **once** in a fixed tick; verify the current `Controls`/`PadSlots` buffering logic before adjusting time flow. No pause menu exists on main. The only pauses are the D6 disconnect pause (`pads.is_paused()`: `fixed_step` returns early while `Time<Virtual>` keeps running, so a real-time duration would expire unseen) and `Frozen` captures. **Cancel on D6 pause or `Frozen`**, restoring 1.0× at once.
 
 **Camera and audio:** prefer no camera zoom at v0. A tiny optional pixel-snapped emphasis may reuse the existing camera kick, bounded by view geometry and **never** forcing either co-op hero outside the approved shared-camera safe area. Do not move the authoritative `ScrollCamera`. A single existing impact accent plus a short optional ambience/music duck is enough; do not pitch-shift the full soundtrack, repeat the lethal sound on resume, or add assets/dependencies just for this mechanic. The effect remains satisfying if camera emphasis and audio accent are disabled.
 
-**Comfort controls:** expose `cinematic_finishes: on/off` and `reduced_motion` as presentation settings (a CLI/debug flag is acceptable until the settings menu exists). Both remove time dilation and camera emphasis, not normal hit confirmation/death VFX or combat outcome. They must not affect evaluator eligibility or replay hashes. For automated/headless fixtures, default presentation **off** unless explicitly running a CINE-01 visual probe; the evaluator's pure tests still run.
+**Comfort controls:** expose `cinematic_finishes: on/off` as a presentation setting through `--cinematic-finishes[=on|off]` and `FLOORBREAK_CINEMATIC_FINISHES`, following the `HudSettings` env-then-flag layering (a CLI/debug flag is acceptable until the settings menu exists). Do **not** reuse `--hud-reduced-motion`: `HudSettings.reduced_motion` is documented as HUD-only and world motion is deferred to HUD-DEBT-08. World reduced motion is routed through HUD-DEBT-08 (a world-motion/camera-shake setting), which must also disable CINE. Turning CINE off removes time dilation and camera emphasis, not normal hit confirmation/death VFX or combat outcome. These settings must not affect evaluator eligibility or replay hashes. For automated/headless fixtures, default presentation **off** unless explicitly running a CINE-01 visual probe; the evaluator's pure tests still run.
 
 ## 4. Implementation handoff (one local agent, one implementation PR)
 
@@ -112,17 +119,17 @@ Suggested footprint (adjust against the actual branch before editing):
 
 | Test ID | Fixture / action | Required result |
 | --- | --- | --- |
-| CINE-T01 | Ordinary melee kill, any force / gore preset, including a forced gory visual | No candidate; virtual time remains at 1.0× |
-| CINE-T02 | Unattributed/mocked catastrophic explosion or three routine same-source kills | No candidate even with 3+ corpses |
-| CINE-T03 | Credited melee + shore kill on distinct enemies within 90 ticks; no credited-hero hurt | One ordinary moment, score 5; **not** one per kill |
-| CINE-T04 | Same as T03 outside the window, or after hurt to the credited hero | No cinematic |
+| CINE-T01 | Ordinary melee kill, any force / gore preset (use preset 4 for the gory case; do not use `--death-lab-finish`, which DEATH-D removes) | No candidate; virtual time remains at 1.0× |
+| CINE-T02 | Three routine same-source kills, or a block-only multi-kill with no matching `ShoreBroken` (no `Explosion` cause exists until DEATH-D) | No candidate even with 3+ corpses |
+| CINE-T03 | Credited melee + shore kill on distinct enemies within 90 ticks, either order; no credited-hero hurt. Positive fixtures: DEMO-01 B3 and `cp03_goblin_pileup` (no new layout needed) | One ordinary moment (score 5 plus bonuses, 6 for B3, 7 for the pileup); **not** one per kill |
+| CINE-T04 | Same as T03 outside the window, after hurt to the credited hero, or with a `ShoreBlock` defeat whose `ShoreBroken` was not observed in the same attempt (breaker defaulted to P1) | No cinematic |
 | CINE-T05 | DEATH-D credited edge shear with a verified shore break (when available) | One ordinary moment; normal crushing/blunt decap override never qualifies |
 | CINE-T06 | Mixed chain + verified live-goblin contact setup + third credited kill | One legendary moment, score 8; no stacking |
-| CINE-T07 | Repeat an eligible chain inside 900 simulation ticks; then after cooldown | First only during cooldown, next eligible after cooldown |
+| CINE-T07 | Repeat an eligible chain inside 900 simulation ticks; then after cooldown; then `Restart` and `Respawn` (history and per-target dedup cleared, cooldown on the monotonic counter) | First only during cooldown, next eligible after cooldown; no stale or underflowed history after a restart |
 | CINE-T08 | Same tick multiple defeats, repeated event, reordered insertion of otherwise equivalent evidence | Deterministic single choice and tie-break; no repeated credit |
-| CINE-T09 | Same tick-indexed inputs with cinematic on/off and gore presets 1/4 | **Identical authoritative state, ordered combat events and replay hash** |
-| CINE-T10 | Local 2P: P1 qualifies while P2 moves/attacks/is hit; solo swap and controller ownership | One shared slowdown, P2 inputs preserved; P2 hurt does not veto P1 |
-| CINE-T11 | Pause, restart, checkpoint respawn, scene exit, hit-stop overlap and disable/reduced motion | No stuck slow mode, no doubled freeze, no dropped/duplicated presses |
+| CINE-T09 | Pure-evaluator parity test, plus the **windowed** binary on a qualifying fixture (B3 or the pileup) with `--exit-after-ticks`, CINE on/off and gore presets 1/4; diff the printed hash and event log | **Identical authoritative state, ordered combat events and replay hash** |
+| CINE-T10 | Pure evaluator test (Carl credited, Donut `HeroHurt`; solo-swap credit split across heroes) plus the existing `PadSlots` latch test. The live two-controller check is **manual** (fixtures force `live_party = false` and Donut has no attacks on main) | One shared slowdown, P2 inputs preserved; Donut hurt does not veto Carl |
+| CINE-T11 | D6 disconnect pause, `Frozen` capture, restart, checkpoint respawn, scene exit, hit-stop overlap (Pending counted in ticks; hit-stop during Active accepted as dilated) and CINE off | No stuck slow mode, no doubled freeze, no dropped/duplicated presses |
 | CINE-T12 | Real Bevy capture at 640×360 and 640×400; 1× and 3× integer scale | Legible danger, no camera jitter/clipping/HUD shift, noticeable moment, clean return to full speed |
 | CINE-T13 | Worst credible simultaneous defeat stress and normal uninterrupted play | Bounded evaluator memory, no unbounded allocation or fixed-step catch-up, frame-time evidence reported |
 
@@ -133,3 +140,23 @@ T05 may be marked **blocked on DEATH-D** while that work is unmerged, but the fi
 ## 6. Explicit non-goals and status
 
 This document **approves the design intent and adopts a concrete v0 for an agent to build**. It does **not** claim cinematic slow motion is running, that the numbers feel right, or that DEATH-D, real 2P testing, or later counter/duo evidence is merged. The planned audience/viewership HUD system will later be free to observe these moments, but **cannot cause them**. The game should be fun without a scoreboard, and ordinary combat must not be slowed down to manufacture spectacle.
+
+## 7. Adopted review decisions (2026-11-19)
+
+Applied under the owner's design-defaults directive (AGENTS.md, 2026-11-19) from the independent review of PR #117. The owner's creative intent above is unchanged. The owner may change any row in a follow-up PR.
+
+| Item | Choice | Reason | Owner may change |
+| --- | --- | --- | --- |
+| F1 credit identity | v0 credit is the hero index carried by the event (0 Carl, 1 Donut); no chain across heroes under solo swap; slot mapping left to `CINE-DUO` | Matches main and Q10; reviewer's stated fix | Yes |
+| F2 shore credit | `ShoreBlock`/`ShoreBlockEdge` credit requires a same-attempt, same-player `ShoreBroken` | Closes the fail-closed hole from the P1 default breaker | Yes |
+| F3 attempt boundaries | Clear history and dedup on `Restart`/`Respawn`; cooldown on a monotonic counter that survives them | Ticks are attempt-local and target IDs are reused | Yes |
+| F4 linked target | Linked means the contact's `source` or `target` defeated by the credited hero within the history window, proved by the PushKick `Hit` instance; otherwise legendary is unreachable | Reviewer's stated fix | Yes |
+| F5 settings | New `--cinematic-finishes[=on\|off]` / `FLOORBREAK_CINEMATIC_FINISHES`; no reuse of `--hud-reduced-motion`; world reduced motion via HUD-DEBT-08, which also disables CINE | Reviewer's recommended option; keeps the HUD-only flag scope | Yes |
+| F6 B3 / pileup | Accept: the authored DEMO-01 B3 beat and the pileup pay out, either order, and B3 is the expected first cinematic; they are the T03 positive fixtures | Reviewer's first option, and the owner's linked melee-plus-shore intent; no new layout needed | Yes: tighten to require the melee kill before the landing if it feels too common |
+| F7 drop credit | Match drop-hazard credit through one helper and name `DropHazard` | Boss hash migration | Yes |
+| F8 boss | Boss defeats never trigger CINE in v0 | Matches boss design section 5 | Yes |
+| F9 pause | Cancel on D6 pause and `Frozen`; no pause-menu wording | No pause menu on main | Yes |
+| F10 hit-stop | Pending counts hit-stop in ticks; hit-stop during Active is accepted as dilated | Hit-stop is tick-based | Yes |
+| F11 events | Single fan-out in `print_combat_events`, covering all four call sites | Avoids touching the event-log cursor | Yes |
+| F12 tests | T09 uses the windowed binary plus the pure parity test; T10 is pure plus manual live check | Headless replays do not run Bevy time | Yes |
+| F13 backlog | Table row beside DEATH-D, top section removed; T01/T02 reworded | Backlog format | Yes |
