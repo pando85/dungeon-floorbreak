@@ -146,6 +146,7 @@ const fn base(
         carl_x: 400,
         enemies,
         shore_dx: None,
+        charges: &[],
         script: &[],
         ticks,
     }

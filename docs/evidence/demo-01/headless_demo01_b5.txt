@@ -1,0 +1,28 @@
+COMBAT_EVENT tick=82 kind=blast charge=0
+COMBAT_EVENT tick=82 kind=enemy_defeated target=14 cause=explosion charge=0 point_blank
+COMBAT_EVENT tick=82 kind=enemy_defeated target=15 cause=explosion charge=0
+COMBAT_EVENT tick=86 kind=goblin_tell goblin=16
+COMBAT_EVENT tick=88 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=91 kind=hit move=jab instance=1 target=16 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=91 kind=goblin_interrupted goblin=16
+COMBAT_EVENT tick=98 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=103 kind=hit move=haymaker instance=2 target=16 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=103 kind=enemy_defeated target=16
+COMBAT_EVENT tick=213 kind=goblin_tell goblin=8
+COMBAT_EVENT tick=216 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=219 kind=hit move=jab instance=3 target=8 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=219 kind=goblin_interrupted goblin=8
+COMBAT_EVENT tick=226 kind=move_started move=haymaker instance=4
+COMBAT_EVENT tick=231 kind=hit move=haymaker instance=4 target=8 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=231 kind=enemy_defeated target=8
+COMBAT_EVENT tick=231 kind=hit move=haymaker instance=4 target=9 damage=1 health_left=1 hit_stop=5
+COMBAT_EVENT tick=256 kind=goblin_tell goblin=10
+COMBAT_EVENT tick=260 kind=move_started move=jab instance=5
+COMBAT_EVENT tick=263 kind=hit move=jab instance=5 target=9 damage=1 health_left=0 hit_stop=6
+COMBAT_EVENT tick=263 kind=enemy_defeated target=9
+COMBAT_EVENT tick=263 kind=hit move=jab instance=5 target=10 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=263 kind=goblin_interrupted goblin=10
+COMBAT_EVENT tick=273 kind=move_started move=haymaker instance=6
+COMBAT_EVENT tick=278 kind=hit move=haymaker instance=6 target=10 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=278 kind=enemy_defeated target=10
+COMBAT_STATE fixture=demo01_b5 seed=0xde300005 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=-256.000/0,e1=-256.000/0,e2=-256.000/0,e3=-256.000/0,e4=-256.000/0,e5=-256.000/0,e6=-256.000/0,e7=-256.000/0,e8=3038.797/0,e9=3054.728/0,e10=3011.792/0,e11=3004.588/2,e12=3031.823/2,e13=3058.023/2,e14=2889.003/0,e15=2865.000/0,e16=2766.492/0 hash=de01c7df2ced2e64 shore=0/Intact/Seated block_bottom=140.00 demo_cp=6

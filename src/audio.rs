@@ -864,6 +864,7 @@ mod tests {
                     ai: EnemyAi::Passive,
                 }],
                 shore_dx: None,
+                charges: &[],
                 script: &[],
                 ticks: 100,
             };

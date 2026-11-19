@@ -516,7 +516,7 @@ def build_manifest() -> dict:
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
         "review_status": "prototype_fixture_unapproved",
         "vfx": {
-            "status": "Keys and in-betweens drawn; art-director review pending; not wired into any Bevy binary",
+            "status": "Keys and in-betweens drawn; art-director review pending; drawn in the floor01_scene QA fixtures only (DEATH-D); review pending",
             "spec": "docs/02-art/vfx-01-spec.md",
             "tick_hz": TICK_HZ,
             "hold_preview_ms": 100,

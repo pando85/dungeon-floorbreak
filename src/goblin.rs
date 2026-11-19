@@ -21,13 +21,20 @@ use crate::combat::{
     body_rect, solid_at,
 };
 use crate::feel::{
-    ATTACK_COOLDOWN, ATTACK_TICKS, CONTACT_HIT_STOP, CONTACT_POSE_TICKS, CONTACT_PUSH_VX,
+    ATTACK_COOLDOWN, ATTACK_TICKS, BLAST_KNOCK_VX, BLAST_KNOCK_VX_POINT_BLANK, BLAST_KNOCK_VY,
+    BLAST_KNOCK_VY_POINT_BLANK, CONTACT_HIT_STOP, CONTACT_POSE_TICKS, CONTACT_PUSH_VX,
     CONTACT_SOURCE_KEEP, CONTACT_STAGGER, DOWN_TICKS, DOWNED_TICKS, GETUP_TICKS, GOBLIN_SIGHT,
     GOBLIN_STANDOFF, GOBLIN_TRIGGER, GOBLIN_WALK_SPEED, GROUND_FRICTION, HURT_COOLDOWN, IMPACT_END,
     KNOCK_GRAVITY, KNOCK_VX_MAX, LETHAL_HIT_STOP_BONUS, LETHAL_KNOCK_VX, LETHAL_KNOCK_VY,
     SMEAR_END, SWING_X_MAX, SWING_X_MIN, SWING_Y_MAX, SWING_Y_MIN, TELL_TICKS,
 };
 use crate::prototype::{Block, Rect, TICK_SECONDS};
+
+/// DEATH-D: how far ahead of the pivot column (the neck, on GOB-01 frame 0) the
+/// head probe sits, in the facing direction (the head leads).
+pub const NECK_PROBE_FORWARD: f32 = 4.0;
+/// How far behind the pivot column the torso probe sits.
+pub const NECK_PROBE_BACK: f32 = 4.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoblinMode {
@@ -423,6 +430,53 @@ impl Goblin {
         self.vy = 0.0;
         self.facing = -push;
         self.hit_stop = self.hit_stop.max(CONTACT_HIT_STOP);
+    }
+
+    /// DEATH-D: the x of the head and of the torso of an **upright** goblin
+    /// (`Neutral`, `Attack` or `Hurt`): `(head, torso)`, 4 px ahead of and
+    /// behind the pivot column in the facing direction. `None` for a goblin
+    /// that is flying, lying or defeated (a lying goblin under an edge is a
+    /// plain crush).
+    pub fn neck_probes(&self) -> Option<(f32, f32)> {
+        if !self.alive()
+            || !matches!(
+                self.mode,
+                GoblinMode::Neutral | GoblinMode::Attack | GoblinMode::Hurt
+            )
+        {
+            return None;
+        }
+        let f = f32::from(self.facing);
+        Some((
+            self.x + f * NECK_PROBE_FORWARD,
+            self.x - f * NECK_PROBE_BACK,
+        ))
+    }
+
+    /// DEATH-D: a blast charge killed this goblin. It is defeated on the spot
+    /// and thrown `away` (+1 / -1) from the charge, as `Airborne` like the
+    /// lethal branch of `take_hit` (down, then corpse). Returns false, and
+    /// changes nothing, for a goblin that is not alive.
+    pub fn blast(&mut self, away: i8, point_blank: bool) -> bool {
+        if !self.alive() {
+            return false;
+        }
+        let (vx, vy) = if point_blank {
+            (BLAST_KNOCK_VX_POINT_BLANK, BLAST_KNOCK_VY_POINT_BLANK)
+        } else {
+            (BLAST_KNOCK_VX, BLAST_KNOCK_VY)
+        };
+        self.health = 0;
+        self.mode = GoblinMode::Airborne;
+        self.attack_tick = 0;
+        self.stagger_left = 0;
+        self.swing_hit = false;
+        self.launch = None;
+        self.contact_ticks = 0;
+        self.hit_stop = 0;
+        self.vx = (f32::from(away) * vx).clamp(-KNOCK_VX_MAX, KNOCK_VX_MAX);
+        self.vy = vy;
+        true
     }
 
     /// CP-03: a falling block lands on this goblin. It is defeated on the spot
@@ -918,5 +972,127 @@ mod tests {
             hash
         };
         assert_eq!(run(), run());
+    }
+
+    // ---- DEATH-D: the neck probes and the blast throw ----
+
+    #[test]
+    fn the_neck_probes_exist_only_for_an_upright_living_goblin() {
+        for (mode, health, upright) in [
+            (GoblinMode::Neutral, 2, true),
+            (GoblinMode::Attack, 2, true),
+            (GoblinMode::Hurt, 2, true),
+            (GoblinMode::Launched, 2, false),
+            (GoblinMode::Downed, 2, false),
+            (GoblinMode::Airborne, 0, false),
+            (GoblinMode::Down, 0, false),
+            (GoblinMode::Corpse, 0, false),
+            // A defeated goblin is never upright, whatever its mode says.
+            (GoblinMode::Neutral, 0, false),
+        ] {
+            let mut g = goblin_at(500.0);
+            g.mode = mode;
+            g.health = health;
+            assert_eq!(g.neck_probes().is_some(), upright, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn the_head_leads_in_the_facing_direction() {
+        let mut g = goblin_at(500.0);
+        g.facing = -1;
+        assert_eq!(g.neck_probes(), Some((496.0, 504.0)));
+        g.facing = 1;
+        assert_eq!(g.neck_probes(), Some((504.0, 496.0)));
+        assert_eq!((NECK_PROBE_FORWARD, NECK_PROBE_BACK), (4.0, 4.0));
+    }
+
+    #[test]
+    fn a_blast_throws_the_goblin_dead_and_changes_only_the_spec_fields() {
+        let mut g = goblin_at(500.0);
+        g.mode = GoblinMode::Attack;
+        g.attack_tick = 10;
+        g.stagger_left = 3;
+        g.swing_hit = true;
+        g.launch = Some(4);
+        g.contact_ticks = 2;
+        g.hit_stop = 5;
+        g.flight_ticks = 7;
+        g.down_ticks = 3;
+        g.attack_cooldown = 9;
+        g.hurt_cooldown = 4;
+        g.hit_by = Some(0);
+        let before = g.clone();
+        assert!(g.blast(1, true));
+        assert_eq!(g.health, 0);
+        assert_eq!(g.mode, GoblinMode::Airborne);
+        assert_eq!(
+            (g.attack_tick, g.stagger_left, g.contact_ticks, g.hit_stop),
+            (0, 0, 0, 0)
+        );
+        assert!(!g.swing_hit);
+        assert_eq!(g.launch, None);
+        assert_eq!((g.vx, g.vy), (220.0, 320.0), "point blank, away +1");
+        // Everything else stays, as in the lethal branch of take_hit.
+        assert_eq!(
+            (
+                g.x,
+                g.y,
+                g.facing,
+                g.flight_ticks,
+                g.down_ticks,
+                g.attack_cooldown,
+                g.hurt_cooldown,
+                g.hit_by
+            ),
+            (
+                before.x,
+                before.y,
+                before.facing,
+                before.flight_ticks,
+                before.down_ticks,
+                before.attack_cooldown,
+                before.hurt_cooldown,
+                before.hit_by
+            )
+        );
+        // The ring throw: slower and lower, away -1.
+        let mut ring = goblin_at(500.0);
+        assert!(ring.blast(-1, false));
+        assert_eq!((ring.vx, ring.vy), (-180.0, 260.0));
+        // A goblin that is not alive is left alone.
+        let dead = g.clone();
+        assert!(!g.blast(-1, false));
+        assert_eq!(g, dead);
+    }
+
+    #[test]
+    fn about_eight_percent_of_block_kills_are_edge_shears() {
+        use crate::combat::ENEMY_HALF_HEIGHT;
+        use crate::shore::Shore;
+        // A passive goblin facing -1 at every x from 420 to 560 in 0.5 px steps
+        // under the landing block (footprint [444, 524)).
+        let shore = Shore::new(419.0, 100.0);
+        let footprint = shore.footprint();
+        let (mut kills, mut shears) = (0, 0);
+        let mut x = 420.0_f32;
+        while x <= 560.0 {
+            let g = Goblin::new(x, 100.0 + ENEMY_HALF_HEIGHT, EnemyAi::Passive);
+            assert_eq!(g.facing, -1);
+            if g.body().overlaps(footprint) {
+                kills += 1;
+                if g.neck_probes().is_some_and(|p| shore.edge_shears(p)) {
+                    shears += 1;
+                }
+            }
+            x += 0.5;
+        }
+        let share = f64::from(shears) / f64::from(kills);
+        assert!(
+            (0.05..=0.12).contains(&share),
+            "{shears} of {kills}: {share}"
+        );
+        // 16 shear samples (8 px) of the 104 px kill band (208 samples).
+        assert_eq!((shears, kills), (16, 207));
     }
 }
