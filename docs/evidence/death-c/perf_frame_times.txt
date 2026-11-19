@@ -1,0 +1,33 @@
+Frame-time probe of the death presenter, DEATH-C (debug binary, opt-level 1).
+Software rendering under xvfb (llvmpipe): the absolute numbers are CPU raster time,
+not a GPU or Steam Deck figure. The comparison is between rows of the same machine.
+`stress` keeps every pool loaded with synthetic crushes and decapitations
+(a presentation-only lab flag): parts 160/160, floor decals 96/96, wall decals 12/12.
+
+== 1920x1080 baseline (no death on screen)
+FLOOR1_PERF frames=600 median_ms=76.74 p95_ms=91.62 mean_ms=76.79 max_ms=126.16 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=4 clock=3204 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 digest=af70394c8616ee93 part_capacity=160 floor_decal_capacity=96 wall_decal_capacity=12 recycled=(0, 0, 0)
+
+== 1920x1080 stress, preset 4
+FLOOR1_PERF frames=600 median_ms=78.04 p95_ms=91.56 mean_ms=79.20 max_ms=132.04 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=4 clock=3355 deaths=24 parts=135 floor_decals=96 wall_decals=12 spawned_parts=26886 digest=43c0c0f954582088 part_capacity=160 floor_decal_capacity=96 wall_decal_capacity=12 recycled=(5365, 13546, 1103)
+
+== 1920x1080 stress, preset 1
+FLOOR1_PERF frames=600 median_ms=83.15 p95_ms=115.86 mean_ms=87.75 max_ms=239.01 lighting=on window=1920x1080 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=1 clock=3730 deaths=24 parts=160 floor_decals=0 wall_decals=0 spawned_parts=1243 digest=9527615b5b26c726 part_capacity=160 floor_decal_capacity=96 wall_decal_capacity=12 recycled=(1083, 0, 0)
+
+== 640x360 baseline (no death on screen)
+FLOOR1_PERF frames=600 median_ms=16.62 p95_ms=23.49 mean_ms=17.34 max_ms=37.42 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=4 clock=752 deaths=0 parts=0 floor_decals=0 wall_decals=0 spawned_parts=0 digest=af626d4c85ff7cef part_capacity=160 floor_decal_capacity=96 wall_decal_capacity=12 recycled=(0, 0, 0)
+
+== 640x360 stress, preset 4
+FLOOR1_PERF frames=600 median_ms=17.08 p95_ms=25.69 mean_ms=17.89 max_ms=48.99 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=4 clock=766 deaths=24 parts=158 floor_decals=96 wall_decals=12 spawned_parts=6002 digest=749048955ba33f8a part_capacity=160 floor_decal_capacity=96 wall_decal_capacity=12 recycled=(1030, 3013, 241)
+
+== 640x360 stress, preset 1
+FLOOR1_PERF frames=600 median_ms=18.33 p95_ms=34.52 mean_ms=19.89 max_ms=62.88 lighting=on window=640x360 present=AutoNoVsync warmup_frames=120
+DEATH_PRESENT preset=1 clock=842 deaths=24 parts=160 floor_decals=0 wall_decals=0 spawned_parts=280 digest=a4227e00aa9ff64a part_capacity=160 floor_decal_capacity=96 wall_decal_capacity=12 recycled=(120, 0, 0)
+
+== presenter step on the CPU, every pool full (cargo test profile)
+PRESENTER_STEP preset=4 6.3 us/tick parts=127 floor_decals=96 wall_decals=12
+PRESENTER_STEP preset=1 2.0 us/tick parts=160 floor_decals=0 wall_decals=0

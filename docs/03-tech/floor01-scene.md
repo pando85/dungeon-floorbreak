@@ -542,6 +542,53 @@ Value changes of the same review: jab knockback 75 px/s, killing-hit launch 160 
 2. Is a 75 px launch the right kill confirmation?
 3. Is the haymaker's 4 px step welcome next to the art's own lunge?
 
+### DEATH-C: cosmetic death presenter and gore pool
+
+**Status:** implemented in the Bevy fixture scene (draft PR, stacked on #94 and #79), **owner game-feel review pending**, independent review pending. Presentation only: no fixture hash, event or state byte changed. Design sources: the [death-system proposal](monster-death-system-proposal.md) (sections A to E, PR C), [species death profiles](species-death-profiles.md) and the [GOB-02-DEATH spec](../02-art/gob-02-death-spec.md) (poses, parts, anchors, preset rules and the section 8 spawner timing). Evidence: [docs/evidence/death-c](../evidence/death-c/README.md).
+
+**Flags** (`floor01_scene`, all need `--fixture`; they change nothing the simulation sees):
+
+| Flag | Meaning |
+| --- | --- |
+| `--gore-preset N` | Gore preset 1 to 4 (or `off`, `reduced`, `medium`, `full`). **Default 4 = full** (owner decision 2026-11-18); 1 to 3 are reduced and accessibility settings. Works in the live loop, `--capture-*` runs and the headless replay. |
+| `--death-trace` | Headless only: print the presenter's `DEATH_PRESENT` summary line (preset, live pieces, a digest of every piece). CI uses it to prove the presenter is deterministic and that presets 1 and 4 draw different things from the same replay. |
+| `--death-stress` | Live lab run: keep every pool loaded with synthetic crushes and decapitations (frame-time probe at max load; see the evidence). |
+| `--death-lab-finish decapitated` | Lab only: play the decapitation for ordinary melee kills. The blade hazard that authorises it is PR D; nothing in the game selects `goblin_decapitated` yet. |
+
+**Modules.** `src/gore.rs` (Bevy-free): `GorePreset`, `PresentationRng`, and `DeathArt`, which reads the GOB-02 manifests (`death_poses` anchors, `death_parts` spawn metadata) and the committed pixel-grid sources and **composes the sprite sheets per preset** from the three layers (`body`, `weapon`, `gore`): the gore layer is hidden at preset 1, recoloured at 2 (`R` and `P` become `B`), shown at 3 and 4. Nothing is redrawn per preset, and the Bevy binary uploads the composed RGBA sheets directly (they need no `export_assets.sh` run). `src/death_present.rs` (Bevy-free): `DeathPresenter`, the fixed pools and the scripts. `src/bin/floor01_scene.rs` draws it (`sync_death_visuals`) into sprites pre-spawned hidden, one per pool slot.
+
+**What it consumes.** After every fixed tick `DeathPresenter::observe` reads the new `EnemyDefeated` events (`cause`, `force`) and the goblins' positions, asks DEATH-B's `DeathProfiles::select` for the finish id, and plays it. A `Restart` event clears it. It reads, it never writes: the simulation does not know it exists.
+
+| Finish id (DEATH-B) | Played |
+| --- | --- |
+| `goblin_crushed` | the crush poses (the goblin sprite is replaced): `crush_contact` 3 ticks, its flatten frame 3 ticks, then `crushed_remains` held; the club leaves the hand; 16 to 20 blood drops from the mouth and the two squeeze points, 2 flesh gibs and a bone; medium splats at the squeeze points and pool stage 1 on L+4, a wall spatter on L+8, pool stage 2 on L+20 and stage 3 (38 px, one pool entry made of two cells) on L+60 |
+| `goblin_knockback_down` | the GOB-01 `hurt`, `knockback`, `down`, `corpse` frames stay; blood drops from the head at the lethal hit (a routine jab 8, the kick 16 at preset 4), a splat where the body lands, then pool stages (the kick adds a smear and stage 2). **These numbers are presenter tuning of this PR, not the art spec**, and need the owner's feel review |
+| `goblin_decapitated` (PR D, lab flag only) | `decap_contact` 4 ticks, `headless_collapse` buckle 6 ticks then the hold; the head launches (away 60 to 100, up 220 to 280 px/s, 720 deg/s), swaps to `head_dead` on its first floor contact, bounces twice with a splat each, rolls 4 to 12 px and leaves a smear; the jet (2 drops every 3 ticks for 30 ticks), a wall spatter on D+4, the trickle and pool stages on D+14, D+40, D+100 |
+| any other id (a species without art) | nothing; never a mismatched head or a silent missing sprite |
+
+**Presets** (the art spec's data-only switches, driven by the manifest `presets` lists): 4 draws everything; 3 halves drops and gibs and has no bone gib, no wall spatter, no pool stage 3 and no smear; 2 draws muted blood drops and small splats only, no gibs, and keeps the clean parts; 1 draws no blood sprite at all (the poses and the flying head or club stay, with the gore layer hidden). `gib_bone` exists at preset 4 only. A unit test checks the composed preset 1 sheets contain not one gore-layer pixel, and that the same replay at every preset gives the same hash.
+
+**Pool and budget.** `PART_POOL_CAPACITY` 160 launched pieces, `FLOOR_DECAL_POOL_CAPACITY` 96 floor decals (a two-cell pool is one entry, never recycled in halves), `WALL_DECAL_POOL_CAPACITY` 12 wall spatters. A full pool recycles its oldest entry; settled pieces fade after their manifest `ttl` (`keep` stays until the room resets). These are **first guesses**: the proposal sets budgets after profiling on the target machine. A death leaves at most 8 drop splats and 6 stains. Nothing is spawned at runtime: the sprites are pre-spawned and reused.
+
+**Physics and floor.** Cosmetic only (no collision with anything but the floor line, CP-04 stays off): gravity 1050 px/s^2, the spec's launch ranges, bounces and spin; a part's real opaque outline (a convex hull of its pixels) is clamped to the floor line every tick, and a resting piece lies at the eighth turn that lays it lowest (a diagonal club lies flat).
+
+**Draw order.** Debris sits 0.4 under the actor layer, floor decals 0.5 under it, and wall spatters on the `backwall_decal` layer; a goblin death pose uses the lying-goblin depth. So nothing is ever drawn over Carl or Donut (`draw_z`, unit-tested against every actor offset of the scene).
+
+**Randomness.** Only a `PresentationRng` seeded from `hash(attempt, event tick, target)` (the attempt counts `Restart` events). It never reads or advances a simulation seed, and the simulation never reads it. The same replay gives the same presentation (digest tested); the presentation seed changing changes no event and no hash (tested).
+
+**Known gaps (disclosed).**
+
+1. The ENV-02 block and its dust are still **not drawn** in the fixture scene (the opening kit is not loaded), so the crush plays under an invisible stone: the pose's flat `K` top line is the stone's underside with nothing above it.
+2. The "wall face within 48 px" condition of the wall spatter is always true here: the corridor has a back wall everywhere, and a spatter is placed on it at the block's base height. A route with open background needs a wall probe.
+3. The decapitation and the explosive breakup have no authoritative cause before PR D; only the decapitation is playable, behind the lab flag. The explosive breakup is not implemented.
+4. A death pose is placed where the goblin stood at the lethal tick; the lab decapitation of a flying goblin therefore does not travel with it.
+5. The 1x contrast of the wall spatter on lit brick is low (the spec's open note); judge it in the capture.
+6. Budgets, time-to-live and the knockback blood amounts are first guesses.
+
+**Living-horizon review.** This PR adds no move, unlock, ability or terrain interaction and changes no gameplay value, so it still fits [character-progression-horizon.md](../01-design/character-progression-horizon.md). Gameplay acceptance of any finish stays an owner decision.
+
+**Tests.** `src/gore.rs` and `src/death_present.rs` (pool capacity and oldest-first recycling, a pair recycled as one unit, presenter pools bounded under stress, the crush and decapitation poses and counts at preset 4, pool stages on the spec ticks, drop scaling per preset, preset 1 draws no blood or gore part, `gib_bone` / wall spatter / pool 3 only at 4, floor clamp over 420 ticks at every preset, resting height, draw order, RNG isolation, **the same replay at preset 1 and 4 has the identical hash** for `cp03_shore_kill`, `cp03_kick_block` and `cp01_kick`, restart clears), the binary's tests (flag parsing, draw order against the scene's actor offsets), and `bash scripts/ci_floor01_combat.sh headless` (every fixture at presets 1 to 4 reproduces the committed replay, and the presenter summary is deterministic). Real captures: `python3 scripts/make_death_c_evidence.py`.
+
 ## Known limits
 
 1. Lighting is functional but unreviewed: no human has judged the look, the flicker, or the readability of actors. The reference comparison covers one pose and one camera window.
