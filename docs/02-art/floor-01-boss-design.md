@@ -137,6 +137,19 @@ Load-time validation rejects a tell or punish under the fairness floors, thresho
 | Gym arena kit (AREA-GYM-01) | env | Its own environment order. A greybox catacomb kit with mirrors is enough for the first playable |
 | Finishes `brute_ko_timber`, `brute_crushed` (boil spatter, pool) | 2 | **B**, from the Death Lab grammar |
 
+**Production atlases (execution status, route and frame names for the code):** manifests in `assets/manifests/boss-f01*.json` list every frame name, pivot, atlas rect, tick count and SHA-256; sources in `assets/source/enemies/brute_boss_f01/`; evidence in `docs/evidence/boss-f01/`. The JUICE-01 base set (idle, walk, pound tell, pound, recover, hurt, down) stays in the `juice-01` atlas.
+
+| Atlas (manifest) | Frames | Tags (frame names) |
+| --- | --- | --- |
+| `brute_boss_f01` (`boss-f01`, 160 x 136, pivot 72,135; keys frozen, route A) | 16 | `charge_tell` (`charge_tell_a` 6t, `charge_tell_b` 6t, `charge_tell_hold` hold), `charge_run` loop (`charge_run_contact_a` 5t, `charge_run_pass_a` 4t, `charge_run_contact_b` 5t, `charge_run_pass_b` 4t), `crash_stun` (`crash_hit` 3t, `crash_slump` 3t, `crash_stun_hold` hold), `phase_roar` (`phase_roar_in` 6t, `phase_roar_hold` 24t, `phase_roar_flex` 30t = 60), `pinned` (`pinned_squash` 6t, `pinned_hold` hold), `pinned_dead` (`pinned_dead` hold) |
+| `brute_boss_f01_emblem` (`boss-f01-emblem`, 18 x 18, route C) | 1 | `emblem`. Standalone atlas: not merged into the HUD atlas |
+| `brute_boss_f01_vfx` (`boss-f01-vfx`, 152 x 72, per-frame pivots, route B draft) | 35 | `pound_debris` 5, `shockwave_ripple` 4 (loop), `crash_dust` 6, `roar_ring` 4, `mirror_crack` 3 (held states), `floor_dust` 5, `boil_spatter` 4, `blood_pool` 4 (last frame stays) |
+| `brute_boss_f01_rack` (`boss-f01-rack`, 136 x 72, pivot 48,71, route B draft) | 5 | `rack_hang`, `rack_shudder` (`rack_shudder_a`, `rack_shudder_b`, loop), `rack_fall`, `rack_landed` |
+| `brute_boss_f01_strut` (`boss-f01-strut`, 40 x 196, pivot 20,195, route C) | 3 | `strut_sound`, `strut_cracked`, `strut_splintered` |
+| `brute_boss_f01_ledge` (`boss-f01-ledge`, 64 x 40, pivot 32,12, route C) | 2 | `plate_raised`, `plate_pressed` |
+
+Open art items: the top-tier editor pass and silhouette gate for the route B atlases (VFX, rack, finishes), the independent top-tier review of everything, and the gym arena kit (own order). The `pinned_dead` tag has no twitch frame: the fist twitch at +20 ticks is a code-side 2 px offset of the hand or a later key.
+
 ## 9. Art acceptance targets (independent review)
 
 1. At 1x in the lit Floor 1 scene, each new key reads as the same JUICE-01 creature: head, mop and ropes, ear, boils, veins, cuffs and chains, two countable fists.
