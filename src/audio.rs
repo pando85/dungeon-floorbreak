@@ -865,6 +865,7 @@ mod tests {
                 }],
                 shore_dx: None,
                 llamas: &[],
+                charges: &[],
                 script: &[],
                 ticks: 100,
             };

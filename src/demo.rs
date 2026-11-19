@@ -14,10 +14,11 @@
 
 use std::path::Path;
 
+use crate::blast::Arm;
 use crate::camera_lab::layout::build_kit;
 use crate::camera_lab::room::parse_rooms;
 use crate::combat::EnemyAi;
-use crate::combat_scene::{CombatState, DemoRules, EnemySpawn, Fixture, LlamaSpawn};
+use crate::combat_scene::{ChargeSpawn, CombatState, DemoRules, EnemySpawn, Fixture, LlamaSpawn};
 use crate::corridor::SceneSim;
 use crate::env_kit::{EnvKit, ViewDef};
 use crate::input::RawInput;
@@ -43,8 +44,8 @@ pub struct Beat {
     pub to_x: i32,
 }
 
-/// The route of the plan, section (b). B4 (llama) and B5 (test charge) have
-/// no enemies yet: see the hooks below.
+/// The route of the plan, section (b). B4 (llama) has no enemy yet: see the
+/// hook below.
 pub const BEATS: [Beat; 7] = [
     Beat {
         id: "B0",
@@ -78,7 +79,7 @@ pub const BEATS: [Beat; 7] = [
     },
     Beat {
         id: "B5",
-        name: "Lit charge",
+        name: "Lit charge (QA test prop)",
         from_x: 2620,
         to_x: 2780,
     },
@@ -111,17 +112,19 @@ const fn goblin(x: i32, ai: EnemyAi) -> EnemySpawn {
 /// | 0, 1 | B1 | two chasers |
 /// | 2, 3 | B2 | two chasers that bunch up, a ledge face 60 px behind them |
 /// | 4 | B3 | passive, mid footprint (crushed) |
-/// | 5 | B3 | passive, on the footprint (DEATH-D: moves to the right edge) |
+/// | 5 | B3 | passive, standing on the footprint's right edge facing the block (DEATH-D: the edge decapitation) |
 /// | 6 | B3 | chaser from the right |
 /// | 7 | B4 | chaser in front of the llama |
 /// | 8..=13 | B6 | six chasers in two clusters |
-pub const DEMO_ENEMIES: [EnemySpawn; 14] = [
+/// | 14, 15 | B5 | two passive goblins huddled on the QA test charge (point blank, ring) |
+/// | 16 | B5 | one chaser from the right (the survivor) |
+pub const DEMO_ENEMIES: [EnemySpawn; 17] = [
     goblin(820, EnemyAi::Chase),
     goblin(900, EnemyAi::Chase),
     goblin(1280, EnemyAi::Chase),
     goblin(1310, EnemyAi::Chase),
     goblin(1705, EnemyAi::Passive),
-    goblin(1735, EnemyAi::Passive),
+    goblin(1745, EnemyAi::Passive),
     goblin(1900, EnemyAi::Chase),
     goblin(2350, EnemyAi::Chase),
     goblin(3010, EnemyAi::Chase),
@@ -130,6 +133,9 @@ pub const DEMO_ENEMIES: [EnemySpawn; 14] = [
     goblin(3110, EnemyAi::Chase),
     goblin(3130, EnemyAi::Chase),
     goblin(3150, EnemyAi::Chase),
+    goblin(B5_CHARGE_X, EnemyAi::Passive),
+    goblin(B5_CHARGE_X + 28, EnemyAi::Passive),
+    goblin(B5_CHASER_X, EnemyAi::Chase),
 ];
 
 /// B4 (DEMO-01 PR B, the minimal Bad Llama): the llama's home column. The
@@ -146,12 +152,39 @@ pub static DEMO01_LLAMAS: [LlamaSpawn; 1] = [LlamaSpawn {
     ai: EnemyAi::Chase,
 }];
 
-/// B5 HOOK (DEATH-D, PR #108): the QA test charge and its huddled goblins
-/// belong at `CHECKPOINTS[5]..CHECKPOINTS[6]`, armed when Carl passes column
-/// 2640 (`Arm::CarlPast`), a labelled test prop and never Carl's ability. Until
-/// #108 is on `main` beat B5 is empty; goblins are appended at the end of
+/// B5 (DEATH-D, PR #108): the QA test charge lies at [`B5_CHARGE_X`] with two
+/// passive goblins huddled on it and one chaser coming from the right. It is
+/// armed when Carl passes column 2640 (`Arm::CarlPast`) and blows
+/// [`B5_FUSE_TICKS`] ticks later: one point blank burst, one ring kill thrown
+/// intact and one survivor. A **labelled test prop** (the beat name says so)
+/// and never Carl's ability: nothing is given to Carl, the charge hurts nobody
+/// and damages no terrain. Its goblins are appended at the end of
 /// [`DEMO_ENEMIES`] so no index above changes.
 pub const B5_CHARGE_ARM_X: i32 = 2640;
+pub const B5_CHARGE_X: i32 = 2735;
+pub const B5_CHASER_X: i32 = 2778;
+pub const B5_FUSE_TICKS: u64 = 75;
+
+/// The test charge of a run that starts at column `from`: its column is
+/// relative to Carl's start (`ChargeSpawn::dx`).
+const fn b5_charge(from: i32) -> ChargeSpawn {
+    ChargeSpawn {
+        dx: B5_CHARGE_X - from,
+        tick: 0,
+        owner: None,
+        arm: Arm::CarlPast {
+            x: B5_CHARGE_ARM_X as f32,
+            fuse_ticks: B5_FUSE_TICKS,
+        },
+    }
+}
+
+const CHARGES_B0: [ChargeSpawn; 1] = [b5_charge(160)];
+const CHARGES_B1: [ChargeSpawn; 1] = [b5_charge(520)];
+const CHARGES_B2: [ChargeSpawn; 1] = [b5_charge(1020)];
+const CHARGES_B3: [ChargeSpawn; 1] = [b5_charge(1520)];
+const CHARGES_B4: [ChargeSpawn; 1] = [b5_charge(2070)];
+const CHARGES_B5: [ChargeSpawn; 1] = [b5_charge(2620)];
 
 /// The checkpoint rules of the demo.
 pub static DEMO_RULES: DemoRules = DemoRules {
@@ -163,6 +196,7 @@ const fn beat_fixture(
     summary: &'static str,
     beat: usize,
     ticks: u64,
+    charges: &'static [ChargeSpawn],
 ) -> Fixture {
     Fixture {
         name,
@@ -172,6 +206,7 @@ const fn beat_fixture(
         enemies: &DEMO_ENEMIES,
         shore_dx: Some(SHORE_STRIKE_X - CHECKPOINTS[beat]),
         llamas: &DEMO01_LLAMAS,
+        charges,
         script: &[],
         ticks,
     }
@@ -187,18 +222,27 @@ pub static BEAT_FIXTURES: [Fixture; 7] = [
         "DEMO-01: the continuous route B0 to B6 on the demo hall",
         0,
         2000,
+        &CHARGES_B0,
     ),
-    beat_fixture("demo01_b1", "B1 first rematch", 1, 200),
-    beat_fixture("demo01_b2", "B2 kick alley", 2, 260),
-    beat_fixture("demo01_b3", "B3 rotten shore", 3, 300),
+    beat_fixture("demo01_b1", "B1 first rematch", 1, 200, &CHARGES_B1),
+    beat_fixture("demo01_b2", "B2 kick alley", 2, 260, &CHARGES_B2),
+    beat_fixture("demo01_b3", "B3 rotten shore", 3, 300, &CHARGES_B3),
     beat_fixture(
         "demo01_b4",
         "B4 bad llama: a chaser, then push kicks and the slam",
         4,
         400,
+        &CHARGES_B4,
     ),
-    beat_fixture("demo01_b5", "B5 lit charge (hook, no charge yet)", 5, 300),
-    beat_fixture("demo01_b6", "B6 pileup", 6, 300),
+    beat_fixture(
+        "demo01_b5",
+        "B5 lit charge (QA test prop)",
+        5,
+        300,
+        &CHARGES_B5,
+    ),
+    // A run that starts after B5 has no test charge (nor its goblins).
+    beat_fixture("demo01_b6", "B6 pileup", 6, 300, &[]),
 ];
 
 /// The fixture that starts at beat `beat`.
@@ -347,6 +391,17 @@ pub fn autopilot(combat: &CombatState, scene: &SceneSim) -> RawInput {
         }
         return raw;
     }
+    // B5: walk just past the arming column, then let the fuse burn (the
+    // probe stands still and does not fight until the test charge has blown,
+    // so the blast, not Carl's jabs, takes the huddled goblins).
+    if beat == 5 && combat.charges.iter().any(|c| !c.detonated) {
+        raw.move_x = if hero.x < B5_CHARGE_ARM_X as f32 + 10.0 {
+            1.0
+        } else {
+            0.0
+        };
+        return raw;
+    }
     if let Some(g) = threat
         && (g.x - hero.x).abs() < 220.0
     {
@@ -426,7 +481,7 @@ mod tests {
     use std::sync::Arc;
 
     /// Final state hash of the whole-route autopilot run (`demo01`, 2000 ticks).
-    const ROUTE_HASH: u64 = 0x684b_6d61_e0bd_fcfd;
+    const ROUTE_HASH: u64 = 0x0363_078d_5855_8e95;
 
     fn root() -> &'static Path {
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -468,6 +523,12 @@ mod tests {
     fn no_checkpoint_respawns_carl_inside_a_goblin_s_sight() {
         for checkpoint in CHECKPOINTS {
             for (index, spawn) in DEMO_ENEMIES.iter().enumerate() {
+                // The B5 chaser (16) stands 158 px from the B5 checkpoint, on
+                // purpose: it is the blast's survivor, and a run that starts at
+                // B6 (2780) retires it (it stands left of 2780).
+                if index == 16 {
+                    continue;
+                }
                 if spawn.ai == EnemyAi::Chase && spawn.x >= checkpoint {
                     let gap = spawn.x - checkpoint;
                     assert!(
@@ -785,7 +846,7 @@ mod tests {
     fn a_full_restart_puts_everything_back() {
         let kit = load_hall(root()).unwrap();
         let mut run = sim(&kit, 0);
-        autopilot_steps(&mut run, 1600);
+        autopilot_steps(&mut run, 1800);
         assert!(complete(&run.combat));
         run.restart();
         assert!(!complete(&run.combat));
@@ -900,8 +961,9 @@ mod tests {
         assert!(stopped, "no goblin stopped at the ledge face");
     }
 
-    /// Acceptance 3 (B3): three hits break the shore, one landing crushes
-    /// (two crushes until DEATH-D adds the edge decapitation).
+    /// Acceptance 3 (B3): three hits break the shore and one landing gives one
+    /// crush (goblin 4, mid footprint) and one guaranteed edge decapitation
+    /// (goblin 5, standing on the footprint's right edge facing the block).
     #[test]
     fn probe_b3_the_shore_breaks_and_the_block_crushes() {
         let kit = load_hall(root()).unwrap();
@@ -931,7 +993,137 @@ mod tests {
                 )
             })
             .count();
-        assert!(crushed >= 1, "{crushed} crushed");
+        assert_eq!(crushed, 1, "{crushed} crushed");
+        let sheared: Vec<u32> = defeats(&run)
+            .into_iter()
+            .filter_map(|e| match e {
+                CombatEvent::EnemyDefeated {
+                    target,
+                    cause: DefeatCause::ShoreBlockEdge { .. },
+                    ..
+                } => Some(target),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(sheared, [5], "the edge decapitation is goblin 5");
+        // The two come from the same landing.
+        let landing = run
+            .combat
+            .events
+            .iter()
+            .find_map(|e| match e {
+                CombatEvent::ShoreLanded { tick } => Some(*tick),
+                _ => None,
+            })
+            .unwrap();
+        let same_tick = defeats(&run)
+            .into_iter()
+            .filter(|e| {
+                matches!(e, CombatEvent::EnemyDefeated { tick, cause, .. }
+                    if *tick == landing
+                        && matches!(cause, DefeatCause::ShoreBlock { .. } | DefeatCause::ShoreBlockEdge { .. }))
+            })
+            .count();
+        assert_eq!(
+            same_tick, 2,
+            "one crush and one decapitation on one landing"
+        );
+    }
+
+    /// Acceptance 3 (B5): the test charge arms when Carl passes column 2640
+    /// and blows 75 ticks later: one point blank burst, one ring kill thrown
+    /// intact and one survivor (the chaser), and Carl is untouched.
+    #[test]
+    fn probe_b5_the_lit_charge_bursts_one_throws_one_and_spares_one() {
+        let kit = load_hall(root()).unwrap();
+        let mut run = sim(&kit, 5);
+        assert!(!run.combat.charges[0].lit(), "unlit until Carl passes");
+        autopilot_steps(&mut run, BEAT_FIXTURES[5].ticks);
+        let blast: Vec<u64> = run
+            .combat
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                CombatEvent::Blast { tick, .. } => Some(*tick),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(blast.len(), 1);
+        let armed = run.combat.charges[0].armed_tick.expect("armed");
+        assert_eq!(blast[0], armed + B5_FUSE_TICKS, "75 ticks after the arming");
+        let explosions: Vec<(u32, bool)> = defeats(&run)
+            .into_iter()
+            .filter_map(|e| match e {
+                CombatEvent::EnemyDefeated {
+                    target,
+                    cause: DefeatCause::Explosion { point_blank, .. },
+                    ..
+                } => Some((target, point_blank)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(explosions, [(14, true), (15, false)]);
+        // The survivor of the blast is the chaser: alive when it went off.
+        let chaser_death = defeats(&run).into_iter().find_map(|e| match e {
+            CombatEvent::EnemyDefeated {
+                tick,
+                target: 16,
+                cause: DefeatCause::Melee,
+                ..
+            } => Some(tick),
+            _ => None,
+        });
+        assert!(
+            chaser_death.is_some_and(|t| t > blast[0]),
+            "{chaser_death:?}"
+        );
+        assert_eq!(run.combat.deaths, 0);
+        assert_eq!(run.scene.world.hero.health, crate::combat::HERO_HEALTH);
+    }
+
+    /// The test charge and its huddle stand on the clean walking line, ahead
+    /// of the arming column, and the beat names it a test prop.
+    #[test]
+    fn the_test_charge_stands_on_the_walking_line_and_is_labelled() {
+        let kit = load_hall(root()).unwrap();
+        let line = kit.walking_line_at(CHECKPOINTS[5]);
+        for column in [B5_CHARGE_X, B5_CHARGE_X + 28, B5_CHASER_X] {
+            assert_eq!(kit.walking_line_at(column), line, "column {column}");
+        }
+        const { assert!(B5_CHARGE_X > B5_CHARGE_ARM_X) };
+        assert!(BEATS[5].name.contains("test prop"));
+        assert!(BEAT_FIXTURES[5].summary.contains("test prop"));
+        // A run that starts after B5 has no charge, and none starts armed.
+        assert!(BEAT_FIXTURES[6].charges.is_empty());
+        for fixture in &BEAT_FIXTURES[..6] {
+            assert_eq!(fixture.charges.len(), 1);
+            let spawn = fixture.charges[0];
+            assert_eq!(fixture.carl_x + spawn.dx, B5_CHARGE_X);
+            assert_eq!(
+                spawn.arm,
+                Arm::CarlPast {
+                    x: B5_CHARGE_ARM_X as f32,
+                    fuse_ticks: B5_FUSE_TICKS
+                }
+            );
+            assert_eq!(spawn.owner, None, "no credit: it is nobody's ability");
+        }
+    }
+
+    /// A respawn rebuilds a charge that has not blown (unlit, with the huddle
+    /// reset); one that blew stays blown.
+    #[test]
+    fn a_respawn_unlights_a_charge_that_has_not_blown() {
+        let kit = load_hall(root()).unwrap();
+        let mut run = sim(&kit, 5);
+        for _ in 0..40 {
+            let raw = autopilot(&run.combat, &run.scene);
+            run.step(raw);
+        }
+        assert!(run.combat.charges[0].lit() && !run.combat.charges[0].detonated);
+        run.combat.respawn(&mut run.scene);
+        assert!(!run.combat.charges[0].lit());
+        assert!(run.combat.enemies[14].alive() && run.combat.enemies[15].alive());
     }
 
     /// Acceptance 3 (B6): six defeats. The corpse cap and the stains are the

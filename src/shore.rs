@@ -157,6 +157,17 @@ impl Shore {
         }
     }
 
+    /// DEATH-D: whether the block's vertical edge passes between the head and
+    /// the torso of an upright target. `probes` is `(head, torso)` x (see
+    /// `Goblin::neck_probes`). The footprint's x range is half-open,
+    /// `[left, left + width)`: a shear is the head inside it and the torso
+    /// outside. Only meaningful for a body that overlaps the footprint.
+    pub fn edge_shears(&self, probes: (f32, f32)) -> bool {
+        let f = self.footprint();
+        let inside = |x: f32| x >= f.left && x < f.left + f.width;
+        inside(probes.0) && !inside(probes.1)
+    }
+
     /// Offer an active melee hit box of move `instance` by `player`. Counts at
     /// most once per instance, never after the break. `None` when nothing
     /// changed.
@@ -326,5 +337,63 @@ mod tests {
             assert!(!shore.step().landed);
         }
         assert_eq!(shore.block_state(), BlockState::Slipped);
+    }
+
+    // ---- DEATH-D: the block's edge across the neck ----
+
+    /// The footprint of `Shore::new(419.0, 100.0)` is `[444, 524)`.
+    fn shore_419() -> Shore {
+        Shore::new(419.0, 100.0)
+    }
+
+    #[test]
+    fn the_edge_shears_when_the_head_is_inside_and_the_torso_outside_half_open() {
+        let shore = shore_419();
+        let f = shore.footprint();
+        assert_eq!((f.left, f.right()), (444.0, 524.0));
+        // Right edge R = 524, facing -1: the head is 4 px ahead (x - 4), the
+        // torso 4 px behind (x + 4).
+        for (x, shears) in [
+            (519.9, false),
+            (520.0, true),
+            (524.0, true),
+            (527.9, true),
+            (528.0, false),
+        ] {
+            assert_eq!(
+                shore.edge_shears((x - 4.0, x + 4.0)),
+                shears,
+                "right edge, x {x}"
+            );
+        }
+        // Left edge L = 444, facing +1: head x + 4, torso x - 4.
+        for (x, shears) in [(439.9, false), (440.0, true), (447.9, true), (448.0, false)] {
+            assert_eq!(
+                shore.edge_shears((x + 4.0, x - 4.0)),
+                shears,
+                "left edge, x {x}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_goblin_facing_away_from_the_stone_is_never_sheared() {
+        let shore = shore_419();
+        // Facing +1 at the right edge: the head is behind the torso, so the
+        // torso is inside whenever the head is.
+        let mut x = 500.0;
+        while x <= 540.0 {
+            assert!(!shore.edge_shears((x + 4.0, x - 4.0)), "facing +1 at {x}");
+            x += 0.5;
+        }
+        // Facing -1 at the left edge.
+        let mut x = 430.0;
+        while x <= 470.0 {
+            assert!(!shore.edge_shears((x - 4.0, x + 4.0)), "facing -1 at {x}");
+            x += 0.5;
+        }
+        // Fully inside or fully outside is no edge.
+        assert!(!shore.edge_shears((480.0, 488.0)));
+        assert!(!shore.edge_shears((600.0, 608.0)));
     }
 }

@@ -2,6 +2,8 @@
 
 Real captures of the Bad Llama (LLAMA-01 art, LLAMA-02-DEATH poses and parts) in the `floor01_scene` render loop, at **1920x1080** (`--scale 3`, lighting on, one frame per tick). Written by `bash scripts/make_llama_bevy_evidence.sh` (debug binary, exported atlases, `xvfb-run`, ImageMagick); the README is hand-written.
 
+The HUD is the main-branch hybrid HUD with the real exported atlas (`scripts/export_assets.sh` before the captures; no placeholder portraits).
+
 **What this is not.** The captures are the real Bevy render loop under Xvfb with software rendering. They show that the pieces are drawn where and when the simulation says; they are **not** a game-feel review, not a frame-time or memory measurement and not a Steam Deck claim. Every llama number is a playtest proposal (`src/feel.rs`), the art is `prototype_fixture_unapproved`, and the owner has not played it. The script also checks that the state each capture ends on equals the headless replay's (`COMBAT_STATE` hash), so the pictures are of the committed replays.
 
 ## Fixtures and hashes

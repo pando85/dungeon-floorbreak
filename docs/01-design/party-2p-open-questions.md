@@ -1,6 +1,6 @@
 # Party, local 2P and solo swap: open design questions
 
-**Status: decisions recorded (owner directive, 2026-11-19); game feel pending.** This is the analysis behind HUD-DEBT-04 (WORK-005 and WORK-006) and HUD-DEBT-01, which ship together in one PR after #103. The owner decided D1, D5 and D6 and directed the orchestrator to adopt the analysis' recommendations for Q2, Q3, Q4, Q7, Q8, Q9 and Q11 and the D1 solo safeguards; Q10 is deferred. See [Decisions](#decisions). Every adopted number is a data knob in `PartyTuning` (`src/party.rs`), labelled with its question, and a tuning hypothesis at the fixed 60 Hz tick: **no human has played it yet, so the game feel is not accepted.** Each question below still lists the options, the recommendation and the test that would settle it.
+**Status: decisions recorded (owner directive, 2026-11-19); game feel pending.** This is the analysis behind HUD-DEBT-04 (WORK-005 and WORK-006) and HUD-DEBT-01, which ship together in one PR after #103. The owner decided D1, D5 and D6 and directed the orchestrator to adopt the analysis' recommendations for Q2, Q3, Q4, Q7, Q8, Q9 and Q11 and the D1 solo safeguards; Q10 swat, pounce and chips are designed in [Q10 Donut moveset](../02-art/donut-moveset-q10.md) (WORK-023, proposed); its scamper and cat-jump rows stay open. See [Decisions](#decisions). Every adopted number is a data knob in `PartyTuning` (`src/party.rs`), labelled with its question, and a tuning hypothesis at the fixed 60 Hz tick: **no human has played it yet, so the game feel is not accepted.** Each question below still lists the options, the recommendation and the test that would settle it.
 
 **Sources:** [MVP controller contract](mvp-controller-contract.md), [gameplay](gameplay.md), [characters](characters.md), [pre-magic Donut experiments](floor-01-pre-magic-donut-experiments.md), [ADR-0005](../05-decisions/ADR-0005-coop.md), [input and camera](../03-tech/input-camera.md), `src/combat.rs`, `src/goblin.rs`, `src/feel.rs`, `src/corridor.rs`, `src/scroll_camera.rs`.
 
@@ -21,7 +21,7 @@ Status of every adopted row: **adopted (orchestrator, owner directive 2026-11-19
 | Q7 Camera | adopted | Option A: solo follows the controlled hero; two players follow the midpoint (no look-ahead), the leader is stopped at 448 px (`camera_edge_margin_px` 96, kept at 96 px from the frame edge because the 2P midpoint camera has no deadzone), no zoom. A solo swap pans at 8 px per tick (`swap_pan_px_per_tick`) until caught up. The edge arrow at 384 px (`camera_arrow_px`) is a knob only: **not drawn yet** | `corridor::SceneSim`, `scroll_camera::step_capped_deadzone` |
 | Q8 Swap | adopted | Option B: any time except while hurt, a 20-tick cooldown, a 6-tick press buffer, and a swap never cancels the outgoing hero's move | `party::PartyState::request_swap` |
 | Q9 Uncontrolled hero | adopted | Option B: the follow-and-jump bot (40 px behind, jumps steps and ledges its own jump reaches, waits at taller walls, dodges a tell within 40 px with a jump, never attacks, regroups after 120 ticks off-screen). The trail replay remains only for scripted scenario and fixture runs | `follower`, `corridor::SceneSim::regroup_bots` |
-| Q10 Donut moves | **deferred** | Not in this PR: Donut has no attacks and no ability chips (`donut_ability_chips` false) | needs art and gameplay signoff |
+| Q10 Donut moves | **swat, pounce, chips designed (proposed); scamper and jump open** | Not in PR #114: Donut has no attacks and no ability chips (`donut_ability_chips` false). Design: [Q10 Donut moveset](../02-art/donut-moveset-q10.md) | WORK-023 implementation |
 | Q11 Glyphs | adopted (before this PR) | Each plate uses its own pad (agent B adapter); in solo the one pad's set appears on the controlled hero's plate | `pad_slots`, `hud` |
 | D1 safeguard M1 | adopted | Solo only: the uncontrolled hero takes hits (flinch, i-frames, HUD) but never drops below 1 HP; the guard follows the AI after a swap | `PartyDrive::is_guarded` |
 | D1 safeguard M2 | adopted | The Q3 bias above | `PartyTuning` |
@@ -112,6 +112,8 @@ In 2P, L1 does nothing to the other player's hero (contract). **Recommendation:*
 **Recommendation:** B. Keep A only as a stopgap in the current corridor, which has no gates, and only with M1 + M4. C is a later experiment. **How to decide:** the WORK-006 recording of A versus B on the B7/E1 two-gate layout. A test that AI Carl can never stand on a Donut-only ledge. A count of hits taken by the AI hero per fixture.
 
 ## Q10. Donut ability chips and moves as P2 (provisional: none)
+
+**Design (2026-11-19):** the swat, pounce and chips rows are resolved in [Q10 Donut moveset](../02-art/donut-moveset-q10.md) (swat 0 damage with a state-based light guard, pounce 1 damage, dry press at 0 mana). The Move (scamper) and Jump rows stay open. The table below is the original analysis.
 
 Without moves, P2 can only watch, which contradicts the acceptance gate "Donut is useful and enjoyable in co-op from the first scene". Below is a minimal pre-biscuit set within the approved verbs. Enemy HP is 2 and damage is a whole number, so "low damage" in practice means 0 or 1.
 

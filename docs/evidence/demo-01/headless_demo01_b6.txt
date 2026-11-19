@@ -34,4 +34,4 @@ COMBAT_EVENT tick=195 kind=goblin_interrupted goblin=13
 COMBAT_EVENT tick=205 kind=move_started move=haymaker instance=8
 COMBAT_EVENT tick=210 kind=hit move=haymaker instance=8 target=13 damage=1 health_left=0 hit_stop=8
 COMBAT_EVENT tick=210 kind=enemy_defeated target=13
-COMBAT_STATE fixture=demo01_b6 seed=0xde300006 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=-256.000/0,e1=-256.000/0,e2=-256.000/0,e3=-256.000/0,e4=-256.000/0,e5=-256.000/0,e6=-256.000/0,e7=-256.000/0,e8=3038.797/0,e9=3055.761/0,e10=3048.827/0,e11=3074.723/0,e12=3087.554/0,e13=3081.653/0 hash=095abf437680947d shore=0/Intact/Seated block_bottom=140.00 llamas=l0=-256.000/0 demo_cp=6
+COMBAT_STATE fixture=demo01_b6 seed=0xde300006 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=-256.000/0,e1=-256.000/0,e2=-256.000/0,e3=-256.000/0,e4=-256.000/0,e5=-256.000/0,e6=-256.000/0,e7=-256.000/0,e8=3038.797/0,e9=3055.761/0,e10=3048.827/0,e11=3074.723/0,e12=3087.554/0,e13=3081.653/0,e14=-256.000/0,e15=-256.000/0,e16=-256.000/0 hash=b612d09f5b3d8198 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=-256.000/0 demo_cp=6

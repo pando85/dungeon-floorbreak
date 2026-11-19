@@ -106,6 +106,15 @@ pub const LETHAL_KNOCK_VY: f32 = 210.0;
 pub const LETHAL_CAMERA_KICK_BONUS: u8 = 1;
 /// Largest horizontal speed any knockback may have (bounded impulse).
 pub const KNOCK_VX_MAX: f32 = 300.0;
+/// DEATH-D blast throw (px/s), placeholders for the owner's feel review: a
+/// goblin the blast kills is thrown away from the charge. The point blank
+/// victim is the burst (these speeds only move its simulated body, which the
+/// presenter hides at gore presets 2 to 4); the ring victim is the thrown,
+/// intact goblin.
+pub const BLAST_KNOCK_VX: f32 = 180.0;
+pub const BLAST_KNOCK_VX_POINT_BLANK: f32 = 220.0;
+pub const BLAST_KNOCK_VY: f32 = 260.0;
+pub const BLAST_KNOCK_VY_POINT_BLANK: f32 = 320.0;
 /// Gravity of a launched goblin (px/s^2, the WORK-021 value) and the ground
 /// friction that slows a slide (px/s^2).
 pub const KNOCK_GRAVITY: f32 = 1050.0;

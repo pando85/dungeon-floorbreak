@@ -26,7 +26,7 @@ Columns: **normal run** = `cargo run --bin floor01_scene` with no flags (the sto
 | CP-03 rotten shore and falling block, ENV-02 shore / block / dust art | fixture only | the three `cp03_*` fixtures (one shore per fixture) |
 | DEATH-B cause, force and species profiles (#94) | fixture only | data path, invisible except through the finish chosen |
 | DEATH-C presenter and gore pool, preset 4 default (#97), GOB-02 and GOB-02B death art | fixture only | crush poses, knockback blood, stains; `--gore-preset 1..4` |
-| DEATH-D decapitation (block edge) and explosion (QA charge) | lab flag only / in PR | on `main` only `--death-lab-finish decapitated`; real causes in draft PR #108 (`cp03_block_edge_decap`, `qa_blast_breakup`) |
+| DEATH-D decapitation (block edge) and explosion (QA charge) | in PR #108 | real causes `ShoreBlockEdge` and `Explosion` (`cp03_block_edge_decap`, `qa_blast_breakup`); the demo wires B3's decapitation and B5's `Arm::CarlPast` test charge in that PR |
 | DEATH-E1 budgets, corpse cap 8, stains persist (#106) | fixture only | `cp03_goblin_pileup` (ten stationary goblins) |
 | Hybrid-A HUD (plates, HP, System notices) | not on `main` | draft PR #103 (`floor01_scene`, normal run and fixtures) |
 | Camera: deterministic scroll camera | yes | normal run and fixtures; its position is simulation state (in `FLOOR1_SCENE_STATE`) |
