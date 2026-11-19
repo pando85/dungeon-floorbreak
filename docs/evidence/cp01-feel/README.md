@@ -98,3 +98,7 @@ Provenance and rights: code by Claude Sonnet; no new art and no new third-party 
 ## DEATH-B note
 
 `headless_cp01_kick.txt` gained ` force=heavy` on its `enemy_defeated` line (the lethal second kick launches, so its force tier is heavy). The `COMBAT_STATE` hash is unchanged; `SHA256SUMS` was updated. See [species death profiles](../../03-tech/species-death-profiles.md). New fixture `cp03_kick_block` (kick, then the block crushes the launched goblin; the line ends `instigator=0`): `headless_cp03_kick_block.txt`, final hash `73e409161ce5434f`, a new fixture so it is not a migration.
+
+## DEATH-E1 note
+
+New fixture `cp03_goblin_pileup` (a presenter stress scenario, not a gameplay design): ten stationary goblins defeated by mixed causes within 65 ticks (three jab defeats on tick 83, four shore-block crushes on 139, three lethal kicks on 148). `headless_cp03_goblin_pileup.txt`, final hash `6a82811d8f31c475`, a new fixture so it is not a migration; no existing fixture, log or hash changed. The fixture exposed a pre-existing presentation bug, recorded as **GOB-STACK-01** in the backlog (a nudged stacked goblin drawn with the fist not touching it, a 6 px nudge pop when stacked goblins are launched, left-facing blows landing 40 to 60 px deep); the two animation tests skip exactly those cases for this fixture and assert everything else. See [DEATH-E1](../death-e/README.md).
