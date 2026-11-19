@@ -14,6 +14,8 @@
 
 **Long-term context (living, not an approval of future abilities):** check the [character progression horizon](character-progression-horizon.md) when changing protagonist moves, unlock pacing, encounter capabilities or floor-to-floor assumptions. The Floor 01 decisions documented here remain the local gameplay design authority, subject to explicit review and playtest.
 
+**Act I combat-first playable route (draft, NOT owner-approved):** see [Act I encounter beats](floor-01-act-01-playable-combat-beats.md) for a room-by-room adaptation of the existing Dozer-to-Guild scene and proposed post-Guild Magic Missile / Bad Llamas encounters. Do not treat beat timing, enemy counts or new spaces as approved implementation targets.
+
 ## North star
 
 **A scrappy, emotionally grounded 1980s–1990s action-film antihero survives alongside an increasingly capable cat.** The two roles are different, valuable, and complementary. Success comes from understanding threats and making smart use of physical impact, magic, selective destruction and the environment. A player should feel more competent by the end of Floor 1 even if stats change little.

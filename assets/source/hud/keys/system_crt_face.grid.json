@@ -1,0 +1,158 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  20,
+  18
+ ],
+ "pivot": [
+  0,
+  0
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "hud_ink",
+   "rgba": "#120c18ff"
+  },
+  {
+   "key": "d",
+   "name": "brass_dark",
+   "rgba": "#6a4a1cff"
+  },
+  {
+   "key": "B",
+   "name": "brass",
+   "rgba": "#b58a3aff"
+  },
+  {
+   "key": "b",
+   "name": "brass_hi",
+   "rgba": "#e8c063ff"
+  },
+  {
+   "key": "o",
+   "name": "metal_light",
+   "rgba": "#8a7e8cff"
+  },
+  {
+   "key": "r",
+   "name": "metal_dark",
+   "rgba": "#2a2430ff"
+  },
+  {
+   "key": "s",
+   "name": "screen_bg",
+   "rgba": "#2a0d24ff"
+  },
+  {
+   "key": "m",
+   "name": "magenta",
+   "rgba": "#e0338fff"
+  },
+  {
+   "key": "n",
+   "name": "magenta_hi",
+   "rgba": "#ffb3dcff"
+  }
+ ],
+ "layers": [
+  "key"
+ ],
+ "frames": [
+  {
+   "duration_ms": 200,
+   "cels": {
+    "key": [
+     "....o............o..",
+     ".....o.........oo...",
+     "......o......o......",
+     ".......o....o.......",
+     "..KKKKKKKKKKKKKKKK..",
+     ".KbbbbbbbbBdbbbbbBK.",
+     ".KbKKKKKKKKKKKBBBdK.",
+     ".KbKsssssssssKBoBdK.",
+     ".KbKssmsssmssKBBBdK.",
+     ".KbKsmsmsmsmsKBoBdK.",
+     ".KbKsssssssssKBBBdK.",
+     ".KbKsmsssssmsKBrBdK.",
+     ".KbKssmmmmmssKBrBdK.",
+     ".KbKsssssssssKBBBdK.",
+     ".KbKKKKKKKKKKKBBBdK.",
+     ".KBdddddddddddddddK.",
+     "..KKKKKKKKKKKKKKKK..",
+     "...KdK........KdK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 200,
+   "cels": {
+    "key": [
+     "....o............o..",
+     ".....o.........oo...",
+     "......o......o......",
+     ".......o....o.......",
+     "..KKKKKKKKKKKKKKKK..",
+     ".KbbbbbbbbBdbbbbbBK.",
+     ".KbKKKKKKKKKKKBBBdK.",
+     ".KbKsssssssssKBoBdK.",
+     ".KbKsssssssssKBBBdK.",
+     ".KbKsmmmsmmmsKBoBdK.",
+     ".KbKsssssssssKBBBdK.",
+     ".KbKsmsssssmsKBrBdK.",
+     ".KbKssmmmmmssKBrBdK.",
+     ".KbKsssssssssKBBBdK.",
+     ".KbKKKKKKKKKKKBBBdK.",
+     ".KBdddddddddddddddK.",
+     "..KKKKKKKKKKKKKKKK..",
+     "...KdK........KdK..."
+    ]
+   }
+  },
+  {
+   "duration_ms": 200,
+   "cels": {
+    "key": [
+     "....o............o..",
+     ".....o.........oo...",
+     "......o......o......",
+     ".......o....o.......",
+     "..KKKKKKKKKKKKKKKK..",
+     ".KbbbbbbbbBdbbbbbBK.",
+     ".KbKKKKKKKKKKKBBBdK.",
+     ".KbKmmsssssmmKBoBdK.",
+     ".KbKssmsssmssKBBBdK.",
+     ".KbKsnnsssnnsKBoBdK.",
+     ".KbKsssssssssKBBBdK.",
+     ".KbKmmmmmmmmmKBrBdK.",
+     ".KbKmnmnmnmnmKBrBdK.",
+     ".KbKsmmmmmmmsKBBBdK.",
+     ".KbKKKKKKKKKKKBBBdK.",
+     ".KBdddddddddddddddK.",
+     "..KKKKKKKKKKKKKKKK..",
+     "...KdK........KdK..."
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "idle",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  },
+  {
+   "name": "blink",
+   "from": 1,
+   "to": 1,
+   "direction": "forward"
+  },
+  {
+   "name": "notice",
+   "from": 2,
+   "to": 2,
+   "direction": "forward"
+  }
+ ]
+}

@@ -1,0 +1,112 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  32,
+  9
+ ],
+ "pivot": [
+  0,
+  8
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "hud_ink",
+   "rgba": "#120c18ff"
+  },
+  {
+   "key": "A",
+   "name": "amber",
+   "rgba": "#ffc24aff"
+  },
+  {
+   "key": "n",
+   "name": "magenta_hi",
+   "rgba": "#ff6fc0ff"
+  },
+  {
+   "key": "c",
+   "name": "cyan",
+   "rgba": "#5fe0e8ff"
+  },
+  {
+   "key": "3",
+   "name": "notch",
+   "rgba": "#211b27ff",
+   "accent": true
+  }
+ ],
+ "layers": [
+  "art"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "3nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn3",
+     "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "3nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn3"
+    ]
+   }
+  },
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "cccccccccccccccccccccccccccccccc",
+     "cKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKc",
+     "cKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKc",
+     "cKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKc",
+     "cKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKc",
+     "cKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKc",
+     "cKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKc",
+     "cKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKc",
+     "cccccccccccccccccccccccccccccccc"
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "p1",
+   "from": 0,
+   "to": 0,
+   "direction": "forward"
+  },
+  {
+   "name": "p2",
+   "from": 1,
+   "to": 1,
+   "direction": "forward"
+  },
+  {
+   "name": "ai",
+   "from": 2,
+   "to": 2,
+   "direction": "forward"
+  }
+ ]
+}

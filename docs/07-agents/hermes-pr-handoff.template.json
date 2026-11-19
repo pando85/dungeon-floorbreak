@@ -1,0 +1,12 @@
+{
+  "schema": "the-crawl-hermes-pr-handoff-v1",
+  "repository": "pando85/dungeon-floorbreak",
+  "base_branch": "main",
+  "pr_number": null,
+  "head_branch": null,
+  "owner_approval": "exploration",
+  "images_in_zip": false,
+  "assets": [],
+  "spec_paths": [],
+  "notes": "Template only. Fill exact PR/head branch and asset slots when creating a real handoff. Never infer original image bytes."
+}

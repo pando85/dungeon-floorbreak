@@ -7,3 +7,5 @@ No copyrighted book passages, third-party artwork, music, voice performances or 
 No repository-wide open-source/content license is granted at this stage. Before accepting external code/art contributions or commercializing any game, decide on explicit licensing and complete third-party asset provenance and rightsholder clearance. Any release must also comply with platform rules concerning generated content and other disclosures.
 
 Project name *Dungeon Floorbreak* is a working title, not a brand-clearance result.
+
+The HUD uses the OFL-licensed fonts Jersey 10 and Silkscreen, committed unmodified with their `OFL.txt` under [assets/fonts](assets/fonts/README.md).

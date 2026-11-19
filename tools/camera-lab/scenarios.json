@@ -1,0 +1,520 @@
+{
+  "schema": "the-crawl.floor01.camera-lab.v1",
+  "status": "Design experiment only. Not canonical gameplay, physics, rendered assets, or a Bevy implementation.",
+  "virtual_resolution": [
+    640,
+    360
+  ],
+  "deck_virtual_resolution": [
+    640,
+    400
+  ],
+  "source_actor_heights": {
+    "carl": 52,
+    "donut": 40
+  },
+  "camera_coverage_candidates": [
+    1.0,
+    1.25,
+    1.5,
+    1.75
+  ],
+  "scenarios": [
+    {
+      "id": "ROOM-01",
+      "name": "The First Rematch",
+      "subtitle": "Opening · Goblins · Horizontal brawl",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1570,
+      "height": 760,
+      "floor": 600,
+      "spawn": {
+        "carl": 125,
+        "donut": 186
+      },
+      "camera_intro": 380,
+      "platforms": [
+        {
+          "x": 430,
+          "y": 478,
+          "w": 190,
+          "h": 16
+        },
+        {
+          "x": 1030,
+          "y": 485,
+          "w": 160,
+          "h": 16
+        }
+      ],
+      "props": [
+        {
+          "x": 730,
+          "y": 548,
+          "w": 40,
+          "h": 52,
+          "kind": "crate",
+          "breakable": true
+        },
+        {
+          "x": 880,
+          "y": 492,
+          "w": 22,
+          "h": 108,
+          "kind": "weak-wall",
+          "breakable": true
+        },
+        {
+          "x": 1260,
+          "y": 552,
+          "w": 40,
+          "h": 48,
+          "kind": "crate",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 600,
+          "kind": "goblin"
+        },
+        {
+          "x": 790,
+          "kind": "goblin"
+        },
+        {
+          "x": 1080,
+          "kind": "goblin"
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1490,
+      "purpose": "A first satisfying kill, one goblin bouncing off another, and a destructible alternative. Does pulling the camera back let the player anticipate the next enemy?",
+      "expected": "See more enemies without losing the read of contact, anticipation and the reactions of Carl and Donut.",
+      "coop": "Donut can reach a platform and flank before she has magic. We do not need to force her to open a second exit."
+    },
+    {
+      "id": "ROOM-02",
+      "name": "Hunters From Above",
+      "subtitle": "Bad Llamas · Vertical ambush",
+      "act": 1,
+      "setting": "heat-catacomb",
+      "width": 1530,
+      "height": 920,
+      "floor": 740,
+      "spawn": {
+        "carl": 115,
+        "donut": 175
+      },
+      "camera_intro": 510,
+      "platforms": [
+        {
+          "x": 290,
+          "y": 618,
+          "w": 200,
+          "h": 16
+        },
+        {
+          "x": 625,
+          "y": 486,
+          "w": 220,
+          "h": 16
+        },
+        {
+          "x": 1040,
+          "y": 585,
+          "w": 255,
+          "h": 16
+        }
+      ],
+      "props": [
+        {
+          "x": 480,
+          "y": 690,
+          "w": 32,
+          "h": 50,
+          "kind": "crate",
+          "breakable": true
+        },
+        {
+          "x": 945,
+          "y": 650,
+          "w": 30,
+          "h": 90,
+          "kind": "weak-wall",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 520,
+          "kind": "llama"
+        },
+        {
+          "x": 770,
+          "kind": "llama",
+          "on_y": 486
+        },
+        {
+          "x": 1170,
+          "kind": "llama"
+        }
+      ],
+      "hazards": [
+        {
+          "x": 850,
+          "y": 734,
+          "w": 72,
+          "h": 6,
+          "kind": "heat"
+        }
+      ],
+      "goal_x": 1465,
+      "purpose": "Can we show attacks arriving from above, the fight on the ground and both characters without flooding the frame with empty architecture?",
+      "expected": "Clear height differences and useful cover. Avoid changing zoom during a melee impact.",
+      "coop": "Donut reaches the high points first; Carl uses cover and a weak partition wall. Do not attribute magic before the matching unlock."
+    },
+    {
+      "id": "ROOM-03",
+      "name": "Break A Breach",
+      "subtitle": "Goblin workshop · Scenery as a weapon",
+      "act": 2,
+      "setting": "workshop",
+      "width": 1810,
+      "height": 870,
+      "floor": 720,
+      "spawn": {
+        "carl": 130,
+        "donut": 190
+      },
+      "camera_intro": 520,
+      "platforms": [
+        {
+          "x": 360,
+          "y": 612,
+          "w": 220,
+          "h": 18
+        },
+        {
+          "x": 800,
+          "y": 540,
+          "w": 265,
+          "h": 18
+        },
+        {
+          "x": 1250,
+          "y": 605,
+          "w": 220,
+          "h": 18
+        }
+      ],
+      "props": [
+        {
+          "x": 590,
+          "y": 565,
+          "w": 34,
+          "h": 155,
+          "kind": "weak-wall",
+          "breakable": true
+        },
+        {
+          "x": 750,
+          "y": 675,
+          "w": 56,
+          "h": 45,
+          "kind": "crate",
+          "breakable": true
+        },
+        {
+          "x": 1090,
+          "y": 638,
+          "w": 32,
+          "h": 82,
+          "kind": "support",
+          "breakable": true
+        },
+        {
+          "x": 1130,
+          "y": 558,
+          "w": 88,
+          "h": 22,
+          "kind": "hanging-weight",
+          "breakable": true
+        },
+        {
+          "x": 1530,
+          "y": 666,
+          "w": 55,
+          "h": 54,
+          "kind": "crate",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 705,
+          "kind": "goblin"
+        },
+        {
+          "x": 940,
+          "kind": "goblin",
+          "on_y": 540
+        },
+        {
+          "x": 1238,
+          "kind": "goblin"
+        },
+        {
+          "x": 1610,
+          "kind": "engineer"
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1735,
+      "purpose": "The same goblin fight changes when Carl opens a wall, destroys a support or knocks enemies into machinery.",
+      "expected": "Cause and consequence fit in the frame: breakage, fall and impact. No foreground element should hide a kill.",
+      "coop": "Donut advances from above while Carl changes the access. Both must be able to regroup along a protected route."
+    },
+    {
+      "id": "ROOM-04",
+      "name": "The Hoarder's Lair",
+      "subtitle": "Scatterers · Pressure and density",
+      "act": 2,
+      "setting": "hoarder",
+      "width": 1690,
+      "height": 1020,
+      "floor": 820,
+      "spawn": {
+        "carl": 140,
+        "donut": 208
+      },
+      "camera_intro": 640,
+      "platforms": [
+        {
+          "x": 280,
+          "y": 700,
+          "w": 260,
+          "h": 16
+        },
+        {
+          "x": 710,
+          "y": 600,
+          "w": 255,
+          "h": 16
+        },
+        {
+          "x": 1140,
+          "y": 680,
+          "w": 190,
+          "h": 16
+        }
+      ],
+      "props": [
+        {
+          "x": 560,
+          "y": 738,
+          "w": 90,
+          "h": 82,
+          "kind": "junk",
+          "breakable": true
+        },
+        {
+          "x": 990,
+          "y": 740,
+          "w": 50,
+          "h": 80,
+          "kind": "junk",
+          "breakable": true
+        },
+        {
+          "x": 1390,
+          "y": 752,
+          "w": 95,
+          "h": 68,
+          "kind": "junk",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 455,
+          "kind": "scatterer"
+        },
+        {
+          "x": 610,
+          "kind": "scatterer"
+        },
+        {
+          "x": 810,
+          "kind": "scatterer",
+          "on_y": 600
+        },
+        {
+          "x": 1130,
+          "kind": "scatterer"
+        },
+        {
+          "x": 1350,
+          "kind": "hoarder",
+          "hp": 4
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1610,
+      "purpose": "Stress test for enemy and decoration density: does the wide shot improve crowd control without making the small insects invisible?",
+      "expected": "Routes and silhouettes stay recognisable despite the density. Trash is concentrated in the lair, not in every corridor.",
+      "coop": "Donut circles the swarm from the platforms. Carl owns the ground and breaks the barriers that suit him."
+    },
+    {
+      "id": "ROOM-05",
+      "name": "The Juicer's Gym",
+      "subtitle": "Co-op · Separation and regroup",
+      "act": 3,
+      "setting": "gym",
+      "width": 1900,
+      "height": 990,
+      "floor": 790,
+      "spawn": {
+        "carl": 160,
+        "donut": 220
+      },
+      "camera_intro": 600,
+      "platforms": [
+        {
+          "x": 390,
+          "y": 652,
+          "w": 260,
+          "h": 17
+        },
+        {
+          "x": 770,
+          "y": 555,
+          "w": 250,
+          "h": 17
+        },
+        {
+          "x": 1250,
+          "y": 635,
+          "w": 295,
+          "h": 17
+        }
+      ],
+      "props": [
+        {
+          "x": 590,
+          "y": 726,
+          "w": 34,
+          "h": 64,
+          "kind": "weight",
+          "breakable": true
+        },
+        {
+          "x": 1110,
+          "y": 695,
+          "w": 40,
+          "h": 95,
+          "kind": "weight",
+          "breakable": true
+        },
+        {
+          "x": 1600,
+          "y": 721,
+          "w": 56,
+          "h": 69,
+          "kind": "weight",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 970,
+          "kind": "trog"
+        },
+        {
+          "x": 1430,
+          "kind": "juicer",
+          "hp": 5
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1830,
+      "purpose": "Carl and Donut deliberately separate vertically and horizontally. Can the camera follow both without turning one into a tiny dot?",
+      "expected": "A manageable shared screen and distinct roles between platforms and floor, without resorting to split screen yet.",
+      "coop": "Carl uses weights and heavy equipment. Donut flanks from above; validate that both players keep participating."
+    },
+    {
+      "id": "ROOM-06",
+      "name": "Ball of Swine",
+      "subtitle": "Boss · Charges and moving gates",
+      "act": 3,
+      "setting": "arena",
+      "width": 2060,
+      "height": 1080,
+      "floor": 885,
+      "spawn": {
+        "carl": 460,
+        "donut": 530
+      },
+      "camera_intro": 730,
+      "platforms": [
+        {
+          "x": 225,
+          "y": 700,
+          "w": 265,
+          "h": 18
+        },
+        {
+          "x": 1505,
+          "y": 705,
+          "w": 265,
+          "h": 18
+        },
+        {
+          "x": 925,
+          "y": 610,
+          "w": 190,
+          "h": 18
+        }
+      ],
+      "props": [
+        {
+          "x": 680,
+          "y": 810,
+          "w": 35,
+          "h": 75,
+          "kind": "weak-wall",
+          "breakable": true
+        },
+        {
+          "x": 1150,
+          "y": 695,
+          "w": 42,
+          "h": 190,
+          "kind": "gate",
+          "breakable": false
+        },
+        {
+          "x": 1530,
+          "y": 808,
+          "w": 42,
+          "h": 77,
+          "kind": "weak-wall",
+          "breakable": true
+        }
+      ],
+      "enemies": [
+        {
+          "x": 1260,
+          "kind": "ball",
+          "hp": 6
+        }
+      ],
+      "hazards": [],
+      "goal_x": 1980,
+      "purpose": "Keep both protagonists, the big boss, the tell of its charge and the important mechanical gate visible, without shaking or tiny characters.",
+      "expected": "We can test up to 960×540 world px or more, but the full 2060 px width does not need to fit on one screen.",
+      "coop": "One player provokes the charge; the other positions near the gate. Winning by direct damage must also be possible."
+    }
+  ]
+}
