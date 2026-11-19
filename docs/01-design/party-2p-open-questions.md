@@ -113,6 +113,8 @@ In 2P, L1 does nothing to the other player's hero (contract). **Recommendation:*
 
 ## Q10. Donut ability chips and moves as P2 (provisional: none)
 
+**Design (2026-11-19):** resolved in [Q10 Donut moveset](../02-art/donut-moveset-q10.md) (swat 0 damage with a 60-tick light guard, pounce 1 damage, dry press at 0 mana). The table below is the original analysis.
+
 Without moves, P2 can only watch, which contradicts the acceptance gate "Donut is useful and enjoyable in co-op from the first scene". Below is a minimal pre-biscuit set within the approved verbs. Enemy HP is 2 and damage is a whole number, so "low damage" in practice means 0 or 1.
 
 | Verb | Candidate | Numbers | Signoff needed |
