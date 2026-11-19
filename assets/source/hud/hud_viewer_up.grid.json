@@ -1,0 +1,38 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  5,
+  7
+ ],
+ "pivot": [
+  0,
+  6
+ ],
+ "palette": [
+  {
+   "key": "n",
+   "name": "magenta_hi",
+   "rgba": "#ff6fc0ff"
+  }
+ ],
+ "layers": [
+  "art"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "..n..",
+     ".nnn.",
+     "nnnnn",
+     "..n..",
+     "..n..",
+     "..n..",
+     "..n.."
+    ]
+   }
+  }
+ ],
+ "tags": []
+}

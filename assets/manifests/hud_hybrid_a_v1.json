@@ -17,12 +17,12 @@
   ],
   "animation_tags": [],
   "required_alpha": true,
-  "owner": "AI-authored HUD art (HUD-HYBRID-A-01, hybrid A HUD: plates, strips, notice frame, glyphs, icons, tags, hero portraits, System CRT face)",
+  "owner": "AI-authored HUD art (HUD-HYBRID-A-01, hybrid A HUD: plates, strips, notice frame, glyphs, icons, tags, hero portraits, System CRT face; AUDIENCE-01 viewer eye, trend arrows and 5x7 digit masks)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "provenance": {
-    "origin": "Derived from approved sprite masters and top-tier keys; no AI concept pixels copied. Carl portrait and System CRT face are the frozen top-tier keys (assets/source/hud/keys/), pixels unchanged, lone 1 px details re-keyed to same-colour accent aliases for the strict lint. Donut portrait is a 28x28 1:1 crop of assets/source/characters/donut/donut_h40.grid.json frame 0 (x 14..41, y 4..31) with four edge pixels repainted. Frames, strips, notice frame, glyphs, icons and tags are original pixel-grid-v1 art written by scripts/author_hud_hybrid_a.py from the design spec (sections 2, 3, 7). The HUD concept PNGs were never sampled, traced or cropped.",
+    "origin": "Derived from approved sprite masters and top-tier keys; no AI concept pixels copied. Carl portrait and System CRT face are the frozen top-tier keys (assets/source/hud/keys/), pixels unchanged, lone 1 px details re-keyed to same-colour accent aliases for the strict lint. Donut portrait is a 28x28 1:1 crop of assets/source/characters/donut/donut_h40.grid.json frame 0 (x 14..41, y 4..31) with four edge pixels repainted. Frames, strips, notice frame, glyphs, icons and tags are original pixel-grid-v1 art written by scripts/author_hud_hybrid_a.py from the design spec (sections 2, 3, 7). The AUDIENCE-01 viewer eye, arrows and digits are copied pixel-exact from the top-tier keys in the PR #118 design review. The HUD concept PNGs were never sampled, traced or cropped.",
     "generator": "Design and keys: Claude Opus. Execution (portrait crop, frames, glyphs, icons, tags, atlas, validators, evidence): Claude Sonnet via scripts/author_hud_hybrid_a.py. Independent review: pending, a separate top-tier agent. No image-model raster output.",
     "generated_art": true,
     "input_reference_ids": [
@@ -411,6 +411,198 @@
           26
         ],
         "sha256": "c3fee18d408619a574377b9fa3d3a564788a7ad2f73054efb240a640412eb3d2"
+      },
+      {
+        "name": "viewer_eye",
+        "source": "hud_viewer_eye",
+        "source_frame": 0,
+        "rect": [
+          48,
+          130,
+          9,
+          7
+        ],
+        "sha256": "7c72a21296009e932f3dd49203d4645df5ba217a86024bef85a5c8a365ad63a6"
+      },
+      {
+        "name": "viewer_up",
+        "source": "hud_viewer_up",
+        "source_frame": 0,
+        "rect": [
+          60,
+          130,
+          5,
+          7
+        ],
+        "sha256": "c000001cd75583ed0e25103772cde97353a1b1c3b0f293e491297ecbb434858a"
+      },
+      {
+        "name": "viewer_down",
+        "source": "hud_viewer_down",
+        "source_frame": 0,
+        "rect": [
+          67,
+          130,
+          5,
+          7
+        ],
+        "sha256": "b28fea33a097dc0542fae7f7f91a6a4c4b9adb3265f8bc6bd20f53b142cb09d5"
+      },
+      {
+        "name": "viewer_digit_0",
+        "source": "hud_viewer_digit_0",
+        "source_frame": 0,
+        "rect": [
+          48,
+          140,
+          5,
+          7
+        ],
+        "sha256": "612d7a939be48a049a69cf64c33fdbf82a97311cbe6a5be6b72f6fd9fd49412e"
+      },
+      {
+        "name": "viewer_digit_1",
+        "source": "hud_viewer_digit_1",
+        "source_frame": 0,
+        "rect": [
+          54,
+          140,
+          5,
+          7
+        ],
+        "sha256": "0c0df11d03a0a3b8b648e05604f8b022cc5f2d15d63a2d39d797a7886a9c5627"
+      },
+      {
+        "name": "viewer_digit_2",
+        "source": "hud_viewer_digit_2",
+        "source_frame": 0,
+        "rect": [
+          60,
+          140,
+          5,
+          7
+        ],
+        "sha256": "9b4611a3657f13758829d4b791bfb941e6040593e1fa31e2676710ce890d5cf8"
+      },
+      {
+        "name": "viewer_digit_3",
+        "source": "hud_viewer_digit_3",
+        "source_frame": 0,
+        "rect": [
+          66,
+          140,
+          5,
+          7
+        ],
+        "sha256": "4cfc80e9b239cdee2e014fe870cfbe886170418eb584043d9197752f1dbd1220"
+      },
+      {
+        "name": "viewer_digit_4",
+        "source": "hud_viewer_digit_4",
+        "source_frame": 0,
+        "rect": [
+          72,
+          140,
+          5,
+          7
+        ],
+        "sha256": "db09129a6b07ff7ea8d2cecedf7897ff1ad537c7e0a325561e87605a532bea06"
+      },
+      {
+        "name": "viewer_digit_5",
+        "source": "hud_viewer_digit_5",
+        "source_frame": 0,
+        "rect": [
+          78,
+          140,
+          5,
+          7
+        ],
+        "sha256": "863e260d1989b286a05d60a0487e3a86323e6ac7851f98b9d66380251e5240a6"
+      },
+      {
+        "name": "viewer_digit_6",
+        "source": "hud_viewer_digit_6",
+        "source_frame": 0,
+        "rect": [
+          84,
+          140,
+          5,
+          7
+        ],
+        "sha256": "c844fb5c00ab8daed674daafea2f902f78b6b4a4d2cf124f643cd58852df0715"
+      },
+      {
+        "name": "viewer_digit_7",
+        "source": "hud_viewer_digit_7",
+        "source_frame": 0,
+        "rect": [
+          90,
+          140,
+          5,
+          7
+        ],
+        "sha256": "2f2aed5b02cf9455fccf25f6f6abb5b8fd2f1f1f1e544bc5d43b31416516ff08"
+      },
+      {
+        "name": "viewer_digit_8",
+        "source": "hud_viewer_digit_8",
+        "source_frame": 0,
+        "rect": [
+          96,
+          140,
+          5,
+          7
+        ],
+        "sha256": "15f5d9f97d0aa1f5580e0d7a8d9bc1bd04617a4729bd9ff3035ba7e9109a3963"
+      },
+      {
+        "name": "viewer_digit_9",
+        "source": "hud_viewer_digit_9",
+        "source_frame": 0,
+        "rect": [
+          102,
+          140,
+          5,
+          7
+        ],
+        "sha256": "51614139886284ba2c9299ff04c424adf9ce19402f4ded3867aa6237e3e10411"
+      },
+      {
+        "name": "viewer_digit_k",
+        "source": "hud_viewer_digit_k",
+        "source_frame": 0,
+        "rect": [
+          108,
+          140,
+          5,
+          7
+        ],
+        "sha256": "f25c718b8fd7cfc36346fec4240cafccdc20f7062b6563b289e02c16430d984d"
+      },
+      {
+        "name": "viewer_digit_m",
+        "source": "hud_viewer_digit_m",
+        "source_frame": 0,
+        "rect": [
+          114,
+          140,
+          5,
+          7
+        ],
+        "sha256": "0a3ffa3acfe6ac668cdfe8dec37fe08be0ee999746d701d1a511a75ec2e10375"
+      },
+      {
+        "name": "viewer_digit_plus",
+        "source": "hud_viewer_digit_plus",
+        "source_frame": 0,
+        "rect": [
+          120,
+          140,
+          5,
+          7
+        ],
+        "sha256": "6c1679219f2cb37474e7b3bbfcd9bf23d1056bcb59a5fade29bd7f0fc9ada010"
       }
     ],
     "frame_counts": {
@@ -470,7 +662,9 @@
       "portrait wells: plate_frame leaves the 28x28 interior at atlas (rect.x+6, rect.y+6) transparent; the renderer fills it with code_drawn_tokens.well_carl / well_donut under the portrait",
       "tag area (+4,+36,32,9) of plate_frame is transparent; draw tag_p1 / tag_p2 / tag_ai there",
       "strip_*: draw left cap, repeat the 1 px mid column to the wanted width, draw right cap",
-      "glyph names a, b, x, y are the Xbox set, cross/circle/square/triangle the DualSense set"
+      "glyph names a, b, x, y are the Xbox set, cross/circle/square/triangle the DualSense set",
+      "viewer_*: AUDIENCE-01 part A, single-frame sources hud_viewer_*; eye 9x7 (brass, brass_hi, hud_ink pupil), up 5x7 magenta_hi, down 5x7 amber (renderer tints amber_dim, untinted in high contrast), digits 5x7 text_white masks (advance 6; K and M and + included)",
+      "the decimal point is not in the atlas: the renderer draws it as a code-placed 1x1 rect on digit row 6 with advance 2 (a lone pixel is not a sprite and fails the strict lint)"
     ]
   }
 }

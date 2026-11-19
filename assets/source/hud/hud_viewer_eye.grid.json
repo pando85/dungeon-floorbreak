@@ -1,0 +1,54 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  9,
+  7
+ ],
+ "pivot": [
+  0,
+  5
+ ],
+ "palette": [
+  {
+   "key": "K",
+   "name": "hud_ink",
+   "rgba": "#120c18ff"
+  },
+  {
+   "key": "B",
+   "name": "brass",
+   "rgba": "#b58a3aff"
+  },
+  {
+   "key": "b",
+   "name": "brass_hi",
+   "rgba": "#e8c063ff"
+  },
+  {
+   "key": "!",
+   "name": "hud_ink_detail",
+   "rgba": "#120c18ff",
+   "accent": true
+  }
+ ],
+ "layers": [
+  "art"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".........",
+     "..BBBBB..",
+     ".B.bbb.B.",
+     "B.bb!bb.B",
+     ".B.bbb.B.",
+     "..BBBBB..",
+     "........."
+    ]
+   }
+  }
+ ],
+ "tags": []
+}
