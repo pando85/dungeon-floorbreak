@@ -24,6 +24,7 @@ use bevy::{
     asset::LoadState,
     asset::RenderAssetUsages,
     camera::{ScalingMode, visibility::RenderLayers},
+    input::gamepad::{GamepadConnection, GamepadEvent},
     prelude::*,
     render::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -143,8 +144,9 @@ struct Args {
     /// HUD-HYBRID-A-01: draw a labelled HUD preview fixture. Presentation
     /// only: it never reaches the simulation, the combat state or a replay.
     hud_preview: Option<HudPreview>,
-    /// HUD controller glyph set (`xbox` by default, `dualsense`).
-    glyphs: GlyphSet,
+    /// HUD glyph set override (`--glyphs=xbox|dualsense`). `None` follows the
+    /// last-used gamepad (Xbox until one is seen).
+    glyphs: Option<GlyphSet>,
     /// HUD: no slides, blinks or flashes.
     hud_reduced_motion: bool,
 }
@@ -213,7 +215,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         death_lab_finish: None,
         death_trace: false,
         hud_preview: None,
-        glyphs: GlyphSet::default(),
+        glyphs: None,
         hud_reduced_motion: false,
     };
     let mut iter = args.iter().skip(1);
@@ -240,10 +242,10 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             }
             "--glyphs" => {
                 let value = iter.next().ok_or("--glyphs needs xbox or dualsense")?;
-                parsed.glyphs = parse_glyphs(value)?;
+                parsed.glyphs = Some(parse_glyphs(value)?);
             }
             other if other.starts_with("--glyphs=") => {
-                parsed.glyphs = parse_glyphs(&other["--glyphs=".len()..])?;
+                parsed.glyphs = Some(parse_glyphs(&other["--glyphs=".len()..])?);
             }
             "--hud-reduced-motion" => parsed.hud_reduced_motion = true,
             "--no-lighting" => parsed.no_lighting = true,
@@ -992,6 +994,7 @@ fn run_window(
         Update,
         (
             capture_input,
+            detect_glyphs,
             sync_visuals,
             sync_combat_visuals,
             sync_shore_visuals,
@@ -1545,6 +1548,48 @@ fn capture_input(
         controls.restart |= pad.just_pressed(GamepadButton::Select);
         if pad.just_pressed(GamepadButton::Start) {
             exit.write(AppExit::Success);
+        }
+    }
+}
+
+/// HUD-DEBT-05: the glyph family follows the last gamepad with input. The
+/// identity is `Gamepad::vendor_id()` (bevy_input 0.20.1, filled from the OS by
+/// bevy_gilrs); the mapping lives in `GlyphSet::for_vendor_id`. Only
+/// connection and button messages count, so stick drift on an idle pad never
+/// flips the set. Presentation only: no simulation state is touched, and the
+/// loop reads at most a handful of messages per frame without allocating.
+fn detect_glyphs(
+    mut events: MessageReader<GamepadEvent>,
+    pads: Query<&Gamepad>,
+    mut hud: ResMut<HudState>,
+    mut active: Local<Option<Entity>>,
+) {
+    for event in events.read() {
+        match event {
+            GamepadEvent::Connection(connection) => match &connection.connection {
+                GamepadConnection::Connected { vendor_id, .. } => {
+                    *active = Some(connection.gamepad);
+                    hud.0
+                        .set_detected_glyphs(GlyphSet::for_vendor_id(*vendor_id));
+                }
+                GamepadConnection::Disconnected if *active == Some(connection.gamepad) => {
+                    // Fall back to another connected pad, else Xbox.
+                    let other = pads.iter().next();
+                    *active = None;
+                    hud.0.set_detected_glyphs(GlyphSet::for_vendor_id(
+                        other.and_then(Gamepad::vendor_id),
+                    ));
+                }
+                GamepadConnection::Disconnected => {}
+            },
+            GamepadEvent::Button(button) if *active != Some(button.entity) => {
+                if let Ok(pad) = pads.get(button.entity) {
+                    *active = Some(button.entity);
+                    hud.0
+                        .set_detected_glyphs(GlyphSet::for_vendor_id(pad.vendor_id()));
+                }
+            }
+            GamepadEvent::Button(_) | GamepadEvent::Axis(_) => {}
         }
     }
 }
@@ -2677,7 +2722,11 @@ mod tests {
     #[test]
     fn the_hud_flags_parse_both_forms_and_reject_unknown_values() {
         assert_eq!(args(&[]).unwrap().hud_preview, None);
-        assert_eq!(args(&[]).unwrap().glyphs, GlyphSet::Xbox);
+        assert_eq!(args(&[]).unwrap().glyphs, None);
+        assert_eq!(
+            args(&["--glyphs=xbox"]).unwrap().glyphs,
+            Some(GlyphSet::Xbox)
+        );
         assert!(!args(&[]).unwrap().hud_reduced_motion);
         for preview in HudPreview::ALL {
             let spaced = args(&["--hud-preview", preview.name()]).unwrap();
@@ -2694,11 +2743,11 @@ mod tests {
         assert!(args(&["--hud-preview"]).is_err());
         assert_eq!(
             args(&["--glyphs=dualsense"]).unwrap().glyphs,
-            GlyphSet::DualSense
+            Some(GlyphSet::DualSense)
         );
         assert_eq!(
             args(&["--glyphs", "dualsense"]).unwrap().glyphs,
-            GlyphSet::DualSense
+            Some(GlyphSet::DualSense)
         );
         assert!(args(&["--glyphs=ps5"]).is_err());
         assert!(args(&["--hud-reduced-motion"]).unwrap().hud_reduced_motion);

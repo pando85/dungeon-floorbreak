@@ -183,8 +183,13 @@ pub enum LogicalAction {
     Physical,
 }
 
-/// Controller glyph family. Xbox by default; `--glyphs dualsense` until real
-/// device detection exists (HUD-DEBT-05).
+/// USB vendor id of Sony Interactive Entertainment (DualShock 4, DualSense,
+/// DualSense Edge all report it).
+pub const SONY_VENDOR_ID: u16 = 0x054C;
+
+/// Controller glyph family. Xbox is the default and the fallback; the family
+/// follows the last-used gamepad ([`GlyphSet::for_vendor_id`], HUD-DEBT-05),
+/// unless `--glyphs=` forces one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GlyphSet {
     #[default]
@@ -198,6 +203,16 @@ impl GlyphSet {
             "xbox" => Some(Self::Xbox),
             "dualsense" => Some(Self::DualSense),
             _ => None,
+        }
+    }
+
+    /// The glyph family for a gamepad's USB vendor id. Sony gets the
+    /// PlayStation set. Everything else (Microsoft, Valve/Steam Deck, Nintendo,
+    /// third-party pads, no id at all) gets the Xbox set.
+    pub const fn for_vendor_id(vendor_id: Option<u16>) -> Self {
+        match vendor_id {
+            Some(SONY_VENDOR_ID) => Self::DualSense,
+            _ => Self::Xbox,
         }
     }
 
@@ -803,7 +818,9 @@ impl NoticeQueue {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct HudConfig {
     pub preview: Option<HudPreview>,
-    pub glyphs: GlyphSet,
+    /// `Some` is the explicit `--glyphs=` override; `None` follows the
+    /// last-used gamepad ([`HudRuntime::set_detected_glyphs`]).
+    pub glyphs: Option<GlyphSet>,
     pub reduced_motion: bool,
 }
 
@@ -822,7 +839,15 @@ impl EventCursor {
     }
 }
 
-type VisualKey = (u8, u8, Option<HpFlash>, Option<NoticeView>, bool, bool);
+type VisualKey = (
+    u8,
+    u8,
+    Option<HpFlash>,
+    Option<NoticeView>,
+    bool,
+    bool,
+    GlyphSet,
+);
 
 /// The HUD's own clock and cosmetic state: the notice queue, the HP flash and
 /// the last health seen. Stepped once per fixed tick by the scene, after the
@@ -832,6 +857,8 @@ pub struct HudRuntime {
     config: HudConfig,
     tick: u64,
     revision: u64,
+    /// The family of the last-used gamepad; Xbox until one is seen.
+    detected_glyphs: GlyphSet,
     carl_health: u8,
     donut_health: u8,
     flash: Option<HpFlash>,
@@ -845,6 +872,7 @@ impl HudRuntime {
             config,
             tick: 0,
             revision: 0,
+            detected_glyphs: GlyphSet::default(),
             carl_health: HERO_HEALTH,
             donut_health: DONUT_HEALTH,
             flash: None,
@@ -882,7 +910,24 @@ impl HudRuntime {
             self.notices.active(),
             blink,
             warning_bright,
+            self.glyphs(),
         )
+    }
+
+    /// The glyph set drawn now: the explicit override, else the detected one.
+    pub fn glyphs(&self) -> GlyphSet {
+        self.config.glyphs.unwrap_or(self.detected_glyphs)
+    }
+
+    /// Record the family of the last-used gamepad (presentation only; the
+    /// simulation never reads it). An explicit `--glyphs=` still wins. Bumps
+    /// the revision only when the drawn set changes.
+    pub fn set_detected_glyphs(&mut self, glyphs: GlyphSet) {
+        let before = self.glyphs();
+        self.detected_glyphs = glyphs;
+        if self.glyphs() != before {
+            self.revision += 1;
+        }
     }
 
     /// Clear the notice, the queue and the flash (a restart).
@@ -951,7 +996,7 @@ impl HudRuntime {
         let mut real = RealHudInputs::normal(self.carl_health, self.donut_health);
         real.hp_flash = self.flash;
         real.notice = self.notices.active();
-        real.glyphs = self.config.glyphs;
+        real.glyphs = self.glyphs();
         real.reduced_motion = self.config.reduced_motion;
         real
     }
@@ -1319,6 +1364,47 @@ mod tests {
         assert_eq!(GlyphSet::default(), GlyphSet::Xbox);
         assert_eq!(GlyphSet::parse("dualsense"), Some(GlyphSet::DualSense));
         assert_eq!(GlyphSet::parse("ps5"), None);
+    }
+
+    #[test]
+    fn vendor_ids_pick_the_glyph_family() {
+        assert_eq!(SONY_VENDOR_ID, 0x054C);
+        // Sony (DualShock 4 / DualSense / Edge): PlayStation glyphs.
+        assert_eq!(GlyphSet::for_vendor_id(Some(0x054C)), GlyphSet::DualSense);
+        // Microsoft, Valve (Steam Deck), Nintendo, 8BitDo, Logitech, unknown
+        // and missing ids: Xbox glyphs.
+        for vendor in [0x045E, 0x28DE, 0x057E, 0x2DC8, 0x046D, 0x0000, 0xFFFF] {
+            assert_eq!(GlyphSet::for_vendor_id(Some(vendor)), GlyphSet::Xbox);
+        }
+        assert_eq!(GlyphSet::for_vendor_id(None), GlyphSet::Xbox);
+    }
+
+    #[test]
+    fn detected_glyphs_follow_the_pad_unless_overridden() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        assert_eq!(hud.glyphs(), GlyphSet::Xbox);
+        assert_eq!(hud.real_inputs().glyphs, GlyphSet::Xbox);
+        let start = hud.revision();
+        hud.set_detected_glyphs(GlyphSet::DualSense);
+        assert_eq!(hud.real_inputs().glyphs, GlyphSet::DualSense);
+        assert_eq!(hud.snapshot().glyphs, GlyphSet::DualSense);
+        assert_eq!(hud.revision(), start + 1);
+        // Same set again: nothing to redraw.
+        hud.set_detected_glyphs(GlyphSet::DualSense);
+        assert_eq!(hud.revision(), start + 1);
+        hud.set_detected_glyphs(GlyphSet::Xbox);
+        assert_eq!(hud.glyphs(), GlyphSet::Xbox);
+        assert_eq!(hud.revision(), start + 2);
+
+        // An explicit override wins over detection and never redraws for it.
+        let mut forced = HudRuntime::new(HudConfig {
+            glyphs: Some(GlyphSet::Xbox),
+            ..HudConfig::default()
+        });
+        let start = forced.revision();
+        forced.set_detected_glyphs(GlyphSet::DualSense);
+        assert_eq!(forced.glyphs(), GlyphSet::Xbox);
+        assert_eq!(forced.revision(), start);
     }
 
     #[test]
