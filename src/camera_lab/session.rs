@@ -7,22 +7,36 @@
 //! every coverage and aspect (proved by a test).
 
 use super::camera_op::{
-    Aspect, Bounds, CameraInput, CameraMode, CameraOperator, Subject, Threat, View,
+    AUTO_CAP_W, Aspect, Bounds, CameraInput, CameraMode, CameraOperator, Subject, Threat, View,
+    rest_widths,
 };
-use super::room::Room;
-use super::sim::{CARL, FoeMode, Hittable, LabInput, LabSim, Mode, foe_phase_progress};
-use crate::combat::EnemyAi;
-use crate::goblin::GoblinMode;
+use super::room::{EnemyKind, Room};
+use super::sim::{
+    CARL, FoeMode, Hittable, LabInput, LabSim, Mode, foe_phase_progress, leash_for_cap,
+};
 
 pub struct Session {
     pub sim: LabSim,
     pub camera: CameraOperator,
     pub aspect: Aspect,
+    pub out_w: u32,
 }
 
-/// Subjects and threat of the current simulation state, in layout (y down)
-/// pixels.
-pub fn camera_input_of(sim: &LabSim) -> (Vec<Subject>, Option<Threat>, bool) {
+/// Sight of a ranged foe that has acquired an actor (px), the margin around an
+/// actor in which a large foe counts as "next to" it (in body widths) and the
+/// most threats handed to the camera.
+const ACQUIRE_RANGE: f32 = 520.0;
+const ADJACENT_BODIES: f32 = 1.5;
+const MAX_THREATS: usize = 4;
+
+/// Subjects, threats and the impact flag of the current simulation state, in
+/// layout (y down) pixels.
+///
+/// Threats, highest priority first: a telegraphing or firing ranged foe, a
+/// boss in its tell or charge and a spit in flight (3); a ranged foe that has
+/// acquired an actor with a clear line (2, the camera starts widening when it
+/// takes aim, before the tell); a large foe next to an actor (1).
+pub fn camera_input_of(sim: &LabSim) -> (Vec<Subject>, Vec<Threat>, bool) {
     let h = sim.height;
     let subjects: Vec<Subject> = sim
         .actors
@@ -34,38 +48,89 @@ pub fn camera_input_of(sim: &LabSim) -> (Vec<Subject>, Option<Threat>, bool) {
             half_h: a.body.hh,
         })
         .collect();
-    // The imminent charge or shot with the least time left that shows a tell.
-    let mut threat: Option<Threat> = None;
+    let mut threats: Vec<Threat> = Vec::new();
     for t in &sim.targets {
-        if let Hittable::Foe(f) = t
-            && f.alive()
-            && matches!(
-                f.spec.kind,
-                crate::camera_lab::room::EnemyKind::Ball
-                    | crate::camera_lab::room::EnemyKind::Llama
-            )
-        {
-            let (left, dir) = match (f.mode, foe_phase_progress(f)) {
-                (FoeMode::Tell, Some((_, left))) => (left, f.facing),
-                (FoeMode::Active, _) if f.spec.kind == crate::camera_lab::room::EnemyKind::Ball => {
-                    (0, f.charge_dir)
-                }
-                _ => continue,
-            };
-            let candidate = Threat {
-                x: f.x,
-                y: h - f.y,
-                half_w: f.spec.hw,
-                half_h: f.spec.hh,
-                dir,
-                tell_left: left,
-                readable: true,
-            };
-            if threat.is_none_or(|t| candidate.tell_left < t.tell_left) {
-                threat = Some(candidate);
+        let Hittable::Foe(f) = t else { continue };
+        if !f.alive() || f.mode == FoeMode::Corpse || f.mode == FoeMode::Down {
+            continue;
+        }
+        let base = Threat {
+            x: f.x,
+            y: h - f.y,
+            half_w: f.spec.hw,
+            half_h: f.spec.hh,
+            dir: f.facing,
+            tell_left: 0,
+            readable: true,
+            priority: 0,
+            lane: 0.0,
+        };
+        let near = sim
+            .actors
+            .iter()
+            .filter(|a| !a.down())
+            .min_by(|a, b| (a.body.x - f.x).abs().total_cmp(&(b.body.x - f.x).abs()));
+        let ball = f.spec.kind == EnemyKind::Ball;
+        match (f.mode, foe_phase_progress(f)) {
+            (FoeMode::Tell, Some((_, left))) if f.spec.ranged || ball => {
+                threats.push(Threat {
+                    tell_left: left,
+                    priority: 3,
+                    lane: if ball { 96.0 } else { 0.0 },
+                    ..base
+                });
+                continue;
             }
+            (FoeMode::Active, _) if ball => {
+                threats.push(Threat {
+                    dir: f.charge_dir,
+                    priority: 3,
+                    lane: 96.0,
+                    ..base
+                });
+                continue;
+            }
+            (FoeMode::Active, _) | (FoeMode::Recover, _) if f.spec.ranged && f.mode_tick < 14 => {
+                // The spit leaves on the first active tick; keep the shooter in
+                // frame through the shot and the start of its recovery.
+                threats.push(Threat {
+                    priority: 3,
+                    ..base
+                });
+                continue;
+            }
+            _ => {}
+        }
+        let Some(n) = near else { continue };
+        let dx = (n.body.x - f.x).abs();
+        if f.spec.ranged && dx <= ACQUIRE_RANGE && sim.line_clear((f.x, f.y), (n.body.x, n.body.y))
+        {
+            threats.push(Threat {
+                priority: 2,
+                ..base
+            });
+        } else if f.spec.hw >= 24.0 && dx <= ADJACENT_BODIES * f.spec.hw * 2.0 + n.body.hw {
+            threats.push(Threat {
+                priority: 1,
+                ..base
+            });
         }
     }
+    for p in &sim.projectiles {
+        threats.push(Threat {
+            x: p.x,
+            y: h - p.y,
+            half_w: 6.0,
+            half_h: 6.0,
+            dir: if p.vx >= 0.0 { 1 } else { -1 },
+            tell_left: 0,
+            readable: true,
+            priority: 3,
+            lane: 0.0,
+        });
+    }
+    threats.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.x.total_cmp(&b.x)));
+    threats.truncate(MAX_THREATS);
     let impact = sim
         .actors
         .iter()
@@ -76,24 +141,51 @@ pub fn camera_input_of(sim: &LabSim) -> (Vec<Subject>, Option<Threat>, bool) {
             Hittable::Foe(f) => f.hit_stop > 0,
             _ => false,
         });
-    let _ = (EnemyAi::Chase, GoblinMode::Neutral);
-    (subjects, threat, impact)
+    (subjects, threats, impact)
+}
+
+/// The widest width the automatic camera may use for this room and output.
+fn auto_cap_of(room: &Room, aspect: Aspect, out_w: u32) -> i32 {
+    let limit = room.render.0.min(room.render.1 * 640 / aspect.base_h());
+    rest_widths(out_w)
+        .into_iter()
+        .filter(|w| *w <= limit && *w <= AUTO_CAP_W)
+        .max()
+        .unwrap_or(640)
 }
 
 impl Session {
+    /// A session for a 1920 px wide output.
     pub fn new(room: &Room, mode: Mode, seed: u64, camera: CameraMode, aspect: Aspect) -> Self {
-        let sim = LabSim::new(room, mode, seed);
-        let (subjects, threat, impact_hold) = camera_input_of(&sim);
-        let op = CameraOperator::new(
+        Self::new_for_output(room, mode, seed, camera, aspect, 1920)
+    }
+
+    /// A session for an output `out_w` pixels wide: the output decides the
+    /// automatic camera's rest widths and the 2P leash (736 px at the 960 cap,
+    /// 416 px where only 640 is an integer scale). The leash depends on the
+    /// output class, never on the camera mode or the coverage in use.
+    pub fn new_for_output(
+        room: &Room,
+        mode: Mode,
+        seed: u64,
+        camera: CameraMode,
+        aspect: Aspect,
+        out_w: u32,
+    ) -> Self {
+        let mut sim = LabSim::new(room, mode, seed);
+        sim.leash = leash_for_cap(auto_cap_of(room, aspect, out_w));
+        let (subjects, threats, impact_hold) = camera_input_of(&sim);
+        let op = CameraOperator::new_for_output(
             camera,
             aspect,
             Bounds {
                 w: room.render.0,
                 h: room.render.1,
             },
+            out_w,
             &CameraInput {
                 subjects: &subjects,
-                threat,
+                threats: &threats,
                 impact_hold,
             },
         );
@@ -101,23 +193,44 @@ impl Session {
             sim,
             camera: op,
             aspect,
+            out_w,
         }
     }
 
     /// Rebuild the operator on the current simulation state (no easing): used
     /// after a test setup moved the actors.
     pub fn reframe(&mut self) {
-        let (subjects, threat, impact_hold) = camera_input_of(&self.sim);
-        self.camera = CameraOperator::new(
+        let (subjects, threats, impact_hold) = camera_input_of(&self.sim);
+        self.camera = CameraOperator::new_for_output(
             self.camera.mode(),
             self.aspect,
             Bounds {
                 w: self.sim.room.render.0,
                 h: self.sim.room.render.1,
             },
+            self.out_w,
             &CameraInput {
                 subjects: &subjects,
-                threat,
+                threats: &threats,
+                impact_hold,
+            },
+        );
+    }
+
+    /// Switch the camera mode (fixed or automatic) at the current framing.
+    pub fn set_camera_mode(&mut self, mode: CameraMode) {
+        let (subjects, threats, impact_hold) = camera_input_of(&self.sim);
+        self.camera = CameraOperator::new_for_output(
+            mode,
+            self.aspect,
+            Bounds {
+                w: self.sim.room.render.0,
+                h: self.sim.room.render.1,
+            },
+            self.out_w,
+            &CameraInput {
+                subjects: &subjects,
+                threats: &threats,
                 impact_hold,
             },
         );
@@ -125,10 +238,10 @@ impl Session {
 
     pub fn step(&mut self, inputs: [LabInput; 2]) -> View {
         self.sim.step(inputs);
-        let (subjects, threat, impact_hold) = camera_input_of(&self.sim);
+        let (subjects, threats, impact_hold) = camera_input_of(&self.sim);
         self.camera.step(&CameraInput {
             subjects: &subjects,
-            threat,
+            threats: &threats,
             impact_hold,
         })
     }
@@ -166,6 +279,12 @@ pub struct Metrics {
     pub mean_coverage: f32,
     pub max_pan_px: i32,
     pub max_actor_gap_px: f32,
+    /// Ticks per view width (the histogram of the run).
+    pub width_ticks: std::collections::BTreeMap<i32, u64>,
+    /// Longest run of consecutive ticks outside the rest widths (a transit).
+    pub longest_transit: u32,
+    /// Largest view width seen.
+    pub max_width: i32,
 }
 
 pub fn measure(
@@ -174,9 +293,28 @@ pub fn measure(
     camera: CameraMode,
     aspect: Aspect,
 ) -> Metrics {
-    use super::camera_op::visible_share;
+    let out_w = if aspect == Aspect::Wide16x9 {
+        1920
+    } else {
+        1280
+    };
+    measure_for_output(room, script, camera, aspect, out_w)
+}
+
+/// [`measure`] for an output `out_w` pixels wide.
+pub fn measure_for_output(
+    room: &Room,
+    script: &super::script::Script,
+    camera: CameraMode,
+    aspect: Aspect,
+    out_w: u32,
+) -> Metrics {
+    use super::camera_op::{rest_widths, visible_share};
     use crate::combat::CombatEvent;
-    let mut session = Session::new(room, script.mode, script.seed, camera, aspect);
+    let rest = rest_widths(out_w);
+    let mut transit = 0u32;
+    let mut session =
+        Session::new_for_output(room, script.mode, script.seed, camera, aspect, out_w);
     let mut m = Metrics::default();
     let mut prev = session.view();
     let mut cov_sum = 0.0f32;
@@ -185,6 +323,14 @@ pub fn measure(
         let inputs = super::script::script_inputs(&session.sim, script);
         let view = session.step(inputs);
         m.ticks += 1;
+        *m.width_ticks.entry(view.w).or_insert(0) += 1;
+        m.max_width = m.max_width.max(view.w);
+        if rest.contains(&view.w) {
+            transit = 0;
+        } else {
+            transit += 1;
+            m.longest_transit = m.longest_transit.max(transit);
+        }
         cov_sum += session.camera.coverage();
         m.max_pan_px = m.max_pan_px.max(
             (view.left - prev.left)
@@ -387,6 +533,87 @@ mod tests {
         );
         // The metrics are reproducible.
         assert_eq!(auto, m(CameraMode::Auto));
+    }
+
+    #[test]
+    fn auto_histogram_only_rest_widths_and_the_cap_holds_in_every_room() {
+        use crate::camera_lab::camera_op::{AUTO_CAP_W, rest_widths};
+        let rooms = rooms();
+        for script in scripts() {
+            let room = &rooms[script.room];
+            for (aspect, out_w) in [
+                (Aspect::Wide16x9, 1920u32),
+                (Aspect::Wide16x9, 3840),
+                (Aspect::Deck16x10, 1280),
+            ] {
+                let m = measure_for_output(room, &script, CameraMode::Auto, aspect, out_w);
+                let rest = rest_widths(out_w);
+                assert!(
+                    m.max_width <= AUTO_CAP_W,
+                    "{} {out_w}: width {}",
+                    room.id,
+                    m.max_width
+                );
+                let on_rest: u64 = m
+                    .width_ticks
+                    .iter()
+                    .filter(|(w, _)| rest.contains(w))
+                    .map(|(_, t)| *t)
+                    .sum();
+                assert!(
+                    on_rest * 100 >= m.ticks * 95,
+                    "{} {out_w}: only {on_rest} of {} ticks on {rest:?}: {:?}",
+                    room.id,
+                    m.ticks,
+                    m.width_ticks
+                );
+                assert!(
+                    m.longest_transit <= 24,
+                    "{} {out_w}: a transit of {} ticks",
+                    room.id,
+                    m.longest_transit
+                );
+                if out_w == 1280 {
+                    assert!(m.width_ticks.keys().all(|w| *w <= 640 || !rest.contains(w)));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn auto_frames_the_ranged_tell_the_boss_and_the_duo() {
+        let rooms = rooms();
+        let scripts = scripts();
+        let m = |i: usize| {
+            measure_for_output(
+                &rooms[i],
+                &scripts[i],
+                CameraMode::Auto,
+                Aspect::Wide16x9,
+                1920,
+            )
+        };
+        // ROOM-02: at least the 85 percent a fixed 1.5x gives.
+        let r2 = m(1);
+        assert!(r2.telegraph_ticks > 100);
+        assert!(
+            r2.telegraph_visible * 100 >= r2.telegraph_ticks * 85,
+            "{r2:?}"
+        );
+        // ROOM-05: the separating run never loses an actor.
+        let r5 = m(4);
+        assert_eq!(r5.actor_lost, 0, "{r5:?}");
+        assert_eq!(r5.both_visible, r5.ticks, "{r5:?}");
+        // ROOM-06: the boss, tell and charge, is mostly in view.
+        let r6 = m(5);
+        assert!(
+            r6.telegraph_visible * 100 >= r6.telegraph_ticks * 85,
+            "{r6:?}"
+        );
+        // Short brawls stay at 1.0x.
+        for i in [0usize, 2, 3] {
+            assert_eq!(m(i).max_width, 640, "{}", rooms[i].id);
+        }
     }
 
     #[test]

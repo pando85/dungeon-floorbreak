@@ -234,6 +234,52 @@ fn print_metrics(rooms: &[Room]) -> ExitCode {
             }
         }
     }
+    println!();
+    println!(
+        "Automatic camera, ticks per view width (rest widths are the exact integer scales of the output; every other width is a transit frame):"
+    );
+    println!();
+    println!(
+        "| Room | Output | Rest widths | Ticks per width | On rest | Longest transit (ticks) | Max width |"
+    );
+    println!("|---|---|---|---|---:|---:|---:|");
+    use dungeon_floorbreak::camera_lab::{camera_op::rest_widths, session::measure_for_output};
+    for (i, room) in rooms.iter().enumerate() {
+        let script = scripts().remove(i);
+        for (aspect, out_w, name) in [
+            (Aspect::Wide16x9, 1920u32, "1080p"),
+            (Aspect::Wide16x9, 3840, "4K"),
+            (Aspect::Deck16x10, 1280, "1280x800"),
+        ] {
+            let m = measure_for_output(room, &script, CameraMode::Auto, aspect, out_w);
+            let rest = rest_widths(out_w);
+            let on_rest: u64 = m
+                .width_ticks
+                .iter()
+                .filter(|(w, _)| rest.contains(w))
+                .map(|(_, t)| *t)
+                .sum();
+            let hist = m
+                .width_ticks
+                .iter()
+                .map(|(w, t)| format!("{w}:{t}"))
+                .collect::<Vec<_>>()
+                .join(" ");
+            println!(
+                "| {} | {} | {} | {} | {:.1}% | {} | {} |",
+                room.id,
+                name,
+                rest.iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("/"),
+                hist,
+                100.0 * on_rest as f32 / m.ticks as f32,
+                m.longest_transit,
+                m.max_width
+            );
+        }
+    }
     ExitCode::SUCCESS
 }
 
@@ -281,12 +327,13 @@ fn main() -> ExitCode {
     let room = rooms[args.room].clone();
     let aspect = Aspect::from_output(args.output.0, args.output.1);
     let script = script_for(args.room, args.mode);
-    let mut session = Session::new(
+    let mut session = Session::new_for_output(
         &room,
         args.mode,
         if args.script { script.seed } else { args.seed },
         args.coverage,
         aspect,
+        args.output.0,
     );
     if let Some(x) = args.separate {
         separate(&mut session, x);
@@ -564,11 +611,13 @@ fn run_window(
         args: args.clone(),
     })
     .init_resource::<Taps>()
+    .init_resource::<PadSlots>()
     .init_resource::<Fx>()
     .add_systems(Startup, setup)
     .add_systems(
         Update,
         (
+            assign_pads,
             capture_input,
             sync_visuals,
             spawn_fx,
@@ -846,9 +895,38 @@ fn layer_z_of(kit: &EnvKit, layer: &str) -> f32 {
 
 // -------------------------------------------------------------------- input
 
+/// Stable pad-to-player binding: a pad keeps its slot while it stays connected,
+/// a new pad takes the first free slot (player 1, then player 2). The slot does
+/// not depend on the order the engine lists the pads in.
+#[derive(Resource, Default)]
+struct PadSlots([Option<Entity>; 2]);
+
+fn assign_pads(pads: Query<(Entity, &Gamepad)>, mut slots: ResMut<PadSlots>) {
+    for slot in &mut slots.0 {
+        if slot.is_some_and(|e| pads.get(e).is_err()) {
+            *slot = None;
+        }
+    }
+    for (entity, _) in &pads {
+        if !slots.0.contains(&Some(entity))
+            && let Some(free) = slots.0.iter_mut().find(|s| s.is_none())
+        {
+            *free = Some(entity);
+        }
+    }
+}
+
+fn pads_by_slot<'a>(
+    slots: &PadSlots,
+    pads: &'a Query<(Entity, &Gamepad)>,
+) -> [Option<&'a Gamepad>; 2] {
+    [0, 1].map(|i| slots.0[i].and_then(|e| pads.get(e).ok().map(|(_, g)| g)))
+}
+
 fn capture_input(
     keys: Res<ButtonInput<KeyCode>>,
-    pads: Query<&Gamepad>,
+    pads: Query<(Entity, &Gamepad)>,
+    slots: Res<PadSlots>,
     mut taps: ResMut<Taps>,
     mut lab: ResMut<Lab>,
     mut exit: MessageWriter<AppExit>,
@@ -867,7 +945,8 @@ fn capture_input(
     taps.jump[1] |= keys.just_pressed(KeyCode::ArrowUp);
     taps.primary[1] |= keys.just_pressed(KeyCode::KeyM);
     taps.physical[1] |= keys.just_pressed(KeyCode::KeyN);
-    for (i, pad) in pads.iter().take(2).enumerate() {
+    for (i, pad) in pads_by_slot(&slots, &pads).into_iter().enumerate() {
+        let Some(pad) = pad else { continue };
         taps.jump[i] |= pad.just_pressed(GamepadButton::South);
         taps.primary[i] |= pad.just_pressed(GamepadButton::West);
         taps.physical[i] |= pad.just_pressed(GamepadButton::North);
@@ -886,23 +965,7 @@ fn capture_input(
     ];
     for (key, mode) in pick {
         if keys.just_pressed(key) {
-            let aspect = lab.session.aspect;
-            let room = lab.session.sim.room.clone();
-            let (subjects, threat, hold) =
-                dungeon_floorbreak::camera_lab::session::camera_input_of(&lab.session.sim);
-            lab.session.camera = dungeon_floorbreak::camera_lab::camera_op::CameraOperator::new(
-                mode,
-                aspect,
-                dungeon_floorbreak::camera_lab::camera_op::Bounds {
-                    w: room.render.0,
-                    h: room.render.1,
-                },
-                &dungeon_floorbreak::camera_lab::camera_op::CameraInput {
-                    subjects: &subjects,
-                    threat,
-                    impact_hold: hold,
-                },
-            );
+            lab.session.set_camera_mode(mode);
             println!("LAB_COVERAGE {mode:?}");
         }
     }
@@ -910,7 +973,7 @@ fn capture_input(
 
 fn manual_inputs(
     keys: &ButtonInput<KeyCode>,
-    pads: &Query<&Gamepad>,
+    pads: [Option<&Gamepad>; 2],
     taps: &mut Taps,
     mode: Mode,
 ) -> [LabInput; 2] {
@@ -938,7 +1001,8 @@ fn manual_inputs(
         a.move_x = axis(&[KeyCode::ArrowLeft], &[KeyCode::ArrowRight]);
         a.jump |= keys.pressed(KeyCode::ArrowUp);
     }
-    for (i, pad) in pads.iter().take(2).enumerate() {
+    for (i, pad) in pads.into_iter().enumerate() {
+        let Some(pad) = pad else { continue };
         let stick = pad.left_stick().x;
         let x = if stick.abs() > 0.18 {
             stick
@@ -976,7 +1040,8 @@ fn manual_inputs(
 
 fn fixed_step(
     keys: Res<ButtonInput<KeyCode>>,
-    pads: Query<&Gamepad>,
+    pads: Query<(Entity, &Gamepad)>,
+    slots: Res<PadSlots>,
     mut taps: ResMut<Taps>,
     mut lab: ResMut<Lab>,
     loading: Option<Res<Loading>>,
@@ -995,7 +1060,8 @@ fn fixed_step(
         let room = lab.session.sim.room.clone();
         let (mode, seed) = (lab.session.sim.mode, lab.session.sim.seed);
         let (cam, aspect) = (lab.session.camera.mode(), lab.session.aspect);
-        lab.session = Session::new(&room, mode, seed, cam, aspect);
+        let out_w = lab.session.out_w;
+        lab.session = Session::new_for_output(&room, mode, seed, cam, aspect, out_w);
         println!("LAB_RESTART");
     }
     let inputs = if lab.idle {
@@ -1004,7 +1070,7 @@ fn fixed_step(
         script_inputs(&lab.session.sim, &lab.script)
     } else {
         let mode = lab.session.sim.mode;
-        manual_inputs(&keys, &pads, &mut taps, mode)
+        manual_inputs(&keys, pads_by_slot(&slots, &pads), &mut taps, mode)
     };
     lab.session.step(inputs);
     for e in lab.session.sim.take_new_events() {

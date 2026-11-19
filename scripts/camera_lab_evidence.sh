@@ -22,6 +22,9 @@ outputs=(1920x1080 3840x2160 1280x800)
 solo_tick=(326 186 574 238 316 293)
 # Where Donut stands for the 2P separated shot (Carl at his spawn).
 sep_x=(805 795 810 820 840 1140)
+# On the 1280x800 Deck output the 2P leash is 416 px (only 640 is an integer
+# scale there), so Donut stands 400 px from Carl instead.
+sep_x_deck=(525 515 530 540 560 860)
 
 shot() { # room kind cov output
   local room="$1" kind="$2" cov="$3" res="$4" dir name
@@ -30,7 +33,9 @@ shot() { # room kind cov output
   if [[ "$kind" == solo ]]; then
     args=(--mode solo --script --capture-sequence "${solo_tick[$((room-1))]}:1:1")
   else
-    args=(--mode 2p --idle --separate "${sep_x[$((room-1))]}" --capture-sequence "150:1:1")
+    sx="${sep_x[$((room-1))]}"
+    [[ "$res" == 1280x800 ]] && sx="${sep_x_deck[$((room-1))]}"
+    args=(--mode 2p --idle --separate "$sx" --capture-sequence "150:1:1")
   fi
   xvfb-run -a -s "-screen 0 ${res}x24" "$bin" --room "$room" --coverage "$cov" --output "$res" \
     "${args[@]}" --capture-dir "$dir" > "$out/$name.log" 2>&1
@@ -42,7 +47,7 @@ shot() { # room kind cov output
 }
 export -f shot
 export out bin
-export solo_tick_s="${solo_tick[*]}" sep_x_s="${sep_x[*]}"
+export solo_tick_s="${solo_tick[*]}" sep_x_s="${sep_x[*]}" sep_x_deck_s="${sep_x_deck[*]}"
 
 case "$mode" in
   shots)
@@ -58,7 +63,7 @@ case "$mode" in
     done
     # shellcheck disable=SC2016
     printf '%s\n' "${jobs[@]}" | xargs -P "${JOBS:-6}" -L 1 bash -c '
-      solo_tick=($solo_tick_s); sep_x=($sep_x_s)
+      solo_tick=($solo_tick_s); sep_x=($sep_x_s); sep_x_deck=($sep_x_deck_s)
       shot "$0" "$1" "$2" "$3"'
     ;;
   videos)
@@ -83,6 +88,8 @@ case "$mode" in
       "separation_room05_1.0 5 1 420 6 120 --mode 2p --script"
       "boss_charge_room06_auto 6 auto 10 1 150 --mode 2p --script"
       "boss_charge_room06_1.5 6 1.5 10 1 150 --mode 2p --script"
+      "llama_tell_room02_auto 2 auto 440 2 100 --mode 2p --script"
+      "llama_tell_room02_1.0 2 1 440 2 100 --mode 2p --script"
     )
     display=140
     for entry in "${list[@]}"; do

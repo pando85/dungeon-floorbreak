@@ -20,6 +20,11 @@
 //! solo companion. Nothing here reads the camera, the coverage or any
 //! rendering state: the same inputs give the same hash at every coverage.
 
+// Struct updates (`..CARL_JAB`, `..Default::default()`) keep this module compiling
+// when other branches add fields to the shared combat structs; on a tree without
+// those fields they are "needless".
+#![allow(clippy::needless_update)]
+
 use std::fmt;
 
 use super::room::{EnemyKind, IRect, Prop, PropKind, Room};
@@ -37,9 +42,23 @@ use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Material, Rect,
 
 pub const CARL: usize = 0;
 pub const DONUT: usize = 1;
-/// Largest horizontal distance two humans may be apart in 2P (a fixed gameplay
-/// constant, independent of any camera coverage).
-pub const MAX_SEPARATION_X: f32 = 760.0;
+/// Horizontal room the framing needs around the two actors' centres: both
+/// safety regions (96 px a side, `camera_op::SAFETY_PAD_X`) plus Carl's and
+/// Donut's half widths. A leash of `cap - LEASH_MARGIN_PX` keeps both regions
+/// inside a view of width `cap`.
+pub const LEASH_MARGIN_PX: f32 = 220.0;
+/// The 2P leash at the 1.5x (960 px) cap: the largest horizontal distance two
+/// humans may be apart (736 px). A gameplay constant that depends on the output
+/// class (see [`leash_for_cap`]) but **not** on the camera mode or coverage.
+pub const MAX_SEPARATION_X: f32 = 736.0;
+/// Ticks of a blocked leash before an idle partner starts catching up.
+pub const CATCHUP_AFTER_TICKS: u16 = 45;
+
+/// The leash for an output whose automatic camera is capped at `cap_w` px:
+/// 736 at 960 (1080p, 4K), 416 at 640 (Steam Deck 1280x800, 1440p, 720p).
+pub fn leash_for_cap(cap_w: i32) -> f32 {
+    (((cap_w as f32 - LEASH_MARGIN_PX) / 8.0).floor() * 8.0).max(160.0)
+}
 /// Donut's body (the 40 px cat), her lab movement values and health. All lab
 /// tuning proposals, not approved balance.
 pub const DONUT_HALF_WIDTH: f32 = 16.0;
@@ -1147,6 +1166,11 @@ pub struct LabSim {
     switch_cooldown: u8,
     switch_prev: [bool; 2],
     special_prev: [bool; 2],
+    /// 2P leash in px (see [`leash_for_cap`]) and its catch-up bookkeeping.
+    pub leash: f32,
+    leash_hold: u16,
+    catchup: Option<usize>,
+    prev_bodies: [Body; 2],
     pub targets: Vec<Hittable>,
     pub projectiles: Vec<Projectile>,
     blocks: Vec<Block>,
@@ -1291,6 +1315,23 @@ impl LabSim {
             switch_cooldown: 0,
             switch_prev: [false; 2],
             special_prev: [false; 2],
+            leash: MAX_SEPARATION_X,
+            leash_hold: 0,
+            catchup: None,
+            prev_bodies: [
+                Body::new(
+                    room.spawn_carl as f32,
+                    carl_y,
+                    HERO_HALF_WIDTH,
+                    HERO_HALF_HEIGHT,
+                ),
+                Body::new(
+                    room.spawn_donut as f32,
+                    donut_y,
+                    DONUT_HALF_WIDTH,
+                    DONUT_HALF_HEIGHT,
+                ),
+            ],
             targets,
             projectiles: Vec::new(),
             blocks,
@@ -1342,6 +1383,24 @@ impl LabSim {
             .fold(self.floor_top(), f32::max)
     }
 
+    /// True when no intact solid lies on the straight line between two points
+    /// (y up): a coarse line of sight for the presentation and the camera.
+    pub fn line_clear(&self, a: (f32, f32), b: (f32, f32)) -> bool {
+        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+        let steps = ((dx * dx + dy * dy).sqrt() / 8.0).ceil().max(1.0) as i32;
+        (1..steps).all(|i| {
+            let t = i as f32 / steps as f32;
+            let (x, y) = (a.0 + dx * t, a.1 + dy * t);
+            !self.blocks.iter().any(|bl| {
+                bl.intact
+                    && x >= bl.rect.left
+                    && x < bl.rect.right()
+                    && y >= bl.rect.bottom
+                    && y < bl.rect.top()
+            })
+        })
+    }
+
     pub fn floor_top(&self) -> f32 {
         self.height - self.room.floor_y as f32
     }
@@ -1361,7 +1420,15 @@ impl LabSim {
 
     fn actor_input(&self, actor: usize, inputs: &[LabInput; 2]) -> LabInput {
         match self.mode {
-            Mode::TwoPlayer => inputs[actor],
+            Mode::TwoPlayer => {
+                // A partner left behind by a held leash catches up on its own
+                // (walks and hops towards the leader) until its player moves.
+                if self.catchup == Some(actor) && inputs[actor] == LabInput::default() {
+                    self.companion_input(actor)
+                } else {
+                    inputs[actor]
+                }
+            }
             Mode::Solo => {
                 if actor == self.active {
                     inputs[0]
@@ -1377,7 +1444,7 @@ impl LabSim {
     /// of it. A pure function of the simulation state.
     fn companion_input(&self, actor: usize) -> LabInput {
         let me = &self.actors[actor];
-        let lead = &self.actors[self.active];
+        let lead = &self.actors[1 - actor];
         let mut input = LabInput::default();
         if me.down() {
             return input;
@@ -1444,6 +1511,7 @@ impl LabSim {
         self.handle_switch(&inputs);
         self.projectiles_before_actors();
 
+        self.prev_bodies = [self.actors[CARL].body, self.actors[DONUT].body];
         // Actors in index order.
         for i in 0..2 {
             let input = self.actor_input(i, &inputs);
@@ -2420,18 +2488,52 @@ impl LabSim {
         }
     }
 
+    /// Collision-safe 2P leash. When a tick would leave the actors further apart
+    /// than the leash, the actor whose move widened the gap is put back on its
+    /// body of the start of the tick (a state that was legal), so nobody is ever
+    /// moved through geometry. A partner that stays held for a while catches up
+    /// by walking (the companion follower), never by a jump in position.
     fn leash(&mut self) {
-        let (cx, dx) = (self.actors[CARL].body.x, self.actors[DONUT].body.x);
-        if (cx - dx).abs() > MAX_SEPARATION_X {
-            // The actor that moved last is the one held: pull both to the limit
-            // by holding the one nearer the edge of what it just walked.
-            let d = if cx > dx { 1.0 } else { -1.0 };
-            let carl_moved = self.actors[CARL].body.vx.abs() >= self.actors[DONUT].body.vx.abs();
-            if carl_moved {
-                self.actors[CARL].body.x = dx + d * MAX_SEPARATION_X;
-            } else {
-                self.actors[DONUT].body.x = cx - d * MAX_SEPARATION_X;
+        let gap = |s: &Self| (s.actors[CARL].body.x - s.actors[DONUT].body.x).abs();
+        if gap(self) > self.leash {
+            let prev_gap = (self.prev_bodies[CARL].x - self.prev_bodies[DONUT].x).abs();
+            if gap(self) > prev_gap {
+                // Put back the actor that moved further away, then the other if
+                // the gap is still too wide.
+                let widen = |s: &Self, i: usize| {
+                    let other = 1 - i;
+                    gap(s) - (s.prev_bodies[i].x - s.actors[other].body.x).abs()
+                };
+                let first = if widen(self, CARL) >= widen(self, DONUT) {
+                    CARL
+                } else {
+                    DONUT
+                };
+                for i in [first, 1 - first] {
+                    if gap(self) > self.leash && gap(self) > prev_gap {
+                        let mut b = self.prev_bodies[i];
+                        b.vx = 0.0;
+                        self.actors[i].body = b;
+                    }
+                }
+                self.leash_hold = self.leash_hold.saturating_add(1);
+                if self.leash_hold >= CATCHUP_AFTER_TICKS && self.catchup.is_none() {
+                    // The partner that was not moving away is the one to catch up.
+                    let trailing = if (self.prev_bodies[first].x - self.actors[first].body.x).abs()
+                        < f32::EPSILON
+                    {
+                        1 - first
+                    } else {
+                        first
+                    };
+                    self.catchup = Some(trailing);
+                }
+                return;
             }
+        }
+        self.leash_hold = 0;
+        if gap(self) < self.leash - 60.0 {
+            self.catchup = None;
         }
     }
 
@@ -2445,6 +2547,9 @@ impl LabSim {
         m(self.tick);
         m(self.rng);
         m(self.active as u64);
+        m(u64::from(self.leash.to_bits()));
+        m(u64::from(self.leash_hold));
+        m(self.catchup.map_or(0, |i| 1 + i as u64));
         m(u64::from(self.switch_cooldown));
         for a in &self.actors {
             m(u64::from(a.body.x.to_bits()));
@@ -2746,10 +2851,7 @@ mod tests {
                 },
                 idle()[1],
             ]);
-            assert!(
-                (sim.actors[CARL].body.x - sim.actors[DONUT].body.x).abs()
-                    <= MAX_SEPARATION_X + 1.0
-            );
+            assert!((sim.actors[CARL].body.x - sim.actors[DONUT].body.x).abs() <= sim.leash + 1.0);
         }
     }
 
@@ -2880,5 +2982,88 @@ mod tests {
             let _ = a.take_new_events().len();
         }
         assert_eq!(a.state_hash(), b.state_hash());
+    }
+}
+
+#[cfg(test)]
+mod leash_tests {
+    use super::*;
+    use crate::camera_lab::camera_op::{AUTO_CAP_W, SAFETY_PAD_X, rest_widths};
+    use crate::camera_lab::room::load_rooms;
+    use std::path::Path;
+
+    fn room(i: usize) -> Room {
+        load_rooms(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap()[i].clone()
+    }
+
+    #[test]
+    fn the_leash_is_consistent_with_the_camera_cap() {
+        // Both safety regions (96 px a side plus the half widths) fit the cap.
+        assert_eq!(
+            LEASH_MARGIN_PX,
+            2.0 * SAFETY_PAD_X + HERO_HALF_WIDTH + DONUT_HALF_WIDTH
+        );
+        for out_w in [1280u32, 1920, 2560, 3840] {
+            let cap = *rest_widths(out_w).last().unwrap();
+            let leash = leash_for_cap(cap);
+            assert!(
+                leash + LEASH_MARGIN_PX <= cap as f32,
+                "{out_w}: {leash} in {cap}"
+            );
+            assert!(cap <= AUTO_CAP_W);
+        }
+        assert_eq!(leash_for_cap(960), 736.0);
+        assert_eq!(MAX_SEPARATION_X, 736.0);
+        assert_eq!(leash_for_cap(640), 416.0, "Deck, 1440p and 720p");
+    }
+
+    #[test]
+    fn the_leash_holds_without_snapping_through_geometry_and_the_partner_catches_up() {
+        for leash in [736.0f32, 416.0] {
+            let r = room(0);
+            let mut sim = LabSim::new(&r, Mode::TwoPlayer, 1);
+            sim.leash = leash;
+            sim.actors[DONUT].body.x = 40.0;
+            let start_donut = sim.actors[DONUT].body.x;
+            let mut max_gap = 0.0f32;
+            let mut moved_by_catchup = false;
+            for tick in 0..1200 {
+                // Player 1 runs right and keeps jumping; player 2 does nothing.
+                let p1 = LabInput {
+                    move_x: 1.0,
+                    jump: tick % 50 < 3,
+                    ..Default::default()
+                };
+                let before = sim.actors[CARL].body.x;
+                sim.step([p1, LabInput::default()]);
+                let gap = (sim.actors[CARL].body.x - sim.actors[DONUT].body.x).abs();
+                max_gap = max_gap.max(gap);
+                assert!(gap <= leash + 1.0, "tick {tick}: gap {gap} over {leash}");
+                // No actor ever ends a tick inside solid geometry.
+                for a in &sim.actors {
+                    let body = a.body.rect();
+                    let inside = sim.blocks().iter().filter(|b| b.intact).any(|b| {
+                        body.left < b.rect.right() - 0.01
+                            && body.right() > b.rect.left + 0.01
+                            && body.bottom < b.rect.top() - 0.01
+                            && body.top() > b.rect.bottom + 0.01
+                    });
+                    assert!(!inside, "tick {tick}: an actor is inside a solid");
+                }
+                // No tick moves an actor further than its own speed allows.
+                assert!(
+                    (sim.actors[CARL].body.x - before).abs() < 4.0,
+                    "tick {tick}: a jump in position"
+                );
+                if sim.actors[DONUT].body.x > start_donut + 100.0 {
+                    moved_by_catchup = true;
+                }
+            }
+            assert!(
+                max_gap > leash - 40.0,
+                "the leash was reached ({max_gap} of {leash})"
+            );
+            assert!(moved_by_catchup, "the idle partner caught up");
+        }
     }
 }
