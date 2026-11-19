@@ -6,13 +6,13 @@ Regenerate with `cargo build --locked --bin floor01_scene` then `python3 scripts
 
 ## Replay is identical at every preset
 
-Every capture run prints its final `COMBAT_STATE`; the script fails unless it equals the headless replay of the same tick, at both presets and both resolutions: `cp03_shore_kill` to tick 237 `hash=6e279b1dc4c1c491`, `cp01_kick` to tick 340 `hash=9e13d64619149b71` (the committed fixture hash). Unit tests and `ci_floor01_combat.sh headless` also run every fixture at presets 1 to 4 against the committed replays.
+Every capture run prints its final `COMBAT_STATE`; the script fails unless it equals the headless replay of the same tick, at both presets and both resolutions: `cp03_shore_kill` to tick 239 (hash printed by the capture run), `cp01_kick` to tick 340 `hash=9e13d64619149b71` (the committed fixture hash). Unit tests and `ci_floor01_combat.sh headless` also run every fixture at presets 1 to 4 against the committed replays.
 
 ## Clips (full speed)
 
 | File | Content |
 | --- | --- |
-| `crush_p4_640x360_60fps.mp4`, `crush_p1_640x360_60fps.mp4` | `cp03_shore_kill`, ticks 138 to 237 (the block lands on tick 139), 640x360, 60 fps = real time |
+| `crush_p4_640x360_60fps.mp4`, `crush_p1_640x360_60fps.mp4` | `cp03_shore_kill`, ticks 110 to 239 (the shore is broken on tick 103, the block falls and lands on tick 139), 640x360, 60 fps = real time |
 | `crush_p4_1920x1080_60fps.mp4`, `crush_p1_1920x1080_60fps.mp4` | the same at 1920x1080 (`--scale 3`) |
 | `kick_p4_*`, `kick_p1_*` (640x360 and 1920x1080) | `cp01_kick`, ticks 256 to 340 (the killing kick lands on tick 260: recoil, launch, flight, landing, pool) |
 | `crush_p1_vs_p4_640x360_30fps.gif`, `kick_p1_vs_p4_640x360_30fps.gif` | preset 1 (left) next to preset 4 (right), every second tick at 33 ms (real time) |
@@ -24,8 +24,8 @@ Every capture run prints its final `COMBAT_STATE`; the script fails unless it eq
 * Crush: `crush_contact` on the landing tick with the club leaving the hand and blood squeezed out at the mouth and both squeeze points, the flatten frame, then `crushed_remains` held; at preset 4 the wall spatter, splats, medium splats and the pool growing to stage 3 (38 px); at preset 1 the same poses and silhouettes with the gore layer hidden, the club still clattering, and no blood sprite anywhere.
 * Kick kill: the GOB-01 knockback and corpse frames stay; at preset 4 a spray of drops from the lethal hit, splats where the body lands, a smear and pool stages; at preset 1 nothing is added.
 * The debris and decals are drawn under Carl and Donut (unit-tested draw order); Carl is on screen in every frame.
-* The ENV-02 block is **not drawn** in the fixture scene (known gap): the crush plays under an invisible stone.
-* The wall spatter is low-contrast on lit brick at 1x (the art spec's open note); judge it in the clips.
+* The approved ENV-02 shore, block, landed rubble and impact dust are drawn from the simulated shore state: the block falls (the shore breaks on tick 103, lands on 139) and the goblin is pressed under it; the remains lie in front of the rubble (art spec ruling 2). Preset 4 was raised after the independent review: crush pool stages on L+2, L+10, L+24 up to the 38 px pair, three wall spatters (both variants), the kick kill with 24 drops, gibs, a bone, a wall spray, a smear and three pool stages.
+* The wall spatter is still the spec's small art on lit brick (the art spec's open note); three overlapping copies read as a splash, judge it in the clips.
 * The decapitation was captured while developing with the lab flag `--death-lab-finish decapitated` (not committed as evidence; there is no authoritative cause before PR D).
 
 ## Frame times with the pools at max load

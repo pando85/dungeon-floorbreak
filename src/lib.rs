@@ -22,3 +22,4 @@ pub mod prototype;
 pub mod scene_anim;
 pub mod scroll_camera;
 pub mod shore;
+pub mod shore_art;

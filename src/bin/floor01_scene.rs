@@ -64,6 +64,7 @@ use dungeon_floorbreak::{
     lighting::{MAX_SHADOWS, ShadowEllipse, ViewRect, contact_shadow},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero},
     scene_anim::SceneAnimators,
+    shore_art::{ShoreArt, ShoreSlot, landed_age},
 };
 
 /// Draw order above the actor plane. Carl is drawn above every goblin, except
@@ -557,6 +558,8 @@ struct Actors {
     carl: ActorAssets,
     donut: ActorAssets,
     art: Option<CombatArt>,
+    /// The ENV-02 shore and block art of a combat fixture (DEATH-C).
+    shore: Option<ShoreArt>,
 }
 
 #[derive(Clone)]
@@ -567,6 +570,11 @@ struct CombatArt {
 
 impl Actors {
     fn load(root: &Path, source: FrameSource, combat: bool) -> Result<Self, String> {
+        let shore = if combat {
+            Some(ShoreArt::load(root)?)
+        } else {
+            None
+        };
         let art = if combat {
             Some(CombatArt {
                 carl: SpriteClips::load_carl_melee(root, source)?,
@@ -582,6 +590,7 @@ impl Actors {
             carl: load_carl(root, source)?,
             donut: load_donut(root, source)?,
             art,
+            shore,
         })
     }
 
@@ -731,6 +740,14 @@ enum DeathPiece {
     Wall(usize),
 }
 
+/// One sprite of the ENV-02 shore (post, block, cavity, crumbs, impact dust).
+#[derive(Component, Clone, Copy)]
+struct ShorePiece(ShoreSlot);
+
+/// The loaded ENV-02 images, in the order of `ShoreArt::images`.
+#[derive(Resource)]
+struct ShoreImages(Vec<Handle<Image>>);
+
 /// Geometry the death sprites need (set at startup).
 #[derive(Resource)]
 struct DeathLook {
@@ -866,6 +883,7 @@ fn run_window(
             capture_input,
             sync_visuals,
             sync_combat_visuals,
+            sync_shore_visuals,
             sync_death_visuals,
             update_lighting,
             watchdog,
@@ -1153,6 +1171,43 @@ fn setup(
                 );
             }
         }
+    }
+
+    // DEATH-C: the ENV-02 shore, block and impact dust of a fixture with a
+    // shore (presentation only, non-collidable, driven by the simulated state).
+    if let (Some(shore_art), Some(_)) = (
+        actors.shore.as_ref(),
+        combat.0.as_ref().and_then(|c| c.shore.as_ref()),
+    ) {
+        let images: Vec<Handle<Image>> = shore_art
+            .images
+            .iter()
+            .map(|name| {
+                let handle: Handle<Image> = asset_server.load(name.clone());
+                combat_handles.push((name.clone(), handle.clone()));
+                handle
+            })
+            .collect();
+        for slot in ShoreSlot::ALL {
+            let layer = if slot == ShoreSlot::Cavity {
+                layers_of("backwall_decal")
+            } else {
+                layers_of("prop")
+            };
+            commands.spawn((
+                ShorePiece(slot),
+                Sprite {
+                    image: images[0].clone(),
+                    rect: Some(Rect::new(0.0, 0.0, 1.0, 1.0)),
+                    ..default()
+                },
+                Transform::from_xyz(0.0, 0.0, kit.actor_z - 1.0),
+                Visibility::Hidden,
+                layer,
+            ));
+            combat_entities += 1;
+        }
+        commands.insert_resource(ShoreImages(images));
     }
 
     // DEATH-C: the death presenter's sprites, pre-spawned hidden and recycled
@@ -1855,6 +1910,56 @@ fn sync_combat_visuals(
                     *visibility = Visibility::Hidden;
                 }
             }
+        }
+    }
+}
+
+/// DEATH-C: the ENV-02 shore and block as the simulation has them (hits, block
+/// state, block height, landing). Reads the simulation only.
+#[allow(clippy::type_complexity)]
+fn sync_shore_visuals(
+    combat: Res<Combat>,
+    sim: Res<Sim>,
+    actors: Res<Actors>,
+    setup: Res<Setup>,
+    images: Option<Res<ShoreImages>>,
+    mut pieces: Query<(&ShorePiece, &mut Transform, &mut Sprite, &mut Visibility)>,
+) {
+    let (Some(state), Some(art), Some(images)) = (combat.0.as_ref(), actors.shore.as_ref(), images)
+    else {
+        return;
+    };
+    let Some(shore) = state.shore.as_ref() else {
+        return;
+    };
+    let tick = sim.0.world.tick;
+    let list = art.draw_list(shore, landed_age(&state.events, tick), tick);
+    let prop_z = setup.kit.actor_z - 1.0;
+    let wall_z = setup
+        .kit
+        .pieces
+        .iter()
+        .find(|p| p.layer == "backwall_decal")
+        .map_or(3.0, |p| p.z.floor());
+    for (piece, mut transform, mut sprite, mut visibility) in &mut pieces {
+        match list.iter().find(|d| d.slot == piece.0) {
+            Some(draw) => {
+                let z = if draw.slot == ShoreSlot::Cavity {
+                    wall_z + 0.3
+                } else {
+                    prop_z + draw.slot.z_bias()
+                };
+                transform.translation = Vec3::new(draw.centre.0, draw.centre.1, z);
+                sprite.image = images.0[draw.image].clone();
+                sprite.rect = Some(Rect::new(
+                    draw.rect[0] as f32,
+                    draw.rect[1] as f32,
+                    (draw.rect[0] + draw.rect[2]) as f32,
+                    (draw.rect[1] + draw.rect[3]) as f32,
+                ));
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
         }
     }
 }

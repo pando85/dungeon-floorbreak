@@ -41,17 +41,17 @@ XVFB = ["xvfb-run", "-a", "-s", "-screen 0 1920x1080x24"]
 
 # name -> (fixture, first tick, frame count, tick of the defeat event)
 SCENARIOS = {
-    "crush": ("cp03_shore_kill", 138, 100, 139),
+    "crush": ("cp03_shore_kill", 110, 130, 139),
     "kick": ("cp01_kick", 256, 85, 260),
 }
 PRESETS = (4, 1)
 RESOLUTIONS = {"640x360": 1, "1920x1080": 3}
 # Key ticks (relative to the defeat tick) of the contact sheets.
 SHEET_OFFSETS = {
-    "crush": (-1, 1, 4, 9, 21, 61, 90),
+    "crush": (-14, -4, 1, 5, 12, 60),
     "kick": (0, 6, 14, 26, 44, 70),
 }
-SHEET_CROP = (640, 540, 1760, 960)
+SHEET_CROP = (640, 380, 1760, 960)
 STILLS = {
     "still_crush_p4_L+1_1920x1080.png": ("crush", 4, 1),
     "still_crush_p1_L+1_1920x1080.png": ("crush", 1, 1),

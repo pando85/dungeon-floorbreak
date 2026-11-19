@@ -53,6 +53,11 @@ pub const MAX_DROP_SPLATS: u8 = 8;
 /// gibs): kept apart so the drops cannot starve them.
 pub const MAX_PART_STAINS: u8 = 6;
 
+/// Crush pool stages (1, 2, 3) after the landing, spec section 8.
+const CRUSH_POOL_TICKS: (u64, u64, u64) = (4, 20, 60);
+/// The same at preset 4: the stages come earlier.
+const CRUSH_POOL_TICKS_FULL: (u64, u64, u64) = (2, 10, 24);
+
 /// Ticks a `Long` piece stays, then fades.
 pub const LONG_TTL_TICKS: u64 = 360;
 pub const LONG_FADE_TICKS: u64 = 30;
@@ -378,6 +383,11 @@ pub struct Observation<'a> {
     pub hero_x: f32,
     /// x of the middle of the shore's hazard footprint, if the fixture has one.
     pub block_x: Option<f32>,
+    /// Whether a back wall is within reach of the spatter (art spec section 8:
+    /// "when a wall face is within 48 px"). The corridor has its back wall
+    /// everywhere, so the fixture scene always passes true; a route with open
+    /// background passes false and gets no wall spatter.
+    pub back_wall: bool,
 }
 
 /// Counters for evidence and tests.
@@ -432,6 +442,7 @@ pub struct DeathPresenter {
     floor_decals: Pool<Decal>,
     wall_decals: Pool<Decal>,
     last_wall: Option<(usize, bool)>,
+    back_wall: bool,
     stress_rng: PresentationRng,
     stats: PresenterStats,
 }
@@ -455,6 +466,7 @@ impl DeathPresenter {
             floor_decals: Pool::new(FLOOR_DECAL_POOL_CAPACITY),
             wall_decals: Pool::new(WALL_DECAL_POOL_CAPACITY),
             last_wall: None,
+            back_wall: true,
             stress_rng: PresentationRng::new(0xD1E5_7AE5),
             stats: PresenterStats::default(),
         })
@@ -599,6 +611,7 @@ impl DeathPresenter {
                 goblins: &goblins,
                 hero_x: scene.world.hero.x,
                 block_x,
+                back_wall: true,
             },
         );
     }
@@ -621,6 +634,7 @@ impl DeathPresenter {
                 _ => {}
             }
         }
+        self.back_wall = obs.back_wall;
         self.clock += 1;
         self.step_parts();
         self.step_deaths(&obs);
@@ -1089,6 +1103,9 @@ impl DeathPresenter {
     /// A back-wall spatter whose origin pixel is on `at`. The variant and the
     /// facing are seeded; the same pair never repeats back to back.
     fn wall_spatter(&mut self, death: &mut Death, at: (f32, f32)) {
+        if !self.back_wall {
+            return;
+        }
         let mut variant = usize::from(death.rng.coin());
         let mut flip = death.rng.coin();
         if self.last_wall == Some((variant, flip)) {
@@ -1100,6 +1117,14 @@ impl DeathPresenter {
         }
         self.last_wall = Some((variant, flip));
         let id = ["decal_wall_spatter", "decal_wall_spatter_b"][variant];
+        self.wall_spatter_variant(id, flip, at);
+    }
+
+    /// One named back-wall spatter whose origin pixel is on `at`.
+    fn wall_spatter_variant(&mut self, id: &str, flip: bool, at: (f32, f32)) {
+        if !self.back_wall {
+            return;
+        }
         let Some(index) = self.art.part_index(id) else {
             return;
         };
@@ -1168,83 +1193,97 @@ impl DeathPresenter {
     /// Crush, spec section 8: the landing tick L.
     fn script_crush(&mut self, d: &mut Death, age: u64) {
         d.done_after = 70;
-        match age {
-            0 => {
-                // The club leaves the hand.
-                let hand = self.pose_point(d, 0, "hand_near");
-                let (vx, vy) = (d.away * d.rng.range(90.0, 150.0), d.rng.range(120.0, 180.0));
-                let spin = -d.away * d.rng.range(540.0, 900.0);
-                self.launch(d, "club", Some("grip"), hand, (vx, vy), 0.0, spin, d.flip);
-                // 16 to 20 drops: the mouth and the two squeeze points.
-                let drops = self.preset.drop_quarters();
-                for (anchor, lo, hi, local) in [
-                    ("mouth", 6, 8, 1.0),
-                    ("squeeze_back", 5, 6, -1.0),
-                    ("squeeze_front", 5, 6, 1.0),
-                ] {
-                    let n = scale_count(d.rng.int(lo, hi), drops);
-                    let from = self.pose_point(d, 0, anchor);
-                    let dir = Self::local_dir(d, local);
-                    for _ in 0..n {
-                        let elevation = d.rng.range(10.0, 35.0);
-                        let speed = d.rng.range(80.0, 160.0);
-                        self.drop_blood(d, from, dir, elevation, speed);
-                    }
-                }
-                // Two flesh gibs and a bone squeezed out sideways.
-                let gibs: Vec<(&str, &str)> = [
-                    ("gib_flesh_a", "squeeze_front"),
-                    ("gib_flesh_b", "squeeze_back"),
-                    ("gib_bone", "squeeze_front"),
-                ]
-                .into_iter()
-                .filter(|(id, _)| {
-                    self.art
-                        .part_index(id)
-                        .is_some_and(|i| self.art.parts[i].allowed_at(self.preset))
-                })
-                .collect();
-                let keep = scale_count(gibs.len() as u32, self.preset.gib_quarters()) as usize;
-                for (id, anchor) in gibs.into_iter().take(keep) {
-                    let from = self.pose_point(d, 0, anchor);
-                    let local = if anchor == "squeeze_back" { -1.0 } else { 1.0 };
-                    let dir = Self::local_dir(d, local);
-                    let (sin, cos) = d.rng.range(10.0, 35.0).to_radians().sin_cos();
-                    let speed = d.rng.range(60.0, 120.0);
-                    let spin = if d.rng.coin() { 720.0 } else { -720.0 };
-                    self.launch(
-                        d,
-                        id,
-                        None,
-                        from,
-                        (dir * cos * speed, sin * speed),
-                        0.0,
-                        spin,
-                        false,
-                    );
+        if age == 0 {
+            // The club leaves the hand.
+            let hand = self.pose_point(d, 0, "hand_near");
+            let (vx, vy) = (d.away * d.rng.range(90.0, 150.0), d.rng.range(120.0, 180.0));
+            let spin = -d.away * d.rng.range(540.0, 900.0);
+            self.launch(d, "club", Some("grip"), hand, (vx, vy), 0.0, spin, d.flip);
+            // 16 to 20 drops: the mouth and the two squeeze points.
+            let drops = self.preset.drop_quarters();
+            for (anchor, lo, hi, local) in [
+                ("mouth", 6, 8, 1.0),
+                ("squeeze_back", 5, 6, -1.0),
+                ("squeeze_front", 5, 6, 1.0),
+            ] {
+                let n = scale_count(d.rng.int(lo, hi), drops);
+                let from = self.pose_point(d, 0, anchor);
+                let dir = Self::local_dir(d, local);
+                for _ in 0..n {
+                    let elevation = d.rng.range(10.0, 35.0);
+                    let speed = d.rng.range(80.0, 160.0);
+                    self.drop_blood(d, from, dir, elevation, speed);
                 }
             }
-            4 => {
-                for anchor in ["squeeze_front", "squeeze_back"] {
-                    let from = self.pose_point(d, 0, anchor);
-                    self.spawn_floor_decal("decal_splat_m", from.0, d.ground_y, false);
-                }
-                let pool = self.pose_point(d, 2, "pool_origin");
-                self.pool_stage(d, "decal_pool_1", pool.0);
+            // Two flesh gibs and a bone squeezed out sideways.
+            let gibs: Vec<(&str, &str)> = [
+                ("gib_flesh_a", "squeeze_front"),
+                ("gib_flesh_b", "squeeze_back"),
+                ("gib_bone", "squeeze_front"),
+            ]
+            .into_iter()
+            .filter(|(id, _)| {
+                self.art
+                    .part_index(id)
+                    .is_some_and(|i| self.art.parts[i].allowed_at(self.preset))
+            })
+            .collect();
+            let keep = scale_count(gibs.len() as u32, self.preset.gib_quarters()) as usize;
+            for (id, anchor) in gibs.into_iter().take(keep) {
+                let from = self.pose_point(d, 0, anchor);
+                let local = if anchor == "squeeze_back" { -1.0 } else { 1.0 };
+                let dir = Self::local_dir(d, local);
+                let (sin, cos) = d.rng.range(10.0, 35.0).to_radians().sin_cos();
+                let speed = d.rng.range(60.0, 120.0);
+                let spin = if d.rng.coin() { 720.0 } else { -720.0 };
+                self.launch(
+                    d,
+                    id,
+                    None,
+                    from,
+                    (dir * cos * speed, sin * speed),
+                    0.0,
+                    spin,
+                    false,
+                );
             }
-            8 => {
-                let at = (d.foot_x, d.ground_y + 10.0);
-                self.wall_spatter(d, at);
+        }
+        // Pool stages and the squeeze splats. Preset 4 brings the stages
+        // forward (art spec section 9, ruling 6d: the crush empties the body at
+        // once, "earlier and bigger crush pool"); the other presets keep the
+        // section 8 ticks (their later stages are filtered out by the preset).
+        let (first, second, third) = if self.preset == GorePreset::Full {
+            CRUSH_POOL_TICKS_FULL
+        } else {
+            CRUSH_POOL_TICKS
+        };
+        if age == first {
+            for anchor in ["squeeze_front", "squeeze_back"] {
+                let from = self.pose_point(d, 0, anchor);
+                self.spawn_floor_decal("decal_splat_m", from.0, d.ground_y, false);
             }
-            20 => {
-                let pool = self.pose_point(d, 2, "pool_origin");
-                self.pool_stage(d, "decal_pool_2", pool.0);
+        }
+        let pool = self.pose_point(d, 2, "pool_origin");
+        for (tick, id) in [
+            (first, "decal_pool_1"),
+            (second, "decal_pool_2"),
+            (third, "decal_pool_3"),
+        ] {
+            if age == tick {
+                self.pool_stage(d, id, pool.0);
             }
-            60 => {
-                let pool = self.pose_point(d, 2, "pool_origin");
-                self.pool_stage(d, "decal_pool_3", pool.0);
-            }
-            _ => {}
+        }
+        // L+8: the squeeze blows sideways onto the back wall. Preset 4 puts
+        // both spatter variants up, one fanning each way and a third between
+        // them, so it reads as a splash, not one mark (the parts are the
+        // spec's; presets below 4 do not draw them).
+        if age == 8 {
+            let at = (d.foot_x, d.ground_y + 8.0);
+            let left = d.rng.coin();
+            self.wall_spatter_variant("decal_wall_spatter", left, (at.0 - 4.0, at.1));
+            self.wall_spatter_variant("decal_wall_spatter", !left, (at.0 + 4.0, at.1));
+            let centre = d.rng.coin();
+            self.wall_spatter_variant("decal_wall_spatter_b", centre, (at.0, at.1 + 2.0));
         }
     }
 
@@ -1329,9 +1368,9 @@ impl DeathPresenter {
         d.done_after = 120;
         if age == 0 {
             let (count, lo, hi) = if heavy {
-                (16, 100.0, 210.0)
+                (24, 100.0, 220.0)
             } else {
-                (8, 70.0, 140.0)
+                (12, 70.0, 150.0)
             };
             let n = scale_count(count, self.preset.drop_quarters());
             let head = (d.foot_x, d.ground_y + 26.0);
@@ -1339,6 +1378,52 @@ impl DeathPresenter {
                 let elevation = d.rng.range(20.0, 70.0);
                 let speed = d.rng.range(lo, hi);
                 self.drop_blood(d, head, d.away, elevation, speed);
+            }
+            // Chunks knocked loose: the kick throws two flesh gibs and a bone,
+            // a jab one flesh gib.
+            let gibs: &[&str] = if heavy {
+                &["gib_flesh_a", "gib_flesh_b", "gib_bone"]
+            } else {
+                &["gib_flesh_a"]
+            };
+            let allowed: Vec<&str> = gibs
+                .iter()
+                .copied()
+                .filter(|id| {
+                    self.art
+                        .part_index(id)
+                        .is_some_and(|i| self.art.parts[i].allowed_at(self.preset))
+                })
+                .collect();
+            let keep = scale_count(allowed.len() as u32, self.preset.gib_quarters()) as usize;
+            for id in allowed.into_iter().take(keep) {
+                let (sin, cos) = d.rng.range(30.0, 70.0).to_radians().sin_cos();
+                let speed = d.rng.range(80.0, 160.0);
+                let spin = if d.rng.coin() { 720.0 } else { -720.0 };
+                self.launch(
+                    d,
+                    id,
+                    None,
+                    head,
+                    (d.away * cos * speed, sin * speed),
+                    0.0,
+                    spin,
+                    false,
+                );
+            }
+            // The kick's blow throws a spray up the back wall (full only).
+            if heavy {
+                let flip = d.away < 0.0;
+                self.wall_spatter_variant(
+                    "decal_wall_spatter",
+                    flip,
+                    (d.foot_x, d.ground_y + 14.0),
+                );
+                self.wall_spatter_variant(
+                    "decal_wall_spatter_b",
+                    d.rng.coin(),
+                    (d.foot_x + d.away * 10.0, d.ground_y + 16.0),
+                );
             }
         }
         // The goblin has landed (lying down): stain the floor under it.
@@ -1357,20 +1442,30 @@ impl DeathPresenter {
         if let Some(landed) = d.landed {
             let since = age - landed;
             let x = d.foot_x;
-            match since {
-                0 => {
-                    if self.spawn_floor_decal("decal_splat_s", x, d.ground_y, false) {
-                        d.part_stains += 1;
-                    }
-                    if heavy {
-                        // The slide leaves a smear (full only), toward the
-                        // way the body travelled.
-                        self.spawn_floor_decal("decal_smear", x, d.ground_y, d.away < 0.0);
-                    }
+            let (stage1, stage2, stage3) = if heavy {
+                (3, 14, 36)
+            } else {
+                (4, 24, u64::MAX)
+            };
+            if since == 0 {
+                if self.spawn_floor_decal("decal_splat_s", x, d.ground_y, false) {
+                    d.part_stains += 1;
                 }
-                6 => self.pool_stage(d, "decal_pool_1", x),
-                40 if heavy => self.pool_stage(d, "decal_pool_2", x),
-                _ => {}
+                self.spawn_floor_decal("decal_splat_m", x, d.ground_y, false);
+                if heavy {
+                    // The slide leaves a smear (full only), toward the way
+                    // the body travelled.
+                    self.spawn_floor_decal("decal_smear", x, d.ground_y, d.away < 0.0);
+                }
+            }
+            for (tick, id) in [
+                (stage1, "decal_pool_1"),
+                (stage2, "decal_pool_2"),
+                (stage3, "decal_pool_3"),
+            ] {
+                if since == tick {
+                    self.pool_stage(d, id, x);
+                }
             }
         }
     }
@@ -1484,6 +1579,7 @@ mod tests {
             goblins,
             hero_x: 400.0,
             block_x: Some(484.0),
+            back_wall: true,
         }
     }
 
@@ -1687,13 +1783,14 @@ mod tests {
         assert_eq!(
             seen,
             [
-                ("decal_pool_1".to_string(), 4),
-                ("decal_pool_2".to_string(), 20),
-                ("decal_pool_3".to_string(), 60),
+                ("decal_pool_1".to_string(), 2),
+                ("decal_pool_2".to_string(), 10),
+                ("decal_pool_3".to_string(), 24),
             ]
         );
-        // L+8: a wall spatter on the back wall, none on the floor layer.
-        assert_eq!(p.live_wall_decals(), 1);
+        // L+8: three wall spatters (both variants) on the back wall, none on
+        // the floor layer.
+        assert_eq!(p.live_wall_decals(), 3);
         assert!(!floor_ids(&p).iter().any(|i| i.contains("wall_spatter")));
         // L+4: a medium splat at each squeeze point.
         assert_eq!(count(&floor_ids(&p), "decal_splat_m"), 2);
@@ -1818,7 +1915,7 @@ mod tests {
         let (parts, floors, walls) = seen(GorePreset::Full);
         assert_eq!(count(&parts, "gib_bone"), 1);
         assert_eq!(count(&floors, "decal_pool_3"), 1);
-        assert_eq!(walls, 1);
+        assert_eq!(walls, 3);
     }
 
     #[test]
@@ -2176,6 +2273,108 @@ mod tests {
         let half = fade_alpha(Ttl::Short, 0, SHORT_TTL_TICKS + SHORT_FADE_TICKS / 2);
         assert!((half - 0.5).abs() < 1e-5);
         assert_eq!(fade_alpha(Ttl::Keep, 0, 1_000_000), 1.0);
+    }
+
+    #[test]
+    fn preset_three_keeps_the_spec_pool_ticks_and_stops_at_stage_two() {
+        let mut p = presenter(GorePreset::Medium);
+        let goblins = [goblin_at(484.0)];
+        p.step(
+            &[defeat(139, 0, BLOCK, ForceTier::Catastrophic)],
+            obs(&goblins),
+        );
+        let mut stages = Vec::new();
+        for age in 1..=70u64 {
+            p.step(&[], obs(&goblins));
+            let pools = floor_ids(&p)
+                .into_iter()
+                .find(|i| i.starts_with("decal_pool"));
+            if let Some(id) = pools
+                && stages.last().map(|(i, _): &(String, u64)| i) != Some(&id)
+            {
+                stages.push((id, age));
+            }
+        }
+        assert_eq!(
+            stages,
+            [
+                ("decal_pool_1".to_string(), 4),
+                ("decal_pool_2".to_string(), 20)
+            ]
+        );
+    }
+
+    #[test]
+    fn with_no_wall_nearby_no_wall_spatter_is_drawn() {
+        // The wall spatter is conditional on a wall face (spec section 8): a
+        // route with open background passes `back_wall: false`.
+        fn open(goblins: &[GoblinView]) -> Observation<'_> {
+            Observation {
+                goblins,
+                hero_x: 400.0,
+                block_x: Some(484.0),
+                back_wall: false,
+            }
+        }
+        let goblins = [goblin_at(484.0)];
+        let mut crush = presenter(GorePreset::Full);
+        crush.step(
+            &[defeat(139, 0, BLOCK, ForceTier::Catastrophic)],
+            open(&goblins),
+        );
+        let mut kick = presenter(GorePreset::Full);
+        kick.step(
+            &[defeat(260, 0, DefeatCause::Melee, ForceTier::Heavy)],
+            open(&goblins),
+        );
+        let mut decap = presenter(GorePreset::Full);
+        decap.set_lab_finish(Some(Finish::Decapitated));
+        decap.step(
+            &[defeat(50, 0, DefeatCause::Melee, ForceTier::Routine)],
+            open(&goblins),
+        );
+        for p in [&mut crush, &mut kick, &mut decap] {
+            for _ in 0..120 {
+                p.step(&[], open(&goblins));
+            }
+            assert_eq!(p.live_wall_decals(), 0);
+            assert!(p.live_floor_decals() > 0, "the floor blood stays");
+        }
+    }
+
+    #[test]
+    fn preset_four_kick_kill_is_heavier_than_the_jab_and_throws_gibs_and_a_wall_spray() {
+        let run = |preset: GorePreset, force: ForceTier| {
+            let mut p = presenter(preset);
+            let goblins = [GoblinView {
+                mode: GoblinMode::Airborne,
+                ..goblin_at(500.0)
+            }];
+            p.step(&[defeat(260, 0, DefeatCause::Melee, force)], obs(&goblins));
+            let first = part_ids(&p);
+            let walls = p.live_wall_decals();
+            let landed = [GoblinView {
+                mode: GoblinMode::Down,
+                ..goblin_at(540.0)
+            }];
+            for _ in 0..60 {
+                p.step(&[], obs(&landed));
+            }
+            (first, walls, floor_ids(&p))
+        };
+        let (kick, kick_walls, kick_floor) = run(GorePreset::Full, ForceTier::Heavy);
+        let (jab, jab_walls, _) = run(GorePreset::Full, ForceTier::Routine);
+        assert_eq!(count(&kick, "drop_blood"), 24);
+        assert_eq!(count(&jab, "drop_blood"), 12);
+        assert_eq!(count(&kick, "gib_bone"), 1);
+        assert_eq!(count(&jab, "gib_bone"), 0);
+        assert_eq!((kick_walls, jab_walls), (2, 0));
+        assert_eq!(count(&kick_floor, "decal_pool_3"), 1);
+        assert!(count(&kick_floor, "decal_smear") >= 1);
+        assert!(count(&kick_floor, "decal_splat_m") >= 1);
+        // Preset 1 stays bloodless: nothing but nothing.
+        let (off_parts, off_walls, off_floor) = run(GorePreset::Off, ForceTier::Heavy);
+        assert!(off_parts.is_empty() && off_walls == 0 && off_floor.is_empty());
     }
 
     /// Cost of one presenter step with every pool full (stress load). Run with
