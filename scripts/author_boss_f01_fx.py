@@ -117,8 +117,8 @@ def chunk(img: Img, x: float, y: float, r: float, seed: int, ramp: str = "efgh")
 
 
 def dust(img: Img, x: float, y: float, r: float, seed: int, fade: float = 0.0, flat: float = 0.8) -> None:
-    """A billowing dust cloud (a cluster of lumpy lobes), four-step ramp lit from the upper left; ``fade`` 0..1 dissolves it
-    with a fixed-seed dither from the edges inwards."""
+    """A billowing dust cloud (a cluster of lumpy lobes), four-step ramp lit from the upper left, dust_deep on the rim.
+    ``fade`` 0..1 dissolves the outer part of the cloud in clustered 2 x 2 holes and leaves a solid core."""
     pick = lit("abcd")
     lobes = [(0.0, 0.0, 1.0), (-0.55, -0.1, 0.7), (0.6, 0.05, 0.75), (0.1, -0.55, 0.6)]
     for yy in range(int(y - r * 1.4) - 2, int(y + r * flat * 1.4) + 3):
@@ -130,74 +130,96 @@ def dust(img: Img, x: float, y: float, r: float, seed: int, fade: float = 0.0, f
                 d = math.hypot(dx, dy)
                 if d <= lump(math.atan2(dy, dx), seed + li, 0.22, 6) and (best is None or d < best[0]):
                     best = (d, dx, dy)
-            if best and h2(xx, yy, seed + 31) % 100 >= fade * 100 * (0.35 + 0.65 * min(1.0, best[0])):
-                img.put(xx, yy, pick(best[0], best[1], best[2]))
+            if not best:
+                continue
+            rim = max(0.0, (best[0] - 0.5) / 0.5)                          # 0 in the core, 1 on the rim
+            if h2(xx // 2, yy // 2, seed + 31) % 100 < fade * 100 * rim:
+                continue
+            img.put(xx, yy, "a" if best[0] > 0.88 else pick(best[0], best[1], best[2]))
 
 
 # ------------------------------------------------------------------ VFX atlas (152 x 72, pivots are per frame, see ANCHOR)
 VW, VH = 152, 72
 VPIV = (76, 71)
+RING_Y = 60                                   # roar ring centre row
+CRACK_C = (76, 24)                           # mirror crack and wall-crash contact point (hump height)
 
 
 def pound_debris(i: int) -> Img:
-    """Fists hit the floor: one low dust cloud that rolls out and up, brick chunks thrown up and out, chips left on the floor."""
+    """Fists hit the floor: one low dust cloud that rolls out and up, brick chunks thrown up and out (every arc stays in the
+    frame and comes back down), chips left on the floor."""
     t = [1, 4, 8, 13, 20][i]
     img = Img(VW, VH)
     for s in range(5):                       # a billowing cloud on both sides of the strike point
         side = -1 if s % 2 else 1
         r = 7 + 0.45 * t + (s % 3) * 1.5
         dust(img, VPIV[0] + side * (3 + 1.5 * min(t, 14) + s * 4), 68 - 5 - 0.3 * t - (s % 3) * 2, r, 10 + s, fade=min(0.85, t / 24), flat=0.9)
-    for s in range(10):                      # chunks: ballistic arcs from the impact
-        vx = (h2(s, 1, 5) % 17 - 8) * 0.6
-        vy = 2.8 + (h2(s, 2, 5) % 10) * 0.3
-        x, y = VPIV[0] + vx * t + (s % 3 - 1) * 4, 64 - (vy * t - 0.11 * t * t)
-        if y >= 67 and t > 6:
+    for s in range(10):                      # chunks: ballistic arcs from the impact, apex 25 to 40 px up
+        vx = (h2(s, 1, 5) % 17 - 8) * 0.35
+        vy = 2.2 + (h2(s, 2, 5) % 10) * 0.14
+        x, y = VPIV[0] + vx * t + (s % 3 - 1) * 4, 64 - (vy * t - 0.07 * t * t)
+        if y >= 67:
             y = 67 - (s % 2) * 2
         chunk(img, x, y, 1.6 + (s % 3) * 0.8, 40 + s)
     return img
 
 
 def shockwave_ripple(i: int) -> Img:
-    """A 10 px floor ripple travelling right: a rounded lit crest with a vertical front, a dust skirt behind it, loose chips."""
+    """A floor ripple travelling right, at most 11 rows tall (the 10 px hitbox): a soot-outlined crest with a chip_hi lip on
+    the leading 12 px, dust_hi in the crest, dust_deep only in the trailing third. Frames 0 and 2 crest at y 60, frames 1 and 3
+    at y 62 with the lip curling 2 px forward; the stepped tail slides 3 px toward the crest each frame."""
     img = Img(VW, VH)
-    front = 76 + 18
-    for x in range(front - 52, front + 1):
-        u = (x - (front - 52)) / 52.0                             # 0 at the tail, 1 at the front
-        wob = (h2(x // 2, i, 3) % 3) - 1
-        height = max(1, min(10, int(round(10 * (u ** 1.15) + (wob if 0.15 < u < 0.92 else 0)))))
-        if x >= front - 1:
-            height = 10
-        for dy in range(height):
-            y = 70 - dy
-            k = "d" if dy == height - 1 else ("c" if dy >= height - 3 else ("b" if dy >= 3 else "a"))
+    front = 94 + (2 if i % 2 else 0)
+    crest = 11 if i % 2 == 0 else 9
+    tail = front - 54
+    for x in range(tail, front + 1):
+        u = (x - tail) / float(front - tail)
+        step = (x + 3 * i) // 3 % 2                                # the stepped tail, sliding toward the crest
+        height = max(2, min(crest, int(round(crest * (u ** 1.1))) + (step if 0.1 < u < 0.7 else 0)))
+        top = 70 - height + 1
+        img.put(x, top - 1, "K")
+        for y in range(top, 71):
+            lip = x >= front - 12 and y <= top + 1
+            third = u < 0.34
+            k = "h" if lip else ("d" if y <= top + 2 else ("c" if y <= top + 5 else "b"))
+            if third:
+                k = "a" if y > top + 2 else "b"
             img.put(x, y, k)
-        if height >= 4:                                         # dust above the crest, a few pixels drifting
-            for s in range(2):
-                if h2(x, i * 7 + s, 9) % 5 == 0:
-                    img.put(x, 70 - height - 1 - s - (h2(x, i, 1) % 2), "c" if s else "d")
-    for y in range(60, 71):                                     # the vertical front edge, lit
+    for y in range(70 - crest + 1, 71):                              # the vertical front edge
         img.put(front + 1, y, "K")
-    for s in range(5):
-        chunk(img, front - 8 - s * 9 + (i * 3 + s) % 4, 58 - (s % 2) * 3 + (i + s) % 2 * 2, 1.2 + (s % 2) * 0.6, 70 + s, "efg")
+    if i % 2:                                                       # the lip curls 2 px forward on the odd frames
+        for y in (61, 62, 63):
+            img.put(front + 2, y, "h"); img.put(front + 3, y, "K")
+        img.put(front + 2, 60, "K")
+    for s in range(4):
+        chunk(img, front - 10 - s * 11 + (i * 3 + s) % 4, 56 - (s % 2) * 3 + (i + s) % 2 * 2, 1.2 + (s % 2) * 0.6, 70 + s, "efg")
     return img
 
 
 def crash_dust(i: int) -> Img:
-    """The boss meets the wall at the pivot: dust billows back into the room and up the wall, chips ricochet."""
+    """The boss meets the wall at hump height (the contact point is x 75, y 22): frames 0 and 1 are chips and a small bright
+    dust pop at the contact point, frames 2 to 5 the dust slides down the wall face and settles on the floor."""
     t = [1, 3, 6, 10, 15, 22][i]
     img = Img(VW, VH)
+    cx, cy = 75, 22
+    if i <= 1:
+        r = 3.5 + 2.2 * i
+        img.disc(cx - 2, cy, r + 1.5, r + 1.5, lambda tt, dx, dy: "d" if tt < 0.55 else "c", 90 + i, 0.3, 5)
+        img.disc(cx - 8 - 4 * i, cy + 2, r, r * 0.8, lambda tt, dx, dy: "c" if tt < 0.6 else "b", 93 + i, 0.3, 5)
+    else:
+        slide = min(1.0, (t - 3) / 12.0)                            # 0 at the contact point, 1 settled on the floor
+        for s in range(6):
+            r = 6 + 0.35 * t + (s % 3) * 1.4
+            x = 72 - 3 - (s % 3) * 4 - 1.1 * min(t, 11) * (0.3 + (s % 4) * 0.22)
+            y = cy + (62 - cy) * min(1.0, slide * (0.6 + 0.12 * (s % 4))) + (s % 2) * 2
+            dust(img, x, y, r, 100 + s, fade=min(0.9, t / 28), flat=0.9)
     for s in range(7):
-        r = 8 + 0.4 * t + (s % 4) * 1.5
-        x = VPIV[0] - 8 - 1.5 * min(t, 11) * (0.4 + (s % 5) * 0.22) - (s % 3) * 3
-        y = 62 - 0.9 * t * ((s * 7) % 10) / 10.0 - (s % 3) * 6
-        dust(img, x, y, r, 100 + s, fade=min(0.9, t / 28), flat=0.95)
-    for s in range(9):
-        vx = -(1.0 + (h2(s, 3, 9) % 9) * 0.35)
-        vy = 1.8 + (h2(s, 4, 9) % 8) * 0.3
-        x, y = VPIV[0] - 2 + vx * t, 58 - (vy * t - 0.1 * t * t)
+        vx = -(1.0 + (h2(s, 3, 9) % 9) * 0.3)
+        vy = 1.0 + (h2(s, 4, 9) % 8) * 0.25
+        x, y = cx - 3 + vx * t, cy + 2 - (vy * t - 0.1 * t * t)
         if y > 67:
             y = 67 - (s % 2) * 2
-        chunk(img, x, y, 1.5 + (s % 3) * 0.8, 120 + s)
+        chunk(img, x, y, 1.5 + (s % 3) * 0.7, 120 + s, "fghh" if s % 2 else "efgh")
     return img
 
 
@@ -214,19 +236,19 @@ def floor_dust(i: int) -> Img:
 
 
 def roar_ring(i: int) -> Img:
-    """The push wave, radius 18, 36, 54, 72 px: a flat floor ellipse three pixels thick, a lit outer rim, a dust inner
-    band, fading and breaking up as it spreads."""
+    """The push wave, radius 18, 36, 54, 72 px: a floor-plane ellipse at most 12 rows tall, a lit outer rim, a dust inner band,
+    fading and breaking up as it spreads. Pivot: the ring centre (the boss's feet)."""
     r = [18, 36, 54, 72][i]
     img = Img(VW, VH)
-    cy, ry = 57, r * 0.2
+    cy, ry = RING_Y, min(4.5, r * 0.2)
     rim = ("w", "h", "g", "d")[i]
     band = ("d", "g", "d", "c")[i]
     low = ("c", "c", "b", "a")[i]
     for ang in range(0, 1440):
         a = math.radians(ang / 4.0)
-        for off, k in ((0.0, rim), (0.8, rim), (1.6, band), (2.4, band), (3.2, low)):
+        for off, k in ((0.0, rim), (0.8, rim), (1.6, band), (2.4, low)):
             x = VPIV[0] + (r - off * 1.1) * math.cos(a)
-            y = cy + (ry - off * 0.8) * math.sin(a)
+            y = cy + (ry - off * 0.5) * math.sin(a)
             if i >= 2 and h2(int(x), int(y), 4 + i) % (4 if i == 2 else 2) == 0:
                 continue                                            # the wave breaks up as it spreads
             if math.sin(a) > -0.2 or h2(int(x), int(y), 5) % 3 == 0:    # the far half is fainter
@@ -235,30 +257,33 @@ def roar_ring(i: int) -> Img:
 
 
 def mirror_crack(i: int) -> Img:
-    """A star crack on a cosmetic wall mirror: three states (small, spread, shattered), light cracks with a dark edge."""
+    """A star crack on a cosmetic wall mirror, three states (small, spread, shattered), each within 30 x 40 px. Cracks are
+    iron_light on a soot edge; flash_white is only a 1 px glint on about one crack pixel in eight. Pivot: the impact point."""
     img = Img(VW, VH)
-    cx, cy = 76, 36
-    rays, reach = [(5, 16), (7, 26), (9, 34)][i]
+    cx, cy = CRACK_C
+    rays, reach = [(5, 9), (7, 13), (9, 16)][i]
+    n = 0
     for s in range(rays):
         a = (s / rays) * math.tau + (h2(s, i, 11) % 100) / 100.0 * 0.5
         x, y = cx, cy
-        length = reach * (0.55 + 0.45 * (h2(s, 5, 11) % 100) / 100.0)
-        steps = int(length // 3)
+        length = reach * (0.6 + 0.4 * (h2(s, 5, 11) % 100) / 100.0)
+        steps = max(2, int(length // 3))
         for st in range(steps):
             a += ((h2(s, st, 13) % 100) / 100.0 - 0.5) * 0.7
-            nx, ny = x + 3 * math.cos(a), y + 3 * math.sin(a) * 1.15
+            nx, ny = x + 3 * math.cos(a), y + 3 * math.sin(a) * 1.25
+            n += 1
             img.line(x + 1, y + 1, nx + 1, ny + 1, "K", 1)
-            img.line(x, y, nx, ny, "w" if st < steps - 1 else "k", 1)
+            img.line(x, y, nx, ny, "w" if n % 8 == 0 else "k", 1)
             x, y = nx, ny
     for ring in range(i):                                           # concentric chords between the rays
-        r = 7 + ring * 9
+        r = 5 + ring * 5
         for ang in range(0, 360, 6):
             if h2(ang, ring, 17) % 3:
                 a = math.radians(ang)
-                img.put(int(cx + r * math.cos(a)), int(cy + r * 1.1 * math.sin(a)), "k")
+                img.put(int(cx + r * math.cos(a)), int(cy + r * 1.25 * math.sin(a)), "j")
     if i == 2:                                                      # missing shards: dark holes
-        for (sx, sy, sr) in ((cx - 8, cy - 5, 3), (cx + 6, cy + 4, 3), (cx + 2, cy - 12, 2)):
-            img.disc(sx, sy, sr, sr, lambda t, dx, dy: "K", 30 + sx, 0.4, 4)
+        for (sx, sy, sr) in ((cx - 4, cy - 3, 2), (cx + 4, cy + 3, 2), (cx + 1, cy - 8, 1.5)):
+            img.disc(sx, sy, sr, sr, lambda t, dx, dy: "K", 30 + int(sx), 0.4, 4)
     return img
 
 
@@ -313,20 +338,28 @@ VFX = [  # (tag, name, ticks, fn, i, playback)
 
 
 # ------------------------------------------------------------------ props
-def slab(img: Img, x0: int, y0: int, w: int, seed: int, tilt: int = 0) -> None:
-    """One iron weight plate, 7 rows with a shared outline: lit top edge, rust speckle, dark underside."""
-    for dx in range(w):
+PLATE_W = 64                                                       # one weight plate: 64 x 7 with shared outline rows
+PLATE_PITCH = 6                                                    # four plates, 25 rows tall in all
+
+
+def slab(img: Img, x0: int, y0: int, seed: int, tilt: int = 0) -> None:
+    """One iron weight plate 64 x 7: soot outline, a 1 px iron_light top bevel, an iron_dark body, a 1 px iron_mid bottom
+    edge, a 2 x 5 soot selector slot at the centre and at most six rust pixels."""
+    for dx in range(PLATE_W):
         x = x0 + dx
-        off = (dx * tilt) // max(1, w - 1) if tilt else 0
-        img.put(x, y0 + off, "K")
-        img.put(x, y0 + 1 + off, "k" if dx % 7 != 3 else "j")
-        for dy in (2, 3, 4):
-            r = h2(x, y0 + dy, seed) % 100
-            img.put(x, y0 + dy + off, "f" if r < 7 else ("e" if r < 13 else ("i" if dy == 4 else "j")))
-        img.put(x, y0 + 5 + off, "i")
-        img.put(x, y0 + 6 + off, "K")
+        off = (dx * tilt) // (PLATE_W - 1) if tilt else 0
+        rows = ["K", "k", "i", "i", "i", "j", "K"]
+        for dy, k in enumerate(rows):
+            img.put(x, y0 + dy + off, k)
+    for dy in range(1, 6):
+        img.put(x0 + 31, y0 + dy + (31 * tilt) // (PLATE_W - 1 or 1), "K")
+        img.put(x0 + 32, y0 + dy + (32 * tilt) // (PLATE_W - 1 or 1), "K")
     for dy in range(7):
-        img.put(x0, y0 + dy, "K"); img.put(x0 + w - 1, y0 + dy, "K")
+        img.put(x0, y0 + dy, "K"); img.put(x0 + PLATE_W - 1, y0 + dy + tilt, "K")
+    for n in range(6):                                              # rust: six pixels, no more
+        x, y = 4 + (h2(n, seed, 3) % 56), 2 + (h2(n, seed, 4) % 3)
+        if x not in (31, 32):
+            img.put(x0 + x, y0 + y + (x * tilt) // (PLATE_W - 1), "f")
 
 
 def chain(img: Img, pts: list[tuple[float, float]]) -> None:
@@ -360,108 +393,157 @@ def timber(img: Img, x0: int, y0: int, x1: int, y1: int, seed: int) -> None:
 
 RW, RH = 136, 72
 RPIV = (48, 71)
+STACK_X = 16                                                       # stack left edge (64 wide, centred on the pivot column)
+BEAM_UNDER = 65                                                    # the outrigger's underside row = the strut cap (195 px up)
+
+
+def stack(img: Img, base: int, dx: int = 0, dy: int = 0, offs=(0, 0, 0, 0), tilts=(0, 0, 0, 0)) -> int:
+    """Four plates, flush unless ``offs``/``tilts`` stagger them (landed), two iron_mid guide rods 2 px wide at plate x +6 and
+    +58 through the whole stack and a 10 x 4 headplate with the cable eye on top. ``base`` is the underside row. Returns the top."""
+    top = base - (PLATE_PITCH * 4)
+    for n in range(4):
+        slab(img, STACK_X + dx + offs[n], top + dy + n * PLATE_PITCH, 90 + n, tilts[n])
+    if not any(offs):
+        for rx in (STACK_X + dx + 6, STACK_X + dx + 58):
+            for y in range(top + dy - 2, base + dy):
+                if img.get(rx, y) in "ijk":
+                    continue
+            for y in range(top + dy + 1, base + dy):
+                if y % PLATE_PITCH != (top + dy) % PLATE_PITCH:
+                    img.put(rx, y, "j"); img.put(rx + 1, y, "j")
+    hx = STACK_X + dx + 27
+    img.rect(hx, top + dy - 4, hx + 9, top + dy - 1, "i"); img.rect(hx, top + dy - 4, hx + 9, top + dy - 4, "k")
+    for x in range(hx - 1, hx + 11):
+        img.put(x, top + dy - 5, "K")
+    img.put(hx + 4, top + dy - 3, "K"); img.put(hx + 5, top + dy - 3, "K")                  # the cable eye
+    return top
 
 
 def rack(state: str) -> Img:
-    """The left plate rack: a stack of five iron plates (80 px wide, 31 px tall), two chains from the ceiling and a rotten
-    timber outrigger resting on the strut. Pivot: the underside centre of the stack (the floor-contact row when landed)."""
+    """The left plate rack: a selectorised stack of four iron plates (64 x 25) with guide rods and a headplate, two chains
+    that meet at the cable eye, and a rotten timber outrigger resting on the strut cap (its underside on row 65, the strut's
+    195 px line). Pivot: the underside centre of the stack. ``landed`` is the floor version (plates staggered),
+    ``landed_boss`` the stack lying on the pinned boss's back, its underside 26 px up."""
     img = Img(RW, RH)
-    sx, base = 8, 71                                        # stack left edge, underside row (pivot row)
-    widths = [80, 76, 80, 74, 80]
-    if state == "landed":
-        offs = [0, 5, -3, 6, -2]
-        tilts = [0, 2, 0, -3, 3]
-        y = base - 6
-        for n in range(5):
-            slab(img, sx + (80 - widths[n]) // 2 + offs[n], y - n * 5, widths[n], 90 + n, tilts[n])
-        chain(img, [(30, 38), (36, 41), (44, 38), (52, 42)])           # slack chain heap on top
-        chain(img, [(60, 40), (66, 37), (74, 41)])
-        timber(img, 82, 47, 120, 53, 7)                               # the broken outrigger lying across the stack
-        img.line(120, 54, 128, 62, "K", 2)
-        for s in range(5):
-            dust(img, 20 + s * 22, 68, 4 + s % 2, 300 + s, fade=0.45, flat=0.55)
+    base = 71
+    if state in ("landed", "landed_boss"):
+        up = 26 if state == "landed_boss" else 0
+        offs, tilts = (0, 4, -3, 5), (0, 2, 0, -3)
+        top = base - up - PLATE_PITCH * 4
+        for n in range(4):
+            slab(img, STACK_X + 2 + offs[n], top + n * PLATE_PITCH, 90 + n, tilts[n])
+        chain(img, [(30, top - 3), (36, top - 1), (44, top - 4), (52, top - 1)])             # slack chains heaped on top
+        chain(img, [(58, top - 2), (64, top - 4), (72, top - 1)])
+        timber(img, 82, top + 2, 118, top + 7, 7)                                           # the snapped outrigger across the stack
+        img.line(118, top + 8, 126, top + 15, "K", 2)
+        for s in range(5 if up == 0 else 0):                         # dust settling around the floor version only
+            dust(img, 20 + s * 22, 66, 4 + s % 2, 300 + s, fade=0.45, flat=0.55)
         return img
     dx = {"hang": 0, "shudder_a": -1, "shudder_b": 1, "fall": 0}[state]
     dy = {"hang": 0, "shudder_a": 1, "shudder_b": 0, "fall": 0}[state]
-    top = base - 30
-    for n in range(5):
-        slab(img, sx + dx + (80 - widths[n]) // 2, top + dy + n * 6 - 0, widths[n], 90 + n)
-    # the iron strap that clamps the outrigger to the stack
-    img.rect(sx + dx + 78, top + dy + 1, sx + dx + 85, top + dy + 14, "i")
-    img.rect(sx + dx + 78, top + dy + 1, sx + dx + 85, top + dy + 1, "k")
-    for yy in (top + dy + 3, top + dy + 12):
-        img.put(sx + dx + 81, yy, "w")
-    # the outrigger, level when held, dropping at its free end when the strut gives
-    if state == "fall":
-        for x in range(sx + 86, 133):
-            drop = int((x - (sx + 86)) * 0.22)
-            for y in range(top + 5 + drop, top + 12 + drop):
-                u = (y - top - 5 - drop) / 6.0
+    top = stack(img, base, dx, dy)
+    beam_top = BEAM_UNDER - 6 + dy                                  # 7 timber rows, underside on row 65
+    # the iron strap that clamps the outrigger to the stack, level with the beam
+    sx = STACK_X + dx + PLATE_W
+    img.rect(sx, beam_top - 1, sx + 6, BEAM_UNDER + dy + 2, "i"); img.rect(sx, beam_top - 1, sx + 6, beam_top - 1, "k")
+    for yy in (beam_top + 1, BEAM_UNDER + dy - 1):
+        img.put(sx + 3, yy, "w")
+    if state == "fall":                                             # the beam end drops when the strut gives
+        for x in range(sx + 7, 125):
+            drop = int((x - (sx + 7)) * 0.2)
+            for y in range(beam_top + drop, BEAM_UNDER + 1 + drop):
+                u = (y - beam_top - drop) / 6.0
                 img.put(x, y, "u" if u < 0.3 else ("z" if u < 0.7 else "y"))
-            img.put(x, top + 4 + drop, "K"); img.put(x, top + 12 + drop, "K")
+            img.put(x, beam_top - 1 + drop, "K"); img.put(x, BEAM_UNDER + 1 + drop, "K")
     else:
-        timber(img, sx + dx + 86, top + dy + 5, 132, top + dy + 11, 5)
-    # chains from the ceiling to the stack top (taut; whipping loose when falling)
+        timber(img, sx + 7, beam_top, 124, BEAM_UNDER, 5)
+    # two chains from the ceiling meeting at the headplate eye (whipping loose when falling)
+    eye = (STACK_X + dx + 32, top + dy - 6)
     for cx0 in (28, 68):
         if state == "fall":
-            chain(img, [(cx0 + dx, top + dy), (cx0 + 3, top - 9), (cx0 - 3, top - 17), (cx0 + 4, top - 25), (cx0, top - 33)])
+            chain(img, [(eye[0], eye[1]), (cx0 + 3, top - 11), (cx0 - 3, top - 19), (cx0 + 4, top - 27), (cx0, top - 36)])
         else:
-            chain(img, [(cx0 + dx, top + dy), (cx0 + dx, 0)])
-    if state in ("shudder_a", "shudder_b"):                  # dust sifting off the outrigger and the chain mounts
+            chain(img, [eye, (cx0 + dx, 0)])
+    if state in ("shudder_a", "shudder_b"):                         # dust sifting off the outrigger and the chain mounts
         for s in range(6):
-            x, y = 96 + s * 6 + (h2(s, 1, 2) % 3), top + 14 + (s * 5) % 17
+            x, y = 96 + s * 5 + (h2(s, 1, 2) % 3), BEAM_UNDER + 3 + (s * 5) % 6
             img.put(x, y, "c" if s % 2 else "d"); img.put(x + 1, y, "c")
         for s in range(4):
             img.put(30 + s * 14, 3 + (s * 7) % 11, "c"); img.put(31 + s * 14, 3 + (s * 7) % 11, "c")
-    if state == "fall":                                       # speed streaks over the stack
-        for s in range(9):
-            x = sx + 4 + s * 9
-            img.line(x, top - 18 - (s % 3) * 4, x, top - 4 - (s % 2) * 3, "b" if s % 2 else "c", 1)
+    if state == "fall":                                             # four broken speed streaks above the plate ends
+        for s, x in enumerate((STACK_X + 2, STACK_X + 20, STACK_X + 43, STACK_X + 61)):
+            y0 = top - 20 - (s % 2) * 4
+            img.line(x, y0, x, y0 + 4, "d", 1); img.line(x, y0 + 7, x, y0 + 10, "d", 1)
+            if s % 2:
+                img.line(x, y0 + 13, x, y0 + 15, "d", 1)
     return img
 
 
 SW, SH = 40, 196
 SPIV = (20, 195)
+NECK = (160, 185)                                                  # the strike band: 10 to 35 px up (fist and kick height)
+
+
+def shaft(img: Img, y0: int, y1: int, shift: int, seed: int, state: int) -> None:
+    """The post, row by row: 14 px wide, a rotten neck 2 to 3 px narrower with bites through the strike band, a warm splayed
+    base; timber_deep on the shadow edge, chip_hi torn fibres on the lit edge, no iron bands."""
+    for y in range(y0, y1 + 1):
+        l, r = 13, 26
+        if NECK[0] <= y <= NECK[1]:
+            l, r = 14, 25
+            if h2(y // 3, seed, 5) % 3 == 0:
+                l += 1
+            if h2(y // 3, seed, 6) % 3 == 0:
+                r -= 1
+        if y > 185:                                                    # soft splayed base
+            l -= (y - 185) // 3
+            r += (y - 185) // 3
+        for x in range(l + shift, r + shift + 1):
+            u = (x - l - shift) / max(1, r - l)
+            k = "u" if u < 0.25 else ("z" if u < 0.6 else "y")
+            q = h2(x, y, seed) % 100
+            if q < 6 or (x == r + shift and q < 40):
+                k = "x"                                                 # rot and a deep rim on the shadow edge
+            elif x == l + shift and q < 25 and y >= 137:
+                k = "h"                                                 # torn lit fibres on the lit edge, lower 30 %
+            img.put(x, y, k)
+        img.put(l + shift - 1, y, "K"); img.put(r + shift + 1, y, "K")
 
 
 def strut(state: int) -> Img:
-    """The rotten timber strut: a post with a notched cradle that holds the outrigger, iron straps and rot; three damage
-    states: sound, cracked (one hit), splintered (two hits). A third hit breaks it (the splinter burst is a separate kit asset)."""
+    """The rotten timber strut: a post under a notched cradle that holds the outrigger, one iron band under the cap, a rotten
+    neck and damage in the 10 to 35 px strike band. States: sound, cracked (one hit), splintered (two hits: the upper shaft
+    bowed 2 px, the head slipped 1 px, jagged fibres). A third hit breaks it (the splinter burst is a kit asset)."""
     img = Img(SW, SH)
-    lean = [0, 0, 1][state]
-    def post(y0: int, y1: int, shift: int) -> None:
-        timber(img, 13 + shift, y0, 26 + shift, y1, 11 + state)
+    lean = 1 if state == 2 else 0
     if state < 2:
-        post(10, 192, 0)
+        shaft(img, 15, 194, 0, 11 + state, state)
     else:
-        post(10, 96, 3); post(106, 192, 0)                     # split at mid height, the upper half knocked sideways
-        img.rect(12, 98, 29, 104, "K")                           # the dark gap, bridged by long splinters
-        for s in range(7):
-            x0 = 13 + s * 2
-            img.line(x0, 106, x0 + 2 - (s % 2) * 4, 97 - (s % 3) * 2, "u" if s % 2 else "z", 1)
-            img.line(x0 + 1, 106, x0 + 4 - (s % 2) * 3, 99, "y", 1)
-        for s in range(5):                                       # shards flaring out of the broken faces
-            img.line(27, 92 + s * 3, 34 + s % 3, 88 + s * 4, "z", 1)
-            img.line(13, 109 + s * 2, 7 - s % 2, 112 + s * 3, "y", 1)
-    cap = 10
-    timber(img, 6 + lean, 2, 33 + lean, 8, 21)                   # the cradle top
+        shaft(img, 15, 166, 2, 11, state)                              # upper shaft, bowed 2 px
+        shaft(img, 176, 194, 0, 12, state)
+        # jagged diagonal fibres, long to short, chip_hi on the lit edge and timber_deep below
+        for n, (x, ln) in enumerate(((14, 11), (18, 8), (22, 10), (25, 6))):
+            img.line(x + 2, 166, x - 1 - n % 2, 166 + ln, "h", 1)
+            img.line(x + 3, 166, x - n % 2, 167 + ln, "x", 1)
+        for n, (x, ln) in enumerate(((15, 7), (20, 9), (24, 5))):
+            img.line(x, 176, x + 2, 176 - ln, "h", 1)
+            img.line(x + 1, 176, x + 3, 177 - ln, "x", 1)
+        img.rect(15, 168, 24, 174, "K")                                # the dark break between the halves
+    for x in range(8, 34):                                              # the soot underside of the splayed base, on the pivot row
+        if img.get(x, 194) != ".":
+            img.put(x, 195, "K")
+    timber(img, 6 + lean, 2, 33 + lean, 8, 21)                          # the cradle top
     img.rect(6 + lean, 2, 14 + lean, 5, "K"); img.rect(7 + lean, 3, 13 + lean, 4, ".")    # the notch the beam rests in
     img.rect(7 + lean, 5, 13 + lean, 5, "x")
-    for y in (40, 100, 160):                                       # iron straps
-        sh = 2 if (state == 2 and y < 100) else 0
-        img.rect(12 + sh, y, 27 + sh, y + 4, "i"); img.rect(12 + sh, y, 27 + sh, y, "k"); img.rect(12 + sh, y + 5, 27 + sh, y + 5, "K")
-        img.put(14 + sh, y + 2, "w"); img.put(25 + sh, y + 2, "w")
-    for x in range(8, 33):                                         # a wedged foot
-        for y in range(184 + max(0, 9 - (x - 8) if x < 14 else 0), 195):
-            if x < 12 or x > 28:
-                img.put(x, y, "y" if x < 12 else "x")
-    img.rect(10, 192, 30, 195, "K"); img.rect(11, 192, 29, 194, "y")
-    if state >= 1:                                                 # the crack, with a dark core and a lit lip
-        pts = [(18, 82), (16, 92), (21, 100), (17, 111), (22, 121)]
+    img.rect(12 + lean, 10, 27 + lean, 14, "i"); img.rect(12 + lean, 10, 27 + lean, 10, "k"); img.rect(12 + lean, 15, 27 + lean, 15, "K")
+    img.put(14 + lean, 12, "w"); img.put(25 + lean, 12, "w")
+    if state >= 1:                                                     # the crack in the strike band: dark core, lit lip
+        pts = [(18, 158), (16, 164), (21, 171), (17, 178), (21, 184)] if state == 1 else [(18, 155), (16, 160)]
         for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
             img.line(x0, y0, x1, y1, "K", 1)
-            img.line(x0 + 1, y0, x1 + 1, y1, "u", 1)
-        img.rect(11, 94, 12, 96, "K"); img.rect(27, 108, 28, 110, "K")
+            img.line(x0 + 1, y0, x1 + 1, y1, "h", 1)
+        if state == 1:
+            img.rect(14, 166, 15, 168, "K"); img.rect(24, 175, 25, 177, "K")
     return img
 
 
@@ -470,8 +552,8 @@ LPIV = (32, 12)
 
 
 def ledge(pressed: bool) -> Img:
-    """The release-plate ledge for the Donut rack: a masonry slab with iron brackets and a pressure plate (raised or
-    pressed flush). Pivot: the walking surface at the slab centre."""
+    """The release-plate ledge for the Donut rack: a masonry slab on two triangular iron knee braces that end in wall plates,
+    and a pressure plate (raised or pressed flush). Pivot: the walking surface at the slab centre."""
     img = Img(LW, LH)
     for y in range(12, 22):
         for x in range(8, 56):
@@ -486,10 +568,18 @@ def ledge(pressed: bool) -> Img:
         img.put(x, 11, "K"); img.put(x, 22, "K")
     for y in range(11, 23):
         img.put(7, y, "K"); img.put(56, y, "K")
-    for x0 in (11, 44):                                            # iron brackets down the wall side
-        img.rect(x0, 23, x0 + 7, 37, "i"); img.rect(x0, 23, x0 + 7, 23, "k"); img.rect(x0, 38, x0 + 7, 38, "K")
-        img.rect(x0 - 1, 23, x0 - 1, 38, "K"); img.rect(x0 + 8, 23, x0 + 8, 38, "K")
-        img.put(x0 + 3, 28, "w"); img.put(x0 + 3, 33, "w")
+    for side in (0, 1):                                              # knee braces: a wall plate and a diagonal strut to the slab
+        wx = 8 if side == 0 else 52
+        step = 1 if side == 0 else -1
+        img.rect(wx, 23, wx + 3, 38, "i"); img.rect(wx, 23, wx, 38, "k"); img.rect(wx + 4, 23, wx + 4, 38, "K"); img.rect(wx - 1, 23, wx - 1, 38, "K")
+        img.rect(wx - 1, 39, wx + 4, 39, "K")
+        for n in range(15):                                          # the diagonal: from the plate foot up to the slab underside
+            x = wx + (2 + n) * step if side == 0 else wx + 1 - n
+            y = 36 - n
+            for t in range(3):
+                img.put(x, y - t, "j" if t == 0 else "i")
+            img.put(x, y + 1, "K"); img.put(x, y - 3, "K")
+        img.put(wx + 1, 28, "w"); img.put(wx + 1, 34, "w")
     h = 2 if pressed else 4
     top = 12 - h
     img.rect(18, top, 45, 11, "j"); img.rect(18, top, 45, top, "k")
@@ -507,17 +597,21 @@ def ledge(pressed: bool) -> Img:
     return img
 
 
+ROUTE_B = "Route B draft: drawn from the written spec; the top-tier narrow re-gate is pending."
+ROUTE_C = "Route C, extends the CP-03 shore kit; the top-tier editor pass is pending."
+
+
 # ------------------------------------------------------------------ atlases
-ANCHOR = {"pound_debris": (76, 71), "shockwave_ripple": (76, 71), "crash_dust": (76, 71), "mirror_crack": (76, 36),
-          "floor_dust": (76, 71), "roar_ring": (76, 57), "boil_spatter": (76, 52), "blood_pool": (76, 62)}
+ANCHOR = {"pound_debris": (76, 71), "shockwave_ripple": (76, 71), "crash_dust": (76, 71), "mirror_crack": CRACK_C,
+          "floor_dust": (76, 71), "roar_ring": (76, RING_Y), "boil_spatter": (76, 52), "blood_pool": (76, 62)}
 FX_ROLE = {
     "pound_debris": "brute pound impact: debris and dust at the strike point, 50 px ahead of the pivot (the pound box centre)",
     "shockwave_ripple": "P2+ shockwave ripple: 10 px tall, travels 120 px each way at 150 px/s (mirror for the left)",
     "crash_dust": "wall crash: dust and chips at the ram contact point, billowing into the room (mirror for the left wall)",
-    "mirror_crack": "cosmetic crack on the wall mirror at the crash height: three states, held",
+    "mirror_crack": "cosmetic crack on the wall mirror at the crash height (pivot = impact point, within 30 x 40 px): three states, held",
     "floor_dust": "brute_ko_timber floor impact: 120 px dust burst along the floor both ways",
     "roar_ring": "phase roar push wave: a flat floor ring at radius 18, 36, 54, 72 px (push_radius 72)",
-    "boil_spatter": "preset 4 finish: boils burst in red spatters from the body",
+    "boil_spatter": "preset 4 finish: boils burst in red spatters from the body; the origin (pivot) is 19 px above the floor contact row (floor_offset_px 19)",
     "blood_pool": "preset 4 finish: spreading pool, the last frame stays",
 }
 
@@ -545,7 +639,7 @@ def tags_from(seq: list[str]) -> list[tuple[str, int, int]]:
 
 def atlas_vfx() -> dict:
     rows = [(fn(i).rows(), tk) for _t, _n, tk, fn, i, _p in VFX]
-    return dict(id="boss-f01-vfx", base="brute_boss_f01_vfx", size=(VW, VH), pivot=VPIV, type="vfx_animation",
+    return dict(route=ROUTE_B, id="boss-f01-vfx", base="brute_boss_f01_vfx", size=(VW, VH), pivot=VPIV, type="vfx_animation",
                 names=[n for _t, n, *_r in VFX], tag_seq=[t for t, *_r in VFX], ticks=[tk for _t, _n, tk, *_r in VFX],
                 frames=rows, pivots=[ANCHOR[t] for t, *_r in VFX],
                 playback={t: p for t, _n, _tk, _f, _i, p in VFX}, role=FX_ROLE,
@@ -555,22 +649,23 @@ def atlas_vfx() -> dict:
 
 def atlas_rack() -> dict:
     states = [("rack_hang", "hang", None), ("rack_shudder", "shudder_a", 3), ("rack_shudder", "shudder_b", 3),
-              ("rack_fall", "fall", None), ("rack_landed", "landed", None)]
-    return dict(id="boss-f01-rack", base="brute_boss_f01_rack", size=(RW, RH), pivot=RPIV, type="prop_animation",
-                names=["rack_hang", "rack_shudder_a", "rack_shudder_b", "rack_fall", "rack_landed"],
+              ("rack_fall", "fall", None), ("rack_landed", "landed", None), ("rack_landed_boss", "landed_boss", None)]
+    return dict(route=ROUTE_B, id="boss-f01-rack", base="brute_boss_f01_rack", size=(RW, RH), pivot=RPIV, type="prop_animation",
+                names=["rack_hang", "rack_shudder_a", "rack_shudder_b", "rack_fall", "rack_landed", "rack_landed_boss"],
                 tag_seq=[t for t, _s, _k in states], ticks=[k for _t, _s, k in states],
-                frames=[(rack(s).rows(), k) for _t, s, k in states], pivots=[RPIV] * 5,
-                playback={"rack_hang": "hold", "rack_shudder": "loop", "rack_fall": "hold", "rack_landed": "hold"},
+                frames=[(rack(s).rows(), k) for _t, s, k in states], pivots=[RPIV] * 6,
+                playback={"rack_hang": "hold", "rack_shudder": "loop", "rack_fall": "hold", "rack_landed": "hold", "rack_landed_boss": "hold"},
                 role={"rack_hang": "left plate rack held by the strut at floor x 200, underside 189 px up",
                       "rack_shudder": "pre-fall shudder loop with dust, 36 tick fall window",
                       "rack_fall": "falling stack with snapped chains and speed streaks (the game translates it)",
-                      "rack_landed": "landed stack, plates staggered (drawn over the pinned boss)"},
-                origin="plate rack prop in four states (five frames), left-rack facing; mirror for the disabled right rack")
+                      "rack_landed": "landed stack on the floor, plates staggered (the rack missed: nobody in the footprint)",
+                      "rack_landed_boss": "landed stack lying on the pinned boss's back, underside 26 px above the pivot row (landed_on_boss_offset_px 26); draw it over pinned_hold or pinned_dead"},
+                origin="plate rack prop in four states plus the on-boss landing (six frames), left-rack facing; mirror for the disabled right rack")
 
 
 def atlas_strut() -> dict:
     names = ["strut_sound", "strut_cracked", "strut_splintered"]
-    return dict(id="boss-f01-strut", base="brute_boss_f01_strut", size=(SW, SH), pivot=SPIV, type="prop_animation", names=names,
+    return dict(route=ROUTE_C, id="boss-f01-strut", base="brute_boss_f01_strut", size=(SW, SH), pivot=SPIV, type="prop_animation", names=names,
                 tag_seq=names, ticks=[None] * 3, frames=[(strut(i).rows(), None) for i in range(3)], pivots=[SPIV] * 3,
                 playback={n: "hold" for n in names},
                 role={"strut_sound": "no hits", "strut_cracked": "after the first strut hit", "strut_splintered": "after the second hit; the third breaks it"},
@@ -579,7 +674,7 @@ def atlas_strut() -> dict:
 
 def atlas_ledge() -> dict:
     names = ["plate_raised", "plate_pressed"]
-    return dict(id="boss-f01-ledge", base="brute_boss_f01_ledge", size=(LW, LH), pivot=LPIV, type="prop_animation", names=names,
+    return dict(route=ROUTE_C, id="boss-f01-ledge", base="brute_boss_f01_ledge", size=(LW, LH), pivot=LPIV, type="prop_animation", names=names,
                 tag_seq=names, ticks=[None, None], frames=[(ledge(False).rows(), None), (ledge(True).rows(), None)], pivots=[LPIV] * 2,
                 playback={n: "hold" for n in names},
                 role={"plate_raised": "ledge and release plate waiting (104 px up at x 432..480)", "plate_pressed": "plate pressed flush"},
@@ -616,9 +711,8 @@ def atlas_manifest(a: dict, grid: dict) -> dict:
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "provenance": {
             "origin": a["origin"],
-            "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Drawn by Claude Sonnet "
-                         "from the written spec (route B: the top-tier editor pass and silhouette gate are still pending). "
-                         "No image-model raster output, no tracing, no resampling",
+            "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. " + a["route"] +
+                         " Review fix round 1 applied by Claude Sonnet. No image-model raster output, no tracing, no resampling",
             "generated_art": True,
             "input_reference_ids": ["docs/02-art/floor-01-boss-design.md", "tools/art-references/death-lab/README.md"],
         },

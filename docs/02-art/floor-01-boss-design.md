@@ -143,12 +143,12 @@ Load-time validation rejects a tell or punish under the fairness floors, thresho
 | --- | --- | --- |
 | `brute_boss_f01` (`boss-f01`, 160 x 136, pivot 72,135; keys frozen, route A) | 16 | `charge_tell` (`charge_tell_a` 6t, `charge_tell_b` 6t, `charge_tell_hold` hold), `charge_run` loop (`charge_run_contact_a` 5t, `charge_run_pass_a` 4t, `charge_run_contact_b` 5t, `charge_run_pass_b` 4t), `crash_stun` (`crash_hit` 3t, `crash_slump` 3t, `crash_stun_hold` hold), `phase_roar` (`phase_roar_in` 6t, `phase_roar_hold` 24t, `phase_roar_flex` 30t = 60), `pinned` (`pinned_squash` 6t, `pinned_hold` hold), `pinned_dead` (`pinned_dead` hold) |
 | `brute_boss_f01_emblem` (`boss-f01-emblem`, 18 x 18, route C) | 1 | `emblem`. Standalone atlas: not merged into the HUD atlas |
-| `brute_boss_f01_vfx` (`boss-f01-vfx`, 152 x 72, per-frame pivots, route B draft) | 35 | `pound_debris` 5, `shockwave_ripple` 4 (loop), `crash_dust` 6, `roar_ring` 4, `mirror_crack` 3 (held states), `floor_dust` 5, `boil_spatter` 4, `blood_pool` 4 (last frame stays) |
-| `brute_boss_f01_rack` (`boss-f01-rack`, 136 x 72, pivot 48,71, route B draft) | 5 | `rack_hang`, `rack_shudder` (`rack_shudder_a`, `rack_shudder_b`, loop), `rack_fall`, `rack_landed` |
+| `brute_boss_f01_vfx` (`boss-f01-vfx`, 152 x 72, per-frame pivots (ring centre, crack and wall-contact point, spatter origin 19 px above the floor), route B draft) | 35 | `pound_debris` 5, `shockwave_ripple` 4 (loop), `crash_dust` 6, `roar_ring` 4, `mirror_crack` 3 (held states), `floor_dust` 5, `boil_spatter` 4, `blood_pool` 4 (last frame stays) |
+| `brute_boss_f01_rack` (`boss-f01-rack`, 136 x 72, pivot 48,71, route B draft) | 6 | `rack_hang`, `rack_shudder` (`rack_shudder_a`, `rack_shudder_b`, loop), `rack_fall`, `rack_landed` (floor version, the rack missed), `rack_landed_boss` (stack on the pinned boss's back, underside 26 px above the pivot row: `landed_on_boss_offset_px` 26) |
 | `brute_boss_f01_strut` (`boss-f01-strut`, 40 x 196, pivot 20,195, route C) | 3 | `strut_sound`, `strut_cracked`, `strut_splintered` |
 | `brute_boss_f01_ledge` (`boss-f01-ledge`, 64 x 40, pivot 32,12, route C) | 2 | `plate_raised`, `plate_pressed` |
 
-Open art items: the top-tier editor pass and silhouette gate for the route B atlases (VFX, rack, finishes), the independent top-tier review of everything, and the gym arena kit (own order). The `pinned_dead` tag has no twitch frame: the fist twitch at +20 ticks is a code-side 2 px offset of the hand or a later key.
+Open art items: the top-tier narrow re-gate of the route B atlases (VFX, rack) and of the review-fixed boss frames, the independent re-review, and the gym arena kit (own order). The fist twitch at +20 ticks of the `brute_crushed` finish: deferred, needs a hand layer or a dedicated frame (spec gap, review 2026-11-19). The atlas has a single `body` layer, so an offset would move the whole corpse. Two design decisions from the review are not made here: a `rack_shadow` floor-shadow VFX for the rack-crush tell (section 3 names a floor shadow, section 8 allocates no asset) and the single-cable rack mechanism (a cable over a ceiling pulley to a tie-off on the strut head, so that breaking the strut lets the stack fall; the drawn rack still has two chains and a beam).
 
 ## 9. Art acceptance targets (independent review)
 
@@ -168,6 +168,7 @@ Open art items: the top-tier editor pass and silhouette gate for the route B atl
 4. The gauntlet and Puddle Jumper are awarded after the fight. That is a separate design, out of scope.
 5. Book chronology check of the heroes' kit at the gym (dynamite, missile). The fight is kit-tolerant, so it is not blocking.
 6. The right rack ships disabled until Q10's higher cat jump is adopted and tuned. Default: enable it in the same PR that lands the jump, with `boss01_rack_donut` un-pended. Until then Donut's role is to survive and draw aggro.
+7. The fist twitch of the crush finish (section 5): deferred, needs a hand layer or a dedicated frame (spec gap, review 2026-11-19).
 
 **Horizon fit:** fits [horizon](../01-design/character-progression-horizon.md) step 6. There are no new buttons or verbs: jump, primary and physical only. It uses Donut's higher reach and Carl's breaking as optional, asymmetric options. Direct combat stays a complete route. Rewards stay after the encounter. No guide update needed.
 

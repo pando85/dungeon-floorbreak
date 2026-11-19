@@ -32,7 +32,7 @@ EVIDENCE = ROOT / "docs/evidence/boss-f01"
 ATLASES = {
     "boss-f01": (SRC / "brute_boss_f01.grid.json", 16, [160, 136], [72, 135]),
     "boss-f01-vfx": (SRC / "brute_boss_f01_vfx.grid.json", 35, [152, 72], [76, 71]),
-    "boss-f01-rack": (SRC / "brute_boss_f01_rack.grid.json", 5, [136, 72], [48, 71]),
+    "boss-f01-rack": (SRC / "brute_boss_f01_rack.grid.json", 6, [136, 72], [48, 71]),
     "boss-f01-strut": (SRC / "brute_boss_f01_strut.grid.json", 3, [40, 196], [20, 195]),
     "boss-f01-ledge": (SRC / "brute_boss_f01_ledge.grid.json", 2, [64, 40], [32, 12]),
     "boss-f01-emblem": (SRC / "keys/brute_boss_f01_emblem.grid.json", 1, [18, 18], [0, 0]),
@@ -103,7 +103,8 @@ class AtlasContractTests(unittest.TestCase):
         for mid in ("boss-f01-rack", "boss-f01-strut"):
             grid = load(ATLASES[mid][0])
             for i, f in enumerate(grid["frames"]):
-                self.assertEqual(content_box(cel(f))[3], grid["pivot"][1], f"{mid} frame {i}")
+                want = grid["pivot"][1] - (26 if (mid == "boss-f01-rack" and i == 5) else 0)   # rack_landed_boss: 26 px up
+                self.assertEqual(content_box(cel(f))[3], want, f"{mid} frame {i}")
         ledge = load(ATLASES["boss-f01-ledge"][0])
         for f in ledge["frames"]:
             rows = cel(f)
@@ -185,9 +186,46 @@ class AtlasContractTests(unittest.TestCase):
         self.assertEqual(counts, {"pound_debris": 5, "shockwave_ripple": 4, "crash_dust": 6, "roar_ring": 4, "mirror_crack": 3,
                                   "floor_dust": 5, "boil_spatter": 4, "blood_pool": 4})
         rack = [f["name"] for f in load(MAN / "boss-f01-rack.json")["boss"]["frames"]]
-        self.assertEqual(rack, ["rack_hang", "rack_shudder_a", "rack_shudder_b", "rack_fall", "rack_landed"])
+        self.assertEqual(rack, ["rack_hang", "rack_shudder_a", "rack_shudder_b", "rack_fall", "rack_landed", "rack_landed_boss"])
         self.assertEqual([f["name"] for f in load(MAN / "boss-f01-strut.json")["boss"]["frames"]],
                          ["strut_sound", "strut_cracked", "strut_splintered"])
+
+    def test_review_fixes_round_1(self):
+        """Independent review 2026-11-19: foot rule, squash heights, ripple, rack, strut and effect size limits."""
+        boss = load(bs.GRID)["frames"]
+        idx = {f[0]: i for i, f in enumerate(bs.FRAMES)}
+        h = lambda rows: content_box(rows)[3] - content_box(rows)[1] + 1
+        self.assertTrue(82 <= h(cel(boss[idx["crash_hit"]])) <= 86)                 # B-04: an impact squash, not a jab
+        self.assertLess(h(cel(boss[idx["crash_hit"]])), 90)
+        self.assertLessEqual(h(cel(boss[idx["pinned_squash"]])), 48)                # B-05
+        for name in ("charge_run_pass_a", "charge_run_pass_b", "crash_slump", "crash_hit"):
+            row = cel(boss[idx[name]])[135]
+            runs = [r for r in "".join(row).replace(".", " ").split() if r]
+            self.assertGreaterEqual(len(runs), 1, name)
+            self.assertGreaterEqual(max(len(r) for r in runs), 6, f"{name}: a foot block, not a spike, on row 135")
+        vfx = load(SRC / "brute_boss_f01_vfx.grid.json")["frames"]
+        for i in range(5, 9):                                                       # V-01: <= 11 rows with a lit lip
+            self.assertLessEqual(h(cel(vfx[i])) - 5, 11 + 8, "ripple body plus chips")
+            body = [r for r in cel(vfx[i])[58:71] if "h" in r]
+            self.assertTrue(body, "chip_hi lip on the ripple crest")
+        for i in range(15, 19):
+            rows = cel(vfx[i])
+            ys = [y for y, r in enumerate(rows) if r.strip(".")]
+            self.assertLessEqual(max(ys) - min(ys) + 1, 14, "roar ring flattened to the floor plane")
+        for i in range(19, 22):
+            x0, y0, x1, y1 = content_box(cel(vfx[i]))
+            self.assertLessEqual((x1 - x0 + 1, y1 - y0 + 1), (30, 40), "mirror crack within 30 x 40")
+        rack = load(SRC / "brute_boss_f01_rack.grid.json")["frames"]
+        for i, dy in enumerate((0, 0, 0)):                                          # R-02: beam underside on row 65 in every held frame
+            rows = cel(rack[i])
+            self.assertTrue(set(rows[65 + dy][100:122]) - {"."}, "timber on the strut-cap row")
+            self.assertEqual(set(rows[66 + dy][100:122]), {"K"}, "soot underside directly below")
+        strut = load(SRC / "brute_boss_f01_strut.grid.json")["frames"]
+        for i, f in enumerate(strut[1:], 1):                                        # S-01: damage in the 10..35 px band
+            rows = cel(f)
+            high = [y for y in range(20, 137) for ch in rows[y] if ch == "h"]
+            self.assertEqual(high, [], f"strut state {i}: no torn fibres above the strike band")
+            self.assertTrue(any("h" in rows[y] or "K" in rows[y][16:23] for y in range(160, 186)))
 
     def test_every_frame_is_distinct(self):
         for mid, (path, _n, _c, _p) in ATLASES.items():
@@ -225,7 +263,7 @@ class EvidenceTests(unittest.TestCase):
             digest, name = line.split("  ", 1)
             self.assertEqual(hashlib.sha256((EVIDENCE / name).read_bytes()).hexdigest(), digest, name)
         for name in ("contact_sheet_x1.png", "contact_sheet_x4.png", "scene_640x360.png", "arena_640x360.png",
-                     "silhouette-gate/silhouettes_2x.png", "silhouette-gate/keys_lit_1x.png", "silhouette-gate/gate_pack.md"):
+                     "arena_pinned_640x360.png", "silhouette-gate/silhouettes_2x.png", "silhouette-gate/keys_lit_1x.png", "silhouette-gate/gate_pack.md"):
             self.assertTrue((EVIDENCE / name).is_file(), name)
         for tag in ("charge_tell", "charge_run", "crash_stun", "phase_roar", "pinned", "pinned_dead"):
             self.assertTrue((EVIDENCE / f"gif_{tag}_x1.gif").is_file(), tag)

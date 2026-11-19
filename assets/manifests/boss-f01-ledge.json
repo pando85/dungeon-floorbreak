@@ -24,7 +24,7 @@
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
     "origin": "ledge and release plate for the Donut rack (shipped disabled until the higher cat jump lands)",
-    "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Drawn by Claude Sonnet from the written spec (route B: the top-tier editor pass and silhouette gate are still pending). No image-model raster output, no tracing, no resampling",
+    "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Route C, extends the CP-03 shore kit; the top-tier editor pass is pending. Review fix round 1 applied by Claude Sonnet. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "docs/02-art/floor-01-boss-design.md",
@@ -68,9 +68,9 @@
           7,
           7,
           56,
-          38
+          39
         ],
-        "sha256": "71864c569b182f92d58124819a3cd83f6e91f1e5fc9edf061eb20b096419dbb5"
+        "sha256": "70afac248e7fbef2724dbae36c4e7e417a94e7d993b1708725d36566be8f65ca"
       },
       {
         "index": 1,
@@ -92,9 +92,9 @@
           7,
           9,
           56,
-          38
+          39
         ],
-        "sha256": "cf2bd66f0446295c9cf75b409bdc031ae5c4f5ef56f9f53739d9d74765dd0a8f"
+        "sha256": "dd05808b849b5f3c15a83e118075119c476aca54a20bbc3ef3150df5bfb7a196"
       }
     ]
   }

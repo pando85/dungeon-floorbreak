@@ -2,8 +2,8 @@
   "asset_id": "boss-f01",
   "counts": {
     "fail": 0,
-    "pass": 13,
-    "skipped": 3
+    "pass": 14,
+    "skipped": 2
   },
   "format": "pixelart-report-v1",
   "frames": 16,
@@ -115,11 +115,11 @@
       "status": "pass"
     },
     {
-      "detail": "not configured",
+      "detail": "ok",
       "failures": [],
       "id": "V16",
       "name": "foot drift (loop seam)",
-      "status": "skipped"
+      "status": "pass"
     }
   ]
 }

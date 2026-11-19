@@ -19,14 +19,15 @@
     "rack_hang",
     "rack_shudder",
     "rack_fall",
-    "rack_landed"
+    "rack_landed",
+    "rack_landed_boss"
   ],
   "required_alpha": true,
   "owner": "AI-authored Floor 1 boss encounter art (fan-concept layer: THE JUICER encounter; runtime ids IP-neutral brute_boss_f01)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "plate rack prop in four states (five frames), left-rack facing; mirror for the disabled right rack",
-    "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Drawn by Claude Sonnet from the written spec (route B: the top-tier editor pass and silhouette gate are still pending). No image-model raster output, no tracing, no resampling",
+    "origin": "plate rack prop in four states plus the on-boss landing (six frames), left-rack facing; mirror for the disabled right rack",
+    "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Route B draft: drawn from the written spec; the top-tier narrow re-gate is pending. Review fix round 1 applied by Claude Sonnet. No image-model raster output, no tracing, no resampling",
     "generated_art": true,
     "input_reference_ids": [
       "docs/02-art/floor-01-boss-design.md",
@@ -36,7 +37,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "boss": {
-    "status": "5 frames drawn; top-tier editor pass and independent review pending; not wired into any Bevy binary",
+    "status": "6 frames drawn; top-tier editor pass and independent review pending; not wired into any Bevy binary",
     "spec": "docs/02-art/floor-01-boss-design.md",
     "data_id": "brute_boss_f01",
     "tick_hz": 60,
@@ -45,13 +46,15 @@
       "rack_hang": "hold",
       "rack_shudder": "loop",
       "rack_fall": "hold",
-      "rack_landed": "hold"
+      "rack_landed": "hold",
+      "rack_landed_boss": "hold"
     },
     "roles": {
       "rack_hang": "left plate rack held by the strut at floor x 200, underside 189 px up",
       "rack_shudder": "pre-fall shudder loop with dust, 36 tick fall window",
       "rack_fall": "falling stack with snapped chains and speed streaks (the game translates it)",
-      "rack_landed": "landed stack, plates staggered (drawn over the pinned boss)"
+      "rack_landed": "landed stack on the floor, plates staggered (the rack missed: nobody in the footprint)",
+      "rack_landed_boss": "landed stack lying on the pinned boss's back, underside 26 px above the pivot row (landed_on_boss_offset_px 26); draw it over pinned_hold or pinned_dead"
     },
     "frames": [
       {
@@ -71,12 +74,12 @@
           "h": 72
         },
         "content": [
-          8,
+          16,
           0,
-          133,
+          125,
           71
         ],
-        "sha256": "4dd14e55a78bc059d24e9681da241d9b6ea42714ddbef14f3d9f62ccab813c1d"
+        "sha256": "72ade5071aaa9667c9676f831c4ceb4de92f510725a227cbc35cafa8c41f796f"
       },
       {
         "index": 1,
@@ -95,12 +98,12 @@
           "h": 72
         },
         "content": [
-          7,
+          15,
           0,
-          133,
+          125,
           71
         ],
-        "sha256": "f6fb1e88622d31b9a5ea9ca2b5f0fc6fdcb88eab0f6419a3f44abb47e66acc59"
+        "sha256": "9c8468adb7ec1bbf915dea50ad062988217c3fbf242f54fdc8bb4760a581850c"
       },
       {
         "index": 2,
@@ -119,12 +122,12 @@
           "h": 72
         },
         "content": [
-          9,
+          17,
           0,
-          133,
+          125,
           71
         ],
-        "sha256": "83ba3b744b5a502f1ef05df6441471ae8ca7a00eb5bc06fce15580ed195854cf"
+        "sha256": "7cc2a3827b1c5b7a320866131b93b081c34e7267dbbd70c5d87fa0fca7208aa1"
       },
       {
         "index": 3,
@@ -143,12 +146,12 @@
           "h": 72
         },
         "content": [
-          8,
-          8,
-          132,
+          16,
+          11,
+          124,
           71
         ],
-        "sha256": "b210f9d5cfbb11ff15edab23799f5e10cbcaa85c675ce338cb0d8a0a13b1d7d6"
+        "sha256": "3dddc87698c87db47723624c1513719879be6ec57e6b2afab5cf2c4229809e76"
       },
       {
         "index": 4,
@@ -167,12 +170,36 @@
           "h": 72
         },
         "content": [
-          5,
-          37,
-          129,
+          15,
+          43,
+          127,
           71
         ],
-        "sha256": "6446e4b5dea5bc072188b55683ce4e0476e5f2a7560c3a64da452413cc98c85b"
+        "sha256": "ca8716bc366451c7fa65d1137fb549e84e06bc28f3dafac15ff1a12e392005dd"
+      },
+      {
+        "index": 5,
+        "name": "rack_landed_boss",
+        "tag": "rack_landed_boss",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          48,
+          71
+        ],
+        "rect": {
+          "x": 680,
+          "y": 0,
+          "w": 136,
+          "h": 72
+        },
+        "content": [
+          15,
+          17,
+          127,
+          45
+        ],
+        "sha256": "7d143587db83effc391074795ba8591d42e4da80bb847d88c4b9d171146effca"
       }
     ]
   }

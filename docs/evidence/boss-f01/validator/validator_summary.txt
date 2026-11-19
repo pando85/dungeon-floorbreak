@@ -14,5 +14,5 @@ pixelart validate: boss-f01 (16 frames)
   PASS    V13 bounding boxes
   PASS    V14 key counts
   PASS    V15 non-empty frames
-  SKIPPED V16 foot drift (loop seam) (not configured)
-verdict: PASS (13 pass, 0 fail, 3 skipped)
+  PASS    V16 foot drift (loop seam)
+verdict: PASS (14 pass, 0 fail, 2 skipped)

@@ -22,14 +22,14 @@ Questions from `docs/02-art/floor-01-boss-design.md` section 9:
 | 4 | charge_run_pass_a | charge_run |  | 91 |  | 103 | 45 |
 | 5 | charge_run_contact_b | charge_run | K | 92 | 92 | 100 | 44 |
 | 6 | charge_run_pass_b | charge_run |  | 91 |  | 101 | 45 |
-| 7 | crash_hit | crash_stun |  | 102 |  | 113 | 34 |
-| 8 | crash_slump | crash_stun |  | 93 |  | 95 | 43 |
+| 7 | crash_hit | crash_stun |  | 83 |  | 113 | 53 |
+| 8 | crash_slump | crash_stun |  | 93 |  | 104 | 43 |
 | 9 | crash_stun_hold | crash_stun | K | 72 | 72 | 83 | 64 |
 | 10 | phase_roar_in | phase_roar |  | 103 |  | 77 | 33 |
 | 11 | phase_roar_hold | phase_roar | K | 105 | 105 | 87 | 31 |
 | 12 | phase_roar_flex | phase_roar |  | 107 |  | 95 | 29 |
-| 13 | pinned_squash | pinned |  | 74 |  | 78 | 62 |
+| 13 | pinned_squash | pinned |  | 28 |  | 147 | 108 |
 | 14 | pinned_hold | pinned | K | 56 | 56 | 135 | 80 |
 | 15 | pinned_dead | pinned_dead |  | 56 |  | 135 | 80 |
 
-Validator report: 13 pass, 0 fail, 3 skipped (`../validator/validator_summary.txt`).
+Validator report: 14 pass, 0 fail, 2 skipped (`../validator/validator_summary.txt`).

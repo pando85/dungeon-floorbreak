@@ -68,32 +68,36 @@ POSES["tell_b"] = tween(IDLE, POSES["charge_tell"], 0.7, face="growl", hair={"sw
 # charge run passing frames: the pushing foot has left the floor and swings under the hip while the other foot lands
 POSES["run_pass_a"] = tween(POSES["charge_run"], POSES["charge_run_b"], 0.45)
 POSES["run_pass_b"] = tween(POSES["charge_run_b"], POSES["charge_run"], 0.45)
-feet(POSES["run_pass_a"], [(-4, 39), (10, 31), (7, 16), (16, 13)], [(-3, 39), (4, 24), (2, 11), (8, 1.5)])
-feet(POSES["run_pass_b"], [(-3, 40), (4, 25), (1, 11), (7, 1.5)], [(-4, 40), (12, 32), (9, 17), (18, 14)])
+# pass_a: the far leg lands under the hip with a full foot block (heel on the contact row, toe forward); the near leg
+# swings through with the knee forward and a hanging shin and foot (the K-B2 near-leg shape). pass_b is the mirror contact.
+feet(POSES["run_pass_a"], [(-4, 39), (18, 31), (10, 12), (20, 7)], [(-3, 39), (7, 23), (3, 6), (14, 1.5)])
+feet(POSES["run_pass_b"], [(-3, 40), (7, 24), (3, 6), (14, 1.5)], [(-4, 40), (17, 32), (9, 14), (19, 9)])
 POSES["run_pass_a"]["hair"] = {"sweep": 0.9}
 POSES["run_pass_b"]["hair"] = {"sweep": 0.7}
 
 # crash stun (K-C is the key): the ram front meets the wall (3 ticks), then the rebound sits him down (3 ticks).
-# crash_hit: the run's trunk snaps upright, head thrown back with the pain face, the far fist flat on the wall at +74,
-# the near arm flung back, both feet braced on the contact row, ropes thrown forward by the stop.
+# crash_hit: an impact squash. The hump and shoulder are flattened against the wall line (pivot + 82), the head is jammed
+# down into the shoulders with drool flung forward, the far fist is splayed flat on the wall at hump height, the near fist is
+# flung back low, the knees buckle and both feet stay on the contact row. About 84 px tall, lower than the run key.
 p = copy.deepcopy(POSES["charge_run"])
-p["torso"] = L([(-8, 38), (6, 56), (14, 72)], [14.0, 15.0, 13.0])
-p["blobs"] = {"glute": (-16, 40, 12, 11), "lat": (2, 62, 13, 12), "gut": (8, 46, 13, 12), "pec": (24, 62, 12, 10),
-              "traps": (12, 80, 13, 10)}
-p["far_arms"] = [L([(24, 70), (46, 62), (62, 54)], [8.0, 7.0, 6.5])]
-p["far_fist"] = (70, 52, 9.5, -5)
-p["near_arm"] = L([(12, 72), (0, 66), (-14, 68)], [10.5, 9.0, 8.0])
-p["fist"] = (-21, 69, 11.0, 190)
+p["torso"] = L([(-8, 34), (8, 52), (22, 64)], [14.0, 15.0, 13.0])
+p["blobs"] = {"glute": (-16, 36, 12, 11), "lat": (4, 56, 13, 12), "gut": (10, 42, 13, 12), "pec": (26, 56, 12, 10),
+              "traps": (20, 71, 13, 10)}
+p["far_arms"] = [L([(28, 62), (50, 62), (66, 60)], [8.0, 7.0, 6.5])]
+p["far_fist"] = (74, 60, 9.5, 90)
+p["near_arm"] = L([(12, 62), (-2, 48), (-12, 36)], [10.5, 9.0, 8.0])
+p["fist"] = (-17, 31, 11.0, 200)
 jc.fit_arm_blobs(p)
-p["head_at"] = (34, 82); p["tilt"] = 1.0; p["face"] = "pain"; p["jaw_drop"] = True; p["hair"] = {"sweep": -0.7}
-feet(p, [(-2, 38), (-14, 22), (-24, 8), (-14, 1.5)], [(-6, 38), (8, 26), (12, 10), (22, 1.5)])
-p["loin"] = ragged_loin(-18, 8, 40, 17); p["waist_chain"] = [(-24, 42), (-12, 36), (0, 35), (10, 39)]
+p["head_at"] = (40, 62); p["tilt"] = 2.0; p["face"] = "pain"; p["jaw_drop"] = True; p["hair"] = {"sweep": -0.9}
+feet(p, [(-6, 34), (8, 19), (-4, 6), (7, 1.5)], [(-9, 34), (16, 23), (10, 6), (21, 1.5)])
+p["loin"] = ragged_loin(-18, 8, 36, 16); p["waist_chain"] = [(-24, 38), (-12, 32), (0, 31), (10, 35)]
 POSES["crash_hit"] = p
 
-# crash_slump: rebounding backward, rump dropping, both arms flung up and forward, heels dragging, dazed face.
+# crash_slump: rebounding backward, rump just off the floor, both arms flung back, dazed face. The near leg is thrust
+# forward nearly straight with its heel on the contact row and the toe up; the far knee is up with a flat foot.
 p = copy.deepcopy(POSES["crash_stun"])
-p["torso"] = L([(-8, 24), (-12, 42), (-12, 58)], [14.0, 15.0, 13.0])
-p["blobs"] = {"glute": (-14, 24, 12, 10), "lat": (-18, 46, 12, 12), "gut": (2, 34, 13, 12), "pec": (-2, 52, 12, 10),
+p["torso"] = L([(-8, 18), (-12, 38), (-12, 58)], [14.0, 15.0, 13.0])
+p["blobs"] = {"glute": (-14, 17, 12, 10), "lat": (-18, 42, 12, 12), "gut": (2, 30, 13, 12), "pec": (-2, 50, 12, 10),
               "traps": (-14, 64, 13, 10)}
 p["near_arm"] = L([(-6, 56), (-20, 62), (-34, 66)], [10.5, 9.0, 8.0])
 p["fist"] = (-41, 68, 11.0, 150)
@@ -102,8 +106,8 @@ p["far_fist"] = (-43, 82, 9.0, 120)
 jc.fit_arm_blobs(p)
 p["head_at"] = (10, 66); p["tilt"] = 2.0; p["face"] = "dazed"; p["jaw_drop"] = False
 p["hair"] = {"turn": -10, "sweep": -0.6}
-feet(p, [(0, 20), (17, 18), (30, 9), (38, 1.5)], [(-2, 22), (13, 33), (22, 18), (28, 7)])
-p["loin"] = ragged_loin(-14, 10, 25, 12); p["waist_chain"] = [(-20, 30), (-8, 26), (4, 25), (14, 28)]
+feet(p, [(0, 17), (21, 15), (37, 6), (47, 9)], [(-2, 18), (12, 32), (17, 7), (28, 1.5)])
+p["loin"] = ragged_loin(-14, 10, 22, 12); p["waist_chain"] = [(-20, 26), (-8, 22), (4, 21), (14, 24)]
 POSES["crash_slump"] = p
 
 # phase roar (K-D is the key): roar_in gathers the crab flex from idle (6 ticks); roar_flex holds the squeezed peak.
@@ -118,8 +122,23 @@ p["fist"] = (18, 47, 11.0, 200)
 p["head_at"] = (31, 88); p["hair"] = {"turn": 6, "sweep": 0.5}
 POSES["roar_flex"] = p
 
-# pinned (K-E is the key): pin_squash is the instant the stack lands (6 ticks): half flattened, hands thrown out.
-POSES["pin_squash"] = tween(HURT, POSES["pinned"], 0.65, face="pain", jaw_drop=True, hair={"turn": 40, "sweep": -0.4})
+# pinned (K-E is the key): pin_squash is the smash beat as the stack lands (6 ticks): flatter than K-E, the trunk about 22 px
+# thick with the level back at the K-E line, limbs splayed wider (K-E settles from this overshoot), head pressed to the floor,
+# the far hand flat, both legs ending in feet.
+p = copy.deepcopy(POSES["pinned"])
+p["torso"] = L([(-30, 10), (-8, 11), (14, 10)], [11.0, 11.5, 11.0])
+p["blobs"] = {"glute": (-31, 12, 11, 9), "lat": (-10, 13, 13, 7), "gut": (-6, 6, 13, 6), "pec": (13, 8, 11, 7), "traps": (17, 14, 10, 6)}
+p["far_legs"] = [L([(-28, 12), (-43, 15), (-52, 19), (-47, 22)], [10.0, 7.5, 5.0, 3.2])]
+p["near_legs"] = [L([(-28, 9), (-44, 8), (-58, 5), (-65, 1.5)], [11.0, 8.5, 5.5, 3.4])]
+p["calf"] = (-49, 6, 4.0, 5.0)
+p["far_arms"] = [L([(10, 11), (2, 13), (-6, 15)], [8.0, 7.0, 6.5])]
+p["far_hand"] = open_hand(-11, 16, 4.0, 95)
+p["near_arm"] = L([(22, 10), (40, 5), (56, 4)], [10.5, 9.0, 8.0])
+p["arm_blobs"] = {"deltoid": (22, 11, 11, 8), "bicep": (32, 8, 8, 6), "forearm": (49, 5, 8, 5)}
+p["hand"] = open_hand(64, 5, 5.0, -5)
+p["head_at"] = (40, 6); p["tilt"] = 1.0; p["face"] = "pain"; p["jaw_drop"] = True; p["hair"] = {"turn": 40, "sweep": -0.4}
+p["loin"] = ragged_loin(-40, -20, 20, 7); p["waist_chain"] = [(-38, 20), (-30, 22), (-22, 20)]
+POSES["pin_squash"] = p
 # face swap for the lethal rack crush: K-E unchanged but for the dead face (crossed eye, slack mouth, tongue out)
 p = copy.deepcopy(POSES["pinned"])
 p["face"] = "dead"; p["jaw_drop"] = False
@@ -191,11 +210,14 @@ def config() -> dict:
         "rules": {
             "max_colors": 20, "max_isolated_per_frame": 0, "max_orphans_per_frame": 40, "canvas_margin": [1, 1, 1, 0],
             "unique_frames": True, "manifest_tick_rows": "boss.frames", "manifest_tick_hz": "boss.tick_hz",
+            "foot_drift": {"max_px": 30, "tags": ["charge_run"]},
             "frozen_keys": {"fixture": "tests/fixtures/boss-f01_keys.json", "frames": KEY_FRAMES, "layers": ["body"]},
             "bbox": bbox + [
                 {"id": "R-roar-widest-key-fists-low", "frames": [names["phase_roar_hold"]], "min_width": 70},
                 {"id": "R-run-lower-than-roar", "frames": run, "min_top": 136 - 105 + 1},
                 {"id": "R-pinned-stays-flat", "frames": [names["pinned_hold"], names["pinned_dead"]], "min_top": 136 - 56 - 4},
+                {"id": "B-04-crash-hit-squash-82-86px", "frames": [names["crash_hit"]], "min_top": 136 - 86, "max_top": 136 - 82},
+                {"id": "B-05-pin-squash-flatter-than-key", "frames": [names["pinned_squash"]], "min_top": 136 - 48},
                 {"id": "R-crash-stun-lower-than-idle", "frames": [names["crash_slump"], names["crash_stun_hold"]], "min_top": 36}],
             "key_counts": [
                 {"id": "R1-boils-visible", "frames": list(range(len(FRAMES))), "key": "b", "min": 15},

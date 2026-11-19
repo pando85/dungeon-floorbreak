@@ -113,26 +113,59 @@ def gate_pack(cfg: AssetConfig, imgs: list[Image.Image], report: dict, out: Path
     return [p1, p2, p3]
 
 
-def arena_composite(imgs: list[Image.Image], out: Path) -> Path:
-    """The encounter art in one lit 640 x 360 scene at gameplay scale: strut and hanging rack (left rack), the boss in its
-    charge tell, a shockwave ripple, the right ledge and plate, Donut and Carl."""
+ARENA_X0 = 328                                                      # layout x of the view's left edge: design x + 328
+
+
+def _wall(img: Image.Image) -> Image.Image:
+    """Cosmetic mirror-faced walls at design x 0..32 and 608..640 (the arena's crash surfaces; the real wall art is AREA-GYM-01)."""
+    d = ImageDraw.Draw(img)
+    for x0 in (0, 608):
+        d.rectangle([x0, 0, x0 + 31, 359], fill=(38, 28, 36))
+        d.rectangle([x0 + 3, 40, x0 + 28, 300], fill=(72, 82, 104), outline=(20, 14, 24))
+        d.line([(x0 + 8, 60), (x0 + 22, 150)], fill=(150, 160, 180))
+    return img
+
+
+def arena_composite(imgs: list[Image.Image], out: Path) -> list[Path]:
+    """Two lit 640 x 360 panels in the design's arena coordinates (walls 0..32 and 608..640, strut at x 200, rack over the
+    footprint centre 123, the boss crashed at pivot 130, Carl at the bait x 180): the stun with the hanging rack, the
+    shockwave, the mirror crack, a goblin beside Donut; and the fight's end: the landed stack on the pinned boss, and the dead
+    boss with the pool."""
     floor = scene.Floor()
     carl, carl_piv = scene.reference_idle("carl")
     donut, donut_piv = scene.reference_idle("donut")
+    gob, gob_piv = scene.reference_idle("goblin")
     def grid(name):
         g = load_grid_file(ROOT / SRC / f"brute_boss_f01_{name}.grid.json")
         return grid_images(g), tuple(g["pivot"])
-    rack, rack_piv = grid("rack"); strut, strut_piv = grid("strut"); ledge, ledge_piv = grid("ledge"); vfx, _vp = grid("vfx")
-    boss_cfg = load_config(CONFIG)
-    tell, tell_piv = flip(imgs[2], tuple(boss_cfg.pivot))
-    run, run_piv = flip(imgs[3], tuple(boss_cfg.pivot))
-    rip, rip_piv = flip(vfx[5], (76, 71))                                       # ripple travelling toward the heroes (left)
-    left, left_piv = flip(rack[0], tuple(rack_piv))
-    entries = [(left, left_piv, 700, 189, False), (strut[0], strut_piv, 623, 0, False), (donut, donut_piv, DONUT_X, 0), (carl, carl_piv, CARL_X, 0),
-               (tell, tell_piv, 830, 0), (rip, rip_piv, 730, 0, False), (ledge[0], ledge_piv, 912, 104, False)]
-    path = out / "arena_640x360.png"
-    floor.render(entries, 1).save(path)
-    return path
+    rack, rack_piv = grid("rack"); strut, strut_piv = grid("strut"); vfx, _vp = grid("vfx")
+    cfg = load_config(CONFIG)
+    bp = tuple(cfg.pivot)
+    X = lambda d: ARENA_X0 + d
+    stun, stun_piv = flip(imgs[9], bp)                                     # faces the left wall
+    carl_l, carl_lp = flip(carl, carl_piv)
+    gob_l, gob_lp = flip(gob, gob_piv)
+    rip, rip_piv = flip(vfx[5], (76, 71))                                  # ripple travelling toward the left wall
+    crack, crack_piv = vfx[21], (76, 24)
+    panel1 = [(rack[0], rack_piv, X(123), 189, False), (strut[0], strut_piv, X(200), 0, False),
+              (stun, stun_piv, X(130), 0), (carl_l, carl_lp, X(180), 0), (donut, donut_piv, X(215), 0), (gob_l, gob_lp, X(260), 0),
+              (rip, rip_piv, X(420), 0, False)]
+    pinned, pinned_piv = flip(imgs[14], bp)
+    dead, dead_piv = flip(imgs[15], bp)
+    landed, landed_piv = flip(rack[5], rack_piv)
+    pool, pool_piv = vfx[34], (76, 62)
+    panel2 = [(pinned, pinned_piv, X(130), 0), (landed, landed_piv, X(123), 0, False),
+              (pool, pool_piv, X(480), 0, False), (dead, dead_piv, X(480), 0)]
+    paths = []
+    for name, entries in (("arena_640x360.png", panel1), ("arena_pinned_640x360.png", panel2)):
+        path = out / name
+        img = _wall(floor.render(entries, 1))
+        if name == "arena_640x360.png":                                    # the crack on the left wall mirror at hump height
+            ground = floor.ground(X(130)) - 20                              # screen row of the walking line (view top y 20)
+            img.paste(crack.crop((46, 4, 106, 44)), (-14, ground - 82), crack.crop((46, 4, 106, 44)))
+        img.save(path)
+        paths.append(path)
+    return paths
 
 
 def main() -> int:
@@ -146,7 +179,7 @@ def main() -> int:
     vdir = OUT / "validator"
     written += list(validators.write_report(report, vdir))
     written += gate_pack(cfg, imgs, report, OUT / "silhouette-gate")
-    written.append(arena_composite(imgs, OUT))
+    written += arena_composite(imgs, OUT)
     for mid, sub in ATLASES.items():
         man = load_json(ROOT / f"assets/manifests/{mid}.json")
         gpath = ROOT / man["grid_source"]

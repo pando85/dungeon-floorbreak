@@ -131,6 +131,12 @@
     "unique_frames": true,
     "manifest_tick_rows": "boss.frames",
     "manifest_tick_hz": "boss.tick_hz",
+    "foot_drift": {
+      "max_px": 30,
+      "tags": [
+        "charge_run"
+      ]
+    },
     "frozen_keys": {
       "fixture": "tests/fixtures/boss-f01_keys.json",
       "frames": [
@@ -224,6 +230,21 @@
           15
         ],
         "min_top": 76
+      },
+      {
+        "id": "B-04-crash-hit-squash-82-86px",
+        "frames": [
+          7
+        ],
+        "min_top": 50,
+        "max_top": 54
+      },
+      {
+        "id": "B-05-pin-squash-flatter-than-key",
+        "frames": [
+          13
+        ],
+        "min_top": 88
       },
       {
         "id": "R-crash-stun-lower-than-idle",
