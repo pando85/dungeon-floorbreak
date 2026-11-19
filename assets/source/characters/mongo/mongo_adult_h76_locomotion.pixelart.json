@@ -139,10 +139,15 @@
         4,
         5,
         6,
+        7,
+        8,
+        9,
         10,
+        11,
         12,
         13,
-        14
+        14,
+        15
       ],
       "layers": [
         "tail",
@@ -190,9 +195,12 @@
     ]
   },
   "review": {
+    "strip_name": "03_jump_land_strip.png",
     "strip_tags": [
       "run",
       "jump_start",
+      "jump_rise",
+      "jump_fall",
       "land"
     ]
   },

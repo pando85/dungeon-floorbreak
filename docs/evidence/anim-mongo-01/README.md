@@ -1,6 +1,6 @@
 # ANIM-MONGO-01: evidence for the adult Mongo locomotion (16 frames)
 
-Pillow renders of the committed grid `assets/source/characters/mongo/mongo_adult_h76_locomotion.grid.json`, nearest-neighbour integer enlargements only. None is a Bevy capture; the lit scenes use the Floor 1 kit contract and the A1 lighting pass of the existing compositor. Spec and execution record: [`docs/02-art/mongo-locomotion-anim-01-spec.md`](../../02-art/mongo-locomotion-anim-01-spec.md). Status: candidate, independent review pending, owner review at the end.
+Pillow renders of the committed grid `assets/source/characters/mongo/mongo_adult_h76_locomotion.grid.json`, nearest-neighbour integer enlargements only. None is a Bevy capture; the lit scenes use the Floor 1 kit contract and the A1 lighting pass of the existing compositor. Spec and execution record: [`docs/02-art/mongo-locomotion-anim-01-spec.md`](../../02-art/mongo-locomotion-anim-01-spec.md). Status: candidate, independent review passed, owner review at the end.
 
 Regenerate from the repository root:
 
@@ -22,5 +22,5 @@ The script rewrites `SHA256SUMS` (every file here including `review-pack/`, and 
 | `run_x1.gif`, `run_x3.gif` | the 6-frame run at 5 ticks per frame (500 ms cycle), two cycles; exact indexed palette |
 | `jump_land_x1.gif`, `jump_land_x3.gif` | idle, crouch, push-off, rise, fall, impact, recover, idle at the 60 Hz tick table; rise and fall lifted for the preview only; exact palette |
 | `floor01_scene_640x360.png`, `floor01_scene_1920x1080.png` | Carl and Donut with Mongo idle, run F0, rise (lifted) and impact in the lit Floor 1 catacomb, unmirrored |
-| `review-pack/` | `python3 -m scripts.pixelart review-pack`: three images (contact sheet x4, lit scene x3, run to land strip with the tick bar) plus `validator_summary.txt` and `validator_report.json` |
+| `review-pack/` | `python3 -m scripts.pixelart review-pack`: three images (contact sheet x4, lit scene x3, `03_jump_land_strip.png`: run, jump_start, jump_rise, jump_fall and land with the tick bar) plus `validator_summary.txt` and `validator_report.json` |
 | `measurements.json` | per frame: duration, bounding box, height, head top-left and row-87 contact runs per leg layer |

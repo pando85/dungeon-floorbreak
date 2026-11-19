@@ -243,14 +243,16 @@ def onion_skin(grid: dict, imgs: list[Image.Image]) -> Image.Image:
         else:
             cx, cy = (lx - x0) * k + k // 2, (ly - y0) * k + k // 2
             d.ellipse([cx - 7, cy - 7, cx + 7, cy + 7], outline=tint, width=3)
-    img = Image.new("RGB", (big.width, big.height + 56), (10, 10, 14))
-    img.paste(big.convert("RGB"), (0, 56))
+    head = 78
+    img = Image.new("RGB", (big.width, big.height + head), (10, 10, 14))
+    img.paste(big.convert("RGB"), (0, head))
     dd = ImageDraw.Draw(img)
     dd.text((10, 6), "ANIM-MONGO-01 run onion skin, frames 4-9 at 8x: back line and feet.", font=font(17),
             fill=(235, 235, 245))
-    dd.text((10, 28), "bars under the floor = planted foot, rings = airborne toe", font=font(14), fill=(170, 170, 190))
+    dd.text((10, 28), "bars under the floor = planted foot, rings = airborne toe "
+            "(frames 6 and 9 share one ring: same toe position)", font=font(14), fill=(170, 170, 190))
     for n, f in enumerate(RUN):
-        dd.text((430 + (n % 3) * 100, 6 + (n // 3) * 20), f"frame {f}", font=font(15), fill=TINTS[n])
+        dd.text((10 + n * 100, 52), f"frame {f}", font=font(15), fill=TINTS[n])
     return img
 
 
