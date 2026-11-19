@@ -154,9 +154,11 @@ def tell_attack_strip(cfg: AssetConfig, imgs: list[Image.Image], k: int = 4) -> 
                        f"(tick 0 = first frame of the strip)", WHITE, 11)
     tick = 0
     spans = []
+    hook = scene.review_hook(cfg)
     for i, (tag, f, tk) in enumerate(frames):
         x = pad + i * (w * k + gap)
-        sheet.paste(cell(imgs[f], k, cfg.pivot, cfg.contact_row).convert("RGB"), (x, head))
+        shown = hook.strip_frame(cfg, f, imgs[f]) if hook else imgs[f]
+        sheet.paste(cell(shown, k, cfg.pivot, cfg.contact_row).convert("RGB"), (x, head))
         window = "state-driven hold" if tk is None else f"ticks {tick}-{tick + tk - 1}"
         label(d, (x + 1, head + h * k + 2), f"{f:02d} {tag}", WHITE, 11)
         label(d, (x + 1, head + h * k + 17), window, YELLOW, 11)

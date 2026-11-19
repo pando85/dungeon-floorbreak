@@ -72,11 +72,25 @@ def default_actors(cfg: AssetConfig) -> list[dict]:
     return out
 
 
+def review_hook(cfg: AssetConfig):
+    """The asset-local review hook named by ``review.hook`` in the config (a module under ``scripts``), or None.
+
+    Opt-in: an asset that needs extra context in its review images (for example a hazard drawn over a crushed enemy)
+    names a module with ``actor_overlays(cfg, actor) -> (before, after)`` (scene entries drawn around the actor) and
+    ``strip_frame(cfg, frame, img) -> img`` (the frame as shown in the tell/attack strip). Without the key nothing changes."""
+    name = cfg.get("review", {}).get("hook")
+    if not name:
+        return None
+    import importlib
+    return importlib.import_module(name)
+
+
 def entries_for(cfg: AssetConfig, imgs: list[Image.Image]) -> list[tuple]:
     carl, carl_piv = reference_idle("carl")
     donut, donut_piv = reference_idle("donut")
     entries = [(donut, donut_piv, DONUT_X, 0), (carl, carl_piv, CARL_X, 0)]
     pivot = tuple(cfg.pivot)
+    hook = review_hook(cfg)
     for actor in default_actors(cfg):
         img, piv = imgs[actor["frame"]], pivot
         # authored facing right; enemies face Carl on their left, so mirror them (the runtime rule)
@@ -84,10 +98,11 @@ def entries_for(cfg: AssetConfig, imgs: list[Image.Image]) -> list[tuple]:
             img, piv = flip(img, pivot)
         shadow = actor.get("shadow", cfg.get("scene", {}).get("shadow", True))  # False: wall/ceiling creature
         entry = (img, piv, actor["x"], actor.get("lift", 0), shadow)
+        before, after = hook.actor_overlays(cfg, actor) if hook else ([], [])
         if actor.get("behind"):       # drawn before Carl and Donut (effects sit behind the actors)
             entries.insert(0, entry)
         else:
-            entries.append(entry)
+            entries += list(before) + [entry] + list(after)
     for ref in cfg.get("scene", {}).get("references", []):
         # extra approved sprites for direct comparison (e.g. GOB-01 A/B next to a later goblin type)
         grid = load_grid_file(repo_path(ref["grid"]))
