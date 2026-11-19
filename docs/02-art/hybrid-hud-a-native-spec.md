@@ -337,3 +337,4 @@ Difficulty routing (pixel-art-pipeline "routing by difficulty"):
 6. **Keyboard glyphs (HUD-DEBT-05):** keyboard players see gamepad glyphs today. Recorded as a TODO in the backlog.
 7. **Area names (implementation note):** the HUD shows `FLOOR 01` only until layout data carries an area name.
 8. **Notice copy (implementation note):** the headlines live in a data table in `src/hud.rs` and are placeholders pending an owner tone check.
+9. **Implementation deviations:** see the HUD section of [floor01-scene.md](../03-tech/floor01-scene.md#hud-hud-hybrid-a-01) (muted glyph tint, no CRT screen flash, static fixture ages).

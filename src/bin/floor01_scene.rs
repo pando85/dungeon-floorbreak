@@ -56,6 +56,8 @@ use dungeon_floorbreak::{
     },
     goblin::{AttackPhase, GoblinMode},
     gore::{DeathArt, GorePreset, Sheet},
+    hud::{GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
+    hud_adapter::{HudPlugin, HudState},
     input::RawInput,
     light_pass::{
         LAYER_DEBUG, LightPassPlugin, LightRig, LightingMaterial, PassFrame, SceneCamera,
@@ -138,6 +140,37 @@ struct Args {
     death_lab_finish: Option<Finish>,
     /// Headless fixture only: print the presenter's `DEATH_PRESENT` summary.
     death_trace: bool,
+    /// HUD-HYBRID-A-01: draw a labelled HUD preview fixture. Presentation
+    /// only: it never reaches the simulation, the combat state or a replay.
+    hud_preview: Option<HudPreview>,
+    /// HUD controller glyph set (`xbox` by default, `dualsense`).
+    glyphs: GlyphSet,
+    /// HUD: no slides, blinks or flashes.
+    hud_reduced_motion: bool,
+}
+
+impl Args {
+    fn hud_config(&self) -> HudConfig {
+        HudConfig {
+            preview: self.hud_preview,
+            glyphs: self.glyphs,
+            reduced_motion: self.hud_reduced_motion,
+        }
+    }
+}
+
+fn parse_hud_preview(value: &str) -> Result<HudPreview, String> {
+    HudPreview::parse(value).ok_or_else(|| {
+        format!(
+            "unknown HUD preview {value:?} (expected {})",
+            HudPreview::names()
+        )
+    })
+}
+
+fn parse_glyphs(value: &str) -> Result<GlyphSet, String> {
+    GlyphSet::parse(value)
+        .ok_or_else(|| format!("unknown glyph set {value:?} (expected xbox, dualsense)"))
 }
 
 /// Parse `first:step:count` of `--capture-sequence`.
@@ -179,6 +212,9 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         death_stress: false,
         death_lab_finish: None,
         death_trace: false,
+        hud_preview: None,
+        glyphs: GlyphSet::default(),
+        hud_reduced_motion: false,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -195,6 +231,21 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
                     format!("unknown fixture {value:?} (expected {})", Fixture::names())
                 })?);
             }
+            "--hud-preview" => {
+                let value = iter.next().ok_or("--hud-preview needs a name")?;
+                parsed.hud_preview = Some(parse_hud_preview(value)?);
+            }
+            other if other.starts_with("--hud-preview=") => {
+                parsed.hud_preview = Some(parse_hud_preview(&other["--hud-preview=".len()..])?);
+            }
+            "--glyphs" => {
+                let value = iter.next().ok_or("--glyphs needs xbox or dualsense")?;
+                parsed.glyphs = parse_glyphs(value)?;
+            }
+            other if other.starts_with("--glyphs=") => {
+                parsed.glyphs = parse_glyphs(&other["--glyphs=".len()..])?;
+            }
+            "--hud-reduced-motion" => parsed.hud_reduced_motion = true,
             "--no-lighting" => parsed.no_lighting = true,
             "--no-audio" => parsed.no_audio = true,
             "--audio-style" => {
@@ -380,7 +431,26 @@ fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
     Ok(presenter)
 }
 
-fn build_scene(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<Scene, String> {
+/// One HUD step after a finished simulation tick: the real health values and
+/// the newest combat events. Read-only on the simulation.
+fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) {
+    let (events, dropped) =
+        combat.map_or((&[][..], 0), |c| (c.events.as_slice(), c.dropped_events));
+    hud.step(
+        sim.world.hero.health,
+        sim.world.donut.health,
+        events,
+        dropped,
+    );
+}
+
+fn build_scene(
+    kit: &EnvKit,
+    args: &Args,
+    actors: &Actors,
+    root: &Path,
+    hud: &mut HudRuntime,
+) -> Result<Scene, String> {
     if let Some(fixture) = args.fixture {
         // A combat fixture: Carl starts at the fixture column; the script is
         // pre-simulated for a capture, otherwise left for the live loop.
@@ -392,6 +462,7 @@ fn build_scene(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Resul
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let raw = fixture.input(sim.world.tick + 1);
             step_combat(&mut sim, &mut combat, &mut anim, Some(&mut death), raw);
+            step_hud(hud, &sim, Some(&combat));
             if args.combat_trace {
                 println!("{}", combat.trace_line(&sim));
             }
@@ -409,6 +480,7 @@ fn build_scene(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Resul
         let trace = args.anim_trace;
         sim.run_scenario_observed(scenario, ticks, |state| {
             anim.step(&state.world);
+            step_hud(hud, state, None);
             if trace {
                 println!("{}", trace_line(state, &anim));
             }
@@ -533,11 +605,12 @@ fn main() -> ExitCode {
             }
         };
     }
-    let (sim, anim, combat, death) = match build_scene(&kit, &args, &actors, &root) {
+    let mut hud = HudRuntime::new(args.hud_config());
+    let (sim, anim, combat, death) = match build_scene(&kit, &args, &actors, &root, &mut hud) {
         Ok(scene) => scene,
         Err(message) => return failure(&message),
     };
-    run_window(kit, sim, anim, combat, death, actors, args, &root);
+    run_window(kit, sim, anim, combat, death, actors, hud, args, &root);
     ExitCode::SUCCESS
 }
 
@@ -545,6 +618,11 @@ fn main() -> ExitCode {
 
 #[derive(Resource)]
 struct Sim(SceneSim);
+
+/// Asset path of the HUD atlas when its art is exported (the loading
+/// watchdog waits for it like for every other atlas).
+#[derive(Resource)]
+struct HudAtlas(Option<&'static str>);
 
 /// Presentation-only animation state, stepped once per fixed tick from the
 /// finished simulation state.
@@ -778,6 +856,7 @@ fn run_window(
     combat: Option<CombatState>,
     death: Option<DeathPresenter>,
     actors: Actors,
+    hud: HudRuntime,
     args: Args,
     root: &Path,
 ) {
@@ -828,6 +907,36 @@ fn run_window(
         AudioCommand::Music(scene_music(combat.is_some())),
         AudioCommand::Ambience(scene_ambience()),
     ];
+    // The HUD camera draws after the last scene camera: one above the debug
+    // overlay when lit (`first_post + 4`), one above the plain camera otherwise.
+    let view_h = view_height(args.deck);
+    // The unlit scene camera keeps Bevy's default sample count; the lit cameras
+    // are all `Msaa::Off`. The HUD camera must match its target's cameras.
+    let hud_msaa = if lighting_on {
+        Msaa::Off
+    } else {
+        Msaa::default()
+    };
+    let hud_order = match kit.lighting.as_ref().filter(|_| lighting_on) {
+        Some(lighting) => lighting.plan.slots.len() as isize + 5,
+        None => 1,
+    };
+    let view_key = if args.deck {
+        REFERENCE_VIEW_DECK
+    } else {
+        REFERENCE_VIEW
+    };
+    let view_top = kit.view(view_key).map_or(0, |v| v.y);
+    let hud_layout = HudLayout::new(view_h, kit.base_walk_line_y - view_top);
+    let hud_plugin = match HudPlugin::load(root, hud, hud_layout, hud_order, hud_msaa) {
+        Ok(plugin) => plugin,
+        Err(message) => {
+            println!("FLOOR1_ASSET_FAILURE: {message}");
+            eprintln!("FLOOR1_ASSET_FAILURE: {message}");
+            std::process::exit(1);
+        }
+    };
+    let hud_atlas = hud_plugin.atlas_asset();
     let mut plugins = DefaultPlugins
         .set(ImagePlugin::default_nearest())
         .set(AssetPlugin {
@@ -860,6 +969,7 @@ fn run_window(
         pack_dir: resolve_pack_dir(),
         initial: audio_initial,
     })
+    .add_plugins(hud_plugin)
     .insert_resource(ClearColor(Color::srgb_u8(6, 5, 12)))
     .insert_resource(Time::<Fixed>::from_hz(60.0))
     .insert_resource(Sim(sim))
@@ -873,6 +983,7 @@ fn run_window(
     .insert_resource(Combat(combat))
     .insert_resource(Death(death))
     .insert_resource(LiveFixture(live_fixture))
+    .insert_resource(HudAtlas(hud_atlas))
     .insert_resource(Setup { kit, args })
     .init_resource::<Controls>()
     .init_resource::<AfterExitTicks>()
@@ -937,6 +1048,7 @@ fn setup(
     actors: Res<Actors>,
     combat: Res<Combat>,
     death: Res<Death>,
+    hud_atlas: Res<HudAtlas>,
 ) {
     let kit = &setup.kit;
     let args = &setup.args;
@@ -954,6 +1066,9 @@ fn setup(
     let mut handles: Vec<(String, Handle<Image>)> = Vec::new();
     for (name, asset) in &kit.atlases {
         handles.push((name.clone(), asset_server.load(asset.clone())));
+    }
+    if let Some(asset) = hud_atlas.0 {
+        handles.push((asset.to_owned(), asset_server.load(asset)));
     }
     let atlas = |name: &str| -> Handle<Image> {
         handles
@@ -1450,6 +1565,7 @@ fn fixed_step(
     mut anim: ResMut<Anim>,
     mut after_exit: ResMut<AfterExitTicks>,
     mut audio: ResMut<AudioQueue>,
+    mut hud: ResMut<HudState>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let restart = std::mem::take(&mut controls.restart);
@@ -1477,6 +1593,7 @@ fn fixed_step(
         if let Some(death) = death.0.as_mut() {
             death.clear();
         }
+        hud.0.restart();
         after_exit.0 = 0;
         println!("FLOOR1_RESTART");
     }
@@ -1527,6 +1644,7 @@ fn fixed_step(
         sim.0.step(raw);
         anim.0.step(&sim.0.world);
     }
+    step_hud(&mut hud.0, &sim.0, combat.0.as_ref());
     if sim.0.world.complete && !was_complete {
         println!("FLOOR1_EXIT_REACHED tick={}", sim.0.world.tick);
     }
@@ -2525,7 +2643,8 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         // the fixture's own length), every event, then the state lines.
         let mut args = args.clone();
         args.capture_tick.get_or_insert(fixture.ticks);
-        let (sim, anim, combat, death) = build_scene(kit, &args, actors, root)?;
+        let mut hud = HudRuntime::new(args.hud_config());
+        let (sim, anim, combat, death) = build_scene(kit, &args, actors, root, &mut hud)?;
         let mut combat = combat.ok_or("fixture without combat state")?;
         print_combat_events(&mut combat, None);
         println!("{}", sim.state_line());
@@ -2538,7 +2657,8 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         }
         return Ok(());
     }
-    let (sim, anim, _, _) = build_scene(kit, args, actors, root)?;
+    let mut hud = HudRuntime::new(args.hud_config());
+    let (sim, anim, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
     Ok(())
@@ -2552,6 +2672,36 @@ mod tests {
         let mut full = vec!["floor01_scene".to_owned()];
         full.extend(list.iter().map(|s| (*s).to_owned()));
         parse_args(&full)
+    }
+
+    #[test]
+    fn the_hud_flags_parse_both_forms_and_reject_unknown_values() {
+        assert_eq!(args(&[]).unwrap().hud_preview, None);
+        assert_eq!(args(&[]).unwrap().glyphs, GlyphSet::Xbox);
+        assert!(!args(&[]).unwrap().hud_reduced_motion);
+        for preview in HudPreview::ALL {
+            let spaced = args(&["--hud-preview", preview.name()]).unwrap();
+            let equals = args(&[&format!("--hud-preview={}", preview.name())]).unwrap();
+            assert_eq!(spaced.hud_preview, Some(preview));
+            assert_eq!(equals.hud_preview, Some(preview));
+        }
+        assert!(
+            args(&["--hud-preview", "nope"])
+                .unwrap_err()
+                .contains("expected")
+        );
+        assert!(args(&["--hud-preview=nope"]).is_err());
+        assert!(args(&["--hud-preview"]).is_err());
+        assert_eq!(
+            args(&["--glyphs=dualsense"]).unwrap().glyphs,
+            GlyphSet::DualSense
+        );
+        assert_eq!(
+            args(&["--glyphs", "dualsense"]).unwrap().glyphs,
+            GlyphSet::DualSense
+        );
+        assert!(args(&["--glyphs=ps5"]).is_err());
+        assert!(args(&["--hud-reduced-motion"]).unwrap().hud_reduced_motion);
     }
 
     #[test]
