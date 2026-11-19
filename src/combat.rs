@@ -680,7 +680,11 @@ pub(crate) fn solid_at(solids: &[Block], candidate: Rect) -> bool {
 // ------------------------------------------------------------------ strikes --
 
 /// Where an attacker stands: AABB centre and which way it faces.
-#[derive(Debug, Clone, Copy, PartialEq)]
+///
+/// `Default` is a camera-lab hook: callers write `Attacker { x, y, half_height,
+/// facing, ..Default::default() }` so they keep compiling when another branch
+/// adds a field.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Attacker {
     pub x: f32,
     pub y: f32,

@@ -5,6 +5,7 @@ pub mod anim;
 pub mod audio;
 pub mod audio_adapter;
 pub mod camera;
+pub mod camera_lab;
 pub mod combat;
 pub mod combat_anim;
 pub mod combat_scene;
