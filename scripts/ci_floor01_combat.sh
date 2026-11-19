@@ -119,6 +119,50 @@ case "$mode" in
       fi
       echo "PARTY_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/party_${f}.txt")"
     done
+    # DEMO-01 PR C: the presentation camera never feeds the simulation. On the
+    # tall camera test room, every --camera (the scroll camera, the automatic one
+    # with a synthetic foe that takes aim, and the fixed coverages) replays the
+    # same scene state and combat hash for the same fixture.
+    for f in cp01_haymaker_chain cp03_goblin_pileup; do
+      reference=""
+      for cam in scroll auto 1.0 1.25 1.5; do
+        got="$("$bin" --headless-floor01-smoke --fixture "$f" --camera-test-room 1 --camera "$cam" --camera-test-threat 880:30:150 --view-trace | grep -E '^(FLOOR1_SCENE_STATE|FLOOR1_VIEW_TRACE_HASH)')"
+        if [[ -z "$reference" ]]; then
+          reference="$got"
+        elif [[ "$got" != "$reference" ]]; then
+          diff <(echo "$reference") <(echo "$got") || true
+          echo "fixture $f replays differently with --camera $cam (the camera must be presentation only)" >&2
+          exit 1
+        fi
+      done
+      echo "CAMERA_HASH_OK: $f (identical for scroll, auto, 1.0, 1.25 and 1.5)"
+    done
+    # The same on the sample corridor (no test room): its 400 px height keeps
+    # every camera at 640, and the replay is still identical.
+    reference=""
+    for cam in scroll auto 1.5; do
+      got="$("$bin" --headless-floor01-smoke --fixture cp01_haymaker_chain --camera "$cam" --view-trace | grep -E '^(FLOOR1_SCENE_STATE|FLOOR1_VIEW_TRACE_HASH)')"
+      if [[ -z "$reference" ]]; then
+        reference="$got"
+      elif [[ "$got" != "$reference" ]]; then
+        echo "corridor replay differs with --camera $cam" >&2
+        exit 1
+      fi
+    done
+    echo "CAMERA_HASH_OK: cp01_haymaker_chain on the corridor (scroll, auto, 1.5)"
+    # And on the real demo hall (DEMO-01 PR A), where `auto` is the default and
+    # the autopilot's route respawns Carl: the same replay for every camera.
+    reference=""
+    for cam in scroll auto 1.5; do
+      got="$("$bin" --headless-floor01-smoke --demo --demo-beat 4 --camera "$cam" --camera-test-threat 2560:30:150 --capture-tick 420 --view-trace | grep -E '^(FLOOR1_SCENE_STATE|FLOOR1_VIEW_TRACE_HASH)')"
+      if [[ -z "$reference" ]]; then
+        reference="$got"
+      elif [[ "$got" != "$reference" ]]; then
+        echo "demo replay differs with --camera $cam" >&2
+        exit 1
+      fi
+    done
+    echo "CAMERA_HASH_OK: demo beat 4 on the hall (scroll, auto, 1.5)"
     ;;
   render)
     run_log_wait() {
@@ -162,6 +206,24 @@ case "$mode" in
       fi
       echo "COMBAT_LIVE_MATCH: $(last_state <<<"$rendered")"
     done
+    # DEMO-01 PR C: the real render loop with the automatic camera (zoom to 960
+    # on the tall test room, the A1 lighting pass retargeted every frame) ends in
+    # the same scene state as the headless replay, and really widened.
+    log="$out/render_camera_auto.log"
+    "$bin" --scale 3 --fixture cp01_haymaker_chain --camera-test-room 1 --camera auto \
+      --camera-test-threat 880:30:150 --exit-after-ticks 230 > "$log" 2>&1 &
+    run_log_wait "$!" "$log" 180
+    expected="$("$bin" --headless-floor01-smoke --fixture cp01_haymaker_chain --camera-test-room 1 --camera auto \
+      --camera-test-threat 880:30:150 --view-trace | grep '^FLOOR1_SCENE_STATE' | tail -n 1)"
+    if [[ "$(grep '^FLOOR1_SCENE_STATE' "$log" | tail -n 1)" != "$expected" ]]; then
+      echo "Render run with --camera auto differs from the headless replay" >&2
+      exit 1
+    fi
+    if ! grep -q 'FLOOR1_CAMERA_REST .* rest=960' "$log"; then
+      echo "The automatic camera never widened to 960 in the render run" >&2
+      exit 1
+    fi
+    echo "CAMERA_RENDER_OK: $expected"
     # Real 1920x1080 captures, every tick of each window.
     for spec in "${sequences[@]}"; do
       IFS=: read -r f first step count <<<"$spec"

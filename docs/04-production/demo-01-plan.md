@@ -158,7 +158,7 @@ Expected run: 3 to 5 minutes, about 18 goblins and one llama. Every beat maps on
 - `src/scene_camera.rs` (new, Bevy-free): after each tick, builds the `CameraInput` from `SceneSim` and `CombatState` (subjects Carl and Donut; threats: a llama that has acquired Carl, its tell and a glob in flight, by the lab's priorities), owns the `CameraOperator` for the output size, adds the CP-01 camera kick in whole pixels, returns the view; a `--view-trace` line per tick for tests.
 - `src/bin/floor01_scene.rs`: the flag, lighting slot targets allocated at the largest coverage of the output, per-frame slot camera viewport and projection (as `sync_visuals` in `camera_lab.rs`), parallax and torch gathering from the presentation view; the HUD camera untouched.
 - `src/camera_lab/camera_op.rs`: read only (making an item `pub` is the only allowed edit).
-- `docs/03-tech/floor01-scene.md` (Camera section), `docs/evidence/demo-01-camera/`.
+- `docs/03-tech/floor01-scene.md` (Camera section), `docs/evidence/scene-camera/`.
 
 **Acceptance.**
 
