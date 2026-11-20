@@ -346,11 +346,16 @@ impl Morale {
     /// baseline plus the draw's offset clamped to the nerve range, panic not yet
     /// used, no reaction, no cooldown.
     pub fn spawn(t: &Cf02Tuning, draw: &Draw) -> Self {
-        let base = baseline(t, draw.temperament);
+        // Ruling N2 (PR #139 review): the drawn offset is part of the baseline nerve
+        // drifts back to, so it does not fade.
+        let rest = clamp_nerve(
+            t,
+            i32::from(baseline(t, draw.temperament)) + i32::from(draw.nerve_offset),
+        );
         Self {
             temperament: draw.temperament,
-            baseline: base,
-            nerve: clamp_nerve(t, i32::from(base) + i32::from(draw.nerve_offset)),
+            baseline: rest,
+            nerve: rest,
             panic_len: draw.panic_len,
             panic_used: false,
             reaction: Reaction::Neutral,
@@ -364,6 +369,8 @@ impl Morale {
         self.temperament
     }
 
+    /// The nerve this goblin rests at and drifts back to: its temperament's
+    /// baseline plus its drawn offset (N2).
     pub fn baseline(&self) -> u8 {
         self.baseline
     }
@@ -379,6 +386,52 @@ impl Morale {
     /// Q61: the goblin has already panicked in this attempt.
     pub fn panic_used(&self) -> bool {
         self.panic_used
+    }
+
+    /// Fold the whole morale state into a state hash (CF02-G: the caller mixes it
+    /// only for a run with morale, so no other run hashes it).
+    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
+        mix(match self.temperament {
+            Temperament::Brawler => 1,
+            Temperament::Coward => 2,
+            Temperament::ShowOff => 3,
+        });
+        mix(u64::from(self.baseline));
+        mix(u64::from(self.nerve));
+        mix(u64::from(self.panic_len));
+        mix(u64::from(self.panic_used));
+        match self.reaction {
+            Reaction::Neutral => mix(0),
+            Reaction::Hesitate { left } => {
+                mix(1);
+                mix(u64::from(left));
+            }
+            Reaction::Panic {
+                left,
+                flee_dir,
+                blocked,
+            } => {
+                mix(2);
+                mix(u64::from(left));
+                mix(flee_dir as i64 as u64);
+                mix(u64::from(blocked));
+            }
+            Reaction::Enraged { left } => {
+                mix(3);
+                mix(u64::from(left));
+            }
+            Reaction::Taunt { left } => {
+                mix(4);
+                mix(u64::from(left));
+            }
+            Reaction::BackOff { elapsed } => {
+                mix(5);
+                mix(u64::from(elapsed));
+            }
+        }
+        mix(u64::from(self.drift_timer));
+        mix(u64::from(self.taunt_cooldown));
+        mix(u64::from(self.backoff_cooldown));
     }
 
     /// Advance one tick, in this order: (a) the running reaction's timer (a
@@ -857,6 +910,24 @@ mod tests {
     }
 
     #[test]
+    fn n2_nerve_drifts_back_to_the_baseline_plus_the_drawn_offset() {
+        let t = tuning();
+        for offset in [-5i8, 3, 5] {
+            let mut m = Morale::spawn(&t, &draw(Temperament::Brawler, offset));
+            let rest = (70 + i16::from(offset)) as u8;
+            assert_eq!((m.nerve(), m.baseline()), (rest, rest));
+            // Knocked down by a scare (no reaction needed), then 400 quiet ticks.
+            let mut hit = input(-5);
+            hit.can_react = false;
+            m.step(&t, &hit);
+            for _ in 0..400 {
+                m.step(&t, &quiet());
+            }
+            assert_eq!(m.nerve(), rest, "offset {offset}: the offset does not fade");
+        }
+    }
+
+    #[test]
     fn q57_q59_spawn_is_baseline_plus_offset_clamped_to_the_nerve_range() {
         let t = tuning();
         assert_eq!(
@@ -1001,25 +1072,35 @@ mod tests {
     // ---- Q57 / Q61 --------------------------------------------------------
 
     #[test]
-    fn q57_drift_moves_one_point_toward_the_baseline_every_20_ticks() {
+    fn q57_drift_moves_one_point_toward_the_rest_nerve_every_20_ticks() {
+        // N2: the rest nerve is the baseline plus the drawn offset.
         let t = tuning();
-        let mut up = Morale::spawn(&t, &draw(Temperament::Brawler, -5)); // 65 -> 70
-        for tick in 1..=19 {
+        let mut scared = input(-10);
+        scared.can_react = false;
+        let mut up = Morale::spawn(&t, &draw(Temperament::Brawler, -5)); // rests at 65
+        assert_eq!(up.nerve(), 65);
+        up.step(&t, &scared); // 55, one drift timer tick in
+        assert_eq!(up.nerve(), 55);
+        for tick in 1..=18 {
             up.step(&t, &quiet());
-            assert_eq!(up.nerve(), 65, "tick {tick}");
+            assert_eq!(up.nerve(), 55, "tick {tick}");
         }
         up.step(&t, &quiet());
-        assert_eq!(up.nerve(), 66);
-        for _ in 0..(20 * 10) {
+        assert_eq!(up.nerve(), 56);
+        for _ in 0..(20 * 12) {
             up.step(&t, &quiet());
         }
-        assert_eq!(up.nerve(), 70, "stops at the baseline");
+        assert_eq!(up.nerve(), 65, "stops at the rest nerve, not at 70");
 
-        let mut down = Morale::spawn(&t, &draw(Temperament::Coward, 5)); // 50 -> 45
-        for _ in 0..(20 * 3) {
+        // From above: a Coward rests at 50 (45 + 5) and drifts down to it.
+        let mut hero_hurt = input(30);
+        hero_hurt.can_react = false;
+        let mut down = Morale::spawn(&t, &draw(Temperament::Coward, 5));
+        down.step(&t, &hero_hurt); // 80
+        for _ in 0..(20 * 40) {
             down.step(&t, &quiet());
         }
-        assert_eq!(down.nerve(), 47);
+        assert_eq!(down.nerve(), 50);
     }
 
     #[test]
@@ -1048,7 +1129,11 @@ mod tests {
                 assert_eq!(out.started, None, "offset {offset} tick {tick}");
                 assert_eq!(m.reaction(), Reaction::Neutral);
             }
-            assert_eq!(m.nerve(), 45);
+            assert_eq!(
+                m.nerve(),
+                (45 + i16::from(offset)) as u8,
+                "rests at its own nerve (N2)"
+            );
         }
     }
 

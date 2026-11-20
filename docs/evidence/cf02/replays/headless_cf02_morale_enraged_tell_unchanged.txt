@@ -1,0 +1,17 @@
+COMBAT_EVENT tick=4 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=30 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=30 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=30 kind=goblin_reaction goblin=1 reaction=enraged nerve=86
+COMBAT_EVENT tick=66 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=92 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=92 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=99 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=125 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=145 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=171 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=171 kind=hero_hurt source=1 health_left=1
+COMBAT_EVENT tick=190 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=216 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=240 kind=goblin_tell goblin=1
+COMBAT_STATE fixture=cf02_morale_enraged_tell_unchanged seed=0xcf020d3c tick=260 elapsed=260 hero_hp=1 deaths=0 enemies=e0=430.000/2,e1=428.983/2 hash=fa2db7efbe97fda7
+PARTY_STATE fixture=cf02_morale_enraged_tell_unchanged mode=solo controlled=Carl carl_hp=1 donut_hp=4 deaths=0 hash=897bdf0bdb9921bd

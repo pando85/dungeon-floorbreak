@@ -118,6 +118,27 @@ pub fn goblin_health(fixture: &str) -> Option<u8> {
     }
 }
 
+/// CF02-G: whether the goblin morale (Q57..Q68) runs in this fixture. The A, H and
+/// B fixtures keep their replays and run without it; only the `cf02_morale_*`
+/// fixtures and the G scenarios listed here run with it (the `--cf02` scenario
+/// always does).
+pub fn morale_fixture(fixture: &str) -> bool {
+    matches!(
+        fixture,
+        "cf02_morale_witness_hesitate"
+            | "cf02_morale_spectacle_panic"
+            | "cf02_morale_panic_once"
+            | "cf02_morale_last_goblin"
+            | "cf02_morale_cornered"
+            | "cf02_morale_enraged_tell_unchanged"
+            | "cf02_coward_backoff_kick"
+            | "cf02_coward_jab_still_hits"
+            | "cf02_showoff_taunt_punish"
+            | "cf02_pincer_token"
+            | "cf02_restart_reshuffles"
+    )
+}
+
 // -------------------------------------------------------------- CF02-A --
 
 /// Every fixture here starts Carl at column 400, facing right. A `dummy` goblin
@@ -382,7 +403,12 @@ pub const CF02_2P_SAME_TICK: PartyFixture = PartyFixture {
 /// Carl can act again). `None` for every other fixture.
 pub fn goblin_launch(fixture: &str) -> Option<(f32, f32)> {
     match fixture {
-        "cf02_air_kick_relaunch_once" => Some((40.0, 330.0)),
+        "cf02_air_kick_relaunch_once" | "cf02_air_relaunch_contact" => Some((40.0, 330.0)),
+        // CF02-B: a flier below the 120 px/s contact threshold.
+        "cf02_contact_below_threshold" => Some((100.0, 150.0)),
+        // CF02-B: a long flight from behind Carl into a goblin that is in its tell
+        // (Carl's own kick would also hit a goblin that close to him).
+        "cf02_contact_cancels_swing" => Some((170.0, 330.0)),
         _ => None,
     }
 }
@@ -667,7 +693,404 @@ pub const CF02_DIVE_BOSS: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
-pub const CF02_FIXTURES: [&PartyFixture; 27] = [
+// -------------------------------------------------------------- CF02-B --
+
+const CONTACT_KNOCKDOWN_BASE: Fixture = base(
+    "cf02_contact_knockdown",
+    "CF02-B: a kicked goblin (170 px/s) hits a second one: the second goblin is knocked down (a short hop, then it lies 40 ticks), no damage, the flier keeps 25 % of its speed",
+    0xCF02_0C01,
+    &[dummy(430), dummy(462)],
+    120,
+);
+
+/// Q09, Q12: a contact at kick speed is a knockdown, not a stagger.
+pub const CF02_CONTACT_KNOCKDOWN: PartyFixture = PartyFixture {
+    base: &CONTACT_KNOCKDOWN_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[physical(5, 6, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const CONTACT_BELOW_THRESHOLD_BASE: Fixture = base(
+    "cf02_contact_below_threshold",
+    "CF02-B: a flier slower than 120 px/s (a QA launch of 100 px/s) still gets the legacy contact: the second goblin staggers 24 ticks and is pushed 60 px/s, it is not knocked down",
+    0xCF02_0C02,
+    &[dummy(430), dummy(452)],
+    80,
+);
+
+/// Q09: below the threshold the legacy stagger applies.
+pub const CF02_CONTACT_BELOW_THRESHOLD: PartyFixture = PartyFixture {
+    base: &CONTACT_BELOW_THRESHOLD_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const CONTACT_CANCELS_SWING_BASE: Fixture = base(
+    "cf02_contact_cancels_swing",
+    "CF02-B: a goblin in its tell is hit by a flier (a QA launch from behind Carl, 170 px/s): its attack ends, its token goes back and it is knocked down",
+    0xCF02_0C03,
+    &[dummy(335), chase(445)],
+    120,
+);
+
+/// Q09, Q35: a goblin hit in its tell is knocked down the same way.
+pub const CF02_CONTACT_CANCELS_SWING: PartyFixture = PartyFixture {
+    base: &CONTACT_CANCELS_SWING_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const NO_CHAIN_BASE: Fixture = base(
+    "cf02_no_chain",
+    "CF02-B: three goblins in a row: the kicked flier knocks the second down, and the knocked goblin (no launch instance) never knocks the third down: one contact only",
+    0xCF02_0C04,
+    &[dummy(430), dummy(462), dummy(490)],
+    120,
+);
+
+/// Q09: a knocked-down goblin carries no launch, so nothing chains.
+pub const CF02_NO_CHAIN: PartyFixture = PartyFixture {
+    base: &NO_CHAIN_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[physical(5, 6, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BODY_BOWL_BASE: Fixture = base(
+    "cf02_body_bowl",
+    "CF02-B: a jab then a lethal kick: the killed body keeps the kick instance, flies and knocks a living goblin down (BodyContact, not GoblinContact)",
+    0xCF02_0C05,
+    &[dummy(430), dummy(500)],
+    120,
+);
+
+/// Q10: a killed body bowls.
+pub const CF02_BODY_BOWL: PartyFixture = PartyFixture {
+    base: &BODY_BOWL_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), physical(30, 31, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const AIR_RELAUNCH_CONTACT_BASE: Fixture = base(
+    "cf02_air_relaunch_contact",
+    "CF02-B: an air kick relaunches a flying goblin as a new launch instance and the relaunched goblin knocks a second one down by the same rule (a QA launch starts goblin 0 in the air)",
+    0xCF02_0C06,
+    &[dummy(430), dummy(475)],
+    90,
+);
+
+/// Q09, Q51: a relaunch is a launch instance like any kick.
+pub const CF02_AIR_RELAUNCH_CONTACT: PartyFixture = PartyFixture {
+    base: &AIR_RELAUNCH_CONTACT_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(1, 30, 0, 1.0), jump(1, 2, 0), physical(6, 7, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// Carl stands 30 px left of a raised block (x 1392) on the corridor sample.
+const WALL_SLAM_KILL_BASE: Fixture = Fixture {
+    carl_x: 1330,
+    ..base(
+        "cf02_wall_slam_kill",
+        "CF02-B: a kicked goblin meets the raised block at 170 px/s: WallSlam, 1 damage, defeated in place (Melee, Heavy, credited to the kicker)",
+        0xCF02_0C07,
+        &[dummy(1360)],
+        100,
+    )
+};
+
+/// Q11: a living flier dies against a wall.
+pub const CF02_WALL_SLAM_KILL: PartyFixture = PartyFixture {
+    base: &WALL_SLAM_KILL_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[physical(5, 6, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const WALL_SLAM_BODY_BASE: Fixture = Fixture {
+    carl_x: 1330,
+    ..base(
+        "cf02_wall_slam_body",
+        "CF02-B: a goblin killed by a lethal kick flies into the raised block: WallSlam is logged for the dead body, which only crumples (no extra damage or defeat)",
+        0xCF02_0C08,
+        &[dummy(1360)],
+        120,
+    )
+};
+
+/// Q11: a dead flier only crumples.
+pub const CF02_WALL_SLAM_BODY: PartyFixture = PartyFixture {
+    base: &WALL_SLAM_BODY_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), physical(30, 31, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// Carl stands 30 px from the right layout edge of the corridor sample (2048),
+/// which is not a solid.
+const LAYOUT_EDGE_NO_SLAM_BASE: Fixture = Fixture {
+    carl_x: 1980,
+    ..base(
+        "cf02_layout_edge_no_slam",
+        "CF02-B: a kicked goblin flies into the right edge of the layout (not a solid): it stops with its body inside, no WallSlam, no damage from the edge",
+        0xCF02_0C09,
+        &[dummy(2010)],
+        100,
+    )
+};
+
+/// Q11: the layout edge without a solid is not a wall.
+pub const CF02_LAYOUT_EDGE_NO_SLAM: PartyFixture = PartyFixture {
+    base: &LAYOUT_EDGE_NO_SLAM_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[physical(5, 6, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+// -------------------------------------------------------------- CF02-G --
+//
+// Seeds are chosen (scripts: the Q58 draw is stateless) so each fixture's goblins
+// draw the temperament its scenario needs; the table is in the PR body and in
+// `docs/evidence/cf02/cf02-g/README.md`. A `dummy` goblin is a `Passive` QA body:
+// it has no morale and only serves as the victim.
+
+const MORALE_WITNESS_HESITATE_BASE: Fixture = base(
+    "cf02_morale_witness_hesitate",
+    "CF02-G: Carl kills a goblin with a jab and a haymaker (routine, -20): a Show-off 90 px away, with another goblin still alive, loses its turn (hesitate, 20 ticks)",
+    0xCF02_0D07,
+    &[dummy(430), chase(520), chase(900)],
+    120,
+);
+
+/// Q60, Q61: a routine death witnessed by a Show-off (nerve 62 -> 42) is a hesitate.
+pub const CF02_MORALE_WITNESS_HESITATE: PartyFixture = PartyFixture {
+    base: &MORALE_WITNESS_HESITATE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), primary(10, 11, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const MORALE_SPECTACLE_PANIC_BASE: Fixture = base(
+    "cf02_morale_spectacle_panic",
+    "CF02-G: a lethal kick (heavy, spectacular, -35) is witnessed by a Coward behind Carl: it panics and flees from the scare for 60..90 ticks, with no attacks",
+    0xCF02_0D00,
+    &[dummy(430), chase(340), chase(900)],
+    260,
+);
+
+/// Q60, Q61: a spectacular death drops a Coward below 25.
+pub const CF02_MORALE_SPECTACLE_PANIC: PartyFixture = PartyFixture {
+    base: &MORALE_SPECTACLE_PANIC_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), physical(30, 31, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const MORALE_PANIC_ONCE_BASE: Fixture = base(
+    "cf02_morale_panic_once",
+    "CF02-G: a Coward panics at the first spectacular death and, after the panic ended, a routine death on its other side only makes it hesitate: panic is once per attempt",
+    0xCF02_0D01,
+    &[dummy(430), dummy(385), chase(340)],
+    260,
+);
+
+/// Q57, Q61: panic is once per attempt.
+pub const CF02_MORALE_PANIC_ONCE: PartyFixture = PartyFixture {
+    base: &MORALE_PANIC_ONCE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        primary(5, 6, 0),
+        physical(30, 31, 0),
+        primary_dir(150, 151, -1.0),
+        primary_dir(158, 159, -1.0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const MORALE_LAST_GOBLIN_BASE: Fixture = base(
+    "cf02_morale_last_goblin",
+    "CF02-G: the same routine death as the hesitate fixture, but the witness is the last goblin standing: it panics at nerve < 50 instead of hesitating",
+    0xCF02_0D07,
+    &[dummy(430), chase(520)],
+    200,
+);
+
+/// Q62: the last goblin panics more easily.
+pub const CF02_MORALE_LAST_GOBLIN: PartyFixture = PartyFixture {
+    base: &MORALE_LAST_GOBLIN_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), primary(10, 11, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+/// Carl stands 62 px left of the raised block (x 1392) on the corridor sample.
+const MORALE_CORNERED_BASE: Fixture = Fixture {
+    carl_x: 1300,
+    ..base(
+        "cf02_morale_cornered",
+        "CF02-G: a panicking goblin runs into the raised block, is blocked for 20 ticks, ends its panic with nerve 40 and fights (no softlock, no endless chase)",
+        0xCF02_0D00,
+        &[dummy(1330), chase(1360)],
+        260,
+    )
+};
+
+/// Q63: the cornered rat bites.
+pub const CF02_MORALE_CORNERED: PartyFixture = PartyFixture {
+    base: &MORALE_CORNERED_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), primary(10, 11, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const MORALE_ENRAGED_BASE: Fixture = base(
+    "cf02_morale_enraged_tell_unchanged",
+    "CF02-G: a goblin hurts Carl (+15 and +10 for its own hit): the Brawlers that witness it become enraged for 120 ticks (walk 81, attack cooldown 24); every tell is still exactly 24 ticks",
+    0xCF02_0D3C,
+    &[chase(430), chase(500)],
+    260,
+);
+
+/// Q61: enrage never shortens the tell.
+pub const CF02_MORALE_ENRAGED_TELL_UNCHANGED: PartyFixture = PartyFixture {
+    base: &MORALE_ENRAGED_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const COWARD_BACKOFF_KICK_BASE: Fixture = base(
+    "cf02_coward_backoff_kick",
+    "CF02-G: a Coward hops back 28 px over 10 ticks out of Carl's kick (startup 13) and the kick whiffs",
+    0xCF02_0D15,
+    &[chase(445)],
+    90,
+);
+
+/// Q64: the slow attack is dodged.
+pub const CF02_COWARD_BACKOFF_KICK: PartyFixture = PartyFixture {
+    base: &COWARD_BACKOFF_KICK_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[physical(5, 6, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const COWARD_JAB_STILL_HITS_BASE: Fixture = base(
+    "cf02_coward_jab_still_hits",
+    "CF02-G: the same Coward against Carl's jab (startup 3): it never hops back and the jab hits",
+    0xCF02_0D15,
+    &[chase(432)],
+    90,
+);
+
+/// Q64: the jab is the opener.
+pub const CF02_COWARD_JAB_STILL_HITS: PartyFixture = PartyFixture {
+    base: &COWARD_JAB_STILL_HITS_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const SHOWOFF_TAUNT_PUNISH_BASE: Fixture = base(
+    "cf02_showoff_taunt_punish",
+    "CF02-G: Carl's jab whiffs next to a Show-off: it taunts for 36 ticks, and Carl's next hit during the taunt staggers it 20 ticks",
+    0xCF02_0D03,
+    &[chase(470)],
+    140,
+);
+
+/// Q65: arrogance is punishable.
+pub const CF02_SHOWOFF_TAUNT_PUNISH: PartyFixture = PartyFixture {
+    base: &SHOWOFF_TAUNT_PUNISH_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), run(19, 34, 0, 1.0), primary(36, 37, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const PINCER_TOKEN_BASE: Fixture = Fixture {
+    carl_x: 600,
+    ..base(
+        "cf02_pincer_token",
+        "CF02-G: two goblins close in from Carl's left and one from his right: the second attack token goes to the goblin on the other side (a pincer), not to the second-nearest on the left",
+        0xCF02_0D03,
+        &[chase(565), chase(575), chase(655)],
+        120,
+    )
+};
+
+/// Q66: the pincer token.
+pub const CF02_PINCER_TOKEN: PartyFixture = PartyFixture {
+    base: &PINCER_TOKEN_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const RESTART_RESHUFFLES_BASE: Fixture = base(
+    "cf02_restart_reshuffles",
+    "CF02-G: three chasing goblins fight Carl; the room is restarted three times and each attempt draws its own temperaments (a replayed attempt is identical)",
+    0xCF02_0D00,
+    &[chase(520), chase(600), chase(680)],
+    300,
+);
+
+/// Q58: restarts reshuffle; each attempt replays identically.
+pub const CF02_RESTART_RESHUFFLES: PartyFixture = PartyFixture {
+    base: &RESTART_RESHUFFLES_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        primary(94, 95, 0),
+        primary(101, 102, 0),
+        physical(135, 136, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+pub const CF02_FIXTURES: [&PartyFixture; 47] = [
     &CF02_KICK_THEN_STOMP,
     &CF02_STOMP_WHIFF,
     &CF02_STOMP_STANDING,
@@ -695,6 +1118,26 @@ pub const CF02_FIXTURES: [&PartyFixture; 27] = [
     &CF02_LANDING_GRACE,
     &CF02_CANCEL_TABLE,
     &CF02_DIVE_BOSS,
+    &CF02_CONTACT_KNOCKDOWN,
+    &CF02_CONTACT_BELOW_THRESHOLD,
+    &CF02_CONTACT_CANCELS_SWING,
+    &CF02_NO_CHAIN,
+    &CF02_BODY_BOWL,
+    &CF02_AIR_RELAUNCH_CONTACT,
+    &CF02_WALL_SLAM_KILL,
+    &CF02_WALL_SLAM_BODY,
+    &CF02_LAYOUT_EDGE_NO_SLAM,
+    &CF02_MORALE_WITNESS_HESITATE,
+    &CF02_MORALE_SPECTACLE_PANIC,
+    &CF02_MORALE_PANIC_ONCE,
+    &CF02_MORALE_LAST_GOBLIN,
+    &CF02_MORALE_CORNERED,
+    &CF02_MORALE_ENRAGED_TELL_UNCHANGED,
+    &CF02_COWARD_BACKOFF_KICK,
+    &CF02_COWARD_JAB_STILL_HITS,
+    &CF02_SHOWOFF_TAUNT_PUNISH,
+    &CF02_PINCER_TOKEN,
+    &CF02_RESTART_RESHUFFLES,
 ];
 
 /// Looks a party fixture up in `PartyFixture::all()` and then in the CF02
@@ -908,7 +1351,7 @@ mod tests {
 
     /// The goldens: one FNV state hash per fixture, replayed twice. A change is a
     /// deliberate re-baseline of that fixture only.
-    const GOLDENS: [(&str, u64); 27] = [
+    const GOLDENS: [(&str, u64); 47] = [
         ("cf02_kick_then_stomp", 0xeade1505d6805381),
         ("cf02_stomp_whiff", 0xfc5181f6b763f50b),
         ("cf02_stomp_standing", 0x46b56f9470306d5e),
@@ -936,7 +1379,98 @@ mod tests {
         ("cf02_landing_grace", 0x75ce9b552aea4b3c),
         ("cf02_cancel_table", 0x2812995f9f619829),
         ("cf02_dive_boss", 0xaca9425328074169),
+        ("cf02_contact_knockdown", 0xad3e4dbdf76df04c),
+        ("cf02_contact_below_threshold", 0xcb311ad6d6bbf3cc),
+        ("cf02_contact_cancels_swing", 0x2a19dd6ac146207b),
+        ("cf02_no_chain", 0x81bb784964470183),
+        ("cf02_body_bowl", 0xbdfd16d8979ebe75),
+        ("cf02_air_relaunch_contact", 0x45769c837cbfe8f8),
+        ("cf02_wall_slam_kill", 0xe887c36e54d1848e),
+        ("cf02_wall_slam_body", 0x0e6f84ebfe3f2e09),
+        ("cf02_layout_edge_no_slam", 0xfc74bfc67a33e54b),
+        ("cf02_morale_witness_hesitate", 0x9bea8f387364f45e),
+        ("cf02_morale_spectacle_panic", 0x2a24ee538108ee29),
+        ("cf02_morale_panic_once", 0x7931e494b4664052),
+        ("cf02_morale_last_goblin", 0x1aaf8db3ff0b63d1),
+        ("cf02_morale_cornered", 0x9cae17f3befaa95f),
+        ("cf02_morale_enraged_tell_unchanged", 0x897bdf0bdb9921bd),
+        ("cf02_coward_backoff_kick", 0xfc6afbe4fc6a2ab4),
+        ("cf02_coward_jab_still_hits", 0x5fa5b79dab68a5f7),
+        ("cf02_showoff_taunt_punish", 0x1b204602f6c3dc63),
+        ("cf02_pincer_token", 0x2f3867df0c7c1b1a),
+        ("cf02_restart_reshuffles", 0x4962783a758ca230),
     ];
+
+    /// `CF02_TRACE=<fixture>[:<from>-<to>] cargo test print_trace -- --ignored --nocapture`:
+    /// goblin mode, position, speed and health per tick, plus the new events.
+    #[test]
+    #[ignore = "prints a per-tick trace of the fixture in CF02_TRACE"]
+    fn print_trace() {
+        let spec = std::env::var("CF02_TRACE").unwrap_or_default();
+        let (name, range) = spec.split_once(':').unwrap_or((&spec, "1-400"));
+        let (from, to) = range.split_once('-').unwrap();
+        let (from, to): (u64, u64) = (from.parse().unwrap(), to.parse().unwrap());
+        let fixture = find_party_fixture(name).unwrap();
+        let mut sim =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        let mut seen = 0;
+        for tick in 1..=fixture.base.ticks.min(to) {
+            sim.step_scripted();
+            let mut line = format!("t{tick:03}");
+            for (i, g) in sim.combat.enemies.iter().enumerate() {
+                line += &format!(
+                    " | g{i} {:?} x={:.1} y={:.1} vx={:.0} hp={} st={} dt={} hs={}",
+                    g.mode, g.x, g.y, g.vx, g.health, g.stagger_left, g.down_ticks, g.hit_stop
+                );
+            }
+            for e in &sim.combat.events[seen..] {
+                line += &format!("\n      {e}");
+            }
+            seen = sim.combat.events.len();
+            if tick >= from {
+                println!("{line}");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "prints the reactions per attempt over three restarts"]
+    fn print_restart_table() {
+        let fixture = find_party_fixture("cf02_restart_reshuffles").unwrap();
+        let mut sim =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        let mut already = 0;
+        for attempt in 0..3 {
+            sim.run_scripted(200);
+            let temps: Vec<String> = (0..3)
+                .map(|g| {
+                    let m = sim.combat.goblin_morale(g).unwrap();
+                    format!(
+                        "{}{:+}",
+                        letter(m.temperament()),
+                        i16::from(m.baseline())
+                            - match m.temperament() {
+                                Temperament::Brawler => 70,
+                                Temperament::ShowOff => 60,
+                                Temperament::Coward => 45,
+                            }
+                    )
+                })
+                .collect();
+            let all = reactions(&sim);
+            let seen: Vec<String> = all[already..]
+                .iter()
+                .map(|r| format!("g{} {} @{} (nerve {})", r.1, r.2.name(), r.0, r.3))
+                .collect();
+            already = all.len();
+            println!(
+                "ATTEMPT {attempt} | {} | {}",
+                temps.join(" "),
+                seen.join(", ")
+            );
+            sim.combat.restart(&mut sim.scene);
+        }
+    }
 
     #[test]
     #[ignore = "prints the goldens"]
@@ -1821,5 +2355,886 @@ mod tests {
         let a = CombatState::new(CF02_STOMP_WHIFF.base, &kit, &scene).unwrap();
         let b = CombatState::new(CF02_STOMP_WHIFF.base, &kit, &scene).unwrap();
         assert_eq!(a.state_hash(&scene), b.state_hash(&scene));
+    }
+
+    // ------------------------------------------------------------ CF02-B --
+
+    /// Every goblin event of `sim` as `(tick, text)`, for a readable failure.
+    fn events_of(sim: &crate::party_scene::PartyFixtureSim) -> Vec<CombatEvent> {
+        sim.combat.events.clone()
+    }
+
+    /// `(tick, launch, source, target)` of every `GoblinContact`.
+    fn contacts(sim: &crate::party_scene::PartyFixtureSim) -> Vec<(u64, u32, u32, u32)> {
+        events_of(sim)
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::GoblinContact {
+                    tick,
+                    launch,
+                    source,
+                    target,
+                } => Some((tick, launch, source, target)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn body_contacts(
+        sim: &crate::party_scene::PartyFixtureSim,
+    ) -> Vec<(u64, u32, u32, u32, Option<u32>)> {
+        events_of(sim)
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::BodyContact {
+                    tick,
+                    launch,
+                    source,
+                    target,
+                    instigator,
+                } => Some((tick, launch, source, target, instigator)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// `(tick, launch, goblin, instigator)` of every `WallSlam`.
+    fn slams(sim: &crate::party_scene::PartyFixtureSim) -> Vec<(u64, u32, u32, Option<u32>)> {
+        events_of(sim)
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::WallSlam {
+                    tick,
+                    launch,
+                    goblin,
+                    instigator,
+                } => Some((tick, launch, goblin, instigator)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The tick on which goblin `index` first has `mode`, stepping `sim` from its
+    /// current tick for at most `limit` ticks.
+    fn first_tick_in(
+        sim: &mut crate::party_scene::PartyFixtureSim,
+        index: usize,
+        mode: GoblinMode,
+        limit: u64,
+    ) -> Option<u64> {
+        for _ in 0..limit {
+            sim.step_scripted();
+            if sim.combat.enemies[index].mode == mode {
+                return Some(sim.combat.elapsed);
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn q09_q12_a_kick_speed_contact_knocks_the_second_goblin_down_without_damage() {
+        let mut sim = replay_for("cf02_contact_knockdown", 28);
+        // The kick lands on tick 18; the flier meets goblin 1 on tick 29.
+        assert_eq!(hits(&sim), vec![(18, MoveId::PushKick, 1, 1)]);
+        assert!(contacts(&sim).is_empty());
+        sim.step_scripted();
+        assert_eq!(contacts(&sim), vec![(29, 1, 0, 1)]);
+        let (flier, target) = (&sim.combat.enemies[0], &sim.combat.enemies[1]);
+        // The flier keeps 25 % of 170 px/s, shows the contact pose and freezes 4.
+        assert!((flier.vx - 42.5).abs() < 0.01, "{}", flier.vx);
+        assert_eq!((flier.contact_ticks, flier.hit_stop), (6, 4));
+        // The target hops (90 / 90) as a living flier with no launch: no chain.
+        assert_eq!(target.mode, GoblinMode::Launched);
+        assert_eq!(target.launch, None);
+        assert_eq!((target.vx, target.vy), (90.0, 90.0));
+        assert_eq!(target.hit_stop, 4);
+        // No damage: Q12.
+        assert_eq!(target.health, 2);
+        // It lands, lies the CF02 40 ticks and gets up 22 ticks later.
+        let landed = first_tick_in(&mut sim, 1, GoblinMode::Downed, 40).unwrap();
+        let up = first_tick_in(&mut sim, 1, GoblinMode::Neutral, 90).unwrap();
+        assert_eq!(up - landed, 40 + 22);
+        assert_eq!(sim.combat.enemies[1].health, 2);
+        // The only damage in the whole run is the kick's.
+        assert_eq!(contacts(&sim).len(), 1);
+    }
+
+    #[test]
+    fn q09_below_120_px_s_the_legacy_stagger_and_push_apply() {
+        let mut sim = replay_for("cf02_contact_below_threshold", 1);
+        assert_eq!(contacts(&sim), vec![(1, 0, 0, 1)]);
+        let target = &sim.combat.enemies[1];
+        assert_eq!(target.mode, GoblinMode::Hurt);
+        assert_eq!(target.stagger_left, 24);
+        assert_eq!(target.vx, 60.0);
+        assert_eq!(target.health, 2);
+        // It is a stagger, never a knockdown: it never lies down.
+        for _ in 0..80 {
+            sim.step_scripted();
+            assert!(
+                !matches!(
+                    sim.combat.enemies[1].mode,
+                    GoblinMode::Launched | GoblinMode::Downed
+                ),
+                "tick {}",
+                sim.combat.elapsed
+            );
+        }
+    }
+
+    #[test]
+    fn q09_q35_a_goblin_hit_in_its_tell_has_its_attack_ended_and_the_token_returned() {
+        let mut sim = replay_for("cf02_contact_cancels_swing", 27);
+        let tell = sim.combat.enemies[1].clone();
+        assert_eq!(tell.mode, GoblinMode::Attack);
+        assert!(tell.token_held(), "it holds a token in its tell");
+        sim.step_scripted();
+        let hit = &sim.combat.enemies[1];
+        assert_eq!(hit.mode, GoblinMode::Launched);
+        assert!(!hit.token_held());
+        assert_eq!(hit.attack_tick, 0);
+        let events = events_of(&sim);
+        assert!(events.contains(&CombatEvent::GoblinInterrupted {
+            tick: 28,
+            goblin: 1
+        }));
+        assert_eq!(contacts(&sim), vec![(28, 0, 0, 1)]);
+        // Nobody was hurt: the swing never came.
+        let hurt = events
+            .iter()
+            .any(|e| matches!(e, CombatEvent::HeroHurt { .. }));
+        assert!(!hurt);
+        // The token is free again for the next tick's rule.
+        assert_eq!(
+            sim.combat.enemies.iter().filter(|g| g.token_held()).count(),
+            0
+        );
+    }
+
+    #[test]
+    fn q09_a_knocked_down_goblin_never_chains_into_a_third() {
+        let mut sim = replay_for("cf02_no_chain", 1);
+        let mut seen_launch_for_target = false;
+        for _ in 0..119 {
+            sim.step_scripted();
+            let g1 = &sim.combat.enemies[1];
+            if g1.mode == GoblinMode::Launched {
+                seen_launch_for_target = true;
+                assert_eq!(g1.launch, None, "a knocked-down goblin carries no launch");
+            }
+            let g2 = &sim.combat.enemies[2];
+            assert_eq!(g2.mode, GoblinMode::Neutral, "tick {}", sim.combat.elapsed);
+            assert_eq!(g2.health, 2);
+        }
+        assert!(seen_launch_for_target);
+        assert_eq!(contacts(&sim), vec![(29, 1, 0, 1)]);
+        assert!(body_contacts(&sim).is_empty() && slams(&sim).is_empty());
+    }
+
+    #[test]
+    fn q10_a_body_killed_by_a_lethal_kick_bowls_a_living_goblin_down() {
+        let sim = replay("cf02_body_bowl");
+        assert_eq!(
+            hits(&sim),
+            vec![(8, MoveId::Jab, 1, 1), (43, MoveId::PushKick, 1, 0)]
+        );
+        // A BodyContact, not a GoblinContact, credited to Carl.
+        assert!(contacts(&sim).is_empty());
+        assert_eq!(body_contacts(&sim), vec![(65, 2, 0, 1, Some(0))]);
+        let (body, target) = (&sim.combat.enemies[0], &sim.combat.enemies[1]);
+        assert!(!body.alive());
+        assert_eq!(
+            body.bowl, None,
+            "the bowl instance ends when the body lands"
+        );
+        assert_eq!(target.health, 2, "no contact damage (Q12)");
+        // It was knocked down: it lay and got up on schedule.
+        let mut again = replay_for("cf02_body_bowl", 66);
+        assert_eq!(again.combat.enemies[1].mode, GoblinMode::Launched);
+        assert_eq!(again.combat.enemies[1].launch, None);
+        assert!(first_tick_in(&mut again, 1, GoblinMode::Downed, 30).is_some());
+    }
+
+    #[test]
+    fn q10_only_a_lethal_kick_bowls_a_jab_or_haymaker_kill_does_not() {
+        use crate::combat::{CARL_HAYMAKER, CARL_JAB, carl_move};
+        use crate::combat_scene::CombatState;
+        let fixture = find_party_fixture("cf02_body_bowl").unwrap();
+        let kit = kit_of(fixture);
+        let scene = crate::corridor::SceneSim::new_at(&kit, 360, 400).unwrap();
+        for (spec, bowls) in [
+            (&CARL_JAB, false),
+            (&CARL_HAYMAKER, false),
+            (carl_move(MoveId::PushKick).unwrap(), true),
+            (carl_move(MoveId::FollowKick).unwrap(), true),
+            (carl_move(MoveId::AirKick).unwrap(), true),
+        ] {
+            let mut combat = CombatState::new(fixture.base, &kit, &scene).unwrap();
+            combat.enemies[0].health = 1;
+            crate::combat::StrikeTarget::take_hit(&mut combat.enemies[0], spec, 1);
+            assert!(!combat.enemies[0].alive());
+            combat.stamp_bowl_for_test(0, spec.id, 9);
+            assert_eq!(
+                combat.enemies[0].bowl,
+                bowls.then_some(9),
+                "{:?} (bowl is a lethal kick only)",
+                spec.id
+            );
+        }
+    }
+
+    #[test]
+    fn q09_q51_an_air_relaunch_is_a_launch_instance_like_any_kick() {
+        let sim = replay("cf02_air_relaunch_contact");
+        assert_eq!(hits(&sim), vec![(11, MoveId::AirKick, 1, 1)]);
+        // The relaunch carries the air kick's instance (1), not the QA launch (0).
+        assert_eq!(contacts(&sim), vec![(31, 1, 0, 1)]);
+        let target = &sim.combat.enemies[1];
+        assert_eq!(target.health, 2);
+        assert_eq!(target.launch, None);
+    }
+
+    #[test]
+    fn q11_a_kicked_goblin_that_meets_a_wall_is_slammed_and_defeated_in_place() {
+        let sim = replay("cf02_wall_slam_kill");
+        assert_eq!(slams(&sim), vec![(34, 1, 0, Some(0))]);
+        let defeats: Vec<_> = events_of(&sim)
+            .into_iter()
+            .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+            .collect();
+        // One defeat, on the slam tick: Melee, force Heavy, credited to Carl,
+        // and no second Hit: the slam is the lethal damage.
+        assert_eq!(
+            defeats,
+            vec![CombatEvent::EnemyDefeated {
+                tick: 34,
+                target: 0,
+                cause: crate::combat::DefeatCause::Melee,
+                force: ForceTier::Heavy,
+                instigator: Some(0),
+            }]
+        );
+        assert_eq!(hits(&sim), vec![(18, MoveId::PushKick, 1, 1)]);
+        let goblin = &sim.combat.enemies[0];
+        assert_eq!(goblin.health, 0);
+        // It crumples at the wall: it never moved through the block (x 1392).
+        assert!(goblin.x + 12.0 <= 1392.0 + 0.01, "x = {}", goblin.x);
+    }
+
+    #[test]
+    fn q11_a_dead_flier_only_crumples_at_a_wall() {
+        let sim = replay("cf02_wall_slam_body");
+        assert_eq!(slams(&sim), vec![(59, 2, 0, Some(0))]);
+        // Only the one defeat (the lethal kick, tick 43): the slam adds none.
+        let defeated = events_of(&sim)
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+            .count();
+        assert_eq!(defeated, 1);
+        let body = &sim.combat.enemies[0];
+        assert!(!body.alive() && body.bowl.is_none());
+        assert_eq!(body.health, 0);
+    }
+
+    #[test]
+    fn q11_the_layout_edge_without_a_solid_is_not_a_wall() {
+        let kit = kit_of(&CF02_LAYOUT_EDGE_NO_SLAM);
+        let width = kit.width as f32;
+        let mut sim = replay_for("cf02_layout_edge_no_slam", 1);
+        let mut touched_edge = false;
+        for _ in 0..99 {
+            sim.step_scripted();
+            let g = &sim.combat.enemies[0];
+            assert!(
+                g.x + 12.0 <= width + 1e-3,
+                "tick {} x {}",
+                sim.combat.elapsed,
+                g.x
+            );
+            touched_edge |= g.x + 12.0 >= width - 1e-3;
+        }
+        assert!(
+            touched_edge,
+            "the kick must reach the edge for this test to mean anything"
+        );
+        assert!(slams(&sim).is_empty());
+        // The kick's 1 damage only: the edge hurt nobody.
+        assert_eq!(sim.combat.enemies[0].health, 1);
+        assert!(sim.combat.enemies[0].alive());
+    }
+
+    #[test]
+    fn q09_q10_q11_one_effect_per_launch_and_target_and_no_damage_but_the_hits_and_the_wall() {
+        for name in [
+            "cf02_contact_knockdown",
+            "cf02_contact_below_threshold",
+            "cf02_contact_cancels_swing",
+            "cf02_no_chain",
+            "cf02_body_bowl",
+            "cf02_air_relaunch_contact",
+            "cf02_wall_slam_kill",
+            "cf02_wall_slam_body",
+            "cf02_layout_edge_no_slam",
+        ] {
+            let sim = replay(name);
+            let mut pairs: Vec<(u32, u32)> = contacts(&sim)
+                .iter()
+                .map(|c| (c.1, c.3))
+                .chain(body_contacts(&sim).iter().map(|c| (c.1, c.3)))
+                .collect();
+            let n = pairs.len();
+            pairs.sort_unstable();
+            pairs.dedup();
+            assert_eq!(pairs.len(), n, "{name}: a duplicate (launch, target)");
+            let mut wall: Vec<(u32, u32)> = slams(&sim).iter().map(|c| (c.1, c.2)).collect();
+            let m = wall.len();
+            wall.sort_unstable();
+            wall.dedup();
+            assert_eq!(wall.len(), m, "{name}: a duplicate (launch, goblin) slam");
+            // Health lost = the damage of the hits + the 1 damage of each living slam.
+            let dealt: u32 = hits(&sim).iter().map(|h| u32::from(h.2)).sum();
+            let slammed = events_of(&sim)
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::WallSlam { .. }))
+                .count() as u32;
+            let lost: u32 = sim
+                .combat
+                .enemies
+                .iter()
+                .map(|g| u32::from(crate::combat::ENEMY_HEALTH.saturating_sub(g.health)))
+                .sum();
+            let living_slams = if name == "cf02_wall_slam_kill" {
+                slammed
+            } else {
+                0
+            };
+            assert_eq!(lost, dealt + living_slams, "{name}: unexplained damage");
+            assert!(!sim.combat.hero_defeated, "{name}");
+        }
+    }
+
+    #[test]
+    fn cine_a_body_contact_never_scores_the_contact_setup() {
+        use crate::cine::PresentationSettings;
+        use crate::cine::{CineEvent, CineTier};
+        use crate::cine_adapter::CineAdapter;
+        use crate::combat::DefeatCause;
+        let body = CombatEvent::BodyContact {
+            tick: 110,
+            launch: 5,
+            source: 9,
+            target: 2,
+            instigator: Some(0),
+        };
+        let slam = CombatEvent::WallSlam {
+            tick: 111,
+            launch: 5,
+            goblin: 9,
+            instigator: Some(0),
+        };
+        // Neither is mapped to a cinematic input at all.
+        assert_eq!(CineEvent::from_combat(&body), None);
+        assert_eq!(CineEvent::from_combat(&slam), None);
+        // The t06 chain with the contact replaced by a BodyContact is not the
+        // legendary contact setup: it never proves a launch.
+        let chain = |contact: CombatEvent| {
+            let mut a = CineAdapter::new(PresentationSettings::DEFAULT);
+            let defeat = |tick, target, cause| {
+                CombatEvent::enemy_defeated(tick, target, cause, Some(0), None)
+            };
+            for e in [
+                CombatEvent::Hit {
+                    tick: 100,
+                    move_id: MoveId::PushKick,
+                    instance: 5,
+                    target: 9,
+                    damage: 1,
+                    health_left: 2,
+                    hit_stop: 8,
+                },
+                contact,
+                defeat(120, 1, DefeatCause::Melee),
+                CombatEvent::ShoreBroken {
+                    tick: 125,
+                    player: 0,
+                },
+                defeat(150, 2, DefeatCause::ShoreBlock { player: 0 }),
+                defeat(150, 3, DefeatCause::Melee),
+            ] {
+                a.push(&e);
+            }
+            a.flush()
+        };
+        let living = chain(CombatEvent::GoblinContact {
+            tick: 110,
+            launch: 5,
+            source: 9,
+            target: 2,
+        });
+        assert!(living[0].moment.feats.contact_setup);
+        assert_eq!(living[0].moment.tier, CineTier::Legendary);
+        let bowled = chain(body);
+        assert!(
+            bowled.iter().all(|e| !e.moment.feats.contact_setup),
+            "{bowled:?}"
+        );
+    }
+
+    #[test]
+    fn the_cf02_b_states_are_not_hashed_while_idle() {
+        // A goblin that never bowls hashes like one built before CF02-B.
+        let mut a = crate::goblin::Goblin::new(100.0, 111.0, crate::combat::EnemyAi::Passive);
+        let before = {
+            let mut v = Vec::new();
+            a.mix_into(&mut |x| v.push(x));
+            v
+        };
+        a.wall_stop = Some(170.0);
+        let mut after = Vec::new();
+        a.mix_into(&mut |x| after.push(x));
+        assert_eq!(before, after, "wall_stop is transient and never hashed");
+        a.bowl = Some(3);
+        let mut with = Vec::new();
+        a.mix_into(&mut |x| with.push(x));
+        assert_ne!(before, with);
+    }
+
+    // ------------------------------------------------------------ CF02-G --
+
+    use crate::cf02::Temperament;
+    use crate::combat::ReactionKind;
+    use crate::morale::Reaction;
+
+    /// `(tick, goblin, reaction, nerve)` of every `GoblinReaction`.
+    fn reactions(sim: &crate::party_scene::PartyFixtureSim) -> Vec<(u64, u32, ReactionKind, u8)> {
+        sim.combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::GoblinReaction {
+                    tick,
+                    goblin,
+                    reaction,
+                    nerve,
+                } => Some((tick, goblin, reaction, nerve)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn ticks_of(
+        sim: &crate::party_scene::PartyFixtureSim,
+        pick: fn(&CombatEvent) -> Option<(u64, u32)>,
+    ) -> Vec<(u64, u32)> {
+        sim.combat.events.iter().filter_map(pick).collect()
+    }
+
+    fn tells(sim: &crate::party_scene::PartyFixtureSim) -> Vec<(u64, u32)> {
+        ticks_of(sim, |e| match *e {
+            CombatEvent::GoblinTell { tick, goblin } => Some((tick, goblin)),
+            _ => None,
+        })
+    }
+
+    fn swings(sim: &crate::party_scene::PartyFixtureSim) -> Vec<(u64, u32)> {
+        ticks_of(sim, |e| match *e {
+            CombatEvent::GoblinSwing { tick, goblin } => Some((tick, goblin)),
+            _ => None,
+        })
+    }
+
+    /// The G fixtures with the temperament each goblin must draw (`'-'` = a dummy
+    /// or irrelevant goblin).
+    const G_DRAWS: [(&str, &str); 11] = [
+        ("cf02_morale_witness_hesitate", "-SC"),
+        ("cf02_morale_spectacle_panic", "-C-"),
+        ("cf02_morale_panic_once", "--C"),
+        ("cf02_morale_last_goblin", "-S"),
+        ("cf02_morale_cornered", "-C"),
+        ("cf02_morale_enraged_tell_unchanged", "BB"),
+        ("cf02_coward_backoff_kick", "C"),
+        ("cf02_coward_jab_still_hits", "C"),
+        ("cf02_showoff_taunt_punish", "S"),
+        ("cf02_pincer_token", "SCB"),
+        ("cf02_restart_reshuffles", "BCB"),
+    ];
+
+    fn letter(t: Temperament) -> char {
+        match t {
+            Temperament::Brawler => 'B',
+            Temperament::Coward => 'C',
+            Temperament::ShowOff => 'S',
+        }
+    }
+
+    #[test]
+    fn q58_every_g_fixture_draws_the_temperaments_its_scenario_needs() {
+        for (name, want) in G_DRAWS {
+            let sim = replay_for(name, 1);
+            for (i, w) in want.chars().enumerate() {
+                let m = sim.combat.goblin_morale(i).expect(name);
+                if w != '-' {
+                    assert_eq!(letter(m.temperament()), w, "{name} goblin {i}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn q60_q61_a_routine_death_makes_a_nearby_show_off_hesitate_for_20_ticks() {
+        let mut sim = replay_for("cf02_morale_witness_hesitate", 20);
+        // The haymaker kill is routine: nerve 62 - 20 = 42 < 50 (hesitate), not < 25.
+        assert_eq!(reactions(&sim), vec![(20, 1, ReactionKind::Hesitate, 43)]);
+        let x = sim.combat.enemies[1].x;
+        let before = x;
+        for _ in 0..20 {
+            sim.step_scripted();
+            assert_eq!(sim.combat.enemies[1].x, x, "tick {}", sim.combat.elapsed);
+        }
+        assert!(matches!(sim.combat.goblin_reaction(1), Reaction::Neutral));
+        sim.step_scripted();
+        assert!(sim.combat.enemies[1].x < before, "it walks again");
+        // The goblin 380 px away did not witness anything, the dummy has no morale.
+        assert!(reactions(&sim).iter().all(|r| r.1 == 1));
+        // It rests at its own baseline: Coward 45 + its offset of 2.
+        assert_eq!(sim.combat.goblin_morale(2).unwrap().nerve(), 47);
+    }
+
+    #[test]
+    fn q60_q61_a_spectacular_death_makes_a_coward_panic_and_flee_without_attacking() {
+        let mut sim = replay_for("cf02_morale_spectacle_panic", 43);
+        // The lethal kick is heavy: 46 - 35 = 11 (< 25). The panic ended its tell.
+        assert_eq!(reactions(&sim), vec![(43, 1, ReactionKind::Panic, 11)]);
+        assert!(events_of(&sim).contains(&CombatEvent::GoblinInterrupted {
+            tick: 43,
+            goblin: 1
+        }));
+        let start_x = sim.combat.enemies[1].x;
+        let mut ended = None;
+        let mut max_run = 0.0f32;
+        for k in 1..=100u64 {
+            sim.step_scripted();
+            let g = &sim.combat.enemies[1];
+            if matches!(sim.combat.goblin_reaction(1), Reaction::Neutral) {
+                ended = Some(k);
+                break;
+            }
+            // It flees away from the event (the event is to its right) at 78 px/s.
+            assert_eq!(g.facing, -1);
+            max_run = max_run.max(start_x - g.x);
+            assert!(g.mode == GoblinMode::Neutral, "no attack while panicking");
+        }
+        let ended = ended.expect("a panic always ends");
+        assert!((60..=91).contains(&ended), "panic lasted {ended} ticks");
+        assert!(max_run > 60.0, "it ran {max_run} px");
+        // No tell of goblin 1 while the panic ran.
+        assert!(tells(&sim).iter().all(|t| t.1 != 1 || t.0 < 40));
+    }
+
+    #[test]
+    fn q61_panic_is_once_per_attempt_a_second_scare_only_hesitates() {
+        let sim = replay("cf02_morale_panic_once");
+        let r: Vec<_> = reactions(&sim).into_iter().filter(|r| r.1 == 2).collect();
+        assert_eq!(
+            r,
+            vec![
+                (43, 2, ReactionKind::Panic, 5),
+                (165, 2, ReactionKind::Hesitate, 0)
+            ]
+        );
+        assert!(sim.combat.goblin_morale(2).unwrap().panic_used());
+    }
+
+    #[test]
+    fn q62_the_last_goblin_standing_panics_where_another_would_hesitate() {
+        let last = replay("cf02_morale_last_goblin");
+        let r = reactions(&last);
+        // Same event, same Show-off, same nerve (43) as the hesitate fixture, but
+        // nobody else is alive: panic (< 50), not hesitate.
+        assert_eq!(r, vec![(20, 1, ReactionKind::Panic, 43)]);
+        let not_last = replay("cf02_morale_witness_hesitate");
+        assert_eq!(reactions(&not_last)[0].2, ReactionKind::Hesitate);
+    }
+
+    #[test]
+    fn q63_a_cornered_goblin_ends_its_panic_with_nerve_40_and_fights() {
+        let mut sim = replay_for("cf02_morale_cornered", 64);
+        let r = reactions(&sim);
+        assert_eq!(r[0], (20, 1, ReactionKind::Panic, 27));
+        assert_eq!(r[1], (64, 1, ReactionKind::Cornered, 40));
+        // Blocked by the block (x 1392, body 24 wide): it stopped at 1380.
+        assert!((sim.combat.enemies[1].x - 1380.0).abs() < 1.5);
+        assert_eq!(sim.combat.goblin_morale(1).unwrap().nerve(), 40);
+        assert!(matches!(sim.combat.goblin_reaction(1), Reaction::Neutral));
+        // It fights: it tells and swings after the panic.
+        sim.run_scripted(200);
+        assert!(tells(&sim).iter().any(|t| t.1 == 1 && t.0 > 64));
+        // The panic (60..90 ticks) was cut short, 44 ticks after it began.
+    }
+
+    #[test]
+    fn q61_an_enraged_brawler_walks_faster_and_rests_less_but_the_tell_stays_24_ticks() {
+        let mut sim = replay_for("cf02_morale_enraged_tell_unchanged", 29);
+        let t = crate::cf02::active();
+        sim.step_scripted();
+        // Tick 30: goblin 0 hurt Carl; the Brawler witness (70 + 1 + 15 = 86 >= 85)
+        // is enraged. The hitter itself was in its swing (no reaction, Q68).
+        assert_eq!(reactions(&sim), vec![(30, 1, ReactionKind::Enraged, 86)]);
+        let m = sim.combat.goblin_morale(1).unwrap();
+        assert!(matches!(m.reaction(), Reaction::Enraged { .. }));
+        assert_eq!(m.walk_speed_px_s(t, 62.0), 81.0);
+        assert_eq!(m.attack_cooldown(t, 40), 24);
+        // The attack cooldown after goblin 1's attack is 24; goblin 0's is 40.
+        let (mut was_attack, mut seen1, mut seen0) = ([false; 2], None, None);
+        for _ in 0..200 {
+            sim.step_scripted();
+            for (i, seen) in [(0usize, &mut seen0), (1usize, &mut seen1)] {
+                let g = &sim.combat.enemies[i];
+                if was_attack[i] && g.mode == GoblinMode::Neutral && seen.is_none() {
+                    *seen = Some(g.attack_cooldown);
+                }
+                was_attack[i] = g.mode == GoblinMode::Attack;
+            }
+        }
+        assert_eq!(seen0, Some(40), "the goblin that did not enrage rests 40");
+        assert_eq!(seen1, Some(24), "the enraged one rests 24");
+        // Every tell is 24 ticks before the swing (swing event = tell + 26).
+        for (tick, goblin) in tells(&sim) {
+            let swing = swings(&sim)
+                .iter()
+                .any(|s| s.1 == goblin && s.0 == tick + 26);
+            let cut = events_of(&sim).iter().any(
+                |e| matches!(*e, CombatEvent::GoblinInterrupted { goblin: g, .. } if g == goblin),
+            );
+            assert!(
+                swing || cut || tick + 26 > sim.combat.elapsed,
+                "tell {tick} g{goblin}"
+            );
+        }
+    }
+
+    #[test]
+    fn q64_a_coward_hops_back_28_px_over_10_ticks_out_of_a_kick_and_the_kick_whiffs() {
+        let mut sim = replay_for("cf02_coward_backoff_kick", 4);
+        sim.step_scripted();
+        assert_eq!(reactions(&sim), vec![(5, 0, ReactionKind::BackOff, 43)]);
+        // The first 2 px of the 28 were applied on tick 5; the other nine ticks
+        // add the remaining 26 and the goblin walks nowhere meanwhile.
+        let x5 = sim.combat.enemies[0].x;
+        for _ in 0..9 {
+            sim.step_scripted();
+        }
+        let hopped = sim.combat.enemies[0].x - x5;
+        assert!((hopped - 26.0).abs() < 0.01, "hopped {hopped}");
+        sim.run_scripted(80);
+        // The kick (startup 13) found nothing; the jab-less Coward was not hit.
+        assert!(hits(&sim).is_empty(), "{:?}", hits(&sim));
+        assert_eq!(sim.combat.enemies[0].health, 2);
+    }
+
+    #[test]
+    fn q64_the_jab_still_catches_a_coward() {
+        let sim = replay("cf02_coward_jab_still_hits");
+        assert!(reactions(&sim).is_empty());
+        assert_eq!(hits(&sim), vec![(8, MoveId::Jab, 1, 1)]);
+    }
+
+    #[test]
+    fn q65_a_show_off_taunts_for_36_ticks_after_a_whiff_and_a_hit_staggers_it_20() {
+        let mut sim = replay_for("cf02_showoff_taunt_punish", 9);
+        sim.step_scripted();
+        // The jab (startup 3, active 2) left its active phase without a hit on 10.
+        assert_eq!(reactions(&sim), vec![(10, 0, ReactionKind::Taunt, 57)]);
+        let x = sim.combat.enemies[0].x;
+        // It stands still while it taunts.
+        let mut at_hit = None;
+        for _ in 0..40 {
+            sim.step_scripted();
+            let g = &sim.combat.enemies[0];
+            if g.mode == GoblinMode::Hurt && at_hit.is_none() {
+                at_hit = Some((sim.combat.elapsed, g.stagger_left, g.vx));
+            }
+            if at_hit.is_none() {
+                assert_eq!(g.x, x, "tick {}", sim.combat.elapsed);
+            }
+        }
+        // The jab at 39 hit during the taunt: 20 ticks of stagger instead of 10.
+        let (tick, stagger, _) = at_hit.unwrap();
+        assert_eq!((tick, stagger), (39, 20));
+        assert!(matches!(sim.combat.goblin_reaction(0), Reaction::Neutral));
+        // The taunt did not change nerve (57 before and after the hit).
+        assert_eq!(sim.combat.goblin_morale(0).unwrap().nerve(), 57);
+    }
+
+    #[test]
+    fn q66_the_second_token_goes_to_the_other_side_of_the_first_holder_not_the_second_nearest() {
+        let sim = replay_for("cf02_pincer_token", 60);
+        let t = tells(&sim);
+        // Goblin 1 (nearest, left) holds the first token, goblin 2 (right, the
+        // other side) the second; goblin 0 (left, second nearest) waits.
+        assert_eq!(t[0], (1, 1));
+        assert_eq!(t[1].1, 2);
+        assert!(t.iter().filter(|x| x.1 == 0).all(|x| x.0 > 60));
+        // The legacy rule (morale off) gives it to the second-nearest on the left.
+        let mut legacy = replay_for("cf02_pincer_token", 1);
+        legacy.combat.set_morale_for_test(false);
+        legacy.scene.reset();
+        for _ in 0..60 {
+            legacy.step_scripted();
+        }
+        let lt = tells(&legacy);
+        assert!(lt.iter().any(|x| x.1 == 0 && x.0 < 20), "{lt:?}");
+        assert!(lt.iter().all(|x| x.1 != 2 || x.0 > 20));
+    }
+
+    #[test]
+    fn q68_no_morale_reaction_shortens_a_tell_and_a_reacting_goblin_takes_no_token() {
+        for (name, _) in G_DRAWS {
+            let sim = replay(name);
+            let swings = swings(&sim);
+            let interrupts: Vec<_> = events_of(&sim)
+                .iter()
+                .filter_map(|e| match *e {
+                    CombatEvent::GoblinInterrupted { tick, goblin } => Some((tick, goblin)),
+                    _ => None,
+                })
+                .collect();
+            for (tick, goblin) in tells(&sim) {
+                let swung = swings.contains(&(tick + 26, goblin));
+                let cut = interrupts
+                    .iter()
+                    .any(|i| i.1 == goblin && i.0 > tick && i.0 < tick + 26);
+                let open = tick + 26 > sim.combat.elapsed;
+                // Only a hit, a contact or a panic ends a tell; none moves the swing.
+                assert!(
+                    swung || cut || open || sim.combat.restarts > 0,
+                    "{name}: tell {tick} g{goblin}"
+                );
+            }
+        }
+        // A goblin in a reaction other than enraged is never approved.
+        let mut sim = replay_for("cf02_morale_spectacle_panic", 44);
+        for _ in 0..60 {
+            sim.step_scripted();
+            if !matches!(sim.combat.goblin_reaction(1), Reaction::Panic { .. }) {
+                break;
+            }
+            assert!(!sim.combat.enemies[1].token_held());
+        }
+    }
+
+    #[test]
+    fn q58_a_goblin_in_its_first_approach_delay_takes_no_attack_token() {
+        // Three goblins around Carl; goblin 1 (nearest) is held by a long delay: the
+        // token must go to the others instead of idling in its slot.
+        let mut sim = replay_for("cf02_pincer_token", 0);
+        for i in 0..3 {
+            sim.combat.set_delay_for_test(i, 0);
+        }
+        sim.combat.set_delay_for_test(1, 20);
+        sim.run_scripted(30);
+        let t = tells(&sim);
+        assert!(t.iter().all(|x| x.1 != 1), "goblin 1 is held: {t:?}");
+        // The nearest goblin that can tell (goblin 0, 35 px away) gets the token at
+        // once; with the held goblin ranked first it would have waited.
+        assert!(t.iter().any(|x| x.1 == 0 && x.0 <= 20), "{t:?}");
+        // Once the delay is over it ranks (and tells) like any goblin.
+        sim.run_scripted(60);
+        assert!(tells(&sim).iter().any(|x| x.1 == 1));
+    }
+
+    #[test]
+    fn q58_restarts_reshuffle_and_each_attempt_replays_identically() {
+        let draws = |restarts: u32| -> Vec<char> {
+            (0..3)
+                .map(|g| {
+                    letter(
+                        crate::morale::draw_goblin(crate::cf02::active(), 0xCF02_0D00, restarts, g)
+                            .temperament,
+                    )
+                })
+                .collect()
+        };
+        assert_ne!(draws(0), draws(1), "restart 0 and 1 draw differently");
+        let run = || {
+            let fixture = find_party_fixture("cf02_restart_reshuffles").unwrap();
+            let mut sim =
+                crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+            let mut attempts = Vec::new();
+            for _ in 0..3 {
+                sim.run_scripted(140);
+                let temps: Vec<char> = (0..3)
+                    .map(|g| letter(sim.combat.goblin_morale(g).unwrap().temperament()))
+                    .collect();
+                attempts.push((temps, sim.combat.events.clone(), sim.state_hash()));
+                sim.combat.restart(&mut sim.scene);
+            }
+            attempts
+        };
+        let (a, b) = (run(), run());
+        assert_eq!(a, b, "every attempt replays identically");
+        // The attempts' temperaments are the Q58 draws of their own `restarts`.
+        for (k, attempt) in a.iter().enumerate() {
+            assert_eq!(attempt.0, draws(k as u32), "attempt {k}");
+        }
+        let distinct: std::collections::BTreeSet<_> = a.iter().map(|x| x.0.clone()).collect();
+        assert!(
+            distinct.len() >= 2,
+            "three attempts are not all the same draw"
+        );
+    }
+
+    #[test]
+    fn q58_the_seed_override_changes_the_draw_and_the_same_seed_repeats_it() {
+        use crate::combat_scene::CombatState;
+        let fixture = find_party_fixture("cf02_restart_reshuffles").unwrap();
+        let kit = kit_of(fixture);
+        let scene = crate::corridor::SceneSim::new_at(&kit, 360, 400).unwrap();
+        let of = |seed: Option<u64>| -> Vec<char> {
+            let c = CombatState::new(fixture.base, &kit, &scene)
+                .unwrap()
+                .with_cf02()
+                .with_cf02_seed(seed);
+            (0..3)
+                .map(|g| letter(c.goblin_morale(g).unwrap().temperament()))
+                .collect()
+        };
+        assert_eq!(of(Some(7)), of(Some(7)));
+        let all: std::collections::BTreeSet<_> = (1..40u64).map(|s| of(Some(s))).collect();
+        assert!(all.len() > 3, "different seeds draw different rooms");
+        assert_eq!(of(None), of(Some(fixture.base.seed)));
+    }
+
+    #[test]
+    fn cf02_morale_off_parity() {
+        // Morale only exists under its own switch: with it off every G fixture
+        // logs no reaction, hashes no morale and ranks the tokens the legacy way.
+        for (name, _) in G_DRAWS {
+            let fixture = find_party_fixture(name).unwrap();
+            let run = || {
+                let mut sim =
+                    crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture)
+                        .unwrap();
+                sim.combat.set_morale_for_test(false);
+                sim.run_scripted(fixture.base.ticks);
+                sim
+            };
+            let (a, b) = (run(), run());
+            assert!(reactions(&a).is_empty(), "{name}");
+            assert!(a.combat.goblin_morale(0).is_none(), "{name}");
+            assert_eq!(a.state_hash(), b.state_hash(), "{name}");
+            // And the hash does see the morale when it is on.
+            let on = replay(name);
+            assert_ne!(on.state_hash(), a.state_hash(), "{name}");
+        }
+        // The A, H and B fixtures run without morale: their pinned goldens (every
+        // earlier test in this module) are the parity proof; none lists a reaction.
+        for fixture in &CF02_FIXTURES[..36] {
+            assert!(
+                !crate::cf02_fixtures::morale_fixture(fixture.name()),
+                "{}",
+                fixture.name()
+            );
+        }
     }
 }

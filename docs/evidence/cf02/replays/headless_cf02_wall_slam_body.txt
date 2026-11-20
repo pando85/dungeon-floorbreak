@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=5 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=8 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=30 kind=move_started move=push_kick instance=2
+COMBAT_EVENT tick=43 kind=hit move=push_kick instance=2 target=0 damage=1 health_left=0 hit_stop=11
+COMBAT_EVENT tick=43 kind=enemy_defeated target=0 force=heavy
+COMBAT_EVENT tick=59 kind=wall_slam launch=2 goblin=0 instigator=0
+COMBAT_STATE fixture=cf02_wall_slam_body seed=0xcf020c08 tick=120 elapsed=120 hero_hp=4 deaths=0 enemies=e0=1379.000/0 hash=31255ba0d76d5593
+PARTY_STATE fixture=cf02_wall_slam_body mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=0e6f84ebfe3f2e09

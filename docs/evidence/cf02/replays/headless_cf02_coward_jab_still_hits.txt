@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=5 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=6 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=8 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=8 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=45 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=71 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=71 kind=hero_hurt source=0 health_left=3
+COMBAT_STATE fixture=cf02_coward_jab_still_hits seed=0xcf020d15 tick=90 elapsed=90 hero_hp=3 deaths=0 enemies=e0=429.833/1 hash=259f757ff0ca0e61
+PARTY_STATE fixture=cf02_coward_jab_still_hits mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=5fa5b79dab68a5f7

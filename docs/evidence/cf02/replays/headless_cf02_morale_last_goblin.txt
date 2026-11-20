@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=5 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=8 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=15 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=20 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=20 kind=enemy_defeated target=0
+COMBAT_EVENT tick=20 kind=goblin_reaction goblin=1 reaction=panic nerve=43
+COMBAT_STATE fixture=cf02_morale_last_goblin seed=0xcf020d07 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies=e0=506.333/0,e1=507.767/2 hash=8a7e472de890a96b
+PARTY_STATE fixture=cf02_morale_last_goblin mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=1aaf8db3ff0b63d1

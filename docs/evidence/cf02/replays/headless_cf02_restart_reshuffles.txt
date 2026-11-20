@@ -1,0 +1,15 @@
+COMBAT_EVENT tick=94 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=94 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=97 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=97 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=104 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=109 kind=hit move=haymaker instance=2 target=0 damage=1 health_left=0 hit_stop=8
+COMBAT_EVENT tick=109 kind=enemy_defeated target=0
+COMBAT_EVENT tick=109 kind=goblin_reaction goblin=1 reaction=hesitate nerve=26
+COMBAT_EVENT tick=135 kind=move_started move=push_kick instance=3
+COMBAT_EVENT tick=190 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=216 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=216 kind=hero_hurt source=1 health_left=3
+COMBAT_EVENT tick=285 kind=goblin_tell goblin=1
+COMBAT_STATE fixture=cf02_restart_reshuffles seed=0xcf020d00 tick=300 elapsed=300 hero_hp=3 deaths=0 enemies=e0=505.400/0,e1=433.635/2,e2=680.000/2 hash=5f504ca03cae834a
+PARTY_STATE fixture=cf02_restart_reshuffles mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=4962783a758ca230
