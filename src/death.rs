@@ -22,13 +22,17 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-use crate::combat::{CombatEvent, DefeatCause, ForceTier};
+use crate::combat::{CombatEvent, DefeatCause, ForceTier, MoveId};
 
 /// The only schema version this module reads. A profile file with another
 /// version is rejected, never half-read (migrate the file explicitly).
 pub const SCHEMA_VERSION: u32 = 2;
 
 const BUILTIN_JSON: &str = include_str!("../assets/data/death/species_death_profiles.json");
+
+/// CF02-D (Q21, Q36): the cf02 overlay rows, embedded like the global file.
+const CF02_OVERLAY_JSON: &str =
+    include_str!("../assets/data/death/species_death_profiles_cf02.json");
 
 /// What kind of lethal contact it was, coarser than [`DefeatCause`]: profiles
 /// speak in classes so a new cause maps onto an existing recipe.
@@ -143,6 +147,79 @@ pub struct FinishSelection<'a> {
     pub degraded: bool,
 }
 
+/// CF02-D (Q21): the cf02 overlay file. Same recipe schema; each species entry
+/// lists recipes that go **in front of** the species' own (first match wins).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeathOverlay {
+    pub schema_version: u32,
+    #[serde(default)]
+    pub comment: String,
+    pub species: Vec<OverlaySpecies>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OverlaySpecies {
+    /// A species of the global file (an overlay never invents a species).
+    pub id: String,
+    pub recipes_first: Vec<Recipe>,
+}
+
+/// CF02-D (Q21): the finish id of the goblin slammed recipe in the overlay.
+pub const GOBLIN_SLAMMED_FINISH: &str = "goblin_slammed";
+
+/// CF02-D (Q21): which of the three slammed goblin poses a heavy blunt defeat
+/// plays. Chosen from the defeat's same-tick events by [`slam_pose_for`]; the
+/// profile only says "slammed". Presentation data: never stored in simulation
+/// state, mixed into a hash or carried by an event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SlamPose {
+    /// A stomp or a dive stomp: flat in place, folded around the stamp.
+    Stomped,
+    /// A kicked body met a wall: crumpled against it.
+    WallCrumple,
+    /// A lethal kick (any other heavy blunt defeat): thrown.
+    Flung,
+}
+
+impl SlamPose {
+    pub const ALL: [Self; 3] = [Self::Stomped, Self::WallCrumple, Self::Flung];
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Stomped => "stomped",
+            Self::WallCrumple => "wall_crumple",
+            Self::Flung => "flung",
+        }
+    }
+}
+
+/// The slammed pose of goblin `target`'s defeat, from the events of the same
+/// tick (the slice the presenter is handed): a `WallSlam` of that goblin gives
+/// [`SlamPose::WallCrumple`], else a `Hit` of `Stomp` or `DiveStomp` on it gives
+/// [`SlamPose::Stomped`], else [`SlamPose::Flung`]. Pure and total.
+pub fn slam_pose_for(events: &[CombatEvent], target: u32) -> SlamPose {
+    let slammed = events
+        .iter()
+        .any(|e| matches!(*e, CombatEvent::WallSlam { goblin, .. } if goblin == target));
+    if slammed {
+        return SlamPose::WallCrumple;
+    }
+    let stamped = events.iter().any(|e| {
+        matches!(
+            *e,
+            CombatEvent::Hit { move_id: MoveId::Stomp | MoveId::DiveStomp, target: t, .. }
+                if t == target
+        )
+    });
+    if stamped {
+        SlamPose::Stomped
+    } else {
+        SlamPose::Flung
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeathProfiles {
@@ -165,6 +242,49 @@ impl DeathProfiles {
     pub fn builtin() -> &'static Self {
         static BUILTIN: OnceLock<DeathProfiles> = OnceLock::new();
         BUILTIN.get_or_init(|| Self::from_json(BUILTIN_JSON).expect("embedded death profiles"))
+    }
+
+    /// CF02-D (Q21, Q36): the global profiles with the cf02 overlay in front.
+    /// Built once from the embedded files; a unit test pins that they merge.
+    pub fn cf02() -> &'static Self {
+        static CF02: OnceLock<DeathProfiles> = OnceLock::new();
+        CF02.get_or_init(|| {
+            Self::builtin()
+                .with_overlay(CF02_OVERLAY_JSON)
+                .expect("embedded cf02 death overlay")
+        })
+    }
+
+    /// These profiles with the overlay in `text` merged: each overlay species'
+    /// recipes are placed before the species' own, then the whole is validated
+    /// again (the same rules as a global file). An overlay of another schema
+    /// version, of an unknown species or with no recipe is rejected, never
+    /// half-read.
+    pub fn with_overlay(&self, text: &str) -> Result<Self, String> {
+        let overlay: DeathOverlay = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        if overlay.schema_version != SCHEMA_VERSION {
+            return Err(format!(
+                "overlay schema_version {} is not {SCHEMA_VERSION}",
+                overlay.schema_version
+            ));
+        }
+        let mut merged = self.clone();
+        for entry in overlay.species {
+            if entry.recipes_first.is_empty() {
+                return Err(format!("overlay species {:?} lists no recipe", entry.id));
+            }
+            let Some(species) = merged.species.iter_mut().find(|s| s.id == entry.id) else {
+                return Err(format!(
+                    "overlay species {:?} is not in the profiles",
+                    entry.id
+                ));
+            };
+            let mut recipes = entry.recipes_first;
+            recipes.append(&mut species.recipes);
+            species.recipes = recipes;
+        }
+        merged.validate()?;
+        Ok(merged)
     }
 
     fn validate(&self) -> Result<(), String> {
@@ -925,5 +1045,194 @@ mod tests {
         let blown = pick(MELEE, ForceTier::Catastrophic);
         assert_eq!(blown.finish, "brute_ko_timber");
         assert_eq!(CauseClass::ladder(rack), [CauseClass::Crush]);
+    }
+
+    // ------------------------------------------------ CF02-D overlay (Q21) ----
+
+    /// A species' selection over every cause and force tier, for a whole-table
+    /// comparison of two profile sets.
+    fn rows(profiles: &DeathProfiles, species: &str) -> Vec<(String, RecipeKind, bool, bool)> {
+        let causes = [MELEE, BLOCK, EDGE, BLAST_PB, BLAST_RING];
+        let mut out = Vec::new();
+        for cause in causes {
+            for force in [
+                ForceTier::Routine,
+                ForceTier::Heavy,
+                ForceTier::Catastrophic,
+            ] {
+                let s = profiles.select(species, cause, force);
+                out.push((s.finish.to_string(), s.kind, s.fallback, s.degraded));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn q21_the_overlay_merges_and_only_the_goblin_row_set_changes() {
+        let base = DeathProfiles::builtin();
+        let merged = DeathProfiles::cf02();
+        assert_eq!(merged.schema_version, SCHEMA_VERSION);
+        // Every other species selects exactly as before, for every cause and force.
+        for species in [
+            "llama",
+            "skeleton_mock",
+            "slime_mock",
+            "brute_boss",
+            "unknown",
+        ] {
+            assert_eq!(rows(merged, species), rows(base, species), "{species}");
+        }
+        // The goblin recipe list is the overlay row in front of the global four.
+        let goblin = merged.species("goblin").unwrap();
+        assert_eq!(goblin.recipes.len(), 5);
+        assert_eq!(
+            goblin.recipes[0],
+            Recipe {
+                kind: RecipeKind::Slammed,
+                finish: GOBLIN_SLAMMED_FINISH.into(),
+                causes: vec![CauseClass::Blunt],
+                min_force: ForceTier::Heavy,
+            }
+        );
+        assert_eq!(
+            goblin.recipes[1..],
+            base.species("goblin").unwrap().recipes[..]
+        );
+    }
+
+    /// The legacy goblin rows are pinned (see the global tests above); the
+    /// overlay changes only the heavy blunt row, and routine kills keep
+    /// `knockback_down`.
+    #[test]
+    fn q21_overlay_selection_table_for_the_goblin() {
+        use ForceTier::{Catastrophic, Heavy, Routine};
+        use RecipeKind::{Crushed, Decapitated, Exploded, KnockbackDown, Slammed};
+        let merged = DeathProfiles::cf02();
+        let base = DeathProfiles::builtin();
+        // (cause, force) -> (cf02 finish, kind, degraded)
+        let table: &[(DefeatCause, ForceTier, &str, RecipeKind, bool)] = &[
+            (
+                MELEE,
+                Routine,
+                "goblin_knockback_down",
+                KnockbackDown,
+                false,
+            ),
+            (MELEE, Heavy, "goblin_slammed", Slammed, false),
+            (MELEE, Catastrophic, "goblin_slammed", Slammed, false),
+            (BLOCK, Catastrophic, "goblin_crushed", Crushed, false),
+            (EDGE, Catastrophic, "goblin_decapitated", Decapitated, false),
+            (BLAST_PB, Catastrophic, "goblin_exploded", Exploded, false),
+            // A heavy ring blast has no blast recipe: it degrades to a blunt
+            // throw, which under the overlay is the slammed (flung) finish.
+            (BLAST_RING, Heavy, "goblin_slammed", Slammed, true),
+        ];
+        for &(cause, force, finish, kind, degraded) in table {
+            let s = merged.select("goblin", cause, force);
+            assert_eq!(
+                (s.finish, s.kind, s.degraded, s.fallback),
+                (finish, kind, degraded, false),
+                "{cause:?} {force:?}"
+            );
+        }
+        // Everything except the heavy-or-more blunt rows equals the global table.
+        for cause in [MELEE, BLOCK, EDGE, BLAST_PB, BLAST_RING] {
+            for force in [Routine, Heavy, Catastrophic] {
+                let blunt_heavy = CauseClass::ladder(cause).contains(&CauseClass::Blunt)
+                    && force >= Heavy
+                    && base.select("goblin", cause, force).kind == KnockbackDown;
+                if !blunt_heavy {
+                    assert_eq!(
+                        merged.select("goblin", cause, force),
+                        base.select("goblin", cause, force),
+                        "{cause:?} {force:?}"
+                    );
+                }
+            }
+        }
+        // The global profile is untouched: a heavy kick is still a knockback.
+        assert_eq!(
+            base.select("goblin", MELEE, Heavy).finish,
+            "goblin_knockback_down"
+        );
+    }
+
+    #[test]
+    fn q36_a_bad_overlay_is_rejected_not_half_read() {
+        let base = DeathProfiles::builtin();
+        let ok = r#"{"schema_version":2,"species":[{"id":"goblin","recipes_first":[
+            {"kind":"slammed","finish":"goblin_slammed","causes":["blunt"],"min_force":"heavy"}]}]}"#;
+        assert!(base.with_overlay(ok).is_ok());
+        let cases = [
+            (
+                ok.replace("\"schema_version\":2", "\"schema_version\":1"),
+                "schema_version",
+            ),
+            (
+                ok.replace("\"id\":\"goblin\"", "\"id\":\"no_such\""),
+                "not in the profiles",
+            ),
+            (
+                r#"{"schema_version":2,"species":[{"id":"goblin","recipes_first":[]}]}"#.into(),
+                "no recipe",
+            ),
+            (ok.replace("\"blunt\"", "\"shear\""), "other than"),
+            (
+                ok.replace("\"min_force\"", "\"mystery\":1,\"min_force\""),
+                "mystery",
+            ),
+            ("not json".into(), "expected"),
+        ];
+        for (text, needle) in cases {
+            let err = base.with_overlay(&text).expect_err(&text);
+            assert!(err.contains(needle), "{err:?} should mention {needle:?}");
+        }
+    }
+
+    #[test]
+    fn q21_the_slammed_pose_comes_from_the_same_tick_events() {
+        let hit = |move_id, target| CombatEvent::Hit {
+            tick: 9,
+            move_id,
+            instance: 1,
+            target,
+            damage: 1,
+            health_left: 0,
+            hit_stop: 0,
+        };
+        let wall = |goblin| CombatEvent::WallSlam {
+            tick: 9,
+            launch: 1,
+            goblin,
+            instigator: Some(0),
+        };
+        assert_eq!(slam_pose_for(&[], 0), SlamPose::Flung);
+        assert_eq!(
+            slam_pose_for(&[hit(MoveId::PushKick, 0)], 0),
+            SlamPose::Flung
+        );
+        assert_eq!(
+            slam_pose_for(&[hit(MoveId::Stomp, 0)], 0),
+            SlamPose::Stomped
+        );
+        assert_eq!(
+            slam_pose_for(&[hit(MoveId::DiveStomp, 0)], 0),
+            SlamPose::Stomped
+        );
+        assert_eq!(slam_pose_for(&[wall(0)], 0), SlamPose::WallCrumple);
+        // The wall wins over an earlier stomp of the same tick; another target
+        // never counts.
+        assert_eq!(
+            slam_pose_for(&[hit(MoveId::Stomp, 0), wall(0)], 0),
+            SlamPose::WallCrumple
+        );
+        assert_eq!(
+            slam_pose_for(&[hit(MoveId::Stomp, 1), wall(1)], 0),
+            SlamPose::Flung
+        );
+        assert_eq!(
+            SlamPose::ALL.map(SlamPose::name),
+            ["stomped", "wall_crumple", "flung"]
+        );
     }
 }

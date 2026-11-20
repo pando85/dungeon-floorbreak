@@ -21,6 +21,26 @@ Decision record: [ADR-0008](../05-decisions/ADR-0008-audio.md). Asset pack and i
 
 Future hooks (defined, mapped and tested, but nothing emits them yet because the game has no such systems): `EnemyBodyCollision` and `HeavyPropCrash` (via `ContactEvent` and `cues_from_contact`, for enemy/prop physics and gym weights), `Warning` (siren), music `Chase` (pursuit), music and ambience `Gym` (gym section). Wire them where those systems land; do not invent gameplay for them.
 
+## cf02 cue overlay (CF02-AUDIO, COMBAT-FUN-02 Q24, Q27, Q36)
+
+Under `--cf02` (every `cf02_*` fixture too) `cues_from_combat_event_cf02` replaces the global event-to-cue map when `cf02_rules`, `q24_cue_overlay` and `q36_cue_overlay` are all on; with any off it **is** the global map, so `--demo` sounds like DEMO-01. The five new cue ids are not in `CueId::ALL`, `cue_map.json`, `audio_events.json` or `asset_manifest.json`; they live in `assets/audio/floor01/cf02/` (`cue_map_cf02.json`, `docs/audio_events_cf02.json`, `docs/asset_manifest_cf02.json`, `docs/QA_REPORT.md`, `docs/README.md`, `sfx/`, `previews/`). The cue bank reads the overlay files always (data only), but nothing emits an overlay cue unless `cf02_rules` is on.
+
+| Cause (event) | Cue under the overlay | New file |
+| --- | --- | --- |
+| Jab or haymaker hit (`Hit`) | `PlayerPunchHitConfirmed` + `EnemyHitReaction` (was the kick confirm) | `cf02_punch_hit_01..03` |
+| Stomp or dive-stomp hit (`Hit`) | `PlayerStomp` (the design's `CarlStomp`, IP-neutral id) + `EnemyHitReaction` | `cf02_stomp_01..03` |
+| Kicked flier meets a solid (`WallSlam`) | `EnemyWallSlam` | `cf02_wall_slam_01..03` |
+| Charge detonates (`Blast`) | `BlastDetonation` | `cf02_blast_01..03` |
+| Defeat with heavy or catastrophic force (`EnemyDefeated`) | `EnemyDefeatHeavy` | `cf02_defeat_heavy_01..03` |
+| Push kick, follow-through, air kick (`Hit`); any swing (`MoveStarted`) | `PlayerKickHitConfirmed`, `PlayerKickSwing` (reused) | none |
+| Body contact and bowling (`BodyContact`) | `EnemyBodyCollision` (reused) | none |
+| Block landing (`ShoreLanded`) | `HeavyPropCrash` (reused, as in DEMO-01) | none |
+| Llama tell (`LlamaTell`, tick 0; Q27) | `Warning` (reused) | none |
+
+The five cues are major contact transients under the pack's rule (at most two overlap; the pack mixer value, the overlay's `max_concurrent_major_transients` and the Q24 knob all read 2, and a test pins them equal); the punch and the stomp duck the music like the kick confirm. No reaction or voice cue exists. A dive that lands without hitting is silent (the simulation emits no landing event and this PR adds none); an air kick or a dive's start plays the existing swing whoosh.
+
+**Provenance.** The five cues are original deterministic DSP made by `scripts/author_cf02_audio.py` (seeded noise and damped sinusoids, encoded with ffmpeg libvorbis in bit-exact mode, so the generator reproduces the committed files), the same kind of material as the Floor 01 pack. The pack's own generator source is not in the repository (see the ADR); this one is. No recording, sample, third-party or generated-model audio and no voice. Structural QA only; the owner listens on real speakers (design section 8, item 3). Nothing here is approved audio.
+
 ## Controls and switches
 
 - `--no-audio` (both binaries) or `FLOORBREAK_AUDIO=off`: no sound, no audio device. Screenshot, reference-frame and perf runs (`--freeze`, `--capture-*`, `--reference-frame`, `--perf-frames`) are silent automatically. The headless smokes never create an app.
@@ -47,4 +67,5 @@ FLOORBREAK_AUDIO_STYLE=arcade cargo run --bin floor01_scene -- --fixture cp01_tw
 
 - `src/audio.rs` unit tests: cue emission for swing, miss, verified hit, contacts and a real bomb wall break; every combat fixture checked for one swing cue per move and one confirm per real hit; settings, RNG, voice cap, duck.
 - `tests/audio_assets.rs`: every cue, state and style bank resolves to an existing Ogg; all 38 manifest assets exist with matching sha256 and none is unlisted; mixer values; engine cue names are IP-neutral.
+- CF02-AUDIO: `src/audio.rs` tests pin overlay-off equals the global map for every event, each Q24 cause's own cue and the reuse map, the overlay files and the 2-transient limit, that no simulation file names the audio module, and that the real `cf02_*` fixtures sound the new cues; `tests/audio_assets.rs` pins the overlay manifest (15 files, sha256, provenance fields, nothing unlisted) and IP-neutral ids; `python3 scripts/author_cf02_audio.py --check` verifies the committed files against the manifest.
 - Audio itself cannot be asserted headless. Listening is a human review; use `assets/audio/floor01/docs/REVIEW_SCORECARD.md`.

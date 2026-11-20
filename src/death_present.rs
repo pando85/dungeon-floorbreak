@@ -27,16 +27,17 @@
 use std::sync::Arc;
 
 use crate::blast::{BLAST_CENTRE_DY, BlastCharge};
+use crate::cf02::Cf02Tuning;
 use crate::combat::{CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ForceTier};
 use crate::combat_anim::goblin_variant;
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
-use crate::death::DeathProfiles;
+use crate::death::{DeathProfiles, SlamPose, slam_pose_for};
 use crate::feel::{GROUND_FRICTION, KNOCK_GRAVITY};
 use crate::goblin::GoblinMode;
 use crate::gore::{
-    DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Mass, PartClass, PresentationRng,
-    PresetSheets, Settle, SpinClass, Ttl, keeps_stream_item, lowest_below_centre,
+    Cf02GoreBudget, DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Mass, PartClass,
+    PresentationRng, PresetSheets, Settle, SpinClass, Ttl, keeps_stream_item, lowest_below_centre,
     part_center_for_anchor, pose_anchor_world, rest_angle, scale_count,
 };
 use crate::llama::{LLAMA_HALF_HEIGHT, LlamaMode};
@@ -641,6 +642,9 @@ const EXPLOSION_POOL_TICKS: [(u64, &str); 3] = [
     (40, "decal_pool_3"),
 ];
 
+/// Q43: drops in one transient spray of a routine blunt kill (preset 4).
+const SPRAY_DROPS: u32 = 6;
+
 /// Squeeze drops of a decapitation by the block edge (preset 4).
 const EDGE_SQUEEZE_DROPS: u32 = 8;
 
@@ -662,6 +666,11 @@ pub enum Finish {
     /// DEATH-D (a point blank blast): the sprite is hidden (presets 2 to 4)
     /// and the pieces fly from the charge.
     Exploded,
+    /// CF02-D (Q21, cf02 overlay): the heavy blunt goblin finish, in one of
+    /// three poses picked from the defeat's events. The pose frames are wired by
+    /// CF02-I; until then the GOB-01 knockback sprite stays and only the gore
+    /// baseline (Q43) differs.
+    GoblinSlammed(SlamPose),
     /// A finish without art: nothing is drawn.
     NoArt,
 }
@@ -679,6 +688,8 @@ impl Finish {
             "llama_slammed" => Self::Slammed,
             "llama_down" => Self::Knockback,
             "goblin_exploded" => Self::Exploded,
+            // The pose is picked from the defeat's events (`slam_pose_for`).
+            "goblin_slammed" => Self::GoblinSlammed(SlamPose::Flung),
             _ => Self::NoArt,
         }
     }
@@ -705,7 +716,7 @@ impl Finish {
             }),
             // S: pose 6 (6 ticks), S+6: pose 7, hold.
             Self::Slammed => Some(if age < 6 { 6 } else { 7 }),
-            Self::Knockback | Self::Exploded | Self::NoArt => None,
+            Self::Knockback | Self::Exploded | Self::GoblinSlammed(_) | Self::NoArt => None,
         }
     }
 }
@@ -739,6 +750,23 @@ pub struct DustView {
     pub x: f32,
     pub ground_y: f32,
     pub age: u64,
+}
+
+/// CF02-D (Q21): a slammed goblin finish as the presenter sees it, for the
+/// pose wiring of CF02-I. `rest` is false while the impact frame holds
+/// (`q21_slammed_impact_hold_ticks` from the defeat), true afterwards.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SlamView {
+    pub target: u32,
+    pub pose: SlamPose,
+    pub rest: bool,
+    /// Presenter ticks since the defeat.
+    pub age: u64,
+    pub foot_x: f32,
+    pub ground_y: f32,
+    pub flip: bool,
+    pub variant: usize,
+    pub alpha: f32,
 }
 
 /// The pose a dead goblin is drawn with instead of its GOB-01 sprite.
@@ -794,6 +822,9 @@ pub struct Part {
     roll_dir: f32,
     roll_distance: f32,
     death: u32,
+    /// CF02-D (Q43): the presenter tick this piece vanishes at (a transient
+    /// spray). It leaves no decal or stain and is gone after its lifetime.
+    transient_until: Option<u64>,
     /// The goblin variant whose parts sheet is drawn (0 = A, 1 = B): the head,
     /// torso and ear of B carry the accessory layer. Blood, gibs and decals
     /// are identical in both.
@@ -1049,6 +1080,14 @@ pub struct DeathPresenter {
     /// DEATH-D: (target, start tick) of every explosion at presets 2 to 4:
     /// the goblin sprite is hidden from `start` for the rest of the attempt.
     exploded: Vec<(u32, u64)>,
+    /// CF02-D (Q36): the cf02 tuning this presenter reads, if any (`with_cf02`).
+    cf02: Option<&'static Cf02Tuning>,
+    /// CF02-D (Q22, Q43): the cf02 gore budget (Q36 switch on).
+    gore_budget: Option<Cf02GoreBudget>,
+    /// CF02-D (Q21): ticks a slammed pose holds its impact frame.
+    slam_hold: u64,
+    /// While set, every launched piece is a transient (see `Part`).
+    transient_until: Option<u64>,
 }
 
 impl DeathPresenter {
@@ -1106,6 +1145,38 @@ impl DeathPresenter {
             stats: PresenterStats::default(),
             retired: Vec::new(),
             exploded: Vec::new(),
+            cf02: None,
+            gore_budget: None,
+            slam_hold: 0,
+            transient_until: None,
+        })
+    }
+
+    /// CF02-D (Q36): read the cf02 presentation inputs of `tuning`: the death
+    /// overlay (a goblin `slammed` finish), the gore budget (Q22, Q43) and the
+    /// slammed impact hold (Q21). Each is read through [`Cf02Tuning::on`], so a
+    /// tuning with `cf02_rules` off changes nothing. Presentation only.
+    #[must_use]
+    pub fn with_cf02(mut self, tuning: &'static Cf02Tuning) -> Self {
+        self.cf02 = Some(tuning);
+        if tuning.on(tuning.q36_death_overlay) {
+            self.profiles = DeathProfiles::cf02();
+            self.slam_hold = u64::from(tuning.q21_slammed_impact_hold_ticks);
+        }
+        self.gore_budget = Cf02GoreBudget::from_tuning(tuning);
+        self
+    }
+
+    /// Whether the cf02 death overlay is active in this presenter.
+    pub fn cf02_overlay(&self) -> bool {
+        self.slam_hold > 0
+    }
+
+    /// Gib quarters of a finish of `force`: the cf02 budget's (Q22: 1.5x at
+    /// preset 4 for heavy and catastrophic), the preset's own otherwise.
+    fn gib_quarters_for(&self, force: ForceTier) -> u32 {
+        self.gore_budget.map_or(self.preset.gib_quarters(), |b| {
+            b.gib_quarters(self.preset, force)
         })
     }
 
@@ -1318,6 +1389,35 @@ impl DeathPresenter {
         self.poses().find(|p| p.target == target)
     }
 
+    /// CF02-D (Q21): the slammed goblin finishes in progress or settled (empty
+    /// unless the cf02 overlay is on). Presentation only.
+    pub fn slammed_poses(&self) -> impl Iterator<Item = SlamView> + '_ {
+        self.deaths.iter().filter_map(|d| {
+            let Finish::GoblinSlammed(pose) = d.finish else {
+                return None;
+            };
+            let age = self.clock.saturating_sub(d.start);
+            Some(SlamView {
+                target: d.target,
+                pose,
+                rest: age >= self.slam_hold,
+                age,
+                foot_x: d.foot_x,
+                ground_y: d.ground_y,
+                flip: d.flip,
+                variant: d.variant,
+                alpha: self.death_alpha(d),
+            })
+        })
+    }
+
+    /// CF02-D (Q21): the slammed pose goblin `target` was defeated with, if any.
+    pub fn slam_pose_of(&self, target: u32) -> Option<SlamPose> {
+        self.slammed_poses()
+            .find(|v| v.target == target)
+            .map(|v| v.pose)
+    }
+
     pub fn parts(&self) -> impl Iterator<Item = (usize, &Part)> {
         self.parts.iter()
     }
@@ -1444,7 +1544,7 @@ impl DeathPresenter {
                     cause,
                     force,
                     ..
-                } => self.begin_death(tick, target, cause, force, &obs),
+                } => self.begin_death(tick, target, cause, force, events, &obs),
                 _ => {}
             }
         }
@@ -1542,6 +1642,7 @@ impl DeathPresenter {
         target: u32,
         cause: DefeatCause,
         force: ForceTier,
+        events: &[CombatEvent],
         obs: &Observation<'_>,
     ) {
         // Goblins first, then llamas (the same target ids as the simulation).
@@ -1563,7 +1664,11 @@ impl DeathPresenter {
             return;
         };
         let selection = self.profiles.select(species, cause, force);
-        let finish = Finish::from_id(selection.finish);
+        let mut finish = Finish::from_id(selection.finish);
+        if let Finish::GoblinSlammed(_) = finish {
+            // CF02-D (Q21): the pose comes from the defeat's same-tick events.
+            finish = Finish::GoblinSlammed(slam_pose_for(events, target));
+        }
         let flip = facing < 0;
         let mut x = x;
         // A crushed llama's pose is drawn with its mirrored `hit_origin` under
@@ -1708,6 +1813,11 @@ impl DeathPresenter {
             let Some(part) = self.parts.get_mut(slot) else {
                 continue;
             };
+            // CF02-D (Q43): a transient spray is gone once its lifetime ends.
+            if part.transient_until.is_some_and(|until| clock >= until) {
+                self.parts.free(slot);
+                continue;
+            }
             let art = art_for(&self.art, &self.llama, part.variant);
             let meta = &art.parts[part.meta];
             if let PartState::Resting { since } = part.state {
@@ -1768,6 +1878,11 @@ impl DeathPresenter {
             part.contacts += 1;
             let first = part.contacts == 1;
             let (death, x) = (part.death, part.x);
+            // A transient spray drop dies on contact and leaves nothing.
+            if part.transient_until.is_some() {
+                self.parts.free(slot);
+                continue;
+            }
             // A blood drop, or a lava drop that leaves a molten decal, dies on
             // contact and leaves its decal.
             if meta.class == PartClass::Blood
@@ -1991,6 +2106,7 @@ impl DeathPresenter {
                 0.0
             },
             death: death.id,
+            transient_until: self.transient_until,
             variant: death.variant,
         };
         let (goblin_art, llama_art, now) = (&self.art, &self.llama, self.clock);
@@ -2221,7 +2337,9 @@ impl DeathPresenter {
                 match death.finish {
                     Finish::Crushed => self.script_crush(&mut death, age),
                     Finish::Decapitated => self.script_decap(&mut death, age),
-                    Finish::Knockback => self.script_knockback(&mut death, age, obs),
+                    Finish::Knockback | Finish::GoblinSlammed(_) => {
+                        self.script_knockback(&mut death, age, obs);
+                    }
                     Finish::Slammed => self.script_slam(&mut death, age),
                     Finish::Exploded => self.script_explode(&mut death, age),
                     Finish::NoArt => {}
@@ -2297,8 +2415,10 @@ impl DeathPresenter {
             .into_iter()
             .filter(|(id, _)| self.part_allowed(d.variant, id))
             .collect();
-            let keep = scale_count(gibs.len() as u32, self.preset.gib_quarters()) as usize;
-            for (id, anchor) in gibs.into_iter().take(keep) {
+            // Q22 (cf02, preset 4): 6 quarters can ask for more gibs than the
+            // set has, so the set repeats; below that this is the legacy take.
+            let keep = scale_count(gibs.len() as u32, self.gib_quarters_for(d.force)) as usize;
+            for (id, anchor) in gibs.into_iter().cycle().take(keep) {
                 let from = self.pose_point(d, 0, anchor);
                 let local = if anchor == "squeeze_back" { -1.0 } else { 1.0 };
                 let dir = Self::local_dir(d, local);
@@ -2397,6 +2517,27 @@ impl DeathPresenter {
                     -720.0 * d.away,
                     d.flip,
                 );
+                // Q22 (cf02, preset 4): a heavy finish may separate one more
+                // part where the anatomy allows (an arm).
+                if let Some(budget) = self.gore_budget {
+                    let more = budget.extra_parts(self.preset, d.force) as usize;
+                    for id in ["arm_near", "arm_far"].into_iter().take(more) {
+                        let (sin, cos) = d.rng.range(35.0, 65.0).to_radians().sin_cos();
+                        let speed = d.rng.range(70.0, 130.0);
+                        let spin = if d.rng.coin() { 540.0 } else { -540.0 };
+                        let from = (neck.0, neck.1 - 8.0);
+                        self.launch(
+                            d,
+                            id,
+                            Some("shoulder"),
+                            from,
+                            (-d.away * cos * speed, sin * speed),
+                            0.0,
+                            spin,
+                            d.flip,
+                        );
+                    }
+                }
             }
             4 => {
                 let neck = self.pose_point(d, 4, "neck");
@@ -2505,6 +2646,13 @@ impl DeathPresenter {
                     self.launch(d, id, None, start, vel, 0.0, spin, d.flip);
                 }
                 for &(id, n) in table.gibs {
+                    // Q22 (cf02, preset 4): catastrophic force asks 6 quarters.
+                    let n = match self.gore_budget {
+                        Some(b) if self.preset == GorePreset::Full => {
+                            scale_count(n, b.gib_quarters(self.preset, d.force))
+                        }
+                        _ => n,
+                    };
                     // The manifest's spin class drives the gib, as for a part.
                     let gib_class = self
                         .art
@@ -2603,6 +2751,12 @@ impl DeathPresenter {
     /// game-feel review pending).
     fn script_knockback(&mut self, d: &mut Death, age: u64, obs: &Observation<'_>) {
         let heavy = d.force >= ForceTier::Heavy;
+        // CF02-D: the goblin slammed finish shares this script; its gore
+        // baseline is Q43's per pose (the budget), else the legacy one.
+        let slam = match d.finish {
+            Finish::GoblinSlammed(pose) => Some(pose),
+            _ => None,
+        };
         d.done_after = 120;
         if age == 0 {
             let (count, lo, hi) = if heavy {
@@ -2634,8 +2788,14 @@ impl DeathPresenter {
                 .copied()
                 .filter(|id| self.part_allowed(d.variant, id))
                 .collect();
-            let keep = scale_count(allowed.len() as u32, self.preset.gib_quarters()) as usize;
-            for id in allowed.into_iter().take(keep) {
+            let quarters = match (slam, self.gore_budget) {
+                (Some(pose), Some(budget)) => budget.slam_quarters(self.preset, pose),
+                _ => self.gib_quarters_for(d.force),
+            };
+            // Q22/Q43 (cf02): 6 quarters can ask for more gibs than the set
+            // has, so the set repeats; below that this is the legacy take.
+            let keep = scale_count(allowed.len() as u32, quarters) as usize;
+            for id in allowed.into_iter().cycle().take(keep) {
                 let (sin, cos) = d.rng.range(30.0, 70.0).to_radians().sin_cos();
                 let speed = d.rng.range(80.0, 160.0);
                 let spin = if d.rng.coin() { 720.0 } else { -720.0 };
@@ -2649,6 +2809,19 @@ impl DeathPresenter {
                     spin,
                     false,
                 );
+            }
+            if let (Some(pose), Some(budget)) = (slam, self.gore_budget) {
+                // Q43: a wall crumple separates its arm on the wall side now; a
+                // flung body separates it on landing (below); a stomped one never.
+                if pose == SlamPose::WallCrumple {
+                    self.separate_arm(d, budget.slam_parts(self.preset, pose), true);
+                }
+            } else if !heavy && let Some(budget) = self.gore_budget {
+                // Q43: a routine blunt kill adds one transient spray at preset 4
+                // (not a decal; gone after its lifetime).
+                for _ in 0..budget.routine_sprays(self.preset) {
+                    self.transient_spray(d, head, budget.spray_ticks());
+                }
             }
             // The kick's blow throws a spray up the back wall (full only).
             if heavy {
@@ -2684,6 +2857,10 @@ impl DeathPresenter {
                 (4, 24, u64::MAX)
             };
             if since == 0 {
+                // Q43: a flung body separates its arm as it lands.
+                if let (Some(SlamPose::Flung), Some(budget)) = (slam, self.gore_budget) {
+                    self.separate_arm(d, budget.slam_parts(self.preset, SlamPose::Flung), false);
+                }
                 if self.spawn_floor_decal(d.variant, "decal_splat_s", x, d.ground_y, false) {
                     d.part_stains += 1;
                 }
@@ -2704,6 +2881,46 @@ impl DeathPresenter {
                 }
             }
         }
+    }
+
+    /// Q43: separate up to `count` arms from the body (the manifest's preset
+    /// filter still decides whether one flies). `toward_wall` throws it away
+    /// from the blow, toward the wall the body met; otherwise it drops from the
+    /// body where it landed.
+    fn separate_arm(&mut self, d: &mut Death, count: u32, toward_wall: bool) {
+        for id in ["arm_near", "arm_far"].into_iter().take(count as usize) {
+            let from = (d.foot_x, d.ground_y + 16.0);
+            let (dir, speed) = if toward_wall {
+                (d.away, d.rng.range(50.0, 110.0))
+            } else {
+                (d.away, d.rng.range(20.0, 60.0))
+            };
+            let (sin, cos) = d.rng.range(40.0, 75.0).to_radians().sin_cos();
+            let spin = if d.rng.coin() { 540.0 } else { -540.0 };
+            self.launch(
+                d,
+                id,
+                Some("shoulder"),
+                from,
+                (dir * cos * speed, sin * speed),
+                0.0,
+                spin,
+                d.flip,
+            );
+        }
+    }
+
+    /// Q43: one transient blood spray from `at` toward the way the body is
+    /// thrown: a short fan of drops that leave no decal and are gone after
+    /// `ticks` presenter ticks.
+    fn transient_spray(&mut self, d: &mut Death, at: (f32, f32), ticks: u64) {
+        self.transient_until = Some(self.clock + ticks);
+        for _ in 0..SPRAY_DROPS {
+            let elevation = d.rng.range(25.0, 65.0);
+            let speed = d.rng.range(90.0, 170.0);
+            self.drop_blood(d, at, d.away, elevation, speed);
+        }
+        self.transient_until = None;
     }
 
     /// The column of target `target` once it lies down (a goblin or a llama in
@@ -2823,6 +3040,15 @@ impl DeathPresenter {
             mix(u64::from(pose.target) << 8 | pose.frame as u64);
             if pose.variant != 0 {
                 mix(0x5641_5231 + pose.variant as u64);
+            }
+        }
+        // CF02-D: mixed only when a slammed finish exists (cf02 overlay only).
+        for slam in self.slammed_poses() {
+            mix(0x534c_414d ^ u64::from(slam.target) << 8 ^ slam.pose as u64);
+        }
+        for (_, p) in self.parts.iter() {
+            if let Some(until) = p.transient_until {
+                mix(0x5350_5259 ^ until);
             }
         }
         hash
@@ -5716,5 +5942,393 @@ mod tests {
         assert!(!CHARGE_FRAMES.contains(&CHARGE_UNLIT_FRAME));
         // The first lit tick starts the loop on its first frame.
         assert_eq!(charge_draw_frame(true, 0), CHARGE_FRAMES[0]);
+    }
+
+    // ------------------------------------------------ CF02-D (Q21..Q43) ----
+
+    fn cf02_presenter(preset: GorePreset) -> DeathPresenter {
+        presenter(preset).with_cf02(crate::cf02::active())
+    }
+
+    fn hit_on(move_id: crate::combat::MoveId, target: u32) -> CombatEvent {
+        CombatEvent::Hit {
+            tick: 60,
+            move_id,
+            instance: 1,
+            target,
+            damage: 1,
+            health_left: 0,
+            hit_stop: 0,
+        }
+    }
+
+    fn slam_on(target: u32) -> CombatEvent {
+        CombatEvent::WallSlam {
+            tick: 60,
+            launch: 1,
+            goblin: target,
+            instigator: Some(0),
+        }
+    }
+
+    /// One heavy blunt defeat of goblin 0 with `lead` events before it on the
+    /// same tick; steps `ticks` presenter ticks in all.
+    fn run_slam(p: &mut DeathPresenter, lead: &[CombatEvent], force: ForceTier, ticks: u64) {
+        let goblins = [goblin_at(484.0)];
+        let mut events = lead.to_vec();
+        events.push(defeat(60, 0, DefeatCause::Melee, force));
+        p.step(&events, obs(&goblins));
+        for _ in 1..ticks {
+            p.step(&[], obs(&goblins));
+        }
+    }
+
+    fn gibs_and_arms(p: &DeathPresenter) -> (usize, usize) {
+        let ids = part_ids(p);
+        let gibs = ["gib_flesh_a", "gib_flesh_b", "gib_bone"]
+            .iter()
+            .map(|id| count(&ids, id))
+            .sum();
+        (gibs, count(&ids, "arm_near") + count(&ids, "arm_far"))
+    }
+
+    #[test]
+    fn q21_the_pose_follows_the_events_and_the_legacy_presenter_has_none() {
+        use crate::combat::MoveId;
+        let cases: [(&[CombatEvent], SlamPose); 5] = [
+            (&[hit_on(MoveId::Stomp, 0)], SlamPose::Stomped),
+            (&[hit_on(MoveId::DiveStomp, 0)], SlamPose::Stomped),
+            (&[slam_on(0)], SlamPose::WallCrumple),
+            (&[hit_on(MoveId::PushKick, 0)], SlamPose::Flung),
+            (&[], SlamPose::Flung),
+        ];
+        for (lead, pose) in cases {
+            let mut p = cf02_presenter(GorePreset::Full);
+            run_slam(&mut p, lead, ForceTier::Heavy, 2);
+            assert_eq!(p.slam_pose_of(0), Some(pose), "{lead:?}");
+            // The legacy presenter plays the plain knockback for the same events.
+            let mut legacy = presenter(GorePreset::Full);
+            run_slam(&mut legacy, lead, ForceTier::Heavy, 2);
+            assert_eq!(legacy.slam_pose_of(0), None);
+            assert_eq!(legacy.slammed_poses().count(), 0);
+        }
+        // A stomp or a slam on ANOTHER goblin does not pick this one's pose.
+        let mut p = cf02_presenter(GorePreset::Full);
+        run_slam(
+            &mut p,
+            &[hit_on(MoveId::Stomp, 1), slam_on(1)],
+            ForceTier::Heavy,
+            2,
+        );
+        assert_eq!(p.slam_pose_of(0), Some(SlamPose::Flung));
+    }
+
+    #[test]
+    fn q21_the_slammed_pose_holds_its_impact_frame_for_eight_ticks_then_rests() {
+        let mut p = cf02_presenter(GorePreset::Full);
+        let goblins = [goblin_at(484.0)];
+        p.step(
+            &[
+                hit_on(crate::combat::MoveId::Stomp, 0),
+                defeat(60, 0, DefeatCause::Melee, ForceTier::Heavy),
+            ],
+            obs(&goblins),
+        );
+        let hold = u64::from(crate::cf02::active().q21_slammed_impact_hold_ticks);
+        assert_eq!(hold, 8);
+        let mut impact_ticks = 0;
+        for _ in 0..20 {
+            let view = p.slammed_poses().next().expect("the slammed view");
+            if !view.rest {
+                impact_ticks += 1;
+            }
+            p.step(&[], obs(&goblins));
+        }
+        assert_eq!(impact_ticks, hold, "impact frame for exactly the hold");
+        assert!(p.slammed_poses().next().unwrap().rest);
+    }
+
+    #[test]
+    fn q43_each_slammed_pose_has_its_own_gore_baseline_at_preset_four() {
+        use crate::combat::MoveId;
+        let crumbs = |lead: &[CombatEvent], ticks: u64| {
+            let mut p = cf02_presenter(GorePreset::Full);
+            run_slam(&mut p, lead, ForceTier::Heavy, ticks);
+            gibs_and_arms(&p)
+        };
+        // Stomped: 6 quarters of the 3-gib set (5 gibs), no separated part ever.
+        assert_eq!(crumbs(&[hit_on(MoveId::Stomp, 0)], 1), (5, 0));
+        assert_eq!(crumbs(&[hit_on(MoveId::Stomp, 0)], 3), (5, 0));
+        // Wall crumple: 4 quarters (3 gibs) and one arm at once, on the wall side.
+        assert_eq!(crumbs(&[slam_on(0)], 1), (3, 1));
+        // Flung: 6 quarters (5 gibs); the arm separates on landing (tick 2).
+        assert_eq!(crumbs(&[hit_on(MoveId::PushKick, 0)], 1), (5, 0));
+        assert_eq!(crumbs(&[hit_on(MoveId::PushKick, 0)], 2), (5, 1));
+        // Legacy heavy kick for comparison: 3 gibs, no arm.
+        let mut legacy = presenter(GorePreset::Full);
+        run_slam(
+            &mut legacy,
+            &[hit_on(MoveId::PushKick, 0)],
+            ForceTier::Heavy,
+            2,
+        );
+        assert_eq!(gibs_and_arms(&legacy), (3, 0));
+    }
+
+    #[test]
+    fn q43_presets_one_to_three_scale_by_their_existing_ratio() {
+        use crate::combat::MoveId;
+        // Preset 3: 6 * 2 / 4 = 3 quarters of the two gibs it draws (the bone is
+        // preset 4 only), so 2 gibs; the legacy kick draws 1 there.
+        for (preset, stomped, wall_arms) in [
+            (GorePreset::Medium, 2, 1),
+            (GorePreset::Reduced, 0, 0),
+            (GorePreset::Off, 0, 0),
+        ] {
+            let mut p = cf02_presenter(preset);
+            run_slam(&mut p, &[hit_on(MoveId::Stomp, 0)], ForceTier::Heavy, 1);
+            assert_eq!(gibs_and_arms(&p), (stomped, 0), "{preset:?} stomped");
+            let mut w = cf02_presenter(preset);
+            run_slam(&mut w, &[slam_on(0)], ForceTier::Heavy, 1);
+            assert_eq!(gibs_and_arms(&w).1, wall_arms, "{preset:?} wall arm");
+        }
+        // Presets 1 and 2 are byte-identical to the legacy presenter's pieces
+        // for the same kill: nothing the overlay adds is drawn there.
+        for preset in [GorePreset::Off, GorePreset::Reduced] {
+            let pieces = |p: &DeathPresenter| {
+                p.parts()
+                    .map(|(_, part)| (part.meta, part.x.to_bits(), part.y.to_bits()))
+                    .collect::<Vec<_>>()
+            };
+            let mut new = cf02_presenter(preset);
+            let mut old = presenter(preset);
+            for p in [&mut new, &mut old] {
+                run_slam(
+                    p,
+                    &[hit_on(crate::combat::MoveId::PushKick, 0)],
+                    ForceTier::Heavy,
+                    30,
+                );
+            }
+            assert_eq!(pieces(&new), pieces(&old), "{preset:?}");
+            assert_eq!(new.live_floor_decals(), old.live_floor_decals());
+        }
+    }
+
+    #[test]
+    fn q43_a_routine_blunt_kill_adds_one_transient_spray_gone_after_24_ticks() {
+        let goblins = [goblin_at(484.0)];
+        let transient = |p: &DeathPresenter| {
+            p.parts
+                .iter()
+                .filter(|(_, part)| part.transient_until.is_some())
+                .count()
+        };
+        let mut p = cf02_presenter(GorePreset::Full);
+        p.step(
+            &[defeat(60, 0, DefeatCause::Melee, ForceTier::Routine)],
+            obs(&goblins),
+        );
+        assert_eq!(transient(&p), SPRAY_DROPS as usize, "one spray at the kill");
+        let born = p.clock;
+        let mut decals_seen = 0;
+        while p.clock < born + 23 {
+            p.step(&[], obs(&goblins));
+            decals_seen = decals_seen.max(p.live_floor_decals());
+        }
+        assert!(transient(&p) <= SPRAY_DROPS as usize);
+        p.step(&[], obs(&goblins));
+        assert_eq!(p.clock, born + 24);
+        assert_eq!(transient(&p), 0, "no spray piece survives 24 ticks");
+        // It is not a decal: the legacy presenter leaves the same decals.
+        let mut legacy = presenter(GorePreset::Full);
+        legacy.step(
+            &[defeat(60, 0, DefeatCause::Melee, ForceTier::Routine)],
+            obs(&goblins),
+        );
+        for _ in 0..24 {
+            legacy.step(&[], obs(&goblins));
+        }
+        let mut again = cf02_presenter(GorePreset::Full);
+        again.step(
+            &[defeat(60, 0, DefeatCause::Melee, ForceTier::Routine)],
+            obs(&goblins),
+        );
+        for _ in 0..24 {
+            again.step(&[], obs(&goblins));
+        }
+        assert_eq!(again.live_floor_decals(), legacy.live_floor_decals());
+        let _ = decals_seen;
+        // Presets 1 to 3 and heavy kills never spray.
+        for preset in [GorePreset::Off, GorePreset::Reduced, GorePreset::Medium] {
+            let mut q = cf02_presenter(preset);
+            q.step(
+                &[defeat(60, 0, DefeatCause::Melee, ForceTier::Routine)],
+                obs(&goblins),
+            );
+            assert_eq!(transient(&q), 0, "{preset:?}");
+        }
+        let mut heavy = cf02_presenter(GorePreset::Full);
+        run_slam(&mut heavy, &[], ForceTier::Heavy, 1);
+        assert_eq!(transient(&heavy), 0);
+    }
+
+    #[test]
+    fn q22_preset_four_heavy_and_catastrophic_finishes_break_up_more() {
+        // The crush (catastrophic): 5 gibs instead of 3 at preset 4 only.
+        let crush = |p: &DeathPresenter| gibs_and_arms(p).0;
+        let goblins = [goblin_at(484.0)];
+        let run = |mut p: DeathPresenter| {
+            p.step(
+                &[defeat(139, 0, BLOCK, ForceTier::Catastrophic)],
+                obs(&goblins),
+            );
+            p
+        };
+        assert_eq!(crush(&run(presenter(GorePreset::Full))), 3);
+        assert_eq!(crush(&run(cf02_presenter(GorePreset::Full))), 5);
+        for preset in [GorePreset::Medium, GorePreset::Reduced, GorePreset::Off] {
+            assert_eq!(
+                crush(&run(cf02_presenter(preset))),
+                crush(&run(presenter(preset))),
+                "{preset:?} unchanged"
+            );
+        }
+        // The decapitation separates one more part (an arm) at preset 4 only.
+        let decap = |mut p: DeathPresenter| {
+            p.step(
+                &[defeat(139, 0, EDGE, ForceTier::Catastrophic)],
+                obs(&goblins),
+            );
+            gibs_and_arms(&p).1
+        };
+        assert_eq!(decap(presenter(GorePreset::Full)), 0);
+        assert_eq!(decap(cf02_presenter(GorePreset::Full)), 1);
+        assert_eq!(decap(cf02_presenter(GorePreset::Medium)), 0);
+        // The explosion's ten gibs become fifteen (6, 6 and 3).
+        let blast = |mut p: DeathPresenter| {
+            let ob_goblins = [GoblinView {
+                mode: GoblinMode::Airborne,
+                ..goblin_at(484.0)
+            }];
+            let charges = charge_484();
+            let ob = Observation {
+                charges: &charges,
+                ..obs(&ob_goblins)
+            };
+            p.step(&[defeat(60, 0, BLAST_PB, ForceTier::Catastrophic)], ob);
+            gibs_and_arms(&p).0
+        };
+        assert_eq!(blast(presenter(GorePreset::Full)), 10);
+        assert_eq!(blast(cf02_presenter(GorePreset::Full)), 15);
+        assert_eq!(
+            blast(cf02_presenter(GorePreset::Medium)),
+            blast(presenter(GorePreset::Medium))
+        );
+    }
+
+    #[test]
+    fn q36_a_tuning_with_the_rules_off_changes_nothing() {
+        let off: &'static Cf02Tuning = Box::leak(Box::new(Cf02Tuning::pinned().unwrap()));
+        assert!(!off.cf02_rules);
+        let p = presenter(GorePreset::Full).with_cf02(off);
+        assert!(!p.cf02_overlay());
+        let goblins = [goblin_at(484.0)];
+        let mut a = p;
+        let mut b = presenter(GorePreset::Full);
+        for q in [&mut a, &mut b] {
+            q.step(
+                &[defeat(60, 0, DefeatCause::Melee, ForceTier::Heavy)],
+                obs(&goblins),
+            );
+            for _ in 0..40 {
+                q.step(&[], obs(&goblins));
+            }
+        }
+        assert_eq!(a.digest(), b.digest(), "same pieces, same digest");
+        assert_eq!(a.slammed_poses().count(), 0);
+    }
+
+    /// The overlay and the budget are cosmetic: over every CF02 fixture with the
+    /// corridor kit, the authoritative hash and the event log are identical at
+    /// presets 1 to 4, with the overlay on or off; each Q21 pose is picked from
+    /// the real events, and `--demo`'s legacy presenter never picks one.
+    #[test]
+    fn q21_q36_real_cf02_runs_pick_the_poses_and_keep_every_hash() {
+        use crate::cf02_fixtures::CF02_FIXTURES;
+        use crate::party_scene::PartyFixtureSim;
+        let kit = EnvKit::load(&root(), LAYOUT).unwrap();
+        let mut picked: Vec<(&str, SlamPose)> = Vec::new();
+        for fixture in CF02_FIXTURES.iter().filter(|f| f.base.boss.is_none()) {
+            let mut reference: Option<(u64, Vec<CombatEvent>)> = None;
+            for preset in GorePreset::ALL {
+                for overlay in [false, true] {
+                    let mut sim = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
+                    let mut p = if overlay {
+                        cf02_presenter(preset)
+                    } else {
+                        presenter(preset)
+                    };
+                    // The pose each defeat must get: `slam_pose_for` over the
+                    // events logged on the defeat's own tick.
+                    let mut expected: Vec<(u32, SlamPose)> = Vec::new();
+                    for _ in 0..fixture.base.ticks {
+                        let before = sim.combat.events.len();
+                        sim.step_scripted();
+                        p.observe(&sim.combat, &sim.scene);
+                        let fresh = &sim.combat.events[before.min(sim.combat.events.len())..];
+                        for event in fresh {
+                            if let CombatEvent::EnemyDefeated { target, force, .. } = *event
+                                && force >= ForceTier::Heavy
+                            {
+                                expected.push((target, crate::death::slam_pose_for(fresh, target)));
+                            }
+                        }
+                    }
+                    let run = (sim.state_hash(), sim.combat.events.clone());
+                    match &reference {
+                        None => reference = Some(run),
+                        Some(first) => assert_eq!(
+                            &run,
+                            first,
+                            "{} preset {} overlay {overlay}",
+                            fixture.name(),
+                            preset.level()
+                        ),
+                    }
+                    if !overlay {
+                        assert_eq!(p.slammed_poses().count(), 0, "{}", fixture.name());
+                    } else if preset == GorePreset::Full {
+                        let seen: Vec<(u32, SlamPose)> =
+                            p.slammed_poses().map(|v| (v.target, v.pose)).collect();
+                        for (target, pose) in &seen {
+                            assert!(
+                                expected.contains(&(*target, *pose)),
+                                "{}: {target} {pose:?} vs {expected:?}",
+                                fixture.name()
+                            );
+                            picked.push((fixture.name(), *pose));
+                        }
+                    }
+                }
+            }
+        }
+        for pose in SlamPose::ALL {
+            assert!(
+                picked.iter().any(|(_, p)| *p == pose),
+                "no CF02 fixture ends in a {} finish: {picked:?}",
+                pose.name()
+            );
+        }
+        let names = |pose: SlamPose| -> Vec<&str> {
+            let mut v: Vec<&str> = picked
+                .iter()
+                .filter(|(_, p)| *p == pose)
+                .map(|(n, _)| *n)
+                .collect();
+            v.dedup();
+            v
+        };
+        assert!(names(SlamPose::WallCrumple).contains(&"cf02_wall_slam_kill"));
     }
 }

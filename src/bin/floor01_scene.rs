@@ -42,7 +42,8 @@ use dungeon_floorbreak::{
     anim::{Animator, Tag},
     audience::{AnticipationCue, AnticipationTrigger, ChainFeat},
     audio::{
-        AudioCommand, AudioSettings, StyleBank, cues_from_combat_event, scene_ambience, scene_music,
+        AudioCommand, AudioSettings, StyleBank, cues_from_combat_event,
+        cues_from_combat_event_cf02, scene_ambience, scene_music,
     },
     audio_adapter::{AudioQueue, FloorAudioPlugin, resolve_pack_dir},
     blast::BLAST_CENTRE_DY,
@@ -981,6 +982,10 @@ fn build_scene(
         let mut anim = actors.animators(&sim.world);
         anim.art = actors.combat_art(&combat);
         let mut death = death_presenter(root, args)?;
+        // CF02-D (Q36): the death overlay and the gore budget under cf02_rules.
+        if let Some(tuning) = combat.cf02() {
+            death = death.with_cf02(tuning);
+        }
         hud.set_melee_live(true);
         // A party fixture runs the live party exactly like the interactive
         // scene (slot inputs, solo swap, drive); a plain fixture stays legacy.
@@ -1121,10 +1126,15 @@ fn print_combat_events(
     mut cine: Option<&mut CineAdapter>,
 ) -> Vec<ChainFeat> {
     let mut feats = Vec::new();
+    // CF02-AUDIO (Q24, Q36): the cue overlay under cf02_rules, else the global map.
+    let cf02 = combat.cf02();
     for event in combat.take_new_events() {
         println!("{event}");
         if let Some(audio) = audio.as_deref_mut() {
-            audio.push_cues(cues_from_combat_event(event));
+            match cf02 {
+                Some(tuning) => audio.push_cues(cues_from_combat_event_cf02(event, tuning)),
+                None => audio.push_cues(cues_from_combat_event(event)),
+            }
         }
         if let Some(cine) = cine.as_deref_mut() {
             cine.push(event);

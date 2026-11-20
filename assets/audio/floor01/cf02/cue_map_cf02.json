@@ -1,0 +1,18 @@
+{
+  "comment": "CF02-AUDIO (COMBAT-FUN-02 Q24, Q27, Q36): the cf02 cue overlay. Maps the five new IP-neutral engine cue ids (src/audio.rs, CueId::CF02) to the event ids of docs/audio_events_cf02.json. It is read into the cue bank always but only emitted under cf02_rules, so the global cue_map.json, audio_events.json and asset_manifest.json stay byte-identical and --demo sounds like the tested DEMO-01.",
+  "cues": {
+    "PlayerPunchHitConfirmed": "cf02.punch.hit_confirmed",
+    "PlayerStomp": "cf02.carl.stomp",
+    "EnemyWallSlam": "cf02.enemy.wall_slam",
+    "BlastDetonation": "cf02.blast.detonation",
+    "EnemyDefeatHeavy": "cf02.enemy.defeat_heavy"
+  },
+  "reuse": {
+    "comment": "Causes that keep an existing cue under the overlay (no new file). Documentation only; the mapping itself is code (cues_from_combat_event_cf02) and unit-tested.",
+    "block_landing": "HeavyPropCrash",
+    "llama_tell": "Warning",
+    "body_contact_and_bowling": "EnemyBodyCollision",
+    "air_kick_swing": "PlayerKickSwing",
+    "push_kick_follow_kick_air_kick_hit": "PlayerKickHitConfirmed"
+  }
+}
