@@ -194,7 +194,7 @@ fn a_corrupted_action_fails_with_a_tick_and_hashes() {
     // Flip the action of tick 3 (the first ticks walk right) to a jump.
     let needle = "\"t\":3,\"a\":\"";
     let at = text.find(needle).unwrap() + needle.len();
-    text.replace_range(at..at + 6, "012100");
+    text.replace_range(at..at + 6, "010100");
     let err = replay::verify(&text, &root(), "x").unwrap_err();
     let message = err.to_string();
     match err {
@@ -440,4 +440,17 @@ fn metrics_attribute_with_the_event_fields_only() {
     );
     assert_eq!(m.action_usage.special_unavailable_presses, 0);
     assert!(m.action_usage.modal_action_share > 0.0);
+}
+
+#[test]
+fn csv_rows_match_their_headers() {
+    use super::metrics::{
+        AGGREGATE_CSV_HEADER, AggregateMetrics, EPISODE_CSV_HEADER, aggregate_csv_row,
+        episode_csv_row,
+    };
+    let (m, _) = play("cp01_single_goblin", bots::APPROACH_AND_ATTACK, 0);
+    let width = |s: &str| s.split(',').count();
+    assert_eq!(width(&episode_csv_row(&m)), width(EPISODE_CSV_HEADER));
+    let a = AggregateMetrics::of("cp01_single_goblin", "development", "x", &[m]);
+    assert_eq!(width(&aggregate_csv_row(&a)), width(AGGREGATE_CSV_HEADER));
 }

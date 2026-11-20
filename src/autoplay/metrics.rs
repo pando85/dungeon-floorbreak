@@ -1033,12 +1033,4 @@ mod tests {
         }
         assert_eq!(collector.hero_hurt["carl"], (2, 3));
     }
-
-    #[test]
-    fn csv_headers_match_row_widths() {
-        let cols = EPISODE_CSV_HEADER.split(',').count();
-        assert_eq!(cols, 42);
-        let cols = AGGREGATE_CSV_HEADER.split(',').count();
-        assert_eq!(cols, 40);
-    }
 }
