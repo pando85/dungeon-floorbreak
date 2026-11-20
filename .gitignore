@@ -22,3 +22,6 @@ __pycache__/
 /tools/autoplay/artifacts/
 *.egg-info/
 .pytest_cache/
+
+# PLAYTRACE-01: recordings never enter the repository (guard for --record-dir inside the tree)
+/playtrace/
