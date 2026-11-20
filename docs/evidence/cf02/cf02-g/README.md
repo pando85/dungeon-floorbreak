@@ -13,11 +13,11 @@ Replays, not captures: the eleven morale fixtures are in [`../replays/`](../repl
 | Coward back-off (Q64) | `cf02_coward_backoff_kick`, `cf02_coward_jab_still_hits` | the kick (startup 13) starts on 5: the Coward hops back 28 px over 10 ticks and the kick finds nothing; the jab (startup 3) hits it on 8 |
 | Show-off taunt (Q65) | `cf02_showoff_taunt_punish` | Carl's jab whiffs on 10: taunt (36 ticks, nerve unchanged); the jab on 39 staggers it 20 ticks instead of the jab's 10 |
 | Pincer token (Q66) | `cf02_pincer_token` | goblins 0 and 1 close in from the left, goblin 2 from the right: goblin 1 (nearest) tells on 1 and the second token goes to goblin 2 on the other side, not to goblin 0 (the legacy rule, tested with morale off, gives it to goblin 0) |
-| Restart reshuffle (Q58) | `cf02_morale_restart` | see the table |
+| Restart reshuffle (Q58) | `cf02_restart_reshuffles` | see the table |
 
 ## Reactions per attempt over three restarts
 
-`cf02_morale_restart` (three chasing goblins, Carl jabs, hits and kicks on the same ticks every attempt; seed `0xCF020D00`). The draw is `mix(seed, restarts, goblin, draw)`; the offset is the nerve offset from the temperament baseline. Test `q58_restarts_reshuffle_and_each_attempt_replays_identically` runs the three attempts twice and compares events and hashes.
+`cf02_restart_reshuffles` (three chasing goblins, Carl jabs, hits and kicks on the same ticks every attempt; seed `0xCF020D00`). The draw is `mix(seed, restarts, goblin, draw)`; the offset is the nerve offset from the temperament baseline. Test `q58_restarts_reshuffle_and_each_attempt_replays_identically` runs the three attempts twice and compares events and hashes.
 
 | Attempt (`restarts`) | Temperaments (goblin 0, 1, 2) | Reactions (attempt-local tick, nerve after events) |
 | --- | --- | --- |

@@ -11,5 +11,5 @@ COMBAT_EVENT tick=190 kind=goblin_tell goblin=1
 COMBAT_EVENT tick=216 kind=goblin_swing goblin=1
 COMBAT_EVENT tick=216 kind=hero_hurt source=1 health_left=3
 COMBAT_EVENT tick=285 kind=goblin_tell goblin=1
-COMBAT_STATE fixture=cf02_morale_restart seed=0xcf020d00 tick=300 elapsed=300 hero_hp=3 deaths=0 enemies=e0=505.400/0,e1=433.635/2,e2=680.000/2 hash=5f504ca03cae834a
-PARTY_STATE fixture=cf02_morale_restart mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=4962783a758ca230
+COMBAT_STATE fixture=cf02_restart_reshuffles seed=0xcf020d00 tick=300 elapsed=300 hero_hp=3 deaths=0 enemies=e0=505.400/0,e1=433.635/2,e2=680.000/2 hash=5f504ca03cae834a
+PARTY_STATE fixture=cf02_restart_reshuffles mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=4962783a758ca230

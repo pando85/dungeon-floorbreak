@@ -135,7 +135,7 @@ pub fn morale_fixture(fixture: &str) -> bool {
             | "cf02_coward_jab_still_hits"
             | "cf02_showoff_taunt_punish"
             | "cf02_pincer_token"
-            | "cf02_morale_restart"
+            | "cf02_restart_reshuffles"
     )
 }
 
@@ -1068,8 +1068,8 @@ pub const CF02_PINCER_TOKEN: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
-const MORALE_RESTART_BASE: Fixture = base(
-    "cf02_morale_restart",
+const RESTART_RESHUFFLES_BASE: Fixture = base(
+    "cf02_restart_reshuffles",
     "CF02-G: three chasing goblins fight Carl; the room is restarted three times and each attempt draws its own temperaments (a replayed attempt is identical)",
     0xCF02_0D00,
     &[chase(520), chase(600), chase(680)],
@@ -1077,8 +1077,8 @@ const MORALE_RESTART_BASE: Fixture = base(
 );
 
 /// Q58: restarts reshuffle; each attempt replays identically.
-pub const CF02_MORALE_RESTART: PartyFixture = PartyFixture {
-    base: &MORALE_RESTART_BASE,
+pub const CF02_RESTART_RESHUFFLES: PartyFixture = PartyFixture {
+    base: &RESTART_RESHUFFLES_BASE,
     two_player: false,
     tuning: PROVISIONAL_TUNING,
     script: &[
@@ -1137,7 +1137,7 @@ pub const CF02_FIXTURES: [&PartyFixture; 47] = [
     &CF02_COWARD_JAB_STILL_HITS,
     &CF02_SHOWOFF_TAUNT_PUNISH,
     &CF02_PINCER_TOKEN,
-    &CF02_MORALE_RESTART,
+    &CF02_RESTART_RESHUFFLES,
 ];
 
 /// Looks a party fixture up in `PartyFixture::all()` and then in the CF02
@@ -1398,7 +1398,7 @@ mod tests {
         ("cf02_coward_jab_still_hits", 0x5fa5b79dab68a5f7),
         ("cf02_showoff_taunt_punish", 0x1b204602f6c3dc63),
         ("cf02_pincer_token", 0x2f3867df0c7c1b1a),
-        ("cf02_morale_restart", 0x4962783a758ca230),
+        ("cf02_restart_reshuffles", 0x4962783a758ca230),
     ];
 
     /// `CF02_TRACE=<fixture>[:<from>-<to>] cargo test print_trace -- --ignored --nocapture`:
@@ -1436,7 +1436,7 @@ mod tests {
     #[test]
     #[ignore = "prints the reactions per attempt over three restarts"]
     fn print_restart_table() {
-        let fixture = find_party_fixture("cf02_morale_restart").unwrap();
+        let fixture = find_party_fixture("cf02_restart_reshuffles").unwrap();
         let mut sim =
             crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
         let mut already = 0;
@@ -2856,7 +2856,7 @@ mod tests {
         ("cf02_coward_jab_still_hits", "C"),
         ("cf02_showoff_taunt_punish", "S"),
         ("cf02_pincer_token", "SCB"),
-        ("cf02_morale_restart", "BCB"),
+        ("cf02_restart_reshuffles", "BCB"),
     ];
 
     fn letter(t: Temperament) -> char {
@@ -3124,6 +3124,26 @@ mod tests {
     }
 
     #[test]
+    fn q58_a_goblin_in_its_first_approach_delay_takes_no_attack_token() {
+        // Three goblins around Carl; goblin 1 (nearest) is held by a long delay: the
+        // token must go to the others instead of idling in its slot.
+        let mut sim = replay_for("cf02_pincer_token", 0);
+        for i in 0..3 {
+            sim.combat.set_delay_for_test(i, 0);
+        }
+        sim.combat.set_delay_for_test(1, 20);
+        sim.run_scripted(30);
+        let t = tells(&sim);
+        assert!(t.iter().all(|x| x.1 != 1), "goblin 1 is held: {t:?}");
+        // The nearest goblin that can tell (goblin 0, 35 px away) gets the token at
+        // once; with the held goblin ranked first it would have waited.
+        assert!(t.iter().any(|x| x.1 == 0 && x.0 <= 20), "{t:?}");
+        // Once the delay is over it ranks (and tells) like any goblin.
+        sim.run_scripted(60);
+        assert!(tells(&sim).iter().any(|x| x.1 == 1));
+    }
+
+    #[test]
     fn q58_restarts_reshuffle_and_each_attempt_replays_identically() {
         let draws = |restarts: u32| -> Vec<char> {
             (0..3)
@@ -3137,7 +3157,7 @@ mod tests {
         };
         assert_ne!(draws(0), draws(1), "restart 0 and 1 draw differently");
         let run = || {
-            let fixture = find_party_fixture("cf02_morale_restart").unwrap();
+            let fixture = find_party_fixture("cf02_restart_reshuffles").unwrap();
             let mut sim =
                 crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
             let mut attempts = Vec::new();
@@ -3167,7 +3187,7 @@ mod tests {
     #[test]
     fn q58_the_seed_override_changes_the_draw_and_the_same_seed_repeats_it() {
         use crate::combat_scene::CombatState;
-        let fixture = find_party_fixture("cf02_morale_restart").unwrap();
+        let fixture = find_party_fixture("cf02_restart_reshuffles").unwrap();
         let kit = kit_of(fixture);
         let scene = crate::corridor::SceneSim::new_at(&kit, 360, 400).unwrap();
         let of = |seed: Option<u64>| -> Vec<char> {

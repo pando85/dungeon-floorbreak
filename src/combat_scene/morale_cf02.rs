@@ -256,11 +256,13 @@ impl CombatState {
         approved
     }
 
-    /// Q68: a goblin in a non-fighting reaction cannot take a token.
+    /// Q68: a goblin in a non-fighting reaction cannot take a token; neither can one
+    /// still in its first-approach delay (Q58 draw 3), which would hold the slot
+    /// without being able to tell.
     fn reaction_takes_token(&self, index: usize) -> bool {
         self.morale.as_ref().is_none_or(|m| {
             self.enemies[index].ai == EnemyAi::Passive
-                || m.morale[index].reaction().can_take_token()
+                || (m.morale[index].reaction().can_take_token() && m.delay_left[index] == 0)
         })
     }
 
@@ -572,5 +574,15 @@ impl CombatState {
     pub(crate) fn set_morale_for_test(&mut self, on: bool) {
         self.morale_on = on;
         self.reset_attempt();
+    }
+}
+
+#[cfg(test)]
+impl CombatState {
+    /// Test access: set goblin `index`'s remaining first-approach delay.
+    pub(crate) fn set_delay_for_test(&mut self, index: usize, ticks: u8) {
+        if let Some(m) = self.morale.as_mut() {
+            m.delay_left[index] = ticks;
+        }
     }
 }
