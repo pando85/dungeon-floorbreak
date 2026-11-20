@@ -40,6 +40,7 @@ use dungeon_floorbreak::{
         ActorAssets, ActorSpec, FrameSource, actor_center, load_carl, load_donut, shadow_center_x,
     },
     anim::{Animator, Tag},
+    audience::{AnticipationCue, AnticipationTrigger, ChainFeat},
     audio::{
         AudioCommand, AudioSettings, StyleBank, cues_from_combat_event, scene_ambience, scene_music,
     },
@@ -75,7 +76,7 @@ use dungeon_floorbreak::{
     },
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
-    hud::{GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
+    hud::{EventCursor, GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
     hud_adapter::{HudPlugin, HudState},
     hud_settings::HudSettings,
     input::RawInput,
@@ -222,6 +223,13 @@ struct Args {
     /// WORK-023: Donut starts with the biscuit and a full pool (live play and
     /// captures). Without it she gets it at the placeholder Guild zone.
     donut_biscuit: bool,
+    /// AUDIENCE-01 QA probe (`--audience-probe`): unlock the per-hero viewer
+    /// counts at step 1 (both heroes at the baseline) with one authored test
+    /// cue at `audience_cue_x`, and print the `AUDIENCE_STATE` digest line.
+    /// Floor 01 itself has no unlock (spec F15); the audience is an observer
+    /// that never touches the simulation, so every other line is unchanged.
+    audience_probe: bool,
+    audience_cue_x: i32,
 }
 
 impl Args {
@@ -360,6 +368,8 @@ fn parse_args_full(
         autopilot: false,
         boss: false,
         donut_biscuit: false,
+        audience_probe: false,
+        audience_cue_x: AUDIENCE_PROBE_CUE_X,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -370,6 +380,13 @@ fn parse_args_full(
             "--debug-collision" => parsed.debug_collision = true,
             "--manual" => parsed.manual = true,
             "--donut-biscuit" => parsed.donut_biscuit = true,
+            "--audience-probe" => parsed.audience_probe = true,
+            "--audience-cue-x" => {
+                let value = iter.next().ok_or("--audience-cue-x needs a scene x")?;
+                parsed.audience_cue_x = value
+                    .parse()
+                    .map_err(|_| format!("bad --audience-cue-x {value:?} (an integer)"))?;
+            }
             "--debug-combat" => parsed.debug_combat = true,
             "--fixture" => {
                 let value = iter.next().ok_or("--fixture needs a name")?;
@@ -715,8 +732,17 @@ fn death_presenter(root: &Path, args: &Args) -> Result<DeathPresenter, String> {
         .with_llama(Arc::new(DeathArt::load_llama(root)?))
 }
 
+/// Where the QA probe's one authored anticipation cue fires (any hero's x
+/// reaching it, scene units). The fixtures start Carl at 400.
+const AUDIENCE_PROBE_CUE_X: i32 = 420;
+/// The cue id and award (inside the tuning range) of the QA probe.
+const AUDIENCE_PROBE_CUE_ID: u32 = 1;
+const AUDIENCE_PROBE_CUE_AWARD: u64 = 4_000;
+
 /// The HUD runtime with its real identity: the actor manifests' display names
-/// and the floor number of the layout.
+/// and the floor number of the layout. With `--audience-probe` it also unlocks
+/// the per-hero viewer counts (the QA fixture of AUDIENCE-01; no Floor 01 run
+/// unlocks them).
 fn new_hud(args: &Args, kit: &EnvKit, actors: &Actors) -> HudRuntime {
     let mut hud = HudRuntime::new(args.hud_config());
     hud.set_identity(
@@ -724,7 +750,39 @@ fn new_hud(args: &Args, kit: &EnvKit, actors: &Actors) -> HudRuntime {
         &actors.donut.display_name,
         &kit.layout_id,
     );
+    if args.audience_probe {
+        let cue = AnticipationCue {
+            id: AUDIENCE_PROBE_CUE_ID,
+            trigger: AnticipationTrigger::HeroCrossesX {
+                x: args.audience_cue_x,
+            },
+            heroes: vec![HeroId::Carl, HeroId::Donut],
+            award: AUDIENCE_PROBE_CUE_AWARD,
+        };
+        hud.unlock_audience(vec![cue])
+            .expect("the probe cue is inside the tuning range");
+    }
     hud
+}
+
+/// The `AUDIENCE_STATE` line: printed only while the audience is unlocked (the
+/// QA probe), never by a Floor 01 run, and never part of the combat hash.
+fn print_audience_state(hud: &HudRuntime) {
+    let audience = hud.audience();
+    if let (Some(digest), Some(carl), Some(donut)) = (
+        audience.digest(),
+        audience.view(HeroId::Carl),
+        audience.view(HeroId::Donut),
+    ) {
+        println!(
+            "AUDIENCE_STATE steps={} carl={} donut={} carl_trend={:?} donut_trend={:?} digest={digest:016x}",
+            audience.steps(),
+            audience.count(HeroId::Carl).unwrap_or(0),
+            audience.count(HeroId::Donut).unwrap_or(0),
+            carl.trend,
+            donut.trend,
+        );
+    }
 }
 
 /// WORK-023, HUD-DEBT-02: Donut's biscuit state for this run. A party fixture
@@ -760,6 +818,9 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     // Melee input is live exactly when the combat state exists (see the
     // manual input gate in `fixed_step`).
     hud.set_melee_live(combat.is_some());
+    // AUDIENCE-01: the heroes' columns, for authored anticipation cues (read
+    // only; the observer is inert while the audience is locked).
+    hud.set_hero_x(sim.world.hero.x as i32, sim.world.donut.x as i32);
     // HUD-DEBT-02: Donut's real mana (None while the biscuit is locked).
     hud.set_donut_mana(combat.and_then(CombatState::donut_mana_view));
     if let Some(combat) = combat {
@@ -818,6 +879,7 @@ fn build_scene(
         if args.party_fixture.is_some() {
             sim.set_drive(party.drive(true));
         }
+        let mut feat_feed = AudienceFeatFeed::default();
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let inputs = if let Some(pf) = args.party_fixture {
                 let slots = pf.inputs(sim.world.tick + 1, &combat, &sim);
@@ -836,6 +898,7 @@ fn build_scene(
             if combat.restarts != restarts {
                 party.restart();
             }
+            feat_feed.observe(&combat, hud);
             step_hud(hud, &sim, Some(&combat));
             if args.death_stress && args.perf_from_tick.is_some() {
                 // Lab: load the pools before the probe starts measuring.
@@ -940,7 +1003,8 @@ fn print_combat_events(
     combat: &mut CombatState,
     mut audio: Option<&mut AudioQueue>,
     mut cine: Option<&mut CineAdapter>,
-) {
+) -> Vec<ChainFeat> {
+    let mut feats = Vec::new();
     for event in combat.take_new_events() {
         println!("{event}");
         if let Some(audio) = audio.as_deref_mut() {
@@ -955,6 +1019,52 @@ fn print_combat_events(
             // Deterministic: a function of the events only, printed with CINE
             // on or off (the planner outcome is not part of the line).
             println!("{}", cine_moment_line(&emission.moment));
+            // AUDIENCE-01: the same moment as plain data for the audience
+            // observer (CINE never reads audience data; one-way).
+            feats.push(chain_feat(&emission.moment));
+        }
+    }
+    feats
+}
+
+/// A CINE moment as the plain-data feat the audience observer takes.
+fn chain_feat(m: &dungeon_floorbreak::cine::CinematicMoment) -> ChainFeat {
+    ChainFeat {
+        credited: m.credited,
+        target: m.target,
+        score: m.score,
+    }
+}
+
+/// AUDIENCE-01: routes the CINE chain feats of a pre-simulated run (headless
+/// replays and the fast-forward of every capture) into the audience. The live
+/// loop gets them from the single fan-out in [`print_combat_events`]; this
+/// feed reads the same events through its own cursor, so the combat log's
+/// print cursor is untouched and nothing is printed. It keeps its own
+/// [`CineAdapter`] (the evaluator is a function of the events only, whatever
+/// the presentation setting), reads the log and returns nothing to the
+/// simulation. Inert while the audience is locked.
+#[derive(Default)]
+struct AudienceFeatFeed {
+    adapter: Option<CineAdapter>,
+    cursor: EventCursor,
+}
+
+impl AudienceFeatFeed {
+    /// One finished tick: call before [`step_hud`] (the live loop also queues
+    /// the feats before its HUD step).
+    fn observe(&mut self, combat: &CombatState, hud: &mut HudRuntime) {
+        if !hud.audience().is_unlocked() {
+            return;
+        }
+        let adapter = self
+            .adapter
+            .get_or_insert_with(|| CineAdapter::new(PresentationSettings::OFF));
+        for event in self.cursor.next(&combat.events, combat.dropped_events) {
+            adapter.push(event);
+        }
+        for emission in adapter.flush() {
+            hud.push_chain_feat(chain_feat(&emission.moment));
         }
     }
 }
@@ -2868,11 +2978,14 @@ fn fixed_step(
         pads.0.party_mut().restart();
         anim.0.reset(&sim.0.world);
         anim.0.reset_art(combat);
-        print_combat_events(
+        let feats = print_combat_events(
             combat,
             Some(&mut sinks.audio),
             Some(&mut sinks.cine.adapter),
         );
+        for feat in feats {
+            hud.0.push_chain_feat(feat);
+        }
         println!("DEMO01_RESPAWN checkpoint={}", combat.checkpoint);
     }
     if restart {
@@ -2940,11 +3053,14 @@ fn fixed_step(
             pads.0.party_mut().restart();
             controls.camera_cut = true;
         }
-        print_combat_events(
+        let feats = print_combat_events(
             combat,
             Some(&mut sinks.audio),
             Some(&mut sinks.cine.adapter),
         );
+        for feat in feats {
+            hud.0.push_chain_feat(feat);
+        }
         if respawned {
             println!("DEMO01_RESPAWN checkpoint={}", combat.checkpoint);
         }
@@ -2988,6 +3104,7 @@ fn fixed_step(
         if let Some(combat) = combat.0.as_ref() {
             print_combat_state(&sim.0, &anim.0, combat);
         }
+        print_audience_state(&hud.0);
         if let Some(death) = death.0.as_ref() {
             println!("{}", death.state_line());
         }
@@ -5154,6 +5271,7 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
     let (sim, anim, _, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
+    print_audience_state(&hud);
     Ok(())
 }
 
@@ -5177,6 +5295,7 @@ fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> 
                 party_scene::party_state_line(party_fixture, &combat, &sim, &party)
             );
         }
+        print_audience_state(&hud);
         if args.death_trace
             && let Some(death) = death
         {
@@ -5188,6 +5307,7 @@ fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> 
     let (sim, anim, _, _, _) = build_scene(kit, args, actors, root, &mut hud)?;
     println!("{}", sim.state_line());
     println!("{}", anim.state_line(sim.world.tick));
+    print_audience_state(&hud);
     Ok(())
 }
 
@@ -5305,6 +5425,75 @@ mod tests {
         let mut full = vec!["floor01_scene".to_owned()];
         full.extend(list.iter().map(|s| (*s).to_owned()));
         parse_args_with(&full, HudSettings::default())
+    }
+
+    /// AUDIENCE-01 R1: a CINE chain award reaches the viewer count on every
+    /// path. The fast-forward of a headless replay (and of every capture)
+    /// and the live loop (the single fan-out of `fixed_step`) must end in the
+    /// same audience state for the same inputs. `cp03_goblin_pileup` earns a
+    /// mixed-chain CINE moment (score 7, credited to Carl). Without the feed
+    /// in `build_scene` the headless Carl is 500 short of the live one.
+    #[test]
+    fn a_cine_chain_award_reaches_the_audience_on_the_headless_and_live_paths() {
+        const TICKS: u64 = 260;
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let kit = EnvKit::load(root, LAYOUT_PATH).unwrap();
+        let actors = Actors::load(root, FrameSource::GridSource, true, false).unwrap();
+        let base = [
+            "--headless-floor01-smoke",
+            "--fixture",
+            "cp03_goblin_pileup",
+            "--audience-probe",
+        ];
+
+        // Headless: the fast-forward of `build_scene`.
+        let mut fast = base.to_vec();
+        let ticks = TICKS.to_string();
+        fast.extend(["--capture-tick", ticks.as_str()]);
+        let fast = args(&fast).unwrap();
+        let mut hud_fast = new_hud(&fast, &kit, &actors);
+        build_scene(&kit, &fast, &actors, root, &mut hud_fast).unwrap();
+
+        // Live-equivalent: the order of `fixed_step` (step, single fan-out,
+        // chain feats queued, HUD step), with the presentation observer.
+        let live = args(&base).unwrap();
+        let mut hud_live = new_hud(&live, &kit, &actors);
+        let (mut sim, mut anim, combat, death, _) =
+            build_scene(&kit, &live, &actors, root, &mut hud_live).unwrap();
+        let (mut combat, mut death) = (combat.unwrap(), death.unwrap());
+        let fixture = live.fixture.unwrap();
+        let mut adapter = CineAdapter::new(PresentationSettings::DEFAULT);
+        let mut awards = 0;
+        for _ in 0..TICKS {
+            let input = scripted_input(&live, fixture, &sim, &combat);
+            step_combat(
+                &mut sim,
+                &mut combat,
+                &mut anim,
+                Some(&mut death),
+                [input, RawInput::default()],
+            );
+            for feat in print_combat_events(&mut combat, None, Some(&mut adapter)) {
+                awards += 1;
+                hud_live.push_chain_feat(feat);
+            }
+            step_hud(&mut hud_live, &sim, Some(&combat));
+        }
+
+        assert!(awards > 0, "the fixture must earn a CINE chain feat");
+        let (fast_view, live_view) = (hud_fast.audience(), hud_live.audience());
+        assert_eq!(
+            (
+                fast_view.count(HeroId::Carl),
+                fast_view.count(HeroId::Donut)
+            ),
+            (
+                live_view.count(HeroId::Carl),
+                live_view.count(HeroId::Donut)
+            ),
+        );
+        assert_eq!(fast_view.steps(), live_view.steps());
+        assert_eq!(fast_view.digest(), live_view.digest());
     }
 
     #[test]

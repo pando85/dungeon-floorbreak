@@ -59,3 +59,7 @@ d00b660997b63cad53a3e42fea5227af4a1daa35027aeda25257d420e1ef8a32  hud_tags.grid.
 1e95b325589a1efa380f3d8fcd8aa51eaafe9b9d8e34062c790c7ebb9a907832  hud_hybrid_a.ase
 ```
 (Atlas PNG: 1f73005e1955f0f90d1cbc2b73ef6c152e715b454bf79696d4e00e1e86046cf7 with the local LibreSprite 1.2-dev build; CI's pinned 1.3 is the reference. Per-region RGBA hashes are in the manifest.)
+
+## AUDIENCE-01 viewer art (part A)
+
+`hud_viewer_eye`, `hud_viewer_up`, `hud_viewer_down` and `hud_viewer_digit_{0..9,k,m,plus}` are single-frame sources (16 regions named `viewer_*` in the atlas), copied pixel-exact from the top-tier keys in the PR #118 design review and written by `scripts/author_hud_hybrid_a.py`. There is no decimal-point source: the HUD draws `.` as a code-placed 1x1 rect, because a lone pixel is not a sprite and fails the strict lint. See [the evidence README](../../../docs/evidence/audience-01/README.md).

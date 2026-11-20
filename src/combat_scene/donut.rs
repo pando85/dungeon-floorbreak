@@ -1140,6 +1140,61 @@ mod tests {
         assert_eq!(s.combat.donut_mana_view(), Some((6, 8)));
     }
 
+    /// AUDIENCE-01: the scene's own Magic Missile kill emits the hero index of
+    /// Donut, whoever holds the pad. Both runs go through the real emit site
+    /// and `AudienceInput::from_combat`: P2 driving Donut in 2P, and P1
+    /// driving Donut after a solo swap (the controller slot is 0 there).
+    #[test]
+    fn a_donut_kill_credits_donut_whoever_drives_her() {
+        use crate::audience::{AudienceInput, AudienceState, TUNING};
+        use crate::party::HeroId;
+        use crate::party_scene::swap;
+        static TWO_PLAYER: [SlotHold; 2] = [primary(10, 11, 1), primary(26, 27, 1)];
+        static SOLO_SWAP: [SlotHold; 3] = [swap(5, 6), primary(10, 11, 0), primary(26, 27, 0)];
+        static ENEMY: [EnemySpawn; 1] = [EnemySpawn {
+            x: 600,
+            ai: EnemyAi::Passive,
+        }];
+        for (name, script, two_player) in [
+            ("t_audience_2p", &TWO_PLAYER[..], true),
+            ("t_audience_swap", &SOLO_SWAP[..], false),
+        ] {
+            let script: &'static [SlotHold] = script;
+            let f = fixture(
+                name,
+                &ENEMY,
+                script,
+                DonutSetup::unlocked(8),
+                two_player,
+                120,
+            );
+            let mut s = sim(f);
+            s.run_scripted(120);
+            let defeats: Vec<_> = s
+                .combat
+                .events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+                .collect();
+            assert_eq!(defeats.len(), 1, "{name}: the bolts kill the goblin");
+            let mut audience = AudienceState::locked();
+            audience.unlock();
+            let inputs: Vec<_> = s
+                .combat
+                .events
+                .iter()
+                .filter_map(AudienceInput::from_combat)
+                .collect();
+            audience.step(&inputs);
+            let (carl, donut) = (
+                audience.count(HeroId::Carl).unwrap(),
+                audience.count(HeroId::Donut).unwrap(),
+            );
+            assert_eq!(carl, TUNING.baseline, "{name}: Carl is never credited");
+            assert!(donut > TUNING.baseline, "{name}: Donut is credited");
+        }
+    }
+
     #[test]
     fn a_hurt_during_the_gather_cancels_the_cast_at_no_cost() {
         static SCRIPT: [SlotHold; 1] = [primary(10, 11, 1)];

@@ -1,0 +1,14 @@
+# cp03_shore_kill: --fixture cp03_shore_kill
+AUDIENCE_STATE steps=200 carl=2050 donut=250 carl_trend=Flat donut_trend=Flat digest=9d3a830edcd76629
+# cp01_kick: --fixture cp01_kick
+AUDIENCE_STATE steps=340 carl=750 donut=250 carl_trend=Flat donut_trend=Flat digest=5eb41aca526c8f7e
+# cp03_goblin_pileup: --fixture cp03_goblin_pileup
+AUDIENCE_STATE steps=260 carl=10060 donut=250 carl_trend=Flat donut_trend=Flat digest=0af196e3528317ff
+# q10_pounce_hit: --party-fixture q10_pounce_hit
+AUDIENCE_STATE steps=260 carl=250 donut=370 carl_trend=Flat donut_trend=Flat digest=84599794c51249c3
+# solo_swap_continuity: --party-fixture solo_swap_continuity
+AUDIENCE_STATE steps=320 carl=4250 donut=4250 carl_trend=Flat donut_trend=Flat digest=68a818ba873f475f
+# boss01_crush_kill: --party-fixture boss01_crush_kill
+AUDIENCE_STATE steps=420 carl=6950 donut=4250 carl_trend=Up donut_trend=Up digest=b753f344fcaa66f0
+# demo01_b3: --demo --autopilot --demo-beat 3 --capture-tick 600
+AUDIENCE_STATE steps=600 carl=9090 donut=4069 carl_trend=Flat donut_trend=Flat digest=74dd58c9f56cd155
