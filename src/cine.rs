@@ -2415,6 +2415,29 @@ mod tests {
         assert_eq!(third[0].tick, 902);
     }
 
+    /// Regression (the #122 review, N3): history is pruned before a batch is
+    /// recorded, so a target id reused after a long quiet spell is a new
+    /// living target, while a repeat inside the window is still one defeat.
+    #[test]
+    fn a_target_id_reused_after_the_window_counts_but_a_repeat_inside_it_does_not() {
+        let mut ev = fresh();
+        assert!(run(&mut ev, &[melee(10, 3, Some(0))]).is_empty());
+        assert_eq!(ev.held_entries(), 1);
+        // A repeat of the same id inside the window is deduplicated.
+        assert!(run(&mut ev, &[melee(50, 3, Some(0))]).is_empty());
+        assert_eq!(ev.held_entries(), 1, "one defeat, not two");
+        // No batch until tick 195 (the first entry is 185 ticks old, outside
+        // the 90-tick window). The same id dies again: it must be recorded,
+        // so the melee kill plus the block chain scores.
+        let moments = run(
+            &mut ev,
+            &[melee(195, 3, Some(0)), broken(196, 0), block(197, 2, 0)],
+        );
+        assert_eq!(moments.len(), 1, "{:?}", ev.last_rejection());
+        assert_eq!(moments[0].credited, 0);
+        assert!(moments[0].feats.mixed_chain);
+    }
+
     #[test]
     fn f5_the_cinematic_settings_are_separate_from_the_hud_ones() {
         let env = |pairs: &'static [(&'static str, &'static str)]| {

@@ -411,7 +411,9 @@ case "$mode" in
     for spec in "${cine_probes[@]}"; do
       IFS='|' read -r name committed_log want ticks flags <<<"$spec"
       for preset in 1 4; do
-        for setting in on off; do
+        # off first: the p1 off run is the reference every other run is
+        # diffed against (CINE-T09; the #122 review, N2).
+        for setting in off on; do
           log="$out/cine_${name}_p${preset}_${setting}.log"
           # shellcheck disable=SC2086
           cine_run "$log" --scale 3 $flags --gore-preset "$preset" --exit-after-ticks "$ticks" --cinematic-finishes="$setting"
@@ -423,6 +425,19 @@ case "$mode" in
           fi
         done
       done
+      # The compare the loop cannot make against itself: preset 1, cinematic
+      # on versus off, authoritative lines and the final sim hash.
+      if ! cmp -s "$out/cine_${name}_p1_off.log.lines" "$out/cine_${name}_p1_on.log.lines"; then
+        diff "$out/cine_${name}_p1_off.log.lines" "$out/cine_${name}_p1_on.log.lines" >&2 || true
+        echo "CINE-T09: $name differs between cinematic on and off at gore preset 1" >&2
+        exit 1
+      fi
+      cine_hash_off="$(grep '^COMBAT_STATE' "$out/cine_${name}_p1_off.log.lines" | sed -n 's/.*hash=\([0-9a-f]*\).*/\1/p')"
+      cine_hash_on="$(grep '^COMBAT_STATE' "$out/cine_${name}_p1_on.log.lines" | sed -n 's/.*hash=\([0-9a-f]*\).*/\1/p')"
+      if [[ -z "$cine_hash_off" || "$cine_hash_off" != "$cine_hash_on" ]]; then
+        echo "CINE-T09: $name sim hash differs with cinematic finishers on (off=$cine_hash_off on=$cine_hash_on)" >&2
+        exit 1
+      fi
       # The authoritative part equals the committed headless replay.
       if ! diff <(grep -E '^(COMBAT_EVENT)' "$out/cine_${name}_p1_off.log.lines"; grep '^COMBAT_STATE' "$out/cine_${name}_p1_off.log.lines") "$committed_log"; then
         echo "CINE-T09: $name differs from the committed headless replay ($committed_log)" >&2

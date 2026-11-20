@@ -139,6 +139,17 @@ impl MoveId {
             Self::MagicMissile => "magic_missile",
         }
     }
+
+    /// The hero index that owns this move: Donut's three moves are hero 1,
+    /// every other move is Carl's (hero 0). `CombatEvent::Hit` names no
+    /// attacker, so anything that needs the attacker of a hit (the CINE launch
+    /// credit) reads it from here instead of defaulting to hero 0.
+    pub const fn hero(self) -> u32 {
+        match self {
+            Self::Swat | Self::Pounce | Self::MagicMissile => crate::donut_moves::DONUT_HERO,
+            Self::GreyboxStrike | Self::Jab | Self::Haymaker | Self::PushKick => 0,
+        }
+    }
 }
 
 /// A string: a press of `on` while the running move is at a tick in
