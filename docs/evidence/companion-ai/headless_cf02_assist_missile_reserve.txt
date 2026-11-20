@@ -1,0 +1,37 @@
+COMBAT_EVENT tick=1 kind=llama_tell llama=0
+COMBAT_EVENT tick=2 kind=move_started move=magic_missile instance=1
+COMBAT_EVENT tick=6 kind=mana_spent hero=1 left=2
+COMBAT_EVENT tick=21 kind=hit move=magic_missile instance=1 target=0 damage=1 health_left=2 hit_stop=2
+COMBAT_EVENT tick=21 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=71 kind=llama_tell llama=0
+COMBAT_EVENT tick=76 kind=mana_regained hero=1 now=3
+COMBAT_EVENT tick=77 kind=move_started move=magic_missile instance=2
+COMBAT_EVENT tick=81 kind=mana_spent hero=1 left=2
+COMBAT_EVENT tick=96 kind=hit move=magic_missile instance=2 target=0 damage=1 health_left=1 hit_stop=2
+COMBAT_EVENT tick=96 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=146 kind=llama_tell llama=0
+COMBAT_EVENT tick=151 kind=mana_regained hero=1 now=3
+COMBAT_EVENT tick=152 kind=move_started move=magic_missile instance=3
+COMBAT_EVENT tick=156 kind=mana_spent hero=1 left=2
+COMBAT_EVENT tick=172 kind=hit move=magic_missile instance=3 target=0 damage=0 health_left=1 hit_stop=2
+COMBAT_EVENT tick=172 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=222 kind=llama_tell llama=0
+COMBAT_EVENT tick=226 kind=mana_regained hero=1 now=3
+COMBAT_EVENT tick=227 kind=move_started move=magic_missile instance=4
+COMBAT_EVENT tick=231 kind=mana_spent hero=1 left=2
+COMBAT_EVENT tick=247 kind=hit move=magic_missile instance=4 target=0 damage=0 health_left=1 hit_stop=2
+COMBAT_EVENT tick=247 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=297 kind=llama_tell llama=0
+COMBAT_EVENT tick=301 kind=mana_regained hero=1 now=3
+COMBAT_EVENT tick=302 kind=move_started move=magic_missile instance=5
+COMBAT_EVENT tick=306 kind=mana_spent hero=1 left=2
+COMBAT_EVENT tick=322 kind=hit move=magic_missile instance=5 target=0 damage=0 health_left=1 hit_stop=2
+COMBAT_EVENT tick=322 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=372 kind=llama_tell llama=0
+COMBAT_EVENT tick=376 kind=mana_regained hero=1 now=3
+COMBAT_EVENT tick=377 kind=move_started move=magic_missile instance=6
+COMBAT_EVENT tick=381 kind=mana_spent hero=1 left=2
+COMBAT_EVENT tick=398 kind=hit move=magic_missile instance=6 target=0 damage=0 health_left=1 hit_stop=2
+COMBAT_EVENT tick=398 kind=llama_interrupted llama=0
+COMBAT_STATE fixture=cf02_assist_missile_reserve seed=0xc0a10007 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=c7b86428b94e5ed8 llamas=l0=522.000/1
+PARTY_STATE fixture=cf02_assist_missile_reserve mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=fa241a206ba24e8e

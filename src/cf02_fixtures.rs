@@ -114,6 +114,8 @@ pub fn goblin_health(fixture: &str) -> Option<u8> {
         | "cf02_dive_bounce_kick"
         | "cf02_air_kick_relaunch_once" => Some(4),
         "cf02_cancel_table" => Some(9),
+        // COMPANION-AI-01 01A-wire: the `cf02_assist_*` fixtures (src/companion_fixtures.rs).
+        name if name.starts_with("cf02_assist_") => crate::companion_fixtures::goblin_health(name),
         _ => None,
     }
 }
@@ -1172,8 +1174,14 @@ mod tests {
 
     #[test]
     fn the_registries_list_only_their_own_names() {
-        assert!(COMPANION_FIXTURES.is_empty());
-        assert!(list_fixtures("companion_").is_empty());
+        // The COMPANION registry (01A-wire) lists under its own two prefixes.
+        let companion: Vec<_> = COMPANION_FIXTURES.iter().map(|f| f.name()).collect();
+        let mut listed_companion = list_fixtures("companion_");
+        listed_companion.extend(list_fixtures("cf02_assist_"));
+        let (mut a, mut b) = (listed_companion, companion);
+        a.sort_unstable();
+        b.sort_unstable();
+        assert_eq!(a, b);
         assert!(list_fixtures("no_such_prefix_").is_empty());
         // The CF02-C1 llama fixtures live in `donut_fixtures.rs`, which
         // `PartyFixture::all()` chains; the listing shows them first, then this
@@ -1182,7 +1190,11 @@ mod tests {
         let own: Vec<_> = listed
             .iter()
             .copied()
-            .filter(|n| !(n.starts_with("cf02_llama_") || *n == "cf02_donut_solo_llama"))
+            .filter(|n| {
+                !(n.starts_with("cf02_llama_")
+                    || n.starts_with("cf02_assist_")
+                    || *n == "cf02_donut_solo_llama")
+            })
             .collect();
         let expected: Vec<_> = CF02_FIXTURES.iter().map(|f| f.name()).collect();
         assert_eq!(own, expected);

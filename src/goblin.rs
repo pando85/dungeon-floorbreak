@@ -251,8 +251,6 @@ impl Goblin {
     /// until the get-up begins is `down_ticks_left() + hold_left` (and a hold not
     /// yet used can add `q38_hold_ticks` once). Read by the COMPANION view
     /// builder (`Lying { down_ticks_left, hold_used }`).
-    // No caller yet: COMPANION 01A-wire's view builder reads it (tested here).
-    #[allow(dead_code)]
     pub(crate) fn down_ticks_left(&self) -> Option<u16> {
         self.lying()
             .then(|| self.downed_ticks().saturating_sub(self.down_ticks))

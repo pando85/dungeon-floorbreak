@@ -18,7 +18,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x5856_cc9c_1062_b17f;
+pub const PROFILE_HASH: u64 = 0x495d_eae5_408d_7537;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -85,6 +85,11 @@ pub struct DonutRole {
     /// Q15: pounce range ahead of Donut, on a lying or staggered goblin.
     pub cf02_q15_pounce_min_px: u16,
     pub cf02_q15_pounce_max_px: u16,
+    /// CF02-Q38 (hold): a pounce on a lying goblin starts only while the goblin
+    /// still lies for at least this many ticks, about the pounce's startup plus
+    /// flight, so it lands before the get-up (a late one would stand the goblin
+    /// up, the outcome Q34 and Q38 prevent).
+    pub cf02_q38_pounce_lying_min_ticks_left: u16,
     /// Q17: Magic Missile range, after the unlock only.
     pub cf02_q17_missile_min_px: u16,
     pub cf02_q17_missile_max_px: u16,

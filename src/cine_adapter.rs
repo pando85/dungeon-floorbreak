@@ -25,7 +25,7 @@
 use std::collections::VecDeque;
 
 use crate::cine::{
-    CineEvent, CineTuning, CinematicEvaluator, CinematicMoment, FrameContext, FramePlan,
+    CineCause, CineEvent, CineTuning, CinematicEvaluator, CinematicMoment, FrameContext, FramePlan,
     PlannerState, PresentationSettings, RequestOutcome, SlowMoPlanner,
 };
 use crate::combat::{CombatEvent, MoveId};
@@ -33,6 +33,31 @@ use crate::combat::{CombatEvent, MoveId};
 /// How many launch kicks are remembered for the launch proof. A contact must
 /// follow its kick within the flight of one goblin, so a handful is plenty.
 const KICK_MEMORY: usize = 16;
+
+/// Whether a defeat is credited to a hero the companion was driving (CA-29):
+/// the melee `instigator`, or the `player` the cause names. Any other event is
+/// not a credit.
+fn is_companion_credited(event: &CineEvent, companion_driven: [bool; 2]) -> bool {
+    let CineEvent::Defeated {
+        cause, instigator, ..
+    } = *event
+    else {
+        return false;
+    };
+    let driven = |hero: u32| {
+        companion_driven
+            .get(hero as usize)
+            .copied()
+            .unwrap_or(false)
+    };
+    let named = match cause {
+        CineCause::ShoreBlock { player }
+        | CineCause::ShoreBlockEdge { player }
+        | CineCause::DropHazard { player } => Some(player),
+        CineCause::Melee | CineCause::Other => None,
+    };
+    instigator.is_some_and(driven) || named.is_some_and(driven)
+}
 
 /// A moment the evaluator emitted and what the planner did with it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,8 +120,23 @@ impl CineAdapter {
         self.target
     }
 
-    /// Feed one combat event, in log order.
+    /// Feed one combat event, in log order. The companion is off for this
+    /// call: [`Self::push_driven`] with no hero companion-driven.
     pub fn push(&mut self, event: &CombatEvent) {
+        self.push_driven(event, [false; 2]);
+    }
+
+    /// Feed one combat event with the heroes the companion drove at its tick
+    /// (`CombatState::companion_driven`, Carl 0, Donut 1).
+    ///
+    /// **CA-29, fail closed.** A defeat credited to a companion-driven hero is
+    /// not forwarded to the evaluator, so it can neither trigger a moment nor
+    /// join another's chain. The credited hero is the `instigator` of a melee
+    /// defeat and the cause's `player` for `ShoreBlock`, `ShoreBlockEdge` and
+    /// `DropHazard`; `slot` alone never gates a moment. A defeat that names no
+    /// hero is not credited to anyone and passes through. Presentation only:
+    /// no combat event, hash or RNG changes, and AUDIENCE credit stays factual.
+    pub fn push_driven(&mut self, event: &CombatEvent, companion_driven: [bool; 2]) {
         match *event {
             CombatEvent::Hit {
                 move_id: move_id @ MoveId::PushKick,
@@ -142,6 +182,9 @@ impl CineAdapter {
             self.cancel = true;
         }
         if let Some(mapped) = CineEvent::from_combat(event) {
+            if is_companion_credited(&mapped, companion_driven) {
+                return;
+            }
             self.pending.push(mapped);
         }
     }
@@ -536,5 +579,66 @@ mod tests {
             };
             assert!(feed(&mut a, &[event]).is_empty(), "{force:?}");
         }
+    }
+
+    /// CA-29: a defeat credited to a companion-driven hero never reaches the
+    /// evaluator (fail closed), whichever field names the credit; a defeat
+    /// credited to the human-driven hero, or to nobody, still does.
+    #[test]
+    fn a_companion_credited_defeat_never_triggers_a_moment() {
+        let edge = |player| {
+            [
+                CombatEvent::ShoreBroken { tick: 1, player },
+                defeat(5, 2, DefeatCause::ShoreBlockEdge { player }, Some(player)),
+            ]
+        };
+        let run = |events: &[CombatEvent], driven: [bool; 2]| {
+            let mut a = CineAdapter::new(PresentationSettings::OFF);
+            for e in events {
+                a.push_driven(e, driven);
+            }
+            (a.flush().len(), a.emitted())
+        };
+        // Carl credited: a moment while he is human-driven, none while he is the companion.
+        assert_eq!(
+            run(&edge(0), [false, true]).0,
+            1,
+            "the human hero's credit counts"
+        );
+        assert_eq!(
+            run(&edge(0), [true, false]).0,
+            0,
+            "the companion's credit does not"
+        );
+        assert_eq!(
+            run(&edge(0), [false, false]).0,
+            1,
+            "companion off: as before"
+        );
+        // The same for Donut (hero index 1).
+        assert_eq!(run(&edge(1), [true, false]).0, 1);
+        assert_eq!(run(&edge(1), [false, true]).0, 0);
+        // The cause's player gates even when the instigator names the human.
+        let mixed = [
+            CombatEvent::ShoreBroken { tick: 1, player: 1 },
+            defeat(5, 2, DefeatCause::ShoreBlockEdge { player: 1 }, Some(0)),
+        ];
+        assert_eq!(run(&mixed, [false, true]).0, 0);
+        // `push` is the companion-off feed.
+        let mut a = CineAdapter::new(PresentationSettings::OFF);
+        for e in &edge(0) {
+            a.push(e);
+        }
+        assert_eq!(a.flush().len(), 1);
+        // A defeat that names no hero is credited to nobody and is not gated.
+        assert!(!is_companion_credited(
+            &CineEvent::from_combat(&defeat(5, 2, MELEE, None)).unwrap(),
+            [true, true]
+        ));
+        // Only defeats are gated.
+        assert!(!is_companion_credited(
+            &CineEvent::HeroHurt { tick: 1, player: 0 },
+            [true, true]
+        ));
     }
 }

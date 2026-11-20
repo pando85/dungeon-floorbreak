@@ -223,6 +223,10 @@ fn uncontrolled_tag(value: UncontrolledHero) -> u8 {
     match value {
         UncontrolledHero::TrailFollowNeverAttacks => 0,
         UncontrolledHero::FollowAndJumpBot => 1,
+        // COMPANION-AI-01: the AI companion, per profile set (no autoplay
+        // scenario uses it; the tags keep the encoding total and distinct).
+        UncontrolledHero::Companion(crate::companion::profile::ProfileSetId::Cf02Assist) => 2,
+        UncontrolledHero::Companion(crate::companion::profile::ProfileSetId::CompanionV0) => 3,
     }
 }
 

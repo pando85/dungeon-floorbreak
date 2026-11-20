@@ -1,0 +1,15 @@
+COMBAT_EVENT tick=89 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=105 kind=move_started move=swat instance=1
+COMBAT_EVENT tick=106 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=109 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=109 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=109 kind=glance instance=1 target=0 reason=staggered
+COMBAT_EVENT tick=157 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=166 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=169 kind=hit move=jab instance=2 target=0 damage=0 health_left=1 hit_stop=3
+COMBAT_EVENT tick=169 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=203 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=229 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=229 kind=hero_hurt source=0 health_left=3 hero=donut
+COMBAT_STATE fixture=companion_swap_mid_move seed=0xc0a20004 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies=e0=449.534/1 hash=9458627d32cd0cb3
+PARTY_STATE fixture=companion_swap_mid_move mode=solo controlled=Donut carl_hp=4 donut_hp=3 deaths=0 hash=0854974ce60919a9

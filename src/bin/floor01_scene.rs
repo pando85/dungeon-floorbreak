@@ -67,6 +67,7 @@ use dungeon_floorbreak::{
     combat_lab_fixtures::PENDING_FIXTURE,
     combat_lab_overlay::{EndPanel, LabOverlay, LabOverlayPlugin, LabRequest, RecStatus},
     combat_scene::{CombatState, Fixture},
+    companion::profile::ProfileSetId,
     corridor::{CorridorWorld, Scenario, SceneSim},
     death_present::{
         DeathPresenter, DrawLayer, FLOOR_DECAL_POOL_CAPACITY, FLOOR_DECAL_POOL_SLOTS,
@@ -96,7 +97,7 @@ use dungeon_floorbreak::{
     lighting::{MAX_SHADOWS, ShadowEllipse, ViewRect, contact_shadow},
     llama::LlamaMode,
     pad_slots::{PadButtons, PadEvent, PadFrame, PadSlots},
-    party::{HeroId, PadId, PartyState},
+    party::{HeroId, PROVISIONAL_TUNING, PadId, PartyState, PartyTuning, UncontrolledHero},
     party_scene::{self, PartyFixture},
     playtrace::{self, RECORD_DEFAULT_ON, ResetDescriptor, SessionManifest, live::LiveRecorder},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, TICK_SECONDS},
@@ -244,6 +245,10 @@ struct Args {
     /// CF02-00 only carries it (the room is still the DEMO hall and no rule
     /// reads it), so a `--cf02` run replays exactly like `--demo`.
     cf02: Cf02Config,
+    /// COMPANION-AI-01 (`--companion off|cf02_assist|v0`, CA-22): who drives the
+    /// uncontrolled hero of a live solo run. `None` is the default: the
+    /// follow-and-jump bot, except that `--cf02` implies `cf02_assist`.
+    companion: Option<CompanionChoice>,
     /// `--list-fixtures PREFIX`: print the fixture names with that prefix over
     /// every registry and exit before anything else starts.
     list_fixtures: Option<String>,
@@ -282,6 +287,30 @@ enum RecordMode {
     Off,
 }
 
+/// `--companion` (CA-22).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CompanionChoice {
+    /// The rollback: the follow-and-jump bot (also `--cf02 --companion off`).
+    Off,
+    /// CF02's restrained assistant: AI Donut active, AI Carl passive.
+    Cf02Assist,
+    /// Both roles active.
+    V0,
+}
+
+impl CompanionChoice {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "off" => Ok(Self::Off),
+            "cf02_assist" => Ok(Self::Cf02Assist),
+            "v0" => Ok(Self::V0),
+            other => Err(format!(
+                "unknown --companion {other:?} (expected off, cf02_assist or v0)"
+            )),
+        }
+    }
+}
+
 impl Args {
     /// PLAYTRACE-01 (PT-Q12): the run has a live input source, so its
     /// session cannot be reproduced from the command line. False for every
@@ -316,6 +345,29 @@ impl Args {
             RecordMode::Off => false,
             RecordMode::Auto => RECORD_DEFAULT_ON && self.live_input(),
         }
+    }
+
+    /// Who drives the uncontrolled hero of a live run (CA-22): the explicit
+    /// `--companion`, else `cf02_assist` under `--cf02` (Q13, Q33), else the
+    /// follow-and-jump bot, so every default run is as before.
+    fn uncontrolled_hero(&self) -> UncontrolledHero {
+        match self.companion.unwrap_or(if self.cf02.rules {
+            CompanionChoice::Cf02Assist
+        } else {
+            CompanionChoice::Off
+        }) {
+            CompanionChoice::Off => UncontrolledHero::FollowAndJumpBot,
+            CompanionChoice::Cf02Assist => UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
+            CompanionChoice::V0 => UncontrolledHero::Companion(ProfileSetId::CompanionV0),
+        }
+    }
+
+    /// The party of a live run without a party fixture.
+    fn live_party(&self) -> PartyState {
+        PartyState::new(PartyTuning {
+            uncontrolled_hero: self.uncontrolled_hero(),
+            ..PROVISIONAL_TUNING
+        })
     }
 
     /// The CINE-01 setting this run uses. An explicit environment variable or
@@ -799,6 +851,7 @@ fn parse_args_full(
         audience_probe: false,
         audience_cue_x: AUDIENCE_PROBE_CUE_X,
         cf02: Cf02Config::OFF,
+        companion: None,
         list_fixtures: None,
         record: RecordMode::Auto,
         record_dir: None,
@@ -829,6 +882,12 @@ fn parse_args_full(
                         .parse()
                         .map_err(|_| format!("bad --cf02-seed {value:?} (an unsigned integer)"))?,
                 );
+            }
+            "--companion" => {
+                let value = iter
+                    .next()
+                    .ok_or("--companion needs off, cf02_assist or v0")?;
+                parsed.companion = Some(CompanionChoice::parse(value)?);
             }
             "--list-fixtures" => {
                 let value = iter.next().ok_or("--list-fixtures needs a name prefix")?;
@@ -1043,6 +1102,11 @@ fn parse_args_full(
     if parsed.cf02.rules {
         // CF02-00: the room is the DEMO hall until CF02-F ships the microarena.
         parsed.demo = true;
+    }
+    if parsed.companion.is_some() && (parsed.fixture.is_some() || parsed.party_fixture.is_some()) {
+        // A fixture declares its own tuning (and so its own companion mode);
+        // the flag is for the live scene only (CA-22).
+        return Err("--companion cannot be combined with --fixture or --party-fixture".into());
     }
     parsed.boss |= parsed.fixture.is_some_and(|f| f.boss.is_some());
     if parsed.boss && (parsed.demo || parsed.scenario.is_some() || parsed.reference_frame) {
@@ -1387,14 +1451,17 @@ fn build_scene(
         let mut party = if let Some(run) = &args.lab_run {
             lab_party(args, run)
         } else {
-            args.party_fixture.map_or_else(PartyState::default, |pf| {
-                let mut party = PartyState::new(pf.tuning);
-                if pf.two_player {
-                    party.pad_connected(PadId(1));
-                    party.pad_start_pressed(PadId(2));
-                }
-                party
-            })
+            args.party_fixture.map_or_else(
+                || args.live_party(),
+                |pf| {
+                    let mut party = PartyState::new(pf.tuning);
+                    if pf.two_player {
+                        party.pad_connected(PadId(1));
+                        party.pad_start_pressed(PadId(2));
+                    }
+                    party
+                },
+            )
         };
         if args.party_fixture.is_some() || args.lab_run.is_some() {
             sim.set_drive(party.drive(true));
@@ -1456,7 +1523,7 @@ fn build_scene(
             }
         });
     }
-    Ok((sim, anim, None, None, PartyState::default()))
+    Ok((sim, anim, None, None, args.live_party()))
 }
 
 /// One fixed tick of a combat fixture, and the animation that follows it. A
@@ -1556,6 +1623,8 @@ fn print_combat_events(
     let mut feats = Vec::new();
     // CF02-AUDIO (Q24, Q36): the cue overlay under cf02_rules, else the global map.
     let cf02 = combat.cf02();
+    // CA-29: the heroes the companion drove on the tick these events came from.
+    let driven = combat.companion_driven();
     for event in combat.take_new_events() {
         println!("{event}");
         if let Some(audio) = audio.as_deref_mut() {
@@ -1565,7 +1634,7 @@ fn print_combat_events(
             }
         }
         if let Some(cine) = cine.as_deref_mut() {
-            cine.push(event);
+            cine.push_driven(event, driven);
         }
     }
     if let Some(cine) = cine {
@@ -1614,6 +1683,8 @@ impl AudienceFeatFeed {
         let adapter = self
             .adapter
             .get_or_insert_with(|| CineAdapter::new(PresentationSettings::OFF));
+        // CA-29: the CINE filter does not apply here. AUDIENCE credit stays
+        // factual per hero (it never triggers a slow-motion moment).
         for event in self.cursor.next(&combat.events, combat.dropped_events) {
             adapter.push(event);
         }
@@ -1698,6 +1769,19 @@ fn main() -> ExitCode {
                 return ExitCode::from(2);
             }
         }
+    }
+    if let UncontrolledHero::Companion(set) = args.uncontrolled_hero() {
+        // The companion runs only in a live party run: a scripted run (the
+        // autopilot, a scenario, a fixture) drives the other hero itself.
+        let inactive = args.autopilot
+            || args.scenario.is_some()
+            || args.fixture.is_some()
+            || args.party_fixture.is_some();
+        println!(
+            "COMPANION_CONFIG: set={}{}",
+            set.name(),
+            if inactive { " inactive" } else { "" }
+        );
     }
     let root = match std::env::current_dir() {
         Ok(dir) => dir,
@@ -7428,6 +7512,43 @@ mod tests {
         }
     }
 
+    /// CA-22: `--companion off|cf02_assist|v0`; `--cf02` implies `cf02_assist`
+    /// unless `--companion` is given; the default is the rollback bot.
+    #[test]
+    fn the_companion_flag_selects_who_drives_the_uncontrolled_hero() {
+        let hero = |list: &[&str]| args(list).unwrap().uncontrolled_hero();
+        let bot = UncontrolledHero::FollowAndJumpBot;
+        let assist = UncontrolledHero::Companion(ProfileSetId::Cf02Assist);
+        let v0 = UncontrolledHero::Companion(ProfileSetId::CompanionV0);
+        assert_eq!(hero(&[]), bot, "off by default");
+        assert_eq!(hero(&["--demo"]), bot);
+        assert_eq!(hero(&["--companion", "off"]), bot);
+        assert_eq!(hero(&["--companion", "cf02_assist"]), assist);
+        assert_eq!(hero(&["--companion", "v0"]), v0);
+        assert_eq!(hero(&["--cf02"]), assist);
+        assert_eq!(hero(&["--cf02", "--companion", "off"]), bot);
+        assert_eq!(hero(&["--cf02", "--companion", "v0"]), v0);
+        assert!(args(&["--companion"]).is_err());
+        assert!(args(&["--companion", "fast"]).is_err());
+        // A fixture declares its own tuning.
+        assert!(args(&["--fixture", "cp01_kick", "--companion", "v0"]).is_err());
+        assert!(
+            args(&[
+                "--party-fixture",
+                "companion_duo_no_ai",
+                "--headless-floor01-smoke",
+                "--companion",
+                "v0"
+            ])
+            .is_err()
+        );
+        // The live party takes the choice into its tuning (and nothing else).
+        let party = args(&["--demo", "--companion", "v0"]).unwrap().live_party();
+        assert_eq!(party.tuning().uncontrolled_hero, v0);
+        let default = args(&[]).unwrap().live_party();
+        assert_eq!(*default.tuning(), PROVISIONAL_TUNING);
+    }
+
     #[test]
     fn list_fixtures_is_parsed_without_starting_a_scene() {
         let a = args(&["--list-fixtures", "cf02_"]).unwrap();
@@ -7436,7 +7557,8 @@ mod tests {
         // CF02-C1's llama fixtures and CF02-A's Carl fixtures are `cf02_*` names.
         assert!(list_fixtures("cf02_").contains(&"cf02_llama_pounce"));
         assert!(list_fixtures("cf02_").contains(&"cf02_kick_then_stomp"));
-        assert!(list_fixtures("companion_").is_empty());
+        assert!(list_fixtures("companion_").contains(&"companion_duo_no_ai"));
+        assert!(list_fixtures("cf02_assist_").contains(&"cf02_assist_swat_interrupt"));
         assert!(list_fixtures("cp01_").contains(&"cp01_kick"));
     }
 

@@ -14,6 +14,7 @@
 //! the domain's tick contract asks: the pounce's launch impulse of tick 10 is
 //! applied by the same tick's integration.
 
+use super::companion::{Glance, MarkKind};
 use super::{
     BOSS_ENEMY_ID, CombatEvent, CombatState, DefeatCause, Goblin, GoblinMode, HeroId, InputFrame,
     RawInput, Rect, SceneSim, TICK_SECONDS, solid_at,
@@ -188,6 +189,14 @@ impl DonutKit {
     }
 }
 
+/// Donut's kit as the COMPANION view reads it (see
+/// [`CombatState::donut_companion_state`]).
+pub(super) struct DonutCompanionState {
+    pub abilities_live: bool,
+    pub running: Option<crate::companion::view::ActiveMove>,
+    pub mana: crate::companion::view::ManaView,
+}
+
 /// What Donut's step decided for the scene's physics this tick.
 pub struct DonutTick {
     /// Donut's input after the move locks (walking and jump only).
@@ -309,6 +318,9 @@ impl CombatState {
         }
         let drive = *scene.drive();
         let bot = drive.is_bot(HeroId::Donut);
+        // COMPANION-AI-01 (CA-24): the companion director drives her through
+        // the same injected press; every move it starts is AI-started (CA-20).
+        let companion_driven = drive.companion_set(HeroId::Donut).is_some();
 
         // Mana: the regen runs on every tick, whoever controls Donut, and the
         // Guild trigger is evaluated in the fixed tick.
@@ -370,7 +382,7 @@ impl CombatState {
             facing,
             wall_blocked,
             hurt,
-            may_start: !bot && can_act,
+            may_start: (!bot || companion_driven) && can_act,
             targets: &targets,
         };
 
@@ -386,6 +398,13 @@ impl CombatState {
             match *event {
                 MoveEvent::Started { mv, instance } => {
                     started_move = true;
+                    if companion_driven {
+                        self.companion.note_move_start(
+                            HeroId::Donut,
+                            MarkKind::DonutMove,
+                            instance,
+                        );
+                    }
                     self.log(CombatEvent::MoveStarted {
                         tick,
                         move_id: match mv {
@@ -418,7 +437,14 @@ impl CombatState {
                         reason,
                     });
                     if poise > 0 && target == BOSS_ENEMY_ID {
-                        self.donut_boss_hit(&DONUT_SWAT, 0, u16::from(poise), 0, tick);
+                        self.donut_boss_hit(
+                            &DONUT_SWAT,
+                            0,
+                            u16::from(poise),
+                            0,
+                            tick,
+                            Glance::default(),
+                        );
                     }
                 }
                 MoveEvent::PounceHit { target, effect } => {
@@ -435,7 +461,15 @@ impl CombatState {
             self.cancel_unfired_cast();
         }
         if out.cast_requested || self.cast_buffer_fires(tick) {
+            let before = self.donut_kit.next_cast;
             self.request_cast(tick);
+            if companion_driven && self.donut_kit.next_cast != before {
+                self.companion.note_move_start(
+                    HeroId::Donut,
+                    MarkKind::DonutCast,
+                    self.donut_kit.next_cast,
+                );
+            }
         }
         if let Some((vx, _)) = out.launch {
             self.donut_kit.pounce_vx = Some(vx);
@@ -474,6 +508,54 @@ impl CombatState {
             ..BodyDrive::default()
         };
         result
+    }
+
+    /// What the COMPANION view builder reads of Donut's kit (01A-wire):
+    /// whether her abilities run at all, her running swat, pounce or cast, and
+    /// her pool as the AI may use it. Read-only.
+    pub(super) fn donut_companion_state(&self, scene: &SceneSim) -> DonutCompanionState {
+        use crate::companion::view::{ActiveMove, ManaView, MovePhase as ViewPhase};
+        use crate::donut_moves::{MovePhase, POUNCE_TOTAL_NOMINAL, SWAT_TOTAL};
+        let kit = &self.donut_kit;
+        let running = if let Some(view) = kit.moves.view() {
+            let (id, total) = match view.mv {
+                MoveKind::Swat => (MoveId::Swat, SWAT_TOTAL),
+                MoveKind::Pounce => (MoveId::Pounce, POUNCE_TOTAL_NOMINAL),
+            };
+            Some(ActiveMove {
+                id,
+                phase: match view.phase {
+                    MovePhase::Startup | MovePhase::Crouch => ViewPhase::Startup,
+                    MovePhase::Active | MovePhase::Flight => ViewPhase::Active,
+                    MovePhase::Recovery | MovePhase::Pin => ViewPhase::Recovery,
+                },
+                ticks_left: total.saturating_sub(view.tick),
+                ai_started: self.companion.marked(MarkKind::DonutMove, view.instance),
+            })
+        } else {
+            kit.cast.map(|cast| ActiveMove {
+                id: MoveId::MagicMissile,
+                phase: match cast.age.cmp(&CAST_RELEASE_TICK) {
+                    core::cmp::Ordering::Less => ViewPhase::Startup,
+                    core::cmp::Ordering::Equal => ViewPhase::Active,
+                    core::cmp::Ordering::Greater => ViewPhase::Recovery,
+                },
+                ticks_left: CAST_TOTAL_TICKS.saturating_sub(cast.age),
+                ai_started: self.companion.marked(MarkKind::DonutCast, cast.instance),
+            })
+        };
+        DonutCompanionState {
+            abilities_live: Self::donut_abilities_live(scene),
+            running,
+            mana: ManaView {
+                mana: kit.mana.mana(),
+                max: kit.tuning.mana_max,
+                unlocked: kit.mana.unlocked(),
+                ai_can_cast: kit.mana.ai_can_cast(&kit.tuning),
+                projectile_speed_px_per_tick: kit.tuning.projectile_speed_px_per_tick,
+                bolt_lead_px: (BOLT_SPAWN_FORWARD + BOLT_BOX_AHEAD + BOLT_BOX_W / 2.0) as u8,
+            },
+        }
     }
 
     /// Fill the party context's Donut slot from the tick of [`Self::step_donut`].
@@ -616,12 +698,14 @@ impl CombatState {
         if target == BOSS_ENEMY_ID {
             // Super armour: damage and Donut's hit-stop, never an interrupt and
             // never the 14-tick stagger (the boss ignores `stagger_ticks`).
+            let glance = self.companion.glance_for(MarkKind::DonutMove, instance);
             self.donut_boss_hit(
                 &DONUT_POUNCE,
                 u16::from(effect.damage),
                 u16::from(effect.damage),
                 effect.hit_stop.attacker,
                 tick,
+                glance,
             );
             return;
         }
@@ -629,11 +713,16 @@ impl CombatState {
             self.donut_pounce_hits_llama(index, facing, instance, tick);
             return;
         }
+        // CA-20 / CF02-Q38: an AI-started pounce re-checks lethality on its hit
+        // tick, on the HP the goblin has now (a human may have lowered it
+        // mid-move); a lethal one lands as a glance (damage 0, same reaction).
+        let glance = self.companion.glance_for(MarkKind::DonutMove, instance);
         let Some(goblin) = self.enemies.get_mut(target as usize) else {
             return;
         };
+        let landed = glance.apply(&DONUT_POUNCE, goblin.health);
         let was_attacking = goblin.token_held();
-        let (outcome, split) = goblin.take_hit_split(&DONUT_POUNCE, facing, HitStopSplit::legacy);
+        let (outcome, split) = goblin.take_hit_split(&landed, facing, HitStopSplit::legacy);
         let health_left = goblin.health;
         goblin.hit_by = Some(DONUT_HERO);
         let interrupted = was_attacking && goblin.mode != GoblinMode::Attack;
@@ -645,7 +734,7 @@ impl CombatState {
             move_id: MoveId::Pounce,
             instance,
             target,
-            damage: DONUT_POUNCE.damage,
+            damage: landed.damage,
             health_left,
             hit_stop: split.attacker,
         });
@@ -694,10 +783,12 @@ impl CombatState {
             damage: self.llama_knobs().swat_damage,
             ..DONUT_SWAT
         };
+        let glance = self.companion.glance_for(MarkKind::DonutMove, instance);
         let id = (self.enemies.len() + index) as u32;
         let llama = &mut self.llamas[index];
+        let landed = glance.apply(&spec, llama.health);
         let was_telling = llama.telling();
-        let (outcome, split) = llama.take_hit_split(&spec, facing, |_| effect.hit_stop);
+        let (outcome, split) = llama.take_hit_split(&landed, facing, |_| effect.hit_stop);
         let health_left = llama.health;
         llama.hit_by = Some(DONUT_HERO);
         let defeated = matches!(outcome, crate::combat::HitOutcome::Defeated);
@@ -710,7 +801,7 @@ impl CombatState {
             move_id: MoveId::Swat,
             instance,
             target: id,
-            damage: spec.damage,
+            damage: landed.damage,
             health_left,
             hit_stop: split.attacker,
         });
@@ -734,10 +825,12 @@ impl CombatState {
             damage: self.llama_knobs().pounce_damage,
             ..DONUT_POUNCE
         };
+        let glance = self.companion.glance_for(MarkKind::DonutMove, instance);
         let id = (self.enemies.len() + index) as u32;
         let llama = &mut self.llamas[index];
+        let landed = glance.apply(&spec, llama.health);
         let was_telling = llama.telling();
-        let (outcome, split) = llama.take_hit_split(&spec, facing, HitStopSplit::legacy);
+        let (outcome, split) = llama.take_hit_split(&landed, facing, HitStopSplit::legacy);
         let health_left = llama.health;
         llama.hit_by = Some(DONUT_HERO);
         let interrupted = was_telling && llama.mode != LlamaMode::Attack;
@@ -748,7 +841,7 @@ impl CombatState {
             move_id: MoveId::Pounce,
             instance,
             target: id,
-            damage: spec.damage,
+            damage: landed.damage,
             health_left,
             hit_stop: split.attacker,
         });
@@ -771,10 +864,14 @@ impl CombatState {
             damage: self.llama_knobs().missile_damage,
             ..MAGIC_MISSILE
         };
+        let glance = self
+            .companion
+            .glance_for(MarkKind::DonutCast, bolt.instance);
         let id = (self.enemies.len() + index) as u32;
         let llama = &mut self.llamas[index];
+        let landed = glance.apply(&spec, llama.health);
         let was_telling = llama.telling();
-        let (outcome, split) = llama.take_hit_split(&spec, bolt.dir, |stop| HitStopSplit {
+        let (outcome, split) = llama.take_hit_split(&landed, bolt.dir, |stop| HitStopSplit {
             attacker: 0,
             target: stop + 1,
         });
@@ -787,7 +884,7 @@ impl CombatState {
             move_id: MoveId::MagicMissile,
             instance: bolt.instance,
             target: id,
-            damage: spec.damage,
+            damage: landed.damage,
             health_left,
             hit_stop: split.target.saturating_sub(1),
         });
@@ -812,10 +909,14 @@ impl CombatState {
         poise: u16,
         hit_stop: u8,
         tick: u64,
+        glance: Glance,
     ) {
         let Some(mut boss) = self.boss.take() else {
             return;
         };
+        // CA-20: the kill policy reads the boss' HP on the hit tick (clamped,
+        // so a boss with more than 255 HP never glances).
+        let damage = glance.lands(damage, boss.hp);
         let mut events = Vec::new();
         if let Some(result) = boss.apply_hit(
             BossHit {
@@ -1035,12 +1136,16 @@ impl CombatState {
             return true;
         }
         if boss_hit {
+            let glance = self
+                .companion
+                .glance_for(MarkKind::DonutCast, bolt.instance);
             self.donut_boss_hit(
                 &MAGIC_MISSILE,
                 u16::from(MAGIC_MISSILE.damage),
                 u16::from(MAGIC_MISSILE.damage),
                 MAGIC_MISSILE.reaction.hit_stop,
                 tick,
+                glance,
             );
             self.donut_kit.bolts.remove(index);
             return true;
@@ -1049,15 +1154,20 @@ impl CombatState {
     }
 
     fn missile_hits_goblin(&mut self, target: usize, bolt: Bolt, tick: u64) {
+        // CA-20 / CF02-Q38: the AI-started bolt re-checks lethality on its hit
+        // tick, like the pounce.
+        let glance = self
+            .companion
+            .glance_for(MarkKind::DonutCast, bolt.instance);
         let goblin: &mut Goblin = &mut self.enemies[target];
+        let landed = glance.apply(&MAGIC_MISSILE, goblin.health);
         let was_attacking = goblin.token_held();
         // The bolt is at range: only the target freezes (it is stepped after
         // this strike on the same tick, hence `stop + 1`).
-        let (outcome, split) =
-            goblin.take_hit_split(&MAGIC_MISSILE, bolt.dir, |stop| HitStopSplit {
-                attacker: 0,
-                target: stop + 1,
-            });
+        let (outcome, split) = goblin.take_hit_split(&landed, bolt.dir, |stop| HitStopSplit {
+            attacker: 0,
+            target: stop + 1,
+        });
         let health_left = goblin.health;
         goblin.hit_by = Some(DONUT_HERO);
         let interrupted = was_attacking && goblin.mode != GoblinMode::Attack;
@@ -1067,7 +1177,7 @@ impl CombatState {
             move_id: MoveId::MagicMissile,
             instance: bolt.instance,
             target: target as u32,
-            damage: MAGIC_MISSILE.damage,
+            damage: landed.damage,
             health_left,
             hit_stop: split.target.saturating_sub(1),
         });

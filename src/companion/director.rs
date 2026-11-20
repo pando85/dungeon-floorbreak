@@ -615,10 +615,14 @@ impl CompanionDirector {
         match (self.hero, action) {
             (HeroId::Donut, Action::Pounce) => {
                 let d = &set.donut;
-                let down = matches!(
-                    target.state,
-                    TargetState::Lying { .. } | TargetState::Staggered { .. }
-                );
+                // A lying goblin must still lie when the pounce lands (Q38).
+                let down = match target.state {
+                    TargetState::Lying {
+                        down_ticks_left, ..
+                    } => down_ticks_left >= d.cf02_q38_pounce_lying_min_ticks_left,
+                    TargetState::Staggered { .. } => true,
+                    _ => false,
+                };
                 // Q15: ahead of her, 30..80 px, and a pounce that cannot kill.
                 (target.id.kind == EntityKind::Goblin // Q15: only on a goblin
                     && down
@@ -1032,6 +1036,19 @@ mod tests {
             down_ticks_left: 40,
             hold_used: false,
         };
+        // Q38 hold (review F-2): a lying goblin that gets up before the pounce
+        // lands (fewer ticks left than startup plus flight) is not pounced.
+        let min = assist().donut.cf02_q38_pounce_lying_min_ticks_left;
+        assert_eq!(
+            min,
+            crate::donut_moves::POUNCE_STARTUP + crate::donut_moves::POUNCE_FLIGHT_NOMINAL
+        );
+        let lying_for = |down_ticks_left| TargetState::Lying {
+            down_ticks_left,
+            hold_used: false,
+        };
+        assert!(pounce(110.0, 2, lying_for(min), 1, &assist()).0);
+        assert!(!pounce(110.0, 2, lying_for(min - 1), 1, &assist()).0);
         let (pressed, dec) = pounce(110.0, 2, lying, 1, &assist());
         assert!(pressed);
         assert_eq!(

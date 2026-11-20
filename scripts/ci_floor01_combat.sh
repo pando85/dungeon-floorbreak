@@ -294,14 +294,28 @@ case "$mode" in
       fi
       echo "COMPANION_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/companion_${f}.txt")"
     done
+    # CF02-Q40 / COMPANION-AI-01 01A-wire: "in view" is the simulation scroll
+    # camera, so the assistant's decisions and hashes cannot depend on the
+    # presentation camera. The camera-parity fixture replays the plain run's
+    # lines under both `--camera` modes.
+    for cam in auto scroll; do
+      "$bin" --headless-floor01-smoke --party-fixture cf02_assist_camera_parity --camera "$cam" | party_lines > "$out/companion_camera_${cam}.txt"
+      if ! cmp -s "$out/companion_cf02_assist_camera_parity.txt" "$out/companion_camera_${cam}.txt"; then
+        echo "cf02_assist_camera_parity replays differently with --camera $cam (the companion must not read the presentation camera)" >&2
+        exit 1
+      fi
+    done
+    echo "COMPANION_CAMERA_PARITY_OK: --camera auto and scroll replay the assistant identically"
     # COMBAT-FUN-02: `--cf02` (the DEMO hall with `cf02_rules` on) runs the CF02
     # rules, so since CF02-A it no longer equals `--demo` (that parity with the
     # rules off is `cf02_parity_off` and the `--demo` probes above). Each probe
     # under `--cf02` must replay identically twice and log its CF02_CONFIG line.
     for entry in "${demo_probes[@]}"; do
       IFS=: read -r name beat <<<"$entry"
-      cf02_a="$("$bin" --headless-floor01-smoke --cf02 --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
-      cf02_b="$("$bin" --headless-floor01-smoke --cf02 --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
+      # The companion is off in these probes: they isolate the CF02 rules (the
+      # autopilot run is not a live party, so no companion runs here either).
+      cf02_a="$("$bin" --headless-floor01-smoke --cf02 --companion off --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
+      cf02_b="$("$bin" --headless-floor01-smoke --cf02 --companion off --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
       if [[ -z "$cf02_a" || "$cf02_a" != "$cf02_b" ]]; then
         echo "--cf02 is not deterministic on $name" >&2
         exit 1
