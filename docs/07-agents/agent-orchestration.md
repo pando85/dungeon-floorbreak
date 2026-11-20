@@ -64,6 +64,14 @@ Rules:
 - **Agent lifetime:** start a fresh, short brief for each review round. Do not resume a long-lived top-tier agent.
 - **Gameplay checks:** routine visual and feel checks for gameplay PRs go to the medium tier. The top tier is used only for real feel or design decisions.
 
+### Temporary review gate (owner decision 2026-11-20)
+
+- The top-tier weekly quota is exhausted until 2026-11-25.
+- Until then, independent reviews are done by a separate medium-tier agent, never by the PR's author.
+- PRs merge on green CI on the final head.
+- Every PR merged under this gate owes a top-tier re-review after the reset. Defects found then are fixed in follow-up PRs.
+- The PRs that owe a re-review are listed in [the backlog](../04-production/backlog.md#top-tier-re-review-owed-temporary-gate).
+
 ## Speed mode
 
 Owner directive, 2026-11-20: optimize the work, merge what you are almost sure works or can be fixed later; intermediate instability is acceptable, the end result must be good. The same rule is recorded in [AGENTS.md](../../AGENTS.md#model-routing-for-art-work).
