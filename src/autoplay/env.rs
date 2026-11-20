@@ -16,7 +16,7 @@ use super::reward::{RewardBreakdown, RewardProfile, RewardTracker};
 use super::scenario;
 
 /// The corridor layout the Floor 01 fixtures run on (relative to the asset root).
-const CORRIDOR_LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
+pub const CORRIDOR_LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
 /// Desktop view height, the one the headless fixture path uses.
 const VIEW_H: i32 = 360;
 
