@@ -1,102 +1,76 @@
 # Agent work order: COMBAT-FUN-02 (post DEMO-01)
 
-**Status:** design handoff only. No runtime source, art source, atlas, controller binding, tuning table or authoritative simulation was changed by this design PR. The [design proposals](../01-design/combat-fun-02-post-demo01-proposals.md) are candidate experiments; this work order organizes implementation **after design acceptance or explicit orchestration**, not a request for six agents to edit the same Bevy module immediately.
+**Status:** design adopted (CF02-Q01..Q33, orchestrator under the owner's design-defaults directive, 2026-11-20); implementation not started. The design PR changed no runtime source, art source, atlas, controller binding, tuning table or authoritative simulation. The [design](../01-design/combat-fun-02-post-demo01-proposals.md) holds every adopted value; this work order splits delivery into small PRs with disjoint file ownership.
 
-**Goal:** deliver one compact, replayable combat-focused microarena in which the owner enjoys basic attacks, enemy collisions, ground advantage, Donut participation and authored environmental kills significantly more than in DEMO-01, with clear original-pixel deaths and credible evasive choices. Do not ship a second long horizontal systems corridor.
+**Goal:** deliver one compact, replayable combat-focused microarena (`floor01_scene --cf02`) in which the owner enjoys basic attacks, enemy collisions, ground advantage, Donut participation and authored environmental kills significantly more than in DEMO-01, with clear original-pixel deaths and credible evasive choices. Do not ship a second long horizontal systems corridor.
 
 ## Read first, in this order
 
-1. `AGENTS.md`, `docs/07-agents/workorders.md`, `docs/07-agents/agent-orchestration.md`, then the [owner playtest](../04-production/demo-01-playtest-2026-11-20.md) and [design proposals](../01-design/combat-fun-02-post-demo01-proposals.md).
+1. `AGENTS.md`, `docs/07-agents/workorders.md`, `docs/07-agents/agent-orchestration.md`, then the [owner playtest](../04-production/demo-01-playtest-2026-11-20.md) and the [design](../01-design/combat-fun-02-post-demo01-proposals.md) section 7 (the adopted values for your PR only).
 2. `docs/01-design/combat-first-encounter-design.md`, `combat-feel-hybrid-physics.md`, `mvp-controller-contract.md`, `character-progression-horizon.md` and `antihero-tone.md`; do not supersede approved controls or chronology.
-3. `docs/04-production/demo-01-plan.md` (B1–B6), `docs/03-tech/floor01-scene.md` and `docs/01-design/party-2p-open-questions.md`, focusing only on the relevant sections.
-4. `docs/02-art/donut-moveset-q10.md`, `docs/03-tech/death-d-finishes-spec.md`, `docs/03-tech/cinematic-finishers-cine-01.md`, `tools/art-references/death-lab/README.md`, `docs/03-tech/monster-death-system-proposal.md` for their respective owners.
-5. Current `main` tree and open PRs **#123** (Donut Q10/mana) and **#118** (audience HUD) before starting. Do not rely on this document's point-in-time status after branches move.
+3. `docs/04-production/demo-01-plan.md` (B1–B6), `docs/03-tech/floor01-scene.md` and `docs/01-design/party-2p-open-questions.md` (Q7–Q9), relevant sections only.
+4. Per PR: `docs/02-art/donut-moveset-q10.md` (adopted defaults Q10-A01..A10), `docs/01-design/donut-mana-v0-proposal.md`, `docs/03-tech/death-d-finishes-spec.md`, `docs/03-tech/cinematic-finishers-cine-01.md`, `tools/art-references/death-lab/README.md` (open its `index.html` at intensity 4), `docs/03-tech/monster-death-system-proposal.md`, `docs/07-agents/pixel-art-pipeline.md`.
+5. The current `main` tree. Grep before reading; `src/combat_scene.rs` and `src/bin/floor01_scene.rs` are large.
 
-## Decisions from the owner versus candidates
+## Ground rules for every PR
 
-**Owner evidence:** 3/5 basic combat, 1/5 enemy impacts, weak gore intensity at 1/5 (too soft), 2/5 AI and solo swap, 2/5 tone; wants more attack/combination choices, meaningful ground finishers/stomps and Donut claws, evasive options, richer rooms and a falling block that can hurt Carl. Checkpoint and 2P not tested; decap and explosive finishes not seen; automatic zoom not seen and camera sometimes jolts.
+- **Gate:** every CF02 rule reads `cf02_rules` (default `false`) or its own knob, except CF02-Q18 (llama targets, a #123 follow-up that applies everywhere). With the switch off, every existing golden is byte-identical: the 20 combat `EXPECTED_HASHES`, `GOLDEN_WALK_RIGHT_400`, the story hash, the party, boss, `q10_*`, `demo01_*` and CINE goldens, and the whole-route autopilot hash `0363078d58558e95`.
+- **Data:** knob names equal the question IDs (for example `q02_stomp_startup`). They live in `assets/data/gameplay/cf02_combat_v0.json` (loaded, validated, FNV-1a pinned like `companion_magic_v0.json`) or in `PartyTuning` for the party knobs. A load error names the field.
+- **Events:** new `CombatEvent` and `MoveId` variants are **appended**, mixed into the hash only when emitted. Fixed order on one tick: Carl, Donut, goblins, llamas (as today).
+- **Fixtures:** new ones use the `cf02_*` namespace, committed final hashes, replayed twice, headless and in the render loop.
+- **CI gate (every PR, on the final head):** `cargo fmt --all -- --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked --all-targets`, `python3 scripts/check_docs.py`, `bash scripts/ci_floor01_combat.sh headless`, and the GitHub workflows `documentation`, `game`, `floor01-scene` (plus `art-assets` for art PRs) green.
+- **Review and merge:** an independent top-tier review per PR, then a fix check, then squash-merge by the orchestrator under the AGENTS.md delegation. Gameplay is recorded as "merged, game-feel review pending".
+- **Model tiers:** gameplay code and tests: medium tier (Sonnet); top tier only if a medium-tier attempt fails. Pixel art: top-tier design keys and spec, medium-tier execution, separate top-tier review. Evidence, captures, checksums, README rows: medium tier.
 
-**Not approved merely by this workorder:** specific stomp input mapping, more lethal collision damage, a new evade button, auto-fighting Donut, any frame timing/damage values, larger corpse retention, widened automatic camera policy, or changes to the CINE-01 skill eligibility. For each open choice, collect evidence for at least two feasible variants and record a short recommendation with a question ID. Per AGENTS.md, the orchestrator may adopt documented design defaults when proceeding, but must not present them as owner-tested game feel.
+## PR sequence
 
-## Stage 0 — Baseline, tooling and attribution (integrator; medium tier)
+| PR | Scope (question IDs) | Owns (files) | Depends on | Fixtures and goldens | Evidence | Tier |
+| --- | --- | --- | --- | --- | --- | --- |
+| **CF02-00** baseline and scaffold | Gap report (Q23 audit: B2 contact, B3 decap, B5 blast, B4 llama heavy/routine, camera pan/kick/zoom traces); scorecard template; empty `cf02_combat_v0.json` loader with `cf02_rules: false` and the `--cf02` flag loading the DEMO hall for now | `src/cf02.rs` (new: knobs, loader), `assets/data/gameplay/cf02_combat_v0.json`, `docs/evidence/cf02/`, the arg parsing block of `src/bin/floor01_scene.rs` | main | Parity test: `--cf02` with every rule off replays all goldens | Gap report with event log vs camera visibility per beat; 640x360 captures of each missed spectacle; camera trace table | Sonnet |
+| **CF02-C1** llama targets (WORK-023-F4) | Q18 | `src/combat_scene/donut.rs`, `src/llama.rs`, `src/donut_moves.rs` (target list only), the llama notes in `docs/04-production/demo-01-plan.md` and `demo-01-questionnaire.md` (Q12d) | main | `cf02_llama_swat_interrupt`, `cf02_llama_swat_guard`, `cf02_llama_pounce`, `cf02_llama_bolt_stops`; parity test proves no existing golden moves | 2P capture: Donut interrupts a llama tell, bolt ends on the llama | Sonnet |
+| **ART-CARL-STOMP** | Carl stomp clip for Q02 (knee-up 9, stamp 3, recover 14), plus the follow-through kick (Q05: decide whether the 9-tick startup skips the kick's chamber frame or needs one new frame) | `assets/source/characters/carl/` (new stomp grid and `.ase`), its manifest rows, `docs/02-art/carl-stomp-spec.md` (new) | none (spec numbers are in Q02/Q05) | Art validators (bounds, pivots, palette, foot contact) | Contact sheet 1x/3x, timing diagram, in-scene GIF at 1x | Opus design, Sonnet execution, Opus review |
+| **CF02-A** Carl branches and ground state | Q01–Q08 | `src/combat.rs` (`MoveId::Stomp`, `CARL_STOMP`, follow-through kick spec), `src/feel.rs`, `src/goblin.rs` (lying hurtbox, CF02 down time, lethal knock by move), the Carl press handling in `src/combat_scene.rs`, the Down + Physical sample in the `RawInput` adapter of `src/bin/floor01_scene.rs` | CF02-00 | `cf02_kick_then_stomp`, `cf02_stomp_whiff`, `cf02_stomp_standing`, `cf02_stomp_no_stand_up`, `cf02_confirm_kick`, `cf02_whiff_no_confirm`, `cf02_jab_over_lying`, `cf02_lethal_kick_far`, `cf02_stomp_boss` (boss super armour), a 2P same-tick case | Debug-box captures vs the Q02/Q03 boxes; 1x GIF of the three branches; placeholder kick frames for the stomp until ART-CARL-STOMP lands (labelled) | Sonnet |
+| **CF02-C2** assistant and swap | Q13–Q17, Q19, Q20 | `src/follower.rs`, `src/party.rs`, `src/scroll_camera.rs` (eased pan), the follower read-only threat view in `src/corridor.rs`, AI press injection in `src/combat_scene/donut.rs` (after CF02-C1 merged) | CF02-C1 (llama assist), CF02-00 | `cf02_assist_swat`, `cf02_assist_no_kill`, `cf02_assist_offscreen_idle`, `cf02_assist_cooldown`, `cf02_assist_off_in_2p`, `cf02_swap_eased_pan`; parity: assist off replays the party goldens | Solo GIF with the AI Donut interrupting; kill-credit table (player vs AI) per fixture; pan trace old vs new | Sonnet |
+| **CF02-B** contacts and walls | Q09–Q12 | `src/goblin.rs` (knockdown target, wall slam), `resolve_contacts` and the flier loop in `src/combat_scene.rs`, `CombatEvent::BodyContact` / `WallSlam` in `src/combat.rs` | CF02-A (same files; serialize) | `cf02_contact_knockdown`, `cf02_contact_below_threshold`, `cf02_no_chain`, `cf02_body_bowl`, `cf02_wall_slam_kill`, `cf02_wall_slam_body`, `cf02_layout_edge_no_slam`; CINE test: `BodyContact` never scores `CINE-CONTACT-SETUP` | 640x360 first-person capture of a kick, the second body falling and a wall slam, readable without HUD text | Sonnet |
+| **ART-GOB-SLAMMED** | Q21 poses (stomped, wall crumple, flung) and Q22 preset-4 budget | `assets/source/characters/goblin/` death sources, `assets/data/death/species_death_profiles.json` (one row), `src/death_present.rs`, `src/gore.rs` (heavy budget) | CF02-B event shape (names fixed by this design, so the design step can start with CF02-A) | Death profile tests; event/hash parity across presets 1–4 and CINE on/off | Contact sheets 1x/3x per pose and preset; blind check: three finishes named correctly | Opus design, Sonnet execution, Opus review |
+| **CF02-AUDIO** | Q24, Q27 cue | `assets/audio/floor01/` (new cues, cue map, manifest, QA report), `src/audio.rs`, `src/audio_adapter.rs` | CF02-A, CF02-B (events exist) | Cue-mapping unit tests; structural QA (levels, loops, overlap limit) | Short capture with sound per cue; QA report; owner listening stays open (design §8) | Sonnet |
+| **CF02-F** microarena | Q26–Q33 | `assets/levels/floor01/cf02_microarena.room.json`, `src/cf02.rs` (spawns, waves, exit), `src/shore.rs` (hero damage, goblin self-own), scenario wiring in `src/bin/floor01_scene.rs` | CF02-A, CF02-B, CF02-C2 | `cf02_arena_direct`, `cf02_arena_environment`, `cf02_arena_coop` (2P), `cf02_block_hurts_carl`, `cf02_block_spares_striker`, `cf02_goblin_self_own`, `cf02_intact_shore_ignores_goblins`, `cf02_parapet_cover`, `cf02_perch_above_spit`, whole-room autopilot hash; reachability in every shore state | 640x360, 640x400 and 1920x1080 captures; widest auto-camera with no void; 1P swap and 1P assistant GIFs | Sonnet |
+| **CF02-REVIEW** | Integration, scorecard, owner handoff | `docs/evidence/cf02/`, `docs/04-production/backlog.md`, playtest scorecard | all | Re-run of every golden and `cf02_*` fixture on the final main | Frame-time note on real hardware; real two-pad recording or **NOT RUN**; owner instructions to play the room three times, once per approach | Sonnet execution; Opus final review |
 
-- Confirm current `main` SHA and #123 status; do not duplicate its Q10 swat/pounce/mana work. Get real source of each problem before calling it a defect: CP-02 event fire vs visual contact; death cause recorded vs off-camera/unreadable; B4 llama death class; camera swap pan, kick and zoom; Donut AI cannot initiate attacks by current design.
-- Preserve DEMO-01 fixtures and goldens as regression references. Add a new `cf02_*` namespace for *proposed* fixtures or dedicated probe executable; do not silently change existing replay semantics.
-- One scorecard template containing commit, branch, output size, pad ownership, mode, active story unlocks, gore preset, camera flag, binary command, per-beat observations, fps methodology and accessibility settings.
-- **Gate 0:** produce one short factual gap report from logs and existing captures. No speculation promoted to an observed finding.
+### Parallel groups
 
-## Stage 1 — Combat domain A / B, separately owned (medium tier)
+Run at most three at once; a later group starts when its dependencies have merged.
 
-**CF02-A — short combo/ground-state choices**
+| Group | PRs in parallel | Why they do not collide |
+| --- | --- | --- |
+| 1 | CF02-00, CF02-C1, ART-CARL-STOMP (design step) | `src/cf02.rs` + arg parsing; Donut adapter + llama; art sources only |
+| 2 | CF02-A, CF02-C2, ART-CARL-STOMP (execution and review) | Carl/goblin/combat files; follower/party/camera files and the Donut adapter; art sources |
+| 3 | CF02-B, ART-GOB-SLAMMED (design step) | Combat files (after A); death art spec only |
+| 4 | ART-GOB-SLAMMED (execution and review), CF02-AUDIO | Death sources/presenter/gore; audio pack and adapter |
+| 5 | CF02-F | Room, shore, scenario wiring |
+| 6 | CF02-REVIEW | Docs and evidence |
 
-- Own the *pure* combat-move domain and unit tests; avoid Bevy adapters during comparison. Preserve jab, haymaker and kick behavior under legacy mode and ordinary goblin time-to-kill. Experiment with one hit-confirm fork and one ground-target contextual finish using existing physical/primary verbs.
-- Compare deliberate Down+Physical stomp versus proximity-context stomp; run human legibility/input conflict probes, and disallow non-deterministic automatic target grabs. Donut physical actions are from #123, not recreated here.
-- Replay: whiff versus connect, press buffer, early/late second input, hit during swap, grounded vs airborne, downed target, boss immunity, multiple targets, 2P simultaneous hits, missed stomp/ordinary kick.
-- **Gate A:** two distinct worthwhile follow-up branches and a ground finisher can be demonstrated without a new mandatory button or stun-lock; baseline tests stay valid or receive documented intentional migration.
+**Serialization rule:** `src/combat.rs`, `src/goblin.rs`, `src/combat_scene.rs` and `src/bin/floor01_scene.rs` have one owner at a time: CF02-00 (arg block only), then CF02-A, then CF02-B, then CF02-F. A PR that finds it must touch a file owned by a running PR stops and reports instead of editing it.
 
-**CF02-B — bounded contact follow-ups**
+## Per-PR acceptance (from the design)
 
-- Own the contact resolver and a narrowly defined event envelope, not a second collision implementation. Reuse `GoblinContact` / existing launch instance IDs and finish attribution.
-- Test stagger-only versus conditional high-momentum knockdown; one effect per pair/launch, deterministic ordering, no iterative auto-damage, safe separation and walls. The visual adapter should be independent of collision physics.
-- Replay: first/second actor contact, stationary target, no launch, re-entry, downed body, dead/cosmetic fragment, prop edge, two enemies on same tick, rapid restart and co-op kill credit.
-- **Gate B:** 640x360 capture visibly communicates a kick-launch, target impact and readable follow-up opportunity without relying on console/HUD copy.
-
-**Integration rule:** a single integrator serializes changes to `src/combat.rs`, `src/combat_scene.rs`, `src/goblin.rs` and event/hash definitions. Pure changes can be developed concurrently only where file ownership is disjoint; do not merge conflicting simulations blind.
-
-## Stage 2 — Donut and swaps (medium tier; depends on #123)
-
-- Merge/review the ongoing #123 in its existing branch/process, not in COMBAT-FUN-02. It already includes swat/pounce, the biscuit mana flag, Magic Missile and current AI still starting no attacks.
-- Build an *opt-in* follower-combat A/B test: existing passive variant versus restrained nearby protective swat and exposed-target pounce variant; no off-screen combat, unsolicited last-hit stealing, magic before unlocking or negative P2 agency.
-- Compare the existing solo swap timing/pan with a single faster safe preset; preserve input buffering, invulnerability and P2 ownership. Make capture of the controlled hero/AI identity and camera motion part of evidence.
-- **Gate C:** the owner can tell what Donut contributed; compare kill/interrupt attribution and number of accidentally stolen kills, in solo and with two physical pads. No claim of 2P validation from synthetic fixture only.
-
-## Stage 3 — Death and original-audio clarity (art/audio medium tier; top-tier design/review where art is new)
-
-- **First diagnose:** scripted B3 edge decap, B5 QA blast, ordinary heavy kick and both llama kill modes. Separate missing cause, off-camera shot, poor contrast, incorrect animation pose and inaudible/missing cue. This should be a short evidence PR before reauthoring large art.
-- Candidate effects: cause-specific contact and aftermath poses, bigger silhouette changes and visibly separated parts **only where species anatomy permits**; original SFX for contacts/block/crash/blast/ordinary punch; retain current corpse cap and stain quantity as baseline.
-- Follow **the existing death-lab reference and pixel-art pipeline**: top-tier artist produces hard new keys/spec; medium-tier exports original editable .ase/grid sources, validates palette/pivots/foot contact and captures 1x/3x/Deck; separate top-tier review. Do not recycle art from reference games and do not copy conceptual Javascript fragments into canonical assets.
-- Preserve death class, damage, event attribution, seed, bounded debris pool, presentation-only gore level and CINE-01 eligibility; reduced gore must not remove gameplay-readable confirmation.
-- **Gate D:** blind review identifies three different finish causes correctly at game scale; original audio cue differentiated; no event/hash drift across cosmetic settings.
-
-## Stage 4 — Defensive-choice experiment and compact level (levels and integrator)
-
-- **CF02-E:** start with existing movement, explicit llama tell improvements, multiple geometry-based counters and Donut mobility, with no required new input; try a context evade only if still needed and keep it out of the main contract until approved.
-- **CF02-F:** create one 40–60 second room from approved ENV-01/02 components, not a procedural/full-floor replacement. A low brawl lane, high reachable Donut perch, hard-wall ricochet zone, breakable support with obvious warning and non-softlocking protective geometry are enough. Make the load dangerous to Carl *only* with fair telegraph; settle co-op hazard attribution separately.
-- Test three approaches: brute force; environment; swap/2P coordination. Same protected exit and same meaningful choices in all legal prop states. Do not show void above the widest camera view or at 640x400.
-- **Gate E/F:** one player can explain the upcoming hazard without coaching; two legal avoidance routes exist for llama spit; environment has at least one verifiable offensive consequence, solo and 2P stay completable.
-
-## Stage 5 — Integration and owner game-feel acceptance
-
-**One integrated build** using an explicit `--cf02` or similarly named isolated opt-in scenario until accepted. Do not replace `--demo`, early story progression or existing fixtures with untested variants.
-
-- Automated: `cargo fmt --all -- --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked --all-targets`, `python3 scripts/check_docs.py`, `bash scripts/ci_floor01_combat.sh headless`, existing HUD/Bevy render checks, asset validators for new art, newly committed fixed-step replays; run the checks against the final rebased head.
-- Regression: exact existing hashes stay unchanged unless a gameplay rule *intentionally* changes; then record old/new goldens and a migration note. Equal outcomes under gore 1/4, cinematic on/off and camera choices. No unbounded contact recursion, unexpected timing dependence, offscreen hazard hits or AI-only kill requirements.
-- Evidence: real Bevy captures (640x360, 640x400 and 1920x1080), brief GIF at actual 1x plus contact sheets, 1P swap and **real two-pad** recordings, camera view traces and performance/frame budget on an actual target GPU/Deck-class device. If real pads unavailable mark manual test **NOT RUN**, do not substitute CI assertions.
-- Ask the owner to replay the same room three times, once per approach. Review baseline vs after scores in the playtest file; do not declare 'fun achieved' based on passing tests. The owner can reject any tuning after merge.
-
-## PR decomposition and review budget
-
-| PR | Primary owner | Changed scope | Dependency |
-| --- | --- | --- | --- |
-| CF02-00 | integrator / QA | baseline gap report, objective traces, new independent fixtures | main / #123 status |
-| CF02-A | combat domain | combo and downed branch A/B; small new state only | CF02-00 |
-| CF02-B | combat domain | launch/contact consequence and proof | CF02-A event merge or stable independent contact API |
-| CF02-C | party | opt-in Donut follower A/B and swap feel | #123, CF02-00 |
-| CF02-D | art + audio | death cause clarity, authored native parts, event-driven SFX | CF02-B event frozen |
-| CF02-E | movement/gameplay | evasive counters without input-contract rewrite | baseline and llama probes |
-| CF02-F | levels + integrator | one rich microarena; only then integrate the other branches | CF02-A–E |
-| CF02-REVIEW | integrator / QA | scorecard, evidence, regressions and owner handoff | all gates |
-
-Route medium tier for implementation, top tier for genuinely unsettled attack/animation design and independent review. Do not spend top-tier calls regenerating screenshots/CI evidence. End each PR with status, checks, evidence links, known untested human cases and next dependent PR. Gameplay and Bevy merges follow the existing AGENTS.md delegated review rules; owner game feel remains separate.
+- **CF02-00:** one factual gap report from logs and captures; no speculation promoted to an observed finding.
+- **CF02-A:** three distinct branches (on-the-spot, follow-through, ground finish) at 1x without a new mandatory button or stun-lock; ordinary goblin time-to-kill unchanged for jab -> haymaker.
+- **CF02-B:** a 640x360 capture shows kick, second body down and wall slam without console or HUD copy; no duplicate effects per (launch, target); no chains.
+- **CF02-C1/C2:** the AI never lands a killing blow, never acts off-screen, never casts before the biscuit; kill-credit and interrupt counts per fixture; no change in 2P.
+- **ART PRs:** the art acceptance targets in each spec; Carl stays an effortful everyman (antihero review gate), no new Donut pixels.
+- **CF02-AUDIO:** each Q24 cause has its own cue; overlap limit holds; no cue drives gameplay.
+- **CF02-F:** a player can name the upcoming shore hazard without coaching; at least two llama answers usable; solo and 2P completable in every shore state; no void at the widest view or 640x400.
+- **CF02-REVIEW:** equal outcomes under gore 1/4, CINE on/off and every camera; no unbounded contacts; owner handoff lists what was NOT RUN.
 
 ## Required report (each agent)
 
-1. Feature/variant and **visible** result, including an A/B baseline.
-2. Branch, head SHA and any authoritative events/inputs changed.
-3. Commands actually executed and CI status; never claim unrun controller tests.
-4. Before/after deterministic hashes and any deliberate migration.
+1. Feature and **visible** result, with the A/B baseline (CF02 off vs on).
+2. Branch, head SHA, and every authoritative event, move or input added.
+3. Commands actually run and CI status; never claim unrun controller tests.
+4. Before/after hashes; confirmation that every legacy golden is unchanged.
 5. Original pixel/audio evidence, if affected.
-6. Remaining risks and the next integration owner.
+6. Remaining risks and the next dependent PR.
 7. Specific answer: **why is this more fun, at 1x, without adding a new mandatory button?**
 
 **Rights:** use only already-authorized original project sources; no copied franchise or other game's art/music/sounds. Commercial distribution rights remain unresolved. **This document requests no new images or ZIP intake.**

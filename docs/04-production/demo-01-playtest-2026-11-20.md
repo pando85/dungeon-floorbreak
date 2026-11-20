@@ -32,14 +32,14 @@
 | Q12C Local 2P | **Not tested** | Real two-controller game-feel and device behavior still unvalidated |
 | Q13 Cut or tone down | "**Los combates son muy muy básicos**" | Do not expand content before satisfying micro-combat |
 | Q13 Amplify first | "**Combos, más ataques, más opciones de esquiva, escenarios más ricos....**" | New microarena must exercise all of these |
-| Q13 Additional issue | "**Donut parece que no ataca ni puede hacer nada**" | Distinguish controlled Donut (#123 pending) from follower AI (still no self-initiated attack in #123) |
+| Q13 Additional issue | "**Donut parece que no ataca ni puede hacer nada**" | Distinguish controlled Donut (moves from #123, merged 2026-11-20; whether the tested build had them is unknown) from follower AI (no self-initiated attack in #123; addressed by CF02-C) |
 
 The original replies were in Spanish. Quoted passages are the owner's own words, not translations or new canon.
 
 ## Grounded conclusions
 
 1. **Repetition and lack of consequence are the central product failures.** A 3/5 basic hit plus a 1/5 enemy collision and no recognized special finishes is more informative than any raw number of existing Bevy systems.
-2. **Donut matters in both roles.** Playing her actively, swapping to her and watching her AI behavior are separate experiences; Q12 scored the latter two 2/5. The Q10 + mana PR #123 addresses the first but *does not* make the AI initiate attacks.
+2. **Donut matters in both roles.** Playing her actively, swapping to her and watching her AI behavior are separate experiences; Q12 scored the latter two 2/5. The Q10 + mana PR #123 (now merged) addresses the first but *does not* make the AI initiate attacks; CF02-C adds a restrained opt-in assistant.
 3. **Destruction needs quality and agency more than additional residue.** The owner finds retained blood/body clutter adequate and wants more bodies visibly broken and richer usable scenery, not indiscriminate gore density.
 4. **Visibility is not the same as implementation.** Decapitation, explosion, cinematic finishes and zoom have independent fixtures/conditions. The review did not prove any of them broken and could not rate the unseen effects.
 5. **Audience/HUD work is not a prerequisite.** The viewer counters begin story-locked and should not compensate for insufficient base combat.
