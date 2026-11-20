@@ -1,6 +1,6 @@
 # COMPANION-AI-01 — Local agent implementation work order
 
-**Status:** Design reconciled with COMBAT-FUN-02 and main; defaults CA-01..CA-40 adopted by the orchestrator (owner design-defaults directive, 2026-11-19); no implementation yet. Game feel and controller UX pending the owner's play.
+**Status:** Design reconciled with COMBAT-FUN-02 and main; defaults CA-01..CA-41 adopted by the orchestrator (owner design-defaults directive, 2026-11-19). **Merged on main (2026-11-20), unwired core modules only:** 01A-core #129 (`e6c8c3b9`), 01B-core #131 (`811dc9b4`) and 01C #130 (`5b343867`); none is wired into a scene, so no behaviour changed and every golden is unchanged. 01A-wire, 01B-wire, 01D and 01E are not started. Merged, game-feel review pending: game feel and controller UX are pending the owner's play.
 
 **Read:** [Companion autonomy/commands spec](../03-tech/companion-ai-command-system.md), [ADR-0009](../05-decisions/ADR-0009-companion-ai-authority.md), [AGENTS.md](../../AGENTS.md), [local agent protocol](workorders.md), [orchestration](agent-orchestration.md).
 
@@ -44,7 +44,7 @@ All numbers are tuning hypotheses pending real gamepad play; record which were a
 | CA-17 | HUD overlay appears only while commanding; AI plate has at most one state indicator; true accessibility semantics |
 | CA-18 | Do not treat the existing solo 1 HP safeguard as license for reckless AI; no automatic dangerous Carl explosives |
 | CA-19 | `ca19_kill_policy` per profile set: `never` (default through 01D) or `factual` (the candidate default, tested in 01E, which records a recommendation). Credit is always factual: the hero that actually caused the defeat |
-| CA-20 | Glance: an AI-started hit (started by an injected press; the flag survives a swap) whose damage >= target HP deals 0 on its hit tick, keeps the move's non-lethal reaction and logs `Hit` with damage 0; indirect kills are not suppressed, are credited factually and counted as `ai_indirect_kills`; under `never` the utility penalises predicted indirect kills |
+| CA-20 | Glance: an AI-started hit (started by an injected press; the flag survives a swap) whose damage >= target HP deals 0 on its hit tick, keeps the move's non-lethal reaction and logs `Hit` with damage 0; indirect kills are not suppressed, are credited factually and counted as `ai_indirect_kills`; under `never` the utility penalises predicted indirect kills, **deferred to the first PR that adds a launching move for the AI, no later than 01E**: the 01A move set (jab, haymaker, swat, pounce, missile) has no launch reaction (`CARL_PUSH_KICK` is the only `launch: true`), so the penalty would be close to empty. It must land together with the wall, hazard and shore data in the view. 01A-wire still tallies `ai_indirect_kills` |
 | CA-21 | `UncontrolledHero::Companion(CompanionProfileSet)` replaces CF02's `PartyTuning::follower_assist`; sets `cf02_assist` (CF02-Q13..Q17, Q39, Carl passive) and `companion_v0` (both roles) |
 | CA-22 | Rollback is `UncontrolledHero::FollowAndJumpBot` (default). CLI `--companion off\|cf02_assist\|v0`; `--cf02` implies `cf02_assist` unless `--companion` is given; with both off every legacy golden is byte-identical |
 | CA-23 | Shared perception contract `CompanionView`, owned by COMPANION, built in `src/combat_scene/companion.rs` from pre-tick state, read-only, never hashed; "in view" = `!SceneSim::is_offscreen(x, 0.0)` (CF02-Q40, AP-Q07) |
@@ -61,10 +61,11 @@ All numbers are tuning hypotheses pending real gamepad play; record which were a
 | CA-34 | 01C is a pure module `src/companion/command_input.rs` plus traces and an optional auto-discovered lab binary; it edits no `input.rs`, `pad_slots.rs`, `party.rs` or `floor01_scene.rs` |
 | CA-35 | The AI-plate state icon (01D) avoids the AUDIENCE-01 readout band (+80..+158 x +3..+14 plate-relative) |
 | CA-36 | Decision cadence (CA-10, 6 ticks) and action cadence (CF02-Q16, one AI-started move per 60 ticks, none while a move runs) are separate profile knobs. A chain follow-up inside the running move's window (haymaker, follow-through kick) is part of the same AI-started move and is not counted |
-| CA-37 | v0 AI Carl move set: jab and push kick to interrupt or screen, haymaker only through the legal jab chain; no Down moves, no air moves, no explosives |
+| CA-37 | v0 AI Carl move set: jab and push kick to interrupt or screen, haymaker only through the legal jab chain; no Down moves, no air moves, no explosives. The push kick is permitted but deferred to the first PR that adds a launching move, no later than 01E, paired with the CA-20 indirect-kill penalty; until then the jab and the jab to haymaker chain meet "legally protect and attack" |
 | CA-38 | No voice barks or subtitles in 01A-01D; 01D feedback is HUD-only |
 | CA-39 | `assets/data/gameplay/companion_ai_v0.json` is loaded, validated and FNV-1a pinned like `companion_magic_v0.json`; a load error names the field; knob names carry their question ID (`ca10_decision_cadence_ticks`, `cf02_q14_swat_tell_tick`, ...). CF02-00 does not create it; 01A-core does |
 | CA-40 | 01A movement = `follower_input_boss` plus an approach goal to the chosen target, only for targets in view and within CF02-Q14's 96 px; otherwise follow. A companion-driven hero starts a move only while both it and its target are in view (Q40, every profile set) |
+| CA-41 | Planning hit windows (centre distance): Carl jab/haymaker 6..30 px, Donut swat 6..30 px, conservative subsets of the move box widened by `ENEMY_HALF_WIDTH`. Director knobs in `companion_ai_v0.json` (both profile sets): Carl `ca41_strike_min_px` 6, `ca41_strike_max_px` 30, `ca40_engage_range_px` 96, `ca40_interrupt_range_px` 96; Donut `ca41_swat_hit_min_px` 6, `ca41_swat_hit_max_px` 30 (alongside the CF02-Q14, Q15 and Q17 values, unchanged). A test pins the strike and swat windows (merged with 01A-core #129: `the_planning_hit_windows_stay_inside_the_move_boxes` in `src/companion/profile.rs`) inside `[box.x_min - ENEMY_HALF_WIDTH, box.x_max + ENEMY_HALF_WIDTH]` so a box change cannot drift silently. Q17 missile timing is an arrival-time gate, not a knob (no `ca40_missile_latest_tell_tick` exists): `tell_tick + MAGIC_MISSILE.startup + ceil((distance - ENEMY_HALF_WIDTH) / projectile speed) < tell_len`, refined by 01A-core to the flight model in section 17 (c) with `bolt_lead_px` |
 
 ## Interfaces to freeze before parallel coding
 
@@ -104,21 +105,21 @@ A PR that finds it must touch a file another running PR owns stops and reports i
 
 | PR | Deliverable | Can start | Ownership / evidence |
 |---|---|---|---|
-| **01A-core — view, profiles, director, rules** | Bevy-free `CompanionView`, profile sets, director, glance rule, unit tests | **Now**; merges after CF02-00 | `src/companion/**`, `assets/data/gameplay/companion_ai_v0.json`; unit tests, no behaviour change |
+| **01A-core — view, profiles, director, rules** | Bevy-free `CompanionView`, profile sets, director, glance rule, unit tests | **Merged**, #129 (`e6c8c3b9`), after CF02-00 | `src/companion/**`, `assets/data/gameplay/companion_ai_v0.json`; unit tests, no behaviour change |
 | **01A-wire — autonomy foundation** | One real legal combat/support action by AI **Carl and Donut**, preserving follower and safeguard defaults; hooks per CA-24, `UncontrolledHero::Companion`, `--companion`, the CA-29 CINE filter, both-role and `cf02_assist_*` fixtures | After CF02-00, CF02-A, CF02-C1 and 01A-core; runs beside CF02-H | Director/perception/role profiles, both-role headless fixtures, real-event hash parity, rollback flag |
-| **01B-core — platform graph** | Pure platform graph, actor-aware path/reachability, danger anchors, destruction invalidation | **Now**, parallel to 01A after interface freeze | Nav/level metadata over existing solids and camera-lab `donut_only` platforms, blocked-path fixtures |
+| **01B-core — platform graph** | Pure platform graph, actor-aware path/reachability, danger anchors, destruction invalidation | **Merged**, #131 (`811dc9b4`) | Nav/level metadata over existing solids and camera-lab `donut_only` platforms, blocked-path fixtures |
 | **01B-wire — nav-driven follow** | Nav-driven follow and camera-safe regroup in `corridor.rs` | After CF02-C2 and 01B-core | Gate coverage once a gate fixture exists, visual capture |
-| **01C — controller UX spike** | Tap/hold/chord experiments, alternative binding and input-state-machine tests without production rebinding (pure grammar and traces) | **Now**, parallel | Isolated experimental input harness; real-pad comparison requested |
+| **01C — controller UX spike** | Tap/hold/chord experiments, alternative binding and input-state-machine tests without production rebinding (pure grammar and traces) | **Merged**, #130 (`5b343867`) | Isolated experimental input harness; real-pad comparison requested |
 | **01D — commands + feedback** | Focus, Hold, Regroup, Assist/Act, validator/status, target preview and minimal native HUD | After 01A-wire, the 01B API, owner D-CTRL and CF02-I | One integration owner for input/party/HUD, gamepad + replay + 640 captures |
 | **01E — combat synergy + evaluation** | Better positioning, realistic finisher support, individual kill/viewer attribution and metrics; `never` vs `factual` comparison | After 01D, AUTOPLAY stage B and AUTOPLAY-02a | Both-role no-orders/ordered comparison, CPU profiling, human-playtest packet |
 
-**01A-core is the first implementation PR**; 01B-core and 01C may run beside it. 01A-wire is the first PR that changes behaviour, and only under `--companion` or `--cf02`. 01D must not be started as a gameplay integration before the first three foundations have been reconciled. 01E does not need offline ML to prove usefulness. The owner may adjust the staged order after review, but there should never be a speculative giant implementation PR.
+**01A-core, 01B-core and 01C are merged (2026-11-20) as unwired core modules** (`src/companion/{director,view,profile,rules,nav,command_input}.rs`; `src/companion/mod.rs` states that nothing is wired into a scene yet); per AGENTS.md they are recorded as merged, game-feel review pending. 01A-wire is the first PR that changes behaviour, and only under `--companion` or `--cf02`. 01D must not be started as a gameplay integration before the first three foundations have been reconciled. 01E does not need offline ML to prove usefulness. The owner may adjust the staged order after review, but there should never be a speculative giant implementation PR.
 
 **Merged order with COMBAT-FUN-02:**
 
-- **Now:** branches for 01A-core (view/profile/director/rules, unit tests), 01B-core (pure platform graph over existing solids and the camera-lab `donut_only` platforms) and 01C (pure grammar `src/companion/command_input.rs` + traces). They touch only COMPANION files and merge once CF02-00's stubs exist.
+- **Done (merged 2026-11-20 after CF02-00's stubs, #134):** 01A-core #129 (view/profile/director/rules, unit tests), 01B-core #131 (pure platform graph over existing solids and the camera-lab `donut_only` platforms) and 01C #130 (pure grammar `src/companion/command_input.rs` + traces). They touch only COMPANION files.
 - **CF02 group 1:** CF02-00 (with COMPANION stubs), ACT-DESIGN.
-- **Group 2:** A, C1, CORES (+ art); 01A-core, 01B-core and 01C merge here.
+- **Group 2:** A, C1, CORES (+ art); 01A-core, 01B-core and 01C were merged here ahead of schedule (2026-11-20).
 - **Group 3:** H **and 01A-wire** (needs CF02-00, A, C1; disjoint from H's files).
 - **Group 4:** B and C2-reduced (needs H, C1, 01A-wire).
 - **Group 5:** G, D, AUDIO; 01B-wire may join (needs C2 for `corridor.rs`).
@@ -139,6 +140,31 @@ A PR that finds it must touch a file another running PR owns stops and reports i
 
 - Traverse ordinary reachable ledges and wait safely at unreachable ones; prove Carl's graph has no edge onto a `donut_only` platform; the Carl-only barrier assertion waits for a gate fixture (CA-33).
 - After destruction, only reachable graph edges change; no camera/offscreen teleport bypasses a mandatory gate. Both solo routes remain completable by swapping and no actor becomes permanently trapped.
+
+### 01A-core, 01B-core review follow-ups (batch 1)
+
+Recorded from the independent reviews of the 01A-core (#129) and 01B-core (#131) PRs, both now merged; no adopted value changes. Names such as `ai_indirect_kills` and `CompanionEvent` below are not in the code yet: they belong to the 01A-wire and 01E work.
+
+**Deferred to 01E (or earlier where stated):**
+
+- The CA-20 indirect-kill utility penalty and the AI Carl push kick (CA-37): deferred to the first PR that adds a launching move, no later than 01E, landing together with the wall, hazard and shore data in the view.
+- Boss play (`view.boss` boss tells) and the human-finisher anti-steal window (only needed under `ca19_kill_policy = factual`, spec section 8): 01E.
+- `empty_press: swat` after the unlock (Primary is routed to the cast whenever `unlocked && can_start_cast`): 01E.
+
+**01A-wire obligations (brief notes):**
+
+1. Fill `CompanionView.follow` with `follower_input_boss` on the arguments `step_live` uses, pre-tick; `ThreatView.tell_len` (goblin 24, llama 36); `ManaView.projectile_speed_px_per_tick` from `donut_kit.tuning`; and `ManaView.bolt_lead_px` (35).
+2. The bolt constants in `src/combat_scene/donut.rs` are private (the module is private). Add a pin test that the builder's `bolt_lead_px` equals `BOLT_SPAWN_FORWARD + BOLT_BOX_AHEAD + BOLT_BOX_W / 2`; it may export `BOLT_LEAD_PX` from `combat_scene` for that.
+3. Pin the Q14 and CA-36 boundaries with a real party fixture: the view is pre-tick, the heroes step and then the goblins, and the move clock advances before a press is read. A swat or jab press must hit at attack tick `< tell_len`; a chain press is judged at `elapsed + 1` and must be `< CARL_JAB.total()`.
+4. A chained haymaker is a new `MoveRunner` instance and must also be tagged `ai_started`. `Glance` gains a `policy` field and `apply` calls `rules::glance(*spec, hp, ai_started, policy)`.
+5. Mix `PROFILE_HASH` and the set id into the scene hash while a hero is companion-driven (spec section 10 step 7).
+6. Confirm on the next tick that `active_move.ai_started` is set and tally unconfirmed presses as a `CompanionEvent`, with a rollback of `last_action_tick` if fixtures show any.
+7. Every `RawInput` literal in `src/companion` ends in `..RawInput::NONE` (done on main with #129, `e6c8c3b9`); when CF02-A adds `RawInput::down`, the director leaves it false in v0 (spec section 17 (c), item 1).
+
+**01B-wire obligations:**
+
+1. The nav model and its replay start every transit from rest at the launch x (`EdgeView::launch_x`). The executor must reach that x and stop before it presses jump, or replay the transit arriving at run speed.
+2. `NavConfig::integrated()` is the default and the config 01B-wire uses (`JUMP_SPEED`/`RUN_SPEED`); `NavConfig::camera_lab()` is for lab tests only and is not replay-validated (the lab body is not `step_hero`).
 
 ### 01C — acceptance
 
@@ -204,4 +230,4 @@ Use actual, currently supported script flags. Supply replay hashes, ordered even
 
 Each stage PR includes: **Why**, **Change**, **Acceptance Criteria** (checked only when verified), **Commands & Results**, **Visual Evidence**, **Performance Data**, **Rights/Provenance**, **Risks**, **Next PR**. An independent gameplay/architecture reviewer checks the final head; subsequent merged mechanics stay **game-feel review pending** until the owner plays. The coordinator updates the backlog status per stage; do not silently mark all COMPANION-AI-01 work complete after 01A.
 
-**First agent task:** implement 01A-core only (Bevy-free view, profiles, director, glance rule, unit tests). It merges after CF02-00's stubs; 01A-wire follows once CF02-A and CF02-C1 have merged.
+**Next agent task:** 01A-core, 01B-core and 01C are merged (unwired); 01A-wire follows once CF02-A and CF02-C1 have merged, and 01B-wire after CF02-C2.

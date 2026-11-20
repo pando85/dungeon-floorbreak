@@ -1,6 +1,6 @@
 # THE CRAWL — Companion Autonomy and Command System
 
-**Status:** Design proposal v0.3, reconciled with COMBAT-FUN-02 (#124) and main (AUDIENCE-01 #118, CINE-01 #122, Donut Q10 and mana #123, CI #125, AUTOPLAY-01 #126). Defaults CA-01..CA-40 adopted by the orchestrator under the owner's design-defaults directive (2026-11-19); **not implemented**; game feel and controller UX pending the owner's play.  
+**Status:** Design proposal v0.3, reconciled with COMBAT-FUN-02 (#124) and main (AUDIENCE-01 #118, CINE-01 #122, Donut Q10 and mana #123, CI #125, AUTOPLAY-01 #126). Defaults CA-01..CA-41 adopted by the orchestrator under the owner's design-defaults directive (2026-11-19); implementation status (2026-11-20): the unwired core modules 01A-core #129 (`e6c8c3b9`), 01B-core #131 (`811dc9b4`) and 01C #130 (`5b343867`) are merged on main, game-feel review pending; no behaviour is wired into a scene yet (01A-wire, 01B-wire, 01D and 01E are not started); game feel and controller UX pending the owner's play.  
 **Date:** 2026-11-20  
 **Scope:** Floor 01 solo (either Carl or Donut controlled by AI) with compatibility requirements for 2P, existing party/hud rules, later narrative progression and offline policy evaluation.  
 **Primary goal:** Make the AI companion useful, intelligible, characterful and tactically interesting **without turning a combat-first platform-action game into a command-management game**.
@@ -100,7 +100,7 @@ Five semantic verbs; **only four fixed face-button slots** in the proposed L1 la
 
 ### Donut controlled, Carl AI
 
-**Goblin rush:** Carl screens the approaching goblin, interrupts with a legal jab/kick or maintains the route while Donut kites. He must not use a grab (canon contract: no grabs). v0 AI Carl move set: CA-37.
+**Goblin rush:** Carl screens the approaching goblin, interrupts with a legal jab (push kick deferred, CA-37) or maintains the route while Donut kites. He must not use a grab (canon contract: no grabs). v0 AI Carl move set: CA-37.
 
 **Donut airborne/perching:** Carl follows paths *he* can traverse, not Donut's jumping trajectory. If a mandatory Donut-only perch or Carl-only breach separates them, he waits safely until the human switches to operate the gate. Do not bypass the gate via teleport.
 
@@ -276,7 +276,7 @@ All gameplay metrics and event chain must work in **headless** fixed-tick fixtur
 | ID | Scenario | Required assertion |
 |---|---|---|
 | C-01 | Carl human, Donut AI; 2 goblins and one tell | Donut can safely swat/protect, not cast pre-biscuit, no infinite stagger loop |
-| C-02 | Donut human, Carl AI; pressure from front | Carl screens by position and interrupts with a jab or push kick (CA-37); no grab, explosive or Down move |
+| C-02 | Donut human, Carl AI; pressure from front | Carl screens by position and interrupts with a jab (the push kick joins with the first launching-move PR, no later than 01E; CA-37); no grab, explosive or Down move |
 | C-03 | L1 tap vs hold vs fast chord | Exactly one swap or one order, never both; no leaked Cross jump/Square attack; gamepad, keyboard, reconnect parity |
 | C-04 | Swap in the middle of AI action or order | Previous AI order cancelled; legal started attack completes; other hero assumes autonomous role; camera transitions correctly |
 | C-05 | L1 input while controlled hero hurt / swap cooldown | Existing 6-tick buffering behavior preserved or explicitly amended/tested; no phantom swap after command |
@@ -344,7 +344,7 @@ PR A..E are the work order's stages 01A..01E (01A splits into 01A-core and 01A-w
 - No programmable multi-command queue, complex radial inventory, arbitrary waypoint cursor, compulsory right stick/D-pad order navigation, or pause-on-every-command tactics.
 - No automatic special-resource explosives, automatic puzzle completion, early unlocks, invented cat controls or forced shoulder mode.
 - No 2P override of human inputs, no third-character Mongo control system or netcode change.
-- No claim that this proposal is book canon, production art, playtested gameplay or an implementation merged into the repository.
+- No claim that this proposal is book canon, production art or playtested gameplay, or that any companion behaviour runs in the game: only the unwired core modules (01A-core, 01B-core, 01C) are merged into the repository.
 
 ## 16. Items to resolve with the owner after a prototype
 
@@ -387,7 +387,7 @@ Reconciled on 2026-11-20 against COMBAT-FUN-02 ([design](../01-design/combat-fun
 | ID | Conflict | Adopted rule |
 | --- | --- | --- |
 | CA-19 | CF02-C1/C2 "AI never lands a killing blow" vs CA-16 "AI may earn real spectacular kills" | Data knob `ca19_kill_policy` per profile set: `never` (default through 01D, not the long-term default) or `factual` (the candidate default, tested in 01E, which compares it with `never` on the same seeds and records a recommendation; the owner decides, O2a). Motivation: the owner asked for "genuinely capable" companions, and the DEMO-01 playtest rated companion Donut 2/5. Credit is always factual: the hero that actually caused the defeat (hero-index `instigator`, as AUDIENCE-01 and CINE-01 already require). CA-16 is restated as the `factual` hypothesis |
-| CA-20 | What "killing blow" means for AI Carl, whose moves deal damage and knockback | An **AI-started** hit (move started by an injected press; flag survives a swap, CF02-Q16) whose damage >= target HP deals 0 on its hit tick, keeps the move's non-lethal reaction, logs `Hit` with damage 0. Indirect kills (contact, wall slam, shore, hazard) are not suppressed, are credited factually and are counted as `ai_indirect_kills`; under `never` the utility penalises moves predicted to cause one |
+| CA-20 | What "killing blow" means for AI Carl, whose moves deal damage and knockback | An **AI-started** hit (move started by an injected press; flag survives a swap, CF02-Q16) whose damage >= target HP deals 0 on its hit tick, keeps the move's non-lethal reaction, logs `Hit` with damage 0. Indirect kills (contact, wall slam, shore, hazard) are not suppressed, are credited factually and are counted as `ai_indirect_kills`; under `never` the utility penalises moves predicted to cause one; this penalty is deferred to the first PR that adds a launching move for the AI, no later than 01E (work order CA-20); 01A-wire still tallies `ai_indirect_kills` |
 | CA-21 | CF02 assistant is Donut-only with AI Carl passive (Q13); 01A is both-role | Profile sets: `cf02_assist` = exactly Q13-Q17/Q39 (Carl passive = follow layer only); `companion_v0` = both roles active. `--cf02` selects `cf02_assist` (Q33 unchanged); `--companion v0` selects both-role |
 | CA-22 | `cf02_rules` vs a COMPANION rollback flag | Rollback = `UncontrolledHero::FollowAndJumpBot` (today's default). CLI `--companion off\|cf02_assist\|v0`; see flags below |
 | CA-23 | Who builds the threat view | COMPANION owns `CompanionView`; built by `src/combat_scene/companion.rs` (child module, reads private state immutably) from pre-tick state; CF02-A no longer builds `AssistThreats` |
@@ -405,16 +405,17 @@ Further defaults without a CF02 conflict: CA-30 fixture registry and names, CA-3
 
 **Perception contract `CompanionView`** (types in `src/companion/view.rs`, Bevy-free, `Clone`, owns its data, no references into `CombatState` or `SceneSim`). Owner: COMPANION (01A-core defines, 01A-wire builds). Built once per tick at the top of `CombatState::step_party` from pre-tick state, only when some hero is companion-driven (zero cost otherwise). Fields:
 
-- `tick` (the tick about to run), `solo`, `cf02_rules`, `profile_set`, `view: { left, right }` with `in_view(x) == !scene.is_offscreen(x, 0.0)` (CF02-Q40 = AP-Q07).
-- `heroes: [HeroView; 2]`: x, foot_y, vx, vy, facing, grounded, health, hurt_ticks, invulnerable_ticks, defeated, `control: Human(slot) | Companion | Bot`, `active_move: Option<{ id: MoveId, phase, ticks_left, ai_started }>`, `can_start_move`, Donut only `mana: { mana, max, unlocked, ai_can_cast }` (from `DonutMana::ai_can_cast`, reserve not duplicated).
-- `threats: Vec<ThreatView>` in goblin, llama, boss index order: `id: StableEntityId`, x, foot_y, facing, `tell_tick`, `impact_tick`, `aimed_at: Option<HeroId>`, `guarded` (Q10 light guard), `in_view`. Llamas only when `q18_llama_targets` is on.
+- `tick` (the tick about to run), `solo`, `cf02_rules`, `profile_set` (type `ProfileSetId`; `CompanionProfileSet` is a public alias of it, the name `UncontrolledHero::Companion(CompanionProfileSet)` uses), `view: { left, right }` with `in_view(x) == !scene.is_offscreen(x, 0.0)` (CF02-Q40 = AP-Q07).
+- `heroes: [HeroView; 2]`: x, foot_y, vx, vy, facing, grounded, health, hurt_ticks, invulnerable_ticks, defeated, `control: Human(slot) | Companion | Bot`, `active_move: Option<{ id: MoveId, phase, ticks_left, ai_started }>`, `can_start_move`, Donut only `mana: { mana, max, unlocked, ai_can_cast, projectile_speed_px_per_tick, bolt_lead_px }` (`ai_can_cast` from `DonutMana::ai_can_cast`, reserve not duplicated; `projectile_speed_px_per_tick` is filled from `ManaTuning` and feeds the Q17 arrival-time gate; `bolt_lead_px` is 35, `BOLT_SPAWN_FORWARD + BOLT_BOX_AHEAD + BOLT_BOX_W / 2`, the distance from Donut's pivot to the bolt's hit-box front on its spawn tick; the Q17 flight model is `floor((d - ENEMY_HALF_WIDTH - bolt_lead_px) / speed) + 1` (flight 0 when `d - ENEMY_HALF_WIDTH - bolt_lead_px < 0`) and the arrival attack tick `tell_tick + MAGIC_MISSILE.startup` (= `CAST_RELEASE_TICK`, 4) `+ flight` must be `< tell_len`).
+- `follow: [FollowInput; 2]`, the follow layer's per-hero input (`move_x`, `jump`), filled by 01A-wire: the builder computes `follower_input_boss` on the same arguments `step_live` uses, pre-tick, into `CompanionView.follow`, `FollowInput::default()` when `!ctx.can_move[i]`; the director starts from it, so the view stays plain data and the movement is still today's bot.
+- `threats: Vec<ThreatView>` in goblin, llama, boss index order: `id: StableEntityId`, x, foot_y, facing, `tell_tick`, `tell_len`, `impact_tick`, `aimed_at: Option<HeroId>`, `guarded` (Q10 light guard), `in_view`. `tell_len` is the first non-tell attack tick (goblin `TELL_TICKS` 24, llama `LLAMA_TELL_TICKS` 36); an interrupt must hit while attack tick `< tell_len`; `tell_tick` is the pre-tick attack tick. Llamas only when `q18_llama_targets` is on.
 - `targets: Vec<TargetView>`: id, x, foot_y, hp, `state: Standing | Staggered { ticks } | Lying { down_ticks_left, hold_used } | Airborne`, guarded, in_view. `boss: Option<BossThreat>` (existing type).
 - Guarantees: built from `&CombatState` and `&SceneSim` only; never written back; never hashed (it is derived from hashed state); ordered by `StableEntityId`; no presentation or camera-mode input (`--camera auto` vs `scroll` parity fixture). CF02 PRs that add state (A lying/hold, C1 llama targets, G morale) keep the fields `pub(crate)`; COMPANION PRs extend the builder.
 
 **Press injection** (no other write path):
 
 1. `step_party` first statement (no-op stub from CF02-00): `let inputs = self.companion_inputs(scene, inputs);` replaces `inputs[i]` for each hero with `drive.is_bot(hero)` (`HeroId`) and `uncontrolled_hero == Companion(_)` by the director's `RawInput { move_x, jump, attack, physical, ability, ..RawInput::NONE }` (pause, swap and, in v0, `down` stay false).
-2. `SceneSim::step_live` keeps `humans[i]` (the injected, already gated input) for each bot hero when `matches!(drive.tuning.uncontrolled_hero, UncontrolledHero::Companion(_))`, instead of calling `follower_input_boss`; no `PartyStepCtx` change (the director calls `follower_input_boss` itself as its follow layer, so movement starts from today's bot).
+2. `SceneSim::step_live` keeps `humans[i]` (the injected, already gated input) for each bot hero when `matches!(drive.tuning.uncontrolled_hero, UncontrolledHero::Companion(_))`, instead of calling `follower_input_boss`; no `PartyStepCtx` change (the builder computes `follower_input_boss` on the same arguments `step_live` uses, pre-tick, into `CompanionView.follow`, `FollowInput::default()` when `!ctx.can_move[i]`; the director starts from it, so the view stays plain data and the movement is still today's bot).
 3. `combat_scene/donut.rs`: `may_start: (!bot || companion_driven) && can_act`.
 4. Damage: `companion::rules::glance(spec, target_hp, ai_started, ca19_kill_policy) -> MoveSpec` at Carl's strike site and Donut's swat/pounce/bolt hit sites (CA-20). CF02-00 stubs the Carl site as an identity glance; the exact signatures are in [the CF02 work order](../07-agents/combat-fun-02-workorder.md#cf02-00-companion-stubs-exact).
 5. Regroup, 1 HP guard, offscreen immunity stay in `corridor.rs`/`party.rs` unchanged until 01B.
