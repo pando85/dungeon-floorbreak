@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=62 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=80 kind=move_started move=swat instance=1
+COMBAT_EVENT tick=84 kind=hit move=swat instance=1 target=0 damage=0 health_left=2 hit_stop=2
+COMBAT_EVENT tick=84 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=114 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=140 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=233 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=cf02_assist_swat_trailing_gap seed=0xc0a10002 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies=e0=631.667/2 hash=4873cf1cc2910bee
+PARTY_STATE fixture=cf02_assist_swat_trailing_gap mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=1d15e293cd423414

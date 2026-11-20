@@ -384,12 +384,9 @@ pub struct Tally {
 impl Tally {
     /// The AI's share of the landed hits, in percent (0 with no hit).
     pub fn ai_hit_share_percent(&self) -> u32 {
-        let all = self.ai_hits + self.human_hits;
-        if all == 0 {
-            0
-        } else {
-            self.ai_hits * 100 / all
-        }
+        (self.ai_hits * 100)
+            .checked_div(self.ai_hits + self.human_hits)
+            .unwrap_or(0)
     }
 }
 
@@ -406,10 +403,7 @@ pub fn tally(sim: &mut crate::party_scene::PartyFixtureSim, ticks: u64) -> Tally
         for event in &events {
             match *event {
                 CombatEvent::Hit {
-                    move_id,
-                    damage,
-                    tick,
-                    ..
+                    move_id, damage, ..
                 } => {
                     let hero = move_id.hero();
                     if damage > 0 {

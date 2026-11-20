@@ -7547,7 +7547,8 @@ mod tests {
         // CF02-C1's llama fixtures and CF02-A's Carl fixtures are `cf02_*` names.
         assert!(list_fixtures("cf02_").contains(&"cf02_llama_pounce"));
         assert!(list_fixtures("cf02_").contains(&"cf02_kick_then_stomp"));
-        assert!(list_fixtures("companion_").is_empty());
+        assert!(list_fixtures("companion_").contains(&"companion_duo_no_ai"));
+        assert!(list_fixtures("cf02_assist_").contains(&"cf02_assist_swat_interrupt"));
         assert!(list_fixtures("cp01_").contains(&"cp01_kick"));
     }
 

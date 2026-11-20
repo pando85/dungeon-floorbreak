@@ -20,7 +20,6 @@ use std::sync::OnceLock;
 
 use super::CombatState;
 use crate::boss::Boss;
-use crate::cf02::Cf02Tuning;
 use crate::combat::{ENEMY_HALF_HEIGHT, MoveSpec};
 use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
 use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP};
@@ -65,6 +64,9 @@ const MARK_CAP: usize = 8;
 /// written only while a hero is companion-driven.
 const HASH_MARK: u64 = 0x434f_4d50_414e_0001;
 
+/// The mode, action and target of a traced decision.
+type Trace = (Mode, Option<Action>, Option<StableEntityId>);
+
 #[derive(Debug, Clone)]
 pub(crate) struct CompanionRuntime {
     /// One director per hero (Carl 0, Donut 1).
@@ -80,7 +82,7 @@ pub(crate) struct CompanionRuntime {
     stats: CompanionStats,
     events: Vec<CompanionEvent>,
     /// The last traced decision per hero, to log only changes.
-    last_trace: [Option<(Mode, Option<Action>, Option<StableEntityId>)>; 2],
+    last_trace: [Option<Trace>; 2],
 }
 
 impl Default for CompanionRuntime {
@@ -534,10 +536,7 @@ impl CombatState {
                 // (Q15, Q38); without them a downed goblin is not one (the
                 // pounce would stand it up).
                 GoblinMode::Downed if g.lying() => TargetState::Lying {
-                    down_ticks_left: g
-                        .cf02
-                        .map_or(0, |t: &Cf02Tuning| t.q04_downed_ticks)
-                        .saturating_sub(g.down_ticks),
+                    down_ticks_left: g.down_ticks_left().unwrap_or(0),
                     hold_used: g.hold_used,
                 },
                 GoblinMode::Downed | GoblinMode::Launched | GoblinMode::Airborne => {
