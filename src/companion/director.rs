@@ -519,14 +519,22 @@ impl CompanionDirector {
                     //
                     // Same sim ordering as the swat: the bolt spawns on cast
                     // tick `MAGIC_MISSILE.startup` (T + 4), when the goblin's
-                    // attack tick is already `tell_tick + 4`, then flies
-                    // `speed` px per tick over the gap to the goblin's body
-                    // edge. The arrival attack tick must be < `tell_len`.
-                    let speed = u32::from(mana.projectile_speed_px_per_tick.max(1));
-                    let gap = (distance - ENEMY_HALF_WIDTH).max(0.0).ceil() as u32;
-                    let arrival = u32::from(threat.tell_tick)
-                        + u32::from(MAGIC_MISSILE.startup)
-                        + gap.div_ceil(speed);
+                    // attack tick is already `tell_tick + 4`. Its hit box front
+                    // is `bolt_lead_px` ahead of Donut on the spawn tick, and
+                    // the box is tested on that tick, so the flight is the
+                    // number of `speed` px steps still needed to reach the
+                    // goblin's body edge, plus the spawn tick itself:
+                    // `floor((d - 12 - lead) / speed) + 1` (0 when it already
+                    // overlaps). The arrival attack tick must be < `tell_len`.
+                    let speed = f32::from(mana.projectile_speed_px_per_tick.max(1));
+                    let gap = distance - ENEMY_HALF_WIDTH - f32::from(mana.bolt_lead_px);
+                    let flight = if gap < 0.0 {
+                        0
+                    } else {
+                        (gap / speed).floor() as u32 + 1
+                    };
+                    let arrival =
+                        u32::from(threat.tell_tick) + u32::from(MAGIC_MISSILE.startup) + flight;
                     (mana.ai_can_cast
                         && arrival < u32::from(threat.tell_len)
                         && distance >= f32::from(d.cf02_q17_missile_min_px)
@@ -766,6 +774,7 @@ mod tests {
             unlocked: true,
             ai_can_cast,
             projectile_speed_px_per_tick: 6,
+            bolt_lead_px: 35,
         });
     }
 
@@ -945,6 +954,7 @@ mod tests {
                 unlocked: false,
                 ai_can_cast: true, // a lying field must not matter
                 projectile_speed_px_per_tick: 6,
+                bolt_lead_px: 35,
             });
             v.threats = vec![threat(0, 120.0, tick, Some(HeroId::Carl))];
             let (raw, d) = donut().step_traced(&v, &assist());
@@ -957,7 +967,7 @@ mod tests {
     fn no_cast_below_the_ai_mana_reserve() {
         let mut v = donut_ai(0.0);
         unlock(&mut v, 2, false); // the view says the reserve would be broken
-        // Tell tick 1: the bolt would arrive at 1 + 4 + 18 = 23, inside the tell.
+        // Tell tick 1: the bolt arrives at 1 + 4 + 13 = 18, inside the tell.
         v.threats = vec![threat(0, 120.0, 1, Some(HeroId::Carl))];
         let (raw, d) = donut().step_traced(&v, &assist());
         assert!(!raw.attack && !d.pressed && d.mode == Mode::Follow);
@@ -980,20 +990,18 @@ mod tests {
         assert!(fire(97.0, 0));
         assert!(!fire(96.0, 0), "too close for a bolt");
         assert!(!fire(161.0, 0), "out of the band");
-        // Arrival attack tick = tell tick + release (4) + ceil((distance - 12) / 6),
-        // which must be below the tell length (24).
+        // Arrival attack tick = tell tick + release (4) + flight, where the
+        // flight is floor((d - 12 - 35) / 6) + 1 (the bolt box front starts 35
+        // px ahead of Donut); it must be below the tell length (24).
+        // 160 px: flight 19, so a cast at tell tick 0 arrives on 23, tick 1 on 24.
         assert!(
-            fire(100.0, 4),
-            "4 + 4 + 15 = 23: lands on the last tell tick"
+            fire(160.0, 0),
+            "160 px at tell tick 0 lands on the last tell tick"
         );
-        assert!(!fire(100.0, 5), "5 + 4 + 15 = 24: lands on the smear");
-        assert!(
-            fire(100.0, 0),
-            "100 px early: the bolt lands inside the tell"
-        );
-        // 160 px: the bolt needs 25 ticks of flight, so it is never in time.
-        assert!(!fire(160.0, 0), "160 px early: still 4 + 25 = 29 >= 24");
-        assert!(!fire(160.0, 5));
+        assert!(!fire(160.0, 1), "160 px at tell tick 1 lands on the smear");
+        // 100 px: flight 9, so tell tick 10 arrives on 23, tick 11 on 24.
+        assert!(fire(100.0, 10), "100 px at tell tick 10");
+        assert!(!fire(100.0, 11), "100 px at tell tick 11");
     }
 
     #[test]

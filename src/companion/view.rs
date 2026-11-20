@@ -92,6 +92,11 @@ pub struct ManaView {
     /// `ManaTuning::projectile_speed_px_per_tick` so the value is not
     /// duplicated (Q17 arrival-time gate).
     pub projectile_speed_px_per_tick: u8,
+    /// How far ahead of Donut's pivot the bolt's hit-box front sits on its
+    /// spawn tick (spawn offset plus the box's lead and half width). 01A-wire
+    /// fills it from the real constants in `combat_scene/donut.rs`
+    /// (`BOLT_SPAWN_FORWARD + BOLT_BOX_AHEAD + BOLT_BOX_W / 2`, 35).
+    pub bolt_lead_px: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -283,6 +288,7 @@ pub(crate) mod fixtures {
                 unlocked: false,
                 ai_can_cast: false,
                 projectile_speed_px_per_tick: 6,
+                bolt_lead_px: 35,
             }),
         }
     }
@@ -328,6 +334,17 @@ mod tests {
         assert_eq!(a, StableEntityId::goblin(5));
         // A respawn into the same slot is a different id (CA-28).
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn the_fixture_projectile_speed_is_the_pinned_mana_tuning_value() {
+        // The Q17 arithmetic in the director tests uses this fixture value.
+        let tuning = crate::donut_mana::ManaTuning::pinned(true).unwrap();
+        let mana = hero(HeroId::Donut, 0.0, Control::Companion).mana.unwrap();
+        assert_eq!(
+            mana.projectile_speed_px_per_tick,
+            tuning.projectile_speed_px_per_tick
+        );
     }
 
     #[test]
