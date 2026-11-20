@@ -59,6 +59,12 @@ use dungeon_floorbreak::{
     combat_anim::{
         CombatAnimators, GOBLIN_VARIANTS, SpriteClips, carl_above_goblin, goblin_variant,
     },
+    combat_lab::{
+        self, EntryPoint, LabCatalog, LabConfig, LabRun,
+        flow::{self as lab_flow, ExitState, LabSelection, NextRoom},
+    },
+    combat_lab_fixtures::PENDING_FIXTURE,
+    combat_lab_overlay::{EndPanel, LabOverlay, LabOverlayPlugin, LabRequest, RecStatus},
     combat_scene::{CombatState, Fixture},
     corridor::{CorridorWorld, Scenario, SceneSim},
     death_present::{
@@ -251,6 +257,19 @@ struct Args {
     /// `--record-other-tester`: the session includes a tester who is not the
     /// owner (PT-Q16; such a session is never exported without consent).
     record_other_tester: bool,
+    /// COMBAT-LAB-01 LAB-00-wire: `--scene combat_lab`. The selection comes
+    /// from the `--lab-*` flags (the Setup Cage hands the next room over by
+    /// starting the scene again with them).
+    lab: Option<LabSelection>,
+    /// Set by `--scene combat_lab`; the `--lab-*` flags need it.
+    lab_scene: bool,
+    /// `--lab-autopilot`: the lab's scripted stand-in player drives Carl
+    /// (evidence captures and probes; needs a scripted run, never a live one).
+    lab_autopilot: bool,
+    /// `--lab-variant` was given explicitly (it must agree with `--cf02-seed`).
+    lab_variant_set: bool,
+    /// The launched room (`main` fills it right after parsing).
+    lab_run: Option<Box<LabRun>>,
 }
 
 /// The PLAYTRACE-01 recording switch of a run.
@@ -337,7 +356,7 @@ impl Args {
             return CameraChoice::Scroll;
         }
         self.camera
-            .unwrap_or_else(|| CameraChoice::default_for(self.demo))
+            .unwrap_or_else(|| CameraChoice::default_for(self.demo || self.lab_scene))
     }
 }
 
@@ -366,6 +385,349 @@ fn parse_sequence(value: &str) -> Result<(u64, u64, u64), String> {
         return Err(bad());
     }
     Ok((first, step, count))
+}
+
+// ----------------------------------------------------------- combat lab wire
+
+/// One `--lab-*` flag (`lab_flow` owns the list and the values).
+fn lab_flag<'a>(
+    slot: &mut Option<LabSelection>,
+    flag: &str,
+    iter: &mut impl Iterator<Item = &'a String>,
+) -> Result<bool, String> {
+    if !lab_flow::is_lab_flag(flag) {
+        return Ok(false);
+    }
+    let selection = slot.get_or_insert_with(LabSelection::default);
+    lab_flow::apply_flag(selection, flag, || {
+        iter.next()
+            .cloned()
+            .ok_or_else(|| format!("{flag} needs a value"))
+    })
+}
+
+/// The lab's own argument rules (LAB-Q01 leak guard): `--scene combat_lab`
+/// replaces every other run mode, and the `--lab-*` flags exist only with it.
+fn resolve_lab_args(parsed: &mut Args) -> Result<(), String> {
+    if !parsed.lab_scene {
+        if parsed.lab.is_some() || parsed.lab_autopilot {
+            return Err("--lab-room, --lab-variant, --lab-mode, --lab-next and --lab-confirmed need --scene combat_lab".into());
+        }
+        return Ok(());
+    }
+    if parsed.cf02.rules
+        || parsed.demo
+        || parsed.autopilot
+        || parsed.demo_beat != 0
+        || parsed.fixture.is_some()
+        || parsed.party_fixture.is_some()
+        || parsed.scenario.is_some()
+        || parsed.camera_test_room.is_some()
+        || parsed.reference_frame
+        || parsed.headless
+    {
+        return Err("--scene combat_lab replaces --demo, --cf02, --autopilot, --demo-beat, --fixture, --party-fixture, --scenario, --camera-test-room, --reference-frame and the headless smoke (the headless lab runs in the tests)".into());
+    }
+    let selection = parsed.lab.get_or_insert_with(LabSelection::default);
+    // R00 has one layout: its `--lab-variant` names the variant of the start
+    // room (the Setup Cage's choice), not R00's own.
+    if selection.room == "R00" && selection.variant != "v1" {
+        selection.next_variant = std::mem::replace(&mut selection.variant, "v1".into());
+    }
+    // On R01 the seed is the variant (LAB-R-Q06): an explicit variant that
+    // disagrees with the seed is refused here, not after a relaunch.
+    if selection.room == "R01"
+        && parsed.lab_variant_set
+        && let Some(seed) = parsed.cf02.seed
+        && selection.variant != format!("v{seed}")
+    {
+        return Err(format!(
+            "--cf02-seed {seed} selects variant v{seed} of R01, but --lab-variant is {}",
+            selection.variant
+        ));
+    }
+    if parsed.lab_autopilot && selection.mode == combat_lab::PlayerMode::SoloDonut {
+        return Err("--lab-autopilot drives Carl: use solo_carl or coop_local".into());
+    }
+    // The launch resolves the real fixture of the room; until then a
+    // placeholder keeps the generic argument rules (`driven`) honest.
+    parsed.fixture = Some(&PENDING_FIXTURE);
+    // The post-biscuit profile: Donut starts with the biscuit and a full pool.
+    parsed.donut_biscuit = true;
+    // A live run without a script is the player's.
+    parsed.manual = !(parsed.capture_tick.is_some()
+        || parsed.capture_sequence.is_some()
+        || parsed.exit_after_ticks.is_some()
+        || parsed.freeze
+        || parsed.perf_frames.is_some()
+        || parsed.lab_autopilot);
+    Ok(())
+}
+
+/// The entry point of a parsed run, for the leak guard (LAB-Q01): derived from
+/// the arguments, never hard-coded at the call site.
+fn entry_point(args: &Args) -> EntryPoint {
+    if args.lab_scene {
+        EntryPoint::CombatLab
+    } else if args.boss {
+        EntryPoint::Boss
+    } else if args.cf02.rules {
+        EntryPoint::Cf02
+    } else if args.demo {
+        EntryPoint::Demo
+    } else if args.fixture.is_some() || args.party_fixture.is_some() {
+        EntryPoint::Fixture
+    } else {
+        EntryPoint::Story
+    }
+}
+
+/// The launch request of the parsed lab arguments. On R01 the seed is the
+/// variant (LAB-R-Q06): `--cf02-seed 2` alone means variant `v2`.
+fn lab_config(args: &Args) -> LabConfig {
+    let selection = args.lab.clone().unwrap_or_default();
+    let mut cfg = LabConfig::new(&selection.room, selection.mode);
+    cfg.variant = selection.variant.clone();
+    cfg.cf02 = args.cf02;
+    cfg.view_h = view_height(args.deck);
+    if selection.room == "R01"
+        && selection.variant == "v1"
+        && let Some(seed) = cfg.cf02.seed.filter(|s| (2..=3).contains(s))
+    {
+        cfg.variant = format!("v{seed}");
+    }
+    cfg
+}
+
+/// Put the human back on the mode's hero after a `party.restart()` (the rule
+/// is `PlayerMode::seat`).
+fn lab_reseat(args: &Args, party: &mut PartyState) {
+    if let Some(run) = &args.lab_run {
+        run.info.mode.seat(party);
+    }
+}
+
+/// The party of a lab scene. A live co-op run starts from a fresh party so the
+/// real pads join through `PadSlots` (Start on the second pad joins P2); a
+/// scripted capture keeps the runner's two-player party.
+fn lab_party(args: &Args, run: &LabRun) -> PartyState {
+    if run.info.mode == combat_lab::PlayerMode::CoopLocal && args.manual {
+        PartyState::default()
+    } else {
+        run.party.clone()
+    }
+}
+
+/// The overlay and its plugin, when the run is a lab run.
+fn lab_overlay_plugin(args: &Args, root: &Path) -> Result<Option<LabOverlayPlugin>, String> {
+    let (Some(selection), Some(_)) = (&args.lab, &args.lab_run) else {
+        return Ok(None);
+    };
+    let path = root.join(dungeon_floorbreak::combat_lab_overlay::FONT_PATH);
+    let font = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let menu_open = selection.room == "R00" && !selection.confirmed;
+    Ok(Some(LabOverlayPlugin {
+        font,
+        overlay: LabOverlay::new(view_height(args.deck), selection.clone(), menu_open),
+    }))
+}
+
+/// Mark every descriptor above stderr close-on-exec before the relaunch
+/// `exec`, so the kernel closes them atomically when the new image starts. The
+/// GPU driver opens device and dmabuf descriptors without close-on-exec, so
+/// each relaunch would otherwise leave its predecessor's four behind
+/// (measured: 55 open descriptors at the first launch, 103 at the thirteenth).
+/// Nothing is closed here: other threads keep working until the `exec`.
+/// `close_range(.., CLOSE_RANGE_CLOEXEC)` does it in one call (Linux 5.11);
+/// an older kernel falls back to `fcntl(F_SETFD)` per listed descriptor.
+#[cfg(unix)]
+fn close_inherited_fds() {
+    // SAFETY: `close_range` only changes descriptor flags and touches no
+    // memory of this process.
+    let done = unsafe { libc::close_range(3, u32::MAX, libc::CLOSE_RANGE_CLOEXEC as _) } == 0;
+    if done {
+        return;
+    }
+    let open: Vec<i32> = std::fs::read_dir("/proc/self/fd")
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| entry.file_name().to_str()?.parse().ok())
+        .filter(|fd| *fd > 2)
+        .collect();
+    for fd in open {
+        // SAFETY: `fcntl(F_SETFD)` on a listed number; a number that is gone
+        // (the listing's own handle) just returns EBADF.
+        unsafe {
+            libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn close_inherited_fds() {}
+
+/// Start the scene again with the next selection: one room per launch (the
+/// kit, the camera and the art are built once per process).
+fn relaunch(selection: &LabSelection) -> ! {
+    let argv: Vec<String> = std::env::args().collect();
+    let next = lab_flow::relaunch_argv(&argv, selection);
+    println!(
+        "LAB_RELAUNCH room={} variant={} mode={} next={} confirmed={}",
+        selection.room,
+        selection.variant,
+        selection.mode.id(),
+        selection.next,
+        selection.confirmed
+    );
+    let program = std::env::current_exe().unwrap_or_else(|_| PathBuf::from(&argv[0]));
+    close_inherited_fds();
+    let mut command = std::process::Command::new(program);
+    command.args(&next[1..]);
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let error = command.exec();
+        eprintln!("floor01_scene: cannot start the next lab room: {error}");
+        std::process::exit(1);
+    }
+    #[cfg(not(unix))]
+    {
+        match command.spawn() {
+            Ok(_) => std::process::exit(0),
+            Err(error) => {
+                eprintln!("floor01_scene: cannot start the next lab room: {error}");
+                std::process::exit(1);
+            }
+        }
+    }
+}
+
+/// The REC badge state (PTI-09): recording, failing, or off with the reason.
+fn lab_rec_status(args: &Args, recorder: Option<&LiveRecorder>) -> RecStatus {
+    if let Some(recorder) = recorder {
+        let health = recorder.health();
+        return if health.incomplete() {
+            RecStatus::Error(
+                health
+                    .last_error
+                    .unwrap_or_else(|| "writes failing".to_owned()),
+            )
+        } else {
+            RecStatus::Recording
+        };
+    }
+    match args.record {
+        RecordMode::Off => RecStatus::Off("--no-record".into()),
+        _ if !args.live_input() => RecStatus::Off("scripted run".into()),
+        RecordMode::Auto if record_env_off().is_some() => {
+            RecStatus::Off(format!("env {}", record_env_off().unwrap_or_default()))
+        }
+        // The recorder was wanted and is not there: it failed to start.
+        _ => RecStatus::Error("recorder did not start".into()),
+    }
+}
+
+/// One fixed tick of the lab flow, after `fixed_step`: the strip text, the
+/// exit rule and the requests of the overlay. Reads the finished simulation;
+/// nothing flows back.
+fn lab_step(
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    pads: Res<Pads>,
+    setup: Res<Setup>,
+    mut overlay: ResMut<LabOverlay>,
+    mut rec: ResMut<Recorder>,
+) {
+    let (Some(run), Some(combat)) = (setup.args.lab_run.as_deref(), combat.0.as_ref()) else {
+        return;
+    };
+    let status = lab_rec_status(&setup.args, rec.0.as_ref());
+    if overlay.rec != status {
+        overlay.rec = status;
+    }
+    let info = &run.info;
+    let party = pads.0.party();
+    let confirmed = overlay.selection.confirmed || overlay.selection.room != "R00";
+    let exit = lab_flow::exit_state(info.goal, confirmed, combat);
+    let seconds = combat.elapsed / 60;
+    let party_text = match party.mode() {
+        dungeon_floorbreak::party::PartyMode::TwoPlayer => "2P: P1 Carl, P2 Donut".to_owned(),
+        dungeon_floorbreak::party::PartyMode::Solo
+            if info.mode == combat_lab::PlayerMode::CoopLocal =>
+        {
+            "P2: Start on pad 2 (again each room)".to_owned()
+        }
+        dungeon_floorbreak::party::PartyMode::Solo => {
+            format!("solo, Q/LB swaps ({:?})", party.controlled_hero())
+        }
+    };
+    let exit_text = match exit {
+        ExitState::Open => "EXIT open".to_owned(),
+        ExitState::Closed if overlay.menu.is_some() => "EXIT closed: confirm the menu".to_owned(),
+        ExitState::Closed => format!("EXIT closed: {} left", lab_flow::enemies_left(combat)),
+    };
+    let title = format!(
+        "LAB {} {} | {} | legacy | seed {}",
+        info.room,
+        info.variant,
+        info.mode.id(),
+        info.seed
+    );
+    let status = format!(
+        "{exit_text} | {party_text} | {:02}:{:02} deaths {} | R/Select: tap respawn, hold restart",
+        seconds / 60,
+        seconds % 60,
+        combat.deaths
+    );
+    if overlay.title != title {
+        overlay.title = title;
+    }
+    if overlay.status != status {
+        overlay.status = status;
+    }
+    // A scripted run (capture, autopilot) shows the exit state but never
+    // leaves the room: only a live player run transitions.
+    if setup.args.manual
+        && !overlay.blocks_gameplay()
+        && exit == ExitState::Open
+        && lab_flow::heroes_in_exit(&sim.0, party, info.exit)
+    {
+        match lab_flow::next_room(&overlay.selection) {
+            NextRoom::Room(next) => overlay.request = Some(LabRequest::Relaunch(next)),
+            NextRoom::End => {
+                overlay.end = Some(EndPanel {
+                    lines: vec![
+                        format!(
+                            "{} cleared: {} ticks ({}:{:02}), deaths {}",
+                            info.room,
+                            combat.elapsed,
+                            seconds / 60,
+                            seconds % 60,
+                            combat.deaths
+                        ),
+                        format!(
+                            "mode {}, variant {}, seed {}",
+                            info.mode.id(),
+                            info.variant,
+                            info.seed
+                        ),
+                        format!("recording: {}", overlay.rec.badge().0),
+                        "Facts only: no score, no rating.".to_owned(),
+                    ],
+                });
+            }
+        }
+    }
+    if let Some(LabRequest::Relaunch(next)) = overlay.request.take() {
+        // `exec` bypasses the exit path: close and flush the session first, so
+        // it is saved as completed and not recovered as a crash.
+        if let Some(recorder) = rec.0.as_mut() {
+            recorder.finish("lab_relaunch");
+        }
+        rec.flush();
+        relaunch(&next);
+    }
 }
 
 fn parse_args(args: &[String]) -> Result<Args, String> {
@@ -441,6 +803,11 @@ fn parse_args_full(
         record_dir: None,
         record_strict: false,
         record_other_tester: false,
+        lab: None,
+        lab_scene: false,
+        lab_autopilot: false,
+        lab_variant_set: false,
+        lab_run: None,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -522,16 +889,36 @@ fn parse_args_full(
             "--no-lighting" => parsed.no_lighting = true,
             "--demo" => parsed.demo = true,
             "--scene" => {
-                let value = iter.next().ok_or("--scene needs a name (boss_f01)")?;
-                if value != "boss_f01" {
-                    return Err(format!("unknown scene {value:?} (expected boss_f01)"));
+                let value = iter
+                    .next()
+                    .ok_or("--scene needs a name (boss_f01, combat_lab)")?;
+                if parsed.boss || parsed.lab_scene {
+                    return Err(
+                        "--scene takes one scene: boss_f01 and combat_lab are exclusive".into(),
+                    );
                 }
-                if parsed.fixture.is_some() || parsed.party_fixture.is_some() {
-                    return Err("--scene boss_f01 replaces --fixture and --party-fixture".into());
+                match value.as_str() {
+                    "boss_f01" => {
+                        if parsed.fixture.is_some() || parsed.party_fixture.is_some() {
+                            return Err(
+                                "--scene boss_f01 replaces --fixture and --party-fixture".into()
+                            );
+                        }
+                        parsed.boss = true;
+                        parsed.fixture = Some(boss_scene::BOSS01_SCENE);
+                    }
+                    "combat_lab" => parsed.lab_scene = true,
+                    _ => {
+                        return Err(format!(
+                            "unknown scene {value:?} (expected boss_f01, combat_lab)"
+                        ));
+                    }
                 }
-                parsed.boss = true;
-                parsed.fixture = Some(boss_scene::BOSS01_SCENE);
             }
+            other if lab_flag(&mut parsed.lab, other, &mut iter)? => {
+                parsed.lab_variant_set |= other == "--lab-variant";
+            }
+            "--lab-autopilot" => parsed.lab_autopilot = true,
             "--autopilot" => parsed.autopilot = true,
             "--demo-beat" => {
                 let value = iter.next().ok_or("--demo-beat needs a beat 0 to 6")?;
@@ -648,8 +1035,9 @@ fn parse_args_full(
             other => return Err(format!("unknown argument {other:?}")),
         }
     }
-    if parsed.cf02.seed.is_some() && !parsed.cf02.rules {
-        return Err("--cf02-seed needs --cf02".into());
+    resolve_lab_args(&mut parsed)?;
+    if parsed.cf02.seed.is_some() && !parsed.cf02.rules && !parsed.lab_scene {
+        return Err("--cf02-seed needs --cf02 (or --scene combat_lab)".into());
     }
     if parsed.cf02.rules {
         // CF02-00: the room is the DEMO hall until CF02-F ships the microarena.
@@ -968,8 +1356,15 @@ fn build_scene(
     if let Some(fixture) = args.fixture {
         // A combat fixture: Carl starts at the fixture column; the script is
         // pre-simulated for a capture, otherwise left for the live loop.
-        let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
-        let mut combat = CombatState::new(fixture, kit, &sim)?.with_donut(donut_setup(args));
+        // A lab run reuses the state the runner built (demo checkpoint rules,
+        // the post-biscuit Donut, the legacy rules); nothing of it is rebuilt.
+        let (mut sim, mut combat) = if let Some(run) = &args.lab_run {
+            (run.scene.clone(), run.combat.clone())
+        } else {
+            let sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
+            let combat = CombatState::new(fixture, kit, &sim)?.with_donut(donut_setup(args));
+            (sim, combat)
+        };
         if args.demo {
             combat = combat.with_demo(&demo::DEMO_RULES);
         }
@@ -984,15 +1379,19 @@ fn build_scene(
         hud.set_melee_live(true);
         // A party fixture runs the live party exactly like the interactive
         // scene (slot inputs, solo swap, drive); a plain fixture stays legacy.
-        let mut party = args.party_fixture.map_or_else(PartyState::default, |pf| {
-            let mut party = PartyState::new(pf.tuning);
-            if pf.two_player {
-                party.pad_connected(PadId(1));
-                party.pad_start_pressed(PadId(2));
-            }
-            party
-        });
-        if args.party_fixture.is_some() {
+        let mut party = if let Some(run) = &args.lab_run {
+            lab_party(args, run)
+        } else {
+            args.party_fixture.map_or_else(PartyState::default, |pf| {
+                let mut party = PartyState::new(pf.tuning);
+                if pf.two_player {
+                    party.pad_connected(PadId(1));
+                    party.pad_start_pressed(PadId(2));
+                }
+                party
+            })
+        };
+        if args.party_fixture.is_some() || args.lab_run.is_some() {
             sim.set_drive(party.drive(true));
         }
         let mut feat_feed = AudienceFeatFeed::default();
@@ -1001,6 +1400,14 @@ fn build_scene(
                 let slots = pf.inputs(sim.world.tick + 1, &combat, &sim);
                 let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
                 party.request_swap(slots[0].swap, hurt);
+                sim.set_drive(party.drive(true));
+                party.hero_inputs(slots)
+            } else if args.lab_run.is_some() {
+                // A lab run routes the scripted slot through the party, like
+                // the live scene (a solo Donut run drives Donut).
+                let slots = scripted_inputs(args, fixture, &sim, &combat);
+                let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+                party.request_swap(false, hurt);
                 sim.set_drive(party.drive(true));
                 party.hero_inputs(slots)
             } else {
@@ -1013,6 +1420,7 @@ fn build_scene(
             let _ = step_combat(&mut sim, &mut combat, &mut anim, Some(&mut death), inputs);
             if combat.restarts != restarts {
                 party.restart();
+                lab_reseat(args, &mut party);
             }
             feat_feed.observe(&combat, hud);
             step_hud(hud, &sim, Some(&combat));
@@ -1083,11 +1491,31 @@ fn scripted_input(
     sim: &SceneSim,
     combat: &CombatState,
 ) -> RawInput {
-    if args.autopilot {
+    if args.lab_autopilot
+        && let Some(run) = &args.lab_run
+    {
+        combat_lab::autopilot::clear_and_exit(combat, sim, run.info.exit.x as f32 + 32.0)
+    } else if args.autopilot {
         demo::autopilot(combat, sim)
     } else {
         fixture.input(sim.world.tick + 1)
     }
+}
+
+/// The slot inputs of a scripted run: the fixture's or autopilot's first slot,
+/// and the lab autopilot's follower in a two-player lab run.
+fn scripted_inputs(
+    args: &Args,
+    fixture: &Fixture,
+    sim: &SceneSim,
+    combat: &CombatState,
+) -> [RawInput; 2] {
+    let second = if args.lab_autopilot && sim.drive().two_player {
+        combat_lab::autopilot::follow(sim)
+    } else {
+        RawInput::default()
+    };
+    [scripted_input(args, fixture, sim, combat), second]
 }
 
 /// The combat state lines of a fixture: the sim state, then the frames drawn.
@@ -1233,7 +1661,7 @@ fn failure(message: &str) -> ExitCode {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
-    let args = match parse_args(&args) {
+    let mut args = match parse_args(&args) {
         Ok(args) => args,
         Err(message) => {
             eprintln!("floor01_scene: {message}");
@@ -1265,7 +1693,34 @@ fn main() -> ExitCode {
         Ok(dir) => dir,
         Err(error) => return failure(&format!("no working directory: {error}")),
     };
-    let kit = if args.demo {
+    // COMBAT-LAB-01: launch the room through the catalog (the leak guard sees
+    // the entry point derived from the arguments).
+    if args.lab_scene {
+        let launched = LabCatalog::load(&root)
+            .and_then(|catalog| catalog.launch(entry_point(&args), &lab_config(&args)));
+        match launched {
+            Ok(run) => {
+                println!(
+                    "LAB_ENTRY room={} variant={} mode={} profile={} seed={} rules=legacy view_h={}",
+                    run.info.room,
+                    run.info.variant,
+                    run.info.mode.id(),
+                    run.info.profile,
+                    run.info.seed,
+                    run.info.view_h
+                );
+                args.fixture = Some(run.info.fixture);
+                args.lab_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
+    let kit = if let Some(run) = &args.lab_run {
+        Ok(run.kit.clone())
+    } else if args.demo {
         demo::load_hall(&root)
     } else if args.boss {
         boss_scene::load_arena(&root)
@@ -1491,6 +1946,8 @@ struct Sinks<'w> {
     audio: ResMut<'w, AudioQueue>,
     cine: ResMut<'w, Cine>,
     rec: ResMut<'w, Recorder>,
+    /// COMBAT-LAB-01: the overlay (only a lab run has one).
+    lab: Option<Res<'w, LabOverlay>>,
 }
 
 /// PLAYTRACE-01: the live session recorder (`None`: not recording). It only
@@ -1908,7 +2365,13 @@ fn recording_manifest(
     party: &PartyState,
     root: &Path,
 ) -> SessionManifest {
-    let (source, name) = if args.demo {
+    let (source, name) = if args.lab_scene {
+        // COMBAT-LAB-01: a lab session is `combat_lab`, never `fixture`.
+        (
+            lab_flow::SESSION_SOURCE,
+            args.fixture.map_or("", |f| f.name),
+        )
+    } else if args.demo {
         ("demo", args.fixture.map_or("", |f| f.name))
     } else if args.boss {
         ("boss", args.fixture.map_or("", |f| f.name))
@@ -1943,7 +2406,11 @@ fn recording_manifest(
     manifest.game_ruleset_id = "floor01-greybox".to_owned();
     manifest.camera_ruleset = "sim-scroll-camera".to_owned();
     manifest.seed_requested = args.cf02.seed;
-    manifest.seed_effective = args.cf02.seed;
+    // A lab run knows its effective seed (R01: the variant's seed).
+    manifest.seed_effective = args
+        .lab_run
+        .as_deref()
+        .map_or(args.cf02.seed, |run| Some(run.info.seed));
     manifest.run_kind = if args.live_input() {
         playtrace::RunKind::Human
     } else {
@@ -1952,12 +2419,23 @@ fn recording_manifest(
     if args.record_other_tester {
         manifest.participants = playtrace::Participants::IncludesOtherTester;
     }
-    manifest.mode = if party.mode() == dungeon_floorbreak::party::PartyMode::TwoPlayer {
-        "local_coop"
-    } else {
-        "solo_human"
+    // A live co-op lab run starts as a solo party until the second pad joins:
+    // the chosen lab mode is the truth.
+    let coop = match args.lab_run.as_deref() {
+        Some(run) => run.info.mode == combat_lab::PlayerMode::CoopLocal,
+        None => party.mode() == dungeon_floorbreak::party::PartyMode::TwoPlayer,
+    };
+    manifest.mode = if coop { "local_coop" } else { "solo_human" }.to_owned();
+    if let Some(run) = args.lab_run.as_deref() {
+        for (key, value) in [
+            ("lab_room", run.info.room.clone()),
+            ("lab_variant", run.info.variant.clone()),
+            ("lab_mode", run.info.mode.id().to_owned()),
+            ("lab_profile", run.info.profile.clone()),
+        ] {
+            manifest.feature_flags.insert(key.to_owned(), value);
+        }
     }
-    .to_owned();
     for (key, value) in [
         ("cf02_rules", args.cf02.rules),
         ("demo", args.demo),
@@ -2134,6 +2612,14 @@ fn run_window(
         args.fixture
     };
     let exit_after = args.exit_after_ticks;
+    let lab_plugin = match lab_overlay_plugin(&args, root) {
+        Ok(plugin) => plugin,
+        Err(message) => {
+            println!("FLOOR1_ASSET_FAILURE: {message}");
+            eprintln!("FLOOR1_ASSET_FAILURE: {message}");
+            std::process::exit(1);
+        }
+    };
     let cine_settings = args.cinematic_settings();
     let camera = scene_camera_of(&kit, &args, &sim, combat.as_ref(), window_size);
     let lighting_on = !args.no_lighting && kit.lighting.is_some();
@@ -2296,6 +2782,10 @@ fn run_window(
     .add_systems(FixedUpdate, (fixed_step, update_scene_camera).chain());
     if lighting_on {
         app.add_plugins(LightPassPlugin);
+    }
+    if let Some(lab) = lab_plugin {
+        app.add_plugins(lab)
+            .add_systems(FixedUpdate, lab_step.after(fixed_step));
     }
     if let Some(perf) = perf {
         // GPU pass timings (Vulkan timestamp queries) for the probe's report.
@@ -3123,6 +3613,7 @@ fn capture_input(
     mut controls: ResMut<Controls>,
     mut pads: ResMut<Pads>,
     mut exit: MessageWriter<AppExit>,
+    mut lab: Option<ResMut<LabOverlay>>,
 ) {
     controls.jump_tap |= keys.just_pressed(KeyCode::Space);
     controls.attack_tap |= keys.just_pressed(KeyCode::KeyJ);
@@ -3146,7 +3637,11 @@ fn capture_input(
         controls.restart |= commands.restart;
         controls.select_tap |= commands.restart;
         if commands.exit {
-            exit.write(AppExit::Success);
+            // The lab's panels use Start as Confirm (the pad-only owner reads
+            // START on the menu row): it never quits while one is open.
+            if !lab.as_mut().is_some_and(|lab| lab.pad_start()) {
+                exit.write(AppExit::Success);
+            }
         }
     }
 }
@@ -3304,6 +3799,10 @@ fn fixed_step(
         }
     };
     let mut live_slots = pads.0.take_inputs(keyboard);
+    // The lab menu and the end panel own the input: gameplay ignores it.
+    if sinks.lab.as_ref().is_some_and(|lab| lab.blocks_gameplay()) {
+        live_slots = [RawInput::NONE; 2];
+    }
     // PLAYTRACE-01: pad lifecycle and the D6 pause happen between steps, so
     // they are observed before any early return.
     if let Some(rec) = sinks.rec.0.as_mut() {
@@ -3325,7 +3824,7 @@ fn fixed_step(
     // DEMO-01 live run: Select tap respawns, Select held for a second restarts
     // the demo (R on the keyboard is the same button).
     let mut respawn = false;
-    if setup.args.demo && setup.args.manual {
+    if (setup.args.demo || setup.args.lab_scene) && setup.args.manual {
         restart = false;
         let down = keys.pressed(KeyCode::KeyR) || controls.select_held || select_tap;
         match controls.select.tick(down) {
@@ -3339,6 +3838,7 @@ fn fixed_step(
         let _ = combat.take_respawned();
         controls.camera_cut = true;
         pads.0.party_mut().restart();
+        lab_reseat(&setup.args, pads.0.party_mut());
         if let Some(rec) = sinks.rec.0.as_mut() {
             rec.note_demo_respawn(Some(&*combat), pads.0.party());
         }
@@ -3370,6 +3870,7 @@ fn fixed_step(
         }
         hud.0.restart();
         pads.0.party_mut().restart();
+        lab_reseat(&setup.args, pads.0.party_mut());
         if let Some(rec) = sinks.rec.0.as_mut() {
             rec.note_restart(combat.0.as_ref(), pads.0.party());
         }
@@ -3391,7 +3892,12 @@ fn fixed_step(
             Some(combat) => scripted_input(&setup.args, fixture, &sim.0, combat),
             None => fixture.input(sim.0.world.tick + 1),
         };
-        [raw, RawInput::default()]
+        let second = if setup.args.lab_autopilot && sim.0.drive().two_player {
+            combat_lab::autopilot::follow(&sim.0)
+        } else {
+            RawInput::default()
+        };
+        [raw, second]
     } else {
         live_slots
     };
@@ -3430,8 +3936,9 @@ fn fixed_step(
         respawned_in_step = respawned;
         if combat.restarts != restarts || respawned {
             // A party defeat restarted the attempt (or the demo respawned
-            // Carl): Carl is controlled again.
+            // Carl): Carl is controlled again (a lab mode seats its hero).
             pads.0.party_mut().restart();
+            lab_reseat(&setup.args, pads.0.party_mut());
             controls.camera_cut = true;
         }
         let feats = print_combat_events(
@@ -5574,14 +6081,8 @@ fn capture_sequence(
             }
             for _ in 0..seq.step {
                 if let (Some(fixture), Some(combat)) = (fixture, combat.0.as_mut()) {
-                    let raw = scripted_input(&setup.args, fixture, &sim.0, combat);
-                    let _ = step_combat(
-                        &mut sim.0,
-                        combat,
-                        &mut anim.0,
-                        death.0.as_mut(),
-                        [raw, RawInput::default()],
-                    );
+                    let inputs = scripted_inputs(&setup.args, fixture, &sim.0, combat);
+                    let _ = step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), inputs);
                 } else if let Some(scenario) = scenario {
                     let raw = scenario.input(&sim.0.world);
                     sim.0.step(raw);
@@ -6508,6 +7009,413 @@ mod tests {
         // The demo options keep working under the flag.
         assert!(args(&["--cf02", "--demo-beat", "3"]).is_ok());
         assert!(args(&["--cf02", "--fixture", "cp01_kick"]).is_err());
+    }
+
+    /// COMBAT-LAB-01 LAB-00-wire: the lab entry is its own run mode. Story,
+    /// `--demo` and plain `--cf02` cannot select the lab profile or any
+    /// `--lab-*` flag, and `--scene combat_lab` cannot combine with them.
+    #[test]
+    fn the_lab_entry_is_exclusive_and_the_other_entries_cannot_load_it() {
+        let lab = args(&["--scene", "combat_lab"]).unwrap();
+        assert!(lab.lab_scene && lab.manual && lab.donut_biscuit && !lab.demo);
+        assert_eq!(entry_point(&lab), EntryPoint::CombatLab);
+        // The lab opens on the Setup Cage in solo Carl, legacy rules.
+        let sel = lab.lab.clone().unwrap();
+        assert_eq!(
+            (sel.room.as_str(), sel.mode),
+            ("R00", combat_lab::PlayerMode::SoloCarl)
+        );
+        // Auto camera like the demo (LAB-R-Q10), the scroll camera for captures.
+        assert_eq!(lab.camera_choice(), CameraChoice::default_for(true));
+        assert_eq!(
+            args(&["--scene", "combat_lab", "--camera", "scroll"])
+                .unwrap()
+                .camera_choice(),
+            CameraChoice::Scroll
+        );
+        // Flags of the lab, in any order.
+        let a = args(&[
+            "--lab-room",
+            "R02",
+            "--scene",
+            "combat_lab",
+            "--lab-mode",
+            "coop_local",
+            "--lab-variant",
+            "v1",
+            "--deck",
+        ])
+        .unwrap();
+        let sel = a.lab.unwrap();
+        assert_eq!(
+            (sel.room.as_str(), sel.mode),
+            ("R02", combat_lab::PlayerMode::CoopLocal)
+        );
+        assert!(args(&["--scene", "combat_lab", "--lab-mode", "duo"]).is_err());
+        assert!(args(&["--scene", "combat_lab", "--lab-room"]).is_err());
+        // Story, demo, plain --cf02 and the boss scene take no lab flag.
+        for plain in [
+            &[][..],
+            &["--demo"][..],
+            &["--cf02"][..],
+            &["--scene", "boss_f01"][..],
+            &["--fixture", "cp01_kick"][..],
+        ] {
+            for flag in [
+                &["--lab-room", "R01"][..],
+                &["--lab-mode", "coop_local"][..],
+                &["--lab-variant", "v2"][..],
+                &["--lab-next", "R02"][..],
+                &["--lab-confirmed"][..],
+                &["--lab-autopilot"][..],
+            ] {
+                let mut list = plain.to_vec();
+                list.extend_from_slice(flag);
+                assert!(args(&list).is_err(), "{list:?} must be rejected");
+            }
+            assert_ne!(entry_point(&args(plain).unwrap()), EntryPoint::CombatLab);
+        }
+        // The lab cannot combine with any other run mode.
+        for other in [
+            &["--demo"][..],
+            &["--cf02"][..],
+            &["--cf02", "--cf02-seed", "2"][..],
+            &["--autopilot"][..],
+            &["--demo-beat", "2"][..],
+            &["--fixture", "cp01_kick"][..],
+            &["--party-fixture", "party_walk_right"][..],
+            &["--scenario", "walk_right_400"][..],
+            &["--scene", "boss_f01"][..],
+            &["--camera-test-room", "2"][..],
+            &["--reference-frame"][..],
+            &["--headless-floor01-smoke"][..],
+        ] {
+            let mut forward = vec!["--scene", "combat_lab"];
+            forward.extend_from_slice(other);
+            let mut backward = other.to_vec();
+            backward.extend_from_slice(&["--scene", "combat_lab"]);
+            assert!(args(&forward).is_err(), "{forward:?}");
+            assert!(args(&backward).is_err(), "{backward:?}");
+        }
+        assert!(args(&["--scene", "combat_lab", "--scene", "boss_f01"]).is_err());
+        assert!(args(&["--scene", "boss_f01", "--scene", "combat_lab"]).is_err());
+    }
+
+    /// The leak guard is a mechanism of the launch: whatever entry the parsed
+    /// arguments derive, only the lab entry may launch a lab run, and the lab
+    /// entry derives only from `--scene combat_lab`.
+    #[test]
+    fn the_entry_derived_from_the_arguments_gates_the_catalog() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let catalog = LabCatalog::load(root).unwrap();
+        let cfg = LabConfig::new("R00", combat_lab::PlayerMode::SoloCarl);
+        for (list, entry) in [
+            (&[][..], EntryPoint::Story),
+            (&["--demo"][..], EntryPoint::Demo),
+            (&["--cf02"][..], EntryPoint::Cf02),
+            (&["--scene", "boss_f01"][..], EntryPoint::Boss),
+            (&["--fixture", "cp01_kick"][..], EntryPoint::Fixture),
+        ] {
+            let parsed = args(list).unwrap();
+            assert_eq!(entry_point(&parsed), entry, "{list:?}");
+            assert!(catalog.launch(entry_point(&parsed), &cfg).is_err());
+        }
+        let lab = args(&["--scene", "combat_lab"]).unwrap();
+        assert!(catalog.launch(entry_point(&lab), &cfg).is_ok());
+    }
+
+    /// The Q58 seed override is reachable from the lab entry (LAB-R-Q06): on
+    /// R01 the seed names the variant, any other seed is refused with the
+    /// valid list, and plain `--cf02-seed` still needs `--cf02`.
+    #[test]
+    fn the_lab_seed_is_cf02_seed_and_on_r01_it_selects_the_variant() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let catalog = LabCatalog::load(root).unwrap();
+        let launch = |list: &[&str]| {
+            let parsed = args(list).unwrap();
+            catalog.launch(entry_point(&parsed), &lab_config(&parsed))
+        };
+        let r01 = launch(&[
+            "--scene",
+            "combat_lab",
+            "--lab-room",
+            "R01",
+            "--cf02-seed",
+            "3",
+        ])
+        .unwrap();
+        assert_eq!((r01.info.variant.as_str(), r01.info.seed), ("v3", 3));
+        let by_flag = launch(&[
+            "--scene",
+            "combat_lab",
+            "--lab-room",
+            "R01",
+            "--lab-variant",
+            "v2",
+        ])
+        .unwrap();
+        assert_eq!(
+            (by_flag.info.variant.as_str(), by_flag.info.seed),
+            ("v2", 2)
+        );
+        let e = launch(&[
+            "--scene",
+            "combat_lab",
+            "--lab-room",
+            "R01",
+            "--cf02-seed",
+            "9",
+        ])
+        .unwrap_err();
+        assert!(e.to_string().contains("valid seeds are 1, 2 and 3"), "{e}");
+        // A room with one layout records the seed and plays the same room.
+        let r02 = launch(&[
+            "--scene",
+            "combat_lab",
+            "--lab-room",
+            "R02",
+            "--cf02-seed",
+            "9",
+        ])
+        .unwrap();
+        assert_eq!(r02.info.seed, 9);
+        assert!(args(&["--cf02-seed", "3"]).is_err());
+    }
+
+    /// Co-op uses the real pad join path: a live co-op run starts from a fresh
+    /// party (no fake pad ids), a scripted capture keeps the runner's party.
+    #[test]
+    fn live_coop_starts_from_a_fresh_party_and_a_capture_keeps_the_runners() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let catalog = LabCatalog::load(root).unwrap();
+        for (list, live) in [
+            (
+                &["--scene", "combat_lab", "--lab-mode", "coop_local"][..],
+                true,
+            ),
+            (
+                &[
+                    "--scene",
+                    "combat_lab",
+                    "--lab-mode",
+                    "coop_local",
+                    "--capture-tick",
+                    "5",
+                ][..],
+                false,
+            ),
+        ] {
+            let parsed = args(list).unwrap();
+            let run = catalog
+                .launch(entry_point(&parsed), &lab_config(&parsed))
+                .unwrap();
+            let party = lab_party(&parsed, &run);
+            let two = party.mode() == dungeon_floorbreak::party::PartyMode::TwoPlayer;
+            assert_eq!(two, !live, "{list:?}");
+        }
+    }
+
+    /// Every Setup Cage combination (3 modes x 3 variants x 2 start rooms),
+    /// with and without a first-launch `--cf02-seed`, walks the whole room
+    /// chain R00 -> start room -> R02 -> end -> Setup Cage. Every launch is
+    /// built from the argument list the previous room wrote, parsed by the
+    /// real parser and launched through the catalog.
+    #[test]
+    fn every_menu_combination_launches_the_whole_room_chain() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let catalog = LabCatalog::load(root).unwrap();
+        let launch = |argv: &[String]| -> (Args, LabRun) {
+            let parsed = parse_args_with(argv, HudSettings::default())
+                .unwrap_or_else(|e| panic!("{argv:?}: {e}"));
+            let run = catalog
+                .launch(entry_point(&parsed), &lab_config(&parsed))
+                .unwrap_or_else(|e| panic!("{argv:?}: {e}"));
+            (parsed, run)
+        };
+        let first_launches: [&[&str]; 3] = [
+            &[],
+            &["--lab-room", "R00", "--cf02-seed", "9"],
+            &["--lab-room", "R00", "--lab-variant", "v3"],
+        ];
+        for first in first_launches {
+            for mode in combat_lab::PlayerMode::ALL {
+                for variant in lab_flow::MENU_VARIANTS {
+                    for next in lab_flow::START_ROOMS {
+                        // The Setup Cage as the first launch.
+                        let mut argv: Vec<String> = ["floor01_scene", "--scene", "combat_lab"]
+                            .iter()
+                            .map(|a| (*a).to_owned())
+                            .collect();
+                        argv.extend(first.iter().map(|a| (*a).to_owned()));
+                        let (parsed, run) = launch(&argv);
+                        assert_eq!(run.info.room, "R00");
+                        // The player picks the combination and confirms.
+                        let picked = LabSelection {
+                            mode,
+                            next: next.into(),
+                            next_variant: variant.into(),
+                            ..parsed.lab.clone().unwrap()
+                        };
+                        let mut sel = lab_flow::SetupMenu::new(&picked).selection();
+                        let mut visited = Vec::new();
+                        loop {
+                            argv = lab_flow::relaunch_argv(&argv, &sel);
+                            assert!(
+                                !argv.iter().any(|a| a == "--cf02-seed"),
+                                "the seed override never survives a relaunch: {argv:?}"
+                            );
+                            let (parsed, run) = launch(&argv);
+                            assert_eq!(run.info.mode, mode, "{argv:?}");
+                            visited.push((run.info.room.clone(), run.info.variant.clone()));
+                            match lab_flow::next_room(&parsed.lab.unwrap()) {
+                                NextRoom::Room(next) => sel = next,
+                                NextRoom::End => break,
+                            }
+                        }
+                        let want_variant = if next == "R01" { variant } else { "v1" };
+                        let mut chain = vec![
+                            ("R00".to_owned(), "v1".to_owned()),
+                            (next.to_owned(), want_variant.to_owned()),
+                        ];
+                        if next == "R01" {
+                            chain.push(("R02".to_owned(), "v1".to_owned()));
+                        }
+                        assert_eq!(visited, chain, "{mode:?} {variant} {next} {first:?}");
+                        // Back to the Setup Cage: it reopens on the same choice.
+                        let (last, _) = launch(&argv);
+                        let cage = lab_flow::back_to_cage(&last.lab.unwrap());
+                        argv = lab_flow::relaunch_argv(&argv, &cage);
+                        let (again, run) = launch(&argv);
+                        assert_eq!(run.info.room, "R00");
+                        let menu = lab_flow::SetupMenu::new(&again.lab.unwrap());
+                        assert_eq!(
+                            (menu.mode(), menu.variant(), menu.start_room()),
+                            (mode, want_variant, next)
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// The first-launch seed override and an explicit variant must agree, and
+    /// the refusal is at the argument parser, before any window.
+    #[test]
+    fn a_seed_that_conflicts_with_an_explicit_variant_is_refused_when_parsing() {
+        let lab = |extra: &[&str]| {
+            let mut list = vec!["--scene", "combat_lab", "--lab-room", "R01"];
+            list.extend_from_slice(extra);
+            args(&list)
+        };
+        assert!(lab(&["--lab-variant", "v2", "--cf02-seed", "3"]).is_err());
+        assert!(lab(&["--lab-variant", "v1", "--cf02-seed", "2"]).is_err());
+        assert!(lab(&["--lab-variant", "v3", "--cf02-seed", "3"]).is_ok());
+        assert!(lab(&["--cf02-seed", "3"]).is_ok());
+        // Other rooms record the seed and play their one layout.
+        let r02 = args(&[
+            "--scene",
+            "combat_lab",
+            "--lab-room",
+            "R02",
+            "--lab-variant",
+            "v1",
+            "--cf02-seed",
+            "9",
+        ]);
+        assert!(r02.is_ok());
+        // R00 takes the variant for the start room it hands over to.
+        let cage = args(&[
+            "--scene",
+            "combat_lab",
+            "--lab-room",
+            "R00",
+            "--lab-variant",
+            "v3",
+        ])
+        .unwrap()
+        .lab
+        .unwrap();
+        assert_eq!(
+            (cage.variant.as_str(), cage.next_variant.as_str()),
+            ("v1", "v3")
+        );
+    }
+
+    /// PLAYTRACE-01: a lab session is recorded as `combat_lab` with the real
+    /// seed and the chosen mode (a live co-op run starts as a solo party until
+    /// the second pad joins), and the badge follows the recorder.
+    #[test]
+    fn a_lab_session_manifest_names_the_lab_source_seed_and_mode() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let catalog = LabCatalog::load(root).unwrap();
+        for (list, mode, seed) in [
+            (
+                &[
+                    "--scene",
+                    "combat_lab",
+                    "--lab-room",
+                    "R01",
+                    "--lab-variant",
+                    "v3",
+                    "--lab-mode",
+                    "coop_local",
+                ][..],
+                "local_coop",
+                Some(3),
+            ),
+            (
+                &["--scene", "combat_lab", "--lab-room", "R02"][..],
+                "solo_human",
+                Some(1),
+            ),
+        ] {
+            let mut parsed = args(list).unwrap();
+            let run = catalog
+                .launch(entry_point(&parsed), &lab_config(&parsed))
+                .unwrap();
+            parsed.fixture = Some(run.info.fixture);
+            parsed.lab_run = Some(Box::new(run.clone()));
+            let party = lab_party(&parsed, &run);
+            let manifest = recording_manifest(&parsed, &run.scene, Some(&run.combat), &party, root);
+            assert_eq!(manifest.reset.source, "combat_lab", "{list:?}");
+            assert_eq!(manifest.mode, mode, "{list:?}");
+            assert_eq!(manifest.seed_effective, seed, "{list:?}");
+            assert_eq!(
+                manifest.feature_flags.get("lab_mode").map(String::as_str),
+                Some(run.info.mode.id())
+            );
+        }
+        // A fixture run is still a fixture.
+        let fixture = args(&["--fixture", "cp01_kick", "--manual"]).unwrap();
+        let run = LabCatalog::load(root)
+            .unwrap()
+            .launch(
+                EntryPoint::CombatLab,
+                &LabConfig::new("R00", combat_lab::PlayerMode::SoloCarl),
+            )
+            .unwrap();
+        let manifest =
+            recording_manifest(&fixture, &run.scene, Some(&run.combat), &run.party, root);
+        assert_eq!(manifest.reset.source, "fixture");
+    }
+
+    #[test]
+    fn the_rec_badge_names_why_a_lab_run_is_not_recording() {
+        let live = args(&["--scene", "combat_lab"]).unwrap();
+        let scripted = args(&["--scene", "combat_lab", "--lab-autopilot"]).unwrap();
+        let off = args(&["--scene", "combat_lab", "--no-record"]).unwrap();
+        assert_eq!(
+            lab_rec_status(&off, None),
+            RecStatus::Off("--no-record".into())
+        );
+        assert_eq!(
+            lab_rec_status(&scripted, None),
+            RecStatus::Off("scripted run".into())
+        );
+        // A live run without a recorder (and no opt-out) says it failed.
+        if record_env_off().is_none() {
+            assert!(matches!(lab_rec_status(&live, None), RecStatus::Error(_)));
+        }
     }
 
     #[test]

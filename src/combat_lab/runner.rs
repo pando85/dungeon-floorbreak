@@ -18,8 +18,8 @@
 use std::path::{Path, PathBuf};
 
 use super::descriptor::{
-    EnemySpec, GoalKind, Manifest, Resolved, RoomSpec, validate_goal_roster, validate_manifest,
-    validate_roster,
+    EnemySpec, GoalKind, Manifest, Resolved, RoomSpec, VariantKind, validate_goal_roster,
+    validate_manifest, validate_roster,
 };
 use super::entry::{EntryPoint, denied};
 use super::profile::{CapabilityProfile, PROFILE_ID};
@@ -316,11 +316,11 @@ impl LabCatalog {
             ));
         }
         let resolved = room.resolve(&cfg.variant)?;
-        let carl_x = *room.checkpoints.get(cfg.checkpoint).ok_or_else(|| {
+        let carl_x = *resolved.checkpoints.get(cfg.checkpoint).ok_or_else(|| {
             not_allowed(format!(
                 "checkpoint {} (the room has {})",
                 cfg.checkpoint,
-                room.checkpoints.len()
+                resolved.checkpoints.len()
             ))
         })?;
         let enemies: &[EnemySpec] = cfg.enemies_override.as_deref().unwrap_or(resolved.enemies);
@@ -342,7 +342,22 @@ impl LabCatalog {
                 actual: format!("{actual:016x}"),
             });
         }
-        let loaded = load_room(&self.root, &text, room.goal.kind, &room.id)?;
+        let loaded = load_room(
+            &self.root,
+            &text,
+            room.goal.kind,
+            &room.id,
+            &resolved.variant,
+        )?;
+        let exit = {
+            let r = loaded.room.exit;
+            crate::env_kit::IRect {
+                x: r.x,
+                y: r.y,
+                w: r.w,
+                h: r.h,
+            }
+        };
         let kit = loaded.kit;
         for e in enemies {
             if kit.walking_line_at(e.x) != Some(kit.base_walk_line_y) {
@@ -354,6 +369,7 @@ impl LabCatalog {
         }
 
         let seed = effective_seed(cfg.cf02, resolved.seed);
+        check_variant_seed(room, &resolved, seed)?;
         let fixture = build_fixture(room, &resolved, enemies, carl_x, seed);
         let info = RunInfo {
             room: room.id.clone(),
@@ -369,6 +385,8 @@ impl LabCatalog {
             content_hash: resolved.content_hash(),
             view_h: cfg.view_h,
             carl_x,
+            exit,
+            rules: checkpoint_rules(resolved.checkpoints, carl_x, enemies),
             goal: room.goal.kind,
             segment: room.segment.id.clone(),
             encounter: room.encounter_id.clone(),
@@ -390,6 +408,55 @@ impl LabCatalog {
             info,
         })
     }
+}
+
+/// LAB-R-Q06: R01 variant N is the scenario `VN` and the effective seed N, so
+/// the seed of a play variant of R01 must be 1, 2 or 3 and must name the
+/// variant. There is no modulo mapping: any other seed is rejected, listing
+/// the valid ones. Other rooms have one layout; a seed there is only recorded.
+fn check_variant_seed(room: &RoomSpec, resolved: &Resolved<'_>, seed: u64) -> Result<(), LabError> {
+    if room.id != "R01" || resolved.kind != VariantKind::Play {
+        return Ok(());
+    }
+    let number = resolved
+        .variant
+        .strip_prefix('v')
+        .and_then(|n| n.parse::<u64>().ok());
+    if !(1..=3).contains(&seed) {
+        return Err(LabError::NotAllowed {
+            room: room.id.clone(),
+            reason: format!(
+                "seed {seed} is not valid for R01: the valid seeds are 1, 2 and 3 \
+                 (variant v1, v2, v3)"
+            ),
+        });
+    }
+    if number != Some(seed) {
+        return Err(LabError::NotAllowed {
+            room: room.id.clone(),
+            reason: format!(
+                "seed {seed} selects variant v{seed} of R01, not {}",
+                resolved.variant
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// The checkpoint rules of a natural run (spec section 6): a defeat or a
+/// Select tap puts Carl back at the room checkpoint, the dead stay dead. Not
+/// used when an enemy stands behind the start column (the held-out R01H
+/// goblins face away from Carl): the demo rules retire such an enemy, so that
+/// run keeps the plain defeat retry.
+fn checkpoint_rules(
+    checkpoints: &[i32],
+    carl_x: i32,
+    enemies: &[EnemySpec],
+) -> Option<&'static crate::combat_scene::DemoRules> {
+    enemies
+        .iter()
+        .all(|e| e.x >= carl_x)
+        .then(|| crate::combat_lab_fixtures::intern_rules(checkpoints))
 }
 
 fn build_fixture(
@@ -431,6 +498,10 @@ fn build_state(
     let combat = CombatState::new(info.fixture, kit, &scene)
         .map_err(geometry)?
         .with_donut(setup);
+    let combat = match info.rules {
+        Some(rules) => combat.with_demo(rules),
+        None => combat,
+    };
     // "No swat": at 0 mana the press is dry, never a swat.
     if combat.donut_mana_tuning().empty_press != EmptyPress::Dry {
         return Err(LabError::IllegalAbility {
@@ -468,6 +539,13 @@ pub struct RunInfo {
     pub view_h: i32,
     /// Carl's start column (the room start or a checkpoint).
     pub carl_x: i32,
+    /// The protected exit rect in layout pixels (y down). The runner never
+    /// leaves it in the kit: the lab evaluates it itself (see
+    /// [`crate::combat_lab::flow`]).
+    pub exit: crate::env_kit::IRect,
+    /// The respawn checkpoints of a natural run (`None` when an enemy stands
+    /// behind the start column: the demo rules would retire it).
+    pub rules: Option<&'static crate::combat_scene::DemoRules>,
     pub goal: GoalKind,
     /// The recording segment id of the room.
     pub segment: String,
@@ -499,8 +577,10 @@ impl LabRun {
         self.scene.set_drive(self.party.drive(true));
         let restarts = self.combat.restarts;
         self.combat.step_party(&mut self.scene, inputs);
-        if self.combat.restarts != restarts {
-            // The party's defeat retry: back to the mode's seat.
+        let respawned = self.combat.take_respawned();
+        if self.combat.restarts != restarts || respawned {
+            // The party's defeat retry or the checkpoint respawn: back to the
+            // mode's seat.
             self.party.restart();
             self.info.mode.seat(&mut self.party);
             self.scene.set_drive(self.party.drive(true));

@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=lab_r01_v1 seed=0x1 tick=225 elapsed=225 hero_hp=4 deaths=0 enemies=e0=588.801/0,e1=607.568/0,e2=875.867/2 hash=9305ffe7f6ece2d5 demo_cp=0
+COMBAT_STATE fixture=lab_r01_v1 seed=0x1 tick=280 elapsed=280 hero_hp=4 deaths=0 enemies=e0=588.801/0,e1=607.568/0,e2=833.600/1 hash=8698d1449896b2a1 demo_cp=0

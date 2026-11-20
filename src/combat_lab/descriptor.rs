@@ -117,6 +117,10 @@ pub struct VariantSpec {
     pub room_file: Option<String>,
     pub layout_hash: Option<String>,
     pub enemies: Option<Vec<EnemySpec>>,
+    /// Carl's start columns of a variant with its own geometry (the held-out
+    /// R01H starts on the east side).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoints: Option<Vec<i32>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -177,6 +181,7 @@ pub struct Resolved<'a> {
     pub room_file: &'a str,
     pub layout_hash: u64,
     pub enemies: &'a [EnemySpec],
+    pub checkpoints: &'a [i32],
     pub seed: u64,
 }
 
@@ -232,6 +237,7 @@ impl RoomSpec {
             room_file,
             layout_hash: layout,
             enemies: &self.enemies,
+            checkpoints: &self.checkpoints,
             seed: self.seed,
         };
         let Some(list) = &self.variants else {
@@ -265,6 +271,9 @@ impl RoomSpec {
         }
         if let Some(enemies) = &v.enemies {
             out.enemies = enemies;
+        }
+        if let Some(checkpoints) = &v.checkpoints {
+            out.checkpoints = checkpoints;
         }
         if let Some(seed) = v.seed {
             out.seed = seed;

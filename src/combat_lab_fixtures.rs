@@ -14,7 +14,7 @@ use std::sync::Mutex;
 
 use crate::combat::EnemyAi;
 use crate::combat_lab::PlayerMode;
-use crate::combat_scene::{EnemySpawn, Fixture, LlamaSpawn};
+use crate::combat_scene::{DemoRules, EnemySpawn, Fixture, LlamaSpawn};
 use crate::input::{RawInput, SlotInputs};
 use crate::party_scene::SlotHold;
 
@@ -41,6 +41,38 @@ fn ai(passive: bool) -> EnemyAi {
     } else {
         EnemyAi::Chase
     }
+}
+
+/// The stand-in of a lab launch while the arguments are still being parsed:
+/// the scene binary resolves the real interned fixture of the room right
+/// after (`LabCatalog::launch`). It is not in any fixture registry
+/// (`Fixture::by_name` never returns it).
+pub const PENDING_FIXTURE: Fixture = Fixture {
+    name: "lab_pending",
+    summary: "COMBAT-LAB-01 launch placeholder (replaced by the room fixture)",
+    seed: 0,
+    carl_x: 0,
+    enemies: &[],
+    shore_dx: None,
+    boss: None,
+    llamas: &[],
+    charges: &[],
+    script: &[],
+    ticks: 1,
+};
+
+static RULES: Mutex<Vec<(Vec<i32>, &'static DemoRules)>> = Mutex::new(Vec::new());
+
+/// The `'static` checkpoint rules of a room (one leak per distinct list).
+pub fn intern_rules(checkpoints: &[i32]) -> &'static DemoRules {
+    let mut table = RULES.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((_, rules)) = table.iter().find(|(c, _)| c == checkpoints) {
+        return rules;
+    }
+    let list: &'static [i32] = Box::leak(checkpoints.to_vec().into_boxed_slice());
+    let rules: &'static DemoRules = Box::leak(Box::new(DemoRules { checkpoints: list }));
+    table.push((checkpoints.to_vec(), rules));
+    rules
 }
 
 /// The `'static` fixture of `key`, built once.

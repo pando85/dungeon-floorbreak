@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=lab_r02_v1 seed=0x1 tick=5 elapsed=5 hero_hp=4 deaths=0 enemies=e0=560.000/2,e1=592.000/2,e2=928.000/2 hash=89a168d2550f57f0 llamas=l0=1020.667/3 demo_cp=0
+COMBAT_STATE fixture=lab_r02_v1 seed=0x1 tick=5 elapsed=5 hero_hp=4 deaths=0 enemies=e0=560.000/2,e1=592.000/2,e2=928.000/2 hash=89a168d2550f57f0 llamas=l0=1020.667/3 demo_cp=0

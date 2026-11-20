@@ -1,0 +1,50 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "COMBAT-LAB-01 R01H held-out geometry (ML only, LAB-Q07): a mirror of R01 V1 with the nook moved east. Reachable only through the CLI sandbox probe. Lab entry only.",
+  "scenarios": [
+    {
+      "id": "LAB-R01H",
+      "name": "Impact Pit (held out)",
+      "subtitle": "Held-out mirror with the nook on the east wall",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1024,
+      "height": 660,
+      "floor": 580,
+      "spawn": {
+        "carl": 848,
+        "donut": 880
+      },
+      "camera_intro": 848,
+      "platforms": [
+        {
+          "x": 912,
+          "y": 548,
+          "w": 96,
+          "h": 16
+        }
+      ],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 464
+        },
+        {
+          "kind": "goblin",
+          "x": 436
+        },
+        {
+          "kind": "goblin",
+          "x": 144
+        }
+      ],
+      "hazards": [],
+      "goal_x": 64,
+      "purpose": "Held-out geometry for ML evaluation: the nook moved east.",
+      "expected": "Never selected from the menu or used in protocol trials.",
+      "coop": "Separation wall 448."
+    }
+  ]
+}

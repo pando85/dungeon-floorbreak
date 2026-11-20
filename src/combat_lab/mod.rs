@@ -34,12 +34,16 @@
 //! calls [`PlayerMode::seat`], which puts the human back on the mode's hero.
 
 pub mod ability;
+pub mod autopilot;
 pub mod descriptor;
 pub mod entry;
+pub mod flow;
 pub mod profile;
 pub mod runner;
 pub mod validate;
 
+#[cfg(test)]
+mod room_tests;
 #[cfg(test)]
 mod tests;
 
