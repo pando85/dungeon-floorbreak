@@ -90,7 +90,9 @@ fn count_moves(events: &[CombatEvent]) -> usize {
 fn hold(env: &mut AutoplayEnv, action: ActionV1, ticks: usize) -> Vec<CombatEvent> {
     let mut events = Vec::new();
     for _ in 0..ticks {
-        events.extend(env.step(action).unwrap().new_events);
+        let before = env.episode_events().len();
+        env.step(action).unwrap();
+        events.extend_from_slice(&env.episode_events()[before..]);
     }
     events
 }
@@ -290,18 +292,18 @@ fn action_repeat_stops_mid_bundle_on_defeat() {
 fn defeat_terminates_on_the_defeating_tick_without_a_restart() {
     let mut env = env_for("cp01_single_goblin");
     env.reset(0).unwrap();
-    let last = loop {
+    let (last, last_events) = loop {
+        let before = env.episode_events().len();
         let step = env.step(ActionV1::NOOP).unwrap();
         if step.outcome.is_some() {
-            break step;
+            break (step, env.episode_events()[before..].to_vec());
         }
         assert!(!env.sim().combat.hero_defeated);
     };
     assert_eq!(last.outcome, Some(Outcome::Defeat));
     assert!(last.terminated() && !last.truncated());
     assert!(!last.simultaneous_clear);
-    let defeat_tick = last
-        .new_events
+    let defeat_tick = last_events
         .iter()
         .find_map(|e| match e {
             CombatEvent::HeroDefeated { tick, .. } => Some(*tick),
@@ -373,7 +375,7 @@ fn reaching_the_exit_with_hostiles_alive_is_abandoned() {
 }
 
 #[test]
-fn step_before_reset_and_after_terminal_are_errors() {
+fn step_before_reset_is_an_error() {
     let mut env = env_for("cp01_single_goblin");
     assert_eq!(env.step(ActionV1::NOOP), Err(AutoplayError::NotReset));
     env.reset(0).unwrap();
@@ -464,8 +466,8 @@ fn action_maps_to_the_games_raw_input() {
             attack: true,
             physical: true,
             ability: true,
-            pause: false,
             swap: true,
+            ..RawInput::default()
         }
     );
     assert_eq!(

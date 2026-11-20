@@ -59,7 +59,11 @@ impl EventCounts {
                         Attribution::Donut => counts.hits_donut += 1,
                         Attribution::Unknown => counts.hits_unknown += 1,
                     }
-                    hit_instances.push(*instance);
+                    // Donut keeps its own instance counter: only Carl's hits
+                    // can cancel a Carl whiff.
+                    if move_attribution(*move_id) == Attribution::Carl {
+                        hit_instances.push(*instance);
+                    }
                 }
                 CombatEvent::EnemyDefeated { .. } => counts.enemies_defeated += 1,
                 CombatEvent::HeroHurt { .. } => counts.hero_hurt += 1,

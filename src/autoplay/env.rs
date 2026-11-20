@@ -67,8 +67,11 @@ pub struct ResetInfo {
     pub max_ticks: u64,
     pub action_repeat: u32,
     /// `state_hash` of the fresh sim, checked against the pinned value.
+    /// Privileged (AP-Q08): constant per scenario, so nothing leaks here, but
+    /// the Python layer must not copy it into `info`; use `diagnostics()`.
     pub initial_hash: u64,
     /// Events already present in the fresh sim (events drained at reset).
+    /// Privileged bookkeeping like `initial_hash`; never copy it into `info`.
     pub event_cursor: usize,
     /// Number of hostiles that must be defeated for success.
     pub required_enemies: usize,
@@ -77,6 +80,10 @@ pub struct ResetInfo {
 }
 
 /// The result of one `step` (one to `action_repeat` real ticks).
+///
+/// This is the non-privileged `info` source: it must never carry combat events
+/// or any other hidden state (AP-Q08). Full events live behind
+/// `episode_events()` and `diagnostics()`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StepOutcome {
     /// Ticks executed by this call (less than `action_repeat` when the episode
@@ -88,8 +95,6 @@ pub struct StepOutcome {
     pub outcome: Option<Outcome>,
     /// Defeat and success were both true after the same tick (AP-Q09).
     pub simultaneous_clear: bool,
-    /// Combat events of every executed tick of this call, in order.
-    pub new_events: Vec<CombatEvent>,
     /// The itemised reward of this call (AP-Q15); expose it in `info`.
     pub reward: RewardBreakdown,
 }
@@ -253,14 +258,14 @@ impl AutoplayEnv {
             self.phase = Phase::Over(outcome);
         }
         self.record_observation();
-        let new_events = self.events[first_new..].to_vec();
-        let reward = self.reward.step(&new_events, ticks_executed, outcome);
+        let reward = self
+            .reward
+            .step(&self.events[first_new..], ticks_executed, outcome);
         Ok(StepOutcome {
             ticks_executed,
             tick: self.sim.combat.elapsed,
             outcome,
             simultaneous_clear,
-            new_events,
             reward,
         })
     }
@@ -326,7 +331,7 @@ impl AutoplayEnv {
             tick: self.sim.combat.elapsed,
             state_hash: self.sim.state_hash(),
             initial_hash: self.initial_hash,
-            events: self.events.clone(),
+            events: self.episode_events().to_vec(),
             event_counts: EventCounts::from_events(&self.events),
             carl: diagnostics::carl_diagnostics(&self.sim),
             enemies: diagnostics::enemy_diagnostics(&self.sim),
@@ -374,8 +379,9 @@ impl AutoplayEnv {
         self.sim.state_hash()
     }
 
-    /// Privileged: every combat event of this episode in order.
-    pub fn episode_events(&self) -> &[CombatEvent] {
+    /// Privileged, crate-internal: every combat event of this episode in
+    /// order. The event source for metrics and replay; never part of `info`.
+    pub(crate) fn episode_events(&self) -> &[CombatEvent] {
         &self.events
     }
 }

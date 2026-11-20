@@ -56,6 +56,10 @@ const SIGNED: (f32, f32) = (-1.0, 1.0);
 const UNIT: (f32, f32) = (0.0, 1.0);
 
 /// ObservationV1 schema. All tensors are `float32`.
+///
+/// Sign convention (AP-Q06): `dy` and `vy` (own and enemy) follow the sim's
+/// y-up frame, so positive is up; only `y_in_view` is screen-down (0 at the
+/// top of the view). A bot author must not assume a screen-down `dy`.
 pub const OBS_V1: ObsSchema = ObsSchema {
     version: OBSERVATION_VERSION,
     self_names: [

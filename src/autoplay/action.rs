@@ -94,6 +94,8 @@ impl ActionV1 {
     /// `pause` is never a policy action.
     pub fn to_raw_input(&self) -> RawInput {
         // TODO(CF02-00): switch to RawInput::NONE as the neutral base.
+        // `pause` (and any field a later ruleset adds, such as Down) comes
+        // from the neutral base: it is never a policy action (AP-Q04).
         RawInput {
             move_x: match self.values[0] {
                 0 => -1.0,
@@ -104,8 +106,8 @@ impl ActionV1 {
             attack: self.primary(),
             physical: self.physical(),
             ability: self.special(),
-            pause: false,
             swap: self.swap(),
+            ..RawInput::default()
         }
     }
 }

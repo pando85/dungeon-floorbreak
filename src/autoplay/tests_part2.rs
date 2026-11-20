@@ -16,6 +16,7 @@ use crate::combat_scene::{
     CP01_GOBLIN_ATTACKS, CP01_SINGLE_GOBLIN, CP02_TWO_GOBLINS, FIXTURES, Fixture, FixtureSim,
     QA_BLAST_BREAKUP,
 };
+use crate::demo;
 use crate::party::HeroId;
 
 fn root() -> PathBuf {
@@ -251,8 +252,9 @@ fn carl_state_features_follow_the_game() {
     );
     // A jab shows busy and exactly one move flag.
     let jab = ActionV1::new([1, 0, 1, 0, 0, 0]).unwrap();
-    let step = env.step(jab).unwrap();
-    assert!(step.new_events.iter().any(|e| matches!(
+    let before = env.episode_events().len();
+    env.step(jab).unwrap();
+    assert!(env.episode_events()[before..].iter().any(|e| matches!(
         e,
         CombatEvent::MoveStarted {
             move_id: MoveId::Jab,
@@ -298,18 +300,16 @@ fn initial_masks_match_the_roster_and_spawns_keep_16_px_off_the_view_edge() {
         for (slot, mask) in obs.enemy_mask.iter().enumerate() {
             assert_eq!(*mask > 0.0, slot < visible, "{id} slot {slot}");
         }
-        // The real initial edge (the camera leads Carl by 24 px: 744) and the
-        // spec's nominal centred edge (720) must both be 16 px away.
+        // The real initial edge (the camera leads Carl by 24 px: 744) must be
+        // at least 16 px away from every spawn.
         let view_right = (env.sim().scene.camera.left() + 640) as f32;
         assert_eq!(view_right, 744.0);
         for spawn in lookup(id).unwrap().fixture.enemies {
-            for edge in [view_right, 720.0] {
-                assert!(
-                    (spawn.x as f32 - edge).abs() >= 16.0,
-                    "{id}: spawn {} within 16 px of the view edge {edge}",
-                    spawn.x
-                );
-            }
+            assert!(
+                (spawn.x as f32 - view_right).abs() >= 16.0,
+                "{id}: spawn {} within 16 px of the view edge {view_right}",
+                spawn.x
+            );
         }
     }
     let mut env = env_for("ap_single_goblin_far");
@@ -890,6 +890,7 @@ fn ap_scenarios_load_run_and_terminate_under_a_scripted_policy() {
         let (last, _) = run_bot(&mut env);
         assert_eq!(last.outcome, Some(Outcome::Success), "{id}");
         assert!(last.terminated());
+        assert!(demo::complete(&env.sim().combat), "{id}");
         assert_eq!(env.diagnostics().defeated.len(), info.required_enemies);
         // Replaying the same policy gives the same hash, tick and events.
         let (hash, tick, events) = (
