@@ -1,0 +1,82 @@
+import json
+
+from autoplay.bots import NativePolicy, NoopPolicy, make_policy, native_policy_ids
+from autoplay.evaluate import evaluate, write_report
+
+import pytest
+
+
+def test_seeded_baseline_evaluation_is_reproducible():
+    a = evaluate(["cp01_single_goblin"], NativePolicy("random_legal"), 3, 42)
+    b = evaluate(["cp01_single_goblin"], NativePolicy("random_legal"), 3, 42)
+    assert a == b
+    assert a["overall"]["episodes"] == 3
+
+
+def test_different_seed_changes_the_random_policy():
+    a = evaluate(["cp01_single_goblin"], NativePolicy("random_legal"), 3, 42)
+    b = evaluate(["cp01_single_goblin"], NativePolicy("random_legal"), 3, 43)
+    assert a["rows"] != b["rows"]
+
+
+def test_copies_of_one_deterministic_run_count_as_one_independent_episode():
+    # The sim ignores the reset seed, so a deterministic bot repeats one trajectory.
+    result = evaluate(["cp01_single_goblin"], make_policy("reactive_survivor"), 3, 42)
+    overall = result["overall"]
+    assert overall["episodes"] == 3
+    assert overall["distinct_trajectories"] == 1
+    assert overall["independent_episodes"] == 1
+    assert len({row["trajectory_sha256"] for row in result["rows"]}) == 1
+    assert any("independent_episodes" in note for note in result["notes"])
+
+
+def test_a_seeded_random_policy_gives_distinct_trajectories():
+    result = evaluate(["cp01_single_goblin"], make_policy("random_legal"), 3, 42)
+    assert result["overall"]["distinct_trajectories"] > 1
+    assert result["overall"]["independent_episodes"] == result["overall"]["distinct_trajectories"]
+
+
+def test_same_trajectory_in_two_scenarios_is_two_independent_episodes():
+    result = evaluate(["cp01_single_goblin", "cp02_two_goblins"], NoopPolicy(), 2, 1)
+    assert result["scenarios"]["cp01_single_goblin"]["independent_episodes"] == 1
+    assert result["overall"]["episodes"] == 4
+    assert result["overall"]["independent_episodes"] == 2
+
+
+def test_random_legal_never_touches_reserved_components(env):
+    policy = NativePolicy("random_legal")
+    policy.reset(1)
+    obs, _ = env.reset(seed=1)
+    for _ in range(200):
+        action = policy.act(obs, env)
+        assert action[4] == 0 and action[5] == 0
+
+
+def test_every_rust_bot_is_exposed_and_runs_through_the_binding():
+    assert native_policy_ids() == ["random_legal", "approach_and_attack", "reactive_survivor"]
+    for policy_id in native_policy_ids():
+        policy = make_policy(policy_id)
+        assert isinstance(policy, NativePolicy) and policy.policy_id == policy_id
+        result = evaluate(["cp01_single_goblin"], policy, 2, 5)
+        assert result["overall"]["episodes"] == 2
+
+
+def test_scripted_rust_bot_does_what_a_noop_policy_cannot():
+    # approach_and_attack is Rust code; clearing the room shows the binding drives it.
+    bot = evaluate(["cp01_single_goblin"], make_policy("approach_and_attack"), 3, 0)
+    idle = evaluate(["cp01_single_goblin"], make_policy("noop"), 3, 0)
+    assert bot["overall"]["enemies_defeated_mean"] > idle["overall"]["enemies_defeated_mean"]
+    assert bot["overall"]["success_rate"] == 1.0
+
+
+def test_report_files_are_written(tmp_path):
+    result = evaluate(["cp01_single_goblin"], NoopPolicy(), 2, 1)
+    write_report(result, tmp_path, {"note": "x"})
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    assert summary["policy_id"] == "noop" and summary["note"] == "x"
+    assert (tmp_path / "episodes.csv").read_text().startswith("scenario,episode,seed")
+
+
+def test_unknown_policy_is_rejected():
+    with pytest.raises(ValueError, match="unknown policy"):
+        make_policy("not_a_bot")

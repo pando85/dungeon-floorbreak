@@ -1,0 +1,44 @@
+# AUTOPLAY-01C: optional tooling package. The game never depends on it.
+[build-system]
+requires = ["maturin==1.16.0"]
+build-backend = "maturin"
+
+[project]
+name = "dungeon-floorbreak-autoplay"
+version = "0.1.0"
+description = "Gymnasium bridge, baselines and CPU PPO smoke for the AUTOPLAY-01 native env"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "gymnasium==1.4.0",
+  "numpy==2.5.4",
+]
+
+[project.optional-dependencies]
+test = ["pytest==9.2.0"]
+# CPU only: torch comes from the PyTorch CPU index (see [tool.uv.sources]).
+train = [
+  "stable-baselines3==2.9.2",
+  "torch==2.15.0",
+]
+
+[tool.maturin]
+manifest-path = "native/Cargo.toml"
+python-source = "python"
+module-name = "autoplay._native"
+profile = "release"
+
+[tool.uv]
+# uv keeps the lock for a CPU-only resolution: no CUDA wheels, no GPU.
+required-environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"

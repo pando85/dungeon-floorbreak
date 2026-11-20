@@ -79,8 +79,10 @@ cargo run --release --bin autoplay -- benchmark --scenario cp01_single_goblin --
 ```text
 # After isolated Python tooling setup:
 python -m autoplay evaluate --scenario cp01_single_goblin --policy reactive_survivor --episodes 50 --out artifacts/autoplay-01/python-eval
+# replays land in <out>/replays/<scenario>/<policy>/episode_0001.jsonl; verify with the native CLI:
+# autoplay replay --episode artifacts/autoplay-01/python-eval/replays/cp01_single_goblin/reactive_survivor/episode_0001.jsonl --verify
 python -m autoplay train --algorithm ppo --scenario cp01_single_goblin --steps 10000 --seed 42 --out artifacts/autoplay-01/ppo-smoke
-python -m autoplay evaluate --scenario cp02_two_goblins --checkpoint artifacts/autoplay-01/ppo-smoke/model.zip --episodes 50 --out artifacts/autoplay-01/held-out
+python -m autoplay evaluate --scenario cp02_two_goblins --checkpoint artifacts/autoplay-01/ppo-smoke --episodes 50 --out artifacts/autoplay-01/held-out
 ```
 
 These are **interfaces to implement**, not commands available today. If actual packaging requires different commands, update both documents and tests with the verified alternatives. Avoid fake evidence or claiming a static seed is domain randomization.

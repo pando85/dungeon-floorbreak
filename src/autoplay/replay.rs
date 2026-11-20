@@ -21,7 +21,7 @@ use crate::donut_mana::content_hash;
 
 use super::action::ActionV1;
 use super::config::{ACTION_VERSION_V1, AutoplayConfig};
-use super::env::{AutoplayEnv, CORRIDOR_LAYOUT, ResetInfo};
+use super::env::{AutoplayEnv, CORRIDOR_LAYOUT, ResetInfo, StepOutcome};
 use super::error::AutoplayError;
 use super::metrics::{EventHasher, fnv_mix, hex};
 use super::observation::OBSERVATION_VERSION;
@@ -306,6 +306,67 @@ impl ReplayRecorder {
                 return_bits: hex(episode_return.to_bits()),
             },
         }
+    }
+}
+
+/// Records an episode driven from outside the crate (the Python bridge).
+///
+/// The caller supplies the actions and the env; this type reads the ordered
+/// events through the crate-internal log, so the raw events stay private and
+/// the replay format has exactly one writer ([`ReplayRecorder`]). Action
+/// repeat must be 1: every step is one tick.
+#[derive(Debug, Clone)]
+pub struct EpisodeRecording {
+    recorder: ReplayRecorder,
+    hasher: EventHasher,
+    cursor: usize,
+}
+
+impl EpisodeRecording {
+    /// Start right after `env.reset`, with the `ResetInfo` it returned.
+    pub fn start(
+        env: &AutoplayEnv,
+        reset: &ResetInfo,
+        commit: &str,
+        kit_hash: u64,
+        policy: &str,
+        episode_label: &str,
+    ) -> Result<Self, AutoplayError> {
+        if env.config().action_repeat != 1 {
+            return Err(AutoplayError::InvalidConfig(
+                "episode recording needs action_repeat = 1 (one step is one tick)".into(),
+            ));
+        }
+        let header = make_header(env.config(), reset, commit, kit_hash, policy, episode_label)?;
+        Ok(Self {
+            recorder: ReplayRecorder::new(header),
+            hasher: EventHasher::new(),
+            cursor: env.episode_events().len(),
+        })
+    }
+
+    /// Fold the step that just ran (`env.step(action)` returned `step`).
+    pub fn on_step(&mut self, env: &AutoplayEnv, action: ActionV1, step: &StepOutcome) {
+        let events = env.episode_events();
+        self.hasher.fold(&events[self.cursor..]);
+        self.cursor = events.len();
+        self.recorder.push_action(action);
+        if ReplayRecorder::wants_checkpoint(step.tick) {
+            self.recorder
+                .push_checkpoint(step.tick, self.hasher.value(), env.state_hash());
+        }
+    }
+
+    /// Close the episode (call once it ended, like `run_episode`).
+    pub fn finish(self, env: &AutoplayEnv) -> Replay {
+        let outcome = env.outcome().map_or("timeout", |o| o.name());
+        self.recorder.finish(
+            outcome,
+            env.tick_count(),
+            env.episode_return(),
+            self.hasher.value(),
+            env.state_hash(),
+        )
     }
 }
 
