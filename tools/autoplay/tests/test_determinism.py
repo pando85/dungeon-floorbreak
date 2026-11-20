@@ -1,6 +1,6 @@
 import numpy as np
 
-from autoplay import AutoplayEnv
+from autoplay import AutoplayEnv, _native
 
 from conftest import DEV, pattern_actions
 
@@ -70,7 +70,8 @@ def test_observation_does_not_advance_or_mutate_the_sim():
     assert all(np.array_equal(first[k], second[k]) for k in first)
 
 
-def test_held_button_across_an_action_repeat_is_one_hold_not_new_presses():
+def test_action_repeat_bundle_matches_the_same_number_of_single_steps():
+    # Bundle/single parity only; press-edge semantics are pinned by the next test.
     # One step of repeat=4 must equal four steps of repeat=1 with the same action.
     action = [2, 0, 1, 0, 0, 0]
     bundled = AutoplayEnv(DEV, action_repeat=4)
@@ -83,3 +84,27 @@ def test_held_button_across_an_action_repeat_is_one_hold_not_new_presses():
             single.step(action)
         assert bundled.state_hash() == single.state_hash()
         assert info["ticks_executed"] == 4
+
+
+def test_held_button_is_one_press_and_release_then_press_is_a_new_one():
+    # Hold primary 30 ticks, release 30, press 30: two press edges. It must equal
+    # the native env tick for tick and differ from holding primary for all 90 ticks
+    # (one press edge), so the bridge forwards edges and does not synthesize presses.
+    held, released, pressed = [1, 0, 1, 0, 0, 0], [1, 0, 0, 0, 0, 0], [1, 0, 1, 0, 0, 0]
+    two_edges = [held] * 30 + [released] * 30 + [pressed] * 30
+    one_edge = [held] * 90
+
+    def python_hashes(actions):
+        env = AutoplayEnv(DEV)
+        env.reset(seed=0)
+        hashes = []
+        for action in actions:
+            env.step(action)
+            hashes.append(env.state_hash())
+        return hashes
+
+    two = python_hashes(two_edges)
+    assert two == list(_native.reference_hashes(DEV, two_edges))
+    one = python_hashes(one_edge)
+    assert one == list(_native.reference_hashes(DEV, one_edge))
+    assert two[-1] != one[-1]

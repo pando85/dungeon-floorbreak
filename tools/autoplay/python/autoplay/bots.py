@@ -25,7 +25,11 @@ class Policy(Protocol):
 
     def reset(self, seed: int) -> None: ...
 
-    def act(self, obs: dict[str, np.ndarray], env: AutoplayEnv) -> np.ndarray: ...
+    def act(self, obs: dict[str, np.ndarray], env: AutoplayEnv) -> np.ndarray:
+        """Choose an action from ``obs``. ``env`` is passed only so a native bot can
+        read the same observation inside Rust; a Python policy must not read
+        ``env.state_hash()``, ``env.diagnostics()`` or any other privileged state."""
+        ...
 
 
 class NoopPolicy:
@@ -41,7 +45,12 @@ class NoopPolicy:
 
 
 class NativePolicy:
-    """A Rust bot driven through the binding. Seeds the bot like the native CLI."""
+    """A Rust bot driven through the binding. Seeds the bot like the native CLI.
+
+    The Rust bot sees only the ``ObservationV1`` it builds from the env. The env
+    is passed to the binding for that and for nothing else; ``act`` checks that
+    the ``obs`` it was given is that same observation.
+    """
 
     def __init__(self, policy_id: str) -> None:
         self._bot = _native.NativeBot(policy_id)
@@ -51,6 +60,9 @@ class NativePolicy:
         self._bot.reset(seed)
 
     def act(self, obs: dict[str, np.ndarray], env: AutoplayEnv) -> np.ndarray:
+        current = env.native.observe()
+        if any(not np.array_equal(obs[key], current[key]) for key in current):
+            raise ValueError("obs is not the env's latest observation")
         return np.asarray(self._bot.act(env.native), dtype=np.int64)
 
 

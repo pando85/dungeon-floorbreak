@@ -19,6 +19,30 @@ def test_different_seed_changes_the_random_policy():
     assert a["rows"] != b["rows"]
 
 
+def test_copies_of_one_deterministic_run_count_as_one_independent_episode():
+    # The sim ignores the reset seed, so a deterministic bot repeats one trajectory.
+    result = evaluate(["cp01_single_goblin"], make_policy("reactive_survivor"), 3, 42)
+    overall = result["overall"]
+    assert overall["episodes"] == 3
+    assert overall["distinct_trajectories"] == 1
+    assert overall["independent_episodes"] == 1
+    assert len({row["trajectory_sha256"] for row in result["rows"]}) == 1
+    assert any("independent_episodes" in note for note in result["notes"])
+
+
+def test_a_seeded_random_policy_gives_distinct_trajectories():
+    result = evaluate(["cp01_single_goblin"], make_policy("random_legal"), 3, 42)
+    assert result["overall"]["distinct_trajectories"] > 1
+    assert result["overall"]["independent_episodes"] == result["overall"]["distinct_trajectories"]
+
+
+def test_same_trajectory_in_two_scenarios_is_two_independent_episodes():
+    result = evaluate(["cp01_single_goblin", "cp02_two_goblins"], NoopPolicy(), 2, 1)
+    assert result["scenarios"]["cp01_single_goblin"]["independent_episodes"] == 1
+    assert result["overall"]["episodes"] == 4
+    assert result["overall"]["independent_episodes"] == 2
+
+
 def test_random_legal_never_touches_reserved_components(env):
     policy = NativePolicy("random_legal")
     policy.reset(1)

@@ -77,15 +77,18 @@ class PpoPolicy:
         return np.asarray(action, dtype=np.int64)
 
 
-def load_policy(checkpoint: Path) -> tuple[PpoPolicy, dict[str, Any]]:
-    """Reload a checkpoint, refusing a schema mismatch first.
+def load_policy(
+    checkpoint: Path, reward_id: str = "combat-v1"
+) -> tuple[PpoPolicy, dict[str, Any]]:
+    """Reload a checkpoint, refusing a schema or reward mismatch first.
 
-    ``checkpoint`` is the checkpoint directory or its ``model.zip``.
+    ``checkpoint`` is the checkpoint directory or its ``model.zip``;
+    ``reward_id`` is the reward profile of the environment it will run in.
     """
     sb3 = _require_sb3()
     if checkpoint.is_file():
         checkpoint = checkpoint.parent
-    record = verify_checkpoint(checkpoint)
+    record = verify_checkpoint(checkpoint, reward_id=reward_id)
     model = sb3.PPO.load(checkpoint / MODEL_FILE, device="cpu")
     return PpoPolicy(model), record
 
@@ -135,7 +138,7 @@ def train(
     write_metadata(out, record)
 
     # Reload through the schema check, then evaluate the reloaded model.
-    policy, reloaded = load_policy(out)
+    policy, reloaded = load_policy(out, reward_id=reward_id)
     eval_seed = seed + 10_000
     ppo_result = evaluate(
         development + holdout,
@@ -157,7 +160,10 @@ def train(
         "random_legal": {sid: s for sid, s in baseline["scenarios"].items()},
         "note": (
             "A pipeline demonstration. Short PPO runs are not expected to beat the "
-            "baseline or to approximate human skill; do not read strength into these numbers."
+            "baseline or to approximate human skill; do not read strength into these numbers. "
+            "The reset seed does not change the simulation: a deterministic policy (the PPO "
+            "evaluation) repeats one trajectory, so compare independent_episodes, not episodes, "
+            "and do not read the PPO and random_legal success counts as like-for-like samples."
         ),
     }
     (out / "smoke.json").write_text(json.dumps(smoke, indent=2, sort_keys=True) + "\n")

@@ -35,20 +35,25 @@ def play(env, chooser, seed=0, limit=1800):
     raise AssertionError("episode did not end")
 
 
-def test_standing_still_ends_in_a_terminal_defeat_before_any_restart():
+def test_standing_still_ends_in_a_defeat_at_a_pinned_tick_with_no_restart():
+    # Deterministic: idle Carl on cp01_single_goblin is defeated at tick 438. The
+    # fixture restarts 49 ticks later; the tick counter staying at 438 after the
+    # terminal step shows no restart happened inside the episode.
     env = AutoplayEnv(DEV)
     info = play(env, lambda obs: [1, 0, 0, 0, 0, 0])
-    assert info["outcome"] in {"defeat", "timeout"}
-    if info["outcome"] == "defeat":
-        with pytest.raises(EpisodeOverError):
-            env.step([1, 0, 0, 0, 0, 0])
+    assert info["outcome"] == "defeat" and info["terminal_reason"] == "defeat"
+    assert info["tick"] == 438
+    with pytest.raises(EpisodeOverError):
+        env.step([1, 0, 0, 0, 0, 0])
+    assert env.diagnostics()["tick"] == 438
 
 
-def test_an_observation_only_script_can_reach_a_terminal_outcome():
+def test_an_observation_only_script_ends_in_its_pinned_deterministic_outcome():
+    # chaser_action closes in and holds primary; on cp01_single_goblin it loses at tick 354.
     env = AutoplayEnv(DEV)
     info = play(env, chaser_action)
-    assert info["outcome"] in {"success", "defeat", "abandoned", "timeout"}
-    assert info["terminal_reason"] == info["outcome"]
+    assert info["outcome"] == "defeat" and info["terminal_reason"] == "defeat"
+    assert info["tick"] == 354
     with pytest.raises(EpisodeOverError):
         env.step([1, 0, 0, 0, 0, 0])
 

@@ -6,6 +6,8 @@ name: autoplay-tools
 on:
   pull_request:
     paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - 'src/autoplay/**'
       - 'tools/autoplay/**'
       - '.github/workflows/autoplay-tools.yml'

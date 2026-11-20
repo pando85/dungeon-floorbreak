@@ -36,7 +36,9 @@ busy machine); later builds are incremental.
 The venv lives outside the repository (default
 `~/.cache/dungeon-floorbreak-autoplay/venv`, override with `AUTOPLAY_VENV`):
 `scripts/check_docs.py` walks every `*.md` and `*.json` below the checkout, so
-a venv inside it would be scanned.
+a venv inside it would be scanned. The script creates the venv with a
+`.autoplay-venv` marker file and reuses it on later runs; it never deletes a
+venv, and refuses an existing directory that it did not create.
 
 ## Step by step
 
@@ -98,6 +100,14 @@ from. Set `AUTOPLAY_ASSETS_ROOT` when you move the wheel to another machine.
 `uv sync --extra test --extra train` also works from `tools/autoplay` against
 the committed `uv.lock` (editable install, release profile).
 
+The native lock `native/Cargo.lock` is the root `Cargo.lock` plus the PyO3 and
+NumPy packages. After a root dependency change, copy the root `Cargo.lock` over
+it, run `cargo build --release --manifest-path native/Cargo.toml` once without
+`--locked` so cargo re-adds the PyO3/NumPy entries, check that `git diff` shows
+only additions for shared crates, then confirm the `--locked` build. The
+workflow also runs when the root `Cargo.toml` or `Cargo.lock` changes, so drift
+is reported on the PR that causes it.
+
 Native package checks (a standalone package, so root fmt and clippy do not
 cover it):
 
@@ -124,13 +134,28 @@ cargo test --release --locked
 - The seed seeds policy-side randomness only: the simulation has no gameplay
   RNG on this build, so `info["seed_affects_sim"]` is `False`.
 - Policies read the observation only. A `NativeBot` receives the env's
-  observation inside Rust; `act(obs, env)` is the Python-side forwarding.
+  observation inside Rust; `act(obs, env)` passes `env` to the binding solely
+  for that, and `NativePolicy` refuses an `obs` that is not the env's latest.
+
+## Reading evaluation reports
+
+The reset seed does not change the simulation, so a deterministic policy
+(`approach_and_attack`, `reactive_survivor`, a deterministic PPO policy) plays
+the same trajectory every episode. Each episode row carries `trajectory_sha256`
+(a hash of its action trace) and every summary reports `episodes`,
+`distinct_trajectories` and `independent_episodes` (equal to the distinct
+count), like the native `autoplay evaluate`. Compare `independent_episodes`,
+not `episodes`, and never treat `success_rate` over copies of one run as a
+sample estimate. A PPO row and a `random_legal` row are not like-for-like
+samples when one is a single trajectory and the other is not.
 
 ## Checkpoints
 
 `train` writes `model.zip` and `metadata.json` (package versions, algorithm
 and hyperparameters, seed, observation/action/reward versions and schema
 hash, commit, asset content hash, train/development/hold-out scenario lists,
-model sha256). Reload refuses a mismatched schema or a changed model file.
+model sha256, sha256 of the reward profile file). Reload refuses a mismatched
+observation, action or reward schema (the evaluating env's `--reward-id`,
+default `combat-v1`, must equal the checkpoint's) or a changed model file.
 Checkpoints, venvs and build products are git-ignored. A 10k-step PPO run
 demonstrates the pipeline; it is not evidence of a strong policy.

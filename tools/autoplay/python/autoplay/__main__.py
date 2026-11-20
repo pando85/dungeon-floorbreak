@@ -30,12 +30,14 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     from autoplay.provenance import assets_root, git_commit
 
     scenarios = args.scenario or [DEFAULT_SCENARIO]
-    extra: dict = {}
+    extra: dict = {"reward_id": args.reward_id}
     if args.checkpoint:
         from autoplay.train import load_policy
 
-        policy, record = load_policy(Path(args.checkpoint))
-        extra = {"checkpoint": str(args.checkpoint), "checkpoint_sha256": record["model_sha256"]}
+        policy, record = load_policy(Path(args.checkpoint), reward_id=args.reward_id)
+        extra.update(
+            {"checkpoint": str(args.checkpoint), "checkpoint_sha256": record["model_sha256"]}
+        )
     else:
         policy = make_policy(args.policy)
     out = Path(args.out)
@@ -44,6 +46,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         policy,
         args.episodes,
         args.seed,
+        env_kwargs={"reward_id": args.reward_id},
         replays=args.replays,
         replay_dir=out / "replays",
         commit=git_commit(assets_root()),
@@ -98,6 +101,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("none", "first", "all"),
         default="first",
         help="write native autoplay-episode/1 replays (default: first episode per scenario)",
+    )
+    ev.add_argument(
+        "--reward-id",
+        default="combat-v1",
+        help="reward profile of the evaluation env; a checkpoint trained on another is refused",
     )
     ev.add_argument("--episodes", type=int, default=50)
     ev.add_argument("--seed", type=int, default=42)

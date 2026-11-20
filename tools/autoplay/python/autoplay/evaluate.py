@@ -3,11 +3,19 @@
 Policies read the observation only (AP-Q08). Episode ``i`` uses reset seed
 ``base_seed + i`` and policy seed ``base_seed + i`` too, so a run is
 reproducible from ``(scenario, policy, episodes, base_seed)``.
+
+The simulation ignores the reset seed (there is no gameplay RNG on this build),
+so a deterministic policy plays the same trajectory every episode. Every row
+therefore carries ``trajectory_sha256`` (a hash of the episode's action trace)
+and every summary reports ``distinct_trajectories`` and ``independent_episodes``
+like the native evaluator: ``episodes`` counts copies, ``independent_episodes``
+counts what a success interval may honestly treat as separate samples.
 """
 
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -27,6 +35,15 @@ EPISODE_FIELDS = [
     "return",
     "carl_hurt_events",
     "enemies_defeated",
+    "trajectory_sha256",
+]
+
+SUMMARY_NOTES = [
+    "The reset seed does not change the simulation; it seeds policy-side randomness only.",
+    "A deterministic policy repeats the same trajectory every episode: read "
+    "independent_episodes (= distinct_trajectories), not episodes, before treating "
+    "success_rate as a sample estimate.",
+    "Outcomes describe scripted baselines and short PPO runs, not human skill, difficulty or fun.",
 ]
 
 
@@ -51,9 +68,11 @@ def run_episode(
     hurt = 0
     defeated = 0
     info: dict[str, Any] = {}
+    trace = hashlib.sha256()
     terminated = truncated = False
     while not (terminated or truncated):
         action = policy.act(obs, env)
+        trace.update(np.asarray(action, dtype=np.int64).tobytes())
         obs, reward, terminated, truncated, info = env.step(action)
         total += reward
         steps += 1
@@ -68,6 +87,7 @@ def run_episode(
         "return": total,
         "carl_hurt_events": hurt,
         "enemies_defeated": defeated,
+        "trajectory_sha256": trace.hexdigest(),
     }
     if record_as is not None:
         row["replay"] = env.finish_recording()
@@ -80,8 +100,11 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         outcomes[row["outcome"]] = outcomes.get(row["outcome"], 0) + 1
     returns = np.array([r["return"] for r in rows], dtype=np.float64)
     ticks = np.array([r["ticks"] for r in rows], dtype=np.float64)
+    distinct = len({(r["scenario"], r["trajectory_sha256"]) for r in rows})
     return {
         "episodes": len(rows),
+        "distinct_trajectories": distinct,
+        "independent_episodes": distinct,
         "outcomes": dict(sorted(outcomes.items())),
         "success_rate": outcomes.get("success", 0) / len(rows),
         "return_mean": float(returns.mean()),
@@ -146,6 +169,7 @@ def evaluate(
         "replays": replays,
         "replay_files": replay_files,
         "episodes_per_scenario": episodes,
+        "notes": SUMMARY_NOTES,
         "scenarios": per_scenario,
         "overall": summarize(rows),
         "rows": rows,

@@ -83,6 +83,9 @@ def schema_stamp(reward_id: str) -> dict[str, Any]:
         "action_version": ACTION_VERSION,
         "action_nvec": list(ACTION_NVEC),
         "reward_id": reward_id,
+        "reward_profiles_sha256": hashlib.sha256(
+            (assets_root() / REWARD_PROFILES).read_bytes()
+        ).hexdigest(),
     }
 
 

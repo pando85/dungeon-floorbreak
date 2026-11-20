@@ -1,8 +1,11 @@
 """Checkpoint metadata and the schema check on reload.
 
 A checkpoint is ``model.zip`` plus ``metadata.json``. Reload refuses a schema
-mismatch (observation, action or reward version) and a model file whose
-checksum differs from the one recorded at save time.
+mismatch (observation, action or reward) and a model file whose checksum
+differs from the one recorded at save time. The reward check compares the
+checkpoint's ``reward_id`` with the reward id of the environment the caller is
+about to evaluate in, and the sha256 of ``reward_profiles_v1.json`` recorded at
+save time with the file as it is now.
 """
 
 from __future__ import annotations
@@ -48,11 +51,15 @@ def read_metadata(directory: Path) -> dict[str, Any]:
     return record
 
 
-def verify_checkpoint(directory: Path) -> dict[str, Any]:
-    """Return the metadata, or raise :class:`SchemaMismatchError`."""
+def verify_checkpoint(directory: Path, *, reward_id: str) -> dict[str, Any]:
+    """Return the metadata, or raise :class:`SchemaMismatchError`.
+
+    ``reward_id`` is the reward profile of the environment the checkpoint will
+    be used in; a checkpoint trained against another profile is refused.
+    """
     record = read_metadata(directory)
     recorded = record.get("environment", {}).get("schema", {})
-    current = schema_stamp(recorded.get("reward_id", ""))
+    current = schema_stamp(reward_id)
     mismatches = [
         f"{key}: checkpoint {recorded.get(key)!r} != current {current[key]!r}"
         for key in current

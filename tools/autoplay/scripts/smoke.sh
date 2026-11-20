@@ -14,6 +14,8 @@
 #
 # The venv lives outside the repository (scripts/check_docs.py walks every
 # *.md and *.json below the repo root): AUTOPLAY_VENV overrides the default.
+# The script never deletes a venv: it creates one with a marker file, reuses a
+# venv that has the marker, and refuses any other existing directory.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -29,8 +31,20 @@ step() {
 }
 
 cd "$tool"
-rm -rf "$venv" dist "$out/eval" "$out/ppo-smoke"
-uv venv --python 3.12 "$venv"
+marker=".autoplay-venv"
+if [ -f "$venv/$marker" ]; then
+  step "reusing venv $venv"
+elif [ -e "$venv" ] && [ -n "$(ls -A "$venv" 2>/dev/null)" ]; then
+  echo "refusing to use $venv: it exists and was not created by this script (no $marker)." >&2
+  echo "Point AUTOPLAY_VENV at a new path or at a venv this script created." >&2
+  exit 1
+else
+  uv venv --python 3.12 "$venv"
+  : > "$venv/$marker"
+fi
+# Remove only what this script produced: its own wheels and its own report dirs.
+rm -rf "$tool/dist"
+rm -rf "${out:?}/eval" "${out:?}/ppo-smoke"
 # shellcheck disable=SC1091
 source "$venv/bin/activate"
 
@@ -40,7 +54,7 @@ source "$venv/bin/activate"
 step "1/8 build the extension wheel and the native autoplay CLI"
 uv pip install "maturin==1.16.0"
 maturin build --release --locked --manifest-path native/Cargo.toml --out dist
-uv pip install --no-deps dist/*.whl
+uv pip install --reinstall --no-deps dist/*.whl
 uv pip install "gymnasium==1.4.0" "numpy==2.5.4" "pytest==9.2.0"
 CARGO_TARGET_DIR="$tool/native/target" cargo build --release --locked --bin autoplay \
   --manifest-path "$root/Cargo.toml"
