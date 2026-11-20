@@ -85,6 +85,11 @@ pub struct DonutRole {
     /// Q15: pounce range ahead of Donut, on a lying or staggered goblin.
     pub cf02_q15_pounce_min_px: u16,
     pub cf02_q15_pounce_max_px: u16,
+    /// CF02-Q38 (hold): a pounce on a lying goblin starts only while the goblin
+    /// still lies for at least this many ticks, about the pounce's startup plus
+    /// flight, so it lands before the get-up (a late one would stand the goblin
+    /// up, the outcome Q34 and Q38 prevent).
+    pub cf02_q38_pounce_lying_min_ticks_left: u16,
     /// Q17: Magic Missile range, after the unlock only.
     pub cf02_q17_missile_min_px: u16,
     pub cf02_q17_missile_max_px: u16,

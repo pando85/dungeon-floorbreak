@@ -97,14 +97,15 @@ pub const CF02_ASSIST_SWAT_TRAILING_GAP: PartyFixture = PartyFixture {
 
 const ASSIST_POUNCE_BASE: Fixture = base(
     "cf02_assist_pounce_staggered",
-    "Solo as Carl: he jabs a goblin and the AI Donut pounces the staggered goblin, which never takes her last hit; Carl finishes it (CF02-Q15, Q38)",
+    "Solo as Carl: he jabs a goblin and the AI Donut starts a non-lethal pounce on it (the hit lands after its stagger), which never takes her last hit; Carl finishes it (CF02-Q15, Q38)",
     0xC0A1_0003,
     &[dummy(430)],
     160,
 );
 
-/// CF02-Q15 and Q38: the assist pounce on a staggered goblin, "Donut holds,
-/// Carl finishes".
+/// CF02-Q15 and Q38: a non-lethal assist pounce, Carl finishes. (The pounce
+/// starts on a staggered goblin but lands after the stagger: a pounce that
+/// lands on a staggered goblin is a design follow-up.)
 pub const CF02_ASSIST_POUNCE_STAGGERED: PartyFixture = PartyFixture {
     base: &ASSIST_POUNCE_BASE,
     two_player: false,
@@ -211,7 +212,7 @@ pub const CF02_ASSIST_MAGIC_LOCKED: PartyFixture = PartyFixture {
 
 const ASSIST_RESERVE_BASE: Fixture = llama_base(
     "cf02_assist_missile_reserve",
-    "Solo as Carl, who stands, biscuit unlocked with 3 charges: the AI Donut casts one Magic Missile at a llama's tell (3 to 2) and never again, the reserve of 2 (CF02-Q17, Q10-A09)",
+    "Solo as Carl, who stands, biscuit unlocked with 3 charges: the AI Donut casts a Magic Missile at a llama's tell (3 to 2) and casts again only after the pool regenerates to 3, always keeping the reserve of 2 (CF02-Q17, Q10-A09)",
     0xC0A1_0007,
     &[llama(510)],
     420,
@@ -784,17 +785,138 @@ mod tests {
         );
     }
 
-    /// CF02-Q39 (floor and ceiling) on the two goblin fight, per profile set (CA-32).
+    /// CF02-Q39 (CA-32): the ceiling on the AI's hit share holds on the two
+    /// goblin fights, with a smoke floor of two assist starts. The real floor
+    /// (`cf02_q39_min_assist_starts`, 3) is measured on the CF02-F
+    /// `cf02_arena_direct` run, which does not exist yet.
     #[test]
-    fn q39_the_assist_floor_and_ceiling_hold() {
-        for f in [&CF02_ASSIST_CAMERA_PARITY, &COMPANION_DONUT_SUPPORTS_CARL] {
+    fn q39_the_ai_hit_share_ceiling_holds_on_the_two_goblin_fights() {
+        let profiles = crate::companion::profile::ProfileFile::pinned().unwrap();
+        for (f, set) in [
+            (&CF02_ASSIST_CAMERA_PARITY, ProfileSetId::Cf02Assist),
+            (&COMPANION_DONUT_SUPPORTS_CARL, ProfileSetId::CompanionV0),
+        ] {
             let t = tally_of(f);
-            let set = f.tuning;
-            let _ = set;
+            let p = profiles.set(set);
             assert!(t.assist_starts[1] >= 2, "{}: {t:?}", f.name());
-            assert!(t.ai_hit_share_percent() <= 25, "{}: {t:?}", f.name());
+            assert!(
+                t.ai_hit_share_percent() <= u32::from(p.cf02_q39_max_hit_share_percent),
+                "{}: {t:?}",
+                f.name()
+            );
             assert_eq!(t.ai_kills, 0);
         }
+    }
+
+    /// A one-goblin fixture for the swap regressions (CA-20, review B-1).
+    const REG_BASE: Fixture = base(
+        "companion_regression_swap",
+        "test only",
+        0xC0A2_00FF,
+        &[dummy(430)],
+        90,
+    );
+
+    /// CA-20 / review B-1: a move the human started is never AI-started, even if
+    /// the player swaps away mid-move. The human's lethal jab still kills.
+    #[test]
+    fn a_human_jab_then_a_swap_mid_move_still_kills() {
+        for tuning in [ASSIST, V0] {
+            let f: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+                base: &REG_BASE,
+                two_player: false,
+                tuning,
+                // Jab hits a 2 HP dummy twice: the second hit (tick 33) is lethal
+                // and the swap lands on tick 31, in the jab's startup.
+                script: &[primary(10, 11, 0), primary(30, 31, 0), swap(31, 32)],
+                pilot: Pilot::None,
+                donut: DonutSetup::NONE,
+            }));
+            let (_, events, _) = run_events(f);
+            let lethal = events.iter().find_map(|e| match *e {
+                CombatEvent::Hit {
+                    tick: 33,
+                    move_id: MoveId::Jab,
+                    damage,
+                    health_left,
+                    ..
+                } => Some((damage, health_left)),
+                _ => None,
+            });
+            assert_eq!(lethal, Some((1, 0)), "{events:?}");
+            assert!(events.iter().any(|e| matches!(
+                e,
+                CombatEvent::EnemyDefeated {
+                    instigator: Some(0),
+                    ..
+                }
+            )));
+        }
+    }
+
+    /// The same for Donut's cast: a bolt the human cast, then a swap mid-flight,
+    /// still kills and is credited to Donut.
+    #[test]
+    fn a_human_cast_then_a_swap_mid_flight_still_kills() {
+        const BASE: Fixture = base(
+            "companion_regression_swap_cast",
+            "test only",
+            0xC0A2_00FE,
+            &[dummy(430)],
+            100,
+        );
+        let f: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base: &BASE,
+            two_player: false,
+            tuning: ASSIST,
+            // Donut (human after the swap on tick 3) casts twice; the second
+            // bolt is lethal and the player swaps back while it is in the air.
+            script: &[
+                swap(3, 4),
+                primary(10, 11, 0),
+                primary(40, 41, 0),
+                swap(44, 45),
+            ],
+            pilot: Pilot::None,
+            donut: biscuit(8),
+        }));
+        let (_, events, _) = run_events(f);
+        let bolts: Vec<(u8, u8)> = events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::Hit {
+                    move_id: MoveId::MagicMissile,
+                    damage,
+                    health_left,
+                    ..
+                } => Some((damage, health_left)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(bolts, vec![(1, 1), (1, 0)], "{events:?}");
+        assert!(events.iter().any(|e| matches!(
+            e,
+            CombatEvent::EnemyDefeated {
+                instigator: Some(1),
+                ..
+            }
+        )));
+    }
+
+    /// The glance applies only to the director's own press: the marks are empty
+    /// while the human plays, and the passive Carl of `cf02_assist` never marks.
+    #[test]
+    fn only_the_directors_press_marks_a_move_as_ai_started() {
+        let mut sim = sim_of(&CF02_ASSIST_POUNCE_STAGGERED);
+        sim.run_scripted(CF02_ASSIST_POUNCE_STAGGERED.base.ticks);
+        // Carl's human jabs (instances 1..3) are never marked; Donut's pounce is.
+        for instance in 1..=3 {
+            assert!(
+                !sim.combat.companion_marked_carl(instance),
+                "jab {instance}"
+            );
+        }
+        assert!(sim.combat.companion_marked_donut_move(1), "the AI pounce");
     }
 
     /// 01A both roles: AI Carl jabs the tell aimed at the controlled Donut, has no other

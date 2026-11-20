@@ -615,10 +615,14 @@ impl CompanionDirector {
         match (self.hero, action) {
             (HeroId::Donut, Action::Pounce) => {
                 let d = &set.donut;
-                let down = matches!(
-                    target.state,
-                    TargetState::Lying { .. } | TargetState::Staggered { .. }
-                );
+                // A lying goblin must still lie when the pounce lands (Q38).
+                let down = match target.state {
+                    TargetState::Lying {
+                        down_ticks_left, ..
+                    } => down_ticks_left >= d.cf02_q38_pounce_lying_min_ticks_left,
+                    TargetState::Staggered { .. } => true,
+                    _ => false,
+                };
                 // Q15: ahead of her, 30..80 px, and a pounce that cannot kill.
                 (target.id.kind == EntityKind::Goblin // Q15: only on a goblin
                     && down

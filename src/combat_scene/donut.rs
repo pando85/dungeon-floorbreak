@@ -399,8 +399,11 @@ impl CombatState {
                 MoveEvent::Started { mv, instance } => {
                     started_move = true;
                     if companion_driven {
-                        self.companion
-                            .mark_ai_started(MarkKind::DonutMove, instance);
+                        self.companion.note_move_start(
+                            HeroId::Donut,
+                            MarkKind::DonutMove,
+                            instance,
+                        );
                     }
                     self.log(CombatEvent::MoveStarted {
                         tick,
@@ -461,8 +464,11 @@ impl CombatState {
             let before = self.donut_kit.next_cast;
             self.request_cast(tick);
             if companion_driven && self.donut_kit.next_cast != before {
-                self.companion
-                    .mark_ai_started(MarkKind::DonutCast, self.donut_kit.next_cast);
+                self.companion.note_move_start(
+                    HeroId::Donut,
+                    MarkKind::DonutCast,
+                    self.donut_kit.next_cast,
+                );
             }
         }
         if let Some((vx, _)) = out.launch {

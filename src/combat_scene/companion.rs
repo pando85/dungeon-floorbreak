@@ -60,6 +60,10 @@ pub(crate) enum MarkKind {
 /// plenty; the cap keeps the hash bounded.
 const MARK_CAP: usize = 8;
 
+/// How many ticks after an injected press a move start still counts as that
+/// press's (the move buffer and the cast buffer delay a start by up to 6).
+const PRESS_WINDOW: u64 = 8;
+
 /// A marker word the companion block of the state hash starts with ("COMPAN"),
 /// written only while a hero is companion-driven.
 const HASH_MARK: u64 = 0x434f_4d50_414e_0001;
@@ -78,6 +82,15 @@ pub(crate) struct CompanionRuntime {
     /// Move instances that were started by an injected press (CA-20). The flag
     /// survives a swap, so it is state of the run and hashed.
     marks: Vec<(MarkKind, u32)>,
+    /// The tick of the director's last injected press per hero that no move
+    /// has consumed yet. A move start inside [`PRESS_WINDOW`] ticks of it is the
+    /// director's own (CA-20: "started by an injected press"); a move a human
+    /// started is never marked, whoever drives the hero afterwards.
+    pending_press: [Option<u64>; 2],
+    /// The last Carl move instance the strike site saw (a new one is a start).
+    last_carl_instance: u32,
+    /// The tick about to run (set by `companion_inputs`).
+    tick: u64,
     /// Unhashed counters and event log (CA-25, CA-31).
     stats: CompanionStats,
     events: Vec<CompanionEvent>,
@@ -95,6 +108,9 @@ impl Default for CompanionRuntime {
             driven: [false; 2],
             set: None,
             marks: Vec::new(),
+            pending_press: [None; 2],
+            last_carl_instance: 0,
+            tick: 0,
             stats: CompanionStats::default(),
             events: Vec::new(),
             last_trace: [None; 2],
@@ -128,6 +144,10 @@ impl CompanionRuntime {
         for director in &self.directors {
             director.hash_into(mix);
         }
+        for press in self.pending_press {
+            mix(press.map_or(0, |t| t + 1));
+        }
+        mix(u64::from(self.last_carl_instance));
         mix(self.marks.len() as u64);
         for &(kind, instance) in &self.marks {
             mix(kind as u64);
@@ -141,9 +161,21 @@ impl CompanionRuntime {
             .map_or(KillPolicy::Never, |s| profiles().set(s).ca19_kill_policy)
     }
 
-    /// Remember that the move `instance` was started by an injected press
-    /// (CA-20). Idempotent.
-    pub(crate) fn mark_ai_started(&mut self, kind: MarkKind, instance: u32) {
+    /// A move of `hero` has just started (its first tick, `instance` of `kind`).
+    /// It is AI-started (CA-20) only if the director injected a press for that
+    /// hero inside [`PRESS_WINDOW`] ticks; the press is then consumed. A move the
+    /// human started, and a start after the hero stopped being driven, is never
+    /// marked.
+    pub(crate) fn note_move_start(&mut self, hero: HeroId, kind: MarkKind, instance: u32) {
+        let i = hero.index();
+        let Some(pressed) = self.pending_press[i] else {
+            return;
+        };
+        if self.tick.saturating_sub(pressed) > PRESS_WINDOW {
+            self.pending_press[i] = None;
+            return;
+        }
+        self.pending_press[i] = None;
         if self.marks.contains(&(kind, instance)) {
             return;
         }
@@ -158,16 +190,17 @@ impl CompanionRuntime {
     }
 
     /// The glance rule for hits dealt by `hero` in move `instance` (CA-20): the
-    /// flag is whether that instance was started by an injected press, and it
-    /// survives a swap. Carl's moves are marked here, on their first tick, while
-    /// he is companion-driven (every tick of a running move passes through the
-    /// strike site, tick 0 included); Donut's are marked where they start
-    /// (`donut.rs`) and read through [`Self::glance_for`].
+    /// flag is whether the director's own press started that move instance, and
+    /// it survives a swap. The strike site calls this on every tick of Carl's
+    /// running move, so the first call with a new instance is its start; Donut's
+    /// moves are noted where they start (`donut.rs`) and read through
+    /// [`Self::glance_for`].
     pub(crate) fn strike_glance(&mut self, hero: HeroId, instance: u32) -> Glance {
         match hero {
             HeroId::Carl => {
-                if self.driven[0] {
-                    self.mark_ai_started(MarkKind::CarlMove, instance);
+                if instance != self.last_carl_instance {
+                    self.last_carl_instance = instance;
+                    self.note_move_start(HeroId::Carl, MarkKind::CarlMove, instance);
                 }
                 self.glance_for(MarkKind::CarlMove, instance)
             }
@@ -288,6 +321,18 @@ impl CombatState {
         self.companion.driven
     }
 
+    /// Whether Carl's move `instance` is marked AI-started (tests).
+    #[cfg(test)]
+    pub(crate) fn companion_marked_carl(&self, instance: u32) -> bool {
+        self.companion.marked(MarkKind::CarlMove, instance)
+    }
+
+    /// Whether Donut's swat or pounce `instance` is marked AI-started (tests).
+    #[cfg(test)]
+    pub(crate) fn companion_marked_donut_move(&self, instance: u32) -> bool {
+        self.companion.marked(MarkKind::DonutMove, instance)
+    }
+
     /// The run's companion counters (never hashed).
     pub fn companion_stats(&self) -> CompanionStats {
         self.companion.stats
@@ -308,6 +353,7 @@ impl CombatState {
         inputs: [RawInput; 2],
     ) -> [RawInput; 2] {
         let drive = *scene.drive();
+        self.companion.tick = scene.world.tick + 1;
         let sets = [
             drive.companion_set(HeroId::Carl),
             drive.companion_set(HeroId::Donut),
@@ -316,6 +362,7 @@ impl CombatState {
         let Some(set_id) = sets[0].or(sets[1]) else {
             // Off (or two players): nothing runs, the plans are forgotten.
             self.companion.set = None;
+            self.companion.pending_press = [None; 2];
             for director in &mut self.companion.directors {
                 director.clear_plan();
             }
@@ -329,6 +376,9 @@ impl CombatState {
             let i = hero.index();
             if !self.companion.driven[i] {
                 self.companion.directors[i].clear_plan();
+                // A press the director made but no move consumed does not
+                // outlive its control.
+                self.companion.pending_press[i] = None;
                 continue;
             }
             let (raw, decision) = self.companion.directors[i].step_traced(&view, set);
@@ -342,6 +392,9 @@ impl CombatState {
                 physical: raw.physical,
                 ..RawInput::NONE
             };
+            if decision.pressed {
+                self.companion.pending_press[i] = Some(view.tick);
+            }
             self.companion.record(view.tick, hero, &decision);
         }
         out
@@ -362,15 +415,22 @@ impl CombatState {
         let heroes = [HeroId::Carl, HeroId::Donut].map(|id| self.companion_hero(scene, id));
 
         // The follow layer's input: the follow-and-jump bot on the same goblin
-        // threats `step_party` builds, except that a companion dodges only the
-        // swings aimed at itself. A tell aimed at the other hero is the one it
+        // threats `step_party` builds. An ACTIVE companion dodges only the
+        // swings aimed at itself: a tell aimed at the other hero is the one it
         // may interrupt, and the bot's dodge jump would take it off the ground
-        // (and out of reach of its own swat) before the swat can start.
+        // (and out of reach of its own swat) before the swat can start. A role
+        // that cannot act (the passive Carl of `cf02_assist`, CF02-Q13) keeps the
+        // plain bot's dodge of every threat.
+        let profile = profiles().set(profile_set);
         let boss = self.boss.as_ref().and_then(Boss::threat);
         let mut follow = [FollowInput::default(); 2];
         for id in HeroId::ALL {
             let i = id.index();
             let h = &heroes[i];
+            let active = match id {
+                HeroId::Carl => profile.carl.ca21_active,
+                HeroId::Donut => profile.donut.ca21_active,
+            };
             let free = h.control == Control::Companion
                 && !h.defeated
                 && h.hurt_ticks == 0
@@ -384,7 +444,7 @@ impl CombatState {
                     .filter(|(index, g)| {
                         g.mode == GoblinMode::Attack
                             && g.attack_tick < IMPACT_END
-                            && self.target_of(*index) == id
+                            && (!active || self.target_of(*index) == id)
                     })
                     .map(|(_, g)| Threat {
                         x: g.x,
@@ -630,6 +690,10 @@ mod tests {
             !runtime.marked(MarkKind::CarlMove, 7),
             "off: nothing marked"
         );
+        // A non-lethal AI-started hit is unchanged under `never` (review F-3).
+        for spec in [CARL_JAB, CARL_HAYMAKER, CARL_PUSH_KICK] {
+            assert_eq!(glance_hook(&spec, u8::MAX, true, KillPolicy::Never), spec);
+        }
         // The one change the wiring makes: under `never`, an AI-started lethal
         // hit lands as a glance (damage 0, same reaction).
         let landed = glance_hook(&CARL_JAB, 1, true, KillPolicy::Never);
