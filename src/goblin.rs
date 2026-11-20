@@ -20,14 +20,22 @@ use crate::combat::{
     ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, ENEMY_HEALTH, EnemyAi, HitOutcome, MoveSpec, StrikeTarget,
     body_rect, solid_at,
 };
+use crate::donut_moves::{HitStopSplit, LightGuard, TargetState, hash_guard};
 use crate::feel::{
-    ATTACK_COOLDOWN, ATTACK_TICKS, CONTACT_HIT_STOP, CONTACT_POSE_TICKS, CONTACT_PUSH_VX,
+    ATTACK_COOLDOWN, ATTACK_TICKS, BLAST_KNOCK_VX, BLAST_KNOCK_VX_POINT_BLANK, BLAST_KNOCK_VY,
+    BLAST_KNOCK_VY_POINT_BLANK, CONTACT_HIT_STOP, CONTACT_POSE_TICKS, CONTACT_PUSH_VX,
     CONTACT_SOURCE_KEEP, CONTACT_STAGGER, DOWN_TICKS, DOWNED_TICKS, GETUP_TICKS, GOBLIN_SIGHT,
     GOBLIN_STANDOFF, GOBLIN_TRIGGER, GOBLIN_WALK_SPEED, GROUND_FRICTION, HURT_COOLDOWN, IMPACT_END,
     KNOCK_GRAVITY, KNOCK_VX_MAX, LETHAL_HIT_STOP_BONUS, LETHAL_KNOCK_VX, LETHAL_KNOCK_VY,
     SMEAR_END, SWING_X_MAX, SWING_X_MIN, SWING_Y_MAX, SWING_Y_MIN, TELL_TICKS,
 };
 use crate::prototype::{Block, Rect, TICK_SECONDS};
+
+/// DEATH-D: how far ahead of the pivot column (the neck, on GOB-01 frame 0) the
+/// head probe sits, in the facing direction (the head leads).
+pub const NECK_PROBE_FORWARD: f32 = 4.0;
+/// How far behind the pivot column the torso probe sits.
+pub const NECK_PROBE_BACK: f32 = 4.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoblinMode {
@@ -119,6 +127,11 @@ pub struct Goblin {
     /// `Some(0)` is already implied by a hashed `Hit`; any other player is
     /// mixed, so a second player's hit never hashes like Carl's.
     pub hit_by: Option<u32>,
+    /// WORK-023 (Q10-06): the light guard a swat stagger sets. A guarded goblin
+    /// glances further swats; Carl's hits and the pounce still interrupt it.
+    /// `None` for every goblin Donut never swatted, so nothing of it is mixed
+    /// into a hash then.
+    pub guard: Option<LightGuard>,
 }
 
 impl Goblin {
@@ -144,6 +157,7 @@ impl Goblin {
             flight_ticks: 0,
             contact_ticks: 0,
             hit_by: None,
+            guard: None,
         }
     }
 
@@ -168,6 +182,38 @@ impl Goblin {
 
     pub fn attack_phase(&self) -> Option<AttackPhase> {
         (self.mode == GoblinMode::Attack).then(|| attack_phase(self.attack_tick))
+    }
+
+    /// What the Donut move domain sees of this goblin (Q10 section 1): the
+    /// attack phase from the real `attack_tick` (the Impact is latched by the
+    /// guard, never re-derived), and a defeated goblin, lying or a corpse, is
+    /// no target.
+    pub fn target_state(&self) -> TargetState {
+        match self.mode {
+            GoblinMode::Neutral => TargetState::Neutral,
+            GoblinMode::Attack => match attack_phase(self.attack_tick) {
+                AttackPhase::Tell => TargetState::Tell,
+                AttackPhase::Smear => TargetState::Smear,
+                AttackPhase::Impact => TargetState::Impact,
+                AttackPhase::Recover => TargetState::Recovery,
+            },
+            GoblinMode::Hurt => TargetState::Staggered,
+            GoblinMode::Launched => TargetState::Launched,
+            GoblinMode::Downed => TargetState::Downed,
+            GoblinMode::Airborne => TargetState::Airborne,
+            GoblinMode::Down | GoblinMode::Corpse => TargetState::Defeated,
+        }
+    }
+
+    /// One tick of the light guard (call once per goblin tick, after
+    /// [`Self::step`]): it is dropped once it releases.
+    pub fn observe_guard(&mut self) {
+        let state = self.target_state();
+        if let Some(guard) = self.guard.as_mut()
+            && guard.observe(state)
+        {
+            self.guard = None;
+        }
     }
 
     /// Could take an attack token this tick (decided before the tick steps).
@@ -392,6 +438,8 @@ impl Goblin {
             mix(0x4849_5442);
             mix(u64::from(player));
         }
+        // WORK-023: the light guard, mixed only while it is set.
+        hash_guard(&self.guard, mix);
     }
 
     /// CP-02, the flier's side of a contact: `knockback_contact` for a few
@@ -423,6 +471,53 @@ impl Goblin {
         self.vy = 0.0;
         self.facing = -push;
         self.hit_stop = self.hit_stop.max(CONTACT_HIT_STOP);
+    }
+
+    /// DEATH-D: the x of the head and of the torso of an **upright** goblin
+    /// (`Neutral`, `Attack` or `Hurt`): `(head, torso)`, 4 px ahead of and
+    /// behind the pivot column in the facing direction. `None` for a goblin
+    /// that is flying, lying or defeated (a lying goblin under an edge is a
+    /// plain crush).
+    pub fn neck_probes(&self) -> Option<(f32, f32)> {
+        if !self.alive()
+            || !matches!(
+                self.mode,
+                GoblinMode::Neutral | GoblinMode::Attack | GoblinMode::Hurt
+            )
+        {
+            return None;
+        }
+        let f = f32::from(self.facing);
+        Some((
+            self.x + f * NECK_PROBE_FORWARD,
+            self.x - f * NECK_PROBE_BACK,
+        ))
+    }
+
+    /// DEATH-D: a blast charge killed this goblin. It is defeated on the spot
+    /// and thrown `away` (+1 / -1) from the charge, as `Airborne` like the
+    /// lethal branch of `take_hit` (down, then corpse). Returns false, and
+    /// changes nothing, for a goblin that is not alive.
+    pub fn blast(&mut self, away: i8, point_blank: bool) -> bool {
+        if !self.alive() {
+            return false;
+        }
+        let (vx, vy) = if point_blank {
+            (BLAST_KNOCK_VX_POINT_BLANK, BLAST_KNOCK_VY_POINT_BLANK)
+        } else {
+            (BLAST_KNOCK_VX, BLAST_KNOCK_VY)
+        };
+        self.health = 0;
+        self.mode = GoblinMode::Airborne;
+        self.attack_tick = 0;
+        self.stagger_left = 0;
+        self.swing_hit = false;
+        self.launch = None;
+        self.contact_ticks = 0;
+        self.hit_stop = 0;
+        self.vx = (f32::from(away) * vx).clamp(-KNOCK_VX_MAX, KNOCK_VX_MAX);
+        self.vy = vy;
+        true
     }
 
     /// CP-03: a falling block lands on this goblin. It is defeated on the spot
@@ -470,6 +565,25 @@ impl StrikeTarget for Goblin {
     /// attack is cancelled); a hit during the swing only damages it. Returns the
     /// hit-stop the attacker freezes for.
     fn take_hit(&mut self, spec: &MoveSpec, attacker_facing: i8) -> (HitOutcome, u8) {
+        let (outcome, split) = self.take_hit_split(spec, attacker_facing, HitStopSplit::legacy);
+        (outcome, split.attacker)
+    }
+}
+
+impl Goblin {
+    /// [`StrikeTarget::take_hit`] with the freeze of the two fighters as two
+    /// numbers (Q10 hit-stop split). `split` maps the move's hit-stop (plus the
+    /// lethal bonus) to the freezes: the legacy rule is
+    /// [`HitStopSplit::legacy`] (the attacker `stop`, the goblin `stop + 1`
+    /// because it is stepped after the strike on the same tick); the swat
+    /// freezes only Donut (`target: 0`), so a Carl jab on the next tick still
+    /// connects. The goblin stores `target` directly.
+    pub fn take_hit_split(
+        &mut self,
+        spec: &MoveSpec,
+        attacker_facing: i8,
+        split: impl FnOnce(u8) -> HitStopSplit,
+    ) -> (HitOutcome, HitStopSplit) {
         let reaction = spec.reaction;
         let direction = f32::from(attacker_facing);
         self.health = self.health.saturating_sub(spec.damage);
@@ -521,8 +635,9 @@ impl StrikeTarget for Goblin {
         // The scene steps goblins after Carl's strike on the same tick, so that
         // step is frozen too: the goblin loses the hit tick plus `stop` more
         // ticks, the attacker's clock `stop` ticks after the hit tick.
-        self.hit_stop = stop + 1;
-        (outcome, stop)
+        let split = split(stop);
+        self.hit_stop = split.target;
+        (outcome, split)
     }
 }
 
@@ -918,5 +1033,228 @@ mod tests {
             hash
         };
         assert_eq!(run(), run());
+    }
+
+    // ---- DEATH-D: the neck probes and the blast throw ----
+
+    #[test]
+    fn the_neck_probes_exist_only_for_an_upright_living_goblin() {
+        for (mode, health, upright) in [
+            (GoblinMode::Neutral, 2, true),
+            (GoblinMode::Attack, 2, true),
+            (GoblinMode::Hurt, 2, true),
+            (GoblinMode::Launched, 2, false),
+            (GoblinMode::Downed, 2, false),
+            (GoblinMode::Airborne, 0, false),
+            (GoblinMode::Down, 0, false),
+            (GoblinMode::Corpse, 0, false),
+            // A defeated goblin is never upright, whatever its mode says.
+            (GoblinMode::Neutral, 0, false),
+        ] {
+            let mut g = goblin_at(500.0);
+            g.mode = mode;
+            g.health = health;
+            assert_eq!(g.neck_probes().is_some(), upright, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn the_head_leads_in_the_facing_direction() {
+        let mut g = goblin_at(500.0);
+        g.facing = -1;
+        assert_eq!(g.neck_probes(), Some((496.0, 504.0)));
+        g.facing = 1;
+        assert_eq!(g.neck_probes(), Some((504.0, 496.0)));
+        assert_eq!((NECK_PROBE_FORWARD, NECK_PROBE_BACK), (4.0, 4.0));
+    }
+
+    #[test]
+    fn a_blast_throws_the_goblin_dead_and_changes_only_the_spec_fields() {
+        let mut g = goblin_at(500.0);
+        g.mode = GoblinMode::Attack;
+        g.attack_tick = 10;
+        g.stagger_left = 3;
+        g.swing_hit = true;
+        g.launch = Some(4);
+        g.contact_ticks = 2;
+        g.hit_stop = 5;
+        g.flight_ticks = 7;
+        g.down_ticks = 3;
+        g.attack_cooldown = 9;
+        g.hurt_cooldown = 4;
+        g.hit_by = Some(0);
+        let before = g.clone();
+        assert!(g.blast(1, true));
+        assert_eq!(g.health, 0);
+        assert_eq!(g.mode, GoblinMode::Airborne);
+        assert_eq!(
+            (g.attack_tick, g.stagger_left, g.contact_ticks, g.hit_stop),
+            (0, 0, 0, 0)
+        );
+        assert!(!g.swing_hit);
+        assert_eq!(g.launch, None);
+        assert_eq!((g.vx, g.vy), (220.0, 320.0), "point blank, away +1");
+        // Everything else stays, as in the lethal branch of take_hit.
+        assert_eq!(
+            (
+                g.x,
+                g.y,
+                g.facing,
+                g.flight_ticks,
+                g.down_ticks,
+                g.attack_cooldown,
+                g.hurt_cooldown,
+                g.hit_by
+            ),
+            (
+                before.x,
+                before.y,
+                before.facing,
+                before.flight_ticks,
+                before.down_ticks,
+                before.attack_cooldown,
+                before.hurt_cooldown,
+                before.hit_by
+            )
+        );
+        // The ring throw: slower and lower, away -1.
+        let mut ring = goblin_at(500.0);
+        assert!(ring.blast(-1, false));
+        assert_eq!((ring.vx, ring.vy), (-180.0, 260.0));
+        // A goblin that is not alive is left alone.
+        let dead = g.clone();
+        assert!(!g.blast(-1, false));
+        assert_eq!(g, dead);
+    }
+
+    #[test]
+    fn about_eight_percent_of_block_kills_are_edge_shears() {
+        use crate::combat::ENEMY_HALF_HEIGHT;
+        use crate::shore::Shore;
+        // A passive goblin facing -1 at every x from 420 to 560 in 0.5 px steps
+        // under the landing block (footprint [444, 524)).
+        let shore = Shore::new(419.0, 100.0);
+        let footprint = shore.footprint();
+        let (mut kills, mut shears) = (0, 0);
+        let mut x = 420.0_f32;
+        while x <= 560.0 {
+            let g = Goblin::new(x, 100.0 + ENEMY_HALF_HEIGHT, EnemyAi::Passive);
+            assert_eq!(g.facing, -1);
+            if g.body().overlaps(footprint) {
+                kills += 1;
+                if g.neck_probes().is_some_and(|p| shore.edge_shears(p)) {
+                    shears += 1;
+                }
+            }
+            x += 0.5;
+        }
+        let share = f64::from(shears) / f64::from(kills);
+        assert!(
+            (0.05..=0.12).contains(&share),
+            "{shears} of {kills}: {share}"
+        );
+        // 16 shear samples (8 px) of the 104 px kill band (208 samples).
+        assert_eq!((shears, kills), (16, 207));
+    }
+
+    // ---------------------------------------------- WORK-023 (Q10 guard) --
+
+    fn hash_of(g: &Goblin) -> Vec<u64> {
+        let mut values = Vec::new();
+        g.mix_into(&mut |v| values.push(v));
+        values
+    }
+
+    #[test]
+    fn take_hit_is_take_hit_split_with_the_legacy_split() {
+        use crate::combat::StrikeTarget;
+        use crate::donut_moves::HitStopSplit;
+        for spec in [&CARL_JAB, &CARL_HAYMAKER] {
+            let (mut a, mut b) = (goblin_at(500.0), goblin_at(500.0));
+            let (outcome_a, stop) = a.take_hit(spec, 1);
+            let (outcome_b, split) = b.take_hit_split(spec, 1, HitStopSplit::legacy);
+            assert_eq!(outcome_a, outcome_b);
+            assert_eq!(stop, split.attacker);
+            assert_eq!(a, b, "the same goblin state after the same hit");
+            assert_eq!(a.hit_stop, stop + 1, "the legacy target freeze is stop + 1");
+        }
+    }
+
+    #[test]
+    fn a_swat_split_leaves_the_goblin_unfrozen_and_staggers_a_tell() {
+        use crate::combat::DONUT_SWAT;
+        use crate::donut_moves::SWAT_HIT_STOP;
+        let (mut g, _) = telling();
+        for _ in 0..4 {
+            tick(&mut g, 0.0, true);
+        }
+        assert!(g.token_held());
+        let (_, split) = g.take_hit_split(&DONUT_SWAT, 1, |_| SWAT_HIT_STOP);
+        assert_eq!((split.attacker, g.hit_stop), (2, 0));
+        assert_eq!(g.mode, GoblinMode::Hurt, "the tell is cancelled");
+        assert_eq!(g.stagger_left, 10);
+        assert_eq!(g.health, ENEMY_HEALTH, "damage 0");
+        assert!(!g.token_held(), "the token is back");
+    }
+
+    #[test]
+    fn the_target_state_follows_the_mode_and_the_real_attack_phase() {
+        let mut g = goblin_at(500.0);
+        assert_eq!(g.target_state(), TargetState::Neutral);
+        g.mode = GoblinMode::Attack;
+        for (attack_tick, want) in [
+            (0, TargetState::Tell),
+            (23, TargetState::Tell),
+            (24, TargetState::Smear),
+            (26, TargetState::Impact),
+            (29, TargetState::Impact),
+            (30, TargetState::Recovery),
+        ] {
+            g.attack_tick = attack_tick;
+            assert_eq!(g.target_state(), want, "attack tick {attack_tick}");
+        }
+        for (mode, want) in [
+            (GoblinMode::Hurt, TargetState::Staggered),
+            (GoblinMode::Launched, TargetState::Launched),
+            (GoblinMode::Downed, TargetState::Downed),
+            (GoblinMode::Airborne, TargetState::Airborne),
+            (GoblinMode::Down, TargetState::Defeated),
+            (GoblinMode::Corpse, TargetState::Defeated),
+        ] {
+            g.mode = mode;
+            assert_eq!(g.target_state(), want, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn the_guard_is_mixed_into_the_hash_only_while_it_is_set() {
+        let mut g = goblin_at(500.0);
+        let unset = hash_of(&g);
+        g.guard = Some(LightGuard::new());
+        let set = hash_of(&g);
+        assert!(set.len() > unset.len() && set[..unset.len()] == unset[..]);
+        g.guard = None;
+        assert_eq!(hash_of(&g), unset, "an unset guard hashes nothing");
+    }
+
+    #[test]
+    fn the_guard_clears_after_60_ticks_and_the_next_impact_or_when_the_goblin_goes_down() {
+        let mut g = goblin_at(500.0);
+        g.guard = Some(LightGuard::new());
+        // 70 neutral ticks: old enough, but no swing has reached Impact.
+        for _ in 0..70 {
+            g.observe_guard();
+        }
+        assert!(g.guard.is_some(), "no Impact yet: it stays");
+        g.mode = GoblinMode::Attack;
+        g.attack_tick = 27;
+        g.observe_guard();
+        assert!(g.guard.is_none(), "60 ticks and an Impact seen: it clears");
+        // A launch (or a down) clears it at once.
+        let mut h = goblin_at(500.0);
+        h.guard = Some(LightGuard::new());
+        h.mode = GoblinMode::Launched;
+        h.observe_guard();
+        assert!(h.guard.is_none());
     }
 }

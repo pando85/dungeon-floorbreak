@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "id": "brute_boss_f01_rack_candidate_v0",
+  "type": "prop_animation",
+  "source_path": "assets/source/enemies/brute_boss_f01/brute_boss_f01_rack.ase",
+  "grid_source": "assets/source/enemies/brute_boss_f01/brute_boss_f01_rack.grid.json",
+  "output_atlas": "generated/art/brute_boss_f01_rack.png",
+  "output_metadata": "generated/art/brute_boss_f01_rack.json",
+  "palette_id": "boss-f01-fx-v0",
+  "frame_size": [
+    136,
+    72
+  ],
+  "pivot": [
+    48,
+    71
+  ],
+  "animation_tags": [
+    "rack_hang",
+    "rack_shudder",
+    "rack_fall",
+    "rack_landed",
+    "rack_landed_boss",
+    "rack_pulley"
+  ],
+  "required_alpha": true,
+  "owner": "AI-authored Floor 1 boss encounter art (fan-concept layer: THE JUICER encounter; runtime ids IP-neutral brute_boss_f01)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "provenance": {
+    "origin": "plate rack prop in four states, the on-boss landing and the ceiling pulley (seven frames), left-rack facing; mirror for the disabled right rack",
+    "generator": "designed by Claude Opus keys, executed by Claude Sonnet; no AI concept pixels copied. Route B draft: drawn from the written spec; the top-tier narrow re-gate is pending. Review fix round 1 applied by Claude Sonnet. No image-model raster output, no tracing, no resampling",
+    "generated_art": true,
+    "input_reference_ids": [
+      "docs/02-art/floor-01-boss-design.md",
+      "tools/art-references/death-lab/README.md"
+    ]
+  },
+  "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "boss": {
+    "status": "7 frames drawn; top-tier editor pass and independent review pending; not wired into any Bevy binary",
+    "spec": "docs/02-art/floor-01-boss-design.md",
+    "data_id": "brute_boss_f01",
+    "tick_hz": 60,
+    "hold_preview_ms": 100,
+    "playback": {
+      "rack_hang": "hold",
+      "rack_shudder": "loop",
+      "rack_fall": "hold",
+      "rack_landed": "hold",
+      "rack_landed_boss": "hold",
+      "rack_pulley": "hold"
+    },
+    "roles": {
+      "rack_hang": "left plate rack on one cable over the ceiling pulley, tied off on the strut head at floor x 200, underside 189 px up",
+      "rack_shudder": "pre-fall shudder loop with dust, 36 tick fall window",
+      "rack_fall": "falling stack, the cable end running free, speed streaks (the game translates it)",
+      "rack_landed": "landed stack on the floor, plates staggered (the rack missed: nobody in the footprint)",
+      "rack_landed_boss": "landed stack lying on the pinned boss's back, underside 26 px above the pivot row (landed_on_boss_offset_px 26); draw it over pinned_hold or pinned_dead",
+      "rack_pulley": "static ceiling pulley and bracket, drawn at the hang position for the whole fight and never translated (rack.cable_mechanism single_cable_pulley_strut_tieoff)"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "name": "rack_hang",
+        "tag": "rack_hang",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          48,
+          71
+        ],
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 136,
+          "h": 72
+        },
+        "content": [
+          16,
+          37,
+          127,
+          71
+        ],
+        "sha256": "9aa85079e258af2ad29b6db9a063d7185b6ef21f9ad19205f2a64376f8086690"
+      },
+      {
+        "index": 1,
+        "name": "rack_shudder_a",
+        "tag": "rack_shudder",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          48,
+          71
+        ],
+        "rect": {
+          "x": 136,
+          "y": 0,
+          "w": 136,
+          "h": 72
+        },
+        "content": [
+          15,
+          37,
+          127,
+          71
+        ],
+        "sha256": "eba2d333bd3829050fff6e292daeffd6a86486ed783d578414a0c46a95f8a0d8"
+      },
+      {
+        "index": 2,
+        "name": "rack_shudder_b",
+        "tag": "rack_shudder",
+        "ticks": 3,
+        "duration_ms": 50,
+        "pivot": [
+          48,
+          71
+        ],
+        "rect": {
+          "x": 272,
+          "y": 0,
+          "w": 136,
+          "h": 72
+        },
+        "content": [
+          17,
+          37,
+          127,
+          71
+        ],
+        "sha256": "de24a6777f7511ef57c08938df1d0b8d24947979209442ed67018936bd8a5fb7"
+      },
+      {
+        "index": 3,
+        "name": "rack_fall",
+        "tag": "rack_fall",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          48,
+          71
+        ],
+        "rect": {
+          "x": 408,
+          "y": 0,
+          "w": 136,
+          "h": 72
+        },
+        "content": [
+          16,
+          29,
+          79,
+          71
+        ],
+        "sha256": "7207b99aa66b8bcb7c875ac2b41bb782f8686d5cbfb0235a94ba8ac8f11bca03"
+      },
+      {
+        "index": 4,
+        "name": "rack_landed",
+        "tag": "rack_landed",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          48,
+          71
+        ],
+        "rect": {
+          "x": 544,
+          "y": 0,
+          "w": 136,
+          "h": 72
+        },
+        "content": [
+          16,
+          47,
+          113,
+          71
+        ],
+        "sha256": "542390e223c6606010ea5a02d88859b24188b8204dd7ea804bc6ab97e3761ebc"
+      },
+      {
+        "index": 5,
+        "name": "rack_landed_boss",
+        "tag": "rack_landed_boss",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          48,
+          71
+        ],
+        "rect": {
+          "x": 680,
+          "y": 0,
+          "w": 136,
+          "h": 72
+        },
+        "content": [
+          16,
+          21,
+          79,
+          45
+        ],
+        "sha256": "73db91465c6b4ef7a906b603bd39d5262d02c380df992a2749749ba103554bf9"
+      },
+      {
+        "index": 6,
+        "name": "rack_pulley",
+        "tag": "rack_pulley",
+        "ticks": null,
+        "duration_ms": 100,
+        "pivot": [
+          48,
+          71
+        ],
+        "rect": {
+          "x": 816,
+          "y": 0,
+          "w": 136,
+          "h": 72
+        },
+        "content": [
+          45,
+          34,
+          51,
+          41
+        ],
+        "sha256": "f6641eab3e594331291d9f5af604baa525bf4d6e705bdaea020c77f44c9ff22d"
+      }
+    ]
+  }
+}

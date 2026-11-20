@@ -1,0 +1,36 @@
+COMBAT_EVENT tick=9 kind=boss_engaged
+COMBAT_EVENT tick=9 kind=rack_armed rack=0
+COMBAT_EVENT tick=10 kind=boss_tell move=charge target=carl
+COMBAT_EVENT tick=50 kind=boss_strike move=charge
+COMBAT_EVENT tick=124 kind=boss_crash wall=left
+COMBAT_EVENT tick=128 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=131 kind=rack_hit rack=0 hits=1
+COMBAT_EVENT tick=144 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=147 kind=rack_hit rack=0 hits=2
+COMBAT_EVENT tick=160 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=163 kind=rack_hit rack=0 hits=3
+COMBAT_EVENT tick=163 kind=rack_dropped rack=0 player=0
+COMBAT_EVENT tick=199 kind=rack_landed rack=0 crushed=1
+COMBAT_EVENT tick=199 kind=boss_hurt source=0 damage=4 hp_left=32
+COMBAT_EVENT tick=204 kind=move_started move=jab instance=4
+COMBAT_EVENT tick=207 kind=boss_hurt source=0 damage=1 hp_left=31
+COMBAT_EVENT tick=216 kind=move_started move=haymaker instance=5
+COMBAT_EVENT tick=221 kind=boss_hurt source=0 damage=1 hp_left=30
+COMBAT_EVENT tick=243 kind=move_started move=jab instance=6
+COMBAT_EVENT tick=246 kind=boss_hurt source=0 damage=1 hp_left=29
+COMBAT_EVENT tick=253 kind=move_started move=haymaker instance=7
+COMBAT_EVENT tick=258 kind=boss_hurt source=0 damage=1 hp_left=28
+COMBAT_EVENT tick=280 kind=move_started move=jab instance=8
+COMBAT_EVENT tick=283 kind=boss_hurt source=0 damage=1 hp_left=27
+COMBAT_EVENT tick=290 kind=move_started move=haymaker instance=9
+COMBAT_EVENT tick=295 kind=boss_hurt source=0 damage=1 hp_left=26
+COMBAT_EVENT tick=317 kind=move_started move=jab instance=10
+COMBAT_EVENT tick=327 kind=boss_tell move=pound target=carl
+COMBAT_EVENT tick=363 kind=boss_strike move=pound
+COMBAT_EVENT tick=366 kind=hero_hurt source=16981 health_left=2 hero=donut
+COMBAT_EVENT tick=384 kind=move_started move=jab instance=11
+COMBAT_EVENT tick=387 kind=boss_hurt source=0 damage=1 hp_left=25
+COMBAT_EVENT tick=396 kind=move_started move=haymaker instance=12
+COMBAT_EVENT tick=402 kind=boss_tell move=pound target=carl
+COMBAT_STATE fixture=boss01_rack_carl seed=0xb050005 tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=98e59bc9d11b4530 boss=25/36/pound_tell/p1 boss_x=133.60
+PARTY_STATE fixture=boss01_rack_carl mode=solo controlled=Carl carl_hp=4 donut_hp=2 deaths=0 hash=e4f128fe1e631a96

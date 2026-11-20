@@ -56,6 +56,40 @@ pub const HAYMAKER_FEEL: MoveFeel = MoveFeel {
 pub const HAYMAKER_STEP_PX: f32 = 4.0;
 pub const HAYMAKER_STEP_TICKS: u16 = 4;
 
+/// Donut's swat (Q10-05, WORK-023): breaks a tell and buys space, never kills.
+/// The hit-stop freezes **Donut only** (`HitStopSplit { attacker: 2, target: 0
+/// }` in `donut_moves::SWAT_HIT_STOP`), so a Carl jab on the next tick still
+/// connects; `hit_stop` here is that attacker freeze. A 60 px/s push moves the
+/// goblin about 1.5 px; no camera kick.
+pub const SWAT_FEEL: MoveFeel = MoveFeel {
+    hit_stop: 2,
+    stagger: JAB_FEEL.stagger,
+    knock_vx: 60.0,
+    knock_vy: 0.0,
+    camera_kick_px: 0,
+};
+
+/// Donut's pounce (Q10-14): the finisher of weakened goblins. Hit-stop 4 on
+/// both fighters (the legacy rule), a 14-tick stagger, no push (she drops into
+/// her pin at the goblin's feet).
+pub const POUNCE_FEEL: MoveFeel = MoveFeel {
+    hit_stop: 4,
+    stagger: 14,
+    knock_vx: 0.0,
+    knock_vy: 0.0,
+    camera_kick_px: 0,
+};
+
+/// Donut's Magic Missile on a goblin (mana v0): one damage that interrupts like
+/// a jab. The bolt is at range, so only the target freezes (2 ticks).
+pub const MISSILE_FEEL: MoveFeel = MoveFeel {
+    hit_stop: 2,
+    stagger: JAB_FEEL.stagger,
+    knock_vx: 60.0,
+    knock_vy: 0.0,
+    camera_kick_px: 0,
+};
+
 /// Push kick (D-02): 8 ticks of hit-stop (melee spec) and a **launch**: a
 /// goblin the kick does not defeat flies away (`KICK_LAUNCH_VX` / `_VY`), lands
 /// and lies down (`Downed`), then gets up. The stagger value is unused by a
@@ -106,6 +140,15 @@ pub const LETHAL_KNOCK_VY: f32 = 210.0;
 pub const LETHAL_CAMERA_KICK_BONUS: u8 = 1;
 /// Largest horizontal speed any knockback may have (bounded impulse).
 pub const KNOCK_VX_MAX: f32 = 300.0;
+/// DEATH-D blast throw (px/s), placeholders for the owner's feel review: a
+/// goblin the blast kills is thrown away from the charge. The point blank
+/// victim is the burst (these speeds only move its simulated body, which the
+/// presenter hides at gore presets 2 to 4); the ring victim is the thrown,
+/// intact goblin.
+pub const BLAST_KNOCK_VX: f32 = 180.0;
+pub const BLAST_KNOCK_VX_POINT_BLANK: f32 = 220.0;
+pub const BLAST_KNOCK_VY: f32 = 260.0;
+pub const BLAST_KNOCK_VY_POINT_BLANK: f32 = 320.0;
 /// Gravity of a launched goblin (px/s^2, the WORK-021 value) and the ground
 /// friction that slows a slide (px/s^2).
 pub const KNOCK_GRAVITY: f32 = 1050.0;
@@ -168,3 +211,52 @@ pub const HERO_KNOCKDOWN_VY: f32 = 160.0;
 /// Ticks from the defeating hit until the fixture restarts by itself (knockdown
 /// plus a short sprawl; R / Select restarts at once). At most 60.
 pub const RESTART_DELAY_TICKS: u16 = 50;
+
+// -------------------------------------------------------------- Bad Llama --
+
+/// DEMO-01 PR B: the Floor 1 Bad Llama (LLAMA-01 art, `docs/02-art/llama-01-spec.md`).
+/// Every number is a **playtest proposal** (not approved balance), kept here
+/// like the goblin values. The attack timeline counts ticks from the tick the
+/// tell starts: tell 0..36 (the glow; the art's 30 tick tell holds its peak
+/// frame for the last 6), the spit releases on tick 36 (the first tick of the
+/// art's `attack_swing` frame), recover 36..60.
+pub const LLAMA_HEALTH: u8 = 3;
+/// Walk speed toward Carl (px/s) while he is farther than `LLAMA_STAND_OFF`.
+pub const LLAMA_WALK_SPEED: f32 = 40.0;
+/// The llama walks toward Carl until it is this close (px, centre to centre)
+/// and never walks away from him.
+pub const LLAMA_STAND_OFF: f32 = 200.0;
+/// It never strays farther than this from its home column (px).
+pub const LLAMA_LEASH: f32 = 160.0;
+pub const LLAMA_TELL_TICKS: u16 = 36;
+pub const LLAMA_ATTACK_TICKS: u16 = 60;
+/// Ticks after an attack (or a stagger) before the next tell.
+pub const LLAMA_COOLDOWN: u16 = 90;
+/// Stagger of a jab or haymaker hit; a kick staggers it the same and pushes it
+/// back `LLAMA_KICK_PUSH_VX` (about 30 px with ground friction).
+pub const LLAMA_HURT_TICKS: u8 = 18;
+pub const LLAMA_KICK_PUSH_VX: f32 = 265.0;
+/// A defeated llama lies this many ticks, then it is a corpse that neither
+/// collides nor damages.
+pub const LLAMA_DOWN_TICKS: u16 = 30;
+/// Fair fire (owner option D): a tell starts only while the llama's whole body
+/// is inside the simulation's scroll-camera view and Carl is at most this far
+/// away (px, centre to centre) in the direction it faces.
+pub const LLAMA_FIRE_RANGE: f32 = 320.0;
+/// The spit glob: speed (px/s), furthest travel (px), mouth offset ahead of
+/// the llama's centre and height above its feet (LLAMA-01 spawn contract:
+/// pivot offset (+46, -45)), and the 8 x 6 px hit box.
+pub const LLAMA_GLOB_SPEED: f32 = 150.0;
+pub const LLAMA_GLOB_RANGE: f32 = 320.0;
+pub const LLAMA_GLOB_MOUTH_DX: f32 = 46.0;
+pub const LLAMA_GLOB_MOUTH_DY: f32 = 45.0;
+pub const LLAMA_GLOB_HALF_W: f32 = 4.0;
+pub const LLAMA_GLOB_HALF_H: f32 = 3.0;
+/// Pause after a hit staggers it (the tell it was in is cancelled): the llama
+/// does not start another tell for this many ticks.
+pub const LLAMA_HURT_COOLDOWN: u16 = 30;
+/// A lethal hit slides the llama body this fast away from the attacker (px/s,
+/// about 30 px with ground friction): the LLAMA-01 and LLAMA-02 poses put the
+/// head about 46 px toward the attacker, so without the slide it would lie
+/// under Carl's feet.
+pub const LLAMA_DEATH_SLIDE_VX: f32 = 265.0;

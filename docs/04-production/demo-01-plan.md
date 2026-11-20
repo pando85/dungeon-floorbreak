@@ -26,19 +26,20 @@ Columns: **normal run** = `cargo run --bin floor01_scene` with no flags (the sto
 | CP-03 rotten shore and falling block, ENV-02 shore / block / dust art | fixture only | the three `cp03_*` fixtures (one shore per fixture) |
 | DEATH-B cause, force and species profiles (#94) | fixture only | data path, invisible except through the finish chosen |
 | DEATH-C presenter and gore pool, preset 4 default (#97), GOB-02 and GOB-02B death art | fixture only | crush poses, knockback blood, stains; `--gore-preset 1..4` |
-| DEATH-D decapitation (block edge) and explosion (QA charge) | lab flag only / in PR | on `main` only `--death-lab-finish decapitated`; real causes in draft PR #108 (`cp03_block_edge_decap`, `qa_blast_breakup`) |
+| DEATH-D decapitation (block edge) and explosion (QA charge) | yes (#108) | real causes `ShoreBlockEdge` and `Explosion` (`cp03_block_edge_decap`, `qa_blast_breakup`); B3's edge decapitation and B5's `Arm::CarlPast` test charge are on the route |
 | DEATH-E1 budgets, corpse cap 8, stains persist (#106) | fixture only | `cp03_goblin_pileup` (ten stationary goblins) |
-| Hybrid-A HUD (plates, HP, System notices) | not on `main` | draft PR #103 (`floor01_scene`, normal run and fixtures) |
+| Hybrid-A HUD (plates, HP, System notices) | yes (#103) | `floor01_scene`, normal run, demo and fixtures |
+| HUD accessibility: reduced UI motion, high contrast (HUD-DEBT-06) | yes (#113) | `floor01_scene` flags, also in `--demo` |
 | Camera: deterministic scroll camera | yes | normal run and fixtures; its position is simulation state (in `FLOOR1_SCENE_STATE`) |
-| Camera lab automatic shared camera, zoom 640 / 768 / 960, eased transits | lab only | `camera_lab` binary (PR #96); not in `floor01_scene` |
-| 2P ownership, 416 px leash, solo swap, idle-partner catch-up | lab only | `camera_lab` |
-| Donut | yes (passive) / lab | `floor01_scene`: passive trail follower, no collision or combat. `camera_lab`: crude follower AI with swat and pounce (ANIM-DONUT-02 atlas). Magic Missile (ANIM-DONUT-03): not in Bevy |
-| Bad Llama LLAMA-01 | lab only | `camera_lab` ROOM-02 generic foe state machine with spit; not in `src/` gameplay |
+| Camera lab automatic shared camera, zoom 640 / 768 / 960, eased transits | yes (#112) | `--camera auto`, the default of `--demo`; presentation only |
+| Local 2P, solo swap, Donut damage (WORK-005, WORK-006, #114) | yes | live party in the interactive scene and `--demo`: the keyboard or first pad is P1, a second pad joins as P2 with Start; solo swap on L1/LB (Q on the keyboard); either hero at 0 HP is a party defeat (respawn at the checkpoint); a pad disconnect pauses. The lab's 416 px leash is not integrated |
+| Donut | yes (companion; swat and pounce only when you control her) | uncontrolled: follow-and-jump bot that dodges goblin tells and never attacks; controlled (swap or P2): runs, jumps, swat (Primary) and pounce (Physical, WORK-023 / #123). She can be hurt (forgiving 20x24 hurtbox) and goblins may target her. No Magic Missile, biscuit or mana in the hall: it has no Guild zone, so her magic stays locked (the unlock lives in the non-demo scenes and the q10 fixtures) |
+| Bad Llama LLAMA-01 | in PR #111 | B4 llama with spit, fair-fire and slam rules; feeds the auto camera's threats |
 | LLAMA-02 death poses and parts | not in Bevy | art and manifests only; the slam rule was waiting for the owner (now approved) |
 | Mongo (76 px idle; ANIM-MONGO-01 locomotion) | lab only / not in Bevy | idle in `character_playground`; locomotion not drawn anywhere |
 | Engineer (ENG-01), Scatterer (SCAT-01), Hoarder (HOARD-01), Troglodyte Basher (TROG-02), Juicer (JUICE-01), Ball of Swine (SWINE-01) | lab only | `camera_lab` rooms 2 to 6, lab hypotheses only |
 | Rat (RAT-01), Green Slime (SLIME-01), Rot Sticker (ROT-01), Bomb Bard (BARD-01), Copper Chopper (CHOP-01), Brood Guardian (BROOD-01), Troglodyte Pygmy (TROG-01), Virtuoso (TROG-03), Tusklings (TUSK-01), Murder Dozer (DOZ-01) | not in Bevy | readability sets only |
-| VFX-01 burst, ANIM-CARL-03 dynamite fizzle | in PR / lab | drawn by PR #108 for the QA charge only; hit spark in `camera_lab` |
+| VFX-01 burst, ANIM-CARL-03 dynamite fizzle | yes (#108) | drawn for the QA charge only |
 | ENV-02 opening route (barricades, guild portal, hatch, soffit ceiling, 3584 px route proposal) | not in Bevy | only the shore, block and dust pieces are drawn (fixtures); the lab recomposes kit pieces |
 | ANIM-INTERACT-01, Donut gear, Odette, Mordecai and other concepts | not in Bevy | art or concept only |
 | WORK-021 greybox (bombs, timber, steel climb) | yes, other binary | `cargo run --bin dungeon-floorbreak`, placeholder visuals; not part of the demo |
@@ -72,7 +73,7 @@ cargo run --release --locked --bin floor01_scene -- --demo --scale 3 --demo-beat
 | B5 Lit charge | 2600 to 2950 | a QA blast charge with two passive goblins huddled on it and one chaser; the charge arms when Carl passes 2640 and blows 75 ticks later | **explosion**: one point-blank burst, one ring kill thrown intact, one survivor; the black-humour beat (goblins warming their hands on their own fuse). A labelled test prop, never Carl's ability |
 | B6 Pileup | 2950 to 3200 | six chasing goblins (A and B alternating) in two clusters | crowd pressure with the two-attacker token rule; the **corpse cap of 8** retiring the oldest bodies while every stain stays; walk back left to see the whole mess. The console prints `DEMO01_COMPLETE` when the last enemy falls |
 
-Expected run: 3 to 5 minutes, about 18 goblins and one llama. Every beat maps onto the PR #78 order (I-03 punch, kick, stone; I-06 llama) without the Dozer, the Guild or Donut's magic; the llama appears pre-biscuit here only to test its feel.
+Expected run: 3 to 5 minutes, about 18 goblins and one llama. Every beat maps onto the PR #78 order (I-03 punch, kick, stone; I-06 llama) without the Dozer, the Guild or Donut's magic; the llama appears pre-biscuit here only to test its feel. Donut has her swat and pounce when you control her (swap or P2), but they do **not** hit the llama yet (llamas are not targets of her moves, follow-up F4 in the backlog; Carl's slam rule is unchanged), and the hall has no biscuit or Guild unlock.
 
 **Dependencies per beat.** B0 to B3 crush and B6 need only PR A. The B3 decapitation and B5 need PR #108 merged first (if it slips, B3 shows two crushes and B5 is cut; nothing else waits). B4 needs PR B. The zoom in B4 needs PR C. The HUD notices need PR #103.
 
@@ -169,16 +170,16 @@ Expected run: 3 to 5 minutes, about 18 goblins and one llama. Every beat maps on
 5. Frame time and memory at 1080p and 4K, release, B4 and B6, against `--camera scroll` (development machine; no Steam Deck claim).
 6. **Fallback, if retargeting the slots needs a lighting rewrite beyond about a day:** ship `auto` limited to 640 (framing, threat bias, eased pan), record the blocker in the PR, and never fake a zoom.
 
-**Recommended merge order.** #108 and #103 (in flight) first; then PR A and PR B in any order (the second adds the B4 data); PR C last, because its zoom acceptance needs the tall hall of PR A and the llama of PR B. The owner plays once all three are on `main`, or earlier on whatever has landed, with the questionnaire's skip rules.
+**Recommended merge order.** #108 and #103 first (both merged); then PR A and PR B in any order (the second adds the B4 data); PR C last, because its zoom acceptance needs the tall hall of PR A and the llama of PR B. The owner plays once all three are on `main`, or earlier on whatever has landed, with the questionnaire's skip rules.
 
-**Living-horizon review.** The only new gameplay is the Floor 01 Bad Llama already planned in PR #78 (I-06) with the owner-approved fair-fire rule and slam rule; Carl gains nothing; Donut is unchanged; the QA charge is a test prop. This still fits [character-progression-horizon.md](../01-design/character-progression-horizon.md).
+**Living-horizon review.** The only new gameplay is the Floor 01 Bad Llama already planned in PR #78 (I-06) with the owner-approved fair-fire rule and slam rule; Carl gains nothing; Donut gains no attacks (the live party of #114 is its own reviewed feature); the QA charge is a test prop. This still fits [character-progression-horizon.md](../01-design/character-progression-horizon.md).
 
 ## (d) Known gaps: what the demo will not show
 
-- **Donut is a passive trail follower**: no control, no AI, no combat, cannot be hurt, passes through Carl. No 2P, no solo swap, no leash (the lab's 416 px leash is approved but not integrated). No Magic Missile, biscuit or mana.
+- **Donut attacks only when a player drives her**: the AI companion follows, jumps, dodges and can be hurt; the swap or a second pad lets a player drive her with swat and pounce (#116, WORK-023), which do not hit the llama yet. Magic Missile, biscuit and mana (#107) exist but stay locked here (no Guild zone in the hall). No 2P leash (the lab's 416 px leash is approved but not integrated).
 - **No Carl explosives.** The B5 charge is a QA test prop that does not hurt Carl or terrain; the dynamite special stays story-gated.
 - **QA charge on the route (orchestrator decision 2026-11-19, DEMO-01 only).** The [DEATH-D spec](../03-tech/death-d-finishes-spec.md) says the QA charge has no route. For the demo only, B5 may place it on the route, clearly labelled as a test prop; the rule stays in force everywhere else (no route, ability or input creates a charge outside DEMO-01).
-- **PR A as built differs from the plan in four small ways** ([Demo](../03-tech/floor01-scene.md#demo-demo-01-pr-a-hall-route-and-respawn)): goblins need no wake rule, because `GOBLIN_SIGHT` (220 px) already keeps each beat's goblins asleep until Carl walks in; the beat probes run on `--demo --demo-beat N --autopilot` with a pure autopilot function instead of scripted `Hold` lists (hold lists would break at every tuning change); a Select tap respawns on release (so a hold can still restart); a full restart returns to the beat the demo was started at. B4 and B5 are marked hooks until PR B and PR #108 land; the probes are `demo01_b1`, `_b2`, `_b3`, `_b6` and the whole route `demo01` (`demo01_b4` and `demo01_b5` come with their beats).
+- **PR A as built differs from the plan in four small ways** ([Demo](../03-tech/floor01-scene.md#demo-demo-01-pr-a-hall-route-and-respawn)): goblins need no wake rule, because `GOBLIN_SIGHT` (220 px) already keeps each beat's goblins asleep until Carl walks in; the beat probes run on `--demo --demo-beat N --autopilot` with a pure autopilot function instead of scripted `Hold` lists (hold lists would break at every tuning change); a Select tap respawns on release (so a hold can still restart); a full restart returns to the beat the demo was started at. B5 is wired by #108 (probe `demo01_b5`); B4 stays a marked hook until PR B (#111) lands with `demo01_b4`; the other probes are `demo01_b1`, `_b2`, `_b3`, `_b6` and the whole route `demo01`.
 - **Not the Act I route**: no Murder Dozer chase, no Guild, no ENV-02 opening route (barricades, portal, hatch, soffit ceiling). The hall is a greybox recomposition of approved kit pieces.
 - **Two enemy types only** (goblins A/B and one llama). Rat, slime, rot sticker, bard, chopper, engineer, scatterer, brood guardian, hoarder, troglodytes, juicer, swine, tusklings and the Dozer remain art-only or lab-only. No Mongo.
 - **Llama is minimal**: no crush, decapitation or explosion finishes for it, no contact with goblins, no spit or llama sounds, numbers unreviewed.
@@ -186,6 +187,10 @@ Expected run: 3 to 5 minutes, about 18 goblins and one llama. Every beat maps on
 - **Camera**: no zoom at 1280x800 or 720p (integer rule); Steam Deck option C (opt-in wider view) is not implemented; option D exists only as the llama fair-fire rule. The block falling and the crowd do not widen the view (the lab found they fit at 1.0x).
 - **Damage rules left open**: the falling block never hurts Carl; downed goblins can still be hit; corpses never collide (CP-04 off); a wall impact is not a finish.
 - **Known presentation defects** stay visible: GOB-STACK-01 (stacked goblins, deep left-facing blows), the wall-spatter contrast on lit brick, the preset-1 spark colour; no screen-shake comfort toggle (DEATH-COMFORT).
-- **No menus, pause, settings, save or controller remapping**; Select is respawn and restart. Steam Deck and Steam Controller hardware untested; glyphs follow the pad only with the HUD (#103).
+- **No menus, settings, save or controller remapping, and no player pause**; Select is respawn and restart. The only pause is the D6 pad-disconnect pause. **Start on P1's own pad quits the demo**; Start on a second, unowned pad joins it as P2. Steam Deck and Steam Controller hardware untested; glyphs follow the pad only with the HUD (#103).
 - **Performance** is measured on one development machine only; nothing is claimed for the Steam Deck.
 - **No acceptance is implied**: the demo exists to collect the owner's feel verdict; every tuning value is a proposal until the questionnaire and a follow-up decide it.
+
+## (e) Keeping the demo current
+
+DEMO-01 is the integration point for game feel. Every gameplay, Bevy integration or HUD PR that changes what `floor01_scene` shows must, before merge, state in its description how the change appears in `--demo` (which beat, which input, or "not reachable in the demo, because ...") and update the status table in section (a) and, when the owner should judge it, the [questionnaire](demo-01-questionnaire.md). Design-only PRs list nothing until code lands.

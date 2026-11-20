@@ -286,7 +286,7 @@ Difficulty routing (pixel-art-pipeline "routing by difficulty"):
 | 5 | `hud_strip_3slice` | caps 8x16 plus a 1x16 middle; also a 26 px-tall variant for the boss strip | `.grid.json` | Spec-only |
 | 6 | `hud_notice_frame` | 204x32 | `.grid.json` (or 3-slice) | Spec-only |
 | 7 | `hud_glyphs` | 11x11 x 8 (A B X Y, cross circle square triangle) + `socket_locked` 11x11 | `.grid.json`, 9 frames | Spec-only |
-| 8 | `hud_icons` | heart 7x7 (normal, cracked), spark 5x5 (normal, depleted), warning 11x10, boss emblem 20x20 (generic plate; per-boss emblems are 18x18 inside the well, e.g. `brute_boss_f01_emblem`) | `.grid.json` | Spec-only |
+| 8 | `hud_icons` | heart 7x7 (normal, cracked), spark 5x5 (normal, depleted), warning 11x10, boss emblem 20x20 (generic plate; per-boss emblems are 18x18 inside the well and are standalone atlases with the boss palette, like the portraits, e.g. `brute_boss_f01_emblem`, not merged into `hud_icons`) | `.grid.json` | Spec-only |
 | 9 | `hud_tags` | 32x9 x 3 backgrounds (P1 solid, P2 notched, AI hollow); text from font | `.grid.json` | Spec-only |
 | 10 | Bars, PREVIEW tag, hatches | none (native coloured sprites at integer rects) | code, palette constants | Spec-only (code) |
 | 11 | Fonts | Jersey 10, Silkscreen Regular and Bold + `OFL.txt` | `assets/fonts/` + README + SHA-256 | Executor |

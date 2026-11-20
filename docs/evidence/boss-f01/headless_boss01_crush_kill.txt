@@ -1,0 +1,19 @@
+COMBAT_EVENT tick=9 kind=boss_engaged
+COMBAT_EVENT tick=9 kind=rack_armed rack=0
+COMBAT_EVENT tick=10 kind=boss_phase phase=2
+COMBAT_EVENT tick=71 kind=boss_phase phase=3
+COMBAT_EVENT tick=132 kind=boss_tell move=charge target=carl
+COMBAT_EVENT tick=162 kind=boss_strike move=charge
+COMBAT_EVENT tick=236 kind=boss_crash wall=left
+COMBAT_EVENT tick=240 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=243 kind=rack_hit rack=0 hits=1
+COMBAT_EVENT tick=256 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=259 kind=rack_hit rack=0 hits=2
+COMBAT_EVENT tick=272 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=275 kind=rack_hit rack=0 hits=3
+COMBAT_EVENT tick=275 kind=rack_dropped rack=0 player=0
+COMBAT_EVENT tick=311 kind=rack_landed rack=0 crushed=1
+COMBAT_EVENT tick=311 kind=boss_hurt source=0 damage=4 hp_left=0
+COMBAT_EVENT tick=311 kind=enemy_defeated target=16981 cause=drop_hazard credit_player=0 rack=0
+COMBAT_STATE fixture=boss01_crush_kill seed=0xb05000b tick=420 elapsed=420 hero_hp=4 deaths=0 enemies= hash=c7e069b09dd9be77 boss=0/36/defeated/p3 boss_x=130.00
+PARTY_STATE fixture=boss01_crush_kill mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=2055096222923d4d

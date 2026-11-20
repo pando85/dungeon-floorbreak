@@ -1,6 +1,6 @@
 # Donut biscuit unlock and mana — v0 design (HUD-DEBT-02)
 
-**Status:** adopted (orchestrator, owner directive 2026-11-19); implementation pending HUD-DEBT-04/01 and Q10; game-feel review pending. Design only: nothing here is implemented, and the numbers are first tuning values for a playtest, not balance.
+**Status:** adopted (orchestrator, owner directive 2026-11-19); implemented with WORK-023 and in review (see [Implementation status](#implementation-status)); game-feel review pending. The numbers are first tuning values for a playtest, not balance.
 
 **Adopted options:**
 
@@ -88,3 +88,34 @@ Whether 8 bolts feel generous or stingy. Whether the delay and period feel like 
 ## Living-horizon fit
 
 This fits [the horizon](character-progression-horizon.md). Magic Missile becomes Donut's primary after the biscuit on the same button. She has no magic before it. Her feline contact stays. No new input. Carl gets no counterpart resource. Later "core action mastery" upgrades such as faster regen can be data changes to these knobs. Cheaper bolts cannot: `missile_cost` is already at its validated minimum of 1 and `mana_max` is locked to 8, so that would need a cost model or HUD change. The horizon text does not need an update.
+
+## Implementation status
+
+**Implemented and in review** on `feat/donut-q10-mana` (HUD-DEBT-02, with WORK-023). The numbers are the adopted ones above and are data: nothing is balance, and game feel is pending the owner's playtest.
+
+| Piece | Where | Status |
+| --- | --- | --- |
+| Charge pool, cost, regen rule, unlock, restart kinds, `hash_into` (nothing mixed while locked), unlock trigger | `src/donut_mana.rs` | Implemented, unit-tested |
+| Hash-pinned tuning file and loader (`ManaTuning::pinned`, `TUNING_HASH`, FNV-1a 64) | `assets/data/gameplay/companion_magic_v0.json`, `src/donut_mana.rs` | Implemented; a test fails when the hash drifts |
+| Whole-segment `fill_px`, `DonutMagic`, chip row, depleted flash age | `src/donut_hud.rs` | Implemented; the real HUD plate reads them |
+| The real HUD plate from the real pool (no fixture) | `src/hud.rs` (`HudRuntime::set_donut_mana`), `src/bin/floor01_scene.rs` (`step_hud`) | Implemented; `--hud-preview` fixtures stay available |
+| Cast timeline (gather 0 to 3, release on cast tick 4), the bolt, the event log, the Guild trigger and the restart kinds | `src/combat_scene/donut.rs` | Implemented, unit-tested |
+| Fixtures `q10_dry_press` (the dry press and the regen), `q10_mana_regen` (the drain, the dry press and the 350 tick refill), `q10_unlock_persists` (the unlock, a bolt, a defeat retry) | `src/donut_fixtures.rs`, [evidence](../evidence/donut-q10-mana/README.md) | Implemented |
+
+How the adapter follows the points of the mana list: `DonutMana::step` runs on every tick **before** `release` (a charge due on a release tick is credited first); `release` runs on cast tick 4 and the returned `ManaEvent` goes to the capped log as `CombatEvent::Mana`; `reject_dry` runs on a dry press and on a buffered press whose mana check fails at its cast start; the pool is mixed into the hash only while unlocked; the `UnlockTrigger` is evaluated each tick with Donut's pivot and the party-defeat state; the defeat retry calls `RestartKind::DefeatRetry`, a demo respawn `CheckpointRestart` and `R` / Select `Fixture(start)`.
+
+**Deviations:**
+
+- The Guild room does not exist, so the zone is a **placeholder x range** of the layout: `donut_fixtures::GUILD_PLACEHOLDER_ZONE` (520 to 560) in the corridor and `demo::GUILD_PLACEHOLDER_ZONE` (1040 to 1080) in the demo hall. The boss arena and `--donut-biscuit` start unlocked with a full pool.
+- The 24 tick HUD reveal at unlock is not drawn (presentation only; follow-up).
+- The replay header does not carry `TUNING_HASH` yet: the fixtures load the pinned file (`ManaTuning::pinned`), so a tuning edit fails the load.
+- The regen-progress row and Alternative B (`empty_press: "swat"`) stay deferred, as adopted.
+
+### Adopted defaults (2026-11-19)
+
+The two mana points that phase A flagged are **resolved** under the owner's design-defaults directive. The full table, with the other eight Q10 points, is in [the Q10 spec](../02-art/donut-moveset-q10.md#adopted-defaults-2026-11-19). The owner may change either in a follow-up PR.
+
+| ID | Question | Choice | Reason | Code impact |
+| --- | --- | --- | --- | --- |
+| Q10-A09 | How is `ai_mana_reserve` read? | The AI casts only if at least `ai_mana_reserve` charges are left **after** the cast: `mana - missile_cost >= ai_mana_reserve`. | It is the literal reading of "never spends below 2 charges", the same as "mana above the reserve" at cost 1, and it stays correct if the cost rises. It is unused until the AI attacks (Q9 B). | Match (`DonutMana::ai_can_cast`). |
+| Q10-A10 | Hash for the tuning pin: FNV-1a 64 or SHA-256? | FNV-1a 64 over the raw file bytes (`TUNING_HASH`). | The pin detects drift. It is not a trust boundary, so a cryptographic hash adds nothing. FNV-1a 64 is the repository's existing hash and needs no new crate. | Match (`TUNING_HASH`, `ManaTuning::from_json_pinned`). |

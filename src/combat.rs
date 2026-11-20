@@ -22,8 +22,12 @@
 
 use std::fmt;
 
+use crate::boss::BossMove;
+use crate::donut_mana::{ManaEvent, RejectReason, Unlock};
+use crate::donut_moves::GlanceReason;
 use crate::feel::{
-    HAYMAKER_FEEL, HAYMAKER_STEP_PX, HAYMAKER_STEP_TICKS, JAB_FEEL, KICK_FEEL, MoveFeel,
+    HAYMAKER_FEEL, HAYMAKER_STEP_PX, HAYMAKER_STEP_TICKS, JAB_FEEL, KICK_FEEL, MISSILE_FEEL,
+    MoveFeel, POUNCE_FEEL, SWAT_FEEL,
 };
 use crate::party::HeroId;
 use crate::prototype::{Block, Rect, TICK_SECONDS};
@@ -115,6 +119,12 @@ pub enum MoveId {
     Jab,
     Haymaker,
     PushKick,
+    // Appended after `PushKick` so every Carl hash keeps its value. Donut's
+    // moves (WORK-023): their timing lives in `crate::donut_moves`, the specs
+    // below only carry the hit data `take_hit` needs.
+    Swat,
+    Pounce,
+    MagicMissile,
 }
 
 impl MoveId {
@@ -124,6 +134,20 @@ impl MoveId {
             Self::Jab => "jab",
             Self::Haymaker => "haymaker",
             Self::PushKick => "push_kick",
+            Self::Swat => "swat",
+            Self::Pounce => "pounce",
+            Self::MagicMissile => "magic_missile",
+        }
+    }
+
+    /// The hero index that owns this move: Donut's three moves are hero 1,
+    /// every other move is Carl's (hero 0). `CombatEvent::Hit` names no
+    /// attacker, so anything that needs the attacker of a hit (the CINE launch
+    /// credit) reads it from here instead of defaulting to hero 0.
+    pub const fn hero(self) -> u32 {
+        match self {
+            Self::Swat | Self::Pounce | Self::MagicMissile => crate::donut_moves::DONUT_HERO,
+            Self::GreyboxStrike | Self::Jab | Self::Haymaker | Self::PushKick => 0,
         }
     }
 }
@@ -269,6 +293,81 @@ pub const CARL_PUSH_KICK: MoveSpec = MoveSpec {
     chain: None,
     root_step: None,
 };
+
+/// Donut's swat (Q10-02..05): startup 4, active 3, recovery 7; the box
+/// `[13, 24) x [5, 11)` at shin height; damage 0. A swat on a tell cancels it
+/// like a jab does (stagger 10, token back), see [`SWAT_FEEL`]. A second press
+/// at ticks 4..=13 chains a swat at tick 10 (Q10-07). The timing and the box
+/// are owned by `crate::donut_moves` (a test pins the two equal).
+pub const DONUT_SWAT: MoveSpec = MoveSpec {
+    id: MoveId::Swat,
+    startup: 4,
+    active: 3,
+    recovery: 7,
+    shape: HitShape::Box {
+        x_min: 13.0,
+        x_max: 24.0,
+        y_min: 5.0,
+        y_max: 11.0,
+    },
+    damage: 0,
+    reaction: Reaction::from_feel(SWAT_FEEL),
+    chain: Some(Chain {
+        on: MoveId::Swat,
+        into: MoveId::Swat,
+        press_from: 4,
+        press_to: 13,
+        earliest: 10,
+    }),
+    root_step: None,
+};
+
+/// Donut's pounce (Q10-10, 11, 13, 14): crouch 10, flight, a pin and a recovery
+/// of 18. The `MoveSpec` is the flat-floor nominal (10 / 16 / 18); the scene
+/// ends the flight on touchdown. Box `[11, 25) x [0, 17)`, damage 1.
+pub const DONUT_POUNCE: MoveSpec = MoveSpec {
+    id: MoveId::Pounce,
+    startup: 10,
+    active: 16,
+    recovery: 18,
+    shape: HitShape::Box {
+        x_min: 11.0,
+        x_max: 25.0,
+        y_min: 0.0,
+        y_max: 17.0,
+    },
+    damage: 1,
+    reaction: Reaction::from_feel(POUNCE_FEEL),
+    chain: None,
+    root_step: None,
+};
+
+/// Donut's Magic Missile (mana v0): release on cast tick 4 (the bolt spawns),
+/// 16 ticks per cast. The bolt box is 8 x 6; damage 1.
+pub const MAGIC_MISSILE: MoveSpec = MoveSpec {
+    id: MoveId::MagicMissile,
+    startup: 4,
+    active: 1,
+    recovery: 11,
+    shape: HitShape::Box {
+        x_min: 0.0,
+        x_max: 8.0,
+        y_min: 0.0,
+        y_max: 6.0,
+    },
+    damage: 1,
+    reaction: Reaction::from_feel(MISSILE_FEEL),
+    chain: None,
+    root_step: None,
+};
+
+/// Donut's move table (the hit data of the swat, the pounce and the missile).
+pub const DONUT_MOVES: [&MoveSpec; 3] = [&DONUT_SWAT, &DONUT_POUNCE, &MAGIC_MISSILE];
+
+/// The Donut move with this id (`None` for every Carl move).
+pub fn donut_move(id: MoveId) -> Option<&'static MoveSpec> {
+    DONUT_MOVES.iter().copied().find(|spec| spec.id == id)
+}
 
 /// Carl's move table, the one lookup of the Floor 1 scene (strings and the
 /// event log resolve moves through [`carl_move`]).
@@ -487,7 +586,7 @@ impl MoveRunner {
     }
 
     /// True the first time `target` is recorded for the running move instance.
-    fn record_hit(&mut self, target: u32) -> bool {
+    pub(crate) fn record_hit(&mut self, target: u32) -> bool {
         match self.current.as_mut() {
             Some(running) if !running.hit.contains(&target) => {
                 running.hit.push(target);
@@ -787,8 +886,27 @@ pub fn resolve_strike<T: StrikeTarget>(
     sim_tick: u64,
     events: &mut Vec<CombatEvent>,
 ) {
+    let stop = strike_group(runner, move_tick, attacker, targets, 0, sim_tick, events);
+    runner.begin_hit_stop(stop);
+}
+
+/// One group of targets of [`resolve_strike`]: the target ids are
+/// `first_id + index`, so a scene with several kinds of target (goblins first,
+/// then llamas) resolves one move over all of them with stable ids. Returns the
+/// hit-stop the attacker must freeze for (the longest of the hits in this
+/// group); the caller starts it once, after every group
+/// ([`MoveRunner::begin_hit_stop`] keeps the longest).
+pub fn strike_group<T: StrikeTarget>(
+    runner: &mut MoveRunner,
+    move_tick: &MoveTick,
+    attacker: Attacker,
+    targets: &mut [T],
+    first_id: u32,
+    sim_tick: u64,
+    events: &mut Vec<CombatEvent>,
+) -> u8 {
     if move_tick.phase != Phase::Active || move_tick.frozen {
-        return;
+        return 0;
     }
     let spec = move_tick.spec;
     let mut attacker_stop = 0u8;
@@ -796,7 +914,7 @@ pub fn resolve_strike<T: StrikeTarget>(
         if !target.can_be_hit() || !reaches(&spec.shape, &attacker, target) {
             continue;
         }
-        let id = index as u32;
+        let id = first_id + index as u32;
         if !runner.record_hit(id) {
             continue;
         }
@@ -824,7 +942,7 @@ pub fn resolve_strike<T: StrikeTarget>(
             ));
         }
     }
-    runner.begin_hit_stop(attacker_stop);
+    attacker_stop
 }
 
 // ------------------------------------------------------------------- events --
@@ -836,15 +954,43 @@ pub enum DefeatCause {
     Melee,
     /// CP-03: the falling block, credited to the player who broke the shore.
     ShoreBlock { player: u32 },
+    /// HUD-DEBT-03: a falling plate rack (the Floor 01 boss arena), credited
+    /// to the player who dropped it. A new variant beside `ShoreBlock`, so the
+    /// CP-03 hashes and goldens stay byte-identical (no hash migration).
+    DropHazard { player: u32, rack: u8 },
+    /// DEATH-D: the block's vertical edge came down across an upright
+    /// target's neck (head under the stone, torso outside it). The same
+    /// landing and the same state change as [`Self::ShoreBlock`]; only the
+    /// cause differs, so a shear finish can be selected.
+    ShoreBlockEdge { player: u32 },
+    /// DEATH-D: a blast charge reached the target. `point_blank` is the
+    /// charge centre inside the target's body box (the burst); otherwise the
+    /// target was within the blast radius (thrown). `player` is the charge's
+    /// owner, if any (a QA fixture charge has none).
+    Explosion {
+        charge: u32,
+        player: Option<u32>,
+        point_blank: bool,
+    },
 }
 
 impl DefeatCause {
     /// The force tier a cause implies when nothing stronger is recorded: a
-    /// melee hit is routine, a falling block is catastrophic.
+    /// melee hit is routine, a falling block (or its edge) is catastrophic, a
+    /// point blank blast is catastrophic and a blast ring heavy.
     pub const fn default_force(self) -> ForceTier {
         match self {
             Self::Melee => ForceTier::Routine,
-            Self::ShoreBlock { .. } => ForceTier::Catastrophic,
+            Self::ShoreBlock { .. } | Self::ShoreBlockEdge { .. } | Self::DropHazard { .. } => {
+                ForceTier::Catastrophic
+            }
+            Self::Explosion { point_blank, .. } => {
+                if point_blank {
+                    ForceTier::Catastrophic
+                } else {
+                    ForceTier::Heavy
+                }
+            }
         }
     }
 
@@ -856,17 +1002,44 @@ impl DefeatCause {
     pub const fn derived_forces(self) -> &'static [ForceTier] {
         match self {
             Self::Melee => &[ForceTier::Routine, ForceTier::Heavy],
-            Self::ShoreBlock { .. } => &[ForceTier::Catastrophic],
+            Self::ShoreBlock { .. } | Self::ShoreBlockEdge { .. } | Self::DropHazard { .. } => {
+                &[ForceTier::Catastrophic]
+            }
+            Self::Explosion { point_blank, .. } => {
+                if point_blank {
+                    &[ForceTier::Catastrophic]
+                } else {
+                    &[ForceTier::Heavy]
+                }
+            }
+        }
+    }
+
+    /// The player credited with a **player-activated drop hazard** defeat: the
+    /// falling shore block, its DEATH-D edge shear and the boss arena's plate
+    /// rack. `None` for every other cause. Cause-class matchers (CINE-01 F7)
+    /// use this one helper rather than naming a variant, so a future drop
+    /// hazard gets credit by being added here.
+    pub const fn drop_credit(self) -> Option<u32> {
+        match self {
+            Self::ShoreBlock { player }
+            | Self::ShoreBlockEdge { player }
+            | Self::DropHazard { player, .. } => Some(player),
+            Self::Melee | Self::Explosion { .. } => None,
         }
     }
 
     /// The instigator a cause implies when nothing else is recorded: Carl's
     /// slot for a melee defeat, nobody for the block (its breaker is part of
-    /// the cause).
+    /// the cause) and the dropping player for a rack. The asymmetry is kept
+    /// on purpose: this value decides whether `instigator` is mixed into the
+    /// replay hash, so changing it for the blocks would be a hash migration.
+    /// Use [`Self::drop_credit`] to ask who a drop hazard is credited to.
     pub const fn implied_instigator(self) -> Option<u32> {
         match self {
             Self::Melee => Some(0),
-            Self::ShoreBlock { .. } => None,
+            Self::ShoreBlock { .. } | Self::ShoreBlockEdge { .. } | Self::Explosion { .. } => None,
+            Self::DropHazard { player, .. } => Some(player),
         }
     }
 }
@@ -993,12 +1166,100 @@ pub enum CombatEvent {
     ShoreLanded {
         tick: u64,
     },
+    /// DEMO-01 PR B: a Bad Llama started its tell (attack tick 0). `llama` is
+    /// the index among the llamas (its target id is the goblin count plus it).
+    LlamaTell {
+        tick: u64,
+        llama: u32,
+    },
+    /// A llama released its spit glob (attack tick 36).
+    LlamaSpit {
+        tick: u64,
+        llama: u32,
+    },
+    /// A hit cancelled a llama's tell.
+    LlamaInterrupted {
+        tick: u64,
+        llama: u32,
+    },
+    /// DEATH-D: a blast charge detonated (once, on its fixture tick); the
+    /// defeats it caused follow as `EnemyDefeated` events.
+    Blast {
+        tick: u64,
+        charge: u32,
+    },
     /// DEMO-01: Carl stood up again at checkpoint `checkpoint` (the demo's
     /// respawn: defeated enemies stay defeated). Emitted only in the demo.
     Respawn {
         tick: u64,
         checkpoint: u32,
     },
+    /// HUD-DEBT-03: the boss gate closed (every living hero inside).
+    BossEngaged {
+        tick: u64,
+    },
+    /// The boss started a tell on `target` (the telegraph flag is up).
+    BossTell {
+        tick: u64,
+        mv: BossMove,
+        target: HeroId,
+    },
+    /// The tell ended and the move became active.
+    BossStrike {
+        tick: u64,
+        mv: BossMove,
+    },
+    /// The charge hit the wall on side `wall` (-1 left, +1 right).
+    BossCrash {
+        tick: u64,
+        wall: i8,
+    },
+    /// A threshold roar began: the boss is now in `phase`.
+    BossPhase {
+        tick: u64,
+        phase: u8,
+    },
+    /// The boss took `damage` from player `source`; `hp_left` remains.
+    BossHurt {
+        tick: u64,
+        source: u32,
+        damage: u8,
+        hp_left: u8,
+    },
+    /// A rack was armed when the gate closed.
+    RackArmed {
+        tick: u64,
+        rack: u8,
+    },
+    /// A melee hit on a rack's strut (`hits` so far).
+    RackHit {
+        tick: u64,
+        rack: u8,
+        hits: u8,
+    },
+    /// A rack started to fall; `player` dropped it.
+    RackDropped {
+        tick: u64,
+        rack: u8,
+        player: u32,
+    },
+    /// A rack landed; `crushed` when the boss was under it.
+    RackLanded {
+        tick: u64,
+        rack: u8,
+        crushed: bool,
+    },
+    /// WORK-023: a Donut swat that did nothing but flash (a glance): no
+    /// stagger, no hit-stop, no state change (Q10 section 1).
+    DonutGlance {
+        tick: u64,
+        instance: u32,
+        target: u32,
+        reason: GlanceReason,
+    },
+    /// HUD-DEBT-02: Donut's biscuit unlock and mana pool (the capped log
+    /// events of the mana v0 proposal, section 5).
+    Mana(ManaEvent),
 }
 
 impl CombatEvent {
@@ -1071,9 +1332,32 @@ impl CombatEvent {
                 mix(tick);
                 mix(u64::from(target));
                 // Mixed only for a non-melee cause: melee replays keep their hash.
-                if let DefeatCause::ShoreBlock { player } = cause {
-                    mix(0x5348_4f52);
+                match cause {
+                    DefeatCause::Melee | DefeatCause::DropHazard { .. } => {}
+                    DefeatCause::ShoreBlock { player } => {
+                        mix(0x5348_4f52);
+                        mix(u64::from(player));
+                    }
+                    // DEATH-D tags ("EDGE", "BLST"): new words only for new causes.
+                    DefeatCause::ShoreBlockEdge { player } => {
+                        mix(0x4544_4745);
+                        mix(u64::from(player));
+                    }
+                    DefeatCause::Explosion {
+                        charge,
+                        player,
+                        point_blank,
+                    } => {
+                        mix(0x424c_5354);
+                        mix(u64::from(charge));
+                        mix(player.map_or(0, |p| u64::from(p) + 1));
+                        mix(u64::from(point_blank));
+                    }
+                }
+                if let DefeatCause::DropHazard { player, rack } = cause {
+                    mix(0x4452_4f50);
                     mix(u64::from(player));
+                    mix(u64::from(rack));
                 }
                 // DEATH-B: `force` is not mixed because it is derived from
                 // hashed data: a melee defeat's tier is `ForceTier::of_move` of
@@ -1159,12 +1443,138 @@ impl CombatEvent {
                 mix(13);
                 mix(tick);
             }
+            // Tags 40 and up: the llama events (PR B), apart from the tags
+            // other in-flight work orders append after 13.
+            Self::LlamaTell { tick, llama } => {
+                mix(40);
+                mix(tick);
+                mix(u64::from(llama));
+            }
+            Self::LlamaSpit { tick, llama } => {
+                mix(41);
+                mix(tick);
+                mix(u64::from(llama));
+            }
+            Self::LlamaInterrupted { tick, llama } => {
+                mix(42);
+                mix(tick);
+                mix(u64::from(llama));
+            }
+            Self::Blast { tick, charge } => {
+                mix(14);
+                mix(tick);
+                mix(u64::from(charge));
+            }
             Self::Respawn { tick, checkpoint } => {
                 // A tag far from the combat tags: DEMO-01 only.
                 mix(0x4445_4d4f);
                 mix(tick);
                 mix(u64::from(checkpoint));
             }
+            // The boss encounter (HUD-DEBT-03): tags in their own range, so no
+            // earlier replay hashes any of them.
+            Self::BossEngaged { tick } => {
+                mix(0x4255_0001);
+                mix(tick);
+            }
+            Self::BossTell { tick, mv, target } => {
+                mix(0x4255_0002);
+                mix(tick);
+                mix(mv as u64);
+                mix(target.index() as u64);
+            }
+            Self::BossStrike { tick, mv } => {
+                mix(0x4255_0003);
+                mix(tick);
+                mix(mv as u64);
+            }
+            Self::BossCrash { tick, wall } => {
+                mix(0x4255_0004);
+                mix(tick);
+                mix(wall as i64 as u64);
+            }
+            Self::BossPhase { tick, phase } => {
+                mix(0x4255_0005);
+                mix(tick);
+                mix(u64::from(phase));
+            }
+            Self::BossHurt {
+                tick,
+                source,
+                damage,
+                hp_left,
+            } => {
+                mix(0x4255_0006);
+                mix(tick);
+                mix(u64::from(source));
+                mix(u64::from(damage));
+                mix(u64::from(hp_left));
+            }
+            Self::RackArmed { tick, rack } => {
+                mix(0x4255_0007);
+                mix(tick);
+                mix(u64::from(rack));
+            }
+            Self::RackHit { tick, rack, hits } => {
+                mix(0x4255_0008);
+                mix(tick);
+                mix(u64::from(rack));
+                mix(u64::from(hits));
+            }
+            Self::RackDropped { tick, rack, player } => {
+                mix(0x4255_0009);
+                mix(tick);
+                mix(u64::from(rack));
+                mix(u64::from(player));
+            }
+            Self::RackLanded {
+                tick,
+                rack,
+                crushed,
+            } => {
+                mix(0x4255_000a);
+                mix(tick);
+                mix(u64::from(rack));
+                mix(u64::from(crushed));
+            }
+            // WORK-023: the Donut moves and the mana events, each with a tag in
+            // its own range ("DONG", "DONM"), so no earlier replay hashes any.
+            Self::DonutGlance {
+                tick,
+                instance,
+                target,
+                reason,
+            } => {
+                mix(0x444f_4e47_0001);
+                mix(tick);
+                mix(u64::from(instance));
+                mix(u64::from(target));
+                mix(reason as u64);
+            }
+            Self::Mana(event) => match event {
+                ManaEvent::UnlockGranted { tick, hero, .. } => {
+                    mix(0x444f_4e4d_0001);
+                    mix(tick);
+                    mix(u64::from(hero));
+                }
+                ManaEvent::ManaSpent { tick, hero, left } => {
+                    mix(0x444f_4e4d_0002);
+                    mix(tick);
+                    mix(u64::from(hero));
+                    mix(u64::from(left));
+                }
+                ManaEvent::ManaRegained { tick, hero, now } => {
+                    mix(0x444f_4e4d_0003);
+                    mix(tick);
+                    mix(u64::from(hero));
+                    mix(u64::from(now));
+                }
+                ManaEvent::CastRejected { tick, hero, .. } => {
+                    mix(0x444f_4e4d_0004);
+                    mix(tick);
+                    mix(u64::from(hero));
+                }
+            },
         }
     }
 }
@@ -1205,8 +1615,30 @@ impl fmt::Display for CombatEvent {
                     f,
                     "COMBAT_EVENT tick={tick} kind=enemy_defeated target={target}"
                 )?;
-                if let DefeatCause::ShoreBlock { player } = cause {
-                    write!(f, " cause=shore_block credit_player={player}")?;
+                match cause {
+                    DefeatCause::Melee | DefeatCause::DropHazard { .. } => {}
+                    DefeatCause::ShoreBlock { player } => {
+                        write!(f, " cause=shore_block credit_player={player}")?;
+                    }
+                    DefeatCause::ShoreBlockEdge { player } => {
+                        write!(f, " cause=shore_block_edge credit_player={player}")?;
+                    }
+                    DefeatCause::Explosion {
+                        charge,
+                        player,
+                        point_blank,
+                    } => {
+                        write!(f, " cause=explosion charge={charge}")?;
+                        if let Some(player) = player {
+                            write!(f, " credit_player={player}")?;
+                        }
+                        if point_blank {
+                            write!(f, " point_blank")?;
+                        }
+                    }
+                }
+                if let DefeatCause::DropHazard { player, rack } = cause {
+                    write!(f, " cause=drop_hazard credit_player={player} rack={rack}")?;
                 }
                 // Fields that are implied by the cause stay out of the line.
                 if force != cause.default_force() {
@@ -1288,12 +1720,110 @@ impl fmt::Display for CombatEvent {
             Self::ShoreLanded { tick } => {
                 write!(f, "COMBAT_EVENT tick={tick} kind=shore_landed")
             }
+            Self::LlamaTell { tick, llama } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=llama_tell llama={llama}")
+            }
+            Self::LlamaSpit { tick, llama } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=llama_spit llama={llama}")
+            }
+            Self::LlamaInterrupted { tick, llama } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=llama_interrupted llama={llama}"
+            ),
+            Self::Blast { tick, charge } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=blast charge={charge}")
+            }
             Self::Respawn { tick, checkpoint } => {
                 write!(
                     f,
                     "COMBAT_EVENT tick={tick} kind=respawn checkpoint={checkpoint}"
                 )
             }
+            Self::BossEngaged { tick } => write!(f, "COMBAT_EVENT tick={tick} kind=boss_engaged"),
+            Self::BossTell { tick, mv, target } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=boss_tell move={} target={}",
+                mv.name(),
+                if target == HeroId::Carl {
+                    "carl"
+                } else {
+                    "donut"
+                }
+            ),
+            Self::BossStrike { tick, mv } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=boss_strike move={}",
+                mv.name()
+            ),
+            Self::BossCrash { tick, wall } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=boss_crash wall={}",
+                if wall < 0 { "left" } else { "right" }
+            ),
+            Self::BossPhase { tick, phase } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=boss_phase phase={phase}")
+            }
+            Self::BossHurt {
+                tick,
+                source,
+                damage,
+                hp_left,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=boss_hurt source={source} damage={damage} hp_left={hp_left}"
+            ),
+            Self::RackArmed { tick, rack } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=rack_armed rack={rack}")
+            }
+            Self::RackHit { tick, rack, hits } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=rack_hit rack={rack} hits={hits}"
+            ),
+            Self::RackDropped { tick, rack, player } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=rack_dropped rack={rack} player={player}"
+            ),
+            Self::RackLanded {
+                tick,
+                rack,
+                crushed,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=rack_landed rack={rack} crushed={}",
+                u8::from(crushed)
+            ),
+            Self::DonutGlance {
+                tick,
+                instance,
+                target,
+                reason,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=glance instance={instance} target={target} reason={}",
+                reason.name()
+            ),
+            Self::Mana(ManaEvent::UnlockGranted { tick, hero, unlock }) => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=unlock_granted hero={hero} unlock={}",
+                match unlock {
+                    Unlock::PrimaryRanged => "primary_ranged",
+                }
+            ),
+            Self::Mana(ManaEvent::ManaSpent { tick, hero, left }) => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=mana_spent hero={hero} left={left}"
+            ),
+            Self::Mana(ManaEvent::ManaRegained { tick, hero, now }) => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=mana_regained hero={hero} now={now}"
+            ),
+            Self::Mana(ManaEvent::CastRejected { tick, hero, reason }) => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=cast_rejected hero={hero} reason={}",
+                match reason {
+                    RejectReason::Dry => "dry",
+                }
+            ),
         }
     }
 }
@@ -1732,5 +2262,243 @@ mod tests {
         );
         // Invulnerable: no second hit.
         assert!(!enemy.contact(enemy.x, enemy.y, &mut health, &mut invulnerable));
+    }
+
+    // ---- DEATH-D: the new causes, the blast event and the pinned words ----
+
+    const EDGE_CAUSE: DefeatCause = DefeatCause::ShoreBlockEdge { player: 0 };
+    const BLAST_PB: DefeatCause = DefeatCause::Explosion {
+        charge: 2,
+        player: Some(1),
+        point_blank: true,
+    };
+    const BLAST_RING: DefeatCause = DefeatCause::Explosion {
+        charge: 2,
+        player: None,
+        point_blank: false,
+    };
+
+    fn defeated(cause: DefeatCause, instigator: Option<u32>) -> CombatEvent {
+        CombatEvent::enemy_defeated(9, 3, cause, instigator, None)
+    }
+
+    fn words(event: &CombatEvent) -> Vec<u64> {
+        let mut out = Vec::new();
+        event.mix_into(&mut |w| out.push(w));
+        out
+    }
+
+    #[test]
+    fn the_new_causes_derive_force_forces_and_instigator() {
+        assert_eq!(EDGE_CAUSE.default_force(), ForceTier::Catastrophic);
+        assert_eq!(EDGE_CAUSE.derived_forces(), [ForceTier::Catastrophic]);
+        assert_eq!(EDGE_CAUSE.implied_instigator(), None);
+        assert_eq!(BLAST_PB.default_force(), ForceTier::Catastrophic);
+        assert_eq!(BLAST_PB.derived_forces(), [ForceTier::Catastrophic]);
+        assert_eq!(BLAST_RING.default_force(), ForceTier::Heavy);
+        assert_eq!(BLAST_RING.derived_forces(), [ForceTier::Heavy]);
+        assert_eq!(BLAST_PB.implied_instigator(), None);
+        assert_eq!(BLAST_RING.implied_instigator(), None);
+        // The one constructor derives every tier (never passed in).
+        for (cause, want) in [
+            (EDGE_CAUSE, ForceTier::Catastrophic),
+            (BLAST_PB, ForceTier::Catastrophic),
+            (BLAST_RING, ForceTier::Heavy),
+        ] {
+            let CombatEvent::EnemyDefeated { force, .. } = defeated(cause, None) else {
+                unreachable!();
+            };
+            assert_eq!(force, want, "{cause:?}");
+            assert!(cause.derived_forces().contains(&force));
+        }
+    }
+
+    #[test]
+    fn the_hash_words_of_every_existing_variant_are_pinned_literally() {
+        // Proof that DEATH-D changed no earlier word.
+        let jab = MoveId::Jab as u64;
+        assert_eq!(
+            words(&CombatEvent::MoveStarted {
+                tick: 5,
+                move_id: MoveId::Jab,
+                instance: 2
+            }),
+            [1, 5, jab, 2]
+        );
+        assert_eq!(
+            words(&CombatEvent::Hit {
+                tick: 5,
+                move_id: MoveId::Jab,
+                instance: 2,
+                target: 1,
+                damage: 1,
+                health_left: 0,
+                hit_stop: 4
+            }),
+            [2, 5, jab, 2, 1, 1, 0, 4]
+        );
+        assert_eq!(words(&defeated(DefeatCause::Melee, Some(0))), [3, 9, 3]);
+        assert_eq!(
+            words(&defeated(DefeatCause::ShoreBlock { player: 0 }, None)),
+            [3, 9, 3, 0x5348_4f52, 0]
+        );
+        assert_eq!(
+            words(&defeated(DefeatCause::ShoreBlock { player: 0 }, Some(0))),
+            [3, 9, 3, 0x5348_4f52, 0, 0x494e_5354, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::HeroHurt {
+                tick: 5,
+                source: 1,
+                health_left: 3,
+                hero: HeroId::Carl
+            }),
+            [4, 5, 1, 3]
+        );
+        assert_eq!(
+            words(&CombatEvent::HeroDefeated {
+                tick: 5,
+                hero: HeroId::Carl
+            }),
+            [5, 5]
+        );
+        assert_eq!(
+            words(&CombatEvent::Restart { tick: 5, deaths: 2 }),
+            [6, 5, 2]
+        );
+        assert_eq!(
+            words(&CombatEvent::GoblinTell { tick: 5, goblin: 1 }),
+            [7, 5, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::GoblinSwing { tick: 5, goblin: 1 }),
+            [8, 5, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::GoblinInterrupted { tick: 5, goblin: 1 }),
+            [9, 5, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::GoblinContact {
+                tick: 5,
+                launch: 4,
+                source: 1,
+                target: 2
+            }),
+            [10, 5, 4, 1, 2]
+        );
+        assert_eq!(
+            words(&CombatEvent::ShoreHit {
+                tick: 5,
+                instance: 2,
+                hits: 3
+            }),
+            [11, 5, 2, 3]
+        );
+        assert_eq!(
+            words(&CombatEvent::ShoreBroken { tick: 5, player: 0 }),
+            [12, 5, 0]
+        );
+        assert_eq!(words(&CombatEvent::ShoreLanded { tick: 5 }), [13, 5]);
+    }
+
+    #[test]
+    fn the_hash_words_of_the_new_causes_and_the_blast_event() {
+        assert_eq!(
+            words(&defeated(EDGE_CAUSE, None)),
+            [3, 9, 3, 0x4544_4745, 0]
+        );
+        assert_eq!(
+            words(&defeated(EDGE_CAUSE, Some(0))),
+            [3, 9, 3, 0x4544_4745, 0, 0x494e_5354, 1],
+            "a kicked goblin keeps its instigator"
+        );
+        // charge 2, owner 1 (mixed as 2), point blank.
+        assert_eq!(
+            words(&defeated(BLAST_PB, None)),
+            [3, 9, 3, 0x424c_5354, 2, 2, 1]
+        );
+        // charge 2, no owner (0), ring.
+        assert_eq!(
+            words(&defeated(BLAST_RING, None)),
+            [3, 9, 3, 0x424c_5354, 2, 0, 0]
+        );
+        assert_eq!(
+            words(&defeated(BLAST_RING, Some(0))),
+            [3, 9, 3, 0x424c_5354, 2, 0, 0, 0x494e_5354, 1]
+        );
+        assert_eq!(
+            words(&CombatEvent::Blast {
+                tick: 60,
+                charge: 1
+            }),
+            [14, 60, 1]
+        );
+        // The force is derived, not mixed: point blank and ring differ by the
+        // point_blank word only.
+        assert_ne!(
+            words(&defeated(BLAST_PB, None)),
+            words(&defeated(BLAST_RING, None))
+        );
+    }
+
+    #[test]
+    fn the_log_lines_of_the_new_events() {
+        let line = |e: CombatEvent| e.to_string();
+        assert_eq!(
+            line(CombatEvent::EnemyDefeated {
+                tick: 139,
+                target: 0,
+                cause: EDGE_CAUSE,
+                force: ForceTier::Catastrophic,
+                instigator: None,
+            }),
+            "COMBAT_EVENT tick=139 kind=enemy_defeated target=0 cause=shore_block_edge credit_player=0"
+        );
+        assert_eq!(
+            line(CombatEvent::Blast {
+                tick: 60,
+                charge: 0
+            }),
+            "COMBAT_EVENT tick=60 kind=blast charge=0"
+        );
+        let pb = DefeatCause::Explosion {
+            charge: 0,
+            player: None,
+            point_blank: true,
+        };
+        let ring = DefeatCause::Explosion {
+            charge: 0,
+            player: None,
+            point_blank: false,
+        };
+        assert_eq!(
+            line(defeated_at(60, 0, pb, None)),
+            "COMBAT_EVENT tick=60 kind=enemy_defeated target=0 cause=explosion charge=0 point_blank"
+        );
+        assert_eq!(
+            line(defeated_at(60, 1, ring, None)),
+            "COMBAT_EVENT tick=60 kind=enemy_defeated target=1 cause=explosion charge=0"
+        );
+        // An owned charge adds the credit before point_blank; a goblin Carl had
+        // hit keeps its instigator at the end.
+        let owned = DefeatCause::Explosion {
+            charge: 1,
+            player: Some(0),
+            point_blank: true,
+        };
+        assert_eq!(
+            line(defeated_at(60, 2, owned, Some(0))),
+            "COMBAT_EVENT tick=60 kind=enemy_defeated target=2 cause=explosion charge=1 credit_player=0 point_blank instigator=0"
+        );
+    }
+
+    fn defeated_at(
+        tick: u64,
+        target: u32,
+        cause: DefeatCause,
+        instigator: Option<u32>,
+    ) -> CombatEvent {
+        CombatEvent::enemy_defeated(tick, target, cause, instigator, None)
     }
 }

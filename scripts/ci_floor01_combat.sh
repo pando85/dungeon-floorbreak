@@ -5,7 +5,7 @@
 #                                   committed ones (docs/evidence/cp01-feel) and
 #                                   run each twice.
 #   ci_floor01_combat.sh demo       no GPU: DEMO-01. The demo hall's autopilot
-#                                   probes (demo01_b1, _b2, _b3, _b6 and the whole
+#                                   probes (demo01_b1, _b2, _b3, _b4, _b5, _b6 and the whole
 #                                   route demo01) replay twice, at gore presets 1
 #                                   to 4, and must equal the committed logs in
 #                                   docs/evidence/demo-01.
@@ -13,6 +13,17 @@
 #                                   the real Bevy loop (scale 3, lighting on) must
 #                                   reproduce the committed events and hash of the
 #                                   whole-route probe.
+#   ci_floor01_combat.sh cine       inside xvfb-run -s '-screen 0 1920x1200x24':
+#                                   CINE-01 (T09, T11, T12). The real Bevy loop
+#                                   on the two qualifying fixtures (the DEMO-01
+#                                   B3 probe and cp03_goblin_pileup) with
+#                                   --cinematic-finishes on and off at gore
+#                                   presets 1 and 4: COMBAT_EVENT, COMBAT_STATE
+#                                   and CINE01_MOMENT lines must be identical
+#                                   to each other and to the committed headless
+#                                   replays; on, the moment must start and end
+#                                   (Completed) at 640x360 and 640x400, 1x and
+#                                   3x; off, no slow motion line may appear.
 #   ci_floor01_combat.sh render     inside xvfb-run -s '-screen 0 1920x1080x24':
 #                                   the real Bevy render loop (scale 3, lighting
 #                                   on) must reproduce the headless events and
@@ -24,24 +35,35 @@
 #                                   The frames drawn (COMBAT_ANIM_STATE) must
 #                                   match the headless replay as well.
 set -euo pipefail
-mode="${1:?usage: ci_floor01_combat.sh headless|render|demo|demo-render}"
+mode="${1:?usage: ci_floor01_combat.sh headless|render|demo|demo-render|cine}"
 bin=./target/debug/floor01_scene
-fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup)
+fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup cp03_block_edge_decap qa_blast_breakup cp05_llama_slam cp05_llama_down cp05_llama_spit cp05_llama_offscreen cp05_llama_crush)
 # fixture:first tick:step:count of the real-frame capture sequences. The windows
 # hold the hit and the hit-stop of each fixture (see the evidence README).
-sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interrupt:122:1:61 cp01_goblin_attacks:128:1:61 cp02_two_goblins:60:1:61 cp01_retry:398:1:52 cp01_kick:128:1:61 cp02_kick_contact:20:1:61 cp03_shore_kill:98:1:61)
+sequences=(cp01_single_goblin:118:1:61 cp01_haymaker_chain:128:1:61 cp01_interrupt:122:1:61 cp01_goblin_attacks:128:1:61 cp02_two_goblins:60:1:61 cp01_retry:398:1:52 cp01_kick:128:1:61 cp02_kick_contact:20:1:61 cp03_shore_kill:98:1:61 cp05_llama_spit:30:1:61 cp05_llama_slam:140:1:61 cp05_llama_crush:120:1:61)
 # Fixtures whose per-tick animation trace (the frame drawn for Carl and every
 # goblin next to the sim state it follows) is committed and diffed (ART-INT-02).
 traced=(cp01_haymaker_chain cp01_goblin_attacks cp02_two_goblins cp01_kick cp02_kick_contact)
 committed=docs/evidence/cp01-feel
 # DEMO-01 probes: name:beat (the autopilot starts at the beat's checkpoint).
-demo_probes=(demo01_b1:1 demo01_b2:2 demo01_b3:3 demo01_b6:6 demo01:0)
+demo_probes=(demo01_b1:1 demo01_b2:2 demo01_b3:3 demo01_b4:4 demo01_b5:5 demo01_b6:6 demo01:0)
 demo_committed=docs/evidence/demo-01
 committed_anim=docs/evidence/art-int-02
 # WORK-005/006, HUD-DEBT-01/04: the live-party fixtures (two players, solo swap,
 # Donut damage) with their committed replays.
 party_fixtures=(duo_independent_moves duo_separation_wall solo_swap_continuity donut_hurt_iframes donut_defeat_party solo_guard_floors_at_one solo_follower_dodge)
 committed_party=docs/evidence/party-2p
+# HUD-DEBT-03: the Floor 01 boss encounter fixtures (the Juicer, the boss arena)
+# with their committed replays. boss01_rack_donut is pending (the right rack
+# waits for Q10's higher cat jump).
+boss_fixtures=(boss01_pound_punish boss01_charge_jump boss01_charge_hit boss01_hug_guard boss01_rack_carl boss01_phase_roar boss01_roar_queued boss01_2p_gate boss01_solo_ai_guard boss01_party_defeat_retry boss01_crush_kill boss01_full_clear_solo boss01_full_clear_2p)
+committed_boss=docs/evidence/boss-f01
+# WORK-023 / HUD-DEBT-02: Donut's Q10 swat and pounce, the Magic Missile and her
+# mana (the swat that breaks a tell and the light guard, the pounce that finishes
+# a goblin or whiffs, the pounce on the boss, the dry press, the 350 tick regen
+# and the unlock that survives a retry) with their committed replays.
+donut_fixtures=(q10_swat_interrupt q10_swat_guard q10_pounce_hit q10_pounce_miss q10_dry_press q10_mana_regen q10_unlock_persists q10_pounce_boss)
+committed_donut=docs/evidence/donut-q10-mana
 out=artifacts/cp01-feel
 mkdir -p "$out"
 
@@ -118,6 +140,63 @@ case "$mode" in
         exit 1
       fi
       echo "PARTY_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/party_${f}.txt")"
+    done
+    # HUD-DEBT-03: every boss fixture replays identically twice, reproduces the
+    # committed events and hash, and gives the same replay at gore presets 1 and
+    # 4 and with the boss HUD preview flag (presentation never reaches the
+    # simulation).
+    for f in "${boss_fixtures[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/boss_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/boss_${f}_again.txt"
+      if ! cmp -s "$out/boss_${f}.txt" "$out/boss_${f}_again.txt"; then
+        echo "boss fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_boss/headless_${f}.txt" "$out/boss_${f}.txt"; then
+        echo "boss fixture $f differs from the committed replay ($committed_boss)" >&2
+        exit 1
+      fi
+      for preset in 1 4; do
+        "$bin" --headless-floor01-smoke --party-fixture "$f" --gore-preset "$preset" | party_lines > "$out/boss_${f}_p${preset}.txt"
+        if ! cmp -s "$out/boss_${f}.txt" "$out/boss_${f}_p${preset}.txt"; then
+          echo "boss fixture $f at gore preset $preset differs from the default replay" >&2
+          exit 1
+        fi
+      done
+      "$bin" --headless-floor01-smoke --party-fixture "$f" --hud-preview boss | party_lines > "$out/boss_${f}_hud.txt"
+      if ! cmp -s "$out/boss_${f}.txt" "$out/boss_${f}_hud.txt"; then
+        echo "boss fixture $f differs with --hud-preview boss" >&2
+        exit 1
+      fi
+      echo "BOSS_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/boss_${f}.txt")"
+    done
+    # WORK-023: every Donut fixture replays identically twice, reproduces the
+    # committed events and hash, and gives the same replay at gore presets 1 and
+    # 4 and with the HUD preview flag (presentation never reaches the sim).
+    for f in "${donut_fixtures[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_${f}_again.txt"
+      if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_again.txt"; then
+        echo "Donut fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_donut/headless_${f}.txt" "$out/donut_${f}.txt"; then
+        echo "Donut fixture $f differs from the committed replay ($committed_donut)" >&2
+        exit 1
+      fi
+      for preset in 1 4; do
+        "$bin" --headless-floor01-smoke --party-fixture "$f" --gore-preset "$preset" | party_lines > "$out/donut_${f}_p${preset}.txt"
+        if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_p${preset}.txt"; then
+          echo "Donut fixture $f at gore preset $preset differs from the default replay" >&2
+          exit 1
+        fi
+      done
+      "$bin" --headless-floor01-smoke --party-fixture "$f" --hud-preview post-unlock | party_lines > "$out/donut_${f}_hud.txt"
+      if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_hud.txt"; then
+        echo "Donut fixture $f differs with --hud-preview post-unlock" >&2
+        exit 1
+      fi
+      echo "DONUT_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/donut_${f}.txt")"
     done
     # DEMO-01 PR C: the presentation camera never feeds the simulation. On the
     # tall camera test room, every --camera (the scroll camera, the automatic one
@@ -314,6 +393,73 @@ case "$mode" in
     fi
     grep -q '^DEMO01_COMPLETE' "$log"
     echo "DEMO_LIVE_MATCH: $(last_state < "$log")"
+    ;;
+  cine)
+    # name:committed replay:expected CINE01_MOMENT prefix:ticks:flags
+    cine_probes=(
+      "b3|$demo_committed/headless_demo01_b3.txt|CINE01_MOMENT tick=159 tier=ordinary score=6 credited=0 target=4 precision_edge=1|300|--demo --demo-beat 3 --autopilot"
+      "pileup|$committed/headless_cp03_goblin_pileup.txt|CINE01_MOMENT tick=139 tier=ordinary score=7 credited=0 target=6 precision_edge=0 mixed_chain=1|260|--fixture cp03_goblin_pileup"
+    )
+    cine_run() { # log, then the flags
+      local log="$1"; shift
+      timeout 300 "$bin" "$@" > "$log" 2>&1
+      if grep -qE 'FLOOR1_ASSET_FAILURE|FLOOR1_CAPTURE_FAILURE|FLOOR1_LIGHTING_WARNING' "$log"; then
+        tail -n 20 "$log"; echo "cine run $log reported a failure" >&2; exit 1
+      fi
+    }
+    cine_lines() { grep -E '^(COMBAT_EVENT|CINE01_MOMENT)' "$1" || true; grep '^COMBAT_STATE' "$1" | tail -n 1 || true; }
+    for spec in "${cine_probes[@]}"; do
+      IFS='|' read -r name committed_log want ticks flags <<<"$spec"
+      for preset in 1 4; do
+        # off first: the p1 off run is the reference every other run is
+        # diffed against (CINE-T09; the #122 review, N2).
+        for setting in off on; do
+          log="$out/cine_${name}_p${preset}_${setting}.log"
+          # shellcheck disable=SC2086
+          cine_run "$log" --scale 3 $flags --gore-preset "$preset" --exit-after-ticks "$ticks" --cinematic-finishes="$setting"
+          cine_lines "$log" > "$log.lines"
+          if ! diff "$out/cine_${name}_p1_off.log.lines" "$log.lines" > /dev/null 2>&1 && [ -f "$out/cine_${name}_p1_off.log.lines" ]; then
+            diff "$out/cine_${name}_p1_off.log.lines" "$log.lines" >&2 || true
+            echo "CINE-T09: $name differs between presets/settings (preset $preset, cinematic $setting)" >&2
+            exit 1
+          fi
+        done
+      done
+      # The compare the loop cannot make against itself: preset 1, cinematic
+      # on versus off, authoritative lines and the final sim hash.
+      if ! cmp -s "$out/cine_${name}_p1_off.log.lines" "$out/cine_${name}_p1_on.log.lines"; then
+        diff "$out/cine_${name}_p1_off.log.lines" "$out/cine_${name}_p1_on.log.lines" >&2 || true
+        echo "CINE-T09: $name differs between cinematic on and off at gore preset 1" >&2
+        exit 1
+      fi
+      cine_hash_off="$(grep '^COMBAT_STATE' "$out/cine_${name}_p1_off.log.lines" | sed -n 's/.*hash=\([0-9a-f]*\).*/\1/p')"
+      cine_hash_on="$(grep '^COMBAT_STATE' "$out/cine_${name}_p1_on.log.lines" | sed -n 's/.*hash=\([0-9a-f]*\).*/\1/p')"
+      if [[ -z "$cine_hash_off" || "$cine_hash_off" != "$cine_hash_on" ]]; then
+        echo "CINE-T09: $name sim hash differs with cinematic finishers on (off=$cine_hash_off on=$cine_hash_on)" >&2
+        exit 1
+      fi
+      # The authoritative part equals the committed headless replay.
+      if ! diff <(grep -E '^(COMBAT_EVENT)' "$out/cine_${name}_p1_off.log.lines"; grep '^COMBAT_STATE' "$out/cine_${name}_p1_off.log.lines") "$committed_log"; then
+        echo "CINE-T09: $name differs from the committed headless replay ($committed_log)" >&2
+        exit 1
+      fi
+      grep -q "^$want" "$out/cine_${name}_p1_on.log.lines" || { echo "CINE-T03/T05: $name lacks '$want'" >&2; exit 1; }
+      grep -q '^CINE01_SLOWMO start' "$out/cine_${name}_p1_on.log" || { echo "CINE: $name never started the slow motion" >&2; exit 1; }
+      grep -q '^CINE01_SLOWMO end=Completed' "$out/cine_${name}_p1_on.log" || { echo "CINE: $name did not return to full speed (Completed)" >&2; exit 1; }
+      if grep -q '^CINE01_SLOWMO' "$out/cine_${name}_p1_off.log"; then
+        echo "CINE: $name slowed down with --cinematic-finishes=off" >&2; exit 1
+      fi
+      echo "CINE_T09_OK: $name $(grep '^CINE01_MOMENT' "$out/cine_${name}_p1_on.log" | head -n 1)"
+      grep '^CINE01_SLOWMO end' "$out/cine_${name}_p4_on.log" | head -n 1
+    done
+    # T12: the B3 moment at both framings and both integer scales.
+    for framing in "--scale 1" "--scale 3" "--deck --scale 1" "--deck --scale 2"; do
+      log="$out/cine_b3_framing_${framing// /_}.log"
+      # shellcheck disable=SC2086
+      cine_run "$log" $framing --demo --demo-beat 3 --autopilot --exit-after-ticks 300 --cinematic-finishes=on
+      grep -q '^CINE01_SLOWMO end=Completed' "$log" || { echo "CINE-T12: $framing did not complete the moment" >&2; exit 1; }
+      echo "CINE_T12_OK: $framing $(grep '^CINE01_SLOWMO end' "$log" | head -n 1)"
+    done
     ;;
   *)
     echo "unknown mode: $mode" >&2

@@ -174,6 +174,9 @@ pub enum PartClass {
     Clean,
     Gib,
     Blood,
+    /// LLAMA-02: the ruptured spit gland and its lava (drops, decals): the
+    /// species signature, shown at every preset (`molten` layer).
+    Molten,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -262,11 +265,22 @@ pub struct PoseMeta {
     pub tag: String,
     pub ticks: Option<u32>,
     pub anchors: BTreeMap<String, [i32; 2]>,
+    /// LLAMA-02 gate ruling: `"over"` draws the falling block directly above
+    /// this crushed enemy (below every player actor) on this frame; absent
+    /// keeps the goblin order (the block behind). Read from the manifest, never
+    /// decided by species code.
+    #[serde(default)]
+    pub hazard_draw: Option<String>,
 }
 
 impl PoseMeta {
     pub fn anchor(&self, name: &str) -> Option<(i32, i32)> {
         self.anchors.get(name).map(|a| (a[0], a[1]))
+    }
+
+    /// Whether the falling block is drawn over this pose (`hazard_draw: "over"`).
+    pub fn hazard_over(&self) -> bool {
+        self.hazard_draw.as_deref() == Some("over")
     }
 }
 
@@ -554,6 +568,13 @@ pub const PARTS_MANIFESTS: [&str; DEATH_VARIANTS] = [
 ];
 pub const POSES_MANIFEST: &str = POSES_MANIFESTS[0];
 pub const PARTS_MANIFEST: &str = PARTS_MANIFESTS[0];
+/// LLAMA-02-DEATH (DEMO-01 PR B): the Bad Llama's poses and parts, in the same
+/// manifest schema and read by the same code path. Its art `variant` index is
+/// [`LLAMA_VARIANT`], after the goblin variants; it adds a `molten` layer that
+/// is shown at every preset (`always_shown_layers`).
+pub const LLAMA_POSES_MANIFEST: &str = "assets/manifests/llama_death_h64.json";
+pub const LLAMA_PARTS_MANIFEST: &str = "assets/manifests/llama_death_parts.json";
+pub const LLAMA_VARIANT: usize = DEATH_VARIANTS;
 
 impl DeathArt {
     /// Read both manifests and the grid sources they name, below `root` (the
@@ -570,6 +591,27 @@ impl DeathArt {
         else {
             return Err(format!("no goblin death variant {variant}"));
         };
+        Self::load_manifests(root, variant, poses_path, parts_path)
+    }
+
+    /// The Bad Llama's death art (LLAMA-02-DEATH): poses with the `hazard_draw`
+    /// flag, parts with the `molten` class, composed by the same code as the
+    /// goblins' (the `molten` layer is never hidden by the preset).
+    pub fn load_llama(root: &Path) -> Result<Self, String> {
+        Self::load_manifests(
+            root,
+            LLAMA_VARIANT,
+            LLAMA_POSES_MANIFEST,
+            LLAMA_PARTS_MANIFEST,
+        )
+    }
+
+    fn load_manifests(
+        root: &Path,
+        variant: usize,
+        poses_path: &str,
+        parts_path: &str,
+    ) -> Result<Self, String> {
         let read = |path: &str| {
             std::fs::read_to_string(root.join(path)).map_err(|e| format!("{path}: {e}"))
         };

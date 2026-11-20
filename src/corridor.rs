@@ -9,13 +9,15 @@
 use std::collections::VecDeque;
 use std::str::FromStr;
 
+use crate::boss::BossThreat;
 use crate::combat::{HERO_HEALTH, solid_at};
 use crate::env_kit::{EnvKit, IRect, to_world_y};
-use crate::follower::{Threat, follower_input};
+use crate::follower::{Threat, follower_input_boss};
 use crate::input::{Actions, InputFrame, RawInput};
 use crate::party::{HeroId, PartyDrive};
 use crate::prototype::{
-    Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, RUN_SPEED, Rect, TICK_SECONDS, step_hero,
+    Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, RUN_SPEED, Rect, TICK_SECONDS,
+    step_hero, step_hero_driven,
 };
 use crate::scroll_camera::{CameraConfig, DEADZONE_PX, MAX_SPEED_PX, ScrollCamera};
 
@@ -226,15 +228,38 @@ impl CorridorWorld {
     /// hero that is not frozen (hit-stop) runs the shared `step_hero`, and
     /// Donut's drawn position follows her body. No trail is recorded.
     pub fn step_bodies(&mut self, frames: [&InputFrame; 2], frozen: [bool; 2]) {
+        self.step_bodies_driven(frames, frozen, [BodyDrive::default(); 2]);
+    }
+
+    /// [`Self::step_bodies`] with the overrides of a running combat move per
+    /// hero (Donut's pounce and swat). Default drives change nothing.
+    pub fn step_bodies_driven(
+        &mut self,
+        frames: [&InputFrame; 2],
+        frozen: [bool; 2],
+        drives: [BodyDrive; 2],
+    ) {
         if self.complete {
             return;
         }
         self.tick += 1;
         if !frozen[0] {
-            step_hero(&mut self.hero, frames[0], &self.solids, self.max_x);
+            step_hero_driven(
+                &mut self.hero,
+                frames[0],
+                &self.solids,
+                self.max_x,
+                &drives[0],
+            );
         }
         if !frozen[1] {
-            step_hero(&mut self.donut_body, frames[1], &self.solids, self.max_x);
+            step_hero_driven(
+                &mut self.donut_body,
+                frames[1],
+                &self.solids,
+                self.max_x,
+                &drives[1],
+            );
         }
         self.sync_donut_from_body();
         self.check_exit(true);
@@ -518,6 +543,10 @@ pub struct SceneSim {
     pan_boost: bool,
     /// Q9: ticks each hero (`HeroId::index`) has been a bot and off-screen.
     bot_offscreen: [u16; 2],
+    /// The layout is no wider than the view (the boss arena): the camera cannot
+    /// scroll, so the 2P separation wall and the join pull are off. Derived
+    /// from the kit, constant, not hashed.
+    arena_locked: bool,
 }
 
 /// What the combat layer tells a live party step about each hero.
@@ -531,6 +560,11 @@ pub struct PartyStepCtx<'a> {
     pub frozen: [bool; 2],
     /// Goblin attacks in progress, for the bot's dodge.
     pub threats: &'a [Threat],
+    /// HUD-DEBT-03: the boss' current threat, for the bot's dodges.
+    pub boss: Option<BossThreat>,
+    /// WORK-023: the running combat move's overrides per hero (Donut's pounce
+    /// and swat). Default: nothing.
+    pub drives: [BodyDrive; 2],
 }
 
 impl Default for PartyStepCtx<'_> {
@@ -539,6 +573,8 @@ impl Default for PartyStepCtx<'_> {
             can_move: [true, true],
             frozen: [false, false],
             threats: &[],
+            boss: None,
+            drives: [BodyDrive::default(); 2],
         }
     }
 }
@@ -581,6 +617,7 @@ impl SceneSim {
             drive: PartyDrive::LEGACY,
             pan_boost: false,
             bot_offscreen: [0, 0],
+            arena_locked: kit.width <= view.w,
         })
     }
 
@@ -624,7 +661,7 @@ impl SceneSim {
         }
         let joins = drive.live && drive.two_player && !self.drive.two_player;
         self.drive = drive;
-        if joins {
+        if joins && !self.arena_locked {
             self.pull_second_player_into_view();
         }
     }
@@ -752,25 +789,28 @@ impl SceneSim {
                 } else {
                     &self.donut_input
                 };
-                follower_input(
-                    self.world.body(id),
+                follower_input_boss(
+                    (id, self.world.body(id)),
                     frame,
                     self.world.body(id.other()),
                     &self.world.solids,
                     ctx.threats,
+                    ctx.boss.as_ref(),
                     &tuning,
                 )
             } else {
                 RawInput::default()
             };
         }
-        if drive.two_player {
+        // A single locked screen (the boss arena) lets the heroes stand the
+        // whole floor apart: the Q7 448 px leader clamp is suspended.
+        if drive.two_player && !self.arena_locked {
             self.apply_separation_wall(&mut raws);
         }
         self.input.advance(raws[0]);
         self.donut_input.advance(raws[1]);
         self.world
-            .step_bodies([&self.input, &self.donut_input], ctx.frozen);
+            .step_bodies_driven([&self.input, &self.donut_input], ctx.frozen, ctx.drives);
         self.step_camera();
     }
 

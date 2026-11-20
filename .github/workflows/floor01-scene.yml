@@ -62,6 +62,10 @@ jobs:
         env:
           REQUIRE_EXPORTED_ATLAS: '1'
         run: cargo test --locked --lib exported_atlas_json_matches_the_grid_source_when_present
+      - name: The boss atlases must bind every boss state and effect (fails instead of skipping)
+        env:
+          REQUIRE_EXPORTED_ATLAS: '1'
+        run: cargo test --locked --lib the_exported_boss_atlases_bind_every_state_when_present
       - name: Negative tests for the scene contract checker
         run: python3 -m unittest discover -s tests -p 'test_floor01_scene_*.py' -v
       - name: Compile the Floor 1 scene
@@ -101,6 +105,10 @@ jobs:
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh hud
       - name: HUD-HYBRID-A-01 captures at 640x400 (Deck framing)
         run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh hud-deck
+      - name: Floor 01 boss encounter captures at 640x360 (HUD-DEBT-03, real boss fixture states; rendered state must equal the headless replay)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh boss
+      - name: Floor 01 boss encounter captures at 640x400 (Deck framing)
+        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh boss-deck
       - name: Animation capture, run_jump scenario (81 real 1920x1080 Bevy frames, state must match the headless run)
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh anim-sequence
       - name: ANIM-INT-01 evidence (GIF, stills, timeline) and committed state logs
@@ -126,6 +134,8 @@ jobs:
         run: bash scripts/ci_floor01_combat.sh demo
       - name: DEMO-01 whole route, real Bevy 1920x1080 loop (must reproduce the committed events and hash)
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh demo-render
+      - name: CINE-01 skill-gated slow motion, real Bevy loop on and off at gore presets 1 and 4 (authoritative lines must be identical; the moment must return to 1.0x at both framings and scales)
+        run: xvfb-run -a -s '-screen 0 1920x1200x24' bash scripts/ci_floor01_combat.sh cine
       - name: Frame-interval probe, lighting on (software Vulkan, report only)
         continue-on-error: true
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh perf-lit
@@ -144,6 +154,7 @@ jobs:
             artifacts/floor01-scene-*.log
             artifacts/floor01-lighting-*
             artifacts/hud/
+            artifacts/boss/
             artifacts/anim-int-01/evidence/
             artifacts/cp01-feel/*.txt
             artifacts/cp01-feel/*.log

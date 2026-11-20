@@ -21,6 +21,8 @@ shots=(
   b3_block_falling:3:140
   b3_block_landed:3:160
   b4_llama_hook:4:120
+  b5_lit_charge_fuse:5:60
+  b5_burst:5:86
   b6_pileup:6:110
 )
 for spec in "${shots[@]}"; do

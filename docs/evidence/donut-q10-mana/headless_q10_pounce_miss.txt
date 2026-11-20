@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=70 kind=move_started move=pounce instance=1
+COMBAT_EVENT tick=118 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=144 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=144 kind=hero_hurt source=0 health_left=3 hero=donut
+COMBAT_EVENT tick=213 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=q10_pounce_miss seed=0xd100004 tick=220 elapsed=220 hero_hp=4 deaths=0 enemies=e0=439.101/2 hash=53db2ff8c100d15b
+PARTY_STATE fixture=q10_pounce_miss mode=solo controlled=Donut carl_hp=4 donut_hp=3 deaths=0 hash=4274d6eb45528cc1
