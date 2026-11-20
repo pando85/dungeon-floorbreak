@@ -198,3 +198,59 @@ fn benchmark_reports_every_mode_with_its_build_profile() {
     }
     assert!(stdout.contains("build:") && stdout.contains("cpu:"));
 }
+
+#[test]
+fn help_flags_and_stray_arguments_are_handled_without_panics() {
+    for args in [["run", "--help"], ["evaluate", "-h"]] {
+        let out = autoplay(&args);
+        assert!(out.status.success(), "{args:?}: {}", text(&out.stderr));
+        assert!(text(&out.stdout).contains("usage: autoplay"));
+    }
+    let out = autoplay(&["list-scenarios", "--bogus", "1"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(text(&out.stderr).contains("unknown option --bogus"));
+}
+
+#[test]
+fn the_largest_seed_does_not_overflow_the_seed_range_line() {
+    let dir = scratch("seed-max");
+    let out = autoplay(&[
+        "evaluate",
+        "--scenario",
+        "cp01_single_goblin",
+        "--policy",
+        "approach_and_attack",
+        "--episodes",
+        "2",
+        "--seed",
+        "18446744073709551615",
+        "--replays",
+        "none",
+        "--out",
+        dir.to_str().unwrap(),
+    ]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(text(&out.stdout).contains("seeds 18446744073709551615..0"));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn evaluate_writes_one_replay_per_group_by_default() {
+    let dir = scratch("replays-default");
+    let out = autoplay(&[
+        "evaluate",
+        "--scenario",
+        "cp01_single_goblin",
+        "--policy",
+        "approach_and_attack",
+        "--episodes",
+        "3",
+        "--out",
+        dir.to_str().unwrap(),
+    ]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let replays = dir.join("replays/cp01_single_goblin/approach_and_attack");
+    assert!(replays.join("episode_0001.jsonl").exists());
+    assert!(!replays.join("episode_0002.jsonl").exists());
+    let _ = std::fs::remove_dir_all(dir);
+}

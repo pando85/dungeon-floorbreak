@@ -7,6 +7,13 @@
 //! autoplay evaluate [--scenario all|dev|holdout|ID[,ID]] [--policy all|ID[,ID]]
 //!                   [--episodes N] [--seed N] [--max-ticks N]
 //!                   [--replays none|first|all] --out DIR
+//! ```
+//!
+//! `--replays` defaults to `first` (one replay per scenario and policy; `all`
+//! writes one file per episode). Use an empty or new `--out` directory: files
+//! left by an earlier run are kept and are not listed in the manifest.
+//!
+//! ```text
 //! autoplay replay --episode FILE.jsonl [--verify]
 //! autoplay benchmark [--scenario ID] [--episodes N] [--repeat N] [--out FILE.json]
 //! ```
@@ -37,6 +44,8 @@ commands:
   run        --scenario ID --policy ID [--seed N] [--max-ticks N] [--out FILE.jsonl]
   evaluate   [--scenario all|dev|holdout|ID[,ID]] [--policy all|ID[,ID]] [--episodes N]
              [--seed N] [--max-ticks N] [--replays none|first|all] --out DIR
+             (--replays defaults to first; use an empty or new DIR: files from an
+              earlier run are kept and are not listed in the manifest)
   replay     --episode FILE.jsonl [--verify]
   benchmark  [--scenario ID] [--episodes N] [--repeat N] [--out FILE.json]
 all commands: [--assets-root DIR]";
@@ -113,12 +122,27 @@ impl Args {
     }
 }
 
-/// The commit of the working tree, `GITHUB_SHA`, or `unknown`.
+/// The commit of the source checkout this binary was built from (read with
+/// `git -C <CARGO_MANIFEST_DIR>`, so the current directory never matters),
+/// `-dirty` appended when tracked files have uncommitted changes. Falls back
+/// to `GITHUB_SHA`, then `unknown`.
 fn current_commit() -> String {
-    if let Ok(output) = Command::new("git").args(["rev-parse", "HEAD"]).output() {
+    let dir = env!("CARGO_MANIFEST_DIR");
+    let git = |args: &[&str]| {
+        Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(args)
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+    };
+    if let Some(output) = git(&["rev-parse", "HEAD"]) {
         let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if output.status.success() && text.len() >= 7 {
-            return text;
+        if text.len() >= 7 {
+            let dirty = git(&["status", "--porcelain", "--untracked-files=no"])
+                .is_some_and(|o| !o.stdout.is_empty());
+            return if dirty { format!("{text}-dirty") } else { text };
         }
     }
     std::env::var("GITHUB_SHA").unwrap_or_else(|_| "unknown".into())
@@ -202,7 +226,7 @@ fn run_evaluate(args: &Args) -> Result<(), String> {
         episodes: args.number("episodes", 20)?,
         base_seed: args.number("seed", 0)?,
         max_ticks: args.number("max-ticks", AutoplayConfig::new("x").max_ticks)?,
-        replays: ReplayMode::parse(args.get("replays").unwrap_or("all"))?,
+        replays: ReplayMode::parse(args.get("replays").unwrap_or("first"))?,
         out,
         assets_root: args.assets_root(),
         commit: current_commit(),
@@ -284,6 +308,10 @@ fn main() -> ExitCode {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     };
+    if rest.iter().any(|a| a == "--help" || a == "-h") {
+        println!("{USAGE}");
+        return ExitCode::SUCCESS;
+    }
     let args = match parse_args(rest) {
         Ok(args) => args,
         Err(e) => {
@@ -292,10 +320,10 @@ fn main() -> ExitCode {
         }
     };
     let result = match command.as_str() {
-        "list-scenarios" => {
+        "list-scenarios" => args.check_known(&[]).map(|()| {
             list_scenarios();
-            Ok(true)
-        }
+            true
+        }),
         "run" => run_one(&args).map(|()| true),
         "evaluate" => run_evaluate(&args).map(|()| true),
         "replay" => run_replay(&args),

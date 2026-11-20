@@ -175,6 +175,7 @@ pub fn run_episode(
     }
     ctx.required_enemies = reset.required_enemies;
     ctx.action_hash = replay::action_trace_hash(&trace);
+    let event_hash = collector.event_hash();
     let metrics = collector.finish(env, ctx);
     let replay = recorder.map(|rec| {
         let outcome = env.outcome().map_or("timeout", |o| o.name());
@@ -182,7 +183,7 @@ pub fn run_episode(
             outcome,
             env.tick_count(),
             env.episode_return(),
-            u64::from_str_radix(&metrics.event_hash, 16).unwrap_or(0),
+            event_hash,
             env.state_hash(),
         )
     });
@@ -451,7 +452,10 @@ fn summary_text(options: &EvalOptions, total: u64, aggregates: &[AggregateMetric
         text,
         "  seeds {}..{} (policy-side only; the simulation has no RNG)",
         options.base_seed,
-        options.base_seed + u64::from(options.episodes) - 1
+        options
+            .base_seed
+            .wrapping_add(u64::from(options.episodes))
+            .wrapping_sub(1)
     );
     let _ = writeln!(
         text,
@@ -461,7 +465,7 @@ fn summary_text(options: &EvalOptions, total: u64, aggregates: &[AggregateMetric
     for a in aggregates {
         let _ = writeln!(
             text,
-            "{:<22} {:<12} {:<20} {:>4} {:>6.1}% [{:>5.1}%,{:>5.1}%] {:>6.0} {:>5.1} {:>6}",
+            "{:<22} {:<12} {:<20} {:>4} {:>6.1}% [{:>5.1}%,{:>5.1}%]{} {:>6.0} {:>5.1} {:>6}",
             a.scenario,
             a.split,
             a.policy,
@@ -469,6 +473,11 @@ fn summary_text(options: &EvalOptions, total: u64, aggregates: &[AggregateMetric
             a.success_rate * 100.0,
             a.success_ci95_low * 100.0,
             a.success_ci95_high * 100.0,
+            if a.independent_episodes < a.episodes {
+                "*"
+            } else {
+                " "
+            },
             a.ticks.median,
             a.damage_received.mean,
             a.distinct_trajectories
@@ -476,7 +485,7 @@ fn summary_text(options: &EvalOptions, total: u64, aggregates: &[AggregateMetric
     }
     let _ = writeln!(
         text,
-        "distinct = distinct trajectories; 1 means the episodes are copies of one deterministic run."
+        "distinct = distinct trajectories; 1 means the episodes are copies of one deterministic run.\n* the interval counts n episodes but only `distinct` (independent_episodes) are independent; it is too narrow."
     );
     text
 }

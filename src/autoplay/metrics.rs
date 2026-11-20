@@ -15,7 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 
-use crate::combat::{CombatEvent, HERO_HEALTH, MoveId};
+use crate::combat::{CombatEvent, HERO_HEALTH, MoveId, carl_move, donut_move};
 use crate::party::HeroId;
 
 use super::action::ActionV1;
@@ -165,7 +165,9 @@ pub struct EpisodeMetrics {
     pub goblin_contacts: u32,
     pub other_events: u32,
     pub action_usage: ActionUsage,
-    /// Ticks Carl's horizontal speed was zero (observation `vx == 0`).
+    /// Ticks Carl's horizontal speed was zero (observation `vx == 0`). The
+    /// speed is read from the observation the policy saw before its action,
+    /// so it lags the executed tick by one.
     pub standing_still_ticks: u64,
     /// Longest run of ticks without a hit, defeat or hurt event.
     pub longest_no_progress_ticks: u64,
@@ -370,13 +372,15 @@ impl EpisodeCollector {
                 health_left,
                 ..
             } => {
-                self.hit_instances.insert(*instance);
                 if move_attribution(*move_id) == Attribution::Carl {
+                    // Donut numbers its move instances separately, so only
+                    // Carl's hits may mark a Carl move instance as connected.
+                    self.hit_instances.insert(*instance);
                     *self.move_hits.entry(move_id.name()).or_insert(0) += 1;
                 } else {
                     self.hits_other_attribution += 1;
                 }
-                if *move_id == MoveId::PushKick && *health_left > 0 {
+                if move_launches(*move_id) && *health_left > 0 {
                     self.knockbacks += 1;
                 }
                 true
@@ -639,6 +643,14 @@ pub struct MoveAggregate {
     pub connect_rate: f64,
 }
 
+/// Whether a hit of this move launches a target it does not defeat (the move
+/// table's `reaction.launch`: today the push kick only).
+fn move_launches(move_id: MoveId) -> bool {
+    carl_move(move_id)
+        .or_else(|| donut_move(move_id))
+        .is_some_and(|spec| spec.reaction.launch)
+}
+
 /// Aggregate of one group of episodes (one scenario and policy, or a total).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AggregateMetrics {
@@ -652,6 +664,11 @@ pub struct AggregateMetrics {
     pub success_rate: f64,
     pub success_ci95_low: f64,
     pub success_ci95_high: f64,
+    /// Episodes the interval can honestly count as independent samples: the
+    /// number of distinct trajectories (equal to `distinct_trajectories`).
+    /// When it is below `episodes` the Wilson interval treats copies of one
+    /// deterministic run as independent and is too narrow.
+    pub independent_episodes: u64,
     pub ci_method: &'static str,
     /// Terminal reason counts: `success`, `defeat`, `abandoned`, `timeout`.
     pub outcomes: BTreeMap<String, u64>,
@@ -762,6 +779,7 @@ impl AggregateMetrics {
             success_rate: ratio(successes, n),
             success_ci95_low: low,
             success_ci95_high: high,
+            independent_episodes: trajectories.len() as u64,
             ci_method: "wilson-95",
             outcomes,
             simultaneous_clears: clears,

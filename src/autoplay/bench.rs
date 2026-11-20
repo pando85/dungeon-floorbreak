@@ -14,6 +14,11 @@
 //! - `env_step_observe`: `env_step` plus the policy `observe()` every tick.
 //! - `bot_loop`: bot decision, step and observe: the evaluation hot path.
 //! - `reset`: `AutoplayEnv::reset` calls per second (not ticks).
+//!
+//! Construction cost is inside the timed region: `raw_fixture_sim` builds a
+//! `FixtureSim` for every episode and the env modes call `env.reset` for every
+//! episode. The reported median of an even `repeat` is the mean of the two
+//! middle values.
 
 use std::hint::black_box;
 use std::path::PathBuf;
@@ -101,7 +106,13 @@ fn driver_actions(len: usize) -> Vec<ActionV1> {
 
 fn summarise(mode: &'static str, work: u64, rates: &mut [f64], per_tick: bool) -> ModeResult {
     rates.sort_by(f64::total_cmp);
-    let median = rates[rates.len() / 2];
+    // Even repeat counts average the two middle values.
+    let mid = rates.len() / 2;
+    let median = if rates.len().is_multiple_of(2) {
+        (rates[mid - 1] + rates[mid]) / 2.0
+    } else {
+        rates[mid]
+    };
     ModeResult {
         mode,
         work_per_repeat: work,
@@ -246,6 +257,8 @@ pub fn run(options: &BenchOptions) -> Result<BenchReport, String> {
             "Simulated ticks per second of the native loop on one thread; frame rendering is not measured.",
             "env_step includes the env's internal per-step observation bookkeeping; raw_fixture_sim is the observation-free floor.",
             "Single process, single thread; wall-clock numbers vary with machine load.",
+            "Per-episode setup is timed: raw_fixture_sim includes FixtureSim::new and the env modes include env.reset. An even repeat reports the mean of the two middle values as the median.",
+            "Tool versions (rustc, Bevy) are not embedded in this report; they are recorded in the PR body and Cargo.lock.",
         ],
     })
 }
@@ -283,5 +296,18 @@ impl BenchReport {
             ));
         }
         text
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::summarise;
+
+    #[test]
+    fn the_median_of_an_even_repeat_averages_the_middle_values() {
+        let mut even = [4.0, 1.0, 3.0, 2.0];
+        assert_eq!(summarise("m", 1, &mut even, true).per_second_median, 2.5);
+        let mut odd = [5.0, 1.0, 3.0];
+        assert_eq!(summarise("m", 1, &mut odd, true).per_second_median, 3.0);
     }
 }

@@ -11,6 +11,7 @@
 //! A seed and a scenario id are never a substitute for the action trace, and
 //! any schema or version mismatch is rejected explicitly.
 
+use std::collections::BTreeSet;
 use std::fmt;
 use std::path::Path;
 
@@ -59,8 +60,9 @@ pub struct Header {
     pub kind: String,
     pub schema: String,
     pub run_id: String,
-    /// Git commit of the build that produced the artifact (`unknown` when
-    /// the tool could not tell). A different commit is allowed on verify.
+    /// Git commit of the working tree at run time, `-dirty` appended when it
+    /// had uncommitted changes (`unknown` when the tool could not tell). A
+    /// different commit is allowed on verify.
     pub commit: String,
     pub scenario: String,
     /// Layout fingerprint of the scenario (not its name, script or ticks).
@@ -175,6 +177,12 @@ impl Replay {
             .unwrap_or("<missing>");
         if schema != REPLAY_SCHEMA {
             return Err(ReplayError::UnsupportedSchema(schema.to_string()));
+        }
+        if value.get("type").and_then(|v| v.as_str()) != Some("header") {
+            return Err(ReplayError::Parse(
+                1,
+                "the first line must have type \"header\"".into(),
+            ));
         }
         let header: Header =
             serde_json::from_value(value).map_err(|e| ReplayError::Parse(1, e.to_string()))?;
@@ -457,6 +465,82 @@ fn check<T: PartialEq + ToString>(
     }
 }
 
+/// The fixed checkpoint schedule of an episode that ran `ticks` ticks: every
+/// [`CHECKPOINT_EVERY`] ticks plus the final tick, in increasing order.
+pub fn expected_checkpoint_ticks(ticks: u64) -> Vec<u64> {
+    let mut expected: Vec<u64> = (1..=ticks / CHECKPOINT_EVERY)
+        .map(|n| n * CHECKPOINT_EVERY)
+        .collect();
+    if ticks > 0 && expected.last() != Some(&ticks) {
+        expected.push(ticks);
+    }
+    expected
+}
+
+/// Require exactly the fixed schedule: every missing, extra, duplicate or
+/// out-of-order checkpoint is reported with its tick. Without this a replay
+/// stripped of its checkpoints would verify on the end line alone.
+fn check_schedule(replay: &Replay) -> Result<(), ReplayError> {
+    let expected = expected_checkpoint_ticks(replay.end.ticks);
+    let recorded: Vec<u64> = replay.checkpoints.iter().map(|c| c.t).collect();
+    if recorded == expected {
+        return Ok(());
+    }
+    let schedule = |ticks: &[u64]| {
+        if ticks.is_empty() {
+            "none".to_string()
+        } else {
+            ticks
+                .iter()
+                .map(u64::to_string)
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    };
+    let mut diffs = Vec::new();
+    let mut seen = BTreeSet::new();
+    let mut previous = None;
+    for &t in &recorded {
+        let problem = if !seen.insert(t) {
+            Some("a duplicate checkpoint")
+        } else if previous.is_some_and(|p| t < p) {
+            Some("an out-of-order checkpoint")
+        } else if !expected.contains(&t) {
+            Some("an extra checkpoint outside the schedule")
+        } else {
+            None
+        };
+        if let Some(problem) = problem {
+            diffs.push(Diff {
+                tick: t,
+                what: "checkpoint schedule".into(),
+                expected: format!("only ticks {}", schedule(&expected)),
+                actual: problem.into(),
+            });
+        }
+        previous = Some(t);
+    }
+    for &t in &expected {
+        if !seen.contains(&t) {
+            diffs.push(Diff {
+                tick: t,
+                what: "checkpoint schedule".into(),
+                expected: "a checkpoint (every 60 ticks and the final tick)".into(),
+                actual: "none recorded".into(),
+            });
+        }
+    }
+    if diffs.is_empty() {
+        diffs.push(Diff {
+            tick: 0,
+            what: "checkpoint schedule".into(),
+            expected: schedule(&expected),
+            actual: schedule(&recorded),
+        });
+    }
+    Err(ReplayError::Mismatch(diffs))
+}
+
 /// Re-run a stored episode from reset and compare it with the artifact.
 /// `current_commit` is only reported: verifying an old artifact on a newer
 /// commit is the point of the replay, and a real gameplay change shows up as
@@ -468,6 +552,7 @@ pub fn verify(
 ) -> Result<VerifyReport, ReplayError> {
     let replay = Replay::from_jsonl(text)?;
     let h = &replay.header;
+    check_schedule(&replay)?;
     check("action_version", h.action_version, ACTION_VERSION_V1)?;
     check("obs_version", h.obs_version, OBSERVATION_VERSION)?;
     check("cf02_rules", h.cf02_rules, false)?;
@@ -494,6 +579,7 @@ pub fn verify(
     config.reward_id = h.reward_id.clone();
     let mut env = AutoplayEnv::new(config, assets_root)?;
     let reset = env.reset(h.requested_seed)?;
+    check("sim_seed", h.sim_seed.clone(), hex(reset.sim_seed))?;
     let mut diffs = Vec::new();
     if hex(reset.initial_hash) != h.initial_hash {
         diffs.push(Diff {

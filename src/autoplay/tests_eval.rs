@@ -298,6 +298,172 @@ fn a_truncated_replay_is_not_verified() {
     ));
 }
 
+// Checkpoint schedule (F1): every 60 ticks plus the final tick, nothing else.
+
+fn checkpoint_ticks(text: &str) -> Vec<u64> {
+    Replay::from_jsonl(text)
+        .unwrap()
+        .checkpoints
+        .iter()
+        .map(|c| c.t)
+        .collect()
+}
+
+fn schedule_diffs(text: &str) -> Vec<replay::Diff> {
+    match replay::verify(text, &root(), "x") {
+        Err(ReplayError::Mismatch(diffs)) => diffs,
+        other => panic!("expected a schedule mismatch, got {other:?}"),
+    }
+}
+
+fn long_replay_text() -> String {
+    let (_, replay) = play("cp01_single_goblin", bots::APPROACH_AND_ATTACK, 0);
+    assert!(replay.end.ticks > 61, "the episode must pass tick 61");
+    replay.to_jsonl()
+}
+
+#[test]
+fn the_checkpoint_schedule_is_every_sixty_ticks_plus_the_final_tick() {
+    use super::replay::expected_checkpoint_ticks as expected;
+    assert_eq!(expected(0), Vec::<u64>::new());
+    assert_eq!(expected(59), vec![59]);
+    assert_eq!(expected(60), vec![60]);
+    assert_eq!(expected(61), vec![60, 61]);
+    assert_eq!(expected(130), vec![60, 120, 130]);
+    let text = long_replay_text();
+    let replay = Replay::from_jsonl(&text).unwrap();
+    assert_eq!(checkpoint_ticks(&text), expected(replay.end.ticks));
+}
+
+#[test]
+fn a_replay_with_every_checkpoint_deleted_is_rejected() {
+    let text = long_replay_text();
+    let stripped: Vec<&str> = text
+        .lines()
+        .filter(|l| !l.contains("\"type\":\"checkpoint\""))
+        .collect();
+    let text = stripped.join("\n");
+    assert!(checkpoint_ticks(&text).is_empty());
+    let diffs = schedule_diffs(&text);
+    assert!(diffs.iter().any(|d| d.tick == 60), "{diffs:?}");
+    assert!(diffs.iter().all(|d| d.what == "checkpoint schedule"));
+}
+
+#[test]
+fn a_replay_without_its_final_checkpoint_is_rejected() {
+    let text = long_replay_text();
+    let end = Replay::from_jsonl(&text).unwrap().end.ticks;
+    let mut lines: Vec<&str> = text.lines().collect();
+    let last = lines
+        .iter()
+        .rposition(|l| l.contains("\"type\":\"checkpoint\""))
+        .unwrap();
+    assert!(lines[last].contains(&format!("\"t\":{end},")));
+    lines.remove(last);
+    let diffs = schedule_diffs(&lines.join("\n"));
+    assert_eq!(diffs.len(), 1, "{diffs:?}");
+    assert_eq!(diffs[0].tick, end);
+}
+
+#[test]
+fn an_extra_or_duplicate_checkpoint_line_is_rejected() {
+    let text = long_replay_text();
+    let lines: Vec<&str> = text.lines().collect();
+    let first = lines
+        .iter()
+        .find(|l| l.contains("\"type\":\"checkpoint\""))
+        .unwrap();
+    assert!(first.contains("\"t\":60,"));
+
+    // An off-schedule checkpoint at tick 61.
+    let off = first.replace("\"t\":60,", "\"t\":61,");
+    let tick61 = lines.iter().position(|l| l.contains("\"t\":61,")).unwrap();
+    let mut extra = lines.clone();
+    extra.insert(tick61 + 1, &off);
+    let diffs = schedule_diffs(&extra.join("\n"));
+    assert!(
+        diffs
+            .iter()
+            .any(|d| d.tick == 61 && d.actual.contains("extra")),
+        "{diffs:?}"
+    );
+
+    // The tick-60 checkpoint twice.
+    let at = lines.iter().position(|l| l == first).unwrap();
+    let mut duplicate = lines.clone();
+    duplicate.insert(at + 1, first);
+    let diffs = schedule_diffs(&duplicate.join("\n"));
+    assert!(
+        diffs
+            .iter()
+            .any(|d| d.tick == 60 && d.actual.contains("duplicate")),
+        "{diffs:?}"
+    );
+}
+
+#[test]
+fn an_altered_checkpoint_tick_or_hash_is_rejected() {
+    let text = long_replay_text();
+    let lines: Vec<&str> = text.lines().collect();
+    let first = lines
+        .iter()
+        .find(|l| l.contains("\"type\":\"checkpoint\""))
+        .unwrap();
+    // The tick moved from 60 to 61: one missing and one extra tick.
+    let moved = text.replace(first, &first.replace("\"t\":60,", "\"t\":61,"));
+    let diffs = schedule_diffs(&moved);
+    assert!(
+        diffs
+            .iter()
+            .any(|d| d.tick == 60 && d.actual == "none recorded")
+    );
+    assert!(
+        diffs
+            .iter()
+            .any(|d| d.tick == 61 && d.actual.contains("extra"))
+    );
+
+    // A flipped hash digit keeps the schedule and fails on the re-run.
+    let value = Replay::from_jsonl(&text).unwrap().checkpoints[0]
+        .state_hash
+        .clone();
+    let flipped = format!(
+        "{}{}",
+        &value[..15],
+        if value.ends_with('0') { '1' } else { '0' }
+    );
+    let altered = text.replace(first, &first.replace(&value, &flipped));
+    let diffs = schedule_diffs(&altered);
+    assert_eq!(diffs[0].tick, 60);
+    assert_eq!(diffs[0].what, "state_hash (checkpoint)");
+}
+
+#[test]
+fn a_changed_sim_seed_or_header_type_is_rejected() {
+    let (_, replay) = play("cp01_single_goblin", bots::APPROACH_AND_ATTACK, 0);
+    let text = replay.to_jsonl();
+    let seed = replay.header.sim_seed.clone();
+    let other = if seed == "0000000000000001" {
+        "0000000000000002"
+    } else {
+        "0000000000000001"
+    };
+    let changed = text.replacen(
+        &format!("\"sim_seed\":\"{seed}\""),
+        &format!("\"sim_seed\":\"{other}\""),
+        1,
+    );
+    match replay::verify(&changed, &root(), "x") {
+        Err(ReplayError::VersionMismatch { field, .. }) => assert_eq!(field, "sim_seed"),
+        other => panic!("expected a sim_seed rejection, got {other:?}"),
+    }
+    let not_header = text.replacen("\"type\":\"header\"", "\"type\":\"tick\"", 1);
+    assert!(matches!(
+        replay::verify(&not_header, &root(), "x"),
+        Err(ReplayError::Parse(1, _))
+    ));
+}
+
 // ----------------------------------------------------- scenarios, errors ---
 
 static SEVENTEEN: [EnemySpawn; 17] = [EnemySpawn {
@@ -453,4 +619,78 @@ fn csv_rows_match_their_headers() {
     assert_eq!(width(&episode_csv_row(&m)), width(EPISODE_CSV_HEADER));
     let a = AggregateMetrics::of("cp01_single_goblin", "development", "x", &[m]);
     assert_eq!(width(&aggregate_csv_row(&a)), width(AGGREGATE_CSV_HEADER));
+}
+
+#[test]
+fn a_donut_hit_never_marks_a_carl_move_instance_as_connected() {
+    use super::metrics::EpisodeCollector;
+    use crate::combat::{CombatEvent, MoveId};
+    let mut env = AutoplayEnv::new(AutoplayConfig::new("cp01_single_goblin"), &root()).unwrap();
+    env.reset(0).unwrap();
+    let obs = env.observe();
+    let action = ActionV1::new([0; 6]).unwrap();
+    let step = env.step(action).unwrap();
+    let mut collector = EpisodeCollector::new();
+    // Carl's jab is instance 7 and whiffs; Donut's swat hit carries the same
+    // instance number from its own counter.
+    let events = [
+        CombatEvent::MoveStarted {
+            tick: 1,
+            move_id: MoveId::Jab,
+            instance: 7,
+        },
+        CombatEvent::Hit {
+            tick: 2,
+            move_id: MoveId::Swat,
+            instance: 7,
+            target: 0,
+            damage: 0,
+            health_left: 3,
+            hit_stop: 0,
+        },
+    ];
+    collector.on_step(&obs, action, &step, &events);
+    let ctx = EpisodeContext {
+        episode: 1,
+        scenario: "cp01_single_goblin".into(),
+        split: "test".into(),
+        policy: "x".into(),
+        requested_seed: 0,
+        replay: None,
+        action_hash: 0,
+        required_enemies: 0,
+    };
+    let metrics = collector.finish(&env, ctx);
+    let jab = &metrics.heroes["carl"].moves["jab"];
+    assert_eq!(jab.attempts, 1);
+    assert_eq!(jab.connected, 0, "a Donut hit must not connect Carl's jab");
+    assert_eq!(jab.whiffs_derived, 1);
+    assert_eq!(metrics.hits_other_attribution, 1);
+}
+
+#[test]
+fn the_seed_range_line_survives_the_largest_seed() {
+    let out = scratch("seed-max");
+    let mut opts = options(out.clone(), ReplayMode::None);
+    opts.scenarios = resolve_scenarios("cp01_single_goblin").unwrap();
+    opts.policies = resolve_policies(bots::APPROACH_AND_ATTACK).unwrap();
+    opts.episodes = 2;
+    opts.base_seed = u64::MAX;
+    let summary = evaluate(&opts).unwrap();
+    assert!(
+        summary.text.contains("seeds 18446744073709551615..0"),
+        "{}",
+        summary.text
+    );
+    let _ = std::fs::remove_dir_all(out);
+}
+
+#[test]
+fn copies_of_one_trajectory_report_one_independent_episode() {
+    use super::metrics::AggregateMetrics;
+    let (m, _) = play("cp01_single_goblin", bots::APPROACH_AND_ATTACK, 0);
+    let a = AggregateMetrics::of("cp01_single_goblin", "development", "x", &[m.clone(), m]);
+    assert_eq!(a.episodes, 2);
+    assert_eq!(a.independent_episodes, 1);
+    assert_eq!(a.independent_episodes, a.distinct_trajectories);
 }
