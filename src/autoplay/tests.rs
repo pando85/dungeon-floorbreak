@@ -59,7 +59,7 @@ fn action_from_raw(raw: RawInput) -> ActionV1 {
 }
 
 /// A deterministic pseudo-random action stream (LCG), for isolation tests.
-fn action_stream(seed: u64, len: usize) -> Vec<ActionV1> {
+pub(super) fn action_stream(seed: u64, len: usize) -> Vec<ActionV1> {
     let mut state = seed;
     (0..len)
         .map(|_| {

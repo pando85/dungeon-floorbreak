@@ -1,6 +1,7 @@
 //! Versioned environment configuration (AP-Q05, AP-Q11, AP-Q12, AP-Q16).
 
 use super::error::AutoplayError;
+use super::reward::DEFAULT_REWARD_ID;
 
 /// ActionV1: `MultiDiscrete([3, 2, 2, 2, 2, 2])` (AP-Q03).
 pub const ACTION_VERSION_V1: u32 = 1;
@@ -33,6 +34,8 @@ pub struct AutoplayConfig {
     /// Ticks per `step` (1..=[`MAX_ACTION_REPEAT`]); buttons stay held across them.
     pub action_repeat: u32,
     pub action_version: u32,
+    /// Reward profile id (`sparse-v1` or `combat-v1`).
+    pub reward_id: String,
 }
 
 impl AutoplayConfig {
@@ -44,6 +47,7 @@ impl AutoplayConfig {
             max_ticks: DEFAULT_MAX_TICKS,
             action_repeat: 1,
             action_version: ACTION_VERSION_V1,
+            reward_id: DEFAULT_REWARD_ID.to_string(),
         }
     }
 

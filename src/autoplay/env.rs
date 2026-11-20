@@ -9,20 +9,16 @@ use crate::env_kit::EnvKit;
 
 use super::action::{ActionV1, UnavailableCounters};
 use super::config::AutoplayConfig;
+use super::diagnostics::{self, Diagnostics, EventCounts};
 use super::error::AutoplayError;
+use super::observation::{OBSERVATION_VERSION, ObsStats, ObservationV1, observe};
+use super::reward::{RewardBreakdown, RewardProfile, RewardTracker};
+use super::scenario;
 
 /// The corridor layout the Floor 01 fixtures run on (relative to the asset root).
 const CORRIDOR_LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
 /// Desktop view height, the one the headless fixture path uses.
 const VIEW_H: i32 = 360;
-
-/// Scenarios of this part and the `state_hash` of their fresh sim. A reset
-/// rebuilds the sim and fails loudly when it does not hash to this value
-/// (AP-Q11). The new `ap_*` scenarios arrive with part 2.
-const SCENARIOS: [(&str, u64); 2] = [
-    ("cp01_single_goblin", 0x707a_cdf0_0ae4_52b5),
-    ("cp02_two_goblins", 0xa820_6ad8_287d_62e4),
-];
 
 /// How an episode ended (AP-Q09). `Timeout` is the only truncation; the other
 /// three are terminal.
@@ -76,10 +72,12 @@ pub struct ResetInfo {
     pub event_cursor: usize,
     /// Number of hostiles that must be defeated for success.
     pub required_enemies: usize,
+    pub reward_id: String,
+    pub observation_version: u32,
 }
 
 /// The result of one `step` (one to `action_repeat` real ticks).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StepOutcome {
     /// Ticks executed by this call (less than `action_repeat` when the episode
     /// ended mid-bundle).
@@ -92,6 +90,8 @@ pub struct StepOutcome {
     pub simultaneous_clear: bool,
     /// Combat events of every executed tick of this call, in order.
     pub new_events: Vec<CombatEvent>,
+    /// The itemised reward of this call (AP-Q15); expose it in `info`.
+    pub reward: RewardBreakdown,
 }
 
 impl StepOutcome {
@@ -127,6 +127,8 @@ pub struct AutoplayEnv {
     events: Vec<CombatEvent>,
     defeated: BTreeSet<u32>,
     required: Vec<u32>,
+    reward: RewardTracker,
+    obs_stats: ObsStats,
 }
 
 impl AutoplayEnv {
@@ -134,8 +136,8 @@ impl AutoplayEnv {
     /// holding `assets/levels/floor01/`.
     pub fn new(config: AutoplayConfig, assets_root: &Path) -> Result<Self, AutoplayError> {
         config.validate()?;
-        let (fixture, initial_hash) = scenario(&config.scenario_id)?;
-        Self::build(config, assets_root, fixture, initial_hash)
+        let entry = scenario::lookup(&config.scenario_id)?;
+        Self::build(config, assets_root, entry.fixture, entry.initial_hash)
     }
 
     /// Parity probe: any fixture, no pinned initial hash (AP-Q18). Tests only.
@@ -157,10 +159,13 @@ impl AutoplayEnv {
         fixture: &'static Fixture,
         initial_hash: u64,
     ) -> Result<Self, AutoplayError> {
+        scenario::validate_fixture(fixture)?;
+        let profile = RewardProfile::by_id(&config.reward_id)?;
         let kit = EnvKit::load(assets_root, CORRIDOR_LAYOUT)
             .map_err(|e| AutoplayError::Sim(e.to_string()))?;
         let sim = FixtureSim::new(&kit, VIEW_H, fixture).map_err(AutoplayError::Sim)?;
-        let required = (0..fixture.enemies.len() as u32).collect();
+        let required: Vec<u32> = (0..fixture.enemies.len() as u32).collect();
+        let reward = RewardTracker::new(profile, &required);
         Ok(Self {
             config,
             kit,
@@ -174,6 +179,8 @@ impl AutoplayEnv {
             events: Vec::new(),
             defeated: BTreeSet::new(),
             required,
+            reward,
+            obs_stats: ObsStats::default(),
         })
     }
 
@@ -197,6 +204,9 @@ impl AutoplayEnv {
         self.unavailable = UnavailableCounters::default();
         self.events.clear();
         self.defeated.clear();
+        self.reward = RewardTracker::new(self.reward.profile().clone(), &self.required);
+        self.obs_stats = ObsStats::default();
+        self.record_observation();
         Ok(ResetInfo {
             scenario_id: self.config.scenario_id.clone(),
             requested_seed: seed,
@@ -209,6 +219,8 @@ impl AutoplayEnv {
             initial_hash: actual,
             event_cursor: drained,
             required_enemies: self.required.len(),
+            reward_id: self.reward.profile().id.clone(),
+            observation_version: OBSERVATION_VERSION,
         })
     }
 
@@ -240,12 +252,16 @@ impl AutoplayEnv {
         if let Some(outcome) = outcome {
             self.phase = Phase::Over(outcome);
         }
+        self.record_observation();
+        let new_events = self.events[first_new..].to_vec();
+        let reward = self.reward.step(&new_events, ticks_executed, outcome);
         Ok(StepOutcome {
             ticks_executed,
             tick: self.sim.combat.elapsed,
             outcome,
             simultaneous_clear,
-            new_events: self.events[first_new..].to_vec(),
+            new_events,
+            reward,
         })
     }
 
@@ -290,6 +306,42 @@ impl AutoplayEnv {
         (outcome, defeat && success)
     }
 
+    /// The policy input for the current state. Pure: it never advances or
+    /// mutates the env and carries nothing a player could not know.
+    pub fn observe(&self) -> ObservationV1 {
+        observe(&self.sim).0
+    }
+
+    /// Fold the current observation's counters into the episode totals. Called
+    /// once per `reset` and per `step`, never by `observe` itself.
+    fn record_observation(&mut self) {
+        let (_, stats) = observe(&self.sim);
+        self.obs_stats.add(stats);
+    }
+
+    /// Privileged diagnostics: everything the policy must not see. Separate
+    /// from `StepOutcome` and from `info` by design (AP-Q08).
+    pub fn diagnostics(&self) -> Diagnostics {
+        Diagnostics {
+            tick: self.sim.combat.elapsed,
+            state_hash: self.sim.state_hash(),
+            initial_hash: self.initial_hash,
+            events: self.events.clone(),
+            event_counts: EventCounts::from_events(&self.events),
+            carl: diagnostics::carl_diagnostics(&self.sim),
+            enemies: diagnostics::enemy_diagnostics(&self.sim),
+            defeated: self.defeated.iter().copied().collect(),
+            credited: self.reward.credited().iter().copied().collect(),
+            reward_total: self.reward.total(),
+            obs: self.obs_stats,
+        }
+    }
+
+    /// Return of the episode so far under the configured reward profile.
+    pub fn episode_return(&self) -> f64 {
+        self.reward.total()
+    }
+
     /// The wrapped sim, read-only (tests).
     #[cfg(test)]
     pub(crate) fn sim(&self) -> &FixtureSim {
@@ -326,18 +378,4 @@ impl AutoplayEnv {
     pub fn episode_events(&self) -> &[CombatEvent] {
         &self.events
     }
-}
-
-/// Resolve a v1 scenario id to its fixture and pinned initial hash.
-fn scenario(id: &str) -> Result<(&'static Fixture, u64), AutoplayError> {
-    let Some(&(_, hash)) = SCENARIOS.iter().find(|(name, _)| *name == id) else {
-        let supported: Vec<&str> = SCENARIOS.iter().map(|(name, _)| *name).collect();
-        return Err(AutoplayError::UnsupportedScenario(format!(
-            "{id} (supported: {})",
-            supported.join(", ")
-        )));
-    };
-    let fixture = Fixture::by_name(id)
-        .ok_or_else(|| AutoplayError::UnsupportedScenario(format!("{id} (no such fixture)")))?;
-    Ok((fixture, hash))
 }
