@@ -1,0 +1,18 @@
+runtime PREVIEW viewers-max high-contrast at 640x360 versus the part A mock composite
+mock: mock-composite-360-high-contrast-1x.png
+carl: 72 differing pixels in the viewer field (plate-relative x 80..158, y 3..14)
+  (105,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (106,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (107,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (111,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (112,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (113,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (117,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (118,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (119,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (122,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (126,5) runtime (244, 194, 74) mock (255, 194, 74)
+  (104,6) runtime (244, 194, 74) mock (255, 194, 74)
+  ... 60 more
+donut: 0 differing pixels in the viewer field (plate-relative x 80..158, y 3..14)
+total differing pixels: 72

@@ -28,6 +28,10 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 AMBER = (0xFF, 0xC2, 0x4A)
 TEXT_WHITE = (0xF4, 0xE6, 0xD2)
+# AUDIENCE-01: a spike turns the `text_white` digit masks amber by a GPU
+# multiply (src/hud_draw.rs TEXT_WHITE_TO_AMBER), which renders as this colour
+# (the mask red 244 cannot be raised). The code-drawn decimal dot uses it too.
+VIEWER_AMBER = (0xF4, 0xC2, 0x4A)
 
 
 def palette() -> set[tuple[int, int, int]]:
@@ -39,6 +43,7 @@ def palette() -> set[tuple[int, int, int]]:
         colours.add((number >> 16, number >> 8 & 0xFF, number & 0xFF))
     if len(colours) < 34:
         raise SystemExit(f"expected at least 34 HUD palette colours, found {len(colours)}")
+    colours.add(VIEWER_AMBER)
     return colours
 
 

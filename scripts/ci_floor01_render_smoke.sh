@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run inside xvfb-run with the target display resolution.
-# Usage: ci_floor01_render_smoke.sh desktop|desktop-720|deck|advanced|advanced-deck|nolight|nolight-advanced|reference|collision|live-lit|live-unlit|perf-lit|perf-unlit|anim-sequence|hud|hud-deck|boss|boss-deck
+# Usage: ci_floor01_render_smoke.sh desktop|desktop-720|deck|advanced|advanced-deck|nolight|nolight-advanced|reference|collision|live-lit|live-unlit|perf-lit|perf-unlit|anim-sequence|hud|hud-deck|boss|boss-deck|audience|audience-deck
 # desktop is the primary 1920x1080 (x3) capture; desktop-720 is 1280x720 (x2).
 set -euo pipefail
 mode="${1:-desktop}"
@@ -46,17 +46,19 @@ case "$mode" in
   hud-deck) suffix="hud-640x400"; expected="1280x800"; args=(--deck); frozen=0 ;;
   boss) suffix="boss-640x360"; expected="1280x720"; args=(); frozen=0 ;;
   boss-deck) suffix="boss-640x400"; expected="1280x800"; args=(--deck); frozen=0 ;;
+  audience) suffix="audience-640x360"; expected="1280x720"; args=(); frozen=0 ;;
+  audience-deck) suffix="audience-640x400"; expected="1280x800"; args=(--deck); frozen=0 ;;
   *) echo "Unknown capture mode: $mode" >&2; exit 2 ;;
 esac
-if [[ "$mode" == hud || "$mode" == hud-deck || "$mode" == boss || "$mode" == boss-deck ]]; then
+if [[ "$mode" == hud || "$mode" == hud-deck || "$mode" == boss || "$mode" == boss-deck || "$mode" == audience || "$mode" == audience-deck ]]; then
   # HUD-HYBRID-A-01 recipe: normal play, each preview fixture, real combat
   # states (a real HeroHurt flash, Carl at 1 HP with the cracked heart, two
   # real System notices) and the accessibility flags (HUD-DEBT-06), each a frozen capture of a deterministic state. Run inside
   # xvfb-run at the target resolution (1280x720 or 1280x800, scale 2).
   deck_flag=0
   deck_args=()
-  if [[ "$mode" == hud-deck || "$mode" == boss-deck ]]; then deck_flag=1; deck_args=(--deck); fi
-  prefix="hud"; [[ "$mode" == boss* ]] && prefix="boss"
+  if [[ "$mode" == hud-deck || "$mode" == boss-deck || "$mode" == audience-deck ]]; then deck_flag=1; deck_args=(--deck); fi
+  prefix="hud"; [[ "$mode" == boss* ]] && prefix="boss"; [[ "$mode" == audience* ]] && prefix="audience"
   hud_dir="artifacts/${prefix}"
   mkdir -p "$hud_dir"
   # name|preview (or '-')|driver args|extra HUD args
@@ -117,6 +119,42 @@ if [[ "$mode" == hud || "$mode" == hud-deck || "$mode" == boss || "$mode" == bos
       "pound-tell-high-contrast|-|--party-fixture boss01_pound_punish --capture-tick 40|--hud-high-contrast"
     )
   fi
+  # AUDIENCE-01 part C: the per-hero viewer readouts. PREVIEW states are the
+  # `--hud-preview viewers*` fixtures (values of the reference overlays in
+  # assets/references/hud/viewers-v1: 6.8K and 12.4K steady, 38.4K and 87.1K
+  # rising, falling, and the widest strings); REAL states run the QA probe
+  # (`--audience-probe`, spec F15: Floor 01 has no unlock) on a real fixture:
+  # a Donut pounce kill (her own count rises, Carl's does not), the shore
+  # block kill (a spectacular gain on Carl, a real 1800 award), the
+  # same run 840 ticks later (a real fall), and the authored test cue that
+  # crosses Carl's column in the corridor (the unexplained anticipation spike,
+  # both heroes), the boss crush with the boss strip, Donut's plate with her mana bar, plus the locked default
+  # for the same scene.
+  if [[ "$prefix" == audience ]]; then
+    walk="--scenario walk_right --capture-tick $advanced_ticks"
+    hud_states=(
+      "locked|-|$walk|"
+      "normal|viewers|$walk|"
+      "rising|viewers-rising|$walk|"
+      "falling|viewers-falling|$walk|"
+      "max|viewers-max|$walk|"
+      "normal-high-contrast|viewers|$walk|--hud-high-contrast"
+      "rising-high-contrast|viewers-rising|$walk|--hud-high-contrast"
+      "falling-high-contrast|viewers-falling|$walk|--hud-high-contrast"
+      "max-high-contrast|viewers-max|$walk|--hud-high-contrast"
+      "rising-reduced-motion|viewers-rising|$walk|--hud-reduced-motion"
+      "real-donut-kill|-|--party-fixture q10_pounce_hit --capture-tick 260|--audience-probe"
+      "real-spectacular|-|--fixture cp03_shore_kill --capture-tick 170|--audience-probe"
+      "real-spectacular-high-contrast|-|--fixture cp03_shore_kill --capture-tick 170|--audience-probe --hud-high-contrast"
+      "real-anticipation|-|--scenario walk_right --capture-tick 148|--audience-probe --audience-cue-x 300"
+      "real-anticipation-high-contrast|-|--scenario walk_right --capture-tick 148|--audience-probe --audience-cue-x 300 --hud-high-contrast"
+      "real-falling|-|--fixture cp03_shore_kill --capture-tick 1010|--audience-probe"
+      "real-falling-high-contrast|-|--fixture cp03_shore_kill --capture-tick 1010|--audience-probe --hud-high-contrast"
+      "real-boss|-|--party-fixture boss01_crush_kill --capture-tick 335|--audience-probe"
+      "real-post-mana|-|--party-fixture q10_mana_regen --capture-tick 60|--audience-probe"
+      "real-post-mana-high-contrast|-|--party-fixture q10_mana_regen --capture-tick 60|--audience-probe --hud-high-contrast"
+    )
+  fi
   for entry in "${hud_states[@]}"; do
     IFS='|' read -r name preview driver extra <<<"$entry"
     hud_flag=()
@@ -151,8 +189,8 @@ if [[ "$mode" == hud || "$mode" == hud-deck || "$mode" == boss || "$mode" == bos
     # The rendered simulation state equals the headless one, with or without
     # the fixture flag (a fixture never touches a replay).
     rendered_state="$(grep '^FLOOR1_SCENE_STATE' "${out}.log" | tail -n 1)"
-    plain_headless="$(./target/debug/floor01_scene --headless-floor01-smoke "${deck_args[@]}" ${driver} | grep -v '^FLOOR1_HEADLESS_OK')"
-    flag_headless="$(./target/debug/floor01_scene --headless-floor01-smoke "${deck_args[@]}" ${driver} ${extra} "${hud_flag[@]}" | grep -v '^FLOOR1_HEADLESS_OK')"
+    plain_headless="$(./target/debug/floor01_scene --headless-floor01-smoke "${deck_args[@]}" ${driver} | grep -v -e '^FLOOR1_HEADLESS_OK' -e '^AUDIENCE_STATE')"
+    flag_headless="$(./target/debug/floor01_scene --headless-floor01-smoke "${deck_args[@]}" ${driver} ${extra} "${hud_flag[@]}" | grep -v -e '^FLOOR1_HEADLESS_OK' -e '^AUDIENCE_STATE')"
     if [[ "$plain_headless" != "$flag_headless" ]]; then
       echo "HUD flags changed the headless replay of $name" >&2; exit 1
     fi

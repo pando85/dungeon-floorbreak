@@ -119,7 +119,9 @@ pub const fn hero_from_index(index: u32) -> Option<HeroId> {
 pub const fn credited_hero(cause: DefeatCause, instigator: Option<u32>) -> Option<HeroId> {
     let index = match cause {
         DefeatCause::Melee => instigator,
-        DefeatCause::ShoreBlock { player } | DefeatCause::ShoreBlockEdge { player } => Some(player),
+        DefeatCause::ShoreBlock { player }
+        | DefeatCause::ShoreBlockEdge { player }
+        | DefeatCause::DropHazard { player, .. } => Some(player),
         DefeatCause::Explosion { player, .. } => player,
     };
     match index {
@@ -818,6 +820,17 @@ mod tests {
             ),
             (DefeatCause::ShoreBlock { player: 9 }, None, None),
             (
+                DefeatCause::DropHazard { player: 1, rack: 2 },
+                Some(0),
+                Some(HeroId::Donut),
+            ),
+            (
+                DefeatCause::DropHazard { player: 0, rack: 0 },
+                None,
+                Some(HeroId::Carl),
+            ),
+            (DefeatCause::DropHazard { player: 7, rack: 0 }, None, None),
+            (
                 DefeatCause::Explosion {
                     charge: 0,
                     player: Some(1),
@@ -959,6 +972,68 @@ mod tests {
             }),
             Some(AudienceInput::Respawn)
         );
+    }
+
+    #[test]
+    fn the_boss_target_is_credited_like_any_other_target() {
+        use crate::boss::BOSS_ENEMY_ID;
+        // A falling plate rack (DropHazard) that finishes the boss credits the
+        // hero who dropped it, at the catastrophic tier.
+        let rack = CombatEvent::enemy_defeated(
+            9,
+            BOSS_ENEMY_ID,
+            DefeatCause::DropHazard { player: 1, rack: 1 },
+            Some(1),
+            None,
+        );
+        let input = AudienceInput::from_combat(&rack).expect("a defeat maps");
+        let mut s = unlocked();
+        s.step(&[input]);
+        assert_eq!(carl(&s), 250, "Carl did nothing");
+        assert_eq!(
+            donut(&s),
+            250 + TUNING.award_catastrophic + TUNING.award_environmental,
+            "an environmental defeat the actor set up is worth the bonus"
+        );
+        // A second defeat of the boss target in the same attempt pays nothing.
+        s.step(&[input]);
+        assert_eq!(
+            donut(&s),
+            250 + TUNING.award_catastrophic + TUNING.award_environmental
+        );
+        // A melee finish of the boss credits the finishing hero's index.
+        let mut s = unlocked();
+        let melee_finish = CombatEvent::enemy_defeated(
+            9,
+            BOSS_ENEMY_ID,
+            DefeatCause::Melee,
+            Some(0),
+            Some(&crate::combat::CARL_PUSH_KICK),
+        );
+        s.step(&[AudienceInput::from_combat(&melee_finish).unwrap()]);
+        assert_eq!(carl(&s), 250 + TUNING.award_heavy);
+        assert_eq!(donut(&s), 250);
+    }
+
+    #[test]
+    fn donut_kills_credit_hero_one_through_the_move_owner_never_hero_zero() {
+        use crate::combat::{MoveId, donut_move};
+        for id in [MoveId::Swat, MoveId::Pounce, MoveId::MagicMissile] {
+            assert_eq!(id.hero(), 1, "{id:?}");
+            let spec = donut_move(id).expect("a Donut move has a spec");
+            // How the scene logs a Donut kill: instigator = the move owner.
+            let kill =
+                CombatEvent::enemy_defeated(5, 3, DefeatCause::Melee, Some(id.hero()), Some(spec));
+            let input = AudienceInput::from_combat(&kill).expect("a defeat maps");
+            let mut s = unlocked();
+            s.step(&[input]);
+            assert_eq!(carl(&s), 250, "{id:?} must never credit hero 0");
+            assert!(donut(&s) > 250, "{id:?} credits Donut");
+        }
+        // Carl's own moves credit hero 0 and never Donut.
+        for id in [MoveId::Jab, MoveId::Haymaker, MoveId::PushKick] {
+            assert_eq!(id.hero(), 0, "{id:?}");
+        }
     }
 
     #[test]

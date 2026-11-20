@@ -1,6 +1,6 @@
 # AUDIENCE-01 — Individual live viewers in the Hybrid-A HUD
 
-**Status:** owner-approved direction; design contract amended by the 2026-11-19 top-tier review (see "Adopted design decisions"). The Bevy-free domain (part B) is implemented in `src/audience.rs`; the UI art (A) and HUD integration (C) are **not** done. Game feel pending.
+**Status:** owner-approved direction; design contract amended by the 2026-11-19 top-tier review (see "Adopted design decisions"). The UI art (part A), the Bevy-free domain (part B, `src/audience.rs`) and the HUD integration (part C) are implemented on PR #118; independent review and game feel are pending.
 **Authority:** `AGENTS.md`, `docs/02-art/hybrid-hud-a-design.md`, `docs/02-art/hybrid-hud-a-native-spec.md`, `docs/01-design/floor-01-gameplay-progression-v0.md`, `docs/01-design/character-progression-horizon.md`. Where this proposal conflicts with current gameplay/input/unlocks, those contracts prevail.
 
 ## Decision and scope
@@ -120,11 +120,13 @@ Open questions (not blocking): **AUD-Q1** the canonical unlock beat (candidate: 
 
 | Part | State |
 | --- | --- |
-| A, UI art (eye, arrows, digits `.grid.json`, atlas regions) | not started |
+| A, UI art (eye, arrows, digits `.grid.json`, atlas regions) | **done** (branch `art/audience-01`): 16 `viewer_*` atlas regions (47 frames in total), pixel-grid sources, mocks in `docs/evidence/audience-01/` |
 | **B, domain** `src/audience.rs` | **done** (branch `feat/audience-01-domain`): per-hero state, `AudienceInput` plain-data events mapped from `CombatEvent` (`AudienceInput::from_combat`), the DEATH-D causes (`credited_hero`) and the CINE feat (`ChainFeat`), unique-target awards and anti-farming, assist and environmental bonuses, authored `AnticipationCue` schema with `validate_cues`, fixed-step decay with the milli-remainder, trend up/down/flat with cooldown, display refresh and count-up, `format_count` (5 glyphs, `999M+` cap) and `text_ink_width`, `bounded_name`, snapshot restore on `Restart`, locked/unlocked, `digest`. Tuning is one table (`TUNING`), all hypotheses. Fixed-step unit tests cover every rule. Replay goldens unchanged. |
-| C, HUD integration | not started; waits for #120 and A (TODO below) |
+| **C, HUD integration** | **done** on PR #118 (details and evidence below); #120 and CINE-01 are merged |
 
-### Part C integration TODO
+### Part C integration (done)
+
+The list below was the part C TODO. Each item is implemented; the notes say where it differs from the plan.
 
 - `PlateView.audience: Option<AudienceView>` in `src/hud.rs`, filled by `HeroId::index()` (never by `Control`), `None` while locked. Add the adapter in `src/hud_adapter.rs` mapping `AudienceState::view` into it, using `AudienceView::display_count(reduced_motion)`.
 - Draw list in `src/hud_draw.rs` at the section 3.1 coordinates: eye, 5x7 digits via `format_count`, trend glyph (amber/`magenta_hi` up, `amber_dim`/`amber` in high contrast down); `FrameId::ALL` grows with part A's regions. Apply `bounded_name` with the real Jersey name width.
@@ -132,6 +134,16 @@ Open questions (not blocking): **AUD-Q1** the canonical unlock beat (candidate: 
 - Preview and QA: `--hud-preview viewers*` (presentation-only, PREVIEW tag) and an `audience-probe` fixture that unlocks at step 1 and prints `AUDIENCE_STATE`.
 - Tests: overlap and format tests at 640x360 and 640x400, a test that locked Floor 01 hashes and captures are unchanged.
 - Captures: locked, stable, spectacular, declining, anticipation, `viewers-max` (`999M+` on Carl, `99.9K` on Donut), boss and post-mana combinations at 360 and 400, 1x and 3x, with high contrast and reduced motion, compared with `docs/evidence/hud-hybrid-a/`.
+
+### Part C as built
+
+- **Model:** `PlateView.audience: Option<AudienceView>` (`src/hud.rs`), indexed by `HeroId::index()`, `None` while locked; `RealHudInputs.audience` is filled by `HudRuntime` from `AudienceState::view`. Drawing uses `AudienceView::display_count(reduced_motion)`. There is no `hud_adapter` mapping layer: the draw list (`src/hud_draw.rs`, `viewer_readout`) places `FrameId` frames, and `FrameId::ALL` grew from 31 to 47.
+- **Where the state lives:** in `HudRuntime`, as an observer beside the notice queue (not in `CombatState`, not in a hash). It reads the events through the HUD's own `EventCursor`, so there is no second `take_new_events`. `print_combat_events` returns the CINE moments as `ChainFeat`, which `fixed_step` forwards (`push_chain_feat`); `step_hud` reports both heroes' x for authored cues. It steps once per fixed tick, only while unlocked.
+- **Mapping:** `AudienceInput::from_combat` covers `EnemyDefeated` (melee, `ShoreBlock`, `ShoreBlockEdge`, `Explosion`, `DropHazard`, including the boss target), `Restart` and `Respawn`. Donut's swat, pounce and Magic Missile kills already log `instigator = Some(MoveId::hero()) = Some(1)` (`src/combat_scene/donut.rs`), so they credit hero 1 and never hero 0; unit tests pin it. `credited_hero` gained its `DropHazard` arm.
+- **Preview and QA:** `--hud-preview viewers | viewers-rising | viewers-falling | viewers-max` (presentation only, they keep the real plates) and `--audience-probe [--audience-cue-x x]` (unlock at step 1, both at 250, one authored cue, `AUDIENCE_STATE` line). Floor 01 stays locked (F15).
+- **Colours (deviation from the part A note):** the amber spike number is the `text_white` mask times a GPU tint, which renders (244,194,74) rather than `amber` (255,194,74): the mask red 244 cannot be raised. The code-drawn dot uses the rendered colour so it matches. The down arrow's tint is tuned so `amber_dim` is exact (168,116,42); the older warning-icon tint lands 2 to 4 levels low on this art. `scripts/check_hud_capture.py` allows only the amber rendered colour and still proves flat 2x2 blocks. The pixel comparison against the part A mocks (`docs/evidence/audience-01/compare-mock-*.txt`) differs only in those red values on Carl's amber number.
+- **Evidence:** [`docs/evidence/audience-01`](../evidence/audience-01/README.md).
+- **Not done (unchanged):** the in-game unlock beat (AUD-Q1), authored Floor 01 cues, persistence, stage-end ranking. Anticipation is shown in captures only through the QA cue; it uses the same cue as a spectacular gain, as designed.
 
 ## Rights and provenance
 

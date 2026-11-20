@@ -106,7 +106,7 @@ How the adapter follows the points of the mana list: `DonutMana::step` runs on e
 
 **Deviations:**
 
-- The Guild room does not exist, so the zone is a **placeholder x range** of the layout: `donut_fixtures::GUILD_PLACEHOLDER_ZONE` (520 to 560) in the corridor and `demo::GUILD_PLACEHOLDER_ZONE` (1040 to 1080) in the demo hall. The boss arena and `--donut-biscuit` start unlocked with a full pool.
+- The Guild room does not exist, so the zone is a **placeholder x range** of the layout: `donut_fixtures::GUILD_PLACEHOLDER_ZONE` (520 to 560) in the corridor. The DEMO-01 demo hall has no zone and stays locked (`DonutSetup::NONE`; its documented premise is "without the Guild or Donut's magic"). The boss arena and `--donut-biscuit` start unlocked with a full pool.
 - The 24 tick HUD reveal at unlock is not drawn (presentation only; follow-up).
 - The replay header does not carry `TUNING_HASH` yet: the fixtures load the pinned file (`ManaTuning::pinned`), so a tuning edit fails the load.
 - The regen-progress row and Alternative B (`empty_press: "swat"`) stay deferred, as adopted.

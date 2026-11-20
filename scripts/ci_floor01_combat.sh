@@ -198,6 +198,55 @@ case "$mode" in
       fi
       echo "DONUT_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/donut_${f}.txt")"
     done
+    # AUDIENCE-01 part C: the per-hero viewer observer and the viewer HUD
+    # previews are presentation only. Each probe run (the QA unlock) and each
+    # `--hud-preview viewers*` run must replay the plain run's events and
+    # state lines (the legacy hashes and goldens are never touched), and the
+    # AUDIENCE_STATE digests (a Donut kill credited to hero 1, the boss rack,
+    # a shore block, a launched kill, the demo route) must be deterministic
+    # and equal the committed ones. Floor 01 itself never unlocks the
+    # audience, so the plain runs above print no AUDIENCE_STATE line.
+    committed_audience=docs/evidence/audience-01
+    audience_probes=(
+      "cp03_shore_kill|--fixture cp03_shore_kill"
+      "cp01_kick|--fixture cp01_kick"
+      "q10_pounce_hit|--party-fixture q10_pounce_hit"
+      "boss01_crush_kill|--party-fixture boss01_crush_kill"
+      "demo01_b3|--demo --autopilot --demo-beat 3 --capture-tick 600"
+    )
+    : > "$out/audience_probe.txt"
+    for entry in "${audience_probes[@]}"; do
+      IFS='|' read -r name driver <<<"$entry"
+      plain="$("$bin" --headless-floor01-smoke $driver | party_lines)"
+      if grep -q AUDIENCE_STATE <("$bin" --headless-floor01-smoke $driver); then
+        echo "a plain run of $name printed AUDIENCE_STATE (the audience must stay locked)" >&2
+        exit 1
+      fi
+      probed="$("$bin" --headless-floor01-smoke $driver --audience-probe)"
+      again="$("$bin" --headless-floor01-smoke $driver --audience-probe)"
+      if [[ "$probed" != "$again" ]]; then
+        echo "the audience probe of $name is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if [[ "$(party_lines <<<"$probed")" != "$plain" ]]; then
+        echo "--audience-probe changed the replay of $name" >&2
+        exit 1
+      fi
+      for preview in viewers viewers-rising viewers-falling viewers-max; do
+        previewed="$("$bin" --headless-floor01-smoke $driver --hud-preview "$preview" | party_lines)"
+        if [[ "$previewed" != "$plain" ]]; then
+          echo "--hud-preview $preview changed the replay of $name" >&2
+          exit 1
+        fi
+      done
+      echo "# $name: $driver" >> "$out/audience_probe.txt"
+      grep '^AUDIENCE_STATE' <<<"$probed" >> "$out/audience_probe.txt"
+      echo "AUDIENCE_HEADLESS_OK: $name $(grep '^AUDIENCE_STATE' <<<"$probed")"
+    done
+    if ! diff "$committed_audience/headless_audience_probe.txt" "$out/audience_probe.txt"; then
+      echo "the audience probe digests differ from the committed ones ($committed_audience)" >&2
+      exit 1
+    fi
     # DEMO-01 PR C: the presentation camera never feeds the simulation. On the
     # tall camera test room, every --camera (the scroll camera, the automatic one
     # with a synthetic foe that takes aim, and the fixed coverages) replays the
