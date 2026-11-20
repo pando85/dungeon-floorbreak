@@ -298,6 +298,19 @@ class _FullSet:
         digest = hashlib.sha256(json.dumps(original, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         self.assertEqual(digest, "cba8628242b457cc03abc05545a4de7ea1b17bde1448c3787f4e77821a79afb2")
 
+    def test_key_25_differs_from_the_opus_original_by_exactly_the_pinhole_fix(self) -> None:
+        """The second deliberate edit of a frozen key (follow-up of the PR #148 review, GOB-01 spec section 13):
+        the body pixel (19, 43) is K, closing a 1 px pinhole ringed by outline. Reverting it restores the original."""
+        cels = json.loads(FIXTURE.read_text(encoding="utf-8"))["keys"]["25"]
+        body = list(cels["body"])
+        self.assertEqual(body[43][19], "K")
+        for nx, ny in ((18, 43), (20, 43), (19, 42), (19, 44)):
+            self.assertEqual(body[ny][nx], "K", (nx, ny))         # the ring that made it a pinhole
+        body[43] = body[43][:19] + "." + body[43][20:]
+        original = {"body": body, "weapon": cels["weapon"], "accessory": cels["accessory"]}
+        digest = hashlib.sha256(json.dumps(original, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        self.assertEqual(digest, "cdc3503d541f968fb3d4d8f35c2e20e07f32a9bbf7d8e46959539921a18407d8")
+
     def test_sources_match_the_generator(self) -> None:
         v = self.variant.upper()
         self.assertEqual((GOBLIN / f"goblin_{self.variant}_h36.grid.json").read_text(encoding="utf-8"),

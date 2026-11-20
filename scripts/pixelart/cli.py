@@ -52,6 +52,20 @@ def cmd_validate(a) -> int:
     return 0 if report["passed"] else 1
 
 
+def cmd_holes(a) -> int:
+    found = validators.scan_holes([Path(x) for x in a.grids], a.connectivity)
+    total = sum(len(v) for v in found.values())
+    for grid_path, pockets in found.items():
+        pinholes = sum(1 for _, pocket in pockets if len(pocket) == 1)
+        frames = len({f for f, _ in pockets})
+        print(f"{grid_path}: {len(pockets)} unallowed pockets ({pinholes} one-pixel) in {frames} frame(s)")
+        if a.detail:
+            for frame, pocket in pockets:
+                print(f"    {validators.describe_hole(frame, pocket)}")
+    print(f"holes: {total} unallowed pocket(s) in {len(found)} grid(s) (connectivity {a.connectivity}; allowlist {validators.HOLE_ALLOWLIST})")
+    return 1 if found else 0
+
+
 def cmd_evidence(a) -> int:
     cfg = load_config(a.config)
     files = evidence.build_evidence(cfg, out_dir(a.out, cfg, "evidence"))
@@ -131,6 +145,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", help="directory for validator_report.json and validator_summary.txt")
     s.add_argument("--json", action="store_true", help="print the JSON report instead of the summary")
     s.set_defaults(fn=cmd_validate)
+
+    s = sub.add_parser("holes", help="scan grids for enclosed transparent pockets (V17), allowlist applied")
+    s.add_argument("grids", nargs="*", help=".grid.json files (default: every committed assets/source grid)")
+    s.add_argument("--connectivity", type=int, choices=validators.HOLE_CONNECTIVITY, default=4)
+    s.add_argument("--detail", action="store_true", help="list every pocket with its pixels")
+    s.set_defaults(fn=cmd_holes)
 
     s = sub.add_parser("evidence", help="GIFs, contact sheets, strip, lit scenes and SHA256SUMS")
     s.add_argument("config")

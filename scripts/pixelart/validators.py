@@ -25,17 +25,26 @@ V13   bounding boxes          ``rules.bbox`` (per-frame top/bottom/left/right/wi
 V14   key counts              ``rules.key_counts`` (pixels of a palette key per frame)
 V15   non-empty frames        every frame has at least one opaque pixel
 V16   foot drift              ``rules.foot_drift`` (planted feet of loop tags, seam included)
+V17   enclosed holes          ``rules.holes`` (transparent pixels a flood fill from the frame border cannot reach)
 ====  ======================  ===================================================================
+
+V17 flags pinholes and slits: transparent pixels ringed by opaque ones, which no fill from the frame border
+reaches. ``rules.holes`` is ``true`` or ``{"connectivity": 4 | 8}``. With 4 (the default) the fill moves along rows
+and columns only, so a pocket whose sole exit is a diagonal still counts as enclosed (that is the visible speck of a
+sprite at 1x). With 8 only fully sealed pockets count. Intended holes (the gap between an arm and the body, a hem gap
+between the legs) go on the allowlist ``assets/source/pixel_hole_allowlist.json`` (``pixelart-hole-allowlist-v1``),
+keyed by the grid path, with a reason each. ``python3 -m scripts.pixelart holes`` scans every committed grid.
 """
 from __future__ import annotations
 
 import math
 import hashlib
 import json
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import ToolkitError, load_json, pg, repo_path
+from .common import ToolkitError, load_json, pg, rel, repo_path
 from .config import AssetConfig
 
 MAX_LISTED = 12
@@ -407,6 +416,121 @@ def v15_nonempty(c: Context) -> list[str]:
     return [f"frame {n} is empty" for n, b in enumerate(c.boxes) if b is None]
 
 
+# ------------------------------------------------------------------ V17 enclosed holes
+
+HOLE_ALLOWLIST = "assets/source/pixel_hole_allowlist.json"
+HOLE_ALLOWLIST_FORMAT = "pixelart-hole-allowlist-v1"
+HOLE_CONNECTIVITY = (4, 8)
+
+
+def find_holes(flat: list[list[str]], connectivity: int = 4, transparent: frozenset | set = frozenset(".")) -> list[list[tuple[int, int]]]:
+    """Enclosed transparent pockets of one flattened frame, each a sorted list of ``(x, y)``.
+
+    A flood fill from every transparent pixel on the frame border marks the open background; every transparent
+    pixel it does not reach belongs to a pocket (connected components of the rest, same connectivity).
+    """
+    if connectivity not in HOLE_CONNECTIVITY:
+        raise ToolkitError(f"holes connectivity must be one of {HOLE_CONNECTIVITY}, got {connectivity!r}")
+    h = len(flat)
+    w = len(flat[0]) if h else 0
+    steps = [(1, 0), (-1, 0), (0, 1), (0, -1)] + ([(1, 1), (1, -1), (-1, 1), (-1, -1)] if connectivity == 8 else [])
+    seen = [[False] * w for _ in range(h)]
+
+    def fill(starts: list[tuple[int, int]]) -> list[tuple[int, int]]:
+        queue = deque(starts)
+        for x, y in starts:
+            seen[y][x] = True
+        cells = []
+        while queue:
+            x, y = queue.popleft()
+            cells.append((x, y))
+            for dx, dy in steps:
+                a, b = x + dx, y + dy
+                if 0 <= a < w and 0 <= b < h and not seen[b][a] and flat[b][a] in transparent:
+                    seen[b][a] = True
+                    queue.append((a, b))
+        return cells
+
+    fill([(x, y) for y in range(h) for x in range(w) if (x in (0, w - 1) or y in (0, h - 1)) and flat[y][x] in transparent])
+    return [sorted(fill([(x, y)])) for y in range(h) for x in range(w) if flat[y][x] in transparent and not seen[y][x]]
+
+
+def transparent_keys(grid: dict) -> set[str]:
+    """``.`` plus every palette key whose alpha is 0."""
+    return {pg.TRANSPARENT} | {p["key"] for p in grid["palette"] if pg.parse_rgba(p["rgba"])[3] == 0}
+
+
+def load_hole_allowlist() -> dict:
+    """``{grid path: [entry, ...]}`` from the shared allowlist file (empty when the file is absent)."""
+    path = repo_path(HOLE_ALLOWLIST)
+    if not path.is_file():
+        return {}
+    return parse_hole_allowlist(load_json(path))
+
+
+def parse_hole_allowlist(data: dict) -> dict:
+    """Check the allowlist document (format, a reason per entry, pixels or waive) and return ``{grid path: entries}``."""
+    if data.get("format") != HOLE_ALLOWLIST_FORMAT:
+        raise ToolkitError(f"{HOLE_ALLOWLIST}: format must be {HOLE_ALLOWLIST_FORMAT!r}")
+    out: dict = {}
+    for grid_path, entries in data.get("grids", {}).items():
+        for entry in entries:
+            if not str(entry.get("reason", "")).strip():
+                raise ToolkitError(f"{HOLE_ALLOWLIST}: every entry of {grid_path} needs a reason")
+            if not entry.get("waive") and not entry.get("pixels"):
+                raise ToolkitError(f"{HOLE_ALLOWLIST}: an entry of {grid_path} needs pixels or waive")
+        out[grid_path] = entries
+    return out
+
+
+def _entry_covers(entry: dict, frame: int, pocket: list[tuple[int, int]]) -> bool:
+    frames = entry.get("frames", "all")
+    if frames != "all" and frame not in frames:
+        return False
+    if entry.get("waive"):
+        return True
+    return set(pocket) <= {tuple(p) for p in entry["pixels"]}
+
+
+def unallowed_holes(grid: dict, entries: list[dict], connectivity: int = 4) -> list[tuple[int, list[tuple[int, int]]]]:
+    """``(frame, pocket)`` for every enclosed pocket that no allowlist entry covers entirely."""
+    transparent = transparent_keys(grid)
+    out = []
+    for i in range(len(grid["frames"])):
+        for pocket in find_holes(pg.composite_keys(grid, i), connectivity, transparent):
+            if not any(_entry_covers(e, i, pocket) for e in entries):
+                out.append((i, pocket))
+    return out
+
+
+def describe_hole(frame: int, pocket: list[tuple[int, int]]) -> str:
+    cells = ", ".join(f"({x},{y})" for x, y in pocket[:6]) + (f" ... {len(pocket)} px" if len(pocket) > 6 else "")
+    return f"frame {frame}: enclosed {'pinhole' if len(pocket) == 1 else 'pocket'} {cells}"
+
+
+def scan_holes(paths: list[Path] | None = None, connectivity: int = 4) -> dict:
+    """Enclosed pockets of every committed ``assets/source/**/*.grid.json`` (or of the given grids), allowlist applied.
+
+    Returns ``{grid path: [(frame, pocket), ...]}`` listing only the grids with at least one unallowed pocket.
+    """
+    allow = load_hole_allowlist()
+    grids = sorted(paths if paths else repo_path("assets/source").rglob("*.grid.json"))
+    out: dict = {}
+    for path in grids:
+        key = rel(Path(path))
+        found = unallowed_holes(pg.load_grid(Path(path)), allow.get(key, []), connectivity)
+        if found:
+            out[key] = found
+    return out
+
+
+def v17_holes(c: Context) -> list[str]:
+    spec = c.cfg.rules["holes"]
+    spec = spec if isinstance(spec, dict) else {}
+    entries = list(spec.get("allow", [])) + list(load_hole_allowlist().get(c.cfg.data.get("grid", ""), []))
+    return [describe_hole(i, pocket) for i, pocket in unallowed_holes(c.grid, entries, int(spec.get("connectivity", 4)))]
+
+
 # (id, name, function, config path that enables it, or None for always-on)
 RULES = [
     ("V01", "structure", v01_structure, None),
@@ -425,6 +549,7 @@ RULES = [
     ("V14", "key counts", v14_key_counts, "key_counts"),
     ("V15", "non-empty frames", v15_nonempty, None),
     ("V16", "foot drift (loop seam)", v16_foot_drift, "foot_drift"),
+    ("V17", "enclosed holes", v17_holes, "holes"),
 ]
 
 
