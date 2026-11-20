@@ -36,6 +36,8 @@ pub struct LoadedSession {
     pub chunks: Vec<ChunkInfo>,
     /// The session did not finish cleanly; the valid complete prefix is kept.
     pub recovered: bool,
+    /// A writer holds the session right now: it is recording, not crashed.
+    pub live: bool,
     /// Unparseable trailing lines dropped by the recovery.
     pub partial_lines_dropped: usize,
     pub gaps: Vec<TickGap>,
@@ -254,12 +256,14 @@ pub fn read_session(dir: &Path, allow_gaps: bool) -> Result<LoadedSession, Playt
         manifest.last_tick = ticks.last().map(|t| t.t);
         manifest.capture_complete = false;
     }
+    let live = crashed && session_is_live(dir);
     Ok(LoadedSession {
         manifest,
         control,
         ticks,
         chunks,
         recovered,
+        live,
         partial_lines_dropped: dropped,
         gaps,
     })
@@ -301,6 +305,9 @@ pub fn recover_session(dir: &Path) -> Result<SessionManifest, PlaytraceError> {
     let raw = read_manifest(dir)?;
     if raw.status != SessionStatus::Recording {
         return Ok(raw);
+    }
+    if session_is_live(dir) {
+        return Err(PlaytraceError::SessionLive);
     }
     let loaded = read_session(dir, true)?;
     // Rewrite the control file and the last chunk to their valid prefixes.
@@ -380,6 +387,22 @@ fn chunk_range(_ticks: &[TickRecord], chunks: &[ChunkInfo], index: usize) -> (us
             .find(|c| c.index == index)
             .map_or(0, |c| c.ticks);
     (first, last)
+}
+
+/// True while a writer holds the session (it is being recorded): the writer
+/// keeps an exclusive lock on `control.jsonl`. A crashed writer holds nothing.
+pub fn session_is_live(dir: &Path) -> bool {
+    let Ok(file) = std::fs::File::open(dir.join(CONTROL)) else {
+        return false;
+    };
+    match file.try_lock_shared() {
+        Ok(()) => {
+            let _ = file.unlock();
+            false
+        }
+        Err(std::fs::TryLockError::WouldBlock) => true,
+        Err(_) => false,
+    }
 }
 
 /// Every session below `base` that has a readable manifest, oldest id first.

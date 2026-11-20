@@ -66,9 +66,13 @@ fn run(args: &[String]) -> Result<(), String> {
                 sessions.len(),
                 dir_size_bytes(&base)
             );
-            for (_, m) in sessions {
+            for (path, m) in sessions {
                 let status = if m.status == SessionStatus::Recording {
-                    "Recording(unfinished: running or crashed; inspect or recover)".to_owned()
+                    if playtrace::session_is_live(&path) {
+                        "Recording(live)".to_owned()
+                    } else {
+                        "Recording(unfinished: crashed; recover it)".to_owned()
+                    }
                 } else {
                     status_name(m.status)
                 };
@@ -140,7 +144,9 @@ fn run(args: &[String]) -> Result<(), String> {
                 "  replay_verified={} training_eligible={} observation_is_partial={}",
                 m.replay_verified, m.training_eligible, m.observation_is_partial
             );
-            if loaded.recovered {
+            if loaded.live {
+                println!("  live: a writer holds this session (it is being recorded)");
+            } else if loaded.recovered {
                 println!(
                     "  recovered: a crashed session (partial lines dropped {})",
                     loaded.partial_lines_dropped
@@ -163,6 +169,12 @@ fn run(args: &[String]) -> Result<(), String> {
         "delete" => {
             let base = base_dir(args)?;
             let path = resolve(&base, id.ok_or("delete needs a session id")?)?;
+            if playtrace::session_is_live(&path) {
+                return Err(
+                    "the session is still being recorded (locked): refusing to delete it"
+                        .to_owned(),
+                );
+            }
             if !args.iter().any(|a| a == "--yes") {
                 return Err("delete removes the session directory: add --yes to confirm".to_owned());
             }

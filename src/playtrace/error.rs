@@ -32,6 +32,8 @@ pub enum PlaytraceError {
     TickGap { from: u64, to: u64 },
     /// The manifest of a finished session disagrees with the chunks.
     ManifestMismatch(String),
+    /// A writer still holds the session (it is recording): refuse to touch it.
+    SessionLive,
     /// The writer was already finished.
     Finished,
     /// The session directory already exists.
@@ -56,6 +58,7 @@ impl fmt::Display for PlaytraceError {
             }
             Self::TickGap { from, to } => write!(f, "ticks {from}..{to} are missing"),
             Self::ManifestMismatch(why) => write!(f, "manifest disagrees with chunks: {why}"),
+            Self::SessionLive => write!(f, "the session is still being recorded (locked)"),
             Self::Finished => write!(f, "session writer already finished"),
             Self::Exists(_) => write!(f, "session directory already exists"),
         }

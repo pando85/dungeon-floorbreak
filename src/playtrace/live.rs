@@ -87,6 +87,9 @@ pub struct LiveRecorder {
     messages: Vec<String>,
     reported_incomplete: bool,
     ticks: u64,
+    /// The slot inputs come from a script or autopilot (a forced `--record`
+    /// of a scripted run), so they are labelled `scripted_bot`.
+    scripted: bool,
 }
 
 fn state_hash(sim: &SceneSim, combat: Option<&CombatState>) -> u64 {
@@ -109,8 +112,16 @@ fn party_hash(party: &PartyState) -> u64 {
     hash
 }
 
-fn source_of(party: &PartyState, hero: HeroId, drive: &PartyDrive) -> ControlSource {
+fn source_of(
+    party: &PartyState,
+    hero: HeroId,
+    drive: &PartyDrive,
+    scripted: bool,
+) -> ControlSource {
     match party.hero_control(hero) {
+        // A forced `--record` of a scripted run: the slot inputs come from a
+        // script or the autopilot, never from a person (F-3).
+        HeroControl::Player(_) if scripted => ControlSource::ScriptedBot,
         HeroControl::Player(PlayerSlot::P1) => ControlSource::HumanP1,
         HeroControl::Player(PlayerSlot::P2) => ControlSource::HumanP2,
         HeroControl::Uncontrolled if drive.is_bot(hero) => ControlSource::ScriptedBot,
@@ -146,12 +157,14 @@ pub fn build_identity() -> (String, bool) {
 impl LiveRecorder {
     /// Start a session before the first simulated tick: create the directory,
     /// write the manifest and open episode 0. `Err` means nothing is being
-    /// recorded; the caller says so out loud and the game runs on.
+    /// recorded; the caller says so out loud and the game runs on. `scripted`
+    /// labels the slot inputs `scripted_bot` instead of `human_p1`/`human_p2`.
     pub fn start(
         base: &Path,
         manifest: SessionManifest,
         combat: Option<&CombatState>,
         party: &PartyState,
+        scripted: bool,
     ) -> Result<Self, PlaytraceError> {
         let session_id = manifest.session_id.clone();
         let mut writer = SessionWriter::create(base, manifest)?;
@@ -161,10 +174,9 @@ impl LiveRecorder {
             reason: EpisodeReason::Start,
             stage,
         })?;
-        let messages = vec![format!(
-            "PLAYTRACE_REC session={session_id} dir={}",
-            writer.dir().display()
-        )];
+        // No path: the caller adds a data-dir-relative location (no home path
+        // in console logs that get pasted into evidence).
+        let messages = vec![format!("PLAYTRACE_REC session={session_id}")];
         Ok(Self {
             writer,
             session_id,
@@ -180,6 +192,7 @@ impl LiveRecorder {
             messages,
             reported_incomplete: false,
             ticks: 0,
+            scripted,
         })
     }
 
@@ -326,8 +339,8 @@ impl LiveRecorder {
             slots,
             hero,
             src: [
-                source_of(party, HeroId::Carl, &drive),
-                source_of(party, HeroId::Donut, &drive),
+                source_of(party, HeroId::Carl, &drive, self.scripted),
+                source_of(party, HeroId::Donut, &drive, self.scripted),
             ],
             stage: self.stage,
         });
@@ -400,9 +413,15 @@ impl LiveRecorder {
                 self.new_episode(EpisodeReason::PartyDefeatRestart, "party_defeat", stage);
                 self.snap = PartySnap::of(party);
             } else if respawned {
+                // The step respawned Carl itself (demo defeat): an episode
+                // boundary only. A control event would make a replay respawn
+                // a second time.
                 let stage = combat.checkpoint as u32;
-                self.control(ControlEvent::DemoRespawn);
-                self.new_episode(EpisodeReason::DemoRespawn, "demo_respawn", stage);
+                self.new_episode(
+                    EpisodeReason::DemoDefeatRespawn,
+                    "demo_defeat_respawn",
+                    stage,
+                );
                 self.snap = PartySnap::of(party);
             } else if combat.checkpoint as u32 > self.stage {
                 self.stage = combat.checkpoint as u32;

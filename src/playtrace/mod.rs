@@ -62,7 +62,10 @@ pub use manifest::{
     ChunkChecksum, Participants, ResetDescriptor, RunKind, SessionManifest, SessionStatus,
     generate_session_id,
 };
-pub use reader::{ChunkInfo, LoadedSession, TickGap, list_sessions, read_session, recover_session};
+pub use reader::{
+    ChunkInfo, LoadedSession, TickGap, list_sessions, read_session, recover_session,
+    session_is_live,
+};
 pub use storage::{WARN_BYTES, default_record_dir, dir_size_bytes};
 pub use writer::{SessionWriter, WriterHealth};
 

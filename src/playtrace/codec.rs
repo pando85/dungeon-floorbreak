@@ -93,9 +93,12 @@ pub enum ControlSource {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventRecord {
     pub i: u64,
-    /// The variant name.
+    /// The variant name. Build-scoped and diagnostic only (PTI-02): a rename
+    /// changes it without a schema bump. The authoritative event identity is
+    /// the typed rolling hash `eh`; never parse `k` or `d` in an exporter.
     pub k: String,
-    /// The full `Debug` text (exact payload; a typed schema is future work).
+    /// The full `Debug` text (exact within one build; a typed schema is future
+    /// work, required before PT-D).
     pub d: String,
 }
 
@@ -151,7 +154,11 @@ pub enum EpisodeReason {
     Start,
     Restart,
     PartyDefeatRestart,
+    /// A Select-tap respawn (also recorded as a `demo_respawn` control event).
     DemoRespawn,
+    /// The demo's own respawn after Carl's defeat, performed inside the step:
+    /// the re-derived step does it again, so there is no control event.
+    DemoDefeatRespawn,
 }
 
 /// The authoritative boundary that starts an episode.
@@ -164,6 +171,15 @@ pub struct EpisodeBoundary {
 
 /// Lifecycle and control events that exist on main today. Future events
 /// (pause menu, `config_change`, unlocks, companion commands) are not invented.
+///
+/// **Replay inputs** (a verifier must apply them before the tick `at_t`):
+/// `restart` (a manual restart outside the step), `demo_respawn` (a Select-tap
+/// respawn outside the step) and `drive_change`. Everything else is
+/// informational: `episode_*`, `solo_swap`, `party_*`, `pad_*`, `d6_pause_*`,
+/// `demo_checkpoint_advance`, `exit`, `app_quit`. Restarts and respawns that
+/// the step performs itself (party defeat, demo defeat) are never control
+/// events, only episode boundaries (`party_defeat_restart`,
+/// `demo_defeat_respawn`), so a replay never applies them twice.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "k", rename_all = "snake_case")]
 pub enum ControlEvent {

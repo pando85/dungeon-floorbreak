@@ -16,7 +16,7 @@ use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::env_kit::EnvKit;
 use crate::input::{RawInput, SlotInputs};
-use crate::party::{HeroId, PadId, PartyDrive};
+use crate::party::{HeroId, PadId, PartyDrive, PartyState};
 use crate::party_scene::{PARTY_FIXTURES, PartyFixture, PartyFixtureSim, party_hash};
 
 const LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
@@ -78,7 +78,7 @@ impl Rig {
         let sim = PartyFixtureSim::new(&kit(), 360, fixture).unwrap();
         let rec = base.map(|base| {
             let manifest = manifest_for(fixture, &sim.scene, &sim.combat);
-            LiveRecorder::start(base, manifest, Some(&sim.combat), &sim.party).unwrap()
+            LiveRecorder::start(base, manifest, Some(&sim.combat), &sim.party, false).unwrap()
         });
         Self {
             sim,
@@ -158,11 +158,20 @@ impl Rig {
 fn replay_session(dir: &Path) -> Result<u64, String> {
     let loaded = read_session(dir, false).map_err(|e| e.to_string())?;
     let reset = &loaded.manifest.reset;
-    assert_eq!(reset.source, "party_fixture");
-    let fixture = find_party_fixture(&reset.name).ok_or("unknown fixture")?;
-    let mut sim =
-        PartyFixtureSim::new(&kit(), reset.view_height, fixture).map_err(|e| e.to_string())?;
-    if sim.combat.state_hash(&sim.scene) != reset.start_hash {
+    let (mut scene, mut combat, tuning) = match reset.source.as_str() {
+        "party_fixture" => {
+            let fixture = find_party_fixture(&reset.name).ok_or("unknown fixture")?;
+            let sim = PartyFixtureSim::new(&kit(), reset.view_height, fixture)
+                .map_err(|e| e.to_string())?;
+            (sim.scene, sim.combat, fixture.tuning)
+        }
+        "demo" => {
+            let (scene, combat, party) = demo_scene(reset.demo_beat as usize);
+            (scene, combat, *party.tuning())
+        }
+        other => return Err(format!("unsupported source {other}")),
+    };
+    if combat.state_hash(&scene) != reset.start_hash {
         return Err("the fresh reset does not match the recorded start hash".to_owned());
     }
     let mut events = EventHasher::new();
@@ -171,7 +180,14 @@ fn replay_session(dir: &Path) -> Result<u64, String> {
     for tick in &loaded.ticks {
         while let Some(record) = controls.next_if(|c| c.at_t <= tick.t) {
             match &record.ev {
-                ControlEvent::Restart => sim.combat.restart(&mut sim.scene),
+                ControlEvent::Restart => combat.restart(&mut scene),
+                // A Select-tap respawn happens outside the step: apply it.
+                // The defeat respawn happens inside the step and is not a
+                // control event, so it is never applied twice.
+                ControlEvent::DemoRespawn => {
+                    combat.respawn(&mut scene);
+                    let _ = combat.take_respawned();
+                }
                 ControlEvent::DriveChange {
                     live,
                     two_player,
@@ -183,39 +199,39 @@ fn replay_session(dir: &Path) -> Result<u64, String> {
                     } else {
                         HeroId::Donut
                     };
-                    sim.scene.set_drive(PartyDrive {
+                    scene.set_drive(PartyDrive {
                         live: *live,
                         two_player: *two_player,
                         controlled: hero,
                         bots: *bots,
-                        tuning: fixture.tuning,
+                        tuning,
                     });
                 }
                 _ => {}
             }
         }
-        if sim.combat.state_hash(&sim.scene) != tick.pre {
+        if combat.state_hash(&scene) != tick.pre {
             return Err(format!("pre-state hash differs at t={}", tick.t));
         }
         let hero = [tick.hero[0].to_raw(), tick.hero[1].to_raw()];
-        sim.combat.step_party(&mut sim.scene, hero);
-        let _ = sim.combat.take_respawned();
-        if sim.combat.state_hash(&sim.scene) != tick.post {
+        combat.step_party(&mut scene, hero);
+        let _ = combat.take_respawned();
+        if combat.state_hash(&scene) != tick.post {
             return Err(format!("post-state hash differs at t={}", tick.t));
         }
-        let dropped = sim.combat.dropped_events as u64;
-        let fresh = &sim.combat.events[(cursor - dropped) as usize..];
+        let dropped = combat.dropped_events as u64;
+        let fresh = &combat.events[(cursor - dropped) as usize..];
         events.fold(fresh);
         let replayed: Vec<EventRecord> = fresh
             .iter()
             .enumerate()
             .map(|(i, e)| EventRecord::from_combat(cursor + i as u64, e))
             .collect();
-        cursor = dropped + sim.combat.events.len() as u64;
+        cursor = dropped + combat.events.len() as u64;
         if replayed != tick.ev || events.value() != tick.eh {
             return Err(format!("events differ at t={}", tick.t));
         }
-        if sim.scene.world.tick != tick.et {
+        if scene.world.tick != tick.et {
             return Err(format!("episode tick differs at t={}", tick.t));
         }
     }
@@ -246,6 +262,88 @@ fn live_script(rig: &mut Rig, ticks: u64) {
         }
         let slots = input.next_slots();
         rig.step(slots);
+    }
+}
+
+fn demo_scene(beat: usize) -> (SceneSim, CombatState, PartyState) {
+    let kit = crate::demo::load_hall(&root()).expect("demo hall");
+    let fixture = crate::demo::fixture_for_beat(beat);
+    let scene = SceneSim::new_at(&kit, 360, fixture.carl_x).unwrap();
+    let combat = CombatState::new(fixture, &kit, &scene)
+        .unwrap()
+        .with_donut(crate::donut_mana::DonutSetup::NONE)
+        .with_demo(&crate::demo::DEMO_RULES);
+    (scene, combat, PartyState::default())
+}
+
+/// The `--demo` rules path: the same dispatch as `fixed_step`, with Select-tap
+/// respawns (before the step) and the demo's own defeat respawn (inside it).
+struct DemoRig {
+    scene: SceneSim,
+    combat: CombatState,
+    party: PartyState,
+    rec: LiveRecorder,
+    hashes: Vec<u64>,
+}
+
+impl DemoRig {
+    fn new(base: &Path, scripted: bool, beat: usize) -> Self {
+        let (scene, combat, party) = demo_scene(beat);
+        let reset = ResetDescriptor {
+            source: "demo".to_owned(),
+            name: "demo01".to_owned(),
+            demo: true,
+            demo_beat: beat as u32,
+            cf02_rules: false,
+            cf02_seed: None,
+            view_height: 360,
+            donut_biscuit: false,
+            kit_hash: 0,
+            start_hash: combat.state_hash(&scene),
+        };
+        let manifest = SessionManifest::new(generate_session_id(), reset);
+        let rec = LiveRecorder::start(base, manifest, Some(&combat), &party, scripted).unwrap();
+        Self {
+            scene,
+            combat,
+            party,
+            rec,
+            hashes: Vec::new(),
+        }
+    }
+
+    fn select_tap_respawn(&mut self) {
+        self.combat.respawn(&mut self.scene);
+        let _ = self.combat.take_respawned();
+        self.party.restart();
+        self.rec.note_demo_respawn(Some(&self.combat), &self.party);
+    }
+
+    fn step(&mut self, carl: RawInput) {
+        let slots = [carl, RawInput::NONE];
+        self.rec.observe_party(&self.party);
+        let hurt = self.combat.hurt_ticks_of(self.party.controlled_hero()) > 0;
+        self.party.request_swap(slots[0].swap, hurt);
+        let hero = self.party.hero_inputs(slots);
+        let drive = self.party.drive(true);
+        self.scene.set_drive(drive);
+        self.rec.begin_tick(
+            &self.scene,
+            Some(&self.combat),
+            &self.party,
+            slots,
+            hero,
+            drive,
+        );
+        let restarts = self.combat.restarts;
+        self.combat.step_party(&mut self.scene, hero);
+        let respawned = self.combat.take_respawned();
+        if self.combat.restarts != restarts || respawned {
+            self.party.restart();
+        }
+        self.rec
+            .end_tick(&self.scene, Some(&self.combat), &self.party, respawned);
+        self.hashes.push(self.combat.state_hash(&self.scene));
     }
 }
 
@@ -588,5 +686,91 @@ fn an_unwritable_directory_does_not_stop_the_game_and_is_visible() {
     std::fs::write(&blocker, b"x").unwrap();
     let sim = PartyFixtureSim::new(&kit(), 360, solo_fixture()).unwrap();
     let manifest = manifest_for(solo_fixture(), &sim.scene, &sim.combat);
-    assert!(LiveRecorder::start(&blocker, manifest, Some(&sim.combat), &sim.party).is_err());
+    assert!(LiveRecorder::start(&blocker, manifest, Some(&sim.combat), &sim.party, false).is_err());
+}
+
+/// Idle Carl at demo beat 4: he stands still until the goblins defeat him and the demo respawns him by
+/// itself; a Select tap respawns him once by hand in between.
+fn demo_script(rig: &mut DemoRig, ticks: u64) {
+    for tick in 0..ticks {
+        if tick == 900 {
+            rig.select_tap_respawn();
+        }
+        rig.step(RawInput::NONE);
+    }
+}
+
+#[test]
+fn demo_rules_replay_covers_defeat_respawn_and_select_tap_respawn() {
+    let dir = TempDir::new("demo");
+    let mut rig = DemoRig::new(&dir.0, false, 4);
+    demo_script(&mut rig, 2400);
+    let manifest = rig.rec.finish("test").unwrap();
+    let session = dir.0.join(&manifest.session_id);
+    let loaded = read_session(&session, false).unwrap();
+    let begins: Vec<EpisodeReason> = loaded
+        .control
+        .iter()
+        .filter_map(|c| match c.ev {
+            ControlEvent::EpisodeBegin { reason, .. } => Some(reason),
+            _ => None,
+        })
+        .collect();
+    // Both paths happened and are distinguishable in the journal.
+    assert!(
+        begins.contains(&EpisodeReason::DemoRespawn),
+        "select tap: {begins:?}"
+    );
+    assert!(
+        begins.contains(&EpisodeReason::DemoDefeatRespawn),
+        "the idle hero must be defeated and respawned by the demo: {begins:?}"
+    );
+    // Only the Select tap is a replay-input control event.
+    let respawn_events = loaded
+        .control
+        .iter()
+        .filter(|c| c.ev == ControlEvent::DemoRespawn)
+        .count();
+    assert_eq!(respawn_events, 1);
+    assert_eq!(replay_session(&session), Ok(2400));
+}
+
+#[test]
+fn a_forced_record_of_a_scripted_run_never_labels_inputs_human() {
+    let dir = TempDir::new("scripted");
+    let mut scripted = DemoRig::new(&dir.0, true, 0);
+    let mut human = DemoRig::new(&dir.0, false, 0);
+    for _ in 0..20 {
+        scripted.step(RawInput {
+            move_x: 1.0,
+            ..RawInput::NONE
+        });
+        human.step(RawInput {
+            move_x: 1.0,
+            ..RawInput::NONE
+        });
+    }
+    let s = scripted.rec.finish("test").unwrap();
+    let h = human.rec.finish("test").unwrap();
+    let scripted_ticks = read_session(&dir.0.join(&s.session_id), false)
+        .unwrap()
+        .ticks;
+    let human_ticks = read_session(&dir.0.join(&h.session_id), false)
+        .unwrap()
+        .ticks;
+    assert!(scripted_ticks.iter().all(|t| {
+        t.src
+            .iter()
+            .all(|s| !matches!(s, ControlSource::HumanP1 | ControlSource::HumanP2))
+    }));
+    assert!(
+        scripted_ticks
+            .iter()
+            .all(|t| t.src[0] == ControlSource::ScriptedBot)
+    );
+    assert!(
+        human_ticks
+            .iter()
+            .all(|t| t.src[0] == ControlSource::HumanP1)
+    );
 }

@@ -288,7 +288,8 @@ impl Args {
             && self.list_fixtures.is_none()
     }
 
-    /// Whether this run records a PLAYTRACE-01 session.
+    /// Whether this run records a PLAYTRACE-01 session by default (tests).
+    #[cfg(test)]
     fn recording_enabled(&self) -> bool {
         match self.record {
             RecordMode::On => true,
@@ -1987,12 +1988,25 @@ fn start_recording(
     party: &PartyState,
     root: &Path,
 ) -> Option<LiveRecorder> {
-    if args.record == RecordMode::Off {
-        println!("PLAYTRACE_DISABLED reason=--no-record this session is not recorded");
-        return None;
-    }
-    if !args.recording_enabled() || (args.record == RecordMode::Auto && record_env_off()) {
-        return None;
+    // Opt-outs are never silent for a run that would have been recorded.
+    match args.record {
+        RecordMode::Off => {
+            println!("PLAYTRACE_DISABLED reason=--no-record this session is not recorded");
+            return refuse_if_strict(args, "--no-record");
+        }
+        RecordMode::Auto => {
+            if !(RECORD_DEFAULT_ON && args.live_input()) {
+                // Scripted, headless and capture paths print nothing.
+                return None;
+            }
+            if let Some(reason) = record_env_off() {
+                println!(
+                    "PLAYTRACE_DISABLED reason=env:{reason} this session is not recorded (use --record to force it)"
+                );
+                return refuse_if_strict(args, reason);
+            }
+        }
+        RecordMode::On => {}
     }
     let base = match args.record_dir.clone().map(Ok).unwrap_or_else(|| {
         playtrace::default_record_dir(
@@ -2011,10 +2025,25 @@ fn start_recording(
         );
     }
     let manifest = recording_manifest(args, sim, combat, party, root);
-    match LiveRecorder::start(&base, manifest, combat, party) {
+    // The location is printed relative to the data directory, never as an
+    // absolute home path (console logs get pasted into evidence).
+    let location = match args.record_dir.as_ref() {
+        Some(dir) => format!("{}/{}", dir.display(), manifest.session_id),
+        None if std::env::var("XDG_DATA_HOME").is_ok_and(|v| v.starts_with('/')) => {
+            format!(
+                "$XDG_DATA_HOME/dungeon-floorbreak/playtrace/{}",
+                manifest.session_id
+            )
+        }
+        None => format!(
+            "~/.local/share/dungeon-floorbreak/playtrace/{}",
+            manifest.session_id
+        ),
+    };
+    match LiveRecorder::start(&base, manifest, combat, party, !args.live_input()) {
         Ok(mut recorder) => {
             for line in recorder.drain_messages() {
-                println!("{line}");
+                println!("{line} dir={location}");
             }
             Some(recorder)
         }
@@ -2022,15 +2051,27 @@ fn start_recording(
     }
 }
 
-/// Automatic recording stays off in CI (`CI` is set by GitHub Actions) and when
-/// `FLOORBREAK_RECORD` is `0` or `off` (the CI scripts export it), silently, so
-/// no scripted or screenshot run prints or writes anything. `--record` still
-/// forces it on.
-fn record_env_off() -> bool {
-    let set = |name: &str| std::env::var(name).is_ok_and(|v| !v.is_empty() && v != "0");
-    set("CI")
-        || std::env::var("FLOORBREAK_RECORD")
-            .is_ok_and(|v| v == "0" || v.eq_ignore_ascii_case("off"))
+/// Why the environment turns automatic recording off: `CI` (set by GitHub
+/// Actions and many harnesses) or `FLOORBREAK_RECORD` being `0`/`off` (the CI
+/// scripts export it). A live-input run says so on stdout (`PLAYTRACE_DISABLED
+/// reason=env:...`); scripted runs never reach this check and print nothing.
+/// `--record` still forces recording on.
+fn record_env_off() -> Option<&'static str> {
+    if std::env::var("FLOORBREAK_RECORD").is_ok_and(|v| v == "0" || v.eq_ignore_ascii_case("off")) {
+        return Some("FLOORBREAK_RECORD");
+    }
+    std::env::var("CI")
+        .is_ok_and(|v| !v.is_empty() && v != "0")
+        .then_some("CI")
+}
+
+/// `--record-strict` refuses to run unrecorded, whatever the reason.
+fn refuse_if_strict(args: &Args, why: &str) -> Option<LiveRecorder> {
+    if args.record_strict {
+        eprintln!("floor01_scene: --record-strict: refusing to start unrecorded ({why})");
+        std::process::exit(2);
+    }
+    None
 }
 
 fn recording_failed(args: &Args, why: &str) -> Option<LiveRecorder> {

@@ -31,7 +31,7 @@ pub fn dir_size_bytes(dir: &Path) -> u64 {
     };
     entries
         .flatten()
-        .map(|entry| match entry.metadata() {
+        .map(|entry| match entry.path().symlink_metadata() {
             Ok(meta) if meta.is_dir() => dir_size_bytes(&entry.path()),
             Ok(meta) => meta.len(),
             Err(_) => 0,

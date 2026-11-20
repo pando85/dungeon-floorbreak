@@ -55,7 +55,10 @@ pub struct ResetDescriptor {
     /// FNV-1a-64 of the layout and kit contract (0 when not computed).
     #[serde(with = "hex64")]
     pub kit_hash: u64,
-    /// State hash of the freshly reset scene, before tick 0.
+    /// State hash of the freshly reset scene, before tick 0 and before the
+    /// first `drive_change` is applied (PTI-05): for a live-party run it
+    /// differs from tick 0's `pre`, which is taken after the drive is set.
+    /// Compare it only against a fresh reset with the legacy drive.
     #[serde(with = "hex64")]
     pub start_hash: u64,
 }

@@ -414,7 +414,7 @@ fn killed_writer_recovers_the_valid_prefix() {
     drive(&mut writer, &mut party, 650);
     let session = writer.dir().to_path_buf();
     // SIGKILL: no finish, no drop handler, and a half-written last line.
-    std::mem::forget(writer);
+    writer.crash_for_test();
     {
         use std::io::Write;
         let mut file = std::fs::OpenOptions::new()
@@ -438,6 +438,37 @@ fn killed_writer_recovers_the_valid_prefix() {
     assert_eq!(again.partial_lines_dropped, 0);
     assert!(again.chunks.iter().all(|c| c.closed));
     assert_eq!(again.manifest.terminal.as_deref(), Some("truncated"));
+}
+
+#[test]
+fn a_live_session_is_locked_and_cannot_be_recovered_or_mistaken_for_a_crash() {
+    let dir = TempDir::new("lock");
+    let mut writer = SessionWriter::create(dir.path(), manifest()).unwrap();
+    let mut party = FakeParty::new(21, 0);
+    drive(&mut writer, &mut party, 50);
+    let session = writer.dir().to_path_buf();
+    assert!(session_is_live(&session));
+    assert!(matches!(
+        recover_session(&session),
+        Err(PlaytraceError::SessionLive)
+    ));
+    let loaded = read_session(&session, false).unwrap();
+    assert!(loaded.live && loaded.recovered);
+    // The refused recovery changed nothing: the writer carries on and the
+    // session finishes as a normal one.
+    drive(&mut writer, &mut party, 50);
+    writer.finish(SessionStatus::Completed).unwrap();
+    assert!(!session_is_live(&session));
+    let done = read_session(&session, false).unwrap();
+    assert_eq!(done.ticks.len(), 100);
+    assert!(!done.live && !done.recovered);
+    // A crashed writer holds nothing: recovery is allowed.
+    let mut crashed = SessionWriter::create(dir.path(), manifest()).unwrap();
+    drive(&mut crashed, &mut FakeParty::new(22, 0), 10);
+    let path = crashed.dir().to_path_buf();
+    crashed.crash_for_test();
+    assert!(!session_is_live(&path));
+    assert!(recover_session(&path).is_ok());
 }
 
 #[test]

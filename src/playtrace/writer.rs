@@ -98,6 +98,12 @@ impl SessionWriter {
             .create_new(true)
             .append(true)
             .open(dir.join(CONTROL))?;
+        // The lock lives as long as this handle: `recover` and `delete` refuse
+        // a session whose writer is alive (a crash releases it).
+        control_file.try_lock().map_err(|e| match e {
+            std::fs::TryLockError::WouldBlock => PlaytraceError::SessionLive,
+            std::fs::TryLockError::Error(e) => PlaytraceError::from(e),
+        })?;
         let mut writer = Self {
             dir,
             manifest,
@@ -291,7 +297,15 @@ impl SessionWriter {
             Op::Close { chunk, trailer } => {
                 let file = self.chunk_handle(*chunk)?;
                 file.write_all(trailer.as_bytes())?;
-                file.sync_all()?;
+                // Durability against power loss is not on the game thread: the
+                // data is already in the page cache (it survives a killed
+                // process); a detached thread flushes it to the device. The
+                // hitch it could cause on slow storage is measured in PT-E.
+                if let Ok(clone) = file.try_clone() {
+                    std::thread::spawn(move || {
+                        let _ = clone.sync_all();
+                    });
+                }
                 self.chunk_file = None;
                 Ok(())
             }
@@ -381,8 +395,18 @@ impl SessionWriter {
         };
         self.manifest.capture_complete = !failed;
         self.write_manifest()?;
+        // Release the session lock: the recording is no longer live.
+        self.control_file = None;
         let manifest = self.manifest.clone();
         Ok(manifest)
+    }
+
+    /// Test hook: die like a killed process (nothing is finished, the lock is
+    /// released, buffers are not flushed).
+    #[cfg(test)]
+    pub(super) fn crash_for_test(mut self) {
+        self.control_file = None;
+        std::mem::forget(self);
     }
 }
 
