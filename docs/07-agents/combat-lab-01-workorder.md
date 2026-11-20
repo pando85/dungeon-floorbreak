@@ -2,7 +2,7 @@
 
 **Task:** implement the Floor 01 mid-floor combat sandbox and test course (the post-biscuit lab), **not** another opening tutorial.
 **Authority:** [combat-lab design](../01-design/combat-lab-01-advanced-playtest.md) (adopted defaults LAB-Q01..LAB-Q15), [PLAYTRACE-01 recorder](../03-tech/playtrace-01-session-capture.md), [playtest protocol](../04-production/combat-lab-01-playtest-protocol.md), [character progression](../01-design/character-progression-horizon.md).
-**Status:** implementation requested, **nothing in this design PR is a playable level**.
+**Status:** LAB-00 (#145) and LAB-00-wire with LAB-01 rooms R00-R02 on the legacy rules (#150, `cababf07`) are merged, game-feel review pending; LAB-02 onward is not started. **Nothing in the original design PR was a playable level.**
 **Recording gate:** PT-B gates the first human lab test and calling an attempt "recorded"; it does not block the CF02-A/B owner playtest.
 
 ## Required audit before starting

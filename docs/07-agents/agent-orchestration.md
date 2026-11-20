@@ -84,6 +84,8 @@ Owner directive, 2026-11-20: optimize the work, merge what you are almost sure w
 
 Rationale: serial rebases of the shared backlog file and CI queueing were the bottleneck, not the implementation work. Every PR that edited the backlog conflicted with the previous one and had to rebase and re-run CI; fewer, larger-but-related PRs and no shared hot file remove those cycles. CI-SPEED-01 cuts the other half: documentation-only PRs skip the heavy workflows and the Floor 1 scene workflow compiles its binary once. Game feel is still reviewed by the owner after merge.
 
+**Autonomy (owner, 2026-11-20):** the orchestrator runs every work order already defined in the repo (backlog, work orders, PR sequences) to completion without asking the owner for a go-ahead. When it hits a blocker that is not very big (a design ambiguity, a small scope or sequencing choice, a reversible technical decision), it picks its own recommendation, records it as an adopted default in the PR body (and as data with an ID where the design-defaults rule applies) and continues. It escalates to the owner only for large blockers, legal/rights/provenance questions, contradictions with an accepted ADR, and the owner's game-feel review.
+
 ## Reading discipline
 
 Read docs by headings first (`grep -n "^#" <file>`), then read only the sections needed, using offsets and limits. Do not read a large file whole "just in case". Look at images sparingly: a reviewer looks at about 3 images per review, and an orchestrator spot check looks at 1. Pixel-level checks belong to the reviewers, not the orchestrator.

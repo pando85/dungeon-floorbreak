@@ -1,6 +1,6 @@
 # COMPANION-AI-01 — Local agent implementation work order
 
-**Status:** Design reconciled with COMBAT-FUN-02 and main; defaults CA-01..CA-41 adopted by the orchestrator (owner design-defaults directive, 2026-11-19). **Merged on main (2026-11-20), unwired core modules only:** 01A-core #129 (`e6c8c3b9`), 01B-core #131 (`811dc9b4`) and 01C #130 (`5b343867`); none is wired into a scene, so no behaviour changed and every golden is unchanged. 01A-wire, 01B-wire, 01D and 01E are not started. Merged, game-feel review pending: game feel and controller UX are pending the owner's play.
+**Status:** Design reconciled with COMBAT-FUN-02 and main; defaults CA-01..CA-41 adopted by the orchestrator (owner design-defaults directive, 2026-11-19). **Merged on main (2026-11-20), unwired core modules only:** 01A-core #129 (`e6c8c3b9`), 01B-core #131 (`811dc9b4`) and 01C #130 (`5b343867`); none is wired into a scene, so no behaviour changed and every golden is unchanged. **01A-wire merged via #151 (`78333e3f`, 2026-11-20), game-feel review pending;** its follow-ups, including the staggered-pounce design question for the top tier, are in the [backlog row](../04-production/backlog.md). 01B-wire, 01D and 01E are not started. Merged, game-feel review pending: game feel and controller UX are pending the owner's play.
 
 **Read:** [Companion autonomy/commands spec](../03-tech/companion-ai-command-system.md), [ADR-0009](../05-decisions/ADR-0009-companion-ai-authority.md), [AGENTS.md](../../AGENTS.md), [local agent protocol](workorders.md), [orchestration](agent-orchestration.md).
 
@@ -239,4 +239,4 @@ Use actual, currently supported script flags. Supply replay hashes, ordered even
 
 Each stage PR includes: **Why**, **Change**, **Acceptance Criteria** (checked only when verified), **Commands & Results**, **Visual Evidence**, **Performance Data**, **Rights/Provenance**, **Risks**, **Next PR**. An independent gameplay/architecture reviewer checks the final head; subsequent merged mechanics stay **game-feel review pending** until the owner plays. The coordinator updates the backlog status per stage; do not silently mark all COMPANION-AI-01 work complete after 01A.
 
-**Next agent task:** 01A-core, 01B-core and 01C are merged (unwired); 01A-wire follows once CF02-A and CF02-C1 have merged, and 01B-wire after CF02-C2.
+**Next agent task:** 01A-core, 01B-core and 01C are merged (unwired); 01A-wire has merged (#151), and 01B-wire follows after CF02-C2.
