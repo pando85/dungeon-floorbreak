@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=cf02_block_hurts_carl seed=0xcf02f110 tick=118 elapsed=118 hero_hp=3 deaths=0 enemies= hash=138b81f71e0c502f shore=3/Broken/Landed block_bottom=0.00

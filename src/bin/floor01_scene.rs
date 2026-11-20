@@ -1163,10 +1163,10 @@ fn parse_args_full(
                 .into(),
         );
     }
-    if parsed.party_fixture.is_some() && !(parsed.headless || parsed.capture_tick.is_some())
+    if parsed.party_fixture.is_some()
+        && !(parsed.headless || parsed.capture_tick.is_some() || parsed.capture_sequence.is_some())
         || parsed.party_fixture.is_some()
             && (parsed.manual
-                || parsed.capture_sequence.is_some()
                 || parsed.exit_after_ticks.is_some()
                 || parsed.perf_frames.is_some()
                 || parsed.death_stress
@@ -1174,7 +1174,7 @@ fn parse_args_full(
                 || parsed.anim_trace)
     {
         return Err(
-            "--party-fixture is a headless replay or a --capture-tick capture only (no --manual, --capture-sequence, --exit-after-ticks, --perf-frames, --death-stress, --combat-trace or --anim-trace)"
+            "--party-fixture is a headless replay, a --capture-tick capture or a --capture-sequence only (no --manual, --exit-after-ticks, --perf-frames, --death-stress, --combat-trace or --anim-trace)"
                 .into(),
         );
     }
@@ -6122,6 +6122,7 @@ fn capture_sequence(
     mut death: ResMut<Death>,
     mut cam: ResMut<SceneCam>,
     mut interest: ResMut<Interest>,
+    mut pads: ResMut<Pads>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let Some(mut seq) = seq else { return };
@@ -6197,7 +6198,21 @@ fn capture_sequence(
                 return;
             }
             for _ in 0..seq.step {
-                if let (Some(fixture), Some(combat)) = (fixture, combat.0.as_mut()) {
+                if let (Some(pf), Some(combat)) = (setup.args.party_fixture, combat.0.as_mut()) {
+                    // CF02-F: a party fixture plays through the live party, like
+                    // the presim of `build_scene` (slot inputs, solo swap, drive).
+                    let party = pads.0.party_mut();
+                    let slots = pf.inputs(sim.0.world.tick + 1, combat, &sim.0);
+                    let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
+                    party.request_swap(slots[0].swap, hurt);
+                    sim.0.set_drive(party.drive(true));
+                    let inputs = party.hero_inputs(slots);
+                    let restarts = combat.restarts;
+                    let _ = step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), inputs);
+                    if combat.restarts != restarts {
+                        party.restart();
+                    }
+                } else if let (Some(fixture), Some(combat)) = (fixture, combat.0.as_mut()) {
                     let inputs = scripted_inputs(&setup.args, fixture, &sim.0, combat);
                     let _ = step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), inputs);
                 } else if let Some(scenario) = scenario {

@@ -1458,7 +1458,8 @@ mod tests {
         use crate::cf02_fixtures::CF02_FIXTURES;
         use crate::party_scene::PartyFixtureSim;
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let corridor = EnvKit::load(&root, "assets/levels/floor01/corridor_abc_sample.json").unwrap();
+        let corridor =
+            EnvKit::load(&root, "assets/levels/floor01/corridor_abc_sample.json").unwrap();
         let arena = crate::cf02::arena::load_arena(&root).unwrap();
         let mut seen = std::collections::HashSet::new();
         for fixture in CF02_FIXTURES.iter().filter(|f| f.base.boss.is_none()) {

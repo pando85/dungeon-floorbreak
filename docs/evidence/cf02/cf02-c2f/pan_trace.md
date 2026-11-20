@@ -1,6 +1,6 @@
 # CF02-Q20 swap pan: velocity trace, legacy against eased
 
-Setup (the CF02-00 baseline, `docs/evidence/cf02/audit/camera_trace.md`): solo, Donut 300 px behind Carl, Carl runs 30 ticks, the player swaps to Donut, 80 idle ticks. `dx` is the camera's left-edge step in px per tick toward Donut (negative); tick 0 is the swap tick itself. Produced by the unit test `cf02_swap_pan_trace_eases_in_and_out_and_arrives_where_the_legacy_pan_does` (`cargo test --locked --lib cf02_swap_pan_trace -- --nocapture`).
+Setup (the CF02-00 baseline, `docs/evidence/cf02/audit/camera_trace.md`): solo, Donut forced to column 100 (about 390 px behind Carl), Carl runs 30 ticks, the player swaps to Donut, 80 idle ticks. `dx` is the camera's left-edge step in px per tick toward Donut (negative); tick 0 is the swap tick itself. Produced by the unit test `cf02_swap_pan_trace_eases_in_and_out_and_arrives_where_the_legacy_pan_does` (`cargo test --locked --lib cf02_swap_pan_trace -- --nocapture`).
 
 | tick from swap | legacy dx (constant cap 8) | eased dx (Q20) |
 | ---: | ---: | ---: |

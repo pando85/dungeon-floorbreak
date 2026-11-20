@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=cf02_donut_bailout seed=0xcf02c06 tick=52 elapsed=52 hero_hp=4 deaths=0 enemies= hash=682d83d366691505

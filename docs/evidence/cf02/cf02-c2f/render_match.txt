@@ -1,0 +1,16 @@
+CF02_RENDER_MATCH: cf02_arena_coop tick 1800
+CF02_RENDER_MATCH: cf02_arena_direct tick 1800
+CF02_RENDER_MATCH: cf02_arena_environment tick 1800
+CF02_RENDER_MATCH: cf02_arena_three_attempts tick 1100
+CF02_RENDER_MATCH: cf02_block_hurts_carl tick 160
+CF02_RENDER_MATCH: cf02_block_hurts_partner tick 160
+CF02_RENDER_MATCH: cf02_block_spares_left_striker tick 160
+CF02_RENDER_MATCH: cf02_donut_bailout tick 200
+CF02_RENDER_MATCH: cf02_goblin_self_own tick 200
+CF02_RENDER_MATCH: cf02_intact_shore_ignores_goblins tick 200
+CF02_RENDER_MATCH: cf02_parapet_cover tick 200
+CF02_RENDER_MATCH: cf02_perch_above_spit tick 200
+CF02_RENDER_MATCH: cf02_perch_dive tick 200
+CF02_RENDER_MATCH: cf02_perch_slab_climb tick 140
+CF02_RENDER_MATCH: cf02_swap_eased_pan tick 260
+CF02_RENDER_MATCH: live --cf02 room, autopilot, 487 ticks, CF02_ARENA_COMPLETE
