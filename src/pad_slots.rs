@@ -164,7 +164,7 @@ impl PadSlots {
             carl_glyphs: self.glyphs(carl_slot),
             donut_glyphs: self.glyphs(donut_slot),
             reconnect: self.waiting_slot().map(|slot| slot.index() as u8 + 1),
-            donut_chips: self.party.tuning().donut_ability_chips,
+            donut_chips: self.party.tuning().donut_ability_chips(),
         }
     }
 
@@ -686,7 +686,7 @@ mod tests {
         assert_eq!((solo.carl, solo.donut), (Control::Player(1), Control::Ai));
         assert_eq!(solo.carl_glyphs, GlyphSet::DualSense);
         assert_eq!(solo.reconnect, None);
-        assert!(!solo.donut_chips, "Q10: no Donut chips yet");
+        assert!(solo.donut_chips, "Q10-01: a human-driven Donut shows chips");
         // Solo swap moves the P1 tag, and P1's glyphs, to Donut.
         assert!(slots.party_mut().request_swap(true, false));
         let swapped = slots.hud_view();

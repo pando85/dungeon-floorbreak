@@ -58,6 +58,12 @@ committed_party=docs/evidence/party-2p
 # waits for Q10's higher cat jump).
 boss_fixtures=(boss01_pound_punish boss01_charge_jump boss01_charge_hit boss01_hug_guard boss01_rack_carl boss01_phase_roar boss01_roar_queued boss01_2p_gate boss01_solo_ai_guard boss01_party_defeat_retry boss01_crush_kill boss01_full_clear_solo boss01_full_clear_2p)
 committed_boss=docs/evidence/boss-f01
+# WORK-023 / HUD-DEBT-02: Donut's Q10 swat and pounce, the Magic Missile and her
+# mana (the swat that breaks a tell and the light guard, the pounce that finishes
+# a goblin or whiffs, the pounce on the boss, the dry press, the 350 tick regen
+# and the unlock that survives a retry) with their committed replays.
+donut_fixtures=(q10_swat_interrupt q10_swat_guard q10_pounce_hit q10_pounce_miss q10_dry_press q10_mana_regen q10_unlock_persists q10_pounce_boss)
+committed_donut=docs/evidence/donut-q10-mana
 out=artifacts/cp01-feel
 mkdir -p "$out"
 
@@ -163,6 +169,34 @@ case "$mode" in
         exit 1
       fi
       echo "BOSS_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/boss_${f}.txt")"
+    done
+    # WORK-023: every Donut fixture replays identically twice, reproduces the
+    # committed events and hash, and gives the same replay at gore presets 1 and
+    # 4 and with the HUD preview flag (presentation never reaches the sim).
+    for f in "${donut_fixtures[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_${f}_again.txt"
+      if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_again.txt"; then
+        echo "Donut fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_donut/headless_${f}.txt" "$out/donut_${f}.txt"; then
+        echo "Donut fixture $f differs from the committed replay ($committed_donut)" >&2
+        exit 1
+      fi
+      for preset in 1 4; do
+        "$bin" --headless-floor01-smoke --party-fixture "$f" --gore-preset "$preset" | party_lines > "$out/donut_${f}_p${preset}.txt"
+        if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_p${preset}.txt"; then
+          echo "Donut fixture $f at gore preset $preset differs from the default replay" >&2
+          exit 1
+        fi
+      done
+      "$bin" --headless-floor01-smoke --party-fixture "$f" --hud-preview post-unlock | party_lines > "$out/donut_${f}_hud.txt"
+      if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_hud.txt"; then
+        echo "Donut fixture $f differs with --hud-preview post-unlock" >&2
+        exit 1
+      fi
+      echo "DONUT_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/donut_${f}.txt")"
     done
     # DEMO-01 PR C: the presentation camera never feeds the simulation. On the
     # tall camera test room, every --camera (the scroll camera, the automatic one
@@ -377,7 +411,9 @@ case "$mode" in
     for spec in "${cine_probes[@]}"; do
       IFS='|' read -r name committed_log want ticks flags <<<"$spec"
       for preset in 1 4; do
-        for setting in on off; do
+        # off first: the p1 off run is the reference every other run is
+        # diffed against (CINE-T09; the #122 review, N2).
+        for setting in off on; do
           log="$out/cine_${name}_p${preset}_${setting}.log"
           # shellcheck disable=SC2086
           cine_run "$log" --scale 3 $flags --gore-preset "$preset" --exit-after-ticks "$ticks" --cinematic-finishes="$setting"
@@ -389,6 +425,19 @@ case "$mode" in
           fi
         done
       done
+      # The compare the loop cannot make against itself: preset 1, cinematic
+      # on versus off, authoritative lines and the final sim hash.
+      if ! cmp -s "$out/cine_${name}_p1_off.log.lines" "$out/cine_${name}_p1_on.log.lines"; then
+        diff "$out/cine_${name}_p1_off.log.lines" "$out/cine_${name}_p1_on.log.lines" >&2 || true
+        echo "CINE-T09: $name differs between cinematic on and off at gore preset 1" >&2
+        exit 1
+      fi
+      cine_hash_off="$(grep '^COMBAT_STATE' "$out/cine_${name}_p1_off.log.lines" | sed -n 's/.*hash=\([0-9a-f]*\).*/\1/p')"
+      cine_hash_on="$(grep '^COMBAT_STATE' "$out/cine_${name}_p1_on.log.lines" | sed -n 's/.*hash=\([0-9a-f]*\).*/\1/p')"
+      if [[ -z "$cine_hash_off" || "$cine_hash_off" != "$cine_hash_on" ]]; then
+        echo "CINE-T09: $name sim hash differs with cinematic finishers on (off=$cine_hash_off on=$cine_hash_on)" >&2
+        exit 1
+      fi
       # The authoritative part equals the committed headless replay.
       if ! diff <(grep -E '^(COMBAT_EVENT)' "$out/cine_${name}_p1_off.log.lines"; grep '^COMBAT_STATE' "$out/cine_${name}_p1_off.log.lines") "$committed_log"; then
         echo "CINE-T09: $name differs from the committed headless replay ($committed_log)" >&2

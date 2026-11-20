@@ -64,6 +64,8 @@ use dungeon_floorbreak::{
         blast_vfx_frame, charge_draw_frame, draw_z, explosion_table,
     },
     demo::{self, SelectAction, SelectControl},
+    donut_art, donut_fixtures,
+    donut_mana::{DonutSetup, StartState},
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
@@ -217,6 +219,9 @@ struct Args {
     /// HUD-DEBT-03: the Floor 01 boss arena (`--scene boss_f01`, or a boss
     /// fixture): the arena kit replaces the corridor.
     boss: bool,
+    /// WORK-023: Donut starts with the biscuit and a full pool (live play and
+    /// captures). Without it she gets it at the placeholder Guild zone.
+    donut_biscuit: bool,
 }
 
 impl Args {
@@ -354,6 +359,7 @@ fn parse_args_full(
         demo_beat: 0,
         autopilot: false,
         boss: false,
+        donut_biscuit: false,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
@@ -363,6 +369,7 @@ fn parse_args_full(
             "--freeze" => parsed.freeze = true,
             "--debug-collision" => parsed.debug_collision = true,
             "--manual" => parsed.manual = true,
+            "--donut-biscuit" => parsed.donut_biscuit = true,
             "--debug-combat" => parsed.debug_combat = true,
             "--fixture" => {
                 let value = iter.next().ok_or("--fixture needs a name")?;
@@ -720,6 +727,31 @@ fn new_hud(args: &Args, kit: &EnvKit, actors: &Actors) -> HudRuntime {
     hud
 }
 
+/// WORK-023, HUD-DEBT-02: Donut's biscuit state for this run. A party fixture
+/// declares its own; the boss arena (after the Guild) and `--donut-biscuit`
+/// start with it and a full pool; a live run elsewhere gets it at the
+/// placeholder Guild zone (an x range of the layout, until the Guild room
+/// exists); the DEMO-01 hall has no zone and stays locked. Scripted runs never
+/// read it (the party is not live there).
+fn donut_setup(args: &Args) -> DonutSetup {
+    if let Some(pf) = args.party_fixture {
+        return pf.donut;
+    }
+    if args.donut_biscuit || args.boss {
+        return DonutSetup::unlocked(8);
+    }
+    if args.demo {
+        // DEMO-01 is documented as "without the Guild or Donut's magic": the
+        // hall has no unlock zone, so the biscuit stays locked (the swat and
+        // the pounce stay available).
+        return DonutSetup::NONE;
+    }
+    DonutSetup {
+        start: StartState::LOCKED,
+        guild_zone: Some(donut_fixtures::GUILD_PLACEHOLDER_ZONE),
+    }
+}
+
 /// One HUD step after a finished simulation tick: the real health values and
 /// the newest combat events. Read-only on the simulation.
 fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) {
@@ -728,6 +760,11 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     // Melee input is live exactly when the combat state exists (see the
     // manual input gate in `fixed_step`).
     hud.set_melee_live(combat.is_some());
+    // HUD-DEBT-02: Donut's real mana (None while the biscuit is locked).
+    hud.set_donut_mana(combat.and_then(CombatState::donut_mana_view));
+    if let Some(combat) = combat {
+        hud.set_empty_press(combat.donut_mana_tuning().empty_press);
+    }
     // HUD-DEBT-03: the boss strip reads the simulation's boss state.
     match combat.and_then(|c| c.boss.as_ref()) {
         Some(boss) => {
@@ -760,7 +797,7 @@ fn build_scene(
         // A combat fixture: Carl starts at the fixture column; the script is
         // pre-simulated for a capture, otherwise left for the live loop.
         let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
-        let mut combat = CombatState::new(fixture, kit, &sim)?;
+        let mut combat = CombatState::new(fixture, kit, &sim)?.with_donut(donut_setup(args));
         if args.demo {
             combat = combat.with_demo(&demo::DEMO_RULES);
         }
@@ -1382,6 +1419,27 @@ struct GlobSprite {
 #[derive(Component)]
 struct CarlMelee;
 
+/// Donut's melee sprite (the ANIM-DONUT-02 atlas): shown instead of her
+/// locomotion sprite while a swat or pounce runs. Presentation only.
+#[derive(Component)]
+struct DonutMelee;
+
+/// Donut's cast sprite (the ANIM-DONUT-03 head-swap atlas): shown instead of
+/// her locomotion sprite during a Magic Missile cast and the dry cue.
+#[derive(Component)]
+struct DonutCast;
+
+/// One pooled Magic Missile bolt sprite, drawn for the bolt in slot `slot` of
+/// the simulation's list (the VFX atlas, or an 8 x 6 magenta rectangle when
+/// the atlas is missing).
+#[derive(Component)]
+struct BoltSprite {
+    slot: usize,
+}
+
+/// Bolt sprites in the pool (the cast cadence keeps at most three in flight).
+const BOLT_SLOTS: usize = 8;
+
 /// One pooled sprite of the death presenter (DEATH-C).
 #[derive(Component, Clone, Copy)]
 enum DeathPiece {
@@ -1478,6 +1536,11 @@ enum CombatDebugBox {
     CarlHurt,
     /// Donut's own hurtbox (Q4), shown while the party is live.
     DonutHurt,
+    /// Donut's active swat or pounce box (drawn by [`sync_donut_visuals`]).
+    DonutHit,
+    /// The 8 x 6 hit box of the bolt in this pool slot (drawn by
+    /// [`sync_donut_visuals`]).
+    Bolt(usize),
 }
 
 /// The presentation camera of a run: the rig (none for the scroll camera) and
@@ -1759,6 +1822,7 @@ fn run_window(
             perf_step,
             sync_visuals,
             sync_combat_visuals,
+            sync_donut_visuals,
             sync_boss_visuals,
             sync_llama_visuals,
             sync_dust_visuals,
@@ -2113,6 +2177,28 @@ fn setup(
                 );
             }
         }
+    }
+
+    // Donut's melee, cast and bolt sprites (presentation only; a missing atlas
+    // keeps her locomotion sprite and draws the bolts as magenta rectangles).
+    if combat.0.is_some() {
+        let debug_layers = if lighting.is_some() {
+            RenderLayers::layer(LAYER_DEBUG)
+        } else {
+            RenderLayers::default()
+        };
+        combat_handles.extend(spawn_donut_art(
+            &mut commands,
+            &asset_server,
+            &mut layouts,
+            &DonutArtLayers {
+                actors: layers_of("actors"),
+                debug: debug_layers,
+            },
+            kit.actor_z,
+            kit.foreground_z + 1.0,
+            args.debug_combat,
+        ));
     }
 
     // HUD-DEBT-03: the boss, its racks, strut, gate and ripples. Placeholder
@@ -3392,6 +3478,289 @@ fn sync_combat_visuals(
                     *visibility = Visibility::Hidden;
                 }
             }
+            // Donut's own boxes belong to `sync_donut_visuals`.
+            CombatDebugBox::DonutHit | CombatDebugBox::Bolt(_) => {}
+        }
+    }
+}
+
+/// Render layers of Donut's extra sprites.
+struct DonutArtLayers {
+    actors: RenderLayers,
+    debug: RenderLayers,
+}
+
+/// Spawn Donut's melee, cast and bolt sprites plus her `--debug-combat` boxes,
+/// and return the atlas handles the loading watchdog waits for. A melee or
+/// missile atlas that is not on disk is skipped (she keeps her locomotion
+/// sprite); a missing VFX atlas makes the bolts 8 x 6 magenta rectangles.
+fn spawn_donut_art(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    layers: &DonutArtLayers,
+    actor_z: f32,
+    debug_z: f32,
+    debug: bool,
+) -> Vec<(String, Handle<Image>)> {
+    let art_dir = std::env::current_dir()
+        .ok()
+        .map(|root| root.join("generated/art"));
+    let on_disk = |name: &str| art_dir.as_ref().is_some_and(|dir| dir.join(name).is_file());
+    let mut handles = Vec::new();
+    let mut grid = |name: &str, w: u32, h: u32, count: usize| {
+        let texture: Handle<Image> = asset_server.load(name.to_owned());
+        handles.push((name.to_owned(), texture.clone()));
+        let layout = layouts.add(TextureAtlasLayout::from_grid(
+            UVec2::new(w, h),
+            count as u32,
+            1,
+            None,
+            None,
+        ));
+        (texture, layout)
+    };
+    // Donut's sprites sit a hair above her locomotion sprite (z = actor_z) and
+    // below Carl's (+0.1); the bolts draw in front of everything of the party.
+    let z = actor_z + 0.01;
+    if on_disk(donut_art::MELEE_ATLAS) {
+        let (texture, layout) = grid(
+            donut_art::MELEE_ATLAS,
+            donut_art::FRAME_W,
+            donut_art::FRAME_H,
+            donut_art::MELEE_FRAMES,
+        );
+        commands.spawn((
+            DonutMelee,
+            Sprite::from_atlas_image(texture, TextureAtlas { layout, index: 0 }),
+            Transform::from_xyz(0.0, 0.0, z),
+            Visibility::Hidden,
+            layers.actors.clone(),
+        ));
+    }
+    if on_disk(donut_art::MISSILE_ATLAS) {
+        let (texture, layout) = grid(
+            donut_art::MISSILE_ATLAS,
+            donut_art::FRAME_W,
+            donut_art::FRAME_H,
+            donut_art::MISSILE_FRAMES,
+        );
+        commands.spawn((
+            DonutCast,
+            Sprite::from_atlas_image(texture, TextureAtlas { layout, index: 0 }),
+            Transform::from_xyz(0.0, 0.0, z),
+            Visibility::Hidden,
+            layers.actors.clone(),
+        ));
+    }
+    let vfx = on_disk(donut_art::VFX_ATLAS).then(|| {
+        grid(
+            donut_art::VFX_ATLAS,
+            donut_art::VFX_SIZE,
+            donut_art::VFX_SIZE,
+            donut_art::VFX_FRAMES,
+        )
+    });
+    for slot in 0..BOLT_SLOTS {
+        let sprite = match vfx.clone() {
+            Some((texture, layout)) => {
+                Sprite::from_atlas_image(texture, TextureAtlas { layout, index: 1 })
+            }
+            None => Sprite::from_color(Color::srgb(1.0, 0.0, 1.0), Vec2::new(8.0, 6.0)),
+        };
+        commands.spawn((
+            BoltSprite { slot },
+            sprite,
+            Transform::from_xyz(0.0, 0.0, actor_z + GLOB_Z_OFFSET),
+            Visibility::Hidden,
+            layers.actors.clone(),
+        ));
+    }
+    if debug {
+        let mut overlay = |kind: CombatDebugBox, colour: Color| {
+            commands.spawn((
+                kind,
+                Sprite::from_color(colour, Vec2::ONE),
+                Transform::from_xyz(0.0, 0.0, debug_z),
+                Visibility::Hidden,
+                layers.debug.clone(),
+            ));
+        };
+        overlay(CombatDebugBox::DonutHit, Color::srgba(1.0, 0.1, 0.9, 0.55));
+        for slot in 0..BOLT_SLOTS {
+            overlay(CombatDebugBox::Bolt(slot), Color::srgba(0.6, 0.2, 1.0, 0.6));
+        }
+    }
+    handles
+}
+
+/// Donut's melee, cast and bolt presentation (reads the simulation's
+/// read-only views and the animators only; nothing here feeds back). While a
+/// swat or pounce runs her melee sprite replaces the locomotion one; during a
+/// cast, or the 8-tick dry cue, the head-swap sprite does, on her current
+/// locomotion frame. The bolts and the `--debug-combat` boxes follow the
+/// simulation's list. Runs after `sync_combat_visuals`, which owns the
+/// visibility of her locomotion sprite.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn sync_donut_visuals(
+    sim: Res<Sim>,
+    combat: Res<Combat>,
+    anim: Res<Anim>,
+    actors: Res<Actors>,
+    reference: Res<ReferencePose>,
+    mut melee: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (
+            With<DonutMelee>,
+            Without<DonutCast>,
+            Without<BoltSprite>,
+            Without<ActorVisual>,
+            Without<CombatDebugBox>,
+        ),
+    >,
+    mut cast: Query<
+        (&mut Transform, &mut Sprite, &mut Visibility),
+        (
+            With<DonutCast>,
+            Without<DonutMelee>,
+            Without<BoltSprite>,
+            Without<ActorVisual>,
+            Without<CombatDebugBox>,
+        ),
+    >,
+    mut bolts: Query<
+        (&BoltSprite, &mut Transform, &mut Sprite, &mut Visibility),
+        (
+            Without<DonutMelee>,
+            Without<DonutCast>,
+            Without<ActorVisual>,
+            Without<CombatDebugBox>,
+        ),
+    >,
+    mut locomotion: Query<
+        (&ActorVisual, &mut Visibility),
+        (
+            Without<DonutMelee>,
+            Without<DonutCast>,
+            Without<BoltSprite>,
+            Without<CombatDebugBox>,
+        ),
+    >,
+    mut boxes: Query<
+        (&CombatDebugBox, &mut Transform, &mut Visibility),
+        (
+            Without<DonutMelee>,
+            Without<DonutCast>,
+            Without<BoltSprite>,
+            Without<ActorVisual>,
+        ),
+    >,
+) {
+    let Some(state) = combat.0.as_ref() else {
+        return;
+    };
+    let sim = &sim.0;
+    let tick = sim.world.tick;
+    let party = sim.party_live() && reference.0.is_none();
+    let donut = &sim.world.donut;
+    let flip = donut.facing < 0;
+    let spec = actors.donut.spec;
+    let locomotion_frame = anim.0.donut.atlas_index();
+    let tint = donut_tint(sim, Some(state));
+
+    let melee_frame = state
+        .donut_move_view()
+        .filter(|_| party)
+        .map(|view| donut_art::melee_frame(&view));
+    // Melee wins over a cast; a real cast over the dry cue.
+    let cast_frame = if melee_frame.is_some() || !party {
+        None
+    } else {
+        state
+            .donut_cast()
+            .map(|c| donut_art::cast_index(c.age, locomotion_frame))
+            .or_else(|| donut_art::dry_cue_index(tick, state.donut_dry_tick(), locomotion_frame))
+    };
+
+    let mut shown = false;
+    for (mut transform, mut sprite, mut visibility) in &mut melee {
+        let Some(frame) = melee_frame else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let foot = donut.foot_y - donut_art::melee_foot_drop(frame);
+        let (cx, cy) = actor_center(spec, donut.x, foot, flip);
+        transform.translation.x = cx;
+        transform.translation.y = cy;
+        sprite.flip_x = flip;
+        sprite.color = tint;
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = frame;
+        }
+        *visibility = Visibility::Inherited;
+        shown = true;
+    }
+    for (mut transform, mut sprite, mut visibility) in &mut cast {
+        let Some(frame) = cast_frame else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let (cx, cy) = actor_center(spec, donut.x, donut.foot_y, flip);
+        transform.translation.x = cx;
+        transform.translation.y = cy;
+        sprite.flip_x = flip;
+        sprite.color = tint;
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = frame;
+        }
+        *visibility = Visibility::Inherited;
+        shown = true;
+    }
+    if shown {
+        for (actor, mut visibility) in &mut locomotion {
+            if !actor.is_hero {
+                *visibility = Visibility::Hidden;
+            }
+        }
+    }
+
+    let bolt_list = if party { state.donut_bolts() } else { &[] };
+    let speed = f32::from(state.donut_mana_tuning().projectile_speed_px_per_tick);
+    for (slot, mut transform, mut sprite, mut visibility) in &mut bolts {
+        let Some(bolt) = bolt_list.get(slot.slot) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        transform.translation.x = bolt.x.round();
+        transform.translation.y = bolt.y.round();
+        sprite.flip_x = bolt.dir < 0;
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = donut_art::bolt_frame(bolt.travelled, speed);
+        } else {
+            // The magenta fallback is the hit box itself.
+            let (cx, cy) = bolt.rect().center();
+            transform.translation.x = cx.round();
+            transform.translation.y = cy.round();
+        }
+        *visibility = Visibility::Inherited;
+    }
+
+    let hit = state.donut_hitbox().filter(|_| party);
+    for (kind, mut transform, mut visibility) in &mut boxes {
+        let rect = match kind {
+            CombatDebugBox::DonutHit => hit,
+            CombatDebugBox::Bolt(slot) => bolt_list.get(*slot).map(|b| b.rect()),
+            _ => continue,
+        };
+        match rect {
+            Some(r) => {
+                let (cx, cy) = r.center();
+                transform.translation.x = cx.round();
+                transform.translation.y = cy.round();
+                transform.scale = Vec3::new(r.width, r.height, 1.0);
+                *visibility = Visibility::Inherited;
+            }
+            None => *visibility = Visibility::Hidden,
         }
     }
 }

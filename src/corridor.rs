@@ -16,7 +16,8 @@ use crate::follower::{Threat, follower_input_boss};
 use crate::input::{Actions, InputFrame, RawInput};
 use crate::party::{HeroId, PartyDrive};
 use crate::prototype::{
-    Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, RUN_SPEED, Rect, TICK_SECONDS, step_hero,
+    Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, RUN_SPEED, Rect, TICK_SECONDS,
+    step_hero, step_hero_driven,
 };
 use crate::scroll_camera::{CameraConfig, DEADZONE_PX, MAX_SPEED_PX, ScrollCamera};
 
@@ -227,15 +228,38 @@ impl CorridorWorld {
     /// hero that is not frozen (hit-stop) runs the shared `step_hero`, and
     /// Donut's drawn position follows her body. No trail is recorded.
     pub fn step_bodies(&mut self, frames: [&InputFrame; 2], frozen: [bool; 2]) {
+        self.step_bodies_driven(frames, frozen, [BodyDrive::default(); 2]);
+    }
+
+    /// [`Self::step_bodies`] with the overrides of a running combat move per
+    /// hero (Donut's pounce and swat). Default drives change nothing.
+    pub fn step_bodies_driven(
+        &mut self,
+        frames: [&InputFrame; 2],
+        frozen: [bool; 2],
+        drives: [BodyDrive; 2],
+    ) {
         if self.complete {
             return;
         }
         self.tick += 1;
         if !frozen[0] {
-            step_hero(&mut self.hero, frames[0], &self.solids, self.max_x);
+            step_hero_driven(
+                &mut self.hero,
+                frames[0],
+                &self.solids,
+                self.max_x,
+                &drives[0],
+            );
         }
         if !frozen[1] {
-            step_hero(&mut self.donut_body, frames[1], &self.solids, self.max_x);
+            step_hero_driven(
+                &mut self.donut_body,
+                frames[1],
+                &self.solids,
+                self.max_x,
+                &drives[1],
+            );
         }
         self.sync_donut_from_body();
         self.check_exit(true);
@@ -538,6 +562,9 @@ pub struct PartyStepCtx<'a> {
     pub threats: &'a [Threat],
     /// HUD-DEBT-03: the boss' current threat, for the bot's dodges.
     pub boss: Option<BossThreat>,
+    /// WORK-023: the running combat move's overrides per hero (Donut's pounce
+    /// and swat). Default: nothing.
+    pub drives: [BodyDrive; 2],
 }
 
 impl Default for PartyStepCtx<'_> {
@@ -547,6 +574,7 @@ impl Default for PartyStepCtx<'_> {
             frozen: [false, false],
             threats: &[],
             boss: None,
+            drives: [BodyDrive::default(); 2],
         }
     }
 }
@@ -782,7 +810,7 @@ impl SceneSim {
         self.input.advance(raws[0]);
         self.donut_input.advance(raws[1]);
         self.world
-            .step_bodies([&self.input, &self.donut_input], ctx.frozen);
+            .step_bodies_driven([&self.input, &self.donut_input], ctx.frozen, ctx.drives);
         self.step_camera();
     }
 

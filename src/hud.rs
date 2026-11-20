@@ -13,6 +13,8 @@
 use crate::boss::{BOSS_ENEMY_ID, BossState};
 use crate::combat::{CombatEvent, ForceTier, HERO_HEALTH};
 use crate::corridor::DONUT_HEALTH;
+use crate::donut_hud;
+use crate::donut_mana::EmptyPress;
 use crate::env_kit::IRect;
 use crate::hud_settings::HudSettings;
 
@@ -475,8 +477,9 @@ pub struct HudSnapshot {
 
 // -------------------------------------------------------- real inputs and fn
 
-/// What Donut's magic currently allows. There is no unlock flag or mana
-/// resource in the game yet (HUD-DEBT-02), so the real value is `PreBiscuit`.
+/// What Donut's magic currently allows (HUD-DEBT-02): `PreBiscuit` until the
+/// unlock fires, then the whole-segment view of the real mana pool
+/// ([`crate::donut_hud::magic_of`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DonutMagic {
     PreBiscuit,
@@ -498,6 +501,8 @@ pub struct RealHudInputs {
     /// live actions.
     pub melee_live: bool,
     pub donut_magic: DonutMagic,
+    /// What Primary does at 0 mana (the loaded mana tuning, Q10-16).
+    pub empty_press: EmptyPress,
     pub hp_flash: Option<HpFlash>,
     /// Donut's HP flash, from her real hurt events (HUD-DEBT-01).
     pub donut_hp_flash: Option<HpFlash>,
@@ -508,7 +513,7 @@ pub struct RealHudInputs {
     pub donut_glyphs: GlyphSet,
     /// The player slot (1 or 2) whose controller is missing, if any.
     pub reconnect: Option<u8>,
-    /// provisional: Q10. Chips for a human-driven Donut.
+    /// Q10-01: chips for a human-driven Donut (`PartyTuning::donut_moves`).
     pub donut_chips: bool,
     pub reduced_motion: bool,
     pub high_contrast: bool,
@@ -532,6 +537,7 @@ impl RealHudInputs {
             donut_control: Control::Ai,
             melee_live: true,
             donut_magic: DonutMagic::PreBiscuit,
+            empty_press: EmptyPress::Dry,
             hp_flash: None,
             donut_hp_flash: None,
             notice: None,
@@ -571,6 +577,9 @@ fn carl_abilities(control: Control, melee_live: bool) -> AbilityRow {
     }
 }
 
+/// The chip row of a **preview fixture** (`--hud-preview`): the pre- and
+/// post-unlock, depleted and co-op states the HUD can show without a scene.
+/// The real plate goes through `donut_hud::donut_ability_row`.
 fn donut_abilities(control: Control, magic: DonutMagic) -> AbilityRow {
     match control {
         Control::Ai => AbilityRow::AiCompanion,
@@ -649,13 +658,15 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
             cur: real.donut_health.min(DONUT_HEALTH),
             max: DONUT_HEALTH,
         },
-        match real.donut_control {
-            // provisional: Q10. A human-driven Donut shows no chips yet.
-            Control::Player(_) if !real.donut_chips => AbilityRow::NoActions {
-                special: SpecialSlot::Locked,
-            },
-            control => donut_abilities(control, real.donut_magic),
-        },
+        // Q10: the chips, the muted Missile at 0 mana and the AI label come
+        // from `donut_hud` (the pure mapping the Q10 spec section 4 pins).
+        donut_hud::donut_ability_row(
+            real.donut_control,
+            real.donut_magic,
+            real.empty_press,
+            real.donut_chips,
+            real.melee_live,
+        ),
     );
     // Mana exists only for Donut, and only once her magic is unlocked.
     if let DonutMagic::Unlocked(mana) = real.donut_magic {
@@ -962,6 +973,7 @@ type VisualKey = (
     bool,
     PartyView,
     Option<BossView>,
+    DonutMagic,
 );
 
 /// The party facts the HUD draws (real ownership, never a fixture): who drives
@@ -977,9 +989,8 @@ pub struct PartyView {
     pub donut_glyphs: GlyphSet,
     /// The slot number (1 or 2) whose controller is missing.
     pub reconnect: Option<u8>,
-    /// provisional: Q10 (`PartyTuning::donut_ability_chips`). When false a
-    /// human-driven Donut shows no PUNCH/KICK-style chips, only the locked
-    /// special socket.
+    /// Q10-01 (`PartyTuning::donut_ability_chips`). When false a human-driven
+    /// Donut shows no chips, only the locked special socket.
     pub donut_chips: bool,
 }
 
@@ -1020,6 +1031,14 @@ pub struct HudRuntime {
     location: Option<String>,
     /// The real boss encounter (HUD-DEBT-03), `None` outside one.
     boss: Option<BossHud>,
+    /// HUD-DEBT-02: Donut's unlocked mana pool as `(mana, mana_max)`, `None`
+    /// while the biscuit is locked. Fed by the scene from the simulation's
+    /// `DonutMana`; the HUD never invents it.
+    donut_mana: Option<(u8, u8)>,
+    /// The loaded `empty_press` rule (Q10-16), fed by the scene.
+    empty_press: EmptyPress,
+    /// The one-time depleted outline flash (presentation only).
+    depleted: donut_hud::DepletedFlash,
 }
 
 /// The cosmetic state of the boss strip: the slide, the damage chip and the
@@ -1061,7 +1080,37 @@ impl HudRuntime {
             donut_name: FALLBACK_NAME_RIGHT.to_string(),
             location: None,
             boss: None,
+            donut_mana: None,
+            empty_press: EmptyPress::Dry,
+            depleted: donut_hud::DepletedFlash::default(),
         }
+    }
+
+    /// HUD-DEBT-02: the real mana of Donut's biscuit magic (`None` while it is
+    /// locked). Call once per tick before [`Self::step`]; the depleted flash
+    /// ages inside `step`.
+    pub fn set_donut_mana(&mut self, mana: Option<(u8, u8)>) {
+        let before = self.donut_magic();
+        self.donut_mana = mana;
+        // The renderer rebuilds only on a new revision, and `step` compares
+        // against the state it starts from: a visible change is counted here.
+        if self.donut_magic() != before {
+            self.revision += 1;
+        }
+    }
+
+    /// The loaded `empty_press` rule, so a depleted plate shows what the press
+    /// really does. Call before [`Self::step`]; constant for a run.
+    pub fn set_empty_press(&mut self, empty_press: EmptyPress) {
+        if self.empty_press != empty_press {
+            self.empty_press = empty_press;
+            self.revision += 1;
+        }
+    }
+
+    /// What Donut's magic currently allows, from the real mana.
+    fn donut_magic(&self) -> DonutMagic {
+        donut_hud::magic_of(self.donut_mana, self.depleted.age())
     }
 
     /// HUD-DEBT-03: tell the HUD about the encounter (name and emblem key from
@@ -1212,6 +1261,7 @@ impl HudRuntime {
             warning_bright,
             self.drawn_party(),
             self.boss_view(),
+            self.donut_magic(),
         )
     }
 
@@ -1266,6 +1316,12 @@ impl HudRuntime {
         let before = self.visual_key();
         self.tick += 1;
         self.notices.advance();
+        match self.donut_mana {
+            Some((mana, _)) => {
+                self.depleted.step(mana);
+            }
+            None => self.depleted = donut_hud::DepletedFlash::default(),
+        }
         for slot in &mut self.flash {
             if let Some(flash) = slot.as_mut() {
                 flash.age_ticks += 1;
@@ -1347,6 +1403,8 @@ impl HudRuntime {
         real.reduced_motion = self.config.settings.reduced_motion;
         real.high_contrast = self.config.settings.high_contrast;
         real.boss = self.boss_view();
+        real.donut_magic = self.donut_magic();
+        real.empty_press = self.empty_press;
         real
     }
 
@@ -2277,6 +2335,118 @@ mod tests {
         ));
         // An AI plate never has chips either way.
         assert_eq!(hud.snapshot().plates[1].abilities, AbilityRow::AiCompanion);
+    }
+
+    /// HUD-DEBT-02: the plate reads the real mana pool, never a fixture. Locked
+    /// shows no bar; unlocked shows whole segments; at 0 the depleted flash
+    /// ages once and the MISSILE chip is muted.
+    #[test]
+    fn the_real_donut_mana_drives_the_bar_the_chips_and_the_depleted_flash() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_melee_live(true);
+        // Solo swap: P1 drives Donut, so her plate shows chips.
+        hud.set_party(PartyView {
+            carl: Control::Ai,
+            donut: Control::Player(1),
+            donut_chips: true,
+            ..PartyView::default()
+        });
+        let donut = |hud: &HudRuntime| hud.snapshot().plates[1].clone();
+        // Locked: the pre-biscuit SWAT chip and no mana bar.
+        let locked = donut(&hud);
+        assert_eq!(locked.mana, None);
+        let AbilityRow::Chips { a, b, .. } = locked.abilities else {
+            panic!("chips")
+        };
+        assert_eq!((a.label, b.label), (LabelId::Swat, LabelId::Pounce));
+        // Unlocked and full: 94 px, MISSILE unmuted.
+        let before = hud.revision();
+        hud.set_donut_mana(Some((8, 8)));
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert!(hud.revision() > before, "the change is a visual change");
+        let full = donut(&hud);
+        assert_eq!(
+            full.mana,
+            Some(ManaView {
+                fill_px: 94,
+                depleted_age: None
+            })
+        );
+        let AbilityRow::Chips { a, .. } = full.abilities else {
+            panic!("chips")
+        };
+        assert_eq!((a.label, a.muted), (LabelId::Missile, false));
+        // Whole segments: 3 charges is 35 px.
+        hud.set_donut_mana(Some((3, 8)));
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(donut(&hud).mana.map(|m| m.fill_px), Some(35));
+        // Depleted: the flash starts at 0 and ages while she stays at 0.
+        hud.set_donut_mana(Some((0, 8)));
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        let empty = donut(&hud);
+        assert_eq!(
+            empty.mana.map(|m| (m.fill_px, m.depleted_age)),
+            Some((0, Some(0)))
+        );
+        let AbilityRow::Chips { a, b, .. } = empty.abilities else {
+            panic!("chips")
+        };
+        assert_eq!((a.label, a.muted), (LabelId::Missile, true));
+        assert!(!b.muted, "POUNCE is never muted");
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(donut(&hud).mana.and_then(|m| m.depleted_age), Some(1));
+        // A charge back clears the flash; relocking removes the bar.
+        hud.set_donut_mana(Some((1, 8)));
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(donut(&hud).mana.and_then(|m| m.depleted_age), None);
+        hud.set_donut_mana(None);
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(donut(&hud).mana, None);
+    }
+
+    /// The Donut plate is an AI label, or no chips outside a combat section,
+    /// or the chips: from the pure mapping of `donut_hud`.
+    #[test]
+    fn the_loaded_empty_press_reaches_the_depleted_plate() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_melee_live(true);
+        hud.set_party(PartyView {
+            carl: Control::Ai,
+            donut: Control::Player(1),
+            donut_chips: true,
+            ..PartyView::default()
+        });
+        hud.set_donut_mana(Some((0, 8)));
+        let label = |hud: &HudRuntime| {
+            let AbilityRow::Chips { a, .. } = hud.snapshot().plates[1].abilities else {
+                panic!("chips")
+            };
+            (a.label, a.muted)
+        };
+        assert_eq!(label(&hud), (LabelId::Missile, true), "dry press: muted");
+        hud.set_empty_press(EmptyPress::Swat);
+        assert_eq!(
+            label(&hud),
+            (LabelId::Swat, false),
+            "swat press: unmuted swat"
+        );
+    }
+
+    #[test]
+    fn the_donut_chips_follow_control_the_melee_gate_and_q10_01() {
+        let mut real = RealHudInputs::normal(4, 4);
+        real.donut_control = Control::Player(2);
+        real.donut_chips = true;
+        real.melee_live = true;
+        let row = |real: &RealHudInputs| build_snapshot(real, None, 0).plates[1].abilities;
+        assert!(matches!(row(&real), AbilityRow::Chips { .. }));
+        real.melee_live = false;
+        assert!(matches!(row(&real), AbilityRow::NoActions { .. }));
+        real.melee_live = true;
+        real.donut_chips = false;
+        assert!(matches!(row(&real), AbilityRow::NoActions { .. }));
+        real.donut_control = Control::Ai;
+        assert_eq!(row(&real), AbilityRow::AiCompanion);
     }
 
     #[test]

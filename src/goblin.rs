@@ -20,6 +20,7 @@ use crate::combat::{
     ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, ENEMY_HEALTH, EnemyAi, HitOutcome, MoveSpec, StrikeTarget,
     body_rect, solid_at,
 };
+use crate::donut_moves::{HitStopSplit, LightGuard, TargetState, hash_guard};
 use crate::feel::{
     ATTACK_COOLDOWN, ATTACK_TICKS, BLAST_KNOCK_VX, BLAST_KNOCK_VX_POINT_BLANK, BLAST_KNOCK_VY,
     BLAST_KNOCK_VY_POINT_BLANK, CONTACT_HIT_STOP, CONTACT_POSE_TICKS, CONTACT_PUSH_VX,
@@ -126,6 +127,11 @@ pub struct Goblin {
     /// `Some(0)` is already implied by a hashed `Hit`; any other player is
     /// mixed, so a second player's hit never hashes like Carl's.
     pub hit_by: Option<u32>,
+    /// WORK-023 (Q10-06): the light guard a swat stagger sets. A guarded goblin
+    /// glances further swats; Carl's hits and the pounce still interrupt it.
+    /// `None` for every goblin Donut never swatted, so nothing of it is mixed
+    /// into a hash then.
+    pub guard: Option<LightGuard>,
 }
 
 impl Goblin {
@@ -151,6 +157,7 @@ impl Goblin {
             flight_ticks: 0,
             contact_ticks: 0,
             hit_by: None,
+            guard: None,
         }
     }
 
@@ -175,6 +182,38 @@ impl Goblin {
 
     pub fn attack_phase(&self) -> Option<AttackPhase> {
         (self.mode == GoblinMode::Attack).then(|| attack_phase(self.attack_tick))
+    }
+
+    /// What the Donut move domain sees of this goblin (Q10 section 1): the
+    /// attack phase from the real `attack_tick` (the Impact is latched by the
+    /// guard, never re-derived), and a defeated goblin, lying or a corpse, is
+    /// no target.
+    pub fn target_state(&self) -> TargetState {
+        match self.mode {
+            GoblinMode::Neutral => TargetState::Neutral,
+            GoblinMode::Attack => match attack_phase(self.attack_tick) {
+                AttackPhase::Tell => TargetState::Tell,
+                AttackPhase::Smear => TargetState::Smear,
+                AttackPhase::Impact => TargetState::Impact,
+                AttackPhase::Recover => TargetState::Recovery,
+            },
+            GoblinMode::Hurt => TargetState::Staggered,
+            GoblinMode::Launched => TargetState::Launched,
+            GoblinMode::Downed => TargetState::Downed,
+            GoblinMode::Airborne => TargetState::Airborne,
+            GoblinMode::Down | GoblinMode::Corpse => TargetState::Defeated,
+        }
+    }
+
+    /// One tick of the light guard (call once per goblin tick, after
+    /// [`Self::step`]): it is dropped once it releases.
+    pub fn observe_guard(&mut self) {
+        let state = self.target_state();
+        if let Some(guard) = self.guard.as_mut()
+            && guard.observe(state)
+        {
+            self.guard = None;
+        }
     }
 
     /// Could take an attack token this tick (decided before the tick steps).
@@ -399,6 +438,8 @@ impl Goblin {
             mix(0x4849_5442);
             mix(u64::from(player));
         }
+        // WORK-023: the light guard, mixed only while it is set.
+        hash_guard(&self.guard, mix);
     }
 
     /// CP-02, the flier's side of a contact: `knockback_contact` for a few
@@ -524,6 +565,25 @@ impl StrikeTarget for Goblin {
     /// attack is cancelled); a hit during the swing only damages it. Returns the
     /// hit-stop the attacker freezes for.
     fn take_hit(&mut self, spec: &MoveSpec, attacker_facing: i8) -> (HitOutcome, u8) {
+        let (outcome, split) = self.take_hit_split(spec, attacker_facing, HitStopSplit::legacy);
+        (outcome, split.attacker)
+    }
+}
+
+impl Goblin {
+    /// [`StrikeTarget::take_hit`] with the freeze of the two fighters as two
+    /// numbers (Q10 hit-stop split). `split` maps the move's hit-stop (plus the
+    /// lethal bonus) to the freezes: the legacy rule is
+    /// [`HitStopSplit::legacy`] (the attacker `stop`, the goblin `stop + 1`
+    /// because it is stepped after the strike on the same tick); the swat
+    /// freezes only Donut (`target: 0`), so a Carl jab on the next tick still
+    /// connects. The goblin stores `target` directly.
+    pub fn take_hit_split(
+        &mut self,
+        spec: &MoveSpec,
+        attacker_facing: i8,
+        split: impl FnOnce(u8) -> HitStopSplit,
+    ) -> (HitOutcome, HitStopSplit) {
         let reaction = spec.reaction;
         let direction = f32::from(attacker_facing);
         self.health = self.health.saturating_sub(spec.damage);
@@ -575,8 +635,9 @@ impl StrikeTarget for Goblin {
         // The scene steps goblins after Carl's strike on the same tick, so that
         // step is frozen too: the goblin loses the hit tick plus `stop` more
         // ticks, the attacker's clock `stop` ticks after the hit tick.
-        self.hit_stop = stop + 1;
-        (outcome, stop)
+        let split = split(stop);
+        self.hit_stop = split.target;
+        (outcome, split)
     }
 }
 
@@ -1094,5 +1155,106 @@ mod tests {
         );
         // 16 shear samples (8 px) of the 104 px kill band (208 samples).
         assert_eq!((shears, kills), (16, 207));
+    }
+
+    // ---------------------------------------------- WORK-023 (Q10 guard) --
+
+    fn hash_of(g: &Goblin) -> Vec<u64> {
+        let mut values = Vec::new();
+        g.mix_into(&mut |v| values.push(v));
+        values
+    }
+
+    #[test]
+    fn take_hit_is_take_hit_split_with_the_legacy_split() {
+        use crate::combat::StrikeTarget;
+        use crate::donut_moves::HitStopSplit;
+        for spec in [&CARL_JAB, &CARL_HAYMAKER] {
+            let (mut a, mut b) = (goblin_at(500.0), goblin_at(500.0));
+            let (outcome_a, stop) = a.take_hit(spec, 1);
+            let (outcome_b, split) = b.take_hit_split(spec, 1, HitStopSplit::legacy);
+            assert_eq!(outcome_a, outcome_b);
+            assert_eq!(stop, split.attacker);
+            assert_eq!(a, b, "the same goblin state after the same hit");
+            assert_eq!(a.hit_stop, stop + 1, "the legacy target freeze is stop + 1");
+        }
+    }
+
+    #[test]
+    fn a_swat_split_leaves_the_goblin_unfrozen_and_staggers_a_tell() {
+        use crate::combat::DONUT_SWAT;
+        use crate::donut_moves::SWAT_HIT_STOP;
+        let (mut g, _) = telling();
+        for _ in 0..4 {
+            tick(&mut g, 0.0, true);
+        }
+        assert!(g.token_held());
+        let (_, split) = g.take_hit_split(&DONUT_SWAT, 1, |_| SWAT_HIT_STOP);
+        assert_eq!((split.attacker, g.hit_stop), (2, 0));
+        assert_eq!(g.mode, GoblinMode::Hurt, "the tell is cancelled");
+        assert_eq!(g.stagger_left, 10);
+        assert_eq!(g.health, ENEMY_HEALTH, "damage 0");
+        assert!(!g.token_held(), "the token is back");
+    }
+
+    #[test]
+    fn the_target_state_follows_the_mode_and_the_real_attack_phase() {
+        let mut g = goblin_at(500.0);
+        assert_eq!(g.target_state(), TargetState::Neutral);
+        g.mode = GoblinMode::Attack;
+        for (attack_tick, want) in [
+            (0, TargetState::Tell),
+            (23, TargetState::Tell),
+            (24, TargetState::Smear),
+            (26, TargetState::Impact),
+            (29, TargetState::Impact),
+            (30, TargetState::Recovery),
+        ] {
+            g.attack_tick = attack_tick;
+            assert_eq!(g.target_state(), want, "attack tick {attack_tick}");
+        }
+        for (mode, want) in [
+            (GoblinMode::Hurt, TargetState::Staggered),
+            (GoblinMode::Launched, TargetState::Launched),
+            (GoblinMode::Downed, TargetState::Downed),
+            (GoblinMode::Airborne, TargetState::Airborne),
+            (GoblinMode::Down, TargetState::Defeated),
+            (GoblinMode::Corpse, TargetState::Defeated),
+        ] {
+            g.mode = mode;
+            assert_eq!(g.target_state(), want, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn the_guard_is_mixed_into_the_hash_only_while_it_is_set() {
+        let mut g = goblin_at(500.0);
+        let unset = hash_of(&g);
+        g.guard = Some(LightGuard::new());
+        let set = hash_of(&g);
+        assert!(set.len() > unset.len() && set[..unset.len()] == unset[..]);
+        g.guard = None;
+        assert_eq!(hash_of(&g), unset, "an unset guard hashes nothing");
+    }
+
+    #[test]
+    fn the_guard_clears_after_60_ticks_and_the_next_impact_or_when_the_goblin_goes_down() {
+        let mut g = goblin_at(500.0);
+        g.guard = Some(LightGuard::new());
+        // 70 neutral ticks: old enough, but no swing has reached Impact.
+        for _ in 0..70 {
+            g.observe_guard();
+        }
+        assert!(g.guard.is_some(), "no Impact yet: it stays");
+        g.mode = GoblinMode::Attack;
+        g.attack_tick = 27;
+        g.observe_guard();
+        assert!(g.guard.is_none(), "60 ticks and an Impact seen: it clears");
+        // A launch (or a down) clears it at once.
+        let mut h = goblin_at(500.0);
+        h.guard = Some(LightGuard::new());
+        h.mode = GoblinMode::Launched;
+        h.observe_guard();
+        assert!(h.guard.is_none());
     }
 }

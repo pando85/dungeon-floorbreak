@@ -30,13 +30,6 @@ use crate::cine::{
 };
 use crate::combat::{CombatEvent, MoveId};
 
-/// The hero index a melee blow is credited to when the event names no
-/// attacker (`CombatEvent::Hit` has none). On main only Carl attacks (Donut
-/// has no attacks), so a launch kick is Carl's; **do not generalise this to
-/// Donut or to P2**: when a second attacker exists the `Hit` must carry the
-/// attacker and this constant goes away.
-pub const MELEE_ATTACKER: u32 = 0;
-
 /// How many launch kicks are remembered for the launch proof. A contact must
 /// follow its kick within the flight of one goblin, so a handful is plenty.
 const KICK_MEMORY: usize = 16;
@@ -54,7 +47,8 @@ pub struct CineAdapter {
     evaluator: CinematicEvaluator,
     planner: SlowMoPlanner,
     pending: Vec<CineEvent>,
-    kicks: VecDeque<(u32, u32)>,
+    /// `(attacker hero, kick instance, kicked goblin)`.
+    kicks: VecDeque<(u32, u32, u32)>,
     cancel: bool,
     emitted: u32,
     target: Option<u32>,
@@ -105,12 +99,14 @@ impl CineAdapter {
     pub fn push(&mut self, event: &CombatEvent) {
         match *event {
             CombatEvent::Hit {
-                move_id: MoveId::PushKick,
+                move_id: move_id @ MoveId::PushKick,
                 instance,
                 target,
                 ..
             } => {
-                self.kicks.push_back((instance, target));
+                // The attacker is the owner of the move (`MoveId::hero`), never
+                // a default: `Hit` carries no attacker field.
+                self.kicks.push_back((move_id.hero(), instance, target));
                 while self.kicks.len() > KICK_MEMORY {
                     self.kicks.pop_front();
                 }
@@ -120,12 +116,19 @@ impl CineAdapter {
                 launch,
                 source,
                 ..
-            } if self.kicks.contains(&(launch, source)) => {
-                self.pending.push(CineEvent::LaunchCredited {
-                    tick,
-                    goblin: source,
-                    player: MELEE_ATTACKER,
-                });
+            } => {
+                if let Some(&(hero, ..)) = self
+                    .kicks
+                    .iter()
+                    .rev()
+                    .find(|&&(_, instance, goblin)| instance == launch && goblin == source)
+                {
+                    self.pending.push(CineEvent::LaunchCredited {
+                        tick,
+                        goblin: source,
+                        player: hero,
+                    });
+                }
             }
             CombatEvent::Restart { .. } => self.kicks.clear(),
             _ => {}
@@ -291,6 +294,68 @@ mod tests {
                 .iter()
                 .any(|e| matches!(e, CineEvent::LaunchCredited { .. }))
         );
+    }
+
+    #[test]
+    fn every_move_names_its_hero_and_donut_moves_are_never_carls() {
+        for mv in [MoveId::Swat, MoveId::Pounce, MoveId::MagicMissile] {
+            assert_eq!(mv.hero(), 1, "{mv:?}");
+        }
+        for mv in [
+            MoveId::GreyboxStrike,
+            MoveId::Jab,
+            MoveId::Haymaker,
+            MoveId::PushKick,
+        ] {
+            assert_eq!(mv.hero(), 0, "{mv:?}");
+        }
+    }
+
+    /// Guard: a launch proven for Donut (hero 1) and her kills make hero 1's
+    /// legendary chain, with the contact bonus credited to hero 1 only; the
+    /// same chain with Carl's kills does not borrow Donut's launch.
+    #[test]
+    fn a_donut_launch_and_her_kills_credit_hero_one_never_hero_zero() {
+        let chain = |launcher: u32, killer: u32| {
+            let mut a = CineAdapter::new(PresentationSettings::DEFAULT);
+            // The launch proof as the `Hit` handler records it: the attacker
+            // is the owner of the launching move.
+            a.kicks.push_back((launcher, 5, 9));
+            feed(
+                &mut a,
+                &[
+                    CombatEvent::GoblinContact {
+                        tick: 110,
+                        launch: 5,
+                        source: 9,
+                        target: 2,
+                    },
+                    defeat(120, 1, MELEE, Some(killer)),
+                    CombatEvent::ShoreBroken {
+                        tick: 125,
+                        player: killer,
+                    },
+                    defeat(
+                        150,
+                        2,
+                        DefeatCause::ShoreBlock { player: killer },
+                        Some(killer),
+                    ),
+                    defeat(150, 3, MELEE, Some(killer)),
+                ],
+            )
+        };
+        let donut = chain(1, 1);
+        assert_eq!(donut.len(), 1, "{donut:?}");
+        let m = donut[0].moment;
+        assert_eq!((m.credited, m.tier, m.score), (1, CineTier::Legendary, 8));
+        assert!(m.feats.contact_setup);
+        // Carl's kills with a launch that was Donut's: ordinary at best, and
+        // never the contact setup.
+        let carl = chain(1, 0);
+        assert_eq!(carl.len(), 1, "{carl:?}");
+        assert!(!carl[0].moment.feats.contact_setup);
+        assert_eq!(carl[0].moment.credited, 0);
     }
 
     #[test]

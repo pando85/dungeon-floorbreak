@@ -17,6 +17,8 @@ use crate::boss_scene::{BOSS_FIXTURES, Pilot, pilot_inputs};
 use crate::combat::EnemyAi;
 use crate::combat_scene::{CombatState, EnemySpawn, Fixture};
 use crate::corridor::SceneSim;
+use crate::donut_fixtures::DONUT_FIXTURES;
+use crate::donut_mana::DonutSetup;
 use crate::env_kit::EnvKit;
 use crate::input::{RawInput, SlotInputs};
 use crate::party::{PROVISIONAL_TUNING, PadId, PartyState, PartyTuning};
@@ -99,6 +101,9 @@ pub struct PartyFixture {
     /// function of the finished state) on top of the script. `Pilot::None` on
     /// every earlier fixture.
     pub pilot: Pilot,
+    /// WORK-023, HUD-DEBT-02: Donut's declared biscuit state and the unlock
+    /// zone (`DonutSetup::NONE` on every earlier fixture: locked, no zone).
+    pub donut: DonutSetup,
 }
 
 impl PartyFixture {
@@ -132,9 +137,14 @@ impl PartyFixture {
         pilot_inputs(self.pilot, self.slot_inputs(tick), tick, combat, scene)
     }
 
-    /// Every named party fixture: the seven party fixtures, then the boss ones.
+    /// Every named party fixture: the seven party fixtures, then the boss ones,
+    /// then Donut's Q10 and mana ones.
     pub fn all() -> impl Iterator<Item = &'static PartyFixture> {
-        PARTY_FIXTURES.iter().chain(BOSS_FIXTURES.iter()).copied()
+        PARTY_FIXTURES
+            .iter()
+            .chain(BOSS_FIXTURES.iter())
+            .chain(DONUT_FIXTURES.iter())
+            .copied()
     }
 
     pub fn by_name(name: &str) -> Option<&'static PartyFixture> {
@@ -146,7 +156,7 @@ impl PartyFixture {
     }
 }
 
-const fn base(
+pub(crate) const fn base(
     name: &'static str,
     summary: &'static str,
     seed: u64,
@@ -188,6 +198,7 @@ pub const DUO_INDEPENDENT_MOVES: PartyFixture = PartyFixture {
         run(70, 130, 1, -1.0),
     ],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const DUO_WALL_BASE: Fixture = base(
@@ -205,6 +216,7 @@ pub const DUO_SEPARATION_WALL: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[run(10, 420, 0, 1.0)],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const SOLO_SWAP_BASE: Fixture = base(
@@ -228,6 +240,7 @@ pub const SOLO_SWAP_CONTINUITY: PartyFixture = PartyFixture {
         run(210, 260, 0, 1.0),
     ],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const DONUT_HURT_BASE: Fixture = base(
@@ -254,6 +267,7 @@ pub const DONUT_HURT_IFRAMES: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const DONUT_DEFEAT_BASE: Fixture = base(
@@ -274,6 +288,7 @@ pub const DONUT_DEFEAT_PARTY: PartyFixture = PartyFixture {
     tuning: PROVISIONAL_TUNING,
     script: &[],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const SOLO_GUARD_BASE: Fixture = base(
@@ -302,6 +317,7 @@ pub const SOLO_GUARD_FLOORS_AT_ONE: PartyFixture = PartyFixture {
     tuning: NO_DODGE_TUNING,
     script: &[],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 const SOLO_DODGE_BASE: Fixture = base(
@@ -327,6 +343,7 @@ pub const SOLO_FOLLOWER_DODGE: PartyFixture = PartyFixture {
     },
     script: &[],
     pilot: Pilot::None,
+    donut: DonutSetup::NONE,
 };
 
 pub const PARTY_FIXTURES: [&PartyFixture; 7] = [
@@ -352,7 +369,7 @@ pub struct PartyFixtureSim {
 impl PartyFixtureSim {
     pub fn new(kit: &EnvKit, view_h: i32, fixture: &'static PartyFixture) -> Result<Self, String> {
         let scene = SceneSim::new_at(kit, view_h, fixture.base.carl_x)?;
-        let combat = CombatState::new(fixture.base, kit, &scene)?;
+        let combat = CombatState::new(fixture.base, kit, &scene)?.with_donut(fixture.donut);
         let mut party = PartyState::new(fixture.tuning);
         if fixture.two_player {
             party.pad_connected(PadId(1));
@@ -972,9 +989,18 @@ mod tests {
         }
     }
 
+    /// The attack-less Donut of the party PR (#114): the Q10-01 knob off.
+    const NO_DONUT_MOVES: PartyFixture = PartyFixture {
+        tuning: PartyTuning {
+            donut_moves: false,
+            ..PROVISIONAL_TUNING
+        },
+        ..DUO_INDEPENDENT_MOVES
+    };
+
     #[test]
-    fn donut_has_no_attacks_and_carl_keeps_his_in_two_player() {
-        let mut sim = sim_of(&DUO_INDEPENDENT_MOVES);
+    fn with_donut_moves_off_donut_has_no_attacks_and_carl_keeps_his_in_two_player() {
+        let mut sim = sim_of(&NO_DONUT_MOVES);
         sim.step_slots([
             idle(),
             RawInput {
@@ -984,7 +1010,37 @@ mod tests {
             },
         ]);
         assert!(sim.combat.events.is_empty(), "P2's buttons start no move");
-        assert!(sim.scene.world.hero.melee.current().is_none());
+        assert!(sim.combat.donut_move_view().is_none());
+        sim.step_slots([
+            RawInput {
+                attack: true,
+                ..idle()
+            },
+            idle(),
+        ]);
+        assert!(sim.scene.world.hero.melee.current().is_some(), "P1 jabs");
+    }
+
+    #[test]
+    fn with_donut_moves_on_the_second_player_swats_and_carl_keeps_his_jab() {
+        let mut sim = sim_of(&DUO_INDEPENDENT_MOVES);
+        sim.step_slots([
+            idle(),
+            RawInput {
+                attack: true,
+                ..idle()
+            },
+        ]);
+        assert!(
+            matches!(
+                sim.combat.events.first(),
+                Some(CombatEvent::MoveStarted {
+                    move_id: crate::combat::MoveId::Swat,
+                    ..
+                })
+            ),
+            "P2's Primary is the swat before the biscuit"
+        );
         sim.step_slots([
             RawInput {
                 attack: true,
@@ -1146,6 +1202,7 @@ mod tests {
         tuning: PROVISIONAL_TUNING,
         script: &[],
         pilot: Pilot::None,
+        donut: DonutSetup::NONE,
     };
     const DUO_TARGET_BASE: Fixture = base(
         "duo_targeting",
@@ -1163,5 +1220,6 @@ mod tests {
         tuning: PROVISIONAL_TUNING,
         script: &[],
         pilot: Pilot::None,
+        donut: DonutSetup::NONE,
     };
 }

@@ -1,6 +1,6 @@
 # Q10: Donut's swat and pounce, gameplay and animation design
 
-**Status:** design proposed under the owner's design-defaults directive (AGENTS.md, 2026-11-19). Every value is a recommended default stored as data with a `Q10-##` ID. It is adopted after an independent review. Nothing is implemented yet, and game feel is pending the owner's 2P and solo play. Backlog: WORK-023. This unblocks HUD-DEBT-02 (mana) and Donut's HUD chips. Donut's scamper and cat-jump rows of Q10 remain open.
+**Status:** design adopted under the owner's design-defaults directive (AGENTS.md, 2026-11-19); implemented and in review (see [Implementation status](#implementation-status)). Every value is a recommended default stored as data with a `Q10-##` ID. Game feel is pending the owner's 2P and solo play. Backlog: WORK-023. This unblocks HUD-DEBT-02 (mana) and Donut's HUD chips. Donut's scamper and cat-jump rows of Q10 remain open.
 
 **Read with:**
 
@@ -60,7 +60,7 @@ Conventions:
   - A kill is `DefeatCause::Melee` credited to hero index 1 (non-implied instigator, so only that event's hash grows), force Routine.
 - **Bounds:**
   - grounded start only, no jump cancel, and the move never refunds or spends a jump;
-  - walls and body contact (centre distance 24 px with a living goblin) stop it, so she never passes through or over a goblin;
+  - walls and body contact (a living goblin whose centre is 0 to 24 px **ahead** of her, Q10-A04) stop it, so she never passes through or over a goblin;
   - the 7 px apex mounts nothing a jump cannot, and the boss rack ledge (104 px) stays a cat-jump gate.
 - **Lapse (air cap 20):** if she is still airborne 20 ticks after launch (off a ledge), the box turns off and the input lock ends. Air control is then that of a walk-off fall (`jump_fall`), and she lands with `land`, no pin.
 - **Commitment:** input and facing stay locked until touchdown + 8. After that, a move or a jump cancels the rest. A whiff exposes her for 32 ticks, longer than a goblin's 26 ticks from tell to impact.
@@ -206,6 +206,57 @@ Consulted the [character progression horizon](../01-design/character-progression
 - Later pounce upgrades are data changes.
 
 The guide needs no update.
+
+## Implementation status
+
+**Phase A (domain) and phase B (integration) are in review** on `feat/donut-q10-mana` (WORK-023, with the Donut mana of HUD-DEBT-02). Game feel is pending the owner's 2P and solo play: nothing here is accepted until a human has played it.
+
+| Piece | Where | Status |
+| --- | --- | --- |
+| Swat and pounce state machines, frame and tick tables, boxes, buffer, hit-stop, dry press, latched guard | `src/donut_moves.rs` | Implemented, unit-tested |
+| Primary routing (`route_primary`), the 0-mana dry press as an output event | `src/donut_moves.rs` | Implemented, unit-tested; wired in the scene |
+| Chip and `ManaView` mapping | `src/donut_hud.rs` | Implemented; the real HUD plate reads it (`hud.rs`, `HudRuntime::set_donut_mana`) |
+| `MoveId::Swat` / `Pounce` / `MagicMissile`, the three `MoveSpec`s and `SWAT_FEEL` / `POUNCE_FEEL` / `MISSILE_FEEL` | `src/combat.rs`, `src/feel.rs` | Implemented; a test pins them to the domain's numbers |
+| Hit-stop split in `Goblin::take_hit` (`take_hit_split`), `LightGuard` on goblins, the target-state mapping | `src/goblin.rs` | Implemented, unit-tested; `take_hit` is `take_hit_split` with `HitStopSplit::legacy` |
+| The adapter: Donut's press edges, the step before her physics, hits on goblins and the boss, the cast and the bolt, mana and the Guild trigger | `src/combat_scene/donut.rs` | Implemented, unit-tested |
+| Body overrides for the launch, the held speed, the swat cap and the facing lock | `src/prototype.rs` (`BodyDrive`), `src/corridor.rs` (`PartyStepCtx::drives`) | Implemented; the default drive is the legacy step |
+| `PartyTuning::donut_moves` (Q10-01); chips derived from it | `src/party.rs` | Implemented |
+| The eight `q10_*` fixtures with committed replays and goldens | `src/donut_fixtures.rs`, [evidence](../evidence/donut-q10-mana/README.md) | Implemented |
+
+**Hash gating.** Donut's state is mixed into the hash only while it is non-default (a move, a cast, a bolt, a held Primary or Physical, an unlocked pool, a set guard). Every earlier golden stays byte-identical: the 13 combat `EXPECTED_HASHES`, `GOLDEN_WALK_RIGHT_400`, the story hash `931868d6afa56498`, the party goldens and the boss goldens. A test replays every party and boss fixture with `donut_moves` on and off and asserts the same hash and the same events.
+
+**Deviations from the integration TODO** (all deliberate, none changes a spec number):
+
+- The knobs Q10-08, 09, 10, 12, 13 and 15 stay in `DonutMoveTuning::SPEC` (`src/donut_moves.rs`), not in `PartyTuning`: `PartyTuning` derives `Eq` and these are `f32`. Only Q10-01 (`donut_moves`) lives in `PartyTuning`.
+- `LIGHT_GUARD_MIN_TICKS` stays in `donut_moves.rs` (the TODO allowed it).
+- Llamas are not targets of the swat or the pounce (Q10 names goblins and the boss only). Follow-up when DEMO-01 wants it.
+- The Magic Missile **is** in scope (the mana spec spends the charge on its release tick): the cast, a 6 px per tick bolt with a 240 px range, a hit as an ordinary 1 damage hero hit. Its cast animation and bolt art follow the ANIM-DONUT-03 spec; their art review is still pending.
+- A swat glance does not flash the goblin (the event `glance` is logged and the `--debug-combat` box shows the swat). The one-tick glance flash is a follow-up.
+- The dry cue is presentation only and the empty-click sound is not added (no cue exists in the audio bank yet).
+- Hurt, knockback, knockdown and getup frames for Donut (melee 8 to 14) are not wired: her hurt reaction stays the existing tint.
+- Fixtures: `q10_pounce_finish` and `q10_pounce_whiff` of the table above shipped as `q10_pounce_hit` and `q10_pounce_miss`; `q10_dry_press` ships with the mana fixtures `q10_mana_regen` and `q10_unlock_persists`, and `q10_pounce_boss` is new. `q10_pounce_ledge` (the 20 tick lapse off a drop) and `q10_solo_swap_donut` (a swap mid-pounce) are covered by domain and adapter unit tests (`donut_moves`, `donut_fixtures::tests::the_follower_finishes_a_move_after_a_swap_and_starts_none`), not by a replay fixture.
+- Scamper and the cat jump stay open (the boss right rack stays data-gated off).
+
+**Follow-ups:** the AI follower still never attacks (Q9 B); llama targets; the glance flash; the empty click; Donut hurt art; `empty_press: "swat"` playtest variant has validation but no fixture.
+
+### Adopted defaults (2026-11-19)
+
+The ten points this spec left open, which phase A flagged, are **resolved** under the owner's design-defaults directive (AGENTS.md, 2026-11-19). Each one adopts the recommended option. The owner may change any of them in a follow-up PR. "Code impact" is checked against `15bdede`: **match** means the phase A code already does this.
+
+| ID | Question | Choice | Reason | Code impact |
+| --- | --- | --- | --- | --- |
+| Q10-A01 | Does a swat on a **tell** stagger like the neutral case? | Yes. The tell is cancelled, the token goes back, then the goblin takes `Hurt` for `SWAT_STAGGER` (10) and gets `HURT_COOLDOWN` (20) on its return to neutral. Both the tell and the neutral outcome set the light guard. | It is exactly what Carl's jab does to a tell (`Goblin::take_hit`, jab stagger 10), so there is one interrupt model. The guard has to be set on the neutral case too, or neutral swats every 14 ticks would lock a goblin. | Match (`swat_outcome`, `swat_effect`: `sets_guard: true` for both). Phase B: as in TODO 3 and 4. |
+| Q10-A02 | Does a swat resolve once per target or once per instance? | Once **per target per instance**. Every living target inside the box on t4-6 is resolved once, lowest index first. Only the pounce is limited to one target. | Carl's `resolve_strike` is multi-target, once per instance. A 0-damage control move that breaks two shoulder-to-shoulder tells reads correctly, and the guard caps repeat use. | Match (`run_current`, the `r.hit` list; test `a_swat_resolves_each_target_once_per_instance`). |
+| Q10-A03 | Which targets may the pounce hit? | Any **living** target: a goblin in any living state, including `Launched` and `Downed`, and the boss. Never a corpse or a goblin killed in the air. A goblin hit goes through `Goblin::take_hit` like Carl's jab (a non-lethal hit on a launched or downed goblin follows the jab rule). On the **boss** it is an ordinary 1-damage hero hit under #115's rules: super armour (damage and Donut's hit-stop 4, never an interrupt, no 14-tick stagger), +1 poise in neutral, free damage in recovers, stuns and pins. A boss kill is `DefeatCause::Melee` for `DONUT_HERO`. | "Finishes weakened goblins" means finishing the goblin Carl's kick left lying with 1 HP. #115 already treats every hero hit as 1 damage under super armour, so the boss needs no special case. | Domain: match (`lowest_first` keeps living targets; `PounceHit` for any `TargetKind`). Add pinning tests: a pounce hits a `Downed` goblin, a `Launched` goblin and a `Boss` target. Phase B: the boss adapter applies `PounceHit` through its hero-hit rule and ignores `stagger_ticks`. |
+| Q10-A04 | What counts as body contact that stops the pounce? | A living **goblin** whose centre is **ahead** of Donut in her facing direction at a distance from 0 to 24 px (`0 <= (centre_x - pivot_x) * facing <= 24`). A goblin behind her never stops her. The boss is not a contact target: its body push-out (#115) does that job. | Phase A used the absolute distance, so a goblin standing right behind her zeroes the launch and kills the pounce as an escape or relocation. The rule exists only so she never passes through or over a goblin ahead. | **Change**: `src/donut_moves.rs`, `DonutMoves::run_current`, pounce `contact` predicate. |
+| Q10-A05 | What does "a move or a jump cancels the rest" after touchdown + 8 mean? | Walking input, a jump press, or any new attack press (swat, pounce or cast). A dry press is not a request and does not cancel. A cancelling attack press starts its move on the same tick. | It matches the player's intent. The dry press stays "nothing happens", as section 3 says. | Match (`advance_end_and_cancels`, then `handle_press`). |
+| Q10-A06 | Does the crouch (t0-9) zero `vx`? | No. The crouch locks input and facing, and ground friction slows her. The launch on t10 sets `vx` itself. | It is the same choice as the swat's cap rather than a zero (the ANIM-DONUT-02 gate), and it avoids a hard stop that would show as foot-skate. | Match (`constrain`: `input_locked` until touchdown + 8, no `set_vx` on the crouch). |
+| Q10-A07 | Is a chained swat a new instance? | Yes. New instance number, empty hit list, and its hit tick is its own t4 (14 ticks after the first swat starts). | Its frames, events and hash stay simple. A goblin the first swat staggered glances anyway (`Staggered`, then guarded). | Match (`start_chained` calls `start`). |
+| Q10-A08 | Primary and Physical pressed on the same tick? | Primary is handled first. Physical is buffered for 6 ticks, so in practice it expires during the 14-tick swat (or is used after a jump cancel). | One fixed order keeps the result deterministic, and Primary is the button pressed more often. | Match (`requests`: index 0 is Primary). |
+| Q10-A09 | How is `ai_mana_reserve` read? | The AI may cast only if at least `ai_mana_reserve` charges are left **after** the cast: `mana - missile_cost >= ai_mana_reserve`. | That is the literal reading of "never spends below 2 charges". With cost 1 it is the same as "mana above the reserve". It stays correct if the cost rises. The AI does not attack yet (Q9 B), so it is unused until then. | Match (`DonutMana::ai_can_cast`; test `the_ai_never_spends_below_its_reserve`). |
+| Q10-A10 | Hash for the tuning pin: FNV-1a 64 or SHA-256? | FNV-1a 64 over the raw bytes of `companion_magic_v0.json` (`TUNING_HASH`). | The pin detects drift between a replay and its tuning file. It is not a trust or integrity boundary, so a cryptographic hash adds nothing. FNV-1a 64 is the hash the repository already uses, and it needs no new crate. | Match (`src/donut_mana.rs`, `TUNING_HASH`, `ManaTuning::from_json_pinned`). |
+
+Summary: 10 decisions. One changes phase A behaviour (Q10-A04). One adds tests to the domain and a phase B adapter rule (Q10-A03). The other eight match the phase A code.
 
 ## Rights/Provenance
 

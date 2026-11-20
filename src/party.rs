@@ -198,13 +198,22 @@ pub struct PartyTuning {
     pub solo_offscreen_immunity: bool,
     /// D1 safeguard M4. Margin outside the view, in pixels.
     pub offscreen_margin_px: u16,
-    /// Q10 (deferred). Show ability chips for Donut (none: she has no attacks).
-    pub donut_ability_chips: bool,
+    /// Q10-01 (WORK-023). Donut has her swat and pounce (and, after the
+    /// biscuit, her Magic Missile). `false` is the attack-less Donut of the
+    /// party PR (#114): no move starts, no press is read and no chip shows.
+    /// Her ability chips follow it ([`Self::donut_ability_chips`]).
+    pub donut_moves: bool,
     /// Q11.
     pub plate_glyphs: PlateGlyphs,
 }
 
 impl PartyTuning {
+    /// Whether a human-driven Donut plate shows ability chips: derived from
+    /// [`Self::donut_moves`] (Q10 section 4), never a second knob.
+    pub const fn donut_ability_chips(&self) -> bool {
+        self.donut_moves
+    }
+
     /// The largest horizontal distance between the heroes in two-player.
     pub const fn max_separation_px(&self, view_w: i32) -> i32 {
         view_w - 2 * self.camera_edge_margin_px as i32
@@ -236,7 +245,7 @@ pub const PROVISIONAL_TUNING: PartyTuning = PartyTuning {
     solo_last_hp_guard: true,
     solo_offscreen_immunity: true,
     offscreen_margin_px: 16,
-    donut_ability_chips: false,
+    donut_moves: true,
     plate_glyphs: PlateGlyphs::OwnPad,
 };
 
@@ -956,8 +965,9 @@ mod tests {
         // D1 safeguards
         assert!(t.solo_last_hp_guard && t.solo_offscreen_immunity);
         assert_eq!(t.offscreen_margin_px, 16);
-        // Q10 is deferred: no Donut chips.
-        assert!(!t.donut_ability_chips);
+        // Q10-01: Donut has her swat and pounce, and her chips follow it.
+        assert!(t.donut_moves);
+        assert_eq!(t.donut_ability_chips(), t.donut_moves);
         // Q11
         assert_eq!(t.plate_glyphs, PlateGlyphs::OwnPad);
     }

@@ -81,6 +81,11 @@ if [[ "$mode" == hud || "$mode" == hud-deck || "$mode" == boss || "$mode" == bos
     "party-duo-wall|-|--party-fixture duo_separation_wall --capture-tick 240|"
     "party-swap|-|--party-fixture solo_swap_continuity --capture-tick 120|"
     "party-donut-hurt|-|--party-fixture donut_hurt_iframes --capture-tick 68|"
+    "donut-q10-pre-unlock|-|--party-fixture q10_swat_interrupt --capture-tick 60|"
+    "donut-q10-swat|-|--party-fixture q10_swat_interrupt --capture-tick 98|"
+    "donut-q10-pounce|-|--party-fixture q10_pounce_hit --capture-tick 112|"
+    "donut-q10-post-unlock|-|--party-fixture q10_mana_regen --capture-tick 60|"
+    "donut-q10-depleted|-|--party-fixture q10_mana_regen --capture-tick 140|"
   )
   # HUD-DEBT-03: the real Floor 01 boss encounter in the boss arena, each a
   # frozen capture of a deterministic fixture state (the tick is a move of the
