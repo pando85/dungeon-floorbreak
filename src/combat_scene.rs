@@ -917,7 +917,7 @@ impl CombatState {
             donut: HeroCombat::default(),
             donut_kit: DonutKit::new(DonutSetup::NONE),
             companion: CompanionRuntime::default(),
-            cf02: fixture.name.starts_with("cf02_").then(cf02::active),
+            cf02: cf02::fixture_runs_cf02(fixture.name).then(cf02::active),
             carl_cf02: CarlCf02::default(),
             defeated_hero: HeroId::Carl,
             targets: Vec::new(),
@@ -956,6 +956,8 @@ impl CombatState {
     #[must_use]
     pub fn with_cf02(mut self) -> Self {
         self.cf02 = Some(cf02::active());
+        // CF02-C1 (Q18, Q37): the llamas are Donut's targets under the same switch.
+        self.enable_llama_targets();
         self.reset_attempt();
         self
     }
@@ -3541,8 +3543,9 @@ mod tests {
     /// `Cf02Config::OFF`) every legacy fixture replays its committed hash, twice,
     /// and the pinned CF02 data changes nothing. The other legacy goldens (the
     /// walk, party, boss, `q10_*`, DEMO-01 and CINE ones) keep their own tests,
-    /// which `cargo test` runs unchanged; `ci_floor01_combat.sh headless` also
-    /// replays `--cf02` against `--demo`.
+    /// which `cargo test` runs unchanged. (`--cf02` itself runs the rules, so it
+    /// is no longer compared with `--demo`; `ci_floor01_combat.sh headless`
+    /// replays it twice and requires it to differ from `--demo` on `demo01`.)
     #[test]
     fn cf02_parity_off() {
         use crate::cf02::Cf02Tuning;

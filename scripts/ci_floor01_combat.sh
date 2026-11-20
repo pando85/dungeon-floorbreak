@@ -307,6 +307,18 @@ case "$mode" in
         exit 1
       fi
       echo "CF02_DEMO_REPLAY_OK: --cf02 replays $name identically twice"
+      if [[ "$name" == demo01 ]]; then
+        # The live flag must reach the simulation: on the whole route the CF02
+        # rules change the replay. (This fails if `--cf02` stops calling
+        # `CombatState::with_cf02`; the fixtures enable the rules by name and
+        # would not notice.)
+        plain="$("$bin" --headless-floor01-smoke --demo --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
+        if [[ "$plain" == "$cf02_a" ]]; then
+          echo "--cf02 replays $name exactly like --demo: the flag no longer reaches the rules" >&2
+          exit 1
+        fi
+        echo "CF02_FLAG_LIVE_OK: --cf02 differs from --demo on $name"
+      fi
     done
     # AUDIENCE-01 part C: the per-hero viewer observer and the viewer HUD
     # previews are presentation only. Each probe run (the QA unlock) and each

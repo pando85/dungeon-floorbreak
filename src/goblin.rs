@@ -202,6 +202,19 @@ impl Goblin {
             && self.down_ticks < self.downed_ticks()
     }
 
+    /// CF02-Q04, Q38: ticks the goblin still lies before it starts to get up,
+    /// `Some` only while [`Self::lying`]. It does **not** include a running hold:
+    /// the down timer is paused for `hold_left` more ticks first, so the time
+    /// until the get-up begins is `down_ticks_left() + hold_left` (and a hold not
+    /// yet used can add `q38_hold_ticks` once). Read by the COMPANION view
+    /// builder (`Lying { down_ticks_left, hold_used }`).
+    // No caller yet: COMPANION 01A-wire's view builder reads it (tested here).
+    #[allow(dead_code)]
+    pub(crate) fn down_ticks_left(&self) -> Option<u16> {
+        self.lying()
+            .then(|| self.downed_ticks().saturating_sub(self.down_ticks))
+    }
+
     pub fn alive(&self) -> bool {
         self.health > 0
     }

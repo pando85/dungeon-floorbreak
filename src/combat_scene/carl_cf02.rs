@@ -37,6 +37,10 @@ pub(crate) struct CarlCf02 {
     /// The bail-out hop in flight (Q54): its horizontal speed. While it is set
     /// no attack starts until landing.
     pub(crate) bail_hop: Option<f32>,
+    /// Set by a bail-out, cleared only on landing or restart (Q54): a hurt
+    /// mid-hop drops the hop's drive but not "no attack until landing" nor the
+    /// bail-out's landing recovery.
+    pub(crate) no_attack_until_landing: bool,
     /// The airborne state after a dive's first hit (C5's source).
     pub(crate) bounce: bool,
     /// The dive's horizontal speed during its tuck (half the speed at the start).
@@ -52,8 +56,9 @@ pub(crate) struct CarlCf02 {
 impl CarlCf02 {
     /// Mixed only while something is set, behind a marker word.
     pub(crate) fn mix_into(&self, mix: &mut impl FnMut(u64)) {
-        // The landing detector's `airborne` flag is derived from the body (which
-        // the hash already holds), so it neither counts as state nor is mixed.
+        // The landing detector's `airborne` flag is the previous tick's grounded
+        // state: it has no effect while the counters are quiet (a plain jump has
+        // no landing recovery), so it neither counts as state nor is mixed.
         let quiet = Self {
             airborne: self.airborne,
             ..Self::default()
@@ -74,6 +79,7 @@ impl CarlCf02 {
         mix(u64::from(self.air_kicks_used));
         mix(u64::from(self.dives_used));
         mix(self.bail_hop.map_or(0, |vx| u64::from(vx.to_bits()) + 1));
+        mix(u64::from(self.no_attack_until_landing));
         mix(u64::from(self.bounce));
         mix(u64::from(self.dive_vx.to_bits()));
         mix(u64::from(self.landing_lock));
@@ -81,7 +87,8 @@ impl CarlCf02 {
     }
 
     /// Forget a buffered press and every in-flight air move (Carl was hurt or
-    /// defeated); the airborne period counters stay until he lands.
+    /// defeated); the airborne period counters and `no_attack_until_landing`
+    /// stay until he lands.
     fn drop_moves(&mut self) {
         self.buffer.clear();
         self.bail_hop = None;
@@ -184,7 +191,7 @@ fn air_state(state: &CarlCf02, hero: &Hero, solids: &[crate::prototype::Block]) 
         height_px: feet_height_above_solid(hero, solids).map_or(i32::MAX, |h| h as i32),
         air_kicks_used: state.air_kicks_used,
         dives_used: state.dives_used,
-        no_attack_until_landing: state.bail_hop.is_some(),
+        no_attack_until_landing: state.no_attack_until_landing,
     }
 }
 
@@ -216,7 +223,7 @@ impl CombatState {
                 Some(MoveId::AirKick) => t.q56_landing_air_kick,
                 Some(MoveId::DiveStomp) if hero.melee.current_hit() => t.q56_landing_dive_hit,
                 Some(MoveId::DiveStomp) => t.q56_landing_dive_whiff,
-                _ if state.bail_hop.is_some() => t.q56_landing_bailout,
+                _ if state.no_attack_until_landing => t.q56_landing_bailout,
                 _ => t.q56_landing_jump,
             };
             if matches!(
@@ -229,6 +236,7 @@ impl CombatState {
             state.dives_used = 0;
             state.dive_vx = 0.0;
             state.bail_hop = None;
+            state.no_attack_until_landing = false;
             state.bounce = false;
             state.landing_lock = recovery;
         }
@@ -345,6 +353,7 @@ impl CombatState {
                     let vx = dir * f32::from(t.q54_bailout_vx);
                     hero.melee.cancel();
                     state.bail_hop = Some(vx);
+                    state.no_attack_until_landing = true;
                     state.bounce = false;
                     state.pending_launch = Some((vx, f32::from(t.q54_bailout_vy)));
                     state.jump_press_age = None;
@@ -355,6 +364,35 @@ impl CombatState {
                 } else {
                     state.jump_press_age = None;
                 }
+            }
+        }
+
+        // N1: a Down + Physical remembered from the air kick's active or hit-stop
+        // ticks takes C4 on the first tick the window opens (recovery, after the
+        // hit, outside hit-stop) instead of waiting for the kick to end.
+        if plan.request.is_none()
+            && !hold_for_air
+            && !blocked
+            && let Some(press) = state.buffer.peek().copied()
+            && let Some(run) = state.running_of(&hero.melee)
+            && cancel_for(
+                t,
+                &run,
+                &PressSample {
+                    button: press.button,
+                    down: press.down,
+                    move_x_sign: press.move_x_sign,
+                    facing: hero.facing,
+                },
+            ) == Some(CancelId::C4)
+        {
+            let air = air_state(state, hero, solids);
+            if route_air_attack(t, press.button, press.down, &air) == AirRoute::Dive {
+                hero.melee.cancel();
+                state.dives_used += 1;
+                state.dive_vx = hero.vx * f32::from(t.q52_dive_tuck_vx_pct) / 100.0;
+                plan.request = Some(&cf02_moves().dive_stomp);
+                state.buffer.clear();
             }
         }
 

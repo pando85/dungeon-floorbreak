@@ -969,15 +969,12 @@ fn build_scene(
         // A combat fixture: Carl starts at the fixture column; the script is
         // pre-simulated for a capture, otherwise left for the live loop.
         let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
-        let mut combat = CombatState::new(fixture, kit, &sim)?
-            .with_donut(donut_setup(args))
-            // CF02-C1 (Q18, Q37): the llamas are Donut's targets under `--cf02`.
-            .with_cf02_llama_targets(args.cf02.rules);
+        let mut combat = CombatState::new(fixture, kit, &sim)?.with_donut(donut_setup(args));
         if args.demo {
             combat = combat.with_demo(&demo::DEMO_RULES);
         }
-        // COMBAT-FUN-02: `--cf02` runs the CF02 rules (every `cf02_*` fixture
-        // already does, by its name).
+        // COMBAT-FUN-02: `--cf02` runs the CF02 rules, llama targets (C1)
+        // included (every `cf02_*` fixture already does, by its name).
         if args.cf02.rules {
             combat = combat.with_cf02();
         }

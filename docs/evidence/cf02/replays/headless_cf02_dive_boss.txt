@@ -4,5 +4,5 @@ COMBAT_EVENT tick=10 kind=boss_tell move=pound target=carl
 COMBAT_EVENT tick=28 kind=move_started move=dive_stomp instance=1
 COMBAT_EVENT tick=34 kind=boss_hurt source=0 damage=1 hp_left=35
 COMBAT_EVENT tick=52 kind=boss_strike move=pound
-COMBAT_STATE fixture=cf02_dive_boss seed=0xcf020b0e tick=70 elapsed=70 hero_hp=4 deaths=0 enemies= hash=8a465bd8edd9dff3 boss=35/36/pound_recover/p1 boss_x=480.00
-PARTY_STATE fixture=cf02_dive_boss mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=80dbd99aa0462be9
+COMBAT_STATE fixture=cf02_dive_boss seed=0xcf020b0e tick=70 elapsed=70 hero_hp=4 deaths=0 enemies= hash=1c5d589dea11e573 boss=35/36/pound_recover/p1 boss_x=480.00
+PARTY_STATE fixture=cf02_dive_boss mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=aca9425328074169

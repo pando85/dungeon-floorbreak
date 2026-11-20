@@ -924,7 +924,7 @@ mod tests {
         ("cf02_2p_same_tick", 0xda1a168a6bc17a3e),
         ("cf02_air_kick_jump_in", 0x102430d4574559e2),
         ("cf02_air_kick_relaunch_once", 0xff60bd8c7ad3e597),
-        ("cf02_dive_lying", 0xa7c20646962bfd8e),
+        ("cf02_dive_lying", 0xe464c78d1d28214e),
         ("cf02_dive_standing_knockdown", 0xc129d7541a266920),
         ("cf02_dive_bounce_kick", 0x8decf9ef002355ab),
         ("cf02_dive_whiff_recovery", 0xf6e6165ea7f2b805),
@@ -935,7 +935,7 @@ mod tests {
         ("cf02_jump_attack_same_tick", 0xd0ecfb8433d01685),
         ("cf02_landing_grace", 0x75ce9b552aea4b3c),
         ("cf02_cancel_table", 0x2812995f9f619829),
-        ("cf02_dive_boss", 0x80dbd99aa0462be9),
+        ("cf02_dive_boss", 0xaca9425328074169),
     ];
 
     #[test]
@@ -1431,8 +1431,21 @@ mod tests {
         assert!(hits(&sim).is_empty());
     }
 
+    /// The bail-out fixture with the Jump pressed on `press` instead of 31 (the
+    /// goblin's swing lands on 37), plus extra script holds.
+    fn bailout_sim(script: &'static [SlotHold], ticks: u64) -> crate::party_scene::PartyFixtureSim {
+        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            script,
+            ..CF02_BAILOUT_ESCAPES_SWING
+        }));
+        let mut sim =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        sim.run_scripted(ticks);
+        sim
+    }
+
     #[test]
-    fn q54_the_bailout_pressed_6_ticks_before_impact_escapes_and_3_ticks_before_is_hit() {
+    fn q54_the_bailout_escapes_a_tell_seen_4_or_more_ticks_before_impact_and_not_later() {
         let sim = replay("cf02_bailout_escapes_swing");
         assert!(
             sim.combat
@@ -1445,18 +1458,125 @@ mod tests {
         // The hop is vx 150 away from the facing (the held direction here), vy 260.
         let early = replay_for("cf02_bailout_escapes_swing", 31);
         assert!(early.scene.world.hero.vy > 240.0, "hop started on 31");
-        // The same fixture with the Jump 3 ticks before impact: hit.
-        const LATE: PartyFixture = PartyFixture {
-            script: &[
-                primary_dir(24, 25, -1.0),
-                run(25, 50, 0, -1.0),
-                jump(34, 35, 0),
-            ],
-            ..CF02_BAILOUT_ESCAPES_SWING
-        };
-        let mut sim = crate::party_scene::PartyFixtureSim::new(&kit_of(&LATE), 360, &LATE).unwrap();
-        sim.run_scripted(LATE.base.ticks);
-        assert_eq!(hurt_ticks(&sim), vec![37], "3 ticks before impact: hit");
+        // Measured boundary (a deviation from the acceptance wording "5 or more
+        // ticks", recorded for the owner's game-feel call): Jump 7, 6, 5 and 4
+        // ticks before impact escapes; 3 ticks before is hit.
+        static J30: [SlotHold; 3] = [
+            primary_dir(24, 25, -1.0),
+            run(25, 50, 0, -1.0),
+            jump(30, 31, 0),
+        ];
+        static J33: [SlotHold; 3] = [
+            primary_dir(24, 25, -1.0),
+            run(25, 50, 0, -1.0),
+            jump(33, 34, 0),
+        ];
+        static J34: [SlotHold; 3] = [
+            primary_dir(24, 25, -1.0),
+            run(25, 50, 0, -1.0),
+            jump(34, 35, 0),
+        ];
+        assert!(hurt_ticks(&bailout_sim(&J30, 80)).is_empty(), "7 ticks");
+        assert!(hurt_ticks(&bailout_sim(&J33, 80)).is_empty(), "4 ticks");
+        assert_eq!(hurt_ticks(&bailout_sim(&J34, 80)), vec![37], "3 ticks: hit");
+    }
+
+    #[test]
+    fn q54_a_hurt_mid_hop_keeps_no_attack_until_landing_and_the_landing_recovery() {
+        // The 3-tick-late bail-out is hit on 37 mid-hop; a Primary pressed on 58
+        // (the hurt flinch is over, Carl is still in the air) must wait for the
+        // landing and its 4-tick recovery.
+        static LATE: [SlotHold; 4] = [
+            primary_dir(24, 25, -1.0),
+            run(25, 50, 0, -1.0),
+            jump(34, 35, 0),
+            primary(58, 59, 0),
+        ];
+        let mut sim = bailout_sim(&LATE, 0);
+        let mut landed = None;
+        for tick in 1..=120u64 {
+            sim.step_scripted();
+            if tick > 40 && landed.is_none() && sim.scene.world.hero.grounded {
+                landed = Some(tick);
+            }
+        }
+        assert_eq!(hurt_ticks(&sim), vec![37]);
+        let landed = landed.expect("Carl lands");
+        assert!(
+            landed > 58,
+            "still airborne when the press is made ({landed})"
+        );
+        let jabs: Vec<u64> = starts(&sim)
+            .into_iter()
+            .filter(|&(t, m)| t > 24 && m == MoveId::Jab)
+            .map(|(t, _)| t)
+            .collect();
+        assert!(
+            jabs.iter().all(|&t| t >= landed + 4),
+            "no attack before landing + 4 (landed {landed}): {jabs:?}"
+        );
+    }
+
+    #[test]
+    fn q49_n1_a_down_physical_pressed_during_the_air_kick_takes_c4_in_the_recovery() {
+        // The air kick hits on 8 (hit-stop 5). A Down + Physical pressed on any
+        // tick 10..=18 (hit-stop, then the rest of the active and the startup of
+        // the recovery) is remembered and fires on the first tick C4 opens.
+        let mut first = None;
+        for press in 10u64..=18 {
+            let script: &'static [SlotHold] = Box::leak(
+                vec![
+                    run(1, 24, 0, 1.0),
+                    jump(1, 2, 0),
+                    physical(3, 4, 0),
+                    stomp(press, press + 1, 0),
+                ]
+                .into_boxed_slice(),
+            );
+            let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+                script,
+                ..CF02_CANCEL_TABLE
+            }));
+            let mut sim =
+                crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+            sim.run_scripted(70);
+            let dive: Vec<u64> = starts(&sim)
+                .into_iter()
+                .filter(|s| s.1 == MoveId::DiveStomp)
+                .map(|s| s.0)
+                .collect();
+            assert_eq!(dive.len(), 1, "press {press}: {:?}", starts(&sim));
+            let tick = dive[0];
+            assert!(tick >= press, "press {press}");
+            // Every early press fires on the same first tick the window opens.
+            assert_eq!(*first.get_or_insert(tick), tick, "press {press}");
+            assert!(
+                hits(&sim).iter().any(|h| h.1 == MoveId::DiveStomp),
+                "press {press}: the dive lands"
+            );
+        }
+    }
+
+    #[test]
+    fn the_cf02_fixture_predicate_is_one_function_and_the_llama_switch_follows_it() {
+        use crate::cf02::fixture_runs_cf02;
+        assert!(fixture_runs_cf02("cf02_llama_pounce") && fixture_runs_cf02("cf02_stomp_whiff"));
+        assert!(!fixture_runs_cf02("q10_pounce_hit") && !fixture_runs_cf02("demo01_b1"));
+        // The llama switch is derived from `CombatState::cf02()`.
+        let on = replay_for("cf02_stomp_whiff", 1);
+        assert!(on.combat.cf02().is_some() && on.combat.llama_targets_live().is_some());
+        let off = replay_for("q10_pounce_hit", 1);
+        assert!(off.combat.cf02().is_none() && off.combat.llama_targets_live().is_none());
+    }
+
+    #[test]
+    fn a_lying_goblin_reports_its_down_ticks_left_and_a_standing_one_none() {
+        let sim = replay_for("cf02_jab_over_lying", 60);
+        let g = &sim.combat.enemies[0];
+        assert!(g.lying());
+        assert_eq!(g.down_ticks_left(), Some(40 - g.down_ticks));
+        let sim = replay_for("cf02_jab_over_lying", 125);
+        assert_eq!(sim.combat.enemies[0].down_ticks_left(), None);
     }
 
     #[test]
