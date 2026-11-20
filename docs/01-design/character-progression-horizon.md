@@ -2,7 +2,7 @@
 
 **Status: LIVING REFERENCE / DIRECTIONAL, NOT AN APPROVED SKILL TREE.** Established creative principles and the existing MVP control contract remain approved **in their own source documents**. Everything in this guide about future skills, floor-specific loadouts, combat effects, companions, difficulty curves, or precise unlock timing is a **hypothesis for repeated review**, not a production commitment, a book-canon declaration, or a request to implement features now.
 
-**Last considered:** 2026-11-18. **Scope:** Floor 01 MVP through a possible long-term THE CRAWL campaign. **Owner intent:** provide an evolving horizon to consult whenever gameplay, abilities, enemies, levels, progression or protagonist interactions are designed. Update it as playable evidence and later narrative research overturn assumptions.
+**Last considered:** 2026-11-20. **Scope:** Floor 01 MVP through a possible long-term THE CRAWL campaign. **Owner intent:** provide an evolving horizon to consult whenever gameplay, abilities, enemies, levels, progression or protagonist interactions are designed. Update it as playable evidence and later narrative research overturn assumptions.
 
 This is a *navigation aid*, not an authority override. In conflicts, follow [AGENTS.md](../../AGENTS.md), rights/accepted ADRs, [approved MVP controls](mvp-controller-contract.md), the [combat feel contract](combat-feel-hybrid-physics.md), and specific owner-accepted floor designs. **Do not use this guide to justify unrequested scope expansion.** It does not imply commercial game/character rights.
 
@@ -112,6 +112,7 @@ For that change, the agent/designer must:
 | Date | Change | Status / evidence |
 | --- | --- | --- |
 | 2026-11-18 | Initial long-term horizon: Floor 01 learning, permanent action identities, layered progression, future-floor design themes and review triggers | Living guide; owner asked for a revisitable reference, **not** approval of future skills |
+| 2026-11-20 | COMBAT-FUN-02 after the first DEMO-01 playtest: Carl's Floor 01 impact set gains a Down + Physical stomp on downed foes and its aerial form (dive), a short air kick, a scrambling bail-out hop and wall/body impacts; ordinary goblins gain reactive morale (hesitate, panic, enraged, taunt) with seeded temperaments; the solo AI Donut gains a restrained, opt-in assist (interrupts and non-lethal holds, never in 2P, no magic before the biscuit). No new button, no new unlock, no new enemy type | Adopted defaults CF02-Q01..Q75, behind `--cf02`; game feel pending ([design](combat-fun-02-post-demo01-proposals.md)) |
 
 ### Update note template
 
