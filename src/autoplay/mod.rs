@@ -12,11 +12,16 @@
 //! credit, and the two `ap_*` roster scenarios.
 
 pub mod action;
+pub mod bench;
+pub mod bots;
 pub mod config;
 pub mod diagnostics;
 pub mod env;
 pub mod error;
+pub mod eval;
+pub mod metrics;
 pub mod observation;
+pub mod replay;
 pub mod reward;
 pub mod scenario;
 
@@ -35,5 +40,7 @@ pub use scenario::{RosterEntry, Split};
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_eval;
 #[cfg(test)]
 mod tests_part2;
