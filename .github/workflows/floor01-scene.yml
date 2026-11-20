@@ -161,9 +161,10 @@ jobs:
           if-no-files-found: warn
 
   corridor-combat-frames:
-    # The 12 real 1920x1080 frame sequences of ci_floor01_combat.sh, three
-    # parallel shards of 4 (CI-CORRIDOR-TIME). Shard i runs the sequences whose
-    # index modulo 3 is i, so the shards cover every sequence exactly once.
+    # The 12 real 1920x1080 frame sequences of ci_floor01_combat.sh, parallel
+    # shards (CI-CORRIDOR-TIME). The shard index and count come from the matrix
+    # (strategy.job-index / job-total): shard i runs the sequences whose index
+    # modulo the count is i, so the shards always cover every sequence once.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -182,14 +183,15 @@ jobs:
           save-cache: 'false'
       - name: Compile the Floor 1 scene
         run: cargo build --locked --bin floor01_scene
-      - name: Combat fixtures, real Bevy 1920x1080 frame sequences, shard ${{ matrix.shard }} of 3 (replay and frames drawn must equal the headless run)
-        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render-sequences ${{ matrix.shard }} 3
+      - name: Combat fixtures, real Bevy 1920x1080 frame sequences, shard ${{ strategy.job-index }} of ${{ strategy.job-total }} (replay and frames drawn must equal the headless run)
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render-sequences ${{ strategy.job-index }} ${{ strategy.job-total }}
       - name: Upload combat frame evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: the-crawl-floor01-combat-frames-${{ matrix.shard }}
+          name: the-crawl-floor01-combat-frames-${{ strategy.job-index }}
           path: |
+            artifacts/cp01-feel/*.txt
             artifacts/cp01-feel/*.log
             artifacts/cp01-feel/frames_*/
           if-no-files-found: warn
