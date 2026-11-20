@@ -2,6 +2,8 @@
 
 Key-pose previews for [the CF02 acting spec](../../02-art/cf02-acting-spec.md), rendered nearest-neighbour from the committed `cf02_keys` grids. They show the keys only: the derived frames, contact sheets of the full sheets, timing GIFs and in-scene GIFs belong to the execution PRs (ART-CARL-CF02, ART-DONUT-CF02, ART-GOB-CF02), which regenerate their evidence with the pixel-art toolkit.
 
+**Note:** the `smug` key shown in `donut_keys_1x.png` and `donut_keys_3x.png` predates the ART-DONUT-CF02 review amendment (10 px neck and chin closure); the amended key is shown in [`docs/evidence/cf02-donut/`](../cf02-donut/README.md).
+
 | File | Content |
 | --- | --- |
 | `carl_keys_1x.png`, `carl_keys_3x.png` | Carl: `stomp_knee_up`, `stomp_stamp`, `dive_heavy_landing`, `flinch`, `frustration_shake`, `air_kick_boot`, `dive_tuck`, `dive_plunge`, `bailout_scramble` on a flat `#2a2a3a` background (3x: labels, frame border, red pivot pixel, floor line) |

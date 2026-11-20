@@ -1,0 +1,22 @@
+{
+  "format": "pixelart-keys-v1",
+  "asset_id": "art-donut-cf02",
+  "layers": [
+    "tail",
+    "legs_far",
+    "body",
+    "legs_near",
+    "head",
+    "face",
+    "gear"
+  ],
+  "source": "assets/source/characters/donut/cf02_keys/donut_h40_cf02_keys.grid.json (ACT-DESIGN, PR #133): key frame 0 is startle_puff (sheet frame 0), key frame 1 is smug (sheet frame 2)",
+  "keys": {
+    "0": {
+      "sha256": "0b75f2c847f66b0be578cb48e922fff65385a8b14d0c68d49d9c9d14beca9db2"
+    },
+    "2": {
+      "sha256": "6aad63ec377f85f601c1f195a12beaca242c1429a26cbc2b3bacccbe594ad777"
+    }
+  }
+}

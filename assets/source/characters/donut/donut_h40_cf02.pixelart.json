@@ -1,0 +1,90 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "art-donut-cf02",
+  "title": "ART-DONUT-CF02 Princess Donut 40 px acting sheet (startle puff and settle, smug)",
+  "grid": "assets/source/characters/donut/donut_h40_cf02.grid.json",
+  "manifest": "assets/manifests/donut_h40_cf02.json",
+  "frame_size": [
+    72,
+    44
+  ],
+  "pivot": [
+    46,
+    43
+  ],
+  "contact_row": 43,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "startle": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          6
+        ],
+        [
+          1,
+          6
+        ]
+      ]
+    },
+    "smug": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          2,
+          20
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 22,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "unique_frames": true,
+    "frozen_keys": {
+      "fixture": "tests/fixtures/art-donut-cf02_keys.json",
+      "frames": [
+        0,
+        2
+      ],
+      "layers": [
+        "tail",
+        "legs_far",
+        "body",
+        "legs_near",
+        "head",
+        "face",
+        "gear"
+      ]
+    },
+    "canvas_margin": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "bbox": [
+      {
+        "id": "tiara_clear_of_row_0",
+        "frames": [
+          0,
+          1,
+          2
+        ],
+        "min_top": 1
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "startle",
+      "smug"
+    ]
+  }
+}

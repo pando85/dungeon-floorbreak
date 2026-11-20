@@ -93,6 +93,10 @@ Other reuse (no new frames): the dive bounce (Q53) uses `jump_rise` and `jump_fa
 
 Startle and smug are full-body overlays that show only in `idle` (the planted-feet rule of section 3).
 
+**Execution (ART-DONUT-CF02):** the sheet `assets/source/characters/donut/donut_h40_cf02.*` (manifest `assets/manifests/donut_h40_cf02.json`, evidence in [`docs/evidence/cf02-donut/`](../evidence/cf02-donut/README.md)) holds `startle_puff` and `smug` copied pixel for pixel from the keys and the derived `startle_settle` (3 of the 4 Q73 slots, the spare unspent); independent review: Claude Opus, passed after one amendment round (B1 smug outline), not owner-approved, not wired into Bevy.
+
+**Review amendment of the `smug` key (ART-DONUT-CF02 review, B1):** the frozen `smug` key had a 6 px x 1 px transparent notch through the neck (body row 26, x57-62) and a pinhole in the chin (46, 26), because the head and gear moved up 1 px and the body did not. The top-tier review amended the key by 10 px: head (63, 25) back to `K`, body row 26 x57-62 to `C`, body (63, 26) and (63, 27) to `K`, body (46, 26) to `c`. The smug head is now exactly the idle head translated (0, -1). Keys are otherwise frozen; the executor applied this amendment to the key file and the sheet.
+
 ## 5. Goblin (budget 11 new frames per sheet)
 
 | # | Frame | K/D | Serves | Beat | Silhouette | Ticks | Contact |
