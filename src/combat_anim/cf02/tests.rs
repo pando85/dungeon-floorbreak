@@ -1259,8 +1259,13 @@ fn a_punished_taunt_holds_its_frame_for_six_ticks_over_the_hit() {
         anim.step(&sim.scene.world);
         anim.step_art(&sim.scene, &sim.combat);
         let art = anim.art.as_ref().unwrap();
-        for i in 0..art.goblin_count() {
-            let g = &sim.combat.enemies[i];
+        for (i, g) in sim
+            .combat
+            .enemies
+            .iter()
+            .enumerate()
+            .take(art.goblin_count())
+        {
             if let Some(p) = art.goblin_cf02_pose(i) {
                 if p.pose.tag == "taunt" && g.mode == GoblinMode::Neutral {
                     taunting = true;
@@ -1310,13 +1315,18 @@ fn the_three_slammed_finishes_play_in_real_runs() {
             anim.step(&sim.scene.world);
             anim.step_art(&sim.scene, &sim.combat);
             let art = anim.art.as_ref().unwrap();
-            for i in 0..art.goblin_count().min(16) {
-                if let Some(p) = art.goblin_slammed_pose(i, slam[i]) {
+            for (i, (kind, seq_i)) in slam
+                .iter()
+                .zip(seq.iter_mut())
+                .enumerate()
+                .take(art.goblin_count().min(16))
+            {
+                if let Some(p) = art.goblin_slammed_pose(i, *kind) {
                     let names = frame_names(
                         GOBLIN_SLAMMED_MANIFESTS[crate::combat_anim::goblin_variant(i)],
                         "cf02_goblin",
                     );
-                    seq[i].push(names[p.frame].clone());
+                    seq_i.push(names[p.frame].clone());
                 }
             }
         }
