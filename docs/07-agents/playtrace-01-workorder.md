@@ -2,7 +2,7 @@
 
 **Task:** deliver the default-on (for live-input runs), offline-first, versioned gameplay session recorder. **PT-B gates labelling a playtest "recorded" and COMBAT-LAB-01's first human test; it does not block the CF02-A/B owner game-feel playtest (if PT-B has merged by then, that playtest is recorded).**
 **Design contract:** [PLAYTRACE-01](../03-tech/playtrace-01-session-capture.md), [ADR-0011](../05-decisions/ADR-0011-gameplay-session-recording.md), [AUTOPLAY-01](../03-tech/autoplay-01-automated-gameplay-evaluation.md).
-**Status:** work requested / **no implementation in this PR**. Adopted defaults PT-Q01..PT-Q16 are in the [technical contract](../03-tech/playtrace-01-session-capture.md#7-adopted-defaults-and-open-questions). The local implementers own code, tests and evidence; this PR defines the acceptance contract.
+**Status:** PT-A and PT-B implemented (PR #143). PT-C implemented in draft (observations per hero, the effective-input accessor, `playtrace verify` and the PT-B robustness follow-ups; adopted defaults PTI-10..PTI-20 in the [contract](../03-tech/playtrace-01-session-capture.md#71-pt-c-implementation-record-adopted-defaults-pti-10pti-20)); real-pad and 2P hardware checks and the owner game-feel review are pending. PT-D and PT-E are not started. Adopted defaults PT-Q01..PT-Q16 are in the [technical contract](../03-tech/playtrace-01-session-capture.md#7-adopted-defaults-and-open-questions).
 
 ## Read and verify first
 

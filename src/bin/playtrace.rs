@@ -1,7 +1,10 @@
-//! PLAYTRACE-01 session tool: `list`, `inspect`, `recover` and `delete`.
+//! PLAYTRACE-01 session tool: `list`, `inspect`, `verify`, `recover` and
+//! `delete`.
 //!
-//! `verify` (fresh-process replay) is PT-C and is not implemented here.
-//! Recordings stay local: this tool never uploads or exports anything.
+//! `verify` replays a session from its reset descriptor in this (fresh)
+//! process and compares hashes, events, effective inputs and observations. It
+//! is a simulation replay: it does not reproduce rendering. Recordings stay
+//! local: this tool never uploads or exports anything.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -11,14 +14,15 @@ use dungeon_floorbreak::playtrace::{
 };
 
 const USAGE: &str =
-    "usage: playtrace <list|inspect ID|recover ID|delete ID --yes|verify> [--dir DIR]
+    "usage: playtrace <list|inspect ID|verify ID|recover ID|delete ID --yes> [--dir DIR] [--root REPO]
   list              every recorded session (id, status, ticks, day, commit)
   inspect ID        manifest summary, episodes, control events and integrity of one session
   recover ID        seal a crashed session to its valid complete prefix
   delete ID --yes   remove one session directory (local deletion; nothing is uploaded)
-  verify            not implemented yet (PLAYTRACE-01 PT-C)
+  verify ID         fresh-process replay from the reset descriptor (exit 0 verified, 1 rejected)
 ID is a session id or a unique prefix of one. --dir overrides the base directory
-(default: $XDG_DATA_HOME/dungeon-floorbreak/playtrace).";
+(default: $XDG_DATA_HOME/dungeon-floorbreak/playtrace). --root is the repository
+checkout whose assets the replay loads (default: the current directory).";
 
 fn base_dir(args: &[String]) -> Result<PathBuf, String> {
     if let Some(at) = args.iter().position(|a| a == "--dir") {
@@ -108,6 +112,33 @@ fn run(args: &[String]) -> Result<(), String> {
                 m.build_commit, m.build_dirty, m.build_profile
             );
             println!(
+                "  source {} binary {} toolchain {}",
+                if m.source_fingerprint.is_empty() {
+                    "-"
+                } else {
+                    &m.source_fingerprint
+                },
+                if m.binary_fingerprint.is_empty() {
+                    "-"
+                } else {
+                    &m.binary_fingerprint
+                },
+                if m.toolchain.is_empty() {
+                    "-"
+                } else {
+                    &m.toolchain
+                },
+            );
+            println!(
+                "  streams control {} diagnostics {} (dropped control {} diagnostics {})",
+                m.control_integrity
+                    .map_or("-".to_owned(), |i| format!("{} lines", i.lines)),
+                m.diagnostics_integrity
+                    .map_or("-".to_owned(), |i| format!("{} lines", i.lines)),
+                m.dropped_control,
+                m.dropped_diagnostics,
+            );
+            println!(
                 "  reset {}:{} demo_beat={} cf02={}",
                 m.reset.source, m.reset.name, m.reset.demo_beat, m.reset.cf02_rules
             );
@@ -186,7 +217,65 @@ fn run(args: &[String]) -> Result<(), String> {
             );
             Ok(())
         }
-        "verify" => Err("verify is not implemented yet (PLAYTRACE-01 PT-C)".to_owned()),
+        "verify" => {
+            let base = base_dir(args)?;
+            let path = resolve(&base, id.ok_or("verify needs a session id")?)?;
+            let root = match args.iter().position(|a| a == "--root") {
+                Some(at) => PathBuf::from(args.get(at + 1).ok_or("--root needs a directory")?),
+                None => std::env::current_dir()
+                    .map_err(|e| format!("no working directory: {:?}", e.kind()))?,
+            };
+            if !root
+                .join("assets/levels/floor01/corridor_abc_sample.json")
+                .exists()
+            {
+                return Err(
+                    "run verify from the repository root, or pass --root REPO (the replay loads its assets)"
+                        .to_owned(),
+                );
+            }
+            let session = path
+                .file_name()
+                .map_or(String::new(), |n| n.to_string_lossy().into_owned());
+            match playtrace::verify_dir(&path, &root) {
+                Ok(report) => {
+                    println!(
+                        "PLAYTRACE_VERIFY session={} result=PASS scope={} ticks={} episodes={} combat_events={} control_events={} build={}",
+                        report.session_id,
+                        report.scope.name(),
+                        report.ticks,
+                        report.episodes,
+                        report.combat_events,
+                        report.control_events,
+                        report.build,
+                    );
+                    println!(
+                        "PLAYTRACE_VERIFY_CHECKS state_hashes={} event_hashes={} effective_inputs={} observations={} final_observations={} diagnostics={} slot_routing={}",
+                        report.state_hashes,
+                        report.event_hashes,
+                        report.effective_inputs,
+                        report.observations,
+                        report.final_observations,
+                        report.diagnostics,
+                        report.routing,
+                    );
+                    for note in &report.notes {
+                        println!("PLAYTRACE_VERIFY_NOTE {note}");
+                    }
+                    Ok(())
+                }
+                Err(failure) => {
+                    println!(
+                        "PLAYTRACE_VERIFY session={session} result=FAIL code={} tick={} reason={:?}",
+                        failure.code,
+                        failure.tick.map_or("-".to_owned(), |t| t.to_string()),
+                        failure.message,
+                    );
+                    // A rejected session is a verdict (exit 1), not a usage error.
+                    std::process::exit(1);
+                }
+            }
+        }
         _ => Err(USAGE.to_owned()),
     }
 }

@@ -79,6 +79,21 @@ if command -v xvfb-run >/dev/null && [[ -d generated/art ]]; then
   "$tool" inspect "$id"
   "$tool" inspect "$id" | grep -q 'status Completed'
   echo "PASS: --record wrote and closed one session"
+  # PT-C: the fresh-process verifier replays that session from its reset
+  # descriptor (a simulation replay; it does not reproduce rendering).
+  "$tool" verify "$id" | tee "$tmp/verify.out"
+  grep -q 'result=PASS' "$tmp/verify.out" || { echo "FAIL: playtrace verify rejected a fresh session" >&2; exit 1; }
+  # A session with a deleted control line is rejected with exit 1.
+  cp -r "$XDG_DATA_HOME/dungeon-floorbreak/playtrace/$id" "$tmp/tampered-src"
+  mkdir -p "$tmp/tampered"
+  mv "$tmp/tampered-src" "$tmp/tampered/$id"
+  grep -v '"k":"episode_end"' "$tmp/tampered/$id/control.jsonl" > "$tmp/control.tmp"
+  mv "$tmp/control.tmp" "$tmp/tampered/$id/control.jsonl"
+  if "$tool" verify "$id" --dir "$tmp/tampered" >"$tmp/tampered.out"; then
+    echo "FAIL: a session with a deleted control line verified" >&2; exit 1
+  fi
+  grep -q 'result=FAIL' "$tmp/tampered.out" || { echo "FAIL: no FAIL verdict for a tampered session" >&2; exit 1; }
+  echo "PASS: playtrace verify accepts a fresh session and rejects a tampered one"
 else
   echo "SKIP: windowed checks (need xvfb-run and generated/art)"
 fi
