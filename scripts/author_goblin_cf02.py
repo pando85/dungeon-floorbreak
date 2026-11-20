@@ -639,6 +639,7 @@ def config_for(sheet: str) -> dict:
             "max_orphans_per_frame": 0,
             "canvas_margin": [1, 0, 1, 0],
             "unique_frames": True,
+            "holes": True,
             "manifest_tick_rows": "cf02_goblin.frames",
             "manifest_tick_hz": "cf02_goblin.tick_hz",
             "frozen_keys": {"fixture": str(KEY_FIXTURES[kind].relative_to(ROOT)), "frames": KEY_FRAMES[kind],

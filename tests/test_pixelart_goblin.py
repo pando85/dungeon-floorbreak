@@ -55,7 +55,7 @@ class ParityTests(unittest.TestCase):
     def test_every_rule_runs_and_passes_like_the_contract_test(self) -> None:
         report = self.run_with()
         self.assertTrue(report["passed"], v.summary(report))
-        self.assertEqual(report["counts"], {"pass": 15, "fail": 0, "skipped": 1})
+        self.assertEqual(report["counts"], {"pass": 15, "fail": 0, "skipped": 2})
         self.assertEqual(report["frames"], 27)
 
     def test_same_measurements_as_the_contract_test(self) -> None:
@@ -167,7 +167,7 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(Image.open(out / review.IMAGE_NAMES[1]).size, (1920, 1080))
         self.assertLessEqual(Image.open(out / review.IMAGE_NAMES[0]).width, 1800)
         on_disk = json.loads((out / "validator_report.json").read_text(encoding="utf-8"))
-        self.assertEqual(on_disk["counts"], {"pass": 15, "fail": 0, "skipped": 1})
+        self.assertEqual(on_disk["counts"], {"pass": 15, "fail": 0, "skipped": 2})
         self.assertIn("verdict: PASS", (out / "validator_summary.txt").read_text(encoding="utf-8"))
 
     @needs_floor

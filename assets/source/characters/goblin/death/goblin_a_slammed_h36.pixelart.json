@@ -72,6 +72,7 @@
       0
     ],
     "unique_frames": true,
+    "holes": true,
     "manifest_tick_rows": "cf02_goblin.frames",
     "manifest_tick_hz": "cf02_goblin.tick_hz",
     "frozen_keys": {

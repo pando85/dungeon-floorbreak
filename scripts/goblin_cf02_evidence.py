@@ -284,14 +284,14 @@ def timing_diagram() -> Path:
     rows = [("hesitate (Q61)", [("hesitate", 20)]),
             ("panic (Q58, 60 to 90 ticks)", [("flee", 6), ("flee_b", 6)] * 5),
             ("taunt (Q65, 36 ticks)", [("thump", 9), ("beckon", 9)] * 2),
-            ("stomped finish (Q21)", [("mid-taunt hold +6", 6), ("impact", 8), ("rest", 0)]),
-            ("wall finish (Q21)", [("mid-taunt hold +6", 6), ("impact", 8), ("rest", 0)]),
-            ("flung finish (Q21)", [("mid-taunt hold +6", 6), ("impact", 8), ("rest", 0)])]
+            ("stomped finish (Q21, Q72)", [("hold", 6), ("impact", 8), ("rest", 0)]),
+            ("wall finish (Q21, Q72)", [("hold", 6), ("impact", 8), ("rest", 0)]),
+            ("flung finish (Q21, Q72)", [("hold", 6), ("impact", 8), ("rest", 0)])]
     px_per_tick = 10
     width = 150 + 60 * px_per_tick + 60
     sheet = Image.new("RGB", (width, 30 + len(rows) * 30), BG)
     d = ImageDraw.Draw(sheet)
-    label(d, (4, 4), "goblin CF02 tick windows at 60 Hz (spec section 7); the +6 hold applies only when the goblin died mid-taunt (Q72); rest frames are state-driven holds", WHITE, 11)
+    label(d, (4, 4), "goblin CF02 tick windows, 60 Hz (spec section 7); hold 6t = the Q72 +6 mid-taunt hold (only if it died mid-taunt); rest = state-driven hold", WHITE, 11)
     colours = [(90, 140, 255), (255, 214, 0), (255, 80, 80), (120, 200, 120)]
     for r, (name, segs) in enumerate(rows):
         y = 26 + r * 30

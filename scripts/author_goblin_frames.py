@@ -10,8 +10,9 @@ Writes ``assets/source/characters/goblin/goblin_a_h36.grid.json`` and ``goblin_b
 How the frames are made (no resampling, no rotation, no image model):
 
 * **Frozen keys.** The 11 Opus keys (atlas frames 0, 4, 7, 11, 12, 13, 16, 19, 22, 25, 26) are copied
-  from the fixture without any change, in both variants. One recorded exception: key 11's weapon cel carries
-  the DOZ-01 fist-to-stick fix (three pixels become ``y``; spec section 13).
+  from the fixture without any change, in both variants. Two recorded exceptions: key 11's weapon cel carries
+  the DOZ-01 fist-to-stick fix (three pixels become ``y``) and key 25's body cel has its pinhole (19, 43) closed
+  with ``K`` (PR #148 review follow-up; spec section 13).
 * **In-betweens (16 frames per variant)** are assembled from key pixels: a part (head, upper body,
   leg, foot, weapon, ...) is cut out of a key with a rectangle or a row-wise rule and pasted back
   translated; a few hand-placed pixels and ASCII stamps close the seams. Rows are only ever

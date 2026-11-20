@@ -73,7 +73,7 @@ class BaselineTests(unittest.TestCase):
         self.assertTrue(report["passed"], v.summary(report))
         self.assertEqual(report["counts"]["fail"], 0)
         self.assertEqual({r["id"] for r in report["rules"] if r["status"] == "skipped"},
-                         {"V04", "V05", "V06", "V09", "V10", "V11", "V12", "V13", "V14", "V16"})
+                         {"V04", "V05", "V06", "V09", "V10", "V11", "V12", "V13", "V14", "V16", "V17"})
 
     def test_report_is_machine_readable_and_summary_is_short(self) -> None:
         report = run(make_cfg(max_colors=3, max_isolated_per_frame=0))
