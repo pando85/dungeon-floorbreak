@@ -524,6 +524,30 @@ Scope: `docs/07-agents/i03-goblin-death-implementation-handoff.md`. All four out
 
 The kick launch and the goblin-into-goblin contact (CP-02, which will use the `knockback_contact` frame); the environmental kill (CP-03); fixtures on the normal route (OPENING-01); a non-lethal heavy hit that launches (the spec's `knockback` state with a getup, which will use the getup frames).
 
+### CF02-I: acting integration
+
+**Status:** presentation only, behind `cf02_rules` (`--cf02` and every `cf02_*` fixture); `--demo` and every legacy fixture draw exactly what they drew before. Game feel is not judged. Design: [acting spec](../02-art/cf02-acting-spec.md); evidence: [CF02-I evidence](../evidence/cf02/cf02-i/README.md).
+
+`src/combat_anim/cf02.rs` adds the final CF02 frames and the Q69 to Q72 overlays on top of the ART-INT-02 selection. Like it, the frame is a pure function of the finished simulation state (a move shows the frame of its own clock, so it holds through hit-stop for free) plus a small memory derived from the same states and the tick's events (an overlay's remaining ticks, the whiffs that frustrate Carl, a goblin's taunt hold and slammed age). Nothing flows back: the sim never reads `q69_` to `q72_` or the module (a test greps the simulation files), and a test replays every `cf02_*` fixture of every registry with the overlays on, off and without any acting art and requires the identical event log, final hash and hash on every tick.
+
+Layers (Q69, `src/acting.rs`): death > hurt > move > morale reaction > acting overlay > locomotion. The legacy selection keeps death, hurt, the jab, haymaker and kick; the CF02 module adds the rest. The planted-feet overlays (flinch, frustration, startle, smug) show in idle only, never in run, in the air or in a move, and a press of Jab, Physical or Jump on the tick ends one (the press edge Carl's `InputFrame` saw). The sheets are pivot-anchored like the locomotion atlases (the Carl sheet's airborne frames are already lifted 2 px), so a CF02 frame never pops against the neighbouring `jump_fall` or `land` frame.
+
+| What | Sheet and frames | Chosen by |
+| --- | --- | --- |
+| Stomp (Q02) | `carl_book1_h52_cf02` 0 knee-up t0-8, 1 stamp t9-15 (the hit tick, held through hit-stop), 2 recover t16-25 | the move clock |
+| Follow-through (Q05) | melee `kick` k0 t0-6, k2 t7-8, k3 t9-14 (contact, strike shift as the kick), k4 t15-19, k5 t20-26, k6 t27-31; no chamber k1 | the move clock (`FOLLOW_KICK_FRAMES`) |
+| Air kick (Q50) | 3 chamber t0-4, 4 boot t5-14, then the locomotion jump frame | the move clock |
+| Dive (Q52, Q53, Q56) | 5 tuck t0-5, 6 plunge t6-35 (held), then the locomotion jump frame; a hit bounces on the locomotion frames; 7 heavy landing for the 10 recovery ticks of a whiff | the move clock; the whiff landing from the sim's own landing recovery |
+| Bail-out (Q54) | 8 push-off 3 ticks, 9 scramble until landing; the 4 tick landing recovery is the locomotion `land` | the sim's bail-out hop flag |
+| Flinch (Q70) | 10, 8 ticks: an enemy swing or glob came within 12 px of Carl's hurtbox and did not hit (judged when it has passed or ended) | overlay |
+| Frustration (Q70) | 11 shake and 12 flap, 6 ticks each, 24 ticks, cooldown 600: three Carl moves in a row ended without a `Hit` within 150 ticks | overlay |
+| Donut startle, smug (Q71) | `donut_h40_cf02` 0 puff t0-5, 1 settle t6-11 (a shore landing, blast, wall slam or Carl hurt within 160 px, cooldown 180); 2 smug 20 ticks (her swat, pounce or bolt hit, cooldown 300) | overlay |
+| Goblin hesitate, panic (Q61, Q72) | `goblin_{a,b}_h36_cf02` 0 hesitate 20 ticks; 1 and 2 panic, 6 ticks each, mirrored to face the flee direction | the morale reaction |
+| Goblin taunt (Q65, Q72) | 3 thump and 4 beckon, 9 ticks each; a non-launching hit on a taunting goblin holds the taunt frame 6 presentation ticks over the hit (and delays the slammed impact hold by them) | overlay |
+| Slammed (Q21) | `goblin_{a,b}_slammed_h36` 0/1 stomped impact and rest, 2/3 wall crumple, 4/5 flung; the impact holds 8 ticks (from the defeat; a flung body from its landing, a crumpled one while it still falls), then the rest frame | `DeathPresenter::slam_pose_of` and the goblin's own state |
+
+Wiring (`src/bin/floor01_scene.rs`): the CF02 sheets are read only by a run under `cf02_rules`; one sprite each for Carl and Donut and two per goblin (acting, slammed) are spawned hidden and drawn by `sync_cf02_acting_visuals`, which runs after the other actor systems, hides the sprite a CF02 frame replaces and copies the base sprite's z and tint (hit flash, corpse fade). The scene tracker reads two small accessors added for it: `CombatState::carl_acting_view` (bail-out flag, landing recovery, Carl's press edge) and the existing `goblin_reaction`.
+
 ### Decisions of the Opus feel review, round 1 (pending owner playtest)
 
 Decided by the Opus feel review, **pending owner playtest** (the owner can change any of them):

@@ -58,7 +58,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use crate::actor_sprite::{ActorSpec, CARL_SHADOW_FOOTPRINT, actor_center};
+use crate::actor_sprite::{ActorSpec, CARL_SHADOW_FOOTPRINT, DONUT_SHADOW_FOOTPRINT, actor_center};
 use crate::combat::{ENEMY_HALF_HEIGHT, MoveId};
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
@@ -74,6 +74,12 @@ use crate::prototype::TICK_SECONDS;
 
 pub const CARL_MELEE_MANIFEST: &str = "carl_book1_h52_melee.json";
 pub const GOBLIN_MANIFESTS: [&str; 2] = ["goblin_a_h36.json", "goblin_b_h36.json"];
+/// CF02-I: the ART-CARL-CF02, ART-DONUT-CF02 and ART-GOB-CF02 sheets.
+pub const CARL_CF02_MANIFEST: &str = "carl_book1_h52_cf02.json";
+pub const DONUT_CF02_MANIFEST: &str = "donut_h40_cf02.json";
+pub const GOBLIN_CF02_MANIFESTS: [&str; 2] = ["goblin_a_h36_cf02.json", "goblin_b_h36_cf02.json"];
+pub const GOBLIN_SLAMMED_MANIFESTS: [&str; 2] =
+    ["goblin_a_slammed_h36.json", "goblin_b_slammed_h36.json"];
 /// The Bad Llama atlas (LLAMA-01, 96 x 72 frames, pivot (44, 71)).
 pub const LLAMA_MANIFEST: &str = "llama-01.json";
 /// Contact shadow of the llama: the 46 px standing box, pivot column 26 of it.
@@ -347,6 +353,9 @@ impl SpriteClips {
             Kind::CarlMelee => carl_ticks(&manifest, &tags, frame_count).map_err(err)?,
             Kind::Goblin => goblin_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Llama => llama_ticks(&manifest, frame_count).map_err(err)?,
+            Kind::Cf02Carl => cf02_carl_ticks(&manifest, frame_count).map_err(err)?,
+            Kind::Cf02Donut => cf02_donut_ticks(&manifest, frame_count).map_err(err)?,
+            Kind::Cf02Goblin => cf02_goblin_ticks(&manifest, frame_count).map_err(err)?,
         };
         let atlas_asset = str_field(&manifest, "output_atlas", &path)?
             .strip_prefix(crate::actor_sprite::ATLAS_ASSET_PREFIX)
@@ -407,6 +416,72 @@ impl SpriteClips {
             LLAMA_SHADOW_FOOTPRINT,
             source,
             Kind::Llama,
+        )
+    }
+
+    /// CF02-I: the Carl CF02 sheet (stomp, air kick, dive, bail-out, flinch,
+    /// frustration). Every tag is placed by the pivot rule (the sheet's airborne
+    /// frames are already lifted 2 px, like the locomotion jump frames), so the
+    /// manifest's airborne tags are not used for anchoring.
+    pub fn load_carl_cf02(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Self::load(
+            root,
+            "CARL_CF02",
+            CARL_CF02_MANIFEST,
+            CARL_SHADOW_FOOTPRINT,
+            source,
+            Kind::Cf02Carl,
+        )
+    }
+
+    /// CF02-I: Donut's startle and smug sheet.
+    pub fn load_donut_cf02(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Self::load(
+            root,
+            "DONUT_CF02",
+            DONUT_CF02_MANIFEST,
+            DONUT_SHADOW_FOOTPRINT,
+            source,
+            Kind::Cf02Donut,
+        )
+    }
+
+    /// CF02-I: the goblin acting sheet (hesitate, panic, taunt) of variant 0 or 1.
+    pub fn load_goblin_cf02(
+        root: &Path,
+        variant: usize,
+        source: FrameSource,
+    ) -> Result<Self, String> {
+        let file = GOBLIN_CF02_MANIFESTS
+            .get(variant)
+            .ok_or_else(|| format!("no goblin variant {variant}"))?;
+        Self::load(
+            root,
+            "GOBLIN_CF02",
+            file,
+            GOBLIN_SHADOW_FOOTPRINT,
+            source,
+            Kind::Cf02Goblin,
+        )
+    }
+
+    /// CF02-I: the goblin slammed sheet (stomped, wall crumple, flung) of variant
+    /// 0 or 1.
+    pub fn load_goblin_slammed(
+        root: &Path,
+        variant: usize,
+        source: FrameSource,
+    ) -> Result<Self, String> {
+        let file = GOBLIN_SLAMMED_MANIFESTS
+            .get(variant)
+            .ok_or_else(|| format!("no goblin variant {variant}"))?;
+        Self::load(
+            root,
+            "GOBLIN_SLAMMED",
+            file,
+            GOBLIN_SHADOW_FOOTPRINT,
+            source,
+            Kind::Cf02Goblin,
         )
     }
 
@@ -564,6 +639,12 @@ enum Kind {
     CarlMelee,
     Goblin,
     Llama,
+    /// CF02-I: the ART-CARL-CF02 sheet (`cf02_acting.frames`).
+    Cf02Carl,
+    /// CF02-I: the ART-DONUT-CF02 sheet (`cf02.moves`).
+    Cf02Donut,
+    /// CF02-I: the ART-GOB-CF02 acting and slammed sheets (`cf02_goblin.frames`).
+    Cf02Goblin,
 }
 
 /// Per-frame ticks of the melee atlas from `melee.moves`, and its airborne tags.
@@ -677,6 +758,110 @@ fn llama_ticks(
     Ok((ticks, Vec::new()))
 }
 
+/// Ticks of a CF02 sheet from a `frames` list whose entries carry `index` and
+/// `ticks` (a number, or null for a hold).
+fn listed_frame_ticks(
+    frames: &serde_json::Value,
+    frame_count: usize,
+    what: &str,
+) -> Result<Vec<Option<u32>>, String> {
+    let frames = frames
+        .as_array()
+        .ok_or_else(|| format!("{what}.frames missing"))?;
+    if frames.len() != frame_count {
+        return Err(format!(
+            "{what}.frames lists {} frames, the atlas has {frame_count}",
+            frames.len()
+        ));
+    }
+    frames
+        .iter()
+        .enumerate()
+        .map(|(i, frame)| {
+            if frame["index"].as_u64() != Some(i as u64) {
+                return Err(format!("{what}.frames[{i}] has the wrong index"));
+            }
+            if frame["ticks"].is_null() {
+                return Ok(None);
+            }
+            frame["ticks"]
+                .as_u64()
+                .filter(|t| *t > 0)
+                .map(|t| Some(t as u32))
+                .ok_or_else(|| format!("{what}.frames[{i}] has bad ticks"))
+        })
+        .collect()
+}
+
+/// Carl CF02 ticks: the manifest's per-frame ticks, with the last frame of a
+/// `hold` tag (the dive plunge, the bail-out scramble) held until the state
+/// changes. No airborne tag: the sheet is pivot-anchored.
+fn cf02_carl_ticks(
+    manifest: &serde_json::Value,
+    frame_count: usize,
+) -> Result<(Vec<Option<u32>>, Vec<String>), String> {
+    let block = &manifest["cf02_acting"];
+    let mut ticks = listed_frame_ticks(&block["frames"], frame_count, "cf02_acting")?;
+    let tags = manifest["animation_tags"]
+        .as_array()
+        .ok_or("animation_tags missing")?;
+    let frames = block["frames"]
+        .as_array()
+        .ok_or("cf02_acting.frames missing")?;
+    for tag in tags.iter().filter_map(|t| t.as_str()) {
+        if block["playback"][tag].as_str() == Some("hold")
+            && let Some(last) = frames.iter().rposition(|f| f["tag"].as_str() == Some(tag))
+        {
+            ticks[last] = None;
+        }
+    }
+    Ok((ticks, Vec::new()))
+}
+
+/// Donut CF02 ticks from `cf02.moves` (each frame's tick range) through the
+/// `cf02.frames` name to index map.
+fn cf02_donut_ticks(
+    manifest: &serde_json::Value,
+    frame_count: usize,
+) -> Result<(Vec<Option<u32>>, Vec<String>), String> {
+    let block = &manifest["cf02"];
+    let mut ticks: Vec<Option<u32>> = vec![None; frame_count];
+    let mut seen = vec![false; frame_count];
+    let moves = block["moves"].as_object().ok_or("cf02.moves missing")?;
+    for (name, mv) in moves {
+        for entry in mv["frames"].as_array().ok_or("cf02.moves frames missing")? {
+            let frame_name = entry["name"].as_str().ok_or("cf02.moves frame name")?;
+            let index = block["frames"][frame_name]["index"]
+                .as_u64()
+                .ok_or_else(|| format!("cf02.frames has no {frame_name}"))?
+                as usize;
+            if index >= frame_count {
+                return Err(format!("cf02.frames.{frame_name} is outside the atlas"));
+            }
+            ticks[index] =
+                range_ticks(&entry["ticks"], &format!("cf02.moves.{name}.{frame_name}"))?;
+            seen[index] = true;
+        }
+    }
+    if let Some(missing) = seen.iter().position(|s| !s) {
+        return Err(format!("frame {missing} has no tick data"));
+    }
+    Ok((ticks, Vec::new()))
+}
+
+/// Goblin CF02 ticks from `cf02_goblin.frames`.
+fn cf02_goblin_ticks(
+    manifest: &serde_json::Value,
+    frame_count: usize,
+) -> Result<(Vec<Option<u32>>, Vec<String>), String> {
+    let ticks = listed_frame_ticks(
+        &manifest["cf02_goblin"]["frames"],
+        frame_count,
+        "cf02_goblin",
+    )?;
+    Ok((ticks, Vec::new()))
+}
+
 fn string_list(value: &serde_json::Value) -> Result<Vec<String>, String> {
     value
         .as_array()
@@ -712,10 +897,18 @@ pub fn melee_tag(id: MoveId) -> Option<&'static str> {
         MoveId::Jab => Some("punch_a"),
         MoveId::Haymaker => Some("punch_b"),
         MoveId::PushKick => Some("kick"),
-        // CF02 placeholders: the stomp, follow-through, air kick and dive show the kick
-        // frames until the ART-CARL-CF02 frames land (CF02-I wires them).
-        MoveId::Stomp | MoveId::FollowKick | MoveId::AirKick | MoveId::DiveStomp => Some("kick"),
-        MoveId::GreyboxStrike | MoveId::Swat | MoveId::Pounce | MoveId::MagicMissile => None,
+        // CF02-I: the follow-through plays the approved kick frames without the
+        // chamber ([`follow_kick_frame`], Q05). The stomp, air kick and dive have
+        // their own ART-CARL-CF02 frames ([`crate::combat_anim::cf02`]), so the
+        // melee atlas draws nothing for them and no strike shift is made.
+        MoveId::FollowKick => Some("kick"),
+        MoveId::Stomp
+        | MoveId::AirKick
+        | MoveId::DiveStomp
+        | MoveId::GreyboxStrike
+        | MoveId::Swat
+        | MoveId::Pounce
+        | MoveId::MagicMissile => None,
     }
 }
 
@@ -773,10 +966,37 @@ pub fn carl_pose(clips: &SpriteClips, input: &CarlInput) -> Option<ArtPose> {
     }
     let (id, tick) = input.melee?;
     let tag = melee_tag(id)?;
+    if id == MoveId::FollowKick {
+        return Some(ArtPose {
+            tag,
+            frame: follow_kick_frame(clips, tick),
+        });
+    }
     Some(ArtPose {
         tag,
         frame: clips.frame_at(tag, u32::from(tick)),
     })
+}
+
+/// The approved kick frames the follow-through plays, as `(index inside the
+/// kick tag, ticks)` (CF02 acting spec section 3, Q05): k0 for the load, k2 for
+/// the last two startup ticks (the chamber k1 is skipped, because the confirm
+/// only fires on a goblin the jab already staggered), the contact frame k3 on the
+/// hit tick, then k4, k5 and k6. The 32 ticks of `FollowKick` (startup 9, active
+/// 4, recovery 19) in order; a test pins the total and the contact frame.
+pub const FOLLOW_KICK_FRAMES: [(usize, u32); 6] = [(0, 7), (2, 2), (3, 6), (4, 5), (5, 7), (6, 5)];
+
+/// The atlas frame of the kick tag shown on follow-through tick `tick`.
+pub fn follow_kick_frame(clips: &SpriteClips, tick: u16) -> usize {
+    let (first, _) = clips.tag("kick");
+    let mut left = u32::from(tick);
+    for (index, ticks) in FOLLOW_KICK_FRAMES {
+        if left < ticks {
+            return first + index;
+        }
+        left -= ticks;
+    }
+    first + FOLLOW_KICK_FRAMES[FOLLOW_KICK_FRAMES.len() - 1].0
 }
 
 /// What a goblin's frame depends on, from one finished tick.
@@ -1102,6 +1322,9 @@ pub struct CombatAnimators {
     /// The Bad Llama atlas and per-llama tracks (a fixture with llamas only).
     llama: Option<SpriteClips>,
     llama_tracks: Vec<LlamaTrack>,
+    /// CF02-I: the final CF02 frames and the acting overlays (`None` outside a
+    /// `cf02_rules` run, so every legacy state line is unchanged).
+    acting: Option<cf02::ActingAnimators>,
 }
 
 impl CombatAnimators {
@@ -1118,9 +1341,80 @@ impl CombatAnimators {
             tracks: Vec::new(),
             llama: None,
             llama_tracks: Vec::new(),
+            acting: None,
         };
         this.reset(combat);
         this
+    }
+
+    /// CF02-I: draw the final CF02 frames and the Q69 to Q72 overlays of a
+    /// `cf02_rules` run (`tuning` is `combat.cf02()`). Presentation only.
+    pub fn with_acting(
+        mut self,
+        art: cf02::ActingArt,
+        tuning: &'static crate::cf02::Cf02Tuning,
+        combat: &CombatState,
+    ) -> Self {
+        self.acting = Some(cf02::ActingAnimators::new(art, tuning, combat));
+        self
+    }
+
+    /// The CF02 acting presentation, if this run has it.
+    pub fn acting(&self) -> Option<&cf02::ActingAnimators> {
+        self.acting.as_ref()
+    }
+
+    /// Advance the CF02 acting presentation by one tick; call right after
+    /// [`Self::step`] of the same tick, with the locomotion tags the two heroes
+    /// animate with.
+    pub fn step_acting(
+        &mut self,
+        scene: &SceneSim,
+        combat: &CombatState,
+        carl_loco: crate::anim::Tag,
+        donut_loco: crate::anim::Tag,
+    ) {
+        let carl_legacy = self.carl_pose().is_some();
+        let carl_input = self.carl_input;
+        if let Some(acting) = self.acting.as_mut() {
+            acting.step(
+                scene,
+                combat,
+                &carl_input,
+                carl_legacy,
+                carl_loco,
+                donut_loco,
+            );
+        }
+    }
+
+    /// Carl's CF02 frame (stomp, air kick, dive, bail-out, heavy landing,
+    /// flinch, frustration) in the CF02 Carl atlas, or `None`.
+    pub fn carl_cf02_pose(&self) -> Option<ArtPose> {
+        self.acting.as_ref()?.carl_pose()
+    }
+
+    /// Donut's startle or smug frame in the CF02 Donut atlas, or `None`.
+    pub fn donut_cf02_pose(&self) -> Option<ArtPose> {
+        self.acting.as_ref()?.donut_pose()
+    }
+
+    /// Goblin `index`'s acting frame (hesitate, panic, taunt) in its variant's
+    /// CF02 atlas, or `None`.
+    pub fn goblin_cf02_pose(&self, index: usize) -> Option<cf02::GoblinActPose> {
+        self.acting.as_ref()?.goblin_pose(index)
+    }
+
+    /// Goblin `index`'s slammed finish frame in its variant's slammed atlas when
+    /// the death presenter chose `slam` for it.
+    pub fn goblin_slammed_pose(
+        &self,
+        index: usize,
+        slam: Option<crate::death::SlamPose>,
+    ) -> Option<ArtPose> {
+        self.acting
+            .as_ref()?
+            .slammed_pose(index, goblin_variant(index), slam)
     }
 
     /// Draw the fixture's Bad Llamas from `clips` (LLAMA-01).
@@ -1132,6 +1426,9 @@ impl CombatAnimators {
 
     /// Back to the start of an attempt (the goblins were re-created).
     pub fn reset(&mut self, combat: &CombatState) {
+        if let Some(acting) = self.acting.as_mut() {
+            acting.reset(combat);
+        }
         self.carl_input = CarlInput::default();
         self.prev_hero_stop = 0;
         self.tracks = combat
@@ -1411,8 +1708,12 @@ impl CombatAnimators {
         let llamas: String = (0..self.llama_tracks.len())
             .filter_map(|i| self.llama_pose(i).map(|p| format!(" l{i}={}", p.label())))
             .collect();
+        let acting = self
+            .acting
+            .as_ref()
+            .map_or_else(String::new, cf02::ActingAnimators::state_suffix);
         format!(
-            "COMBAT_ANIM_STATE tick={tick} carl={carl} {}{llamas}",
+            "COMBAT_ANIM_STATE tick={tick} carl={carl} {}{llamas}{acting}",
             goblins.join(" ")
         )
     }
@@ -1475,6 +1776,8 @@ impl CombatAnimators {
 pub fn carl_above_goblin(carl_active: bool, goblin_swinging: bool) -> bool {
     carl_active || !goblin_swinging
 }
+
+pub mod cf02;
 
 #[cfg(test)]
 mod tests;
