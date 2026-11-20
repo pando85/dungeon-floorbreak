@@ -2079,7 +2079,7 @@ mod tests {
             frame.advance(RawInput {
                 move_x: 1.0,
                 jump: tick == 0 || tick == 30,
-                ..RawInput::default()
+                ..RawInput::NONE
             });
             step_hero(&mut hero, &frame, &blocks, 700.0);
             if hero.grounded && (hero.y - HERO_HALF_HEIGHT - 70.0).abs() < 0.6 {
@@ -2540,7 +2540,7 @@ mod tests {
             frame.advance(RawInput {
                 jump: launch && tick == 1,
                 move_x,
-                ..RawInput::default()
+                ..RawInput::NONE
             });
             step_hero(&mut hero, &frame, blocks, max_x);
             airborne |= !hero.grounded;
