@@ -43,6 +43,8 @@
 #                                   together cover every sequence exactly
 #                                   once; without arguments all of them run.
 set -euo pipefail
+# PLAYTRACE-01: CI runs never write a gameplay recording (PT-Q12).
+export FLOORBREAK_RECORD=off
 mode="${1:?usage: ci_floor01_combat.sh headless|render|render-sequences [SHARD COUNT]|demo|demo-render|cine}"
 shard="${2:-0}"
 shard_count="${3:-1}"

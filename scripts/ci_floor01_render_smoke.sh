@@ -3,6 +3,8 @@
 # Usage: ci_floor01_render_smoke.sh desktop|desktop-720|deck|advanced|advanced-deck|nolight|nolight-advanced|reference|collision|live-lit|live-unlit|perf-lit|perf-unlit|anim-sequence|hud|hud-deck|boss|boss-deck|audience|audience-deck|audience-x3
 # desktop is the primary 1920x1080 (x3) capture; desktop-720 is 1280x720 (x2).
 set -euo pipefail
+# PLAYTRACE-01: CI runs never write a gameplay recording (PT-Q12).
+export FLOORBREAK_RECORD=off
 mode="${1:-desktop}"
 mkdir -p artifacts
 # Scripted capture position: walk_right for 250 ticks puts the camera across the

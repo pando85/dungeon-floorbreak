@@ -66,6 +66,15 @@ impl FakeParty {
         }
     }
 
+    /// The next pair of raw slot inputs (slot 0 sets `swap` every 90th call),
+    /// for the live-path tests that feed a real simulation.
+    pub fn next_slots(&mut self) -> [RawInput; 2] {
+        self.t += 1;
+        let mut slots = [self.slot_input(), self.slot_input()];
+        slots[0].swap = self.t.is_multiple_of(90);
+        slots
+    }
+
     /// Whether the next [`Self::tick`] begins after a retry.
     pub fn retry_due(&self) -> bool {
         self.retry_every > 0 && self.t > 0 && self.t.is_multiple_of(self.retry_every)

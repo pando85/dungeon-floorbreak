@@ -41,11 +41,14 @@
 mod codec;
 mod error;
 pub mod fake;
+pub mod live;
 mod manifest;
 mod reader;
 mod storage;
 mod writer;
 
+#[cfg(test)]
+mod live_tests;
 #[cfg(test)]
 mod tests;
 
