@@ -56,6 +56,40 @@ pub const HAYMAKER_FEEL: MoveFeel = MoveFeel {
 pub const HAYMAKER_STEP_PX: f32 = 4.0;
 pub const HAYMAKER_STEP_TICKS: u16 = 4;
 
+/// Donut's swat (Q10-05, WORK-023): breaks a tell and buys space, never kills.
+/// The hit-stop freezes **Donut only** (`HitStopSplit { attacker: 2, target: 0
+/// }` in `donut_moves::SWAT_HIT_STOP`), so a Carl jab on the next tick still
+/// connects; `hit_stop` here is that attacker freeze. A 60 px/s push moves the
+/// goblin about 1.5 px; no camera kick.
+pub const SWAT_FEEL: MoveFeel = MoveFeel {
+    hit_stop: 2,
+    stagger: JAB_FEEL.stagger,
+    knock_vx: 60.0,
+    knock_vy: 0.0,
+    camera_kick_px: 0,
+};
+
+/// Donut's pounce (Q10-14): the finisher of weakened goblins. Hit-stop 4 on
+/// both fighters (the legacy rule), a 14-tick stagger, no push (she drops into
+/// her pin at the goblin's feet).
+pub const POUNCE_FEEL: MoveFeel = MoveFeel {
+    hit_stop: 4,
+    stagger: 14,
+    knock_vx: 0.0,
+    knock_vy: 0.0,
+    camera_kick_px: 0,
+};
+
+/// Donut's Magic Missile on a goblin (mana v0): one damage that interrupts like
+/// a jab. The bolt is at range, so only the target freezes (2 ticks).
+pub const MISSILE_FEEL: MoveFeel = MoveFeel {
+    hit_stop: 2,
+    stagger: JAB_FEEL.stagger,
+    knock_vx: 60.0,
+    knock_vy: 0.0,
+    camera_kick_px: 0,
+};
+
 /// Push kick (D-02): 8 ticks of hit-stop (melee spec) and a **launch**: a
 /// goblin the kick does not defeat flies away (`KICK_LAUNCH_VX` / `_VY`), lands
 /// and lies down (`Downed`), then gets up. The stagger value is unused by a

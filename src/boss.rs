@@ -897,12 +897,16 @@ impl Boss {
     ) -> Option<HitResult> {
         self.hurtbox()?;
         self.hp = self.hp.saturating_sub(hit.damage);
-        events.push(CombatEvent::BossHurt {
-            tick,
-            source: hit.player,
-            damage: hit.damage.min(255) as u8,
-            hp_left: self.hp.min(255) as u8,
-        });
+        // A zero-damage hit (a Donut swat glance) is poise only: no hurt event,
+        // so it never sounds like a real hit.
+        if hit.damage > 0 {
+            events.push(CombatEvent::BossHurt {
+                tick,
+                source: hit.player,
+                damage: hit.damage.min(255) as u8,
+                hp_left: self.hp.min(255) as u8,
+            });
+        }
         self.hit_stop = self.hit_stop.max(hit.hit_stop);
         if self.hp == 0 {
             self.enter(BossMode::Defeated);
@@ -2426,6 +2430,39 @@ mod tests {
         assert_eq!(state(18).fill_px(), 117);
         assert!(state(1).fill_px() >= 7, "{}", state(1).fill_px());
         assert_eq!(state(0).fill_px(), 0);
+    }
+
+    #[test]
+    fn a_zero_damage_glance_adds_poise_but_emits_no_hurt_event() {
+        let mut boss = engaged(300.0, 1);
+        let mut events = Vec::new();
+        let result = boss.apply_hit(
+            BossHit {
+                damage: 0,
+                poise: 1,
+                player: 1,
+                hit_stop: 0,
+            },
+            &mut events,
+            1,
+        );
+        assert_eq!(result.map(|r| r.hp_left), Some(boss.hp));
+        assert!(events.is_empty(), "no BossHurt for 0 damage: {events:?}");
+        // A real hit still emits it.
+        boss.apply_hit(
+            BossHit {
+                damage: 1,
+                poise: 1,
+                player: 1,
+                hit_stop: 0,
+            },
+            &mut events,
+            2,
+        );
+        assert!(matches!(
+            events[..],
+            [CombatEvent::BossHurt { damage: 1, .. }]
+        ));
     }
 
     #[test]

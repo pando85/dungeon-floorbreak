@@ -7,6 +7,7 @@
 //! is missing live here too, so the whole HUD layout is unit-testable
 //! headlessly. Spec: `docs/02-art/hybrid-hud-a-native-spec.md` section 2.
 
+use crate::audience::{AudienceView, Trend, bounded_name, format_count};
 use crate::env_kit::IRect;
 use crate::hud::{
     AbilityRow, BOSS_BAR_INNER_W, Chip, Control, FaceFrame, Glyph, HP_BAR_INNER_W,
@@ -14,6 +15,7 @@ use crate::hud::{
     MANA_BAR_INNER_W, MANA_FLASH_TICKS, ManaView, PORTRAIT_CARL, PlateView, Rgb, SpecialSlot,
     notice_dx, palette as p, text_width_px,
 };
+use crate::party::HeroId;
 
 // -------------------------------------------------------------- frame names
 
@@ -53,10 +55,28 @@ pub enum FrameId {
     TagP1,
     TagP2,
     TagAi,
+    // AUDIENCE-01 part A: the viewer readout art (eye, trend arrows and the
+    // original monospace 5x7 digit set).
+    ViewerEye,
+    ViewerUp,
+    ViewerDown,
+    ViewerDigit0,
+    ViewerDigit1,
+    ViewerDigit2,
+    ViewerDigit3,
+    ViewerDigit4,
+    ViewerDigit5,
+    ViewerDigit6,
+    ViewerDigit7,
+    ViewerDigit8,
+    ViewerDigit9,
+    ViewerDigitK,
+    ViewerDigitM,
+    ViewerDigitPlus,
 }
 
 impl FrameId {
-    pub const ALL: [Self; 31] = [
+    pub const ALL: [Self; 47] = [
         Self::PlateFrame,
         Self::StripCapLeft,
         Self::StripMid,
@@ -88,6 +108,22 @@ impl FrameId {
         Self::TagP1,
         Self::TagP2,
         Self::TagAi,
+        Self::ViewerEye,
+        Self::ViewerUp,
+        Self::ViewerDown,
+        Self::ViewerDigit0,
+        Self::ViewerDigit1,
+        Self::ViewerDigit2,
+        Self::ViewerDigit3,
+        Self::ViewerDigit4,
+        Self::ViewerDigit5,
+        Self::ViewerDigit6,
+        Self::ViewerDigit7,
+        Self::ViewerDigit8,
+        Self::ViewerDigit9,
+        Self::ViewerDigitK,
+        Self::ViewerDigitM,
+        Self::ViewerDigitPlus,
     ];
 
     /// The frame name in the atlas metadata.
@@ -124,6 +160,22 @@ impl FrameId {
             Self::TagP1 => "tag_p1",
             Self::TagP2 => "tag_p2",
             Self::TagAi => "tag_ai",
+            Self::ViewerEye => "viewer_eye",
+            Self::ViewerUp => "viewer_up",
+            Self::ViewerDown => "viewer_down",
+            Self::ViewerDigit0 => "viewer_digit_0",
+            Self::ViewerDigit1 => "viewer_digit_1",
+            Self::ViewerDigit2 => "viewer_digit_2",
+            Self::ViewerDigit3 => "viewer_digit_3",
+            Self::ViewerDigit4 => "viewer_digit_4",
+            Self::ViewerDigit5 => "viewer_digit_5",
+            Self::ViewerDigit6 => "viewer_digit_6",
+            Self::ViewerDigit7 => "viewer_digit_7",
+            Self::ViewerDigit8 => "viewer_digit_8",
+            Self::ViewerDigit9 => "viewer_digit_9",
+            Self::ViewerDigitK => "viewer_digit_k",
+            Self::ViewerDigitM => "viewer_digit_m",
+            Self::ViewerDigitPlus => "viewer_digit_plus",
         }
     }
 
@@ -152,7 +204,43 @@ impl FrameId {
             Self::IconWarning => (11, 10),
             Self::IconBossEmblem => (20, 20),
             Self::TagP1 | Self::TagP2 | Self::TagAi => (32, 9),
+            Self::ViewerEye => (9, 7),
+            Self::ViewerUp | Self::ViewerDown => (5, 7),
+            Self::ViewerDigit0
+            | Self::ViewerDigit1
+            | Self::ViewerDigit2
+            | Self::ViewerDigit3
+            | Self::ViewerDigit4
+            | Self::ViewerDigit5
+            | Self::ViewerDigit6
+            | Self::ViewerDigit7
+            | Self::ViewerDigit8
+            | Self::ViewerDigit9
+            | Self::ViewerDigitK
+            | Self::ViewerDigitM
+            | Self::ViewerDigitPlus => (5, 7),
         }
+    }
+
+    /// The atlas glyph of one character of a formatted count (`0-9 K M +`).
+    /// `.` is not art: the draw list places it as a 1 x 1 rect.
+    pub const fn of_viewer_char(c: char) -> Option<Self> {
+        Some(match c {
+            '0' => Self::ViewerDigit0,
+            '1' => Self::ViewerDigit1,
+            '2' => Self::ViewerDigit2,
+            '3' => Self::ViewerDigit3,
+            '4' => Self::ViewerDigit4,
+            '5' => Self::ViewerDigit5,
+            '6' => Self::ViewerDigit6,
+            '7' => Self::ViewerDigit7,
+            '8' => Self::ViewerDigit8,
+            '9' => Self::ViewerDigit9,
+            'K' => Self::ViewerDigitK,
+            'M' => Self::ViewerDigitM,
+            '+' => Self::ViewerDigitPlus,
+            _ => return None,
+        })
     }
 
     pub const fn of_glyph(glyph: Glyph) -> Self {
@@ -356,12 +444,86 @@ fn plate(o: &mut Out, s: &HudSnapshot, slot: usize, rect: IRect) {
         y + 38,
         tag_color,
     );
-    o.text(Z_TEXT, HudFont::Jersey, &view.name, x + 40, y + 4, p::AMBER);
+    // AUDIENCE-01 F2: with the viewer readout up, a replaceable name whose ink
+    // would run into the eye falls back to the neutral label. Without the
+    // readout (locked, the Floor 01 default) the name is drawn as authored.
+    let name = match view.audience {
+        Some(_) => bounded_name(
+            &view.name,
+            text_width_px(HudFont::Jersey, &view.name).max(0) as u32,
+            if carl { HeroId::Carl } else { HeroId::Donut },
+        ),
+        None => view.name.as_str(),
+    };
+    o.text(Z_TEXT, HudFont::Jersey, name, x + 40, y + 4, p::AMBER);
+    if let Some(audience) = view.audience {
+        viewer_readout(o, s, &audience, x, y);
+    }
     hp_row(o, s, view, x, y);
     if let Some(mana) = view.mana {
         mana_row(o, s, mana, x, y);
     }
     abilities_row(o, s, view, x, y);
+}
+
+/// AUDIENCE-01 part C: the per-plate viewer readout inside the name row, at
+/// the F1 coordinates (plate-relative): eye 9 x 7 at (+92, +5), the count in
+/// the 5 x 7 monospace set from +104 (advance 6, a code-drawn `.` advance 2),
+/// the 5 x 7 trend glyph at (+153, +5) (the slot is reserved while flat).
+pub const VIEWER_EYE_X: i32 = 92;
+pub const VIEWER_Y: i32 = 5;
+pub const VIEWER_NUMBER_X: i32 = 104;
+pub const VIEWER_TREND_X: i32 = 153;
+pub const VIEWER_GLYPH_ADVANCE: i32 = 6;
+pub const VIEWER_DOT_ADVANCE: i32 = 2;
+/// The multiplier that turns the `text_white` digit masks amber. The GPU
+/// multiplies in linear space and the mask red (244) cannot be raised, so the
+/// number renders as [`VIEWER_AMBER_RENDERED`], 4 percent darker in red than
+/// `amber` (the part A evidence README calls this out).
+const TEXT_WHITE_TO_AMBER: Rgb = Rgb(255, 215, 91);
+/// What [`TEXT_WHITE_TO_AMBER`] renders as; the code-drawn dot uses it too so
+/// the dot matches its digits.
+pub const VIEWER_AMBER_RENDERED: Rgb = Rgb(244, 194, 74);
+/// The multiplier that turns the `amber` down-arrow art into exactly
+/// `amber_dim` (168, 116, 42) after the GPU's linear multiply. (The older
+/// [`AMBER_TO_DIM`] is tuned to the warning icon and lands 2 to 4 levels low
+/// on this art.)
+const VIEWER_AMBER_TO_DIM: Rgb = Rgb(168, 154, 157);
+
+fn viewer_readout(o: &mut Out, s: &HudSnapshot, view: &AudienceView, x: i32, y: i32) {
+    let top = y + VIEWER_Y;
+    o.frame(Z_ICON, FrameId::ViewerEye, x + VIEWER_EYE_X, top);
+    // Stable: `text_white`. A spike turns the number amber (and shows the up
+    // arrow, `magenta_hi` in the art). The fall keeps the number white.
+    let spike = view.trend == Trend::Up;
+    let (tint, dot) = if spike {
+        (Some(TEXT_WHITE_TO_AMBER), VIEWER_AMBER_RENDERED)
+    } else {
+        (None, p::TEXT_WHITE)
+    };
+    let mut cx = x + VIEWER_NUMBER_X;
+    for c in format_count(view.display_count(s.reduced_motion)).chars() {
+        if c == '.' {
+            o.rect(Z_ICON, cx, top + 6, 1, 1, dot);
+            cx += VIEWER_DOT_ADVANCE;
+        } else if let Some(glyph) = FrameId::of_viewer_char(c) {
+            let (w, h) = glyph.size();
+            o.frame_sized(Z_ICON, glyph, cx, top, w, h, tint);
+            cx += VIEWER_GLYPH_ADVANCE;
+        }
+    }
+    let trend_x = x + VIEWER_TREND_X;
+    match view.trend {
+        Trend::Flat => {}
+        Trend::Up => o.frame(Z_ICON, FrameId::ViewerUp, trend_x, top),
+        Trend::Down => {
+            // The art is `amber`; `amber_dim` is 4.2:1, so high contrast keeps
+            // the full `amber`. The arrow shape carries the direction.
+            let (w, h) = FrameId::ViewerDown.size();
+            let tint = (!s.high_contrast).then_some(VIEWER_AMBER_TO_DIM);
+            o.frame_sized(Z_ICON, FrameId::ViewerDown, trend_x, top, w, h, tint);
+        }
+    }
 }
 
 fn hp_row(o: &mut Out, s: &HudSnapshot, view: &PlateView, x: i32, y: i32) {
@@ -901,6 +1063,58 @@ pub fn placeholder_rects(frame: FrameId, w: i32, h: i32) -> Vec<PlaceholderRect>
             v.push((7, 8, 2, 2, p::HUD_INK));
             v.push((11, 8, 2, 2, p::HUD_INK));
         }
+        FrameId::ViewerEye => {
+            bitmap(
+                &[
+                    ".........",
+                    "..#####..",
+                    ".#.###.#.",
+                    "#..#.#..#",
+                    ".#.###.#.",
+                    "..#####..",
+                    ".........",
+                ],
+                0,
+                0,
+                p::BRASS,
+                &mut v,
+            );
+        }
+        FrameId::ViewerUp => bitmap(
+            &[
+                "..#..", ".###.", "#.#.#", "..#..", "..#..", "..#..", ".....",
+            ],
+            0,
+            0,
+            p::MAGENTA_HI,
+            &mut v,
+        ),
+        FrameId::ViewerDown => bitmap(
+            &[
+                ".....", "..#..", "..#..", "..#..", "#.#.#", ".###.", "..#..",
+            ],
+            0,
+            0,
+            p::AMBER,
+            &mut v,
+        ),
+        FrameId::ViewerDigit0
+        | FrameId::ViewerDigit1
+        | FrameId::ViewerDigit2
+        | FrameId::ViewerDigit3
+        | FrameId::ViewerDigit4
+        | FrameId::ViewerDigit5
+        | FrameId::ViewerDigit6
+        | FrameId::ViewerDigit7
+        | FrameId::ViewerDigit8
+        | FrameId::ViewerDigit9
+        | FrameId::ViewerDigitK
+        | FrameId::ViewerDigitM
+        | FrameId::ViewerDigitPlus => {
+            // A hollow box: a layout stand-in, not a readable digit.
+            v.push((0, 0, 5, 7, p::TEXT_WHITE));
+            v.push((1, 1, 3, 5, p::PLATE_FILL));
+        }
         FrameId::TagP1 => v.push((0, 0, w, h, p::AMBER)),
         FrameId::TagP2 => {
             v.push((0, 0, w, h, p::MAGENTA_HI));
@@ -1104,8 +1318,376 @@ mod tests {
                 HudPreview::Coop => {
                     assert!(f.contains(&FrameId::TagP1) && f.contains(&FrameId::TagP2));
                 }
+                HudPreview::Viewers
+                | HudPreview::ViewersRising
+                | HudPreview::ViewersFalling
+                | HudPreview::ViewersMax => {
+                    assert_eq!(
+                        f.iter().filter(|f| **f == FrameId::ViewerEye).count(),
+                        2,
+                        "one eye per plate"
+                    );
+                }
             }
         }
+    }
+
+    // ------------------------------------------------ AUDIENCE-01 part C --
+
+    use crate::audience::{AudienceView, Trend};
+
+    fn view(count: u64, trend: Trend) -> AudienceView {
+        AudienceView {
+            shown: count,
+            animated: count,
+            peak: count,
+            trend,
+            trend_steps_left: if trend == Trend::Flat { 0 } else { 30 },
+        }
+    }
+
+    /// Draw `[carl, donut]` viewer states on the real plates for one canvas.
+    fn viewer_list(
+        carl: Option<AudienceView>,
+        donut: Option<AudienceView>,
+        view_h: i32,
+        high_contrast: bool,
+        reduced_motion: bool,
+    ) -> Vec<DrawItem> {
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.audience = [carl, donut];
+        real.high_contrast = high_contrast;
+        real.reduced_motion = reduced_motion;
+        let layout = HudLayout::new(view_h, view_h - 72);
+        let mut out = Vec::new();
+        build_draw_list(&build_snapshot(&real, None, 0), &layout, &mut out);
+        out
+    }
+
+    fn is_viewer_frame(f: FrameId) -> bool {
+        f.name().starts_with("viewer_")
+    }
+
+    /// The viewer items of one plate: `(x, y, w, h, frame)` of every viewer
+    /// frame and of every 1 x 1 dot rect of the readout row.
+    fn viewer_rects(list: &[DrawItem], plate: IRect) -> Vec<(i32, i32, i32, i32)> {
+        list.iter()
+            .filter_map(|i| {
+                let (w, h) = match &i.kind {
+                    DrawKind::Frame { frame, w, h, .. } if is_viewer_frame(*frame) => (*w, *h),
+                    DrawKind::Rect { w: 1, h: 1, .. } if i.y == plate.y + VIEWER_Y + 6 => (1, 1),
+                    _ => return None,
+                };
+                (i.x >= plate.x && i.x < plate.x + plate.w).then_some((i.x, i.y, w, h))
+            })
+            .collect()
+    }
+
+    /// Whether an item (other than the plate frame, the portrait well and
+    /// the viewer readout itself) intersects `bounds`.
+    fn others_hit(list: &[DrawItem], plate: IRect, bounds: (i32, i32, i32, i32)) -> Vec<String> {
+        let inter = |a: (i32, i32, i32, i32), b: (i32, i32, i32, i32)| {
+            a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.3 && b.1 < a.1 + a.3
+        };
+        let mut hits = Vec::new();
+        for i in list {
+            if i.x < plate.x || i.x >= plate.x + plate.w {
+                continue;
+            }
+            let extent = match &i.kind {
+                DrawKind::Frame { frame, .. } if is_viewer_frame(*frame) => continue,
+                DrawKind::Frame {
+                    frame: FrameId::PlateFrame,
+                    ..
+                } => continue,
+                DrawKind::Frame { w, h, .. } => (i.x, i.y, *w, *h),
+                DrawKind::Rect { w: 1, h: 1, .. } if i.y == plate.y + VIEWER_Y + 6 => continue,
+                DrawKind::Rect { w, h, .. } => (i.x, i.y, *w, *h),
+                // Jersey caps are 10 px high from the caps top.
+                DrawKind::Text { font, text, .. } => (
+                    i.x,
+                    i.y,
+                    text_width_px(*font, text),
+                    if matches!(font, HudFont::Jersey) {
+                        10
+                    } else {
+                        5
+                    },
+                ),
+                DrawKind::Emblem { w, h } => (i.x, i.y, *w, *h),
+            };
+            // The portrait well (28 x 28 at +6) is far left of the readout.
+            if inter(extent, bounds) {
+                hits.push(format!("{:?} at {extent:?}", i.kind));
+            }
+        }
+        hits
+    }
+
+    #[test]
+    fn a_locked_audience_draws_no_viewer_art_at_all() {
+        for deck in [false, true] {
+            let list = items(None, deck);
+            assert!(frames(&list).into_iter().all(|f| !is_viewer_frame(f)));
+        }
+        // And a locked plate is item for item what it was before part C: the
+        // same list with the audience explicitly `None`.
+        let a = viewer_list(None, None, 360, false, false);
+        assert_eq!(a, items(None, false));
+    }
+
+    #[test]
+    fn the_readout_sits_at_the_f1_coordinates_on_both_canvases() {
+        for view_h in [360, 400] {
+            let list = viewer_list(
+                Some(view(250, Trend::Up)),
+                Some(view(250, Trend::Down)),
+                view_h,
+                false,
+                false,
+            );
+            let layout = HudLayout::new(view_h, view_h - 72);
+            for (plate, x0) in [(layout.carl_plate, 8), (layout.donut_plate, 468)] {
+                assert_eq!(plate.x, x0);
+                let rects = viewer_rects(&list, plate);
+                // eye (+92,+5) 9x7, three digits from +104 with advance 6,
+                // the 5x7 trend glyph at +153.
+                let mut want = vec![(x0 + 92, 13, 9, 7)];
+                for k in 0..3 {
+                    want.push((x0 + 104 + 6 * k, 13, 5, 7));
+                }
+                want.push((x0 + 153, 13, 5, 7));
+                assert_eq!(rects, want, "canvas {view_h}, plate x {x0}");
+            }
+        }
+    }
+
+    #[test]
+    fn every_count_uses_format_count_and_draws_the_decimal_as_a_one_pixel_rect() {
+        use crate::audience::format_count;
+        let cases = [
+            0u64,
+            250,
+            999,
+            1_000,
+            12_400,
+            99_900,
+            159_000,
+            1_200_000,
+            12_000_000,
+            999_999_999,
+            1_000_000_000,
+            u64::MAX,
+        ];
+        for count in cases {
+            let text = format_count(count);
+            let list = viewer_list(Some(view(count, Trend::Flat)), None, 360, false, false);
+            let layout = HudLayout::new(360, 288);
+            let drawn: Vec<FrameId> = list
+                .iter()
+                .filter_map(|i| match i.kind {
+                    DrawKind::Frame { frame, .. }
+                        if is_viewer_frame(frame)
+                            && !matches!(
+                                frame,
+                                FrameId::ViewerEye | FrameId::ViewerUp | FrameId::ViewerDown
+                            )
+                            && i.x < 300 =>
+                    {
+                        Some(frame)
+                    }
+                    _ => None,
+                })
+                .collect();
+            let want: Vec<FrameId> = text
+                .chars()
+                .filter(|c| *c != '.')
+                .map(|c| FrameId::of_viewer_char(c).expect("a glyph"))
+                .collect();
+            assert_eq!(drawn, want, "{count} -> {text}");
+            let dots = list
+                .iter()
+                .filter(|i| matches!(i.kind, DrawKind::Rect { w: 1, h: 1, .. }) && i.y == 8 + 5 + 6)
+                .count();
+            assert_eq!(dots, usize::from(text.contains('.')), "{text}");
+            // The ink never leaves the plate: the readout ends before the
+            // trend slot (+153) for every count.
+            let right = viewer_rects(&list, layout.carl_plate)
+                .iter()
+                .filter(|r| r.0 != layout.carl_plate.x + 92)
+                .map(|r| r.0 + r.2)
+                .max()
+                .unwrap();
+            assert!(right <= layout.carl_plate.x + 153, "{text} ends at {right}");
+        }
+    }
+
+    #[test]
+    fn the_widest_counts_never_touch_the_name_hp_mana_or_frame_at_360_and_400() {
+        // Worst cases: `999M+` (29 px) and `99.9K` with both trend glyphs, on a
+        // plate with mana (Donut after the biscuit) and the DONUT name.
+        for view_h in [360, 400] {
+            for (carl_view, donut_view) in [
+                (view(5_000_000_000, Trend::Up), view(99_900, Trend::Down)),
+                (view(99_900, Trend::Down), view(999_999_999, Trend::Up)),
+            ] {
+                let mut real = crate::hud::test_inputs(4, 4);
+                real.donut_magic = crate::hud::DonutMagic::Unlocked(crate::hud::ManaView {
+                    fill_px: 94,
+                    depleted_age: None,
+                });
+                real.audience = [Some(carl_view), Some(donut_view)];
+                let layout = HudLayout::new(view_h, view_h - 72);
+                let mut list = Vec::new();
+                build_draw_list(&build_snapshot(&real, None, 0), &layout, &mut list);
+                for plate in [layout.carl_plate, layout.donut_plate] {
+                    let rects = viewer_rects(&list, plate);
+                    assert!(!rects.is_empty());
+                    let l = rects.iter().map(|r| r.0).min().unwrap();
+                    let t = rects.iter().map(|r| r.1).min().unwrap();
+                    let r = rects.iter().map(|r| r.0 + r.2).max().unwrap();
+                    let b = rects.iter().map(|r| r.1 + r.3).max().unwrap();
+                    // Inside the 3 px ring and above the HP row (+16).
+                    assert!(
+                        l >= plate.x + 90 && r <= plate.x + plate.w - 3,
+                        "x {l}..{r}"
+                    );
+                    assert!(t >= plate.y + 3 && b <= plate.y + 16, "y {t}..{b}");
+                    let hits = others_hit(&list, plate, (l, t, r - l, b - t));
+                    assert!(hits.is_empty(), "canvas {view_h}: overlaps {hits:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_long_replaceable_name_falls_back_only_while_the_readout_is_up() {
+        let long = "SUPERHEROIC";
+        assert!(text_width_px(HudFont::Jersey, long) > 49);
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.carl_name = long.to_string();
+        real.donut_name = "DONUT".to_string();
+        let layout = HudLayout::new(360, 288);
+        let names = |real: &crate::hud::RealHudInputs| {
+            let mut list = Vec::new();
+            build_draw_list(&build_snapshot(real, None, 0), &layout, &mut list);
+            texts(&list)
+                .into_iter()
+                .filter(|t| *t == long || *t == "HERO" || *t == "DONUT" || *t == "ALLY")
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            names(&real),
+            [long, "DONUT"],
+            "locked: the name as authored"
+        );
+        real.audience = [Some(view(250, Trend::Flat)), Some(view(250, Trend::Flat))];
+        assert_eq!(names(&real), ["HERO", "DONUT"], "F2: bounded name");
+        // The real names fit with room to spare (DONUT is 40 px, 12 px gap).
+        assert!(text_width_px(HudFont::Jersey, "DONUT") <= 49);
+    }
+
+    #[test]
+    fn colours_follow_the_trend_and_high_contrast_never_depends_on_hue() {
+        let tints = |list: &[DrawItem], frame: FrameId| -> Vec<Option<Rgb>> {
+            list.iter()
+                .filter_map(|i| match i.kind {
+                    DrawKind::Frame { frame: f, tint, .. } if f == frame && i.x < 300 => Some(tint),
+                    _ => None,
+                })
+                .collect()
+        };
+        // Stable: untinted `text_white` digits, no arrow.
+        let flat = viewer_list(Some(view(250, Trend::Flat)), None, 360, false, false);
+        assert!(
+            tints(&flat, FrameId::ViewerDigit2)
+                .iter()
+                .all(Option::is_none)
+        );
+        assert!(
+            !frames(&flat).contains(&FrameId::ViewerUp)
+                && !frames(&flat).contains(&FrameId::ViewerDown)
+        );
+        // Spike: amber digits and the up arrow.
+        let up = viewer_list(Some(view(4_250, Trend::Up)), None, 360, false, false);
+        assert!(
+            tints(&up, FrameId::ViewerDigit2)
+                .iter()
+                .all(|t| *t == Some(TEXT_WHITE_TO_AMBER))
+        );
+        assert!(frames(&up).contains(&FrameId::ViewerUp));
+        // Fall: white digits, a dim-amber arrow; high contrast the full amber.
+        let down = viewer_list(Some(view(4_250, Trend::Down)), None, 360, false, false);
+        assert_eq!(
+            tints(&down, FrameId::ViewerDown),
+            [Some(VIEWER_AMBER_TO_DIM)]
+        );
+        let down_hc = viewer_list(Some(view(4_250, Trend::Down)), None, 360, true, false);
+        assert_eq!(tints(&down_hc, FrameId::ViewerDown), [None]);
+        assert!(
+            tints(&down, FrameId::ViewerDigit2)
+                .iter()
+                .all(Option::is_none)
+        );
+    }
+
+    #[test]
+    fn reduced_motion_draws_the_snapped_count_and_keeps_the_arrow() {
+        let mut v = view(250, Trend::Up);
+        v.shown = 4_250;
+        v.animated = 1_000;
+        let text_of = |reduced| -> Vec<FrameId> {
+            let list = viewer_list(Some(v), None, 360, false, reduced);
+            frames(&list)
+                .into_iter()
+                .filter(|f| {
+                    is_viewer_frame(*f)
+                        && !matches!(
+                            f,
+                            FrameId::ViewerEye | FrameId::ViewerUp | FrameId::ViewerDown
+                        )
+                })
+                .take(4)
+                .collect()
+        };
+        // `1.0K` while counting up, `4.2K` snapped (the `.` is a rect).
+        assert_eq!(
+            text_of(false)[..3],
+            [
+                FrameId::ViewerDigit1,
+                FrameId::ViewerDigit0,
+                FrameId::ViewerDigitK
+            ]
+        );
+        assert_eq!(
+            text_of(true)[..3],
+            [
+                FrameId::ViewerDigit4,
+                FrameId::ViewerDigit2,
+                FrameId::ViewerDigitK
+            ]
+        );
+        let list = viewer_list(Some(v), None, 360, false, true);
+        assert!(frames(&list).contains(&FrameId::ViewerUp));
+    }
+
+    #[test]
+    fn the_pool_holds_the_worst_case_with_both_readouts_and_every_other_element() {
+        let mut real = crate::hud::test_inputs(4, 4);
+        real.audience = [
+            Some(view(5_000_000_000, Trend::Up)),
+            Some(view(99_900, Trend::Down)),
+        ];
+        let mut list = Vec::new();
+        build_draw_list(
+            &build_snapshot(&real, Some(HudPreview::Boss), 0),
+            &HudLayout::new(360, 288),
+            &mut list,
+        );
+        // The sprite pool is 1100 (hud_adapter::SPRITE_POOL); the readouts add
+        // 2 x (eye + 5 glyphs + arrow) frames and at most 2 dots.
+        assert!(list.len() < crate::hud_adapter::SPRITE_POOL);
     }
 
     #[test]

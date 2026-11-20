@@ -29,6 +29,7 @@ pub const HALL_PATH: &str = "assets/levels/floor01/demo01_hall.room.json";
 pub const HALL_FLOOR_Y: i32 = 580;
 /// Hall width in px.
 pub const HALL_WIDTH: i32 = 3200;
+
 /// Ticks Select must be held to restart the whole demo; a shorter press is a
 /// respawn (1 s at 60 Hz).
 pub const RESTART_HOLD_TICKS: u32 = 60;

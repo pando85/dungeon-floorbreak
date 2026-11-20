@@ -10,11 +10,17 @@
 //! Spec: `docs/02-art/hybrid-hud-a-native-spec.md` (sections 2 to 6). Debt
 //! that retires each fixture: `docs/04-production/backlog.md`, HUD-DEBT-01..07.
 
+use crate::audience::{
+    AnticipationCue, AudienceInput, AudienceState, AudienceView, ChainFeat, CueError, Trend,
+};
 use crate::boss::{BOSS_ENEMY_ID, BossState};
 use crate::combat::{CombatEvent, ForceTier, HERO_HEALTH};
 use crate::corridor::DONUT_HEALTH;
+use crate::donut_hud;
+use crate::donut_mana::EmptyPress;
 use crate::env_kit::IRect;
 use crate::hud_settings::HudSettings;
+use crate::party::HeroId;
 
 // ------------------------------------------------------------------- numbers
 
@@ -363,6 +369,11 @@ pub struct PlateView {
     /// `None` = no mana resource (Carl always; Donut before the biscuit).
     pub mana: Option<ManaView>,
     pub abilities: AbilityRow,
+    /// AUDIENCE-01: this hero's live viewer count. `None` while the feature is
+    /// locked (the Floor 01 default: no eye, no number, no placeholder), so a
+    /// locked plate draws exactly what it drew before. Owned per hero (indexed
+    /// by the hero, never by controller slot or P1/P2).
+    pub audience: Option<AudienceView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -409,15 +420,25 @@ pub enum HudPreview {
     Depleted,
     Boss,
     Coop,
+    /// AUDIENCE-01 part C: viewer-count readouts on both plates (presentation
+    /// only; the real Floor 01 has no unlock, see the spec's F15).
+    Viewers,
+    ViewersRising,
+    ViewersFalling,
+    ViewersMax,
 }
 
 impl HudPreview {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 9] = [
         Self::PreUnlock,
         Self::PostUnlock,
         Self::Depleted,
         Self::Boss,
         Self::Coop,
+        Self::Viewers,
+        Self::ViewersRising,
+        Self::ViewersFalling,
+        Self::ViewersMax,
     ];
 
     pub const fn name(self) -> &'static str {
@@ -427,6 +448,10 @@ impl HudPreview {
             Self::Depleted => "depleted",
             Self::Boss => "boss",
             Self::Coop => "coop",
+            Self::Viewers => "viewers",
+            Self::ViewersRising => "viewers-rising",
+            Self::ViewersFalling => "viewers-falling",
+            Self::ViewersMax => "viewers-max",
         }
     }
 
@@ -438,6 +463,10 @@ impl HudPreview {
             Self::Depleted => "DEPLETED",
             Self::Boss => "BOSS",
             Self::Coop => "COOP",
+            Self::Viewers => "VIEWERS",
+            Self::ViewersRising => "VIEWERS RISING",
+            Self::ViewersFalling => "VIEWERS FALLING",
+            Self::ViewersMax => "VIEWERS MAX",
         }
     }
 
@@ -475,8 +504,9 @@ pub struct HudSnapshot {
 
 // -------------------------------------------------------- real inputs and fn
 
-/// What Donut's magic currently allows. There is no unlock flag or mana
-/// resource in the game yet (HUD-DEBT-02), so the real value is `PreBiscuit`.
+/// What Donut's magic currently allows (HUD-DEBT-02): `PreBiscuit` until the
+/// unlock fires, then the whole-segment view of the real mana pool
+/// ([`crate::donut_hud::magic_of`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DonutMagic {
     PreBiscuit,
@@ -498,6 +528,8 @@ pub struct RealHudInputs {
     /// live actions.
     pub melee_live: bool,
     pub donut_magic: DonutMagic,
+    /// What Primary does at 0 mana (the loaded mana tuning, Q10-16).
+    pub empty_press: EmptyPress,
     pub hp_flash: Option<HpFlash>,
     /// Donut's HP flash, from her real hurt events (HUD-DEBT-01).
     pub donut_hp_flash: Option<HpFlash>,
@@ -508,13 +540,16 @@ pub struct RealHudInputs {
     pub donut_glyphs: GlyphSet,
     /// The player slot (1 or 2) whose controller is missing, if any.
     pub reconnect: Option<u8>,
-    /// provisional: Q10. Chips for a human-driven Donut.
+    /// Q10-01: chips for a human-driven Donut (`PartyTuning::donut_moves`).
     pub donut_chips: bool,
     pub reduced_motion: bool,
     pub high_contrast: bool,
     /// The boss strip, built from the simulation's boss state by
     /// [`HudRuntime`] (`None` outside an encounter).
     pub boss: Option<BossView>,
+    /// AUDIENCE-01: each hero's viewer view, `[Carl, Donut]`, `None` while the
+    /// feature is locked. Filled by [`HudRuntime`] from the audience observer.
+    pub audience: [Option<AudienceView>; 2],
 }
 
 impl RealHudInputs {
@@ -532,6 +567,7 @@ impl RealHudInputs {
             donut_control: Control::Ai,
             melee_live: true,
             donut_magic: DonutMagic::PreBiscuit,
+            empty_press: EmptyPress::Dry,
             hp_flash: None,
             donut_hp_flash: None,
             notice: None,
@@ -543,6 +579,7 @@ impl RealHudInputs {
             reduced_motion: false,
             high_contrast: false,
             boss: None,
+            audience: [None, None],
         }
     }
 }
@@ -571,6 +608,9 @@ fn carl_abilities(control: Control, melee_live: bool) -> AbilityRow {
     }
 }
 
+/// The chip row of a **preview fixture** (`--hud-preview`): the pre- and
+/// post-unlock, depleted and co-op states the HUD can show without a scene.
+/// The real plate goes through `donut_hud::donut_ability_row`.
 fn donut_abilities(control: Control, magic: DonutMagic) -> AbilityRow {
     match control {
         Control::Ai => AbilityRow::AiCompanion,
@@ -613,6 +653,7 @@ fn plate(
         hp_flash: None,
         mana: None,
         abilities,
+        audience: None,
     }
 }
 
@@ -649,19 +690,23 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
             cur: real.donut_health.min(DONUT_HEALTH),
             max: DONUT_HEALTH,
         },
-        match real.donut_control {
-            // provisional: Q10. A human-driven Donut shows no chips yet.
-            Control::Player(_) if !real.donut_chips => AbilityRow::NoActions {
-                special: SpecialSlot::Locked,
-            },
-            control => donut_abilities(control, real.donut_magic),
-        },
+        // Q10: the chips, the muted Missile at 0 mana and the AI label come
+        // from `donut_hud` (the pure mapping the Q10 spec section 4 pins).
+        donut_hud::donut_ability_row(
+            real.donut_control,
+            real.donut_magic,
+            real.empty_press,
+            real.donut_chips,
+            real.melee_live,
+        ),
     );
     // Mana exists only for Donut, and only once her magic is unlocked.
     if let DonutMagic::Unlocked(mana) = real.donut_magic {
         donut.mana = Some(mana);
     }
     donut.hp_flash = real.donut_hp_flash;
+    carl.audience = real.audience[HeroId::Carl.index()];
+    donut.audience = real.audience[HeroId::Donut.index()];
     let mut snapshot = HudSnapshot {
         plates: [carl, donut],
         // The location strip gives way to the boss strip.
@@ -718,6 +763,7 @@ fn set_donut(
             ..mana
         });
     }
+    donut.audience = snapshot.plates[1].audience;
     snapshot.plates[1] = donut;
 }
 
@@ -734,6 +780,7 @@ fn set_carl(snapshot: &mut HudSnapshot, hp: u8, flash: Option<HpFlash>) {
         carl_abilities(Control::Player(1), true),
     );
     carl.hp_flash = flash;
+    carl.audience = snapshot.plates[0].audience;
     snapshot.plates[0] = carl;
 }
 
@@ -805,6 +852,33 @@ fn apply_preview(snapshot: &mut HudSnapshot, preview: HudPreview, tick: u64) {
             set_carl(snapshot, 3, None);
             set_donut(snapshot, Control::Player(2), 2, mana(MANA_COOP), None);
         }
+        // The viewer previews keep the real plates (HP, tags, chips, mana)
+        // and only add the readouts, so they read against the real capture.
+        HudPreview::Viewers => set_viewers(snapshot, (6_800, Trend::Flat), (12_400, Trend::Flat)),
+        HudPreview::ViewersRising => {
+            set_viewers(snapshot, (38_400, Trend::Up), (87_100, Trend::Up));
+        }
+        HudPreview::ViewersFalling => {
+            set_viewers(snapshot, (6_800, Trend::Down), (12_400, Trend::Down));
+        }
+        // The worst-case widths: `999M+` (29 px) and `99.9K` with a fall.
+        HudPreview::ViewersMax => {
+            set_viewers(snapshot, (5_000_000_000, Trend::Up), (99_900, Trend::Down));
+        }
+    }
+}
+
+/// Fixture values of the viewer previews (not balance): the count, with the
+/// trend glyph that is on at the moment the fixture freezes.
+fn set_viewers(snapshot: &mut HudSnapshot, carl: (u64, Trend), donut: (u64, Trend)) {
+    for (plate, (count, trend)) in snapshot.plates.iter_mut().zip([carl, donut]) {
+        plate.audience = Some(AudienceView {
+            shown: count,
+            animated: count,
+            peak: count,
+            trend,
+            trend_steps_left: if trend == Trend::Flat { 0 } else { 24 },
+        });
     }
 }
 
@@ -962,6 +1036,8 @@ type VisualKey = (
     bool,
     PartyView,
     Option<BossView>,
+    DonutMagic,
+    [Option<AudienceView>; 2],
 );
 
 /// The party facts the HUD draws (real ownership, never a fixture): who drives
@@ -977,9 +1053,8 @@ pub struct PartyView {
     pub donut_glyphs: GlyphSet,
     /// The slot number (1 or 2) whose controller is missing.
     pub reconnect: Option<u8>,
-    /// provisional: Q10 (`PartyTuning::donut_ability_chips`). When false a
-    /// human-driven Donut shows no PUNCH/KICK-style chips, only the locked
-    /// special socket.
+    /// Q10-01 (`PartyTuning::donut_ability_chips`). When false a human-driven
+    /// Donut shows no chips, only the locked special socket.
     pub donut_chips: bool,
 }
 
@@ -1020,6 +1095,26 @@ pub struct HudRuntime {
     location: Option<String>,
     /// The real boss encounter (HUD-DEBT-03), `None` outside one.
     boss: Option<BossHud>,
+    /// HUD-DEBT-02: Donut's unlocked mana pool as `(mana, mana_max)`, `None`
+    /// while the biscuit is locked. Fed by the scene from the simulation's
+    /// `DonutMana`; the HUD never invents it.
+    donut_mana: Option<(u8, u8)>,
+    /// The loaded `empty_press` rule (Q10-16), fed by the scene.
+    empty_press: EmptyPress,
+    /// The one-time depleted outline flash (presentation only).
+    depleted: donut_hud::DepletedFlash,
+    /// AUDIENCE-01: the per-hero viewer model. An **observer** like CINE: it
+    /// reads this tick's combat events (through this runtime's own cursor, so
+    /// no second drain exists), never feeds anything back and is never mixed
+    /// into `COMBAT_STATE` or a replay hash. Locked in every Floor 01 path: no
+    /// state exists and no step runs until [`Self::unlock_audience`].
+    audience: AudienceState,
+    /// This tick's plain-data inputs (reused, filled only while unlocked).
+    audience_inputs: Vec<AudienceInput>,
+    /// CINE feats waiting for the next step.
+    pending_feats: Vec<ChainFeat>,
+    /// The heroes' x positions (scene units) for authored cues, `[Carl, Donut]`.
+    hero_x: [i32; 2],
 }
 
 /// The cosmetic state of the boss strip: the slide, the damage chip and the
@@ -1061,7 +1156,76 @@ impl HudRuntime {
             donut_name: FALLBACK_NAME_RIGHT.to_string(),
             location: None,
             boss: None,
+            donut_mana: None,
+            empty_press: EmptyPress::Dry,
+            depleted: donut_hud::DepletedFlash::default(),
+            audience: AudienceState::locked(),
+            audience_inputs: Vec::new(),
+            pending_feats: Vec::new(),
+            hero_x: [0; 2],
         }
+    }
+
+    /// AUDIENCE-01: the one explicit `locked -> unlocked` flag
+    /// (`broadcast_live`), with the authored cue table of this run. v1 has no
+    /// in-game trigger (F15): only the QA probe (`--audience-probe`) calls it.
+    /// Both heroes start at the baseline.
+    pub fn unlock_audience(&mut self, cues: Vec<AnticipationCue>) -> Result<(), CueError> {
+        self.audience.set_cues(cues)?;
+        self.audience.unlock();
+        self.revision += 1;
+        Ok(())
+    }
+
+    /// The audience observer (read-only; its digest is the `AUDIENCE_STATE`).
+    pub fn audience(&self) -> &AudienceState {
+        &self.audience
+    }
+
+    /// Queue a CINE feat (a mapped `CinematicMoment`) for the next step.
+    /// Ignored while locked.
+    pub fn push_chain_feat(&mut self, feat: ChainFeat) {
+        if self.audience.is_unlocked() {
+            self.pending_feats.push(feat);
+        }
+    }
+
+    /// The heroes' x positions, `[Carl, Donut]`, read by authored anticipation
+    /// cues. Call once per tick before [`Self::step`].
+    pub fn set_hero_x(&mut self, carl: i32, donut: i32) {
+        self.hero_x = [carl, donut];
+    }
+
+    /// Each hero's viewer view, `[Carl, Donut]` (`None` while locked).
+    fn audience_views(&self) -> [Option<AudienceView>; 2] {
+        [HeroId::Carl, HeroId::Donut].map(|hero| self.audience.view(hero))
+    }
+
+    /// HUD-DEBT-02: the real mana of Donut's biscuit magic (`None` while it is
+    /// locked). Call once per tick before [`Self::step`]; the depleted flash
+    /// ages inside `step`.
+    pub fn set_donut_mana(&mut self, mana: Option<(u8, u8)>) {
+        let before = self.donut_magic();
+        self.donut_mana = mana;
+        // The renderer rebuilds only on a new revision, and `step` compares
+        // against the state it starts from: a visible change is counted here.
+        if self.donut_magic() != before {
+            self.revision += 1;
+        }
+    }
+
+    /// The loaded `empty_press` rule, so a depleted plate shows what the press
+    /// really does. Call before [`Self::step`]; constant for a run.
+    pub fn set_empty_press(&mut self, empty_press: EmptyPress) {
+        if self.empty_press != empty_press {
+            self.empty_press = empty_press;
+            self.revision += 1;
+        }
+    }
+
+    /// What Donut's magic currently allows, from the real mana.
+    fn donut_magic(&self) -> DonutMagic {
+        donut_hud::magic_of(self.donut_mana, self.depleted.age())
     }
 
     /// HUD-DEBT-03: tell the HUD about the encounter (name and emblem key from
@@ -1212,6 +1376,8 @@ impl HudRuntime {
             warning_bright,
             self.drawn_party(),
             self.boss_view(),
+            self.donut_magic(),
+            self.audience_views(),
         )
     }
 
@@ -1266,6 +1432,12 @@ impl HudRuntime {
         let before = self.visual_key();
         self.tick += 1;
         self.notices.advance();
+        match self.donut_mana {
+            Some((mana, _)) => {
+                self.depleted.step(mana);
+            }
+            None => self.depleted = donut_hud::DepletedFlash::default(),
+        }
         for slot in &mut self.flash {
             if let Some(flash) = slot.as_mut() {
                 flash.age_ticks += 1;
@@ -1276,7 +1448,11 @@ impl HudRuntime {
         }
         let mut previous = [self.carl_health, self.donut_health];
         let (mut engaged, mut boss_down, mut restarted) = (false, false, false);
+        let audience_live = self.audience.is_unlocked();
         for event in self.cursor.next(events, dropped) {
+            if audience_live && let Some(input) = AudienceInput::from_combat(event) {
+                self.audience_inputs.push(input);
+            }
             match *event {
                 CombatEvent::BossEngaged { .. } => engaged = true,
                 CombatEvent::EnemyDefeated { target, .. } if target == BOSS_ENEMY_ID => {
@@ -1322,9 +1498,25 @@ impl HudRuntime {
         self.carl_health = carl_health;
         self.donut_health = donut_health;
         self.step_boss_hud(engaged, boss_down, restarted);
+        self.step_audience();
         if self.visual_key() != before {
             self.revision += 1;
         }
+    }
+
+    /// One fixed step of the audience observer (a no-op while locked).
+    fn step_audience(&mut self) {
+        if !self.audience.is_unlocked() {
+            return;
+        }
+        for feat in self.pending_feats.drain(..) {
+            self.audience_inputs.push(AudienceInput::Chain(feat));
+        }
+        for (hero, x) in [HeroId::Carl, HeroId::Donut].into_iter().zip(self.hero_x) {
+            self.audience_inputs.push(AudienceInput::HeroX { hero, x });
+        }
+        self.audience.step(&self.audience_inputs);
+        self.audience_inputs.clear();
     }
 
     /// The real inputs for this tick.
@@ -1347,6 +1539,9 @@ impl HudRuntime {
         real.reduced_motion = self.config.settings.reduced_motion;
         real.high_contrast = self.config.settings.high_contrast;
         real.boss = self.boss_view();
+        real.donut_magic = self.donut_magic();
+        real.empty_press = self.empty_press;
+        real.audience = self.audience_views();
         real
     }
 
@@ -2279,6 +2474,118 @@ mod tests {
         assert_eq!(hud.snapshot().plates[1].abilities, AbilityRow::AiCompanion);
     }
 
+    /// HUD-DEBT-02: the plate reads the real mana pool, never a fixture. Locked
+    /// shows no bar; unlocked shows whole segments; at 0 the depleted flash
+    /// ages once and the MISSILE chip is muted.
+    #[test]
+    fn the_real_donut_mana_drives_the_bar_the_chips_and_the_depleted_flash() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_melee_live(true);
+        // Solo swap: P1 drives Donut, so her plate shows chips.
+        hud.set_party(PartyView {
+            carl: Control::Ai,
+            donut: Control::Player(1),
+            donut_chips: true,
+            ..PartyView::default()
+        });
+        let donut = |hud: &HudRuntime| hud.snapshot().plates[1].clone();
+        // Locked: the pre-biscuit SWAT chip and no mana bar.
+        let locked = donut(&hud);
+        assert_eq!(locked.mana, None);
+        let AbilityRow::Chips { a, b, .. } = locked.abilities else {
+            panic!("chips")
+        };
+        assert_eq!((a.label, b.label), (LabelId::Swat, LabelId::Pounce));
+        // Unlocked and full: 94 px, MISSILE unmuted.
+        let before = hud.revision();
+        hud.set_donut_mana(Some((8, 8)));
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert!(hud.revision() > before, "the change is a visual change");
+        let full = donut(&hud);
+        assert_eq!(
+            full.mana,
+            Some(ManaView {
+                fill_px: 94,
+                depleted_age: None
+            })
+        );
+        let AbilityRow::Chips { a, .. } = full.abilities else {
+            panic!("chips")
+        };
+        assert_eq!((a.label, a.muted), (LabelId::Missile, false));
+        // Whole segments: 3 charges is 35 px.
+        hud.set_donut_mana(Some((3, 8)));
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(donut(&hud).mana.map(|m| m.fill_px), Some(35));
+        // Depleted: the flash starts at 0 and ages while she stays at 0.
+        hud.set_donut_mana(Some((0, 8)));
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        let empty = donut(&hud);
+        assert_eq!(
+            empty.mana.map(|m| (m.fill_px, m.depleted_age)),
+            Some((0, Some(0)))
+        );
+        let AbilityRow::Chips { a, b, .. } = empty.abilities else {
+            panic!("chips")
+        };
+        assert_eq!((a.label, a.muted), (LabelId::Missile, true));
+        assert!(!b.muted, "POUNCE is never muted");
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(donut(&hud).mana.and_then(|m| m.depleted_age), Some(1));
+        // A charge back clears the flash; relocking removes the bar.
+        hud.set_donut_mana(Some((1, 8)));
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(donut(&hud).mana.and_then(|m| m.depleted_age), None);
+        hud.set_donut_mana(None);
+        hud.step(HERO_HEALTH, DONUT_HEALTH, &[], 0);
+        assert_eq!(donut(&hud).mana, None);
+    }
+
+    /// The Donut plate is an AI label, or no chips outside a combat section,
+    /// or the chips: from the pure mapping of `donut_hud`.
+    #[test]
+    fn the_loaded_empty_press_reaches_the_depleted_plate() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_melee_live(true);
+        hud.set_party(PartyView {
+            carl: Control::Ai,
+            donut: Control::Player(1),
+            donut_chips: true,
+            ..PartyView::default()
+        });
+        hud.set_donut_mana(Some((0, 8)));
+        let label = |hud: &HudRuntime| {
+            let AbilityRow::Chips { a, .. } = hud.snapshot().plates[1].abilities else {
+                panic!("chips")
+            };
+            (a.label, a.muted)
+        };
+        assert_eq!(label(&hud), (LabelId::Missile, true), "dry press: muted");
+        hud.set_empty_press(EmptyPress::Swat);
+        assert_eq!(
+            label(&hud),
+            (LabelId::Swat, false),
+            "swat press: unmuted swat"
+        );
+    }
+
+    #[test]
+    fn the_donut_chips_follow_control_the_melee_gate_and_q10_01() {
+        let mut real = RealHudInputs::normal(4, 4);
+        real.donut_control = Control::Player(2);
+        real.donut_chips = true;
+        real.melee_live = true;
+        let row = |real: &RealHudInputs| build_snapshot(real, None, 0).plates[1].abilities;
+        assert!(matches!(row(&real), AbilityRow::Chips { .. }));
+        real.melee_live = false;
+        assert!(matches!(row(&real), AbilityRow::NoActions { .. }));
+        real.melee_live = true;
+        real.donut_chips = false;
+        assert!(matches!(row(&real), AbilityRow::NoActions { .. }));
+        real.donut_control = Control::Ai;
+        assert_eq!(row(&real), AbilityRow::AiCompanion);
+    }
+
     #[test]
     fn fixtures_keep_their_chips_whatever_the_capability() {
         let mut real = RealHudInputs::normal(4, 4);
@@ -2550,5 +2857,299 @@ mod tests {
         assert_eq!((boss.fill_px, boss.chip_px, boss.warning), (164, 14, true));
         assert_eq!(boss.emblem, None, "the generic skull plate");
         assert_eq!(s.notice.unwrap().headline, LabelId::BossIncoming);
+    }
+
+    // ------------------------------------------------ AUDIENCE-01 part C --
+
+    use crate::audience::{AnticipationTrigger, TUNING, format_count};
+    use crate::combat::{CARL_PUSH_KICK, DONUT_POUNCE, DONUT_SWAT, MAGIC_MISSILE, MoveId};
+
+    /// A runtime with the audience unlocked (the QA probe's state) and an
+    /// optional cue at `cue_x` for both heroes.
+    fn live_audience(cue_x: Option<i32>) -> HudRuntime {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let cues = cue_x
+            .map(|x| {
+                vec![AnticipationCue {
+                    id: 1,
+                    trigger: AnticipationTrigger::HeroCrossesX { x },
+                    heroes: vec![HeroId::Carl, HeroId::Donut],
+                    award: 4_000,
+                }]
+            })
+            .unwrap_or_default();
+        hud.unlock_audience(cues).unwrap();
+        hud
+    }
+
+    /// Append `event` to the cumulative log and take one HUD step.
+    fn push_step(hud: &mut HudRuntime, log: &mut Vec<CombatEvent>, event: CombatEvent) {
+        log.push(event);
+        hud.step(4, 4, log, 0);
+    }
+
+    fn counts(hud: &HudRuntime) -> (u64, u64) {
+        let s = hud.snapshot();
+        let n = |i: usize| s.plates[i].audience.expect("unlocked").shown;
+        (n(0), n(1))
+    }
+
+    fn live_counts(hud: &HudRuntime) -> (u64, u64) {
+        (
+            hud.audience().count(HeroId::Carl).unwrap(),
+            hud.audience().count(HeroId::Donut).unwrap(),
+        )
+    }
+
+    #[test]
+    fn the_viewer_previews_only_add_the_readouts() {
+        let base = build_snapshot(&test_inputs(4, 4), None, 0);
+        for preview in [
+            HudPreview::Viewers,
+            HudPreview::ViewersRising,
+            HudPreview::ViewersFalling,
+            HudPreview::ViewersMax,
+        ] {
+            let s = build_snapshot(&test_inputs(4, 4), Some(preview), 0);
+            assert_eq!(s.preview, Some(preview));
+            for i in 0..2 {
+                assert!(s.plates[i].audience.is_some(), "{preview:?} plate {i}");
+                let mut plate = s.plates[i].clone();
+                plate.audience = None;
+                assert_eq!(plate, base.plates[i], "{preview:?}: the real plate stays");
+            }
+        }
+        let trend = |p, i: usize| snap(p).plates[i].audience.unwrap().trend;
+        assert_eq!(trend(HudPreview::Viewers, 0), Trend::Flat);
+        assert_eq!(trend(HudPreview::ViewersRising, 1), Trend::Up);
+        assert_eq!(trend(HudPreview::ViewersFalling, 0), Trend::Down);
+        let max = snap(HudPreview::ViewersMax);
+        assert_eq!(
+            format_count(max.plates[0].audience.unwrap().shown),
+            "999M+",
+            "the widest string"
+        );
+        assert_eq!(format_count(max.plates[1].audience.unwrap().shown), "99.9K");
+    }
+
+    #[test]
+    fn a_locked_audience_never_shows_and_never_reads_the_events() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let mut log = Vec::new();
+        push_step(&mut hud, &mut log, defeat(ForceTier::Catastrophic));
+        assert!(!hud.audience().is_unlocked());
+        let s = hud.snapshot();
+        assert!(s.plates[0].audience.is_none() && s.plates[1].audience.is_none());
+        assert_eq!(hud.audience().steps(), 0, "no step runs while locked");
+        assert_eq!(hud.audience().digest(), None);
+        // Feats and positions are ignored too.
+        hud.push_chain_feat(ChainFeat {
+            credited: 0,
+            target: 1,
+            score: 9,
+        });
+        hud.set_hero_x(10_000, 10_000);
+        hud.step(4, 4, &log, 0);
+        assert!(hud.snapshot().plates[0].audience.is_none());
+    }
+
+    /// A locked audience costs nothing: the same events, feats and positions
+    /// bump the revision exactly as often as a runtime that never heard of
+    /// the audience (so the renderer never rebuilds the HUD sprites for it).
+    #[test]
+    fn a_locked_audience_never_bumps_the_revision() {
+        let events = [
+            defeat(ForceTier::Catastrophic),
+            defeat(ForceTier::Routine),
+            hurt(3),
+        ];
+        let run = |with_audience_inputs: bool| {
+            let mut hud = HudRuntime::new(HudConfig::default());
+            let mut log = Vec::new();
+            let mut revisions = Vec::new();
+            for event in &events {
+                if with_audience_inputs {
+                    hud.push_chain_feat(ChainFeat {
+                        credited: 0,
+                        target: 1,
+                        score: 9,
+                    });
+                    hud.set_hero_x(10_000, 10_000);
+                }
+                push_step(&mut hud, &mut log, *event);
+                revisions.push(hud.revision());
+            }
+            assert!(!hud.audience().is_unlocked());
+            revisions
+        };
+        let plain = run(false);
+        assert_eq!(run(true), plain, "a locked audience bumped the revision");
+        // The baseline moves (the events draw notices), so the comparison is
+        // not vacuous.
+        assert!(plain.iter().any(|&r| r > 0));
+    }
+
+    #[test]
+    fn unlock_shows_both_counts_at_the_baseline_and_bumps_the_revision() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        let before = hud.revision();
+        hud.unlock_audience(Vec::new()).unwrap();
+        assert!(hud.revision() > before, "the renderer must rebuild");
+        assert_eq!(counts(&hud), (TUNING.baseline, TUNING.baseline));
+    }
+
+    #[test]
+    fn a_donut_kill_credits_hero_one_and_never_hero_zero() {
+        for (id, spec) in [
+            (MoveId::Swat, &DONUT_SWAT),
+            (MoveId::Pounce, &DONUT_POUNCE),
+            (MoveId::MagicMissile, &MAGIC_MISSILE),
+        ] {
+            let mut hud = live_audience(None);
+            let mut log = Vec::new();
+            // The scene logs a Donut kill with `instigator = Some(DONUT_HERO)`
+            // (`MoveId::hero()`), never the controller slot.
+            push_step(
+                &mut hud,
+                &mut log,
+                CombatEvent::enemy_defeated(3, 5, DefeatCause::Melee, Some(id.hero()), Some(spec)),
+            );
+            let (carl, donut) = live_counts(&hud);
+            assert_eq!(carl, TUNING.baseline, "{id:?} must never credit hero 0");
+            assert!(donut > TUNING.baseline, "{id:?} credits Donut");
+        }
+        // Carl's push kick (a launching, heavy finish) credits Carl only.
+        let mut hud = live_audience(None);
+        let mut log = Vec::new();
+        push_step(
+            &mut hud,
+            &mut log,
+            CombatEvent::enemy_defeated(
+                3,
+                5,
+                DefeatCause::Melee,
+                Some(MoveId::PushKick.hero()),
+                Some(&CARL_PUSH_KICK),
+            ),
+        );
+        let (carl, donut) = live_counts(&hud);
+        assert_eq!(carl, TUNING.baseline + TUNING.award_heavy);
+        assert_eq!(donut, TUNING.baseline);
+    }
+
+    #[test]
+    fn the_death_causes_credit_the_hero_that_caused_them() {
+        let cases = [
+            (DefeatCause::ShoreBlockEdge { player: 1 }, None, (0, 1)),
+            (DefeatCause::ShoreBlock { player: 0 }, None, (1, 0)),
+            (
+                DefeatCause::Explosion {
+                    charge: 3,
+                    player: Some(1),
+                    point_blank: true,
+                },
+                None,
+                (0, 1),
+            ),
+            (
+                DefeatCause::Explosion {
+                    charge: 3,
+                    player: Some(0),
+                    point_blank: false,
+                },
+                None,
+                (1, 0),
+            ),
+            (DefeatCause::DropHazard { player: 0, rack: 1 }, None, (1, 0)),
+            (DefeatCause::DropHazard { player: 1, rack: 0 }, None, (0, 1)),
+        ];
+        for (cause, instigator, (carl_up, donut_up)) in cases {
+            let mut hud = live_audience(None);
+            let mut log = Vec::new();
+            let target = if matches!(cause, DefeatCause::DropHazard { .. }) {
+                BOSS_ENEMY_ID
+            } else {
+                7
+            };
+            push_step(
+                &mut hud,
+                &mut log,
+                CombatEvent::enemy_defeated(9, target, cause, instigator, None),
+            );
+            let (carl, donut) = live_counts(&hud);
+            assert_eq!(
+                (carl > TUNING.baseline, donut > TUNING.baseline),
+                (carl_up == 1, donut_up == 1),
+                "{cause:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_cine_feat_credits_the_named_hero_only() {
+        let mut hud = live_audience(None);
+        let log = Vec::new();
+        hud.push_chain_feat(ChainFeat {
+            credited: 1,
+            target: 4,
+            score: 8,
+        });
+        hud.step(4, 4, &log, 0);
+        let (carl, donut) = live_counts(&hud);
+        assert_eq!(carl, TUNING.baseline);
+        assert_eq!(donut, TUNING.baseline + 250 * (8 - 4));
+    }
+
+    #[test]
+    fn an_authored_cue_fires_once_when_a_hero_reaches_its_column() {
+        let mut hud = live_audience(Some(500));
+        let log = Vec::new();
+        hud.set_hero_x(400, 380);
+        hud.step(4, 4, &log, 0);
+        assert_eq!(live_counts(&hud), (250, 250));
+        hud.set_hero_x(501, 380);
+        hud.step(4, 4, &log, 0);
+        assert_eq!(live_counts(&hud), (4_250, 4_250), "both targeted heroes");
+        hud.step(4, 4, &log, 0);
+        assert_eq!(live_counts(&hud), (4_250, 4_250), "fires once");
+        let a = hud.snapshot().plates[0].audience.unwrap();
+        assert_eq!(a.trend, Trend::Up, "a cue reads like any spectacular gain");
+    }
+
+    #[test]
+    fn a_restart_event_restores_the_attempt_start_counts() {
+        let mut hud = live_audience(None);
+        let mut log = Vec::new();
+        push_step(&mut hud, &mut log, defeat(ForceTier::Catastrophic));
+        assert!(live_counts(&hud).0 > TUNING.baseline);
+        push_step(
+            &mut hud,
+            &mut log,
+            CombatEvent::Restart { tick: 9, deaths: 1 },
+        );
+        assert_eq!(live_counts(&hud), (TUNING.baseline, TUNING.baseline));
+        // The same target id in the new attempt pays again once (a new
+        // attempt), but the dying costs nothing and farms nothing.
+        push_step(&mut hud, &mut log, defeat(ForceTier::Routine));
+        assert_eq!(live_counts(&hud).0, TUNING.baseline + TUNING.award_routine);
+    }
+
+    #[test]
+    fn the_audience_runs_beside_the_hud_without_touching_the_other_plate_fields() {
+        let mut quiet = HudRuntime::new(HudConfig::default());
+        let mut live = live_audience(None);
+        let mut log = Vec::new();
+        for event in [hurt(3), defeat(ForceTier::Heavy)] {
+            log.push(event);
+            quiet.step(3, 4, &log, 0);
+            live.step(3, 4, &log, 0);
+        }
+        let (a, b) = (quiet.snapshot(), live.snapshot());
+        for i in 0..2 {
+            let mut plate = b.plates[i].clone();
+            assert!(plate.audience.take().is_some());
+            assert_eq!(plate, a.plates[i], "plate {i}");
+        }
+        assert_eq!((a.notice, a.face), (b.notice, b.face));
     }
 }

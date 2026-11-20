@@ -1,0 +1,53 @@
+{
+  "schema": "the-crawl-concept-image-manifest-v1",
+  "project": "THE CRAWL — NO PANTS. NO MERCY.",
+  "status": "Five owner-selected concept PNGs from AUDIENCE-01 design conversation (2026-11-19); received and verified (all five PNGs committed; SHA-256, byte sizes and 640x360 dimensions checked against SHA256SUMS). Art direction only. Not production sprite art or canon-verification evidence.",
+  "source": "Original OpenAI-generated images from 2026-11-19 project conversation. No third-party artwork or novel excerpts were imported. Owner-reported publication scope ART-PUBLICATION-ALL-V1 applies subject to repo rights policy; independent permission not verified.",
+  "assets": [
+    {
+      "path": "assets/references/hud/viewers-v1/01-inline-locked-640x360.png",
+      "sha256": "ab07634d890e2af8fd274d30b605b9e7d672c276dc9f2f99a8706adbf78a5941",
+      "bytes": 973,
+      "width": 640,
+      "height": 360,
+      "source_conversation_file": "01-inline-locked-640x360.png",
+      "review_status": "Fully transparent: before narrative unlock no viewer field exists"
+    },
+    {
+      "path": "assets/references/hud/viewers-v1/02-inline-normal-640x360.png",
+      "sha256": "51ef5f8d76692ee9eb91cb88db46f7794b48001800b927294135bf646f1dc7cf",
+      "bytes": 1250,
+      "width": 640,
+      "height": 360,
+      "source_conversation_file": "02-inline-normal-640x360.png",
+      "review_status": "Carl + Donut baseline viewer numbers at existing plate positions"
+    },
+    {
+      "path": "assets/references/hud/viewers-v1/03-inline-spectacular-640x360.png",
+      "sha256": "d6213ca914864994da87446ccbdcd40a3840db003ed18697fd3fc79832916e4e",
+      "bytes": 1318,
+      "width": 640,
+      "height": 360,
+      "source_conversation_file": "03-inline-spectacular-640x360.png",
+      "review_status": "Large gains per hero, inline trend cues"
+    },
+    {
+      "path": "assets/references/hud/viewers-v1/04-inline-anticipation-640x360.png",
+      "sha256": "aca3565a7b668761029f07e836924ca9297070bca298a6bcf9579cfb8bcccc95",
+      "bytes": 1323,
+      "width": 640,
+      "height": 360,
+      "source_conversation_file": "04-inline-anticipation-640x360.png",
+      "review_status": "Unexplained, authored pre-danger spike; same UI cue as a spectacular gain"
+    },
+    {
+      "path": "assets/references/hud/viewers-v1/05-inline-falling-640x360.png",
+      "sha256": "57d079621293d4369b071860b75edc392df1124937790b2293538c3cbe1bdec4",
+      "bytes": 1285,
+      "width": 640,
+      "height": 360,
+      "source_conversation_file": "05-inline-falling-640x360.png",
+      "review_status": "Dim declining audience trend cue"
+    }
+  ]
+}

@@ -58,6 +58,12 @@ committed_party=docs/evidence/party-2p
 # waits for Q10's higher cat jump).
 boss_fixtures=(boss01_pound_punish boss01_charge_jump boss01_charge_hit boss01_hug_guard boss01_rack_carl boss01_phase_roar boss01_roar_queued boss01_2p_gate boss01_solo_ai_guard boss01_party_defeat_retry boss01_crush_kill boss01_full_clear_solo boss01_full_clear_2p)
 committed_boss=docs/evidence/boss-f01
+# WORK-023 / HUD-DEBT-02: Donut's Q10 swat and pounce, the Magic Missile and her
+# mana (the swat that breaks a tell and the light guard, the pounce that finishes
+# a goblin or whiffs, the pounce on the boss, the dry press, the 350 tick regen
+# and the unlock that survives a retry) with their committed replays.
+donut_fixtures=(q10_swat_interrupt q10_swat_guard q10_pounce_hit q10_pounce_miss q10_dry_press q10_mana_regen q10_unlock_persists q10_pounce_boss)
+committed_donut=docs/evidence/donut-q10-mana
 out=artifacts/cp01-feel
 mkdir -p "$out"
 
@@ -164,6 +170,85 @@ case "$mode" in
       fi
       echo "BOSS_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/boss_${f}.txt")"
     done
+    # WORK-023: every Donut fixture replays identically twice, reproduces the
+    # committed events and hash, and gives the same replay at gore presets 1 and
+    # 4 and with the HUD preview flag (presentation never reaches the sim).
+    for f in "${donut_fixtures[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_${f}_again.txt"
+      if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_again.txt"; then
+        echo "Donut fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_donut/headless_${f}.txt" "$out/donut_${f}.txt"; then
+        echo "Donut fixture $f differs from the committed replay ($committed_donut)" >&2
+        exit 1
+      fi
+      for preset in 1 4; do
+        "$bin" --headless-floor01-smoke --party-fixture "$f" --gore-preset "$preset" | party_lines > "$out/donut_${f}_p${preset}.txt"
+        if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_p${preset}.txt"; then
+          echo "Donut fixture $f at gore preset $preset differs from the default replay" >&2
+          exit 1
+        fi
+      done
+      "$bin" --headless-floor01-smoke --party-fixture "$f" --hud-preview post-unlock | party_lines > "$out/donut_${f}_hud.txt"
+      if ! cmp -s "$out/donut_${f}.txt" "$out/donut_${f}_hud.txt"; then
+        echo "Donut fixture $f differs with --hud-preview post-unlock" >&2
+        exit 1
+      fi
+      echo "DONUT_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/donut_${f}.txt")"
+    done
+    # AUDIENCE-01 part C: the per-hero viewer observer and the viewer HUD
+    # previews are presentation only. Each probe run (the QA unlock) and each
+    # `--hud-preview viewers*` run must replay the plain run's events and
+    # state lines (the legacy hashes and goldens are never touched), and the
+    # AUDIENCE_STATE digests (a Donut kill credited to hero 1, the boss rack,
+    # a shore block, a launched kill, a mixed-chain CINE award, the demo route) must be deterministic
+    # and equal the committed ones. Floor 01 itself never unlocks the
+    # audience, so the plain runs above print no AUDIENCE_STATE line.
+    committed_audience=docs/evidence/audience-01
+    audience_probes=(
+      "cp03_shore_kill|--fixture cp03_shore_kill"
+      "cp01_kick|--fixture cp01_kick"
+      "cp03_goblin_pileup|--fixture cp03_goblin_pileup"
+      "q10_pounce_hit|--party-fixture q10_pounce_hit"
+      "solo_swap_continuity|--party-fixture solo_swap_continuity"
+      "boss01_crush_kill|--party-fixture boss01_crush_kill"
+      "demo01_b3|--demo --autopilot --demo-beat 3 --capture-tick 600"
+    )
+    : > "$out/audience_probe.txt"
+    for entry in "${audience_probes[@]}"; do
+      IFS='|' read -r name driver <<<"$entry"
+      plain="$("$bin" --headless-floor01-smoke $driver | party_lines)"
+      if grep -q AUDIENCE_STATE <("$bin" --headless-floor01-smoke $driver); then
+        echo "a plain run of $name printed AUDIENCE_STATE (the audience must stay locked)" >&2
+        exit 1
+      fi
+      probed="$("$bin" --headless-floor01-smoke $driver --audience-probe)"
+      again="$("$bin" --headless-floor01-smoke $driver --audience-probe)"
+      if [[ "$probed" != "$again" ]]; then
+        echo "the audience probe of $name is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if [[ "$(party_lines <<<"$probed")" != "$plain" ]]; then
+        echo "--audience-probe changed the replay of $name" >&2
+        exit 1
+      fi
+      for preview in viewers viewers-rising viewers-falling viewers-max; do
+        previewed="$("$bin" --headless-floor01-smoke $driver --hud-preview "$preview" | party_lines)"
+        if [[ "$previewed" != "$plain" ]]; then
+          echo "--hud-preview $preview changed the replay of $name" >&2
+          exit 1
+        fi
+      done
+      echo "# $name: $driver" >> "$out/audience_probe.txt"
+      grep '^AUDIENCE_STATE' <<<"$probed" >> "$out/audience_probe.txt"
+      echo "AUDIENCE_HEADLESS_OK: $name $(grep '^AUDIENCE_STATE' <<<"$probed")"
+    done
+    if ! diff "$committed_audience/headless_audience_probe.txt" "$out/audience_probe.txt"; then
+      echo "the audience probe digests differ from the committed ones ($committed_audience)" >&2
+      exit 1
+    fi
     # DEMO-01 PR C: the presentation camera never feeds the simulation. On the
     # tall camera test room, every --camera (the scroll camera, the automatic one
     # with a synthetic foe that takes aim, and the fixed coverages) replays the
@@ -377,7 +462,9 @@ case "$mode" in
     for spec in "${cine_probes[@]}"; do
       IFS='|' read -r name committed_log want ticks flags <<<"$spec"
       for preset in 1 4; do
-        for setting in on off; do
+        # off first: the p1 off run is the reference every other run is
+        # diffed against (CINE-T09; the #122 review, N2).
+        for setting in off on; do
           log="$out/cine_${name}_p${preset}_${setting}.log"
           # shellcheck disable=SC2086
           cine_run "$log" --scale 3 $flags --gore-preset "$preset" --exit-after-ticks "$ticks" --cinematic-finishes="$setting"
@@ -389,6 +476,19 @@ case "$mode" in
           fi
         done
       done
+      # The compare the loop cannot make against itself: preset 1, cinematic
+      # on versus off, authoritative lines and the final sim hash.
+      if ! cmp -s "$out/cine_${name}_p1_off.log.lines" "$out/cine_${name}_p1_on.log.lines"; then
+        diff "$out/cine_${name}_p1_off.log.lines" "$out/cine_${name}_p1_on.log.lines" >&2 || true
+        echo "CINE-T09: $name differs between cinematic on and off at gore preset 1" >&2
+        exit 1
+      fi
+      cine_hash_off="$(grep '^COMBAT_STATE' "$out/cine_${name}_p1_off.log.lines" | sed -n 's/.*hash=\([0-9a-f]*\).*/\1/p')"
+      cine_hash_on="$(grep '^COMBAT_STATE' "$out/cine_${name}_p1_on.log.lines" | sed -n 's/.*hash=\([0-9a-f]*\).*/\1/p')"
+      if [[ -z "$cine_hash_off" || "$cine_hash_off" != "$cine_hash_on" ]]; then
+        echo "CINE-T09: $name sim hash differs with cinematic finishers on (off=$cine_hash_off on=$cine_hash_on)" >&2
+        exit 1
+      fi
       # The authoritative part equals the committed headless replay.
       if ! diff <(grep -E '^(COMBAT_EVENT)' "$out/cine_${name}_p1_off.log.lines"; grep '^COMBAT_STATE' "$out/cine_${name}_p1_off.log.lines") "$committed_log"; then
         echo "CINE-T09: $name differs from the committed headless replay ($committed_log)" >&2

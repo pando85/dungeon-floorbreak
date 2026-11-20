@@ -1,0 +1,38 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  5,
+  7
+ ],
+ "pivot": [
+  0,
+  5
+ ],
+ "palette": [
+  {
+   "key": "W",
+   "name": "text_white",
+   "rgba": "#f4e6d2ff"
+  }
+ ],
+ "layers": [
+  "art"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     ".....",
+     "..W..",
+     "..W..",
+     "WWWWW",
+     "..W..",
+     "..W..",
+     "....."
+    ]
+   }
+  }
+ ],
+ "tags": []
+}

@@ -109,6 +109,12 @@ jobs:
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh boss
       - name: Floor 01 boss encounter captures at 640x400 (Deck framing)
         run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh boss-deck
+      - name: AUDIENCE-01 viewer readout captures at 640x360 (previews and the QA probe on real fixtures; pixel-integrity checked)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh audience
+      - name: AUDIENCE-01 viewer readout captures at 640x400 (Deck framing)
+        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh audience-deck
+      - name: AUDIENCE-01 viewer readout capture at 1920x1080 (integer x3, the widest strings; pixel-integrity checked)
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh audience-x3
       - name: Animation capture, run_jump scenario (81 real 1920x1080 Bevy frames, state must match the headless run)
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh anim-sequence
       - name: ANIM-INT-01 evidence (GIF, stills, timeline) and committed state logs
@@ -155,6 +161,7 @@ jobs:
             artifacts/floor01-lighting-*
             artifacts/hud/
             artifacts/boss/
+            artifacts/audience/
             artifacts/anim-int-01/evidence/
             artifacts/cp01-feel/*.txt
             artifacts/cp01-feel/*.log
