@@ -18,6 +18,18 @@
 //! autoplay benchmark [--scenario ID] [--episodes N] [--repeat N] [--out FILE.json]
 //! ```
 //!
+//! AUTOPLAY-02a (stages A and B) adds the solo-party env to two commands:
+//!
+//! ```text
+//! autoplay list-scenarios --mode party_solo [--companion-profile ID]
+//! autoplay run --mode party_solo --seat carl|donut --scenario ap2a_ID --policy ID
+//!              [--companion-profile ID] [--seed N] [--max-ticks N]
+//! ```
+//!
+//! `--mode` defaults to `solo` (the v1 env, unchanged). `evaluate`, `replay`
+//! and `benchmark` have no party mode yet: the party metrics, reward and
+//! `autoplay-episode/2` replay arrive with 02a-C.
+//!
 //! Every command takes `--assets-root DIR` (default: the working directory
 //! when it holds `assets/levels/floor01`, else the source checkout). No
 //! Python, model, renderer or audio is involved.
@@ -35,13 +47,16 @@ use dungeon_floorbreak::autoplay::eval::{
     run_episode, split_name,
 };
 use dungeon_floorbreak::autoplay::metrics::EpisodeContext;
+use dungeon_floorbreak::autoplay::party::{self, PartyAutoplayEnv};
 use dungeon_floorbreak::autoplay::replay::{self, Replay};
 use dungeon_floorbreak::autoplay::scenario;
 
 const USAGE: &str = "usage: autoplay <command> [options]
 commands:
-  list-scenarios
+  list-scenarios [--mode solo|party_solo] [--companion-profile ID]
   run        --scenario ID --policy ID [--seed N] [--max-ticks N] [--out FILE.jsonl]
+             [--mode party_solo --seat carl|donut [--companion-profile ID]]
+             (party_solo prints a summary; replays /2 arrive with 02a-C)
   evaluate   [--scenario all|dev|holdout|ID[,ID]] [--policy all|ID[,ID]] [--episodes N]
              [--seed N] [--max-ticks N] [--replays none|first|all] --out DIR
              (--replays defaults to first; use an empty or new DIR: files from an
@@ -148,6 +163,126 @@ fn current_commit() -> String {
     std::env::var("GITHUB_SHA").unwrap_or_else(|_| "unknown".into())
 }
 
+/// `--mode`: `solo` (default) or `party_solo`.
+fn party_mode(args: &Args) -> Result<bool, String> {
+    match args.get("mode") {
+        None | Some("solo") => Ok(false),
+        Some("party_solo") => Ok(true),
+        Some(other) => Err(format!("unknown --mode {other} (solo, party_solo)")),
+    }
+}
+
+fn list_party_scenarios(args: &Args) -> Result<(), String> {
+    let companion = args
+        .get("companion-profile")
+        .unwrap_or(party::scenario::FOLLOW_AND_JUMP_BOT);
+    let root = args.assets_root();
+    let roster = party::scenario::roster(companion).map_err(|e| e.to_string())?;
+    println!("scenarios (02a party_solo roster, companion {companion}, cf02_rules false):");
+    for entry in roster {
+        println!(
+            "  {:<32} {:<12} enemies {} donut {} initial_hash {:016x}",
+            entry.id,
+            split_name(entry.split),
+            entry.fixture.base.enemies.len(),
+            party::scenario::donut_setup_label(&entry.fixture.donut),
+            entry.initial_hash
+        );
+        println!(
+            "      layout: {}",
+            party::scenario::layout_fingerprint(entry.fixture)
+        );
+        for seat in dungeon_floorbreak::party::HeroId::ALL {
+            let config = AutoplayConfig::party_solo(entry.id, seat, companion);
+            let mut env = PartyAutoplayEnv::new(config, &root).map_err(|e| e.to_string())?;
+            env.reset(0).map_err(|e| e.to_string())?;
+            let obs = env.observe();
+            println!(
+                "      reset observation, seat {:<5}: {} enemies visible, ally visible {}",
+                party::seat_name(seat),
+                obs.visible_enemies(),
+                obs.ally_visible()
+            );
+        }
+    }
+    println!(
+        "companions: {} (cf02_assist and companion_v0_* need COMPANION 01A-wire)",
+        party::scenario::COMPANION_IDS.join(", ")
+    );
+    println!("policies (settings version {BOT_SETTINGS_VERSION}, they see the v1 projection):");
+    for id in BOT_IDS {
+        println!("  {id}");
+    }
+    Ok(())
+}
+
+fn run_party_one(args: &Args) -> Result<(), String> {
+    args.check_known(&[
+        "mode",
+        "seat",
+        "companion-profile",
+        "scenario",
+        "policy",
+        "seed",
+        "max-ticks",
+        "out",
+    ])?;
+    if args.get("out").is_some() {
+        return Err(
+            "--out is not supported with --mode party_solo yet: autoplay-episode/2 arrives with 02a-C"
+                .into(),
+        );
+    }
+    let scenario_id = args.require("scenario")?;
+    let policy = args.require("policy")?;
+    let seat_text = args.require("seat")?;
+    let seat = party::parse_seat(seat_text)
+        .ok_or_else(|| format!("unknown --seat {seat_text} (carl, donut)"))?;
+    let companion = args
+        .get("companion-profile")
+        .unwrap_or(party::scenario::FOLLOW_AND_JUMP_BOT);
+    let seed: u64 = args.number("seed", 0)?;
+    let mut config = AutoplayConfig::party_solo(scenario_id, seat, companion);
+    config.max_ticks = args.number("max-ticks", config.max_ticks)?;
+    let mut env = PartyAutoplayEnv::new(config, &args.assets_root()).map_err(|e| e.to_string())?;
+    let mut bot = make_bot(policy).map_err(|e| e.to_string())?;
+    let info = env.reset(seed).map_err(|e| e.to_string())?;
+    bot.reset(seed);
+    let last = loop {
+        let action = bot.act(&env.observe().as_v1());
+        let step = env.step(action).map_err(|e| e.to_string())?;
+        if step.outcome.is_some() {
+            break step;
+        }
+    };
+    let unavailable = env.unavailable_counters();
+    let summary = serde_json::json!({
+        "mode": "party_solo",
+        "scenario": scenario_id,
+        "seat": party::seat_name(seat),
+        "companion_profile": companion,
+        "policy": policy,
+        "obs_projection": "v1",
+        "requested_seed": seed,
+        "outcome": last.outcome.map(|o| o.name()),
+        "ticks": last.tick,
+        "defeated_hero": last.defeated_hero.map(party::seat_name),
+        "simultaneous_clear": last.simultaneous_clear,
+        "initial_hash": format!("{:016x}", info.initial_hash),
+        "final_state_hash": format!("{:016x}", env.state_hash()),
+        "unavailable": {
+            "special_presses": unavailable.special_presses,
+            "swap_presses": unavailable.swap_presses,
+        },
+        "obs_clipped": env.obs_stats().clipped,
+    });
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&summary).map_err(|e| e.to_string())?
+    );
+    Ok(())
+}
+
 fn list_scenarios() {
     println!("scenarios (v1 roster, Carl-only corridor fights):");
     for entry in scenario::roster() {
@@ -171,7 +306,10 @@ fn list_scenarios() {
 }
 
 fn run_one(args: &Args) -> Result<(), String> {
-    args.check_known(&["scenario", "policy", "seed", "max-ticks", "out"])?;
+    if party_mode(args)? {
+        return run_party_one(args);
+    }
+    args.check_known(&["mode", "scenario", "policy", "seed", "max-ticks", "out"])?;
     let scenario_id = args.require("scenario")?;
     let policy = args.require("policy")?;
     let seed: u64 = args.number("seed", 0)?;
@@ -320,10 +458,19 @@ fn main() -> ExitCode {
         }
     };
     let result = match command.as_str() {
-        "list-scenarios" => args.check_known(&[]).map(|()| {
-            list_scenarios();
-            true
-        }),
+        "list-scenarios" => args
+            .check_known(&["mode", "companion-profile"])
+            .and_then(|()| {
+                if party_mode(&args)? {
+                    list_party_scenarios(&args)
+                } else if args.get("companion-profile").is_some() {
+                    Err("--companion-profile needs --mode party_solo".into())
+                } else {
+                    list_scenarios();
+                    Ok(())
+                }
+            })
+            .map(|()| true),
         "run" => run_one(&args).map(|()| true),
         "evaluate" => run_evaluate(&args).map(|()| true),
         "replay" => run_replay(&args),

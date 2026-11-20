@@ -24,6 +24,12 @@ pub enum AutoplayError {
     Sim(String),
     /// A fresh sim did not hash to the pinned initial value.
     InitialHashMismatch { expected: u64, actual: u64 },
+    /// `party_solo` companion id that this build has no backing variant for
+    /// (AP-Q24).
+    UnsupportedCompanion(String),
+    /// The one-tick seat entry did not leave the seat hero controlled
+    /// (AP-Q23). A reset error: never a silent Carl episode.
+    SeatEntryFailed(String),
 }
 
 impl fmt::Display for AutoplayError {
@@ -53,6 +59,10 @@ impl fmt::Display for AutoplayError {
                 f,
                 "fresh sim hash {actual:016x} differs from the pinned initial hash {expected:016x}"
             ),
+            Self::UnsupportedCompanion(msg) => {
+                write!(f, "unsupported companion profile {msg}")
+            }
+            Self::SeatEntryFailed(msg) => write!(f, "party seat entry failed: {msg}"),
         }
     }
 }
