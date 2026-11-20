@@ -72,6 +72,8 @@ Owner directive, 2026-11-20: optimize the work, merge what you are almost sure w
 - **Review stays, re-review shrinks.** An independent top-tier review is still required before merge. Non-blocking findings may be fixed forward in a follow-up PR. After a fix list, a medium-tier fix check is enough to merge; a top-tier re-review is needed only when the review found a design or logic defect.
 - **Group related stages.** Related stages of one work order may ship as one PR when their dependencies allow it (for example CF02-A+H in [the COMBAT-FUN-02 work order](combat-fun-02-workorder.md#parallel-groups)). The grouped PR keeps the acceptance criteria and fixtures of every stage it contains.
 
+- **What does not change.** Speed mode does not relax the legal, rights and provenance guardrails, green CI on the final head, byte-identical goldens (unless a PR explicitly changes them), flag gating of new behavior, or the owner's game-feel review.
+
 Rationale: serial rebases of the shared backlog file and CI queueing were the bottleneck, not the implementation work. Every PR that edited the backlog conflicted with the previous one and had to rebase and re-run CI; fewer, larger-but-related PRs and no shared hot file remove those cycles. CI-SPEED-01 cuts the other half: documentation-only PRs skip the heavy workflows and the Floor 1 scene workflow compiles its binary once. Game feel is still reviewed by the owner after merge.
 
 ## Reading discipline

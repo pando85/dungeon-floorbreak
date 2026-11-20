@@ -3,15 +3,14 @@ on:
   pull_request:
     paths:
       # CI-SPEED-01: skip documentation-only PRs (the documentation workflow
-      # still runs). Later patterns re-include what this workflow validates:
-      # docs/evidence/** (committed logs and traces the combat scripts diff) and
-      # docs/*.json (audio and asset manifests read by Rust tests). Pushes to
-      # main are never filtered.
+      # still runs). A later pattern re-includes docs/evidence/**, the committed
+      # logs and traces the combat scripts diff. The audio manifests read by Rust
+      # tests live under assets/audio/floor01/docs/ and are not excluded.
+      # Pushes to main are never filtered.
       - '**'
       - '!**/*.md'
       - '!docs/**'
       - 'docs/evidence/**'
-      - 'docs/*.json'
       - '!.github/ISSUE_TEMPLATE/**'
   push:
     branches: [main]
