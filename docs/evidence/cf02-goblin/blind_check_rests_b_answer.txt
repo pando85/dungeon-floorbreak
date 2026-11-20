@@ -1,0 +1,1 @@
+left to right: crushed_remains, flung_rest, corpse, stomped_rest, wall_rest

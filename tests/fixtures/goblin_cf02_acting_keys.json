@@ -1,0 +1,20 @@
+{
+  "format": "pixelart-keys-v1",
+  "asset_id": "gob-cf02-acting-a",
+  "layers": [
+    "weapon_back",
+    "body",
+    "weapon"
+  ],
+  "keys": {
+    "0": {
+      "sha256": "4b15d0774d6ea411e5138bffe656b2fcab40937580b92923c7ba457af70532fe"
+    },
+    "1": {
+      "sha256": "e39921d5c2ed4335b27c657a9a0e924798791f1bacf2a5817ca4a768e2e22f76"
+    },
+    "3": {
+      "sha256": "0ce86079687ec935d6a17dbc6019e80cf47ca8925e6f066b233221f33bf72282"
+    }
+  }
+}
