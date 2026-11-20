@@ -89,6 +89,7 @@ From the repository root, after `bash scripts/export_assets.sh`:
 cargo build --locked --bin floor01_scene
 bash scripts/ci_floor01_combat.sh headless
 xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render
+xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render-sequences
 bash scripts/make_cp01_feel_evidence.sh
 (cd docs/evidence/cp01-feel && sha256sum -c SHA256SUMS)
 ```

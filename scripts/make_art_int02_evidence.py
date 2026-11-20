@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ART-INT-02 evidence: GIFs, per-tick strips and stills of the real art in the Bevy scene.
 
-Inputs (produced by `xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render`,
+Inputs (produced by `xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render-sequences`,
 real Bevy 1920x1080 captures, one per tick, lighting on):
 
   artifacts/cp01-feel/frames_<fixture>/frame_NNNN_tick_TTTTT.png
@@ -82,7 +82,7 @@ def frame_files(fixture: str) -> list[tuple[int, Path]]:
     found = [(int(re.search(r"tick_(\d+)", p.name).group(1)), p)
              for p in sorted(folder.glob("frame_*_tick_*.png"))]
     if not found:
-        sys.exit(f"no frames in {folder}: run scripts/ci_floor01_combat.sh render first")
+        sys.exit(f"no frames in {folder}: run scripts/ci_floor01_combat.sh render-sequences first")
     return found
 
 
