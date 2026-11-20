@@ -71,6 +71,9 @@ pub enum MovePhase {
 pub struct ActiveMove {
     pub id: MoveId,
     pub phase: MovePhase,
+    /// `spec.total() - running.tick`, read pre-tick: the move clock has not yet
+    /// advanced for the tick the view is built for (it advances before a press
+    /// is read, see `director`).
     pub ticks_left: u16,
     /// The move was started by an injected press (the flag survives a swap,
     /// CF02-Q16, and drives the kill policy's `glance`).
@@ -85,6 +88,10 @@ pub struct ManaView {
     pub max: u8,
     pub unlocked: bool,
     pub ai_can_cast: bool,
+    /// Bolt speed in px per tick; the builder fills it from
+    /// `ManaTuning::projectile_speed_px_per_tick` so the value is not
+    /// duplicated (Q17 arrival-time gate).
+    pub projectile_speed_px_per_tick: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -111,7 +118,9 @@ pub struct HeroView {
 }
 
 /// What the follow layer (today's `follower_input_boss`) would do this tick.
-/// 01A-wire fills it; the director starts from it so movement is today's bot.
+/// Filled by the builder with `follower_input_boss` on the same arguments
+/// `step_live` uses (pre-tick), `FollowInput::default()` when `!ctx.can_move[i]`;
+/// the director starts from it so movement is today's bot.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct FollowInput {
     pub move_x: f32,
@@ -127,7 +136,9 @@ pub struct ThreatView {
     pub facing: i8,
     /// Ticks since the tell started.
     pub tell_tick: u16,
-    /// Length of the tell (goblin 24, llama 36): an interrupt must land by it.
+    /// First non-tell attack tick (goblin `TELL_TICKS` 24, llama
+    /// `LLAMA_TELL_TICKS` 36); an interrupt must hit while `attack tick <
+    /// tell_len`; `tell_tick` is the pre-tick attack tick.
     pub tell_len: u16,
     /// Attack tick at which the swing becomes active (goblin 26).
     pub impact_tick: u16,
@@ -271,6 +282,7 @@ pub(crate) mod fixtures {
                 max: 8,
                 unlocked: false,
                 ai_can_cast: false,
+                projectile_speed_px_per_tick: 6,
             }),
         }
     }

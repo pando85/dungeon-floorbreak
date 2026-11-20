@@ -18,7 +18,11 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0xe1b5_c262_99ea_871f;
+pub const PROFILE_HASH: u64 = 0x5856_cc9c_1062_b17f;
+
+/// The profile set id under the spec's name (CA-21, section 17): the runtime's
+/// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
+pub type CompanionProfileSet = ProfileSetId;
 
 /// What an AI-started hit that would defeat does (CA-19, CA-20).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -56,9 +60,10 @@ impl ProfileSetId {
 pub struct CarlRole {
     /// `false`: AI Carl only follows (the CF02 Q13 passive Carl).
     pub ca21_active: bool,
-    /// Centre distance to a target at which the jab can connect.
-    pub ca37_strike_min_px: u16,
-    pub ca37_strike_max_px: u16,
+    /// Centre distance to a target at which the jab can connect (CA-41, a
+    /// planning window inside the move boxes widened by `ENEMY_HALF_WIDTH`).
+    pub ca41_strike_min_px: u16,
+    pub ca41_strike_max_px: u16,
     /// CA-40: a target farther than this (CF02-Q14's 96 px) is not engaged.
     pub ca40_engage_range_px: u16,
     /// A tell aimed at the human hero is interrupted within this distance.
@@ -74,25 +79,22 @@ pub struct DonutRole {
     pub cf02_q14_swat_range_px: u16,
     /// Q14 (Q39): the earliest tell tick an assist swat may start from.
     pub cf02_q14_swat_tell_tick: u16,
-    /// Centre distance at which the swat box connects.
-    pub ca40_swat_hit_min_px: u16,
-    pub ca40_swat_hit_max_px: u16,
+    /// Centre distance at which the swat box connects (CA-41, same rule).
+    pub ca41_swat_hit_min_px: u16,
+    pub ca41_swat_hit_max_px: u16,
     /// Q15: pounce range ahead of Donut, on a lying or staggered goblin.
     pub cf02_q15_pounce_min_px: u16,
     pub cf02_q15_pounce_max_px: u16,
     /// Q17: Magic Missile range, after the unlock only.
     pub cf02_q17_missile_min_px: u16,
     pub cf02_q17_missile_max_px: u16,
-    /// Planning bound: the latest tell tick a missile can still land by the
-    /// end of the tell (cast release plus flight at the minimum range).
-    pub ca40_missile_latest_tell_tick: u16,
 }
 
 /// One profile set.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProfileSet {
-    #[serde(default)]
+    /// No serde default: a missing field is a parse error that names it.
     pub ca19_kill_policy: KillPolicy,
     /// CA-10: the utility planning cadence.
     pub ca10_decision_cadence_ticks: u16,
@@ -189,6 +191,10 @@ impl ProfileFile {
         }
         self.cf02_assist.validate("cf02_assist")?;
         self.companion_v0.validate("companion_v0")?;
+        // CF02-Q38 (section 17(c)): the assistant set never lets the AI defeat.
+        if self.cf02_assist.ca19_kill_policy != KillPolicy::Never {
+            return bad("cf02_assist.ca19_kill_policy", "CF02-Q38: must be never");
+        }
         // CA-21: cf02_assist is Q13's assistant (AI Carl passive); v0 is both.
         if self.cf02_assist.carl.ca21_active {
             return bad(
@@ -240,10 +246,10 @@ impl ProfileSet {
             return bad(&f("cf02_q39_max_hit_share_percent"), "must be in 1..=100");
         }
         let carl = &self.carl;
-        if carl.ca37_strike_min_px >= carl.ca37_strike_max_px {
+        if carl.ca41_strike_min_px >= carl.ca41_strike_max_px {
             return bad(
-                &f("carl.ca37_strike_min_px"),
-                "must be below ca37_strike_max_px",
+                &f("carl.ca41_strike_min_px"),
+                "must be below ca41_strike_max_px",
             );
         }
         if carl.ca40_engage_range_px == 0 {
@@ -256,10 +262,10 @@ impl ProfileSet {
         if d.cf02_q14_swat_range_px == 0 {
             return bad(&f("donut.cf02_q14_swat_range_px"), "must be positive");
         }
-        if d.ca40_swat_hit_min_px >= d.ca40_swat_hit_max_px {
+        if d.ca41_swat_hit_min_px >= d.ca41_swat_hit_max_px {
             return bad(
-                &f("donut.ca40_swat_hit_min_px"),
-                "must be below ca40_swat_hit_max_px",
+                &f("donut.ca41_swat_hit_min_px"),
+                "must be below ca41_swat_hit_max_px",
             );
         }
         if d.cf02_q15_pounce_min_px >= d.cf02_q15_pounce_max_px {
@@ -380,15 +386,62 @@ mod tests {
     }
 
     #[test]
-    fn kill_policy_defaults_to_never_and_factual_is_data() {
+    fn kill_policy_is_required_cf02_assist_stays_never_and_factual_is_data() {
         assert_eq!(KillPolicy::default(), KillPolicy::Never);
-        let text = PROFILE_JSON.replace("\"ca19_kill_policy\": \"never\",", "");
-        let f = ProfileFile::from_json(&text).unwrap();
+        // companion_v0 may carry `factual` (tested as the candidate default in 01E).
+        let first = PROFILE_JSON.find("\"never\"").unwrap();
+        let second = first + 1 + PROFILE_JSON[first + 1..].find("\"never\"").unwrap();
+        let mut factual = PROFILE_JSON.to_string();
+        factual.replace_range(second..second + "\"never\"".len(), "\"factual\"");
+        let f = ProfileFile::from_json(&factual).unwrap();
+        assert_eq!(f.companion_v0.ca19_kill_policy, KillPolicy::Factual);
         assert_eq!(f.cf02_assist.ca19_kill_policy, KillPolicy::Never);
+        // cf02_assist with `factual` is a field error (CF02-Q38).
         let text = PROFILE_JSON.replacen("\"never\"", "\"factual\"", 1);
-        let f = ProfileFile::from_json(&text).unwrap();
-        assert_eq!(f.cf02_assist.ca19_kill_policy, KillPolicy::Factual);
-        assert_eq!(f.companion_v0.ca19_kill_policy, KillPolicy::Never);
+        assert_eq!(field_of(&text), "cf02_assist.ca19_kill_policy");
+        // A missing field is a parse error that names it.
+        let missing = PROFILE_JSON.replacen("\"ca19_kill_policy\": \"never\",", "", 1);
+        match ProfileFile::from_json(&missing) {
+            Err(ProfileError::Parse(msg)) => assert!(msg.contains("ca19_kill_policy"), "{msg}"),
+            other => panic!("expected a parse error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_planning_hit_windows_stay_inside_the_move_boxes() {
+        use crate::combat::{CARL_HAYMAKER, CARL_JAB, ENEMY_HALF_WIDTH, HitShape};
+        use crate::donut_moves::SWAT_BOX;
+        let f = file();
+        let inside = |lo: u16, hi: u16, box_min: f32, box_max: f32, what: &str| {
+            assert!(
+                f32::from(lo) >= box_min - ENEMY_HALF_WIDTH
+                    && f32::from(hi) <= box_max + ENEMY_HALF_WIDTH,
+                "{what}: {lo}..{hi} is outside [{}, {}]",
+                box_min - ENEMY_HALF_WIDTH,
+                box_max + ENEMY_HALF_WIDTH
+            );
+        };
+        for set in [&f.cf02_assist, &f.companion_v0] {
+            for spec in [CARL_JAB, CARL_HAYMAKER] {
+                let HitShape::Box { x_min, x_max, .. } = spec.shape else {
+                    panic!("{:?} is a box move", spec.id);
+                };
+                inside(
+                    set.carl.ca41_strike_min_px,
+                    set.carl.ca41_strike_max_px,
+                    x_min,
+                    x_max,
+                    "carl strike",
+                );
+            }
+            inside(
+                set.donut.ca41_swat_hit_min_px,
+                set.donut.ca41_swat_hit_max_px,
+                SWAT_BOX.x0,
+                SWAT_BOX.x1,
+                "donut swat",
+            );
+        }
     }
 
     fn field_of(text: &str) -> String {

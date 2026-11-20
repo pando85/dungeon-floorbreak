@@ -26,10 +26,11 @@
 //! CF02-Q55 and the AI never does it); and a press needs a released button on
 //! the tick before, so it is always a clean press edge.
 
-use crate::combat::{CARL_HAYMAKER, CARL_JAB, MoveId};
+use crate::combat::{CARL_HAYMAKER, CARL_JAB, ENEMY_HALF_WIDTH, MAGIC_MISSILE, MoveId};
 use crate::companion::profile::{KillPolicy, ProfileSet};
 use crate::companion::view::{
-    CompanionView, Control, HeroView, StableEntityId, TargetState, TargetView, ThreatView,
+    CompanionView, Control, EntityKind, HeroView, StableEntityId, TargetState, TargetView,
+    ThreatView,
 };
 use crate::donut_moves::{POUNCE_DAMAGE, SWAT_STARTUP};
 use crate::input::RawInput;
@@ -412,9 +413,17 @@ impl CompanionDirector {
         if goal.action != Action::Jab || mv.id != MoveId::Jab || !mv.ai_started {
             return unchanged;
         }
+        // Sim ordering this depends on: the view is the pre-tick state and
+        // `MoveRunner::step` runs `running.tick += 1` before it reads the
+        // press (and ends the move once `running.tick >= total`). A press read
+        // on this tick is therefore judged at `elapsed + 1`, where `elapsed`
+        // is the pre-tick move clock. At `elapsed + 1 == total` the jab is
+        // over and the press would start a fresh jab, bypassing the veto and
+        // the Q16 cadence, so that tick is outside the window.
         let elapsed = CARL_JAB.total().saturating_sub(mv.ticks_left);
+        let judged = elapsed + 1;
         let from = chain.press_from.max(CARL_JAB.startup + CARL_JAB.active);
-        if elapsed < from || elapsed > chain.press_to {
+        if judged < from || judged > chain.press_to || judged >= CARL_JAB.total() {
             return unchanged;
         }
         let Some(target) = view.target(goal.target) else {
@@ -455,7 +464,10 @@ impl CompanionDirector {
         let owner = other(self.hero);
         let mut best = None;
         for threat in &view.threats {
-            if threat.aimed_at != Some(owner) || !threat.in_view || threat.guarded {
+            // The Q10 light guard glances further swats only; Carl's hits and
+            // the pounce still interrupt it (goblin.rs, the light guard).
+            let glanced = threat.guarded && self.hero == HeroId::Donut;
+            if threat.aimed_at != Some(owner) || !threat.in_view || glanced {
                 continue;
             }
             better(&mut best, self.interrupt_candidate(set, me, threat));
@@ -485,18 +497,38 @@ impl CompanionDirector {
                 let mana = me.mana?;
                 if !mana.unlocked {
                     // Primary is the swat. Q14 + Q39: from the minimum tell
-                    // tick, within range, and the hit tick must land by the
-                    // last tell tick.
-                    let lands = threat.tell_tick + SWAT_STARTUP <= threat.tell_len;
+                    // tick, within range, and the swat must hit inside the tell.
+                    //
+                    // Sim ordering this depends on: the view is the pre-tick
+                    // state, then the heroes step, then the goblins. A press
+                    // read on this tick hits on tick T + SWAT_STARTUP, when the
+                    // goblin's attack tick is already `tell_tick +
+                    // SWAT_STARTUP` (goblins step after Donut). The tell is
+                    // attack ticks 0..tell_len; tick `tell_len` is the
+                    // committed smear that cannot be interrupted, so the hit
+                    // must land strictly before it.
+                    let lands = threat.tell_tick + SWAT_STARTUP < threat.tell_len;
                     (threat.tell_tick >= d.cf02_q14_swat_tell_tick
                         && distance <= f32::from(d.cf02_q14_swat_range_px)
                         && lands)
-                        .then(|| slot(Action::Swat, d.ca40_swat_hit_min_px, d.ca40_swat_hit_max_px))
+                        .then(|| slot(Action::Swat, d.ca41_swat_hit_min_px, d.ca41_swat_hit_max_px))
                 } else {
                     // Q17: never before the unlock (above), only above the AI
-                    // reserve, only in the missile band, early in the tell.
+                    // reserve, only in the missile band, and only when the bolt
+                    // arrives inside the tell.
+                    //
+                    // Same sim ordering as the swat: the bolt spawns on cast
+                    // tick `MAGIC_MISSILE.startup` (T + 4), when the goblin's
+                    // attack tick is already `tell_tick + 4`, then flies
+                    // `speed` px per tick over the gap to the goblin's body
+                    // edge. The arrival attack tick must be < `tell_len`.
+                    let speed = u32::from(mana.projectile_speed_px_per_tick.max(1));
+                    let gap = (distance - ENEMY_HALF_WIDTH).max(0.0).ceil() as u32;
+                    let arrival = u32::from(threat.tell_tick)
+                        + u32::from(MAGIC_MISSILE.startup)
+                        + gap.div_ceil(speed);
                     (mana.ai_can_cast
-                        && threat.tell_tick <= d.ca40_missile_latest_tell_tick
+                        && arrival < u32::from(threat.tell_len)
                         && distance >= f32::from(d.cf02_q17_missile_min_px)
                         && distance <= f32::from(d.cf02_q17_missile_max_px))
                     .then(|| {
@@ -511,9 +543,13 @@ impl CompanionDirector {
             }
             HeroId::Carl => {
                 let c = &set.carl;
-                let lands = threat.tell_tick + CARL_JAB.startup <= threat.tell_len;
+                // Same sim ordering as the swat (pre-tick view, heroes, then
+                // goblins): the jab hits on T + startup, when the goblin's
+                // attack tick is `tell_tick + startup`, which must be < the
+                // committed smear tick `tell_len`.
+                let lands = threat.tell_tick + CARL_JAB.startup < threat.tell_len;
                 (distance <= f32::from(c.ca40_interrupt_range_px) && lands)
-                    .then(|| slot(Action::Jab, c.ca37_strike_min_px, c.ca37_strike_max_px))
+                    .then(|| slot(Action::Jab, c.ca41_strike_min_px, c.ca41_strike_max_px))
             }
         }
     }
@@ -576,7 +612,8 @@ impl CompanionDirector {
                     TargetState::Lying { .. } | TargetState::Staggered { .. }
                 );
                 // Q15: ahead of her, 30..80 px, and a pounce that cannot kill.
-                (down
+                (target.id.kind == EntityKind::Goblin // Q15: only on a goblin
+                    && down
                     && target.hp > 0
                     && !kills(POUNCE_DAMAGE)
                     && sign(dx) == me.facing
@@ -610,8 +647,8 @@ impl CompanionDirector {
                     target: target.id,
                     utility: STRIKE_UTILITY - px(distance),
                     dx,
-                    reach_min: f32::from(c.ca37_strike_min_px),
-                    reach_max: f32::from(c.ca37_strike_max_px),
+                    reach_min: f32::from(c.ca41_strike_min_px),
+                    reach_max: f32::from(c.ca41_strike_max_px),
                 })
             }
             _ => None,
@@ -728,6 +765,7 @@ mod tests {
             max: 8,
             unlocked: true,
             ai_can_cast,
+            projectile_speed_px_per_tick: 6,
         });
     }
 
@@ -812,7 +850,7 @@ mod tests {
 
     #[test]
     fn q39_the_swat_starts_from_tell_tick_four() {
-        for (tick, expect) in [(0, false), (3, false), (4, true), (20, true)] {
+        for (tick, expect) in [(0, false), (3, false), (4, true), (19, true), (20, false)] {
             let mut v = donut_ai(60.0);
             v.threats = vec![threat(0, 90.0, tick, Some(HeroId::Carl))];
             let (_, d) = donut().step_traced(&v, &assist());
@@ -821,15 +859,33 @@ mod tests {
     }
 
     #[test]
-    fn q14_the_swat_hit_tick_must_land_by_the_last_tell_tick() {
-        // Startup 4, tell 24: a press at tell tick 21 hits on 25.
+    fn q14_the_swat_must_hit_before_the_committed_smear() {
+        // Pre-tick view, then heroes, then goblins: a swat pressed at view
+        // tell tick `a` hits on tick T + 4, when the goblin's attack tick is
+        // `a + 4`. The tell is attack ticks 0..23; tick 24 is the committed
+        // smear. a = 20 would hit on 24 (nothing is interrupted), a = 19 on 23.
         let mut v = donut_ai(60.0);
-        v.threats = vec![threat(0, 90.0, 21, Some(HeroId::Carl))];
+        v.threats = vec![threat(0, 90.0, 20, Some(HeroId::Carl))];
         let (raw, d) = donut().step_traced(&v, &assist());
         assert_eq!(d.mode, Mode::Follow);
-        assert!(!raw.attack);
-        v.threats = vec![threat(0, 90.0, 20, Some(HeroId::Carl))];
-        assert!(donut().step_traced(&v, &assist()).1.pressed);
+        assert!(!raw.attack && !d.pressed, "a = 20 lands on the smear");
+        v.threats = vec![threat(0, 90.0, 19, Some(HeroId::Carl))];
+        assert!(donut().step_traced(&v, &assist()).1.pressed, "a = 19");
+    }
+
+    #[test]
+    fn q14_the_carl_jab_must_hit_before_the_committed_smear() {
+        // Same ordering: the jab (startup 3) hits on a + 3; a = 21 is the
+        // smear (attack tick 24), a = 20 is the last tell tick (23).
+        let mut v = carl_ai(60.0);
+        v.threats = vec![threat(0, 85.0, 21, Some(HeroId::Donut))];
+        let (raw, d) = carl().step_traced(&v, &v0());
+        assert!(
+            !raw.attack && !d.pressed && d.mode == Mode::Follow,
+            "a = 21"
+        );
+        v.threats = vec![threat(0, 85.0, 20, Some(HeroId::Donut))];
+        assert!(carl().step_traced(&v, &v0()).1.pressed, "a = 20");
     }
 
     #[test]
@@ -863,6 +919,19 @@ mod tests {
         assert_eq!(go(&|v| v.threats[0].guarded = true).mode, Mode::Follow);
     }
 
+    #[test]
+    fn carl_still_interrupts_a_light_guarded_tell() {
+        // goblin.rs: the light guard glances further swats; Carl's hits and
+        // the pounce still interrupt it.
+        let mut v = carl_ai(60.0);
+        let mut guarded = threat(0, 85.0, 6, Some(HeroId::Donut));
+        guarded.guarded = true;
+        v.threats = vec![guarded];
+        let (raw, d) = carl().step_traced(&v, &v0());
+        assert!(raw.attack && d.pressed);
+        assert_eq!((d.mode, d.action), (Mode::Interrupt, Some(Action::Jab)));
+    }
+
     // ------------------------------------------------------- donut mana vetoes --
 
     #[test]
@@ -875,6 +944,7 @@ mod tests {
                 max: 8,
                 unlocked: false,
                 ai_can_cast: true, // a lying field must not matter
+                projectile_speed_px_per_tick: 6,
             });
             v.threats = vec![threat(0, 120.0, tick, Some(HeroId::Carl))];
             let (raw, d) = donut().step_traced(&v, &assist());
@@ -887,7 +957,8 @@ mod tests {
     fn no_cast_below_the_ai_mana_reserve() {
         let mut v = donut_ai(0.0);
         unlock(&mut v, 2, false); // the view says the reserve would be broken
-        v.threats = vec![threat(0, 120.0, 2, Some(HeroId::Carl))];
+        // Tell tick 1: the bolt would arrive at 1 + 4 + 18 = 23, inside the tell.
+        v.threats = vec![threat(0, 120.0, 1, Some(HeroId::Carl))];
         let (raw, d) = donut().step_traced(&v, &assist());
         assert!(!raw.attack && !d.pressed && d.mode == Mode::Follow);
         // Above the reserve she fires the Magic Missile (Primary).
@@ -899,17 +970,30 @@ mod tests {
     }
 
     #[test]
-    fn q17_the_missile_band_and_timing_gate_the_cast() {
+    fn q17_the_missile_band_and_arrival_time_gate_the_cast() {
         let fire = |x: f32, tick: u16| {
             let mut v = donut_ai(0.0);
             unlock(&mut v, 8, true);
             v.threats = vec![threat(0, x, tick, Some(HeroId::Carl))];
             donut().step_traced(&v, &assist()).1.pressed
         };
-        assert!(fire(97.0, 0) && fire(160.0, 5));
+        assert!(fire(97.0, 0));
         assert!(!fire(96.0, 0), "too close for a bolt");
         assert!(!fire(161.0, 0), "out of the band");
-        assert!(!fire(120.0, 6), "too late in the tell to land by its end");
+        // Arrival attack tick = tell tick + release (4) + ceil((distance - 12) / 6),
+        // which must be below the tell length (24).
+        assert!(
+            fire(100.0, 4),
+            "4 + 4 + 15 = 23: lands on the last tell tick"
+        );
+        assert!(!fire(100.0, 5), "5 + 4 + 15 = 24: lands on the smear");
+        assert!(
+            fire(100.0, 0),
+            "100 px early: the bolt lands inside the tell"
+        );
+        // 160 px: the bolt needs 25 ticks of flight, so it is never in time.
+        assert!(!fire(160.0, 0), "160 px early: still 4 + 25 = 29 >= 24");
+        assert!(!fire(160.0, 5));
     }
 
     #[test]
@@ -961,6 +1045,18 @@ mod tests {
         let mut factual = assist();
         factual.ca19_kill_policy = KillPolicy::Factual;
         assert!(pounce(110.0, 1, lying, 1, &factual).0);
+    }
+
+    #[test]
+    fn q15_the_pounce_is_only_on_a_goblin() {
+        let mut v = donut_ai(60.0);
+        let mut llama = target(0, 110.0, 2, TargetState::Staggered { ticks: 5 });
+        llama.id.kind = EntityKind::Llama;
+        v.targets = vec![llama];
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(!raw.physical && !d.pressed && d.mode == Mode::Follow);
+        v.targets[0].id.kind = EntityKind::Goblin;
+        assert!(donut().step(&v, &assist()).physical);
     }
 
     // ------------------------------------------------------------- carl rules --
@@ -1052,13 +1148,24 @@ mod tests {
         v.targets = vec![target(0, 85.0, 3, TargetState::Standing)];
         let (raw, d) = dir.step_traced(&v, &set);
         assert!(raw.attack && d.action == Some(Action::Jab));
-        // Before the jab has landed (elapsed < 5) and after the window: no press.
-        for elapsed in [1, 4, 14] {
+        // Sim ordering: the view is pre-tick and the move clock advances before
+        // the press is read, so a press at view `elapsed` is judged at
+        // `elapsed + 1`. Judged before the jab's active ticks are over (< 5): no.
+        for elapsed in [1, 3] {
             let (raw, d) = dir.step_traced(&mid_jab(elapsed, 3, true, 101), &set);
             assert!(!raw.attack && !d.pressed, "elapsed {elapsed}");
         }
+        // At elapsed 13 the press is judged at 14 == CARL_JAB.total(): the jab
+        // is over, and the press would start a fresh jab that bypasses the
+        // veto and the Q16 cadence. It must not be pressed at all.
+        let (raw, d) = dir.step_traced(&mid_jab(13, 3, true, 101), &set);
+        assert!(
+            !raw.attack && !d.pressed,
+            "elapsed 13 is outside the window"
+        );
+        assert_ne!(d.action, Some(Action::Haymaker));
         // Inside the window the follow-up is the haymaker, with no cadence veto.
-        for elapsed in [5, 9, 13] {
+        for elapsed in [4, 5, 9, 12] {
             let mut d2 = dir.clone();
             let (raw, d) = d2.step_traced(&mid_jab(elapsed, 3, true, 105), &set);
             assert!(raw.attack && !raw.physical, "elapsed {elapsed}");
