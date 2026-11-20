@@ -10,8 +10,12 @@ use crate::input::RawInput;
 
 /// Session format version (independent of `autoplay-episode/1`).
 pub const SESSION_SCHEMA: &str = "playtrace-session/1";
-/// Action encoding version ([`ActionBits`]).
-pub const ACTION_SCHEMA: &str = "rawinput-bits/1";
+/// Action encoding version ([`ActionBits`]). Version 2 adds the `down` bit
+/// (COMBAT-FUN-02, CF02-Q01); every version 1 record decodes unchanged (its
+/// `down` bit is never set).
+pub const ACTION_SCHEMA: &str = "rawinput-bits/2";
+/// The previous action encoding (no `down` bit); still decodable.
+pub const ACTION_SCHEMA_V1: &str = "rawinput-bits/1";
 /// Event encoding version ([`EventRecord`]: absolute id, variant, Debug text).
 pub const EVENT_SCHEMA: &str = "combat-event-debug/1";
 /// Ticks per `ticks-NNNNNN.jsonl` chunk (PT-Q15).
@@ -40,7 +44,8 @@ pub mod hex64 {
 }
 
 /// One [`RawInput`] after the deadzone, bit-exact: `(move_x bits, buttons)`.
-/// Button bits: jump 1, attack 2, physical 4, ability 8, pause 16, swap 32.
+/// Button bits: jump 1, attack 2, physical 4, ability 8, pause 16, swap 32, down 64
+/// (`rawinput-bits/2`; a `/1` record has bit 64 clear).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActionBits(pub u32, pub u8);
 
@@ -53,7 +58,8 @@ impl ActionBits {
             | u8::from(raw.physical) << 2
             | u8::from(raw.ability) << 3
             | u8::from(raw.pause) << 4
-            | u8::from(raw.swap) << 5;
+            | u8::from(raw.swap) << 5
+            | u8::from(raw.down) << 6;
         ActionBits(raw.move_x.to_bits(), buttons)
     }
 
@@ -66,6 +72,7 @@ impl ActionBits {
             ability: self.1 & 8 != 0,
             pause: self.1 & 16 != 0,
             swap: self.1 & 32 != 0,
+            down: self.1 & 64 != 0,
         }
     }
 }

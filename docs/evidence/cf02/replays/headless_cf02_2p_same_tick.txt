@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=10 kind=move_started move=stomp instance=1
+COMBAT_EVENT tick=10 kind=move_started move=pounce instance=1
+COMBAT_EVENT tick=19 kind=hit move=stomp instance=1 target=0 damage=1 health_left=1 hit_stop=6
+COMBAT_EVENT tick=27 kind=hit move=pounce instance=1 target=0 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=27 kind=enemy_defeated target=0 instigator=1
+COMBAT_STATE fixture=cf02_2p_same_tick seed=0xcf020a0d tick=50 elapsed=50 hero_hp=4 deaths=0 enemies=e0=467.667/0,e1=447.000/2 hash=f052ea154d627b48
+PARTY_STATE fixture=cf02_2p_same_tick mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=da1a168a6bc17a3e

@@ -125,6 +125,17 @@ pub enum MoveId {
     Swat,
     Pounce,
     MagicMissile,
+    // COMBAT-FUN-02 (CF02-A), appended so every existing hash keeps its value.
+    // They exist only under `cf02_rules`; their timing comes from
+    // `cf02_combat_v0.json` (see [`cf02_moves`]).
+    /// Down + Physical on the ground (Q01, Q02).
+    Stomp,
+    /// The hit-confirm kick out of a jab that connected (Q05).
+    FollowKick,
+    /// CF02-H: Physical in the air (Q50).
+    AirKick,
+    /// CF02-H: Down + Physical in the air (Q52); the tuck is its startup.
+    DiveStomp,
 }
 
 impl MoveId {
@@ -137,6 +148,10 @@ impl MoveId {
             Self::Swat => "swat",
             Self::Pounce => "pounce",
             Self::MagicMissile => "magic_missile",
+            Self::Stomp => "stomp",
+            Self::FollowKick => "follow_kick",
+            Self::AirKick => "air_kick",
+            Self::DiveStomp => "dive_stomp",
         }
     }
 
@@ -147,7 +162,14 @@ impl MoveId {
     pub const fn hero(self) -> u32 {
         match self {
             Self::Swat | Self::Pounce | Self::MagicMissile => crate::donut_moves::DONUT_HERO,
-            Self::GreyboxStrike | Self::Jab | Self::Haymaker | Self::PushKick => 0,
+            Self::GreyboxStrike
+            | Self::Jab
+            | Self::Haymaker
+            | Self::PushKick
+            | Self::Stomp
+            | Self::FollowKick
+            | Self::AirKick
+            | Self::DiveStomp => 0,
         }
     }
 }
@@ -373,9 +395,130 @@ pub fn donut_move(id: MoveId) -> Option<&'static MoveSpec> {
 /// event log resolve moves through [`carl_move`]).
 pub const CARL_MOVES: [&MoveSpec; 3] = [&CARL_JAB, &CARL_HAYMAKER, &CARL_PUSH_KICK];
 
-/// The Carl move with this id (`None` for the WORK-021 greybox strike).
+/// The Carl move with this id (`None` for the WORK-021 greybox strike). The
+/// CF02 moves resolve too, but only a run under `cf02_rules` ever starts one.
 pub fn carl_move(id: MoveId) -> Option<&'static MoveSpec> {
-    CARL_MOVES.iter().copied().find(|spec| spec.id == id)
+    CARL_MOVES
+        .iter()
+        .copied()
+        .find(|spec| spec.id == id)
+        .or_else(|| cf02_moves().all().into_iter().find(|spec| spec.id == id))
+}
+
+/// The CF02 Carl moves (CF02-A: stomp, follow-through kick), built once from the
+/// pinned `cf02_combat_v0.json` (Q02, Q05). A move is data: change the number in
+/// the file, not here. A run without `cf02_rules` never starts one.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Cf02Moves {
+    /// Q02: Down + Physical on the ground.
+    pub stomp: MoveSpec,
+    /// Q05: the push kick, faster (startup 9), out of a jab that connected.
+    pub follow_kick: MoveSpec,
+    /// Q50: Physical in the air.
+    pub air_kick: MoveSpec,
+    /// Q52: Down + Physical in the air. Startup is the tuck; the move ends on
+    /// landing or a hit (the scene cancels it), so its active window is the
+    /// `q52_dive_max_active_ticks` cap and it has no recovery of its own.
+    pub dive_stomp: MoveSpec,
+}
+
+impl Cf02Moves {
+    fn build(t: &crate::cf02::Cf02Tuning) -> Self {
+        let stomp_box = t.q02_stomp_box;
+        let steps = t.q02_stomp_step_ticks.max(1);
+        Self {
+            stomp: MoveSpec {
+                id: MoveId::Stomp,
+                startup: u16::from(t.q02_stomp_startup),
+                active: u16::from(t.q02_stomp_active),
+                recovery: u16::from(t.q02_stomp_recovery),
+                shape: box_shape(&stomp_box),
+                damage: t.q02_stomp_damage,
+                reaction: Reaction {
+                    stagger_ticks: t.q02_stomp_standing_stagger,
+                    knock_vx: f32::from(t.q02_stomp_standing_knock_x),
+                    knock_vy: 0.0,
+                    hit_stop: t.q02_stomp_hit_stop,
+                    camera_kick_px: t.q02_stomp_camera_kick_px,
+                    launch: false,
+                },
+                chain: None,
+                root_step: (t.q02_stomp_step_px > 0).then(|| RootStep {
+                    from_tick: 1,
+                    to_tick: u16::from(steps),
+                    px_per_tick: f32::from(t.q02_stomp_step_px) / f32::from(steps),
+                }),
+            },
+            follow_kick: MoveSpec {
+                id: MoveId::FollowKick,
+                startup: u16::from(t.q05_follow_startup),
+                active: u16::from(t.q05_follow_active),
+                recovery: u16::from(t.q05_follow_recovery),
+                ..CARL_PUSH_KICK
+            },
+            air_kick: MoveSpec {
+                id: MoveId::AirKick,
+                startup: u16::from(t.q50_air_kick_startup),
+                active: u16::from(t.q50_air_kick_active),
+                recovery: u16::from(t.q50_air_kick_recovery),
+                shape: box_shape(&t.q50_air_kick_box),
+                damage: t.q50_air_kick_damage,
+                reaction: Reaction {
+                    stagger_ticks: t.q50_air_kick_standing_stagger,
+                    knock_vx: f32::from(t.q50_air_kick_knock_x),
+                    knock_vy: f32::from(t.q50_air_kick_knock_y),
+                    hit_stop: t.q50_air_kick_hit_stop,
+                    camera_kick_px: 0,
+                    launch: false,
+                },
+                chain: None,
+                root_step: None,
+            },
+            dive_stomp: MoveSpec {
+                id: MoveId::DiveStomp,
+                startup: u16::from(t.q52_dive_tuck_ticks),
+                active: u16::from(t.q52_dive_max_active_ticks),
+                recovery: 0,
+                shape: box_shape(&t.q52_dive_box),
+                damage: t.q52_dive_damage,
+                reaction: Reaction {
+                    stagger_ticks: 0,
+                    knock_vx: 0.0,
+                    knock_vy: 0.0,
+                    hit_stop: t.q52_dive_hit_stop,
+                    camera_kick_px: t.q52_dive_camera_kick_px,
+                    launch: false,
+                },
+                chain: None,
+                root_step: None,
+            },
+        }
+    }
+
+    /// Every CF02 Carl move, in id order.
+    pub fn all(&self) -> [&MoveSpec; 4] {
+        [
+            &self.stomp,
+            &self.follow_kick,
+            &self.air_kick,
+            &self.dive_stomp,
+        ]
+    }
+}
+
+fn box_shape(b: &crate::cf02::BoxPx) -> HitShape {
+    HitShape::Box {
+        x_min: f32::from(b.x0),
+        x_max: f32::from(b.x1),
+        y_min: f32::from(b.y0),
+        y_max: f32::from(b.y1),
+    }
+}
+
+/// The CF02 move table of the pinned tuning (one shared static).
+pub fn cf02_moves() -> &'static Cf02Moves {
+    static MOVES: std::sync::OnceLock<Cf02Moves> = std::sync::OnceLock::new();
+    MOVES.get_or_init(|| Cf02Moves::build(crate::cf02::active()))
 }
 
 /// How long a press made while a move is still running is remembered, in
@@ -441,6 +584,18 @@ pub struct MoveRunner {
     hold: u8,
     /// The last [`Self::step`] was a frozen tick (display only, not hashed).
     froze: bool,
+    /// CF02 (Q05, Q49): a cancel into `spec` once the running move has reached
+    /// move tick `earliest` and is still the `from` move. Mixed into the hash only
+    /// while set, so a run that never cancels hashes as before.
+    cancel: Option<PendingCancel>,
+}
+
+/// A cancel waiting for its earliest tick (see [`MoveRunner::request_cancel`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PendingCancel {
+    from: MoveId,
+    into: &'static MoveSpec,
+    earliest: u16,
 }
 
 impl MoveRunner {
@@ -461,6 +616,7 @@ impl MoveRunner {
             self.current = None;
             self.buffered = None;
             self.chained = None;
+            self.cancel = None;
             self.hold = 0;
             return None;
         }
@@ -499,6 +655,20 @@ impl MoveRunner {
         {
             self.start(into);
             started = true;
+        }
+        // A CF02 cancel (the follow-through): start the new move once the running
+        // one is at or past its earliest tick and is still the move it left from.
+        if let Some(cancel) = self.cancel {
+            match self.current.as_ref() {
+                Some(running) if running.spec.id == cancel.from => {
+                    if running.tick >= cancel.earliest {
+                        self.cancel = None;
+                        self.start(cancel.into);
+                        started = true;
+                    }
+                }
+                _ => self.cancel = None,
+            }
         }
         if self.current.is_none()
             && let Some(buffered) = self.buffered.take()
@@ -559,7 +729,55 @@ impl MoveRunner {
         self.current = None;
         self.buffered = None;
         self.chained = None;
+        self.cancel = None;
         self.hold = 0;
+    }
+
+    /// CF02 (Q05, Q49): ask for a cancel of the running `from` move into `into`,
+    /// starting on the first tick at which the running move has reached move tick
+    /// `earliest` (the same tick when it already has). The caller decides the
+    /// window and the hit-confirm; a cancel that is not taken before the running
+    /// move ends or changes is forgotten.
+    pub fn request_cancel(&mut self, from: MoveId, into: &'static MoveSpec, earliest: u16) {
+        self.cancel = Some(PendingCancel {
+            from,
+            into,
+            earliest,
+        });
+    }
+
+    /// True while a CF02 cancel is waiting for its earliest tick.
+    pub fn cancel_pending(&self) -> bool {
+        self.cancel.is_some()
+    }
+
+    /// The running move instance has already hit a target (a hit-confirm).
+    pub fn current_hit(&self) -> bool {
+        self.current.as_ref().is_some_and(|r| !r.hit.is_empty())
+    }
+
+    /// The running move and the move tick a press made on the **coming** step is
+    /// judged by: the tick after the clock advances, or the frozen tick during
+    /// hit-stop (legacy: a press in a jab's hit-stop is inside the haymaker
+    /// window). `None` when no move survives the next step.
+    pub fn press_tick(&self) -> Option<(MoveId, u16)> {
+        let running = self.current.as_ref()?;
+        if self.hold > 0 {
+            return Some((running.spec.id, running.tick));
+        }
+        let next = running.tick + 1;
+        (next < running.spec.total()).then_some((running.spec.id, next))
+    }
+
+    /// The runner will have no running move after its next unfrozen
+    /// [`Self::step`] has advanced the clock: no move runs, or the running one
+    /// ends on that tick (not while it is frozen by hit-stop). A fresh press can
+    /// start on that tick.
+    pub fn idle_next_step(&self) -> bool {
+        match &self.current {
+            None => true,
+            Some(running) => self.hold == 0 && running.tick + 1 >= running.spec.total(),
+        }
     }
 
     /// Freeze the move clock for `ticks` more ticks (a confirmed hit).
@@ -620,6 +838,12 @@ impl MoveRunner {
         }
         mix(self.chained.map_or(0, |spec| 1 + spec.id as u64));
         mix(u64::from(self.hold));
+        if let Some(cancel) = &self.cancel {
+            mix(0x4341_4e43);
+            mix(cancel.from as u64);
+            mix(cancel.into.id as u64);
+            mix(u64::from(cancel.earliest));
+        }
     }
 }
 
@@ -1083,7 +1307,9 @@ impl ForceTier {
     /// The tier of a lethal melee move: a launching move (the push kick) is
     /// heavy, every other strike routine.
     pub const fn of_move(spec: &MoveSpec) -> Self {
-        if spec.reaction.launch {
+        // CF02-Q02, Q52: a stomp or dive finish is heavy too (the move exists only under
+        // `cf02_rules`, so nothing legacy changes).
+        if spec.reaction.launch || matches!(spec.id, MoveId::Stomp | MoveId::DiveStomp) {
             Self::Heavy
         } else {
             Self::Routine

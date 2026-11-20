@@ -53,9 +53,9 @@ mod live_tests;
 mod tests;
 
 pub use codec::{
-    ACTION_SCHEMA, ActionBits, ChunkTrailer, ControlEvent, ControlRecord, ControlSource,
-    EVENT_SCHEMA, EpisodeBoundary, EpisodeReason, EventRecord, QUEUE_BOUND, SESSION_SCHEMA,
-    TICKS_PER_CHUNK, TickRecord, chunk_file_name, hex64,
+    ACTION_SCHEMA, ACTION_SCHEMA_V1, ActionBits, ChunkTrailer, ControlEvent, ControlRecord,
+    ControlSource, EVENT_SCHEMA, EpisodeBoundary, EpisodeReason, EventRecord, QUEUE_BOUND,
+    SESSION_SCHEMA, TICKS_PER_CHUNK, TickRecord, chunk_file_name, hex64,
 };
 pub use error::PlaytraceError;
 pub use manifest::{

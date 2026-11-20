@@ -712,6 +712,9 @@ pub fn melee_tag(id: MoveId) -> Option<&'static str> {
         MoveId::Jab => Some("punch_a"),
         MoveId::Haymaker => Some("punch_b"),
         MoveId::PushKick => Some("kick"),
+        // CF02 placeholders: the stomp, follow-through, air kick and dive show the kick
+        // frames until the ART-CARL-CF02 frames land (CF02-I wires them).
+        MoveId::Stomp | MoveId::FollowKick | MoveId::AirKick | MoveId::DiveStomp => Some("kick"),
         MoveId::GreyboxStrike | MoveId::Swat | MoveId::Pounce | MoveId::MagicMissile => None,
     }
 }

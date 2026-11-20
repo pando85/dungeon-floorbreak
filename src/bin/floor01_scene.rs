@@ -969,12 +969,14 @@ fn build_scene(
         // A combat fixture: Carl starts at the fixture column; the script is
         // pre-simulated for a capture, otherwise left for the live loop.
         let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
-        let mut combat = CombatState::new(fixture, kit, &sim)?
-            .with_donut(donut_setup(args))
-            // CF02-C1 (Q18, Q37): the llamas are Donut's targets under `--cf02`.
-            .with_cf02_llama_targets(args.cf02.rules);
+        let mut combat = CombatState::new(fixture, kit, &sim)?.with_donut(donut_setup(args));
         if args.demo {
             combat = combat.with_demo(&demo::DEMO_RULES);
+        }
+        // COMBAT-FUN-02: `--cf02` runs the CF02 rules, llama targets (C1)
+        // included (every `cf02_*` fixture already does, by its name).
+        if args.cf02.rules {
+            combat = combat.with_cf02();
         }
         let mut anim = actors.animators(&sim.world);
         anim.art = actors.combat_art(&combat);
@@ -3076,6 +3078,13 @@ fn pad_connections(mut events: MessageReader<GamepadEvent>, mut pads: ResMut<Pad
     }
 }
 
+/// CF02-Q01: Down is the D-pad down, or the left stick down to at least 0.5 with
+/// the vertical axis dominant (`abs(y) >= abs(x)`), so a diagonal run is not a
+/// stomp. Sampled once per frame; the simulation reads it on the press tick.
+fn pad_down(dpad_y: f32, stick: Vec2) -> bool {
+    dpad_y <= -0.5 || (stick.y <= -0.5 && stick.y.abs() >= stick.x.abs())
+}
+
 /// One pad's state for this frame, by logical action.
 fn pad_frame(entity: Entity, pad: &Gamepad) -> PadFrame {
     let stick = pad.left_stick().x;
@@ -3087,6 +3096,7 @@ fn pad_frame(entity: Entity, pad: &Gamepad) -> PadFrame {
         } else {
             pad.dpad().x
         },
+        down: pad_down(pad.dpad().y, pad.left_stick()),
         held: PadButtons {
             jump: pad.pressed(GamepadButton::South),
             attack: pad.pressed(GamepadButton::West),
@@ -3287,6 +3297,9 @@ fn fixed_step(
             attack: keys.pressed(KeyCode::KeyJ) || attack_tap,
             physical: keys.pressed(KeyCode::KeyK) || physical_tap,
             swap: swap_tap,
+            // CF02-Q01: Down (S or the Down arrow). Only Carl's Physical press
+            // under `--cf02` reads it.
+            down: keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown),
             ..RawInput::NONE
         }
     };
@@ -6502,9 +6515,30 @@ mod tests {
         let a = args(&["--list-fixtures", "cf02_"]).unwrap();
         assert_eq!(a.list_fixtures.as_deref(), Some("cf02_"));
         assert!(args(&["--list-fixtures"]).is_err());
-        // CF02-C1's llama fixtures are the first `cf02_*` names.
+        // CF02-C1's llama fixtures and CF02-A's Carl fixtures are `cf02_*` names.
         assert!(list_fixtures("cf02_").contains(&"cf02_llama_pounce"));
+        assert!(list_fixtures("cf02_").contains(&"cf02_kick_then_stomp"));
         assert!(list_fixtures("companion_").is_empty());
         assert!(list_fixtures("cp01_").contains(&"cp01_kick"));
+    }
+
+    /// CF02-Q01: Down is the D-pad down, or the left stick down to 0.5 with the
+    /// vertical axis dominant.
+    #[test]
+    fn pad_down_needs_dpad_down_or_a_dominant_stick_down() {
+        let stick = |x: f32, y: f32| Vec2::new(x, y);
+        assert!(pad_down(-1.0, stick(0.0, 0.0)), "D-pad down");
+        assert!(!pad_down(0.0, stick(0.0, 0.0)));
+        assert!(
+            pad_down(0.0, stick(0.0, -0.5)),
+            "stick down at the threshold"
+        );
+        assert!(!pad_down(0.0, stick(0.0, -0.49)), "below the threshold");
+        assert!(pad_down(0.0, stick(0.4, -0.6)), "vertical axis dominates");
+        assert!(
+            !pad_down(0.0, stick(0.9, -0.6)),
+            "a diagonal run is not a stomp"
+        );
+        assert!(!pad_down(0.0, stick(0.0, 1.0)), "up is not down");
     }
 }

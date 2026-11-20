@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=5 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=8 kind=hit move=jab instance=1 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=30 kind=move_started move=push_kick instance=2
+COMBAT_EVENT tick=43 kind=hit move=push_kick instance=2 target=0 damage=1 health_left=0 hit_stop=11
+COMBAT_EVENT tick=43 kind=enemy_defeated target=0 force=heavy
+COMBAT_STATE fixture=cf02_lethal_kick_far seed=0xcf020a09 tick=100 elapsed=100 hero_hp=4 deaths=0 enemies=e0=559.000/0 hash=33a225e37cc01c36
+PARTY_STATE fixture=cf02_lethal_kick_far mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=13f5c26a5a91056c

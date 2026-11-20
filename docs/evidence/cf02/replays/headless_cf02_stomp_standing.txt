@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=5 kind=move_started move=stomp instance=1
+COMBAT_EVENT tick=14 kind=hit move=stomp instance=1 target=0 damage=1 health_left=1 hit_stop=6
+COMBAT_STATE fixture=cf02_stomp_standing seed=0xcf020a03 tick=60 elapsed=60 hero_hp=4 deaths=0 enemies=e0=430.000/1 hash=352d987c34ffa668
+PARTY_STATE fixture=cf02_stomp_standing mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=46b56f9470306d5e

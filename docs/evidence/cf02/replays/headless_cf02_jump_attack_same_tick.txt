@@ -1,0 +1,3 @@
+COMBAT_EVENT tick=6 kind=move_started move=air_kick instance=1
+COMBAT_STATE fixture=cf02_jump_attack_same_tick seed=0xcf020b0b tick=60 elapsed=60 hero_hp=4 deaths=0 enemies=e0=700.000/2 hash=1db2e6843d8fa75f
+PARTY_STATE fixture=cf02_jump_attack_same_tick mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=d0ecfb8433d01685

@@ -17,7 +17,7 @@ use crate::input::{Actions, InputFrame, RawInput};
 use crate::party::{HeroId, PartyDrive};
 use crate::prototype::{
     Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, RUN_SPEED, Rect, TICK_SECONDS,
-    step_hero, step_hero_driven,
+    step_hero_driven,
 };
 use crate::scroll_camera::{CameraConfig, DEADZONE_PX, MAX_SPEED_PX, ScrollCamera};
 
@@ -196,11 +196,17 @@ impl CorridorWorld {
     }
 
     pub fn step(&mut self, input: &InputFrame) {
+        self.step_driven(input, &BodyDrive::default());
+    }
+
+    /// [`Self::step`] with the overrides of a running combat move on Carl (CF02-H:
+    /// the aerial moves and the bail-out hop). The default drive is the legacy step.
+    pub fn step_driven(&mut self, input: &InputFrame, drive: &BodyDrive) {
         if self.complete {
             return;
         }
         self.tick += 1;
-        step_hero(&mut self.hero, input, &self.solids, self.max_x);
+        step_hero_driven(&mut self.hero, input, &self.solids, self.max_x, drive);
         self.record_trail();
         self.update_donut();
         self.check_exit(false);
@@ -765,7 +771,7 @@ impl SceneSim {
         if !self.drive.live {
             let raw = inputs[0];
             self.input.advance(raw);
-            self.world.step(&self.input);
+            self.world.step_driven(&self.input, &ctx.drives[0]);
             self.camera.step(self.world.hero.x, self.world.hero.facing);
             return;
         }
@@ -974,6 +980,7 @@ impl SceneSim {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prototype::step_hero;
     use std::path::PathBuf;
 
     const LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";

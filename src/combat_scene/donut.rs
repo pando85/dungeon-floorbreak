@@ -204,23 +204,19 @@ impl CombatState {
     #[must_use]
     pub fn with_donut(mut self, setup: DonutSetup) -> Self {
         self.donut_kit = DonutKit::new(setup);
-        // Q37: a `cf02_*` fixture runs under `cf02_rules`, so its llamas are
-        // targets; every other fixture, the story route and `--demo` are not.
-        if self.fixture.name.starts_with("cf02_") {
-            self.donut_kit.llama_targets = LlamaTargets::for_rules(true);
+        // Q37: the llama switch is derived from the one CF02 switch
+        // (`CombatState::cf02()`): a `cf02_*` fixture or `--cf02` makes the
+        // llamas targets; every other fixture, the story route and `--demo` not.
+        if self.cf02.is_some() {
+            self.enable_llama_targets();
         }
         self
     }
 
-    /// CF02-C1 (Q18, Q37): make the llamas targets of Donut's moves when the
-    /// run is `--cf02` (`cf02_rules`); a no-op otherwise. Call after
-    /// [`Self::with_donut`].
-    #[must_use]
-    pub fn with_cf02_llama_targets(mut self, cf02_rules: bool) -> Self {
-        if cf02_rules {
-            self.donut_kit.llama_targets = LlamaTargets::for_rules(true);
-        }
-        self
+    /// CF02-C1 (Q18, Q37): the llamas become Donut's targets (the one place that
+    /// sets the switch; callers derive it from [`CombatState::cf02`]).
+    pub(super) fn enable_llama_targets(&mut self) {
+        self.donut_kit.llama_targets = LlamaTargets::for_rules(true);
     }
 
     /// Whether the llamas are targets of Donut's moves (Q18).
@@ -475,6 +471,7 @@ impl CombatState {
             vx: self.donut_kit.pounce_vx,
             vx_cap: out.vx_cap,
             facing_locked: out.facing_locked,
+            ..BodyDrive::default()
         };
         result
     }

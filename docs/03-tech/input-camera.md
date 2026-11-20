@@ -8,6 +8,17 @@ Normalize device-specific inputs to player-scoped logical actions such as `Move`
 
 **Approved default mappings:** Cross/A jump; Square/X primary; Triangle/Y physical; Circle/B special; R1/RB interact; L1/LB solo switch. Carl's Triangle/Y is **a kick, not a grab**. Donut's pre-biscuit primary is weak feline contact, changing to Magic Missile only after the story unlock. Optional L2/right-stick precision aim and R2 cycling are not MVP combat dependencies; D-pad locomotion must remain possible.
 
+### Down (COMBAT-FUN-02, `--cf02` only)
+
+CF02-A adds a **Down** direction to the logical input (`RawInput::down`, a held direction with no press edge, sampled on the press tick). It is not a fifth button: **Down + Physical** (Triangle/Y) is Carl's stomp on the ground and, in the air, his dive (CF02-H, Q52); Physical alone stays the kick. Donut ignores it (her Physical is the pounce). It reads only under `cf02_rules` (`--cf02`), so with the switch off the input changes nothing.
+
+| Device | Down |
+| --- | --- |
+| Keyboard (P1) | `S` or the Down arrow |
+| Pad (any slot) | D-pad down, or the left stick down to at least 0.5 with the vertical axis dominant (`abs(y) >= abs(x)`, so a diagonal run is not a stomp) |
+
+The adapter resolves the device to the single `down` bool; a buffered press keeps the Down sample of its press tick (CF02-Q01, Q46).
+
 ### Existing fixture migration (pending implementation)
 
 The current COMBAT-INT-01 prototype intentionally reuses `special_pressed` for Carl's push kick (keyboard K / East gamepad action; **superseded in `floor01_scene` by PR A: the kick is `physical`, K / North = Triangle/Y, and the WORK-021 greybox in `main.rs` keeps K / East as its bomb `ability`**) while `attack_pressed` (keyboard J / West) is his jab; WORK-021 separately uses that special action for bombs. Existing fixtures use press edges, 6-tick buffering and an initial facing correction. **Keep these facts as implementation history, not the approved final default bindings.**

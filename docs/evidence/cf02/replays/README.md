@@ -4,4 +4,6 @@ One file per `cf02_*` fixture: `headless_<fixture>.txt`, the `COMBAT_EVENT`, `CO
 
 This folder is **shared and append-only**: every COMBAT-FUN-02 PR adds the replays of its own fixtures here (and only changes one it owns), so the frozen `scripts/ci_floor01_combat.sh headless` loop over `--list-fixtures cf02_` never needs editing. Per-PR captures and notes stay in `docs/evidence/cf02/<pr-id>/`. COMPANION-AI-01 replays live in `docs/evidence/companion-ai/`.
 
-Empty after CF02-00 (no `cf02_*` fixture exists yet).
+CF02-A adds the thirteen `cf02_*` fixtures of the Carl branches, the lying goblin and Donut's hold (`cf02_kick_then_stomp`, `cf02_stomp_whiff`, `cf02_stomp_standing`, `cf02_stomp_no_stand_up`, `cf02_confirm_kick`, `cf02_whiff_no_confirm`, `cf02_down_physical_beats_confirm`, `cf02_jab_over_lying`, `cf02_lethal_kick_far`, `cf02_pounce_keeps_down`, `cf02_pounce_hold`, `cf02_stomp_boss`, `cf02_2p_same_tick`).
+
+CF02-H adds fourteen more: `cf02_air_kick_jump_in`, `cf02_air_kick_relaunch_once`, `cf02_dive_lying`, `cf02_dive_standing_knockdown`, `cf02_dive_bounce_kick`, `cf02_dive_whiff_recovery`, `cf02_bailout_escapes_swing`, `cf02_bailout_no_attack_until_land`, `cf02_buffer_turns`, `cf02_buffer_no_early_chain`, `cf02_jump_attack_same_tick`, `cf02_landing_grace`, `cf02_cancel_table`, `cf02_dive_boss`.

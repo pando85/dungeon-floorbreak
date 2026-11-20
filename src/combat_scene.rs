@@ -21,6 +21,7 @@ use crate::blast::{Arm, BlastCharge, BlastReach};
 use crate::boss::{
     BOSS_ENEMY_ID, Boss, BossCtx, BossHit, BossOut, BossSetup, BossState, HeroBlow, HeroView,
 };
+use crate::cf02::{self, Cf02Tuning};
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
     EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, MoveRunner, MoveSpec, MoveTick, Phase, RootStep,
@@ -42,11 +43,15 @@ use crate::llama::{
     FireView, Glob, GlobFate, LLAMA_HALF_HEIGHT, LLAMA_HALF_WIDTH, Llama, LlamaMode,
 };
 use crate::party::{EnemyTargetRule, HeroId};
-use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, TICK_SECONDS};
+use crate::prototype::{
+    Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, TICK_SECONDS,
+};
 use crate::shore::{PLAYER_ONE, Shore};
 
+mod carl_cf02;
 mod companion;
 mod donut;
+use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
 pub use donut::{Bolt, Cast, DonutKit};
 
@@ -198,6 +203,7 @@ impl Fixture {
             raw.physical |= hold.input.physical;
             raw.ability |= hold.input.ability;
             raw.jump |= hold.input.jump;
+            raw.down |= hold.input.down;
             if hold.input.move_x != 0.0 {
                 raw.move_x = hold.input.move_x;
             }
@@ -822,6 +828,13 @@ pub struct CombatState {
     donut_kit: DonutKit,
     /// COMPANION-AI-01 runtime state (CF02-00: an empty no-op stub).
     companion: CompanionRuntime,
+    /// COMBAT-FUN-02: the pinned tuning with `cf02_rules` on, `Some` only for a run
+    /// under `--cf02` and for every `cf02_*` fixture; `None` is the legacy game
+    /// and every golden. Constant for the run, so it is not part of the hash.
+    cf02: Option<&'static Cf02Tuning>,
+    /// CF02-H: Carl's move buffer and airborne state (default, and not hashed,
+    /// without `cf02_rules`).
+    carl_cf02: CarlCf02,
     /// Which hero's defeat ended the attempt (D1: either one is the party's
     /// defeat). Meaningful while `hero_defeated`.
     pub defeated_hero: HeroId,
@@ -904,6 +917,8 @@ impl CombatState {
             donut: HeroCombat::default(),
             donut_kit: DonutKit::new(DonutSetup::NONE),
             companion: CompanionRuntime::default(),
+            cf02: cf02::fixture_runs_cf02(fixture.name).then(cf02::active),
+            carl_cf02: CarlCf02::default(),
             defeated_hero: HeroId::Carl,
             targets: Vec::new(),
             defeated_ticks: 0,
@@ -933,6 +948,35 @@ impl CombatState {
         self.demo = Some(rules);
         self.reset_attempt();
         self
+    }
+
+    /// COMBAT-FUN-02: run this state under `cf02_rules` (`--cf02`). The `cf02_*`
+    /// fixtures already do (by their name). Every CF02 rule reads the tuning this
+    /// sets, so a state without it is the legacy game byte for byte.
+    #[must_use]
+    pub fn with_cf02(mut self) -> Self {
+        self.cf02 = Some(cf02::active());
+        // CF02-C1 (Q18, Q37): the llamas are Donut's targets under the same switch.
+        self.enable_llama_targets();
+        self.reset_attempt();
+        self
+    }
+
+    /// The CF02 tuning this run reads (`None`: `cf02_rules` is off).
+    pub fn cf02(&self) -> Option<&'static Cf02Tuning> {
+        self.cf02
+    }
+
+    /// A goblin of this run at column `x` (it carries the CF02 tuning, if any).
+    fn new_goblin(&self, x: f32, ai: EnemyAi) -> Goblin {
+        let mut goblin =
+            Goblin::new(x, self.enemy_foot_y + ENEMY_HALF_HEIGHT, ai).with_cf02(self.cf02);
+        if self.cf02.is_some()
+            && let Some(health) = crate::cf02_fixtures::goblin_health(self.fixture.name)
+        {
+            goblin.health = health;
+        }
+        goblin
     }
 
     /// The beat whose checkpoint is the fixture's start column (0 without
@@ -965,11 +1009,7 @@ impl CombatState {
         scene.respawn_at(demo.checkpoints[checkpoint] as f32);
         for (index, spawn) in self.fixture.enemies.iter().enumerate() {
             if self.enemies[index].health > 0 {
-                self.enemies[index] = Goblin::new(
-                    spawn.x as f32,
-                    self.enemy_foot_y + ENEMY_HALF_HEIGHT,
-                    spawn.ai,
-                );
+                self.enemies[index] = self.new_goblin(spawn.x as f32, spawn.ai);
                 self.flash_tick[index] = None;
             }
         }
@@ -980,6 +1020,7 @@ impl CombatState {
                 self.charges[index] = self.charge_of(spawn);
             }
         }
+        self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
         self.hurt_ticks = 0;
         self.hero_hit_stop = 0;
@@ -1016,13 +1057,7 @@ impl CombatState {
             .fixture
             .enemies
             .iter()
-            .map(|spawn| {
-                Goblin::new(
-                    spawn.x as f32,
-                    self.enemy_foot_y + ENEMY_HALF_HEIGHT,
-                    spawn.ai,
-                )
-            })
+            .map(|spawn| self.new_goblin(spawn.x as f32, spawn.ai))
             .collect();
         self.llamas = self
             .fixture
@@ -1049,6 +1084,7 @@ impl CombatState {
             .map(|spawn| self.charge_of(spawn))
             .collect();
         self.contacts.clear();
+        self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
         self.hurt_ticks = 0;
         self.hero_hit_stop = 0;
@@ -1063,6 +1099,17 @@ impl CombatState {
         self.confirm = None;
         self.checkpoint = self.start_checkpoint();
         self.flash_tick = vec![None; self.enemies.len() + self.llamas.len()];
+        // CF02 QA hook: a fixture goblin that starts launched.
+        if self.cf02.is_some()
+            && let Some((vx, vy)) = crate::cf02_fixtures::goblin_launch(self.fixture.name)
+            && let Some(goblin) = self.enemies.first_mut()
+        {
+            goblin.mode = GoblinMode::Launched;
+            goblin.vx = vx;
+            goblin.vy = vy;
+            // Instance 0 is no real move instance (they start at 1).
+            goblin.launch = Some(0);
+        }
         self.retire_goblins_behind_start();
     }
 
@@ -1205,22 +1252,33 @@ impl CombatState {
         // EquippedSpecial (Circle/B) has no effect before its story unlock
         // (there are no explosives before the Guild). Both only start from a
         // press edge, so a held button never repeats.
-        let request = if self.input.attack_pressed {
-            carl_move(MoveId::Jab)
-        } else if self.input.physical_pressed {
-            carl_move(MoveId::PushKick)
+        let plan = if self.cf02.is_some() {
+            // CF02-H (Q46..Q54): the move buffer, the same-tick rule, the cancel
+            // table, the air moves and the bail-out decide the request.
+            self.plan_carl_cf02(scene, raw, can_act, hero_frozen || melee_frozen)
         } else {
-            None
+            CarlCf02Plan::default()
         };
-        // Pressing a direction together with the attack turns Carl first.
-        if can_act && request.is_some() && !scene.world.hero.melee.busy() && raw.move_x != 0.0 {
-            scene.world.hero.facing = if raw.move_x > 0.0 { 1 } else { -1 };
-        }
-        let move_tick = scene
-            .world
-            .hero
-            .melee
-            .step(request, CARL_BUFFER_TICKS, can_act);
+        let request = if self.cf02.is_some() {
+            plan.request
+        } else {
+            let request = if self.input.attack_pressed {
+                carl_move(MoveId::Jab)
+            } else if self.input.physical_pressed {
+                carl_move(MoveId::PushKick)
+            } else {
+                None
+            };
+            // Pressing a direction together with the attack turns Carl first.
+            if can_act && request.is_some() && !scene.world.hero.melee.busy() && raw.move_x != 0.0 {
+                scene.world.hero.facing = if raw.move_x > 0.0 { 1 } else { -1 };
+            }
+            request
+        };
+        let buffer_ticks = self
+            .cf02
+            .map_or(CARL_BUFFER_TICKS, crate::input_buffer::runner_buffer_ticks);
+        let move_tick = scene.world.hero.melee.step(request, buffer_ticks, can_act);
         if let Some(move_tick) = move_tick {
             if move_tick.started {
                 self.log(CombatEvent::MoveStarted {
@@ -1348,8 +1406,12 @@ impl CombatState {
             }
         }
 
-        // Committed on the ground: the feet stay planted and jumping is off.
-        let committed = scene.world.hero.melee.busy() && scene.world.hero.grounded;
+        // CF02-H: the dive, the air kick and the bail-out hop drive Carl's body.
+        let carl_drive = self.carl_cf02_drive(scene, move_tick);
+        // Committed on the ground: the feet stay planted and jumping is off (CF02:
+        // also during a landing recovery).
+        let committed =
+            (scene.world.hero.melee.busy() && scene.world.hero.grounded) || plan.planted;
         let gated = if !can_act {
             RawInput::default()
         } else if committed {
@@ -1358,6 +1420,8 @@ impl CombatState {
                 jump: false,
                 ..raw
             }
+        } else if plan.strip_jump {
+            RawInput { jump: false, ..raw }
         } else {
             raw
         };
@@ -1393,11 +1457,18 @@ impl CombatState {
                 drives: Default::default(),
             };
             Self::apply_donut_tick(&mut ctx, &donut_tick);
+            ctx.drives[0] = carl_drive;
             scene.step_party_ctx([gated, donut_tick.raw], &ctx);
         } else if hero_frozen || melee_frozen {
             // Frozen in hit-stop: only the tick counter advances. Carl, the
             // camera and Donut's trail stand still (no motion to restore).
             scene.hold_tick(gated);
+        } else if self.cf02.is_some() {
+            let ctx = PartyStepCtx {
+                drives: [carl_drive, BodyDrive::default()],
+                ..PartyStepCtx::default()
+            };
+            scene.step_party_ctx([gated, RawInput::default()], &ctx);
         } else {
             scene.step(gated);
         }
@@ -2331,8 +2402,17 @@ impl CombatState {
         if held.physical {
             put(0x5048_5953);
         }
+        // CF02-Q01: Down is mixed only while held under `cf02_rules`.
+        if self.cf02.is_some() && held.down {
+            put(0x444f_574e);
+        }
         put(u64::from(held.pause));
         hero.melee.mix_into(&mut put);
+        // CF02-H: Carl's buffer and air state, mixed only under `cf02_rules` and
+        // only while it is not the default.
+        if self.cf02.is_some() {
+            self.carl_cf02.mix_into(&mut put);
+        }
         for goblin in &self.enemies {
             goblin.mix_into(&mut put);
         }
@@ -3463,8 +3543,9 @@ mod tests {
     /// `Cf02Config::OFF`) every legacy fixture replays its committed hash, twice,
     /// and the pinned CF02 data changes nothing. The other legacy goldens (the
     /// walk, party, boss, `q10_*`, DEMO-01 and CINE ones) keep their own tests,
-    /// which `cargo test` runs unchanged; `ci_floor01_combat.sh headless` also
-    /// replays `--cf02` against `--demo`.
+    /// which `cargo test` runs unchanged. (`--cf02` itself runs the rules, so it
+    /// is no longer compared with `--demo`; `ci_floor01_combat.sh headless`
+    /// replays it twice and requires it to differ from `--demo` on `demo01`.)
     #[test]
     fn cf02_parity_off() {
         use crate::cf02::Cf02Tuning;

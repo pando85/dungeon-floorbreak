@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=11 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=24 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=37 kind=goblin_swing goblin=0
+COMBAT_STATE fixture=cf02_bailout_escapes_swing seed=0xcf020b07 tick=80 elapsed=80 hero_hp=4 deaths=0 enemies=e0=410.034/2 hash=43e3ea17b603bea9
+PARTY_STATE fixture=cf02_bailout_escapes_swing mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=ac675d2f15e777af

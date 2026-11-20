@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=24 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=64 kind=move_started move=jab instance=2
+COMBAT_STATE fixture=cf02_bailout_no_attack_until_land seed=0xcf020b08 tick=100 elapsed=100 hero_hp=4 deaths=0 enemies=e0=700.000/2 hash=18f6a07e0abfdece
+PARTY_STATE fixture=cf02_bailout_no_attack_until_land mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=2d5c027bbe128174
