@@ -808,6 +808,15 @@ mod tests {
         }
     }
 
+    const REG_SCRIPT: &[crate::party_scene::SlotHold] =
+        &[primary(10, 11, 0), primary(30, 31, 0), swap(31, 32)];
+    const REG_CAST_SCRIPT: &[crate::party_scene::SlotHold] = &[
+        swap(3, 4),
+        primary(10, 11, 0),
+        primary(40, 41, 0),
+        swap(44, 45),
+    ];
+
     /// A one-goblin fixture for the swap regressions (CA-20, review B-1).
     const REG_BASE: Fixture = base(
         "companion_regression_swap",
@@ -828,7 +837,7 @@ mod tests {
                 tuning,
                 // Jab hits a 2 HP dummy twice: the second hit (tick 33) is lethal
                 // and the swap lands on tick 31, in the jab's startup.
-                script: &[primary(10, 11, 0), primary(30, 31, 0), swap(31, 32)],
+                script: REG_SCRIPT,
                 pilot: Pilot::None,
                 donut: DonutSetup::NONE,
             }));
@@ -871,12 +880,7 @@ mod tests {
             tuning: ASSIST,
             // Donut (human after the swap on tick 3) casts twice; the second
             // bolt is lethal and the player swaps back while it is in the air.
-            script: &[
-                swap(3, 4),
-                primary(10, 11, 0),
-                primary(40, 41, 0),
-                swap(44, 45),
-            ],
+            script: REG_CAST_SCRIPT,
             pilot: Pilot::None,
             donut: biscuit(8),
         }));
