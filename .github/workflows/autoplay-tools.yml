@@ -36,7 +36,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev libudev-dev
-      - name: Native package fmt and clippy (release profile, shared with the wheel build; a standalone package: root checks do not cover it)
+      - name: Native package fmt and clippy (release profile shared with the wheel build; root checks do not cover this package)
         working-directory: tools/autoplay/native
         run: |
           cargo fmt --check
