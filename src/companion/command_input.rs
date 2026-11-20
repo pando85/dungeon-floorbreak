@@ -300,7 +300,8 @@ impl Forward {
 
     /// The gameplay-facing raw input for this tick: held face states only. Swap
     /// is an [`Action`], not a held state, so it is left unset; interact and
-    /// down have no `RawInput` field on main yet and are not carried.
+    /// down have no `RawInput` field on main yet (`down` lands with CF02-A) and are
+    /// not carried.
     pub fn to_raw(self, move_x: f32) -> RawInput {
         RawInput {
             move_x,
@@ -308,7 +309,7 @@ impl Forward {
             attack: self.attack,
             physical: self.physical,
             ability: self.ability,
-            ..RawInput::default()
+            ..RawInput::NONE
         }
     }
 
@@ -1439,7 +1440,7 @@ mod tests {
                 attack: tick.square,
                 physical: tick.triangle,
                 ability: tick.circle,
-                ..RawInput::default()
+                ..RawInput::NONE
             });
             assert_eq!(out.action == Action::Swap, frame.swap_pressed, "tick {i}");
             assert_eq!(out.forward.jump, tick.cross, "tick {i}");
