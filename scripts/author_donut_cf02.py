@@ -155,14 +155,14 @@ def evidence() -> None:
     floor = Floor()
     EVIDENCE.mkdir(parents=True, exist_ok=True)
 
-    # ---- gameplay-scale composition: idle Carl and idle Donut, then Donut's CF02 frames in tick order beside a goblin
+    # ---- gameplay-scale composition: idle Carl and idle Donut, then idle Donut and her CF02 frames in tick order beside a goblin
     # (the startle trigger context). Donut stands idle, puffs, settles (tick order), then holds the smug frame.
     x0, step = 520, 64
     entries = [(donut_idle, tuple(grid["pivot"]), DONUT_X, 0), (carl_idle, carl_piv, CARL_X, 0)]
+    entries.append((donut_idle, piv, x0, 0))                         # idle Donut for direct comparison, clear of Carl
     for i, name in enumerate(("startle_puff", "startle_settle", "smug")):
-        entries.append((imgs[i], piv, x0 + step * i, 0))
-    entries.append((donut_idle, piv, x0 - step, 0))                 # idle Donut for direct comparison
-    entries.append((gob_idle, gob_piv, x0 + step * 3 + 8, 0))
+        entries.append((imgs[i], piv, x0 + step * (i + 1), 0))
+    entries.append((gob_idle, gob_piv, x0 + step * 4 + 8, 0))
     _scene(floor, entries, "donut_cf02_floor1")
 
     # ---- startle trigger in context: puff next to a goblin hit by Carl (Carl kicks, goblin) - kept simple: Donut at

@@ -153,11 +153,48 @@ class DonutCf02Tests(unittest.TestCase):
             (x0, y0), (ix0, iy0) = min(head, key=lambda p: (p[1], p[0])), min(idle_head, key=lambda p: (p[1], p[0]))
             moved = shifted(idle_head, x0 - ix0, y0 - iy0)
             diff = [p for p in set(head) | set(moved) if head.get(p) != moved.get(p)]
-            # the frozen smug key repaints one cheek outline pixel (K to O) next to the eye; nothing else differs
-            self.assertLessEqual(len(diff), 1 if i == SMUG else 0, f"frame {i}: head is the idle head translated: {diff}")
+            self.assertEqual(diff, [], f"frame {i}: head is the idle head translated")
         # a cute face: no snarl colours were introduced (the palette is the approved Donut palette)
         used = {c for fr in self.g["frames"] for layer in self.layers for row in fr["cels"].get(layer, []) for c in row}
         self.assertLessEqual(used - {"."}, {p["key"] for p in load(LOCO)["palette"]})
+
+    def test_no_enclosed_transparent_pixels_and_no_one_pixel_slits(self):
+        """Review B1: the smug key once had a notch through the neck and a pinhole in the chin. Flood the outside
+        from the canvas border (4-neighbour): every transparent pixel must be reachable, and no transparent pixel
+        may sit between an opaque pixel above and one below (a 1 px horizontal slit)."""
+        w, h = self.g["canvas"]
+        for i, fr in enumerate(self.g["frames"]):
+            opaque = set(flat(fr, self.layers))
+            seen, todo = set(), [(x, y) for x in range(w) for y in (0, h - 1)] + [(x, y) for y in range(h) for x in (0, w - 1)]
+            while todo:
+                x, y = todo.pop()
+                if (x, y) in seen or (x, y) in opaque or not (0 <= x < w and 0 <= y < h):
+                    continue
+                seen.add((x, y))
+                todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+            enclosed = [(x, y) for y in range(h) for x in range(w) if (x, y) not in opaque and (x, y) not in seen]
+            self.assertEqual(enclosed, [], f"frame {i}: enclosed transparent pixels")
+            # a 1 px tall horizontal channel: a run of 2+ transparent pixels with opaque pixels above and below every
+            # one of them (single stipple pixels such as the tiara teeth are fine)
+            slits = []
+            for y in range(1, h - 1):
+                run = []
+                for x in range(w + 1):
+                    if x < w and (x, y) not in opaque and (x, y - 1) in opaque and (x, y + 1) in opaque:
+                        run.append(x)
+                        continue
+                    if len(run) >= 2:
+                        slits.append((run[0], run[-1], y))
+                    run = []
+            self.assertEqual(slits, [], f"frame {i}: transparent 1 px channels between opaque rows")
+
+    def test_smug_neck_closure_amendment(self):
+        """Review B1 amendment of the frozen smug key (9 px): the cheek outline, the neck row and the chin pinhole."""
+        smug = self.g["frames"][SMUG]
+        self.assertEqual(layer_pix(smug, "head")[(63, 25)], "K")
+        body = layer_pix(smug, "body")
+        self.assertEqual([body[(x, 26)] for x in range(57, 63)], ["C"] * 6)
+        self.assertEqual((body[(63, 26)], body[(63, 27)], body[(46, 26)]), ("K", "K", "c"))
 
     def test_smug_matches_its_spec_row(self):
         smug = self.g["frames"][SMUG]
