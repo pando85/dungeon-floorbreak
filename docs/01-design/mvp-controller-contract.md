@@ -29,10 +29,12 @@
 | Equipped special | Circle (east) | B (east) | Action slot available but not necessarily unlocked at spawn |
 | Interact / pick up / activate | R1 | RB | Required; never an enemy grab |
 | Swap active character (solo) | L1 | LB | Required for hybrid solo target |
-| Pause / menu / inventory | Options | Menu / Start | Required |
+| Pause / menu | Options | Menu / Start | Required; no RPG inventory UI |
 | Precision aim modifier | L2 | LT | Reserved optional extension; default play cannot depend on it |
 | Cycle equipped special | R2 | RT | Reserved; enable only when more than one special is selectable |
 | Optional precision aim direction | Right stick | Right stick or right trackpad | Optional; absent on original Steam Controller as a stick |
+
+**REWARDS-01 clarification (2026-11-20):** the Options/Menu button is for pause and the small gameplay/settings menu. It does **not** imply a traditional inventory; [ADR-0010](../05-decisions/ADR-0010-combat-first-progression.md) rejects inventory, gear comparison and loot management. One story-earned active special per hero remains allowed. No binding semantics change.
 
 The game must not require touchpad gestures, gyro, rear paddles, L3/R3, adaptive triggers or a right stick. Steam Controller (2015) may use its right trackpad for *optional* precision aim; newer Steam controllers and Steam Deck can map the same action. Steam Input can provide platform mappings, but no specific Steam SDK integration is declared implemented.
 
