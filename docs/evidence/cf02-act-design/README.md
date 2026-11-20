@@ -14,3 +14,5 @@ Key-pose previews for [the CF02 acting spec](../../02-art/cf02-acting-spec.md), 
 The lit scenes use the toolkit's Floor 1 layout and A1 lighting pass (`scripts.pixelart.scene.Floor`, view `abc_640x360`); the kit atlases come from `bash scripts/export_assets.sh`. The wall stubs are plain placeholder rectangles, not kit tiles.
 
 Readability notes at 1x: the stomp, air kick, dive pair, panic and the three slammed rests read; the hesitate is picked out of the idle strip by its turned head, raised hand and club held upright against the body; `wall_rest` reads as dead (lolled head, flat legs, smear) rather than getting up; the bail-out reads as an alarmed backpedal (yelling head, one arm flailing up, one hand warding).
+
+Review fix (ART-CARL-CF02, PR #146): three 1 px pinholes were closed in the key files after the independent review (`stomp_knee_up` jacket (21, 19), `dive_plunge` far_arm (30, 15), `bailout_scramble` jacket (28, 30)); the renders in this folder are the historical design-phase renders.

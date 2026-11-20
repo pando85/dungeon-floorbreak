@@ -29,7 +29,7 @@
   "owner": "AI-authored pixel animation candidate (fan-concept layer: Carl -> demolitionist)",
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
-    "origin": "ART-CARL-CF02 Carl combat-acting sheet derived from the owner-approved 52 px master assets/source/characters/carl/carl_h52.grid.json (via the approved ANIM-CARL-01 48 x 56 canvas): the nine ACT-DESIGN keys in assets/source/characters/carl/cf02_keys/ are copied pixel for pixel (airborne keys lifted by the spec section 2 rule); the four derived frames reuse master and key pixels (translated upper block, key stamps, rasterised limbs, no new head); scripts/author_carl_cf02.py is the deterministic authoring record",
+    "origin": "ART-CARL-CF02 Carl combat-acting sheet derived from the owner-approved 52 px master assets/source/characters/carl/carl_h52.grid.json (via the approved ANIM-CARL-01 48 x 56 canvas): the nine ACT-DESIGN keys in assets/source/characters/carl/cf02_keys/ are copied pixel for pixel (airborne keys lifted by the spec section 2 rule); the four derived frames reuse master and key pixels (translated upper block, key stamps, rasterised limbs, the dive_plunge arms for bailout_pushoff, no new head); three 1 px pinholes of the keys were closed in the review fix round of PR #146; scripts/author_carl_cf02.py is the deterministic authoring record",
     "generator": "Design, spec and 9 key poses: Claude Opus (ACT-DESIGN, PR #133). 4 derived frames, export, tests and evidence: Claude Sonnet, composed by scripts/author_carl_cf02.py; no image-model raster output, no resampling, no rotation of master pixels. Independent review: pending (Claude Opus)",
     "generated_art": true,
     "input_reference_ids": [
@@ -431,6 +431,12 @@
         "author": "derived",
         "airborne_lift_px": 0
       }
-    ]
+    ],
+    "derived_sources": {
+      "stomp_recover": "melee-style upper block U(1,3) head v3, idle arms, standing_legs (Crocs x15-24 and x28-37)",
+      "air_kick_chamber": "air_kick_boot upper block and arms, dive_tuck near leg, boot far leg",
+      "bailout_pushoff": "jump_start take-off body and head, dive_plunge arms offset (0,-2) (review ruling Q5)",
+      "frustration_flap": "frustration_shake with the hand flipped and 3 px lower, head 1 px lower"
+    }
   }
 }

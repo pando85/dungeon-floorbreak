@@ -1,6 +1,6 @@
 # ART-CARL-CF02 evidence: Carl combat-acting sheet
 
-**Status: 13 frames (9 frozen ACT-DESIGN keys copied pixel for pixel, 4 derived frames drawn); independent review pending; not owner-approved; not Bevy captures (nothing is wired into a runtime, CF02-I wires it).**
+**Status: 13 frames (9 frozen ACT-DESIGN keys copied pixel for pixel, 4 derived frames drawn); independent review passed with fix items, which this round applies (`stomp_recover` legs, `bailout_pushoff` arms, three 1 px key pinholes); not owner-approved; not Bevy captures (nothing is wired into a runtime, CF02-I wires it).**
 
 Review renders of the [acting spec](../../02-art/cf02-acting-spec.md) section 3. Everything is composed from the grid source (`assets/source/characters/carl/carl_h52_cf02.grid.json`) and the tick contract of its manifest (`assets/manifests/carl_book1_h52_cf02.json`). The grid is rewritten deterministically by `python3 scripts/author_carl_cf02.py` (`--check` verifies it). Regenerate this folder with:
 
@@ -23,4 +23,4 @@ python3 scripts/make_carl_cf02_evidence.py                      # lit sets, 1x c
 | `timing_diagram.png` | frame layout, pivot and 60 Hz tick windows of every move, drawn from the manifest |
 | `SHA256SUMS` | the hash of every file here |
 
-Airborne frames are lifted 2 px (lowest row 53) except `bailout_scramble`, which is 55 px tall and is lifted 1 px (lowest row 54); see the design question in the PR. The approved DEMO-01 sheets are byte-identical.
+Airborne frames are lifted 2 px (lowest row 53) except `bailout_scramble`, which is 55 px tall and is lifted 1 px (lowest row 54, like the approved `jump_fall`; ruled in the PR #146 review and recorded in spec section 2). The approved DEMO-01 sheets are byte-identical.

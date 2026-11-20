@@ -3,7 +3,7 @@
   "format": "pixelart-keys-v1",
   "keys": {
     "0": {
-      "sha256": "d9e3facf5e29354158e32416826febdb4042a7c49c4f90cb24cfa33469490632"
+      "sha256": "454b1a8589446739eb0ec6cfed4a396e648855a8323aaff2500f7832f399aba9"
     },
     "1": {
       "sha256": "bf54f04f938fdf87aa1d39b767ac28121f4993ceea9796b13393077c87205bc0"
@@ -21,13 +21,13 @@
       "sha256": "21cd292abc46ad276a6f0040971ef91caa2174aedb49b4d9b1fe4876c70fcb74"
     },
     "6": {
-      "sha256": "dee1f3dc06d920af342e7ca048a716eab2807b70c7d728e3fe641e6acbcc388f"
+      "sha256": "3c48a8d677d131f8e96416d6552583c5559c443d706e04c7be31a7dd6d43836a"
     },
     "7": {
       "sha256": "fdff5791947841d6854070ca6673c7923d888a088cd6d7067b8463cd5ba02b5b"
     },
     "9": {
-      "sha256": "b1794fa2820884d167a544259b4b243223ee9ee9630798df5f9225451b04e5c7"
+      "sha256": "e6e9a2b2987de4c27e456bd37214451082a78350140c10081150ef4de7dce238"
     }
   },
   "layers": [

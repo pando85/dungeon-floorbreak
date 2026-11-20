@@ -165,19 +165,49 @@ class CarlCf02Sheet(unittest.TestCase):
         support = {k for k in shoes if k[0] - 25 < 5}
         self.assertEqual(max(y for _, y in support), 55)
 
-    def test_stomp_stamp_front_croc_planted_in_recover(self):
-        stamp = {k: c for k, c in pix(frame("stomp_stamp"), "shoes").items() if k[0] >= 30}
-        rec = {k: c for k, c in pix(frame("stomp_recover"), "shoes").items() if k[0] >= 30}
-        self.assertEqual(stamp, rec)                      # the stamping Croc does not slide
-        back = {k for k in pix(frame("stomp_recover"), "shoes") if k[0] < 30}
-        xs = [x - 25 for x, _ in back]
-        self.assertEqual((min(xs), max(xs)), (-10, -1))   # back foot flat at x -10..-1
+    def test_stomp_recover_hands_over_to_idle_within_two_px(self):
+        """Reviewer ruling Q3: both Crocs stand flat on row 55, back x15-24, front x28-37, each at most 2 px from
+        the matching idle-0 Croc (idle x15-24 and x26-35); the stamping foot has pulled back off the target."""
+        shoes = pix(frame("stomp_recover"), "shoes")
+        back = {k for k in shoes if k[0] < 26}
+        front = {k for k in shoes if k[0] >= 26}
+        self.assertEqual((min(x for x, _ in back), max(x for x, _ in back)), (15, 24))
+        self.assertEqual((min(x for x, _ in front), max(x for x, _ in front)), (28, 37))
         self.assertEqual(max(y for _, y in back), 55)
+        self.assertEqual(max(y for _, y in front), 55)
+        idle = pix(load(LOCO)["frames"][0], "shoes")
+        idle_back = {k for k in idle if k[0] < 26}
+        idle_front = {k for k in idle if k[0] >= 26}
+        self.assertLessEqual(abs(min(x for x, _ in front) - min(x for x, _ in idle_front)), 2)
+        self.assertLessEqual(abs(min(x for x, _ in back) - min(x for x, _ in idle_back)), 2)
 
     def test_air_kick_boot_lowest_point_is_a_croc(self):
         pixels = flat(ORDER.index("air_kick_boot"))
         low = max(y for _, y in pixels)
         self.assertTrue(all(c in CROCS for (x, y), c in pixels.items() if y == low))
+
+    def test_air_kick_boot_kicking_croc_is_foremost_lowest(self):
+        """Reviewer ruling Q2: the lowest pixel forward of the pivot is the kicking Croc; the far Croc may hang
+        up to 3 px lower."""
+        pixels = flat(ORDER.index("air_kick_boot"))
+        low = max(y for _, y in pixels)
+        fwd = max(y for (x, y) in pixels if x > 25)
+        self.assertTrue(all(c in CROCS for (x, y), c in pixels.items() if x > 25 and y == fwd))
+        self.assertLessEqual(low - fwd, 3)
+
+    def test_bailout_pushoff_uses_the_plunge_arms(self):
+        """Reviewer ruling Q5: the take-off arms are the dive_plunge arms (out sideways), not the scramble's."""
+        pl = key_frame("dive_plunge")
+        for layer in ("near_arm", "far_arm"):
+            # offset (0, -2) onto the take-off upper block, then the production lift of 2 px
+            expect = {(x, y - 4): c for (x, y), c in pix(pl, layer).items()}
+            self.assertEqual(pix(frame("bailout_pushoff"), layer), expect, layer)
+
+    def test_reviewer_pinholes_are_closed(self):
+        """Reviewer ruling: three 1 px pinholes in frozen keys (key-file coordinates in comments)."""
+        self.assertEqual(pix(frame("stomp_knee_up"), "jacket")[(21, 19)], "K")
+        self.assertEqual(pix(frame("dive_plunge"), "far_arm")[(30, 13)], "K")      # key (30, 15), lift 2
+        self.assertEqual(pix(frame("bailout_scramble"), "jacket")[(28, 29)], "J")  # key (28, 30), lift 1
 
     def test_chamber_does_not_read_as_the_tuck(self):
         """The far leg hangs: the chamber's lowest Croc is straight under the hip while the tuck's feet are both

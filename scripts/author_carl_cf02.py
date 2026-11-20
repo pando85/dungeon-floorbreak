@@ -80,19 +80,12 @@ def from_key(name: str) -> cm.Frame:
 # ------------------------------------------------------------------ derived frames
 
 def stomp_recover() -> cm.Frame:
-    """Q02 recovery: from ``stomp_stamp`` the upper block comes back up 3 px (U(1, 3)), head v3, the stamping
-    Croc stays planted, the back foot comes down flat at x15-24 (pivot-relative -10..-1), arms hang."""
-    s = KEY["stomp_stamp"]
+    """Q02 recovery: from ``stomp_stamp`` the upper block comes back up 3 px (U(1, 3)), head v3 one row lower, arms
+    hang. The stamping leg pulls back off the target: both Crocs stand flat, back x15-24 and front x28-37 (at most
+    2 px from the idle Crocs, so the handover to idle snaps at most 2 px). Reviewer ruling Q3, PR #146."""
     f = cm.upper(cm.Frame(), (1, 3), "v3", (0, 1))
     cm.idle_arms(f, (1, 3))
-    # planted front leg, hem and Croc exactly as the stamp key (no slide)
-    f.add("legs", cm.rect(s["legs"], 29, 42, W, H))
-    f.add("shoes", cm.rect(s["shoes"], 30, 0, W, H))
-    f.add("boxers", cm.rect(s["boxers"], 29, 42, W, H))
-    # back foot down flat
-    cm.hem(f, 16, 42, cm.HEM_BACK)
-    f.add("legs", cm.leg((19, 43), (19, 49)))
-    cm.croc_flat(f, 15)
+    cm.standing_legs(f, 42, 16, 26, 15, 28)
     return f
 
 
@@ -116,9 +109,10 @@ def air_kick_chamber() -> cm.Frame:
 
 
 def bailout_pushoff() -> cm.Frame:
-    """Q54 take-off: ``jump_start`` body thrown back 1 px, front Croc pushing, the yelling head and the arms of
-    ``bailout_scramble`` 2 px lower and closer to the body."""
-    sc = KEY["bailout_scramble"]
+    """Q54 take-off: ``jump_start`` take-off body thrown back 1 px, front Croc pushing, the yelling head already on
+    that frame, and the ``dive_plunge`` arms (out sideways at shoulder height, open hands, the far arm 3 px higher)
+    in place of the scramble arms, which read as cheering at 1x. Reviewer ruling Q5, PR #146."""
+    pl = KEY["dive_plunge"]                 # key-file coordinates (before the lift)
     f = cm.Frame()
     # body and legs: jump_start, take-off frame; upper block (above the hems) 1 px back
     for l in ("torso", "jacket", "pin", "head", "hair"):
@@ -127,11 +121,10 @@ def bailout_pushoff() -> cm.Frame:
     f.add("boxers", cm.rect(JSTART1["boxers"], 0, 38, W, H))
     f.add("legs", JSTART1["legs"])
     f.add("shoes", JSTART1["shoes"])
-    # arms of bailout_scramble (U(-1,-1)) onto this upper block (U(0,-1)): 1 px forward, 2 px lower, nearer the
-    # body: near arm +1 x, far arm -1 x
-    f.add("near_arm", sc["near_arm"], 2, 2)
-    f.add("watch", sc["watch"], 2, 2)
-    f.add("far_arm", sc["far_arm"], 0, 2)
+    # the plunge upper block (pin (22, 21)) sits 2 rows below this one (pin (22, 19)): arms move up 2
+    f.add("near_arm", pl["near_arm"], 0, -2)
+    f.add("watch", pl["watch"], 0, -2)
+    f.add("far_arm", pl["far_arm"], 0, -2)
     return f
 
 
