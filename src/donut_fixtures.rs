@@ -385,7 +385,7 @@ pub const CF02_LLAMA_BOLT_STOPS: PartyFixture = PartyFixture {
 
 const DONUT_SOLO_LLAMA_BASE: Fixture = llama_base(
     "cf02_donut_solo_llama",
-    "Solo as Donut against one llama: three pounces and the light-guarded swat; the replay records the time to kill and the damage taken (Q44)",
+    "Solo as Donut against one llama: three pounces; the replay records the time to kill and the damage taken (Q44)",
     0x0CF0_2C05,
     &[llama(560)],
     420,
@@ -1191,6 +1191,28 @@ mod tests {
             off.scene.world.donut_body.x > on.scene.world.donut_body.x,
             "the pounce on a llama stops at its body: {llama_x}"
         );
+        // The stop point: on the hit tick (80) the pounce box overlaps the
+        // llama's near face, her horizontal speed is cancelled, and she stays
+        // in front of the llama's body.
+        let fixture = PartyFixture::by_name("cf02_llama_pounce").unwrap();
+        let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        sim.run_scripted(80);
+        let donut = sim.scene.world.donut_body.x;
+        let body = sim.combat.llamas[0].body();
+        let gap = body.left - donut;
+        assert!(
+            (0.0..=crate::donut_moves::POUNCE_CONTACT_PX).contains(&gap),
+            "she stopped in front of the llama's near face (gap {gap} px)"
+        );
+        assert!(
+            off.scene.world.donut_body.x > body.left,
+            "without Q18 the same pounce ends past that face"
+        );
+        sim.run_scripted(4);
+        assert_eq!(
+            sim.scene.world.donut_body.x, donut,
+            "no horizontal travel after the contact"
+        );
     }
 
     #[test]
@@ -1216,8 +1238,9 @@ mod tests {
 
     /// Q44: Donut alone kills a llama with little risk but slowly. The numbers
     /// the owner judges: three pounces, 150 ticks from the first press to the
-    /// kill, and no damage to Donut (the llama spits at Carl and the glob flies
-    /// over her 24 px body).
+    /// kill, and no damage to Donut. The llama only ever aims at Carl (the fair
+    /// fire rule reads his column), so its one spit hits him and never her; her
+    /// 24 px hurtbox under the glob line is not what this fixture exercises.
     #[test]
     fn cf02_donut_solo_llama_records_the_time_to_kill_and_the_damage_taken() {
         let sim = named("cf02_donut_solo_llama");
@@ -1274,6 +1297,24 @@ mod tests {
         }
         let on = named("cf02_llama_pounce");
         assert!(on.combat.llama_targets_live().is_some());
+    }
+
+    /// Q37: the switch is reversible by data. With `cf02_rules` on but
+    /// `q18_llama_targets` off the llamas are still no target.
+    #[test]
+    fn q18_off_inside_cf02_rules_leaves_the_llamas_untargeted() {
+        use crate::cf02::Cf02Tuning;
+        use crate::llama::LlamaTargets;
+        let mut t = Cf02Tuning::pinned().unwrap();
+        t.cf02_rules = true;
+        assert!(
+            t.llama_targets(),
+            "on under cf02_rules with the data as shipped"
+        );
+        assert!(LlamaTargets::from_tuning(&t).is_some());
+        t.q18_llama_targets = false;
+        assert!(!t.llama_targets());
+        assert_eq!(LlamaTargets::from_tuning(&t), None);
     }
 
     /// The numbers of the Q18 knobs that the llama and the move domain own as
