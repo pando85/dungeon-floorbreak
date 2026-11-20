@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=5 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=10 kind=goblin_reaction goblin=0 reaction=taunt nerve=57
+COMBAT_EVENT tick=36 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=39 kind=hit move=jab instance=2 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=83 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=109 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=109 kind=hero_hurt source=0 health_left=3
+COMBAT_STATE fixture=cf02_showoff_taunt_punish seed=0xcf020d03 tick=140 elapsed=140 hero_hp=3 deaths=0 enemies=e0=463.700/1 hash=2219aa1778845c3d
+PARTY_STATE fixture=cf02_showoff_taunt_punish mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=1b204602f6c3dc63

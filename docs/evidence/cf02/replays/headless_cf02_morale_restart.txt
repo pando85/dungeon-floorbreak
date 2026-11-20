@@ -1,0 +1,16 @@
+COMBAT_EVENT tick=60 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=67 kind=move_started move=haymaker instance=2
+COMBAT_EVENT tick=90 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=116 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=116 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=170 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=185 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=196 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=196 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=211 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=265 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=277 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=291 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=291 kind=hero_hurt source=1 health_left=1
+COMBAT_STATE fixture=cf02_morale_restart seed=0xcf020d00 tick=300 elapsed=300 hero_hp=1 deaths=0 enemies=e0=433.201/2,e1=433.635/2,e2=680.000/2 hash=1a0954dbc6bb8a9b
+PARTY_STATE fixture=cf02_morale_restart mode=solo controlled=Carl carl_hp=1 donut_hp=4 deaths=0 hash=1e9bf7903b1a9d01

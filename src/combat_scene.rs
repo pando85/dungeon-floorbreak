@@ -33,7 +33,7 @@ use crate::env_kit::EnvKit;
 use crate::feel::{
     CAMERA_KICK_TICKS, GROUND_FRICTION, HERO_DEFEAT_HIT_STOP, HERO_HURT_HIT_STOP,
     HERO_KNOCKDOWN_VX, HERO_KNOCKDOWN_VY, IMPACT_END, IMPACT_FLASH_TICKS, LETHAL_CAMERA_KICK_BONUS,
-    MAX_ATTACKERS, TELL_SPACING,
+    TELL_SPACING,
 };
 pub use crate::feel::{HERO_HURT_TICKS, RESTART_DELAY_TICKS};
 use crate::follower::Threat;
@@ -52,8 +52,10 @@ mod carl_cf02;
 mod companion;
 mod contacts_cf02;
 mod donut;
+mod morale_cf02;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
+use self::morale_cf02::MoraleRuntime;
 pub use donut::{Bolt, Cast, DonutKit};
 
 /// Centre-to-centre distance at which Carl's body touches a goblin's (the two
@@ -836,6 +838,14 @@ pub struct CombatState {
     /// CF02-H: Carl's move buffer and airborne state (default, and not hashed,
     /// without `cf02_rules`).
     carl_cf02: CarlCf02,
+    /// CF02-G: the morale switch (`--cf02` and the G fixtures; the A, H and B
+    /// fixtures run without it so their replays are unchanged), the `--cf02-seed`
+    /// override, this run's morale state and the tick's events it judges. `morale`
+    /// is `Some` only under `cf02_rules` with the switch on, and is hashed only then.
+    morale_on: bool,
+    cf02_seed: Option<u64>,
+    morale: Option<MoraleRuntime>,
+    morale_feed: Vec<CombatEvent>,
     /// Which hero's defeat ended the attempt (D1: either one is the party's
     /// defeat). Meaningful while `hero_defeated`.
     pub defeated_hero: HeroId,
@@ -920,6 +930,10 @@ impl CombatState {
             companion: CompanionRuntime::default(),
             cf02: cf02::fixture_runs_cf02(fixture.name).then(cf02::active),
             carl_cf02: CarlCf02::default(),
+            morale_on: crate::cf02_fixtures::morale_fixture(fixture.name),
+            cf02_seed: None,
+            morale: None,
+            morale_feed: Vec::new(),
             defeated_hero: HeroId::Carl,
             targets: Vec::new(),
             defeated_ticks: 0,
@@ -959,6 +973,17 @@ impl CombatState {
         self.cf02 = Some(cf02::active());
         // CF02-C1 (Q18, Q37): the llamas are Donut's targets under the same switch.
         self.enable_llama_targets();
+        // The `--cf02` scenario runs the goblin morale of CF02-G.
+        self.morale_on = true;
+        self.reset_attempt();
+        self
+    }
+
+    /// CF02-Q58: the `--cf02-seed` override of the temperament draw (`None`: the
+    /// fixture seed). Rebuilds the attempt's morale with it.
+    #[must_use]
+    pub fn with_cf02_seed(mut self, seed: Option<u64>) -> Self {
+        self.cf02_seed = seed;
         self.reset_attempt();
         self
     }
@@ -1012,6 +1037,7 @@ impl CombatState {
             if self.enemies[index].health > 0 {
                 self.enemies[index] = self.new_goblin(spawn.x as f32, spawn.ai);
                 self.flash_tick[index] = None;
+                self.respawn_morale_of(index);
             }
         }
         // A test charge that has not blown goes back to its unlit state with
@@ -1112,6 +1138,8 @@ impl CombatState {
             goblin.launch = Some(0);
         }
         self.retire_goblins_behind_start();
+        // CF02-G (Q57, Q58): every goblin draws its temperament for this attempt.
+        self.spawn_morale();
     }
 
     /// DEMO-01, a run that starts at a later beat: the goblins of the beats
@@ -1162,11 +1190,13 @@ impl CombatState {
             deaths: self.deaths,
         });
         scene.reset();
+        // CF02-Q58: the attempt index is part of the temperament draw, so it counts
+        // before the attempt is built (nothing else reads it in between).
+        self.restarts += 1;
         self.reset_attempt();
         self.restart_donut(kind);
         self.companion.reset();
         self.sync_arena(scene);
-        self.restarts += 1;
     }
 
     fn push_event(&mut self, event: CombatEvent) {
@@ -1180,6 +1210,9 @@ impl CombatState {
     }
 
     fn log(&mut self, event: CombatEvent) {
+        if self.morale.is_some() {
+            self.morale_feed.push(event);
+        }
         let mut hash = self.event_hash;
         event.mix_into(&mut |value| hash = mix(hash, value));
         self.event_hash = hash;
@@ -1217,6 +1250,7 @@ impl CombatState {
         let live = scene.party_live();
         let tick = scene.world.tick + 1;
         self.elapsed += 1;
+        self.morale_feed.clear();
         self.input.advance(raw);
         // Hit-stop freezes a hero's timers: his flinch, his invulnerability and
         // (through the move clock) his move.
@@ -1486,6 +1520,8 @@ impl CombatState {
         self.step_shore(tick);
         self.step_boss(scene, tick);
         self.step_charges(tick, scene.world.hero.x);
+        // CF02-G: the morale of every goblin judges the tick's events last.
+        self.step_morale(scene, tick, self.x_max - ENEMY_HALF_WIDTH);
 
         if self.hero_defeated {
             self.defeated_ticks = self.defeated_ticks.saturating_add(1);
@@ -1793,34 +1829,29 @@ impl CombatState {
             .collect();
         // Attack token: at most MAX_ATTACKERS goblins in a tell or a swing; the
         // free slots go to the goblins that could attack, nearest to their
-        // target first, ties to the lower index.
-        let active = self.enemies.iter().filter(|g| g.token_held()).count();
-        let slots = MAX_ATTACKERS.saturating_sub(active);
-        let mut ranked: Vec<(f32, usize)> = self
-            .enemies
-            .iter()
-            .enumerate()
-            .filter(|(_, g)| g.wants_attack())
-            .map(|(index, g)| ((g.x - target_x[index]).abs(), index))
-            .collect();
-        ranked.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        // target first, ties to the lower index. Under CF02 morale a goblin in a
+        // reaction takes none (Q68) and the second token prefers the other side of
+        // the first holder's target (Q66).
         // Starvation note: an approved goblin that cannot get within the trigger
         // distance (a wall or a ledge between it and Carl) keeps its slot and
         // starves the goblins behind it. Fixtures stand on clean ground, so this
         // cannot happen yet; revisit with real geometry (the opening scene).
-        let approved: Vec<usize> = ranked.iter().take(slots).map(|r| r.1).collect();
+        let approved: Vec<usize> = self.approved_goblins(&target_x);
         for index in 0..self.enemies.len() {
             let may_start = self
                 .last_tell_start
                 .is_none_or(|start| tick - start >= TELL_SPACING);
-            let step = self.enemies[index].step(
+            let drive = self.mind_drive(index);
+            let step = self.enemies[index].step_with(
                 target_x[index],
                 !self.hero_defeated,
                 &scene.world.solids,
                 self.x_max - ENEMY_HALF_WIDTH,
                 approved.contains(&index),
                 may_start,
+                &drive,
             );
+            self.note_flee_blocked(index, step.blocked);
             // WORK-023: one tick of the light guard (nothing while unset).
             self.enemies[index].observe_guard();
             if step.started_tell {
@@ -2425,6 +2456,10 @@ impl CombatState {
         }
         for goblin in &self.enemies {
             goblin.mix_into(&mut put);
+        }
+        // CF02-G: the goblins' morale, mixed only for a run with it.
+        if let Some(morale) = &self.morale {
+            morale.mix_into(&mut put);
         }
         // DEMO-01 PR B: mixed only for a fixture with llamas (or a glob in
         // flight), so every earlier fixture keeps its hash.

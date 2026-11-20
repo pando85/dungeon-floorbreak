@@ -976,7 +976,7 @@ fn build_scene(
         // COMBAT-FUN-02: `--cf02` runs the CF02 rules, llama targets (C1)
         // included (every `cf02_*` fixture already does, by its name).
         if args.cf02.rules {
-            combat = combat.with_cf02();
+            combat = combat.with_cf02().with_cf02_seed(args.cf02.seed);
         }
         let mut anim = actors.animators(&sim.world);
         anim.art = actors.combat_art(&combat);

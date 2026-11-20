@@ -89,6 +89,38 @@ pub struct GoblinStep {
     pub swing_began: bool,
     /// The swing is active this tick (attack ticks 26..=29).
     pub impact: bool,
+    /// CF02-Q63: a panicking goblin could not move because a solid or the layout
+    /// edge was in the way this tick (always false in the legacy game).
+    pub blocked: bool,
+}
+
+/// CF02-G: what the morale layer ([`crate::morale`]) asks of one goblin for one
+/// tick. [`Self::LEGACY`] is the unchanged goblin; the scene builds the others only
+/// for a run with morale. The goblin's own state machine, tell and swing timings
+/// never change: a drive only picks the walk speed, whether the goblin stands
+/// still, whether it flees and the cooldown it sets after an attack (Q61).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MindDrive {
+    /// Walk speed in px/s (legacy 62; enraged 81).
+    pub walk_speed: f32,
+    /// Stand still: no walking and no new tell (hesitate, taunt, back-off, the
+    /// first-approach delay).
+    pub hold: bool,
+    /// Panic: flee in this direction (+1 right, -1 left) at this speed in px/s;
+    /// a fleeing goblin starts no attack.
+    pub flee: Option<(i8, f32)>,
+    /// Cooldown after an attack (legacy 40; enraged 24).
+    pub attack_cooldown: u8,
+}
+
+impl MindDrive {
+    /// The unchanged goblin.
+    pub const LEGACY: Self = Self {
+        walk_speed: GOBLIN_WALK_SPEED,
+        hold: false,
+        flee: None,
+        attack_cooldown: ATTACK_COOLDOWN,
+    };
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -326,6 +358,30 @@ impl Goblin {
         approved: bool,
         may_start: bool,
     ) -> GoblinStep {
+        self.step_with(
+            hero_x,
+            hero_alive,
+            solids,
+            max_x,
+            approved,
+            may_start,
+            &MindDrive::LEGACY,
+        )
+    }
+
+    /// [`Self::step`] under a morale drive (CF02-G). With [`MindDrive::LEGACY`]
+    /// this is exactly [`Self::step`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn step_with(
+        &mut self,
+        hero_x: f32,
+        hero_alive: bool,
+        solids: &[Block],
+        max_x: f32,
+        approved: bool,
+        may_start: bool,
+        drive: &MindDrive,
+    ) -> GoblinStep {
         let mut out = GoblinStep::default();
         self.wall_stop = None;
         if self.hit_stop > 0 {
@@ -396,14 +452,25 @@ impl Goblin {
                     self.mode = GoblinMode::Neutral;
                     self.attack_tick = 0;
                     self.swing_hit = false;
-                    self.attack_cooldown = ATTACK_COOLDOWN;
+                    self.attack_cooldown = drive.attack_cooldown;
                 }
             }
             GoblinMode::Neutral => {
                 self.attack_cooldown = self.attack_cooldown.saturating_sub(1);
                 self.hurt_cooldown = self.hurt_cooldown.saturating_sub(1);
                 self.integrate(solids, max_x);
-                out.started_tell = self.neutral(hero_x, hero_alive, solids, approved, may_start);
+                if let Some((dir, speed)) = drive.flee {
+                    out.blocked = !self.flee(dir, speed, solids, max_x);
+                } else if !drive.hold {
+                    out.started_tell = self.neutral(
+                        hero_x,
+                        hero_alive,
+                        solids,
+                        approved,
+                        may_start,
+                        drive.walk_speed,
+                    );
+                }
             }
         }
         out
@@ -418,6 +485,7 @@ impl Goblin {
         solids: &[Block],
         approved: bool,
         may_start: bool,
+        walk_speed: f32,
     ) -> bool {
         let dx = hero_x - self.x;
         let distance = dx.abs();
@@ -439,12 +507,35 @@ impl Goblin {
         };
         if distance > stop_at {
             self.facing = toward;
-            let candidate = self.x + f32::from(toward) * GOBLIN_WALK_SPEED * TICK_SECONDS;
+            let candidate = self.x + f32::from(toward) * walk_speed * TICK_SECONDS;
             if !solid_at(solids, body_rect(candidate, self.y)) {
                 self.x = candidate;
             }
         }
         false
+    }
+
+    /// CF02-Q61, Q63: one tick of fleeing in `dir` at `speed` px/s. The goblin
+    /// faces where it runs. Returns false when a solid or the layout edge stopped
+    /// it (it did not move).
+    fn flee(&mut self, dir: i8, speed: f32, solids: &[Block], max_x: f32) -> bool {
+        self.facing = dir;
+        let wanted = self.x + f32::from(dir) * speed * TICK_SECONDS;
+        let candidate = wanted.clamp(ENEMY_HALF_WIDTH, max_x);
+        if candidate == self.x || solid_at(solids, body_rect(candidate, self.y)) {
+            return false;
+        }
+        self.x = candidate;
+        candidate == wanted
+    }
+
+    /// CF02-Q64: a hop of `px` px in `dir` (the Coward's back-off), stopped by a
+    /// solid or the layout edge. The goblin keeps facing the hero.
+    pub(crate) fn hop(&mut self, dir: i8, px: f32, solids: &[Block], max_x: f32) {
+        let candidate = (self.x + f32::from(dir) * px).clamp(ENEMY_HALF_WIDTH, max_x);
+        if !solid_at(solids, body_rect(candidate, self.y)) {
+            self.x = candidate;
+        }
     }
 
     /// Move by the knockback velocity: stopped by walls and the layout edge,

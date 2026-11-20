@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=5 kind=move_started move=push_kick instance=1
+COMBAT_EVENT tick=5 kind=goblin_reaction goblin=0 reaction=back_off nerve=43
+COMBAT_EVENT tick=56 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=82 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=82 kind=hero_hurt source=0 health_left=3
+COMBAT_STATE fixture=cf02_coward_backoff_kick seed=0xcf020d15 tick=90 elapsed=90 hero_hp=3 deaths=0 enemies=e0=429.600/2 hash=bbcd6ffdc01d250e
+PARTY_STATE fixture=cf02_coward_backoff_kick mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=fc6afbe4fc6a2ab4
