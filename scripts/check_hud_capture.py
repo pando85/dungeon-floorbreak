@@ -32,6 +32,15 @@ TEXT_WHITE = (0xF4, 0xE6, 0xD2)
 # multiply (src/hud_draw.rs TEXT_WHITE_TO_AMBER), which renders as this colour
 # (the mask red 244 cannot be raised). The code-drawn decimal dot uses it too.
 VIEWER_AMBER = (0xF4, 0xC2, 0x4A)
+# The two viewer colours made by a GPU multiply (the amber digits and the dim
+# down arrow, `amber_dim`). Rasterisers round the linear multiply differently
+# (a software Vulkan runner lands one level off a hardware GPU), so these two
+# match within one level per channel; every other colour must be exact.
+TINTED = (VIEWER_AMBER, (0xA8, 0x74, 0x2A))
+
+
+def is_tinted(c: tuple[int, int, int]) -> bool:
+    return any(all(abs(a - b) <= 1 for a, b in zip(c, t)) for t in TINTED)
 
 
 def palette() -> set[tuple[int, int, int]]:
@@ -76,7 +85,7 @@ def main() -> int:
                     for dx in range(scale)
                 ):
                     bad_block += 1
-                if check_palette and first not in colours:
+                if check_palette and first not in colours and not is_tinted(first):
                     bad_colour += 1
         if bad_block:
             failures.append(f"{name}: {bad_block} virtual pixels are not a flat {scale}x{scale} block")
