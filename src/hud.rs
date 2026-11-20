@@ -501,6 +501,8 @@ pub struct RealHudInputs {
     /// live actions.
     pub melee_live: bool,
     pub donut_magic: DonutMagic,
+    /// What Primary does at 0 mana (the loaded mana tuning, Q10-16).
+    pub empty_press: EmptyPress,
     pub hp_flash: Option<HpFlash>,
     /// Donut's HP flash, from her real hurt events (HUD-DEBT-01).
     pub donut_hp_flash: Option<HpFlash>,
@@ -535,6 +537,7 @@ impl RealHudInputs {
             donut_control: Control::Ai,
             melee_live: true,
             donut_magic: DonutMagic::PreBiscuit,
+            empty_press: EmptyPress::Dry,
             hp_flash: None,
             donut_hp_flash: None,
             notice: None,
@@ -660,7 +663,7 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
         donut_hud::donut_ability_row(
             real.donut_control,
             real.donut_magic,
-            EmptyPress::Dry,
+            real.empty_press,
             real.donut_chips,
             real.melee_live,
         ),
@@ -1032,6 +1035,8 @@ pub struct HudRuntime {
     /// while the biscuit is locked. Fed by the scene from the simulation's
     /// `DonutMana`; the HUD never invents it.
     donut_mana: Option<(u8, u8)>,
+    /// The loaded `empty_press` rule (Q10-16), fed by the scene.
+    empty_press: EmptyPress,
     /// The one-time depleted outline flash (presentation only).
     depleted: donut_hud::DepletedFlash,
 }
@@ -1076,6 +1081,7 @@ impl HudRuntime {
             location: None,
             boss: None,
             donut_mana: None,
+            empty_press: EmptyPress::Dry,
             depleted: donut_hud::DepletedFlash::default(),
         }
     }
@@ -1089,6 +1095,15 @@ impl HudRuntime {
         // The renderer rebuilds only on a new revision, and `step` compares
         // against the state it starts from: a visible change is counted here.
         if self.donut_magic() != before {
+            self.revision += 1;
+        }
+    }
+
+    /// The loaded `empty_press` rule, so a depleted plate shows what the press
+    /// really does. Call before [`Self::step`]; constant for a run.
+    pub fn set_empty_press(&mut self, empty_press: EmptyPress) {
+        if self.empty_press != empty_press {
+            self.empty_press = empty_press;
             self.revision += 1;
         }
     }
@@ -1389,6 +1404,7 @@ impl HudRuntime {
         real.high_contrast = self.config.settings.high_contrast;
         real.boss = self.boss_view();
         real.donut_magic = self.donut_magic();
+        real.empty_press = self.empty_press;
         real
     }
 
@@ -2390,6 +2406,32 @@ mod tests {
 
     /// The Donut plate is an AI label, or no chips outside a combat section,
     /// or the chips: from the pure mapping of `donut_hud`.
+    #[test]
+    fn the_loaded_empty_press_reaches_the_depleted_plate() {
+        let mut hud = HudRuntime::new(HudConfig::default());
+        hud.set_melee_live(true);
+        hud.set_party(PartyView {
+            carl: Control::Ai,
+            donut: Control::Player(1),
+            donut_chips: true,
+            ..PartyView::default()
+        });
+        hud.set_donut_mana(Some((0, 8)));
+        let label = |hud: &HudRuntime| {
+            let AbilityRow::Chips { a, .. } = hud.snapshot().plates[1].abilities else {
+                panic!("chips")
+            };
+            (a.label, a.muted)
+        };
+        assert_eq!(label(&hud), (LabelId::Missile, true), "dry press: muted");
+        hud.set_empty_press(EmptyPress::Swat);
+        assert_eq!(
+            label(&hud),
+            (LabelId::Swat, false),
+            "swat press: unmuted swat"
+        );
+    }
+
     #[test]
     fn the_donut_chips_follow_control_the_melee_gate_and_q10_01() {
         let mut real = RealHudInputs::normal(4, 4);

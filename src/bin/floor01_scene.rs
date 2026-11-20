@@ -731,7 +731,8 @@ fn new_hud(args: &Args, kit: &EnvKit, actors: &Actors) -> HudRuntime {
 /// declares its own; the boss arena (after the Guild) and `--donut-biscuit`
 /// start with it and a full pool; a live run elsewhere gets it at the
 /// placeholder Guild zone (an x range of the layout, until the Guild room
-/// exists). Scripted runs never read it (the party is not live there).
+/// exists); the DEMO-01 hall has no zone and stays locked. Scripted runs never
+/// read it (the party is not live there).
 fn donut_setup(args: &Args) -> DonutSetup {
     if let Some(pf) = args.party_fixture {
         return pf.donut;
@@ -739,14 +740,15 @@ fn donut_setup(args: &Args) -> DonutSetup {
     if args.donut_biscuit || args.boss {
         return DonutSetup::unlocked(8);
     }
-    let zone = if args.demo {
-        demo::GUILD_PLACEHOLDER_ZONE
-    } else {
-        donut_fixtures::GUILD_PLACEHOLDER_ZONE
-    };
+    if args.demo {
+        // DEMO-01 is documented as "without the Guild or Donut's magic": the
+        // hall has no unlock zone, so the biscuit stays locked (the swat and
+        // the pounce stay available).
+        return DonutSetup::NONE;
+    }
     DonutSetup {
         start: StartState::LOCKED,
-        guild_zone: Some(zone),
+        guild_zone: Some(donut_fixtures::GUILD_PLACEHOLDER_ZONE),
     }
 }
 
@@ -760,6 +762,9 @@ fn step_hud(hud: &mut HudRuntime, sim: &SceneSim, combat: Option<&CombatState>) 
     hud.set_melee_live(combat.is_some());
     // HUD-DEBT-02: Donut's real mana (None while the biscuit is locked).
     hud.set_donut_mana(combat.and_then(CombatState::donut_mana_view));
+    if let Some(combat) = combat {
+        hud.set_empty_press(combat.donut_mana_tuning().empty_press);
+    }
     // HUD-DEBT-03: the boss strip reads the simulation's boss state.
     match combat.and_then(|c| c.boss.as_ref()) {
         Some(boss) => {
