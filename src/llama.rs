@@ -23,7 +23,9 @@
 //! **spit released on tick 36** (the first tick of the art's `attack_swing`
 //! frame), recover to 60.
 
+use crate::cf02::Cf02Tuning;
 use crate::combat::{EnemyAi, HitOutcome, MoveSpec, StrikeTarget, solid_at};
+use crate::donut_moves::{HitStopSplit, LightGuard, TargetState, hash_guard};
 use crate::feel::{
     GROUND_FRICTION, LETHAL_HIT_STOP_BONUS, LLAMA_ATTACK_TICKS, LLAMA_COOLDOWN,
     LLAMA_DEATH_SLIDE_VX, LLAMA_DOWN_TICKS, LLAMA_FIRE_RANGE, LLAMA_GLOB_HALF_H, LLAMA_GLOB_HALF_W,
@@ -96,6 +98,12 @@ pub struct Llama {
     /// The player whose move last hit it (read for the defeat only; slot 0 is
     /// not mixed into the hash, like a goblin's).
     pub hit_by: Option<u32>,
+    /// CF02-C1 (Q18): the light guard a Donut swat that interrupted a tell
+    /// sets (Q10-06), so Donut alone cannot lock a llama. It clears after
+    /// `LIGHT_GUARD_MIN_TICKS` **and** the llama's next spit release, or on
+    /// defeat. Mixed into the hash only while set, so no earlier replay (where
+    /// nothing sets it) changes.
+    pub guard: Option<LightGuard>,
 }
 
 impl Llama {
@@ -116,6 +124,34 @@ impl Llama {
             hit_stop: 0,
             cooldown: 0,
             hit_by: None,
+            guard: None,
+        }
+    }
+
+    /// What the Donut move domain sees of this llama (CF02-C1, Q18): the tell
+    /// is attack ticks `0..LLAMA_TELL_TICKS`, the spit release tick is the
+    /// `Impact` (the guard's clear condition, latched), the rest of the attack
+    /// is `Recovery`; a defeated llama is no target.
+    pub fn target_state(&self) -> TargetState {
+        match self.mode {
+            LlamaMode::Neutral => TargetState::Neutral,
+            LlamaMode::Attack => match self.attack_tick.cmp(&LLAMA_TELL_TICKS) {
+                core::cmp::Ordering::Less => TargetState::Tell,
+                core::cmp::Ordering::Equal => TargetState::Impact,
+                core::cmp::Ordering::Greater => TargetState::Recovery,
+            },
+            LlamaMode::Hurt => TargetState::Staggered,
+            LlamaMode::Down | LlamaMode::Corpse => TargetState::Defeated,
+        }
+    }
+
+    /// One tick of the light guard (nothing while unset): dropped on release.
+    fn observe_guard(&mut self) {
+        let state = self.target_state();
+        if let Some(guard) = self.guard.as_mut()
+            && guard.observe(state)
+        {
+            self.guard = None;
         }
     }
 
@@ -148,6 +184,19 @@ impl Llama {
     /// One fixed tick. `view` is the simulation's scroll-camera view;
     /// `hero_alive` false keeps the llama idle.
     pub fn step(
+        &mut self,
+        hero_x: f32,
+        hero_alive: bool,
+        solids: &[Block],
+        max_x: f32,
+        view: FireView,
+    ) -> LlamaStep {
+        let out = self.step_mode(hero_x, hero_alive, solids, max_x, view);
+        self.observe_guard();
+        out
+    }
+
+    fn step_mode(
         &mut self,
         hero_x: f32,
         hero_alive: bool,
@@ -284,6 +333,8 @@ impl Llama {
             mix(0x4849_5442);
             mix(u64::from(player));
         }
+        // CF02-C1: the light guard, only while set.
+        hash_guard(&self.guard, mix);
     }
 }
 
@@ -323,6 +374,23 @@ impl StrikeTarget for Llama {
     /// the presenter's business); any other hit staggers it and cancels a tell,
     /// and the push kick also pushes it back.
     fn take_hit(&mut self, spec: &MoveSpec, attacker_facing: i8) -> (HitOutcome, u8) {
+        let (outcome, split) = self.take_hit_split(spec, attacker_facing, HitStopSplit::legacy);
+        (outcome, split.attacker)
+    }
+}
+
+impl Llama {
+    /// [`StrikeTarget::take_hit`] with the hit-stop split chosen by the caller
+    /// (CF02-C1: Donut's moves freeze the llama differently from Carl's). The
+    /// scene steps llamas after the hero strikes on the same tick, hence the
+    /// legacy split's `stop + 1` for the target. Behaviour is identical to the
+    /// former `take_hit` for [`HitStopSplit::legacy`].
+    pub fn take_hit_split(
+        &mut self,
+        spec: &MoveSpec,
+        attacker_facing: i8,
+        split: impl FnOnce(u8) -> HitStopSplit,
+    ) -> (HitOutcome, HitStopSplit) {
         let reaction = spec.reaction;
         let direction = f32::from(attacker_facing);
         self.health = self.health.saturating_sub(spec.damage);
@@ -349,9 +417,42 @@ impl StrikeTarget for Llama {
                 health_left: self.health,
             }
         };
-        // The scene steps llamas after Carl's strike on the same tick.
-        self.hit_stop = stop + 1;
-        (outcome, stop)
+        let split = split(stop);
+        self.hit_stop = split.target;
+        (outcome, split)
+    }
+}
+
+/// CF02-C1 (Q18, Q37): the damage Donut's moves deal to a llama, read from the
+/// CF02 knob file. `Some` in the kit only while `q18_llama_targets` is
+/// effective (`cf02_rules` on); `None` everywhere else, so no llama is a target
+/// and every earlier replay is byte-identical. The interrupt stagger (18), the
+/// hurt cooldown (30) and the guard minimum (60) are the llama's own constants
+/// (`LLAMA_HURT_TICKS`, `LLAMA_HURT_COOLDOWN`, `LIGHT_GUARD_MIN_TICKS`), pinned
+/// equal to their knobs by a test.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LlamaTargets {
+    pub swat_damage: u8,
+    pub pounce_damage: u8,
+    pub missile_damage: u8,
+}
+
+impl LlamaTargets {
+    /// The knobs of `tuning`, or `None` while the Q18 switch is off (Q37).
+    pub fn from_tuning(tuning: &Cf02Tuning) -> Option<Self> {
+        tuning.llama_targets().then_some(Self {
+            swat_damage: tuning.q18_swat_damage,
+            pounce_damage: tuning.q18_pounce_damage,
+            missile_damage: tuning.q18_missile_damage,
+        })
+    }
+
+    /// The committed knobs with `cf02_rules` forced to `rules`: the `--cf02`
+    /// run (`true`) or the legacy scene (`false`, giving `None`).
+    pub fn for_rules(rules: bool) -> Option<Self> {
+        let mut tuning = Cf02Tuning::pinned().expect("the committed CF02 data loads");
+        tuning.cf02_rules = rules;
+        Self::from_tuning(&tuning)
     }
 }
 
@@ -750,5 +851,80 @@ mod tests {
         assert!(l.crush());
         assert!(!l.crush());
         assert_eq!((l.mode, l.health), (LlamaMode::Down, 0));
+    }
+    // ------------------------------------------- CF02-C1: Donut's hits --
+
+    #[test]
+    fn the_legacy_take_hit_is_the_legacy_split_of_take_hit_split() {
+        for spec in [&CARL_JAB, &CARL_HAYMAKER, &CARL_PUSH_KICK] {
+            let mut a = llama_at(440.0);
+            let mut b = llama_at(440.0);
+            let (out_a, stop) = a.take_hit(spec, 1);
+            let (out_b, split) = b.take_hit_split(spec, 1, HitStopSplit::legacy);
+            assert_eq!((out_a, stop), (out_b, split.attacker));
+            assert_eq!(a, b);
+            assert_eq!(a.hit_stop, stop + 1);
+        }
+    }
+
+    #[test]
+    fn the_target_state_follows_the_mode_and_the_attack_tick() {
+        let mut l = llama_at(440.0);
+        assert_eq!(l.target_state(), TargetState::Neutral);
+        l.mode = LlamaMode::Attack;
+        for (attack_tick, want) in [
+            (0, TargetState::Tell),
+            (LLAMA_TELL_TICKS - 1, TargetState::Tell),
+            (LLAMA_TELL_TICKS, TargetState::Impact),
+            (LLAMA_TELL_TICKS + 1, TargetState::Recovery),
+        ] {
+            l.attack_tick = attack_tick;
+            assert_eq!(l.target_state(), want, "attack tick {attack_tick}");
+        }
+        l.mode = LlamaMode::Hurt;
+        assert_eq!(l.target_state(), TargetState::Staggered);
+        for mode in [LlamaMode::Down, LlamaMode::Corpse] {
+            l.mode = mode;
+            assert_eq!(l.target_state(), TargetState::Defeated);
+        }
+    }
+
+    fn hash_of(l: &Llama) -> Vec<u64> {
+        let mut out = Vec::new();
+        l.mix_into(&mut |v| out.push(v));
+        out
+    }
+
+    #[test]
+    fn the_guard_is_mixed_only_while_set_and_clears_after_60_ticks_and_the_spit() {
+        let mut l = llama_at(560.0);
+        let unset = hash_of(&l);
+        l.guard = Some(LightGuard::new());
+        assert_ne!(hash_of(&l), unset);
+        l.guard = None;
+        assert_eq!(hash_of(&l), unset, "an unset guard hashes nothing");
+        // Carl idles at 400: the llama tells at tick 1, spits on attack tick
+        // 36 (the Impact) and the guard (set at the start) clears once 60
+        // ticks have passed and that spit was seen.
+        l.guard = Some(LightGuard::new());
+        let mut cleared_at = None;
+        for t in 1..=120u32 {
+            tick(&mut l, 400.0);
+            if l.guard.is_none() {
+                cleared_at = Some(t);
+                break;
+            }
+        }
+        // Tell on tick 1 (attack tick 0), spit on tick 37, but the guard needs
+        // 60 ticks: it clears on tick 60.
+        assert_eq!(cleared_at, Some(60));
+        // A guard set on a defeated llama is dropped at once.
+        let mut dead = llama_at(560.0);
+        dead.guard = Some(LightGuard::new());
+        dead.take_hit(&CARL_PUSH_KICK, 1);
+        dead.health = 0;
+        dead.mode = LlamaMode::Down;
+        tick(&mut dead, 400.0);
+        assert!(dead.guard.is_none());
     }
 }

@@ -28,6 +28,7 @@ use crate::donut_moves::{
     DONUT_HERO, DonutMoveTuning, DonutMoves, HitStopSplit, LightGuard, MoveEvent, MoveKind,
     MoveView, StepInput, TargetKind, TargetState, TargetView, route_primary,
 };
+use crate::llama::{LlamaMode, LlamaTargets};
 use crate::prototype::{BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH};
 
 /// The Magic Missile cast: the bolt spawns on cast tick 4 (the release), the
@@ -79,6 +80,9 @@ impl Bolt {
 /// Everything of Donut's abilities that the combat state owns.
 #[derive(Debug, Clone)]
 pub struct DonutKit {
+    /// CF02-C1: llamas are hero-hit targets (configuration, never hashed and
+    /// kept across restarts).
+    llama_targets: Option<LlamaTargets>,
     pub tuning: ManaTuning,
     pub moves: DonutMoves,
     pub mana: DonutMana,
@@ -115,6 +119,7 @@ impl DonutKit {
             trigger.restart_fixture(setup.start);
         }
         Self {
+            llama_targets: None,
             tuning,
             moves: DonutMoves::new(DonutMoveTuning::SPEC),
             mana,
@@ -199,7 +204,28 @@ impl CombatState {
     #[must_use]
     pub fn with_donut(mut self, setup: DonutSetup) -> Self {
         self.donut_kit = DonutKit::new(setup);
+        // Q37: a `cf02_*` fixture runs under `cf02_rules`, so its llamas are
+        // targets; every other fixture, the story route and `--demo` are not.
+        if self.fixture.name.starts_with("cf02_") {
+            self.donut_kit.llama_targets = LlamaTargets::for_rules(true);
+        }
         self
+    }
+
+    /// CF02-C1 (Q18, Q37): make the llamas targets of Donut's moves when the
+    /// run is `--cf02` (`cf02_rules`); a no-op otherwise. Call after
+    /// [`Self::with_donut`].
+    #[must_use]
+    pub fn with_cf02_llama_targets(mut self, cf02_rules: bool) -> Self {
+        if cf02_rules {
+            self.donut_kit.llama_targets = LlamaTargets::for_rules(true);
+        }
+        self
+    }
+
+    /// Whether the llamas are targets of Donut's moves (Q18).
+    pub fn llama_targets_live(&self) -> Option<LlamaTargets> {
+        self.donut_kit.llama_targets
     }
 
     /// Donut's mana for the HUD: `(mana, mana_max)` once the biscuit is
@@ -460,9 +486,10 @@ impl CombatState {
         ctx.drives[1] = tick.drive;
     }
 
-    /// The targets of Donut's moves: every goblin, then the boss while it has
-    /// a hurtbox. Indices ascend (the lowest-first rule). Llamas are no target
-    /// (follow-up).
+    /// The targets of Donut's moves: every goblin, then (Q18, `cf02_rules`
+    /// only) every llama with id `goblins + index`, then the boss while it has
+    /// a hurtbox. Indices ascend (the lowest-first rule). Without Q18 llamas
+    /// are no target.
     fn donut_targets(&self) -> Vec<TargetView> {
         let mut targets: Vec<TargetView> = self
             .enemies
@@ -476,6 +503,21 @@ impl CombatState {
                 guarded: goblin.guard.is_some(),
             })
             .collect();
+        if self.donut_kit.llama_targets.is_some() {
+            let first = self.enemies.len() as u32;
+            targets.extend(
+                self.llamas
+                    .iter()
+                    .enumerate()
+                    .map(|(index, llama)| TargetView {
+                        index: first + index as u32,
+                        kind: TargetKind::Llama,
+                        body: llama.body(),
+                        state: llama.target_state(),
+                        guarded: llama.guard.is_some(),
+                    }),
+            );
+        }
         if let Some(boss) = self.boss.as_ref()
             && let Some(body) = boss.hurtbox()
         {
@@ -531,6 +573,10 @@ impl CombatState {
         instance: u32,
         tick: u64,
     ) {
+        if let Some(index) = self.llama_target(target) {
+            self.donut_swat_hits_llama(index, effect, facing, instance, tick);
+            return;
+        }
         let Some(goblin) = self.enemies.get_mut(target as usize) else {
             return;
         };
@@ -582,6 +628,10 @@ impl CombatState {
             );
             return;
         }
+        if let Some(index) = self.llama_target(target) {
+            self.donut_pounce_hits_llama(index, facing, instance, tick);
+            return;
+        }
         let Some(goblin) = self.enemies.get_mut(target as usize) else {
             return;
         };
@@ -612,6 +662,148 @@ impl CombatState {
             });
         }
         self.flash_hit(target as usize, tick);
+    }
+
+    // ------------------------------------------------------ llamas (Q18) --
+
+    /// The llama index of a move target id (`goblins + index`), while the
+    /// llamas are targets at all.
+    fn llama_target(&self, target: u32) -> Option<usize> {
+        if self.donut_kit.llama_targets.is_none() || target == BOSS_ENEMY_ID {
+            return None;
+        }
+        let index = (target as usize).checked_sub(self.enemies.len())?;
+        (index < self.llamas.len()).then_some(index)
+    }
+
+    fn llama_knobs(&self) -> LlamaTargets {
+        self.donut_kit
+            .llama_targets
+            .expect("llama_target only returns an index while the llamas are targets")
+    }
+
+    /// A swat that interrupted a llama's tell (Q18): 0 damage, the llama's own
+    /// 18-tick stagger and 30-tick cooldown, the Q10 light guard, Donut alone
+    /// frozen. The only swat outcome a llama gets besides a glance.
+    fn donut_swat_hits_llama(
+        &mut self,
+        index: usize,
+        effect: crate::donut_moves::TargetEffect,
+        facing: i8,
+        instance: u32,
+        tick: u64,
+    ) {
+        let spec = MoveSpec {
+            damage: self.llama_knobs().swat_damage,
+            ..DONUT_SWAT
+        };
+        let id = (self.enemies.len() + index) as u32;
+        let llama = &mut self.llamas[index];
+        let was_telling = llama.telling();
+        let (outcome, split) = llama.take_hit_split(&spec, facing, |_| effect.hit_stop);
+        let health_left = llama.health;
+        llama.hit_by = Some(DONUT_HERO);
+        let defeated = matches!(outcome, crate::combat::HitOutcome::Defeated);
+        if effect.sets_guard && !defeated {
+            llama.guard = Some(LightGuard::new());
+        }
+        let interrupted = was_telling && llama.mode != LlamaMode::Attack;
+        self.log(CombatEvent::Hit {
+            tick,
+            move_id: MoveId::Swat,
+            instance,
+            target: id,
+            damage: spec.damage,
+            health_left,
+            hit_stop: split.attacker,
+        });
+        if defeated {
+            self.log_donut_defeat(id, &spec, tick);
+        }
+        if interrupted {
+            self.log(CombatEvent::LlamaInterrupted {
+                tick,
+                llama: index as u32,
+            });
+        }
+        self.flash_hit(id as usize, tick);
+    }
+
+    /// The pounce on a llama (Q18): the pounce's own damage (1), one target,
+    /// the legacy hit-stop; a kill is credited to Donut and is a plain `down`
+    /// (a routine force, never the slam: only Carl's lethal kick slams).
+    fn donut_pounce_hits_llama(&mut self, index: usize, facing: i8, instance: u32, tick: u64) {
+        let spec = MoveSpec {
+            damage: self.llama_knobs().pounce_damage,
+            ..DONUT_POUNCE
+        };
+        let id = (self.enemies.len() + index) as u32;
+        let llama = &mut self.llamas[index];
+        let was_telling = llama.telling();
+        let (outcome, split) = llama.take_hit_split(&spec, facing, HitStopSplit::legacy);
+        let health_left = llama.health;
+        llama.hit_by = Some(DONUT_HERO);
+        let interrupted = was_telling && llama.mode != LlamaMode::Attack;
+        let defeated = matches!(outcome, crate::combat::HitOutcome::Defeated);
+        self.donut_kit.moves.extend_hit_stop(split.attacker);
+        self.log(CombatEvent::Hit {
+            tick,
+            move_id: MoveId::Pounce,
+            instance,
+            target: id,
+            damage: spec.damage,
+            health_left,
+            hit_stop: split.attacker,
+        });
+        if defeated {
+            self.log_donut_defeat(id, &spec, tick);
+        }
+        if interrupted {
+            self.log(CombatEvent::LlamaInterrupted {
+                tick,
+                llama: index as u32,
+            });
+        }
+        self.flash_hit(id as usize, tick);
+    }
+
+    /// A Magic Missile bolt that ends on a llama (Q18): 1 damage, only the
+    /// llama freezes, the bolt is consumed by the caller.
+    fn missile_hits_llama(&mut self, index: usize, bolt: Bolt, tick: u64) {
+        let spec = MoveSpec {
+            damage: self.llama_knobs().missile_damage,
+            ..MAGIC_MISSILE
+        };
+        let id = (self.enemies.len() + index) as u32;
+        let llama = &mut self.llamas[index];
+        let was_telling = llama.telling();
+        let (outcome, split) = llama.take_hit_split(&spec, bolt.dir, |stop| HitStopSplit {
+            attacker: 0,
+            target: stop + 1,
+        });
+        let health_left = llama.health;
+        llama.hit_by = Some(DONUT_HERO);
+        let interrupted = was_telling && llama.mode != LlamaMode::Attack;
+        let defeated = matches!(outcome, crate::combat::HitOutcome::Defeated);
+        self.log(CombatEvent::Hit {
+            tick,
+            move_id: MoveId::MagicMissile,
+            instance: bolt.instance,
+            target: id,
+            damage: spec.damage,
+            health_left,
+            hit_stop: split.target.saturating_sub(1),
+        });
+        if defeated {
+            self.log_donut_defeat(id, &spec, tick);
+        }
+        if interrupted {
+            self.log(CombatEvent::LlamaInterrupted {
+                tick,
+                llama: index as u32,
+            });
+        }
+        self.flash_hit(id as usize, tick);
     }
 
     /// A Donut hit on the boss: the boss' `apply_hit` (the rule every hero hit
@@ -819,6 +1011,17 @@ impl CombatState {
             .enemies
             .iter()
             .position(|g| g.alive() && g.body().overlaps(rect));
+        // Q18: the llamas come after the goblins (ids ascend), and the bolt
+        // ends on the first living one it overlaps instead of passing through.
+        let llama_hit = self
+            .donut_kit
+            .llama_targets
+            .and_then(|_| {
+                self.llamas
+                    .iter()
+                    .position(|l| l.alive() && l.body().overlaps(rect))
+            })
+            .filter(|_| goblin_hit.is_none());
         let boss_hit = self
             .boss
             .as_ref()
@@ -826,6 +1029,11 @@ impl CombatState {
             .is_some_and(|b| b.overlaps(rect));
         if let Some(target) = goblin_hit {
             self.missile_hits_goblin(target, bolt, tick);
+            self.donut_kit.bolts.remove(index);
+            return true;
+        }
+        if let Some(llama) = llama_hit {
+            self.missile_hits_llama(llama, bolt, tick);
             self.donut_kit.bolts.remove(index);
             return true;
         }

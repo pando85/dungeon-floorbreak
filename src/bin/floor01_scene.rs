@@ -889,7 +889,10 @@ fn build_scene(
         // A combat fixture: Carl starts at the fixture column; the script is
         // pre-simulated for a capture, otherwise left for the live loop.
         let mut sim = SceneSim::new_at(kit, view_height(args.deck), fixture.carl_x)?;
-        let mut combat = CombatState::new(fixture, kit, &sim)?.with_donut(donut_setup(args));
+        let mut combat = CombatState::new(fixture, kit, &sim)?
+            .with_donut(donut_setup(args))
+            // CF02-C1 (Q18, Q37): the llamas are Donut's targets under `--cf02`.
+            .with_cf02_llama_targets(args.cf02.rules);
         if args.demo {
             combat = combat.with_demo(&demo::DEMO_RULES);
         }
@@ -6083,7 +6086,8 @@ mod tests {
         let a = args(&["--list-fixtures", "cf02_"]).unwrap();
         assert_eq!(a.list_fixtures.as_deref(), Some("cf02_"));
         assert!(args(&["--list-fixtures"]).is_err());
-        assert!(list_fixtures("cf02_").is_empty());
+        // CF02-C1's llama fixtures are the first `cf02_*` names.
+        assert!(list_fixtures("cf02_").contains(&"cf02_llama_pounce"));
         assert!(list_fixtures("companion_").is_empty());
         assert!(list_fixtures("cp01_").contains(&"cp01_kick"));
     }

@@ -49,7 +49,13 @@ mod tests {
     fn the_new_registries_are_empty_after_cf02_00() {
         assert!(CF02_FIXTURES.is_empty());
         assert!(COMPANION_FIXTURES.is_empty());
-        assert!(list_fixtures("cf02_").is_empty());
+        // The CF02 llama fixtures (CF02-C1) live in `donut_fixtures.rs`, which
+        // `PartyFixture::all()` chains, so the listing sees them.
+        assert!(
+            list_fixtures("cf02_")
+                .iter()
+                .all(|n| n.starts_with("cf02_llama_") || *n == "cf02_donut_solo_llama")
+        );
         assert!(list_fixtures("companion_").is_empty());
         assert!(list_fixtures("no_such_prefix_").is_empty());
     }
