@@ -593,6 +593,16 @@ fn all_cf02() -> Vec<&'static crate::party_scene::PartyFixture> {
         .collect()
 }
 
+/// The kit a fixture runs on: the arena for F's room fixtures, else the sample
+/// corridor.
+fn kit_for(fixture: &crate::party_scene::PartyFixture) -> EnvKit {
+    if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+        crate::cf02::arena::load_arena(root()).unwrap()
+    } else {
+        kit()
+    }
+}
+
 fn kit() -> EnvKit {
     EnvKit::load(root(), "assets/levels/floor01/corridor_abc_sample.json").unwrap()
 }
@@ -636,11 +646,10 @@ struct Run {
 }
 
 fn run_fixture(
-    kit: &EnvKit,
     fixture: &'static crate::party_scene::PartyFixture,
     tuning: Option<&'static Cf02Tuning>,
 ) -> Run {
-    let mut sim = PartyFixtureSim::new(kit, 360, fixture).unwrap();
+    let mut sim = PartyFixtureSim::new(&kit_for(fixture), 360, fixture).unwrap();
     let mut anim = scene_animators(&sim, tuning);
     let mut hashes = Vec::new();
     let mut drawn = Vec::new();
@@ -679,13 +688,12 @@ fn run_fixture(
 /// finished state and nothing flows back.
 #[test]
 fn acting_overlays_on_and_off_change_no_event_hash_or_input_timing() {
-    let kit = kit();
     let off = overlays_off();
     let mut checked = 0;
     for fixture in all_cf02() {
-        let with = run_fixture(&kit, fixture, Some(on()));
-        let without = run_fixture(&kit, fixture, Some(off));
-        let plain = run_fixture(&kit, fixture, None);
+        let with = run_fixture(fixture, Some(on()));
+        let without = run_fixture(fixture, Some(off));
+        let plain = run_fixture(fixture, None);
         for (name, other) in [("overlays off", &without), ("no acting art", &plain)] {
             assert_eq!(
                 with.events,
@@ -755,10 +763,10 @@ fn no_simulation_module_reads_an_acting_knob() {
     }
 }
 
-fn collect(kit: &EnvKit) -> BTreeSet<String> {
+fn collect() -> BTreeSet<String> {
     let mut seen = BTreeSet::new();
     for fixture in all_cf02() {
-        let run = run_fixture(kit, fixture, Some(on()));
+        let run = run_fixture(fixture, Some(on()));
         for d in &run.drawn {
             if let Some(c) = &d.carl {
                 seen.insert(format!("carl:{c}"));
@@ -778,7 +786,7 @@ fn collect(kit: &EnvKit) -> BTreeSet<String> {
 /// dive and the bail-out frames are each drawn by at least one `cf02_*` fixture.
 #[test]
 fn real_runs_draw_every_cf02_move_frame() {
-    let seen = collect(&kit());
+    let seen = collect();
     for tag in ["stomp", "air_kick", "dive_tuck", "dive_plunge", "bailout"] {
         assert!(
             seen.iter().any(|s| s.starts_with(&format!("carl:{tag}:"))),
@@ -1288,10 +1296,9 @@ fn a_punished_taunt_holds_its_frame_for_six_ticks_over_the_hit() {
 #[test]
 fn the_three_slammed_finishes_play_in_real_runs() {
     use crate::combat::ForceTier;
-    let kit = kit();
     let mut by_kind: std::collections::BTreeMap<&str, Vec<String>> = Default::default();
     for fixture in all_cf02().into_iter().filter(|f| f.base.boss.is_none()) {
-        let mut sim = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
+        let mut sim = PartyFixtureSim::new(&kit_for(fixture), 360, fixture).unwrap();
         let mut anim = scene_animators(&sim, Some(on()));
         let mut slam: Vec<Option<SlamPose>> = vec![None; 16];
         let mut seq: Vec<Vec<String>> = vec![Vec::new(); 16];
@@ -1348,9 +1355,8 @@ fn the_three_slammed_finishes_play_in_real_runs() {
 #[test]
 #[ignore]
 fn list_acting_frames_per_fixture() {
-    let kit = kit();
     for fixture in all_cf02() {
-        let run = run_fixture(&kit, fixture, Some(on()));
+        let run = run_fixture(fixture, Some(on()));
         let mut spans: Vec<(String, usize, usize)> = Vec::new();
         for (t, d) in run.drawn.iter().enumerate() {
             let mut now: Vec<String> = Vec::new();
@@ -1386,8 +1392,7 @@ fn list_acting_frames_per_fixture() {
 
 #[test]
 fn a_dive_whiff_draws_the_heavy_landing_for_exactly_its_ten_recovery_ticks() {
-    let kit = kit();
-    let run = run_fixture(&kit, find("cf02_dive_whiff_recovery"), Some(on()));
+    let run = run_fixture(find("cf02_dive_whiff_recovery"), Some(on()));
     let land: Vec<usize> = run
         .drawn
         .iter()
@@ -1411,7 +1416,7 @@ fn a_dive_whiff_draws_the_heavy_landing_for_exactly_its_ten_recovery_ticks() {
         "cf02_dive_bounce_kick",
         "cf02_dive_lying",
     ] {
-        let run = run_fixture(&kit, find(name), Some(on()));
+        let run = run_fixture(find(name), Some(on()));
         assert!(
             run.drawn
                 .iter()
@@ -1466,9 +1471,8 @@ fn a_hurt_carl_loses_the_overlay_and_it_does_not_come_back() {
 #[ignore]
 fn list_slammed_finishes() {
     use crate::combat::ForceTier;
-    let kit = kit();
     for fixture in all_cf02() {
-        let mut sim = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
+        let mut sim = PartyFixtureSim::new(&kit_for(fixture), 360, fixture).unwrap();
         let mut anim = scene_animators(&sim, Some(on()));
         let mut slam: Vec<Option<SlamPose>> = vec![None; 16];
         let mut spans: Vec<(usize, String, u64, u64)> = Vec::new();

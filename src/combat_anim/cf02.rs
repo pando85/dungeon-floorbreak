@@ -789,10 +789,10 @@ impl ActingAnimators {
                     .get(self.whiffs.len() - usize::from(t.q70_frustration_moves)),
                 self.whiffs.last(),
             )
-            && last - first <= u64::from(t.q70_frustration_window_ticks)
+            && last.saturating_sub(*first) <= u64::from(t.q70_frustration_window_ticks)
         {
             // Pending until Carl stands idle, for as long as the window.
-            let fresh = tick - last <= u64::from(t.q70_frustration_window_ticks);
+            let fresh = tick.saturating_sub(*last) <= u64::from(t.q70_frustration_window_ticks);
             if !fresh {
                 self.whiffs.clear();
             } else if carl_can_show && self.frustration_cooldown == 0 {

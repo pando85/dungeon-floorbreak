@@ -23,7 +23,18 @@ Each GIF replays a committed `cf02_*` fixture in the real render loop (lighting 
 | [`slammed_wall.gif`](slammed_wall.gif) | `cf02_wall_slam_kill`, 24..58 | the wall crumple: the squash on the wall while the body falls, then the slump |
 | [`slammed_flung.gif`](slammed_flung.gif) | `cf02_lethal_kick_far`, 60..100 | the flung finish: the GOB-01 knockback flight, the face-plant for 8 ticks from the landing, then the heap |
 
-**NOT RUN yet (needs CF02-F):** the Carl frustration clip and every clip in the microarena. No existing `cf02_*` fixture has three whiffs in a row, so the frustration frames are proven by the unit tests (`three_whiffs_in_the_window_frustrate_carl_once_per_cooldown` and the two after it) and drawn by no GIF; they are made once the F microarena merges.
+Microarena clips (CF02-F, stacked on `feat/cf02-c2f`; the room fixtures run on the arena kit):
+
+| Clip | Fixture and ticks | What it shows |
+| --- | --- | --- |
+| [`arena_carl_frustration.gif`](arena_carl_frustration.gif) | `cf02_block_hurts_carl`, 62..98 | Carl's frustration (the muttered shake and flap, 24 ticks) after three whiffs, then the shore block falling |
+| [`arena_goblin_panic.gif`](arena_goblin_panic.gif) | `cf02_arena_direct`, 116..156 | a panicking goblin in the room |
+| [`arena_goblin_taunt.gif`](arena_goblin_taunt.gif) | `cf02_arena_direct`, 366..410 | a show-off's taunt among the crowd and the llama |
+| [`arena_donut_smug.gif`](arena_donut_smug.gif) | `cf02_arena_direct`, 374..402 | Donut's smug after the assistant's hit (she stands among the goblins, so it is hard to read at 1x) |
+| [`arena_goblin_hesitate.gif`](arena_goblin_hesitate.gif) | `cf02_arena_coop`, 116..142 | a hesitating goblin in the 2P room |
+| [`arena_slammed_flung.gif`](arena_slammed_flung.gif) | `cf02_goblin_self_own`, 88..120 | the flung finish of a goblin that tripped the shore itself |
+
+The wall-crumple and stomped finishes are drawn in the corridor clips above; the arena fixtures that end in them do so in a crowd that does not read at 1x.
 
 ## Parity proof (tests, `src/combat_anim/cf02/tests.rs`)
 

@@ -34,6 +34,12 @@ clips=(
   "slammed_stomped|cf02_kick_then_stomp|66|98|2|288x108+176+190"
   "slammed_wall|cf02_wall_slam_kill|24|58|2"
   "slammed_flung|cf02_lethal_kick_far|60|100|2|320x108+160+190"
+  "arena_carl_frustration|cf02_block_hurts_carl|62|98|2|288x108+176+190"
+  "arena_goblin_panic|cf02_arena_direct|116|156|2|320x150+160+150"
+  "arena_goblin_taunt|cf02_arena_direct|366|410|2|288x108+176+190"
+  "arena_donut_smug|cf02_arena_direct|374|402|2|288x108+176+190"
+  "arena_goblin_hesitate|cf02_arena_coop|116|142|2|288x108+176+190"
+  "arena_slammed_flung|cf02_goblin_self_own|88|120|2|320x108+160+190"
 )
 extra_clips="${CF02_I_EXTRA_CLIPS:-}"
 if [[ -n "$extra_clips" ]]; then
