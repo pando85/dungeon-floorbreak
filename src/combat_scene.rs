@@ -24,8 +24,7 @@ use crate::boss::{
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
     EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, MoveRunner, MoveSpec, MoveTick, Phase, RootStep,
-    carl_move,
-    hit_box, solid_at, strike_group,
+    carl_move, hit_box, solid_at, strike_group,
 };
 use crate::corridor::{PartyStepCtx, SceneSim};
 use crate::donut_mana::{DonutSetup, RestartKind};
@@ -3457,6 +3456,29 @@ mod tests {
             let mut sim = sim_of(fixture);
             sim.run_scripted(fixture.ticks);
             assert_eq!(sim.state_hash(), expected, "{name}: {}", sim.state_line());
+        }
+    }
+
+    /// CF02-00 parity: with `cf02_rules` off (the committed data and
+    /// `Cf02Config::OFF`) every legacy fixture replays its committed hash, twice,
+    /// and the pinned CF02 data changes nothing. The other legacy goldens (the
+    /// walk, party, boss, `q10_*`, DEMO-01 and CINE ones) keep their own tests,
+    /// which `cargo test` runs unchanged; `ci_floor01_combat.sh headless` also
+    /// replays `--cf02` against `--demo`.
+    #[test]
+    fn cf02_parity_off() {
+        use crate::cf02::Cf02Tuning;
+        let tuning = Cf02Tuning::pinned().expect("the CF02 data loads");
+        assert!(!tuning.cf02_rules && !tuning.llama_targets());
+        assert_eq!(EXPECTED_HASHES.len(), 20, "13 legacy, 2 DEATH-D, 5 llama");
+        for (name, expected) in EXPECTED_HASHES {
+            let fixture = Fixture::by_name(name).unwrap();
+            let (mut a, mut b) = (sim_of(fixture), sim_of(fixture));
+            a.run_scripted(fixture.ticks);
+            b.run_scripted(fixture.ticks);
+            assert_eq!(a.state_hash(), expected, "{name}: {}", a.state_line());
+            assert_eq!(a.state_hash(), b.state_hash(), "{name} replays");
+            assert_eq!(events_of(&a), events_of(&b), "{name} events replay");
         }
     }
 

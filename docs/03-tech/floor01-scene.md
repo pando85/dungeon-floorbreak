@@ -683,6 +683,9 @@ cargo run --release --locked --bin floor01_scene -- --demo --scale 3 --demo-beat
 | `--demo` | the demo hall and route (replaces `--fixture`, `--scenario`, `--reference-frame`) |
 | `--demo-beat <0..6>` | start at that beat's checkpoint; the goblins of the beats behind it are retired (health 0, parked outside the layout, never drawn) |
 | `--autopilot` | with `--demo`: a deterministic stand-in for the player (`demo::autopilot`) drives Carl: for probes, captures and CI. Works with `--headless-floor01-smoke`, `--capture-tick`, `--capture-sequence`, `--exit-after-ticks` |
+| `--cf02` | COMBAT-FUN-02 (CF02-00): sets `cf02_rules` for the run and loads the DEMO hall (implies `--demo`; the `--demo-beat` and `--autopilot` options apply). No CF02 rule exists yet, so the replay equals `--demo` exactly (checked by `scripts/ci_floor01_combat.sh headless`). Prints a `CF02_CONFIG` line with the schema version and the pinned data hash |
+| `--cf02-seed <u64>` | with `--cf02`: the effective seed of CF02-Q58 (the temperament draw), logged on the `CF02_CONFIG` line; `fixture` when absent |
+| `--list-fixtures <prefix>` | print the name of every fixture of every registry (combat, party, boss, Donut, CF02, COMPANION) that starts with the prefix, one per line, and exit 0; an unmatched prefix prints nothing. The CI script loops over `cf02_` and `companion_` |
 
 ### The hall
 

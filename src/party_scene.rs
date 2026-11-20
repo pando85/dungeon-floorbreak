@@ -16,8 +16,8 @@
 use crate::boss_scene::{BOSS_FIXTURES, Pilot, pilot_inputs};
 use crate::combat::EnemyAi;
 use crate::combat_scene::{CombatState, EnemySpawn, Fixture};
-use crate::corridor::SceneSim;
 use crate::companion_fixtures::COMPANION_FIXTURES;
+use crate::corridor::SceneSim;
 use crate::donut_fixtures::DONUT_FIXTURES;
 use crate::donut_mana::DonutSetup;
 use crate::env_kit::EnvKit;

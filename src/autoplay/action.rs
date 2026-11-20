@@ -93,7 +93,6 @@ impl ActionV1 {
     /// simulation's press-edge logic and input priority decide what happens;
     /// `pause` is never a policy action.
     pub fn to_raw_input(&self) -> RawInput {
-        // TODO(CF02-00): switch to RawInput::NONE as the neutral base.
         // `pause` (and any field a later ruleset adds, such as Down) comes
         // from the neutral base: it is never a policy action (AP-Q04).
         RawInput {
@@ -107,7 +106,7 @@ impl ActionV1 {
             physical: self.physical(),
             ability: self.special(),
             swap: self.swap(),
-            ..RawInput::default()
+            ..RawInput::NONE
         }
     }
 }

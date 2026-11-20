@@ -2124,10 +2124,7 @@ mod tests {
         assert!(!reference.0.is_empty(), "the jab connected");
         // The hook is real: a glance that zeroes the damage reaches the target
         // and the log (the shape CA-20 uses).
-        let (events, health) = play(&|spec, _hp| MoveSpec {
-            damage: 0,
-            ..*spec
-        });
+        let (events, health) = play(&|spec, _hp| MoveSpec { damage: 0, ..*spec });
         assert!(
             events
                 .iter()

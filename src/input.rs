@@ -187,4 +187,9 @@ mod tests {
         assert!(!frame.jump_pressed);
         assert!(frame.ability_pressed);
     }
+
+    #[test]
+    fn none_is_the_default_input() {
+        assert_eq!(RawInput::NONE, RawInput::default());
+    }
 }

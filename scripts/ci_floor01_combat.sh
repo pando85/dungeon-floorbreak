@@ -230,6 +230,51 @@ case "$mode" in
       fi
       echo "DONUT_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/donut_${f}.txt")"
     done
+    # COMBAT-FUN-02 CF02-00: the fixture registries of CF02 and COMPANION-AI-01
+    # are enumerated by the binary itself, so later PRs add fixtures without
+    # editing this script. Each name replays twice identically and reproduces its
+    # committed replay (docs/evidence/cf02, docs/evidence/companion-ai). Both
+    # registries are empty after CF02-00, so the bodies do not run yet.
+    committed_cf02=docs/evidence/cf02
+    committed_companion=docs/evidence/companion-ai
+    list_names() { "$bin" --list-fixtures "$1"; }
+    mapfile -t cf02_names < <(list_names cf02_ | grep -v '^cf02_assist_' || true)
+    for f in "${cf02_names[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/cf02_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/cf02_${f}_again.txt"
+      if ! cmp -s "$out/cf02_${f}.txt" "$out/cf02_${f}_again.txt"; then
+        echo "CF02 fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_cf02/headless_${f}.txt" "$out/cf02_${f}.txt"; then
+        echo "CF02 fixture $f differs from the committed replay ($committed_cf02)" >&2
+        exit 1
+      fi
+      echo "CF02_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/cf02_${f}.txt")"
+    done
+    mapfile -t companion_names < <({ list_names companion_; list_names cf02_assist_; } || true)
+    for f in "${companion_names[@]}"; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/companion_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/companion_${f}_again.txt"
+      if ! cmp -s "$out/companion_${f}.txt" "$out/companion_${f}_again.txt"; then
+        echo "COMPANION fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "$committed_companion/headless_${f}.txt" "$out/companion_${f}.txt"; then
+        echo "COMPANION fixture $f differs from the committed replay ($committed_companion)" >&2
+        exit 1
+      fi
+      echo "COMPANION_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/companion_${f}.txt")"
+    done
+    # CF02-00 parity: with no CF02 rule implemented, `--cf02` (the DEMO hall with
+    # the switch on) replays the DEMO-01 beat exactly like `--demo`.
+    demo_plain="$("$bin" --headless-floor01-smoke --demo --autopilot --demo-beat 3 --capture-tick 600 | party_lines)"
+    demo_cf02="$("$bin" --headless-floor01-smoke --cf02 --autopilot --demo-beat 3 --capture-tick 600 | party_lines)"
+    if [[ -z "$demo_plain" || "$demo_plain" != "$demo_cf02" ]]; then
+      echo "--cf02 changed the DEMO-01 beat 3 replay (every CF02 rule must be off)" >&2
+      exit 1
+    fi
+    echo "CF02_PARITY_OK: --cf02 replays demo beat 3 like --demo"
     # AUDIENCE-01 part C: the per-hero viewer observer and the viewer HUD
     # previews are presentation only. Each probe run (the QA unlock) and each
     # `--hud-preview viewers*` run must replay the plain run's events and

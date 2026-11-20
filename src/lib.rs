@@ -1,5 +1,6 @@
 //! Pure, headless-friendly contracts for Dungeon Floorbreak.
 
+pub mod acting;
 pub mod actor_sprite;
 pub mod anim;
 pub mod audience;
@@ -13,6 +14,8 @@ pub mod boss_art;
 pub mod boss_scene;
 pub mod camera;
 pub mod camera_lab;
+pub mod cf02;
+pub mod cf02_fixtures;
 pub mod cine;
 pub mod cine_adapter;
 pub mod combat;
@@ -39,9 +42,11 @@ pub mod hud_adapter;
 pub mod hud_draw;
 pub mod hud_settings;
 pub mod input;
+pub mod input_buffer;
 pub mod light_pass;
 pub mod lighting;
 pub mod llama;
+pub mod morale;
 pub mod pad_slots;
 pub mod party;
 pub mod party_scene;
