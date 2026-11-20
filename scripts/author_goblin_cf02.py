@@ -569,9 +569,9 @@ def manifest_for(sheet: str) -> dict:
         block["pose_budget"] = "6 slammed frames (spec section 6: 11 per goblin sheet with the 5 acting frames)"
     if variant == "B":
         block["base_sheet"] = str(SHEETS[sheet.replace("_b", "_a")]["grid"].relative_to(ROOT))
-        block["headband"] = ("accessory layer only; the headband's B rag_red_dark has the same RGBA as the gore layer's B "
-                             "blood_dark and its R the same as blood red, so no headband pixel touches or overlaps a gore "
-                             "pixel (at least one pixel gap)")
+        block["headband"] = ("accessory layer only; B shares its RGBA with the gore B (rag_red_dark = blood_dark); R "
+                             "(red_mid #b8322e) is a different red from blood_wet; so no headband pixel touches or "
+                             "overlaps a gore pixel (at least one pixel gap)")
     return {
         "schema_version": 1,
         "id": s["manifest_id"],
