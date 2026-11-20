@@ -93,6 +93,8 @@ Other reuse (no new frames): the dive bounce (Q53) uses `jump_rise` and `jump_fa
 
 Startle and smug are full-body overlays that show only in `idle` (the planted-feet rule of section 3).
 
+**Execution (ART-DONUT-CF02):** the sheet `assets/source/characters/donut/donut_h40_cf02.*` (manifest `assets/manifests/donut_h40_cf02.json`, evidence in [`docs/evidence/cf02-donut/`](../evidence/cf02-donut/README.md)) holds `startle_puff` and `smug` copied pixel for pixel from the keys and the derived `startle_settle` (3 of the 4 Q73 slots, the spare unspent); independent review pending, not owner-approved, not wired into Bevy.
+
 ## 5. Goblin (budget 11 new frames per sheet)
 
 | # | Frame | K/D | Serves | Beat | Silhouette | Ticks | Contact |
