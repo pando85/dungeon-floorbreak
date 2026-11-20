@@ -10,6 +10,11 @@ bevy = { version = "=0.20.1", default-features = false, features = ["2d", "bevy_
 serde = { version = "=1.0.229", default-features = false, features = ["std", "derive"] }
 serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
 
+# The lab relaunch marks inherited descriptors close-on-exec (`close_range`).
+# Already in Cargo.lock through bevy (same version, no new crate).
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.191"
+
 # Test-only: parses the lighting shader to prove its Params block matches the
 # Rust uniform layout. Already in Cargo.lock through wgpu (same version, no new crate).
 [dev-dependencies]

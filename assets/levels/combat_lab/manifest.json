@@ -1,6 +1,6 @@
 {
   "schema": "combat-lab-manifest-v1",
-  "status": "COMBAT-LAB-01 LAB-00: scenario descriptor, test-only capability profile and room list. Not a playable level, not balance, not game-feel accepted. R00-R02 geometry is placeholder until the top-tier layout spec lands. There is no difficulty field (LAB-Q08).",
+  "status": "COMBAT-LAB-01: scenario descriptor, test-only capability profile and room list. R00 to R02 carry the LAB-01 geometry (docs/01-design/combat-lab-01-rooms-r00-r02.md); R03 to R05 are still placeholder greybox. Not balance, not game-feel accepted. There is no difficulty field (LAB-Q08).",
   "profiles": [
     {
       "id": "floor01-postbiscuit-lab-v1",
@@ -45,7 +45,7 @@
         60
       ],
       "room_file": "r00_setup_cage.room.json",
-      "layout_hash": "b17e240e27b33384",
+      "layout_hash": "55b1b288b58d24b4",
       "encounter_id": "lab-r00-the-setup-cage",
       "wave_ids": [],
       "allowed_modes": [
@@ -58,7 +58,7 @@
       ],
       "required_moves": [],
       "checkpoints": [
-        96
+        128
       ],
       "enemies": [],
       "hazards": [],
@@ -83,11 +83,9 @@
           "abandon"
         ]
       },
-      "seed": 211866441744384,
+      "seed": 1,
       "ticks": 300,
-      "validation_pending": [
-        "selection_screen_overlay"
-      ]
+      "validation_pending": []
     },
     {
       "id": "R01",
@@ -97,7 +95,7 @@
         90
       ],
       "room_file": "r01_impact_pit.room.json",
-      "layout_hash": "1949404495be506e",
+      "layout_hash": "b686de12fad0a9b0",
       "encounter_id": "lab-r01-impact-pit",
       "wave_ids": [],
       "allowed_modes": [
@@ -116,14 +114,9 @@
         "pounce"
       ],
       "checkpoints": [
-        96
+        176
       ],
       "enemies": [
-        {
-          "kind": "goblin",
-          "x": 480,
-          "ai": "chase"
-        },
         {
           "kind": "goblin",
           "x": 560,
@@ -131,7 +124,12 @@
         },
         {
           "kind": "goblin",
-          "x": 640,
+          "x": 588,
+          "ai": "chase"
+        },
+        {
+          "kind": "goblin",
+          "x": 880,
           "ai": "chase"
         }
       ],
@@ -157,8 +155,8 @@
           "abandon"
         ]
       },
-      "seed": 211866441744640,
-      "ticks": 600,
+      "seed": 1,
+      "ticks": 2400,
       "validation_pending": [
         "cf02_rules_variants"
       ],
@@ -166,13 +164,8 @@
         {
           "id": "v1",
           "kind": "play",
-          "seed": 211866441744641,
+          "seed": 1,
           "enemies": [
-            {
-              "kind": "goblin",
-              "x": 480,
-              "ai": "chase"
-            },
             {
               "kind": "goblin",
               "x": 560,
@@ -180,7 +173,12 @@
             },
             {
               "kind": "goblin",
-              "x": 640,
+              "x": 588,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 880,
               "ai": "chase"
             }
           ]
@@ -188,21 +186,21 @@
         {
           "id": "v2",
           "kind": "play",
-          "seed": 211866441744642,
+          "seed": 2,
           "enemies": [
             {
               "kind": "goblin",
-              "x": 420,
+              "x": 432,
               "ai": "chase"
             },
             {
               "kind": "goblin",
-              "x": 600,
+              "x": 832,
               "ai": "chase"
             },
             {
               "kind": "goblin",
-              "x": 760,
+              "x": 860,
               "ai": "chase"
             }
           ]
@@ -210,21 +208,21 @@
         {
           "id": "v3",
           "kind": "play",
-          "seed": 211866441744643,
+          "seed": 3,
           "enemies": [
             {
               "kind": "goblin",
-              "x": 520,
+              "x": 512,
               "ai": "chase"
             },
             {
               "kind": "goblin",
-              "x": 540,
+              "x": 640,
               "ai": "chase"
             },
             {
               "kind": "goblin",
-              "x": 700,
+              "x": 768,
               "ai": "chase"
             }
           ]
@@ -233,24 +231,27 @@
           "id": "h1",
           "kind": "heldout_geometry",
           "seed": 211866441744649,
-          "room_file": "r01_impact_pit_h1.room.json",
-          "layout_hash": "9a0a25c2fc1f78be",
+          "room_file": "r01h_impact_pit_holdout.room.json",
+          "layout_hash": "6d6e2dfa2674676e",
           "enemies": [
             {
               "kind": "goblin",
-              "x": 700,
+              "x": 464,
               "ai": "chase"
             },
             {
               "kind": "goblin",
-              "x": 780,
+              "x": 436,
               "ai": "chase"
             },
             {
               "kind": "goblin",
-              "x": 880,
+              "x": 144,
               "ai": "chase"
             }
+          ],
+          "checkpoints": [
+            848
           ]
         }
       ]
@@ -263,7 +264,7 @@
         90
       ],
       "room_file": "r02_broken_scaffold.room.json",
-      "layout_hash": "6375050e818ba3ac",
+      "layout_hash": "cac5edcc1f681335",
       "encounter_id": "lab-r02-broken-scaffold",
       "wave_ids": [],
       "allowed_modes": [
@@ -282,22 +283,27 @@
         "pounce"
       ],
       "checkpoints": [
-        96
+        112
       ],
       "enemies": [
         {
           "kind": "goblin",
-          "x": 360,
+          "x": 560,
           "ai": "chase"
         },
         {
           "kind": "goblin",
-          "x": 780,
+          "x": 592,
+          "ai": "chase"
+        },
+        {
+          "kind": "goblin",
+          "x": 928,
           "ai": "chase"
         },
         {
           "kind": "llama",
-          "x": 1100,
+          "x": 1024,
           "ai": "chase"
         }
       ],
@@ -323,11 +329,9 @@
           "abandon"
         ]
       },
-      "seed": 211866441744896,
-      "ticks": 600,
-      "validation_pending": [
-        "vertical_enemy_navigation_not_validated"
-      ]
+      "seed": 1,
+      "ticks": 3600,
+      "validation_pending": []
     },
     {
       "id": "R03",

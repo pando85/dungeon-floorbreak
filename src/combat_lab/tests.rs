@@ -109,7 +109,7 @@ fn the_descriptor_records_the_required_fields_and_no_difficulty() {
     assert_ne!(resolved.content_hash(), resolved.config_hash());
     assert_eq!(r01.allowed_modes, ["solo_carl", "solo_donut", "coop_local"]);
     assert_eq!(r01.profiles, [PROFILE_ID]);
-    assert_eq!(r01.checkpoints, [96]);
+    assert_eq!(r01.checkpoints, [176]);
     assert_eq!(r01.segment.begin, "room_enter");
     assert!(!r01.encounter_id.is_empty());
     // Variants differ in content, so their hashes differ.
@@ -362,8 +362,8 @@ fn the_parser_rejects_gated_hazards_and_unknown_capabilities() {
 
 #[test]
 fn the_parser_rejects_unresolvable_geometry_camera_and_hashes() {
-    // A goblin inside R02's access steps (not on the walking line).
-    let e = room_error(|m| room_mut(m, "R02").enemies[0].x = 430);
+    // A goblin on R02's generated access step (not on the walking line).
+    let e = room_error(|m| room_mut(m, "R02").enemies[0].x = 720);
     assert!(matches!(e, LabError::Geometry { .. }), "{e}");
     // A checkpoint inside the wall column.
     let e = room_error(|m| room_mut(m, "R01").checkpoints = vec![8]);
@@ -524,7 +524,7 @@ fn the_rooms_hold_their_rosters_and_the_shore() {
     assert_eq!(r01.combat.enemies.len(), 3);
     assert!(r01.combat.llamas.is_empty());
     let r02 = launch("R02", PlayerMode::SoloCarl);
-    assert_eq!((r02.combat.enemies.len(), r02.combat.llamas.len()), (2, 1));
+    assert_eq!((r02.combat.enemies.len(), r02.combat.llamas.len()), (3, 1));
     let r03 = launch("R03", PlayerMode::SoloCarl);
     assert!(r03.combat.shore.is_some(), "R03 carries the authored shore");
     assert!(launch("R01", PlayerMode::SoloCarl).combat.shore.is_none());
@@ -702,8 +702,10 @@ fn a_cleared_room_ends_as_a_clear() {
 #[test]
 fn the_seed_is_the_cf02_effective_seed_and_the_lab_has_no_rng() {
     let c = catalog();
-    let base = LabConfig::new("R01", PlayerMode::SoloCarl);
-    let fixture_seed = c.room("R01").unwrap().resolve("v1").unwrap().seed;
+    // R02 has one layout: any seed is recorded and changes nothing in the
+    // geometry (R01 maps seeds 1 to 3 onto its variants, see the next test).
+    let base = LabConfig::new("R02", PlayerMode::SoloCarl);
+    let fixture_seed = c.room("R02").unwrap().resolve("v1").unwrap().seed;
     let a = c.launch(EntryPoint::CombatLab, &base).unwrap();
     assert_eq!(a.info.seed, fixture_seed);
     assert_eq!(effective_seed(Cf02Config::OFF, 5), 5);
@@ -996,7 +998,7 @@ fn a_party_defeat_retry_keeps_the_mode_seat() {
     for mode in [PlayerMode::SoloDonut, PlayerMode::SoloCarl] {
         let mut cfg = LabConfig::new("R01", mode);
         cfg.probe = ProbeTag::Sandbox;
-        cfg.enemies_override = Some(vec![goblin(110), goblin(130), goblin(150)]);
+        cfg.enemies_override = Some(vec![goblin(124), goblin(130), goblin(150)]);
         let mut run = c.launch(EntryPoint::CombatLab, &cfg).unwrap();
         let seat = run.party.controlled_hero();
         // One hit away from defeat for both heroes.
@@ -1027,4 +1029,56 @@ fn a_party_defeat_retry_keeps_the_mode_seat() {
         mode.seat(&mut party);
         assert_eq!(party.controlled_hero(), seat);
     }
+}
+
+#[test]
+fn r01_variant_n_is_the_effective_seed_n_and_other_seeds_are_rejected() {
+    let c = catalog();
+    for n in 1..=3_u64 {
+        let mut cfg = LabConfig::new("R01", PlayerMode::SoloCarl);
+        cfg.variant = format!("v{n}");
+        let run = c.launch(EntryPoint::CombatLab, &cfg).unwrap();
+        assert_eq!(run.info.seed, n, "variant v{n} is seed {n}");
+        // The same variant with the Q58 override naming it is the same run.
+        cfg.cf02.seed = Some(n);
+        let again = c.launch(EntryPoint::CombatLab, &cfg).unwrap();
+        assert_eq!(again.state_hash(), run.state_hash());
+    }
+    // The three variants differ only in goblin placement.
+    let columns = |n: u64| -> Vec<i32> {
+        let mut cfg = LabConfig::new("R01", PlayerMode::SoloCarl);
+        cfg.variant = format!("v{n}");
+        c.launch(EntryPoint::CombatLab, &cfg)
+            .unwrap()
+            .combat
+            .fixture
+            .enemies
+            .iter()
+            .map(|e| e.x)
+            .collect()
+    };
+    assert_eq!(columns(1), [560, 588, 880]);
+    assert_eq!(columns(2), [432, 832, 860]);
+    assert_eq!(columns(3), [512, 640, 768]);
+    // No hidden modulo: 0, 4 and 42 are errors that list the valid seeds, and
+    // a seed that names another variant is refused too.
+    for bad in [0_u64, 4, 42] {
+        let mut cfg = LabConfig::new("R01", PlayerMode::SoloCarl);
+        cfg.cf02.seed = Some(bad);
+        let e = c.launch(EntryPoint::CombatLab, &cfg).unwrap_err();
+        let text = e.to_string();
+        assert!(
+            text.contains("valid seeds are 1, 2 and 3"),
+            "seed {bad}: {text}"
+        );
+    }
+    let mut cfg = LabConfig::new("R01", PlayerMode::SoloCarl);
+    cfg.cf02.seed = Some(2);
+    let e = c.launch(EntryPoint::CombatLab, &cfg).unwrap_err();
+    assert!(e.to_string().contains("selects variant v2"), "{e}");
+    // The held-out geometry is not a seed variant: it keeps its own seed.
+    let mut heldout = LabConfig::new("R01", PlayerMode::SoloCarl);
+    heldout.variant = "h1".into();
+    heldout.probe = ProbeTag::Sandbox;
+    assert!(c.launch(EntryPoint::CombatLab, &heldout).is_ok());
 }

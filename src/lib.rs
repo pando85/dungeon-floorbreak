@@ -22,6 +22,7 @@ pub mod combat;
 pub mod combat_anim;
 pub mod combat_lab;
 pub mod combat_lab_fixtures;
+pub mod combat_lab_overlay;
 pub mod combat_scene;
 pub mod companion;
 pub mod companion_fixtures;

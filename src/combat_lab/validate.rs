@@ -82,26 +82,47 @@ pub fn read_room_file(root: &Path, file: &str) -> Result<String, LabError> {
     std::fs::read_to_string(&path).map_err(|e| LabError::Io(format!("{}: {e}", path.display())))
 }
 
+/// Pick the scenario of a room file. A file with one scenario is that room; a
+/// file with several (R01 holds `LAB-R01-V1` to `LAB-R01-V3`, identical
+/// geometry, different placements) is addressed by the variant id: variant
+/// `v2` is the scenario whose id ends in `-V2`.
+fn pick_scenario(mut rooms: Vec<Room>, variant: &str) -> Result<Room, String> {
+    if rooms.len() == 1 {
+        return Ok(rooms.remove(0));
+    }
+    let suffix = format!("-{}", variant.to_uppercase());
+    let found: Vec<usize> = rooms
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.id.ends_with(&suffix))
+        .map(|(i, _)| i)
+        .collect();
+    match found.as_slice() {
+        [index] => Ok(rooms.remove(*index)),
+        _ => Err(format!(
+            "variant {variant} picks {} of the {} scenarios of the room file",
+            found.len(),
+            rooms.len()
+        )),
+    }
+}
+
 /// Compose a room file into a kit with the two scroll-camera views of the
-/// scene. `goal` decides whether the protected exit stays a trigger.
+/// scene. `goal` decides whether the protected exit stays a trigger;
+/// `variant` picks the scenario of a multi-scenario file.
 pub fn load_room(
     root: &Path,
     text: &str,
     goal: GoalKind,
     room_id: &str,
+    variant: &str,
 ) -> Result<LoadedRoom, LabError> {
     let geometry = |reason: String| LabError::Geometry {
         room: room_id.into(),
         reason,
     };
     let rooms = parse_rooms(text).map_err(geometry)?;
-    if rooms.len() != 1 {
-        return Err(geometry(format!(
-            "a room file holds one room, found {}",
-            rooms.len()
-        )));
-    }
-    let room = rooms.into_iter().next().unwrap_or_else(|| unreachable!());
+    let room = pick_scenario(rooms, variant).map_err(geometry)?;
     let (mut kit, _contract, plan) = build_kit(root, &room).map_err(|e| geometry(e.to_string()))?;
     let walk = kit.base_walk_line_y;
     // The same framing as the corridor and the demo hall: the walking line
@@ -159,7 +180,7 @@ pub fn validate_resolved(
         });
     }
     report.pass("layout_hash");
-    let loaded = load_room(root, &text, room.goal.kind, id)?;
+    let loaded = load_room(root, &text, room.goal.kind, id, &resolved.variant)?;
     let kit = &loaded.kit;
     report.pass("composes_through_the_existing_kit");
 
@@ -189,7 +210,7 @@ pub fn validate_resolved(
         }
     };
     lane(loaded.room.spawn_carl, "Carl's spawn")?;
-    for (i, x) in room.checkpoints.iter().enumerate() {
+    for (i, x) in resolved.checkpoints.iter().enumerate() {
         lane(*x, &format!("checkpoint {i}"))?;
     }
     for (i, e) in resolved.enemies.iter().enumerate() {
@@ -226,7 +247,10 @@ pub fn validate_resolved(
     }
 
     // Reachability of the protected exit, intact and fully broken, for both.
-    let from = room.checkpoints[0];
+    let from = *resolved
+        .checkpoints
+        .first()
+        .ok_or_else(|| geometry("a variant needs at least one checkpoint".into()))?;
     for (who, mobility) in [("Carl", CARL_MOBILITY), ("Donut", DONUT_MOBILITY)] {
         for state in [PropState::AllIntact, PropState::AllBroken] {
             if !loaded.room.exit_reachable(mobility, state, from) {

@@ -1,49 +1,72 @@
 {
   "schema": "floor01-demo-hall-v1",
-  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "status": "COMBAT-LAB-01 R02 greybox: geometry only, two tiers plus a spit refuge. Lab entry only.",
   "scenarios": [
     {
       "id": "LAB-R02",
       "name": "Broken Scaffold",
-      "subtitle": "Three tiers, one Donut-only perch",
+      "subtitle": "Two goblin pockets, a lookout and a llama yard",
       "act": 1,
       "setting": "dry-catacomb",
       "width": 1280,
-      "height": 512,
-      "floor": 420,
+      "height": 660,
+      "floor": 580,
       "spawn": {
-        "carl": 96,
-        "donut": 64
+        "carl": 112,
+        "donut": 80
       },
-      "camera_intro": 96,
+      "camera_intro": 112,
       "platforms": [
         {
-          "x": 448,
-          "y": 356,
+          "x": 288,
+          "y": 548,
           "w": 128,
           "h": 16
         },
         {
-          "x": 704,
-          "y": 292,
-          "w": 160,
+          "x": 736,
+          "y": 516,
+          "w": 96,
           "h": 16
         },
         {
-          "x": 960,
-          "y": 180,
-          "w": 128,
+          "x": 832,
+          "y": 548,
+          "w": 32,
+          "h": 16
+        },
+        {
+          "x": 1088,
+          "y": 548,
+          "w": 64,
           "h": 16
         }
       ],
       "solid_backwall": [],
       "props": [],
-      "enemies": [],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 560
+        },
+        {
+          "kind": "goblin",
+          "x": 592
+        },
+        {
+          "kind": "goblin",
+          "x": 928
+        },
+        {
+          "kind": "llama",
+          "x": 1024
+        }
+      ],
       "hazards": [],
       "goal_x": 1200,
-      "purpose": "Placeholder tiers: a Carl ledge, a Carl-by-steps platform and a Donut-only perch.",
-      "expected": "Layout keys for R00-R02 are applied in the next PR.",
-      "coop": "Donut reaches the perch through the middle platform; Carl cannot."
+      "purpose": "Two tiers (32, 64) and a spit refuge; goblins pinned in pockets, the llama in the yard.",
+      "expected": "Drop shelf -> pocket pair -> lookout -> yard goblin and llama -> roost -> bay exit. Clear = all enemies defeated.",
+      "coop": "Separation wall 448: a hero on the roost keeps the other at x >= 652."
     }
   ]
 }

@@ -1,30 +1,138 @@
 {
   "schema": "floor01-demo-hall-v1",
-  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "status": "COMBAT-LAB-01 R01 greybox: geometry only. Three placement variants (v1..v3) selected by the effective seed 1..3. Lab entry only.",
   "scenarios": [
     {
-      "id": "LAB-R01",
+      "id": "LAB-R01-V1",
       "name": "Impact Pit",
-      "subtitle": "Low flat brawl lane for the impact tests",
+      "subtitle": "Three goblins on a flat lane between a nook and the impact wall (v1)",
       "act": 1,
       "setting": "dry-catacomb",
-      "width": 960,
-      "height": 512,
-      "floor": 420,
+      "width": 1024,
+      "height": 660,
+      "floor": 580,
       "spawn": {
-        "carl": 96,
-        "donut": 64
+        "carl": 176,
+        "donut": 144
       },
-      "camera_intro": 96,
-      "platforms": [],
+      "camera_intro": 176,
+      "platforms": [
+        {
+          "x": 16,
+          "y": 548,
+          "w": 96,
+          "h": 16
+        }
+      ],
       "solid_backwall": [],
       "props": [],
-      "enemies": [],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 560
+        },
+        {
+          "kind": "goblin",
+          "x": 588
+        },
+        {
+          "kind": "goblin",
+          "x": 880
+        }
+      ],
       "hazards": [],
-      "goal_x": 880,
-      "purpose": "A flat lane bounded by real walls for jab, kick, contact and wall tests.",
-      "expected": "Enemies are listed in assets/levels/combat_lab/manifest.json, not here.",
-      "coop": "One scroll camera with the party separation wall."
+      "goal_x": 944,
+      "purpose": "Flat brawl lane bounded by the east impact wall, with a protected 32 px nook on the west.",
+      "expected": "A pair meets the hero mid-lane; the third holds near the exit. Clear = all goblins defeated.",
+      "coop": "Separation wall 448: a hero on the nook keeps the other at about x <= 548."
+    },
+    {
+      "id": "LAB-R01-V2",
+      "name": "Impact Pit",
+      "subtitle": "Three goblins on a flat lane between a nook and the impact wall (v2)",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1024,
+      "height": 660,
+      "floor": 580,
+      "spawn": {
+        "carl": 176,
+        "donut": 144
+      },
+      "camera_intro": 176,
+      "platforms": [
+        {
+          "x": 16,
+          "y": 548,
+          "w": 96,
+          "h": 16
+        }
+      ],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 432
+        },
+        {
+          "kind": "goblin",
+          "x": 832
+        },
+        {
+          "kind": "goblin",
+          "x": 860
+        }
+      ],
+      "hazards": [],
+      "goal_x": 944,
+      "purpose": "Flat brawl lane bounded by the east impact wall, with a protected 32 px nook on the west.",
+      "expected": "A pair meets the hero mid-lane; the third holds near the exit. Clear = all goblins defeated.",
+      "coop": "Separation wall 448: a hero on the nook keeps the other at about x <= 548."
+    },
+    {
+      "id": "LAB-R01-V3",
+      "name": "Impact Pit",
+      "subtitle": "Three goblins on a flat lane between a nook and the impact wall (v3)",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1024,
+      "height": 660,
+      "floor": 580,
+      "spawn": {
+        "carl": 176,
+        "donut": 144
+      },
+      "camera_intro": 176,
+      "platforms": [
+        {
+          "x": 16,
+          "y": 548,
+          "w": 96,
+          "h": 16
+        }
+      ],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 512
+        },
+        {
+          "kind": "goblin",
+          "x": 640
+        },
+        {
+          "kind": "goblin",
+          "x": 768
+        }
+      ],
+      "hazards": [],
+      "goal_x": 944,
+      "purpose": "Flat brawl lane bounded by the east impact wall, with a protected 32 px nook on the west.",
+      "expected": "A pair meets the hero mid-lane; the third holds near the exit. Clear = all goblins defeated.",
+      "coop": "Separation wall 448: a hero on the nook keeps the other at about x <= 548."
     }
   ]
 }
