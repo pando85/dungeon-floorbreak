@@ -18,13 +18,15 @@ This is a *navigation aid*, not an authority override. In conflicts, follow [AGE
 
 **Invariants inherited from accepted decisions:** four face-button action verbs (jump, primary, physical, equipped special); Carl **kicks rather than grabbing enemies**; Donut has no magic before the biscuit; no required twin-stick aim; character unlocks respect narrative order; Mongo is introduced later and is not automatically a third local-player slot. Consult [the control contract](mvp-controller-contract.md) rather than reproducing or overriding bindings here.
 
+**Progression policy, 2026-11-20:** [ADR-0010](../05-decisions/ADR-0010-combat-first-progression.md) narrows this living horizon: there is **no traditional inventory, loot tiers, random gear treadmill, crafting or generic persistent stat farming**. Story-earned special tools/spells use the existing equipped-special verb; iconic narrative equipment auto-integrates as capability flags. Combat momentum and capped floor modifiers are the preferred reward path, with rare story-gated sponsor grants later. See the [REWARDS-01 spec](combat-rewards-and-no-inventory-v1.md). This is a product rule; exact reward balance remains experimental.
+
 ## Four progression layers (design framework, not implemented architecture)
 
 | Layer | How it grows | Persistence question | Example hypothesis |
 | --- | --- | --- | --- |
 | Core action mastery | Upgrades to existing punch, kick, pounce, jump, Magic Missile and their contact/terrain properties | Usually persistent | A stunned enemy flies farther when kicked; not a mandatory combo string |
-| Equippable tools / spells | Acquired explosive or magical special selected for the same action slot | Inventory/equipment dependent | Carl prepares a bomb; Donut selects a later unlocked tactical spell |
-| Floor-specific rules | Enemies, hazards, props, machinery, one-off systems and temporary abilities | Usually local to that floor | Different terrain and telegraphs reward familiar skills in new ways |
+| Story-earned tools / spells | Special capabilities available on the existing active-special button; no inventory screen | Persist by authored unlock; active special follows controller contract | Carl prepares a story-earned bomb; Donut uses a story-earned spell |
+| Floor-specific rules and boons | Enemies, hazards, props, capped optional stage-choice modifiers and short combat momentum | Momentum ends in seconds/encounter; floor modifiers at floor exit | Different terrain and telegraphs reward familiar skills in new ways |
 | Allies / synergy | Mongo and other allied behaviors, duo interactions, contextual requests | Story-and-availability dependent | A coordinated setup/finisher rather than extra compulsory buttons |
 
 This is a **conceptual taxonomy**. It does not approve a skill tree, inventory UI, unlock currencies, a number of loadout slots, companion command wheel, or per-floor reset rules. Progression/state implementation stays IP-neutral and separate from physical controller bindings.
@@ -112,6 +114,7 @@ For that change, the agent/designer must:
 | Date | Change | Status / evidence |
 | --- | --- | --- |
 | 2026-11-18 | Initial long-term horizon: Floor 01 learning, permanent action identities, layered progression, future-floor design themes and review triggers | Living guide; owner asked for a revisitable reference, **not** approval of future skills |
+| 2026-11-20 | REWARDS-01 / ADR-0010: no conventional gear/inventory; permanent story abilities, temporary combat momentum, bounded floor boon choices and future story-gated sponsor gifts | Owner-approved product direction; numeric tuning/implementation pending [roadmap](../04-production/rewards-roadmap.md) |
 | 2026-11-20 | COMBAT-FUN-02 after the first DEMO-01 playtest: Carl's Floor 01 impact set gains a Down + Physical stomp on downed foes and its aerial form (dive), a short air kick, a scrambling bail-out hop and wall/body impacts; ordinary goblins gain reactive morale (hesitate, panic, enraged, taunt) with seeded temperaments; the solo AI Donut gains a restrained, opt-in assist (interrupts and non-lethal holds, never in 2P, no magic before the biscuit). No new button, no new unlock, no new enemy type | Adopted defaults CF02-Q01..Q75, behind `--cf02`; game feel pending ([design](combat-fun-02-post-demo01-proposals.md)) |
 
 ### Update note template
