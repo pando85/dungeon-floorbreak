@@ -1,0 +1,168 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "gob-cf02-acting-a",
+  "title": "ART-GOB-CF02 goblin A acting sheet (docs/02-art/cf02-acting-spec.md): 5 frames, 3 frozen keys",
+  "grid": "assets/source/characters/goblin/goblin_a_h36_cf02.grid.json",
+  "manifest": "assets/manifests/goblin_a_h36_cf02.json",
+  "frame_size": [
+    64,
+    56
+  ],
+  "pivot": [
+    28,
+    55
+  ],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "hesitate": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          20
+        ]
+      ]
+    },
+    "panic": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          1,
+          6
+        ],
+        [
+          2,
+          6
+        ]
+      ]
+    },
+    "taunt": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          3,
+          9
+        ],
+        [
+          4,
+          9
+        ]
+      ]
+    }
+  },
+  "roles": {},
+  "rules": {
+    "max_colors": 18,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "canvas_margin": [
+      1,
+      0,
+      1,
+      0
+    ],
+    "unique_frames": true,
+    "manifest_tick_rows": "cf02_goblin.frames",
+    "manifest_tick_hz": "cf02_goblin.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/goblin_cf02_acting_keys.json",
+      "frames": [
+        0,
+        1,
+        3
+      ],
+      "layers": [
+        "weapon_back",
+        "body",
+        "weapon"
+      ]
+    },
+    "bbox": [
+      {
+        "id": "hesitate",
+        "frames": [
+          0
+        ],
+        "top": 19,
+        "bottom": 55,
+        "left": 16,
+        "right": 46
+      },
+      {
+        "id": "panic-flee",
+        "frames": [
+          1
+        ],
+        "top": 18,
+        "bottom": 55,
+        "left": 4,
+        "right": 51
+      },
+      {
+        "id": "panic-flee-b-bounce",
+        "frames": [
+          2
+        ],
+        "top": 20,
+        "bottom": 55,
+        "min_width": 40
+      },
+      {
+        "id": "taunt-thump",
+        "frames": [
+          3
+        ],
+        "top": 20,
+        "bottom": 55,
+        "left": 1,
+        "right": 42
+      },
+      {
+        "id": "taunt-beckon-reach",
+        "frames": [
+          4
+        ],
+        "top": 20,
+        "bottom": 55,
+        "right": 47
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "hesitate",
+      "panic",
+      "taunt"
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520
+      },
+      {
+        "frame": 1,
+        "x": 580
+      },
+      {
+        "frame": 2,
+        "x": 640
+      },
+      {
+        "frame": 3,
+        "x": 700
+      },
+      {
+        "frame": 4,
+        "x": 760
+      }
+    ]
+  }
+}

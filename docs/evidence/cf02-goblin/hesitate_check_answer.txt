@@ -1,0 +1,1 @@
+left to right: idle 1, hesitate, idle 3, idle 2, idle 0

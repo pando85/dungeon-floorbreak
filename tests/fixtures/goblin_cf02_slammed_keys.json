@@ -1,0 +1,29 @@
+{
+  "format": "pixelart-keys-v1",
+  "asset_id": "gob-cf02-slammed-a",
+  "layers": [
+    "body",
+    "weapon",
+    "gore"
+  ],
+  "keys": {
+    "0": {
+      "sha256": "f4414d50c14fe3a81e965745e1feca4c0dd6f7c4e61bf494c44cb0f68b3aa9c0"
+    },
+    "1": {
+      "sha256": "1b648d9c2c7fcca5a274714130768f2dd80bf88c97cd63a884df109b98851faf"
+    },
+    "2": {
+      "sha256": "f8442e18d51f0a7b538f9765e9cca572796b5956a273c03e5ceb9366bcef7e74"
+    },
+    "3": {
+      "sha256": "f7c20e4205806f4ff08094ea9261a9851255794c367f7c1650ee7343edc4959a"
+    },
+    "4": {
+      "sha256": "01e6238a3f1990ea7ef365695971539a7c674f2cc503749653ee043c8e0e090a"
+    },
+    "5": {
+      "sha256": "e90f42c272416fd7bd564b1febc546c488e150ef5a282270e015433091067a46"
+    }
+  }
+}
