@@ -1,0 +1,222 @@
+use std::collections::BTreeMap;
+use std::collections::hash_map::RandomState;
+use std::hash::{BuildHasher, Hasher};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use serde::{Deserialize, Serialize};
+
+use super::codec::{ACTION_SCHEMA, EVENT_SCHEMA, SESSION_SCHEMA, hex64};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunKind {
+    Human,
+    ScriptedBot,
+    LearnedPolicy,
+    Mixed,
+}
+
+/// PT-Q16: who played. `owner_only` is the default; an
+/// `includes_other_tester` session is never exported without an explicit
+/// per-session `--export-consented`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Participants {
+    OwnerOnly,
+    IncludesOtherTester,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionStatus {
+    Recording,
+    Completed,
+    Abandoned,
+    CrashedRecovered,
+    Incomplete,
+    Corrupt,
+}
+
+/// What a fresh process needs to rebuild tick 0 (the `PartyFixtureSim` style:
+/// replay is from this descriptor plus the input tape; v1 has no snapshots).
+/// No path: only repo-relative names and hashes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResetDescriptor {
+    /// `demo`, `fixture`, `boss`, `story` (the corridor).
+    pub source: String,
+    /// Fixture or scene name (empty for the story corridor).
+    pub name: String,
+    pub demo: bool,
+    pub demo_beat: u32,
+    pub cf02_rules: bool,
+    pub cf02_seed: Option<u64>,
+    pub view_height: i32,
+    pub donut_biscuit: bool,
+    /// FNV-1a-64 of the layout and kit contract (0 when not computed).
+    #[serde(with = "hex64")]
+    pub kit_hash: u64,
+    /// State hash of the freshly reset scene, before tick 0 and before the
+    /// first `drive_change` is applied (PTI-05): for a live-party run it
+    /// differs from tick 0's `pre`, which is taken after the drive is set.
+    /// Compare it only against a fresh reset with the legacy drive.
+    #[serde(with = "hex64")]
+    pub start_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChunkChecksum {
+    pub chunk: usize,
+    pub ticks: usize,
+    #[serde(with = "hex64")]
+    pub fnv: u64,
+}
+
+/// `manifest.json`. Written as `manifest.json.tmp` and renamed (atomic) at
+/// start and at finish. Contains no hostname, user name, home path, pad id or
+/// serial; the wall clock is rounded to the UTC day.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionManifest {
+    pub schema: String,
+    pub session_id: String,
+    pub run_kind: RunKind,
+    pub participants: Participants,
+    /// `YYYY-MM-DD` (UTC), diagnostic only.
+    pub started_on_utc_day: Option<String>,
+    pub build_commit: String,
+    pub build_dirty: bool,
+    pub binary_fingerprint: String,
+    pub toolchain: String,
+    pub os_family: String,
+    pub build_profile: String,
+    pub game_ruleset_id: String,
+    pub feature_flags: BTreeMap<String, String>,
+    pub tick_rate_hz: u32,
+    pub content_hashes: BTreeMap<String, String>,
+    pub reset: ResetDescriptor,
+    pub camera_ruleset: String,
+    pub rng_algorithm: String,
+    pub seed_requested: Option<u64>,
+    pub seed_effective: Option<u64>,
+    pub action_schema_id: String,
+    pub observation_schema_id: String,
+    pub event_schema_id: String,
+    pub snapshot_schema_id: String,
+    pub party_schema_id: String,
+    pub recorder_schema_id: String,
+    /// `solo_human`, `local_coop`, ... as known at start.
+    pub mode: String,
+    pub input_adapter: String,
+    pub deadzone: String,
+    pub status: SessionStatus,
+    pub capture_complete: bool,
+    pub replay_verified: bool,
+    pub training_eligible: bool,
+    pub observation_is_partial: bool,
+    /// `reset_only` in v1.
+    pub snapshot_support: String,
+    pub quality_flags: Vec<String>,
+    pub tick_count: u64,
+    pub last_tick: Option<u64>,
+    pub dropped_ticks: u64,
+    pub write_errors: u64,
+    /// `truncated` for a recovered crash, `None` otherwise.
+    pub terminal: Option<String>,
+    pub chunk_checksums: Vec<ChunkChecksum>,
+    pub export_lineage: Vec<String>,
+}
+
+impl SessionManifest {
+    /// A manifest with the v1 defaults. The caller fills what it knows (build
+    /// identity, flags, hashes); recorded sessions are `replay_unverified`,
+    /// `observation_is_partial` and not `training_eligible` until PT-C.
+    pub fn new(session_id: String, reset: ResetDescriptor) -> Self {
+        Self {
+            schema: SESSION_SCHEMA.to_owned(),
+            session_id,
+            run_kind: RunKind::Human,
+            participants: Participants::OwnerOnly,
+            started_on_utc_day: utc_day_now(),
+            build_commit: "unknown".to_owned(),
+            build_dirty: false,
+            binary_fingerprint: String::new(),
+            toolchain: String::new(),
+            os_family: std::env::consts::OS.to_owned(),
+            build_profile: if cfg!(debug_assertions) {
+                "debug"
+            } else {
+                "release"
+            }
+            .to_owned(),
+            game_ruleset_id: String::new(),
+            feature_flags: BTreeMap::new(),
+            tick_rate_hz: 60,
+            content_hashes: BTreeMap::new(),
+            reset,
+            camera_ruleset: String::new(),
+            rng_algorithm: "none".to_owned(),
+            seed_requested: None,
+            seed_effective: None,
+            action_schema_id: ACTION_SCHEMA.to_owned(),
+            observation_schema_id: "none".to_owned(),
+            event_schema_id: EVENT_SCHEMA.to_owned(),
+            snapshot_schema_id: "none".to_owned(),
+            party_schema_id: "party-routing/1".to_owned(),
+            recorder_schema_id: SESSION_SCHEMA.to_owned(),
+            mode: String::new(),
+            input_adapter: "bevy-keyboard-pad/1".to_owned(),
+            deadzone: "post-deadzone RawInput".to_owned(),
+            status: SessionStatus::Recording,
+            capture_complete: false,
+            replay_verified: false,
+            training_eligible: false,
+            observation_is_partial: true,
+            snapshot_support: "reset_only".to_owned(),
+            quality_flags: vec!["replay_unverified".to_owned()],
+            tick_count: 0,
+            last_tick: None,
+            dropped_ticks: 0,
+            write_errors: 0,
+            terminal: None,
+            chunk_checksums: Vec::new(),
+            export_lineage: Vec::new(),
+        }
+    }
+}
+
+/// 128 random-looking bits as 32 hex digits, from `RandomState` mixed with
+/// the wall clock, the process id and a counter. No new crate, no PII.
+pub fn generate_session_id() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos() as u64);
+    let count = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let mut words = [0_u64; 2];
+    for (index, word) in words.iter_mut().enumerate() {
+        let mut hasher = RandomState::new().build_hasher();
+        hasher.write_u64(nanos);
+        hasher.write_u32(std::process::id());
+        hasher.write_u64(count);
+        hasher.write_usize(index);
+        *word = hasher.finish();
+    }
+    format!("{:016x}{:016x}", words[0], words[1])
+}
+
+/// UTC date of the wall clock, `YYYY-MM-DD` (civil-from-days).
+fn utc_day_now() -> Option<String> {
+    let secs = SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs();
+    let days = (secs / 86_400) as i64;
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let year = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if month <= 2 { year + 1 } else { year };
+    Some(format!("{year:04}-{month:02}-{day:02}"))
+}

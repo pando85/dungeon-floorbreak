@@ -91,6 +91,7 @@ use dungeon_floorbreak::{
     pad_slots::{PadButtons, PadEvent, PadFrame, PadSlots},
     party::{HeroId, PadId, PartyState},
     party_scene::{self, PartyFixture},
+    playtrace::{self, RECORD_DEFAULT_ON, ResetDescriptor, SessionManifest, live::LiveRecorder},
     prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, TICK_SECONDS},
     scene_anim::SceneAnimators,
     scene_camera::{
@@ -239,9 +240,64 @@ struct Args {
     /// `--list-fixtures PREFIX`: print the fixture names with that prefix over
     /// every registry and exit before anything else starts.
     list_fixtures: Option<String>,
+    /// PLAYTRACE-01: `--record` / `--no-record` (default: on for a live-input
+    /// run, off for scripted, headless, capture and presim paths).
+    record: RecordMode,
+    /// `--record-dir DIR`: base directory of the sessions (default: the XDG
+    /// data directory).
+    record_dir: Option<PathBuf>,
+    /// `--record-strict`: refuse to start when the recorder cannot start.
+    record_strict: bool,
+    /// `--record-other-tester`: the session includes a tester who is not the
+    /// owner (PT-Q16; such a session is never exported without consent).
+    record_other_tester: bool,
+}
+
+/// The PLAYTRACE-01 recording switch of a run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RecordMode {
+    /// The default: [`RECORD_DEFAULT_ON`] for a live-input run only.
+    Auto,
+    On,
+    Off,
 }
 
 impl Args {
+    /// PLAYTRACE-01 (PT-Q12): the run has a live input source, so its
+    /// session cannot be reproduced from the command line. False for every
+    /// scripted, headless, capture, perf, view-trace, HUD-preview and QA-probe
+    /// path, which are reproducible from their flags and goldens.
+    fn live_input(&self) -> bool {
+        !self.headless
+            && !self.freeze
+            && self.scenario.is_none()
+            && self.party_fixture.is_none()
+            && (self.fixture.is_none() || self.manual)
+            && !self.autopilot
+            && self.exit_after_ticks.is_none()
+            && self.capture_tick.is_none()
+            && self.capture_sequence.is_none()
+            && !self.reference_frame
+            && self.perf_frames.is_none()
+            && self.perf_from_tick.is_none()
+            && !self.view_trace
+            && self.hud_preview.is_none()
+            && self.camera_test_room.is_none()
+            && !self.death_stress
+            && !self.audience_probe
+            && self.list_fixtures.is_none()
+    }
+
+    /// Whether this run records a PLAYTRACE-01 session by default (tests).
+    #[cfg(test)]
+    fn recording_enabled(&self) -> bool {
+        match self.record {
+            RecordMode::On => true,
+            RecordMode::Off => false,
+            RecordMode::Auto => RECORD_DEFAULT_ON && self.live_input(),
+        }
+    }
+
     /// The CINE-01 setting this run uses. An explicit environment variable or
     /// flag wins. Otherwise it is on for live play (no scripted scenario,
     /// fixture script, autopilot, capture, perf probe or scripted exit) and
@@ -381,11 +437,23 @@ fn parse_args_full(
         audience_cue_x: AUDIENCE_PROBE_CUE_X,
         cf02: Cf02Config::OFF,
         list_fixtures: None,
+        record: RecordMode::Auto,
+        record_dir: None,
+        record_strict: false,
+        record_other_tester: false,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
         match arg.as_str() {
             "--cf02" => parsed.cf02.rules = true,
+            "--record" => parsed.record = RecordMode::On,
+            "--no-record" => parsed.record = RecordMode::Off,
+            "--record-strict" => parsed.record_strict = true,
+            "--record-other-tester" => parsed.record_other_tester = true,
+            "--record-dir" => {
+                let value = iter.next().ok_or("--record-dir needs a directory")?;
+                parsed.record_dir = Some(PathBuf::from(value));
+            }
             "--cf02-seed" => {
                 let value = iter.next().ok_or("--cf02-seed needs a u64 seed")?;
                 parsed.cf02.seed = Some(
@@ -726,6 +794,18 @@ fn parse_args_full(
     if parsed.reference_frame && (driven || parsed.capture_tick.is_some()) {
         return Err(
             "--reference-frame pins its own state; drop --scenario/--fixture/--capture-tick".into(),
+        );
+    }
+    if parsed.record == RecordMode::On
+        && (parsed.headless
+            || parsed.list_fixtures.is_some()
+            || parsed.capture_tick.is_some()
+            || parsed.capture_sequence.is_some()
+            || parsed.perf_from_tick.is_some())
+    {
+        return Err(
+            "--record needs a windowed run without a presim (no --headless-floor01-smoke, --capture-tick, --capture-sequence or --perf-from-tick)"
+                .into(),
         );
     }
     Ok(parsed)
@@ -1408,6 +1488,24 @@ struct MomentRun {
 struct Sinks<'w> {
     audio: ResMut<'w, AudioQueue>,
     cine: ResMut<'w, Cine>,
+    rec: ResMut<'w, Recorder>,
+}
+
+/// PLAYTRACE-01: the live session recorder (`None`: not recording). It only
+/// reads the simulation; see `playtrace::live`.
+#[derive(Resource)]
+struct Recorder(Option<LiveRecorder>);
+
+impl Recorder {
+    /// Print the recorder's `PLAYTRACE_` lines (never part of any golden: they
+    /// exist only in a recorded run).
+    fn flush(&mut self) {
+        if let Some(rec) = self.0.as_mut() {
+            for line in rec.drain_messages() {
+                println!("{line}");
+            }
+        }
+    }
 }
 
 /// Fixed tick after which a live scripted run prints its state and exits.
@@ -1799,6 +1897,195 @@ fn presentation_view(
     }
 }
 
+/// The PLAYTRACE-01 session manifest of this run: identity and configuration
+/// only, no path, host or user name.
+fn recording_manifest(
+    args: &Args,
+    sim: &SceneSim,
+    combat: Option<&CombatState>,
+    party: &PartyState,
+    root: &Path,
+) -> SessionManifest {
+    let (source, name) = if args.demo {
+        ("demo", args.fixture.map_or("", |f| f.name))
+    } else if args.boss {
+        ("boss", args.fixture.map_or("", |f| f.name))
+    } else if let Some(fixture) = args.fixture {
+        ("fixture", fixture.name)
+    } else {
+        ("story", "")
+    };
+    let kit_hash = dungeon_floorbreak::autoplay::replay::kit_content_hash(root).unwrap_or(0);
+    let start_hash = combat.map_or_else(|| sim.state_hash(), |c| c.state_hash(sim));
+    let reset = ResetDescriptor {
+        source: source.to_owned(),
+        name: name.to_owned(),
+        demo: args.demo,
+        demo_beat: args.demo_beat as u32,
+        cf02_rules: args.cf02.rules,
+        cf02_seed: args.cf02.seed,
+        view_height: view_height(args.deck),
+        donut_biscuit: args.donut_biscuit,
+        kit_hash,
+        start_hash,
+    };
+    let mut manifest = SessionManifest::new(playtrace::generate_session_id(), reset);
+    let (commit, dirty) = playtrace::live::build_identity();
+    manifest.build_commit = commit;
+    manifest.build_dirty = dirty;
+    if dirty || manifest.build_commit == "unknown" {
+        manifest
+            .quality_flags
+            .push("dirty_or_unknown_build".to_owned());
+    }
+    manifest.game_ruleset_id = "floor01-greybox".to_owned();
+    manifest.camera_ruleset = "sim-scroll-camera".to_owned();
+    manifest.seed_requested = args.cf02.seed;
+    manifest.seed_effective = args.cf02.seed;
+    manifest.run_kind = if args.live_input() {
+        playtrace::RunKind::Human
+    } else {
+        playtrace::RunKind::ScriptedBot
+    };
+    if args.record_other_tester {
+        manifest.participants = playtrace::Participants::IncludesOtherTester;
+    }
+    manifest.mode = if party.mode() == dungeon_floorbreak::party::PartyMode::TwoPlayer {
+        "local_coop"
+    } else {
+        "solo_human"
+    }
+    .to_owned();
+    for (key, value) in [
+        ("cf02_rules", args.cf02.rules),
+        ("demo", args.demo),
+        ("boss", args.boss),
+        ("donut_biscuit", args.donut_biscuit),
+        ("manual", args.manual),
+        ("autopilot", args.autopilot),
+    ] {
+        manifest
+            .feature_flags
+            .insert(key.to_owned(), value.to_string());
+    }
+    for (key, value) in [
+        ("kit", kit_hash),
+        ("mana_tuning", dungeon_floorbreak::donut_mana::TUNING_HASH),
+        ("cf02_tuning", dungeon_floorbreak::cf02::TUNING_HASH),
+    ] {
+        manifest
+            .content_hashes
+            .insert(key.to_owned(), format!("{value:016x}"));
+    }
+    manifest
+}
+
+/// Start the PLAYTRACE-01 session of a windowed run, before the first tick.
+/// Prints `PLAYTRACE_` lines only for a recorded run, a `--no-record` opt-out
+/// or a failure, so every scripted run prints exactly what it printed before.
+/// A failing recorder never stops the game unless `--record-strict` asks for it.
+fn start_recording(
+    args: &Args,
+    sim: &SceneSim,
+    combat: Option<&CombatState>,
+    party: &PartyState,
+    root: &Path,
+) -> Option<LiveRecorder> {
+    // Opt-outs are never silent for a run that would have been recorded.
+    match args.record {
+        RecordMode::Off => {
+            println!("PLAYTRACE_DISABLED reason=--no-record this session is not recorded");
+            return refuse_if_strict(args, "--no-record");
+        }
+        RecordMode::Auto => {
+            if !(RECORD_DEFAULT_ON && args.live_input()) {
+                // Scripted, headless and capture paths print nothing.
+                return None;
+            }
+            if let Some(reason) = record_env_off() {
+                println!(
+                    "PLAYTRACE_DISABLED reason=env:{reason} this session is not recorded (use --record to force it)"
+                );
+                return refuse_if_strict(args, reason);
+            }
+        }
+        RecordMode::On => {}
+    }
+    let base = match args.record_dir.clone().map(Ok).unwrap_or_else(|| {
+        playtrace::default_record_dir(
+            std::env::var("XDG_DATA_HOME").ok().as_deref(),
+            std::env::var("HOME").ok().as_deref(),
+        )
+    }) {
+        Ok(base) => base,
+        Err(error) => return recording_failed(args, &error.to_string()),
+    };
+    let size = playtrace::dir_size_bytes(&base);
+    if size > playtrace::WARN_BYTES {
+        println!(
+            "PLAYTRACE_WARN the playtrace directory holds {} GB; nothing is deleted automatically (use `playtrace delete`)",
+            size >> 30
+        );
+    }
+    let manifest = recording_manifest(args, sim, combat, party, root);
+    // The location is printed relative to the data directory, never as an
+    // absolute home path (console logs get pasted into evidence).
+    let location = match args.record_dir.as_ref() {
+        Some(dir) => format!("{}/{}", dir.display(), manifest.session_id),
+        None if std::env::var("XDG_DATA_HOME").is_ok_and(|v| v.starts_with('/')) => {
+            format!(
+                "$XDG_DATA_HOME/dungeon-floorbreak/playtrace/{}",
+                manifest.session_id
+            )
+        }
+        None => format!(
+            "~/.local/share/dungeon-floorbreak/playtrace/{}",
+            manifest.session_id
+        ),
+    };
+    match LiveRecorder::start(&base, manifest, combat, party, !args.live_input()) {
+        Ok(mut recorder) => {
+            for line in recorder.drain_messages() {
+                println!("{line} dir={location}");
+            }
+            Some(recorder)
+        }
+        Err(error) => recording_failed(args, &error.to_string()),
+    }
+}
+
+/// Why the environment turns automatic recording off: `CI` (set by GitHub
+/// Actions and many harnesses) or `FLOORBREAK_RECORD` being `0`/`off` (the CI
+/// scripts export it). A live-input run says so on stdout (`PLAYTRACE_DISABLED
+/// reason=env:...`); scripted runs never reach this check and print nothing.
+/// `--record` still forces recording on.
+fn record_env_off() -> Option<&'static str> {
+    if std::env::var("FLOORBREAK_RECORD").is_ok_and(|v| v == "0" || v.eq_ignore_ascii_case("off")) {
+        return Some("FLOORBREAK_RECORD");
+    }
+    std::env::var("CI")
+        .is_ok_and(|v| !v.is_empty() && v != "0")
+        .then_some("CI")
+}
+
+/// `--record-strict` refuses to run unrecorded, whatever the reason.
+fn refuse_if_strict(args: &Args, why: &str) -> Option<LiveRecorder> {
+    if args.record_strict {
+        eprintln!("floor01_scene: --record-strict: refusing to start unrecorded ({why})");
+        std::process::exit(2);
+    }
+    None
+}
+
+fn recording_failed(args: &Args, why: &str) -> Option<LiveRecorder> {
+    println!("PLAYTRACE_ERROR the session is NOT being recorded: {why}");
+    if args.record_strict {
+        eprintln!("floor01_scene: --record-strict: refusing to start without a recording");
+        std::process::exit(2);
+    }
+    None
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_window(
     kit: EnvKit,
@@ -1832,6 +2119,7 @@ fn run_window(
         .capture_sequence
         .zip(args.capture_dir.clone())
         .map(|((first, step, count), dir)| CaptureSequence::new(first, step, count, dir));
+    let recorder = start_recording(&args, &sim, combat.as_ref(), &party, root);
     let freeze = args.freeze
         || args.capture_tick.is_some()
         || args.reference_frame
@@ -1975,8 +2263,10 @@ fn run_window(
     .insert_resource(Setup { kit, args })
     .init_resource::<Controls>()
     .insert_resource(Pads(PadSlots::new(party)))
+    .insert_resource(Recorder(recorder))
     .init_resource::<AfterExitTicks>()
     .add_systems(Startup, setup)
+    .add_systems(Last, finish_recording)
     .add_systems(
         Update,
         (
@@ -3001,6 +3291,11 @@ fn fixed_step(
         }
     };
     let mut live_slots = pads.0.take_inputs(keyboard);
+    // PLAYTRACE-01: pad lifecycle and the D6 pause happen between steps, so
+    // they are observed before any early return.
+    if let Some(rec) = sinks.rec.0.as_mut() {
+        rec.observe_party(pads.0.party());
+    }
     if frozen.0 {
         return;
     }
@@ -3031,6 +3326,9 @@ fn fixed_step(
         let _ = combat.take_respawned();
         controls.camera_cut = true;
         pads.0.party_mut().restart();
+        if let Some(rec) = sinks.rec.0.as_mut() {
+            rec.note_demo_respawn(Some(&*combat), pads.0.party());
+        }
         anim.0.reset(&sim.0.world);
         anim.0.reset_art(combat);
         let feats = print_combat_events(
@@ -3059,6 +3357,9 @@ fn fixed_step(
         }
         hud.0.restart();
         pads.0.party_mut().restart();
+        if let Some(rec) = sinks.rec.0.as_mut() {
+            rec.note_restart(combat.0.as_ref(), pads.0.party());
+        }
         controls.camera_cut = true;
         after_exit.0 = 0;
         println!("FLOOR1_RESTART");
@@ -3092,7 +3393,18 @@ fn fixed_step(
     // single-hero simulation, so every recorded hash is unchanged.
     let live_party = scenario.0.is_none() && fixture.0.is_none();
     sim.0.set_drive(pads.0.party().drive(live_party));
+    if let Some(rec) = sinks.rec.0.as_mut() {
+        rec.begin_tick(
+            &sim.0,
+            combat.0.as_ref(),
+            pads.0.party(),
+            slot_inputs,
+            hero_inputs,
+            pads.0.party().drive(live_party),
+        );
+    }
     let was_complete = sim.0.world.complete;
+    let mut respawned_in_step = false;
     if let Some(combat) = combat.0.as_mut() {
         let restarts = combat.restarts;
         let respawned = step_combat(
@@ -3102,6 +3414,7 @@ fn fixed_step(
             death.0.as_mut(),
             hero_inputs,
         );
+        respawned_in_step = respawned;
         if combat.restarts != restarts || respawned {
             // A party defeat restarted the attempt (or the demo respawned
             // Carl): Carl is controlled again.
@@ -3144,6 +3457,10 @@ fn fixed_step(
         sim.0.step_party(hero_inputs);
         anim.0.step(&sim.0.world);
     }
+    if let Some(rec) = sinks.rec.0.as_mut() {
+        rec.end_tick(&sim.0, combat.0.as_ref(), pads.0.party(), respawned_in_step);
+    }
+    sinks.rec.flush();
     step_hud(&mut hud.0, &sim.0, combat.0.as_ref());
     if sim.0.world.complete && !was_complete {
         println!("FLOOR1_EXIT_REACHED tick={}", sim.0.world.tick);
@@ -3165,6 +3482,19 @@ fn fixed_step(
         }
         exit.write(AppExit::Success);
     }
+}
+
+/// PLAYTRACE-01: close the session when the app exits (an `AppExit` message of
+/// this frame). A session that never gets here (a crash) is recovered by the
+/// reader as `crashed_recovered`; a clean drop is marked `abandoned`.
+fn finish_recording(mut exit: MessageReader<AppExit>, mut rec: ResMut<Recorder>) {
+    if exit.read().next().is_none() {
+        return;
+    }
+    if let Some(recorder) = rec.0.as_mut() {
+        recorder.finish("app_quit");
+    }
+    rec.flush();
 }
 
 /// DEMO-01 PR C: one presentation camera step for the tick the simulation just
@@ -5480,6 +5810,92 @@ mod tests {
         let mut full = vec!["floor01_scene".to_owned()];
         full.extend(list.iter().map(|s| (*s).to_owned()));
         parse_args_with(&full, HudSettings::default())
+    }
+
+    /// PLAYTRACE-01 (PT-Q12): which runs record by default.
+    #[test]
+    fn recording_defaults_on_for_live_input_and_off_for_scripted_paths() {
+        let records = |list: &[&str]| args(list).unwrap().recording_enabled();
+        // Live-input runs: story play, the manual demo, CF02, a manual fixture.
+        assert!(records(&[]));
+        assert!(records(&["--scale", "3"]));
+        assert!(records(&["--demo"]));
+        assert!(records(&["--demo", "--demo-beat", "3"]));
+        assert!(records(&["--cf02"]));
+        assert!(records(&["--fixture", "cp01_single_goblin", "--manual"]));
+        assert!(records(&["--scene", "boss_f01"]));
+        // Scripted, headless, capture, perf and probe paths: off.
+        for scripted in [
+            &["--headless-floor01-smoke"][..],
+            &[
+                "--headless-floor01-smoke",
+                "--scenario",
+                "walk_right",
+                "--capture-tick",
+                "80",
+            ],
+            &[
+                "--headless-floor01-smoke",
+                "--fixture",
+                "cp01_single_goblin",
+            ],
+            &[
+                "--headless-floor01-smoke",
+                "--party-fixture",
+                "duo_independent_moves",
+            ],
+            &["--scenario", "walk_right"],
+            &["--scenario", "walk_right", "--exit-after-ticks", "60"],
+            &["--fixture", "cp01_single_goblin"],
+            &[
+                "--fixture",
+                "cp01_single_goblin",
+                "--exit-after-ticks",
+                "60",
+            ],
+            &["--demo", "--autopilot"],
+            &["--demo", "--autopilot", "--exit-after-ticks", "600"],
+            &["--demo", "--exit-after-ticks", "600"],
+            &[
+                "--scenario",
+                "run_jump",
+                "--capture-sequence",
+                "10:1:5",
+                "--capture-dir",
+                "x",
+            ],
+            &["--reference-frame", "--scale", "3"],
+            &["--freeze"],
+            &["--perf-frames", "100"],
+            &["--hud-preview", "coop"],
+            &["--audience-probe"],
+            &["--camera-test-room", "1"],
+            &["--headless-floor01-smoke", "--view-trace"],
+        ] {
+            let parsed = args(scripted).unwrap_or_else(|e| panic!("{scripted:?}: {e}"));
+            assert!(!parsed.recording_enabled(), "{scripted:?} must not record");
+        }
+        // Explicit switches.
+        assert!(!records(&["--no-record"]));
+        assert!(!records(&["--demo", "--no-record"]));
+        assert!(records(&["--scenario", "walk_right", "--record"]));
+        assert!(args(&["--headless-floor01-smoke", "--record"]).is_err());
+        assert!(
+            args(&[
+                "--scenario",
+                "walk_right",
+                "--capture-tick",
+                "5",
+                "--record"
+            ])
+            .is_err()
+        );
+        assert!(args(&["--record-dir"]).is_err());
+        let dir = args(&["--record-dir", "somewhere"]).unwrap();
+        assert_eq!(
+            dir.record_dir.as_deref(),
+            Some(std::path::Path::new("somewhere"))
+        );
     }
 
     /// AUDIENCE-01 R1: a CINE chain award reaches the viewer count on every

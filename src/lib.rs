@@ -52,6 +52,7 @@ pub mod morale;
 pub mod pad_slots;
 pub mod party;
 pub mod party_scene;
+pub mod playtrace;
 pub mod prototype;
 pub mod scene_anim;
 pub mod scene_camera;
