@@ -25,7 +25,7 @@
   "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
   "provenance": {
     "origin": "ART-GOB-CF02 goblin acting frames (docs/02-art/cf02-acting-spec.md section 5): hesitate, panic_flee and taunt_thump copied pixel for pixel from the frozen cf02_keys; panic_flee_b (the other stride) and taunt_beckon (the open-palm beckon) derived by scripts/author_goblin_cf02.py from those keys and GOB-01 walk frame 8 Variant B adds the GOB-01 B accessory layer (red headband, ear notch, missing front tooth, vest patch) moved with each head by scripts/author_goblin_cf02.py, hand-painted on wall_rest; the body, weapon and gore cels are variant A's, byte for byte.",
-    "generator": "Design: Claude Opus (ACT-DESIGN, spec and keys). Execution: Claude Sonnet. Review pending (independent Claude Opus). No image-model output, no tracing",
+    "generator": "Design: Claude Opus (ACT-DESIGN, spec and keys). Execution: Claude Sonnet. Independent review: Claude Opus, passed with fix-now items (fixes applied). No image-model output, no tracing",
     "generated_art": true,
     "input_reference_ids": [
       "floor-01-opening-concept-references-v1"
@@ -40,7 +40,7 @@
     "hold_preview_ms": 100,
     "facing": "right",
     "mirror": "x' = 56 - x around the pivot column",
-    "status": "executor pass complete; independent review pending; not wired into any Bevy binary",
+    "status": "executor pass complete; independent review passed with fix-now items (fixes applied); not wired into any Bevy binary",
     "layers": [
       "weapon_back",
       "body",

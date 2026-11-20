@@ -250,7 +250,7 @@ def slammed_acc_auto(b: dict) -> list[Pix]:
     h18, p18 = b_acc(b, 18)
     h19, p19 = b_acc(b, 19)
     return [moved(h25, False, 2, -5) | moved(p25, False, 2, -5),       # stomped_impact
-            moved(h25, False, 0, 2) | moved(p25, False, 0, 2),         # stomped_rest
+            moved(h25, False, 0, 0) | moved(p25, False, 0, 2),         # stomped_rest (skull = corpse 25 in place)
             moved(h18, False, 3, 6) | moved(p18, False, 3, 4),         # wall_impact
             {},                                                        # wall_rest: hand-painted below
             moved(h19, False, 0, 9) | moved(p19, False, 0, 9),         # flung_impact
@@ -258,13 +258,13 @@ def slammed_acc_auto(b: dict) -> list[Pix]:
 
 
 # wall_rest: the dead head lolled on the near shoulder, so the GOB-01 B overlay does not apply: the band is painted
-# across the forehead above the X eye (rows 35 and 36), its knot at the back of the skull with two short tails, the
-# front tooth gap in the teeth row, the ear notch on the ear rim and the vest patch on the sitting vest.
+# across the forehead above the X eye (rows 35 and 36) as a plain 8 x 2 stripe (no knot tails: they would be orphans),
+# the front tooth gap in the teeth row, the ear notch on the ear rim and the vest patch on the sitting vest.
 WALL_REST_ACC = {
-    35: [(23, "RRRRRRRR")],                                  # band, lit row (knot at x 23)
+    35: [(23, "RRRRRRRR")],                                  # band, lit row
     36: [(23, "BBBBBBBB")],                                  # band, shadow row
-    37: [(20, "K"), (23, "R")],                              # ear notch; first tail
-    38: [(19, "K"), (23, "B")],                              # ear notch; second tail
+    37: [(20, "K")],                                         # ear notch
+    38: [(19, "K")],                                         # ear notch
     41: [(20, "uuu")],                                       # vest patch
     42: [(20, "uKu"), (29, "o")],                            # patch; the missing front tooth
     43: [(20, "uKu")],
@@ -490,8 +490,8 @@ PROVENANCE_ORIGIN = {
 B_NOTE = (" Variant B adds the GOB-01 B accessory layer (red headband, ear notch, missing front tooth, vest patch) moved "
           "with each head by scripts/author_goblin_cf02.py, hand-painted on wall_rest; the body, weapon and gore cels are "
           "variant A's, byte for byte.")
-PROVENANCE_GEN = ("Design: Claude Opus (ACT-DESIGN, spec and keys). Execution: Claude Sonnet. Review pending (independent "
-                  "Claude Opus). No image-model output, no tracing")
+PROVENANCE_GEN = ("Design: Claude Opus (ACT-DESIGN, spec and keys). Execution: Claude Sonnet. Independent review: Claude Opus, "
+                  "passed with fix-now items (fixes applied). No image-model output, no tracing")
 
 
 def frame_rows(sheet: str) -> list[dict]:
@@ -528,10 +528,13 @@ FINISHES = {
     "wall": {"serves": "Q21 wall crumple (WallSlam)", "tag": "slammed_wall", "impact_frame": 2, "rest_frame": 3,
              "impact_hold_ticks": 8, "impact_anchor": "lowest-row anchored: the lowest opaque row is 55 although the body is "
              "airborne (the presenter lifts nothing)", "contact_column": 16,
-             "rest_contact_column": 14,
-             "presenter_contract": ("the presenter puts sprite column x16 of wall_impact, and column x14 of wall_rest, on "
-                                    "the wall face; for facing left the column is mirrored (x' = 56 - x) and the wall is on "
-                                    "the other side; no opaque pixel of either frame lies left of its contact column"),
+             "rest_contact_column": 16,
+             "rest_smear_columns": [14, 15],
+             "presenter_contract": ("the presenter puts sprite column x16 of wall_impact, and column x16 of wall_rest "
+                                    "(the slumped back), on the wall face; for facing left the column is mirrored "
+                                    "(x' = 56 - x) and the wall is on the other side; no opaque pixel of wall_impact lies "
+                                    "left of x16, and in wall_rest only gore-layer pixels (the smear at x14-15) do, drawn "
+                                    "over the wall tile"),
              "club": "the club leaves the hand; the presenter keeps the flying club prop"},
     "flung": {"serves": "Q21 flung (lethal kick, Q06)", "tag": "slammed_flung", "impact_frame": 4, "rest_frame": 5,
               "impact_hold_ticks": 8, "anchor": "head on row 55 (impact), body on row 55 (rest)",
@@ -547,7 +550,7 @@ def manifest_for(sheet: str) -> dict:
     grid = load(s["grid"]) if s["grid"].is_file() else grid_for(sheet)
     block = {"spec": SPEC, "variant": variant, "tick_hz": TICK_HZ, "hold_preview_ms": HOLD_MS, "facing": "right",
              "mirror": "x' = 56 - x around the pivot column",
-             "status": "executor pass complete; independent review pending; not wired into any Bevy binary",
+             "status": "executor pass complete; independent review passed with fix-now items (fixes applied); not wired into any Bevy binary",
              "layers": list(s["layers"]),
              "key_frames": KEY_FRAMES[kind],
              "key_fixture": str(KEY_FIXTURES[kind].relative_to(ROOT)),
@@ -602,7 +605,7 @@ BBOX = {"acting": [("hesitate", [0], {"top": 19, "bottom": 55, "left": 16, "righ
         "slammed": [("stomped-impact-low", [0], {"top": 36, "bottom": 55}),
                     ("stomped-rest-low", [1], {"top": 37, "bottom": 55}),
                     ("wall-impact-lowest-row-and-contact-column", [2], {"top": 21, "bottom": 55, "left": 16}),
-                    ("wall-rest-leftmost-column", [3], {"top": 33, "bottom": 55, "left": 14}),
+                    ("wall-rest-smear-column", [3], {"top": 33, "bottom": 55, "left": 14}),
                     ("flung-impact-head-on-floor", [4], {"top": 35, "bottom": 55}),
                     ("flung-rest-low-heap", [5], {"top": 40, "bottom": 55})]}
 

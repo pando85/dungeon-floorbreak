@@ -117,7 +117,7 @@
         "left": 16
       },
       {
-        "id": "wall-rest-leftmost-column",
+        "id": "wall-rest-smear-column",
         "frames": [
           3
         ],

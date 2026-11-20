@@ -48,7 +48,7 @@ Key bounding boxes (pivot-relative x, canvas rows), for the reviewer and the exe
 | `smug` (Donut) | -21 .. +22 | 3-43 | 41 |
 | `hesitate` | -12 .. +18 | 19-55 | 37 |
 | `panic_flee` | -24 .. +23 | 18-55 | 38 |
-| `taunt_thump` | -27 .. +15 | 20-55 | 36 |
+| `taunt_thump` | -27 .. +14 | 20-55 | 36 |
 | `stomped_impact` | -22 .. +34 | 36-55 | 20 |
 | `stomped_rest` | -24 .. +34 | 37-55 | 19 |
 | `wall_impact` | -12 .. +25 | 21-55 | 35 |
@@ -105,7 +105,7 @@ Startle and smug are full-body overlays that show only in `idle` (the planted-fe
 | 6 | `stomped_impact` | K | Q21 stomped (`Hit{Stomp}` or `Hit{DiveStomp}`), Q43 | the fold | The corpse body **folded into a V around the stamp**: belly pressed 2 px into the floor, head and knees snapped up 5 px, a blood spit from the mouth (gore layer). The stamping foot covers the belly in the scene | 8-tick impact hold (Q21), after any taunt hold | belly on row 55; the body stays where it died (lethal knock 0 / 0) |
 | 7 | `stomped_rest` | K | Q21 stomped aftermath | dead bug | On the back, belly flattened, **both legs sticking straight up and splayed**, head lolled, a thin pool under the body (gore layer). Distinct from `crushed_remains` (spread flat under a slab) and from the routine corpse (knees bent) | rest (corpse) | on row 55 |
 | 8 | `wall_impact` | K | Q21 wall crumple (`WallSlam`) | splat | The knockback body with everything behind x16 removed: a **flat back pressed on the wall**, **squashed** (2 rows out of the torso, 2 out of the legs so the feet pull up, 2 px wider at the wall), the hurt head with **eyes squeezed shut**, the back arm flung up the wall face with a splayed hand, the front arm thrown forward with an open hand. The club leaves the hand (the presenter keeps the flying club prop) | 8-tick impact hold, airborne | lowest-row anchored; wall contact column x16 |
-| 9 | `wall_rest` | K | Q21 wall crumple aftermath | dead, slumped | The get-up torso sitting with the **back on the wall**, **the dead head** of `corpse` 25 (X eye, slack mouth, tongue out) **lolled sideways onto the near shoulder** with the ear hanging, the near arm limp with the hand in the lap, both legs out flat along the floor (toes up), a short smear on the gore layer on the wall face at x14, the club fallen beside it. No live head, no open eye: it must never read as getting up | rest | seat and heel on row 55; leftmost column x14 on the wall face |
+| 9 | `wall_rest` | K | Q21 wall crumple aftermath | dead, slumped | The get-up torso sitting with the **back on the wall**, **the dead head** of `corpse` 25 (X eye, slack mouth, tongue out) **lolled sideways onto the near shoulder** with the ear hanging, the near arm limp with the hand in the lap, both legs out flat along the floor (toes up), a short smear on the gore layer at x14-15 that draws over the wall tile, the club fallen beside it. No live head, no open eye: it must never read as getting up | rest | seat and heel on row 55; body back column x16 on the wall face; the x14-15 gore smear draws over the wall tile |
 | 10 | `flung_impact` | K | Q21 flung (lethal kick, Q06) | face-plant | The knockback-air body landed **head first**: head on the floor, body diagonal up and back, legs still in the air. The club lands separately | 8-tick impact hold | head on row 55 |
 | 11 | `flung_rest` | K | Q21 flung aftermath | heap | The face-plant collapsed: legs fallen over onto the back into a **low folded heap**, face down. Distinct from the routine corpse (on its back) | rest | on row 55 |
 

@@ -152,11 +152,14 @@ class Cf02GoblinTests(unittest.TestCase):
     def test_wall_frames_keep_the_contact_column(self):
         for variant in "ab":
             grid = self.grids[f"slammed_{variant}"]
-            for frame, column in ((2, 16), (3, 14)):
-                xs = [x for (x, _y) in flat(grid, frame)]
-                self.assertEqual(min(xs), column, (variant, frame))
+            xs = [x for (x, _y) in flat(grid, 2)]
+            self.assertEqual(min(xs), 16, variant)                                 # wall_impact: the contact column
+            for layer in ("body", "weapon", "accessory"):                          # wall_rest: the back is on x16 ...
+                self.assertGreaterEqual(min([x for (x, _y) in pix(grid, 3, layer)] or [16]), 16, (variant, layer))
+            gore = pix(grid, 3, "gore")                                            # ... only the smear lies left of it
+            self.assertEqual(sorted({x for (x, _y) in gore if x < 16}), [14, 15])
         man = load(cf.SHEETS["slammed_a"]["manifest"])["cf02_goblin"]["finishes"]["wall"]
-        self.assertEqual((man["contact_column"], man["rest_contact_column"]), (16, 14))
+        self.assertEqual((man["contact_column"], man["rest_contact_column"]), (16, 16))
         self.assertIn("presenter", man["presenter_contract"])
 
     def test_gore_is_a_separate_layer(self):
