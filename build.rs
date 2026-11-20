@@ -86,7 +86,10 @@ fn main() {
     files_below(&root, &root.join("src"), &mut files);
     let mut hash = fnv(FNV_OFFSET, toolchain.as_bytes());
     for relative in &files {
-        hash = fnv(hash, relative.to_string_lossy().replace('\\', "/").as_bytes());
+        hash = fnv(
+            hash,
+            relative.to_string_lossy().replace('\\', "/").as_bytes(),
+        );
         hash = fnv(hash, &[0]);
         let bytes = fs::read(root.join(relative)).unwrap_or_default();
         hash = fnv(hash, &(bytes.len() as u64).to_le_bytes());
@@ -114,9 +117,15 @@ fn main() {
         } else {
             root.join(common)
         };
-        println!("cargo:rerun-if-changed={}", common.join("packed-refs").display());
+        println!(
+            "cargo:rerun-if-changed={}",
+            common.join("packed-refs").display()
+        );
         if let Some(reference) = git(&root, &["symbolic-ref", "-q", "HEAD"]) {
-            println!("cargo:rerun-if-changed={}", common.join(reference).display());
+            println!(
+                "cargo:rerun-if-changed={}",
+                common.join(reference).display()
+            );
         }
     }
 }

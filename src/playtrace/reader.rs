@@ -3,11 +3,12 @@
 use std::path::{Path, PathBuf};
 
 use super::codec::{
-    ChunkTrailer, ControlRecord, SESSION_SCHEMA, TICKS_PER_CHUNK, TickRecord, chunk_file_name,
+    ChunkTrailer, ControlRecord, DiagRecord, SESSION_SCHEMA, TICKS_PER_CHUNK, TickRecord,
+    chunk_file_name,
 };
 use super::error::PlaytraceError;
-use super::manifest::{ChunkChecksum, SessionManifest, SessionStatus};
-use super::writer::{CONTROL, FNV_START, MANIFEST, MANIFEST_TMP, fnv_bytes};
+use super::manifest::{ChunkChecksum, SessionManifest, SessionStatus, StreamIntegrity};
+use super::writer::{CONTROL, DIAGNOSTICS, FNV_START, MANIFEST, MANIFEST_TMP, fnv_bytes};
 
 /// One chunk as found on disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +33,8 @@ pub struct LoadedSession {
     /// crashed session and reads as `crashed_recovered`.
     pub manifest: SessionManifest,
     pub control: Vec<ControlRecord>,
+    /// The privileged diagnostics stream (empty when the session has none).
+    pub diag: Vec<DiagRecord>,
     pub ticks: Vec<TickRecord>,
     pub chunks: Vec<ChunkInfo>,
     /// The session did not finish cleanly; the valid complete prefix is kept.
@@ -64,21 +67,36 @@ fn split_lines(text: &str) -> (Vec<&str>, Option<&str>) {
     (lines, tail)
 }
 
-fn read_control(
+/// Lines of one append-only JSONL side stream: parsed records plus the line
+/// count and FNV of the accepted raw lines (to compare with the manifest).
+struct Stream<T> {
+    records: Vec<T>,
+    seen: StreamIntegrity,
+}
+
+fn read_stream<T: serde::de::DeserializeOwned>(
     dir: &Path,
+    name: &str,
     lenient: bool,
     dropped: &mut usize,
-) -> Result<Vec<ControlRecord>, PlaytraceError> {
-    let text = std::fs::read_to_string(dir.join(CONTROL)).unwrap_or_default();
+) -> Result<Stream<T>, PlaytraceError> {
+    let text = std::fs::read_to_string(dir.join(name)).unwrap_or_default();
     let (lines, tail) = split_lines(&text);
-    let mut out = Vec::with_capacity(lines.len());
+    let mut records = Vec::with_capacity(lines.len());
+    let mut hash = FNV_START;
+    let mut count = 0_u64;
     for (index, line) in lines.iter().enumerate() {
-        match serde_json::from_str::<ControlRecord>(line) {
-            Ok(record) => out.push(record),
+        match serde_json::from_str::<T>(line) {
+            Ok(record) => {
+                hash = fnv_bytes(hash, line.as_bytes());
+                hash = fnv_bytes(hash, b"\n");
+                count += 1;
+                records.push(record);
+            }
             Err(_) if lenient && index + 1 == lines.len() && tail.is_none() => *dropped += 1,
             Err(e) => {
                 return Err(PlaytraceError::BadLine {
-                    file: CONTROL.to_owned(),
+                    file: name.to_owned(),
                     line: index + 1,
                     why: e.to_string(),
                 });
@@ -88,14 +106,92 @@ fn read_control(
     if tail.is_some() {
         if !lenient {
             return Err(PlaytraceError::BadLine {
-                file: CONTROL.to_owned(),
+                file: name.to_owned(),
                 line: lines.len() + 1,
                 why: "unterminated last line".to_owned(),
             });
         }
         *dropped += 1;
     }
-    Ok(out)
+    Ok(Stream {
+        records,
+        seen: StreamIntegrity {
+            lines: count,
+            fnv: hash,
+        },
+    })
+}
+
+fn stream_error(file: &str, why: impl Into<String>) -> PlaytraceError {
+    PlaytraceError::StreamIntegrity {
+        file: file.to_owned(),
+        why: why.into(),
+    }
+}
+
+/// `seq` contiguity from 0 and non-decreasing `at_t` of `control.jsonl`. A
+/// `seq` gap is legal only in an `incomplete` session that counted
+/// `dropped_control`.
+fn check_control_order(
+    control: &[ControlRecord],
+    manifest: &SessionManifest,
+) -> Result<(), PlaytraceError> {
+    let gaps_allowed = manifest.status == SessionStatus::Incomplete && manifest.dropped_control > 0;
+    let mut expected = 0_u64;
+    let mut at_t = 0_u64;
+    for record in control {
+        if record.seq < expected || (record.seq > expected && !gaps_allowed) {
+            return Err(stream_error(
+                CONTROL,
+                format!("seq {} where {expected} was expected", record.seq),
+            ));
+        }
+        expected = record.seq + 1;
+        if record.at_t < at_t {
+            return Err(stream_error(
+                CONTROL,
+                format!("at_t {} after {at_t} (seq {})", record.at_t, record.seq),
+            ));
+        }
+        at_t = record.at_t;
+    }
+    Ok(())
+}
+
+/// The manifest's line count and checksum against what the file holds. A
+/// finished session must match exactly. An `incomplete` one may hold fewer
+/// lines than it accepted (the queue was not flushed) but never more, and the
+/// checksum is compared when the counts agree. A session without the record
+/// (PT-B, a crash) has nothing to compare.
+fn check_stream(
+    file: &str,
+    expected: Option<StreamIntegrity>,
+    seen: StreamIntegrity,
+    status: SessionStatus,
+) -> Result<(), PlaytraceError> {
+    let Some(expected) = expected else {
+        return Ok(());
+    };
+    // A session still marked `recording` (live or crashed) has only its start
+    // record: nothing to compare until it is sealed.
+    if matches!(status, SessionStatus::Recording | SessionStatus::Corrupt) {
+        return Ok(());
+    }
+    let exact = !matches!(status, SessionStatus::Incomplete);
+    let partial = status == SessionStatus::Incomplete && seen.lines < expected.lines;
+    if seen.lines != expected.lines && (exact || !partial) {
+        return Err(stream_error(
+            file,
+            format!(
+                "{} lines where the manifest records {}",
+                seen.lines, expected.lines
+            ),
+        ));
+    }
+    if seen.lines == expected.lines && seen.fnv != expected.fnv {
+        return Err(stream_error(file, "checksum differs from the manifest"));
+    }
+    Ok(())
 }
 
 fn chunk_indices(dir: &Path) -> Result<Vec<usize>, PlaytraceError> {
@@ -127,7 +223,14 @@ pub fn read_session(dir: &Path, allow_gaps: bool) -> Result<LoadedSession, Playt
     let mut manifest = read_manifest(dir)?;
     let crashed = manifest.status == SessionStatus::Recording;
     let mut dropped = 0;
-    let control = read_control(dir, crashed, &mut dropped)?;
+    let control_stream = read_stream::<ControlRecord>(dir, CONTROL, crashed, &mut dropped)?;
+    let control = control_stream.records;
+    check_control_order(&control, &manifest)?;
+    let diag_stream = read_stream::<DiagRecord>(dir, DIAGNOSTICS, crashed, &mut dropped)?;
+    let diag = diag_stream.records;
+    if diag.windows(2).any(|w| w[1].t <= w[0].t) {
+        return Err(stream_error(DIAGNOSTICS, "t is not strictly increasing"));
+    }
     let indices = chunk_indices(dir)?;
     let mut ticks: Vec<TickRecord> = Vec::new();
     let mut chunks = Vec::new();
@@ -248,6 +351,37 @@ pub fn read_session(dir: &Path, allow_gaps: bool) -> Result<LoadedSession, Playt
     ) {
         check_manifest(&manifest, &ticks, &chunks)?;
     }
+    check_stream(
+        CONTROL,
+        manifest.control_integrity,
+        control_stream.seen,
+        manifest.status,
+    )?;
+    if manifest.diagnostics_integrity.is_none() && diag_stream.seen.lines > 0 && !crashed {
+        return Err(stream_error(
+            DIAGNOSTICS,
+            "lines present but the manifest records none",
+        ));
+    }
+    check_stream(
+        DIAGNOSTICS,
+        manifest.diagnostics_integrity,
+        diag_stream.seen,
+        manifest.status,
+    )?;
+    if let (Some(last), true) = (ticks.last(), gaps.is_empty()) {
+        // Control events happen between ticks: none can be after the next one.
+        if matches!(
+            manifest.status,
+            SessionStatus::Completed | SessionStatus::Abandoned
+        ) && control.iter().any(|c| c.at_t > last.t + 1)
+        {
+            return Err(stream_error(
+                CONTROL,
+                "an event is later than the last tick",
+            ));
+        }
+    }
     let recovered = crashed || manifest.status == SessionStatus::CrashedRecovered;
     if crashed {
         manifest.status = SessionStatus::CrashedRecovered;
@@ -260,6 +394,7 @@ pub fn read_session(dir: &Path, allow_gaps: bool) -> Result<LoadedSession, Playt
     Ok(LoadedSession {
         manifest,
         control,
+        diag,
         ticks,
         chunks,
         recovered,
@@ -310,7 +445,8 @@ pub fn recover_session(dir: &Path) -> Result<SessionManifest, PlaytraceError> {
         return Err(PlaytraceError::SessionLive);
     }
     let loaded = read_session(dir, true)?;
-    // Rewrite the control file and the last chunk to their valid prefixes.
+    // Rewrite the side streams and the last chunk to their valid prefixes. The
+    // sealed manifest then carries their integrity record.
     let mut control_text = String::new();
     for record in &loaded.control {
         control_text.push_str(
@@ -318,7 +454,26 @@ pub fn recover_session(dir: &Path) -> Result<SessionManifest, PlaytraceError> {
         );
         control_text.push('\n');
     }
-    std::fs::write(dir.join(CONTROL), control_text)?;
+    std::fs::write(dir.join(CONTROL), &control_text)?;
+    // Diagnostics beyond the last valid tick describe a tick that was lost.
+    let last_valid = loaded.ticks.last().map(|t| t.t);
+    let mut diag_text = String::new();
+    let mut diag_lines = 0_u64;
+    for diag in loaded
+        .diag
+        .iter()
+        .filter(|d| last_valid.is_some_and(|last| d.t <= last))
+    {
+        diag_text
+            .push_str(&serde_json::to_string(diag).map_err(|e| PlaytraceError::Io(e.to_string()))?);
+        diag_text.push('\n');
+        diag_lines += 1;
+    }
+    if loaded.diag.is_empty() {
+        let _ = std::fs::remove_file(dir.join(DIAGNOSTICS));
+    } else {
+        std::fs::write(dir.join(DIAGNOSTICS), &diag_text)?;
+    }
     let mut manifest = loaded.manifest;
     let mut checksums: Vec<ChunkChecksum> = Vec::new();
     for chunk in &loaded.chunks {
@@ -355,6 +510,14 @@ pub fn recover_session(dir: &Path) -> Result<SessionManifest, PlaytraceError> {
         });
     }
     manifest.chunk_checksums = checksums;
+    manifest.control_integrity = Some(StreamIntegrity {
+        lines: loaded.control.len() as u64,
+        fnv: fnv_bytes(FNV_START, control_text.as_bytes()),
+    });
+    manifest.diagnostics_integrity = (diag_lines > 0).then(|| StreamIntegrity {
+        lines: diag_lines,
+        fnv: fnv_bytes(FNV_START, diag_text.as_bytes()),
+    });
     manifest.status = SessionStatus::CrashedRecovered;
     manifest.terminal = Some("truncated".to_owned());
     manifest.capture_complete = false;

@@ -553,6 +553,11 @@ pub struct SceneSim {
     /// scroll, so the 2P separation wall and the join pull are off. Derived
     /// from the kit, constant, not hashed.
     arena_locked: bool,
+    /// PLAYTRACE-01 PT-C: the inputs the last live party step applied to each
+    /// hero (after the bot decision, the combat gating and the 2P separation
+    /// wall). A passive log: written in [`Self::step_live`], **never read by
+    /// the simulation, never hashed** and not part of any golden.
+    last_effective: [RawInput; 2],
 }
 
 /// What the combat layer tells a live party step about each hero.
@@ -624,6 +629,7 @@ impl SceneSim {
             pan_boost: false,
             bot_offscreen: [0, 0],
             arena_locked: kit.width <= view.w,
+            last_effective: [RawInput::NONE; 2],
         })
     }
 
@@ -724,6 +730,16 @@ impl SceneSim {
         &self.drive
     }
 
+    /// PLAYTRACE-01 PT-C: the effective `[Carl, Donut]` inputs of the last
+    /// **live party** step (`drive.live`): what each body actually received
+    /// after the follower bot decided, the combat layer gated the human input
+    /// and the 2P separation wall clamped it. `[RawInput::NONE; 2]` before the
+    /// first live step; a non-live (legacy) step leaves it untouched, the
+    /// recorder reads it only while the drive is live. Passive and unhashed.
+    pub fn last_effective_inputs(&self) -> [RawInput; 2] {
+        self.last_effective
+    }
+
     /// True while the solo-swap pan still runs at the raised speed cap.
     pub fn pan_boosted(&self) -> bool {
         self.pan_boost
@@ -805,6 +821,7 @@ impl SceneSim {
         if drive.two_player && !self.arena_locked {
             self.apply_separation_wall(&mut raws);
         }
+        self.last_effective = raws;
         self.input.advance(raws[0]);
         self.donut_input.advance(raws[1]);
         self.world
@@ -1080,6 +1097,60 @@ mod tests {
         }
         assert_eq!(a.world.hero.x.to_bits(), b.world.hero.x.to_bits());
         assert_eq!(a.world.state_hash(), b.world.state_hash());
+    }
+
+    /// PLAYTRACE-01 PT-C: the effective-input accessor is a passive log. A live
+    /// party run with a bot Donut hashes exactly the same whatever the log
+    /// holds (it is never read by the sim), and the log carries the bot's own
+    /// decision, not the idle slot the caller passed.
+    #[test]
+    fn last_effective_inputs_is_a_passive_unhashed_log() {
+        let drive = PartyDrive {
+            live: true,
+            two_player: false,
+            controlled: HeroId::Carl,
+            bots: [false, true],
+            tuning: PartyDrive::LEGACY.tuning,
+        };
+        let mut plain = sim(360);
+        let mut poked = sim(360);
+        plain.set_drive(drive);
+        poked.set_drive(drive);
+        assert_eq!(plain.last_effective_inputs(), [RawInput::NONE; 2]);
+        let mut bot_moved = false;
+        for tick in 0..240u32 {
+            let human = RawInput {
+                move_x: 1.0,
+                jump: tick % 50 == 7,
+                ..RawInput::NONE
+            };
+            let junk = RawInput {
+                move_x: -0.37,
+                attack: true,
+                swap: true,
+                ..RawInput::NONE
+            };
+            // Whatever the log held before the step changes nothing.
+            poked.last_effective = [junk, junk];
+            plain.step_party([human, RawInput::default()]);
+            poked.step_party([human, RawInput::default()]);
+            assert_eq!(plain.state_hash(), poked.state_hash(), "tick {tick}");
+            assert_eq!(plain.world.state_hash(), poked.world.state_hash());
+            let eff = plain.last_effective_inputs();
+            assert_eq!(eff, poked.last_effective_inputs());
+            // The human's slot arrives unchanged; Donut's is the bot's decision
+            // (the idle slot the caller passed is ignored for a bot).
+            assert_eq!(eff[0], human);
+            bot_moved |= eff[1].move_x != 0.0;
+        }
+        assert!(bot_moved, "the follower bot decided to move at some tick");
+        // The legacy single-hero step never writes it.
+        let mut legacy = sim(360);
+        legacy.step(RawInput {
+            move_x: 1.0,
+            ..RawInput::NONE
+        });
+        assert_eq!(legacy.last_effective_inputs(), [RawInput::NONE; 2]);
     }
 
     #[test]

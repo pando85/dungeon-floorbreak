@@ -122,6 +122,9 @@ mod tests {
             "lib.rs",
             "floor01_scene.rs",
         ];
+        // PLAYTRACE-01 PT-C: the session verifier rebuilds a recorded lab run
+        // through the lab's own launch (the entry-point guard still applies).
+        let allowed_paths = [Path::new("playtrace").join("replay.rs")];
         for file in files {
             let rel = file.strip_prefix(&root).unwrap();
             let first = rel
@@ -131,7 +134,10 @@ mod tests {
                 .as_os_str()
                 .to_string_lossy();
             let name = file.file_name().unwrap().to_string_lossy();
-            if allowed.contains(&first.as_ref()) || allowed.contains(&name.as_ref()) {
+            if allowed.contains(&first.as_ref())
+                || allowed.contains(&name.as_ref())
+                || allowed_paths.iter().any(|p| p == rel)
+            {
                 continue;
             }
             let text = std::fs::read_to_string(&file).unwrap();

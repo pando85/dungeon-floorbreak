@@ -4,17 +4,17 @@ use super::fake::FakeParty;
 use super::*;
 
 /// A fresh empty directory under the system temp dir, removed on drop.
-struct TempDir(PathBuf);
+pub(super) struct TempDir(PathBuf);
 
 impl TempDir {
-    fn new(name: &str) -> Self {
+    pub(super) fn new(name: &str) -> Self {
         let dir =
             std::env::temp_dir().join(format!("playtrace-test-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("temp dir");
         Self(dir)
     }
-    fn path(&self) -> &Path {
+    pub(super) fn path(&self) -> &Path {
         &self.0
     }
 }
@@ -25,7 +25,7 @@ impl Drop for TempDir {
     }
 }
 
-fn reset() -> ResetDescriptor {
+pub(super) fn reset() -> ResetDescriptor {
     ResetDescriptor {
         source: "fake".to_owned(),
         name: "fake_party".to_owned(),
@@ -40,13 +40,13 @@ fn reset() -> ResetDescriptor {
     }
 }
 
-fn manifest() -> SessionManifest {
+pub(super) fn manifest() -> SessionManifest {
     SessionManifest::new(generate_session_id(), reset())
 }
 
 /// Drive `ticks` ticks of the fake party into `writer` with retry control
 /// events, like the live adapter does.
-fn drive(writer: &mut SessionWriter, party: &mut FakeParty, ticks: u64) {
+pub(super) fn drive(writer: &mut SessionWriter, party: &mut FakeParty, ticks: u64) {
     if party.t == 0 {
         writer
             .begin_episode(EpisodeBoundary {
@@ -72,7 +72,7 @@ fn drive(writer: &mut SessionWriter, party: &mut FakeParty, ticks: u64) {
     }
 }
 
-fn finished_session(base: &Path, seed: u64, ticks: u64) -> (PathBuf, FakeParty) {
+pub(super) fn finished_session(base: &Path, seed: u64, ticks: u64) -> (PathBuf, FakeParty) {
     let mut writer = SessionWriter::create(base, manifest()).unwrap();
     let mut party = FakeParty::new(seed, 500);
     drive(&mut writer, &mut party, ticks);
@@ -667,6 +667,8 @@ fn golden_encoded_samples_are_stable() {
         post: 0xabcd,
         eh: 1,
         ph: 2,
+        obs: None,
+        eff: None,
     };
     assert_eq!(
         serde_json::to_string(&tick).unwrap(),

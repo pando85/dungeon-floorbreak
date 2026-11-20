@@ -44,7 +44,9 @@ mod error;
 pub mod fake;
 pub mod live;
 mod manifest;
+pub mod obs;
 mod reader;
+pub mod replay;
 mod storage;
 mod writer;
 
@@ -52,21 +54,27 @@ mod writer;
 mod live_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_robust;
+#[cfg(test)]
+mod tests_verify;
 
 pub use codec::{
     ACTION_SCHEMA, ACTION_SCHEMA_V1, ActionBits, ChunkTrailer, ControlEvent, ControlRecord,
-    ControlSource, EVENT_SCHEMA, EpisodeBoundary, EpisodeReason, EventRecord, QUEUE_BOUND,
-    SESSION_SCHEMA, TICKS_PER_CHUNK, TickRecord, chunk_file_name, hex64,
+    ControlSource, DiagRecord, EVENT_SCHEMA, EpisodeBoundary, EpisodeReason, EventRecord,
+    OBS_ENCODING, OBS_SCHEMA_ID, QUEUE_BOUND, SESSION_SCHEMA, TICKS_PER_CHUNK, TickRecord,
+    chunk_file_name, decode_obs_bits, encode_obs_bits, hex64,
 };
 pub use error::PlaytraceError;
 pub use manifest::{
     ChunkChecksum, Participants, ResetDescriptor, RunKind, SessionManifest, SessionStatus,
-    generate_session_id,
+    StreamIntegrity, generate_session_id,
 };
 pub use reader::{
     ChunkInfo, LoadedSession, TickGap, list_sessions, read_session, recover_session,
     session_is_live,
 };
+pub use replay::{VerifyFailure, VerifyReport, VerifyScope, verify_dir, verify_loaded};
 pub use storage::{WARN_BYTES, default_record_dir, dir_size_bytes};
 pub use writer::{SessionWriter, WriterHealth};
 

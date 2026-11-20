@@ -32,6 +32,10 @@ pub enum PlaytraceError {
     TickGap { from: u64, to: u64 },
     /// The manifest of a finished session disagrees with the chunks.
     ManifestMismatch(String),
+    /// `control.jsonl` or `diagnostics.jsonl` fails its integrity rules: a `seq`
+    /// gap, a non-monotonic `at_t`, or a line count or checksum that differs
+    /// from the manifest.
+    StreamIntegrity { file: String, why: String },
     /// A writer still holds the session (it is recording): refuse to touch it.
     SessionLive,
     /// The writer was already finished.
@@ -58,6 +62,7 @@ impl fmt::Display for PlaytraceError {
             }
             Self::TickGap { from, to } => write!(f, "ticks {from}..{to} are missing"),
             Self::ManifestMismatch(why) => write!(f, "manifest disagrees with chunks: {why}"),
+            Self::StreamIntegrity { file, why } => write!(f, "{file} integrity: {why}"),
             Self::SessionLive => write!(f, "the session is still being recorded (locked)"),
             Self::Finished => write!(f, "session writer already finished"),
             Self::Exists(_) => write!(f, "session directory already exists"),

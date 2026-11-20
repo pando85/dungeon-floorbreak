@@ -2040,6 +2040,8 @@ struct Sinks<'w> {
     audio: ResMut<'w, AudioQueue>,
     cine: ResMut<'w, Cine>,
     rec: ResMut<'w, Recorder>,
+    /// PLAYTRACE-01 PT-C: read only, for the recorder's diagnostic rig view.
+    cam: Res<'w, SceneCam>,
     /// COMBAT-LAB-01: the overlay (only a lab run has one).
     lab: Option<Res<'w, LabOverlay>>,
 }
@@ -2489,19 +2491,7 @@ fn recording_manifest(
         start_hash,
     };
     let mut manifest = SessionManifest::new(playtrace::generate_session_id(), reset);
-    let identity = playtrace::build_info::build_identity();
-    manifest.build_commit = identity.commit.clone();
-    manifest.build_dirty = identity.dirty.unwrap_or(false);
-    manifest.toolchain = identity.toolchain.clone();
-    manifest.source_fingerprint = identity.source_fingerprint.clone();
-    manifest.binary_fingerprint = identity.binary_fingerprint.clone();
-    if identity.commit_is_not_enough() {
-        manifest
-            .quality_flags
-            .push("dirty_or_unknown_build".to_owned());
-    }
-    manifest.game_ruleset_id = "floor01-greybox".to_owned();
-    manifest.camera_ruleset = "sim-scroll-camera".to_owned();
+    playtrace::live::stamp_manifest(&mut manifest, kit_hash);
     manifest.seed_requested = args.cf02.seed;
     // A lab run knows its effective seed (R01: the variant's seed).
     manifest.seed_effective = args
@@ -2544,15 +2534,6 @@ fn recording_manifest(
         manifest
             .feature_flags
             .insert(key.to_owned(), value.to_string());
-    }
-    for (key, value) in [
-        ("kit", kit_hash),
-        ("mana_tuning", dungeon_floorbreak::donut_mana::TUNING_HASH),
-        ("cf02_tuning", dungeon_floorbreak::cf02::TUNING_HASH),
-    ] {
-        manifest
-            .content_hashes
-            .insert(key.to_owned(), format!("{value:016x}"));
     }
     manifest
 }
@@ -2620,7 +2601,7 @@ fn start_recording(
             manifest.session_id
         ),
     };
-    match LiveRecorder::start(&base, manifest, combat, party, !args.live_input()) {
+    match LiveRecorder::start(&base, manifest, sim, combat, party, !args.live_input()) {
         Ok(mut recorder) => {
             for line in recorder.drain_messages() {
                 println!("{line} dir={location}");
@@ -3937,7 +3918,7 @@ fn fixed_step(
         pads.0.party_mut().restart();
         lab_reseat(&setup.args, pads.0.party_mut());
         if let Some(rec) = sinks.rec.0.as_mut() {
-            rec.note_demo_respawn(Some(&*combat), pads.0.party());
+            rec.note_demo_respawn(&sim.0, Some(&*combat), pads.0.party());
         }
         anim.0.reset(&sim.0.world);
         anim.0.reset_art(combat);
@@ -3969,7 +3950,7 @@ fn fixed_step(
         pads.0.party_mut().restart();
         lab_reseat(&setup.args, pads.0.party_mut());
         if let Some(rec) = sinks.rec.0.as_mut() {
-            rec.note_restart(combat.0.as_ref(), pads.0.party());
+            rec.note_restart(&sim.0, combat.0.as_ref(), pads.0.party());
         }
         controls.camera_cut = true;
         after_exit.0 = 0;
@@ -4010,6 +3991,12 @@ fn fixed_step(
     let live_party = scenario.0.is_none() && fixture.0.is_none();
     sim.0.set_drive(pads.0.party().drive(live_party));
     if let Some(rec) = sinks.rec.0.as_mut() {
+        // The presentation rig's view before this tick: a diagnostic field of
+        // the privileged stream. The observation uses the sim camera only.
+        rec.set_rig_view(sinks.cam.rig.as_ref().map(|rig| {
+            let view = rig.view();
+            [view.left, view.top, view.w, view.h]
+        }));
         rec.begin_tick(
             &sim.0,
             combat.0.as_ref(),

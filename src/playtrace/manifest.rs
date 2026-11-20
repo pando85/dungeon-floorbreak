@@ -63,6 +63,17 @@ pub struct ResetDescriptor {
     pub start_hash: u64,
 }
 
+/// Line count and FNV-1a-64 (over every line with its `\n`) of an append-only
+/// side stream (`control.jsonl`, `diagnostics.jsonl`) as the writer accepted
+/// it. A finished session must read back exactly this (a deleted or edited
+/// line is caught even when `seq` still looks contiguous).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StreamIntegrity {
+    pub lines: u64,
+    #[serde(with = "hex64")]
+    pub fnv: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChunkChecksum {
     pub chunk: usize,
@@ -84,8 +95,17 @@ pub struct SessionManifest {
     pub started_on_utc_day: Option<String>,
     pub build_commit: String,
     pub build_dirty: bool,
+    /// `exe-w64/1:<length>:<hash>` of the recording executable (identifies the
+    /// file, not the source), or `unknown`.
     pub binary_fingerprint: String,
+    /// The `rustc -V` line of the recording build (embedded by `build.rs`).
     pub toolchain: String,
+    /// The build-time FNV-1a-64 over the toolchain, `Cargo.toml`, `Cargo.lock`
+    /// and `src/` of the recording build. A replay needs the same value: it is
+    /// the sim identity, valid for a dirty tree too. Empty in a PT-B session
+    /// (which therefore cannot be verified).
+    #[serde(default)]
+    pub source_fingerprint: String,
     pub os_family: String,
     pub build_profile: String,
     pub game_ruleset_id: String,
@@ -100,12 +120,6 @@ pub struct SessionManifest {
     pub action_schema_id: String,
     pub observation_schema_id: String,
     pub event_schema_id: String,
-    /// The build-time FNV-1a-64 over the toolchain, `Cargo.toml`, `Cargo.lock`
-    /// and `src/` of the recording build. A replay needs the same value: it is
-    /// the sim identity, valid for a dirty tree too. Empty in a PT-B session
-    /// (which therefore cannot be verified).
-    #[serde(default)]
-    pub source_fingerprint: String,
     pub snapshot_schema_id: String,
     pub party_schema_id: String,
     pub recorder_schema_id: String,
@@ -125,6 +139,25 @@ pub struct SessionManifest {
     pub last_tick: Option<u64>,
     pub dropped_ticks: u64,
     pub write_errors: u64,
+    /// Control events lost to a full queue (a `seq` gap is legal only then, and
+    /// only in an `incomplete` session).
+    #[serde(default)]
+    pub dropped_control: u64,
+    /// Diagnostics lines lost to a full queue (does not make the capture
+    /// incomplete: the stream is privileged and optional).
+    #[serde(default)]
+    pub dropped_diagnostics: u64,
+    /// Failed intermediate manifest writes at chunk rotation (no data is lost;
+    /// counted, PT-C follow-up 5).
+    #[serde(default)]
+    pub manifest_write_errors: u64,
+    /// `control.jsonl` line count and FNV, written at finish (PT-C follow-up 2).
+    /// `None` in a PT-B session.
+    #[serde(default)]
+    pub control_integrity: Option<StreamIntegrity>,
+    /// The same for `diagnostics.jsonl` (`None`: no diagnostics stream).
+    #[serde(default)]
+    pub diagnostics_integrity: Option<StreamIntegrity>,
     /// `truncated` for a recovered crash, `None` otherwise.
     pub terminal: Option<String>,
     pub chunk_checksums: Vec<ChunkChecksum>,
@@ -146,6 +179,7 @@ impl SessionManifest {
             build_dirty: false,
             binary_fingerprint: String::new(),
             toolchain: String::new(),
+            source_fingerprint: String::new(),
             os_family: std::env::consts::OS.to_owned(),
             build_profile: if cfg!(debug_assertions) {
                 "debug"
@@ -179,10 +213,14 @@ impl SessionManifest {
             snapshot_support: "reset_only".to_owned(),
             quality_flags: vec!["replay_unverified".to_owned()],
             tick_count: 0,
-            source_fingerprint: String::new(),
             last_tick: None,
             dropped_ticks: 0,
             write_errors: 0,
+            dropped_control: 0,
+            dropped_diagnostics: 0,
+            manifest_write_errors: 0,
+            control_integrity: None,
+            diagnostics_integrity: None,
             terminal: None,
             chunk_checksums: Vec::new(),
             export_lineage: Vec::new(),

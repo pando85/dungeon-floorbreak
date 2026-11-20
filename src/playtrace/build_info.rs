@@ -62,14 +62,11 @@ const WORD_PRIME: u64 = 0x0000_0100_0000_01b3;
 /// A word-wise FNV-style hash of `bytes` folded into `hash` (8 bytes per
 /// multiply; the tail is zero-padded and the length is mixed by the caller).
 pub fn fold_words(mut hash: u64, bytes: &[u8]) -> u64 {
-    let mut words = bytes.chunks_exact(8);
-    for word in &mut words {
-        let mut array = [0_u8; 8];
-        array.copy_from_slice(word);
-        hash = (hash ^ u64::from_le_bytes(array)).wrapping_mul(WORD_PRIME);
+    let (words, tail) = bytes.as_chunks::<8>();
+    for word in words {
+        hash = (hash ^ u64::from_le_bytes(*word)).wrapping_mul(WORD_PRIME);
         hash ^= hash >> 29;
     }
-    let tail = words.remainder();
     if !tail.is_empty() {
         let mut array = [0_u8; 8];
         array[..tail.len()].copy_from_slice(tail);

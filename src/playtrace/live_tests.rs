@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 
 use super::fake::FakeParty;
-use super::live::LiveRecorder;
+use super::live::{self, LiveRecorder};
 use super::*;
 use crate::autoplay::metrics::EventHasher;
 use crate::cf02_fixtures::find_party_fixture;
@@ -21,18 +21,18 @@ use crate::party_scene::{PARTY_FIXTURES, PartyFixture, PartyFixtureSim, party_ha
 
 const LAYOUT: &str = "assets/levels/floor01/corridor_abc_sample.json";
 
-fn root() -> PathBuf {
+pub(super) fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-fn kit() -> EnvKit {
+pub(super) fn kit() -> EnvKit {
     EnvKit::load(&root(), LAYOUT).expect("corridor kit")
 }
 
-struct TempDir(PathBuf);
+pub(super) struct TempDir(pub(super) PathBuf);
 
 impl TempDir {
-    fn new(name: &str) -> Self {
+    pub(super) fn new(name: &str) -> Self {
         let dir =
             std::env::temp_dir().join(format!("playtrace-live-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -57,28 +57,48 @@ fn manifest_for(fixture: &PartyFixture, scene: &SceneSim, combat: &CombatState) 
         cf02_seed: None,
         view_height: 360,
         donut_biscuit: false,
-        kit_hash: 0,
+        kit_hash: real_kit_hash(),
         start_hash: combat.state_hash(scene),
     };
-    SessionManifest::new(generate_session_id(), reset)
+    stamped(reset)
+}
+
+pub(super) fn real_kit_hash() -> u64 {
+    crate::autoplay::replay::kit_content_hash(&root()).expect("kit hash")
+}
+
+/// A manifest stamped like the binary's: build identity, ruleset and content
+/// hashes of this checkout.
+pub(super) fn stamped(reset: ResetDescriptor) -> SessionManifest {
+    let mut manifest = SessionManifest::new(generate_session_id(), reset);
+    live::stamp_manifest(&mut manifest, real_kit_hash());
+    manifest
 }
 
 /// A live-path stand-in: the same dispatch as `fixed_step`.
-struct Rig {
-    sim: PartyFixtureSim,
+pub(super) struct Rig {
+    pub(super) sim: PartyFixtureSim,
     fixture: &'static PartyFixture,
-    rec: Option<LiveRecorder>,
+    pub(super) rec: Option<LiveRecorder>,
     /// The per-tick state hash after each step (to compare runs).
     hashes: Vec<u64>,
     steps: u64,
 }
 
 impl Rig {
-    fn new(fixture: &'static PartyFixture, base: Option<&Path>) -> Self {
+    pub(super) fn new(fixture: &'static PartyFixture, base: Option<&Path>) -> Self {
         let sim = PartyFixtureSim::new(&kit(), 360, fixture).unwrap();
         let rec = base.map(|base| {
             let manifest = manifest_for(fixture, &sim.scene, &sim.combat);
-            LiveRecorder::start(base, manifest, Some(&sim.combat), &sim.party, false).unwrap()
+            LiveRecorder::start(
+                base,
+                manifest,
+                &sim.scene,
+                Some(&sim.combat),
+                &sim.party,
+                false,
+            )
+            .unwrap()
         });
         Self {
             sim,
@@ -89,7 +109,7 @@ impl Rig {
         }
     }
 
-    fn step(&mut self, slots: SlotInputs) {
+    pub(super) fn step(&mut self, slots: SlotInputs) {
         let sim = &mut self.sim;
         if let Some(rec) = self.rec.as_mut() {
             rec.observe_party(&sim.party);
@@ -127,7 +147,7 @@ impl Rig {
     }
 
     /// The fixture's own script (the golden path).
-    fn step_scripted(&mut self) {
+    pub(super) fn step_scripted(&mut self) {
         let slots = self.fixture.inputs(
             self.sim.scene.world.tick + 1,
             &self.sim.combat,
@@ -137,16 +157,16 @@ impl Rig {
     }
 
     /// A manual restart (R / Select held): the same calls as `fixed_step`.
-    fn restart(&mut self) {
+    pub(super) fn restart(&mut self) {
         let sim = &mut self.sim;
         sim.combat.restart(&mut sim.scene);
         sim.party.restart();
         if let Some(rec) = self.rec.as_mut() {
-            rec.note_restart(Some(&sim.combat), &sim.party);
+            rec.note_restart(&sim.scene, Some(&sim.combat), &sim.party);
         }
     }
 
-    fn finish(&mut self) -> Option<SessionManifest> {
+    pub(super) fn finish(&mut self) -> Option<SessionManifest> {
         self.rec.as_mut().and_then(|rec| rec.finish("test"))
     }
 }
@@ -240,7 +260,7 @@ fn replay_session(dir: &Path) -> Result<u64, String> {
 
 /// The scripted live session: solo play with swaps, a manual restart, P2
 /// joining, a pad disconnect (D6 pause) and its reconnect.
-fn live_script(rig: &mut Rig, ticks: u64) {
+pub(super) fn live_script(rig: &mut Rig, ticks: u64) {
     let mut input = FakeParty::new(77, 0);
     rig.sim.party.pad_connected(PadId(1));
     for tick in 0..ticks {
@@ -265,7 +285,7 @@ fn live_script(rig: &mut Rig, ticks: u64) {
     }
 }
 
-fn demo_scene(beat: usize) -> (SceneSim, CombatState, PartyState) {
+pub(super) fn demo_scene(beat: usize) -> (SceneSim, CombatState, PartyState) {
     let kit = crate::demo::load_hall(&root()).expect("demo hall");
     let fixture = crate::demo::fixture_for_beat(beat);
     let scene = SceneSim::new_at(&kit, 360, fixture.carl_x).unwrap();
@@ -278,16 +298,16 @@ fn demo_scene(beat: usize) -> (SceneSim, CombatState, PartyState) {
 
 /// The `--demo` rules path: the same dispatch as `fixed_step`, with Select-tap
 /// respawns (before the step) and the demo's own defeat respawn (inside it).
-struct DemoRig {
+pub(super) struct DemoRig {
     scene: SceneSim,
     combat: CombatState,
     party: PartyState,
-    rec: LiveRecorder,
+    pub(super) rec: LiveRecorder,
     hashes: Vec<u64>,
 }
 
 impl DemoRig {
-    fn new(base: &Path, scripted: bool, beat: usize) -> Self {
+    pub(super) fn new(base: &Path, scripted: bool, beat: usize) -> Self {
         let (scene, combat, party) = demo_scene(beat);
         let reset = ResetDescriptor {
             source: "demo".to_owned(),
@@ -298,11 +318,12 @@ impl DemoRig {
             cf02_seed: None,
             view_height: 360,
             donut_biscuit: false,
-            kit_hash: 0,
+            kit_hash: real_kit_hash(),
             start_hash: combat.state_hash(&scene),
         };
-        let manifest = SessionManifest::new(generate_session_id(), reset);
-        let rec = LiveRecorder::start(base, manifest, Some(&combat), &party, scripted).unwrap();
+        let manifest = stamped(reset);
+        let rec =
+            LiveRecorder::start(base, manifest, &scene, Some(&combat), &party, scripted).unwrap();
         Self {
             scene,
             combat,
@@ -312,14 +333,15 @@ impl DemoRig {
         }
     }
 
-    fn select_tap_respawn(&mut self) {
+    pub(super) fn select_tap_respawn(&mut self) {
         self.combat.respawn(&mut self.scene);
         let _ = self.combat.take_respawned();
         self.party.restart();
-        self.rec.note_demo_respawn(Some(&self.combat), &self.party);
+        self.rec
+            .note_demo_respawn(&self.scene, Some(&self.combat), &self.party);
     }
 
-    fn step(&mut self, carl: RawInput) {
+    pub(super) fn step(&mut self, carl: RawInput) {
         let slots = [carl, RawInput::NONE];
         self.rec.observe_party(&self.party);
         let hurt = self.combat.hurt_ticks_of(self.party.controlled_hero()) > 0;
@@ -347,7 +369,7 @@ impl DemoRig {
     }
 }
 
-fn solo_fixture() -> &'static PartyFixture {
+pub(super) fn solo_fixture() -> &'static PartyFixture {
     find_party_fixture("solo_swap_continuity").expect("fixture")
 }
 
@@ -686,12 +708,22 @@ fn an_unwritable_directory_does_not_stop_the_game_and_is_visible() {
     std::fs::write(&blocker, b"x").unwrap();
     let sim = PartyFixtureSim::new(&kit(), 360, solo_fixture()).unwrap();
     let manifest = manifest_for(solo_fixture(), &sim.scene, &sim.combat);
-    assert!(LiveRecorder::start(&blocker, manifest, Some(&sim.combat), &sim.party, false).is_err());
+    assert!(
+        LiveRecorder::start(
+            &blocker,
+            manifest,
+            &sim.scene,
+            Some(&sim.combat),
+            &sim.party,
+            false
+        )
+        .is_err()
+    );
 }
 
 /// Idle Carl at demo beat 4: he stands still until the goblins defeat him and the demo respawns him by
 /// itself; a Select tap respawns him once by hand in between.
-fn demo_script(rig: &mut DemoRig, ticks: u64) {
+pub(super) fn demo_script(rig: &mut DemoRig, ticks: u64) {
     for tick in 0..ticks {
         if tick == 900 {
             rig.select_tap_respawn();
@@ -773,4 +805,71 @@ fn a_forced_record_of_a_scripted_run_never_labels_inputs_human() {
             .iter()
             .all(|t| t.src[0] == ControlSource::HumanP1)
     );
+}
+
+/// PT-C follow-up 6: a second finish (the lab relaunch finishes the session and
+/// the app exit finishes it again) does nothing and says nothing.
+#[test]
+fn finish_is_idempotent_and_the_second_call_is_silent() {
+    let dir = TempDir::new("finish-twice");
+    let mut rig = Rig::new(solo_fixture(), Some(&dir.0));
+    live_script(&mut rig, 120);
+    let rec = rig.rec.as_mut().unwrap();
+    let first = rec.finish("lab_relaunch").expect("the first call finishes");
+    assert_eq!(first.status, SessionStatus::Completed);
+    let first_lines = rec.drain_messages();
+    assert!(
+        first_lines.iter().any(|l| l.starts_with("PLAYTRACE_SAVED")),
+        "{first_lines:?}"
+    );
+    assert!(rec.finish("app_quit").is_none());
+    assert!(rec.finish("app_quit").is_none());
+    assert!(
+        rec.drain_messages().is_empty(),
+        "no PLAYTRACE_ERROR from a second exit"
+    );
+    // The session on disk is the first call's: one exit, one app_quit.
+    let loaded = read_session(&dir.0.join(&first.session_id), false).unwrap();
+    let exits = loaded
+        .control
+        .iter()
+        .filter(|c| matches!(c.ev, ControlEvent::Exit { .. }))
+        .count();
+    assert_eq!(exits, 1);
+    assert_eq!(loaded.manifest.status, SessionStatus::Completed);
+}
+
+/// A rotation manifest failure inside a live session is warned about once, and
+/// the session still verifies.
+#[test]
+fn a_failed_rotation_manifest_is_reported_by_the_live_recorder() {
+    let dir = TempDir::new("rot-warn");
+    let mut rig = Rig::new(solo_fixture(), Some(&dir.0));
+    // 650 ticks cross one chunk boundary; the writer is private to the
+    // recorder, so make the manifest path unwritable instead: a directory
+    // squatting on `manifest.json.tmp`.
+    let session = std::fs::read_dir(&dir.0)
+        .unwrap()
+        .flatten()
+        .next()
+        .unwrap()
+        .path();
+    std::fs::create_dir(session.join("manifest.json.tmp")).unwrap();
+    live_script(&mut rig, 650);
+    let rec = rig.rec.as_mut().unwrap();
+    assert_eq!(rec.health().manifest_write_errors, 1);
+    assert!(!rec.health().incomplete());
+    let lines = rec.drain_messages();
+    assert_eq!(
+        lines
+            .iter()
+            .filter(|l| l.starts_with("PLAYTRACE_WARN"))
+            .count(),
+        1,
+        "{lines:?}"
+    );
+    std::fs::remove_dir(session.join("manifest.json.tmp")).unwrap();
+    let manifest = rig.finish().unwrap();
+    assert_eq!(manifest.status, SessionStatus::Completed);
+    assert_eq!(manifest.manifest_write_errors, 1);
 }
