@@ -58,6 +58,17 @@ Implement the stages as **four separate small PRs in order A, B, C, D** (AP-Q21)
 - Evidence under `docs/evidence/autoplay-01/README.md`: command transcripts, version info, demo evaluation report, 1 or 2 short replay checks, training smoke output, honest performance table, and known unsupported cases.
 - **Acceptance D:** one final concise report with reproducible commands, commit SHA, measured metrics, model reproducibility metadata, test status, limitations and intended follow-up. A human can reproduce the test locally without a special agent platform.
 
+### 02a. Solo-party env (after stage B; parallel with C and D)
+
+Binding design: [spec section 11](../03-tech/autoplay-01-automated-gameplay-evaluation.md#11-autoplay-02a--solo-party-env-one-policy-seat-companion-active), AP-Q22 to AP-Q35. Consumer: COMPANION-AI-01 stage 01E.
+
+- **Scope: no-orders runs only** (the policy cannot give the companion a command; ordered runs need a later ActionV3 command input after COMPANION 01D, owner: AUTOPLAY lead, spec section 11 conflict 4).
+- Files: `src/autoplay/party/` (new), flags in `src/bin/autoplay.rs`, `assets/data/autoplay/reward_profiles_party_v1.json`, `docs/evidence/autoplay-02a/`. Shared files: none (AP-Q34).
+- **02a-A party core**: `mode = party_solo { seat, companion_profile }`, `ap2a_*` statics, one-tick seat entry inside `reset` (both seats, post-entry reset observation), swap stripped, terminal rules, `step_raw` parity with the party goldens. **02a-B** ObservationV2 and leakage tests. **02a-C** party metrics with the 90-tick assist window, `combat-party-v1` reward, `autoplay-episode/2` replay, eval CLI and evidence. **02a-D** (after COMPANION 01A-wire) the `cf02_assist` and `companion_v0_never` companions and `CompanionEvent` counts; `companion_v0_factual` follows the PR that lands the kill-policy selector (conflict 2). All arms run under `cf02_rules = false` until CF02 exposes the switch (conflict 5). **02a-E** (optional, after C) the Python adapter.
+- Every legacy golden stays byte-identical; `solo` artifacts (metrics, CSVs, `autoplay-episode/1`) stay byte-identical.
+- Medium tier implements; one independent top-tier review covers ObservationV2 leakage (AP-Q27, AP-Q28), terminal rules (AP-Q29) and the assist definition (AP-Q31).
+- **Acceptance 02a:** the AP-Q35 tests pass for both seats; a `party_solo` replay verifies in a fresh process; a /1 file is rejected by the /2 verifier and vice versa; the evidence report runs the three bots on both seats over the `ap2a_*` roster with `follow_and_jump_bot`.
+
 ## Minimal public interface and CLI behavior
 
 Expected native API semantics:
