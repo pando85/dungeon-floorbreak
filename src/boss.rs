@@ -2433,6 +2433,39 @@ mod tests {
     }
 
     #[test]
+    fn a_zero_damage_glance_adds_poise_but_emits_no_hurt_event() {
+        let mut boss = engaged(300.0, 1);
+        let mut events = Vec::new();
+        let result = boss.apply_hit(
+            BossHit {
+                damage: 0,
+                poise: 1,
+                player: 1,
+                hit_stop: 0,
+            },
+            &mut events,
+            1,
+        );
+        assert_eq!(result.map(|r| r.hp_left), Some(boss.hp));
+        assert!(events.is_empty(), "no BossHurt for 0 damage: {events:?}");
+        // A real hit still emits it.
+        boss.apply_hit(
+            BossHit {
+                damage: 1,
+                poise: 1,
+                player: 1,
+                hit_stop: 0,
+            },
+            &mut events,
+            2,
+        );
+        assert!(matches!(
+            events[..],
+            [CombatEvent::BossHurt { damage: 1, .. }]
+        ));
+    }
+
+    #[test]
     fn hit_stop_freezes_the_boss_clock_not_the_racks() {
         let mut boss = engaged(300.0, 1);
         let mut events = Vec::new();
