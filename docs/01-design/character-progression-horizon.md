@@ -112,7 +112,7 @@ For that change, the agent/designer must:
 | Date | Change | Status / evidence |
 | --- | --- | --- |
 | 2026-11-18 | Initial long-term horizon: Floor 01 learning, permanent action identities, layered progression, future-floor design themes and review triggers | Living guide; owner asked for a revisitable reference, **not** approval of future skills |
-| 2026-11-20 | COMBAT-FUN-02 after the first DEMO-01 playtest: Carl's Floor 01 impact set gains a Down + Physical stomp on downed foes and its aerial form (dive), a short air kick, a scrambling bail-out hop and wall/body impacts; ordinary goblins gain reactive morale (hesitate, panic, enraged, taunt) with seeded temperaments; the solo AI Donut gains a restrained, opt-in assist (interrupts and non-lethal pins, never in 2P, no magic before the biscuit). No new button, no new unlock, no new enemy type | Adopted defaults CF02-Q01..Q75, behind `--cf02`; game feel pending ([design](combat-fun-02-post-demo01-proposals.md)) |
+| 2026-11-20 | COMBAT-FUN-02 after the first DEMO-01 playtest: Carl's Floor 01 impact set gains a Down + Physical stomp on downed foes and its aerial form (dive), a short air kick, a scrambling bail-out hop and wall/body impacts; ordinary goblins gain reactive morale (hesitate, panic, enraged, taunt) with seeded temperaments; the solo AI Donut gains a restrained, opt-in assist (interrupts and non-lethal holds, never in 2P, no magic before the biscuit). No new button, no new unlock, no new enemy type | Adopted defaults CF02-Q01..Q75, behind `--cf02`; game feel pending ([design](combat-fun-02-post-demo01-proposals.md)) |
 
 ### Update note template
 
