@@ -71,8 +71,8 @@ pub fn leash_for_cap(cap_w: i32) -> f32 {
 pub const DONUT_HALF_WIDTH: f32 = 16.0;
 pub const DONUT_HALF_HEIGHT: f32 = 14.0;
 pub const DONUT_HEALTH: u8 = 3;
-const DONUT_RUN: f32 = 205.0;
-const DONUT_JUMP: f32 = 600.0;
+pub(crate) const DONUT_RUN: f32 = 205.0;
+pub(crate) const DONUT_JUMP: f32 = 600.0;
 const CARL_RUN: f32 = 185.0;
 const CARL_JUMP: f32 = 440.0;
 const GRAVITY: f32 = 1050.0;
