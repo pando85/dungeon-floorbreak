@@ -234,13 +234,13 @@ impl CompanionDirector {
         if me.control != Control::Companion {
             self.clear_plan();
             return (
-                RawInput::default(),
+                RawInput::NONE,
                 Decision::idle(Some(Veto::NotCompanionDriven)),
             );
         }
         if me.defeated {
             self.clear_plan();
-            return (RawInput::default(), Decision::idle(Some(Veto::HeroDown)));
+            return (RawInput::NONE, Decision::idle(Some(Veto::HeroDown)));
         }
         let active = match self.hero {
             HeroId::Carl => set.carl.ca21_active,
@@ -292,7 +292,7 @@ impl CompanionDirector {
         let follow = view.follow[self.hero.index()];
         let mut raw = RawInput {
             move_x: follow.move_x,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         let mut jump = follow.jump;
         let mut decision = Decision {
@@ -1251,13 +1251,13 @@ mod tests {
                 jump: true,
             };
             let (raw, d) = donut().step_traced(&v, &assist());
-            assert_eq!(raw, RawInput::default());
+            assert_eq!(raw, RawInput::NONE);
             assert_eq!(d.veto, Some(Veto::NotCompanionDriven));
         }
         let mut v = donut_ai(60.0);
         v.heroes[1].defeated = true;
         let (raw, d) = donut().step_traced(&v, &assist());
-        assert_eq!((raw, d.veto), (RawInput::default(), Some(Veto::HeroDown)));
+        assert_eq!((raw, d.veto), (RawInput::NONE, Some(Veto::HeroDown)));
     }
 
     #[test]
@@ -1595,7 +1595,7 @@ mod tests {
             raw,
             RawInput {
                 move_x: -0.5,
-                ..RawInput::default()
+                ..RawInput::NONE
             }
         );
         assert_eq!(d, Decision::idle(None));
