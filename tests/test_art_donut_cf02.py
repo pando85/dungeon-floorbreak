@@ -189,7 +189,7 @@ class DonutCf02Tests(unittest.TestCase):
             self.assertEqual(slits, [], f"frame {i}: transparent 1 px channels between opaque rows")
 
     def test_smug_neck_closure_amendment(self):
-        """Review B1 amendment of the frozen smug key (9 px): the cheek outline, the neck row and the chin pinhole."""
+        """Review B1 amendment of the frozen smug key (10 px): the cheek outline, the neck row and the chin pinhole."""
         smug = self.g["frames"][SMUG]
         self.assertEqual(layer_pix(smug, "head")[(63, 25)], "K")
         body = layer_pix(smug, "body")
@@ -217,7 +217,7 @@ class DonutCf02Tests(unittest.TestCase):
         self.assertTrue(cf["moves"]["startle"]["idle_only"] and cf["moves"]["smug"]["idle_only"])
         self.assertEqual(cf["keys"], {"startle_puff": 0, "smug": 2})
         self.assertEqual(cf["derived"], {"startle_settle": 1})
-        self.assertIn("independent review: pending (Claude Opus)", man["provenance"]["generator"])
+        self.assertIn("independent review: Claude Opus, passed after one amendment round (B1 smug outline)", man["provenance"]["generator"])
         self.assertEqual(man["review_status"], "prototype_fixture_unapproved")
 
     def test_lint_is_strict_clean(self):

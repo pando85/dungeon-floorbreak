@@ -1,6 +1,6 @@
 # ART-DONUT-CF02 evidence: Donut's CF02 acting sheet
 
-**Status: 3 frames in the sheet (2 frozen ACT-DESIGN keys copied pixel for pixel, 1 derived frame); independent review pending; not owner-approved; not Bevy captures (nothing is wired into a runtime).**
+**Status: 3 frames in the sheet (2 frozen ACT-DESIGN keys copied pixel for pixel, 1 derived frame); independent review: Claude Opus, passed after one amendment round (B1 smug outline); not owner-approved; not Bevy captures (nothing is wired into a runtime).**
 
 Review renders of the [CF02 acting spec](../../02-art/cf02-acting-spec.md), section 4 (Donut, budget 4, 3 used, 1 spare kept in reserve). Everything is composed from the grid source `assets/source/characters/donut/donut_h40_cf02.grid.json`, rewritten deterministically by `python3 scripts/author_donut_cf02.py` (`--check` verifies it). Regenerate this folder with:
 
@@ -23,4 +23,4 @@ How `startle_settle` is derived (spec section 4 row 2, translations only, no new
 
 `SHA256SUMS` lists the hash of every file here.
 
-**Review amendment (B1):** the frozen `smug` key had a transparent notch through the neck and a pinhole in the chin (visible on a bright background); the review fixed it with 9 px in the key file and the sheet (see the spec, section 4). The evidence here was regenerated after the fix.
+**Review amendment (B1):** the frozen `smug` key had a transparent notch through the neck and a pinhole in the chin (visible on a bright background); the review fixed it with 10 px in the key file and the sheet (see the spec, section 4). The evidence here was regenerated after the fix.
