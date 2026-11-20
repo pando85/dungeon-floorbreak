@@ -79,7 +79,6 @@
         "begin": "room_enter",
         "end": [
           "clear",
-          "defeat",
           "retry",
           "abandon"
         ]
@@ -154,7 +153,6 @@
         "begin": "room_enter",
         "end": [
           "clear",
-          "defeat",
           "retry",
           "abandon"
         ]
@@ -321,7 +319,6 @@
         "begin": "room_enter",
         "end": [
           "clear",
-          "defeat",
           "retry",
           "abandon"
         ]
@@ -401,7 +398,6 @@
         "begin": "room_enter",
         "end": [
           "clear",
-          "defeat",
           "retry",
           "abandon"
         ]
@@ -476,7 +472,6 @@
         "begin": "room_enter",
         "end": [
           "clear",
-          "defeat",
           "retry",
           "abandon"
         ]
@@ -559,7 +554,6 @@
         "begin": "room_enter",
         "end": [
           "clear",
-          "defeat",
           "retry",
           "abandon"
         ]
@@ -727,7 +721,6 @@
         "begin": "room_enter",
         "end": [
           "clear",
-          "defeat",
           "retry",
           "abandon"
         ]

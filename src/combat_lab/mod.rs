@@ -29,7 +29,9 @@
 //! [`LabCatalog::launch`] with [`EntryPoint::CombatLab`] and drive the returned
 //! [`LabRun`] (`scene`, `combat`, `party` and `kit` are public) with the same
 //! per-tick slot inputs as the party scene, or wrap it in a [`LabSession`] for
-//! the room selection and restart. No rule lives in the adapter.
+//! the room selection and restart. No rule lives in the adapter: after every
+//! `party.restart()` (a party defeat's retry, the manual restart) the adapter
+//! calls [`PlayerMode::seat`], which puts the human back on the mode's hero.
 
 pub mod ability;
 pub mod descriptor;

@@ -919,3 +919,112 @@ fn the_rooms_have_both_camera_views_and_donut_only_height() {
     deck.view_h = 400;
     assert!(catalog().launch(EntryPoint::CombatLab, &deck).is_ok());
 }
+
+// ------------------------------------------------------------- fix round --
+
+#[test]
+fn the_profile_move_lists_must_equal_the_moves_a_run_has() {
+    // Main cannot switch a move off: a shorter or longer list is rejected.
+    let e = profile_error(|p| p.carl_moves.retain(|m| m != "haymaker"));
+    assert!(
+        matches!(&e, LabError::Schema { reason, .. } if reason.contains("carl_moves")),
+        "{e}"
+    );
+    let e = profile_error(|p| p.carl_moves = vec!["jab".into()]);
+    assert!(matches!(e, LabError::Schema { .. }), "{e}");
+    let e = profile_error(|p| p.donut_moves.retain(|m| m != "magic_missile"));
+    assert!(matches!(e, LabError::Schema { .. }), "{e}");
+    // A duplicate does not make up a missing move.
+    let e = profile_error(|p| p.carl_moves = vec!["jab".into(), "jab".into(), "haymaker".into()]);
+    assert!(matches!(e, LabError::Schema { .. }), "{e}");
+    // Order does not matter.
+    assert!(mutate(|m| m.profiles[0].carl_moves.reverse()).is_ok());
+}
+
+#[test]
+fn a_clear_goal_needs_a_goblin() {
+    // The clear predicate needs one goblin, so these rooms could never clear.
+    let e = room_error(|m| room_mut(m, "R04").enemies.clear());
+    assert!(e.to_string().contains("clear_enemies"), "{e}");
+    let e = room_error(|m| {
+        room_mut(m, "R04").enemies = vec![EnemySpec {
+            kind: "llama".into(),
+            x: 1000,
+            ai: "chase".into(),
+        }];
+    });
+    assert!(matches!(e, LabError::Schema { .. }), "{e}");
+    let e = room_error(|m| {
+        room_mut(m, "R01").variants.as_mut().unwrap()[1].enemies = Some(vec![]);
+    });
+    assert!(matches!(e, LabError::Schema { .. }), "{e}");
+    // A configured roster is checked at launch too.
+    let c = catalog();
+    let mut cfg = LabConfig::new("R01", PlayerMode::SoloCarl);
+    cfg.probe = ProbeTag::Sandbox;
+    cfg.enemies_override = Some(vec![EnemySpec {
+        kind: "llama".into(),
+        x: 700,
+        ai: "chase".into(),
+    }]);
+    assert!(matches!(
+        c.launch(EntryPoint::CombatLab, &cfg),
+        Err(LabError::Schema { .. })
+    ));
+    // R00 has no goal and no roster: still fine.
+    assert!(c.room("R00").unwrap().enemies.is_empty());
+}
+
+#[test]
+fn no_manifest_segment_ends_in_a_defeat() {
+    for room in catalog().rooms() {
+        assert!(
+            !room.segment.end.iter().any(|e| e == "defeat"),
+            "{}",
+            room.id
+        );
+    }
+    let e = room_error(|m| room_mut(m, "R01").segment.end = vec!["defeat".into()]);
+    assert!(matches!(e, LabError::Schema { .. }), "{e}");
+}
+
+/// The party's defeat retry puts the human back on the mode's hero (the
+/// behaviour the live adapter mirrors through `PlayerMode::seat`).
+#[test]
+fn a_party_defeat_retry_keeps_the_mode_seat() {
+    let c = catalog();
+    for mode in [PlayerMode::SoloDonut, PlayerMode::SoloCarl] {
+        let mut cfg = LabConfig::new("R01", mode);
+        cfg.probe = ProbeTag::Sandbox;
+        cfg.enemies_override = Some(vec![goblin(110), goblin(130), goblin(150)]);
+        let mut run = c.launch(EntryPoint::CombatLab, &cfg).unwrap();
+        let seat = run.party.controlled_hero();
+        // One hit away from defeat for both heroes.
+        run.scene.world.hero.health = 1;
+        run.scene.world.donut.health = 1;
+        run.scene.world.donut_body.health = 1;
+        for _ in 0..3000 {
+            run.step_slots([RawInput::default(); 2]);
+            if run.combat.restarts > 0 {
+                break;
+            }
+        }
+        assert!(
+            run.combat.restarts > 0,
+            "{mode:?}: the party was never defeated"
+        );
+        assert!(run.combat.deaths > 0);
+        assert_eq!(
+            run.party.controlled_hero(),
+            seat,
+            "{mode:?}: the seat after the retry"
+        );
+        // The same rule, as the adapter calls it.
+        let mut party = crate::party::PartyState::default();
+        mode.seat(&mut party);
+        assert_eq!(party.controlled_hero(), seat);
+        party.restart();
+        mode.seat(&mut party);
+        assert_eq!(party.controlled_hero(), seat);
+    }
+}

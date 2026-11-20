@@ -21,7 +21,10 @@ pub const VIEW_IDS: [&str; 2] = ["abc_640x360", "abc_640x400"];
 pub const SEPARATION_PX: u16 = 448;
 /// Segment boundary ids.
 pub const SEGMENT_BEGIN: [&str; 1] = ["room_enter"];
-pub const SEGMENT_END: [&str; 4] = ["clear", "defeat", "retry", "abandon"];
+///
+/// There is no `defeat` end: the simulation restarts itself on a party defeat,
+/// which stays inside the episode and is counted in its `deaths` (LAB-00-F).
+pub const SEGMENT_END: [&str; 3] = ["clear", "retry", "abandon"];
 /// Capabilities a room may declare as wanted but not required (gated work).
 pub const OPTIONAL_CAPABILITIES: [(&str, &str); 4] = [
     ("terrain_l1_destructible_cover", "TERRAIN-L1"),
@@ -439,7 +442,7 @@ fn validate_room(room: &RoomSpec, profiles: &[CapabilityProfile]) -> Result<(), 
             .any(|e| !SEGMENT_END.contains(&e.as_str()))
     {
         return Err(schema(
-            "segment boundaries must use room_enter and clear/defeat/retry/abandon",
+            "segment boundaries must use room_enter and clear/retry/abandon",
         ));
     }
     for cap in &room.optional_capabilities {
@@ -473,6 +476,7 @@ fn validate_room(room: &RoomSpec, profiles: &[CapabilityProfile]) -> Result<(), 
         ));
     }
     validate_roster(&at, &room.enemies, room.max_concurrent, false)?;
+    validate_goal_roster(&at, room.goal.kind, &room.enemies)?;
     // Variants (LAB-Q07): R01 and R05 only, three play variants and one held-out.
     match &room.variants {
         None => {}
@@ -514,6 +518,7 @@ fn validate_room(room: &RoomSpec, profiles: &[CapabilityProfile]) -> Result<(), 
                 }
                 if let Some(enemies) = &v.enemies {
                     validate_roster(&vat, enemies, room.max_concurrent, false)?;
+                    validate_goal_roster(&vat, room.goal.kind, enemies)?;
                 }
             }
         }
@@ -574,6 +579,23 @@ pub fn validate_roster(
                 "{} enemies exceed the cap of {max_concurrent} concurrently active enemies (LAB-Q04); only a tagged stress probe lifts it",
                 enemies.len()
             ),
+        });
+    }
+    Ok(())
+}
+
+/// A `clear_enemies` goal needs at least one goblin: the clear predicate
+/// ([`crate::demo::complete`]) is false for a roster without one, so the room
+/// could never be cleared.
+pub fn validate_goal_roster(
+    at: &str,
+    goal: GoalKind,
+    enemies: &[EnemySpec],
+) -> Result<(), LabError> {
+    if goal == GoalKind::ClearEnemies && !enemies.iter().any(|e| e.kind == "goblin") {
+        return Err(LabError::Schema {
+            at: at.into(),
+            reason: "a clear_enemies goal needs at least one goblin in the roster, or the room can never clear".into(),
         });
     }
     Ok(())

@@ -18,7 +18,8 @@
 use std::path::{Path, PathBuf};
 
 use super::descriptor::{
-    EnemySpec, GoalKind, Manifest, Resolved, RoomSpec, validate_manifest, validate_roster,
+    EnemySpec, GoalKind, Manifest, Resolved, RoomSpec, validate_goal_roster, validate_manifest,
+    validate_roster,
 };
 use super::entry::{EntryPoint, denied};
 use super::profile::{CapabilityProfile, PROFILE_ID};
@@ -58,6 +59,17 @@ impl PlayerMode {
 
     pub fn parse(id: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|m| m.id() == id)
+    }
+
+    /// Put the human on the mode's hero. `PartyState::restart` returns control
+    /// to Carl, so **call this after every `party.restart()`** (a party
+    /// defeat's retry and a manual restart); the live adapter reuses it so no
+    /// rule lives there. Solo Donut is a simulated swap press (it arms the
+    /// swap cooldown); the other modes do nothing.
+    pub fn seat(self, party: &mut PartyState) {
+        if self == Self::SoloDonut {
+            party.request_swap(true, false);
+        }
     }
 
     /// The declared policy of the AI seat (`None` in two-player). Today's
@@ -318,6 +330,7 @@ impl LabCatalog {
             room.max_concurrent,
             cfg.probe == ProbeTag::Stress,
         )?;
+        validate_goal_roster(&format!("room {} roster", room.id), room.goal.kind, enemies)?;
 
         // The geometry, re-checked against the manifest hash at launch.
         let text = read_room_file(&self.root, resolved.room_file)?;
@@ -341,7 +354,7 @@ impl LabCatalog {
         }
 
         let seed = effective_seed(cfg.cf02, resolved.seed);
-        let fixture = build_fixture(room, &resolved, enemies, carl_x, seed, cfg);
+        let fixture = build_fixture(room, &resolved, enemies, carl_x, seed);
         let info = RunInfo {
             room: room.id.clone(),
             room_name: room.name.clone(),
@@ -385,7 +398,6 @@ fn build_fixture(
     enemies: &[EnemySpec],
     carl_x: i32,
     seed: u64,
-    cfg: &LabConfig,
 ) -> &'static Fixture {
     let split = |kind: &str| -> Vec<(i32, bool)> {
         enemies
@@ -401,11 +413,7 @@ fn build_fixture(
         goblins: split("goblin"),
         llamas: split("llama"),
         shore_dx: room.hazards.first().map(|h| h.x - carl_x),
-        ticks: if cfg.probe == ProbeTag::Natural {
-            room.ticks
-        } else {
-            room.ticks.max(1)
-        },
+        ticks: room.ticks,
     })
 }
 
@@ -437,16 +445,9 @@ fn build_state(
         party.pad_start_pressed(PadId(2));
     }
     scene.set_drive(party.drive(true));
-    seat(&mut party, info.mode);
+    info.mode.seat(&mut party);
     scene.set_drive(party.drive(true));
     Ok((scene, combat, party))
-}
-
-/// Put the human on the mode's hero (the party restarts with Carl).
-fn seat(party: &mut PartyState, mode: PlayerMode) {
-    if mode == PlayerMode::SoloDonut {
-        party.request_swap(true, false);
-    }
 }
 
 /// What a run is, for logs, the recorder's manifest and the overlay.
@@ -501,7 +502,7 @@ impl LabRun {
         if self.combat.restarts != restarts {
             // The party's defeat retry: back to the mode's seat.
             self.party.restart();
-            seat(&mut self.party, self.info.mode);
+            self.info.mode.seat(&mut self.party);
             self.scene.set_drive(self.party.drive(true));
         }
     }

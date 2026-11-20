@@ -30,6 +30,10 @@ pub const PROFILE_ID: &str = "floor01-postbiscuit-lab-v1";
 pub const RESERVED_PROFILE_IDS: [&str; 1] = ["floor01-prebiscuit-lab-v1"];
 /// The story pin of [`PROFILE_ID`].
 pub const STORY_PIN: &str = "floor01_after_guild_biscuit_before_juicer";
+/// The moves a lab run actually has (all implemented, none can be disabled):
+/// Carl's legacy kit, and post-biscuit Donut's Magic Missile and pounce.
+pub const CARL_MOVES: [&str; 3] = ["jab", "haymaker", "push_kick"];
+pub const DONUT_MOVES: [&str; 2] = ["magic_missile", "pounce"];
 /// The systems a v1 profile must declare, all `false`.
 pub const SYSTEM_KEYS: [&str; 9] = [
     "audience",
@@ -175,10 +179,20 @@ impl CapabilityProfile {
         check(&spec.carl_moves, HeroId::Carl, false)?;
         check(&spec.carl_cf02_moves, HeroId::Carl, true)?;
         check(&spec.donut_moves, HeroId::Donut, false)?;
-        // Magic Missile and the pounce are the post-biscuit kit; both must be there.
-        for needed in ["magic_missile", "pounce"] {
-            if !spec.donut_moves.iter().any(|m| m == needed) {
-                return Err(schema(&format!("donut_moves must name {needed}")));
+        // Main cannot switch a move off, so the lists must state exactly the
+        // moves a run has: a profile is a true statement, not a wish.
+        for (name, list, exact) in [
+            ("carl_moves", &spec.carl_moves, &CARL_MOVES[..]),
+            ("donut_moves", &spec.donut_moves, &DONUT_MOVES[..]),
+        ] {
+            let mut sorted: Vec<&str> = list.iter().map(String::as_str).collect();
+            sorted.sort_unstable();
+            let mut want = exact.to_vec();
+            want.sort_unstable();
+            if sorted != want {
+                return Err(schema(&format!(
+                    "{name} must be exactly {exact:?}: the simulation cannot switch a move off"
+                )));
             }
         }
         Ok(Self { spec })
