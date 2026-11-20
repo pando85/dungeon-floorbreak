@@ -1,0 +1,49 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "scenarios": [
+    {
+      "id": "LAB-R02",
+      "name": "Broken Scaffold",
+      "subtitle": "Three tiers, one Donut-only perch",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1280,
+      "height": 512,
+      "floor": 420,
+      "spawn": {
+        "carl": 96,
+        "donut": 64
+      },
+      "camera_intro": 96,
+      "platforms": [
+        {
+          "x": 448,
+          "y": 356,
+          "w": 128,
+          "h": 16
+        },
+        {
+          "x": 704,
+          "y": 292,
+          "w": 160,
+          "h": 16
+        },
+        {
+          "x": 960,
+          "y": 180,
+          "w": 128,
+          "h": 16
+        }
+      ],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1200,
+      "purpose": "Placeholder tiers: a Carl ledge, a Carl-by-steps platform and a Donut-only perch.",
+      "expected": "Layout keys for R00-R02 are applied in the next PR.",
+      "coop": "Donut reaches the perch through the middle platform; Carl cannot."
+    }
+  ]
+}

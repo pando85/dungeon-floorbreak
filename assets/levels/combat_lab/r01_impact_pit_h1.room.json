@@ -1,0 +1,37 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "scenarios": [
+    {
+      "id": "LAB-R01-H1",
+      "name": "Impact Pit (held-out)",
+      "subtitle": "Held-out geometry variant: a longer lane",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1120,
+      "height": 512,
+      "floor": 420,
+      "spawn": {
+        "carl": 96,
+        "donut": 64
+      },
+      "camera_intro": 96,
+      "platforms": [
+        {
+          "x": 560,
+          "y": 372,
+          "w": 96,
+          "h": 16
+        }
+      ],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1040,
+      "purpose": "Held-out geometry variant of R01 (LAB-Q07): a different lane length and one small ledge.",
+      "expected": "Same encounter rules as R01 on a different map.",
+      "coop": "One scroll camera with the party separation wall."
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "scenarios": [
+    {
+      "id": "LAB-R00",
+      "name": "The Setup Cage",
+      "subtitle": "Dev-only selection room, no hostiles",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 640,
+      "height": 512,
+      "floor": 420,
+      "spawn": {
+        "carl": 96,
+        "donut": 64
+      },
+      "camera_intro": 96,
+      "platforms": [],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 560,
+      "purpose": "Safe warmup room hosting the dev-only profile, mode and variant selection (LAB-Q08).",
+      "expected": "Menu controls only: no in-world equipment, no per-ability toggles, no difficulty.",
+      "coop": "Both heroes share the one locked screen."
+    }
+  ]
+}

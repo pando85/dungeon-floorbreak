@@ -1,0 +1,49 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "scenarios": [
+    {
+      "id": "LAB-R05",
+      "name": "The Gauntlet",
+      "subtitle": "Wide arena with a central platform",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1920,
+      "height": 512,
+      "floor": 420,
+      "spawn": {
+        "carl": 96,
+        "donut": 64
+      },
+      "camera_intro": 96,
+      "platforms": [
+        {
+          "x": 352,
+          "y": 260,
+          "w": 192,
+          "h": 16
+        },
+        {
+          "x": 864,
+          "y": 324,
+          "w": 192,
+          "h": 16
+        },
+        {
+          "x": 1376,
+          "y": 260,
+          "w": 192,
+          "h": 16
+        }
+      ],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1840,
+      "purpose": "Wide arena with rebound walls and three platforms (LAB-Q04 caps concurrent enemies at 4).",
+      "expected": "Waves come from the CF02-F contract later; v1 spawns a fixed roster.",
+      "coop": "Three distinct practical routes are a LAB-02 gate."
+    }
+  ]
+}

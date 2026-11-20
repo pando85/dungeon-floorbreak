@@ -1,0 +1,37 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "scenarios": [
+    {
+      "id": "LAB-R04",
+      "name": "Pressure Chamber",
+      "subtitle": "Ranged and melee pressure",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 1280,
+      "height": 512,
+      "floor": 420,
+      "spawn": {
+        "carl": 96,
+        "donut": 64
+      },
+      "camera_intro": 96,
+      "platforms": [
+        {
+          "x": 640,
+          "y": 324,
+          "w": 192,
+          "h": 16
+        }
+      ],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1200,
+      "purpose": "Existing goblins and llama only: ranged pressure against a melee approach.",
+      "expected": "A ledge to climb out of spit range.",
+      "coop": "Both heroes reach the ledge."
+    }
+  ]
+}
