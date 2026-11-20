@@ -2489,10 +2489,13 @@ fn recording_manifest(
         start_hash,
     };
     let mut manifest = SessionManifest::new(playtrace::generate_session_id(), reset);
-    let (commit, dirty) = playtrace::live::build_identity();
-    manifest.build_commit = commit;
-    manifest.build_dirty = dirty;
-    if dirty || manifest.build_commit == "unknown" {
+    let identity = playtrace::build_info::build_identity();
+    manifest.build_commit = identity.commit.clone();
+    manifest.build_dirty = identity.dirty.unwrap_or(false);
+    manifest.toolchain = identity.toolchain.clone();
+    manifest.source_fingerprint = identity.source_fingerprint.clone();
+    manifest.binary_fingerprint = identity.binary_fingerprint.clone();
+    if identity.commit_is_not_enough() {
         manifest
             .quality_flags
             .push("dirty_or_unknown_build".to_owned());

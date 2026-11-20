@@ -38,6 +38,7 @@
 //! - A crashed session keeps its valid complete prefix ([`recover_session`]).
 //! - Manifests hold no hostname, user name, home path, pad id or serial.
 
+pub mod build_info;
 mod codec;
 mod error;
 pub mod fake;

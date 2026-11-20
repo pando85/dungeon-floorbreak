@@ -21,7 +21,6 @@
 //! runs: the binary only builds one for a live-input run.
 
 use std::path::Path;
-use std::process::Command;
 
 use crate::autoplay::metrics::EventHasher;
 use crate::combat_scene::CombatState;
@@ -127,31 +126,6 @@ fn source_of(
         HeroControl::Uncontrolled if drive.is_bot(hero) => ControlSource::ScriptedBot,
         HeroControl::Uncontrolled => ControlSource::None,
     }
-}
-
-/// The commit of the source checkout this binary was built from, `-dirty`
-/// when tracked files changed, `unknown` when git cannot tell. The checkout
-/// path is used only to run git and is never stored.
-pub fn build_identity() -> (String, bool) {
-    let git = |args: &[&str]| {
-        Command::new("git")
-            .arg("-C")
-            .arg(env!("CARGO_MANIFEST_DIR"))
-            .args(args)
-            .output()
-            .ok()
-            .filter(|o| o.status.success())
-    };
-    let Some(output) = git(&["rev-parse", "HEAD"]) else {
-        return ("unknown".to_owned(), false);
-    };
-    let commit = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    if commit.len() < 7 {
-        return ("unknown".to_owned(), false);
-    }
-    let dirty = git(&["status", "--porcelain", "--untracked-files=no"])
-        .is_none_or(|o| !o.stdout.is_empty());
-    (commit, dirty)
 }
 
 impl LiveRecorder {

@@ -100,6 +100,12 @@ pub struct SessionManifest {
     pub action_schema_id: String,
     pub observation_schema_id: String,
     pub event_schema_id: String,
+    /// The build-time FNV-1a-64 over the toolchain, `Cargo.toml`, `Cargo.lock`
+    /// and `src/` of the recording build. A replay needs the same value: it is
+    /// the sim identity, valid for a dirty tree too. Empty in a PT-B session
+    /// (which therefore cannot be verified).
+    #[serde(default)]
+    pub source_fingerprint: String,
     pub snapshot_schema_id: String,
     pub party_schema_id: String,
     pub recorder_schema_id: String,
@@ -173,6 +179,7 @@ impl SessionManifest {
             snapshot_support: "reset_only".to_owned(),
             quality_flags: vec!["replay_unverified".to_owned()],
             tick_count: 0,
+            source_fingerprint: String::new(),
             last_tick: None,
             dropped_ticks: 0,
             write_errors: 0,
