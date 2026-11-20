@@ -29,7 +29,6 @@
 //! **Hash.** [`DonutMoves::hash_into`] and [`hash_guard`] mix nothing while
 //! idle or unset, so a scene whose Donut never moves hashes as before.
 
-use crate::feel::HURT_COOLDOWN;
 use crate::prototype::Rect;
 
 /// The hero index Donut's kills are credited to (`DefeatCause::Melee`).
@@ -324,19 +323,14 @@ pub enum MovePhase {
     Pin,
 }
 
-/// What a hit does to a target. Applied by the adapter; the numbers are the
-/// Q10 data, never read back from the goblin.
+/// What a hit asks of the adapter: the damage, the hit-stop split and the
+/// light guard. The target's reaction (stagger, push, the returned token and
+/// the hurt cooldown) is owned by `Goblin::take_hit_split` through the move's
+/// `ReactionSpec` (`DONUT_SWAT` / `DONUT_POUNCE`); it is not repeated here.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TargetEffect {
     pub damage: u8,
-    pub stagger_ticks: u8,
-    /// Push away from Donut, px/s.
-    pub push_px_s: f32,
     pub hit_stop: HitStopSplit,
-    /// The interrupted attack returns its token.
-    pub return_token: bool,
-    /// `HURT_COOLDOWN` to start on the target (the interrupt).
-    pub hurt_cooldown: u8,
     /// Set a [`LightGuard`] on the target.
     pub sets_guard: bool,
 }
@@ -401,8 +395,7 @@ pub enum MoveEvent {
         instance: u32,
     },
     /// A swat on a tell: the attack is cancelled, the token returns and the
-    /// hurt cooldown starts ([`TargetEffect::return_token`],
-    /// [`TargetEffect::hurt_cooldown`]).
+    /// hurt cooldown starts (both owned by `Goblin::take_hit_split`).
     TellInterrupted {
         target: u32,
         effect: TargetEffect,
@@ -950,11 +943,7 @@ impl DonutMoves {
                         target: target.index,
                         effect: TargetEffect {
                             damage: POUNCE_DAMAGE,
-                            stagger_ticks: POUNCE_STAGGER,
-                            push_px_s: 0.0,
                             hit_stop: POUNCE_HIT_STOP,
-                            return_token: false,
-                            hurt_cooldown: 0,
                             sets_guard: false,
                         },
                     });
@@ -1062,25 +1051,21 @@ fn swat_outcome(target: &TargetView) -> MoveEvent {
         _ if target.guarded => glance(GlanceReason::Guarded, 0),
         TargetState::Tell => MoveEvent::TellInterrupted {
             target: target.index,
-            effect: swat_effect(true),
+            effect: swat_effect(),
         },
         TargetState::Neutral => MoveEvent::Staggered {
             target: target.index,
-            effect: swat_effect(false),
+            effect: swat_effect(),
         },
         // Dead targets are filtered out before this point.
         TargetState::Defeated => glance(GlanceReason::Down, 0),
     }
 }
 
-fn swat_effect(interrupt: bool) -> TargetEffect {
+fn swat_effect() -> TargetEffect {
     TargetEffect {
         damage: SWAT_DAMAGE,
-        stagger_ticks: SWAT_STAGGER,
-        push_px_s: SWAT_PUSH_PX_S,
         hit_stop: SWAT_HIT_STOP,
-        return_token: interrupt,
-        hurt_cooldown: if interrupt { HURT_COOLDOWN } else { 0 },
         sets_guard: true,
     }
 }
@@ -1376,11 +1361,7 @@ mod tests {
         };
         assert_eq!(target, 3);
         assert_eq!(effect.damage, 0);
-        assert_eq!(effect.stagger_ticks, 10);
-        assert!(effect.return_token);
-        assert_eq!(effect.hurt_cooldown, 20);
         assert!(effect.sets_guard);
-        assert_eq!(effect.push_px_s, 60.0);
         assert_eq!(effect.hit_stop, SWAT_HIT_STOP);
 
         let neutral = [goblin_at(3, 25.0, TargetState::Neutral)];
@@ -1389,8 +1370,6 @@ mod tests {
             panic!("expected a stagger, got {:?}", out.events);
         };
         assert_eq!(effect.damage, 0, "the swat never defeats");
-        assert!(!effect.return_token);
-        assert_eq!(effect.hurt_cooldown, 0);
         assert!(effect.sets_guard);
     }
 
@@ -1866,8 +1845,6 @@ mod tests {
         let (target, effect) = hits[0];
         assert_eq!(target, 2, "lowest index first");
         assert_eq!(effect.damage, 1);
-        assert_eq!(effect.stagger_ticks, 14);
-        assert_eq!(effect.push_px_s, 0.0);
         assert_eq!(
             effect.hit_stop,
             HitStopSplit {

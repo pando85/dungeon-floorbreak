@@ -897,12 +897,16 @@ impl Boss {
     ) -> Option<HitResult> {
         self.hurtbox()?;
         self.hp = self.hp.saturating_sub(hit.damage);
-        events.push(CombatEvent::BossHurt {
-            tick,
-            source: hit.player,
-            damage: hit.damage.min(255) as u8,
-            hp_left: self.hp.min(255) as u8,
-        });
+        // A zero-damage hit (a Donut swat glance) is poise only: no hurt event,
+        // so it never sounds like a real hit.
+        if hit.damage > 0 {
+            events.push(CombatEvent::BossHurt {
+                tick,
+                source: hit.player,
+                damage: hit.damage.min(255) as u8,
+                hp_left: self.hp.min(255) as u8,
+            });
+        }
         self.hit_stop = self.hit_stop.max(hit.hit_stop);
         if self.hp == 0 {
             self.enter(BossMode::Defeated);

@@ -140,6 +140,7 @@ impl DonutKit {
             trigger.restart_fixture(start);
         }
         self.moves = DonutMoves::new(*self.moves.tuning());
+        self.next_cast = 0;
         self.frame = InputFrame::default();
         self.pounce_vx = None;
         self.cast = None;
@@ -395,7 +396,7 @@ impl CombatState {
                         reason,
                     });
                     if poise > 0 && target == BOSS_ENEMY_ID {
-                        self.donut_boss_hit(0, u16::from(poise), 0, tick);
+                        self.donut_boss_hit(&DONUT_SWAT, 0, u16::from(poise), 0, tick);
                     }
                 }
                 MoveEvent::PounceHit { target, effect } => {
@@ -573,6 +574,7 @@ impl CombatState {
             // Super armour: damage and Donut's hit-stop, never an interrupt and
             // never the 14-tick stagger (the boss ignores `stagger_ticks`).
             self.donut_boss_hit(
+                &DONUT_POUNCE,
                 u16::from(effect.damage),
                 u16::from(effect.damage),
                 effect.hit_stop.attacker,
@@ -614,7 +616,14 @@ impl CombatState {
 
     /// A Donut hit on the boss: the boss' `apply_hit` (the rule every hero hit
     /// follows), then the defeat event if it fell.
-    fn donut_boss_hit(&mut self, damage: u16, poise: u16, hit_stop: u8, tick: u64) {
+    fn donut_boss_hit(
+        &mut self,
+        spec: &MoveSpec,
+        damage: u16,
+        poise: u16,
+        hit_stop: u8,
+        tick: u64,
+    ) {
         let Some(mut boss) = self.boss.take() else {
             return;
         };
@@ -635,7 +644,7 @@ impl CombatState {
                 BOSS_ENEMY_ID,
                 DefeatCause::Melee,
                 Some(DONUT_HERO),
-                Some(&DONUT_POUNCE),
+                Some(spec),
             ));
         }
         for event in events {
@@ -822,6 +831,7 @@ impl CombatState {
         }
         if boss_hit {
             self.donut_boss_hit(
+                &MAGIC_MISSILE,
                 u16::from(MAGIC_MISSILE.damage),
                 u16::from(MAGIC_MISSILE.damage),
                 MAGIC_MISSILE.reaction.hit_stop,

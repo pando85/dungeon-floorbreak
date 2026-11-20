@@ -360,7 +360,7 @@ mod tests {
         ("q10_pounce_miss", 0x4274_d6eb_4552_8cc1),
         ("q10_dry_press", 0x672f_2eca_b864_6492),
         ("q10_mana_regen", 0xf7c2_1bf4_376c_ab99),
-        ("q10_unlock_persists", 0xa25d_6e62_ef31_6f92),
+        ("q10_unlock_persists", 0xd069_6a0b_3952_ce94),
         ("q10_pounce_boss", 0xe2de_0452_dc5d_ede4),
     ];
 
@@ -734,6 +734,103 @@ mod tests {
         let mut biscuit = named("q10_mana_regen");
         biscuit.combat.restart(&mut biscuit.scene);
         assert_eq!(biscuit.combat.donut_mana_view(), Some((8, 8)));
+    }
+
+    /// A replayed attempt after a restart hashes like a fresh run of the same
+    /// inputs, also when the first attempt cast missiles (the cast instance
+    /// counter restarts with the attempt).
+    #[test]
+    fn a_retry_after_a_restart_that_casts_hashes_like_a_fresh_run() {
+        let fixture = PartyFixture::by_name("q10_mana_regen").unwrap();
+        let fresh = replay(fixture);
+        let casts = |sim: &PartyFixtureSim| {
+            sim.combat
+                .events
+                .iter()
+                .filter(|e| matches!(e, CombatEvent::Mana(ManaEvent::ManaSpent { .. })))
+                .count()
+        };
+        assert!(casts(&fresh) > 0, "the fixture casts missiles");
+        let mut retried = replay(fixture);
+        retried.combat.restart(&mut retried.scene);
+        retried.party.restart();
+        retried.run_scripted(fixture.base.ticks);
+        // The events of the replayed attempt (move instances included) equal
+        // the fresh run's, and so do the hashed Donut and scene state.
+        let restart_at = retried
+            .combat
+            .events
+            .iter()
+            .position(|e| matches!(e, CombatEvent::Restart { .. }))
+            .unwrap();
+        assert_eq!(
+            retried.combat.events[restart_at + 1..],
+            fresh.combat.events[..]
+        );
+        assert_eq!(retried.scene.state_hash(), fresh.scene.state_hash());
+    }
+
+    /// CINE guard: Donut's kills reach the evaluator credited to hero 1, never
+    /// to hero 0 (`CombatEvent::Hit` names no attacker, so the credit follows
+    /// the instigator of the defeat and the owner of the move).
+    #[test]
+    fn a_donut_kill_reaches_cine_credited_to_hero_one_never_hero_zero() {
+        use crate::cine::{CineEvent, PresentationSettings};
+        use crate::cine_adapter::CineAdapter;
+        let sim = named("q10_pounce_hit");
+        let end = sim
+            .combat
+            .events
+            .iter()
+            .position(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+            .expect("the pounce kills a goblin");
+        let kill: Vec<CombatEvent> = sim.combat.events[..=end].to_vec();
+        let mapped: Vec<CineEvent> = kill.iter().filter_map(CineEvent::from_combat).collect();
+        assert!(
+            mapped.iter().any(|e| matches!(
+                e,
+                CineEvent::Defeated {
+                    instigator: Some(1),
+                    ..
+                }
+            )),
+            "the pounce kill is Donut's: {mapped:?}"
+        );
+        assert!(!mapped.iter().any(|e| matches!(
+            e,
+            CineEvent::Defeated {
+                instigator: Some(0),
+                ..
+            }
+        )));
+        // The same real kill plus a shore chain by `hero` makes a mixed chain
+        // only for hero 1: the kill is credited to Donut and to nobody else.
+        let chain = |hero: u32| {
+            let mut a = CineAdapter::new(PresentationSettings::OFF);
+            for e in &kill {
+                a.push(e);
+            }
+            a.push(&CombatEvent::ShoreBroken {
+                tick: 120,
+                player: hero,
+            });
+            a.push(&CombatEvent::enemy_defeated(
+                150,
+                77,
+                DefeatCause::ShoreBlock { player: hero },
+                Some(hero),
+                None,
+            ));
+            a.flush()
+        };
+        let donut = chain(1);
+        assert_eq!(donut.len(), 1, "{donut:?}");
+        assert_eq!(donut[0].moment.credited, 1);
+        assert!(donut[0].moment.feats.mixed_chain);
+        assert!(
+            chain(0).is_empty(),
+            "Carl's shore chain does not take the kill Donut pounced"
+        );
     }
 
     #[test]
