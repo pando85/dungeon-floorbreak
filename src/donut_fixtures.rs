@@ -14,7 +14,7 @@
 
 use crate::boss_scene::{FULL, Pilot, boss_base};
 use crate::combat::EnemyAi;
-use crate::combat_scene::{EnemySpawn, Fixture};
+use crate::combat_scene::{EnemySpawn, Fixture, LlamaSpawn};
 use crate::donut_mana::{DonutSetup, StartState};
 use crate::input::RawInput;
 use crate::party::{PROVISIONAL_TUNING, PartyTuning};
@@ -272,9 +272,145 @@ pub const Q10_UNLOCK_PERSISTS: PartyFixture = PartyFixture {
     },
 };
 
+// ------------------------------------------------------ CF02-C1 (Q18, Q44) --
+//
+// Llamas as targets of Donut's moves. Every name starts with `cf02_`, so the
+// combat state runs them under `cf02_rules` (Q37: `CombatState::with_donut`);
+// each has a committed replay in `docs/evidence/cf02/replays`. They are listed
+// after the Q10 fixtures and never change an earlier fixture or golden.
+
+const fn llama(x: i32) -> LlamaSpawn {
+    LlamaSpawn {
+        x,
+        ai: EnemyAi::Chase,
+    }
+}
+
+/// A llama fixture: Carl at column 400, no goblin, the given llamas.
+const fn llama_base(
+    name: &'static str,
+    summary: &'static str,
+    seed: u64,
+    llamas: &'static [LlamaSpawn],
+    ticks: u64,
+) -> Fixture {
+    Fixture {
+        llamas,
+        ..base(name, summary, seed, &[], ticks)
+    }
+}
+
+const LLAMA_SWAT_INTERRUPT_BASE: Fixture = llama_base(
+    "cf02_llama_swat_interrupt",
+    "Two players: a llama tells at Carl, P2 Donut swats the tell (0 damage, the spit is cancelled), the llama is staggered and set under the light guard",
+    0x0CF0_2C01,
+    &[llama(560)],
+    260,
+);
+
+/// CF02-Q18: a swat on a llama's tell interrupts it with 0 damage.
+pub const CF02_LLAMA_SWAT_INTERRUPT: PartyFixture = PartyFixture {
+    base: &LLAMA_SWAT_INTERRUPT_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(5, 60, 1, 1.0), primary(150, 151, 1)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const LLAMA_SWAT_GUARD_BASE: Fixture = llama_base(
+    "cf02_llama_swat_guard",
+    "Two players: the first swat interrupts the tell, the second meets the light guard and glances (the spit flies), after the spit the third interrupts again",
+    0x0CF0_2C02,
+    &[llama(560)],
+    420,
+);
+
+/// CF02-Q18 and Q10-06: a guarded llama glances the swat, so Donut alone
+/// cannot lock a llama; the guard clears after 60 ticks and the next spit.
+pub const CF02_LLAMA_SWAT_GUARD: PartyFixture = PartyFixture {
+    base: &LLAMA_SWAT_GUARD_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        run(5, 60, 1, 1.0),
+        primary(150, 151, 1),
+        primary(205, 206, 1),
+        primary(355, 356, 1),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const LLAMA_POUNCE_BASE: Fixture = llama_base(
+    "cf02_llama_pounce",
+    "Two players: P2 Donut pounces a llama three times (1 damage each, one target, it stops at the body); the third is a plain down credited to Donut",
+    0x0CF0_2C03,
+    &[llama(560)],
+    300,
+);
+
+/// CF02-Q18: the pounce deals 1 damage to one llama and stops at its body.
+pub const CF02_LLAMA_POUNCE: PartyFixture = PartyFixture {
+    base: &LLAMA_POUNCE_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        run(5, 60, 1, 1.0),
+        physical(70, 71, 1),
+        physical(140, 141, 1),
+        physical(210, 211, 1),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const LLAMA_BOLT_BASE: Fixture = llama_base(
+    "cf02_llama_bolt_stops",
+    "Two players, Donut has the biscuit: a Magic Missile ends on the first llama (1 damage) instead of passing through to the one behind it",
+    0x0CF0_2C04,
+    &[llama(520), llama(600)],
+    200,
+);
+
+/// CF02-Q18: the bolt ends on the llama's body (it no longer flies through).
+pub const CF02_LLAMA_BOLT_STOPS: PartyFixture = PartyFixture {
+    base: &LLAMA_BOLT_BASE,
+    two_player: true,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(5, 20, 1, 1.0), primary(40, 41, 1)],
+    pilot: Pilot::None,
+    donut: biscuit(8),
+};
+
+const DONUT_SOLO_LLAMA_BASE: Fixture = llama_base(
+    "cf02_donut_solo_llama",
+    "Solo as Donut against one llama: three pounces and the light-guarded swat; the replay records the time to kill and the damage taken (Q44)",
+    0x0CF0_2C05,
+    &[llama(560)],
+    420,
+);
+
+/// CF02-Q44: Donut alone against a llama. The owner judges the time to kill
+/// and the damage taken (design section 8, question 7).
+pub const CF02_DONUT_SOLO_LLAMA: PartyFixture = PartyFixture {
+    base: &DONUT_SOLO_LLAMA_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        swap(3, 4),
+        run(5, 60, 0, 1.0),
+        physical(70, 71, 0),
+        physical(140, 141, 0),
+        physical(210, 211, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
 // ------------------------------------------------------------ the registry --
 
-pub const DONUT_FIXTURES: [&PartyFixture; 8] = [
+pub const DONUT_FIXTURES: [&PartyFixture; 13] = [
     &Q10_SWAT_INTERRUPT,
     &Q10_SWAT_GUARD,
     &Q10_POUNCE_HIT,
@@ -283,13 +419,19 @@ pub const DONUT_FIXTURES: [&PartyFixture; 8] = [
     &Q10_MANA_REGEN,
     &Q10_UNLOCK_PERSISTS,
     &Q10_POUNCE_BOSS,
+    &CF02_LLAMA_SWAT_INTERRUPT,
+    &CF02_LLAMA_SWAT_GUARD,
+    &CF02_LLAMA_POUNCE,
+    &CF02_LLAMA_BOLT_STOPS,
+    &CF02_DONUT_SOLO_LLAMA,
 ];
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::boss_scene::{BOSS_FIXTURES, load_arena};
-    use crate::combat::{CombatEvent, DefeatCause, ForceTier, MoveId};
+    use crate::combat::{CombatEvent, DefeatCause, EnemyAi, ForceTier, MoveId};
+    use crate::combat_scene::LlamaSpawn;
     use crate::donut_mana::ManaEvent;
     use crate::donut_moves::{GlanceReason, MoveKind};
     use crate::env_kit::EnvKit;
@@ -354,27 +496,58 @@ mod tests {
         ("q10_pounce_boss", 0xe2de_0452_dc5d_ede4),
     ];
 
+    /// CF02-C1: the committed final hashes of the llama fixtures.
+    const CF02_GOLDENS: [(&str, u64); 5] = [
+        ("cf02_llama_swat_interrupt", 0x4af2_f493_1063_f1f6),
+        ("cf02_llama_swat_guard", 0xd51a_bdc4_c4cb_5745),
+        ("cf02_llama_pounce", 0x0c45_b58d_0ead_33b8),
+        ("cf02_llama_bolt_stops", 0x1f46_79db_b6fc_c5b4),
+        ("cf02_donut_solo_llama", 0xcf60_93b7_1f50_4c6a),
+    ];
+
+    /// The Q10 fixtures (the DEMO-era ones) of the registry.
+    fn q10_fixtures() -> impl Iterator<Item = &'static &'static PartyFixture> {
+        DONUT_FIXTURES
+            .iter()
+            .filter(|f| f.name().starts_with("q10_"))
+    }
+
     #[test]
     fn the_donut_fixtures_match_their_goldens_and_replay_identically() {
-        assert_eq!(GOLDENS.len(), DONUT_FIXTURES.len());
-        for (name, expected) in GOLDENS {
+        assert_eq!(
+            GOLDENS.len() + CF02_GOLDENS.len(),
+            DONUT_FIXTURES.len(),
+            "every registered fixture has a golden"
+        );
+        for (name, expected) in GOLDENS.into_iter().chain(CF02_GOLDENS) {
             let fixture = PartyFixture::by_name(name).unwrap();
             let (a, b) = (replay(fixture), replay(fixture));
             assert_eq!(a.state_hash(), b.state_hash(), "{name} replays");
             assert_eq!(lines(&a), lines(&b), "{name}: the same events twice");
             assert_eq!(a.state_hash(), expected, "{name}: {}", a.state_line());
         }
-        let mut hashes: Vec<u64> = GOLDENS.iter().map(|g| g.1).collect();
+        let mut hashes: Vec<u64> = GOLDENS.iter().chain(&CF02_GOLDENS).map(|g| g.1).collect();
         hashes.sort_unstable();
         hashes.dedup();
-        assert_eq!(hashes.len(), GOLDENS.len(), "every fixture is distinct");
+        assert_eq!(
+            hashes.len(),
+            GOLDENS.len() + CF02_GOLDENS.len(),
+            "every fixture is distinct"
+        );
     }
 
     #[test]
     fn the_committed_replays_are_the_replay() {
         for fixture in DONUT_FIXTURES {
+            // The Q10 replays live with the Donut evidence, the CF02 ones in
+            // the shared append-only CF02 folder the CI loop reads.
+            let dir = if fixture.name().starts_with("cf02_") {
+                "docs/evidence/cf02/replays"
+            } else {
+                "docs/evidence/donut-q10-mana"
+            };
             let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("docs/evidence/donut-q10-mana")
+                .join(dir)
                 .join(format!("headless_{}.txt", fixture.name()));
             let committed = std::fs::read_to_string(&path)
                 .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
@@ -387,19 +560,25 @@ mod tests {
     #[test]
     fn the_names_are_unique_and_listed_after_the_boss_fixtures() {
         let names: Vec<&str> = PartyFixture::all().map(PartyFixture::name).collect();
-        assert_eq!(
-            names.len(),
-            PARTY_FIXTURES.len() + BOSS_FIXTURES.len() + DONUT_FIXTURES.len()
-        );
         let mut sorted = names.clone();
         sorted.sort_unstable();
         sorted.dedup();
         assert_eq!(sorted.len(), names.len());
-        assert!(
-            names[names.len() - DONUT_FIXTURES.len()..]
-                .iter()
-                .all(|n| n.starts_with("q10_"))
+        let first = PARTY_FIXTURES.len() + BOSS_FIXTURES.len();
+        assert!(names.len() >= first + DONUT_FIXTURES.len());
+        let donut = &names[first..first + DONUT_FIXTURES.len()];
+        assert_eq!(
+            donut,
+            DONUT_FIXTURES.map(|f| f.name()),
+            "the Donut fixtures follow the boss ones, in registry order"
         );
+        assert!(
+            donut
+                .iter()
+                .all(|n| n.starts_with("q10_") || n.starts_with("cf02_")),
+            "Q10 first, then the CF02 ones: {donut:?}"
+        );
+        assert_eq!(q10_fixtures().count(), GOLDENS.len());
     }
 
     // ------------------------------------------------ the hash is gated --
@@ -860,5 +1039,290 @@ mod tests {
             })
             .count();
         assert_eq!(pounces, 1, "the AI started no second move");
+    }
+
+    // ------------------------------------- CF02-C1 (Q18, Q37, Q44) --
+
+    fn hits(sim: &PartyFixtureSim, mv: MoveId) -> Vec<(u64, u32, u8, u8)> {
+        sim.combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::Hit {
+                    tick,
+                    move_id,
+                    target,
+                    damage,
+                    health_left,
+                    ..
+                } if move_id == mv => Some((tick, target, damage, health_left)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn event_ticks(sim: &PartyFixtureSim, pick: fn(&CombatEvent) -> Option<u64>) -> Vec<u64> {
+        ticks_of(sim, pick)
+    }
+
+    fn spits(e: &CombatEvent) -> Option<u64> {
+        match *e {
+            CombatEvent::LlamaSpit { tick, .. } => Some(tick),
+            _ => None,
+        }
+    }
+
+    fn interrupts(e: &CombatEvent) -> Option<u64> {
+        match *e {
+            CombatEvent::LlamaInterrupted { tick, .. } => Some(tick),
+            _ => None,
+        }
+    }
+
+    /// The same scenario under a name outside `cf02_*`: the Q37 gate is off.
+    fn gated_off(fixture: &'static PartyFixture, name: &'static str) -> &'static PartyFixture {
+        let base: &'static Fixture = Box::leak(Box::new(Fixture {
+            name,
+            summary: fixture.base.summary,
+            seed: fixture.base.seed,
+            carl_x: fixture.base.carl_x,
+            enemies: fixture.base.enemies,
+            shore_dx: fixture.base.shore_dx,
+            boss: None,
+            llamas: fixture.base.llamas,
+            charges: fixture.base.charges,
+            script: fixture.base.script,
+            ticks: fixture.base.ticks,
+        }));
+        Box::leak(Box::new(PartyFixture {
+            base,
+            two_player: fixture.two_player,
+            tuning: fixture.tuning,
+            script: fixture.script,
+            pilot: fixture.pilot,
+            donut: fixture.donut,
+        }))
+    }
+
+    #[test]
+    fn cf02_llama_swat_interrupt_cancels_the_tell_with_zero_damage() {
+        let sim = named("cf02_llama_swat_interrupt");
+        // The first tell (tick 1) lands on Carl while Donut closes in; the
+        // second (tick 151) is swatted on tick 154: no damage, the spit is
+        // cancelled, so only the first and the third tell's spit exist.
+        assert_eq!(hits(&sim, MoveId::Swat), vec![(154, 0, 0, 3)]);
+        assert_eq!(event_ticks(&sim, interrupts), vec![154]);
+        assert_eq!(event_ticks(&sim, spits), vec![37, 237]);
+        assert_eq!(sim.combat.llamas[0].health, 3, "a swat never hurts it");
+        // The swat set the Q10 light guard; the spit of 237 released it.
+        let fixture = PartyFixture::by_name("cf02_llama_swat_interrupt").unwrap();
+        let mut early = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        early.run_scripted(200);
+        assert!(early.combat.llamas[0].guard.is_some());
+        assert!(sim.combat.llamas[0].guard.is_none());
+    }
+
+    #[test]
+    fn cf02_llama_swat_guard_glances_once_and_never_locks_the_llama() {
+        let sim = named("cf02_llama_swat_guard");
+        let glances: Vec<(u64, GlanceReason)> = sim
+            .combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::DonutGlance { tick, reason, .. } => Some((tick, reason)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(glances, vec![(209, GlanceReason::Guarded)]);
+        // The glance changed nothing: the spit of the guarded tell flew, and
+        // that spit released the guard, so the third swat interrupted again.
+        assert_eq!(event_ticks(&sim, spits), vec![37, 237]);
+        assert_eq!(event_ticks(&sim, interrupts), vec![154, 359]);
+        assert_eq!(
+            hits(&sim, MoveId::Swat),
+            vec![(154, 0, 0, 3), (359, 0, 0, 3)]
+        );
+    }
+
+    #[test]
+    fn cf02_llama_pounce_deals_one_damage_per_hit_and_a_plain_down_credited_to_donut() {
+        let sim = named("cf02_llama_pounce");
+        assert_eq!(
+            hits(&sim, MoveId::Pounce),
+            vec![(80, 0, 1, 2), (150, 0, 1, 1), (220, 0, 1, 0)]
+        );
+        let defeats: Vec<CombatEvent> = sim
+            .combat
+            .events
+            .iter()
+            .copied()
+            .filter(|e| matches!(e, CombatEvent::EnemyDefeated { .. }))
+            .collect();
+        assert_eq!(
+            defeats,
+            vec![CombatEvent::EnemyDefeated {
+                tick: 220,
+                target: 0,
+                cause: DefeatCause::Melee,
+                force: ForceTier::Routine,
+                instigator: Some(1),
+            }],
+            "a Donut kill is a routine melee kill, never the slam"
+        );
+        assert!(!sim.combat.llamas[0].alive());
+    }
+
+    #[test]
+    fn the_pounce_stops_at_the_llama_body_and_flies_on_without_q18() {
+        let on = named("cf02_llama_pounce");
+        let off = replay(gated_off(
+            PartyFixture::by_name("cf02_llama_pounce").unwrap(),
+            "q10_llama_pounce_gate_off",
+        ));
+        assert!(
+            hits(&off, MoveId::Pounce).is_empty(),
+            "no target without Q18"
+        );
+        assert_eq!(off.combat.llamas[0].health, 3);
+        // Without the switch she flies through the llama's column.
+        let llama_x = on.combat.llamas[0].x;
+        assert!(
+            off.scene.world.donut_body.x > on.scene.world.donut_body.x,
+            "the pounce on a llama stops at its body: {llama_x}"
+        );
+    }
+
+    #[test]
+    fn cf02_llama_bolt_stops_ends_on_the_first_llama_instead_of_flying_through() {
+        let sim = named("cf02_llama_bolt_stops");
+        assert_eq!(hits(&sim, MoveId::MagicMissile), vec![(53, 0, 1, 2)]);
+        assert_eq!(
+            sim.combat.llamas[1].health, 3,
+            "the llama behind is untouched"
+        );
+        assert!(
+            sim.combat.donut_bolts().is_empty(),
+            "the bolt ended on the llama"
+        );
+        // Without Q18 the same bolt flies through both llamas.
+        let off = replay(gated_off(
+            PartyFixture::by_name("cf02_llama_bolt_stops").unwrap(),
+            "q10_llama_bolt_gate_off",
+        ));
+        assert!(hits(&off, MoveId::MagicMissile).is_empty());
+        assert!(off.combat.llamas.iter().all(|l| l.health == 3));
+    }
+
+    /// Q44: Donut alone kills a llama with little risk but slowly. The numbers
+    /// the owner judges: three pounces, 150 ticks from the first press to the
+    /// kill, and no damage to Donut (the llama spits at Carl and the glob flies
+    /// over her 24 px body).
+    #[test]
+    fn cf02_donut_solo_llama_records_the_time_to_kill_and_the_damage_taken() {
+        let sim = named("cf02_donut_solo_llama");
+        let first_press = 70;
+        let kill = hits(&sim, MoveId::Pounce)
+            .into_iter()
+            .find(|h| h.3 == 0)
+            .expect("the third pounce kills")
+            .0;
+        assert_eq!(
+            kill - first_press,
+            150,
+            "ticks from the first pounce to the kill"
+        );
+        assert_eq!(hits(&sim, MoveId::Pounce).len(), 3);
+        assert_eq!(sim.scene.world.donut.health, 4, "Donut took no damage");
+        assert_eq!(
+            sim.scene.world.hero.health, 3,
+            "the one spit hit Carl, not her"
+        );
+    }
+
+    /// Q37: outside `cf02_*` (and `--cf02`) llamas are no target: Donut's moves
+    /// pass through them and every event is as before.
+    #[test]
+    fn without_cf02_rules_llamas_are_no_target_of_donuts_moves() {
+        for name in [
+            "cf02_llama_swat_interrupt",
+            "cf02_llama_swat_guard",
+            "cf02_llama_pounce",
+            "cf02_llama_bolt_stops",
+            "cf02_donut_solo_llama",
+        ] {
+            let off = replay(gated_off(
+                PartyFixture::by_name(name).unwrap(),
+                "q10_llama_gate_off",
+            ));
+            assert!(
+                !off.combat.events.iter().any(|e| matches!(
+                    e,
+                    CombatEvent::Hit { .. }
+                        | CombatEvent::DonutGlance { .. }
+                        | CombatEvent::LlamaInterrupted { .. }
+                )),
+                "{name}: Donut touched a llama with Q18 off"
+            );
+            assert!(
+                off.combat
+                    .llamas
+                    .iter()
+                    .all(|l| l.health == 3 && l.guard.is_none())
+            );
+            assert!(off.combat.llama_targets_live().is_none());
+        }
+        let on = named("cf02_llama_pounce");
+        assert!(on.combat.llama_targets_live().is_some());
+    }
+
+    /// The numbers of the Q18 knobs that the llama and the move domain own as
+    /// constants stay equal to the data (a knob edit must edit them too).
+    #[test]
+    fn the_q18_knobs_equal_the_constants_the_llama_uses() {
+        use crate::cf02::Cf02Tuning;
+        use crate::combat::{DONUT_POUNCE, DONUT_SWAT, MAGIC_MISSILE};
+        use crate::donut_moves::LIGHT_GUARD_MIN_TICKS;
+        use crate::feel::{LLAMA_HURT_COOLDOWN, LLAMA_HURT_TICKS};
+        use crate::llama::LlamaTargets;
+        let t = Cf02Tuning::pinned().unwrap();
+        assert!(!t.cf02_rules && !t.llama_targets(), "off by default (Q37)");
+        assert_eq!(LlamaTargets::from_tuning(&t), None);
+        assert_eq!(LlamaTargets::for_rules(false), None);
+        assert_eq!(t.q18_swat_interrupt_stagger, LLAMA_HURT_TICKS);
+        assert_eq!(u16::from(t.q18_llama_hurt_cooldown), LLAMA_HURT_COOLDOWN);
+        assert_eq!(t.q18_guard_min_ticks, LIGHT_GUARD_MIN_TICKS);
+        let on = LlamaTargets::for_rules(true).expect("on under cf02_rules");
+        assert_eq!(on.swat_damage, DONUT_SWAT.damage);
+        assert_eq!(on.pounce_damage, DONUT_POUNCE.damage);
+        assert_eq!(on.missile_damage, MAGIC_MISSILE.damage);
+    }
+
+    /// Fair fire is unchanged: a llama outside the simulation's view never
+    /// tells or spits, with Q18 on or off (Donut never wakes it).
+    #[test]
+    fn a_llama_outside_the_view_never_acts_under_q18() {
+        const OFFSCREEN: Fixture = Fixture {
+            llamas: &[LlamaSpawn {
+                x: 1000,
+                ai: EnemyAi::Chase,
+            }],
+            ..base("cf02_test_offscreen", "test", 1, &[], 300)
+        };
+        const SCRIPT: &[SlotHold] = &[primary(10, 11, 1), physical(40, 41, 1)];
+        let fixture: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
+            base: &OFFSCREEN,
+            two_player: true,
+            tuning: PROVISIONAL_TUNING,
+            script: SCRIPT,
+            pilot: Pilot::None,
+            donut: DonutSetup::NONE,
+        }));
+        let sim = replay(fixture);
+        assert!(sim.combat.llama_targets_live().is_some());
+        assert!(!sim.combat.events.iter().any(|e| matches!(
+            e,
+            CombatEvent::LlamaTell { .. } | CombatEvent::LlamaSpit { .. }
+        )));
     }
 }

@@ -1,0 +1,11 @@
+COMBAT_EVENT tick=1 kind=llama_tell llama=0
+COMBAT_EVENT tick=37 kind=llama_spit llama=0
+COMBAT_EVENT tick=76 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=150 kind=move_started move=swat instance=1
+COMBAT_EVENT tick=151 kind=llama_tell llama=0
+COMBAT_EVENT tick=154 kind=hit move=swat instance=1 target=0 damage=0 health_left=3 hit_stop=2
+COMBAT_EVENT tick=154 kind=llama_interrupted llama=0
+COMBAT_EVENT tick=201 kind=llama_tell llama=0
+COMBAT_EVENT tick=237 kind=llama_spit llama=0
+COMBAT_STATE fixture=cf02_llama_swat_interrupt seed=0xcf02c01 tick=260 elapsed=260 hero_hp=3 deaths=0 enemies= hash=d4febc46b4f2af90 llamas=l0=562.000/3
+PARTY_STATE fixture=cf02_llama_swat_interrupt mode=2p controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=4af2f4931063f1f6

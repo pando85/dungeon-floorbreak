@@ -219,6 +219,10 @@ pub enum TargetKind {
     Goblin,
     /// The Floor 1 boss (#115): the swat only ever glances.
     Boss,
+    /// CF02-C1 (Q18): a Bad Llama. Listed only while `q18_llama_targets` is
+    /// effective (`cf02_rules`); a swat on a tell interrupts it, any other swat
+    /// glances, and the pounce stops at its body.
+    Llama,
 }
 
 /// One target of the tick. `index` is the stable index the lowest-first rule
@@ -344,6 +348,9 @@ pub enum GlanceReason {
     Down,
     Guarded,
     Boss,
+    /// CF02-C1 (Q18): a swat on a llama that is not in its tell (0 damage, no
+    /// stagger: the llama is only ever interrupted).
+    Llama,
 }
 
 impl GlanceReason {
@@ -355,6 +362,7 @@ impl GlanceReason {
             Self::Down => "down",
             Self::Guarded => "guarded",
             Self::Boss => "boss",
+            Self::Llama => "llama",
         }
     }
 }
@@ -925,7 +933,7 @@ impl DonutMoves {
                     // pounce; one behind her and the boss never do.
                     let contact = input.targets.iter().any(|t| {
                         let ahead = (centre_x(t.body) - input.pivot_x) * f32::from(input.facing);
-                        t.kind == TargetKind::Goblin
+                        matches!(t.kind, TargetKind::Goblin | TargetKind::Llama)
                             && t.state.living()
                             && (0.0..=POUNCE_CONTACT_PX).contains(&ahead)
                     });
@@ -1039,6 +1047,15 @@ fn swat_outcome(target: &TargetView) -> MoveEvent {
             0
         };
         return glance(GlanceReason::Boss, poise);
+    }
+    if target.kind == TargetKind::Llama && target.state == TargetState::Neutral {
+        // Q18: an unalarmed llama is only glanced (a guarded one the same).
+        let reason = if target.guarded {
+            GlanceReason::Guarded
+        } else {
+            GlanceReason::Llama
+        };
+        return glance(reason, 0);
     }
     match target.state {
         TargetState::Launched | TargetState::Downed | TargetState::Airborne => {
@@ -2463,5 +2480,73 @@ mod tests {
             launch = launch.or(out.launch);
         }
         assert_eq!(launch, Some((-180.0, 130.0)));
+    }
+    // ------------------------------------------- CF02-C1: llama targets --
+
+    fn llama_at(index: u32, centre_distance: f32, state: TargetState) -> TargetView {
+        // A Bad Llama's 46 x 39 body.
+        TargetView {
+            index,
+            kind: TargetKind::Llama,
+            body: Rect {
+                left: centre_distance - 23.0,
+                bottom: FLOOR,
+                width: 46.0,
+                height: 39.0,
+            },
+            state,
+            guarded: false,
+        }
+    }
+
+    #[test]
+    fn a_swat_interrupts_a_llama_tell_and_only_glances_otherwise() {
+        let tell = [llama_at(2, 30.0, TargetState::Tell)];
+        let MoveEvent::TellInterrupted { target, effect } = run_swat(&tell, 8)[4].events[0] else {
+            panic!("a tell is interrupted");
+        };
+        assert_eq!(target, 2);
+        assert!(effect.sets_guard, "the Q10 light guard is set");
+        assert_eq!(effect.damage, 0);
+        let cases = [
+            (TargetState::Neutral, false, GlanceReason::Llama),
+            (TargetState::Neutral, true, GlanceReason::Guarded),
+            (TargetState::Tell, true, GlanceReason::Guarded),
+            (TargetState::Impact, false, GlanceReason::Swing),
+            (TargetState::Recovery, false, GlanceReason::Swing),
+            (TargetState::Staggered, false, GlanceReason::Staggered),
+        ];
+        for (state, guarded, reason) in cases {
+            let mut t = llama_at(2, 30.0, state);
+            t.guarded = guarded;
+            assert_eq!(
+                run_swat(&[t], 8)[4].events,
+                vec![MoveEvent::Glance {
+                    target: 2,
+                    reason,
+                    poise: 0
+                }],
+                "{state:?} guarded {guarded}"
+            );
+        }
+        assert_eq!(GlanceReason::Llama.name(), "llama");
+    }
+
+    #[test]
+    fn the_pounce_stops_at_a_llama_body_and_hits_one_target() {
+        // A llama 30 px ahead (centre): the contact rule ends the flight's
+        // speed on the launch tick, like a goblin ahead of her.
+        let t = [llama_at(0, 30.0, TargetState::Neutral)];
+        let (outs, _, _) = run_pounce(&t, 30);
+        assert!(
+            outs.iter().any(|o| o.set_vx == Some(0.0)),
+            "the flight stops at the llama"
+        );
+        let hits: Vec<&MoveEvent> = outs
+            .iter()
+            .flat_map(|o| &o.events)
+            .filter(|e| matches!(e, MoveEvent::PounceHit { .. }))
+            .collect();
+        assert_eq!(hits.len(), 1, "one target, once");
     }
 }
