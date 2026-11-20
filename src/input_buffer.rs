@@ -8,6 +8,11 @@
 //! [`Cf02Tuning::on`]; a numeric window falls back to the legacy value when the
 //! master switch is off).
 //!
+//! With `cf02_rules` off only [`window_ticks`] and [`runner_buffer_ticks`] (the
+//! legacy values) are meaningful. [`MoveBuffer`] and [`cancel_for`] must not be
+//! used then: C1 is `None` with the master switch off because the legacy
+//! `MoveRunner` keeps its own jab-to-haymaker chain in that case.
+//!
 //! Conventions fixed by this module (see the CF02-CORES PR for the reading of the
 //! design text):
 //!
@@ -173,12 +178,21 @@ pub struct FrameResolution {
 /// and `q47_jump_wins_same_tick` on, Jump wins and the attack stays buffered for
 /// its air version (Q47); off (legacy) the ground move wins and the jump is
 /// stripped. In the air a same-tick Jump is not a jump.
+///
+/// `can_jump` is true only when a jump can start this tick: the runner is idle,
+/// Carl is grounded and not hurt. When it is false (a committed jab in the C1
+/// window, a grounded recovery that makes the Jump a C3 bail-out) Q47 does not
+/// apply: this returns `jump: false, defer_attack: false`, the attack goes to
+/// [`classify_press`] as it would alone (C1 chain, buffer) and the Jump is
+/// classified on its own (C3/C6 or ignore). Nothing is deferred, so no attack
+/// can leak into a bail-out jump.
 pub fn resolve_frame(
     t: &Cf02Tuning,
     primary: bool,
     physical: bool,
     jump: bool,
     grounded: bool,
+    can_jump: bool,
 ) -> FrameResolution {
     let attack = if primary {
         Some(Button::Primary)
@@ -187,7 +201,7 @@ pub fn resolve_frame(
     } else {
         None
     };
-    let jump_now = jump && grounded;
+    let jump_now = jump && grounded && can_jump;
     if jump_now && attack.is_some() {
         if t.on(t.q47_jump_wins_same_tick) {
             return FrameResolution {
@@ -236,6 +250,10 @@ pub struct AirState {
     pub height_px: i32,
     pub air_kicks_used: u8,
     pub dives_used: u8,
+    /// The airborne period is a Q54/Q55 bail-out: no attack until landing, so a
+    /// press buffered before the jump (a same-tick Physical, a press made in the
+    /// recovery) is held, never fired as an air move.
+    pub no_attack_until_landing: bool,
 }
 
 /// Route an attack press made while airborne.
@@ -246,12 +264,17 @@ pub struct AirState {
 /// `q52_dive_min_height_px` up, and Physical without Down is the air kick; each
 /// is once per airborne period. A rising Physical within the grace height is
 /// still an air kick (Q47: the buffered press fires on the first airborne tick).
+/// During a bail-out jump ([`AirState::no_attack_until_landing`], Q54) an attack
+/// is held until the landing grace (Q48) applies; no air move starts.
 pub fn route_air_attack(t: &Cf02Tuning, button: Button, down: bool, air: &AirState) -> AirRoute {
     if button == Button::Jump {
         return AirRoute::NoAirMove;
     }
     if air.vy_px_s <= 0 && air.height_px <= i32::from(t.q48_landing_grace_px) {
         return AirRoute::WaitForLanding;
+    }
+    if air.no_attack_until_landing {
+        return AirRoute::Hold;
     }
     if button == Button::Primary {
         return AirRoute::NoAirMove;
@@ -1039,13 +1062,16 @@ mod tests {
     #[test]
     fn q05_q47_priority_primary_beats_physical_and_jump_beats_an_attack() {
         let t = on();
-        let both = resolve_frame(&t, true, true, false, true);
+        let both = resolve_frame(&t, true, true, false, true, true);
         assert_eq!(both.attack, Some(Button::Primary));
-        let phys = resolve_frame(&t, false, true, false, true);
+        let phys = resolve_frame(&t, false, true, false, true, true);
         assert_eq!(phys.attack, Some(Button::Physical));
-        assert_eq!(resolve_frame(&t, false, false, false, true).attack, None);
+        assert_eq!(
+            resolve_frame(&t, false, false, false, true, true).attack,
+            None
+        );
         // Q47: on the ground Jump wins; the attack is kept for the air.
-        let same = resolve_frame(&t, false, true, true, true);
+        let same = resolve_frame(&t, false, true, true, true, true);
         assert_eq!(
             same,
             FrameResolution {
@@ -1054,16 +1080,97 @@ mod tests {
                 defer_attack: true
             }
         );
-        let same_primary = resolve_frame(&t, true, false, true, true);
+        let same_primary = resolve_frame(&t, true, false, true, true, true);
         assert!(same_primary.jump && same_primary.defer_attack);
         // Jump alone, attack alone.
-        let j = resolve_frame(&t, false, false, true, true);
+        let j = resolve_frame(&t, false, false, true, true, true);
         assert!(j.jump && !j.defer_attack && j.attack.is_none());
-        let a = resolve_frame(&t, true, false, false, true);
+        let a = resolve_frame(&t, true, false, false, true, true);
         assert!(!a.jump && !a.defer_attack);
         // In the air a Jump press is not a jump and defers nothing.
-        let air = resolve_frame(&t, false, true, true, false);
+        let air = resolve_frame(&t, false, true, true, false, true);
         assert!(!air.jump && !air.defer_attack && air.attack == Some(Button::Physical));
+    }
+
+    #[test]
+    fn q47_jump_plus_primary_in_the_jab_window_keeps_the_c1_chain_when_jump_is_impossible() {
+        let t = on();
+        // Jab tick 5: committed, so the jump cannot start.
+        let r = resolve_frame(&t, true, false, true, true, false);
+        assert_eq!(
+            r,
+            FrameResolution {
+                jump: false,
+                attack: Some(Button::Primary),
+                defer_attack: false
+            }
+        );
+        let jab = actor(run(MoveKind::Jab, Phase::Active, 5));
+        assert_eq!(
+            classify_press(&t, &jab, &press(Button::Primary)),
+            Outcome::Cancel(CancelId::C1),
+            "the Primary reaches classify_press and chains the haymaker"
+        );
+        // The Jump alone is not a cancel inside the jab's active window.
+        assert_eq!(
+            classify_press(&t, &jab, &press(Button::Jump)),
+            Outcome::Ignore
+        );
+        // Free to jump: Q47 still wins and defers the attack.
+        assert!(resolve_frame(&t, true, false, true, true, true).defer_attack);
+    }
+
+    #[test]
+    fn q54_jump_plus_physical_in_recovery_is_a_bailout_with_no_air_kick_until_landing() {
+        let t = on();
+        let r = resolve_frame(&t, false, true, true, true, false);
+        assert!(!r.jump && !r.defer_attack, "nothing is deferred");
+        let rec = actor(run(MoveKind::Jab, Phase::Recovery, 20));
+        assert_eq!(
+            classify_press(&t, &rec, &press(Button::Jump)),
+            Outcome::Cancel(CancelId::C3)
+        );
+        // The Physical of that tick is only buffered, never a cancel.
+        assert_eq!(
+            classify_press(&t, &rec, &press(Button::Physical)),
+            Outcome::Buffer
+        );
+        // On the bail-out's first airborne ticks the buffered Physical is held.
+        let bail = |vy: i32, h: i32| AirState {
+            vy_px_s: vy,
+            height_px: h,
+            air_kicks_used: 0,
+            dives_used: 0,
+            no_attack_until_landing: true,
+        };
+        for down in [false, true] {
+            assert_eq!(
+                route_air_attack(&t, Button::Physical, down, &bail(260, 2)),
+                AirRoute::Hold
+            );
+            assert_eq!(
+                route_air_attack(&t, Button::Physical, down, &bail(-50, 30)),
+                AirRoute::Hold
+            );
+        }
+        assert_eq!(
+            route_air_attack(&t, Button::Primary, false, &bail(-50, 30)),
+            AirRoute::Hold
+        );
+        // Landing grace (Q48) still releases it on the landing tick.
+        assert_eq!(
+            route_air_attack(&t, Button::Physical, false, &bail(-50, 4)),
+            AirRoute::WaitForLanding
+        );
+        // A normal jump (flag off) still gets the air kick.
+        let normal = AirState {
+            no_attack_until_landing: false,
+            ..bail(260, 2)
+        };
+        assert_eq!(
+            route_air_attack(&t, Button::Physical, false, &normal),
+            AirRoute::AirKick
+        );
     }
 
     #[test]
@@ -1073,7 +1180,7 @@ mod tests {
             s.q47_jump_wins_same_tick = false;
             s
         }] {
-            let r = resolve_frame(&t, false, true, true, true);
+            let r = resolve_frame(&t, false, true, true, true, true);
             assert_eq!(
                 r,
                 FrameResolution {
@@ -1093,6 +1200,7 @@ mod tests {
             height_px: h,
             air_kicks_used: 0,
             dives_used: 0,
+            no_attack_until_landing: false,
         };
         for b in [Button::Primary, Button::Physical] {
             assert_eq!(
@@ -1133,6 +1241,7 @@ mod tests {
             height_px: h,
             air_kicks_used: kicks,
             dives_used: dives,
+            no_attack_until_landing: false,
         };
         assert_eq!(
             route_air_attack(&t, Button::Physical, true, &air(9, 0, 0)),
@@ -1144,6 +1253,7 @@ mod tests {
             height_px: 8,
             air_kicks_used: 0,
             dives_used: 0,
+            no_attack_until_landing: false,
         };
         assert_eq!(
             route_air_attack(&t, Button::Physical, true, &rising),

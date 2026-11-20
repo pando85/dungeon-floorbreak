@@ -11,6 +11,12 @@
 //! (2) calls [`Morale::step`]. Taunt and back-off are started separately
 //! ([`Morale::try_taunt`], [`Morale::try_backoff`]) because their triggers are
 //! world conditions, not nerve events.
+//!
+//! **Call order inside one tick** (the Q64 and Q65 tests count the start tick as
+//! tick 1 under exactly this order): `step`, then `try_backoff` / `try_taunt`,
+//! then apply [`Morale::backoff_step_px`] and the movement. Calling `try_*`
+//! before `step` shifts the count by one tick (the hop covers 27 px over 9
+//! ticks and the taunt lasts 35 ticks).
 
 use crate::cf02::{Cf02Tuning, Force, SpectacularCause, Temperament};
 
@@ -1105,6 +1111,25 @@ mod tests {
         let out = m.step(&t, &input(-5));
         assert_eq!(out.started, Some(Started::Hesitate));
         assert!(m.panic_used());
+    }
+
+    #[test]
+    fn q57_panic_is_available_again_after_a_restart() {
+        let t = tuning();
+        let (seed, goblin) = (7u64, 2u32);
+        let mut first = Morale::spawn(&t, &draw_goblin(&t, seed, 0, goblin));
+        assert!(!first.panic_used());
+        assert_eq!(first.step(&t, &input(-100)).started, Some(Started::Panic));
+        assert!(first.panic_used());
+        // The same attempt cannot panic a second time.
+        let mut again = first;
+        assert_ne!(again.step(&t, &input(-100)).started, Some(Started::Panic));
+        // A restart re-spawns from the next attempt's draws: a fresh state, and
+        // the panic fires again.
+        let mut second = Morale::spawn(&t, &draw_goblin(&t, seed, 1, goblin));
+        assert!(!second.panic_used(), "restart resets panic_used");
+        assert_eq!(second.step(&t, &input(-100)).started, Some(Started::Panic));
+        assert!(second.panic_used());
     }
 
     #[test]
