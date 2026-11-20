@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=20 kind=move_started move=dive_stomp instance=1
+COMBAT_EVENT tick=46 kind=move_started move=jab instance=2
+COMBAT_STATE fixture=cf02_dive_whiff_recovery seed=0xcf020b06 tick=100 elapsed=100 hero_hp=4 deaths=0 enemies=e0=700.000/2 hash=74a70dcb0b4cb8df
+PARTY_STATE fixture=cf02_dive_whiff_recovery mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=f6e6165ea7f2b805

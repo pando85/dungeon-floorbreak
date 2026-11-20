@@ -16,7 +16,7 @@ pub const HERO_HALF_HEIGHT: f32 = 26.0;
 pub const RUN_SPEED: f32 = 185.0;
 pub const JUMP_SPEED: f32 = 440.0;
 pub const GRAVITY: f32 = 1050.0;
-const JUMP_BUFFER_TICKS: u8 = 7;
+pub const JUMP_BUFFER_TICKS: u8 = 7;
 const COYOTE_TICKS: u8 = 6;
 const BOMB_COOLDOWN: u16 = 135;
 const BOMB_FUSE: u8 = 30;
@@ -392,6 +392,26 @@ pub struct BodyDrive {
     pub vx_cap: Option<f32>,
     /// The facing does not follow the horizontal speed this step.
     pub facing_locked: bool,
+    /// CF02-H (Q52): the vertical speed in px/s for this step, applied instead of
+    /// gravity (the dive's tuck holds 0, its plunge falls at a constant -480).
+    /// `None` is the legacy step.
+    pub fly_vy: Option<f32>,
+}
+
+/// CF02-H (Q48, Q52): how far the hero's feet are above the highest solid top
+/// below them (a solid that overlaps the body's x range), in px. `None` when
+/// nothing is below. Zero standing on a floor.
+pub fn feet_height_above_solid(hero: &Hero, blocks: &[Block]) -> Option<f32> {
+    let feet = hero.y - HERO_HALF_HEIGHT;
+    let (left, right) = (hero.x - HERO_HALF_WIDTH, hero.x + HERO_HALF_WIDTH);
+    blocks
+        .iter()
+        .filter(|block| block.intact)
+        .filter(|block| right > block.rect.left && left < block.rect.right())
+        .map(|block| block.rect.top())
+        .filter(|&top| top <= feet + 0.01)
+        .reduce(f32::max)
+        .map(|top| (feet - top).max(0.0))
 }
 
 pub fn step_hero(hero: &mut Hero, input: &InputFrame, blocks: &[Block], max_x: f32) {
@@ -459,7 +479,10 @@ pub fn step_hero_driven(
 
     let previous_bottom = hero.y - HERO_HALF_HEIGHT;
     let previous_top = hero.y + HERO_HALF_HEIGHT;
-    hero.vy -= GRAVITY * TICK_SECONDS;
+    match drive.fly_vy {
+        Some(vy) => hero.vy = vy,
+        None => hero.vy -= GRAVITY * TICK_SECONDS,
+    }
     let mut next_y = hero.y + hero.vy * TICK_SECONDS;
     let mut grounded = false;
     for block in blocks.iter().filter(|block| block.intact) {
@@ -1033,5 +1056,40 @@ mod tests {
         step_hero_driven(&mut walker, &right, &floor, 2000.0, &capped);
         assert_eq!(walker.vx, 60.0);
         assert_eq!(walker.facing, -1, "the facing stays");
+    }
+    #[test]
+    fn fly_vy_replaces_gravity_and_the_height_probe_reads_the_floor() {
+        let world = World::new();
+        let mut hero = world.hero.clone();
+        assert_eq!(feet_height_above_solid(&hero, &world.blocks), Some(0.0));
+        hero.y += 60.0;
+        hero.grounded = false;
+        let height = feet_height_above_solid(&hero, &world.blocks).unwrap();
+        assert!((height - 60.0).abs() < 0.01, "{height}");
+        let input = InputFrame::default();
+        let drive = BodyDrive {
+            fly_vy: Some(-480.0),
+            ..BodyDrive::default()
+        };
+        let y = hero.y;
+        step_hero_driven(&mut hero, &input, &world.blocks, STAGE_WIDTH, &drive);
+        assert!(
+            (y - hero.y - 8.0).abs() < 0.001,
+            "8 px per tick, got {}",
+            y - hero.y
+        );
+        assert_eq!(hero.vy, -480.0);
+        // The default drive is the legacy gravity step.
+        let mut legacy = world.hero.clone();
+        legacy.y += 60.0;
+        legacy.grounded = false;
+        step_hero_driven(
+            &mut legacy,
+            &input,
+            &world.blocks,
+            STAGE_WIDTH,
+            &BodyDrive::default(),
+        );
+        assert!((legacy.vy + GRAVITY * TICK_SECONDS).abs() < 0.001);
     }
 }

@@ -475,6 +475,7 @@ impl CombatState {
             vx: self.donut_kit.pounce_vx,
             vx_cap: out.vx_cap,
             facing_locked: out.facing_locked,
+            ..BodyDrive::default()
         };
         result
     }

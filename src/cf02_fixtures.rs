@@ -17,7 +17,7 @@ use crate::donut_fixtures::{physical, primary};
 use crate::donut_mana::DonutSetup;
 use crate::input::RawInput;
 use crate::party::PROVISIONAL_TUNING;
-use crate::party_scene::{PartyFixture, SlotHold, base, run};
+use crate::party_scene::{PartyFixture, SlotHold, base, jump, run};
 
 /// A stationary goblin test dummy (it never tells or walks; it still gets hurt,
 /// launched, lies down and gets up).
@@ -25,6 +25,66 @@ const fn dummy(x: i32) -> EnemySpawn {
     EnemySpawn {
         x,
         ai: EnemyAi::Passive,
+    }
+}
+
+/// A goblin that chases and attacks.
+const fn chase(x: i32) -> EnemySpawn {
+    EnemySpawn {
+        x,
+        ai: EnemyAi::Chase,
+    }
+}
+
+/// A button held together with a direction on `slot`.
+const fn with_dir(from: u64, to: u64, slot: usize, input: RawInput, move_x: f32) -> SlotHold {
+    SlotHold {
+        from,
+        to,
+        slot,
+        input: RawInput { move_x, ..input },
+    }
+}
+
+/// Primary held together with a direction (it turns Carl when it starts).
+const fn primary_dir(from: u64, to: u64, move_x: f32) -> SlotHold {
+    with_dir(
+        from,
+        to,
+        0,
+        RawInput {
+            attack: true,
+            ..RawInput::NONE
+        },
+        move_x,
+    )
+}
+
+/// Physical held together with a direction.
+const fn physical_dir(from: u64, to: u64, move_x: f32) -> SlotHold {
+    with_dir(
+        from,
+        to,
+        0,
+        RawInput {
+            physical: true,
+            ..RawInput::NONE
+        },
+        move_x,
+    )
+}
+
+/// Jump and Physical pressed on the same tick.
+const fn jump_physical(from: u64, to: u64) -> SlotHold {
+    SlotHold {
+        from,
+        to,
+        slot: 0,
+        input: RawInput {
+            jump: true,
+            physical: true,
+            ..RawInput::NONE
+        },
     }
 }
 
@@ -48,7 +108,12 @@ pub(crate) const fn stomp(from: u64, to: u64, slot: usize) -> SlotHold {
 /// CF02-B can put one on the floor unhurt). `None`: the legacy 2.
 pub fn goblin_health(fixture: &str) -> Option<u8> {
     match fixture {
-        "cf02_stomp_no_stand_up" | "cf02_pounce_keeps_down" | "cf02_pounce_hold" => Some(4),
+        "cf02_stomp_no_stand_up"
+        | "cf02_pounce_keeps_down"
+        | "cf02_pounce_hold"
+        | "cf02_dive_bounce_kick"
+        | "cf02_air_kick_relaunch_once" => Some(4),
+        "cf02_cancel_table" => Some(9),
         _ => None,
     }
 }
@@ -312,7 +377,297 @@ pub const CF02_2P_SAME_TICK: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
-pub const CF02_FIXTURES: [&PartyFixture; 13] = [
+/// QA hook: fixture goblin 0 starts already launched with this `(vx, vy)` in px/s
+/// (so an air kick can meet a flying goblin: a kick's own flight is over before
+/// Carl can act again). `None` for every other fixture.
+pub fn goblin_launch(fixture: &str) -> Option<(f32, f32)> {
+    match fixture {
+        "cf02_air_kick_relaunch_once" => Some((40.0, 330.0)),
+        _ => None,
+    }
+}
+
+// -------------------------------------------------------------- CF02-H --
+
+const AIR_KICK_JUMP_IN_BASE: Fixture = base(
+    "cf02_air_kick_jump_in",
+    "CF02-H: Carl jumps in and kicks: an air kick (startup 5, active 6) on the way up hits a standing goblin (stagger 14, knock 90) while his feet are below 54 px",
+    0xCF02_0B01,
+    &[dummy(445)],
+    60,
+);
+
+/// Q50: the jump-in kick.
+pub const CF02_AIR_KICK_JUMP_IN: PartyFixture = PartyFixture {
+    base: &AIR_KICK_JUMP_IN_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(1, 24, 0, 1.0), jump(1, 2, 0), physical(3, 4, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const AIR_KICK_RELAUNCH_BASE: Fixture = base(
+    "cf02_air_kick_relaunch_once",
+    "CF02-H: an air kick on a flying goblin relaunches it at 150 / 130 px/s as a new launch, once per original launch (the goblin starts launched, a QA hook)",
+    0xCF02_0B02,
+    &[dummy(430)],
+    70,
+);
+
+/// Q51: the relaunch.
+pub const CF02_AIR_KICK_RELAUNCH_ONCE: PartyFixture = PartyFixture {
+    base: &AIR_KICK_RELAUNCH_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(1, 30, 0, 1.0), jump(1, 2, 0), physical(6, 7, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const DIVE_LYING_BASE: Fixture = base(
+    "cf02_dive_lying",
+    "CF02-H: Carl kicks a goblin down, jumps and dives on it while it lies: the dive finishes it in place as a heavy defeat",
+    0xCF02_0B03,
+    &[dummy(430)],
+    110,
+);
+
+/// Q52, Q34: the dive on a lying goblin.
+pub const CF02_DIVE_LYING: PartyFixture = PartyFixture {
+    base: &DIVE_LYING_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        physical(5, 6, 0),
+        run(49, 80, 0, 1.0),
+        jump(49, 50, 0),
+        stomp(64, 65, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const DIVE_STANDING_BASE: Fixture = base(
+    "cf02_dive_standing_knockdown",
+    "CF02-H: a dive on a standing goblin knocks it down (lying 40 ticks, no hop) and bounces Carl (vy 240)",
+    0xCF02_0B04,
+    &[dummy(455)],
+    110,
+);
+
+/// Q52, Q53: the dive knockdown and the bounce.
+pub const CF02_DIVE_STANDING_KNOCKDOWN: PartyFixture = PartyFixture {
+    base: &DIVE_STANDING_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(5, 20, 0, 1.0), jump(5, 6, 0), stomp(20, 21, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const DIVE_BOUNCE_KICK_BASE: Fixture = base(
+    "cf02_dive_bounce_kick",
+    "CF02-H: dive, bounce, then the period's one air kick on the goblin it knocked down: two damage in one airborne period, never more",
+    0xCF02_0B05,
+    &[dummy(455)],
+    90,
+);
+
+/// Q53 (C5): the emergent combination with its 2-damage cap (a 4 HP goblin).
+pub const CF02_DIVE_BOUNCE_KICK: PartyFixture = PartyFixture {
+    base: &DIVE_BOUNCE_KICK_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        run(5, 20, 0, 1.0),
+        jump(5, 6, 0),
+        stomp(20, 21, 0),
+        physical(57, 58, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const DIVE_WHIFF_BASE: Fixture = base(
+    "cf02_dive_whiff_recovery",
+    "CF02-H: a dive that lands on nothing costs 10 ticks of landing recovery: an attack pressed during it starts only afterwards",
+    0xCF02_0B06,
+    &[dummy(700)],
+    100,
+);
+
+/// Q52, Q56: the dive whiff.
+pub const CF02_DIVE_WHIFF_RECOVERY: PartyFixture = PartyFixture {
+    base: &DIVE_WHIFF_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[jump(5, 6, 0), stomp(20, 21, 0), primary(40, 41, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BAILOUT_SWING_BASE: Fixture = base(
+    "cf02_bailout_escapes_swing",
+    "CF02-H: Carl whiffs a jab facing away, then Jump in the jab's recovery 6 ticks before the goblin's swing lands: the bail-out hop leaves its reach (pressed 3 ticks before, it is hit)",
+    0xCF02_0B07,
+    &[chase(440)],
+    80,
+);
+
+/// Q54: the bail-out answers a tell seen at least 5 ticks before impact.
+pub const CF02_BAILOUT_ESCAPES_SWING: PartyFixture = PartyFixture {
+    base: &BAILOUT_SWING_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        primary_dir(24, 25, -1.0),
+        run(25, 50, 0, -1.0),
+        jump(31, 32, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BAILOUT_NO_ATTACK_BASE: Fixture = base(
+    "cf02_bailout_no_attack_until_land",
+    "CF02-H: during the bail-out hop no attack starts: a press in the air is dropped and one made just before landing starts after the 4-tick landing recovery",
+    0xCF02_0B08,
+    &[dummy(700)],
+    100,
+);
+
+/// Q54, Q56: no attack until landing.
+pub const CF02_BAILOUT_NO_ATTACK_UNTIL_LAND: PartyFixture = PartyFixture {
+    base: &BAILOUT_NO_ATTACK_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        primary_dir(24, 25, -1.0),
+        run(25, 50, 0, -1.0),
+        jump(31, 32, 0),
+        primary(36, 37, 0),
+        primary(58, 59, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BUFFER_TURNS_BASE: Fixture = base(
+    "cf02_buffer_turns",
+    "CF02-H: a Physical pressed during a jab with a direction held is buffered with that direction: the kick starts when the jab ends and turns Carl",
+    0xCF02_0B09,
+    &[dummy(700)],
+    60,
+);
+
+/// Q46: a buffered fresh move turns Carl toward the direction of its press.
+pub const CF02_BUFFER_TURNS: PartyFixture = PartyFixture {
+    base: &BUFFER_TURNS_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), physical_dir(15, 16, -1.0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BUFFER_NO_EARLY_CHAIN_BASE: Fixture = base(
+    "cf02_buffer_no_early_chain",
+    "CF02-H: a Primary pressed on jab tick 1 does not chain into the haymaker (the legacy chain opens on tick 3) and is too old to start a second jab",
+    0xCF02_0B0A,
+    &[dummy(700)],
+    50,
+);
+
+/// Q46: no chain from a press before the window.
+pub const CF02_BUFFER_NO_EARLY_CHAIN: PartyFixture = PartyFixture {
+    base: &BUFFER_NO_EARLY_CHAIN_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), primary(6, 7, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const JUMP_ATTACK_BASE: Fixture = base(
+    "cf02_jump_attack_same_tick",
+    "CF02-H: Jump and Physical on one tick: Carl jumps and the kick starts as its air version on the first airborne tick",
+    0xCF02_0B0B,
+    &[dummy(700)],
+    60,
+);
+
+/// Q47: Jump wins, the attack fires in the air.
+pub const CF02_JUMP_ATTACK_SAME_TICK: PartyFixture = PartyFixture {
+    base: &JUMP_ATTACK_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[jump_physical(5, 6)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const LANDING_GRACE_BASE: Fixture = base(
+    "cf02_landing_grace",
+    "CF02-H: Down + Physical pressed while falling within 8 px of the floor waits and fires as the ground stomp on landing, never as a dive that whiffs into the floor",
+    0xCF02_0B0C,
+    &[dummy(700)],
+    90,
+);
+
+/// Q48: the landing grace.
+pub const CF02_LANDING_GRACE: PartyFixture = PartyFixture {
+    base: &LANDING_GRACE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[jump(5, 6, 0), stomp(54, 55, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const CANCEL_TABLE_BASE: Fixture = base(
+    "cf02_cancel_table",
+    "CF02-H: C4 on a 9 HP goblin: an air kick that hits, then Down + Physical in its recovery cancels into the dive (C1, C2, C3 and C5 are in the confirm, bail-out and dive-bounce fixtures)",
+    0xCF02_0B0D,
+    &[dummy(445)],
+    80,
+);
+
+/// Q49 (C4): air kick that hit -> dive.
+pub const CF02_CANCEL_TABLE: PartyFixture = PartyFixture {
+    base: &CANCEL_TABLE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        run(1, 24, 0, 1.0),
+        jump(1, 2, 0),
+        physical(3, 4, 0),
+        stomp(20, 21, 0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const DIVE_BOSS_BASE: Fixture = boss_base(
+    "cf02_dive_boss",
+    "CF02-H: Carl's dive on the Juicer is an ordinary 1-damage hero hit under super armour; the tell it lands in still becomes its strike",
+    0xCF02_0B0E,
+    380,
+    FULL,
+    70,
+);
+
+/// Q08: the boss keeps its armour and poise rules.
+pub const CF02_DIVE_BOSS: PartyFixture = PartyFixture {
+    base: &DIVE_BOSS_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(1, 30, 0, 1.0), jump(20, 21, 0), stomp(28, 29, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+pub const CF02_FIXTURES: [&PartyFixture; 27] = [
     &CF02_KICK_THEN_STOMP,
     &CF02_STOMP_WHIFF,
     &CF02_STOMP_STANDING,
@@ -326,6 +681,20 @@ pub const CF02_FIXTURES: [&PartyFixture; 13] = [
     &CF02_POUNCE_HOLD,
     &CF02_STOMP_BOSS,
     &CF02_2P_SAME_TICK,
+    &CF02_AIR_KICK_JUMP_IN,
+    &CF02_AIR_KICK_RELAUNCH_ONCE,
+    &CF02_DIVE_LYING,
+    &CF02_DIVE_STANDING_KNOCKDOWN,
+    &CF02_DIVE_BOUNCE_KICK,
+    &CF02_DIVE_WHIFF_RECOVERY,
+    &CF02_BAILOUT_ESCAPES_SWING,
+    &CF02_BAILOUT_NO_ATTACK_UNTIL_LAND,
+    &CF02_BUFFER_TURNS,
+    &CF02_BUFFER_NO_EARLY_CHAIN,
+    &CF02_JUMP_ATTACK_SAME_TICK,
+    &CF02_LANDING_GRACE,
+    &CF02_CANCEL_TABLE,
+    &CF02_DIVE_BOSS,
 ];
 
 /// Looks a party fixture up in `PartyFixture::all()` and then in the CF02
@@ -539,7 +908,7 @@ mod tests {
 
     /// The goldens: one FNV state hash per fixture, replayed twice. A change is a
     /// deliberate re-baseline of that fixture only.
-    const GOLDENS: [(&str, u64); 13] = [
+    const GOLDENS: [(&str, u64); 27] = [
         ("cf02_kick_then_stomp", 0xeade1505d6805381),
         ("cf02_stomp_whiff", 0xfc5181f6b763f50b),
         ("cf02_stomp_standing", 0x46b56f9470306d5e),
@@ -553,6 +922,20 @@ mod tests {
         ("cf02_pounce_hold", 0xaa75cd4ff812e46b),
         ("cf02_stomp_boss", 0xc191ddce479e568b),
         ("cf02_2p_same_tick", 0xda1a168a6bc17a3e),
+        ("cf02_air_kick_jump_in", 0x102430d4574559e2),
+        ("cf02_air_kick_relaunch_once", 0xff60bd8c7ad3e597),
+        ("cf02_dive_lying", 0xa7c20646962bfd8e),
+        ("cf02_dive_standing_knockdown", 0xc129d7541a266920),
+        ("cf02_dive_bounce_kick", 0x8decf9ef002355ab),
+        ("cf02_dive_whiff_recovery", 0xf6e6165ea7f2b805),
+        ("cf02_bailout_escapes_swing", 0xac675d2f15e777af),
+        ("cf02_bailout_no_attack_until_land", 0x2d5c027bbe128174),
+        ("cf02_buffer_turns", 0x1a5f85cefbd120ef),
+        ("cf02_buffer_no_early_chain", 0x027414d51818e9e7),
+        ("cf02_jump_attack_same_tick", 0xd0ecfb8433d01685),
+        ("cf02_landing_grace", 0x75ce9b552aea4b3c),
+        ("cf02_cancel_table", 0x2812995f9f619829),
+        ("cf02_dive_boss", 0x80dbd99aa0462be9),
     ];
 
     #[test]
@@ -905,5 +1288,417 @@ mod tests {
         );
         assert_eq!(ForceTier::of_move(&m.stomp), ForceTier::Heavy);
         assert_eq!(ForceTier::of_move(&m.follow_kick), ForceTier::Heavy);
+    }
+    // ------------------------------------------------------------ CF02-H --
+
+    fn hurt_ticks(sim: &crate::party_scene::PartyFixtureSim) -> Vec<u64> {
+        sim.combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::HeroHurt { tick, .. } => Some(tick),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn q50_a_jump_in_air_kick_hits_a_standing_goblin_for_stagger_14_and_knock_90() {
+        let sim = replay_for("cf02_air_kick_jump_in", 9);
+        assert_eq!(starts(&sim), vec![(3, MoveId::AirKick)]);
+        assert_eq!(hits(&sim), vec![(8, MoveId::AirKick, 1, 1)]);
+        let goblin = &sim.combat.enemies[0];
+        assert_eq!(goblin.mode, GoblinMode::Hurt, "stagger, not launched");
+        assert_eq!(goblin.stagger_left, 14);
+        // The kick reaches 16 px below the feet: Carl's feet were below 54 px.
+        let feet = sim.scene.world.hero.y - 26.0 - 92.0;
+        assert!(feet < 54.0, "feet {feet} px above the floor");
+    }
+
+    #[test]
+    fn q51_an_air_kick_relaunches_a_flying_goblin_once_as_a_new_launch() {
+        let mut sim = replay_for("cf02_air_kick_relaunch_once", 12);
+        assert_eq!(hits(&sim), vec![(11, MoveId::AirKick, 1, 3)]);
+        let g = &sim.combat.enemies[0];
+        assert!(g.relaunched, "spent");
+        assert_eq!(g.mode, GoblinMode::Launched, "still flying");
+        assert!(
+            g.launch.is_some_and(|id| id != 0),
+            "stamped with the air kick's instance"
+        );
+        // 150 px/s forward and 130 px/s up after the freeze.
+        for _ in 0..8 {
+            sim.step_scripted();
+        }
+        let g = &sim.combat.enemies[0];
+        assert!(g.vx == 150.0, "vx {}", g.vx);
+        // One per airborne period: the rest of the script throws no second kick.
+        let mut sim = replay("cf02_air_kick_relaunch_once");
+        assert_eq!(
+            starts(&sim)
+                .iter()
+                .filter(|s| s.1 == MoveId::AirKick)
+                .count(),
+            1
+        );
+        sim.step_scripted();
+    }
+
+    #[test]
+    fn q52_the_dive_on_a_lying_goblin_finishes_it_in_place_after_a_6_tick_tuck() {
+        let sim = replay("cf02_dive_lying");
+        assert!(starts(&sim).contains(&(64, MoveId::DiveStomp)));
+        assert_eq!(hits(&sim).last(), Some(&(76, MoveId::DiveStomp, 1, 0)));
+        assert!(
+            sim.combat.events.iter().any(|e| matches!(
+                e,
+                CombatEvent::EnemyDefeated {
+                    tick: 76,
+                    force: ForceTier::Heavy,
+                    ..
+                }
+            )),
+            "a dive finish is heavy"
+        );
+        let g = &sim.combat.enemies[0];
+        assert!((g.x - 491.7).abs() < 1.0, "in place, at {}", g.x);
+    }
+
+    #[test]
+    fn q52_q53_the_dive_knocks_a_standing_goblin_down_without_a_hop_and_bounces_carl() {
+        let mut sim = replay_for("cf02_dive_standing_knockdown", 30);
+        // Tuck 6 (20..26), plunge, hit on move tick 9 (tick 29).
+        assert_eq!(hits(&sim), vec![(29, MoveId::DiveStomp, 1, 1)]);
+        let g = &sim.combat.enemies[0];
+        assert_eq!((g.mode, g.vx, g.vy), (GoblinMode::Downed, 0.0, 0.0));
+        assert_eq!(g.y, g.floor_y, "no hop");
+        // The bounce starts when the 6-tick hit-stop ends: vy 240 (minus one
+        // gravity step), vx 0.
+        for _ in 0..7 {
+            sim.step_scripted();
+        }
+        let vy = sim.scene.world.hero.vy;
+        assert!(vy > 200.0 && vy <= 240.0, "bounce vy {vy}");
+        assert_eq!(sim.scene.world.hero.vx, 0.0);
+    }
+
+    #[test]
+    fn q53_dive_bounce_air_kick_deals_two_damage_in_one_period_and_no_more() {
+        let sim = replay("cf02_dive_bounce_kick");
+        assert_eq!(
+            hits(&sim),
+            vec![(29, MoveId::DiveStomp, 1, 3), (65, MoveId::AirKick, 1, 2)]
+        );
+        // The air kick on the knocked-down goblin keeps it down (Q34).
+        assert_eq!(sim.combat.enemies[0].mode, GoblinMode::Downed);
+    }
+
+    #[test]
+    fn q53_no_cf02_fixture_deals_more_than_two_air_damage_per_airborne_period() {
+        for fixture in CF02_FIXTURES {
+            let mut sim =
+                crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+            let (mut period, mut seen) = (0u32, 0usize);
+            for _ in 0..fixture.base.ticks {
+                sim.step_scripted();
+                if sim.scene.world.hero.grounded {
+                    period = 0;
+                }
+                for e in &sim.combat.events[seen..] {
+                    if let CombatEvent::Hit {
+                        move_id: MoveId::AirKick | MoveId::DiveStomp,
+                        damage,
+                        ..
+                    } = *e
+                    {
+                        period += u32::from(damage);
+                    }
+                }
+                seen = sim.combat.events.len();
+                assert!(period <= 2, "{}: {period} in one period", fixture.name());
+            }
+        }
+    }
+
+    #[test]
+    fn q56_a_dive_whiff_costs_10_ticks_of_landing_recovery() {
+        let sim = replay("cf02_dive_whiff_recovery");
+        let s = starts(&sim);
+        assert_eq!(s[0], (20, MoveId::DiveStomp));
+        // The press on 40 waits out the recovery; the jab starts on tick 46,
+        // 10 ticks after the landing on 36.
+        assert_eq!(s[1], (46, MoveId::Jab), "{s:?}");
+        assert!(hits(&sim).is_empty());
+    }
+
+    #[test]
+    fn q54_the_bailout_pressed_6_ticks_before_impact_escapes_and_3_ticks_before_is_hit() {
+        let sim = replay("cf02_bailout_escapes_swing");
+        assert!(
+            sim.combat
+                .events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::GoblinSwing { tick: 37, .. })),
+            "the swing lands on 37"
+        );
+        assert!(hurt_ticks(&sim).is_empty(), "6 ticks before impact: no hit");
+        // The hop is vx 150 away from the facing (the held direction here), vy 260.
+        let early = replay_for("cf02_bailout_escapes_swing", 31);
+        assert!(early.scene.world.hero.vy > 240.0, "hop started on 31");
+        // The same fixture with the Jump 3 ticks before impact: hit.
+        const LATE: PartyFixture = PartyFixture {
+            script: &[
+                primary_dir(24, 25, -1.0),
+                run(25, 50, 0, -1.0),
+                jump(34, 35, 0),
+            ],
+            ..CF02_BAILOUT_ESCAPES_SWING
+        };
+        let mut sim = crate::party_scene::PartyFixtureSim::new(&kit_of(&LATE), 360, &LATE).unwrap();
+        sim.run_scripted(LATE.base.ticks);
+        assert_eq!(hurt_ticks(&sim), vec![37], "3 ticks before impact: hit");
+    }
+
+    #[test]
+    fn q54_q56_no_attack_starts_during_the_hop_and_the_landing_recovery_is_4_ticks() {
+        let sim = replay("cf02_bailout_no_attack_until_land");
+        assert_eq!(
+            starts(&sim),
+            vec![(24, MoveId::Jab), (64, MoveId::Jab)],
+            "the press on 36 (in the air) is dropped; the one on 58 starts after landing + 4"
+        );
+    }
+
+    #[test]
+    fn q46_a_buffered_kick_turns_carl_toward_the_direction_it_was_pressed_with() {
+        let sim = replay("cf02_buffer_turns");
+        assert_eq!(starts(&sim), vec![(5, MoveId::Jab), (19, MoveId::PushKick)]);
+        assert_eq!(sim.scene.world.hero.facing, -1);
+    }
+
+    #[test]
+    fn q46_a_primary_on_jab_tick_1_does_not_chain_and_is_too_old_to_start_a_second_jab() {
+        let sim = replay("cf02_buffer_no_early_chain");
+        assert_eq!(starts(&sim), vec![(5, MoveId::Jab)]);
+    }
+
+    #[test]
+    fn q46_the_window_is_8_under_cf02_and_6_in_the_legacy_game() {
+        // A Physical pressed N ticks before a jab ends starts a kick when N <= 8
+        // under CF02 and N <= 6 in the legacy runner (the same script, rules off).
+        fn kick_start(cf02: bool, press: u64) -> Option<u64> {
+            const BASE: Fixture = base("latency_probe", "probe", 1, &[dummy(700)], 40);
+            static LEGACY: Fixture = BASE;
+            let kit = kit_of(&CF02_STOMP_WHIFF);
+            let scene = crate::corridor::SceneSim::new_at(&kit, 360, LEGACY.carl_x).unwrap();
+            let mut combat = crate::combat_scene::CombatState::new(&LEGACY, &kit, &scene).unwrap();
+            if cf02 {
+                combat = combat.with_cf02();
+            }
+            let mut scene = scene;
+            let press_tick = press;
+            for tick in 1..=40u64 {
+                let raw = RawInput {
+                    attack: tick == 5,
+                    physical: tick == press_tick,
+                    ..RawInput::NONE
+                };
+                combat.step(&mut scene, raw);
+            }
+            combat.events.iter().find_map(|e| match *e {
+                CombatEvent::MoveStarted {
+                    tick,
+                    move_id: MoveId::PushKick,
+                    ..
+                } => Some(tick),
+                _ => None,
+            })
+        }
+        // The jab ends on tick 19.
+        assert_eq!(kick_start(true, 11), Some(19), "8 ticks before the end");
+        assert_eq!(kick_start(true, 10), None, "9 ticks is too early");
+        assert_eq!(kick_start(false, 13), Some(19), "6 ticks (legacy)");
+        assert_eq!(kick_start(false, 12), None, "7 ticks is too early (legacy)");
+    }
+
+    #[test]
+    fn q47_jump_plus_physical_on_one_tick_jumps_and_kicks_in_the_air() {
+        let sim = replay("cf02_jump_attack_same_tick");
+        assert_eq!(starts(&sim), vec![(6, MoveId::AirKick)]);
+        // Jump + Down + Physical: the dive on the first tick it is high enough.
+        const DIVE: PartyFixture = PartyFixture {
+            script: &[SlotHold {
+                from: 5,
+                to: 6,
+                slot: 0,
+                input: RawInput {
+                    jump: true,
+                    physical: true,
+                    down: true,
+                    ..RawInput::NONE
+                },
+            }],
+            ..CF02_JUMP_ATTACK_SAME_TICK
+        };
+        let mut sim = crate::party_scene::PartyFixtureSim::new(&kit_of(&DIVE), 360, &DIVE).unwrap();
+        sim.run_scripted(DIVE.base.ticks);
+        assert_eq!(starts(&sim), vec![(7, MoveId::DiveStomp)]);
+    }
+
+    #[test]
+    fn q48_down_physical_near_the_floor_waits_and_fires_as_the_ground_stomp() {
+        let sim = replay("cf02_landing_grace");
+        assert_eq!(starts(&sim), vec![(55, MoveId::Stomp)]);
+    }
+
+    #[test]
+    fn q49_c4_an_air_kick_that_hit_cancels_into_the_dive_only_in_its_recovery() {
+        let sim = replay("cf02_cancel_table");
+        assert_eq!(
+            starts(&sim),
+            vec![(3, MoveId::AirKick), (20, MoveId::DiveStomp)]
+        );
+        assert_eq!(
+            hits(&sim),
+            vec![(8, MoveId::AirKick, 1, 8), (29, MoveId::DiveStomp, 1, 7)]
+        );
+    }
+
+    /// Q49: the table is closed. Whatever press comes at whatever tick of a
+    /// running ground move, no new move starts before the running one has ended,
+    /// except the jab's own C1 chain (Primary on jab ticks 3..=13); a Jump never
+    /// starts a move (a bail-out only hops).
+    #[test]
+    fn q49_no_press_cancels_a_ground_move_outside_the_table() {
+        #[derive(Clone, Copy)]
+        struct Press {
+            primary: bool,
+            physical: bool,
+            down: bool,
+            jump: bool,
+        }
+        let presses = [
+            Press {
+                primary: true,
+                physical: false,
+                down: false,
+                jump: false,
+            },
+            Press {
+                primary: false,
+                physical: true,
+                down: false,
+                jump: false,
+            },
+            Press {
+                primary: false,
+                physical: true,
+                down: true,
+                jump: false,
+            },
+            Press {
+                primary: false,
+                physical: false,
+                down: false,
+                jump: true,
+            },
+        ];
+        let starters = [
+            (
+                Press {
+                    primary: true,
+                    physical: false,
+                    down: false,
+                    jump: false,
+                },
+                MoveId::Jab,
+                14u64,
+            ),
+            (
+                Press {
+                    primary: false,
+                    physical: true,
+                    down: false,
+                    jump: false,
+                },
+                MoveId::PushKick,
+                36,
+            ),
+            (
+                Press {
+                    primary: false,
+                    physical: true,
+                    down: true,
+                    jump: false,
+                },
+                MoveId::Stomp,
+                26,
+            ),
+        ];
+        for (starter, first, total) in starters {
+            for offset in 1..total {
+                for press in presses {
+                    let fixture = &CF02_STOMP_WHIFF;
+                    let mut sim =
+                        crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture)
+                            .unwrap();
+                    for tick in 1..=(5 + total + 12) {
+                        let at_start = tick == 5;
+                        let at_press = tick == 5 + offset;
+                        let raw = RawInput {
+                            attack: (at_start && starter.primary) || (at_press && press.primary),
+                            physical: (at_start && starter.physical)
+                                || (at_press && press.physical),
+                            down: (at_start && starter.down) || (at_press && press.down),
+                            jump: at_press && press.jump,
+                            ..RawInput::NONE
+                        };
+                        sim.step_slots([raw, RawInput::NONE]);
+                    }
+                    let early: Vec<_> = starts(&sim)
+                        .into_iter()
+                        .filter(|&(t, m)| t > 5 && t < 5 + total && m != first)
+                        .collect();
+                    let c1 = first == MoveId::Jab
+                        && press.primary
+                        && (3..=13).contains(&offset)
+                        && !press.jump;
+                    if c1 {
+                        continue;
+                    }
+                    assert!(
+                        early.is_empty(),
+                        "{first:?} press at +{offset} ({:?}) started {early:?}",
+                        (press.primary, press.physical, press.down, press.jump)
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn q08_the_dive_on_the_boss_is_an_ordinary_one_damage_hit_under_super_armour() {
+        let sim = replay("cf02_dive_boss");
+        assert!(starts(&sim).contains(&(28, MoveId::DiveStomp)));
+        let boss = sim.combat.boss_state().unwrap();
+        assert_eq!(boss.hp, boss.hp_max - 1);
+        assert!(
+            sim.combat
+                .events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::BossStrike { .. })),
+            "super armour: the tell still became its strike"
+        );
+    }
+
+    #[test]
+    fn the_cf02_a_and_h_states_are_not_hashed_while_idle() {
+        // A CF02 run that never buffers or jumps hashes its Carl state to nothing.
+        use crate::combat_scene::CombatState;
+        let kit = kit_of(&CF02_STOMP_WHIFF);
+        let scene = crate::corridor::SceneSim::new_at(&kit, 360, 400).unwrap();
+        let a = CombatState::new(CF02_STOMP_WHIFF.base, &kit, &scene).unwrap();
+        let b = CombatState::new(CF02_STOMP_WHIFF.base, &kit, &scene).unwrap();
+        assert_eq!(a.state_hash(&scene), b.state_hash(&scene));
     }
 }

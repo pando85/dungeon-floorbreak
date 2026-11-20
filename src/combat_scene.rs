@@ -21,7 +21,7 @@ use crate::blast::{Arm, BlastCharge, BlastReach};
 use crate::boss::{
     BOSS_ENEMY_ID, Boss, BossCtx, BossHit, BossOut, BossSetup, BossState, HeroBlow, HeroView,
 };
-use crate::cf02::{self, Cf02Tuning, StompBinding};
+use crate::cf02::{self, Cf02Tuning};
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
     EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, MoveRunner, MoveSpec, MoveTick, Phase, RootStep,
@@ -38,16 +38,20 @@ use crate::feel::{
 pub use crate::feel::{HERO_HURT_TICKS, RESTART_DELAY_TICKS};
 use crate::follower::Threat;
 use crate::goblin::{Goblin, GoblinMode};
-use crate::input::{Actions, InputFrame, RawInput};
+use crate::input::{InputFrame, RawInput};
 use crate::llama::{
     FireView, Glob, GlobFate, LLAMA_HALF_HEIGHT, LLAMA_HALF_WIDTH, Llama, LlamaMode,
 };
 use crate::party::{EnemyTargetRule, HeroId};
-use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, TICK_SECONDS};
+use crate::prototype::{
+    Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, TICK_SECONDS,
+};
 use crate::shore::{PLAYER_ONE, Shore};
 
+mod carl_cf02;
 mod companion;
 mod donut;
+use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
 pub use donut::{Bolt, Cast, DonutKit};
 
@@ -828,6 +832,9 @@ pub struct CombatState {
     /// under `--cf02` and for every `cf02_*` fixture; `None` is the legacy game
     /// and every golden. Constant for the run, so it is not part of the hash.
     cf02: Option<&'static Cf02Tuning>,
+    /// CF02-H: Carl's move buffer and airborne state (default, and not hashed,
+    /// without `cf02_rules`).
+    carl_cf02: CarlCf02,
     /// Which hero's defeat ended the attempt (D1: either one is the party's
     /// defeat). Meaningful while `hero_defeated`.
     pub defeated_hero: HeroId,
@@ -911,6 +918,7 @@ impl CombatState {
             donut_kit: DonutKit::new(DonutSetup::NONE),
             companion: CompanionRuntime::default(),
             cf02: fixture.name.starts_with("cf02_").then(cf02::active),
+            carl_cf02: CarlCf02::default(),
             defeated_hero: HeroId::Carl,
             targets: Vec::new(),
             defeated_ticks: 0,
@@ -1010,6 +1018,7 @@ impl CombatState {
                 self.charges[index] = self.charge_of(spawn);
             }
         }
+        self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
         self.hurt_ticks = 0;
         self.hero_hit_stop = 0;
@@ -1073,6 +1082,7 @@ impl CombatState {
             .map(|spawn| self.charge_of(spawn))
             .collect();
         self.contacts.clear();
+        self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
         self.hurt_ticks = 0;
         self.hero_hit_stop = 0;
@@ -1087,6 +1097,17 @@ impl CombatState {
         self.confirm = None;
         self.checkpoint = self.start_checkpoint();
         self.flash_tick = vec![None; self.enemies.len() + self.llamas.len()];
+        // CF02 QA hook: a fixture goblin that starts launched.
+        if self.cf02.is_some()
+            && let Some((vx, vy)) = crate::cf02_fixtures::goblin_launch(self.fixture.name)
+            && let Some(goblin) = self.enemies.first_mut()
+        {
+            goblin.mode = GoblinMode::Launched;
+            goblin.vx = vx;
+            goblin.vy = vy;
+            // Instance 0 is no real move instance (they start at 1).
+            goblin.launch = Some(0);
+        }
         self.retire_goblins_behind_start();
     }
 
@@ -1229,27 +1250,33 @@ impl CombatState {
         // EquippedSpecial (Circle/B) has no effect before its story unlock
         // (there are no explosives before the Guild). Both only start from a
         // press edge, so a held button never repeats.
-        let mut request = if self.input.attack_pressed {
-            carl_move(MoveId::Jab)
-        } else if self.input.physical_pressed {
-            self.physical_request(raw)
+        let plan = if self.cf02.is_some() {
+            // CF02-H (Q46..Q54): the move buffer, the same-tick rule, the cancel
+            // table, the air moves and the bail-out decide the request.
+            self.plan_carl_cf02(scene, raw, can_act, hero_frozen || melee_frozen)
         } else {
-            None
+            CarlCf02Plan::default()
         };
-        // CF02-Q05: a Physical press (neutral or forward, no Down) in the window of
-        // a jab that connected is the follow-through kick, not a plain kick.
-        if can_act && self.input.physical_pressed && !self.input.attack_pressed {
-            self.follow_through(&mut scene.world.hero, &mut request, raw);
-        }
-        // Pressing a direction together with the attack turns Carl first.
-        if can_act && request.is_some() && !scene.world.hero.melee.busy() && raw.move_x != 0.0 {
-            scene.world.hero.facing = if raw.move_x > 0.0 { 1 } else { -1 };
-        }
-        let move_tick = scene
-            .world
-            .hero
-            .melee
-            .step(request, CARL_BUFFER_TICKS, can_act);
+        let request = if self.cf02.is_some() {
+            plan.request
+        } else {
+            let request = if self.input.attack_pressed {
+                carl_move(MoveId::Jab)
+            } else if self.input.physical_pressed {
+                carl_move(MoveId::PushKick)
+            } else {
+                None
+            };
+            // Pressing a direction together with the attack turns Carl first.
+            if can_act && request.is_some() && !scene.world.hero.melee.busy() && raw.move_x != 0.0 {
+                scene.world.hero.facing = if raw.move_x > 0.0 { 1 } else { -1 };
+            }
+            request
+        };
+        let buffer_ticks = self
+            .cf02
+            .map_or(CARL_BUFFER_TICKS, crate::input_buffer::runner_buffer_ticks);
+        let move_tick = scene.world.hero.melee.step(request, buffer_ticks, can_act);
         if let Some(move_tick) = move_tick {
             if move_tick.started {
                 self.log(CombatEvent::MoveStarted {
@@ -1377,8 +1404,12 @@ impl CombatState {
             }
         }
 
-        // Committed on the ground: the feet stay planted and jumping is off.
-        let committed = scene.world.hero.melee.busy() && scene.world.hero.grounded;
+        // CF02-H: the dive, the air kick and the bail-out hop drive Carl's body.
+        let carl_drive = self.carl_cf02_drive(scene, move_tick);
+        // Committed on the ground: the feet stay planted and jumping is off (CF02:
+        // also during a landing recovery).
+        let committed =
+            (scene.world.hero.melee.busy() && scene.world.hero.grounded) || plan.planted;
         let gated = if !can_act {
             RawInput::default()
         } else if committed {
@@ -1387,6 +1418,8 @@ impl CombatState {
                 jump: false,
                 ..raw
             }
+        } else if plan.strip_jump {
+            RawInput { jump: false, ..raw }
         } else {
             raw
         };
@@ -1422,11 +1455,18 @@ impl CombatState {
                 drives: Default::default(),
             };
             Self::apply_donut_tick(&mut ctx, &donut_tick);
+            ctx.drives[0] = carl_drive;
             scene.step_party_ctx([gated, donut_tick.raw], &ctx);
         } else if hero_frozen || melee_frozen {
             // Frozen in hit-stop: only the tick counter advances. Carl, the
             // camera and Donut's trail stand still (no motion to restore).
             scene.hold_tick(gated);
+        } else if self.cf02.is_some() {
+            let ctx = PartyStepCtx {
+                drives: [carl_drive, BodyDrive::default()],
+                ..PartyStepCtx::default()
+            };
+            scene.step_party_ctx([gated, RawInput::default()], &ctx);
         } else {
             scene.step(gated);
         }
@@ -2285,58 +2325,6 @@ impl CombatState {
     }
 
     /// Remember a confirmed hit for the presentation (flash and camera kick).
-    /// The move a Physical press asks for. Legacy: the push kick. Under
-    /// `cf02_rules` (CF02-Q01, Q35) Down + Physical is always the stomp on the
-    /// ground, also inside a jab's window (it is buffered past the jab like any
-    /// press); without Down it is the kick.
-    fn physical_request(&self, raw: RawInput) -> Option<&'static MoveSpec> {
-        if let Some(t) = self.cf02
-            && t.q01_stomp_binding == StompBinding::DownPhysical
-            && raw.down
-        {
-            return Some(&crate::combat::cf02_moves().stomp);
-        }
-        carl_move(MoveId::PushKick)
-    }
-
-    /// CF02-Q05, Q35: turn a Physical press into the follow-through. It needs a
-    /// jab that has already logged a `Hit`, the press on jab ticks 3..=13 (the
-    /// hit-stop-frozen tick counts), no Down and a neutral or forward direction.
-    /// The follow-through starts on jab tick 9 or on the press tick, whichever is
-    /// later, and consumes the press. A whiffed jab gives none (the press is
-    /// buffered as today); Down + Physical stays the stomp.
-    fn follow_through(
-        &self,
-        hero: &mut Hero,
-        request: &mut Option<&'static MoveSpec>,
-        raw: RawInput,
-    ) {
-        let Some(t) = self.cf02 else {
-            return;
-        };
-        if raw.down || request.is_none_or(|spec| spec.id != MoveId::PushKick) {
-            return;
-        }
-        let toward = Actions::from(raw).move_x;
-        if toward != 0.0 && (toward > 0.0) != (hero.facing > 0) {
-            return;
-        }
-        let Some((MoveId::Jab, tick)) = hero.melee.press_tick() else {
-            return;
-        };
-        let window = u16::from(t.q05_follow_window_start)..=u16::from(t.q05_follow_window_end);
-        if !t.on(t.q49_c2_enabled) || !window.contains(&tick) || !hero.melee.current_hit() {
-            return;
-        }
-        let earliest = tick.max(u16::from(t.q05_follow_start_jab_tick));
-        hero.melee.request_cancel(
-            MoveId::Jab,
-            &crate::combat::cf02_moves().follow_kick,
-            earliest,
-        );
-        *request = None;
-    }
-
     fn note_confirm(
         &mut self,
         tick: u64,
@@ -2418,6 +2406,11 @@ impl CombatState {
         }
         put(u64::from(held.pause));
         hero.melee.mix_into(&mut put);
+        // CF02-H: Carl's buffer and air state, mixed only under `cf02_rules` and
+        // only while it is not the default.
+        if self.cf02.is_some() {
+            self.carl_cf02.mix_into(&mut put);
+        }
         for goblin in &self.enemies {
             goblin.mix_into(&mut put);
         }

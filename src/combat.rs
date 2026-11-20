@@ -132,6 +132,10 @@ pub enum MoveId {
     Stomp,
     /// The hit-confirm kick out of a jab that connected (Q05).
     FollowKick,
+    /// CF02-H: Physical in the air (Q50).
+    AirKick,
+    /// CF02-H: Down + Physical in the air (Q52); the tuck is its startup.
+    DiveStomp,
 }
 
 impl MoveId {
@@ -146,6 +150,8 @@ impl MoveId {
             Self::MagicMissile => "magic_missile",
             Self::Stomp => "stomp",
             Self::FollowKick => "follow_kick",
+            Self::AirKick => "air_kick",
+            Self::DiveStomp => "dive_stomp",
         }
     }
 
@@ -161,7 +167,9 @@ impl MoveId {
             | Self::Haymaker
             | Self::PushKick
             | Self::Stomp
-            | Self::FollowKick => 0,
+            | Self::FollowKick
+            | Self::AirKick
+            | Self::DiveStomp => 0,
         }
     }
 }
@@ -406,6 +414,12 @@ pub struct Cf02Moves {
     pub stomp: MoveSpec,
     /// Q05: the push kick, faster (startup 9), out of a jab that connected.
     pub follow_kick: MoveSpec,
+    /// Q50: Physical in the air.
+    pub air_kick: MoveSpec,
+    /// Q52: Down + Physical in the air. Startup is the tuck; the move ends on
+    /// landing or a hit (the scene cancels it), so its active window is the
+    /// `q52_dive_max_active_ticks` cap and it has no recovery of its own.
+    pub dive_stomp: MoveSpec,
 }
 
 impl Cf02Moves {
@@ -418,12 +432,7 @@ impl Cf02Moves {
                 startup: u16::from(t.q02_stomp_startup),
                 active: u16::from(t.q02_stomp_active),
                 recovery: u16::from(t.q02_stomp_recovery),
-                shape: HitShape::Box {
-                    x_min: f32::from(stomp_box.x0),
-                    x_max: f32::from(stomp_box.x1),
-                    y_min: f32::from(stomp_box.y0),
-                    y_max: f32::from(stomp_box.y1),
-                },
+                shape: box_shape(&stomp_box),
                 damage: t.q02_stomp_damage,
                 reaction: Reaction {
                     stagger_ticks: t.q02_stomp_standing_stagger,
@@ -447,12 +456,62 @@ impl Cf02Moves {
                 recovery: u16::from(t.q05_follow_recovery),
                 ..CARL_PUSH_KICK
             },
+            air_kick: MoveSpec {
+                id: MoveId::AirKick,
+                startup: u16::from(t.q50_air_kick_startup),
+                active: u16::from(t.q50_air_kick_active),
+                recovery: u16::from(t.q50_air_kick_recovery),
+                shape: box_shape(&t.q50_air_kick_box),
+                damage: t.q50_air_kick_damage,
+                reaction: Reaction {
+                    stagger_ticks: t.q50_air_kick_standing_stagger,
+                    knock_vx: f32::from(t.q50_air_kick_knock_x),
+                    knock_vy: f32::from(t.q50_air_kick_knock_y),
+                    hit_stop: t.q50_air_kick_hit_stop,
+                    camera_kick_px: 0,
+                    launch: false,
+                },
+                chain: None,
+                root_step: None,
+            },
+            dive_stomp: MoveSpec {
+                id: MoveId::DiveStomp,
+                startup: u16::from(t.q52_dive_tuck_ticks),
+                active: u16::from(t.q52_dive_max_active_ticks),
+                recovery: 0,
+                shape: box_shape(&t.q52_dive_box),
+                damage: t.q52_dive_damage,
+                reaction: Reaction {
+                    stagger_ticks: 0,
+                    knock_vx: 0.0,
+                    knock_vy: 0.0,
+                    hit_stop: t.q52_dive_hit_stop,
+                    camera_kick_px: t.q52_dive_camera_kick_px,
+                    launch: false,
+                },
+                chain: None,
+                root_step: None,
+            },
         }
     }
 
     /// Every CF02 Carl move, in id order.
-    pub fn all(&self) -> [&MoveSpec; 2] {
-        [&self.stomp, &self.follow_kick]
+    pub fn all(&self) -> [&MoveSpec; 4] {
+        [
+            &self.stomp,
+            &self.follow_kick,
+            &self.air_kick,
+            &self.dive_stomp,
+        ]
+    }
+}
+
+fn box_shape(b: &crate::cf02::BoxPx) -> HitShape {
+    HitShape::Box {
+        x_min: f32::from(b.x0),
+        x_max: f32::from(b.x1),
+        y_min: f32::from(b.y0),
+        y_max: f32::from(b.y1),
     }
 }
 
@@ -1248,9 +1307,9 @@ impl ForceTier {
     /// The tier of a lethal melee move: a launching move (the push kick) is
     /// heavy, every other strike routine.
     pub const fn of_move(spec: &MoveSpec) -> Self {
-        // CF02-Q02: a stomp finish is heavy too (the move exists only under
+        // CF02-Q02, Q52: a stomp or dive finish is heavy too (the move exists only under
         // `cf02_rules`, so nothing legacy changes).
-        if spec.reaction.launch || matches!(spec.id, MoveId::Stomp) {
+        if spec.reaction.launch || matches!(spec.id, MoveId::Stomp | MoveId::DiveStomp) {
             Self::Heavy
         } else {
             Self::Routine

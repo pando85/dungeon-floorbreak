@@ -143,6 +143,9 @@ pub struct Goblin {
     /// CF02-Q38: this down instance already used its hold (a kick relaunch starts
     /// a new down instance).
     pub(crate) hold_used: bool,
+    /// CF02-Q51: an air kick already relaunched this flight (once per original
+    /// launch instance).
+    pub(crate) relaunched: bool,
 }
 
 impl Goblin {
@@ -172,6 +175,7 @@ impl Goblin {
             cf02: None,
             hold_left: 0,
             hold_used: false,
+            relaunched: false,
         }
     }
 
@@ -331,6 +335,7 @@ impl Goblin {
                     // A new down instance: its one hold is available again.
                     self.hold_left = 0;
                     self.hold_used = false;
+                    self.relaunched = false;
                 }
             }
             GoblinMode::Downed => {
@@ -491,6 +496,10 @@ impl Goblin {
             mix(u64::from(self.hold_left));
             mix(u64::from(self.hold_used));
         }
+        // CF02-Q51: the relaunch, mixed only while it is spent.
+        if self.relaunched {
+            mix(0x5245_4c4e);
+        }
     }
 
     /// CP-02, the flier's side of a contact: `knockback_contact` for a few
@@ -649,7 +658,11 @@ impl Goblin {
             return Some((LETHAL_KNOCK_VX, LETHAL_KNOCK_VY));
         };
         match id {
-            MoveId::Stomp => Some((
+            MoveId::AirKick => Some((
+                f32::from(t.q51_lethal_launch_x),
+                f32::from(t.q51_lethal_launch_y),
+            )),
+            MoveId::Stomp | MoveId::DiveStomp => Some((
                 f32::from(t.q02_stomp_lethal_knock_x),
                 f32::from(t.q02_stomp_lethal_knock_y),
             ))
@@ -732,8 +745,42 @@ impl Goblin {
                     self.hold_left = t.q38_hold_ticks;
                     self.hold_used = true;
                 }
+            } else if !committed
+                && let Some(t) = self.cf02
+                && spec.id == MoveId::AirKick
+                && self.mode == GoblinMode::Launched
+            {
+                // CF02-Q51: an air kick on a flying goblin relaunches it as a new
+                // launch instance (the scene stamps it), once per original launch;
+                // a second one only deals its damage.
+                if !self.relaunched {
+                    self.relaunched = true;
+                    self.launch = None;
+                    self.flight_ticks = 0;
+                    self.contact_ticks = 0;
+                    self.vx = (direction * f32::from(t.q51_relaunch_x))
+                        .clamp(-KNOCK_VX_MAX, KNOCK_VX_MAX);
+                    self.vy = f32::from(t.q51_relaunch_y);
+                }
+            } else if !committed && self.cf02.is_some() && spec.id == MoveId::DiveStomp {
+                // CF02-Q52: the dive knocks a goblin straight down (no hop).
+                self.mode = GoblinMode::Downed;
+                self.down_ticks = 0;
+                self.attack_tick = 0;
+                self.stagger_left = 0;
+                self.swing_hit = false;
+                self.launch = None;
+                self.flight_ticks = 0;
+                self.contact_ticks = 0;
+                self.hold_left = 0;
+                self.hold_used = false;
+                self.relaunched = false;
+                self.vx = 0.0;
+                self.vy = 0.0;
+                self.y = self.floor_y;
             } else if !committed && reaction.launch {
                 // The kick: a living launch (D-02), no stagger.
+                self.relaunched = false;
                 self.mode = GoblinMode::Launched;
                 self.attack_tick = 0;
                 self.stagger_left = 0;

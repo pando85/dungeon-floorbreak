@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=5 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=19 kind=move_started move=push_kick instance=2
+COMBAT_STATE fixture=cf02_buffer_turns seed=0xcf020b09 tick=60 elapsed=60 hero_hp=4 deaths=0 enemies=e0=700.000/2 hash=f55d15ac3ca1d3e9
+PARTY_STATE fixture=cf02_buffer_turns mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=1a5f85cefbd120ef
