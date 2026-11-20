@@ -137,7 +137,8 @@ mod tests {
     #[test]
     fn the_source_fingerprint_matches_a_recomputation_of_the_tree() {
         // The same algorithm as `build.rs`: toolchain line, `Cargo.toml`,
-        // `Cargo.lock`, then every file below `src/` in path order.
+        // `Cargo.lock`, then every file below `src/` and below `assets/data/`
+        // in path order (F-1: compiled-in sim tuning is part of the identity).
         fn fnv(mut hash: u64, bytes: &[u8]) -> u64 {
             for byte in bytes {
                 hash ^= u64::from(*byte);
@@ -163,6 +164,7 @@ mod tests {
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let mut files = vec!["Cargo.toml".into(), "Cargo.lock".into()];
         below(&root, &root.join("src"), &mut files);
+        below(&root, &root.join("assets").join("data"), &mut files);
         let mut hash = fnv(0xcbf2_9ce4_8422_2325, BUILD_TOOLCHAIN.as_bytes());
         for relative in &files {
             hash = fnv(hash, relative.to_string_lossy().as_bytes());
@@ -172,6 +174,62 @@ mod tests {
             hash = fnv(hash, &bytes);
         }
         assert_eq!(format!("{hash:016x}"), SOURCE_FINGERPRINT);
+    }
+
+    #[test]
+    fn every_compiled_in_include_lives_under_src_or_assets_data() {
+        // F-1 guard: the fingerprint covers `src/` and `assets/data/` only, so
+        // an `include_str!`/`include_bytes!` that reaches any other directory
+        // would put compiled-in data outside the replay identity.
+        fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+            for entry in std::fs::read_dir(dir).unwrap().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    walk(&path, out);
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    out.push(path);
+                }
+            }
+        }
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut sources = Vec::new();
+        walk(&root.join("src"), &mut sources);
+        let data = root.join("assets").join("data");
+        let src = root.join("src");
+        let mut checked = 0;
+        for file in sources {
+            let text = std::fs::read_to_string(&file).unwrap();
+            for macro_name in ["include_str!", "include_bytes!", "include!"] {
+                let mut rest = text.as_str();
+                while let Some(at) = rest.find(&format!("{macro_name}(")) {
+                    rest = &rest[at + macro_name.len() + 1..];
+                    let literal = rest.trim_start();
+                    // Only a plain string literal can be resolved here; any
+                    // other argument form (`concat!`, `env!`) must be reviewed.
+                    assert!(
+                        literal.starts_with('"') || literal.starts_with(')'),
+                        "{}: unsupported {macro_name} argument",
+                        file.display()
+                    );
+                    if !literal.starts_with('"') {
+                        continue;
+                    }
+                    let end = literal[1..].find('"').unwrap();
+                    let target = file.parent().unwrap().join(&literal[1..=end]);
+                    let target = std::fs::canonicalize(&target).unwrap_or_else(|_| {
+                        panic!("{}: include target {:?} missing", file.display(), target)
+                    });
+                    assert!(
+                        target.starts_with(&src) || target.starts_with(&data),
+                        "{} includes {} outside src/ and assets/data/",
+                        file.display(),
+                        target.display()
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked >= 10, "the scan found only {checked} includes");
     }
 
     #[test]

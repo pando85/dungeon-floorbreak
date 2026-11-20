@@ -250,7 +250,7 @@ fn run(args: &[String]) -> Result<(), String> {
                         report.build,
                     );
                     println!(
-                        "PLAYTRACE_VERIFY_CHECKS state_hashes={} event_hashes={} effective_inputs={} observations={} final_observations={} diagnostics={} slot_routing={}",
+                        "PLAYTRACE_VERIFY_CHECKS state_hashes={} event_hashes={} effective_inputs={} observations={} final_observations={} diagnostics={} slot_routing={} labels={}",
                         report.state_hashes,
                         report.event_hashes,
                         report.effective_inputs,
@@ -258,6 +258,7 @@ fn run(args: &[String]) -> Result<(), String> {
                         report.final_observations,
                         report.diagnostics,
                         report.routing,
+                        report.labels,
                     );
                     for note in &report.notes {
                         println!("PLAYTRACE_VERIFY_NOTE {note}");

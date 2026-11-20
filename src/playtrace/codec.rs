@@ -89,8 +89,8 @@ impl From<RawInput> for ActionBits {
     }
 }
 
-/// Who drives a hero this tick. `companion_ai` is reserved for the COMPANION
-/// wiring (not on main); the live follower bot is recorded as `scripted_bot`.
+/// Who drives a hero this tick. `companion_ai` is the COMPANION-AI-01 director
+/// (`--companion` / `--cf02`); the plain live follower bot is `scripted_bot`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ControlSource {

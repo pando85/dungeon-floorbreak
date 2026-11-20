@@ -41,10 +41,10 @@ use crate::party_scene::PartyFixtureSim;
 
 use super::build_info::{BUILD_COMMIT, SOURCE_FINGERPRINT};
 use super::codec::{
-    ACTION_SCHEMA, ACTION_SCHEMA_V1, ActionBits, ControlEvent, ControlRecord, EVENT_SCHEMA,
-    EventRecord, OBS_SCHEMA_ID, TickRecord,
+    ACTION_SCHEMA, ACTION_SCHEMA_V1, ActionBits, ControlEvent, ControlRecord, ControlSource,
+    EVENT_SCHEMA, EventRecord, OBS_SCHEMA_ID, TickRecord,
 };
-use super::manifest::{SessionManifest, SessionStatus};
+use super::manifest::{RunKind, SessionManifest, SessionStatus};
 use super::obs::{ObsPair, diag_of, observe_pair};
 use super::reader::{LoadedSession, read_session};
 
@@ -87,6 +87,8 @@ pub struct VerifyReport {
     pub final_observations: u64,
     pub diagnostics: u64,
     pub routing: u64,
+    /// Ticks whose control-source labels and stage matched the replay.
+    pub labels: u64,
     /// `identical` (same commit) or `source_identical_commit_differs`.
     pub build: &'static str,
     pub notes: Vec<String>,
@@ -183,6 +185,29 @@ fn combat_for(
 
 /// Rebuild tick 0 from the descriptor (the `PartyFixtureSim` style: no binary
 /// code is copied; the same lib constructors the binary calls).
+/// The party tuning of a live run on a route without a fixture-declared one:
+/// the provisional tuning with the recorded `companion` choice (a manifest
+/// without the flag is the follow-and-jump bot, as before COMPANION-AI-01).
+fn live_tuning(manifest: &SessionManifest) -> Result<PartyTuning, VerifyFailure> {
+    use crate::companion::profile::ProfileSetId;
+    use crate::party::UncontrolledHero;
+    let uncontrolled_hero = match manifest.feature_flags.get("companion").map(String::as_str) {
+        None | Some("off") => UncontrolledHero::FollowAndJumpBot,
+        Some("cf02_assist") => UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
+        Some("companion_v0") => UncontrolledHero::Companion(ProfileSetId::CompanionV0),
+        Some(other) => {
+            return Err(VerifyFailure::new(
+                "rules_mismatch",
+                format!("unknown companion flag {other:?}"),
+            ));
+        }
+    };
+    Ok(PartyTuning {
+        uncontrolled_hero,
+        ..PartyTuning::default()
+    })
+}
+
 fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailure> {
     let reset = &manifest.reset;
     let unsupported = |why: String| VerifyFailure::new("unsupported_source", why);
@@ -204,7 +229,7 @@ fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailu
             Ok(Reset {
                 scene,
                 combat: None,
-                tuning: PartyTuning::default(),
+                tuning: live_tuning(manifest)?,
             })
         }
         "fixture" | "boss" | "demo" => {
@@ -226,7 +251,7 @@ fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailu
             Ok(Reset {
                 scene,
                 combat: Some(combat),
-                tuning: PartyTuning::default(),
+                tuning: live_tuning(manifest)?,
             })
         }
         "combat_lab" => rebuild_lab(manifest, root),
@@ -291,6 +316,38 @@ fn expected_routing(drive: &PartyDrive, slots: [RawInput; 2]) -> [RawInput; 2] {
     out
 }
 
+/// Who drove each hero this tick, derived from the recorded drive and the run
+/// kind alone (F-2). Two-player: Carl is `human_p1`, Donut `human_p2`. Solo: the
+/// controlled hero is `human_p1`; the other is the companion director
+/// (`companion_ai`) when the tuning names one, the follower bot
+/// (`scripted_bot`) when it is a bot, and `none` otherwise. A scripted run
+/// (autopilot, script) labels every player-driven hero `scripted_bot`, never
+/// human.
+fn expected_sources(drive: &PartyDrive, scripted: bool) -> [ControlSource; 2] {
+    let mut out = [ControlSource::None; 2];
+    for hero in [HeroId::Carl, HeroId::Donut] {
+        let slot = if drive.two_player {
+            Some(if hero == HeroId::Carl {
+                ControlSource::HumanP1
+            } else {
+                ControlSource::HumanP2
+            })
+        } else if hero == drive.controlled {
+            Some(ControlSource::HumanP1)
+        } else {
+            None
+        };
+        out[hero.index()] = match slot {
+            Some(_) if scripted => ControlSource::ScriptedBot,
+            Some(human) => human,
+            None if drive.companion_set(hero).is_some() => ControlSource::CompanionAi,
+            None if drive.is_bot(hero) => ControlSource::ScriptedBot,
+            None => ControlSource::None,
+        };
+    }
+    out
+}
+
 fn bits(raw: [RawInput; 2]) -> [ActionBits; 2] {
     [ActionBits::from_raw(raw[0]), ActionBits::from_raw(raw[1])]
 }
@@ -311,6 +368,8 @@ struct Replayer<'a> {
     boundary: Option<ObsPair>,
     episode: u32,
     observe: bool,
+    /// The manifest says a script or autopilot supplied the slot inputs.
+    scripted: bool,
     /// A crash-recovered prefix or a counted drop may lack a diagnostics line.
     diag_may_be_missing: bool,
     report: &'a mut VerifyReport,
@@ -432,6 +491,32 @@ impl Replayer<'_> {
             ));
         }
         self.report.routing += 1;
+
+        // F-2: the control-source labels and the stage are derived data too.
+        // A human/AI relabel or a forged stage must not pass as a replay.
+        if tick.src != expected_sources(&drive, self.scripted) {
+            return Err(VerifyFailure::at(
+                "labels",
+                t,
+                format!(
+                    "the control sources {:?} do not follow from the drive (expected {:?})",
+                    tick.src,
+                    expected_sources(&drive, self.scripted)
+                ),
+            ));
+        }
+        let stage = self.combat.as_ref().map_or(0, |c| c.checkpoint as u32);
+        if tick.stage != stage {
+            return Err(VerifyFailure::at(
+                "labels",
+                t,
+                format!(
+                    "the recorded stage {} differs from the replayed checkpoint {stage}",
+                    tick.stage
+                ),
+            ));
+        }
+        self.report.labels += 1;
 
         // o_t, before the live decision, from the same state the hash covers.
         if let Some(combat) = self.combat.as_ref()
@@ -707,6 +792,16 @@ pub fn verify_loaded(loaded: &LoadedSession, root: &Path) -> Result<VerifyReport
             "the fresh reset does not hash to the recorded start hash (PTI-05: this is the legacy-drive hash, taken before the first drive_change)",
         ));
     }
+    let scripted = match manifest.run_kind {
+        RunKind::Human => false,
+        RunKind::ScriptedBot => true,
+        RunKind::LearnedPolicy | RunKind::Mixed => {
+            return Err(VerifyFailure::new(
+                "labels",
+                "the run kind has no control-source derivation in this verifier",
+            ));
+        }
+    };
     let observe = !manifest.observation_is_partial;
     if observe && reset.combat.is_none() {
         return Err(VerifyFailure::new(
@@ -729,9 +824,11 @@ pub fn verify_loaded(loaded: &LoadedSession, root: &Path) -> Result<VerifyReport
         final_observations: 0,
         diagnostics: 0,
         routing: 0,
+        labels: 0,
         build,
         notes: vec![
             "party_hash (ph) not re-derived: PartyState history is not in the journal".to_owned(),
+            "not verified: the per-slot swap bits, ph and the informational control events (solo_swap, party_join, exit, app_quit, episode structure); the control-source labels and the stage are checked per tick".to_owned(),
             "rig view rectangle not replayed: presentation only".to_owned(),
             "simulation replay only: rendering, audio and cosmetics are not reproduced".to_owned(),
         ],
@@ -759,6 +856,7 @@ pub fn verify_loaded(loaded: &LoadedSession, root: &Path) -> Result<VerifyReport
         boundary: None,
         episode: 0,
         observe,
+        scripted,
         diag_may_be_missing: scope == VerifyScope::Prefix || manifest.dropped_diagnostics > 0,
         report: &mut report,
     };

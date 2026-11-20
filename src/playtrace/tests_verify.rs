@@ -700,6 +700,143 @@ fn every_recorded_observation_effective_input_and_diagnostic_is_checked() {
     verify(&session).expect("restored");
 }
 
+/// F-2: the control-source labels and the stage are checked per tick. Every
+/// probe re-seals the chunks, so only the replay can notice.
+#[test]
+fn a_relabelled_control_source_or_stage_is_rejected() {
+    let dir = TempDir::new("vfy-neg-labels");
+    let mut rig = Rig::new(solo_fixture(), Some(&dir.0));
+    solo_swap_script(&mut rig, 600, &[40]);
+    let session = session_of(&dir, &mut rig);
+    let baseline = read_session(&session, false).unwrap();
+    let report = verify(&session).expect("baseline verifies");
+    assert_eq!(report.labels, 600);
+    let restore = |session: &Path| tamper_ticks(session, |t| *t = baseline.ticks.clone());
+
+    // AI Donut relabelled as the second human on every tick.
+    tamper_ticks(&session, |ticks| {
+        for tick in ticks.iter_mut() {
+            tick.src = [ControlSource::HumanP1, ControlSource::HumanP2];
+        }
+    });
+    let failure = expect_failure(&session, "labels");
+    assert_eq!(failure.tick, Some(0));
+    restore(&session);
+
+    // Human and bot swapped on every tick.
+    tamper_ticks(&session, |ticks| {
+        for tick in ticks.iter_mut() {
+            tick.src.swap(0, 1);
+        }
+    });
+    expect_failure(&session, "labels");
+    restore(&session);
+
+    // A single tick is enough, and the failure names it.
+    tamper_ticks(&session, |ticks| ticks[321].src[1] = ControlSource::None);
+    assert_eq!(expect_failure(&session, "labels").tick, Some(321));
+    restore(&session);
+
+    // The stage (with `ph` changed too) must follow the replayed checkpoint.
+    tamper_ticks(&session, |ticks| {
+        for tick in ticks.iter_mut() {
+            tick.stage += 3;
+            tick.ph ^= 1;
+        }
+    });
+    expect_failure(&session, "labels");
+    restore(&session);
+
+    // The run kind decides what a player-driven hero is labelled.
+    tamper_manifest(&session, |m| m.run_kind = RunKind::ScriptedBot);
+    expect_failure(&session, "labels");
+    tamper_manifest(&session, |m| m.run_kind = RunKind::LearnedPolicy);
+    expect_failure(&session, "labels");
+    tamper_manifest(&session, |m| m.run_kind = RunKind::Human);
+    verify(&session).expect("restored");
+}
+
+/// F-2 for a scripted run: a forced `--record` of an autopilot run labels the
+/// slot inputs `scripted_bot`, and claiming it was a human run is rejected.
+#[test]
+fn a_scripted_run_cannot_be_relabelled_as_human() {
+    let dir = TempDir::new("vfy-neg-scripted");
+    let mut rig = DemoRig::new(&dir.0, true, 4);
+    demo_script(&mut rig, 900);
+    let manifest = rig.rec.finish("test").unwrap();
+    let session = dir.0.join(manifest.session_id);
+    // The recorder labels from the flag it was given; the manifest of this
+    // test rig says `human`, so the honest session is the scripted one.
+    tamper_manifest(&session, |m| m.run_kind = RunKind::ScriptedBot);
+    verify(&session).expect("a scripted run verifies as scripted");
+    tamper_ticks(&session, |ticks| {
+        for tick in ticks.iter_mut() {
+            tick.src[0] = ControlSource::HumanP1;
+        }
+    });
+    expect_failure(&session, "labels");
+}
+
+/// COMPANION-AI-01 on a live run: the companion-driven hero is labelled
+/// `companion_ai`, its injected input is the recorded effective input, and the
+/// verifier rebuilds the same tuning from the manifest.
+#[test]
+fn a_companion_driven_hero_is_labelled_recorded_and_replayed() {
+    use crate::companion::profile::ProfileSetId;
+    use crate::party::{PROVISIONAL_TUNING, PartyState, PartyTuning, UncontrolledHero};
+    let dir = TempDir::new("vfy-companion");
+    let party = PartyState::new(PartyTuning {
+        uncontrolled_hero: UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
+        ..PROVISIONAL_TUNING
+    });
+    let mut rig = DemoRig::with_party(&dir.0, false, 4, party);
+    // Carl walks, so the companion has a leader to follow.
+    for tick in 0..1500_u64 {
+        rig.step(RawInput {
+            move_x: if tick % 400 < 200 { 1.0 } else { 0.0 },
+            ..RawInput::NONE
+        });
+    }
+    let manifest = rig.rec.finish("test").unwrap();
+    assert_eq!(
+        manifest.feature_flags.get("companion").map(String::as_str),
+        Some("cf02_assist")
+    );
+    let session = dir.0.join(manifest.session_id);
+    let loaded = read_session(&session, false).unwrap();
+    assert!(
+        loaded
+            .ticks
+            .iter()
+            .all(|t| t.src == [ControlSource::HumanP1, ControlSource::CompanionAi])
+    );
+    assert!(
+        loaded
+            .ticks
+            .iter()
+            .any(|t| t.eff.unwrap()[1] != ActionBits::NONE),
+        "the companion's input is the recorded effective input"
+    );
+    let report = verify(&session).expect("a companion run verifies");
+    assert_eq!(report.effective_inputs, 1500);
+    // The companion is part of the identity: another choice is a content
+    // mismatch, and calling the companion a plain bot is a label mismatch.
+    tamper_manifest(&session, |m| {
+        m.feature_flags.insert("companion".into(), "off".into());
+    });
+    expect_failure(&session, "content_mismatch");
+    tamper_manifest(&session, |m| {
+        m.feature_flags
+            .insert("companion".into(), "cf02_assist".into());
+    });
+    tamper_ticks(&session, |ticks| {
+        for tick in ticks.iter_mut() {
+            tick.src[1] = ControlSource::ScriptedBot;
+        }
+    });
+    expect_failure(&session, "labels");
+}
+
 #[test]
 fn an_incomplete_capture_is_not_verified() {
     let (_dir, session) = recorded_solo("vfy-neg-incomplete", 200);

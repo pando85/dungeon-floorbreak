@@ -35,7 +35,9 @@ use crate::autoplay::metrics::EventHasher;
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::input::{RawInput, SlotInputs};
-use crate::party::{HeroControl, HeroId, PartyDrive, PartyMode, PartyState, PlayerSlot};
+use crate::party::{
+    HeroControl, HeroId, PartyDrive, PartyMode, PartyState, PlayerSlot, UncontrolledHero,
+};
 
 use super::codec::{
     ActionBits, ControlEvent, ControlSource, EpisodeBoundary, EpisodeReason, EventRecord,
@@ -142,8 +144,22 @@ fn source_of(
         HeroControl::Player(_) if scripted => ControlSource::ScriptedBot,
         HeroControl::Player(PlayerSlot::P1) => ControlSource::HumanP1,
         HeroControl::Player(PlayerSlot::P2) => ControlSource::HumanP2,
+        // COMPANION-AI-01: the director's input is its own source.
+        HeroControl::Uncontrolled if drive.companion_set(hero).is_some() => {
+            ControlSource::CompanionAi
+        }
         HeroControl::Uncontrolled if drive.is_bot(hero) => ControlSource::ScriptedBot,
         HeroControl::Uncontrolled => ControlSource::None,
+    }
+}
+
+/// The `companion` manifest flag: who drives the uncontrolled hero, so a
+/// verifier rebuilds the same tuning (the party tuning hash names it too).
+pub fn companion_label(hero: UncontrolledHero) -> &'static str {
+    match hero {
+        UncontrolledHero::Companion(set) => set.name(),
+        UncontrolledHero::FollowAndJumpBot => "off",
+        UncontrolledHero::TrailFollowNeverAttacks => "trail",
     }
 }
 
@@ -202,6 +218,10 @@ impl LiveRecorder {
                 "{:016x}",
                 crate::autoplay::party::party_tuning_hash(party.tuning())
             ),
+        );
+        manifest.feature_flags.insert(
+            "companion".to_owned(),
+            companion_label(party.tuning().uncontrolled_hero).to_owned(),
         );
         if combat.is_some() {
             manifest.observation_is_partial = false;

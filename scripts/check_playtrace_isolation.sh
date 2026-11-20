@@ -94,6 +94,18 @@ if command -v xvfb-run >/dev/null && [[ -d generated/art ]]; then
   fi
   grep -q 'result=FAIL' "$tmp/tampered.out" || { echo "FAIL: no FAIL verdict for a tampered session" >&2; exit 1; }
   echo "PASS: playtrace verify accepts a fresh session and rejects a tampered one"
+  # F-2: a copy whose manifest claims a human run while every tick is labelled
+  # scripted_bot fails with the `labels` code (provenance is replayed).
+  rm -rf "$tmp/relabelled"
+  mkdir -p "$tmp/relabelled"
+  cp -r "$XDG_DATA_HOME/dungeon-floorbreak/playtrace/$id" "$tmp/relabelled/$id"
+  grep -q '"run_kind": "scripted_bot"' "$tmp/relabelled/$id/manifest.json" || { echo "FAIL: the forced-record session is not scripted_bot" >&2; exit 1; }
+  sed -i 's/"run_kind": "scripted_bot"/"run_kind": "human"/' "$tmp/relabelled/$id/manifest.json"
+  if "$tool" verify "$id" --dir "$tmp/relabelled" >"$tmp/relabelled.out"; then
+    echo "FAIL: a relabelled session verified" >&2; exit 1
+  fi
+  grep -q 'result=FAIL code=labels' "$tmp/relabelled.out" || { echo "FAIL: no labels verdict for a relabelled session" >&2; cat "$tmp/relabelled.out" >&2; exit 1; }
+  echo "PASS: playtrace verify rejects a relabelled control provenance with code labels"
 else
   echo "SKIP: windowed checks (need xvfb-run and generated/art)"
 fi

@@ -308,7 +308,12 @@ pub(super) struct DemoRig {
 
 impl DemoRig {
     pub(super) fn new(base: &Path, scripted: bool, beat: usize) -> Self {
-        let (scene, combat, party) = demo_scene(beat);
+        Self::with_party(base, scripted, beat, PartyState::default())
+    }
+
+    /// The same rig with a chosen party (for example a companion tuning).
+    pub(super) fn with_party(base: &Path, scripted: bool, beat: usize, party: PartyState) -> Self {
+        let (scene, combat, _) = demo_scene(beat);
         let reset = ResetDescriptor {
             source: "demo".to_owned(),
             name: "demo01".to_owned(),

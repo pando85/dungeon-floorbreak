@@ -7,12 +7,14 @@
 //! - `DF_BUILD_DIRTY`: `true` / `false` (`unknown` without git);
 //! - `DF_BUILD_TOOLCHAIN`: the `rustc -V` line;
 //! - `DF_SOURCE_FINGERPRINT`: FNV-1a-64 over the toolchain line, `Cargo.toml`,
-//!   `Cargo.lock` and every file below `src/` (sorted by relative path), so two
-//!   binaries of the same source tree and toolchain carry the same value even
-//!   when the tree is dirty.
+//!   `Cargo.lock`, every file below `src/` and every file below `assets/data/`
+//!   (each sorted by relative path; `assets/data/` holds the sim tuning that
+//!   `include_str!` compiles in, for example the boss and companion JSON), so
+//!   two binaries of the same source tree and toolchain carry the same value
+//!   even when the tree is dirty.
 //!
 //! Git being unavailable never fails the build: the values become `unknown`.
-//! No absolute path is emitted. Rebuild triggers are the sources, the manifest
+//! No absolute path is emitted. Rebuild triggers are the sources, `assets/data`, the manifest
 //! files and the git `HEAD`, the current ref, `packed-refs` and `index`.
 
 use std::fs;
@@ -84,6 +86,7 @@ fn main() {
 
     let mut files = vec![PathBuf::from("Cargo.toml"), PathBuf::from("Cargo.lock")];
     files_below(&root, &root.join("src"), &mut files);
+    files_below(&root, &root.join("assets").join("data"), &mut files);
     let mut hash = fnv(FNV_OFFSET, toolchain.as_bytes());
     for relative in &files {
         hash = fnv(
@@ -105,6 +108,7 @@ fn main() {
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-changed=Cargo.lock");
     println!("cargo:rerun-if-changed=src");
+    println!("cargo:rerun-if-changed=assets/data");
     // Git state: a worktree keeps `HEAD` and `index` in its own git dir and
     // the refs in the common dir. Any of them missing is fine (no git).
     if let Some(git_dir) = git(&root, &["rev-parse", "--absolute-git-dir"]) {
