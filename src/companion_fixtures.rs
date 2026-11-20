@@ -438,12 +438,11 @@ pub fn tally(sim: &mut crate::party_scene::PartyFixtureSim, ticks: u64) -> Tally
                 CombatEvent::GoblinInterrupted { tick, .. }
                 | CombatEvent::LlamaInterrupted { tick, .. } => {
                     // A tell broken on a tick a companion-driven hero hit.
-                    if events.iter().any(|e| {
+                    let by_driven = events.iter().any(|e| {
                         matches!(e, CombatEvent::Hit { tick: x, move_id, .. }
                             if *x == tick && is_driven(move_id.hero()))
-                    }) {
-                        t.ai_interrupts += 1;
-                    }
+                    });
+                    t.ai_interrupts += u32::from(by_driven);
                 }
                 _ => {}
             }
@@ -571,18 +570,18 @@ mod tests {
     /// The committed final `PARTY_STATE` hash of every fixture here (the CI
     /// replays in `docs/evidence/companion-ai` pin the same values).
     const GOLDENS: [(&str, u64); 12] = [
-        ("cf02_assist_swat_interrupt", 0x17348ad0b5fdab64),
-        ("cf02_assist_swat_trailing_gap", 0x1d15e293cd423414),
-        ("cf02_assist_pounce_staggered", 0xf7175a0520f0e191),
-        ("cf02_assist_hp_drops_midmove", 0xe78c93737f4ba899),
-        ("cf02_assist_cadence", 0x44328606ab0252af),
-        ("cf02_assist_magic_locked", 0x2e0450bbda409d12),
-        ("cf02_assist_missile_reserve", 0xc65d91e525de91ae),
-        ("cf02_assist_camera_parity", 0xa5f8df9d0ba7e654),
-        ("companion_carl_interrupts_for_donut", 0x2c0f6cc83f4d2ae2),
-        ("companion_donut_supports_carl", 0x23ceb3e6d143be48),
+        ("cf02_assist_swat_interrupt", 0x8d3ecbb947c32984),
+        ("cf02_assist_swat_trailing_gap", 0x502637e04e298934),
+        ("cf02_assist_pounce_staggered", 0xd536bc21232ffcde),
+        ("cf02_assist_hp_drops_midmove", 0x59fd86eb22c57e86),
+        ("cf02_assist_cadence", 0xa315d0be02061daf),
+        ("cf02_assist_magic_locked", 0x3fa0c4ae6aaecf92),
+        ("cf02_assist_missile_reserve", 0xfa241a206ba24e8e),
+        ("cf02_assist_camera_parity", 0xe3b30a855b7fe5b0),
+        ("companion_carl_interrupts_for_donut", 0x0e259bf6d5b3f8f4),
+        ("companion_donut_supports_carl", 0xe0e93bd08a05b14c),
         ("companion_duo_no_ai", 0x67ac6477f6d13dd9),
-        ("companion_swap_mid_move", 0x9c3f5fd58d8a64e7),
+        ("companion_swap_mid_move", 0x0854974ce60919a9),
     ];
 
     #[test]

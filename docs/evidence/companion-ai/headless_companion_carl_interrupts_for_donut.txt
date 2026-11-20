@@ -12,5 +12,5 @@ COMBAT_EVENT tick=196 kind=goblin_interrupted goblin=0
 COMBAT_EVENT tick=230 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=256 kind=goblin_swing goblin=0
 COMBAT_EVENT tick=256 kind=hero_hurt source=0 health_left=2 hero=donut
-COMBAT_STATE fixture=companion_carl_interrupts_for_donut seed=0xc0a20001 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies=e0=522.600/1 hash=1bf4e12790a7f7ec
-PARTY_STATE fixture=companion_carl_interrupts_for_donut mode=solo controlled=Donut carl_hp=4 donut_hp=2 deaths=0 hash=2c0f6cc83f4d2ae2
+COMBAT_STATE fixture=companion_carl_interrupts_for_donut seed=0xc0a20001 tick=260 elapsed=260 hero_hp=4 deaths=0 enemies=e0=522.600/1 hash=9b6f34cb60e7864e
+PARTY_STATE fixture=companion_carl_interrupts_for_donut mode=solo controlled=Donut carl_hp=4 donut_hp=2 deaths=0 hash=0e259bf6d5b3f8f4

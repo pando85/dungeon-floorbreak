@@ -1771,7 +1771,17 @@ fn main() -> ExitCode {
         }
     }
     if let UncontrolledHero::Companion(set) = args.uncontrolled_hero() {
-        println!("COMPANION_CONFIG: set={}", set.name());
+        // The companion runs only in a live party run: a scripted run (the
+        // autopilot, a scenario, a fixture) drives the other hero itself.
+        let inactive = args.autopilot
+            || args.scenario.is_some()
+            || args.fixture.is_some()
+            || args.party_fixture.is_some();
+        println!(
+            "COMPANION_CONFIG: set={}{}",
+            set.name(),
+            if inactive { " inactive" } else { "" }
+        );
     }
     let root = match std::env::current_dir() {
         Ok(dir) => dir,

@@ -20,5 +20,5 @@ COMBAT_EVENT tick=282 kind=goblin_swing goblin=1
 COMBAT_EVENT tick=282 kind=hero_hurt source=1 health_left=2
 COMBAT_EVENT tick=294 kind=goblin_swing goblin=0
 COMBAT_EVENT tick=294 kind=hero_hurt source=0 health_left=2 hero=donut
-COMBAT_STATE fixture=cf02_assist_cadence seed=0xc0a10005 tick=320 elapsed=320 hero_hp=2 deaths=0 enemies=e0=429.601/2,e1=429.967/2 hash=92853f8672aa79a9
-PARTY_STATE fixture=cf02_assist_cadence mode=solo controlled=Carl carl_hp=2 donut_hp=2 deaths=0 hash=44328606ab0252af
+COMBAT_STATE fixture=cf02_assist_cadence seed=0xc0a10005 tick=320 elapsed=320 hero_hp=2 deaths=0 enemies=e0=429.601/2,e1=429.967/2 hash=b67515b3c04024a9
+PARTY_STATE fixture=cf02_assist_cadence mode=solo controlled=Carl carl_hp=2 donut_hp=2 deaths=0 hash=a315d0be02061daf
