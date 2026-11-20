@@ -149,8 +149,8 @@ One owner at a time, and no two PRs in one parallel group share a file. A PR tha
 | `src/cf02.rs` and `cf02_combat_v0.json` (data token) | CF02-00 -> A -> H -> B -> G -> F; read-only for every other PR, COMPANION included |
 | `src/cf02_fixtures.rs` | CF02-00 -> A -> H -> B -> G -> F (append only) |
 | `src/morale.rs`, `src/input_buffer.rs`, `src/acting.rs` | CF02-00 (stubs) -> CORES -> G (`morale.rs` fixes) / H (`input_buffer.rs` fixes) / I (`acting.rs` fixes) |
-| `scripts/ci_floor01_combat.sh` | CF02-00 (loops over `--list-fixtures cf02_` and `--list-fixtures companion_`), then frozen (REVIEW only for a fix) |
-| `docs/evidence/cf02/` | CF02-00 creates the index; each PR writes only `docs/evidence/cf02/<pr-id>/`; REVIEW owns the index afterwards |
+| `scripts/ci_floor01_combat.sh` | CF02-00 (loops over `--list-fixtures cf02_` and `--list-fixtures companion_`; CF02 replays are read from `docs/evidence/cf02/replays/`), then frozen (REVIEW only for a fix) |
+| `docs/evidence/cf02/` | CF02-00 creates the index; each PR writes its captures and notes only in `docs/evidence/cf02/<pr-id>/`; the replay goldens of `cf02_*` fixtures live in one shared append-only folder, `docs/evidence/cf02/replays/headless_<fixture>.txt`, which every CF02 PR may add files to (the frozen CI script reads it); REVIEW owns the index afterwards |
 | `src/lib.rs` | CF02-00 only (all new `mod` lines up front, including `pub mod companion;` and `pub mod companion_fixtures;`); AUTOPLAY A's one line rebases |
 
 ## Per-PR acceptance (from the design)

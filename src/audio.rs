@@ -892,7 +892,7 @@ mod tests {
         let total = carl_move(MoveId::PushKick).unwrap().total();
         sim.step(RawInput {
             physical: true,
-            ..Default::default()
+            ..RawInput::NONE
         });
         for _ in 0..total {
             sim.step(RawInput::default());

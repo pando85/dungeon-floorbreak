@@ -27,13 +27,8 @@ pub(crate) const fn primary(from: u64, to: u64, slot: usize) -> SlotHold {
         to,
         slot,
         input: RawInput {
-            move_x: 0.0,
-            jump: false,
             attack: true,
-            physical: false,
-            ability: false,
-            pause: false,
-            swap: false,
+            ..RawInput::NONE
         },
     }
 }
@@ -45,13 +40,8 @@ pub(crate) const fn physical(from: u64, to: u64, slot: usize) -> SlotHold {
         to,
         slot,
         input: RawInput {
-            move_x: 0.0,
-            jump: false,
-            attack: false,
             physical: true,
-            ability: false,
-            pause: false,
-            swap: false,
+            ..RawInput::NONE
         },
     }
 }

@@ -209,7 +209,7 @@ fn fixture(name: &str) -> &'static Fixture {
 fn kick_run() -> (Vec<Row>, FixtureSim) {
     record(fixture("cp01_two_hits"), 70, |tick| RawInput {
         physical: tick == 5,
-        ..RawInput::default()
+        ..RawInput::NONE
     })
 }
 

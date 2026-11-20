@@ -467,7 +467,7 @@ fn action_maps_to_the_games_raw_input() {
             physical: true,
             ability: true,
             swap: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         }
     );
     assert_eq!(

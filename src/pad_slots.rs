@@ -258,9 +258,8 @@ impl PadSlots {
             jump: state.held.jump || state.taps.jump,
             attack: state.held.attack || state.taps.attack,
             physical: state.held.physical || state.taps.physical,
-            ability: false,
-            pause: false,
             swap: state.taps.swap,
+            ..RawInput::NONE
         }
     }
 
@@ -423,7 +422,7 @@ mod tests {
         let keys = RawInput {
             move_x: 1.0,
             jump: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         let [p1, p2] = slots.take_inputs(keys);
         assert!(p1.jump && p1.move_x == 1.0);
@@ -440,14 +439,14 @@ mod tests {
         slots.sample(f);
         let keys = RawInput {
             jump: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         let [p1, _] = slots.take_inputs(keys);
         assert!(p1.attack && p1.jump);
         assert_eq!(p1.move_x, -0.8, "no key pressed: the stick moves");
         let keys = RawInput {
             move_x: 1.0,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         let [p1, _] = slots.take_inputs(keys);
         assert_eq!(p1.move_x, 1.0, "a pressed key wins over the stick");
@@ -499,7 +498,7 @@ mod tests {
         let mut slots = PadSlots::default();
         let keys = RawInput {
             move_x: 1.0,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         slots.take_inputs(keys);
         connect(&mut slots, B, SONY);
@@ -531,7 +530,7 @@ mod tests {
         connect(&mut slots, A, MS);
         slots.take_inputs(RawInput {
             jump: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         });
         assert_eq!(slots.party().slot_of(A), Some(PlayerSlot::P1));
         assert!(press_start(&mut slots, A).exit);
@@ -591,7 +590,7 @@ mod tests {
         // Still paused and idle even if the keyboard is held.
         let keys = RawInput {
             move_x: 1.0,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         assert_eq!(slots.take_inputs(keys), [RawInput::default(); 2]);
     }

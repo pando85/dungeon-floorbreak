@@ -51,6 +51,8 @@ use dungeon_floorbreak::{
     boss_art::{self, BossArt, FxCtx, Gait, Layer, SheetId},
     boss_scene,
     camera_lab::camera_op::{Aspect, Bounds, View},
+    cf02::{Cf02Config, Cf02Tuning},
+    cf02_fixtures::{find_party_fixture, list_fixtures},
     cine::{ENV_CINEMATIC_FINISHES, FrameContext, PlannerState, PresentationSettings},
     cine_adapter::CineAdapter,
     combat::{Attacker, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, Phase, hit_box},
@@ -230,6 +232,13 @@ struct Args {
     /// that never touches the simulation, so every other line is unchanged.
     audience_probe: bool,
     audience_cue_x: i32,
+    /// COMBAT-FUN-02 (`--cf02`, `--cf02-seed N`): the CF02 run configuration.
+    /// CF02-00 only carries it (the room is still the DEMO hall and no rule
+    /// reads it), so a `--cf02` run replays exactly like `--demo`.
+    cf02: Cf02Config,
+    /// `--list-fixtures PREFIX`: print the fixture names with that prefix over
+    /// every registry and exit before anything else starts.
+    list_fixtures: Option<String>,
 }
 
 impl Args {
@@ -370,10 +379,25 @@ fn parse_args_full(
         donut_biscuit: false,
         audience_probe: false,
         audience_cue_x: AUDIENCE_PROBE_CUE_X,
+        cf02: Cf02Config::OFF,
+        list_fixtures: None,
     };
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
         match arg.as_str() {
+            "--cf02" => parsed.cf02.rules = true,
+            "--cf02-seed" => {
+                let value = iter.next().ok_or("--cf02-seed needs a u64 seed")?;
+                parsed.cf02.seed = Some(
+                    value
+                        .parse()
+                        .map_err(|_| format!("bad --cf02-seed {value:?} (an unsigned integer)"))?,
+                );
+            }
+            "--list-fixtures" => {
+                let value = iter.next().ok_or("--list-fixtures needs a name prefix")?;
+                parsed.list_fixtures = Some(value.clone());
+            }
             "--deck" => parsed.deck = true,
             "--headless-floor01-smoke" => parsed.headless = true,
             "--freeze" => parsed.freeze = true,
@@ -402,7 +426,7 @@ fn parse_args_full(
                 if parsed.fixture.is_some() {
                     return Err("--fixture and --party-fixture are mutually exclusive".into());
                 }
-                let party = PartyFixture::by_name(value).ok_or_else(|| {
+                let party = find_party_fixture(value).ok_or_else(|| {
                     format!(
                         "unknown party fixture {value:?} (expected {})",
                         PartyFixture::names()
@@ -555,6 +579,13 @@ fn parse_args_full(
             }
             other => return Err(format!("unknown argument {other:?}")),
         }
+    }
+    if parsed.cf02.seed.is_some() && !parsed.cf02.rules {
+        return Err("--cf02-seed needs --cf02".into());
+    }
+    if parsed.cf02.rules {
+        // CF02-00: the room is the DEMO hall until CF02-F ships the microarena.
+        parsed.demo = true;
     }
     parsed.boss |= parsed.fixture.is_some_and(|f| f.boss.is_some());
     if parsed.boss && (parsed.demo || parsed.scenario.is_some() || parsed.reference_frame) {
@@ -1124,6 +1155,27 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // A listing needs no scene, no assets and no window.
+    if let Some(prefix) = &args.list_fixtures {
+        for name in list_fixtures(prefix) {
+            println!("{name}");
+        }
+        return ExitCode::SUCCESS;
+    }
+    if args.cf02.rules {
+        match Cf02Tuning::pinned() {
+            Ok(tuning) => println!(
+                "{} schema_version={} tuning_hash={:#018x}",
+                args.cf02.log_line(),
+                tuning.schema_version,
+                dungeon_floorbreak::cf02::TUNING_HASH
+            ),
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     let root = match std::env::current_dir() {
         Ok(dir) => dir,
         Err(error) => return failure(&format!("no working directory: {error}")),
@@ -2942,7 +2994,7 @@ fn fixed_step(
             attack: keys.pressed(KeyCode::KeyJ) || attack_tap,
             physical: keys.pressed(KeyCode::KeyK) || physical_tap,
             swap: swap_tap,
-            ..RawInput::default()
+            ..RawInput::NONE
         }
     };
     let mut live_slots = pads.0.take_inputs(keyboard);
@@ -6001,5 +6053,38 @@ mod tests {
         assert!(args(&["--demo", "--fixture", "cp01_kick"]).is_err());
         assert!(args(&["--demo", "--scenario", "idle"]).is_err());
         assert!(args(&["--demo", "--reference-frame"]).is_err());
+    }
+
+    #[test]
+    fn cf02_flags_select_the_demo_hall_and_carry_the_seed() {
+        let plain = args(&["--demo", "--scale", "3"]).unwrap();
+        assert_eq!(plain.cf02, Cf02Config::OFF);
+        let cf02 = args(&["--cf02", "--scale", "3"]).unwrap();
+        assert!(cf02.cf02.rules && cf02.cf02.seed.is_none());
+        // CF02-00: the same hall, fixture and camera as `--demo`.
+        assert!(cf02.demo);
+        assert_eq!(cf02.fixture.map(|f| f.name), plain.fixture.map(|f| f.name));
+        assert_eq!(cf02.camera_choice(), plain.camera_choice());
+        let seeded = args(&["--cf02", "--cf02-seed", "18446744073709551615"]).unwrap();
+        assert_eq!(seeded.cf02.seed, Some(u64::MAX));
+        assert!(
+            args(&["--cf02-seed", "7"]).is_err(),
+            "the seed needs --cf02"
+        );
+        assert!(args(&["--cf02", "--cf02-seed", "-1"]).is_err());
+        assert!(args(&["--cf02", "--cf02-seed"]).is_err());
+        // The demo options keep working under the flag.
+        assert!(args(&["--cf02", "--demo-beat", "3"]).is_ok());
+        assert!(args(&["--cf02", "--fixture", "cp01_kick"]).is_err());
+    }
+
+    #[test]
+    fn list_fixtures_is_parsed_without_starting_a_scene() {
+        let a = args(&["--list-fixtures", "cf02_"]).unwrap();
+        assert_eq!(a.list_fixtures.as_deref(), Some("cf02_"));
+        assert!(args(&["--list-fixtures"]).is_err());
+        assert!(list_fixtures("cf02_").is_empty());
+        assert!(list_fixtures("companion_").is_empty());
+        assert!(list_fixtures("cp01_").contains(&"cp01_kick"));
     }
 }

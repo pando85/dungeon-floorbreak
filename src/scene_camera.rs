@@ -547,7 +547,7 @@ mod tests {
     fn step_right(sim: &mut SceneSim) {
         sim.step(RawInput {
             move_x: 1.0,
-            ..RawInput::default()
+            ..RawInput::NONE
         });
     }
 

@@ -16,6 +16,7 @@
 use crate::boss_scene::{BOSS_FIXTURES, Pilot, pilot_inputs};
 use crate::combat::EnemyAi;
 use crate::combat_scene::{CombatState, EnemySpawn, Fixture};
+use crate::companion_fixtures::COMPANION_FIXTURES;
 use crate::corridor::SceneSim;
 use crate::donut_fixtures::DONUT_FIXTURES;
 use crate::donut_mana::DonutSetup;
@@ -41,12 +42,7 @@ pub(crate) const fn run(from: u64, to: u64, slot: usize, move_x: f32) -> SlotHol
         slot,
         input: RawInput {
             move_x,
-            jump: false,
-            attack: false,
-            physical: false,
-            ability: false,
-            pause: false,
-            swap: false,
+            ..RawInput::NONE
         },
     }
 }
@@ -58,13 +54,8 @@ pub(crate) const fn jump(from: u64, to: u64, slot: usize) -> SlotHold {
         to,
         slot,
         input: RawInput {
-            move_x: 0.0,
             jump: true,
-            attack: false,
-            physical: false,
-            ability: false,
-            pause: false,
-            swap: false,
+            ..RawInput::NONE
         },
     }
 }
@@ -76,13 +67,8 @@ pub(crate) const fn swap(from: u64, to: u64) -> SlotHold {
         to,
         slot: 0,
         input: RawInput {
-            move_x: 0.0,
-            jump: false,
-            attack: false,
-            physical: false,
-            ability: false,
-            pause: false,
             swap: true,
+            ..RawInput::NONE
         },
     }
 }
@@ -144,6 +130,7 @@ impl PartyFixture {
             .iter()
             .chain(BOSS_FIXTURES.iter())
             .chain(DONUT_FIXTURES.iter())
+            .chain(COMPANION_FIXTURES.iter())
             .copied()
     }
 
@@ -567,7 +554,7 @@ mod tests {
                 idle(),
                 RawInput {
                     move_x: 1.0,
-                    ..idle()
+                    ..RawInput::NONE
                 },
             ]);
         }
@@ -645,7 +632,7 @@ mod tests {
             sim.step_slots([
                 RawInput {
                     move_x: 1.0,
-                    ..idle()
+                    ..RawInput::NONE
                 },
                 idle(),
             ]);
@@ -655,7 +642,7 @@ mod tests {
         sim.step_slots([
             RawInput {
                 move_x: -1.0,
-                ..idle()
+                ..RawInput::NONE
             },
             idle(),
         ]);
@@ -666,7 +653,7 @@ mod tests {
                 idle(),
                 RawInput {
                     move_x: -1.0,
-                    ..idle()
+                    ..RawInput::NONE
                 },
             ]);
         }
@@ -717,7 +704,7 @@ mod tests {
             sim.step_slots([
                 RawInput {
                     move_x: 1.0,
-                    ..idle()
+                    ..RawInput::NONE
                 },
                 idle(),
             ]);
@@ -726,7 +713,7 @@ mod tests {
         sim.step_slots([
             RawInput {
                 swap: true,
-                ..idle()
+                ..RawInput::NONE
             },
             idle(),
         ]);
@@ -781,7 +768,7 @@ mod tests {
                 RawInput {
                     move_x: 1.0,
                     jump: true,
-                    ..idle()
+                    ..RawInput::NONE
                 },
             ]);
             if sim.scene.world.donut.x != x && free_at.is_none() {
@@ -879,7 +866,7 @@ mod tests {
         sim.step_slots([
             RawInput {
                 swap: true,
-                ..idle()
+                ..RawInput::NONE
             },
             idle(),
         ]);
@@ -1006,7 +993,7 @@ mod tests {
             RawInput {
                 attack: true,
                 physical: true,
-                ..idle()
+                ..RawInput::NONE
             },
         ]);
         assert!(sim.combat.events.is_empty(), "P2's buttons start no move");
@@ -1014,7 +1001,7 @@ mod tests {
         sim.step_slots([
             RawInput {
                 attack: true,
-                ..idle()
+                ..RawInput::NONE
             },
             idle(),
         ]);
@@ -1028,7 +1015,7 @@ mod tests {
             idle(),
             RawInput {
                 attack: true,
-                ..idle()
+                ..RawInput::NONE
             },
         ]);
         assert!(
@@ -1044,7 +1031,7 @@ mod tests {
         sim.step_slots([
             RawInput {
                 attack: true,
-                ..idle()
+                ..RawInput::NONE
             },
             idle(),
         ]);
@@ -1057,7 +1044,7 @@ mod tests {
         sim.step_slots([
             RawInput {
                 attack: true,
-                ..idle()
+                ..RawInput::NONE
             },
             idle(),
         ]);
@@ -1066,7 +1053,7 @@ mod tests {
         sim.step_slots([
             RawInput {
                 swap: true,
-                ..idle()
+                ..RawInput::NONE
             },
             idle(),
         ]);
@@ -1099,7 +1086,7 @@ mod tests {
             sim.step_slots([
                 RawInput {
                     swap: press,
-                    ..idle()
+                    ..RawInput::NONE
                 },
                 idle(),
             ]);
@@ -1155,7 +1142,7 @@ mod tests {
             let carl = RawInput {
                 move_x: 1.0,
                 jump: tick % 40 == 5,
-                ..idle()
+                ..RawInput::NONE
             };
             legacy.step(carl);
             ignoring.step_party([
@@ -1163,7 +1150,7 @@ mod tests {
                 RawInput {
                     move_x: -1.0,
                     jump: true,
-                    ..idle()
+                    ..RawInput::NONE
                 },
             ]);
             assert_eq!(legacy.state_hash(), ignoring.state_hash());

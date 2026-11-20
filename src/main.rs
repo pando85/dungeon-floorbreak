@@ -167,10 +167,9 @@ fn advance_game(
         move_x: keyboard_x,
         jump: keys.pressed(KeyCode::Space),
         attack: keys.pressed(KeyCode::KeyJ),
-        physical: false,
         ability: keys.pressed(KeyCode::KeyK),
         pause: keys.pressed(KeyCode::Escape),
-        swap: false,
+        ..RawInput::NONE
     };
     if let Some(pad) = pads.iter().next() {
         let stick_x = pad.left_stick().x;
@@ -280,7 +279,7 @@ fn run_combat_smoke() {
     let mut frame = InputFrame::default();
     frame.advance(RawInput {
         ability: true,
-        ..RawInput::default()
+        ..RawInput::NONE
     });
     world.step(&frame);
     for _ in 0..30 {

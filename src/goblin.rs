@@ -560,6 +560,10 @@ impl StrikeTarget for Goblin {
         (self.x, self.y)
     }
 
+    fn health_for_glance(&self) -> u8 {
+        self.health
+    }
+
     /// Damage, then the reaction: the killing hit launches the goblin (down,
     /// then corpse); a hit during the tell or the recovery staggers it (the
     /// attack is cancelled); a hit during the swing only damages it. Returns the

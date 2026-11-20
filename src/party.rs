@@ -594,7 +594,7 @@ mod tests {
             move_x,
             attack: true,
             swap: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         }
     }
 
@@ -779,12 +779,12 @@ mod tests {
         party.pad_start_pressed(B);
         let p1 = RawInput {
             move_x: 1.0,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         let p2 = RawInput {
             attack: true,
             swap: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         let out = party.hero_inputs([p1, p2]);
         assert_eq!(out[0], p1, "no cross-talk: P1 drives Carl only");

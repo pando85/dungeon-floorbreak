@@ -304,7 +304,7 @@ mod tests {
         let mut frame = InputFrame::default();
         frame.advance(RawInput {
             jump: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         });
         let me = hero(300.0);
         let leader = hero(300.0);

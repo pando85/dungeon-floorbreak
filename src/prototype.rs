@@ -526,7 +526,7 @@ mod tests {
             &mut world,
             RawInput {
                 ability: true,
-                ..Default::default()
+                ..RawInput::NONE
             },
         );
         idle(&mut world, 30);
@@ -554,7 +554,7 @@ mod tests {
             &mut world,
             RawInput {
                 attack: true,
-                ..Default::default()
+                ..RawInput::NONE
             },
         );
         assert_eq!(world.enemies[0].health, 1);
@@ -564,7 +564,7 @@ mod tests {
             &mut world,
             RawInput {
                 attack: true,
-                ..Default::default()
+                ..RawInput::NONE
             },
         );
         assert_eq!(world.enemies[0].health, 1);
@@ -578,7 +578,7 @@ mod tests {
         for _ in 0..120 {
             frame.advance(RawInput {
                 move_x: 1.0,
-                ..Default::default()
+                ..RawInput::NONE
             });
             world.step(&frame);
         }
@@ -603,7 +603,7 @@ mod tests {
             &mut world,
             RawInput {
                 jump: true,
-                ..Default::default()
+                ..RawInput::NONE
             },
         );
         idle(&mut world, 19);
@@ -612,7 +612,7 @@ mod tests {
                 &mut world,
                 RawInput {
                     move_x: 1.0,
-                    ..Default::default()
+                    ..RawInput::NONE
                 },
             );
         }
@@ -632,7 +632,7 @@ mod tests {
                 jump: (38..44).contains(&tick),
                 attack: (75..78).contains(&tick),
                 ability: (115..118).contains(&tick),
-                ..Default::default()
+                ..RawInput::NONE
             };
             fa.advance(raw);
             fb.advance(raw);
@@ -667,7 +667,7 @@ mod tests {
                 || tick == 262,
             attack: (60..63).contains(&tick) || (170..173).contains(&tick),
             ability: (95..98).contains(&tick),
-            ..Default::default()
+            ..RawInput::NONE
         }
     }
 
@@ -686,7 +686,7 @@ mod tests {
         RawInput {
             move_x,
             jump: tick == 30 || tick == 89 || tick == 141,
-            ..Default::default()
+            ..RawInput::NONE
         }
     }
 
@@ -769,7 +769,7 @@ mod tests {
             self.frame.advance(RawInput {
                 move_x,
                 jump,
-                ..Default::default()
+                ..RawInput::NONE
             });
             step_hero(&mut self.hero, &self.frame, &self.solids, 10_000.0);
         }
@@ -999,7 +999,7 @@ mod tests {
         input.advance(RawInput {
             move_x: 1.0,
             jump: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         });
         let (mut a, mut b) = (at(), at());
         step_hero(&mut a, &input, &floor, 2000.0);
@@ -1023,7 +1023,7 @@ mod tests {
         let mut right = InputFrame::default();
         right.advance(RawInput {
             move_x: 1.0,
-            ..RawInput::default()
+            ..RawInput::NONE
         });
         let capped = BodyDrive {
             vx_cap: Some(60.0),

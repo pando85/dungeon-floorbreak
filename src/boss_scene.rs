@@ -570,7 +570,7 @@ fn dodge(boss: &Boss, x: f32, grounded: bool) -> Option<RawInput> {
     {
         return Some(RawInput {
             jump: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         });
     }
     // A shockwave ripple 10 px tall: jump it when it is about to arrive.
@@ -582,7 +582,7 @@ fn dodge(boss: &Boss, x: f32, grounded: bool) -> Option<RawInput> {
     {
         return Some(RawInput {
             jump: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         });
     }
     if let (Some(t), true) = (d.pound_in, d.in_pound_zone) {
@@ -600,13 +600,13 @@ fn dodge(boss: &Boss, x: f32, grounded: bool) -> Option<RawInput> {
         if jump_it && t <= POUND_JUMP_AT && grounded {
             return Some(RawInput {
                 jump: true,
-                ..RawInput::default()
+                ..RawInput::NONE
             });
         }
         if !jump_it && t <= STEP_OUT_AT {
             return Some(RawInput {
                 move_x: away,
-                ..RawInput::default()
+                ..RawInput::NONE
             });
         }
     }
@@ -628,13 +628,13 @@ fn carl_pilot(
     if boss.released() {
         return RawInput {
             move_x: 1.0,
-            ..idle
+            ..RawInput::NONE
         };
     }
     if !boss.gate_closed() {
         return RawInput {
             move_x: if hero.x < 140.0 { 1.0 } else { 0.0 },
-            ..idle
+            ..RawInput::NONE
         };
     }
     if !hero.grounded && danger(boss, hero.x).ram_in.is_some() {
@@ -671,14 +671,14 @@ fn carl_pilot(
     if gap > 18.0 {
         return RawInput {
             move_x: side,
-            ..idle
+            ..RawInput::NONE
         };
     }
     if tick.is_multiple_of(SWING_PERIOD) {
         RawInput {
             attack: true,
             move_x: side,
-            ..idle
+            ..RawInput::NONE
         }
     } else {
         idle
@@ -692,13 +692,13 @@ fn rack_job(tick: u64, x: f32, boss: &Boss) -> RawInput {
     if x < 176.0 {
         return RawInput {
             move_x: 1.0,
-            ..idle
+            ..RawInput::NONE
         };
     }
     if x > 188.0 {
         return RawInput {
             move_x: -1.0,
-            ..idle
+            ..RawInput::NONE
         };
     }
     let stunned_left = matches!(boss.mode, BossMode::Stun | BossMode::Rebound) && boss.x < 200.0;
@@ -709,7 +709,7 @@ fn rack_job(tick: u64, x: f32, boss: &Boss) -> RawInput {
         return RawInput {
             attack: true,
             move_x: 1.0,
-            ..idle
+            ..RawInput::NONE
         };
     }
     idle
@@ -723,13 +723,13 @@ fn donut_pilot(scene: &SceneSim, boss: &Boss) -> RawInput {
     if boss.released() {
         return RawInput {
             move_x: 1.0,
-            ..idle
+            ..RawInput::NONE
         };
     }
     if !boss.gate_closed() {
         return RawInput {
             move_x: if body.x < 60.0 { 1.0 } else { 0.0 },
-            ..idle
+            ..RawInput::NONE
         };
     }
     if !body.grounded {
@@ -748,7 +748,7 @@ fn donut_pilot(scene: &SceneSim, boss: &Boss) -> RawInput {
     if (body.x - boss.x).abs() < 130.0 && room > 40.0 {
         RawInput {
             move_x: away,
-            ..idle
+            ..RawInput::NONE
         }
     } else {
         idle
@@ -1094,7 +1094,7 @@ mod tests {
             [
                 RawInput {
                     jump,
-                    ..RawInput::default()
+                    ..RawInput::NONE
                 },
                 RawInput::default(),
             ]
@@ -1128,7 +1128,7 @@ mod tests {
         let run_right = [
             RawInput {
                 move_x: 1.0,
-                ..RawInput::default()
+                ..RawInput::NONE
             },
             RawInput::default(),
         ];
