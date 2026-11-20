@@ -16,9 +16,10 @@
 //! in the GOB-01 state diagram: a hit then deals damage and hit-stop but no
 //! stagger and no knockback, unless it defeats the goblin.
 
+use crate::cf02::Cf02Tuning;
 use crate::combat::{
-    ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, ENEMY_HEALTH, EnemyAi, HitOutcome, MoveSpec, StrikeTarget,
-    body_rect, solid_at,
+    ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH, ENEMY_HEALTH, EnemyAi, HitOutcome, MoveId, MoveSpec,
+    StrikeTarget, body_rect, solid_at,
 };
 use crate::donut_moves::{HitStopSplit, LightGuard, TargetState, hash_guard};
 use crate::feel::{
@@ -132,6 +133,16 @@ pub struct Goblin {
     /// `None` for every goblin Donut never swatted, so nothing of it is mixed
     /// into a hash then.
     pub guard: Option<LightGuard>,
+    /// COMBAT-FUN-02: the pinned tuning with the master switch on, `Some` only for
+    /// a goblin of a run under `cf02_rules` (`None` everywhere else, so every
+    /// legacy rule and hash is untouched). Not mixed into the hash: it is run
+    /// configuration, constant for the whole run.
+    pub(crate) cf02: Option<&'static Cf02Tuning>,
+    /// CF02-Q38: ticks the down timer is still paused by a pounce hold.
+    pub(crate) hold_left: u8,
+    /// CF02-Q38: this down instance already used its hold (a kick relaunch starts
+    /// a new down instance).
+    pub(crate) hold_used: bool,
 }
 
 impl Goblin {
@@ -158,7 +169,33 @@ impl Goblin {
             contact_ticks: 0,
             hit_by: None,
             guard: None,
+            cf02: None,
+            hold_left: 0,
+            hold_used: false,
         }
+    }
+
+    /// Run this goblin under `cf02_rules` (the scene sets it when it builds the
+    /// goblin; `None` is the legacy goblin).
+    #[must_use]
+    pub(crate) fn with_cf02(mut self, cf02: Option<&'static Cf02Tuning>) -> Self {
+        self.cf02 = cf02;
+        self
+    }
+
+    /// Ticks a living goblin lies after a launch: [`DOWNED_TICKS`], or the CF02
+    /// value (Q04).
+    fn downed_ticks(&self) -> u16 {
+        self.cf02.map_or(DOWNED_TICKS, |t| t.q04_downed_ticks)
+    }
+
+    /// CF02-Q03: lying on the floor (`Downed`, before the get-up). Under
+    /// `cf02_rules` only; it narrows the hurtbox and pauses under a Q38 hold.
+    /// Read by the COMPANION view builder (Q15: assist pounce on a lying goblin).
+    pub(crate) fn lying(&self) -> bool {
+        self.cf02.is_some()
+            && self.mode == GoblinMode::Downed
+            && self.down_ticks < self.downed_ticks()
     }
 
     pub fn alive(&self) -> bool {
@@ -291,12 +328,20 @@ impl Goblin {
                     self.down_ticks = 0;
                     self.launch = None;
                     self.contact_ticks = 0;
+                    // A new down instance: its one hold is available again.
+                    self.hold_left = 0;
+                    self.hold_used = false;
                 }
             }
             GoblinMode::Downed => {
                 self.integrate(solids, max_x);
-                self.down_ticks += 1;
-                if self.down_ticks >= DOWNED_TICKS + GETUP_TICKS {
+                if self.hold_left > 0 {
+                    // CF02-Q38: a pounce holds the lying goblin down; the timer waits.
+                    self.hold_left -= 1;
+                } else {
+                    self.down_ticks += 1;
+                }
+                if self.down_ticks >= self.downed_ticks() + GETUP_TICKS {
                     self.mode = GoblinMode::Neutral;
                     self.down_ticks = 0;
                     self.vx = 0.0;
@@ -440,6 +485,12 @@ impl Goblin {
         }
         // WORK-023: the light guard, mixed only while it is set.
         hash_guard(&self.guard, mix);
+        // CF02-Q38: the hold, mixed only while it exists.
+        if self.hold_left > 0 || self.hold_used {
+            mix(0x484f_4c44);
+            mix(u64::from(self.hold_left));
+            mix(u64::from(self.hold_used));
+        }
     }
 
     /// CP-02, the flier's side of a contact: `knockback_contact` for a few
@@ -552,7 +603,22 @@ impl StrikeTarget for Goblin {
         self.alive() && self.hit_stop == 0
     }
 
+    /// The hurtbox: the 24 x 38 standing body, or (CF02-Q03) the low box of a goblin
+    /// lying on the floor, so a jab and a haymaker pass over it while a kick, a
+    /// stomp and a pounce reach it.
     fn body(&self) -> Rect {
+        if self.lying()
+            && let Some(t) = self.cf02
+        {
+            let lying = t.q03_lying_box;
+            let feet = self.y - ENEMY_HALF_HEIGHT;
+            return Rect {
+                left: self.x + f32::from(lying.x0),
+                bottom: feet + f32::from(lying.y0),
+                width: f32::from(lying.x1 - lying.x0),
+                height: f32::from(lying.y1 - lying.y0),
+            };
+        }
         Goblin::body(self)
     }
 
@@ -575,6 +641,37 @@ impl StrikeTarget for Goblin {
 }
 
 impl Goblin {
+    /// The knock `(vx, vy)` of a defeating hit by move `id`, or `None` for a body
+    /// that stays where it stands (the stomp, Q02). Legacy without CF02; with it a
+    /// kick that kills throws the body harder (Q06).
+    fn cf02_lethal_knock(&self, id: MoveId) -> Option<(f32, f32)> {
+        let Some(t) = self.cf02 else {
+            return Some((LETHAL_KNOCK_VX, LETHAL_KNOCK_VY));
+        };
+        match id {
+            MoveId::Stomp => Some((
+                f32::from(t.q02_stomp_lethal_knock_x),
+                f32::from(t.q02_stomp_lethal_knock_y),
+            ))
+            .filter(|&(vx, vy)| vx != 0.0 || vy != 0.0),
+            MoveId::PushKick | MoveId::FollowKick => Some((
+                f32::from(t.q06_lethal_kick_knock_x),
+                f32::from(t.q06_lethal_kick_knock_y),
+            )),
+            _ => Some((
+                f32::from(t.q06_lethal_melee_knock_x),
+                f32::from(t.q06_lethal_melee_knock_y),
+            )),
+        }
+    }
+
+    /// CF02-Q34: a non-lethal hit by move `id` on a lying goblin leaves it down
+    /// (every hit but the two kicks, which relaunch it).
+    fn keeps_down(&self, id: MoveId) -> bool {
+        self.cf02.is_some_and(|t| t.on(t.q34_keep_down))
+            && !matches!(id, MoveId::PushKick | MoveId::FollowKick)
+    }
+
     /// [`StrikeTarget::take_hit`] with the freeze of the two fighters as two
     /// numbers (Q10 hit-stop split). `split` maps the move's hit-stop (plus the
     /// lethal bonus) to the freezes: the legacy rule is
@@ -592,16 +689,30 @@ impl Goblin {
         let direction = f32::from(attacker_facing);
         self.health = self.health.saturating_sub(spec.damage);
         let mut stop = reaction.hit_stop;
+        let was_lying = self.lying();
         let outcome = if self.health == 0 {
-            self.mode = GoblinMode::Airborne;
             self.attack_tick = 0;
             self.stagger_left = 0;
             self.swing_hit = false;
-            self.vx = direction * LETHAL_KNOCK_VX;
-            self.vy = LETHAL_KNOCK_VY;
             self.launch = None;
             self.contact_ticks = 0;
+            self.hold_left = 0;
             stop += LETHAL_HIT_STOP_BONUS;
+            match self.cf02_lethal_knock(spec.id) {
+                // CF02-Q02: a stomp finish leaves the body where it stands.
+                None => {
+                    self.mode = GoblinMode::Down;
+                    self.down_ticks = 0;
+                    self.vx = 0.0;
+                    self.vy = 0.0;
+                    self.y = self.floor_y;
+                }
+                Some((vx, vy)) => {
+                    self.mode = GoblinMode::Airborne;
+                    self.vx = direction * vx;
+                    self.vy = vy;
+                }
+            }
             HitOutcome::Defeated
         } else {
             let committed = self.mode == GoblinMode::Attack
@@ -609,7 +720,19 @@ impl Goblin {
                     attack_phase(self.attack_tick),
                     AttackPhase::Smear | AttackPhase::Impact
                 );
-            if !committed && reaction.launch {
+            if was_lying && self.keeps_down(spec.id) {
+                // CF02-Q34: a non-lethal hit other than a kick deals its damage and
+                // leaves the goblin lying, its timer unchanged. Q38: the one
+                // exception is Donut's pounce, which holds the timer.
+                if spec.id == MoveId::Pounce
+                    && let Some(t) = self.cf02
+                    && t.q38_hold_ticks > 0
+                    && !(t.q38_hold_once_per_down && self.hold_used)
+                {
+                    self.hold_left = t.q38_hold_ticks;
+                    self.hold_used = true;
+                }
+            } else if !committed && reaction.launch {
                 // The kick: a living launch (D-02), no stagger.
                 self.mode = GoblinMode::Launched;
                 self.attack_tick = 0;

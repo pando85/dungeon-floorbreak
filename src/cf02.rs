@@ -919,6 +919,19 @@ impl Cf02Tuning {
     }
 }
 
+/// The pinned tuning with the master switch on: what a simulation running under
+/// `cf02_rules` reads (`--cf02` and every `cf02_*` fixture). One shared static, so
+/// goblins and the move tables can hold a `&'static` reference to it. The committed
+/// file keeps `cf02_rules: false`, so a run that never asks for this reads nothing.
+pub fn active() -> &'static Cf02Tuning {
+    static ACTIVE: std::sync::OnceLock<Cf02Tuning> = std::sync::OnceLock::new();
+    ACTIVE.get_or_init(|| {
+        let mut tuning = Cf02Tuning::pinned().expect("the embedded CF02 data is pinned and valid");
+        tuning.cf02_rules = true;
+        tuning
+    })
+}
+
 /// The CF02 run configuration (`--cf02`, `--cf02-seed`). CF02-00 only carries
 /// it: no simulation reads it yet, so a `--cf02` run replays the DEMO hall
 /// exactly as `--demo` does.

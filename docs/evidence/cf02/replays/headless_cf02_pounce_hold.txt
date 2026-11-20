@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=5 kind=move_started move=push_kick instance=1
+COMBAT_EVENT tick=18 kind=hit move=push_kick instance=1 target=0 damage=1 health_left=3 hit_stop=8
+COMBAT_EVENT tick=56 kind=move_started move=pounce instance=1
+COMBAT_EVENT tick=69 kind=hit move=pounce instance=1 target=0 damage=1 health_left=2 hit_stop=4
+COMBAT_EVENT tick=92 kind=move_started move=pounce instance=2
+COMBAT_EVENT tick=102 kind=hit move=pounce instance=2 target=0 damage=1 health_left=1 hit_stop=4
+COMBAT_STATE fixture=cf02_pounce_hold seed=0xcf020a0b tick=130 elapsed=130 hero_hp=4 deaths=0 enemies=e0=491.667/1 hash=acc4f2a6c8bc88f5
+PARTY_STATE fixture=cf02_pounce_hold mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=aa75cd4ff812e46b

@@ -21,6 +21,12 @@ pub struct RawInput {
     /// SwapCharacter (L1/LB): solo only. The party layer (`crate::party`) consumes
     /// it and strips it before the per-hero inputs reach the simulation.
     pub swap: bool,
+    /// COMBAT-FUN-02 (CF02-Q01): Down is held (D-pad down, or the left stick down
+    /// past the threshold with the vertical axis dominant, resolved by the device
+    /// adapter). It is a direction, not a button: only Carl's Physical press under
+    /// `cf02_rules` reads it (Down + Physical is the stomp, or the dive in the
+    /// air); every other consumer ignores it.
+    pub down: bool,
 }
 
 impl RawInput {
@@ -33,6 +39,7 @@ impl RawInput {
         ability: false,
         pause: false,
         swap: false,
+        down: false,
     };
 }
 
@@ -51,6 +58,8 @@ pub struct Actions {
     pub ability: bool,
     pub pause: bool,
     pub swap: bool,
+    /// Down is held (CF02-Q01); a direction with no press edge.
+    pub down: bool,
 }
 
 impl From<RawInput> for Actions {
@@ -68,6 +77,7 @@ impl From<RawInput> for Actions {
             ability: raw.ability,
             pause: raw.pause,
             swap: raw.swap,
+            down: raw.down,
         }
     }
 }
@@ -191,5 +201,22 @@ mod tests {
     #[test]
     fn none_is_the_default_input() {
         assert_eq!(RawInput::NONE, RawInput::default());
+    }
+
+    #[test]
+    fn down_is_a_held_direction_without_a_press_edge() {
+        let mut frame = InputFrame::default();
+        let down = RawInput {
+            down: true,
+            physical: true,
+            ..RawInput::NONE
+        };
+        frame.advance(down);
+        assert!(frame.held.down && frame.physical_pressed);
+        frame.advance(down);
+        assert!(frame.held.down && !frame.physical_pressed);
+        frame.advance(RawInput::NONE);
+        assert!(!frame.held.down);
+        assert!(Actions::from(down).down);
     }
 }

@@ -68,6 +68,10 @@ pub struct PadFrame {
     pub pad: PadId,
     pub vendor_id: Option<u16>,
     pub move_x: f32,
+    /// CF02-Q01: Down is held (D-pad down, or the left stick down past 0.5 with
+    /// the vertical axis dominant), resolved by the adapter. A direction, not a
+    /// button: it has no press edge and is never latched.
+    pub down: bool,
     pub held: PadButtons,
     pub pressed: PadButtons,
 }
@@ -86,6 +90,7 @@ pub struct PadCommands {
 #[derive(Debug, Default, Clone, Copy)]
 struct SlotState {
     move_x: f32,
+    down: bool,
     held: PadButtons,
     /// Edges latched since the last `take_inputs`.
     taps: PadButtons,
@@ -239,6 +244,7 @@ impl PadSlots {
         } else {
             0.0
         };
+        state.down = frame.down;
         state.held = frame.held;
         state.taps = state.taps.or(frame.pressed);
         commands.restart = frame.pressed.restart;
@@ -259,6 +265,7 @@ impl PadSlots {
             attack: state.held.attack || state.taps.attack,
             physical: state.held.physical || state.taps.physical,
             swap: state.taps.swap,
+            down: state.down,
             ..RawInput::NONE
         }
     }
@@ -274,6 +281,7 @@ impl PadSlots {
             || keyboard.attack
             || keyboard.physical
             || keyboard.swap
+            || keyboard.down
         {
             self.party.note_keyboard_p1();
         }
@@ -295,6 +303,7 @@ impl PadSlots {
                     ability: keyboard.ability || pad.ability,
                     pause: keyboard.pause || pad.pause,
                     swap: keyboard.swap || pad.swap,
+                    down: keyboard.down || pad.down,
                 }
             } else {
                 pad
@@ -328,6 +337,7 @@ mod tests {
             pad,
             vendor_id: None,
             move_x: 0.0,
+            down: false,
             held: PadButtons::default(),
             pressed: PadButtons::default(),
         }
@@ -728,5 +738,28 @@ mod tests {
         let hero = slots.party().hero_inputs(inputs);
         assert_eq!(hero[0], RawInput::default());
         assert!(!hero[1].swap, "the party strips the swap bit");
+    }
+    /// CF02-Q01: Down is a held direction per pad, never latched, and reaches
+    /// only the slot of the pad that holds it (the keyboard merges into P1).
+    #[test]
+    fn down_is_a_per_slot_held_direction_and_the_keyboard_merges_into_p1() {
+        let mut slots = two_player();
+        let mut fb = frame(B);
+        fb.down = true;
+        slots.sample(fb);
+        slots.sample(frame(A));
+        let [p1, p2] = slots.take_inputs(RawInput::NONE);
+        assert!(!p1.down && p2.down, "only the pad that holds Down reads it");
+        // Released: the next tick reads it released (nothing is latched).
+        slots.sample(frame(A));
+        slots.sample(frame(B));
+        let [_, p2] = slots.take_inputs(RawInput::NONE);
+        assert!(!p2.down);
+        let keyboard = RawInput {
+            down: true,
+            ..RawInput::NONE
+        };
+        let [p1, p2] = slots.take_inputs(keyboard);
+        assert!(p1.down && !p2.down);
     }
 }

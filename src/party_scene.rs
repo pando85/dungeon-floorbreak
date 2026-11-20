@@ -110,6 +110,7 @@ impl PartyFixture {
             raw.swap |= hold.input.swap;
             raw.attack |= hold.input.attack;
             raw.physical |= hold.input.physical;
+            raw.down |= hold.input.down;
             if hold.input.move_x != 0.0 {
                 raw.move_x = hold.input.move_x;
             }

@@ -294,17 +294,19 @@ case "$mode" in
       fi
       echo "COMPANION_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/companion_${f}.txt")"
     done
-    # CF02-00 parity: with no CF02 rule implemented, `--cf02` (the DEMO hall with
-    # the switch on) replays every DEMO-01 probe exactly like `--demo`.
+    # COMBAT-FUN-02: `--cf02` (the DEMO hall with `cf02_rules` on) runs the CF02
+    # rules, so since CF02-A it no longer equals `--demo` (that parity with the
+    # rules off is `cf02_parity_off` and the `--demo` probes above). Each probe
+    # under `--cf02` must replay identically twice and log its CF02_CONFIG line.
     for entry in "${demo_probes[@]}"; do
       IFS=: read -r name beat <<<"$entry"
-      plain="$("$bin" --headless-floor01-smoke --demo --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
-      cf02="$("$bin" --headless-floor01-smoke --cf02 --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
-      if [[ -z "$plain" || "$plain" != "$cf02" ]]; then
-        echo "--cf02 changed the replay of $name (every CF02 rule must be off)" >&2
+      cf02_a="$("$bin" --headless-floor01-smoke --cf02 --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
+      cf02_b="$("$bin" --headless-floor01-smoke --cf02 --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
+      if [[ -z "$cf02_a" || "$cf02_a" != "$cf02_b" ]]; then
+        echo "--cf02 is not deterministic on $name" >&2
         exit 1
       fi
-      echo "CF02_PARITY_OK: --cf02 replays $name like --demo"
+      echo "CF02_DEMO_REPLAY_OK: --cf02 replays $name identically twice"
     done
     # AUDIENCE-01 part C: the per-hero viewer observer and the viewer HUD
     # previews are presentation only. Each probe run (the QA unlock) and each

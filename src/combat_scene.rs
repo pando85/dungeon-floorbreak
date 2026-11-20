@@ -21,6 +21,7 @@ use crate::blast::{Arm, BlastCharge, BlastReach};
 use crate::boss::{
     BOSS_ENEMY_ID, Boss, BossCtx, BossHit, BossOut, BossSetup, BossState, HeroBlow, HeroView,
 };
+use crate::cf02::{self, Cf02Tuning, StompBinding};
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
     EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, MoveRunner, MoveSpec, MoveTick, Phase, RootStep,
@@ -37,7 +38,7 @@ use crate::feel::{
 pub use crate::feel::{HERO_HURT_TICKS, RESTART_DELAY_TICKS};
 use crate::follower::Threat;
 use crate::goblin::{Goblin, GoblinMode};
-use crate::input::{InputFrame, RawInput};
+use crate::input::{Actions, InputFrame, RawInput};
 use crate::llama::{
     FireView, Glob, GlobFate, LLAMA_HALF_HEIGHT, LLAMA_HALF_WIDTH, Llama, LlamaMode,
 };
@@ -198,6 +199,7 @@ impl Fixture {
             raw.physical |= hold.input.physical;
             raw.ability |= hold.input.ability;
             raw.jump |= hold.input.jump;
+            raw.down |= hold.input.down;
             if hold.input.move_x != 0.0 {
                 raw.move_x = hold.input.move_x;
             }
@@ -822,6 +824,10 @@ pub struct CombatState {
     donut_kit: DonutKit,
     /// COMPANION-AI-01 runtime state (CF02-00: an empty no-op stub).
     companion: CompanionRuntime,
+    /// COMBAT-FUN-02: the pinned tuning with `cf02_rules` on, `Some` only for a run
+    /// under `--cf02` and for every `cf02_*` fixture; `None` is the legacy game
+    /// and every golden. Constant for the run, so it is not part of the hash.
+    cf02: Option<&'static Cf02Tuning>,
     /// Which hero's defeat ended the attempt (D1: either one is the party's
     /// defeat). Meaningful while `hero_defeated`.
     pub defeated_hero: HeroId,
@@ -904,6 +910,7 @@ impl CombatState {
             donut: HeroCombat::default(),
             donut_kit: DonutKit::new(DonutSetup::NONE),
             companion: CompanionRuntime::default(),
+            cf02: fixture.name.starts_with("cf02_").then(cf02::active),
             defeated_hero: HeroId::Carl,
             targets: Vec::new(),
             defeated_ticks: 0,
@@ -933,6 +940,33 @@ impl CombatState {
         self.demo = Some(rules);
         self.reset_attempt();
         self
+    }
+
+    /// COMBAT-FUN-02: run this state under `cf02_rules` (`--cf02`). The `cf02_*`
+    /// fixtures already do (by their name). Every CF02 rule reads the tuning this
+    /// sets, so a state without it is the legacy game byte for byte.
+    #[must_use]
+    pub fn with_cf02(mut self) -> Self {
+        self.cf02 = Some(cf02::active());
+        self.reset_attempt();
+        self
+    }
+
+    /// The CF02 tuning this run reads (`None`: `cf02_rules` is off).
+    pub fn cf02(&self) -> Option<&'static Cf02Tuning> {
+        self.cf02
+    }
+
+    /// A goblin of this run at column `x` (it carries the CF02 tuning, if any).
+    fn new_goblin(&self, x: f32, ai: EnemyAi) -> Goblin {
+        let mut goblin =
+            Goblin::new(x, self.enemy_foot_y + ENEMY_HALF_HEIGHT, ai).with_cf02(self.cf02);
+        if self.cf02.is_some()
+            && let Some(health) = crate::cf02_fixtures::goblin_health(self.fixture.name)
+        {
+            goblin.health = health;
+        }
+        goblin
     }
 
     /// The beat whose checkpoint is the fixture's start column (0 without
@@ -965,11 +999,7 @@ impl CombatState {
         scene.respawn_at(demo.checkpoints[checkpoint] as f32);
         for (index, spawn) in self.fixture.enemies.iter().enumerate() {
             if self.enemies[index].health > 0 {
-                self.enemies[index] = Goblin::new(
-                    spawn.x as f32,
-                    self.enemy_foot_y + ENEMY_HALF_HEIGHT,
-                    spawn.ai,
-                );
+                self.enemies[index] = self.new_goblin(spawn.x as f32, spawn.ai);
                 self.flash_tick[index] = None;
             }
         }
@@ -1016,13 +1046,7 @@ impl CombatState {
             .fixture
             .enemies
             .iter()
-            .map(|spawn| {
-                Goblin::new(
-                    spawn.x as f32,
-                    self.enemy_foot_y + ENEMY_HALF_HEIGHT,
-                    spawn.ai,
-                )
-            })
+            .map(|spawn| self.new_goblin(spawn.x as f32, spawn.ai))
             .collect();
         self.llamas = self
             .fixture
@@ -1205,13 +1229,18 @@ impl CombatState {
         // EquippedSpecial (Circle/B) has no effect before its story unlock
         // (there are no explosives before the Guild). Both only start from a
         // press edge, so a held button never repeats.
-        let request = if self.input.attack_pressed {
+        let mut request = if self.input.attack_pressed {
             carl_move(MoveId::Jab)
         } else if self.input.physical_pressed {
-            carl_move(MoveId::PushKick)
+            self.physical_request(raw)
         } else {
             None
         };
+        // CF02-Q05: a Physical press (neutral or forward, no Down) in the window of
+        // a jab that connected is the follow-through kick, not a plain kick.
+        if can_act && self.input.physical_pressed && !self.input.attack_pressed {
+            self.follow_through(&mut scene.world.hero, &mut request, raw);
+        }
         // Pressing a direction together with the attack turns Carl first.
         if can_act && request.is_some() && !scene.world.hero.melee.busy() && raw.move_x != 0.0 {
             scene.world.hero.facing = if raw.move_x > 0.0 { 1 } else { -1 };
@@ -2256,6 +2285,58 @@ impl CombatState {
     }
 
     /// Remember a confirmed hit for the presentation (flash and camera kick).
+    /// The move a Physical press asks for. Legacy: the push kick. Under
+    /// `cf02_rules` (CF02-Q01, Q35) Down + Physical is always the stomp on the
+    /// ground, also inside a jab's window (it is buffered past the jab like any
+    /// press); without Down it is the kick.
+    fn physical_request(&self, raw: RawInput) -> Option<&'static MoveSpec> {
+        if let Some(t) = self.cf02
+            && t.q01_stomp_binding == StompBinding::DownPhysical
+            && raw.down
+        {
+            return Some(&crate::combat::cf02_moves().stomp);
+        }
+        carl_move(MoveId::PushKick)
+    }
+
+    /// CF02-Q05, Q35: turn a Physical press into the follow-through. It needs a
+    /// jab that has already logged a `Hit`, the press on jab ticks 3..=13 (the
+    /// hit-stop-frozen tick counts), no Down and a neutral or forward direction.
+    /// The follow-through starts on jab tick 9 or on the press tick, whichever is
+    /// later, and consumes the press. A whiffed jab gives none (the press is
+    /// buffered as today); Down + Physical stays the stomp.
+    fn follow_through(
+        &self,
+        hero: &mut Hero,
+        request: &mut Option<&'static MoveSpec>,
+        raw: RawInput,
+    ) {
+        let Some(t) = self.cf02 else {
+            return;
+        };
+        if raw.down || request.is_none_or(|spec| spec.id != MoveId::PushKick) {
+            return;
+        }
+        let toward = Actions::from(raw).move_x;
+        if toward != 0.0 && (toward > 0.0) != (hero.facing > 0) {
+            return;
+        }
+        let Some((MoveId::Jab, tick)) = hero.melee.press_tick() else {
+            return;
+        };
+        let window = u16::from(t.q05_follow_window_start)..=u16::from(t.q05_follow_window_end);
+        if !t.on(t.q49_c2_enabled) || !window.contains(&tick) || !hero.melee.current_hit() {
+            return;
+        }
+        let earliest = tick.max(u16::from(t.q05_follow_start_jab_tick));
+        hero.melee.request_cancel(
+            MoveId::Jab,
+            &crate::combat::cf02_moves().follow_kick,
+            earliest,
+        );
+        *request = None;
+    }
+
     fn note_confirm(
         &mut self,
         tick: u64,
@@ -2330,6 +2411,10 @@ impl CombatState {
         // Mixed only while held, so fixtures that never kick keep their hashes.
         if held.physical {
             put(0x5048_5953);
+        }
+        // CF02-Q01: Down is mixed only while held under `cf02_rules`.
+        if self.cf02.is_some() && held.down {
+            put(0x444f_574e);
         }
         put(u64::from(held.pause));
         hero.melee.mix_into(&mut put);
