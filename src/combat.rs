@@ -836,6 +836,11 @@ pub trait StrikeTarget {
     /// Apply a landed move; returns the outcome and the hit-stop ticks the
     /// attacker must freeze for.
     fn take_hit(&mut self, spec: &MoveSpec, attacker_facing: i8) -> (HitOutcome, u8);
+    /// The health the glance rule of [`strike_group`] sees. The default
+    /// (`u8::MAX`) means "never lethal"; every target with hit points overrides it.
+    fn health_for_glance(&self) -> u8 {
+        u8::MAX
+    }
 }
 
 impl StrikeTarget for Enemy {
@@ -853,6 +858,10 @@ impl StrikeTarget for Enemy {
 
     fn take_hit(&mut self, spec: &MoveSpec, attacker_facing: i8) -> (HitOutcome, u8) {
         (self.apply_hit(spec, attacker_facing), 0)
+    }
+
+    fn health_for_glance(&self) -> u8 {
+        self.health
     }
 }
 
@@ -886,7 +895,16 @@ pub fn resolve_strike<T: StrikeTarget>(
     sim_tick: u64,
     events: &mut Vec<CombatEvent>,
 ) {
-    let stop = strike_group(runner, move_tick, attacker, targets, 0, sim_tick, events);
+    let stop = strike_group(
+        runner,
+        move_tick,
+        attacker,
+        targets,
+        0,
+        sim_tick,
+        events,
+        &|spec, _hp| *spec,
+    );
     runner.begin_hit_stop(stop);
 }
 
@@ -895,7 +913,10 @@ pub fn resolve_strike<T: StrikeTarget>(
 /// then llamas) resolves one move over all of them with stable ids. Returns the
 /// hit-stop the attacker must freeze for (the longest of the hits in this
 /// group); the caller starts it once, after every group
-/// ([`MoveRunner::begin_hit_stop`] keeps the longest).
+/// ([`MoveRunner::begin_hit_stop`] keeps the longest). `glance` maps the move
+/// and the target's health to the move actually applied (the identity outside
+/// the companion's glance rule).
+#[allow(clippy::too_many_arguments)]
 pub fn strike_group<T: StrikeTarget>(
     runner: &mut MoveRunner,
     move_tick: &MoveTick,
@@ -904,6 +925,7 @@ pub fn strike_group<T: StrikeTarget>(
     first_id: u32,
     sim_tick: u64,
     events: &mut Vec<CombatEvent>,
+    glance: &dyn Fn(&MoveSpec, u8) -> MoveSpec,
 ) -> u8 {
     if move_tick.phase != Phase::Active || move_tick.frozen {
         return 0;
@@ -918,14 +940,15 @@ pub fn strike_group<T: StrikeTarget>(
         if !runner.record_hit(id) {
             continue;
         }
-        let (outcome, stop) = target.take_hit(spec, attacker.facing);
+        let landed = glance(spec, target.health_for_glance());
+        let (outcome, stop) = target.take_hit(&landed, attacker.facing);
         attacker_stop = attacker_stop.max(stop);
         events.push(CombatEvent::Hit {
             tick: sim_tick,
             move_id: spec.id,
             instance: move_tick.instance,
             target: id,
-            damage: spec.damage,
+            damage: landed.damage,
             health_left: match outcome {
                 HitOutcome::Hurt { health_left } => health_left,
                 HitOutcome::Defeated => 0,
@@ -2059,6 +2082,58 @@ mod tests {
         // The attacker froze for the move's hit-stop only if the target
         // reported one: the greybox enemy reports none.
         assert_eq!(runner.hit_stop_left(), 0);
+    }
+
+    #[test]
+    fn strike_group_with_the_identity_glance_logs_the_same_events_as_resolve_strike() {
+        let play = |glance: &dyn Fn(&MoveSpec, u8) -> MoveSpec| {
+            let carl = facing_right_carl();
+            let mut enemies = [goblin_at(125.0)];
+            let mut runner = MoveRunner::default();
+            let mut events = Vec::new();
+            for tick in 1..=6u64 {
+                if let Some(m) = runner.step((tick == 1).then_some(&CARL_JAB), 0, true) {
+                    let stop = strike_group(
+                        &mut runner,
+                        &m,
+                        carl,
+                        &mut enemies,
+                        0,
+                        tick,
+                        &mut events,
+                        glance,
+                    );
+                    runner.begin_hit_stop(stop);
+                }
+            }
+            (events, enemies[0].health)
+        };
+        let reference = {
+            let carl = facing_right_carl();
+            let mut enemies = [goblin_at(125.0)];
+            let mut runner = MoveRunner::default();
+            let mut events = Vec::new();
+            for tick in 1..=6u64 {
+                if let Some(m) = runner.step((tick == 1).then_some(&CARL_JAB), 0, true) {
+                    resolve_strike(&mut runner, &m, carl, &mut enemies, tick, &mut events);
+                }
+            }
+            (events, enemies[0].health)
+        };
+        assert_eq!(play(&|spec, _hp| *spec), reference);
+        assert!(!reference.0.is_empty(), "the jab connected");
+        // The hook is real: a glance that zeroes the damage reaches the target
+        // and the log (the shape CA-20 uses).
+        let (events, health) = play(&|spec, _hp| MoveSpec {
+            damage: 0,
+            ..*spec
+        });
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::Hit { damage: 0, .. }))
+        );
+        assert_eq!(health, ENEMY_HEALTH, "a glance deals no damage");
     }
 
     #[test]

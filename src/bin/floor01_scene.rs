@@ -2942,7 +2942,7 @@ fn fixed_step(
             attack: keys.pressed(KeyCode::KeyJ) || attack_tap,
             physical: keys.pressed(KeyCode::KeyK) || physical_tap,
             swap: swap_tap,
-            ..RawInput::default()
+            ..RawInput::NONE
         }
     };
     let mut live_slots = pads.0.take_inputs(keyboard);

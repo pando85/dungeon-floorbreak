@@ -490,7 +490,7 @@ impl Scenario {
             }
             Self::TurnAround if world.tick >= TURN_AROUND_TICK => RawInput {
                 move_x: -1.0,
-                ..RawInput::default()
+                ..RawInput::NONE
             },
             Self::WalkRight | Self::TurnAround => {
                 let hero = &world.hero;
@@ -519,7 +519,7 @@ impl Scenario {
                 RawInput {
                     move_x: if over_platform { 0.0 } else { 1.0 },
                     jump: hero.grounded && blocked,
-                    ..RawInput::default()
+                    ..RawInput::NONE
                 }
             }
         }
@@ -999,7 +999,7 @@ mod tests {
             let raw = RawInput {
                 move_x: 1.0,
                 jump: tick % 40 == 5,
-                ..RawInput::default()
+                ..RawInput::NONE
             };
             legacy.step(raw);
             party.step_party([raw, RawInput::default()]);
@@ -1126,7 +1126,7 @@ mod tests {
         for _ in 0..400 {
             sim.step(RawInput {
                 move_x: -1.0,
-                ..Default::default()
+                ..RawInput::NONE
             });
         }
         // The left end wall (one tile) stops the hero.
@@ -1140,7 +1140,7 @@ mod tests {
         for _ in 0..60 {
             frame.advance(RawInput {
                 move_x: 1.0,
-                ..Default::default()
+                ..RawInput::NONE
             });
             world.step(&frame);
         }
@@ -1152,7 +1152,7 @@ mod tests {
         let mut sim = sim(360);
         sim.step(RawInput {
             jump: true,
-            ..Default::default()
+            ..RawInput::NONE
         });
         assert!(!sim.world.hero.grounded);
         for _ in 0..90 {
@@ -1216,7 +1216,7 @@ mod tests {
         for _ in 0..90 {
             sim.step(RawInput {
                 move_x: 1.0,
-                ..Default::default()
+                ..RawInput::NONE
             });
         }
         let gap = sim.world.hero.x - sim.world.donut.x;
@@ -1265,7 +1265,7 @@ mod tests {
             // Tap jump every 70 ticks, never moving horizontally.
             sim.step(RawInput {
                 jump: tick % 70 < 2,
-                ..Default::default()
+                ..RawInput::NONE
             });
             assert!(
                 sim.world.trail.len() <= 4,

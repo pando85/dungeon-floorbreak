@@ -313,6 +313,10 @@ impl StrikeTarget for Llama {
         (self.x, self.y)
     }
 
+    fn health_for_glance(&self) -> u8 {
+        self.health
+    }
+
     /// Damage, then the reaction: the killing hit slides the body briefly
     /// away from the attacker ([`LLAMA_DEATH_SLIDE_VX`], about 30 px, so the
     /// head of the death pose does not lie under Carl's feet; the death art is

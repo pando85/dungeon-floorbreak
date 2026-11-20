@@ -23,6 +23,19 @@ pub struct RawInput {
     pub swap: bool,
 }
 
+impl RawInput {
+    /// No input: every field zero (what `Default` returns, usable in `const fn`).
+    pub const NONE: RawInput = RawInput {
+        move_x: 0.0,
+        jump: false,
+        attack: false,
+        physical: false,
+        ability: false,
+        pause: false,
+        swap: false,
+    };
+}
+
 /// One raw input per local player slot: index 0 is P1 (keyboard plus the first
 /// pad), index 1 is P2 (the second pad, joined with Start). See `crate::party`.
 pub type SlotInputs = [RawInput; 2];

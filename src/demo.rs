@@ -693,7 +693,7 @@ mod tests {
             for _ in 0..600 {
                 scene.step(RawInput {
                     move_x: dir,
-                    ..RawInput::default()
+                    ..RawInput::NONE
                 });
             }
             scene.world.hero.x
@@ -799,7 +799,7 @@ mod tests {
         for _ in 0..600 {
             run.step(RawInput {
                 move_x: -1.0,
-                ..RawInput::default()
+                ..RawInput::NONE
             });
         }
         assert!(run.scene.world.hero.x < CHECKPOINTS[cp] as f32);
@@ -823,7 +823,7 @@ mod tests {
             let inputs = party.hero_inputs([
                 RawInput {
                     move_x: 1.0,
-                    ..RawInput::default()
+                    ..RawInput::NONE
                 },
                 RawInput::default(),
             ]);

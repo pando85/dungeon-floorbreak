@@ -2720,7 +2720,7 @@ mod tests {
             let raw = RawInput {
                 move_x: if (t / 120) % 3 == 2 { -1.0 } else { 1.0 },
                 jump: t % 97 < 3 || t % 211 < 2,
-                ..RawInput::default()
+                ..RawInput::NONE
             };
             frame.advance(raw);
             step_hero(&mut hero, &frame, &blocks, 1988.0);

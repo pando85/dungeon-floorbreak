@@ -271,7 +271,7 @@ impl CombatState {
             RawInput {
                 move_x: ungated.move_x,
                 jump: ungated.jump,
-                ..RawInput::default()
+                ..RawInput::NONE
             }
         } else {
             RawInput::default()
@@ -1053,7 +1053,7 @@ mod tests {
         assert!(kit_hash(&kit).is_empty(), "locked and idle: nothing");
         kit.frame.advance(RawInput {
             attack: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         });
         assert!(!kit_hash(&kit).is_empty(), "a held button is hashed");
         kit.frame.advance(RawInput::default());

@@ -250,7 +250,7 @@ mod tests {
         let mut anim = animators(&sim.world);
         let run = RawInput {
             move_x: 1.0,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         let mut seen = Vec::new();
         for _ in 0..40 {
@@ -625,7 +625,7 @@ mod tests {
         for _ in 0..150 {
             sim.step(RawInput {
                 move_x: 1.0,
-                ..RawInput::default()
+                ..RawInput::NONE
             });
             anim.step(&sim.world);
             rows.push((
@@ -663,7 +663,7 @@ mod tests {
         for _ in 0..90 {
             sim.step(RawInput {
                 move_x: 1.0,
-                ..RawInput::default()
+                ..RawInput::NONE
             });
             anim.step(&sim.world);
             rows.push((sim.world.hero.x, anim.carl.tag(), sim.state_hash()));
@@ -687,7 +687,7 @@ mod tests {
         for row in &rows {
             bare.step(RawInput {
                 move_x: 1.0,
-                ..RawInput::default()
+                ..RawInput::NONE
             });
             assert_eq!(bare.state_hash(), row.2);
         }

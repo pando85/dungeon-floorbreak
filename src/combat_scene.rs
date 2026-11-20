@@ -23,7 +23,8 @@ use crate::boss::{
 };
 use crate::combat::{
     Attacker, CARL_BUFFER_TICKS, CombatEvent, DefeatCause, ENEMY_HALF_HEIGHT, ENEMY_HALF_WIDTH,
-    EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, MoveRunner, MoveTick, Phase, RootStep, carl_move,
+    EnemyAi, HERO_INVULNERABLE_TICKS, MoveId, MoveRunner, MoveSpec, MoveTick, Phase, RootStep,
+    carl_move,
     hit_box, solid_at, strike_group,
 };
 use crate::corridor::{PartyStepCtx, SceneSim};
@@ -45,7 +46,9 @@ use crate::party::{EnemyTargetRule, HeroId};
 use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, Rect, TICK_SECONDS};
 use crate::shore::{PLAYER_ONE, Shore};
 
+mod companion;
 mod donut;
+use self::companion::CompanionRuntime;
 pub use donut::{Bolt, Cast, DonutKit};
 
 /// Centre-to-centre distance at which Carl's body touches a goblin's (the two
@@ -97,13 +100,8 @@ const fn kick(from: u64, to: u64) -> Hold {
         from,
         to,
         input: RawInput {
-            move_x: 0.0,
-            jump: false,
-            attack: false,
             physical: true,
-            ability: false,
-            pause: false,
-            swap: false,
+            ..RawInput::NONE
         },
     }
 }
@@ -114,13 +112,8 @@ const fn attack(from: u64, to: u64) -> Hold {
         from,
         to,
         input: RawInput {
-            move_x: 0.0,
-            jump: false,
             attack: true,
-            physical: false,
-            ability: false,
-            pause: false,
-            swap: false,
+            ..RawInput::NONE
         },
     }
 }
@@ -133,12 +126,9 @@ const fn strike_towards(from: u64, to: u64, dir: f32, kick: bool) -> Hold {
         to,
         input: RawInput {
             move_x: dir,
-            jump: false,
             attack: !kick,
             physical: kick,
-            ability: false,
-            pause: false,
-            swap: false,
+            ..RawInput::NONE
         },
     }
 }
@@ -150,12 +140,7 @@ const fn walk(from: u64, to: u64, dir: f32) -> Hold {
         to,
         input: RawInput {
             move_x: dir,
-            jump: false,
-            attack: false,
-            physical: false,
-            ability: false,
-            pause: false,
-            swap: false,
+            ..RawInput::NONE
         },
     }
 }
@@ -167,13 +152,8 @@ const fn jump(from: u64, to: u64) -> Hold {
         from,
         to,
         input: RawInput {
-            move_x: 0.0,
             jump: true,
-            attack: false,
-            physical: false,
-            ability: false,
-            pause: false,
-            swap: false,
+            ..RawInput::NONE
         },
     }
 }
@@ -841,6 +821,8 @@ pub struct CombatState {
     /// runs only while the party is live and `PartyTuning::donut_moves` is on,
     /// and mixes nothing into the hash while she never used an ability.
     donut_kit: DonutKit,
+    /// COMPANION-AI-01 runtime state (CF02-00: an empty no-op stub).
+    companion: CompanionRuntime,
     /// Which hero's defeat ended the attempt (D1: either one is the party's
     /// defeat). Meaningful while `hero_defeated`.
     pub defeated_hero: HeroId,
@@ -922,6 +904,7 @@ impl CombatState {
             hero_vx: 0.0,
             donut: HeroCombat::default(),
             donut_kit: DonutKit::new(DonutSetup::NONE),
+            companion: CompanionRuntime::default(),
             defeated_hero: HeroId::Carl,
             targets: Vec::new(),
             defeated_ticks: 0,
@@ -1010,6 +993,7 @@ impl CombatState {
         self.last_tell_start = None;
         self.confirm = None;
         self.restart_donut(RestartKind::CheckpointRestart);
+        self.companion.reset();
         self.respawned = true;
         self.log(CombatEvent::Respawn {
             tick: scene.world.tick,
@@ -1133,6 +1117,7 @@ impl CombatState {
         scene.reset();
         self.reset_attempt();
         self.restart_donut(kind);
+        self.companion.reset();
         self.sync_arena(scene);
         self.restarts += 1;
     }
@@ -1180,6 +1165,7 @@ impl CombatState {
     /// Magic Missile run after Carl's strike and before the scene step (Carl,
     /// Donut, goblins).
     pub fn step_party(&mut self, scene: &mut SceneSim, inputs: [RawInput; 2]) {
+        let inputs = self.companion_inputs(scene, inputs);
         let raw = inputs[0];
         let live = scene.party_live();
         let tick = scene.world.tick + 1;
@@ -1261,6 +1247,9 @@ impl CombatState {
             let attacking: Vec<bool> = self.enemies.iter().map(Goblin::token_held).collect();
             let telling: Vec<bool> = self.llamas.iter().map(Llama::telling).collect();
             let mut hits = Vec::new();
+            let glance = self
+                .companion
+                .strike_glance(HeroId::Carl, move_tick.instance);
             // One move over every kind of target: the goblins (ids from 0),
             // then the llamas (ids after them). The attacker's hit-stop is the
             // longest of the hits, started once.
@@ -1272,6 +1261,7 @@ impl CombatState {
                 0,
                 tick,
                 &mut hits,
+                &|spec, hp| glance.apply(spec, hp),
             );
             if !self.llamas.is_empty() {
                 stop = stop.max(strike_group(
@@ -1282,6 +1272,7 @@ impl CombatState {
                     self.enemies.len() as u32,
                     tick,
                     &mut hits,
+                    &|spec, hp| glance.apply(spec, hp),
                 ));
             }
             scene.world.hero.melee.begin_hit_stop(stop);
@@ -1351,7 +1342,9 @@ impl CombatState {
             if self.boss.is_some() {
                 // Hero move on the boss (the runner is on the scene's hero).
                 let mut runner = std::mem::take(&mut scene.world.hero.melee);
-                self.strike_boss(&mut runner, &move_tick, attacker, tick);
+                self.strike_boss(&mut runner, &move_tick, attacker, tick, &|spec, hp| {
+                    glance.apply(spec, hp)
+                });
                 scene.world.hero.melee = runner;
             }
         }
@@ -1445,6 +1438,7 @@ impl CombatState {
         move_tick: &MoveTick,
         attacker: Attacker,
         tick: u64,
+        glance: &dyn Fn(&MoveSpec, u8) -> MoveSpec,
     ) {
         let Some(mut boss) = self.boss.take() else {
             return;
@@ -1462,11 +1456,12 @@ impl CombatState {
                 &mut events,
             );
             let reaches = boss.hurtbox().is_some_and(|b| b.overlaps(boxed));
+            let landed = glance(move_tick.spec, u8::try_from(boss.hp).unwrap_or(u8::MAX));
             if reaches
                 && runner.record_hit(BOSS_ENEMY_ID)
                 && let Some(result) = boss.apply_hit(
                     BossHit {
-                        damage: u16::from(move_tick.spec.damage),
+                        damage: u16::from(landed.damage),
                         poise: u16::from(move_tick.spec.damage),
                         player: attacker.player,
                         hit_stop: move_tick.spec.reaction.hit_stop,
@@ -2387,6 +2382,7 @@ impl CombatState {
             put(0x4445_4d4f);
             put(self.checkpoint as u64);
         }
+        self.companion.mix_hash(&mut put);
         hash
     }
 
@@ -2719,7 +2715,7 @@ mod tests {
     fn attack_input() -> RawInput {
         RawInput {
             attack: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         }
     }
 
@@ -2813,12 +2809,7 @@ mod tests {
             to: 40,
             input: RawInput {
                 move_x: 1.0,
-                jump: false,
-                attack: false,
-                physical: false,
-                ability: false,
-                pause: false,
-                swap: false,
+                ..RawInput::NONE
             },
         }],
         ticks: 150,
@@ -2936,7 +2927,7 @@ mod tests {
         sim.step(RawInput {
             attack: true,
             move_x: -1.0,
-            ..idle()
+            ..RawInput::NONE
         });
         assert_eq!(sim.scene.world.hero.facing, -1);
         for _ in 0..3 {
@@ -3255,7 +3246,7 @@ mod tests {
         for _ in 0..140 {
             sim.step(RawInput {
                 move_x: 1.0,
-                ..idle()
+                ..RawInput::NONE
             });
         }
         assert!(
@@ -3274,7 +3265,7 @@ mod tests {
         for _ in 0..13 {
             sim.step(RawInput {
                 physical: true, // held: still a single press edge
-                ..idle()
+                ..RawInput::NONE
             });
         }
         assert!(hits(&events_of(&sim)).is_empty());
@@ -3607,7 +3598,7 @@ mod tests {
         left.step(RawInput {
             physical: true,
             move_x: -1.0,
-            ..idle()
+            ..RawInput::NONE
         });
         for _ in 0..13 {
             left.step(idle());
@@ -3643,7 +3634,7 @@ mod tests {
         left.step(RawInput {
             physical: true,
             move_x: -1.0,
-            ..idle()
+            ..RawInput::NONE
         });
         for _ in 0..12 {
             left.step(idle());
@@ -3765,7 +3756,7 @@ mod tests {
             let raw = RawInput {
                 move_x: if tick < 60 { 1.0 } else { -1.0 },
                 jump: tick % 40 == 10,
-                ..idle()
+                ..RawInput::NONE
             };
             with.step(raw);
             bare.step(raw);
@@ -3841,7 +3832,7 @@ mod tests {
         for _ in 0..80 {
             special.step(RawInput {
                 ability: true,
-                ..idle()
+                ..RawInput::NONE
             });
         }
         assert!(starts(&events_of(&special)).is_empty());
@@ -3850,7 +3841,7 @@ mod tests {
         for _ in 0..30 {
             kicked.step(RawInput {
                 physical: true,
-                ..idle()
+                ..RawInput::NONE
             });
         }
         assert_eq!(starts(&events_of(&kicked)), [(1, MoveId::PushKick)]);
@@ -4151,7 +4142,7 @@ mod tests {
             for _ in 0..200 {
                 sim.step(RawInput {
                     move_x: 1.0,
-                    ..idle()
+                    ..RawInput::NONE
                 });
             }
             let after = sim.scene.world.hero.x;
@@ -5017,7 +5008,7 @@ mod tests {
         let mut sim = sim_of(&NO_GOBLINS);
         let special = RawInput {
             ability: true,
-            ..RawInput::default()
+            ..RawInput::NONE
         };
         for _ in 0..60 {
             sim.step(special);
