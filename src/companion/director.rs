@@ -14,8 +14,8 @@
 //! or float comparison decides anything (utilities are integers).
 //!
 //! **Cadence (CA-10).** Support attacks are planned every
-//! `decision_cadence_ticks` (6) and revalidated every tick; interrupts are
-//! evaluated on every tick. One AI-started move per `action_cadence_ticks`
+//! `ca10_decision_cadence_ticks` (6) and revalidated every tick; interrupts are
+//! evaluated on every tick. One AI-started move per `cf02_q16_action_cadence_ticks`
 //! (CF02-Q16).
 //!
 //! **Safety vetoes.** No press while the hero cannot start a move; no Donut
@@ -26,7 +26,7 @@
 //! CF02-Q55 and the AI never does it); and a press needs a released button on
 //! the tick before, so it is always a clean press edge.
 
-use crate::combat::CARL_JAB;
+use crate::combat::{CARL_HAYMAKER, CARL_JAB, MoveId};
 use crate::companion::profile::{KillPolicy, ProfileSet};
 use crate::companion::view::{
     CompanionView, Control, HeroView, StableEntityId, TargetState, TargetView, ThreatView,
@@ -55,6 +55,9 @@ pub enum Action {
     Pounce,
     /// Carl's jab (Primary).
     Jab,
+    /// Carl's haymaker: the legal jab chain (a second Primary press inside
+    /// the running jab's window). Part of the same AI-started move (CA-36).
+    Haymaker,
 }
 
 impl Action {
@@ -72,7 +75,7 @@ pub enum Veto {
     HeroDown,
     /// The hero cannot start a move (hurt, frozen, in a move).
     CannotStartMove,
-    /// CF02-Q16: an AI move started less than `action_cadence_ticks` ago.
+    /// CF02-Q16: an AI move started less than `cf02_q16_action_cadence_ticks` ago.
     ActionCadence,
     /// The button was held on the previous tick: a press needs a gap.
     PressEdge,
@@ -239,14 +242,14 @@ impl CompanionDirector {
             return (RawInput::default(), Decision::idle(Some(Veto::HeroDown)));
         }
         let active = match self.hero {
-            HeroId::Carl => set.carl.active,
-            HeroId::Donut => set.donut.active,
+            HeroId::Carl => set.carl.ca21_active,
+            HeroId::Donut => set.donut.ca21_active,
         };
 
-        // Planning (CA-10): the support plan every `decision_cadence_ticks`.
-        let due = self
-            .last_plan_tick
-            .is_none_or(|t| view.tick.saturating_sub(t) >= u64::from(set.decision_cadence_ticks));
+        // Planning (CA-10): the support plan every `ca10_decision_cadence_ticks`.
+        let due = self.last_plan_tick.is_none_or(|t| {
+            view.tick.saturating_sub(t) >= u64::from(set.ca10_decision_cadence_ticks)
+        });
         if due {
             self.last_plan_tick = Some(view.tick);
             self.plan = if active {
@@ -282,6 +285,7 @@ impl CompanionDirector {
                 )
             }
         };
+        let (mode, goal) = self.with_chain(view, set, &me, active, mode, goal);
         self.mode = mode;
 
         let follow = view.follow[self.hero.index()];
@@ -314,7 +318,12 @@ impl CompanionDirector {
             } else if !facing_ok {
                 raw.move_x = sign(c.dx) as f32; // turn to it, press next tick
             } else {
-                decision.veto = self.press_veto(view, set, &me, c.action);
+                let chain = c.action == Action::Haymaker;
+                decision.veto = if chain {
+                    self.chain_veto(&me)
+                } else {
+                    self.press_veto(view, set, &me, c.action)
+                };
                 if decision.veto.is_none() {
                     if c.action.uses_physical() {
                         next.physical = true;
@@ -322,7 +331,11 @@ impl CompanionDirector {
                         next.attack = true;
                     }
                     decision.pressed = true;
-                    self.last_action_tick = Some(view.tick);
+                    if !chain {
+                        // A chain follow-up is part of the running AI-started
+                        // move: it does not restart the Q16 cadence (CA-36).
+                        self.last_action_tick = Some(view.tick);
+                    }
                 }
             }
         }
@@ -330,7 +343,7 @@ impl CompanionDirector {
         // CA-26: no Jump during the hero's own move; a press tick never jumps;
         // a held jump is released first so the next one is an edge.
         if jump {
-            let in_move = me.active_move.is_some() && !set.ai_bailout;
+            let in_move = me.active_move.is_some() && !set.ca26_ai_bailout;
             if in_move || decision.pressed {
                 jump = false;
                 decision.jump_dropped = true;
@@ -364,7 +377,7 @@ impl CompanionDirector {
             return Some(Veto::CannotStartMove);
         }
         if let Some(last) = self.last_action_tick
-            && view.tick.saturating_sub(last) < u64::from(set.action_cadence_ticks)
+            && view.tick.saturating_sub(last) < u64::from(set.cf02_q16_action_cadence_ticks)
         {
             return Some(Veto::ActionCadence);
         }
@@ -374,6 +387,59 @@ impl CompanionDirector {
             self.held.attack
         };
         held.then_some(Veto::PressEdge)
+    }
+
+    /// CA-36: inside the running AI-started jab's chain window the goal on the
+    /// same target becomes the haymaker, if that follow-up is itself legal
+    /// (under `never` it must not be lethal: the view's HP is read after the
+    /// jab landed, the window starts when the jab's active ticks are over).
+    fn with_chain(
+        &self,
+        view: &CompanionView,
+        set: &ProfileSet,
+        me: &HeroView,
+        active: bool,
+        mode: Mode,
+        goal: Option<Candidate>,
+    ) -> (Mode, Option<Candidate>) {
+        let unchanged = (mode, goal);
+        let (true, HeroId::Carl, Some(goal)) = (active, self.hero, goal) else {
+            return unchanged;
+        };
+        let (Some(mv), Some(chain)) = (me.active_move, CARL_JAB.chain) else {
+            return unchanged;
+        };
+        if goal.action != Action::Jab || mv.id != MoveId::Jab || !mv.ai_started {
+            return unchanged;
+        }
+        let elapsed = CARL_JAB.total().saturating_sub(mv.ticks_left);
+        let from = chain.press_from.max(CARL_JAB.startup + CARL_JAB.active);
+        if elapsed < from || elapsed > chain.press_to {
+            return unchanged;
+        }
+        let Some(target) = view.target(goal.target) else {
+            return unchanged;
+        };
+        match self.support_candidate(view, set, me, target, Action::Haymaker) {
+            Some(c) => (
+                if mode == Mode::Follow {
+                    Mode::SupportAttack
+                } else {
+                    mode
+                },
+                Some(c),
+            ),
+            None => unchanged,
+        }
+    }
+
+    /// The chain follow-up needs no free hero (it is inside the running move)
+    /// and no cadence slot, only a hero that is not hurt and a clean edge.
+    fn chain_veto(&self, me: &HeroView) -> Option<Veto> {
+        if me.hurt_ticks > 0 {
+            return Some(Veto::CannotStartMove);
+        }
+        self.held.attack.then_some(Veto::PressEdge)
     }
 
     /// The best interrupt of a tell aimed at the other hero.
@@ -425,12 +491,12 @@ impl CompanionDirector {
                     (threat.tell_tick >= d.cf02_q14_swat_tell_tick
                         && distance <= f32::from(d.cf02_q14_swat_range_px)
                         && lands)
-                        .then(|| slot(Action::Swat, d.swat_hit_min_px, d.swat_hit_max_px))
+                        .then(|| slot(Action::Swat, d.ca40_swat_hit_min_px, d.ca40_swat_hit_max_px))
                 } else {
                     // Q17: never before the unlock (above), only above the AI
                     // reserve, only in the missile band, early in the tell.
                     (mana.ai_can_cast
-                        && threat.tell_tick <= d.missile_latest_tell_tick
+                        && threat.tell_tick <= d.ca40_missile_latest_tell_tick
                         && distance >= f32::from(d.cf02_q17_missile_min_px)
                         && distance <= f32::from(d.cf02_q17_missile_max_px))
                     .then(|| {
@@ -446,8 +512,8 @@ impl CompanionDirector {
             HeroId::Carl => {
                 let c = &set.carl;
                 let lands = threat.tell_tick + CARL_JAB.startup <= threat.tell_len;
-                (distance <= f32::from(c.interrupt_range_px) && lands)
-                    .then(|| slot(Action::Jab, c.strike_min_px, c.strike_max_px))
+                (distance <= f32::from(c.ca40_interrupt_range_px) && lands)
+                    .then(|| slot(Action::Jab, c.ca37_strike_min_px, c.ca37_strike_max_px))
             }
         }
     }
@@ -501,7 +567,7 @@ impl CompanionDirector {
         }
         let dx = target.x - me.x;
         let distance = dx.abs();
-        let kills = |damage: u8| set.kill_policy == KillPolicy::Never && target.hp <= damage;
+        let kills = |damage: u8| set.ca19_kill_policy == KillPolicy::Never && target.hp <= damage;
         match (self.hero, action) {
             (HeroId::Donut, Action::Pounce) => {
                 let d = &set.donut;
@@ -525,7 +591,7 @@ impl CompanionDirector {
                     reach_max: f32::from(d.cf02_q15_pounce_max_px),
                 })
             }
-            (HeroId::Carl, Action::Jab) => {
+            (HeroId::Carl, Action::Jab | Action::Haymaker) => {
                 let c = &set.carl;
                 let hittable = matches!(
                     target.state,
@@ -533,15 +599,19 @@ impl CompanionDirector {
                 );
                 (hittable
                     && target.hp > 0
-                    && !kills(CARL_JAB.damage)
-                    && distance <= f32::from(c.engage_range_px))
+                    && !kills(if action == Action::Jab {
+                        CARL_JAB.damage
+                    } else {
+                        CARL_HAYMAKER.damage
+                    })
+                    && distance <= f32::from(c.ca40_engage_range_px))
                 .then_some(Candidate {
                     action,
                     target: target.id,
                     utility: STRIKE_UTILITY - px(distance),
                     dx,
-                    reach_min: f32::from(c.strike_min_px),
-                    reach_max: f32::from(c.strike_max_px),
+                    reach_min: f32::from(c.ca37_strike_min_px),
+                    reach_max: f32::from(c.ca37_strike_max_px),
                 })
             }
             _ => None,
@@ -889,7 +959,7 @@ mod tests {
         // Never lethal under `never`; unchanged under `factual`.
         assert!(!pounce(110.0, 1, lying, 1, &assist()).0);
         let mut factual = assist();
-        factual.kill_policy = KillPolicy::Factual;
+        factual.ca19_kill_policy = KillPolicy::Factual;
         assert!(pounce(110.0, 1, lying, 1, &factual).0);
     }
 
@@ -950,9 +1020,80 @@ mod tests {
             "a glance would waste the move"
         );
         let mut factual = v0();
-        factual.kill_policy = KillPolicy::Factual;
+        factual.ca19_kill_policy = KillPolicy::Factual;
         let (raw, d) = carl().step_traced(&v, &factual);
         assert!(raw.attack && d.mode == Mode::SupportAttack);
+    }
+
+    // ------------------------------------------------------------ jab chain --
+
+    /// AI Carl mid-jab (`elapsed` ticks into it) facing a goblin 25 px ahead.
+    fn mid_jab(elapsed: u16, hp: u8, ai_started: bool, tick: u64) -> CompanionView {
+        let mut v = carl_ai(60.0);
+        v.tick = tick;
+        v.heroes[0].can_start_move = false;
+        v.heroes[0].active_move = Some(ActiveMove {
+            id: MoveId::Jab,
+            phase: MovePhase::Recovery,
+            ticks_left: CARL_JAB.total() - elapsed,
+            ai_started,
+        });
+        v.targets = vec![target(0, 85.0, hp, TargetState::Standing)];
+        v
+    }
+
+    #[test]
+    fn ca36_ai_carl_chains_the_haymaker_inside_the_jab_window() {
+        let mut dir = carl();
+        let set = v0();
+        // The jab press itself (tick 100).
+        let mut v = carl_ai(60.0);
+        v.tick = 100;
+        v.targets = vec![target(0, 85.0, 3, TargetState::Standing)];
+        let (raw, d) = dir.step_traced(&v, &set);
+        assert!(raw.attack && d.action == Some(Action::Jab));
+        // Before the jab has landed (elapsed < 5) and after the window: no press.
+        for elapsed in [1, 4, 14] {
+            let (raw, d) = dir.step_traced(&mid_jab(elapsed, 3, true, 101), &set);
+            assert!(!raw.attack && !d.pressed, "elapsed {elapsed}");
+        }
+        // Inside the window the follow-up is the haymaker, with no cadence veto.
+        for elapsed in [5, 9, 13] {
+            let mut d2 = dir.clone();
+            let (raw, d) = d2.step_traced(&mid_jab(elapsed, 3, true, 105), &set);
+            assert!(raw.attack && !raw.physical, "elapsed {elapsed}");
+            assert_eq!((d.action, d.veto), (Some(Action::Haymaker), None));
+            assert_eq!(d.mode, Mode::SupportAttack);
+        }
+        // Not a jab the AI started: no chain.
+        let (raw, _) = dir.clone().step_traced(&mid_jab(6, 3, false, 106), &set);
+        assert!(!raw.attack);
+        // The chain does not count against the one-move-per-60-ticks limit:
+        // the cadence still runs from the jab press at tick 100.
+        let (raw, _) = dir.step_traced(&mid_jab(6, 3, true, 106), &set);
+        assert!(raw.attack);
+        let free = |tick| {
+            let mut v = carl_ai(60.0);
+            v.tick = tick;
+            v.targets = vec![target(0, 85.0, 3, TargetState::Standing)];
+            v
+        };
+        let (raw, d) = dir.step_traced(&free(159), &set);
+        assert!(!raw.attack && d.veto == Some(Veto::ActionCadence));
+        assert!(dir.step_traced(&free(160), &set).0.attack, "100 + 60");
+    }
+
+    #[test]
+    fn the_chain_follows_the_kill_policy_on_the_hp_after_the_jab() {
+        // Under `never` a haymaker that would defeat is not chained.
+        let (raw, d) = carl().step_traced(&mid_jab(6, 1, true, 106), &v0());
+        assert!(!raw.attack && d.mode == Mode::Follow);
+        let mut factual = v0();
+        factual.ca19_kill_policy = KillPolicy::Factual;
+        let (raw, d) = carl().step_traced(&mid_jab(6, 1, true, 106), &factual);
+        assert!(raw.attack && d.action == Some(Action::Haymaker));
+        // The passive cf02_assist Carl never chains.
+        assert!(!carl().step(&mid_jab(6, 3, true, 106), &assist()).attack);
     }
 
     // -------------------------------------------------------- authority vetoes --
@@ -1035,7 +1176,7 @@ mod tests {
         assert!(raw.jump && !d.jump_dropped);
         // The bail-out knob (never on in v0 data) would let it through.
         let mut bail = assist();
-        bail.ai_bailout = true;
+        bail.ca26_ai_bailout = true;
         assert!(follow_jump(mv(MovePhase::Recovery), &bail).0.jump);
     }
 
@@ -1085,7 +1226,7 @@ mod tests {
     #[test]
     fn a_press_needs_a_released_button_the_tick_before() {
         let mut set = assist();
-        set.action_cadence_ticks = 1; // isolate the edge rule
+        set.cf02_q16_action_cadence_ticks = 1; // isolate the edge rule
         let mut dir = donut();
         let mut seen = Vec::new();
         for tick in 100..104u64 {

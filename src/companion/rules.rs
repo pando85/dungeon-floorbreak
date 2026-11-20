@@ -8,14 +8,14 @@ use crate::combat::MoveSpec;
 use crate::companion::profile::KillPolicy;
 
 /// Whether an AI-started hit of `damage` on a target with `target_hp` is a
-/// glance under `kill_policy`.
+/// glance under `ca19_kill_policy`.
 pub const fn is_glance(
     damage: u8,
     target_hp: u8,
     ai_started: bool,
-    kill_policy: KillPolicy,
+    ca19_kill_policy: KillPolicy,
 ) -> bool {
-    matches!(kill_policy, KillPolicy::Never) && ai_started && damage > 0 && damage >= target_hp
+    matches!(ca19_kill_policy, KillPolicy::Never) && ai_started && damage > 0 && damage >= target_hp
 }
 
 /// The move as it lands. Under `never`, an AI-started hit whose damage is at
@@ -28,9 +28,9 @@ pub fn glance(
     spec: MoveSpec,
     target_hp: u8,
     ai_started: bool,
-    kill_policy: KillPolicy,
+    ca19_kill_policy: KillPolicy,
 ) -> MoveSpec {
-    if is_glance(spec.damage, target_hp, ai_started, kill_policy) {
+    if is_glance(spec.damage, target_hp, ai_started, ca19_kill_policy) {
         MoveSpec { damage: 0, ..spec }
     } else {
         spec
