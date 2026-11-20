@@ -1,6 +1,18 @@
 name: art-assets
 on:
   pull_request:
+    paths:
+      # CI-SPEED-01: skip documentation-only PRs (the documentation workflow
+      # still runs). The art tests read the art specs, the cost ledger and the
+      # committed evidence, so those docs paths re-include the workflow.
+      # Pushes to main are never filtered.
+      - '**'
+      - '!*.md'
+      - '!docs/**'
+      - 'docs/02-art/**'
+      - 'docs/07-agents/**'
+      - 'docs/evidence/**'
+      - '!.github/ISSUE_TEMPLATE/**'
   push:
     branches: [main]
   workflow_dispatch:

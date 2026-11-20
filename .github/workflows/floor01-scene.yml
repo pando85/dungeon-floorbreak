@@ -1,6 +1,18 @@
 name: floor01-scene
 on:
   pull_request:
+    paths:
+      # CI-SPEED-01: skip documentation-only PRs (the documentation workflow
+      # still runs). Later patterns re-include what this workflow validates:
+      # docs/evidence/** (committed logs and traces the combat scripts diff) and
+      # docs/*.json (audio and asset manifests read by Rust tests). Pushes to
+      # main are never filtered.
+      - '**'
+      - '!**/*.md'
+      - '!docs/**'
+      - 'docs/evidence/**'
+      - 'docs/*.json'
+      - '!.github/ISSUE_TEMPLATE/**'
   push:
     branches: [main]
   workflow_dispatch:
@@ -10,7 +22,33 @@ concurrency:
   group: floor01-scene-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
+  build:
+    # CI-SPEED-01: the one compile of floor01_scene. corridor-scene,
+    # corridor-captures and corridor-combat-frames download this binary
+    # instead of each compiling it (the scripts expect ./target/debug/floor01_scene).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/floor01-setup
+        with:
+          runtime: 'false'
+      - name: Compile the Floor 1 scene
+        run: cargo build --locked --bin floor01_scene
+      - name: Upload the floor01_scene binary for the other jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: floor01-scene-bin
+          path: target/debug/floor01_scene
+          retention-days: 1
+          compression-level: 1
+          if-no-files-found: error
+
   corridor-scene:
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -21,6 +59,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/floor01-setup
+        with:
+          download-binary: 'true'
       - name: Check actor pivots, kit atlases and layout against the contract
         run: python3 scripts/check_floor01_scene_contract.py
       - name: Exported atlas JSON must equal the committed grid sources (fails instead of skipping)
@@ -33,8 +73,6 @@ jobs:
         run: cargo test --locked --lib the_exported_boss_atlases_bind_every_state_when_present
       - name: Negative tests for the scene contract checker
         run: python3 -m unittest discover -s tests -p 'test_floor01_scene_*.py' -v
-      - name: Compile the Floor 1 scene
-        run: cargo build --locked --bin floor01_scene
       - name: Headless corridor smoke (no GPU)
         run: ./target/debug/floor01_scene --headless-floor01-smoke --scenario walk_right --capture-tick 250
       - name: Real Bevy render, primary 1920x1080 (3x), lighting on
@@ -117,6 +155,7 @@ jobs:
           if-no-files-found: warn
 
   corridor-captures:
+    needs: build
     # HUD, boss and AUDIENCE-01 captures. Split out of corridor-scene (CI-CORRIDOR-TIME)
     # so they run in parallel with it; no check was dropped or changed.
     runs-on: ubuntu-24.04
@@ -131,8 +170,8 @@ jobs:
       - uses: ./.github/actions/floor01-setup
         with:
           save-cache: 'false'
-      - name: Compile the Floor 1 scene
-        run: cargo build --locked --bin floor01_scene
+          rust: 'false'
+          download-binary: 'true'
       - name: HUD-HYBRID-A-01 captures at 640x360 (normal, five preview fixtures, real hurt and notices; pixel-integrity checked)
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh hud
       - name: HUD-HYBRID-A-01 captures at 640x400 (Deck framing)
@@ -161,6 +200,7 @@ jobs:
           if-no-files-found: warn
 
   corridor-combat-frames:
+    needs: build
     # The 12 real 1920x1080 frame sequences of ci_floor01_combat.sh, parallel
     # shards (CI-CORRIDOR-TIME). The shard index and count come from the matrix
     # (strategy.job-index / job-total): shard i runs the sequences whose index
@@ -181,8 +221,8 @@ jobs:
       - uses: ./.github/actions/floor01-setup
         with:
           save-cache: 'false'
-      - name: Compile the Floor 1 scene
-        run: cargo build --locked --bin floor01_scene
+          rust: 'false'
+          download-binary: 'true'
       - name: Combat fixtures, real Bevy 1920x1080 frame sequences, shard ${{ strategy.job-index }} of ${{ strategy.job-total }} (replay and frames drawn must equal the headless run)
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render-sequences ${{ strategy.job-index }} ${{ strategy.job-total }}
       - name: Upload combat frame evidence

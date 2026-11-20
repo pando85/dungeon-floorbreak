@@ -64,6 +64,16 @@ Rules:
 - **Agent lifetime:** start a fresh, short brief for each review round. Do not resume a long-lived top-tier agent.
 - **Gameplay checks:** routine visual and feel checks for gameplay PRs go to the medium tier. The top tier is used only for real feel or design decisions.
 
+## Speed mode
+
+Owner directive, 2026-11-20: optimize the work, merge what you are almost sure works or can be fixed later; intermediate instability is acceptable, the end result must be good. The same rule is recorded in [AGENTS.md](../../AGENTS.md#model-routing-for-art-work).
+
+- **No backlog edits in implementation PRs.** They do not touch `docs/04-production/backlog.md`; status notes go in the PR body (behavior, evidence, adopted defaults, shared-file edits). The orchestrator batch-updates the backlog after merges.
+- **Review stays, re-review shrinks.** An independent top-tier review is still required before merge. Non-blocking findings may be fixed forward in a follow-up PR. After a fix list, a medium-tier fix check is enough to merge; a top-tier re-review is needed only when the review found a design or logic defect.
+- **Group related stages.** Related stages of one work order may ship as one PR when their dependencies allow it (for example CF02-A+H in [the COMBAT-FUN-02 work order](combat-fun-02-workorder.md#parallel-groups)). The grouped PR keeps the acceptance criteria and fixtures of every stage it contains.
+
+Rationale: serial rebases of the shared backlog file and CI queueing were the bottleneck, not the implementation work. Every PR that edited the backlog conflicted with the previous one and had to rebase and re-run CI; fewer, larger-but-related PRs and no shared hot file remove those cycles. CI-SPEED-01 cuts the other half: documentation-only PRs skip the heavy workflows and the Floor 1 scene workflow compiles its binary once. Game feel is still reviewed by the owner after merge.
+
 ## Reading discipline
 
 Read docs by headings first (`grep -n "^#" <file>`), then read only the sections needed, using offsets and limits. Do not read a large file whole "just in case". Look at images sparingly: a reviewer looks at about 3 images per review, and an orchestrator spot check looks at 1. Pixel-level checks belong to the reviewers, not the orchestrator.

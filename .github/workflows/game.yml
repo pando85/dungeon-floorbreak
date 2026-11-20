@@ -1,6 +1,17 @@
 name: game
 on:
   pull_request:
+    paths:
+      # CI-SPEED-01: skip documentation-only PRs (the documentation workflow
+      # still runs). Later patterns re-include what this workflow reads:
+      # docs/evidence/** (committed logs read by Rust tests) and docs/*.json
+      # (audio and asset manifests). Pushes to main are never filtered.
+      - '**'
+      - '!**/*.md'
+      - '!docs/**'
+      - 'docs/evidence/**'
+      - 'docs/*.json'
+      - '!.github/ISSUE_TEMPLATE/**'
   push:
     branches: [main]
 permissions:
