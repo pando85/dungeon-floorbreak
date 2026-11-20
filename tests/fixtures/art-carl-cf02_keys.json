@@ -1,0 +1,46 @@
+{
+  "asset_id": "art-carl-cf02",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "454b1a8589446739eb0ec6cfed4a396e648855a8323aaff2500f7832f399aba9"
+    },
+    "1": {
+      "sha256": "bf54f04f938fdf87aa1d39b767ac28121f4993ceea9796b13393077c87205bc0"
+    },
+    "10": {
+      "sha256": "532b61f1d03980fc0055274cde7f9985263eb1fa7b0147d22594b4665fab6a37"
+    },
+    "11": {
+      "sha256": "17a5f56497eab1c439e75cad93f4c5c9eba7eb688ff1fa871afb0a25b78b6b5f"
+    },
+    "4": {
+      "sha256": "c0d9ff94a320ff3fe831ffa07a84814d35aaebc8650300356242060e704a4e6c"
+    },
+    "5": {
+      "sha256": "21cd292abc46ad276a6f0040971ef91caa2174aedb49b4d9b1fe4876c70fcb74"
+    },
+    "6": {
+      "sha256": "3c48a8d677d131f8e96416d6552583c5559c443d706e04c7be31a7dd6d43836a"
+    },
+    "7": {
+      "sha256": "fdff5791947841d6854070ca6673c7923d888a088cd6d7067b8463cd5ba02b5b"
+    },
+    "9": {
+      "sha256": "e6e9a2b2987de4c27e456bd37214451082a78350140c10081150ef4de7dce238"
+    }
+  },
+  "layers": [
+    "far_arm",
+    "legs",
+    "shoes",
+    "torso",
+    "boxers",
+    "jacket",
+    "head",
+    "hair",
+    "near_arm",
+    "watch",
+    "pin"
+  ]
+}
