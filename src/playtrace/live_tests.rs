@@ -338,6 +338,50 @@ impl DemoRig {
         }
     }
 
+    /// CF02-F: a rig for `--cf02` (the microarena, `arena::RULES`, the CF02 rules,
+    /// the party the caller built): the descriptor the binary writes for the flag.
+    pub(super) fn cf02(base: &Path, party: PartyState) -> Self {
+        let kit = crate::cf02::arena::load_arena(&root()).expect("arena");
+        let fixture = crate::cf02::arena::fixture_for_beat(0);
+        let scene = SceneSim::new_at(&kit, 360, fixture.carl_x).unwrap();
+        let combat = CombatState::new(fixture, &kit, &scene)
+            .unwrap()
+            .with_donut(crate::donut_mana::DonutSetup::NONE)
+            .with_demo(&crate::cf02::arena::RULES)
+            .with_cf02()
+            .with_cf02_seed(None);
+        let reset = ResetDescriptor {
+            source: "demo".to_owned(),
+            name: fixture.name.to_owned(),
+            demo: true,
+            demo_beat: 0,
+            cf02_rules: true,
+            cf02_seed: None,
+            view_height: 360,
+            donut_biscuit: false,
+            kit_hash: real_kit_hash(),
+            start_hash: combat.state_hash(&scene),
+        };
+        let manifest = stamped(reset);
+        let rec =
+            LiveRecorder::start(base, manifest, &scene, Some(&combat), &party, false).unwrap();
+        Self {
+            scene,
+            combat,
+            party,
+            rec,
+            hashes: Vec::new(),
+        }
+    }
+
+    /// A manual restart (R or Select held) of the demo path.
+    pub(super) fn restart(&mut self) {
+        self.combat.restart(&mut self.scene);
+        self.party.restart();
+        self.rec
+            .note_restart(&self.scene, Some(&self.combat), &self.party);
+    }
+
     pub(super) fn select_tap_respawn(&mut self) {
         self.combat.respawn(&mut self.scene);
         let _ = self.combat.take_respawned();

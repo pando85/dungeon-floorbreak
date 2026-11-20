@@ -373,6 +373,29 @@ impl PartyFixtureSim {
         Ok(sim)
     }
 
+    /// Tests only: a sim from a scene and combat state built by the caller (for
+    /// example one run under an edited CF02 tuning).
+    #[doc(hidden)]
+    pub fn from_parts(
+        scene: SceneSim,
+        combat: CombatState,
+        fixture: &'static PartyFixture,
+    ) -> Self {
+        let mut party = PartyState::new(fixture.tuning);
+        if fixture.two_player {
+            party.pad_connected(PadId(1));
+            party.pad_start_pressed(PadId(2));
+        }
+        let mut sim = Self {
+            scene,
+            combat,
+            party,
+            fixture,
+        };
+        sim.scene.set_drive(sim.party.drive(true));
+        sim
+    }
+
     /// One tick with explicit slot inputs: the swap, the party routing, the
     /// scene drive and the combat step, the same order as the interactive scene.
     pub fn step_slots(&mut self, slots: SlotInputs) {

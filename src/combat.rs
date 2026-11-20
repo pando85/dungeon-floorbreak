@@ -1576,7 +1576,7 @@ pub enum CombatEvent {
     },
     /// CF02-F (Q31, Q41), appended: a **goblin's** swing hit the rotten shore (a
     /// shore already in `damaged_1` or later; an intact one ignores goblins).
-    /// `hits` is the shore's count after it (3 breaks it: `broke`). Never a
+    /// `hits` is the shore's count after it (3 breaks it: `broke`); `credited` is the hero (player index) who last hit the shore and gets the later block kills. Never a
     /// `ShoreHit` or `ShoreBroken` (those are a hero's and feed CINE-01); the kill
     /// credit of a later block goes to the hero who last hit the shore.
     ShoreTripped {
@@ -1584,6 +1584,7 @@ pub enum CombatEvent {
         goblin: u32,
         hits: u8,
         broke: bool,
+        credited: u32,
     },
 }
 
@@ -1947,12 +1948,14 @@ impl CombatEvent {
                 goblin,
                 hits,
                 broke,
+                credited,
             } => {
                 mix(0x5452_4950);
                 mix(tick);
                 mix(u64::from(goblin));
                 mix(u64::from(hits));
                 mix(u64::from(broke));
+                mix(u64::from(credited));
             }
         }
     }
@@ -2249,9 +2252,10 @@ impl fmt::Display for CombatEvent {
                 goblin,
                 hits,
                 broke,
+                credited,
             } => write!(
                 f,
-                "COMBAT_EVENT tick={tick} kind=shore_tripped goblin={goblin} hits={hits} broke={}",
+                "COMBAT_EVENT tick={tick} kind=shore_tripped goblin={goblin} hits={hits} broke={} credited={credited}",
                 u8::from(broke)
             ),
         }

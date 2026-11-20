@@ -17,7 +17,7 @@ use crate::donut_fixtures::{physical, primary};
 use crate::donut_mana::DonutSetup;
 use crate::input::RawInput;
 use crate::party::PROVISIONAL_TUNING;
-use crate::party_scene::{PartyFixture, SlotHold, base, jump, run};
+use crate::party_scene::{PartyFixture, SlotHold, base, jump, run, swap};
 
 /// A stationary goblin test dummy (it never tells or walks; it still gets hurt,
 /// launched, lies down and gets up).
@@ -1179,6 +1179,29 @@ pub const CF02_ARENA_ENVIRONMENT: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+const ARENA_SWAP_BASE: Fixture = arena::fixture(
+    "cf02_arena_swap",
+    "CF02-F: solo in the room, Carl runs toward the first wave, the player swaps to Donut (12-tick cooldown), runs her back and swaps again (the trailing bot is inside the 40 px deadzone, so the camera follows without a long pan)",
+    0xCF02_F104,
+    300,
+);
+
+/// Q19 in the room: the solo swap under the `--cf02` tuning (evidence GIF).
+pub const CF02_ARENA_SWAP: PartyFixture = PartyFixture {
+    base: &ARENA_SWAP_BASE,
+    two_player: false,
+    tuning: ARENA_SOLO,
+    script: &[
+        run(5, 110, 0, 1.0),
+        swap(110, 111),
+        run(114, 150, 0, -1.0),
+        swap(160, 161),
+        run(166, 230, 0, 1.0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
 const ARENA_COOP_BASE: Fixture = arena::fixture(
     "cf02_arena_coop",
     "CF02-F: two players, the cooperative approach: P2 Donut swats the tell aimed at Carl and pounces what lies, Carl finishes; both waves",
@@ -1407,7 +1430,7 @@ pub const CF02_PERCH_DIVE: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
-pub const CF02_FIXTURES: [&PartyFixture; 60] = [
+pub const CF02_FIXTURES: [&PartyFixture; 61] = [
     &CF02_KICK_THEN_STOMP,
     &CF02_STOMP_WHIFF,
     &CF02_STOMP_STANDING,
@@ -1457,6 +1480,7 @@ pub const CF02_FIXTURES: [&PartyFixture; 60] = [
     &CF02_RESTART_RESHUFFLES,
     &CF02_ARENA_DIRECT,
     &CF02_ARENA_ENVIRONMENT,
+    &CF02_ARENA_SWAP,
     &CF02_ARENA_COOP,
     &CF02_ARENA_THREE_ATTEMPTS,
     &CF02_BLOCK_HURTS_CARL,
@@ -1695,7 +1719,7 @@ mod tests {
 
     /// The goldens: one FNV state hash per fixture, replayed twice. A change is a
     /// deliberate re-baseline of that fixture only.
-    const GOLDENS: [(&str, u64); 60] = [
+    const GOLDENS: [(&str, u64); 61] = [
         ("cf02_kick_then_stomp", 0xeade1505d6805381),
         ("cf02_stomp_whiff", 0xfc5181f6b763f50b),
         ("cf02_stomp_standing", 0x46b56f9470306d5e),
@@ -1744,13 +1768,14 @@ mod tests {
         ("cf02_pincer_token", 0x2f3867df0c7c1b1a),
         ("cf02_restart_reshuffles", 0x4962783a758ca230),
         ("cf02_arena_direct", 0x548d09b66979ddf2),
-        ("cf02_arena_environment", 0xffc2ace94e15e70b),
+        ("cf02_arena_environment", 0xcde4ad4fd67e035a),
+        ("cf02_arena_swap", 0x440168609421e30c),
         ("cf02_arena_coop", 0x1eff8a4433a98473),
         ("cf02_arena_three_attempts", 0xf197596551d87996),
         ("cf02_block_hurts_carl", 0xf7ab5b9fc93a510f),
         ("cf02_block_spares_left_striker", 0x32e12c30d3466045),
         ("cf02_block_hurts_partner", 0xceaa4c2817b8f94a),
-        ("cf02_goblin_self_own", 0x0e6a55b1700b58bc),
+        ("cf02_goblin_self_own", 0x4fe0d16b10e0ff75),
         ("cf02_intact_shore_ignores_goblins", 0x3b8dadb572c271e7),
         ("cf02_parapet_cover", 0x69bfb415a9724d06),
         ("cf02_perch_slab_climb", 0xa2341dcd2c754edc),
@@ -3600,12 +3625,6 @@ mod tests {
     use crate::cf02::arena;
     use crate::party::HeroId;
 
-    fn floor_centre_y(sim: &crate::party_scene::PartyFixtureSim) -> f32 {
-        // Carl's centre height on the floor (the room's walking line).
-        let _ = sim;
-        crate::prototype::HERO_HALF_HEIGHT + 0.0
-    }
-
     /// `(tick, hero, health_left, source)` of every `HeroHurt`.
     fn hurts_of(sim: &crate::party_scene::PartyFixtureSim) -> Vec<(u64, HeroId, u8, u32)> {
         sim.combat
@@ -3657,7 +3676,6 @@ mod tests {
             after < before,
             "knocked away from the block: {before} -> {after}"
         );
-        let _ = floor_centre_y;
     }
 
     /// Q30: the footprint starts at 409; a striker left of the column is spared.
@@ -3687,7 +3705,7 @@ mod tests {
     /// Q42: invulnerability is respected: a hero in the 55-tick window is not
     /// hurt by the block.
     #[test]
-    fn the_block_respects_invulnerability_and_the_knob_zero_turns_it_off() {
+    fn the_block_respects_invulnerability() {
         let fixture = find_party_fixture("cf02_block_hurts_carl").unwrap();
         let mut sim =
             crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
@@ -3700,10 +3718,98 @@ mod tests {
             hurts_of(&sim)
         );
         assert_eq!(sim.scene.world.hero.health, 4);
-        // Damage 0 is the off switch of the knob.
-        let t = crate::cf02::active();
-        assert_eq!(t.q42_block_damage, 1);
-        assert!(t.q30_block_hurts_heroes);
+    }
+
+    /// Q30, Q42: damage 0 (and the Q30 switch) turn the block's hurt off: the same
+    /// replay lands the block and nobody is hurt.
+    #[test]
+    fn the_block_hurt_knobs_turn_it_off() {
+        let run = |edit: &dyn Fn(&mut crate::cf02::Cf02Tuning)| {
+            let mut t = crate::cf02::Cf02Tuning::pinned().unwrap();
+            t.cf02_rules = true;
+            edit(&mut t);
+            let t: &'static crate::cf02::Cf02Tuning = Box::leak(Box::new(t));
+            let fixture = find_party_fixture("cf02_block_hurts_carl").unwrap();
+            let kit = kit_of(fixture);
+            let scene = crate::corridor::SceneSim::new_at(&kit, 360, fixture.base.carl_x).unwrap();
+            let combat = crate::combat_scene::CombatState::new(fixture.base, &kit, &scene)
+                .unwrap()
+                .with_donut(fixture.donut)
+                .with_cf02_tuning_for_test(t);
+            let mut sim = crate::party_scene::PartyFixtureSim::from_parts(scene, combat, fixture);
+            sim.run_scripted(fixture.base.ticks);
+            sim
+        };
+        let shipped = run(&|_| {});
+        assert_eq!(hurts_of(&shipped).len(), 1);
+        for sim in [
+            run(&|t| t.q42_block_damage = 0),
+            run(&|t| t.q30_block_hurts_heroes = false),
+        ] {
+            assert!(
+                count_events(&sim, |e| matches!(e, CombatEvent::ShoreLanded { .. })) == 1,
+                "the block still lands"
+            );
+            assert!(hurts_of(&sim).is_empty(), "{:?}", hurts_of(&sim));
+            assert_eq!(sim.scene.world.hero.health, 4);
+        }
+    }
+
+    /// Q31 (B1): one goblin swing is one shore hit, however many of its four impact
+    /// ticks overlap the strike zone, with or without the hit-stop of the hurt it
+    /// deals to Carl inside the impact window; the goblin's next swing is another.
+    #[test]
+    fn one_goblin_swing_trips_the_shore_once() {
+        for invulnerable in [false, true] {
+            let fixture = find_party_fixture("cf02_goblin_self_own").unwrap();
+            let mut sim =
+                crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+            // A shore with one hit: the first swing must take it to 2, not to 3.
+            sim.combat.shore.as_mut().unwrap().hits = 1;
+            if invulnerable {
+                // No hurt, so no hit-stop splits the four consecutive impact ticks.
+                sim.scene.world.hero.invulnerable_ticks = 250;
+            }
+            sim.run_scripted(fixture.base.ticks);
+            let tripped: Vec<(u64, u8, bool, u32)> = sim
+                .combat
+                .events
+                .iter()
+                .filter_map(|e| match *e {
+                    CombatEvent::ShoreTripped {
+                        tick,
+                        hits,
+                        broke,
+                        credited,
+                        ..
+                    } => Some((tick, hits, broke, credited)),
+                    _ => None,
+                })
+                .collect();
+            let swings: Vec<u64> = sim
+                .combat
+                .events
+                .iter()
+                .filter_map(|e| match *e {
+                    CombatEvent::GoblinSwing { tick, goblin: 0 } => Some(tick),
+                    _ => None,
+                })
+                .collect();
+            assert!(swings.len() >= 2, "{swings:?}");
+            assert_eq!(
+                tripped.len(),
+                2,
+                "one trip per swing (invulnerable={invulnerable}): {tripped:?} {swings:?}"
+            );
+            assert_eq!((tripped[0].1, tripped[0].2), (2, false));
+            assert_eq!((tripped[1].1, tripped[1].2), (3, true));
+            assert!(
+                tripped[1].0 - tripped[0].0 > 30,
+                "separate swings: {tripped:?}"
+            );
+            // Credited to the fallback hero (the hook damaged the shore, no hero hit it).
+            assert!(tripped.iter().all(|t| t.3 == 0));
+        }
     }
 
     /// Q31, Q41: the goblin's swing breaks a damaged shore on Carl's account: the
@@ -3724,6 +3830,7 @@ mod tests {
                     goblin,
                     hits,
                     broke,
+                    ..
                 } => Some((tick, goblin, hits, broke)),
                 _ => None,
             })
@@ -3889,12 +3996,16 @@ mod tests {
             "the AI lands {ai_hits} of {} hits",
             all.len()
         );
-        // The AI never lands a killing blow.
+        // The AI never lands a killing blow: nothing is defeated on Donut's account.
         assert!(
-            !sim.combat
-                .events
-                .iter()
-                .any(|e| matches!(e, CombatEvent::EnemyDefeated { .. }) && false)
+            !sim.combat.events.iter().any(|e| matches!(
+                e,
+                CombatEvent::EnemyDefeated {
+                    instigator: Some(1),
+                    ..
+                }
+            )),
+            "an AI Donut took a kill"
         );
         // About 8 to 60 s of play.
         let last = sim
@@ -3910,19 +4021,39 @@ mod tests {
         assert!(last < 3600, "the room ends within 60 s: {last}");
     }
 
-    /// Q31, Q32: the environmental approach reaches a break and a landing, and the
-    /// room is still completed.
+    /// Q31, Q32: the environmental approach trips the shore with a goblin's swing,
+    /// breaks it with Carl's hit and lands the block. (The stand-in plan does not
+    /// yet finish the room by this route: follow-up U4 of the PR #158 review.)
     #[test]
-    fn cf02_arena_environment_breaks_the_shore_and_completes() {
+    fn cf02_arena_environment_trips_breaks_and_lands_the_shore() {
         let sim = replay("cf02_arena_environment");
-        assert!(arena::complete(&sim.combat));
-        assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreLanded { .. })) >= 1);
-        assert!(
-            count_events(&sim, |e| matches!(
-                e,
-                CombatEvent::ShoreHit { .. } | CombatEvent::ShoreTripped { .. }
-            )) >= 2
+        assert_eq!(
+            count_events(&sim, |e| matches!(e, CombatEvent::ShoreTripped { .. })),
+            2,
+            "one swing, one trip (the run holds two attempts that play alike)"
         );
+        assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreHit { .. })) >= 2);
+        assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreBroken { .. })) >= 1);
+        assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreLanded { .. })) >= 1);
+    }
+
+    /// Q19 in the room: the solo swap happens twice (the second press is the one
+    /// the 12-tick cooldown lets through).
+    #[test]
+    fn cf02_arena_swap_swaps_twice() {
+        let fixture = find_party_fixture("cf02_arena_swap").unwrap();
+        let mut sim =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        let mut swaps = 0;
+        let mut who = sim.party.controlled_hero();
+        for _ in 0..fixture.base.ticks {
+            sim.step_scripted();
+            if sim.party.controlled_hero() != who {
+                who = sim.party.controlled_hero();
+                swaps += 1;
+            }
+        }
+        assert_eq!(swaps, 2);
     }
 
     /// Q32: two players complete the room together, and Donut lands real swats.
@@ -4112,7 +4243,7 @@ mod tests {
             .map(|f| f.name())
             .filter(|n| arena::fixture_uses_arena(n))
             .collect();
-        assert_eq!(room.len(), 13, "{room:?}");
+        assert_eq!(room.len(), 14, "{room:?}");
         for name in &room {
             assert!(morale_fixture(name), "{name}");
         }

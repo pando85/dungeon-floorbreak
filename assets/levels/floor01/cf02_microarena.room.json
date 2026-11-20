@@ -23,7 +23,7 @@
       "enemies": [],
       "hazards": [],
       "goal_x": 1104,
-      "purpose": "One 40-60 s room: a brawl lane with a left end wall, a rotten shore, a left perch over the first wave, a stone parapet and a llama yard with a right perch; flat goblin lanes, two perches as solid 1-tile slabs (top 80 px, underside 64 px), no void at the widest camera view.",
+      "purpose": "One 40-60 s room: a brawl lane with a left end wall, a rotten shore, a left perch over the first wave, a stone parapet and a llama yard with a right perch; flat goblin lanes, two perches as solid 1-tile slabs (top 80 px, underside 68 px), no void at the widest camera view.",
       "expected": "Spawns, waves and the exit are placed by src/cf02.rs (arena module); this file holds geometry only.",
       "coop": "Single player or two players; Donut trails as the CF02 assistant in solo."
     }

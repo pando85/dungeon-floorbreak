@@ -93,6 +93,9 @@ pub struct Shore {
     pub landed: bool,
     /// The player who landed the breaking hit.
     pub breaker: Option<u32>,
+    /// CF02-Q31: the hero whose move last hit the shore. Never mixed into the hash
+    /// (it only decides a later event's `credited`, which is hashed with it).
+    last_hitter: Option<u32>,
 }
 
 impl Shore {
@@ -107,6 +110,7 @@ impl Shore {
             block_vy: 0.0,
             landed: false,
             breaker: None,
+            last_hitter: None,
         }
     }
 
@@ -168,22 +172,39 @@ impl Shore {
         self.strike_x + FOOTPRINT_X_MIN + FOOTPRINT_WIDTH * 0.5
     }
 
-    /// CF02-F (Q31): a goblin's swing `swing` (an impact `tag` that cannot equal a
-    /// hero's move instance) advances a shore that already has `min_hits` hits or
-    /// more; an intact shore (`min_hits` > hits) ignores it. `credit` is the hero
-    /// who last hit the shore (it breaks on that hero's account). Counts once per
-    /// tag, never after the break.
-    pub fn strike_by_goblin(
-        &mut self,
-        tag: u32,
-        swing: Rect,
-        min_hits: u8,
-        credit: u32,
-    ) -> Option<ShoreStrike> {
-        if self.hits < min_hits {
+    /// CF02-F (Q31): a goblin's swing box `swing` advances a shore that already
+    /// has `min_hits` hits or more by one (an intact shore ignores it, a broken one
+    /// takes no more). The caller counts one swing once (`Goblin::shore_counted`);
+    /// this never touches the hero dedupe `last_instance`. The shore breaks on
+    /// the account of `credit`, the hero who last hit it ([`Self::credited`]).
+    pub fn strike_by_goblin(&mut self, swing: Rect, min_hits: u8) -> Option<(ShoreStrike, u32)> {
+        if self.hits < min_hits
+            || self.hits >= SHORE_HITS_TO_BREAK
+            || !swing.overlaps(self.strike_zone())
+        {
             return None;
         }
-        self.strike(tag, swing, credit)
+        let credit = self.credited();
+        self.hits += 1;
+        let broke = self.hits >= SHORE_HITS_TO_BREAK;
+        if broke {
+            self.delay = BLOCK_FALL_DELAY_TICKS;
+            self.breaker = Some(credit);
+        }
+        Some((
+            ShoreStrike {
+                hits: self.hits,
+                broke,
+            },
+            credit,
+        ))
+    }
+
+    /// The hero a goblin's trip is credited to (Q31, Q41): the last hero who hit
+    /// the shore, [`PLAYER_ONE`] for a shore that was damaged without a hero hit
+    /// (the QA hook of the room fixtures).
+    pub fn credited(&self) -> u32 {
+        self.last_hitter.unwrap_or(PLAYER_ONE)
     }
 
     /// DEATH-D: whether the block's vertical edge passes between the head and
@@ -208,6 +229,7 @@ impl Shore {
             return None;
         }
         self.last_instance = Some(instance);
+        self.last_hitter = Some(player);
         self.hits += 1;
         let broke = self.hits >= SHORE_HITS_TO_BREAK;
         if broke {
@@ -424,5 +446,48 @@ mod tests {
         // Fully inside or fully outside is no edge.
         assert!(!shore.edge_shears((480.0, 488.0)));
         assert!(!shore.edge_shears((600.0, 608.0)));
+    }
+
+    // ---- CF02-F: a goblin's swing on the shore ----
+
+    #[test]
+    fn a_goblin_strike_advances_a_damaged_shore_once_and_never_touches_the_hero_dedupe() {
+        let mut shore = Shore::new(100.0, 50.0);
+        let hit = jab_box(&shore);
+        // An intact shore ignores a goblin's swing.
+        assert_eq!(shore.strike_by_goblin(hit, 1), None);
+        assert_eq!(shore.hits, 0);
+        // A hero's move (a multi-tick active window offers the same instance again).
+        assert_eq!(shore.strike(7, hit, 0).map(|s| s.hits), Some(1));
+        // A goblin impact on the next tick advances it...
+        let (strike, credited) = shore.strike_by_goblin(hit, 1).unwrap();
+        assert_eq!((strike.hits, strike.broke, credited), (2, false, 0));
+        // ...and the hero's move, offered again on a later tick, still counts once.
+        assert_eq!(shore.strike(7, hit, 0), None, "the hero instance is intact");
+        assert_eq!(shore.hits, 2);
+        // A swing outside the zone does nothing; the next hero move breaks it.
+        let mut miss = hit;
+        miss.left += 40.0;
+        assert_eq!(shore.strike_by_goblin(miss, 1), None);
+        assert!(shore.strike(8, hit, 0).unwrap().broke);
+        assert_eq!(
+            shore.strike_by_goblin(hit, 1),
+            None,
+            "never after the break"
+        );
+    }
+
+    #[test]
+    fn a_goblin_trip_is_credited_to_the_last_hero_who_hit_the_shore() {
+        let mut shore = Shore::new(100.0, 50.0);
+        let hit = jab_box(&shore);
+        assert_eq!(shore.credited(), PLAYER_ONE, "the fallback");
+        shore.strike(1, hit, 1);
+        assert_eq!(shore.credited(), 1);
+        let (_, credited) = shore.strike_by_goblin(hit, 1).unwrap();
+        assert_eq!(credited, 1);
+        let (strike, credited) = shore.strike_by_goblin(hit, 1).unwrap();
+        assert!(strike.broke);
+        assert_eq!((credited, shore.breaker), (1, Some(1)));
     }
 }

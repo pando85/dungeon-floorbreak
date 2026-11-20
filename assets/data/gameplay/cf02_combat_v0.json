@@ -100,7 +100,7 @@
   "q29_room_width_px": 1152,
   "q29_room_height_px": 660,
   "q29_floor_y": 580,
-  "q29_end_wall_px": 32,
+  "q29_end_wall_px": 16,
   "q29_carl_spawn_x": 128,
   "q29_donut_spawn_x": 96,
   "q29_checkpoints_x": [
@@ -144,7 +144,7 @@
   "q42_block_knock_y": 160,
   "q42_block_invulnerable_ticks": 55,
   "q45_perch_top_px": 80,
-  "q45_perch_underside_px": 64,
+  "q45_perch_underside_px": 68,
   "q45_perch_slab_px": 16,
   "q46_move_buffer_ticks": 8,
   "q46_runner_buffer_ticks": 0,

@@ -1,6 +1,7 @@
 CF02_RENDER_MATCH: cf02_arena_coop tick 1800
 CF02_RENDER_MATCH: cf02_arena_direct tick 1800
 CF02_RENDER_MATCH: cf02_arena_environment tick 1800
+CF02_RENDER_MATCH: cf02_arena_swap tick 300
 CF02_RENDER_MATCH: cf02_arena_three_attempts tick 1100
 CF02_RENDER_MATCH: cf02_block_hurts_carl tick 160
 CF02_RENDER_MATCH: cf02_block_hurts_partner tick 160

@@ -14,4 +14,4 @@ CF02-G adds eleven: `cf02_morale_witness_hesitate`, `cf02_morale_spectacle_panic
 
 CF02-C2 adds two (in `src/donut_fixtures.rs`): `cf02_donut_bailout` (Q55, cancel C6) and `cf02_swap_eased_pan` (Q19, Q20, with a llama on the fair-fire edge).
 
-CF02-F adds thirteen room fixtures that run on the microarena kit (`cf02::arena::fixture_uses_arena`): `cf02_arena_direct`, `cf02_arena_environment`, `cf02_arena_coop`, `cf02_arena_three_attempts`, `cf02_block_hurts_carl`, `cf02_block_spares_left_striker`, `cf02_block_hurts_partner`, `cf02_goblin_self_own`, `cf02_intact_shore_ignores_goblins`, `cf02_parapet_cover`, `cf02_perch_slab_climb`, `cf02_perch_above_spit`, `cf02_perch_dive`.
+CF02-F adds fourteen room fixtures that run on the microarena kit (`cf02::arena::fixture_uses_arena`): `cf02_arena_direct`, `cf02_arena_environment`, `cf02_arena_swap`, `cf02_arena_coop`, `cf02_arena_three_attempts`, `cf02_block_hurts_carl`, `cf02_block_spares_left_striker`, `cf02_block_hurts_partner`, `cf02_goblin_self_own`, `cf02_intact_shore_ignores_goblins`, `cf02_parapet_cover`, `cf02_perch_slab_climb`, `cf02_perch_above_spit`, `cf02_perch_dive`.

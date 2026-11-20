@@ -43,6 +43,8 @@ gifs=(
   shore_drop:cf02_block_hurts_carl:60:2:30
   goblin_self_own:cf02_goblin_self_own:30:2:40
   perch_dive:cf02_perch_dive:64:2:24
+  solo_swap:cf02_arena_swap:100:2:40
+  solo_assist:cf02_arena_direct:352:2:40
 )
 for spec in "${gifs[@]}"; do
   IFS=: read -r name fixture first step count <<<"$spec"

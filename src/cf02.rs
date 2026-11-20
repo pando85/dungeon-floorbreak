@@ -24,7 +24,7 @@ pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/cf02_combat_
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`]. Editing the file
 /// without updating this value fails [`Cf02Tuning::pinned`] and the pin test, so
 /// a tuning edit never changes a recorded outcome silently.
-pub const TUNING_HASH: u64 = 0x8830_029a_4a39_5a40;
+pub const TUNING_HASH: u64 = 0x2da4_8577_fa64_315e;
 
 /// Question IDs that have no key in the file, and why. The completeness test
 /// requires every other ID in 1..=75 to own at least one `qNN_` key.
@@ -389,9 +389,11 @@ pub struct Cf02Tuning {
     pub q42_block_invulnerable_ticks: u8,
     /// Q45: perch slab top above the floor.
     pub q45_perch_top_px: u8,
-    /// Q45: perch slab underside above the floor.
+    /// Q45: perch slab underside above the floor (ruling: 68, the approved deck
+    /// tile's 12 px collider under a top at 80).
     pub q45_perch_underside_px: u8,
-    /// Q45: perch slab thickness.
+    /// Q45: perch slab thickness as drawn (one 16 px tile; its collider is 12 px,
+    /// so the underside is `q45_perch_top_px - 12` = 68).
     pub q45_perch_slab_px: u8,
     /// Q46: buffer window for Carl's Primary and Physical presses (legacy 6).
     pub q46_move_buffer_ticks: u8,
@@ -992,8 +994,9 @@ pub mod arena {
     /// Q29: width, floor (the walking line) and the room height of the DEMO hall.
     pub const WIDTH: i32 = 1152;
     pub const FLOOR_Y: i32 = 580;
-    /// Q29: the left and right end walls are two 16 px tiles (0..32 and 1120..1152).
-    pub const END_WALL_PX: i32 = 32;
+    /// Q29: the left and right end walls are the composer's drawn wall tile: one
+    /// 16 px column (0..16 and 1136..1152), full height.
+    pub const END_WALL_PX: i32 = 16;
     /// Q29: the rotten shore's strike column; its footprint is 409..489.
     pub const SHORE_STRIKE_X: i32 = 384;
     /// Q29: Carl's and Donut's spawn columns, and the two checkpoints.
@@ -1106,7 +1109,7 @@ pub mod arena {
 
     /// Load the room: the geometry composed by the camera-lab composer, with the
     /// authored access steps replaced by the parapet, the two perches cut to one
-    /// tile (Q45: a 16 px slab, top 80 px up, underside 64 px up, so Carl walks
+    /// tile (Q45: a 16 px slab, top 80 px up, underside 68 px up (the deck tile's solid is 12 px), so Carl walks
     /// under it), the scene's two scroll-camera views, and no exit trigger (the
     /// room ends when its six enemies are defeated, see [`complete`]).
     pub fn load_arena(root: &Path) -> Result<EnvKit, String> {
@@ -1169,16 +1172,6 @@ pub mod arena {
                 h: 400,
             },
         );
-        // Q29: the end walls are two tiles (32 px) wide and full height; the
-        // composer's own collision keeps only the outer tile.
-        for x in [END_WALL_PX / 2, WIDTH - END_WALL_PX] {
-            kit.solid_rects.push(crate::env_kit::IRect {
-                x,
-                y: END_WALL_PX,
-                w: END_WALL_PX / 2,
-                h: FLOOR_Y + 12 - END_WALL_PX,
-            });
-        }
         kit.layout_id = LAYOUT_ID.to_owned();
         kit.exit = None;
         Ok(kit)
@@ -1420,6 +1413,22 @@ pub mod arena {
             assert_eq!(LIVE.shore_dx, Some(256));
         }
 
+        /// Knobs the code does not read as a number are pinned to the thing they
+        /// describe, so editing one of them cannot silently do nothing.
+        #[test]
+        fn the_unread_knobs_equal_what_they_describe() {
+            let t = Cf02Tuning::pinned().unwrap();
+            assert_eq!(t.q42_block_hurt_ticks, crate::feel::HERO_HURT_TICKS);
+            assert_eq!(
+                t.q42_block_invulnerable_ticks,
+                crate::combat::HERO_INVULNERABLE_TICKS
+            );
+            assert_eq!(f32::from(t.q29_llama_leash_px), crate::feel::LLAMA_LEASH);
+            // The drawn slab is one tile; its collider is 12 px (underside = top - 12).
+            assert_eq!(i32::from(t.q45_perch_slab_px), TILE);
+            assert_eq!(t.q45_perch_top_px - t.q45_perch_underside_px, 12);
+        }
+
         #[test]
         fn the_room_file_is_the_q29_layout() {
             let kit = load_arena(root()).unwrap();
@@ -1436,13 +1445,8 @@ pub mod arena {
                     .any(|r| r.x <= x && r.y <= y && r.x + r.w >= x + w && r.y + r.h >= y + h)
             };
             // End walls, full height; the floor between them.
-            for x in [
-                0,
-                END_WALL_PX / 2,
-                WIDTH - END_WALL_PX,
-                WIDTH - END_WALL_PX / 2,
-            ] {
-                assert!(solid(x, 32, END_WALL_PX / 2, 540), "end wall tile at {x}");
+            for x in [0, WIDTH - END_WALL_PX] {
+                assert!(solid(x, 32, END_WALL_PX, 540), "end wall tile at {x}");
             }
             assert!(
                 solid(END_WALL_PX, FLOOR_Y, WIDTH - 2 * END_WALL_PX, 8),
@@ -1469,6 +1473,9 @@ pub mod arena {
                     .max()
                     .unwrap();
                 assert!(FLOOR_Y - under >= 52 + 12, "headroom {}", FLOOR_Y - under);
+                // The built underside is the knob (the deck tile's 12 px collider).
+                let t = Cf02Tuning::pinned().unwrap();
+                assert_eq!(FLOOR_Y - under, i32::from(t.q45_perch_underside_px));
             }
             // No stairs: nothing else stands in the lane.
             let lane: Vec<_> = kit
