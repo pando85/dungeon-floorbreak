@@ -111,7 +111,7 @@ A PR that finds it must touch a file another running PR owns stops and reports i
 | **01B-wire — nav-driven follow** | Nav-driven follow and camera-safe regroup in `corridor.rs` | After CF02-C2 and 01B-core | Gate coverage once a gate fixture exists, visual capture |
 | **01C — controller UX spike** | Tap/hold/chord experiments, alternative binding and input-state-machine tests without production rebinding (pure grammar and traces) | **Merged**, #130 (`5b343867`) | Isolated experimental input harness; real-pad comparison requested |
 | **01D — commands + feedback** | Focus, Hold, Regroup, Assist/Act, validator/status, target preview and minimal native HUD | After 01A-wire, the 01B API, owner D-CTRL and CF02-I | One integration owner for input/party/HUD, gamepad + replay + 640 captures |
-| **01E — combat synergy + evaluation** | Better positioning, realistic finisher support, individual kill/viewer attribution and metrics; `never` vs `factual` comparison | After 01D, AUTOPLAY stage B and AUTOPLAY-02a | Both-role no-orders/ordered comparison, CPU profiling, human-playtest packet |
+| **01E — combat synergy + evaluation** | Better positioning, realistic finisher support, individual kill/viewer attribution and metrics; `never` vs `factual` comparison | After 01D, AUTOPLAY stage B and AUTOPLAY-02a | Both-role no-orders/ordered comparison (02a serves the no-orders half only, see the 02a dependency section), CPU profiling, human-playtest packet |
 
 **01A-core, 01B-core and 01C are merged (2026-11-20) as unwired core modules** (`src/companion/{director,view,profile,rules,nav,command_input}.rs`; `src/companion/mod.rs` states that nothing is wired into a scene yet); per AGENTS.md they are recorded as merged, game-feel review pending. 01A-wire is the first PR that changes behaviour, and only under `--companion` or `--cf02`. 01D must not be started as a gameplay integration before the first three foundations have been reconciled. 01E does not need offline ML to prove usefulness. The owner may adjust the staged order after review, but there should never be a speculative giant implementation PR.
 
@@ -188,9 +188,18 @@ Recorded from the independent reviews of the 01A-core (#129) and 01B-core (#131)
 - AUTOPLAY-02a is owned by the AUTOPLAY lead. It is planned after AUTOPLAY stage B, is not part of AUTOPLAY v1, and runs in parallel with AUTOPLAY C to D. 01E depends on 02a, not on a date.
 - The mode is `party_solo { seat: 0|1, companion_profile }`, driving `PartyFixtureSim::step_slots`. ActionV1 is reused with swap **reserved**, so the seat stays fixed.
 - ObservationV2 adds an ally block that includes Donut's Q10 state and mana.
-- Metrics come from AUTOPLAY. Kill credit by hero comes from `EnemyDefeated.instigator`, and companion damage from `Hit` `move_id`. The "assist" metric is AUTOPLAY's definition: a hit on the same enemy id within N ticks before another hero's kill. COMPANION does not define its own assist window. The value of N is a coordination item between COMPANION and AUTOPLAY through the orchestrator and is open.
+- Metrics come from AUTOPLAY. Kill credit by hero comes from `EnemyDefeated.instigator`, and companion damage from `Hit` `move_id`. The "assist" metric is AUTOPLAY's definition: a hit on the same enemy id within N ticks before another hero's kill. COMPANION does not define its own assist window. The value of N is **90 ticks**, set by AUTOPLAY AP-Q31.
 - 02a code lives in `src/autoplay/party*`. It can start on today's uncontrolled behaviour and switch to `UncontrolledHero::Companion(profile)` once 01A-wire merges.
 - Companion-only diagnostics (glances, `ai_indirect_kills`, orders, stuck ticks) come from draining `CompanionEvent`s, offered to 02a as an extra diagnostics source.
+
+Obligations recorded by the AUTOPLAY-02a design ([AUTOPLAY spec section 11](../03-tech/autoplay-01-automated-gameplay-evaluation.md#11-autoplay-02a--solo-party-env-one-policy-seat-companion-active), PR #136):
+
+- The seat is serialized by hero name (`carl`, `donut`; AP-Q22), with 0 and 1 as its numeric value.
+- **Kill-policy selector (conflict 2):** 01A-wire or 01E owns it (two profile sets or a pub override, so `companion_v0` runs with `never` and `factual` on one build). The PR that lands it also enables `companion_v0_factual` in the AUTOPLAY registry in `src/autoplay/party/scenario.rs` (one line, approved by the coordinator).
+- **01E's ordered half is not served by 02a (conflict 4):** 02a is no-orders only because L1 is its reserved, stripped swap index. 01E reports no-orders numbers from 02a and claims no ordered comparison from it.
+- **Rules context (conflict 5):** all 01E arms run under one `cf02_rules` value, `false` until CF02 exposes the switch on the party fixture path. `cf02_assist` with `cf02_rules` off is outside the CA-22 flag table; 01E re-runs all four arms under `true` once the switch exists.
+- **Swap timing:** if the owner's D-CTRL decision adopts the release swap (ADR-0009 item 4), the swap-timing PR adds `PartyState::new_solo_controlled(tuning, hero)` in `src/party.rs` and switches 02a to it (AP-Q34).
+- Any PR that adds a `PartyTuning` field also extends the `party_tuning_hash` encoder in `src/autoplay/party/` and re-pins its hash test (AP-Q24, AP-Q34); the coordinator sequences it with the `src/party.rs` chain.
 
 ## Open owner questions
 
