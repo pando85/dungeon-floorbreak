@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "cf02_assist": {
+    "ca19_kill_policy": "never",
+    "ca10_decision_cadence_ticks": 6,
+    "cf02_q16_action_cadence_ticks": 60,
+    "ca26_ai_bailout": false,
+    "cf02_q39_min_assist_starts": 3,
+    "cf02_q39_max_hit_share_percent": 25,
+    "carl": {
+      "ca21_active": false,
+      "ca41_strike_min_px": 6,
+      "ca41_strike_max_px": 30,
+      "ca40_engage_range_px": 96,
+      "ca40_interrupt_range_px": 96
+    },
+    "donut": {
+      "ca21_active": true,
+      "cf02_q14_swat_range_px": 96,
+      "cf02_q14_swat_tell_tick": 4,
+      "ca41_swat_hit_min_px": 6,
+      "ca41_swat_hit_max_px": 30,
+      "cf02_q15_pounce_min_px": 30,
+      "cf02_q15_pounce_max_px": 80,
+      "cf02_q17_missile_min_px": 97,
+      "cf02_q17_missile_max_px": 160
+    }
+  },
+  "companion_v0": {
+    "ca19_kill_policy": "never",
+    "ca10_decision_cadence_ticks": 6,
+    "cf02_q16_action_cadence_ticks": 60,
+    "ca26_ai_bailout": false,
+    "cf02_q39_min_assist_starts": 3,
+    "cf02_q39_max_hit_share_percent": 25,
+    "carl": {
+      "ca21_active": true,
+      "ca41_strike_min_px": 6,
+      "ca41_strike_max_px": 30,
+      "ca40_engage_range_px": 96,
+      "ca40_interrupt_range_px": 96
+    },
+    "donut": {
+      "ca21_active": true,
+      "cf02_q14_swat_range_px": 96,
+      "cf02_q14_swat_tell_tick": 4,
+      "ca41_swat_hit_min_px": 6,
+      "ca41_swat_hit_max_px": 30,
+      "cf02_q15_pounce_min_px": 30,
+      "cf02_q15_pounce_max_px": 80,
+      "cf02_q17_missile_min_px": 97,
+      "cf02_q17_missile_max_px": 160
+    }
+  }
+}
