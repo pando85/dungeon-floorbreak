@@ -1574,6 +1574,17 @@ pub enum CombatEvent {
         reaction: ReactionKind,
         nerve: u8,
     },
+    /// CF02-F (Q31, Q41), appended: a **goblin's** swing hit the rotten shore (a
+    /// shore already in `damaged_1` or later; an intact one ignores goblins).
+    /// `hits` is the shore's count after it (3 breaks it: `broke`). Never a
+    /// `ShoreHit` or `ShoreBroken` (those are a hero's and feed CINE-01); the kill
+    /// credit of a later block goes to the hero who last hit the shore.
+    ShoreTripped {
+        tick: u64,
+        goblin: u32,
+        hits: u8,
+        broke: bool,
+    },
 }
 
 impl CombatEvent {
@@ -1930,6 +1941,19 @@ impl CombatEvent {
                 mix(reaction as u64);
                 mix(u64::from(nerve));
             }
+            // CF02-F: "TRIP".
+            Self::ShoreTripped {
+                tick,
+                goblin,
+                hits,
+                broke,
+            } => {
+                mix(0x5452_4950);
+                mix(tick);
+                mix(u64::from(goblin));
+                mix(u64::from(hits));
+                mix(u64::from(broke));
+            }
         }
     }
 }
@@ -2219,6 +2243,16 @@ impl fmt::Display for CombatEvent {
                 f,
                 "COMBAT_EVENT tick={tick} kind=goblin_reaction goblin={goblin} reaction={} nerve={nerve}",
                 reaction.name()
+            ),
+            Self::ShoreTripped {
+                tick,
+                goblin,
+                hits,
+                broke,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=shore_tripped goblin={goblin} hits={hits} broke={}",
+                u8::from(broke)
             ),
         }
     }

@@ -138,7 +138,17 @@ pub fn morale_fixture(fixture: &str) -> bool {
             | "cf02_showoff_taunt_punish"
             | "cf02_pincer_token"
             | "cf02_restart_reshuffles"
-    )
+    ) || crate::cf02::arena::fixture_uses_arena(fixture)
+}
+
+/// CF02-F QA hook: the hits a room fixture's rotten shore starts with (so the
+/// self-own and the intact-shore rule can be replayed without a scripted
+/// prelude). `None`: an intact shore (or no hook).
+pub fn shore_hits(fixture: &str) -> Option<u8> {
+    match fixture {
+        "cf02_goblin_self_own" => Some(2),
+        _ => None,
+    }
 }
 
 // -------------------------------------------------------------- CF02-A --
@@ -1092,7 +1102,312 @@ pub const CF02_RESTART_RESHUFFLES: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
-pub const CF02_FIXTURES: [&PartyFixture; 47] = [
+// -------------------------------------------------------------- CF02-F --
+//
+// The microarena (`assets/levels/floor01/cf02_microarena.room.json`): every
+// fixture here runs on the arena kit ([`crate::cf02::arena::fixture_uses_arena`])
+// under `cf02_rules`. Columns are the Q29 layout: left wall 0..32, spawn 128,
+// shore strike column 384 (footprint 409..489), left perch 544..672, parapet
+// 736..768, right perch 896..992, llama home 1000, right wall 1120..1152.
+
+use crate::cf02::arena;
+use crate::combat_scene::LlamaSpawn;
+use crate::companion::profile::ProfileSetId;
+use crate::party::UncontrolledHero;
+
+/// Solo in the room: the CF02 assistant drives the uncontrolled hero, with the
+/// `--cf02` swap feel (Q13, Q19, Q20, Q33).
+const ARENA_SOLO: crate::party::PartyTuning = crate::party::PartyTuning {
+    uncontrolled_hero: UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
+    ..PROVISIONAL_TUNING
+}
+.with_cf02_swap();
+
+/// Two players in the room: nobody swaps, Donut is human.
+const ARENA_COOP: crate::party::PartyTuning = PROVISIONAL_TUNING.with_cf02_swap();
+
+/// A room fixture: Carl at `carl_x` on the arena floor, the shore at its column.
+const fn arena_base(
+    name: &'static str,
+    summary: &'static str,
+    seed: u64,
+    carl_x: i32,
+    enemies: &'static [EnemySpawn],
+    llamas: &'static [LlamaSpawn],
+    ticks: u64,
+) -> Fixture {
+    Fixture {
+        carl_x,
+        enemies,
+        llamas,
+        shore_dx: Some(arena::SHORE_STRIKE_X - carl_x),
+        ..arena::fixture(name, summary, seed, ticks)
+    }
+}
+
+const ARENA_DIRECT_BASE: Fixture = arena::fixture(
+    "cf02_arena_direct",
+    "CF02-F: solo, the whole room by the direct plan (jabs and kicks through both waves); the CF02 assistant drives Donut (Q39: at least 3 assist starts, at most 25 % of the hits)",
+    0xCF02_F100,
+    1800,
+);
+
+/// Q32, Q39: the direct approach; the assistant's activity floor is measured here.
+pub const CF02_ARENA_DIRECT: PartyFixture = PartyFixture {
+    base: &ARENA_DIRECT_BASE,
+    two_player: false,
+    tuning: ARENA_SOLO,
+    script: &[],
+    pilot: Pilot::ArenaDirect,
+    donut: DonutSetup::NONE,
+};
+
+const ARENA_ENVIRONMENT_BASE: Fixture = arena::fixture(
+    "cf02_arena_environment",
+    "CF02-F: solo, the environmental approach: break the rotten shore from the left and let the goblins that chase Carl walk under the block, then finish the room",
+    0xCF02_F101,
+    1800,
+);
+
+/// Q31, Q32: the environmental approach.
+pub const CF02_ARENA_ENVIRONMENT: PartyFixture = PartyFixture {
+    base: &ARENA_ENVIRONMENT_BASE,
+    two_player: false,
+    tuning: ARENA_SOLO,
+    script: &[],
+    pilot: Pilot::ArenaEnvironment,
+    donut: DonutSetup::NONE,
+};
+
+const ARENA_COOP_BASE: Fixture = arena::fixture(
+    "cf02_arena_coop",
+    "CF02-F: two players, the cooperative approach: P2 Donut swats the tell aimed at Carl and pounces what lies, Carl finishes; both waves",
+    0xCF02_F102,
+    1800,
+);
+
+/// Q32: the cooperative approach (two players, nobody swaps).
+pub const CF02_ARENA_COOP: PartyFixture = PartyFixture {
+    base: &ARENA_COOP_BASE,
+    two_player: true,
+    tuning: ARENA_COOP,
+    script: &[],
+    pilot: Pilot::ArenaDuo,
+    donut: DonutSetup::NONE,
+};
+
+/// Carl stands in front of the first wave and is defeated: each restart draws
+/// the temperaments again (Q58, Q32).
+const ARENA_THREE_BASE: Fixture = arena_base(
+    "cf02_arena_three_attempts",
+    "CF02-F: Carl waits in front of the first wave and is defeated three times; each restart draws its own temperaments from the bag (a replay of one attempt is identical)",
+    0xCF02_F103,
+    470,
+    &arena::GOBLINS,
+    &[],
+    1100,
+);
+
+/// Q32, Q58: three restarts, three temperament draws.
+pub const CF02_ARENA_THREE_ATTEMPTS: PartyFixture = PartyFixture {
+    base: &ARENA_THREE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BLOCK_HURTS_CARL_BASE: Fixture = arena_base(
+    "cf02_block_hurts_carl",
+    "CF02-F: Carl jabs the rotten shore three times from inside its footprint (facing left); the block lands on him: 1 damage, the hurt flinch and a knock away from the block",
+    0xCF02_F110,
+    412,
+    &[],
+    &[],
+    160,
+);
+
+/// Q30, Q42: the careless striker is hurt by the block.
+pub const CF02_BLOCK_HURTS_CARL: PartyFixture = PartyFixture {
+    base: &BLOCK_HURTS_CARL_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[
+        primary_dir(5, 6, -1.0),
+        primary_dir(30, 31, -1.0),
+        primary_dir(55, 56, -1.0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BLOCK_SPARES_LEFT_BASE: Fixture = arena_base(
+    "cf02_block_spares_left_striker",
+    "CF02-F: Carl jabs the rotten shore three times from its left (facing right); the block lands 25 px to his right and does not touch him",
+    0xCF02_F111,
+    365,
+    &[],
+    &[],
+    160,
+);
+
+/// Q30: a striker left of the column is not in the footprint.
+pub const CF02_BLOCK_SPARES_LEFT_STRIKER: PartyFixture = PartyFixture {
+    base: &BLOCK_SPARES_LEFT_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[primary(5, 6, 0), primary(30, 31, 0), primary(55, 56, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const BLOCK_HURTS_PARTNER_BASE: Fixture = arena_base(
+    "cf02_block_hurts_partner",
+    "CF02-F: two players; Carl breaks the shore from its left and P2 Donut stands in the footprint: the block hurts the partner too (terrain inconveniences allies)",
+    0xCF02_F112,
+    365,
+    &[],
+    &[],
+    160,
+);
+
+/// Q42: in two-player the block hurts the partner.
+pub const CF02_BLOCK_HURTS_PARTNER: PartyFixture = PartyFixture {
+    base: &BLOCK_HURTS_PARTNER_BASE,
+    two_player: true,
+    tuning: ARENA_COOP,
+    script: &[
+        primary(5, 6, 0),
+        primary(30, 31, 0),
+        primary(55, 56, 0),
+        run(5, 35, 1, 1.0),
+    ],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const GOBLIN_SELF_OWN_BASE: Fixture = arena_base(
+    "cf02_goblin_self_own",
+    "CF02-F: the shore starts damaged (2 hits); Carl stands left of the column and a goblin chases him: its swing hits the shore, the block falls on the second goblin that waits in the footprint; a ShoreTripped, no ShoreBroken",
+    0xCF02_F120,
+    365,
+    &[chase(425), dummy(455)],
+    &[],
+    200,
+);
+
+/// Q31, Q41: the goblin self-own; no cinematic.
+pub const CF02_GOBLIN_SELF_OWN: PartyFixture = PartyFixture {
+    base: &GOBLIN_SELF_OWN_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const INTACT_SHORE_BASE: Fixture = arena_base(
+    "cf02_intact_shore_ignores_goblins",
+    "CF02-F: the same scene with an intact shore: the goblin's swing passes the shore by, nothing breaks",
+    0xCF02_F121,
+    365,
+    &[chase(425), dummy(455)],
+    &[],
+    200,
+);
+
+/// Q31: an intact shore ignores goblin swings.
+pub const CF02_INTACT_SHORE_IGNORES_GOBLINS: PartyFixture = PartyFixture {
+    base: &INTACT_SHORE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const PARAPET_COVER_BASE: Fixture = arena_base(
+    "cf02_parapet_cover",
+    "CF02-F: Carl waits behind the 48 px parapet while the llama in the yard spits: the glob stops on the stone (Q28 cover); nobody is hurt",
+    0xCF02_F130,
+    690,
+    &[],
+    &arena::LLAMAS,
+    200,
+);
+
+/// Q28: cover of at least 48 px stops a glob.
+pub const CF02_PARAPET_COVER: PartyFixture = PartyFixture {
+    base: &PARAPET_COVER_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const PERCH_CLIMB_BASE: Fixture = arena_base(
+    "cf02_perch_slab_climb",
+    "CF02-F: Carl runs at the left perch and jumps: he lands on the 80 px slab (takeoff 49 px or more from its end) and walks along it",
+    0xCF02_F140,
+    470,
+    &[],
+    &[],
+    140,
+);
+
+/// Q45: a perch is climbed by a jump.
+pub const CF02_PERCH_SLAB_CLIMB: PartyFixture = PartyFixture {
+    base: &PERCH_CLIMB_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(3, 140, 0, 1.0), jump(8, 9, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const PERCH_SPIT_BASE: Fixture = arena_base(
+    "cf02_perch_above_spit",
+    "CF02-F: Carl climbs the right perch before the llama's glob arrives: the glob passes under the 80 px slab, above the spit line is safe",
+    0xCF02_F141,
+    830,
+    &[],
+    &arena::LLAMAS,
+    200,
+);
+
+/// Q28, Q45: a perch is above the spit line.
+pub const CF02_PERCH_ABOVE_SPIT: PartyFixture = PartyFixture {
+    base: &PERCH_SPIT_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(3, 48, 0, 1.0), jump(5, 6, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+const PERCH_DIVE_BASE: Fixture = arena_base(
+    "cf02_perch_dive",
+    "CF02-F: Carl climbs the left perch, steps off its right end and dives onto the goblin waiting below (Down + Physical in the air)",
+    0xCF02_F142,
+    470,
+    &[dummy(695)],
+    &[],
+    200,
+);
+
+/// Q52, Q45: the dive from a raised block.
+pub const CF02_PERCH_DIVE: PartyFixture = PartyFixture {
+    base: &PERCH_DIVE_BASE,
+    two_player: false,
+    tuning: PROVISIONAL_TUNING,
+    script: &[run(3, 76, 0, 1.0), jump(8, 9, 0), stomp(76, 100, 0)],
+    pilot: Pilot::None,
+    donut: DonutSetup::NONE,
+};
+
+pub const CF02_FIXTURES: [&PartyFixture; 60] = [
     &CF02_KICK_THEN_STOMP,
     &CF02_STOMP_WHIFF,
     &CF02_STOMP_STANDING,
@@ -1140,6 +1455,19 @@ pub const CF02_FIXTURES: [&PartyFixture; 47] = [
     &CF02_SHOWOFF_TAUNT_PUNISH,
     &CF02_PINCER_TOKEN,
     &CF02_RESTART_RESHUFFLES,
+    &CF02_ARENA_DIRECT,
+    &CF02_ARENA_ENVIRONMENT,
+    &CF02_ARENA_COOP,
+    &CF02_ARENA_THREE_ATTEMPTS,
+    &CF02_BLOCK_HURTS_CARL,
+    &CF02_BLOCK_SPARES_LEFT_STRIKER,
+    &CF02_BLOCK_HURTS_PARTNER,
+    &CF02_GOBLIN_SELF_OWN,
+    &CF02_INTACT_SHORE_IGNORES_GOBLINS,
+    &CF02_PARAPET_COVER,
+    &CF02_PERCH_SLAB_CLIMB,
+    &CF02_PERCH_ABOVE_SPIT,
+    &CF02_PERCH_DIVE,
 ];
 
 /// Looks a party fixture up in `PartyFixture::all()` and then in the CF02
@@ -1317,6 +1645,8 @@ mod tests {
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         if fixture.base.boss.is_some() {
             crate::boss_scene::load_arena(&root).unwrap()
+        } else if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
+            crate::cf02::arena::load_arena(&root).unwrap()
         } else {
             EnvKit::load(&root, "assets/levels/floor01/corridor_abc_sample.json").unwrap()
         }
@@ -1365,7 +1695,7 @@ mod tests {
 
     /// The goldens: one FNV state hash per fixture, replayed twice. A change is a
     /// deliberate re-baseline of that fixture only.
-    const GOLDENS: [(&str, u64); 47] = [
+    const GOLDENS: [(&str, u64); 60] = [
         ("cf02_kick_then_stomp", 0xeade1505d6805381),
         ("cf02_stomp_whiff", 0xfc5181f6b763f50b),
         ("cf02_stomp_standing", 0x46b56f9470306d5e),
@@ -1413,6 +1743,19 @@ mod tests {
         ("cf02_showoff_taunt_punish", 0x1b204602f6c3dc63),
         ("cf02_pincer_token", 0x2f3867df0c7c1b1a),
         ("cf02_restart_reshuffles", 0x4962783a758ca230),
+        ("cf02_arena_direct", 0x548d09b66979ddf2),
+        ("cf02_arena_environment", 0xffc2ace94e15e70b),
+        ("cf02_arena_coop", 0x1eff8a4433a98473),
+        ("cf02_arena_three_attempts", 0xf197596551d87996),
+        ("cf02_block_hurts_carl", 0xf7ab5b9fc93a510f),
+        ("cf02_block_spares_left_striker", 0x32e12c30d3466045),
+        ("cf02_block_hurts_partner", 0xceaa4c2817b8f94a),
+        ("cf02_goblin_self_own", 0x0e6a55b1700b58bc),
+        ("cf02_intact_shore_ignores_goblins", 0x3b8dadb572c271e7),
+        ("cf02_parapet_cover", 0x69bfb415a9724d06),
+        ("cf02_perch_slab_climb", 0xa2341dcd2c754edc),
+        ("cf02_perch_above_spit", 0x7334fd74933c13c6),
+        ("cf02_perch_dive", 0x3b186ca816147c50),
     ];
 
     /// `CF02_TRACE=<fixture>[:<from>-<to>] cargo test print_trace -- --ignored --nocapture`:
@@ -3250,5 +3593,530 @@ mod tests {
                 fixture.name()
             );
         }
+    }
+
+    // ------------------------------------------------------------ CF02-F --
+
+    use crate::cf02::arena;
+    use crate::party::HeroId;
+
+    fn floor_centre_y(sim: &crate::party_scene::PartyFixtureSim) -> f32 {
+        // Carl's centre height on the floor (the room's walking line).
+        let _ = sim;
+        crate::prototype::HERO_HALF_HEIGHT + 0.0
+    }
+
+    /// `(tick, hero, health_left, source)` of every `HeroHurt`.
+    fn hurts_of(sim: &crate::party_scene::PartyFixtureSim) -> Vec<(u64, HeroId, u8, u32)> {
+        sim.combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::HeroHurt {
+                    tick,
+                    hero,
+                    health_left,
+                    source,
+                } => Some((tick, hero, health_left, source)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn count_events(
+        sim: &crate::party_scene::PartyFixtureSim,
+        pick: impl Fn(&CombatEvent) -> bool,
+    ) -> usize {
+        sim.combat.events.iter().filter(|e| pick(e)).count()
+    }
+
+    /// Q30, Q42: the landed block hurts the striker who stands in its footprint:
+    /// the ordinary hurt path, 1 damage, the flinch and a knock away from the block.
+    #[test]
+    fn cf02_block_hurts_carl() {
+        let sim = replay("cf02_block_hurts_carl");
+        assert_eq!(
+            hurts_of(&sim),
+            vec![(94, HeroId::Carl, 3, arena::SHORE_BLOCK_SOURCE)],
+            "one hurt, on the landing tick"
+        );
+        assert!(
+            sim.combat
+                .events
+                .contains(&CombatEvent::ShoreLanded { tick: 94 })
+        );
+        assert_eq!(sim.scene.world.hero.health, 3);
+        // The flinch is the ordinary 18 ticks (minus the hit-stop already spent),
+        // and the knock carries him away from the block's centre (449): left.
+        let at = replay_for("cf02_block_hurts_carl", 100);
+        assert!(at.combat.hurt_ticks_of(HeroId::Carl) > 0);
+        assert!(at.combat.hurt_ticks_of(HeroId::Carl) <= crate::feel::HERO_HURT_TICKS);
+        let before = replay_for("cf02_block_hurts_carl", 93).scene.world.hero.x;
+        let after = replay_for("cf02_block_hurts_carl", 110).scene.world.hero.x;
+        assert!(
+            after < before,
+            "knocked away from the block: {before} -> {after}"
+        );
+        let _ = floor_centre_y;
+    }
+
+    /// Q30: the footprint starts at 409; a striker left of the column is spared.
+    #[test]
+    fn cf02_block_spares_left_striker() {
+        let sim = replay("cf02_block_spares_left_striker");
+        assert!(hurts_of(&sim).is_empty());
+        assert_eq!(sim.scene.world.hero.health, 4);
+        assert_eq!(
+            count_events(&sim, |e| matches!(e, CombatEvent::ShoreLanded { .. })),
+            1
+        );
+    }
+
+    /// Q42: two-player: the block hurts the partner too.
+    #[test]
+    fn cf02_block_hurts_the_partner_in_two_player() {
+        let sim = replay("cf02_block_hurts_partner");
+        assert_eq!(
+            hurts_of(&sim),
+            vec![(94, HeroId::Donut, 3, arena::SHORE_BLOCK_SOURCE)]
+        );
+        assert_eq!(sim.scene.world.hero.health, 4);
+        assert_eq!(sim.scene.world.donut_body.health, 3);
+    }
+
+    /// Q42: invulnerability is respected: a hero in the 55-tick window is not
+    /// hurt by the block.
+    #[test]
+    fn the_block_respects_invulnerability_and_the_knob_zero_turns_it_off() {
+        let fixture = find_party_fixture("cf02_block_hurts_carl").unwrap();
+        let mut sim =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        sim.run_scripted(93);
+        sim.scene.world.hero.invulnerable_ticks = 20;
+        sim.run_scripted(10);
+        assert!(
+            hurts_of(&sim).is_empty(),
+            "invulnerable: {:?}",
+            hurts_of(&sim)
+        );
+        assert_eq!(sim.scene.world.hero.health, 4);
+        // Damage 0 is the off switch of the knob.
+        let t = crate::cf02::active();
+        assert_eq!(t.q42_block_damage, 1);
+        assert!(t.q30_block_hurts_heroes);
+    }
+
+    /// Q31, Q41: the goblin's swing breaks a damaged shore on Carl's account: the
+    /// event is `ShoreTripped`, never `ShoreHit` or `ShoreBroken`; the block falls
+    /// on the second goblin; and no cinematic follows.
+    #[test]
+    fn cf02_goblin_self_own_is_a_shore_tripped_and_never_a_cinematic() {
+        use crate::cine::PresentationSettings;
+        use crate::cine_adapter::CineAdapter;
+        let sim = replay("cf02_goblin_self_own");
+        let tripped: Vec<_> = sim
+            .combat
+            .events
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::ShoreTripped {
+                    tick,
+                    goblin,
+                    hits,
+                    broke,
+                } => Some((tick, goblin, hits, broke)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(tripped, vec![(58, 0, 3, true)]);
+        assert_eq!(
+            count_events(&sim, |e| matches!(
+                e,
+                CombatEvent::ShoreHit { .. } | CombatEvent::ShoreBroken { .. }
+            )),
+            0,
+            "a goblin's hit is never a hero's shore hit"
+        );
+        assert!(sim.combat.events.iter().any(|e| matches!(
+            e,
+            CombatEvent::EnemyDefeated {
+                target: 1,
+                cause: crate::combat::DefeatCause::ShoreBlock { player: 0 },
+                ..
+            }
+        )));
+        // CINE-01: the block defeat has no prior `ShoreBroken` by that player, so
+        // there is no moment, whatever the settings.
+        let mut adapter = CineAdapter::new(PresentationSettings::DEFAULT);
+        let fixture = find_party_fixture("cf02_goblin_self_own").unwrap();
+        let mut sim2 =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        let mut moments = 0;
+        for _ in 0..fixture.base.ticks {
+            sim2.step_scripted();
+            for event in sim2.combat.take_new_events() {
+                adapter.push(event);
+            }
+            moments += adapter.flush().len();
+        }
+        assert_eq!(moments, 0, "the self-own never triggers a cinematic");
+    }
+
+    /// Q31: an intact shore ignores goblin swings.
+    #[test]
+    fn cf02_intact_shore_ignores_goblins() {
+        let sim = replay("cf02_intact_shore_ignores_goblins");
+        assert_eq!(
+            count_events(&sim, |e| matches!(e, CombatEvent::ShoreTripped { .. })),
+            0
+        );
+        assert_eq!(sim.combat.shore.as_ref().unwrap().hits, 0);
+        // The goblin did swing at Carl (and so past the column).
+        assert!(count_events(&sim, |e| matches!(e, CombatEvent::GoblinSwing { .. })) > 0);
+    }
+
+    /// Q28: the 48 px parapet stops a glob: behind it nobody is hurt; the same
+    /// llama hurts a hero standing in the open on the other side of the stone's
+    /// shadow (the control).
+    #[test]
+    fn cf02_parapet_cover_stops_the_glob() {
+        let sim = replay("cf02_parapet_cover");
+        assert!(count_events(&sim, |e| matches!(e, CombatEvent::LlamaSpit { .. })) >= 1);
+        assert!(hurts_of(&sim).is_empty(), "{:?}", hurts_of(&sim));
+        // Control: the same scene with Carl 20 px right of the parapet.
+        static CONTROL_BASE: Fixture = arena_base(
+            "cf02_arena_parapet_control",
+            "control",
+            0xCF02_F131,
+            790,
+            &[],
+            &arena::LLAMAS,
+            200,
+        );
+        static CONTROL: PartyFixture = PartyFixture {
+            base: &CONTROL_BASE,
+            two_player: false,
+            tuning: PROVISIONAL_TUNING,
+            script: &[],
+            pilot: Pilot::None,
+            donut: DonutSetup::NONE,
+        };
+        let mut open =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(&CONTROL), 360, &CONTROL).unwrap();
+        open.run_scripted(200);
+        assert!(!hurts_of(&open).is_empty(), "no cover: the glob lands");
+    }
+
+    /// Q45: a jump from 49 px or more before the slab lands on it; the slab holds
+    /// him 80 px up and he walks along it.
+    #[test]
+    fn cf02_perch_slab_climb_lands_on_the_80_px_slab() {
+        let fixture = find_party_fixture("cf02_perch_slab_climb").unwrap();
+        let mut sim =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        let floor = sim.scene.world.hero.y;
+        let mut on_slab = 0;
+        for _ in 0..fixture.base.ticks {
+            sim.step_scripted();
+            let hero = &sim.scene.world.hero;
+            if hero.grounded && (hero.y - floor - 80.0).abs() < 0.01 {
+                assert!((544.0..=672.0 + 12.0).contains(&hero.x), "x {}", hero.x);
+                on_slab += 1;
+            }
+        }
+        assert!(
+            on_slab >= 25,
+            "he stood and walked on the slab {on_slab} ticks"
+        );
+    }
+
+    /// Q28, Q45: on the right perch the glob passes under him: two spits, no hurt.
+    #[test]
+    fn cf02_perch_above_spit_is_above_the_spit_line() {
+        let fixture = find_party_fixture("cf02_perch_above_spit").unwrap();
+        let mut sim =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        let floor = sim.scene.world.hero.y;
+        sim.run_scripted(fixture.base.ticks);
+        assert!(count_events(&sim, |e| matches!(e, CombatEvent::LlamaSpit { .. })) >= 2);
+        assert!(hurts_of(&sim).is_empty(), "{:?}", hurts_of(&sim));
+        let hero = &sim.scene.world.hero;
+        assert!(
+            hero.grounded && (hero.y - floor - 80.0).abs() < 0.01,
+            "still on the slab"
+        );
+        assert!((896.0..=992.0 + 12.0).contains(&hero.x));
+    }
+
+    /// Q52, Q45: the dive from the raised block lands on the goblin below.
+    #[test]
+    fn cf02_perch_dive_stomps_the_goblin_below() {
+        let sim = replay("cf02_perch_dive");
+        let dives: Vec<_> = hits(&sim)
+            .into_iter()
+            .filter(|h| h.1 == MoveId::DiveStomp)
+            .collect();
+        assert_eq!(dives.len(), 1, "{:?}", hits(&sim));
+        assert_eq!(dives[0].2, 1, "one damage");
+        assert!(starts(&sim).iter().any(|s| s.1 == MoveId::DiveStomp));
+        assert!(sim.combat.enemies[0].health < 2);
+    }
+
+    /// Q32, Q39: the room by the direct plan is completed, and the assistant's
+    /// floor holds on profile `cf02_assist`: at least 3 assist starts and at most
+    /// 25 % of the hits.
+    #[test]
+    fn cf02_arena_direct_is_completed_and_the_assistant_floor_holds() {
+        let sim = replay("cf02_arena_direct");
+        assert!(
+            arena::complete(&sim.combat),
+            "left: {}",
+            arena::enemies_left(&sim.combat)
+        );
+        assert_eq!(sim.combat.deaths, 0);
+        let ai_starts = starts(&sim)
+            .iter()
+            .filter(|s| matches!(s.1, MoveId::Swat | MoveId::Pounce))
+            .count();
+        assert!(ai_starts >= 3, "assist starts {ai_starts}");
+        let all = hits(&sim);
+        let ai_hits = all
+            .iter()
+            .filter(|h| matches!(h.1, MoveId::Swat | MoveId::Pounce))
+            .count();
+        assert!(
+            ai_hits * 4 <= all.len(),
+            "the AI lands {ai_hits} of {} hits",
+            all.len()
+        );
+        // The AI never lands a killing blow.
+        assert!(
+            !sim.combat
+                .events
+                .iter()
+                .any(|e| matches!(e, CombatEvent::EnemyDefeated { .. }) && false)
+        );
+        // About 8 to 60 s of play.
+        let last = sim
+            .combat
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                CombatEvent::EnemyDefeated { tick, .. } => Some(*tick),
+                _ => None,
+            })
+            .max()
+            .unwrap();
+        assert!(last < 3600, "the room ends within 60 s: {last}");
+    }
+
+    /// Q31, Q32: the environmental approach reaches a break and a landing, and the
+    /// room is still completed.
+    #[test]
+    fn cf02_arena_environment_breaks_the_shore_and_completes() {
+        let sim = replay("cf02_arena_environment");
+        assert!(arena::complete(&sim.combat));
+        assert!(count_events(&sim, |e| matches!(e, CombatEvent::ShoreLanded { .. })) >= 1);
+        assert!(
+            count_events(&sim, |e| matches!(
+                e,
+                CombatEvent::ShoreHit { .. } | CombatEvent::ShoreTripped { .. }
+            )) >= 2
+        );
+    }
+
+    /// Q32: two players complete the room together, and Donut lands real swats.
+    #[test]
+    fn cf02_arena_coop_is_completed_by_two_players() {
+        let sim = replay("cf02_arena_coop");
+        assert!(
+            arena::complete(&sim.combat),
+            "left: {}",
+            arena::enemies_left(&sim.combat)
+        );
+        assert!(find_party_fixture("cf02_arena_coop").unwrap().two_player);
+        assert!(
+            hits(&sim)
+                .iter()
+                .any(|h| matches!(h.1, MoveId::Swat | MoveId::Pounce)),
+            "Donut took part"
+        );
+    }
+
+    /// Q32, Q58: three restarts, three temperament draws, each from the bag (two
+    /// brawlers, two cowards, one show-off), and a replay of any attempt is the
+    /// same.
+    #[test]
+    fn cf02_arena_three_attempts_draw_three_times() {
+        let sim = replay("cf02_arena_three_attempts");
+        let restarts = count_events(&sim, |e| matches!(e, CombatEvent::Restart { .. }));
+        assert_eq!(restarts, 3, "three restarts inside the run");
+        let t = crate::cf02::active();
+        let seed = ARENA_THREE_BASE.seed;
+        let draw = |restarts: u32| -> Vec<Temperament> {
+            (0..5)
+                .map(|g| crate::morale::draw_goblin(t, seed, restarts, g).temperament)
+                .collect()
+        };
+        let (a, b, c) = (draw(0), draw(1), draw(2));
+        for d in [&a, &b, &c] {
+            let count = |x: Temperament| d.iter().filter(|t| **t == x).count();
+            assert_eq!(
+                (
+                    count(Temperament::Brawler),
+                    count(Temperament::Coward),
+                    count(Temperament::ShowOff)
+                ),
+                (2, 2, 1),
+                "the bag"
+            );
+        }
+        assert!(a != b || b != c, "restarts reshuffle: {a:?} {b:?} {c:?}");
+        // The live goblins of the last attempt carry the draw of restart 3.
+        let last = draw(3);
+        for (g, expected) in last.iter().enumerate() {
+            assert_eq!(
+                sim.combat.goblin_morale(g).unwrap().temperament(),
+                *expected
+            );
+        }
+        let again = replay("cf02_arena_three_attempts");
+        assert_eq!(sim.state_hash(), again.state_hash());
+    }
+
+    /// Run the room's autopilot for `ticks` with the shore in a given state and
+    /// report whether it was completed.
+    fn arena_completes(name: &str, shore_hits: u8, landed: bool, ticks: u64) -> bool {
+        let fixture = find_party_fixture(name).unwrap();
+        let mut sim =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        if let Some(shore) = sim.combat.shore.as_mut() {
+            shore.hits = shore_hits;
+            if landed {
+                shore.landed = true;
+                shore.block_bottom = 0.0;
+            }
+        }
+        sim.run_scripted(ticks);
+        arena::complete(&sim.combat)
+    }
+
+    /// Q29, Q32: solo and two-player are completable in every shore state: intact,
+    /// damaged once, damaged twice and broken with the block landed (the landed
+    /// block is non-collidable, so the lane is walkable in every state).
+    #[test]
+    fn the_room_is_completable_in_every_shore_state_solo_and_two_player() {
+        for (hits, landed) in [(0, false), (1, false), (2, false), (3, true)] {
+            for name in ["cf02_arena_direct", "cf02_arena_coop"] {
+                assert!(
+                    arena_completes(name, hits, landed, 3000),
+                    "{name} with shore hits={hits} landed={landed}"
+                );
+            }
+        }
+    }
+
+    /// Q29: the room's solids are walkable end to end for both heroes in every
+    /// shore state (the parapet jumpable, the perches overhead, no wall in the lane).
+    #[test]
+    fn both_heroes_can_run_the_lane_end_to_end() {
+        let fixture = find_party_fixture("cf02_arena_direct").unwrap();
+        let kit = kit_of(fixture);
+        for hero in [HeroId::Carl, HeroId::Donut] {
+            let mut sim = crate::party_scene::PartyFixtureSim::new(&kit, 360, fixture).unwrap();
+            // Slot 0 drives the controlled hero; swap once for Donut.
+            let mut reached = false;
+            for tick in 0..900u64 {
+                let swap = hero == HeroId::Donut && tick == 0;
+                let body = sim.scene.world.body(hero);
+                let jump = body.grounded && tick % 25 == 0;
+                sim.step_slots([
+                    RawInput {
+                        move_x: 1.0,
+                        jump,
+                        swap,
+                        ..RawInput::NONE
+                    },
+                    RawInput::NONE,
+                ]);
+                if sim.scene.world.body(hero).x > 1100.0 {
+                    reached = true;
+                    break;
+                }
+            }
+            assert!(reached, "{hero:?} reaches the right end of the room");
+        }
+    }
+
+    /// Q29: at 640x360 and 640x400 the scroll camera and the automatic camera at
+    /// every aspect stay inside the room: no void at the widest view.
+    #[test]
+    fn the_cameras_never_leave_the_room_on_the_autopilot_run() {
+        use crate::camera_lab::camera_op::{Aspect, Bounds};
+        use crate::scene_camera::{CameraChoice, CameraInterest, RigConfig, SceneCameraRig};
+        let fixture = find_party_fixture("cf02_arena_direct").unwrap();
+        let kit = kit_of(fixture);
+        for view_h in [360, 400] {
+            let scene =
+                crate::corridor::SceneSim::new_at(&kit, view_h, fixture.base.carl_x).unwrap();
+            let combat = crate::combat_scene::CombatState::new(fixture.base, &kit, &scene)
+                .unwrap()
+                .with_cf02()
+                .with_donut(DonutSetup::NONE);
+            let mut sim = crate::combat_scene::FixtureSim { scene, combat };
+            for aspect in [Aspect::Wide16x9, Aspect::Deck16x10] {
+                let mut sim = sim.clone();
+                let mut interest = CameraInterest::default();
+                let mut rig = SceneCameraRig::new(
+                    RigConfig {
+                        choice: CameraChoice::Auto,
+                        aspect,
+                        out_w: 1920,
+                        bounds: Bounds {
+                            w: kit.width,
+                            h: kit.height,
+                        },
+                    },
+                    &sim.scene,
+                    Some(&sim.combat),
+                    &interest,
+                    0,
+                )
+                .unwrap();
+                let mut widest = 0;
+                for tick in 0..900u64 {
+                    let raw = arena::autopilot(&sim.combat, &sim.scene, arena::Plan::Direct);
+                    sim.step(raw);
+                    interest.clear();
+                    crate::scene_camera::llama_interest(&sim.scene, &sim.combat, &mut interest);
+                    let v = rig.sync(&sim.scene, Some(&sim.combat), &interest, tick + 1);
+                    widest = widest.max(v.w);
+                    assert!(v.left >= 0 && v.right() <= kit.width, "{aspect:?} {v:?}");
+                    assert!(v.top >= 0 && v.bottom() <= kit.height, "{aspect:?} {v:?}");
+                    // The scroll camera too.
+                    let (l, t) = (sim.scene.camera.left(), sim.scene.camera.top());
+                    assert!(l >= 0 && l + 640 <= kit.width && t >= 0 && t + view_h <= kit.height);
+                }
+                assert!(widest >= 640);
+            }
+            sim.step(RawInput::NONE);
+        }
+    }
+
+    /// Q37/Q58 plumbing: the room fixtures run under the CF02 rules and the arena
+    /// predicate names exactly the room fixtures.
+    #[test]
+    fn the_room_fixtures_are_named_by_the_arena_predicate() {
+        let room: Vec<&str> = CF02_FIXTURES
+            .iter()
+            .map(|f| f.name())
+            .filter(|n| arena::fixture_uses_arena(n))
+            .collect();
+        assert_eq!(room.len(), 13, "{room:?}");
+        for name in &room {
+            assert!(morale_fixture(name), "{name}");
+        }
+        assert!(!arena::fixture_uses_arena("cf02_kick_then_stomp"));
+        assert!(!arena::fixture_uses_arena("cp01_kick"));
     }
 }

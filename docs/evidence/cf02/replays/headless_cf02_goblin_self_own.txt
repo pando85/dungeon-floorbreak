@@ -1,0 +1,11 @@
+COMBAT_EVENT tick=32 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=58 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=58 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=58 kind=shore_tripped goblin=0 hits=3 broke=1
+COMBAT_EVENT tick=94 kind=shore_landed
+COMBAT_EVENT tick=94 kind=enemy_defeated target=1 cause=shore_block credit_player=0
+COMBAT_EVENT tick=127 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=153 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=153 kind=hero_hurt source=0 health_left=2
+COMBAT_STATE fixture=cf02_goblin_self_own seed=0xcf02f120 tick=200 elapsed=200 hero_hp=2 deaths=0 enemies=e0=394.000/2,e1=455.000/0 hash=a05c6758e9697806 shore=3/Broken/Landed block_bottom=0.00
+PARTY_STATE fixture=cf02_goblin_self_own mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=0e6a55b1700b58bc

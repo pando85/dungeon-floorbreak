@@ -157,6 +157,35 @@ impl Shore {
         }
     }
 
+    /// CF02-F (Q30, Q42): the landed block hurts a hero whose hurtbox overlaps the
+    /// footprint (evaluated on the landing tick only, with the goblins).
+    pub fn hurts_body(&self, body: Rect) -> bool {
+        body.overlaps(self.footprint())
+    }
+
+    /// CF02-F (Q42): the column the block's knock goes away from.
+    pub fn footprint_centre_x(&self) -> f32 {
+        self.strike_x + FOOTPRINT_X_MIN + FOOTPRINT_WIDTH * 0.5
+    }
+
+    /// CF02-F (Q31): a goblin's swing `swing` (an impact `tag` that cannot equal a
+    /// hero's move instance) advances a shore that already has `min_hits` hits or
+    /// more; an intact shore (`min_hits` > hits) ignores it. `credit` is the hero
+    /// who last hit the shore (it breaks on that hero's account). Counts once per
+    /// tag, never after the break.
+    pub fn strike_by_goblin(
+        &mut self,
+        tag: u32,
+        swing: Rect,
+        min_hits: u8,
+        credit: u32,
+    ) -> Option<ShoreStrike> {
+        if self.hits < min_hits {
+            return None;
+        }
+        self.strike(tag, swing, credit)
+    }
+
     /// DEATH-D: whether the block's vertical edge passes between the head and
     /// the torso of an upright target. `probes` is `(head, torso)` x (see
     /// `Goblin::neck_probes`). The footprint's x range is half-open,

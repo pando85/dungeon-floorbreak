@@ -52,7 +52,7 @@ use dungeon_floorbreak::{
     boss_art::{self, BossArt, FxCtx, Gait, Layer, SheetId},
     boss_scene,
     camera_lab::camera_op::{Aspect, Bounds, View},
-    cf02::{Cf02Config, Cf02Tuning},
+    cf02::{self, Cf02Config, Cf02Tuning},
     cf02_fixtures::{find_party_fixture, list_fixtures},
     cine::{ENV_CINEMATIC_FINISHES, FrameContext, PlannerState, PresentationSettings},
     cine_adapter::CineAdapter,
@@ -360,6 +360,14 @@ impl Args {
             CompanionChoice::Cf02Assist => UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
             CompanionChoice::V0 => UncontrolledHero::Companion(ProfileSetId::CompanionV0),
         }
+    }
+
+    /// CF02-F: this run is in the microarena (`--cf02`, or a CF02-F room fixture).
+    fn arena_room(&self) -> bool {
+        self.cf02.rules
+            || self
+                .fixture
+                .is_some_and(|f| cf02::arena::fixture_uses_arena(f.name))
     }
 
     /// The party of a live run without a party fixture.
@@ -1106,7 +1114,9 @@ fn parse_args_full(
         return Err("--cf02-seed needs --cf02 (or --scene combat_lab)".into());
     }
     if parsed.cf02.rules {
-        // CF02-00: the room is the DEMO hall until CF02-F ships the microarena.
+        // CF02-F: `--cf02` is the microarena. It runs on the DEMO machinery (the
+        // checkpoint respawn, the Select tap and hold, the autopilot flag), with
+        // the arena's own room, fixture and rules.
         parsed.demo = true;
     }
     if parsed.companion.is_some() && (parsed.fixture.is_some() || parsed.party_fixture.is_some()) {
@@ -1131,7 +1141,11 @@ fn parse_args_full(
         if parsed.fixture.is_some() || parsed.scenario.is_some() || parsed.reference_frame {
             return Err("--demo replaces --fixture, --scenario and --reference-frame".into());
         }
-        parsed.fixture = Some(demo::fixture_for_beat(parsed.demo_beat));
+        parsed.fixture = Some(if parsed.cf02.rules {
+            cf02::arena::fixture_for_beat(parsed.demo_beat)
+        } else {
+            demo::fixture_for_beat(parsed.demo_beat)
+        });
         // A live run without a script or autopilot is the player's.
         parsed.manual = !parsed.autopilot
             && !(parsed.headless
@@ -1436,7 +1450,9 @@ fn build_scene(
             let combat = CombatState::new(fixture, kit, &sim)?.with_donut(donut_setup(args));
             (sim, combat)
         };
-        if args.demo {
+        if args.cf02.rules {
+            combat = combat.with_demo(&cf02::arena::RULES);
+        } else if args.demo {
             combat = combat.with_demo(&demo::DEMO_RULES);
         }
         // COMBAT-FUN-02: `--cf02` runs the CF02 rules, llama targets (C1)
@@ -1573,6 +1589,8 @@ fn scripted_input(
         && let Some(run) = &args.lab_run
     {
         combat_lab::autopilot::clear_and_exit(combat, sim, run.info.exit.x as f32 + 32.0)
+    } else if args.autopilot && args.cf02.rules {
+        cf02::arena::autopilot(combat, sim, cf02::arena::Plan::Direct)
     } else if args.autopilot {
         demo::autopilot(combat, sim)
     } else {
@@ -1820,6 +1838,8 @@ fn main() -> ExitCode {
     }
     let kit = if let Some(run) = &args.lab_run {
         Ok(run.kit.clone())
+    } else if args.arena_room() {
+        cf02::arena::load_arena(&root)
     } else if args.demo {
         demo::load_hall(&root)
     } else if args.boss {
@@ -4042,7 +4062,14 @@ fn fixed_step(
         if respawned {
             println!("DEMO01_RESPAWN checkpoint={}", combat.checkpoint);
         }
-        if setup.args.demo {
+        if setup.args.cf02.rules {
+            // CF02-F: the room is one beat; the exit opens when all six enemies
+            // are defeated (console only, presentation).
+            if cf02::arena::complete(combat) && !controls.complete_printed {
+                controls.complete_printed = true;
+                println!("CF02_ARENA_COMPLETE tick={}", sim.0.world.tick);
+            }
+        } else if setup.args.demo {
             // Console progress of the demo (presentation only).
             // The first tick only records the beat the run started at.
             let printed = controls.beat_printed.get_or_insert(combat.checkpoint);
@@ -6213,9 +6240,9 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         );
         return headless_fixture(kit, args, actors, root);
     }
-    if args.demo {
-        // The demo hall has no exit and a different spawn: the story-run checks
-        // below do not apply. Replay the fixture.
+    if args.demo || args.arena_room() {
+        // The demo hall and the CF02 microarena have no exit and a different
+        // spawn: the story-run checks below do not apply. Replay the fixture.
         println!(
             "FLOOR1_HEADLESS_OK: demo hall {} tiles, {} pieces, {} merged solids",
             kit.tiles.len(),
@@ -6337,7 +6364,9 @@ fn view_trace(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result
         match (args.fixture, combat.as_mut()) {
             (Some(fixture), Some(combat)) => {
                 // The demo trace is the autopilot's recorded run of the route.
-                let raw = if args.demo {
+                let raw = if args.demo && args.cf02.rules {
+                    cf02::arena::autopilot(combat, &sim, cf02::arena::Plan::Direct)
+                } else if args.demo {
                     demo::autopilot(combat, &sim)
                 } else {
                     fixture.input(sim.world.tick + 1)
@@ -7079,15 +7108,19 @@ mod tests {
     }
 
     #[test]
-    fn cf02_flags_select_the_demo_hall_and_carry_the_seed() {
+    fn cf02_flags_select_the_microarena_and_carry_the_seed() {
         let plain = args(&["--demo", "--scale", "3"]).unwrap();
         assert_eq!(plain.cf02, Cf02Config::OFF);
         let cf02 = args(&["--cf02", "--scale", "3"]).unwrap();
         assert!(cf02.cf02.rules && cf02.cf02.seed.is_none());
-        // CF02-00: the same hall, fixture and camera as `--demo`.
+        // CF02-F: the microarena fixture on the demo machinery (the checkpoint
+        // respawn, Select, the autopilot), with the demo's default camera.
         assert!(cf02.demo);
-        assert_eq!(cf02.fixture.map(|f| f.name), plain.fixture.map(|f| f.name));
+        assert_eq!(cf02.fixture.map(|f| f.name), Some("cf02_arena"));
+        assert!(cf02.arena_room() && !plain.arena_room());
         assert_eq!(cf02.camera_choice(), plain.camera_choice());
+        let later = args(&["--cf02", "--demo-beat", "1"]).unwrap();
+        assert_eq!(later.fixture.map(|f| f.name), Some("cf02_arena_cp2"));
         let seeded = args(&["--cf02", "--cf02-seed", "18446744073709551615"]).unwrap();
         assert_eq!(seeded.cf02.seed, Some(u64::MAX));
         assert!(

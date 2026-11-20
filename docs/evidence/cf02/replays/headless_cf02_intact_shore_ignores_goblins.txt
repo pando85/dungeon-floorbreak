@@ -1,0 +1,8 @@
+COMBAT_EVENT tick=50 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=76 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=76 kind=hero_hurt source=0 health_left=3
+COMBAT_EVENT tick=145 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=171 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=171 kind=hero_hurt source=0 health_left=2
+COMBAT_STATE fixture=cf02_intact_shore_ignores_goblins seed=0xcf02f121 tick=200 elapsed=200 hero_hp=2 deaths=0 enemies=e0=394.000/2,e1=455.000/2 hash=e542bed19a5a5e51 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=cf02_intact_shore_ignores_goblins mode=solo controlled=Carl carl_hp=2 donut_hp=4 deaths=0 hash=3b8dadb572c271e7

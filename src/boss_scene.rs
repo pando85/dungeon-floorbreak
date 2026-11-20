@@ -169,6 +169,15 @@ pub enum Pilot {
     CarlRack,
     /// [`Pilot::Carl`] plus a P2 Donut that keeps clear and dodges.
     Duo,
+    /// CF02-F: Carl plays the microarena straight through both waves
+    /// ([`crate::cf02::arena::Plan::Direct`]); P2 (if present) is scripted.
+    ArenaDirect,
+    /// CF02-F: Carl breaks the rotten shore first and lets the goblins that chase
+    /// him walk under the block ([`crate::cf02::arena::Plan::Environment`]).
+    ArenaEnvironment,
+    /// CF02-F: [`Pilot::ArenaDirect`] plus a P2 Donut that swats the tell aimed at
+    /// Carl and holds a lying goblin ([`crate::cf02::arena::donut_pilot`]).
+    ArenaDuo,
 }
 
 pub(crate) const fn boss_base(
@@ -489,11 +498,31 @@ pub fn pilot_inputs(
     combat: &CombatState,
     scene: &SceneSim,
 ) -> SlotInputs {
+    // CF02-F: the microarena pilots read no boss.
+    match pilot {
+        Pilot::ArenaDirect => {
+            slots[0] =
+                crate::cf02::arena::autopilot(combat, scene, crate::cf02::arena::Plan::Direct);
+            return slots;
+        }
+        Pilot::ArenaEnvironment => {
+            slots[0] =
+                crate::cf02::arena::autopilot(combat, scene, crate::cf02::arena::Plan::Environment);
+            return slots;
+        }
+        Pilot::ArenaDuo => {
+            slots[0] =
+                crate::cf02::arena::autopilot(combat, scene, crate::cf02::arena::Plan::Direct);
+            slots[1] = crate::cf02::arena::donut_pilot(combat, scene);
+            return slots;
+        }
+        _ => {}
+    }
     let Some(boss) = combat.boss.as_ref() else {
         return slots;
     };
     match pilot {
-        Pilot::None => {}
+        Pilot::None | Pilot::ArenaDirect | Pilot::ArenaEnvironment | Pilot::ArenaDuo => {}
         Pilot::Carl => slots[0] = carl_pilot(tick, combat, scene, boss, false),
         Pilot::CarlRack => slots[0] = carl_pilot(tick, combat, scene, boss, true),
         Pilot::Duo => {
