@@ -1193,7 +1193,9 @@ mod tests {
             .filter(|n| {
                 !(n.starts_with("cf02_llama_")
                     || n.starts_with("cf02_assist_")
-                    || *n == "cf02_donut_solo_llama")
+                    || *n == "cf02_donut_solo_llama"
+                    || *n == "cf02_donut_bailout"
+                    || *n == "cf02_swap_eased_pan")
             })
             .collect();
         let expected: Vec<_> = CF02_FIXTURES.iter().map(|f| f.name()).collect();

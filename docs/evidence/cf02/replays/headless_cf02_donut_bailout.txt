@@ -1,0 +1,6 @@
+COMBAT_EVENT tick=5 kind=move_started move=swat instance=1
+COMBAT_EVENT tick=50 kind=move_started move=swat instance=2
+COMBAT_EVENT tick=90 kind=move_started move=pounce instance=3
+COMBAT_EVENT tick=168 kind=move_started move=swat instance=4
+COMBAT_STATE fixture=cf02_donut_bailout seed=0xcf02c06 tick=200 elapsed=200 hero_hp=4 deaths=0 enemies= hash=deea66cf4ccb0ad1
+PARTY_STATE fixture=cf02_donut_bailout mode=2p controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=50c5db024da0ce67

@@ -364,9 +364,15 @@ impl Args {
 
     /// The party of a live run without a party fixture.
     fn live_party(&self) -> PartyState {
-        PartyState::new(PartyTuning {
+        let tuning = PartyTuning {
             uncontrolled_hero: self.uncontrolled_hero(),
             ..PROVISIONAL_TUNING
+        };
+        // CF02-Q19, Q20: the 12-tick swap cooldown and the eased pan, `--cf02` only.
+        PartyState::new(if self.cf02.rules {
+            tuning.with_cf02_swap()
+        } else {
+            tuning
         })
     }
 

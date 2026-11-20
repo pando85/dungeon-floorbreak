@@ -14,7 +14,7 @@ use crate::combat::{HERO_HEALTH, solid_at};
 use crate::env_kit::{EnvKit, IRect, to_world_y};
 use crate::follower::{Threat, follower_input_boss};
 use crate::input::{Actions, InputFrame, RawInput};
-use crate::party::{HeroId, PartyDrive};
+use crate::party::{HeroId, PartyDrive, SwapPanMode, eased_pan_step};
 use crate::prototype::{
     Block, BodyDrive, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Hero, RUN_SPEED, Rect, TICK_SECONDS,
     step_hero_driven,
@@ -547,6 +547,9 @@ pub struct SceneSim {
     drive: PartyDrive,
     /// Q7: the temporary solo-swap pan cap is still active.
     pan_boost: bool,
+    /// CF02-Q20: the eased swap pan's velocity of the previous tick, px (0 outside
+    /// an eased pan; mixed into the hash only while non-zero).
+    pan_v: i32,
     /// Q9: ticks each hero (`HeroId::index`) has been a bot and off-screen.
     bot_offscreen: [u16; 2],
     /// The layout is no wider than the view (the boss arena): the camera cannot
@@ -627,6 +630,7 @@ impl SceneSim {
             camera_cfg,
             drive: PartyDrive::LEGACY,
             pan_boost: false,
+            pan_v: 0,
             bot_offscreen: [0, 0],
             arena_locked: kit.width <= view.w,
             last_effective: [RawInput::NONE; 2],
@@ -638,6 +642,7 @@ impl SceneSim {
         self.input = InputFrame::default();
         self.donut_input = InputFrame::default();
         self.pan_boost = false;
+        self.pan_v = 0;
         self.bot_offscreen = [0, 0];
         self.camera = ScrollCamera::new(self.camera_cfg, self.world.hero.x, self.world.hero.facing);
     }
@@ -649,6 +654,7 @@ impl SceneSim {
         self.input = InputFrame::default();
         self.donut_input = InputFrame::default();
         self.pan_boost = false;
+        self.pan_v = 0;
         self.bot_offscreen = [0, 0];
         self.camera = ScrollCamera::new(self.camera_cfg, x, self.world.hero.facing);
     }
@@ -670,6 +676,7 @@ impl SceneSim {
         }
         if drive.live && !drive.two_player && drive.controlled != self.drive.controlled {
             self.pan_boost = self.drive.live;
+            self.pan_v = 0;
         }
         let joins = drive.live && drive.two_player && !self.drive.two_player;
         self.drive = drive;
@@ -934,17 +941,30 @@ impl SceneSim {
             let target = world.body(self.drive.controlled);
             (target.x, target.facing)
         };
-        let cap = if self.pan_boost {
-            i32::from(self.drive.tuning.swap_pan_px_per_tick)
-        } else {
-            MAX_SPEED_PX
-        };
         // Two players: no deadzone, so the midpoint stays centred and the
         // leader at the wall keeps the full `camera_edge_margin_px` (Q7).
         let deadzone = if self.drive.two_player {
             0
         } else {
             DEADZONE_PX
+        };
+        if self.pan_boost && self.drive.tuning.swap_pan_mode == SwapPanMode::Eased {
+            // CF02-Q20: eased in and out. A zero-cap step measures the distance
+            // left without moving; the velocity ramps from the previous tick's.
+            let remaining = self.camera.step_capped_deadzone(x, facing, 0, deadzone);
+            let v = eased_pan_step(self.pan_v, remaining);
+            self.pan_v = v;
+            let left = self.camera.step_capped_deadzone(x, facing, v, deadzone);
+            if left == 0 {
+                self.pan_boost = false;
+                self.pan_v = 0;
+            }
+            return;
+        }
+        let cap = if self.pan_boost {
+            i32::from(self.drive.tuning.swap_pan_px_per_tick)
+        } else {
+            MAX_SPEED_PX
         };
         let remaining = self.camera.step_capped_deadzone(x, facing, cap, deadzone);
         if remaining <= MAX_SPEED_PX {
@@ -993,6 +1013,11 @@ impl SceneSim {
                 u64::from(self.drive.two_player),
             ] {
                 hash ^= value;
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+            // CF02-Q20: only while an eased pan runs, so legacy hashes hold.
+            if self.pan_v != 0 {
+                hash ^= 0x4346_3032_5041_4e56 ^ (self.pan_v as u64);
                 hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
             }
         }
