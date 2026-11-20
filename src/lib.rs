@@ -5,6 +5,7 @@ pub mod anim;
 pub mod audience;
 pub mod audio;
 pub mod audio_adapter;
+pub mod autoplay;
 pub mod blast;
 pub mod blast_art;
 pub mod boss;

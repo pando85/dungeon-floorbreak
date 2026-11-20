@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "profiles": [
+    {
+      "id": "sparse-v1",
+      "success": 1.0,
+      "defeat": -1.0,
+      "abandoned": -1.0,
+      "timeout": 0.0,
+      "enemy_defeated": 0.0,
+      "carl_hurt": 0.0,
+      "tick": 0.0
+    },
+    {
+      "id": "combat-v1",
+      "success": 10.0,
+      "defeat": -10.0,
+      "abandoned": -10.0,
+      "timeout": 0.0,
+      "enemy_defeated": 1.0,
+      "carl_hurt": -1.0,
+      "tick": -0.001
+    }
+  ]
+}
