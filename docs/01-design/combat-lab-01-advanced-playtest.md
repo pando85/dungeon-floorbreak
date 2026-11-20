@@ -109,7 +109,7 @@ Telemetry is **derived offline** from PLAYTRACE events plus AUTOPLAY diagnostics
 **Do not optimize for inflated viewership, rewards or RL score.** A skilled kill deserves a rare cinematic event when genuinely eligible. To assess reproducibility, store the precise rule flags and replay proof for each visually significant event; a rendered effect alone is not authoritative.
 
 Hard gates:
-1. Clear R00–R02 in solo and co-op **on the legacy rules and the existing roster** (geometry-only; LAB-01 does not wait for CF02); prove basic movement and two-character visibility, no permanent obstacle to solo switching. Solo R02 before 01B-wire is a human switch-through, not a companion result.
+1. Clear R00–R02 in solo and co-op **on the legacy rules and the existing roster** (geometry-only; does not wait for CF02 rules; the live human clear needs LAB-00-wire, after CF02-I); prove basic movement and two-character visibility, no permanent obstacle to solo switching. Solo R02 before 01B-wire is a human switch-through, not a companion result.
 2. After CF02-F merges: clear R01/R05 with `cf02_rules` selected and verify all original legacy `--demo`/goldens unchanged.
 3. Verify every room from its checkpoint and after partial terrain destruction (using only the destruction that exists, LAB-Q02); safe retry, camera continuity, all roles reachable; record failures honestly.
 4. **PLAYTRACE-01:** an actual human-driven attempt of every mode is recorded (PT-B), verified (PT-C) and exported to observation/action transitions (PT-D), or the test is marked *not recorded* / *not ML-ready*.
