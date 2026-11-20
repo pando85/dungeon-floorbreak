@@ -50,4 +50,4 @@ This ADR **narrows** the non-binding [character progression horizon](../01-desig
 
 ## Rollout
 
-Follow [the dependency roadmap](../04-production/rewards-roadmap.md): M0 policy; M1 moment-to-moment momentum; M2 bounded floor choices; M3 sponsor beats; M4 exceptional lasting story gifts. This ADR alone unlocks no item, skill, sponsor event or new HUD element. Franchise-based visual/story content remains gated by rights and book chapter verification.
+Follow [the dependency roadmap](../04-production/rewards-roadmap.md): M0 policy; M1 moment-to-moment momentum (probe runs under `cf02_rules`, after CF02-A and CF02-B); M2 bounded floor choices; M3 sponsor beats; M4 exceptional lasting story gifts. This ADR alone unlocks no item, skill, sponsor event or new HUD element. Franchise-based visual/story content remains gated by rights and book chapter verification.

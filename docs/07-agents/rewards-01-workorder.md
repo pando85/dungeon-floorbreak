@@ -11,7 +11,7 @@
 - Every implementation change is feature-flagged. Start with rewards **off** by default, including on `--demo`; opt in through an explicitly named scene/test flag, wired consistently to headless fixtures. Legacy `COMBAT_STATE`, camera, CINE and AUDIENCE goldens stay unchanged with flag off. Changes under flag on get independently versioned reward digests and replay evidence.
 - Stable hero identities, **not controller slot numbers**, govern attribution. AI and human control must not create new wallets or clone a grant on swap. Team modifiers are never per-player duplicated. Enemy material/immunity and story capability gates are always stronger than a reward.
 - Any effect must create an *observable combat decision* (push, timing, setup, survival), not merely inflate global damage. Keep authored floor navigation and boss tells intact.
-- Coordinate with the live **CF02-00 #134** and **COMPANION-AI #129/#130/#131** agents. No simultaneous edits to shared combat, input, party, HUD or camera files without explicit API ownership transfer and rebasing.
+- Rebase on the merged **CF02-00 (#134, `a572b89f`, merged 2026-11-20)** and coordinate with the open **COMPANION-AI #129/#130/#131** PRs and the not-yet-merged CF02-A/B/H work. No simultaneous edits to shared combat, input, party, HUD or camera files without explicit API ownership transfer and rebasing.
 - All PR/commit/doc/code text in English. No franchise-specific names baked into simulation IDs. Use source-backed chapter/lore evidence for eventual special objects; do not represent this concept as a franchise license.
 
 ## B. Event/versioned data proposal (compile only after reconciling source)
@@ -19,12 +19,12 @@
 ```rust
 // Sketch only: resolve to existing combat/party types first.
 struct SpectacleFactV1 {
-    event_id: u64,
-    tick: u64,
-    encounter_id: u32,
+    event_id: u64,          // derived: (attempt, attempt-local tick, per-tick ordinal); no event_id exists in CombatEvent today
+    tick: u64,              // attempt-local, as in CombatEvent
+    encounter_id: u32,      // provisional M1 scope (REW-01), replaced by STAGE-BOUNDARY-01
     target_id: u32,
-    actor_hero: Option<u8>, // 0 demolitionist, 1 caster
-    helper_hero: Option<u8>,
+    actor_hero: Option<HeroId>, // party::HeroId: Carl (demolitionist), Donut (caster)
+    helper_hero: Option<HeroId>,
     fact: SpectacleFactKind,
     source: SourceAuthority, // human, companion, authored environment
 }
@@ -55,14 +55,18 @@ Prefer existing domain IDs / ordered sets and structs from the live repo. Use at
 ### REW-01 — Pure scoring/evaluator domain
 
 - Own new `src/rewards/events.rs` and `src/rewards/spectacle.rs` (or the closest idiomatic module structure after source inspection). Pure inputs from existing accepted combat event types. Add a normalization adapter **only when its source-file owner has released the seam**.
+- **Normalise attribution into `party::HeroId`:** `CombatEvent::EnemyDefeated.instigator` is an `Option<u32>` (documented as a "player", in practice the hero index whichever pad drives it) and `CombatEvent::Hit` has no attacker, so hits are attributed through `MoveId::hero()` (a `u32`). Neither is a controller slot. Keep a swap / 2P pad-permutation fixture.
+- **Derive event ids** as (attempt, attempt-local tick, per-tick ordinal); `CombatEvent` has no `event_id` and ticks restart at 1 after each `Restart`.
+- **Provisional M1 encounter scope** (spec section 9): the attempt (`Restart`), the checkpoint segment between DEMO-01 `Respawn { checkpoint }` boundaries and `BossEngaged`, plus a **1800-tick (30 s) cooldown** exposed as a tunable knob. STAGE-BOUNDARY-01 later replaces it with a real encounter id through an explicit migration (versioned reward rules, new reward digests, legacy goldens untouched). REW-01 may start immediately on synthetic facts; it does not wait for CF02.
 - Data-driven scoring, 180-tick chain window, integer repeat damping, skill-category uniqueness, manual-vs-companion source distinction, target/event dedupe, bounded processing and fixed-seed proof.
-- Test category mix, 3-second expiry, once-per-target explosion, wall knockdown vs harmless contact, authored anticipation not granting style, unknown instigator, two-hero contributions, no-gore-difference and changing pad/active hero ownership. Do not score CINE cosmetic triggers.
+- Test category mix (a plain defeat never counts as a meaningful category), 3-second expiry, once-per-target explosion, wall knockdown vs harmless contact, authored anticipation not granting style, unknown instigator, two-hero contributions, no-gore-difference and changing pad/active hero ownership. Do not score CINE cosmetic triggers.
 - Print separate, versioned `REWARD_STYLE_STATE` fixtures, never reuse `AUDIENCE_STATE` and do not change old hashes when off.
 
 ### REW-02 — Two small, real momentum effects
 
-- Wait for REW-01 merged and compatible stable kick/pounce integration, especially CF02-00's authoritative file ownership. Domain state under `src/rewards/momentum.rs`; small scene adapter in a serialized PR.
-- `RM-CARL-01`: +12% clamped impulse for next two landed kicks, max 8 s. `RM-DONUT-01`: one pounce adds at most six legal hold ticks, max 8 s (no pre-biscuit magic). All numbers configurable; include non-effect guard for immune/invalid contacts.
+- **Hard prerequisites: REW-01, CF02-A (Q38 pounce hold, `src/goblin.rs` hold keyed on `MoveId::Pounce`) and CF02-B (`CombatEvent::WallSlam` / `BodyContact`).** CF02-00 (#134) is merged. The M1 probe and its human verdict run under `cf02_rules` (`--cf02`); legacy `--demo` has no hold, and legacy `GoblinContact` is "no damage" so it is not a meaningful category. Reason: the legacy arithmetic reaches only 335 of 350 points (jab to haymaker 70, damped repeat 35, shore-block kill 170, three plain defeats 60). Domain state under `src/rewards/momentum.rs`; small scene adapter in a serialized PR after the CF02 combat PRs.
+- **Introduce the caps; do not assume them.** `src/` has no launch-impulse maximum and no enemy control-immunity cap. REW-02 adds both as data knobs with tests (a launch-impulse maximum for `RM-CARL-01`; a maximum total hold length for `RM-DONUT-01`, optionally bound to the CF02 Q38 hold length).
+- `RM-CARL-01`: +12% clamped impulse for next two landed kicks, max 8 s; **no direct damage increase**; indirect wall-slam / body-contact outcomes under CF02-B are expected and counted in REW-09A (extra slams and contacts per buffed kick). Eligible kicks are a data list: default `PushKick`, plus CF02 `FollowKick` / `AirKick` only when those moves exist under `cf02_rules`. `RM-DONUT-01`: one pounce adds at most six legal hold ticks, max 8 s (no pre-biscuit magic). All numbers configurable; include non-effect guard for immune/invalid contacts.
 - Tests: no buff on a routine solo kill, cap per encounter, expiry during hero switch, companion eligibility, two controllers, boss caps, save/retry and no perturbation of critical material. Show actual real Bevy A/B evidence. Manual gamepad verdict required.
 - **M1 may be validated once REW-09A telemetry lands; stage choices/sponsors are not prerequisites.**
 
@@ -82,6 +86,7 @@ Prefer existing domain IDs / ordered sets and structs from the live repo. Use at
 ### REW-04 — Floor modifier catalogue and offers
 
 - Read `assets/data/gameplay/rewards_v0.json` with schema validation (exact file name subject to current pipeline conventions). Include minimum 3 *meaningful, actually supported* proposals from RF-01..RF-06 and 3-card no-duplicate offer logic. No invalid pre-story cards; if fewer than 3 legitimate cards, use a smaller offer or skip without fake filler.
+- `RF-01` (Carl wall-crash stagger) needs a stagger cap introduced here as a data knob with tests (no enemy resilience stat exists). `RF-05` triggers only on a human-controlled hero (the controlled hero in solo, either human hero in 2P) because `PartyTuning::solo_last_hp_guard` already keeps the uncontrolled solo hero at 1 HP or more.
 - Exactly one team-owned selection per qualifying stage. At most two concurrent floor modifiers, choose replacement explicitly when at cap; never reroll repeatedly at same checkpoint. Log offer ID, choices, selection, resulting state and scene constraints.
 - Scripted two-stage run tests: 1P and 2P, controller reassign, companion source, checkpoint retry, post-floor reset, seeded deterministic order. Balance the same-stage reward budget across 1P and 2P.
 
@@ -94,7 +99,7 @@ Prefer existing domain IDs / ordered sets and structs from the live repo. Use at
 ### REW-09A — AUTOPLAY analysis, in parallel with REW-03/04
 
 - Extend the existing AUTOPLAY Observation/reward telemetry with versioned, **non-privileged** reward observations where players would know them. Diagnostics may include privileged event details but not policy inputs. Reward-grant events are **not** an RL exploit objective by default.
-- Repeat same seed sets disabled/enabled; report encounter success, style category entropy, duplicate payout count, damage, clear time, unusual action repeats, active modifier pick skew. Include anti-farm bots and multi-hit loops.
+- Repeat same seed sets disabled/enabled (reward probe under `cf02_rules`); report extra wall slams and extra body contacts per buffed Carl kick, encounter success, style category entropy, duplicate payout count, damage, clear time, unusual action repeats, active modifier pick skew. Include anti-farm bots and multi-hit loops.
 - Keep 01C/PPO optional. Preserve the existing AUTOPLAY baseline, release build tests and real simulation.
 
 ### REW-06 — Later sponsor eligibility, gated by story
@@ -135,6 +140,8 @@ Prefer existing domain IDs / ordered sets and structs from the live repo. Use at
 | `rwd_viewer_spike_not_mastery` | Audience anticipation spike cannot issue momentum |
 | `rwd_swap_and_pad_permutation` | Hero 0/1 stable despite swap/2P slot changes |
 | `rwd_ai_assist_no_double_pay` | Credit remains factual, team grants once |
+| `rwd_buffed_kick_indirect_outcomes` | `RM-CARL-01` adds no direct damage; extra slams/contacts are counted, not hidden |
+| `rwd_solo_patch_human_hero_only` | `RF-05` never fires for the uncontrolled solo hero (already guarded) |
 | `rwd_checkpoint_reentry_idempotent` | Duplicate stage clear cannot reroll |
 | `rwd_stage_to_floor_reset` | Floor modifier lost at floor exit, story skill retained |
 | `rwd_offer_story_gating` | No mana card before biscuit or bombs before unlock |
