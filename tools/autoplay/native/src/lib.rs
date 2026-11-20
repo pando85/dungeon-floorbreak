@@ -46,10 +46,11 @@ fn to_py_err(err: AutoplayError) -> PyErr {
         AutoplayError::InvalidConfig(_)
         | AutoplayError::Cf02Unsupported
         | AutoplayError::SimSeedUnsupported
-        | AutoplayError::UnsupportedScenario(_) => PyValueError::new_err(message),
-        AutoplayError::Sim(_) | AutoplayError::InitialHashMismatch { .. } => {
-            PyRuntimeError::new_err(message)
-        }
+        | AutoplayError::UnsupportedScenario(_)
+        | AutoplayError::UnsupportedCompanion(_) => PyValueError::new_err(message),
+        AutoplayError::Sim(_)
+        | AutoplayError::InitialHashMismatch { .. }
+        | AutoplayError::SeatEntryFailed(_) => PyRuntimeError::new_err(message),
     }
 }
 

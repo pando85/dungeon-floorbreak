@@ -375,6 +375,19 @@ fn timeout_truncates_at_the_env_tick_counter_entry_tick_included() {
 }
 
 #[test]
+fn max_ticks_two_is_accepted_and_times_out_on_the_first_policy_step() {
+    for seat in HeroId::ALL {
+        let mut config = AutoplayConfig::party_solo("ap2a_single_goblin_far", seat, FJB);
+        config.max_ticks = 2;
+        let mut env = PartyAutoplayEnv::new(config, &root()).unwrap();
+        env.reset(0).unwrap();
+        assert_eq!(env.outcome(), None, "the entry tick alone does not end it");
+        let last = env.step(ActionV1::NOOP).unwrap();
+        assert_eq!((last.outcome, last.tick), (Some(Outcome::Timeout), 2));
+    }
+}
+
+#[test]
 fn a_timeout_inside_an_action_repeat_bundle_stops_on_the_limit() {
     let mut config = AutoplayConfig::party_solo("ap2a_single_goblin_far", HeroId::Carl, FJB);
     config.max_ticks = 22;
