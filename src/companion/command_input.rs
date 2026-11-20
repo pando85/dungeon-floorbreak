@@ -25,6 +25,15 @@
 //! Down never forms a chord and always passes through. Two face edges on one
 //! tick resolve in that fixed order and the other press is consumed.
 //!
+//! Provisional author choices, open D-CTRL questions (not adopted behaviour):
+//!
+//! - Later chords in one hold also act (`L1 Sq .. Cir ..`): each tick emits at
+//!   most one order, there is no queue and a new order replaces the old one.
+//!   "First chord instantly acts" is a latency rule, not an exclusivity rule.
+//!   The 01D director must treat a repeated same-command chord as idempotent.
+//! - Simultaneous faces resolve Square > Triangle > Circle > Cross (the
+//!   [`Face::ALL`] order); the other press is consumed, never queued.
+//!
 //! CA-27: a face press consumed by the grammar is masked from [`Forward`] until
 //! the button is released, so it never reaches gameplay or the move buffer and
 //! never fabricates a press edge. Entering command mode sets
@@ -32,14 +41,26 @@
 //! hero's move buffer and the swap buffer. Nothing here does that wiring.
 //!
 //! Context inputs: `commands_blocked` (no companion, controlled hero dead or
-//! respawning) makes chords and holds [`Action::Refused`]; `hurt` is carried
-//! only for the test gate model and the grammar never reads it. Link events
-//! clear all modal state; after a reconnect (or leaving two-human play) every
-//! button that is down is latched until it is released. After
+//! respawning) makes chords and holds [`Action::Refused`] and closes an open,
+//! visible mode with one [`Action::CancelMode`]. `paused` clears all modal
+//! state and forwards nothing; the first unpaused tick latches every button
+//! that is down until it is released, so a hold never keeps counting through a
+//! pause. Link events clear all modal state; after a reconnect (or leaving
+//! two-human play) every button that is down is latched until it is released.
+//! Hurt, cooldown and buffer rules belong to the party swap gate, not here.
+//! After
 //! [`LinkEvent::SecondHumanJoined`] the grammar is disabled and passes
 //! everything through (no swap, no commands), per the two-human party mode.
 
+use crate::input::RawInput;
+
 /// Default hold threshold in ticks (CA-12 hypothesis, about 167 ms at 60 Hz).
+///
+/// The press tick counts as held tick 1, so the mode opens on the 10th
+/// consecutive held tick, 9 ticks (150 ms) after the press edge; the same tick
+/// decides tap versus hold (a 9-tick tap swaps there, a 10-tick hold opens
+/// there). The "~167 ms" figure multiplies 10 by 16.7 ms and overstates the
+/// real delay from the press edge by one tick.
 pub const DEFAULT_HOLD_TICKS: u8 = 10;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -164,8 +185,9 @@ pub struct TickInput {
     pub link: Option<LinkEvent>,
     /// No companion to command, or the controlled hero is dead or respawning.
     pub commands_blocked: bool,
-    /// Controlled hero in hit reaction. Context for the swap gate model only.
-    pub hurt: bool,
+    /// The game is paused: modal state and pending commands are cleared and
+    /// nothing is forwarded.
+    pub paused: bool,
 }
 
 impl TickInput {
@@ -180,7 +202,7 @@ impl TickInput {
         toggle: false,
         link: None,
         commands_blocked: false,
-        hurt: false,
+        paused: false,
     };
 
     pub fn with(mut self, button: Btn) -> Self {
@@ -276,6 +298,20 @@ impl Forward {
         down: false,
     };
 
+    /// The gameplay-facing raw input for this tick: held face states only. Swap
+    /// is an [`Action`], not a held state, so it is left unset; interact and
+    /// down have no `RawInput` field on main yet and are not carried.
+    pub fn to_raw(self, move_x: f32) -> RawInput {
+        RawInput {
+            move_x,
+            jump: self.jump,
+            attack: self.attack,
+            physical: self.physical,
+            ability: self.ability,
+            ..RawInput::default()
+        }
+    }
+
     /// True when `self` holds a face button (jump, primary, physical, special)
     /// that `prev` did not: a press edge gameplay would see.
     pub fn new_face_edge_over(&self, prev: &Forward) -> bool {
@@ -358,6 +394,8 @@ pub struct CommandGrammar {
     consumed: [bool; 4],
     /// Variant (c): a released R1 tap whose interact has not fired yet.
     pending_interact: bool,
+    /// The previous tick was paused; the next unpaused tick latches held buttons.
+    was_paused: bool,
 }
 
 impl CommandGrammar {
@@ -371,6 +409,7 @@ impl CommandGrammar {
             phase: Phase::Idle,
             consumed: [false; 4],
             pending_interact: false,
+            was_paused: false,
         }
     }
 
@@ -442,6 +481,23 @@ impl CommandGrammar {
         if !self.connected {
             self.prev = Held::NONE;
             return Self::out(Action::PassThrough, Forward::NONE, false, false);
+        }
+        if input.paused {
+            let cancel = event_cancel || self.mode_visible();
+            self.was_paused = true;
+            self.reset_modal();
+            self.prev = Held::NONE;
+            let action = if cancel {
+                Action::CancelMode
+            } else {
+                Action::PassThrough
+            };
+            return Self::out(action, Forward::NONE, true, false);
+        }
+        if self.was_paused {
+            // Whatever is down on resume was not pressed on resume.
+            self.was_paused = false;
+            self.latch = raw;
         }
         self.latch = self.latch.zip(raw, |l, r| l && r);
         let eff = raw.zip(self.latch, |r, l| r && !l);
@@ -534,60 +590,76 @@ impl CommandGrammar {
         }
         let mut action = Action::PassThrough;
         let mut clear = false;
-        match self.phase {
-            Phase::Idle => {}
-            Phase::Candidate { held } => {
-                if let Some(face) = face_edge {
-                    action = Self::chord(face, blocked);
-                    clear = true;
-                    self.pending_interact = false;
-                    self.phase = if m_now {
-                        Phase::Open {
-                            used: true,
-                            visible: !blocked,
-                        }
-                    } else {
-                        Phase::Idle
-                    };
-                } else if !m_now {
-                    self.phase = Phase::Idle;
-                    if r1_variant {
-                        self.pending_interact = true;
-                    } else {
-                        action = Action::Swap;
-                    }
-                } else {
-                    let held = held.saturating_add(1);
-                    if held >= self.cfg.hold_ticks.max(1) {
+        if blocked && matches!(self.phase, Phase::Open { visible: true, .. }) {
+            // Dead, respawning or no companion: the open mode closes now. The
+            // modifier may stay down, so later faces stay consumed and the
+            // release stays silent.
+            action = Action::CancelMode;
+            clear = true;
+            self.phase = if m_now {
+                Phase::Open {
+                    used: true,
+                    visible: false,
+                }
+            } else {
+                Phase::Idle
+            };
+        } else {
+            match self.phase {
+                Phase::Idle => {}
+                Phase::Candidate { held } => {
+                    if let Some(face) = face_edge {
+                        action = Self::chord(face, blocked);
                         clear = true;
                         self.pending_interact = false;
-                        self.phase = Phase::Open {
-                            used: blocked,
-                            visible: !blocked,
-                        };
-                        action = if blocked {
-                            Action::Refused(RefuseReason::CommandsUnavailable)
+                        self.phase = if m_now {
+                            Phase::Open {
+                                used: true,
+                                visible: !blocked,
+                            }
                         } else {
-                            Action::OpenMode
+                            Phase::Idle
                         };
+                    } else if !m_now {
+                        self.phase = Phase::Idle;
+                        if r1_variant {
+                            self.pending_interact = true;
+                        } else {
+                            action = Action::Swap;
+                        }
                     } else {
-                        self.phase = Phase::Candidate { held };
+                        let held = held.saturating_add(1);
+                        if held >= self.cfg.hold_ticks.max(1) {
+                            clear = true;
+                            self.pending_interact = false;
+                            self.phase = Phase::Open {
+                                used: blocked,
+                                visible: !blocked,
+                            };
+                            action = if blocked {
+                                Action::Refused(RefuseReason::CommandsUnavailable)
+                            } else {
+                                Action::OpenMode
+                            };
+                        } else {
+                            self.phase = Phase::Candidate { held };
+                        }
                     }
                 }
-            }
-            Phase::Open { used, visible } => {
-                let mut used = used;
-                if let Some(face) = face_edge {
-                    action = Self::chord(face, blocked);
-                    used = true;
-                }
-                if m_now {
-                    self.phase = Phase::Open { used, visible };
-                } else {
-                    if face_edge.is_none() && !used {
-                        action = Action::CancelMode;
+                Phase::Open { used, visible } => {
+                    let mut used = used;
+                    if let Some(face) = face_edge {
+                        action = Self::chord(face, blocked);
+                        used = true;
                     }
-                    self.phase = Phase::Idle;
+                    if m_now {
+                        self.phase = Phase::Open { used, visible };
+                    } else {
+                        if face_edge.is_none() && !used {
+                            action = Action::CancelMode;
+                        }
+                        self.phase = Phase::Idle;
+                    }
                 }
             }
         }
@@ -596,8 +668,17 @@ impl CommandGrammar {
         }
         if r1_variant {
             let open = matches!(self.phase, Phase::Open { .. });
-            if eff.l1 && !self.prev.l1 && action == Action::PassThrough && !open {
-                action = Action::Swap;
+            if eff.l1 && !self.prev.l1 && action == Action::PassThrough {
+                if open {
+                    // L1 while the mode is open cancels it, as variant (d) does.
+                    action = Action::CancelMode;
+                    self.phase = Phase::Open {
+                        used: true,
+                        visible: false,
+                    };
+                } else {
+                    action = Action::Swap;
+                }
             }
             if action == Action::PassThrough && self.pending_interact && !pressed.iter().any(|p| *p)
             {
@@ -616,6 +697,12 @@ impl CommandGrammar {
         let face_edge = Self::first_edge(pressed);
         let mut action = Action::PassThrough;
         let mut clear = false;
+        if blocked && matches!(self.phase, Phase::Open { .. }) {
+            // Dead, respawning or no companion: the open mode closes now.
+            self.phase = Phase::Idle;
+            self.consume(pressed);
+            return (Action::CancelMode, true);
+        }
         if matches!(self.phase, Phase::Open { .. }) {
             if let Some(face) = face_edge {
                 action = Self::chord(face, blocked);
@@ -669,9 +756,15 @@ pub fn first_tick(
 
 /// Parse a compact script: whitespace separated ticks, each `spec` or
 /// `spec*N`. A spec is `-` (nothing) or `+`-joined, case-insensitive names:
-/// `L1 R1 Sq Tri Cir Cro Dn Tog`, flags `Blocked Hurt`, link events
-/// `Disc Reconn Join Leave`.
+/// `L1 R1 Sq Tri Cir Cro Dn Tog`, flags `Blocked Pause`, link events
+/// `Disc Reconn Join Leave`. `Hurt` is accepted and ignored here: it is swap
+/// gate context for the tests, not a grammar input.
 pub fn parse_script(text: &str) -> Result<Vec<TickInput>, String> {
+    Ok(parse_flagged(text)?.into_iter().map(|(t, _)| t).collect())
+}
+
+/// Like [`parse_script`], also returning the per-tick `Hurt` flag.
+fn parse_flagged(text: &str) -> Result<Vec<(TickInput, bool)>, String> {
     let mut ticks = Vec::new();
     for token in text.split_whitespace() {
         let (spec, count) = match token.rsplit_once('*') {
@@ -683,6 +776,7 @@ pub fn parse_script(text: &str) -> Result<Vec<TickInput>, String> {
             None => (token, 1),
         };
         let mut tick = TickInput::NONE;
+        let mut hurt = false;
         for name in spec.split('+') {
             match name.to_ascii_lowercase().as_str() {
                 "-" => {}
@@ -695,7 +789,8 @@ pub fn parse_script(text: &str) -> Result<Vec<TickInput>, String> {
                 "dn" | "down" => tick.down = true,
                 "tog" | "toggle" => tick.toggle = true,
                 "blocked" => tick.commands_blocked = true,
-                "hurt" => tick.hurt = true,
+                "pause" => tick.paused = true,
+                "hurt" => hurt = true,
                 "disc" => tick.link = Some(LinkEvent::PadDisconnected),
                 "reconn" => tick.link = Some(LinkEvent::PadReconnected),
                 "join" => tick.link = Some(LinkEvent::SecondHumanJoined),
@@ -710,7 +805,7 @@ pub fn parse_script(text: &str) -> Result<Vec<TickInput>, String> {
             if i == 0 {
                 t.link = link;
             }
-            ticks.push(t);
+            ticks.push((t, hurt));
         }
     }
     Ok(ticks)
@@ -729,6 +824,15 @@ mod tests {
 
     fn script(text: &str) -> Vec<TickInput> {
         parse_script(text).expect("valid script")
+    }
+
+    /// Per-tick `Hurt` flags of a script, kept outside `TickInput`.
+    fn hurt_flags(text: &str) -> Vec<bool> {
+        parse_flagged(text)
+            .expect("valid script")
+            .into_iter()
+            .map(|(_, hurt)| hurt)
+            .collect()
     }
 
     fn cfg(variant: GrammarVariant) -> GrammarConfig {
@@ -846,10 +950,10 @@ mod tests {
                 ".S.I",
             ),
             (
-                "c swap swallowed in open mode",
+                "c L1 in open mode cancels without swap",
                 R,
                 "R1*10 R1+L1 R1 -",
-                ".........O..C",
+                ".........OC..",
             ),
             (
                 "c R1 release with L1 press: swap then interact",
@@ -883,10 +987,73 @@ mod tests {
             ("b blocked tap still swaps", L, "L1+Blocked*2 -", "..S"),
             ("d blocked toggle refused", T, "Tog+Blocked -", "X."),
             ("c blocked chord refused", R, "R1 R1+Tri+Blocked -", ".X."),
+            // Blocked while the mode is open closes it (spec 5).
+            (
+                "b blocked closes the open mode, later chord refused",
+                L,
+                "L1*10 L1+Blocked L1+Sq+Blocked L1 -",
+                ".........OCX..",
+            ),
+            (
+                "c blocked closes the open mode",
+                R,
+                "R1*10 R1+Blocked R1 -",
+                ".........OC..",
+            ),
+            ("d blocked closes the open mode", T, "Tog Blocked", "OC"),
+            // Pause clears modal state; the hold does not keep counting.
+            (
+                "b pause mid candidate: no swap, no open",
+                L,
+                "L1*4 L1+Pause*20 L1 -",
+                "..........................",
+            ),
+            (
+                "b pause with the mode open cancels once",
+                L,
+                "L1*10 L1+Pause*3 L1 -",
+                ".........OC....",
+            ),
+            (
+                "d pause with the mode open cancels once",
+                T,
+                "Tog Pause Pause",
+                "OC.",
+            ),
+            (
+                "c pause mid candidate: no interact",
+                R,
+                "R1*4 R1+Pause*3 R1 -",
+                ".........",
+            ),
         ];
         for (name, variant, text, expected) in table {
             assert_eq!(&actions(*variant, text), expected, "{name}");
         }
+    }
+
+    #[test]
+    fn blocked_and_pause_close_the_open_mode_and_swallow_the_chord() {
+        // Blocked arrives with the mode open: closed from tick 10, no leak.
+        let outs = run(cfg(L), &script("L1*10 L1+Blocked L1+Sq+Blocked L1 -"));
+        check(L, &outs);
+        assert_eq!(render(&outs), ".........OCX..");
+        assert!(outs[9].mode_open);
+        assert!(outs[10..].iter().all(|o| !o.mode_open));
+        assert!(outs[10].clear_buffers);
+        assert!(outs.iter().all(|o| !o.forward.attack));
+        // Pause during a candidate hold: no swap and no open on resume.
+        let outs = run(cfg(L), &script("L1*4 L1+Pause*20 L1 -"));
+        assert!(outs.iter().all(|o| o.action == Action::PassThrough));
+        assert!(outs[4..24].iter().all(|o| o.forward == Forward::NONE));
+        // Pause with the mode open: one cancel, nothing forwarded, buffers cleared.
+        let outs = run(cfg(L), &script("L1*10 L1+Pause*3 L1 -"));
+        assert_eq!(render(&outs), ".........OC....");
+        assert!(outs[10].clear_buffers && !outs[10].mode_open);
+        // A face held across the pause does not fabricate a press on resume.
+        let outs = run(cfg(L), &script("Pause Sq Sq - Sq"));
+        let attack: Vec<bool> = outs.iter().map(|o| o.forward.attack).collect();
+        assert_eq!(attack, [false, false, false, false, true]);
     }
 
     #[test]
@@ -965,10 +1132,14 @@ mod tests {
 
     impl SwapGate {
         fn new() -> Self {
+            Self::with_tuning(PartyTuning::default())
+        }
+
+        fn with_tuning(tuning: PartyTuning) -> Self {
             Self {
                 cooldown: 0,
                 buffer: 0,
-                tuning: PartyTuning::default(),
+                tuning,
             }
         }
 
@@ -995,17 +1166,32 @@ mod tests {
     }
 
     /// Ticks at which a swap landed, honoring `clear_buffers` when asked to.
+    /// A real `PartyState` runs in lockstep and must land the same swaps until
+    /// the first honored `clear_buffers` (production has no clear hook yet).
     fn swaps_through_gate(variant: GrammarVariant, text: &str, honor_clear: bool) -> Vec<usize> {
         let ticks = script(text);
+        let hurt = hurt_flags(text);
         let outs = run(cfg(variant), &ticks);
         check(variant, &outs);
         let mut gate = SwapGate::new();
+        let mut party = PartyState::default();
+        let mut cleared = false;
         let mut landed = Vec::new();
-        for (i, (tick, out)) in ticks.iter().zip(&outs).enumerate() {
+        for (i, (hurt, out)) in hurt.iter().zip(&outs).enumerate() {
             if honor_clear && out.clear_buffers {
                 gate.clear();
+                cleared = true;
             }
-            if gate.request(out.action == Action::Swap, tick.hurt) {
+            let pressed = out.action == Action::Swap;
+            let model = gate.request(pressed, *hurt);
+            let real = party.request_swap(pressed, *hurt);
+            if !cleared {
+                assert_eq!(
+                    real, model,
+                    "tick {i}: PartyState and the gate model differ"
+                );
+            }
+            if model {
                 landed.push(i);
             }
         }
@@ -1014,18 +1200,41 @@ mod tests {
 
     #[test]
     fn swap_gate_model_matches_party_state() {
-        let mut state = 0x2545_f491_u32;
-        let mut party = PartyState::default();
-        let mut gate = SwapGate::new();
-        for i in 0..4000 {
-            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-            let pressed = (state >> 24).is_multiple_of(9);
-            let hurt = (state >> 16).is_multiple_of(5);
-            assert_eq!(
-                party.request_swap(pressed, hurt),
-                gate.request(pressed, hurt),
-                "tick {i}"
-            );
+        let default = PartyTuning::default();
+        let tunings = [
+            default,
+            PartyTuning {
+                swap_cooldown_ticks: 12,
+                ..default
+            },
+            PartyTuning {
+                swap_buffer_ticks: 1,
+                ..default
+            },
+            PartyTuning {
+                swap_blocked_while_hurt: false,
+                ..default
+            },
+        ];
+        for (n, tuning) in tunings.into_iter().enumerate() {
+            let mut state = 0x2545_f491_u32;
+            let mut party = PartyState::new(tuning);
+            let mut gate = SwapGate::with_tuning(tuning);
+            for i in 0..4000 {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let pressed = (state >> 24).is_multiple_of(9);
+                let hurt = (state >> 16).is_multiple_of(5);
+                assert_eq!(
+                    party.request_swap(pressed, hurt),
+                    gate.request(pressed, hurt),
+                    "tuning {n} tick {i}"
+                );
+                assert_eq!(
+                    party.swap_timers(),
+                    (gate.cooldown, gate.buffer),
+                    "tuning {n} tick {i}: timers"
+                );
+            }
         }
     }
 
@@ -1177,18 +1386,6 @@ mod tests {
         assert!(!grammar.is_enabled());
     }
 
-    #[test]
-    fn hurt_is_context_only_the_grammar_never_reads_it() {
-        for variant in GrammarVariant::ALL {
-            let plain = script("L1 L1+Sq L1*3 -*2 R1 R1+Cro - Tog Tri L1*12 -");
-            let mut hurt = plain.clone();
-            for tick in &mut hurt {
-                tick.hurt = true;
-            }
-            assert_eq!(run(cfg(variant), &plain), run(cfg(variant), &hurt));
-        }
-    }
-
     // ---- baseline parity and determinism ----
 
     fn lcg_script(seed: u32, len: usize, with_links: bool) -> Vec<TickInput> {
@@ -1256,6 +1453,33 @@ mod tests {
     }
 
     #[test]
+    fn forward_to_raw_never_fabricates_a_press_on_a_grammar_tick() {
+        for variant in [L, R, T] {
+            for seed in 1..=40_u32 {
+                let ticks = lcg_script(seed, 600, false);
+                let outs = run(cfg(variant), &ticks);
+                let mut frame = InputFrame::default();
+                for (i, out) in outs.iter().enumerate() {
+                    frame.advance(out.forward.to_raw(0.0));
+                    if matches!(
+                        out.action,
+                        Action::Command(_) | Action::OpenMode | Action::Refused(_)
+                    ) {
+                        assert!(
+                            !(frame.jump_pressed
+                                || frame.attack_pressed
+                                || frame.physical_pressed
+                                || frame.ability_pressed),
+                            "{variant:?} seed {seed} tick {i}: {:?} leaked a press",
+                            out.action
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn fuzzed_streams_are_deterministic_and_never_leak() {
         for variant in [L, R, T] {
             for seed in 1..=40_u32 {
@@ -1263,6 +1487,25 @@ mod tests {
                 let first = run(cfg(variant), &ticks);
                 assert_eq!(first, run(cfg(variant), &ticks), "{variant:?} seed {seed}");
                 check(variant, &first);
+                if !seed.is_multiple_of(2) {
+                    // No link events: the modifier (or open mode) owns the faces.
+                    let mut prev_fwd = Forward::NONE;
+                    let mut prev_open = false;
+                    for (i, (tick, out)) in ticks.iter().zip(&first).enumerate() {
+                        let owned = match variant {
+                            L => tick.l1,
+                            R => tick.r1,
+                            _ => prev_open,
+                        };
+                        assert!(
+                            !owned || !out.forward.new_face_edge_over(&prev_fwd),
+                            "{variant:?} seed {seed} tick {i}: face edge leaked {:?}",
+                            out.forward
+                        );
+                        prev_fwd = out.forward;
+                        prev_open = out.mode_open;
+                    }
+                }
                 let mut enabled = true;
                 let mut connected = true;
                 for (tick, out) in ticks.iter().zip(&first) {

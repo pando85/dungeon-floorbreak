@@ -3,7 +3,7 @@
 //! table. Headless, no Bevy, no pad access. Real DualSense / Steam Deck
 //! validation is NOT RUN here.
 //!
-//! Usage: `cargo run --bin companion_input_lab [-- --hold N] [-- "<script>"]`
+//! Usage: `cargo run --bin companion_input_lab -- [--hold N] ["<script>" ...]`
 //!
 //! Script syntax: see `companion::command_input::parse_script`. Action legend:
 //! `.` pass-through, `S` swap, `F` Focus, `H` Hold, `R` Regroup, `A` Assist,
@@ -63,7 +63,7 @@ fn ms(ticks: usize) -> String {
 fn latency_table(hold: u8) {
     println!("switch latency in ticks (60 Hz) from the physical press edge");
     println!(
-        "| variant | tap 3 | tap 6 | tap 9 | hold opens | fast chord (after face edge) | R1 tap interact |"
+        "| variant | tap 3 | tap 6 | tap 9 | hold opens | fast chord (after face edge) | R1 tap interact (interact is unimplemented on main; modelled cost only) |"
     );
     println!("|---|---|---|---|---|---|---|");
     for variant in GrammarVariant::ALL {
