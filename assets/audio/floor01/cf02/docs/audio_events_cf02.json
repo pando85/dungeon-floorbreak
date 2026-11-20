@@ -1,0 +1,59 @@
+{
+  "status": "unapproved_integration_proposal",
+  "mixer": {
+    "bus": "sfx",
+    "max_concurrent_major_transients": 2
+  },
+  "events": [
+    {
+      "id": "cf02.punch.hit_confirmed",
+      "bus": "sfx",
+      "assets": [
+        "cf02/sfx/cf02_punch_hit_01.ogg",
+        "cf02/sfx/cf02_punch_hit_02.ogg",
+        "cf02/sfx/cf02_punch_hit_03.ogg"
+      ],
+      "trigger": "verified jab or haymaker hit (cf02 cue overlay only)"
+    },
+    {
+      "id": "cf02.carl.stomp",
+      "bus": "sfx",
+      "assets": [
+        "cf02/sfx/cf02_stomp_01.ogg",
+        "cf02/sfx/cf02_stomp_02.ogg",
+        "cf02/sfx/cf02_stomp_03.ogg"
+      ],
+      "trigger": "verified stomp or dive-stomp hit (cf02 cue overlay only)"
+    },
+    {
+      "id": "cf02.enemy.wall_slam",
+      "bus": "sfx",
+      "assets": [
+        "cf02/sfx/cf02_wall_slam_01.ogg",
+        "cf02/sfx/cf02_wall_slam_02.ogg",
+        "cf02/sfx/cf02_wall_slam_03.ogg"
+      ],
+      "trigger": "a kicked flier slammed into a solid (cf02 cue overlay only)"
+    },
+    {
+      "id": "cf02.blast.detonation",
+      "bus": "sfx",
+      "assets": [
+        "cf02/sfx/cf02_blast_01.ogg",
+        "cf02/sfx/cf02_blast_02.ogg",
+        "cf02/sfx/cf02_blast_03.ogg"
+      ],
+      "trigger": "a dynamite charge detonates (cf02 cue overlay only)"
+    },
+    {
+      "id": "cf02.enemy.defeat_heavy",
+      "bus": "sfx",
+      "assets": [
+        "cf02/sfx/cf02_defeat_heavy_01.ogg",
+        "cf02/sfx/cf02_defeat_heavy_02.ogg",
+        "cf02/sfx/cf02_defeat_heavy_03.ogg"
+      ],
+      "trigger": "an enemy is defeated with heavy or catastrophic force (cf02 cue overlay only)"
+    }
+  ]
+}

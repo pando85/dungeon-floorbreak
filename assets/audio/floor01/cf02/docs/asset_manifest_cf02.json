@@ -1,0 +1,98 @@
+{
+  "project": "THE CRAWL",
+  "floor": 1,
+  "version": "0.3.0-cf02-cues",
+  "date": "2026-11-20",
+  "status": "unapproved_exploratory",
+  "provenance": {
+    "origin": "original deterministic DSP synthesis (seeded noise and damped sinusoids)",
+    "authoring_tool": "scripts/author_cf02_audio.py",
+    "seed": 20261120,
+    "third_party_recordings": [],
+    "external_ai_audio_models": [],
+    "voices": [],
+    "human_expert_signoff": false
+  },
+  "format": {
+    "sample_rate_hz": 44100,
+    "channels": 1,
+    "encoding": "OGG Vorbis (libvorbis, -q:a 3)"
+  },
+  "assets": [
+    {
+      "path": "cf02/sfx/cf02_punch_hit_01.ogg",
+      "duration_s": 0.22,
+      "sha256": "dfa069c283619d096b0706c2c359733c049a57f3e85b3276947317afed6557de"
+    },
+    {
+      "path": "cf02/sfx/cf02_punch_hit_02.ogg",
+      "duration_s": 0.22,
+      "sha256": "dd5a9959e7aaf142fdf5a86df3e7928edcab2fabfad3dd0587d88d08a552ef3e"
+    },
+    {
+      "path": "cf02/sfx/cf02_punch_hit_03.ogg",
+      "duration_s": 0.22,
+      "sha256": "28109d6631c97b4a76d8c70493ae5fd35103e67663b1b48d6ab709087f9b3367"
+    },
+    {
+      "path": "cf02/sfx/cf02_stomp_01.ogg",
+      "duration_s": 0.42,
+      "sha256": "af3ba2e23855e1a4b687aa7a5f2e043f0953dd90cc56c0adeadeaacf1d9f81a7"
+    },
+    {
+      "path": "cf02/sfx/cf02_stomp_02.ogg",
+      "duration_s": 0.42,
+      "sha256": "d29d71ec8f2ed1e08929b195394b6f6535f1ce783a4f2a1f88dbf87341916787"
+    },
+    {
+      "path": "cf02/sfx/cf02_stomp_03.ogg",
+      "duration_s": 0.42,
+      "sha256": "29bcbd22a35bf71aadf1078d59250be7101b8f367fa5f9ce49ef04935d43095c"
+    },
+    {
+      "path": "cf02/sfx/cf02_wall_slam_01.ogg",
+      "duration_s": 0.55,
+      "sha256": "b28b1d7f03e7b21259bc0d21fdff7df658ff5712682ed5d8d0e508dc3b744cbe"
+    },
+    {
+      "path": "cf02/sfx/cf02_wall_slam_02.ogg",
+      "duration_s": 0.55,
+      "sha256": "963ec204207396bba41f282dbddf543892f3e2bb11f8ff02aacabe662d559123"
+    },
+    {
+      "path": "cf02/sfx/cf02_wall_slam_03.ogg",
+      "duration_s": 0.57,
+      "sha256": "64a0ea67af10503df774f8bd06c504e710e3654fe55395b1505ff8793356ddf3"
+    },
+    {
+      "path": "cf02/sfx/cf02_blast_01.ogg",
+      "duration_s": 0.92,
+      "sha256": "2dcc3902e92da5667a203dc8e0de740f66ea9982943641ce52f555aebde30253"
+    },
+    {
+      "path": "cf02/sfx/cf02_blast_02.ogg",
+      "duration_s": 0.9,
+      "sha256": "38c0479938d852d5630198cb098fd5394dd484c9583e2fa1bccff2f31f83df3a"
+    },
+    {
+      "path": "cf02/sfx/cf02_blast_03.ogg",
+      "duration_s": 0.9,
+      "sha256": "c803579ababdc9fe5744cef528be2a073c26ccbb451091da317b3acd0d900f56"
+    },
+    {
+      "path": "cf02/sfx/cf02_defeat_heavy_01.ogg",
+      "duration_s": 0.5,
+      "sha256": "dd55559e665ce3229b64f73306b2a38dc443432771e25796086294cebb0d7937"
+    },
+    {
+      "path": "cf02/sfx/cf02_defeat_heavy_02.ogg",
+      "duration_s": 0.5,
+      "sha256": "7b80b7816406f61a01f4fd52e8ca82bd8e779ff34b903e3100171ae78b80ee8e"
+    },
+    {
+      "path": "cf02/sfx/cf02_defeat_heavy_03.ogg",
+      "duration_s": 0.5,
+      "sha256": "c317e5d950aca44d1502942fdc88b51889dfb38beaaee6ebf403de5938a9cc81"
+    }
+  ]
+}

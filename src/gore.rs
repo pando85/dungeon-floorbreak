@@ -108,6 +108,114 @@ pub const fn keeps_stream_item(k: u32, quarters: u32) -> bool {
     ((k + 1) * quarters) / 4 > (k * quarters) / 4
 }
 
+// --------------------------------------------------------- cf02 budget ----
+
+/// CF02-D (COMBAT-FUN-02 Q22, Q36, Q43): the gore budget of the cf02 rules, as
+/// pure functions of the preset and the pose or force. Built from the tuning
+/// only when `cf02_rules` and `q36_gore_budget` are on, so a run without them
+/// never holds one and every legacy count stays as it is. Presentation only.
+///
+/// * **Q22** (preset 4 only): heavy and catastrophic finishes use
+///   `q22_preset4_gib_quarters` (6, i.e. 1.5x of 4) and may separate
+///   `q22_preset4_extra_separated_parts` more part where the anatomy allows.
+///   Drop quarters, corpse and decal caps and presets 1 to 3 are unchanged.
+/// * **Q43**: the slammed goblin poses carry their own base (quarters and
+///   separated parts at preset 4) that overrides Q22; presets 1 to 3 scale by
+///   the existing ratio (`gib_quarters / 4`, rounded up, never to zero while the
+///   preset keeps anything). Routine blunt kills add `q43_routine_spray_count`
+///   transient sprays at preset 4, each gone after `q43_routine_spray_ticks`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Cf02GoreBudget {
+    q22_quarters: u32,
+    q22_extra_parts: u32,
+    stomped: (u32, u32),
+    wall_crumple: (u32, u32),
+    flung: (u32, u32),
+    spray_count: u32,
+    spray_ticks: u64,
+}
+
+impl Cf02GoreBudget {
+    /// `None` unless `cf02_rules` and the Q36 gore-budget switch are on.
+    pub fn from_tuning(t: &crate::cf02::Cf02Tuning) -> Option<Self> {
+        if !t.on(t.q36_gore_budget) {
+            return None;
+        }
+        Some(Self {
+            q22_quarters: u32::from(t.q22_preset4_gib_quarters),
+            q22_extra_parts: u32::from(t.q22_preset4_extra_separated_parts),
+            stomped: (
+                u32::from(t.q43_stomped_gib_quarters),
+                u32::from(t.q43_stomped_separated_parts),
+            ),
+            wall_crumple: (
+                u32::from(t.q43_wall_crumple_gib_quarters),
+                u32::from(t.q43_wall_crumple_separated_parts),
+            ),
+            flung: (
+                u32::from(t.q43_flung_gib_quarters),
+                u32::from(t.q43_flung_separated_parts),
+            ),
+            spray_count: u32::from(t.q43_routine_spray_count),
+            spray_ticks: u64::from(t.q43_routine_spray_ticks),
+        })
+    }
+
+    /// Gib quarters of a finish of `force`: Q22's at preset 4 for heavy and
+    /// catastrophic, the preset's own otherwise.
+    pub fn gib_quarters(&self, preset: GorePreset, force: crate::combat::ForceTier) -> u32 {
+        if preset == GorePreset::Full && force >= crate::combat::ForceTier::Heavy {
+            self.q22_quarters
+        } else {
+            preset.gib_quarters()
+        }
+    }
+
+    /// Extra separated parts of a heavy or catastrophic finish (Q22, preset 4).
+    pub fn extra_parts(&self, preset: GorePreset, force: crate::combat::ForceTier) -> u32 {
+        if preset == GorePreset::Full && force >= crate::combat::ForceTier::Heavy {
+            self.q22_extra_parts
+        } else {
+            0
+        }
+    }
+
+    fn pose_base(&self, pose: crate::death::SlamPose) -> (u32, u32) {
+        use crate::death::SlamPose;
+        match pose {
+            SlamPose::Stomped => self.stomped,
+            SlamPose::WallCrumple => self.wall_crumple,
+            SlamPose::Flung => self.flung,
+        }
+    }
+
+    /// Gib quarters of a slammed pose at `preset`: its Q43 base at preset 4,
+    /// scaled by the existing ratio below.
+    pub fn slam_quarters(&self, preset: GorePreset, pose: crate::death::SlamPose) -> u32 {
+        self.pose_base(pose).0 * preset.gib_quarters() / 4
+    }
+
+    /// Separated parts of a slammed pose at `preset` (the manifest's preset
+    /// filter still decides which part ids may fly).
+    pub fn slam_parts(&self, preset: GorePreset, pose: crate::death::SlamPose) -> u32 {
+        scale_count(self.pose_base(pose).1, preset.gib_quarters())
+    }
+
+    /// Transient sprays of a routine blunt kill: Q43's count at preset 4 only.
+    pub fn routine_sprays(&self, preset: GorePreset) -> u32 {
+        if preset == GorePreset::Full {
+            self.spray_count
+        } else {
+            0
+        }
+    }
+
+    /// Lifetime of a transient spray, in presenter ticks.
+    pub fn spray_ticks(&self) -> u64 {
+        self.spray_ticks
+    }
+}
+
 // ------------------------------------------------------------------- rng ----
 
 /// Deterministic cosmetic randomness (splitmix64). It is seeded from the
@@ -1122,5 +1230,70 @@ mod tests {
         assert!(rotated_height(&stick, false, flat) < 3.0);
         assert_eq!(rest_angle(&hull, false, 10.0), 0.0);
         assert_eq!(rest_angle(&hull, false, 170.0), 180.0);
+    }
+
+    // ------------------------------------------------- cf02 budget (Q22/Q43) ----
+
+    fn budget() -> Cf02GoreBudget {
+        Cf02GoreBudget::from_tuning(crate::cf02::active()).expect("active budget")
+    }
+
+    #[test]
+    fn the_cf02_budget_needs_the_rules_and_its_switch() {
+        let off = crate::cf02::Cf02Tuning::pinned().unwrap();
+        assert!(Cf02GoreBudget::from_tuning(&off).is_none(), "rules off");
+        let mut no_switch = crate::cf02::active().clone();
+        no_switch.q36_gore_budget = false;
+        assert!(Cf02GoreBudget::from_tuning(&no_switch).is_none());
+    }
+
+    #[test]
+    fn q43_slammed_poses_scale_by_the_existing_preset_ratio() {
+        use crate::death::SlamPose::{Flung, Stomped, WallCrumple};
+        let b = budget();
+        // Preset 4: the adopted bases (6, 4, 6 quarters; 0, 1, 1 parts).
+        let at4 = |pose| {
+            (
+                b.slam_quarters(GorePreset::Full, pose),
+                b.slam_parts(GorePreset::Full, pose),
+            )
+        };
+        assert_eq!(at4(Stomped), (6, 0));
+        assert_eq!(at4(WallCrumple), (4, 1));
+        assert_eq!(at4(Flung), (6, 1));
+        // Preset 3 halves the quarters (the preset's own 2 of 4); preset 1 and 2 draw none.
+        assert_eq!(b.slam_quarters(GorePreset::Medium, Stomped), 3);
+        assert_eq!(b.slam_quarters(GorePreset::Medium, WallCrumple), 2);
+        assert_eq!(b.slam_parts(GorePreset::Medium, WallCrumple), 1);
+        for preset in [GorePreset::Reduced, GorePreset::Off] {
+            for pose in [Stomped, WallCrumple, Flung] {
+                assert_eq!(b.slam_quarters(preset, pose), 0);
+                assert_eq!(b.slam_parts(preset, pose), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn q22_only_preset_four_heavy_and_catastrophic_get_more() {
+        use crate::combat::ForceTier::{Catastrophic, Heavy, Routine};
+        let b = budget();
+        for force in [Heavy, Catastrophic] {
+            assert_eq!(b.gib_quarters(GorePreset::Full, force), 6);
+            assert_eq!(b.extra_parts(GorePreset::Full, force), 1);
+        }
+        assert_eq!(b.gib_quarters(GorePreset::Full, Routine), 4);
+        assert_eq!(b.extra_parts(GorePreset::Full, Routine), 0);
+        for preset in [GorePreset::Medium, GorePreset::Reduced, GorePreset::Off] {
+            for force in [Routine, Heavy, Catastrophic] {
+                assert_eq!(b.gib_quarters(preset, force), preset.gib_quarters());
+                assert_eq!(b.extra_parts(preset, force), 0);
+            }
+        }
+        // Q43: one transient spray at preset 4 only, gone after 24 ticks.
+        assert_eq!(b.routine_sprays(GorePreset::Full), 1);
+        for preset in [GorePreset::Medium, GorePreset::Reduced, GorePreset::Off] {
+            assert_eq!(b.routine_sprays(preset), 0);
+        }
+        assert_eq!(b.spray_ticks(), 24);
     }
 }

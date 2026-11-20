@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "comment": "CF02-D (COMBAT-FUN-02 Q21, Q36): the cf02 death profile overlay. Read only under cf02_rules (the cf02_death_overlay switch); the global species_death_profiles.json is untouched. Each species lists recipes that are tried BEFORE the species' own recipes (first match wins, so a more specific cf02 finish goes first). The goblin gets a blunt, heavy `slammed` recipe; the presenter picks one of three poses from same-tick events (Stomp or DiveStomp hit: stomped; WallSlam: wall crumple; otherwise flung). Routine blunt kills keep knockback_down.",
+  "species": [
+    {
+      "id": "goblin",
+      "recipes_first": [
+        { "kind": "slammed", "finish": "goblin_slammed", "causes": ["blunt"], "min_force": "heavy" }
+      ]
+    }
+  ]
+}

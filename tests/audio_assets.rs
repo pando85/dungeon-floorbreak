@@ -3,7 +3,9 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use dungeon_floorbreak::audio::{AmbienceState, CueBank, CueId, MusicState, PACK_DIR, StyleBank};
+use dungeon_floorbreak::audio::{
+    AmbienceState, CF02_MANIFEST, CueBank, CueId, MusicState, PACK_DIR, StyleBank,
+};
 use serde_json::Value;
 
 fn pack() -> PathBuf {
@@ -122,6 +124,69 @@ fn collect_ogg(dir: &Path, root: &Path, out: &mut Vec<String>) {
         } else if path.extension().is_some_and(|e| e == "ogg") {
             let rel = path.strip_prefix(root).unwrap();
             out.push(rel.to_string_lossy().replace('\\', "/"));
+        }
+    }
+}
+
+/// CF02-AUDIO: the cf02 overlay pack is complete, intact and mapped; the global
+/// pack is not touched (its own manifest test above still lists exactly 38).
+#[test]
+fn the_cf02_overlay_manifest_matches_its_files_and_every_cue_resolves() {
+    let pack = pack();
+    let text = std::fs::read_to_string(pack.join(CF02_MANIFEST)).unwrap();
+    let manifest: Value = serde_json::from_str(&text).unwrap();
+    let prov = &manifest["provenance"];
+    assert_eq!(prov["authoring_tool"], "scripts/author_cf02_audio.py");
+    for none in [
+        "third_party_recordings",
+        "external_ai_audio_models",
+        "voices",
+    ] {
+        assert_eq!(prov[none].as_array().unwrap().len(), 0, "{none}");
+    }
+    assert_eq!(prov["human_expert_signoff"], false);
+    let assets = manifest["assets"].as_array().expect("assets array");
+    assert_eq!(assets.len(), 15, "five cues, three takes each");
+    let mut listed = HashSet::new();
+    for asset in assets {
+        let rel = asset["path"].as_str().unwrap();
+        assert!(
+            rel.starts_with("cf02/sfx/") && rel.ends_with(".ogg"),
+            "{rel}"
+        );
+        let bytes = std::fs::read(pack.join(rel)).unwrap_or_else(|e| panic!("{rel}: {e}"));
+        assert_eq!(
+            sha256_hex(&bytes),
+            asset["sha256"].as_str().unwrap(),
+            "{rel}"
+        );
+        assert!(asset["duration_s"].as_f64().unwrap() > 0.15);
+        listed.insert(rel.to_string());
+    }
+    let mut on_disk = Vec::new();
+    collect_ogg(&pack.join("cf02/sfx"), &pack, &mut on_disk);
+    assert_eq!(on_disk.len(), listed.len());
+    for rel in on_disk {
+        assert!(
+            listed.contains(&rel),
+            "{rel} is not in the overlay manifest"
+        );
+    }
+    assert!(pack.join("cf02/docs/QA_REPORT.md").is_file());
+    // Every overlay cue resolves to listed, existing takes, in every style bank.
+    let bank = bank();
+    for style in [StyleBank::Arcade, StyleBank::Cinematic, StyleBank::Hybrid] {
+        for cue in CueId::CF02 {
+            let takes = bank.cue_assets(cue, style);
+            assert_eq!(takes.len(), 3, "{}", cue.name());
+            assert!(takes.iter().all(|t| listed.contains(t)), "{}", cue.name());
+        }
+    }
+    // The overlay ids stay IP-neutral too (the design's `CarlStomp` is `PlayerStomp`).
+    for cue in CueId::CF02 {
+        let name = cue.name().to_ascii_lowercase();
+        for fan in ["carl", "goblin", "donut", "mongo", "crawl", "dozer"] {
+            assert!(!name.contains(fan), "{name} contains fan-layer name {fan}");
         }
     }
 }

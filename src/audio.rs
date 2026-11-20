@@ -17,7 +17,8 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use crate::combat::CombatEvent;
+use crate::cf02::Cf02Tuning;
+use crate::combat::{CombatEvent, ForceTier, MoveId};
 
 /// Directory of the Floor 01 pack, relative to the repository root.
 pub const PACK_DIR: &str = "assets/audio/floor01";
@@ -43,6 +44,19 @@ pub enum CueId {
     HeavyPropCrash,
     /// A warning siren (future hook, no gameplay event emits it yet).
     Warning,
+    // CF02-AUDIO (COMBAT-FUN-02 Q24): the cf02 cue overlay. These five ids are
+    // only ever emitted by [`cues_from_combat_event_cf02`] (so only under
+    // `cf02_rules`) and are not in [`CueId::ALL`], whose global map is unchanged.
+    /// A verified jab or haymaker hit (the punch no longer reuses the kick).
+    PlayerPunchHitConfirmed,
+    /// A verified stomp or dive-stomp hit.
+    PlayerStomp,
+    /// A kicked flier slammed into a solid.
+    EnemyWallSlam,
+    /// A dynamite charge detonated.
+    BlastDetonation,
+    /// An enemy defeated with heavy or catastrophic force.
+    EnemyDefeatHeavy,
 }
 
 impl CueId {
@@ -56,7 +70,21 @@ impl CueId {
         CueId::Warning,
     ];
 
-    /// Key used in `cue_map.json`.
+    /// The five cf02 overlay cues (key in `cf02/cue_map_cf02.json`).
+    pub const CF02: [CueId; 5] = [
+        CueId::PlayerPunchHitConfirmed,
+        CueId::PlayerStomp,
+        CueId::EnemyWallSlam,
+        CueId::BlastDetonation,
+        CueId::EnemyDefeatHeavy,
+    ];
+
+    /// Whether this cue belongs to the cf02 overlay (not the global map).
+    pub fn is_cf02(self) -> bool {
+        Self::CF02.contains(&self)
+    }
+
+    /// Key used in `cue_map.json` (or `cf02/cue_map_cf02.json` for [`Self::CF02`]).
     pub fn name(self) -> &'static str {
         match self {
             Self::PlayerKickSwing => "PlayerKickSwing",
@@ -66,6 +94,11 @@ impl CueId {
             Self::WallBreak => "WallBreak",
             Self::HeavyPropCrash => "HeavyPropCrash",
             Self::Warning => "Warning",
+            Self::PlayerPunchHitConfirmed => "PlayerPunchHitConfirmed",
+            Self::PlayerStomp => "PlayerStomp",
+            Self::EnemyWallSlam => "EnemyWallSlam",
+            Self::BlastDetonation => "BlastDetonation",
+            Self::EnemyDefeatHeavy => "EnemyDefeatHeavy",
         }
     }
 
@@ -78,12 +111,20 @@ impl CueId {
                 | Self::EnemyBodyCollision
                 | Self::WallBreak
                 | Self::HeavyPropCrash
+                | Self::PlayerPunchHitConfirmed
+                | Self::PlayerStomp
+                | Self::EnemyWallSlam
+                | Self::BlastDetonation
+                | Self::EnemyDefeatHeavy
         )
     }
 
     /// Cues that briefly duck the music bus.
     pub fn ducks_music(self) -> bool {
-        matches!(self, Self::PlayerKickHitConfirmed)
+        matches!(
+            self,
+            Self::PlayerKickHitConfirmed | Self::PlayerPunchHitConfirmed | Self::PlayerStomp
+        )
     }
 }
 
@@ -203,6 +244,41 @@ pub fn cues_from_combat_event(event: &CombatEvent) -> Vec<CueId> {
         CombatEvent::RackLanded { .. } => vec![CueId::HeavyPropCrash],
         CombatEvent::BossHurt { .. } => vec![CueId::EnemyHitReaction],
         _ => Vec::new(),
+    }
+}
+
+/// CF02-AUDIO (COMBAT-FUN-02 Q24, Q27, Q36): the cue overlay. With
+/// `cf02_rules` and both overlay switches on, each Q24 cause has its own cue:
+/// a punch no longer reuses the kick, a stomp, a wall slam, a blast and a
+/// heavy defeat each get one, a body contact or a bowled body reuses
+/// `EnemyBodyCollision`, and the llama tell plays the existing `Warning` on its
+/// first tick (Q27). The air kick, follow-through and push kick keep the kick
+/// cues; the block landing keeps `HeavyPropCrash` (already hooked to
+/// `ShoreLanded`). With the overlay off (every run except `--cf02`) this is
+/// exactly [`cues_from_combat_event`], so `--demo` sounds like DEMO-01.
+///
+/// Presentation only: the cues are never read back, hashed or replayed, and
+/// no cue changes a simulation outcome.
+pub fn cues_from_combat_event_cf02(event: &CombatEvent, tuning: &Cf02Tuning) -> Vec<CueId> {
+    if !(tuning.on(tuning.q24_cue_overlay) && tuning.on(tuning.q36_cue_overlay)) {
+        return cues_from_combat_event(event);
+    }
+    match event {
+        CombatEvent::Hit { move_id, .. } => match move_id {
+            MoveId::Jab | MoveId::Haymaker => {
+                vec![CueId::PlayerPunchHitConfirmed, CueId::EnemyHitReaction]
+            }
+            MoveId::Stomp | MoveId::DiveStomp => vec![CueId::PlayerStomp, CueId::EnemyHitReaction],
+            _ => cues_from_combat_event(event),
+        },
+        CombatEvent::BodyContact { .. } => vec![CueId::EnemyBodyCollision],
+        CombatEvent::WallSlam { .. } => vec![CueId::EnemyWallSlam],
+        CombatEvent::Blast { .. } => vec![CueId::BlastDetonation],
+        CombatEvent::LlamaTell { .. } => vec![CueId::Warning],
+        CombatEvent::EnemyDefeated { force, .. } if *force >= ForceTier::Heavy => {
+            vec![CueId::EnemyDefeatHeavy]
+        }
+        _ => cues_from_combat_event(event),
     }
 }
 
@@ -444,7 +520,33 @@ pub struct CueBank {
     music: HashMap<MusicState, String>,
     ambience: HashMap<AmbienceState, String>,
     durations: HashMap<String, f32>,
+    /// CF02-AUDIO: the overlay's cap of overlapping major transients (Q24), when
+    /// the cf02 overlay files were read.
+    pub cf02_max_transients: Option<usize>,
 }
+
+/// The cf02 overlay's own event file (`cf02/docs/audio_events_cf02.json`).
+#[derive(Debug, Deserialize)]
+struct OverlayEventsFile {
+    mixer: OverlayMixerFile,
+    events: Vec<EventDef>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OverlayMixerFile {
+    max_concurrent_major_transients: usize,
+}
+
+/// `cf02/cue_map_cf02.json`: engine cue id to overlay event id.
+#[derive(Debug, Deserialize)]
+struct OverlayCueMapFile {
+    cues: HashMap<String, String>,
+}
+
+/// Pack-relative files of the cf02 overlay.
+pub const CF02_CUE_MAP: &str = "cf02/cue_map_cf02.json";
+pub const CF02_EVENTS: &str = "cf02/docs/audio_events_cf02.json";
+pub const CF02_MANIFEST: &str = "cf02/docs/asset_manifest_cf02.json";
 
 impl CueBank {
     /// Load the pack at `pack_dir` (normally [`PACK_DIR`] under the repo root).
@@ -457,7 +559,56 @@ impl CueBank {
             &read("docs/audio_events.json")?,
             &read("docs/asset_manifest.json")?,
             &read("cue_map.json")?,
+        )?
+        .with_cf02_overlay(
+            &read(CF02_EVENTS)?,
+            &read(CF02_MANIFEST)?,
+            &read(CF02_CUE_MAP)?,
         )
+    }
+
+    /// Add the cf02 cue overlay (CF02-AUDIO): five more cues with their own
+    /// events and takes. The global cues, states and styles are untouched, and
+    /// nothing emits the new cues unless `cf02_rules` is on, so reading the
+    /// overlay never changes a legacy sound. An overlay event id must not
+    /// collide with a global one.
+    pub fn with_cf02_overlay(
+        mut self,
+        events: &str,
+        manifest: &str,
+        cue_map: &str,
+    ) -> Result<Self, BankError> {
+        let parse = |e: serde_json::Error| BankError::Parse(e.to_string());
+        let events: OverlayEventsFile = serde_json::from_str(events).map_err(parse)?;
+        let manifest: ManifestFile = serde_json::from_str(manifest).map_err(parse)?;
+        let map: OverlayCueMapFile = serde_json::from_str(cue_map).map_err(parse)?;
+        let mut overlay: HashMap<String, EventDef> = HashMap::new();
+        for event in events.events {
+            if self.events.contains_key(&event.id) {
+                return Err(BankError::Parse(format!(
+                    "cf02 overlay event {} collides with a global event",
+                    event.id
+                )));
+            }
+            overlay.insert(event.id.clone(), event);
+        }
+        for cue in CueId::CF02 {
+            let id = map.cues.get(cue.name()).ok_or_else(|| {
+                BankError::Missing(format!("cf02 cue map has no entry for {}", cue.name()))
+            })?;
+            if !overlay.contains_key(id) {
+                return Err(BankError::Missing(format!(
+                    "cf02 cue map entry {} points at unknown event {id}",
+                    cue.name()
+                )));
+            }
+            self.cues.insert(cue, id.clone());
+        }
+        self.events.extend(overlay);
+        self.durations
+            .extend(manifest.assets.into_iter().map(|a| (a.path, a.duration_s)));
+        self.cf02_max_transients = Some(events.mixer.max_concurrent_major_transients.max(1));
+        Ok(self)
     }
 
     pub fn from_json(events: &str, manifest: &str, cue_map: &str) -> Result<Self, BankError> {
@@ -514,6 +665,7 @@ impl CueBank {
             music,
             ambience,
             durations,
+            cf02_max_transients: None,
         })
     }
 
@@ -533,7 +685,10 @@ impl CueBank {
 
     /// The takes of a cue for a style bank (pack-relative paths).
     pub fn cue_assets(&self, cue: CueId, style: StyleBank) -> &[String] {
-        self.event_assets(&self.cues[&cue], style)
+        match self.cues.get(&cue) {
+            Some(id) => self.event_assets(id, style),
+            None => &[],
+        }
     }
 
     /// The loop of a music state and the one-shots that start with it.
@@ -554,7 +709,9 @@ impl CueBank {
 
     /// Bus of a cue's event as written in the pack.
     pub fn cue_bus(&self, cue: CueId) -> Option<&str> {
-        self.events.get(&self.cues[&cue]).map(|e| e.bus.as_str())
+        self.events
+            .get(self.cues.get(&cue)?)
+            .map(|e| e.bus.as_str())
     }
 
     /// Every file any cue, state or style bank can play, sorted and unique.
@@ -1012,5 +1169,318 @@ mod tests {
         assert!(d.gain() > 0.692 && d.gain() < 1.0, "releasing");
         d.tick(0.1);
         assert_eq!(d.gain(), 1.0);
+    }
+
+    // ------------------------------------------------ CF02-AUDIO (Q24) ----
+
+    fn cf02() -> &'static Cf02Tuning {
+        crate::cf02::active()
+    }
+
+    fn hit_by(move_id: MoveId) -> CombatEvent {
+        CombatEvent::Hit {
+            tick: 1,
+            move_id,
+            instance: 1,
+            target: 0,
+            damage: 1,
+            health_left: 1,
+            hit_stop: 0,
+        }
+    }
+
+    fn defeated(force: ForceTier) -> CombatEvent {
+        CombatEvent::EnemyDefeated {
+            tick: 1,
+            target: 0,
+            cause: crate::combat::DefeatCause::Melee,
+            force,
+            instigator: Some(0),
+        }
+    }
+
+    /// Every event the overlay maps or must leave alone, one of each.
+    fn sample_events() -> Vec<CombatEvent> {
+        vec![
+            hit_by(MoveId::Jab),
+            hit_by(MoveId::Haymaker),
+            hit_by(MoveId::PushKick),
+            hit_by(MoveId::FollowKick),
+            hit_by(MoveId::AirKick),
+            hit_by(MoveId::Stomp),
+            hit_by(MoveId::DiveStomp),
+            hit_by(MoveId::Swat),
+            defeated(ForceTier::Routine),
+            defeated(ForceTier::Heavy),
+            defeated(ForceTier::Catastrophic),
+            CombatEvent::MoveStarted {
+                tick: 1,
+                move_id: MoveId::AirKick,
+                instance: 1,
+            },
+            CombatEvent::MoveStarted {
+                tick: 1,
+                move_id: MoveId::Stomp,
+                instance: 1,
+            },
+            CombatEvent::BodyContact {
+                tick: 1,
+                launch: 1,
+                source: 0,
+                target: 1,
+                instigator: Some(0),
+            },
+            CombatEvent::GoblinContact {
+                tick: 1,
+                launch: 1,
+                source: 0,
+                target: 1,
+            },
+            CombatEvent::WallSlam {
+                tick: 1,
+                launch: 1,
+                goblin: 0,
+                instigator: Some(0),
+            },
+            CombatEvent::Blast { tick: 1, charge: 0 },
+            CombatEvent::LlamaTell { tick: 1, llama: 0 },
+            CombatEvent::ShoreLanded { tick: 1 },
+            CombatEvent::ShoreBroken { tick: 1, player: 0 },
+            CombatEvent::GoblinTell { tick: 1, goblin: 0 },
+        ]
+    }
+
+    /// Overlay off (the default for every run but `--cf02`): the cue map is the
+    /// legacy one for every event, so `--demo` sounds like DEMO-01.
+    #[test]
+    fn q36_overlay_off_is_the_legacy_cue_map_for_every_event() {
+        let off = crate::cf02::Cf02Tuning::pinned().unwrap();
+        assert!(!off.cf02_rules);
+        let mut no_cue_switch = cf02().clone();
+        no_cue_switch.q24_cue_overlay = false;
+        let mut no_death_switch = cf02().clone();
+        no_death_switch.q36_cue_overlay = false;
+        for event in sample_events() {
+            let legacy = cues_from_combat_event(&event);
+            for tuning in [&off, &no_cue_switch, &no_death_switch] {
+                assert_eq!(
+                    cues_from_combat_event_cf02(&event, tuning),
+                    legacy,
+                    "{event:?}"
+                );
+            }
+            assert!(
+                legacy.iter().all(|c| !c.is_cf02()),
+                "the legacy map never emits an overlay cue: {event:?}"
+            );
+        }
+    }
+
+    /// Q24: each cause has its own cue; the reuse list keeps the existing ones.
+    #[test]
+    fn q24_each_cause_has_its_own_cue_and_the_reuse_map_holds() {
+        use CueId::*;
+        let map = |e: CombatEvent| cues_from_combat_event_cf02(&e, cf02());
+        assert_eq!(
+            map(hit_by(MoveId::Jab)),
+            [PlayerPunchHitConfirmed, EnemyHitReaction]
+        );
+        assert_eq!(
+            map(hit_by(MoveId::Haymaker)),
+            [PlayerPunchHitConfirmed, EnemyHitReaction]
+        );
+        for stamp in [MoveId::Stomp, MoveId::DiveStomp] {
+            assert_eq!(map(hit_by(stamp)), [PlayerStomp, EnemyHitReaction]);
+        }
+        // Reused: the kicks (push, follow-through, air kick) keep the kick cues.
+        for kick in [MoveId::PushKick, MoveId::FollowKick, MoveId::AirKick] {
+            assert_eq!(
+                map(hit_by(kick)),
+                [PlayerKickHitConfirmed, EnemyHitReaction],
+                "{kick:?}"
+            );
+        }
+        assert_eq!(
+            map(CombatEvent::MoveStarted {
+                tick: 1,
+                move_id: MoveId::AirKick,
+                instance: 1
+            }),
+            [PlayerKickSwing]
+        );
+        let wall = CombatEvent::WallSlam {
+            tick: 1,
+            launch: 1,
+            goblin: 0,
+            instigator: Some(0),
+        };
+        assert_eq!(map(wall), [EnemyWallSlam]);
+        assert_eq!(
+            map(CombatEvent::Blast { tick: 1, charge: 0 }),
+            [BlastDetonation]
+        );
+        assert_eq!(map(defeated(ForceTier::Routine)), Vec::<CueId>::new());
+        assert_eq!(map(defeated(ForceTier::Heavy)), [EnemyDefeatHeavy]);
+        assert_eq!(map(defeated(ForceTier::Catastrophic)), [EnemyDefeatHeavy]);
+        // Reused: contacts, the block landing and the llama tell (Q27).
+        let body = CombatEvent::BodyContact {
+            tick: 1,
+            launch: 1,
+            source: 0,
+            target: 1,
+            instigator: None,
+        };
+        assert_eq!(map(body), [EnemyBodyCollision]);
+        assert_eq!(map(CombatEvent::ShoreLanded { tick: 1 }), [HeavyPropCrash]);
+        assert_eq!(map(CombatEvent::LlamaTell { tick: 1, llama: 0 }), [Warning]);
+        // Five distinct new cue ids.
+        let mut names: Vec<_> = CueId::CF02.iter().map(|c| c.name()).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), 5);
+        assert!(
+            CueId::CF02
+                .iter()
+                .all(|c| c.is_cf02() && c.is_major_contact())
+        );
+        assert!(CueId::ALL.iter().all(|c| !c.is_cf02()));
+    }
+
+    fn bank() -> CueBank {
+        CueBank::load(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(PACK_DIR)).unwrap()
+    }
+
+    /// Every overlay cue has its own takes in the overlay folder, on the sfx
+    /// bus, distinct from every other cue's and from the global ones.
+    #[test]
+    fn q24_the_overlay_cues_resolve_to_their_own_files() {
+        let bank = bank();
+        let mut seen = std::collections::HashSet::new();
+        for cue in CueId::CF02 {
+            let takes = bank.cue_assets(cue, StyleBank::Hybrid);
+            assert_eq!(takes.len(), 3, "{}", cue.name());
+            assert_eq!(bank.cue_bus(cue), Some("sfx"));
+            for take in takes {
+                assert!(take.starts_with("cf02/sfx/"), "{take}");
+                assert!(seen.insert(take.clone()), "{take} is used twice");
+            }
+            // The style bank does not change an overlay cue.
+            assert_eq!(takes, bank.cue_assets(cue, StyleBank::Arcade));
+        }
+        for cue in CueId::ALL {
+            assert!(
+                bank.cue_assets(cue, StyleBank::Hybrid)
+                    .iter()
+                    .all(|t| !t.starts_with("cf02/")),
+                "the global {} map did not change",
+                cue.name()
+            );
+        }
+        // The adapter loads every referenced file: the overlay's are included.
+        let referenced = bank.referenced_assets();
+        assert!(seen.iter().all(|t| referenced.contains(t)));
+    }
+
+    /// The overlap limit holds: at most two major transients, the pack's rule,
+    /// equal to the Q24 knob; a third overlapping one is dropped.
+    #[test]
+    fn q24_the_overlap_limit_holds_for_the_overlay_cues() {
+        let bank = bank();
+        assert_eq!(bank.mixer.max_major_contacts, 2);
+        assert_eq!(bank.cf02_max_transients, Some(2));
+        assert_eq!(
+            usize::from(cf02().q24_max_overlapping_transients),
+            bank.mixer.max_major_contacts
+        );
+        // A lethal wall slam: a wall slam, a heavy defeat and a body contact on
+        // one tick. Only two of the three major transients start.
+        let cues = [
+            CueId::EnemyWallSlam,
+            CueId::EnemyDefeatHeavy,
+            CueId::EnemyBodyCollision,
+        ];
+        assert!(cues.iter().all(|c| c.is_major_contact()));
+        let mut limiter = VoiceLimiter::new(bank.mixer.max_major_contacts);
+        let started = cues
+            .iter()
+            .filter(|c| {
+                let take = &bank.cue_assets(**c, StyleBank::Hybrid)[0];
+                limiter.try_acquire(0.0, bank.duration(take))
+            })
+            .count();
+        assert_eq!(started, 2);
+    }
+
+    /// No cue drives gameplay: only the audio adapter, the two binaries and the
+    /// domain module itself may name the audio module; no simulation file does.
+    #[test]
+    fn q24_no_simulation_file_reads_the_audio_module() {
+        fn rust_files(dir: &std::path::Path, out: &mut Vec<PathBuf>) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    rust_files(&path, out);
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    out.push(path);
+                }
+            }
+        }
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut files = Vec::new();
+        rust_files(&src, &mut files);
+        for file in files {
+            let rel = file
+                .strip_prefix(&src)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            if rel == "audio.rs"
+                || rel == "audio_adapter.rs"
+                || rel == "main.rs"
+                || rel.starts_with("bin/")
+            {
+                continue;
+            }
+            let text = std::fs::read_to_string(&file).unwrap();
+            // The substring is split so this test file does not trip itself.
+            let needle = ["crate::", "audio"].concat();
+            assert!(
+                !text.contains(&needle),
+                "{rel} reads the audio module: a cue must never drive gameplay"
+            );
+        }
+    }
+
+    /// The real CF02 fixtures drive the overlay: across the registry every
+    /// cause with a fixture sounds its own cue, and the legacy map never does.
+    #[test]
+    fn q24_the_cf02_fixtures_emit_the_overlay_cues() {
+        use crate::cf02_fixtures::CF02_FIXTURES;
+        use crate::party_scene::PartyFixtureSim;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let kit = EnvKit::load(&root, "assets/levels/floor01/corridor_abc_sample.json").unwrap();
+        let mut seen = std::collections::HashSet::new();
+        for fixture in CF02_FIXTURES.iter().filter(|f| f.base.boss.is_none()) {
+            let mut sim = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
+            sim.run_scripted(fixture.base.ticks);
+            for event in &sim.combat.events {
+                for cue in cues_from_combat_event_cf02(event, cf02()) {
+                    seen.insert(cue);
+                }
+                assert!(
+                    cues_from_combat_event(event).iter().all(|c| !c.is_cf02()),
+                    "{event:?}"
+                );
+            }
+        }
+        for cue in [
+            CueId::PlayerPunchHitConfirmed,
+            CueId::PlayerStomp,
+            CueId::EnemyWallSlam,
+            CueId::EnemyDefeatHeavy,
+            CueId::EnemyBodyCollision,
+        ] {
+            assert!(seen.contains(&cue), "no CF02 fixture sounds {}", cue.name());
+        }
     }
 }

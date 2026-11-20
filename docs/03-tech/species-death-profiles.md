@@ -92,3 +92,21 @@ The llama rows equal the goblin rows with `llama_*` ids. `src/death.rs` pins eve
 ### Hash words of the new causes
 
 `EnemyDefeated` mixes `3, tick, target` and then, per cause: `ShoreBlockEdge` `0x4544_4745` ("EDGE") and the player; `Explosion` `0x424c_5354` ("BLST"), the charge, the owner (0, or player + 1) and `point_blank`. `force` is still not mixed (it is derived: `Catastrophic` for the edge and the point blank blast, `Heavy` for the ring; `derived_forces` and the `debug_assert` cover both). The new event `Blast { tick, charge }` mixes `14, tick, charge`. Charge state is mixed into the state hash only for a fixture that has charges, so all 13 older fixture hashes and logs are unchanged. Log lines: `cause=shore_block_edge credit_player=0` and `cause=explosion charge=0[ credit_player=0][ point_blank]`.
+
+## cf02 overlay (CF02-D, Q21, Q36)
+
+`assets/data/death/species_death_profiles_cf02.json` (embedded, schema version 2, `deny_unknown_fields`) is the **cf02-only** profile overlay of COMBAT-FUN-02. Each entry names a species of the global file and lists `recipes_first`: recipes placed **in front of** that species' own (first match wins), then the merged profiles are validated again with the same rules as a global file. An overlay of another schema version, of an unknown species, with no recipe or with an unknown field is rejected, never half-read. `DeathProfiles::cf02()` is the merged set; the global `DeathProfiles::builtin()` and the pinned tests `selection_table_by_species_cause_and_force` and `selection_table_death_d_every_row` are unchanged.
+
+| Species | Overlay row | Effect |
+| --- | --- | --- |
+| `goblin` | `{ "kind": "slammed", "finish": "goblin_slammed", "causes": ["blunt"], "min_force": "heavy" }` | a heavy (or catastrophic) blunt defeat is the slammed finish; a routine blunt kill keeps `goblin_knockback_down`; crush, shear and blast rows are unchanged |
+
+A heavy ring blast (`Explosion { point_blank: false }`, force heavy) has no blast recipe and degrades along its ladder to the blunt class, so under the overlay it also selects `goblin_slammed` (degraded, played as the flung pose). That is the one non-melee row the overlay changes; a test pins it.
+
+**Pose from events (presentation only).** The profile says "slammed"; `death::slam_pose_for(events, target)` picks one of three poses from the events of the defeat's own tick: a `WallSlam` of that goblin gives `WallCrumple`, else a `Hit` of `Stomp` or `DiveStomp` on it gives `Stomped`, else `Flung` (the lethal kick). The pose is stored nowhere authoritative and mixed into no hash.
+
+**Gore baselines (Q22, Q43; `gore::Cf02GoreBudget`, read only when `cf02_rules` and `q36_gore_budget` are on).** At preset 4 a stomped goblin throws 6 gib quarters (5 gibs from the 3-gib set) and never separates a part; a wall crumple 4 quarters (3 gibs) and one arm on the wall side at once; a flung body 6 quarters and one arm as it lands. Presets 1 to 3 scale by the existing preset ratio (`quarters * gib_quarters / 4`, parts rounded up while the preset keeps anything; the manifest's preset filter still decides which part ids fly): preset 3 draws 2 gibs for a stomp (the bone is preset 4 only), presets 1 and 2 draw none and are identical to the legacy kick. Q22 (preset 4 only, any heavy or catastrophic finish): the crush's three gibs and the explosion's ten become five and fifteen (6 quarters, the set repeating), and the decapitation separates one arm. A routine blunt kill (`knockback_down`) at preset 4 adds one **transient** blood spray: six drops that leave no decal or stain and are removed 24 presenter ticks later (`q43_routine_spray_ticks`). Drop quarters and the corpse, decal and pool caps are unchanged.
+
+**Impact hold (Q21).** `DeathPresenter::slammed_poses()` yields a `SlamView { pose, rest, age, .. }`; `rest` is false for the first `q21_slammed_impact_hold_ticks` (8) presenter ticks. Until CF02-I wires the goblin slammed sheets (ART-GOB-CF02, not wired into any binary yet) the GOB-01 knockback sprite stays and only the gore differs.
+
+Wiring: `DeathPresenter::with_cf02(&Cf02Tuning)` in `build_scene` of `floor01_scene` when `CombatState::cf02()` is set (`--cf02` and every `cf02_*` fixture). Without it the presenter reads the global profiles and legacy counts exactly.
