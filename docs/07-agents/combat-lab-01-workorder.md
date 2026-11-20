@@ -1,0 +1,57 @@
+# COMBAT-LAB-01 — Local agent implementation work order
+
+**Task:** implement the Floor 01 mid-floor combat sandbox and test course (the post-biscuit lab), **not** another opening tutorial.
+**Authority:** [combat-lab design](../01-design/combat-lab-01-advanced-playtest.md) (adopted defaults LAB-Q01..LAB-Q15), [PLAYTRACE-01 recorder](../03-tech/playtrace-01-session-capture.md), [playtest protocol](../04-production/combat-lab-01-playtest-protocol.md), [character progression](../01-design/character-progression-horizon.md).
+**Status:** implementation requested, **nothing in this design PR is a playable level**.
+**Recording gate:** PT-B gates the first human lab test and calling an attempt "recorded"; it does not block the CF02-A/B owner playtest.
+
+## Required audit before starting
+
+Read `AGENTS.md`, `docs/07-agents/workorders.md`, `docs/07-agents/agent-orchestration.md`, `docs/01-design/combat-first-encounter-design.md`, COMBAT-FUN-02 spec/work order, companion AI spec/work order, `docs/03-tech/camera-lab.md` (and `src/camera_lab/` as geometry references only), AUTOPLAY-01 and AUTOPLAY-02a (**open PR #136**), `docs/02-art/donut-moveset-q10.md`, `src/party_scene.rs`, `src/combat_scene.rs`, `src/corridor.rs`, `src/boss_scene.rs`, `src/shore.rs`, current Bevy level layout/input/camera/asset pipelines, approved enemy art roster and ENV-01/02. Examine open PRs before assigning shared files. Verify available build features and log missing capabilities: never ship a placeholder monster as if its visual concept included approved combat behavior.
+
+## Files and ownership (LAB-Q03)
+
+LAB-00 owns **only new files**: `src/combat_lab/` (descriptor, validator, headless runner over the real `CombatState`/`PartyState` path), `src/combat_lab_fixtures.rs`, `assets/levels/combat_lab/*.room.json` (existing `.room.json` format, as `src/demo.rs` and `src/boss_scene.rs`) plus a lab manifest (no Bevy). **LAB-00-wire** (after CF02-I) adds the lab-owned Bevy overlay module `src/combat_lab_overlay.rs` for the control strip and REC indicator (never `src/hud.rs` or `src/hud_draw.rs`) and the live entry, a `--scene combat_lab` token in `src/bin/floor01_scene.rs`, through the slot in the CF02 shared-file table. There is no separate lab binary. `src/combat_scene.rs`, `src/corridor.rs` and `src/cf02.rs` stay with their CF02/COMPANION owners; LAB-02 **consumes** CF02-F's wave and spawn contract and builds none of its own (a generalising `src/cf02.rs` PR is queued after CF02-I if needed).
+
+## PR plan and acceptance evidence
+
+| Stage | Owns | Deliverable / tests | Dependencies | Tier |
+| --- | --- | --- | --- | --- |
+| LAB-00 | New files above: scenario/config manifests, validator, headless runner, room selection | Room IDs R00–R06, stable seed (CF02-Q58 effective seed, no lab RNG), player mode, capability profile `floor01-postbiscuit-lab-v1`, feature gates, test-only launch and room restart; parser rejects impossible/unimplemented abilities, unknown enemy/move IDs and unresolvable camera/geometries; **leak test: the story and demo entries cannot load the profile** (LAB-Q01) | Core party simulation; PLAYTRACE PT-A contract in parallel (contract only) | Medium execution; independent top-tier review |
+| LAB-00-wire | `src/combat_lab_overlay.rs` (new, Bevy) and the `--scene combat_lab` token in `src/bin/floor01_scene.rs` (CF02 shared-file slot) | Live lab entry with the control strip and REC indicator; room selection and restart from the Setup Cage; the leak test still passes (story, demo and plain `--cf02` reject the lab profile); recording is on automatically (PT-Q12) | LAB-00; **CF02-I merged**; PT-B for the recording path | Medium execution; independent top-tier review |
+| LAB-01 | Geometry for R00–R02, existing enemies, camera fixtures | Quality solid platforms, readable vertical spaces/cover, combat tests for melee/body hits, small ledges, llama evasion and both-character reachability, on the **legacy rules** (no wait for CF02 rules); the headless part starts after LAB-00; the live part (640×360/400/1080p clips in original art style, hard gate 1 human clear of R00–R02 in solo and co-op) needs **LAB-00-wire** | LAB-00 (headless part); LAB-00-wire (live part). PT-B before the first human test. `cf02_rules` variants after CF02-F | Medium execution; top tier writes R-room layout keys and spec; independent top-tier review |
+| LAB-02 | R03 and R05 only; level data, wave use | Support-collapse mechanics from the existing authored hazards only (LAB-Q02), protected return route, multiple ways of killing, at most 4 concurrently active by default (LAB-Q04), deterministic reset and performance; R05 supports three distinct practical routes; waves use the CF02-F contract | LAB-01; CF02-F wave and spawn contract; **cannot invent new physics**. Destructible cover/bridges and explosive traps wait for `TERRAIN-L1/L3` | Medium execution; independent top-tier review |
+| LAB-03 | R04, role-control + coop integration tests | Carl-human/Donut-AI, Donut-human/Carl-AI, P1+P2: same path/no softlocks; camera, input ownership, mana, moves; R04 tests ranged+melee pressure with **existing** goblins+llama first | LAB-02; COMPANION **01A-wire** (both-role autonomy), **01B-wire** (navigation across tiers) and **01D** (contextual orders; needs the owner's D-CTRL decision). Until 01D merges the orders criterion is reported **NOT TESTED** | Medium execution; independent top-tier review |
+| LAB-04 (optional) | New-archetype interfaces and isolated single-enemy probes | Rat, Bomb Bard, Troglodyte or Scatterer **only after** original behavior/telegraph proposals and design review; one-at-a-time A/B proof of distinct tactical role. Each candidate is a separate `ENEMY-GAMEPLAY-<name>` backlog item (LAB-Q14) and reuses the merged readability sets, not new art | Separate enemy design and implementation PRs | Top tier designs; medium executes |
+| LAB-05 | Playtest evidence, acceptance/iteration | Owner test (including real two pads), fixed-seed A/B runs, repeat arena three times, out-of-game ratings (LAB-Q10), camera traces, recordings, replay reports, honest tuning decisions | LAB-01–03, PT-B (first recorded human test); PT-C/D only for ML-ready claims; LAB-04 only if it exists (dashed in the graph) | Medium execution; owner game-feel signoff |
+
+**Avoid large conflicting gameplay PRs.** Agents can work on environment/level data and recording in parallel without both editing `src/combat_scene.rs` or `src/corridor.rs`. The integration owner makes the minimal common adapter after upstream rule changes land. Do not copy a `cf02_microarena` implementation or own COMBAT-FUN-02 mechanics in this workstream.
+
+### LAB-00 exact behaviors
+
+Implement only the smallest possible **real** scenario descriptor using the existing `.room.json` and fixture conventions. For each room record `id`, layout/config/content hash, seed/variant, allowed hero modes, legal capability profile, encounter/wave IDs, hazard/terrain IDs, checkpoints, camera/visibility constraints, goal and recording segment boundaries. **There is no difficulty field** (LAB-Q08). The loader validates reachability using implemented jump/physics as far as existing tools permit (the camera-lab reachability-test approach is a reference), otherwise emits explicit `validation_pending` and requires an integration fixture. Multiple rooms are one user session but separate measurable episodes/encounters. Direct room entry/retry and fixed-seed A/B must work without campaign saves. R00 is a dev-only selection of fixed lists (profile ids, modes, variants) with menu controls only; it has no in-world equipment, no per-ability toggles and no item UI.
+
+### LAB-01/02 specific geometry quality gates
+
+Both characters must be able to reach relevant shared ground progression; Donut should gain at least one **optional offensive** elevated route Carl cannot immediately take from the same starting point, not a mandatory mirrored path. No jump in the main route should be an unexplained blind leap. Build visibility and traversal probes: before destruction, after partial destruction, after death/checkpoint, after swap, with 2P separation, under native 640×360 and 640×400 cameras, in large-window scaling and at 1× speed. Ensure goblins that cannot climb cannot be required to do so. Llama pressure must have at least two visibly learnable responses. No untelegraphed offscreen falling loads. Cover/perches may be solid; one-way/drop-through requires its own approved movement contract. Solo R02 before 01B-wire means a human switch-through and is not a companion result.
+
+### LAB-03 companion and co-op gates
+
+Log if AI helps/steals kills, saves a character, becomes stuck, interrupts a duo combo, or cannot reach a mandatory gate. Demonstrate with objective telemetry and actual play: **both role assignments complete the same main path with no softlock and no unearned resources; the efficacy gap (time, damage taken, assists) is measured and reported, not required to be zero** (LAB-Q12; COMPANION CA-37 limits v0 AI Carl and CA-19 keeps `ca19_kill_policy = never` through 01D). Changes to AI behaviour go to COMPANION-AI-01. Player can choose to switch; contextual orders are **NOT TESTED** until 01D; no AI-only teleport/unearned mana. Two-pad proof must use the true `PartyState` path, not two Carl-only simulations.
+
+### LAB-04 new-enemy rule
+
+Optional. Each candidate has a small design sheet with player-readable tell, role, legal attacks/resources, size/collider, counterplay, 1P/2P/AI interaction, death/impact type, environmental interaction, animation source provenance, reproduction fixture and independent review. No "fully implemented" claim from an approved concept PNG or a merged readability set. No blanket new equipment, bullet-hell or health sponges. COMBAT-LAB-01 completes with goblins and llama alone.
+
+## Hard no-regression criteria
+
+- Legacy DEMO-01, cf02-off game rules, scene state hashes and pinned AUTOPLAY `autoplay-episode/1` goldens remain unchanged.
+- Recording is **default-on for live-input runs** once PT-B exists (PT-Q12), including every lab attempt and retry; scripted, headless and CI paths are not recorded by default. No full owner playtest is labelled `ML-ready` without PT-C/D exporter + verification.
+- Gameplay outcomes and performance do not change when capture is enabled/disabled on identical fixed-tick inputs.
+- No artificial reward/drop/boon/viewer availability in the campaign, regardless of lab experimental profile; the lab profile cannot load from `--demo`, the story route or plain `--cf02`.
+- Existing controller mapping remains the same. All timings and enemy/geometry counts are tunable hypotheses, not signed-off balance.
+- All tests and reported build commands actually run. Attach short at-speed clips for gameplay, verified session manifest/replay digest for recording, perf before/after and reports using the [playtest protocol](../04-production/combat-lab-01-playtest-protocol.md).
+
+## Required review
+
+Follow `AGENTS.md` agent model tiers and independent review, plus owner game-feel signoff after code merge. The design and implementation PRs must state clearly what is implemented, still experimental, untested on hardware, or not ML-eligible. All rights and art source rules still apply.
