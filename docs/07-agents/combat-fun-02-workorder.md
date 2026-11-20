@@ -134,7 +134,7 @@ One owner at a time, and no two PRs in one parallel group share a file. A PR tha
 | `src/combat.rs`, `src/goblin.rs` | CF02-00 (sweep and the identity glance parameter of `strike_group`) -> A -> H -> B -> G -> F (`ShoreTripped` only) |
 | `src/llama.rs` | CF02-00 (sweep, `health_for_glance`) -> C1 |
 | `src/combat_scene.rs` (except `src/combat_scene/donut.rs`) | CF02-00 (sweep + COMPANION stubs: `mod companion;`, `companion` field, restart call, hash call, input hook, Carl strike glance hook) -> A -> H -> B -> G -> F. COMPANION never edits it afterwards; a missing hook is a one-line token from the current owner |
-| `src/bin/floor01_scene.rs` | CF02-00 (arg block) -> A (input adapter) -> 01A-wire (`--companion` arg) -> F (scenario) -> I (clip wiring) -> 01D (command input, HUD wiring) |
+| `src/bin/floor01_scene.rs` | CF02-00 (arg block) -> A (input adapter) -> 01A-wire (`--companion` arg) -> F (scenario) -> I (clip wiring) -> 01D (command input, HUD wiring). Outside the CF02 chain: PLAYTRACE PT-B (`--record*` args, one resource, one pre-step and one post-step call in `fixed_step`; lands after #139 and rebases onto the owner in flight) and COMBAT-LAB-01 LAB-00 (a `--scene combat_lab` token, **after CF02-I**) |
 | `src/input.rs`, `src/pad_slots.rs`, keyboard map | CF02-00 (`NONE`) -> A (`down`) -> 01D (only if D-CTRL adopts the release swap). 01C edits neither |
 | `src/prototype.rs` | CF02-00 (sweep) -> H |
 | `src/combat_scene/donut.rs` | CF02-00 (sweep) -> C1 -> 01A-wire (`may_start`, glance at hit sites) -> C2 (bail-out C6) |
