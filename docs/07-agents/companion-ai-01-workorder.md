@@ -120,11 +120,11 @@ A PR that finds it must touch a file another running PR owns stops and reports i
 - **Done (merged 2026-11-20 after CF02-00's stubs, #134):** 01A-core #129 (view/profile/director/rules, unit tests), 01B-core #131 (pure platform graph over existing solids and the camera-lab `donut_only` platforms) and 01C #130 (pure grammar `src/companion/command_input.rs` + traces). They touch only COMPANION files.
 - **CF02 group 1:** CF02-00 (with COMPANION stubs), ACT-DESIGN.
 - **Group 2:** A, C1, CORES (+ art); 01A-core, 01B-core and 01C were merged here ahead of schedule (2026-11-20).
-- **Group 3:** H **and 01A-wire** (needs CF02-00, A, C1; disjoint from H's files).
-- **Group 4:** B and C2-reduced (needs H, C1, 01A-wire).
+- **Group 3:** A+H **and 01A-wire** (needs CF02-00, A, C1; disjoint from H's files). Speed mode groups CF02-A+H into one PR (`feat/cf02-ah`): 01A-wire starts stacked on it as soon as the CF02-A commits are pushed there and merges right after A+H.
+- **Group 4:** B (grouped with G as B+G in speed mode) and C2-reduced (needs H, C1, 01A-wire).
 - **Group 5:** G, D, AUDIO; 01B-wire may join (needs C2 for `corridor.rs`).
 - **Group 6:** F (needs G, C2, 01A-wire; Q39 measured on `cf02_assist`). **7:** I. **8:** REVIEW.
-- **After:** 01D (needs 01A-wire, the 01B API, owner D-CTRL on real pads, I released `floor01_scene.rs`); 01E (needs 01D, AUTOPLAY B and AUTOPLAY-02a). The CF02 critical path (00 -> A -> H -> B -> G -> F -> I -> REVIEW) does not lengthen.
+- **After:** 01D (needs 01A-wire, the 01B API, owner D-CTRL on real pads, I released `floor01_scene.rs`); 01E (needs 01D, AUTOPLAY B and AUTOPLAY-02a). With speed-mode grouping the real CF02 critical path is 00 -> CORES -> A+H -> 01A-wire -> C2 -> F -> I -> REVIEW (see [the CF02 work order](combat-fun-02-workorder.md#parallel-groups)); 01A-wire is developed stacked on `feat/cf02-ah` so that it merges right after A+H, which keeps the lengthening to that one merge.
 
 ### 01A — acceptance
 

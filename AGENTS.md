@@ -33,7 +33,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 - Treat Carl/Donut/Mongo names and franchise-derived abilities as a **replaceable fan-concept layer**; engine and data contracts must be IP-neutral.
 - Do not post tokens, local machine paths, user-specific private information, secret configuration or unauthorized screenshots.
 - Never declare 'Steam Deck Verified', legal clearance, or successful benchmarks without evidence.
-- Keep `docs/04-production/backlog.md` updated with the workorder and evidence status, and add an ADR for material architecture changes.
+- Keep `docs/04-production/backlog.md` updated with the workorder and evidence status (in speed mode the orchestrator does this after merge and implementation PRs record status in the PR body, see Speed mode), and add an ADR for material architecture changes.
 
 ## Standard work cycle
 
@@ -42,7 +42,7 @@ You are implementing **Dungeon Floorbreak**, a 2D controller-first Linux game co
 3. Make smallest useful change, keep data schemas stable or migrate explicitly.
 4. Run available format/lint/unit/scenario tests. If blocked, record *actual* blocker and don't fabricate results.
 5. Run screenshot or replay validation for visual changes, plus controller/manual checks when applicable.
-6. Update documentation/backlog and provide a PR with: behavior, evidence, risks, testing, next step.
+6. Update documentation and, outside speed mode, the backlog (in speed mode the orchestrator updates the backlog after merge and the PR body carries the status), and provide a PR with: behavior, evidence, risks, testing, next step.
 7. A human reviews *game feel* before mechanics are marked accepted.
 
 ## Model routing for art work
@@ -56,6 +56,7 @@ Every art work order (characters, animation, environments, props, enemies, vehic
    **Merge delegation (owner, 2026-11-18):** a pixel-art PR (sprites, environment kits, VFX and their evidence/docs) may be marked ready and squash-merged by the orchestrator, without waiting for owner approval, once its independent top-tier review has passed (plus the medium-tier fix check, or a top-tier re-review after a design defect) and CI is green on the final head. The owner still receives a batch summary with images and any open non-blocking design notes, and can reopen any asset. Gameplay, Bevy integration, game-feel and non-art PRs still need owner approval.
    **Extended (owner, 2026-11-19):** gameplay, Bevy integration and other non-art PRs may also be marked ready and squash-merged by the orchestrator once an independent top-tier review has passed (plus a fix check, or a narrow re-review after design or logic fixes) and CI is green on the final head. Game feel stays the owner's call: a mechanic merged this way is recorded in the backlog as "merged, game-feel review pending" and is not marked accepted until the owner plays it; the owner can request changes in follow-up PRs. A PR the owner explicitly marked "do not merge" (for example a probe) stays unmerged.
    **Design defaults (owner, 2026-11-19):** the orchestrator does not wait for owner sign-off on gameplay design choices. It adopts the recommended options of a top-tier design analysis, records each adopted value as data with its question ID, documents genuinely open questions in the repo, and merges under the delegation above after an independent top-tier review. The owner reviews game feel after merge and may change any adopted value in a follow-up PR.
+   **Speed mode (owner, 2026-11-20):** optimize for the end result, not for stable intermediate states. Implementation PRs do not edit `docs/04-production/backlog.md`; they carry status notes in the PR body and the orchestrator batch-updates the backlog after merges. An independent top-tier review is still required, but non-blocking findings may be fixed forward in a follow-up PR, and a PR may merge after a medium-tier fix check without a top-tier re-review unless the review found a design or logic defect. Related stages may be grouped into one PR to cut cycles. Speed mode does not relax the legal, rights and provenance guardrails, green CI on the final head, byte-identical goldens (unless a PR explicitly changes them), flag gating of new behavior, or the owner's game-feel review. See [Speed mode](docs/07-agents/agent-orchestration.md#speed-mode).
 
 - Bevy/gameplay integration of art stays on the medium tier unless the PR records a reason.
 - Record which model designed, executed and reviewed the art in the PR's `Rights/Provenance` section.
