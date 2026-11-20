@@ -1,58 +1,593 @@
-//! COMPANION-AI-01 hooks in the combat scene (CF02-00: no-op stubs).
+//! COMPANION-AI-01 01A-wire: the combat-scene side of the companion.
 //!
-//! Every function here is the identity or does nothing, so no hash and no
-//! behaviour changes. 01A-wire fills them in; COMPANION never edits
-//! `combat_scene.rs` again (`docs/07-agents/combat-fun-02-workorder.md`,
-//! "CF02-00 COMPANION stubs (exact)").
+//! This child module of `combat_scene` is the only place that reads
+//! `CombatState` and `SceneSim` for the companion (CA-23) and the only place
+//! that writes anything for it: one full [`RawInput`] per companion-driven hero
+//! through `step_party`'s first statement (CA-24). Everything is gated on
+//! `UncontrolledHero::Companion` (the drive's `companion_set`): with the
+//! companion off, [`CombatState::companion_inputs`] returns its input
+//! unchanged, [`CompanionRuntime::mix_hash`] writes nothing and the glance is
+//! the identity, so no golden changes (`companion_stub_parity_*`).
+//!
+//! Layout: [`CompanionRuntime`] holds the two directors (the per-hero
+//! decision state), the AI-started move marks (CA-20) and the unhashed
+//! counters and event log (CA-25); `companion_inputs` builds the pre-tick
+//! [`CompanionView`] (read-only, never hashed, derived from hashed state) and
+//! steps the directors; [`Glance`] is the kill-policy rule applied at the
+//! strike sites (CA-19, CA-20).
+
+use std::sync::OnceLock;
 
 use super::CombatState;
-use crate::combat::MoveSpec;
+use crate::boss::Boss;
+use crate::cf02::Cf02Tuning;
+use crate::combat::{ENEMY_HALF_HEIGHT, MoveSpec};
+use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
+use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP};
+use crate::companion::profile::{KillPolicy, ProfileFile, ProfileSetId};
+use crate::companion::rules;
+use crate::companion::view::{
+    ActiveMove, CompanionView, Control, EntityKind, FollowInput, HeroView, MovePhase,
+    StableEntityId, TargetState, TargetView, ThreatView, ViewBounds,
+};
 use crate::corridor::SceneSim;
+use crate::feel::{IMPACT_END, LLAMA_TELL_TICKS, SMEAR_END, TELL_TICKS};
+use crate::follower::Threat;
+use crate::goblin::GoblinMode;
 use crate::input::RawInput;
+use crate::llama::LlamaMode;
 use crate::party::HeroId;
+use crate::prototype::HERO_HALF_HEIGHT;
 
-#[derive(Debug, Clone, Default)]
-pub(crate) struct CompanionRuntime {}
+/// The profile file, parsed and hash-pinned once per process (CA-39).
+fn profiles() -> &'static ProfileFile {
+    static PROFILES: OnceLock<ProfileFile> = OnceLock::new();
+    PROFILES.get_or_init(|| {
+        ProfileFile::pinned().expect("the embedded companion_ai_v0.json is valid and pinned")
+    })
+}
 
-impl CompanionRuntime {
-    /// Attempt restart: no-op.
-    pub(crate) fn reset(&mut self) {}
+/// Which counter a move instance number belongs to: Carl's melee runner, Donut's
+/// swat/pounce state machine and Donut's casts each number their own instances.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MarkKind {
+    CarlMove,
+    DonutMove,
+    DonutCast,
+}
 
-    /// Writes nothing while no hero is companion-driven, so every hash is unchanged; when 01A-wire mixes,
-    /// it writes a marker word first (as the party and boss blocks do).
-    pub(crate) fn mix_hash(&self, _mix: &mut impl FnMut(u64)) {}
+/// How many AI-started instance marks are kept (oldest dropped first). A move
+/// lasts under 60 ticks and the AI starts at most one per 60, so a handful is
+/// plenty; the cap keeps the hash bounded.
+const MARK_CAP: usize = 8;
 
-    /// The glance rule for hits dealt by `hero` in move `instance` (stub: identity). CA-20 keys it on whether
-    /// that move instance was started by an injected press, and the flag survives a swap.
-    pub(crate) fn strike_glance(&self, _hero: HeroId, _instance: u32) -> Glance {
-        Glance::default()
+/// A marker word the companion block of the state hash starts with ("COMPAN"),
+/// written only while a hero is companion-driven.
+const HASH_MARK: u64 = 0x434f_4d50_414e_0001;
+
+#[derive(Debug, Clone)]
+pub(crate) struct CompanionRuntime {
+    /// One director per hero (Carl 0, Donut 1).
+    directors: [CompanionDirector; 2],
+    /// Which heroes the companion drove on the last stepped tick.
+    driven: [bool; 2],
+    /// The profile set of the last stepped tick (`None` while off).
+    set: Option<ProfileSetId>,
+    /// Move instances that were started by an injected press (CA-20). The flag
+    /// survives a swap, so it is state of the run and hashed.
+    marks: Vec<(MarkKind, u32)>,
+    /// Unhashed counters and event log (CA-25, CA-31).
+    stats: CompanionStats,
+    events: Vec<CompanionEvent>,
+    /// The last traced decision per hero, to log only changes.
+    last_trace: [Option<(Mode, Option<Action>, Option<StableEntityId>)>; 2],
+}
+
+impl Default for CompanionRuntime {
+    fn default() -> Self {
+        Self {
+            directors: [
+                CompanionDirector::new(HeroId::Carl),
+                CompanionDirector::new(HeroId::Donut),
+            ],
+            driven: [false; 2],
+            set: None,
+            marks: Vec::new(),
+            stats: CompanionStats::default(),
+            events: Vec::new(),
+            last_trace: [None; 2],
+        }
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+impl CompanionRuntime {
+    /// Attempt restart: the decision state, the marks and the drive flags start
+    /// again (the cadence is measured in attempt-local ticks). The run's
+    /// counters and event log are kept.
+    pub(crate) fn reset(&mut self) {
+        let stats = self.stats;
+        let events = std::mem::take(&mut self.events);
+        *self = Self::default();
+        self.stats = stats;
+        self.events = events;
+    }
+
+    /// Writes nothing while no hero is companion-driven, so every hash is
+    /// unchanged; while one is, it writes a marker word first (as the party and
+    /// boss blocks do) and then the profile set, both directors and the marks
+    /// (CA-25).
+    pub(crate) fn mix_hash(&self, mix: &mut impl FnMut(u64)) {
+        let Some(set) = self.set.filter(|_| self.driven.iter().any(|d| *d)) else {
+            return;
+        };
+        mix(HASH_MARK);
+        mix(set as u64);
+        mix(u64::from(self.driven[0]) | (u64::from(self.driven[1]) << 1));
+        for director in &self.directors {
+            director.hash_into(mix);
+        }
+        mix(self.marks.len() as u64);
+        for &(kind, instance) in &self.marks {
+            mix(kind as u64);
+            mix(u64::from(instance));
+        }
+    }
+
+    /// The kill policy of the running profile set (`never` while off).
+    fn policy(&self) -> KillPolicy {
+        self.set
+            .map_or(KillPolicy::Never, |s| profiles().set(s).ca19_kill_policy)
+    }
+
+    /// Remember that the move `instance` was started by an injected press
+    /// (CA-20). Idempotent.
+    pub(crate) fn mark_ai_started(&mut self, kind: MarkKind, instance: u32) {
+        if self.marks.contains(&(kind, instance)) {
+            return;
+        }
+        self.marks.push((kind, instance));
+        if self.marks.len() > MARK_CAP {
+            self.marks.remove(0);
+        }
+    }
+
+    pub(crate) fn marked(&self, kind: MarkKind, instance: u32) -> bool {
+        self.marks.contains(&(kind, instance))
+    }
+
+    /// The glance rule for hits dealt by `hero` in move `instance` (CA-20): the
+    /// flag is whether that instance was started by an injected press, and it
+    /// survives a swap. Carl's moves are marked here, on their first tick, while
+    /// he is companion-driven (every tick of a running move passes through the
+    /// strike site, tick 0 included); Donut's are marked where they start
+    /// (`donut.rs`) and read through [`Self::glance_for`].
+    pub(crate) fn strike_glance(&mut self, hero: HeroId, instance: u32) -> Glance {
+        match hero {
+            HeroId::Carl => {
+                if self.driven[0] {
+                    self.mark_ai_started(MarkKind::CarlMove, instance);
+                }
+                self.glance_for(MarkKind::CarlMove, instance)
+            }
+            HeroId::Donut => self.glance_for(MarkKind::DonutMove, instance),
+        }
+    }
+
+    /// The glance for a move instance of `kind`.
+    pub(crate) fn glance_for(&self, kind: MarkKind, instance: u32) -> Glance {
+        Glance {
+            ai_started: self.marked(kind, instance),
+            policy: self.policy(),
+        }
+    }
+
+    fn record(&mut self, tick: u64, hero: HeroId, decision: &Decision) {
+        let i = hero.index();
+        if decision.mode != Mode::Follow {
+            self.stats.active_ticks[i] += 1;
+        }
+        if decision.pressed
+            && let (Some(action), Some(target)) = (decision.action, decision.target)
+        {
+            let chain = action == Action::Haymaker;
+            if chain {
+                self.stats.chain_presses[i] += 1;
+            } else {
+                self.stats.assist_starts[i] += 1;
+                if decision.mode == Mode::Interrupt {
+                    self.stats.interrupt_starts[i] += 1;
+                }
+            }
+            self.push_event(CompanionEvent::Press {
+                tick,
+                hero,
+                action,
+                target,
+                chain,
+            });
+        }
+        let trace = (decision.mode, decision.action, decision.target);
+        if self.last_trace[i] != Some(trace) {
+            self.last_trace[i] = Some(trace);
+            self.push_event(CompanionEvent::Decision {
+                tick,
+                hero,
+                mode: decision.mode,
+                action: decision.action,
+                target: decision.target,
+            });
+        }
+    }
+
+    fn push_event(&mut self, event: CompanionEvent) {
+        self.events.push(event);
+        if self.events.len() > EVENT_CAP {
+            self.events.remove(0);
+        }
+    }
+}
+
+/// The kill-policy rule at a strike site (CA-19, CA-20), as a plain value the
+/// site applies to the spec it is about to land.
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct Glance {
-    ai_started: bool, // false in the stub
+    /// The move was started by an injected press.
+    ai_started: bool,
+    policy: KillPolicy,
+}
+
+impl Default for Glance {
+    /// A human-started hit: the identity.
+    fn default() -> Self {
+        Self {
+            ai_started: false,
+            policy: KillPolicy::Never,
+        }
+    }
 }
 
 impl Glance {
+    /// The move as it lands on a target with `target_hp` on the hit tick.
     pub(crate) fn apply(&self, spec: &MoveSpec, target_hp: u8) -> MoveSpec {
-        glance_hook(spec, target_hp, self.ai_started)
+        glance_hook(spec, target_hp, self.ai_started, self.policy)
+    }
+
+    /// The damage a boss hit lands: 0 when the rule glances it, else `damage`.
+    pub(crate) fn lands(&self, damage: u16, target_hp: u16) -> u16 {
+        let clamp = |v: u16| u8::try_from(v).unwrap_or(u8::MAX);
+        if rules::is_glance(
+            clamp(damage),
+            clamp(target_hp),
+            self.ai_started,
+            self.policy,
+        ) {
+            0
+        } else {
+            damage
+        }
     }
 }
 
-/// Stub: returns `*spec` unchanged.
-pub(crate) fn glance_hook(spec: &MoveSpec, _target_hp: u8, _ai_started: bool) -> MoveSpec {
-    *spec
+/// [`rules::glance`] for the strike sites: returns `*spec` for a human-started
+/// hit, under `factual` and for a non-lethal hit.
+pub(crate) fn glance_hook(
+    spec: &MoveSpec,
+    target_hp: u8,
+    ai_started: bool,
+    policy: KillPolicy,
+) -> MoveSpec {
+    rules::glance(*spec, target_hp, ai_started, policy)
 }
 
 impl CombatState {
-    /// Stub: identity. `inputs` is `[Carl, Donut]` as in `step_party`.
+    /// Which heroes the companion drove on the last stepped tick (the CINE feed
+    /// of CA-29 reads it; `[false; 2]` while the companion is off).
+    pub fn companion_driven(&self) -> [bool; 2] {
+        self.companion.driven
+    }
+
+    /// The run's companion counters (never hashed).
+    pub fn companion_stats(&self) -> CompanionStats {
+        self.companion.stats
+    }
+
+    /// The companion events since the last call (a separate log, CA-25).
+    pub fn take_companion_events(&mut self) -> Vec<CompanionEvent> {
+        std::mem::take(&mut self.companion.events)
+    }
+
+    /// CA-24: replace the input of each companion-driven hero by the director's
+    /// one full `RawInput` (`move_x`, `jump`, `attack`, `physical`; the pause,
+    /// swap, ability and Down bits stay false). `inputs` is `[Carl, Donut]` as
+    /// in `step_party`. The identity while no hero is companion-driven.
     pub(crate) fn companion_inputs(
         &mut self,
-        _scene: &SceneSim,
+        scene: &SceneSim,
         inputs: [RawInput; 2],
     ) -> [RawInput; 2] {
-        inputs
+        let drive = *scene.drive();
+        let sets = [
+            drive.companion_set(HeroId::Carl),
+            drive.companion_set(HeroId::Donut),
+        ];
+        self.companion.driven = [sets[0].is_some(), sets[1].is_some()];
+        let Some(set_id) = sets[0].or(sets[1]) else {
+            // Off (or two players): nothing runs, the plans are forgotten.
+            self.companion.set = None;
+            for director in &mut self.companion.directors {
+                director.clear_plan();
+            }
+            return inputs;
+        };
+        self.companion.set = Some(set_id);
+        let set = profiles().set(set_id);
+        let view = self.companion_view(scene, set_id);
+        let mut out = inputs;
+        for hero in HeroId::ALL {
+            let i = hero.index();
+            if !self.companion.driven[i] {
+                self.companion.directors[i].clear_plan();
+                continue;
+            }
+            let (raw, decision) = self.companion.directors[i].step_traced(&view, set);
+            // A press tick stands still: a direction held with a press would
+            // turn the hero first (the Carl rule), maybe away from its target.
+            let move_x = if decision.pressed { 0.0 } else { raw.move_x };
+            out[i] = RawInput {
+                move_x,
+                jump: raw.jump,
+                attack: raw.attack,
+                physical: raw.physical,
+                ..RawInput::NONE
+            };
+            self.companion.record(view.tick, hero, &decision);
+        }
+        out
+    }
+
+    /// The perception contract of the tick about to run (CA-23): built from
+    /// `&self` and `&SceneSim` only, derived from hashed state, never written
+    /// back and never hashed. `in_view` is the simulation scroll camera, never
+    /// the presentation camera (CF02-Q40).
+    fn companion_view(&self, scene: &SceneSim, profile_set: ProfileSetId) -> CompanionView {
+        let drive = *scene.drive();
+        let left = scene.camera.left() as f32;
+        let view = ViewBounds {
+            left,
+            right: left + scene.camera.config().view_w as f32,
+        };
+        let live = scene.party_live();
+        let heroes = [HeroId::Carl, HeroId::Donut].map(|id| self.companion_hero(scene, id));
+
+        // The follow layer's input: the follow-and-jump bot on the same goblin
+        // threats `step_party` builds, except that a companion dodges only the
+        // swings aimed at itself. A tell aimed at the other hero is the one it
+        // may interrupt, and the bot's dodge jump would take it off the ground
+        // (and out of reach of its own swat) before the swat can start.
+        let boss = self.boss.as_ref().and_then(Boss::threat);
+        let mut follow = [FollowInput::default(); 2];
+        for id in HeroId::ALL {
+            let i = id.index();
+            let h = &heroes[i];
+            let free = h.control == Control::Companion
+                && !h.defeated
+                && h.hurt_ticks == 0
+                && h.active_move.is_none()
+                && self.hero_state(id).hit_stop == 0;
+            if free {
+                let threats: Vec<Threat> = self
+                    .enemies
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, g)| {
+                        g.mode == GoblinMode::Attack
+                            && g.attack_tick < IMPACT_END
+                            && self.target_of(*index) == id
+                    })
+                    .map(|(_, g)| Threat {
+                        x: g.x,
+                        attack_tick: g.attack_tick,
+                    })
+                    .collect();
+                let raw = scene.follow_input(id, &threats, boss.as_ref());
+                follow[i] = FollowInput {
+                    move_x: raw.move_x,
+                    jump: raw.jump,
+                };
+            }
+        }
+
+        CompanionView {
+            tick: scene.world.tick + 1,
+            solo: live && !drive.two_player,
+            cf02_rules: self.cf02.is_some(),
+            profile_set,
+            view,
+            heroes,
+            follow,
+            threats: self.companion_threats(view),
+            targets: self.companion_targets(view),
+            boss,
+        }
+    }
+
+    fn companion_hero(&self, scene: &SceneSim, id: HeroId) -> HeroView {
+        let drive = scene.drive();
+        let body = scene.world.body(id);
+        let state = self.hero_state(id);
+        let defeated = self.hero_defeated;
+        let frozen = state.hit_stop > 0;
+        let (active_move, mana, abilities) = match id {
+            HeroId::Carl => (
+                body.melee.current().map(|m| ActiveMove {
+                    id: m.spec.id,
+                    phase: match m.phase {
+                        crate::combat::Phase::Startup => MovePhase::Startup,
+                        crate::combat::Phase::Active => MovePhase::Active,
+                        crate::combat::Phase::Recovery => MovePhase::Recovery,
+                    },
+                    ticks_left: m.spec.total().saturating_sub(m.tick),
+                    ai_started: self.companion.marked(MarkKind::CarlMove, m.instance),
+                }),
+                None,
+                true,
+            ),
+            HeroId::Donut => {
+                let kit = self.donut_companion_state(scene);
+                (kit.running, Some(kit.mana), kit.abilities_live)
+            }
+        };
+        let control = if drive.companion_set(id).is_some() {
+            Control::Companion
+        } else if drive.is_bot(id) {
+            Control::Bot
+        } else {
+            Control::Human(if drive.two_player {
+                id.index() as u8
+            } else {
+                0
+            })
+        };
+        HeroView {
+            id,
+            x: body.x,
+            foot_y: body.y - HERO_HALF_HEIGHT,
+            vx: body.vx,
+            vy: body.vy,
+            facing: body.facing,
+            grounded: body.grounded,
+            health: body.health,
+            hurt_ticks: state.hurt_ticks,
+            invulnerable_ticks: body.invulnerable_ticks,
+            defeated,
+            control,
+            active_move,
+            // CA-37: no air moves, so a press needs the ground (the director
+            // only presses while `can_start_move`).
+            can_start_move: abilities
+                && !defeated
+                && state.hurt_ticks == 0
+                && !frozen
+                && body.grounded
+                && active_move.is_none(),
+            mana,
+        }
+    }
+
+    /// Enemy attacks in their tell, goblins then llamas (Q18 only), by id.
+    fn companion_threats(&self, view: ViewBounds) -> Vec<ThreatView> {
+        let mut threats = Vec::new();
+        for (index, g) in self.enemies.iter().enumerate() {
+            if g.mode != GoblinMode::Attack || g.attack_tick >= TELL_TICKS || !g.alive() {
+                continue;
+            }
+            threats.push(ThreatView {
+                id: StableEntityId::goblin(index as u32),
+                x: g.x,
+                foot_y: g.y - ENEMY_HALF_HEIGHT,
+                facing: g.facing,
+                tell_tick: g.attack_tick,
+                tell_len: TELL_TICKS,
+                impact_tick: SMEAR_END,
+                aimed_at: Some(self.target_of(index)),
+                guarded: g.guard.is_some(),
+                in_view: view.in_view(g.x),
+            });
+        }
+        if self.llama_targets_live().is_some() {
+            for (index, l) in self.llamas.iter().enumerate() {
+                if !l.telling() || !l.alive() {
+                    continue;
+                }
+                threats.push(ThreatView {
+                    id: llama_id(index),
+                    x: l.x,
+                    foot_y: l.y - crate::llama::LLAMA_HALF_HEIGHT,
+                    facing: l.facing,
+                    tell_tick: l.attack_tick,
+                    tell_len: LLAMA_TELL_TICKS,
+                    impact_tick: LLAMA_TELL_TICKS,
+                    // A llama always spits at Carl (`step_llamas`).
+                    aimed_at: Some(HeroId::Carl),
+                    guarded: l.guard.is_some(),
+                    in_view: view.in_view(l.x),
+                });
+            }
+        }
+        threats
+    }
+
+    /// The living enemies a support move could hit, goblins then llamas (Q18
+    /// only), by id.
+    fn companion_targets(&self, view: ViewBounds) -> Vec<TargetView> {
+        let mut targets = Vec::new();
+        for (index, g) in self.enemies.iter().enumerate() {
+            if !g.alive() {
+                continue;
+            }
+            let state = match g.mode {
+                GoblinMode::Neutral | GoblinMode::Attack => TargetState::Standing,
+                GoblinMode::Hurt => TargetState::Staggered {
+                    ticks: g.stagger_left,
+                },
+                // Only a goblin that lies under `cf02_rules` is a lying target
+                // (Q15, Q38); without them a downed goblin is not one (the
+                // pounce would stand it up).
+                GoblinMode::Downed if g.lying() => TargetState::Lying {
+                    down_ticks_left: g
+                        .cf02
+                        .map_or(0, |t: &Cf02Tuning| t.q04_downed_ticks)
+                        .saturating_sub(g.down_ticks),
+                    hold_used: g.hold_used,
+                },
+                GoblinMode::Downed | GoblinMode::Launched | GoblinMode::Airborne => {
+                    TargetState::Airborne
+                }
+                GoblinMode::Down | GoblinMode::Corpse => continue,
+            };
+            targets.push(TargetView {
+                id: StableEntityId::goblin(index as u32),
+                x: g.x,
+                foot_y: g.y - ENEMY_HALF_HEIGHT,
+                hp: g.health,
+                state,
+                guarded: g.guard.is_some(),
+                in_view: view.in_view(g.x),
+            });
+        }
+        if self.llama_targets_live().is_some() {
+            for (index, l) in self.llamas.iter().enumerate() {
+                if !l.alive() {
+                    continue;
+                }
+                let state = match l.mode {
+                    LlamaMode::Neutral | LlamaMode::Attack => TargetState::Standing,
+                    LlamaMode::Hurt => TargetState::Staggered {
+                        ticks: l.stagger_left,
+                    },
+                    LlamaMode::Down | LlamaMode::Corpse => continue,
+                };
+                targets.push(TargetView {
+                    id: llama_id(index),
+                    x: l.x,
+                    foot_y: l.y - crate::llama::LLAMA_HALF_HEIGHT,
+                    hp: l.health,
+                    state,
+                    guarded: l.guard.is_some(),
+                    in_view: view.in_view(l.x),
+                });
+            }
+        }
+        targets
+    }
+}
+
+/// A llama's stable id (serial 0: no respawn in 01A fixtures, CA-28).
+fn llama_id(index: usize) -> StableEntityId {
+    StableEntityId {
+        kind: EntityKind::Llama,
+        index: index as u32,
+        spawn_serial: 0,
     }
 }
 
@@ -76,16 +611,37 @@ mod tests {
 
     #[test]
     fn companion_stub_parity_glance_hook_is_identity() {
+        // A human-started hit is the identity under every policy and HP; so is
+        // the default glance and the runtime's glance while the companion is off.
         for spec in [CARL_JAB, CARL_HAYMAKER, CARL_PUSH_KICK] {
             for hp in [1, u8::MAX] {
-                for ai_started in [false, true] {
-                    assert_eq!(glance_hook(&spec, hp, ai_started), spec);
+                for policy in [KillPolicy::Never, KillPolicy::Factual] {
+                    assert_eq!(glance_hook(&spec, hp, false, policy), spec);
                 }
+                // An AI-started hit is the identity when it is not lethal, and
+                // under `factual`.
+                assert_eq!(glance_hook(&spec, hp, true, KillPolicy::Factual), spec);
                 assert_eq!(Glance::default().apply(&spec, hp), spec);
             }
         }
-        let glance = CompanionRuntime::default().strike_glance(HeroId::Carl, 7);
+        let mut runtime = CompanionRuntime::default();
+        let glance = runtime.strike_glance(HeroId::Carl, 7);
         assert_eq!(glance.apply(&CARL_JAB, 1), CARL_JAB);
+        assert!(
+            !runtime.marked(MarkKind::CarlMove, 7),
+            "off: nothing marked"
+        );
+        // The one change the wiring makes: under `never`, an AI-started lethal
+        // hit lands as a glance (damage 0, same reaction).
+        let landed = glance_hook(&CARL_JAB, 1, true, KillPolicy::Never);
+        assert_eq!(landed.damage, 0);
+        assert_eq!(
+            MoveSpec {
+                damage: CARL_JAB.damage,
+                ..landed
+            },
+            CARL_JAB
+        );
     }
 
     #[test]
@@ -116,5 +672,63 @@ mod tests {
         let before = sim.combat.state_hash(&sim.scene);
         sim.combat.companion.reset();
         assert_eq!(sim.combat.state_hash(&sim.scene), before);
+    }
+
+    fn kit() -> EnvKit {
+        EnvKit::load(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+            "assets/levels/floor01/corridor_abc_sample.json",
+        )
+        .unwrap()
+    }
+
+    /// CF02-Q40: the AI starts nothing while its target is outside the simulation
+    /// view, and starts it once the target is inside (the camera mode never enters).
+    #[test]
+    fn q40_nothing_starts_outside_the_simulation_view() {
+        let mut sim = crate::party_scene::PartyFixtureSim::new(
+            &kit(),
+            360,
+            &crate::companion_fixtures::CF02_ASSIST_SWAT_INTERRUPT,
+        )
+        .unwrap();
+        sim.step_slots([crate::input::RawInput::NONE; 2]);
+        let right = (sim.scene.camera.left() + sim.scene.camera.config().view_w) as f32;
+        // The view bounds the AI reads are exactly the scene's own off-screen rule.
+        for x in [right - 1.0, right, right + 0.5, 0.0, right + 100.0] {
+            assert_eq!(
+                x <= right && x >= sim.scene.camera.left() as f32,
+                !sim.scene.is_offscreen(x, 0.0)
+            );
+        }
+        sim.scene.world.hero.x = right - 20.0;
+        sim.scene.world.donut_body.x = right - 50.0;
+        sim.combat.targets[0] = Some(HeroId::Carl);
+        let place = |sim: &mut crate::party_scene::PartyFixtureSim, x: f32| {
+            let g = &mut sim.combat.enemies[0];
+            g.x = x;
+            g.mode = crate::goblin::GoblinMode::Attack;
+            g.attack_tick = 8;
+            g.facing = -1;
+        };
+        let mut pressed_out = false;
+        for _ in 0..8 {
+            place(&mut sim, right + 3.0);
+            let inputs = sim
+                .combat
+                .companion_inputs(&sim.scene, [crate::input::RawInput::NONE; 2]);
+            pressed_out |= inputs[1].attack;
+            sim.combat.take_companion_events();
+        }
+        assert!(!pressed_out, "outside the view: no swat");
+        let mut pressed_in = false;
+        for _ in 0..12 {
+            place(&mut sim, right - 28.0);
+            let inputs = sim
+                .combat
+                .companion_inputs(&sim.scene, [crate::input::RawInput::NONE; 2]);
+            pressed_in |= inputs[1].attack;
+        }
+        assert!(pressed_in, "inside the view: the swat starts");
     }
 }

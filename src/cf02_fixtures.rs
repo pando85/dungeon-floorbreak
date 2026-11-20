@@ -114,6 +114,8 @@ pub fn goblin_health(fixture: &str) -> Option<u8> {
         | "cf02_dive_bounce_kick"
         | "cf02_air_kick_relaunch_once" => Some(4),
         "cf02_cancel_table" => Some(9),
+        // COMPANION-AI-01 01A-wire: the `cf02_assist_*` fixtures (src/companion_fixtures.rs).
+        name if name.starts_with("cf02_assist_") => crate::companion_fixtures::goblin_health(name),
         _ => None,
     }
 }

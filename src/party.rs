@@ -20,6 +20,7 @@
 //! `docs/01-design/party-2p-open-questions.md`.
 
 use crate::combat::{HERO_HEALTH, HERO_INVULNERABLE_TICKS};
+use crate::companion::profile::CompanionProfileSet;
 use crate::feel::HERO_HURT_TICKS;
 use crate::input::{RawInput, SlotInputs};
 
@@ -139,6 +140,13 @@ pub enum UncontrolledHero {
     /// Follow-and-jump bot: steers behind the leader with its own run and
     /// jump, dodges a goblin tell with a jump, never attacks.
     FollowAndJumpBot,
+    /// COMPANION-AI-01 (CA-21, 01A-wire): the shared companion director
+    /// drives the uncontrolled hero with one profile set. Its movement is the
+    /// follow-and-jump bot's; on top of it the director may start one legal
+    /// support move. `FollowAndJumpBot` stays the default and the rollback
+    /// (CA-22): nothing of the companion runs, hashes or is read without this
+    /// variant.
+    Companion(CompanionProfileSet),
 }
 
 /// Q11 (adopted, game-feel pending). Which glyph set a HUD plate shows.
@@ -285,6 +293,16 @@ impl PartyDrive {
     /// True while `hero` is driven by the follower bot.
     pub fn is_bot(&self, hero: HeroId) -> bool {
         self.live && self.bots[hero.index()]
+    }
+
+    /// The companion profile set that drives `hero`, while it is a bot and the
+    /// tuning names [`UncontrolledHero::Companion`] (CA-21). `None` for the
+    /// rollback bot, for a human-driven hero and in two-player.
+    pub fn companion_set(&self, hero: HeroId) -> Option<CompanionProfileSet> {
+        match self.tuning.uncontrolled_hero {
+            UncontrolledHero::Companion(set) if self.is_bot(hero) => Some(set),
+            _ => None,
+        }
     }
 
     /// D1 safeguards M1 and M4 apply to a hero that a human does not drive

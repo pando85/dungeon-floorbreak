@@ -780,7 +780,6 @@ impl SceneSim {
 
     fn step_live(&mut self, humans: [RawInput; 2], ctx: &PartyStepCtx) {
         let drive = self.drive;
-        let tuning = drive.tuning;
         self.regroup_bots();
         // Bots decide from the state before this tick; humans arrive gated.
         let mut raws = humans;
@@ -789,23 +788,16 @@ impl SceneSim {
             if !drive.is_bot(id) {
                 continue;
             }
-            raws[i] = if ctx.can_move[i] {
-                let frame = if i == 0 {
-                    &self.input
-                } else {
-                    &self.donut_input
-                };
-                follower_input_boss(
-                    (id, self.world.body(id)),
-                    frame,
-                    self.world.body(id.other()),
-                    &self.world.solids,
-                    ctx.threats,
-                    ctx.boss.as_ref(),
-                    &tuning,
-                )
-            } else {
+            raws[i] = if !ctx.can_move[i] {
                 RawInput::default()
+            } else if drive.companion_set(id).is_some() {
+                // COMPANION-AI-01 (CA-24): the director's input arrives in
+                // `humans[i]`, already gated like a human's, and it started
+                // from this same follow layer (`follow_input`). So the
+                // companion keeps `humans[i]` instead of calling the bot.
+                humans[i]
+            } else {
+                self.follow_input(id, ctx.threats, ctx.boss.as_ref())
             };
         }
         // A single locked screen (the boss arena) lets the heroes stand the
@@ -818,6 +810,33 @@ impl SceneSim {
         self.world
             .step_bodies_driven([&self.input, &self.donut_input], ctx.frozen, ctx.drives);
         self.step_camera();
+    }
+
+    /// The follow-and-jump bot's input for `id` on the current (pre-tick)
+    /// state: the one function `step_live` calls for a plain bot and the
+    /// COMPANION view builder calls for `CompanionView.follow` (CA-24), so the
+    /// companion's movement is the bot's by construction. The caller gates it
+    /// with `can_move`.
+    pub(crate) fn follow_input(
+        &self,
+        id: HeroId,
+        threats: &[Threat],
+        boss: Option<&BossThreat>,
+    ) -> RawInput {
+        let frame = if id == HeroId::Carl {
+            &self.input
+        } else {
+            &self.donut_input
+        };
+        follower_input_boss(
+            (id, self.world.body(id)),
+            frame,
+            self.world.body(id.other()),
+            &self.world.solids,
+            threats,
+            boss,
+            &self.drive.tuning,
+        )
     }
 
     /// Q9: a bot that has been off-screen for `regroup_ticks` is placed just
