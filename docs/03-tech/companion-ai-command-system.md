@@ -1,6 +1,6 @@
 # THE CRAWL — Companion Autonomy and Command System
 
-**Status:** Design proposal v0.3, reconciled with COMBAT-FUN-02 (#124) and main (AUDIENCE-01 #118, CINE-01 #122, Donut Q10 and mana #123, CI #125, AUTOPLAY-01 #126). Defaults CA-01..CA-41 adopted by the orchestrator under the owner's design-defaults directive (2026-11-19); **not implemented**; game feel and controller UX pending the owner's play.  
+**Status:** Design proposal v0.3, reconciled with COMBAT-FUN-02 (#124) and main (AUDIENCE-01 #118, CINE-01 #122, Donut Q10 and mana #123, CI #125, AUTOPLAY-01 #126). Defaults CA-01..CA-41 adopted by the orchestrator under the owner's design-defaults directive (2026-11-19); implementation status (2026-11-20): the unwired core modules 01A-core #129 (`e6c8c3b9`), 01B-core #131 (`811dc9b4`) and 01C #130 (`5b343867`) are merged on main, game-feel review pending; no behaviour is wired into a scene yet (01A-wire, 01B-wire, 01D and 01E are not started); game feel and controller UX pending the owner's play.  
 **Date:** 2026-11-20  
 **Scope:** Floor 01 solo (either Carl or Donut controlled by AI) with compatibility requirements for 2P, existing party/hud rules, later narrative progression and offline policy evaluation.  
 **Primary goal:** Make the AI companion useful, intelligible, characterful and tactically interesting **without turning a combat-first platform-action game into a command-management game**.
@@ -344,7 +344,7 @@ PR A..E are the work order's stages 01A..01E (01A splits into 01A-core and 01A-w
 - No programmable multi-command queue, complex radial inventory, arbitrary waypoint cursor, compulsory right stick/D-pad order navigation, or pause-on-every-command tactics.
 - No automatic special-resource explosives, automatic puzzle completion, early unlocks, invented cat controls or forced shoulder mode.
 - No 2P override of human inputs, no third-character Mongo control system or netcode change.
-- No claim that this proposal is book canon, production art, playtested gameplay or an implementation merged into the repository.
+- No claim that this proposal is book canon, production art or playtested gameplay, or that any companion behaviour runs in the game: only the unwired core modules (01A-core, 01B-core, 01C) are merged into the repository.
 
 ## 16. Items to resolve with the owner after a prototype
 
