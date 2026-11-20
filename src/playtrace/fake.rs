@@ -130,6 +130,8 @@ impl FakeParty {
             post: self.hash,
             eh: self.event_id,
             ph: 0,
+            obs: None,
+            eff: None,
         };
         self.t += 1;
         record

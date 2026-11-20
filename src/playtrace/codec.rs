@@ -18,6 +18,12 @@ pub const ACTION_SCHEMA: &str = "rawinput-bits/2";
 pub const ACTION_SCHEMA_V1: &str = "rawinput-bits/1";
 /// Event encoding version ([`EventRecord`]: absolute id, variant, Debug text).
 pub const EVENT_SCHEMA: &str = "combat-event-debug/1";
+/// Observation encoding ([`encode_obs_bits`]): the flattened `float32` bits of
+/// one ObservationV2, hex tokens with zero runs.
+pub const OBS_ENCODING: &str = "f32bits-rle-hex/1";
+/// The manifest's `observation_schema_id` of a session that records
+/// ObservationV2 per hero (PT-C).
+pub const OBS_SCHEMA_ID: &str = "autoplay-obs/2+f32bits-rle-hex/1";
 /// Ticks per `ticks-NNNNNN.jsonl` chunk (PT-Q15).
 pub const TICKS_PER_CHUNK: usize = 600;
 /// Bound of the pending write queue, in ticks (PT-Q15).
@@ -83,8 +89,8 @@ impl From<RawInput> for ActionBits {
     }
 }
 
-/// Who drives a hero this tick. `companion_ai` is reserved for the COMPANION
-/// wiring (not on main); the live follower bot is recorded as `scripted_bot`.
+/// Who drives a hero this tick. `companion_ai` is the COMPANION-AI-01 director
+/// (`--companion` / `--cf02`); the plain live follower bot is `scripted_bot`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ControlSource {
@@ -153,6 +159,18 @@ pub struct TickRecord {
     /// Party swap-timer hash.
     #[serde(with = "hex64")]
     pub ph: u64,
+    /// PT-C: the policy observation `o_t` of each hero (Carl, Donut), ObservationV2
+    /// computed **before** the live decision from the state `pre` hashes, in
+    /// [`encode_obs_bits`] form. `None` without a combat state (the story route)
+    /// or in a PT-B session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub obs: Option<[String; 2]>,
+    /// PT-C: the effective per-hero inputs the sim applied this tick
+    /// (`SceneSim::last_effective_inputs`: after the bot decision, the combat
+    /// gating and the 2P separation wall). `None` when the drive is not live
+    /// (no bot exists then) and in a PT-B session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eff: Option<[ActionBits; 2]>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -198,6 +216,14 @@ pub enum ControlEvent {
     EpisodeEnd {
         episode: u32,
         outcome: String,
+        /// PT-C: `o_(t+1)`, the observation of each hero (Carl, Donut) of the
+        /// state after the last tick of the episode, stored only here (terminal,
+        /// truncation, segment boundary). For an in-step reset (`party_defeat`,
+        /// `demo_defeat_respawn`) the step has already reset the scene, so this
+        /// is the first observation of the next episode: the defeat frame is
+        /// not observable outside the step (PTI-14).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        final_obs: Option<[String; 2]>,
     },
     Restart,
     DemoRespawn,
@@ -252,4 +278,93 @@ pub struct ChunkTrailer {
     /// FNV-1a-64 of the chunk's tick lines (each with its `\n`).
     #[serde(with = "hex64")]
     pub fnv: u64,
+}
+
+/// Encode flattened `f32` bits compactly and exactly: comma separated tokens,
+/// a non-zero value as lowercase hex without leading zeros, a run of `N >= 1`
+/// zeros as `zN`. Most of an observation (masks, empty enemy rows) is zero.
+pub fn encode_obs_bits(bits: &[u32]) -> String {
+    let mut out = String::with_capacity(bits.len() * 3);
+    let mut zeros = 0_usize;
+    let mut first = true;
+    let flush_zeros = |out: &mut String, zeros: &mut usize, first: &mut bool| {
+        if *zeros > 0 {
+            if !*first {
+                out.push(',');
+            }
+            out.push('z');
+            out.push_str(&zeros.to_string());
+            *zeros = 0;
+            *first = false;
+        }
+    };
+    for &value in bits {
+        if value == 0 {
+            zeros += 1;
+            continue;
+        }
+        flush_zeros(&mut out, &mut zeros, &mut first);
+        if !first {
+            out.push(',');
+        }
+        out.push_str(&format!("{value:x}"));
+        first = false;
+    }
+    flush_zeros(&mut out, &mut zeros, &mut first);
+    out
+}
+
+/// The inverse of [`encode_obs_bits`]; strict (any malformed token is an error).
+pub fn decode_obs_bits(text: &str) -> Result<Vec<u32>, String> {
+    let mut out = Vec::new();
+    if text.is_empty() {
+        return Ok(out);
+    }
+    for token in text.split(',') {
+        if let Some(run) = token.strip_prefix('z') {
+            let count: usize = run
+                .parse()
+                .ok()
+                .filter(|n| *n >= 1 && !run.starts_with('0'))
+                .ok_or_else(|| format!("bad zero run {token:?}"))?;
+            out.extend(std::iter::repeat_n(0_u32, count));
+        } else {
+            if token.is_empty() || token.starts_with('0') {
+                return Err(format!("bad value token {token:?}"));
+            }
+            out.push(
+                u32::from_str_radix(token, 16).map_err(|_| format!("bad value token {token:?}"))?,
+            );
+        }
+    }
+    Ok(out)
+}
+
+/// The privileged diagnostics of one tick (`diagnostics.jsonl`): what the
+/// policy must never see. Never an input of a learner; the exporter reads
+/// `obs` and the inputs only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiagRecord {
+    /// Recorder-owned global tick this line belongs to.
+    pub t: u64,
+    /// The live presentation rig's view rectangle `[left, top, w, h]` before
+    /// the tick (a diagnostic only: the observation uses the sim camera).
+    pub rig: Option<[i32; 4]>,
+    /// The sim `ScrollCamera` view `[left, top, w, h]` the observation used.
+    pub cam: [i32; 4],
+    /// Exact health `[carl, donut]` (the observation holds a fraction).
+    pub hp: [i32; 2],
+    /// Donut's `(mana, max)` while the biscuit is unlocked.
+    pub mana: Option<[u32; 2]>,
+    /// Hurt ticks `[carl, donut]`.
+    pub hurt: [u32; 2],
+    /// Living enemies (goblins and llamas), on and off screen.
+    pub enemies: u32,
+    /// Living enemies the sim camera does not show (hidden from the policy).
+    pub enemies_hidden: u32,
+    /// Observation clamping, unknown-mode and overflow counters while building
+    /// the two `o_t` of this tick.
+    pub obs_clipped: u32,
+    pub obs_unknown_modes: u32,
+    pub obs_overflow: u32,
 }

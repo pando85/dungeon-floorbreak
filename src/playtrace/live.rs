@@ -12,29 +12,40 @@
 //!    pause happen between steps, even when the step then returns early).
 //! 2. [`LiveRecorder::note_restart`] / [`LiveRecorder::note_demo_respawn`]
 //!    right after the matching sim call.
-//! 3. [`LiveRecorder::begin_tick`] just before the step (pre-state hash, the
-//!    per-slot provenance inputs and the routed per-hero replay driver).
+//! 3. [`LiveRecorder::set_rig_view`] (optional diagnostic), then
+//!    [`LiveRecorder::begin_tick`] just before the step (pre-state hash, the
+//!    per-slot provenance inputs, the routed per-hero replay driver and, with a
+//!    combat state, the ObservationV2 `o_t` of both heroes from the sim camera,
+//!    **before** the live decision).
 //! 4. [`LiveRecorder::end_tick`] just after it (events through the recorder's
-//!    own absolute cursor, post-state hashes, episode boundaries).
+//!    own absolute cursor, post-state hashes, the effective inputs the sim
+//!    applied, episode boundaries).
+//!
+//! `o_(t+1)` is not stored per tick (it is the next tick's `o_t`): the
+//! recorder keeps the observation of the state after the last step and writes
+//! it only into the `episode_end` record of a boundary (restart, respawn,
+//! defeat, exit).
 //!
 //! The recorder never records the presim, captures, perf probes or headless
 //! runs: the binary only builds one for a live-input run.
 
 use std::path::Path;
-use std::process::Command;
 
 use crate::autoplay::metrics::EventHasher;
 use crate::combat_scene::CombatState;
 use crate::corridor::SceneSim;
 use crate::input::{RawInput, SlotInputs};
-use crate::party::{HeroControl, HeroId, PartyDrive, PartyMode, PartyState, PlayerSlot};
+use crate::party::{
+    HeroControl, HeroId, PartyDrive, PartyMode, PartyState, PlayerSlot, UncontrolledHero,
+};
 
 use super::codec::{
     ActionBits, ControlEvent, ControlSource, EpisodeBoundary, EpisodeReason, EventRecord,
-    TickRecord,
+    OBS_SCHEMA_ID, TickRecord,
 };
 use super::error::PlaytraceError;
 use super::manifest::{SessionManifest, SessionStatus};
+use super::obs::{ObsPair, diag_of, observe_pair};
 use super::writer::{SessionWriter, WriterHealth};
 
 /// What the recorder remembers of the party between hooks, to turn state
@@ -69,6 +80,8 @@ struct Pending {
     hero: [RawInput; 2],
     src: [ControlSource; 2],
     stage: u32,
+    obs: Option<[String; 2]>,
+    diag: Option<super::codec::DiagRecord>,
 }
 
 pub struct LiveRecorder {
@@ -86,10 +99,17 @@ pub struct LiveRecorder {
     pending: Option<Pending>,
     messages: Vec<String>,
     reported_incomplete: bool,
+    reported_manifest_warning: bool,
     ticks: u64,
     /// The slot inputs come from a script or autopilot (a forced `--record`
     /// of a scripted run), so they are labelled `scripted_bot`.
     scripted: bool,
+    /// ObservationV2 of both heroes for the state after the last completed step
+    /// (the fresh state before the first): the `o_(t+1)` a boundary stores.
+    after: Option<ObsPair>,
+    /// The presentation rig's view rectangle for the next tick (diagnostic).
+    rig_view: Option<[i32; 4]>,
+    finished: bool,
 }
 
 fn state_hash(sim: &SceneSim, combat: Option<&CombatState>) -> u64 {
@@ -124,34 +144,56 @@ fn source_of(
         HeroControl::Player(_) if scripted => ControlSource::ScriptedBot,
         HeroControl::Player(PlayerSlot::P1) => ControlSource::HumanP1,
         HeroControl::Player(PlayerSlot::P2) => ControlSource::HumanP2,
+        // COMPANION-AI-01: the director's input is its own source.
+        HeroControl::Uncontrolled if drive.companion_set(hero).is_some() => {
+            ControlSource::CompanionAi
+        }
         HeroControl::Uncontrolled if drive.is_bot(hero) => ControlSource::ScriptedBot,
         HeroControl::Uncontrolled => ControlSource::None,
     }
 }
 
-/// The commit of the source checkout this binary was built from, `-dirty`
-/// when tracked files changed, `unknown` when git cannot tell. The checkout
-/// path is used only to run git and is never stored.
-pub fn build_identity() -> (String, bool) {
-    let git = |args: &[&str]| {
-        Command::new("git")
-            .arg("-C")
-            .arg(env!("CARGO_MANIFEST_DIR"))
-            .args(args)
-            .output()
-            .ok()
-            .filter(|o| o.status.success())
-    };
-    let Some(output) = git(&["rev-parse", "HEAD"]) else {
-        return ("unknown".to_owned(), false);
-    };
-    let commit = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    if commit.len() < 7 {
-        return ("unknown".to_owned(), false);
+/// The `companion` manifest flag: who drives the uncontrolled hero, so a
+/// verifier rebuilds the same tuning (the party tuning hash names it too).
+pub fn companion_label(hero: UncontrolledHero) -> &'static str {
+    match hero {
+        UncontrolledHero::Companion(set) => set.name(),
+        UncontrolledHero::FollowAndJumpBot => "off",
+        UncontrolledHero::TrailFollowNeverAttacks => "trail",
     }
-    let dirty = git(&["status", "--porcelain", "--untracked-files=no"])
-        .is_none_or(|o| !o.stdout.is_empty());
-    (commit, dirty)
+}
+
+/// Fill what every manifest of this checkout shares: the build identity
+/// (embedded at build time), the ruleset and camera ids, the `cf02_rules` flag
+/// and the content hashes a verifier compares. The caller adds the run's own
+/// flags and identity (mode, participants, lab selection, ...).
+pub fn stamp_manifest(manifest: &mut SessionManifest, kit_hash: u64) {
+    let identity = super::build_info::build_identity();
+    manifest.build_commit = identity.commit.clone();
+    manifest.build_dirty = identity.dirty.unwrap_or(false);
+    manifest.toolchain = identity.toolchain.clone();
+    manifest.source_fingerprint = identity.source_fingerprint.clone();
+    manifest.binary_fingerprint = identity.binary_fingerprint.clone();
+    if identity.commit_is_not_enough() {
+        manifest
+            .quality_flags
+            .push("dirty_or_unknown_build".to_owned());
+    }
+    manifest.game_ruleset_id = "floor01-greybox".to_owned();
+    manifest.camera_ruleset = "sim-scroll-camera".to_owned();
+    manifest.feature_flags.insert(
+        "cf02_rules".to_owned(),
+        manifest.reset.cf02_rules.to_string(),
+    );
+    for (key, value) in [
+        ("kit", kit_hash),
+        ("mana_tuning", crate::donut_mana::TUNING_HASH),
+        ("cf02_tuning", crate::cf02::TUNING_HASH),
+    ] {
+        manifest
+            .content_hashes
+            .insert(key.to_owned(), format!("{value:016x}"));
+    }
 }
 
 impl LiveRecorder {
@@ -161,12 +203,35 @@ impl LiveRecorder {
     /// labels the slot inputs `scripted_bot` instead of `human_p1`/`human_p2`.
     pub fn start(
         base: &Path,
-        manifest: SessionManifest,
+        mut manifest: SessionManifest,
+        sim: &SceneSim,
         combat: Option<&CombatState>,
         party: &PartyState,
         scripted: bool,
     ) -> Result<Self, PlaytraceError> {
         let session_id = manifest.session_id.clone();
+        // PT-C: ObservationV2 per hero needs the combat state (the story route
+        // has none), so only a combat session is a full observation record.
+        manifest.content_hashes.insert(
+            "party_tuning".to_owned(),
+            format!(
+                "{:016x}",
+                crate::autoplay::party::party_tuning_hash(party.tuning())
+            ),
+        );
+        manifest.feature_flags.insert(
+            "companion".to_owned(),
+            companion_label(party.tuning().uncontrolled_hero).to_owned(),
+        );
+        if combat.is_some() {
+            manifest.observation_is_partial = false;
+            manifest.observation_schema_id = OBS_SCHEMA_ID.to_owned();
+        } else {
+            manifest
+                .quality_flags
+                .push("no_observation_without_combat".to_owned());
+        }
+        let after = combat.map(|c| observe_pair(sim, c, party));
         let mut writer = SessionWriter::create(base, manifest)?;
         let stage = combat.map_or(0, |c| c.checkpoint as u32);
         writer.begin_episode(EpisodeBoundary {
@@ -191,8 +256,12 @@ impl LiveRecorder {
             pending: None,
             messages,
             reported_incomplete: false,
+            reported_manifest_warning: false,
             ticks: 0,
             scripted,
+            after,
+            rig_view: None,
+            finished: false,
         })
     }
 
@@ -229,9 +298,11 @@ impl LiveRecorder {
 
     fn new_episode(&mut self, reason: EpisodeReason, outcome: &str, stage: u32) {
         let ended = self.episode;
+        let final_obs = self.after.as_ref().map(ObsPair::encode);
         self.control(ControlEvent::EpisodeEnd {
             episode: ended,
             outcome: outcome.to_owned(),
+            final_obs,
         });
         self.episode += 1;
         let boundary = EpisodeBoundary {
@@ -294,22 +365,43 @@ impl LiveRecorder {
 
     /// A manual restart (R or Select held) just ran: a new episode begins.
     /// Call after `combat.restart` / `sim.reset` and `party.restart()`.
-    pub fn note_restart(&mut self, combat: Option<&CombatState>, party: &PartyState) {
+    pub fn note_restart(
+        &mut self,
+        sim: &SceneSim,
+        combat: Option<&CombatState>,
+        party: &PartyState,
+    ) {
         self.control(ControlEvent::Restart);
         let stage = combat.map_or(0, |c| c.checkpoint as u32);
         self.new_episode(EpisodeReason::Restart, "restart", stage);
         self.restarts = combat.map_or(0, |c| c.restarts);
         self.snap = PartySnap::of(party);
+        // The boundary stored the state before the reset; from here on the
+        // "after" observation is the fresh state's.
+        self.after = combat.map(|c| observe_pair(sim, c, party));
     }
 
     /// A demo respawn (Select tap) just ran, before the step: the tick counter
     /// keeps running, a new episode begins. Its events are picked up by the
     /// next `end_tick` through the absolute cursor.
-    pub fn note_demo_respawn(&mut self, combat: Option<&CombatState>, party: &PartyState) {
+    pub fn note_demo_respawn(
+        &mut self,
+        sim: &SceneSim,
+        combat: Option<&CombatState>,
+        party: &PartyState,
+    ) {
         self.control(ControlEvent::DemoRespawn);
         let stage = combat.map_or(0, |c| c.checkpoint as u32);
         self.new_episode(EpisodeReason::DemoRespawn, "demo_respawn", stage);
         self.snap = PartySnap::of(party);
+        self.after = combat.map(|c| observe_pair(sim, c, party));
+    }
+
+    /// The presentation rig's view rectangle `[left, top, w, h]` for the next
+    /// tick (called before [`Self::begin_tick`]). Diagnostic only: the
+    /// observation never reads it.
+    pub fn set_rig_view(&mut self, view: Option<[i32; 4]>) {
+        self.rig_view = view;
     }
 
     /// Before the step: capture the pre-state hash, the per-slot inputs
@@ -334,7 +426,24 @@ impl LiveRecorder {
             });
             self.drive = Some(drive);
         }
+        let (obs, diag) = match combat {
+            Some(combat) => {
+                let pair = observe_pair(sim, combat, party);
+                let diag = diag_of(
+                    self.writer.next_t(),
+                    sim,
+                    combat,
+                    self.rig_view.take(),
+                    pair.stats,
+                );
+                (Some(pair.encode()), Some(diag))
+            }
+            None => (None, None),
+        };
+        self.rig_view = None;
         self.pending = Some(Pending {
+            obs,
+            diag,
             pre: state_hash(sim, combat),
             slots,
             hero,
@@ -397,6 +506,12 @@ impl LiveRecorder {
             post: state_hash(sim, combat),
             eh: self.ehash.value(),
             ph: party_hash(party),
+            obs: pending.obs,
+            // Only a live party has an AI hero (and an effective-input log).
+            eff: sim.drive().live.then(|| {
+                let eff = sim.last_effective_inputs();
+                [ActionBits::from_raw(eff[0]), ActionBits::from_raw(eff[1])]
+            }),
         };
         if let Err(error) = self.writer.record_tick(&record) {
             self.messages.push(format!(
@@ -404,6 +519,16 @@ impl LiveRecorder {
                 self.session_id
             ));
         }
+        if let Some(diag) = pending.diag.as_ref()
+            && let Err(error) = self.writer.record_diag(diag)
+        {
+            self.messages.push(format!(
+                "PLAYTRACE_ERROR session={} {error}",
+                self.session_id
+            ));
+        }
+        // The state after this step is `o_(t+1)`: kept for a boundary only.
+        self.after = combat.map(|c| observe_pair(sim, c, party));
         self.ticks += 1;
         if let Some(combat) = combat {
             if combat.restarts != self.restarts {
@@ -445,6 +570,13 @@ impl LiveRecorder {
                 health.last_error.as_deref().unwrap_or("none"),
             ));
         }
+        if health.manifest_write_errors > 0 && !self.reported_manifest_warning {
+            self.reported_manifest_warning = true;
+            self.messages.push(format!(
+                "PLAYTRACE_WARN session={} {} intermediate manifest write(s) failed; no data was lost, the final manifest is rewritten at exit",
+                self.session_id, health.manifest_write_errors
+            ));
+        }
         if self.events_lost > 0 && !self.reported_incomplete {
             self.reported_incomplete = true;
             self.messages.push(format!(
@@ -455,15 +587,23 @@ impl LiveRecorder {
     }
 
     /// Close the session (app quit). Records the exit, ends the open episode
-    /// and writes the final manifest. Idempotent errors are reported, not
-    /// raised: a failing recorder never blocks the quit.
+    /// (with its `o_(t+1)`: the truncation observation) and writes the final
+    /// manifest. Idempotent: only the first call does anything. Errors are
+    /// reported, not raised: a failing recorder never blocks the quit.
     pub fn finish(&mut self, reason: &str) -> Option<SessionManifest> {
+        // A second call (the lab relaunch finishes the session and the app exit
+        // finishes it again) is a silent no-op, never a PLAYTRACE_ERROR.
+        if self.finished {
+            return None;
+        }
+        self.finished = true;
         self.control(ControlEvent::Exit {
             reason: reason.to_owned(),
         });
         self.control(ControlEvent::EpisodeEnd {
             episode: self.episode,
             outcome: "exit".to_owned(),
+            final_obs: self.after.as_ref().map(ObsPair::encode),
         });
         self.control(ControlEvent::AppQuit);
         if self.events_lost > 0 {
