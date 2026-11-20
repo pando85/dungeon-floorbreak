@@ -1,0 +1,30 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "scenarios": [
+    {
+      "id": "LAB-R01",
+      "name": "Impact Pit",
+      "subtitle": "Low flat brawl lane for the impact tests",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 960,
+      "height": 512,
+      "floor": 420,
+      "spawn": {
+        "carl": 96,
+        "donut": 64
+      },
+      "camera_intro": 96,
+      "platforms": [],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 880,
+      "purpose": "A flat lane bounded by real walls for jab, kick, contact and wall tests.",
+      "expected": "Enemies are listed in assets/levels/combat_lab/manifest.json, not here.",
+      "coop": "One scroll camera with the party separation wall."
+    }
+  ]
+}

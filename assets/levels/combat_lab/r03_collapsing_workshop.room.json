@@ -1,0 +1,35 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "scenarios": [
+    {
+      "id": "LAB-R03",
+      "name": "Collapsing Workshop",
+      "subtitle": "Rotten shore and a falling block",
+      "act": 1,
+      "setting": "workshop",
+      "width": 1600,
+      "height": 512,
+      "floor": 420,
+      "spawn": {
+        "carl": 96,
+        "donut": 64
+      },
+      "camera_intro": 96,
+      "platforms": [],
+      "solid_backwall": [
+        [
+          744,
+          968
+        ]
+      ],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1520,
+      "purpose": "The authored shore support and falling block of src/shore.rs on a flat lane (LAB-Q02).",
+      "expected": "Only the existing authored hazard; destructible cover and explosive traps are gated.",
+      "coop": "One protected route stays walkable after the block falls."
+    }
+  ]
+}

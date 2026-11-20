@@ -1,0 +1,735 @@
+{
+  "schema": "combat-lab-manifest-v1",
+  "status": "COMBAT-LAB-01 LAB-00: scenario descriptor, test-only capability profile and room list. Not a playable level, not balance, not game-feel accepted. R00-R02 geometry is placeholder until the top-tier layout spec lands. There is no difficulty field (LAB-Q08).",
+  "profiles": [
+    {
+      "id": "floor01-postbiscuit-lab-v1",
+      "story_pin": "floor01_after_guild_biscuit_before_juicer",
+      "carl_moves": [
+        "jab",
+        "haymaker",
+        "push_kick"
+      ],
+      "carl_cf02_moves": [
+        "grounded_stomp",
+        "follow_through",
+        "dive_kick",
+        "bail_out"
+      ],
+      "donut_moves": [
+        "magic_missile",
+        "pounce"
+      ],
+      "donut_biscuit": true,
+      "donut_mana": "real",
+      "donut_start_mana": 8,
+      "systems": {
+        "audience": false,
+        "boons": false,
+        "momentum": false,
+        "viewers": false,
+        "sponsors": false,
+        "shoulder_mode": false,
+        "mongo": false,
+        "new_dodge_button": false,
+        "gear_inventory": false
+      }
+    }
+  ],
+  "rooms": [
+    {
+      "id": "R00",
+      "name": "The Setup Cage",
+      "aim_seconds": [
+        30,
+        60
+      ],
+      "room_file": "r00_setup_cage.room.json",
+      "layout_hash": "b17e240e27b33384",
+      "encounter_id": "lab-r00-the-setup-cage",
+      "wave_ids": [],
+      "allowed_modes": [
+        "solo_carl",
+        "solo_donut",
+        "coop_local"
+      ],
+      "profiles": [
+        "floor01-postbiscuit-lab-v1"
+      ],
+      "required_moves": [],
+      "checkpoints": [
+        96
+      ],
+      "enemies": [],
+      "hazards": [],
+      "optional_capabilities": [],
+      "max_concurrent": 4,
+      "camera": {
+        "views": [
+          "abc_640x360",
+          "abc_640x400"
+        ],
+        "max_separation_px": 448
+      },
+      "goal": {
+        "kind": "none"
+      },
+      "segment": {
+        "id": "seg-r00",
+        "begin": "room_enter",
+        "end": [
+          "clear",
+          "retry",
+          "abandon"
+        ]
+      },
+      "seed": 211866441744384,
+      "ticks": 300,
+      "validation_pending": [
+        "selection_screen_overlay"
+      ]
+    },
+    {
+      "id": "R01",
+      "name": "Impact Pit",
+      "aim_seconds": [
+        60,
+        90
+      ],
+      "room_file": "r01_impact_pit.room.json",
+      "layout_hash": "1949404495be506e",
+      "encounter_id": "lab-r01-impact-pit",
+      "wave_ids": [],
+      "allowed_modes": [
+        "solo_carl",
+        "solo_donut",
+        "coop_local"
+      ],
+      "profiles": [
+        "floor01-postbiscuit-lab-v1"
+      ],
+      "required_moves": [
+        "jab",
+        "haymaker",
+        "push_kick",
+        "magic_missile",
+        "pounce"
+      ],
+      "checkpoints": [
+        96
+      ],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 480,
+          "ai": "chase"
+        },
+        {
+          "kind": "goblin",
+          "x": 560,
+          "ai": "chase"
+        },
+        {
+          "kind": "goblin",
+          "x": 640,
+          "ai": "chase"
+        }
+      ],
+      "hazards": [],
+      "optional_capabilities": [],
+      "max_concurrent": 4,
+      "camera": {
+        "views": [
+          "abc_640x360",
+          "abc_640x400"
+        ],
+        "max_separation_px": 448
+      },
+      "goal": {
+        "kind": "clear_enemies"
+      },
+      "segment": {
+        "id": "seg-r01",
+        "begin": "room_enter",
+        "end": [
+          "clear",
+          "retry",
+          "abandon"
+        ]
+      },
+      "seed": 211866441744640,
+      "ticks": 600,
+      "validation_pending": [
+        "cf02_rules_variants"
+      ],
+      "variants": [
+        {
+          "id": "v1",
+          "kind": "play",
+          "seed": 211866441744641,
+          "enemies": [
+            {
+              "kind": "goblin",
+              "x": 480,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 560,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 640,
+              "ai": "chase"
+            }
+          ]
+        },
+        {
+          "id": "v2",
+          "kind": "play",
+          "seed": 211866441744642,
+          "enemies": [
+            {
+              "kind": "goblin",
+              "x": 420,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 600,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 760,
+              "ai": "chase"
+            }
+          ]
+        },
+        {
+          "id": "v3",
+          "kind": "play",
+          "seed": 211866441744643,
+          "enemies": [
+            {
+              "kind": "goblin",
+              "x": 520,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 540,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 700,
+              "ai": "chase"
+            }
+          ]
+        },
+        {
+          "id": "h1",
+          "kind": "heldout_geometry",
+          "seed": 211866441744649,
+          "room_file": "r01_impact_pit_h1.room.json",
+          "layout_hash": "9a0a25c2fc1f78be",
+          "enemies": [
+            {
+              "kind": "goblin",
+              "x": 700,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 780,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 880,
+              "ai": "chase"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R02",
+      "name": "Broken Scaffold",
+      "aim_seconds": [
+        60,
+        90
+      ],
+      "room_file": "r02_broken_scaffold.room.json",
+      "layout_hash": "6375050e818ba3ac",
+      "encounter_id": "lab-r02-broken-scaffold",
+      "wave_ids": [],
+      "allowed_modes": [
+        "solo_carl",
+        "solo_donut",
+        "coop_local"
+      ],
+      "profiles": [
+        "floor01-postbiscuit-lab-v1"
+      ],
+      "required_moves": [
+        "jab",
+        "haymaker",
+        "push_kick",
+        "magic_missile",
+        "pounce"
+      ],
+      "checkpoints": [
+        96
+      ],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 360,
+          "ai": "chase"
+        },
+        {
+          "kind": "goblin",
+          "x": 780,
+          "ai": "chase"
+        },
+        {
+          "kind": "llama",
+          "x": 1100,
+          "ai": "chase"
+        }
+      ],
+      "hazards": [],
+      "optional_capabilities": [],
+      "max_concurrent": 4,
+      "camera": {
+        "views": [
+          "abc_640x360",
+          "abc_640x400"
+        ],
+        "max_separation_px": 448
+      },
+      "goal": {
+        "kind": "clear_enemies"
+      },
+      "segment": {
+        "id": "seg-r02",
+        "begin": "room_enter",
+        "end": [
+          "clear",
+          "retry",
+          "abandon"
+        ]
+      },
+      "seed": 211866441744896,
+      "ticks": 600,
+      "validation_pending": [
+        "vertical_enemy_navigation_not_validated"
+      ]
+    },
+    {
+      "id": "R03",
+      "name": "Collapsing Workshop",
+      "aim_seconds": [
+        60,
+        120
+      ],
+      "room_file": "r03_collapsing_workshop.room.json",
+      "layout_hash": "acb28e968ecc128b",
+      "encounter_id": "lab-r03-collapsing-workshop",
+      "wave_ids": [],
+      "allowed_modes": [
+        "solo_carl",
+        "solo_donut",
+        "coop_local"
+      ],
+      "profiles": [
+        "floor01-postbiscuit-lab-v1"
+      ],
+      "required_moves": [
+        "jab",
+        "haymaker",
+        "push_kick",
+        "magic_missile",
+        "pounce"
+      ],
+      "checkpoints": [
+        96,
+        600
+      ],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 360,
+          "ai": "chase"
+        },
+        {
+          "kind": "goblin",
+          "x": 520,
+          "ai": "chase"
+        }
+      ],
+      "hazards": [
+        {
+          "id": "shore_support",
+          "kind": "rotten_shore",
+          "x": 800
+        }
+      ],
+      "optional_capabilities": [
+        "terrain_l1_destructible_cover",
+        "terrain_l3_explosive_trap"
+      ],
+      "max_concurrent": 4,
+      "camera": {
+        "views": [
+          "abc_640x360",
+          "abc_640x400"
+        ],
+        "max_separation_px": 448
+      },
+      "goal": {
+        "kind": "clear_enemies"
+      },
+      "segment": {
+        "id": "seg-r03",
+        "begin": "room_enter",
+        "end": [
+          "clear",
+          "retry",
+          "abandon"
+        ]
+      },
+      "seed": 211866441745152,
+      "ticks": 600,
+      "validation_pending": [
+        "cf02_f_shore_hero_damage"
+      ]
+    },
+    {
+      "id": "R04",
+      "name": "Pressure Chamber",
+      "aim_seconds": [
+        60,
+        120
+      ],
+      "room_file": "r04_pressure_chamber.room.json",
+      "layout_hash": "c15312910e312939",
+      "encounter_id": "lab-r04-pressure-chamber",
+      "wave_ids": [],
+      "allowed_modes": [
+        "solo_carl",
+        "solo_donut",
+        "coop_local"
+      ],
+      "profiles": [
+        "floor01-postbiscuit-lab-v1"
+      ],
+      "required_moves": [
+        "jab",
+        "haymaker",
+        "push_kick",
+        "magic_missile",
+        "pounce"
+      ],
+      "checkpoints": [
+        96
+      ],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 400,
+          "ai": "chase"
+        },
+        {
+          "kind": "goblin",
+          "x": 520,
+          "ai": "chase"
+        },
+        {
+          "kind": "llama",
+          "x": 1000,
+          "ai": "chase"
+        }
+      ],
+      "hazards": [],
+      "optional_capabilities": [],
+      "max_concurrent": 4,
+      "camera": {
+        "views": [
+          "abc_640x360",
+          "abc_640x400"
+        ],
+        "max_separation_px": 448
+      },
+      "goal": {
+        "kind": "clear_enemies"
+      },
+      "segment": {
+        "id": "seg-r04",
+        "begin": "room_enter",
+        "end": [
+          "clear",
+          "retry",
+          "abandon"
+        ]
+      },
+      "seed": 211866441745408,
+      "ticks": 600,
+      "validation_pending": [
+        "companion_order_criterion_not_tested"
+      ]
+    },
+    {
+      "id": "R05",
+      "name": "The Gauntlet",
+      "aim_seconds": [
+        120,
+        180
+      ],
+      "room_file": "r05_gauntlet.room.json",
+      "layout_hash": "92291853c22f17e5",
+      "encounter_id": "lab-r05-the-gauntlet",
+      "wave_ids": [],
+      "allowed_modes": [
+        "solo_carl",
+        "solo_donut",
+        "coop_local"
+      ],
+      "profiles": [
+        "floor01-postbiscuit-lab-v1"
+      ],
+      "required_moves": [
+        "jab",
+        "haymaker",
+        "push_kick",
+        "magic_missile",
+        "pounce"
+      ],
+      "checkpoints": [
+        96,
+        1000
+      ],
+      "enemies": [
+        {
+          "kind": "goblin",
+          "x": 640,
+          "ai": "chase"
+        },
+        {
+          "kind": "goblin",
+          "x": 720,
+          "ai": "chase"
+        },
+        {
+          "kind": "goblin",
+          "x": 1100,
+          "ai": "chase"
+        },
+        {
+          "kind": "llama",
+          "x": 1500,
+          "ai": "chase"
+        }
+      ],
+      "hazards": [],
+      "optional_capabilities": [
+        "terrain_l1_destructible_bridge"
+      ],
+      "max_concurrent": 4,
+      "camera": {
+        "views": [
+          "abc_640x360",
+          "abc_640x400"
+        ],
+        "max_separation_px": 448
+      },
+      "goal": {
+        "kind": "clear_enemies"
+      },
+      "segment": {
+        "id": "seg-r05",
+        "begin": "room_enter",
+        "end": [
+          "clear",
+          "retry",
+          "abandon"
+        ]
+      },
+      "seed": 211866441745664,
+      "ticks": 900,
+      "validation_pending": [
+        "cf02_f_wave_contract"
+      ],
+      "variants": [
+        {
+          "id": "v1",
+          "kind": "play",
+          "seed": 211866441745665,
+          "enemies": [
+            {
+              "kind": "goblin",
+              "x": 640,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 720,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 1100,
+              "ai": "chase"
+            },
+            {
+              "kind": "llama",
+              "x": 1500,
+              "ai": "chase"
+            }
+          ]
+        },
+        {
+          "id": "v2",
+          "kind": "play",
+          "seed": 211866441745666,
+          "enemies": [
+            {
+              "kind": "goblin",
+              "x": 600,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 1000,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 1200,
+              "ai": "chase"
+            },
+            {
+              "kind": "llama",
+              "x": 1400,
+              "ai": "chase"
+            }
+          ]
+        },
+        {
+          "id": "v3",
+          "kind": "play",
+          "seed": 211866441745667,
+          "enemies": [
+            {
+              "kind": "goblin",
+              "x": 700,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 760,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 1180,
+              "ai": "chase"
+            },
+            {
+              "kind": "llama",
+              "x": 1600,
+              "ai": "chase"
+            }
+          ]
+        },
+        {
+          "id": "h1",
+          "kind": "heldout_geometry",
+          "seed": 211866441745673,
+          "room_file": "r05_gauntlet_h1.room.json",
+          "layout_hash": "aed20b1dad7c3083",
+          "enemies": [
+            {
+              "kind": "goblin",
+              "x": 700,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 760,
+              "ai": "chase"
+            },
+            {
+              "kind": "goblin",
+              "x": 1100,
+              "ai": "chase"
+            },
+            {
+              "kind": "llama",
+              "x": 1700,
+              "ai": "chase"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R06",
+      "name": "The Juicer",
+      "aim_seconds": null,
+      "link": {
+        "scene": "boss_f01",
+        "arena": "assets/levels/floor01/boss01_arena.room.json",
+        "blockers": [
+          "boss-f9-ai-donut-never-jumps-ripples",
+          "boss-f11-respawn-does-not-reset-boss"
+        ]
+      },
+      "encounter_id": "lab-r06-the-juicer",
+      "wave_ids": [],
+      "allowed_modes": [
+        "solo_carl",
+        "solo_donut",
+        "coop_local"
+      ],
+      "profiles": [
+        "floor01-postbiscuit-lab-v1"
+      ],
+      "required_moves": [],
+      "checkpoints": [
+        56
+      ],
+      "enemies": [],
+      "hazards": [],
+      "optional_capabilities": [],
+      "max_concurrent": 4,
+      "camera": {
+        "views": [
+          "abc_640x360",
+          "abc_640x400"
+        ],
+        "max_separation_px": 448
+      },
+      "goal": {
+        "kind": "link"
+      },
+      "segment": {
+        "id": "seg-r06",
+        "begin": "room_enter",
+        "end": [
+          "clear",
+          "retry",
+          "abandon"
+        ]
+      },
+      "seed": 211866441745920,
+      "ticks": 0,
+      "validation_pending": [
+        "linked_scene_runner"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "schema": "floor01-demo-hall-v1",
+  "status": "COMBAT-LAB-01 LAB-00 placeholder greybox: geometry only, composed at load time from approved Floor 01 kit pieces by camera_lab::layout (no new art, not an authored level). The R00-R02 layout keys arrive in a later PR.",
+  "scenarios": [
+    {
+      "id": "LAB-R05-H1",
+      "name": "The Gauntlet (held-out)",
+      "subtitle": "Held-out geometry variant",
+      "act": 1,
+      "setting": "dry-catacomb",
+      "width": 2048,
+      "height": 512,
+      "floor": 420,
+      "spawn": {
+        "carl": 96,
+        "donut": 64
+      },
+      "camera_intro": 96,
+      "platforms": [
+        {
+          "x": 416,
+          "y": 292,
+          "w": 192,
+          "h": 16
+        },
+        {
+          "x": 960,
+          "y": 228,
+          "w": 160,
+          "h": 16
+        },
+        {
+          "x": 1472,
+          "y": 324,
+          "w": 192,
+          "h": 16
+        }
+      ],
+      "solid_backwall": [],
+      "props": [],
+      "enemies": [],
+      "hazards": [],
+      "goal_x": 1968,
+      "purpose": "Held-out geometry variant of R05 (LAB-Q07).",
+      "expected": "Same encounter rules as R05 on a different map.",
+      "coop": "Same route question on different platforms."
+    }
+  ]
+}
