@@ -1,6 +1,6 @@
 # CF02 ACT-DESIGN: combat-acting key poses and spec
 
-**Status:** design in review (ACT-DESIGN of [COMBAT-FUN-02](../01-design/combat-fun-02-post-demo01-proposals.md), work order row ACT-DESIGN in [combat-fun-02-workorder.md](../07-agents/combat-fun-02-workorder.md)). Key poses and this spec only; no production sheet, manifest, export or Bevy wiring exists yet. Nothing here is owner-approved. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)); no reuse licence, no game distribution right.
+**Status:** design in review (ACT-DESIGN of [COMBAT-FUN-02](../01-design/combat-fun-02-post-demo01-proposals.md), work order row ACT-DESIGN in [combat-fun-02-workorder.md](../07-agents/combat-fun-02-workorder.md)). Key poses and this spec; the Carl production sheet (`carl_h52_cf02`, ART-CARL-CF02) is drawn and awaits review, the Donut and goblin sheets and all Bevy wiring do not exist yet. Nothing here is owner-approved. Rights basis for publishing: owner-reported `ART-PUBLICATION-ALL-V1` ([rights register](../04-production/rights-and-release.md)); no reuse licence, no game distribution right.
 
 Serves CF02-Q21 (slammed poses), CF02-Q70 to Q74 (acting overlays, pose budget, tone), with the frame data of Q02 (stomp), Q05 (follow-through), Q50 (air kick), Q52 and Q53 (dive and bounce), Q54 (bail-out), Q56 (landing recoveries), Q61, Q65 and Q72 (goblin reactions).
 
@@ -13,6 +13,7 @@ Read with: [antihero tone](../01-design/antihero-tone.md), [Carl bible](carl-cha
 | `assets/source/characters/donut/cf02_keys/donut_h40_cf02_keys.grid.json` | Donut keys: `startle_puff`, `smug` |
 | `assets/source/characters/goblin/cf02_keys/goblin_a_h36_cf02_keys_acting.grid.json` | Goblin A acting keys: `hesitate`, `panic_flee`, `taunt_thump` |
 | `assets/source/characters/goblin/cf02_keys/goblin_a_h36_cf02_keys_slammed.grid.json` | Goblin A slammed keys: `stomped_impact`, `stomped_rest`, `wall_impact`, `wall_rest`, `flung_impact`, `flung_rest` |
+| `assets/source/characters/carl/carl_h52_cf02.{grid.json,ase,pixelart.json}`, `assets/manifests/carl_book1_h52_cf02.json` | ART-CARL-CF02 production sheet: 13 Carl frames (the 9 keys above, the 2 px airborne lift applied, plus the 4 derived frames), authored by `scripts/author_carl_cf02.py`; evidence in [`docs/evidence/carl-cf02/`](../evidence/carl-cf02/README.md) |
 | [`docs/evidence/cf02-act-design/`](../evidence/cf02-act-design/README.md) | key sheets at 1x and 3x, two lit Floor 1 compositions at gameplay scale, the unlabelled hesitate check |
 
 Every key file is `pixel-grid-v1`, uses the approved palette of its character unchanged (goblin files add only the two approved death colours `B` blood_dark and `P` blood_wet from the GOB-02 death sheet), the approved canvas and pivot, and passes `scripts/pixel_grid_to_ase.py lint --strict` (0 isolated, 0 orphan pixels, every frame's lowest row on the pivot row). They are built from approved frames (layer cels moved, mirrored or re-posed) plus new limb pixels; no new face, head or costume was drawn.

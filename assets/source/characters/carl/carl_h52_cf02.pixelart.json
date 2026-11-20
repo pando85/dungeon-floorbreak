@@ -1,0 +1,228 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "art-carl-cf02",
+  "title": "ART-CARL-CF02 Carl 52 px combat-acting sheet (9 frozen ACT-DESIGN keys, 4 derived frames)",
+  "grid": "assets/source/characters/carl/carl_h52_cf02.grid.json",
+  "manifest": "assets/manifests/carl_book1_h52_cf02.json",
+  "frame_size": [
+    48,
+    56
+  ],
+  "pivot": [
+    25,
+    55
+  ],
+  "contact_row": 55,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "stomp": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          9
+        ],
+        [
+          1,
+          7
+        ],
+        [
+          2,
+          10
+        ]
+      ]
+    },
+    "air_kick": {
+      "playback": "once",
+      "contact": "airborne",
+      "frames": [
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          10
+        ]
+      ]
+    },
+    "dive_tuck": {
+      "playback": "once",
+      "contact": "airborne",
+      "frames": [
+        [
+          5,
+          6
+        ]
+      ]
+    },
+    "dive_plunge": {
+      "playback": "hold",
+      "contact": "airborne",
+      "frames": [
+        [
+          6,
+          30
+        ]
+      ]
+    },
+    "dive_land": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          7,
+          10
+        ]
+      ]
+    },
+    "bailout": {
+      "playback": "hold",
+      "contact": "airborne",
+      "frames": [
+        [
+          8,
+          3
+        ],
+        [
+          9,
+          30
+        ]
+      ]
+    },
+    "flinch": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          10,
+          8
+        ]
+      ]
+    },
+    "frustration": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          11,
+          6
+        ],
+        [
+          12,
+          6
+        ]
+      ]
+    }
+  },
+  "rules": {
+    "max_colors": 23,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 0,
+    "unique_frames": true,
+    "manifest_tick_rows": "cf02_acting.frames",
+    "manifest_tick_hz": "cf02_acting.tick_hz",
+    "frozen_keys": {
+      "fixture": "tests/fixtures/art-carl-cf02_keys.json",
+      "frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7,
+        9,
+        10,
+        11
+      ],
+      "layers": [
+        "far_arm",
+        "legs",
+        "shoes",
+        "torso",
+        "boxers",
+        "jacket",
+        "head",
+        "hair",
+        "near_arm",
+        "watch",
+        "pin"
+      ]
+    },
+    "canvas_margin": [
+      1,
+      0,
+      1,
+      0
+    ],
+    "bbox": [
+      {
+        "id": "airborne-lowest-row",
+        "frames": [
+          3,
+          4,
+          5,
+          6,
+          8
+        ],
+        "bottom": 53
+      },
+      {
+        "id": "bailout-scramble-lift-1px",
+        "frames": [
+          9
+        ],
+        "bottom": 54
+      },
+      {
+        "id": "dive-tuck-compact",
+        "frames": [
+          5
+        ],
+        "max_height": 44
+      },
+      {
+        "id": "dive-plunge-tall",
+        "frames": [
+          6
+        ],
+        "min_height": 51
+      },
+      {
+        "id": "stomp-knee-up-crown",
+        "frames": [
+          0
+        ],
+        "top": 10
+      },
+      {
+        "id": "canvas-top-clear-except-scramble",
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          10,
+          11,
+          12
+        ],
+        "min_top": 1
+      }
+    ]
+  },
+  "review": {
+    "strip_tags": [
+      "stomp",
+      "air_kick",
+      "bailout"
+    ]
+  }
+}
