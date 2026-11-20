@@ -11,7 +11,8 @@
 //! shape. The file is loaded, validated and FNV-1a pinned like
 //! `companion_magic_v0.json` ([`crate::donut_mana::content_hash`]).
 //!
-//! A load error names the field. Questions without a knob are listed in
+//! **Every boolean switch is read through [`Cf02Tuning::on`]** (never raw), so a
+//! rule cannot leak into `--demo`. A load error names the field. Questions without a knob are listed in
 //! [`NO_KNOB`] (with the reason) so a test can prove the schema is complete.
 
 use crate::donut_mana::content_hash;
@@ -23,11 +24,11 @@ pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/cf02_combat_
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`]. Editing the file
 /// without updating this value fails [`Cf02Tuning::pinned`] and the pin test, so
 /// a tuning edit never changes a recorded outcome silently.
-pub const TUNING_HASH: u64 = 0xbb22_79b7_bdf6_682f;
+pub const TUNING_HASH: u64 = 0x8830_029a_4a39_5a40;
 
 /// Question IDs that have no key in the file, and why. The completeness test
 /// requires every other ID in 1..=75 to own at least one `qNN_` key.
-pub const NO_KNOB: [(u8, &str); 23] = [
+pub const NO_KNOB: [(u8, &str); 22] = [
     (7, "retired: superseded by Q50..Q53"),
     (
         13,
@@ -45,11 +46,7 @@ pub const NO_KNOB: [(u8, &str); 23] = [
     (23, "process: the CF02-00 defeat audit, docs/evidence/cf02"),
     (25, "CINE-01 unchanged"),
     (26, "decision: options A + B, no evade command"),
-    (
-        27,
-        "llama numbers unchanged (existing constants in llama.rs)",
-    ),
-    (33, "the --cf02 flag"),
+    (33, "knob: cf02_rules (the --cf02 flag sets it)"),
     (35, "code: input priority"),
     (37, "the switch is q18_llama_targets"),
     (39, "COMPANION-AI-01: profile cf02_assist"),
@@ -320,6 +317,20 @@ pub struct Cf02Tuning {
     pub q43_routine_spray_count: u8,
     /// Q43: lifetime of the transient spray.
     pub q43_routine_spray_ticks: u8,
+    /// Q27: llama tell ticks (unchanged; `feel::LLAMA_TELL_TICKS` stays the source until a PR moves it).
+    pub q27_llama_tell_ticks: u16,
+    /// Q27: llama attack ticks, tell start to recovered (unchanged).
+    pub q27_llama_attack_ticks: u16,
+    /// Q27: llama cooldown ticks (unchanged).
+    pub q27_llama_cooldown_ticks: u16,
+    /// Q27: glob speed (px/s, unchanged).
+    pub q27_llama_glob_speed_px_s: u16,
+    /// Q27: glob height above the llama's feet, lower bound (px).
+    pub q27_llama_glob_y_min_px: u8,
+    /// Q27: glob height above the llama's feet, upper bound (px).
+    pub q27_llama_glob_y_max_px: u8,
+    /// Q27: llama fair-fire range (px, unchanged).
+    pub q27_llama_fire_range_px: u16,
     /// Q28: cover at least this tall stops a glob.
     pub q28_cover_min_height_px: u8,
     /// Q29: microarena width.
@@ -637,9 +648,18 @@ impl Cf02Tuning {
         Self::from_json(text)
     }
 
+    /// The one way to read a boolean switch of the file: it is effective only
+    /// under `cf02_rules` (`q10_bowling`, `q11_wall_slam`, `q34_keep_down`,
+    /// `q36_*`, `q47_*`, `q49_c*`, `q54/q55_*_enabled`, `q66_pincer_token`,
+    /// `q69_acting_overlays`, ...). Reading a raw switch would leak a rule into
+    /// `--demo`.
+    pub fn on(&self, switch: bool) -> bool {
+        self.cf02_rules && switch
+    }
+
     /// Q18/Q37: llamas are hero-hit targets only under `cf02_rules`.
     pub fn llama_targets(&self) -> bool {
-        self.cf02_rules && self.q18_llama_targets
+        self.on(self.q18_llama_targets)
     }
 
     pub fn validate(&self) -> Result<(), Cf02TuningError> {
@@ -723,6 +743,25 @@ impl Cf02Tuning {
             "q32_restart_hold_ticks",
             u32::from(self.q32_restart_hold_ticks),
         )?;
+        positive("q27_llama_tell_ticks", u32::from(self.q27_llama_tell_ticks))?;
+        positive(
+            "q27_llama_cooldown_ticks",
+            u32::from(self.q27_llama_cooldown_ticks),
+        )?;
+        positive(
+            "q27_llama_glob_speed_px_s",
+            u32::from(self.q27_llama_glob_speed_px_s),
+        )?;
+        positive(
+            "q27_llama_fire_range_px",
+            u32::from(self.q27_llama_fire_range_px),
+        )?;
+        if self.q27_llama_attack_ticks < self.q27_llama_tell_ticks {
+            return bad("q27_llama_attack_ticks", "must cover the tell");
+        }
+        if self.q27_llama_glob_y_min_px > self.q27_llama_glob_y_max_px {
+            return bad("q27_llama_glob_y_max_px", "must not be below the minimum");
+        }
         // Boxes.
         boxed("q02_stomp_box", &self.q02_stomp_box)?;
         boxed("q03_lying_box", &self.q03_lying_box)?;
@@ -981,6 +1020,16 @@ mod tests {
     }
 
     #[test]
+    fn q27_knobs_equal_the_unchanged_llama_constants() {
+        use crate::feel::{LLAMA_COOLDOWN, LLAMA_FIRE_RANGE, LLAMA_GLOB_SPEED, LLAMA_TELL_TICKS};
+        let t = tuning();
+        assert_eq!(t.q27_llama_tell_ticks, LLAMA_TELL_TICKS);
+        assert_eq!(t.q27_llama_cooldown_ticks, LLAMA_COOLDOWN);
+        assert_eq!(f32::from(t.q27_llama_glob_speed_px_s), LLAMA_GLOB_SPEED);
+        assert_eq!(f32::from(t.q27_llama_fire_range_px), LLAMA_FIRE_RANGE);
+    }
+
+    #[test]
     fn the_master_switch_is_off_and_gates_the_llama_switch() {
         let t = tuning();
         assert!(!t.cf02_rules, "every legacy golden needs the switch off");
@@ -989,6 +1038,10 @@ mod tests {
             "the data value is on, the gate is the master switch"
         );
         assert!(!t.llama_targets());
+        assert!(
+            !t.on(true),
+            "no switch is effective with the master switch off"
+        );
         let on = Cf02Tuning {
             cf02_rules: true,
             ..t

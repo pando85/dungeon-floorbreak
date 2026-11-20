@@ -267,9 +267,6 @@ impl PadSlots {
     /// P1 (the keyboard's move wins when pressed; buttons are ORed). The
     /// latched edges are consumed; a paused party reads as idle on both slots
     /// (nothing sticks across the pause).
-    // The merge below ends in `..RawInput::NONE` on purpose: CF02-A adds a field
-    // (`down`) that must default to off here until the adapter fills it.
-    #[allow(clippy::needless_update)]
     pub fn take_inputs(&mut self, keyboard: RawInput) -> SlotInputs {
         let paused = self.party.is_paused();
         if keyboard.move_x != 0.0
@@ -298,7 +295,6 @@ impl PadSlots {
                     ability: keyboard.ability || pad.ability,
                     pause: keyboard.pause || pad.pause,
                     swap: keyboard.swap || pad.swap,
-                    ..RawInput::NONE
                 }
             } else {
                 pad

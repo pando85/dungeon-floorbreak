@@ -4,6 +4,10 @@
 //! (`&PartyFixture`) so a `cf02_*` fixture replays through `--party-fixture`.
 //! CF02-A, H, B, G and F append here; Donut and llama fixtures stay in
 //! `donut_fixtures.rs` and the COMPANION ones in `companion_fixtures.rs`.
+//! `CF02_FIXTURES` is deliberately not chained into `PartyFixture::all()` (so
+//! `PartyFixture::by_name` and generic tests over `all()` do not see it);
+//! `--party-fixture` and `--list-fixtures` use [`find_party_fixture`] and
+//! [`list_fixtures`].
 
 use crate::combat_scene::FIXTURES;
 use crate::companion_fixtures::COMPANION_FIXTURES;
@@ -48,6 +52,27 @@ mod tests {
         assert!(list_fixtures("cf02_").is_empty());
         assert!(list_fixtures("companion_").is_empty());
         assert!(list_fixtures("no_such_prefix_").is_empty());
+    }
+
+    /// The CI loops select fixtures by prefix: a name outside its registry's
+    /// prefix would never run (a silent skip).
+    #[test]
+    fn registry_names_carry_the_prefix_the_ci_loops_select() {
+        for f in CF02_FIXTURES {
+            let name = f.name();
+            assert!(name.starts_with("cf02_"), "{name}");
+            assert!(
+                !name.starts_with("cf02_assist_"),
+                "{name} belongs to COMPANION"
+            );
+        }
+        for f in COMPANION_FIXTURES {
+            let name = f.name();
+            assert!(
+                name.starts_with("companion_") || name.starts_with("cf02_assist_"),
+                "{name}"
+            );
+        }
     }
 
     #[test]

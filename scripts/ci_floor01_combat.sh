@@ -233,12 +233,39 @@ case "$mode" in
     # COMBAT-FUN-02 CF02-00: the fixture registries of CF02 and COMPANION-AI-01
     # are enumerated by the binary itself, so later PRs add fixtures without
     # editing this script. Each name replays twice identically and reproduces its
-    # committed replay (docs/evidence/cf02, docs/evidence/companion-ai). Both
+    # committed replay. CF02 replays live in ONE shared, append-only folder
+    # (docs/evidence/cf02/replays/headless_<fixture>.txt, every CF02 PR may add
+    # files there); COMPANION replays in docs/evidence/companion-ai. Both
     # registries are empty after CF02-00, so the bodies do not run yet.
-    committed_cf02=docs/evidence/cf02
+    committed_cf02=docs/evidence/cf02/replays
     committed_companion=docs/evidence/companion-ai
-    list_names() { "$bin" --list-fixtures "$1"; }
-    mapfile -t cf02_names < <(list_names cf02_ | grep -v '^cf02_assist_' || true)
+    # A failing listing must fail the script, never read as "no fixtures": the
+    # binary's exit code is checked (set -e sees it, because the listing is not a
+    # process substitution or part of a `|| true`), and a canary prefix that must
+    # list names proves the listing works at all.
+    list_names() {
+      local listed
+      listed="$("$bin" --list-fixtures "$1")" || { echo "--list-fixtures $1 failed" >&2; exit 1; }
+      printf '%s' "$listed"
+    }
+    canary="$(list_names cp01_)"
+    if [[ "$(wc -l <<<"$canary")" -lt 5 ]]; then
+      echo "--list-fixtures cp01_ returned too few names (a broken listing must not pass as an empty registry)" >&2
+      exit 1
+    fi
+    cf02_all="$(list_names cf02_)"
+    companion_all="$(list_names companion_)"
+    assist_all="$(list_names cf02_assist_)"
+    cf02_names=()
+    while IFS= read -r name; do
+      [[ -z "$name" || "$name" == cf02_assist_* ]] || cf02_names+=("$name")
+    done <<<"$cf02_all"
+    companion_names=()
+    while IFS= read -r name; do
+      [[ -z "$name" ]] || companion_names+=("$name")
+    done <<<"$companion_all"$'\n'"$assist_all"
+    # Every name the listing prints must be runnable (a listed name that
+    # --party-fixture rejects fails the run below under `set -e`).
     for f in "${cf02_names[@]}"; do
       "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/cf02_${f}.txt"
       "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/cf02_${f}_again.txt"
@@ -252,7 +279,6 @@ case "$mode" in
       fi
       echo "CF02_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/cf02_${f}.txt")"
     done
-    mapfile -t companion_names < <({ list_names companion_; list_names cf02_assist_; } || true)
     for f in "${companion_names[@]}"; do
       "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/companion_${f}.txt"
       "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/companion_${f}_again.txt"
@@ -267,14 +293,17 @@ case "$mode" in
       echo "COMPANION_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/companion_${f}.txt")"
     done
     # CF02-00 parity: with no CF02 rule implemented, `--cf02` (the DEMO hall with
-    # the switch on) replays the DEMO-01 beat exactly like `--demo`.
-    demo_plain="$("$bin" --headless-floor01-smoke --demo --autopilot --demo-beat 3 --capture-tick 600 | party_lines)"
-    demo_cf02="$("$bin" --headless-floor01-smoke --cf02 --autopilot --demo-beat 3 --capture-tick 600 | party_lines)"
-    if [[ -z "$demo_plain" || "$demo_plain" != "$demo_cf02" ]]; then
-      echo "--cf02 changed the DEMO-01 beat 3 replay (every CF02 rule must be off)" >&2
-      exit 1
-    fi
-    echo "CF02_PARITY_OK: --cf02 replays demo beat 3 like --demo"
+    # the switch on) replays every DEMO-01 probe exactly like `--demo`.
+    for entry in "${demo_probes[@]}"; do
+      IFS=: read -r name beat <<<"$entry"
+      plain="$("$bin" --headless-floor01-smoke --demo --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
+      cf02="$("$bin" --headless-floor01-smoke --cf02 --autopilot --demo-beat "$beat" --capture-tick 600 | party_lines)"
+      if [[ -z "$plain" || "$plain" != "$cf02" ]]; then
+        echo "--cf02 changed the replay of $name (every CF02 rule must be off)" >&2
+        exit 1
+      fi
+      echo "CF02_PARITY_OK: --cf02 replays $name like --demo"
+    done
     # AUDIENCE-01 part C: the per-hero viewer observer and the viewer HUD
     # previews are presentation only. Each probe run (the QA unlock) and each
     # `--hud-preview viewers*` run must replay the plain run's events and

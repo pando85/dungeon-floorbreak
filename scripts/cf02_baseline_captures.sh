@@ -14,7 +14,8 @@ set -euo pipefail
 bin=./target/debug/floor01_scene
 out="${1:-docs/evidence/cf02/captures}"
 mkdir -p "$out"
-# name:beat:tick (ticks count from the beat's checkpoint)
+# name:driver:tick. A driver is a DEMO-01 beat number (the autopilot plays it from
+# the beat's checkpoint) or a combat fixture name (its scripted input).
 shots=(
   b2_contact_t75:2:75
   b2_contact_t85:2:85
@@ -27,17 +28,26 @@ shots=(
   b4_llama_slam_kick_t290:4:290
   b5_blast_t82:5:82
   b5_blast_t86:5:86
+  llama_plain_down_t63:cp05_llama_down:63
+  llama_plain_down_t70:cp05_llama_down:70
+  llama_plain_down_t90:cp05_llama_down:90
 )
 for spec in "${shots[@]}"; do
   IFS=: read -r name beat tick <<<"$spec"
-  # The software renderer sometimes returns a black first frame: retry up to
-  # three times and fail (never keep a dark frame) if none is lit.
+  if [[ "$beat" =~ ^[0-9]+$ ]]; then
+    driver=(--demo --demo-beat "$beat" --autopilot)
+  else
+    driver=(--fixture "$beat")
+  fi
+  # Retry up to three times and fail (never keep a dark frame) if none is lit.
   for attempt in 1 2 3; do
     dir="$(mktemp -d)"
-    "$bin" --scale 1 --demo --demo-beat "$beat" --autopilot \
-      --capture-sequence "${tick}:1:1" --capture-dir "$dir" > "$dir/log.txt" 2>&1
-    grep -q 'FLOOR1_CAPTURE_SEQUENCE_DONE count=1' "$dir/log.txt"
-    frame="$(find "$dir" -name 'frame_*.png')"
+    "$bin" --scale 1 "${driver[@]}" \
+      --capture-sequence "$((tick - 1)):1:2" --capture-dir "$dir" > "$dir/log.txt" 2>&1
+    grep -q 'FLOOR1_CAPTURE_SEQUENCE_DONE count=2' "$dir/log.txt"
+    # The first frame of a run is often unlit (warm-up): capture two and keep
+    # the second, which is the requested tick.
+    frame="$(find "$dir" -name 'frame_0001_*.png')"
     mean="$(magick "$frame" -colorspace Gray -format '%[fx:mean]' info:)"
     if awk -v m="$mean" 'BEGIN { exit !(m > 0.05) }'; then
       break

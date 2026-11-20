@@ -916,6 +916,8 @@ pub fn resolve_strike<T: StrikeTarget>(
 /// ([`MoveRunner::begin_hit_stop`] keeps the longest). `glance` maps the move
 /// and the target's health to the move actually applied (the identity outside
 /// the companion's glance rule).
+// 8 parameters: the exact CF02-00 signature the COMPANION drafts rely on; a context
+// struct is CF02-A's call when it owns this file.
 #[allow(clippy::too_many_arguments)]
 pub fn strike_group<T: StrikeTarget>(
     runner: &mut MoveRunner,
@@ -2085,7 +2087,7 @@ mod tests {
     }
 
     #[test]
-    fn strike_group_with_the_identity_glance_logs_the_same_events_as_resolve_strike() {
+    fn strike_group_with_the_identity_glance_logs_the_plain_hit() {
         let play = |glance: &dyn Fn(&MoveSpec, u8) -> MoveSpec| {
             let carl = facing_right_carl();
             let mut enemies = [goblin_at(125.0)];
@@ -2108,20 +2110,21 @@ mod tests {
             }
             (events, enemies[0].health)
         };
-        let reference = {
-            let carl = facing_right_carl();
-            let mut enemies = [goblin_at(125.0)];
-            let mut runner = MoveRunner::default();
-            let mut events = Vec::new();
-            for tick in 1..=6u64 {
-                if let Some(m) = runner.step((tick == 1).then_some(&CARL_JAB), 0, true) {
-                    resolve_strike(&mut runner, &m, carl, &mut enemies, tick, &mut events);
-                }
-            }
-            (events, enemies[0].health)
-        };
-        assert_eq!(play(&|spec, _hp| *spec), reference);
-        assert!(!reference.0.is_empty(), "the jab connected");
+        // Hard-coded expectation (not derived from `resolve_strike`, which
+        // forwards to `strike_group`): the jab pressed on tick 1 is active on tick 4.
+        let expected = vec![CombatEvent::Hit {
+            tick: 4,
+            move_id: MoveId::Jab,
+            instance: 1,
+            target: 0,
+            damage: CARL_JAB.damage,
+            health_left: ENEMY_HEALTH - CARL_JAB.damage,
+            hit_stop: 0,
+        }];
+        assert_eq!(
+            play(&|spec, _hp| *spec),
+            (expected, ENEMY_HEALTH - CARL_JAB.damage)
+        );
         // The hook is real: a glance that zeroes the damage reaches the target
         // and the log (the shape CA-20 uses).
         let (events, health) = play(&|spec, _hp| MoveSpec { damage: 0, ..*spec });

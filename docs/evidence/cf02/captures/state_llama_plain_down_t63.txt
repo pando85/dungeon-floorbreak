@@ -1,0 +1,1 @@
+COMBAT_STATE fixture=cp05_llama_down seed=0xc050002 tick=63 elapsed=63 hero_hp=4 deaths=0 enemies= hash=fe9d92470da2e30f llamas=l0=444.333/0

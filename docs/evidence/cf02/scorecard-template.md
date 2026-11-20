@@ -26,7 +26,7 @@ Session length:
 | 2 | | | | | | |
 | 3 | | | | | | |
 
-The effective seed and `restarts` give the attempt's temperament draw (Q58); the run logs both, so record the `CF02_CONFIG` line and the `restarts` value of the `COMBAT_STATE` line at the start of each attempt.
+The effective seed and `restarts` give the attempt's temperament draw (Q58); the run logs both, so record the `CF02_CONFIG` line and the attempt number (the number of Select-hold restarts so far; the `COMBAT_STATE` line does not print `restarts` yet, CF02-G may add it).
 
 ## Ratings (1 to 5; targets from the [design](../../01-design/combat-fun-02-post-demo01-proposals.md#5-acceptance-measurement-and-stop-criteria))
 

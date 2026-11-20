@@ -1,13 +1,14 @@
 # COMBAT-FUN-02 evidence
 
-Index of the COMBAT-FUN-02 evidence. CF02-00 creates it; each later PR writes only `docs/evidence/cf02/<pr-id>/` and CF02-REVIEW owns this index afterwards.
+Index of the COMBAT-FUN-02 evidence. CF02-00 creates it; each later PR writes its captures and notes only in `docs/evidence/cf02/<pr-id>/`, CF02-REVIEW owns this index afterwards, and the one shared exception is [`replays/`](replays/README.md): the committed replay of every `cf02_*` fixture (`headless_<fixture>.txt`), append-only, which every CF02 PR may add files to because the frozen CI script reads it.
 
 | Item | What it is |
 | --- | --- |
 | [`gap-report.md`](gap-report.md) | CF02-00: the Q23 audit of B2 contact, B3 decapitation, B5 blast, B4 llama finishes and the camera traces (measured, with hypotheses marked) |
 | [`audit/audit_events.md`](audit/audit_events.md) | Event log joined with the presentation camera: for each audited event, where the bodies were and whether they were inside the view |
 | [`audit/camera_trace.md`](audit/camera_trace.md) | Pan, impact kick and zoom per beat and camera; the legacy solo-swap pan trace |
-| [`captures/`](captures/) | Eleven real 640x360 frames of the audited spectacles, their `COMBAT_STATE` lines and `SHA256SUMS` |
+| [`captures/`](captures/) | Fourteen real 640x360 frames of the audited spectacles (the slam and the plain llama finish included), their `COMBAT_STATE` lines and `SHA256SUMS` |
+| [`replays/`](replays/README.md) | Shared, append-only replay goldens of the `cf02_*` fixtures (empty after CF02-00) |
 | [`scorecard-template.md`](scorecard-template.md) | The playtest scorecard the next session must fill in: build SHA, flags (including `--cf02-seed`), device and pad, resolution, gore preset, CINE config, deaths and restarts per attempt, cinematic count |
 
 ## Reproduce
