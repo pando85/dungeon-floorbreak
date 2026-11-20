@@ -1,0 +1,38 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  5,
+  7
+ ],
+ "pivot": [
+  0,
+  6
+ ],
+ "palette": [
+  {
+   "key": "A",
+   "name": "amber",
+   "rgba": "#ffc24aff"
+  }
+ ],
+ "layers": [
+  "art"
+ ],
+ "frames": [
+  {
+   "duration_ms": 100,
+   "cels": {
+    "art": [
+     "..A..",
+     "..A..",
+     "..A..",
+     "..A..",
+     "AAAAA",
+     ".AAA.",
+     "..A.."
+    ]
+   }
+  }
+ ],
+ "tags": []
+}

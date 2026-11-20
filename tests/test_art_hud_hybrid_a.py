@@ -34,10 +34,14 @@ REGION_NAMES = [
     "glyph_triangle", "socket_locked", "heart", "heart_cracked", "spark", "spark_depleted",
     "strip_loc_left", "strip_loc_mid", "strip_loc_right", "strip_boss_left", "strip_boss_mid",
     "strip_boss_right",
+    "viewer_eye", "viewer_up", "viewer_down",
+    "viewer_digit_0", "viewer_digit_1", "viewer_digit_2", "viewer_digit_3", "viewer_digit_4",
+    "viewer_digit_5", "viewer_digit_6", "viewer_digit_7", "viewer_digit_8", "viewer_digit_9",
+    "viewer_digit_k", "viewer_digit_m", "viewer_digit_plus",
 ]
 FRAME_COUNTS = {"hud_portrait_carl": 1, "hud_portrait_donut": 1, "hud_system_crt": 3, "hud_glyphs": 9,
                 "hud_tags": 3, "hud_icons": 6, "hud_plate_frame": 1, "hud_notice_frame": 1,
-                "hud_strip_3slice": 1}
+                "hud_strip_3slice": 1, **{n: 1 for n in author.VIEWER_SOURCES}}
 SOURCE_GRIDS = sorted(FRAME_COUNTS)
 
 
@@ -105,7 +109,7 @@ class HudSources(unittest.TestCase):
     def test_hud_pieces_use_only_hud_tokens(self) -> None:
         tokens = {h + "ff" for h in author.HUD.values()}
         for name in ("hud_system_crt", "hud_plate_frame", "hud_strip_3slice", "hud_notice_frame",
-                     "hud_glyphs", "hud_icons", "hud_tags"):
+                     "hud_glyphs", "hud_icons", "hud_tags", *author.VIEWER_SOURCES):
             self.assertLessEqual(rgba_set(load(SRC / f"{name}.grid.json")), tokens, name)
 
     def test_hud_token_palette_budget(self) -> None:
@@ -115,6 +119,58 @@ class HudSources(unittest.TestCase):
         names = {t["name"] for t in load(SRC / "hud_glyphs.grid.json")["tags"]}
         self.assertEqual(names, {"glyph_a", "glyph_b", "glyph_x", "glyph_y", "glyph_cross", "glyph_circle",
                                  "glyph_square", "glyph_triangle", "socket_locked"})
+
+
+# Review keys (PR #118 design review, section 4), restated independently of the authoring script.
+EYE_KEY = [".........", "..BBBBB..", ".B.HHH.B.", "B.HHkHH.B", ".B.HHH.B.", "..BBBBB..", "........."]
+UP_KEY = ["..X..", ".XXX.", "XXXXX", "..X..", "..X..", "..X..", "..X.."]
+DOWN_KEY = ["..X..", "..X..", "..X..", "..X..", "XXXXX", ".XXX.", "..X.."]
+DIGIT_KEYS = {
+    "0": ".XXX. X...X X..XX X.X.X XX..X X...X .XXX.", "1": "..X.. .XX.. ..X.. ..X.. ..X.. ..X.. .XXX.",
+    "2": ".XXX. X...X ....X ...X. ..X.. .X... XXXXX", "3": "XXXXX ...X. ..X.. ...X. ....X X...X .XXX.",
+    "4": "...X. ..XX. .X.X. X..X. XXXXX ...X. ...X.", "5": "XXXXX X.... XXXX. ....X ....X X...X .XXX.",
+    "6": "..XX. .X... X.... XXXX. X...X X...X .XXX.", "7": "XXXXX ....X ...X. ..X.. .X... .X... .X...",
+    "8": ".XXX. X...X X...X .XXX. X...X X...X .XXX.", "9": ".XXX. X...X X...X .XXXX ....X ...X. .XX..",
+    "k": "X...X X..X. X.X.. XX... X.X.. X..X. X...X", "m": "X...X XX.XX X.X.X X.X.X X...X X...X X...X",
+    "plus": "..... ..X.. ..X.. XXXXX ..X.. ..X.. .....",
+}
+VIEWER_COLOURS = {"B": "brass", "H": "brass_hi", "k": "hud_ink"}
+
+
+def key_mask(rows: list[str], colours: dict[str, str]) -> list[list[str | None]]:
+    return [[None if ch == "." else author.HUD[colours[ch]] + "ff" for ch in row] for row in rows]
+
+
+class ViewerArt(unittest.TestCase):
+    """AUDIENCE-01 part A: eye, trend arrows and digit masks match the review keys pixel for pixel."""
+
+    def test_eye_arrows_and_digits_match_the_review_keys(self) -> None:
+        cases = {"hud_viewer_eye": key_mask(EYE_KEY, VIEWER_COLOURS),
+                 "hud_viewer_up": key_mask(UP_KEY, {"X": "magenta_hi"}),
+                 "hud_viewer_down": key_mask(DOWN_KEY, {"X": "amber"})}
+        for d, rows in DIGIT_KEYS.items():
+            cases[f"hud_viewer_digit_{d}"] = key_mask(rows.split(), {"X": "text_white"})
+        self.assertEqual(sorted(cases), sorted(author.VIEWER_SOURCES))
+        for name, want in cases.items():
+            self.assertEqual(flat_rgba(load(SRC / f"{name}.grid.json"), 0), want, name)
+
+    def test_viewer_sources_are_single_frame_and_digits_are_5x7(self) -> None:
+        for name in author.VIEWER_SOURCES:
+            grid = load(SRC / f"{name}.grid.json")
+            self.assertEqual(len(grid["frames"]), 1, name)
+            self.assertEqual(grid["canvas"], [9, 7] if name == "hud_viewer_eye" else [5, 7], name)
+
+    def test_no_decimal_point_in_the_atlas(self) -> None:
+        # the dot is a code-placed 1x1 rect: a lone pixel fails the strict lint, so it is not art
+        names = {r["name"] for r in load(MANIFEST)["hud"]["regions"]}
+        self.assertFalse({n for n in names if "dot" in n or "point" in n})
+        self.assertTrue(any("code-placed 1x1" in n for n in load(MANIFEST)["hud"]["notes"]))
+
+    def test_viewer_masks_are_one_colour(self) -> None:
+        for name in author.VIEWER_SOURCES:
+            if name == "hud_viewer_eye":
+                continue
+            self.assertEqual(len({e["rgba"] for e in load(SRC / f"{name}.grid.json")["palette"]}), 1, name)
 
 
 class HudAtlas(unittest.TestCase):
@@ -208,6 +264,20 @@ class HudAtlas(unittest.TestCase):
         self.assertEqual(per_source["hud_system_crt"], 3)
         self.assertEqual(per_source["hud_glyphs"], 9)
         self.assertEqual(per_source["hud_tags"], 3)
+        for name in author.VIEWER_SOURCES:
+            self.assertEqual(per_source[name], 1, name)
+
+    def test_viewer_regions_sizes_and_layout(self) -> None:
+        sizes = {n: self.regions[n]["rect"][2:] for n in self.regions if n.startswith("viewer_")}
+        self.assertEqual(sizes.pop("viewer_eye"), [9, 7])
+        self.assertEqual(set(map(tuple, sizes.values())), {(5, 7)})
+        self.assertEqual(len(sizes) + 1, 16)
+        self.assertEqual(len(self.regions), 47)
+        # every viewer region is opaque only where its key is (eye keeps empty top and bottom rows)
+        x, y, w, h = self.regions["viewer_eye"]["rect"]
+        for yy in (0, 6):
+            self.assertTrue(all(self.image.getpixel((x + xx, y + yy))[3] == 0 for xx in range(w)))
+        self.assertEqual(self.image.getpixel((x + 4, y + 3))[:3], (0x12, 0x0c, 0x18))  # hud_ink pupil
 
     def test_manifest_provenance_and_status(self) -> None:
         m = self.manifest

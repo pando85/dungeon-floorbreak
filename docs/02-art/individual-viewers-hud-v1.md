@@ -1,6 +1,6 @@
 # AUDIENCE-01 — Individual live viewers in the Hybrid-A HUD
 
-**Status:** owner-approved direction; proposed design/implementation contract, **not implemented**. 2026-11-19.
+**Status:** owner-approved direction; design contract amended by the 2026-11-19 top-tier review (see "Adopted design decisions"). The Bevy-free domain (part B) is implemented in `src/audience.rs`; the UI art (A) and HUD integration (C) are **not** done. Game feel pending.
 **Authority:** `AGENTS.md`, `docs/02-art/hybrid-hud-a-design.md`, `docs/02-art/hybrid-hud-a-native-spec.md`, `docs/01-design/floor-01-gameplay-progression-v0.md`, `docs/01-design/character-progression-horizon.md`. Where this proposal conflicts with current gameplay/input/unlocks, those contracts prevail.
 
 ## Decision and scope
@@ -93,6 +93,45 @@ Update the existing HUD model/draw/adapter only after the domain contracts exist
 8. `cargo fmt --all -- --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked --all-targets`, `python3 scripts/check_docs.py`, `python3 scripts/validate_assets.py`, native render smoke checks pass **after implementation**; report actual evidence, not assumed passes.
 
 **Open decisions:** exact canonical unlock beat; final scoring/restart balance; stage-end result ranking. The owner accepted the compact individual HUD direction, **not** those untested tuning constants.
+
+## Adopted design decisions (2026-11-19)
+
+The top-tier review of PR #118 (verdict PASS-WITH-FIXES) was resolved under the AGENTS.md "Design defaults" rule: each defect adopts the recommended option. **Where this table differs from the sections above, this table wins.** Every number is a hypothesis in one tuning table (`audience::TUNING`); the owner reviews game feel after merge.
+
+| ID | Decision |
+| --- | --- |
+| F1 | Reference hierarchy with corrected geometry. Original monospace **5x7** digits (`0-9 K M +`, advance 6, `.` 1x1 on row 6 with advance 2), **left-aligned** from plate +104, authored as `.grid.json` in `assets/source/hud/`. Jersey 10 is not used for the count. Stable count `text_white`; **amber** number plus a **`magenta_hi` up arrow** on a spike; `brass` eye (9x7 at +92,+5, `hud_ink` pupil, `brass_hi` iris); trend glyph 5x7 at +153,+5, slot always reserved. Identical at 640x360 and 640x400. Carl eye rect (100,13,9,7), number x=112, trend (161,13,5,7); Donut x+460. |
+| F2 | Name ink ends at or before plate +88 (width at most 49 px from +40). A longer replaceable name falls back to `HERO` (Carl) / `ALLY` (Donut). `DONUT` (40 px) leaves a 12 px gap. Domain helper: `audience::bounded_name`. |
+| F3 | Every award row maps to a real event or is future work that awards 0 in v1: humiliating accident (no event; `HeroHurt` is never awarded), launched-goblin contact (needs a launch-credit bridge), `BossHurt`, `GoblinTell`, `BossTell` (not awarded). |
+| F7 | Credit goes by **hero index** only (0 Carl, 1 Donut, anything else no award). `DefeatCause::{ShoreBlock,ShoreBlockEdge,DropHazard,Explosion}.player` and `EnemyDefeated.instigator` hold hero indices. `Control` and `PadSlots` are never read. Tests cover 2P with P1 driving Donut and solo after a swap. |
+| F8 | The chain bonus comes from the CINE-01 feat signal (`cine::CinematicMoment { credited, target, score }`), `min(1000, 250 * (score - 4))`, mapped into the plain-data `audience::ChainFeat`. Audience never detects chains; CINE never reads audience data. Until CINE-01 merges the award is 0. |
+| F9 | `Restart` restores the attempt-start snapshot (counts, peak, decay remainder, dedupe set, fired cue ids). A `Respawn` (DEMO-01) keeps counts and the dedupe set and never costs viewers. Decay uses a domain-owned monotonic step counter, never event ticks. v1 keeps state in memory only; persistence waits for a real save contract. |
+| F10 | Audience is an **observer**, never mixed into `COMBAT_STATE` or the `COMBAT_EVENT` logs. While locked the state does not exist and no step runs, so legacy goldens stay byte-identical. When unlocked it prints its own `AUDIENCE_STATE` digest line only in audience fixtures. |
+| F11 | Decay uses a milli-remainder: `acc = excess * 23 + rem; dec = acc / 1000; rem = acc % 1000`, once every 60 steps from the 480th inactive step. Floor 250. `u64` with saturating arithmetic. |
+| F12 | Assist: for an environmental cause with `instigator = Some(h)`, `h != actor`, `h` gets `actor_award * 30 / 100`. Environmental creativity (+900): environmental cause whose `instigator == actor`. Melee has no assist (`Hit` has no attacker; fail closed). |
+| F13 | No separate flash. Fall reference is the highest shown count since the last cue; a fall cue fires when `ref - shown >= max(250, ref / 10)`, then `ref = shown`, with a 600-step cooldown. Spike: a single-step award `>= max(300, before * 15 / 100)`; the up arrow lasts 48 steps and a new spike restarts it (no queue). Shown count refreshes at most every 12 steps (a spike at once); count-up takes at most 30 steps. |
+| F14 | No new setting: reuse `HudSettings { reduced_motion, high_contrast }`. Reduced motion snaps the number (no count-up); colour states and arrows stay. High contrast turns the down arrow `amber` (`amber_dim` is 4.2:1). Direction is carried by arrow shape. |
+| F15 | **No in-game unlock in v1.** Floor 01 authors no unlock and no cue; the state is `None`/locked in every Floor 01 path. Reachable only through preview (`--hud-preview viewers | viewers-rising | viewers-falling | viewers-max`, PREVIEW tag) and a QA fixture (unlock at step 1, both heroes at 250, authored test cue). The unlock is its own story flag (`broadcast_live`), never the biscuit or mana unlock. |
+| F16 | Fit checked against the real captures: the plate region +80..+158 x +3..+14 is pure `plate_fill` on both plates; boss strip, HP, mana, ability row and ring are clear. |
+
+Open questions (not blocking): **AUD-Q1** the canonical unlock beat (candidate: the first descent after the Tutorial Guild / System introduction); **AUD-Q2** final award and decay balance after a playtest; **AUD-Q3** whether a death costs viewers or becomes a humiliation spike once an authored accident event exists; **AUD-Q4** stage-end ranking (out of scope).
+
+## Implementation status
+
+| Part | State |
+| --- | --- |
+| A, UI art (eye, arrows, digits `.grid.json`, atlas regions) | not started |
+| **B, domain** `src/audience.rs` | **done** (branch `feat/audience-01-domain`): per-hero state, `AudienceInput` plain-data events mapped from `CombatEvent` (`AudienceInput::from_combat`), the DEATH-D causes (`credited_hero`) and the CINE feat (`ChainFeat`), unique-target awards and anti-farming, assist and environmental bonuses, authored `AnticipationCue` schema with `validate_cues`, fixed-step decay with the milli-remainder, trend up/down/flat with cooldown, display refresh and count-up, `format_count` (5 glyphs, `999M+` cap) and `text_ink_width`, `bounded_name`, snapshot restore on `Restart`, locked/unlocked, `digest`. Tuning is one table (`TUNING`), all hypotheses. Fixed-step unit tests cover every rule. Replay goldens unchanged. |
+| C, HUD integration | not started; waits for #120 and A (TODO below) |
+
+### Part C integration TODO
+
+- `PlateView.audience: Option<AudienceView>` in `src/hud.rs`, filled by `HeroId::index()` (never by `Control`), `None` while locked. Add the adapter in `src/hud_adapter.rs` mapping `AudienceState::view` into it, using `AudienceView::display_count(reduced_motion)`.
+- Draw list in `src/hud_draw.rs` at the section 3.1 coordinates: eye, 5x7 digits via `format_count`, trend glyph (amber/`magenta_hi` up, `amber_dim`/`amber` in high contrast down); `FrameId::ALL` grows with part A's regions. Apply `bounded_name` with the real Jersey name width.
+- Event mapping sites (one explicit fan-out, never a second `take_new_events`): map each tick's new combat events with `AudienceInput::from_combat`, map CINE moments into `ChainFeat` once CINE-01 merges, report hero x for authored cues, and call `AudienceState::step` once per fixed tick only when unlocked. Add the `DropHazard` arm and the boss-target test after #120 merges (the exhaustive `credited_hero` match will force it).
+- Preview and QA: `--hud-preview viewers*` (presentation-only, PREVIEW tag) and an `audience-probe` fixture that unlocks at step 1 and prints `AUDIENCE_STATE`.
+- Tests: overlap and format tests at 640x360 and 640x400, a test that locked Floor 01 hashes and captures are unchanged.
+- Captures: locked, stable, spectacular, declining, anticipation, `viewers-max` (`999M+` on Carl, `99.9K` on Donut), boss and post-mana combinations at 360 and 400, 1x and 3x, with high contrast and reduced motion, compared with `docs/evidence/hud-hybrid-a/`.
 
 ## Rights and provenance
 

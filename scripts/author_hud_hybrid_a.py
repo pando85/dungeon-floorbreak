@@ -392,6 +392,61 @@ def detail_aliases(rows_by_frame: list[list[str]], palette: list[dict], spare: s
     return new_rows, pal
 
 
+# --------------------------------------------------------------------------- AUDIENCE-01 viewer icons
+# Top-tier pixel keys (design review of PR #118, section 4), copied pixel-exact. Every glyph is its own
+# single-frame source (glyphs are not animation frames). Digits and arrows are one-colour masks that
+# the renderer tints per state: digits text_white (untinted = stable, amber by tint), up arrow
+# magenta_hi, down arrow amber (tinted to amber_dim by default, untinted = the high-contrast amber).
+# The decimal point is NOT art: it is a code-placed 1x1 rect (a lone pixel is not a sprite, and the
+# strict lint rejects isolated pixels).
+VIEWER_EYE = [".........", "..BBBBB..", ".B.HHH.B.", "B.HHkHH.B", ".B.HHH.B.", "..BBBBB..", "........."]
+VIEWER_UP = ["..X..", ".XXX.", "XXXXX", "..X..", "..X..", "..X..", "..X.."]
+VIEWER_DOWN = ["..X..", "..X..", "..X..", "..X..", "XXXXX", ".XXX.", "..X.."]
+VIEWER_DIGITS = {
+    "0": ".XXX. X...X X..XX X.X.X XX..X X...X .XXX.",
+    "1": "..X.. .XX.. ..X.. ..X.. ..X.. ..X.. .XXX.",
+    "2": ".XXX. X...X ....X ...X. ..X.. .X... XXXXX",
+    "3": "XXXXX ...X. ..X.. ...X. ....X X...X .XXX.",
+    "4": "...X. ..XX. .X.X. X..X. XXXXX ...X. ...X.",
+    "5": "XXXXX X.... XXXX. ....X ....X X...X .XXX.",
+    "6": "..XX. .X... X.... XXXX. X...X X...X .XXX.",
+    "7": "XXXXX ....X ...X. ..X.. .X... .X... .X...",
+    "8": ".XXX. X...X X...X .XXX. X...X X...X .XXX.",
+    "9": ".XXX. X...X X...X .XXXX ....X ...X. .XX..",
+    "k": "X...X X..X. X.X.. XX... X.X.. X..X. X...X",
+    "m": "X...X XX.XX X.X.X X.X.X X...X X...X X...X",
+    "plus": "..... ..X.. ..X.. XXXXX ..X.. ..X.. .....",
+}
+VIEWER_DIGIT_ORDER = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "k", "m", "plus"]
+VIEWER_SOURCES = ["hud_viewer_eye", "hud_viewer_up", "hud_viewer_down"] + [
+    f"hud_viewer_digit_{d}" for d in VIEWER_DIGIT_ORDER]
+
+
+def viewer_canvas(art: list[str], legend: dict[str, str]) -> Canvas:
+    c = Canvas(len(art[0]), len(art))
+    c.stamp(0, 0, art, legend)
+    return c
+
+
+def viewer_grid(c: Canvas) -> dict:
+    """Single-frame source; a lone 1 px detail (the eye pupil) gets a same-colour accent alias."""
+    rows = c.rows()
+    pal = hud_palette(rows)
+    [rows], pal = detail_aliases([rows], pal, "!#$%&*")
+    return grid_doc((c.w, c.h), pal, {"art": [rows]}, pivot_y=bottom_opaque([rows]))
+
+
+def viewer_sources() -> dict[str, dict]:
+    docs = {
+        "hud_viewer_eye": viewer_grid(viewer_canvas(VIEWER_EYE, {"B": "brass", "H": "brass_hi", "k": "hud_ink"})),
+        "hud_viewer_up": viewer_grid(viewer_canvas(VIEWER_UP, {"X": "magenta_hi"})),
+        "hud_viewer_down": viewer_grid(viewer_canvas(VIEWER_DOWN, {"X": "amber"})),
+    }
+    for d in VIEWER_DIGIT_ORDER:
+        docs[f"hud_viewer_digit_{d}"] = viewer_grid(viewer_canvas(VIEWER_DIGITS[d].split(), {"X": "text_white"}))
+    return docs
+
+
 def make_portrait_carl() -> dict:
     key = load(KEYS / "carl_portrait.grid.json")
     rows = [key_flat(key, 0)]
@@ -492,6 +547,11 @@ def regions_plan() -> list[tuple[str, str, int, tuple[int, int]]]:
     for n, x, y in (("strip_loc_left", 0, 130), ("strip_loc_mid", 8, 130), ("strip_loc_right", 9, 130),
                     ("strip_boss_left", 24, 130), ("strip_boss_mid", 32, 130), ("strip_boss_right", 33, 130)):
         plan.append((n, "hud_strip_3slice", 0, (x, y)))
+    # AUDIENCE-01 part A: eye and trend arrows, then 13 digit masks (stride 6, 1 px gap)
+    plan += [("viewer_eye", "hud_viewer_eye", 0, (48, 130)), ("viewer_up", "hud_viewer_up", 0, (60, 130)),
+             ("viewer_down", "hud_viewer_down", 0, (67, 130))]
+    for i, d in enumerate(VIEWER_DIGIT_ORDER):
+        plan.append((f"viewer_digit_{d}", f"hud_viewer_digit_{d}", 0, (48 + i * 6, 140)))
     return plan
 
 
@@ -506,6 +566,9 @@ SOURCE_RECT = {
     "strip_loc_left": (0, 0, 8, 16), "strip_loc_mid": (8, 0, 1, 16), "strip_loc_right": (9, 0, 8, 16),
     "strip_boss_left": (20, 0, 8, 26), "strip_boss_mid": (28, 0, 1, 26), "strip_boss_right": (29, 0, 8, 26),
 }
+SOURCE_RECT["viewer_eye"] = (0, 0, 9, 7)
+for _n in ["viewer_up", "viewer_down"] + [f"viewer_digit_{d}" for d in VIEWER_DIGIT_ORDER]:
+    SOURCE_RECT[_n] = (0, 0, 5, 7)
 for _n in ("glyph_a", "glyph_b", "glyph_x", "glyph_y", "glyph_cross", "glyph_circle", "glyph_square",
            "glyph_triangle", "socket_locked"):
     SOURCE_RECT[_n] = (0, 0, 11, 11)
@@ -514,6 +577,7 @@ LAYER_OF = {
     "hud_plate_frame": "plate", "hud_portrait_carl": "portraits", "hud_portrait_donut": "portraits",
     "hud_notice_frame": "notice", "hud_system_crt": "crt", "hud_tags": "tags",
     "hud_icons": "icons", "hud_glyphs": "glyphs", "hud_strip_3slice": "strip",
+    **{n: "viewers" for n in VIEWER_SOURCES},
 }
 
 
@@ -533,6 +597,7 @@ def build_sources() -> dict[str, dict]:
     icon_frames = [("heart", heart(False)), ("heart_cracked", heart(True)), ("spark", spark(False)),
                    ("spark_depleted", spark(True)), ("warning", warning()), ("boss_emblem", boss_emblem())]
     docs["hud_icons"] = multi_grid(icon_frames, 20, 20)
+    docs.update(viewer_sources())
     docs["hud_tags"] = multi_grid([("p1", tag("p1")), ("p2", tag("p2")), ("ai", tag("ai"))], 32, 9)
     return docs
 
@@ -551,7 +616,7 @@ def build_atlas(docs: dict[str, dict]) -> tuple[dict, list[dict]]:
     palette: list[dict] = []
     charset = iter(CHARSET)
     layers = {n: [["."] * ATLAS_W for _ in range(ATLAS_H)] for n in
-              ("plate", "portraits", "notice", "crt", "tags", "icons", "glyphs", "strip")}
+              ("plate", "portraits", "notice", "crt", "tags", "icons", "glyphs", "strip", "viewers")}
     regions = []
     for name, asset, frame, (ax, ay) in regions_plan():
         sx, sy, w, h = SOURCE_RECT[name]
@@ -615,7 +680,7 @@ def manifest_doc(regions: list[dict], atlas_doc: dict, docs: dict[str, dict]) ->
         "animation_tags": [],
         "required_alpha": True,
         "owner": "AI-authored HUD art (HUD-HYBRID-A-01, hybrid A HUD: plates, strips, notice frame, glyphs, "
-                 "icons, tags, hero portraits, System CRT face)",
+                 "icons, tags, hero portraits, System CRT face; AUDIENCE-01 viewer eye, trend arrows and 5x7 digit masks)",
         "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
         "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; "
                    "no public reuse license; no game/asset-pack distribution rights",
@@ -627,7 +692,8 @@ def manifest_doc(regions: list[dict], atlas_doc: dict, docs: dict[str, dict]) ->
                       "lint. Donut portrait is a 28x28 1:1 crop of assets/source/characters/donut/donut_h40.grid.json "
                       "frame 0 (x 14..41, y 4..31) with four edge pixels repainted. Frames, strips, notice frame, "
                       "glyphs, icons and tags are original pixel-grid-v1 art written by scripts/author_hud_hybrid_a.py "
-                      "from the design spec (sections 2, 3, 7). The HUD concept PNGs were never sampled, traced or cropped.",
+                      "from the design spec (sections 2, 3, 7). The AUDIENCE-01 viewer eye, arrows and digits are "
+                      "copied pixel-exact from the top-tier keys in the PR #118 design review. The HUD concept PNGs were never sampled, traced or cropped.",
             "generator": "Design and keys: Claude Opus. Execution (portrait crop, frames, glyphs, icons, tags, atlas, "
                          "validators, evidence): Claude Sonnet via scripts/author_hud_hybrid_a.py. "
                          "Independent review: pending, a separate top-tier agent. No image-model raster output.",
@@ -651,6 +717,11 @@ def manifest_doc(regions: list[dict], atlas_doc: dict, docs: dict[str, dict]) ->
                 "tag area (+4,+36,32,9) of plate_frame is transparent; draw tag_p1 / tag_p2 / tag_ai there",
                 "strip_*: draw left cap, repeat the 1 px mid column to the wanted width, draw right cap",
                 "glyph names a, b, x, y are the Xbox set, cross/circle/square/triangle the DualSense set",
+                "viewer_*: AUDIENCE-01 part A, single-frame sources hud_viewer_*; eye 9x7 (brass, brass_hi, "
+                "hud_ink pupil), up 5x7 magenta_hi, down 5x7 amber (renderer tints amber_dim, untinted in "
+                "high contrast), digits 5x7 text_white masks (advance 6; K and M and + included)",
+                "the decimal point is not in the atlas: the renderer draws it as a code-placed 1x1 rect on "
+                "digit row 6 with advance 2 (a lone pixel is not a sprite and fails the strict lint)",
             ],
         },
     }
