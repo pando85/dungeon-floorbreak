@@ -30,9 +30,22 @@ EPISODE_FIELDS = [
 ]
 
 
-def run_episode(env: AutoplayEnv, policy: Policy, seed: int) -> dict[str, Any]:
+REPLAY_MODES = ("none", "first", "all")
+
+
+def run_episode(
+    env: AutoplayEnv,
+    policy: Policy,
+    seed: int,
+    *,
+    record_as: tuple[str, str] | None = None,
+) -> dict[str, Any]:
+    """Play one episode. ``record_as = (episode_label, commit)`` also returns the
+    native ``autoplay-episode/1`` JSONL text under the key ``replay``."""
     policy.reset(seed)
     obs, _ = env.reset(seed=seed)
+    if record_as is not None:
+        env.start_recording(policy.policy_id, *record_as)
     total = 0.0
     steps = 0
     hurt = 0
@@ -40,13 +53,13 @@ def run_episode(env: AutoplayEnv, policy: Policy, seed: int) -> dict[str, Any]:
     info: dict[str, Any] = {}
     terminated = truncated = False
     while not (terminated or truncated):
-        action = policy.act(obs)
+        action = policy.act(obs, env)
         obs, reward, terminated, truncated, info = env.step(action)
         total += reward
         steps += 1
         hurt += info["reward_breakdown"]["hurt_events"]
         defeated += info["reward_breakdown"]["defeats"]
-    return {
+    row = {
         "scenario": env.scenario_id,
         "seed": seed,
         "outcome": info["outcome"],
@@ -56,6 +69,9 @@ def run_episode(env: AutoplayEnv, policy: Policy, seed: int) -> dict[str, Any]:
         "carl_hurt_events": hurt,
         "enemies_defeated": defeated,
     }
+    if record_as is not None:
+        row["replay"] = env.finish_recording()
+    return row
 
 
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -83,16 +99,43 @@ def evaluate(
     base_seed: int,
     *,
     env_kwargs: dict[str, Any] | None = None,
+    replays: str = "none",
+    replay_dir: Path | None = None,
+    commit: str = "unknown",
 ) -> dict[str, Any]:
-    """Run ``episodes`` per scenario; returns per-episode rows and summaries."""
+    """Run ``episodes`` per scenario; returns per-episode rows and summaries.
+
+    ``replays`` is ``none``, ``first`` (episode 1 of each scenario) or ``all``.
+    Recorded episodes are written by the native replay writer to
+    ``replay_dir/<scenario>/<policy>/episode_NNNN.jsonl`` (the layout of the
+    native ``autoplay evaluate``) and listed in ``replay_files``.
+    """
+    if replays not in REPLAY_MODES:
+        raise ValueError(f"replays must be one of {REPLAY_MODES}, got {replays!r}")
+    if replays != "none" and replay_dir is None:
+        raise ValueError("replay_dir is required when replays are recorded")
     rows: list[dict[str, Any]] = []
     per_scenario: dict[str, Any] = {}
+    replay_files: list[str] = []
     for scenario in scenarios:
         env = AutoplayEnv(scenario, **(env_kwargs or {}))
         scenario_rows = []
         for episode in range(episodes):
-            row = run_episode(env, policy, base_seed + episode)
-            row["episode"] = episode + 1
+            number = episode + 1
+            wanted = replays == "all" or (replays == "first" and number == 1)
+            row = run_episode(
+                env,
+                policy,
+                base_seed + episode,
+                record_as=(f"{number:04d}", commit) if wanted else None,
+            )
+            row["episode"] = number
+            text = row.pop("replay", None)
+            if text is not None:
+                target = Path(replay_dir) / scenario / policy.policy_id / f"episode_{number:04d}.jsonl"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(text)
+                replay_files.append(target.relative_to(replay_dir).as_posix())
             scenario_rows.append(row)
         env.close()
         per_scenario[scenario] = summarize(scenario_rows)
@@ -100,6 +143,8 @@ def evaluate(
     return {
         "policy_id": policy.policy_id,
         "base_seed": base_seed,
+        "replays": replays,
+        "replay_files": replay_files,
         "episodes_per_scenario": episodes,
         "scenarios": per_scenario,
         "overall": summarize(rows),

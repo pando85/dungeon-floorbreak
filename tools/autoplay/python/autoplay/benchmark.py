@@ -13,14 +13,16 @@ from typing import Any
 import numpy as np
 
 from autoplay import _native
-from autoplay.bots import RandomLegalPolicy
 from autoplay.env import AutoplayEnv
 
 
 def _actions(count: int = 4096) -> list[list[int]]:
-    policy = RandomLegalPolicy()
-    policy.reset(0)
-    return [[int(v) for v in policy.act({})] for _ in range(count)]
+    """Cycled actions drawn from the native ``random_legal`` bot (never stepped)."""
+    scratch = _native.NativeEnv("cp01_single_goblin")
+    scratch.reset(0)
+    bot = _native.NativeBot("random_legal")
+    bot.reset(0)
+    return [bot.act(scratch) for _ in range(count)]
 
 
 def run_benchmark(scenario: str, steps: int) -> dict[str, Any]:

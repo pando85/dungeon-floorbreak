@@ -1,4 +1,4 @@
-# AUTOPLAY-01C: Python bridge, Gymnasium env and CPU PPO smoke
+# AUTOPLAY-01C: Python bridge, Gymnasium env, native bots and CPU PPO smoke
 
 Optional tooling over the native Rust `AutoplayEnv` (stage A, `src/autoplay/`).
 The game never depends on any of this: the shipped binary and the root
@@ -19,31 +19,49 @@ uv.lock                 locked, CPU-only Python resolution
 ## One command
 
 ```bash
-tools/autoplay/scripts/smoke.sh            # build, tests, check_env, baseline, 10k-step PPO
+tools/autoplay/scripts/smoke.sh            # the whole smoke sequence below
 tools/autoplay/scripts/smoke.sh --no-train # everything except torch / SB3
 ```
 
+The sequence: build the Rust binding and the native CLI, `check_env`, evaluate
+a baseline (the native `reactive_survivor` bot), verify its native replay,
+train a 10k-step PPO, reload it and evaluate, verify the PPO replay.
+
 Needs `uv`, a Rust toolchain and the game's Linux build dependencies
-(`pkg-config libasound2-dev libudev-dev`). No GPU, no sudo, no network service.
-The first build compiles Bevy in release mode (about 10 minutes on a busy
-machine); later builds are incremental.
+(`pkg-config libasound2-dev libudev-dev` plus the X11, xkbcommon, wayland and
+vulkan dev packages the workflow installs). No GPU, no sudo, no network
+service. The first build compiles Bevy in release mode (about 10 minutes on a
+busy machine); later builds are incremental.
+
+The venv lives outside the repository (default
+`~/.cache/dungeon-floorbreak-autoplay/venv`, override with `AUTOPLAY_VENV`):
+`scripts/check_docs.py` walks every `*.md` and `*.json` below the checkout, so
+a venv inside it would be scanned.
 
 ## Step by step
 
 ```bash
+VENV=~/.cache/dungeon-floorbreak-autoplay/venv   # keep it out of the repository
 cd tools/autoplay
-uv venv --python 3.12 .venv && source .venv/bin/activate
+uv venv --python 3.12 "$VENV" && source "$VENV/bin/activate"
 uv pip install maturin==1.16.0
-maturin build --release --manifest-path native/Cargo.toml --out dist
+maturin build --release --locked --manifest-path native/Cargo.toml --out dist
 uv pip install --no-deps dist/*.whl
 uv pip install gymnasium==1.4.0 numpy==2.5.4 pytest==9.2.0
 
+# the native CLI verifies replays; sharing the target dir reuses the Bevy build
+CARGO_TARGET_DIR="$PWD/native/target" cargo build --release --locked --bin autoplay \
+  --manifest-path ../../Cargo.toml
+CLI="$PWD/native/target/release/autoplay"
+
 # tests from another directory, against the installed wheel
-cd "$(mktemp -d)" && AUTOPLAY_TEST_INSTALLED=1 python -m pytest <repo>/tools/autoplay/tests -q
+cd "$(mktemp -d)" && AUTOPLAY_TEST_INSTALLED=1 AUTOPLAY_REQUIRE_CLI=1 AUTOPLAY_CLI="$CLI" \
+  python -m pytest <repo>/tools/autoplay/tests -q
 
 python -m autoplay check-env
-python -m autoplay evaluate --scenario cp01_single_goblin --policy random_legal \
+python -m autoplay evaluate --scenario cp01_single_goblin --policy reactive_survivor \
   --episodes 50 --seed 42 --out artifacts/autoplay-01/eval
+"$CLI" replay --episode artifacts/autoplay-01/eval/replays/cp01_single_goblin/reactive_survivor/episode_0001.jsonl --verify
 python -m autoplay benchmark --scenario cp01_single_goblin --steps 20000
 
 # optional extra: CPU PPO (torch comes from the PyTorch CPU index)
@@ -54,7 +72,24 @@ python -m autoplay train --algorithm ppo --scenario cp01_single_goblin --steps 1
   --seed 42 --out artifacts/autoplay-01/ppo-smoke
 python -m autoplay evaluate --checkpoint artifacts/autoplay-01/ppo-smoke \
   --scenario cp01_single_goblin --scenario cp02_two_goblins --episodes 20 --out artifacts/autoplay-01/ppo-smoke/eval_reload
+"$CLI" replay --episode artifacts/autoplay-01/ppo-smoke/eval_reload/replays/cp01_single_goblin/ppo/episode_0001.jsonl --verify
 ```
+
+`--policy` takes any native Rust bot (`random_legal`, `approach_and_attack`,
+`reactive_survivor`) or `noop`. The bots are Rust code (`src/autoplay/bots.rs`)
+reached through the binding (`NativeBot`); Python never re-implements them.
+
+## Replays
+
+`evaluate` writes stage-B `autoplay-episode/1` JSONL replays with
+`--replays none|first|all` (default `first`: episode 1 of each scenario) to
+`<out>/replays/<scenario>/<policy>/episode_NNNN.jsonl`, for baselines and for
+PPO checkpoints. The file is written by the native recorder
+(`dungeon_floorbreak::autoplay::replay::EpisodeRecording`) through the binding,
+so there is one writer of the format. It needs `action_repeat = 1`. A Python
+episode of a Rust bot is byte-identical to the native `autoplay run --out` for
+the same scenario, bot and seed (apart from the commit label), and
+`autoplay replay --verify` of the Rust CLI accepts it in a fresh process.
 
 The wheel finds the game assets through, in order: the `assets_root` argument,
 the `AUTOPLAY_ASSETS_ROOT` environment variable, then the checkout it was built
@@ -88,8 +123,8 @@ cargo test --release --locked
   behind `env.state_hash()` and `env.diagnostics()`, for tests and QA.
 - The seed seeds policy-side randomness only: the simulation has no gameplay
   RNG on this build, so `info["seed_affects_sim"]` is `False`.
-- Baselines read the observation only. Stage C ships `noop` and `random_legal`;
-  the scripted Rust bots and native replay verification arrive with stage B.
+- Policies read the observation only. A `NativeBot` receives the env's
+  observation inside Rust; `act(obs, env)` is the Python-side forwarding.
 
 ## Checkpoints
 
@@ -99,7 +134,3 @@ hash, commit, asset content hash, train/development/hold-out scenario lists,
 model sha256). Reload refuses a mismatched schema or a changed model file.
 Checkpoints, venvs and build products are git-ignored. A 10k-step PPO run
 demonstrates the pipeline; it is not evidence of a strong policy.
-
-Note: `scripts/check_docs.py` globs every `*.md` and `*.json` under the
-checkout, so it also walks `tools/autoplay/.venv`. Run it before creating the
-venv, or from a clean checkout (CI does).

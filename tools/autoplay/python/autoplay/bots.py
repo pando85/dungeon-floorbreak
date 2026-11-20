@@ -1,8 +1,10 @@
-"""Baseline policies. They read the observation and never ``info`` (AP-Q08).
+"""Policies. They read the observation only (AP-Q08).
 
-The scripted Rust bots (``reactive_survivor`` and friends) belong to stage B
-and are not duplicated here. Stage C ships a seeded random-legal baseline so
-the evaluation and PPO comparison have something fair to run against.
+The scripted bots (``random_legal``, ``approach_and_attack``,
+``reactive_survivor``) live in Rust (stage B, ``src/autoplay/bots.rs``).
+Python only forwards the env's observation to the native bot through the
+binding and never re-implements their rules. ``noop`` is a constant action,
+kept as a trivial test baseline.
 """
 
 from __future__ import annotations
@@ -11,12 +13,11 @@ from typing import Any, Protocol
 
 import numpy as np
 
-from autoplay.env import ACTION_NVEC
+from autoplay import _native
+from autoplay.env import AutoplayEnv
 
 NOOP_ACTION = np.array([1, 0, 0, 0, 0, 0], dtype=np.int64)
-#: Components a policy may legally use on this build: the special and the solo
-#: swap are reserved and unavailable (``available = [0, 0]``).
-ACTIVE_COMPONENTS = 4
+NOOP_ID = "noop"
 
 
 class Policy(Protocol):
@@ -24,54 +25,45 @@ class Policy(Protocol):
 
     def reset(self, seed: int) -> None: ...
 
-    def act(self, obs: dict[str, np.ndarray]) -> np.ndarray: ...
+    def act(self, obs: dict[str, np.ndarray], env: AutoplayEnv) -> np.ndarray: ...
 
 
 class NoopPolicy:
     """Neutral stick, nothing held."""
 
-    policy_id = "noop"
+    policy_id = NOOP_ID
 
     def reset(self, seed: int) -> None:
         pass
 
-    def act(self, obs: dict[str, np.ndarray]) -> np.ndarray:
+    def act(self, obs: dict[str, np.ndarray], env: AutoplayEnv) -> np.ndarray:
         return NOOP_ACTION.copy()
 
 
-class RandomLegalPolicy:
-    """Uniform over the actions Carl can actually use, redrawn every tick.
+class NativePolicy:
+    """A Rust bot driven through the binding. Seeds the bot like the native CLI."""
 
-    Ignores the observation. The reserved special and swap components stay 0,
-    so the baseline never counts as an attempted unavailable action.
-    """
-
-    policy_id = "random_legal"
-
-    def __init__(self) -> None:
-        self._rng = np.random.default_rng(0)
+    def __init__(self, policy_id: str) -> None:
+        self._bot = _native.NativeBot(policy_id)
+        self.policy_id = self._bot.policy_id
 
     def reset(self, seed: int) -> None:
-        self._rng = np.random.default_rng(seed)
+        self._bot.reset(seed)
 
-    def act(self, obs: dict[str, np.ndarray]) -> np.ndarray:
-        action = np.zeros(len(ACTION_NVEC), dtype=np.int64)
-        for index in range(ACTIVE_COMPONENTS):
-            action[index] = self._rng.integers(0, ACTION_NVEC[index])
-        return action
+    def act(self, obs: dict[str, np.ndarray], env: AutoplayEnv) -> np.ndarray:
+        return np.asarray(self._bot.act(env.native), dtype=np.int64)
 
 
-POLICIES: dict[str, Any] = {
-    NoopPolicy.policy_id: NoopPolicy,
-    RandomLegalPolicy.policy_id: RandomLegalPolicy,
-}
+def native_policy_ids() -> list[str]:
+    return list(_native.bot_ids())
 
 
-def make_policy(policy_id: str) -> Policy:
-    try:
-        return POLICIES[policy_id]()
-    except KeyError:
-        raise ValueError(
-            f"unknown policy {policy_id!r} (available in Python: {', '.join(sorted(POLICIES))}; "
-            "the scripted Rust bots arrive with stage B)"
-        ) from None
+def make_policy(policy_id: str) -> Any:
+    if policy_id == NOOP_ID:
+        return NoopPolicy()
+    if policy_id in native_policy_ids():
+        return NativePolicy(policy_id)
+    raise ValueError(
+        f"unknown policy {policy_id!r} (available: "
+        f"{', '.join(sorted([NOOP_ID, *native_policy_ids()]))})"
+    )

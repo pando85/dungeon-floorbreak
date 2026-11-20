@@ -125,6 +125,11 @@ class AutoplayEnv(gym.Env):
         self.action_space = spaces.MultiDiscrete(np.array(ACTION_NVEC, dtype=np.int64))
         self.observation_space = build_observation_space(schema)
 
+    @property
+    def native(self) -> _native.NativeEnv:
+        """The underlying native env (policies and replay recording only)."""
+        return self._native
+
     # -- Gymnasium API -----------------------------------------------------
 
     def reset(
@@ -158,6 +163,16 @@ class AutoplayEnv(gym.Env):
 
     def close(self) -> None:
         return None
+
+    # -- Native episode replay (stage B format, written by the native code) --
+
+    def start_recording(self, policy_id: str, episode_label: str, commit: str) -> None:
+        """Record the current episode as ``autoplay-episode/1``; call right after reset."""
+        self._native.start_recording(policy_id, episode_label, commit)
+
+    def finish_recording(self) -> str:
+        """JSONL text of the finished recorded episode."""
+        return self._native.finish_recording()
 
     # -- Privileged accessors: tests, parity and QA only -------------------
 

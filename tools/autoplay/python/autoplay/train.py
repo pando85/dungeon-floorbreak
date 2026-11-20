@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from autoplay.bots import RandomLegalPolicy
+from autoplay.bots import NativePolicy
 from autoplay.checkpoint import MODEL_FILE, verify_checkpoint, write_metadata
 from autoplay.env import AutoplayEnv, scenario_roster
 from autoplay.evaluate import evaluate, write_report
@@ -72,14 +72,19 @@ class PpoPolicy:
     def reset(self, seed: int) -> None:
         pass
 
-    def act(self, obs: dict[str, np.ndarray]) -> np.ndarray:
+    def act(self, obs: dict[str, np.ndarray], env: Any = None) -> np.ndarray:
         action, _ = self._model.predict(obs, deterministic=True)
         return np.asarray(action, dtype=np.int64)
 
 
 def load_policy(checkpoint: Path) -> tuple[PpoPolicy, dict[str, Any]]:
-    """Reload a checkpoint, refusing a schema mismatch first."""
+    """Reload a checkpoint, refusing a schema mismatch first.
+
+    ``checkpoint`` is the checkpoint directory or its ``model.zip``.
+    """
     sb3 = _require_sb3()
+    if checkpoint.is_file():
+        checkpoint = checkpoint.parent
     record = verify_checkpoint(checkpoint)
     model = sb3.PPO.load(checkpoint / MODEL_FILE, device="cpu")
     return PpoPolicy(model), record
@@ -132,8 +137,16 @@ def train(
     # Reload through the schema check, then evaluate the reloaded model.
     policy, reloaded = load_policy(out)
     eval_seed = seed + 10_000
-    ppo_result = evaluate(development + holdout, policy, eval_episodes, eval_seed)
-    baseline = evaluate(development + holdout, RandomLegalPolicy(), eval_episodes, eval_seed)
+    ppo_result = evaluate(
+        development + holdout,
+        policy,
+        eval_episodes,
+        eval_seed,
+        replays="first",
+        replay_dir=out / "eval_ppo" / "replays",
+        commit=record["environment"]["commit"],
+    )
+    baseline = evaluate(development + holdout, NativePolicy("random_legal"), eval_episodes, eval_seed)
     write_report(ppo_result, out / "eval_ppo", {"checkpoint_sha256": reloaded["model_sha256"]})
     write_report(baseline, out / "eval_random_legal")
     smoke = {

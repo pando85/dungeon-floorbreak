@@ -27,6 +27,7 @@ def cmd_check_env(args: argparse.Namespace) -> int:
 def cmd_evaluate(args: argparse.Namespace) -> int:
     from autoplay.bots import make_policy
     from autoplay.evaluate import evaluate, write_report
+    from autoplay.provenance import assets_root, git_commit
 
     scenarios = args.scenario or [DEFAULT_SCENARIO]
     extra: dict = {}
@@ -37,8 +38,17 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         extra = {"checkpoint": str(args.checkpoint), "checkpoint_sha256": record["model_sha256"]}
     else:
         policy = make_policy(args.policy)
-    result = evaluate(scenarios, policy, args.episodes, args.seed)
-    write_report(result, Path(args.out), extra)
+    out = Path(args.out)
+    result = evaluate(
+        scenarios,
+        policy,
+        args.episodes,
+        args.seed,
+        replays=args.replays,
+        replay_dir=out / "replays",
+        commit=git_commit(assets_root()),
+    )
+    write_report(result, out, extra)
     print(json.dumps({k: v for k, v in result.items() if k != "rows"}, indent=2, sort_keys=True))
     return 0
 
@@ -77,8 +87,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     ev = sub.add_parser("evaluate", help="seeded evaluation of a baseline or a checkpoint")
     ev.add_argument("--scenario", action="append", help="repeatable; default cp01_single_goblin")
-    ev.add_argument("--policy", default="random_legal")
+    ev.add_argument(
+        "--policy",
+        default="random_legal",
+        help="a native Rust bot (random_legal, approach_and_attack, reactive_survivor) or noop",
+    )
     ev.add_argument("--checkpoint", help="evaluate a saved PPO checkpoint directory instead")
+    ev.add_argument(
+        "--replays",
+        choices=("none", "first", "all"),
+        default="first",
+        help="write native autoplay-episode/1 replays (default: first episode per scenario)",
+    )
     ev.add_argument("--episodes", type=int, default=50)
     ev.add_argument("--seed", type=int, default=42)
     ev.add_argument("--out", required=True)

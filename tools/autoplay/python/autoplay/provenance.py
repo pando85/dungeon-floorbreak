@@ -38,16 +38,26 @@ def package_versions() -> dict[str, str | None]:
 
 
 def git_commit(root: Path) -> str:
-    try:
-        out = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return out.stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
+    """Commit of the checkout, ``-dirty`` appended when tracked files changed.
+
+    Same convention as the native CLI. Falls back to ``GITHUB_SHA`` and then
+    ``unknown`` (an installed wheel moved away from its checkout).
+    """
+    import os
+
+    def git(*args: str) -> str | None:
+        try:
+            out = subprocess.run(
+                ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
+            )
+            return out.stdout.strip()
+        except (OSError, subprocess.CalledProcessError):
+            return None
+
+    head = git("rev-parse", "HEAD")
+    if head and len(head) >= 7:
+        return f"{head}-dirty" if git("status", "--porcelain", "--untracked-files=no") else head
+    return os.environ.get("GITHUB_SHA", "unknown")
 
 
 def content_hash(root: Path) -> str:

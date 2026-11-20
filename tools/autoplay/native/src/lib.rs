@@ -12,13 +12,15 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
+use dungeon_floorbreak::autoplay::bots::{BOT_IDS, BOT_SETTINGS_VERSION, Bot, make_bot};
 use dungeon_floorbreak::autoplay::observation::{
     AVAILABLE_LEN, ENEMY_FEATURES, HAZARD_FEATURES, MAX_ENEMIES, MAX_HAZARDS, SELF_LEN,
 };
+use dungeon_floorbreak::autoplay::replay::{EpisodeRecording, kit_content_hash};
 use dungeon_floorbreak::autoplay::scenario::roster;
 use dungeon_floorbreak::autoplay::{
-    ACTION_V1_LEN, ACTION_VERSION_V1, AutoplayConfig, AutoplayEnv, AutoplayError, OBS_V1,
-    OBSERVATION_VERSION, Outcome, Split,
+    ACTION_V1_LEN, ACTION_VERSION_V1, ActionV1, AutoplayConfig, AutoplayEnv, AutoplayError, OBS_V1,
+    OBSERVATION_VERSION, Outcome, ResetInfo, Split,
 };
 
 pyo3::create_exception!(
@@ -95,6 +97,9 @@ struct NativeEnv {
     requested_seed: u64,
     sim_seed: u64,
     config: AutoplayConfig,
+    assets_root: std::path::PathBuf,
+    last_reset: Option<ResetInfo>,
+    recording: Option<EpisodeRecording>,
 }
 
 impl NativeEnv {
@@ -142,6 +147,9 @@ impl NativeEnv {
             requested_seed: 0,
             sim_seed: 0,
             config,
+            assets_root: root,
+            last_reset: None,
+            recording: None,
         })
     }
 
@@ -154,6 +162,8 @@ impl NativeEnv {
         let reset = self.env.reset(seed).map_err(to_py_err)?;
         self.requested_seed = reset.requested_seed;
         self.sim_seed = reset.sim_seed;
+        self.last_reset = Some(reset);
+        self.recording = None;
         let info = self.base_info(py)?;
         Ok((observation_dict(py, &self.env)?, info))
     }
@@ -165,9 +175,11 @@ impl NativeEnv {
         py: Python<'py>,
         action: Vec<i64>,
     ) -> PyResult<(Bound<'py, PyDict>, f64, bool, bool, Bound<'py, PyDict>)> {
-        let action =
-            dungeon_floorbreak::autoplay::ActionV1::from_slice(&action).map_err(to_py_err)?;
+        let action = ActionV1::from_slice(&action).map_err(to_py_err)?;
         let outcome = self.env.step(action).map_err(to_py_err)?;
+        if let Some(recording) = self.recording.as_mut() {
+            recording.on_step(&self.env, action, &outcome);
+        }
         let info = self.base_info(py)?;
         info.set_item("ticks_executed", outcome.ticks_executed)?;
         info.set_item("outcome", outcome_name(outcome.outcome))?;
@@ -224,6 +236,79 @@ impl NativeEnv {
     fn tick_count(&self) -> u64 {
         self.env.tick_count()
     }
+
+    /// Record the episode as a stage-B `autoplay-episode/1` artifact. Call
+    /// right after `reset` (before the first `step`); needs `action_repeat=1`.
+    /// The replay writer is the native one: this only forwards the steps.
+    fn start_recording(&mut self, policy: &str, episode_label: &str, commit: &str) -> PyResult<()> {
+        let reset = self.last_reset.as_ref().ok_or_else(|| {
+            EpisodeOverError::new_err("start_recording needs a reset episode first")
+        })?;
+        if self.env.tick_count() != 0 {
+            return Err(PyRuntimeError::new_err(
+                "start_recording must be called right after reset, before the first step",
+            ));
+        }
+        let kit_hash = kit_content_hash(&self.assets_root).map_err(to_py_err)?;
+        self.recording = Some(
+            EpisodeRecording::start(&self.env, reset, commit, kit_hash, policy, episode_label)
+                .map_err(to_py_err)?,
+        );
+        Ok(())
+    }
+
+    /// The JSONL text of the finished recorded episode.
+    fn finish_recording(&mut self) -> PyResult<String> {
+        if self.env.outcome().is_none() {
+            return Err(PyRuntimeError::new_err(
+                "finish_recording needs a terminated or truncated episode",
+            ));
+        }
+        let recording = self
+            .recording
+            .take()
+            .ok_or_else(|| PyRuntimeError::new_err("no recording in progress"))?;
+        Ok(recording.finish(&self.env).to_jsonl())
+    }
+}
+
+/// A scripted Rust bot (stage B). The binding only forwards the observation
+/// of a `NativeEnv` to the bot and returns its action; no bot logic lives in
+/// Python.
+#[pyclass(name = "NativeBot", unsendable)]
+struct NativeBot {
+    bot: Box<dyn Bot>,
+}
+
+#[pymethods]
+impl NativeBot {
+    #[new]
+    fn new(policy_id: &str) -> PyResult<Self> {
+        Ok(Self {
+            bot: make_bot(policy_id).map_err(to_py_err)?,
+        })
+    }
+
+    #[getter]
+    fn policy_id(&self) -> &'static str {
+        self.bot.id()
+    }
+
+    fn reset(&mut self, seed: u64) {
+        self.bot.reset(seed);
+    }
+
+    /// The bot's action for the env's current observation.
+    fn act(&mut self, env: PyRef<'_, NativeEnv>) -> Vec<i64> {
+        let action = self.bot.act(&env.env.observe());
+        action.as_array().iter().map(|&v| i64::from(v)).collect()
+    }
+}
+
+/// The shipped scripted policy ids, in report order.
+#[pyfunction]
+fn bot_ids() -> Vec<&'static str> {
+    BOT_IDS.to_vec()
 }
 
 /// The binding ObservationV1 schema as plain Python data (AP-Q06).
@@ -319,6 +404,9 @@ fn default_assets_root() -> String {
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<NativeEnv>()?;
+    m.add_class::<NativeBot>()?;
+    m.add_function(wrap_pyfunction!(bot_ids, m)?)?;
+    m.add("BOT_SETTINGS_VERSION", BOT_SETTINGS_VERSION)?;
     m.add_function(wrap_pyfunction!(observation_schema, m)?)?;
     m.add_function(wrap_pyfunction!(scenario_roster, m)?)?;
     m.add_function(wrap_pyfunction!(reference_hashes, m)?)?;

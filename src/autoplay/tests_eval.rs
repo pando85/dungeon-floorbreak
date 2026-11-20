@@ -694,3 +694,48 @@ fn copies_of_one_trajectory_report_one_independent_episode() {
     assert_eq!(a.independent_episodes, 1);
     assert_eq!(a.independent_episodes, a.distinct_trajectories);
 }
+
+#[test]
+fn episode_recording_matches_run_episode_replay() {
+    // The Python bridge records through `EpisodeRecording`; it must write the
+    // same artifact as the native evaluator, byte for byte.
+    for (scenario_id, policy) in [
+        ("cp01_single_goblin", bots::REACTIVE_SURVIVOR),
+        ("cp02_two_goblins", bots::APPROACH_AND_ATTACK),
+        ("ap_single_goblin_far", bots::RANDOM_LEGAL),
+    ] {
+        let (_, expected) = play(scenario_id, policy, 7);
+        let mut env = AutoplayEnv::new(AutoplayConfig::new(scenario_id), &root()).unwrap();
+        let mut bot = make_bot(policy).unwrap();
+        let reset = env.reset(7).unwrap();
+        bot.reset(7);
+        let mut recording = replay::EpisodeRecording::start(
+            &env,
+            &reset,
+            &identity().commit,
+            identity().kit_hash,
+            policy,
+            "0001",
+        )
+        .unwrap();
+        loop {
+            let action = bot.act(&env.observe());
+            let step = env.step(action).unwrap();
+            recording.on_step(&env, action, &step);
+            if step.outcome.is_some() {
+                break;
+            }
+        }
+        assert_eq!(recording.finish(&env).to_jsonl(), expected.to_jsonl());
+    }
+}
+
+#[test]
+fn episode_recording_rejects_action_repeat() {
+    let mut config = AutoplayConfig::new("cp01_single_goblin");
+    config.action_repeat = 4;
+    let mut env = AutoplayEnv::new(config, &root()).unwrap();
+    let reset = env.reset(0).unwrap();
+    let err = replay::EpisodeRecording::start(&env, &reset, "c", 0, "p", "0001").unwrap_err();
+    assert!(matches!(err, AutoplayError::InvalidConfig(_)));
+}

@@ -1,5 +1,6 @@
 # AUTOPLAY-01C opt-in tooling job (AP-Q20). Not a required check.
 # Builds the standalone PyO3 package, runs fmt, clippy and the Python tests.
+# Also builds the native autoplay CLI and verifies Python-written replays with it.
 # No torch and no Stable-Baselines3 here: PPO runs locally only.
 name: autoplay-tools
 on:
@@ -55,17 +56,32 @@ jobs:
       - name: Install the wheel and the pinned test dependencies
         working-directory: tools/autoplay
         run: python -m pip install --disable-pip-version-check dist/*.whl gymnasium==1.4.0 numpy==2.5.4 pytest==9.2.0
-      - name: Python tests from outside the source tree (check_env, determinism, terminal, parity)
+      - name: Build the native autoplay CLI (shares the native target dir, so Bevy compiles once)
+        run: |
+          CARGO_TARGET_DIR="$GITHUB_WORKSPACE/tools/autoplay/native/target" \
+            cargo build --release --locked --bin autoplay
+      - name: Root dependency isolation (no PyO3 or NumPy in the game's cargo tree)
+        run: |
+          if cargo tree --locked | grep -Ei 'pyo3|numpy|ndarray'; then
+            echo "PyO3/NumPy leaked into the root dependency tree" >&2
+            exit 1
+          fi
+      - name: Python tests from outside the source tree (check_env, determinism, terminal, parity, native replay verify)
         env:
           AUTOPLAY_TEST_INSTALLED: '1'
+          AUTOPLAY_REQUIRE_CLI: '1'
         run: |
           scratch="$(mktemp -d)"
           cd "$scratch"
-          python -m pytest "$GITHUB_WORKSPACE/tools/autoplay/tests" -q
-      - name: check_env CLI and seeded baseline evaluation
+          AUTOPLAY_CLI="$GITHUB_WORKSPACE/tools/autoplay/native/target/release/autoplay" \
+            python -m pytest "$GITHUB_WORKSPACE/tools/autoplay/tests" -q
+      - name: check_env CLI, native-bot baseline evaluation and native replay verify
         run: |
           scratch="$(mktemp -d)"
           cd "$scratch"
           python -m autoplay check-env
-          python -m autoplay evaluate --scenario cp01_single_goblin --policy random_legal \
+          python -m autoplay evaluate --scenario cp01_single_goblin --policy reactive_survivor \
             --episodes 10 --seed 42 --out "$scratch/eval"
+          "$GITHUB_WORKSPACE/tools/autoplay/native/target/release/autoplay" replay \
+            --episode "$scratch/eval/replays/cp01_single_goblin/reactive_survivor/episode_0001.jsonl" \
+            --verify --assets-root "$GITHUB_WORKSPACE"

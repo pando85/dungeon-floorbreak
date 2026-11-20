@@ -1,30 +1,48 @@
 import json
 
-from autoplay.bots import NoopPolicy, RandomLegalPolicy, make_policy
+from autoplay.bots import NativePolicy, NoopPolicy, make_policy, native_policy_ids
 from autoplay.evaluate import evaluate, write_report
 
 import pytest
 
 
 def test_seeded_baseline_evaluation_is_reproducible():
-    a = evaluate(["cp01_single_goblin"], RandomLegalPolicy(), 3, 42)
-    b = evaluate(["cp01_single_goblin"], RandomLegalPolicy(), 3, 42)
+    a = evaluate(["cp01_single_goblin"], NativePolicy("random_legal"), 3, 42)
+    b = evaluate(["cp01_single_goblin"], NativePolicy("random_legal"), 3, 42)
     assert a == b
     assert a["overall"]["episodes"] == 3
 
 
 def test_different_seed_changes_the_random_policy():
-    a = evaluate(["cp01_single_goblin"], RandomLegalPolicy(), 3, 42)
-    b = evaluate(["cp01_single_goblin"], RandomLegalPolicy(), 3, 43)
+    a = evaluate(["cp01_single_goblin"], NativePolicy("random_legal"), 3, 42)
+    b = evaluate(["cp01_single_goblin"], NativePolicy("random_legal"), 3, 43)
     assert a["rows"] != b["rows"]
 
 
-def test_random_legal_never_touches_reserved_components():
-    policy = RandomLegalPolicy()
+def test_random_legal_never_touches_reserved_components(env):
+    policy = NativePolicy("random_legal")
     policy.reset(1)
+    obs, _ = env.reset(seed=1)
     for _ in range(200):
-        action = policy.act({})
+        action = policy.act(obs, env)
         assert action[4] == 0 and action[5] == 0
+
+
+def test_every_rust_bot_is_exposed_and_runs_through_the_binding():
+    assert native_policy_ids() == ["random_legal", "approach_and_attack", "reactive_survivor"]
+    for policy_id in native_policy_ids():
+        policy = make_policy(policy_id)
+        assert isinstance(policy, NativePolicy) and policy.policy_id == policy_id
+        result = evaluate(["cp01_single_goblin"], policy, 2, 5)
+        assert result["overall"]["episodes"] == 2
+
+
+def test_scripted_rust_bot_does_what_a_noop_policy_cannot():
+    # approach_and_attack is Rust code; clearing the room shows the binding drives it.
+    bot = evaluate(["cp01_single_goblin"], make_policy("approach_and_attack"), 3, 0)
+    idle = evaluate(["cp01_single_goblin"], make_policy("noop"), 3, 0)
+    assert bot["overall"]["enemies_defeated_mean"] > idle["overall"]["enemies_defeated_mean"]
+    assert bot["overall"]["success_rate"] == 1.0
 
 
 def test_report_files_are_written(tmp_path):
@@ -37,4 +55,4 @@ def test_report_files_are_written(tmp_path):
 
 def test_unknown_policy_is_rejected():
     with pytest.raises(ValueError, match="unknown policy"):
-        make_policy("reactive_survivor")
+        make_policy("not_a_bot")
