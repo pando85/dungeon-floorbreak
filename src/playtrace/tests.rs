@@ -96,7 +96,7 @@ fn actions_round_trip_bit_exact() {
         f32::INFINITY,
     ];
     for x in floats {
-        for buttons in 0..64_u8 {
+        for buttons in 0..128_u8 {
             let bits = ActionBits(x.to_bits(), buttons);
             let raw = bits.to_raw();
             assert_eq!(ActionBits::from_raw(raw), bits);
@@ -104,7 +104,7 @@ fn actions_round_trip_bit_exact() {
             assert_eq!(serde_json::from_str::<ActionBits>(&json).unwrap(), bits);
         }
     }
-    // The six button bits map to the six RawInput fields and nothing else.
+    // The seven button bits map to the seven RawInput fields and nothing else.
     let all = crate::input::RawInput {
         move_x: 0.5,
         jump: true,
@@ -113,8 +113,14 @@ fn actions_round_trip_bit_exact() {
         ability: true,
         pause: true,
         swap: true,
+        down: true,
     };
-    assert_eq!(ActionBits::from_raw(all).1, 0b11_1111);
+    assert_eq!(ActionBits::from_raw(all).1, 0b111_1111);
+    // `rawinput-bits/1` records (no down bit) still decode, with Down released.
+    let v1 = ActionBits(0x3f80_0000, 0b11_1111).to_raw();
+    assert!(!v1.down && v1.swap && v1.jump);
+    assert_eq!(super::codec::ACTION_SCHEMA, "rawinput-bits/2");
+    assert_eq!(super::codec::ACTION_SCHEMA_V1, "rawinput-bits/1");
     assert_eq!(
         ActionBits::from_raw(crate::input::RawInput::NONE),
         ActionBits::NONE

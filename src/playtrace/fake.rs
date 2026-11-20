@@ -63,6 +63,7 @@ impl FakeParty {
             ability: r & 0x100000 != 0,
             pause: false,
             swap: false,
+            down: r & 0x200000 != 0,
         }
     }
 

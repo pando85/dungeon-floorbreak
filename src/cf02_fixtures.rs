@@ -1483,14 +1483,15 @@ mod tests {
 
     #[test]
     fn q54_a_hurt_mid_hop_keeps_no_attack_until_landing_and_the_landing_recovery() {
-        // The 3-tick-late bail-out is hit on 37 mid-hop; a Primary pressed on 58
-        // (the hurt flinch is over, Carl is still in the air) must wait for the
-        // landing and its 4-tick recovery.
+        // The 3-tick-late bail-out (Jump on 34) is hit on 37 mid-hop. The hurt
+        // flinch is over by 63 and Carl is still in the air: a Primary pressed on
+        // 63 must wait for the landing (67) and its 4-tick recovery, so the jab
+        // starts on 71 (landing 67 + 4). (With the flag lost on the hurt it would start in the air.)
         static LATE: [SlotHold; 4] = [
             primary_dir(24, 25, -1.0),
             run(25, 50, 0, -1.0),
             jump(34, 35, 0),
-            primary(58, 59, 0),
+            primary(63, 64, 0),
         ];
         let mut sim = bailout_sim(&LATE, 0);
         let mut landed = None;
@@ -1503,7 +1504,7 @@ mod tests {
         assert_eq!(hurt_ticks(&sim), vec![37]);
         let landed = landed.expect("Carl lands");
         assert!(
-            landed > 58,
+            landed > 63,
             "still airborne when the press is made ({landed})"
         );
         let jabs: Vec<u64> = starts(&sim)
@@ -1511,10 +1512,10 @@ mod tests {
             .filter(|&(t, m)| t > 24 && m == MoveId::Jab)
             .map(|(t, _)| t)
             .collect();
-        assert!(
-            jabs.iter().all(|&t| t >= landed + 4),
-            "no attack before landing + 4 (landed {landed}): {jabs:?}"
-        );
+        // The body touches down on `landed` (66); the landing is planned on 67 and
+        // its 4-tick recovery runs 67..=70.
+        assert_eq!(jabs, vec![landed + 1 + 4], "landed {landed}");
+        assert_eq!(jabs, vec![71]);
     }
 
     #[test]
