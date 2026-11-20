@@ -2969,8 +2969,7 @@ mod tests {
         // It fights: it tells and swings after the panic.
         sim.run_scripted(200);
         assert!(tells(&sim).iter().any(|t| t.1 == 1 && t.0 > 64));
-        // Well inside the 90-tick bound: panic (60..90) was cut short at 44 ticks.
-        assert!(64 - 20 < 90);
+        // The panic (60..90 ticks) was cut short, 44 ticks after it began.
     }
 
     #[test]
