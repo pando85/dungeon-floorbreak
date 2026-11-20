@@ -21,9 +21,11 @@ The binding grammar below is **approved for the MVP**, not yet fully implemented
 | Equipped special | Circle | B | Earned special only; unavailable before unlock |
 | Interact | R1 | RB | Doors, props, appropriate pickups, mechanisms |
 | Swap controlled hero (solo) | L1 | LB | AI controls inactive hero; no authority stealing in 2P |
-| Pause / inventory | Options | Menu / Start | Full controller support |
+| Pause / menu | Options | Menu / Start | Full controller support, without a conventional inventory |
 | Optional future precision aim | L2 + right stick | LT + right stick/trackpad | Not essential to complete combat |
 | Optional future special cycle | R2 | RT | Only when more than one special can be equipped |
+
+**2026-11-20 progression decision:** [ADR-0010](../05-decisions/ADR-0010-combat-first-progression.md) and [REWARDS-01](combat-rewards-and-no-inventory-v1.md) rule out a general inventory/gear treadmill. Permanent upgrades are mainly story-earned capabilities; temporary skill-triggered momentum and capped floor boons extend the existing combat verbs. Sponsor gifts are future-gated by the broadcast story unlock. This does not grant new Floor 01 starting powers.
 
 **Progressive complexity:** reuse these verbs as skills and equipment improve, instead of increasing button count or requiring memorized combo strings. Combat depth comes from physical contacts, enemy knockback and selective destruction. No mandatory sprint, grab, dodge, twin-stick aim, extra combat buttons or prematurely granted bombs/magic. The intended feel references Broforce's immediacy, Guacamelee! 2's physical contact depth **without grappling**, and Cyber Shadow's evolving action vocabulary; these are design inspirations, not source assets.
 
