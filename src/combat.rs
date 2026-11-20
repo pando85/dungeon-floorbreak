@@ -1511,6 +1511,30 @@ pub enum CombatEvent {
     /// HUD-DEBT-02: Donut's biscuit unlock and mana pool (the capped log
     /// events of the mana v0 proposal, section 5).
     Mana(ManaEvent),
+    /// CF02-B (Q10), appended: a goblin **killed by a lethal kick** (`source`, which
+    /// kept the kick's `launch` instance) knocked the living goblin `target` down.
+    /// Separate from [`Self::GoblinContact`], whose "living contact" meaning CINE-01
+    /// keeps. `instigator` is the hero (`HeroId::index`) whose move made the launch,
+    /// the credit a later reward reads. At most one per (`launch`, `target`); no
+    /// damage (Q12).
+    BodyContact {
+        tick: u64,
+        launch: u32,
+        source: u32,
+        target: u32,
+        instigator: Option<u32>,
+    },
+    /// CF02-B (Q11), appended: a kicked flier (a living goblin, or the body of a
+    /// lethal kick) at 120 px/s or more was stopped by a solid. A living goblin
+    /// takes the wall damage (a kill follows as an `EnemyDefeated`, `Melee`, force
+    /// Heavy, credited to `instigator`); a dead one only crumples. `instigator` is
+    /// the hero (`HeroId::index`) whose kick made the launch.
+    WallSlam {
+        tick: u64,
+        launch: u32,
+        goblin: u32,
+        instigator: Option<u32>,
+    },
 }
 
 impl CombatEvent {
@@ -1826,6 +1850,34 @@ impl CombatEvent {
                     mix(u64::from(hero));
                 }
             },
+            // CF02-B: tags in their own range ("BODY", "SLAM"); only a run under
+            // `cf02_rules` ever emits them.
+            Self::BodyContact {
+                tick,
+                launch,
+                source,
+                target,
+                instigator,
+            } => {
+                mix(0x424f_4459);
+                mix(tick);
+                mix(u64::from(launch));
+                mix(u64::from(source));
+                mix(u64::from(target));
+                mix(instigator.map_or(0, |p| u64::from(p) + 1));
+            }
+            Self::WallSlam {
+                tick,
+                launch,
+                goblin,
+                instigator,
+            } => {
+                mix(0x534c_414d);
+                mix(tick);
+                mix(u64::from(launch));
+                mix(u64::from(goblin));
+                mix(instigator.map_or(0, |p| u64::from(p) + 1));
+            }
         }
     }
 }
@@ -2075,6 +2127,37 @@ impl fmt::Display for CombatEvent {
                     RejectReason::Dry => "dry",
                 }
             ),
+            Self::BodyContact {
+                tick,
+                launch,
+                source,
+                target,
+                instigator,
+            } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=body_contact launch={launch} source={source} target={target}"
+                )?;
+                if let Some(player) = instigator {
+                    write!(f, " instigator={player}")?;
+                }
+                Ok(())
+            }
+            Self::WallSlam {
+                tick,
+                launch,
+                goblin,
+                instigator,
+            } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=wall_slam launch={launch} goblin={goblin}"
+                )?;
+                if let Some(player) = instigator {
+                    write!(f, " instigator={player}")?;
+                }
+                Ok(())
+            }
         }
     }
 }

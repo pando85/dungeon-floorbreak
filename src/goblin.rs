@@ -146,6 +146,15 @@ pub struct Goblin {
     /// CF02-Q51: an air kick already relaunched this flight (once per original
     /// launch instance).
     pub(crate) relaunched: bool,
+    /// CF02-Q10: the kick instance a body killed by a lethal kick keeps, so it can
+    /// knock a living goblin down (`Airborne` only; cleared when it lands). The
+    /// scene stamps it from the lethal `Hit`.
+    pub(crate) bowl: Option<u32>,
+    /// CF02-Q11: set by [`Self::integrate`] on the tick a solid (not the layout
+    /// edge) stopped this goblin: the abs(vx) it had before the stop. Cleared at
+    /// the start of every step and read by the scene on the same tick, so it is
+    /// transient and never hashed.
+    pub(crate) wall_stop: Option<f32>,
 }
 
 impl Goblin {
@@ -176,6 +185,8 @@ impl Goblin {
             hold_left: 0,
             hold_used: false,
             relaunched: false,
+            bowl: None,
+            wall_stop: None,
         }
     }
 
@@ -316,6 +327,7 @@ impl Goblin {
         may_start: bool,
     ) -> GoblinStep {
         let mut out = GoblinStep::default();
+        self.wall_stop = None;
         if self.hit_stop > 0 {
             // Frozen: no timer, no motion, no swing progress, no damage.
             self.hit_stop -= 1;
@@ -335,6 +347,7 @@ impl Goblin {
                 if self.integrate(solids, max_x) {
                     self.mode = GoblinMode::Down;
                     self.down_ticks = 0;
+                    self.bowl = None;
                 }
             }
             GoblinMode::Launched => {
@@ -444,6 +457,9 @@ impl Goblin {
             let blocked = solid_at(solids, body_rect(candidate, self.y));
             if !blocked {
                 self.x = candidate;
+            } else {
+                // CF02-Q11: a solid, not the layout edge, stopped the flight.
+                self.wall_stop = Some(self.vx.abs());
             }
             if blocked || candidate != wanted {
                 // A wall or the edge of the layout: the goblin stops dead.
@@ -513,6 +529,11 @@ impl Goblin {
         if self.relaunched {
             mix(0x5245_4c4e);
         }
+        // CF02-Q10: the bowling body's kick instance, mixed only while it exists.
+        if let Some(launch) = self.bowl {
+            mix(0x424f_574c);
+            mix(u64::from(launch));
+        }
     }
 
     /// CP-02, the flier's side of a contact: `knockback_contact` for a few
@@ -521,6 +542,77 @@ impl Goblin {
         self.contact_ticks = CONTACT_POSE_TICKS;
         self.vx *= CONTACT_SOURCE_KEEP;
         self.hit_stop = self.hit_stop.max(CONTACT_HIT_STOP);
+    }
+
+    /// CF02-Q09, the flier's side under `cf02_rules`: `knockback_contact` for a few
+    /// ticks, a share of its speed kept and a short freeze. No damage (Q12).
+    pub(crate) fn contact_as_flier_cf02(&mut self, t: &Cf02Tuning) {
+        self.contact_ticks = CONTACT_POSE_TICKS;
+        self.vx *= f32::from(t.q09_flier_keep_vx_pct) / 100.0;
+        self.hit_stop = self.hit_stop.max(t.q09_flier_hit_stop);
+    }
+
+    /// CF02-Q10, the side of a killed body that bowls: the same slowdown and freeze
+    /// as a living flier, but no contact pose (the body keeps its death art).
+    pub(crate) fn contact_as_body_cf02(&mut self, t: &Cf02Tuning) {
+        self.vx *= f32::from(t.q09_flier_keep_vx_pct) / 100.0;
+        self.hit_stop = self.hit_stop.max(t.q09_flier_hit_stop);
+    }
+
+    /// CF02-Q09, the second goblin's side when the flier is fast enough: its attack
+    /// ends (the token goes back), and it hops and falls as a living `Launched`
+    /// goblin **without a launch instance**, so it can never chain into a third
+    /// goblin; it then lies for the CF02 lying time. No damage (Q12).
+    pub(crate) fn contact_knockdown(&mut self, push: i8, t: &Cf02Tuning) {
+        self.mode = GoblinMode::Launched;
+        self.attack_tick = 0;
+        self.swing_hit = false;
+        self.stagger_left = 0;
+        self.launch = None;
+        self.flight_ticks = 0;
+        self.contact_ticks = 0;
+        self.hold_left = 0;
+        self.hold_used = false;
+        self.relaunched = false;
+        self.vx = f32::from(push) * f32::from(t.q09_contact_push_x);
+        self.vy = f32::from(t.q09_contact_hop_y);
+        self.facing = -push;
+        self.hit_stop = self.hit_stop.max(t.q09_flier_hit_stop);
+    }
+
+    /// CF02-Q11: a kicked living flier was stopped by a solid. It takes the wall
+    /// damage and keeps no flight: with health left it drops (a `Launched` goblin
+    /// with no launch instance and no sideways speed, so it falls straight down,
+    /// lands `Downed` and cannot slam or contact again); at 0 health it is
+    /// defeated in place and crumples. Returns true when it was defeated.
+    pub(crate) fn wall_slam(&mut self, t: &Cf02Tuning) -> bool {
+        self.health = self.health.saturating_sub(t.q11_wall_slam_damage);
+        self.launch = None;
+        self.flight_ticks = 0;
+        self.contact_ticks = 0;
+        self.relaunched = false;
+        self.vx = 0.0;
+        self.vy = self.vy.min(0.0);
+        self.hit_stop = self.hit_stop.max(t.q09_flier_hit_stop);
+        if self.health > 0 {
+            if self.y <= self.floor_y {
+                // Already on the floor: nothing to fall, so it lies at once.
+                self.mode = GoblinMode::Downed;
+                self.down_ticks = 0;
+            }
+            return false;
+        }
+        self.attack_tick = 0;
+        self.stagger_left = 0;
+        self.swing_hit = false;
+        if self.y <= self.floor_y {
+            self.y = self.floor_y;
+            self.mode = GoblinMode::Down;
+            self.down_ticks = 0;
+        } else {
+            self.mode = GoblinMode::Airborne;
+        }
+        true
     }
 
     /// Can a launched goblin interrupt this one: a living goblin on its feet
@@ -536,14 +628,20 @@ impl Goblin {
     /// CP-02, the second goblin's side: interrupted (the attack is cancelled,
     /// the token goes back), staggered and pushed `push` (+1 / -1). No damage.
     pub fn contact_as_target(&mut self, push: i8) {
+        self.contact_stagger(push, CONTACT_STAGGER, CONTACT_PUSH_VX, CONTACT_HIT_STOP);
+    }
+
+    /// The legacy second-goblin reaction with its three numbers as parameters
+    /// (CF02-Q09 below the knockdown threshold passes the tuning's).
+    pub(crate) fn contact_stagger(&mut self, push: i8, stagger: u8, push_vx: f32, hit_stop: u8) {
         self.mode = GoblinMode::Hurt;
         self.attack_tick = 0;
         self.swing_hit = false;
-        self.stagger_left = CONTACT_STAGGER;
-        self.vx = f32::from(push) * CONTACT_PUSH_VX;
+        self.stagger_left = stagger;
+        self.vx = f32::from(push) * push_vx;
         self.vy = 0.0;
         self.facing = -push;
-        self.hit_stop = self.hit_stop.max(CONTACT_HIT_STOP);
+        self.hit_stop = self.hit_stop.max(hit_stop);
     }
 
     /// DEATH-D: the x of the head and of the torso of an **upright** goblin
@@ -1443,5 +1541,121 @@ mod tests {
         h.mode = GoblinMode::Launched;
         h.observe_guard();
         assert!(h.guard.is_none());
+    }
+
+    // ---- CF02-B (Q09..Q11) -------------------------------------------------
+
+    fn cf02() -> &'static Cf02Tuning {
+        crate::cf02::active()
+    }
+
+    #[test]
+    fn q11_a_wall_slam_of_damage_0_is_visual_only_and_the_goblin_just_drops() {
+        let mut t = cf02().clone();
+        t.q11_wall_slam_damage = 0;
+        let mut g = goblin_at(500.0);
+        g.mode = GoblinMode::Launched;
+        g.launch = Some(3);
+        g.y = FLOOR + 20.0;
+        g.vy = 40.0;
+        assert!(!g.wall_slam(&t));
+        assert_eq!(g.health, ENEMY_HEALTH);
+        // It falls straight down: no launch, no sideways speed.
+        assert_eq!((g.launch, g.vx, g.mode), (None, 0.0, GoblinMode::Launched));
+        assert!(g.vy <= 0.0);
+    }
+
+    #[test]
+    fn q11_a_slam_with_health_left_drops_the_goblin_downed_and_at_0_defeats_it_in_place() {
+        let t = cf02();
+        // Health 2: 1 damage, it falls and lands lying, never launched again.
+        let mut g = goblin_at(500.0);
+        g.mode = GoblinMode::Launched;
+        g.launch = Some(3);
+        g.y = FLOOR + 10.0;
+        g.vy = 80.0;
+        g.vx = 170.0;
+        assert!(!g.wall_slam(t));
+        assert_eq!(g.health, ENEMY_HEALTH - 1);
+        let mut landed = false;
+        for _ in 0..30 {
+            g.step(0.0, true, &[], EDGE, false, false);
+            landed |= g.mode == GoblinMode::Downed;
+        }
+        assert!(landed, "mode {:?}", g.mode);
+        // Health 1: it is defeated in place (airborne, falling), then lies.
+        let mut g = goblin_at(500.0);
+        g.health = 1;
+        g.mode = GoblinMode::Launched;
+        g.launch = Some(3);
+        g.y = FLOOR + 10.0;
+        g.vy = 80.0;
+        g.vx = 170.0;
+        assert!(g.wall_slam(t));
+        assert!(!g.alive());
+        assert_eq!((g.mode, g.vx), (GoblinMode::Airborne, 0.0));
+        assert!(g.vy <= 0.0, "it crumples down the wall");
+        for _ in 0..30 {
+            g.step(0.0, true, &[], EDGE, false, false);
+        }
+        assert_eq!(g.mode, GoblinMode::Down);
+        // Already on the floor: it is down at once (never stuck airborne).
+        let mut g = goblin_at(500.0);
+        g.health = 1;
+        g.mode = GoblinMode::Launched;
+        g.launch = Some(3);
+        assert!(g.wall_slam(t));
+        assert_eq!(g.mode, GoblinMode::Down);
+    }
+
+    #[test]
+    fn q09_the_knockdown_has_no_launch_and_the_legacy_stagger_keeps_its_numbers() {
+        let t = cf02();
+        let mut g = goblin_at(500.0);
+        g.mode = GoblinMode::Attack;
+        g.attack_tick = 10;
+        g.contact_knockdown(1, t);
+        assert_eq!(g.mode, GoblinMode::Launched);
+        assert_eq!((g.launch, g.attack_tick, g.vx, g.vy), (None, 0, 90.0, 90.0));
+        assert_eq!(g.facing, -1);
+        assert!(!g.token_held());
+        let mut h = goblin_at(500.0);
+        h.contact_as_target(1);
+        let mut i = goblin_at(500.0);
+        i.contact_stagger(1, t.q09_legacy_stagger, f32::from(t.q09_legacy_push), 4);
+        assert_eq!(h, i, "the cf02 legacy numbers equal the original constants");
+    }
+
+    #[test]
+    fn q11_a_solid_sets_the_wall_stop_and_the_layout_edge_does_not() {
+        let mut g = goblin_at(100.0);
+        g.mode = GoblinMode::Launched;
+        g.launch = Some(1);
+        g.vx = 170.0;
+        g.vy = 150.0;
+        g.y = FLOOR + 1.0;
+        let wall = wall(g.x + 14.0);
+        for _ in 0..10 {
+            g.step(0.0, true, std::slice::from_ref(&wall), EDGE, false, false);
+            if g.wall_stop.is_some() {
+                break;
+            }
+        }
+        assert_eq!(g.wall_stop, Some(170.0));
+        // The next step clears it.
+        g.step(0.0, true, std::slice::from_ref(&wall), EDGE, false, false);
+        assert_eq!(g.wall_stop, None);
+        // The layout edge: no solid, so no stop is reported.
+        let mut e = goblin_at(60.0);
+        e.mode = GoblinMode::Launched;
+        e.launch = Some(1);
+        e.vx = 170.0;
+        e.vy = 150.0;
+        e.y = FLOOR + 1.0;
+        for _ in 0..40 {
+            e.step(0.0, true, &[], 70.0, false, false);
+            assert_eq!(e.wall_stop, None);
+        }
+        assert!(e.x <= 70.0);
     }
 }

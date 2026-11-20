@@ -50,6 +50,7 @@ use crate::shore::{PLAYER_ONE, Shore};
 
 mod carl_cf02;
 mod companion;
+mod contacts_cf02;
 mod donut;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
@@ -1355,6 +1356,10 @@ impl CombatState {
                             goblin.launch = Some(instance);
                         }
                         goblin.hit_by = Some(attacker.player);
+                        if health_left == 0 {
+                            // CF02-Q10: a lethal kick's body keeps the kick instance.
+                            self.stamp_bowl(target as usize, move_id, instance);
+                        }
                     }
                     self.note_confirm(tick, move_id, target as usize, health_left == 0, attacker);
                 }
@@ -1944,6 +1949,11 @@ impl CombatState {
     /// pushed. **Zero damage.** Walls stop a flier in `Goblin::integrate`, so a
     /// goblin behind a wall is never reached.
     fn resolve_contacts(&mut self, tick: u64) {
+        if let Some(t) = self.cf02 {
+            // CF02-B (Q09..Q12): knockdowns, bowling bodies and wall slams.
+            self.resolve_contacts_cf02(t, tick);
+            return;
+        }
         for source in 0..self.enemies.len() {
             let flier = &self.enemies[source];
             let Some(launch) = flier.launch else {

@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=16 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=28 kind=goblin_contact launch=0 source=0 target=1
+COMBAT_EVENT tick=28 kind=goblin_interrupted goblin=1
+COMBAT_STATE fixture=cf02_contact_cancels_swing seed=0xcf020c03 tick=120 elapsed=120 hero_hp=4 deaths=0 enemies=e0=421.834/2,e1=448.667/2 hash=ae39150c16b34f85
+PARTY_STATE fixture=cf02_contact_cancels_swing mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=2a19dd6ac146207b
