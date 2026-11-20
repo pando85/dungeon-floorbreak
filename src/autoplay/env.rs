@@ -141,6 +141,11 @@ impl AutoplayEnv {
     /// holding `assets/levels/floor01/`.
     pub fn new(config: AutoplayConfig, assets_root: &Path) -> Result<Self, AutoplayError> {
         config.validate()?;
+        if config.mode.is_party() {
+            return Err(AutoplayError::InvalidConfig(
+                "mode party_solo is run by PartyAutoplayEnv, not AutoplayEnv (AP-Q22)".into(),
+            ));
+        }
         let entry = scenario::lookup(&config.scenario_id)?;
         Self::build(config, assets_root, entry.fixture, entry.initial_hash)
     }

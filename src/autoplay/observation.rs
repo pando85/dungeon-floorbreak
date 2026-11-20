@@ -34,9 +34,9 @@ pub const HAZARD_FEATURES: usize = 6;
 pub const AVAILABLE_LEN: usize = 2;
 
 /// Velocity normaliser in px/s (AP-Q06).
-const VELOCITY_SCALE: f32 = 480.0;
+pub(crate) const VELOCITY_SCALE: f32 = 480.0;
 /// The sim's scroll-camera width; the horizontal scale of `dx` and `x_in_view`.
-const VIEW_W: f32 = 640.0;
+pub(crate) const VIEW_W: f32 = 640.0;
 
 /// The binding schema: names, order and bounds of every tensor (AP-Q06). Kept
 /// as a constant so a test can pin it and a Gymnasium adapter can build
@@ -52,8 +52,8 @@ pub struct ObsSchema {
     pub available_names: [&'static str; AVAILABLE_LEN],
 }
 
-const SIGNED: (f32, f32) = (-1.0, 1.0);
-const UNIT: (f32, f32) = (0.0, 1.0);
+pub(crate) const SIGNED: (f32, f32) = (-1.0, 1.0);
+pub(crate) const UNIT: (f32, f32) = (0.0, 1.0);
 
 /// ObservationV1 schema. All tensors are `float32`.
 ///
@@ -208,7 +208,7 @@ impl ObsStats {
 }
 
 /// A feature clamped to its bound, counting the clamp.
-fn bounded(value: f32, bounds: (f32, f32), stats: &mut ObsStats) -> f32 {
+pub(crate) fn bounded(value: f32, bounds: (f32, f32), stats: &mut ObsStats) -> f32 {
     let value = if value.is_nan() { 0.0 } else { value };
     let clamped = value.clamp(bounds.0, bounds.1);
     if clamped != value {
@@ -217,7 +217,7 @@ fn bounded(value: f32, bounds: (f32, f32), stats: &mut ObsStats) -> f32 {
     clamped
 }
 
-fn flag(on: bool) -> f32 {
+pub(crate) fn flag(on: bool) -> f32 {
     f32::from(u8::from(on))
 }
 
@@ -319,7 +319,7 @@ fn visible(sim: &FixtureSim, x: f32) -> bool {
     !sim.scene.is_offscreen(x, 0.0)
 }
 
-fn known_goblin_mode(mode: GoblinMode) -> bool {
+pub(crate) fn known_goblin_mode(mode: GoblinMode) -> bool {
     matches!(
         mode,
         GoblinMode::Neutral
@@ -333,7 +333,7 @@ fn known_goblin_mode(mode: GoblinMode) -> bool {
     )
 }
 
-fn goblin_row(
+pub(crate) fn goblin_row(
     g: &Goblin,
     hero_x: f32,
     hero_foot: f32,
@@ -363,7 +363,7 @@ fn goblin_row(
     clamp_row(raw, stats)
 }
 
-fn llama_row(
+pub(crate) fn llama_row(
     l: &Llama,
     hero_x: f32,
     hero_foot: f32,

@@ -21,6 +21,7 @@ pub mod error;
 pub mod eval;
 pub mod metrics;
 pub mod observation;
+pub mod party;
 pub mod replay;
 pub mod reward;
 pub mod scenario;
