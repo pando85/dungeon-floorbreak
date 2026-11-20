@@ -1,0 +1,68 @@
+# AUTOPLAY-01C opt-in tooling job (AP-Q20). Not a required check.
+# Builds the standalone PyO3 package, runs fmt, clippy and the Python tests.
+# No torch and no Stable-Baselines3 here: PPO runs locally only.
+name: autoplay-tools
+on:
+  pull_request:
+    paths:
+      - 'src/autoplay/**'
+      - 'tools/autoplay/**'
+      - '.github/workflows/autoplay-tools.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: autoplay-tools-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  python-bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/autoplay/native
+          shared-key: autoplay-native
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev libudev-dev
+      - name: Native package fmt and clippy (release profile, shared with the wheel build; a standalone package: root checks do not cover it)
+        working-directory: tools/autoplay/native
+        run: |
+          cargo fmt --check
+          cargo clippy --release --locked --all-targets -- -D warnings
+      - name: Native package tests (Python-free bridge helpers)
+        working-directory: tools/autoplay/native
+        run: cargo test --release --locked
+      - name: Install pinned build tooling
+        run: python -m pip install --disable-pip-version-check maturin==1.16.0
+      - name: Build the wheel
+        working-directory: tools/autoplay
+        run: maturin build --release --locked --manifest-path native/Cargo.toml --out dist
+      - name: Install the wheel and the pinned test dependencies
+        working-directory: tools/autoplay
+        run: python -m pip install --disable-pip-version-check dist/*.whl gymnasium==1.4.0 numpy==2.5.4 pytest==9.2.0
+      - name: Python tests from outside the source tree (check_env, determinism, terminal, parity)
+        env:
+          AUTOPLAY_TEST_INSTALLED: '1'
+        run: |
+          scratch="$(mktemp -d)"
+          cd "$scratch"
+          python -m pytest "$GITHUB_WORKSPACE/tools/autoplay/tests" -q
+      - name: check_env CLI and seeded baseline evaluation
+        run: |
+          scratch="$(mktemp -d)"
+          cd "$scratch"
+          python -m autoplay check-env
+          python -m autoplay evaluate --scenario cp01_single_goblin --policy random_legal \
+            --episodes 10 --seed 42 --out "$scratch/eval"

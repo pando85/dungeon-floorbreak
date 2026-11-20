@@ -1,0 +1,19 @@
+# AUTOPLAY-01C Python bridge (AP-Q02): a standalone package with its own empty
+# [workspace] table and its own Cargo.lock, never a member of a root workspace.
+# The shipped game and the root `cargo test` never compile PyO3 or NumPy.
+[package]
+name = "autoplay-native"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[lib]
+name = "_native"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+dungeon-floorbreak = { path = "../../.." }
+pyo3 = { version = "=0.30.1" }
+numpy = { version = "=0.30.0" }
