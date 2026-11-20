@@ -41,6 +41,10 @@
 //!   runs with stable tie breaks, and return a typed [`Reason`] when there is
 //!   no route.
 //!
+//! Every jump or drop is simulated from a standing start at its takeoff x, a
+//! body-width back from any solid. An executor must reach that x and stop
+//! before it launches (see [`EdgeView::launch_x`]).
+//!
 //! Edge `ticks` are the whole walk-jump-walk transit, mid anchor to mid anchor,
 //! so a path's tick total is a usable ETA (the walking along a long anchor
 //! counts). Any tick of a transit inside a hazard makes the edge unsafe.
@@ -316,7 +320,9 @@ impl NavConfig {
     }
 
     /// The camera lab: Donut jumps 600 and runs 205 (`crate::camera_lab::sim`).
-    /// Her 32x28 lab body is not modelled (the 24x52 hitbox is used).
+    /// Her 32x28 lab body is not modelled (the 24x52 hitbox is used). For lab
+    /// tests only: it is not replay-validated (the lab body is not
+    /// `step_hero`), so do not use it for the integrated scene.
     pub fn camera_lab() -> Self {
         Self {
             carl: HeroPhysics::carl(),
@@ -457,7 +463,10 @@ pub struct EdgeView {
     /// Solids whose destruction re-evaluates this edge (sorted).
     pub deps: Vec<SolidId>,
     /// Per hero, when the edge is a simulated jump or drop: the takeoff x and
-    /// the target x of the simulated transit.
+    /// the target x of the simulated transit. The transit is simulated from a
+    /// standing start at the takeoff x: the executor (01B-wire) must reach it
+    /// and stop before it presses jump, or the arrival at run speed must be
+    /// replayed separately.
     pub launch_x: [Option<(f32, f32)>; 2],
 }
 
@@ -957,7 +966,9 @@ impl NavGraph {
                 } else {
                     (takeoff_x(a, dir), clear.min(b.x1))
                 };
-                let x1 = clamp_inset(want, b.x0, b.x1);
+                let x0 = retreat_start(x0, a, dir, blocks);
+                // The landing body must clear any solid that ends the anchor too.
+                let x1 = clear_of_solids(clamp_inset(want, b.x0, b.x1), b, dir, blocks);
                 let run = Run {
                     blocks,
                     hazards: &self.hazards,
@@ -1112,7 +1123,10 @@ impl NavGraph {
                 if !o.unlocks.contains(self.solids[to.solid as usize].requires) {
                     continue;
                 }
-                if !o.allow_hazard && (risk >= UNSAFE_RISK || to.risk >= UNSAFE_RISK) {
+                // The destination of a reverse search is the actor's own anchor:
+                // standing on a hazard must not stop it finding a way out.
+                let to_unsafe = to.risk >= UNSAFE_RISK && !(rev && e.to == src);
+                if !o.allow_hazard && (risk >= UNSAFE_RISK || to_unsafe) {
                     continue;
                 }
                 let next = d
@@ -1471,6 +1485,46 @@ fn clamp_inset(v: f32, l: f32, r: f32) -> f32 {
     } else {
         v.clamp(l + EDGE_INSET_PX, r - EDGE_INSET_PX)
     }
+}
+
+/// A hero cannot stand inside a solid. When the body standing on `n` at `x`
+/// overlaps one (a non-standable obstacle ends the anchor, or a ledge touches
+/// it), move to a body-width from its face, on its left (`side < 0`) or right
+/// (`side > 0`), inside `n`. The caller still rejects a start that overlaps
+/// after this.
+fn clear_of_solids(x: f32, n: &Node, side: f32, blocks: &[Block]) -> f32 {
+    let mut x = x;
+    for _ in 0..8 {
+        let body = Rect {
+            left: x - HERO_HALF_WIDTH,
+            bottom: n.top,
+            width: HERO_HALF_WIDTH * 2.0,
+            height: HEAD_ROOM_PX,
+        };
+        let mut hits = blocks
+            .iter()
+            .filter(|b| b.intact && b.rect.overlaps(body))
+            .map(|b| {
+                if side < 0.0 {
+                    b.rect.left - HERO_HALF_WIDTH - 1.0
+                } else {
+                    b.rect.right() + HERO_HALF_WIDTH + 1.0
+                }
+            });
+        let Some(first) = hits.next() else { break };
+        let face = hits.fold(first, |m, v| if side < 0.0 { m.min(v) } else { m.max(v) });
+        let next = clamp_inset(face, n.x0, n.x1);
+        if next == x {
+            break;
+        }
+        x = next;
+    }
+    x
+}
+
+/// The takeoff x: backed off any solid, against the direction of travel.
+fn retreat_start(x: f32, a: &Node, dir: f32, blocks: &[Block]) -> f32 {
+    clear_of_solids(x, a, -dir, blocks)
 }
 
 fn takeoff_x(a: &Node, dir: f32) -> f32 {
@@ -2305,6 +2359,120 @@ mod tests {
         assert_eq!(g.state_hash(), GOLDEN_AFTER_WALL);
     }
 
+    #[test]
+    fn an_actor_standing_on_a_hazard_is_sent_to_safe_ground() {
+        // A floor with a hazard over its middle piece, and an out-of-reach tower.
+        let level = NavLevel {
+            solids: vec![
+                solid(0, 0.0, 0.0, 600.0, 40.0),
+                solid(1, 100.0, 260.0, 80.0, 8.0),
+            ],
+            hazards: vec![NavHazard {
+                id: 1,
+                rect: Rect {
+                    left: 300.0,
+                    bottom: 0.0,
+                    width: 100.0,
+                    height: 30.0,
+                },
+            }],
+        };
+        let g = NavGraph::build(&level, NavConfig::integrated()).unwrap();
+        let pieces: Vec<NavAnchorId> = g.anchors().filter(|a| a.solid == SolidId(0)).collect();
+        assert_eq!(pieces.len(), 3);
+        let here = pieces[1];
+        assert_eq!(g.anchor_risk(here), Some(RISK_MAX));
+        let tower = anchor_on(&g, 1);
+        for hero in HeroId::ALL {
+            let ctx = SafeContext {
+                here,
+                goal: None,
+                unlocks: Unlocks::NONE,
+                bounds: None,
+            };
+            let safe = g.safe_anchor(hero, ctx).expect("a way out of the hazard");
+            assert_ne!(safe, here);
+            assert!(g.anchor_risk(safe).unwrap() < UNSAFE_RISK);
+            let Plan::Wait { anchor, reason } = g.plan(hero, here, tower, Unlocks::NONE) else {
+                panic!("{hero:?}: stranded on a hazard");
+            };
+            assert_eq!(reason, Reason::Unreachable);
+            assert!(g.anchor_risk(anchor).unwrap() < UNSAFE_RISK);
+        }
+    }
+
+    #[test]
+    fn a_hop_over_a_donut_only_crate_is_found_for_carl() {
+        // A 40x30 crate on the floor that only Donut may stand on: for Carl it
+        // is a solid obstacle, and the floor on either side is joined by a hop
+        // whose takeoff is a body-width back from the crate.
+        let mut crate_ = solid(1, 340.0, 30.0, 40.0, 30.0);
+        crate_.access = HeroMask::DONUT;
+        let level = NavLevel {
+            solids: vec![solid(0, 0.0, 0.0, 800.0, 40.0), crate_],
+            hazards: Vec::new(),
+        };
+        let g = NavGraph::build(&level, NavConfig::integrated()).unwrap();
+        let floors: Vec<NavAnchorId> = g
+            .anchors()
+            .filter(|a| a.solid == SolidId(0) && g.anchor_open(*a))
+            .collect();
+        assert_eq!(floors.len(), 2, "left and right of the crate");
+        let (left, right) = (floors[0], floors[1]);
+        let hop = g.edge_state(left, right, HeroId::Carl).unwrap();
+        assert!(
+            matches!(
+                hop,
+                EdgeState::Open {
+                    kind: EdgeKind::Jump,
+                    ..
+                }
+            ),
+            "{hop:?}"
+        );
+        assert!(
+            g.can_reach(HeroId::Carl, left, right, Unlocks::NONE)
+                .is_ok()
+        );
+        // The real step agrees, and lands just past the crate.
+        let (x0, tx) = g
+            .edge_views()
+            .iter()
+            .find(|e| e.from == left && e.to == right)
+            .unwrap()
+            .launch_x[HeroId::Carl.index()]
+        .unwrap();
+        assert!(
+            x0 <= 340.0 - HERO_HALF_WIDTH,
+            "takeoff {x0} is inside the crate"
+        );
+        let blocks: Vec<Block> = level
+            .solids
+            .iter()
+            .map(|s| Block {
+                rect: s.rect,
+                material: Material::Stone,
+                intact: true,
+            })
+            .collect();
+        let (lspan, rspan) = (g.anchor_span(left).unwrap(), g.anchor_span(right).unwrap());
+        let (_, land_x) = replay(
+            &blocks,
+            g.max_x,
+            &Case {
+                start: (x0, 0.0),
+                target_x: tx,
+                dst: (rspan.0, rspan.1, 0.0),
+                dir: 1.0,
+                launch: true,
+                full_speed: false,
+            },
+        )
+        .expect("the hop lands on the right-hand floor");
+        assert!(land_x > 390.0 && land_x < 398.0, "landed at {land_x}");
+        assert!(lspan.1 <= 340.0 + 0.01);
+    }
+
     /// Levels the replay property runs over: the Floor 01 corridor and every
     /// camera-lab room.
     fn replay_levels() -> Vec<(String, NavLevel)> {
@@ -2392,12 +2560,12 @@ mod tests {
 
     /// The edge model against the real body step driven by real inputs: every
     /// open jump and drop edge lands where the graph says, in the time it says,
-    /// and every sampled capability-blocked jump does not land.
+    /// and no capability-blocked jump lands.
     #[test]
     fn every_open_jump_and_drop_edge_replays_through_step_hero() {
         let (mut replayed, mut disagree) = (0usize, Vec::new());
         let (mut sampled, mut escaped) = (0usize, Vec::new());
-        let mut seen = 0usize;
+        let mut inside = 0usize;
         for (label, level) in replay_levels() {
             let g = NavGraph::build(&level, NavConfig::integrated()).unwrap();
             let blocks: Vec<Block> = g
@@ -2453,8 +2621,9 @@ mod tests {
                         ));
                     }
                 }
-                // Every 4th capability-blocked jump: a full-speed run and jump
-                // from the anchor end must not land either.
+                // Every capability-blocked jump: a full-speed run and jump from
+                // the anchor end (backed off any solid) must not land either.
+                // Overlapping spans are tried in both directions.
                 for ed in &g.edges {
                     if ed.walk || ed.state[h] != EdgeState::Blocked(BlockCause::Capability) {
                         continue;
@@ -2468,41 +2637,50 @@ mod tests {
                     {
                         continue;
                     }
-                    let dir = if b.x0 >= a.x1 {
-                        1.0
-                    } else if b.x1 <= a.x0 {
-                        -1.0
+                    let dirs: &[f32] = if a.x0 < b.x1 && a.x1 > b.x0 {
+                        &[1.0, -1.0]
+                    } else if b.x0 >= a.x1 {
+                        &[1.0]
                     } else {
-                        continue;
+                        &[-1.0]
                     };
-                    seen += 1;
-                    if !seen.is_multiple_of(4) {
-                        continue;
-                    }
-                    sampled += 1;
-                    let got = replay(
-                        &blocks,
-                        g.max_x,
-                        &Case {
-                            start: (takeoff_x(a, dir), a.top),
-                            target_x: 0.0,
-                            dst: (b.x0, b.x1, b.top),
-                            dir,
-                            launch: true,
-                            full_speed: true,
-                        },
-                    );
-                    if got.is_some() {
-                        escaped.push(format!(
-                            "{label} {hero:?} {:?}->{:?}: a full-speed jump lands",
-                            a.anchor, b.anchor
-                        ));
+                    for &dir in dirs {
+                        let x = retreat_start(takeoff_x(a, dir), a, dir, &blocks);
+                        let body = Rect {
+                            left: x - HERO_HALF_WIDTH,
+                            bottom: a.top,
+                            width: HERO_HALF_WIDTH * 2.0,
+                            height: HEAD_ROOM_PX,
+                        };
+                        if blocks.iter().any(|k| k.rect.overlaps(body)) {
+                            inside += 1;
+                            continue;
+                        }
+                        sampled += 1;
+                        let got = replay(
+                            &blocks,
+                            g.max_x,
+                            &Case {
+                                start: (x, a.top),
+                                target_x: 0.0,
+                                dst: (b.x0, b.x1, b.top),
+                                dir,
+                                launch: true,
+                                full_speed: true,
+                            },
+                        );
+                        if got.is_some() {
+                            escaped.push(format!(
+                                "{label} {hero:?} {:?}->{:?}: a full-speed jump lands",
+                                a.anchor, b.anchor
+                            ));
+                        }
                     }
                 }
             }
         }
         println!(
-            "NAV-REPLAY open edges replayed {replayed}, disagree {}; blocked jumps sampled {sampled}, landed {}",
+            "NAV-REPLAY open edges replayed {replayed}, disagree {}; blocked jumps sampled {sampled} (skipped, start inside a solid: {inside}), landed {}",
             disagree.len(),
             escaped.len()
         );
@@ -2534,21 +2712,19 @@ mod tests {
         let floor = g
             .anchor_at(room.spawn_carl as f32, -(room.floor_y as f32))
             .unwrap();
-        // Every Carl edge onto the perch is closed by capability.
+        // The fixture is so far out of reach (for both heroes, by physics) that
+        // the candidate filter keeps no edge onto the perch at all. This pins
+        // the vacuity: a fixture fix creates perch edges and flips it. The Carl
+        // mask proof is `an_authored_donut_only_mask_closes_carl_edges...`.
         let onto: Vec<EdgeView> = g
             .edge_views()
             .into_iter()
             .filter(|e| e.to == perch)
             .collect();
-        // (The fixture is so far out of reach that the candidate filter keeps no
-        // edge onto the perch at all; if one is ever kept, it must be blocked.)
-        for e in &onto {
-            assert_eq!(
-                e.state[HeroId::Carl.index()],
-                EdgeState::Blocked(BlockCause::Capability),
-                "{e:?}"
-            );
-        }
+        assert!(
+            onto.is_empty(),
+            "a fixture fix created perch edges: re-check {onto:?}"
+        );
         assert!(
             g.can_reach(HeroId::Carl, floor, perch, Unlocks::NONE)
                 .is_err()
