@@ -1,7 +1,7 @@
 {
   "schema": "the-crawl-concept-image-manifest-v1",
   "project": "THE CRAWL — NO PANTS. NO MERCY.",
-  "status": "Five owner-selected concept PNGs from AUDIENCE-01 design conversation (2026-11-19); awaiting image intake by Hermes. Art direction only. Not production sprite art or canon-verification evidence.",
+  "status": "Five owner-selected concept PNGs from AUDIENCE-01 design conversation (2026-11-19); received and verified (all five PNGs committed; SHA-256, byte sizes and 640x360 dimensions checked against SHA256SUMS). Art direction only. Not production sprite art or canon-verification evidence.",
   "source": "Original OpenAI-generated images from 2026-11-19 project conversation. No third-party artwork or novel excerpts were imported. Owner-reported publication scope ART-PUBLICATION-ALL-V1 applies subject to repo rights policy; independent permission not verified.",
   "assets": [
     {

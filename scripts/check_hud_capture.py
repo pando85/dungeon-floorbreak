@@ -31,12 +31,17 @@ TEXT_WHITE = (0xF4, 0xE6, 0xD2)
 # AUDIENCE-01: a spike turns the `text_white` digit masks amber by a GPU
 # multiply (src/hud_draw.rs TEXT_WHITE_TO_AMBER), which renders as this colour
 # (the mask red 244 cannot be raised). The code-drawn decimal dot uses it too.
+# It is accepted only inside the viewer readout rects (READOUT_RECT).
 VIEWER_AMBER = (0xF4, 0xC2, 0x4A)
 # The two viewer colours made by a GPU multiply (the amber digits and the dim
 # down arrow, `amber_dim`). Rasterisers round the linear multiply differently
 # (a software Vulkan runner lands one level off a hardware GPU), so these two
-# match within one level per channel; every other colour must be exact.
+# match within one level per channel; every other colour must be exact, and
+# even these two are accepted only inside the readout rects of the two plates.
 TINTED = (VIEWER_AMBER, (0xA8, 0x74, 0x2A))
+# The viewer readout field of a plate, relative to the plate origin: x +80..+158
+# (right of the name), y +3..+14 (above the HP row). Inclusive.
+READOUT_RECT = (80, 3, 158, 14)
 
 
 def is_tinted(c: tuple[int, int, int]) -> bool:
@@ -52,7 +57,6 @@ def palette() -> set[tuple[int, int, int]]:
         colours.add((number >> 16, number >> 8 & 0xFF, number & 0xFF))
     if len(colours) < 34:
         raise SystemExit(f"expected at least 34 HUD palette colours, found {len(colours)}")
-    colours.add(VIEWER_AMBER)
     return colours
 
 
@@ -74,6 +78,13 @@ def main() -> int:
     def at(x: int, y: int) -> tuple[int, int, int]:
         return px[x * scale, y * scale]
 
+    def in_readout(x: int, y: int) -> bool:
+        for plate_x in (8, 468):
+            rx0, ry0, rx1, ry1 = READOUT_RECT
+            if plate_x + rx0 <= x <= plate_x + rx1 and 8 + ry0 <= y <= 8 + ry1:
+                return True
+        return False
+
     def zone(name: str, x0: int, y0: int, w: int, h: int, check_palette: bool) -> None:
         bad_block = bad_colour = 0
         for y in range(y0, y0 + h):
@@ -85,7 +96,7 @@ def main() -> int:
                     for dx in range(scale)
                 ):
                     bad_block += 1
-                if check_palette and first not in colours and not is_tinted(first):
+                if check_palette and first not in colours and not (in_readout(x, y) and is_tinted(first)):
                     bad_colour += 1
         if bad_block:
             failures.append(f"{name}: {bad_block} virtual pixels are not a flat {scale}x{scale} block")

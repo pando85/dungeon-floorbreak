@@ -1405,15 +1405,15 @@ mod tests {
     }
 
     #[test]
-    fn ownership_is_independent_of_controllers_solo_ai_and_two_player() {
-        // The domain only sees hero indices. A solo run where the player swapped
-        // to Donut, a solo run where Donut is an AI follower and a 2P run where
-        // P1 drives Donut all feed the same index-1 input and credit Donut.
-        for _ in 0..3 {
-            let mut s = unlocked();
-            s.step(&[melee(1, 1, ForceTier::Heavy)]);
-            assert_eq!((carl(&s), donut(&s)), (250, 750));
-        }
+    fn credit_follows_the_hero_index_alone_and_totals_never_merge() {
+        // The domain only sees hero indices (`MoveId::hero()` of the emit
+        // site, never a controller slot). The controllers (solo swap, an AI
+        // follower, 2P) are covered where the events are produced: see the
+        // scene tests `a_donut_kill_credits_donut_whoever_drives_her` and the
+        // committed `--audience-probe` digests.
+        let mut s = unlocked();
+        s.step(&[melee(1, 1, ForceTier::Heavy)]);
+        assert_eq!((carl(&s), donut(&s)), (250, 750));
         // Both heroes score in the same step without merging totals.
         let mut s = unlocked();
         s.step(&[

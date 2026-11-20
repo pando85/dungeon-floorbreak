@@ -10,6 +10,7 @@ proves every 2x2 block is flat, so nothing is lost), and writes into the
 evidence directory (default docs/evidence/audience-01):
 
   hud-<REAL|PREVIEW>-viewers-<state>-<size>-1x.png   the native 640x360 / 640x400 frames
+  hud-PREVIEW-viewers-max-1920x1080-3x.png        the x3 capture (from `audience-x3`, full resolution)
   contact-sheet-<kind>-<size>-2x.png                  top HUD band (rows 0..59) of each state, 2x, labelled
   compare-mock-<size>-<mode>.txt                      per-pixel comparison of the plate readouts with the part A mocks
 
@@ -44,6 +45,8 @@ STATES = [
     ("real-spectacular-high-contrast", "REAL", "spectacular-high-contrast", "REAL probe: shore block kill, --hud-high-contrast"),
     ("real-anticipation", "REAL", "anticipation", "REAL probe: authored cue, both heroes 4.2K, no action on screen"),
     ("real-anticipation-high-contrast", "REAL", "anticipation-high-contrast", "REAL probe: authored cue, --hud-high-contrast"),
+    ("real-countup", "REAL", "countup", "REAL probe: shore kill 10 ticks into the 30-step count-up (mid-count)"),
+    ("real-countup-reduced-motion", "REAL", "countup-reduced-motion", "REAL probe: the same tick with --hud-reduced-motion (snaps to the new count)"),
     ("real-falling", "REAL", "falling", "REAL probe: the shore kill count decaying, down arrow"),
     ("real-falling-high-contrast", "REAL", "falling-high-contrast", "REAL probe: decay, --hud-high-contrast (amber arrow)"),
     ("real-boss", "REAL", "boss", "REAL probe: THE JUICER boss strip with both readouts"),
@@ -119,6 +122,13 @@ def main() -> int:
                     f"runtime PREVIEW viewers-max {mode} at 640x{view_h} versus the part A mock composite",
                 )
                 (out / f"compare-mock-{size}-{mode}.txt").write_text(text, encoding="utf-8")
+    # Acceptance gate 2: one real 1920x1080 (integer x3) capture of the widest
+    # strings, kept at full resolution (`audience-x3`, 1920x1080).
+    x3 = caps / "audience-max-1920x1080.png"
+    if x3.is_file():
+        im = Image.open(x3).convert("RGB")
+        assert im.size == (1920, 1080), im.size
+        im.save(out / "hud-PREVIEW-viewers-max-1920x1080-3x.png", optimize=True)
     lines = [f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}" for p in sorted(out.glob("*.png"))]
     (out / "SHA256SUMS").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote evidence to {out.relative_to(ROOT)}")

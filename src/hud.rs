@@ -2936,7 +2936,6 @@ mod tests {
     fn a_locked_audience_never_shows_and_never_reads_the_events() {
         let mut hud = HudRuntime::new(HudConfig::default());
         let mut log = Vec::new();
-        let before = hud.revision();
         push_step(&mut hud, &mut log, defeat(ForceTier::Catastrophic));
         assert!(!hud.audience().is_unlocked());
         let s = hud.snapshot();
@@ -2952,7 +2951,42 @@ mod tests {
         hud.set_hero_x(10_000, 10_000);
         hud.step(4, 4, &log, 0);
         assert!(hud.snapshot().plates[0].audience.is_none());
-        let _ = before;
+    }
+
+    /// A locked audience costs nothing: the same events, feats and positions
+    /// bump the revision exactly as often as a runtime that never heard of
+    /// the audience (so the renderer never rebuilds the HUD sprites for it).
+    #[test]
+    fn a_locked_audience_never_bumps_the_revision() {
+        let events = [
+            defeat(ForceTier::Catastrophic),
+            defeat(ForceTier::Routine),
+            hurt(3),
+        ];
+        let run = |with_audience_inputs: bool| {
+            let mut hud = HudRuntime::new(HudConfig::default());
+            let mut log = Vec::new();
+            let mut revisions = Vec::new();
+            for event in &events {
+                if with_audience_inputs {
+                    hud.push_chain_feat(ChainFeat {
+                        credited: 0,
+                        target: 1,
+                        score: 9,
+                    });
+                    hud.set_hero_x(10_000, 10_000);
+                }
+                push_step(&mut hud, &mut log, *event);
+                revisions.push(hud.revision());
+            }
+            assert!(!hud.audience().is_unlocked());
+            revisions
+        };
+        let plain = run(false);
+        assert_eq!(run(true), plain, "a locked audience bumped the revision");
+        // The baseline moves (the events draw notices), so the comparison is
+        // not vacuous.
+        assert!(plain.iter().any(|&r| r > 0));
     }
 
     #[test]

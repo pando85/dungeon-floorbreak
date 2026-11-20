@@ -76,7 +76,7 @@ use dungeon_floorbreak::{
     },
     goblin::{AttackPhase, GoblinMode},
     gore::{DEATH_VARIANTS, DeathArt, GorePreset, LLAMA_VARIANT, Sheet},
-    hud::{GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
+    hud::{EventCursor, GlyphSet, HudConfig, HudLayout, HudPreview, HudRuntime},
     hud_adapter::{HudPlugin, HudState},
     hud_settings::HudSettings,
     input::RawInput,
@@ -879,6 +879,7 @@ fn build_scene(
         if args.party_fixture.is_some() {
             sim.set_drive(party.drive(true));
         }
+        let mut feat_feed = AudienceFeatFeed::default();
         for _ in 0..presim_ticks(args).unwrap_or(0) {
             let inputs = if let Some(pf) = args.party_fixture {
                 let slots = pf.inputs(sim.world.tick + 1, &combat, &sim);
@@ -897,6 +898,7 @@ fn build_scene(
             if combat.restarts != restarts {
                 party.restart();
             }
+            feat_feed.observe(&combat, hud);
             step_hud(hud, &sim, Some(&combat));
             if args.death_stress && args.perf_from_tick.is_some() {
                 // Lab: load the pools before the probe starts measuring.
@@ -1019,15 +1021,52 @@ fn print_combat_events(
             println!("{}", cine_moment_line(&emission.moment));
             // AUDIENCE-01: the same moment as plain data for the audience
             // observer (CINE never reads audience data; one-way).
-            let m = emission.moment;
-            feats.push(ChainFeat {
-                credited: m.credited,
-                target: m.target,
-                score: m.score,
-            });
+            feats.push(chain_feat(&emission.moment));
         }
     }
     feats
+}
+
+/// A CINE moment as the plain-data feat the audience observer takes.
+fn chain_feat(m: &dungeon_floorbreak::cine::CinematicMoment) -> ChainFeat {
+    ChainFeat {
+        credited: m.credited,
+        target: m.target,
+        score: m.score,
+    }
+}
+
+/// AUDIENCE-01: routes the CINE chain feats of a pre-simulated run (headless
+/// replays and the fast-forward of every capture) into the audience. The live
+/// loop gets them from the single fan-out in [`print_combat_events`]; this
+/// feed reads the same events through its own cursor, so the combat log's
+/// print cursor is untouched and nothing is printed. It keeps its own
+/// [`CineAdapter`] (the evaluator is a function of the events only, whatever
+/// the presentation setting), reads the log and returns nothing to the
+/// simulation. Inert while the audience is locked.
+#[derive(Default)]
+struct AudienceFeatFeed {
+    adapter: Option<CineAdapter>,
+    cursor: EventCursor,
+}
+
+impl AudienceFeatFeed {
+    /// One finished tick: call before [`step_hud`] (the live loop also queues
+    /// the feats before its HUD step).
+    fn observe(&mut self, combat: &CombatState, hud: &mut HudRuntime) {
+        if !hud.audience().is_unlocked() {
+            return;
+        }
+        let adapter = self
+            .adapter
+            .get_or_insert_with(|| CineAdapter::new(PresentationSettings::OFF));
+        for event in self.cursor.next(&combat.events, combat.dropped_events) {
+            adapter.push(event);
+        }
+        for emission in adapter.flush() {
+            hud.push_chain_feat(chain_feat(&emission.moment));
+        }
+    }
 }
 
 /// The `CINE01_MOMENT` line of an emitted moment.
@@ -5386,6 +5425,75 @@ mod tests {
         let mut full = vec!["floor01_scene".to_owned()];
         full.extend(list.iter().map(|s| (*s).to_owned()));
         parse_args_with(&full, HudSettings::default())
+    }
+
+    /// AUDIENCE-01 R1: a CINE chain award reaches the viewer count on every
+    /// path. The fast-forward of a headless replay (and of every capture)
+    /// and the live loop (the single fan-out of `fixed_step`) must end in the
+    /// same audience state for the same inputs. `cp03_goblin_pileup` earns a
+    /// mixed-chain CINE moment (score 7, credited to Carl). Without the feed
+    /// in `build_scene` the headless Carl is 500 short of the live one.
+    #[test]
+    fn a_cine_chain_award_reaches_the_audience_on_the_headless_and_live_paths() {
+        const TICKS: u64 = 260;
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let kit = EnvKit::load(root, LAYOUT_PATH).unwrap();
+        let actors = Actors::load(root, FrameSource::GridSource, true, false).unwrap();
+        let base = [
+            "--headless-floor01-smoke",
+            "--fixture",
+            "cp03_goblin_pileup",
+            "--audience-probe",
+        ];
+
+        // Headless: the fast-forward of `build_scene`.
+        let mut fast = base.to_vec();
+        let ticks = TICKS.to_string();
+        fast.extend(["--capture-tick", ticks.as_str()]);
+        let fast = args(&fast).unwrap();
+        let mut hud_fast = new_hud(&fast, &kit, &actors);
+        build_scene(&kit, &fast, &actors, root, &mut hud_fast).unwrap();
+
+        // Live-equivalent: the order of `fixed_step` (step, single fan-out,
+        // chain feats queued, HUD step), with the presentation observer.
+        let live = args(&base).unwrap();
+        let mut hud_live = new_hud(&live, &kit, &actors);
+        let (mut sim, mut anim, combat, death, _) =
+            build_scene(&kit, &live, &actors, root, &mut hud_live).unwrap();
+        let (mut combat, mut death) = (combat.unwrap(), death.unwrap());
+        let fixture = live.fixture.unwrap();
+        let mut adapter = CineAdapter::new(PresentationSettings::DEFAULT);
+        let mut awards = 0;
+        for _ in 0..TICKS {
+            let input = scripted_input(&live, fixture, &sim, &combat);
+            step_combat(
+                &mut sim,
+                &mut combat,
+                &mut anim,
+                Some(&mut death),
+                [input, RawInput::default()],
+            );
+            for feat in print_combat_events(&mut combat, None, Some(&mut adapter)) {
+                awards += 1;
+                hud_live.push_chain_feat(feat);
+            }
+            step_hud(&mut hud_live, &sim, Some(&combat));
+        }
+
+        assert!(awards > 0, "the fixture must earn a CINE chain feat");
+        let (fast_view, live_view) = (hud_fast.audience(), hud_live.audience());
+        assert_eq!(
+            (
+                fast_view.count(HeroId::Carl),
+                fast_view.count(HeroId::Donut)
+            ),
+            (
+                live_view.count(HeroId::Carl),
+                live_view.count(HeroId::Donut)
+            ),
+        );
+        assert_eq!(fast_view.steps(), live_view.steps());
+        assert_eq!(fast_view.digest(), live_view.digest());
     }
 
     #[test]
