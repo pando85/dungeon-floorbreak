@@ -27,15 +27,29 @@
 #   ci_floor01_combat.sh render     inside xvfb-run -s '-screen 0 1920x1080x24':
 #                                   the real Bevy render loop (scale 3, lighting
 #                                   on) must reproduce the headless events and
-#                                   hash for every fixture, then capture 61
-#                                   real 1920x1080 frames (one per tick) of
-#                                   cp01_single_goblin, cp01_haymaker_chain,
-#                                   cp01_interrupt, cp01_goblin_attacks and
-#                                   cp02_two_goblins (ART-INT-02 evidence).
-#                                   The frames drawn (COMBAT_ANIM_STATE) must
-#                                   match the headless replay as well.
+#                                   hash for every fixture, and the automatic
+#                                   camera render must match its headless replay.
+#   ci_floor01_combat.sh render-sequences [SHARD COUNT]
+#                                   inside xvfb-run -s '-screen 0 1920x1080x24':
+#                                   capture 61 (52 for cp01_retry) real
+#                                   1920x1080 frames (one per tick) of every
+#                                   fixture in the `sequences` list below
+#                                   (ART-INT-02 evidence). The frames drawn
+#                                   (COMBAT_ANIM_STATE) and the replay must
+#                                   match the headless run. With SHARD COUNT
+#                                   (CI-CORRIDOR-TIME) only the sequences whose
+#                                   index modulo COUNT equals SHARD run, so
+#                                   COUNT parallel CI jobs (SHARD 0..COUNT-1)
+#                                   together cover every sequence exactly
+#                                   once; without arguments all of them run.
 set -euo pipefail
-mode="${1:?usage: ci_floor01_combat.sh headless|render|demo|demo-render|cine}"
+mode="${1:?usage: ci_floor01_combat.sh headless|render|render-sequences [SHARD COUNT]|demo|demo-render|cine}"
+shard="${2:-0}"
+shard_count="${3:-1}"
+if ! [[ "$shard" =~ ^[0-9]+$ && "$shard_count" =~ ^[1-9][0-9]*$ ]] || (( shard >= shard_count )); then
+  echo "bad shard $shard of $shard_count" >&2
+  exit 2
+fi
 bin=./target/debug/floor01_scene
 fixtures=(cp01_single_goblin cp01_two_hits cp02_two_goblins cp01_goblin_attacks cp01_interrupt cp01_haymaker_chain cp01_retry cp01_kick cp02_kick_contact cp03_shore_kill cp03_shore_miss cp03_kick_block cp03_goblin_pileup cp03_block_edge_decap qa_blast_breakup cp05_llama_slam cp05_llama_down cp05_llama_spit cp05_llama_offscreen cp05_llama_crush)
 # fixture:first tick:step:count of the real-frame capture sequences. The windows
@@ -71,6 +85,24 @@ combat_lines() { grep -E '^(COMBAT_EVENT|COMBAT_STATE)' || true; }
 last_state() { grep '^COMBAT_STATE' | tail -n 1 || true; }
 last_anim() { grep '^COMBAT_ANIM_STATE' | tail -n 1 || true; }
 events() { grep '^COMBAT_EVENT' || true; }
+run_log_wait() {
+  local pid="$1" log="$2" limit="$3"
+  for _ in $(seq 1 "$limit"); do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    tail -n 20 "$log"
+    echo "Render run did not finish" >&2
+    exit 1
+  fi
+  if grep -qE 'FLOOR1_ASSET_FAILURE|FLOOR1_CAPTURE_FAILURE|FLOOR1_LIGHTING_WARNING' "$log"; then
+    tail -n 20 "$log"
+    echo "Render run reported a failure" >&2
+    exit 1
+  fi
+}
 # What a render log must reproduce: every event, then the final state line (the
 # log also carries intermediate COMBAT_STATE lines at load and per capture).
 replay() { local text; text="$(cat)"; events <<<"$text"; last_state <<<"$text"; }
@@ -295,24 +327,6 @@ case "$mode" in
     echo "CAMERA_HASH_OK: demo beat 4 on the hall (scroll, auto, 1.5)"
     ;;
   render)
-    run_log_wait() {
-      local pid="$1" log="$2" limit="$3"
-      for _ in $(seq 1 "$limit"); do
-        kill -0 "$pid" 2>/dev/null || break
-        sleep 1
-      done
-      if kill -0 "$pid" 2>/dev/null; then
-        kill "$pid" 2>/dev/null || true
-        tail -n 20 "$log"
-        echo "Render run did not finish" >&2
-        exit 1
-      fi
-      if grep -qE 'FLOOR1_ASSET_FAILURE|FLOOR1_CAPTURE_FAILURE|FLOOR1_LIGHTING_WARNING' "$log"; then
-        tail -n 20 "$log"
-        echo "Render run reported a failure" >&2
-        exit 1
-      fi
-    }
     for f in "${fixtures[@]}"; do
       headless="$(cat "$committed/headless_${f}.txt")"
       # The live loop stops after this many ticks over every attempt (a restart
@@ -354,8 +368,12 @@ case "$mode" in
       exit 1
     fi
     echo "CAMERA_RENDER_OK: $expected"
-    # Real 1920x1080 captures, every tick of each window.
-    for spec in "${sequences[@]}"; do
+    ;;
+  render-sequences)
+    # Real 1920x1080 captures, every tick of each window (this shard's share).
+    for index in "${!sequences[@]}"; do
+      (( index % shard_count == shard )) || continue
+      spec="${sequences[$index]}"
       IFS=: read -r f first step count <<<"$spec"
       last=$((first + step * (count - 1)))
       frames="$out/frames_${f}"

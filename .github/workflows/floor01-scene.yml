@@ -20,42 +20,7 @@ jobs:
       LIBGL_ALWAYS_SOFTWARE: '1'
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      # Same shared key as game.yml and character-playground.yml, so the three
-      # workflows reuse one dependency build. fmt, clippy and the Rust tests
-      # (including every floor01 test) run in game.yml.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: bevy-linux-dev
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install Linux render dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            pkg-config libasound2-dev libudev-dev \
-            libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-0 \
-            libwayland-dev libvulkan-dev mesa-vulkan-drivers \
-            xvfb x11-utils imagemagick
-          python3 -m pip install --disable-pip-version-check Pillow==13.0.0 numpy==2.5.3
-      - name: Obtain pinned LibreSprite 1.3
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl --fail --location --retry 4 --retry-all-errors --silent --show-error \
-            -o "$RUNNER_TEMP/libresprite.AppImage" \
-            'https://github.com/LibreSprite/LibreSprite/releases/download/v1.3/libresprite-v1.3-linux-x86_64.AppImage'
-          echo 'fd90bddda8135fe00f4a9a9c8c9ebd48f9b07e8782ab269be5c9efb1a851af30  '"$RUNNER_TEMP/libresprite.AppImage" | sha256sum -c -
-          mkdir -p "$RUNNER_TEMP/art-cli"
-          cd "$RUNNER_TEMP/art-cli"
-          chmod +x "$RUNNER_TEMP/libresprite.AppImage"
-          "$RUNNER_TEMP/libresprite.AppImage" --appimage-extract >/dev/null
-          echo "ART_CLI=$RUNNER_TEMP/art-cli/squashfs-root/AppRun" >> "$GITHUB_ENV"
-      - name: Export actor and Floor 1 kit atlases
-        run: bash scripts/export_assets.sh
+      - uses: ./.github/actions/floor01-setup
       - name: Check actor pivots, kit atlases and layout against the contract
         run: python3 scripts/check_floor01_scene_contract.py
       - name: Exported atlas JSON must equal the committed grid sources (fails instead of skipping)
@@ -101,20 +66,6 @@ jobs:
             --out-json artifacts/floor01-lighting-compare.json
       - name: Collision and walking-line overlay (640x360)
         run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh collision
-      - name: HUD-HYBRID-A-01 captures at 640x360 (normal, five preview fixtures, real hurt and notices; pixel-integrity checked)
-        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh hud
-      - name: HUD-HYBRID-A-01 captures at 640x400 (Deck framing)
-        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh hud-deck
-      - name: Floor 01 boss encounter captures at 640x360 (HUD-DEBT-03, real boss fixture states; rendered state must equal the headless replay)
-        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh boss
-      - name: Floor 01 boss encounter captures at 640x400 (Deck framing)
-        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh boss-deck
-      - name: AUDIENCE-01 viewer readout captures at 640x360 (previews and the QA probe on real fixtures; pixel-integrity checked)
-        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh audience
-      - name: AUDIENCE-01 viewer readout captures at 640x400 (Deck framing)
-        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh audience-deck
-      - name: AUDIENCE-01 viewer readout capture at 1920x1080 (integer x3, the widest strings; pixel-integrity checked)
-        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh audience-x3
       - name: Animation capture, run_jump scenario (81 real 1920x1080 Bevy frames, state must match the headless run)
         run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh anim-sequence
       - name: ANIM-INT-01 evidence (GIF, stills, timeline) and committed state logs
@@ -159,11 +110,86 @@ jobs:
             artifacts/floor01-scene-*.png
             artifacts/floor01-scene-*.log
             artifacts/floor01-lighting-*
+            artifacts/anim-int-01/evidence/
+            artifacts/cp01-feel/*.txt
+            artifacts/cp01-feel/*.log
+            artifacts/cp01-feel/frames_*/
+          if-no-files-found: warn
+
+  corridor-captures:
+    # HUD, boss and AUDIENCE-01 captures. Split out of corridor-scene (CI-CORRIDOR-TIME)
+    # so they run in parallel with it; no check was dropped or changed.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: '1'
+      WGPU_BACKEND: vulkan
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/floor01-setup
+        with:
+          save-cache: 'false'
+      - name: Compile the Floor 1 scene
+        run: cargo build --locked --bin floor01_scene
+      - name: HUD-HYBRID-A-01 captures at 640x360 (normal, five preview fixtures, real hurt and notices; pixel-integrity checked)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh hud
+      - name: HUD-HYBRID-A-01 captures at 640x400 (Deck framing)
+        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh hud-deck
+      - name: Floor 01 boss encounter captures at 640x360 (HUD-DEBT-03, real boss fixture states; rendered state must equal the headless replay)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh boss
+      - name: Floor 01 boss encounter captures at 640x400 (Deck framing)
+        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh boss-deck
+      - name: AUDIENCE-01 viewer readout captures at 640x360 (previews and the QA probe on real fixtures; pixel-integrity checked)
+        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/ci_floor01_render_smoke.sh audience
+      - name: AUDIENCE-01 viewer readout captures at 640x400 (Deck framing)
+        run: xvfb-run -a -s '-screen 0 1280x800x24' bash scripts/ci_floor01_render_smoke.sh audience-deck
+      - name: AUDIENCE-01 viewer readout capture at 1920x1080 (integer x3, the widest strings; pixel-integrity checked)
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_render_smoke.sh audience-x3
+      - name: Upload Floor 1 capture evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: the-crawl-floor01-captures
+          path: |
+            artifacts/floor01-scene-*.png
+            artifacts/floor01-scene-*.log
             artifacts/hud/
             artifacts/boss/
             artifacts/audience/
-            artifacts/anim-int-01/evidence/
-            artifacts/cp01-feel/*.txt
+          if-no-files-found: warn
+
+  corridor-combat-frames:
+    # The 12 real 1920x1080 frame sequences of ci_floor01_combat.sh, three
+    # parallel shards of 4 (CI-CORRIDOR-TIME). Shard i runs the sequences whose
+    # index modulo 3 is i, so the shards cover every sequence exactly once.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: '1'
+      WGPU_BACKEND: vulkan
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/floor01-setup
+        with:
+          save-cache: 'false'
+      - name: Compile the Floor 1 scene
+        run: cargo build --locked --bin floor01_scene
+      - name: Combat fixtures, real Bevy 1920x1080 frame sequences, shard ${{ matrix.shard }} of 3 (replay and frames drawn must equal the headless run)
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' bash scripts/ci_floor01_combat.sh render-sequences ${{ matrix.shard }} 3
+      - name: Upload combat frame evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: the-crawl-floor01-combat-frames-${{ matrix.shard }}
+          path: |
             artifacts/cp01-feel/*.log
             artifacts/cp01-feel/frames_*/
           if-no-files-found: warn
