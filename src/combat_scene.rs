@@ -905,6 +905,10 @@ pub struct CombatState {
     /// DEMO-01 rules (`None` for every fixture) and the furthest beat entered.
     demo: Option<&'static DemoRules>,
     pub checkpoint: usize,
+    /// The tick of Carl's last hit per target (goblins, then llamas), for the
+    /// companion's `HumanFinishWindow` (CF02-DUO-A12). Not hashed: it is a
+    /// function of the hashed event history, read only by the companion view.
+    carl_hit_tick: Vec<Option<u64>>,
     // Presentation cache (not hashed, never read by the sim).
     confirm: Option<Confirm>,
     flash_tick: Vec<Option<u64>>,
@@ -991,6 +995,7 @@ impl CombatState {
             demo: None,
             checkpoint: 0,
             confirm: None,
+            carl_hit_tick: Vec::new(),
             flash_tick: Vec::new(),
             respawned: false,
         };
@@ -1134,6 +1139,7 @@ impl CombatState {
             {
                 self.enemies[index] = goblin;
                 self.flash_tick[index] = None;
+                self.carl_hit_tick[index] = None;
                 self.respawn_morale_of(index);
             }
         }
@@ -1241,6 +1247,7 @@ impl CombatState {
         self.confirm = None;
         self.checkpoint = self.start_checkpoint();
         self.flash_tick = vec![None; self.enemies.len() + self.llamas.len()];
+        self.carl_hit_tick = vec![None; self.enemies.len() + self.llamas.len()];
         // CF02 QA hook: a fixture goblin that starts launched.
         if self.cf02.is_some()
             && let Some((vx, vy)) = crate::cf02_fixtures::goblin_launch(self.fixture.name)
@@ -1493,6 +1500,9 @@ impl CombatState {
                     ..
                 } = event
                 {
+                    if let Some(slot) = self.carl_hit_tick.get_mut(target as usize) {
+                        *slot = Some(tick);
+                    }
                     if let Some(llama) = self
                         .llamas
                         .get_mut((target as usize).wrapping_sub(self.enemies.len()))

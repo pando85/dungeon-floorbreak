@@ -38,7 +38,7 @@ use crate::goblin::GoblinMode;
 use crate::input::RawInput;
 use crate::llama::LlamaMode;
 use crate::party::HeroId;
-use crate::prototype::HERO_HALF_HEIGHT;
+use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
 
 /// The profile file, parsed and hash-pinned once per process (CA-39).
 fn profiles() -> &'static ProfileFile {
@@ -72,6 +72,8 @@ const HASH_MARK: u64 = 0x434f_4d50_414e_0001;
 
 /// A wait anchor must lie this many px inside the camera (01B-wire).
 const NAV_BOUNDS_MARGIN: f32 = 24.0;
+/// CF02-DUO-A15: how far from her `flat_span` looks each way.
+const FLAT_SPAN_REACH_PX: f32 = 160.0;
 
 /// A marker word of a live nav transit in the companion block ("NAV").
 const NAV_MARK: u64 = 0x4e41_5600_0000_0001;
@@ -593,6 +595,11 @@ impl CombatState {
             let (drive, tick_notes) = nav.follow(hero, me, leader, bounds);
             notes.extend(tick_notes.into_iter().map(|n| (hero, n)));
             let Some(drive) = drive else { continue };
+            // A route that needs a jump or a drop is the nav's: no flank
+            // (CF02-DUO-A15 never overrides a transit).
+            if hero == HeroId::Donut {
+                view.flank_span = None;
+            }
             let active = match hero {
                 HeroId::Carl => profile.carl.ca21_active,
                 HeroId::Donut => profile.donut.ca21_active,
@@ -668,6 +675,12 @@ impl CombatState {
             }
         }
 
+        // CF02-DUO-A15: Donut's flat standing run, only where the flank is on.
+        let flank_span = (profile.cf02_duo.cf02_duo_a15_flank
+            && matches!(heroes[HeroId::Donut.index()].control, Control::Companion))
+        .then(|| Self::flat_span(scene, HeroId::Donut))
+        .flatten();
+
         CompanionView {
             tick: scene.world.tick + 1,
             solo: live && !drive.two_player,
@@ -677,9 +690,61 @@ impl CombatState {
             heroes,
             follow,
             threats: self.companion_threats(view),
-            targets: self.companion_targets(view),
+            targets: self.companion_targets(view, scene.world.tick + 1),
             boss,
+            flank_span,
         }
+    }
+
+    /// CF02-DUO-A15: the x interval around `id` that is flat ground at its own
+    /// foot level, inset by the body half width at both ends (so its body never
+    /// overhangs an edge), and free of walls over the body height. Sampled
+    /// every 4 px out to `FLAT_SPAN_REACH_PX`; `None` when the hero is
+    /// airborne or does not stand on a flat surface. Pure on the solids.
+    fn flat_span(scene: &SceneSim, id: HeroId) -> Option<(f32, f32)> {
+        const STEP_PX: f32 = 4.0;
+        const FLAT_TOLERANCE_PX: f32 = 2.0;
+        let body = scene.world.body(id);
+        if !body.grounded {
+            return None;
+        }
+        let foot_y = body.y - HERO_HALF_HEIGHT;
+        let solids = &scene.world.solids;
+        let stands = |x: f32| {
+            solids.iter().any(|b| {
+                b.intact
+                    && b.rect.left <= x
+                    && x <= b.rect.right()
+                    && (b.rect.top() - foot_y).abs() <= FLAT_TOLERANCE_PX
+            })
+        };
+        let free = |x: f32| {
+            let probe = Rect {
+                left: x - HERO_HALF_WIDTH,
+                bottom: foot_y + FLAT_TOLERANCE_PX + 1.0,
+                width: 2.0 * HERO_HALF_WIDTH,
+                height: 2.0 * HERO_HALF_HEIGHT,
+            };
+            solids.iter().all(|b| !b.intact || !probe.overlaps(b.rect))
+        };
+        let ok = |x: f32| {
+            stands(x - HERO_HALF_WIDTH) && stands(x + HERO_HALF_WIDTH) && stands(x) && free(x)
+        };
+        if !ok(body.x) {
+            return None;
+        }
+        let reach = |dir: f32| {
+            let mut x = body.x;
+            for _ in 0..(FLAT_SPAN_REACH_PX / STEP_PX) as usize {
+                let next = x + dir * STEP_PX;
+                if !ok(next) {
+                    break;
+                }
+                x = next;
+            }
+            x
+        };
+        Some((reach(-1.0), reach(1.0)))
     }
 
     /// May the follow layer (the bot's input, or the nav-driven one) act for
@@ -818,9 +883,16 @@ impl CombatState {
         threats
     }
 
+    /// Ticks from Carl's last hit on target slot `slot` (goblins, then llamas)
+    /// to `now`, saturating (CF02-DUO-A12).
+    fn carl_hit_age(&self, slot: usize, now: u64) -> Option<u16> {
+        let at = (*self.carl_hit_tick.get(slot)?)?;
+        Some(now.saturating_sub(at).min(u64::from(u16::MAX)) as u16)
+    }
+
     /// The living enemies a support move could hit, goblins then llamas (Q18
     /// only), by id.
-    fn companion_targets(&self, view: ViewBounds) -> Vec<TargetView> {
+    fn companion_targets(&self, view: ViewBounds, now: u64) -> Vec<TargetView> {
         let mut targets = Vec::new();
         for (index, g) in self.enemies.iter().enumerate() {
             if !g.alive() {
@@ -852,6 +924,7 @@ impl CombatState {
                 guarded: g.guard.is_some(),
                 in_view: view.in_view(g.x),
                 carl_hit: g.hit_by == Some(HeroId::Carl.index() as u32),
+                carl_hit_age: self.carl_hit_age(index, now),
             });
         }
         if self.llama_targets_live().is_some() {
@@ -875,6 +948,7 @@ impl CombatState {
                     guarded: l.guard.is_some(),
                     in_view: view.in_view(l.x),
                     carl_hit: l.hit_by == Some(HeroId::Carl.index() as u32),
+                    carl_hit_age: self.carl_hit_age(self.enemies.len() + index, now),
                 });
             }
         }
@@ -1034,5 +1108,57 @@ mod tests {
             pressed_in |= inputs[1].attack;
         }
         assert!(pressed_in, "inside the view: the swat starts");
+    }
+
+    /// CF02-DUO-A15: `flat_span` is the flat ground the flank may use. On the
+    /// arena floor it is a run around her; on the left perch slab (x 544 to
+    /// 672) it ends a body half width inside both slab edges, so the flank never
+    /// walks her off a ledge, and it is `None` in the air.
+    #[test]
+    fn a15_flat_span_ends_a_body_half_width_inside_a_ledge() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let arena_kit = crate::cf02::arena::load_arena(&root).unwrap();
+        let fixture = crate::cf02_fixtures::find_party_fixture("cf02_arena_direct").unwrap();
+        let mut sim = crate::party_scene::PartyFixtureSim::new(&arena_kit, 360, fixture).unwrap();
+        for _ in 0..4 {
+            sim.step_slots([RawInput::NONE; 2]);
+        }
+        let donut = HeroId::Donut;
+        let body = sim.scene.world.body(donut);
+        assert!(body.grounded);
+        let floor_y = body.y - HERO_HALF_HEIGHT;
+        let x = body.x;
+        let (lo, hi) = CombatState::flat_span(&sim.scene, donut).expect("on the floor");
+        assert!(lo <= x && x <= hi && hi - lo >= 40.0, "{lo} {x} {hi}");
+        // On the left perch slab, 80 px up.
+        assert!(sim.scene.regroup_place(donut, 600.0, floor_y + 80.0));
+        assert_eq!(
+            CombatState::flat_span(&sim.scene, donut),
+            None,
+            "airborne until it lands"
+        );
+        for _ in 0..30 {
+            sim.step_slots([RawInput::NONE; 2]);
+            if sim.scene.world.body(donut).grounded {
+                break;
+            }
+        }
+        let body = sim.scene.world.body(donut);
+        assert!(body.grounded, "{body:?}");
+        assert!(
+            (body.y - HERO_HALF_HEIGHT - (floor_y + 80.0)).abs() < 2.0,
+            "stands on the slab: {body:?}"
+        );
+        let (lo, hi) = CombatState::flat_span(&sim.scene, donut).expect("on the slab");
+        let half = crate::prototype::HERO_HALF_WIDTH;
+        let (left, right) = (
+            crate::cf02::arena::LEFT_PERCH_X.0 as f32,
+            crate::cf02::arena::LEFT_PERCH_X.1 as f32,
+        );
+        assert!(
+            lo >= left + half - 4.0 && hi <= right - half + 4.0,
+            "{lo} {hi}"
+        );
+        assert!(hi - lo >= 80.0, "most of the slab: {lo} {hi}");
     }
 }

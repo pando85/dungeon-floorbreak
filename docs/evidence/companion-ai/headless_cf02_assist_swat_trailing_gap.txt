@@ -1,9 +1,13 @@
 COMBAT_EVENT tick=62 kind=goblin_tell goblin=0
-COMBAT_EVENT tick=80 kind=move_started move=swat instance=1
-COMBAT_EVENT tick=84 kind=hit move=swat instance=1 target=0 damage=0 health_left=2 hit_stop=2
-COMBAT_EVENT tick=84 kind=goblin_interrupted goblin=0
-COMBAT_EVENT tick=114 kind=goblin_tell goblin=0
-COMBAT_EVENT tick=140 kind=goblin_swing goblin=0
-COMBAT_EVENT tick=233 kind=goblin_tell goblin=0
-COMBAT_STATE fixture=cf02_assist_swat_trailing_gap seed=0xc0a10002 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies=e0=631.667/2 hash=eb447f1fb782138e
-PARTY_STATE fixture=cf02_assist_swat_trailing_gap mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=502637e04e298934
+COMBAT_EVENT tick=78 kind=move_started move=swat instance=1
+COMBAT_EVENT tick=82 kind=hit move=swat instance=1 target=0 damage=0 health_left=2 hit_stop=2
+COMBAT_EVENT tick=82 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=112 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=138 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=164 kind=move_started move=pounce instance=2
+COMBAT_EVENT tick=180 kind=hit move=pounce instance=2 target=0 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=213 kind=move_started move=pounce instance=3
+COMBAT_EVENT tick=223 kind=hit move=pounce instance=3 target=0 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=223 kind=enemy_defeated target=0 instigator=1
+COMBAT_STATE fixture=cf02_assist_swat_trailing_gap seed=0xc0a10002 tick=240 elapsed=240 hero_hp=4 deaths=0 enemies=e0=579.167/0 hash=7171633777072118
+PARTY_STATE fixture=cf02_assist_swat_trailing_gap mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=4e35b097c459d7ce

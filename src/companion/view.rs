@@ -178,6 +178,9 @@ pub struct TargetView {
     /// Carl's move was the last to hit it (`hit_by`, CF02-DUO-A08: the
     /// `HumanFinishWindow` reads it with the target's state).
     pub carl_hit: bool,
+    /// Ticks since Carl's last hit on it (`None`: no hit of his this life),
+    /// CF02-DUO-A12: the recently-hit window of the `HumanFinishWindow`.
+    pub carl_hit_age: Option<u16>,
 }
 
 /// The simulation scroll-camera view (CF02-Q40 = AP-Q07): `in_view(x)` is
@@ -212,6 +215,12 @@ pub struct CompanionView {
     pub targets: Vec<TargetView>,
     /// The boss tell, when one is up. Ignored by 01A-core (boss play is 01E).
     pub boss: Option<BossThreat>,
+    /// CF02-DUO-A15: the x interval around Donut that is flat standing ground
+    /// at her own foot level (no ledge edge, no wall, no hole), already inset by
+    /// her body half width; `None` when she is airborne, stands on nothing
+    /// flat, or the nav is driving her this tick. Built only where the flank
+    /// is enabled; the director never leaves it.
+    pub flank_span: Option<(f32, f32)>,
 }
 
 /// A violated view guarantee.
@@ -311,6 +320,7 @@ pub(crate) mod fixtures {
             threats: Vec::new(),
             targets: Vec::new(),
             boss: None,
+            flank_span: None,
         }
     }
 }
@@ -376,6 +386,7 @@ mod tests {
             guarded: false,
             in_view: true,
             carl_hit: false,
+            carl_hit_age: None,
         };
         v.targets = vec![target(2), target(1)];
         assert_eq!(v.validate(), Err(ViewError::UnorderedTargets));

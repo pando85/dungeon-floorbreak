@@ -173,6 +173,19 @@ fn sign(dx: f32) -> i8 {
     if dx < 0.0 { -1 } else { 1 }
 }
 
+/// CF02-DUO-A15: the move step toward a flank spot `dx` px away, with a dead
+/// zone wider than one run step (3.1 px) so she stops on it instead of
+/// shuffling around it.
+fn flank_step(dx: f32) -> f32 {
+    if dx.abs() <= FLANK_DEADZONE_PX {
+        0.0
+    } else {
+        f32::from(sign(dx))
+    }
+}
+
+const FLANK_DEADZONE_PX: f32 = 4.0;
+
 /// Integer distance score: whole pixels, rounded down.
 fn px(distance: f32) -> i32 {
     distance as i32
@@ -299,6 +312,14 @@ impl CompanionDirector {
             ..RawInput::NONE
         };
         let mut jump = follow.jump;
+        // CF02-DUO-A15: with nothing to hit and no jump in progress (a dodge,
+        // a hop, the nav), she idles on the flank spot instead of trailing.
+        if goal.is_none()
+            && !jump
+            && let Some(x) = self.flank_spot(view, set, &me)
+        {
+            raw.move_x = flank_step(x - me.x);
+        }
         let mut decision = Decision {
             mode,
             action: goal.map(|c| c.action),
@@ -701,7 +722,7 @@ impl CompanionDirector {
             && !telling
             && target.hp > 0
             && !kills(POUNCE_DAMAGE)
-            && sign(dx) == me.facing
+            && (duo.cf02_duo_a13_turn_to_target || sign(dx) == me.facing)
             && (target.foot_y - me.foot_y).abs() <= f32::from(duo.cf02_duo_a09_vertical_reach_px)
             && distance >= f32::from(duo.cf02_duo_a06_pounce_min_px)
             && distance <= f32::from(duo.cf02_duo_a06_pounce_max_px))
@@ -715,17 +736,91 @@ impl CompanionDirector {
         })
     }
 
+    /// CF02-DUO-A15: where AI Donut should idle (an x) instead of trailing: on
+    /// the side the human Carl faces, `cf02_duo_a15_flank_ahead_px` ahead of
+    /// him, while a living standing goblin on her level approaches on that side
+    /// (further than the spot plus her pounce minimum, within
+    /// `cf02_duo_a15_flank_goblin_range_px` of Carl, in view). The spot is
+    /// clamped to the flat ground the view reports (no ledge, wall or hole) and
+    /// to the simulation camera less `cf02_duo_a15_flank_view_margin_px`; with
+    /// no room for it there is no flank. Once a goblin is inside the spot plus
+    /// her pounce minimum she falls back to `cf02_duo_a15_fallback_behind_px`
+    /// behind Carl. No flank during a boss tell, while
+    /// she cannot start a move (hurt, frozen, in a move) or off the ground.
+    /// Positioning only: every attack still goes through the A08, A11 and A12
+    /// anti-steal rules and the interrupt and dodge priority above it.
+    fn flank_spot(&self, view: &CompanionView, set: &ProfileSet, me: &HeroView) -> Option<f32> {
+        let duo = &set.cf02_duo;
+        let carl = &view.heroes[HeroId::Carl.index()];
+        if self.hero != HeroId::Donut
+            || !duo.cf02_duo_a15_flank
+            || !matches!(carl.control, Control::Human(_))
+            || carl.defeated
+            || view.boss.is_some()
+            || !me.grounded
+            || !me.can_start_move
+        {
+            return None;
+        }
+        let (span_lo, span_hi) = view.flank_span?;
+        let ahead = f32::from(duo.cf02_duo_a15_flank_ahead_px);
+        let near = ahead + f32::from(duo.cf02_duo_a06_pounce_min_px);
+        let range = f32::from(duo.cf02_duo_a15_flank_goblin_range_px);
+        let vertical = f32::from(duo.cf02_duo_a09_vertical_reach_px);
+        // Standing goblins on her level, in view, on the side Carl faces: `far`
+        // ones are still approaching (flank), `near` ones are inside the spot
+        // plus her pounce minimum (fall back).
+        let mut far = false;
+        let mut arrived = false;
+        for t in &view.targets {
+            let dx = t.x - carl.x;
+            if t.id.kind == EntityKind::Goblin
+                && t.hp > 0
+                && t.state == TargetState::Standing
+                && t.in_view
+                && sign(dx) == carl.facing
+                && (t.foot_y - me.foot_y).abs() <= vertical
+            {
+                if dx.abs() < near {
+                    arrived = true;
+                } else if dx.abs() <= range {
+                    far = true;
+                }
+            }
+        }
+        let offset = if arrived {
+            // It would walk through her and leave her too close to pounce
+            // it again: stand where it arrives inside her band, behind Carl.
+            -f32::from(duo.cf02_duo_a15_fallback_behind_px)
+        } else if far {
+            ahead
+        } else {
+            return None;
+        };
+        let margin = f32::from(duo.cf02_duo_a15_flank_view_margin_px);
+        let lo = span_lo.max(view.view.left + margin);
+        let hi = span_hi.min(view.view.right - margin);
+        if lo > hi {
+            return None;
+        }
+        Some((carl.x + f32::from(carl.facing) * offset).clamp(lo, hi))
+    }
+
     /// CF02-DUO-A08 (spec section 8, `HumanFinishWindow`): a damaging AI hit
     /// of `damage` on `target` would take the finish of an enemy the
-    /// human-controlled Carl is engaging. Carl engages a target within
-    /// `cf02_duo_a08_finisher_reach_px` of him while he has a move running
-    /// (the jab to haymaker window, whatever its phase) or while the target is
-    /// still down or staggered from his last hit (`carl_hit`); a Carl who just
-    /// stands near a goblin engages nothing, so she still protects an idle
-    /// player. The AI hit is refused while the target's HP is at most
-    /// `damage + cf02_duo_a08_finisher_reserve_hp`: Carl's pending hit is never
-    /// the one left over. Only the AI Donut under `factual`; it never changes
-    /// Carl's director or a set with the rule off.
+    /// human-controlled Carl is engaging. Carl engages (A11: only on the side
+    /// he faces) a target within `cf02_duo_a08_finisher_reach_px` of him while
+    /// he has a move running (the jab to haymaker window, whatever its phase)
+    /// or while the target is still down or staggered from his last hit
+    /// (`carl_hit`), and (A12) a target he hit within
+    /// `cf02_duo_a12_recent_hit_ticks`, at any distance and on either side of
+    /// him (the walk-up between two jabs, a step back, a walk-through; checked
+    /// before A11, PR #170 review B-1); a Carl who just stands near a goblin
+    /// engages nothing, so she still protects an idle player. The AI hit is refused while the target's
+    /// HP is at most `damage + cf02_duo_a08_finisher_reserve_hp`. Known limit
+    /// (A14): a press on the tick she starts is invisible to this pre-tick
+    /// view. Only the AI Donut under `factual`; it never changes Carl's
+    /// director or a set with the rule off.
     fn steals_the_finish(
         &self,
         view: &CompanionView,
@@ -746,15 +841,33 @@ impl CompanionDirector {
         if !matches!(carl.control, Control::Human(_)) || carl.defeated {
             return false;
         }
+        if target.hp > damage.saturating_add(duo.cf02_duo_a08_finisher_reserve_hp) {
+            return false;
+        }
+        // A12 (checked before A11, review B-1 of PR 170): a target Carl hit a
+        // moment ago stays his on either side of him. Walking through it,
+        // stepping back or turning does not hand it to her before the window
+        // ends; facing follows his velocity on the same tick.
+        let recent = target
+            .carl_hit_age
+            .is_some_and(|age| age <= duo.cf02_duo_a12_recent_hit_ticks);
+        if recent {
+            return true;
+        }
+        // A11: Carl engages only what is in front of him; an enemy exactly on
+        // him counts as in front (the conservative reading).
+        let dx = target.x - carl.x;
+        let in_front = dx == 0.0 || sign(dx) == carl.facing;
+        if duo.cf02_duo_a11_engage_facing_only && !in_front {
+            return false;
+        }
         let combo = carl.active_move.is_some();
         let from_his_hit = target.carl_hit
             && matches!(
                 target.state,
                 TargetState::Staggered { .. } | TargetState::Lying { .. }
             );
-        (combo || from_his_hit)
-            && (target.x - carl.x).abs() <= f32::from(duo.cf02_duo_a08_finisher_reach_px)
-            && target.hp <= damage.saturating_add(duo.cf02_duo_a08_finisher_reserve_hp)
+        (combo || from_his_hit) && dx.abs() <= f32::from(duo.cf02_duo_a08_finisher_reach_px)
     }
 
     /// CF02-DUO-A04/A05: a Magic Missile on a standing or staggered enemy in
@@ -780,7 +893,7 @@ impl CompanionDirector {
             && hittable
             && target.hp > 0
             && !kills(MAGIC_MISSILE.damage)
-            && sign(dx) == me.facing
+            && (duo.cf02_duo_a13_turn_to_target || sign(dx) == me.facing)
             && (target.foot_y - me.foot_y).abs() <= f32::from(duo.cf02_duo_a09_vertical_reach_px)
             && distance >= f32::from(duo.cf02_duo_a05_missile_min_px)
             && distance <= f32::from(duo.cf02_duo_a05_missile_max_px))
@@ -890,6 +1003,7 @@ mod tests {
             guarded: false,
             in_view: true,
             carl_hit: false,
+            carl_hit_age: None,
         }
     }
 
@@ -1267,6 +1381,212 @@ mod tests {
         let mut last = donut_ai(60.0);
         last.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
         assert!(donut().step_traced(&last, &assist()).1.action == Some(Action::Pounce));
+    }
+
+    /// CF02-DUO-A11 and A12: Carl engages only what he faces, and an enemy he
+    /// hit a moment ago stays his across the walk-up between two jabs.
+    #[test]
+    fn c11_carl_engages_the_front_and_the_enemy_he_just_hit() {
+        let set = assist();
+        let window = set.cf02_duo.cf02_duo_a12_recent_hit_ticks;
+        let wants = |v: &CompanionView, set: &ProfileSet| {
+            matches!(
+                donut().step_traced(v, set).1.action,
+                Some(Action::Pounce | Action::Missile)
+            )
+        };
+        let jab = Some(ActiveMove {
+            id: MoveId::Jab,
+            phase: MovePhase::Recovery,
+            ticks_left: 4,
+            ai_started: false,
+        });
+        // A11: Carl (x=100) jabs right; a 1 HP goblin at 110 is his, one at 90
+        // (behind him, 40 px ahead of Donut at 50) is hers.
+        let mut front = donut_ai(50.0);
+        front.heroes[0].active_move = jab;
+        front.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
+        let mut back = front.clone();
+        back.targets = vec![target(0, 90.0, 1, TargetState::Standing)];
+        // Donut at 50 would have the goblin at 110 out of her band: put her at
+        // 40 for the front case so both are in her 30..80 px band.
+        front.heroes[1].x = 40.0;
+        assert!(!wants(&front, &set), "in front of Carl: his");
+        assert!(wants(&back, &set), "behind Carl: fair game for her");
+        // Carl turned left: the roles swap.
+        front.heroes[0].facing = -1;
+        back.heroes[0].facing = -1;
+        assert!(wants(&front, &set), "behind a left-facing Carl");
+        assert!(!wants(&back, &set), "in front of a left-facing Carl");
+        let mut off = set.clone();
+        off.cf02_duo.cf02_duo_a11_engage_facing_only = false;
+        assert!(!wants(&back, &off), "A11 off: any side counts");
+        // A12: a goblin Carl hit `window` ticks ago is still his with Carl idle
+        // and far from it, and on either side of him (B-1); one tick later it
+        // is hers.
+        let mut walk = donut_ai(60.0);
+        walk.heroes[0].x = 20.0;
+        walk.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
+        walk.targets[0].carl_hit = true;
+        walk.targets[0].carl_hit_age = Some(window);
+        assert!(!wants(&walk, &set), "recently hit by Carl: his");
+        walk.targets[0].carl_hit_age = Some(window + 1);
+        assert!(wants(&walk, &set), "the window is over");
+        walk.targets[0].carl_hit_age = Some(window);
+        walk.heroes[0].facing = -1;
+        assert!(!wants(&walk, &set), "Carl turned away from it: still his");
+        walk.targets[0].carl_hit_age = Some(window + 1);
+        assert!(wants(&walk, &set), "turned away and the window is over");
+        walk.targets[0].carl_hit_age = Some(window);
+        let mut no_window = set.clone();
+        no_window.cf02_duo.cf02_duo_a12_recent_hit_ticks = 0;
+        walk.heroes[0].facing = 1;
+        walk.targets[0].carl_hit_age = Some(1);
+        assert!(wants(&walk, &no_window), "window 0: only a move or stagger");
+    }
+
+    /// CF02-DUO-A15: she idles ahead of Carl while a goblin approaches on the
+    /// side he faces, falls back behind him once it is inside the spot plus
+    /// her pounce minimum, and has nothing to flank for a goblin behind him,
+    /// a lying one, one beyond the range, out of view or on another level.
+    #[test]
+    fn duo_a15_flank_spot_ahead_then_fall_back_behind_carl() {
+        let set = assist();
+        let mv = |v: &CompanionView, set: &ProfileSet| donut().step_traced(v, set).0.move_x;
+        // Carl at 100 faces right; spot = 100 + 56. A goblin 200 px ahead of
+        // him is outside her 80 px pounce band from the spot and from past it.
+        let mut v = donut_ai(60.0);
+        v.flank_span = Some((0.0, 640.0));
+        v.targets = vec![target(0, 300.0, 2, TargetState::Standing)];
+        assert_eq!(mv(&v, &set), 1.0, "walks to the spot");
+        v.heroes[1].x = 156.0;
+        assert_eq!(mv(&v, &set), 0.0, "stands on it");
+        v.heroes[1].x = 159.0;
+        assert_eq!(mv(&v, &set), 0.0, "inside the dead zone");
+        v.heroes[1].x = 200.0;
+        assert_eq!(mv(&v, &set), -1.0, "comes back to it from past it");
+        // A goblin inside the spot plus her pounce minimum (86 px): she falls
+        // back to 40 px behind Carl, where it arrives inside her band.
+        v.targets = vec![target(0, 150.0, 2, TargetState::Standing)];
+        v.heroes[1].x = 156.0;
+        assert_eq!(mv(&v, &set), -1.0, "falls back");
+        v.heroes[1].x = 60.0;
+        assert_eq!(mv(&v, &set), 0.0, "and stands there");
+        // Nothing to flank.
+        let lying = TargetState::Lying {
+            down_ticks_left: 40,
+            hold_used: false,
+        };
+        let mut none = donut_ai(60.0);
+        none.flank_span = Some((0.0, 640.0));
+        for (name, t) in [
+            ("behind Carl", target(0, -100.0, 2, TargetState::Standing)),
+            ("lying", target(0, 250.0, 2, lying)),
+            (
+                "beyond the range",
+                target(0, 341.0, 2, TargetState::Standing),
+            ),
+            ("out of view", {
+                let mut t = target(0, 250.0, 2, TargetState::Standing);
+                t.in_view = false;
+                t
+            }),
+            ("another level", {
+                let mut t = target(0, 250.0, 2, TargetState::Standing);
+                t.foot_y = 80.0;
+                t
+            }),
+        ] {
+            none.targets = vec![t];
+            assert_eq!(mv(&none, &set), 0.0, "{name}: plain follow");
+        }
+        // Facing left: the spot is on his left (100 - 56 = 44).
+        let mut left = donut_ai(140.0);
+        left.heroes[0].facing = -1;
+        left.flank_span = Some((0.0, 640.0));
+        left.targets = vec![target(0, -50.0, 2, TargetState::Standing)];
+        assert_eq!(mv(&left, &set), -1.0);
+    }
+
+    /// CF02-DUO-A15 safety: the spot is clamped to the flat ground the view
+    /// reports and the camera less the margin; no flat ground, no flank; the
+    /// follow layer's jump, a hurt or busy hero and the data flag all win.
+    #[test]
+    fn duo_a15_flank_stays_on_flat_ground_inside_the_view_and_yields_to_everything() {
+        let set = assist();
+        let mv = |v: &CompanionView, set: &ProfileSet| donut().step_traced(v, set).0.move_x;
+        let mut on = donut_ai(60.0);
+        on.flank_span = Some((0.0, 640.0));
+        on.targets = vec![target(0, 250.0, 2, TargetState::Standing)];
+        assert_eq!(mv(&on, &set), 1.0);
+        // The flat ground ends at 120 (a ledge edge): the spot is 120.
+        let mut ledge = on.clone();
+        ledge.flank_span = Some((0.0, 120.0));
+        ledge.heroes[1].x = 118.0;
+        assert_eq!(mv(&ledge, &set), 0.0, "stops at the end of the flat ground");
+        ledge.heroes[1].x = 140.0;
+        assert_eq!(mv(&ledge, &set), -1.0, "never past it");
+        // No flat ground under her (airborne, or the nav is driving): plain.
+        let mut nothing = on.clone();
+        nothing.flank_span = None;
+        assert_eq!(mv(&nothing, &set), 0.0);
+        // The camera: the spot 496 clamps to 520 - 48 = 472.
+        let mut edge = donut_ai(500.0);
+        edge.heroes[0].x = 440.0;
+        edge.view.right = 520.0;
+        edge.flank_span = Some((0.0, 640.0));
+        edge.targets = vec![target(0, 600.0, 2, TargetState::Standing)];
+        assert_eq!(mv(&edge, &set), -1.0, "inside the camera margin");
+        // A follow-layer jump (a dodge, a hop, the nav) is never overridden.
+        let mut jump = on.clone();
+        jump.follow[1].jump = true;
+        assert_eq!(mv(&jump, &set), 0.0, "the jump layer's movement stands");
+        // Hurt or in a move: no positioning; nor in the air.
+        let mut busy = on.clone();
+        busy.heroes[1].can_start_move = false;
+        assert_eq!(mv(&busy, &set), 0.0);
+        let mut air = on.clone();
+        air.heroes[1].grounded = false;
+        assert_eq!(mv(&air, &set), 0.0);
+        // The data flag and the other set: off means the follow layer.
+        let mut off = set.clone();
+        off.cf02_duo.cf02_duo_a15_flank = false;
+        assert_eq!(mv(&on, &off), 0.0, "flag off");
+        assert_eq!(mv(&on, &v0()), 0.0, "companion_v0");
+        // A Carl the AI drives, or one that is down, has nothing to flank.
+        let mut ai_carl = on.clone();
+        ai_carl.heroes[0].control = Control::Companion;
+        assert_eq!(mv(&ai_carl, &set), 0.0);
+        let mut down = on.clone();
+        down.heroes[0].defeated = true;
+        assert_eq!(mv(&down, &set), 0.0);
+    }
+
+    /// CF02-DUO-A13: an enemy behind her is chosen too; she turns first (a
+    /// move step toward it, no press) and presses once she faces it.
+    #[test]
+    fn duo_a13_she_turns_to_an_enemy_behind_her_then_pounces() {
+        let set = assist();
+        // Donut at 140 faces right; the goblin stands 50 px behind her, and
+        // Carl (x=100, idle) engages nothing.
+        let mut v = donut_ai(140.0);
+        v.targets = vec![target(0, 90.0, 2, TargetState::Standing)];
+        let (raw, d) = donut().step_traced(&v, &set);
+        assert_eq!(d.action, Some(Action::Pounce), "{d:?}");
+        assert!(!d.pressed && raw.move_x < 0.0, "she turns first: {raw:?}");
+        // Facing it, she presses.
+        v.heroes[1].facing = -1;
+        let (raw, d) = donut().step_traced(&v, &set);
+        assert!(d.pressed && raw.physical, "{d:?}");
+        // Off: the first-cut rule, nothing behind her is a candidate.
+        let mut off = set.clone();
+        off.cf02_duo.cf02_duo_a13_turn_to_target = false;
+        v.heroes[1].facing = 1;
+        assert_ne!(
+            donut().step_traced(&v, &off).1.action,
+            Some(Action::Pounce),
+            "A13 off"
+        );
     }
 
     /// CF02-DUO-A08 (spec C-11 under `factual`): the AI never takes a hit that
