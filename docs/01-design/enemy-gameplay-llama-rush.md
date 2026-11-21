@@ -1,13 +1,13 @@
 # ENEMY-GAMEPLAY-LLAMA-RUSH: the llama rush and the Infernal Corral (CORRAL-0 design sheet)
 
 > **Status: design adopted under the owner's design-defaults directive (AGENTS.md, 2026-11-19); not implemented, not game-feel accepted.**
-> **Revision 2** applies the independent review of #195. It fixes B1: a floor Donut who jumps and casts in place could hit the dock llama. A bolt-blocking bumper on the dock edge now closes that, and the gate counts jump-in-place casting as stationary (section 10). It also applies fix-now items F1 to F17 and notes N1 to N6.
+> **Revision 2** applies the independent review of #195. It fixes B1: a floor Donut who jumps and casts in place could hit the dock llama. A bolt-blocking bumper on the dock edge now closes that, and the gate counts jump-in-place casting as stationary (section 10). It also applies fix-now items F1 to F17 and notes N1 to N6. **Revision 3** applies the narrow re-review. The bumper is raised to **80 px**, which is what the room's 16 px collision tile layer can build; the proof was re-run at 80. Donut's values are now main's, after #186 and #197. B's leash ends at 1830. Notes NB1 and NB2 are applied.
 > Every choice below has one adopted value with a `CRL-Q##` ID ([section 13](#13-adopted-defaults-crl-q01crl-q43)). The integration plan calls these rows `CORRAL-Q##`; they are the same IDs. Each value is a tuning hypothesis stored as data. The owner reviews game feel after the implementation merges and may change any value in a follow-up PR. Only [section 14](#14-genuinely-open-questions) waits for the owner.
 > Design: Claude Opus (top tier). Execution: medium tier, steps CORRAL-B core, CORRAL-B wire, CORRAL-C, CORRAL-D, CORRAL-E, CORRAL-WIRE and CORRAL-F ([section 15](#15-implementation-brief-and-acceptance-fixtures)). Review: a separate top-tier agent.
 
 **Why:** step CORRAL-0 of the Floor 01 playtest integration plan, Revision 5 ([merged in PR #190](https://github.com/pando85/dungeon-floorbreak/blob/main/docs/07-agents/f01-playtest-integration-plan.md), section 14, conflicts KC1 to KC19, items R1 and R2, plus the #190 review items D1, D2, L1, L2, F3 to F8 and F13). It turns the owner's [Infernal Corral v0.2](floor-01-llama-magic-baptism.md) (PR #181), its [work order](../07-agents/floor-01-llama-magic-workorder.md) and the [CORRAL-AUTO-01 evaluation protocol](../07-agents/floor-01-corral-autonomous-evaluation.md) into exact rules a medium-tier agent can build. Format precedents: the [Engineer sheet](enemy-gameplay-engineer.md) and the Hoarder sheet ([PR #184](https://github.com/pando85/dungeon-floorbreak/pull/184)). Code precedent for a committed floor charge: `src/engineer.rs`.
 
-**The one-paragraph answer.** A missile stagger outlasts Donut's refire, so a ground llama in a ground Donut's line can never walk, or even rush, into reach ([section 3](#3-the-approach-under-fire-budget-d2)). No rush number fixes that. The corral therefore closes the stationary exploit with **height plus one wall**. The pen floor holds one rush llama. A raised exit dock 32 px up holds the second, behind a 72 px dock bumper. Her bolt flies level at the height she releases it. From the dock she can hit only the dock llama, since every bolt passes over the floor llama. From the floor, the bumper stops every bolt she can release, standing or **jumping**, that is low enough to touch the dock llama. So **no spot where she stays, whether she jumps in place or not, can hit both llamas**. This guarantee is geometric, not a tuning hope. Section 10 proves it in f32 against main's physics. The rush then gives each level a readable, fair close-range threat that she must interrupt, jump or bait into the timber partition. The first llama (M1) stays the legacy spitter and is meant to be an easy three-bolt win.
+**The one-paragraph answer.** A missile stagger outlasts Donut's refire, so a ground llama in a ground Donut's line can never walk, or even rush, into reach ([section 3](#3-the-approach-under-fire-budget-d2)). No rush number fixes that. The corral therefore closes the stationary exploit with **height plus one wall**. The pen floor holds one rush llama. A raised exit dock 32 px up holds the second, behind an 80 px dock bumper. Her bolt flies level at the height she releases it. From the dock she can hit only the dock llama, since every bolt passes over the floor llama. From the floor, the bumper stops every bolt she can release, standing or **jumping**, that is low enough to touch the dock llama. So **no spot where she stays, whether she jumps in place or not, can hit both llamas**. This guarantee is geometric, not a tuning hope. Section 10 proves it in f32 against main's physics. The rush then gives each level a readable, fair close-range threat that she must interrupt, jump or bait into the timber partition. The first llama (M1) stays the legacy spitter and is meant to be an easy three-bolt win.
 
 ## 1. Authority and locks
 
@@ -17,7 +17,7 @@
 - **[DONUT-PROG-01](https://github.com/pando85/dungeon-floorbreak/blob/main/docs/03-tech/donut-prog-01-floor01-ability-progression.md) (main):** base Donut height classes 96 and 104 px (112 is a human-only route); Light on Your Feet (launch 547, apex 137.95) is granted at the refuge after the corral, never in it; DP-Q45 ceiling rule.
 - **[CARL-PROG-01](https://github.com/pando85/dungeon-floorbreak/blob/main/docs/03-tech/carl-prog-01-floor01-combat-progression.md) (main) and K1:** no dynamite before the Hoarder's defeat, so none in the corral.
 - **Owner draft [#187](https://github.com/pando85/dungeon-floorbreak/pull/187) (quiet setpieces):** REST-A, the fast-food refuge, begins **after** the corral's M3 threshold and carries the Light on Your Feet pickup. It says "do not grant the boost at the corral exit".
-- **Code on main** (`3e494848`): `src/llama.rs`, `src/feel.rs` (llama constants), `src/combat_scene.rs` (`step_llamas`, `step_globs`, `update_targets`, `hurt_hero`), `src/combat_scene/donut.rs` (bolt geometry, `missile_hits_llama`), `src/donut_mana.rs`, `src/engineer.rs`, `src/prototype.rs` (hero physics), `assets/data/gameplay/companion_magic_v0.json`.
+- **Code on main** (`c0e69acb`, with #186 DM-A and #197 DP-A merged): `src/llama.rs`, `src/feel.rs` (llama constants), `src/combat_scene.rs` (`step_llamas`, `step_globs`, `update_targets`, `hurt_hero`), `src/combat_scene/donut.rs` (bolt geometry, `missile_hits_llama`), `src/donut_mana.rs`, `src/engineer.rs`, `src/prototype.rs` (hero physics), `assets/data/gameplay/companion_magic_v0.json`.
 - **[Antihero tone](antihero-tone.md)** and **[fun over canon](vision.md#fun-over-canon-owner-decision-2026-11-21)**. **IP-neutral engine names:** `llama_rush`, `RushProfile`, `LLAMA_RUSH_SOURCE_ID`. "Bad Llama" stays in art and display data.
 
 ## 2. Deviations from #181 and from the plan (flagged)
@@ -25,7 +25,7 @@
 | ID | Source text | This sheet | Why |
 | --- | --- | --- | --- |
 | DV-1 | #181: rush decision envelope "~80–180 px" | Trigger **0..128 px** pivot to pivot (CRL-Q05); the llama first walks to **112 px** (CRL-Q04) | With 24 active ticks at 4 px/tick the box reaches a standing hero only out to 134 px (Donut) or 136 px (Carl) ([section 6](#6-reach-and-fairness-proof-kc18)). A rush started at 180 px ends 46 px short every time: a whiff that teaches nothing. No minimum distance: point-blank, the 32-tick tell still gives every escape ([section 6](#6-reach-and-fairness-proof-kc18)) |
-| DV-2 | #181: "two optional 32 px rise shelves", the second llama at about x 1824 on the pen floor, M3 on the floor line | One shelf stays optional (the entry shelf). The other becomes the **exit dock**, which is on the forward route. The dock carries the second llama at x 1968. Its edge has a 32 px wide **dock bumper** whose top is 72 px above the floor. M3 continues at the dock level (+32) | The D2 budget shows that a planted Donut on a flat lane can only be stopped by height or facing. A level bolt cannot hit down, so on the dock she can never reach the floor llama. A floor Donut can still hit upward by jumping and casting (review B1), so the bumper blocks every bolt released from the floor that is low enough to touch the dock llama ([section 10](#10-the-corral-geometry-crl-q25-to-crl-q33-crl-q41)). Both heroes climb the 72 px bumper (Carl's 80 px class), or jump past it onto the dock. The dock is not a sniper point: the dock llama rushes anyone standing on it. This is a real change to the owner's layout; the owner sees it at the game-feel review |
+| DV-2 | #181: "two optional 32 px rise shelves", the second llama at about x 1824 on the pen floor, M3 on the floor line | One shelf stays optional (the entry shelf). The other becomes the **exit dock**, which is on the forward route. The dock carries the second llama at x 1968. Its edge has a 32 px wide **dock bumper** whose top is 80 px above the floor. M3 continues at the dock level (+32) | The D2 budget shows that a planted Donut on a flat lane can only be stopped by height or facing. A level bolt cannot hit down, so on the dock she can never reach the floor llama. A floor Donut can still hit upward by jumping and casting (review B1), so the bumper blocks every bolt released from the floor that is low enough to touch the dock llama ([section 10](#10-the-corral-geometry-crl-q25-to-crl-q33-crl-q41)). Both heroes climb the 80 px bumper (exactly Carl's 80 px DP-Q18 class, the CF02 perch height), or jump past it onto the dock. Its top is a safe stall spot that threatens nothing (section 14, note 5). The dock is not a sniper point: the dock llama rushes anyone standing on it. This is a real change to the owner's layout; the owner sees it at the game-feel review |
 | DV-3 | #181 Beat 6: "remaining enemies die or the encounter's stage progression policy permits forward continuation" | The M3 threshold gate opens when **both** M2 llamas are defeated (CRL-Q26) | Without it, a running hero can jump the dock llama and leave, and M2 shrinks to one llama. It is the Hoarder's door rule (#184 DV-2), with an owner kill switch |
 | DV-4 | #181: spit baseline "retain" | A **corral-profile** llama spits only when the glob can hit its target at the target's current height and the glob lane is clear (CRL-Q11). Legacy and M1 llamas are unchanged | A spit that sails over a grounded Donut is a free turn for her. With the rule, the floor llama answers a grounded Donut with the rush, which is #181's point ("the short rush must threaten that same stationary ground position") |
 | DV-5 | #181 asks for a review of reflex evasion | **Not evadable**, knob `crlq18_rush_evadable` (default `false`) | Review in [section 8](#8-evasion-c4-and-the-reflex). Game-feel note for the owner |
@@ -39,7 +39,7 @@ No other #181 rule is changed.
 
 ## 3. The approach-under-fire budget (D2)
 
-All numbers are main's, at 60 Hz. Donut's run (207) and jump (500) are the DM-A values (DM-Q01 and DM-Q02, implemented in the still-open #186). Main still steps her with the shared hero physics (185 and 440). The section 10 proof covers launches 440, 500 and 547.
+All numbers are main's, at 60 Hz. Main steps Donut with the DM-A agile motion (#186, merged): run 207 (DM-Q01) and launch 500 (DM-Q02). Light on Your Feet's launch of 547 is the DP-A row `dpq14_boost_launch_px_s` (#197, merged). The section 10 proof covers launches 440 (Carl), 500 and 547.
 
 | Quantity | Value | Source |
 | --- | --- | --- |
@@ -234,10 +234,10 @@ Room 0 is the Act I prefix of the `f01_late` scene (KC8): I-05 to I-07 plus the 
 | M2 entry line | 1056 | | Camera intro; M2 checkpoint at x 1072 |
 | **Entry shelf** (optional) | 1120..1216 | solid, top **32** | Stone mounting block; the "safe-looking perch" |
 | **Partition** (optional, CORRAL-D) | 1392..1408 | breakable prop, **48** tall | Rotten timber screen; blocks bolts (16..22) and globs (42..48) |
-| **Llama B** (floor, rush) | home **1488**, facing −1 | leash **1248..1832** | Corral profile. While the partition stands, its solid stops B at 1428 |
+| **Llama B** (floor, rush) | home **1488**, facing −1 | leash **1248..1830** | Corral profile, spawned on the floor (`feet` 0). At 1830 facing −1, its body's right edge is 1856, flush with the bumper face (FN4). While the partition stands, its solid stops B at 1428 |
 | Pen floor | 1056..1856 | floor | The ground lane |
 | **Exit dock** | 1856..2048 | solid, top **32** | Loading dock on the route |
-| **Dock bumper** (CRL-Q41) | 1856..1888 | solid, top **72** (40 above the dock) | A stack of timber dock bumpers on the dock edge, one solid from the floor to 72. Heroes climb it (72 is inside Carl's 80 px class and Donut's 96) and step down onto the dock, or jump past it. It blocks bolts, globs and both rushes. Hero standing positions on the dock are pivots 1900..2036 |
+| **Dock bumper** (CRL-Q41) | 1856..1888 | solid, top **80** (48 above the dock; 5 tiles) | A stack of timber dock bumpers on the dock edge. It is authored as one **step or parapet-style solid** running from the floor to 80 in the room's 16 px collision tile layer (`camera_lab::layout::compose`). It is **never** a platform, which would leave an open gap underneath that leaks bolts. 72 is not buildable: the composer would quantise it to 80. Heroes climb it (80 is Carl's DP-Q18 class limit and the CF02 perch height; Donut's class is 96) and step down onto the dock, or jump past it. It blocks bolts, globs and both rushes. Hero standing positions on the dock are pivots 1900..2036 |
 | **Llama A** (dock, rush) | home **1968**, facing −1 | leash **1920..2016** | Corral profile, spawned on the dock surface (`feet` 32, R1). Its body stays inside 1894..2042, clear of the bumper (1888) and the M3 gate (2048) in both facings |
 | M3 gate | 2048..2064 | full height | Closed until both M2 llamas are defeated (DV-3, CRL-Q26) |
 | M3 Fast-food Threshold | 2048..2304 | **32** (dock level) | Quiet; no enemy, no grant. REST-A (#187) begins at its right edge |
@@ -247,24 +247,24 @@ Room 0 is the Act I prefix of the `f01_late` scene (KC8): I-05 to I-07 plus the 
 - Carl reaches 188.54 from the dock.
 
 Two jumps do bonk, both harmlessly:
-- A base Donut jumping from the bumper top bonks at 228 (238.92 unclamped), with her feet still 104 px above the bumper.
-- A boosted Donut (`all`) bonks from the partition top (237.95) and from the bumper (261.95).
+- A base Donut jumping from the bumper top bonks at 228 (246.92 unclamped), with her feet still 96 px above the bumper.
+- A boosted Donut (`all`) bonks from the partition top (237.95) and from the bumper (269.95).
 
-No llama has to be cleared from either surface. Carl from the bumper reaches 212.54. The bumper top (72) and the partition top (48) make the DP-Q45 ceiling mandatory under `all`; 228 is that limit. No surface is between 81 and 128 px (K8).
+No llama has to be cleared from either surface. Carl from the bumper reaches 220.54, under 228; DP-Q45 already quotes 220.5 for an 80 px perch. The bumper top (80) and the partition top (48) make the DP-Q45 ceiling mandatory under `all`; 228 is that limit. No surface is between 81 and 128 px (K8).
 
 **Height truth table (MAG-07).** ✓ = can hit, ✗ = cannot. "Jump-cast" means a bolt released at any height a jump in place gives.
 
-| Attacker → target | Floor Donut (0) | Floor Carl (0) | Donut on 32 (dock or shelf) | Carl on 32 | Donut on 48 (partition) | Anyone on the bumper (72) |
+| Attacker → target | Floor Donut (0) | Floor Carl (0) | Donut on 32 (dock or shelf) | Carl on 32 | Donut on 48 (partition) | Anyone on the bumper (80) |
 | --- | --- | --- | --- | --- | --- | --- |
 | B's glob, band 42..48 | ✗ under it | ✓ | ✓ on the shelf; ✗ on the dock (bumper blocks) | ✓ shelf; ✗ dock | ✗ above it | ✗ |
-| A's glob, band 74..80 | ✗ | ✗ | ✗ | ✓ on the dock | ✗ | ✓ |
+| A's glob, band 74..80 | ✗ | ✗ | ✗ | ✓ on the dock | ✗ | ✗ (band top 80 against a hurtbox from 80; strict overlap) |
 | B's rush box, 2..30 | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
 | A's rush box, 34..62 | ✗ | ✗ | ✓ on the dock | ✓ on the dock | ✗ out of lane (A cannot leave the dock) | ✗ above it |
 | **Donut's bolt** → B (body 0..39) | ✓ standing and on low jump-casts (release feet below 23) | | ✗ (bottom 48 or more passes over) | | ✗ | ✗ |
-| **Donut's bolt** → A (body 32..71) | **✗ at every release height**: below 56, the bumper stops it; from 56 up, it passes over A | | ✓ from the dock; ✗ from the shelf (668 px away and blocked) | | ✗ (476 px away and blocked) | ✗ (bottom 88 or more passes over) |
+| **Donut's bolt** → A (body 32..71) | **✗ at every release height**: below 56, the bumper stops it; from 56 up, it passes over A | | ✓ from the dock; ✗ from the shelf (668 px away and blocked) | | ✗ (476 px away and blocked) | ✗ (bottom 96 or more passes over) |
 | Carl's melee → A | ✗ (his farthest box ends at about 1866; A's body starts at 1894 or later, behind the bumper) | | | ✓ on the dock | | |
 
-**B1 proof (f32, main's physics).** A script replicates the hero step from `prototype.rs` (`step_hero_driven`: semi-implicit, with the landing rule) and the bolt from `donut.rs`: spawn at `pivot ± 27`, `feet + 19`; tested at spawn, then every 6 px step; removed when `travelled ≥ 240`; solids tested before targets; strict `Rect::overlaps`. It sweeps every pivot on each surface on a 0.25 px grid, both facings, and every feet height at release that a jump in place gives with launches 440, 500 and 547, from tick 0 to landing (166 or 167 heights). It runs with the partition both absent and intact. The targets are every body each llama can take inside its leash, in both facings.
+**B1 proof (f32, main's physics).** A script replicates the hero step from `prototype.rs` (`step_hero_driven`: semi-implicit, with the landing rule) and the bolt from `donut.rs`: spawn at `pivot ± 27`, `feet + 19`; tested at spawn, then every 6 px step; removed when `travelled ≥ 240`; solids tested before targets; strict `Rect::overlaps`. It sweeps every pivot on each surface on a 0.25 px grid, both facings, and every feet height at release that a jump in place gives with launches 440, 500 and 547, from tick 0 to landing (166 or 167 heights). It runs with the partition absent, intact and broken (the 16 px remnant), and from the remnant top as a surface (NB1). The targets are every body each llama can take inside its leash, in both facings.
 
 | Surface (pivots) | Can hit A | Can hit B |
 | --- | --- | --- |
@@ -273,19 +273,25 @@ No llama has to be cleared from either surface. Carl from the bumper reaches 212
 | Revision 2, entry shelf (1109..1227) | none | none |
 | Revision 2, partition top (1381..1419) | none | none |
 | Revision 2, dock (1900..2036) | yes (release feet 0..22.04 above the dock) | **none** |
-| Revision 2, bumper top (1845..1899) | none | none |
+| Revision 2, bumper top at 72 (1845..1899) | none | none |
+| **Revision 3** (bumper 80, B leash 1248..1830; partition absent, intact and broken), floor (1068..1844) | **none** | yes (release feet 0..22.04) |
+| Revision 3, entry shelf (1109..1227) | none | none |
+| Revision 3, partition top, intact (1381..1419) | none | none |
+| Revision 3, remnant top at 16, broken (1381..1419) | none | yes (release feet 0..4.58 above the remnant) |
+| Revision 3, dock (1900..2036) | yes (release feet 0..22.04 above the dock) | **none** |
+| Revision 3, bumper top at 80 (1845..1899) | none | none |
 
-So in Revision 2, the set of llamas a Donut can hit from one spot is {B} on the floor, {A} on the dock, and nothing anywhere else, whatever her jump timing. The guarantee does not depend on mana, tell timing, wake or approach speed. It needs only these four values:
+So in Revision 3, the set of llamas a Donut can hit from one spot is {B} on the floor and the remnant, {A} on the dock, and nothing anywhere else, whatever her jump timing. The guarantee does not depend on mana, tell timing, wake or approach speed. It needs only these four values:
 - A's leash and the CRL-Q43 slide clamp, which keep A's body at 1894 or later;
-- the bumper top (72), which must be at least A's top (71);
+- the bumper top, which must be at least A's top (71); the adopted value is 80;
 - the bumper column (1856..1888), which every bolt from a floor pivot of 1844 or less must cross; the bolt box is 8 px wide and moves 6 px per step, so it cannot tunnel through;
 - B's floor line.
 
-CORRAL-B core turns this sweep into a unit test with the room values (section 15).
+CORRAL-C turns this sweep into a unit test with the room's real solids (machine item 2, section 15), so a quantisation change like the one that turned 72 into 80 is caught.
 
 **Nothing moves a stationary Donut to another level.**
-- On the floor, only B can hit her. B's rush knocks her with `knock_vy` 160, a rise of about 12 px. Even caught mid-hop (feet below 30), she peaks under 45 px. She can never reach the 72 px bumper, which is the only way onto the dock from the floor.
-- On the dock, A's rush knocks her toward the bumper, which she cannot climb the same way.
+- On the floor, only B can hit her. B's rush knocks her with `knock_vy` 160, a rise of about 12 px. Even caught mid-hop (feet below 30), she peaks under 45 px. She can never reach the 80 px bumper, which is the only way onto the dock from the floor.
+- On the dock, A's rush knocks her toward the bumper. Its contact needs her feet below 30 above the dock, so even a boosted Donut (547) caught late in a hop peaks below 72.9 above the floor, under the 80 px top. She cannot land on it. At 72 px a boosted Donut at dock pivots 1914..1921.75, caught on jump tick 58, could land on it (re-review FN3). That case was harmless, because A cannot be hit from the bumper or the floor. The 80 px bumper removes it.
 - Llamas have no gravity, and the CRL-Q43 clamp keeps them inside their leashes, so neither llama changes level.
 
 This is the invariant the gate asserts ([section 11](#11-stationary-donut-gate-c19-and-the-corral-eval-scenarios)). The B1 option is therefore closed inside the tuning authority (geometry), and no KC3 escalation is needed.
@@ -319,7 +325,7 @@ This is the invariant the gate asserts ([section 11](#11-stationary-donut-gate-c
 ### Starts (Donut pivot at tick 0, set at setup, never moved later)
 
 The evaluator runs in solo mode with Donut controlled, so the sim camera follows her (`CameraFollow::ControlledSoloMidpointTwoPlayer`). Its corral-owned constructor wraps `PartyFixtureSim::from_parts` and sets Donut's x, y and facing through `donut_body` and `sync_donut_for_tests()` (N2). The two companion variants:
-- **Decisive (`isolated`), F3:** Carl is **parked**. His input is neutral on every tick (no companion AI, no `FollowAndJumpBot`) at x **880** on the floor for every M2 start. That is 368 px or more from every position B can take, and the corral llamas never target a hero farther than 320 px (CRL-Q15). So he draws no attack, absorbs no rush and is never in a lane. The `corral_m2` fixture has no M1 llama.
+- **Decisive (`isolated`), F3:** Carl is **parked** at x **880**, through the solo drive `PartyDrive { two_player: false, controlled: Donut, bots: [false, false] }` with a neutral input on Carl's seat on every tick (NB2). A `two_player` drive would move the sim camera to the midpoint and engage the 448 px separation wall, and a bot drive would run `follow_input`, so neither is used. He has no companion AI and no `FollowAndJumpBot`, and stands on the floor for every M2 start. That is 368 px or more from every position B can take, and the corral llamas never target a hero farther than 320 px (CRL-Q15). So he draws no attack, absorbs no rush and is never in a lane. The `corral_m2` fixture has no M1 llama.
 - **M1 starts:** Carl is parked at x **300**.
 
 Each start runs **both facings**; the listed facing is the natural one.
@@ -339,9 +345,9 @@ Each start runs **both facings**; the listed facing is the natural one.
 | M2-09 dock face | 1840 | floor | −1 | B (d 352) / nothing from A | **timeout** |
 | M2-10 dock arrival | 1904 | 32 | +1 | A (d 64) / A's rush; B cannot reach her (the bumper blocks its glob) | **timeout** (A defeated, B alive) or **hero_defeat** |
 | M2-11 dock far | 2032 | 32 | −1 | A (d 64) / A's rush | **timeout** (A defeated, B alive) or **hero_defeat** |
-| M2-12 bumper top | 1872 | 72 | +1 | nothing / A's glob | **timeout** or **hero_defeat**, 0 defeats |
+| M2-12 bumper top | 1872 | 80 | +1 | nothing / nothing | **timeout**, 0 defeats, 0 damage (the stall spot) |
 | M2-13 B1 spot | 1728 | floor | +1 | B (behind her in the +1 facing; `stationary_turret` and `stationary_jump_cast` turn to it), then **not** A at any release height / B's rush | **timeout** (B defeated, A untouched) or **hero_defeat**. This is the review's counterexample, pinned for every policy |
-| M2-G grid | floor 1072..1840, shelf 1136..1200, partition top 1392..1408 (intact only), bumper top 1856..1888, dock 1904..2032, step 16 | | both | | none may defeat both llamas |
+| M2-G grid | floor 1072..1840, shelf 1136..1200, partition top 1392..1408 (intact only), remnant top 1392..1408 at 16 (broken only), bumper top 1856..1888, dock 1904..2032, step 16 | | both | | none may defeat both llamas |
 
 **Variants per start:** partition `intact`, `broken` (authored pre-broken, remnant present) and `absent` (if CORRAL-D has not landed, only `absent` runs and the others are `not_run`); llama attack phase, written at setup (tick 0) as per-llama `(cooldown, rush_cooldown)`: P0 = B (0, 0) and A (45, 75), P1 = B (45, 75) and A (90, 0), P2 = B (90, 0) and A (0, 0); reflex `off` and `reflex` (`dm_q11_evasion_mode`, gate decided on `reflex`, F6); companion `isolated` (Carl parked, above; decisive) and `default` (Carl starts at 1040 on the companion AI; reported). `stationary_jump_cast` runs every `o` on the named starts. On the M2-G grid it runs only `aimed`, `o = 0` and `o = 45`. `reset_attempt()` rebuilds everything from the fixture. Seeds do not vary gameplay, so the report counts fixtures, not seeds.
 
@@ -411,7 +417,7 @@ Knob names start with the question ID (`crlq05_trigger_px`). Profile knobs live 
 | CRL-Q25 | M2 layout | Section 10 table; B spawned on the floor (`feet` 0), A on the dock (`feet` 32) | D2 rank 1; R1 | room and sidecar data |
 | CRL-Q26 | M3 gate | Closed until both M2 llamas are defeated; opens on the second defeat tick | DV-3 | `crlq26_exit_gate` (switch) |
 | CRL-Q27 | First llama | No profile, legacy spit, legacy stand-off and leash, party targeting, flat pocket | #181 M1 | instance data |
-| CRL-Q28 | Llama homes and leashes | M1 848 (688..1008); B 1488 (1248..1832); A 1968 (**1920..2016**) | Section 10; A's body stays clear of the bumper and the gate | instance data |
+| CRL-Q28 | Llama homes and leashes | M1 848 (688..1008); B 1488 (1248..**1830**, FN4); A 1968 (**1920..2016**) | Section 10; A's body stays clear of the bumper and the gate | instance data |
 | CRL-Q29 | Shelves | Entry shelf 1120..1216 at 32; exit dock 1856..2048 at 32 (its first 32 px are the bumper, CRL-Q41) | DV-2 | room data |
 | CRL-Q30 | Partition | 1392..1408, 48 tall; rush breaks at once; 3 physical hits break; missile and glob do not | DV-9 | sidecar prop data |
 | CRL-Q31 | Ceiling | `ceiling_px` **228** | Section 10 | room data |
@@ -424,7 +430,7 @@ Knob names start with the question ID (`crlq05_trigger_px`). Profile knobs live 
 | CRL-Q38 | Presentation stand-in | Code-drawn brace, hoof scrape and dust; never the throat glow | #181 gate (c); CORRAL-E | none |
 | CRL-Q39 | Art | Production rush art is **LLAMA-03** (tell, rush and recover keys; LLAMA-02 is the merged death set) | F2 | none (process) |
 | CRL-Q40 | Kill switch | `crlq40_enabled` (default `true`): `false` makes every corral llama run without its profile | Feel A/B without a rebuild | `crlq40_enabled` |
-| CRL-Q41 | B1 fix (adopted option) | **Dock bumper**: one solid at x 1856..1888 from the floor to **72**, on the dock edge. Its top must be at least the dock llama's top (71), and every floor-to-A bolt path must cross it | Section 10 proof. Rejected: a dock about 300 px deeper (lengthens the room, and the dock llama could not threaten the dock's near half); a pincer (`stationary_turret` turns, so it fails) | room data |
+| CRL-Q41 | B1 fix (adopted option) | **Dock bumper**: one step or parapet-style solid at x 1856..1888 from the floor to **80** (5 collision tiles), on the dock edge. Its top must be at least the dock llama's top (71), and every floor-to-A bolt path must cross it. 72 is not buildable in the 16 px tile layer | Section 10 proof. Rejected: a dock about 300 px deeper (lengthens the room, and the dock llama could not threaten the dock's near half); a pincer (`stationary_turret` turns, so it fails) | room data |
 | CRL-Q42 | What "stationary" means for the gate | Zero net horizontal displacement (at most 8 px for turns). **Jumping in place and casting in the air count as stationary** | B1; #181 gate (a): a hop is not repositioning. The owner may narrow it (awareness note, section 14) | none (evaluator rule) |
 | CRL-Q43 | Slide clamp | Every slide and every rush step of a corral-profile llama is clamped to its leash interval, in every mode, `Down` and `Corpse` included | F5: a kick or death slide would otherwise put A's body over the floor | none (rule) |
 
@@ -435,7 +441,8 @@ Knob names start with the question ID (`crlq05_trigger_px`). Profile knobs live 
 3. **Per-level stunlock feel:** if planting once per level still feels like M1 (the `layer_static_clear` diagnostic), the reserve levers are, in order: the second llama placed so it wakes behind the heroes' entry facing (rank 2); a shorter tell for the dock llama only; the dock arrival point moved inside A's trigger. None adds immunity.
 4. **The exit gate:** keep it, or let a fast player skip the dock llama.
 5. **Awareness notes (adopted defaults the owner may revert):**
-   - DV-2: a mandatory dock level with the second llama, behind a 72 px bumper, and M3 at +32.
+   - DV-2: a mandatory dock level with the second llama, behind an 80 px bumper, and M3 at +32.
+   - **The bumper top is a stall spot.** Nothing reaches a hero there: A's glob band tops out at 80, B's glob and both rushes are below it. Nothing fired from there hits a llama. A player can hide on it but cannot win from it. Neither the gate nor the invariant is affected; this is a feel question only.
    - DV-10: the partition stands on the floor route.
    - CRL-Q42: the gate counts a hop in place as stationary. That is broader than CORRAL-AUTO's literal "never jumps".
 
