@@ -113,6 +113,23 @@ Owner request of 2026-11-21, reconciled in the [CARL-PROG-01 spec](../03-tech/ca
 
 The Juicer is the first implemented boss (`boss_f01`), not the final one: the Ball of Swine is the mastery test (CP-Q03). Unlocks persist through defeat retries and checkpoint respawns and are restored by a fixture restart; there is no cross-session save yet (CP-Q07).
 
+### Donut's ability progression (DONUT-PROG-01)
+
+Owner request of 2026-11-21, reconciled in the [DONUT-PROG-01 spec](../03-tech/donut-prog-01-floor01-ability-progression.md) (adopted defaults DP-Q01..DP-Q47) and split into PRs by the [work order](../07-agents/donut-prog-01-workorder.md). Milestones are **story events**; percentages are pacing targets from chapter anchors and no code reads them. Unlocks use the story-unlock ledger of [CARL-PROG-01](../03-tech/carl-prog-01-floor01-combat-progression.md) (rows with `hero`, `slot` and `requires`; the Juicer's single trigger grants Carl's gauntlet and then Donut's Puddle Jumper). The anchors rest on fan summaries of Book 1 (chapters approximate): Light on Your Feet comes from the reward in the first safe room, after the first llama and before the Hoarder (about Ch. 9); Puddle Jumper at the Juicer is "likely". Her base agile jump stands for her innate skill level. Puddle Jumper as a short personal blink, "2 charges" as a mana cost and the horizontal-only direction are recorded game adaptations and interpretations (spec section 2.1, [fun over canon](vision.md#fun-over-canon-owner-decision-2026-11-21)). DONUT-MOBILITY-01 owns her base agility (run 207 px/s, apex 114.92 px) and the 12 s reflex at the biscuit.
+
+| Milestone | Pacing target | Story event | Donut's kit change | Taught through (existing / later) | Acceptance (spec section 10) |
+| --- | --- | --- | --- | --- | --- |
+| D1 base kit | 0–20 % | Entrance to the Guild (Ch. 1–3) | None: agile run and jump, swat, pounce from the start; Circle/B inert | CP-01/02/03 route, CF02 microarena, DM ledges / none | Existing `q10_*`, `cf02_*`, `dm_*` fixtures byte-identical |
+| M1 biscuit | ~20 % | Guild zone (Ch. 3–7) | Magic Missile on Square/X, 8 charges (existing); DM's reflex arrives with it | Story corridor guild zone / Guild room | `donut_prog_primary_mapping`, `q10_unlock_persists` |
+| D2 first ranged play | 20–33 % | I-05 to I-07, first llamas (Ch. 7–8) | None: ranged kills, casting on the move, the dry press, llama tells | CF02 with the biscuit, Bad Llama / I-05 to I-07 lanes | Existing llama and `q10_*` fixtures |
+| M2 Light on Your Feet | ~33 % | First safe room, I-08 refuge, after the first llama and before the Hoarder (`f01_safe_room_reward_found`, about Ch. 9) | Jump apex +20 % (137.95 px), 128 px ledges; no double jump, no new control | Placeholder zone in the story run / I-08 reward, first 128 px gate at the refuge's exit (with a lane ceiling) | `donut_prog_ledge_128`, `donut_prog_story_unlocks` |
+| D3 ranged play | 33–70 % | Rats, Hoarder, workshop to labyrinth (Ch. 9–22) | None: encounters grow (mana budget, elevated firing, finishers, environment, coordination) | CF02 arena and Engineer variants / workshop, Scatterer, labyrinth rooms | Existing fixtures; `donut_prog_pilot_arena_boost` |
+| D4 mastery | 70–85 % | Troglodytes, gym approach (Ch. 23) | None: mixed threats, at least two overlapping | CF02 arena with Engineer and llama, boss scene / troglodyte rooms | `donut_prog_pilot_boss_boost` |
+| M3 Puddle Jumper | ~85 % | Juicer defeated, `brute_boss_f01_defeated` (the same trigger as Carl's gauntlet) | Circle/B: horizontal blink, 112 px, a 2-charge mana cost, 9 s cooldown, valid, visible, collision-safe, no walls or protected gates, no invulnerability, no damage | `--scene boss_f01` / post-fight beat | `donut_prog_juicer_grants_blink`, `donut_prog_blink_*`, `donut_prog_pilot_arena_blink` |
+| D5 final mastery | 85–100 % | Ball of Swine, exit (Ch. 26–27) | **No unlock** | Ball of Swine arena (later) | Load-time check: no trigger; clears with no `CapabilityGranted` |
+
+Light on Your Feet gate classes: Carl up to 80 px, Donut 96 to 104 px (112 narrow, human only), Donut with the boost 128 px, nobody at 144 px. Any room where she can hold the boost and stand above 42 px needs a lane ceiling at most 228 px up (DP-Q45). `--donut-prog` grants only Donut's capabilities and `--carl-prog` only Carl's; with both, the boss scene holds the union of their pins.
+
 ## 4. Enemy-design contract for later bestiary
 
 Each enemy entry should eventually document:
@@ -131,7 +148,7 @@ Candidate first evaluation enemies: ordinary goblin, Murder Dozer, Bad Llama. Bo
 
 **Approved:** hybrid solo architecture as target, simultaneous playable Carl + Donut from game start, local 2P as core product design, same essential content in solo and 2P, **explicit one-character gates without symmetric routes**, Donut's higher/farther movement vs Carl's physical/destructive access, story-consistent unlocks, cast native scale, shared camera intent.
 
-**Unresolved:** action timing/feel and advanced binding variants (the base mapping is approved in [MVP controller contract](mvp-controller-contract.md)), whether shoulder exists, mounted attack behavior, co-op revival/death system, difficulty adjustment, solo AI autonomy/command UX, fine-grained character acceleration, targeting assist strength, camera split/regroup rules, friendly-fire consequences, and exact progression unlock order. Carl's Floor 01 unlock order now has adopted defaults (see [Carl's combat progression](#carls-combat-progression-carl-prog-01)); Donut's later unlocks remain open.
+**Unresolved:** action timing/feel and advanced binding variants (the base mapping is approved in [MVP controller contract](mvp-controller-contract.md)), whether shoulder exists, mounted attack behavior, co-op revival/death system, difficulty adjustment, solo AI autonomy/command UX, fine-grained character acceleration, targeting assist strength, camera split/regroup rules, friendly-fire consequences, and exact progression unlock order. Carl's Floor 01 unlock order now has adopted defaults (see [Carl's combat progression](#carls-combat-progression-carl-prog-01)); Donut's unlock order has adopted defaults (see [Donut's ability progression](#donuts-ability-progression-donut-prog-01)).
 
 The test sequence and experiment evidence requirements live in [Floor 01 integrated-scene playtest plan](../07-agents/floor-01-integrated-scene-playtest.md). **Do not count automatic CI success as human game-feel approval.**
 
