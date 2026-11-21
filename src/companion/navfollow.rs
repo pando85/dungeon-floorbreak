@@ -35,6 +35,20 @@
 //! band). [`NavSpots`] gives the autonomy layer the graph's standing surfaces
 //! and the cost of a route ([`crate::companion::autonomy::SpotWorld`]).
 //!
+//! **Hazard input** (COMPANION-AI-02 CA2-C, K13, CA2-Q29): [`NavDriver::set_hazards`]
+//! takes the rectangles that can hurt a hero this tick (the hazard core's
+//! telegraphed and active volumes, converted by [`hazards_from_feed`]) and
+//! rebuilds the graph only when that list changes. The graph already treats a
+//! hazard as unsafe ground: an anchor under it is cut out and carries
+//! [`RISK_MAX`](crate::companion::nav::RISK_MAX), a transit through it is
+//! unsafe, a route never enters it and a hero standing in it is sent to safe
+//! ground, so every consumer (the follow executor, `go_to`, [`NavSpots`], the
+//! regroup) avoids it with no code that knows what a hazard is. Nothing here
+//! reads a hazard's class: a steam lane, a footprint, an acid patch and a wheel
+//! are rectangles. [`fence_step`] is the last guard for the movement that does
+//! not go through the graph (an interrupt's approach, a dodge) and
+//! [`NavDriver::evacuation`] walks a hero out of a hazard it stands in.
+//!
 //! Determinism: no randomness, no `HashMap`; the nav graph's tie breaks are
 //! stable. [`HeroNav::hash_into`] mixes only the committed transit and the jump
 //! press, which are state of the simulation (the graph itself is derived from
@@ -42,13 +56,14 @@
 
 use crate::companion::autonomy::{SpotWorld, Surface};
 use crate::companion::nav::{
-    EdgeKind, EdgePlan, NavAnchorId, NavConfig, NavError, NavGraph, NavLevel, Plan, Reason,
-    SolidId, UNSAFE_RISK, Unlocks, walk_ticks,
+    EdgeKind, EdgePlan, NavAnchorId, NavConfig, NavError, NavGraph, NavHazard, NavLevel, Plan,
+    Reason, SafeContext, SolidId, UNSAFE_RISK, Unlocks, walk_ticks,
 };
 use crate::companion::view::HeroView;
+use crate::env_hazard::NavRect;
 use crate::input::STICK_DEADZONE;
 use crate::party::HeroId;
-use crate::prototype::{Block, HERO_HALF_WIDTH, RUN_SPEED, TICK_SECONDS};
+use crate::prototype::{Block, HERO_HALF_HEIGHT, HERO_HALF_WIDTH, RUN_SPEED, Rect, TICK_SECONDS};
 
 /// Carl's arrive tolerance, the floor of [`arrive_eps_px`]. The closest a hero
 /// can steer to a target x: the stick dead zone leaves up to
@@ -80,6 +95,11 @@ const FOLLOW_SLACK_PX: f32 = 8.0;
 /// A committed transit is dropped after this many ticks beyond its ETA times
 /// three (a hero stuck behind something the model does not know).
 const TRANSIT_SLACK_TICKS: u16 = 120;
+/// CA2-Q29 (hazard feed): how close, in px, a voluntary ground step may bring
+/// her body to a hazard rectangle she is not in ([`fence_step`]). A hazard's
+/// contact test is on integer boxes and the nav rounds nothing, so 2 px keeps
+/// her clear of the rounding.
+pub const HAZARD_FENCE_MARGIN_PX: f32 = 2.0;
 
 /// What a hold waits for: the leader (with the follow band) or a spot (on it).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -237,6 +257,10 @@ pub enum Regroup {
 #[derive(Debug, Clone)]
 pub struct NavDriver {
     graph: NavGraph,
+    /// COMPANION-AI-02 CA2-C: the hero-hurting hazard rectangles the graph is
+    /// built with (y up, sorted by id). Empty unless the wiring feeds them
+    /// ([`Self::set_hazards`]), which only the autonomous partner's set does.
+    hazards: Vec<NavHazard>,
     /// The physics the graph is built under (rebuilds keep it).
     config: NavConfig,
     /// COMPANION-AI-02 CA2-B2 (Revision 3, DP-Q38): no Jump edge is planned from
@@ -255,6 +279,7 @@ impl NavDriver {
     pub fn new(solids: &[Block], config: NavConfig) -> Result<Self, NavError> {
         Ok(Self {
             graph: NavGraph::build(&NavLevel::from_blocks(solids, Vec::new()), config)?,
+            hazards: Vec::new(),
             config,
             jump_ceiling_y: None,
             heroes: [HeroNav::default(); 2],
@@ -297,9 +322,87 @@ impl NavDriver {
         if config == self.config {
             return Ok(());
         }
-        self.graph = NavGraph::build(&NavLevel::from_blocks(solids, Vec::new()), config)?;
+        self.graph = NavGraph::build(&NavLevel::from_blocks(solids, self.hazards.clone()), config)?;
         self.config = config;
         Ok(())
+    }
+
+    /// COMPANION-AI-02 CA2-C (K13): the hero-hurting hazard rectangles of this
+    /// tick. A list equal to the one the graph was built with is a no-op (so a
+    /// room without hazards, and every tick between two hazard edges, costs
+    /// nothing); a different one rebuilds the graph and keeps the executor state
+    /// (a committed transit whose edge no longer plans is dropped by the next
+    /// tick's re-plan, exactly as a closed edge is). Returns whether it
+    /// rebuilt. A list the graph rejects (a duplicate id) changes nothing.
+    pub fn set_hazards(
+        &mut self,
+        mut hazards: Vec<NavHazard>,
+        solids: &[Block],
+    ) -> Result<bool, NavError> {
+        hazards.sort_by_key(|h| h.id);
+        if hazards == self.hazards {
+            return Ok(false);
+        }
+        self.graph = NavGraph::build(&NavLevel::from_blocks(solids, hazards.clone()), self.config)?;
+        self.hazards = hazards;
+        Ok(true)
+    }
+
+    /// The hazard rectangles the graph is built with (y up, sorted by id).
+    pub fn hazards(&self) -> &[NavHazard] {
+        &self.hazards
+    }
+
+    /// Where `actor` should go to get out of a hazard it stands in: the nearest
+    /// safe open anchor it can reach and come back from (the graph's
+    /// `safe_anchor`), as a spot on that anchor close to its x. `None` when it
+    /// is not on a risky anchor (nothing to do), is in the air, or no safe
+    /// anchor is reachable. `bounds` is tried first and dropped when it leaves
+    /// no candidate: out of the hazard beats inside the camera.
+    pub fn evacuation(&self, actor: HeroId, me: Body, bounds: Option<(f32, f32)>) -> Option<Body> {
+        let here = self.anchor_of(me)?;
+        // On a risky anchor, or with her body over a hazard's edge while her
+        // centre is already on safe ground (the anchor ends at the rectangle's
+        // edge, her body is 12 px wide).
+        let body = Rect {
+            left: me.x - HERO_HALF_WIDTH,
+            bottom: me.foot_y,
+            width: 2.0 * HERO_HALF_WIDTH,
+            height: 2.0 * HERO_HALF_HEIGHT,
+        };
+        if self.graph.anchor_risk(here)? < UNSAFE_RISK
+            && !self.hazards.iter().any(|h| h.rect.overlaps(body))
+        {
+            return None;
+        }
+        let ask = |bounds| {
+            self.graph
+                .safe_anchor(
+                    actor,
+                    SafeContext {
+                        here,
+                        goal: None,
+                        unlocks: Unlocks::NONE,
+                        bounds,
+                    },
+                )
+                .ok()
+        };
+        let safe = ask(bounds).or_else(|| bounds.and_then(|_| ask(None)))?;
+        let (x0, x1) = self.graph.anchor_span(safe)?;
+        let (_, top) = self.graph.anchor_pos(safe)?;
+        let (lo, hi) = self.hold_span(safe, x0, x1);
+        let inset = HERO_HALF_WIDTH + PLACE_INSET_PX;
+        let x = if lo <= hi && x1 - x0 > 2.0 * inset {
+            me.x.clamp(lo, hi)
+        } else {
+            (x0 + x1) / 2.0
+        };
+        Some(Body {
+            x,
+            foot_y: top,
+            grounded: true,
+        })
     }
 
     /// Bring the graph in line with the scene's solids (a destruction or a
@@ -320,7 +423,10 @@ impl NavDriver {
             }
         }
         if rebuild {
-            self.graph = NavGraph::build(&NavLevel::from_blocks(solids, Vec::new()), self.config)?;
+            self.graph = NavGraph::build(
+                &NavLevel::from_blocks(solids, self.hazards.clone()),
+                self.config,
+            )?;
         }
         Ok(())
     }
@@ -541,7 +647,8 @@ impl NavDriver {
         let Some((x0, x1)) = self.graph.anchor_span(here) else {
             return Drive::default();
         };
-        let goal = leader.x.clamp(x0 + PLACE_INSET_PX, x1 - PLACE_INSET_PX);
+        let (lo, hi) = self.hold_span(here, x0, x1);
+        let goal = leader.x.clamp(lo.min(hi), hi);
         let gap = goal - me.x;
         if wait == Wait::Spot {
             // A spot is a place to stand on: close on it, no wait band.
@@ -566,6 +673,32 @@ impl NavDriver {
             ),
             jump: false,
         }
+    }
+
+    /// The x range she may hold on in the anchor `[x0, x1]`: the anchor inset by
+    /// [`PLACE_INSET_PX`], and at an end that borders a hazard (the graph cuts an
+    /// anchor at a hazard's edge) the whole body kept clear of it by
+    /// [`HAZARD_FENCE_MARGIN_PX`]. Without a hazard this is the old
+    /// `[x0 + 2, x1 - 2]`.
+    fn hold_span(&self, here: NavAnchorId, x0: f32, x1: f32) -> (f32, f32) {
+        let (mut lo, mut hi) = (x0 + PLACE_INSET_PX, x1 - PLACE_INSET_PX);
+        let Some((_, top)) = self.graph.anchor_pos(here) else {
+            return (lo, hi);
+        };
+        let clear = HERO_HALF_WIDTH + HAZARD_FENCE_MARGIN_PX;
+        for h in &self.hazards {
+            let r = h.rect;
+            if r.bottom >= top + 2.0 * HERO_HALF_HEIGHT || r.top() <= top {
+                continue;
+            }
+            if (r.left - x1).abs() < 1.0 {
+                hi = hi.min(r.left - clear);
+            }
+            if (r.right() - x0).abs() < 1.0 {
+                lo = lo.max(r.right() + clear);
+            }
+        }
+        (lo, hi)
     }
 
     /// Commit the edge `from -> to` and take its first tick.
@@ -752,6 +885,21 @@ impl<'a> NavSpots<'a> {
             slot: (key & 0xffff) as u16,
         }
     }
+
+    fn swept_hits(&self, x0: f32, x1: f32, y: f32) -> bool {
+        let hazards = self.driver.hazards();
+        if hazards.is_empty() {
+            return false;
+        }
+        let (lo, hi) = (x0.min(x1), x0.max(x1));
+        let swept = Rect {
+            left: lo - HERO_HALF_WIDTH,
+            bottom: y,
+            width: hi - lo + 2.0 * HERO_HALF_WIDTH,
+            height: 2.0 * HERO_HALF_HEIGHT,
+        };
+        hazards.iter().any(|h| h.rect.overlaps(swept))
+    }
 }
 
 impl SpotWorld for NavSpots<'_> {
@@ -778,6 +926,18 @@ impl SpotWorld for NavSpots<'_> {
                 risk,
             });
         }
+    }
+
+    /// CA2-Q29: a hero-hurting hazard (telegraphed or active) overlaps her body
+    /// standing at `x` on a surface at `y`.
+    fn hazard_at(&self, x: f32, y: f32) -> bool {
+        self.swept_hits(x, x, y)
+    }
+
+    /// CA2-Q29: a hero-hurting hazard overlaps her body anywhere on the ground
+    /// run from `x0` to `x1` at height `y`.
+    fn hazard_between(&self, x0: f32, x1: f32, y: f32) -> bool {
+        self.swept_hits(x0, x1, y)
     }
 
     /// CA2-Q36: the price of the route in ticks, from where she stands. Each
@@ -831,6 +991,64 @@ impl SpotWorld for NavSpots<'_> {
             ticks += walk((cursor - x).abs());
         }
         Some(ticks.min(u32::from(u16::MAX)) as u16)
+    }
+}
+
+/// The hero-hurting rectangles of a hazard feed, as the graph's y-up
+/// [`NavHazard`]s (the feed is in layout px, y down; `layout_h` is the layout's
+/// height). A volume that only hurts enemies is not fed in (spec 3.5). The id is
+/// the volume's id.
+pub fn hazards_from_feed(feed: &[NavRect], layout_h: i32) -> Vec<NavHazard> {
+    feed.iter()
+        .filter(|n| n.hurts_heroes)
+        .map(|n| NavHazard {
+            id: u32::from(n.hazard),
+            rect: Rect {
+                left: n.rect.x as f32,
+                bottom: (layout_h - n.rect.bottom()) as f32,
+                width: n.rect.w as f32,
+                height: n.rect.h as f32,
+            },
+        })
+        .collect()
+}
+
+/// CA2-C: the last guard of a voluntary ground step (the movement that does not
+/// go through the graph: an interrupt's approach, a dodge). A step that would
+/// bring her body within [`HAZARD_FENCE_MARGIN_PX`] of a hazard rectangle ahead
+/// of her is cut to end at that distance, and a step into it is refused. A hero
+/// already inside a hazard, or in the air, is not fenced (she may leave by any
+/// way). `run_px_per_tick` is her own run speed. Returns the stick to use.
+pub fn fence_step(hazards: &[NavHazard], me: Body, move_x: f32, run_px_per_tick: f32) -> f32 {
+    if move_x == 0.0 || hazards.is_empty() || !me.grounded {
+        return move_x;
+    }
+    let body = Rect {
+        left: me.x - HERO_HALF_WIDTH,
+        bottom: me.foot_y,
+        width: 2.0 * HERO_HALF_WIDTH,
+        height: 2.0 * HERO_HALF_HEIGHT,
+    };
+    if hazards.iter().any(|h| h.rect.overlaps(body)) {
+        return move_x;
+    }
+    let step = move_x * run_px_per_tick;
+    let mut allowed = step;
+    for h in hazards {
+        let r = h.rect;
+        if r.bottom >= body.top() || r.top() <= body.bottom {
+            continue;
+        }
+        if step > 0.0 && r.left >= body.right() {
+            allowed = allowed.min((r.left - HAZARD_FENCE_MARGIN_PX - body.right()).max(0.0));
+        } else if step < 0.0 && r.right() <= body.left {
+            allowed = allowed.max(-(body.left - r.right() - HAZARD_FENCE_MARGIN_PX).max(0.0));
+        }
+    }
+    if allowed == step {
+        move_x
+    } else {
+        allowed / run_px_per_tick
     }
 }
 
@@ -1648,5 +1866,502 @@ mod tests {
         }
         assert_eq!(stranded, 1, "one edge, not one note per tick");
         assert!(driver.heroes[0].stranded.is_some());
+    }
+
+    // ---- CA2-Q36 follow-up: the transit price of two-hop and drop routes
+
+    /// A route's priced ticks from where she stands, in `level()` with Carl's
+    /// integrated physics, against the same route driven through the real body
+    /// step (the executor's landing tick plus the walk to `x`). The price is the
+    /// drift check's input (spec 3.3), so it must track the real transit.
+    fn priced_and_driven(from: f32, from_y: f32, to_x: f32, to_y: f32) -> (u16, u32) {
+        use crate::companion::autonomy::SpotWorld;
+        use crate::companion::view::{Control, fixtures};
+        let blocks = level();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        let mut out = Vec::new();
+        NavSpots::new(&driver, HeroId::Carl, 16.0).surfaces(&mut out);
+        let dest = *out
+            .iter()
+            .rfind(|s| (s.y - to_y).abs() < 0.5 && s.left <= to_x && s.right >= to_x)
+            .expect("a destination surface");
+        let mut view = fixtures::hero(HeroId::Carl, from, Control::Companion);
+        view.foot_y = from_y;
+        let price = NavSpots::new(&driver, HeroId::Carl, 16.0)
+            .route_ticks(&view, to_x, &dest)
+            .expect("a route");
+        // Drive it: the hero starts standing at `from` on `from_y`.
+        let mut hero = Hero::at(from, from_y + HERO_HALF_HEIGHT);
+        let goal = standing(to_x, to_y);
+        let mut frame = InputFrame::default();
+        let mut arrived = None;
+        for t in 1..=600u32 {
+            let (drive, n) = driver.go_to(HeroId::Carl, body(&hero), goal, None);
+            if arrived.is_none() && n.iter().any(|n| matches!(n, NavNote::Arrived { .. })) {
+                arrived = Some(t);
+            }
+            let d = drive.unwrap_or_else(|| Drive {
+                move_x: approach(hero.x, to_x, RUN_SPEED),
+                jump: false,
+            });
+            frame.advance(RawInput {
+                move_x: d.move_x,
+                jump: d.jump,
+                ..RawInput::NONE
+            });
+            step_hero(&mut hero, &frame, &blocks, 2000.0);
+            if arrived.is_some() && (hero.x - to_x).abs() < 1.0 {
+                return (price, t);
+            }
+        }
+        panic!("the route was never driven to its end ({arrived:?})");
+    }
+
+    #[test]
+    fn route_ticks_prices_a_two_hop_climb_and_a_drop_like_the_real_transit() {
+        // The review table of PR #213 (slack 0): the price is within a few ticks of
+        // the driven transit, never the old centre-to-centre sum.
+        // Two-hop climb from the left: floor (0), step 60, step 120.
+        let (climb_left, driven) = priced_and_driven(100.0, 0.0, 330.0, 120.0);
+        assert_eq!(climb_left, 136, "two hops from the left");
+        assert!(
+            (i64::from(climb_left) - i64::from(driven)).abs() <= 12,
+            "priced {climb_left}, driven {driven}"
+        );
+        // From the right of the stairs the same climb starts from the far side.
+        let (climb_right, driven) = priced_and_driven(500.0, 0.0, 330.0, 120.0);
+        assert_eq!(climb_right, 162, "two hops from the right");
+        assert!(
+            (i64::from(climb_right) - i64::from(driven)).abs() <= 12,
+            "priced {climb_right}, driven {driven}"
+        );
+        assert!(climb_right > climb_left, "the far start costs its walk");
+        // One hop (floor to the 60 px step), for the reference value.
+        let (hop, driven) = priced_and_driven(100.0, 0.0, 230.0, 60.0);
+        assert_eq!(hop, 78, "one hop");
+        assert!((i64::from(hop) - i64::from(driven)).abs() <= 12);
+        // Drops: from the top step down to the floor, to the right and to the left.
+        let (drop_right, driven) = priced_and_driven(330.0, 120.0, 500.0, 0.0);
+        assert_eq!(drop_right, 85, "a drop to the right");
+        assert!(
+            (i64::from(drop_right) - i64::from(driven)).abs() <= 12,
+            "priced {drop_right}, driven {driven}"
+        );
+        let (drop_left, driven) = priced_and_driven(330.0, 120.0, 100.0, 0.0);
+        assert_eq!(drop_left, 106, "a drop to the left");
+        assert!(
+            (i64::from(drop_left) - i64::from(driven)).abs() <= 12,
+            "priced {drop_left}, driven {driven}"
+        );
+    }
+
+    // ---- CA2-C: the hazard input
+
+    fn lane(left: f32, width: f32, id: u32) -> NavHazard {
+        NavHazard {
+            id,
+            rect: Rect {
+                left,
+                bottom: 0.0,
+                width,
+                height: 60.0,
+            },
+        }
+    }
+
+    fn flat() -> Vec<Block> {
+        vec![stone(0.0, 0.0, 2000.0, 40.0)]
+    }
+
+    #[test]
+    fn set_hazards_rebuilds_on_a_change_only_and_keeps_the_executor_state() {
+        let blocks = flat();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        let plain = driver.graph().state_hash();
+        assert_eq!(driver.set_hazards(Vec::new(), &blocks), Ok(false));
+        assert_eq!(driver.graph().state_hash(), plain, "no feed, no rebuild");
+        assert_eq!(
+            driver.set_hazards(vec![lane(600.0, 80.0, 1)], &blocks),
+            Ok(true)
+        );
+        let fed = driver.graph().state_hash();
+        assert_ne!(fed, plain);
+        assert_eq!(
+            driver.set_hazards(vec![lane(600.0, 80.0, 1)], &blocks),
+            Ok(false),
+            "the same list is a no-op"
+        );
+        assert_eq!(driver.graph().state_hash(), fed);
+        // The list is kept sorted by id whatever the order it came in.
+        let mut a = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        let mut b = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        a.set_hazards(vec![lane(600.0, 80.0, 1), lane(900.0, 40.0, 2)], &blocks)
+            .unwrap();
+        b.set_hazards(vec![lane(900.0, 40.0, 2), lane(600.0, 80.0, 1)], &blocks)
+            .unwrap();
+        assert_eq!(a.graph().state_hash(), b.graph().state_hash());
+        // A duplicate id is rejected and changes nothing.
+        let before = a.graph().state_hash();
+        assert!(
+            a.set_hazards(vec![lane(1.0, 2.0, 5), lane(10.0, 2.0, 5)], &blocks)
+                .is_err()
+        );
+        assert_eq!(a.graph().state_hash(), before);
+        assert_eq!(a.hazards().len(), 2);
+        // Clearing the feed restores the plain graph (the hazard has passed).
+        driver.set_hazards(Vec::new(), &blocks).unwrap();
+        assert_eq!(driver.graph().state_hash(), plain);
+        // A destruction sync after a feed keeps the hazards (the rebuild path).
+        driver
+            .set_hazards(vec![lane(600.0, 80.0, 1)], &blocks)
+            .unwrap();
+        driver.sync(&blocks).unwrap();
+        assert_eq!(driver.graph().state_hash(), fed);
+        let mut more = blocks.clone();
+        more.push(stone(1200.0, 100.0, 40.0, 8.0));
+        driver.sync(&more).unwrap();
+        assert_eq!(driver.hazards().len(), 1, "the rebuild kept the feed");
+        assert!(
+            driver
+                .graph()
+                .anchors()
+                .any(|a| driver.graph().anchor_risk(a) == Some(crate::companion::nav::RISK_MAX)),
+            "and the graph still has the hazard anchor"
+        );
+    }
+
+    #[test]
+    fn the_feed_converts_layout_rectangles_and_leaves_out_what_only_hurts_enemies() {
+        use crate::camera_lab::room::IRect;
+        use crate::env_hazard::{HazardClass, NavPhase};
+        let rect = |x, y, w, h| IRect::new(x, y, w, h);
+        let feed = [
+            NavRect {
+                hazard: 3,
+                class: HazardClass::Steam,
+                rect: rect(688, 484, 80, 96),
+                phase: NavPhase::Active,
+                ticks_left: Some(10),
+                hurts_heroes: true,
+                hurts_enemies: true,
+            },
+            NavRect {
+                hazard: 4,
+                class: HazardClass::FallingMass,
+                rect: rect(784, 572, 64, 8),
+                phase: NavPhase::Telegraph,
+                ticks_left: Some(24),
+                hurts_heroes: true,
+                hurts_enemies: false,
+            },
+            NavRect {
+                hazard: 5,
+                class: HazardClass::Blast,
+                rect: rect(0, 0, 10, 10),
+                phase: NavPhase::Active,
+                ticks_left: Some(1),
+                hurts_heroes: false,
+                hurts_enemies: true,
+            },
+        ];
+        let got = hazards_from_feed(&feed, 580);
+        assert_eq!(got.len(), 2, "the enemy-only volume is not fed in");
+        assert_eq!(got[0].id, 3);
+        // Layout y 484 + 96 = 580 is the floor line: the world bottom is 0.
+        assert_eq!(
+            got[0].rect,
+            Rect {
+                left: 688.0,
+                bottom: 0.0,
+                width: 80.0,
+                height: 96.0
+            }
+        );
+        assert_eq!(got[1].id, 4);
+        assert_eq!(got[1].rect.bottom, 0.0);
+        assert_eq!(got[1].rect.height, 8.0);
+        assert!(hazards_from_feed(&[], 580).is_empty());
+    }
+
+    #[test]
+    fn a_hazard_lane_holds_her_on_the_near_side_and_the_route_reopens_when_it_clears() {
+        let blocks = flat();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        let leader = standing(900.0, 0.0);
+        let mut hero = Hero::at(300.0, HERO_HALF_HEIGHT);
+        let mut frame = InputFrame::default();
+        let hazard = lane(600.0, 80.0, 1);
+        let mut waiting = 0;
+        let mut step_once =
+            |driver: &mut NavDriver, hero: &mut Hero, fence: &[NavHazard]| -> usize {
+                let (drive, notes) = driver.go_to(HeroId::Carl, body(hero), leader, None);
+                let held = notes
+                    .iter()
+                    .filter(|n| {
+                        matches!(
+                            n,
+                            NavNote::Waiting {
+                                reason: Reason::Hazard,
+                                ..
+                            }
+                        )
+                    })
+                    .count();
+                // The flat part the wiring falls back on, then the fence.
+                let move_x =
+                    drive.map_or_else(|| approach(hero.x, leader.x, RUN_SPEED), |d| d.move_x);
+                let move_x = fence_step(fence, body(hero), move_x, RUN_SPEED * TICK_SECONDS);
+                frame.advance(RawInput {
+                    move_x,
+                    ..RawInput::NONE
+                });
+                step_hero(hero, &frame, &blocks, 2000.0);
+                held
+            };
+        // The lane is telegraphed from the start: she walks up to it and stops.
+        driver.set_hazards(vec![hazard.clone()], &blocks).unwrap();
+        for _ in 0..400 {
+            waiting += step_once(&mut driver, &mut hero, std::slice::from_ref(&hazard));
+        }
+        assert!(
+            hero.x + HERO_HALF_WIDTH <= 600.0,
+            "she never enters the lane: {}",
+            hero.x
+        );
+        assert!(
+            hero.x + HERO_HALF_WIDTH >= 590.0,
+            "and she waits at its edge, not far back: {}",
+            hero.x
+        );
+        assert!(waiting >= 1, "the hold names the hazard as the reason");
+        // The lane ends: the same executor reaches the leader.
+        driver.set_hazards(Vec::new(), &blocks).unwrap();
+        for _ in 0..400 {
+            step_once(&mut driver, &mut hero, &[]);
+        }
+        assert!(
+            (hero.x - 900.0).abs() < 50.0,
+            "she crosses once it clears: {}",
+            hero.x
+        );
+    }
+
+    #[test]
+    fn the_fence_stops_a_step_at_the_hazard_and_never_traps_a_hero_inside_it() {
+        let hz = [lane(600.0, 80.0, 1)];
+        let run = RUN_SPEED * TICK_SECONDS;
+        let at = |x: f32| standing(x, 0.0);
+        // Far away: untouched, both ways.
+        assert_eq!(fence_step(&hz, at(300.0), 1.0, run), 1.0);
+        assert_eq!(fence_step(&hz, at(300.0), -1.0, run), -1.0);
+        // Next to it: the step is cut to leave the 2 px margin (body edge 598).
+        let near = 600.0 - HAZARD_FENCE_MARGIN_PX - HERO_HALF_WIDTH - 1.0;
+        let cut = fence_step(&hz, at(near), 1.0, run);
+        assert!((cut * run - 1.0).abs() < 1e-3, "{}", cut * run);
+        // At the margin: refused. Walking away: free.
+        let edge = 600.0 - HAZARD_FENCE_MARGIN_PX - HERO_HALF_WIDTH;
+        assert_eq!(fence_step(&hz, at(edge), 1.0, run), 0.0);
+        assert_eq!(fence_step(&hz, at(edge), -1.0, run), -1.0);
+        // The far side, walking left into it.
+        let far = 680.0 + HAZARD_FENCE_MARGIN_PX + HERO_HALF_WIDTH + 1.0;
+        let cut = fence_step(&hz, at(far), -1.0, run);
+        assert!((cut * run + 1.0).abs() < 1e-3, "{}", cut * run);
+        assert_eq!(fence_step(&hz, at(far - 1.0), -1.0, run), 0.0);
+        // Already inside: she may walk out either way (no trap).
+        assert_eq!(fence_step(&hz, at(640.0), 1.0, run), 1.0);
+        assert_eq!(fence_step(&hz, at(640.0), -1.0, run), -1.0);
+        // In the air, or with a hazard above her head or below her feet: free.
+        let mut air = at(edge);
+        air.grounded = false;
+        assert_eq!(fence_step(&hz, air, 1.0, run), 1.0);
+        let high = [NavHazard {
+            id: 2,
+            rect: Rect {
+                left: 600.0,
+                bottom: 80.0,
+                width: 80.0,
+                height: 20.0,
+            },
+        }];
+        assert_eq!(fence_step(&high, at(edge), 1.0, run), 1.0, "above her head");
+        assert_eq!(fence_step(&[], at(edge), 1.0, run), 1.0, "no feed");
+        assert_eq!(fence_step(&hz, at(edge), 0.0, run), 0.0);
+        // The nearer of two lanes is the fence.
+        let two = [lane(900.0, 40.0, 3), lane(600.0, 80.0, 1)];
+        assert_eq!(fence_step(&two, at(edge), 1.0, run), 0.0);
+    }
+
+    #[test]
+    fn an_evacuation_leads_out_of_the_hazard_and_only_when_she_stands_in_one() {
+        let blocks = flat();
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        let hero = |x: f32| standing(x, 0.0);
+        assert_eq!(driver.evacuation(HeroId::Donut, hero(640.0), None), None);
+        driver
+            .set_hazards(vec![lane(600.0, 80.0, 1)], &blocks)
+            .unwrap();
+        // Nowhere near it, or at its edge but outside: nothing to do.
+        assert_eq!(driver.evacuation(HeroId::Donut, hero(300.0), None), None);
+        // Her body 12 px over the lane's edge with her centre still on safe
+        // ground (the anchor ends at the rectangle): still in it, and the way out
+        // is the few px that clear it. Just clear of it (2 px margin): nothing.
+        let edge = driver
+            .evacuation(HeroId::Donut, hero(596.0), None)
+            .expect("her body is over the edge");
+        assert!(edge.x + HERO_HALF_WIDTH <= 600.0, "{edge:?}");
+        assert_eq!(driver.evacuation(HeroId::Donut, hero(587.0), None), None);
+        // Inside, nearer the left: out to the left, a body clear of the lane.
+        let out = driver
+            .evacuation(HeroId::Donut, hero(620.0), None)
+            .expect("a way out");
+        assert!(out.x + HERO_HALF_WIDTH <= 600.0 && out.x > 500.0, "{out:?}");
+        // The camera bounds are a preference: with none left on its side it still
+        // leaves through the other side rather than staying in.
+        let bounded = driver
+            .evacuation(HeroId::Donut, hero(620.0), Some((650.0, 760.0)))
+            .expect("bounds are dropped before the hazard is kept");
+        assert!(bounded.x >= 680.0 - 1.0 || bounded.x + HERO_HALF_WIDTH <= 600.0);
+        // In the air: nothing (the transit or the fall decides).
+        let mut air = hero(620.0);
+        air.grounded = false;
+        assert_eq!(driver.evacuation(HeroId::Donut, air, None), None);
+        // Driven through the real body: she walks out in the lane's fewest ticks.
+        let mut hero_body = Hero::at(620.0, HERO_HALF_HEIGHT);
+        let mut frame = InputFrame::default();
+        for _ in 0..90 {
+            let me = body(&hero_body);
+            let Some(goal) = driver.evacuation(HeroId::Donut, me, None) else {
+                break;
+            };
+            let (drive, _) = driver.go_to(HeroId::Donut, me, goal, None);
+            let move_x = drive.map_or_else(|| approach(me.x, goal.x, RUN_SPEED), |d| d.move_x);
+            frame.advance(RawInput {
+                move_x,
+                ..RawInput::NONE
+            });
+            step_hero(&mut hero_body, &frame, &blocks, 2000.0);
+        }
+        assert!(
+            hero_body.x + HERO_HALF_WIDTH <= 600.0 + 0.01 || hero_body.x - HERO_HALF_WIDTH >= 680.0,
+            "out of the lane: {}",
+            hero_body.x
+        );
+    }
+
+    #[test]
+    fn every_hazard_class_is_just_a_rectangle_to_the_nav() {
+        use crate::camera_lab::room::IRect;
+        use crate::env_hazard::{
+            HazardClass, HazardSpec, HazardVolume, HazardWindow, NavPhase, Phase,
+        };
+        use crate::hero_damage::HeroDamagePolicy;
+        let blocks = flat();
+        let layout_h = 100;
+        // Steam, a footprint and a blast are timed; acid, a slide and a wheel are
+        // persistent. All six block the same route in the same way.
+        let mut routes = Vec::new();
+        for class in HazardClass::ALL {
+            let window = match class {
+                HazardClass::Steam | HazardClass::FallingMass | HazardClass::Blast => {
+                    HazardWindow::Timed {
+                        telegraph_ticks: 24,
+                        active_ticks: 30,
+                        max_activations: 1,
+                    }
+                }
+                _ => HazardWindow::Persistent,
+            };
+            let rect = IRect::new(600, 40, 80, 60);
+            let mut volume = HazardVolume::new(HazardSpec {
+                id: 1,
+                class,
+                rect,
+                telegraph_rect: rect,
+                window,
+                damage: 1,
+                push_x: 0,
+                hero_damage: HeroDamagePolicy::AllHeroes,
+                hurts_enemies: false,
+            })
+            .unwrap();
+            let timed = !volume.spec().is_persistent();
+            if timed {
+                assert!(volume.trigger(None));
+            }
+            let mut driver = NavDriver::new(&blocks, NavConfig::agile()).unwrap();
+            let goal = standing(900.0, 0.0);
+            let mut held_ticks = 0u32;
+            let mut phases = Vec::new();
+            for _ in 0..80 {
+                let feed: Vec<NavRect> = volume.nav_rect().into_iter().collect();
+                phases.push(feed.first().map(|n| n.phase));
+                driver
+                    .set_hazards(hazards_from_feed(&feed, layout_h), &blocks)
+                    .unwrap();
+                let (drive, notes) = driver.go_to(HeroId::Donut, standing(300.0, 0.0), goal, None);
+                let blocked = notes.iter().any(|n| {
+                    matches!(
+                        n,
+                        NavNote::Waiting {
+                            reason: Reason::Hazard,
+                            ..
+                        }
+                    )
+                }) || drive.is_some();
+                held_ticks += u32::from(blocked);
+                volume.step();
+            }
+            if timed {
+                // Telegraph (24) then active (30): blocked on both, free after.
+                assert_eq!(phases[0], Some(NavPhase::Telegraph), "{class:?}");
+                assert!(phases.contains(&Some(NavPhase::Active)), "{class:?}");
+                assert_eq!(phases[79], None, "{class:?}: ended");
+                assert_eq!(volume.phase(), Phase::Spent);
+                assert!((1..80).contains(&held_ticks), "{class:?}: {held_ticks}");
+            } else {
+                assert!(phases.iter().all(|p| *p == Some(NavPhase::Active)));
+                assert_eq!(held_ticks, 80, "{class:?}: a persistent hazard keeps");
+            }
+            routes.push((class, driver.hazards().len()));
+        }
+        // No class is special: nothing but the rectangle decided any of it.
+        assert_eq!(routes.len(), HazardClass::ALL.len());
+    }
+
+    #[test]
+    fn nav_spots_see_a_hazard_over_a_spot_and_on_a_pounce_run() {
+        use crate::companion::autonomy::SpotWorld;
+        let blocks = flat();
+        let mut driver = NavDriver::new(&blocks, NavConfig::agile()).unwrap();
+        let world = |d: &NavDriver| NavSpots::new(d, HeroId::Donut, 16.0).hazard_at(640.0, 0.0);
+        assert!(!world(&driver));
+        driver
+            .set_hazards(vec![lane(600.0, 80.0, 1)], &blocks)
+            .unwrap();
+        let spots = NavSpots::new(&driver, HeroId::Donut, 16.0);
+        assert!(spots.hazard_at(640.0, 0.0), "her body over the lane");
+        assert!(spots.hazard_at(590.0, 0.0), "the body's width counts");
+        assert!(!spots.hazard_at(560.0, 0.0), "clear of it");
+        assert!(!spots.hazard_at(640.0, 200.0), "a lane far below a perch");
+        assert!(spots.hazard_between(520.0, 700.0, 0.0), "a run across it");
+        assert!(spots.hazard_between(700.0, 520.0, 0.0), "either way");
+        assert!(
+            !spots.hazard_between(300.0, 560.0, 0.0),
+            "a run short of it"
+        );
+        // No hazard surface is offered as a spot: the lane's own anchor is risky.
+        let mut surfaces = Vec::new();
+        spots.surfaces(&mut surfaces);
+        assert!(
+            surfaces.iter().any(|s| s.risk >= UNSAFE_RISK),
+            "the lane's anchor carries the risk the goal layer filters on"
+        );
+        assert!(
+            surfaces
+                .iter()
+                .filter(|s| s.risk < UNSAFE_RISK)
+                .all(|s| s.right <= 600.0 - HERO_HALF_WIDTH || s.left >= 680.0 + HERO_HALF_WIDTH),
+            "every safe spot leaves her body clear of the lane"
+        );
     }
 }

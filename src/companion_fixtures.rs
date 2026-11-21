@@ -1306,6 +1306,7 @@ mod tests {
             CompanionEvent::Decision { .. }
             | CompanionEvent::Nav { .. }
             | CompanionEvent::GoalChanged { .. }
+            | CompanionEvent::HazardFeed { .. }
             | CompanionEvent::Regroup { .. } => true,
         }));
     }

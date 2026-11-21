@@ -1260,3 +1260,6 @@ mod tests {
         assert!(pounces >= 200, "the sweep ran ({pounces} runs)");
     }
 }
+
+#[cfg(test)]
+mod hazard;

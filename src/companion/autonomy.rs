@@ -527,6 +527,19 @@ pub trait SpotWorld {
     /// otherwise the summed simulated duration of the jump and drop edges (the
     /// ticks of the nav transits, spec 3.3).
     fn route_ticks(&self, partner: &HeroView, x: f32, surface: &Surface) -> Option<u16>;
+
+    /// CA2-C (K13, CA2-Q29): a hero-hurting hazard rectangle (telegraphed or
+    /// active, whatever its class) overlaps her body standing at `x` on a surface
+    /// at height `y`. The default is `false`: a world with no hazard feed.
+    fn hazard_at(&self, _x: f32, _y: f32) -> bool {
+        false
+    }
+
+    /// CA2-C: a hero-hurting hazard overlaps her body anywhere on the ground run
+    /// from `x0` to `x1` at height `y` (a pounce's hop is such a run).
+    fn hazard_between(&self, _x0: f32, _x1: f32, _y: f32) -> bool {
+        false
+    }
 }
 
 /// What a spot is for.
@@ -584,6 +597,12 @@ pub struct AutonomyStats {
     /// Ticks the brief allowed interrupts only because the commitment from her
     /// current x fails the drift check (review F-2).
     pub brief_drift_blocked_ticks: u32,
+    /// CA2-C: Hunt candidate evaluations where a hazard rectangle on the
+    /// pounce's run (or under the spot) was the only thing that stopped every
+    /// spot, and ticks on which the brief allowed interrupts only because the
+    /// pounce from where she stands would cross one (M9 reports them).
+    pub hunt_hazard_rejected: u32,
+    pub brief_hazard_blocked_ticks: u32,
     /// Ticks on which the director skipped an interrupt press because the worst
     /// case of the commitment would leave the view (spec 3.3, M16; see
     /// [`AutonomyState::record_decision`]). It counts **press ticks**, not tells:
@@ -702,6 +721,8 @@ struct Cand {
 struct SpotSearch {
     spot: Option<Spot>,
     drift_rejected: bool,
+    /// CA2-C: a hazard on the pounce's run stopped at least one candidate spot.
+    hazard_rejected: bool,
 }
 
 /// The facts of one step, derived once.
@@ -920,6 +941,20 @@ impl<'a> Ctx<'a> {
         }
     }
 
+    /// CA2-C (K13): the pounce from `x` on a surface at `y` would run over a
+    /// hero-hurting hazard (its hop covers `x` to the landing beside the target).
+    /// A cast stands in place; it is never blocked here.
+    fn hazard_blocks(&self, x: f32, y: f32, target: &TargetView, mode: HuntMode) -> bool {
+        match mode {
+            HuntMode::Pounce => {
+                let dir = f32::from(sign(target.x - x));
+                let end = target.x - dir * POUNCE_CONTACT_PX;
+                self.inp.world.hazard_between(x, end, y)
+            }
+            HuntMode::Cast => false,
+        }
+    }
+
     /// The partner positions (x range) from which an interrupt's worst case (a
     /// swat or a missile, in place) stays in view (spec 3.3: interrupts get no
     /// exemption, review F-3). Empty (`lo > hi`) when no position qualifies.
@@ -957,6 +992,7 @@ impl<'a> Ctx<'a> {
         let wanted = self.spacing(mode, recoil);
         let mut best = BestSpot { best: None };
         let mut drift_failed = false;
+        let mut hazard_failed = false;
         for surface in surfaces {
             if surface.risk >= self.a.ca2_q29_spot_max_risk
                 || (surface.y - t.foot_y).abs() > self.vertical()
@@ -973,6 +1009,12 @@ impl<'a> Ctx<'a> {
                 let (ok, drift_only) = self.commit_ok(x, surface, (!recoil).then_some((t, mode)));
                 if !ok {
                     drift_failed |= drift_only;
+                    return;
+                }
+                // CA2-C: the pounce's hop never runs over a hazard (a spring-back
+                // is a walk, which the graph and the fence already keep clear).
+                if !recoil && self.hazard_blocks(x, surface.y, t, mode) {
+                    hazard_failed = true;
                     return;
                 }
                 // Stay on her own side of the target: no crossing it.
@@ -1003,6 +1045,7 @@ impl<'a> Ctx<'a> {
         SpotSearch {
             spot: best.best.map(|(_, s)| s),
             drift_rejected: drift_failed,
+            hazard_rejected: hazard_failed,
         }
     }
 
@@ -1435,6 +1478,9 @@ impl AutonomyState {
         };
         if !c.zone().contains_spot(spot.x, spot.surface_y)
             || (c.leader.x - spot.leader_ref_x).abs() > f32::from(c.a.ca2_q30_respot_px)
+            // CA2-C: a hazard that turned up over the held spot (a telegraph
+            // begins) makes it a bad place to stand, whatever the goal.
+            || c.inp.world.hazard_at(spot.x, spot.surface_y)
         {
             return false;
         }
@@ -1456,7 +1502,9 @@ impl AutonomyState {
                 let (lo, hi) = c.band(mode);
                 // In band, and the commitment from the spot still passes the
                 // drift check (review F-2: a stale spot is re-picked).
-                (lo..=hi).contains(&(spot.x - t.x).abs()) && c.drift_ok(spot.x, t, mode)
+                (lo..=hi).contains(&(spot.x - t.x).abs())
+                    && c.drift_ok(spot.x, t, mode)
+                    && !c.hazard_blocks(spot.x, spot.surface_y, t, mode)
             }
             (Goal::Retreat, SpotPurpose::Retreat) | (Goal::Escort, SpotPurpose::Escort) => true,
             _ => false,
@@ -1746,6 +1794,7 @@ impl AutonomyState {
                 let search = c.attack_spot(surfaces, t, mode, false);
                 let Some(spot) = search.spot else {
                     self.stats.hunt_drift_rejected += u32::from(search.drift_rejected);
+                    self.stats.hunt_hazard_rejected += u32::from(search.hazard_rejected);
                     continue;
                 };
                 let base = match (t.id.kind, t.state) {
@@ -1900,6 +1949,18 @@ impl AutonomyState {
             director = GoalBrief::interrupts_only();
             if !c.committed {
                 self.stats.brief_drift_blocked_ticks += 1;
+            }
+        }
+        // CA2-C: the same from where she stands now, every tick: a hazard that
+        // began between her and the target keeps her from pouncing across it.
+        if !director.allowed.is_empty()
+            && let Some(t) = target
+            && let Some(mode) = c.mode_for(t)
+            && c.hazard_blocks(c.me.x, c.me.foot_y, t, mode)
+        {
+            director = GoalBrief::interrupts_only();
+            if !c.committed {
+                self.stats.brief_hazard_blocked_ticks += 1;
             }
         }
         director.commit_x = Some(c.interrupt_commit_x());
@@ -4290,5 +4351,141 @@ mod tests {
             });
             assert!(refused.is_err(), "a slower partner must be refused");
         }
+    }
+
+    // ===================================================================
+    // CA2-C: the hazard feed in the goal layer (K13, CA2-Q29)
+    // ===================================================================
+
+    /// `FlatWorld` plus hazard x spans (a hero-hurting rectangle on the floor):
+    /// her body (12 px each side) over a span is a hazard.
+    struct HazWorld {
+        inner: FlatWorld,
+        spans: Vec<(f32, f32)>,
+    }
+
+    impl SpotWorld for HazWorld {
+        fn surfaces(&self, out: &mut Vec<Surface>) {
+            self.inner.surfaces(out);
+        }
+
+        fn route_ticks(&self, partner: &HeroView, x: f32, surface: &Surface) -> Option<u16> {
+            self.inner.route_ticks(partner, x, surface)
+        }
+
+        fn hazard_at(&self, x: f32, y: f32) -> bool {
+            self.hazard_between(x, x, y)
+        }
+
+        fn hazard_between(&self, x0: f32, x1: f32, y: f32) -> bool {
+            let (lo, hi) = (x0.min(x1) - 12.0, x0.max(x1) + 12.0);
+            y.abs() < 1.0 && self.spans.iter().any(|&(l, r)| l < hi && r > lo)
+        }
+    }
+
+    /// The `Rig` of this module with a hazard world: `Rig.world` is a `FlatWorld`,
+    /// so the hazard cases step the layer by hand.
+    fn haz_step(rig: &mut Rig, spans: &[(f32, f32)]) -> Option<AutonomyBrief> {
+        let a = rig.set.autonomy.clone();
+        let leader_view = rig.v.heroes[0];
+        let zone = FreeZone::compute(&ZoneInput::new(&leader_view, rig.v.view, goal_rows()), &a);
+        let drift = DriftCheck::new(rig.leader_motion, &a);
+        let tuning = DonutMoveTuning::SPEC;
+        let world = HazWorld {
+            inner: FlatWorld {
+                surfaces: rig.world.surfaces.clone(),
+                climb: rig.world.climb,
+            },
+            spans: spans.to_vec(),
+        };
+        let brief = rig.st.step(&AutonomyInput {
+            view: &rig.v,
+            set: &rig.set,
+            partner: HeroId::Donut,
+            zone: &zone,
+            drift: &drift,
+            partner_motion: rig.partner_motion,
+            tuning: &tuning,
+            world: &world,
+            pan_remaining: rig.pan,
+            partner_hit_landed: false,
+        });
+        rig.v.tick += 1;
+        brief
+    }
+
+    /// A pounce's hop never runs over a hazard: with the goblin 120 px behind
+    /// Carl and a hazard between her attack spot (about x 256) and it, there is no
+    /// spot, so no Hunt; the rejection is counted as a hazard rejection, not a
+    /// drift rejection. The same goblin with the hazard elsewhere is hunted.
+    #[test]
+    fn a_hazard_on_the_pounce_run_leaves_no_attack_spot_and_is_counted_as_one() {
+        let mut clear = Rig::new();
+        clear.goblin(1, 200.0, standing());
+        let b = haz_step(&mut clear, &[(500.0, 560.0)]).unwrap();
+        assert_eq!(b.goal, Goal::Hunt, "a hazard elsewhere changes nothing");
+        assert_eq!(clear.st.stats().hunt_hazard_rejected, 0);
+
+        let mut blocked = Rig::new();
+        blocked.goblin(1, 200.0, standing());
+        let b = haz_step(&mut blocked, &[(220.0, 245.0)]).unwrap();
+        assert_ne!(b.goal, Goal::Hunt, "{b:?}");
+        assert!(b.director.allowed.is_empty());
+        let stats = blocked.st.stats();
+        assert_eq!(stats.hunt_hazard_rejected, 1);
+    }
+
+    /// A held spot that a hazard turns up over is no longer a spot: the layer
+    /// re-picks (the goal never stands her in a telegraphed lane).
+    #[test]
+    fn a_hazard_over_the_held_spot_makes_it_stale_and_it_is_re_picked() {
+        let mut rig = Rig::new();
+        rig.goblin(1, 200.0, standing());
+        let b = haz_step(&mut rig, &[]).unwrap();
+        assert_eq!(b.goal, Goal::Hunt);
+        let spot = b.spot.unwrap();
+        // A lane begins over the spot and the whole pounce band on this side of the
+        // goblin: she is not committed (standing on the floor), so the next tick
+        // re-decides.
+        let lane = (spot.x - 30.0, spot.x + 60.0);
+        let b = haz_step(&mut rig, &[lane]).unwrap();
+        assert!(
+            b.spot
+                .is_none_or(|s| !(lane.0 - 12.0 < s.x && s.x < lane.1 + 12.0)),
+            "no spot over the lane: {b:?}"
+        );
+        assert_ne!(b.goal, Goal::Hunt, "the pounce from there would cross it");
+    }
+
+    /// From where she stands the pounce would run over a hazard even though the
+    /// held spot's does not: the director may interrupt only (and the tick is
+    /// counted).
+    #[test]
+    fn the_brief_allows_interrupts_only_when_the_pounce_from_where_she_stands_crosses_a_hazard() {
+        let mut rig = Rig::new();
+        rig.goblin(1, 200.0, standing());
+        rig.donut().x = 262.0;
+        // The hazard touches her body at 262 (250..274) but not the spot's 256
+        // (244..268): a span starting at 270.
+        let b = haz_step(&mut rig, &[(270.0, 290.0)]).unwrap();
+        assert_eq!(b.goal, Goal::Hunt);
+        assert!(b.director.allowed.is_empty(), "interrupts only: {b:?}");
+        assert_eq!(rig.st.stats().brief_hazard_blocked_ticks, 1);
+        // Without the hazard the same tick allows the goblin.
+        let mut free = Rig::new();
+        free.goblin(1, 200.0, standing());
+        free.donut().x = 262.0;
+        let b = haz_step(&mut free, &[]).unwrap();
+        assert_eq!(b.director.allowed, vec![StableEntityId::goblin(1)]);
+        assert_eq!(free.st.stats().brief_hazard_blocked_ticks, 0);
+    }
+
+    /// A world with no feed (the default methods) is today's behaviour, byte for
+    /// byte: `FlatWorld` implements neither hazard method.
+    #[test]
+    fn a_world_without_a_hazard_feed_never_reports_one() {
+        let w = FlatWorld::floor();
+        assert!(!w.hazard_at(100.0, 0.0));
+        assert!(!w.hazard_between(0.0, 600.0, 0.0));
     }
 }
