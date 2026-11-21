@@ -18,7 +18,7 @@
 //! Limits (R1): presentation settings are not recorded (defaults are used);
 //! particles and animation advance by wall clock while paused (approximate);
 //! restart is relaunching the process; sources `demo`, `fixture`, `boss` and
-//! `story` are supported (`party_fixture` and `combat_lab` reports
+//! `story` are supported (party-fixture and lab sessions report
 //! `unsupported_source`).
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -326,7 +326,7 @@ pub(super) fn scene_of(
         None => (actors.animators(&scene.world), None),
     };
     let party = PartyState::new(*cursor.tuning());
-    let font_path = root.join(dungeon_floorbreak::combat_lab_overlay::FONT_PATH);
+    let font_path = root.join(OVERLAY_FONT_PATH);
     let font = std::fs::read(&font_path).map_err(|e| format!("{}: {e}", font_path.display()))?;
     let view = ReplayView {
         session_id: loaded.manifest.session_id.clone(),
@@ -787,6 +787,8 @@ pub(super) fn replay_capture(
 
 // -------------------------------------------------------------------- overlay
 
+/// Silkscreen, the HUD's small-text font (the same file the HUD loads).
+const OVERLAY_FONT_PATH: &str = "assets/fonts/silkscreen/Silkscreen-Regular.ttf";
 const FONT_PX: f32 = 8.0;
 const LINE_PX: f32 = 10.0;
 const OVERLAY_LINES: usize = 4;
