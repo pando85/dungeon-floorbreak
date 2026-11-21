@@ -386,7 +386,9 @@ pub fn check(kit: &EnvKit, loaded: &Loaded) -> Result<PhysicsReport, String> {
         exits: Vec::new(),
     };
     for graph in route_graphs(room, &loaded.classes, &loaded.encounter) {
-        let world = World::new(kit, graph.hero, &graph.solids);
+        // A closed shutter is a real wall of the state, though never a node.
+        let walls: Vec<_> = graph.solids.iter().chain(&graph.cuts).copied().collect();
+        let world = World::new(kit, graph.hero, &walls);
         let reach = reach_px(loaded, graph.hero);
         let mut witnessed = Vec::new();
         for &(a, b) in &graph.edges {
@@ -536,6 +538,45 @@ mod tests {
         let high_world = World::new(&run.kit, ReachHero::Carl, &[high]);
         let high_node = node(600, 744, room.floor_y - 130, false);
         assert!(high_world.witness(&ground, &high_node, 146.0).is_none());
+    }
+
+    /// F1: the class bounds of the height-class DATA (Carl 80, base Donut
+    /// 96..104, boosted Donut 128) match the real integrator under the DP-Q45
+    /// 228 px ceiling. The Boiler itself only has 80, 48 and 32 px surfaces, so
+    /// the bounds are exercised on a slab at each rise, on the shipped kit.
+    #[test]
+    fn the_class_bounds_match_the_integrator_under_the_ceiling() {
+        let run = launch(&root()).unwrap();
+        let room = &run.loaded.room;
+        let classes = &run.loaded.classes;
+        assert_eq!(run.loaded.ceiling_px, Some(228), "the DP-Q45 ceiling");
+        let ground = node(room.play_x.0, room.play_x.1, room.floor_y, true);
+        let lands = |hero: ReachHero, rise: i32| {
+            let slab = LayoutRect::new(600, room.floor_y - rise, 144, 16);
+            let world = World::new(&run.kit, hero, &[slab]);
+            let target = node(600, 744, room.floor_y - rise, false);
+            world
+                .witness(&ground, &target, reach_px(&run.loaded, hero))
+                .is_some()
+        };
+        let (carl, base, boosted) = (
+            classes.max_rise(ReachHero::Carl),
+            classes.max_rise(ReachHero::DonutBase),
+            classes.max_rise(ReachHero::DonutBoosted),
+        );
+        assert_eq!((carl, base, boosted), (80, 104, 128), "the data");
+        // Carl: lands at 80, fails at 96.
+        assert!(lands(ReachHero::Carl, carl));
+        assert!(!lands(ReachHero::Carl, 96));
+        // Base Donut: lands at 96 and 104; 120 is above the human-only 112.
+        assert!(lands(ReachHero::DonutBase, 96));
+        assert!(lands(ReachHero::DonutBase, base));
+        assert!(!lands(ReachHero::DonutBase, 120));
+        // Boosted Donut: lands at 128, fails at 144.
+        assert!(lands(ReachHero::DonutBoosted, boosted));
+        assert!(!lands(ReachHero::DonutBoosted, 144));
+        // Standing on the highest class surface still clears the ceiling.
+        assert!(boosted + run.loaded.classes.carl_height_px < 228);
     }
 
     /// A missing ceiling slab is an error, not a pass.
