@@ -19,7 +19,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x9cab_1de8_f9b9_d6f0;
+pub const PROFILE_HASH: u64 = 0x30cc_e662_92c4_2e6b;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -226,6 +226,12 @@ pub struct Autonomy {
     pub ca2_q30_respot_px: u16,
     /// CA2-Q34: the M5 involuntary-cause window.
     pub ca2_q34_cause_window_ticks: u16,
+    /// CA2-Q36: the drift check prices a transit from her position (the walk to
+    /// the launch point, the simulated air time, the walk from the landing to
+    /// the spot), not centre to centre; this many ticks are added per jump or
+    /// drop edge for the approach and landing settle the simulation does not
+    /// price. A zero is valid (the exact simulated price).
+    pub ca2_q36_transit_slack_ticks: u16,
     pub roles: AutonomyRoles,
 }
 
@@ -1085,9 +1091,10 @@ mod tests {
                 a.ca2_q29_ledge_inset_px,
                 a.ca2_q29_lane_penalty,
                 a.ca2_q30_respot_px,
-                a.ca2_q34_cause_window_ticks
+                a.ca2_q34_cause_window_ticks,
+                a.ca2_q36_transit_slack_ticks
             ),
-            (250, 16, 300, 48, 60)
+            (250, 16, 300, 48, 60, 4)
         );
         let sk = a.table(AutonomyRole::Skirmisher).unwrap();
         // CA2-Q18.

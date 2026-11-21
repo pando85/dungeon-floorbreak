@@ -350,6 +350,7 @@ All values are data in `assets/data/gameplay/companion_ai_v0.json`, block `auton
 | CA2-Q33 | Retreat share of combat ticks in `cf02_free_arena_direct` (M15) *R1* | at most 25 % | The "feels passive" guard (review F-7); a miss is a design note, not a silent retune |
 | CA2-Q34 | `ca2_q34_cause_window_ticks` (M5 involuntary predicate) *R1* | 60 | Covers a hurt's knockback and flinch, a nav hold and a swap pan before an exit (review F-4) |
 | CA2-Q35 | Goals under a boss *R1* | Interrupt, Retreat, Escort, Idle only, until COMPANION-AI-01E | Review FU-2; boss blows are the main source of a leader faster than his run speed |
+| CA2-Q36 | `ca2_q36_transit_slack_ticks` (CA2-B2, PR #213 review B-1) | 4 | The drift check prices a jump or drop route **from her position**: the walk from her x (then each landing) to the edge's launch point, the simulated air time, and the walk from the last landing to the spot, plus this slack per edge. It is not the edge's anchor-centre-to-centre time, which priced a 32 px gap at 173 ticks against a real transit of 71 and rejected every spot across it (she never reached Support-leader) |
 
 ## 7. Acceptance and evidence
 

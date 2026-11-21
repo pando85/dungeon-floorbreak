@@ -602,7 +602,8 @@ impl CombatState {
         let drift = DriftCheck::new(Self::motion_of(scene, hero.other()), a);
         let hit = self.partner_hit_landed(scene, hero);
         let brief = {
-            let world = NavSpots::new(&nav, hero, f32::from(a.ca2_q29_ledge_inset_px));
+            let world = NavSpots::new(&nav, hero, f32::from(a.ca2_q29_ledge_inset_px))
+                .with_transit_slack(a.ca2_q36_transit_slack_ticks);
             self.companion.autonomy[i].step(&AutonomyInput {
                 view,
                 set,

@@ -817,7 +817,7 @@ mod tests {
         ("cf02_free_outnumbered", 0xaaaaea1c9e79bde8),
         ("cf02_free_carl_bolts", 0xf269f4d8859bce16),
         ("cf02_free_retreat_when_hurt", 0x025015c30e99827e),
-        ("cf02_free_arena_direct", 0xbdc1352c06ba0621),
+        ("cf02_free_arena_direct", 0xbac0d64831960ead),
     ];
 
     #[test]
@@ -1088,8 +1088,13 @@ mod tests {
         assert!(first_retreat >= hurt[0] && first_retreat - hurt[0] <= 6);
     }
 
-    /// The arena: M1, M2, M5, M6, M12, M15, and M13 reported against the assist
-    /// value (a shortfall is a design note, not a retune: see the PR body).
+    /// The arena: M1, M2, M5, M6, M12, M15, and M13 against the assist value.
+    /// CA2-Q36 (PR #213 review B-1): with transit pricing from her position she
+    /// reaches Support-leader and Carl is no longer defeated. M13 is **indicative**
+    /// (CA2 FU-4: the `cf02_arena_direct` inputs were recorded against the old
+    /// Donut, so goblin retargeting differs): the measured pair is pinned so a
+    /// regression or an improvement is visible, and the shortfall against the
+    /// assist value stays a design note for the top tier (never a silent retune).
     #[test]
     fn arena_direct_the_metrics_of_the_whole_room() {
         let f = &CF02_FREE_ARENA_DIRECT;
@@ -1115,8 +1120,34 @@ mod tests {
             "M13 share {}%",
             m.hit_share_percent()
         );
-        // Review N-e, reported (never tuned here): the pilot walks nearly the
-        // whole run, so Escort holds most of the ticks and no new Hunt starts.
+        // She reaches Support-leader (it was 0 ticks before CA2-Q36).
+        assert!(
+            m.goal_ticks[Goal::SupportLeader as usize] > 0,
+            "{:?}",
+            m.goal_ticks
+        );
+        // Both partners: no hero is defeated on these inputs (before CA2-Q36 Carl
+        // was defeated twice under `cf02_free` while she stood in Escort).
+        for g in [f, assist_twin(f)] {
+            let r = record(g);
+            assert!(
+                !r.combat
+                    .iter()
+                    .any(|e| matches!(e, CombatEvent::HeroDefeated { .. })),
+                "{}: a hero was defeated",
+                g.name()
+            );
+            assert!(
+                !r.combat
+                    .iter()
+                    .any(|e| matches!(e, CombatEvent::Restart { .. }))
+            );
+        }
+        // M13 pinned: her landed hits against the assist partner's (indicative).
+        let assist = metrics_of(assist_twin(f));
+        assert_eq!((m.her_hits, assist.her_hits), (1, 4), "M13 pair");
+        assert_eq!((m.all_hits, assist.all_hits), (13, 13));
+        // Review N-e, reported (never tuned here).
         assert!(m.travelling_ticks > 0);
     }
 

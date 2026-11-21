@@ -1552,7 +1552,7 @@ fn node_status(solids: &[NavSolid], n: &Node) -> NodeStatus {
     }
 }
 
-fn walk_ticks(distance: f32, run_speed: f32) -> u16 {
+pub(crate) fn walk_ticks(distance: f32, run_speed: f32) -> u16 {
     (distance / run_speed / TICK_SECONDS)
         .ceil()
         .min(f32::from(u16::MAX)) as u16

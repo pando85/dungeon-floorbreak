@@ -43,7 +43,7 @@
 use crate::companion::autonomy::{SpotWorld, Surface};
 use crate::companion::nav::{
     EdgeKind, EdgePlan, NavAnchorId, NavConfig, NavError, NavGraph, NavLevel, Plan, Reason,
-    SolidId, UNSAFE_RISK, Unlocks,
+    SolidId, UNSAFE_RISK, Unlocks, walk_ticks,
 };
 use crate::companion::view::HeroView;
 use crate::input::STICK_DEADZONE;
@@ -699,6 +699,8 @@ pub struct NavSpots<'a> {
     driver: &'a NavDriver,
     actor: HeroId,
     ledge_inset_px: f32,
+    /// `ca2_q36_transit_slack_ticks`: per jump or drop edge (0 by default).
+    transit_slack_ticks: u32,
 }
 
 impl<'a> NavSpots<'a> {
@@ -708,7 +710,15 @@ impl<'a> NavSpots<'a> {
             driver,
             actor,
             ledge_inset_px,
+            transit_slack_ticks: 0,
         }
+    }
+
+    /// CA2-Q36: the per-edge slack of the route price.
+    #[must_use]
+    pub fn with_transit_slack(mut self, ticks: u16) -> Self {
+        self.transit_slack_ticks = u32::from(ticks);
+        self
     }
 
     fn key(id: NavAnchorId) -> u64 {
@@ -770,7 +780,13 @@ impl SpotWorld for NavSpots<'_> {
         }
     }
 
-    fn route_ticks(&self, partner: &HeroView, _x: f32, surface: &Surface) -> Option<u16> {
+    /// CA2-Q36: the price of the route in ticks, from where she stands. Each
+    /// jump or drop edge costs the walk from where the leg starts (her x, then the
+    /// previous landing) to its launch point, its simulated air time (the edge's
+    /// centre-to-centre ticks less the two centre walks the edge adds) and the
+    /// per-edge slack; the walk from the last landing to `x` closes the route.
+    /// A route that is only walking costs 0.
+    fn route_ticks(&self, partner: &HeroView, x: f32, surface: &Surface) -> Option<u16> {
         let graph = self.driver.graph();
         // In the air (a pounce, a jump) no anchor is within 4 px of her feet: use
         // the open anchor under her (review F-1), so a decision taken in flight
@@ -785,17 +801,36 @@ impl SpotWorld for NavSpots<'_> {
         let path = graph
             .path_or_reason(self.actor, here, dest, Unlocks::NONE)
             .ok()?;
-        let mut ticks = 0u16;
+        let run = self.driver.config().run_speed(self.actor);
+        let walk = |d: f32| u32::from(walk_ticks(d, run));
+        let (mut ticks, mut cursor, mut any) = (0u32, partner.x, false);
         for w in path.anchors.windows(2) {
             let plan = graph.edge_plan(w[0], w[1], self.actor)?;
             if !self.driver.edge_allowed(w[0], plan.kind) {
                 return None;
             }
-            if plan.kind != EdgeKind::Walk {
-                ticks = ticks.saturating_add(plan.ticks);
+            if plan.kind == EdgeKind::Walk {
+                continue;
+            }
+            any = true;
+            match plan.launch_x {
+                Some((launch, target)) => {
+                    let mid = |a| graph.anchor_pos(a).map(|p| p.0);
+                    let (mid_a, mid_b) = (mid(w[0])?, mid(w[1])?);
+                    let air = u32::from(plan.ticks).saturating_sub(
+                        walk((mid_a - launch).abs()) + walk((target - mid_b).abs()),
+                    );
+                    ticks += walk((cursor - launch).abs()) + air + self.transit_slack_ticks;
+                    cursor = target;
+                }
+                // No simulated takeoff: the whole edge time, as before.
+                None => ticks += u32::from(plan.ticks) + self.transit_slack_ticks,
             }
         }
-        Some(ticks)
+        if any {
+            ticks += walk((cursor - x).abs());
+        }
+        Some(ticks.min(u32::from(u16::MAX)) as u16)
     }
 }
 
@@ -1226,6 +1261,70 @@ mod tests {
         // And back (a retry that drops the boost): the original graph.
         driver.set_config(base, &blocks).unwrap();
         assert_eq!(edges(&driver, HeroId::Donut), donut0);
+    }
+
+    /// CA2-Q36 (PR #213 review B-1): a jump across a 32 px gap is priced from where
+    /// she stands, not from anchor centre to centre. Two 400 px floors with a 32 px
+    /// gap: from x 380 to a spot at x 460 the price is the walk to the launch
+    /// point, the simulated air time and the landing walk; the old price was the
+    /// whole edge's centre-to-centre time (which drove every spot across the gap
+    /// out of the drift budget).
+    #[test]
+    fn route_ticks_prices_a_jump_from_her_position_not_centre_to_centre() {
+        use crate::companion::autonomy::SpotWorld;
+        use crate::companion::nav::EdgeState;
+        use crate::companion::view::{Control, fixtures};
+        let blocks = vec![stone(0.0, 0.0, 400.0, 40.0), stone(432.0, 0.0, 400.0, 40.0)];
+        let driver = NavDriver::new(&blocks, NavConfig::agile()).unwrap();
+        let mut out = Vec::new();
+        NavSpots::new(&driver, HeroId::Donut, 16.0).surfaces(&mut out);
+        let far = out.iter().find(|s| s.left > 400.0).copied().unwrap();
+        // The edge: its centre-to-centre ticks and its simulated takeoff/target.
+        let views = driver.graph().edge_views();
+        let edge = views
+            .iter()
+            .find(|e| {
+                driver.graph().anchor_pos(e.from).unwrap().0 < 300.0
+                    && driver.graph().anchor_pos(e.to).unwrap().0 > 500.0
+            })
+            .unwrap();
+        let EdgeState::Open {
+            ticks: whole, kind, ..
+        } = edge.state[HeroId::Donut.index()]
+        else {
+            panic!("the 32 px gap is a Donut jump");
+        };
+        assert_eq!(kind, EdgeKind::Jump);
+        assert!(whole > 150, "the centre-to-centre time is large: {whole}");
+        let mut me = fixtures::hero(HeroId::Donut, 380.0, Control::Companion);
+        me.foot_y = 0.0;
+        let me = me;
+        let price = |from: f32, slack: u16, x: f32| {
+            let mut me = me;
+            me.x = from;
+            NavSpots::new(&driver, HeroId::Donut, 16.0)
+                .with_transit_slack(slack)
+                .route_ticks(&me, x, &far)
+                .unwrap()
+        };
+        let exact = price(380.0, 0, 460.0);
+        // Launch x 398, target x 434, centres 200 and 632: from x 380 the walk to the
+        // launch is 6 ticks (18 px), the air time 173 - 58 - 58 = 57, and the landing
+        // walk to x 460 is 8 ticks (26 px).
+        assert_eq!(exact, 6 + 57 + 8, "walk to launch + air + landing walk");
+        assert_eq!(whole, 173);
+        assert!(exact * 2 < whole, "{exact} against the old {whole}");
+        // The slack is per jump edge; the landing walk follows the spot's x.
+        assert_eq!(price(380.0, 4, 460.0), exact + 4);
+        assert!(
+            price(380.0, 0, 520.0) > exact,
+            "a farther spot costs its landing walk"
+        );
+        // Standing 100 px back from the launch point costs more than at it.
+        assert!(
+            price(280.0, 0, 460.0) > exact,
+            "she is farther from the launch"
+        );
     }
 
     #[test]
