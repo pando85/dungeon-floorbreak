@@ -102,7 +102,7 @@ For that change, the agent/designer must:
 
 1. **Read the latest guide and controlling documents** rather than rely on earlier prompts or model memory; identify which parts are accepted constraints versus proposals.
 2. **Describe the horizon fit in the design PR:** what existing action/character role it builds on, what new decision it gives the player, and whether it affects solo and 2P.
-3. **Check narrative chronology** for franchise-specific items, spells, classes and companions before describing them as canon; mark unverified claims and separate game adaptations.
+3. **Check narrative chronology** for franchise-specific items, spells, classes and companions before describing them as canon; mark unverified claims and separate game adaptations. Canon informs, fun decides: deviations are allowed and recorded as game adaptations ([fun over canon](vision.md#fun-over-canon-owner-decision-2026-11-21)).
 4. **Test or propose a focused test** for added mechanics: predictable hits, readable knockback, deterministic replay, safe routes and camera, real controller feel when implemented.
 5. **Update this guide when the horizon changes** (milestone, role, layer, contradiction, evidence or rejected idea); otherwise add one line to the PR stating that it was consulted and remains consistent. Do not edit this guide for trivial tuning or cosmetic changes that do not alter the direction.
 6. **Escalate conflicts** with approved controls, art, architecture or owner decisions for explicit review. This guide alone cannot approve a new button, production ability or story deviation.
