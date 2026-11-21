@@ -19,7 +19,6 @@
 use std::sync::OnceLock;
 
 use super::CombatState;
-use crate::boss::Boss;
 use crate::combat::{ENEMY_HALF_HEIGHT, MoveSpec};
 use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
 use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP, RegroupOutcome};
@@ -662,7 +661,7 @@ impl CombatState {
         // that cannot act (the passive Carl of `cf02_assist`, CF02-Q13) keeps the
         // plain bot's dodge of every threat.
         let profile = profiles().set(profile_set);
-        let boss = self.boss.as_ref().and_then(Boss::threat);
+        let boss = self.boss_threat();
         let mut follow = [FollowInput::default(); 2];
         for id in HeroId::ALL {
             let i = id.index();

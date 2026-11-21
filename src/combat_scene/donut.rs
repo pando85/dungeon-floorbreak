@@ -557,6 +557,7 @@ impl CombatState {
                             Glance::default(),
                         );
                     }
+                    self.slot_swat_glance(target, poise, instance_now.unwrap_or(0), tick);
                 }
                 MoveEvent::PounceHit { target, effect } => {
                     self.donut_pounce_hit(target, effect, facing, instance_now.unwrap_or(0), tick);
@@ -736,6 +737,8 @@ impl CombatState {
                 guarded: false,
             });
         }
+        // ENEMY-SLOT: the slot enemies are boss-class targets.
+        self.slot_donut_targets(&mut targets);
         targets
     }
 
@@ -815,6 +818,9 @@ impl CombatState {
         instance: u32,
         tick: u64,
     ) {
+        if self.slot_pounce_hit(target, effect, facing, instance, tick) {
+            return;
+        }
         if target == BOSS_ENEMY_ID {
             // Super armour: damage and Donut's hit-stop, never an interrupt and
             // never the 14-tick stagger (the boss ignores `stagger_ticks`).
@@ -1267,6 +1273,11 @@ impl CombatState {
                 tick,
                 glance,
             );
+            self.donut_kit.bolts.remove(index);
+            return true;
+        }
+        // ENEMY-SLOT: a slot enemy's hurtbox ends the bolt after the boss.
+        if self.slot_missile_hit(&bolt, tick) {
             self.donut_kit.bolts.remove(index);
             return true;
         }
