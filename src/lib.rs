@@ -7,6 +7,8 @@ pub mod agility_fixtures;
 #[cfg(test)]
 pub(crate) mod agility_geometry_tests;
 #[cfg(test)]
+pub(crate) mod agility_presentation_tests;
+#[cfg(test)]
 pub(crate) mod agility_reflex_tests;
 pub mod anim;
 pub mod audience;
@@ -42,6 +44,7 @@ pub mod death;
 pub mod death_present;
 pub mod demo;
 pub mod donut_art;
+pub mod donut_cues;
 pub mod donut_fixtures;
 pub mod donut_hud;
 pub mod donut_mana;

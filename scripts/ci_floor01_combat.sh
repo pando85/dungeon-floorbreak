@@ -318,7 +318,9 @@ case "$mode" in
     # (an armed evade, the not-armed hit, the locked hit, the guild unlock);
     # replays in docs/evidence/donut-mobility-01/replays. The ram and the glob
     # fixtures need the arena kit and `cf02_rules`: they are test-only.
-    for f in dm_reflex_evades_swing dm_reflex_not_armed dm_evasion_locked_before_biscuit dm_evasion_unlocks_at_guild; do
+    # DM-C adds the two cue evidence rooms (`cf02_` / `cf02_arena_` names that the
+    # `--list-fixtures cf02_` registry does not enumerate).
+    for f in dm_reflex_evades_swing dm_reflex_not_armed dm_evasion_locked_before_biscuit dm_evasion_unlocks_at_guild cf02_dm_reflex_cues cf02_arena_dm_perch_jump; do
       "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/dm_b_${f}.txt"
       "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/dm_b_${f}_again.txt"
       if ! cmp -s "$out/dm_b_${f}.txt" "$out/dm_b_${f}_again.txt"; then

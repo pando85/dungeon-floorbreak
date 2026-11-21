@@ -293,6 +293,11 @@ pub struct Reflex {
     armed: bool,
     ever_armed: bool,
     evaded: Option<EvadeKey>,
+    /// Tests only (DM-C F5): the evadable instances that reached [`Self::check`],
+    /// the spec's definition of an attempt (section 3.3), summed over restarts.
+    /// Never read, hashed or compared by play code.
+    #[cfg(test)]
+    attempts: u32,
 }
 
 impl Reflex {
@@ -306,7 +311,19 @@ impl Reflex {
     /// DM-Q13: a new attempt starts: the wait restarts at 0 and nothing of the
     /// last attempt stays, hashed state included.
     pub fn restart(&mut self) {
+        #[cfg(test)]
+        let attempts = self.attempts;
         *self = Self::default();
+        #[cfg(test)]
+        {
+            self.attempts = attempts;
+        }
+    }
+
+    /// Tests only: the attempts counted at the check (spec section 3.3).
+    #[cfg(test)]
+    pub const fn attempts_for_test(&self) -> u32 {
+        self.attempts
     }
 
     /// Whether the reflex is ready to evade the next evadable instance.
@@ -351,6 +368,10 @@ impl Reflex {
     pub fn check(&mut self, key: EvadeKey, tick: u64) -> Verdict {
         if self.evaded == Some(key) {
             return Verdict::Passed;
+        }
+        #[cfg(test)]
+        {
+            self.attempts += 1;
         }
         if !self.armed {
             return Verdict::Hit;
@@ -648,8 +669,20 @@ mod tests {
         assert!(arm_at(&mut reflex, 800 + 720));
         assert_eq!(reflex.check(key(3), 1530), Verdict::Evaded);
         reflex.restart();
-        assert_eq!(reflex, Reflex::default());
-        assert!(!reflex.ever_armed() && reflex.evaded().is_none());
+        // Everything but the test-only attempt counter (DM-C F5, kept across
+        // restarts on purpose) is back to the default.
+        assert!(!reflex.armed() && !reflex.ever_armed() && reflex.evaded().is_none());
+        assert_eq!(reflex.last_reset_tick(), 0);
+        assert_eq!(
+            reflex.attempts_for_test(),
+            1,
+            "the one check survives a restart"
+        );
+        let fresh = Reflex {
+            attempts: reflex.attempts,
+            ..Reflex::default()
+        };
+        assert_eq!(reflex, fresh);
     }
 
     #[test]

@@ -1,49 +1,81 @@
-DM-B reflex share (spec 3.3): evades / attempts
+DM-B reflex share (spec 3.3, extended by DM-C F6): evades / attempts
 attempt = an evadable instance that reached the check on Donut (evaded or hurt)
 A = biscuit from tick 0, as the spec's population (the reflex first arms at the rearm)
 B = biscuit held and 12 s or more hurt-free before the room (armed at tick 0)
-population = every cf02_* and companion party fixture; pilots = three solo pilots, 48 seeds each
+population = every cf02_* and companion party fixture; AI-Donut pilots = three solo pilots, 48 seeds each
+human-style Donut (DM-C F6) = cf02_arena_coop (P2 played as a human would) and the three solo pilots with target_ai_bias_px 0, 48 seeds each
+the AI-Donut rows measure the AI Donut, which the shipped rooms almost never attack; with a 12 s rearm the reflex is either not yet ready or swallows the opener of the next wave
 regenerate: DM_B_SHARE_OUT=<file> cargo test --locked --lib the_evade_share
 
 == A: rearm 600 ticks
 population (79 cf02 and companion fixtures): attempts 3 evades 0 share 0.0%
-pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot eng_solo_assist (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
-pilots all: attempts 42 evades 0 share 0.0% | openers 0/42 evaded
+AI-Donut pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot eng_solo_assist (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
+AI-Donut pilots all: attempts 42 evades 0 share 0.0% | openers 0/42 evaded
+human-style Donut cf02_arena_coop (P2 human-style Donut) (48 seeds): attempts 24 evades 1 share 4.2% (insufficient sample) | wave1 0/0 wave2 1/24 | openers 1/24 evaded | attempts-with-evade 1 of 118 attempts | first attempt on her at ticks 371..603
+human-style Donut cf02_arena_direct (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut cf02_arena_swap (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut eng_solo_assist (unbiased targeting) (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
+human-style Donut all: attempts 66 evades 1 share 1.5% | openers 1/66 evaded
 
 == A: rearm 720 ticks
 population (79 cf02 and companion fixtures): attempts 3 evades 0 share 0.0%
-pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot eng_solo_assist (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
-pilots all: attempts 42 evades 0 share 0.0% | openers 0/42 evaded
+AI-Donut pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot eng_solo_assist (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
+AI-Donut pilots all: attempts 42 evades 0 share 0.0% | openers 0/42 evaded
+human-style Donut cf02_arena_coop (P2 human-style Donut) (48 seeds): attempts 23 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/23 | openers 0/23 evaded | attempts-with-evade 0 of 118 attempts | first attempt on her at ticks 371..603
+human-style Donut cf02_arena_direct (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut cf02_arena_swap (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut eng_solo_assist (unbiased targeting) (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
+human-style Donut all: attempts 65 evades 0 share 0.0% | openers 0/65 evaded
 
 == A: rearm 900 ticks
 population (79 cf02 and companion fixtures): attempts 3 evades 0 share 0.0%
-pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot eng_solo_assist (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
-pilots all: attempts 42 evades 0 share 0.0% | openers 0/42 evaded
+AI-Donut pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot eng_solo_assist (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
+AI-Donut pilots all: attempts 42 evades 0 share 0.0% | openers 0/42 evaded
+human-style Donut cf02_arena_coop (P2 human-style Donut) (48 seeds): attempts 23 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/23 | openers 0/23 evaded | attempts-with-evade 0 of 118 attempts | first attempt on her at ticks 371..603
+human-style Donut cf02_arena_direct (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut cf02_arena_swap (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut eng_solo_assist (unbiased targeting) (48 seeds): attempts 42 evades 0 share 0.0% | wave1 0/0 wave2 0/42 | openers 0/42 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks 427..487
+human-style Donut all: attempts 65 evades 0 share 0.0% | openers 0/65 evaded
 
 == B: rearm 600 ticks
 population (79 cf02 and companion fixtures): attempts 3 evades 3 share 100.0%
-pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot eng_solo_assist (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
-pilots all: attempts 42 evades 42 share 100.0% | openers 42/42 evaded
+AI-Donut pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot eng_solo_assist (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
+AI-Donut pilots all: attempts 42 evades 42 share 100.0% | openers 42/42 evaded
+human-style Donut cf02_arena_coop (P2 human-style Donut) (48 seeds): attempts 29 evades 10 share 34.5% (insufficient sample) | wave1 0/0 wave2 10/29 | openers 10/24 evaded | attempts-with-evade 10 of 118 attempts | first attempt on her at ticks 371..603
+human-style Donut cf02_arena_direct (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut cf02_arena_swap (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut eng_solo_assist (unbiased targeting) (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
+human-style Donut all: attempts 71 evades 52 share 73.2% | openers 52/66 evaded
 
 == B: rearm 720 ticks
 population (79 cf02 and companion fixtures): attempts 3 evades 3 share 100.0%
-pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot eng_solo_assist (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
-pilots all: attempts 42 evades 42 share 100.0% | openers 42/42 evaded
+AI-Donut pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot eng_solo_assist (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
+AI-Donut pilots all: attempts 42 evades 42 share 100.0% | openers 42/42 evaded
+human-style Donut cf02_arena_coop (P2 human-style Donut) (48 seeds): attempts 29 evades 10 share 34.5% (insufficient sample) | wave1 0/0 wave2 10/29 | openers 10/24 evaded | attempts-with-evade 10 of 118 attempts | first attempt on her at ticks 371..603
+human-style Donut cf02_arena_direct (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut cf02_arena_swap (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut eng_solo_assist (unbiased targeting) (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
+human-style Donut all: attempts 71 evades 52 share 73.2% | openers 52/66 evaded
 
 == B: rearm 900 ticks
 population (79 cf02 and companion fixtures): attempts 3 evades 3 share 100.0%
-pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
-pilot eng_solo_assist (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
-pilots all: attempts 42 evades 42 share 100.0% | openers 42/42 evaded
+AI-Donut pilot cf02_arena_direct (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot cf02_arena_swap (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+AI-Donut pilot eng_solo_assist (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
+AI-Donut pilots all: attempts 42 evades 42 share 100.0% | openers 42/42 evaded
+human-style Donut cf02_arena_coop (P2 human-style Donut) (48 seeds): attempts 29 evades 10 share 34.5% (insufficient sample) | wave1 0/0 wave2 10/29 | openers 10/24 evaded | attempts-with-evade 10 of 118 attempts | first attempt on her at ticks 371..603
+human-style Donut cf02_arena_direct (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut cf02_arena_swap (unbiased targeting) (48 seeds): attempts 0 evades 0 share 0.0% (insufficient sample) | wave1 0/0 wave2 0/0 | openers 0/0 evaded | attempts-with-evade 0 of 48 attempts | first attempt on her at ticks -..-
+human-style Donut eng_solo_assist (unbiased targeting) (48 seeds): attempts 42 evades 42 share 100.0% | wave1 0/0 wave2 42/42 | openers 42/42 evaded | attempts-with-evade 42 of 48 attempts | first attempt on her at ticks 427..487
+human-style Donut all: attempts 71 evades 52 share 73.2% | openers 52/66 evaded
 
