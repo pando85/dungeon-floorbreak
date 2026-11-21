@@ -239,6 +239,12 @@ pub struct NavDriver {
     graph: NavGraph,
     /// The physics the graph is built under (rebuilds keep it).
     config: NavConfig,
+    /// COMPANION-AI-02 CA2-B2 (Revision 3, DP-Q38): no Jump edge is planned from
+    /// an anchor whose top is above this y (the apex-aware rise limit: a full
+    /// jump from there would put her head above the view). `None`: no limit (the
+    /// follow layer and every other set). A control flag set each tick by the
+    /// wiring, never hashed.
+    jump_ceiling_y: Option<f32>,
     pub heroes: [HeroNav; 2],
 }
 
@@ -250,12 +256,50 @@ impl NavDriver {
         Ok(Self {
             graph: NavGraph::build(&NavLevel::from_blocks(solids, Vec::new()), config)?,
             config,
+            jump_ceiling_y: None,
             heroes: [HeroNav::default(); 2],
         })
     }
 
+    /// Set (or clear) the highest anchor top a Jump edge may start from (see
+    /// the field). Drop and walk edges are never limited.
+    pub fn set_jump_ceiling(&mut self, y: Option<f32>) {
+        self.jump_ceiling_y = y;
+    }
+
+    /// Whether the edge `from -> to` of `kind` may be planned under the jump
+    /// ceiling.
+    fn edge_allowed(&self, from: NavAnchorId, kind: EdgeKind) -> bool {
+        kind != EdgeKind::Jump
+            || self.jump_ceiling_y.is_none_or(|limit| {
+                self.graph
+                    .anchor_pos(from)
+                    .is_none_or(|(_, top)| top <= limit)
+            })
+    }
+
     pub fn graph(&self) -> &NavGraph {
         &self.graph
+    }
+
+    /// The physics the graph is built under.
+    pub fn config(&self) -> NavConfig {
+        self.config
+    }
+
+    /// DONUT-PROG-01 DP-B: bring the graph in line with the physics Donut has
+    /// **now** (a grant or a retry changed her launch): a changed `config`
+    /// rebuilds the graph from `solids` and keeps the executor state (a
+    /// committed transit that no longer plans is dropped by the next tick's
+    /// re-plan, exactly as a closed edge is). The same `config` is a no-op, so a
+    /// run that never holds the boost never rebuilds.
+    pub fn set_config(&mut self, config: NavConfig, solids: &[Block]) -> Result<(), NavError> {
+        if config == self.config {
+            return Ok(());
+        }
+        self.graph = NavGraph::build(&NavLevel::from_blocks(solids, Vec::new()), config)?;
+        self.config = config;
+        Ok(())
     }
 
     /// Bring the graph in line with the scene's solids (a destruction or a
@@ -534,6 +578,10 @@ impl NavDriver {
         notes: &mut Vec<NavNote>,
     ) -> Option<Drive> {
         let plan: EdgePlan = self.graph.edge_plan(from, to, actor)?;
+        if !self.edge_allowed(from, plan.kind) {
+            // Above the apex-aware rise limit: she holds and leaves by a drop.
+            return Some(Drive::default());
+        }
         let (x0, x1) = self.graph.anchor_span(to)?;
         let (mid, top) = self.graph.anchor_pos(to)?;
         let (launch_x, target_x) = match (plan.kind, plan.launch_x) {
@@ -740,6 +788,9 @@ impl SpotWorld for NavSpots<'_> {
         let mut ticks = 0u16;
         for w in path.anchors.windows(2) {
             let plan = graph.edge_plan(w[0], w[1], self.actor)?;
+            if !self.driver.edge_allowed(w[0], plan.kind) {
+                return None;
+            }
             if plan.kind != EdgeKind::Walk {
                 ticks = ticks.saturating_add(plan.ticks);
             }
@@ -1063,6 +1114,118 @@ mod tests {
         cs.surfaces(&mut out2);
         let ledge2 = out2.iter().find(|s| s.y == 104.0).copied().unwrap();
         assert_eq!(cs.route_ticks(&me, 450.0, &ledge2), None);
+    }
+
+    /// CA2 Revision 3 / DP-Q38: under a jump ceiling no Jump edge starts from an
+    /// anchor above it (she holds there), a jump from below it, a drop from above
+    /// it and every walk are unaffected, and a spot whose route needs such a jump
+    /// is not priced. The ceiling is a per-tick control flag (cleared with `None`).
+    #[test]
+    fn the_jump_ceiling_stops_jump_edges_from_high_anchors_only() {
+        use crate::companion::autonomy::{SpotWorld, Surface};
+        use crate::companion::view::{Control, fixtures};
+        let blocks = level();
+        let on_step = standing(230.0, 60.0);
+        let up_goal = standing(330.0, 120.0);
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        // Free: from the 60 step to the 120 step is a committed jump.
+        let (drive, _) = driver.go_to(HeroId::Carl, on_step, up_goal, None);
+        assert!(drive.is_some() && driver.heroes[0].is_active());
+        // Ceiling at 50 (below the 60 step): she holds, no transit begins.
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        driver.set_jump_ceiling(Some(50.0));
+        let (drive, notes) = driver.go_to(HeroId::Carl, on_step, up_goal, None);
+        assert_eq!(drive, Some(Drive::default()));
+        assert!(!driver.heroes[0].is_active());
+        assert!(!notes.iter().any(|n| matches!(n, NavNote::Begin { .. })));
+        // Exactly at the ceiling is allowed (60 <= 60), one px below is not.
+        driver.set_jump_ceiling(Some(60.0));
+        let (drive, _) = driver.go_to(HeroId::Carl, on_step, up_goal, None);
+        assert!(drive.is_some() && driver.heroes[0].is_active());
+        driver.heroes[0] = HeroNav::default();
+        driver.set_jump_ceiling(Some(59.9));
+        let (drive, _) = driver.go_to(HeroId::Carl, on_step, up_goal, None);
+        assert_eq!(drive, Some(Drive::default()));
+        // A jump from the floor (top 0) is allowed under the same ceiling.
+        driver.set_jump_ceiling(Some(50.0));
+        let (drive, _) = driver.go_to(
+            HeroId::Carl,
+            standing(100.0, 0.0),
+            standing(230.0, 60.0),
+            None,
+        );
+        assert!(drive.is_some() && driver.heroes[0].is_active());
+        driver.heroes[0] = HeroNav::default();
+        // A drop from the top step to the floor is never limited.
+        let (drive, _) = driver.go_to(
+            HeroId::Carl,
+            standing(330.0, 120.0),
+            standing(500.0, 0.0),
+            None,
+        );
+        assert!(drive.is_some());
+        // Pricing: the 120 step is not priced from the 60 step under the ceiling,
+        // and is when the ceiling is lifted.
+        let mut out = Vec::new();
+        NavSpots::new(&driver, HeroId::Carl, 16.0).surfaces(&mut out);
+        let top: Surface = out.iter().find(|s| s.y == 120.0).copied().unwrap();
+        let mut me = fixtures::hero(HeroId::Carl, 230.0, Control::Companion);
+        me.foot_y = 60.0;
+        assert_eq!(
+            NavSpots::new(&driver, HeroId::Carl, 16.0).route_ticks(&me, 330.0, &top),
+            None
+        );
+        driver.set_jump_ceiling(None);
+        assert!(
+            NavSpots::new(&driver, HeroId::Carl, 16.0)
+                .route_ticks(&me, 330.0, &top)
+                .is_some()
+        );
+    }
+
+    /// DP-B: `set_config` rebuilds the graph only when the physics changed (the
+    /// grant tick), keeps the executor state, and the same config is a no-op.
+    #[test]
+    fn set_config_rebuilds_on_a_new_launch_and_never_otherwise() {
+        let blocks = vec![
+            stone(0.0, 0.0, 2000.0, 40.0),
+            stone(300.0, 128.0, 300.0, 128.0),
+        ];
+        let base = NavConfig::agile();
+        let boosted = base.with_donut_launch(547.0);
+        let mut driver = NavDriver::new(&blocks, base).unwrap();
+        let edges = |d: &NavDriver, hero: HeroId| {
+            use crate::companion::nav::EdgeState;
+            d.graph()
+                .edge_views()
+                .iter()
+                .filter(|e| matches!(e.state[hero.index()], EdgeState::Open { .. }))
+                .count()
+        };
+        let (donut0, carl0) = (edges(&driver, HeroId::Donut), edges(&driver, HeroId::Carl));
+        let revision = driver.graph().revision();
+        driver.heroes[1].pressed_last = true;
+        driver.set_config(base, &blocks).unwrap();
+        assert_eq!(
+            driver.graph().revision(),
+            revision,
+            "the same config is a no-op"
+        );
+        driver.set_config(boosted, &blocks).unwrap();
+        assert_eq!(driver.config(), boosted);
+        assert!(
+            edges(&driver, HeroId::Donut) > donut0,
+            "the 128 px edge opens"
+        );
+        assert_eq!(
+            edges(&driver, HeroId::Carl),
+            carl0,
+            "Carl's edges are identical"
+        );
+        assert!(driver.heroes[1].pressed_last, "the executor state is kept");
+        // And back (a retry that drops the boost): the original graph.
+        driver.set_config(base, &blocks).unwrap();
+        assert_eq!(edges(&driver, HeroId::Donut), donut0);
     }
 
     #[test]

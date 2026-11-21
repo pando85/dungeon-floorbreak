@@ -574,6 +574,13 @@ pub struct SceneSim {
     /// by `combat_scene/companion.rs`, cleared by the step, `[false; 2]` with
     /// the companion off. Control flag, never hashed (the counter it holds is).
     nav_hold: [bool; 2],
+    /// DONUT-PROG-01 DP-B (DP-Q17): the launch speed Donut's ordinary jump has
+    /// this tick while she holds `jump_reach_boost`, chosen **every tick** from
+    /// the ledger by the combat layer and never stored on a body, so no
+    /// `Hero::at` site, restart or swap can miss it. `None`: her base motion
+    /// (DONUT-MOBILITY-01). A passive control flag: **never hashed** (the body
+    /// it shaped is), `None` in every run without a Donut capability.
+    donut_launch: Option<f32>,
 }
 
 /// What the combat layer tells a live party step about each hero.
@@ -592,6 +599,11 @@ pub struct PartyStepCtx<'a> {
     /// WORK-023: the running combat move's overrides per hero (Donut's pounce
     /// and swat). Default: nothing.
     pub drives: [BodyDrive; 2],
+    /// DP-Q17: Donut's boosted launch speed (px/s) this tick, `None` without
+    /// the capability. It replaces her base launch for the ordinary jump only
+    /// (swat, pounce, cat hop, knockback and every `BodyDrive` launch are
+    /// unscaled, DP-Q15).
+    pub donut_launch: Option<f32>,
 }
 
 impl Default for PartyStepCtx<'_> {
@@ -602,6 +614,7 @@ impl Default for PartyStepCtx<'_> {
             threats: &[],
             boss: None,
             drives: [BodyDrive::default(); 2],
+            donut_launch: None,
         }
     }
 }
@@ -649,6 +662,7 @@ impl SceneSim {
             last_effective: [RawInput::NONE; 2],
             nav_regroup: [false; 2],
             nav_hold: [false; 2],
+            donut_launch: None,
         })
     }
 
@@ -835,6 +849,8 @@ impl SceneSim {
 
     fn step_live(&mut self, humans: [RawInput; 2], ctx: &PartyStepCtx) {
         let drive = self.drive;
+        // DP-Q17: the launch of this tick, from the combat layer's ledger read.
+        self.donut_launch = ctx.donut_launch;
         self.regroup_bots();
         self.nav_regroup = [false; 2];
         self.nav_hold = [false; 2];
@@ -875,7 +891,7 @@ impl SceneSim {
             [&self.input, &self.donut_input],
             ctx.frozen,
             ctx.drives,
-            drive.tuning.donut_motion.motion(),
+            self.donut_motion_now(),
         );
         self.step_camera();
     }
@@ -903,7 +919,7 @@ impl SceneSim {
             &self.world.solids,
             threats,
             boss,
-            &self.drive.tuning,
+            (&self.drive.tuning, self.donut_launch),
         )
     }
 
@@ -931,7 +947,7 @@ impl SceneSim {
             &self.world.solids,
             threats,
             boss,
-            &self.drive.tuning,
+            (&self.drive.tuning, self.donut_launch),
         )
     }
 
@@ -975,6 +991,24 @@ impl SceneSim {
     /// holds again on the next tick.
     pub(crate) fn regroup_hold(&mut self, id: HeroId) {
         self.nav_hold[id.index()] = true;
+    }
+
+    /// DP-Q17: the launch speed Donut's ordinary jump has from the next step on
+    /// (the combat layer sets it from the ledger before anything reads her
+    /// reach).
+    pub(crate) fn set_donut_launch(&mut self, launch: Option<f32>) {
+        self.donut_launch = launch;
+    }
+
+    /// Donut's ordinary motion this tick: her base motion (DM-A), with the
+    /// boosted launch while she holds `jump_reach_boost` (DP-Q14, DP-Q17). Run
+    /// speed, gravity, coyote and buffer are unchanged (DP-Q15).
+    pub fn donut_motion_now(&self) -> HeroMotion {
+        let base = self.drive.tuning.donut_motion.motion();
+        match self.donut_launch {
+            Some(jump_speed) => HeroMotion { jump_speed, ..base },
+            None => base,
+        }
     }
 
     /// 01B-wire: which heroes' regroup the companion's nav owns this tick.

@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=cf02_free_explore_room seed=0xcf02fe01 tick=380 elapsed=380 hero_hp=4 deaths=0 enemies= hash=0c55f7b8ede2eeaf
+PARTY_STATE fixture=cf02_free_explore_room mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=6c70b2d943b87695

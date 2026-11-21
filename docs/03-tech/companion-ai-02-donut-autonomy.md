@@ -92,7 +92,7 @@ With the defaults (edge margin 32, half width 12, leash 240) the zone is up to 2
 | Distance from Carl | Effect |
 | --- | --- |
 | up to `CA2-Q06` comfort radius (160 px) | No pull. Any goal is fine |
-| comfort radius to the zone edge | Soft pull: goals and spots lose `CA2-Q06` 2 utility per px past the comfort radius, so she drifts back unless something there is worth it |
+| comfort radius to the zone edge | Soft pull: **spots** lose `CA2-Q06` 2 utility per px past the comfort radius (adopted default AD-B5, CA2-B1 review N-a: the pull is on spot scores only, not on goal utilities, so a running Hunt keeps against a travelling Escort), so she drifts back unless something there is worth it |
 | outside `Z` (involuntary only: knockback, a nav hold, a swap) | Hard limit: the Escort goal wins at once, every other goal is ineligible until she is back inside |
 
 **Camera about to move.** "Carl travels" is true when he has moved in one direction for `CA2-Q07` 12 consecutive ticks or the scroll camera still wants to pan (the remaining distance its deadzone step reports, read-only). While Carl travels, Escort gains `CA2-Q07` +400, no new Perch or Show-off starts, and a Hunt continues only if its target stays commit-safe (3.3). She comes along at her own spacing (`CA2-Q07` escort spot 72 to 120 px behind him, on flat standing ground), she does not copy his hops (the follow bot's ledge hop is not used under autonomy, `CA2-Q27`), and the nav graph plans any real jump or drop the route needs.

@@ -1,0 +1,32 @@
+COMBAT_EVENT tick=20 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=23 kind=hit move=jab instance=1 target=0 damage=1 health_left=5 hit_stop=3
+COMBAT_EVENT tick=50 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=53 kind=hit move=jab instance=2 target=0 damage=1 health_left=4 hit_stop=3
+COMBAT_EVENT tick=80 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=83 kind=hit move=jab instance=3 target=0 damage=1 health_left=3 hit_stop=3
+COMBAT_EVENT tick=109 kind=move_started move=pounce instance=1
+COMBAT_EVENT tick=110 kind=move_started move=jab instance=4
+COMBAT_EVENT tick=113 kind=hit move=jab instance=4 target=0 damage=1 health_left=2 hit_stop=3
+COMBAT_EVENT tick=123 kind=hit move=pounce instance=1 target=1 damage=1 health_left=5 hit_stop=4
+COMBAT_EVENT tick=140 kind=move_started move=jab instance=5
+COMBAT_EVENT tick=169 kind=move_started move=pounce instance=2
+COMBAT_EVENT tick=179 kind=hit move=pounce instance=2 target=0 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=210 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=236 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=236 kind=hero_hurt source=1 health_left=3
+COMBAT_EVENT tick=245 kind=move_started move=pounce instance=3
+COMBAT_EVENT tick=259 kind=hit move=pounce instance=3 target=1 damage=1 health_left=4 hit_stop=4
+COMBAT_EVENT tick=294 kind=move_started move=pounce instance=4
+COMBAT_EVENT tick=298 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=304 kind=hit move=pounce instance=4 target=1 damage=1 health_left=3 hit_stop=4
+COMBAT_EVENT tick=304 kind=goblin_interrupted goblin=1
+COMBAT_EVENT tick=343 kind=move_started move=pounce instance=5
+COMBAT_EVENT tick=343 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=353 kind=hit move=pounce instance=5 target=1 damage=1 health_left=2 hit_stop=4
+COMBAT_EVENT tick=353 kind=goblin_interrupted goblin=1
+COMBAT_EVENT tick=392 kind=move_started move=pounce instance=6
+COMBAT_EVENT tick=392 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=402 kind=hit move=pounce instance=6 target=1 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=402 kind=goblin_interrupted goblin=1
+COMBAT_STATE fixture=cf02_free_split_two_goblins seed=0xcf02fe02 tick=420 elapsed=420 hero_hp=3 deaths=0 enemies=e0=162.000/1,e1=157.100/1 hash=8b37dbad497d4003
+PARTY_STATE fixture=cf02_free_split_two_goblins mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=8452e118b7766779

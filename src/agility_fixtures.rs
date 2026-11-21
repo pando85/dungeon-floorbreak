@@ -971,6 +971,8 @@ mod tests {
             "playtrace/tests_motion.rs",
             "playtrace/tests_verify.rs",
             "autoplay/party/scenario.rs",
+            // CA2-B2: the bolt sweep runs under both motions (spec 7.2).
+            "cf02_free_fixtures.rs",
             "companion/nav.rs",
             "companion/navfollow.rs",
         ];

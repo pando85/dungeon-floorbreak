@@ -226,6 +226,7 @@ impl Session {
                 subjects: &subjects,
                 threats: &threats,
                 impact_hold,
+                bound_only: &[],
             },
         );
         Self {
@@ -259,6 +260,7 @@ impl Session {
                 subjects: &subjects,
                 threats: &threats,
                 impact_hold,
+                bound_only: &[],
             },
         );
     }
@@ -278,6 +280,7 @@ impl Session {
                 subjects: &subjects,
                 threats: &threats,
                 impact_hold,
+                bound_only: &[],
             },
         );
     }
@@ -289,6 +292,7 @@ impl Session {
             subjects: &subjects,
             threats: &threats,
             impact_hold,
+            bound_only: &[],
         })
     }
 

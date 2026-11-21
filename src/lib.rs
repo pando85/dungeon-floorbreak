@@ -25,6 +25,7 @@ pub mod carl_prog;
 pub mod carl_prog_fixtures;
 pub mod cf02;
 pub mod cf02_fixtures;
+pub mod cf02_free_fixtures;
 pub mod cine;
 pub mod cine_adapter;
 pub mod combat;

@@ -1442,6 +1442,10 @@ impl CombatState {
     /// Magic Missile run after Carl's strike and before the scene step (Carl,
     /// Donut, goblins).
     pub fn step_party(&mut self, scene: &mut SceneSim, inputs: [RawInput; 2]) {
+        // DP-Q17: Donut's launch of this tick, from the ledger, before anything
+        // reads her reach (the companion's view, the follower bot, the nav).
+        let donut_launch = self.donut_launch_now();
+        scene.set_donut_launch(donut_launch);
         let inputs = self.companion_inputs(scene, inputs);
         let raw = inputs[0];
         let live = scene.party_live();
@@ -1716,6 +1720,7 @@ impl CombatState {
                 threats: &threats,
                 boss: self.boss_threat(),
                 drives: Default::default(),
+                donut_launch,
             };
             Self::apply_donut_tick(&mut ctx, &donut_tick);
             ctx.drives[0] = carl_drive;

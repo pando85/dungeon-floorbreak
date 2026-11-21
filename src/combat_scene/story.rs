@@ -65,6 +65,21 @@ impl CombatState {
         }
     }
 
+    /// DONUT-PROG-01 DP-Q17: the launch speed (px/s) Donut's ordinary jump has
+    /// this tick: the boosted one (`dpq14_boost_launch_px_s`) while the ledger
+    /// holds `jump_reach_boost`, `None` otherwise. Chosen every tick, never
+    /// stored on a body, so a retry, a respawn, a swap and a restart all see
+    /// the ledger's truth. Without a story runtime (every run without a Donut
+    /// capability) it is `None` and nothing changes.
+    pub(crate) fn donut_launch_now(&self) -> Option<f32> {
+        self.story
+            .as_ref()
+            .filter(|_| self.story_holds(crate::donut_prog::JUMP_REACH_BOOST))
+            .map(|_| {
+                f32::from(crate::donut_prog::DonutProgTuning::active().dpq14_boost_launch_px_s)
+            })
+    }
+
     /// The ledger of a run under the story flags (`None` without them).
     pub fn story_ledger(&self) -> Option<&UnlockLedger> {
         self.story.as_ref().map(StoryRuntime::ledger)

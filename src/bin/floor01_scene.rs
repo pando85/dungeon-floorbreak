@@ -343,6 +343,9 @@ enum CompanionChoice {
     Cf02Assist,
     /// Both roles active.
     V0,
+    /// COMPANION-AI-02 (CA2-Q01): the autonomous partner: `cf02_assist` plus the
+    /// goal layer (her own spacing, targets and retreats inside the camera).
+    Cf02Free,
 }
 
 impl CompanionChoice {
@@ -351,8 +354,9 @@ impl CompanionChoice {
             "off" => Ok(Self::Off),
             "cf02_assist" => Ok(Self::Cf02Assist),
             "v0" => Ok(Self::V0),
+            "cf02_free" => Ok(Self::Cf02Free),
             other => Err(format!(
-                "unknown --companion {other:?} (expected off, cf02_assist or v0)"
+                "unknown --companion {other:?} (expected off, cf02_assist, cf02_free or v0)"
             )),
         }
     }
@@ -407,6 +411,7 @@ impl Args {
             CompanionChoice::Off => UncontrolledHero::FollowAndJumpBot,
             CompanionChoice::Cf02Assist => UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
             CompanionChoice::V0 => UncontrolledHero::Companion(ProfileSetId::CompanionV0),
+            CompanionChoice::Cf02Free => UncontrolledHero::Companion(ProfileSetId::Cf02Free),
         }
     }
 
@@ -8635,6 +8640,10 @@ mod tests {
         assert_eq!(hero(&["--companion", "off"]), bot);
         assert_eq!(hero(&["--companion", "cf02_assist"]), assist);
         assert_eq!(hero(&["--companion", "v0"]), v0);
+        // COMPANION-AI-02 (CA2-Q01): the autonomous set, never a default.
+        let free = UncontrolledHero::Companion(ProfileSetId::Cf02Free);
+        assert_eq!(hero(&["--companion", "cf02_free"]), free);
+        assert_eq!(hero(&["--cf02", "--companion", "cf02_free"]), free);
         assert_eq!(hero(&["--cf02"]), assist);
         assert_eq!(hero(&["--cf02", "--companion", "off"]), bot);
         assert_eq!(hero(&["--cf02", "--companion", "v0"]), v0);

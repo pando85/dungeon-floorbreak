@@ -1,0 +1,24 @@
+COMBAT_EVENT tick=20 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=23 kind=hit move=jab instance=1 target=0 damage=1 health_left=39 hit_stop=3
+COMBAT_EVENT tick=50 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=53 kind=hit move=jab instance=2 target=0 damage=1 health_left=38 hit_stop=3
+COMBAT_EVENT tick=80 kind=move_started move=jab instance=3
+COMBAT_EVENT tick=83 kind=hit move=jab instance=3 target=0 damage=1 health_left=37 hit_stop=3
+COMBAT_EVENT tick=110 kind=move_started move=jab instance=4
+COMBAT_EVENT tick=113 kind=hit move=jab instance=4 target=0 damage=1 health_left=36 hit_stop=3
+COMBAT_EVENT tick=140 kind=move_started move=jab instance=5
+COMBAT_EVENT tick=143 kind=hit move=jab instance=5 target=0 damage=1 health_left=35 hit_stop=3
+COMBAT_EVENT tick=170 kind=move_started move=jab instance=6
+COMBAT_EVENT tick=173 kind=hit move=jab instance=6 target=0 damage=1 health_left=34 hit_stop=3
+COMBAT_EVENT tick=200 kind=move_started move=jab instance=7
+COMBAT_EVENT tick=203 kind=hit move=jab instance=7 target=0 damage=1 health_left=33 hit_stop=3
+COMBAT_EVENT tick=230 kind=move_started move=jab instance=8
+COMBAT_EVENT tick=233 kind=hit move=jab instance=8 target=0 damage=1 health_left=32 hit_stop=3
+COMBAT_EVENT tick=260 kind=move_started move=jab instance=9
+COMBAT_EVENT tick=263 kind=hit move=jab instance=9 target=0 damage=1 health_left=31 hit_stop=3
+COMBAT_EVENT tick=290 kind=move_started move=jab instance=10
+COMBAT_EVENT tick=293 kind=hit move=jab instance=10 target=0 damage=1 health_left=30 hit_stop=3
+COMBAT_EVENT tick=320 kind=move_started move=jab instance=11
+COMBAT_EVENT tick=323 kind=hit move=jab instance=11 target=0 damage=1 health_left=29 hit_stop=3
+COMBAT_STATE fixture=cf02_free_lone_claimed seed=0xcf02fe03 tick=360 elapsed=360 hero_hp=4 deaths=0 enemies=e0=183.000/29 hash=01bf30da52f7d5c8
+PARTY_STATE fixture=cf02_free_lone_claimed mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=d469e7deac91c4be
