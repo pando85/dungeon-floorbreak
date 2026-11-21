@@ -379,7 +379,9 @@ pub struct PartyFixtureSim {
 impl PartyFixtureSim {
     pub fn new(kit: &EnvKit, view_h: i32, fixture: &'static PartyFixture) -> Result<Self, String> {
         let scene = SceneSim::new_at(kit, view_h, fixture.base.carl_x)?;
-        let combat = CombatState::new(fixture.base, kit, &scene)?.with_donut(fixture.donut);
+        let combat = CombatState::new(fixture.base, kit, &scene)?
+            .with_donut(fixture.donut)
+            .with_story(crate::carl_prog_fixtures::story_setup(fixture.name()));
         let mut party = PartyState::new(fixture.tuning);
         if fixture.two_player {
             party.pad_connected(PadId(1));

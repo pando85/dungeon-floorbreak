@@ -1864,6 +1864,12 @@ pub fn find_party_fixture(name: &str) -> Option<&'static PartyFixture> {
     PartyFixture::by_name(name)
         .or_else(|| CF02_FIXTURES.iter().copied().find(|f| f.name() == name))
         .or_else(|| ENGINEER_FIXTURES.iter().copied().find(|f| f.name() == name))
+        .or_else(|| {
+            crate::carl_prog_fixtures::CARL_PROG_FIXTURES
+                .iter()
+                .copied()
+                .find(|f| f.name() == name)
+        })
 }
 
 /// Every fixture name starting with `prefix`, over every registry: the legacy
@@ -1878,7 +1884,12 @@ pub fn list_fixtures(prefix: &str) -> Vec<&'static str> {
         .chain(PartyFixture::all().map(PartyFixture::name))
         .chain(CF02_FIXTURES.iter().map(|f| f.name()))
         .chain(ENGINEER_FIXTURES.iter().map(|f| f.name()))
-        .chain(COMPANION_FIXTURES.iter().map(|f| f.name()));
+        .chain(COMPANION_FIXTURES.iter().map(|f| f.name()))
+        .chain(
+            crate::carl_prog_fixtures::CARL_PROG_FIXTURES
+                .iter()
+                .map(|f| f.name()),
+        );
     for name in all {
         if name.starts_with(prefix) && !names.contains(&name) {
             names.push(name);

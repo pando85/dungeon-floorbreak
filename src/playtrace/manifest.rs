@@ -52,6 +52,15 @@ pub struct ResetDescriptor {
     pub cf02_seed: Option<u64>,
     pub view_height: i32,
     pub donut_biscuit: bool,
+    /// CARL-PROG-01 CP-A (CP-Q09, CP-Q46): the story flags of the run. Absent
+    /// (false) in older recordings; written only when true, so a descriptor
+    /// with all three false serializes exactly as before.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub carl_prog: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub carl_dynamite: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub carl_gauntlet: bool,
     /// FNV-1a-64 of the layout and kit contract (0 when not computed).
     #[serde(with = "hex64")]
     pub kit_hash: u64,
@@ -61,6 +70,10 @@ pub struct ResetDescriptor {
     /// Compare it only against a fresh reset with the legacy drive.
     #[serde(with = "hex64")]
     pub start_hash: u64,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// Line count and FNV-1a-64 (over every line with its `\n`) of an append-only

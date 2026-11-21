@@ -167,6 +167,19 @@ pub fn companion_label(hero: UncontrolledHero) -> &'static str {
 /// (embedded at build time), the ruleset and camera ids, the `cf02_rules` flag
 /// and the content hashes a verifier compares. The caller adds the run's own
 /// flags and identity (mode, participants, lab selection, ...).
+/// The data files whose FNV-1a pins a session stamps into `content_hashes` and a
+/// replay checks (`source_fingerprint` hashes only `src/`, so a knob edit must
+/// fail a replay loudly). Later work appends its pin here and nowhere else.
+pub fn data_pins() -> Vec<(&'static str, u64)> {
+    vec![
+        ("mana_tuning", crate::donut_mana::TUNING_HASH),
+        ("cf02_tuning", crate::cf02::TUNING_HASH),
+        // CARL-PROG-01 CP-Q46.
+        ("story_unlocks", crate::story_unlock::TABLE_HASH),
+        ("carl_prog", crate::carl_prog::TUNING_HASH),
+    ]
+}
+
 pub fn stamp_manifest(manifest: &mut SessionManifest, kit_hash: u64) {
     let identity = super::build_info::build_identity();
     manifest.build_commit = identity.commit.clone();
@@ -185,11 +198,7 @@ pub fn stamp_manifest(manifest: &mut SessionManifest, kit_hash: u64) {
         "cf02_rules".to_owned(),
         manifest.reset.cf02_rules.to_string(),
     );
-    for (key, value) in [
-        ("kit", kit_hash),
-        ("mana_tuning", crate::donut_mana::TUNING_HASH),
-        ("cf02_tuning", crate::cf02::TUNING_HASH),
-    ] {
+    for (key, value) in std::iter::once(("kit", kit_hash)).chain(data_pins()) {
         manifest
             .content_hashes
             .insert(key.to_owned(), format!("{value:016x}"));

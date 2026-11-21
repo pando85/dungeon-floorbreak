@@ -270,6 +270,9 @@ fn the_cursor_replays_the_story_route_without_combat() {
         cf02_seed: None,
         view_height: 360,
         donut_biscuit: false,
+        carl_prog: false,
+        carl_dynamite: false,
+        carl_gauntlet: false,
         kit_hash: super::live_tests::real_kit_hash(),
         start_hash: scene.state_hash(),
     };

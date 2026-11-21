@@ -1,0 +1,74 @@
+COMBAT_EVENT tick=69 kind=capability_granted hero=0 capability=special_thrown_charge
+COMBAT_EVENT tick=77 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=90 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=103 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=116 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=184 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=197 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=210 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=210 kind=hero_hurt source=1 health_left=3
+COMBAT_EVENT tick=223 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=279 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=291 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=305 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=305 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=317 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=374 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=386 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=400 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=400 kind=hero_hurt source=1 health_left=1
+COMBAT_EVENT tick=412 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=469 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=481 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=495 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=495 kind=hero_hurt source=1 health_left=0
+COMBAT_EVENT tick=495 kind=hero_defeated
+COMBAT_EVENT tick=507 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=544 kind=restart deaths=1
+COMBAT_EVENT tick=77 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=90 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=103 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=116 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=184 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=197 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=210 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=210 kind=hero_hurt source=1 health_left=3
+COMBAT_EVENT tick=223 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=279 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=291 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=305 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=305 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=317 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=374 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=386 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=400 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=400 kind=hero_hurt source=1 health_left=1
+COMBAT_EVENT tick=412 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=469 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=481 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=495 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=495 kind=hero_hurt source=1 health_left=0
+COMBAT_EVENT tick=495 kind=hero_defeated
+COMBAT_EVENT tick=507 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=544 kind=restart deaths=2
+COMBAT_EVENT tick=77 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=90 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=103 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=116 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=184 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=197 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=210 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=210 kind=hero_hurt source=1 health_left=3
+COMBAT_EVENT tick=223 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=279 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=291 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=305 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=305 kind=hero_hurt source=1 health_left=2
+COMBAT_EVENT tick=317 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=374 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=386 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=400 kind=goblin_swing goblin=1
+COMBAT_EVENT tick=400 kind=hero_hurt source=1 health_left=1
+COMBAT_EVENT tick=412 kind=goblin_swing goblin=0
+COMBAT_STATE fixture=carl_prog_grant_survives_respawn seed=0xca10002 tick=412 elapsed=1500 hero_hp=1 deaths=2 enemies=e0=693.800/2,e1=694.534/2 hash=26a520330ba74345
+PARTY_STATE fixture=carl_prog_grant_survives_respawn mode=solo controlled=Carl carl_hp=1 donut_hp=4 deaths=2 hash=4aeab69b4200603b
