@@ -1,0 +1,85 @@
+{
+  "format": "pixelart-asset-v1",
+  "asset_id": "mordecai-01",
+  "title": "MORDECAI-01 Rat Hooligan guide, draft idle and talk-gesture keys (docs/02-art/mordecai-01-spec.md)",
+  "grid": "assets/source/characters/mordecai/mordecai_h44.grid.json",
+  "frame_size": [
+    52,
+    48
+  ],
+  "pivot": [
+    24,
+    47
+  ],
+  "contact_row": 47,
+  "tick_hz": 60,
+  "hold_ms": 100,
+  "facing": "right",
+  "tags": {
+    "idle": {
+      "playback": "loop",
+      "contact": "grounded",
+      "frames": [
+        [
+          0,
+          40
+        ]
+      ]
+    },
+    "talk": {
+      "playback": "once",
+      "contact": "grounded",
+      "frames": [
+        [
+          1,
+          60
+        ]
+      ]
+    }
+  },
+  "roles": {
+    "idle": "idle"
+  },
+  "rules": {
+    "max_colors": 20,
+    "max_isolated_per_frame": 0,
+    "max_orphans_per_frame": 9,
+    "canvas_margin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "unique_frames": true,
+    "bbox": [
+      {
+        "id": "M1-size-idle-44px",
+        "frames": [
+          0
+        ],
+        "top": 4,
+        "bottom": 47
+      },
+      {
+        "id": "M1-height-cap-45px",
+        "frames": [
+          0,
+          1
+        ],
+        "min_top": 3
+      }
+    ]
+  },
+  "scene": {
+    "actors": [
+      {
+        "frame": 0,
+        "x": 520
+      },
+      {
+        "frame": 1,
+        "x": 590
+      }
+    ]
+  }
+}
