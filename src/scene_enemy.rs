@@ -240,6 +240,9 @@ pub struct SlotOut {
     pub shifts: Vec<(HeroId, f32)>,
     /// Solo: put this bot hero at x on the leader's height (the boss regroup).
     pub regroup: Vec<(HeroId, f32)>,
+    /// HAZ-A2: the enemy began an attack tell on this tick and took an attack
+    /// token (the scene stamps the goblins' 12-tick tell spacing).
+    pub tell_started: bool,
 }
 
 impl SlotOut {
@@ -248,6 +251,7 @@ impl SlotOut {
             && self.blows.is_empty()
             && self.shifts.is_empty()
             && self.regroup.is_empty()
+            && !self.tell_started
     }
 }
 
@@ -307,6 +311,13 @@ pub struct SlotStepCtx<'a> {
     /// Solo: the bot hero counts farther away.
     pub solo: bool,
     pub room: SlotRoom,
+    /// HAZ-A2: the simulation camera's horizontal view `[left, right]` (an enemy
+    /// that wakes only fully in view reads it).
+    pub view_x: (f32, f32),
+    /// HAZ-A2: the goblins' attack token pool has a free token and the tell
+    /// spacing allows a new tell this tick (`MAX_ATTACKERS`, `TELL_SPACING`).
+    /// An enemy that starts a tell sets [`SlotOut::tell_started`].
+    pub token_free: bool,
 }
 
 // ------------------------------------------------------------- the trait
@@ -349,6 +360,12 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
     /// a boss-class target.
     fn donut_target_state(&self) -> TargetState {
         TargetState::Neutral
+    }
+
+    /// HAZ-A2: the enemy holds an attack token now (in its tell, launch or
+    /// impact), so it counts against `MAX_ATTACKERS` with the goblins.
+    fn holds_token(&self) -> bool {
+        false
     }
 
     /// Whether this enemy supplies the single `boss: Option<BossThreat>`
@@ -500,6 +517,11 @@ pub static SLOT_KINDS: &[SlotKindDef] = &[
     SlotKindDef {
         name: crate::combat_scene::pile_boss::KIND,
         build: crate::combat_scene::pile_boss::build,
+    },
+    // HAZ-A2: the slime.
+    SlotKindDef {
+        name: crate::combat_scene::slime::KIND,
+        build: crate::combat_scene::slime::build,
     },
 ];
 

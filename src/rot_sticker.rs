@@ -39,12 +39,10 @@
 //! No RNG, no wall-clock time. Every switch is read through
 //! [`RotTuning::on`], never raw.
 
-use std::collections::BTreeSet;
-
 use serde::{Deserialize, Serialize};
 
 use crate::blast::BLAST_CENTRE_DY;
-use crate::boss::{HeroBlow, HeroView};
+use crate::boss::HeroView;
 use crate::cf02::BoxPx;
 use crate::donut_mana::content_hash;
 use crate::env_prop::Stimulus;
@@ -242,6 +240,34 @@ impl RotTuning {
             breaks_structures: self.hazq30_breaks_structures,
             hero_knock_x: self.hazq31_knock_x,
             hero_knock_y: self.hazq31_knock_y,
+        }
+    }
+
+    /// The Rot blast as the engine's one explosion data type
+    /// ([`crate::blast::BlastProfile`], CP-B1): no second evaluator. `source`
+    /// is the `HeroHurt` source of this sticker ([`rot_source`]); the charge
+    /// that carries the profile goes through `resolve_profile_blast`, so the
+    /// goblins, llamas, slot enemies and heroes all take it by the shared loop.
+    pub fn world_profile(&self, source: u32) -> crate::blast::BlastProfile {
+        crate::blast::BlastProfile {
+            core_radius: f32::from(self.hazq30_core_radius_px),
+            outer_radius: f32::from(self.hazq30_outer_radius_px),
+            outer_damage: self.hazq30_damage,
+            llama_outer_damage: self.hazq30_damage,
+            boss_damage: 0,
+            launch: (
+                f32::from(self.hazq30_launch_x),
+                f32::from(self.hazq30_launch_y),
+            ),
+            los: self.hazq30_line_of_sight,
+            hero_damage: self.hero_damage(),
+            hero_hp: self.hazq30_damage,
+            hero_knock: (
+                f32::from(self.hazq31_knock_x),
+                f32::from(self.hazq31_knock_y),
+            ),
+            hero_source: source,
+            breaks_structures: self.hazq30_breaks_structures,
         }
     }
 
@@ -997,6 +1023,55 @@ impl RotSticker {
         }
     }
 
+    /// HAZ-A2: the sticker's charge was lit by a chain (CP-C) or pulled
+    /// forward by one: mirror the charge's schedule and credit. `due` is the
+    /// charge's `detonate_tick`, `owner` its `owner` (CP-C writes it only when
+    /// none, so the first initiator wins). Returns the provoke when this lit a
+    /// latched or scuttling sticker. A sticker due sooner is left alone.
+    pub fn sync_chain(&mut self, now: u64, due: u64, owner: Option<u32>) -> Option<Provoke> {
+        if self.is_spent() || due == 0 {
+            return None;
+        }
+        match self.state {
+            StickerState::Latched | StickerState::Scuttling => {
+                self.state = StickerState::Warning;
+                self.detonate_tick = due;
+                self.provoked_tick = now;
+                self.cause = Some(RotCause::Chain);
+                if self.owner.is_none() {
+                    self.owner = owner;
+                }
+                Some(Provoke {
+                    cause: RotCause::Chain,
+                    player: owner,
+                })
+            }
+            StickerState::Warning => {
+                if due < self.detonate_tick {
+                    self.detonate_tick = due;
+                }
+                if self.owner.is_none() {
+                    self.owner = owner;
+                }
+                None
+            }
+            StickerState::Spent => None,
+        }
+    }
+
+    /// HAZ-A2: the sticker's charge detonated (the scene's charges step is the
+    /// authority, also when the per-tick cap deferred it): the body is gone.
+    pub fn spend(&mut self) {
+        self.state = StickerState::Spent;
+        self.flash_left = 0;
+    }
+
+    /// HAZ-A2: one tick of a sticker in Warning whose charge has not gone off
+    /// yet (the charge decides when): only the tint runs down.
+    pub fn hold_warning(&mut self) {
+        self.flash_left = self.flash_left.saturating_sub(1);
+    }
+
     /// A defeat respawn (HAZ-Q49): a spent sticker stays spent; a sticker in
     /// Warning or Scuttling returns to Latched at its start with the charge
     /// written back (`detonate_tick` 0, owner none).
@@ -1074,184 +1149,6 @@ pub const fn warning_frame(remaining: u64) -> u8 {
         1 => 9,
         2..=18 => 8,
         _ => 7,
-    }
-}
-
-// ------------------------------------------------------------------- blast
-
-/// What a Rot blast can reach.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TargetKind {
-    Hero(HeroId),
-    Goblin,
-    Engineer,
-    Llama,
-    Slime,
-    /// Another Rot Sticker: nothing happens to it.
-    Sticker,
-}
-
-/// One body the blast may reach. `id` is the enemy instance, or the hero index.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BlastTarget {
-    pub id: u32,
-    pub kind: TargetKind,
-    /// The body's hurtbox.
-    pub body: Rect,
-    /// The pivot x of the body (the knock is signed away from the dome).
-    pub x: f32,
-}
-
-/// The reaction an enemy shows.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum EnemyReaction {
-    /// A goblin or Engineer: the CF02 launched body (CP-Q36 analogue).
-    Launch { vx: f32, vy: f32 },
-    /// A llama: its kick reaction (CP-Q26 analogue).
-    Kick,
-    /// A slime (gel): damage and nothing else.
-    None,
-}
-
-/// What one blast does to one victim.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum BlastEffect {
-    /// `hurt_hero` with this blow (invulnerability and the solo last-HP guard
-    /// apply; non-evadable).
-    HeroHurt(HeroBlow),
-    /// Damage to an enemy; a lethal one is `Explosion { point_blank: false }`
-    /// credited to `credit`.
-    EnemyHit {
-        id: u32,
-        kind: TargetKind,
-        damage: u8,
-        reaction: EnemyReaction,
-        credit: Option<u32>,
-    },
-}
-
-/// One Rot blast: fired once, one evaluation per victim.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RotBlast {
-    dome: (f32, f32),
-    profile: RotBlastProfile,
-    owner: Option<u32>,
-    source: u32,
-    done: BTreeSet<(u8, u32)>,
-}
-
-impl RotBlast {
-    pub fn new(dome: (f32, f32), profile: RotBlastProfile, owner: Option<u32>, index: u8) -> Self {
-        Self {
-            dome,
-            profile,
-            owner,
-            source: rot_source(index),
-            done: BTreeSet::new(),
-        }
-    }
-
-    pub fn dome(&self) -> (f32, f32) {
-        self.dome
-    }
-
-    pub fn owner(&self) -> Option<u32> {
-        self.owner
-    }
-
-    /// The victims already evaluated by this blast.
-    pub fn evaluated(&self) -> usize {
-        self.done.len()
-    }
-
-    fn key(kind: TargetKind, id: u32) -> (u8, u32) {
-        let tag = match kind {
-            TargetKind::Hero(_) => 0,
-            TargetKind::Goblin => 1,
-            TargetKind::Engineer => 2,
-            TargetKind::Llama => 3,
-            TargetKind::Slime => 4,
-            TargetKind::Sticker => 5,
-        };
-        (tag, id)
-    }
-
-    /// Evaluate every victim once. The core band of the profile applies only
-    /// with a positive core radius, and never at `sq == 0` with radius 0: the
-    /// outer result applies (no point-blank kill). A victim already evaluated
-    /// by this blast is skipped (one damage evaluation per victim per blast).
-    pub fn evaluate(&mut self, targets: &[BlastTarget], solids: &[Rect]) -> Vec<BlastEffect> {
-        let mut out = Vec::new();
-        let radius = f32::from(self.profile.outer_radius);
-        for target in targets {
-            let key = Self::key(target.kind, target.id);
-            if self.done.contains(&key) {
-                continue;
-            }
-            if !circle_reaches(
-                self.dome,
-                radius,
-                target.body,
-                self.profile.line_of_sight,
-                solids,
-            ) {
-                continue;
-            }
-            self.done.insert(key);
-            match target.kind {
-                // Another sticker: no provoke, no damage.
-                TargetKind::Sticker => {}
-                TargetKind::Hero(hero) => {
-                    if self.profile.hero_damage.hurts_any_hero() {
-                        out.push(BlastEffect::HeroHurt(HeroBlow {
-                            hero,
-                            source: self.source,
-                            damage: self.profile.damage,
-                            from_x: self.dome.0,
-                            knock_vx: crate::slime::signed_away(
-                                target.x,
-                                self.dome.0,
-                                f32::from(self.profile.hero_knock_x),
-                            ),
-                            knock_vy: f32::from(self.profile.hero_knock_y),
-                        }));
-                    }
-                }
-                kind => {
-                    let reaction = match kind {
-                        TargetKind::Goblin | TargetKind::Engineer => EnemyReaction::Launch {
-                            vx: crate::slime::signed_away(
-                                target.x,
-                                self.dome.0,
-                                f32::from(self.profile.launch_x),
-                            ),
-                            vy: f32::from(self.profile.launch_y),
-                        },
-                        TargetKind::Llama => EnemyReaction::Kick,
-                        _ => EnemyReaction::None,
-                    };
-                    out.push(BlastEffect::EnemyHit {
-                        id: target.id,
-                        kind,
-                        damage: self.profile.damage,
-                        reaction,
-                        credit: self.owner,
-                    });
-                }
-            }
-        }
-        out
-    }
-
-    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
-        mix(u64::from(self.dome.0.to_bits()));
-        mix(u64::from(self.dome.1.to_bits()));
-        mix(self.owner.map_or(0, |p| u64::from(p) + 1));
-        mix(self.done.len() as u64);
-        for (tag, id) in &self.done {
-            mix(u64::from(*tag));
-            mix(u64::from(*id));
-        }
     }
 }
 

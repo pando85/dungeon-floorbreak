@@ -313,7 +313,7 @@ impl CombatState {
     }
 
     /// The hero views a slot enemy reads (the boss' view of the heroes).
-    fn slot_hero_views(&self, scene: &SceneSim) -> [HeroView; 2] {
+    pub(super) fn slot_hero_views(&self, scene: &SceneSim) -> [HeroView; 2] {
         let drive = *scene.drive();
         let live = scene.party_live();
         HeroId::ALL.map(|id| {
@@ -349,10 +349,18 @@ impl CombatState {
             floor_y: self.enemy_foot_y,
             walls: (0.0, self.x_max),
         };
+        let view_x = scene.view_x();
         for index in 0..self.slot.enemies.len() {
             if !self.slot.enemies[index].alive() {
                 continue;
             }
+            // HAZ-A2: the goblins' token pool, with the slot enemies' holders.
+            let holders = self.enemies.iter().filter(|g| g.token_held()).count()
+                + self.slot.enemies.iter().filter(|e| e.holds_token()).count();
+            let token_free = holders < crate::feel::MAX_ATTACKERS
+                && self
+                    .last_tell_start
+                    .is_none_or(|start| tick - start >= crate::feel::TELL_SPACING);
             let heroes = self.slot_hero_views(scene);
             let mut out = SlotOut::default();
             let ctx = SlotStepCtx {
@@ -362,11 +370,16 @@ impl CombatState {
                 env: &self.slot.env,
                 solo,
                 room,
+                view_x,
+                token_free,
             };
             let enemy = &mut self.slot.enemies[index];
             let (id, was_alive) = (enemy.target_id(), enemy.alive());
             enemy.step(&ctx, &mut out);
             Self::check_defeat_logged(id, was_alive, self.slot.enemies[index].alive(), &out);
+            if out.tell_started {
+                self.last_tell_start = Some(tick);
+            }
             self.apply_slot_out(scene, out, tick);
         }
     }

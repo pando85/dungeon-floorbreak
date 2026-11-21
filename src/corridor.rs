@@ -803,6 +803,13 @@ impl SceneSim {
         self.drive.live
     }
 
+    /// HAZ-A2: the simulation camera's horizontal view `[left, right]` in world
+    /// px (what a slime or a Rot Sticker must be fully inside to wake).
+    pub fn view_x(&self) -> (f32, f32) {
+        let left = self.camera.left() as f32;
+        (left, left + self.camera_cfg.view_w as f32)
+    }
+
     /// Q7 / D1 M4: `x` is more than `margin` pixels outside the view.
     pub fn is_offscreen(&self, x: f32, margin: f32) -> bool {
         let left = self.camera.left() as f32;

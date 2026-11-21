@@ -69,20 +69,22 @@ use crate::blast::{BLAST_RADIUS, BlastBreak, BlastCharge, BlastProfile, BlastTar
 use crate::boss::HeroBlow;
 use crate::camera_lab::room::EnemyKind;
 use crate::camera_lab::room::IRect;
-use crate::combat::{CombatEvent, DefeatCause, PropPhase};
+use crate::combat::{CombatEvent, DefeatCause, MoveId, PropPhase};
 use crate::donut_moves::DONUT_HERO;
 use crate::encounter::LinkKind;
-use crate::encounter::{Encounter, LockEvent, PropKind, RosterKind};
+use crate::encounter::{Encounter, Goal, LockEvent, PropKind, RosterKind, StickerLayout};
 use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavRect, Team, Victim};
 use crate::env_prop::{
     Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, LinkEmit, LinkGraph, MassBody,
     MassEdge, MassState, Offer, STEP_OVER_PX, Stimulus, Valve, ValveEdge, ValveState,
 };
-use crate::goblin::GoblinMode;
+use crate::goblin::{GoblinMode, WalkBarrier};
 use crate::hero_damage::HeroDamagePolicy;
 use crate::llama::LlamaMode;
 use crate::prototype::{Block, HERO_HALF_HEIGHT, Material, Rect, TICK_SECONDS};
+use crate::rot_sticker::{self, RotSticker, StickerCtx, StickerState};
 use crate::scene_enemy::{EnvSource, EnvTarget, EnvView, SlotEnvHit};
+use crate::slime::{self, AcidSet};
 
 /// The `HeroBlow.source` of every environmental blow (a falling mass, steam):
 /// `"EN"`. One constant for the whole module, distinct from the others (the
@@ -106,6 +108,9 @@ enum Machine {
     Mass(Box<FallingMass>),
     /// A fuel drum (BOIL-D): its acceptance machine and the blast it plans.
     Drum { drum: Drum, plan: DrumPlan },
+    /// HAZ-A2: a Rot Sticker; its state lives in [`EnvRuntime::stickers`]
+    /// (absent while `hazq02_rot_enabled` is false).
+    Rot,
 }
 
 /// What a drum's blast is, from the sidecar (BOIL-D). The blast itself is the
@@ -183,6 +188,12 @@ pub enum EnvSolidKind {
     /// the slot enemy `target` reports [`crate::scene_enemy::SlotEnemy::gate_solid`].
     /// `EnvSolid::prop` is 0.
     Gate { target: u32 },
+    /// HAZ-A2: a full-height soffit a Rot Sticker clings to (no standable top).
+    /// Always intact.
+    Soffit,
+    /// HAZ-A2: the exit of a `defeat_roster` room: it stands until every roster
+    /// enemy is defeated (the room goal opens it at runtime, HAZ-Q39).
+    ExitGate,
 }
 
 /// The slot target id of the roster entry a lock waits on. Appended to by the
@@ -256,6 +267,21 @@ pub struct LinkFire {
     pub depth: u8,
 }
 
+/// HAZ-A2: one Rot Sticker of the room.
+#[derive(Debug, Clone)]
+struct StickerRt {
+    /// The prop index in the sidecar.
+    prop: u16,
+    layout: StickerLayout,
+    /// Built by [`EnvRuntime::attach`] (it needs the scene's walking line).
+    sticker: Option<RotSticker>,
+    /// The sticker's authored charge, in `CombatState.charges`.
+    charge: usize,
+    /// Stimuli of this tick that reached it: Carl's melee (with the move) and
+    /// Donut's bolts. Drained by the env step.
+    pending: Vec<(Stimulus, Option<MoveId>)>,
+}
+
 /// The props, hazards and solids of one run of an encounter room.
 #[derive(Debug, Clone)]
 pub struct EnvRuntime {
@@ -275,6 +301,17 @@ pub struct EnvRuntime {
     /// The bodies of the last tick (the swept test's start). Not hashed: it is
     /// a function of the hashed positions.
     prev: Vec<(Victim, IRect)>,
+    /// HAZ-A2: the Rot Stickers, in sidecar order (empty in every other room).
+    stickers: Vec<StickerRt>,
+    /// HAZ-A2: the acid patches and the slime each one drains with.
+    acid: AcidSet,
+    /// `(patch id, linked slime's slot target id)`.
+    acid_links: Vec<(u16, u32)>,
+    /// HAZ-A2: the room's walking line in layout px (tracks and barriers are
+    /// converted with it); set by [`Self::in_room`].
+    floor_layout: Option<i32>,
+    /// HAZ-A2: the exit rectangle of a `defeat_roster` room.
+    defeat_roster: bool,
 }
 
 impl EnvRuntime {
@@ -298,6 +335,7 @@ impl EnvRuntime {
             link_list.push((prop_u16(l.from)?, prop_u16(l.to)?, emit));
         }
         let links = LinkGraph::new(link_list)?;
+        let mut stickers: Vec<StickerRt> = Vec::new();
         for (i, p) in enc.props.iter().enumerate() {
             let index = u16::try_from(i).map_err(|_| "too many props".to_owned())?;
             let incoming = links.incoming(index);
@@ -388,9 +426,25 @@ impl EnvRuntime {
                         plan,
                     }
                 }
-                PropKind::Shutter | PropKind::RotSticker => {
+                PropKind::RotSticker => {
+                    // HAZ-Q02: the data kill switch removes the kind.
+                    if rot_sticker::active().enabled() {
+                        let layout = p
+                            .track
+                            .ok_or_else(|| format!("prop {}: a sticker needs its track", p.id))?;
+                        stickers.push(StickerRt {
+                            prop: index,
+                            layout,
+                            sticker: None,
+                            charge: 0,
+                            pending: Vec::new(),
+                        });
+                    }
+                    Machine::Rot
+                }
+                PropKind::Shutter => {
                     return Err(format!(
-                        "prop {}: the env step does not run a {:?} yet (RING and HAZ wire add it)",
+                        "prop {}: the env step does not run a {:?} yet (RING wire adds it)",
                         p.id, p.kind
                     ));
                 }
@@ -443,6 +497,18 @@ impl EnvRuntime {
                     .map(|o| (h.spec.id, u16::try_from(o).expect("prop index")))
             })
             .collect();
+        // HAZ-A2: the acid patches (the sidecar's `acid_patches`, never in
+        // `hazards`) and the slime each one drains with.
+        let acid =
+            AcidSet::new(slime::active(), enc.acid_patches.clone()).map_err(|e| e.to_string())?;
+        let acid_links = enc
+            .acid_patches
+            .iter()
+            .filter_map(|a| {
+                a.linked_slime
+                    .map(|r| (a.id, super::slime::target_id(usize::from(r))))
+            })
+            .collect();
         Ok(Self {
             props,
             pristine_hazards: hazards.clone(),
@@ -453,6 +519,11 @@ impl EnvRuntime {
             drum_charges: Vec::new(),
             solid_start: None,
             prev: Vec::new(),
+            stickers,
+            acid,
+            acid_links,
+            floor_layout: None,
+            defeat_roster: enc.goal == Goal::DefeatRoster,
         })
     }
 
@@ -468,6 +539,100 @@ impl EnvRuntime {
         self
     }
 
+    /// HAZ-A2: place this runtime in a room: its walking line (layout px, for
+    /// the sticker tracks and the walk barriers), the soffit solids the
+    /// stickers cling to (layout px, no standable top) and, for a
+    /// `defeat_roster` room, the exit gate rectangle.
+    #[must_use]
+    pub fn in_room(mut self, floor_layout: i32, soffits: &[IRect], exit: Option<IRect>) -> Self {
+        self.floor_layout = Some(floor_layout);
+        for r in soffits {
+            self.solids.push(EnvSolid {
+                rect: *r,
+                prop: 0,
+                kind: EnvSolidKind::Soffit,
+            });
+        }
+        if self.defeat_roster
+            && let Some(rect) = exit
+        {
+            self.solids.push(EnvSolid {
+                rect,
+                prop: 0,
+                kind: EnvSolidKind::ExitGate,
+            });
+        }
+        self
+    }
+
+    /// HAZ-A2: build the stickers' domain tracks in the scene's world frame
+    /// (`foot_y` is the world y of the walking line). Idempotent.
+    ///
+    /// # Panics
+    ///
+    /// On a track the encounter validator accepted but the domain refuses, or a
+    /// sticker room that was never placed with [`Self::in_room`].
+    pub(super) fn attach(&mut self, foot_y: f32) {
+        if self.stickers.is_empty() {
+            return;
+        }
+        let floor = self
+            .floor_layout
+            .expect("a room with Rot Stickers is placed with EnvRuntime::in_room");
+        let origin = foot_y.round() as i32 + floor;
+        for st in &mut self.stickers {
+            if st.sticker.is_none() {
+                let track = st
+                    .layout
+                    .world_track(origin)
+                    .expect("the validated sticker track");
+                st.sticker = Some(RotSticker::new(track));
+            }
+        }
+    }
+
+    /// HAZ-A2: the stickers' count (0 in every other room).
+    pub fn sticker_count(&self) -> usize {
+        self.stickers.len()
+    }
+
+    /// The sticker domain object of sidecar prop `prop`.
+    pub fn sticker(&self, prop: u16) -> Option<&RotSticker> {
+        self.stickers
+            .iter()
+            .find(|s| s.prop == prop)
+            .and_then(|s| s.sticker.as_ref())
+    }
+
+    /// The acid patches.
+    pub fn acid(&self) -> &AcidSet {
+        &self.acid
+    }
+
+    /// HAZ-A2: the walk barriers of the acid patches (world px): one per patch,
+    /// on the walking line of its surface. Static data of the room: the goblins
+    /// are built with it ([`crate::goblin::Goblin::with_walk_barriers`]), and a
+    /// drained patch keeps its barrier (the pool is gone, the goblin may then
+    /// cross only because the barrier tracks the live bounds, see
+    /// [`Self::live_barriers`]).
+    pub fn walk_barriers(&self, foot_y: f32) -> Vec<WalkBarrier> {
+        let Some(floor) = self.floor_layout else {
+            return Vec::new();
+        };
+        self.acid
+            .patches()
+            .map(|p| {
+                let spec = p.spec();
+                WalkBarrier {
+                    x0: spec.x0 as f32,
+                    x1: spec.x1 as f32,
+                    line: foot_y + (floor - spec.floor_y) as f32,
+                }
+            })
+            .collect()
+    }
+
+
     /// Back to the first state of the attempt (the solids stay appended).
     pub fn reset(&mut self) {
         for p in &mut self.props {
@@ -475,10 +640,35 @@ impl EnvRuntime {
                 Machine::Valve { valve, .. } => valve.reset(),
                 Machine::Mass(m) => m.reset(),
                 Machine::Drum { drum, .. } => drum.reset(),
+                Machine::Rot => {}
             }
         }
         self.hazards = self.pristine_hazards.clone();
         self.prev.clear();
+    }
+
+    /// HAZ-A2: a full restart of the hazards: every sticker latched at its
+    /// start (spent included), every pool full.
+    pub fn reset_hazards(&mut self) {
+        for st in &mut self.stickers {
+            if let Some(s) = st.sticker.as_mut() {
+                s.reset();
+            }
+            st.pending.clear();
+        }
+        self.acid.reset(slime::active());
+    }
+
+    /// HAZ-A2: a defeat respawn (HAZ-Q49): a spent sticker stays spent, a
+    /// sticker in warning or scuttling is latched again at its start. The pools
+    /// follow their slimes (the scene applies that, it reads the slot).
+    pub fn respawn_hazards(&mut self) {
+        for st in &mut self.stickers {
+            if let Some(s) = st.sticker.as_mut() {
+                s.defeat_respawn();
+            }
+            st.pending.clear();
+        }
     }
 
     pub fn props(&self) -> usize {
@@ -514,7 +704,10 @@ impl EnvRuntime {
 
     /// The CA2-C feed: the telegraphed and active volumes of this tick.
     pub fn nav_feed(&self) -> Vec<NavRect> {
-        self.hazards.nav_feed()
+        let mut feed = self.hazards.nav_feed();
+        // HAZ-A2: the acid patches are persistent active volumes of class Acid.
+        feed.extend(self.acid.nav_feed());
+        feed
     }
 
     /// The runtime solids, in index order of the sync.
@@ -534,6 +727,9 @@ impl EnvRuntime {
         let prop = match s.kind {
             EnvSolidKind::Remnant | EnvSolidKind::Drum => self.props.get(usize::from(s.prop)),
             EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => return false,
+            // HAZ-A2: a soffit always stands; the exit gate defaults to closed (the
+            // scene opens it when the roster is clear). Neither has a prop.
+            EnvSolidKind::Soffit | EnvSolidKind::ExitGate => return true,
         };
         match (s.kind, prop.map(|p| &p.machine)) {
             (EnvSolidKind::Remnant, Some(Machine::Mass(m))) => m.state() == MassState::Landed,
@@ -559,7 +755,7 @@ impl EnvRuntime {
                 Machine::Valve { valve, .. } => valve.state() == ValveState::Intact,
                 Machine::Mass(m) => m.is_supported(),
                 // A drum is no hit target of melee or the missile (BOILD-AD3).
-                Machine::Drum { .. } => false,
+                Machine::Drum { .. } | Machine::Rot => false,
             })
             .map(|p| (p.index, p.target))
             .collect()
@@ -699,6 +895,7 @@ impl EnvRuntime {
             Machine::Valve { valve, .. } => valve.offer(stimulus),
             Machine::Mass(m) => m.offer(stimulus),
             Machine::Drum { drum, .. } => drum.offer(stimulus),
+            Machine::Rot => return None,
         };
         let mut events = Vec::new();
         let progress = match result {
@@ -709,6 +906,7 @@ impl EnvRuntime {
                 Machine::Mass(m) => m.progress(),
                 // A drum has one weight: the trigger itself.
                 Machine::Drum { .. } => 1,
+                Machine::Rot => 0,
             },
         };
         events.push(CombatEvent::PropHit {
@@ -844,7 +1042,7 @@ impl EnvRuntime {
                     None => {}
                 },
                 // A drum's clock is its charge's (the scene steps it).
-                Machine::Drum { .. } => {}
+                Machine::Drum { .. } | Machine::Rot => {}
             }
         }
         // The hazard windows advance in lockstep with the valve; their edges
@@ -884,9 +1082,25 @@ impl EnvRuntime {
                 Machine::Valve { valve, .. } => valve.mix_into(&mut *mix),
                 Machine::Mass(m) => m.mix_into(&mut *mix),
                 Machine::Drum { drum, .. } => drum.mix_into(&mut *mix),
+                Machine::Rot => {}
             }
         }
         self.hazards.mix_into(&mut *mix);
+        // HAZ-A2: nothing is mixed in a room without stickers or acid, so every
+        // older hash is unchanged.
+        if !self.stickers.is_empty() {
+            mix(0x524f_5453_0001); // "ROTS"
+            for st in &self.stickers {
+                mix(u64::from(st.prop));
+                if let Some(s) = &st.sticker {
+                    s.mix_into(&mut *mix);
+                }
+            }
+        }
+        if self.acid.patches().next().is_some() {
+            mix(0x4143_4944_0001); // "ACID"
+            self.acid.mix_into(&mut *mix);
+        }
     }
 
     /// ` env=<prop>:<state>,...` for the state line.
@@ -898,6 +1112,20 @@ impl EnvRuntime {
                 Machine::Valve { valve, .. } => format!("{}:{:?}", p.index, valve.state()),
                 Machine::Mass(m) => format!("{}:{:?}", p.index, m.state()),
                 Machine::Drum { drum, .. } => format!("{}:drum_{:?}", p.index, drum.state()),
+                Machine::Rot => {
+                    let state = self
+                        .stickers
+                        .iter()
+                        .find(|s| s.prop == p.index)
+                        .and_then(|s| s.sticker.as_ref())
+                        .map_or("off", |s| match s.state() {
+                            StickerState::Latched => "latched",
+                            StickerState::Scuttling => "scuttling",
+                            StickerState::Warning => "warning",
+                            StickerState::Spent => "spent",
+                        });
+                    format!("{}:rot_{}", p.index, state)
+                }
             })
             .collect();
         format!(" env={}", parts.join(","))
@@ -973,10 +1201,99 @@ impl CombatState {
     /// it nothing is stepped, evented or hashed: every other fixture is the
     /// legacy game byte for byte.
     #[must_use]
-    pub fn with_env(mut self, env: EnvRuntime) -> Self {
+    pub fn with_env(mut self, mut env: EnvRuntime) -> Self {
+        // HAZ-A2: the stickers' tracks need the scene's walking line.
+        env.attach(self.enemy_foot_y);
         self.env = Some(Box::new(env));
         self.reset_attempt();
         self
+    }
+
+    /// HAZ-A2: every sticker's authored charge is appended **after the
+    /// fixture's charges** (sidecar order) when an attempt is built, at the end
+    /// of `reset_attempt`. The reserved dynamite slot is the index after them
+    /// (CP-Q31), and `push_authored_charge` keeps it so. A charge starts unlit
+    /// (`detonate_tick` 0, no owner, never fires: tick 0 is never stepped) and
+    /// carries the Rot profile with the sticker's own `HeroHurt` source.
+    pub(super) fn env_append_charges(&mut self) {
+        let Some(env) = self.env.as_mut() else {
+            return;
+        };
+        let t = rot_sticker::active();
+        let mut sources = Vec::new();
+        for (i, st) in env.stickers.iter_mut().enumerate() {
+            st.pending.clear();
+            sources.push((i, rot_sticker::rot_source(u8::try_from(i).unwrap_or(u8::MAX))));
+        }
+        // The charge index is read before each push (a drum's blast charge, BOIL-D,
+        // may already stand among the authored charges).
+        for (i, source) in sources {
+            let index = self.charges.len();
+            self.push_authored_charge(
+                BlastCharge::new(0.0, 0.0, 0, None).with_profile(t.world_profile(source)),
+            );
+            if let Some(env) = self.env.as_mut() {
+                env.stickers[i].charge = index;
+            }
+        }
+        if let Some(env) = self.env.as_mut() {
+            env.reset_hazards();
+        }
+    }
+
+    /// HAZ-A2, HAZ-Q49: a defeat respawn. A spent sticker stays spent; one in
+    /// warning or scuttling is latched again at its start and its charge is
+    /// written back to unlit (`detonate_tick` 0, owner none, chain depth 0). The
+    /// pools follow their slimes: a living slime was reset to its spawn by the
+    /// slot's respawn (so its pool is restored and its drain cancelled), a
+    /// defeated one stays defeated and its pool keeps draining.
+    pub(super) fn env_respawn_hazards(&mut self) {
+        let alive: Vec<(u16, bool)> = match self.env.as_ref() {
+            Some(env) => env
+                .acid_links
+                .iter()
+                .map(|(patch, target)| {
+                    let up = self
+                        .slot
+                        .index_of(*target)
+                        .is_some_and(|i| self.slot.enemies[i].alive());
+                    (*patch, up)
+                })
+                .collect(),
+            None => return,
+        };
+        let env = self.env.as_mut().expect("checked above");
+        env.respawn_hazards();
+        for (patch, up) in alive {
+            if up && let Some(p) = env.acid.get_mut(patch) {
+                p.on_slime_respawn(slime::active());
+            }
+        }
+        let slots: Vec<(usize, bool)> = env
+            .stickers
+            .iter()
+            .map(|st| {
+                (
+                    st.charge,
+                    st.sticker.as_ref().is_some_and(RotSticker::is_spent),
+                )
+            })
+            .collect();
+        for (charge, spent) in slots {
+            if !spent && let Some(c) = self.charges.get_mut(charge) {
+                c.detonate_tick = 0;
+                c.owner = None;
+                c.chain_depth = 0;
+            }
+        }
+    }
+
+    /// HAZ-A2, HAZ-Q39: every roster enemy is defeated (a goblin, a llama, a
+    /// slot enemy). Stickers are props and never count.
+    pub fn roster_cleared(&self) -> bool {
+        self.enemies.iter().all(|g| !g.alive())
+            && self.llamas.iter().all(|l| !l.alive())
+            && self.slot.enemies.iter().all(|e| !e.alive())
     }
 
     /// The env runtime, if the room has props.
@@ -1062,6 +1379,7 @@ impl CombatState {
     fn env_sync_solids(&mut self, scene: &mut SceneSim) {
         let layout_h = scene.world.layout_height();
         let dynamic = SlotSolids::of(&self.slot);
+        let cleared = self.roster_cleared();
         let Some(env) = self.env.as_mut() else {
             return;
         };
@@ -1096,6 +1414,8 @@ impl CombatState {
             let intact = match env.solids[i].kind {
                 EnvSolidKind::Lock { target } => dynamic.lock_closed(target),
                 EnvSolidKind::Gate { target } => dynamic.gate_closed(target),
+                // HAZ-A2: the exit opens on the tick the roster is clear.
+                EnvSolidKind::ExitGate => !cleared,
                 _ => env.solid_intact(i),
             };
             scene.world.solids[start + i].intact = intact;
@@ -1126,6 +1446,19 @@ impl CombatState {
     /// a stimulus that does not come from Carl's melee or Donut's missile
     /// (BOIL-D's launched bodies and blast hook, the Hoarder's shove).
     pub fn env_stimulate(&mut self, prop: usize, stimulus: Stimulus, tick: u64) -> Option<Offer> {
+        // HAZ-A2: a Rot Sticker takes the stimulus in its own step (the intake
+        // of the sheet's section 10: melee, projectile and launched body count;
+        // a blast, a prop contact and a shove are ignored by the sticker).
+        if let Some(st) = self
+            .env
+            .as_mut()?
+            .stickers
+            .iter_mut()
+            .find(|s| usize::from(s.prop) == prop)
+        {
+            st.pending.push((stimulus, None));
+            return Some(Offer::Progress { progress: 1 });
+        }
         let (offer, events) = self.env.as_mut()?.offer(prop, stimulus, tick)?;
         for event in events {
             self.log(event);
@@ -1291,6 +1624,56 @@ impl CombatState {
                 });
             }
         }
+        self.strike_stickers(scene, move_tick, boxed, attacker, tick);
+    }
+
+    /// HAZ-A2: Carl's melee on a Rot Sticker's shell (the drawn hurtbox): one
+    /// hit per move instance and sticker, any per-move weight provokes it, and
+    /// **the attacker gets no hit-stop and no camera kick** from a sticker (the
+    /// prop declares zero attacker hit-stop), so a hero who chose to hit it can
+    /// run at once.
+    fn strike_stickers(
+        &mut self,
+        scene: &mut SceneSim,
+        move_tick: &MoveTick,
+        boxed: crate::prototype::Rect,
+        attacker: Attacker,
+        _tick: u64,
+    ) {
+        let t = rot_sticker::active();
+        let Some(env) = self.env.as_mut() else {
+            return;
+        };
+        for st in &mut env.stickers {
+            let Some(s) = st.sticker.as_ref() else {
+                continue;
+            };
+            if !matches!(s.state(), StickerState::Latched | StickerState::Scuttling) {
+                continue;
+            }
+            let Some(shell) = s.hurtbox(t) else {
+                continue;
+            };
+            if !shell.overlaps(boxed) {
+                continue;
+            }
+            if !scene
+                .world
+                .hero
+                .melee
+                .record_hit(ENV_HIT_ID_BASE + u32::from(st.prop))
+            {
+                continue;
+            }
+            st.pending.push((
+                Stimulus::MeleeHit {
+                    token: move_tick.instance,
+                    player: attacker.player,
+                    weight: 1,
+                },
+                Some(move_tick.spec.id),
+            ));
+        }
     }
 
     /// A Magic Missile that overlaps a live prop target ends there (DV-5),
@@ -1302,11 +1685,15 @@ impl CombatState {
         scene: &SceneSim,
         tick: u64,
     ) -> bool {
-        let Some(env) = self.env.as_ref() else {
+        if self.env.is_none() {
             return false;
-        };
+        }
         let layout_h = scene.world.layout_height();
         let rect = bolt.rect();
+        if self.sticker_missile(bolt, scene) {
+            return true;
+        }
+        let env = self.env.as_ref().expect("checked above");
         let Some((prop, _)) = env
             .live_targets()
             .into_iter()
@@ -1324,6 +1711,267 @@ impl CombatState {
             tick,
         );
         true
+    }
+
+    /// HAZ-A2, HAZ-Q29 (rule B): a Magic Missile bolt provokes a sticker when it
+    /// overlaps the shell **or its box comes within the sticker's 32 px trigger
+    /// circle** with line of sight, the sticker fully in view. The bolt is
+    /// consumed and the provoke is credited to Donut (cause `Projectile`).
+    /// Returns whether a sticker took the bolt.
+    fn sticker_missile(&mut self, bolt: &super::Bolt, scene: &SceneSim) -> bool {
+        let t = rot_sticker::active();
+        if !t.enabled() || !t.on(t.hazq29_hit_provokes) {
+            return false;
+        }
+        let solids = Self::intact_rects(scene);
+        let view = scene.view_x();
+        let rect = bolt.rect();
+        let trigger = f32::from(t.hazq27_trigger_px);
+        let Some(env) = self.env.as_mut() else {
+            return false;
+        };
+        for st in &mut env.stickers {
+            let Some(s) = st.sticker.as_ref() else {
+                continue;
+            };
+            if !matches!(s.state(), StickerState::Latched | StickerState::Scuttling) {
+                continue;
+            }
+            let frame = s.frame(t);
+            let in_view = frame.left >= view.0 && frame.right() <= view.1;
+            let touches = s.hurtbox(t).is_some_and(|shell| shell.overlaps(rect));
+            let near =
+                in_view && rot_sticker::circle_reaches(s.dome(t), trigger, rect, true, &solids);
+            if touches || near {
+                st.pending.push((
+                    Stimulus::Projectile {
+                        projectile_id: bolt.instance,
+                        owner: Some(DONUT_HERO),
+                        weight: 1,
+                    },
+                    None,
+                ));
+                return true;
+            }
+        }
+        false
+    }
+
+    /// The intact solids of the scene as plain rectangles (line of sight).
+    fn intact_rects(scene: &SceneSim) -> Vec<crate::prototype::Rect> {
+        scene
+            .world
+            .solids
+            .iter()
+            .filter(|b| b.intact)
+            .map(|b| b.rect)
+            .collect()
+    }
+
+    /// HAZ-A2: the Rot Stickers' step, in the env slot after the charges step
+    /// (the sheet's tick order): the charge is the authority for the detonation
+    /// and for a dynamite chain (read from the charge, not from
+    /// `ChargeChained`, which is not emitted for an owner fill or a cap
+    /// deferral); then the stimuli, the proximity, the provoke and the charge
+    /// position sync.
+    fn step_stickers(&mut self, scene: &SceneSim, tick: u64) {
+        let t = rot_sticker::active();
+        let n = self.env.as_ref().map_or(0, |e| e.stickers.len());
+        if n == 0 {
+            return;
+        }
+        let heroes = self.slot_hero_views(scene);
+        let solo = !scene.drive().two_player;
+        let players = [Some(0), if solo { Some(0) } else { Some(1) }];
+        let solids = Self::intact_rects(scene);
+        let view = scene.view_x();
+        for i in 0..n {
+            let (charge_ix, prop) = {
+                let st = &self.env.as_ref().expect("stickers").stickers[i];
+                (st.charge, st.prop)
+            };
+            let Some(charge) = self.charges.get(charge_ix).copied() else {
+                continue;
+            };
+            let env = self.env.as_mut().expect("stickers");
+            let st = &mut env.stickers[i];
+            let Some(sticker) = st.sticker.as_mut() else {
+                continue;
+            };
+            if sticker.is_spent() {
+                st.pending.clear();
+                continue;
+            }
+            if charge.detonated {
+                sticker.spend();
+                st.pending.clear();
+                continue;
+            }
+            let mut events = Vec::new();
+            // A chain lit it, or pulled it forward (the charge is the truth).
+            if charge.detonate_tick != 0
+                && let Some(p) = sticker.sync_chain(tick, charge.detonate_tick, charge.owner)
+            {
+                events.push(CombatEvent::RotProvoked {
+                    tick,
+                    sticker: prop,
+                    cause: p.cause,
+                    hit: None,
+                    player: p.player,
+                });
+            }
+            let mut write_back = None;
+            if sticker.state() == StickerState::Warning {
+                sticker.hold_warning();
+                st.pending.clear();
+            } else {
+                let frame = sticker.frame(t);
+                let in_view = frame.left >= view.0 && frame.right() <= view.1;
+                let pending = std::mem::take(&mut st.pending);
+                let stimuli: Vec<Stimulus> = pending.iter().map(|(s, _)| *s).collect();
+                let out = sticker.step(
+                    t,
+                    &StickerCtx {
+                        tick,
+                        heroes: &heroes,
+                        players,
+                        in_view,
+                        solids: &solids,
+                        stimuli: &stimuli,
+                        missiles: &[],
+                    },
+                );
+                if let Some(p) = out.provoked {
+                    let hit = (p.cause == rot_sticker::RotCause::Hit)
+                        .then(|| pending.iter().find_map(|(_, m)| *m))
+                        .flatten();
+                    events.push(CombatEvent::RotProvoked {
+                        tick,
+                        sticker: prop,
+                        cause: p.cause,
+                        hit,
+                        player: p.player,
+                    });
+                    write_back = Some((sticker.detonate_tick(), sticker.owner()));
+                }
+            }
+            let (x, foot) = sticker.charge_xy(t);
+            let c = &mut self.charges[charge_ix];
+            c.x = x;
+            c.foot_y = foot;
+            if let Some((due, owner)) = write_back {
+                c.detonate_tick = due;
+                if c.owner.is_none() {
+                    c.owner = owner;
+                }
+            }
+            for e in events {
+                self.log(e);
+            }
+        }
+    }
+
+    /// HAZ-A2: the acid patches: the drain of a patch whose slime fell, the
+    /// hero contacts (one pop per entry) and the launched goblins that landed
+    /// in one (once per launch). Slimes, walking goblins and llamas never take
+    /// acid (HAZ-Q20, HAZ-Q48).
+    fn step_acid(&mut self, scene: &mut SceneSim, tick: u64) {
+        let links: Vec<(u16, bool)> = match self.env.as_ref() {
+            Some(env) if env.acid.patches().next().is_some() => env
+                .acid_links
+                .iter()
+                .map(|(patch, target)| {
+                    let up = self
+                        .slot
+                        .index_of(*target)
+                        .is_none_or(|i| self.slot.enemies[i].alive());
+                    (*patch, up)
+                })
+                .collect(),
+            _ => return,
+        };
+        let layout_h = scene.world.layout_height();
+        let env = self.env.as_mut().expect("checked above");
+        for (patch, up) in links {
+            if !up && let Some(p) = env.acid.get_mut(patch) {
+                p.on_slime_defeated();
+            }
+        }
+        env.acid.step();
+        // Heroes: the contact is the hero's hurtbox against the live bounds.
+        let drive = *scene.drive();
+        let mut blows = Vec::new();
+        let ids: Vec<u16> = env.acid.patches().map(slime::AcidPatch::id).collect();
+        if !self.hero_defeated {
+            for id in HeroId::ALL {
+                if id != HeroId::Carl && !scene.party_live() {
+                    continue;
+                }
+                let body = layout_rect(layout_h, Self::hurtbox(scene, id));
+                let hero = scene.world.body(id);
+                let unseen = drive.is_guarded(id)
+                    && drive.tuning.solo_offscreen_immunity
+                    && scene.is_offscreen(hero.x, f32::from(drive.tuning.offscreen_margin_px));
+                let vulnerable = hero.invulnerable_ticks == 0 && !unseen;
+                let x = hero.x;
+                for patch in &ids {
+                    let p = env.acid.get_mut(*patch).expect("a listed patch");
+                    if p.contact(id, body, vulnerable) {
+                        blows.push(p.pop_blow(id, x));
+                    }
+                }
+            }
+        }
+        // Launched goblins that came to rest in a patch.
+        let mut crushed = Vec::new();
+        for (index, g) in self.enemies.iter().enumerate() {
+            let Some(launch) = g.launch else { continue };
+            if !g.alive() || g.y > g.floor_y + 0.5 {
+                continue;
+            }
+            let body = layout_rect(layout_h, g.body());
+            for patch in &ids {
+                let p = env.acid.get_mut(*patch).expect("a listed patch");
+                if p.launched_landing(launch, body) {
+                    crushed.push((index, *patch, g.hit_by));
+                }
+            }
+        }
+        for blow in blows {
+            self.hurt_hero(scene, blow, tick);
+        }
+        for (index, patch, credit) in crushed {
+            self.acid_hit_goblin(index, patch, credit, tick);
+        }
+    }
+
+    /// One damage of acid on a goblin (or Engineer) that landed in a patch:
+    /// the landing's credit goes to whoever launched it, the cause is
+    /// `Environment` (`prop` is the acid patch id).
+    fn acid_hit_goblin(&mut self, index: usize, patch: u16, credit: Option<u32>, tick: u64) {
+        let hit = EnvHit {
+            victim: Victim::enemy(index as u32),
+            prop: patch,
+            class: HazardClass::Acid,
+            damage: 1,
+            push_x: 0,
+            knock_up: 0,
+            from_x: 0,
+            initiator: credit,
+            activation: 1,
+        };
+        let g = &mut self.enemies[index];
+        if !g.alive() {
+            return;
+        }
+        let hit_by = g.hit_by;
+        if hit.damage >= g.health {
+            if g.crush() {
+                self.env_defeat(index as u32, &hit, hit_by, tick);
+            }
+            return;
+        }
+        g.health -= hit.damage;
     }
 
     /// The victim bodies of this tick in layout px, in a fixed order: the
@@ -1428,6 +2076,9 @@ impl CombatState {
             self.env_fire(fire, tick);
         }
         self.env_follow_lit_drums(tick);
+        // HAZ-A2: the stickers, then the acid.
+        self.step_stickers(scene, tick);
+        self.step_acid(scene, tick);
         self.env_sync_solids(scene);
         let view = self.env_view(layout_h);
         self.set_slot_env(view);
