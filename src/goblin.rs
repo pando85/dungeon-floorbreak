@@ -1071,6 +1071,47 @@ impl Goblin {
         true
     }
 
+    /// CARL-PROG-01 CP-B1 (CP-Q21): the outer ring of a profile blast. A goblin
+    /// that survives the `damage` is **launched alive**, `away` (+1 / -1) from
+    /// the centre at `(vx, vy)` (clamped to [`KNOCK_VX_MAX`]), as a new launch
+    /// instance `launch` that the scene stamps (so the CP-02 body contacts and
+    /// the CF02-B wall slams apply). Its attack, stagger and hit-stop are
+    /// cancelled: a blast is not armoured against. A goblin that does not
+    /// survive is the heavy ring kill ([`Self::blast`] with `point_blank`
+    /// false). Returns what happened, `None` for a goblin that is not alive.
+    pub fn blast_outer(
+        &mut self,
+        away: i8,
+        damage: u8,
+        (vx, vy): (f32, f32),
+        launch: u32,
+    ) -> Option<BlastOuter> {
+        if !self.alive() {
+            return None;
+        }
+        if self.health <= damage {
+            self.blast(away, false);
+            return Some(BlastOuter::Defeated);
+        }
+        self.health -= damage;
+        self.mode = GoblinMode::Launched;
+        self.attack_tick = 0;
+        self.stagger_left = 0;
+        self.swing_hit = false;
+        self.launch = Some(launch);
+        self.flight_ticks = 0;
+        self.contact_ticks = 0;
+        self.hold_left = 0;
+        self.hold_used = false;
+        self.relaunched = false;
+        self.hit_stop = 0;
+        self.vx = (f32::from(away) * vx).clamp(-KNOCK_VX_MAX, KNOCK_VX_MAX);
+        self.vy = vy;
+        Some(BlastOuter::Launched {
+            health_left: self.health,
+        })
+    }
+
     /// CP-03: a falling block lands on this goblin. It is defeated on the spot
     /// and lies as a `Down` / `Corpse` body (temporary stand-in art until
     /// GOB-02-CRUSH). Returns false for a goblin that is not alive.
@@ -1092,6 +1133,16 @@ impl Goblin {
         self.hit_stop = 0;
         true
     }
+}
+
+/// What the outer ring of a profile blast did to a goblin
+/// ([`Goblin::blast_outer`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlastOuter {
+    /// Damaged and launched alive.
+    Launched { health_left: u8 },
+    /// The damage was lethal: the heavy ring kill.
+    Defeated,
 }
 
 impl StrikeTarget for Goblin {

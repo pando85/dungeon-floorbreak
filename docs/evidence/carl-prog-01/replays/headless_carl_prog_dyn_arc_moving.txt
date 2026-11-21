@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=5 kind=special_started hero=0 capability=special_thrown_charge
+COMBAT_EVENT tick=46 kind=charge_thrown charge=0 x=558 y=138
+COMBAT_EVENT tick=84 kind=charge_landed charge=0 x=711 y=92
+COMBAT_EVENT tick=196 kind=blast charge=0
+COMBAT_EVENT tick=196 kind=hero_hurt source=21571 health_left=3
+COMBAT_STATE fixture=carl_prog_dyn_arc_moving seed=0xca10012 tick=260 elapsed=260 hero_hp=3 deaths=0 enemies= hash=3a9b8a032d1eea59
+PARTY_STATE fixture=carl_prog_dyn_arc_moving mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=f3117fc2ea2c2edf

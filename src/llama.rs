@@ -423,6 +423,55 @@ impl Llama {
     }
 }
 
+impl Llama {
+    /// CARL-PROG-01 CP-B1 (CP-Q26): a blast kills the llama outright (the core,
+    /// and a lethal outer ring), as a lethal hit: down, sliding `away` (+1 / -1).
+    /// Returns false, and changes nothing, for a llama that is not alive.
+    pub fn blast(&mut self, away: i8) -> bool {
+        if !self.alive() {
+            return false;
+        }
+        self.health = 0;
+        self.mode = LlamaMode::Down;
+        self.attack_tick = 0;
+        self.stagger_left = 0;
+        self.down_ticks = 0;
+        self.vx = f32::from(away) * LLAMA_DEATH_SLIDE_VX;
+        self.hit_stop = 0;
+        true
+    }
+
+    /// CP-Q26: the outer ring deals `damage` with the llama's existing kick
+    /// reaction (hurt, the kick push away from the centre, the hurt cooldown);
+    /// a lethal ring is [`Self::blast`]. `None` for a llama that is not alive.
+    pub fn blast_outer(&mut self, away: i8, damage: u8) -> Option<LlamaBlast> {
+        if !self.alive() {
+            return None;
+        }
+        if self.health <= damage {
+            self.blast(away);
+            return Some(LlamaBlast::Defeated);
+        }
+        self.health -= damage;
+        self.mode = LlamaMode::Hurt;
+        self.attack_tick = 0;
+        self.stagger_left = LLAMA_HURT_TICKS;
+        self.cooldown = self.cooldown.max(LLAMA_HURT_COOLDOWN);
+        self.vx = f32::from(away) * LLAMA_KICK_PUSH_VX;
+        self.hit_stop = 0;
+        Some(LlamaBlast::Hurt {
+            health_left: self.health,
+        })
+    }
+}
+
+/// What a blast's outer ring did to a llama ([`Llama::blast_outer`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LlamaBlast {
+    Hurt { health_left: u8 },
+    Defeated,
+}
+
 /// CF02-C1 (Q18, Q37): the damage Donut's moves deal to a llama, read from the
 /// CF02 knob file. `Some` in the kit only while `q18_llama_targets` is
 /// effective (`cf02_rules` on); `None` everywhere else, so no llama is a target

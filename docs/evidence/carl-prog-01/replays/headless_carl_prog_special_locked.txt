@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=carl_prog_special_locked seed=0xca10010 tick=90 elapsed=90 hero_hp=4 deaths=0 enemies= hash=0b2e1b0b0a5425eb
+PARTY_STATE fixture=carl_prog_special_locked mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=c95552f30a6a9051

@@ -1,0 +1,17 @@
+COMBAT_EVENT tick=4 kind=special_started hero=0 capability=special_thrown_charge
+COMBAT_EVENT tick=15 kind=special_rejected hero=0 reason=busy
+COMBAT_EVENT tick=45 kind=charge_thrown charge=0 x=416 y=138
+COMBAT_EVENT tick=50 kind=special_rejected hero=0 reason=busy
+COMBAT_EVENT tick=83 kind=charge_landed charge=0 x=511 y=92
+COMBAT_EVENT tick=120 kind=special_rejected hero=0 reason=busy
+COMBAT_EVENT tick=194 kind=special_rejected hero=0 reason=busy
+COMBAT_EVENT tick=195 kind=blast charge=0
+COMBAT_EVENT tick=196 kind=special_rejected hero=0 reason=cooldown
+COMBAT_EVENT tick=400 kind=special_rejected hero=0 reason=cooldown
+COMBAT_EVENT tick=613 kind=special_rejected hero=0 reason=cooldown
+COMBAT_EVENT tick=615 kind=special_ready hero=0
+COMBAT_EVENT tick=615 kind=special_started hero=0 capability=special_thrown_charge
+COMBAT_EVENT tick=656 kind=charge_thrown charge=0 x=416 y=138
+COMBAT_EVENT tick=694 kind=charge_landed charge=0 x=511 y=92
+COMBAT_STATE fixture=carl_prog_dyn_one_active seed=0xca10013 tick=700 elapsed=700 hero_hp=4 deaths=0 enemies= hash=482213517e09d1ce
+PARTY_STATE fixture=carl_prog_dyn_one_active mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=e115aeb7b0359474

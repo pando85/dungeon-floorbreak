@@ -1628,6 +1628,43 @@ pub enum CombatEvent {
         tick: u64,
         hero: HeroId,
     },
+    /// CARL-PROG-01 CP-B1, appended: a hero's special press was accepted and its
+    /// throw clock started (`hero` is the hero index, `capability` the data id).
+    /// Emitted only while the capability is held.
+    SpecialStarted {
+        tick: u64,
+        hero: u8,
+        capability: &'static str,
+    },
+    /// CP-B1, appended: a special press was refused (CP-Q13). The press is not
+    /// buffered and nothing is spent. Emitted only while the capability is held.
+    SpecialRejected {
+        tick: u64,
+        hero: u8,
+        reason: crate::thrown_charge::SpecialReject,
+    },
+    /// CP-B1, appended: the recharge ended (`detonation + recharge` ticks).
+    SpecialReady {
+        tick: u64,
+        hero: u8,
+    },
+    /// CP-B1, appended: the stick left the hand (t41), or dropped at the hero's
+    /// feet after a hit. `charge` is the reserved charge slot (the same index on
+    /// every throw), `(x, y)` the stick's column and foot height in whole px.
+    ChargeThrown {
+        tick: u64,
+        charge: u32,
+        x: i32,
+        y: i32,
+    },
+    /// CP-B1, appended: the stick stopped on a walking surface. Never emitted
+    /// for a stick that has no surface below it.
+    ChargeLanded {
+        tick: u64,
+        charge: u32,
+        x: i32,
+        y: i32,
+    },
 }
 
 impl CombatEvent {
@@ -2040,6 +2077,46 @@ impl CombatEvent {
                 mix(tick);
                 mix(hero.index() as u64);
             }
+            // CARL-PROG-01 CP-B1: "SPST".
+            Self::SpecialStarted {
+                tick,
+                hero,
+                capability,
+            } => {
+                mix(0x5350_5354);
+                mix(tick);
+                mix(u64::from(hero));
+                mix(crate::donut_mana::content_hash(capability));
+            }
+            // "SPRJ".
+            Self::SpecialRejected { tick, hero, reason } => {
+                mix(0x5350_524a);
+                mix(tick);
+                mix(u64::from(hero));
+                mix(reason.code());
+            }
+            // "SPRD".
+            Self::SpecialReady { tick, hero } => {
+                mix(0x5350_5244);
+                mix(tick);
+                mix(u64::from(hero));
+            }
+            // "CHTH".
+            Self::ChargeThrown { tick, charge, x, y } => {
+                mix(0x4348_5448);
+                mix(tick);
+                mix(u64::from(charge));
+                mix(i64::from(x) as u64);
+                mix(i64::from(y) as u64);
+            }
+            // "CHLD".
+            Self::ChargeLanded { tick, charge, x, y } => {
+                mix(0x4348_4c44);
+                mix(tick);
+                mix(u64::from(charge));
+                mix(i64::from(x) as u64);
+                mix(i64::from(y) as u64);
+            }
         }
     }
 }
@@ -2383,6 +2460,30 @@ impl fmt::Display for CombatEvent {
                 } else {
                     "donut"
                 }
+            ),
+            Self::SpecialStarted {
+                tick,
+                hero,
+                capability,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=special_started hero={hero} capability={capability}"
+            ),
+            Self::SpecialRejected { tick, hero, reason } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=special_rejected hero={hero} reason={}",
+                reason.name()
+            ),
+            Self::SpecialReady { tick, hero } => {
+                write!(f, "COMBAT_EVENT tick={tick} kind=special_ready hero={hero}")
+            }
+            Self::ChargeThrown { tick, charge, x, y } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=charge_thrown charge={charge} x={x} y={y}"
+            ),
+            Self::ChargeLanded { tick, charge, x, y } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=charge_landed charge={charge} x={x} y={y}"
             ),
         }
     }

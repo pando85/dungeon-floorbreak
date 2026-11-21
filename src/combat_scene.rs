@@ -50,6 +50,7 @@ use crate::prototype::{
 };
 use crate::shore::{PLAYER_ONE, Shore};
 use crate::story_unlock::StoryRuntime;
+use crate::thrown_charge::Thrower;
 
 mod carl_cf02;
 mod companion;
@@ -58,6 +59,7 @@ mod donut;
 mod evade;
 mod morale_cf02;
 mod story;
+mod thrown;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
 use self::companion::CompanionRuntime;
 use self::morale_cf02::MoraleRuntime;
@@ -841,8 +843,14 @@ pub struct CombatState {
     /// HUD-DEBT-03: the Floor 01 boss encounter (boss fixtures only; `None`
     /// everywhere else, so no earlier route, fixture or hash changes).
     pub boss: Option<Boss>,
-    /// DEATH-D: the fixture's authored blast charges (QA only).
+    /// DEATH-D: the fixture's authored blast charges (QA only), then, after the
+    /// first throw, the one reserved thrown-charge slot at index
+    /// `fixture.charges.len()` (CARL-PROG-01 CP-B1, CP-Q31).
     pub charges: Vec<BlastCharge>,
+    /// CARL-PROG-01 CP-B1: Carl's thrown charge (the press gate, the throw clock,
+    /// the stick, the recharge). Idle, and mixing nothing into the hash, unless
+    /// he holds the capability and pressed the special.
+    thrower: Thrower,
     /// CP-02: (launch id, target) pairs that already had their contact.
     contacts: Vec<(u32, u32)>,
     /// Press-edge detector and held-button state of the combat buttons (the
@@ -981,6 +989,7 @@ impl CombatState {
             shore: None,
             boss: None,
             charges: Vec::new(),
+            thrower: Thrower::default(),
             contacts: Vec::new(),
             input: InputFrame::default(),
             hurt_ticks: 0,
@@ -1172,6 +1181,8 @@ impl CombatState {
                 self.charges[index] = self.charge_of(spawn);
             }
         }
+        // CP-Q28: a live stick is removed without a blast and the special is ready.
+        self.clear_thrower();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
         self.hurt_ticks = 0;
@@ -1256,6 +1267,8 @@ impl CombatState {
             .iter()
             .map(|spawn| self.charge_of(spawn))
             .collect();
+        // CP-Q28: a defeat retry and a fixture restart clear the thrown charge.
+        self.thrower = Thrower::default();
         self.contacts.clear();
         self.carl_cf02 = CarlCf02::default();
         self.input = InputFrame::default();
@@ -1464,6 +1477,9 @@ impl CombatState {
             }
             request
         };
+        // CARL-PROG-01 CP-B1: a running throw loses a melee request before t50,
+        // and from t50 a request ends the recovery (identity without a throw).
+        let request = self.special_gate_request(tick, request);
         let buffer_ticks = self
             .cf02
             .map_or(CARL_BUFFER_TICKS, crate::input_buffer::runner_buffer_ticks);
@@ -1602,6 +1618,10 @@ impl CombatState {
             }
         }
 
+        // CARL-PROG-01 CP-B1: Carl's special press and throw clock, after his
+        // strike and before the physics (nothing without the capability).
+        self.step_special(scene, tick, hero_frozen);
+
         // CF02-H: the dive, the air kick and the bail-out hop drive Carl's body.
         let carl_drive = self.carl_cf02_drive(scene, move_tick);
         // Committed on the ground: the feet stay planted and jumping is off (CF02:
@@ -1620,6 +1640,15 @@ impl CombatState {
             RawInput { jump: false, ..raw }
         } else {
             raw
+        };
+        // CP-Q15: a running throw ignores the jump press until t50.
+        let gated = if self.special_strips_jump(tick) {
+            RawInput {
+                jump: false,
+                ..gated
+            }
+        } else {
+            gated
         };
         // A boss blow launches a hero (`hero_vx`); in every earlier fixture the
         // drift runs only after the defeating blow, as before.
@@ -1672,13 +1701,15 @@ impl CombatState {
         self.step_demo(scene);
         // DM-B: the reflex arms (or not) before any attack of the tick resolves.
         self.step_reflex(scene, tick);
+        // CARL-PROG-01 CP-B1: the stick's flight, landing and release.
+        self.step_stick(scene, tick);
         self.step_goblins(scene, tick);
         self.step_llamas(scene, tick);
         self.step_globs(scene, tick);
         self.resolve_contacts(tick);
         self.step_shore(scene, tick);
         self.step_boss(scene, tick);
-        self.step_charges(tick, scene.world.hero.x);
+        self.step_charges(scene, tick);
         // CF02-G: the morale of every goblin judges the tick's events last.
         self.step_morale(scene, tick, self.x_max - ENEMY_HALF_WIDTH);
         // CARL-PROG-01: the story triggers judge the tick last.
@@ -1877,6 +1908,9 @@ impl CombatState {
             health_left,
             hero: id,
         });
+        if id == HeroId::Carl {
+            self.thrower_hurt(scene, tick);
+        }
         if id == HeroId::Donut {
             scene.world.donut.health = health_left;
         }
@@ -2667,7 +2701,8 @@ impl CombatState {
     /// living goblins in index order (a goblin already defeated this tick, by
     /// the block or by a lower charge, is skipped). The QA charge does not hurt
     /// Carl or Donut, ignores solids and damages no terrain.
-    fn step_charges(&mut self, tick: u64, carl_x: f32) {
+    fn step_charges(&mut self, scene: &mut SceneSim, tick: u64) {
+        let carl_x = scene.world.hero.x;
         for charge_index in 0..self.charges.len() {
             if !self.charges[charge_index].step(tick, carl_x) {
                 continue;
@@ -2677,6 +2712,14 @@ impl CombatState {
                 tick,
                 charge: charge_index as u32,
             });
+            // CARL-PROG-01 CP-B1: a charge with its own profile (the thrown
+            // charge) resolves the whole blast; the QA profile below is the
+            // DEATH-D rule, unchanged.
+            if !charge.profile.is_qa() {
+                self.resolve_profile_blast(scene, charge_index, charge, tick);
+                self.thrower_detonated(charge_index, tick);
+                continue;
+            }
             for index in 0..self.enemies.len() {
                 if !self.enemies[index].alive() {
                     continue;
@@ -2833,6 +2876,9 @@ impl CombatState {
             health_left,
             hero: id,
         });
+        if id == HeroId::Carl {
+            self.thrower_hurt(scene, tick);
+        }
         if id == HeroId::Donut {
             // The HUD reads the companion's mirror at once, not next tick.
             scene.world.donut.health = health_left;
@@ -3066,6 +3112,8 @@ impl CombatState {
         for charge in &self.charges {
             charge.mix_into(&mut put);
         }
+        // CARL-PROG-01 CP-B1: nothing is mixed while the thrower is idle.
+        self.thrower.mix_into(&mut put);
         // CARL-PROG-01: the ledger mixes nothing while it is empty.
         if let Some(story) = &self.story {
             story.hash_into(&mut put);
