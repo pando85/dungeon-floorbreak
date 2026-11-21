@@ -314,6 +314,23 @@ case "$mode" in
     # DONUT-PROG-01: the `donut_prog_*` registry, enumerated by the binary (later
     # PRs add fixtures without editing this script); replays in docs/evidence/donut-prog-01.
     for f in $(list_names donut_prog_); do { "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/donut_prog_${f}.txt"; "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines | cmp -s - "$out/donut_prog_${f}.txt" && diff docs/evidence/donut-prog-01/replays/headless_${f}.txt "$out/donut_prog_${f}.txt"; } || { echo "donut_prog fixture $f is not deterministic or differs from the committed replay" >&2; exit 1; }; echo "DONUT_PROG_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/donut_prog_${f}.txt")"; done
+    # DONUT-MOBILITY-01 DM-B: the reflex fixtures that run without `cf02_rules`
+    # (an armed evade, the not-armed hit, the locked hit, the guild unlock);
+    # replays in docs/evidence/donut-mobility-01/replays. The ram and the glob
+    # fixtures need the arena kit and `cf02_rules`: they are test-only.
+    for f in dm_reflex_evades_swing dm_reflex_not_armed dm_evasion_locked_before_biscuit dm_evasion_unlocks_at_guild; do
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/dm_b_${f}.txt"
+      "$bin" --headless-floor01-smoke --party-fixture "$f" | party_lines > "$out/dm_b_${f}_again.txt"
+      if ! cmp -s "$out/dm_b_${f}.txt" "$out/dm_b_${f}_again.txt"; then
+        echo "DM-B fixture $f is not deterministic between two runs" >&2
+        exit 1
+      fi
+      if ! diff "docs/evidence/donut-mobility-01/replays/headless_${f}.txt" "$out/dm_b_${f}.txt"; then
+        echo "DM-B fixture $f differs from the committed replay (docs/evidence/donut-mobility-01/replays)" >&2
+        exit 1
+      fi
+      echo "DM_B_HEADLESS_OK: $(grep '^PARTY_STATE' "$out/dm_b_${f}.txt")"
+    done
     # CF02-Q40 / COMPANION-AI-01 01A-wire: "in view" is the simulation scroll
     # camera, so the assistant's decisions and hashes cannot depend on the
     # presentation camera. The camera-parity fixture replays the plain run's

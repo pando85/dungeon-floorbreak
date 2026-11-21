@@ -1154,6 +1154,7 @@ fn shoot(run: &LabRun, llama_x: f32, target_x: f32, height: i32, who: HeroId) ->
         dir,
         travelled: 0.0,
         owner: 0,
+        spawn_tick: 0,
     };
     let (w, h) = match who {
         HeroId::Carl => (HERO_HALF_WIDTH * 2.0, HERO_HALF_HEIGHT * 2.0),

@@ -6,6 +6,8 @@ pub mod agility;
 pub mod agility_fixtures;
 #[cfg(test)]
 pub(crate) mod agility_geometry_tests;
+#[cfg(test)]
+pub(crate) mod agility_reflex_tests;
 pub mod anim;
 pub mod audience;
 pub mod audio;

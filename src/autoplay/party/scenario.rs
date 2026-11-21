@@ -9,6 +9,7 @@
 //! value by [`roster_for!`], so the tuning comes from statics and
 //! `PartyFixtureSim::new` stays the only construction path.
 
+use crate::agility::ReflexProfile;
 use crate::combat::EnemyAi;
 use crate::combat_scene::{EnemySpawn, FIXTURES, Fixture};
 use crate::donut_mana::DonutSetup;
@@ -300,6 +301,7 @@ fn encode_tuning(tuning: &PartyTuning, uncontrolled: Option<u8>) -> Vec<u8> {
         donut_moves,
         plate_glyphs,
         donut_motion,
+        donut_reflex,
     } = *tuning;
     let mut out = Vec::new();
     let mut put = |name: &str, bytes: &[u8]| {
@@ -353,6 +355,19 @@ fn encode_tuning(tuning: &PartyTuning, uncontrolled: Option<u8>) -> Vec<u8> {
     // tuning hash is unchanged.
     if donut_motion != crate::party::PROVISIONAL_TUNING.donut_motion {
         put("donut_motion", &[motion_tag(donut_motion)]);
+    }
+    // DONUT-MOBILITY-01 DM-B: written only when it is not the shipped profile
+    // (the data file's reflex), so every existing hash is unchanged.
+    if donut_reflex != crate::party::PROVISIONAL_TUNING.donut_reflex {
+        match donut_reflex {
+            ReflexProfile::Shipped => {}
+            ReflexProfile::Off => put("donut_reflex", &[1]),
+            ReflexProfile::Rearm(ticks) => {
+                let mut bytes = vec![2];
+                bytes.extend_from_slice(&ticks.to_le_bytes());
+                put("donut_reflex", &bytes);
+            }
+        }
     }
     out
 }

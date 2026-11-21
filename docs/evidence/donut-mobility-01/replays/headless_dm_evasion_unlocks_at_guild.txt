@@ -1,0 +1,14 @@
+COMBAT_EVENT tick=20 kind=unlock_granted hero=1 unlock=primary_ranged
+COMBAT_EVENT tick=715 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=740 kind=evade_armed hero=donut
+COMBAT_EVENT tick=741 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=741 kind=hero_evaded hero=donut source=0 attack=goblin_swing
+COMBAT_EVENT tick=806 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=832 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=832 kind=hero_hurt source=0 health_left=3 hero=donut
+COMBAT_EVENT tick=901 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=927 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=927 kind=hero_hurt source=0 health_left=2 hero=donut
+COMBAT_EVENT tick=996 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=dm_evasion_unlocks_at_guild seed=0xd4d0013 tick=1000 elapsed=1000 hero_hp=4 deaths=0 enemies=e0=673.500/2 hash=53666925f361f588
+PARTY_STATE fixture=dm_evasion_unlocks_at_guild mode=2p controlled=Carl carl_hp=4 donut_hp=2 deaths=0 hash=1f1c3dfb5495417e

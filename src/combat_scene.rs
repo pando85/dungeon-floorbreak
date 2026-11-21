@@ -17,6 +17,7 @@
 //! it yet (combat is fully deterministic without it); it is part of the state
 //! hash so later knockback variance can use it without changing the contract.
 
+use crate::agility::{EvadeSource, Reflex, Verdict};
 use crate::blast::{Arm, BlastCharge, BlastReach};
 use crate::boss::{
     BOSS_ENEMY_ID, Boss, BossCtx, BossHit, BossOut, BossSetup, BossState, HeroBlow, HeroView,
@@ -54,6 +55,7 @@ mod carl_cf02;
 mod companion;
 mod contacts_cf02;
 mod donut;
+mod evade;
 mod morale_cf02;
 mod story;
 use self::carl_cf02::{CarlCf02, CarlCf02Plan};
@@ -915,6 +917,14 @@ pub struct CombatState {
     /// companion's `HumanFinishWindow` (CF02-DUO-A12). Not hashed: it is a
     /// function of the hashed event history, read only by the companion view.
     carl_hit_tick: Vec<Option<u64>>,
+    /// DONUT-MOBILITY-01 DM-B: Donut's cat reflex (DM-Q12, DM-Q13). Pure
+    /// state in [`crate::agility::Reflex`]; the scene hooks live in `evade.rs`.
+    /// Hashed only from the first `EvadeArmed` of the attempt.
+    reflex: Reflex,
+    /// DM-B (DM-Q19): the tick each enemy's current attack started (its tell
+    /// start, the identity of a swing or a ram). Not hashed: it is a function
+    /// of the hashed `GoblinTell` events.
+    attack_started: Vec<u64>,
     // Presentation cache (not hashed, never read by the sim).
     confirm: Option<Confirm>,
     flash_tick: Vec<Option<u64>>,
@@ -1003,6 +1013,8 @@ impl CombatState {
             checkpoint: 0,
             confirm: None,
             carl_hit_tick: Vec::new(),
+            reflex: Reflex::default(),
+            attack_started: Vec::new(),
             flash_tick: Vec::new(),
             respawned: false,
         };
@@ -1172,6 +1184,8 @@ impl CombatState {
         self.restart_donut(RestartKind::CheckpointRestart);
         self.restart_story(RestartKind::CheckpointRestart);
         self.companion.reset();
+        // DM-B (DM-Q13): a checkpoint respawn restarts the wait at its tick.
+        self.reflex.reset(scene.world.tick);
         self.respawned = true;
         self.log(CombatEvent::Respawn {
             tick: scene.world.tick,
@@ -1256,6 +1270,9 @@ impl CombatState {
         self.checkpoint = self.start_checkpoint();
         self.flash_tick = vec![None; self.enemies.len() + self.llamas.len()];
         self.carl_hit_tick = vec![None; self.enemies.len() + self.llamas.len()];
+        // DM-B (DM-Q13): a new attempt starts the reflex wait at 0.
+        self.reflex.restart();
+        self.attack_started = vec![0; self.enemies.len()];
         // CF02 QA hook: a fixture goblin that starts launched.
         if self.cf02.is_some()
             && let Some((vx, vy)) = crate::cf02_fixtures::goblin_launch(self.fixture.name)
@@ -1343,6 +1360,7 @@ impl CombatState {
 
     fn log(&mut self, event: CombatEvent) {
         self.observe_story(&event);
+        self.observe_reflex(&event);
         if self.morale.is_some() {
             self.morale_feed.push(event);
         }
@@ -1649,6 +1667,8 @@ impl CombatState {
         }
 
         self.step_demo(scene);
+        // DM-B: the reflex arms (or not) before any attack of the tick resolves.
+        self.step_reflex(scene, tick);
         self.step_goblins(scene, tick);
         self.step_llamas(scene, tick);
         self.step_globs(scene, tick);
@@ -2017,6 +2037,9 @@ impl CombatState {
             self.enemies[index].observe_guard();
             if step.started_tell {
                 self.last_tell_start = Some(tick);
+                if let Some(slot) = self.attack_started.get_mut(index) {
+                    *slot = tick;
+                }
                 self.log(CombatEvent::GoblinTell {
                     tick,
                     goblin: index as u32,
@@ -2158,7 +2181,7 @@ impl CombatState {
         } else {
             &[HeroId::Carl]
         };
-        let mut best: Option<(f32, HeroId)> = None;
+        let mut candidates: Vec<(f32, HeroId)> = Vec::with_capacity(2);
         for &id in heroes {
             let body = Self::hurtbox(scene, id);
             let hero = scene.world.body(id);
@@ -2174,11 +2197,27 @@ impl CombatState {
             } else {
                 x - body.right()
             };
-            if best.is_none_or(|(n, _)| near < n) {
-                best = Some((near, id));
-            }
+            candidates.push((near, id));
         }
-        let Some((_, id)) = best else {
+        // The nearest candidate first, ties to the first one pushed (Carl).
+        candidates.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(core::cmp::Ordering::Equal));
+        // DM-Q19, DM-Q20 (U3): the evasion check runs inside the candidate
+        // loop, only for the hero the ram would hit. An evaded Donut is skipped
+        // exactly like an invulnerable one, so Carl behind her can be chosen on
+        // the same tick, and the ram goes on.
+        let stamp = self.attack_started.get(index).copied().unwrap_or(0);
+        let mut chosen = None;
+        for (_, id) in candidates {
+            if id == HeroId::Donut {
+                let key = (EvadeSource::EngineerRam, index as u32, stamp);
+                if self.evade_check(scene, key, index as u32, tick) != Verdict::Hit {
+                    continue;
+                }
+            }
+            chosen = Some(id);
+            break;
+        }
+        let Some(id) = chosen else {
             return false;
         };
         let knock = f32::from(tuning.engq11_knock_x);
@@ -2325,6 +2364,7 @@ impl CombatState {
             }
             if let Some(mut glob) = step.spit {
                 glob.owner = index as u32;
+                glob.spawn_tick = tick as u32;
                 // Point blank: when Carl stands between the llama and its mouth
                 // the glob would spawn behind him and never hit. The segment
                 // from the llama's centre to the mouth is tested against his
@@ -2379,9 +2419,21 @@ impl CombatState {
                         && tuning.solo_offscreen_immunity
                         && scene.is_offscreen(hero_x, f32::from(tuning.offscreen_margin_px));
                     if scene.world.body(id).invulnerable_ticks == 0 && !unseen {
+                        // DM-Q19: an evaded glob passes through her and keeps
+                        // flying (it does not splat and is not spent).
+                        let key = (
+                            EvadeSource::LlamaGlob,
+                            glob.owner,
+                            u64::from(glob.spawn_tick),
+                        );
+                        let source = (self.enemies.len() + glob.owner as usize) as u32;
+                        if id == HeroId::Donut
+                            && self.evade_check(scene, key, source, tick) != Verdict::Hit
+                        {
+                            continue;
+                        }
                         let owner = glob.owner as usize;
                         let source_x = self.llamas.get(owner).map_or(glob.x, |l| l.x);
-                        let source = (self.enemies.len() + owner) as u32;
                         self.hurt_hero_by(scene, id, source, source_x, tick);
                     }
                     done = true;
@@ -2706,6 +2758,14 @@ impl CombatState {
         {
             return false;
         }
+        // DM-Q20: after every guard and the overlap, before the damage.
+        if id == HeroId::Donut {
+            let stamp = self.attack_started.get(index).copied().unwrap_or(0);
+            let key = (EvadeSource::GoblinSwing, index as u32, stamp);
+            if self.evade_check(scene, key, index as u32, tick) != Verdict::Hit {
+                return false;
+            }
+        }
         let goblin = &mut self.enemies[index];
         goblin.swing_hit = true;
         goblin.hit_stop = goblin.hit_stop.max(HERO_HURT_HIT_STOP);
@@ -3015,6 +3075,8 @@ impl CombatState {
             }
             // WORK-023: nothing is mixed while Donut never used an ability.
             self.donut_kit.hash_into(&mut put);
+            // DM-B: nothing is mixed until the reflex first armed.
+            self.reflex.hash_into(&mut put);
         }
         put(self.event_hash);
         // DEMO-01 only: no fixture mixes anything here.

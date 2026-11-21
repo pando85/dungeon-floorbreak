@@ -1,0 +1,6 @@
+COMBAT_EVENT tick=883 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=909 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=909 kind=hero_hurt source=0 health_left=3 hero=donut
+COMBAT_EVENT tick=978 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=dm_evasion_locked_before_biscuit seed=0xd4d0012 tick=1000 elapsed=1000 hero_hp=4 deaths=0 enemies=e0=673.500/2 hash=3debe5df59ae6a37
+PARTY_STATE fixture=dm_evasion_locked_before_biscuit mode=2p controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=5a198a6c55536f0d
