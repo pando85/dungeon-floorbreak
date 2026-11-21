@@ -4763,6 +4763,31 @@ mod tests {
                 } else {
                     assert!(!row.exit, "{sidecar}: no spawn/goal node but exit reached");
                 }
+                // `exit` is true in every state of every valid sidecar, so it
+                // cannot pin the shutter cuts; `lane` and `regroup` can (a
+                // closed shutter cuts the floor, the KR3 waiver).
+                let other_x = match g.hero {
+                    ReachHero::Carl => l.room.spawn_donut,
+                    _ => l.room.spawn_carl,
+                };
+                let other = g
+                    .nodes
+                    .iter()
+                    .position(|n| n.floor && other_x >= n.x0 && other_x < n.x1);
+                assert_eq!(
+                    row.lane,
+                    matches!((g.spawn, g.goal), (Some(s), Some(t)) if s == t),
+                    "{sidecar}: {:?} state {} lane != validator",
+                    g.hero,
+                    g.state
+                );
+                assert_eq!(
+                    row.regroup,
+                    matches!((g.spawn, other), (Some(s), Some(o)) if s == o),
+                    "{sidecar}: {:?} state {} regroup != validator",
+                    g.hero,
+                    g.state
+                );
                 open_checked += 1;
             }
             assert_eq!(open_checked, l.encounter.reach.len(), "{sidecar}");
