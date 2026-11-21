@@ -1,0 +1,20 @@
+{
+  "asset_id": "mordecai-01",
+  "format": "pixelart-keys-v1",
+  "keys": {
+    "0": {
+      "sha256": "f7186014596d071660580918763d494c319c3b224e3b3a77c8ebfca20389354d"
+    },
+    "1": {
+      "sha256": "4639cd8176090c480aa049b7bc54739854aadacf90554486c3e55e9321f66254"
+    }
+  },
+  "layers": [
+    "tail",
+    "far_arm",
+    "torso",
+    "near_arm",
+    "legs",
+    "head"
+  ]
+}

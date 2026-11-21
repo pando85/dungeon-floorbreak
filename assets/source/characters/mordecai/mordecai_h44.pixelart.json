@@ -1,7 +1,7 @@
 {
   "format": "pixelart-asset-v1",
   "asset_id": "mordecai-01",
-  "title": "MORDECAI-01 Rat Hooligan guide, draft idle and talk-gesture keys (docs/02-art/mordecai-01-spec.md)",
+  "title": "MORDECAI-01 Rat Hooligan guide, frozen idle and talk-gesture keys (docs/02-art/mordecai-01-spec.md)",
   "grid": "assets/source/characters/mordecai/mordecai_h44.grid.json",
   "frame_size": [
     52,
@@ -67,6 +67,48 @@
           1
         ],
         "min_top": 3
+      }
+    ],
+    "frozen_keys": {
+      "fixture": "tests/fixtures/mordecai-01_keys.json",
+      "frames": [
+        0,
+        1
+      ],
+      "layers": [
+        "tail",
+        "far_arm",
+        "torso",
+        "near_arm",
+        "legs",
+        "head"
+      ]
+    },
+    "key_counts": [
+      {
+        "id": "M1-eye-visible",
+        "frames": [
+          0,
+          1
+        ],
+        "key": "e",
+        "min": 2
+      },
+      {
+        "id": "M1-mouth-only-in-talk",
+        "frames": [
+          0
+        ],
+        "key": "o",
+        "max": 0
+      },
+      {
+        "id": "M1-talk-mouth-open",
+        "frames": [
+          1
+        ],
+        "key": "o",
+        "min": 4
       }
     ]
   },

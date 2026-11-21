@@ -1,8 +1,8 @@
-# MORDECAI-01: Mordecai (Rat Hooligan guide) native sprite, design spec (draft)
+# MORDECAI-01: Mordecai (Rat Hooligan guide) native sprite, design spec (keys frozen)
 
-**Status:** draft keys and spec, pre-edit. Two keys drawn (idle key, talk-gesture key). Not frozen, no in-betweens, no manifest. Validator PASS on the two keys. Silhouette gate and independent review pending.
+**Status:** keys **frozen** by the top-tier editor (route B). Two keys: frame 0 idle, frame 1 talk gesture, pinned by SHA-256 in `tests/fixtures/mordecai-01_keys.json` (validator V09). No in-betweens and no manifest yet. Validator PASS. Silhouette gate and independent review pending.
 
-**Decision record (proposals, bounded by the work order and confirmed or rejected by the editor and review):** idle opaque height **44 px** (rows 4 to 47), frame **52 x 48**, pivot **(24, 47)**, 4-frame idle loop, one talk-gesture key, 19 palette keys.
+**Decision record (adopted by the editor):** idle opaque height **44 px** (rows 4 to 47, MORD-Q1), frame **52 x 48**, pivot **(24, 47)**, hands-in-pockets rest pose (MORD-Q2), authored facing right with runtime mirroring around the pivot column (MORD-Q3), 4-frame idle loop, one talk-gesture key, 19 palette keys.
 
 The sections follow `docs/02-art/bard-01-spec.md`. This is a **non-combatant guide NPC**: no combat, locomotion, hurt or defeat set is in scope (`docs/02-art/floor-01-mordecai-concept.md` forbids unapproved animations).
 
@@ -35,7 +35,7 @@ The sections follow `docs/02-art/bard-01-spec.md`. This is a **non-combatant gui
 | B | 44 px | 0.85 | 1.10 | Book anchor "notably shorter than Carl"; stoop costs about 3 px of standing height, so he stands about 47 px if straightened (still below Carl's 52); taller than Donut so he never reads as the companion |
 | C | 48 px | 0.92 | 1.20 | Too close to Carl; loses the "short rat" read and the low-shoulder stoop |
 
-Decision: **B, 44 px** (rows 4 to 47 inclusive, outline included, sole row on 47). Confirmed or rejected by the lit cast lineup (`docs/evidence/mordecai-01/lineup/cast_lineup_1x.png` and `cast_lineup_4x.png`). Carl 52 and Donut 40 are unchanged.
+Decision (adopted, MORD-Q1): **B, 44 px** (rows 4 to 47 inclusive, outline included, sole row on 47). Confirmed by the editor in the lit cast lineup (`docs/evidence/mordecai-01/lineup/cast_lineup_1x.png` and `cast_lineup_4x.png`). Carl 52 and Donut 40 are unchanged.
 
 ## 3. Frame, pivot, boxes and atlas
 
@@ -53,14 +53,14 @@ At 60 Hz. Draft config: `assets/source/characters/mordecai/mordecai_h44.pixelart
 
 | Role | Tag | Frames | Playback | Ticks | Total |
 | --- | --- | --- | --- | --- | --- |
-| idle | `idle` | 0, 2, 3, 4 | loop | 44 + 22 + 14 + 22 | 102 (1.7 s) |
+| idle | `idle` | 0, 2, 3, 4 | loop | 40 + 22 + 14 + 22 | 98 (about 1.6 s) |
 | talk | `talk` | 1 | once, then back to `idle` | 60 hold, state-driven | about 60 |
 
 Frame table (K = key drawn now, I = in-between, section 8):
 
 | # | Tag | Pose | Ticks | Type |
 | --- | --- | --- | --- | --- |
-| 0 | `idle` | rest: slumped stoop, both hands in the pockets, closed mouth, one fang peeking | 44 | K |
+| 0 | `idle` | rest: slumped stoop, both hands in the pockets, closed mouth, one fang peeking | 40 | K |
 | 1 | `talk` | one-handed explanatory gesture: near forearm out, palm up, mouth open, brow raised | 60 | K |
 | 2 | `idle` | inhale: head, torso and near arm (rows 4 to 30) up 1 px, legs and tail fixed | 22 | I |
 | 3 | `idle` | inhale hold: as 2 plus the ear tip 1 px lower (twitch), eyelid row 1 px lower | 14 | I |
@@ -86,9 +86,9 @@ Compatible with the in-use character palettes and with the Floor 1 kit (`floor01
 | Key | Name | Hex | Role |
 | --- | --- | --- | --- |
 | K | outline_plum | `#1b1124` | outline (shared) |
-| a / c / f / g | fur deep / shade / mid / light | `#3a323e` `#675b5f` `#908373` `#beb09a` | ashen fur; g also beard and whiskers |
+| a / c / f / g | fur deep / shade / mid / light | `#3b3340` `#6c6068` `#998d88` `#c8bcaa` | ashen fur, slightly cool so it parts from the orange brick; g also beard and whiskers |
 | p / q / r | skin dark / mid / light | `#8a4a5a` `#c77f8a` `#eaa9a9` | ears, nose, tail, palm pad |
-| v / V / u | vest dark / mid / light | `#251c2b` `#3e3139` `#5e4b4d` | black vest and belt, kept above the plum outline |
+| v / V / u | vest dark / mid / light | `#2b2231` `#43363e` `#685452` | faded black vest and belt, kept above the plum outline; u is the worn collar and front edge |
 | i / I / j | indigo dark / mid / light | `#2a2c58` `#41498a` `#6571b0` | faded blue trousers |
 | s | sandal_leather | `#7c5a3e` | sandal soles and straps (straps use `v`) |
 | e | eye_yellow (accent) | `#ffd23a` | eye (shared with goblin) |
@@ -105,16 +105,25 @@ Coordinates in frame space (x right, y down, pivot (24, 47)). Both keys are prod
 | Frame | Silhouette and pose notes | Readability reason |
 | --- | --- | --- |
 | 0 idle | Head forward of the body (skull centre x 29, torso centre x 20): the stoop. Ear top row 4 (large pink disc, x 22 to 29); muzzle tapers to the nose tip at x 42, rows 13 to 15, three short whiskers; yellow eye at row 10 under a dark heavy-lid row (row 9) and a bag row; chin beard rows 17 to 25. Torso rows 17 to 31: vest back panel x 12 to 19 with a ragged hem on row 28, open front with chest tufts and a lapel at x 26 to 28 (two brass buttons), belt on rows 29 to 30 with a brass buckle. Near arm hangs from the vest cap (x 17 to 23) to the hip and into the pocket behind the trouser top; far elbow juts back (x 11 to 16, rows 22 to 30). Trousers rows 31 to 41, near leg flaring forward, ragged hem, torn knee patch on the near thigh; fur shins rows 41 to 44; sandals on rows 45 to 47. Tail leaves the hip at x 15 and curls down and back along the floor to x 12 on row 46. | Three reads at 1x: a big pink ear on a long grey muzzle (rat, not cat or dog), a low hunched dark vest with blue trousers (down-at-heel veteran), the long pink tail. |
-| 1 talk | Body, legs, tail and head construction identical to key 0 (so the frames cut in place). Near arm leaves the shoulder, elbow at about (22, 29), forearm extends forward to x 32 at row 28, open hand x 32 to 43, rows 25 to 31: pink palm pad, thumb up, finger gaps. Mouth opens (dark `o`, two upper fangs, one lower fang), jaw dropped 3 rows, brow row raised 1 px. Hand stays below the beard (top row 22) so it never covers the face. Far hand still in the pocket. | Dry-sarcasm gesture from the concept ("one-handed explanatory gesture"), readable as a hand held out, not a punch. |
+| 1 talk | Body, legs, tail and head construction identical to key 0 (so the frames cut in place). Near arm leaves the shoulder, elbow at about (23, 30), forearm extends forward to x 33 at row 28; open pink hand, palm up, x 33 to 41, rows 24 to 31: palm with a light pad, three separate fingers on rows 26/27, 29 and 31 with outline gaps between them, thumb up at x 37. Mouth opens (dark `o`, two upper fangs, one lower fang), jaw and beard drop 2 rows, brow row raised 1 px. Hand stays below the beard tips (row 26) so it never covers the face. Far hand still in the pocket. | Dry-sarcasm gesture from the concept ("one-handed explanatory gesture"), readable as a hand held out, not a punch. |
 
-### Known weaknesses of this draft (for the editor)
+### Editor corrections (frozen state)
 
-- The vest back panel still reads as a dark hump or backpack; it needs a collar line, a visible hem edge and a shoulder-to-chest read so it looks like an open vest, not a shell.
-- Torso volume is thin: chest tufts, belly and the arm separation are weak; the near arm is mostly separated by the `a` edge only.
-- Face: the beard is a large pale wedge and the muzzle underside is flat; wants shaggier edges, a cheek shade and a clearer muzzle-to-skull transition. Whiskers are three pixels only.
-- Talk hand is a mitten: the finger separation is two pixels. Consider a 3-finger fan that does not turn into a black clump after the outline pass.
-- Sandal straps and toes are minimal (feet are grey blobs on a brown line). Trouser hem tear is subtle.
-- Fur ramp may still be slightly low in contrast against the lit brick at 1x; check in the scene before freezing.
+The draft weaknesses were corrected in `scripts/author_mordecai01.py` before the freeze:
+
+- **Vest, not hump:** the separate dark back panel and the jutting far elbow are gone. The vest is one faded side panel from the spine to a worn front edge (`u` edge column, two brass buttons), with a `u` collar along the top, a ragged hem that hangs 2 rows past the belt over the trouser top, and creases. A fur nape fills the step between skull and shoulders, so the back is one stooped curve. The fur near arm lies over the vest, so it reads as an open sleeveless vest with the arm in front.
+- **Torso volume:** a scrawny chest and a soft pot belly fill the open front (x 23 to 30) with `g` tufts and a `c` belly fold; the belt and buckle show only in the open front.
+- **Beard:** grey-white chin beard with shaded partings and an uneven strand tip line (rows 17 to 24 idle), a `c` cheek shade under the muzzle, and a 1 px beard shadow on the chest so the two light areas never merge.
+- **Talk hand:** three separated pink fingers and a raised thumb on a pink palm (outline pixels are the finger gaps), so it reads as an open hand at 1x.
+- **Feet and wear:** pink rat feet with toe highlights in leather sandals with dark straps; a fur-showing tear on the near knee and a far-shin tear.
+- **Whiskers:** three 3 px light bristles drawn after the outline pass, so they read as whiskers rather than outlined blobs.
+- **Fur contrast:** the fur ramp was lifted and cooled slightly (section 6). In the lit scene the fur is the lightest large area on both the torch-lit brick and the dark lower wall.
+
+### Freeze
+
+Frames 0 and 1 are **frozen**: `python3 -m scripts.pixelart freeze` wrote `tests/fixtures/mordecai-01_keys.json` (SHA-256 per frame over all six layers) and V09 checks it. Key counts (V14) pin the yellow eye (at least 2 px in both keys), a closed mouth in the idle key and an open mouth in the talk key. Any change to a key needs `freeze --force` and a new review.
+
+The idle-loop plan of sections 4 and 8 is still valid on the frozen key 0: rows 4 to 30 still hold head, torso, both arms and the vest; the trousers start at row 31 (the vest hem flap on rows 31 and 32 sits on the `legs` layer and stays fixed); the eyelid row is still row 9 and the ear tip row 4; no foot or tail-root pixel moves. The only refinement: the 1 px inhale lift in frame 2 also lifts the whiskers, which are part of the head.
 
 ## 8. In-between list
 
@@ -130,7 +139,7 @@ No in-between moves a foot or the tail root, so the loop has zero foot drift. Th
 
 ## 9. Validators and acceptance targets
 
-Draft state (keys only): `python3 -m scripts.pixelart validate assets/source/characters/mordecai/mordecai_h44.pixelart.json` gives PASS (11 pass, 0 fail, 6 skipped), including V04 palette (19 of 20), V05 isolated pixels 0, V06 orphan pixels at most 9 per frame (the lint count is 1 per frame), V07 contact row 47, V13 bounding boxes `M1-size-idle-44px` (top 4, bottom 47) and `M1-height-cap-45px`. `scripts/pixel_grid_to_ase.py lint ... --strict --expect-height 44` gives silhouette height 44. After the editor freezes the keys: add V09 frozen keys, V16 foot drift on `idle`, key counts (`e` at least 2 px in frames 0 and 1) and the in-between bbox rules.
+Frozen keys: `python3 -m scripts.pixelart validate assets/source/characters/mordecai/mordecai_h44.pixelart.json` gives PASS (13 pass, 0 fail, 4 skipped), including V09 frozen keys and V14 key counts, and, including V04 palette (19 of 20), V05 isolated pixels 0, V06 orphan pixels at most 9 per frame (the lint count is 1 per frame), V07 contact row 47, V13 bounding boxes `M1-size-idle-44px` (top 4, bottom 47) and `M1-height-cap-45px`. `scripts/pixel_grid_to_ase.py lint ... --strict --expect-height 44` gives silhouette height 44. When the in-betweens land: add V16 foot drift on `idle` (seam included) and the in-between bbox rules; V09 and V14 are already active.
 
 ### Acceptance targets
 
@@ -168,8 +177,10 @@ python3 -m scripts.pixelart evidence assets/source/characters/mordecai/mordecai_
 
 Fan-concept art under the owner-reported `ART-PUBLICATION-ALL-V1` scope (`docs/04-production/rights-and-release.md`). Which model designed, executed and reviewed each stage is recorded in the PR's Rights/Provenance section. No tracing of the concept, no image-model raster output, no third-party Rat Hooligan imagery.
 
-## 13. Open questions
+## 13. Decisions on the draft's open questions (adopted by the editor)
 
-1. Confirm 44 px in the lit scene against the cast (target 2); the alternative is 46 if the stoop makes him read smaller than Donut's visual mass.
-2. Should the idle rest pose have the hands in the pockets (concept front view) or arms folded (listed candidate)? Drafted as hands in pockets.
-3. Facing: authored facing right; the room work order decides whether he is mirrored.
+| ID | Question | Adopted value | Reason |
+| --- | --- | --- | --- |
+| MORD-Q1 | 44 or 46 px idle height | **44 px** | In the lit cast lineup he is clearly taller than Donut (40) and well below Carl (52), with his ear tip at Carl's eye level, as on the approved scale check. 46 would push him toward Carl and weaken the "short, stooped rat" read; Donut's wider mass does not make him read smaller. |
+| MORD-Q2 | hands in pockets or folded arms at rest | **hands in pockets** | Both approved concept figures show it. Folded arms would close the open vest, hide the chest that separates it from a hump, and make the talk key a two-arm change instead of a one-arm cut in place. |
+| MORD-Q3 | facing and mirroring | **authored facing right; mirroring allowed** around the pivot column x 24 | Nothing on the sprite is handed (no text, insignia or weapon), so a mirror is exact. The room work order (AREA-REFUGE-01) sets his facing per scene; the default is to face the party. |

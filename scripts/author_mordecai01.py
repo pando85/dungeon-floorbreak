@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MORDECAI-01 authoring record: native Rat Hooligan guide, draft idle key and talk-gesture key.
+"""MORDECAI-01 authoring record: native Rat Hooligan guide, idle key and talk-gesture key (frozen by the editor; see docs/02-art/mordecai-01-spec.md).
 
 Usage:
 
@@ -32,16 +32,16 @@ LAYERS = ["tail", "far_arm", "torso", "near_arm", "legs", "head"]
 # mordecai-floor01-v0 (19 of 20). Outline and the eye, tooth and brass accents are shared with the goblin and Carl keys.
 PALETTE = [
     ("K", "outline_plum", "#1b1124ff", False),
-    ("a", "fur_deep", "#3a323eff", False),
-    ("c", "fur_shade", "#675b5fff", False),
-    ("f", "fur_mid", "#908373ff", False),
-    ("g", "fur_light", "#beb09aff", False),
+    ("a", "fur_deep", "#3b3340ff", False),
+    ("c", "fur_shade", "#6c6068ff", False),
+    ("f", "fur_mid", "#998d88ff", False),
+    ("g", "fur_light", "#c8bcaaff", False),
     ("p", "skin_dark", "#8a4a5aff", False),
     ("q", "skin_mid", "#c77f8aff", False),
     ("r", "skin_light", "#eaa9a9ff", False),
-    ("v", "vest_dark", "#251c2bff", False),
-    ("V", "vest_mid", "#3e3139ff", False),
-    ("u", "vest_light", "#5e4b4dff", False),
+    ("v", "vest_dark", "#2b2231ff", False),
+    ("V", "vest_mid", "#43363eff", False),
+    ("u", "vest_light", "#685452ff", False),
     ("i", "indigo_dark", "#2a2c58ff", False),
     ("I", "indigo_mid", "#41498aff", False),
     ("j", "indigo_light", "#6571b0ff", False),
@@ -166,54 +166,72 @@ class Canvas:
 def draw(pose: str) -> Canvas:
     c = Canvas()
     talk = pose == "talk"
-    # tail (pink, curling back along the floor)
+    # tail (pink, curling back along the floor), two faint segment rings
     c.add("tail", path([(15, 31), (11, 33), (8, 36), (6, 40), (5, 43), (7, 46), (12, 46.5)], 2.3), "q", "r", "p")
-    # far arm (elbow jutting back, hand in the pocket)
-    c.add("far_arm", path([(16, 21), (12.5, 26), (15, 30)], 3.2), "c", "f", "a")
-    # torso: fur body, vest back panel, front lapel, belt, chest tufts
-    c.add("torso", poly([(14, 19), (17, 17), (26, 18), (28, 22), (27, 31), (15, 31), (13, 26)]), "f", "g", "c")
-    c.add("torso", poly([(12, 22), (15, 17), (19, 18), (19, 29), (17, 29), (13, 29)]), "V", "u", "v", name="vestback")
-    c.erase([(14, 28), (16, 28), (18, 28), (13, 27)])
-    c.add("torso", poly([(26, 19), (28, 21), (28, 29), (26, 29), (27, 24)]), "V", "u", "v", name="lapel")
-    c.add("torso", rect(14, 29, 28, 30), "v")
-    c.put("torso", [(27, 29), (28, 29), (27, 30), (28, 30)], "b")
-    c.put("torso", [(24, 21), (25, 23), (24, 25), (25, 27), (24, 28), (23, 22)], "g")
-    c.put("torso", [(25, 22), (24, 24), (25, 26)], "c")
-    c.put("torso", [(27, 24), (27, 27)], "b")
-    # near arm
+    c.put("tail", [(9, 35), (6, 41), (9, 46)], "p")
+    # far arm: a small fur elbow behind the back (kept inside the vest line so the back does not hump)
+    c.add("far_arm", path([(16, 22), (13.5, 26), (15.5, 30)], 2.6), "c", "f", "a")
+    # torso: scrawny fur chest and a soft pot belly in the open front of the vest
+    c.add("torso", poly([(14, 19), (18, 17), (25, 17), (28, 19), (30, 23), (30.5, 28), (28.5, 31), (15, 31), (13, 26)]), "f", "g", "c")
+    c.add("torso", poly([(23.5, 12.5), (19, 15), (15.5, 18.5), (23, 18.5)]), "f", "g", "c", name="nape")   # stooped nape
+    c.put("torso", [(26, 19), (27, 20), (26, 21), (28, 22), (27, 23), (29, 24), (28, 25)], "g")     # chest tufts
+    c.put("torso", [(27, 26), (28, 27), (29, 27), (26, 28), (27, 28)], "c")                            # belly fold
+    # belt (only the front shows; the vest hangs over it at the side)
+    c.add("torso", rect(14, 29, 30, 30), "v")
+    c.put("torso", [(28, 29), (29, 29), (28, 30), (29, 30)], "b")
+    c.put("torso", [(29, 30)], "v")
+    # open vest: one faded side panel from the spine to a worn front edge, collar on top, ragged hem past the belt
+    vest = c.add("torso", poly([(22, 16.5), (17.5, 16.8), (14.6, 19), (13.2, 23), (13, 27.5), (13.5, 31), (25.5, 31), (24.5, 24), (23, 19)]),
+                 "V", "u", "v", name="vest")
+    for y in range(18, 31):
+        row = [x for x, yy in vest if yy == y]
+        if row:
+            c.put("torso", [(max(row), y)], "u")                                                     # worn front edge
+    c.put("torso", [(23, 23), (24, 27)], "b")                                                          # brass buttons
+    c.put("torso", [(15, 24), (16, 25), (14, 28)], "v")                                                # creases
+    # near arm (scrawny fur arm over the vest)
     if not talk:
-        c.add("near_arm", path([(19, 20), (20, 25), (22, 29)], 3.6), "f", "g", "c", edge="a")
-        c.add("near_arm", path([(22, 29), (25.5, 32)], 3.2), "f", None, "c", edge="a")
+        c.add("near_arm", path([(19.5, 19.5), (20.5, 24.5), (22.5, 29)], 3.6), "f", "g", "c")
+        c.add("near_arm", path([(22.5, 29), (25.5, 32)], 3.0), "f", None, "c", edge="c")
     else:
-        c.add("near_arm", path([(19, 20), (20, 25), (22, 29.5)], 3.6), "f", "g", "c", edge="a")
-        c.add("near_arm", path([(22, 29.5), (28, 29), (32, 28)], 3.2), "f", "g", "c", edge="a")
-        c.add("near_arm", poly([(32, 26), (37, 25), (41, 26), (43, 28), (41, 30), (33, 31)]), "f", "g", "c", edge="a")
-        c.add("near_arm", poly([(34, 23), (36, 22), (38, 24), (36, 26)]), "g", "g", "f", edge="a")     # thumb up
-        c.put("near_arm", [(40, 27), (41, 27), (41, 28), (42, 29)], "c")                              # finger gaps
-        c.put("near_arm", [(35, 28), (36, 28), (37, 28), (36, 29)], "q")                              # palm pad
-    c.add("near_arm", poly([(17, 18), (22, 18), (23, 21), (18, 23)]), "V", "u", "v", edge="v", name="vestcap")
-    # legs: baggy indigo trousers, fur shins, sandals
+        c.add("near_arm", path([(19.5, 19.5), (20.5, 24.5), (23, 30)], 3.6), "f", "g", "c")
+        c.add("near_arm", path([(23, 30), (29, 29.5), (33, 28.5)], 2.8), "f", "g", "c", edge="c")
+        # open hand, palm up: pink palm and three separate fingers (outline gaps between them), thumb up
+        c.add("near_arm", poly([(33, 27), (37, 26.5), (38, 31), (34, 31)]), "q", "r", "p")
+        c.put("near_arm", [(35, 28), (36, 28)], "r")
+        c.put("near_arm", [(38, 27), (39, 27), (40, 26), (41, 26)], "q")
+        c.put("near_arm", [(38, 29), (39, 29), (40, 29), (41, 28)], "q")
+        c.put("near_arm", [(38, 31), (39, 31), (40, 31)], "p")
+        c.put("near_arm", [(41, 26), (41, 28)], "r")
+        c.put("near_arm", [(37, 25), (37, 24)], "q")
+    c.add("near_arm", poly([(18, 17), (22, 17), (23.5, 20), (19, 21.5)]), "V", "u", "v", name="armhole")
+    # legs: baggy faded trousers, fur shins, pink rat feet in worn sandals
     c.add("legs", poly([(15, 31), (23, 31), (22, 41), (14, 41)]), "i", "I", "i", name="farleg")
     c.add("legs", poly([(22, 31), (31, 31), (33, 41), (25, 41)]), "I", "j", "i", name="nearleg")
-    c.add("legs", rect(16, 41, 19, 45), "c")
-    c.add("legs", rect(27, 41, 30, 45), "f", None, "c")
-    c.add("legs", rect(14, 45, 22, 46), "c")
-    c.add("legs", rect(26, 45, 35, 46), "f", "g", "c")
+    c.put("legs", [(14, 31), (15, 31), (16, 31), (17, 31), (19, 31), (20, 31), (15, 32), (17, 32), (20, 32)], "V")
+    c.put("legs", [(14, 32), (16, 32)], "v")
+    c.add("legs", rect(16, 41, 19, 44), "c")
+    c.add("legs", rect(27, 41, 30, 44), "f", None, "c")
+    c.add("legs", poly([(15, 44), (20, 44), (22.5, 45), (22.5, 47), (14, 47)]), "p")
+    c.add("legs", poly([(26, 44), (31, 44), (35.5, 45), (35.5, 47), (25, 47)]), "q", "r", "p")
+    c.put("legs", [(16, 45), (17, 45), (18, 45), (19, 45), (28, 45), (29, 45), (30, 45), (31, 45)], "v")   # straps
+    c.put("legs", [(34, 46), (21, 46)], "r")                                                               # toes
     c.add("legs", rect(13, 47, 22, 47), "s")
     c.add("legs", rect(25, 47, 35, 47), "s")
-    c.put("legs", [(17, 45), (18, 45), (29, 45), (30, 45), (31, 45)], "v")
-    c.put("legs", [(34, 46), (14, 46)], "a")
-    c.erase([(16, 41), (19, 41), (27, 41), (31, 41), (28, 40), (15, 41), (22, 41)])        # ragged hem
-    c.put("legs", [(27, 35), (28, 35), (28, 36), (29, 36)], "c")                           # torn knee-patch of fur
-    c.put("legs", [(26, 32), (27, 33), (28, 34)], "i")                                     # pocket lip
+    c.erase([(16, 41), (19, 41), (27, 41), (31, 41), (28, 40), (15, 41), (22, 41)])                       # ragged hem
+    c.put("legs", [(27, 35), (28, 35), (28, 36), (29, 36)], "f")                                          # knee tear
+    c.put("legs", [(26, 35), (29, 35), (27, 36), (30, 36), (28, 37)], "i")
+    c.put("legs", [(17, 38), (18, 39)], "c")                                                              # far shin tear
+    c.put("legs", [(26, 32), (27, 33), (28, 34)], "i")                                                    # pocket lip
     # head
     c.add("head", ell(29, 12.5, 6.2, 5.6), "f", "g", "c", name="skull")
     c.add("head", poly([(31, 9), (37, 10), (41, 13), (42, 15), (41, 16), (35, 17), (30, 17)]), "f", "g", "c", name="muzzle")
+    c.put("head", [(31, 15), (32, 16), (33, 16), (34, 16), (30, 14)], "c")                                # cheek shade
     c.add("head", ell(26, 8.5, 3.9, 3.5), "q", "r", "p", edge="p", name="ear")
-    c.put("head", [(25, 9), (26, 9), (26, 8), (25, 10), (26, 10)], "r")                      # inner ear
+    c.put("head", [(25, 9), (26, 9), (26, 8), (25, 10), (26, 10)], "r")                                   # inner ear
     c.put("head", [(41, 14), (42, 14), (41, 15), (42, 15)], "q")
     c.put("head", [(41, 13)], "r")
-    # eye, lid, brow
+    # eye, heavy lid, brow
     c.put("head", [(32, 9), (33, 9), (34, 9), (35, 9), (36, 9)], "a")
     c.put("head", [(33, 10), (34, 10), (35, 10)], "e")
     c.put("head", [(35, 10)], "K")
@@ -222,20 +240,39 @@ def draw(pose: str) -> Canvas:
     if talk:
         c.put("head", [(33, 6), (34, 6), (35, 7)], "a")
     c.put("head", [(32, 10), (32, 11), (36, 11), (36, 10), (33, 12), (34, 12), (35, 12)], "c")
-    # mouth and beard
+    # mouth
+    dy = 2 if talk else 0
     if not talk:
         c.put("head", [(36, 16), (37, 16), (38, 16), (39, 16), (40, 16)], "a")
         c.put("head", [(38, 17)], "w")
     else:
         c.add("head", poly([(34, 17), (40, 17), (39, 20), (35, 20)]), "f", None, "c", name="jaw")
-        c.put("head", [(36, 16), (37, 16), (38, 16), (39, 16), (40, 16), (37, 17), (38, 17), (39, 17)], "o")
+        c.put("head", [(36, 16), (37, 16), (38, 16), (39, 16), (40, 16), (36, 17), (37, 17), (38, 17), (39, 17)], "o")
         c.put("head", [(37, 15), (39, 15), (38, 18)], "w")
-    c.add("head", poly([(29, 17), (38, 17), (37, 20), (36, 23), (33, 24), (31, 22), (28, 19)]), "g", None, "f")
-    c.put("head", [(30, 24), (34, 25), (36, 24), (28, 21)], "g")
-    # tufts and whiskers
-    c.put("head", [(22, 10), (22, 12), (23, 14), (22, 15), (24, 17), (30, 5), (32, 6), (28, 5)], "f")
-    c.put("head", [(43, 14), (44, 13), (44, 17)], "g")
-    return c.finish()
+    # shaggy chin beard: grey-white strands with shaded partings and a ragged, uneven tip line
+    c.add("head", poly([(29, 17 + dy), (37, 17 + dy), (36.5, 19 + dy), (35, 21 + dy), (32, 22 + dy), (29.5, 20 + dy)]), "g", None, "f", name="beard")
+    c.put("head", [(31, 19 + dy), (33, 19 + dy), (34, 20 + dy), (31, 20 + dy), (32, 18 + dy)], "f")
+    c.put("head", [(30, 21 + dy), (32, 23 + dy), (33, 23 + dy), (35, 22 + dy), (36, 21 + dy)], "g")
+    c.put("head", [(32, 24 + dy), (34, 22 + dy)], "f")
+    # scruffy crown and cheek fringe
+    c.put("head", [(22, 10), (22, 12), (23, 14), (22, 15), (24, 17), (30, 5), (32, 6)], "f")
+    c.put("head", [(27, 18), (28, 19)], "f")
+    c.finish()
+    # the beard casts a 1 px shadow on the chest fur below it, so the two light areas do not merge
+    beard = {s["id"] for s in c.shapes if s["name"] == "beard"}
+    torso = {s["id"] for s in c.shapes if s["layer"] == "torso"}
+    for (x, y), sid in list(c.owner.items()):
+        if sid in torso and c.owner.get((x, y - 1)) in beard and c.px[(x, y)] in ("f", "g"):
+            c.px[(x, y)] = "c"
+    # whiskers drawn after the outline pass so they stay thin light bristles, not outlined blobs
+    for pts in (((43, 12), (44, 11), (45, 11)), ((44, 14), (45, 14), (46, 15)), ((43, 17), (44, 17), (45, 18))):
+        sid = len(c.shapes)
+        c.shapes.append({"layer": "head", "pix": set(pts), "edge": None, "name": "whisker", "z": LAYERS.index("head"), "id": sid})
+        for p in pts:
+            if p not in c.owner:
+                c.owner[p] = sid
+                c.px[p] = "g"
+    return c
 
 
 def build() -> dict:
