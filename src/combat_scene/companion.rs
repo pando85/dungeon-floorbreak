@@ -413,6 +413,10 @@ impl CombatState {
         scene.set_nav_regroup(owned);
         let mut view = self.companion_view(scene, set_id);
         self.companion_nav_follow(scene, &mut view);
+        // CA2-B1 evidence: a test-only recorder of the final views, read by the
+        // goal layer's shadow scenario. Compiled out of every real build.
+        #[cfg(test)]
+        crate::companion::autonomy::shadow::record(&view, scene);
         let mut out = inputs;
         for hero in HeroId::ALL {
             let i = hero.index();

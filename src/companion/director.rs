@@ -25,6 +25,17 @@
 //! no Jump while the hero's own move is running (CA-26, the bail-out is
 //! CF02-Q55 and the AI never does it); and a press needs a released button on
 //! the tick before, so it is always a clean press edge.
+//!
+//! **Briefs (COMPANION-AI-02, CA2-B1).** [`CompanionDirector::step_briefed`]
+//! takes an optional [`GoalBrief`] from the autonomy layer. With no brief
+//! (`step` and `step_traced` pass `None`) the director is exactly the one above,
+//! byte for byte. With a brief it plans and keeps a support target only inside
+//! `allowed` (the filter runs again every tick, so a plan made a tick before a
+//! goal change dies on the next tick), presses only while the target is also
+//! inside the brief's press band and she already faces it, and writes **no**
+//! `move_x` and no turn for a support plan: goal steering owns all movement.
+//! An interrupt keeps the director's own approach, because it is commit-checked
+//! by the autonomy layer's drift check and outranks every goal.
 
 use crate::combat::{CARL_HAYMAKER, CARL_JAB, ENEMY_HALF_WIDTH, MAGIC_MISSILE, MoveId};
 use crate::companion::engage::leader_engages;
@@ -108,6 +119,63 @@ impl Decision {
             veto,
             jump_dropped: false,
         }
+    }
+}
+
+/// What the autonomy layer lets the director do this tick (spec 5.2, review
+/// B-3). The brief is the gate: with it the director has no walk of its own
+/// toward a support target.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GoalBrief {
+    /// The only enemies the director may plan or keep a support plan on, in
+    /// id order. Empty means interrupts only (Retreat, Escort, Perch, Idle, the
+    /// Hunt recoil) or nothing at all (`interrupts` false, Show-off).
+    pub allowed: Vec<StableEntityId>,
+    /// The press band, centre distance in px: a support press needs the target
+    /// inside it (and inside the move's own reach band). Before the unlock the
+    /// pounce band, after it the casting band.
+    pub press_min_px: f32,
+    pub press_max_px: f32,
+    /// May the director answer a tell aimed at the leader? False only while a
+    /// Show-off hold runs (it ends on such a tell, the next tick).
+    pub interrupts: bool,
+}
+
+impl GoalBrief {
+    /// Interrupts only: no support target, no press but an interrupt.
+    pub fn interrupts_only() -> Self {
+        Self {
+            allowed: Vec::new(),
+            press_min_px: 0.0,
+            press_max_px: 0.0,
+            interrupts: true,
+        }
+    }
+
+    /// Nothing at all, not even an interrupt (the Show-off hold).
+    pub fn silent() -> Self {
+        Self {
+            interrupts: false,
+            ..Self::interrupts_only()
+        }
+    }
+
+    /// Hunt or support `target`, pressing inside `[min, max]` px of it.
+    pub fn targeting(target: StableEntityId, min: f32, max: f32) -> Self {
+        Self {
+            allowed: vec![target],
+            press_min_px: min,
+            press_max_px: max,
+            interrupts: true,
+        }
+    }
+
+    fn allows(&self, id: StableEntityId) -> bool {
+        self.allowed.contains(&id)
+    }
+
+    fn in_band(&self, distance: f32) -> bool {
+        distance >= self.press_min_px && distance <= self.press_max_px
     }
 }
 
@@ -243,6 +311,17 @@ impl CompanionDirector {
 
     /// [`Self::step`] plus the decision that produced it.
     pub fn step_traced(&mut self, view: &CompanionView, set: &ProfileSet) -> (RawInput, Decision) {
+        self.step_briefed(view, set, None)
+    }
+
+    /// [`Self::step_traced`] under the autonomy layer's optional brief (see the
+    /// module docs). `None` is today's code path.
+    pub fn step_briefed(
+        &mut self,
+        view: &CompanionView,
+        set: &ProfileSet,
+        brief: Option<&GoalBrief>,
+    ) -> (RawInput, Decision) {
         debug_assert_eq!(
             view.validate(),
             Ok(()),
@@ -272,7 +351,7 @@ impl CompanionDirector {
         if due {
             self.last_plan_tick = Some(view.tick);
             self.plan = if active {
-                self.best_support(view, set, &me).map(|c| Plan {
+                self.best_support(view, set, &me, brief).map(|c| Plan {
                     action: c.action,
                     target: c.target,
                 })
@@ -282,7 +361,7 @@ impl CompanionDirector {
         }
 
         // Urgent checks (CA-10): interrupts every tick, the plan revalidated.
-        let urgent = if active {
+        let urgent = if active && brief.is_none_or(|b| b.interrupts) {
             self.best_interrupt(view, set, &me)
         } else {
             None
@@ -290,7 +369,9 @@ impl CompanionDirector {
         let (mode, goal) = match urgent {
             Some(c) => (Mode::Interrupt, Some(c)),
             None => {
-                let planned = self.plan.and_then(|p| self.revalidate(view, set, &me, p));
+                let planned = self
+                    .plan
+                    .and_then(|p| self.revalidate(view, set, &me, p, brief));
                 if planned.is_none() {
                     self.plan = None;
                 }
@@ -315,8 +396,10 @@ impl CompanionDirector {
         let mut jump = follow.jump;
         // CF02-DUO-A15: with nothing to hit and no jump in progress (a dodge,
         // a hop, the nav), she idles on the flank spot instead of trailing.
+        // Under a brief the goal layer owns all movement (A15 is superseded).
         if goal.is_none()
             && !jump
+            && brief.is_none()
             && let Some(x) = self.flank_spot(view, set, &me)
         {
             raw.move_x = flank_step(x - me.x);
@@ -333,17 +416,27 @@ impl CompanionDirector {
 
         if let Some(c) = goal {
             let distance = c.dx.abs();
-            let in_reach = distance >= c.reach_min && distance <= c.reach_max;
+            // Under a brief a support plan (not an interrupt) has no walk of its
+            // own: goal steering brings her into the band and turns her, and the
+            // director presses only inside both bands while she faces the target.
+            let held_back = brief.filter(|_| mode == Mode::SupportAttack);
+            let in_reach = distance >= c.reach_min
+                && distance <= c.reach_max
+                && held_back.is_none_or(|b| b.in_band(distance));
             let facing_ok = sign(c.dx) == me.facing;
             if !in_reach {
                 // Close in (or back off a target that is too close).
-                raw.move_x = if distance > c.reach_max {
-                    sign(c.dx) as f32
-                } else {
-                    -(sign(c.dx) as f32)
-                };
+                if held_back.is_none() {
+                    raw.move_x = if distance > c.reach_max {
+                        sign(c.dx) as f32
+                    } else {
+                        -(sign(c.dx) as f32)
+                    };
+                }
             } else if !facing_ok {
-                raw.move_x = sign(c.dx) as f32; // turn to it, press next tick
+                if held_back.is_none() {
+                    raw.move_x = sign(c.dx) as f32; // turn to it, press next tick
+                }
             } else {
                 let chain = c.action == Action::Haymaker;
                 decision.veto = if chain {
@@ -594,12 +687,16 @@ impl CompanionDirector {
         view: &CompanionView,
         set: &ProfileSet,
         me: &HeroView,
+        brief: Option<&GoalBrief>,
     ) -> Option<Candidate> {
         if !view.view.in_view(me.x) {
             return None;
         }
         let mut best = None;
         for target in &view.targets {
+            if brief.is_some_and(|b| !b.allows(target.id)) {
+                continue;
+            }
             for action in [Action::Pounce, Action::Jab, Action::Swat, Action::Missile] {
                 better(
                     &mut best,
@@ -616,8 +713,14 @@ impl CompanionDirector {
         set: &ProfileSet,
         me: &HeroView,
         plan: Plan,
+        brief: Option<&GoalBrief>,
     ) -> Option<Candidate> {
         if !view.view.in_view(me.x) {
+            return None;
+        }
+        // The brief's filter runs every tick: a plan whose target left
+        // `allowed` dies now, not at the next planning tick.
+        if brief.is_some_and(|b| !b.allows(plan.target)) {
             return None;
         }
         let target = view.target(plan.target)?; // gone or a new spawn serial
@@ -2187,6 +2290,47 @@ mod tests {
             assert!(presses >= 5, "{presses} presses");
             assert!(a.1.windows(2).any(|w| w[0] != w[1]));
         }
+    }
+
+    const PINNED: [u64; 4] = [
+        0x252a_56b0_1aac_3e38,
+        0x01ea_ed6c_f685_5811,
+        0xc5b9_6b4c_7828_d662,
+        0x252a_56b0_1aac_3e38,
+    ];
+
+    /// FNV-1a over a whole scripted run: every output bit and every state hash.
+    fn trace_fingerprint(donut_ai_driven: bool, set: &ProfileSet) -> u64 {
+        let (outputs, hashes) = run_script(donut_ai_driven, set);
+        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+        let mut mix = |bytes: &[u8]| {
+            for byte in bytes {
+                hash ^= u64::from(*byte);
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        };
+        for line in &outputs {
+            mix(line.as_bytes());
+        }
+        for h in &hashes {
+            mix(&h.to_le_bytes());
+        }
+        hash
+    }
+
+    /// COMPANION-AI-02 CA2-B1: the director with no brief is today's director,
+    /// byte for byte. The fingerprints were taken on the code before
+    /// `step_briefed` existed (the CA2-A merge), so a change to the `None` path
+    /// moves them.
+    #[test]
+    fn no_brief_is_the_pre_ca2_director_byte_for_byte() {
+        let free = set_of(ProfileSetId::Cf02Free);
+        let cases = [(true, assist()), (true, v0()), (false, v0()), (true, free)];
+        let got: Vec<u64> = cases
+            .iter()
+            .map(|(donut_driven, set)| trace_fingerprint(*donut_driven, set))
+            .collect();
+        assert_eq!(got, PINNED);
     }
 
     #[test]

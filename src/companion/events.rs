@@ -6,6 +6,7 @@
 //! one real write path of the companion, CA-24); the decision trace is a debug
 //! aid and never hashed.
 
+use crate::companion::autonomy::{Goal, GoalReason};
 use crate::companion::director::{Action, Mode};
 use crate::companion::nav::{NavAnchorId, Reason};
 use crate::companion::navfollow::NavNote;
@@ -39,6 +40,14 @@ pub enum CompanionEvent {
         tick: u64,
         hero: HeroId,
         note: NavNote,
+    },
+    /// The autonomy layer's goal changed (COMPANION-AI-02, CA2-B1; a trace, never
+    /// hashed). Nothing emits it before the CA2-B2 wiring.
+    GoalChanged {
+        tick: u64,
+        hero: HeroId,
+        goal: Goal,
+        reason: GoalReason,
     },
     /// An off-screen regroup of a companion-driven hero (01B-wire).
     Regroup {
