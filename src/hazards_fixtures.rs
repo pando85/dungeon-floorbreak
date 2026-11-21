@@ -74,6 +74,9 @@ pub struct Layout {
     pub dynamite: bool,
     /// The CF02 morale seed (a fixture that needs a Coward draws one).
     pub seed: Option<u64>,
+    /// The party tuning of the live party (CA2-C: the autonomous partner); the
+    /// provisional one when `None`.
+    pub tuning: Option<crate::party::PartyTuning>,
 }
 
 /// The floor line of the kit in layout px.
@@ -263,7 +266,7 @@ impl Layout {
                 let pf: &'static PartyFixture = Box::leak(Box::new(PartyFixture {
                     base: fixture,
                     two_player,
-                    tuning: crate::party::PROVISIONAL_TUNING,
+                    tuning: self.tuning.unwrap_or(crate::party::PROVISIONAL_TUNING),
                     script: &[],
                     pilot: crate::boss_scene::Pilot::None,
                     donut,

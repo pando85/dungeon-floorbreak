@@ -27,7 +27,8 @@ use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
 use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP, RegroupOutcome};
 use crate::companion::nav::{NavConfig, Reason};
 use crate::companion::navfollow::{
-    Body, NavDriver, NavNote, NavSpots, Regroup, RegroupView, arrive_eps_px,
+    Body, NavDriver, NavNote, NavSpots, Regroup, RegroupView, arrive_eps_px, fence_step,
+    hazards_from_feed,
 };
 use crate::companion::profile::{AutonomyRole, KillPolicy, ProfileFile, ProfileSet, ProfileSetId};
 use crate::companion::rules;
@@ -470,6 +471,9 @@ impl CombatState {
         // decided before the follow layer is read (it moves the hero), then the
         // view and the nav-driven follow are built from the placed bodies.
         self.companion_nav_sync(scene);
+        // CA2-C (K13): the hero-hurting hazards of this tick, for the sets whose
+        // partner the goal layer steers.
+        self.companion_hazard_feed(scene, set.autonomy.enabled);
         let owned = self.companion_regroup(scene);
         scene.set_nav_regroup(owned);
         let mut view = self.companion_view(scene, set_id);
@@ -508,6 +512,14 @@ impl CombatState {
             let (raw, decision) =
                 self.companion.directors[i].step_briefed(&view, set, brief.map(|b| &b.director));
             let mut move_x = raw.move_x;
+            if brief.is_some()
+                && let Some(nav) = &self.companion.nav
+            {
+                // CA2-C: the last guard of a ground step the graph did not plan
+                // (an interrupt's approach, a dodge): never into a hazard.
+                let run = self.run_px_per_tick(scene, hero);
+                move_x = fence_step(nav.hazards(), Self::nav_body(scene, hero), move_x, run);
+            }
             if brief.is_some() && !exempt[i] {
                 // Goal steering and the interrupt approach stay inside `Z`; a dodge
                 // and a committed transit are exempt (spec 5.2, review F-9).
@@ -638,32 +650,43 @@ impl CombatState {
         let mut exempt = false;
         if Self::follow_free_view(&view.heroes[i], &self.hero_state(hero)) {
             let me = Self::nav_body(scene, hero);
-            let goal_body = brief.spot.map_or(me, |s| Body {
-                x: s.x,
-                foot_y: s.surface_y,
-                grounded: true,
-            });
             let bounds = Some((
                 view.view.left + NAV_BOUNDS_MARGIN,
                 view.view.right - NAV_BOUNDS_MARGIN,
             ));
+            // CA2-C: standing in a hazard (a telegraph or a burst began on her),
+            // getting out comes before any goal: the goal is the nearest safe
+            // ground, and the exit is involuntary, so it may leave `Z`.
+            let evacuation = nav.evacuation(hero, me, bounds);
+            exempt = evacuation.is_some();
+            let goal_body = evacuation.unwrap_or_else(|| {
+                brief.spot.map_or(me, |s| Body {
+                    x: s.x,
+                    foot_y: s.surface_y,
+                    grounded: true,
+                })
+            });
             let (drive, notes) = nav.go_to(hero, me, goal_body, bounds);
             let run = self.run_px_per_tick(scene, hero);
-            let mut input = match drive {
-                Some(d) => {
-                    exempt = nav.heroes[i].is_active();
+            let eps = arrive_eps_px(Self::motion_of(scene, hero).run_speed);
+            let mut input = match (drive, evacuation) {
+                (Some(d), _) => {
+                    exempt |= nav.heroes[i].is_active();
                     FollowInput {
                         move_x: d.move_x,
                         jump: d.jump,
                     }
                 }
-                None => FollowInput {
-                    move_x: steer::flat_steer(
-                        &view.heroes[i],
-                        &brief,
-                        run,
-                        arrive_eps_px(Self::motion_of(scene, hero).run_speed),
-                    ),
+                (None, Some(safe)) => FollowInput {
+                    move_x: if (safe.x - me.x).abs() <= eps {
+                        0.0
+                    } else {
+                        steer::approach_stick(me.x, safe.x, run)
+                    },
+                    jump: false,
+                },
+                (None, None) => FollowInput {
+                    move_x: steer::flat_steer(&view.heroes[i], &brief, run, eps),
                     jump: false,
                 },
             };
@@ -719,6 +742,49 @@ impl CombatState {
         if !ok {
             self.companion.nav = None;
             self.companion.nav_failed = true;
+        }
+    }
+
+    /// COMPANION-AI-02 CA2-C (K13): feed the live nav graph the hazard
+    /// rectangles that can hurt a hero this tick, so the partner's routes, spots
+    /// and holds avoid them. Today the Boiler's env step is the only producer
+    /// ([`super::EnvRuntime::nav_feed`]: telegraphed and active volumes, in the
+    /// hazard core's order); a later hazard wire (slime, acid, the wheel) adds its
+    /// own `NavRect`s here and nothing in the companion changes. Only a set whose
+    /// partner the goal layer steers is fed (`autonomy.enabled`), so every other
+    /// set and every room without hazards builds and hashes as before; a feed
+    /// equal to the last one is a no-op.
+    fn companion_hazard_feed(&mut self, scene: &SceneSim, enabled: bool) {
+        if self.companion.nav.is_none() {
+            return;
+        }
+        let hazards = if enabled {
+            let feed = self.env.as_ref().map(|e| e.nav_feed()).unwrap_or_default();
+            hazards_from_feed(&feed, scene.world.layout_height())
+        } else {
+            Vec::new()
+        };
+        let rects = hazards.len();
+        let tick = self.companion.tick;
+        let Some(nav) = &mut self.companion.nav else {
+            return;
+        };
+        match nav.set_hazards(hazards, &scene.world.solids) {
+            Ok(true) => {
+                self.companion.stats.hazard_feed_changes += 1;
+                self.companion.push_event(CompanionEvent::HazardFeed {
+                    tick,
+                    rects: u8::try_from(rects).unwrap_or(u8::MAX),
+                });
+            }
+            Ok(false) => {}
+            Err(error) => {
+                // The graph refused the list (a duplicate id; the feed makes them
+                // unique, so this is a defect). Loud in debug and test builds; in
+                // release the graph keeps the last list and the failure is counted.
+                self.companion.stats.hazard_feed_errors += 1;
+                debug_assert!(false, "the hazard feed was refused: {error:?}");
+            }
         }
     }
 

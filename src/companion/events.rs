@@ -49,6 +49,10 @@ pub enum CompanionEvent {
         goal: Goal,
         reason: GoalReason,
     },
+    /// The hazard rectangles fed to the nav graph changed (COMPANION-AI-02 CA2-C,
+    /// K13; a trace, never hashed): `rects` hero-hurting volumes are telegraphed
+    /// or active now. Emitted on a change only, not every tick.
+    HazardFeed { tick: u64, rects: u8 },
     /// An off-screen regroup of a companion-driven hero (01B-wire).
     Regroup {
         tick: u64,
@@ -94,6 +98,11 @@ pub struct CompanionStats {
     pub regroups: [u32; 2],
     /// Nav regroups refused (no safe, reachable, off-screen anchor).
     pub regroups_denied: [u32; 2],
+    /// CA2-C: times the hazard rectangles fed to the nav graph changed (each a
+    /// graph rebuild).
+    pub hazard_feed_changes: u32,
+    /// CA2-C: times the graph refused the hazard list (always 0: a defect if not).
+    pub hazard_feed_errors: u32,
 }
 
 /// The cap of the bounded event buffer (oldest dropped first).

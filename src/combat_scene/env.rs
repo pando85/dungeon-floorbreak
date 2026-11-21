@@ -73,7 +73,7 @@ use crate::combat::{CombatEvent, DefeatCause, MoveId, PropPhase};
 use crate::donut_moves::DONUT_HERO;
 use crate::encounter::LinkKind;
 use crate::encounter::{Encounter, Goal, LockEvent, PropKind, RosterKind, StickerLayout};
-use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavRect, Team, Victim};
+use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavPhase, NavRect, Team, Victim};
 use crate::env_prop::{
     Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, LinkEmit, LinkGraph, MassBody,
     MassEdge, MassState, Offer, STEP_OVER_PX, Stimulus, Valve, ValveEdge, ValveState,
@@ -707,11 +707,41 @@ impl EnvRuntime {
         &self.hazards
     }
 
-    /// The CA2-C feed: the telegraphed and active volumes of this tick.
+    /// The CA2-C feed: the telegraphed and active volumes of this tick, plus the
+    /// footprint of every falling mass that has been released (the shadow, from
+    /// the release to the drop: telegraph; the drop's last ticks: active). The
+    /// weight's `weight_fall` volume is never triggered (the mass owns the
+    /// damage, see the module docs), so its footprint reaches the feed here, from
+    /// the mass' own state, as the same plain rectangle every other hazard is.
     pub fn nav_feed(&self) -> Vec<NavRect> {
         let mut feed = self.hazards.nav_feed();
         // HAZ-A2: the acid patches are persistent active volumes of class Acid.
         feed.extend(self.acid.nav_feed());
+        for p in &self.props {
+            let Machine::Mass(m) = &p.machine else {
+                continue;
+            };
+            let phase = match m.state() {
+                MassState::Released => NavPhase::Telegraph,
+                MassState::Falling => NavPhase::Active,
+                _ => continue,
+            };
+            let cfg = m.config();
+            let hazard = self
+                .owners
+                .iter()
+                .find(|(_, prop)| *prop == p.index)
+                .map_or(p.index, |(h, _)| *h);
+            feed.push(NavRect {
+                hazard,
+                class: HazardClass::FallingMass,
+                rect: cfg.footprint,
+                phase,
+                ticks_left: None,
+                hurts_heroes: cfg.hero_damage.hurts_any_hero(),
+                hurts_enemies: cfg.hurts_enemies,
+            });
+        }
         feed
     }
 
