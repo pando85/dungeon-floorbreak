@@ -55,6 +55,9 @@ fn has_ceiling(blocks: &[Block], width: f32) -> bool {
         .any(|b| b.rect.width == width && b.rect.height == 16.0 && b.rect.bottom > 100.0)
 }
 
+/// The golden of `dm_microarena_perch_ceiling` (see the test below).
+const DM_MICROARENA_PERCH_CEILING: u64 = 0x7955_6683_ec1e_a92c;
+
 const LEFT_PERCH: (f32, f32) = (544.0, 672.0);
 const RIGHT_PERCH: (f32, f32) = (896.0, 992.0);
 const PERCH_TOP: f32 = 80.0;
@@ -104,7 +107,19 @@ fn a_perch_jump_bonks_donut_at_228_and_never_touches_carl() {
             .fold(0.0, f32::max);
         (head, trail)
     };
-    let (donut_head, _) = jump_from_perch(donut(), true);
+    let (donut_head, donut_trail) = jump_from_perch(donut(), true);
+    // `dm_microarena_perch_ceiling`: the golden of Donut's perch jump under the
+    // ceiling (FNV-1a over every tick's x, y and vy bits).
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for (x, y, vy) in &donut_trail {
+        for value in [x, y, vy] {
+            for byte in value.to_le_bytes() {
+                hash ^= u64::from(byte);
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        }
+    }
+    assert_eq!(hash, DM_MICROARENA_PERCH_CEILING, "{hash:#018x}");
     let (donut_free, _) = jump_from_perch(donut(), false);
     assert_eq!(
         donut_head,
