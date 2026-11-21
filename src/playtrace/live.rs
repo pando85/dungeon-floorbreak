@@ -189,6 +189,17 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
         // HRD-A1: the Hoarder boss knobs, stamped on every recording and
         // required by a replay like the other tuning pins.
         (crate::pile_boss::PIN_KEY, crate::pile_boss::TUNING_HASH),
+        // BOIL-A wire: the Goblin Boiler room and its sidecar (`--scene
+        // f01_boiler`). Stamped on every recording like the tunings, so an edit
+        // of either file fails a replay that names the pin.
+        (
+            crate::f01_boiler::ROOM_PIN_KEY,
+            crate::f01_boiler::ROOM_HASH,
+        ),
+        (
+            crate::f01_boiler::ENCOUNTER_PIN_KEY,
+            crate::f01_boiler::ENCOUNTER_HASH,
+        ),
     ]
 }
 

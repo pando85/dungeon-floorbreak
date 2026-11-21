@@ -84,6 +84,7 @@ use dungeon_floorbreak::{
     env_kit::{
         EnvKit, IRect, PieceDraw, animation_frame, parallax_copies, parallax_start, to_world_y,
     },
+    f01_boiler,
     feel::{
         HERO_HURT_TICKS, IMPACT_FLASH_TICKS, LLAMA_GLOB_MOUTH_DX, LLAMA_GLOB_MOUTH_DY,
         LLAMA_GLOB_SPEED,
@@ -299,6 +300,12 @@ struct Args {
     lab_variant_set: bool,
     /// The launched room (`main` fills it right after parsing).
     lab_run: Option<Box<LabRun>>,
+    /// BOIL-A wire: `--scene f01_boiler`. It implies `cf02_rules` (set when the
+    /// arguments are resolved) without the `--cf02` DEMO forcing: the room is the
+    /// Goblin Boiler hall, not the microarena.
+    f01_boiler: bool,
+    /// The launched Boiler room (`main` fills it right after parsing).
+    boiler_run: Option<Box<f01_boiler::BoilerRun>>,
     /// PLAYTRACE-RENDER-01 PTR-R1: `--replay-session ID`: the offline replay
     /// viewer. It takes the simulation from the recording alone, so every
     /// gameplay flag and every `--record*` flag is a parse error with it.
@@ -371,7 +378,7 @@ impl Args {
         match self.record {
             RecordMode::On => true,
             RecordMode::Off => false,
-            RecordMode::Auto => RECORD_DEFAULT_ON && self.live_input(),
+            RecordMode::Auto => RECORD_DEFAULT_ON && self.live_input() && !self.f01_boiler,
         }
     }
 
@@ -403,7 +410,7 @@ impl Args {
 
     /// CF02-F: this run is in the microarena (`--cf02`, or a CF02-F room fixture).
     fn arena_room(&self) -> bool {
-        self.cf02.rules
+        (self.cf02.rules && !self.f01_boiler)
             || self
                 .fixture
                 .is_some_and(|f| cf02::arena::fixture_uses_arena(f.name))
@@ -461,8 +468,9 @@ impl Args {
         if self.reference_frame {
             return CameraChoice::Scroll;
         }
-        self.camera
-            .unwrap_or_else(|| CameraChoice::default_for(self.demo || self.lab_scene))
+        self.camera.unwrap_or_else(|| {
+            CameraChoice::default_for(self.demo || self.lab_scene || self.f01_boiler)
+        })
     }
 }
 
@@ -573,6 +581,53 @@ fn resolve_lab_args(parsed: &mut Args) -> Result<(), String> {
         || parsed.freeze
         || parsed.perf_frames.is_some()
         || parsed.lab_autopilot);
+    Ok(())
+}
+
+/// The Boiler scene's own argument rules (BOIL-A wire): `--scene f01_boiler`
+/// implies `cf02_rules` (the run configuration of every Floor 01 setpiece) and
+/// is its own room, so the run modes that pick another room or script are
+/// refused. It starts with the biscuit (the post-Hoarder state, K1), the story
+/// pin applies under `--carl-prog` and `--donut-prog`, and the scene is not
+/// recorded yet.
+fn resolve_boiler_args(parsed: &mut Args) -> Result<(), String> {
+    if !parsed.f01_boiler {
+        return Ok(());
+    }
+    if parsed.cf02.rules {
+        return Err(
+            "--scene f01_boiler already implies cf02_rules: drop --cf02 (it selects the microarena)"
+                .into(),
+        );
+    }
+    if parsed.cf02_engineer
+        || parsed.demo
+        || parsed.autopilot
+        || parsed.demo_beat != 0
+        || parsed.fixture.is_some()
+        || parsed.party_fixture.is_some()
+        || parsed.scenario.is_some()
+        || parsed.camera_test_room.is_some()
+        || parsed.reference_frame
+    {
+        return Err("--scene f01_boiler replaces --demo, --cf02, --cf02-engineer, --autopilot, --demo-beat, --fixture, --party-fixture, --scenario, --camera-test-room and --reference-frame (it is its own room)".into());
+    }
+    if parsed.record == RecordMode::On {
+        return Err("--record is refused with --scene f01_boiler: the room has no replay source yet (PT-SCENE adds it), so a session could not be verified".into());
+    }
+    parsed.cf02.rules = true;
+    // The launch builds the real fixture; a placeholder keeps the generic
+    // argument rules (`driven`) honest until then, like the lab.
+    parsed.fixture = Some(&PENDING_FIXTURE);
+    // The post-Hoarder state: Donut holds the biscuit with a full pool.
+    parsed.donut_biscuit = true;
+    // A live run without a script is the player's.
+    parsed.manual = !(parsed.headless
+        || parsed.capture_tick.is_some()
+        || parsed.capture_sequence.is_some()
+        || parsed.exit_after_ticks.is_some()
+        || parsed.freeze
+        || parsed.perf_frames.is_some());
     Ok(())
 }
 
@@ -924,6 +979,8 @@ fn parse_args_full(
         lab_autopilot: false,
         lab_variant_set: false,
         lab_run: None,
+        f01_boiler: false,
+        boiler_run: None,
         replay: None,
     };
     let mut iter = args.iter().skip(1);
@@ -1028,10 +1085,11 @@ fn parse_args_full(
             "--scene" => {
                 let value = iter
                     .next()
-                    .ok_or("--scene needs a name (boss_f01, combat_lab)")?;
-                if parsed.boss || parsed.lab_scene {
+                    .ok_or("--scene needs a name (boss_f01, combat_lab, f01_boiler)")?;
+                if parsed.boss || parsed.lab_scene || parsed.f01_boiler {
                     return Err(
-                        "--scene takes one scene: boss_f01 and combat_lab are exclusive".into(),
+                        "--scene takes one scene: boss_f01, combat_lab and f01_boiler are exclusive"
+                            .into(),
                     );
                 }
                 match value.as_str() {
@@ -1045,9 +1103,10 @@ fn parse_args_full(
                         parsed.fixture = Some(boss_scene::BOSS01_SCENE);
                     }
                     "combat_lab" => parsed.lab_scene = true,
+                    f01_boiler::SCENE_NAME => parsed.f01_boiler = true,
                     _ => {
                         return Err(format!(
-                            "unknown scene {value:?} (expected boss_f01, combat_lab)"
+                            "unknown scene {value:?} (expected boss_f01, combat_lab, f01_boiler)"
                         ));
                     }
                 }
@@ -1197,13 +1256,15 @@ fn parse_args_full(
         }
     }
     resolve_lab_args(&mut parsed)?;
+    resolve_boiler_args(&mut parsed)?;
     if parsed.cf02.seed.is_some() && !parsed.cf02.rules && !parsed.lab_scene {
         return Err("--cf02-seed needs --cf02 (or --scene combat_lab)".into());
     }
-    if parsed.cf02.rules {
+    if parsed.cf02.rules && !parsed.f01_boiler {
         // CF02-F: `--cf02` is the microarena. It runs on the DEMO machinery (the
         // checkpoint respawn, the Select tap and hold, the autopilot flag), with
-        // the arena's own room, fixture and rules.
+        // the arena's own room, fixture and rules. `--scene f01_boiler` implies
+        // `cf02_rules` but is its own room (BOIL-A wire): no DEMO forcing.
         parsed.demo = true;
     }
     if parsed.companion.is_some() && (parsed.fixture.is_some() || parsed.party_fixture.is_some()) {
@@ -1494,6 +1555,11 @@ fn story_setup(args: &Args) -> StorySetup {
     if let Some(pf) = args.party_fixture {
         return carl_prog_fixtures::story_setup(pf.name());
     }
+    if let Some(run) = &args.boiler_run {
+        // BOIL-A wire: the sidecar's story pin (the post-Hoarder state).
+        return f01_boiler::story_setup(&run.loaded.encounter.story_pin, args.carl, args.donut)
+            .expect("the launch accepted the sidecar's pin");
+    }
     let Some(fixture) = args.fixture else {
         return StorySetup::NONE;
     };
@@ -1592,7 +1658,9 @@ fn build_scene(
                 .map_err(|e| e.to_string())?;
             (sim, combat)
         };
-        if args.cf02.rules {
+        if let Some(run) = &args.boiler_run {
+            combat = combat.with_demo(run.rules);
+        } else if args.cf02.rules {
             combat = combat.with_demo(&cf02::arena::RULES);
         } else if args.demo {
             combat = combat.with_demo(&demo::DEMO_RULES);
@@ -1971,6 +2039,20 @@ fn main() -> ExitCode {
             }
         }
     }
+    // BOIL-A wire: load the Goblin Boiler room and its sidecar, with the pin.
+    if args.f01_boiler {
+        match f01_boiler::launch(&root) {
+            Ok(run) => {
+                println!("{}", f01_boiler::entry_line(&run));
+                args.fixture = Some(run.fixture);
+                args.boiler_run = Some(Box::new(run));
+            }
+            Err(error) => {
+                eprintln!("floor01_scene: {error}");
+                return ExitCode::from(2);
+            }
+        }
+    }
     // PTR-R1: open the recording before anything else; a recording the viewer
     // cannot show opens no window.
     let prepared = if args.replay.is_some() {
@@ -1984,6 +2066,8 @@ fn main() -> ExitCode {
     let kit = if let Some(prepared) = &prepared {
         Ok(prepared.kit.clone())
     } else if let Some(run) = &args.lab_run {
+        Ok(run.kit.clone())
+    } else if let Some(run) = &args.boiler_run {
         Ok(run.kit.clone())
     } else if args.arena_room() {
         cf02::arena::load_arena(&root)
@@ -2832,6 +2916,13 @@ fn start_recording(
             if !(RECORD_DEFAULT_ON && args.live_input()) {
                 // Scripted, headless and capture paths print nothing.
                 return None;
+            }
+            if args.f01_boiler {
+                // BOIL-A wire: no replay source for this room yet (PT-SCENE).
+                println!(
+                    "PLAYTRACE_DISABLED reason=f01_boiler this room has no replay source yet, so the session is not recorded"
+                );
+                return refuse_if_strict(args, "f01_boiler");
             }
             if let Some(reason) = record_env_off() {
                 println!(
@@ -4293,7 +4384,7 @@ fn fixed_step(
     // DEMO-01 live run: Select tap respawns, Select held for a second restarts
     // the demo (R on the keyboard is the same button).
     let mut respawn = false;
-    if (setup.args.demo || setup.args.lab_scene) && setup.args.manual {
+    if (setup.args.demo || setup.args.lab_scene || setup.args.f01_boiler) && setup.args.manual {
         restart = false;
         let down = keys.pressed(KeyCode::KeyR) || controls.select_held || select_tap;
         match controls.select.tick(down) {
@@ -4427,7 +4518,9 @@ fn fixed_step(
         if respawned {
             println!("DEMO01_RESPAWN checkpoint={}", combat.checkpoint);
         }
-        if setup.args.cf02.rules {
+        if setup.args.f01_boiler {
+            // BOIL-A wire: nothing to announce yet (the exit is the room's own).
+        } else if setup.args.cf02.rules {
             // CF02-F: the room is one beat; the exit opens when all six enemies
             // are defeated (console only, presentation).
             if cf02::arena::complete(combat) && !controls.complete_printed {
@@ -6862,6 +6955,9 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
         );
         return headless_fixture(kit, args, actors, root);
     }
+    if let Some(run) = &args.boiler_run {
+        return headless_boiler(kit, args, actors, root, run);
+    }
     if args.demo || args.arena_room() {
         // The demo hall and the CF02 microarena have no exit and a different
         // spawn: the story-run checks below do not apply. Replay the fixture.
@@ -6916,6 +7012,44 @@ fn headless_smoke(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Re
 /// Headless fixture replay (and the demo): the scripted run for
 /// `--capture-tick` ticks (default the fixture's own length), every event,
 /// then the state lines.
+/// BOIL-A wire: the Boiler room's smoke. The fixture's scripted walk runs on the
+/// real scene and combat state under `cf02_rules`; the run must reach the
+/// protected exit through the checkpoint, which prints `F01_BOILER_SMOKE_OK`.
+fn headless_boiler(
+    kit: &EnvKit,
+    args: &Args,
+    actors: &Actors,
+    root: &Path,
+    run: &f01_boiler::BoilerRun,
+) -> Result<(), String> {
+    println!(
+        "FLOOR1_HEADLESS_OK: boiler hall {} tiles, {} pieces, {} merged solids",
+        kit.tiles.len(),
+        kit.pieces.len(),
+        kit.solid_rects.len()
+    );
+    let mut args = args.clone();
+    args.capture_tick.get_or_insert(run.fixture.ticks);
+    let mut hud = new_hud(&args, kit, actors);
+    let (sim, anim, combat, _death, _party) = build_scene(kit, &args, actors, root, &mut hud)?;
+    let mut combat = combat.ok_or("the Boiler fixture has no combat state")?;
+    print_combat_events(&mut combat, None, None);
+    println!("{}", sim.state_line());
+    println!("{}", anim.state_line(sim.world.tick));
+    print_combat_state(&sim, &anim, &combat);
+    if !sim.world.complete {
+        return Err(format!(
+            "the scripted walk did not reach the protected exit in {} ticks",
+            sim.world.tick
+        ));
+    }
+    println!(
+        "F01_BOILER_SMOKE_OK ticks={} checkpoint={} complete=true pin={} inert=true",
+        sim.world.tick, combat.checkpoint, run.loaded.encounter.story_pin
+    );
+    Ok(())
+}
+
 fn headless_fixture(kit: &EnvKit, args: &Args, actors: &Actors, root: &Path) -> Result<(), String> {
     if let Some(fixture) = args.fixture {
         let mut args = args.clone();
@@ -8303,6 +8437,126 @@ mod tests {
             );
         }
         assert!(args(&["--scene", "combat_lab"]).is_ok());
+    }
+
+    /// BOIL-A wire: `--scene f01_boiler` implies `cf02_rules` without the
+    /// `--cf02` DEMO forcing, is its own room, refuses the modes that pick
+    /// another room, is never recorded, and applies the sidecar's story pin only
+    /// under the program flags.
+    #[test]
+    fn the_boiler_scene_implies_cf02_rules_without_the_demo_forcing() {
+        let boiler = args(&["--scene", "f01_boiler"]).unwrap();
+        assert!(boiler.f01_boiler && boiler.cf02.rules, "implies cf02_rules");
+        assert!(!boiler.demo, "no DEMO forcing");
+        assert!(!boiler.arena_room(), "not the microarena");
+        assert!(boiler.donut_biscuit, "the post-Hoarder state");
+        assert!(boiler.manual, "a live run is the player's");
+        assert_eq!(boiler.fixture, Some(&PENDING_FIXTURE));
+        // `--cf02` is the microarena, so asking for both is an error.
+        let error = args(&["--scene", "f01_boiler", "--cf02"]).expect_err("--cf02");
+        assert!(error.contains("already implies cf02_rules"), "{error}");
+        assert!(args(&["--cf02", "--scene", "f01_boiler"]).is_err());
+        // The seed flag works because cf02_rules is implied.
+        assert_eq!(
+            args(&["--scene", "f01_boiler", "--cf02-seed", "7"])
+                .unwrap()
+                .cf02
+                .seed,
+            Some(7)
+        );
+        // Another room or script is refused, and the scenes are exclusive.
+        for extra in [
+            &["--demo"][..],
+            &["--cf02-engineer"],
+            &["--autopilot"],
+            &["--demo-beat", "2"],
+            &["--fixture", "cp01_kick"],
+            &["--party-fixture", "duo_independent_moves"],
+            &["--scenario", "walk_right"],
+            &["--camera-test-room", "1"],
+            &["--reference-frame"],
+        ] {
+            let mut list = vec!["--scene", "f01_boiler"];
+            list.extend_from_slice(extra);
+            assert!(args(&list).is_err(), "{list:?}");
+        }
+        assert!(args(&["--scene", "f01_boiler", "--scene", "boss_f01"]).is_err());
+        assert!(args(&["--scene", "combat_lab", "--scene", "f01_boiler"]).is_err());
+        assert!(args(&["--scene", "boss_f01", "--scene", "f01_boiler"]).is_err());
+        // A scripted run is not the player's.
+        for scripted in [
+            &["--headless-floor01-smoke"][..],
+            &["--capture-tick", "300"],
+            &["--exit-after-ticks", "300"],
+        ] {
+            let mut list = vec!["--scene", "f01_boiler"];
+            list.extend_from_slice(scripted);
+            assert!(!args(&list).unwrap().manual, "{list:?}");
+        }
+        // The other scenes are unchanged: `--cf02` still forces the DEMO machinery.
+        assert!(args(&["--cf02"]).unwrap().demo);
+        assert!(!args(&["--cf02"]).unwrap().f01_boiler);
+    }
+
+    #[test]
+    fn the_boiler_scene_is_never_recorded_yet() {
+        // No replay source exists for the room (PT-SCENE): neither the default
+        // nor `--record` records it.
+        assert!(
+            !args(&["--scene", "f01_boiler"])
+                .unwrap()
+                .recording_enabled()
+        );
+        let error = args(&["--scene", "f01_boiler", "--record"]).expect_err("--record");
+        assert!(error.contains("no replay source"), "{error}");
+        // `--no-record` is fine and still off.
+        assert!(
+            !args(&["--scene", "f01_boiler", "--no-record"])
+                .unwrap()
+                .recording_enabled()
+        );
+        // Every other live run still records by default.
+        assert!(args(&["--cf02"]).unwrap().recording_enabled());
+    }
+
+    #[test]
+    fn the_boiler_story_pin_applies_only_under_the_program_flags() {
+        let launched = |list: &[&str]| {
+            let mut run = args(list).unwrap();
+            let launched = f01_boiler::launch(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
+            run.fixture = Some(launched.fixture);
+            run.boiler_run = Some(Box::new(launched));
+            run
+        };
+        let plain = launched(&["--scene", "f01_boiler"]);
+        assert!(story_setup(&plain).is_inert(), "no flag: nothing held");
+        let carl = launched(&["--scene", "f01_boiler", "--carl-prog"]);
+        assert_eq!(
+            story_setup(&carl).holds(),
+            [dungeon_floorbreak::story_unlock::SPECIAL_THROWN_CHARGE],
+            "Carl holds the post-Hoarder dynamite"
+        );
+        assert!(
+            story_setup(&carl).trigger_ids().is_empty(),
+            "no trigger armed"
+        );
+        let donut = launched(&["--scene", "f01_boiler", "--donut-prog"]);
+        assert_eq!(
+            story_setup(&donut).holds(),
+            [dungeon_floorbreak::donut_prog::JUMP_REACH_BOOST]
+        );
+        let both = launched(&["--scene", "f01_boiler", "--carl-prog", "--donut-prog"]);
+        assert_eq!(story_setup(&both).holds().len(), 2);
+        // The combat state accepts the pin (the biscuit is held in this room).
+        let kit = &both.boiler_run.as_ref().unwrap().kit;
+        let scene = SceneSim::new_at(kit, 360, 112).unwrap();
+        assert!(
+            CombatState::new(both.fixture.unwrap(), kit, &scene)
+                .unwrap()
+                .with_donut(donut_setup(&both))
+                .try_with_story(story_setup(&both))
+                .is_ok()
+        );
     }
 
     /// DONUT-PROG-01 DP-A (DP-Q06, DP-Q10): the three flags parse, the two

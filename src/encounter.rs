@@ -44,7 +44,8 @@
 //!
 //! Disclosed limits: the reachability uses the height classes and flat-jump
 //! distances of the data file (an optimistic upper bound for a rising jump
-//! between perches: the physics-exact check is BOIL-A wire's), not the real
+//! between perches: `encounter_physics` replays every accepted edge with the real
+//! integrator, BOIL-A wire), not the real
 //! jump physics, and it does not trust
 //! the composer's generated access steps (a scene may clear them, as the
 //! microarena does), so it proves the jump-only case. The room parser of this
@@ -3170,6 +3171,100 @@ pub fn reach_matrix(
         }
     }
     rows
+}
+
+// ------------------------------------------------------------ route export
+
+/// One surface of a route graph (layout px, y down), exported for the
+/// physics-exact check of BOIL-A wire (K8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RouteNode {
+    pub x0: i32,
+    pub x1: i32,
+    /// Layout y of the standing surface.
+    pub top: i32,
+    /// A stretch of the walking line (a platform or a standable solid is not).
+    pub floor: bool,
+}
+
+/// The route graph of one hero class in one destruction state, exactly as the
+/// validator built it: `edges` are the moves `can_move` accepted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RouteGraph {
+    pub hero: ReachHero,
+    /// Bit k set: the k-th changeable prop is used up.
+    pub state: u16,
+    /// Every lock closed (its solid in the graph). The reach matrix itself
+    /// opens every lock, so an exit is only required with `false`.
+    pub locks_closed: bool,
+    /// The solids of this state: intact solid props, remnants, closed locks.
+    pub solids: Vec<IRect>,
+    pub nodes: Vec<RouteNode>,
+    /// Accepted moves, as `(from, to)` node indices.
+    pub edges: Vec<(usize, usize)>,
+    /// The floor node of the hero's spawn.
+    pub spawn: Option<usize>,
+    /// The floor node of the exit column.
+    pub goal: Option<usize>,
+}
+
+/// The route graphs the validation reasoned over: every class in every state
+/// of the changeable props with the locks open, and again with them closed when
+/// the room has locks. The physics-exact check replays each accepted edge.
+pub fn route_graphs(room: &Room, c: &HeightClasses, enc: &Encounter) -> Vec<RouteGraph> {
+    let changeable: Vec<usize> = enc
+        .props
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.solid_intact || p.remnant.is_some())
+        .map(|(i, _)| i)
+        .collect();
+    let exit_x = room.goal_x.min(room.exit.right() - 1);
+    let lock_variants: &[bool] = if enc.locks.is_empty() {
+        &[false]
+    } else {
+        &[false, true]
+    };
+    let mut out = Vec::new();
+    for &locks_closed in lock_variants {
+        for hero in ReachHero::ALL {
+            for state in 0..(1u16 << changeable.len()) {
+                let mut solids = blockers(&enc.props, &changeable, state);
+                if locks_closed {
+                    solids.extend(enc.locks.iter().map(|l| l.solid));
+                }
+                let graph = nodes_for(room, c, hero, &solids);
+                let mut edges = Vec::new();
+                for (i, a) in graph.nodes.iter().enumerate() {
+                    for (j, b) in graph.nodes.iter().enumerate() {
+                        if i != j && can_move(room, c, hero, &graph, a, b) {
+                            edges.push((i, j));
+                        }
+                    }
+                }
+                out.push(RouteGraph {
+                    hero,
+                    state,
+                    locks_closed,
+                    solids,
+                    spawn: floor_node_at(&graph.nodes, hero.spawn_x(room)),
+                    goal: floor_node_at(&graph.nodes, exit_x),
+                    nodes: graph
+                        .nodes
+                        .iter()
+                        .map(|n| RouteNode {
+                            x0: n.x0,
+                            x1: n.x1,
+                            top: n.top,
+                            floor: n.floor,
+                        })
+                        .collect(),
+                    edges,
+                });
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
