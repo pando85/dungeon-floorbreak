@@ -122,6 +122,8 @@ Llama's low forward burst is a **proposed additive enemy behavior** needing anim
 
 **The first llama may die to 3 straightforward Magic Missiles.** That is not a failure; it is intended progression. **M2 must not be routinely solved by the same stationary spam strategy** without ever moving/repositioning, even if mana eventually regenerates.
 
+**Mandatory executable agent-run harness:** [CORRAL-AUTO-01 — autonomous evaluation protocol](../07-agents/floor-01-corral-autonomous-evaluation.md) is part of this design's acceptance contract. The agent must *implement and execute* baseline stationary and mobile scripted policies against the authoritative party simulation, search multiple legitimate starting positions, collect JSON/CSV evidence, rerun after each tuning change and fail the PR on a reproducible safe stationary full clear. The existing `autoplay --mode party_solo` roster currently includes goblins, not this llama scene, and party evaluate/replay CLI coverage may be incomplete; the agent must provide a scoped Rust evaluator instead of pretending unsupported commands work.
+
 ## 6. Central anti-degeneracy experiment: STATIONARY-DONUT
 
 The major acceptance gate added after owner feedback:
