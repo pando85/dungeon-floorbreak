@@ -1669,9 +1669,13 @@ pub enum CombatEvent {
     /// (CP-Q34) and set or pulled its detonation to `due`. `charge` is the
     /// reached charge's index, `source` the index of the blast that reached it,
     /// `depth` the link's depth (the dynamite's own blast is depth 0, so the
-    /// first link is 1). A charge left alone (already due inside the delay) emits
-    /// nothing. This event is the hook for a sticker or a prop that mirrors its
-    /// charge (HAZ-A2 calls `RotSticker::chain(tick, owner)` for it).
+    /// first link is 1). It is emitted only when the **schedule** changes: a charge
+    /// left alone (already due inside the delay), due on the chain's tick, or one
+    /// the per-tick cap later defers emits nothing, though its owner and depth are
+    /// still filled. A sticker or prop that mirrors its charge (HAZ-A2 calls
+    /// `RotSticker::chain(tick, owner)`) must therefore not rely on this event
+    /// alone: at blast time read `charges[i].owner`, its `detonate_tick` and
+    /// `chain_depth`.
     ChargeChained {
         tick: u64,
         charge: u32,

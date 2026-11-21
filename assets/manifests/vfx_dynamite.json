@@ -31,7 +31,7 @@
   "license": "Fan-concept art published under owner-reported scope ART-PUBLICATION-ALL-V1; no public reuse license; no game/asset-pack distribution rights",
   "review_status": "prototype_fixture_unapproved",
   "vfx": {
-    "status": "Keys frozen; in-betweens drawn; independent review pending; drawn in the floor01_scene QA fixtures only (DEATH-D); review pending",
+    "status": "Keys frozen; in-betweens drawn; independent review pending; drawn in the floor01_scene DEATH-D QA fixtures and, since CARL-PROG-01 CP-B2, as the thrown stick (flight, then fizzle) behind the thrown-charge flags; review pending",
     "spec": "docs/02-art/carl-dynamite-anim-03-spec.md",
     "tick_hz": 60,
     "free_tags": [

@@ -64,6 +64,8 @@ Numbers must live in versioned data and be tuned in tests. Do not hardcode mater
 5. Recompute gameplay collisions; propagate `TerrainChanged` and path navigation invalidation.
 6. Emit optional VFX/SFX/debris requests; cap counts and lifetime; do not gate game state on visual effects.
 
+**Implemented in the combat scene (CARL-PROG-01 CP-C, CP-Q34):** an authored charge reached by a dynamite blast (or by a blast a chain reached) detonates 8 ticks later, to a chain depth of 4, deduplicated per charge. The cap is **engine-wide**: at most 8 charge detonations per tick, any charge (QA, world or chained), with the excess deferred one tick in stable charge-index order, keeping its depth and credit. A fixture or world author who lights 9 or more charges for one tick will see the ninth blow on the next. The first initiator keeps the credit (`BlastCharge.owner` is written only when empty).
+
 ## Structural collapse (later / authored)
 
 Level author marks a `support_id`, `dependent_chunk_ids`, `break_threshold`, safe fall region and post-collapse routing constraint. When a tagged support reaches threshold, schedule the authored collapse group with telegraph and bounded dynamic objects. If not safe in the current room, use fixed animated breakup while setting the correct final terrain grid.
