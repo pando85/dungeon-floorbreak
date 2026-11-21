@@ -56,7 +56,7 @@ All numbers are tuning hypotheses pending real gamepad play; record which were a
 | CA-29 | A defeat credited to a companion-driven hero never triggers CINE-01 (fail closed: the CINE feed does not forward to `CinematicEvaluator` a `CineEvent::Defeated` whose credited hero, the `instigator` or the cause's `player` for `ShoreBlock`, `ShoreBlockEdge` or `DropHazard`, was companion-driven at that tick; `slot` alone does not gate a moment), owned by 01A-wire; AUDIENCE credit stays factual per hero |
 | CA-30 | Companion fixtures live in `src/companion_fixtures.rs` (a `PartyFixture` registry) with prefix `companion_`; the moved assistant fixtures keep their `cf02_assist_*` names there; CI reaches both through `--list-fixtures` |
 | CA-31 | 01A-01D measure with per-fixture event tallies under AP-Q14 attribution; 01E uses AUTOPLAY-02a; no second harness |
-| CA-32 | CF02-Q39 floor (>= 3 AI-started assist moves) and ceiling (<= 25 % of hits) apply per profile set; `companion_v0` reports them per role |
+| CA-32 | CF02-Q39 floor (>= 3 AI-started assist moves) and ceiling (<= 25 % of hits) apply per profile set; `companion_v0` reports them per role (for `cf02_assist` the values are 2 and 50 % since CF02-DUO-A03 and A10) |
 | CA-33 | Asymmetric gates are unimplemented on main: 01B-core builds the graph over existing solids and the camera-lab `donut_only` platforms; gate assertions wait for an authored gate fixture owned by the asymmetric-traversal work |
 | CA-34 | 01C is a pure module `src/companion/command_input.rs` plus traces and an optional auto-discovered lab binary; it edits no `input.rs`, `pad_slots.rs`, `party.rs` or `floor01_scene.rs` |
 | CA-35 | The AI-plate state icon (01D) avoids the AUDIENCE-01 readout band (+80..+158 x +3..+14 plate-relative) |
@@ -134,7 +134,7 @@ A PR that finds it must touch a file another running PR owns stops and reports i
 - An AI indirect kill triggers no CINE moment (CA-29 CINE filter).
 - The eight `cf02_assist_*` fixtures (moved from CF02-C2) pass under `--cf02` with the CF02-Q14..Q17, Q38 (AI part) and Q40 assertions; `cf02_assist_camera_parity` covers `--camera auto` vs `scroll`.
 - With `--companion off`, every legacy golden is byte-identical: 20 `EXPECTED_HASHES` (13 legacy, 2 DEATH-D, 5 llama), `GOLDEN_WALK_RIGHT_400`, the story hash `931868d6afa56498`, 7 party, 13 boss and 8 `q10_*` goldens, `demo01_*`, the CINE goldens, and the whole-route autopilot hash `0363078d58558e95`.
-- Under `ca19_kill_policy = never` no AI-started hit kills; the metrics table lists assist starts, AI hit share, glances and `ai_indirect_kills` per fixture.
+- Under `ca19_kill_policy = never` no AI-started hit kills (profile `companion_v0`; profile `cf02_assist` is `factual` since CF02-DUO-A01, with the anti-kill-steal window of CF02-DUO-A08, spec C-11); the metrics table lists assist starts, AI hit share, glances and `ai_indirect_kills` per fixture.
 
 ### 01B — acceptance
 

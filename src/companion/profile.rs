@@ -18,7 +18,7 @@ pub const PROFILE_JSON: &str = include_str!("../../assets/data/gameplay/companio
 
 /// The committed FNV-1a 64 content hash of [`PROFILE_JSON`]. Editing the file
 /// without updating this value fails [`ProfileFile::pinned`] and the pin test.
-pub const PROFILE_HASH: u64 = 0x495d_eae5_408d_7537;
+pub const PROFILE_HASH: u64 = 0xb8f7_4e91_4c7d_3626;
 
 /// The profile set id under the spec's name (CA-21, section 17): the runtime's
 /// `UncontrolledHero::Companion(CompanionProfileSet)` names it.
@@ -95,6 +95,46 @@ pub struct DonutRole {
     pub cf02_q17_missile_max_px: u16,
 }
 
+/// CF02-DUO (owner playtest feedback 2026-11-21): AI Donut as a fighting
+/// partner. With `cf02_duo_a04_offense` off (the `companion_v0` set) none of the
+/// offensive candidates exists, so the director is exactly the earlier one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DuoOffense {
+    /// CF02-DUO-A04: AI Donut also starts a pounce or a Magic Missile on her
+    /// own at a standing or staggered enemy, not only as an interrupt or on a
+    /// lying goblin. (The offensive swat of the first cut was removed by
+    /// CF02-DUO-A07: it dealt no damage and set the guard that blocks her own
+    /// interrupt.)
+    pub cf02_duo_a04_offense: bool,
+    /// CF02-DUO-A05: the band the offensive Magic Missile starts from (after
+    /// the unlock, above the AI mana reserve, never a free cast).
+    pub cf02_duo_a05_missile_min_px: u16,
+    pub cf02_duo_a05_missile_max_px: u16,
+    /// CF02-DUO-A06: the band the offensive pounce starts from on a standing
+    /// goblin (the lying/staggered pounce keeps the Q15 band).
+    pub cf02_duo_a06_pounce_min_px: u16,
+    pub cf02_duo_a06_pounce_max_px: u16,
+    /// CF02-DUO-A08 (spec section 8, `HumanFinishWindow`): the AI Donut never
+    /// starts a damaging move that would take the last hit on an enemy the
+    /// human-controlled Carl is engaging. Needs `ca19_kill_policy = factual`
+    /// to matter (under `never` no AI hit kills).
+    pub cf02_duo_a08_respect_finisher: bool,
+    /// CF02-DUO-A08: Carl engages an enemy within this many px of him while he
+    /// has a move running or the enemy is down from his hit: the jab strike
+    /// band (30), the knockback drift a jab leaves (6, measured 430 to 436 in
+    /// `cf02_assist_pounce_staggered`) and the haymaker's 4 px step, so the
+    /// window covers jab to haymaker.
+    pub cf02_duo_a08_finisher_reach_px: u16,
+    /// CF02-DUO-A08: hit points kept for Carl's pending hit: an engaged enemy
+    /// whose HP is at most the AI hit's damage plus this is not hit by her.
+    pub cf02_duo_a08_finisher_reserve_hp: u8,
+    /// CF02-DUO-A09: the offensive pounce and missile start only at an enemy
+    /// whose feet are within this many px of her own (no swat in the air over
+    /// a goblin on another level).
+    pub cf02_duo_a09_vertical_reach_px: u16,
+}
+
 /// One profile set.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -113,6 +153,8 @@ pub struct ProfileSet {
     pub cf02_q39_max_hit_share_percent: u8,
     pub carl: CarlRole,
     pub donut: DonutRole,
+    /// CF02-DUO: AI Donut's offense (off in `companion_v0`).
+    pub cf02_duo: DuoOffense,
 }
 
 /// The whole file.
@@ -196,10 +238,9 @@ impl ProfileFile {
         }
         self.cf02_assist.validate("cf02_assist")?;
         self.companion_v0.validate("companion_v0")?;
-        // CF02-Q38 (section 17(c)): the assistant set never lets the AI defeat.
-        if self.cf02_assist.ca19_kill_policy != KillPolicy::Never {
-            return bad("cf02_assist.ca19_kill_policy", "CF02-Q38: must be never");
-        }
+        // CF02-Q38 (the AI never defeats) is superseded by CF02-DUO-A01 (owner
+        // playtest feedback 2026-11-21): both policies are valid data for
+        // every set.
         // CA-21: cf02_assist is Q13's assistant (AI Carl passive); v0 is both.
         if self.cf02_assist.carl.ca21_active {
             return bad(
@@ -262,6 +303,31 @@ impl ProfileSet {
         }
         if carl.ca40_interrupt_range_px == 0 {
             return bad(&f("carl.ca40_interrupt_range_px"), "must be positive");
+        }
+        let duo = &self.cf02_duo;
+        if duo.cf02_duo_a05_missile_min_px >= duo.cf02_duo_a05_missile_max_px {
+            return bad(
+                &f("cf02_duo.cf02_duo_a05_missile_min_px"),
+                "must be below cf02_duo_a05_missile_max_px",
+            );
+        }
+        if duo.cf02_duo_a08_respect_finisher && duo.cf02_duo_a08_finisher_reach_px == 0 {
+            return bad(
+                &f("cf02_duo.cf02_duo_a08_finisher_reach_px"),
+                "must be positive while cf02_duo_a08_respect_finisher is on",
+            );
+        }
+        if duo.cf02_duo_a09_vertical_reach_px == 0 {
+            return bad(
+                &f("cf02_duo.cf02_duo_a09_vertical_reach_px"),
+                "must be positive",
+            );
+        }
+        if duo.cf02_duo_a06_pounce_min_px >= duo.cf02_duo_a06_pounce_max_px {
+            return bad(
+                &f("cf02_duo.cf02_duo_a06_pounce_min_px"),
+                "must be below cf02_duo_a06_pounce_max_px",
+            );
         }
         let d = &self.donut;
         if d.cf02_q14_swat_range_px == 0 {
@@ -336,13 +402,39 @@ mod tests {
     fn cf02_assist_carries_the_adopted_q13_to_q17_and_q39_values() {
         let f = file();
         let s = &f.cf02_assist;
-        assert_eq!(s.ca19_kill_policy, KillPolicy::Never);
+        // CF02-DUO-A01 (was never), A02 (was 60), A03 (was 25).
+        assert_eq!(s.ca19_kill_policy, KillPolicy::Factual);
         assert_eq!(
             (
                 s.ca10_decision_cadence_ticks,
                 s.cf02_q16_action_cadence_ticks
             ),
-            (6, 60)
+            (6, 20)
+        );
+        // CF02-DUO-A04..A06, A08, A09: AI Donut's offense.
+        assert!(s.cf02_duo.cf02_duo_a04_offense);
+        assert!(s.cf02_duo.cf02_duo_a08_respect_finisher);
+        assert_eq!(
+            (
+                s.cf02_duo.cf02_duo_a08_finisher_reach_px,
+                s.cf02_duo.cf02_duo_a08_finisher_reserve_hp,
+                s.cf02_duo.cf02_duo_a09_vertical_reach_px
+            ),
+            (40, 1, 24)
+        );
+        assert_eq!(
+            (
+                s.cf02_duo.cf02_duo_a05_missile_min_px,
+                s.cf02_duo.cf02_duo_a05_missile_max_px
+            ),
+            (64, 160)
+        );
+        assert_eq!(
+            (
+                s.cf02_duo.cf02_duo_a06_pounce_min_px,
+                s.cf02_duo.cf02_duo_a06_pounce_max_px
+            ),
+            (30, 80)
         );
         assert!(!s.ca26_ai_bailout);
         assert!(!s.carl.ca21_active, "Q13: AI Carl is passive");
@@ -367,7 +459,7 @@ mod tests {
                 s.cf02_q39_min_assist_starts,
                 s.cf02_q39_max_hit_share_percent
             ),
-            (3, 25)
+            (2, 50)
         );
     }
 
@@ -385,27 +477,31 @@ mod tests {
             (6, 60)
         );
         assert!(!v0.ca26_ai_bailout);
+        assert!(
+            !v0.cf02_duo.cf02_duo_a04_offense,
+            "v0 has no CF02-DUO offense"
+        );
         assert_eq!(v0.donut, f.cf02_assist.donut, "Donut's numbers are shared");
         assert_eq!(ProfileSetId::Cf02Assist.name(), "cf02_assist");
         assert_eq!(ProfileSetId::CompanionV0.name(), "companion_v0");
     }
 
     #[test]
-    fn kill_policy_is_required_cf02_assist_stays_never_and_factual_is_data() {
+    fn kill_policy_is_required_and_either_policy_is_data_for_every_set() {
         assert_eq!(KillPolicy::default(), KillPolicy::Never);
-        // companion_v0 may carry `factual` (tested as the candidate default in 01E).
-        let first = PROFILE_JSON.find("\"never\"").unwrap();
-        let second = first + 1 + PROFILE_JSON[first + 1..].find("\"never\"").unwrap();
-        let mut factual = PROFILE_JSON.to_string();
-        factual.replace_range(second..second + "\"never\"".len(), "\"factual\"");
+        // CF02-DUO-A01: cf02_assist is `factual`, companion_v0 stays `never`.
+        let f = file();
+        assert_eq!(f.cf02_assist.ca19_kill_policy, KillPolicy::Factual);
+        assert_eq!(f.companion_v0.ca19_kill_policy, KillPolicy::Never);
+        // Either set accepts either policy (CF02-Q38's never is superseded).
+        let never = PROFILE_JSON.replacen("\"factual\"", "\"never\"", 1);
+        let f = ProfileFile::from_json(&never).unwrap();
+        assert_eq!(f.cf02_assist.ca19_kill_policy, KillPolicy::Never);
+        let factual = PROFILE_JSON.replacen("\"never\"", "\"factual\"", 1);
         let f = ProfileFile::from_json(&factual).unwrap();
         assert_eq!(f.companion_v0.ca19_kill_policy, KillPolicy::Factual);
-        assert_eq!(f.cf02_assist.ca19_kill_policy, KillPolicy::Never);
-        // cf02_assist with `factual` is a field error (CF02-Q38).
-        let text = PROFILE_JSON.replacen("\"never\"", "\"factual\"", 1);
-        assert_eq!(field_of(&text), "cf02_assist.ca19_kill_policy");
         // A missing field is a parse error that names it.
-        let missing = PROFILE_JSON.replacen("\"ca19_kill_policy\": \"never\",", "", 1);
+        let missing = PROFILE_JSON.replacen("\"ca19_kill_policy\": \"factual\",", "", 1);
         match ProfileFile::from_json(&missing) {
             Err(ProfileError::Parse(msg)) => assert!(msg.contains("ca19_kill_policy"), "{msg}"),
             other => panic!("expected a parse error, got {other:?}"),

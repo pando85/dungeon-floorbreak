@@ -49,7 +49,7 @@ The effective seed and `restarts` give the attempt's temperament draw (Q58); the
 
 ## Stop or simplify signals (from section 5 of the design)
 
-Tick any that happened and say where: attack variants mostly whiff on the buffer; Down + Physical fires by accident; the companion lands more than a quarter of the hits; chain contacts repeat damage; a goblin reaction makes a room last over 60 s or the owner cannot say why a goblin fled; air moves account for more than half the kills; the bail-out makes tells irrelevant; the camera hides a threat; effects conceal the attacker; the room needs an unapproved ability.
+Tick any that happened and say where: attack variants mostly whiff on the buffer; Down + Physical fires by accident; the companion lands more than half of the hits (CF02-DUO-A03); chain contacts repeat damage; a goblin reaction makes a room last over 60 s or the owner cannot say why a goblin fled; air moves account for more than half the kills; the bail-out makes tells irrelevant; the camera hides a threat; effects conceal the attacker; the room needs an unapproved ability.
 
 ## What the next playtest must still NOT claim
 

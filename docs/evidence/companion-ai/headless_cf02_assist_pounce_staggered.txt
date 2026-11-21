@@ -1,11 +1,12 @@
+COMBAT_EVENT tick=1 kind=move_started move=pounce instance=1
 COMBAT_EVENT tick=5 kind=move_started move=jab instance=1
 COMBAT_EVENT tick=8 kind=hit move=jab instance=1 target=0 damage=1 health_left=3 hit_stop=3
-COMBAT_EVENT tick=13 kind=move_started move=pounce instance=1
-COMBAT_EVENT tick=33 kind=hit move=pounce instance=1 target=0 damage=1 health_left=2 hit_stop=4
-COMBAT_EVENT tick=50 kind=move_started move=jab instance=2
-COMBAT_EVENT tick=53 kind=hit move=jab instance=2 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=21 kind=hit move=pounce instance=1 target=0 damage=1 health_left=2 hit_stop=4
+COMBAT_EVENT tick=46 kind=move_started move=jab instance=2
+COMBAT_EVENT tick=49 kind=hit move=jab instance=2 target=0 damage=1 health_left=1 hit_stop=3
+COMBAT_EVENT tick=67 kind=move_started move=pounce instance=2
 COMBAT_EVENT tick=72 kind=move_started move=jab instance=3
 COMBAT_EVENT tick=75 kind=hit move=jab instance=3 target=0 damage=1 health_left=0 hit_stop=6
 COMBAT_EVENT tick=75 kind=enemy_defeated target=0
-COMBAT_STATE fixture=cf02_assist_pounce_staggered seed=0xc0a10003 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=509.333/0 hash=1399bb8514ac65e8
-PARTY_STATE fixture=cf02_assist_pounce_staggered mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=d536bc21232ffcde
+COMBAT_STATE fixture=cf02_assist_pounce_staggered seed=0xc0a10003 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=509.333/0 hash=1285c4e2d18f0530
+PARTY_STATE fixture=cf02_assist_pounce_staggered mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=75357a1ad7beda96

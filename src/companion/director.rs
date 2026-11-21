@@ -137,6 +137,10 @@ struct Candidate {
 const INTERRUPT_UTILITY: i32 = 2000;
 const POUNCE_UTILITY: i32 = 1500;
 const STRIKE_UTILITY: i32 = 1000;
+/// CF02-DUO offense: the missile beats the pounce on a standing goblin beats
+/// the swat; all stay below the Q15 pounce on a goblin that lies.
+const DUO_MISSILE_UTILITY: i32 = 1300;
+const DUO_POUNCE_UTILITY: i32 = 1200;
 
 impl Candidate {
     /// Higher utility first, then the lower stable id, then the lower action.
@@ -574,7 +578,7 @@ impl CompanionDirector {
         }
         let mut best = None;
         for target in &view.targets {
-            for action in [Action::Pounce, Action::Jab] {
+            for action in [Action::Pounce, Action::Jab, Action::Swat, Action::Missile] {
                 better(
                     &mut best,
                     self.support_candidate(view, set, me, target, action),
@@ -611,7 +615,12 @@ impl CompanionDirector {
         }
         let dx = target.x - me.x;
         let distance = dx.abs();
-        let kills = |damage: u8| set.ca19_kill_policy == KillPolicy::Never && target.hp <= damage;
+        // A hit the AI must not start: lethal under `never`, or one that would
+        // take the last hit on an enemy the human Carl is engaging (A08).
+        let kills = |damage: u8| {
+            (set.ca19_kill_policy == KillPolicy::Never && target.hp <= damage)
+                || self.steals_the_finish(view, set, target, damage)
+        };
         match (self.hero, action) {
             (HeroId::Donut, Action::Pounce) => {
                 let d = &set.donut;
@@ -623,7 +632,8 @@ impl CompanionDirector {
                     TargetState::Staggered { .. } => true,
                     _ => false,
                 };
-                // Q15: ahead of her, 30..80 px, and a pounce that cannot kill.
+                // Q15: ahead of her, 30..80 px, and a pounce that cannot kill
+                // (under `never`; CF02-DUO-A01 lets it finish).
                 (target.id.kind == EntityKind::Goblin // Q15: only on a goblin
                     && down
                     && target.hp > 0
@@ -639,6 +649,10 @@ impl CompanionDirector {
                     reach_min: f32::from(d.cf02_q15_pounce_min_px),
                     reach_max: f32::from(d.cf02_q15_pounce_max_px),
                 })
+                .or_else(|| self.duo_pounce_standing(view, set, me, target, &kills))
+            }
+            (HeroId::Donut, Action::Missile) if set.cf02_duo.cf02_duo_a04_offense => {
+                self.duo_missile(set, me, target, &kills)
             }
             (HeroId::Carl, Action::Jab | Action::Haymaker) => {
                 let c = &set.carl;
@@ -665,6 +679,119 @@ impl CompanionDirector {
             }
             _ => None,
         }
+    }
+
+    /// CF02-DUO-A04/A06: a pounce on a goblin that stands (not in a tell), the
+    /// AI Donut's own attack on an enemy nobody has put down yet.
+    fn duo_pounce_standing(
+        &self,
+        view: &CompanionView,
+        set: &ProfileSet,
+        me: &HeroView,
+        target: &TargetView,
+        kills: &dyn Fn(u8) -> bool,
+    ) -> Option<Candidate> {
+        let duo = &set.cf02_duo;
+        let dx = target.x - me.x;
+        let distance = dx.abs();
+        let telling = view.threats.iter().any(|t| t.id == target.id);
+        (duo.cf02_duo_a04_offense
+            && target.id.kind == EntityKind::Goblin
+            && target.state == TargetState::Standing
+            && !telling
+            && target.hp > 0
+            && !kills(POUNCE_DAMAGE)
+            && sign(dx) == me.facing
+            && (target.foot_y - me.foot_y).abs() <= f32::from(duo.cf02_duo_a09_vertical_reach_px)
+            && distance >= f32::from(duo.cf02_duo_a06_pounce_min_px)
+            && distance <= f32::from(duo.cf02_duo_a06_pounce_max_px))
+        .then_some(Candidate {
+            action: Action::Pounce,
+            target: target.id,
+            utility: DUO_POUNCE_UTILITY - px(distance),
+            dx,
+            reach_min: f32::from(duo.cf02_duo_a06_pounce_min_px),
+            reach_max: f32::from(duo.cf02_duo_a06_pounce_max_px),
+        })
+    }
+
+    /// CF02-DUO-A08 (spec section 8, `HumanFinishWindow`): a damaging AI hit
+    /// of `damage` on `target` would take the finish of an enemy the
+    /// human-controlled Carl is engaging. Carl engages a target within
+    /// `cf02_duo_a08_finisher_reach_px` of him while he has a move running
+    /// (the jab to haymaker window, whatever its phase) or while the target is
+    /// still down or staggered from his last hit (`carl_hit`); a Carl who just
+    /// stands near a goblin engages nothing, so she still protects an idle
+    /// player. The AI hit is refused while the target's HP is at most
+    /// `damage + cf02_duo_a08_finisher_reserve_hp`: Carl's pending hit is never
+    /// the one left over. Only the AI Donut under `factual`; it never changes
+    /// Carl's director or a set with the rule off.
+    fn steals_the_finish(
+        &self,
+        view: &CompanionView,
+        set: &ProfileSet,
+        target: &TargetView,
+        damage: u8,
+    ) -> bool {
+        let duo = &set.cf02_duo;
+        // Under `never` no AI hit kills (the `kills` guard), so the window is
+        // only needed under `factual` (spec section 8).
+        if self.hero != HeroId::Donut
+            || !duo.cf02_duo_a08_respect_finisher
+            || set.ca19_kill_policy != KillPolicy::Factual
+        {
+            return false;
+        }
+        let carl = &view.heroes[HeroId::Carl.index()];
+        if !matches!(carl.control, Control::Human(_)) || carl.defeated {
+            return false;
+        }
+        let combo = carl.active_move.is_some();
+        let from_his_hit = target.carl_hit
+            && matches!(
+                target.state,
+                TargetState::Staggered { .. } | TargetState::Lying { .. }
+            );
+        (combo || from_his_hit)
+            && (target.x - carl.x).abs() <= f32::from(duo.cf02_duo_a08_finisher_reach_px)
+            && target.hp <= damage.saturating_add(duo.cf02_duo_a08_finisher_reserve_hp)
+    }
+
+    /// CF02-DUO-A04/A05: a Magic Missile on a standing or staggered enemy in
+    /// the offensive band. Only after the unlock and only with the AI reserve
+    /// left after the cast (`ai_can_cast`): never a free cast.
+    fn duo_missile(
+        &self,
+        set: &ProfileSet,
+        me: &HeroView,
+        target: &TargetView,
+        kills: &dyn Fn(u8) -> bool,
+    ) -> Option<Candidate> {
+        let duo = &set.cf02_duo;
+        let mana = me.mana?;
+        let dx = target.x - me.x;
+        let distance = dx.abs();
+        let hittable = matches!(
+            target.state,
+            TargetState::Standing | TargetState::Staggered { .. }
+        );
+        (mana.unlocked
+            && mana.ai_can_cast
+            && hittable
+            && target.hp > 0
+            && !kills(MAGIC_MISSILE.damage)
+            && sign(dx) == me.facing
+            && (target.foot_y - me.foot_y).abs() <= f32::from(duo.cf02_duo_a09_vertical_reach_px)
+            && distance >= f32::from(duo.cf02_duo_a05_missile_min_px)
+            && distance <= f32::from(duo.cf02_duo_a05_missile_max_px))
+        .then_some(Candidate {
+            action: Action::Missile,
+            target: target.id,
+            utility: DUO_MISSILE_UTILITY - px(distance),
+            dx,
+            reach_min: f32::from(duo.cf02_duo_a05_missile_min_px),
+            reach_max: f32::from(duo.cf02_duo_a05_missile_max_px),
+        })
     }
 
     /// Mix the director's own state (to be folded into the scene hash by
@@ -724,6 +851,16 @@ mod tests {
         set_of(ProfileSetId::Cf02Assist)
     }
 
+    /// `cf02_assist` as it was before CF02-DUO (never kills, one action per 60
+    /// ticks, no offense): isolates the Q14..Q17 rules these tests pin.
+    fn restrained() -> ProfileSet {
+        let mut set = assist();
+        set.ca19_kill_policy = KillPolicy::Never;
+        set.cf02_q16_action_cadence_ticks = 60;
+        set.cf02_duo.cf02_duo_a04_offense = false;
+        set
+    }
+
     fn v0() -> ProfileSet {
         set_of(ProfileSetId::CompanionV0)
     }
@@ -752,6 +889,7 @@ mod tests {
             state,
             guarded: false,
             in_view: true,
+            carl_hit: false,
         }
     }
 
@@ -1038,7 +1176,7 @@ mod tests {
         };
         // Q38 hold (review F-2): a lying goblin that gets up before the pounce
         // lands (fewer ticks left than startup plus flight) is not pounced.
-        let min = assist().donut.cf02_q38_pounce_lying_min_ticks_left;
+        let min = restrained().donut.cf02_q38_pounce_lying_min_ticks_left;
         assert_eq!(
             min,
             crate::donut_moves::POUNCE_STARTUP + crate::donut_moves::POUNCE_FLIGHT_NOMINAL
@@ -1047,27 +1185,36 @@ mod tests {
             down_ticks_left,
             hold_used: false,
         };
-        assert!(pounce(110.0, 2, lying_for(min), 1, &assist()).0);
-        assert!(!pounce(110.0, 2, lying_for(min - 1), 1, &assist()).0);
-        let (pressed, dec) = pounce(110.0, 2, lying, 1, &assist());
+        assert!(pounce(110.0, 2, lying_for(min), 1, &restrained()).0);
+        assert!(!pounce(110.0, 2, lying_for(min - 1), 1, &restrained()).0);
+        let (pressed, dec) = pounce(110.0, 2, lying, 1, &restrained());
         assert!(pressed);
         assert_eq!(
             (dec.mode, dec.action),
             (Mode::SupportAttack, Some(Action::Pounce))
         );
-        assert!(pounce(110.0, 2, TargetState::Staggered { ticks: 5 }, 1, &assist()).0);
+        assert!(
+            pounce(
+                110.0,
+                2,
+                TargetState::Staggered { ticks: 5 },
+                1,
+                &restrained()
+            )
+            .0
+        );
         // Range 30..80 ahead of her (Q15).
-        assert!(pounce(90.0, 2, lying, 1, &assist()).0, "exactly 30 px");
-        assert!(pounce(140.0, 2, lying, 1, &assist()).0, "exactly 80 px");
-        assert!(!pounce(89.0, 2, lying, 1, &assist()).0);
-        assert!(!pounce(141.0, 2, lying, 1, &assist()).0);
+        assert!(pounce(90.0, 2, lying, 1, &restrained()).0, "exactly 30 px");
+        assert!(pounce(140.0, 2, lying, 1, &restrained()).0, "exactly 80 px");
+        assert!(!pounce(89.0, 2, lying, 1, &restrained()).0);
+        assert!(!pounce(141.0, 2, lying, 1, &restrained()).0);
         // Behind her, standing, airborne: no.
-        assert!(!pounce(110.0, 2, lying, -1, &assist()).0);
-        assert!(!pounce(110.0, 2, TargetState::Standing, 1, &assist()).0);
-        assert!(!pounce(110.0, 2, TargetState::Airborne, 1, &assist()).0);
+        assert!(!pounce(110.0, 2, lying, -1, &restrained()).0);
+        assert!(!pounce(110.0, 2, TargetState::Standing, 1, &restrained()).0);
+        assert!(!pounce(110.0, 2, TargetState::Airborne, 1, &restrained()).0);
         // Never lethal under `never`; unchanged under `factual`.
-        assert!(!pounce(110.0, 1, lying, 1, &assist()).0);
-        let mut factual = assist();
+        assert!(!pounce(110.0, 1, lying, 1, &restrained()).0);
+        let mut factual = restrained();
         factual.ca19_kill_policy = KillPolicy::Factual;
         assert!(pounce(110.0, 1, lying, 1, &factual).0);
     }
@@ -1078,10 +1225,187 @@ mod tests {
         let mut llama = target(0, 110.0, 2, TargetState::Staggered { ticks: 5 });
         llama.id.kind = EntityKind::Llama;
         v.targets = vec![llama];
-        let (raw, d) = donut().step_traced(&v, &assist());
+        let (raw, d) = donut().step_traced(&v, &restrained());
         assert!(!raw.physical && !d.pressed && d.mode == Mode::Follow);
         v.targets[0].id.kind = EntityKind::Goblin;
-        assert!(donut().step(&v, &assist()).physical);
+        assert!(donut().step(&v, &restrained()).physical);
+    }
+
+    // ------------------------------------------------------------ duo offense --
+
+    #[test]
+    fn duo_offense_is_data_and_off_in_v0_and_the_restrained_set() {
+        let mut v = donut_ai(60.0);
+        v.targets = vec![target(0, 80.0, 2, TargetState::Standing)];
+        for set in [v0(), restrained()] {
+            let (raw, d) = donut().step_traced(&v, &set);
+            assert!(only_follow(&raw) && d.mode == Mode::Follow, "{d:?}");
+        }
+        // CF02-DUO-A07: even the assistant has no offensive swat any more:
+        // a standing goblin in swat reach is no reason to press Primary (a 0
+        // damage swat would set the guard that blocks her own interrupt).
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(!raw.attack && d.action != Some(Action::Swat), "{d:?}");
+    }
+
+    #[test]
+    fn duo_donut_pounces_a_standing_goblin_and_may_finish_it() {
+        let mut v = donut_ai(60.0);
+        v.targets = vec![target(0, 110.0, 2, TargetState::Standing)];
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(raw.physical && d.action == Some(Action::Pounce), "{d:?}");
+        // Not a goblin that is telling, not one out of the band.
+        let mut telling = v.clone();
+        telling.threats = vec![threat(0, 110.0, 3, Some(HeroId::Donut))];
+        let (_, d) = donut().step_traced(&telling, &assist());
+        assert_ne!(d.action, Some(Action::Pounce), "{d:?}");
+        v.targets[0].x = 150.0;
+        let (_, d) = donut().step_traced(&v, &assist());
+        assert_ne!(d.action, Some(Action::Pounce), "{d:?}");
+        // Factual: a 1 HP goblin Carl is not engaging is pounced too (an idle
+        // Carl engages nothing).
+        let mut last = donut_ai(60.0);
+        last.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
+        assert!(donut().step_traced(&last, &assist()).1.action == Some(Action::Pounce));
+    }
+
+    /// CF02-DUO-A08 (spec C-11 under `factual`): the AI never takes a hit that
+    /// would leave Carl's pending hit as the finisher of the enemy he engages.
+    #[test]
+    fn c11_the_ai_never_steals_the_finish_of_the_enemy_carl_engages() {
+        let set = assist();
+        let wants = |v: &CompanionView| {
+            matches!(
+                donut().step_traced(v, &set).1.action,
+                Some(Action::Pounce | Action::Missile)
+            )
+        };
+        let jab_running = Some(ActiveMove {
+            id: MoveId::Jab,
+            phase: MovePhase::Recovery,
+            ticks_left: 4,
+            ai_started: false,
+        });
+        // Carl (x=100) has a jab running 10 px from a 1 or 2 HP goblin: no
+        // pounce, standing or staggered. With 3 HP she still attacks.
+        for (hp, state, expect) in [
+            (1, TargetState::Standing, false),
+            (2, TargetState::Standing, false),
+            (1, TargetState::Staggered { ticks: 8 }, false),
+            (3, TargetState::Standing, true),
+        ] {
+            let mut v = donut_ai(60.0);
+            v.heroes[0].active_move = jab_running;
+            v.targets = vec![target(0, 110.0, hp, state)];
+            assert_eq!(wants(&v), expect, "combo: hp {hp} {state:?}");
+            // The combo is over (or Carl is far): she may finish it.
+            v.heroes[0].active_move = None;
+            assert!(wants(&v), "idle Carl engages nothing: hp {hp} {state:?}");
+            v.heroes[0].active_move = jab_running;
+            v.heroes[0].x = 400.0;
+            assert!(wants(&v), "Carl out of reach: hp {hp} {state:?}");
+        }
+        // Still down or staggered from Carl's last hit, with Carl at it.
+        for state in [
+            TargetState::Staggered { ticks: 8 },
+            TargetState::Lying {
+                down_ticks_left: 40,
+                hold_used: false,
+            },
+        ] {
+            let mut v = donut_ai(60.0);
+            v.targets = vec![target(0, 110.0, 1, state)];
+            assert!(wants(&v), "nobody hit it yet: {state:?}");
+            v.targets[0].carl_hit = true;
+            assert!(!wants(&v), "Carl's own hit leaves it to him: {state:?}");
+        }
+        // A Standing goblin Carl hit long ago is not his window.
+        let mut old = donut_ai(60.0);
+        old.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
+        old.targets[0].carl_hit = true;
+        assert!(wants(&old));
+        // Missile: same rule, band 64..160 from Donut at 60.
+        let mut m = donut_ai(60.0);
+        m.heroes[0].x = 180.0;
+        m.heroes[0].active_move = jab_running;
+        unlock(&mut m, 8, true);
+        m.targets = vec![target(0, 190.0, 2, TargetState::Standing)];
+        assert!(!wants(&m));
+        m.targets[0].hp = 3;
+        assert!(wants(&m));
+        // The rule is data: off, she finishes (the set of the first cut).
+        let mut off = assist();
+        off.cf02_duo.cf02_duo_a08_respect_finisher = false;
+        let mut v = donut_ai(60.0);
+        v.heroes[0].active_move = jab_running;
+        v.targets = vec![target(0, 110.0, 1, TargetState::Standing)];
+        assert!(donut().step_traced(&v, &off).1.action == Some(Action::Pounce));
+    }
+
+    /// CF02-DUO-A09: no offensive pounce or missile at an enemy on another
+    /// level (feet height).
+    #[test]
+    fn duo_offense_needs_the_target_on_her_level() {
+        let set = assist();
+        let mut v = donut_ai(60.0);
+        v.heroes[0].x = 400.0;
+        v.targets = vec![target(0, 110.0, 3, TargetState::Standing)];
+        assert!(donut().step_traced(&v, &set).1.action == Some(Action::Pounce));
+        v.targets[0].foot_y = 80.0;
+        let (raw, d) = donut().step_traced(&v, &set);
+        assert!(!raw.attack && d.action != Some(Action::Pounce), "{d:?}");
+        let mut m = donut_ai(60.0);
+        m.heroes[0].x = 400.0;
+        unlock(&mut m, 8, true);
+        m.targets = vec![target(0, 190.0, 3, TargetState::Standing)];
+        assert!(donut().step_traced(&m, &set).1.action == Some(Action::Missile));
+        m.targets[0].foot_y = 80.0;
+        let (raw, d) = donut().step_traced(&m, &set);
+        assert!(!raw.attack && d.action != Some(Action::Missile), "{d:?}");
+    }
+
+    #[test]
+    fn duo_donut_casts_the_missile_only_within_the_mana_rules() {
+        let mut v = donut_ai(60.0);
+        v.targets = vec![target(0, 190.0, 2, TargetState::Standing)]; // 130 px
+        unlock(&mut v, 8, true);
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(raw.attack && d.action == Some(Action::Missile), "{d:?}");
+        // Below the AI reserve (`ai_can_cast` false): no cast, no free one.
+        unlock(&mut v, 2, false);
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(!raw.attack && d.action != Some(Action::Missile), "{d:?}");
+        // Out of the band (200 px): not engaged, no cast.
+        unlock(&mut v, 8, true);
+        v.targets[0].x = 260.0;
+        let (raw, d) = donut().step_traced(&v, &assist());
+        assert!(!raw.attack && d.mode == Mode::Follow, "{d:?}");
+        // Before the unlock the Primary press would be a swat: never offensive.
+        let mut locked = donut_ai(60.0);
+        locked.targets = vec![target(0, 80.0, 2, TargetState::Standing)];
+        let (_, d) = donut().step_traced(&locked, &assist());
+        assert_ne!(d.action, Some(Action::Swat));
+    }
+
+    #[test]
+    fn duo_offense_keeps_the_action_cadence() {
+        let mut dir = donut();
+        let set = assist();
+        assert_eq!(set.cf02_q16_action_cadence_ticks, 20);
+        let mut presses = Vec::new();
+        for tick in 100..180u64 {
+            let mut v = donut_ai(60.0);
+            v.tick = tick;
+            v.heroes[0].x = 400.0;
+            v.targets = vec![target(0, 110.0, 4, TargetState::Standing)];
+            if dir.step(&v, &set).physical {
+                presses.push(tick);
+            }
+        }
+        assert!(presses.len() >= 3, "{presses:?}");
+        for pair in presses.windows(2) {
+            assert!(pair[1] - pair[0] >= 20, "{presses:?}");
+        }
     }
 
     // ------------------------------------------------------------- carl rules --
@@ -1337,7 +1661,7 @@ mod tests {
     #[test]
     fn q16_at_most_one_ai_move_per_action_cadence() {
         let mut dir = donut();
-        let set = assist();
+        let set = restrained();
         let mut presses = Vec::new();
         for tick in 100..240u64 {
             let mut v = donut_ai(60.0);

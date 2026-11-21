@@ -1,13 +1,15 @@
 COMBAT_EVENT tick=106 kind=goblin_tell goblin=0
 COMBAT_EVENT tick=132 kind=goblin_swing goblin=0
+COMBAT_EVENT tick=196 kind=move_started move=pounce instance=1
 COMBAT_EVENT tick=197 kind=goblin_tell goblin=0
-COMBAT_EVENT tick=208 kind=move_started move=swat instance=1
 COMBAT_EVENT tick=209 kind=goblin_tell goblin=1
-COMBAT_EVENT tick=212 kind=hit move=swat instance=1 target=0 damage=0 health_left=2 hit_stop=2
-COMBAT_EVENT tick=212 kind=goblin_interrupted goblin=0
+COMBAT_EVENT tick=216 kind=hit move=pounce instance=1 target=0 damage=1 health_left=1 hit_stop=4
+COMBAT_EVENT tick=216 kind=goblin_interrupted goblin=0
 COMBAT_EVENT tick=235 kind=goblin_swing goblin=1
-COMBAT_EVENT tick=235 kind=hero_hurt source=1 health_left=3 hero=donut
-COMBAT_EVENT tick=242 kind=goblin_tell goblin=0
-COMBAT_EVENT tick=268 kind=goblin_swing goblin=0
-COMBAT_STATE fixture=cf02_arena_swap seed=0xcf02f104 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=455.867/2,e1=480.134/2,e2=580.801/2,e3=880.000/2,e4=940.000/2 hash=52773f8a46d40256 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=840.662/3
-PARTY_STATE fixture=cf02_arena_swap mode=solo controlled=Carl carl_hp=4 donut_hp=3 deaths=0 hash=440168609421e30c
+COMBAT_EVENT tick=245 kind=move_started move=pounce instance=2
+COMBAT_EVENT tick=266 kind=hit move=pounce instance=2 target=0 damage=1 health_left=0 hit_stop=7
+COMBAT_EVENT tick=266 kind=enemy_defeated target=0 instigator=1
+COMBAT_EVENT tick=266 kind=goblin_reaction goblin=2 reaction=hesitate nerve=38
+COMBAT_EVENT tick=297 kind=move_started move=pounce instance=3
+COMBAT_STATE fixture=cf02_arena_swap seed=0xcf02f104 tick=300 elapsed=300 hero_hp=4 deaths=0 enemies=e0=548.667/0,e1=481.168/2,e2=601.467/2,e3=880.000/2,e4=940.000/2 hash=e18972e127cf89e3 shore=0/Intact/Seated block_bottom=140.00 llamas=l0=840.662/3
+PARTY_STATE fixture=cf02_arena_swap mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=db7e6daea834a259
