@@ -135,7 +135,7 @@ flowchart LR
 
 - Use the approved 1990s-style blue/white fast-food restaurant identity (counter, booths, child play area, windows into stone), not a new visual direction.
 - **No required fight.** One surprising environmental/story gag and the contrast between absurd amenities and the dungeon can be enough.
-- Short recovery and checkpoint, optional readable resources, and a clean setup/exit toward Act II. No major skill unlock here unless explicitly added after separate review.
+- Short recovery and checkpoint, optional readable resources, and a clean setup/exit toward Act II. **Skill unlock (game-adaptation-reviewed exception):** I-08 grants Donut's passive **Light on Your Feet** (the Talisman of the Slate Butterfly), a story grant at the safe-room reward. This is the "separate review" the line previously required, recorded in [DONUT-PROG-01 DP-Q02](../03-tech/donut-prog-01-floor01-ability-progression.md) and its section 2.1; it covers this one passive only. No other major skill unlock belongs here without a further review.
 - Keep a replay-friendly skip for nonessential lines and zero mandatory shopping/minigames.
 
 **Check:** the break feels welcome *because* the preceding combat was strong; the player is motivated to step back into danger.
