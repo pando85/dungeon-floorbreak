@@ -272,6 +272,8 @@ pub fn cues_from_combat_event_cf02(event: &CombatEvent, tuning: &Cf02Tuning) -> 
             _ => cues_from_combat_event(event),
         },
         CombatEvent::BodyContact { .. } => vec![CueId::EnemyBodyCollision],
+        // ENG-G-Q13: the pot meeting a wall is a wall slam to the ear.
+        CombatEvent::RamBonk { .. } => vec![CueId::EnemyWallSlam],
         CombatEvent::WallSlam { .. } => vec![CueId::EnemyWallSlam],
         CombatEvent::Blast { .. } => vec![CueId::BlastDetonation],
         CombatEvent::LlamaTell { .. } => vec![CueId::Warning],
@@ -1028,6 +1030,7 @@ mod tests {
                 }],
                 shore_dx: None,
                 boss: None,
+                engineers: &[],
                 llamas: &[],
                 charges: &[],
                 script: &[],

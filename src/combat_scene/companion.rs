@@ -32,7 +32,7 @@ use crate::companion::view::{
     StableEntityId, TargetState, TargetView, ThreatView, ViewBounds,
 };
 use crate::corridor::SceneSim;
-use crate::feel::{IMPACT_END, LLAMA_TELL_TICKS, SMEAR_END, TELL_TICKS};
+use crate::feel::LLAMA_TELL_TICKS;
 use crate::follower::Threat;
 use crate::goblin::GoblinMode;
 use crate::input::RawInput;
@@ -703,9 +703,7 @@ impl CombatState {
             .iter()
             .enumerate()
             .filter(|(index, g)| {
-                g.mode == GoblinMode::Attack
-                    && g.attack_tick < IMPACT_END
-                    && (!active || self.target_of(*index) == id)
+                g.dodge_threat() && (!active || self.target_of(*index) == id)
             })
             .map(|(_, g)| Threat {
                 x: g.x,
@@ -781,17 +779,19 @@ impl CombatState {
     fn companion_threats(&self, view: ViewBounds) -> Vec<ThreatView> {
         let mut threats = Vec::new();
         for (index, g) in self.enemies.iter().enumerate() {
-            if g.mode != GoblinMode::Attack || g.attack_tick >= TELL_TICKS || !g.alive() {
+            // ENG-G-Q22: a goblin in its tell, or the Engineer in his rear and
+            // point (his `tell_len` is the attack tick on which his launch begins).
+            let Some((tell_tick, tell_len, impact_tick)) = g.tell_view() else {
                 continue;
-            }
+            };
             threats.push(ThreatView {
                 id: StableEntityId::goblin(index as u32),
                 x: g.x,
                 foot_y: g.y - ENEMY_HALF_HEIGHT,
                 facing: g.facing,
-                tell_tick: g.attack_tick,
-                tell_len: TELL_TICKS,
-                impact_tick: SMEAR_END,
+                tell_tick,
+                tell_len,
+                impact_tick,
                 aimed_at: Some(self.target_of(index)),
                 guarded: g.guard.is_some(),
                 in_view: view.in_view(g.x),

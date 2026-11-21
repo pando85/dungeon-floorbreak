@@ -147,6 +147,8 @@ pub fn morale_fixture(fixture: &str) -> bool {
 pub fn shore_hits(fixture: &str) -> Option<u8> {
     match fixture {
         "cf02_goblin_self_own" => Some(2),
+        // ENG-G-Q17: a shore at `damaged_1` that the Engineer's ram trips.
+        "eng_shore_trip" => Some(1),
         _ => None,
     }
 }
@@ -1433,6 +1435,365 @@ pub const CF02_PERCH_DIVE: PartyFixture = PartyFixture {
     donut: DonutSetup::NONE,
 };
 
+// ----------------------------------------------------- ENEMY-GAMEPLAY-ENGINEER --
+//
+// The Goblin Engineer fixtures (`docs/01-design/enemy-gameplay-engineer.md`,
+// section 14), all headless on the arena kit under `cf02_rules`. Unless stated:
+// Carl only (the party is not live), no other enemies, the Engineer at E = 200 on
+// clean brawl-lane floor, awake and facing his target. **Attack tick 0** is the
+// scene tick of his first logged `GoblinTell` (T = 1 for every fixture whose hero
+// starts inside his trigger), so an input on attack tick `k` is a hold starting on
+// scene tick `T + k`. The names start with `eng_` (the registry `ENGINEER_FIXTURES`
+// is listed and replayed like `CF02_FIXTURES`).
+
+/// The Goblin Engineer spawn (a chaser).
+const fn engineer(x: i32) -> EnemySpawn {
+    chase(x)
+}
+
+/// A room fixture with engineers: Carl at `carl_x` on the arena floor, the shore at
+/// its column.
+const fn eng_base(
+    name: &'static str,
+    summary: &'static str,
+    seed: u64,
+    carl_x: i32,
+    goblins: &'static [EnemySpawn],
+    engineers: &'static [EnemySpawn],
+    ticks: u64,
+) -> Fixture {
+    Fixture {
+        carl_x,
+        enemies: goblins,
+        engineers,
+        shore_dx: Some(arena::SHORE_STRIKE_X - carl_x),
+        llamas: &[],
+        ..arena::fixture(name, summary, seed, ticks)
+    }
+}
+
+/// Where Donut starts in an `eng_*` fixture (her default is a follow distance
+/// behind Carl). `None`: the default.
+pub fn donut_start_x(fixture: &str) -> Option<f32> {
+    match fixture {
+        "eng_point_interrupt_swat" => Some(280.0),
+        "eng_2p_targets_nearest" => Some(260.0),
+        "eng_2p_partner_in_lane" => Some(310.0),
+        _ => None,
+    }
+}
+
+/// The Carl-only `eng_*` fixtures: Donut is not a live hero there.
+pub fn carl_only(fixture: &str) -> bool {
+    fixture.starts_with("eng_") && fixture != "eng_solo_assist"
+}
+
+const E: i32 = 200;
+
+/// One `eng_*` fixture: a base room and its party fixture.
+macro_rules! eng_fixture {
+    (
+        $base:ident, $fixture:ident, $name:expr, $summary:expr, $seed:expr,
+        carl: $carl:expr, goblins: $goblins:expr, engineers: $engineers:expr,
+        ticks: $ticks:expr, two_player: $two:expr, script: $script:expr $(,)?
+    ) => {
+        const $base: Fixture =
+            eng_base($name, $summary, $seed, $carl, $goblins, $engineers, $ticks);
+        pub const $fixture: PartyFixture = PartyFixture {
+            base: &$base,
+            two_player: $two,
+            tuning: if $two { ARENA_COOP } else { PROVISIONAL_TUNING },
+            script: $script,
+            pilot: Pilot::None,
+            donut: DonutSetup::NONE,
+        };
+    };
+}
+
+eng_fixture!(
+    ENG_RAM_HITS_BASE, ENG_RAM_HITS_IDLE_CARL, "eng_ram_hits_idle_carl",
+    "ENG: Carl stands still 72 px from the Engineer: the point, the committed launch, and the ram hits him on active tick 10 (attack tick 44)",
+    0xE46_0001, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 300, two_player: false, script: &[],
+);
+
+eng_fixture!(
+    ENG_JUMP_OVER_BASE, ENG_JUMP_OVER_RAM, "eng_jump_over_ram",
+    "ENG: Carl jumps on attack tick 20 and clears the ram; he lands behind the whiffing Engineer and jabs him in the recover",
+    0xE46_0002, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 200, two_player: false,
+    script: &[jump(21, 22, 0), primary_dir(71, 72, 1.0)],
+);
+
+eng_fixture!(
+    ENG_WINDOW_7_BASE, ENG_JUMP_WINDOW_EDGES_7, "eng_jump_window_edges_7",
+    "ENG: a jump on attack tick 7 lands in the ram (a hit on active tick 17)",
+    0xE46_0003, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: false, script: &[jump(8, 9, 0)],
+);
+eng_fixture!(
+    ENG_WINDOW_8_BASE, ENG_JUMP_WINDOW_EDGES_8, "eng_jump_window_edges_8",
+    "ENG: a jump on attack tick 8 clears the ram",
+    0xE46_0004, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: false, script: &[jump(9, 10, 0)],
+);
+eng_fixture!(
+    ENG_WINDOW_39_BASE, ENG_JUMP_WINDOW_EDGES_39, "eng_jump_window_edges_39",
+    "ENG: a jump on attack tick 39 clears the ram",
+    0xE46_0005, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: false, script: &[jump(40, 41, 0)],
+);
+eng_fixture!(
+    ENG_WINDOW_40_BASE, ENG_JUMP_WINDOW_EDGES_40, "eng_jump_window_edges_40",
+    "ENG: a jump on attack tick 40 is too late (a hit on active tick 10)",
+    0xE46_0006, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: false, script: &[jump(41, 42, 0)],
+);
+
+eng_fixture!(
+    ENG_BAILOUT_NO_BASE, ENG_BAILOUT_DOES_NOT_CLEAR, "eng_bailout_does_not_clear",
+    "ENG: Carl 40 px from the Engineer whiffs a jab and presses jump (the bail-out hop, apex 30 px): the hop never clears the ram and he is hit",
+    0xE46_0007, carl: 240, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: false,
+    script: &[run(1, 2, 0, -1.0), primary(21, 22, 0), jump(25, 26, 0)],
+);
+
+eng_fixture!(
+    ENG_BAILOUT_YES_BASE, ENG_BAILOUT_ESCAPES_AT_RANGE, "eng_bailout_escapes_at_range",
+    "ENG: the same bail-out at the standoff distance escapes by distance only (no hit)",
+    0xE46_0008, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: false,
+    script: &[run(1, 2, 0, -1.0), primary(21, 22, 0), jump(25, 26, 0)],
+);
+
+eng_fixture!(
+    ENG_RUN_AWAY_BASE, ENG_RUN_OUT_OF_RANGE, "eng_run_out_of_range",
+    "ENG: Carl runs away from attack tick 8: the ram whiffs",
+    0xE46_0009, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: false, script: &[run(9, 200, 0, 1.0)],
+);
+
+eng_fixture!(
+    ENG_SNAP_BASE, ENG_SNAP_RUSH, "eng_snap_rush",
+    "ENG: Carl rushes the pointing Engineer from attack tick 8: the snap fires on attack tick 15 and the ram hits him on active tick 1",
+    0xE46_000A, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: false, script: &[run(9, 200, 0, -1.0)],
+);
+
+eng_fixture!(
+    ENG_INTERRUPT_JAB_BASE, ENG_POINT_INTERRUPT_JAB, "eng_point_interrupt_jab",
+    "ENG: Carl, already inside the snap line, steps in and jabs the Engineer during the point: stagger, no launch",
+    0xE46_000B, carl: 240, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: false, script: &[run(9, 12, 0, -1.0), primary(12, 13, 0)],
+);
+
+eng_fixture!(
+    ENG_INTERRUPT_SWAT_BASE, ENG_POINT_INTERRUPT_SWAT, "eng_point_interrupt_swat",
+    "ENG 2P: Carl is the target, Donut runs in and swats the point (no snap: she is not the target) and sets the light guard",
+    0xE46_000C, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: true, script: &[run(5, 21, 1, -1.0), primary(21, 22, 1)],
+);
+
+eng_fixture!(
+    ENG_PARAPET_BONK_BASE, ENG_PARAPET_BONK, "eng_parapet_bonk",
+    "ENG: Carl stands flush with the parapet's right face and jumps the ram: the pot meets the face (RamBonk on active tick 16)",
+    0xE46_000D, carl: 780, goblins: &[], engineers: &[engineer(852)],
+    ticks: 160, two_player: false, script: &[jump(21, 22, 0)],
+);
+
+eng_fixture!(
+    ENG_PARAPET_GAP_BASE, ENG_PARAPET_GAP_WHIFF, "eng_parapet_gap_whiff",
+    "ENG: a 24 px gap between Carl and the parapet is too wide: the ram whiffs at pivot 796",
+    0xE46_000E, carl: 804, goblins: &[], engineers: &[engineer(876)],
+    ticks: 120, two_player: false, script: &[jump(21, 22, 0)],
+);
+
+eng_fixture!(
+    ENG_END_WALL_BASE, ENG_END_WALL_BONK_KILL, "eng_end_wall_bonk_kill",
+    "ENG: Carl flush with the left end wall jumps three rams in a row: three bonks defeat the Engineer in place, credited to Carl",
+    0xE46_000F, carl: 28, goblins: &[], engineers: &[engineer(100)],
+    ticks: 600, two_player: false,
+    script: &[jump(21, 22, 0), jump(193, 194, 0), jump(350, 351, 0)],
+);
+
+eng_fixture!(
+    ENG_LANE_GOBLIN_BASE, ENG_LANE_BLOCKED_GOBLIN, "eng_lane_blocked_goblin",
+    "ENG: a goblin stands in the lane between the Engineer and Carl: no tell, no token",
+    0xE46_0010, carl: 272, goblins: &[dummy(236)], engineers: &[engineer(E)],
+    ticks: 240, two_player: false, script: &[],
+);
+
+eng_fixture!(
+    ENG_LANE_PARAPET_BASE, ENG_LANE_BLOCKED_PARAPET, "eng_lane_blocked_parapet",
+    "ENG: the parapet lies in the lane: no tell",
+    0xE46_0011, carl: 724, goblins: &[], engineers: &[engineer(796)],
+    ticks: 240, two_player: false, script: &[],
+);
+
+eng_fixture!(
+    ENG_PERCH_NOT_BASE, ENG_PERCH_NOT_TARGETED, "eng_perch_not_targeted",
+    "ENG: Carl jumps onto the right perch: the Engineer wakes, walks to his standoff outside the slab and holds without a tell",
+    0xE46_0012, carl: 820, goblins: &[], engineers: &[engineer(1100)],
+    ticks: 360, two_player: false, script: &[jump(1, 2, 0), run(1, 45, 0, 1.0)],
+);
+
+eng_fixture!(
+    ENG_PERCH_DIVE_BASE, ENG_PERCH_DIVE, "eng_perch_dive",
+    "ENG: from the perch Carl jumps off toward the waiting Engineer and dives onto him (Down + Physical): he is knocked down",
+    0xE46_0013, carl: 820, goblins: &[], engineers: &[engineer(1100)],
+    ticks: 400, two_player: false,
+    script: &[
+        jump(1, 2, 0),
+        run(1, 45, 0, 1.0),
+        run(60, 68, 0, 1.0),
+        jump(68, 69, 0),
+        run(68, 84, 0, 1.0),
+        stomp(90, 130, 0),
+    ],
+);
+
+eng_fixture!(
+    ENG_BOWLS_BASE, ENG_BOWLS_GOBLIN, "eng_bowls_goblin",
+    "ENG: the ram passes under the jumping Carl and bowls the goblin standing beyond him (BodyContact with the ram stamp)",
+    0xE46_0014, carl: 272, goblins: &[dummy(290)], engineers: &[engineer(E)],
+    ticks: 200, two_player: false, script: &[jump(21, 22, 0)],
+);
+
+eng_fixture!(
+    ENG_SHORE_TRIP_BASE, ENG_SHORE_TRIP, "eng_shore_trip",
+    "ENG: the ram box sweeps the strike column of a shore at damaged_1: one ShoreTripped for the ram",
+    0xE46_0015, carl: 402, goblins: &[], engineers: &[engineer(330)],
+    ticks: 150, two_player: false, script: &[jump(21, 22, 0)],
+);
+
+eng_fixture!(
+    ENG_SHORE_INTACT_BASE, ENG_SHORE_INTACT, "eng_shore_intact",
+    "ENG: the same ram over an intact shore trips nothing",
+    0xE46_0016, carl: 402, goblins: &[], engineers: &[engineer(330)],
+    ticks: 150, two_player: false, script: &[jump(21, 22, 0)],
+);
+
+eng_fixture!(
+    ENG_DEFEAT_CREW_BASE, ENG_DEFEAT_SCARES_CREW, "eng_defeat_scares_crew",
+    "ENG: Carl kills the Engineer with jab, haymaker and jab: his defeat is a spectacular -35 for the goblin that witnesses it",
+    0xE46_0017, carl: 230, goblins: &[chase(300)], engineers: &[engineer(E)],
+    ticks: 120, two_player: false,
+    script: &[
+        primary_dir(3, 4, -1.0),
+        primary(9, 10, 0),
+        run(41, 44, 0, -1.0),
+        primary_dir(44, 45, -1.0),
+    ],
+);
+
+eng_fixture!(
+    ENG_KICK_LAUNCH_BASE, ENG_KICK_LAUNCH_CONTACT, "eng_kick_launch_contact",
+    "ENG: Carl kicks the pointing Engineer into the goblin behind him: a CF02-B contact knocks the goblin down",
+    0xE46_0018, carl: 228, goblins: &[dummy(160)], engineers: &[engineer(E)],
+    ticks: 160, two_player: false, script: &[physical_dir(1, 2, -1.0)],
+);
+
+eng_fixture!(
+    ENG_2P_NEAREST_BASE, ENG_2P_TARGETS_NEAREST, "eng_2p_targets_nearest",
+    "ENG 2P: Donut is nearer: he points at her and the ram hits her on active tick 7; Carl is untouched",
+    0xE46_0019, carl: 300, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: true, script: &[],
+);
+
+eng_fixture!(
+    ENG_2P_LANE_BASE, ENG_2P_PARTNER_IN_LANE, "eng_2p_partner_in_lane",
+    "ENG 2P: Carl is the target but Donut walks into the lane: the first hero the box overlaps is hit (Donut)",
+    0xE46_001A, carl: 272, goblins: &[], engineers: &[engineer(E)],
+    ticks: 160, two_player: true, script: &[run(11, 30, 1, -1.0)],
+);
+
+/// The solo assistant fixtures on the Engineer room: the CF02 assistant drives
+/// Donut, Carl follows the `cf02_arena` direct route.
+const ARENA_ENG_BASE: Fixture = arena::fixture_eng(
+    "cf02_arena_eng",
+    "ENG: solo, the Engineer room by the direct plan; the CF02 assistant drives Donut (AI swat cancels on his points and AI Donut ram hits are logged)",
+    0xCF02_F200,
+    1800,
+);
+
+/// ENG-G-Q25: the live room with the Engineer, replayed by the direct route.
+pub const CF02_ARENA_ENG: PartyFixture = PartyFixture {
+    base: &ARENA_ENG_BASE,
+    two_player: false,
+    tuning: ARENA_SOLO,
+    script: &[],
+    pilot: Pilot::ArenaDirect,
+    donut: DonutSetup::NONE,
+};
+
+const ARENA_ENG_CP2_BASE: Fixture = Fixture {
+    name: "cf02_arena_eng_cp2",
+    summary: "ENG: the Engineer room from the second checkpoint, by the direct plan",
+    seed: 0xCF02_F201,
+    carl_x: arena::CHECKPOINTS[1],
+    shore_dx: Some(arena::SHORE_STRIKE_X - arena::CHECKPOINTS[1]),
+    ..arena::fixture_eng("", "", 0, 1800)
+};
+
+pub const CF02_ARENA_ENG_CP2: PartyFixture = PartyFixture {
+    base: &ARENA_ENG_CP2_BASE,
+    two_player: false,
+    tuning: ARENA_SOLO,
+    script: &[],
+    pilot: Pilot::ArenaDirect,
+    donut: DonutSetup::NONE,
+};
+
+const SOLO_ASSIST_BASE: Fixture = arena::fixture_eng(
+    "eng_solo_assist",
+    "ENG: cf02_arena_eng solo with the CF02 assistant: no softlock; AI swat cancels on his points and AI Donut ram hits are logged",
+    0xE46_001B,
+    1800,
+);
+
+pub const ENG_SOLO_ASSIST: PartyFixture = PartyFixture {
+    base: &SOLO_ASSIST_BASE,
+    two_player: false,
+    tuning: ARENA_SOLO,
+    script: &[],
+    pilot: Pilot::ArenaDirect,
+    donut: DonutSetup::NONE,
+};
+
+/// The Engineer fixtures: `eng_*` and the two live variants. Replayed by the CI
+/// loop (`--list-fixtures eng_`, plus the `cf02_arena_eng` names in the CF02 list).
+pub const ENGINEER_FIXTURES: [&PartyFixture; 29] = [
+    &ENG_RAM_HITS_IDLE_CARL,
+    &ENG_JUMP_OVER_RAM,
+    &ENG_JUMP_WINDOW_EDGES_7,
+    &ENG_JUMP_WINDOW_EDGES_8,
+    &ENG_JUMP_WINDOW_EDGES_39,
+    &ENG_JUMP_WINDOW_EDGES_40,
+    &ENG_BAILOUT_DOES_NOT_CLEAR,
+    &ENG_BAILOUT_ESCAPES_AT_RANGE,
+    &ENG_RUN_OUT_OF_RANGE,
+    &ENG_SNAP_RUSH,
+    &ENG_POINT_INTERRUPT_JAB,
+    &ENG_POINT_INTERRUPT_SWAT,
+    &ENG_PARAPET_BONK,
+    &ENG_PARAPET_GAP_WHIFF,
+    &ENG_END_WALL_BONK_KILL,
+    &ENG_LANE_BLOCKED_GOBLIN,
+    &ENG_LANE_BLOCKED_PARAPET,
+    &ENG_PERCH_NOT_TARGETED,
+    &ENG_PERCH_DIVE,
+    &ENG_BOWLS_GOBLIN,
+    &ENG_SHORE_TRIP,
+    &ENG_SHORE_INTACT,
+    &ENG_DEFEAT_SCARES_CREW,
+    &ENG_KICK_LAUNCH_CONTACT,
+    &ENG_2P_TARGETS_NEAREST,
+    &ENG_2P_PARTNER_IN_LANE,
+    &ENG_SOLO_ASSIST,
+    &CF02_ARENA_ENG,
+    &CF02_ARENA_ENG_CP2,
+];
+
 pub const CF02_FIXTURES: [&PartyFixture; 61] = [
     &CF02_KICK_THEN_STOMP,
     &CF02_STOMP_WHIFF,
@@ -1500,7 +1861,9 @@ pub const CF02_FIXTURES: [&PartyFixture; 61] = [
 /// Looks a party fixture up in `PartyFixture::all()` and then in the CF02
 /// registry (which is not chained into `all()`).
 pub fn find_party_fixture(name: &str) -> Option<&'static PartyFixture> {
-    PartyFixture::by_name(name).or_else(|| CF02_FIXTURES.iter().copied().find(|f| f.name() == name))
+    PartyFixture::by_name(name)
+        .or_else(|| CF02_FIXTURES.iter().copied().find(|f| f.name() == name))
+        .or_else(|| ENGINEER_FIXTURES.iter().copied().find(|f| f.name() == name))
 }
 
 /// Every fixture name starting with `prefix`, over every registry: the legacy
@@ -1514,6 +1877,7 @@ pub fn list_fixtures(prefix: &str) -> Vec<&'static str> {
         .map(|f| f.name)
         .chain(PartyFixture::all().map(PartyFixture::name))
         .chain(CF02_FIXTURES.iter().map(|f| f.name()))
+        .chain(ENGINEER_FIXTURES.iter().map(|f| f.name()))
         .chain(COMPANION_FIXTURES.iter().map(|f| f.name()));
     for name in all {
         if name.starts_with(prefix) && !names.contains(&name) {
@@ -1522,6 +1886,9 @@ pub fn list_fixtures(prefix: &str) -> Vec<&'static str> {
     }
     names
 }
+
+#[cfg(test)]
+mod engineer_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1548,6 +1915,7 @@ mod tests {
             .filter(|n| {
                 !(n.starts_with("cf02_llama_")
                     || n.starts_with("cf02_assist_")
+                    || n.starts_with("cf02_arena_eng")
                     || *n == "cf02_donut_solo_llama"
                     || *n == "cf02_donut_bailout"
                     || *n == "cf02_swap_eased_pan")
@@ -1854,6 +2222,52 @@ mod tests {
                 seen.join(", ")
             );
             sim.combat.restart(&mut sim.scene);
+        }
+    }
+
+    /// Prints one row per tick of an Engineer fixture (`ENG_FIX=name ENG_FROM=1
+    /// ENG_TO=200 cargo test --locked --lib eng_trace -- --ignored --nocapture`).
+    #[test]
+    #[ignore = "a tuning aid: prints a per-tick trace"]
+    fn eng_trace() {
+        let name = std::env::var("ENG_FIX").unwrap_or_else(|_| "eng_snap_rush".into());
+        let from: u64 = std::env::var("ENG_FROM")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(1);
+        let to: u64 = std::env::var("ENG_TO")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(200);
+        let fixture = find_party_fixture(&name).unwrap();
+        let mut sim =
+            crate::party_scene::PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        for t in 1..=to {
+            sim.step_scripted();
+            if t >= from {
+                let g = &sim.combat.enemies;
+                let e = g.iter().find(|g| g.is_engineer()).unwrap();
+                println!(
+                    "t={t} carl=({:.1},{:.1}) vy={:.0} donut=({:.1},{:.1}) eng=({:.1}) {:?}/{:?} a={} hp={} hs={} mv={}",
+                    sim.scene.world.hero.x,
+                    sim.scene.world.hero.y - 26.0,
+                    sim.scene.world.hero.vy,
+                    sim.scene.world.donut_body.x,
+                    sim.scene.world.donut_body.y - 26.0,
+                    e.x,
+                    e.mode,
+                    e.engineer_phase(),
+                    e.attack_tick,
+                    e.health,
+                    e.hit_stop,
+                    sim.scene
+                        .world
+                        .hero
+                        .melee
+                        .current()
+                        .map_or("-".into(), |m| format!("{}:{}", m.spec.id.name(), m.tick)),
+                );
+            }
         }
     }
 
@@ -4362,7 +4776,7 @@ mod tests {
             assert!(counts.iter().all(|c| *c <= 1), "{name}: {counts:?}");
             table.push((name, counts));
         }
-        assert_eq!(table.len(), 14, "{table:?}");
+        assert_eq!(table.len(), 16, "{table:?}");
         for quiet in [
             "cf02_goblin_self_own",
             "cf02_block_hurts_carl",

@@ -266,6 +266,10 @@ case "$mode" in
       exit 1
     fi
     cf02_all="$(list_names cf02_)"
+    # ENEMY-GAMEPLAY-ENGINEER: the `eng_*` Engineer fixtures replay like the CF02
+    # ones (their committed replays share the CF02 folder; `cf02_arena_eng*` are
+    # already in the `cf02_` listing).
+    cf02_all+=$'\n'"$(list_names eng_)"
     companion_all="$(list_names companion_)"
     assist_all="$(list_names cf02_assist_)"
     cf02_names=()

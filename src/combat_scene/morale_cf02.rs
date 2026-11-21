@@ -124,7 +124,17 @@ impl CombatState {
         self.morale = Some(MoraleRuntime {
             seed,
             morale: draws.iter().map(|d| Morale::spawn(t, d)).collect(),
-            delay_left: draws.iter().map(|d| d.approach_delay).collect(),
+            delay_left: draws
+                .iter()
+                .enumerate()
+                .map(|(i, d)| {
+                    if self.enemies[i].is_engineer() {
+                        0
+                    } else {
+                        d.approach_delay
+                    }
+                })
+                .collect(),
             back_dir: vec![0; draws.len()],
             blocked: vec![false; draws.len()],
             knocked: vec![false; draws.len()],
@@ -141,9 +151,10 @@ impl CombatState {
         };
         let draw = morale::draw_goblin(t, self.morale_seed(), self.restarts, index as u32);
         let goblin_health = self.enemies[index].health;
+        let is_engineer = self.enemies[index].is_engineer();
         if let Some(m) = self.morale.as_mut() {
             m.morale[index] = Morale::spawn(t, &draw);
-            m.delay_left[index] = draw.approach_delay;
+            m.delay_left[index] = if is_engineer { 0 } else { draw.approach_delay };
             m.back_dir[index] = 0;
             m.blocked[index] = false;
             m.knocked[index] = false;
@@ -168,7 +179,7 @@ impl CombatState {
         let (Some(t), Some(m)) = (self.cf02, self.morale.as_ref()) else {
             return MindDrive::LEGACY;
         };
-        if self.enemies[index].ai == EnemyAi::Passive {
+        if self.enemies[index].ai == EnemyAi::Passive || self.enemies[index].is_engineer() {
             return MindDrive::LEGACY;
         }
         let morale = &m.morale[index];
@@ -204,7 +215,9 @@ impl CombatState {
             .enemies
             .iter()
             .enumerate()
-            .filter(|(i, g)| g.wants_attack() && self.reaction_takes_token(*i))
+            .filter(|(i, g)| {
+                g.wants_attack() && self.reaction_takes_token(*i) && self.engineer_token_ok(*i)
+            })
             .map(|(index, g)| ((g.x - target_x[index]).abs(), index))
             .collect();
         ranked.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
@@ -229,7 +242,9 @@ impl CombatState {
             let anchor = target_x[holder];
             let candidates: Vec<TokenCandidate> = order
                 .iter()
-                .filter(|i| !approved.contains(i) && **i != holder)
+                .filter(|i| {
+                    !approved.contains(i) && **i != holder && !self.enemies[**i].is_engineer()
+                })
                 .map(|&i| TokenCandidate {
                     index: i,
                     side: side(self.enemies[i].x, anchor),
@@ -262,6 +277,7 @@ impl CombatState {
     fn reaction_takes_token(&self, index: usize) -> bool {
         self.morale.as_ref().is_none_or(|m| {
             self.enemies[index].ai == EnemyAi::Passive
+                || self.enemies[index].is_engineer()
                 || (m.morale[index].reaction().can_take_token() && m.delay_left[index] == 0)
         })
     }
@@ -306,12 +322,35 @@ impl CombatState {
                     cause,
                     force,
                     ..
-                } if (target as usize) < n => events.push(MoraleEvent::GoblinDefeated {
-                    goblin: target as usize,
-                    pos: pos_of(self, target as usize),
-                    force: force_of(force),
-                    cause: spectacular_cause(cause),
-                }),
+                } if (target as usize) < n => {
+                    let goblin = &self.enemies[target as usize];
+                    // ENG-G-Q19: the crew sees the foreman fall, whatever the cause.
+                    if goblin.is_engineer()
+                        && goblin
+                            .eng_tuning
+                            .is_some_and(|e| e.on(e.engq19_defeat_spectacular))
+                    {
+                        events.push(MoraleEvent::EngineerDefeated {
+                            goblin: target as usize,
+                            pos: pos_of(self, target as usize),
+                        });
+                    } else {
+                        events.push(MoraleEvent::GoblinDefeated {
+                            goblin: target as usize,
+                            pos: pos_of(self, target as usize),
+                            force: force_of(force),
+                            cause: spectacular_cause(cause),
+                        });
+                    }
+                }
+                // ENG-G-Q19: a ram bonk counts as a wall slam without a defeat.
+                CombatEvent::RamBonk { goblin, .. }
+                    if (goblin as usize) < n && !defeated_now(goblin) =>
+                {
+                    events.push(MoraleEvent::Spectacle {
+                        pos: pos_of(self, goblin as usize),
+                    });
+                }
                 CombatEvent::GoblinContact { target, .. }
                 | CombatEvent::BodyContact { target, .. }
                     if (target as usize) < n =>
@@ -406,7 +445,13 @@ impl CombatState {
 
         for i in 0..n {
             let goblin = &self.enemies[i];
-            if !goblin.alive() || goblin.ai == EnemyAi::Passive {
+            // ENG-G-Q18: the Engineer has no nerve (`engq18_morale` is off in v1).
+            if !goblin.alive()
+                || goblin.ai == EnemyAi::Passive
+                || goblin
+                    .eng_tuning
+                    .is_some_and(|e| !e.on(e.engq18_morale) && goblin.is_engineer())
+            {
                 continue;
             }
             let at = pos_of(self, i);

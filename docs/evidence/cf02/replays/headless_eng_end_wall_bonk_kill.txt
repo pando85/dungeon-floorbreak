@@ -1,0 +1,9 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=51 kind=ram_bonk goblin=0 instigator=0
+COMBAT_EVENT tick=173 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=208 kind=ram_bonk goblin=0 instigator=0
+COMBAT_EVENT tick=330 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=365 kind=ram_bonk goblin=0 instigator=0
+COMBAT_EVENT tick=365 kind=enemy_defeated target=0 force=heavy
+COMBAT_STATE fixture=eng_end_wall_bonk_kill seed=0xe46000f tick=600 elapsed=600 hero_hp=4 deaths=0 enemies=e0=40.000/0 hash=6103d8bef3ddf304 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_end_wall_bonk_kill mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=1217716574c175ca

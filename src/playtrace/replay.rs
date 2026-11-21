@@ -246,10 +246,14 @@ pub(super) fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, 
             let boss = reset.source == "boss";
             let (kit, fixture) = if reset.cf02_rules && (reset.demo || reset.source == "demo") {
                 let kit = crate::cf02::arena::load_arena(root).map_err(unsupported)?;
-                (
-                    kit,
-                    crate::cf02::arena::fixture_for_beat(reset.demo_beat as usize),
-                )
+                // ENEMY-GAMEPLAY-ENGINEER: a session of the Engineer room names its
+                // fixture; every earlier session names `cf02_arena*`.
+                let fixture = match reset.name.as_str() {
+                    "cf02_arena_eng" => &crate::cf02::arena::LIVE_ENG,
+                    "cf02_arena_eng_cp2" => &crate::cf02::arena::LIVE_ENG_CP2,
+                    _ => crate::cf02::arena::fixture_for_beat(reset.demo_beat as usize),
+                };
+                (kit, fixture)
             } else if reset.demo || reset.source == "demo" {
                 let kit = crate::demo::load_hall(root).map_err(unsupported)?;
                 (kit, crate::demo::fixture_for_beat(reset.demo_beat as usize))

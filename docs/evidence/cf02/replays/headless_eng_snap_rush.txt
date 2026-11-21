@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=20 kind=hero_hurt source=0 health_left=3
+COMBAT_STATE fixture=eng_snap_rush seed=0xe46000a tick=160 elapsed=160 hero_hp=3 deaths=0 enemies=e0=154.000/3 hash=a729447a2c2d1e27 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_snap_rush mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=c243b052854f723d

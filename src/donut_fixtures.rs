@@ -1154,6 +1154,7 @@ mod tests {
             shore_dx: fixture.base.shore_dx,
             boss: None,
             llamas: fixture.base.llamas,
+            engineers: fixture.base.engineers,
             charges: fixture.base.charges,
             script: fixture.base.script,
             ticks: fixture.base.ticks,
@@ -1408,6 +1409,7 @@ mod tests {
     #[test]
     fn a_llama_outside_the_view_never_acts_under_q18() {
         const OFFSCREEN: Fixture = Fixture {
+            engineers: &[],
             llamas: &[LlamaSpawn {
                 x: 1000,
                 ai: EnemyAi::Chase,
@@ -1667,6 +1669,7 @@ mod tests {
 
     /// The pan test's llama a few px inside the fair-fire edge of Carl's view.
     const SWAP_PAN_BASE_EDGE: Fixture = Fixture {
+        engineers: &[],
         llamas: &[LlamaSpawn {
             x: 740,
             ai: EnemyAi::Chase,

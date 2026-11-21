@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=41 kind=shore_tripped goblin=0 hits=2 broke=0 credited=0
+COMBAT_STATE fixture=eng_shore_trip seed=0xe460015 tick=150 elapsed=150 hero_hp=4 deaths=0 enemies=e0=410.000/3 hash=f993d7bbea503adb shore=2/Damaged2/Slipped block_bottom=140.00
+PARTY_STATE fixture=eng_shore_trip mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=7fc32e9648588641

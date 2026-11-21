@@ -1,0 +1,4 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=51 kind=ram_bonk goblin=0 instigator=0
+COMBAT_STATE fixture=eng_parapet_bonk seed=0xe46000d tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=792.000/2 hash=20c5d2a1a908cf3b shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_parapet_bonk mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=7fd7a7e7f1972f21

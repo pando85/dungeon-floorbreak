@@ -1,0 +1,5 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=21 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=157 kind=goblin_tell goblin=0
+COMBAT_STATE fixture=eng_bailout_escapes_at_range seed=0xe460008 tick=160 elapsed=160 hero_hp=4 deaths=0 enemies=e0=280.000/3 hash=29ef54a58ecd74f3 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_bailout_escapes_at_range mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=aa8f5a2b5fc3a0e9

@@ -1,0 +1,6 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=49 kind=body_contact launch=2147483649 source=1 target=0 instigator=0
+COMBAT_EVENT tick=151 kind=goblin_tell goblin=1
+COMBAT_EVENT tick=186 kind=hero_hurt source=1 health_left=3
+COMBAT_STATE fixture=eng_bowls_goblin seed=0xe460014 tick=200 elapsed=200 hero_hp=3 deaths=0 enemies=e0=309.167/2,e1=260.000/3 hash=7ed256ac2f27a540 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_bowls_goblin mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=b5558b83c58d82e6

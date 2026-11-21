@@ -1,0 +1,2 @@
+COMBAT_STATE fixture=eng_perch_not_targeted seed=0xe460012 tick=360 elapsed=360 hero_hp=4 deaths=0 enemies=e0=1027.338/3 hash=e745e5df87595428 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_perch_not_targeted mode=solo controlled=Carl carl_hp=4 donut_hp=4 deaths=0 hash=8e71c6152918001e

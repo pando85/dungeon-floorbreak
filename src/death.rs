@@ -156,6 +156,13 @@ pub struct DeathOverlay {
     #[serde(default)]
     pub comment: String,
     pub species: Vec<OverlaySpecies>,
+    /// ENEMY-GAMEPLAY-ENGINEER: whole species an overlay **adds** to the global
+    /// file (the Engineer is not in `species_death_profiles.json`, which stays
+    /// byte-identical). Same schema as a global species; an id that already exists
+    /// is rejected by the merged file's validation. Absent in every earlier
+    /// overlay, so they read exactly as before.
+    #[serde(default)]
+    pub add_species: Vec<SpeciesProfile>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -283,6 +290,7 @@ impl DeathProfiles {
             recipes.append(&mut species.recipes);
             species.recipes = recipes;
         }
+        merged.species.extend(overlay.add_species);
         merged.validate()?;
         Ok(merged)
     }

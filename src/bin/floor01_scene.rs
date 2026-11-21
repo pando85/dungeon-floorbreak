@@ -250,6 +250,11 @@ struct Args {
     /// CF02-00 only carries it (the room is still the DEMO hall and no rule
     /// reads it), so a `--cf02` run replays exactly like `--demo`.
     cf02: Cf02Config,
+    /// ENEMY-GAMEPLAY-ENGINEER (`--cf02-engineer`, needs `--cf02`): the microarena
+    /// with the Goblin Engineer in the llama yard (`cf02_arena_eng`). Active only
+    /// while the data kill switch `engq25_enabled` is on; with it off the flag runs
+    /// plain `cf02_arena`.
+    cf02_engineer: bool,
     /// COMPANION-AI-01 (`--companion off|cf02_assist|v0`, CA-22): who drives the
     /// uncontrolled hero of a live solo run. `None` is the default: the
     /// follow-and-jump bot, except that `--cf02` implies `cf02_assist`.
@@ -886,6 +891,7 @@ fn parse_args_full(
         audience_probe: false,
         audience_cue_x: AUDIENCE_PROBE_CUE_X,
         cf02: Cf02Config::OFF,
+        cf02_engineer: false,
         companion: None,
         list_fixtures: None,
         record: RecordMode::Auto,
@@ -903,6 +909,7 @@ fn parse_args_full(
     while let Some(arg) = iter.next() {
         match arg.as_str() {
             "--cf02" => parsed.cf02.rules = true,
+            "--cf02-engineer" => parsed.cf02_engineer = true,
             "--record" => parsed.record = RecordMode::On,
             "--no-record" => parsed.record = RecordMode::Off,
             "--record-strict" => parsed.record_strict = true,
@@ -1137,6 +1144,25 @@ fn parse_args_full(
         // A replay takes its room, rules and deck from the recording.
         return Ok(parsed);
     }
+    if parsed.cf02_engineer {
+        // ENG-G-Q25: the Engineer exists only in the `--cf02` microarena. The story
+        // route, `--demo`, the lab, the boss arena and every fixture never load him.
+        if !parsed.cf02.rules {
+            return Err(
+                "--cf02-engineer needs --cf02 (the Engineer lives only in the CF02 microarena)"
+                    .into(),
+            );
+        }
+        if parsed.demo
+            || parsed.lab_scene
+            || parsed.boss
+            || parsed.fixture.is_some()
+            || parsed.party_fixture.is_some()
+            || parsed.scenario.is_some()
+        {
+            return Err("--cf02-engineer replaces --demo, --scene, --fixture, --party-fixture and --scenario (it is the --cf02 room with the Engineer)".into());
+        }
+    }
     resolve_lab_args(&mut parsed)?;
     if parsed.cf02.seed.is_some() && !parsed.cf02.rules && !parsed.lab_scene {
         return Err("--cf02-seed needs --cf02 (or --scene combat_lab)".into());
@@ -1170,7 +1196,11 @@ fn parse_args_full(
             return Err("--demo replaces --fixture, --scenario and --reference-frame".into());
         }
         parsed.fixture = Some(if parsed.cf02.rules {
-            cf02::arena::fixture_for_beat(parsed.demo_beat)
+            cf02::arena::fixture_for_run(
+                parsed.demo_beat,
+                parsed.cf02_engineer,
+                dungeon_floorbreak::engineer::active(),
+            )
         } else {
             demo::fixture_for_beat(parsed.demo_beat)
         });
@@ -1529,7 +1559,10 @@ fn build_scene(
                 },
             )
         };
-        if args.party_fixture.is_some() || args.lab_run.is_some() {
+        if let Some(pf) = args.party_fixture {
+            pf.place_donut(&mut sim);
+            sim.set_drive(pf.drive(&party));
+        } else if args.lab_run.is_some() {
             sim.set_drive(party.drive(true));
         }
         let mut feat_feed = AudienceFeatFeed::default();
@@ -1538,7 +1571,7 @@ fn build_scene(
                 let slots = pf.inputs(sim.world.tick + 1, &combat, &sim);
                 let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
                 party.request_swap(slots[0].swap, hurt);
-                sim.set_drive(party.drive(true));
+                sim.set_drive(pf.drive(&party));
                 party.hero_inputs(slots)
             } else if args.lab_run.is_some() {
                 // A lab run routes the scripted slot through the party, like
@@ -2051,6 +2084,9 @@ struct CombatArt {
     goblins: [SpriteClips; GOBLIN_VARIANTS],
     /// The Bad Llama atlas (LLAMA-01).
     llama: SpriteClips,
+    /// ENEMY-GAMEPLAY-ENGINEER: the ENG-01 atlas, loaded for a `cf02_rules` run
+    /// (the only runs that can have an Engineer).
+    engineer: Option<SpriteClips>,
 }
 
 impl Actors {
@@ -2079,6 +2115,11 @@ impl Actors {
                     SpriteClips::load_goblin(root, 1, source)?,
                 ],
                 llama: SpriteClips::load_llama(root, source)?,
+                engineer: if cf02 {
+                    Some(SpriteClips::load_engineer(root, source)?)
+                } else {
+                    None
+                },
             })
         } else {
             None
@@ -2102,8 +2143,11 @@ impl Actors {
     /// frames and overlays when the run is under `cf02_rules`.
     fn combat_art(&self, combat: &CombatState) -> Option<CombatAnimators> {
         self.art.as_ref().map(|art| {
-            let animators = CombatAnimators::new(art.carl.clone(), art.goblins.clone(), combat)
+            let mut animators = CombatAnimators::new(art.carl.clone(), art.goblins.clone(), combat)
                 .with_llama(art.llama.clone(), combat);
+            if let Some(engineer) = art.engineer.as_ref() {
+                animators = animators.with_engineer(engineer.clone(), combat);
+            }
             match (self.cf02.as_ref(), combat.cf02()) {
                 (Some(acting), Some(tuning)) => {
                     animators.with_acting(acting.clone(), tuning, combat)
@@ -3276,16 +3320,31 @@ fn setup(
                 (texture, layout_of(clips))
             })
             .collect();
-        for index in 0..state.enemies.len() {
+        // ENEMY-GAMEPLAY-ENGINEER: the Engineer is drawn from the ENG-01 atlas.
+        let engineer_texture: Option<(Handle<Image>, Handle<TextureAtlasLayout>)> =
+            art.engineer.as_ref().map(|clips| {
+                let texture: Handle<Image> = asset_server.load(clips.atlas_asset.clone());
+                combat_handles.push((clips.atlas_asset.clone(), texture.clone()));
+                (texture, layout_of(clips))
+            });
+        for (index, enemy) in state.enemies.iter().enumerate() {
             let variant = goblin_variant(index);
-            let (texture, layout) = goblin_textures[variant].clone();
+            let (texture, layout, first) = match (&engineer_texture, art.engineer.as_ref()) {
+                (Some((texture, layout)), Some(clips)) if enemy.is_engineer() => {
+                    (texture.clone(), layout.clone(), clips.tag("idle").0)
+                }
+                _ => {
+                    let (texture, layout) = goblin_textures[variant].clone();
+                    (texture, layout, art.goblins[variant].tag("idle").0)
+                }
+            };
             commands.spawn((
                 GoblinSprite { index },
                 Sprite::from_atlas_image(
                     texture,
                     TextureAtlas {
                         layout,
-                        index: art.goblins[variant].tag("idle").0,
+                        index: first,
                     },
                 ),
                 Transform::from_xyz(
@@ -6664,7 +6723,7 @@ fn capture_sequence(
                     let slots = pf.inputs(sim.0.world.tick + 1, combat, &sim.0);
                     let hurt = combat.hurt_ticks_of(party.controlled_hero()) > 0;
                     party.request_swap(slots[0].swap, hurt);
-                    sim.0.set_drive(party.drive(true));
+                    sim.0.set_drive(pf.drive(party));
                     let inputs = party.hero_inputs(slots);
                     let restarts = combat.restarts;
                     let _ = step_combat(&mut sim.0, combat, &mut anim.0, death.0.as_mut(), inputs);
@@ -7606,6 +7665,36 @@ mod tests {
         // The demo options keep working under the flag.
         assert!(args(&["--cf02", "--demo-beat", "3"]).is_ok());
         assert!(args(&["--cf02", "--fixture", "cp01_kick"]).is_err());
+    }
+
+    /// ENEMY-GAMEPLAY-ENGINEER (ENG-G-Q25): `--cf02-engineer` is the `--cf02` room
+    /// with the Engineer. It needs `--cf02` and is refused by `--demo`, the lab,
+    /// the boss arena and every fixture; plain `--cf02` never loads him.
+    #[test]
+    fn cf02_engineer_selects_the_engineer_room_and_nothing_else_loads_him() {
+        let plain = args(&["--cf02"]).unwrap();
+        assert!(!plain.cf02_engineer);
+        assert_eq!(plain.fixture.map(|f| f.name), Some("cf02_arena"));
+        let eng = args(&["--cf02", "--cf02-engineer"]).unwrap();
+        assert!(eng.cf02_engineer && eng.arena_room());
+        assert_eq!(eng.fixture.map(|f| f.name), Some("cf02_arena_eng"));
+        let later = args(&["--cf02", "--cf02-engineer", "--demo-beat", "1"]).unwrap();
+        assert_eq!(later.fixture.map(|f| f.name), Some("cf02_arena_eng_cp2"));
+        assert!(args(&["--cf02-engineer"]).is_err(), "needs --cf02");
+        for other in [
+            &["--demo"][..],
+            &["--scene", "combat_lab"][..],
+            &["--scene", "boss_f01"][..],
+            &["--fixture", "cp01_kick"][..],
+            &["--party-fixture", "eng_snap_rush"][..],
+            &["--scenario", "walk_right_400"][..],
+        ] {
+            let mut list = vec!["--cf02", "--cf02-engineer"];
+            list.extend_from_slice(other);
+            assert!(args(&list).is_err(), "{list:?} must be rejected");
+        }
+        // The story route never loads him (it has no flag to).
+        assert!(!args(&[]).unwrap().cf02_engineer);
     }
 
     /// COMBAT-LAB-01 LAB-00-wire: the lab entry is its own run mode. Story,

@@ -1,0 +1,7 @@
+COMBAT_EVENT tick=1 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=71 kind=move_started move=jab instance=1
+COMBAT_EVENT tick=74 kind=hit move=jab instance=1 target=0 damage=1 health_left=2 hit_stop=3
+COMBAT_EVENT tick=108 kind=goblin_tell goblin=0
+COMBAT_EVENT tick=143 kind=hero_hurt source=0 health_left=3
+COMBAT_STATE fixture=eng_jump_over_ram seed=0xe460002 tick=200 elapsed=200 hero_hp=3 deaths=0 enemies=e0=279.000/2 hash=fc7c194e79ab14d8 shore=0/Intact/Seated block_bottom=140.00
+PARTY_STATE fixture=eng_jump_over_ram mode=solo controlled=Carl carl_hp=3 donut_hp=4 deaths=0 hash=4ae489a7b31f448e

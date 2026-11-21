@@ -82,6 +82,9 @@ pub const GOBLIN_SLAMMED_MANIFESTS: [&str; 2] =
     ["goblin_a_slammed_h36.json", "goblin_b_slammed_h36.json"];
 /// The Bad Llama atlas (LLAMA-01, 96 x 72 frames, pivot (44, 71)).
 pub const LLAMA_MANIFEST: &str = "llama-01.json";
+/// ENEMY-GAMEPLAY-ENGINEER: the Goblin Engineer atlas (ENG-01, 64 x 56 frames,
+/// pivot (28, 55), 18 frames).
+pub const ENGINEER_MANIFEST: &str = "eng_01.json";
 /// Contact shadow of the llama: the 46 px standing box, pivot column 26 of it.
 pub const LLAMA_SHADOW_FOOTPRINT: (i32, i32) = (46, 26);
 /// Ground covered per `walk` frame: 4 px (the 40 px/s walk at 6 ticks a frame).
@@ -356,6 +359,7 @@ impl SpriteClips {
             Kind::Cf02Carl => cf02_carl_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Cf02Donut => cf02_donut_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Cf02Goblin => cf02_goblin_ticks(&manifest, frame_count).map_err(err)?,
+            Kind::Engineer => engineer_ticks(frame_count).map_err(err)?,
         };
         let atlas_asset = str_field(&manifest, "output_atlas", &path)?
             .strip_prefix(crate::actor_sprite::ATLAS_ASSET_PREFIX)
@@ -404,6 +408,20 @@ impl SpriteClips {
             GOBLIN_SHADOW_FOOTPRINT,
             source,
             Kind::Goblin,
+        )
+    }
+
+    /// ENEMY-GAMEPLAY-ENGINEER: the Goblin Engineer atlas (ENG-01). Its frames are
+    /// chosen by the gameplay state (design section 10), so only the idle and walk
+    /// loops carry ticks; every other frame is a hold.
+    pub fn load_engineer(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Self::load(
+            root,
+            "ENGINEER",
+            ENGINEER_MANIFEST,
+            GOBLIN_SHADOW_FOOTPRINT,
+            source,
+            Kind::Engineer,
         )
     }
 
@@ -645,6 +663,27 @@ enum Kind {
     Cf02Donut,
     /// CF02-I: the ART-GOB-CF02 acting and slammed sheets (`cf02_goblin.frames`).
     Cf02Goblin,
+    /// ENEMY-GAMEPLAY-ENGINEER: the ENG-01 sheet.
+    Engineer,
+}
+
+/// Per-frame ticks of the ENG-01 atlas: the idle loop is 38 ticks (frames 0 to 2:
+/// 14, 10, 14), the walk loop 36 (frames 3 to 8: 6 each, exactly his 40 px/s
+/// contact plan); every other frame is held by the gameplay state.
+fn engineer_ticks(frame_count: usize) -> Result<(Vec<Option<u32>>, Vec<String>), String> {
+    if frame_count != 18 {
+        return Err(format!(
+            "ENG-01 has 18 frames, the atlas lists {frame_count}"
+        ));
+    }
+    let mut ticks: Vec<Option<u32>> = vec![None; frame_count];
+    for (frame, t) in [(0, 14), (1, 10), (2, 14)] {
+        ticks[frame] = Some(t);
+    }
+    for slot in &mut ticks[3..=8] {
+        *slot = Some(6);
+    }
+    Ok((ticks, Vec::new()))
 }
 
 /// Per-frame ticks of the melee atlas from `melee.moves`, and its airborne tags.
@@ -1020,6 +1059,88 @@ pub struct GoblinInput {
     pub walk_milli_px: u32,
     /// Idle clock (scene tick plus the goblin's offset).
     pub idle_tick: u64,
+    /// ENEMY-GAMEPLAY-ENGINEER: set only for the Engineer (drawn from the ENG-01
+    /// atlas); `None` for every goblin.
+    pub engineer: Option<EngineerFrame>,
+}
+
+/// What the Engineer's frame depends on besides a goblin's input (design section
+/// 10): the phase of his attack, the age of a bonk and the lying times.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EngineerFrame {
+    pub phase: Option<crate::engineer::EngineerPhase>,
+    /// Bonk ticks spent so far (`None` outside a bonk).
+    pub bonk_age: Option<u16>,
+    /// The bonk's hurt ticks: the hurt frame shows through them, the daze after.
+    pub bonk_hurt_ticks: u16,
+    /// Ticks a living Engineer lies before the get-up (CF02-Q04).
+    pub lying_ticks: u16,
+}
+
+/// The Engineer's frame (design section 10): idle and walk loops; rear 9, point
+/// 10, launch 11, ram 12 (held), recover 13 (held); a bonk shows the hurt frame 14
+/// for its hurt ticks and the recover frame 13 for the daze; hurt, launched and
+/// airborne 14; a living lying body 15 then 16 held, the get-up 13; a defeat 15
+/// (5 ticks), 16 (10), then 17 held.
+pub fn engineer_pose(clips: &SpriteClips, input: &GoblinInput, e: &EngineerFrame) -> ArtPose {
+    use crate::engineer::EngineerPhase as P;
+    let one = |tag: &'static str, index: usize| ArtPose {
+        tag,
+        frame: clips.frame_in(tag, index),
+    };
+    match input.mode {
+        GoblinMode::Corpse => one("down", 2),
+        GoblinMode::Down => {
+            let t = input.down_ticks;
+            one(
+                "down",
+                if t < 5 {
+                    0
+                } else if t < 15 {
+                    1
+                } else {
+                    2
+                },
+            )
+        }
+        GoblinMode::Airborne | GoblinMode::Launched | GoblinMode::Hurt => one("hurt", 0),
+        GoblinMode::Downed => {
+            if input.down_ticks < e.lying_ticks {
+                one("down", usize::from(input.down_ticks >= 5))
+            } else {
+                one("attack_recover", 0)
+            }
+        }
+        GoblinMode::Attack => match e.phase {
+            Some(P::Rear) => one("attack_tell", 0),
+            Some(P::Point) => one("attack_tell", 1),
+            Some(P::Launch) => one("attack_ram", 0),
+            Some(P::Ram) => one("attack_ram", 1),
+            Some(P::Recover) => one("attack_recover", 0),
+            Some(P::Bonk) => {
+                if e.bonk_age.is_some_and(|age| age <= e.bonk_hurt_ticks) {
+                    one("hurt", 0)
+                } else {
+                    one("attack_recover", 0)
+                }
+            }
+            None => one("idle", 0),
+        },
+        GoblinMode::Neutral => {
+            if input.walking {
+                let (_, len) = clips.tag("walk");
+                // 6 ticks a frame at 40 px/s: 4 px of ground per frame.
+                let step = (input.walk_milli_px / 4000) as usize;
+                one("walk", step % len)
+            } else {
+                let cycle = u64::from(clips.tag_ticks("idle").expect("idle frames are timed"));
+                ArtPose {
+                    tag: "idle",
+                    frame: clips.frame_at("idle", (input.idle_tick % cycle) as u32),
+                }
+            }
+        }
+    }
 }
 
 /// Ticks since the launch was released (1 on the first moving tick), recovered
@@ -1049,6 +1170,9 @@ pub fn launch_age(vy: f32) -> u32 {
 ///   (19) until touchdown (follow-up F1);
 /// * down: the three lying frames by `down_ticks`; corpse: the corpse frame.
 pub fn goblin_pose(clips: &SpriteClips, input: &GoblinInput) -> ArtPose {
+    if let Some(e) = input.engineer {
+        return engineer_pose(clips, input, &e);
+    }
     let at = |tag: &'static str, age: u32| ArtPose {
         tag,
         frame: clips.frame_at(tag, age),
@@ -1322,6 +1446,9 @@ pub struct CombatAnimators {
     /// The Bad Llama atlas and per-llama tracks (a fixture with llamas only).
     llama: Option<SpriteClips>,
     llama_tracks: Vec<LlamaTrack>,
+    /// ENEMY-GAMEPLAY-ENGINEER: the ENG-01 atlas (`None`: an Engineer, if any, is
+    /// drawn with a goblin atlas).
+    engineer: Option<SpriteClips>,
     /// CF02-I: the final CF02 frames and the acting overlays (`None` outside a
     /// `cf02_rules` run, so every legacy state line is unchanged).
     acting: Option<cf02::ActingAnimators>,
@@ -1341,10 +1468,41 @@ impl CombatAnimators {
             tracks: Vec::new(),
             llama: None,
             llama_tracks: Vec::new(),
+            engineer: None,
             acting: None,
         };
         this.reset(combat);
         this
+    }
+
+    /// Draw the Goblin Engineer of the fixture from `clips` (ENG-01).
+    pub fn with_engineer(mut self, clips: SpriteClips, combat: &CombatState) -> Self {
+        self.engineer = Some(clips);
+        self.reset(combat);
+        self
+    }
+
+    /// The ENG-01 atlas, if loaded.
+    pub fn engineer_clips(&self) -> Option<&SpriteClips> {
+        self.engineer.as_ref()
+    }
+
+    /// The Engineer's frame inputs for goblin `g` (`None` for a goblin, or while no
+    /// ENG-01 atlas is loaded).
+    fn engineer_frame(
+        &self,
+        g: &crate::goblin::Goblin,
+        combat: &CombatState,
+    ) -> Option<EngineerFrame> {
+        let tuning = g
+            .eng_tuning
+            .filter(|_| g.is_engineer() && self.engineer.is_some())?;
+        Some(EngineerFrame {
+            phase: g.engineer_phase(),
+            bonk_age: g.bonk_age(),
+            bonk_hurt_ticks: tuning.engq13_hurt_ticks,
+            lying_ticks: combat.cf02().map_or(DOWNED_TICKS, |t| t.q04_downed_ticks),
+        })
     }
 
     /// CF02-I: draw the final CF02 frames and the Q69 to Q72 overlays of a
@@ -1454,9 +1612,22 @@ impl CombatAnimators {
                     walking: false,
                     walk_milli_px: 0,
                     idle_tick: 0,
+                    engineer: None,
                 },
             })
             .collect();
+        for (index, track) in self.tracks.iter_mut().enumerate() {
+            let g = &combat.enemies[index];
+            track.input.engineer =
+                g.eng_tuning
+                    .filter(|_| g.is_engineer())
+                    .map(|t| EngineerFrame {
+                        phase: g.engineer_phase(),
+                        bonk_age: g.bonk_age(),
+                        bonk_hurt_ticks: t.engq13_hurt_ticks,
+                        lying_ticks: combat.cf02().map_or(DOWNED_TICKS, |c| c.q04_downed_ticks),
+                    });
+        }
         self.llama_tracks = combat
             .llamas
             .iter()
@@ -1498,7 +1669,11 @@ impl CombatAnimators {
         let tick = scene.world.tick;
         for index in 0..self.tracks.len() {
             let goblin = &combat.enemies[index];
-            let clips = &self.goblins[goblin_variant(index)];
+            let engineer = self.engineer_frame(goblin, combat);
+            let clips = match (engineer, self.engineer.as_ref()) {
+                (Some(_), Some(clips)) => clips,
+                _ => &self.goblins[goblin_variant(index)],
+            };
             let track = &mut self.tracks[index];
             let moved = (goblin.x - track.prev_x).abs();
             track.prev_x = goblin.x;
@@ -1522,6 +1697,7 @@ impl CombatAnimators {
                 walking,
                 walk_milli_px: track.walk_milli_px + index as u32 * WALK_INDEX_OFFSET_MILLI_PX,
                 idle_tick: tick + index as u64 * IDLE_INDEX_OFFSET_TICKS,
+                engineer,
             };
             // Hit-stop contact: Carl's striking limb on a goblin frozen by it.
             let striking = track.input.frozen
@@ -1674,7 +1850,20 @@ impl CombatAnimators {
     }
 
     pub fn goblin_clips(&self, index: usize) -> &SpriteClips {
-        &self.goblins[goblin_variant(index)]
+        match (self.tracks[index].input.engineer, self.engineer.as_ref()) {
+            (Some(_), Some(clips)) => clips,
+            _ => &self.goblins[goblin_variant(index)],
+        }
+    }
+
+    /// The atlas label of goblin `index` in the state lines: `A`, `B`, or `E` for
+    /// the Engineer.
+    fn atlas_label(&self, index: usize) -> &'static str {
+        if self.tracks[index].input.engineer.is_some() {
+            "E"
+        } else {
+            ["A", "B"][goblin_variant(index)]
+        }
     }
 
     pub fn goblin_pose(&self, index: usize) -> ArtPose {
@@ -1700,7 +1889,7 @@ impl CombatAnimators {
             .map(|i| {
                 format!(
                     "g{i}={}/{}",
-                    ["A", "B"][goblin_variant(i)],
+                    self.atlas_label(i),
                     self.goblin_pose(i).label()
                 )
             })
@@ -1749,7 +1938,7 @@ impl CombatAnimators {
                     g.hit_stop,
                     g.y - ENEMY_HALF_HEIGHT,
                     self.goblin_draw_dx(i),
-                    ["A", "B"][goblin_variant(i)],
+                    self.atlas_label(i),
                     self.goblin_pose(i).label()
                 )
             })

@@ -22,6 +22,9 @@ use crate::combat::{
     StrikeTarget, body_rect, solid_at,
 };
 use crate::donut_moves::{HitStopSplit, LightGuard, TargetState, hash_guard};
+use crate::engineer::{
+    EngineerPhase, EngineerSense, EngineerState, EngineerTuning, ram_box, ram_motion,
+};
 use crate::feel::{
     ATTACK_COOLDOWN, ATTACK_TICKS, BLAST_KNOCK_VX, BLAST_KNOCK_VX_POINT_BLANK, BLAST_KNOCK_VY,
     BLAST_KNOCK_VY_POINT_BLANK, CONTACT_HIT_STOP, CONTACT_POSE_TICKS, CONTACT_PUSH_VX,
@@ -58,6 +61,16 @@ pub enum GoblinMode {
     Launched,
     /// A living goblin that landed from a launch: lies down, then gets up.
     Downed,
+}
+
+/// ENEMY-GAMEPLAY-ENGINEER: which brain and attack a goblin has. A `Common` goblin is
+/// every goblin of every earlier run; the `Engineer` exists only under
+/// `cf02_rules` with the `--cf02-engineer` flag (`crate::engineer`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GoblinKind {
+    #[default]
+    Common,
+    Engineer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,6 +205,17 @@ pub struct Goblin {
     /// the start of every step and read by the scene on the same tick, so it is
     /// transient and never hashed.
     pub(crate) wall_stop: Option<f32>,
+    /// ENEMY-GAMEPLAY-ENGINEER: the goblin's kind. Mixed into the state hash only
+    /// for an Engineer, so no earlier hash sees it.
+    pub kind: GoblinKind,
+    /// The Engineer's attack state (meaningful in `Attack` only; idle for a
+    /// common goblin).
+    pub(crate) eng: EngineerState,
+    /// What the scene computed for the Engineer's step this tick (transient, set
+    /// by the scene before the step, never hashed).
+    pub(crate) eng_sense: Option<EngineerSense>,
+    /// The Engineer's pinned knobs (`Some` only for an Engineer).
+    pub(crate) eng_tuning: Option<&'static EngineerTuning>,
 }
 
 impl Goblin {
@@ -225,7 +249,36 @@ impl Goblin {
             relaunched: false,
             bowl: None,
             wall_stop: None,
+            kind: GoblinKind::Common,
+            eng: EngineerState::IDLE,
+            eng_sense: None,
+            eng_tuning: None,
         }
+    }
+
+    /// Make this goblin the Engineer: his health and every rule of his own come
+    /// from `tuning` (`crate::engineer`).
+    #[must_use]
+    pub(crate) fn with_engineer(mut self, tuning: &'static EngineerTuning) -> Self {
+        self.kind = GoblinKind::Engineer;
+        self.eng_tuning = Some(tuning);
+        self.health = tuning.engq02_health;
+        self
+    }
+
+    /// Whether this is the Engineer.
+    pub fn is_engineer(&self) -> bool {
+        self.kind == GoblinKind::Engineer
+    }
+
+    /// The Engineer's attack phase while he attacks (`None` otherwise).
+    pub fn engineer_phase(&self) -> Option<EngineerPhase> {
+        (self.is_engineer() && self.mode == GoblinMode::Attack).then_some(self.eng.phase)
+    }
+
+    /// The Engineer's attack state (idle for a common goblin).
+    pub fn engineer_state(&self) -> &EngineerState {
+        &self.eng
     }
 
     /// Run this goblin under `cf02_rules` (the scene sets it when it builds the
@@ -278,11 +331,55 @@ impl Goblin {
     /// In a tell or a swing: holds one of the attack tokens. The token goes
     /// back when the swing ends (recovery) or the attack is cancelled.
     pub fn token_held(&self) -> bool {
-        self.mode == GoblinMode::Attack && self.attack_tick < IMPACT_END
+        self.mode == GoblinMode::Attack
+            && match self.kind {
+                GoblinKind::Common => self.attack_tick < IMPACT_END,
+                // Rear, point, launch and ram: Tell, Smear and Impact.
+                GoblinKind::Engineer => {
+                    !matches!(self.eng.phase.attack_phase(), AttackPhase::Recover)
+                }
+            }
     }
 
+    /// The phase of the attack in progress: the goblin timeline, or for the
+    /// Engineer the kind-aware mapping of [`EngineerPhase::attack_phase`].
     pub fn attack_phase(&self) -> Option<AttackPhase> {
-        (self.mode == GoblinMode::Attack).then(|| attack_phase(self.attack_tick))
+        (self.mode == GoblinMode::Attack).then(|| match self.kind {
+            GoblinKind::Common => attack_phase(self.attack_tick),
+            GoblinKind::Engineer => self.eng.phase.attack_phase(),
+        })
+    }
+
+    /// A goblin whose attack a follower may dodge: the goblin's tell and swing
+    /// (attack ticks before [`IMPACT_END`]). The Engineer is not part of the dodge
+    /// rule in v1 (no ram-lane avoidance, design section 8).
+    pub fn dodge_threat(&self) -> bool {
+        self.kind == GoblinKind::Common
+            && self.mode == GoblinMode::Attack
+            && self.attack_tick < IMPACT_END
+    }
+
+    /// A goblin in its tell as the COMPANION sees it: `(tell tick, tell length,
+    /// impact tick)`. For the Engineer the length is the attack tick on which his
+    /// launch begins (32, or the snap tick plus one) and the impact tick the first
+    /// ram tick.
+    pub fn tell_view(&self) -> Option<(u16, u16, u16)> {
+        if self.mode != GoblinMode::Attack || !self.alive() {
+            return None;
+        }
+        match self.kind {
+            GoblinKind::Common => {
+                (self.attack_tick < TELL_TICKS).then_some((self.attack_tick, TELL_TICKS, SMEAR_END))
+            }
+            GoblinKind::Engineer => {
+                let launch = self.eng_tuning.map_or(0, |t| t.engq09_launch_ticks);
+                matches!(self.eng.phase, EngineerPhase::Rear | EngineerPhase::Point).then_some((
+                    self.attack_tick,
+                    self.eng.tell_len,
+                    self.eng.tell_len + launch,
+                ))
+            }
+        }
     }
 
     /// What the Donut move domain sees of this goblin (Q10 section 1): the
@@ -292,7 +389,7 @@ impl Goblin {
     pub fn target_state(&self) -> TargetState {
         match self.mode {
             GoblinMode::Neutral => TargetState::Neutral,
-            GoblinMode::Attack => match attack_phase(self.attack_tick) {
+            GoblinMode::Attack => match self.attack_phase().expect("in Attack") {
                 AttackPhase::Tell => TargetState::Tell,
                 AttackPhase::Smear => TargetState::Smear,
                 AttackPhase::Impact => TargetState::Impact,
@@ -337,6 +434,10 @@ impl Goblin {
     /// in x like the Carl boxes).
     pub fn swing_box(&self) -> Rect {
         let feet = self.y - ENEMY_HALF_HEIGHT;
+        if let (GoblinKind::Engineer, Some(t)) = (self.kind, self.eng_tuning) {
+            // The Engineer's "swing" is the ram box (design section 4).
+            return ram_box(t, self.x, self.facing, feet);
+        }
         let (left, right) = if self.facing >= 0 {
             (self.x + SWING_X_MIN, self.x + SWING_X_MAX)
         } else {
@@ -388,6 +489,9 @@ impl Goblin {
     ) -> GoblinStep {
         let mut out = GoblinStep::default();
         self.wall_stop = None;
+        self.eng.ram_stepped = false;
+        self.eng.met_solid = false;
+        self.eng.launch_began = false;
         if self.hit_stop > 0 {
             // Frozen: no timer, no motion, no swing progress, no damage.
             self.hit_stop -= 1;
@@ -449,21 +553,28 @@ impl Goblin {
             }
             GoblinMode::Attack => {
                 self.integrate(solids, max_x);
-                self.attack_tick += 1;
-                out.swing_began = self.attack_tick == TELL_TICKS + 2;
-                out.impact = (SMEAR_END..IMPACT_END).contains(&self.attack_tick);
-                if self.attack_tick >= ATTACK_TICKS {
-                    self.mode = GoblinMode::Neutral;
-                    self.attack_tick = 0;
-                    self.swing_hit = false;
-                    self.attack_cooldown = drive.attack_cooldown;
+                if self.kind == GoblinKind::Engineer {
+                    self.engineer_attack(solids, max_x, &mut out);
+                } else {
+                    self.attack_tick += 1;
+                    out.swing_began = self.attack_tick == TELL_TICKS + 2;
+                    out.impact = (SMEAR_END..IMPACT_END).contains(&self.attack_tick);
+                    if self.attack_tick >= ATTACK_TICKS {
+                        self.mode = GoblinMode::Neutral;
+                        self.attack_tick = 0;
+                        self.swing_hit = false;
+                        self.attack_cooldown = drive.attack_cooldown;
+                    }
                 }
             }
             GoblinMode::Neutral => {
                 self.attack_cooldown = self.attack_cooldown.saturating_sub(1);
                 self.hurt_cooldown = self.hurt_cooldown.saturating_sub(1);
                 self.integrate(solids, max_x);
-                if let Some((dir, speed)) = drive.flee {
+                if self.kind == GoblinKind::Engineer {
+                    out.started_tell =
+                        self.engineer_neutral(hero_alive, solids, approved, may_start);
+                } else if let Some((dir, speed)) = drive.flee {
                     out.blocked = !self.flee(dir, speed, solids, max_x);
                 } else if !drive.hold {
                     out.started_tell = self.neutral(
@@ -478,6 +589,169 @@ impl Goblin {
             }
         }
         out
+    }
+
+    /// The Engineer, standing or walking (design section 5). He wakes by position
+    /// (sight 220), walks toward the point `engq05_standoff_px` from his target on
+    /// his current side (never backward, never crossing under a hero), holds facing
+    /// the target, and starts the tell only with a token, an eligible target inside
+    /// the trigger and a clear lane. Returns true on the tick the tell starts.
+    fn engineer_neutral(
+        &mut self,
+        hero_alive: bool,
+        solids: &[Block],
+        approved: bool,
+        may_start: bool,
+    ) -> bool {
+        let (Some(t), Some(sense)) = (self.eng_tuning, self.eng_sense) else {
+            return false;
+        };
+        let dx = sense.target_x - self.x;
+        let distance = dx.abs();
+        if self.ai == EnemyAi::Passive || !hero_alive || distance >= f32::from(t.engq04_sight) {
+            return false;
+        }
+        let toward: i8 = if dx > 0.0 {
+            1
+        } else if dx < 0.0 {
+            -1
+        } else {
+            self.facing
+        };
+        let lane_ok = sense.lane_clear || !t.on(t.engq07_lane_check);
+        if approved && may_start && sense.in_trigger && lane_ok && self.wants_attack() {
+            self.facing = toward;
+            self.mode = GoblinMode::Attack;
+            self.attack_tick = 0;
+            self.swing_hit = false;
+            let armed = t.engq27_snap_px > 0 && distance > f32::from(t.engq27_snap_px);
+            self.eng = EngineerState::start(t, armed);
+            return true;
+        }
+        self.facing = toward;
+        if distance > f32::from(t.engq05_standoff_px) {
+            let candidate =
+                self.x + f32::from(toward) * f32::from(t.engq04_walk_speed) * TICK_SECONDS;
+            if !solid_at(solids, body_rect(candidate, self.y)) {
+                self.x = candidate;
+            }
+        }
+        false
+    }
+
+    /// One tick of the Engineer's attack: rear, point (with the snap), launch,
+    /// ram (the motion only: the scene tests hero, solid, crew and distance in
+    /// order), recover and bonk. Attack tick 0 is the tell's first tick; the
+    /// timed phases count down and leave on the tick after their last.
+    fn engineer_attack(&mut self, solids: &[Block], max_x: f32, out: &mut GoblinStep) {
+        let t = self.eng_tuning.expect("an Engineer carries its tuning");
+        self.attack_tick += 1;
+        let n = self.attack_tick;
+        loop {
+            match self.eng.phase {
+                EngineerPhase::Rear => {
+                    if n >= t.engq08_rear_ticks {
+                        self.eng.phase = EngineerPhase::Point;
+                        continue;
+                    }
+                }
+                EngineerPhase::Point => {
+                    if n >= self.eng.tell_len {
+                        self.eng.phase = EngineerPhase::Launch;
+                        self.eng.left = t.engq09_launch_ticks;
+                        self.eng.launch_began = true;
+                        continue;
+                    }
+                    // The snap: armed at the tell start, checked after the heroes'
+                    // step on every point tick, at any height.
+                    if self.eng.snap_armed
+                        && !self.eng.snapped
+                        && t.engq27_snap_px > 0
+                        && let Some(sense) = self.eng_sense
+                        && (sense.target_x - self.x).abs() <= f32::from(t.engq27_snap_px)
+                    {
+                        self.eng.snapped = true;
+                        self.eng.tell_len = n + 1;
+                    }
+                }
+                EngineerPhase::Launch => {
+                    if self.eng.left == 0 {
+                        self.eng.phase = EngineerPhase::Ram;
+                        self.eng.ram_ticks = 0;
+                        continue;
+                    }
+                    self.eng.left -= 1;
+                }
+                EngineerPhase::Ram => {
+                    let feet = self.y - ENEMY_HALF_HEIGHT;
+                    let (x, met) = ram_motion(t, self.x, self.facing, feet, solids, max_x);
+                    self.x = x;
+                    self.eng.ram_ticks += 1;
+                    self.eng.ram_stepped = true;
+                    self.eng.met_solid = met;
+                    out.impact = true;
+                }
+                EngineerPhase::Recover | EngineerPhase::Bonk => {
+                    if self.eng.left == 0 {
+                        self.mode = GoblinMode::Neutral;
+                        self.attack_tick = 0;
+                        self.swing_hit = false;
+                        self.attack_cooldown = t.engq15_cooldown_ticks;
+                    } else {
+                        self.eng.left -= 1;
+                    }
+                }
+            }
+            break;
+        }
+    }
+
+    /// The ram ended without a bonk (a whiff, a hero hit or a bowl): recover.
+    pub(crate) fn ram_recover(&mut self) {
+        let t = self.eng_tuning.expect("an Engineer carries its tuning");
+        self.eng.phase = EngineerPhase::Recover;
+        self.eng.left = t.engq12_recover_ticks;
+    }
+
+    /// The ram's last active tick (the distance) passed with nothing else ending
+    /// it: true when the ram is still on and has used all its ticks.
+    pub(crate) fn ram_distance_spent(&self) -> bool {
+        self.eng_tuning.is_some_and(|t| {
+            self.mode == GoblinMode::Attack
+                && self.eng.phase == EngineerPhase::Ram
+                && self.eng.ram_ticks >= t.engq10_active_ticks
+        })
+    }
+
+    /// The pot met a solid: self-damage (`engq13_self_damage`, 0 = off), then the
+    /// bonk (hurt + daze) with the timer fixed; at 0 health he is defeated in place
+    /// by the wall-slam defeat path. Returns true when he was defeated.
+    pub(crate) fn ram_bonk(&mut self, t: &Cf02Tuning) -> bool {
+        let tuning = self.eng_tuning.expect("an Engineer carries its tuning");
+        self.health = self.health.saturating_sub(tuning.engq13_self_damage);
+        if self.health == 0 {
+            self.attack_tick = 0;
+            self.stagger_left = 0;
+            self.swing_hit = false;
+            self.mode = GoblinMode::Down;
+            self.down_ticks = 0;
+            self.y = self.floor_y;
+            self.vx = 0.0;
+            self.vy = 0.0;
+            self.hit_stop = self.hit_stop.max(t.q09_flier_hit_stop);
+            return true;
+        }
+        self.eng.phase = EngineerPhase::Bonk;
+        self.eng.left = tuning.bonk_ticks();
+        false
+    }
+
+    /// Bonk ticks spent so far (0 on the tick the bonk starts): the first
+    /// `engq13_hurt_ticks` show the hurt frame, the daze the recover frame.
+    pub fn bonk_age(&self) -> Option<u16> {
+        let t = self.eng_tuning?;
+        (self.engineer_phase() == Some(EngineerPhase::Bonk))
+            .then(|| t.bonk_ticks().saturating_sub(self.eng.left))
     }
 
     /// Standing or walking: maybe start a tell, otherwise close in (to the
@@ -631,6 +905,14 @@ impl Goblin {
         if let Some(launch) = self.bowl {
             mix(0x424f_574c);
             mix(u64::from(launch));
+        }
+        // ENEMY-GAMEPLAY-ENGINEER: the kind, and his attack state while he attacks.
+        // Nothing of it is mixed for a common goblin, so no earlier hash sees it.
+        if self.kind == GoblinKind::Engineer {
+            mix(0x454e_4749); // "ENGI"
+            if self.mode == GoblinMode::Attack {
+                self.eng.mix_into(mix);
+            }
         }
     }
 
@@ -937,11 +1219,16 @@ impl Goblin {
             }
             HitOutcome::Defeated
         } else {
-            let committed = self.mode == GoblinMode::Attack
-                && matches!(
-                    attack_phase(self.attack_tick),
-                    AttackPhase::Smear | AttackPhase::Impact
-                );
+            let committed = matches!(
+                self.attack_phase(),
+                Some(AttackPhase::Smear | AttackPhase::Impact)
+            );
+            // ENG-G-Q13: a hit on the dazed Engineer deals its damage and hit-stop
+            // only (the timer is unchanged); a launch, a knockdown (the dive, the
+            // stomp) or a lethal hit overrides it.
+            let bonking = self.engineer_phase() == Some(EngineerPhase::Bonk)
+                && !reaction.launch
+                && !matches!(spec.id, MoveId::DiveStomp | MoveId::Stomp);
             if was_lying && self.keeps_down(spec.id) {
                 // CF02-Q34: a non-lethal hit other than a kick deals its damage and
                 // leaves the goblin lying, its timer unchanged. Q38: the one
@@ -999,6 +1286,8 @@ impl Goblin {
                 self.contact_ticks = 0;
                 self.vx = (direction * reaction.knock_vx).clamp(-KNOCK_VX_MAX, KNOCK_VX_MAX);
                 self.vy = reaction.knock_vy;
+            } else if bonking {
+                // Damage and hit-stop only: the bonk timer runs on.
             } else if !committed {
                 // A jab on a goblin in the air or lying: no launch state left.
                 self.launch = None;
@@ -1755,5 +2044,200 @@ mod tests {
             assert_eq!(e.wall_stop, None);
         }
         assert!(e.x <= 70.0);
+    }
+
+    // ------------------------------------------------ ENEMY-GAMEPLAY-ENGINEER --
+
+    use crate::combat::CARL_PUSH_KICK;
+    use crate::engineer::{self, EngineerPhase, EngineerSense};
+    use crate::party::HeroId;
+
+    fn engineer_at(x: f32) -> Goblin {
+        Goblin::new(x, FLOOR, EnemyAi::Chase)
+            .with_cf02(Some(crate::cf02::active()))
+            .with_engineer(engineer::active())
+    }
+
+    fn sense(target_x: f32) -> EngineerSense {
+        EngineerSense {
+            target: HeroId::Carl,
+            target_x,
+            eligible: true,
+            lane_clear: true,
+            in_trigger: true,
+        }
+    }
+
+    /// Step the Engineer one tick against a target at `target_x` with a token.
+    fn estep(g: &mut Goblin, target_x: f32) -> GoblinStep {
+        g.eng_sense = Some(sense(target_x));
+        g.step(target_x, true, &[], EDGE, true, true)
+    }
+
+    /// An Engineer ticked until `phase` is the current one (and no further).
+    fn engineer_in(phase: EngineerPhase, target_x: f32) -> Goblin {
+        let mut g = engineer_at(200.0);
+        for _ in 0..400 {
+            estep(&mut g, target_x);
+            if g.engineer_phase() == Some(phase) {
+                return g;
+            }
+        }
+        panic!("never reached {phase:?}");
+    }
+
+    #[test]
+    fn the_engineer_tells_launches_rams_and_recovers_on_the_attack_ticks_of_the_design() {
+        let mut g = engineer_at(200.0);
+        let step = estep(&mut g, 272.0);
+        assert!(step.started_tell, "tick 0 of the attack");
+        assert_eq!(g.attack_tick, 0);
+        assert_eq!(g.engineer_phase(), Some(EngineerPhase::Rear));
+        let mut seen: Vec<(u16, EngineerPhase)> = Vec::new();
+        for _ in 0..120 {
+            // The target stays 72 px away (it never moves in this test); the scene
+            // ends a ram that used all its ticks.
+            estep(&mut g, 272.0);
+            if g.ram_distance_spent() {
+                g.ram_recover();
+            }
+            if let Some(p) = g.engineer_phase() {
+                if seen.last().map(|s| s.1) != Some(p) {
+                    seen.push((g.attack_tick, p));
+                }
+            } else {
+                break;
+            }
+        }
+        assert_eq!(
+            seen,
+            vec![
+                (1, EngineerPhase::Rear),
+                (8, EngineerPhase::Point),
+                (32, EngineerPhase::Launch),
+                (35, EngineerPhase::Ram),
+                (54, EngineerPhase::Recover), // set at the end of active tick 20
+            ]
+        );
+        // The whiff ends on attack tick 54 at 80 px, recover runs 55..94, then he
+        // is neutral with the 60-tick cooldown.
+        assert_eq!(g.mode, GoblinMode::Neutral);
+        assert_eq!(g.x, 280.0);
+        assert_eq!(g.attack_cooldown, 60);
+    }
+
+    #[test]
+    fn the_snap_arms_only_from_outside_the_snap_distance_and_shortens_only_the_point() {
+        // Armed: the target was 72 px away at the tell start; it comes within 48.
+        let mut g = engineer_at(200.0);
+        estep(&mut g, 272.0);
+        assert!(g.eng.snap_armed);
+        let mut target = 272.0;
+        let mut fired = None;
+        for _ in 0..30 {
+            if g.engineer_phase() == Some(EngineerPhase::Point) || g.attack_tick >= 7 {
+                target -= 3.08;
+            }
+            estep(&mut g, target);
+            if g.eng.snapped && fired.is_none() {
+                fired = Some(g.attack_tick);
+            }
+        }
+        assert_eq!(fired, Some(15), "47.4 px on attack tick 15");
+        assert_eq!(g.eng.tell_len, 16);
+        // Not armed: a target that began inside 48 px is never snapped.
+        let mut near = engineer_at(200.0);
+        estep(&mut near, 240.0);
+        assert!(!near.eng.snap_armed);
+        for _ in 0..20 {
+            estep(&mut near, 215.0);
+        }
+        assert!(!near.eng.snapped);
+        assert_eq!(near.eng.tell_len, 32);
+        // The knob 0 turns it off.
+        let mut t = engineer::EngineerTuning::pinned().unwrap();
+        t.engq27_snap_px = 0;
+        let t: &'static engineer::EngineerTuning = Box::leak(Box::new(t));
+        let mut off = Goblin::new(200.0, FLOOR, EnemyAi::Chase)
+            .with_cf02(Some(crate::cf02::active()))
+            .with_engineer(t);
+        estep(&mut off, 272.0);
+        assert!(!off.eng.snap_armed);
+    }
+
+    #[test]
+    fn a_jab_in_the_launch_or_the_ram_deals_damage_and_hit_stop_only_and_the_ram_goes_on() {
+        for phase in [EngineerPhase::Launch, EngineerPhase::Ram] {
+            let mut g = engineer_in(phase, 272.0);
+            let before = g.x;
+            let (outcome, split) = g.take_hit_split(&CARL_JAB, 1, HitStopSplit::legacy);
+            assert_eq!(outcome, HitOutcome::Hurt { health_left: 2 });
+            assert!(split.target > 0);
+            assert_eq!(g.mode, GoblinMode::Attack, "{phase:?}: no stagger");
+            assert_eq!(g.engineer_phase(), Some(phase));
+            assert_eq!(g.x, before, "no knockback");
+            for _ in 0..8 {
+                estep(&mut g, 272.0);
+            }
+            assert_eq!(g.mode, GoblinMode::Attack);
+        }
+        // A lethal hit still kills him.
+        let mut g = engineer_in(EngineerPhase::Ram, 272.0);
+        g.health = 1;
+        let (outcome, _) = g.take_hit_split(&CARL_JAB, 1, HitStopSplit::legacy);
+        assert_eq!(outcome, HitOutcome::Defeated);
+        assert_eq!(g.mode, GoblinMode::Airborne);
+        // A contact knockdown ends the ram.
+        let mut g = engineer_in(EngineerPhase::Ram, 272.0);
+        g.contact_knockdown(1, crate::cf02::active());
+        assert_eq!(g.mode, GoblinMode::Launched);
+        assert!(!g.token_held());
+    }
+
+    #[test]
+    fn a_hit_in_the_tell_staggers_him_and_returns_the_token() {
+        for phase in [EngineerPhase::Rear, EngineerPhase::Point] {
+            let mut g = engineer_in(phase, 272.0);
+            assert!(g.token_held());
+            g.take_hit_split(&CARL_JAB, 1, HitStopSplit::legacy);
+            assert_eq!(g.mode, GoblinMode::Hurt, "{phase:?}");
+            assert!(!g.token_held());
+        }
+    }
+
+    #[test]
+    fn a_jab_in_the_bonk_leaves_its_timer_and_a_kick_launches_him_out_of_it() {
+        let t = crate::cf02::active();
+        let mut g = engineer_in(EngineerPhase::Ram, 272.0);
+        assert!(!g.ram_bonk(t));
+        assert_eq!(g.engineer_phase(), Some(EngineerPhase::Bonk));
+        assert_eq!(g.health, 2);
+        let left = g.eng.left;
+        let (outcome, _) = g.take_hit_split(&CARL_JAB, 1, HitStopSplit::legacy);
+        assert_eq!(outcome, HitOutcome::Hurt { health_left: 1 });
+        assert_eq!(g.mode, GoblinMode::Attack, "no stagger replaces the daze");
+        assert_eq!(g.eng.left, left, "the timer is unchanged");
+        assert!(g.hit_stop > 0);
+        let mut k = engineer_in(EngineerPhase::Ram, 272.0);
+        k.ram_bonk(t);
+        k.take_hit_split(&CARL_PUSH_KICK, 1, HitStopSplit::legacy);
+        assert_eq!(k.mode, GoblinMode::Launched);
+    }
+
+    #[test]
+    fn the_third_bonk_defeats_him_in_place() {
+        let t = crate::cf02::active();
+        let mut g = engineer_in(EngineerPhase::Ram, 272.0);
+        g.health = 1;
+        assert!(g.ram_bonk(t));
+        assert_eq!((g.mode, g.health), (GoblinMode::Down, 0));
+    }
+
+    #[test]
+    fn the_engineer_adds_one_tag_to_the_state_hash_and_a_goblin_adds_nothing() {
+        let (mut a, mut b) = (Vec::new(), Vec::new());
+        goblin_at(200.0).mix_into(&mut |v| a.push(v));
+        engineer_at(200.0).mix_into(&mut |v| b.push(v));
+        assert_eq!(b.len(), a.len() + 1);
     }
 }

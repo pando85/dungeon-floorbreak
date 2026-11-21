@@ -241,6 +241,7 @@ fn goblin_input() -> GoblinInput {
         walking: false,
         walk_milli_px: 0,
         idle_tick: 0,
+        engineer: None,
     }
 }
 
