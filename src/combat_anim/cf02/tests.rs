@@ -1780,3 +1780,34 @@ fn with_the_overlays_off_there_is_no_hold_and_the_impact_starts_at_the_kill() {
         assert_eq!(slam.as_deref(), Some(want), "tick {n}");
     }
 }
+
+/// Not a check: ticks where Donut shows smug or startle, with her distance to
+/// the nearest other actor (`--ignored --nocapture`).
+#[test]
+#[ignore]
+fn list_donut_clearance() {
+    for fixture in all_cf02() {
+        let mut sim = PartyFixtureSim::new(&kit_for(fixture), 360, fixture).unwrap();
+        let mut anim = scene_animators(&sim, Some(on()));
+        let mut rows: Vec<(u64, String, f32)> = Vec::new();
+        for _ in 0..fixture.base.ticks {
+            sim.step_scripted();
+            anim.step(&sim.scene.world);
+            anim.step_art(&sim.scene, &sim.combat);
+            if let Some(p) = anim.art.as_ref().unwrap().donut_cf02_pose() {
+                let dx = sim.scene.world.donut.x;
+                let mut near = (dx - sim.scene.world.hero.x).abs();
+                for g in sim.combat.enemies.iter().filter(|g| g.alive()) {
+                    near = near.min((dx - g.x).abs());
+                }
+                for l in &sim.combat.llamas {
+                    near = near.min((dx - l.x).abs());
+                }
+                rows.push((sim.combat.elapsed, p.label(), near));
+            }
+        }
+        if let Some(best) = rows.iter().max_by(|a, b| a.2.total_cmp(&b.2)) {
+            println!("{} first {} best {:?}", fixture.name(), rows[0].0, best);
+        }
+    }
+}
