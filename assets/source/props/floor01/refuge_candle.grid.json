@@ -1,0 +1,77 @@
+{
+ "format": "pixel-grid-v1",
+ "canvas": [
+  3,
+  2
+ ],
+ "pivot": [
+  0,
+  0
+ ],
+ "palette": [
+  {
+   "key": "!",
+   "name": "flame_02",
+   "rgba": "#f58a26ff"
+  },
+  {
+   "key": "#",
+   "name": "flame_03",
+   "rgba": "#ffc048ff"
+  },
+  {
+   "key": "$",
+   "name": "flame_04",
+   "rgba": "#ffe98aff"
+  }
+ ],
+ "layers": [
+  "main"
+ ],
+ "frames": [
+  {
+   "duration_ms": 120,
+   "cels": {
+    "main": [
+     ".#.",
+     "!$!"
+    ]
+   }
+  },
+  {
+   "duration_ms": 120,
+   "cels": {
+    "main": [
+     ".#.",
+     "!$!"
+    ]
+   }
+  },
+  {
+   "duration_ms": 120,
+   "cels": {
+    "main": [
+     ".#.",
+     "!$!"
+    ]
+   }
+  },
+  {
+   "duration_ms": 120,
+   "cels": {
+    "main": [
+     ".#.",
+     "!$!"
+    ]
+   }
+  }
+ ],
+ "tags": [
+  {
+   "name": "burn",
+   "from": 0,
+   "to": 3,
+   "direction": "forward"
+  }
+ ]
+}

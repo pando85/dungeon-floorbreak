@@ -1,0 +1,60 @@
+{
+  "schema": "floor01-refuge-room-v1",
+  "id": "refuge_guild",
+  "status": "AREA-REFUGE-01: Mordecai's Tutorial Guild room. Its own room: not in the f01_late playtest manifest.",
+  "layout": "assets/levels/floor01/refuge_guild.json",
+  "view_rule": "layout y = view y + 20; one fixed 640 x 360 screen (REF-Q4)",
+  "walk_line_view_y": 288,
+  "marks": {
+    "donut": {
+      "x": 226,
+      "facing": "right",
+      "note": "in front of the bookshelf"
+    },
+    "carl": {
+      "x": 258,
+      "facing": "right",
+      "note": "left of the hearth, clear of the fire opening"
+    },
+    "mordecai": {
+      "x": 380,
+      "facing": "left",
+      "enabled": true,
+      "sprite": "assets/manifests/mordecai_h44.json",
+      "height_px": 44,
+      "note": "REF-Q1: host side of the hearth, facing the party (authored facing right, mirrored). 'enabled': false switches him off (the loader then ignores the sprite); enabled without a sprite is refused"
+    }
+  },
+  "clearances_view_x": {
+    "hearth_opening": [
+      302,
+      337
+    ],
+    "desk": [
+      424,
+      480
+    ],
+    "free_floor": [
+      200,
+      420
+    ]
+  },
+  "door": {
+    "states": {
+      "closed": "refuge_door_inside_closed",
+      "open": "refuge_door_inside_open"
+    },
+    "default": "closed",
+    "exit_trigger": {
+      "id": "exit_guild_return",
+      "rect_view": [
+        40,
+        228,
+        64,
+        60
+      ],
+      "opens": "open",
+      "returns_to": "exit_guild"
+    }
+  }
+}

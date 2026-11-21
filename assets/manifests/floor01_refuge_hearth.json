@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "floor01_refuge_hearth_v1",
+  "type": "prop_animation",
+  "source_path": "assets/source/props/floor01/refuge_hearth.ase",
+  "grid_source": "assets/source/props/floor01/refuge_hearth.grid.json",
+  "output_atlas": "generated/art/floor01_refuge_hearth.png",
+  "output_metadata": "generated/art/floor01_refuge_hearth.json",
+  "palette_id": "floor01-catacomb-v2",
+  "frame_size": [
+    80,
+    80
+  ],
+  "pivot": [
+    40,
+    79
+  ],
+  "animation_tags": [
+    "burn"
+  ],
+  "required_alpha": true,
+  "kit_contract": "assets/source/terrain/floor01/floor01_refuge_kit.json",
+  "owner": "AI-authored environment pixel art (AREA-REFUGE-01: design spec and hearth key Claude Opus, execution Claude Sonnet; independent review pending)",
+  "tool_version": "LibreSprite=1.3 / Aseprite-compatible",
+  "license": "Original repo-specific environment art; no standalone asset reuse license; no game/asset-pack distribution rights",
+  "review_status": "prototype_fixture_unapproved",
+  "provenance": {
+    "origin": "Original pixel-grid-v1 guild-room props for the Floor 1 refuge (AREA-REFUGE-01 on the ENV-01 kit); rule-based shapes and ramps, nothing cropped, traced or resampled from concept art. The wall portrait shows two original humanoid bird-people (owner direction 2026-11-21)",
+    "generator": "Deterministic authoring scripts scripts/author_refuge01.py, scripts/author_refuge01_props.py and scripts/author_refuge01_room.py written by AI agents (designed by Claude Opus: spec and hearth key; executed by Claude Sonnet), reusing the ENV-01 shading helpers; no image-model raster output",
+    "generated_art": true,
+    "input_reference_ids": [
+      "floor01-catacomb-kit/env-kit-v2 (owner-approved ENV-01 kit, 2026-11-16)",
+      "floor-01-art-atlas-v1/02-tutorial-guild-old-guide (room mood reference only)"
+    ]
+  }
+}
