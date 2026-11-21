@@ -16,7 +16,7 @@
   "cpq16_spawn_dx_px": 16,
   "cpq16_spawn_dy_px": 46,
   "cpq17_vx_base_px_s": 150,
-  "cpq17_vx_carl_share_pct": 50,
+  "cpq17_vx_thrower_share_pct": 50,
   "cpq17_vy_px_s": 260,
   "cpq17_gravity_px_s2": 1050,
   "cpq18_fuse_ticks": 150,

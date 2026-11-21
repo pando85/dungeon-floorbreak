@@ -30,7 +30,7 @@ pub const TABLE_JSON: &str = include_str!("../assets/data/gameplay/story_unlocks
 
 /// The committed FNV-1a 64 content hash of [`TABLE_JSON`]. Editing the file
 /// without updating this value fails [`StoryTable::pinned`] and the pin test.
-pub const TABLE_HASH: u64 = 0x39fd_2948_c881_118c;
+pub const TABLE_HASH: u64 = 0x28d0_302f_b11b_7778;
 
 /// The schema version [`StoryTable`] accepts.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -905,6 +905,9 @@ impl StorySetup {
     }
 
     /// A fixture arms a trigger by id (the placeholder Hoarder-defeat zone has no scene).
+    /// Armed without a flag, it grants every row of its list (story progression). A
+    /// setup built by `for_scene` from debug start flags only has an empty hero
+    /// filter, so a trigger added to it may grant no row and is spent at start.
     #[must_use]
     pub fn with_trigger(mut self, id: &str) -> Self {
         let table = self.table.unwrap_or_else(StoryTable::active);

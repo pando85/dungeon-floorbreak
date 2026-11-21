@@ -21,7 +21,7 @@ pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/carl_prog_v0
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`]. Editing the file
 /// without updating this value fails [`CarlProgTuning::pinned`] and the pin
 /// test, so a knob edit never changes a recorded outcome silently.
-pub const TUNING_HASH: u64 = 0x9c7e_9431_2f12_f043;
+pub const TUNING_HASH: u64 = 0x6be9_3e74_a0b7_d544;
 
 /// The schema version [`CarlProgTuning`] accepts.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -127,7 +127,7 @@ pub struct CarlProgTuning {
     pub cpq16_spawn_dx_px: u16,
     pub cpq16_spawn_dy_px: u16,
     pub cpq17_vx_base_px_s: u16,
-    pub cpq17_vx_carl_share_pct: u8,
+    pub cpq17_vx_thrower_share_pct: u8,
     pub cpq17_vy_px_s: u16,
     pub cpq17_gravity_px_s2: u16,
     pub cpq18_fuse_ticks: u16,
@@ -268,8 +268,8 @@ impl CarlProgTuning {
         {
             return bad("cpq17_vx_base_px_s", "the arc needs speed and gravity");
         }
-        if self.cpq17_vx_carl_share_pct > 100 {
-            return bad("cpq17_vx_carl_share_pct", "a percentage");
+        if self.cpq17_vx_thrower_share_pct > 100 {
+            return bad("cpq17_vx_thrower_share_pct", "a percentage");
         }
         if self.cpq18_fuse_ticks == 0 {
             return bad("cpq18_fuse_ticks", "the fuse burns at least one tick");
@@ -389,6 +389,36 @@ mod tests {
                 !knob || key.starts_with("cpq"),
                 "{key}: a knob name starts with its question ID"
             );
+        }
+    }
+
+    /// The data contract is IP-neutral: no key of the knob file names a franchise
+    /// item or character (the values and the provenance are the fan layer).
+    #[test]
+    fn no_knob_key_names_a_franchise_item_or_character() {
+        let banned = [
+            "dynamite", "gauntlet", "carl", "hoarder", "juicer", "donut", "biscuit", "puddle",
+        ];
+        let value: serde_json::Value = serde_json::from_str(TUNING_JSON).unwrap();
+        fn keys(value: &serde_json::Value, out: &mut Vec<String>) {
+            match value {
+                serde_json::Value::Object(map) => {
+                    for (key, inner) in map {
+                        out.push(key.clone());
+                        keys(inner, out);
+                    }
+                }
+                serde_json::Value::Array(items) => items.iter().for_each(|i| keys(i, out)),
+                _ => {}
+            }
+        }
+        let mut all = Vec::new();
+        keys(&value, &mut all);
+        assert!(all.len() > 40);
+        for key in all {
+            for word in banned {
+                assert!(!key.contains(word), "knob key {key} says {word}");
+            }
         }
     }
 
