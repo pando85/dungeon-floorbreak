@@ -2,7 +2,7 @@
   "format": "env-kit-v2",
   "kit_id": "floor01_materials",
   "extends": "assets/source/terrain/floor01/floor01_catacomb_kit.json",
-  "status": "proposed - WORK-007 phase 2 drawn (Claude Sonnet) on the Opus keys; awaiting independent Opus review; not owner-approved",
+  "status": "proposed - WORK-007 phase 2 drawn (Claude Sonnet) on the Opus keys; independent Opus review PASS WITH FIX-NOW, fixes applied by Claude Sonnet; not owner-approved",
   "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract (env_kit.py resolve_extends). Adds one frame-per-tile atlas (floor01_materials, one 16x16 tile per Aseprite frame, exported as a rows sheet) and the material_tiles section: 16x16 material tiles that may be partial (edge remnants of broken states) and are placed by pixel position in the WORK-007 sample scene (assets/levels/floor01/work007_fidelity_sample.json). They are not part of the env-kit-layout tile grid; no new palette colours.",
   "palette_use": {
     "floor01_materials": 42
@@ -638,6 +638,6 @@
   },
   "usage_rules": {
     "W007_scene": "Place by pixel position in the sample scene file. Full tiles carry collider [0, 0, 16, 16]; broken tiles carry none. Reinforced (iron_plate) never changes outline or collider. Stone and iron cells never change between the intact and breached frames.",
-    "tones": "_dim and _lit are one-step ramp shifts of the mid key (W007-D5); accent keys stay; lit glass turns the gal_10 glint into gal_warm_03."
+    "tones": "_dim and _lit are one-step ramp shifts of the mid key (W007-D5); accent keys stay and a shift never lands on an accent colour of its own ramp; lit glass turns only the top pixel of each gal_10 glint streak into gal_warm_03."
   }
 }

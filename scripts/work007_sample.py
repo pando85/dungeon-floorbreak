@@ -366,7 +366,7 @@ def tiled_3x3(tile: Image.Image) -> Image.Image:
 
 def materials_sheet(kit: ek.Kit) -> Image.Image:
     """Every material tile at 1x and 4x, each full key also 3x3 tiled (shown at 2x), states left to
-    right (intact, cracked or damaged, broken), then the dim / mid / lit tone rows at 4x."""
+    right (intact, cracked or damaged, broken), then the dim / mid / lit tone rows at 4x with the 1x tile beside each."""
     tiles = {t["id"]: t for t in kit.contract["material_tiles"]}
 
     def img(tid: str) -> Image.Image:
@@ -381,7 +381,8 @@ def materials_sheet(kit: ek.Kit) -> Image.Image:
                                   "timber_boards_broken_r")),
     )
     margin, cell_w, line = 12, 196, 13
-    width = margin * 2 + cell_w * 4
+    tone_slot, tone_gap = 88, 12  # 4x tile (64 px), 4 px, the 1x tile (16 px), 4 px
+    width = margin * 2 + max(cell_w * 4, 3 * (3 * tone_slot + tone_gap) - tone_gap)
     height = margin + 2 * line + len(families) * (line + 100 + 2 * line + 8) + line + 2 * (64 + 2 * line + 6) + margin
     sheet = Image.new("RGB", (width, height), SHEET_BG)
     draw = ImageDraw.Draw(sheet)
@@ -408,9 +409,11 @@ def materials_sheet(kit: ek.Kit) -> Image.Image:
               ("glass_leaded_cracked", "timber_boards_intact", "timber_boards_cracked"))
     for row in groups:
         for gi, base in enumerate(row):
-            gx = margin + gi * 3 * 70 + gi * 10
+            gx = margin + gi * (3 * tone_slot + tone_gap)
             for ti, suffix in enumerate(("_dim", "", "_lit")):
-                sheet.paste(on_plate(img(base + suffix), 4), (gx + ti * 70, y))
+                tile = img(base + suffix)
+                sheet.paste(on_plate(tile, 4), (gx + ti * tone_slot, y))
+                sheet.paste(on_plate(tile, 1), (gx + ti * tone_slot + 68, y))
             draw.text((gx, y + 66), base, fill=SHEET_INK)
         y += 64 + 2 * line + 6
     return sheet.crop((0, 0, width, y))

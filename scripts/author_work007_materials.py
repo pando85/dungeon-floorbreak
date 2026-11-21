@@ -12,8 +12,9 @@ Derived frames (spec ``docs/02-art/work-007-fidelity-sample-spec.md`` section 6,
   stub lengths 5, 3 and 7 px);
 * frames 10 to 15 (``_dim``) and 16 to 21 (``_lit``) of frames 0, 1, 2, 3, 6, 7: every
   non-accent key shifts one index down (dim) or up (lit) inside its own palette ramp,
-  clamped at the ramp ends; accent keys stay; lit glass turns each ``gal_10`` glint pixel
-  into ``gal_warm_03`` and nothing else.
+  clamped at the ramp ends; accent keys stay; a shift never lands on an accent colour of its
+  own ramp (the key keeps its mid index; review ruling, PR #163); lit glass turns only the top
+  pixel of each ``gal_10`` glint streak into ``gal_warm_03`` and nothing else.
 
 Usage::
 
@@ -116,6 +117,46 @@ def shifted_name(name: str, step: int, ramp_table: dict[str, list[tuple[int, str
     return names[max(0, min(len(names) - 1, pos))]
 
 
+def tone_name(name: str, step: int, ramp_table: dict[str, list[tuple[int, str]]], accents: set[str]) -> str:
+    """One-step ramp shift of a non-accent colour; never onto an accent colour of its own ramp.
+
+    Review ruling (PR #163, Q3): a key whose one-step target is an accent colour keeps its mid
+    index, so the lit iron bevel ``iron_05`` stays ``iron_05`` and the rivet heads (``iron_06``)
+    keep their pop.
+    """
+    target = shifted_name(name, step, ramp_table)
+    return name if target in accents else target
+
+
+def glint_tops(rows: list[str], glint_key: str) -> set[tuple[int, int]]:
+    """Topmost pixel of every glint streak of a glass tile.
+
+    A streak is an 8-connected group of ``glint_key`` pixels on the tile torus, so the corner
+    glint that continues into the neighbouring tile (col 15 row 13 and col 0 row 12) counts as
+    one streak. The top is the smallest row, then the smallest column (no wrap in y).
+    """
+    cells = {(x, y) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch == glint_key}
+    seen: set[tuple[int, int]] = set()
+    tops: set[tuple[int, int]] = set()
+    for start in sorted(cells, key=lambda c: (c[1], c[0])):
+        if start in seen:
+            continue
+        group, stack = set(), [start]
+        while stack:
+            x, y = stack.pop()
+            if (x, y) in group:
+                continue
+            group.add((x, y))
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    n = ((x + dx) % 16, y + dy)
+                    if n in cells and n not in group:
+                        stack.append(n)
+        seen |= group
+        tops.add(min(group, key=lambda c: (c[1], c[0])))
+    return tops
+
+
 def derive(grid: dict, kit: dict) -> dict:
     """Return the grid with frames 9..21 rebuilt from the frozen keys (0 to 8 untouched)."""
     ramp_table = ramps(kit["palette"])
@@ -145,20 +186,20 @@ def derive(grid: dict, kit: dict) -> dict:
 
     def tone(frame_no: int, step: int) -> dict:
         rows = []
-        for row in grid["frames"][frame_no]["cels"]["main"]:
+        src_rows = grid["frames"][frame_no]["cels"]["main"]
+        tops = glint_tops(src_rows, by_name["gal_10"]) if step > 0 and frame_no in (2, 3) else set()
+        for y, row in enumerate(src_rows):
             out = []
-            for ch in row:
+            for x, ch in enumerate(row):
                 if ch == ".":
                     out.append(ch)
                     continue
                 name = names_by_key[ch]
                 if name in accents:
-                    if step > 0 and frame_no in (2, 3) and name == "gal_10":
-                        out.append(key_for("gal_warm_03"))
-                    else:
-                        out.append(ch)
+                    # lit glass: only the top pixel of each glint streak turns warm (spec E1)
+                    out.append(key_for("gal_warm_03") if (x, y) in tops else ch)
                 else:
-                    out.append(key_for(shifted_name(name, step, ramp_table)))
+                    out.append(key_for(tone_name(name, step, ramp_table, accents)))
             rows.append("".join(out))
         return {"duration_ms": 100, "cels": {"main": rows}}
 
@@ -203,7 +244,7 @@ def contract(grid: dict) -> dict:
         "format": "env-kit-v2",
         "kit_id": "floor01_materials",
         "extends": "assets/source/terrain/floor01/floor01_catacomb_kit.json",
-        "status": "proposed - WORK-007 phase 2 drawn (Claude Sonnet) on the Opus keys; awaiting independent Opus review; not owner-approved",
+        "status": "proposed - WORK-007 phase 2 drawn (Claude Sonnet) on the Opus keys; independent Opus review PASS WITH FIX-NOW, fixes applied by Claude Sonnet; not owner-approved",
         "extension_note": "Inherits palette, layers, draw order, coordinates, walking-line rule and lighting schema from the ENV-01 contract (env_kit.py resolve_extends). Adds one frame-per-tile atlas (floor01_materials, one 16x16 tile per Aseprite frame, exported as a rows sheet) and the material_tiles section: 16x16 material tiles that may be partial (edge remnants of broken states) and are placed by pixel position in the WORK-007 sample scene (assets/levels/floor01/work007_fidelity_sample.json). They are not part of the env-kit-layout tile grid; no new palette colours.",
         "palette_use": {"floor01_materials": len(grid["palette"])},
         "atlases": {
@@ -220,7 +261,7 @@ def contract(grid: dict) -> dict:
         "state_groups": groups,
         "usage_rules": {
             "W007_scene": "Place by pixel position in the sample scene file. Full tiles carry collider [0, 0, 16, 16]; broken tiles carry none. Reinforced (iron_plate) never changes outline or collider. Stone and iron cells never change between the intact and breached frames.",
-            "tones": "_dim and _lit are one-step ramp shifts of the mid key (W007-D5); accent keys stay; lit glass turns the gal_10 glint into gal_warm_03.",
+            "tones": "_dim and _lit are one-step ramp shifts of the mid key (W007-D5); accent keys stay and a shift never lands on an accent colour of its own ramp; lit glass turns only the top pixel of each gal_10 glint streak into gal_warm_03.",
         },
     }
 
@@ -244,6 +285,8 @@ def main(argv=None) -> int:
     sys.path.insert(0, str(ROOT / "scripts"))
     from pixelart.validators import frame_digest  # noqa: E402
     for n, entry in keys["keys"].items():
+        if int(n) >= FROZEN_FRAMES:
+            continue  # derived frames are frozen in the fixture too, but the derivation may rebuild them
         got = frame_digest(grid["frames"][int(n)]["cels"], ["main"])
         if got != entry["sha256"]:
             print(f"frozen key frame {n} changed: refusing to continue", file=sys.stderr)

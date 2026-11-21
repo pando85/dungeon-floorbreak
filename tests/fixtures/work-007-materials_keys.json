@@ -40,6 +40,58 @@
     "8": {
       "sha256": "214ac4f04866858da3d4b926bb06996215522f8b8456da2ce1fe33615ee1fb1e",
       "tile": "timber_boards_broken_l"
+    },
+    "9": {
+      "sha256": "fac028b664f7a7a78aae46ed37b95cdbbc34faf2c6f60e411ee57783c3227e03",
+      "tile": "timber_boards_broken_r"
+    },
+    "10": {
+      "sha256": "37765c55dee62852e24aa6edf1e9bd36d78017ca27d89e4d5d3ce16373fb8eca",
+      "tile": "iron_plate_intact_dim"
+    },
+    "11": {
+      "sha256": "a1b35cde1ee02b276d6fb5746ed7f13a0163c205edfcf405dd511cf0052f2130",
+      "tile": "iron_plate_damaged_dim"
+    },
+    "12": {
+      "sha256": "7689852f219ef773115261e84eb89160b88a30e6e51ade96f0f36e68963f0176",
+      "tile": "glass_leaded_intact_dim"
+    },
+    "13": {
+      "sha256": "a66a2500be122af13984eda0fe2438222e216d2f7e54d657fb165b349d623960",
+      "tile": "glass_leaded_cracked_dim"
+    },
+    "14": {
+      "sha256": "91010466e2e4edd11b82a65aa48f8e1d4c1db938cfd3e87ff33a5cb7812a4738",
+      "tile": "timber_boards_intact_dim"
+    },
+    "15": {
+      "sha256": "8690e7aa88738383860c548c13f11f260ddc98b042feba7f496395d066b66a67",
+      "tile": "timber_boards_cracked_dim"
+    },
+    "16": {
+      "sha256": "8a73258f2dd6af119bc2456f5d0d5eee8fe3bf8d24e12985e14f3c3f566e9e46",
+      "tile": "iron_plate_intact_lit"
+    },
+    "17": {
+      "sha256": "a6ca9b6294e94fef6b0cb54b8a895b413e3d5bf937caac3bf161f1749a9e4722",
+      "tile": "iron_plate_damaged_lit"
+    },
+    "18": {
+      "sha256": "fa80bb836cab96a32aca2ffb1a057bfc098c206ac7848bc999f210483c6415e0",
+      "tile": "glass_leaded_intact_lit"
+    },
+    "19": {
+      "sha256": "8f99ce683fd1239a210d08e7c727c52e584858d25b22bcd5ce712f8ecc285dab",
+      "tile": "glass_leaded_cracked_lit"
+    },
+    "20": {
+      "sha256": "c4f486de4d0b47c3aba9669098e6b45399a7ea1a56d41fdda5176f9790944307",
+      "tile": "timber_boards_intact_lit"
+    },
+    "21": {
+      "sha256": "b0dd87e8c13c21e7c2a2e486b126032ac8640efa656ca5f431c18587ae7721f0",
+      "tile": "timber_boards_cracked_lit"
     }
   }
 }

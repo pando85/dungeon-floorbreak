@@ -30,7 +30,7 @@ WALK_LINE = 308
 CARL_HEIGHT = 52
 CARL_WIDTH = 24      # generous width of the 52 px Carl silhouette (idle 23 px)
 JUMP_APEX = 92
-FROZEN_BROKEN_TOP_OPAQUE = 0.477  # frozen key frame 4: 122 of 256 px
+REMNANT_OPAQUE_LIMIT = 0.50  # review ruling Q1 (PR #163): measured 47.7, 43.4, 35.2 and 25.0 %
 
 
 def load(path: Path) -> dict:
@@ -56,7 +56,8 @@ class GridTests(unittest.TestCase):
         cls.names = names_by_key(cls.grid)
 
     def test_frozen_keys_are_byte_identical(self) -> None:
-        self.assertEqual(sorted(self.keys["keys"], key=int), [str(i) for i in range(9)])
+        # frames 0 to 8 are the Opus keys, 9 to 21 the derived tiles frozen after the review (F-4)
+        self.assertEqual(sorted(self.keys["keys"], key=int), [str(i) for i in range(22)])
         for n, entry in self.keys["keys"].items():
             with self.subTest(frame=n):
                 self.assertEqual(frame_digest(self.grid["frames"][int(n)]["cels"], ["main"]),
@@ -101,15 +102,12 @@ class GridTests(unittest.TestCase):
             for n in (dim, lit):
                 self.assertTrue(all("." not in row for row in frame_rows(self.grid, n)), n)
 
-    def test_broken_remnants_are_at_most_45_percent_opaque(self) -> None:
+    def test_broken_remnants_are_at_most_50_percent_opaque(self) -> None:
         for tile in aw.TILES:
             frame, tid, state = tile[0], tile[1], tile[3]
             opaque = sum(ch != "." for row in frame_rows(self.grid, frame) for ch in row)
             if state in aw.BROKEN_STATES:
-                # The frozen key glass_leaded_broken_top measures 47.7 %: the spec's 45 % limit
-                # is not met by that Opus key (recorded as an unmet target, keys stay frozen).
-                limit = FROZEN_BROKEN_TOP_OPAQUE if tid == "glass_leaded_broken_top" else 0.45
-                self.assertLessEqual(opaque / 256, limit, tid)
+                self.assertLessEqual(opaque / 256, REMNANT_OPAQUE_LIMIT, tid)
                 self.assertGreater(opaque, 0, tid)
             else:
                 self.assertEqual(opaque, 256, tid)
@@ -128,10 +126,40 @@ class GridTests(unittest.TestCase):
                             continue
                         na, nb = self.names[ca], self.names[cb]
                         if na in accents:
-                            glint = step > 0 and src in (2, 3) and na == "gal_10"
-                            self.assertEqual(nb, "gal_warm_03" if glint else na)
+                            self.assertIn(nb, (na, "gal_warm_03"))
+                            if nb != na:
+                                self.assertEqual((step, na), (1, "gal_10"))
                         else:
-                            self.assertEqual(nb, aw.shifted_name(na, step, table))
+                            self.assertEqual(nb, aw.tone_name(na, step, table, accents))
+                            # review ruling Q3: a shift never lands on an accent of its own ramp
+                            self.assertNotIn(nb, accents)
+
+    def test_lit_glass_warms_only_the_top_pixel_of_each_glint_streak(self) -> None:
+        by_name = {e["name"]: e["key"] for e in self.grid["palette"]}
+        warm, glint = by_name["gal_warm_03"], by_name["gal_10"]
+        # streak tops: the diagonal glint under the lattice crossing, the corner glint that
+        # continues into the neighbouring tile (col 15 row 13 with col 0 row 12), the cracked glint
+        expected = {2: {(8, 4), (0, 12)}, 3: {(8, 4), (0, 12), (9, 7)}}
+        for src, lit in ((2, 18), (3, 19)):
+            rows = frame_rows(self.grid, lit)
+            warmed = {(x, y) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch == warm}
+            self.assertEqual(warmed, expected[src], lit)
+            # every other glint pixel of the mid key stays gal_10
+            for y, row in enumerate(frame_rows(self.grid, src)):
+                for x, ch in enumerate(row):
+                    if ch == glint and (x, y) not in warmed:
+                        self.assertEqual(rows[y][x], glint, (lit, x, y))
+
+    def test_lit_iron_bevel_stays_below_the_rivet_accent(self) -> None:
+        by_name = {e["name"]: e["key"] for e in self.grid["palette"]}
+        for src, lit in ((0, 16), (1, 17)):
+            # the rivet heads (iron_06) are the only iron_06 pixels: the bevel no longer joins them
+            count = lambda n: sum(ch == by_name["iron_06"] for row in frame_rows(self.grid, n) for ch in row)  # noqa: E731
+            self.assertEqual(count(lit), count(src), lit)
+            for ra, rb in zip(frame_rows(self.grid, src), frame_rows(self.grid, lit)):
+                for ca, cb in zip(ra, rb):
+                    if self.names[ca] == "iron_05":
+                        self.assertEqual(self.names[cb], "iron_05")
 
     def test_broken_r_is_redrawn_not_mirrored(self) -> None:
         r = frame_rows(self.grid, 9)
