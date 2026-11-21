@@ -29,27 +29,28 @@ W, H = 52, 48
 PIVOT = (24, 47)
 LAYERS = ["tail", "far_arm", "torso", "near_arm", "legs", "head"]
 
-# mordecai-floor01-v0 (19 of 20). Outline and the eye, tooth and brass accents are shared with the goblin and Carl keys.
+# mordecai-floor01-v0 (20 of 20). Outline and the eye, tooth and brass accents are shared with the goblin and Carl keys.
 PALETTE = [
     ("K", "outline_plum", "#1b1124ff", False),
-    ("a", "fur_deep", "#3b3340ff", False),
-    ("c", "fur_shade", "#6c6068ff", False),
-    ("f", "fur_mid", "#998d88ff", False),
-    ("g", "fur_light", "#c8bcaaff", False),
+    ("a", "fur_deep", "#42343bff", False),
+    ("c", "fur_shade", "#735f64ff", False),
+    ("f", "fur_mid", "#9b8678ff", False),
+    ("g", "fur_light", "#cbb9a5ff", False),
     ("p", "skin_dark", "#8a4a5aff", False),
     ("q", "skin_mid", "#c77f8aff", False),
     ("r", "skin_light", "#eaa9a9ff", False),
-    ("v", "vest_dark", "#2b2231ff", False),
-    ("V", "vest_mid", "#43363eff", False),
-    ("u", "vest_light", "#685452ff", False),
+    ("v", "vest_dark", "#28222cff", False),
+    ("V", "vest_mid", "#382f38ff", False),
+    ("u", "vest_light", "#52474fff", False),
     ("i", "indigo_dark", "#2a2c58ff", False),
     ("I", "indigo_mid", "#41498aff", False),
     ("j", "indigo_light", "#6571b0ff", False),
-    ("s", "sandal_leather", "#7c5a3eff", False),
+    ("s", "sandal_leather", "#4b3024ff", False),
     ("e", "eye_yellow", "#ffd23aff", True),
     ("w", "tooth_white", "#efe4c4ff", True),
     ("b", "brass_mid", "#b8862eff", True),
     ("o", "mouth_dark", "#5c1426ff", False),
+    ("h", "amber_rim", "#d9a04aff", False),
 ]
 KEYS = [p[0] for p in PALETTE]
 TAGS = [("idle", 0, 0), ("talk", 1, 1)]
@@ -214,8 +215,9 @@ def draw(pose: str) -> Canvas:
     c.add("legs", rect(27, 41, 30, 44), "f", None, "c")
     c.add("legs", poly([(15, 44), (20, 44), (22.5, 45), (22.5, 47), (14, 47)]), "p")
     c.add("legs", poly([(26, 44), (31, 44), (35.5, 45), (35.5, 47), (25, 47)]), "q", "r", "p")
-    c.put("legs", [(16, 45), (17, 45), (18, 45), (19, 45), (28, 45), (29, 45), (30, 45), (31, 45)], "v")   # straps
-    c.put("legs", [(34, 46), (21, 46)], "r")                                                               # toes
+    c.put("legs", [(16, 45), (17, 45), (18, 45), (19, 45), (28, 45), (29, 45), (30, 45), (31, 45)], "s")   # dark-brown straps
+    c.put("legs", [(32, 45), (33, 45), (34, 45), (35, 45), (32, 46), (34, 46), (35, 46), (20, 45), (21, 45), (22, 45), (20, 46), (22, 46)], "r")   # pale pink toes
+    c.put("legs", [(33, 46), (21, 46)], "q")                                                               # toe gaps
     c.add("legs", rect(13, 47, 22, 47), "s")
     c.add("legs", rect(25, 47, 35, 47), "s")
     c.erase([(16, 41), (19, 41), (27, 41), (31, 41), (28, 40), (15, 41), (22, 41)])                       # ragged hem
@@ -227,8 +229,8 @@ def draw(pose: str) -> Canvas:
     c.add("head", ell(29, 12.5, 6.2, 5.6), "f", "g", "c", name="skull")
     c.add("head", poly([(31, 9), (37, 10), (41, 13), (42, 15), (41, 16), (35, 17), (30, 17)]), "f", "g", "c", name="muzzle")
     c.put("head", [(31, 15), (32, 16), (33, 16), (34, 16), (30, 14)], "c")                                # cheek shade
-    c.add("head", ell(26, 8.5, 3.9, 3.5), "q", "r", "p", edge="p", name="ear")
-    c.put("head", [(25, 9), (26, 9), (26, 8), (25, 10), (26, 10)], "r")                                   # inner ear
+    c.add("head", ell(25.5, 9.6, 4.7, 4.6), "q", "r", "p", edge="p", name="ear")
+    c.add("head", ell(25.5, 10.0, 2.7, 2.9), "r", None, "q", name="innerear")                            # inner ear
     c.put("head", [(41, 14), (42, 14), (41, 15), (42, 15)], "q")
     c.put("head", [(41, 13)], "r")
     # eye, heavy lid, brow
@@ -250,14 +252,24 @@ def draw(pose: str) -> Canvas:
         c.put("head", [(36, 16), (37, 16), (38, 16), (39, 16), (40, 16), (36, 17), (37, 17), (38, 17), (39, 17)], "o")
         c.put("head", [(37, 15), (39, 15), (38, 18)], "w")
     # shaggy chin beard: grey-white strands with shaded partings and a ragged, uneven tip line
-    c.add("head", poly([(29, 17 + dy), (37, 17 + dy), (36.5, 19 + dy), (35, 21 + dy), (32, 22 + dy), (29.5, 20 + dy)]), "g", None, "f", name="beard")
-    c.put("head", [(31, 19 + dy), (33, 19 + dy), (34, 20 + dy), (31, 20 + dy), (32, 18 + dy)], "f")
+    c.add("head", poly([(29, 17 + dy), (37, 17 + dy), (36.5, 19 + dy), (35, 22 + dy), (32, 23 + dy), (29.5, 20 + dy)]), "g", None, "f", name="beard")
+    c.put("head", [(31, 19 + dy), (34, 19 + dy)], "f")
     c.put("head", [(30, 21 + dy), (32, 23 + dy), (33, 23 + dy), (35, 22 + dy), (36, 21 + dy)], "g")
     c.put("head", [(32, 24 + dy), (34, 22 + dy)], "f")
+    c.put("head", [(30, 23 + dy), (31, 25 + dy), (33, 25 + dy), (34, 24 + dy), (36, 23 + dy), (35, 25 + dy)], "g")        # jagged tips, 4 px below the jaw
+    c.put("head", [(32, 20 + dy), (33, 21 + dy), (34, 21 + dy), (32, 21 + dy), (35, 22 + dy), (33, 22 + dy)], "w")                       # pale strands
     # scruffy crown and cheek fringe
     c.put("head", [(22, 10), (22, 12), (23, 14), (22, 15), (24, 17), (30, 5), (32, 6)], "f")
+    c.put("head", [(30, 6), (32, 5), (28, 6)], "f")                                                        # stray crown fur
+    c.put("head", [(21, 11), (20, 12), (21, 14), (20, 15), (22, 17), (21, 18)], "c")                       # cheek tufts breaking the outline
+    c.put("head", [(36, 8), (37, 8), (38, 9), (37, 7), (35, 6), (36, 6)], "a")                             # brow tufts over the eye
     c.put("head", [(27, 18), (28, 19)], "f")
     c.finish()
+    # 1 px amber rim on the hearth-facing (back and top) outer edge of the vest and its shoulder cap
+    vestids = {s["id"] for s in c.shapes if s["name"] in ("vest", "armhole")}
+    for (x, y), sid in list(c.owner.items()):
+        if sid in vestids and c.px[(x, y)] in ("V", "u", "v") and (c.px.get((x - 1, y)) == "K" or c.px.get((x, y - 1)) == "K"):
+            c.px[(x, y)] = "h"
     # the beard casts a 1 px shadow on the chest fur below it, so the two light areas do not merge
     beard = {s["id"] for s in c.shapes if s["name"] == "beard"}
     torso = {s["id"] for s in c.shapes if s["layer"] == "torso"}

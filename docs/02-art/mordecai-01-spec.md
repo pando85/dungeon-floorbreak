@@ -79,24 +79,25 @@ stateDiagram-v2
 
 Triggers are an integration proposal; nothing here is wired and no dialogue is authored.
 
-## 6. Palette `mordecai-floor01-v0` (19 of 20)
+## 6. Palette `mordecai-floor01-v0` (20 of 20)
 
 Compatible with the in-use character palettes and with the Floor 1 kit (`floor01-catacomb-v2`, no new colours needed in the kit): the outline is the shared plum `#1b1124` (Carl, goblin); the eye, tooth and brass accents reuse the goblin hexes. The fur ramp is a **warm ashen grey** that stays below the torch-lit brick highlight and apart from the cool violet-grey of the iron props; skin and ears use a dusty pink ramp (Donut's inner-ear pink is a different hex on purpose).
 
 | Key | Name | Hex | Role |
 | --- | --- | --- | --- |
 | K | outline_plum | `#1b1124` | outline (shared) |
-| a / c / f / g | fur deep / shade / mid / light | `#3b3340` `#6c6068` `#998d88` `#c8bcaa` | ashen fur, slightly cool so it parts from the orange brick; g also beard and whiskers |
+| a / c / f / g | fur deep / shade / mid / light | `#42343b` `#735f64` `#9b8678` `#cbb9a5` | warm ashen gray-brown fur with a mauve tint (gate round 1); g also beard and whiskers |
 | p / q / r | skin dark / mid / light | `#8a4a5a` `#c77f8a` `#eaa9a9` | ears, nose, tail, palm pad |
-| v / V / u | vest dark / mid / light | `#2b2231` `#43363e` `#685452` | faded black vest and belt, kept above the plum outline; u is the worn collar and front edge |
+| v / V / u | vest dark / mid / light | `#28222c` `#382f38` `#52474f` | charcoal vest and belt, every step darker than the darkest fur `a`; u is the worn collar and front edge |
+| h | amber_rim | `#d9a04a` | 1 px hearth-facing (back and top) rim on the vest and shoulder cap (gate round 1) |
 | i / I / j | indigo dark / mid / light | `#2a2c58` `#41498a` `#6571b0` | faded blue trousers |
-| s | sandal_leather | `#7c5a3e` | sandal soles and straps (straps use `v`) |
+| s | sandal_leather | `#4b3024` | dark-brown sandal soles and straps (gate round 1) |
 | e | eye_yellow (accent) | `#ffd23a` | eye (shared with goblin) |
 | w | tooth_white (accent) | `#efe4c4` | fangs (shared) |
 | b | brass_mid (accent) | `#b8862e` | buttons, buckle (shared) |
 | o | mouth_dark | `#5c1426` | open mouth (talk key) |
 
-One slot is free. Lighting fit (by eye, to be judged in the lit scene): hearth-amber light warms the fur ramp, the indigo trousers and vest cool to blue-violet in shadow, so the three big colour areas separate from the warm brick behind them. Fur is the lightest large area on purpose so that a 44 px figure does not sink into the brick.
+No slot is free (20 of 20); any new key needs a spec change. Lighting fit (by eye, to be judged in the lit scene): hearth-amber light warms the fur ramp, the indigo trousers and vest cool to blue-violet in shadow, so the three big colour areas separate from the warm brick behind them. Fur is the lightest large area on purpose so that a 44 px figure does not sink into the brick.
 
 ## 7. Key poses
 
@@ -119,6 +120,20 @@ The draft weaknesses were corrected in `scripts/author_mordecai01.py` before the
 - **Whiskers:** three 3 px light bristles drawn after the outline pass, so they read as whiskers rather than outlined blobs.
 - **Fur contrast:** the fur ramp was lifted and cooled slightly (section 6). In the lit scene the fur is the lightest large area on both the torch-lit brick and the dark lower wall.
 
+### Gate round 1 (silhouette gate, FIX-KEYS, applied to both keys)
+
+The gate read the idle key at 1x in the lit scene: a rat, but not yet Mordecai (one cool gray torso mass, no grizzled face). Five palette and identity-mark fixes, applied through `scripts/author_mordecai01.py` to the idle and the talk key with pose, silhouette, pivot and boxes unchanged:
+
+1. **Fur hue:** ramp moved from cool gray to warm ashen gray-brown with a mauve tint, value steps kept (`a` `#42343b`, `c` `#735f64`, `f` `#9b8678`, `g` `#cbb9a5`).
+2. **Vest:** charcoal ramp (`v` `#28222c`, `V` `#382f38`, `u` `#52474f`) darker than the darkest fur; new key `h` amber rim, 1 px on the back and top outer edge of the vest and shoulder cap; the open front still shows 5 to 6 px of fur chest and belly.
+3. **Beard and fringe:** the chin beard hangs 4 px below the jaw with a jagged tip line and a few pale `w` strands; cheek tufts (x 20 to 22, rows 11 to 18) and brow tufts (x 35 to 38, rows 6 to 9) break the head outline.
+4. **Ear:** enlarged and rounder (disc about 9 x 9 px from 8 x 7, inner ear a separate pale disc with a dark rim); stray crown-fur pixels at (28, 6), (30, 5 to 6) and (32, 5 to 6). The ear outline stays on row 4, so the top row and the 44 px height are unchanged.
+5. **Sandals:** dark-brown sole and straps (`s` `#4b3024`), pale pink toes (`r`) in front of the strap on both feet with `q` toe gaps.
+
+The re-freeze rewrote `tests/fixtures/mordecai-01_keys.json` for frames 0 and 1; the script is now the source of truth for the grid (a few editor hand pixels in the frozen grid, such as vest and hem rim cells, had drifted from the script and were absorbed by the regeneration). Evidence regenerated.
+
+**Height measurement.** The measurement rule of section 3 and MORD-Q1 is opaque rows including the plum outline, from the highest opaque row to the sole row 47. Measured on the regenerated keys: frames 0 and 1 both span rows 4 to 47 = **44 px** (rows 5 to 47 = 43 px without the outline row). The gate's "about 41 px" is therefore not a shortfall: it is consistent with a measurement that starts at the skull fill (row 7, 41 px) instead of the ear and crown tufts, which rise 2 px above it; the stooped head sits low, so he also reads shorter than his opaque height. The spec's measurement rule is unchanged, so the height stays 44 px (MORD-Q1).
+
 ### Freeze
 
 Frames 0 and 1 are **frozen**: `python3 -m scripts.pixelart freeze` wrote `tests/fixtures/mordecai-01_keys.json` (SHA-256 per frame over all six layers) and V09 checks it. Key counts (V14) pin the yellow eye (at least 2 px in both keys), a closed mouth in the idle key and an open mouth in the talk key. Any change to a key needs `freeze --force` and a new review.
@@ -139,7 +154,7 @@ No in-between moves a foot or the tail root, so the loop has zero foot drift. Th
 
 ## 9. Validators and acceptance targets
 
-Frozen keys: `python3 -m scripts.pixelart validate assets/source/characters/mordecai/mordecai_h44.pixelart.json` gives PASS (13 pass, 0 fail, 4 skipped), including V09 frozen keys and V14 key counts, and, including V04 palette (19 of 20), V05 isolated pixels 0, V06 orphan pixels at most 9 per frame (the lint count is 1 per frame), V07 contact row 47, V13 bounding boxes `M1-size-idle-44px` (top 4, bottom 47) and `M1-height-cap-45px`. `scripts/pixel_grid_to_ase.py lint ... --strict --expect-height 44` gives silhouette height 44. When the in-betweens land: add V16 foot drift on `idle` (seam included) and the in-between bbox rules; V09 and V14 are already active.
+Frozen keys: `python3 -m scripts.pixelart validate assets/source/characters/mordecai/mordecai_h44.pixelart.json` gives PASS (13 pass, 0 fail, 4 skipped; re-checked after gate round 1), including V09 frozen keys and V14 key counts, and, including V04 palette (19 of 20), V05 isolated pixels 0, V06 orphan pixels at most 9 per frame (the lint count is 1 per frame), V07 contact row 47, V13 bounding boxes `M1-size-idle-44px` (top 4, bottom 47) and `M1-height-cap-45px`. `scripts/pixel_grid_to_ase.py lint ... --strict --expect-height 44` gives silhouette height 44. When the in-betweens land: add V16 foot drift on `idle` (seam included) and the in-between bbox rules; V09 and V14 are already active.
 
 ### Acceptance targets
 
