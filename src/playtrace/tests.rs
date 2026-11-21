@@ -626,7 +626,7 @@ fn manifest_has_no_machine_or_user_data() {
             && value.len() > 2
         {
             // A whole token, not a substring: the account name of a developer
-            // can be a prefix of fixed manifest vocabulary (a login `agil` is
+            // can be a prefix of fixed manifest vocabulary (for example a login `agi` is
             // inside the motion name `agile`), which is no leak.
             assert!(
                 !contains_token(&text, &value),
