@@ -1,0 +1,108 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "BOIL-A core data (FLOOR01-BOILER-01, docs/01-design/floor-01-goblin-boiler-encounter.md): greybox hypotheses, validated by src/encounter.rs; nothing here is wired into a scene yet. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file.",
+  "id": "F01-BOILER-ENC",
+  "room_file": "f01_boiler.room.json",
+  "room_id": "F01-BOILER",
+  "story_pin": "f01_pin_post_pile_boss",
+  "goal": "reach_exit",
+  "grants": [],
+  "max_living": 4,
+  "locks": [],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 208, "h": 96 },
+  "checkpoint": { "x": 176, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 1072, "y": 484, "w": 64, "h": 96 },
+  "props": [
+    {
+      "id": "valve",
+      "kind": "valve",
+      "target": { "x": 464, "y": 540, "w": 32, "h": 40 },
+      "valve": { "trigger_weight": 2, "launch_min_impulse_px_s": 160 }
+    },
+    {
+      "id": "weight",
+      "kind": "weight_rig",
+      "target": { "x": 744, "y": 540, "w": 32, "h": 40 },
+      "hang_px": 128,
+      "remnant": { "x": 784, "y": 548, "w": 64, "h": 32 }
+    },
+    {
+      "id": "drum",
+      "kind": "drum",
+      "optional": true,
+      "target": { "x": 848, "y": 548, "w": 32, "h": 32 },
+      "solid_intact": true,
+      "blast_radius_px": 48
+    }
+  ],
+  "hazards": [
+    {
+      "id": 1,
+      "name": "steam",
+      "class": "steam",
+      "owner": "valve",
+      "rect": { "x": 688, "y": 484, "w": 80, "h": 96 },
+      "telegraph_ticks": 24,
+      "active_ticks": 72,
+      "max_activations": 1,
+      "damage": 1,
+      "push_x": 120,
+      "hero_damage": "all_heroes",
+      "hurts_enemies": true
+    },
+    {
+      "id": 2,
+      "name": "weight_fall",
+      "class": "falling_mass",
+      "owner": "weight",
+      "rect": { "x": 784, "y": 484, "w": 64, "h": 96 },
+      "telegraph_rect": { "x": 784, "y": 572, "w": 64, "h": 8 },
+      "telegraph_ticks": 24,
+      "active_ticks": 1,
+      "max_activations": 1,
+      "damage": 1,
+      "push_x": 0,
+      "hero_damage": "all_heroes",
+      "hurts_enemies": true
+    },
+    {
+      "id": 3,
+      "name": "drum_blast",
+      "class": "blast",
+      "owner": "drum",
+      "rect": { "x": 816, "y": 500, "w": 96, "h": 80 },
+      "telegraph_ticks": 24,
+      "active_ticks": 1,
+      "max_activations": 1,
+      "damage": 1,
+      "push_x": 0,
+      "hero_damage": "all_heroes",
+      "hurts_enemies": true
+    }
+  ],
+  "links": [
+    { "from": "valve", "to": "weight", "kind": "steam" },
+    { "from": "weight", "to": "drum", "kind": "landing" }
+  ],
+  "roster": [
+    { "id": "g1", "kind": "goblin", "x": 344, "beat": "B1", "delay_ticks": 0 },
+    { "id": "g2", "kind": "goblin", "x": 640, "beat": "B1", "delay_ticks": 120 },
+    { "id": "g3", "kind": "goblin", "x": 944, "beat": "B3", "trigger_x": 560, "delay_ticks": 0 },
+    {
+      "id": "e1",
+      "kind": "engineer",
+      "gate": "cf02_engineer",
+      "fallback_kind": "goblin",
+      "x": 1000,
+      "beat": "B3",
+      "trigger_x": 560,
+      "delay_ticks": 90
+    }
+  ],
+  "gates": [
+    { "surface": 0, "class": "carl" },
+    { "surface": 1, "class": "carl" }
+  ],
+  "vantages": []
+}
