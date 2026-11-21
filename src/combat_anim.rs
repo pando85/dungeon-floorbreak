@@ -74,6 +74,8 @@ use crate::prototype::TICK_SECONDS;
 
 pub const CARL_MELEE_MANIFEST: &str = "carl_book1_h52_melee.json";
 pub const GOBLIN_MANIFESTS: [&str; 2] = ["goblin_a_h36.json", "goblin_b_h36.json"];
+/// CP-B2: the ANIM-CARL-03 dynamite throw sheet.
+pub const CARL_DYNAMITE_MANIFEST: &str = "carl_book1_h52_dynamite.json";
 /// CF02-I: the ART-CARL-CF02, ART-DONUT-CF02 and ART-GOB-CF02 sheets.
 pub const CARL_CF02_MANIFEST: &str = "carl_book1_h52_cf02.json";
 pub const DONUT_CF02_MANIFEST: &str = "donut_h40_cf02.json";
@@ -360,6 +362,7 @@ impl SpriteClips {
             Kind::Cf02Donut => cf02_donut_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Cf02Goblin => cf02_goblin_ticks(&manifest, frame_count).map_err(err)?,
             Kind::Engineer => engineer_ticks(frame_count).map_err(err)?,
+            Kind::CarlDynamite => dynamite_ticks(&manifest, frame_count).map_err(err)?,
         };
         let atlas_asset = str_field(&manifest, "output_atlas", &path)?
             .strip_prefix(crate::actor_sprite::ATLAS_ASSET_PREFIX)
@@ -449,6 +452,19 @@ impl SpriteClips {
             CARL_SHADOW_FOOTPRINT,
             source,
             Kind::Cf02Carl,
+        )
+    }
+
+    /// CP-B2: the ANIM-CARL-03 sheet (the standing throw and the moving overlay
+    /// frames), pivot-anchored like the locomotion atlas.
+    pub fn load_carl_dynamite(root: &Path, source: FrameSource) -> Result<Self, String> {
+        Self::load(
+            root,
+            "CARL_DYNAMITE",
+            CARL_DYNAMITE_MANIFEST,
+            CARL_SHADOW_FOOTPRINT,
+            source,
+            Kind::CarlDynamite,
         )
     }
 
@@ -665,6 +681,9 @@ enum Kind {
     Cf02Goblin,
     /// ENEMY-GAMEPLAY-ENGINEER: the ENG-01 sheet.
     Engineer,
+    /// CARL-PROG-01 CP-B2: the ANIM-CARL-03 dynamite sheet
+    /// (`dynamite.moves.dynamite_throw.frames`, then the moving frames).
+    CarlDynamite,
 }
 
 /// Per-frame ticks of the ENG-01 atlas: the idle loop is 38 ticks (frames 0 to 2:
@@ -683,6 +702,35 @@ fn engineer_ticks(frame_count: usize) -> Result<(Vec<Option<u32>>, Vec<String>),
     for slot in &mut ticks[3..=8] {
         *slot = Some(6);
     }
+    Ok((ticks, Vec::new()))
+}
+
+/// CP-B2: ticks of the dynamite sheet: the nine standing frames hold their
+/// `duration_ticks`; the 36 moving frames follow the locomotion clock, so they
+/// carry the preview value of 4 (the frame is chosen by the throw clock, never by
+/// these). No airborne tag.
+fn dynamite_ticks(
+    manifest: &serde_json::Value,
+    frame_count: usize,
+) -> Result<(Vec<Option<u32>>, Vec<String>), String> {
+    let frames = manifest["dynamite"]["moves"]["dynamite_throw"]["frames"]
+        .as_array()
+        .ok_or("dynamite.moves.dynamite_throw.frames missing")?;
+    if frames.len() != 9 || frame_count != 9 + 6 * 6 {
+        return Err(format!(
+            "dynamite sheet: {} standing frames and {frame_count} atlas frames (expected 9 and 45)",
+            frames.len()
+        ));
+    }
+    let mut ticks = Vec::with_capacity(frame_count);
+    for (i, frame) in frames.iter().enumerate() {
+        let t = frame["duration_ticks"]
+            .as_u64()
+            .filter(|t| *t > 0)
+            .ok_or_else(|| format!("dynamite frame {i} has no duration_ticks"))?;
+        ticks.push(Some(t as u32));
+    }
+    ticks.resize(frame_count, Some(4));
     Ok((ticks, Vec::new()))
 }
 
@@ -1452,6 +1500,11 @@ pub struct CombatAnimators {
     /// CF02-I: the final CF02 frames and the acting overlays (`None` outside a
     /// `cf02_rules` run, so every legacy state line is unchanged).
     acting: Option<cf02::ActingAnimators>,
+    /// CP-B2: the ANIM-CARL-03 sheet and the throw frame of the finished tick
+    /// (`None` everywhere there is no throw, so every legacy state line is
+    /// unchanged).
+    dynamite: Option<SpriteClips>,
+    throw_pose: Option<ArtPose>,
 }
 
 impl CombatAnimators {
@@ -1470,9 +1523,47 @@ impl CombatAnimators {
             llama_tracks: Vec::new(),
             engineer: None,
             acting: None,
+            dynamite: None,
+            throw_pose: None,
         };
         this.reset(combat);
         this
+    }
+
+    /// CP-B2: draw Carl's dynamite throw from the ANIM-CARL-03 sheet `clips`.
+    pub fn with_dynamite(mut self, clips: SpriteClips) -> Self {
+        self.dynamite = Some(clips);
+        self
+    }
+
+    /// The ANIM-CARL-03 sheet, if this run draws the throw.
+    pub fn dynamite_clips(&self) -> Option<&SpriteClips> {
+        self.dynamite.as_ref()
+    }
+
+    /// CP-B2: advance the throw frame by one tick; call right after
+    /// [`Self::step`] of the same tick. `run_frame` is the frame inside the
+    /// locomotion `run` clip while Carl's locomotion tag is `run`, else `None`.
+    /// The throw never shows over a melee, hurt or defeat frame (the simulation
+    /// cancels the throw on a hit; this keeps the layer order true in a replay
+    /// view as well).
+    pub fn step_throw(&mut self, scene: &SceneSim, combat: &CombatState, run_frame: Option<usize>) {
+        self.throw_pose = None;
+        let Some(clips) = self.dynamite.as_ref() else {
+            return;
+        };
+        if self.carl_pose().is_some() || combat.carl_defeated() {
+            return;
+        }
+        if let Some(clock) = combat.thrower().throw_clock(scene.world.tick) {
+            self.throw_pose = dynamite::throw_pose(clips, clock, run_frame);
+        }
+    }
+
+    /// Carl's throw frame in the dynamite atlas, or `None` (the melee atlas or the
+    /// locomotion animation draws him).
+    pub fn carl_throw_pose(&self) -> Option<ArtPose> {
+        self.throw_pose
     }
 
     /// Draw the Goblin Engineer of the fixture from `clips` (ENG-01).
@@ -1588,6 +1679,7 @@ impl CombatAnimators {
             acting.reset(combat);
         }
         self.carl_input = CarlInput::default();
+        self.throw_pose = None;
         self.prev_hero_stop = 0;
         self.tracks = combat
             .enemies
@@ -1901,8 +1993,11 @@ impl CombatAnimators {
             .acting
             .as_ref()
             .map_or_else(String::new, cf02::ActingAnimators::state_suffix);
+        let throw = self
+            .throw_pose
+            .map_or_else(String::new, |p| format!(" throw={}", p.label()));
         format!(
-            "COMBAT_ANIM_STATE tick={tick} carl={carl} {}{llamas}{acting}",
+            "COMBAT_ANIM_STATE tick={tick} carl={carl} {}{llamas}{acting}{throw}",
             goblins.join(" ")
         )
     }
@@ -1967,6 +2062,7 @@ pub fn carl_above_goblin(carl_active: bool, goblin_swinging: bool) -> bool {
 }
 
 pub mod cf02;
+pub mod dynamite;
 
 #[cfg(test)]
 mod tests;

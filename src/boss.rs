@@ -988,6 +988,40 @@ impl Boss {
         }
     }
 
+    /// CP-C (CP-Q35): the box a blast must reach to bring the left rack down:
+    /// the strut, while the rack is armed (gate closed), enabled and intact.
+    /// `None` otherwise (a blast before the engage, after the boss is down, with
+    /// the rack off or already falling does nothing).
+    pub fn strut_blast_footprint(&self) -> Option<Rect> {
+        let rack = &self.racks[0];
+        (matches!(self.gate, Gate::Closed)
+            && rack.enabled
+            && matches!(rack.state, RackState::Idle { .. }))
+        .then(|| self.strut_rect())
+    }
+
+    /// CP-C (CP-Q35): a blast drops the left rack outright, whatever its strut
+    /// hits so far, credited to `player` (the crush credit of the existing
+    /// `DropHazard` rule). Same arming rule as [`Self::strike_strut`]. Returns
+    /// true when the stack started to fall.
+    pub fn blast_drop_strut(
+        &mut self,
+        player: u32,
+        tick: u64,
+        events: &mut Vec<CombatEvent>,
+    ) -> bool {
+        if self.strut_blast_footprint().is_none() {
+            return false;
+        }
+        self.racks[0].state = RackState::Falling { ticks: 0, player };
+        events.push(CombatEvent::RackDropped {
+            tick,
+            rack: 0,
+            player,
+        });
+        true
+    }
+
     // --------------------------------------------------------------- step --
 
     fn enter(&mut self, mode: BossMode) {
@@ -2284,6 +2318,46 @@ mod tests {
             .collect();
         assert_eq!(ripple_hits.len(), 1);
         assert_eq!(ripple_hits[0].hero, HeroId::Donut);
+    }
+
+    #[test]
+    fn cp_c_a_blast_drops_the_rack_outright_only_while_it_is_armed_and_intact() {
+        // Armed (gate closed), enabled, intact: the strut is a blast footprint.
+        let mut boss = engaged(130.0, -1);
+        assert_eq!(boss.strut_blast_footprint(), Some(boss.strut_rect()));
+        let mut events = Vec::new();
+        assert!(boss.blast_drop_strut(1, 9, &mut events));
+        assert_eq!(
+            events,
+            vec![CombatEvent::RackDropped {
+                tick: 9,
+                rack: 0,
+                player: 1
+            }]
+        );
+        assert!(matches!(
+            boss.racks[0].state,
+            RackState::Falling { player: 1, .. }
+        ));
+        // Falling already: nothing more, and no second event.
+        assert_eq!(boss.strut_blast_footprint(), None);
+        assert!(!boss.blast_drop_strut(1, 10, &mut events));
+        assert_eq!(events.len(), 1);
+        // A partly hit rack is dropped outright too (hits so far do not matter).
+        let mut hit_once = engaged(130.0, -1);
+        hit_once.racks[0].state = RackState::Idle { hits: 1 };
+        assert!(hit_once.blast_drop_strut(0, 5, &mut Vec::new()));
+        // Not armed before the engage, and not after the boss is down.
+        let mut open = Boss::new(data(), FLOOR);
+        assert_eq!(open.strut_blast_footprint(), None);
+        assert!(!open.blast_drop_strut(0, 5, &mut Vec::new()));
+        let mut released = engaged(130.0, -1);
+        released.gate = Gate::Released;
+        assert_eq!(released.strut_blast_footprint(), None);
+        // The rack off (the no-rack plan): the strut is not there.
+        let mut off = engaged(130.0, -1);
+        off.racks[0].enabled = false;
+        assert_eq!(off.strut_blast_footprint(), None);
     }
 
     #[test]

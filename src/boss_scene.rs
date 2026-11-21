@@ -178,6 +178,12 @@ pub enum Pilot {
     /// CF02-F: [`Pilot::ArenaDirect`] plus a P2 Donut that swats the tell aimed at
     /// Carl and holds a lying goblin ([`crate::cf02::arena::donut_pilot`]).
     ArenaDuo,
+    /// CARL-PROG-01 CP-C (appended): [`Pilot::Carl`] that also presses the special
+    /// (Circle/B) on a fixed rule while it is ready: it holds the boss at the
+    /// stick's throw distance, facing it, and throws; the rest is the base kit.
+    /// Used only by `carl_prog_juicer_dynamite_clear`; the 13 boss fixtures never
+    /// select it. The name is neutral (it presses whatever special Carl holds).
+    ThrownCharge,
 }
 
 pub(crate) const fn boss_base(
@@ -210,7 +216,7 @@ pub(crate) const FULL: BossSetup = BossSetup {
     left_rack: true,
 };
 /// Full HP and no racks (the strut is not there).
-const FULL_NO_RACKS: BossSetup = BossSetup {
+pub(crate) const FULL_NO_RACKS: BossSetup = BossSetup {
     hp: u16::MAX,
     left_rack: false,
 };
@@ -524,6 +530,7 @@ pub fn pilot_inputs(
     };
     match pilot {
         Pilot::None | Pilot::ArenaDirect | Pilot::ArenaEnvironment | Pilot::ArenaDuo => {}
+        Pilot::ThrownCharge => slots[0] = thrower_pilot(tick, combat, scene, boss),
         Pilot::Carl => slots[0] = carl_pilot(tick, combat, scene, boss, false),
         Pilot::CarlRack => slots[0] = carl_pilot(tick, combat, scene, boss, true),
         Pilot::Duo => {
@@ -712,6 +719,97 @@ fn carl_pilot(
         }
     } else {
         idle
+    }
+}
+
+/// CP-C: the gap (px, hero pivot to the boss body's near edge) at which the
+/// thrower pilot throws: the standing stick lands about 111 px ahead of the
+/// pivot, so a stick thrown from this window lands within the boss's reach
+/// (the 64 px ring) while Carl stands out of the pound.
+const THROW_GAP_MIN: f32 = 96.0;
+const THROW_GAP_MAX: f32 = 124.0;
+/// The thrower pilot keeps this far (px) from its own live stick: the ring is 64.
+const STICK_CLEARANCE: f32 = 84.0;
+
+/// [`Pilot::Carl`] that throws the special when it is ready and the boss stands
+/// in the throw window; otherwise it is `carl_pilot` exactly. A pure function of
+/// the finished state (the ledger's hold, the thrower's readiness, the boss).
+fn thrower_pilot(tick: u64, combat: &CombatState, scene: &SceneSim, boss: &Boss) -> RawInput {
+    let base = carl_pilot(tick, combat, scene, boss, false);
+    let hero = &scene.world.hero;
+    let thrower = combat.thrower();
+    if combat.hero_defeated
+        || !boss.gate_closed()
+        || !combat.story_holds(crate::story_unlock::SPECIAL_THROWN_CHARGE)
+    {
+        return base;
+    }
+    // A running throw: stand still until the recovery may be cancelled (t50);
+    // after that the base kit plays on (a swing cancels the brace, as designed).
+    if let Some(clock) = thrower.throw_clock(tick) {
+        let cancel_from =
+            u64::from(crate::carl_prog::CarlProgTuning::active().cpq14_cancel_from_tick);
+        return if clock < cancel_from {
+            RawInput::default()
+        } else {
+            base
+        };
+    }
+    // A live stick: keep out of its ring (the dodge still comes first).
+    if let Some(stick) = thrower.stick()
+        && hero.grounded
+        && dodge(boss, hero.x, hero.grounded).is_none()
+        && (hero.x - stick.x).abs() < STICK_CLEARANCE
+    {
+        return RawInput {
+            move_x: sign(hero.x - stick.x),
+            ..RawInput::NONE
+        };
+    }
+    if !thrower.is_idle() || !hero.grounded {
+        return base;
+    }
+    // Dodging comes first, as in the base pilot.
+    if dodge(boss, hero.x, hero.grounded).is_some()
+        || danger(boss, hero.x)
+            .pound_in
+            .is_some_and(|t| t <= NO_NEW_SWING_AT)
+    {
+        return base;
+    }
+    let Some(body) = boss.hurtbox() else {
+        return base;
+    };
+    let side = if hero.x < body.left { 1.0 } else { -1.0 };
+    let gap = if hero.x < body.left {
+        body.left - hero.x
+    } else if hero.x > body.right() {
+        hero.x - body.right()
+    } else {
+        0.0
+    };
+    if gap > THROW_GAP_MAX {
+        return RawInput {
+            move_x: side,
+            ..RawInput::NONE
+        };
+    }
+    if gap < THROW_GAP_MIN {
+        return RawInput {
+            move_x: -side,
+            ..RawInput::NONE
+        };
+    }
+    // In the window: face the boss, then press (a held direction faces Carl).
+    if f32::from(hero.facing) != side {
+        return RawInput {
+            move_x: side,
+            ..RawInput::NONE
+        };
+    }
+    RawInput {
+        ability: true,
+        ..RawInput::NONE
     }
 }
 

@@ -725,6 +725,14 @@ mod tests {
                                 headline: crate::hud::LabelId::Flattened,
                                 age_ticks: 10,
                             });
+                            // CP-Q32: the equipped socket (a glyph, a label and the
+                            // muted underline) is the worst case for the pools.
+                            real.carl_special =
+                                crate::hud::SpecialSlot::Equipped(crate::hud::Chip {
+                                    action: crate::hud::LogicalAction::Special,
+                                    label: crate::hud::LabelId::Boom,
+                                    muted: true,
+                                });
                             let mut out = Vec::new();
                             build_draw_list(
                                 &build_snapshot(&real, preview, 239),

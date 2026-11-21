@@ -160,6 +160,11 @@ pub enum LabelId {
     NoSpotter,
     /// The boss was defeated.
     Knockout,
+    /// CP-Q32: the thrown charge's socket label (`cpq32_socket_label`, `BOOM`).
+    Boom,
+    /// CP-Q11: the grant notice of the thrown charge (the `notices` row of
+    /// `story_unlocks_v0.json`).
+    GoblinBoom,
 }
 
 impl LabelId {
@@ -179,7 +184,24 @@ impl LabelId {
             Self::FinalRound => "FINAL ROUND",
             Self::NoSpotter => "NO SPOTTER!",
             Self::Knockout => "KNOCKOUT!",
+            Self::Boom => "BOOM",
+            Self::GoblinBoom => "GOBLIN BOOM",
         }
+    }
+
+    /// CP-Q32: the socket label named by the data (`cpq32_socket_label`), when
+    /// the HUD has a label for it. The label set is code (a `&'static str` per
+    /// entry), the choice is data; a text the HUD has no entry for is `None`
+    /// and the caller keeps the default.
+    pub fn for_socket_text(text: &str) -> Option<Self> {
+        (text == Self::Boom.text()).then_some(Self::Boom)
+    }
+
+    /// CP-Q11: the grant notice of a capability by the data's notice text (the
+    /// `notices` rows of `story_unlocks_v0.json`). Only the thrown charge has a
+    /// HUD label here; the other grants add theirs with their stage.
+    pub fn for_notice_text(text: &str) -> Option<Self> {
+        (text == Self::GoblinBoom.text()).then_some(Self::GoblinBoom)
     }
 }
 
@@ -204,6 +226,15 @@ pub fn notice_for_event(event: &CombatEvent) -> Option<LabelId> {
         CombatEvent::BossPhase { phase: 2, .. } => Some(LabelId::RoundTwo),
         CombatEvent::BossPhase { phase: 3, .. } => Some(LabelId::FinalRound),
         CombatEvent::RackLanded { crushed: true, .. } => Some(LabelId::NoSpotter),
+        // CP-Q11: Carl's thrown charge is granted (the grant notice; the socket
+        // turns equipped on the same tick through `HudRuntime::set_special`).
+        CombatEvent::CapabilityGranted {
+            hero: 0,
+            capability,
+            ..
+        } if *capability == crate::story_unlock::SPECIAL_THROWN_CHARGE.as_str() => {
+            Some(LabelId::GoblinBoom)
+        }
         CombatEvent::EnemyDefeated { force, .. } => NOTICE_TRIGGERS
             .iter()
             .find(|(tier, _)| tier == force)
@@ -222,6 +253,9 @@ pub enum LogicalAction {
     Primary,
     /// Triangle / Y.
     Physical,
+    /// Circle / B: the equipped special (CP-Q32). Shown only in the special
+    /// socket, and only once a special is held.
+    Special,
 }
 
 /// USB vendor id of Sony Interactive Entertainment (DualShock 4, DualSense,
@@ -257,14 +291,17 @@ impl GlyphSet {
         }
     }
 
-    /// The glyph for a chip action. Never Jump (A/Cross) and never the special
-    /// (B/Circle): a locked special is an empty padlock socket (spec 2.4).
+    /// The glyph for a chip action. Never Jump (A/Cross). The special
+    /// (B/Circle) only for an **equipped** special: a locked one is an empty
+    /// padlock socket (spec 2.4).
     pub const fn glyph(self, action: LogicalAction) -> Glyph {
         match (self, action) {
             (Self::Xbox, LogicalAction::Primary) => Glyph::X,
             (Self::Xbox, LogicalAction::Physical) => Glyph::Y,
             (Self::DualSense, LogicalAction::Primary) => Glyph::Square,
             (Self::DualSense, LogicalAction::Physical) => Glyph::Triangle,
+            (Self::Xbox, LogicalAction::Special) => Glyph::B,
+            (Self::DualSense, LogicalAction::Special) => Glyph::Circle,
         }
     }
 }
@@ -333,11 +370,61 @@ pub struct Chip {
     pub muted: bool,
 }
 
-/// The special socket. It is `Locked` for every character today; a future
-/// `Equipped(Chip)` variant carries the unlocked special.
+/// The special socket: `Locked` (the padlock) until a special is held, then
+/// `Equipped(Chip)` (CP-Q32): the Circle/B glyph and the data label, muted while
+/// the special cannot be used (a throw or stick live, or recharging).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpecialSlot {
     Locked,
+    Equipped(Chip),
+}
+
+/// What Carl's special is doing, as the socket shows it (CP-Q32). Fed by the
+/// scene from the ledger and the thrower; presentation only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SpecialPhase {
+    /// Nothing held: the padlock.
+    #[default]
+    Locked,
+    /// Held and usable.
+    Ready,
+    /// A throw or its stick is live (from the press to the detonation).
+    Live,
+    /// Detonated; the recharge runs.
+    Recharging,
+}
+
+impl SpecialPhase {
+    /// What the socket shows for Carl's special in `combat` (CP-Q32): the padlock
+    /// until the ledger holds the thrown charge, then ready, live (a throw or its
+    /// stick, from the press to the detonation) or recharging.
+    pub fn of(combat: &crate::combat_scene::CombatState) -> Self {
+        if !combat.story_holds(crate::story_unlock::SPECIAL_THROWN_CHARGE) {
+            return Self::Locked;
+        }
+        let thrower = combat.thrower();
+        if thrower.recharging() {
+            Self::Recharging
+        } else if thrower.is_idle() {
+            Self::Ready
+        } else {
+            Self::Live
+        }
+    }
+
+    /// The socket for this phase with `label`. Live and recharging are both
+    /// muted: the cue is the same (the special cannot be used), the glyph and
+    /// label dim and the zig-zag underline appears.
+    pub const fn slot(self, label: LabelId) -> SpecialSlot {
+        match self {
+            Self::Locked => SpecialSlot::Locked,
+            Self::Ready | Self::Live | Self::Recharging => SpecialSlot::Equipped(Chip {
+                action: LogicalAction::Special,
+                label,
+                muted: !matches!(self, Self::Ready),
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -527,6 +614,8 @@ pub struct RealHudInputs {
     /// a combat section, false in the story corridor. Chips show only for
     /// live actions.
     pub melee_live: bool,
+    /// CP-Q32: Carl's special socket (`Locked` unless the scene feeds a phase).
+    pub carl_special: SpecialSlot,
     pub donut_magic: DonutMagic,
     /// What Primary does at 0 mana (the loaded mana tuning, Q10-16).
     pub empty_press: EmptyPress,
@@ -566,6 +655,7 @@ impl RealHudInputs {
             carl_control: Control::Player(1),
             donut_control: Control::Ai,
             melee_live: true,
+            carl_special: SpecialSlot::Locked,
             donut_magic: DonutMagic::PreBiscuit,
             empty_press: EmptyPress::Dry,
             hp_flash: None,
@@ -586,12 +676,10 @@ impl RealHudInputs {
 
 /// The chip rows of spec 2.4. `muted` is only ever set by a fixture today.
 /// Chips show only while Primary/Physical are live (`melee_live`).
-fn carl_abilities(control: Control, melee_live: bool) -> AbilityRow {
+fn carl_abilities(control: Control, melee_live: bool, special: SpecialSlot) -> AbilityRow {
     match control {
         Control::Ai => AbilityRow::AiCompanion,
-        Control::Player(_) if !melee_live => AbilityRow::NoActions {
-            special: SpecialSlot::Locked,
-        },
+        Control::Player(_) if !melee_live => AbilityRow::NoActions { special },
         Control::Player(_) => AbilityRow::Chips {
             a: Chip {
                 action: LogicalAction::Primary,
@@ -603,7 +691,7 @@ fn carl_abilities(control: Control, melee_live: bool) -> AbilityRow {
                 label: LabelId::Kick,
                 muted: false,
             },
-            special: SpecialSlot::Locked,
+            special,
         },
     }
 }
@@ -678,7 +766,7 @@ pub fn build_snapshot(real: &RealHudInputs, preview: Option<HudPreview>, tick: u
             cur: real.carl_health.min(HERO_HEALTH),
             max: HERO_HEALTH,
         },
-        carl_abilities(real.carl_control, real.melee_live),
+        carl_abilities(real.carl_control, real.melee_live, real.carl_special),
     );
     carl.hp_flash = real.hp_flash;
     let mut donut = plate(
@@ -777,7 +865,7 @@ fn set_carl(snapshot: &mut HudSnapshot, hp: u8, flash: Option<HpFlash>) {
             cur: hp,
             max: HERO_HEALTH,
         },
-        carl_abilities(Control::Player(1), true),
+        carl_abilities(Control::Player(1), true, SpecialSlot::Locked),
     );
     carl.hp_flash = flash;
     carl.audience = snapshot.plates[0].audience;
@@ -1038,6 +1126,7 @@ type VisualKey = (
     Option<BossView>,
     DonutMagic,
     [Option<AudienceView>; 2],
+    SpecialSlot,
 );
 
 /// The party facts the HUD draws (real ownership, never a fixture): who drives
@@ -1090,6 +1179,9 @@ pub struct HudRuntime {
     cursor: EventCursor,
     /// Primary/Physical are acted on by the scene (a combat section).
     melee_live: bool,
+    /// CP-Q32: what Carl's special is doing, and the label its socket shows.
+    special: SpecialPhase,
+    special_label: LabelId,
     carl_name: String,
     donut_name: String,
     location: Option<String>,
@@ -1152,6 +1244,8 @@ impl HudRuntime {
             notices: NoticeQueue::new(config.settings.reduced_motion),
             cursor: EventCursor::default(),
             melee_live: false,
+            special: SpecialPhase::Locked,
+            special_label: LabelId::Boom,
             carl_name: FALLBACK_NAME_LEFT.to_string(),
             donut_name: FALLBACK_NAME_RIGHT.to_string(),
             location: None,
@@ -1338,6 +1432,26 @@ impl HudRuntime {
 
     /// Record whether the scene acts on Primary/Physical right now (the
     /// story corridor does not). Bumps the revision only on a change.
+    /// CP-Q32: record what Carl's special is doing (presentation only; read
+    /// from the ledger and the thrower by the scene). Bumps the revision only
+    /// on a change.
+    pub fn set_special(&mut self, phase: SpecialPhase) {
+        if self.special != phase {
+            self.special = phase;
+            self.revision += 1;
+        }
+    }
+
+    /// CP-Q32: the socket label from the data text (`cpq32_socket_label`); a
+    /// text with no HUD label keeps `BOOM`.
+    pub fn set_special_label(&mut self, text: &str) {
+        let label = LabelId::for_socket_text(text).unwrap_or(LabelId::Boom);
+        if self.special_label != label {
+            self.special_label = label;
+            self.revision += 1;
+        }
+    }
+
     pub fn set_melee_live(&mut self, live: bool) {
         if self.melee_live != live {
             self.melee_live = live;
@@ -1378,6 +1492,7 @@ impl HudRuntime {
             self.boss_view(),
             self.donut_magic(),
             self.audience_views(),
+            self.special.slot(self.special_label),
         )
     }
 
@@ -1523,6 +1638,7 @@ impl HudRuntime {
     pub fn real_inputs(&self) -> RealHudInputs {
         let mut real = RealHudInputs::normal(self.carl_health, self.donut_health);
         real.melee_live = self.melee_live;
+        real.carl_special = self.special.slot(self.special_label);
         real.carl_name.clone_from(&self.carl_name);
         real.donut_name.clone_from(&self.donut_name);
         real.location.clone_from(&self.location);

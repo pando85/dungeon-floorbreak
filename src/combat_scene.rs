@@ -2725,15 +2725,29 @@ impl CombatState {
     /// Carl or Donut, ignores solids and damages no terrain.
     fn step_charges(&mut self, scene: &mut SceneSim, tick: u64) {
         let carl_x = scene.world.hero.x;
+        // CP-Q34: at most this many detonations on one tick; the excess is
+        // deferred one tick, in index order, keeping its depth and owner.
+        let cap = thrown::chain_rule(crate::carl_prog::CarlProgTuning::active()).max_per_tick;
+        let mut blasts = 0;
         for charge_index in 0..self.charges.len() {
+            if blasts >= cap && self.charges[charge_index].due_on(tick) {
+                self.charges[charge_index].defer_one_tick();
+                continue;
+            }
             if !self.charges[charge_index].step(tick, carl_x) {
                 continue;
             }
+            blasts += 1;
             let charge = self.charges[charge_index];
             self.log(CombatEvent::Blast {
                 tick,
                 charge: charge_index as u32,
             });
+            // CARL-PROG-01 CP-C: the chain reaction and the structures the blast
+            // reaches, judged before the blast changes anything (CP-Q22). Both
+            // return at once for a QA charge no dynamite has reached.
+            self.chain_from(scene, charge_index, tick);
+            self.blast_structures(scene, charge_index, &charge, tick);
             // CARL-PROG-01 CP-B1: a charge with its own profile (the thrown
             // charge) resolves the whole blast; the QA profile below is the
             // DEATH-D rule, unchanged.

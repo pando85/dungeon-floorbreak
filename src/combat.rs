@@ -1665,6 +1665,20 @@ pub enum CombatEvent {
         x: i32,
         y: i32,
     },
+    /// CARL-PROG-01 CP-C, appended: a blast's chain reached an authored charge
+    /// (CP-Q34) and set or pulled its detonation to `due`. `charge` is the
+    /// reached charge's index, `source` the index of the blast that reached it,
+    /// `depth` the link's depth (the dynamite's own blast is depth 0, so the
+    /// first link is 1). A charge left alone (already due inside the delay) emits
+    /// nothing. This event is the hook for a sticker or a prop that mirrors its
+    /// charge (HAZ-A2 calls `RotSticker::chain(tick, owner)` for it).
+    ChargeChained {
+        tick: u64,
+        charge: u32,
+        source: u32,
+        due: u64,
+        depth: u8,
+    },
 }
 
 impl CombatEvent {
@@ -2117,6 +2131,21 @@ impl CombatEvent {
                 mix(i64::from(x) as u64);
                 mix(i64::from(y) as u64);
             }
+            // "CHCH".
+            Self::ChargeChained {
+                tick,
+                charge,
+                source,
+                due,
+                depth,
+            } => {
+                mix(0x4348_4348);
+                mix(tick);
+                mix(u64::from(charge));
+                mix(u64::from(source));
+                mix(due);
+                mix(u64::from(depth));
+            }
         }
     }
 }
@@ -2484,6 +2513,16 @@ impl fmt::Display for CombatEvent {
             Self::ChargeLanded { tick, charge, x, y } => write!(
                 f,
                 "COMBAT_EVENT tick={tick} kind=charge_landed charge={charge} x={x} y={y}"
+            ),
+            Self::ChargeChained {
+                tick,
+                charge,
+                source,
+                due,
+                depth,
+            } => write!(
+                f,
+                "COMBAT_EVENT tick={tick} kind=charge_chained charge={charge} source={source} due={due} depth={depth}"
             ),
         }
     }
