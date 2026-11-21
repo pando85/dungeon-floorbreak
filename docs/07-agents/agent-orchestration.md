@@ -38,6 +38,7 @@ Boilerplate that applies to every brief (an orchestrator may keep it in one reus
 - Wait for CI as described in [CI waiting](#ci-waiting).
 - Kill processes by PID only; never use a broad `pkill`/`pgrep -f` that can hit another agent's runs.
 - Do not overwrite a PR body from a shared file. Edit only your own section with `gh pr edit`.
+- Edit a PR body only by the explicit number of your own PR (`gh pr edit <own n>`). Never rely on the current branch, a default PR lookup or a shared body file to pick the PR. Reason: PR #161's body was once replaced by another PR's body by a command nobody identified; it was caught in review and restored.
 - Art work: record which model designed, executed and reviewed it in the PR's `Rights/Provenance` section, and update `SHA256SUMS` for evidence.
 - Long detail (findings, logs, number tables) goes into a file: the PR body, a spec, or a report path named in the brief.
 
