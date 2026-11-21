@@ -18,11 +18,12 @@
 //! * [`obstacles_from_encounter`]: bank A, the J-B post and the closed door of
 //!   the sidecar as [`Obstacle`]s.
 //!
-//! What it does **not** do (HRD-A2 and later): read a scene, emit
-//! `CombatEvent::PileBoss`, toggle solids, grant anything. The defeat is the
-//! existing `CombatEvent::EnemyDefeated { target: PILE_BOSS_ID }` and the same
-//! tick's [`PileOut::story_trigger`] names the CP-A trigger row
-//! [`DEFEAT_TRIGGER_ID`] (K1: the thrown charge is granted on this defeat).
+//! What it does **not** do: read a scene, emit `CombatEvent::PileBoss`, toggle
+//! solids, grant anything. HRD-A2's slot module (`combat_scene/pile_boss.rs`)
+//! wraps it for the scene. The defeat is the existing
+//! `CombatEvent::EnemyDefeated { target: PILE_BOSS_ID }`; the thrown charge (K1)
+//! is granted by the story ledger's event trigger [`DEFEAT_TRIGGER_ID`] on that
+//! event, and [`PileOut::story_trigger`] is telemetry only, never a grant path.
 //!
 //! # Tick contract
 //!
@@ -78,7 +79,7 @@ pub const EVADE_CLASS: &str = "never";
 /// The tuning file, embedded so the binary and the tests read the same bytes.
 pub const TUNING_JSON: &str = include_str!("../assets/data/gameplay/enemy_pile_boss_v0.json");
 /// The committed FNV-1a 64 content hash of [`TUNING_JSON`].
-pub const TUNING_HASH: u64 = 0xd715_fd34_1550_75b4;
+pub const TUNING_HASH: u64 = 0x73fe_ce44_acbc_b645;
 /// The `content_hashes` key of the tuning pin.
 pub const PIN_KEY: &str = "pile_boss_tuning";
 /// The schema version [`PileBossTuning`] accepts.
@@ -642,6 +643,83 @@ pub enum PileEvent {
     Disengage,
 }
 
+impl PileAttack {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Swipe => "swipe",
+            Self::Shove => "shove",
+        }
+    }
+}
+
+impl ObstacleKind {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::BankA => "bank_a",
+            Self::Post => "post",
+            Self::Solid => "solid",
+            Self::Remnant => "remnant",
+        }
+    }
+}
+
+impl PileEvent {
+    /// The journal name of the event (`CombatEvent::PileBoss`, HRD-Q40).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Engaged => "engaged",
+            Self::Tell { .. } => "tell",
+            Self::Strike { .. } => "strike",
+            Self::Hurt { .. } => "hurt",
+            Self::Flinch => "flinch",
+            Self::Jammed { .. } => "jammed",
+            Self::Exposed { .. } => "exposed",
+            Self::GetUp => "get_up",
+            Self::NestPush => "nest_push",
+            Self::Disengage => "disengage",
+        }
+    }
+
+    /// Fold the event into a state hash: a variant code, then its fields.
+    pub fn mix_into(self, mix: &mut impl FnMut(u64)) {
+        let credit = |c: Option<u32>| c.map_or(0, |p| u64::from(p) + 1);
+        match self {
+            Self::Engaged => mix(1),
+            Self::Tell { attack, target } => {
+                mix(2);
+                mix(attack as u64);
+                mix(target.index() as u64);
+            }
+            Self::Strike { attack } => {
+                mix(3);
+                mix(attack as u64);
+            }
+            Self::Hurt {
+                source,
+                damage,
+                hp_left,
+            } => {
+                mix(4);
+                mix(credit(source));
+                mix(u64::from(damage));
+                mix(u64::from(hp_left));
+            }
+            Self::Flinch => mix(5),
+            Self::Jammed { obstacle } => {
+                mix(6);
+                mix(obstacle as u64);
+            }
+            Self::Exposed { credit: c } => {
+                mix(7);
+                mix(credit(c));
+            }
+            Self::GetUp => mix(8),
+            Self::NestPush => mix(9),
+            Self::Disengage => mix(10),
+        }
+    }
+}
+
 /// A blow she lands on a hero, with the policy and class it carries.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PileBlow {
@@ -879,10 +957,22 @@ impl PileBoss {
         self
     }
 
+    /// Fixture hook (HRD-A2): preset her hit points (`hrd_defeat_grants_dynamite`
+    /// starts her at 1 HP). At least 1: a fixture never starts her defeated.
+    pub fn with_hp(mut self, hp: u16) -> Self {
+        self.hp = hp.max(1);
+        self
+    }
+
     // ---- accessors
 
     pub fn tuning(&self) -> &'static PileBossTuning {
         self.tun
+    }
+
+    /// The room facts she was built with.
+    pub fn setup(&self) -> PileSetup {
+        self.setup
     }
 
     pub fn hp(&self) -> u16 {
@@ -4560,12 +4650,12 @@ mod tests {
     // ------------------------------------------------------ the AI feed ---
 
     #[test]
-    fn the_pound_dodge_anchor_is_nine_px_ahead_with_no_target() {
+    fn the_pound_dodge_anchor_is_thirteen_px_ahead_with_no_target() {
         let mut boss = awake(E);
         boss.step(&ctx(heroes_carl(E - 44.0), &[], 1));
         match boss.threat() {
             Some(BossThreat::Pound { x, facing, target }) => {
-                assert_eq!(x, E - 9.0, "pivot + facing * 9");
+                assert_eq!(x, E - 13.0, "pivot + facing * 13");
                 assert_eq!(facing, -1);
                 assert_eq!(target, None, "her swipe hits every hero in the box");
             }
@@ -4582,15 +4672,18 @@ mod tests {
         boss.step(&ctx(heroes_carl(E - 44.0), &[], 44));
         assert_eq!(boss.mode(), PileMode::SwipeRecover);
         assert!(boss.threat().is_none());
-        // The follower's 84 px step-out clears her 92 px reach: 9 = 92 - 84 + 1.
+        // The follower's 84 px step-out plus its 3.45 px follow pull-back (207 px/s
+        // at 60 Hz) must stay clear of her 92 px reach: 13 >= 92 - 84 + 1 + 3.45
+        // (reviewer ruling on #215, HRD-Q33; the sheet's 9 ignored the pull-back).
         let anchor = f32::from(tun().hrdq33_pound_anchor_px);
-        assert_eq!(anchor, 92.0 - 84.0 + 1.0);
+        assert_eq!(anchor, 13.0);
+        assert!(anchor >= 92.0 - 84.0 + 1.0 + 3.45);
         // Facing +x mirrors it.
         let mut east = PileBoss::awake_at(tun(), setup(), E, 1);
         east.step(&ctx(heroes_carl(E + 44.0), &[], 1));
         match east.threat() {
             Some(BossThreat::Pound { x, facing, .. }) => {
-                assert_eq!((x, facing), (E + 9.0, 1));
+                assert_eq!((x, facing), (E + 13.0, 1));
             }
             other => panic!("{other:?}"),
         }

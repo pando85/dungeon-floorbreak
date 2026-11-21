@@ -126,7 +126,7 @@ pub fn story_setup(
 /// the validator's route graph does not trust them), each perch cut to its deck
 /// tile (a 16 px slab, top 80 px up, the deck tile's solid 12 px: Carl walks
 /// under it), the scene's two scroll-camera views and the room's exit marker.
-fn compose_kit(root: &Path, room: &Room) -> Result<EnvKit, String> {
+pub(crate) fn compose_kit(root: &Path, room: &Room) -> Result<EnvKit, String> {
     let mut room = room.clone();
     room.steps.clear();
     let base_path = root.join(BASE_LAYOUT);

@@ -48,6 +48,8 @@ pub const MANIFEST_PATH: &str = "assets/levels/f01_late/manifest.json";
 /// replay of a recorded room. A step that lists a room (CORRAL-WIRE, RING-A
 /// wire, HRD-A2, ...) re-pins it on purpose.
 pub const MANIFEST_HASH: u64 = 0x9121_0e02_3205_ac84;
+/// The fixture-only stub trigger the story-order tie skips by name.
+pub const STUB_TRIGGER: &str = "carl_prog_find_zone_stub";
 /// The `data_pins()` key.
 pub const MANIFEST_PIN_KEY: &str = "f01_late_manifest";
 
@@ -320,6 +322,12 @@ pub fn check_story_order(order: &[OrderRow], table: &StoryTable) -> Result<(), S
         }
     }
     for trigger in &table.triggers {
+        // The one exception: HRD-A2's fixture-only stub zone, armed in no scene (a
+        // fixture arms it by id), so no run of the story can fire it. Any other
+        // trigger, armed or not, must be placed by the order.
+        if trigger.id == STUB_TRIGGER {
+            continue;
+        }
         for cap in &trigger.grants {
             let placed = order.iter().any(|o| {
                 o.grants
@@ -680,6 +688,30 @@ mod tests {
         })
         .unwrap_err();
         assert!(err.contains("no entry of the order places"), "{err}");
+        // HRD-A2: the Hoarder's event trigger is armed in her room, so the order
+        // must place it; the fixture-only stub zone (armed nowhere) needs no place.
+        let err = mutate(|order| {
+            let at = index(order, "hoarder");
+            order[at].grants.pop();
+        })
+        .unwrap_err();
+        assert!(err.contains("pile_boss_f01_defeated"), "{err}");
+        let stub = table().trigger(STUB_TRIGGER).expect("the stub");
+        assert!(stub.armed_in.is_empty());
+        assert!(manifest().story_order.iter().all(|o| {
+            o.grants
+                .iter()
+                .all(|g| g.trigger.as_deref() != Some(STUB_TRIGGER))
+        }));
+        // Negative: an unarmed trigger that is not the named stub gets no exemption.
+        let renamed = crate::story_unlock::TABLE_JSON.replacen(
+            "\"id\": \"carl_prog_find_zone_stub\"",
+            "\"id\": \"carl_prog_other_zone\"",
+            1,
+        );
+        let other = StoryTable::from_json(&renamed).expect("a valid table");
+        let err = check_story_order(&manifest().story_order, &other).unwrap_err();
+        assert!(err.contains("carl_prog_other_zone"), "{err}");
         // A stored capability without a trigger.
         let err = mutate(|order| {
             let at = index(order, "hoarder");

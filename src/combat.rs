@@ -1751,6 +1751,15 @@ pub enum CombatEvent {
         class: HazardClass,
         player: Option<u32>,
     },
+    /// HRD-A2 (HRD-Q40), appended: one **non-defeat** event of the Hoarder
+    /// (`Engaged`, `Tell`, `Strike`, `Hurt`, `Flinch`, `Jammed`, `Exposed`,
+    /// `GetUp`, `NestPush`, `Disengage`). Her defeat is the existing
+    /// `EnemyDefeated { target: PILE_BOSS_ID }` and her blows on heroes the
+    /// existing `HeroHurt`. Only a room that spawns her emits it.
+    PileBoss {
+        tick: u64,
+        event: crate::pile_boss::PileEvent,
+    },
 }
 
 /// BOIL-B wire: the phases of an environmental prop that are logged
@@ -2307,6 +2316,12 @@ impl CombatEvent {
                 mix(class as u64);
                 mix(player.map_or(0, |p| u64::from(p) + 1));
             }
+            // HRD-A2: "PILE".
+            Self::PileBoss { tick, event } => {
+                mix(0x5049_4c45);
+                mix(tick);
+                event.mix_into(mix);
+            }
         }
     }
 }
@@ -2743,6 +2758,41 @@ impl fmt::Display for CombatEvent {
                     write!(f, " credit_player={player}")?;
                 }
                 Ok(())
+            }
+            Self::PileBoss { tick, event } => {
+                write!(
+                    f,
+                    "COMBAT_EVENT tick={tick} kind=pile_boss event={}",
+                    event.name()
+                )?;
+                match event {
+                    crate::pile_boss::PileEvent::Tell { attack, target } => {
+                        write!(f, " attack={} target={}", attack.name(), target.index())
+                    }
+                    crate::pile_boss::PileEvent::Strike { attack } => {
+                        write!(f, " attack={}", attack.name())
+                    }
+                    crate::pile_boss::PileEvent::Hurt {
+                        source,
+                        damage,
+                        hp_left,
+                    } => {
+                        if let Some(player) = source {
+                            write!(f, " source={player}")?;
+                        }
+                        write!(f, " damage={damage} hp_left={hp_left}")
+                    }
+                    crate::pile_boss::PileEvent::Jammed { obstacle } => {
+                        write!(f, " obstacle={}", obstacle.name())
+                    }
+                    crate::pile_boss::PileEvent::Exposed { credit } => {
+                        if let Some(player) = credit {
+                            write!(f, " credit={player}")?;
+                        }
+                        Ok(())
+                    }
+                    _ => Ok(()),
+                }
             }
         }
     }

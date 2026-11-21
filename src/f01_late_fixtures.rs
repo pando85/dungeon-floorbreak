@@ -9,7 +9,7 @@
 //!
 //! | run | room | what it shows |
 //! | --- | --- | --- |
-//! | [`hoarder_stand_in`] | the Boiler hall as a stand-in for the Hoarder's lair (HRD-A2 has not landed) | the pre-Hoarder pin and the placeholder zone: exactly one dynamite grant, K1 |
+//! | [`hoarder_defeat`] | the Hoarder's room (HRD-A2): her defeat by the real slot enemy | the pre-Hoarder pin and the ledger's event trigger `pile_boss_f01_defeated`: exactly one dynamite grant, K1 |
 //! | [`boiler_relaunch`] | the Boiler, carried | the carried ledger, no second grant |
 //! | [`juicer_relaunch`] | the Juicer, carried | the gauntlet and the blink exactly once at the defeat, and nothing under `all` |
 
@@ -27,9 +27,8 @@ use crate::party::PROVISIONAL_TUNING;
 use crate::party_scene::{PartyFixture, PartyFixtureSim};
 use crate::story_unlock::{LedgerSnapshot, SceneKind};
 
-/// The pre-Hoarder pin and the placeholder zone trigger the stand-in uses.
+/// The pre-Hoarder pin of the Hoarder's room.
 pub const PRE_PIN: &str = "f01_pin_pre_pile_boss";
-pub const HOARDER_TRIGGER: &str = "pile_boss_f01_defeated";
 
 /// A finished room run: the final state and what it granted.
 pub struct RoomRun {
@@ -77,24 +76,13 @@ fn walk(
     RoomRun { scene, combat }
 }
 
-/// Room 1 as a stand-in: the Boiler hall under the **pre-Hoarder pin**, with the
-/// placeholder Hoarder-defeat zone armed by id (the Hoarder does not exist yet,
-/// K1). Carl's walk crosses the zone: one dynamite grant, and the pin held
-/// Light on Your Feet from the start (no grant for it here).
-pub fn hoarder_stand_in(root: &Path) -> Result<RoomRun, String> {
-    let (carl, donut) = Loadout::Story.flags();
-    let run = crate::f01_boiler::launch(root)?;
-    let scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x)?;
-    let setup = donut_prog::story_setup_pin(carl, donut, SceneKind::CfArena, PRE_PIN)
-        .with_trigger(HOARDER_TRIGGER);
-    let combat = CombatState::new(run.fixture, &run.kit, &scene)?
-        .with_donut(DonutSetup::unlocked(8))
-        .try_with_story(setup)
-        .map_err(|e| e.to_string())?
-        .with_demo(run.rules)
-        .with_cf02()
-        .with_cf02_seed(None);
-    Ok(walk(&run, scene, combat))
+/// Room 1: the Hoarder's room under the story loadout (the **pre-Hoarder pin**,
+/// Light on Your Feet held), her defeat by the real slot enemy at 1 HP: exactly one
+/// dynamite grant, from the ledger's event trigger (K1). It replaces the Boiler-hall
+/// stand-in that crossed the retired placeholder zone (PT-SCENE review U6).
+pub fn hoarder_defeat(root: &Path) -> Result<RoomRun, String> {
+    let (scene, combat) = crate::hoarder_fixtures::defeat_run(root, Loadout::Story)?;
+    Ok(RoomRun { scene, combat })
 }
 
 /// The Boiler, relaunched with the ledger of the room before it.
@@ -204,7 +192,7 @@ mod tests {
 
     /// The committed final hashes (the story loadout run of each room).
     /// Re-pinned by BOIL-B/C wire: the shared Boiler walk jumps the drum at tick 229.
-    const GOLDEN_STAND_IN: u64 = 0x7502_9aea_159b_bbdd;
+    const GOLDEN_HOARDER: u64 = 0x3206_266a_728e_229f;
     /// Re-pinned by BOIL-B/C wire: the Boiler now runs its env step and the jump.
     /// Re-pinned by BOIL-D: the drum's blast charge joins the Boiler's state hash
     /// (the walk touches no prop, so nothing else moved).
@@ -213,7 +201,7 @@ mod tests {
 
     #[test]
     fn the_hoarders_dynamite_is_granted_exactly_once() {
-        let run = hoarder_stand_in(&root()).unwrap();
+        let run = hoarder_defeat(&root()).unwrap();
         let grants = run.grants();
         assert_eq!(grants.len(), 1, "one grant moment: {grants:?}");
         assert_eq!((grants[0].1, grants[0].2), (0, "special_thrown_charge"));
@@ -224,7 +212,7 @@ mod tests {
         );
         assert!(run.combat.story_holds(SPECIAL_THROWN_CHARGE));
         // Without the pin the grant would not be the only change: the pre pin
-        // holds no dynamite before the zone (checked at tick 0).
+        // holds no dynamite before her defeat (checked at tick 0).
         let (carl, donut) = Loadout::Story.flags();
         let setup = donut_prog::story_setup_pin(carl, donut, SceneKind::CfArena, PRE_PIN);
         let ids: Vec<&str> = setup.holds().iter().map(|c| c.as_str()).collect();
@@ -233,8 +221,8 @@ mod tests {
 
     #[test]
     fn the_ledger_survives_two_relaunches_retries_and_respawns() {
-        let stand_in = hoarder_stand_in(&root()).unwrap();
-        let snapshot = stand_in.snapshot().expect("a ledger");
+        let hoarder = hoarder_defeat(&root()).unwrap();
+        let snapshot = hoarder.snapshot().expect("a ledger");
         // Relaunch 1: the Boiler under the story loadout, carried. Its post pin
         // already holds dynamite, so nothing is granted again, and the receipt of
         // the earlier grant came along.
@@ -244,7 +232,7 @@ mod tests {
             "no second grant: {:?}",
             boiler.grants()
         );
-        assert_eq!(held(&boiler.combat), held(&stand_in.combat));
+        assert_eq!(held(&boiler.combat), held(&hoarder.combat));
         let carried = boiler.snapshot().unwrap();
         assert_eq!(
             carried.receipts.len(),
@@ -255,9 +243,9 @@ mod tests {
         // carried ledger is the relaunched room's declared start state).
         boiler.combat.respawn(&mut boiler.scene);
         let _ = boiler.combat.take_respawned();
-        assert_eq!(held(&boiler.combat), held(&stand_in.combat));
+        assert_eq!(held(&boiler.combat), held(&hoarder.combat));
         boiler.combat.restart(&mut boiler.scene);
-        assert_eq!(held(&boiler.combat), held(&stand_in.combat));
+        assert_eq!(held(&boiler.combat), held(&hoarder.combat));
         // Relaunch 2: the Juicer, carried from the Boiler: the defeat grants the
         // gauntlet and the blink once each, in list order, on one tick.
         let mut juicer = juicer_relaunch(&root(), Loadout::Story, Some(&carried)).unwrap();
@@ -297,8 +285,8 @@ mod tests {
 
     #[test]
     fn a_carry_into_a_room_without_the_story_flags_is_refused() {
-        let stand_in = hoarder_stand_in(&root()).unwrap();
-        let snapshot = stand_in.snapshot().unwrap();
+        let hoarder = hoarder_defeat(&root()).unwrap();
+        let snapshot = hoarder.snapshot().unwrap();
         let run = crate::f01_boiler::launch(&root()).unwrap();
         let scene = SceneSim::new_at(&run.kit, 360, run.fixture.carl_x).unwrap();
         let mut plain = CombatState::new(run.fixture, &run.kit, &scene).unwrap();
@@ -362,9 +350,9 @@ mod tests {
         type Run = Box<dyn Fn() -> u64>;
         let runs: [(&str, Run, u64); 3] = [
             (
-                "stand_in",
-                Box::new(|| hoarder_stand_in(&root()).unwrap().hash()),
-                GOLDEN_STAND_IN,
+                "hoarder",
+                Box::new(|| hoarder_defeat(&root()).unwrap().hash()),
+                GOLDEN_HOARDER,
             ),
             (
                 "boiler",

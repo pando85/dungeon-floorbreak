@@ -51,7 +51,7 @@ pub fn story_setup(fixture: &str) -> StorySetup {
     match fixture {
         // The placeholder Hoarder-defeat zone is armed by the fixture, by id: no scene arms it.
         "carl_prog_story_event_grants_dynamite" | "carl_prog_grant_survives_respawn" => {
-            StorySetup::NONE.with_trigger("pile_boss_f01_defeated")
+            StorySetup::NONE.with_trigger("carl_prog_find_zone_stub")
         }
         // The boss pin and the Juicer trigger, as `--carl-prog` gives the arena.
         "carl_prog_juicer_grants_fist" => CarlProgFlags {
@@ -67,7 +67,7 @@ pub fn story_setup(fixture: &str) -> StorySetup {
         }
         .story_setup(SceneKind::Boss),
         // CP-B1: before the grant (the ledger exists, nothing is held): a press is inert.
-        "carl_prog_special_locked" => StorySetup::NONE.with_trigger("pile_boss_f01_defeated"),
+        "carl_prog_special_locked" => StorySetup::NONE.with_trigger("carl_prog_find_zone_stub"),
         // CP-B1: the thrown charge is held from tick 0 (a declared start, not a grant).
         name if name.starts_with("carl_prog_dyn_") => {
             StorySetup::NONE.with_hold("special_thrown_charge")
@@ -850,7 +850,7 @@ mod tests {
         // The receipt names the trigger that granted it.
         let receipts = sim.combat.story_ledger().unwrap().receipts();
         assert_eq!(receipts.len(), 1);
-        assert_eq!(receipts[0].source, "pile_boss_f01_defeated");
+        assert_eq!(receipts[0].source, "carl_prog_find_zone_stub");
     }
 
     /// CP-Q07: a solo swap and a defeat retry keep the grant, no second grant is
@@ -962,7 +962,7 @@ mod tests {
         let mut earned = CombatState::new(fixture, &kit, &run.scene)
             .unwrap()
             .with_demo(&DEMO_RULES)
-            .with_story(StorySetup::NONE.with_trigger("pile_boss_f01_defeated"));
+            .with_story(StorySetup::NONE.with_trigger("carl_prog_find_zone_stub"));
         let mut scene = run.scene.clone();
         scene.world.hero.x = 610.0;
         earned.step(&mut scene, crate::input::RawInput::default());
@@ -1027,7 +1027,7 @@ mod tests {
             // boss nor walk Carl into the zone.
             StorySetup::NONE
                 .with_trigger("brute_boss_f01_defeated")
-                .with_trigger("pile_boss_f01_defeated")
+                .with_trigger("carl_prog_find_zone_stub")
         };
         for name in [
             "q10_unlock_persists",

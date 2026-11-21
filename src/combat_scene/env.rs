@@ -67,11 +67,12 @@ use std::ops::Range;
 use super::{Attacker, CombatState, Confirm, HeroId, MoveTick, Phase, SceneSim, hit_box};
 use crate::blast::{BLAST_RADIUS, BlastBreak, BlastCharge, BlastProfile, BlastTarget, blast_break};
 use crate::boss::HeroBlow;
+use crate::camera_lab::room::EnemyKind;
 use crate::camera_lab::room::IRect;
 use crate::combat::{CombatEvent, DefeatCause, PropPhase};
 use crate::donut_moves::DONUT_HERO;
 use crate::encounter::LinkKind;
-use crate::encounter::{Encounter, PropKind};
+use crate::encounter::{Encounter, LockEvent, PropKind, RosterKind};
 use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavRect, Team, Victim};
 use crate::env_prop::{
     Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, LinkEmit, LinkGraph, MassBody,
@@ -171,6 +172,26 @@ pub enum EnvSolidKind {
     Remnant,
     /// A drum that has not blown.
     Drum,
+    /// HRD-A2: a sidecar lock's solid ([`crate::encounter::Lock::solid`]): it
+    /// stands while the slot enemy `target` (the roster entry the lock waits on)
+    /// is alive and is gone from the tick of its defeat. `EnvSolid::prop` is the
+    /// lock's index in the sidecar. The state is read from the slot enemy, so a
+    /// respawn (the defeated stay defeated) and a restart (all back) need no
+    /// latch of their own.
+    Lock { target: u32 },
+    /// HRD-A2: a slot enemy's entry gate (HRD-Q41, boss data): it stands while
+    /// the slot enemy `target` reports [`crate::scene_enemy::SlotEnemy::gate_solid`].
+    /// `EnvSolid::prop` is 0.
+    Gate { target: u32 },
+}
+
+/// The slot target id of the roster entry a lock waits on. Appended to by the
+/// enemy sheets: today only the Hoarder (her roster kind is `hoarder`).
+fn roster_target_id(kind: RosterKind) -> Option<u32> {
+    match kind {
+        RosterKind::Room(EnemyKind::Hoarder) => Some(crate::pile_boss::PILE_BOSS_ID),
+        _ => None,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -380,6 +401,28 @@ impl EnvRuntime {
                 machine,
             });
         }
+        // HRD-A2: the sidecar's locks are runtime solids too (the Hoarder's exit
+        // door), after the props' solids, in lock order.
+        for (i, lock) in enc.locks.iter().enumerate() {
+            // A new `LockEvent` variant fails to compile here: this step must say
+            // what it does with it.
+            let LockEvent::EnemyDefeated { roster } = lock.opens_on;
+            let target = enc
+                .roster
+                .get(roster)
+                .and_then(|e| roster_target_id(e.kind))
+                .ok_or_else(|| {
+                    format!(
+                        "lock {}: roster entry {roster} has no slot target id",
+                        lock.id
+                    )
+                })?;
+            solids.push(EnvSolid {
+                rect: lock.solid,
+                prop: u16::try_from(i).map_err(|_| "too many locks".to_owned())?,
+                kind: EnvSolidKind::Lock { target },
+            });
+        }
         // NB-3: a survivor inside a remnant over 16 px would stand in a solid.
         let tall = enc
             .props
@@ -411,6 +454,18 @@ impl EnvRuntime {
             solid_start: None,
             prev: Vec::new(),
         })
+    }
+
+    /// HRD-A2: add a slot enemy's entry gate as a runtime solid, after every
+    /// other solid (`rect` in layout px, y down).
+    #[must_use]
+    pub fn with_slot_gate(mut self, target: u32, rect: IRect) -> Self {
+        self.solids.push(EnvSolid {
+            rect,
+            prop: 0,
+            kind: EnvSolidKind::Gate { target },
+        });
+        self
     }
 
     /// Back to the first state of the attempt (the solids stay appended).
@@ -472,9 +527,17 @@ impl EnvRuntime {
         let Some(s) = self.solids.get(i) else {
             return false;
         };
-        match (s.kind, &self.props[usize::from(s.prop)].machine) {
-            (EnvSolidKind::Remnant, Machine::Mass(m)) => m.state() == MassState::Landed,
-            (EnvSolidKind::Drum, Machine::Drum { drum, .. }) => {
+        // A lock and a gate follow a slot enemy, which the combat state reads
+        // (`env_sync_solids`); the props know nothing of them, and a room may have
+        // none (the Hoarder's `props` is empty): the kind is checked before props
+        // are indexed.
+        let prop = match s.kind {
+            EnvSolidKind::Remnant | EnvSolidKind::Drum => self.props.get(usize::from(s.prop)),
+            EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => return false,
+        };
+        match (s.kind, prop.map(|p| &p.machine)) {
+            (EnvSolidKind::Remnant, Some(Machine::Mass(m))) => m.state() == MassState::Landed,
+            (EnvSolidKind::Drum, Some(Machine::Drum { drum, .. })) => {
                 drum.state() != DrumState::Detonated
             }
             _ => false,
@@ -880,6 +943,31 @@ fn layout_rect(layout_h: i32, r: Rect) -> IRect {
 
 // ------------------------------------------------------------- scene half
 
+/// What the slot enemies say about the locks and gates (HRD-A2), read once per
+/// sync: `(target id, alive, gate closed)`.
+struct SlotSolids(Vec<(u32, bool, bool)>);
+
+impl SlotSolids {
+    fn of(slot: &super::slot::SlotRuntime) -> Self {
+        Self(
+            slot.enemies
+                .iter()
+                .map(|e| (e.target_id(), e.alive(), e.gate_solid().is_some()))
+                .collect(),
+        )
+    }
+
+    /// A lock stands while the enemy it waits on is alive. An enemy that is not
+    /// in the slot keeps the lock closed (nothing can open it).
+    fn lock_closed(&self, target: u32) -> bool {
+        self.0.iter().find(|e| e.0 == target).is_none_or(|e| e.1)
+    }
+
+    fn gate_closed(&self, target: u32) -> bool {
+        self.0.iter().find(|e| e.0 == target).is_some_and(|e| e.2)
+    }
+}
+
 impl CombatState {
     /// Run this state with the env step of `env` (the Boiler room). Without
     /// it nothing is stepped, evented or hashed: every other fixture is the
@@ -973,6 +1061,7 @@ impl CombatState {
     /// block's `intact` from the prop state.
     fn env_sync_solids(&mut self, scene: &mut SceneSim) {
         let layout_h = scene.world.layout_height();
+        let dynamic = SlotSolids::of(&self.slot);
         let Some(env) = self.env.as_mut() else {
             return;
         };
@@ -1004,7 +1093,11 @@ impl CombatState {
         }
         let start = env.solid_start.expect("synced");
         for i in 0..env.solids.len() {
-            let intact = env.solid_intact(i);
+            let intact = match env.solids[i].kind {
+                EnvSolidKind::Lock { target } => dynamic.lock_closed(target),
+                EnvSolidKind::Gate { target } => dynamic.gate_closed(target),
+                _ => env.solid_intact(i),
+            };
             scene.world.solids[start + i].intact = intact;
         }
     }
@@ -1522,8 +1615,9 @@ impl CombatState {
             let solid = env.solids()[i - range.start];
             match solid.kind {
                 EnvSolidKind::Drum => struck.push(solid.prop),
-                // The landed weight is a wall, not a trigger.
-                EnvSolidKind::Remnant => {}
+                // The landed weight is a wall, not a trigger; a lock and a gate are
+                // her solids, never a prop to strike.
+                EnvSolidKind::Remnant | EnvSolidKind::Lock { .. } | EnvSolidKind::Gate { .. } => {}
             }
         }
         struck.sort_unstable();

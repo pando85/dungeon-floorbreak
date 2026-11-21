@@ -410,6 +410,25 @@ pub trait SlotEnemy: fmt::Debug + Send + Sync {
         None
     }
 
+    /// The entry gate this enemy owns while it is closed (world px, y up): a
+    /// full-height solid the runtime env sync keeps in the scene's solids
+    /// (HRD-Q41). The default: no gate.
+    fn gate_solid(&self) -> Option<Rect> {
+        None
+    }
+
+    /// Fixture and test inspection: the concrete enemy behind the trait object
+    /// (`downcast_ref`). The default is `None`: nothing is exposed.
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        None
+    }
+
+    /// A new attempt began: the enemy was just put back to its spawn state by a
+    /// defeat retry, a checkpoint respawn or a fixture restart (never called for
+    /// the first attempt). An enemy whose retry differs from its first entry (the
+    /// Hoarder's short reveal, HRD-Q05) marks itself here. The default: nothing.
+    fn on_retry(&mut self) {}
+
     /// Fold the whole state into a state hash (everything the simulation reads).
     fn mix_into(&self, mix: &mut dyn FnMut(u64));
 }
@@ -476,7 +495,13 @@ pub struct SlotKindDef {
 /// `kind()` and the roster kind's own `supplies_boss` flag from
 /// `supplies_boss()`, or the spawn refuses it ([`SlotError::Build`]). A kind
 /// that is in no row is rejected by the roster spawn, never silently dropped.
-pub static SLOT_KINDS: &[SlotKindDef] = &[];
+pub static SLOT_KINDS: &[SlotKindDef] = &[
+    // HRD-A2: the Hoarder.
+    SlotKindDef {
+        name: crate::combat_scene::pile_boss::KIND,
+        build: crate::combat_scene::pile_boss::build,
+    },
+];
 
 /// The roster kind names the slot never builds: the existing goblin and
 /// Engineer paths spawn them (BOIL-E, K16), and the llama is a fixture kind.
