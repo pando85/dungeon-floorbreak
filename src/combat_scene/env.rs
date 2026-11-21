@@ -65,19 +65,22 @@
 use std::ops::Range;
 
 use super::{Attacker, CombatState, Confirm, HeroId, MoveTick, Phase, SceneSim, hit_box};
+use crate::blast::{BLAST_RADIUS, BlastBreak, BlastCharge, BlastProfile, BlastTarget, blast_break};
 use crate::boss::HeroBlow;
 use crate::camera_lab::room::IRect;
 use crate::combat::{CombatEvent, DefeatCause, PropPhase};
 use crate::donut_moves::DONUT_HERO;
+use crate::encounter::LinkKind;
 use crate::encounter::{Encounter, PropKind};
 use crate::env_hazard::{HazardClass, HazardEdge, HazardSet, NavRect, Team, Victim};
 use crate::env_prop::{
-    FallingMass, FallingMassConfig, MassBody, MassEdge, MassState, Offer, STEP_OVER_PX, Stimulus,
-    Valve, ValveEdge, ValveState,
+    Drum, DrumConfig, DrumState, FallingMass, FallingMassConfig, LinkEmit, LinkGraph, MassBody,
+    MassEdge, MassState, Offer, STEP_OVER_PX, Stimulus, Valve, ValveEdge, ValveState,
 };
 use crate::goblin::GoblinMode;
+use crate::hero_damage::HeroDamagePolicy;
 use crate::llama::LlamaMode;
-use crate::prototype::{Block, HERO_HALF_HEIGHT, Material, Rect};
+use crate::prototype::{Block, HERO_HALF_HEIGHT, Material, Rect, TICK_SECONDS};
 use crate::scene_enemy::{EnvSource, EnvTarget, EnvView, SlotEnvHit};
 
 /// The `HeroBlow.source` of every environmental blow (a falling mass, steam):
@@ -100,8 +103,56 @@ enum Machine {
     Valve { valve: Valve, steam: u16 },
     /// A hanging weight (boxed: it is the large one).
     Mass(Box<FallingMass>),
-    /// A drum: only its solid in this step (BOIL-D adds the blast).
-    Drum { intact: bool },
+    /// A fuel drum (BOIL-D): its acceptance machine and the blast it plans.
+    Drum { drum: Drum, plan: DrumPlan },
+}
+
+/// What a drum's blast is, from the sidecar (BOIL-D). The blast itself is the
+/// drum's [`BlastCharge`] (one explosion engine, no second owner field); the
+/// `drum_blast` hazard entry of the sidecar is a **data source only**, like the
+/// weight's `weight_fall`: it is never triggered as a damage volume, or a hero
+/// would be hurt twice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DrumPlan {
+    /// Layout px of the drum's column (the blast column).
+    pub x: i32,
+    /// The outer radius, from the prop's `blast_radius_px`.
+    pub radius: i32,
+    /// Damage to a hurt hero (the hazard's `damage`).
+    pub hero_hp: u8,
+    /// Who the blast hurts (the hazard's `hero_damage`).
+    pub hero_damage: HeroDamagePolicy,
+    /// Ticks from the trigger to the blast (the hazard's telegraph).
+    pub telegraph_ticks: u16,
+    /// The area the tell shows (the hazard's telegraph rectangle).
+    pub telegraph_rect: IRect,
+}
+
+impl DrumPlan {
+    /// BOILD-AD4: the drum's blast profile. The core is the DEATH-D ring
+    /// ([`BLAST_RADIUS`]), the outer band the sidecar's radius; the outer
+    /// damage, launch and hero knock are the dynamite's own numbers
+    /// (`carl_prog_v0.json` CP-Q21, CP-Q23), so a goblin thrown by a drum
+    /// flies like one thrown by dynamite. Heroes take the hazard's damage under
+    /// its policy (`AllHeroes`: the drum hurts everyone), logged with
+    /// [`ENV_SOURCE_ID`]. Line of sight is on (CP-Q22). It does **not** break
+    /// structures: the drum reaches props only along its authored `blast` links.
+    pub fn profile(&self) -> BlastProfile {
+        BlastProfile {
+            core_radius: BLAST_RADIUS,
+            outer_radius: self.radius as f32,
+            outer_damage: 1,
+            llama_outer_damage: 1,
+            boss_damage: 0,
+            launch: (200.0, 220.0),
+            los: true,
+            hero_damage: self.hero_damage,
+            hero_hp: self.hero_hp,
+            hero_knock: (120.0, 160.0),
+            hero_source: ENV_SOURCE_ID,
+            breaks_structures: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -118,7 +169,7 @@ struct EnvProp {
 pub enum EnvSolidKind {
     /// The landed weight's remnant: a solid from the landing step on.
     Remnant,
-    /// An intact drum.
+    /// A drum that has not blown.
     Drum,
 }
 
@@ -167,6 +218,21 @@ pub struct EnvTick {
     pub lifts: Vec<EnvLift>,
     /// Non-hero bodies inside a remnant they cannot step over (NB-3).
     pub embedded: Vec<Victim>,
+    /// The link contacts the edges of this tick hand on (BOIL-D), in prop
+    /// order.
+    pub fires: Vec<LinkFire>,
+}
+
+/// A prop edge an authored link carries to the props it reaches (BOIL-D).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LinkFire {
+    /// The prop the edge belongs to.
+    pub from: u16,
+    pub emit: LinkEmit,
+    /// The player credited with what the source did.
+    pub initiator: Option<u32>,
+    /// The chain depth the source was set off at (the contact is one deeper).
+    pub depth: u8,
 }
 
 /// The props, hazards and solids of one run of an encounter room.
@@ -178,6 +244,11 @@ pub struct EnvRuntime {
     /// `(hazard id, owning prop)`.
     owners: Vec<(u16, u16)>,
     solids: Vec<EnvSolid>,
+    /// The authored prop-to-prop links (BOIL-D).
+    links: LinkGraph,
+    /// `(drum prop, index of its BlastCharge)` once the scene pushed the
+    /// charges. Not hashed: the index is a function of the setup.
+    drum_charges: Vec<(u16, usize)>,
     /// Where the solids start in `scene.world.solids` once synced.
     solid_start: Option<usize>,
     /// The bodies of the last tick (the swept test's start). Not hashed: it is
@@ -194,13 +265,29 @@ impl EnvRuntime {
     pub fn new(enc: &Encounter) -> Result<Self, String> {
         let mut props = Vec::new();
         let mut solids = Vec::new();
+        // BOIL-D: the authored links, then what each linked prop must accept.
+        let prop_u16 = |i: usize| u16::try_from(i).map_err(|_| "too many props".to_owned());
+        let mut link_list = Vec::new();
+        for l in &enc.links {
+            let emit = match l.kind {
+                LinkKind::Steam => LinkEmit::Steam,
+                LinkKind::Landing => LinkEmit::Landing,
+                LinkKind::Blast => LinkEmit::Blast,
+            };
+            link_list.push((prop_u16(l.from)?, prop_u16(l.to)?, emit));
+        }
+        let links = LinkGraph::new(link_list)?;
         for (i, p) in enc.props.iter().enumerate() {
             let index = u16::try_from(i).map_err(|_| "too many props".to_owned())?;
+            let incoming = links.incoming(index);
             let machine = match p.kind {
                 PropKind::Valve => {
-                    let cfg = p
+                    let mut cfg = p
                         .valve
                         .ok_or_else(|| format!("prop {}: a valve needs its config", p.id))?;
+                    if cfg.contact_weight == 0 {
+                        cfg.contact_weight = linked_weight(&incoming, cfg.trigger_weight);
+                    }
                     let steam = enc
                         .owned_hazard(i, HazardClass::Steam)
                         .ok_or_else(|| format!("prop {}: a valve owns a steam hazard", p.id))?;
@@ -224,6 +311,10 @@ impl EnvRuntime {
                     // remnant, its bottom `hang_px` above the floor.
                     let hanging = IRect::new(f.x, f.bottom() - hang - remnant.h, f.w, remnant.h);
                     let mut cfg = FallingMassConfig::new(hanging, f, remnant);
+                    // BOILD-AD1: a linked support accepts its link.
+                    if cfg.contact_weight == 0 {
+                        cfg.contact_weight = linked_weight(&incoming, cfg.release_weight);
+                    }
                     // The volume is a data source (see the module docs).
                     cfg.warning_ticks = fall.spec.telegraph_ticks();
                     cfg.damage = fall.spec.damage;
@@ -238,6 +329,20 @@ impl EnvRuntime {
                     Machine::Mass(Box::new(FallingMass::new(cfg)?))
                 }
                 PropKind::Drum => {
+                    let blast = enc
+                        .owned_hazard(i, HazardClass::Blast)
+                        .ok_or_else(|| format!("prop {}: a drum owns a blast hazard", p.id))?;
+                    let radius = p
+                        .blast_radius_px
+                        .ok_or_else(|| format!("prop {}: a drum needs blast_radius_px", p.id))?;
+                    // The blast profile has no switch to spare the enemies: refuse
+                    // data that asks for it rather than ignore it.
+                    if !blast.spec.hurts_enemies {
+                        return Err(format!(
+                            "prop {}: a drum's blast hurts enemies (BlastProfile has no way to spare them)",
+                            p.id
+                        ));
+                    }
                     if p.solid_intact {
                         solids.push(EnvSolid {
                             rect: p.target,
@@ -245,8 +350,21 @@ impl EnvRuntime {
                             kind: EnvSolidKind::Drum,
                         });
                     }
+                    let plan = DrumPlan {
+                        x: p.target.x + p.target.w / 2,
+                        radius,
+                        hero_hp: blast.spec.damage,
+                        hero_damage: blast.spec.hero_damage,
+                        telegraph_ticks: blast.spec.telegraph_ticks(),
+                        telegraph_rect: blast.spec.telegraph_rect,
+                    };
+                    let cfg = DrumConfig {
+                        telegraph_ticks: plan.telegraph_ticks,
+                        ..DrumConfig::DEFAULT
+                    };
                     Machine::Drum {
-                        intact: p.solid_intact,
+                        drum: Drum::new(cfg)?,
+                        plan,
                     }
                 }
                 PropKind::Shutter | PropKind::RotSticker => {
@@ -288,6 +406,8 @@ impl EnvRuntime {
             hazards,
             owners,
             solids,
+            links,
+            drum_charges: Vec::new(),
             solid_start: None,
             prev: Vec::new(),
         })
@@ -299,7 +419,7 @@ impl EnvRuntime {
             match &mut p.machine {
                 Machine::Valve { valve, .. } => valve.reset(),
                 Machine::Mass(m) => m.reset(),
-                Machine::Drum { intact } => *intact = true,
+                Machine::Drum { drum, .. } => drum.reset(),
             }
         }
         self.hazards = self.pristine_hazards.clone();
@@ -354,7 +474,9 @@ impl EnvRuntime {
         };
         match (s.kind, &self.props[usize::from(s.prop)].machine) {
             (EnvSolidKind::Remnant, Machine::Mass(m)) => m.state() == MassState::Landed,
-            (EnvSolidKind::Drum, Machine::Drum { intact }) => *intact,
+            (EnvSolidKind::Drum, Machine::Drum { drum, .. }) => {
+                drum.state() != DrumState::Detonated
+            }
             _ => false,
         }
     }
@@ -373,10 +495,130 @@ impl EnvRuntime {
             .filter(|p| match &p.machine {
                 Machine::Valve { valve, .. } => valve.state() == ValveState::Intact,
                 Machine::Mass(m) => m.is_supported(),
+                // A drum is no hit target of melee or the missile (BOILD-AD3).
                 Machine::Drum { .. } => false,
             })
             .map(|p| (p.index, p.target))
             .collect()
+    }
+
+    /// BOIL-D: the boxes a blast must reach to set a prop off, per prop that
+    /// can still be set off (the `BlastTarget` footprints), layout px, y down.
+    /// Unlike [`Self::live_targets`] this includes an armed drum.
+    pub fn blast_targets(&self) -> Vec<(u16, IRect)> {
+        self.props
+            .iter()
+            .filter(|p| match &p.machine {
+                Machine::Valve { valve, .. } => valve.state() == ValveState::Intact,
+                Machine::Mass(m) => m.is_supported(),
+                Machine::Drum { drum, .. } => drum.is_armed(),
+            })
+            .map(|p| (p.index, p.target))
+            .collect()
+    }
+
+    /// The drum's state, if prop `index` is a drum.
+    pub fn drum_state(&self, index: usize) -> Option<DrumState> {
+        match &self.props.get(index)?.machine {
+            Machine::Drum { drum, .. } => Some(drum.state()),
+            _ => None,
+        }
+    }
+
+    /// The drums' blast plans, `(prop, plan)` in prop order.
+    pub fn drum_plans(&self) -> Vec<(u16, DrumPlan)> {
+        self.props
+            .iter()
+            .filter_map(|p| match &p.machine {
+                Machine::Drum { plan, .. } => Some((p.index, *plan)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The authored links.
+    pub fn links(&self) -> &LinkGraph {
+        &self.links
+    }
+
+    /// Record which `BlastCharge` is the drum `prop`'s (set by the scene when
+    /// it pushes the charge).
+    pub(super) fn set_drum_charge(&mut self, prop: u16, charge: usize) {
+        match self.drum_charges.iter_mut().find(|(p, _)| *p == prop) {
+            Some(slot) => slot.1 = charge,
+            None => self.drum_charges.push((prop, charge)),
+        }
+    }
+
+    /// The charge index of drum `prop`.
+    pub fn drum_charge(&self, prop: u16) -> Option<usize> {
+        self.drum_charges
+            .iter()
+            .find(|(p, _)| *p == prop)
+            .map(|(_, c)| *c)
+    }
+
+    /// The drum prop a charge belongs to.
+    pub fn drum_of_charge(&self, charge: usize) -> Option<u16> {
+        self.drum_charges
+            .iter()
+            .find(|(_, c)| *c == charge)
+            .map(|(p, _)| *p)
+    }
+
+    /// `(charge index, telegraph ticks)` of drum `prop`: what the scene needs
+    /// to arm its blast.
+    pub fn drum_clock(&self, prop: u16) -> Option<(usize, u16)> {
+        let charge = self.drum_charge(prop)?;
+        match &self.props.get(usize::from(prop))?.machine {
+            Machine::Drum { plan, .. } => Some((charge, plan.telegraph_ticks)),
+            _ => None,
+        }
+    }
+
+    /// The drum's machine follows a charge a chain reaction lit (CP-Q34): the
+    /// credit and depth the charge took. True when the drum changed.
+    fn drum_adopt_chain(&mut self, prop: u16, initiator: Option<u32>, depth: u8) -> bool {
+        match self
+            .props
+            .get_mut(usize::from(prop))
+            .map(|p| &mut p.machine)
+        {
+            Some(Machine::Drum { drum, .. }) => drum.adopt_chain(initiator, depth),
+            _ => false,
+        }
+    }
+
+    /// The drum's charge blew: the machine is `Detonated` and its `Blast`
+    /// links are returned for the scene to deliver.
+    fn drum_blown(&mut self, prop: u16) -> Option<LinkFire> {
+        match self
+            .props
+            .get_mut(usize::from(prop))
+            .map(|p| &mut p.machine)
+        {
+            Some(Machine::Drum { drum, .. }) => {
+                drum.detonated();
+                Some(LinkFire {
+                    from: prop,
+                    emit: LinkEmit::Blast,
+                    initiator: drum.initiator(),
+                    depth: drum.trigger_depth(),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// The area a drum's tell shows while it is set off (layout px, y down),
+    /// the ticks left of the tell are the charge's business.
+    pub fn drum_telegraph_rect(&self, prop: usize) -> Option<IRect> {
+        match &self.props.get(prop)?.machine {
+            Machine::Drum { drum, plan } if drum.state() == DrumState::Telegraph => {
+                Some(plan.telegraph_rect)
+            }
+            _ => None,
+        }
     }
 
     /// Offer one stimulus to prop `index`. Returns the offer and the events of
@@ -393,7 +635,7 @@ impl EnvRuntime {
         let result = match &mut prop.machine {
             Machine::Valve { valve, .. } => valve.offer(stimulus),
             Machine::Mass(m) => m.offer(stimulus),
-            Machine::Drum { .. } => return None,
+            Machine::Drum { drum, .. } => drum.offer(stimulus),
         };
         let mut events = Vec::new();
         let progress = match result {
@@ -402,7 +644,8 @@ impl EnvRuntime {
             Offer::Triggered { .. } => match &prop.machine {
                 Machine::Valve { valve, .. } => valve.progress(),
                 Machine::Mass(m) => m.progress(),
-                Machine::Drum { .. } => 0,
+                // A drum has one weight: the trigger itself.
+                Machine::Drum { .. } => 1,
             },
         };
         events.push(CombatEvent::PropHit {
@@ -420,7 +663,9 @@ impl EnvRuntime {
                     assert!(started, "the steam starts with the valve, exactly once");
                     PropPhase::Warning
                 }
-                _ => PropPhase::Released,
+                // The drum's tell is its warning; its charge keeps the clock.
+                Machine::Drum { .. } => PropPhase::Warning,
+                Machine::Mass(_) => PropPhase::Released,
             };
             events.push(CombatEvent::PropPhase {
                 tick,
@@ -467,12 +712,21 @@ impl EnvRuntime {
             let prop = p.index;
             match &mut p.machine {
                 Machine::Valve { valve, .. } => match valve.step() {
-                    Some(ValveEdge::VentStarted) => out.events.push(CombatEvent::PropPhase {
-                        tick,
-                        prop,
-                        phase: PropPhase::Venting,
-                        player: valve.initiator(),
-                    }),
+                    Some(ValveEdge::VentStarted) => {
+                        out.events.push(CombatEvent::PropPhase {
+                            tick,
+                            prop,
+                            phase: PropPhase::Venting,
+                            player: valve.initiator(),
+                        });
+                        // BOIL-D: the steam reaches what the sidecar links.
+                        out.fires.push(LinkFire {
+                            from: prop,
+                            emit: LinkEmit::Steam,
+                            initiator: valve.initiator(),
+                            depth: valve.trigger_depth(),
+                        });
+                    }
                     Some(ValveEdge::Spent) => out.events.push(CombatEvent::PropPhase {
                         tick,
                         prop,
@@ -516,9 +770,17 @@ impl EnvRuntime {
                             });
                         }
                         out.embedded.extend(landing.embedded);
+                        // BOIL-D: the landing reaches what the sidecar links.
+                        out.fires.push(LinkFire {
+                            from: prop,
+                            emit: LinkEmit::Landing,
+                            initiator: landing.initiator,
+                            depth: m.trigger_depth(),
+                        });
                     }
                     None => {}
                 },
+                // A drum's clock is its charge's (the scene steps it).
                 Machine::Drum { .. } => {}
             }
         }
@@ -558,7 +820,7 @@ impl EnvRuntime {
             match &p.machine {
                 Machine::Valve { valve, .. } => valve.mix_into(&mut *mix),
                 Machine::Mass(m) => m.mix_into(&mut *mix),
-                Machine::Drum { intact } => mix(u64::from(*intact)),
+                Machine::Drum { drum, .. } => drum.mix_into(&mut *mix),
             }
         }
         self.hazards.mix_into(&mut *mix);
@@ -572,11 +834,27 @@ impl EnvRuntime {
             .map(|p| match &p.machine {
                 Machine::Valve { valve, .. } => format!("{}:{:?}", p.index, valve.state()),
                 Machine::Mass(m) => format!("{}:{:?}", p.index, m.state()),
-                Machine::Drum { intact } => format!("{}:drum_{}", p.index, intact),
+                Machine::Drum { drum, .. } => format!("{}:drum_{:?}", p.index, drum.state()),
             })
             .collect();
         format!(" env={}", parts.join(","))
     }
+}
+
+/// BOILD-AD1: the weight a prop gives the contacts of its incoming links. A
+/// steam link carries a **light** contact (1: steam alone must not always drop
+/// the weight, Boiler P1: it finishes a brace that is already weakened); a
+/// landing or a blast link carries the **full** weight (`full`: the trigger or
+/// release weight of the receiving machine). The strongest incoming link wins.
+fn linked_weight(incoming: &[(u16, LinkEmit)], full: u8) -> u8 {
+    incoming
+        .iter()
+        .map(|(_, emit)| match emit {
+            LinkEmit::Steam => 1.min(full),
+            LinkEmit::Landing | LinkEmit::Blast => full,
+        })
+        .max()
+        .unwrap_or(0)
 }
 
 // ------------------------------------------------------------- conversions
@@ -618,11 +896,53 @@ impl CombatState {
         self.env.as_deref()
     }
 
-    /// A new attempt: every prop back to its first state.
+    /// A new attempt: every prop back to its first state, and every drum's
+    /// charge back to unlit (BOIL-D).
     pub(super) fn env_reset(&mut self) {
         if let Some(env) = self.env.as_mut() {
             env.reset();
         }
+        self.env_drum_charges();
+    }
+
+    /// BOIL-D: each drum's blast is one authored `BlastCharge` after the
+    /// fixture's own (no second explosion module, no owner field of its own).
+    /// It stands **unlit** (`Arm::Tick` with tick 0 never fires) at the drum's
+    /// column on the walking line; the scene lights it with
+    /// [`BlastCharge::chain_set`] when the drum is set off. A rebuilt attempt
+    /// pushes it; a checkpoint respawn finds it (same column and profile) and
+    /// resets it in place, so its index never moves.
+    fn env_drum_charges(&mut self) {
+        let Some(plans) = self.env.as_ref().map(|e| e.drum_plans()) else {
+            return;
+        };
+        for (prop, plan) in plans {
+            let fresh = BlastCharge::new(plan.x as f32, self.enemy_foot_y, 0, None)
+                .with_profile(plan.profile());
+            let found = (0..self.authored_charges).find(|&i| {
+                self.charges[i].x == fresh.x && self.charges[i].profile == fresh.profile
+            });
+            let index = match found {
+                Some(i) => {
+                    self.charges[i] = fresh;
+                    i
+                }
+                None => {
+                    self.push_authored_charge(fresh);
+                    self.charges.len() - 1
+                }
+            };
+            if let Some(env) = self.env.as_mut() {
+                env.set_drum_charge(prop, index);
+            }
+        }
+    }
+
+    /// Whether `charge` is a prop's blast (the presentation hides its stick).
+    pub fn env_owns_charge(&self, charge: usize) -> bool {
+        self.env
+            .as_ref()
+            .is_some_and(|e| e.drum_of_charge(charge).is_some())
     }
 
     /// After a restart or a respawn: the solids follow the props at once, not
@@ -717,7 +1037,108 @@ impl CombatState {
         for event in events {
             self.log(event);
         }
+        if let Offer::Triggered { initiator, depth } = offer {
+            self.env_arm_drum(prop, tick, initiator, depth);
+        }
         Some(offer)
+    }
+
+    /// A drum that was just set off lights its charge: the blast comes
+    /// `telegraph_ticks` after `tick`. [`BlastCharge::chain_set`] keeps the
+    /// first writer's credit and depth, and leaves a charge a chain already
+    /// lit for an earlier tick alone (CP-Q34), so one clock serves the prop
+    /// link, a launched body, a blast and a chain reaction. A prop that is not
+    /// a drum does nothing here.
+    fn env_arm_drum(&mut self, prop: usize, tick: u64, initiator: Option<u32>, depth: u8) {
+        let Some((charge, telegraph)) = u16::try_from(prop)
+            .ok()
+            .and_then(|p| self.env.as_ref()?.drum_clock(p))
+        else {
+            return;
+        };
+        self.charges[charge].chain_set(tick, u64::from(telegraph), initiator, depth);
+    }
+
+    /// Deliver what a prop edge carries along its links: one `PropContact` per
+    /// linked prop, one link deeper, credited to the initiator (BOIL-D). The
+    /// machines enforce the depth cap and the one activation per prop.
+    fn env_fire(&mut self, fire: LinkFire, tick: u64) {
+        let targets = self
+            .env
+            .as_ref()
+            .map(|e| e.links().targets(fire.from, fire.emit))
+            .unwrap_or_default();
+        for to in targets {
+            let contact = LinkGraph::contact(fire.from, fire.initiator, fire.depth);
+            self.env_stimulate(usize::from(to), contact, tick);
+        }
+    }
+
+    /// A drum whose charge a chain reaction lit (no offer reached the machine):
+    /// the machine follows the charge into its telegraph, with the credit and
+    /// depth the charge took, and logs the tell (a blast hit, then the warning).
+    fn env_follow_lit_drums(&mut self, tick: u64) {
+        let Some(env) = self.env.as_ref() else {
+            return;
+        };
+        let lit: Vec<(u16, Option<u32>, u8)> = env
+            .drum_plans()
+            .into_iter()
+            .filter(|(prop, _)| env.drum_state(usize::from(*prop)) == Some(DrumState::Armed))
+            .filter_map(|(prop, _)| {
+                let charge = &self.charges[env.drum_charge(prop)?];
+                (!charge.detonated && charge.detonate_tick > 0).then_some((
+                    prop,
+                    charge.owner,
+                    charge.chain_depth,
+                ))
+            })
+            .collect();
+        for (prop, owner, depth) in lit {
+            let followed = self
+                .env
+                .as_mut()
+                .is_some_and(|e| e.drum_adopt_chain(prop, owner, depth));
+            if followed {
+                self.log(CombatEvent::PropHit {
+                    tick,
+                    prop,
+                    kind: crate::env_prop::StimulusKind::Blast,
+                    progress: 1,
+                    player: owner,
+                });
+                self.log(CombatEvent::PropPhase {
+                    tick,
+                    prop,
+                    phase: PropPhase::Warning,
+                    player: owner,
+                });
+            }
+        }
+    }
+
+    /// The hook of `step_charges`: right after a charge's `Blast` event, before
+    /// anything of that blast resolves. A drum's charge makes the drum
+    /// `Detonated`, so its solid is gone for this blast's line of sight and
+    /// every later collision, logs the phase and delivers its `blast` links.
+    pub(super) fn env_charge_blown(&mut self, scene: &mut SceneSim, charge: usize, tick: u64) {
+        let Some(prop) = self.env.as_ref().and_then(|e| e.drum_of_charge(charge)) else {
+            return;
+        };
+        // A charge that was lit and blew without the machine ever seeing it
+        // (it cannot happen with the 8-tick chain delay) still follows.
+        self.env_follow_lit_drums(tick);
+        let Some(fire) = self.env.as_mut().and_then(|e| e.drum_blown(prop)) else {
+            return;
+        };
+        self.log(CombatEvent::PropPhase {
+            tick,
+            prop,
+            phase: PropPhase::Detonated,
+            player: fire.initiator,
+        });
+        self.env_sync_solids(scene);
+        self.env_fire(fire, tick);
     }
 
     /// Carl's melee on the props: the active box on a live target, one hit per
@@ -908,6 +1329,12 @@ impl CombatState {
         if !slot_hits.is_empty() {
             self.slot_env_hits(scene, &slot_hits, tick);
         }
+        // BOIL-D: the edges of the tick reach their linked props, after the
+        // hits they caused (a landing kills, then it reaches the drum).
+        for fire in out.fires {
+            self.env_fire(fire, tick);
+        }
+        self.env_follow_lit_drums(tick);
         self.env_sync_solids(scene);
         let view = self.env_view(layout_h);
         self.set_slot_env(view);
@@ -1034,6 +1461,149 @@ impl CombatState {
         }
     }
 
+    /// BOIL-D: a flier (a launched goblin, or the body of one a lethal kick
+    /// killed) against the props, after the enemy contacts of this tick. The
+    /// prop contact target (contacts_cf02.rs calls it for every flier):
+    ///
+    /// * a **live hit target** (the valve, the brace) the flier's box overlaps
+    ///   is struck: the flier flies through it, nothing stops it;
+    /// * an **env solid**, identified by the index range of the runtime sync
+    ///   ([`EnvRuntime::solid_range`], KR6/KR7), is struck when the flier's box
+    ///   overlaps it **or the flier was stopped by a solid this tick and the
+    ///   solid lies within the distance that tick's flight covered** (a goblin
+    ///   a solid stops stays outside it, `wall_stop`; BOILD-AD2). What a struck
+    ///   solid does is its kind's: the drum takes the launch, the landed
+    ///   remnant takes nothing (a settled mass is no trigger). The match over
+    ///   [`EnvSolidKind`] is exhaustive: a later solid kind (the Ring's
+    ///   shutter slices) must decide what a launched body does to it. A solid
+    ///   outside the range (a wall) is never a prop.
+    ///
+    /// One stimulus per (launch, prop): the machine dedupes launch ids, and a
+    /// stimulus that is ignored logs nothing, so a flier that rests against a
+    /// prop for many ticks produces one event at most. The impulse is the
+    /// flier's speed at the start of the tick, or the speed a solid stopped
+    /// it at, whichever is higher, credited to `initiator` (the hero whose
+    /// move launched it).
+    pub(super) fn env_launched_contacts(
+        &mut self,
+        scene: &SceneSim,
+        flier: &LaunchedBody,
+        tick: u64,
+    ) {
+        let Some(env) = self.env.as_ref() else {
+            return;
+        };
+        let layout_h = scene.world.layout_height();
+        let impulse = flier.speed.max(flier.stop.unwrap_or(0.0)).round();
+        let impulse_px_s = impulse.clamp(0.0, f32::from(u16::MAX)) as u16;
+        let mut struck: Vec<u16> = Vec::new();
+        for (prop, target) in env.live_targets() {
+            if world_rect(layout_h, target).overlaps(flier.body) {
+                struck.push(prop);
+            }
+        }
+        let range = env.solid_range();
+        // One tick of the stopped flight, rounded up, plus a pixel.
+        let reach = flier
+            .stop
+            .map_or(0.0, |speed| (speed * TICK_SECONDS).ceil() + 1.0);
+        let probe = Rect {
+            left: flier.body.left - reach,
+            width: flier.body.width + 2.0 * reach,
+            ..flier.body
+        };
+        for i in range.clone() {
+            let Some(block) = scene.world.solids.get(i) else {
+                continue;
+            };
+            if !block.intact || !probe.overlaps(block.rect) {
+                continue;
+            }
+            let solid = env.solids()[i - range.start];
+            match solid.kind {
+                EnvSolidKind::Drum => struck.push(solid.prop),
+                // The landed weight is a wall, not a trigger.
+                EnvSolidKind::Remnant => {}
+            }
+        }
+        struck.sort_unstable();
+        struck.dedup();
+        for prop in struck {
+            self.env_stimulate(
+                usize::from(prop),
+                Stimulus::LaunchedBody {
+                    launch_id: flier.launch,
+                    impulse_px_s,
+                    initiator: flier.initiator,
+                },
+                tick,
+            );
+        }
+    }
+
+    /// Whether prop `index` is a drum whose charge is lit and has not blown.
+    fn env_drum_is_lit(&self, index: usize) -> bool {
+        let Some(env) = self.env.as_ref() else {
+            return false;
+        };
+        u16::try_from(index)
+            .ok()
+            .and_then(|p| env.drum_charge(p))
+            .is_some_and(|c| !self.charges[c].detonated && self.charges[c].detonate_tick > 0)
+    }
+
+    /// BOIL-D: a blast that breaks structures reaches the props it can set off
+    /// (CP-Q35): each is a [`BlastTarget`] (the `PropTarget` below), judged with
+    /// the same outer circle and line of sight as the shore and the rack strut.
+    /// The blast's owner is the initiator and its chain depth is the prop's
+    /// trigger depth (PR #200 review NB-4). The env-solid range is never read
+    /// as a target: a prop answers for itself (KC17).
+    pub(super) fn blast_props(
+        &mut self,
+        scene: &SceneSim,
+        charge: &BlastCharge,
+        blast_id: u32,
+        tick: u64,
+    ) {
+        let Some(props) = self.env.as_deref().map(EnvRuntime::props) else {
+            return;
+        };
+        let layout_h = scene.world.layout_height();
+        let solids = &scene.world.solids;
+        let mut logged = Vec::new();
+        let mut set_off = Vec::new();
+        for index in 0..props {
+            // A drum a chain reaction already lit is the chain's (CP-Q34 gave
+            // its charge the depth and the credit): the machine follows the
+            // charge in the env step, so the blast does not offer it again.
+            if self.env_drum_is_lit(index) {
+                continue;
+            }
+            let Some(env) = self.env.as_mut() else {
+                return;
+            };
+            let mut target = PropTarget {
+                env,
+                index,
+                layout_h,
+                tick,
+                offer: None,
+                events: Vec::new(),
+            };
+            blast_break(charge, blast_id, solids, &mut target);
+            if let Some(Offer::Triggered { initiator, depth }) = target.offer {
+                set_off.push((index, initiator, depth));
+            }
+            logged.extend(target.events);
+        }
+        for event in logged {
+            self.log(event);
+        }
+        for (index, initiator, depth) in set_off {
+            self.env_arm_drum(index, tick, initiator, depth);
+        }
+    }
+
     /// ` env=...` while the room has props, else empty.
     pub(super) fn env_token(&self) -> String {
         self.env.as_ref().map_or_else(String::new, |e| e.token())
@@ -1046,9 +1616,61 @@ impl CombatState {
     }
 }
 
+/// A flier as the prop contact target sees it (BOIL-D): its box (world px, y
+/// up), the launch it flies on, the hero credited with it and its speeds.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) struct LaunchedBody {
+    pub body: Rect,
+    pub launch: u32,
+    pub initiator: Option<u32>,
+    /// |vx| at the start of the tick's contacts.
+    pub speed: f32,
+    /// The speed a solid stopped the flier at this tick, if one did
+    /// (`Goblin::wall_stop`).
+    pub stop: Option<f32>,
+}
+
+/// A prop as a [`BlastTarget`] of one blast (BOIL-D, CP-Q35): the box a blast
+/// must reach, and the break call, which offers a `Blast` stimulus carrying the
+/// blast's id, owner and chain depth. It collects the events and the offer for
+/// the caller, which logs them and lights a drum's charge.
+struct PropTarget<'a> {
+    env: &'a mut EnvRuntime,
+    index: usize,
+    layout_h: i32,
+    tick: u64,
+    offer: Option<Offer>,
+    events: Vec<CombatEvent>,
+}
+
+impl BlastTarget for PropTarget<'_> {
+    fn blast_footprint(&self) -> Option<Rect> {
+        self.env
+            .blast_targets()
+            .into_iter()
+            .find(|(prop, _)| usize::from(*prop) == self.index)
+            .map(|(_, rect)| world_rect(self.layout_h, rect))
+    }
+
+    fn break_by_blast(&mut self, blast: BlastBreak) -> bool {
+        let stimulus = Stimulus::Blast {
+            blast_id: blast.blast_id,
+            owner: blast.owner,
+            depth: blast.depth,
+        };
+        let Some((offer, events)) = self.env.offer(self.index, stimulus, self.tick) else {
+            return false;
+        };
+        self.events.extend(events);
+        self.offer = Some(offer);
+        matches!(offer, Offer::Triggered { .. })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blast::BlastProfile;
     use crate::boss_scene::Pilot;
     use crate::combat::EnemyAi;
     use crate::combat_scene::{EnemySpawn, Fixture};
@@ -1065,6 +1687,8 @@ mod tests {
     use std::path::PathBuf;
 
     const VALVE: usize = 0;
+    const VALVE_X: f32 = 460.0;
+    const BRACE_X: f32 = 740.0;
     const WEIGHT: usize = 1;
 
     fn root() -> PathBuf {
@@ -1381,8 +2005,6 @@ mod tests {
 
     /// Carl's jab reaches 16..22 px ahead of his column, 29..35 px up: the column
     /// 20 px left of the target's left edge hits it.
-    const BRACE_X: f32 = 740.0;
-    const VALVE_X: f32 = 460.0;
 
     #[test]
     fn the_brace_releases_on_two_jabs_and_lands_on_r_plus_31() {
@@ -1510,6 +2132,7 @@ mod tests {
             Stimulus::Blast {
                 blast_id: 1,
                 owner: Some(0),
+                depth: 0,
             },
             1,
         )
@@ -1545,6 +2168,7 @@ mod tests {
                 Stimulus::Blast {
                     blast_id: 1,
                     owner: None,
+                    depth: 0,
                 },
                 1,
             )
@@ -1903,5 +2527,740 @@ mod tests {
     #[test]
     fn the_environment_source_id_is_above_the_goblin_index_range() {
         const { assert!(ENV_SOURCE_ID > 0xff) };
+    }
+
+    const KICK: RawInput = RawInput {
+        physical: true,
+        ..RawInput::NONE
+    };
+
+    // ---- BOIL-D: launched bodies, links, drum, blast hook
+
+    const DRUM: usize = 2;
+
+    fn kick_goblin_into_the_valve(s: &mut PartyFixtureSim) {
+        put_carl(s, 400.0);
+        for t in 0..80 {
+            step(s, if t == 2 { KICK } else { RawInput::NONE });
+        }
+    }
+
+    fn prop_events(s: &PartyFixtureSim) -> Vec<(u64, String)> {
+        events(s)
+            .iter()
+            .filter_map(|e| match *e {
+                CombatEvent::PropHit {
+                    tick,
+                    prop,
+                    kind,
+                    progress,
+                    player,
+                } => Some((tick, format!("hit {prop} {kind:?} {progress} {player:?}"))),
+                CombatEvent::PropPhase {
+                    tick,
+                    prop,
+                    phase,
+                    player,
+                } => Some((tick, format!("phase {prop} {} {player:?}", phase.name()))),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// BOIL-03: a kicked goblin (170 px/s, a real launch) flies through the
+    /// valve's box: one counted launched-body hit credited to the kicker sets it
+    /// off, the goblin is not stopped, and nothing repeats while it flies on.
+    #[test]
+    fn a_kicked_goblin_sets_the_valve_off_once_and_flies_on() {
+        let mut s = sim(&[430]);
+        kick_goblin_into_the_valve(&mut s);
+        let log = prop_events(&s);
+        let hit = log.iter().find(|(_, e)| e.starts_with("hit 0")).unwrap();
+        assert_eq!(hit.1, "hit 0 LaunchedBody 2 Some(0)");
+        assert_eq!(
+            log.iter().filter(|(_, e)| e.starts_with("hit 0")).count(),
+            1,
+            "one launch counts once, however many ticks it overlaps"
+        );
+        let t = hit.0;
+        // The warning, then the vent exactly 23 ticks on, then the steam
+        // reaches the brace (its link, depth 1, one light contact).
+        assert_eq!(log[1], (t, "phase 0 warning Some(0)".to_owned()));
+        assert_eq!(log[2], (t + 23, "phase 0 venting Some(0)".to_owned()));
+        assert_eq!(log[3], (t + 23, "hit 1 PropContact 1 Some(0)".to_owned()));
+        assert_eq!(log.len(), 4, "{log:?}");
+        assert_eq!(
+            s.combat.env().unwrap().mass_state(WEIGHT),
+            Some(MassState::Weakened),
+            "steam alone only weakens the brace"
+        );
+        // The goblin flew through: it ends well past the valve's far edge.
+        assert!(s.combat.enemies[0].x > 480.0);
+    }
+
+    /// The same, from the right, with Carl facing left (both facings).
+    #[test]
+    fn a_goblin_kicked_leftwards_into_the_valve_counts_too() {
+        let mut s = sim(&[520]);
+        put_carl(&mut s, 550.0);
+        s.scene.world.hero.facing = -1;
+        for t in 0..80 {
+            step(&mut s, if t == 2 { KICK } else { RawInput::NONE });
+        }
+        assert!(
+            prop_events(&s)
+                .iter()
+                .any(|(_, e)| e == "hit 0 LaunchedBody 2 Some(0)"),
+            "{:?}",
+            prop_events(&s)
+        );
+    }
+
+    /// Put a goblin in flight by hand (no hero kick): `vx` px/s from `x`, on a
+    /// launch id of its own.
+    fn fling(s: &mut PartyFixtureSim, goblin: usize, x: f32, vx: f32, launch: u32) {
+        let g = &mut s.combat.enemies[goblin];
+        g.x = x;
+        g.mode = GoblinMode::Launched;
+        g.vx = vx;
+        g.vy = 0.0;
+        g.launch = Some(launch);
+    }
+
+    #[test]
+    fn a_launch_below_the_threshold_touches_the_valve_without_a_count() {
+        let mut s = sim(&[470]);
+        fling(&mut s, 0, 470.0, 100.0, 9);
+        for _ in 0..6 {
+            step(&mut s, RawInput::NONE);
+        }
+        assert!(prop_events(&s).is_empty(), "{:?}", prop_events(&s));
+        assert_eq!(
+            s.combat.env().unwrap().valve_state(VALVE),
+            Some(ValveState::Intact)
+        );
+    }
+
+    /// A launch with nobody credited (an enemy-origin launch) still counts, and
+    /// credits no one (BOIL-02 player- and enemy-origin variants).
+    #[test]
+    fn an_unattributed_launch_at_speed_counts_and_credits_nobody() {
+        let mut s = sim(&[470]);
+        fling(&mut s, 0, 470.0, 200.0, 9);
+        step(&mut s, RawInput::NONE);
+        let log = prop_events(&s);
+        assert_eq!(log[0].1, "hit 0 LaunchedBody 2 None");
+        assert_eq!(log[1].1, "phase 0 warning None");
+    }
+
+    /// Two launches at a brace each weigh one (BOILC-AD1): the first weakens,
+    /// the second, a distinct launch, releases.
+    #[test]
+    fn two_distinct_launches_release_the_brace_and_one_launch_never_counts_twice() {
+        let mut s = sim(&[760, 760]);
+        fling(&mut s, 0, 760.0, 200.0, 21);
+        step(&mut s, RawInput::NONE);
+        step(&mut s, RawInput::NONE);
+        assert_eq!(
+            s.combat.env().unwrap().mass_state(WEIGHT),
+            Some(MassState::Weakened),
+            "the same launch overlapping on two ticks counted once"
+        );
+        fling(&mut s, 1, 760.0, 200.0, 22);
+        step(&mut s, RawInput::NONE);
+        assert_eq!(
+            s.combat.env().unwrap().mass_state(WEIGHT),
+            Some(MassState::Released)
+        );
+    }
+
+    /// The drum is a solid: a goblin a solid stops at kick speed is stopped by
+    /// the drum, which takes the launch (the contact target reads the stop).
+    #[test]
+    fn a_goblin_stopped_by_the_drum_sets_it_off_credited_to_the_kicker() {
+        let mut s = sim(&[820]);
+        put_carl(&mut s, 790.0);
+        for t in 0..60 {
+            step(&mut s, if t == 2 { KICK } else { RawInput::NONE });
+        }
+        let log = prop_events(&s);
+        let hit = log.iter().find(|(_, e)| e.starts_with("hit 2")).unwrap();
+        assert_eq!(hit.1, "hit 2 LaunchedBody 1 Some(0)");
+        let t = hit.0;
+        assert!(
+            events(&s)
+                .iter()
+                .any(|e| matches!(e, CombatEvent::WallSlam { tick, .. } if *tick == t))
+        );
+        assert_eq!(
+            log[log.iter().position(|e| e == hit).unwrap() + 1],
+            (t, "phase 2 warning Some(0)".to_owned())
+        );
+        assert!(
+            log.iter()
+                .any(|(tick, e)| *tick == t + 24 && e == "phase 2 detonated Some(0)"),
+            "blast 24 ticks after the trigger: {log:?}"
+        );
+        let charge = s.combat.charges[s.combat.env().unwrap().drum_charge(DRUM as u16).unwrap()];
+        assert!(charge.detonated);
+        assert_eq!((charge.owner, charge.chain_depth), (Some(0), 0));
+    }
+
+    /// The index-range rule is generic: only the env solids are props. A body
+    /// stopped by the landed remnant triggers nothing, one beside the drum
+    /// triggers it, and a solid outside the range (a wall) is never a prop.
+    #[test]
+    fn the_prop_contact_target_reads_the_env_solid_range_only() {
+        let range = sim(&[]).combat.env().unwrap().solid_range();
+        assert!(!range.is_empty() && range.start > 0);
+        // `gap` px between a 24 px box's right edge and `solid`'s left edge.
+        let beside = |solid: Rect, gap: f32| LaunchedBody {
+            body: Rect {
+                left: solid.left - gap - 24.0,
+                bottom: solid.bottom,
+                width: 24.0,
+                height: 52.0,
+            },
+            launch: 70,
+            initiator: Some(0),
+            speed: 0.0,
+            stop: Some(170.0),
+        };
+        let drum = sim(&[]).scene.world.solids[range.start + 1].rect;
+        // 170 px/s: ceil(170 / 60) + 1 = 4 px of reach, and the box test is
+        // strict: a 3 px gap is struck, a 4 px gap is not.
+        let mut s = sim(&[]);
+        s.combat
+            .env_launched_contacts(&s.scene, &beside(drum, 4.0), 5);
+        assert!(prop_events(&s).is_empty(), "4 px away");
+        s.combat
+            .env_launched_contacts(&s.scene, &beside(drum, 3.0), 6);
+        assert_eq!(prop_events(&s)[0].1, "hit 2 LaunchedBody 1 Some(0)");
+        // Not stopped by anything: a box beside the drum is not a contact.
+        let mut free = sim(&[]);
+        let mut loose = beside(drum, 3.0);
+        loose.stop = None;
+        free.combat.env_launched_contacts(&free.scene, &loose, 5);
+        assert!(prop_events(&free).is_empty(), "no stop, no overlap");
+        // A solid outside the range (a wall of the room) is never a prop.
+        let mut wall = sim(&[]);
+        let outside = (0..range.start)
+            .map(|i| wall.scene.world.solids[i].clone())
+            .find(|b| b.intact && (b.rect.right() < 700.0 || b.rect.left > 960.0))
+            .expect("the room has a solid outside the env range")
+            .rect;
+        wall.combat
+            .env_launched_contacts(&wall.scene, &beside(outside, 1.0), 5);
+        assert!(prop_events(&wall).is_empty(), "{outside:?}");
+    }
+
+    #[test]
+    fn a_body_stopped_by_the_landed_remnant_triggers_nothing() {
+        let mut s = sim(&[]);
+        trigger_by_jabs(&mut s, BRACE_X, WEIGHT as u16, PropPhase::Released);
+        for _ in 0..40 {
+            step(&mut s, RawInput::NONE);
+        }
+        let range = s.combat.env().unwrap().solid_range();
+        let remnant = s.scene.world.solids[range.start].clone();
+        assert!(remnant.intact);
+        let before = events(&s).len();
+        let body = LaunchedBody {
+            body: Rect {
+                left: remnant.rect.left - 25.0,
+                bottom: remnant.rect.bottom,
+                width: 24.0,
+                height: 52.0,
+            },
+            launch: 71,
+            initiator: Some(0),
+            speed: 0.0,
+            stop: Some(240.0),
+        };
+        let t = tick(&s) + 1;
+        s.combat.env_launched_contacts(&s.scene, &body, t);
+        assert_eq!(
+            events(&s).len(),
+            before,
+            "a settled mass is a wall, not a trigger"
+        );
+    }
+
+    fn jab_the_brace_once(s: &mut PartyFixtureSim) {
+        put_carl(s, BRACE_X);
+        for t in 0..40 {
+            step(s, if t == 0 { ATTACK } else { RawInput::NONE });
+        }
+        assert_eq!(
+            s.combat.env().unwrap().mass_state(WEIGHT),
+            Some(MassState::Weakened)
+        );
+    }
+
+    fn run_ticks(s: &mut PartyFixtureSim, n: u64) {
+        for _ in 0..n {
+            step(s, RawInput::NONE);
+        }
+    }
+
+    fn drum_charge_of(s: &PartyFixtureSim) -> BlastCharge {
+        let i = s.combat.env().unwrap().drum_charge(DRUM as u16).unwrap();
+        s.combat.charges[i]
+    }
+
+    /// BOIL-06: the full P1 -> P2 -> P3 chain, in exact event order. A jab
+    /// weakens the brace, a kicked goblin sets the valve off, the steam (depth 1)
+    /// finishes the brace, the weight lands 32 ticks later (the link costs one
+    /// tick), crushes the goblin under it, reaches the drum (depth 2) and the drum
+    /// blows 24 ticks after that. Carl is credited all the way; nothing is
+    /// scripted: every step is a real contact.
+    #[test]
+    fn the_full_chain_runs_in_exact_order_and_credits_carl_throughout() {
+        let mut s = sim(&[430, 816]);
+        jab_the_brace_once(&mut s);
+        kick_goblin_into_the_valve(&mut s);
+        let log = prop_events(&s);
+        let t = log.iter().find(|(_, e)| e.starts_with("hit 0")).unwrap().0;
+        let r = t + 23;
+        let l = r + 32;
+        // Run past the blast.
+        while tick(&s) < l + 40 {
+            step(&mut s, RawInput::NONE);
+        }
+        let log = prop_events(&s);
+        let after_jab: Vec<_> = log.iter().filter(|(tick, _)| *tick >= t).cloned().collect();
+        let want: Vec<(u64, String)> = vec![
+            (t, "hit 0 LaunchedBody 2 Some(0)".into()),
+            (t, "phase 0 warning Some(0)".into()),
+            (r, "phase 0 venting Some(0)".into()),
+            (r, "hit 1 PropContact 2 Some(0)".into()),
+            (r, "phase 1 released Some(0)".into()),
+            (r + 24, "phase 1 falling Some(0)".into()),
+            (l, "phase 1 landed Some(0)".into()),
+            (l, "hit 2 PropContact 1 Some(0)".into()),
+            (l, "phase 2 warning Some(0)".into()),
+            (l + 24, "phase 2 detonated Some(0)".into()),
+        ];
+        // The valve's spend is in the list too (t + 95): compare without it.
+        let got: Vec<_> = after_jab
+            .into_iter()
+            .filter(|(_, e)| !e.starts_with("phase 0 spent"))
+            .collect();
+        assert_eq!(got, want, "{log:?}");
+        // The steam was depth 1, so the brace's trigger depth is 1 and the
+        // landing's contact is depth 2: the drum's charge carries it.
+        let charge = drum_charge_of(&s);
+        assert!(charge.detonated);
+        assert_eq!((charge.owner, charge.chain_depth), (Some(0), 2));
+        // The goblin under the weight died to the weight, credited to Carl.
+        assert_eq!(
+            defeats(&s)
+                .iter()
+                .filter(|(_, _, c)| matches!(c, DefeatCause::Environment { .. }))
+                .count(),
+            1
+        );
+        // The room ends walkable: the drum solid is gone, the remnant stands.
+        let range = s.combat.env().unwrap().solid_range();
+        assert!(s.scene.world.solids[range.start].intact, "remnant");
+        assert!(!s.scene.world.solids[range.start + 1].intact, "drum");
+    }
+
+    /// The other valid order: the valve first (the steam only weakens the
+    /// brace), then a jab releases it (depth 0 for the weight, so the drum's
+    /// contact is depth 1).
+    #[test]
+    fn the_chain_in_the_other_order_carries_a_shallower_depth() {
+        let mut s = sim(&[430]);
+        kick_goblin_into_the_valve(&mut s);
+        assert_eq!(
+            s.combat.env().unwrap().mass_state(WEIGHT),
+            Some(MassState::Weakened)
+        );
+        // The brace stands in the steam's lane (688..768): wait the vent out.
+        while s.combat.env().unwrap().valve_state(VALVE) != Some(ValveState::Spent) {
+            step(&mut s, RawInput::NONE);
+        }
+        jab_the_brace_to_release(&mut s);
+        let r = phase_tick(&s, WEIGHT as u16, PropPhase::Released).unwrap();
+        while tick(&s) < r + 32 + 30 {
+            step(&mut s, RawInput::NONE);
+        }
+        assert_eq!(
+            phase_tick(&s, WEIGHT as u16, PropPhase::Landed),
+            Some(r + 31)
+        );
+        assert_eq!(
+            phase_tick(&s, DRUM as u16, PropPhase::Warning),
+            Some(r + 31)
+        );
+        assert_eq!(drum_charge_of(&s).chain_depth, 1);
+    }
+
+    fn jab_the_brace_to_release(s: &mut PartyFixtureSim) {
+        put_carl(s, BRACE_X);
+        for t in 0..20 {
+            step(s, if t == 0 { ATTACK } else { RawInput::NONE });
+        }
+        assert_eq!(
+            s.combat.env().unwrap().mass_state(WEIGHT),
+            Some(MassState::Released)
+        );
+    }
+
+    /// The drum's blast: a goblin in the core ring dies to an explosion
+    /// credited to the initiator, one in the outer band is hurt and launched,
+    /// both heroes in the radius are hurt exactly once with the environment
+    /// source, and the drum's solid is gone for the line of sight.
+    #[test]
+    fn the_drum_blast_hurts_everyone_in_reach_once_and_credits_the_initiator() {
+        let mut s = sim_with(&[890, 930], true, Vec::new());
+        // Set the drum off by a launch of Carl's kick (a stopped flier), then
+        // move both heroes into the outer band just before the blast.
+        let drum = s.combat.env().unwrap().drum_charge(DRUM as u16).unwrap();
+        let stimulus = |s: &mut PartyFixtureSim| {
+            let t = tick(s) + 1;
+            s.combat
+                .env_stimulate(
+                    DRUM,
+                    Stimulus::LaunchedBody {
+                        launch_id: 5,
+                        impulse_px_s: 170,
+                        initiator: Some(0),
+                    },
+                    t,
+                )
+                .unwrap()
+        };
+        assert!(matches!(stimulus(&mut s), Offer::Triggered { .. }));
+        let due = s.combat.charges[drum].detonate_tick;
+        assert_eq!(due, tick(&s) + 1 + 24);
+        put_carl(&mut s, 820.0);
+        s.scene.world.donut_body.x = 908.0;
+        while tick(&s) + 1 < due {
+            step(&mut s, RawInput::NONE);
+            put_carl(&mut s, 820.0);
+            s.scene.world.donut_body.x = 908.0;
+        }
+        step(&mut s, RawInput::NONE);
+        assert_eq!(tick(&s), due);
+        let blast = events(&s)
+            .iter()
+            .position(
+                |e| matches!(e, CombatEvent::Blast { charge, .. } if *charge as usize == drum),
+            )
+            .expect("the drum blew");
+        // Order: the blast, the drum's phase, then the victims.
+        assert!(matches!(
+            events(&s)[blast + 1],
+            CombatEvent::PropPhase {
+                phase: PropPhase::Detonated,
+                ..
+            }
+        ));
+        let kills: Vec<_> = defeats(&s);
+        assert!(
+            kills.iter().any(|(_, g, c)| *g == 0
+                && matches!(
+                    c,
+                    DefeatCause::Explosion {
+                        player: Some(0),
+                        point_blank: false,
+                        ..
+                    }
+                )),
+            "the goblin in the core ring: {kills:?}"
+        );
+        let hurts_carl = hurts_of(&s, HeroId::Carl);
+        let hurts_donut = hurts_of(&s, HeroId::Donut);
+        assert_eq!(hurts_carl.len(), 1, "{hurts_carl:?}");
+        assert_eq!(hurts_donut.len(), 1, "{hurts_donut:?}");
+        assert_eq!(hurts_carl[0].1, ENV_SOURCE_ID);
+        assert_eq!(hurts_donut[0].1, ENV_SOURCE_ID);
+        let range = s.combat.env().unwrap().solid_range();
+        assert!(!s.scene.world.solids[range.start + 1].intact);
+        // The outer-band goblin (index 1, 66 px away) is outside 48 px: unhurt.
+        assert!(s.combat.enemies[1].alive());
+        assert_eq!(
+            s.combat.enemies[1].health,
+            s.combat.enemies[1].health.max(1)
+        );
+    }
+
+    /// A drum is set off once: a second stimulus after the telegraph or after
+    /// the blast counts nothing (no second activation, no second blast).
+    #[test]
+    fn a_drum_blows_once_and_later_stimuli_count_nothing() {
+        let mut s = sim(&[]);
+        let t = tick(&s) + 1;
+        let launch = |id| Stimulus::LaunchedBody {
+            launch_id: id,
+            impulse_px_s: 300,
+            initiator: Some(0),
+        };
+        assert!(matches!(
+            s.combat.env_stimulate(DRUM, launch(1), t),
+            Some(Offer::Triggered { .. })
+        ));
+        let due = drum_charge_of(&s).detonate_tick;
+        assert!(matches!(
+            s.combat.env_stimulate(DRUM, launch(2), t + 3),
+            Some(Offer::Ignored(crate::env_prop::Ignored::AlreadyActivated))
+        ));
+        assert_eq!(
+            drum_charge_of(&s).detonate_tick,
+            due,
+            "the clock never moves"
+        );
+        while tick(&s) < due + 30 {
+            step(&mut s, RawInput::NONE);
+        }
+        let blasts = events(&s)
+            .iter()
+            .filter(|e| matches!(e, CombatEvent::Blast { .. }))
+            .count();
+        assert_eq!(blasts, 1);
+    }
+
+    /// A checkpoint respawn and a restart in every phase of the drum restore
+    /// it: armed, its charge unlit with no owner or depth, its solid back.
+    #[test]
+    fn a_respawn_and_a_restart_in_every_drum_phase_restore_the_drum() {
+        for phase in 0..3 {
+            for restart in [false, true] {
+                let mut s = sim(&[]);
+                let t = tick(&s) + 1;
+                if phase >= 1 {
+                    s.combat.env_stimulate(
+                        DRUM,
+                        Stimulus::LaunchedBody {
+                            launch_id: 1,
+                            impulse_px_s: 300,
+                            initiator: Some(1),
+                        },
+                        t,
+                    );
+                }
+                if phase == 2 {
+                    run_ticks(&mut s, 30);
+                    assert_eq!(
+                        s.combat.env().unwrap().drum_state(DRUM),
+                        Some(DrumState::Detonated)
+                    );
+                }
+                let index = s.combat.env().unwrap().drum_charge(DRUM as u16).unwrap();
+                let authored = s.combat.charges.len();
+                if restart {
+                    s.combat.restart(&mut s.scene);
+                } else {
+                    s.combat.respawn(&mut s.scene);
+                }
+                assert_eq!(
+                    s.combat.env().unwrap().drum_state(DRUM),
+                    Some(DrumState::Armed),
+                    "phase {phase} restart {restart}"
+                );
+                assert_eq!(s.combat.charges.len(), authored, "no second charge");
+                assert_eq!(
+                    s.combat.env().unwrap().drum_charge(DRUM as u16),
+                    Some(index)
+                );
+                let c = s.combat.charges[index];
+                assert_eq!(
+                    (c.detonate_tick, c.owner, c.chain_depth, c.detonated),
+                    (0, None, 0, false)
+                );
+                let range = s.combat.env().unwrap().solid_range();
+                assert!(
+                    s.scene.world.solids[range.start + 1].intact,
+                    "the drum stands again"
+                );
+            }
+        }
+    }
+
+    /// A dynamite-style blast (depth 1: a chain reached it) beside the drum sets it
+    /// off through the blast hook, not the charge chain: the drum's own solid
+    /// stands between the two charge centres, so the chain's line of sight is
+    /// blocked (CP-Q22) while the hook's closest-point segment ends on the
+    /// drum's edge. The drum takes the blast's credit and depth and its own 24
+    /// tick tell; the brace in reach is released at the same time.
+    #[test]
+    fn a_dynamite_blast_beside_the_drum_sets_it_off_through_the_hook() {
+        use crate::carl_prog::CarlProgTuning;
+        let mut s = sim(&[]);
+        let n = 20;
+        let mut charge = BlastCharge::new(830.0, s.combat.enemy_foot_y, n, Some(0))
+            .with_profile(crate::thrown_charge::blast_profile(CarlProgTuning::active()));
+        charge.chain_depth = 1;
+        s.combat.push_authored_charge(charge);
+        run_ticks(&mut s, n + 30);
+        let log: Vec<_> = prop_events(&s)
+            .into_iter()
+            .filter(|(_, e)| e.starts_with("hit 2") || e.starts_with("phase 2"))
+            .collect();
+        assert_eq!(
+            log,
+            [
+                (n, "hit 2 Blast 1 Some(0)".to_owned()),
+                (n, "phase 2 warning Some(0)".to_owned()),
+                (n + 24, "phase 2 detonated Some(0)".to_owned()),
+            ],
+            "{log:?}"
+        );
+        assert!(
+            !events(&s)
+                .iter()
+                .any(|e| matches!(e, CombatEvent::ChargeChained { .. })),
+            "the solid blocks the chain's line of sight"
+        );
+        let c = drum_charge_of(&s);
+        assert_eq!((c.owner, c.chain_depth), (Some(0), 1));
+    }
+
+    /// CP-Q34 on the drum's charge: when a chain reaction lights it (the charge
+    /// is lit with its owner and depth and no offer reached the machine) the
+    /// machine follows with its tell logged once, and the blast is the chain's
+    /// tick.
+    #[test]
+    fn a_chain_lit_drum_charge_makes_the_machine_follow_it() {
+        let mut s = sim(&[]);
+        let drum = s.combat.env().unwrap().drum_charge(DRUM as u16).unwrap();
+        run_ticks(&mut s, 5);
+        let now = tick(&s) + 1;
+        assert_eq!(
+            s.combat.charges[drum].chain_set(now, 8, Some(0), 2),
+            Some(now + 8)
+        );
+        run_ticks(&mut s, 12);
+        assert_eq!(
+            prop_events(&s),
+            [
+                (now, "hit 2 Blast 1 Some(0)".to_owned()),
+                (now, "phase 2 warning Some(0)".to_owned()),
+                (now + 8, "phase 2 detonated Some(0)".to_owned()),
+            ]
+        );
+        assert_eq!(drum_charge_of(&s).chain_depth, 2);
+    }
+
+    /// CP-Q35: a dynamite-style blast (breaks_structures) reaches the props in
+    /// its outer circle: the brace is released credited to the owner and carries
+    /// the blast's depth; the valve too; a QA blast and one out of reach do not.
+    #[test]
+    fn a_structure_breaking_blast_sets_off_the_props_it_reaches_with_its_depth() {
+        use crate::carl_prog::CarlProgTuning;
+        let dyn_profile = crate::thrown_charge::blast_profile(CarlProgTuning::active());
+        let blast_at = |x: f32, profile: BlastProfile, depth: u8| {
+            let mut s = sim(&[]);
+            let mut c =
+                BlastCharge::new(x, s.combat.enemy_foot_y, 9, Some(0)).with_profile(profile);
+            c.chain_depth = depth;
+            let t = tick(&s) + 1;
+            s.combat.blast_props(&s.scene, &c, 0x4000_0001, t);
+            s
+        };
+        // At the brace (744..776): released, depth 2 carried, Carl credited.
+        let s = blast_at(760.0, dyn_profile, 2);
+        assert_eq!(
+            s.combat.env().unwrap().mass_state(WEIGHT),
+            Some(MassState::Released)
+        );
+        assert_eq!(
+            s.combat
+                .env()
+                .unwrap()
+                .mass(WEIGHT)
+                .unwrap()
+                .trigger_depth(),
+            2
+        );
+        assert_eq!(
+            s.combat.env().unwrap().mass(WEIGHT).unwrap().initiator(),
+            Some(0)
+        );
+        // At the valve (464..496): set off.
+        let s = blast_at(480.0, dyn_profile, 0);
+        assert_eq!(
+            s.combat.env().unwrap().valve_state(VALVE),
+            Some(ValveState::Warning)
+        );
+        // Out of the 64 px circle of every prop at x = 600 (valve right edge
+        // 496 is 104 px away, the brace left edge 744 is 144 px away).
+        let s = blast_at(600.0, dyn_profile, 0);
+        assert!(prop_events(&s).is_empty());
+        // The same blast under a profile that breaks nothing (the QA ring).
+        let s = blast_at(760.0, BlastProfile::QA, 0);
+        assert!(prop_events(&s).is_empty());
+        // At the armed drum: it is set off and lights its charge for 24 ticks.
+        let s = blast_at(830.0, dyn_profile, 0);
+        assert_eq!(
+            s.combat.env().unwrap().drum_state(DRUM),
+            Some(DrumState::Telegraph)
+        );
+        assert_eq!(drum_charge_of(&s).detonate_tick, 1 + 24);
+    }
+
+    /// BOILD-AD1: what a linked prop accepts comes from the links that reach it.
+    #[test]
+    fn a_linked_prop_takes_the_weight_its_incoming_link_carries() {
+        // The Boiler: valve --steam--> weight --landing--> drum.
+        let s = sim(&[]);
+        let env = s.combat.env().unwrap();
+        assert_eq!(
+            env.links().links().len(),
+            2,
+            "both authored links are in the runtime graph"
+        );
+        assert_eq!(env.mass(WEIGHT).unwrap().config().contact_weight, 1);
+        assert_eq!(env.mass(WEIGHT).unwrap().config().release_weight, 2);
+        assert_eq!(env.drum_plans().len(), 1);
+        // The pure rule.
+        assert_eq!(linked_weight(&[], 2), 0, "no link, no contact");
+        assert_eq!(linked_weight(&[(0, LinkEmit::Steam)], 2), 1);
+        assert_eq!(linked_weight(&[(0, LinkEmit::Steam)], 1), 1);
+        assert_eq!(linked_weight(&[(0, LinkEmit::Landing)], 2), 2);
+        assert_eq!(linked_weight(&[(0, LinkEmit::Blast)], 2), 2);
+        assert_eq!(
+            linked_weight(&[(0, LinkEmit::Steam), (1, LinkEmit::Landing)], 2),
+            2,
+            "the strongest incoming link wins"
+        );
+    }
+
+    /// Steam alone never drops the weight (Boiler P1): one steam contact on a
+    /// fresh brace only weakens it.
+    #[test]
+    fn steam_alone_weakens_the_brace_and_never_releases_it() {
+        let mut s = sim(&[430]);
+        kick_goblin_into_the_valve(&mut s);
+        run_ticks(&mut s, 200);
+        assert_eq!(
+            s.combat.env().unwrap().mass_state(WEIGHT),
+            Some(MassState::Weakened)
+        );
+        assert_eq!(
+            s.combat.env().unwrap().drum_state(DRUM),
+            Some(DrumState::Armed)
+        );
+    }
+
+    /// The chain replays: the same inputs give the same events and the same
+    /// state hash, and the drum is part of that hash.
+    #[test]
+    fn the_chain_replays_to_the_same_hash_and_events() {
+        let play = |full: bool| {
+            let mut s = sim(&[430, 816]);
+            if full {
+                jab_the_brace_once(&mut s);
+            }
+            kick_goblin_into_the_valve(&mut s);
+            run_ticks(&mut s, 120);
+            (s.combat.state_hash(&s.scene), events(&s))
+        };
+        assert_eq!(play(true), play(true));
+        let (a, _) = play(true);
+        let (b, _) = play(false);
+        assert_ne!(a, b, "the drum and the brace states are hashed");
     }
 }

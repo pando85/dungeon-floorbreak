@@ -1755,7 +1755,8 @@ pub enum CombatEvent {
 
 /// BOIL-B wire: the phases of an environmental prop that are logged
 /// ([`CombatEvent::PropPhase`]). The valve's are `Warning`, `Venting`, `Spent`;
-/// a falling mass's `Released`, `Falling`, `Landed`.
+/// a falling mass's `Released`, `Falling`, `Landed`; a fuel drum's `Warning`
+/// (its tell) and `Detonated`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PropPhase {
     /// The valve was set off: the pressure tell runs.
@@ -1770,6 +1771,8 @@ pub enum PropPhase {
     Falling,
     /// The mass landed and the remnant stands.
     Landed,
+    /// BOIL-D: a fuel drum's blast went off (its tell is a `Warning`).
+    Detonated,
 }
 
 impl PropPhase {
@@ -1781,6 +1784,7 @@ impl PropPhase {
             Self::Released => "released",
             Self::Falling => "falling",
             Self::Landed => "landed",
+            Self::Detonated => "detonated",
         }
     }
 }

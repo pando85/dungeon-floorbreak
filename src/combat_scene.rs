@@ -1748,7 +1748,7 @@ impl CombatState {
         self.step_llamas(scene, tick);
         self.step_globs(scene, tick);
         self.step_slot_enemies(scene, tick);
-        self.resolve_contacts(tick);
+        self.resolve_contacts(scene, tick);
         self.step_shore(scene, tick);
         self.step_boss(scene, tick);
         self.step_charges(scene, tick);
@@ -2539,10 +2539,10 @@ impl CombatState {
     /// shows `knockback_contact` and slows, the other goblin is interrupted and
     /// pushed. **Zero damage.** Walls stop a flier in `Goblin::integrate`, so a
     /// goblin behind a wall is never reached.
-    fn resolve_contacts(&mut self, tick: u64) {
+    fn resolve_contacts(&mut self, scene: &SceneSim, tick: u64) {
         if let Some(t) = self.cf02 {
             // CF02-B (Q09..Q12): knockdowns, bowling bodies and wall slams.
-            self.resolve_contacts_cf02(t, tick);
+            self.resolve_contacts_cf02(t, scene, tick);
             return;
         }
         for source in 0..self.enemies.len() {
@@ -2765,6 +2765,9 @@ impl CombatState {
                 tick,
                 charge: charge_index as u32,
             });
+            // BOIL-D: a drum's charge blew: its solid is gone before the blast
+            // resolves and its links fire (a no-op for every other charge).
+            self.env_charge_blown(scene, charge_index, tick);
             // CARL-PROG-01 CP-C: the chain reaction and the structures the blast
             // reaches, judged before the blast changes anything (CP-Q22). Both
             // return at once for a QA charge no dynamite has reached.

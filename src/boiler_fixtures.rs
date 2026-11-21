@@ -310,10 +310,12 @@ impl Fixture {
             (Self::ValveAuthoredBlast, 8) => vec![Stimulus::Blast {
                 blast_id: 1,
                 owner: None,
+                depth: 0,
             }],
             (Self::ValveRepeatAfterSpent, 5) => vec![Stimulus::Blast {
                 blast_id: 1,
                 owner: Some(0),
+                depth: 0,
             }],
             (Self::ValveRepeatAfterSpent, 210) => vec![jab(7, 0)],
             (Self::ValveRepeatAfterSpent, 220) => vec![jab(8, 0)],
@@ -474,6 +476,7 @@ mod tests {
             &[Stimulus::Blast {
                 blast_id: 1,
                 owner: Some(0),
+                depth: 0,
             }],
             &lane,
         );
@@ -581,6 +584,7 @@ mod tests {
             &[Stimulus::Blast {
                 blast_id: 1,
                 owner: Some(0),
+                depth: 0,
             }],
             &lane,
         );
@@ -595,6 +599,7 @@ mod tests {
             &[Stimulus::Blast {
                 blast_id: 1,
                 owner: Some(0),
+                depth: 0,
             }],
             &lane,
         );
@@ -1034,6 +1039,8 @@ mod scene_pilot_tests {
             let r = go(Who::CarlSolo, Plan::Weight, seed);
             assert_eq!(r.phases(1, PropPhase::Released), 1);
             assert_eq!(r.phases(1, PropPhase::Landed), 1);
+            // BOIL-D: the landing reaches the drum through its link, once.
+            assert_eq!(r.phases(2, PropPhase::Warning), 1, "seed {seed}");
             assert_eq!(r.environment_kills(), [(0, Some(0))], "seed {seed}");
             assert_eq!(r.hero_hurts(), 0, "the pilot never stands under it");
             assert!(r.exit_tick.is_some(), "seed {seed}");
@@ -1050,6 +1057,7 @@ mod scene_pilot_tests {
                 let r = go(who, Plan::Both, seed);
                 assert_eq!(r.phases(0, PropPhase::Spent), 1, "{who:?} seed {seed}");
                 assert_eq!(r.phases(1, PropPhase::Landed), 1, "{who:?} seed {seed}");
+                assert_eq!(r.phases(2, PropPhase::Warning), 1, "{who:?} seed {seed}");
                 assert!(r.exit_tick.is_some(), "{who:?} seed {seed}: no exit");
                 assert!(
                     r.max_stuck.iter().all(|s| *s <= STUCK_LIMIT),
@@ -1088,11 +1096,14 @@ mod scene_pilot_tests {
         assert_eq!(got, PINNED, "pins: {got:#018x?}");
     }
 
-    /// Solo Carl at CF02 seed 0: direct, valve, weight, both.
+    /// Solo Carl at CF02 seed 0: direct, valve, weight, both. BOIL-D re-pin:
+    /// the drum's blast charge (an authored `BlastCharge`) is now part of the
+    /// Boiler's state hash, so every plan moves, and the weight's landing now
+    /// lights the drum (the weight and both plans).
     const PINNED: [u64; 4] = [
-        0x66c5_27ba_bbe8_8786,
-        0x0c8c_baed_23ea_b1b6,
-        0x9270_8c31_daad_cf8a,
-        0x1634_84e0_9bdd_beaf,
+        0x3291_ef26_99b7_44ee,
+        0x3e9d_1060_55f0_9304,
+        0xfb54_038f_cd1b_0ae2,
+        0x6c15_147d_5340_7666,
     ];
 }
