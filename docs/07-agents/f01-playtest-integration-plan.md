@@ -17,6 +17,7 @@
 - The critical-path counts are corrected (F1). K19 is extended: append-and-rebase for the shared hot files, so DP-A, BOIL-A wire, ENEMY-SLOT and PT-SCENE may merge before CA2-B2 (F2). The `combat_scene/companion.rs` queue no longer cycles (F3).
 - Companion-mode room fixtures wait for CA2-B2 and may be re-pinned by CA2-C and DP-E (F4). ENEMY-SLOT reuses the existing `EnemyDefeated` (F5). HRD-A2 appends `CombatEvent::PileBoss` (F6). Every contract gap the Hoarder sheet exposes has an owner (F7).
 - #175 is merged, and the text now says so (F8). The `HeroBlow` source wording is corrected (F9). PT-SCENE's grant acceptance can pass at W3 (F10). Small text fixes (F11).
+- Slime/Rot sheet review (#185): CP-B1 brief (`reach()` with `core_radius == 0`, the dynamite slot index and the sticker tick-0 exemption), CP-C brief (a `detonate_tick` 0 chain target is unlit, +8), and a `goblin.rs` queue row owned last by HAZ-A2 (walk-only barrier list).
 - Non-blocking: one shared `HeroDamagePolicy` enum for blast `hero_damage` and the hazard team policy, owned by CP-B1.
 
 ## 1. Inputs
@@ -98,9 +99,9 @@ Existing steps keep the files their work orders list. This section adds what thi
 | CA2-C | CA2-B2, **BOIL-B wire**, DP-B on `navfollow.rs` (section 7) | `autonomy.rs`, `navfollow.rs` hazard input, `events.rs`, `combat_scene/companion.rs` | Consumes the hazard core's active and telegraphed rectangles (K13). If cut, the hazard feed still ships, as its own "CA2-C hazards" PR (section 11) |
 | CA2-D | CA2-C | `docs/evidence/companion-ai-02/` | |
 | CP-A | main | `story_unlock.rs` **(new)**, data files, `carl_prog.rs` **(new)**, flags, playtrace pins | In flight. **Takes K1 now**: the dynamite trigger row is `pile_boss_f01_defeated` (placeholder zone until HRD-A2); the PR body cites K1 |
-| CP-B1 | CP-A | `thrown_charge.rs` **(new)**, `hero_damage.rs` **(new**, the shared `HeroDamagePolicy` enum, unless BOIL-B core defined it first), `blast.rs`, `combat_scene.rs`, `goblin.rs`, `llama.rs`, `boss.rs`, `combat.rs` | **K3:** the `hero_damage` policy replaces `hurts_owner_hero`; attribution stays on `BlastCharge.owner`. The thrown-charge `HeroBlow` source is a constant in `thrown_charge.rs` |
+| CP-B1 | CP-A | `thrown_charge.rs` **(new)**, `hero_damage.rs` **(new**, the shared `HeroDamagePolicy` enum, unless BOIL-B core defined it first), `blast.rs`, `combat_scene.rs`, `goblin.rs`, `llama.rs`, `boss.rs`, `combat.rs` | **K3:** the `hero_damage` policy replaces `hurts_owner_hero`; attribution stays on `BlastCharge.owner`. The thrown-charge `HeroBlow` source is a constant in `thrown_charge.rs`. **Brief additions (Slime/Rot sheet review, #185):** (1) `reach()` treats `core_radius == 0` as "no core band": it returns a core or point-blank result only when `core_radius > 0`, so a body containing the centre under a coreless profile gets the outer result (today `reach()` returns PointBlank at distance 0), with a unit test (`core_zero_never_point_blank`). (2) The dynamite slot index is "after all authored charges, fixture then sticker" (CP-Q31 wording amended to match), and `CombatState::new` exempts sticker charges with `Arm::Tick` and tick 0 from its "a charge on tick 0 never fires" check |
 | CP-B2 | CP-B1 | `combat_anim/`, `blast_art.rs`, HUD files, the presentation systems of `floor01_scene.rs` | |
-| CP-C | CP-B1 | `blast.rs` chain, `shore.rs`, `boss.rs`, `boss_scene.rs` pilot | **Makes the structure break a `BlastTarget` hook** (shore and rack strut implement it; BOIL-C's props implement it later) and passes the initiator into a chained charge's `owner` |
+| CP-C | CP-B1 | `blast.rs` chain, `shore.rs`, `boss.rs`, `boss_scene.rs` pilot | **Makes the structure break a `BlastTarget` hook** (shore and rack strut implement it; BOIL-C's props implement it later) and passes the initiator into a chained charge's `owner`. **Brief addition (#185):** a chain pinned on a charge with `detonate_tick` 0 that has not detonated treats it as unlit and sets it to +8, with a unit test, and `haz_rot_dynamite_chain` stays |
 | CP-D | CP-C | `MoveSpec::pierces_commit`, the support-hit weight, `goblin.rs` and `engineer.rs` committed checks | The per-move support-hit weight is read by env props |
 | CP-E | CP-D, CP-B2 | `docs/evidence/carl-prog-01/` | |
 | DP-A | CP-A, DM-A (#175 is merged) | `donut_prog.rs` **(new)**, `donut_prog_v0.json` **(new)**, rows in `story_unlocks_v0.json`, flags | |
@@ -145,7 +146,7 @@ Every BOIL step ships its room's scripted pilot fixtures for the gate (section 1
 | --- | --- | --- | --- |
 | HAZ-0 Slime and Rot Sticker gameplay design sheet: state machines, tells (the gameplay tell wins over ROT-01's 30 ticks), the Rot blast as a `BlastProfile` (`hero_damage: AllHeroes`, 1 HP, radius 40–56; `BlastCharge.owner` is the initiating player when a hero triggered it and `None` otherwise, K3), the acid patch as a hazard volume, the non-evadable class, the ENEMY-SLOT contract rows | #178 merged | `docs/01-design/enemy-gameplay-slime-rot.md` **(new)** | Top tier |
 | HAZ-A1 pure cores | HAZ-0, BOIL-B core | `src/slime.rs`, `src/rot_sticker.rs` **(new**, Bevy-free), `enemy_slime_v0.json`, `enemy_rot_sticker_v0.json` **(new)**, `f01_hazards.room.json` and `.encounter.json` **(new)**, unit tests | Medium |
-| HAZ-A2 wire, isolated pockets | HAZ-A1, **ENEMY-SLOT**, CP-B1 (profile), BOIL-B wire | slot registrations, the scene arm (queued), `src/hazards_fixtures.rs` **(new)**; one appended `combat.rs` event variant if HAZ-0 adds an event | Medium |
+| HAZ-A2 wire, isolated pockets | HAZ-A1, **ENEMY-SLOT**, CP-B1 (profile), BOIL-B wire | slot registrations, the scene arm (queued), `src/hazards_fixtures.rs` **(new)**; one appended `combat.rs` event variant if HAZ-0 adds an event; **the append-only `goblin.rs` edit: the walk-only barrier list** (`walk_barriers` x-intervals read only by the grounded walk and approach, never added to `solids`, so knockback and wall slams ignore it) | Medium |
 | HAZ-B tells, contact, classification | HAZ-A2 | the same modules; presentation stand-ins | Medium |
 | HAZ-C mixed pocket and collateral | HAZ-B, CP-C (chain) | sidecar data, fixtures | Medium |
 | HAZ-D art review, 2P, human play | HAZ-C | `docs/evidence/f01-hazards/` | Medium |
@@ -362,6 +363,7 @@ The order is a **default, not a gate**: first come, first rebased. Each step onl
 | `src/combat_scene.rs`, `src/combat.rs` | DM-B, CP-B1 → BOIL-B wire, CP-C, DP-C, ENEMY-SLOT (`combat_scene.rs` only: ENEMY-SLOT adds no defeat variant to `combat.rs`) → CP-D (all append); HRD-A2 always appends one `CombatEvent::PileBoss`; HAZ-A2 appends one event if HAZ-0 adds it |
 | `src/boss.rs` | CP-B1 → CP-C → CP-D. BOIL-B wire and the slot enemies do **not** edit it (their `HeroBlow` sources are constants in their own modules) |
 | `src/blast.rs` | CP-B1 → CP-C (no other step edits it) |
+| `src/goblin.rs` | CP-B1 → CP-D → HAZ-A2 (append-only; HAZ-A2 adds the walk-only barrier list) |
 | `src/shore.rs` | CP-C → CP-D (setpieces never edit it; K18) |
 | `src/boss_scene.rs` | DM-A (re-pin) → CP-C (pilot) → DP-F (pilot) |
 | `src/cf02.rs` | DM-A → DP-F |
