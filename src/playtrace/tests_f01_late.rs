@@ -247,7 +247,7 @@ fn a_recording_that_names_a_room_needs_every_room_pin() {
             m.content_hashes.insert(key.to_owned(), stamped);
         });
     }
-    // A wrong value is rejected whether or not a room is named.
+    // A wrong value is rejected in a recording the pin covers.
     tamper_manifest(&session, |m| {
         m.content_hashes.insert(
             f01_late::MANIFEST_PIN_KEY.to_owned(),
@@ -261,12 +261,12 @@ fn a_recording_that_names_a_room_needs_every_room_pin() {
     );
 }
 
-/// U5: a recording of a run that names no room (every recording made before the
-/// rooms existed) verifies without the room pins, and one that records a
-/// wrong value for any of them is still rejected.
-#[test]
-fn a_recording_without_a_room_verifies_without_the_room_pins() {
-    let dir = TempDir::new("f01-scoped");
+/// A recording of a run that names no room (`--cf02`, the boss arena, every
+/// recording before PT-SCENE) neither stamps nor needs the room pins, so a
+/// manifest re-pin or a Boiler edit (simulated by a different recorded value)
+/// never fails it (review F1).
+fn demo_session(name: &str) -> (TempDir, PathBuf) {
+    let dir = TempDir::new(name);
     let mut rig = DemoRig::new(&dir.0, false, 0);
     for tick in 0..300_u64 {
         rig.step(RawInput {
@@ -276,16 +276,164 @@ fn a_recording_without_a_room_verifies_without_the_room_pins() {
     }
     let manifest = rig.rec.finish("test").unwrap();
     let session = dir.0.join(&manifest.session_id);
-    verify(&session).expect("with the pins");
+    (dir, session)
+}
+
+#[test]
+fn a_recording_without_a_room_neither_stamps_nor_needs_the_room_pins() {
+    let (_dir, session) = demo_session("f01-scoped");
+    let loaded = read_session(&session, false).unwrap();
+    for key in f01_late::SCOPED_PIN_KEYS {
+        assert!(
+            !loaded.manifest.content_hashes.contains_key(key),
+            "{key} is not stamped"
+        );
+    }
+    assert!(loaded.manifest.content_hashes.contains_key("cf02_tuning"));
+    verify(&session).expect("with no room pin");
+    // A simulated manifest re-pin and Boiler edit: the recording carries values
+    // from another build for every room pin, and still verifies.
     tamper_manifest(&session, |m| {
         for key in f01_late::SCOPED_PIN_KEYS {
-            m.content_hashes.remove(key);
+            m.content_hashes
+                .insert(key.to_owned(), "00000000000000ff".into());
         }
     });
-    verify(&session).expect("an older recording has none of the room pins");
+    verify(&session).expect("a re-pin of the room data cannot fail a run without a room");
     // Another pin is never optional.
     tamper_manifest(&session, |m| {
         m.content_hashes.remove("cf02_tuning");
     });
     assert!(verify(&session).is_err());
+}
+
+/// The stamp is scoped by room on the recorder side too: a Juicer recording
+/// carries the manifest hash and not the Boiler's, and survives a Boiler edit.
+#[test]
+fn a_juicer_recording_carries_the_manifest_pin_and_not_the_boilers() {
+    let (_dir, session) = record("f01-juicer-pins", "juicer", Loadout::Story, 300);
+    let loaded = read_session(&session, false).unwrap();
+    let hashes = &loaded.manifest.content_hashes;
+    assert!(hashes.contains_key(f01_late::MANIFEST_PIN_KEY));
+    assert!(!hashes.contains_key(crate::f01_boiler::ROOM_PIN_KEY));
+    assert!(!hashes.contains_key(crate::f01_boiler::ENCOUNTER_PIN_KEY));
+    verify(&session).expect("verifies");
+    // A Boiler edit does not touch it; a manifest re-pin does.
+    tamper_manifest(&session, |m| {
+        m.content_hashes.insert(
+            crate::f01_boiler::ROOM_PIN_KEY.to_owned(),
+            "00000000000000ff".into(),
+        );
+    });
+    verify(&session).expect("a Boiler edit cannot fail a Juicer recording");
+    tamper_manifest(&session, |m| {
+        m.content_hashes.insert(
+            f01_late::MANIFEST_PIN_KEY.to_owned(),
+            "00000000000000ff".into(),
+        );
+    });
+    assert!(
+        verify(&session).is_err(),
+        "a manifest re-pin fails a room recording"
+    );
+}
+
+/// Review F2: the room label is bound to the session source. A `demo`, `fixture`
+/// or any other session cannot claim a room, so a relabelled `--cf02` session
+/// never stands for a room recording.
+#[test]
+fn a_session_of_another_source_cannot_claim_a_room() {
+    let (_dir, session) = demo_session("f01-claim");
+    for (room, loadout) in [
+        (Some("boiler"), None),
+        (Some("juicer"), None),
+        (Some("boiler"), Some("story")),
+        (Some("juicer"), Some("all")),
+        (None, Some("story")),
+    ] {
+        tamper_manifest(&session, |m| {
+            m.reset.f01_room = room.map(str::to_owned);
+            m.reset.f01_loadout = loadout.map(str::to_owned);
+        });
+        let failure = verify(&session).expect_err("a relabelled demo session");
+        assert_eq!(
+            failure.code, "rules_mismatch",
+            "{room:?} {loadout:?}: {failure}"
+        );
+    }
+    tamper_manifest(&session, |m| {
+        m.reset.f01_room = None;
+        m.reset.f01_loadout = None;
+    });
+    verify(&session).expect("unlabelled again");
+}
+
+#[test]
+fn only_the_boiler_and_the_juicer_sessions_may_carry_their_own_room() {
+    let reset = |source: &str, name: &str, room: Option<&str>, loadout: Option<&str>| {
+        let mut r = super::tests::reset();
+        r.source = source.to_owned();
+        r.name = name.to_owned();
+        r.f01_room = room.map(str::to_owned);
+        r.f01_loadout = loadout.map(str::to_owned);
+        r
+    };
+    let boss_name = crate::boss_scene::BOSS01_SCENE.name;
+    let ok = |r: &ResetDescriptor| super::replay::check_f01_source(r).is_ok();
+    // The two genuine shapes, and every unlabelled source.
+    assert!(ok(&reset(
+        f01_late::SESSION_SOURCE,
+        "f01_boiler",
+        Some("boiler"),
+        Some("story")
+    )));
+    assert!(ok(&reset("boss", boss_name, Some("juicer"), None)));
+    for source in ["demo", "fixture", "boss", "story", "party_fixture"] {
+        assert!(ok(&reset(source, "x", None, None)), "{source} unlabelled");
+    }
+    // `demo` and `fixture` (and the rest) claiming either room, or only a loadout.
+    for source in ["demo", "fixture", "story", "party_fixture"] {
+        for room in ["boiler", "juicer"] {
+            assert!(
+                !ok(&reset(source, "x", Some(room), None)),
+                "{source} {room}"
+            );
+            assert!(
+                !ok(&reset(source, boss_name, Some(room), Some("story"))),
+                "{source} {room}"
+            );
+        }
+        assert!(
+            !ok(&reset(source, "x", None, Some("all"))),
+            "{source} loadout only"
+        );
+    }
+    // The boss source: only `juicer` on the boss scene's fixture.
+    assert!(!ok(&reset("boss", boss_name, Some("boiler"), None)));
+    assert!(!ok(&reset(
+        "boss",
+        "other_boss_fixture",
+        Some("juicer"),
+        None
+    )));
+    assert!(!ok(&reset("boss", boss_name, None, Some("story"))));
+    // The `f01_room` source: only `boiler` on its own fixture.
+    assert!(!ok(&reset(
+        f01_late::SESSION_SOURCE,
+        "f01_boiler",
+        Some("juicer"),
+        None
+    )));
+    assert!(!ok(&reset(
+        f01_late::SESSION_SOURCE,
+        "f01_boiler",
+        None,
+        None
+    )));
+    assert!(!ok(&reset(
+        f01_late::SESSION_SOURCE,
+        "demo01",
+        Some("boiler"),
+        None
+    )));
 }

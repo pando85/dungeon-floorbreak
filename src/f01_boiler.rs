@@ -93,8 +93,8 @@ pub fn story_setup(
     carl: CarlProgFlags,
     donut: DonutProgFlags,
 ) -> Result<StorySetup, String> {
-    if !crate::story_unlock::StoryTable::active().has_pin(pin) {
-        return Err(format!("unknown story pin {pin:?}"));
+    if !crate::story_unlock::StoryTable::active().has_room_pin(pin) {
+        return Err(format!("unknown or non-room story pin {pin:?}"));
     }
     // The room runs on the CF02 scene kind (it arms no trigger in the table),
     // and its pin is chosen by id.
@@ -166,7 +166,7 @@ pub fn launch(root: &Path) -> Result<BoilerRun, String> {
             loaded.room_hash, loaded.sidecar_hash
         ));
     }
-    if !crate::story_unlock::StoryTable::active().has_pin(&loaded.encounter.story_pin) {
+    if !crate::story_unlock::StoryTable::active().has_room_pin(&loaded.encounter.story_pin) {
         return Err(format!(
             "{BOILER_ENCOUNTER_PATH}: unknown story pin {:?}",
             loaded.encounter.story_pin
@@ -439,7 +439,29 @@ mod tests {
         let err = story_setup("f01_pin_nope", CarlProgFlags::OFF, DonutProgFlags::OFF)
             .expect_err("unknown pin");
         assert!(err.contains("f01_pin_nope"), "{err}");
-        assert!(!crate::story_unlock::StoryTable::active().has_pin("f01_pin_nope"));
+        assert!(!crate::story_unlock::StoryTable::active().has_room_pin("f01_pin_nope"));
+    }
+
+    /// A sidecar names a room pin: the boss arena's pins are refused (they would
+    /// give Carl's half only), at the launch check and in `story_setup`.
+    #[test]
+    fn a_scene_pin_is_not_a_sidecar_pin() {
+        for pin in ["f01_dynamite_held", "f01_donut_boss_held"] {
+            assert!(crate::story_unlock::StoryTable::active().has_pin(pin));
+            let err = story_setup(pin, CarlProgFlags::OFF, DonutProgFlags::OFF)
+                .expect_err("a scene pin is not a room pin");
+            assert!(err.contains(pin), "{err}");
+        }
+        for pin in [
+            "f01_pin_pre_pile_boss",
+            "f01_pin_post_pile_boss",
+            "f01_late_mastery",
+        ] {
+            assert!(
+                story_setup(pin, CarlProgFlags::OFF, DonutProgFlags::OFF).is_ok(),
+                "{pin}"
+            );
+        }
     }
 
     #[test]

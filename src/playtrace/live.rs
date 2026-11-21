@@ -201,9 +201,9 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
             crate::f01_boiler::ENCOUNTER_HASH,
         ),
         // PT-SCENE: the manifest of the rooms `--scene f01_late` launches. The
-        // three room pins above and this one are scoped: a recording that names
-        // no room (`reset.f01_room`) and records none of them still verifies
-        // (`f01_late::pin_is_scoped_out`).
+        // Boiler's two pins above and this one are scoped by room, on both sides
+        // (`f01_late::pin_applies`): stamped into and required of a recording
+        // that names a room they cover, and of no other.
         (
             crate::f01_late::MANIFEST_PIN_KEY,
             crate::f01_late::MANIFEST_HASH,
@@ -251,7 +251,13 @@ pub fn stamp_manifest(manifest: &mut SessionManifest, kit_hash: u64) {
         "donut_motion".to_owned(),
         manifest.reset.donut_motion.name().to_owned(),
     );
+    // PT-SCENE: a room pin is stamped only into a recording of a room it covers
+    // (`f01_late::pin_applies`), so a run that names no room never depends on it.
+    let room = manifest.reset.f01_room.clone();
     for (key, value) in std::iter::once(("kit", kit_hash)).chain(data_pins()) {
+        if !crate::f01_late::pin_applies(key, room.as_deref()) {
+            continue;
+        }
         manifest
             .content_hashes
             .insert(key.to_owned(), format!("{value:016x}"));

@@ -62,20 +62,35 @@ pub const fn data_pins() -> [(&'static str, u64); 1] {
     [(MANIFEST_PIN_KEY, MANIFEST_HASH)]
 }
 
-/// The room pins a recording only needs when it names a late-Floor-1 room
-/// (`ResetDescriptor::f01_room`). A recording made before the rooms existed has
-/// none of them and still verifies (the `agility_tuning` precedent); one that
-/// has any of them must agree, and one that names a room must have all.
+/// The room pins, scoped by room on **both** sides of a recording. The Boiler's
+/// room and sidecar hashes belong to a recording of the `boiler` room only, and
+/// the manifest hash to a recording that names any listed room. A run that names
+/// no room (`--cf02`, `--scene boss_f01`, every recording before PT-SCENE) neither
+/// stamps nor needs them, so a later edit of the manifest (every room step) or of
+/// the Boiler files (BOIL-B/C wire) fails only the recordings it can change; a
+/// Juicer recording needs the manifest hash and not the Boiler's.
 pub const SCOPED_PIN_KEYS: [&str; 3] = [
     f01_boiler::ROOM_PIN_KEY,
     f01_boiler::ENCOUNTER_PIN_KEY,
     MANIFEST_PIN_KEY,
 ];
 
-/// Whether a verifier skips the pin `key`: it is a room pin, the manifest
-/// records no hash for it and the descriptor names no room.
-pub fn pin_is_scoped_out(key: &str, recorded: bool, names_a_room: bool) -> bool {
-    SCOPED_PIN_KEYS.contains(&key) && !recorded && !names_a_room
+/// Whether a recording of `room` (`ResetDescriptor::f01_room`) stamps and needs
+/// the data pin `key`: every pin that is not a room pin, always; a room pin
+/// exactly when it covers the room.
+pub fn pin_applies(key: &str, room: Option<&str>) -> bool {
+    match key {
+        f01_boiler::ROOM_PIN_KEY | f01_boiler::ENCOUNTER_PIN_KEY => room == Some("boiler"),
+        MANIFEST_PIN_KEY => room.is_some(),
+        _ => true,
+    }
+}
+
+/// Whether a verifier skips the pin `key`: it is a room pin the room does not
+/// cover. A recorded value is then not compared (an older recording may carry a
+/// stale one).
+pub fn pin_is_scoped_out(key: &str, room: Option<&str>) -> bool {
+    SCOPED_PIN_KEYS.contains(&key) && !pin_applies(key, room)
 }
 
 /// The scene a room runs on.
@@ -819,25 +834,24 @@ mod tests {
     }
 
     #[test]
-    fn the_room_pins_are_scoped_to_a_recording_that_names_a_room() {
-        for key in SCOPED_PIN_KEYS {
+    fn the_room_pins_are_scoped_to_the_room_they_cover() {
+        let boiler_keys = [f01_boiler::ROOM_PIN_KEY, f01_boiler::ENCOUNTER_PIN_KEY];
+        for room in [None, Some("juicer"), Some("boiler")] {
+            for key in SCOPED_PIN_KEYS {
+                let covered = if boiler_keys.contains(&key) {
+                    room == Some("boiler")
+                } else {
+                    room.is_some()
+                };
+                assert_eq!(pin_applies(key, room), covered, "{key} {room:?}");
+                assert_eq!(pin_is_scoped_out(key, room), !covered, "{key} {room:?}");
+            }
             assert!(
-                pin_is_scoped_out(key, false, false),
-                "{key}: an old recording"
+                !pin_is_scoped_out("cf02_tuning", room),
+                "other pins stay required"
             );
-            assert!(
-                !pin_is_scoped_out(key, true, false),
-                "{key}: a present pin must agree"
-            );
-            assert!(
-                !pin_is_scoped_out(key, false, true),
-                "{key}: a room recording needs it"
-            );
+            assert!(pin_applies("story_unlocks", room));
         }
-        assert!(
-            !pin_is_scoped_out("cf02_tuning", false, false),
-            "other pins stay required"
-        );
     }
 
     #[test]

@@ -326,6 +326,14 @@ impl StoryTable {
         self.pins.iter().any(|row| row.id == id)
     }
 
+    /// Whether the id is a **room** pin (scene `f01_late`): the only kind an
+    /// encounter sidecar may name. A scene pin (the boss arena's) is not.
+    pub fn has_room_pin(&self, id: &str) -> bool {
+        self.pins
+            .iter()
+            .any(|row| row.id == id && row.scene == SceneKind::F01Late)
+    }
+
     pub fn trigger(&self, id: &str) -> Option<&TriggerRow> {
         self.triggers.iter().find(|row| row.id == id)
     }
@@ -439,6 +447,13 @@ impl StoryTable {
                 }
             }
             self.check_grant_list(&at("grants"), &row.grants)?;
+            // `f01_late` labels the room pins; no trigger is armed in it.
+            if row.armed_in.contains(&SceneKind::F01Late) {
+                return Err(bad(
+                    at("armed_in"),
+                    "f01_late labels room pins and arms no trigger",
+                ));
+            }
             if row.cp_q.is_empty() {
                 return Err(bad(at("cp_q"), "empty"));
             }
@@ -456,6 +471,13 @@ impl StoryTable {
                 .any(|prev| prev.id == row.id && prev.flag == row.flag)
             {
                 return Err(bad(at("id"), "duplicate id for this flag"));
+            }
+            // One pin id, one scene: `for_pin` and the order test select by id.
+            if self.pins[..i]
+                .iter()
+                .any(|prev| prev.id == row.id && prev.scene != row.scene)
+            {
+                return Err(bad(at("scene"), "rows of one pin id must share a scene"));
             }
             if !valid_id(&row.flag) {
                 return Err(bad(at("flag"), "lower snake_case ascii"));
@@ -1520,6 +1542,65 @@ mod tests {
             ),
             "pins[1].holds"
         );
+    }
+
+    /// PT-SCENE (review F3): one scene per pin id, `f01_late` arms no trigger, and
+    /// only a room pin (scene `f01_late`) is a sidecar's pin.
+    #[test]
+    fn the_room_pin_rules_are_enforced_by_the_validator() {
+        let edited = |edit: &dyn Fn(&mut serde_json::Value)| {
+            let mut value: serde_json::Value = serde_json::from_str(TABLE_JSON).unwrap();
+            edit(&mut value);
+            StoryTable::from_json(&value.to_string())
+        };
+        // The committed table passes, and the room pins are room pins.
+        let table = StoryTable::pinned().unwrap();
+        for id in [
+            "f01_pin_pre_pile_boss",
+            "f01_pin_post_pile_boss",
+            "f01_late_mastery",
+        ] {
+            assert!(table.has_room_pin(id), "{id}");
+        }
+        // A scene pin is a pin and not a room pin; an unknown id is neither.
+        assert!(table.has_pin("f01_dynamite_held") && !table.has_room_pin("f01_dynamite_held"));
+        assert!(!table.has_pin("f01_pin_nope") && !table.has_room_pin("f01_pin_nope"));
+        // Rows of one id in two scenes mix at `for_pin`: refused.
+        let mixed = edited(&|v| {
+            let pins = v["pins"].as_array_mut().unwrap();
+            let row = pins
+                .iter_mut()
+                .rev()
+                .find(|p| p["id"] == "f01_pin_post_pile_boss")
+                .unwrap();
+            row["scene"] = "boss".into();
+        });
+        match mixed.expect_err("two scenes under one id") {
+            StoryError::Field { field, reason } => {
+                assert!(field.ends_with(".scene"), "{field}");
+                assert!(reason.contains("share a scene"), "{reason}");
+            }
+            other => panic!("expected a field error, got {other:?}"),
+        }
+        // The same (id, flag) twice is still a duplicate.
+        let duplicate = edited(&|v| {
+            let pins = v["pins"].as_array_mut().unwrap();
+            let row = pins[pins.len() - 1].clone();
+            pins.push(row);
+        });
+        assert!(matches!(duplicate, Err(StoryError::Field { .. })));
+        // A trigger armed in `f01_late` would never fire: refused.
+        match edited(&|v| {
+            v["triggers"][1]["armed_in"] = serde_json::json!(["boss", "f01_late"]);
+        })
+        .expect_err("armed in the label")
+        {
+            StoryError::Field { field, reason } => {
+                assert!(field.ends_with(".armed_in"), "{field}");
+                assert!(reason.contains("arms no trigger"), "{reason}");
+            }
+            other => panic!("expected a field error, got {other:?}"),
+        }
     }
 
     /// NB-2: a dense acyclic graph (every row requires every earlier row) is

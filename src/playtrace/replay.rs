@@ -259,6 +259,8 @@ pub(super) fn rebuild(manifest: &SessionManifest, root: &Path) -> Result<Reset, 
 fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, VerifyFailure> {
     let reset = &manifest.reset;
     let unsupported = |why: String| VerifyFailure::new("unsupported_source", why);
+    check_f01_source(reset)?;
+    check_f01_label(reset, root)?;
     match reset.source.as_str() {
         "party_fixture" => {
             let fixture = find_party_fixture(&reset.name)
@@ -288,17 +290,6 @@ fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, Verif
         }
         "fixture" | "boss" | "demo" => {
             let boss = reset.source == "boss";
-            check_f01_label(reset, root)?;
-            if boss
-                && reset
-                    .f01_room
-                    .as_deref()
-                    .is_some_and(|room| room != "juicer")
-            {
-                return Err(unsupported(
-                    "a boss-arena session names the juicer room".to_owned(),
-                ));
-            }
             let (kit, fixture) = if reset.cf02_rules && (reset.demo || reset.source == "demo") {
                 let kit = crate::cf02::arena::load_arena(root).map_err(unsupported)?;
                 // ENEMY-GAMEPLAY-ENGINEER: a session of the Engineer room names its
@@ -330,6 +321,32 @@ fn rebuild_scene(manifest: &SessionManifest, root: &Path) -> Result<Reset, Verif
         // PT-SCENE: a late-Floor-1 room with its own scene (the Boiler).
         crate::f01_late::SESSION_SOURCE => rebuild_f01_room(manifest, root),
         other => Err(unsupported(format!("source {other:?} is not replayable"))),
+    }
+}
+
+/// PT-SCENE: the room label is bound to the session source. Only a Boiler
+/// session (source `f01_room`, room `boiler`, fixture `f01_boiler`) and a Juicer
+/// session (source `boss`, room `juicer`, the boss scene's fixture) may carry a
+/// room, and the `f01_room` source needs one. A `--cf02`, `demo`, `fixture`,
+/// party-fixture, story or lab session that claims a room is another run
+/// wearing a label.
+pub(super) fn check_f01_source(
+    reset: &super::manifest::ResetDescriptor,
+) -> Result<(), VerifyFailure> {
+    let bad = |why: String| VerifyFailure::new("rules_mismatch", why);
+    let room = reset.f01_room.as_deref();
+    let labelled = room.is_some() || reset.f01_loadout.is_some();
+    match (reset.source.as_str(), room) {
+        (crate::f01_late::SESSION_SOURCE, Some("boiler")) if reset.name == "f01_boiler" => Ok(()),
+        ("boss", Some("juicer")) if reset.name == crate::boss_scene::BOSS01_SCENE.name => Ok(()),
+        (crate::f01_late::SESSION_SOURCE, _) => Err(bad(
+            "the f01_room source replays the boiler room only".to_owned(),
+        )),
+        (source, _) if labelled => Err(bad(format!(
+            "a {source:?} session named {:?} cannot carry the room label {room:?}",
+            reset.name
+        ))),
+        _ => Ok(()),
     }
 }
 
@@ -575,13 +592,9 @@ pub(super) fn check_content(
         {
             continue;
         }
-        // PT-SCENE (U5 of the #207 review): the room pins are required only of
-        // a recording that names a late-Floor-1 room.
-        if crate::f01_late::pin_is_scoped_out(
-            key,
-            manifest.content_hashes.contains_key(key),
-            manifest.reset.f01_room.is_some(),
-        ) {
+        // PT-SCENE (U5 of the #207 review): a room pin is required only of a
+        // recording of a room it covers.
+        if crate::f01_late::pin_is_scoped_out(key, manifest.reset.f01_room.as_deref()) {
             continue;
         }
         check_hash(manifest, key, hash)?;
