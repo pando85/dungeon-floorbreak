@@ -581,7 +581,12 @@ fn content_and_rules_mismatches_are_rejected() {
     // CARL-PROG-01 CP-Q46: the stamped manifest carries the two data pins and a
     // mismatch of either fails the replay naming it.
     let stamped = std::fs::read_to_string(session.join("manifest.json")).unwrap();
-    for key in ["story_unlocks", "carl_prog", "donut_prog_tuning"] {
+    for key in [
+        "story_unlocks",
+        "carl_prog",
+        "donut_prog_tuning",
+        "llama_rush_tuning",
+    ] {
         assert!(stamped.contains(&format!("\"{key}\"")), "{key} is stamped");
     }
     for key in [
@@ -591,6 +596,7 @@ fn content_and_rules_mismatches_are_rejected() {
         "story_unlocks",
         "carl_prog",
         "donut_prog_tuning",
+        "llama_rush_tuning",
         "party_tuning",
     ] {
         tamper_manifest(&session, |m| {
@@ -606,6 +612,7 @@ fn content_and_rules_mismatches_are_rejected() {
         "story_unlocks",
         "carl_prog",
         "donut_prog_tuning",
+        "llama_rush_tuning",
     ] {
         tamper_manifest(&session, |m| {
             m.content_hashes.remove(key);
