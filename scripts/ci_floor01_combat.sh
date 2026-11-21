@@ -42,10 +42,20 @@
 #                                   COUNT parallel CI jobs (SHARD 0..COUNT-1)
 #                                   together cover every sequence exactly
 #                                   once; without arguments all of them run.
+#   ci_floor01_combat.sh replay     inside xvfb-run -s '-screen 0 1920x1080x24':
+#                                   PTR-R1. Record a synthetic --cf02 autopilot
+#                                   session, `playtrace verify` PASS, then the
+#                                   replay viewer (--replay-session) must print
+#                                   result=STRICT with ticks and post equal to
+#                                   the last TickRecord, save one window capture
+#                                   at tick 300, report a cross-build session as
+#                                   UNSUPPORTED (strict) and CHECKED (checked)
+#                                   and a tampered one as DIVERGED (exit 1). No
+#                                   human recording is read or written.
 set -euo pipefail
 # PLAYTRACE-01: CI runs never write a gameplay recording (PT-Q12).
 export FLOORBREAK_RECORD=off
-mode="${1:?usage: ci_floor01_combat.sh headless|render|render-sequences [SHARD COUNT]|demo|demo-render|cine}"
+mode="${1:?usage: ci_floor01_combat.sh headless|render|render-sequences [SHARD COUNT]|demo|demo-render|cine|replay}"
 shard="${2:-0}"
 shard_count="${3:-1}"
 if ! [[ "$shard" =~ ^[0-9]+$ && "$shard_count" =~ ^[1-9][0-9]*$ ]] || (( shard >= shard_count )); then
@@ -647,6 +657,69 @@ case "$mode" in
       grep -q '^CINE01_SLOWMO end=Completed' "$log" || { echo "CINE-T12: $framing did not complete the moment" >&2; exit 1; }
       echo "CINE_T12_OK: $framing $(grep '^CINE01_SLOWMO end' "$log" | head -n 1)"
     done
+    ;;
+  replay)
+    # PTR-R1: the replay viewer on a synthetic recording (never a human session).
+    rdir="$out/replay_sessions"
+    rm -rf "$rdir"; mkdir -p "$rdir"
+    cargo build --locked --bin playtrace
+    pt=./target/debug/playtrace
+    # `--record` forces the recorder on in this scripted run (the CI default is off).
+    timeout 300 "$bin" --cf02 --autopilot --record --record-dir "$rdir" --exit-after-ticks 600 --no-audio --scale 1 > "$out/replay_record.log" 2>&1
+    grep -q '^PLAYTRACE_SAVED .* ticks=600 status=Completed complete=true' "$out/replay_record.log" || { tail -n 20 "$out/replay_record.log"; echo "the synthetic session was not recorded" >&2; exit 1; }
+    id="$(ls "$rdir")"
+    "$pt" verify "$id" --dir "$rdir" > "$out/replay_verify.log"
+    grep -q '^PLAYTRACE_VERIFY .*result=PASS scope=full' "$out/replay_verify.log" || { cat "$out/replay_verify.log"; echo "the synthetic session does not verify" >&2; exit 1; }
+    last_post="$(python3 -I scripts/ptr_session_tool.py last-post "$rdir/$id")"
+    replay_run() { # log, then the flags; returns the viewer's exit code
+      local log="$1"; shift
+      local code=0
+      timeout 300 "$bin" --replay-exit-at-end --no-audio --scale 2 "$@" > "$log" 2>&1 || code=$?
+      if grep -qE 'FLOOR1_ASSET_FAILURE|FLOOR1_CAPTURE_FAILURE|FLOOR1_LIGHTING_WARNING' "$log"; then
+        tail -n 20 "$log"; echo "replay run $log reported a failure" >&2; exit 1
+      fi
+      return "$code"
+    }
+    result_line() { grep '^PLAYTRACE_REPLAY ' "$1" || true; }
+    # 1. Strict replay of the verified session, plus one window capture at tick 300.
+    rm -f "$out/replay_tick300.png"
+    replay_run "$out/replay_strict.log" --replay-session "$id" --record-dir "$rdir" \
+      --replay-capture-tick 300 --replay-capture-file "$out/replay_tick300.png"
+    [[ "$(result_line "$out/replay_strict.log")" == "PLAYTRACE_REPLAY session=$id result=STRICT ticks=600 post=$last_post" ]] \
+      || { tail -n 20 "$out/replay_strict.log"; echo "the replay did not report STRICT with the recorded ticks and post hash" >&2; exit 1; }
+    if grep -q '^PLAYTRACE_VERIFY' "$out/replay_strict.log"; then echo "the viewer printed a PLAYTRACE_VERIFY line" >&2; exit 1; fi
+    grep -q '^PLAYTRACE_REPLAY_CAPTURE tick=300 ' "$out/replay_strict.log" || { echo "no window capture at tick 300" >&2; exit 1; }
+    python3 -I scripts/ptr_session_tool.py is-png "$out/replay_tick300.png"
+    echo "REPLAY_STRICT_OK: $(result_line "$out/replay_strict.log")"
+    # Checked mode on a same-source session is still STRICT (never a downgrade).
+    replay_run "$out/replay_checked_same.log" --replay-session "$id" --record-dir "$rdir" --replay-compatibility checked
+    [[ "$(result_line "$out/replay_checked_same.log")" == "PLAYTRACE_REPLAY session=$id result=STRICT ticks=600 post=$last_post" ]] \
+      || { echo "checked mode on the same source must report STRICT" >&2; exit 1; }
+    # 2. A recording by another build: strict is UNSUPPORTED (no window, exit 1);
+    # checked plays it and says CHECKED.
+    xdir="$out/replay_sessions_cross"
+    rm -rf "$xdir"; mkdir -p "$xdir"; cp -r "$rdir/$id" "$xdir/$id"
+    python3 -I scripts/ptr_session_tool.py cross-build "$xdir/$id"
+    code=0
+    replay_run "$out/replay_cross_strict.log" --replay-session "$id" --record-dir "$xdir" || code=$?
+    [[ "$code" == 1 ]] || { echo "strict must exit 1 on a cross-build session" >&2; exit 1; }
+    result_line "$out/replay_cross_strict.log" | grep -q "result=UNSUPPORTED .*code=build_mismatch" \
+      || { tail -n 5 "$out/replay_cross_strict.log"; echo "strict must report UNSUPPORTED build_mismatch" >&2; exit 1; }
+    replay_run "$out/replay_cross_checked.log" --replay-session "$id" --record-dir "$xdir" --replay-compatibility checked
+    [[ "$(result_line "$out/replay_cross_checked.log")" == "PLAYTRACE_REPLAY session=$id result=CHECKED ticks=600 post=$last_post" ]] \
+      || { echo "checked must replay a cross-build session as CHECKED" >&2; exit 1; }
+    echo "REPLAY_CHECKED_OK: $(result_line "$out/replay_cross_checked.log")"
+    # 3. A resealed tamper (only the replay can notice it): DIVERGED at its tick,
+    # exit 1, and no later tick is claimed.
+    ddir="$out/replay_sessions_diverged"
+    rm -rf "$ddir"; mkdir -p "$ddir"; cp -r "$rdir/$id" "$ddir/$id"
+    python3 -I scripts/ptr_session_tool.py tamper-post "$ddir/$id" 100
+    code=0
+    replay_run "$out/replay_diverged.log" --replay-session "$id" --record-dir "$ddir" || code=$?
+    [[ "$code" == 1 ]] || { echo "a diverged replay must exit 1" >&2; exit 1; }
+    result_line "$out/replay_diverged.log" | grep -qE "^PLAYTRACE_REPLAY session=$id result=DIVERGED ticks=100 post=[0-9a-f]{16} code=post_state tick=100$" \
+      || { tail -n 8 "$out/replay_diverged.log"; echo "the tampered session must report DIVERGED at tick 100" >&2; exit 1; }
+    echo "REPLAY_DIVERGED_OK: $(result_line "$out/replay_diverged.log")"
     ;;
   *)
     echo "unknown mode: $mode" >&2

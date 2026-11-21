@@ -1,6 +1,6 @@
 # PLAYTRACE-RENDER-01 — Local-agent implementation work order
 
-**Status: SPECIFICATION ONLY. No visual replay is implemented by this design PR.** Review round 1 resolved; see [technical design §8](../03-tech/playtrace-render-01-visual-replay.md#8-review-round-1-resolutions).
+**Status: PTR-R0 and PTR-R1 are implemented in the R0+R1 PR (see [design §9](../03-tech/playtrace-render-01-visual-replay.md#9-implementation-notes-ptr-r0--ptr-r1)); R2 to R4 are specification only.** Review round 1 resolved; see [technical design §8](../03-tech/playtrace-render-01-visual-replay.md#8-review-round-1-resolutions).
 **Priority:** P1, after first recorded human CF02 playtests; implementation may start in parallel with LAB-02 and COMPANION 01B-wire. The user wants to watch the *actual human DEMO-02* replay through the Bevy renderer, diagnose Donut's poor participation and review goblin collision impacts. Delivery is in incremental code PRs; this is their integration contract, not a request to rewrite PLAYTRACE.
 
 **Authority / read first:** [technical design](../03-tech/playtrace-render-01-visual-replay.md), [PLAYTRACE-01](../03-tech/playtrace-01-session-capture.md), [ADR-0011](../05-decisions/ADR-0011-gameplay-session-recording.md), [agent rules](../../AGENTS.md), [orchestration](agent-orchestration.md), [PT-D PR #161](https://github.com/pando85/dungeon-floorbreak/pull/161). Inspect latest main, all open PRs and uncommitted worktrees first.

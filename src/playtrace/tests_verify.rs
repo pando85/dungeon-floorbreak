@@ -23,7 +23,7 @@ fn verify(session: &Path) -> Result<VerifyReport, VerifyFailure> {
     verify_dir(session, &root())
 }
 
-fn session_of(dir: &TempDir, rig: &mut Rig) -> PathBuf {
+pub(super) fn session_of(dir: &TempDir, rig: &mut Rig) -> PathBuf {
     let manifest = rig.finish().expect("finished");
     dir.0.join(manifest.session_id)
 }
@@ -40,7 +40,7 @@ fn fnv(lines: &[String]) -> u64 {
 
 /// Rewrite the tick chunks from `edit`'s result and re-seal them (trailers,
 /// manifest checksums), so only the replay can notice the edit.
-fn tamper_ticks(session: &Path, edit: impl FnOnce(&mut Vec<TickRecord>)) {
+pub(super) fn tamper_ticks(session: &Path, edit: impl FnOnce(&mut Vec<TickRecord>)) {
     let mut loaded = read_session(session, false).unwrap();
     edit(&mut loaded.ticks);
     for chunk in 0..loaded.chunks.len() {
@@ -76,7 +76,7 @@ fn tamper_ticks(session: &Path, edit: impl FnOnce(&mut Vec<TickRecord>)) {
     });
 }
 
-fn tamper_manifest(session: &Path, edit: impl FnOnce(&mut SessionManifest)) {
+pub(super) fn tamper_manifest(session: &Path, edit: impl FnOnce(&mut SessionManifest)) {
     let path = session.join("manifest.json");
     let mut manifest: SessionManifest =
         serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
@@ -85,7 +85,7 @@ fn tamper_manifest(session: &Path, edit: impl FnOnce(&mut SessionManifest)) {
 }
 
 /// Rewrite `control.jsonl` and bring the manifest's record in line.
-fn tamper_control(session: &Path, edit: impl FnOnce(&mut Vec<ControlRecord>)) {
+pub(super) fn tamper_control(session: &Path, edit: impl FnOnce(&mut Vec<ControlRecord>)) {
     let mut loaded = read_session(session, false).unwrap();
     edit(&mut loaded.control);
     let lines: Vec<String> = loaded
@@ -103,7 +103,7 @@ fn tamper_control(session: &Path, edit: impl FnOnce(&mut Vec<ControlRecord>)) {
     });
 }
 
-fn tamper_diag(session: &Path, edit: impl FnOnce(&mut Vec<DiagRecord>)) {
+pub(super) fn tamper_diag(session: &Path, edit: impl FnOnce(&mut Vec<DiagRecord>)) {
     let mut loaded = read_session(session, false).unwrap();
     edit(&mut loaded.diag);
     let lines: Vec<String> = loaded
@@ -132,7 +132,7 @@ fn expect_failure(session: &Path, code: &str) -> VerifyFailure {
 }
 
 /// The solo swap script: Carl for a while, a swap to Donut, then back.
-fn solo_swap_script(rig: &mut Rig, ticks: u64, swap_at: &[u64]) {
+pub(super) fn solo_swap_script(rig: &mut Rig, ticks: u64, swap_at: &[u64]) {
     rig.sim.party.pad_connected(PadId(1));
     for tick in 0..ticks {
         let swap = swap_at.contains(&tick);
@@ -149,7 +149,7 @@ fn solo_swap_script(rig: &mut Rig, ticks: u64, swap_at: &[u64]) {
     }
 }
 
-fn coop_script(rig: &mut Rig, ticks: u64) {
+pub(super) fn coop_script(rig: &mut Rig, ticks: u64) {
     rig.sim.party.pad_connected(PadId(1));
     rig.sim.party.pad_connected(PadId(2));
     rig.sim.party.pad_start_pressed(PadId(2));
@@ -487,7 +487,7 @@ fn the_demo_route_checks_o_t1_at_respawn_boundaries() {
 
 // ---------------------------------------------------------------- negative
 
-fn recorded_solo(name: &str, ticks: u64) -> (TempDir, PathBuf) {
+pub(super) fn recorded_solo(name: &str, ticks: u64) -> (TempDir, PathBuf) {
     let dir = TempDir::new(name);
     let mut rig = Rig::new(solo_fixture(), Some(&dir.0));
     live_script(&mut rig, ticks);
