@@ -65,12 +65,37 @@ use crate::camera_lab::room::{EnemyKind, IRect, Room, parse_rooms};
 use crate::env_hazard::{HazardClass, HazardSet, HazardSetError, HazardSpec, HazardWindow};
 use crate::env_prop::ValveConfig;
 use crate::hero_damage::HeroDamagePolicy;
+use crate::rot_sticker::{Orientation, Track, TrackError};
+use crate::slime::AcidPatchSpec;
+
+mod haz;
 
 pub const SCHEMA: &str = "floor01-encounter-v1";
 pub const BOILER_ENCOUNTER_PATH: &str = "assets/levels/floor01/f01_boiler.encounter.json";
 pub const BOILER_ROOM_PATH: &str = "assets/levels/floor01/f01_boiler.room.json";
+/// HAZ-A1: the hazard room (`docs/01-design/enemy-gameplay-slime-rot.md`).
+pub const HAZARDS_ENCOUNTER_PATH: &str = "assets/levels/floor01/f01_hazards.encounter.json";
+pub const HAZARDS_ROOM_PATH: &str = "assets/levels/floor01/f01_hazards.room.json";
 pub const HEIGHT_CLASSES_PATH: &str = "assets/data/gameplay/height_classes_v0.json";
 pub const HEIGHT_CLASSES_SCHEMA: &str = "floor01-height-classes-v1";
+
+/// HAZ rule 1: a standing-start jump over an acid patch starts with the hero's
+/// front edge 0..=this many px before the patch (the take-off zone).
+pub const TAKEOFF_ZONE_PX: i32 = 8;
+/// HAZ rule 1: dry floor required on both sides of an acid patch.
+pub const MIN_DRY_SIDE_PX: i32 = 48;
+/// HAZ rule 3: a sticker's blast sweep leaves a dry, blast-free pocket this
+/// wide on each side of its track.
+pub const MIN_POCKET_PX: i32 = 64;
+/// HAZ rule 3: a sticker's dome stays within the shared camera's band.
+pub const STICKER_BAND_PX: i32 = 200;
+/// HAZ rule 4: tracks of different stickers (and a track and an authored
+/// charge) are more than this far apart (48 + 8).
+pub const STICKER_SEPARATION_PX: i32 = 56;
+/// HAZ rule 5: caps per pocket.
+pub const POCKET_MAX_STICKERS: u8 = 2;
+pub const POCKET_MAX_SLIMES: u8 = 1;
+pub const POCKET_MAX_GOBLINS: u8 = 1;
 
 /// K2 / #176: at most this many authored prop-to-prop links, acyclic.
 pub const MAX_AUTHORED_LINKS: usize = 3;
@@ -316,6 +341,9 @@ pub enum PropKind {
     Valve,
     WeightRig,
     Drum,
+    /// HAZ-A1: a Rot Sticker on a wall or ceiling track. An env prop that owns
+    /// no hazard volume: its blast is an authored `BlastCharge` (HAZ-A2).
+    RotSticker,
 }
 
 impl PropKind {
@@ -324,6 +352,7 @@ impl PropKind {
             "valve" => Self::Valve,
             "weight_rig" => Self::WeightRig,
             "drum" => Self::Drum,
+            "rot_sticker" => Self::RotSticker,
             _ => return None,
         })
     }
@@ -358,12 +387,16 @@ impl LinkKind {
 #[non_exhaustive]
 pub enum Goal {
     ReachExit,
+    /// HAZ-Q39: the exit opens when every roster enemy has an `EnemyDefeated`;
+    /// props (a Rot Sticker) never count. HAZ-A2 opens the exit at runtime.
+    DefeatRoster,
 }
 
 impl Goal {
     pub fn parse(name: &str) -> Option<Self> {
         Some(match name {
             "reach_exit" => Self::ReachExit,
+            "defeat_roster" => Self::DefeatRoster,
             _ => return None,
         })
     }
@@ -412,6 +445,39 @@ pub struct Prop {
     pub blast_radius_px: Option<i32>,
     /// A valve's tunables with the timing of its steam hazard.
     pub valve: Option<ValveConfig>,
+    /// A rot sticker's track (layout px, y down).
+    pub track: Option<StickerLayout>,
+}
+
+/// A rot sticker's track as authored in the sidecar (layout px, y down): the
+/// surface it clings to, two end points on that surface and a start point.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StickerLayout {
+    pub orientation: Orientation,
+    pub surface: IRect,
+    pub a: (i32, i32),
+    pub b: (i32, i32),
+    pub start: (i32, i32),
+}
+
+impl StickerLayout {
+    /// The domain track in world px, y up (heights above the walking line
+    /// `floor_y`), as [`crate::rot_sticker`] works.
+    pub fn world_track(&self, floor_y: i32) -> Result<Track, TrackError> {
+        let up = |p: (i32, i32)| (p.0, floor_y - p.1);
+        Track::from_points(self.orientation, up(self.a), up(self.b), up(self.start))
+    }
+}
+
+/// A pocket of the room (HAZ rule 5): an x range with its own caps.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pocket {
+    pub id: String,
+    pub x0: i32,
+    pub x1: i32,
+    pub max_stickers: u8,
+    pub max_slimes: u8,
+    pub max_goblins: u8,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -430,10 +496,44 @@ pub struct Link {
     pub kind: LinkKind,
 }
 
+/// What a roster entry is: a room enemy kind, or the HAZ slime (a slot enemy
+/// that the room file's `EnemyKind` does not name).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RosterKind {
+    Room(EnemyKind),
+    Slime,
+}
+
+impl RosterKind {
+    /// The room enemy kind, `None` for a slime.
+    pub const fn room(self) -> Option<EnemyKind> {
+        match self {
+            Self::Room(k) => Some(k),
+            Self::Slime => None,
+        }
+    }
+
+    pub const fn is_slime(self) -> bool {
+        matches!(self, Self::Slime)
+    }
+
+    /// Whether this kind supplies `CompanionView.boss` (HAZ rule 9). Appended to
+    /// by the enemy sheets: today only the slime does.
+    pub const fn supplies_boss(self) -> bool {
+        matches!(self, Self::Slime)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RosterEntry {
     pub id: String,
-    pub kind: EnemyKind,
+    pub kind: RosterKind,
+    /// Slime only: the authored facing (+1 or -1), `1` for every other kind.
+    pub facing: i8,
+    /// Slime only: the leash column (its pool's centre or its spawn).
+    pub home: i32,
+    /// Slime only: the acid patch it guards (an `acid_patches` id).
+    pub linked_pool: Option<String>,
     pub gate: Option<String>,
     pub fallback: Option<EnemyKind>,
     pub x: i32,
@@ -494,6 +594,11 @@ pub struct Encounter {
     pub effective_gates: Vec<GateClass>,
     /// The reach matrix the validation computed.
     pub reach: Vec<ReachRow>,
+    /// HAZ-A1: the acid patches (never in `hazards`, so `RosterInHazard` does
+    /// not see them).
+    pub acid_patches: Vec<AcidPatchSpec>,
+    /// HAZ-A1: the pockets with their caps (empty when the sidecar has none).
+    pub pockets: Vec<Pocket>,
 }
 
 impl Encounter {
@@ -769,6 +874,14 @@ pub enum EncounterError {
         state: u16,
         surface: usize,
     },
+    /// HAZ-A1: a failure of one of the hazard room's validator rules
+    /// (`docs/01-design/enemy-gameplay-slime-rot.md` section 15). Names the
+    /// rule (0 for a schema problem of the HAZ appends) and the ids.
+    Haz {
+        rule: u8,
+        ids: Vec<String>,
+        reason: String,
+    },
 }
 
 impl std::fmt::Display for EncounterError {
@@ -789,7 +902,7 @@ impl std::fmt::Display for EncounterError {
             RoomNotFound(id) => write!(f, "the room file has no scenario {id}"),
             BadId(id) => write!(f, "id {id:?} must be lowercase ascii letters, digits and _"),
             DuplicateId(id) => write!(f, "duplicate id {id}"),
-            UnknownGoal(g) => write!(f, "unknown goal {g:?} (only reach_exit)"),
+            UnknownGoal(g) => write!(f, "unknown goal {g:?} (reach_exit or defeat_roster)"),
             GrantsNotEmpty => write!(f, "a room never grants a capability: grants must be empty"),
             TooManyProps(n) => write!(f, "{n} props, at most {MAX_PROPS}"),
             UnknownPropKind(k) => write!(f, "unknown prop kind {k:?}"),
@@ -824,6 +937,9 @@ impl std::fmt::Display for EncounterError {
                 f,
                 "the room file's {array} array must stay empty: encounter data lives in the sidecar"
             ),
+            Haz { rule, ids, reason } => {
+                write!(f, "HAZ rule {rule} [{}]: {reason}", ids.join(", "))
+            }
             GateBypassed {
                 surface,
                 declared,
@@ -1014,6 +1130,45 @@ struct RawProp {
     remnant: Option<RawRect>,
     blast_radius_px: Option<i32>,
     valve: Option<RawValve>,
+    track: Option<RawTrack>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPoint {
+    x: i32,
+    y: i32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawTrack {
+    orientation: String,
+    surface: RawRect,
+    a: RawPoint,
+    b: RawPoint,
+    start: RawPoint,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawAcidPatch {
+    id: u16,
+    x0: i32,
+    x1: i32,
+    floor_y: i32,
+    linked_slime: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPocket {
+    id: String,
+    x0: i32,
+    x1: i32,
+    max_stickers: u8,
+    max_slimes: u8,
+    max_goblins: u8,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1063,6 +1218,9 @@ struct RawRoster {
     allow_in_hazard: Vec<String>,
     #[serde(default)]
     optional: bool,
+    facing: Option<i8>,
+    home: Option<i32>,
+    linked_pool: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1118,6 +1276,10 @@ struct RawEncounter {
     roster: Vec<RawRoster>,
     gates: Vec<RawGate>,
     vantages: Vec<RawVantage>,
+    #[serde(default)]
+    acid_patches: Vec<RawAcidPatch>,
+    #[serde(default)]
+    pockets: Vec<RawPocket>,
 }
 
 // ------------------------------------------------------------------ loading
@@ -1316,7 +1478,9 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         let remnant = p.remnant.as_ref().map(IRect::from);
         if !within_play(room, target) {
             errs.push(E::PropOutOfBounds(p.id.clone()));
-        } else if room.floor_y - target.y > carl_rise {
+        } else if kind != PropKind::RotSticker && room.floor_y - target.y > carl_rise {
+            // A sticker is provoked at range (a trigger circle, a bolt): it is
+            // never a target Carl must reach.
             errs.push(E::PropOutOfReach(p.id.clone()));
         }
         let field = |reason: &str| E::PropFields {
@@ -1365,7 +1529,45 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                     _ => errs.push(field("a drum needs a positive blast_radius_px")),
                 }
             }
+            PropKind::RotSticker => {
+                if p.valve.is_some()
+                    || p.hang_px.is_some()
+                    || remnant.is_some()
+                    || p.blast_radius_px.is_some()
+                    || p.solid_intact
+                {
+                    errs.push(field(
+                        "a rot_sticker has no valve, hang_px, remnant, blast_radius_px or solid_intact",
+                    ));
+                }
+                if p.track.is_none() {
+                    errs.push(field("a rot_sticker needs a track"));
+                }
+            }
         }
+        if kind != PropKind::RotSticker && p.track.is_some() {
+            errs.push(field("only a rot_sticker has a track"));
+        }
+        let track = p
+            .track
+            .as_ref()
+            .and_then(|t| match Orientation::parse(&t.orientation) {
+                Some(orientation) => Some(StickerLayout {
+                    orientation,
+                    surface: IRect::from(&t.surface),
+                    a: (t.a.x, t.a.y),
+                    b: (t.b.x, t.b.y),
+                    start: (t.start.x, t.start.y),
+                }),
+                None => {
+                    errs.push(E::Haz {
+                        rule: 3,
+                        ids: vec![p.id.clone()],
+                        reason: format!("unknown track orientation {:?}", t.orientation),
+                    });
+                    None
+                }
+            });
         if p.solid_intact && target.h > MAX_LANE_OBSTACLE_PX {
             errs.push(E::ObstacleTooTall {
                 prop: p.id.clone(),
@@ -1398,6 +1600,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             remnant,
             blast_radius_px: p.blast_radius_px,
             valve: None,
+            track,
         });
     }
     let prop_pos: BTreeMap<String, usize> = props
@@ -1515,6 +1718,18 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             PropKind::Valve => HazardClass::Steam,
             PropKind::WeightRig => HazardClass::FallingMass,
             PropKind::Drum => HazardClass::Blast,
+            PropKind::RotSticker => {
+                // HAZ never authors a damage-dealing volume for a sticker: its
+                // damage comes only from its BlastCharge (no double blast).
+                if hazards.iter().any(|h| h.owner == Some(pos)) {
+                    errs.push(E::HazardOwnerMismatch {
+                        prop: raw_prop.id.clone(),
+                        reason: "a rot_sticker owns no hazard volume (its blast is a BlastCharge)"
+                            .into(),
+                    });
+                }
+                continue;
+            }
         };
         let owned = hazards
             .iter()
@@ -1667,16 +1882,45 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             errs.push(E::DuplicateId(r.id.clone()));
         }
         let allowed = |k: EnemyKind| matches!(k, EnemyKind::Goblin | EnemyKind::Engineer);
-        let kind = match EnemyKind::parse(&r.kind).filter(|k| allowed(*k)) {
-            Some(k) => k,
-            None => {
-                errs.push(E::RosterKind {
-                    entry: r.id.clone(),
-                    kind: r.kind.clone(),
-                });
-                continue;
+        let kind = if r.kind == "slime" {
+            RosterKind::Slime
+        } else {
+            match EnemyKind::parse(&r.kind).filter(|k| allowed(*k)) {
+                Some(k) => RosterKind::Room(k),
+                None => {
+                    errs.push(E::RosterKind {
+                        entry: r.id.clone(),
+                        kind: r.kind.clone(),
+                    });
+                    continue;
+                }
             }
         };
+        let haz_roster = |reason: &str| E::Haz {
+            rule: 0,
+            ids: vec![r.id.clone()],
+            reason: reason.into(),
+        };
+        let facing = match (kind, r.facing) {
+            (RosterKind::Slime, Some(f)) if f == 1 || f == -1 => f,
+            (RosterKind::Slime, _) => {
+                errs.push(haz_roster("a slime needs a facing of 1 or -1"));
+                1
+            }
+            (RosterKind::Room(_), None) => 1,
+            (RosterKind::Room(_), Some(_)) => {
+                errs.push(haz_roster("only a slime has a facing"));
+                1
+            }
+        };
+        if !kind.is_slime() && (r.home.is_some() || r.linked_pool.is_some()) {
+            errs.push(haz_roster("only a slime has a home or a linked_pool"));
+        }
+        if kind.is_slime() && (r.gate.is_some() || r.fallback_kind.is_some() || r.perch.is_some()) {
+            errs.push(haz_roster(
+                "a slime has no gate, fallback_kind or perch (it lives on the floor lane)",
+            ));
+        }
         let fallback = match r.fallback_kind.as_deref() {
             Some(name) => match EnemyKind::parse(name) {
                 Some(EnemyKind::Goblin) => Some(EnemyKind::Goblin),
@@ -1714,12 +1958,20 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             Some(p) => room.platforms[p].rect.y,
             None => room.floor_y,
         };
-        let body = IRect::new(
-            r.x - ENEMY_BODY.0 / 2,
-            top - ENEMY_BODY.1,
-            ENEMY_BODY.0,
-            ENEMY_BODY.1,
-        );
+        let body = if kind.is_slime() {
+            // The slime's idle hurtbox, mirrored by its facing.
+            let b = &crate::slime::active().hazq05_hurtbox_idle;
+            let (x0, x1) = (i32::from(b.x0), i32::from(b.x1));
+            let left = if facing > 0 { r.x + x0 } else { r.x - x1 };
+            IRect::new(left, top - i32::from(b.y1), x1 - x0, i32::from(b.y1 - b.y0))
+        } else {
+            IRect::new(
+                r.x - ENEMY_BODY.0 / 2,
+                top - ENEMY_BODY.1,
+                ENEMY_BODY.0,
+                ENEMY_BODY.1,
+            )
+        };
         if body.x < room.play_x.0 || body.right() > room.play_x.1 {
             errs.push(E::RosterOutOfBounds(r.id.clone()));
         }
@@ -1753,7 +2005,7 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 continue;
             }
             let surface_top = room.platforms[*s].rect.y;
-            let reaches = kind_is_ranged(kind)
+            let reaches = kind.room().is_some_and(kind_is_ranged)
                 || r.perch == Some(*s)
                 || (top - surface_top).abs() <= classes.enemy_melee_reach_px;
             if !reaches {
@@ -1766,6 +2018,9 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         roster.push(RosterEntry {
             id: r.id.clone(),
             kind,
+            facing,
+            home: r.home.unwrap_or(r.x),
+            linked_pool: r.linked_pool.clone(),
             gate: r.gate.clone(),
             fallback,
             x: r.x,
@@ -1831,7 +2086,9 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
                 // F7: a counter is backed by the data, not only declared.
                 let backed = match c {
                     VantageCounter::LaneCeiling => ctx.ceiling_px.is_some(),
-                    VantageCounter::GroundRanged => roster.iter().any(|e| kind_is_ranged(e.kind)),
+                    VantageCounter::GroundRanged => roster
+                        .iter()
+                        .any(|e| e.kind.room().is_some_and(kind_is_ranged)),
                     VantageCounter::ReinforcementWave => {
                         roster.iter().any(|e| e.trigger_x.is_some())
                     }
@@ -2053,6 +2310,23 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
         }
     }
 
+    // ---- HAZ-A1: the hazard room's rules 1 to 10 (a no-op without HAZ data)
+    let (acid_patches, pockets) = haz::check(
+        &haz::HazInput {
+            raw,
+            ctx,
+            goal,
+            props: &props,
+            roster: &roster,
+            protected: [
+                ("spawn", protected_spawn),
+                ("checkpoint", checkpoint),
+                ("exit", exit),
+            ],
+        },
+        &mut errs,
+    );
+
     if errs.is_empty() {
         Ok(Encounter {
             id: raw.id.clone(),
@@ -2073,6 +2347,8 @@ fn validate(raw: &RawEncounter, ctx: &Context) -> Result<Encounter, Vec<Encounte
             locks,
             effective_gates: effective,
             reach,
+            acid_patches,
+            pockets,
         })
     } else {
         Err(errs)
@@ -3584,9 +3860,11 @@ mod tests {
     #[test]
     fn the_goal_is_an_open_enum_and_the_story_pin_is_neutral() {
         assert_eq!(Goal::parse("reach_exit"), Some(Goal::ReachExit));
-        assert_eq!(Goal::parse("defeat_roster"), None);
+        // HAZ-A1 appended the goal `defeat_roster` (HAZ-Q39).
+        assert_eq!(Goal::parse("defeat_roster"), Some(Goal::DefeatRoster));
+        assert_eq!(Goal::parse("defeat_party"), None);
         let mut v = sidecar();
-        v["goal"] = json!("defeat_roster");
+        v["goal"] = json!("defeat_party");
         assert!(has(&errors(&v), |e| matches!(
             e,
             EncounterError::UnknownGoal(_)

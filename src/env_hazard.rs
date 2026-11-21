@@ -682,6 +682,96 @@ impl HazardSet {
     }
 }
 
+/// HAZ-A1: the per-entry token policy of a persistent contact volume (an acid
+/// patch, a slime body). BOIL-B core's token is once per (activation, victim)
+/// and a persistent volume has one activation, so a victim standing in it
+/// would be hurt once for ever and a victim re-entering never again.
+///
+/// The rule (HAZ-0 section 8): one hurt per victim per **entry**. The token of
+/// a victim is spent by the hurt and re-armed on the first tick on which the
+/// victim's body is **outside** the volume, so the victim must leave for at
+/// least one tick before it can be hurt again. An entry while the victim cannot
+/// be hurt (invulnerable) spends nothing: the token stays pending, and the hurt
+/// applies on the first tick the victim can be hurt while still inside. The
+/// caller supplies the facts of the tick; the state is a small ordered set
+/// (bounded by the number of victims, hashed in order).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EntryTokens {
+    spent: BTreeSet<Victim>,
+}
+
+impl EntryTokens {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// One victim, one tick. `inside` is whether its body overlaps the volume
+    /// now, `vulnerable` whether a hurt would land now (not invulnerable, not
+    /// defeated). Returns whether the victim is hurt on this tick.
+    pub fn offer(&mut self, victim: Victim, inside: bool, vulnerable: bool) -> bool {
+        if !inside {
+            self.spent.remove(&victim);
+            return false;
+        }
+        if self.spent.contains(&victim) || !vulnerable {
+            return false;
+        }
+        self.spent.insert(victim);
+        true
+    }
+
+    /// Whether the victim's token is spent (it was hurt on this entry).
+    pub fn is_spent(&self, victim: Victim) -> bool {
+        self.spent.contains(&victim)
+    }
+
+    /// Forget every entry (an attempt restart).
+    pub fn clear(&mut self) {
+        self.spent.clear();
+    }
+
+    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
+        mix(self.spent.len() as u64);
+        for victim in &self.spent {
+            mix(match victim.team {
+                Team::Hero => 0,
+                Team::Enemy => 1,
+            });
+            mix(u64::from(victim.id));
+        }
+    }
+}
+
+/// HAZ-A1: a per-launch-instance token. A launched body (a kicked goblin, a
+/// CF02 flier) that lands in a persistent volume is hurt **once per launch**,
+/// however long it lies there and however many times its landing is tested.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LaunchTokens {
+    seen: BTreeSet<u32>,
+}
+
+impl LaunchTokens {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// `true` the first time a launch id is offered, `false` afterwards.
+    pub fn offer(&mut self, launch_id: u32) -> bool {
+        self.seen.insert(launch_id)
+    }
+
+    pub fn clear(&mut self) {
+        self.seen.clear();
+    }
+
+    pub fn mix_into(&self, mix: &mut impl FnMut(u64)) {
+        mix(self.seen.len() as u64);
+        for id in &self.seen {
+            mix(u64::from(*id));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1110,5 +1200,68 @@ mod tests {
         again.contact(Victim::hero(0), inside());
         again.step();
         assert_eq!(hash(&again), *seen.last().unwrap());
+    }
+
+    #[test]
+    fn entry_tokens_hurt_once_per_entry_and_rearm_after_one_tick_outside() {
+        let mut t = EntryTokens::new();
+        let v = Victim::hero(0);
+        assert!(t.offer(v, true, true), "the first tick inside hurts");
+        for _ in 0..50 {
+            assert!(!t.offer(v, true, true), "standing inside never hurts again");
+        }
+        assert!(t.is_spent(v));
+        assert!(!t.offer(v, false, true), "one tick outside");
+        assert!(!t.is_spent(v));
+        assert!(t.offer(v, true, true), "a new entry hurts again");
+    }
+
+    #[test]
+    fn entry_tokens_keep_an_invulnerable_entry_pending() {
+        let mut t = EntryTokens::new();
+        let v = Victim::hero(1);
+        for _ in 0..30 {
+            assert!(!t.offer(v, true, false));
+            assert!(!t.is_spent(v), "an invulnerable entry spends nothing");
+        }
+        assert!(
+            t.offer(v, true, true),
+            "hurts when invulnerability ends inside"
+        );
+        assert!(!t.offer(v, true, true));
+        // Leaving while invulnerable never spends the token either.
+        let mut t = EntryTokens::new();
+        assert!(!t.offer(v, true, false));
+        assert!(!t.offer(v, false, false));
+        assert!(t.offer(v, true, true));
+    }
+
+    #[test]
+    fn entry_tokens_are_per_victim_and_hash_in_order() {
+        let mut a = EntryTokens::new();
+        let mut b = EntryTokens::new();
+        assert!(a.offer(Victim::hero(0), true, true));
+        assert!(a.offer(Victim::hero(1), true, true));
+        assert!(b.offer(Victim::hero(1), true, true));
+        assert!(b.offer(Victim::hero(0), true, true));
+        let hash = |t: &EntryTokens| {
+            let mut h = 0xcbf2_9ce4_8422_2325_u64;
+            t.mix_into(&mut |v| h = (h ^ v).wrapping_mul(0x0000_0100_0000_01b3));
+            h
+        };
+        assert_eq!(hash(&a), hash(&b));
+        assert_ne!(hash(&a), hash(&EntryTokens::new()));
+        a.clear();
+        assert_eq!(a, EntryTokens::new());
+    }
+
+    #[test]
+    fn launch_tokens_count_a_launch_once() {
+        let mut t = LaunchTokens::new();
+        assert!(t.offer(7));
+        assert!(!t.offer(7));
+        assert!(t.offer(8));
+        t.clear();
+        assert!(t.offer(7));
     }
 }

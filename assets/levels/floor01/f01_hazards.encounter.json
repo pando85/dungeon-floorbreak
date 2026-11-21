@@ -1,0 +1,66 @@
+{
+  "schema": "floor01-encounter-v1",
+  "status": "HAZ-A1 data (F01-SETPIECE-HAZARDS, docs/01-design/enemy-gameplay-slime-rot.md sections 15 and 16): greybox hypotheses, validated by src/encounter.rs; nothing here is wired into a scene yet. Every number is a tuning knob. Coordinates are layout pixels, y down, like the room file. Acid patches are NOT hazards: they live in acid_patches so the roster-in-hazard rule never sees them.",
+  "id": "F01-HAZARDS-ENC",
+  "room_file": "f01_hazards.room.json",
+  "room_id": "F01-HAZARDS",
+  "story_pin": "f01_pin_post_pile_boss",
+  "goal": "defeat_roster",
+  "grants": [],
+  "max_living": 4,
+  "locks": [],
+  "platform_slab_px": 12,
+  "protected_spawn": { "x": 16, "y": 484, "w": 112, "h": 96 },
+  "checkpoint": { "x": 80, "y": 484, "w": 48, "h": 96 },
+  "exit": { "x": 1072, "y": 484, "w": 64, "h": 96 },
+  "props": [
+    {
+      "id": "r1",
+      "kind": "rot_sticker",
+      "optional": true,
+      "target": { "x": 590, "y": 512, "w": 20, "h": 14 },
+      "track": {
+        "orientation": "ceiling",
+        "surface": { "x": 496, "y": 500, "w": 128, "h": 12 },
+        "a": { "x": 512, "y": 512 },
+        "b": { "x": 600, "y": 512 },
+        "start": { "x": 600, "y": 512 }
+      }
+    },
+    {
+      "id": "r2",
+      "kind": "rot_sticker",
+      "optional": true,
+      "target": { "x": 750, "y": 496, "w": 20, "h": 14 },
+      "track": {
+        "orientation": "ceiling",
+        "surface": { "x": 744, "y": 484, "w": 80, "h": 12 },
+        "a": { "x": 760, "y": 496 },
+        "b": { "x": 816, "y": 496 },
+        "start": { "x": 760, "y": 496 }
+      }
+    }
+  ],
+  "hazards": [],
+  "links": [],
+  "acid_patches": [
+    { "id": 1, "x0": 248, "x1": 312, "floor_y": 580, "linked_slime": "s1" },
+    { "id": 2, "x0": 856, "x1": 920, "floor_y": 580, "linked_slime": "s2" }
+  ],
+  "pockets": [
+    { "id": "a", "x0": 160, "x1": 400, "max_stickers": 0, "max_slimes": 1, "max_goblins": 1 },
+    { "id": "b", "x0": 400, "x1": 720, "max_stickers": 1, "max_slimes": 0, "max_goblins": 0 },
+    { "id": "c", "x0": 720, "x1": 1008, "max_stickers": 2, "max_slimes": 1, "max_goblins": 1 }
+  ],
+  "roster": [
+    { "id": "s1", "kind": "slime", "x": 280, "facing": -1, "home": 280, "linked_pool": "1", "beat": "A", "delay_ticks": 0 },
+    { "id": "g_a", "kind": "goblin", "x": 380, "beat": "A", "delay_ticks": 60 },
+    { "id": "s2", "kind": "slime", "x": 800, "facing": -1, "home": 800, "linked_pool": "2", "beat": "C", "trigger_x": 640, "delay_ticks": 0 },
+    { "id": "g_c", "kind": "goblin", "x": 952, "beat": "C", "trigger_x": 640, "delay_ticks": 60 }
+  ],
+  "gates": [
+    { "surface": 0, "class": "carl" },
+    { "surface": 1, "class": "carl" }
+  ],
+  "vantages": []
+}

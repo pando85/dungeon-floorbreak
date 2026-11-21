@@ -182,6 +182,10 @@ pub fn data_pins() -> Vec<(&'static str, u64)> {
         // CORRAL-B core (CRL-Q40): the llama rush profile. Stamped now so a
         // recording made once the wire step reads it carries the hash.
         (crate::llama_rush::PIN_KEY, crate::llama_rush::TUNING_HASH),
+        // HAZ-A1: the slime/acid and Rot Sticker knob files (HAZ-0 section 16),
+        // stamped on every recording and required by a replay.
+        (crate::slime::PIN_KEY, crate::slime::TUNING_HASH),
+        (crate::rot_sticker::PIN_KEY, crate::rot_sticker::TUNING_HASH),
     ]
 }
 
