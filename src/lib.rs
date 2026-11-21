@@ -32,6 +32,7 @@ pub mod combat_lab_overlay;
 pub mod combat_scene;
 pub mod companion;
 pub mod companion_fixtures;
+pub mod corral_eval;
 pub mod corridor;
 pub mod death;
 pub mod death_present;
