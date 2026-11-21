@@ -92,7 +92,7 @@ With the defaults (edge margin 32, half width 12, leash 240) the zone is up to 2
 | Distance from Carl | Effect |
 | --- | --- |
 | up to `CA2-Q06` comfort radius (160 px) | No pull. Any goal is fine |
-| comfort radius to the zone edge | Soft pull: goals and spots lose `CA2-Q06` 2 utility per px past the comfort radius, so she drifts back unless something there is worth it |
+| comfort radius to the zone edge | Soft pull: **spots** lose `CA2-Q06` 2 utility per px past the comfort radius (adopted default AD-B5, CA2-B1 review N-a: the pull is on spot scores only, not on goal utilities, so a running Hunt keeps against a travelling Escort), so she drifts back unless something there is worth it |
 | outside `Z` (involuntary only: knockback, a nav hold, a swap) | Hard limit: the Escort goal wins at once, every other goal is ineligible until she is back inside |
 
 **Camera about to move.** "Carl travels" is true when he has moved in one direction for `CA2-Q07` 12 consecutive ticks or the scroll camera still wants to pan (the remaining distance its deadzone step reports, read-only). While Carl travels, Escort gains `CA2-Q07` +400, no new Perch or Show-off starts, and a Hunt continues only if its target stays commit-safe (3.3). She comes along at her own spacing (`CA2-Q07` escort spot 72 to 120 px behind him, on flat standing ground), she does not copy his hops (the follow bot's ledge hop is not used under autonomy, `CA2-Q27`), and the nav graph plans any real jump or drop the route needs.
@@ -350,6 +350,7 @@ All values are data in `assets/data/gameplay/companion_ai_v0.json`, block `auton
 | CA2-Q33 | Retreat share of combat ticks in `cf02_free_arena_direct` (M15) *R1* | at most 25 % | The "feels passive" guard (review F-7); a miss is a design note, not a silent retune |
 | CA2-Q34 | `ca2_q34_cause_window_ticks` (M5 involuntary predicate) *R1* | 60 | Covers a hurt's knockback and flinch, a nav hold and a swap pan before an exit (review F-4) |
 | CA2-Q35 | Goals under a boss *R1* | Interrupt, Retreat, Escort, Idle only, until COMPANION-AI-01E | Review FU-2; boss blows are the main source of a leader faster than his run speed |
+| CA2-Q36 | `ca2_q36_transit_slack_ticks` (CA2-B2, PR #213 review B-1) | 4 | The drift check prices a jump or drop route **from her position**: the walk from her x (then each landing) to the edge's launch point, the simulated air time, and the walk from the last landing to the spot, plus this slack per edge. It is not the edge's anchor-centre-to-centre time, which priced a 32 px gap at 173 ticks against a real transit of 71 and rejected every spot across it (she never reached Support-leader) |
 
 ## 7. Acceptance and evidence
 

@@ -226,6 +226,7 @@ fn live_tuning(manifest: &SessionManifest) -> Result<PartyTuning, VerifyFailure>
         None | Some("off") => UncontrolledHero::FollowAndJumpBot,
         Some("cf02_assist") => UncontrolledHero::Companion(ProfileSetId::Cf02Assist),
         Some("companion_v0") => UncontrolledHero::Companion(ProfileSetId::CompanionV0),
+        Some("cf02_free") => UncontrolledHero::Companion(ProfileSetId::Cf02Free),
         Some(other) => {
             return Err(VerifyFailure::new(
                 "rules_mismatch",

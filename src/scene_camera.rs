@@ -283,12 +283,12 @@ fn camera_inputs(
     sim: &SceneSim,
     combat: Option<&CombatState>,
     interest: &CameraInterest,
-) -> (Vec<Subject>, Vec<Threat>, bool) {
+) -> (Vec<Subject>, Vec<Threat>, bool, Vec<Subject>) {
     let world = &sim.world;
     let h = world.layout_height() as f32;
     let hero = &world.hero;
     let donut = &world.donut;
-    let subjects = vec![
+    let mut heroes = vec![
         Subject {
             x: hero.x,
             y: h - hero.y,
@@ -302,6 +302,24 @@ fn camera_inputs(
             half_h: DONUT_HALF_HEIGHT,
         },
     ];
+    // COMPANION-AI-02 CA2-Q25: under `cf02_free` the autonomous partner is a
+    // bound-only subject: her camera body plus the bound pad is kept inside the
+    // view, but she is never framed (she cannot widen, zoom or re-centre it).
+    let (bound, pad) = combat.map_or(([false; 2], 0.0), CombatState::camera_bound_only);
+    let mut bound_only = Vec::new();
+    if bound.iter().any(|b| *b) {
+        let all = std::mem::take(&mut heroes);
+        for (i, mut s) in all.into_iter().enumerate() {
+            if bound[i] {
+                s.half_w += pad;
+                s.half_h += pad;
+                bound_only.push(s);
+            } else {
+                heroes.push(s);
+            }
+        }
+    }
+    let subjects = heroes;
     let mut threats: Vec<Threat> = interest.threats.iter().map(|t| t.to_threat(h)).collect();
     threats.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.x.total_cmp(&b.x)));
     threats.truncate(MAX_THREATS);
@@ -311,7 +329,7 @@ fn camera_inputs(
             || c.enemies.iter().any(|g| g.hit_stop > 0)
             || c.camera_kick(world.tick) != 0
     });
-    (subjects, threats, impact)
+    (subjects, threats, impact, bound_only)
 }
 
 /// Evidence and test helper: room `index` (1 to 6) of the camera lab composed
@@ -392,7 +410,7 @@ impl SceneCameraRig {
         elapsed: u64,
     ) -> Option<Self> {
         let mode = cfg.choice.mode()?;
-        let (subjects, threats, impact_hold) = camera_inputs(sim, combat, interest);
+        let (subjects, threats, impact_hold, bound_only) = camera_inputs(sim, combat, interest);
         let op = CameraOperator::new_for_output(
             mode,
             cfg.aspect,
@@ -402,6 +420,7 @@ impl SceneCameraRig {
                 subjects: &subjects,
                 threats: &threats,
                 impact_hold,
+                bound_only: &bound_only,
             },
         );
         Some(Self {
@@ -465,12 +484,13 @@ impl SceneCameraRig {
         }
         self.last_elapsed = elapsed;
         self.last_hero = (sim.world.hero.x, sim.world.hero.y);
-        let (subjects, threats, impact_hold) = camera_inputs(sim, combat, interest);
+        let (subjects, threats, impact_hold, bound_only) = camera_inputs(sim, combat, interest);
         for _ in 0..behind {
             self.op.step(&CameraInput {
                 subjects: &subjects,
                 threats: &threats,
                 impact_hold,
+                bound_only: &bound_only,
             });
         }
         self.op.view()
@@ -1084,5 +1104,112 @@ mod tests {
             run(Some(CameraChoice::Auto)).2,
             run(Some(CameraChoice::Fixed(1.5))).2
         );
+    }
+
+    // ----------------------- CA2-B2: the partner is a bound-only subject ----------
+
+    /// One rig run over a fixture: every view, the rest-width series, the zoom
+    /// changes and her `(tick, body x, view)` per tick.
+    type RigRun = (Vec<View>, Vec<i32>, u32, Vec<(u64, f32, View)>);
+
+    fn free_rig_run(
+        f: &'static crate::party_scene::PartyFixture,
+        cfg_of: impl Fn(&EnvKit) -> RigConfig,
+        perturb: f32,
+    ) -> RigRun {
+        use crate::party_scene::PartyFixtureSim;
+        let kit = crate::cf02::arena::load_arena(root()).unwrap();
+        let mut sim = PartyFixtureSim::new(&kit, 360, f).unwrap();
+        let cfg = cfg_of(&kit);
+        let mut interest = CameraInterest::default();
+        let mut rig =
+            SceneCameraRig::new(cfg, &sim.scene, Some(&sim.combat), &interest, 0).unwrap();
+        let (mut views, mut rest, mut body) = (Vec::new(), Vec::new(), Vec::new());
+        for _ in 0..f.base.ticks {
+            sim.step_scripted();
+            interest.clear();
+            llama_interest(&sim.scene, &sim.combat, &mut interest);
+            let real_x = sim.scene.world.donut.x;
+            sim.scene.world.donut.x += perturb;
+            let v = rig.sync(&sim.scene, Some(&sim.combat), &interest, sim.combat.elapsed);
+            sim.scene.world.donut.x = real_x;
+            views.push(v);
+            rest.push(rig.operator().rest_target());
+            body.push((sim.scene.world.tick, sim.scene.world.donut_body.x, v));
+        }
+        (views, rest, rig.operator().zoom_changes, body)
+    }
+
+    fn rig_cfg(aspect: Aspect, out_w: u32) -> impl Fn(&EnvKit) -> RigConfig {
+        move |kit| RigConfig {
+            choice: CameraChoice::Auto,
+            aspect,
+            out_w,
+            bounds: Bounds {
+                w: kit.width,
+                h: kit.height,
+            },
+        }
+    }
+
+    /// M8: her body (not her safety region) is inside the automatic camera's view
+    /// on every tick of every `cf02_free_*` fixture, at the 640 and 960 rest widths
+    /// and both aspects (a miss is a bug in the pad, the rise limit or the leash).
+    #[test]
+    fn m8_her_body_is_inside_the_automatic_view() {
+        for f in crate::cf02_free_fixtures::CF02_FREE_FIXTURES {
+            for (aspect, out_w) in [
+                (Aspect::Wide16x9, 1280),
+                (Aspect::Wide16x9, 1920),
+                (Aspect::Deck16x10, 1280),
+                (Aspect::Deck16x10, 1920),
+            ] {
+                let (_, _, _, body) = free_rig_run(f, rig_cfg(aspect, out_w), 0.0);
+                for (tick, x, v) in body {
+                    assert!(
+                        x - 12.0 >= v.left as f32 && x + 12.0 <= v.right() as f32,
+                        "{} {aspect:?} out {out_w}: tick {tick} her x {x:.1} outside {v:?}",
+                        f.name()
+                    );
+                }
+            }
+        }
+    }
+
+    /// M7: the automatic camera's rest-width series and every view are the same
+    /// with her position perturbed by +-200 px where no threat is framed (she
+    /// cannot widen, zoom or re-centre it), and the scroll camera reads the
+    /// controlled body only (it is the same whatever she does).
+    #[test]
+    fn m7_she_never_moves_or_zooms_the_camera() {
+        use crate::cf02_free_fixtures::CF02_FREE_EXPLORE_ROOM as F;
+        let cfg = rig_cfg(Aspect::Wide16x9, 1920);
+        let (base_views, base_rest, base_zoom, _) = free_rig_run(&F, &cfg, 0.0);
+        for dx in [-200.0f32, 200.0] {
+            let (views, rest, zoom, _) = free_rig_run(&F, &cfg, dx);
+            assert_eq!(rest, base_rest, "rest-width series, dx {dx}");
+            assert_eq!(zoom, base_zoom, "zoom changes, dx {dx}");
+            // Where her moved region stays in view the whole series is identical;
+            // widths are identical everywhere (she never sets the width).
+            assert!(
+                views.iter().zip(&base_views).all(|(a, b)| a.w == b.w),
+                "dx {dx}"
+            );
+        }
+        // The scroll camera: Carl is scripted, so its series must not depend on
+        // where she is put at the start.
+        use crate::party_scene::PartyFixtureSim;
+        let kit = crate::cf02::arena::load_arena(root()).unwrap();
+        let lefts = |shift: f32| {
+            let mut sim = PartyFixtureSim::new(&kit, 360, &F).unwrap();
+            sim.scene.world.donut_body.x += shift;
+            (0..F.base.ticks)
+                .map(|_| {
+                    sim.step_scripted();
+                    sim.scene.camera.left()
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(lefts(0.0), lefts(150.0));
     }
 }

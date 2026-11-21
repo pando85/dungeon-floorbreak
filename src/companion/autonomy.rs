@@ -584,10 +584,18 @@ pub struct AutonomyStats {
     /// Ticks the brief allowed interrupts only because the commitment from her
     /// current x fails the drift check (review F-2).
     pub brief_drift_blocked_ticks: u32,
-    /// Interrupt presses the director skipped because the worst case of the
-    /// commitment would leave the view (spec 3.3, M16; see
-    /// [`AutonomyState::record_decision`]).
+    /// Ticks on which the director skipped an interrupt press because the worst
+    /// case of the commitment would leave the view (spec 3.3, M16; see
+    /// [`AutonomyState::record_decision`]). It counts **press ticks**, not tells:
+    /// while she stays in reach and outside `commit_x`, one tell is counted on
+    /// every tick it stays legal. The metrics harness reports it as ticks.
     pub interrupts_drift_skipped: u32,
+    /// Ticks the leader counted as travelling (the 12-tick walk or a pending
+    /// camera pan), and of those the ticks that only the pending pan made true
+    /// (review N-e: a leader who turns near the dead-zone edge shifts the lead
+    /// point; reported with M13 and M15, never tuned here).
+    pub travelling_ticks: u32,
+    pub pan_only_travelling_ticks: u32,
 }
 
 /// Everything one tick's step reads.
@@ -1145,6 +1153,11 @@ impl AutonomyState {
         self.stats
     }
 
+    /// Restore a run's counters into a fresh state (the scene's restart).
+    pub fn carry_stats(&mut self, stats: AutonomyStats) {
+        self.stats = stats;
+    }
+
     /// Fold the director's decision of this tick into the M16 counters: the scene
     /// calls it after `step_briefed`.
     pub fn record_decision(&mut self, decision: &Decision) {
@@ -1176,9 +1189,13 @@ impl AutonomyState {
         ) = keep;
     }
 
-    /// A respawn, a defeat retry or a restart: everything back to default.
+    /// A respawn, a defeat retry or a restart: everything back to default except
+    /// the M16 counters, which are a run's report and never hashed (PR #213
+    /// review F-1: a restart must not wipe them).
     pub fn reset(&mut self) {
+        let stats = self.stats;
         *self = Self::default();
+        self.stats = stats;
     }
 
     /// Mix the state (the scene folds it into its hash only while the partner
@@ -1479,7 +1496,10 @@ impl AutonomyState {
         let tick = view.tick;
         self.observe(inp, me, leader, table);
         let mana_cast = me.mana.is_some_and(|m| m.unlocked && m.ai_can_cast);
-        let travelling = self.travel_ticks >= a.ca2_q07_travel_ticks || inp.pan_remaining > 0;
+        let walking = self.travel_ticks >= a.ca2_q07_travel_ticks;
+        let travelling = walking || inp.pan_remaining > 0;
+        self.stats.travelling_ticks += u32::from(travelling);
+        self.stats.pan_only_travelling_ticks += u32::from(travelling && !walking);
         let ctx = Ctx {
             inp,
             a,
@@ -1906,53 +1926,6 @@ impl Ctx<'_> {
     /// applied in `candidates`); Retreat is one of them, so the trigger stays.
     fn boss_blocks_retreat(&self) -> bool {
         self.boss && !Goal::Retreat.row(self.t).under_boss
-    }
-}
-
-/// COMPANION-AI-02 CA2-B1 evidence harness (test builds only): a thread-local
-/// recorder of the views the live companion tick builds, so the goal layer can
-/// be run in shadow on the Floor 1 combat fixtures without wiring it.
-#[cfg(test)]
-pub(crate) mod shadow {
-    use super::ViewRows;
-    use crate::companion::view::CompanionView;
-    use crate::corridor::SceneSim;
-    use crate::prototype::Block;
-    use std::cell::RefCell;
-
-    /// One recorded tick.
-    pub(crate) struct Sample {
-        pub view: CompanionView,
-        pub rows: ViewRows,
-        pub pan_remaining: i32,
-        pub solids: Vec<Block>,
-    }
-
-    thread_local! {
-        static REC: RefCell<Option<Vec<Sample>>> = const { RefCell::new(None) };
-    }
-
-    /// Start recording on this thread.
-    pub(crate) fn enable() {
-        REC.with(|r| *r.borrow_mut() = Some(Vec::new()));
-    }
-
-    /// Stop recording and take the samples.
-    pub(crate) fn take() -> Vec<Sample> {
-        REC.with(|r| r.borrow_mut().take().unwrap_or_default())
-    }
-
-    pub(crate) fn record(view: &CompanionView, scene: &SceneSim) {
-        REC.with(|r| {
-            if let Some(samples) = r.borrow_mut().as_mut() {
-                samples.push(Sample {
-                    view: view.clone(),
-                    rows: ViewRows::of_camera(&scene.camera.config()),
-                    pan_remaining: scene.camera_pan_remaining(),
-                    solids: scene.world.solids.clone(),
-                });
-            }
-        });
     }
 }
 
@@ -3850,7 +3823,12 @@ mod tests {
         assert!(a.step().is_none());
         assert!(a.st.spot().is_none());
         // A respawn, a defeat retry or a restart resets everything, cooldowns too.
+        let kept = a.st.stats();
+        assert!(kept.decisions > 0, "the run counted decisions");
         a.st.reset();
+        // The M16 counters are the run's report: a restart keeps them (review F-1).
+        assert_eq!(a.st.stats(), kept);
+        a.st.carry_stats(AutonomyStats::default());
         assert_eq!(a.st, AutonomyState::default());
         assert_eq!(a.st.state_hash(), AutonomyState::new().state_hash());
     }
@@ -4125,35 +4103,47 @@ mod tests {
         assert!(b.director.allowed.is_empty() || b.goal != Goal::Hunt);
     }
 
-    /// F-2: a spot that stops passing the drift check is re-picked, not kept (the
-    /// leader runs and the old spot is now too far from him).
+    /// F-2 (re-review geometry): a spot that stops passing the drift check is
+    /// dropped on the very tick after the leader moves, before any cadence
+    /// decision could replace it. Goblin at 200, Donut at 256, the leader at 320:
+    /// the first spot (254) is commit-safe. When he walks 46 px away from her,
+    /// the same spot fails the pounce's worst case, and `spot_valid` must say so
+    /// at once (the cadence is 6 ticks and not due).
     #[test]
-    fn a_spot_that_no_longer_passes_the_drift_check_is_repicked() {
+    fn a_spot_that_no_longer_passes_the_drift_check_is_dropped_before_the_cadence() {
         let mut rig = Rig::new();
-        rig.donut().x = 286.0;
-        rig.goblin(1, 230.0, standing());
-        let first = rig.step().unwrap().spot.unwrap();
+        rig.donut().x = 256.0;
+        rig.goblin(1, 200.0, standing());
+        let first = rig.step().unwrap().spot.expect("a first spot");
         assert_eq!(rig.st.goal(), Goal::Hunt);
-        // The leader moves 40 px away from her (under the 48 px re-pick rule): the
-        // old spot would now fail the pounce's worst case from the farther side,
-        // so the layer must not keep it.
-        rig.carl().x = 360.0;
-        rig.run(10);
-        if let Some(spot) = rig.st.spot() {
-            let zone = {
-                let a = rig.set.autonomy.clone();
-                FreeZone::compute(
-                    &ZoneInput::new(&rig.v.heroes[0], rig.v.view, goal_rows()),
-                    &a,
-                )
-            };
-            let drift = DriftCheck::new(HeroMotion::CARL, &rig.set.autonomy);
-            let t = rig.v.target(StableEntityId::goblin(1)).unwrap();
-            let end = t.x - f32::from(sign(t.x - spot.x)) * POUNCE_CONTACT_PX;
-            assert!(
-                drift.allows_pounce(&zone, spot.x, end, &DonutMoveTuning::SPEC),
-                "the held spot {spot:?} (first {first:?}) fails the drift check"
-            );
+        assert_eq!(first.x, 254.0, "the geometry of the re-review");
+        // The spot is valid as long as the leader stays (a few quiet ticks).
+        let quiet = rig.run(2).unwrap();
+        assert_eq!(quiet.spot, Some(first));
+        // He walks 46 px away from her (366 against the spot at 254): the pounce's
+        // worst case from the spot now leaves the view, so the spot must fail.
+        rig.carl().x += 46.0;
+        let zone = FreeZone::compute(
+            &ZoneInput::new(&rig.v.heroes[0], rig.v.view, goal_rows()),
+            &rig.set.autonomy,
+        );
+        let drift = DriftCheck::new(HeroMotion::CARL, &rig.set.autonomy);
+        let tx = rig.v.target(StableEntityId::goblin(1)).unwrap().x;
+        let end = tx - f32::from(sign(tx - first.x)) * POUNCE_CONTACT_PX;
+        assert!(
+            !drift.allows_pounce(&zone, first.x, end, &DonutMoveTuning::SPEC),
+            "the moved leader must make the first spot fail the drift check"
+        );
+        let b = rig.step().unwrap();
+        assert_ne!(
+            b.spot,
+            Some(first),
+            "the stale spot {first:?} was kept on the tick after the move"
+        );
+        // And what she holds never fails the check (she may hold none at all).
+        if let Some(spot) = b.spot {
+            let end = tx - f32::from(sign(tx - spot.x)) * POUNCE_CONTACT_PX;
+            assert!(drift.allows_pounce(&zone, spot.x, end, &DonutMoveTuning::SPEC));
         }
     }
 
@@ -4300,129 +4290,5 @@ mod tests {
             });
             assert!(refused.is_err(), "a slower partner must be refused");
         }
-    }
-
-    // ----------------------------------------- the Floor 1 shadow scenario ----
-
-    /// The result of one shadow run.
-    #[derive(Debug, PartialEq)]
-    struct ShadowRun {
-        /// Each goal change: tick, goal, reason, target.
-        timeline: Vec<(u64, Goal, GoalReason, Option<StableEntityId>)>,
-        stats: AutonomyStats,
-        steered: usize,
-        hash: u64,
-    }
-
-    /// One fixture run in shadow: the live companion tick builds its view, the
-    /// goal layer (built on the real nav graph of the level) decides on it, and
-    /// nothing is fed back. Returns the goal timeline and the layer's counters.
-    fn shadow_run(name: &str) -> ShadowRun {
-        use crate::companion::nav::NavConfig;
-        use crate::companion::navfollow::{NavDriver, NavSpots};
-        use crate::party_scene::PartyFixtureSim;
-        let fixture = crate::cf02_fixtures::find_party_fixture(name).expect("a fixture");
-        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let kit = if crate::cf02::arena::fixture_uses_arena(fixture.name()) {
-            crate::cf02::arena::load_arena(&root).unwrap()
-        } else {
-            EnvKit::load(&root, "assets/levels/floor01/corridor_abc_sample.json").unwrap()
-        };
-        let mut sim = PartyFixtureSim::new(&kit, 360, fixture).unwrap();
-        shadow::enable();
-        for _ in 0..fixture.base.ticks {
-            sim.step_scripted();
-        }
-        let samples = shadow::take();
-        let set = free_set();
-        let a = set.autonomy.clone();
-        let tuning = DonutMoveTuning::SPEC;
-        let drift = DriftCheck::new(HeroMotion::CARL, &a);
-        let mut state = AutonomyState::new();
-        let mut nav: Option<NavDriver> = None;
-        let mut timeline = Vec::new();
-        let mut steered = 0usize;
-        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-        for sample in &samples {
-            let nav = nav
-                .get_or_insert_with(|| NavDriver::new(&sample.solids, NavConfig::agile()).unwrap());
-            let v = &sample.view;
-            if v.heroes[1].control != Control::Companion
-                || !matches!(v.heroes[0].control, Control::Human(_))
-            {
-                state.clear_plan();
-                continue;
-            }
-            let world = NavSpots::new(nav, HeroId::Donut, f32::from(a.ca2_q29_ledge_inset_px));
-            let zone = FreeZone::compute(&ZoneInput::new(&v.heroes[0], v.view, sample.rows), &a);
-            let brief = state.step(&AutonomyInput {
-                view: v,
-                set: &set,
-                partner: HeroId::Donut,
-                zone: &zone,
-                drift: &drift,
-                partner_motion: crate::agility::agile_motion(),
-                tuning: &tuning,
-                world: &world,
-                pan_remaining: sample.pan_remaining,
-                partner_hit_landed: false,
-            });
-            let Some(brief) = brief else { continue };
-            steered += 1;
-            if let Some(reason) = brief.changed {
-                timeline.push((v.tick, brief.goal, reason, brief.target));
-            }
-            // Fold the whole decision stream into one number: determinism.
-            for byte in state.state_hash().to_le_bytes() {
-                hash ^= u64::from(byte);
-                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-            }
-        }
-        ShadowRun {
-            timeline,
-            stats: state.stats(),
-            steered,
-            hash,
-        }
-    }
-
-    /// Evidence: the goal layer in shadow on the Floor 1 combat fixtures, where
-    /// the live companion is the AI Donut. Prints each fixture's goal timeline
-    /// (the PR body quotes it); asserts only what must hold: the layer steers on
-    /// every companion-driven tick, it picks a Hunt on the goblins Carl is not
-    /// working where the fixtures have one, and two runs are identical.
-    #[test]
-    fn shadow_on_the_floor_one_combat_fixtures() {
-        let mut hunts_seen = 0;
-        for name in [
-            "cf02_assist_donut_flanks_two_goblins",
-            "cf02_assist_donut_guards_carls_back",
-            "cf02_assist_pounce_staggered",
-            "cf02_assist_swat_interrupt",
-            "cf02_arena_direct",
-        ] {
-            let run = shadow_run(name);
-            assert_eq!(run, shadow_run(name), "{name}: two runs differ");
-            let ShadowRun {
-                timeline,
-                stats,
-                steered,
-                hash,
-            } = run;
-            assert!(steered > 0, "{name}: the layer never steered");
-            println!("shadow {name}: {steered} steered ticks, hash {hash:#018x}");
-            println!(
-                "  decisions {}, hunt evaluations {}, claim-excluded {}, drift-rejected {}",
-                stats.decisions,
-                stats.hunt_evaluations,
-                stats.hunt_claim_excluded,
-                stats.hunt_drift_rejected
-            );
-            for (tick, goal, reason, target) in &timeline {
-                println!("  tick {tick:4}  {:<14} {reason:?} {target:?}", goal.name());
-            }
-            hunts_seen += timeline.iter().filter(|t| t.1 == Goal::Hunt).count();
-        }
-        assert!(hunts_seen > 0, "no fixture produced a Hunt");
     }
 }

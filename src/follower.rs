@@ -37,6 +37,20 @@ pub fn jump_reach_px(hero: HeroId, tuning: &PartyTuning) -> f32 {
         _ => JUMP_REACH_PX,
     }
 }
+/// DP-Q16: [`jump_reach_px`] for the launch Donut has **now**: with
+/// `jump_reach_boost` held her reach is the discrete apex of the boosted launch
+/// less the DM-Q08 margin (133.95 px at the adopted 547). `None`, and every
+/// other hero, is [`jump_reach_px`] exactly.
+pub fn jump_reach_px_now(hero: HeroId, tuning: &PartyTuning, donut_launch: Option<f32>) -> f32 {
+    match (hero, donut_launch) {
+        (HeroId::Donut, Some(launch)) => {
+            crate::agility::discrete_apex_px(launch)
+                - crate::agility::tuning().dm_q08_ai_jump_margin_px
+        }
+        _ => jump_reach_px(hero, tuning),
+    }
+}
+
 /// A tell is dodged only while the swing is still far enough away for the
 /// jump to be above the 30 px swing box on its active ticks (26..30): a jump
 /// started on attack tick 0..=20 is above it on every one of them.
@@ -66,8 +80,9 @@ pub fn follower_input(
     solids: &[Block],
     threats: &[Threat],
     tuning: &PartyTuning,
+    donut_launch: Option<f32>,
 ) -> RawInput {
-    let reach = jump_reach_px(me_id, tuning);
+    let reach = jump_reach_px_now(me_id, tuning, donut_launch);
     let mut raw = RawInput::default();
     let foot_y = me.y - HERO_HALF_HEIGHT;
 
@@ -124,7 +139,8 @@ pub fn follower_input(
 /// [`follower_input`] plus the boss dodges (HUD-DEBT-03, D1 safeguard M3): the
 /// bot steps out of a pound tell aimed at it within 72 px, and jumps when a
 /// running charge's ram box will reach it within `lead_ticks`. It never
-/// attacks and never triggers a rack. `me_id` is the hero the bot drives.
+/// attacks and never triggers a rack. `me_id` is the hero the bot drives; the
+/// last argument is the tuning and Donut's launch of this tick (DP-Q17).
 pub fn follower_input_boss(
     (me_id, me): (HeroId, &Hero),
     frame: &InputFrame,
@@ -132,9 +148,17 @@ pub fn follower_input_boss(
     solids: &[Block],
     threats: &[Threat],
     boss: Option<&BossThreat>,
-    tuning: &PartyTuning,
+    (tuning, donut_launch): (&PartyTuning, Option<f32>),
 ) -> RawInput {
-    let mut raw = follower_input((me_id, me), frame, leader, solids, threats, tuning);
+    let mut raw = follower_input(
+        (me_id, me),
+        frame,
+        leader,
+        solids,
+        threats,
+        tuning,
+        donut_launch,
+    );
     let Some(boss) = boss else {
         return raw;
     };
@@ -239,6 +263,7 @@ mod tests {
             solids,
             threats,
             &PROVISIONAL_TUNING,
+            None,
         )
     }
 
@@ -291,6 +316,7 @@ mod tests {
                 &solids,
                 &[],
                 tuning,
+                None,
             )
         };
         for (height, donut_jumps) in [(96.0, true), (104.0, true), (112.0, false)] {
@@ -369,6 +395,7 @@ mod tests {
             &solids,
             &[near],
             &PROVISIONAL_TUNING,
+            None,
         );
         assert!(!raw.jump);
         let mut air = hero(300.0);
@@ -402,7 +429,7 @@ mod tests {
                 &solids,
                 &[],
                 Some(&threat),
-                &PROVISIONAL_TUNING,
+                (&PROVISIONAL_TUNING, None),
             )
             .jump
         };

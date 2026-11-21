@@ -116,6 +116,8 @@ pub fn goblin_health(fixture: &str) -> Option<u8> {
         "cf02_cancel_table" => Some(9),
         // COMPANION-AI-01 01A-wire: the `cf02_assist_*` fixtures (src/companion_fixtures.rs).
         name if name.starts_with("cf02_assist_") => crate::companion_fixtures::goblin_health(name),
+        // COMPANION-AI-02 CA2-B2: the `cf02_free_*` fixtures.
+        name if name.starts_with("cf02_free_") => crate::cf02_free_fixtures::goblin_health(name),
         _ => None,
     }
 }
@@ -1869,6 +1871,12 @@ pub fn find_party_fixture(name: &str) -> Option<&'static PartyFixture> {
         .or_else(|| CF02_FIXTURES.iter().copied().find(|f| f.name() == name))
         .or_else(|| ENGINEER_FIXTURES.iter().copied().find(|f| f.name() == name))
         .or_else(|| {
+            crate::cf02_free_fixtures::CF02_FREE_FIXTURES
+                .iter()
+                .copied()
+                .find(|f| f.name() == name)
+        })
+        .or_else(|| {
             crate::carl_prog_fixtures::CARL_PROG_FIXTURES
                 .iter()
                 .copied()
@@ -1901,6 +1909,11 @@ pub fn list_fixtures(prefix: &str) -> Vec<&'static str> {
         .chain(CF02_FIXTURES.iter().map(|f| f.name()))
         .chain(ENGINEER_FIXTURES.iter().map(|f| f.name()))
         .chain(COMPANION_FIXTURES.iter().map(|f| f.name()))
+        .chain(
+            crate::cf02_free_fixtures::CF02_FREE_FIXTURES
+                .iter()
+                .map(|f| f.name()),
+        )
         .chain(
             crate::carl_prog_fixtures::CARL_PROG_FIXTURES
                 .iter()
@@ -1947,6 +1960,7 @@ mod tests {
             .filter(|n| {
                 !(n.starts_with("cf02_llama_")
                     || n.starts_with("cf02_assist_")
+                    || n.starts_with("cf02_free_")
                     || n.starts_with("cf02_arena_eng")
                     || *n == "cf02_donut_solo_llama"
                     || *n == "cf02_donut_bailout"
@@ -4778,9 +4792,11 @@ mod tests {
         use crate::cine::PresentationSettings;
         use crate::cine_adapter::CineAdapter;
         let mut table = Vec::new();
+        // The `cf02_free_*` goldens (CA2-B2) are not CF02-F room goldens; their
+        // cinematic count is checked in their own module.
         for name in list_fixtures("cf02_")
             .into_iter()
-            .filter(|n| arena::fixture_uses_arena(n))
+            .filter(|n| arena::fixture_uses_arena(n) && !n.starts_with("cf02_free_"))
         {
             let fixture = find_party_fixture(name).unwrap();
             let mut sim =

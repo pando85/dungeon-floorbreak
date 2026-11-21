@@ -43,7 +43,7 @@
 use crate::companion::autonomy::{SpotWorld, Surface};
 use crate::companion::nav::{
     EdgeKind, EdgePlan, NavAnchorId, NavConfig, NavError, NavGraph, NavLevel, Plan, Reason,
-    SolidId, UNSAFE_RISK, Unlocks,
+    SolidId, UNSAFE_RISK, Unlocks, walk_ticks,
 };
 use crate::companion::view::HeroView;
 use crate::input::STICK_DEADZONE;
@@ -239,6 +239,12 @@ pub struct NavDriver {
     graph: NavGraph,
     /// The physics the graph is built under (rebuilds keep it).
     config: NavConfig,
+    /// COMPANION-AI-02 CA2-B2 (Revision 3, DP-Q38): no Jump edge is planned from
+    /// an anchor whose top is above this y (the apex-aware rise limit: a full
+    /// jump from there would put her head above the view). `None`: no limit (the
+    /// follow layer and every other set). A control flag set each tick by the
+    /// wiring, never hashed.
+    jump_ceiling_y: Option<f32>,
     pub heroes: [HeroNav; 2],
 }
 
@@ -250,12 +256,50 @@ impl NavDriver {
         Ok(Self {
             graph: NavGraph::build(&NavLevel::from_blocks(solids, Vec::new()), config)?,
             config,
+            jump_ceiling_y: None,
             heroes: [HeroNav::default(); 2],
         })
     }
 
+    /// Set (or clear) the highest anchor top a Jump edge may start from (see
+    /// the field). Drop and walk edges are never limited.
+    pub fn set_jump_ceiling(&mut self, y: Option<f32>) {
+        self.jump_ceiling_y = y;
+    }
+
+    /// Whether the edge `from -> to` of `kind` may be planned under the jump
+    /// ceiling.
+    fn edge_allowed(&self, from: NavAnchorId, kind: EdgeKind) -> bool {
+        kind != EdgeKind::Jump
+            || self.jump_ceiling_y.is_none_or(|limit| {
+                self.graph
+                    .anchor_pos(from)
+                    .is_none_or(|(_, top)| top <= limit)
+            })
+    }
+
     pub fn graph(&self) -> &NavGraph {
         &self.graph
+    }
+
+    /// The physics the graph is built under.
+    pub fn config(&self) -> NavConfig {
+        self.config
+    }
+
+    /// DONUT-PROG-01 DP-B: bring the graph in line with the physics Donut has
+    /// **now** (a grant or a retry changed her launch): a changed `config`
+    /// rebuilds the graph from `solids` and keeps the executor state (a
+    /// committed transit that no longer plans is dropped by the next tick's
+    /// re-plan, exactly as a closed edge is). The same `config` is a no-op, so a
+    /// run that never holds the boost never rebuilds.
+    pub fn set_config(&mut self, config: NavConfig, solids: &[Block]) -> Result<(), NavError> {
+        if config == self.config {
+            return Ok(());
+        }
+        self.graph = NavGraph::build(&NavLevel::from_blocks(solids, Vec::new()), config)?;
+        self.config = config;
+        Ok(())
     }
 
     /// Bring the graph in line with the scene's solids (a destruction or a
@@ -534,6 +578,10 @@ impl NavDriver {
         notes: &mut Vec<NavNote>,
     ) -> Option<Drive> {
         let plan: EdgePlan = self.graph.edge_plan(from, to, actor)?;
+        if !self.edge_allowed(from, plan.kind) {
+            // Above the apex-aware rise limit: she holds and leaves by a drop.
+            return Some(Drive::default());
+        }
         let (x0, x1) = self.graph.anchor_span(to)?;
         let (mid, top) = self.graph.anchor_pos(to)?;
         let (launch_x, target_x) = match (plan.kind, plan.launch_x) {
@@ -651,6 +699,8 @@ pub struct NavSpots<'a> {
     driver: &'a NavDriver,
     actor: HeroId,
     ledge_inset_px: f32,
+    /// `ca2_q36_transit_slack_ticks`: per jump or drop edge (0 by default).
+    transit_slack_ticks: u32,
 }
 
 impl<'a> NavSpots<'a> {
@@ -660,7 +710,15 @@ impl<'a> NavSpots<'a> {
             driver,
             actor,
             ledge_inset_px,
+            transit_slack_ticks: 0,
         }
+    }
+
+    /// CA2-Q36: the per-edge slack of the route price.
+    #[must_use]
+    pub fn with_transit_slack(mut self, ticks: u16) -> Self {
+        self.transit_slack_ticks = u32::from(ticks);
+        self
     }
 
     fn key(id: NavAnchorId) -> u64 {
@@ -722,7 +780,13 @@ impl SpotWorld for NavSpots<'_> {
         }
     }
 
-    fn route_ticks(&self, partner: &HeroView, _x: f32, surface: &Surface) -> Option<u16> {
+    /// CA2-Q36: the price of the route in ticks, from where she stands. Each
+    /// jump or drop edge costs the walk from where the leg starts (her x, then the
+    /// previous landing) to its launch point, its simulated air time (the edge's
+    /// centre-to-centre ticks less the two centre walks the edge adds) and the
+    /// per-edge slack; the walk from the last landing to `x` closes the route.
+    /// A route that is only walking costs 0.
+    fn route_ticks(&self, partner: &HeroView, x: f32, surface: &Surface) -> Option<u16> {
         let graph = self.driver.graph();
         // In the air (a pounce, a jump) no anchor is within 4 px of her feet: use
         // the open anchor under her (review F-1), so a decision taken in flight
@@ -737,14 +801,36 @@ impl SpotWorld for NavSpots<'_> {
         let path = graph
             .path_or_reason(self.actor, here, dest, Unlocks::NONE)
             .ok()?;
-        let mut ticks = 0u16;
+        let run = self.driver.config().run_speed(self.actor);
+        let walk = |d: f32| u32::from(walk_ticks(d, run));
+        let (mut ticks, mut cursor, mut any) = (0u32, partner.x, false);
         for w in path.anchors.windows(2) {
             let plan = graph.edge_plan(w[0], w[1], self.actor)?;
-            if plan.kind != EdgeKind::Walk {
-                ticks = ticks.saturating_add(plan.ticks);
+            if !self.driver.edge_allowed(w[0], plan.kind) {
+                return None;
+            }
+            if plan.kind == EdgeKind::Walk {
+                continue;
+            }
+            any = true;
+            match plan.launch_x {
+                Some((launch, target)) => {
+                    let mid = |a| graph.anchor_pos(a).map(|p| p.0);
+                    let (mid_a, mid_b) = (mid(w[0])?, mid(w[1])?);
+                    let air = u32::from(plan.ticks).saturating_sub(
+                        walk((mid_a - launch).abs()) + walk((target - mid_b).abs()),
+                    );
+                    ticks += walk((cursor - launch).abs()) + air + self.transit_slack_ticks;
+                    cursor = target;
+                }
+                // No simulated takeoff: the whole edge time, as before.
+                None => ticks += u32::from(plan.ticks) + self.transit_slack_ticks,
             }
         }
-        Some(ticks)
+        if any {
+            ticks += walk((cursor - x).abs());
+        }
+        Some(ticks.min(u32::from(u16::MAX)) as u16)
     }
 }
 
@@ -1063,6 +1149,182 @@ mod tests {
         cs.surfaces(&mut out2);
         let ledge2 = out2.iter().find(|s| s.y == 104.0).copied().unwrap();
         assert_eq!(cs.route_ticks(&me, 450.0, &ledge2), None);
+    }
+
+    /// CA2 Revision 3 / DP-Q38: under a jump ceiling no Jump edge starts from an
+    /// anchor above it (she holds there), a jump from below it, a drop from above
+    /// it and every walk are unaffected, and a spot whose route needs such a jump
+    /// is not priced. The ceiling is a per-tick control flag (cleared with `None`).
+    #[test]
+    fn the_jump_ceiling_stops_jump_edges_from_high_anchors_only() {
+        use crate::companion::autonomy::{SpotWorld, Surface};
+        use crate::companion::view::{Control, fixtures};
+        let blocks = level();
+        let on_step = standing(230.0, 60.0);
+        let up_goal = standing(330.0, 120.0);
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        // Free: from the 60 step to the 120 step is a committed jump.
+        let (drive, _) = driver.go_to(HeroId::Carl, on_step, up_goal, None);
+        assert!(drive.is_some() && driver.heroes[0].is_active());
+        // Ceiling at 50 (below the 60 step): she holds, no transit begins.
+        let mut driver = NavDriver::new(&blocks, NavConfig::integrated()).unwrap();
+        driver.set_jump_ceiling(Some(50.0));
+        let (drive, notes) = driver.go_to(HeroId::Carl, on_step, up_goal, None);
+        assert_eq!(drive, Some(Drive::default()));
+        assert!(!driver.heroes[0].is_active());
+        assert!(!notes.iter().any(|n| matches!(n, NavNote::Begin { .. })));
+        // Exactly at the ceiling is allowed (60 <= 60), one px below is not.
+        driver.set_jump_ceiling(Some(60.0));
+        let (drive, _) = driver.go_to(HeroId::Carl, on_step, up_goal, None);
+        assert!(drive.is_some() && driver.heroes[0].is_active());
+        driver.heroes[0] = HeroNav::default();
+        driver.set_jump_ceiling(Some(59.9));
+        let (drive, _) = driver.go_to(HeroId::Carl, on_step, up_goal, None);
+        assert_eq!(drive, Some(Drive::default()));
+        // A jump from the floor (top 0) is allowed under the same ceiling.
+        driver.set_jump_ceiling(Some(50.0));
+        let (drive, _) = driver.go_to(
+            HeroId::Carl,
+            standing(100.0, 0.0),
+            standing(230.0, 60.0),
+            None,
+        );
+        assert!(drive.is_some() && driver.heroes[0].is_active());
+        driver.heroes[0] = HeroNav::default();
+        // A drop from the top step to the floor is never limited.
+        let (drive, _) = driver.go_to(
+            HeroId::Carl,
+            standing(330.0, 120.0),
+            standing(500.0, 0.0),
+            None,
+        );
+        assert!(drive.is_some());
+        // Pricing: the 120 step is not priced from the 60 step under the ceiling,
+        // and is when the ceiling is lifted.
+        let mut out = Vec::new();
+        NavSpots::new(&driver, HeroId::Carl, 16.0).surfaces(&mut out);
+        let top: Surface = out.iter().find(|s| s.y == 120.0).copied().unwrap();
+        let mut me = fixtures::hero(HeroId::Carl, 230.0, Control::Companion);
+        me.foot_y = 60.0;
+        assert_eq!(
+            NavSpots::new(&driver, HeroId::Carl, 16.0).route_ticks(&me, 330.0, &top),
+            None
+        );
+        driver.set_jump_ceiling(None);
+        assert!(
+            NavSpots::new(&driver, HeroId::Carl, 16.0)
+                .route_ticks(&me, 330.0, &top)
+                .is_some()
+        );
+    }
+
+    /// DP-B: `set_config` rebuilds the graph only when the physics changed (the
+    /// grant tick), keeps the executor state, and the same config is a no-op.
+    #[test]
+    fn set_config_rebuilds_on_a_new_launch_and_never_otherwise() {
+        let blocks = vec![
+            stone(0.0, 0.0, 2000.0, 40.0),
+            stone(300.0, 128.0, 300.0, 128.0),
+        ];
+        let base = NavConfig::agile();
+        let boosted = base.with_donut_launch(547.0);
+        let mut driver = NavDriver::new(&blocks, base).unwrap();
+        let edges = |d: &NavDriver, hero: HeroId| {
+            use crate::companion::nav::EdgeState;
+            d.graph()
+                .edge_views()
+                .iter()
+                .filter(|e| matches!(e.state[hero.index()], EdgeState::Open { .. }))
+                .count()
+        };
+        let (donut0, carl0) = (edges(&driver, HeroId::Donut), edges(&driver, HeroId::Carl));
+        let revision = driver.graph().revision();
+        driver.heroes[1].pressed_last = true;
+        driver.set_config(base, &blocks).unwrap();
+        assert_eq!(
+            driver.graph().revision(),
+            revision,
+            "the same config is a no-op"
+        );
+        driver.set_config(boosted, &blocks).unwrap();
+        assert_eq!(driver.config(), boosted);
+        assert!(
+            edges(&driver, HeroId::Donut) > donut0,
+            "the 128 px edge opens"
+        );
+        assert_eq!(
+            edges(&driver, HeroId::Carl),
+            carl0,
+            "Carl's edges are identical"
+        );
+        assert!(driver.heroes[1].pressed_last, "the executor state is kept");
+        // And back (a retry that drops the boost): the original graph.
+        driver.set_config(base, &blocks).unwrap();
+        assert_eq!(edges(&driver, HeroId::Donut), donut0);
+    }
+
+    /// CA2-Q36 (PR #213 review B-1): a jump across a 32 px gap is priced from where
+    /// she stands, not from anchor centre to centre. Two 400 px floors with a 32 px
+    /// gap: from x 380 to a spot at x 460 the price is the walk to the launch
+    /// point, the simulated air time and the landing walk; the old price was the
+    /// whole edge's centre-to-centre time (which drove every spot across the gap
+    /// out of the drift budget).
+    #[test]
+    fn route_ticks_prices_a_jump_from_her_position_not_centre_to_centre() {
+        use crate::companion::autonomy::SpotWorld;
+        use crate::companion::nav::EdgeState;
+        use crate::companion::view::{Control, fixtures};
+        let blocks = vec![stone(0.0, 0.0, 400.0, 40.0), stone(432.0, 0.0, 400.0, 40.0)];
+        let driver = NavDriver::new(&blocks, NavConfig::agile()).unwrap();
+        let mut out = Vec::new();
+        NavSpots::new(&driver, HeroId::Donut, 16.0).surfaces(&mut out);
+        let far = out.iter().find(|s| s.left > 400.0).copied().unwrap();
+        // The edge: its centre-to-centre ticks and its simulated takeoff/target.
+        let views = driver.graph().edge_views();
+        let edge = views
+            .iter()
+            .find(|e| {
+                driver.graph().anchor_pos(e.from).unwrap().0 < 300.0
+                    && driver.graph().anchor_pos(e.to).unwrap().0 > 500.0
+            })
+            .unwrap();
+        let EdgeState::Open {
+            ticks: whole, kind, ..
+        } = edge.state[HeroId::Donut.index()]
+        else {
+            panic!("the 32 px gap is a Donut jump");
+        };
+        assert_eq!(kind, EdgeKind::Jump);
+        assert!(whole > 150, "the centre-to-centre time is large: {whole}");
+        let mut me = fixtures::hero(HeroId::Donut, 380.0, Control::Companion);
+        me.foot_y = 0.0;
+        let me = me;
+        let price = |from: f32, slack: u16, x: f32| {
+            let mut me = me;
+            me.x = from;
+            NavSpots::new(&driver, HeroId::Donut, 16.0)
+                .with_transit_slack(slack)
+                .route_ticks(&me, x, &far)
+                .unwrap()
+        };
+        let exact = price(380.0, 0, 460.0);
+        // Launch x 398, target x 434, centres 200 and 632: from x 380 the walk to the
+        // launch is 6 ticks (18 px), the air time 173 - 58 - 58 = 57, and the landing
+        // walk to x 460 is 8 ticks (26 px).
+        assert_eq!(exact, 6 + 57 + 8, "walk to launch + air + landing walk");
+        assert_eq!(whole, 173);
+        assert!(exact * 2 < whole, "{exact} against the old {whole}");
+        // The slack is per jump edge; the landing walk follows the spot's x.
+        assert_eq!(price(380.0, 4, 460.0), exact + 4);
+        assert!(
+            price(380.0, 0, 520.0) > exact,
+            "a farther spot costs its landing walk"
+        );
+        // Standing 100 px back from the launch point costs more than at it.
+        assert!(
+            price(280.0, 0, 460.0) > exact,
+            "she is farther from the launch"
+        );
     }
 
     #[test]

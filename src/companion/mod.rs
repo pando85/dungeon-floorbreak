@@ -38,4 +38,5 @@ pub mod nav;
 pub mod navfollow;
 pub mod profile;
 pub mod rules;
+pub mod steer;
 pub mod view;

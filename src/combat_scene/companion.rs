@@ -19,13 +19,19 @@
 use std::sync::OnceLock;
 
 use super::CombatState;
-use crate::combat::{ENEMY_HALF_HEIGHT, MoveSpec};
+use crate::combat::{CombatEvent, ENEMY_HALF_HEIGHT, MoveSpec};
+use crate::companion::autonomy::{
+    AutonomyBrief, AutonomyInput, AutonomyState, DriftCheck, FreeZone, ViewRows, ZoneInput,
+};
 use crate::companion::director::{Action, CompanionDirector, Decision, Mode};
 use crate::companion::events::{CompanionEvent, CompanionStats, EVENT_CAP, RegroupOutcome};
 use crate::companion::nav::{NavConfig, Reason};
-use crate::companion::navfollow::{Body, NavDriver, NavNote, Regroup, RegroupView};
-use crate::companion::profile::{KillPolicy, ProfileFile, ProfileSetId};
+use crate::companion::navfollow::{
+    Body, NavDriver, NavNote, NavSpots, Regroup, RegroupView, arrive_eps_px,
+};
+use crate::companion::profile::{AutonomyRole, KillPolicy, ProfileFile, ProfileSet, ProfileSetId};
 use crate::companion::rules;
+use crate::companion::steer;
 use crate::companion::view::{
     ActiveMove, CompanionView, Control, EntityKind, FollowInput, HeroView, MovePhase,
     StableEntityId, TargetState, TargetView, ThreatView, ViewBounds,
@@ -37,7 +43,7 @@ use crate::goblin::GoblinMode;
 use crate::input::RawInput;
 use crate::llama::LlamaMode;
 use crate::party::HeroId;
-use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, Rect};
+use crate::prototype::{HERO_HALF_HEIGHT, HERO_HALF_WIDTH, HeroMotion, Rect, TICK_SECONDS};
 
 /// The profile file, parsed and hash-pinned once per process (CA-39).
 fn profiles() -> &'static ProfileFile {
@@ -77,6 +83,10 @@ const FLAT_SPAN_REACH_PX: f32 = 160.0;
 /// A marker word of a live nav transit in the companion block ("NAV").
 const NAV_MARK: u64 = 0x4e41_5600_0000_0001;
 
+/// A marker word of an autonomy state in the companion block ("AUTO"), written
+/// only for a hero that the autonomy layer steers (`cf02_free`).
+const AUTO_MARK: u64 = 0x4155_5400_0000_0001;
+
 /// The mode, action and target of a traced decision.
 type Trace = (Mode, Option<Action>, Option<StableEntityId>);
 
@@ -113,6 +123,14 @@ pub(crate) struct CompanionRuntime {
     /// The graph could not be built for this level: the follow-and-jump bot
     /// stays in charge of movement (tried once per attempt).
     nav_failed: bool,
+    /// COMPANION-AI-02 CA2-B2: the goal layer's state per hero (hashed only for
+    /// a hero it steers).
+    autonomy: [AutonomyState; 2],
+    /// The heroes the autonomy layer steers: companion-driven, in a set with
+    /// `autonomy.enabled` and a role assigned (CA2-Q01, CA2-Q02). Set by
+    /// `companion_inputs`; also read by the presentation camera (the partner is
+    /// a bound-only subject, CA2-Q25).
+    autonomous: [bool; 2],
 }
 
 impl Default for CompanionRuntime {
@@ -133,6 +151,8 @@ impl Default for CompanionRuntime {
             last_trace: [None; 2],
             nav: None,
             nav_failed: false,
+            autonomy: [AutonomyState::new(), AutonomyState::new()],
+            autonomous: [false; 2],
         }
     }
 }
@@ -140,13 +160,18 @@ impl Default for CompanionRuntime {
 impl CompanionRuntime {
     /// Attempt restart: the decision state, the marks and the drive flags start
     /// again (the cadence is measured in attempt-local ticks). The run's
-    /// counters and event log are kept.
+    /// counters (the autonomy layer's M16 counters included) and event log are
+    /// kept.
     pub(crate) fn reset(&mut self) {
         let stats = self.stats;
         let events = std::mem::take(&mut self.events);
+        let autonomy_stats = [self.autonomy[0].stats(), self.autonomy[1].stats()];
         *self = Self::default();
         self.stats = stats;
         self.events = events;
+        for (state, kept) in self.autonomy.iter_mut().zip(autonomy_stats) {
+            state.carry_stats(kept);
+        }
     }
 
     /// Writes nothing while no hero is companion-driven, so every hash is
@@ -181,6 +206,14 @@ impl CompanionRuntime {
                     mix(NAV_MARK ^ i as u64);
                     hero.hash_into(mix);
                 }
+            }
+        }
+        // CA2-B2: the goal layer's state, only for a hero it steers, so no run
+        // under another set writes a word.
+        for (i, state) in self.autonomy.iter().enumerate() {
+            if self.autonomous[i] {
+                mix(AUTO_MARK ^ i as u64);
+                state.hash_into(mix);
             }
         }
     }
@@ -363,6 +396,34 @@ impl CombatState {
         self.companion.marked(MarkKind::DonutMove, instance)
     }
 
+    /// The heroes the autonomy layer steers this tick (`[false; 2]` unless the
+    /// running set has `autonomy.enabled`) and the bound pad (CA2-Q25,
+    /// `ca2_q25_bound_pad_px`): the presentation camera treats such a hero as a
+    /// bound-only subject, a region of her camera body plus this pad that it
+    /// keeps inside the view but never frames. `([false; 2], 0.0)` for every run
+    /// that is not under `cf02_free`, so every existing camera series is
+    /// unchanged.
+    pub fn camera_bound_only(&self) -> ([bool; 2], f32) {
+        let pad = self.companion.set.map_or(0.0, |set| {
+            f32::from(profiles().set(set).autonomy.ca2_q25_bound_pad_px)
+        });
+        (self.companion.autonomous, pad)
+    }
+
+    /// The perception contract of the tick about to run, for the metrics
+    /// harness (`cf02_free_fixtures::autonomy_metrics`): the same read-only view
+    /// the companion's own step builds. `None` while no companion runs.
+    #[doc(hidden)]
+    pub fn companion_probe_view(&self, scene: &SceneSim) -> Option<CompanionView> {
+        let set = self.companion.set?;
+        Some(self.companion_view(scene, set))
+    }
+
+    /// The autonomy layer's state of `hero` (counters for the M16 report).
+    pub fn autonomy_state(&self, hero: HeroId) -> &AutonomyState {
+        &self.companion.autonomy[hero.index()]
+    }
+
     /// The run's companion counters (never hashed).
     pub fn companion_stats(&self) -> CompanionStats {
         self.companion.stats
@@ -396,6 +457,7 @@ impl CombatState {
             self.companion.pending_press = [None; 2];
             self.companion.nav = None;
             self.companion.nav_failed = false;
+            self.companion.autonomous = [false; 2];
             scene.set_nav_regroup([false; 2]);
             for director in &mut self.companion.directors {
                 director.clear_plan();
@@ -411,11 +473,23 @@ impl CombatState {
         let owned = self.companion_regroup(scene);
         scene.set_nav_regroup(owned);
         let mut view = self.companion_view(scene, set_id);
+        // CA2-B2: the heroes the goal layer steers (never a hero of a set without
+        // `autonomy.enabled`, so every other set runs the code below unchanged).
+        let roles = [set.carl.autonomy_role, set.donut.autonomy_role];
+        for hero in HeroId::ALL {
+            let i = hero.index();
+            self.companion.autonomous[i] =
+                set.autonomy.enabled && self.companion.driven[i] && roles[i] != AutonomyRole::None;
+        }
         self.companion_nav_follow(scene, &mut view);
-        // CA2-B1 evidence: a test-only recorder of the final views, read by the
-        // goal layer's shadow scenario. Compiled out of every real build.
-        #[cfg(test)]
-        crate::companion::autonomy::shadow::record(&view, scene);
+        let mut briefs: [Option<AutonomyBrief>; 2] = [None, None];
+        let mut exempt = [false; 2];
+        for hero in HeroId::ALL {
+            let i = hero.index();
+            if self.companion.autonomous[i] {
+                (briefs[i], exempt[i]) = self.companion_autonomy(scene, &mut view, set, hero);
+            }
+        }
         let mut out = inputs;
         for hero in HeroId::ALL {
             let i = hero.index();
@@ -427,12 +501,27 @@ impl CombatState {
                 if let Some(nav) = &mut self.companion.nav {
                     nav.heroes[i] = Default::default();
                 }
+                self.companion.autonomy[i].clear_plan();
                 continue;
             }
-            let (raw, decision) = self.companion.directors[i].step_traced(&view, set);
+            let brief = briefs[i].as_ref();
+            let (raw, decision) =
+                self.companion.directors[i].step_briefed(&view, set, brief.map(|b| &b.director));
+            let mut move_x = raw.move_x;
+            if brief.is_some() && !exempt[i] {
+                // Goal steering and the interrupt approach stay inside `Z`; a dodge
+                // and a committed transit are exempt (spec 5.2, review F-9).
+                let run = self.run_px_per_tick(scene, hero);
+                let zone = Self::zone_of(scene, &view, set, hero);
+                move_x = steer::clamp_to_zone(view.hero(hero).x, move_x, &zone, run);
+            }
+            if brief.is_some() {
+                // M16: the director's drift skips (CA2-B1 review: a caller owes this).
+                self.companion.autonomy[i].record_decision(&decision);
+            }
             // A press tick stands still: a direction held with a press would
             // turn the hero first (the Carl rule), maybe away from its target.
-            let move_x = if decision.pressed { 0.0 } else { raw.move_x };
+            let move_x = if decision.pressed { 0.0 } else { move_x };
             out[i] = RawInput {
                 move_x,
                 jump: raw.jump,
@@ -448,6 +537,158 @@ impl CombatState {
         out
     }
 
+    /// Her run speed per tick (the body's own motion; the jump boost does not
+    /// change it).
+    fn run_px_per_tick(&self, scene: &SceneSim, hero: HeroId) -> f32 {
+        Self::motion_of(scene, hero).run_speed * TICK_SECONDS
+    }
+
+    /// The body motion `hero` steps with this tick.
+    fn motion_of(scene: &SceneSim, hero: HeroId) -> HeroMotion {
+        match hero {
+            HeroId::Carl => HeroMotion::CARL,
+            HeroId::Donut => scene.donut_motion_now(),
+        }
+    }
+
+    /// The free zone of this tick (spec 3.1) for the partner `hero`.
+    fn zone_of(scene: &SceneSim, view: &CompanionView, set: &ProfileSet, hero: HeroId) -> FreeZone {
+        let leader = view.hero(hero.other());
+        FreeZone::compute(
+            &ZoneInput::new(
+                leader,
+                view.view,
+                ViewRows::of_camera(&scene.camera.config()),
+            ),
+            &set.autonomy,
+        )
+    }
+
+    /// Whether one of `hero`'s damaging moves connected on the previous tick (the
+    /// Show-off trigger, spec 5.1): read from the combat event log, which holds
+    /// the events of the tick that just ended.
+    fn partner_hit_landed(&self, scene: &SceneSim, hero: HeroId) -> bool {
+        let last = scene.world.tick;
+        // The newest events only: a tick logs a handful.
+        self.events.iter().rev().take(48).any(|e| {
+            matches!(e, CombatEvent::Hit { tick, move_id, damage, .. }
+                    if *tick == last
+                        && *damage > 0
+                        && move_id.hero() as usize == hero.index())
+        })
+    }
+
+    /// CA2-B2: one tick of the goal layer for the partner `hero`: decide (the
+    /// brief), then steer (the nav go-to for a route that needs a jump or a drop,
+    /// the flat walk otherwise, the dodge on top) and write the result as the
+    /// director's follow input. Returns the brief (`None`: no steering this tick,
+    /// the director runs without one) and whether this tick's movement is exempt
+    /// from the zone clamp (a dodge or a committed transit).
+    fn companion_autonomy(
+        &mut self,
+        scene: &SceneSim,
+        view: &mut CompanionView,
+        set: &ProfileSet,
+        hero: HeroId,
+    ) -> (Option<AutonomyBrief>, bool) {
+        let i = hero.index();
+        let Some(mut nav) = self.companion.nav.take() else {
+            return (None, false);
+        };
+        let a = &set.autonomy;
+        // CA2 Revision 3, DP-Q38: no jump or hop edge from a surface above the
+        // apex-aware rise limit (her effective apex, the boost included),
+        // rechecked every tick against the leader's feet.
+        let apex = crate::agility::discrete_apex_px(Self::motion_of(scene, hero).jump_speed);
+        nav.set_jump_ceiling(Some(
+            Self::nav_body(scene, hero.other()).foot_y + steer::jump_edge_rise_limit_px(apex),
+        ));
+        let zone = Self::zone_of(scene, view, set, hero);
+        let drift = DriftCheck::new(Self::motion_of(scene, hero.other()), a);
+        let hit = self.partner_hit_landed(scene, hero);
+        let brief = {
+            let world = NavSpots::new(&nav, hero, f32::from(a.ca2_q29_ledge_inset_px))
+                .with_transit_slack(a.ca2_q36_transit_slack_ticks);
+            self.companion.autonomy[i].step(&AutonomyInput {
+                view,
+                set,
+                partner: hero,
+                zone: &zone,
+                drift: &drift,
+                partner_motion: Self::motion_of(scene, hero),
+                tuning: &crate::donut_moves::DonutMoveTuning::SPEC,
+                world: &world,
+                pan_remaining: scene.camera_pan_remaining(),
+                partner_hit_landed: hit,
+            })
+        };
+        let Some(brief) = brief else {
+            self.companion.nav = Some(nav);
+            return (None, false);
+        };
+        let tick = self.companion.tick;
+        if let Some(reason) = brief.changed {
+            self.companion.push_event(CompanionEvent::GoalChanged {
+                tick,
+                hero,
+                goal: brief.goal,
+                reason,
+            });
+        }
+        let mut exempt = false;
+        if Self::follow_free_view(&view.heroes[i], &self.hero_state(hero)) {
+            let me = Self::nav_body(scene, hero);
+            let goal_body = brief.spot.map_or(me, |s| Body {
+                x: s.x,
+                foot_y: s.surface_y,
+                grounded: true,
+            });
+            let bounds = Some((
+                view.view.left + NAV_BOUNDS_MARGIN,
+                view.view.right - NAV_BOUNDS_MARGIN,
+            ));
+            let (drive, notes) = nav.go_to(hero, me, goal_body, bounds);
+            let run = self.run_px_per_tick(scene, hero);
+            let mut input = match drive {
+                Some(d) => {
+                    exempt = nav.heroes[i].is_active();
+                    FollowInput {
+                        move_x: d.move_x,
+                        jump: d.jump,
+                    }
+                }
+                None => FollowInput {
+                    move_x: steer::flat_steer(
+                        &view.heroes[i],
+                        &brief,
+                        run,
+                        arrive_eps_px(Self::motion_of(scene, hero).run_speed),
+                    ),
+                    jump: false,
+                },
+            };
+            let active = match hero {
+                HeroId::Carl => set.carl.ca21_active,
+                HeroId::Donut => set.donut.ca21_active,
+            };
+            let threats = self.follow_threats(hero, active);
+            let dodge = scene.dodge_input(hero, &threats, view.boss.as_ref());
+            if dodge.jump || dodge.move_x != 0.0 {
+                input = FollowInput {
+                    move_x: dodge.move_x,
+                    jump: dodge.jump,
+                };
+                exempt = true;
+            }
+            view.follow[i] = input;
+            self.push_nav_notes(hero, notes);
+        } else {
+            view.follow[i] = FollowInput::default();
+        }
+        self.companion.nav = Some(nav);
+        (Some(brief), exempt)
+    }
+
     /// 01B-wire: build the nav graph from the scene's solids on the first
     /// companion-driven tick of an attempt, and bring it in line with a
     /// destruction or restoration since.
@@ -456,12 +697,18 @@ impl CombatState {
             return;
         }
         let solids = &scene.world.solids;
+        // DP-B: the physics Donut has now (the boosted launch while held); the
+        // graph is rebuilt on the tick it changes and never otherwise.
+        let config = NavConfig::for_motion(scene.drive().tuning.donut_motion)
+            .with_donut_launch(scene.donut_motion_now().jump_speed);
         let ok = match &mut self.companion.nav {
-            Some(nav) => nav.sync(solids).is_ok(),
-            None => match NavDriver::new(
-                solids,
-                NavConfig::for_motion(scene.drive().tuning.donut_motion),
-            ) {
+            Some(nav) => {
+                // The apex-aware jump ceiling is the autonomy layer's, set per
+                // tick for the partner it steers; every other tick has none.
+                nav.set_jump_ceiling(None);
+                nav.set_config(config, solids).is_ok() && nav.sync(solids).is_ok()
+            }
+            None => match NavDriver::new(solids, config) {
                 Ok(nav) => {
                     self.companion.nav = Some(nav);
                     true
@@ -591,7 +838,9 @@ impl CombatState {
         let mut notes: Vec<(HeroId, NavNote)> = Vec::new();
         for hero in HeroId::ALL {
             let i = hero.index();
+            // CA2-B2: a hero the goal layer steers has its own go-to executor.
             if !self.companion.driven[i]
+                || self.companion.autonomous[i]
                 || !Self::follow_free_view(&view.heroes[i], &self.hero_state(hero))
             {
                 continue;
@@ -625,9 +874,16 @@ impl CombatState {
             };
         }
         self.companion.nav = Some(nav);
-        let tick = self.companion.tick;
         for (hero, note) in notes {
-            let i = hero.index();
+            self.push_nav_notes(hero, [note]);
+        }
+    }
+
+    /// Count and log the nav executor's notes of `hero` (01B-wire).
+    fn push_nav_notes(&mut self, hero: HeroId, notes: impl IntoIterator<Item = NavNote>) {
+        let i = hero.index();
+        let tick = self.companion.tick;
+        for note in notes {
             match note {
                 NavNote::Begin { .. } => self.companion.stats.nav_transits[i] += 1,
                 NavNote::Arrived { .. } => self.companion.stats.nav_arrivals[i] += 1,

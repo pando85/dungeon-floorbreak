@@ -205,6 +205,18 @@ pub struct CameraInput<'a> {
     /// Hit-stop or a fresh impact: no zoom-in and a slower pan; a safety
     /// zoom-out still happens.
     pub impact_hold: bool,
+    /// COMPANION-AI-02 CA2-Q25 (bound-only subjects): bodies that the camera
+    /// must keep inside the view but never frames. Each region is already the
+    /// body **plus the bound pad** (the caller adds it). A bound-only subject is
+    /// excluded from the framing box, the width, the zoom target, the pan target
+    /// centre, the vertical framing box, `target_cy`'s lowest-feet choice and
+    /// `something_outside` (so it cannot set `urgent`): it can never widen,
+    /// zoom or re-centre the camera. It enters two clamps only, the total
+    /// threat-driven horizontal shift of the pan target and the vertical target
+    /// (never-worse: each only shortens what the threats asked for). Empty for
+    /// every caller but the autonomous partner, so every other series is
+    /// unchanged.
+    pub bound_only: &'a [Subject],
 }
 
 /// Fixed coverage or automatic shared framing.
@@ -683,6 +695,15 @@ impl CameraOperator {
         self.cov_w = rounded;
     }
 
+    /// A bound-only region (body plus pad) lies inside the current view.
+    fn region_inside(&self, her: &Subject) -> bool {
+        let v = self.view;
+        her.x - her.half_w >= v.left as f32
+            && her.x + her.half_w <= v.right() as f32
+            && her.y - her.half_h >= v.top as f32
+            && her.y + her.half_h <= v.bottom() as f32
+    }
+
     fn start_transit(&mut self, target: f32, urgent: bool) {
         let dist = (target - self.w_f).abs();
         let dur = if urgent {
@@ -716,7 +737,19 @@ impl CameraOperator {
         let want = lowest - (floor_share_f(self.w_f) - 0.5) * h;
         let (lo, hi) = (y1 - h / 2.0, y0 + h / 2.0);
         if lo <= hi {
-            want.clamp(lo, hi)
+            // The leader-only value first (its own fallback below included); a
+            // bound-only subject's range is a second clamp, applied only when it
+            // intersects the leader's `[lo, hi]` (CA2-Q25, review B-1): her body
+            // never enters `y0`/`y1`, the lowest-feet choice or the fallback.
+            let mut cy = want.clamp(lo, hi);
+            for her in input.bound_only {
+                let (her_lo, her_hi) = (her.y + her.half_h - h / 2.0, her.y - her.half_h + h / 2.0);
+                let (a, b) = (lo.max(her_lo), hi.min(her_hi));
+                if a <= b {
+                    cy = cy.clamp(a, b);
+                }
+            }
+            cy
         } else {
             (y0 + y1) / 2.0
         }
@@ -730,6 +763,16 @@ impl CameraOperator {
         let (x0, x1, y0, y1) = framing_box_in(input, Some(self.bounds), self.aspect, cap);
         let mut tx = (x0 + x1) / 2.0;
         let ty = self.target_cy(input, y0, y1);
+        let ty_leader_only = if input.bound_only.is_empty() {
+            ty
+        } else {
+            let bare = CameraInput {
+                bound_only: &[],
+                ..*input
+            };
+            self.target_cy(&bare, y0, y1)
+        };
+        let vertical_changed = ty != ty_leader_only;
         // Horizontal bias towards the highest-priority readable threat, bounded
         // so that every safety region stays inside the view.
         let w = self.cov_w as f32;
@@ -753,6 +796,33 @@ impl CameraOperator {
             };
             tx += b;
         }
+        // CA2-Q25 / R-1: a bound-only subject (the autonomous partner) caps the
+        // TOTAL threat-driven shift of the target relative to the leader-only
+        // centre `tx0` (the framing box of the framing subjects alone: no
+        // threats, no bias). Never-worse: the range contains 0, so she can only
+        // shorten a shift the threats asked for, never move the camera for
+        // herself. The narrower of the current width and the width a running
+        // zoom transit is heading to is used (a zoom-in during a shift cannot
+        // cut her). The room-edge clamp below runs after it.
+        let mut clamp_changed = false;
+        if !input.bound_only.is_empty() {
+            let bare = CameraInput {
+                threats: &[],
+                bound_only: &[],
+                ..*input
+            };
+            let (b0, b1, _, _) = framing_box_in(&bare, Some(self.bounds), self.aspect, cap);
+            let tx0 = (b0 + b1) / 2.0;
+            let wb = self.transit.map_or(w, |tr| w.min(tr.p1));
+            let (mut lo, mut hi) = (f32::MIN, f32::MAX);
+            for her in input.bound_only {
+                hi = hi.min((her.x - her.half_w - (tx0 - wb / 2.0)).max(0.0));
+                lo = lo.max((her.x + her.half_w - (tx0 + wb / 2.0)).min(0.0));
+            }
+            let shifted = tx0 + (tx - tx0).clamp(lo, hi);
+            clamp_changed = (shifted - tx).abs() > f32::EPSILON;
+            tx = shifted;
+        }
         // Aim only at centres the view can actually reach, so the follower slows
         // down towards a room edge instead of the clamp stopping it dead.
         let (hw, hh) = (
@@ -771,9 +841,17 @@ impl CameraOperator {
         // The pan is a bounded-acceleration follower: the velocity chases a
         // capped, proportional speed and may change by at most `accel` per tick,
         // so starting, stopping and a change of urgency never kick.
+        // I-1: while her bound holds (her body plus pad outside the current view,
+        // or her clamp changed the target this tick) the impact pace would let
+        // her outrun the target her bound is moving: the normal pace applies
+        // instead. `urgent` still wins; pace only, never target or width. A
+        // no-op with `bound_only` empty.
+        let bound_holds = clamp_changed
+            || vertical_changed
+            || input.bound_only.iter().any(|her| !self.region_inside(her));
         let (v_cap, accel) = if urgent {
             (MAX_PAN_EMERGENCY, PAN_ACCEL_URGENT)
-        } else if input.impact_hold {
+        } else if input.impact_hold && !bound_holds {
             (MAX_PAN_IMPACT, PAN_ACCEL)
         } else {
             (MAX_PAN, PAN_ACCEL)
@@ -836,6 +914,7 @@ mod tests {
             subjects,
             threats,
             impact_hold: hold,
+            bound_only: &[],
         }
     }
 
@@ -1199,5 +1278,313 @@ mod tests {
         assert_eq!(visible_share(v, &subj(0.0, 300.0)), 0.0);
         assert!(safety_inside(v, &subj(400.0, 300.0)));
         assert!(!safety_inside(v, &subj(150.0, 300.0)));
+    }
+
+    // ----------------- CA2-Q25 / R-1: the bound-only subject (CA2-B2) ----------
+
+    /// Her camera body (`DONUT_HALF_WIDTH` 16 by `DONUT_HALF_HEIGHT` 14) plus the
+    /// adopted `ca2_q25_bound_pad_px` of 40, as `camera_inputs` builds it.
+    fn her(x: f32, y: f32) -> Subject {
+        Subject {
+            x,
+            y,
+            half_w: 16.0 + 40.0,
+            half_h: 14.0 + 40.0,
+        }
+    }
+
+    /// The Bad Llama's camera threat of the review's case: 47 px half width,
+    /// aiming (priority 2), facing `dir`.
+    fn llama(x: f32, dir: i8) -> Threat {
+        Threat {
+            x,
+            y: 840.0,
+            half_w: 47.0,
+            half_h: 34.0,
+            dir,
+            tell_left: 0,
+            readable: true,
+            priority: 2,
+            lane: 0.0,
+        }
+    }
+
+    /// The 1280-wide output of the review (Steam Deck, 720p): rest width 640 only.
+    fn narrow(subs: &[Subject], her_subs: &[Subject]) -> CameraOperator {
+        CameraOperator::new_for_output(
+            CameraMode::Auto,
+            Aspect::Wide16x9,
+            ROOM,
+            1280,
+            &CameraInput {
+                bound_only: her_subs,
+                ..input(subs, &[], false)
+            },
+        )
+    }
+
+    /// The view centre of the operator (the pan position).
+    fn centre(v: View) -> f32 {
+        v.left as f32 + v.w as f32 / 2.0
+    }
+
+    /// Her body (the 16 px half width) is inside the view.
+    fn body_inside(v: View, x: f32) -> bool {
+        x - 16.0 >= v.left as f32 && x + 16.0 <= v.right() as f32
+    }
+
+    /// The named R-1 test: Carl at C, Donut at C - 240, a llama aiming at Carl
+    /// at about C + 300 on the other side, 1280-wide output (rest width 640), in
+    /// five phases; her body is inside the view on every tick, and the same
+    /// series without her clamp puts her off screen (so the test guards the case).
+    ///
+    /// 1. the llama is admitted to the framing box: the target settles at about
+    ///    C + 24, not C + 155.6;
+    /// 2. she runs away from the llama beside Carl (his run speed, 3.08 px per
+    ///    tick) with the bound active, so the pan trails by its full lag;
+    /// 3. the run goes on for 8 ticks while an `impact_hold` is set: her body stays
+    ///    inside (the pace rule itself is pinned by
+    ///    `the_impact_pace_yields_while_her_bound_holds`);
+    /// 4. the llama leaves the framing set: the target steps back to `tx0`;
+    /// 5. the mirror image of all of it.
+    #[test]
+    fn bound_only_llama_opposite_640() {
+        let c = 900.0;
+        let run = |mirror: bool, with_her: bool| {
+            let sgn = if mirror { -1.0 } else { 1.0 };
+            let mut carl_x = c;
+            let mut her_x = c - sgn * 240.0;
+            let threats = [llama(c + sgn * 300.0, if mirror { 1 } else { -1 })];
+            let make = |carl_x: f32, her_x: f32| ([subj(carl_x, 840.0)], [her(her_x, 840.0)]);
+            let (subs0, h0) = make(carl_x, her_x);
+            let mut cam = narrow(&subs0, if with_her { &h0 } else { &[] });
+            assert_eq!(cam.auto_cap(), 640, "1280 output: the only rest width");
+            let mut worst_off = 0.0f32;
+            let mut all_inside = true;
+            let step = |cam: &mut CameraOperator,
+                        carl_x: f32,
+                        her_x: f32,
+                        threats: &[Threat],
+                        hold: bool,
+                        worst: &mut f32,
+                        inside: &mut bool|
+             -> View {
+                let (subs, h) = make(carl_x, her_x);
+                let v = cam.step(&CameraInput {
+                    bound_only: if with_her { &h } else { &[] },
+                    ..input(&subs, threats, hold)
+                });
+                let out = (v.left as f32 - (her_x - 16.0)).max((her_x + 16.0) - v.right() as f32);
+                *worst = worst.max(out);
+                *inside &= body_inside(v, her_x);
+                v
+            };
+            // Phase 0: settled with no llama.
+            for _ in 0..90 {
+                step(
+                    &mut cam,
+                    carl_x,
+                    her_x,
+                    &[],
+                    false,
+                    &mut worst_off,
+                    &mut all_inside,
+                );
+            }
+            // Phase 1: the llama is admitted to the framing box.
+            let mut v = cam.view();
+            for _ in 0..240 {
+                v = step(
+                    &mut cam,
+                    carl_x,
+                    her_x,
+                    &threats,
+                    false,
+                    &mut worst_off,
+                    &mut all_inside,
+                );
+            }
+            let shift = (centre(v) - c) * sgn;
+            // Phase 2: both run away from the llama at Carl's run speed.
+            for _ in 0..40 {
+                carl_x -= sgn * 3.08;
+                her_x -= sgn * 3.08;
+                step(
+                    &mut cam,
+                    carl_x,
+                    her_x,
+                    &threats,
+                    false,
+                    &mut worst_off,
+                    &mut all_inside,
+                );
+            }
+            // Phase 3: the run goes on for 8 ticks, once without and once with the
+            // impact hold from the same state.
+            let mut plain = cam.clone();
+            let mut plain_views = Vec::new();
+            let (mut cx, mut hx) = (carl_x, her_x);
+            for _ in 0..8 {
+                cx -= sgn * 3.08;
+                hx -= sgn * 3.08;
+                let (mut w, mut i) = (0.0, true);
+                plain_views.push(step(&mut plain, cx, hx, &threats, false, &mut w, &mut i));
+            }
+            let mut held_views = Vec::new();
+            for _ in 0..8 {
+                carl_x -= sgn * 3.08;
+                her_x -= sgn * 3.08;
+                held_views.push(step(
+                    &mut cam,
+                    carl_x,
+                    her_x,
+                    &threats,
+                    true,
+                    &mut worst_off,
+                    &mut all_inside,
+                ));
+            }
+            let _ = (&plain_views, &held_views);
+            // Phase 4: the llama leaves the framing set.
+            for _ in 0..240 {
+                step(
+                    &mut cam,
+                    carl_x,
+                    her_x,
+                    &[],
+                    false,
+                    &mut worst_off,
+                    &mut all_inside,
+                );
+            }
+            (shift, all_inside, worst_off, centre(cam.view()) - carl_x)
+        };
+        for mirror in [false, true] {
+            let (shift, inside, _, back) = run(mirror, true);
+            // Her bound holds the target at about C + 24 (not C + 155.6).
+            assert!(
+                (12.0..=36.0).contains(&shift),
+                "mirror {mirror}: settled shift {shift}"
+            );
+            assert!(inside, "mirror {mirror}: her body left the view");
+            // The llama gone: the target is the leader-only centre again.
+            assert!(
+                back.abs() <= 1.5,
+                "mirror {mirror}: centre {back} px off tx0"
+            );
+            // The same series without her clamp: she is off screen (the guard).
+            let (bare_shift, bare_inside, off, _) = run(mirror, false);
+            assert!(
+                bare_shift > 100.0,
+                "mirror {mirror}: the unclamped shift {bare_shift}"
+            );
+            assert!(
+                !bare_inside && off > 8.0,
+                "mirror {mirror}: unclamped off by {off}"
+            );
+        }
+    }
+
+    /// I-1 (pace only): on a tick when her body plus pad is outside the current
+    /// view, the impact pace (`MAX_PAN_IMPACT`) does not apply and the normal pace
+    /// does, so she cannot be outrun by a held pan; with her inside the view, or
+    /// with no bound-only subject at all, the impact hold still slows the pan.
+    #[test]
+    fn the_impact_pace_yields_while_her_bound_holds() {
+        let run = |her_x: Option<f32>, hold: bool| {
+            let mut carl_x = 900.0;
+            let h = her_x.map(|x| [her(x, 840.0)]);
+            let bo: &[Subject] = h.as_ref().map_or(&[], |a| &a[..]);
+            let first = [subj(carl_x, 840.0)];
+            let mut cam = narrow(&first, bo);
+            let mut views = Vec::new();
+            for i in 0..60 {
+                carl_x += 3.08;
+                let subs = [subj(carl_x, 840.0)];
+                // The impact hold covers the last 8 ticks.
+                let v = cam.step(&CameraInput {
+                    bound_only: bo,
+                    ..input(&subs, &[], hold && i >= 52)
+                });
+                assert!(!cam.last_urgent);
+                views.push(v);
+            }
+            views
+        };
+        // Her region (x - 56 .. x + 56) outside the view [580, 1220]: the bound holds.
+        let outside = run(Some(540.0), true);
+        assert_eq!(outside, run(Some(540.0), false), "the normal pace applies");
+        // Control 1: inside the view, the hold slows the pan.
+        assert_ne!(run(Some(900.0), true), run(Some(900.0), false));
+        // Control 2: no bound-only subject, the same.
+        assert_ne!(run(None, true), run(None, false));
+    }
+
+    /// A bound-only subject can never widen, zoom, re-centre or hurry the camera:
+    /// with no threat the series equals the one without her, wherever she is.
+    #[test]
+    fn a_bound_only_subject_never_moves_the_camera_for_herself() {
+        let carl = subj(900.0, 840.0);
+        let bare = {
+            let mut cam = narrow(&[carl], &[]);
+            (0..120)
+                .map(|_| cam.step(&input(&[carl], &[], false)))
+                .collect::<Vec<_>>()
+        };
+        for dx in [-400.0f32, -240.0, 0.0, 240.0, 400.0] {
+            let h = [her(900.0 + dx, 840.0)];
+            let mut cam = narrow(&[carl], &h);
+            for (i, want) in bare.iter().enumerate() {
+                let got = cam.step(&CameraInput {
+                    bound_only: &h,
+                    ..input(&[carl], &[], false)
+                });
+                assert_eq!(got, *want, "dx {dx} tick {i}");
+                assert!(!cam.last_urgent, "she set `urgent` (dx {dx})");
+            }
+        }
+    }
+
+    /// Vertical (review B-1): her range is a second clamp only when it intersects
+    /// the leader's `[lo, hi]`; when it does not, the leader-only value stands.
+    #[test]
+    fn target_cy_keeps_the_leader_only_value_when_her_range_does_not_intersect() {
+        let carl = subj(900.0, 840.0);
+        let cam = narrow(&[carl], &[]);
+        let subs = [carl];
+        let bare = input(&subs, &[], false);
+        let (_, _, y0, y1) = framing_box_in(&bare, Some(ROOM), Aspect::Wide16x9, 640.0);
+        let leader_only = cam.target_cy(&bare, y0, y1);
+        // Far above (several levels): no intersection, the value is untouched.
+        let far = [her(900.0, 840.0 - 600.0)];
+        let with_far = CameraInput {
+            bound_only: &far,
+            ..bare
+        };
+        assert_eq!(cam.target_cy(&with_far, y0, y1), leader_only);
+        // Far below: the same.
+        let below = [her(900.0, 840.0 + 600.0)];
+        let with_below = CameraInput {
+            bound_only: &below,
+            ..bare
+        };
+        assert_eq!(cam.target_cy(&with_below, y0, y1), leader_only);
+        // A perch whose range intersects: the clamp only ever shortens the move
+        // towards her (the result stays inside both ranges).
+        let h = cam.aspect.height_for(cam.cov_w) as f32;
+        let near = her(900.0, 840.0 - 150.0);
+        let with_near = CameraInput {
+            bound_only: &[near],
+            ..bare
+        };
+        let cy = cam.target_cy(&with_near, y0, y1);
+        assert!(
+            cy - h / 2.0 <= near.y - near.half_h + 0.001,
+            "her top is in view"
+        );
+        assert!(
+            cy + h / 2.0 >= near.y + near.half_h - 0.001,
+            "her feet are in view"
+        );
     }
 }

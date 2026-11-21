@@ -1168,6 +1168,8 @@ pub mod arena {
             || name.starts_with("cf02_arena_")
             || name.starts_with("companion_arena_")
             || name.starts_with("cf02_block_")
+            // COMPANION-AI-02 CA2-B2: the `cf02_free_*` fixtures run in the room.
+            || name.starts_with("cf02_free_")
             || matches!(
                 name,
                 "cf02_goblin_self_own"

@@ -858,4 +858,550 @@ mod tests {
         assert!(!held.combat.story_ledger().unwrap().is_empty());
         let _ = (FIST_REINFORCED, PRIMARY_RANGED);
     }
+
+    // ---------------------------------------------------------------- DP-B ----
+    //
+    // Light on Your Feet: the launch Donut has now (DP-Q14..Q17), her reach and
+    // the nav graph from it, the lane-ceiling data test (DP-Q45). The motion
+    // fixtures below are bodies on the real `step_hero_motion`, in the shape of
+    // DM-A's `dm_*` motion fixtures: not registered, no CLI name, no replay.
+
+    use crate::agility::{self, agile_motion, discrete_apex_px};
+    use crate::agility_fixtures::{Hold, MotionFixture, blocks_of, run as run_motion};
+    use crate::prototype::HeroMotion;
+
+    /// DP-Q14: the adopted launch (px/s) while `jump_reach_boost` is held.
+    fn boost_launch() -> f32 {
+        f32::from(crate::donut_prog::DonutProgTuning::active().dpq14_boost_launch_px_s)
+    }
+
+    fn boosted() -> HeroMotion {
+        HeroMotion {
+            jump_speed: boost_launch(),
+            ..agile_motion()
+        }
+    }
+
+    const LEDGE_LEFT: f32 = 200.0;
+    const AT_FACE_X: f32 = LEDGE_LEFT - crate::prototype::HERO_HALF_WIDTH;
+
+    /// Hold right into the ledge and jump on tick 0 (DM-A's climb script).
+    const CLIMB: [Hold; 2] = [
+        Hold {
+            from: 0,
+            to: 120,
+            move_x: 1.0,
+            jump: false,
+        },
+        Hold {
+            from: 0,
+            to: 1,
+            move_x: 0.0,
+            jump: true,
+        },
+    ];
+
+    const fn ledge(name: &'static str, summary: &'static str, height: f32) -> MotionFixture {
+        MotionFixture {
+            name,
+            summary,
+            start_x: AT_FACE_X,
+            ledge: Some((LEDGE_LEFT, 400.0, height)),
+            script: &CLIMB,
+            ticks: 120,
+        }
+    }
+
+    const DONUT_PROG_LEDGE_128: MotionFixture = ledge(
+        "donut_prog_ledge_128",
+        "DP-Q18: the 128 px gate class: boosted Donut lands (a 9.95 px margin), base Donut and Carl do not",
+        128.0,
+    );
+    const DONUT_PROG_LEDGE_144_FAILS: MotionFixture = ledge(
+        "donut_prog_ledge_144_fails",
+        "DP-Q18: 144 px is out of reach for everyone, the boost included",
+        144.0,
+    );
+    const DONUT_PROG_LEDGE_112_MARGIN: MotionFixture = ledge(
+        "donut_prog_ledge_112_margin",
+        "DP-Q14: the 112 px perch is no longer a 2.9 px squeeze: the boost lands it with 25.95 px to spare",
+        112.0,
+    );
+    /// Three press edges (ticks 0, 12, 24, each released in between) in one air
+    /// phase: DP-Q15, no double jump.
+    const DONUT_PROG_NO_AIR_JUMP: MotionFixture = MotionFixture {
+        name: "donut_prog_no_air_jump",
+        summary: "DP-Q15: presses in the air do nothing: the apex is the single jump's",
+        start_x: 100.0,
+        ledge: None,
+        script: &[
+            Hold {
+                from: 0,
+                to: 1,
+                move_x: 0.0,
+                jump: true,
+            },
+            Hold {
+                from: 12,
+                to: 13,
+                move_x: 0.0,
+                jump: true,
+            },
+            Hold {
+                from: 24,
+                to: 25,
+                move_x: 0.0,
+                jump: true,
+            },
+        ],
+        ticks: 90,
+    };
+
+    const DP_MOTION_FIXTURES: [&MotionFixture; 4] = [
+        &DONUT_PROG_LEDGE_128,
+        &DONUT_PROG_LEDGE_144_FAILS,
+        &DONUT_PROG_LEDGE_112_MARGIN,
+        &DONUT_PROG_NO_AIR_JUMP,
+    ];
+
+    fn lands_on(motion: HeroMotion, f: &MotionFixture) -> bool {
+        let (left, width, height) = f.ledge.unwrap();
+        let (x, feet, _, grounded) = run_motion(motion, f).last();
+        grounded && (feet - height).abs() < 0.01 && x > left && x < left + width
+    }
+
+    #[test]
+    fn dpq14_the_adopted_launch_has_the_spec_numbers() {
+        assert_eq!(boost_launch(), 547.0);
+        let apex = discrete_apex_px(boost_launch());
+        assert!((apex - 137.95).abs() < 0.05, "{apex}");
+        let base = discrete_apex_px(agile_motion().jump_speed);
+        assert!((base - 114.92).abs() < 0.05, "{base}");
+        assert!(((apex / base - 1.0) * 100.0 - 20.0).abs() < 0.2, "+20 %");
+        assert_eq!(agility::air_ticks(boost_launch()), 62, "62 air ticks");
+        assert_eq!(agility::air_ticks(agile_motion().jump_speed), 57);
+        // Run speed, gravity and everything else are DM-A's, unchanged.
+        assert_eq!(boosted().run_speed, agile_motion().run_speed);
+    }
+
+    #[test]
+    fn donut_prog_ledge_128() {
+        let f = &DONUT_PROG_LEDGE_128;
+        assert!(lands_on(boosted(), f), "boosted Donut lands on 128");
+        assert!(!lands_on(agile_motion(), f), "base Donut does not");
+        assert!(!lands_on(HeroMotion::CARL, f), "Carl does not");
+        let margin = discrete_apex_px(boost_launch()) - 128.0;
+        assert!((margin - 9.95).abs() < 0.05, "margin {margin}");
+    }
+
+    #[test]
+    fn donut_prog_ledge_144_fails() {
+        let f = &DONUT_PROG_LEDGE_144_FAILS;
+        assert!(!lands_on(boosted(), f));
+        let apex = run_motion(boosted(), f).apex();
+        assert!(apex < 144.0 && apex > 137.0, "apex {apex}");
+    }
+
+    #[test]
+    fn donut_prog_ledge_112_margin() {
+        let f = &DONUT_PROG_LEDGE_112_MARGIN;
+        assert!(lands_on(boosted(), f));
+        assert!(
+            lands_on(agile_motion(), f),
+            "base Donut still lands it, barely"
+        );
+        let boosted_margin = discrete_apex_px(boost_launch()) - 112.0;
+        let base_margin = discrete_apex_px(agile_motion().jump_speed) - 112.0;
+        assert!((boosted_margin - 25.95).abs() < 0.05, "{boosted_margin}");
+        assert!((base_margin - 2.92).abs() < 0.05, "{base_margin}");
+    }
+
+    #[test]
+    fn donut_prog_no_air_jump() {
+        let f = &DONUT_PROG_NO_AIR_JUMP;
+        let trail = run_motion(boosted(), f);
+        let single = discrete_apex_px(boost_launch());
+        assert!(
+            (trail.apex() - single).abs() < 0.05,
+            "apex {} vs {single}",
+            trail.apex()
+        );
+        // One air phase only: after the first landing she never leaves the floor
+        // again, and no tick of the run rises above the single apex.
+        let landed = trail
+            .states
+            .iter()
+            .position(|s| s.3 && s.1 == 0.0 && s.2 == 0.0);
+        assert!(landed.is_some_and(|t| t > 40), "{landed:?}");
+        let ground = trail
+            .states
+            .iter()
+            .skip(landed.unwrap() + 2)
+            .all(|s| s.1 == 0.0);
+        assert!(ground, "no second jump after landing (no press then)");
+        // The same presses with the base launch give the base apex: the rule is
+        // the engine's, the boost only raises the launch (DP-Q15).
+        let base = run_motion(agile_motion(), f);
+        assert!((base.apex() - discrete_apex_px(agile_motion().jump_speed)).abs() < 0.05);
+    }
+
+    /// The pinned trail hashes `(fixture, boosted, base Donut)`, the physical
+    /// asserts above are the independent check of what they mean.
+    const MOTION_GOLDENS: [(&str, u64, u64); 4] = [
+        (
+            "donut_prog_ledge_128",
+            0xfa2d9695b94b28b8,
+            0xd4483f752453bc4f,
+        ),
+        (
+            "donut_prog_ledge_144_fails",
+            0xb93ebfad79d8e55a,
+            0xd4483f752453bc4f,
+        ),
+        (
+            "donut_prog_ledge_112_margin",
+            0x9aec5010b46c8687,
+            0x960e01ad04607be6,
+        ),
+        (
+            "donut_prog_no_air_jump",
+            0x60ff02c0e88a0a4e,
+            0x79fd1e2a96795947,
+        ),
+    ];
+
+    #[test]
+    #[ignore = "prints the motion goldens"]
+    fn print_motion_goldens() {
+        for f in DP_MOTION_FIXTURES {
+            println!(
+                "        (\"{}\", {:#018x}, {:#018x}),",
+                f.name,
+                run_motion(boosted(), f).hash,
+                run_motion(agile_motion(), f).hash
+            );
+        }
+    }
+
+    #[test]
+    fn the_motion_fixtures_match_their_goldens_and_replay_identically() {
+        assert_eq!(MOTION_GOLDENS.len(), DP_MOTION_FIXTURES.len());
+        for (f, (name, boosted_hash, base_hash)) in DP_MOTION_FIXTURES.iter().zip(MOTION_GOLDENS) {
+            assert_eq!(f.name, name);
+            let _ = blocks_of(f);
+            assert_eq!(run_motion(boosted(), f).hash, run_motion(boosted(), f).hash);
+            assert_eq!(
+                (
+                    run_motion(boosted(), f).hash,
+                    run_motion(agile_motion(), f).hash
+                ),
+                (boosted_hash, base_hash),
+                "{name}"
+            );
+        }
+    }
+
+    /// DP-Q16: the follower bot's reach is the boosted apex less the DM-Q08
+    /// margin (133.95 px at 547), exact; `None` and Carl are unchanged. A 128 px
+    /// ledge is attempted by the boosted bot only.
+    #[test]
+    fn dpq16_the_followers_reach_follows_the_launch_she_has_now() {
+        use crate::follower::{jump_reach_px, jump_reach_px_now};
+        use crate::party::HeroId;
+        let tuning = PROVISIONAL_TUNING;
+        let reach = jump_reach_px_now(HeroId::Donut, &tuning, Some(boost_launch()));
+        let want = discrete_apex_px(boost_launch()) - agility::tuning().dm_q08_ai_jump_margin_px;
+        assert_eq!(reach.to_bits(), want.to_bits());
+        assert!((reach - 133.95).abs() < 0.06, "{reach}");
+        assert_eq!(
+            jump_reach_px_now(HeroId::Donut, &tuning, None).to_bits(),
+            jump_reach_px(HeroId::Donut, &tuning).to_bits()
+        );
+        assert_eq!(
+            jump_reach_px_now(HeroId::Carl, &tuning, Some(boost_launch())).to_bits(),
+            jump_reach_px(HeroId::Carl, &tuning).to_bits(),
+            "the launch is Donut's only"
+        );
+        assert!(reach > 128.0 && jump_reach_px(HeroId::Donut, &tuning) < 128.0);
+    }
+
+    /// DP-Q16, nav part (the diff): the graph built with the boosted launch
+    /// opens the floor-to-128 edge for Donut and no other: Carl's edges are
+    /// identical, Donut's base edges stay open, and the 144 px edge stays closed.
+    #[test]
+    fn the_boosted_nav_graph_adds_only_donuts_128_edge() {
+        use crate::companion::nav::{EdgeState, NavConfig, NavGraph, NavLevel};
+        use crate::party::HeroId;
+        let build = |height: f32, launch: Option<f32>| {
+            let blocks: Vec<crate::prototype::Block> = blocks_of(&ledge("x", "x", height))
+                .into_iter()
+                .map(|mut b| {
+                    b.rect.left += 100.0;
+                    b
+                })
+                .collect();
+            let config = launch.map_or(NavConfig::agile(), |l| {
+                NavConfig::agile().with_donut_launch(l)
+            });
+            NavGraph::build(&NavLevel::from_blocks(&blocks, Vec::new()), config).unwrap()
+        };
+        let open = |g: &NavGraph, height: f32, hero: HeroId| {
+            let top = |id| g.anchor_pos(id).unwrap().1;
+            g.edge_views()
+                .iter()
+                .find(|e| top(e.from) == 0.0 && (top(e.to) - height).abs() < 0.01)
+                .is_some_and(|e| matches!(e.state[hero.index()], EdgeState::Open { .. }))
+        };
+        let b = boost_launch();
+        for (height, base_donut, boost_donut) in [
+            (96.0, true, true),
+            (104.0, true, true),
+            (112.0, true, true),
+            (128.0, false, true),
+            (144.0, false, false),
+        ] {
+            let (g0, g1) = (build(height, None), build(height, Some(b)));
+            assert_eq!(
+                open(&g0, height, HeroId::Donut),
+                base_donut,
+                "base {height}"
+            );
+            assert_eq!(
+                open(&g1, height, HeroId::Donut),
+                boost_donut,
+                "boosted {height}"
+            );
+            // Carl: the same edges with and without the boost.
+            assert_eq!(
+                open(&g0, height, HeroId::Carl),
+                open(&g1, height, HeroId::Carl)
+            );
+            assert!(
+                !open(&g1, height, HeroId::Carl) || height <= 80.0,
+                "Carl {height}"
+            );
+        }
+        // A graph built with the launch Donut already has is the graph of
+        // `NavConfig::agile()`: a run without the boost never rebuilds.
+        let base_launch = agile_motion().jump_speed;
+        assert_eq!(
+            NavConfig::agile().with_donut_launch(base_launch),
+            NavConfig::agile()
+        );
+    }
+
+    /// DP-Q17: the launch is chosen from the ledger **every tick** by the same
+    /// step for every controller. A live party in a flat room: Donut's apex is
+    /// the boosted one when `donut_launch` is set (a 2P pad, the solo-controlled
+    /// body and the bot's own jump decision all go through the one
+    /// `donut_motion_now`) and the base one when it is `None`; Carl's never moves.
+    #[test]
+    fn donut_prog_boost_every_controller() {
+        use crate::corridor::PartyStepCtx;
+        use crate::party::{HeroId, PartyDrive};
+        let kit = EnvKit::load(&root(), LAYOUT).unwrap();
+        let jump = RawInput {
+            jump: true,
+            ..RawInput::NONE
+        };
+        let apex_of = |drive: PartyDrive, launch: Option<f32>, who: HeroId| {
+            let mut scene = SceneSim::new(&kit, 360).unwrap();
+            scene.set_drive(drive);
+            let ctx = PartyStepCtx {
+                donut_launch: launch,
+                ..Default::default()
+            };
+            let floor = scene.world.body(who).y;
+            let mut apex = 0.0_f32;
+            for tick in 0..90 {
+                let mut inputs = [RawInput::NONE; 2];
+                if tick == 2 {
+                    inputs[who.index()] = jump;
+                }
+                scene.step_party_ctx(inputs, &ctx);
+                apex = apex.max(scene.world.body(who).y - floor);
+            }
+            apex
+        };
+        let base = discrete_apex_px(agile_motion().jump_speed);
+        let high = discrete_apex_px(boost_launch());
+        let two_player = PartyDrive {
+            live: true,
+            two_player: true,
+            controlled: HeroId::Carl,
+            bots: [false, false],
+            tuning: PROVISIONAL_TUNING,
+        };
+        let solo_donut = PartyDrive {
+            live: true,
+            two_player: false,
+            controlled: HeroId::Donut,
+            bots: [true, false],
+            tuning: PROVISIONAL_TUNING,
+        };
+        for (name, drive) in [
+            ("2P pad", two_player),
+            ("solo, Donut controlled", solo_donut),
+        ] {
+            let with = apex_of(drive, Some(boost_launch()), HeroId::Donut);
+            let without = apex_of(drive, None, HeroId::Donut);
+            assert!(
+                (with - high).abs() < 0.1,
+                "{name}: boosted apex {with} vs {high}"
+            );
+            assert!(
+                (without - base).abs() < 0.1,
+                "{name}: base apex {without} vs {base}"
+            );
+        }
+        // Carl's jump never takes the launch.
+        let carl_with = apex_of(two_player, Some(boost_launch()), HeroId::Carl);
+        let carl_without = apex_of(two_player, None, HeroId::Carl);
+        assert_eq!(carl_with.to_bits(), carl_without.to_bits());
+    }
+
+    /// DP-Q17 through the combat layer: with the ledger holding the boost the
+    /// launch is set every tick, and with no story (every run without a Donut
+    /// capability) it is `None`.
+    #[test]
+    fn the_launch_comes_from_the_ledger_every_tick() {
+        let before = replay_to(&DONUT_PROG_STORY_UNLOCKS, 100);
+        assert_eq!(before.combat.donut_launch_now(), None, "before the grant");
+        let after = replay(&DONUT_PROG_STORY_UNLOCKS);
+        assert_eq!(after.combat.donut_launch_now(), Some(boost_launch()));
+        // No story runtime: never.
+        let plain = replay(find_party_fixture("cf02_assist_cadence").unwrap());
+        assert_eq!(plain.combat.donut_launch_now(), None);
+    }
+
+    fn replay_to(fixture: &'static PartyFixture, ticks: u64) -> PartyFixtureSim {
+        let mut sim = PartyFixtureSim::new(&kit_of(fixture), 360, fixture).unwrap();
+        sim.run_scripted(ticks);
+        sim
+    }
+
+    // ------------------------------------------ DP-Q45: the lane-ceiling sweep ----
+
+    /// The DP-Q45 rule on one room: a standing surface more than `limit` above
+    /// the walking line needs a `ceiling_px` between 1 and `max`.
+    fn dpq45_violation(
+        room: &crate::camera_lab::room::Room,
+        limit: i32,
+        max: i32,
+    ) -> Option<String> {
+        let rise = room
+            .platforms
+            .iter()
+            .map(|p| room.floor_y - p.rect.y)
+            .chain(room.steps.iter().map(|r| room.floor_y - r.y))
+            .max()
+            .unwrap_or(0);
+        if rise <= limit {
+            return None;
+        }
+        match room.ceiling_px {
+            None => Some(format!(
+                "{}: a {rise} px surface without ceiling_px",
+                room.id
+            )),
+            Some(c) if !(1..=max).contains(&c) => {
+                Some(format!("{}: ceiling_px {c} is outside 1..={max}", room.id))
+            }
+            Some(_) => None,
+        }
+    }
+
+    /// DP-Q45 (K8): every room file the game can load, present and future (the
+    /// directory is listed, not a fixed list), obeys the lane-ceiling rule. A
+    /// room file whose lowest surfaces need no ceiling passes; the lab rooms are
+    /// excluded by DP-Q19 (the boost is refused there).
+    #[test]
+    fn dpq45_every_room_with_a_high_surface_declares_a_lane_ceiling() {
+        let t = crate::donut_prog::DonutProgTuning::active();
+        let (limit, max) = (
+            i32::from(t.dpq45_surface_limit_px),
+            i32::from(t.dpq45_ceiling_px_max),
+        );
+        let dir = root().join("assets/levels/floor01");
+        let mut checked = 0;
+        let mut high_rooms = 0;
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            if !name.ends_with(".room.json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).unwrap();
+            let rooms = crate::camera_lab::room::parse_rooms(&text)
+                .unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert!(!rooms.is_empty(), "{name}");
+            for room in &rooms {
+                checked += 1;
+                if let Some(why) = dpq45_violation(room, limit, max) {
+                    panic!("{name}: {why}");
+                }
+                high_rooms += usize::from(room.ceiling_px.is_some());
+            }
+        }
+        assert!(checked >= 8, "the sweep found the room files ({checked})");
+        assert!(
+            high_rooms >= 6,
+            "the setpiece rooms declare their ceiling ({high_rooms})"
+        );
+    }
+
+    /// The negative: the same fixture room with a 128 px ledge and no ceiling
+    /// fails the rule, with the ceiling it passes, and a ceiling above the
+    /// maximum fails too (a rule never silently skipped).
+    #[test]
+    fn dpq45_a_128_ledge_room_needs_its_ceiling() {
+        let t = crate::donut_prog::DonutProgTuning::active();
+        let (limit, max) = (
+            i32::from(t.dpq45_surface_limit_px),
+            i32::from(t.dpq45_ceiling_px_max),
+        );
+        let text =
+            std::fs::read_to_string(root().join("assets/levels/floor01/f01_boiler.room.json"))
+                .unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let rooms = crate::camera_lab::room::parse_rooms(&text).unwrap();
+        assert_eq!(
+            dpq45_violation(&rooms[0], limit, max),
+            None,
+            "the shipped room passes"
+        );
+        value["scenarios"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("ceiling_px");
+        let bare = crate::camera_lab::room::parse_rooms(&value.to_string()).unwrap();
+        let why = dpq45_violation(&bare[0], limit, max).expect("no ceiling fails");
+        assert!(why.contains("without ceiling_px"), "{why}");
+        value["scenarios"][0]["ceiling_px"] = serde_json::json!(max + 4);
+        let high = crate::camera_lab::room::parse_rooms(&value.to_string()).unwrap();
+        assert!(
+            dpq45_violation(&high[0], limit, max)
+                .unwrap()
+                .contains("outside")
+        );
+        value["scenarios"][0]["ceiling_px"] = serde_json::json!(max);
+        let ok = crate::camera_lab::room::parse_rooms(&value.to_string()).unwrap();
+        assert_eq!(dpq45_violation(&ok[0], limit, max), None);
+    }
+
+    /// The kit-format story layout has no authored perch: every solid above 42 px
+    /// is a wall piece or the ceiling slab (so it is outside the sweep above).
+    #[test]
+    fn dpq45_the_story_corridor_layout_has_no_high_standing_surface() {
+        let kit = EnvKit::load(&root(), LAYOUT).unwrap();
+        for r in &kit.solid_rects {
+            let rise = kit.base_walk_line_y - r.y;
+            if rise > 42 {
+                assert!(
+                    r.w <= 16 || r.w >= 2048,
+                    "a standable solid {r:?} rises {rise} px"
+                );
+            }
+        }
+    }
 }

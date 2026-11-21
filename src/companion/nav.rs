@@ -350,6 +350,16 @@ impl NavConfig {
         }
     }
 
+    /// DONUT-PROG-01 DP-Q16, DP-Q17: this preset with Donut's launch replaced by
+    /// `jump_speed` (px/s), the one she has **now** (the boosted launch while she
+    /// holds `jump_reach_boost`). Her run speed, gravity and Carl's physics are
+    /// unchanged, so the graph gains only the edges the higher apex opens.
+    #[must_use]
+    pub fn with_donut_launch(mut self, jump_speed: f32) -> Self {
+        self.donut.jump_speed = jump_speed;
+        self
+    }
+
     /// The camera lab: Donut jumps 600 and runs 205 (`crate::camera_lab::sim`).
     /// Her 32x28 lab body is not modelled (the 24x52 hitbox is used). For lab
     /// tests only: it is not replay-validated (the lab body is not
@@ -1542,7 +1552,7 @@ fn node_status(solids: &[NavSolid], n: &Node) -> NodeStatus {
     }
 }
 
-fn walk_ticks(distance: f32, run_speed: f32) -> u16 {
+pub(crate) fn walk_ticks(distance: f32, run_speed: f32) -> u16 {
     (distance / run_speed / TICK_SECONDS)
         .ceil()
         .min(f32::from(u16::MAX)) as u16

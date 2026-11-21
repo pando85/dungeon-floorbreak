@@ -74,6 +74,7 @@
       "ca2_q29_lane_penalty": 300,
       "ca2_q30_respot_px": 48,
       "ca2_q34_cause_window_ticks": 60,
+      "ca2_q36_transit_slack_ticks": 4,
       "roles": {
         "skirmisher": {
           "goals": {
@@ -222,6 +223,7 @@
       "ca2_q29_lane_penalty": 300,
       "ca2_q30_respot_px": 48,
       "ca2_q34_cause_window_ticks": 60,
+      "ca2_q36_transit_slack_ticks": 4,
       "roles": {
         "skirmisher": {
           "goals": {
@@ -370,6 +372,7 @@
       "ca2_q29_lane_penalty": 300,
       "ca2_q30_respot_px": 48,
       "ca2_q34_cause_window_ticks": 60,
+      "ca2_q36_transit_slack_ticks": 4,
       "roles": {
         "skirmisher": {
           "goals": {
